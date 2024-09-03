@@ -49,7 +49,7 @@ message SubmitAndWaitForUpdateIdResponse {
   // Required
   string update_id = 1;
 
-  // The format of this field is described in ``participant_offset.proto``.
+  // The details of the offset field are described in ``offset_checkpoint.proto``.
   // Optional
   string completion_offset = 2;
 }

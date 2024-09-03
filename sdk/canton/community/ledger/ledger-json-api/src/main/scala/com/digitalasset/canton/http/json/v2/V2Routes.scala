@@ -83,7 +83,7 @@ object V2Routes {
 
     val eventService =
       new JsEventService(ledgerClient, protocolConverters, loggerFactory)
-    val versionService = new JsVersionService(ledgerClient.versionClient)
+    val versionService = new JsVersionService(ledgerClient.versionClient, loggerFactory)
 
     val stateService =
       new JsStateService(ledgerClient, protocolConverters, loggerFactory)
@@ -91,7 +91,7 @@ object V2Routes {
       new JsPartyManagementService(ledgerClient.partyManagementClient, loggerFactory)
 
     val jsPackageService =
-      new JsPackageService(ledgerClient.packageService, ledgerClient.packageManagementClient)(
+      new JsPackageService(ledgerClient.packageService, ledgerClient.packageManagementClient, loggerFactory)(
         executionContext,
         materializer,
       )
@@ -101,7 +101,7 @@ object V2Routes {
 
     val userManagementService =
       new JsUserManagementService(ledgerClient.userManagementClient, loggerFactory)
-    val meteringService = new JsMeteringService(ledgerClient.meteringReportClient)
+    val meteringService = new JsMeteringService(ledgerClient.meteringReportClient, loggerFactory)
 
     val identityProviderService = new JsIdentityProviderService(
       ledgerClient.identityProviderConfigClient,
@@ -111,7 +111,7 @@ object V2Routes {
     val damlDefinitionsServiceIfEnabled = Option.when(metadataServiceEnabled) {
       val damlDefinitionsService =
         new DamlDefinitionsView(writeService.getPackageMetadataSnapshot(_))
-      new JsDamlDefinitionsService(damlDefinitionsService)
+      new JsDamlDefinitionsService(damlDefinitionsService, loggerFactory)
     }
 
     new V2Routes(

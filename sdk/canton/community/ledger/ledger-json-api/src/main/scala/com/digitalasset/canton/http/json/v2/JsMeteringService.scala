@@ -6,6 +6,7 @@ package com.digitalasset.canton.http.json.v2
 import com.daml.ledger.api.v2.admin.metering_report_service
 import com.digitalasset.canton.ledger.client.services.admin.MeteringReportClient
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
+import com.digitalasset.canton.logging.NamedLoggerFactory
 import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
 import sttp.tapir.*
@@ -16,7 +17,7 @@ import com.google.protobuf
 import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
-class JsMeteringService(meteringReportClient: MeteringReportClient) extends Endpoints {
+class JsMeteringService(meteringReportClient: MeteringReportClient, val loggerFactory: NamedLoggerFactory) extends Endpoints {
   import JsMeteringServiceCodecs.*
   private lazy val metering = baseEndpoint.in("metering")
 
@@ -46,7 +47,7 @@ class JsMeteringService(meteringReportClient: MeteringReportClient) extends Endp
 
             val resp = meteringReportClient
               .getMeteringReport(req, caller.token())(input._1.traceContext)
-            resp.resultToRight.transform(handleErrorResponse)(ExecutionContext.parasitic)
+            resp.resultToRight.transform(handleErrorResponse(input._1.traceContext))(ExecutionContext.parasitic)
           }
       }
 

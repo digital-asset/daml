@@ -39,7 +39,6 @@ com/daml/ledger/api/v2/trace_context.proto
 com/daml/ledger/api/v2/testing/time_service.proto
 com/daml/ledger/api/v2/command_completion_service.proto
 com/daml/ledger/api/v2/command_submission_service.proto
-com/daml/ledger/api/v2/participant_offset.proto
 com/daml/ledger/api/v2/command_service.proto
 com/daml/ledger/api/v2/state_service.proto
 com/daml/ledger/api/v2/experimental_features.proto

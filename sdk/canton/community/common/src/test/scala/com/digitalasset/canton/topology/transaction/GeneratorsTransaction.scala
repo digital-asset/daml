@@ -120,15 +120,6 @@ final class GeneratorsTransaction(
     } yield PurgeTopologyTransaction.create(domain, mappings).value
   )
 
-  implicit val authorityOfTopologyTransactionArb: Arbitrary[AuthorityOf] = Arbitrary(
-    for {
-      partyId <- Arbitrary.arbitrary[PartyId]
-      authorizers <- Arbitrary.arbitrary[NonEmpty[Seq[PartyId]]]
-      // Not using Arbitrary.arbitrary[PositiveInt] for threshold to honor constraint
-      threshold <- Gen.choose(1, authorizers.size).map(PositiveInt.tryCreate)
-    } yield AuthorityOf.create(partyId, threshold, authorizers).value
-  )
-
   implicit val partyToParticipantTopologyTransactionArb: Arbitrary[PartyToParticipant] = Arbitrary(
     for {
       partyId <- Arbitrary.arbitrary[PartyId]

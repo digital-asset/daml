@@ -7,7 +7,7 @@ import cats.syntax.either.*
 import cats.syntax.functorFilter.*
 import com.digitalasset.canton.data.ViewType
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.messages.DeliveredTransferOutResult.InvalidTransferOutResult
+import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult.InvalidUnassignmentResult
 import com.digitalasset.canton.protocol.{ReassignmentId, SourceDomainId}
 import com.digitalasset.canton.sequencing.RawProtocolEvent
 import com.digitalasset.canton.sequencing.protocol.{
@@ -17,12 +17,12 @@ import com.digitalasset.canton.sequencing.protocol.{
   WithOpeningErrors,
 }
 
-final case class DeliveredTransferOutResult(result: SignedContent[Deliver[DefaultOpenEnvelope]])
+final case class DeliveredUnassignmentResult(result: SignedContent[Deliver[DefaultOpenEnvelope]])
     extends PrettyPrinting {
 
   val unwrap: ConfirmationResultMessage = result.content match {
     case Deliver(_, _, _, _, Batch(envelopes), _, _) =>
-      val transferOutResults =
+      val unassignmentResults =
         envelopes
           .mapFilter(env =>
             ProtocolMessage.select[SignedProtocolMessage[ConfirmationResultMessage]](env)
@@ -30,37 +30,37 @@ final case class DeliveredTransferOutResult(result: SignedContent[Deliver[Defaul
           .filter { env =>
             env.protocolMessage.message.viewType == ViewType.UnassignmentViewType
           }
-      val size = transferOutResults.size
+      val size = unassignmentResults.size
       if (size != 1)
-        throw InvalidTransferOutResult(
+        throw InvalidUnassignmentResult(
           result.content,
-          s"The deliver event must contain exactly one transfer-out result, but found $size.",
+          s"The deliver event must contain exactly one unassignment result, but found $size.",
         )
-      transferOutResults(0).protocolMessage.message
+      unassignmentResults(0).protocolMessage.message
   }
 
   unwrap.verdict match {
     case _: Verdict.Approve => ()
     case _: Verdict.MediatorReject | _: Verdict.ParticipantReject =>
-      throw InvalidTransferOutResult(result.content, "The transfer-out result must be approving.")
+      throw InvalidUnassignmentResult(result.content, "The unassignment result must be approving.")
   }
 
   def reassignmentId: ReassignmentId =
     ReassignmentId(SourceDomainId(unwrap.domainId), unwrap.requestId.unwrap)
 
-  override def pretty: Pretty[DeliveredTransferOutResult] = prettyOfParam(_.unwrap)
+  override def pretty: Pretty[DeliveredUnassignmentResult] = prettyOfParam(_.unwrap)
 }
 
-object DeliveredTransferOutResult {
+object DeliveredUnassignmentResult {
 
-  final case class InvalidTransferOutResult(
-      transferOutResult: RawProtocolEvent,
+  final case class InvalidUnassignmentResult(
+      unassignmentResult: RawProtocolEvent,
       message: String,
-  ) extends RuntimeException(s"$message: $transferOutResult")
+  ) extends RuntimeException(s"$message: $unassignmentResult")
 
   def create(
       resultE: WithOpeningErrors[SignedContent[RawProtocolEvent]]
-  ): Either[InvalidTransferOutResult, DeliveredTransferOutResult] =
+  ): Either[InvalidUnassignmentResult, DeliveredUnassignmentResult] =
     for {
       // The event signature would be invalid if some envelopes could not be opened upstream.
       // However, this should not happen, because transfer out messages are sent by the mediator,
@@ -68,7 +68,7 @@ object DeliveredTransferOutResult {
       result <- Either.cond(
         resultE.hasNoErrors,
         resultE.event,
-        InvalidTransferOutResult(
+        InvalidUnassignmentResult(
           resultE.event.content,
           "Result event contains envelopes that could not be deserialized.",
         ),
@@ -76,13 +76,13 @@ object DeliveredTransferOutResult {
       castToDeliver <- result
         .traverse(Deliver.fromSequencedEvent)
         .toRight(
-          InvalidTransferOutResult(
+          InvalidUnassignmentResult(
             result.content,
-            "Only a Deliver event contains a transfer-out result.",
+            "Only a Deliver event contains an unassignment result.",
           )
         )
-      deliveredTransferOutResult <- Either.catchOnly[InvalidTransferOutResult] {
-        DeliveredTransferOutResult(castToDeliver)
+      deliveredUnassignmentResult <- Either.catchOnly[InvalidUnassignmentResult] {
+        DeliveredUnassignmentResult(castToDeliver)
       }
-    } yield deliveredTransferOutResult
+    } yield deliveredUnassignmentResult
 }

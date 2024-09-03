@@ -3,9 +3,6 @@
 
 package com.digitalasset.canton.fetchcontracts.util
 
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.ParticipantBoundary
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.Value.Boundary
 import com.digitalasset.canton.fetchcontracts.domain
 import scalaz.Liskov.<~<
 import scalaz.Order
@@ -13,11 +10,11 @@ import scalaz.syntax.order.*
 import spray.json.{JsNull, JsonWriter}
 
 sealed abstract class BeginBookmark[+Off] extends Product with Serializable {
-  def toLedgerApi(implicit ev: Off <~< domain.Offset): ParticipantOffset =
+  def toLedgerApi(implicit ev: Off <~< domain.Offset): String =
     this match {
-      case AbsoluteBookmark(offset) => domain.Offset.toLedgerApi(ev(offset))
+      case AbsoluteBookmark(offset) => domain.Offset.unwrap(ev(offset))
       case ParticipantBegin =>
-        ParticipantOffset(Boundary(ParticipantBoundary.PARTICIPANT_BOUNDARY_BEGIN))
+        ""
     }
 
   def map[B](f: Off => B): BeginBookmark[B] = this match {

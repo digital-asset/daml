@@ -4,8 +4,11 @@
 package com.digitalasset.canton.http.json.v2
 
 //TODO (i19539) repackage eventually
+import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.error.utils.DecodedCantonError
 import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError
+import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.InvalidArgument
+import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.tracing.{TraceContext, W3CTraceContext}
 import io.circe.{Decoder, Encoder}
 import io.grpc.StatusRuntimeException
@@ -19,11 +22,12 @@ import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.*
 import sttp.tapir.server.ServerEndpoint.Full
 import sttp.tapir.*
+import com.digitalasset.transcode.{MissingFieldException, UnexpectedFieldsException}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
 
-trait Endpoints {
+trait Endpoints extends NamedLogging {
   case class Jwt(token: String)
 
   // added to ease burden if we change what is included in SECURITY_INPUT
@@ -54,15 +58,11 @@ trait Endpoints {
     .errorOut(jsonBody[JsCantonError])
     .in("v2")
 
-//  lazy val wsEndpoint: Endpoint[CallerContext, Unit, JsCantonError, Unit, Any] = endpoint
-//
-//    .errorOut(jsonBody[JsCantonError])
-//    .in("v2")
-
   private val wsSubprotocol = sttp.model.Header("Sec-WebSocket-Protocol", "daml.ws.auth")
 
-  protected def handleErrorResponse[R]
-      : Try[Either[JsCantonError, R]] => Try[Either[JsCantonError, R]] = {
+  protected def handleErrorResponse[R](implicit
+      traceContext: TraceContext
+  ): Try[Either[JsCantonError, R]] => Try[Either[JsCantonError, R]] = {
     case Failure(sre: StatusRuntimeException) =>
       Success(
         Left(
@@ -79,7 +79,31 @@ trait Endpoints {
       )
     case Success(value) => Success(value)
     // TODO (i19398): Handle
-    case Failure(unhandled) => Failure(unhandled)
+    case Failure(unhandled) =>
+      unhandled match {
+        case unexpected: UnexpectedFieldsException =>
+          Success(
+            Left(
+              JsCantonError.fromErrorCode(
+                InvalidArgument.Reject(
+                  s"Unexpected fields: ${unexpected.unexpectedFields.mkString}"
+                )
+              )
+            )
+          )
+        case fieldMissing: MissingFieldException =>
+          Success(
+            Left(
+              JsCantonError.fromErrorCode(
+                InvalidArgument.Reject(
+                  s"Missing field: $fieldMissing"
+                )
+              )
+            )
+          )
+        case _ => Failure(unhandled)
+      }
+
   }
 
   def uploadByteString(
@@ -98,7 +122,7 @@ trait Endpoints {
         tracedInput =>
           service(caller)(tracedInput)
             .map(Right(_))(ExecutionContext.parasitic)
-            .transform(handleErrorResponse)(ExecutionContext.parasitic)
+            .transform(handleErrorResponse(tracedInput.traceContext))(ExecutionContext.parasitic)
       )
 
   def downloadByteString[I](
@@ -116,7 +140,9 @@ trait Endpoints {
       .serverLogic(jwt =>
         i =>
           service(jwt)(i).resultToRight
-            .transform(handleErrorResponse)(ExecutionContext.parasitic)
+            .transform(handleErrorResponse(i.traceContext))(
+              ExecutionContext.parasitic
+            )
       )
 
   def jsonWithBody[I: Decoder: Encoder: Schema, R: Decoder: Encoder: Schema, P](
@@ -132,7 +158,7 @@ trait Endpoints {
       .serverLogic { callerContext => i =>
         service(callerContext)
           .tupled(i)
-          .transform(handleErrorResponse)(ExecutionContext.parasitic)
+          .transform(handleErrorResponse(i._1.traceContext))(ExecutionContext.parasitic)
       }
 
   def json[R: Decoder: Encoder: Schema, P](
@@ -145,12 +171,14 @@ trait Endpoints {
       .serverSecurityLogicSuccess(Future.successful)
       .out(jsonBody[R])
       .serverLogic(callerContext =>
-        i => service(callerContext)(i).transform(handleErrorResponse)(ExecutionContext.parasitic)
+        i =>
+          service(callerContext)(i)
+            .transform(handleErrorResponse(i.traceContext))(ExecutionContext.parasitic)
       )
 
   protected def websocket[HI, I: Decoder: Encoder: Schema, O: Decoder: Encoder: Schema](
       endpoint: Endpoint[CallerContext, HI, JsCantonError, Unit, Any],
-      service: CallerContext => HI => Flow[I, O, Any],
+      service: CallerContext => TracedInput[HI] => Flow[I, O, Any],
   ): Full[CallerContext, CallerContext, HI, JsCantonError, Flow[
     I,
     O,
@@ -161,9 +189,10 @@ trait Endpoints {
       .out(header(wsSubprotocol))
       .serverSecurityLogicSuccess(Future.successful)
       .out(webSocketBody[I, CodecFormat.Json, O, CodecFormat.Json](PekkoStreams))
-      // TODO(19398): Handle error result
+      // TODO(i19398): Handle error result
+      // TODO(i19103)  decide if tracecontext headers on websockets are handled
       .serverLogicSuccess { jwt => i =>
-        Future.successful(service(jwt)(i))
+        Future.successful(service(jwt)(TracedInput(i, TraceContext.empty)))
       }
 
   def traceHeadersMapping[I]() = new Mapping[(I, List[sttp.model.Header]), TracedInput[I]] {
@@ -189,8 +218,11 @@ trait Endpoints {
   }
 
   implicit class FutureOps[R](future: Future[R]) {
+    implicit val executionContext: ExecutionContext = ExecutionContext.parasitic
+    implicit val traceContext: TraceContext = TraceContext.empty
+    implicit val errorLogged: ContextualizedErrorLogger = NoLogging
     def resultToRight: Future[Either[JsCantonError, R]] =
-      future.map(Right(_))(ExecutionContext.parasitic)
+      future.map(Right(_))
   }
 
   def error[R](error: JsCantonError): Future[Either[JsCantonError, R]] =

@@ -228,23 +228,6 @@ message PartyToParticipant {
   reserved 5; // was domain = 5;
 }
 
-// which parties can exercise the authority over another party
-// authorization: whoever controls the consortium and all the owners of the parties that
-//   were not already present in the tx with serial = n - 1
-// UNIQUE(party, domain)
-message AuthorityOf {
-  // the party for which some other parties can gain authority
-  string party = 1;
-
-  // the signatory threshold required by the parties to be able to act on behalf of the consortium within Daml
-  uint32 threshold = 2;
-
-  // the list of parties which can gain authority
-  repeated string parties = 3;
-
-  reserved 4; // was domain = 4;
-}
-
 // which dynamic domain parameters are supposed to be used on the given domain
 // authorization: whoever controls the domain
 // UNIQUE(domain)
@@ -329,7 +312,6 @@ message TopologyMapping {
     VettedPackages vetted_packages = 8;
 
     PartyToParticipant party_to_participant = 9;
-    AuthorityOf authority_of = 10;
 
     DomainParametersState domain_parameters_state = 11;
     MediatorDomainState mediator_domain_state = 12;
@@ -339,6 +321,7 @@ message TopologyMapping {
 
     PartyToKeyMapping party_to_key_mapping = 16;
   }
+  reserved 10; // was authority_of, but cannot be reserved inside the oneof
 }
 
 message TopologyTransaction {

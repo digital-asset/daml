@@ -243,7 +243,7 @@ class ParticipantRepairAdministration(
       contracts
         .traverse_ { repairContract =>
           val activeContract = ActiveContract
-            .create(domainId, repairContract.contract, repairContract.transferCounter)(
+            .create(domainId, repairContract.contract, repairContract.reassignmentCounter)(
               protocolVersion
             )
           activeContract.writeDelimitedTo(outputStream).map(_ => outputStream.flush())

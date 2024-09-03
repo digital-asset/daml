@@ -4,8 +4,6 @@
 package com.digitalasset.canton.admin.api.client.commands
 
 import cats.implicits.*
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset.Value
 import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
   DefaultUnboundedTimeout,
   ServerEnforcedTimeout,
@@ -45,7 +43,6 @@ import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.{
   SentCmtState,
   SharedContractsState,
 }
-import com.digitalasset.canton.participant.sync.UpstreamOffsetConvert
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.protocol.messages.{AcsCommitment, CommitmentPeriod}
 import com.digitalasset.canton.sequencing.SequencerConnectionValidation
@@ -1480,7 +1477,7 @@ object ParticipantAdminCommands {
 
     final case class GetSafePruningOffsetCommand(beforeOrAt: Instant, ledgerEnd: String)
         extends Base[v30.GetSafePruningOffsetRequest, v30.GetSafePruningOffsetResponse, Option[
-          ParticipantOffset
+          String
         ]] {
 
       override def createRequest(): Either[String, v30.GetSafePruningOffsetRequest] =
@@ -1495,22 +1492,20 @@ object ParticipantAdminCommands {
 
       override def handleResponse(
           response: v30.GetSafePruningOffsetResponse
-      ): Either[String, Option[ParticipantOffset]] = response.response match {
+      ): Either[String, Option[String]] = response.response match {
         case v30.GetSafePruningOffsetResponse.Response.Empty => Left("Unexpected empty response")
 
         case v30.GetSafePruningOffsetResponse.Response.SafePruningOffset(offset) =>
-          Right(Some(UpstreamOffsetConvert.toParticipantOffset(offset)))
+          Right(Some(offset))
 
         case v30.GetSafePruningOffsetResponse.Response.NoSafePruningOffset(_) => Right(None)
       }
     }
 
-    final case class PruneInternallyCommand(pruneUpTo: ParticipantOffset)
+    final case class PruneInternallyCommand(pruneUpTo: String)
         extends Base[v30.PruneRequest, v30.PruneResponse, Unit] {
       override def createRequest(): Either[String, PruneRequest] =
-        pruneUpTo.value.absolute
-          .toRight("The pruneUpTo ledger offset needs to be absolute")
-          .map(v30.PruneRequest(_))
+        Right(v30.PruneRequest(pruneUpTo))
 
       override def submitRequest(
           service: PruningServiceStub,
@@ -1567,7 +1562,7 @@ object ParticipantAdminCommands {
     final case class SetNoWaitCommitmentsFrom(
         counterParticipants: Seq[ParticipantId],
         domainIds: Seq[DomainId],
-        startingAt: Either[Instant, ParticipantOffset],
+        startingAt: Either[Instant, String],
     ) extends Base[
           pruning.v30.SetNoWaitCommitmentsFrom.Request,
           pruning.v30.SetNoWaitCommitmentsFrom.Response,
@@ -1577,11 +1572,7 @@ object ParticipantAdminCommands {
         for {
           tsOrOffset <- startingAt match {
             case Right(offset) =>
-              offset.value match {
-                case Value.Absolute(value) =>
-                  Right(Right(value).withLeft[CantonTimestamp]).withLeft[String]
-                case other => Left(s"Unable to convert ledger_end `$other` to absolute value")
-              }
+              Right(Right(offset).withLeft[CantonTimestamp]).withLeft[String]
             case Left(ts) =>
               CantonTimestamp.fromInstant(ts) match {
                 case Left(value) => Left(value)
@@ -1627,7 +1618,7 @@ object ParticipantAdminCommands {
     // TODO(#18453) R6: The code below should be sufficient.
     final case class NoWaitCommitments(
         counterParticipant: ParticipantId,
-        startingAt: Either[Instant, ParticipantOffset],
+        startingAt: Either[Instant, String],
         domains: Seq[DomainId],
         state: SharedContractsState,
     )
@@ -1643,7 +1634,7 @@ object ParticipantAdminCommands {
             }
             offset <- setup.timestampOrOffsetActive match {
               case NoWaitCommitmentsSetup.TimestampOrOffsetActive.PruningOffset(offset) =>
-                Right(UpstreamOffsetConvert.toParticipantOffset(offset))
+                Right(offset)
               case _ => Left("Conversion error for Offset in ignoredParticipants")
             }
             domains <- setup.domainIds.traverse(_.domainIds.traverse(DomainId.fromString))
@@ -1657,7 +1648,7 @@ object ParticipantAdminCommands {
             participantId,
             setup.timestampOrOffsetActive match {
               case NoWaitCommitmentsSetup.TimestampOrOffsetActive.SequencingTimestamp(_) =>
-                ts.toInstant.asLeft[ParticipantOffset]
+                ts.toInstant.asLeft[String]
               case _ => offset.asRight[Instant]
             },
             domains.getOrElse(Seq.empty),

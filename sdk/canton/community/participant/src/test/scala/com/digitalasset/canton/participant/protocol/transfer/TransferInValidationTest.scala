@@ -53,7 +53,7 @@ class TransferInValidationTest
     UniqueIdentifier.tryFromProtoPrimitive("bothdomains::participant")
   )
 
-  private val initialTransferCounter: TransferCounter = TransferCounter.Genesis
+  private val initialReassignmentCounter: ReassignmentCounter = ReassignmentCounter.Genesis
 
   private def submitterInfo(submitter: LfPartyId): TransferSubmitterMetadata =
     TransferSubmitterMetadata(
@@ -91,8 +91,8 @@ class TransferInValidationTest
       contractId,
       contractInstance = ExampleTransactionFactory.contractInstance(),
     )
-    val transferOutResult =
-      TransferResultHelpers.transferOutResult(
+    val unassignmentResult =
+      TransferResultHelpers.unassignmentResult(
         sourceDomain,
         cryptoSnapshot,
         submittingParticipant,
@@ -105,7 +105,7 @@ class TransferInValidationTest
         transactionId1,
         targetDomain,
         targetMediator,
-        transferOutResult,
+        unassignmentResult,
       )
 
     "succeed without errors in the basic case" in {
@@ -126,7 +126,7 @@ class TransferInValidationTest
     }
 
     val reassignmentId = ReassignmentId(sourceDomain, CantonTimestamp.Epoch)
-    val transferOutRequest = TransferOutRequest(
+    val unassignmentRequest = UnassignmentRequest(
       submitterInfo(party1),
       Set(party1, party2), // Party 2 is a stakeholder and therefore a receiving party
       Set.empty,
@@ -138,12 +138,12 @@ class TransferInValidationTest
       targetDomain,
       TargetProtocolVersion(testedProtocolVersion),
       TimeProofTestUtil.mkTimeProof(timestamp = CantonTimestamp.Epoch, targetDomain = targetDomain),
-      initialTransferCounter,
+      initialReassignmentCounter,
     )
     val uuid = new UUID(3L, 4L)
     val seed = seedGenerator.generateSaltSeed()
-    val fullTransferOutTree = transferOutRequest
-      .toFullTransferOutTree(
+    val fullUnassignmentTree = unassignmentRequest
+      .toFullUnassignmentTree(
         pureCrypto,
         pureCrypto,
         seed,
@@ -154,11 +154,11 @@ class TransferInValidationTest
         SourceProtocolVersion(testedProtocolVersion),
         CantonTimestamp.Epoch,
         RequestCounter(1),
-        fullTransferOutTree,
+        fullUnassignmentTree,
         CantonTimestamp.Epoch,
         contract,
         transactionId1,
-        Some(transferOutResult),
+        Some(unassignmentResult),
         None,
       )
 
@@ -214,7 +214,7 @@ class TransferInValidationTest
       } yield { succeed }
     }
 
-    "complain about inconsistent transfer counters" in {
+    "complain about inconsistent reassignment counters" in {
       val inRequestWithWrongCounter = makeFullTransferInTree(
         party1,
         Set(party1),
@@ -222,8 +222,8 @@ class TransferInValidationTest
         transactionId1,
         targetDomain,
         targetMediator,
-        transferOutResult,
-        transferCounter = transferData.transferCounter + 1,
+        unassignmentResult,
+        reassignmentCounter = transferData.reassignmentCounter + 1,
       )
       for {
         result <-
@@ -238,16 +238,16 @@ class TransferInValidationTest
             .value
       } yield {
         result shouldBe Left(
-          InconsistentTransferCounter(
+          InconsistentReassignmentCounter(
             reassignmentId,
-            inRequestWithWrongCounter.transferCounter,
-            transferData.transferCounter,
+            inRequestWithWrongCounter.reassignmentCounter,
+            transferData.reassignmentCounter,
           )
         )
       }
     }
 
-    "disallow transfers from source domain supporting transfer counter to destination domain not supporting them" in {
+    "disallow transfers from source domain supporting reassignment counter to destination domain not supporting them" in {
       val transferDataSourceDomainPVCNTestNet =
         transferData.copy(sourceProtocolVersion = SourceProtocolVersion(ProtocolVersion.v32))
       for {
@@ -262,14 +262,14 @@ class TransferInValidationTest
             )
             .value
       } yield {
-        if (transferOutRequest.targetProtocolVersion.v >= ProtocolVersion.v32) {
+        if (unassignmentRequest.targetProtocolVersion.v >= ProtocolVersion.v32) {
           result shouldBe Right(Some(TransferInValidationResult(Set(party1))))
         } else {
           result shouldBe Left(
             IncompatibleProtocolVersions(
               transferDataSourceDomainPVCNTestNet.contract.contractId,
               transferDataSourceDomainPVCNTestNet.sourceProtocolVersion,
-              transferOutRequest.targetProtocolVersion,
+              unassignmentRequest.targetProtocolVersion,
             )
           )
         }
@@ -309,9 +309,9 @@ class TransferInValidationTest
       creatingTransactionId: TransactionId,
       targetDomain: TargetDomainId,
       targetMediator: MediatorGroupRecipient,
-      transferOutResult: DeliveredTransferOutResult,
+      unassignmentResult: DeliveredUnassignmentResult,
       uuid: UUID = new UUID(4L, 5L),
-      transferCounter: TransferCounter = initialTransferCounter,
+      reassignmentCounter: ReassignmentCounter = initialReassignmentCounter,
   ): FullTransferInTree = {
     val seed = seedGenerator.generateSaltSeed()
     valueOrFail(
@@ -321,11 +321,11 @@ class TransferInValidationTest
         submitterInfo(submitter),
         stakeholders,
         contract,
-        transferCounter,
+        reassignmentCounter,
         creatingTransactionId,
         targetDomain,
         targetMediator,
-        transferOutResult,
+        unassignmentResult,
         uuid,
         SourceProtocolVersion(testedProtocolVersion),
         TargetProtocolVersion(testedProtocolVersion),

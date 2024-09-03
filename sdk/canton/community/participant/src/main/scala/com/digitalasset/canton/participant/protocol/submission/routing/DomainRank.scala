@@ -11,7 +11,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.CanSubmitTransfer
 import com.digitalasset.canton.participant.protocol.transfer.{
   AdminPartiesAndParticipants,
-  TransferOutProcessorError,
+  UnassignmentProcessorError,
 }
 import com.digitalasset.canton.participant.sync.TransactionRoutingError
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.AutomaticTransferForTransactionFailure
@@ -106,7 +106,7 @@ private[routing] class DomainRankComputation(
         case reader :: rest =>
           val result =
             for {
-              _ <- CanSubmitTransfer.transferOut(
+              _ <- CanSubmitTransfer.unassignment(
                 contractId,
                 sourceSnapshot,
                 reader,
@@ -122,7 +122,7 @@ private[routing] class DomainRankComputation(
               )
             } yield adminParties
           result
-            .onShutdown(Left(TransferOutProcessorError.AbortedDueToShutdownOut(contractId)))
+            .onShutdown(Left(UnassignmentProcessorError.AbortedDueToShutdownOut(contractId)))
             .biflatMap(
               left => go(rest, errAccum :+ show"Read $reader cannot transfer: $left"),
               _ => EitherT.rightT(reader),

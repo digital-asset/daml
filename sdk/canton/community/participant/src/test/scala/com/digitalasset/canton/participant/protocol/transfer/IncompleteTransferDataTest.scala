@@ -10,11 +10,11 @@ import org.scalatest.wordspec.AnyWordSpec
 
 class IncompleteTransferDataTest extends AnyWordSpec with BaseTest {
   "TransferEventGlobalOffset" should {
-    "be create from (queryOffset, transferOutGlobalOffset, transferInGlobalOffset)" in {
+    "be create from (queryOffset, unassignmentGlobalOffset, transferInGlobalOffset)" in {
       import TransferEventGlobalOffset.create
       import IncompleteTransferData.{
         TransferInEventGlobalOffset as In,
-        TransferOutEventGlobalOffset as Out,
+        UnassignmentEventGlobalOffset as Out,
       }
       import scala.language.implicitConversions
 

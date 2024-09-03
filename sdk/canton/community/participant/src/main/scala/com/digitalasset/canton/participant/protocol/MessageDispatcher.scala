@@ -27,7 +27,7 @@ import com.digitalasset.canton.participant.protocol.submission.{
 }
 import com.digitalasset.canton.participant.protocol.transfer.{
   TransferInProcessor,
-  TransferOutProcessor,
+  UnassignmentProcessor,
 }
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
@@ -795,7 +795,7 @@ private[participant] object MessageDispatcher {
         participantId: ParticipantId,
         requestTracker: RequestTracker,
         transactionProcessor: TransactionProcessor,
-        transferOutProcessor: TransferOutProcessor,
+        unassignmentProcessor: UnassignmentProcessor,
         transferInProcessor: TransferInProcessor,
         topologyProcessor: TopologyTransactionProcessor,
         trafficProcessor: TrafficControlProcessor,
@@ -812,7 +812,7 @@ private[participant] object MessageDispatcher {
         override def getInternal[P](viewType: ViewType { type Processor = P }): Option[P] =
           viewType match {
             case AssignmentViewType => Some(transferInProcessor)
-            case UnassignmentViewType => Some(transferOutProcessor)
+            case UnassignmentViewType => Some(unassignmentProcessor)
             case TransactionViewType => Some(transactionProcessor)
             case _ => None
           }

@@ -288,7 +288,7 @@ object LocalRejectError extends LocalRejectionGroup {
     }
   }
 
-  object TransferOutRejects extends ErrorGroup() {
+  object UnassignmentRejects extends ErrorGroup() {
 
     @Explanation(
       """Activeness check failed for transfer out submission. This rejection occurs if the contract to be

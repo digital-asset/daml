@@ -133,7 +133,8 @@ object TopologyMapping {
     case object VettedPackages extends Code(8, "vtp")
 
     case object PartyToParticipant extends Code(9, "ptp")
-    case object AuthorityOf extends Code(10, "auo")
+
+    // reserved Code(10), was AuthorityOf
 
     case object DomainParametersState extends Code(11, "dop")
     case object MediatorDomainState extends Code(12, "mds")
@@ -155,7 +156,6 @@ object TopologyMapping {
       PartyHostingLimits,
       VettedPackages,
       PartyToParticipant,
-      AuthorityOf,
       DomainParametersState,
       MediatorDomainState,
       SequencerDomainState,
@@ -336,7 +336,6 @@ object TopologyMapping {
       case Mapping.ParticipantPermission(value) => ParticipantDomainPermission.fromProtoV30(value)
       case Mapping.VettedPackages(value) => VettedPackages.fromProtoV30(value)
       case Mapping.PartyToParticipant(value) => PartyToParticipant.fromProtoV30(value)
-      case Mapping.AuthorityOf(value) => AuthorityOf.fromProtoV30(value)
       case Mapping.DomainParametersState(value) => DomainParametersState.fromProtoV30(value)
       case Mapping.SequencingDynamicParametersState(value) =>
         DynamicSequencingParametersState.fromProtoV30(value)
@@ -1406,75 +1405,6 @@ object PartyToParticipant {
       participants <- value.participants.traverse(HostingParticipant.fromProtoV30)
       groupAddressing = value.groupAddressing
     } yield PartyToParticipant(partyId, threshold, participants, groupAddressing)
-}
-
-// AuthorityOf
-final case class AuthorityOf private (
-    partyId: PartyId,
-    threshold: PositiveInt,
-    parties: Seq[PartyId],
-) extends TopologyMapping {
-
-  def toProto: v30.AuthorityOf =
-    v30.AuthorityOf(
-      party = partyId.toProtoPrimitive,
-      threshold = threshold.unwrap,
-      parties = parties.map(_.toProtoPrimitive),
-    )
-
-  override def toProtoV30: v30.TopologyMapping =
-    v30.TopologyMapping(
-      v30.TopologyMapping.Mapping.AuthorityOf(
-        toProto
-      )
-    )
-
-  override def code: Code = Code.AuthorityOf
-
-  override def namespace: Namespace = partyId.namespace
-  override def maybeUid: Option[UniqueIdentifier] = Some(partyId.uid)
-
-  override def restrictedToDomain: Option[DomainId] = None
-
-  override def requiredAuth(
-      previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
-  ): RequiredAuth =
-    // TODO(#12390): take the previous transaction into account
-    RequiredUids(Set(partyId.uid) ++ parties.map(_.uid))
-
-  override def uniqueKey: MappingHash = AuthorityOf.uniqueKey(partyId)
-}
-
-object AuthorityOf {
-
-  def create(
-      partyId: PartyId,
-      threshold: PositiveInt,
-      parties: Seq[PartyId],
-  ): Either[String, AuthorityOf] =
-    Either
-      .cond(
-        threshold.value <= parties.size,
-        (),
-        s"Invalid threshold $threshold for $partyId with authorizers $parties",
-      )
-      .map(_ => AuthorityOf(partyId, threshold, parties))
-
-  def uniqueKey(partyId: PartyId): MappingHash =
-    TopologyMapping.buildUniqueKey(code)(_.add(partyId.toProtoPrimitive))
-
-  def code: Code = Code.AuthorityOf
-
-  def fromProtoV30(
-      value: v30.AuthorityOf
-  ): ParsingResult[AuthorityOf] =
-    for {
-      partyId <- PartyId.fromProtoPrimitive(value.party, "party")
-      threshold <- ProtoConverter.parsePositiveInt("threshold", value.threshold)
-      parties <- value.parties.traverse(PartyId.fromProtoPrimitive(_, "parties"))
-      authorityOf <- create(partyId, threshold, parties)
-        .leftMap(ProtoDeserializationError.OtherError)
-    } yield authorityOf
 }
 
 /** Dynamic domain parameter settings for the domain

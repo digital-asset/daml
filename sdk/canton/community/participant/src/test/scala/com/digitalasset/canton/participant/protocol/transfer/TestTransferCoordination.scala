@@ -62,7 +62,7 @@ private[transfer] object TestTransferCoordination {
       loggerFactory,
     ) {
 
-      override def awaitTransferOutTimestamp(
+      override def awaitUnassignmentTimestamp(
           sourceDomain: SourceDomainId,
           staticDomainParameters: StaticDomainParameters,
           timestamp: CantonTimestamp,
@@ -71,7 +71,7 @@ private[transfer] object TestTransferCoordination {
       ): Either[TransferProcessingSteps.UnknownDomain, Future[Unit]] =
         awaitTimestampOverride match {
           case None =>
-            super.awaitTransferOutTimestamp(sourceDomain, staticDomainParameters, timestamp)
+            super.awaitUnassignmentTimestamp(sourceDomain, staticDomainParameters, timestamp)
           case Some(overridden) => Right(overridden.getOrElse(Future.unit))
         }
 

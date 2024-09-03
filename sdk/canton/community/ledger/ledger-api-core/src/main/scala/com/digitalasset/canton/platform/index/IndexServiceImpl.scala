@@ -19,9 +19,9 @@ import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.ledger.api.domain.types.ParticipantOffset
 import com.digitalasset.canton.ledger.api.domain.{
   CumulativeFilter,
-  ParticipantOffset,
   TransactionFilter,
   TransactionId,
 }
@@ -67,7 +67,6 @@ import org.apache.pekko.stream.scaladsl.{Flow, Source}
 import scalaz.syntax.tag.ToTagOps
 
 import scala.concurrent.Future
-import scala.util.Success
 
 private[index] class IndexServiceImpl(
     participantId: Ref.ParticipantId,
@@ -108,8 +107,8 @@ private[index] class IndexServiceImpl(
     contractStore.lookupContractKey(readers, key)
 
   override def transactions(
-      startExclusive: domain.ParticipantOffset,
-      endInclusive: Option[domain.ParticipantOffset],
+      startExclusive: ParticipantOffset,
+      endInclusive: Option[ParticipantOffset],
       transactionFilter: domain.TransactionFilter,
       verbose: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetUpdatesResponse, NotUsed] = {
@@ -407,7 +406,7 @@ private[index] class IndexServiceImpl(
     ledgerDao.listKnownParties(fromExcl, maxResults)
 
   override def partyEntries(
-      startExclusive: Option[ParticipantOffset.Absolute]
+      startExclusive: ParticipantOffset
   )(implicit loggingContext: LoggingContextWithTrace): Source[PartyEntry, NotUsed] =
     Source
       .future(concreteOffset(startExclusive))
@@ -442,16 +441,16 @@ private[index] class IndexServiceImpl(
       applicationId: Option[ApplicationId],
     )
 
-  override def currentLedgerEnd(): Future[ParticipantOffset.Absolute] = {
+  override def currentLedgerEnd(): Future[ParticipantOffset] = {
     val absoluteApiOffset = toApiOffset(ledgerEnd())
     Future.successful(absoluteApiOffset)
   }
 
-  private def toApiOffset(ledgerDomainOffset: Offset): ParticipantOffset.Absolute = {
+  private def toApiOffset(ledgerDomainOffset: Offset): ParticipantOffset = {
     val offset =
       if (ledgerDomainOffset == Offset.beforeBegin) ApiOffset.begin
       else ledgerDomainOffset
-    toAbsolute(offset)
+    offset.toApiString
   }
 
   private def ledgerEnd(): Offset = dispatcher().getHead()
@@ -459,16 +458,12 @@ private[index] class IndexServiceImpl(
   // Returns a function that memoizes the current end
   // Can be used directly or shared throughout a request processing
   private def convertOffset: ParticipantOffset => Source[Offset, NotUsed] = { ledgerOffset =>
-    (ledgerOffset match {
-      case ParticipantOffset.ParticipantBegin => Success(Offset.beforeBegin)
-      case ParticipantOffset.ParticipantEnd => Success(ledgerEnd())
-      case ParticipantOffset.Absolute(offset) => ApiOffset.tryFromString(offset)
-    }).fold(Source.failed, off => Source.single(off))
+    ApiOffset.tryFromString(ledgerOffset).fold(Source.failed, off => Source.single(off))
   }
 
   private def between[A](
-      startExclusive: domain.ParticipantOffset,
-      endInclusive: Option[domain.ParticipantOffset],
+      startExclusive: ParticipantOffset,
+      endInclusive: Option[ParticipantOffset],
   )(f: (Option[Offset], Option[Offset]) => Source[A, NotUsed])(implicit
       loggingContext: LoggingContextWithTrace
   ): Source[A, NotUsed] = {
@@ -494,13 +489,8 @@ private[index] class IndexServiceImpl(
     }
   }
 
-  private def concreteOffset(startExclusive: Option[ParticipantOffset.Absolute]): Future[Offset] =
-    startExclusive
-      .map(off => Future.fromTry(ApiOffset.tryFromString(off.value)))
-      .getOrElse(Future.successful(Offset.beforeBegin))
-
-  private def toAbsolute(offset: Offset): ParticipantOffset.Absolute =
-    ParticipantOffset.Absolute(offset.toApiString)
+  private def concreteOffset(startExclusive: ParticipantOffset): Future[Offset] =
+    Future.fromTry(ApiOffset.tryFromString(startExclusive))
 
   private def shutdownError(implicit
       loggingContext: LoggingContextWithTrace
@@ -527,7 +517,7 @@ private[index] class IndexServiceImpl(
 
   override def latestPrunedOffsets()(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[(String, String)] =
+  ): Future[(ParticipantOffset, ParticipantOffset)] =
     ledgerDao.pruningOffsets
       .map { case (prunedUpToInclusiveO, divulgencePrunedUpToO) =>
         prunedUpToInclusiveO.getOrElse(Offset.beforeBegin).toApiString ->

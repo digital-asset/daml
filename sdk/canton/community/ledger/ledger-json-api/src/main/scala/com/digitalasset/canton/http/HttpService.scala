@@ -10,14 +10,22 @@ import com.daml.logging.LoggingContextOf
 import com.daml.metrics.pekkohttp.HttpMetricsInterceptor
 import com.daml.ports.{Port, PortFiles}
 import com.digitalasset.canton.concurrent.DirectExecutionContext
-import com.digitalasset.canton.http.json.{ApiValueToJsValueConverter, DomainJsonDecoder, DomainJsonEncoder, JsValueToApiValueConverter}
+import com.digitalasset.canton.http.json.{
+  ApiValueToJsValueConverter,
+  DomainJsonDecoder,
+  DomainJsonEncoder,
+  JsValueToApiValueConverter,
+}
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.http.util.ApiValueToLfValueConverter
 import com.digitalasset.canton.http.util.FutureUtil.*
 import com.digitalasset.canton.http.util.Logging.InstanceUUID
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes.ApplicationId
 import com.digitalasset.canton.ledger.client.LedgerClient as DamlLedgerClient
-import com.digitalasset.canton.ledger.client.configuration.{CommandClientConfiguration, LedgerClientConfiguration}
+import com.digitalasset.canton.ledger.client.configuration.{
+  CommandClientConfiguration,
+  LedgerClientConfiguration,
+}
 import com.digitalasset.canton.ledger.client.services.pkg.PackageClient
 import com.digitalasset.canton.ledger.service.LedgerReader
 import com.digitalasset.canton.ledger.service.LedgerReader.PackageStore
@@ -229,10 +237,10 @@ class HttpService(
       case -\/(error) => Future.failed(new RuntimeException(error.message))
       case \/-(binding) => Future.successful(binding)
     }
-  })(binding => {
+  }) { binding =>
     logger.info(s"Stopping JSON API server..., ${lc.makeString}")
     binding.unbind().void
-  })
+  }
 
 }
 
@@ -330,8 +338,8 @@ object HttpService {
     val alias = "key" // This can be anything as long as it's consistent.
 
     val cf = CertificateFactory.getInstance("X.509")
-    val cert = Using.resource(Files.newInputStream(certFile)) { cf.generateCertificate(_) }
-    val caCert = Using.resource(Files.newInputStream(caCertFile)) { cf.generateCertificate(_) }
+    val cert = Using.resource(Files.newInputStream(certFile))(cf.generateCertificate(_))
+    val caCert = Using.resource(Files.newInputStream(caCertFile))(cf.generateCertificate(_))
     val privateKey = loadPrivateKey(privateKeyFile)
 
     val keyStore = KeyStore.getInstance("PKCS12")

@@ -36,13 +36,13 @@ private[conflictdetection] object LockableStatus {
       override def kind: String = "contract"
 
       override def isFree(status: Status): Boolean = status match {
-        case TransferredAway(_, _) => true
+        case ReassignedAway(_, _) => true
         case Active(_) | Archived | Purged => false
       }
 
       override def isActive(status: Status): Boolean = status match {
         case Active(_) => true
-        case Archived | Purged | TransferredAway(_, _) => false
+        case Archived | Purged | ReassignedAway(_, _) => false
       }
 
       override def shouldEvict(status: Status): Boolean = true

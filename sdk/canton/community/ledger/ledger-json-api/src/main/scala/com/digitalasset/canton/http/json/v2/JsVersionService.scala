@@ -8,6 +8,7 @@ import com.daml.ledger.api.v2.version_service
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError
 import com.digitalasset.canton.ledger.client.services.version.VersionClient
+import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.google.protobuf
 import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
@@ -16,7 +17,7 @@ import sttp.tapir.generic.auto.*
 import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
-class JsVersionService(versionClient: VersionClient)(implicit
+class JsVersionService(versionClient: VersionClient, val loggerFactory: NamedLoggerFactory)(implicit
     val executionContext: ExecutionContext
 ) extends Endpoints {
   import JsVersionServiceCodecs.*

@@ -39,7 +39,7 @@ trait ViewTree extends PrettyPrinting {
   override def pretty: Pretty[this.type]
 }
 
-/** Supertype of [[FullTransferOutTree]] and [[FullTransferInTree]]
+/** Supertype of [[FullUnassignmentTree]] and [[FullTransferInTree]]
   */
 trait TransferViewTree extends ViewTree {
   def submitterMetadata: TransferSubmitterMetadata

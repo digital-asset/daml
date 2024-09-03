@@ -31,8 +31,8 @@ object Generators {
     Gen.stringOfN(32, Gen.alphaNumChar).map(WorkflowId.assertFromString)
   )
 
-  def transferCounterGen: Gen[TransferCounter] =
-    Gen.choose(0, Long.MaxValue).map(i => TransferCounter(i))
+  def reassignmentCounterGen: Gen[ReassignmentCounter] =
+    Gen.choose(0, Long.MaxValue).map(i => ReassignmentCounter(i))
 
   def lengthLimitedStringGen[A <: AbstractLengthLimitedString](
       companion: LengthLimitedStringCompanion[A]

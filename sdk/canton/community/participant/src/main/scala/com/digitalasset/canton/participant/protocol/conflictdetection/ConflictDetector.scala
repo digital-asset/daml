@@ -33,7 +33,7 @@ import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{CheckedT, ErrorUtil, MonadUtil, SimpleExecutionQueue}
-import com.digitalasset.canton.{RequestCounter, TransferCounter}
+import com.digitalasset.canton.{ReassignmentCounter, RequestCounter}
 import com.google.common.annotations.VisibleForTesting
 
 import scala.collection.concurrent.TrieMap
@@ -116,7 +116,7 @@ private[participant] class ConflictDetector(
   private[this] val directExecutionContext: DirectExecutionContext =
     DirectExecutionContext(noTracingLogger)
 
-  private[this] val initialTransferCounter = TransferCounter.Genesis
+  private[this] val initialReassignmentCounter = ReassignmentCounter.Genesis
 
   /** Registers a pending activeness set.
     * This marks all contracts and keys in the `activenessSet` with a pending activeness check.
@@ -322,7 +322,7 @@ private[participant] class ConflictDetector(
     * <ul>
     *   <li>Contracts in `commitSet.`[[CommitSet.archivals archivals]] are archived.</li>
     *   <li>Contracts in `commitSet.`[[CommitSet.creations creations]] are created.</li>
-    *   <li>Contracts in `commitSet.`[[CommitSet.transferOuts transferOuts]] are transferred away to the given target domain.</li>
+    *   <li>Contracts in `commitSet.`[[CommitSet.unassignments unassignments]] are transferred away to the given target domain.</li>
     *   <li>Contracts in `commitSet.`[[CommitSet.transferIns transferIns]] become active with the given source domain</li>
     *   <li>All contracts and keys locked by the [[ActivenessSet]] are unlocked.</li>
     *   <li>Transfers in [[ActivenessSet.reassignmentIds]] are completed if they are in `commitSet.`[[CommitSet.transferIns transferIns]].</li>
@@ -368,13 +368,13 @@ private[participant] class ConflictDetector(
           .remove(rc)
           .getOrElse(throw new IllegalArgumentException(s"Request $rc is not in-flight."))
 
-      val CommitSet(archivals, creations, transferOuts, transferIns) = commitSet
+      val CommitSet(archivals, creations, unassignments, transferIns) = commitSet
 
       val unlockedChanges = Seq(
         UnlockedChanges(creations.keySet -- lockedContracts, "Creations"),
         UnlockedChanges(transferIns.keySet -- lockedContracts, "Transfer-ins"),
         UnlockedChanges(archivals.keySet -- lockedContracts, "Archivals"),
-        UnlockedChanges(transferOuts.keySet -- lockedContracts, "Transfer-outs"),
+        UnlockedChanges(unassignments.keySet -- lockedContracts, "unassignments"),
       )
       def nonEmpty(unlockedChanges: UnlockedChanges): Boolean = {
         implicit val pretty: Pretty[unlockedChanges.T] = unlockedChanges.pretty
@@ -398,29 +398,29 @@ private[participant] class ConflictDetector(
 
         lockedContracts.foreach { coid =>
           val isActivation = creations.contains(coid) || transferIns.contains(coid)
-          val transferOutO = transferOuts.get(coid)
-          val isDeactivation = transferOutO.isDefined || archivals.contains(coid)
+          val unassignmentO = unassignments.get(coid)
+          val isDeactivation = unassignmentO.isDefined || archivals.contains(coid)
           if (isDeactivation) {
             if (isActivation) {
               logger.trace(withRC(rc, s"Activating and deactivating transient contract $coid."))
             } else {
               logger.trace(withRC(rc, s"Deactivating contract $coid."))
             }
-            val newStatus = transferOutO.fold[Status](Archived) { transferOut =>
-              TransferredAway(
-                transferOut.targetDomainId,
-                transferOut.transferCounter,
+            val newStatus = unassignmentO.fold[Status](Archived) { unassignment =>
+              ReassignedAway(
+                unassignment.targetDomainId,
+                unassignment.reassignmentCounter,
               )
             }
             contractStates.setStatusPendingWrite(coid, newStatus, toc)
             pendingContractWrites += coid
           } else if (isActivation) {
-            val transferCounter = transferIns.get(coid) match {
-              case Some(value) => value.transferCounter
+            val reassignmentCounter = transferIns.get(coid) match {
+              case Some(value) => value.reassignmentCounter
               case None =>
                 creations
                   .get(coid)
-                  .map(_.transferCounter)
+                  .map(_.reassignmentCounter)
                   .getOrElse(
                     ErrorUtil.internalError(
                       new IllegalStateException(
@@ -433,7 +433,7 @@ private[participant] class ConflictDetector(
             logger.trace(withRC(rc, s"Activating contract $coid."))
             contractStates.setStatusPendingWrite(
               coid,
-              Active(transferCounter),
+              Active(reassignmentCounter),
               toc,
             )
             pendingContractWrites += coid
@@ -472,16 +472,16 @@ private[participant] class ConflictDetector(
           logger.trace(withRC(rc, s"About to write commit set to the conflict detection stores"))
           val archivalWrites = acs.archiveContracts(archivals.keySet.to(LazyList), toc)
           val creationWrites = acs.markContractsCreated(
-            creations.keySet.map(cid => cid -> initialTransferCounter).to(LazyList),
+            creations.keySet.map(cid => cid -> initialReassignmentCounter).to(LazyList),
             toc,
           )
-          val transferOutWrites =
-            acs.transferOutContracts(
-              transferOuts
-                .map { case (coid, transferOutCommit) =>
-                  val CommitSet.TransferOutCommit(targetDomain, _, transferCounter) =
-                    transferOutCommit
-                  (coid, targetDomain, transferCounter, toc)
+          val unassignmentWrites =
+            acs.unassignContracts(
+              unassignments
+                .map { case (coid, unassignmentCommit) =>
+                  val CommitSet.UnassignmentCommit(targetDomain, _, reassignmentCounter) =
+                    unassignmentCommit
+                  (coid, targetDomain, reassignmentCounter, toc)
                 }
                 .to(LazyList)
             )
@@ -491,9 +491,9 @@ private[participant] class ConflictDetector(
               transferIns
                 .map { case (coid, transferInCommit) =>
                   val CommitSet
-                    .TransferInCommit(reassignmentId, _contractMetadata, transferCounter) =
+                    .TransferInCommit(reassignmentId, _contractMetadata, reassignmentCounter) =
                     transferInCommit
-                  (coid, reassignmentId.sourceDomain, transferCounter, toc)
+                  (coid, reassignmentId.sourceDomain, reassignmentCounter, toc)
                 }
                 .to(LazyList)
             )
@@ -505,7 +505,7 @@ private[participant] class ConflictDetector(
           val acsFuture =
             monad.flatMap(archivalWrites)(_ =>
               monad.flatMap(creationWrites)(_ =>
-                monad.flatMap(transferOutWrites)(_ => transferInWrites)
+                monad.flatMap(unassignmentWrites)(_ => transferInWrites)
               )
             )
 

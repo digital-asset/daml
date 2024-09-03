@@ -96,17 +96,19 @@ class JsUpdateService(
       caller: CallerContext
   ): TracedInput[(String, List[String])] => Future[
     Either[JsCantonError, JsGetTransactionTreeResponse]
-  ] =
-    req =>
-      updateServiceClient(caller.token())(req.traceContext)
-        .getTransactionTreeByEventId(
-          update_service.GetTransactionByEventIdRequest(
-            eventId = req.in._1,
-            requestingParties = req.in._2,
-          )
+  ] = { req =>
+    implicit val token = caller.token()
+    implicit val tc = req.traceContext
+    updateServiceClient(caller.token())(req.traceContext)
+      .getTransactionTreeByEventId(
+        update_service.GetTransactionByEventIdRequest(
+          eventId = req.in._1,
+          requestingParties = req.in._2,
         )
-        .flatMap(protocolConverters.GetTransactionTreeResponse.toJson(_)(caller.token()))
-        .resultToRight
+      )
+      .flatMap(protocolConverters.GetTransactionTreeResponse.toJson(_))
+      .resultToRight
+  }
 
   private def getTransactionByEventId(
       caller: CallerContext
@@ -144,21 +146,23 @@ class JsUpdateService(
       caller: CallerContext
   ): TracedInput[(String, List[String])] => Future[
     Either[JsCantonError, JsGetTransactionTreeResponse]
-  ] =
-    req =>
-      updateServiceClient(caller.token())(req.traceContext)
-        .getTransactionTreeById(
-          update_service.GetTransactionByIdRequest(
-            updateId = req.in._1,
-            requestingParties = req.in._2,
-          )
+  ] = { req =>
+    implicit val token = caller.token()
+    implicit val tc = req.traceContext
+    updateServiceClient(caller.token())
+      .getTransactionTreeById(
+        update_service.GetTransactionByIdRequest(
+          updateId = req.in._1,
+          requestingParties = req.in._2,
         )
-        .flatMap(protocolConverters.GetTransactionTreeResponse.toJson(_)(caller.token()))
-        .resultToRight
+      )
+      .flatMap(protocolConverters.GetTransactionTreeResponse.toJson(_))
+      .resultToRight
+  }
 
   private def getFlats(
       caller: CallerContext
-  ): Unit => Flow[update_service.GetUpdatesRequest, JsGetUpdatesResponse, NotUsed] =
+  ): TracedInput[Unit] => Flow[update_service.GetUpdatesRequest, JsGetUpdatesResponse, NotUsed] =
     _ => {
       Flow[update_service.GetUpdatesRequest]
         .flatMapConcat { req =>
@@ -173,16 +177,22 @@ class JsUpdateService(
 
   private def getTrees(
       caller: CallerContext
-  ): Unit => Flow[update_service.GetUpdatesRequest, JsGetUpdateTreesResponse, NotUsed] =
-    _ => {
+  ): TracedInput[Unit] => Flow[
+    update_service.GetUpdatesRequest,
+    JsGetUpdateTreesResponse,
+    NotUsed,
+  ] =
+    wsReq => {
       Flow[update_service.GetUpdatesRequest]
         .flatMapConcat { req =>
+          implicit val token = caller.token()
+          implicit val tc = wsReq.traceContext
           ClientAdapter
             .serverStreaming(
               req,
-              updateServiceClient(caller.token())(TraceContext.empty).getUpdateTrees,
+              updateServiceClient(caller.token()).getUpdateTrees,
             )
-            .mapAsync(1)(r => protocolConverters.GetUpdateTreesResponse.toJson(r)(caller.token()))
+            .mapAsync(1)(r => protocolConverters.GetUpdateTreesResponse.toJson(r))
         }
     }
 

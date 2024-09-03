@@ -21,7 +21,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 private[protocol] object CanSubmitTransfer {
 
-  def transferOut(
+  def unassignment(
       contractId: LfContractId,
       topologySnapshot: TopologySnapshot,
       submitter: LfPartyId,
@@ -30,7 +30,7 @@ private[protocol] object CanSubmitTransfer {
       ec: ExecutionContext,
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] =
-    check(s"transfer-out of $contractId", topologySnapshot, submitter, participantId)
+    check(s"Unassignment of $contractId", topologySnapshot, submitter, participantId)
       .mapK(FutureUnlessShutdown.outcomeK)
 
   def transferIn(

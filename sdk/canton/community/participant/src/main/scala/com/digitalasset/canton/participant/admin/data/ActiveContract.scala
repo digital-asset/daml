@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.admin.data
 
 import better.files.File
 import cats.syntax.either.*
-import com.digitalasset.canton.TransferCounter
+import com.digitalasset.canton.ReassignmentCounter
 import com.digitalasset.canton.admin.participant.v30
 import com.digitalasset.canton.protocol.messages.HasDomainId
 import com.digitalasset.canton.protocol.{HasSerializableContract, SerializableContract}
@@ -21,7 +21,7 @@ import java.io.{ByteArrayInputStream, InputStream}
 final case class ActiveContract(
     domainId: DomainId,
     contract: SerializableContract,
-    transferCounter: TransferCounter,
+    reassignmentCounter: ReassignmentCounter,
 )(override val representativeProtocolVersion: RepresentativeProtocolVersion[ActiveContract.type])
     extends HasProtocolVersionedWrapper[ActiveContract]
     with HasDomainId
@@ -30,7 +30,7 @@ final case class ActiveContract(
     v30.ActiveContract(
       domainId.toProtoPrimitive,
       Some(contract.toAdminProtoV30),
-      transferCounter.toProtoPrimitive,
+      reassignmentCounter.toProtoPrimitive,
     )
 
   override protected lazy val companionObj: ActiveContract.type = ActiveContract
@@ -63,18 +63,20 @@ private[canton] object ActiveContract extends HasProtocolVersionedCompanion[Acti
         "contract",
         proto.contract,
       )
-      transferCounter = proto.reassignmentCounter
+      reassignmentCounter = proto.reassignmentCounter
       reprProtocolVersion <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield {
-      ActiveContract(domainId, contract, TransferCounter(transferCounter))(reprProtocolVersion)
+      ActiveContract(domainId, contract, ReassignmentCounter(reassignmentCounter))(
+        reprProtocolVersion
+      )
     }
 
   def create(
       domainId: DomainId,
       contract: SerializableContract,
-      transferCounter: TransferCounter,
+      reassignmentCounter: ReassignmentCounter,
   )(protocolVersion: ProtocolVersion): ActiveContract =
-    ActiveContract(domainId, contract, transferCounter)(
+    ActiveContract(domainId, contract, reassignmentCounter)(
       protocolVersionRepresentativeFor(protocolVersion)
     )
 

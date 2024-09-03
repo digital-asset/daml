@@ -209,7 +209,7 @@ object StaticDomainParameters {
 final case class DynamicDomainParameters(
     confirmationResponseTimeout: NonNegativeFiniteDuration,
     mediatorReactionTimeout: NonNegativeFiniteDuration,
-    transferExclusivityTimeout: NonNegativeFiniteDuration,
+    assignmentExclusivityTimeout: NonNegativeFiniteDuration,
     topologyChangeDelay: NonNegativeFiniteDuration,
     ledgerTimeRecordTimeTolerance: NonNegativeFiniteDuration,
     mediatorDeduplicationTimeout: NonNegativeFiniteDuration,
@@ -247,7 +247,7 @@ final case class DynamicDomainParameters(
   def update(
       confirmationResponseTimeout: NonNegativeFiniteDuration = confirmationResponseTimeout,
       mediatorReactionTimeout: NonNegativeFiniteDuration = mediatorReactionTimeout,
-      transferExclusivityTimeout: NonNegativeFiniteDuration = transferExclusivityTimeout,
+      assignmentExclusivityTimeout: NonNegativeFiniteDuration = assignmentExclusivityTimeout,
       topologyChangeDelay: NonNegativeFiniteDuration = topologyChangeDelay,
       ledgerTimeRecordTimeTolerance: NonNegativeFiniteDuration = ledgerTimeRecordTimeTolerance,
       mediatorDeduplicationTimeout: NonNegativeFiniteDuration = mediatorDeduplicationTimeout,
@@ -262,7 +262,7 @@ final case class DynamicDomainParameters(
   ): DynamicDomainParameters = this.copy(
     confirmationResponseTimeout = confirmationResponseTimeout,
     mediatorReactionTimeout = mediatorReactionTimeout,
-    transferExclusivityTimeout = transferExclusivityTimeout,
+    assignmentExclusivityTimeout = assignmentExclusivityTimeout,
     topologyChangeDelay = topologyChangeDelay,
     ledgerTimeRecordTimeTolerance = ledgerTimeRecordTimeTolerance,
     mediatorDeduplicationTimeout = mediatorDeduplicationTimeout,
@@ -285,8 +285,8 @@ final case class DynamicDomainParameters(
             InternalNonNegativeFiniteDuration.fromConfig(confirmationResponseTimeout),
           mediatorReactionTimeout =
             InternalNonNegativeFiniteDuration.fromConfig(mediatorReactionTimeout),
-          transferExclusivityTimeout =
-            InternalNonNegativeFiniteDuration.fromConfig(transferExclusivityTimeout),
+          assignmentExclusivityTimeout =
+            InternalNonNegativeFiniteDuration.fromConfig(assignmentExclusivityTimeout),
           topologyChangeDelay = InternalNonNegativeFiniteDuration.fromConfig(topologyChangeDelay),
           ledgerTimeRecordTimeTolerance =
             InternalNonNegativeFiniteDuration.fromConfig(ledgerTimeRecordTimeTolerance),

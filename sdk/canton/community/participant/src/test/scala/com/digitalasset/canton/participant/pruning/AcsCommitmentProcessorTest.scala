@@ -21,7 +21,7 @@ import com.digitalasset.canton.ledger.participant.state.{DomainIndex, RequestInd
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.participant.event.{
   AcsChange,
-  ContractStakeholdersAndTransferCounter,
+  ContractStakeholdersAndReassignmentCounter,
   RecordTime,
 }
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
@@ -31,7 +31,7 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.CommitSet.
   ArchivalCommit,
   CreationCommit,
   TransferInCommit,
-  TransferOutCommit,
+  UnassignmentCommit,
 }
 import com.digitalasset.canton.participant.protocol.submission.*
 import com.digitalasset.canton.participant.pruning
@@ -116,7 +116,7 @@ sealed trait AcsCommitmentProcessorBaseTest
     h.getByteString()
   }
 
-  lazy val initialTransferCounter: TransferCounter = TransferCounter.Genesis
+  lazy val initialReassignmentCounter: ReassignmentCounter = ReassignmentCounter.Genesis
 
   protected def ts(i: CantonTimestamp): CantonTimestampSecond =
     CantonTimestampSecond.ofEpochSecond(i.getEpochSecond)
@@ -141,10 +141,10 @@ sealed trait AcsCommitmentProcessorBaseTest
       .parTraverse_ { case (cid, lifespan) =>
         for {
           _ <- {
-            if (lifespan.transferCounterAtActivation == TransferCounter.Genesis)
+            if (lifespan.reassignmentCounterAtActivation == ReassignmentCounter.Genesis)
               acs
                 .markContractCreated(
-                  cid -> initialTransferCounter,
+                  cid -> initialReassignmentCounter,
                   TimeOfChange(RequestCounter(0), lifespan.activatedTs),
                 )
                 .value
@@ -154,7 +154,7 @@ sealed trait AcsCommitmentProcessorBaseTest
                   cid,
                   TimeOfChange(RequestCounter(0), lifespan.activatedTs),
                   SourceDomainId(domainId),
-                  lifespan.transferCounterAtActivation,
+                  lifespan.reassignmentCounterAtActivation,
                 )
                 .value
           }
@@ -166,18 +166,18 @@ sealed trait AcsCommitmentProcessorBaseTest
                   TimeOfChange(RequestCounter(0), deactivatedTs),
                 )
                 .value
-            case Lifespan.TransferOutOnDeactivate(
+            case Lifespan.UnassignmentDeactivate(
                   _,
                   deactivatedTs,
                   _,
-                  transferCounterAtTransferOut,
+                  reassignmentCounterAtUnassignment,
                 ) =>
               acs
-                .transferOutContract(
+                .unassignContracts(
                   cid,
                   TimeOfChange(RequestCounter(0), lifespan.deactivatedTs),
                   TargetDomainId(domainId),
-                  transferCounterAtTransferOut,
+                  reassignmentCounterAtUnassignment,
                 )
                 .value
           }
@@ -212,7 +212,7 @@ sealed trait AcsCommitmentProcessorBaseTest
   protected def changesAtToc(
       contractSetup: Map[
         LfContractId,
-        (Set[LfPartyId], TimeOfChange, TimeOfChange, TransferCounter, TransferCounter),
+        (Set[LfPartyId], TimeOfChange, TimeOfChange, ReassignmentCounter, ReassignmentCounter),
       ]
   )(toc: TimeOfChange): (CantonTimestamp, RequestCounter, AcsChange) =
     (
@@ -223,7 +223,13 @@ sealed trait AcsCommitmentProcessorBaseTest
               acsChange,
               (
                 cid,
-                (stkhs, creationToc, archivalToc, assignTransferCounter, unassignTransferCounter),
+                (
+                  stkhs,
+                  creationToc,
+                  archivalToc,
+                  assignReassignmentCounter,
+                  unassignReassignmentCounter,
+                ),
               ),
             ) =>
           AcsChange(
@@ -231,21 +237,22 @@ sealed trait AcsCommitmentProcessorBaseTest
               acsChange.deactivations ++ (if (archivalToc == toc)
                                             Map(
                                               cid ->
-                                                ContractStakeholdersAndTransferCounter(
+                                                ContractStakeholdersAndReassignmentCounter(
                                                   stkhs,
-                                                  unassignTransferCounter,
+                                                  unassignReassignmentCounter,
                                                 )
                                             )
                                           else Map.empty),
-            activations = acsChange.activations ++ (if (creationToc == toc)
-                                                      Map(
-                                                        cid ->
-                                                          ContractStakeholdersAndTransferCounter(
-                                                            stkhs,
-                                                            assignTransferCounter,
-                                                          )
-                                                      )
-                                                    else Map.empty),
+            activations =
+              acsChange.activations ++ (if (creationToc == toc)
+                                          Map(
+                                            cid ->
+                                              ContractStakeholdersAndReassignmentCounter(
+                                                stkhs,
+                                                assignReassignmentCounter,
+                                              )
+                                          )
+                                        else Map.empty),
           )
       },
     )
@@ -256,7 +263,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       timeProofs: List[CantonTimestamp],
       contractSetup: Map[
         LfContractId,
-        (Set[LfPartyId], TimeOfChange, TimeOfChange, TransferCounter, TransferCounter),
+        (Set[LfPartyId], TimeOfChange, TimeOfChange, ReassignmentCounter, ReassignmentCounter),
       ],
       topology: Map[ParticipantId, Set[LfPartyId]],
       optCommitmentStore: Option[AcsCommitmentStore] = None,
@@ -350,7 +357,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       timeProofs: List[CantonTimestamp],
       contractSetup: Map[
         LfContractId,
-        (Set[LfPartyId], TimeOfChange, TimeOfChange, TransferCounter, TransferCounter),
+        (Set[LfPartyId], TimeOfChange, TimeOfChange, ReassignmentCounter, ReassignmentCounter),
       ],
       topology: Map[ParticipantId, Set[LfPartyId]],
       optCommitmentStore: Option[AcsCommitmentStore] = None,
@@ -380,8 +387,8 @@ sealed trait AcsCommitmentProcessorBaseTest
       Map[LfContractId, (Set[Ref.IdString.Party], NonEmpty[Seq[Lifespan]])],
       Map[CantonTimestampSecond, AcsChange],
   ) = {
-    val tc2 = initialTransferCounter + 1
-    val tc3 = initialTransferCounter + 2
+    val reassignmentCounter2 = initialReassignmentCounter + 1
+    val reassignmentCounter3 = initialReassignmentCounter + 2
     val contracts = Map(
       (
         coid(0, 0),
@@ -392,7 +399,7 @@ sealed trait AcsCommitmentProcessorBaseTest
             Lifespan.ArchiveOnDeactivate(
               ts(2).forgetRefinement,
               ts(4).forgetRefinement,
-              initialTransferCounter,
+              initialReassignmentCounter,
             ): Lifespan,
           ),
         ),
@@ -403,18 +410,18 @@ sealed trait AcsCommitmentProcessorBaseTest
           Set(alice, bob),
           NonEmpty.mk(
             Seq,
-            Lifespan.TransferOutOnDeactivate(
+            Lifespan.UnassignmentDeactivate(
               ts(2).forgetRefinement,
               ts(4).forgetRefinement,
-              initialTransferCounter,
-              tc2,
+              initialReassignmentCounter,
+              reassignmentCounter2,
             ): Lifespan,
             Lifespan
-              .TransferOutOnDeactivate(
+              .UnassignmentDeactivate(
                 ts(7).forgetRefinement,
                 ts(8).forgetRefinement,
-                tc2,
-                tc2,
+                reassignmentCounter2,
+                reassignmentCounter2,
               ): Lifespan,
           ),
         ),
@@ -425,19 +432,18 @@ sealed trait AcsCommitmentProcessorBaseTest
           Set(alice, bob, carol),
           NonEmpty.mk(
             Seq,
-            Lifespan.TransferOutOnDeactivate(
+            Lifespan.UnassignmentDeactivate(
               ts(7).forgetRefinement,
               ts(8).forgetRefinement,
-              initialTransferCounter,
-              tc2,
+              initialReassignmentCounter,
+              reassignmentCounter2,
             ): Lifespan,
-            Lifespan
-              .TransferOutOnDeactivate(
-                ts(10).forgetRefinement,
-                ts(12).forgetRefinement,
-                tc2,
-                tc3,
-              ): Lifespan,
+            Lifespan.UnassignmentDeactivate(
+              ts(10).forgetRefinement,
+              ts(12).forgetRefinement,
+              reassignmentCounter2,
+              reassignmentCounter3,
+            ): Lifespan,
           ),
         ),
       ),
@@ -450,7 +456,7 @@ sealed trait AcsCommitmentProcessorBaseTest
             Lifespan.ArchiveOnDeactivate(
               ts(9).forgetRefinement,
               ts(9).forgetRefinement,
-              initialTransferCounter,
+              initialReassignmentCounter,
             ): Lifespan,
           ),
         ),
@@ -462,22 +468,22 @@ sealed trait AcsCommitmentProcessorBaseTest
         coid(0, 0) ->
           CreationCommit(
             ContractMetadata.tryCreate(Set.empty, Set(alice, bob), None),
-            initialTransferCounter,
+            initialReassignmentCounter,
           ),
         coid(1, 0) ->
           CreationCommit(
             ContractMetadata.tryCreate(Set.empty, Set(alice, bob), None),
-            initialTransferCounter,
+            initialReassignmentCounter,
           ),
       ),
       archivals = Map.empty[LfContractId, ArchivalCommit],
-      transferOuts = Map.empty[LfContractId, TransferOutCommit],
+      unassignments = Map.empty[LfContractId, UnassignmentCommit],
       transferIns = Map.empty[LfContractId, TransferInCommit],
     )
     val acs2 = AcsChange.tryFromCommitSet(
       cs2,
-      Map.empty[LfContractId, TransferCounter],
-      Map.empty[LfContractId, TransferCounter],
+      Map.empty[LfContractId, ReassignmentCounter],
+      Map.empty[LfContractId, ReassignmentCounter],
     )
 
     val cs4 = CommitSet(
@@ -485,38 +491,42 @@ sealed trait AcsCommitmentProcessorBaseTest
       archivals = Map[LfContractId, ArchivalCommit](
         coid(0, 0) -> ArchivalCommit(Set(alice, bob))
       ),
-      transferOuts = Map[LfContractId, TransferOutCommit](
-        coid(1, 0) -> TransferOutCommit(TargetDomainId(domainId), Set(alice, bob), tc2)
+      unassignments = Map[LfContractId, UnassignmentCommit](
+        coid(1, 0) -> UnassignmentCommit(
+          TargetDomainId(domainId),
+          Set(alice, bob),
+          reassignmentCounter2,
+        )
       ),
       transferIns = Map.empty[LfContractId, TransferInCommit],
     )
     val acs4 = AcsChange.tryFromCommitSet(
       cs4,
-      Map[LfContractId, TransferCounter](coid(0, 0) -> initialTransferCounter),
-      Map.empty[LfContractId, TransferCounter],
+      Map[LfContractId, ReassignmentCounter](coid(0, 0) -> initialReassignmentCounter),
+      Map.empty[LfContractId, ReassignmentCounter],
     )
 
     val cs7 = CommitSet(
       creations = Map[LfContractId, CreationCommit](
         coid(2, 0) -> CreationCommit(
           ContractMetadata.tryCreate(Set.empty, Set(alice, bob, carol), None),
-          initialTransferCounter,
+          initialReassignmentCounter,
         )
       ),
       archivals = Map.empty[LfContractId, ArchivalCommit],
-      transferOuts = Map.empty[LfContractId, TransferOutCommit],
+      unassignments = Map.empty[LfContractId, UnassignmentCommit],
       transferIns = Map[LfContractId, TransferInCommit](
         coid(1, 0) -> TransferInCommit(
           ReassignmentId(SourceDomainId(domainId), ts(4).forgetRefinement),
           ContractMetadata.tryCreate(Set.empty, Set(alice, bob), None),
-          tc2,
+          reassignmentCounter2,
         )
       ),
     )
     val acs7 = AcsChange.tryFromCommitSet(
       cs7,
-      Map.empty[LfContractId, TransferCounter],
-      Map.empty[LfContractId, TransferCounter],
+      Map.empty[LfContractId, ReassignmentCounter],
+      Map.empty[LfContractId, ReassignmentCounter],
     )
 
     val cs8 = CommitSet(
@@ -526,11 +536,11 @@ sealed trait AcsCommitmentProcessorBaseTest
           Set(alice, bob)
         )
       ),
-      transferOuts = Map[LfContractId, TransferOutCommit](
-        coid(2, 0) -> TransferOutCommit(
+      unassignments = Map[LfContractId, UnassignmentCommit](
+        coid(2, 0) -> UnassignmentCommit(
           TargetDomainId(domainId),
           Set(alice, bob, carol),
-          tc2,
+          reassignmentCounter2,
         )
       ),
       transferIns = Map.empty[LfContractId, TransferInCommit],
@@ -538,15 +548,15 @@ sealed trait AcsCommitmentProcessorBaseTest
     val acs8 =
       AcsChange.tryFromCommitSet(
         cs8,
-        Map[LfContractId, TransferCounter](coid(1, 0) -> tc2),
-        Map.empty[LfContractId, TransferCounter],
+        Map[LfContractId, ReassignmentCounter](coid(1, 0) -> reassignmentCounter2),
+        Map.empty[LfContractId, ReassignmentCounter],
       )
 
     val cs9 = CommitSet(
       creations = Map[LfContractId, CreationCommit](
         coid(3, 0) -> CreationCommit(
           ContractMetadata.tryCreate(Set.empty, Set(alice, bob, carol), None),
-          initialTransferCounter,
+          initialReassignmentCounter,
         )
       ),
       archivals = Map[LfContractId, ArchivalCommit](
@@ -554,49 +564,49 @@ sealed trait AcsCommitmentProcessorBaseTest
           Set(alice, bob, carol)
         )
       ),
-      transferOuts = Map.empty[LfContractId, TransferOutCommit],
+      unassignments = Map.empty[LfContractId, UnassignmentCommit],
       transferIns = Map.empty[LfContractId, TransferInCommit],
     )
     val acs9 = AcsChange.tryFromCommitSet(
       cs9,
-      Map.empty[LfContractId, TransferCounter],
-      Map[LfContractId, TransferCounter](coid(3, 0) -> initialTransferCounter),
+      Map.empty[LfContractId, ReassignmentCounter],
+      Map[LfContractId, ReassignmentCounter](coid(3, 0) -> initialReassignmentCounter),
     )
 
     val cs10 = CommitSet(
       creations = Map.empty[LfContractId, CreationCommit],
       archivals = Map.empty[LfContractId, ArchivalCommit],
-      transferOuts = Map.empty[LfContractId, TransferOutCommit],
+      unassignments = Map.empty[LfContractId, UnassignmentCommit],
       transferIns = Map[LfContractId, TransferInCommit](
         coid(2, 0) -> TransferInCommit(
           ReassignmentId(SourceDomainId(domainId), ts(8).forgetRefinement),
           ContractMetadata.tryCreate(Set.empty, Set(alice, bob, carol), None),
-          tc2,
+          reassignmentCounter2,
         )
       ),
     )
     val acs10 = AcsChange.tryFromCommitSet(
       cs10,
-      Map.empty[LfContractId, TransferCounter],
-      Map.empty[LfContractId, TransferCounter],
+      Map.empty[LfContractId, ReassignmentCounter],
+      Map.empty[LfContractId, ReassignmentCounter],
     )
 
     val cs12 = CommitSet(
       creations = Map.empty[LfContractId, CreationCommit],
       archivals = Map.empty[LfContractId, ArchivalCommit],
-      transferOuts = Map[LfContractId, TransferOutCommit](
-        coid(2, 0) -> TransferOutCommit(
+      unassignments = Map[LfContractId, UnassignmentCommit](
+        coid(2, 0) -> UnassignmentCommit(
           TargetDomainId(domainId),
           Set(alice, bob, carol),
-          tc3,
+          reassignmentCounter3,
         )
       ),
       transferIns = Map.empty[LfContractId, TransferInCommit],
     )
     val acs12 = AcsChange.tryFromCommitSet(
       cs12,
-      Map.empty[LfContractId, TransferCounter],
-      Map.empty[LfContractId, TransferCounter],
+      Map.empty[LfContractId, ReassignmentCounter],
+      Map.empty[LfContractId, ReassignmentCounter],
     )
 
     val acsChanges = Map(
@@ -629,7 +639,7 @@ sealed trait AcsCommitmentProcessorBaseTest
             Lifespan.ArchiveOnDeactivate(
               ts(2).forgetRefinement,
               ts(4).forgetRefinement,
-              initialTransferCounter,
+              initialReassignmentCounter,
             ),
           ),
         ),
@@ -643,7 +653,7 @@ sealed trait AcsCommitmentProcessorBaseTest
             Lifespan.ArchiveOnDeactivate(
               ts(2).forgetRefinement,
               ts(6).forgetRefinement,
-              initialTransferCounter,
+              initialReassignmentCounter,
             ),
           ),
         ),
@@ -657,7 +667,7 @@ sealed trait AcsCommitmentProcessorBaseTest
             Lifespan.ArchiveOnDeactivate(
               ts(2).forgetRefinement,
               ts(10).forgetRefinement,
-              initialTransferCounter,
+              initialReassignmentCounter,
             ),
           ),
         ),
@@ -671,7 +681,7 @@ sealed trait AcsCommitmentProcessorBaseTest
             Lifespan.ArchiveOnDeactivate(
               ts(2).forgetRefinement,
               ts(4).forgetRefinement,
-              initialTransferCounter,
+              initialReassignmentCounter,
             ),
           ),
         ),
@@ -685,7 +695,7 @@ sealed trait AcsCommitmentProcessorBaseTest
             Lifespan.ArchiveOnDeactivate(
               ts(2).forgetRefinement,
               ts(14).forgetRefinement,
-              initialTransferCounter,
+              initialReassignmentCounter,
             ),
           ),
         ),
@@ -699,7 +709,7 @@ sealed trait AcsCommitmentProcessorBaseTest
             Lifespan.ArchiveOnDeactivate(
               ts(2).forgetRefinement,
               ts(18).forgetRefinement,
-              initialTransferCounter,
+              initialReassignmentCounter,
             ),
           ),
         ),
@@ -710,37 +720,37 @@ sealed trait AcsCommitmentProcessorBaseTest
       creations = Map[LfContractId, CreationCommit](
         coid(0, 0) -> CreationCommit(
           ContractMetadata.tryCreate(Set.empty, Set(alice, bob), None),
-          initialTransferCounter,
+          initialReassignmentCounter,
         ),
         coid(1, 0) -> CreationCommit(
           ContractMetadata.tryCreate(Set.empty, Set(alice, bob), None),
-          initialTransferCounter,
+          initialReassignmentCounter,
         ),
         coid(2, 0) -> CreationCommit(
           ContractMetadata.tryCreate(Set.empty, Set(alice, bob, carol), None),
-          initialTransferCounter,
+          initialReassignmentCounter,
         ),
         coid(3, 0) -> CreationCommit(
           ContractMetadata.tryCreate(Set.empty, Set(alice, bob, carol), None),
-          initialTransferCounter,
+          initialReassignmentCounter,
         ),
         coid(4, 0) -> CreationCommit(
           ContractMetadata.tryCreate(Set.empty, Set(alice, danna), None),
-          initialTransferCounter,
+          initialReassignmentCounter,
         ),
         coid(5, 0) -> CreationCommit(
           ContractMetadata.tryCreate(Set.empty, Set(alice, ed), None),
-          initialTransferCounter,
+          initialReassignmentCounter,
         ),
       ),
       archivals = Map.empty[LfContractId, ArchivalCommit],
-      transferOuts = Map.empty[LfContractId, TransferOutCommit],
+      unassignments = Map.empty[LfContractId, UnassignmentCommit],
       transferIns = Map.empty[LfContractId, TransferInCommit],
     )
     val acs2 = AcsChange.tryFromCommitSet(
       cs2,
-      Map.empty[LfContractId, TransferCounter],
-      Map.empty[LfContractId, TransferCounter],
+      Map.empty[LfContractId, ReassignmentCounter],
+      Map.empty[LfContractId, ReassignmentCounter],
     )
 
     val cs4 = CommitSet(
@@ -753,16 +763,16 @@ sealed trait AcsCommitmentProcessorBaseTest
           Set(alice, bob, carol)
         ),
       ),
-      transferOuts = Map.empty[LfContractId, TransferOutCommit],
+      unassignments = Map.empty[LfContractId, UnassignmentCommit],
       transferIns = Map.empty[LfContractId, TransferInCommit],
     )
     val acs4 = AcsChange.tryFromCommitSet(
       cs4,
-      Map[LfContractId, TransferCounter](
-        coid(0, 0) -> initialTransferCounter,
-        coid(3, 0) -> initialTransferCounter,
+      Map[LfContractId, ReassignmentCounter](
+        coid(0, 0) -> initialReassignmentCounter,
+        coid(3, 0) -> initialReassignmentCounter,
       ),
-      Map.empty[LfContractId, TransferCounter],
+      Map.empty[LfContractId, ReassignmentCounter],
     )
 
     val acsChanges = Map(ts(2) -> acs2, ts(4) -> acs4)
@@ -784,13 +794,13 @@ class AcsCommitmentProcessorTest
   // if we want to test whether commitment buffering works
   // Also assumes that all the contracts in the map have the same stakeholders
   private def stakeholderCommitment(
-      contracts: Map[LfContractId, TransferCounter]
+      contracts: Map[LfContractId, ReassignmentCounter]
   ): AcsCommitment.CommitmentType = {
     val h = LtHash16()
     contracts.keySet.foreach { cid =>
       h.add(
         (cid.encodeDeterministically
-          concat TransferCounter.encodeDeterministically(contracts(cid))).toByteArray
+          concat ReassignmentCounter.encodeDeterministically(contracts(cid))).toByteArray
       )
     }
     h.getByteString()
@@ -837,7 +847,7 @@ class AcsCommitmentProcessorTest
   private def commitmentMsg(
       params: (
           ParticipantId,
-          Map[LfContractId, TransferCounter],
+          Map[LfContractId, ReassignmentCounter],
           CantonTimestampSecond,
           CantonTimestampSecond,
           Option[PositiveSeconds],
@@ -888,17 +898,17 @@ class AcsCommitmentProcessorTest
     for {
       snapshot <- acs.snapshot(at.forgetRefinement)
       byStkhSet = snapshot
-        .map { case (cid, (ts, transferCounter)) =>
-          cid -> (stakeholderLookup(cid), transferCounter)
+        .map { case (cid, (ts, reassignmentCounter)) =>
+          cid -> (stakeholderLookup(cid), reassignmentCounter)
         }
         .groupBy { case (_, (stakeholder, _)) => stakeholder }
         .map {
           case (stkhs, m) => {
             logger.debug(
-              s"adding to commitment for stakeholders $stkhs the parts cid and transfer counter in $m"
+              s"adding to commitment for stakeholders $stkhs the parts cid and reassignment counter in $m"
             )
             SortedSet(stkhs.toList*) -> stakeholderCommitment(m.map {
-              case (cid, (_, transferCounter)) => (cid, transferCounter)
+              case (cid, (_, reassignmentCounter)) => (cid, reassignmentCounter)
             })
           }
         }
@@ -914,11 +924,11 @@ class AcsCommitmentProcessorTest
     } yield res
   }
 
-  // add a fixed contract id and custom transfer counter
+  // add a fixed contract id and custom reassignment counter
   // and return active and delta-added commitments (byte strings)
   private def addCommonContractId(
       rc: RunningCommitments,
-      transferCounter: TransferCounter,
+      reassignmentCounter: ReassignmentCounter,
   ): (AcsCommitment.CommitmentType, AcsCommitment.CommitmentType) = {
     val commonContractId = coid(0, 0)
     rc.watermark shouldBe RecordTime.MinValue
@@ -931,9 +941,9 @@ class AcsCommitmentProcessorTest
     val ch1 = AcsChange(
       activations = Map(
         commonContractId ->
-          ContractStakeholdersAndTransferCounter(
+          ContractStakeholdersAndReassignmentCounter(
             Set(alice, bob),
-            transferCounter,
+            reassignmentCounter,
           )
       ),
       deactivations = Map.empty,
@@ -1035,7 +1045,7 @@ class AcsCommitmentProcessorTest
               Lifespan.ArchiveOnDeactivate(
                 ts(2).forgetRefinement,
                 ts(4).forgetRefinement,
-                initialTransferCounter,
+                initialReassignmentCounter,
               ),
             ),
           ),
@@ -1049,7 +1059,7 @@ class AcsCommitmentProcessorTest
               Lifespan.ArchiveOnDeactivate(
                 ts(2).forgetRefinement,
                 ts(5).forgetRefinement,
-                initialTransferCounter,
+                initialReassignmentCounter,
               ),
             ),
           ),
@@ -1063,7 +1073,7 @@ class AcsCommitmentProcessorTest
               Lifespan.ArchiveOnDeactivate(
                 ts(7).forgetRefinement,
                 ts(8).forgetRefinement,
-                initialTransferCounter,
+                initialReassignmentCounter,
               ),
             ),
           ),
@@ -1077,7 +1087,7 @@ class AcsCommitmentProcessorTest
               Lifespan.ArchiveOnDeactivate(
                 ts(9).forgetRefinement,
                 ts(9).forgetRefinement,
-                initialTransferCounter,
+                initialReassignmentCounter,
               ),
             ),
           ),
@@ -1091,7 +1101,7 @@ class AcsCommitmentProcessorTest
               Lifespan.ArchiveOnDeactivate(
                 ts(11).forgetRefinement,
                 ts(13).forgetRefinement,
-                initialTransferCounter,
+                initialReassignmentCounter,
               ),
             ),
           ),
@@ -1198,15 +1208,27 @@ class AcsCommitmentProcessorTest
         // contract ID to stakeholders, creation and archival time
         (
           coid(0, 0),
-          (Set(alice, bob), toc(1), toc(9), initialTransferCounter, initialTransferCounter),
+          (Set(alice, bob), toc(1), toc(9), initialReassignmentCounter, initialReassignmentCounter),
         ),
         (
           coid(0, 1),
-          (Set(alice, carol), toc(9), toc(12), initialTransferCounter, initialTransferCounter),
+          (
+            Set(alice, carol),
+            toc(9),
+            toc(12),
+            initialReassignmentCounter,
+            initialReassignmentCounter,
+          ),
         ),
         (
           coid(1, 0),
-          (Set(alice, carol), toc(1), toc(3), initialTransferCounter, initialTransferCounter),
+          (
+            Set(alice, carol),
+            toc(1),
+            toc(3),
+            initialReassignmentCounter,
+            initialReassignmentCounter,
+          ),
         ),
       )
 
@@ -1220,8 +1242,8 @@ class AcsCommitmentProcessorTest
         testSetupDontPublish(timeProofs, contractSetup, topology)
 
       val remoteCommitments = List(
-        (remoteId1, Map((coid(0, 0), initialTransferCounter)), ts(0), ts(5), None),
-        (remoteId2, Map((coid(0, 1), initialTransferCounter)), ts(5), ts(10), None),
+        (remoteId1, Map((coid(0, 0), initialReassignmentCounter)), ts(0), ts(5), None),
+        (remoteId2, Map((coid(0, 1), initialReassignmentCounter)), ts(5), ts(10), None),
       )
 
       for {
@@ -1286,7 +1308,7 @@ class AcsCommitmentProcessorTest
         // contract ID to stakeholders, creation and archival time
         (
           coid(0, 0),
-          (Set(alice, bob), toc(8), toc(12), initialTransferCounter, initialTransferCounter),
+          (Set(alice, bob), toc(8), toc(12), initialReassignmentCounter, initialReassignmentCounter),
         )
       )
 
@@ -1309,7 +1331,7 @@ class AcsCommitmentProcessorTest
       )
 
       val remoteCommitments =
-        List((remoteId1, Map((coid(0, 0), initialTransferCounter)), ts(5), ts(10), None))
+        List((remoteId1, Map((coid(0, 0), initialReassignmentCounter)), ts(5), ts(10), None))
 
       for {
         remote <- remoteCommitments.parTraverse(commitmentMsg)
@@ -1695,14 +1717,14 @@ class AcsCommitmentProcessorTest
       val ch1 = AcsChange(
         activations = Map(
           coid(0, 0) ->
-            ContractStakeholdersAndTransferCounter(
+            ContractStakeholdersAndReassignmentCounter(
               Set(alice, bob),
-              initialTransferCounter,
+              initialReassignmentCounter,
             ),
           coid(0, 1) ->
-            ContractStakeholdersAndTransferCounter(
+            ContractStakeholdersAndReassignmentCounter(
               Set(bob, carol),
-              initialTransferCounter,
+              initialReassignmentCounter,
             ),
         ),
         deactivations = Map.empty,
@@ -1717,16 +1739,16 @@ class AcsCommitmentProcessorTest
 
       val ch2 = AcsChange(
         deactivations = Map(
-          coid(0, 0) -> ContractStakeholdersAndTransferCounter(
+          coid(0, 0) -> ContractStakeholdersAndReassignmentCounter(
             Set(alice, bob),
-            initialTransferCounter,
+            initialReassignmentCounter,
           )
         ),
         activations = Map(
           coid(1, 1) ->
-            ContractStakeholdersAndTransferCounter(
+            ContractStakeholdersAndReassignmentCounter(
               Set(alice, carol),
-              initialTransferCounter,
+              initialReassignmentCounter,
             )
         ),
       )
@@ -1742,9 +1764,9 @@ class AcsCommitmentProcessorTest
         deactivations = Map.empty,
         activations = Map(
           coid(2, 1) ->
-            ContractStakeholdersAndTransferCounter(
+            ContractStakeholdersAndReassignmentCounter(
               Set(alice, carol),
-              initialTransferCounter,
+              initialReassignmentCounter,
             )
         ),
       )
@@ -1756,35 +1778,36 @@ class AcsCommitmentProcessorTest
       snap3.deleted shouldBe Set.empty
     }
 
-    "contracts differing by transfer counter result in different commitments if the PV support transfer counters" in {
+    "contracts differing by reassignment counter result in different commitments if the PV support reassignment counters" in {
       val rc1 =
         new pruning.AcsCommitmentProcessor.RunningCommitments(RecordTime.MinValue, TrieMap.empty)
       val rc2 =
         new pruning.AcsCommitmentProcessor.RunningCommitments(RecordTime.MinValue, TrieMap.empty)
-      val tc2 = initialTransferCounter + 1
+      val reassignmentCounter2 = initialReassignmentCounter + 1
 
       val (activeCommitment1, deltaAddedCommitment1) =
-        addCommonContractId(rc1, initialTransferCounter)
-      val (activeCommitment2, deltaAddedCommitment2) = addCommonContractId(rc2, tc2)
+        addCommonContractId(rc1, initialReassignmentCounter)
+      val (activeCommitment2, deltaAddedCommitment2) =
+        addCommonContractId(rc2, reassignmentCounter2)
 
       activeCommitment1 should not be activeCommitment2
       deltaAddedCommitment1 should not be deltaAddedCommitment2
     }
 
-    "transient contracts in a commit set obtain the correct transfer counter for archivals, hence do not appear in the ACS change" in {
+    "transient contracts in a commit set obtain the correct reassignment counter for archivals, hence do not appear in the ACS change" in {
       val cid1 = coid(0, 1)
       val cid2 = coid(0, 2)
       val cid3 = coid(0, 3)
       val cid4 = coid(0, 4)
-      val tc1 = initialTransferCounter + 1
-      val tc2 = initialTransferCounter + 2
-      val tc3 = initialTransferCounter + 3
+      val reassignmentCounter1 = initialReassignmentCounter + 1
+      val reassignmentCounter2 = initialReassignmentCounter + 2
+      val reassignmentCounter3 = initialReassignmentCounter + 3
 
       val cs = CommitSet(
         creations = Map[LfContractId, CreationCommit](
           cid1.leftSide -> CommitSet.CreationCommit(
             ContractMetadata.tryCreate(Set.empty, Set(alice, bob), None),
-            initialTransferCounter,
+            initialReassignmentCounter,
           )
         ),
         archivals = Map[LfContractId, ArchivalCommit](
@@ -1792,48 +1815,55 @@ class AcsCommitmentProcessorTest
           cid3.leftSide -> CommitSet.ArchivalCommit(Set(bob)),
           cid4.leftSide -> CommitSet.ArchivalCommit(Set(alice)),
         ),
-        transferOuts = Map[LfContractId, TransferOutCommit](
-          cid2.leftSide -> CommitSet.TransferOutCommit(TargetDomainId(domainId), Set(alice), tc2)
+        unassignments = Map[LfContractId, UnassignmentCommit](
+          cid2.leftSide -> CommitSet
+            .UnassignmentCommit(TargetDomainId(domainId), Set(alice), reassignmentCounter2)
         ),
         transferIns = Map[LfContractId, TransferInCommit](
           cid3.leftSide -> CommitSet.TransferInCommit(
             ReassignmentId(SourceDomainId(domainId), CantonTimestamp.Epoch),
             ContractMetadata.tryCreate(Set.empty, Set(bob), None),
-            tc1,
+            reassignmentCounter1,
           )
         ),
       )
 
-      val transferCounterOfArchival = Map[LfContractId, TransferCounter](cid4 -> tc3)
+      val reassignmentCounterOfArchival =
+        Map[LfContractId, ReassignmentCounter](cid4 -> reassignmentCounter3)
 
-      val transferCountersForArchivedTransient = AcsChange.transferCountersForArchivedTransient(cs)
+      val reassignmentCountersForArchivedTransient =
+        AcsChange.reassignmentCountersForArchivedTransient(cs)
       val acs1 =
         AcsChange.tryFromCommitSet(
           cs,
-          transferCounterOfArchival,
-          transferCountersForArchivedTransient,
+          reassignmentCounterOfArchival,
+          reassignmentCountersForArchivedTransient,
         )
 
-      // cid1 is a transient creation with transfer counter initialTransferCounter and should not appear in the ACS change
-      transferCountersForArchivedTransient
+      // cid1 is a transient creation with reassignment counter initialReassignmentCounter and should not appear in the ACS change
+      reassignmentCountersForArchivedTransient
         .get(cid1)
         .fold(
-          fail(s"$cid1 should be transient, but is not in $transferCountersForArchivedTransient")
-        )(_ shouldBe initialTransferCounter)
+          fail(
+            s"$cid1 should be transient, but is not in $reassignmentCountersForArchivedTransient"
+          )
+        )(_ shouldBe initialReassignmentCounter)
       acs1.activations.get(cid1) shouldBe None
       acs1.deactivations.get(cid1) shouldBe None
       // cid3 is a transient transfer-in and should not appear in the ACS change
-      transferCountersForArchivedTransient
+      reassignmentCountersForArchivedTransient
         .get(cid3)
         .fold(
-          fail(s"$cid3 should be transient, but is not in $transferCountersForArchivedTransient")
-        )(_ shouldBe tc1)
+          fail(
+            s"$cid3 should be transient, but is not in $reassignmentCountersForArchivedTransient"
+          )
+        )(_ shouldBe reassignmentCounter1)
       acs1.activations.get(cid3) shouldBe None
       acs1.deactivations.get(cid3) shouldBe None
-      // transfer-out cid2 is a deactivation with transfer counter tc2
-      acs1.deactivations(cid2.leftSide).transferCounter shouldBe tc1
-      // archival of cid4 is a deactivation with transfer counter tc3
-      acs1.deactivations(cid4.leftSide).transferCounter shouldBe tc3
+      // unassignment cid2 is a deactivation with reassignment counter reassignmentCounter2
+      acs1.deactivations(cid2.leftSide).reassignmentCounter shouldBe reassignmentCounter1
+      // archival of cid4 is a deactivation with reassignment counter reassignmentCounter3
+      acs1.deactivations(cid4.leftSide).reassignmentCounter shouldBe reassignmentCounter3
     }
 
     // Test timeline of contract creations, reassignments and archivals
@@ -1959,15 +1989,33 @@ class AcsCommitmentProcessorTest
           // contract ID to stakeholders, creation and archival time
           (
             coid(0, 0),
-            (Set(alice, bob), toc(1), toc(9), initialTransferCounter, initialTransferCounter),
+            (
+              Set(alice, bob),
+              toc(1),
+              toc(9),
+              initialReassignmentCounter,
+              initialReassignmentCounter,
+            ),
           ),
           (
             coid(0, 1),
-            (Set(alice, carol), toc(11), toc(21), initialTransferCounter, initialTransferCounter),
+            (
+              Set(alice, carol),
+              toc(11),
+              toc(21),
+              initialReassignmentCounter,
+              initialReassignmentCounter,
+            ),
           ),
           (
             coid(1, 0),
-            (Set(alice, carol), toc(18), toc(33), initialTransferCounter, initialTransferCounter),
+            (
+              Set(alice, carol),
+              toc(18),
+              toc(33),
+              initialReassignmentCounter,
+              initialReassignmentCounter,
+            ),
           ),
         )
 
@@ -1986,17 +2034,17 @@ class AcsCommitmentProcessorTest
           )
 
         val remoteCommitments = List(
-          (remoteId1, Map((coid(0, 0), initialTransferCounter)), ts(0), ts(5), None),
-          (remoteId2, Map((coid(0, 1), initialTransferCounter)), ts(10), ts(15), None),
+          (remoteId1, Map((coid(0, 0), initialReassignmentCounter)), ts(0), ts(5), None),
+          (remoteId2, Map((coid(0, 1), initialReassignmentCounter)), ts(10), ts(15), None),
           (
             remoteId2,
-            Map((coid(1, 0), initialTransferCounter), (coid(0, 1), initialTransferCounter)),
+            Map((coid(1, 0), initialReassignmentCounter), (coid(0, 1), initialReassignmentCounter)),
             ts(15),
             ts(20),
             None,
           ),
-          (remoteId2, Map((coid(1, 0), initialTransferCounter)), ts(20), ts(25), None),
-          (remoteId2, Map((coid(1, 0), initialTransferCounter)), ts(25), ts(30), None),
+          (remoteId2, Map((coid(1, 0), initialReassignmentCounter)), ts(20), ts(25), None),
+          (remoteId2, Map((coid(1, 0), initialReassignmentCounter)), ts(25), ts(30), None),
         )
 
         for {
@@ -2078,8 +2126,8 @@ class AcsCommitmentProcessorTest
                   Set(alice, bob),
                   toc(1),
                   toc(CantonTimestamp.MaxValue.getEpochSecond),
-                  initialTransferCounter,
-                  initialTransferCounter,
+                  initialReassignmentCounter,
+                  initialReassignmentCounter,
                 ),
               )
             )
@@ -2168,7 +2216,13 @@ class AcsCommitmentProcessorTest
           // contract ID to stakeholders, creation and archival time
           (
             coid(0, 0),
-            (Set(alice, bob), toc(1), toc(20000), initialTransferCounter, initialTransferCounter),
+            (
+              Set(alice, bob),
+              toc(1),
+              toc(20000),
+              initialReassignmentCounter,
+              initialReassignmentCounter,
+            ),
           )
         )
 
@@ -2239,7 +2293,13 @@ class AcsCommitmentProcessorTest
           // contract ID to stakeholders, creation and archival time
           (
             coid(0, 0),
-            (Set(alice, bob), toc(1), toc(20000), initialTransferCounter, initialTransferCounter),
+            (
+              Set(alice, bob),
+              toc(1),
+              toc(20000),
+              initialReassignmentCounter,
+              initialReassignmentCounter,
+            ),
           )
         )
 
@@ -2304,15 +2364,33 @@ class AcsCommitmentProcessorTest
           // contract ID to stakeholders, creation and archival time
           (
             coid(0, 0),
-            (Set(alice, bob), toc(1), toc(9), initialTransferCounter, initialTransferCounter),
+            (
+              Set(alice, bob),
+              toc(1),
+              toc(9),
+              initialReassignmentCounter,
+              initialReassignmentCounter,
+            ),
           ),
           (
             coid(0, 1),
-            (Set(alice, carol), toc(11), toc(21), initialTransferCounter, initialTransferCounter),
+            (
+              Set(alice, carol),
+              toc(11),
+              toc(21),
+              initialReassignmentCounter,
+              initialReassignmentCounter,
+            ),
           ),
           (
             coid(1, 0),
-            (Set(alice, carol), toc(18), toc(33), initialTransferCounter, initialTransferCounter),
+            (
+              Set(alice, carol),
+              toc(18),
+              toc(33),
+              initialReassignmentCounter,
+              initialReassignmentCounter,
+            ),
           ),
         )
 
@@ -2331,16 +2409,16 @@ class AcsCommitmentProcessorTest
           )
 
         val remoteCommitments = List(
-          (remoteId1, Map((coid(0, 0), initialTransferCounter)), ts(0), ts(5), None),
-          (remoteId2, Map((coid(0, 1), initialTransferCounter)), ts(10), ts(15), None),
+          (remoteId1, Map((coid(0, 0), initialReassignmentCounter)), ts(0), ts(5), None),
+          (remoteId2, Map((coid(0, 1), initialReassignmentCounter)), ts(10), ts(15), None),
           (
             remoteId2,
-            Map((coid(1, 0), initialTransferCounter), (coid(0, 1), initialTransferCounter)),
+            Map((coid(1, 0), initialReassignmentCounter), (coid(0, 1), initialReassignmentCounter)),
             ts(15),
             ts(20),
             None,
           ),
-          (remoteId2, Map((coid(1, 0), initialTransferCounter)), ts(20), ts(30), None),
+          (remoteId2, Map((coid(1, 0), initialReassignmentCounter)), ts(20), ts(30), None),
         )
 
         for {
@@ -2388,15 +2466,33 @@ class AcsCommitmentProcessorTest
           // contract ID to stakeholders, creation and archival time
           (
             coid(0, 0),
-            (Set(alice, bob), toc(1), toc(9), initialTransferCounter, initialTransferCounter),
+            (
+              Set(alice, bob),
+              toc(1),
+              toc(9),
+              initialReassignmentCounter,
+              initialReassignmentCounter,
+            ),
           ),
           (
             coid(0, 1),
-            (Set(alice, carol), toc(11), toc(21), initialTransferCounter, initialTransferCounter),
+            (
+              Set(alice, carol),
+              toc(11),
+              toc(21),
+              initialReassignmentCounter,
+              initialReassignmentCounter,
+            ),
           ),
           (
             coid(1, 0),
-            (Set(alice, carol), toc(18), toc(33), initialTransferCounter, initialTransferCounter),
+            (
+              Set(alice, carol),
+              toc(18),
+              toc(33),
+              initialReassignmentCounter,
+              initialReassignmentCounter,
+            ),
           ),
         )
 
@@ -2415,21 +2511,21 @@ class AcsCommitmentProcessorTest
           )
 
         val remoteCommitments = List(
-          (remoteId1, Map((coid(0, 0), initialTransferCounter)), ts(0), ts(5), None),
-          (remoteId2, Map((coid(0, 1), initialTransferCounter)), ts(10), ts(15), None),
+          (remoteId1, Map((coid(0, 0), initialReassignmentCounter)), ts(0), ts(5), None),
+          (remoteId2, Map((coid(0, 1), initialReassignmentCounter)), ts(10), ts(15), None),
           // wrong contract, causes mismatch
           (
             remoteId2,
             Map(
-              (coid(1, 1), initialTransferCounter + 1),
-              (coid(2, 1), initialTransferCounter + 2),
+              (coid(1, 1), initialReassignmentCounter + 1),
+              (coid(2, 1), initialReassignmentCounter + 2),
             ),
             ts(15),
             ts(20),
             None,
           ),
-          (remoteId2, Map((coid(1, 0), initialTransferCounter)), ts(20), ts(25), None),
-          (remoteId2, Map((coid(1, 0), initialTransferCounter)), ts(25), ts(30), None),
+          (remoteId2, Map((coid(1, 0), initialReassignmentCounter)), ts(20), ts(25), None),
+          (remoteId2, Map((coid(1, 0), initialReassignmentCounter)), ts(25), ts(30), None),
         )
 
         for {
@@ -2518,7 +2614,13 @@ class AcsCommitmentProcessorTest
           // contract ID to stakeholders, creation and archival time
           (
             coid(0, 0),
-            (Set(alice, bob), toc(1), toc(20000), initialTransferCounter, initialTransferCounter),
+            (
+              Set(alice, bob),
+              toc(1),
+              toc(20000),
+              initialReassignmentCounter,
+              initialReassignmentCounter,
+            ),
           )
         )
 
@@ -2616,7 +2718,13 @@ class AcsCommitmentProcessorTest
           // contract ID to stakeholders, creation and archival time
           (
             coid(0, 0),
-            (Set(alice, bob), toc(1), toc(20000), initialTransferCounter, initialTransferCounter),
+            (
+              Set(alice, bob),
+              toc(1),
+              toc(20000),
+              initialReassignmentCounter,
+              initialReassignmentCounter,
+            ),
           )
         )
 
@@ -2693,7 +2801,13 @@ class AcsCommitmentProcessorTest
           // contract ID to stakeholders, creation and archival time
           (
             coid(0, 0),
-            (Set(alice, bob), toc(1), toc(20000), initialTransferCounter, initialTransferCounter),
+            (
+              Set(alice, bob),
+              toc(1),
+              toc(20000),
+              initialReassignmentCounter,
+              initialReassignmentCounter,
+            ),
           )
         )
 
@@ -2790,7 +2904,13 @@ class AcsCommitmentProcessorTest
           // contract ID to stakeholders, creation and archival time
           (
             coid(0, 0),
-            (Set(alice, bob), toc(1), toc(20000), initialTransferCounter, initialTransferCounter),
+            (
+              Set(alice, bob),
+              toc(1),
+              toc(20000),
+              initialReassignmentCounter,
+              initialReassignmentCounter,
+            ),
           )
         )
 
@@ -2847,7 +2967,7 @@ class AcsCommitmentProcessorTest
           .map(i =>
             (
               remoteId1,
-              Map((coid(0, 0), initialTransferCounter)),
+              Map((coid(0, 0), initialReassignmentCounter)),
               ts(i),
               ts(i.plusSeconds(reconciliationInterval)),
               Some(PositiveSeconds.tryOfSeconds(reconciliationInterval)),
@@ -2912,15 +3032,33 @@ class AcsCommitmentProcessorTest
           // contract ID to stakeholders, creation and archival time
           (
             coid(0, 0),
-            (Set(alice, bob), toc(1), toc(9), initialTransferCounter, initialTransferCounter),
+            (
+              Set(alice, bob),
+              toc(1),
+              toc(9),
+              initialReassignmentCounter,
+              initialReassignmentCounter,
+            ),
           ),
           (
             coid(0, 1),
-            (Set(alice, carol), toc(11), toc(21), initialTransferCounter, initialTransferCounter),
+            (
+              Set(alice, carol),
+              toc(11),
+              toc(21),
+              initialReassignmentCounter,
+              initialReassignmentCounter,
+            ),
           ),
           (
             coid(1, 0),
-            (Set(alice, carol), toc(18), toc(33), initialTransferCounter, initialTransferCounter),
+            (
+              Set(alice, carol),
+              toc(18),
+              toc(33),
+              initialReassignmentCounter,
+              initialReassignmentCounter,
+            ),
           ),
         )
 
@@ -2939,22 +3077,22 @@ class AcsCommitmentProcessorTest
           )
 
         val remoteCommitments = List(
-          (remoteId1, Map((coid(0, 0), initialTransferCounter)), ts(0), ts(5), None),
-          (remoteId2, Map((coid(0, 1), initialTransferCounter)), ts(10), ts(15), None),
+          (remoteId1, Map((coid(0, 0), initialReassignmentCounter)), ts(0), ts(5), None),
+          (remoteId2, Map((coid(0, 1), initialReassignmentCounter)), ts(10), ts(15), None),
           // wrong contract, causes mismatch
           (
             remoteId2,
             Map(
-              (coid(1, 1), initialTransferCounter + 1),
-              (coid(2, 1), initialTransferCounter + 2),
+              (coid(1, 1), initialReassignmentCounter + 1),
+              (coid(2, 1), initialReassignmentCounter + 2),
             ),
             ts(15),
             ts(20),
             None,
           ),
-          (remoteId2, Map((coid(1, 0), initialTransferCounter)), ts(20), ts(25), None),
+          (remoteId2, Map((coid(1, 0), initialReassignmentCounter)), ts(20), ts(25), None),
           // wrong contract, causes mismatch
-          (remoteId2, Map((coid(1, 1), initialTransferCounter)), ts(25), ts(30), None),
+          (remoteId2, Map((coid(1, 1), initialReassignmentCounter)), ts(25), ts(30), None),
         )
 
         for {
@@ -3038,8 +3176,8 @@ class AcsCommitmentProcessorTest
               Set(alice, bob, carol),
               toc(1),
               toc(36),
-              initialTransferCounter,
-              initialTransferCounter,
+              initialReassignmentCounter,
+              initialReassignmentCounter,
             ),
           )
         )
@@ -3061,42 +3199,42 @@ class AcsCommitmentProcessorTest
         val remoteCommitmentsFast = List(
           (
             remoteId1,
-            Map((coid(0, 0), initialTransferCounter)),
+            Map((coid(0, 0), initialReassignmentCounter)),
             ts(0),
             ts(5),
             Some(PositiveSeconds.tryOfSeconds(reconciliationInterval)),
           ),
           (
             remoteId1,
-            Map((coid(0, 0), initialTransferCounter)),
+            Map((coid(0, 0), initialReassignmentCounter)),
             ts(5),
             ts(10),
             Some(PositiveSeconds.tryOfSeconds(reconciliationInterval)),
           ),
           (
             remoteId1,
-            Map((coid(0, 0), initialTransferCounter)),
+            Map((coid(0, 0), initialReassignmentCounter)),
             ts(10),
             ts(15),
             Some(PositiveSeconds.tryOfSeconds(reconciliationInterval)),
           ),
           (
             remoteId1,
-            Map((coid(0, 0), initialTransferCounter)),
+            Map((coid(0, 0), initialReassignmentCounter)),
             ts(15),
             ts(20),
             Some(PositiveSeconds.tryOfSeconds(reconciliationInterval)),
           ),
           (
             remoteId1,
-            Map((coid(0, 0), initialTransferCounter)),
+            Map((coid(0, 0), initialReassignmentCounter)),
             ts(20),
             ts(25),
             Some(PositiveSeconds.tryOfSeconds(reconciliationInterval)),
           ),
           (
             remoteId1,
-            Map((coid(0, 0), initialTransferCounter)),
+            Map((coid(0, 0), initialReassignmentCounter)),
             ts(25),
             ts(30),
             Some(PositiveSeconds.tryOfSeconds(reconciliationInterval)),
@@ -3106,14 +3244,14 @@ class AcsCommitmentProcessorTest
         val remoteCommitmentsNormal = List(
           (
             remoteId2,
-            Map((coid(0, 0), initialTransferCounter)),
+            Map((coid(0, 0), initialReassignmentCounter)),
             ts(10),
             ts(15),
             Some(PositiveSeconds.tryOfSeconds(reconciliationInterval)),
           ),
           (
             remoteId2,
-            Map((coid(0, 0), initialTransferCounter)),
+            Map((coid(0, 0), initialReassignmentCounter)),
             ts(20),
             ts(25),
             Some(PositiveSeconds.tryOfSeconds(reconciliationInterval)),
@@ -3206,8 +3344,8 @@ class AcsCommitmentProcessorTest
               Set(alice, bob, carol),
               toc(1),
               toc(36),
-              initialTransferCounter,
-              initialTransferCounter,
+              initialReassignmentCounter,
+              initialReassignmentCounter,
             ),
           )
         )
@@ -3229,14 +3367,14 @@ class AcsCommitmentProcessorTest
         val remoteCommitmentsFast = List(
           (
             remoteId1,
-            Map((coid(0, 0), initialTransferCounter)),
+            Map((coid(0, 0), initialReassignmentCounter)),
             ts(0),
             ts(5),
             Some(PositiveSeconds.tryOfSeconds(reconciliationInterval)),
           ),
           (
             remoteId1,
-            Map((coid(0, 0), initialTransferCounter)),
+            Map((coid(0, 0), initialReassignmentCounter)),
             ts(5),
             ts(10),
             Some(PositiveSeconds.tryOfSeconds(reconciliationInterval)),
@@ -3245,7 +3383,7 @@ class AcsCommitmentProcessorTest
           // this commitment is buffered and checked later
           (
             remoteId1,
-            Map((coid(0, 0), initialTransferCounter), (coid(0, 1), initialTransferCounter)),
+            Map((coid(0, 0), initialReassignmentCounter), (coid(0, 1), initialReassignmentCounter)),
             ts(10),
             ts(15),
             Some(PositiveSeconds.tryOfSeconds(reconciliationInterval)),
@@ -3253,21 +3391,21 @@ class AcsCommitmentProcessorTest
           // coid (0,1) is not shared, should cause a mismatch at catch-up boundary and fine-grained sending
           (
             remoteId1,
-            Map((coid(0, 0), initialTransferCounter), (coid(0, 1), initialTransferCounter)),
+            Map((coid(0, 0), initialReassignmentCounter), (coid(0, 1), initialReassignmentCounter)),
             ts(15),
             ts(20),
             Some(PositiveSeconds.tryOfSeconds(reconciliationInterval)),
           ),
           (
             remoteId1,
-            Map((coid(0, 0), initialTransferCounter)),
+            Map((coid(0, 0), initialReassignmentCounter)),
             ts(20),
             ts(25),
             Some(PositiveSeconds.tryOfSeconds(reconciliationInterval)),
           ),
           (
             remoteId1,
-            Map((coid(0, 0), initialTransferCounter)),
+            Map((coid(0, 0), initialReassignmentCounter)),
             ts(25),
             ts(30),
             Some(PositiveSeconds.tryOfSeconds(reconciliationInterval)),
@@ -3277,7 +3415,7 @@ class AcsCommitmentProcessorTest
         val remoteCommitmentsNormal = List(
           (
             remoteId2,
-            Map((coid(0, 0), initialTransferCounter)),
+            Map((coid(0, 0), initialReassignmentCounter)),
             ts(15),
             ts(20),
             Some(PositiveSeconds.tryOfSeconds(reconciliationInterval)),
@@ -3286,14 +3424,14 @@ class AcsCommitmentProcessorTest
           // commitments for remoteId2
           (
             remoteId2,
-            Map((coid(0, 0), initialTransferCounter), (coid(0, 2), initialTransferCounter)),
+            Map((coid(0, 0), initialReassignmentCounter), (coid(0, 2), initialReassignmentCounter)),
             ts(10),
             ts(15),
             Some(PositiveSeconds.tryOfSeconds(reconciliationInterval)),
           ),
           (
             remoteId2,
-            Map((coid(0, 0), initialTransferCounter)),
+            Map((coid(0, 0), initialReassignmentCounter)),
             ts(20),
             ts(25),
             Some(PositiveSeconds.tryOfSeconds(reconciliationInterval)),
@@ -3715,21 +3853,21 @@ class AcsCommitmentProcessorTest
 sealed trait Lifespan {
   def activatedTs: CantonTimestamp
   def deactivatedTs: CantonTimestamp
-  def transferCounterAtActivation: TransferCounter
+  def reassignmentCounterAtActivation: ReassignmentCounter
 }
 
 object Lifespan {
   final case class ArchiveOnDeactivate(
       activatedTs: CantonTimestamp,
       deactivatedTs: CantonTimestamp,
-      transferCounterAtActivation: TransferCounter,
+      reassignmentCounterAtActivation: ReassignmentCounter,
   ) extends Lifespan
 
-  final case class TransferOutOnDeactivate(
+  final case class UnassignmentDeactivate(
       activatedTs: CantonTimestamp,
       deactivatedTs: CantonTimestamp,
-      transferCounterAtActivation: TransferCounter,
-      transferCounterAtTransferOut: TransferCounter,
+      reassignmentCounterAtActivation: ReassignmentCounter,
+      reassignmentCounterAtUnassignment: ReassignmentCounter,
   ) extends Lifespan
 }
 
@@ -3744,7 +3882,7 @@ class AcsCommitmentProcessorSyncTest
     val contractSetup = Map(
       (
         coid(0, 0),
-        (Set(alice, bob), toc(1), toc(9), initialTransferCounter, initialTransferCounter),
+        (Set(alice, bob), toc(1), toc(9), initialReassignmentCounter, initialReassignmentCounter),
       )
     )
 

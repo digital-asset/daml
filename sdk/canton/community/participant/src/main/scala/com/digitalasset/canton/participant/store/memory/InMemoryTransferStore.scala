@@ -17,7 +17,7 @@ import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.protocol.transfer.{IncompleteTransferData, TransferData}
 import com.digitalasset.canton.participant.store.TransferStore
 import com.digitalasset.canton.participant.util.TimeOfChange
-import com.digitalasset.canton.protocol.messages.DeliveredTransferOutResult
+import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
 import com.digitalasset.canton.protocol.{ReassignmentId, SourceDomainId, TargetDomainId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{Checked, CheckedT, ErrorUtil, MapsUtil}
@@ -85,20 +85,20 @@ class InMemoryTransferStore(
     EitherT(FutureUnlessShutdown.pure(res))
   }
 
-  override def addTransferOutResult(
-      transferOutResult: DeliveredTransferOutResult
+  override def addUnassignmentResult(
+      unassignmentResult: DeliveredUnassignmentResult
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TransferStoreError, Unit] = {
-    val reassignmentId = transferOutResult.reassignmentId
-    editTransferEntry(reassignmentId, _.addTransferOutResult(transferOutResult))
+    val reassignmentId = unassignmentResult.reassignmentId
+    editTransferEntry(reassignmentId, _.addUnassignmentResult(unassignmentResult))
   }
 
   override def addTransfersOffsets(offsets: Map[ReassignmentId, TransferData.TransferGlobalOffset])(
       implicit traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TransferStoreError, Unit] = offsets.toList
     .parTraverse_ { case (reassignmentId, newGlobalOffset) =>
-      editTransferEntry(reassignmentId, _.addTransferOutGlobalOffset(newGlobalOffset))
+      editTransferEntry(reassignmentId, _.addUnassignmentGlobalOffset(newGlobalOffset))
     }
 
   override def completeTransfer(reassignmentId: ReassignmentId, timeOfCompletion: TimeOfChange)(
@@ -146,7 +146,7 @@ class InMemoryTransferStore(
 
       /* First use the entry from the read-only snapshot the iteration goes over
        * If the entry's completion must be cleared in the snapshot but the entry has meanwhile been modified in the table
-       * (e.g., a transfer-out result has been added), then clear the table's entry.
+       * (e.g., an unassignment result has been added), then clear the table's entry.
        */
       if (entry.timeOfCompletion.exists(_.rc >= criterionInclusive)) {
         val replaced = transferDataMap.replace(reassignmentId, entry, entry.clearCompletion)
@@ -175,10 +175,8 @@ class InMemoryTransferStore(
       def filter(entry: TransferEntry): Boolean =
         entry.timeOfCompletion.isEmpty && // Always filter out completed transfer-in
           filterSource.forall(source => entry.transferData.sourceDomain == source) &&
-          filterTimestamp.forall(ts =>
-            entry.transferData.reassignmentId.transferOutTimestamp == ts
-          ) &&
-          filterSubmitter.forall(party => entry.transferData.transferOutRequest.submitter == party)
+          filterTimestamp.forall(ts => entry.transferData.reassignmentId.unassignmentTs == ts) &&
+          filterSubmitter.forall(party => entry.transferData.unassignmentRequest.submitter == party)
 
       transferDataMap.values.to(LazyList).filter(filter).take(limit).map(_.transferData)
     }
@@ -197,7 +195,7 @@ class InMemoryTransferStore(
       entry.timeOfCompletion.isEmpty && // Always filter out completed transfer-in
         requestAfter.forall(ts =>
           (
-            entry.transferData.reassignmentId.transferOutTimestamp,
+            entry.transferData.reassignmentId.unassignmentTs,
             entry.transferData.sourceDomain,
           ) > ts
         )
@@ -206,7 +204,7 @@ class InMemoryTransferStore(
       .to(LazyList)
       .filter(filter)
       .map(_.transferData)
-      .sortBy(t => (t.reassignmentId.transferOutTimestamp, t.reassignmentId.sourceDomain))(
+      .sortBy(t => (t.reassignmentId.unassignmentTs, t.reassignmentId.sourceDomain))(
         // Explicitly use the standard ordering on two-tuples here
         // As Scala does not seem to infer the right implicits to use here
         Ordering.Tuple2(
@@ -223,16 +221,16 @@ class InMemoryTransferStore(
       stakeholders: Option[NonEmpty[Set[LfPartyId]]],
       limit: NonNegativeInt,
   )(implicit traceContext: TraceContext): Future[Seq[IncompleteTransferData]] = {
-    def onlyTransferOutCompleted(entry: TransferEntry): Boolean =
-      entry.transferData.transferOutGlobalOffset.exists(_ <= validAt) &&
+    def onlyUnassignmentCompleted(entry: TransferEntry): Boolean =
+      entry.transferData.unassignmentGlobalOffset.exists(_ <= validAt) &&
         entry.transferData.transferInGlobalOffset.forall(_ > validAt)
 
     def onlyTransferInCompleted(entry: TransferEntry): Boolean =
       entry.transferData.transferInGlobalOffset.exists(_ <= validAt) &&
-        entry.transferData.transferOutGlobalOffset.forall(_ > validAt)
+        entry.transferData.unassignmentGlobalOffset.forall(_ > validAt)
 
     def incompleteTransfer(entry: TransferEntry): Boolean =
-      onlyTransferOutCompleted(entry) || onlyTransferInCompleted(entry)
+      onlyUnassignmentCompleted(entry) || onlyTransferInCompleted(entry)
 
     def filter(entry: TransferEntry): Boolean =
       sourceDomain.forall(_ == entry.transferData.sourceDomain) &&
@@ -258,7 +256,7 @@ class InMemoryTransferStore(
     else {
       def incompleteTransfer(entry: TransferEntry): Boolean =
         (entry.transferData.transferInGlobalOffset.isEmpty ||
-          entry.transferData.transferOutGlobalOffset.isEmpty) &&
+          entry.transferData.unassignmentGlobalOffset.isEmpty) &&
           entry.transferData.targetDomain == domain
       val incompleteTransfers = transferDataMap.values
         .to(LazyList)
@@ -270,7 +268,7 @@ class InMemoryTransferStore(
           .mapFilter(entry =>
             (
               entry.transferData.transferInGlobalOffset
-                .orElse(entry.transferData.transferOutGlobalOffset),
+                .orElse(entry.transferData.unassignmentGlobalOffset),
               entry.transferData.reassignmentId,
             ) match {
               case (Some(o), transferId) => Some((o, transferId))

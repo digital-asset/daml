@@ -134,7 +134,7 @@ class TransferCache(transferStore: TransferStore, override val loggerFactory: Na
     .findAfter(requestAfter, limit)
     .map(_.filter(transferData => !pendingCompletions.contains(transferData.reassignmentId)))
 
-  /** Transfer-out/in global offsets will be updated upon publication in the multi-domain event log, when
+  /** unassignment/assignment global offsets will be updated upon publication in the multi-domain event log, when
     * the global offset is assigned to the event.
     * In order to avoid race conditions, the multi-domain event log will wait for the calls to
     * `TransferStore.addTransfersOffsets` to complete before updating ledger end.

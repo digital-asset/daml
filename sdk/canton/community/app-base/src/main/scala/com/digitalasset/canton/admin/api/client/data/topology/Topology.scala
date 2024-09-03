@@ -240,23 +240,6 @@ object ListPartyToParticipantResult {
     } yield ListPartyToParticipantResult(context, item)
 }
 
-final case class ListAuthorityOfResult(
-    context: BaseResult,
-    item: AuthorityOf,
-)
-
-object ListAuthorityOfResult {
-  def fromProtoV30(
-      value: v30.ListAuthorityOfResponse.Result
-  ): ParsingResult[ListAuthorityOfResult] =
-    for {
-      contextProto <- ProtoConverter.required("context", value.context)
-      context <- BaseResult.fromProtoV30(contextProto)
-      itemProto <- ProtoConverter.required("item", value.item)
-      item <- AuthorityOf.fromProtoV30(itemProto)
-    } yield ListAuthorityOfResult(context, item)
-}
-
 final case class ListDomainParametersStateResult(
     context: BaseResult,
     item: DynamicDomainParameters,

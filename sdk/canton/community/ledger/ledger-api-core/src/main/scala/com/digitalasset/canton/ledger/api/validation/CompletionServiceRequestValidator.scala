@@ -5,7 +5,7 @@ package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamRequest as GrpcCompletionStreamRequest
-import com.digitalasset.canton.ledger.api.domain.ParticipantOffset
+import com.digitalasset.canton.ledger.api.domain.types.ParticipantOffset
 import com.digitalasset.canton.ledger.api.messages.command.completion.CompletionStreamRequest
 import io.grpc.StatusRuntimeException
 
@@ -35,12 +35,12 @@ class CompletionServiceRequestValidator(
 
   def validateCompletionStreamRequest(
       request: CompletionStreamRequest,
-      ledgerEnd: ParticipantOffset.Absolute,
+      ledgerEnd: ParticipantOffset,
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, CompletionStreamRequest] =
     for {
-      _ <- ParticipantOffsetValidator.offsetIsBeforeEndIfAbsolute(
+      _ <- ParticipantOffsetValidator.offsetIsBeforeEnd(
         "Begin",
         request.offset,
         ledgerEnd,

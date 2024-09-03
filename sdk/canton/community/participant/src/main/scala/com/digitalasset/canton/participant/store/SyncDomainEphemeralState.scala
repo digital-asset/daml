@@ -67,7 +67,7 @@ class SyncDomainEphemeralState(
     ComponentHealthState.failed("Disconnected from domain")
 
   // Key is the root hash of the transfer tree
-  val pendingTransferOutSubmissions: TrieMap[RootHash, PendingTransferSubmission] =
+  val pendingUnassignmentSubmissions: TrieMap[RootHash, PendingTransferSubmission] =
     TrieMap.empty[RootHash, PendingTransferSubmission]
   val pendingTransferInSubmissions: TrieMap[RootHash, PendingTransferSubmission] =
     TrieMap.empty[RootHash, PendingTransferSubmission]

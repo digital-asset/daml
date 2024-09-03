@@ -12,8 +12,8 @@ import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.TracedLogger
-import com.digitalasset.canton.participant.protocol.transfer.TransferOutProcessorError.*
 import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.TransferProcessorError
+import com.digitalasset.canton.participant.protocol.transfer.UnassignmentProcessorError.*
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -24,9 +24,9 @@ import com.digitalasset.canton.util.ShowUtil.*
 import scala.concurrent.ExecutionContext
 
 /** Holds information about what (admin) parties and participants need to be involved in
-  * performing a transfer-out of a certain contract.
+  * performing the unassignment of a certain contract.
   *
-  * @param adminParties The admin parties for each transfer-out participant i.e. hosting a signatory
+  * @param adminParties The admin parties for each unassignment participant i.e. hosting a signatory
   *                     with confirmation rights on both the source and target domains.
   * @param participants All participants hosting at least one stakeholder (i.e., including observers
   *                     not only signatories), regardless of their permission.
@@ -56,11 +56,11 @@ private[protocol] object AdminPartiesAndParticipants {
         sourceTopology,
         targetTopology,
       )
-      transferOutParticipants <- transferOutParticipants(participantsByParty)
-      transferOutAdminParties <- transferOutAdminParties(
+      unassignmentParticipants <- unassignmentParticipants(participantsByParty)
+      unassignmentAdminParties <- unassignmentAdminParties(
         sourceTopology,
         logger,
-        transferOutParticipants,
+        unassignmentParticipants,
       )
     } yield {
 
@@ -69,7 +69,7 @@ private[protocol] object AdminPartiesAndParticipants {
           .map(_.source.all)
           .foldLeft(Set.empty[ParticipantId])(_ ++ _)
 
-      new AdminPartiesAndParticipants(transferOutAdminParties, participants) {}
+      new AdminPartiesAndParticipants(unassignmentAdminParties, participants) {}
     }
 
   private def submitterIsStakeholder(
@@ -92,35 +92,35 @@ private[protocol] object AdminPartiesAndParticipants {
       ec: ExecutionContext,
   ): FutureUnlessShutdown[ValidatedNec[String, LfPartyId]] = {
     val adminParty = participant.adminParty.toLf
-    TransferOutValidationUtil
+    UnassignmentValidationUtil
       .confirmingAdminParticipants(sourceTopology, adminParty, logger)
       .map { adminParticipants =>
         Validated.condNec(
           adminParticipants.get(participant).exists(_.permission.canConfirm),
           adminParty,
-          s"Transfer-out participant $participant cannot confirm on behalf of its admin party.",
+          s"unassignment participant $participant cannot confirm on behalf of its admin party.",
         )
       }
   }
 
-  private def transferOutAdminParties(
+  private def unassignmentAdminParties(
       sourceTopology: TopologySnapshot,
       logger: TracedLogger,
-      transferOutParticipants: List[ParticipantId],
+      unassignmentParticipants: List[ParticipantId],
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
   ): EitherT[FutureUnlessShutdown, TransferProcessorError, Set[LfPartyId]] =
     EitherT(
-      transferOutParticipants
+      unassignmentParticipants
         .parTraverse(adminParty(sourceTopology, logger))
         .map(
           _.sequence.toEither
-            .bimap(TransferOutProcessorError.fromChain(AdminPartyPermissionErrors), _.toSet)
+            .bimap(UnassignmentProcessorError.fromChain(AdminPartyPermissionErrors), _.toSet)
         )
     )
 
-  /* Computes the transfer-out participants for the transfers and checks the following hosting requirements for each party:
+  /* Computes the unassignment participants for the transfers and checks the following hosting requirements for each party:
    * - If the party is hosted on a participant with submission permission,
    * then at least one such participant must also have submission permission
    * for that party on the target domain.
@@ -129,7 +129,7 @@ private[protocol] object AdminPartiesAndParticipants {
    * - The party must be hosted on a participant that has confirmation permission
    * on both domains for this party.
    */
-  private def transferOutParticipants(
+  private def unassignmentParticipants(
       permissions: PartyParticipantPermissions
   )(implicit
       ec: ExecutionContext
@@ -150,15 +150,15 @@ private[protocol] object AdminPartiesAndParticipants {
       def missingConfirmationOverlapMessage =
         show"No participant of the party $party has confirmation permission on both domains at respective timestamps $sourceTs and $targetTs."
 
-      val transferOutParticipants = source.confirmers.intersect(target.confirmers)
+      val unassignmentParticipants = source.confirmers.intersect(target.confirmers)
 
       val submissionPermissionCheck =
         Validated.condNec(hasSubmissionPermission, (), missingPermissionMessage)
 
       val confirmersOverlap =
         Validated.condNec(
-          transferOutParticipants.nonEmpty,
-          transferOutParticipants.toList,
+          unassignmentParticipants.nonEmpty,
+          unassignmentParticipants.toList,
           missingConfirmationOverlapMessage,
         )
 
@@ -169,7 +169,7 @@ private[protocol] object AdminPartiesAndParticipants {
       permissions.perParty
         .traverse(validate(permissions.validityAtSource, permissions.validityAtTarget))
         .bimap(
-          TransferOutProcessorError.fromChain(PermissionErrors),
+          UnassignmentProcessorError.fromChain(PermissionErrors),
           MonoidK[List].algebra.combineAll,
         )
         .toEither

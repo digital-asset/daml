@@ -121,7 +121,7 @@ import scala.util.Try
   * A contract is <strong>active</strong> at time `t` if a request with activeness time at most `t` activates it, and
   * there is no finalized request at time `t` that has deactivated it.
   * Activation happens through creation and transfer-in.
-  * Deactivation happens through archival and transfer-out.
+  * Deactivation happens through archival and unassignment.
   * An active contract `c` is locked at time `t` if one of the following cases holds:
   * <ul>
   *   <li>There is an active request at time `t` that activates `c`.

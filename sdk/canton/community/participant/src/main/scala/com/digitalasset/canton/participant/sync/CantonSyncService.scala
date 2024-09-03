@@ -31,13 +31,7 @@ import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.WriteService.ConnectedDomainResponse
 import com.digitalasset.canton.ledger.participant.state.*
-import com.digitalasset.canton.lifecycle.{
-  FlagCloseable,
-  FutureUnlessShutdown,
-  HasCloseContext,
-  Lifecycle,
-  UnlessShutdown,
-}
+import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
 import com.digitalasset.canton.participant.Pruning.*
@@ -82,10 +76,7 @@ import com.digitalasset.canton.participant.sync.SyncServiceError.{
 import com.digitalasset.canton.participant.topology.*
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
 import com.digitalasset.canton.participant.util.DAMLe
-import com.digitalasset.canton.platform.apiserver.execution.{
-  AuthorityResolver,
-  CommandProgressTracker,
-}
+import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.resource.DbStorage.PassiveInstanceException
@@ -315,17 +306,11 @@ class CantonSyncService(
   private val repairServiceDAMLe =
     new DAMLe(
       pkgId => traceContext => packageService.value.getPackage(pkgId)(traceContext),
-      // The repair service should not need any topology-aware authorisation because it only needs DAMLe
-      // to check contract instance arguments, which cannot trigger a ResultNeedAuthority.
-      CantonAuthorityResolver.topologyUnawareAuthorityResolver,
       None,
       engine,
       parameters.engine.validationPhaseLogging,
       loggerFactory,
     )
-
-  val cantonAuthorityResolver: AuthorityResolver =
-    new CantonAuthorityResolver(connectedDomainsLookup, loggerFactory)
 
   private val connectQueue = {
     val queueName = "sync-service-connect-and-repair-queue"
@@ -1310,7 +1295,6 @@ class CantonSyncService(
           domainHandle,
           participantId,
           engine,
-          cantonAuthorityResolver,
           parameters,
           participantNodePersistentState,
           persistent,
@@ -1618,8 +1602,8 @@ class CantonSyncService(
       span.setAttribute("command_id", commandId)
       logger.debug(s"Received submit-reassignment $commandId from ledger-api server")
 
-      /* @param domain For transfer-out this should be the source domain, for transfer-in this is the target domain
-       * @param remoteDomain For transfer-out this should be the target domain, for transfer-in this is the source domain
+      /* @param domain For unassignment this should be the source domain, for transfer-in this is the target domain
+       * @param remoteDomain For unassignment this should be the target domain, for transfer-in this is the source domain
        */
       def doTransfer[E <: TransferProcessorError, T](
           domain: DomainId,
@@ -1670,7 +1654,7 @@ class CantonSyncService(
               domain = unassign.sourceDomain.unwrap,
               remoteDomain = unassign.targetDomain.unwrap,
             )(
-              _.submitTransferOut(
+              _.submitUnassignment(
                 submitterMetadata = TransferSubmitterMetadata(
                   submitter = submitter,
                   applicationId = applicationId,

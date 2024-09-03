@@ -56,7 +56,7 @@ object JsSchema {
   final case class JsStatus(
       code: Int,
       message: String,
-      details: String,
+      details: Seq[com.google.protobuf.any.Any],
   )
 
   final case class JsInterfaceView(
@@ -96,16 +96,33 @@ object JsSchema {
     sealed trait TreeEvent
 
     final case class ExercisedTreeEvent(
+        event_id: String,
         contract_id: String,
         template_id: String,
+        interface_id: String,
+        choice: String,
         choice_argument: Json,
+        acting_parties: Seq[String],
+        consuming: Boolean,
+        witness_parties: Seq[String],
+        child_event_ids: Seq[String],
         exercise_result: Json,
+        package_name: String,
     ) extends TreeEvent
 
     final case class CreatedTreeEvent(
+        event_id: String,
         contract_id: String,
         template_id: String,
-        create_argument: Json,
+        contract_key: Option[Json],
+        create_arguments: Option[Json],
+        created_event_blob: protobuf.ByteString,
+        interface_views: Seq[JsInterfaceView],
+        witness_parties: Seq[String],
+        signatories: Seq[String],
+        observers: Seq[String],
+        createdAt: Option[com.google.protobuf.timestamp.Timestamp],
+        packageName: String,
     ) extends TreeEvent
 
   }
@@ -249,7 +266,7 @@ object JsSchema {
       Decoder.decodeString.map(IdentifierConverter.fromJson)
 
     implicit val jsEvent: Codec[JsEvent.Event] = deriveCodec
-
+    implicit val any: Codec[com.google.protobuf.any.Any] = deriveCodec
     implicit val jsStatus: Codec[JsStatus] = deriveCodec
     implicit val jsInterfaceView: Codec[JsInterfaceView] = deriveCodec
     implicit val jsCreatedEvent: Codec[JsEvent.CreatedEvent] = deriveCodec

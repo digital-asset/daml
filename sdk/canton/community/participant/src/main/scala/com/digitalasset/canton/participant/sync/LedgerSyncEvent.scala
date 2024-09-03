@@ -19,7 +19,7 @@ import com.digitalasset.canton.{
   LfPartyId,
   LfTimestamp,
   LfWorkflowId,
-  TransferCounter,
+  ReassignmentCounter,
 }
 import com.digitalasset.daml.lf.CantonOnly
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray}
@@ -352,21 +352,21 @@ object LedgerSyncEvent {
       s"transferred-$kind $contractId from $sourceDomain to $targetDomain"
   }
 
-  /** Signal the transfer-out of a contract from source to target domain.
+  /** Signal the unassignment of a contract from source to target domain.
     *
     * @param updateId                 Uniquely identifies the update.
-    * @param optCompletionInfo        Must be provided for the participant that submitted the transfer-out.
+    * @param optCompletionInfo        Must be provided for the participant that submitted the unassignment.
     * @param submitter                The partyId of the transfer submitter, unless the operation was performed offline.
-    * @param reassignmentId               Uniquely identifies the transfer. See [[com.digitalasset.canton.protocol.ReassignmentId]].
+    * @param reassignmentId           Uniquely identifies the transfer. See [[com.digitalasset.canton.protocol.ReassignmentId]].
     * @param contractId               The contract-id that's being transferred-out.
     * @param templateId               The template-id of the contract that's being transferred-out.
     * @param targetDomain             The target domain of the transfer.
-    * @param transferInExclusivity    The timestamp of the timeout before which only the submitter can initiate the
-    *                                 corresponding transfer-in. Must be provided for the participant that submitted the transfer-out.
+    * @param assignmentExclusivity    The timestamp of the timeout before which only the submitter can initiate the
+    *                                 corresponding transfer-in. Must be provided for the participant that submitted the unassignment.
     * @param workflowId               The workflowId specified by the submitter in the transfer command.
     * @param isReassigningParticipant True if the participant is reassigning.
     *                                 Note: false if the data comes from an old serialized event
-    * @param transferCounter          The [[com.digitalasset.canton.TransferCounter]] of the contract.
+    * @param reassignmentCounter          The [[com.digitalasset.canton.ReassignmentCounter]] of the contract.
     */
   final case class TransferredOut(
       updateId: LedgerTransactionId,
@@ -378,19 +378,19 @@ object LedgerSyncEvent {
       contractStakeholders: Set[LfPartyId],
       reassignmentId: ReassignmentId,
       targetDomain: TargetDomainId,
-      transferInExclusivity: Option[LfTimestamp],
+      assignmentExclusivity: Option[LfTimestamp],
       workflowId: Option[LfWorkflowId],
       isReassigningParticipant: Boolean,
       hostedStakeholders: List[LfPartyId],
-      transferCounter: TransferCounter,
+      reassignmentCounter: ReassignmentCounter,
   ) extends TransferEvent {
 
-    override def recordTime: LfTimestamp = reassignmentId.transferOutTimestamp.underlying
+    override def recordTime: LfTimestamp = reassignmentId.unassignmentTs.underlying
 
     def domainId: DomainId = sourceDomain.id
 
     def updateRecordTime(newRecordTime: LfTimestamp): TransferredOut =
-      this.focus(_.reassignmentId.transferOutTimestamp).replace(CantonTimestamp(newRecordTime))
+      this.focus(_.reassignmentId.unassignmentTs).replace(CantonTimestamp(newRecordTime))
 
     override def kind: String = "out"
 
@@ -403,9 +403,9 @@ object LedgerSyncEvent {
       paramIfDefined("templateId", _.templateId),
       param("packageName", _.packageName),
       param("target", _.targetDomain),
-      paramIfDefined("transferInExclusivity", _.transferInExclusivity),
+      paramIfDefined("assignmentExclusivity", _.assignmentExclusivity),
       paramIfDefined("workflowId", _.workflowId),
-      param("transferCounter", _.transferCounter),
+      param("reassignmentCounter", _.reassignmentCounter),
     )
 
     def toDamlUpdate: Option[Update] = Some(
@@ -418,9 +418,9 @@ object LedgerSyncEvent {
           sourceDomain = reassignmentId.sourceDomain,
           targetDomain = targetDomain,
           submitter = submitter,
-          reassignmentCounter = transferCounter.v,
+          reassignmentCounter = reassignmentCounter.v,
           hostedStakeholders = hostedStakeholders,
-          unassignId = reassignmentId.transferOutTimestamp,
+          unassignId = reassignmentId.unassignmentTs,
           isReassigningParticipant = isReassigningParticipant,
         ),
         reassignment = Reassignment.Unassign(
@@ -432,7 +432,7 @@ object LedgerSyncEvent {
           ),
           packageName = packageName,
           stakeholders = contractStakeholders.toList,
-          assignmentExclusivity = transferInExclusivity,
+          assignmentExclusivity = assignmentExclusivity,
         ),
         domainIndex = None,
       )
@@ -448,12 +448,12 @@ object LedgerSyncEvent {
     * @param ledgerCreateTime         The ledger time of the transaction '''creating''' the contract
     * @param createNode               Denotes the creation of the contract being transferred-in.
     * @param contractMetadata         Contains contract metadata of the contract transferred assigned by the ledger implementation
-    * @param reassignmentId               Uniquely identifies the transfer. See [[com.digitalasset.canton.protocol.ReassignmentId]].
+    * @param reassignmentId           Uniquely identifies the transfer. See [[com.digitalasset.canton.protocol.ReassignmentId]].
     * @param targetDomain             The target domain of the transfer.
     * @param workflowId               The workflowId specified by the submitter in the transfer command.
     * @param isReassigningParticipant True if the participant is reassigning.
     *                                 Note: false if the data comes from an old serialized event
-    * @param transferCounter          The [[com.digitalasset.canton.TransferCounter]] of the contract.
+    * @param reassignmentCounter          The [[com.digitalasset.canton.ReassignmentCounter]] of the contract.
     */
   final case class TransferredIn(
       updateId: LedgerTransactionId,
@@ -469,7 +469,7 @@ object LedgerSyncEvent {
       workflowId: Option[LfWorkflowId],
       isReassigningParticipant: Boolean,
       hostedStakeholders: List[LfPartyId],
-      transferCounter: TransferCounter,
+      reassignmentCounter: ReassignmentCounter,
   ) extends TransferEvent {
 
     override def pretty: Pretty[TransferredIn] = prettyOfClass(
@@ -484,7 +484,7 @@ object LedgerSyncEvent {
       paramWithoutValue("contractMetadata"),
       paramWithoutValue("createdEvent"),
       paramIfDefined("workflowId", _.workflowId),
-      param("transferCounter", _.transferCounter),
+      param("reassignmentCounter", _.reassignmentCounter),
     )
 
     override def kind: String = "in"
@@ -503,9 +503,9 @@ object LedgerSyncEvent {
           sourceDomain = reassignmentId.sourceDomain,
           targetDomain = targetDomain,
           submitter = submitter,
-          reassignmentCounter = transferCounter.v,
+          reassignmentCounter = reassignmentCounter.v,
           hostedStakeholders = hostedStakeholders,
-          unassignId = reassignmentId.transferOutTimestamp,
+          unassignId = reassignmentId.unassignmentTs,
           isReassigningParticipant = isReassigningParticipant,
         ),
         reassignment = Reassignment.Assign(

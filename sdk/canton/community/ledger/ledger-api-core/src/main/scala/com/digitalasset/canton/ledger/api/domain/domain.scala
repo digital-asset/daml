@@ -62,29 +62,15 @@ object CumulativeFilter {
 
 }
 
-sealed abstract class ParticipantOffset extends Product with Serializable
+object types {
+  type ParticipantOffset = Ref.HexString
+}
 
 object ParticipantOffset {
+  val ParticipantBegin: types.ParticipantOffset = Ref.HexString.assertFromString("")
 
-  final case class Absolute(value: Ref.LedgerString) extends ParticipantOffset
-
-  case object ParticipantBegin extends ParticipantOffset
-
-  case object ParticipantEnd extends ParticipantOffset // TODO(#20098) delete
-
-  implicit val `Absolute Ordering`: Ordering[ParticipantOffset.Absolute] =
-    Ordering.by[ParticipantOffset.Absolute, String](_.value)
-
-  implicit val `ParticipantOffset to LoggingValue`: ToLoggingValue[ParticipantOffset] = value =>
-    LoggingValue.OfString(value match {
-      case ParticipantOffset.Absolute(absolute) => absolute
-      case ParticipantOffset.ParticipantBegin => "%begin%"
-      case ParticipantOffset.ParticipantEnd => "%end%"
-    })
-
-  def fromString(str: String): ParticipantOffset =
-    if (str.isEmpty) ParticipantBegin
-    else Absolute(Ref.LedgerString.assertFromString(str))
+  def fromString(str: String): types.ParticipantOffset =
+    Ref.HexString.assertFromString(str)
 }
 
 final case class Commands(

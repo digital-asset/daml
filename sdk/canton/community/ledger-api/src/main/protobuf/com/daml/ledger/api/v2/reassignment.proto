@@ -31,7 +31,7 @@ message Reassignment {
   // Optional
   string workflow_id = 3;
 
-  // The absolute offset. The format of this field is described in ``participant_offset.proto``.
+  // The participant's offset. The details of this field are described in ``offset_checkpoint.proto``.
   // Required
   string offset = 4;
 

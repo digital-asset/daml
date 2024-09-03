@@ -306,7 +306,6 @@ class StartableStoppableLedgerApiServer(
         otherServices = Seq(apiInfoService),
         otherInterceptors = getInterceptors(dbSupport.dbDispatcher.executor),
         engine = config.engine,
-        authorityResolver = config.syncService.cantonAuthorityResolver,
         servicesExecutionContext = executionContext,
         checkOverloaded = config.syncService.checkOverloaded,
         ledgerFeatures = getLedgerFeatures,

@@ -10,7 +10,7 @@ import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.{LfPartyId, TransferCounter}
+import com.digitalasset.canton.{LfPartyId, ReassignmentCounter}
 import com.google.common.annotations.VisibleForTesting
 
 import scala.concurrent.Future
@@ -38,17 +38,17 @@ trait AcsChangeListener {
   * it already authenticates the contract contents.
   */
 final case class AcsChange(
-    activations: Map[LfContractId, ContractStakeholdersAndTransferCounter],
-    deactivations: Map[LfContractId, ContractStakeholdersAndTransferCounter],
+    activations: Map[LfContractId, ContractStakeholdersAndReassignmentCounter],
+    deactivations: Map[LfContractId, ContractStakeholdersAndReassignmentCounter],
 )
 
-final case class ContractStakeholdersAndTransferCounter(
+final case class ContractStakeholdersAndReassignmentCounter(
     stakeholders: Set[LfPartyId],
-    transferCounter: TransferCounter,
+    reassignmentCounter: ReassignmentCounter,
 ) extends PrettyPrinting {
-  override def pretty: Pretty[ContractStakeholdersAndTransferCounter] = prettyOfClass(
+  override def pretty: Pretty[ContractStakeholdersAndReassignmentCounter] = prettyOfClass(
     param("stakeholders", _.stakeholders),
-    param("transfer counter", _.transferCounter),
+    param("reassignment counter", _.reassignmentCounter),
   )
 }
 
@@ -63,131 +63,131 @@ object AcsChange extends HasLoggerName {
   //    2. archival followed by a create
   //    3. if we have a double archive as in "create -> archive -> archive"
   //  We should define a sensible semantics for non-repudiation in all such cases.
-  //  (2) The transfer counters of the contracts in activations/deactivations are consistent, in the sense that
-  //    - all transfer counters are None for protocol versions that do not support reassignments
-  //    - for protocol versions that support transfer counters
-  //        - transfer counters of creates are 0
-  //        - transfer counters of transfer-outs increment the last activation (transfer-in or create) counter
-  //        - transfer counters of archivals match the transfer counter of the last contract activation (transfer-in or create),
+  //  (2) The reassignment counters of the contracts in activations/deactivations are consistent, in the sense that
+  //    - all reassignment counters are None for protocol versions that do not support reassignments
+  //    - for protocol versions that support reassignment counters
+  //        - reassignment counters of creates are 0
+  //        - reassignment counters of unassignments increment the last activation (transfer-in or create) counter
+  //        - reassignment counters of archivals match the reassignment counter of the last contract activation (transfer-in or create),
   //      unless the activation is part of the same CommitSet. If the activation is part of the same
-  //      commit set as the archival, the function `fromCommitSet` assigns the correct transfer counter to archivals
+  //      commit set as the archival, the function `fromCommitSet` assigns the correct reassignment counter to archivals
 
   /** Returns an AcsChange based on a given CommitSet.
     *
     * @param commitSet The commit set from which to build the AcsChange.
-    * @param transferCounterOfNonTransientArchivals A map containing transfer counters for every non-transient
+    * @param reassignmentCounterOfNonTransientArchivals A map containing reassignment counters for every non-transient
     *                                               archived contracts in the commitSet, i.e., `commitSet.archivals`.
-    * @param transferCounterOfTransientArchivals A map containing transfer counters for every transient
+    * @param reassignmentCounterOfTransientArchivals A map containing reassignment counters for every transient
     *                                                archived contracts in the commitSet, i.e., `commitSet.archivals`.
-    * @throws java.lang.IllegalStateException if the contract ids in `transferCounterOfTransientArchivals`;
-    *         if the contract ids in `transferCounterOfNonTransientArchivals` are not a subset of `commitSet.archivals` ;
-    *         if the union of contracts ids in `transferCounterOfTransientArchivals` and
-    *         `transferCounterOfNonTransientArchivals` does not equal the contract ids in `commitSet.archivals`;
+    * @throws java.lang.IllegalStateException if the contract ids in `reassignmentCounterOfTransientArchivals`;
+    *         if the contract ids in `reassignmentCounterOfNonTransientArchivals` are not a subset of `commitSet.archivals` ;
+    *         if the union of contracts ids in `reassignmentCounterOfTransientArchivals` and
+    *         `reassignmentCounterOfNonTransientArchivals` does not equal the contract ids in `commitSet.archivals`;
     */
   def tryFromCommitSet(
       commitSet: CommitSet,
-      transferCounterOfNonTransientArchivals: Map[LfContractId, TransferCounter],
-      transferCounterOfTransientArchivals: Map[LfContractId, TransferCounter],
+      reassignmentCounterOfNonTransientArchivals: Map[LfContractId, ReassignmentCounter],
+      reassignmentCounterOfTransientArchivals: Map[LfContractId, ReassignmentCounter],
   )(implicit loggingContext: NamedLoggingContext): AcsChange = {
 
     if (
-      transferCounterOfTransientArchivals.keySet.union(
-        transferCounterOfNonTransientArchivals.keySet
+      reassignmentCounterOfTransientArchivals.keySet.union(
+        reassignmentCounterOfNonTransientArchivals.keySet
       ) != commitSet.archivals.keySet
     ) {
       ErrorUtil.internalError(
         new IllegalStateException(
-          s"the union of contracts ids in $transferCounterOfTransientArchivals and " +
-            s"$transferCounterOfNonTransientArchivals does not equal the contract ids in ${commitSet.archivals}"
+          s"the union of contracts ids in $reassignmentCounterOfTransientArchivals and " +
+            s"$reassignmentCounterOfNonTransientArchivals does not equal the contract ids in ${commitSet.archivals}"
         )
       )
     }
     /* Temporary maps built to easily remove the transient contracts from activate and deactivate the common contracts.
-       The keys are made of the contract id and transfer counter.
-       A transfer-out with transfer counter c cancels out a transfer-in / create with transfer counter c-1.
-       Thus, to be able to match active contracts that are being deactivated, we decrement the transfer counters for transfer-outs.
+       The keys are made of the contract id and reassignment counter.
+       An unassignment with reassignment counter c cancels out a transfer-in / create with reassignment counter c-1.
+       Thus, to be able to match active contracts that are being deactivated, we decrement the reassignment counters for unassignments.
        We *do not* need to decrement the transfer counter for archives, because we already obtain each archival's
-       transfer counter from the last create / transfer-in event on that contract.
+       reassignment counter from the last create / transfer-in event on that contract.
      */
     val tmpActivations = commitSet.creations.map { case (contractId, data) =>
-      contractId -> ContractStakeholdersAndTransferCounter(
+      contractId -> ContractStakeholdersAndReassignmentCounter(
         data.contractMetadata.stakeholders,
-        data.transferCounter,
+        data.reassignmentCounter,
       )
     }
       ++ commitSet.transferIns.map { case (contractId, data) =>
-        contractId -> ContractStakeholdersAndTransferCounter(
+        contractId -> ContractStakeholdersAndReassignmentCounter(
           data.contractMetadata.stakeholders,
-          data.transferCounter,
+          data.reassignmentCounter,
         )
       }
 
     /*
-    Subtracting the transfer counter of transfer-outs to correctly match deactivated contracts as explained above
+    Subtracting the reassignment counter of unassignments to correctly match deactivated contracts as explained above
      */
-    val tmpTransferOuts = commitSet.transferOuts.map { case (contractId, data) =>
-      contractId -> ContractStakeholdersAndTransferCounter(
+    val tmpUnassignments = commitSet.unassignments.map { case (contractId, data) =>
+      contractId -> ContractStakeholdersAndReassignmentCounter(
         data.stakeholders,
-        data.transferCounter - 1,
+        data.reassignmentCounter - 1,
       )
     }
 
     val archivalDeactivations = commitSet.archivals.collect {
-      case (contractId, data) if transferCounterOfNonTransientArchivals.contains(contractId) =>
-        contractId -> ContractStakeholdersAndTransferCounter(
+      case (contractId, data) if reassignmentCounterOfNonTransientArchivals.contains(contractId) =>
+        contractId -> ContractStakeholdersAndReassignmentCounter(
           data.stakeholders,
-          transferCounterOfNonTransientArchivals.getOrElse(
+          reassignmentCounterOfNonTransientArchivals.getOrElse(
             contractId,
             // This should not happen (see assertion above)
             ErrorUtil.internalError(
-              new IllegalStateException(s"Unable to find transfer counter for $contractId")
+              new IllegalStateException(s"Unable to find reassignment counter for $contractId")
             ),
           ),
         )
     }
 
     val tmpArchivals = commitSet.archivals.collect {
-      case (contractId, data) if transferCounterOfTransientArchivals.contains(contractId) =>
-        contractId -> ContractStakeholdersAndTransferCounter(
+      case (contractId, data) if reassignmentCounterOfTransientArchivals.contains(contractId) =>
+        contractId -> ContractStakeholdersAndReassignmentCounter(
           data.stakeholders,
-          transferCounterOfTransientArchivals.getOrElse(
+          reassignmentCounterOfTransientArchivals.getOrElse(
             contractId,
             ErrorUtil.internalError(
               new IllegalStateException(
-                s"${transferCounterOfTransientArchivals.keySet} is not a subset of ${commitSet.archivals}"
+                s"${reassignmentCounterOfTransientArchivals.keySet} is not a subset of ${commitSet.archivals}"
               )
             ),
           ),
         )
     }
 
-    val transient = tmpActivations.keySet.intersect((tmpArchivals ++ tmpTransferOuts).keySet)
+    val transient = tmpActivations.keySet.intersect((tmpArchivals ++ tmpUnassignments).keySet)
     val activations = tmpActivations -- transient
-    val transferOutDeactivations = tmpTransferOuts -- transient
+    val unassignmentDeactivations = tmpUnassignments -- transient
 
     loggingContext.debug(
       show"Called fromCommitSet with inputs commitSet creations=${commitSet.creations};" +
-        show"transferIns=${commitSet.transferIns}; archivals=${commitSet.archivals}; transferOuts=${commitSet.transferOuts};" +
-        show"archival transfer counters from DB $transferCounterOfNonTransientArchivals and" +
-        show"archival transfer counters from transient $transferCounterOfTransientArchivals" +
+        show"transferIns=${commitSet.transferIns}; archivals=${commitSet.archivals}; unassignments=${commitSet.unassignments};" +
+        show"archival reassignment counters from DB $reassignmentCounterOfNonTransientArchivals and" +
+        show"archival reassignment counters from transient $reassignmentCounterOfTransientArchivals" +
         show"Completed fromCommitSet with results transient=$transient;" +
-        show"activations=$activations; archivalDeactivations=$archivalDeactivations; transferOutDeactivations=$transferOutDeactivations"
+        show"activations=$activations; archivalDeactivations=$archivalDeactivations; unassignmentDeactivations=$unassignmentDeactivations"
     )
     AcsChange(
       activations = activations,
-      deactivations = archivalDeactivations ++ transferOutDeactivations,
+      deactivations = archivalDeactivations ++ unassignmentDeactivations,
     )
   }
 
   @VisibleForTesting
-  def transferCountersForArchivedTransient(
+  def reassignmentCountersForArchivedTransient(
       commitSet: CommitSet
-  ): Map[LfContractId, TransferCounter] = {
+  ): Map[LfContractId, ReassignmentCounter] = {
 
-    // We first search in transfer-ins, because they would have the most recent transfer counter.
+    // We first search in transfer-ins, because they would have the most recent reassignment counter.
     val transientCidsTransferredIn = commitSet.transferIns.collect {
       case (contractId, tcAndContractHash) if commitSet.archivals.keySet.contains(contractId) =>
-        (contractId, tcAndContractHash.transferCounter)
+        (contractId, tcAndContractHash.reassignmentCounter)
     }
 
     // Then we search in creations
@@ -195,7 +195,7 @@ object AcsChange extends HasLoggerName {
       case (contractId, tcAndContractHash)
           if commitSet.archivals.keySet.contains(contractId) && !transientCidsTransferredIn.keySet
             .contains(contractId) =>
-        (contractId, tcAndContractHash.transferCounter)
+        (contractId, tcAndContractHash.reassignmentCounter)
     }
 
     transientCidsTransferredIn ++ transientCidsCreated

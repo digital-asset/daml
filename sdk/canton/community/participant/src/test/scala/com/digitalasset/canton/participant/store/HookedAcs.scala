@@ -22,7 +22,7 @@ import com.digitalasset.canton.pruning.{PruningPhase, PruningStatus}
 import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.CheckedT
-import com.digitalasset.canton.{RequestCounter, TransferCounter}
+import com.digitalasset.canton.{ReassignmentCounter, RequestCounter}
 import com.digitalasset.daml.lf.data.Ref.PackageId
 
 import java.util.concurrent.atomic.AtomicReference
@@ -35,8 +35,8 @@ private[participant] class HookedAcs(private val acs: ActiveContractStore)(impli
   import HookedAcs.{noArchivePurgeAction, noCreateAddAction, noTransferAction}
 
   private val nextCreateAddHook
-      : AtomicReference[(Seq[(LfContractId, TransferCounter, TimeOfChange)]) => Future[Unit]] =
-    new AtomicReference[(Seq[(LfContractId, TransferCounter, TimeOfChange)]) => Future[Unit]](
+      : AtomicReference[(Seq[(LfContractId, ReassignmentCounter, TimeOfChange)]) => Future[Unit]] =
+    new AtomicReference[(Seq[(LfContractId, ReassignmentCounter, TimeOfChange)]) => Future[Unit]](
       noCreateAddAction
     )
   private val nextArchivePurgeHook
@@ -45,8 +45,8 @@ private[participant] class HookedAcs(private val acs: ActiveContractStore)(impli
   private val nextTransferHook =
     new AtomicReference[
       (
-          Seq[(LfContractId, TransferDomainId, TransferCounter, TimeOfChange)],
-          Boolean, // true for transfer-out, false for transfer-in
+          Seq[(LfContractId, TransferDomainId, ReassignmentCounter, TimeOfChange)],
+          Boolean, // true for unassignment, false for transfer-in
       ) => Future[Unit]
     ](
       noTransferAction
@@ -57,14 +57,14 @@ private[participant] class HookedAcs(private val acs: ActiveContractStore)(impli
   override private[store] def indexedStringStore: IndexedStringStore = acs.indexedStringStore
 
   def setCreateAddHook(
-      preCreate: Seq[(LfContractId, TransferCounter, TimeOfChange)] => Future[Unit]
+      preCreate: Seq[(LfContractId, ReassignmentCounter, TimeOfChange)] => Future[Unit]
   ): Unit =
     nextCreateAddHook.set(preCreate)
   def setArchivePurgeHook(preArchive: (Seq[(LfContractId, TimeOfChange)]) => Future[Unit]): Unit =
     nextArchivePurgeHook.set(preArchive)
   def setTransferHook(
       preTransfer: (
-          Seq[(LfContractId, TransferDomainId, TransferCounter, TimeOfChange)],
+          Seq[(LfContractId, TransferDomainId, ReassignmentCounter, TimeOfChange)],
           Boolean,
       ) => Future[Unit]
   ): Unit =
@@ -73,7 +73,7 @@ private[participant] class HookedAcs(private val acs: ActiveContractStore)(impli
     nextFetchHook.set(preFetch)
 
   override def markContractsCreatedOrAdded(
-      contracts: Seq[(LfContractId, TransferCounter, TimeOfChange)],
+      contracts: Seq[(LfContractId, ReassignmentCounter, TimeOfChange)],
       isCreation: Boolean,
   )(implicit
       traceContext: TraceContext
@@ -98,7 +98,7 @@ private[participant] class HookedAcs(private val acs: ActiveContractStore)(impli
   }
 
   override def transferInContracts(
-      transferIns: Seq[(LfContractId, SourceDomainId, TransferCounter, TimeOfChange)]
+      transferIns: Seq[(LfContractId, SourceDomainId, ReassignmentCounter, TimeOfChange)]
   )(implicit
       traceContext: TraceContext
   ): CheckedT[Future, AcsError, AcsWarning, Unit] = CheckedT {
@@ -111,17 +111,17 @@ private[participant] class HookedAcs(private val acs: ActiveContractStore)(impli
     }
   }
 
-  override def transferOutContracts(
-      transferOuts: Seq[(LfContractId, TargetDomainId, TransferCounter, TimeOfChange)]
+  override def unassignContracts(
+      unassignments: Seq[(LfContractId, TargetDomainId, ReassignmentCounter, TimeOfChange)]
   )(implicit
       traceContext: TraceContext
   ): CheckedT[Future, AcsError, AcsWarning, Unit] = CheckedT {
     val preTransfer = nextTransferHook.getAndSet(noTransferAction)
     preTransfer(
-      transferOuts,
+      unassignments,
       true,
     ).flatMap { _ =>
-      acs.transferOutContracts(transferOuts).value
+      acs.unassignContracts(unassignments).value
     }
   }
 
@@ -139,12 +139,12 @@ private[participant] class HookedAcs(private val acs: ActiveContractStore)(impli
 
   override def snapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[SortedMap[LfContractId, (CantonTimestamp, TransferCounter)]] =
+  ): Future[SortedMap[LfContractId, (CantonTimestamp, ReassignmentCounter)]] =
     acs.snapshot(timestamp)
 
   override def snapshot(rc: RequestCounter)(implicit
       traceContext: TraceContext
-  ): Future[SortedMap[LfContractId, (RequestCounter, TransferCounter)]] =
+  ): Future[SortedMap[LfContractId, (RequestCounter, ReassignmentCounter)]] =
     acs.snapshot(rc)
 
   override def contractSnapshot(contractIds: Set[LfContractId], timestamp: CantonTimestamp)(implicit
@@ -152,13 +152,13 @@ private[participant] class HookedAcs(private val acs: ActiveContractStore)(impli
   ): Future[Map[LfContractId, CantonTimestamp]] =
     acs.contractSnapshot(contractIds, timestamp)
 
-  override def bulkContractsTransferCounterSnapshot(
+  override def bulkContractsReassignmentCounterSnapshot(
       contractIds: Set[LfContractId],
       requestCounter: RequestCounter,
   )(implicit
       traceContext: TraceContext
-  ): Future[Map[LfContractId, TransferCounter]] =
-    acs.bulkContractsTransferCounterSnapshot(contractIds, requestCounter)
+  ): Future[Map[LfContractId, ReassignmentCounter]] =
+    acs.bulkContractsReassignmentCounterSnapshot(contractIds, requestCounter)
 
   override def doPrune(beforeAndIncluding: CantonTimestamp, lastPruning: Option[CantonTimestamp])(
       implicit traceContext: TraceContext
@@ -198,13 +198,13 @@ private[participant] class HookedAcs(private val acs: ActiveContractStore)(impli
 
 object HookedAcs {
   private val noCreateAddAction
-      : (Seq[(LfContractId, TransferCounter, TimeOfChange)]) => Future[Unit] = _ => Future.unit
+      : (Seq[(LfContractId, ReassignmentCounter, TimeOfChange)]) => Future[Unit] = _ => Future.unit
 
   private val noArchivePurgeAction: Seq[(LfContractId, TimeOfChange)] => Future[Unit] = _ =>
     Future.unit
 
   private val noTransferAction: (
-      Seq[(LfContractId, TransferDomainId, TransferCounter, TimeOfChange)],
+      Seq[(LfContractId, TransferDomainId, ReassignmentCounter, TimeOfChange)],
       Boolean,
   ) => Future[Unit] = { (_, _) => Future.unit }
 

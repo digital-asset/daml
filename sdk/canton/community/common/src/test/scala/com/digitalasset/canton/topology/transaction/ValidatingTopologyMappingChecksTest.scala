@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.topology.transaction
 
+import cats.instances.order.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.{Fingerprint, SigningPublicKey}
@@ -51,15 +52,7 @@ class ValidatingTopologyMappingChecksTest
   }
 
   "TopologyMappingChecks" when {
-    import DefaultTestIdentities.{
-      domainId,
-      participant1,
-      participant2,
-      participant3,
-      party1,
-      party2,
-      party3,
-    }
+    import DefaultTestIdentities.{domainId, participant1, participant2, participant3, party1}
     import factory.TestingTransactions.*
 
     def checkTransaction(
@@ -279,7 +272,7 @@ class ValidatingTopologyMappingChecksTest
               NonEmpty.from(namespaces).value.toSet,
             )
             .value,
-          signingKeys = keys,
+          signingKeys = keys.toSet,
           // using serial=2 here to test that we don't special case serial=1
           serial = PositiveInt.two,
         )
@@ -318,13 +311,54 @@ class ValidatingTopologyMappingChecksTest
               NonEmpty.from(namespaces).value.toSet,
             )
             .value,
-          signingKeys = keys,
+          signingKeys = keys.toSet,
           serial = PositiveInt.one,
         )
 
         checkTransaction(checks, dnd, None) shouldBe Left(
           TopologyTransactionRejection.NamespaceAlreadyInUse(`dnd_namespace`)
         )
+      }
+
+      "reject if an owning namespace does not have a root certificate" in {
+        val (checks, store) = mk()
+        val (keys, namespaces, rootCerts) = setUpRootCerts(
+          factory.SigningKeys.key1,
+          factory.SigningKeys.key2,
+          factory.SigningKeys.key3,
+        )
+
+        def createDND(owners: Seq[Namespace], keys: Seq[SigningPublicKey]) =
+          factory.mkAddMultiKey(
+            DecentralizedNamespaceDefinition
+              .create(
+                DecentralizedNamespaceDefinition.computeNamespace(owners.toSet),
+                PositiveInt.one,
+                NonEmpty.from(owners).value.toSet,
+              )
+              .value,
+            signingKeys = NonEmpty.from(keys).value.toSet,
+            serial = PositiveInt.one,
+          )
+
+        val dnd_k1k2 = createDND(namespaces.take(2), keys.take(2))
+
+        addToStore(store, (rootCerts :+ dnd_k1k2)*)
+
+        val ns4 = Namespace(factory.SigningKeys.key4.fingerprint)
+
+        val dnd_invalid = createDND(
+          namespaces.takeRight(2) ++ Seq(ns4, dnd_k1k2.mapping.namespace),
+          // we don't have to provide all keys for this transaction to be fully authorized,
+          // because the test doesn't check authorization, just semantic validity.
+          keys.takeRight(2),
+        )
+        checkTransaction(checks, dnd_invalid, None) should matchPattern {
+          case Left(TopologyTransactionRejection.InvalidTopologyMapping(err))
+              if err.contains(
+                s"No root certificate found for ${Seq(ns4, dnd_k1k2.mapping.namespace).sorted.mkString(", ")}"
+              ) =>
+        }
       }
     }
 
@@ -347,7 +381,7 @@ class ValidatingTopologyMappingChecksTest
               NonEmpty.from(namespaces).value.toSet,
             )
             .value,
-          signingKeys = rootKeys,
+          signingKeys = rootKeys.toSet,
           serial = PositiveInt.one,
         )
 
@@ -362,7 +396,7 @@ class ValidatingTopologyMappingChecksTest
         val conflicting_nsd = factory.mkAddMultiKey(
           NamespaceDelegation
             .tryCreate(dnd_namespace, factory.SigningKeys.key8, isRootDelegation = false),
-          rootKeys,
+          rootKeys.toSet,
         )
 
         checkTransaction(checks, conflicting_nsd, None) shouldBe Left(
@@ -855,60 +889,6 @@ class ValidatingTopologyMappingChecksTest
         )
       }
     }
-
-    "validating AuthorityOf" should {
-      val ptps @ Seq(p1_ptp, p2_ptp, p3_ptp) = Seq(party1, party2, party3).map { party =>
-        factory.mkAdd(
-          PartyToParticipant.tryCreate(
-            party,
-            PositiveInt.one,
-            Seq(HostingParticipant(participant1, ParticipantPermission.Confirmation)),
-            groupAddressing = false,
-          )
-        )
-      }
-      "report no errors for valid mappings" in {
-        val (checks, store) = mk()
-        addToStore(store, ptps*)
-
-        val authorityOf =
-          factory.mkAdd(
-            AuthorityOf.create(party1, PositiveInt.two, Seq(party2, party3)).value
-          )
-        checkTransaction(checks, authorityOf) shouldBe Right(())
-      }
-
-      "report UnknownParties for missing PTPs for referenced parties" in {
-        val (checks, store) = mk()
-        addToStore(store, p1_ptp)
-
-        val missingAuthorizingParty =
-          factory.mkAdd(AuthorityOf.create(party2, PositiveInt.one, Seq(party1)).value)
-        checkTransaction(checks, missingAuthorizingParty) shouldBe Left(
-          TopologyTransactionRejection.UnknownParties(Seq(party2))
-        )
-
-        val missingAuthorizedParty =
-          factory.mkAdd(AuthorityOf.create(party1, PositiveInt.one, Seq(party2)).value)
-        checkTransaction(checks, missingAuthorizedParty) shouldBe Left(
-          TopologyTransactionRejection.UnknownParties(Seq(party2))
-        )
-
-        val missingAllParties =
-          factory.mkAdd(AuthorityOf.create(party2, PositiveInt.one, Seq(party3)).value)
-        checkTransaction(checks, missingAllParties) shouldBe Left(
-          TopologyTransactionRejection.UnknownParties(Seq(party2, party3))
-        )
-
-        val missingMixedParties =
-          factory.mkAdd(
-            AuthorityOf.create(party2, PositiveInt.one, Seq(party1, party3)).value
-          )
-        checkTransaction(checks, missingMixedParties) shouldBe Left(
-          TopologyTransactionRejection.UnknownParties(Seq(party2, party3))
-        )
-      }
-    }
   }
 
   private def generateMemberIdentities[M <: Member](
@@ -950,7 +930,7 @@ class ValidatingTopologyMappingChecksTest
       .futureValue
 
   private def setUpRootCerts(keys: SigningPublicKey*): (
-      NonEmpty[Set[SigningPublicKey]],
+      NonEmpty[Seq[SigningPublicKey]],
       Seq[Namespace],
       Seq[SignedTopologyTransaction[Replace, NamespaceDelegation]],
   ) = {
@@ -966,7 +946,7 @@ class ValidatingTopologyMappingChecksTest
           signingKey = key,
         )
       }.unzip
-    val keysNE = NonEmpty.from(keys).value.toSet
+    val keysNE = NonEmpty.from(keys).value
     (keysNE, namespaces, rootCerts)
   }
 

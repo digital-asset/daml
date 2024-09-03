@@ -47,7 +47,6 @@ private[apiserver] final class StoreBackedCommandExecutor(
     participant: Ref.ParticipantId,
     writeService: WriteService,
     contractStore: ContractStore,
-    authorityResolver: AuthorityResolver,
     authenticateContract: AuthenticateContract,
     metrics: LedgerApiServerMetrics,
     config: EngineLoggingConfig,

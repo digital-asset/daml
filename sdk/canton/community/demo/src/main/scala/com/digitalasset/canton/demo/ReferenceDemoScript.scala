@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.demo
 
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.ledger.javaapi.data.codegen.{Contract, ContractCompanion, ContractId}
 import com.daml.ledger.javaapi.data.{Template, TransactionTree}
 import com.digitalasset.canton.admin.api.client.data.StaticDomainParameters
@@ -468,7 +467,7 @@ class ReferenceDemoScript(
                 // give the ACS commitment processor some time to catchup
                 Threading.sleep(5.seconds.toMillis)
                 logger.info(s"Pruning ledger up to offset $offset inclusively")
-                participant5.pruning.prune(ParticipantOffset.defaultInstance.withAbsolute(offset))
+                participant5.pruning.prune(offset)
                 logger.info(s"Pruned ledger up to offset $offset inclusively.")
                 offset
               }

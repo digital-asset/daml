@@ -17,7 +17,7 @@ import com.digitalasset.canton.lifecycle.{
 }
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.event.AcsChange.transferCountersForArchivedTransient
+import com.digitalasset.canton.participant.event.AcsChange.reassignmentCountersForArchivedTransient
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.participant.protocol.conflictdetection.CommitSet
 import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionTracker
@@ -327,33 +327,33 @@ class RecordOrderPublisher(
     override def perform(): FutureUnlessShutdown[Unit] = {
       // If the requestCounterCommitSetPairO is not set, then by default the commit set is empty, and
       // the request counter is the smallest possible value that does not throw an exception in
-      // ActiveContractStore.bulkContractsTransferCounterSnapshot, i.e., Genesis
+      // ActiveContractStore.bulkContractsReassignmentCounterSnapshot, i.e., Genesis
       val (requestCounter, commitSet) =
         requestCounterCommitSetPairO.getOrElse((RequestCounter.Genesis, CommitSet.empty))
-      // Augments the commit set with the updated transfer counters for archive events,
+      // Augments the commit set with the updated reassignment counters for archive events,
       // computes the acs change and publishes it
       logger.trace(
         show"The received commit set contains creations ${commitSet.creations}" +
           show"transfer-ins ${commitSet.transferIns}" +
-          show"archivals ${commitSet.archivals} transfer-outs ${commitSet.transferOuts}"
+          show"archivals ${commitSet.archivals} unassignments ${commitSet.unassignments}"
       )
 
-      val transientArchivals = transferCountersForArchivedTransient(commitSet)
+      val transientArchivals = reassignmentCountersForArchivedTransient(commitSet)
 
       val acsChangePublish =
         for {
-          // Retrieves the transfer counters of the archived contracts from the latest state in the active contract store
-          archivalsWithTransferCountersOnly <- activeContractSnapshot
-            .bulkContractsTransferCounterSnapshot(
+          // Retrieves the reassignment counters of the archived contracts from the latest state in the active contract store
+          archivalsWithReassignmentCountersOnly <- activeContractSnapshot
+            .bulkContractsReassignmentCounterSnapshot(
               commitSet.archivals.keySet -- transientArchivals.keySet,
               requestCounter,
             )
 
         } yield {
-          // Computes the ACS change by decorating the archive events in the commit set with their transfer counters
+          // Computes the ACS change by decorating the archive events in the commit set with their reassignment counters
           val acsChange = AcsChange.tryFromCommitSet(
             commitSet,
-            archivalsWithTransferCountersOnly,
+            archivalsWithReassignmentCountersOnly,
             transientArchivals,
           )
           logger.debug(

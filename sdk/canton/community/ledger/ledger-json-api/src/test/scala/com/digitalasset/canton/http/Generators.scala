@@ -162,9 +162,6 @@ object Generators {
     Gen.posNum[Int].map(JsNumber(_): JsValue),
   )
 
-  def absoluteParticipantOffsetVal: Gen[lav2.participant_offset.ParticipantOffset.Value.Absolute] =
-    Gen.posNum[Long].map(n => lav2.participant_offset.ParticipantOffset.Value.Absolute(n.toString))
-
   def genUnknownTemplateIds: Gen[domain.UnknownTemplateIds] =
     Gen
       .listOf(genDomainTemplateIdO: Gen[domain.ContractTypeId.RequiredPkg])

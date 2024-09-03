@@ -35,7 +35,6 @@ package object domain {
 
 package domain {
 
-  import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
   import com.digitalasset.canton.http.domain.{ContractTypeId, ResolvedQuery}
   import scalaz.-\/
 
@@ -56,17 +55,7 @@ package domain {
 
     def unwrap(x: Offset): String = tag.unwrap(x)
 
-    def fromLedgerApi(
-        offset: ParticipantOffset
-    ): Option[Offset] =
-      offset.value.absolute.filter(_.nonEmpty).map(x => Offset(x))
-
     def fromLedgerApi(tx: lav2.transaction.Transaction): Offset = Offset(tx.offset)
-
-    def toLedgerApi(o: Offset): lav2.participant_offset.ParticipantOffset =
-      lav2.participant_offset.ParticipantOffset(
-        lav2.participant_offset.ParticipantOffset.Value.Absolute(unwrap(o))
-      )
 
     implicit val semigroup: Semigroup[Offset] = Tag.unsubst(Semigroup[Offset @@ Tags.LastVal])
     implicit val `Offset ordering`: Order[Offset] = Order.orderBy[Offset, String](Offset.unwrap(_))

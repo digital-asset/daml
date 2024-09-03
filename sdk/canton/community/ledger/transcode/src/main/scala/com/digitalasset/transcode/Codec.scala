@@ -12,7 +12,16 @@ import com.digitalasset.transcode.schema.DynamicValue
 trait Codec[A] extends Decoder[A] with Encoder[A]
 
 /** Decodes target protocol representation into intermediary DynamicValue representation. */
-trait Decoder[A] { def toDynamicValue(v: A): DynamicValue }
+trait Decoder[A] {
+  def toDynamicValue(v: A): DynamicValue
+  def isOptional(): Boolean = false
+}
 
 /** Encodes intermediary DynamicValue representation into target protocol representation. */
 trait Encoder[A] { def fromDynamicValue(dv: DynamicValue): A }
+
+class UnexpectedFieldsException(val unexpectedFields: Set[String])
+    extends Exception(s"Unexpected fields: $unexpectedFields") {}
+
+class MissingFieldException(val missingField: String)
+    extends Exception(s"Missing fields: $missingField") {}

@@ -113,15 +113,15 @@ class SerializationDeserializationTest
         testMemoizedProtocolVersionedWithCtx(ParticipantMetadata, TestHash)
         testMemoizedProtocolVersionedWithCtx(SubmitterMetadata, TestHash)
         testMemoizedProtocolVersionedWithCtx(
-          TransferInCommonData,
+          AssignmentCommonData,
           (TestHash, TargetProtocolVersion(version)),
         )
-        testMemoizedProtocolVersionedWithCtx(TransferInView, TestHash)
+        testMemoizedProtocolVersionedWithCtx(AssignmentView, TestHash)
         testMemoizedProtocolVersionedWithCtx(
-          TransferOutCommonData,
+          UnassignmentCommonData,
           (TestHash, SourceProtocolVersion(version)),
         )
-        testMemoizedProtocolVersionedWithCtx(TransferOutView, TestHash)
+        testMemoizedProtocolVersionedWithCtx(UnassignmentView, TestHash)
 
         testMemoizedProtocolVersionedWithCtx(
           ViewCommonData,
@@ -180,12 +180,12 @@ class SerializationDeserializationTest
         testProtocolVersionedWithCtxAndValidation(LightTransactionViewTree, TestHash, version)
 
         testProtocolVersionedWithCtxAndValidationWithTargetProtocolVersion(
-          TransferInViewTree,
+          AssignmentViewTree,
           TestHash,
           TargetProtocolVersion(version),
         )
         testProtocolVersionedWithCtxAndValidationWithSourceProtocolVersion(
-          TransferOutViewTree,
+          UnassignmentViewTree,
           TestHash,
           SourceProtocolVersion(version),
         )

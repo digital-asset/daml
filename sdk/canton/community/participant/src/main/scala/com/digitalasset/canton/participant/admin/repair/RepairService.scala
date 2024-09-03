@@ -112,8 +112,8 @@ final class RepairService(
     with HasCloseContext {
 
   private type MissingContract = (WithTransactionId[SerializableContract], RequestCounter)
-  private type MissingTransferIn = (LfContractId, SourceDomainId, TransferCounter, TimeOfChange)
-  private type MissingAdd = (LfContractId, TransferCounter, TimeOfChange)
+  private type MissingTransferIn = (LfContractId, SourceDomainId, ReassignmentCounter, TimeOfChange)
+  private type MissingAdd = (LfContractId, ReassignmentCounter, TimeOfChange)
   private type MissingPurge = (LfContractId, TimeOfChange)
 
   override protected def timeouts: ProcessingTimeout = parameters.processingTimeouts
@@ -144,7 +144,7 @@ final class RepairService(
         ContractToAdd(
           repairContract.contract,
           repairContract.witnesses.map(_.toLf),
-          repairContract.transferCounter,
+          repairContract.reassignmentCounter,
           reassigningFrom,
         )
       )
@@ -182,22 +182,23 @@ final class RepairService(
           )
         )
       case Some(ActiveContractStore.Purged) => addContract(reassigningFrom = None)
-      case Some(ActiveContractStore.TransferredAway(targetDomain, transferCounter)) =>
+      case Some(ActiveContractStore.ReassignedAway(targetDomain, reassignmentCounter)) =>
         log(
           s"Marking contract ${repairContract.contract.contractId} previously transferred-out to $targetDomain as " +
             s"transferred-in from $targetDomain (even though contract may have been transferred to yet another domain since)."
         ).discard
 
-        val isTransferCounterIncreasing = repairContract.transferCounter > transferCounter
+        val isReassignmentCounterIncreasing =
+          repairContract.reassignmentCounter > reassignmentCounter
 
-        if (isTransferCounterIncreasing) {
+        if (isReassignmentCounterIncreasing) {
           addContract(reassigningFrom = Option(SourceDomainId(targetDomain.unwrap)))
         } else {
           EitherT.leftT(
             log(
-              s"The transfer counter ${repairContract.transferCounter} of the contract " +
-                s"${repairContract.contract.contractId} needs to be strictly larger than the transfer counter " +
-                s"$transferCounter at the time of the transfer-out."
+              s"The reassignment counter ${repairContract.reassignmentCounter} of the contract " +
+                s"${repairContract.contract.contractId} needs to be strictly larger than the reassignment counter " +
+                s"$reassignmentCounter at the time of the unassignment."
             )
           )
         }
@@ -836,11 +837,11 @@ final class RepairService(
       ) { case ((missingTransferIns, missingAdds), (contract, toc)) =>
         contract.reassigningFrom match {
           case Some(sourceDomainId) =>
-            val newTransferIn = (contract.cid, sourceDomainId, contract.transferCounter, toc)
+            val newTransferIn = (contract.cid, sourceDomainId, contract.reassignmentCounter, toc)
             (newTransferIn +: missingTransferIns, missingAdds)
 
           case None =>
-            val newAdd = (contract.cid, contract.transferCounter, toc)
+            val newAdd = (contract.cid, contract.reassignmentCounter, toc)
             (missingTransferIns, newAdd +: missingAdds)
         }
       }
@@ -910,20 +911,20 @@ final class RepairService(
         }
       case Some(ActiveContractStore.Archived) => ignoreOrError("archived contract")
       case Some(ActiveContractStore.Purged) => ignoreOrError("purged contract")
-      case Some(ActiveContractStore.TransferredAway(targetDomain, transferCounter)) =>
+      case Some(ActiveContractStore.ReassignedAway(targetDomain, reassignmentCounter)) =>
         log(
           s"Purging contract $cid previously marked as transferred away to $targetDomain. " +
             s"Marking contract as transferred-in from $targetDomain (even though contract may have since been transferred to yet another domain) and subsequently as archived."
         ).discard
 
-        transferCounter.increment.map { newTransferCounter =>
+        reassignmentCounter.increment.map { newReassignmentCounter =>
           (
             Seq[MissingPurge]((cid, toc)),
             Seq[MissingTransferIn](
               (
                 cid,
                 SourceDomainId(targetDomain.unwrap),
-                newTransferCounter,
+                newReassignmentCounter,
                 toc,
               )
             ),
@@ -1490,7 +1491,7 @@ object RepairService {
   private final case class ContractToAdd(
       contract: SerializableContract,
       witnesses: Set[LfPartyId],
-      transferCounter: TransferCounter,
+      reassignmentCounter: ReassignmentCounter,
       reassigningFrom: Option[SourceDomainId],
   ) {
     def cid: LfContractId = contract.contractId

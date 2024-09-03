@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.topology.client
 
+import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -27,7 +28,6 @@ import com.digitalasset.canton.tracing.{TraceContext, TracedScaffeine}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{ErrorUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{LfPartyId, SequencerCounter}
 import com.digitalasset.daml.lf.data.Ref.PackageId
 
 import java.util.concurrent.atomic.AtomicReference
@@ -333,14 +333,6 @@ private class ForwardingTopologySnapshotClient(
       loadParticipantStates: Seq[ParticipantId] => Future[Map[ParticipantId, ParticipantAttributes]],
   )(implicit traceContext: TraceContext) =
     parent.loadBatchActiveParticipantsOf(parties, loadParticipantStates)
-
-  /** Returns the Authority-Of delegations for consortium parties. Non-consortium parties delegate to themselves
-    * with threshold one
-    */
-  override def authorityOf(
-      parties: Set[LfPartyId]
-  )(implicit traceContext: TraceContext): Future[PartyTopologySnapshotClient.AuthorityOfResponse] =
-    parent.authorityOf(parties)
 }
 
 class CachingTopologySnapshot(
@@ -438,13 +430,6 @@ class CachingTopologySnapshot(
     new AtomicReference[
       Option[Future[Seq[DynamicDomainParametersWithValidity]]]
     ](None)
-
-  private val authorityOfCache =
-    TracedScaffeine
-      .buildTracedAsyncFuture[Set[LfPartyId], PartyTopologySnapshotClient.AuthorityOfResponse](
-        cache = cachingConfigs.partyCache.buildScaffeine(),
-        loader = traceContext => party => parent.authorityOf(party)(traceContext),
-      )(logger)
 
   override def allKeys(owner: Member)(implicit traceContext: TraceContext): Future[KeyCollection] =
     keyCache.get(owner)
@@ -569,12 +554,4 @@ class CachingTopologySnapshot(
       traceContext: TraceContext
   ): Future[Seq[DynamicDomainParametersWithValidity]] =
     getAndCache(domainParametersChangesCache, parent.listDynamicDomainParametersChanges())
-
-  /** Returns the Authority-Of delegations for consortium parties. Non-consortium parties delegate to themselves
-    * with threshold one
-    */
-  override def authorityOf(
-      parties: Set[LfPartyId]
-  )(implicit traceContext: TraceContext): Future[PartyTopologySnapshotClient.AuthorityOfResponse] =
-    authorityOfCache.get(parties)
 }

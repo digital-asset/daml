@@ -9,7 +9,7 @@ import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.MerkleTree.RevealSubtree
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.messages.TransferOutMediatorMessage
+import com.digitalasset.canton.protocol.messages.UnassignmentMediatorMessage
 import com.digitalasset.canton.protocol.{v30, *}
 import com.digitalasset.canton.sequencing.protocol.{MediatorGroupRecipient, TimeProof}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -18,34 +18,34 @@ import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.version.*
-import com.digitalasset.canton.{LfPartyId, LfWorkflowId, TransferCounter}
+import com.digitalasset.canton.{LfPartyId, LfWorkflowId, ReassignmentCounter}
 import com.google.protobuf.ByteString
 
 import java.util.UUID
 
-/** A transfer-out request embedded in a Merkle tree. The view may or may not be blinded. */
-final case class TransferOutViewTree(
-    commonData: MerkleTreeLeaf[TransferOutCommonData],
-    view: MerkleTree[TransferOutView],
+/** An unassignment request embedded in a Merkle tree. The view may or may not be blinded. */
+final case class UnassignmentViewTree(
+    commonData: MerkleTreeLeaf[UnassignmentCommonData],
+    view: MerkleTree[UnassignmentView],
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
-      TransferOutViewTree.type
+      UnassignmentViewTree.type
     ],
     hashOps: HashOps,
 ) extends GenTransferViewTree[
-      TransferOutCommonData,
-      TransferOutView,
-      TransferOutViewTree,
-      TransferOutMediatorMessage,
+      UnassignmentCommonData,
+      UnassignmentView,
+      UnassignmentViewTree,
+      UnassignmentMediatorMessage,
     ](commonData, view)(hashOps)
-    with HasProtocolVersionedWrapper[TransferOutViewTree] {
+    with HasProtocolVersionedWrapper[UnassignmentViewTree] {
 
   def submittingParticipant: ParticipantId =
     commonData.tryUnwrap.submitterMetadata.submittingParticipant
 
   override private[data] def withBlindedSubtrees(
       optimizedBlindingPolicy: PartialFunction[RootHash, MerkleTree.BlindingCommand]
-  ): MerkleTree[TransferOutViewTree] = {
+  ): MerkleTree[UnassignmentViewTree] = {
 
     if (
       optimizedBlindingPolicy.applyOrElse(
@@ -55,34 +55,34 @@ final case class TransferOutViewTree(
     )
       throw new IllegalArgumentException("Blinding of common data is not supported.")
 
-    TransferOutViewTree(
+    UnassignmentViewTree(
       commonData,
       view.doBlind(optimizedBlindingPolicy),
     )(representativeProtocolVersion, hashOps)
   }
 
   protected[this] override def createMediatorMessage(
-      blindedTree: TransferOutViewTree,
+      blindedTree: UnassignmentViewTree,
       submittingParticipantSignature: Signature,
-  ): TransferOutMediatorMessage =
-    TransferOutMediatorMessage(blindedTree, submittingParticipantSignature)
+  ): UnassignmentMediatorMessage =
+    UnassignmentMediatorMessage(blindedTree, submittingParticipantSignature)
 
-  override def pretty: Pretty[TransferOutViewTree] = prettyOfClass(
+  override def pretty: Pretty[UnassignmentViewTree] = prettyOfClass(
     param("common data", _.commonData),
     param("view", _.view),
   )
 
-  @transient override protected lazy val companionObj: TransferOutViewTree.type =
-    TransferOutViewTree
+  @transient override protected lazy val companionObj: UnassignmentViewTree.type =
+    UnassignmentViewTree
 }
 
-object TransferOutViewTree
+object UnassignmentViewTree
     extends HasProtocolVersionedWithContextAndValidationWithSourceProtocolVersionCompanion[
-      TransferOutViewTree,
+      UnassignmentViewTree,
       HashOps,
     ] {
 
-  override val name: String = "TransferOutViewTree"
+  override val name: String = "UnassignmentViewTree"
 
   val supportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.ReassignmentViewTree)(
@@ -92,50 +92,50 @@ object TransferOutViewTree
   )
 
   def apply(
-      commonData: MerkleTreeLeaf[TransferOutCommonData],
-      view: MerkleTree[TransferOutView],
+      commonData: MerkleTreeLeaf[UnassignmentCommonData],
+      view: MerkleTree[UnassignmentView],
       sourceProtocolVersion: SourceProtocolVersion,
       hashOps: HashOps,
-  ): TransferOutViewTree =
-    TransferOutViewTree(commonData, view)(
-      TransferOutViewTree.protocolVersionRepresentativeFor(sourceProtocolVersion.v),
+  ): UnassignmentViewTree =
+    UnassignmentViewTree(commonData, view)(
+      UnassignmentViewTree.protocolVersionRepresentativeFor(sourceProtocolVersion.v),
       hashOps,
     )
 
   def fromProtoV30(context: (HashOps, SourceProtocolVersion))(
-      transferOutViewTreeP: v30.ReassignmentViewTree
-  ): ParsingResult[TransferOutViewTree] = {
+      unassignmentViewTreeP: v30.ReassignmentViewTree
+  ): ParsingResult[UnassignmentViewTree] = {
     val (hashOps, expectedProtocolVersion) = context
 
     for {
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
       res <- GenTransferViewTree.fromProtoV30(
-        TransferOutCommonData.fromByteString(expectedProtocolVersion.v)(
+        UnassignmentCommonData.fromByteString(expectedProtocolVersion.v)(
           (hashOps, expectedProtocolVersion)
         ),
-        TransferOutView.fromByteString(expectedProtocolVersion.v)(hashOps),
+        UnassignmentView.fromByteString(expectedProtocolVersion.v)(hashOps),
       )((commonData, view) =>
-        TransferOutViewTree(commonData, view)(
+        UnassignmentViewTree(commonData, view)(
           rpv,
           hashOps,
         )
-      )(transferOutViewTreeP)
+      )(unassignmentViewTreeP)
     } yield res
 
   }
 }
 
-/** Aggregates the data of a transfer-out request that is sent to the mediator and the involved participants.
+/** Aggregates the data of an unassignment request that is sent to the mediator and the involved participants.
   *
   * @param salt Salt for blinding the Merkle hash
-  * @param sourceDomain The domain to which the transfer-out request is sent
-  * @param sourceMediatorGroup The mediator that coordinates the transfer-out request on the source domain
+  * @param sourceDomain The domain to which the unassignment request is sent
+  * @param sourceMediatorGroup The mediator that coordinates the unassignment request on the source domain
   * @param stakeholders The stakeholders of the contract to be transferred
-  * @param adminParties The admin parties of reassigning transfer-out participants
-  * @param uuid The request UUID of the transfer-out
+  * @param adminParties The admin parties of reassigning unassignment participants
+  * @param uuid The request UUID of the unassignment
   * @param submitterMetadata information about the submission
   */
-final case class TransferOutCommonData private (
+final case class UnassignmentCommonData private (
     override val salt: Salt,
     sourceDomain: SourceDomainId,
     sourceMediatorGroup: MediatorGroupRecipient,
@@ -147,16 +147,16 @@ final case class TransferOutCommonData private (
     hashOps: HashOps,
     val sourceProtocolVersion: SourceProtocolVersion,
     override val deserializedFrom: Option[ByteString],
-) extends MerkleTreeLeaf[TransferOutCommonData](hashOps)
-    with HasProtocolVersionedWrapper[TransferOutCommonData]
+) extends MerkleTreeLeaf[UnassignmentCommonData](hashOps)
+    with HasProtocolVersionedWrapper[UnassignmentCommonData]
     with ProtocolVersionedMemoizedEvidence {
 
-  @transient override protected lazy val companionObj: TransferOutCommonData.type =
-    TransferOutCommonData
+  @transient override protected lazy val companionObj: UnassignmentCommonData.type =
+    UnassignmentCommonData
 
   override val representativeProtocolVersion
-      : RepresentativeProtocolVersion[TransferOutCommonData.type] =
-    TransferOutCommonData.protocolVersionRepresentativeFor(sourceProtocolVersion.v)
+      : RepresentativeProtocolVersion[UnassignmentCommonData.type] =
+    UnassignmentCommonData.protocolVersionRepresentativeFor(sourceProtocolVersion.v)
 
   protected def toProtoV30: v30.UnassignmentCommonData =
     v30.UnassignmentCommonData(
@@ -172,12 +172,12 @@ final case class TransferOutCommonData private (
   override protected[this] def toByteStringUnmemoized: ByteString =
     super[HasProtocolVersionedWrapper].toByteString
 
-  override def hashPurpose: HashPurpose = HashPurpose.TransferOutCommonData
+  override def hashPurpose: HashPurpose = HashPurpose.UnassignmentCommonData
 
   def confirmingParties: Map[LfPartyId, PositiveInt] =
     (stakeholders ++ adminParties).map(_ -> PositiveInt.one).toMap
 
-  override def pretty: Pretty[TransferOutCommonData] = prettyOfClass(
+  override def pretty: Pretty[UnassignmentCommonData] = prettyOfClass(
     param("submitter metadata", _.submitterMetadata),
     param("source domain", _.sourceDomain),
     param("source mediator group", _.sourceMediatorGroup),
@@ -188,12 +188,12 @@ final case class TransferOutCommonData private (
   )
 }
 
-object TransferOutCommonData
+object UnassignmentCommonData
     extends HasMemoizedProtocolVersionedWithContextCompanion[
-      TransferOutCommonData,
+      UnassignmentCommonData,
       (HashOps, SourceProtocolVersion),
     ] {
-  override val name: String = "TransferOutCommonData"
+  override val name: String = "UnassignmentCommonData"
 
   val supportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.UnassignmentCommonData)(
@@ -211,7 +211,7 @@ object TransferOutCommonData
       uuid: UUID,
       submitterMetadata: TransferSubmitterMetadata,
       sourceProtocolVersion: SourceProtocolVersion,
-  ): TransferOutCommonData = TransferOutCommonData(
+  ): UnassignmentCommonData = UnassignmentCommonData(
     salt,
     sourceDomain,
     sourceMediator,
@@ -223,10 +223,10 @@ object TransferOutCommonData
 
   private[this] def fromProtoV30(
       context: (HashOps, SourceProtocolVersion),
-      transferOutCommonDataP: v30.UnassignmentCommonData,
+      unassignmentCommonDataP: v30.UnassignmentCommonData,
   )(
       bytes: ByteString
-  ): ParsingResult[TransferOutCommonData] = {
+  ): ParsingResult[UnassignmentCommonData] = {
     val (hashOps, sourceProtocolVersion) = context
     val v30.UnassignmentCommonData(
       saltP,
@@ -236,7 +236,7 @@ object TransferOutCommonData
       uuidP,
       sourceMediatorGroupP,
       submitterMetadataPO,
-    ) = transferOutCommonDataP
+    ) = unassignmentCommonDataP
 
     for {
       salt <- ProtoConverter.parseRequired(Salt.fromProtoV30, "salt", saltP)
@@ -252,7 +252,7 @@ object TransferOutCommonData
         .required("submitter_metadata", submitterMetadataPO)
         .flatMap(TransferSubmitterMetadata.fromProtoV30)
 
-    } yield TransferOutCommonData(
+    } yield UnassignmentCommonData(
       salt,
       sourceDomain,
       MediatorGroupRecipient(sourceMediatorGroup),
@@ -264,7 +264,7 @@ object TransferOutCommonData
   }
 }
 
-/** Aggregates the data of a transfer-out request that is only sent to the involved participants
+/** Aggregates the data of an unassignment request that is only sent to the involved participants
   */
 /** @param salt The salt used to blind the Merkle hash.
   * @param contract Contract being transferred
@@ -274,28 +274,30 @@ object TransferOutCommonData
   *                        the baseline for measuring time periods on the target domain
   * @param targetProtocolVersion Protocol version of the target domain
   */
-final case class TransferOutView private (
+final case class UnassignmentView private (
     override val salt: Salt,
     contract: SerializableContract,
     creatingTransactionId: TransactionId,
     targetDomain: TargetDomainId,
     targetTimeProof: TimeProof,
     targetProtocolVersion: TargetProtocolVersion,
-    transferCounter: TransferCounter,
+    reassignmentCounter: ReassignmentCounter,
 )(
     hashOps: HashOps,
-    override val representativeProtocolVersion: RepresentativeProtocolVersion[TransferOutView.type],
+    override val representativeProtocolVersion: RepresentativeProtocolVersion[
+      UnassignmentView.type
+    ],
     override val deserializedFrom: Option[ByteString],
-) extends MerkleTreeLeaf[TransferOutView](hashOps)
-    with HasProtocolVersionedWrapper[TransferOutView]
+) extends MerkleTreeLeaf[UnassignmentView](hashOps)
+    with HasProtocolVersionedWrapper[UnassignmentView]
     with ProtocolVersionedMemoizedEvidence {
 
-  @transient override protected lazy val companionObj: TransferOutView.type = TransferOutView
+  @transient override protected lazy val companionObj: UnassignmentView.type = UnassignmentView
 
   override protected[this] def toByteStringUnmemoized: ByteString =
     super[HasProtocolVersionedWrapper].toByteString
 
-  def hashPurpose: HashPurpose = HashPurpose.TransferOutView
+  def hashPurpose: HashPurpose = HashPurpose.UnassignmentView
 
   def templateId: LfTemplateId =
     contract.rawContractInstance.contractInstance.unversioned.template
@@ -306,18 +308,18 @@ final case class TransferOutView private (
       targetDomain = targetDomain.toProtoPrimitive,
       targetTimeProof = Some(targetTimeProof.toProtoV30),
       targetProtocolVersion = targetProtocolVersion.v.toProtoPrimitive,
-      reassignmentCounter = transferCounter.toProtoPrimitive,
+      reassignmentCounter = reassignmentCounter.toProtoPrimitive,
       creatingTransactionId = creatingTransactionId.toProtoPrimitive,
       contract = Some(contract.toProtoV30),
     )
 
-  override def pretty: Pretty[TransferOutView] = prettyOfClass(
+  override def pretty: Pretty[UnassignmentView] = prettyOfClass(
     param("creating transaction id", _.creatingTransactionId),
     param("template id", _.templateId),
     param("target domain", _.targetDomain),
     param("target time proof", _.targetTimeProof),
     param("target protocol version", _.targetProtocolVersion.v),
-    param("transfer counter", _.transferCounter),
+    param("reassignment counter", _.reassignmentCounter),
     param(
       "contract id",
       _.contract.contractId,
@@ -326,9 +328,9 @@ final case class TransferOutView private (
   )
 }
 
-object TransferOutView
-    extends HasMemoizedProtocolVersionedWithContextCompanion[TransferOutView, HashOps] {
-  override val name: String = "TransferOutView"
+object UnassignmentView
+    extends HasMemoizedProtocolVersionedWithContextCompanion[UnassignmentView, HashOps] {
+  override val name: String = "UnassignmentView"
 
   val supportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.UnassignmentView)(
@@ -345,30 +347,30 @@ object TransferOutView
       targetTimeProof: TimeProof,
       sourceProtocolVersion: SourceProtocolVersion,
       targetProtocolVersion: TargetProtocolVersion,
-      transferCounter: TransferCounter,
-  ): TransferOutView =
-    TransferOutView(
+      reassignmentCounter: ReassignmentCounter,
+  ): UnassignmentView =
+    UnassignmentView(
       salt,
       contract,
       creatingTransactionId,
       targetDomain,
       targetTimeProof,
       targetProtocolVersion,
-      transferCounter,
+      reassignmentCounter,
     )(hashOps, protocolVersionRepresentativeFor(sourceProtocolVersion.v), None)
 
-  private[this] def fromProtoV30(hashOps: HashOps, transferOutViewP: v30.UnassignmentView)(
+  private[this] def fromProtoV30(hashOps: HashOps, unassignmentViewP: v30.UnassignmentView)(
       bytes: ByteString
-  ): ParsingResult[TransferOutView] = {
+  ): ParsingResult[UnassignmentView] = {
     val v30.UnassignmentView(
       saltP,
       targetDomainP,
       targetTimeProofP,
       targetProtocolVersionP,
-      transferCounter,
+      reassignmentCounterP,
       creatingTransactionIdP,
       contractPO,
-    ) = transferOutViewP
+    ) = unassignmentViewP
 
     for {
       salt <- ProtoConverter.parseRequired(Salt.fromProtoV30, "salt", saltP)
@@ -379,17 +381,17 @@ object TransferOutView
         .flatMap(TimeProof.fromProtoV30(targetProtocolVersion, hashOps))
       creatingTransactionId <- TransactionId.fromProtoPrimitive(creatingTransactionIdP)
       contract <- ProtoConverter
-        .required("TransferOutViewTree.contract", contractPO)
+        .required("UnassignmentViewTree.contract", contractPO)
         .flatMap(SerializableContract.fromProtoV30)
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
-    } yield TransferOutView(
+    } yield UnassignmentView(
       salt,
       contract,
       creatingTransactionId,
       TargetDomainId(targetDomain),
       targetTimeProof,
       TargetProtocolVersion(targetProtocolVersion),
-      TransferCounter(transferCounter),
+      ReassignmentCounter(reassignmentCounterP),
     )(
       hashOps,
       rpv,
@@ -399,15 +401,15 @@ object TransferOutView
   }
 }
 
-/** A fully unblinded [[TransferOutViewTree]]
+/** A fully unblinded [[UnassignmentViewTree]]
   *
   * @throws java.lang.IllegalArgumentException if the [[tree]] is not fully unblinded
   */
-final case class FullTransferOutTree(tree: TransferOutViewTree)
+final case class FullUnassignmentTree(tree: UnassignmentViewTree)
     extends TransferViewTree
     with HasToByteString
     with PrettyPrinting {
-  require(tree.isFullyUnblinded, "A transfer-out request must be fully unblinded")
+  require(tree.isFullyUnblinded, "An unassignment request must be fully unblinded")
 
   private[this] val commonData = tree.commonData.tryUnwrap
   private[this] val view = tree.view.tryUnwrap
@@ -426,7 +428,7 @@ final case class FullTransferOutTree(tree: TransferOutViewTree)
 
   def templateId: LfTemplateId = view.templateId
 
-  def transferCounter: TransferCounter = view.transferCounter
+  def reassignmentCounter: ReassignmentCounter = view.reassignmentCounter
 
   def sourceDomain: SourceDomainId = commonData.sourceDomain
 
@@ -436,7 +438,7 @@ final case class FullTransferOutTree(tree: TransferOutViewTree)
 
   def mediatorMessage(
       submittingParticipantSignature: Signature
-  ): TransferOutMediatorMessage = tree.mediatorMessage(submittingParticipantSignature)
+  ): UnassignmentMediatorMessage = tree.mediatorMessage(submittingParticipantSignature)
 
   override def domainId: DomainId = sourceDomain.unwrap
 
@@ -453,21 +455,21 @@ final case class FullTransferOutTree(tree: TransferOutViewTree)
   override def isReassigningParticipant(participantId: ParticipantId): Boolean =
     adminParties.contains(participantId.adminParty.toLf)
 
-  override def pretty: Pretty[FullTransferOutTree] = prettyOfClass(unnamedParam(_.tree))
+  override def pretty: Pretty[FullUnassignmentTree] = prettyOfClass(unnamedParam(_.tree))
 
   override def toByteString: ByteString = tree.toByteString
 }
 
-object FullTransferOutTree {
+object FullUnassignmentTree {
   def fromByteString(
       crypto: CryptoPureApi,
       sourceProtocolVersion: SourceProtocolVersion,
-  )(bytes: ByteString): ParsingResult[FullTransferOutTree] =
+  )(bytes: ByteString): ParsingResult[FullUnassignmentTree] =
     for {
-      tree <- TransferOutViewTree.fromByteString(crypto, sourceProtocolVersion)(bytes)
+      tree <- UnassignmentViewTree.fromByteString(crypto, sourceProtocolVersion)(bytes)
       _ <- EitherUtil.condUnitE(
         tree.isFullyUnblinded,
-        OtherError(s"Transfer-out request ${tree.rootHash} is not fully unblinded"),
+        OtherError(s"Unassignment request ${tree.rootHash} is not fully unblinded"),
       )
-    } yield FullTransferOutTree(tree)
+    } yield FullUnassignmentTree(tree)
 }

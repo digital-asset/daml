@@ -23,10 +23,13 @@ import com.digitalasset.canton.version.{
   ProtocolVersion,
   RepresentativeProtocolVersion,
 }
-import com.digitalasset.canton.{ProtoDeserializationError, TransferCounter}
+import com.digitalasset.canton.{ProtoDeserializationError, ReassignmentCounter}
 import com.digitalasset.daml.lf.data.Bytes;
 
-final case class CommitmentContractMetadata(cid: LfContractId, transferCounter: TransferCounter)(
+final case class CommitmentContractMetadata(
+    cid: LfContractId,
+    reassignmentCounter: ReassignmentCounter,
+)(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
       CommitmentContractMetadata.type
     ]
@@ -38,12 +41,12 @@ final case class CommitmentContractMetadata(cid: LfContractId, transferCounter: 
   override def pretty: Pretty[CommitmentContractMetadata.this.type] =
     prettyOfClass(
       param("contract id", _.cid),
-      param("transfer counter", _.transferCounter.v),
+      param("reassignment counter", _.reassignmentCounter.v),
     )
 
   private def toProtoV30: v30.CommitmentContractMeta = v30.CommitmentContractMeta(
     cid.toBytes.toByteString,
-    transferCounter.v,
+    reassignmentCounter.v,
   )
 }
 
@@ -67,7 +70,7 @@ object CommitmentContractMetadata
         .fromBytes(Bytes.fromByteString(contract.cid))
         .leftMap(ProtoDeserializationError.StringConversionError)
       reprProtocolVersion <- protocolVersionRepresentativeFor(ProtoVersion(30))
-    } yield CommitmentContractMetadata(cid, TransferCounter(contract.reassignmentCounter))(
+    } yield CommitmentContractMetadata(cid, ReassignmentCounter(contract.reassignmentCounter))(
       reprProtocolVersion
     )
 
@@ -195,7 +198,7 @@ final case class ContractCreated(domain: DomainId, creatingTxId: Option[Transact
 final case class ContractAssigned(
     srcDomain: DomainId,
     targetDomain: DomainId,
-    reassignmentCounterTarget: TransferCounter,
+    reassignmentCounterTarget: ReassignmentCounter,
     reassignmentId: Option[ReassignmentId],
 ) extends ContractActive {
   override def pretty: Pretty[ContractAssigned] = prettyOfClass(
@@ -209,7 +212,7 @@ final case class ContractAssigned(
 final case class ContractUnassigned(
     srcDomain: DomainId,
     targetDomain: DomainId,
-    reassignmentCounterSrc: TransferCounter,
+    reassignmentCounterSrc: ReassignmentCounter,
     reassignmentId: Option[ReassignmentId],
 ) extends ContractInactive {
   override def pretty: Pretty[ContractUnassigned] = prettyOfClass(
@@ -223,7 +226,7 @@ final case class ContractUnassigned(
 final case class ContractArchived(
     domain: DomainId,
     archivingTxId: Option[TransactionId],
-    reassignmentCounter: TransferCounter,
+    reassignmentCounter: ReassignmentCounter,
 ) extends ContractInactive {
   override def pretty: Pretty[ContractArchived] = prettyOfClass(
     param("domain", _.domain),

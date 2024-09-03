@@ -57,7 +57,7 @@ final class GeneratorsProtocol(
     for {
       confirmationResponseTimeout <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
       mediatorReactionTimeout <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
-      transferExclusivityTimeout <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
+      assignmentExclusivityTimeout <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
       topologyChangeDelay <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
 
       mediatorDeduplicationMargin <- Arbitrary.arbitrary[NonNegativeFiniteDuration]
@@ -100,7 +100,7 @@ final class GeneratorsProtocol(
       dynamicDomainParameters = DynamicDomainParameters.tryCreate(
         confirmationResponseTimeout,
         mediatorReactionTimeout,
-        transferExclusivityTimeout,
+        assignmentExclusivityTimeout,
         topologyChangeDelay,
         ledgerTimeRecordTimeTolerance,
         updatedMediatorDeduplicationTimeout,

@@ -16,7 +16,7 @@ import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
-import com.digitalasset.canton.{LfPartyId, TransferCounter}
+import com.digitalasset.canton.{LfPartyId, ReassignmentCounter}
 
 import java.util.UUID
 import scala.concurrent.ExecutionContext
@@ -27,9 +27,9 @@ import scala.concurrent.ExecutionContext
   *                     (b) are connected to both source and target domain
   * @param targetTimeProof a sequenced event that the submitter has recently observed on the target domain.
   *                        Determines the timestamp of the topology at the target domain.
-  * @param transferCounter The new transfer counter (incremented value compared to the one in the ACS).
+  * @param reassignmentCounter The new reassignment counter (incremented value compared to the one in the ACS).
   */
-final case class TransferOutRequest(
+final case class UnassignmentRequest(
     submitterMetadata: TransferSubmitterMetadata,
     stakeholders: Set[LfPartyId],
     adminParties: Set[LfPartyId],
@@ -41,19 +41,19 @@ final case class TransferOutRequest(
     targetDomain: TargetDomainId,
     targetProtocolVersion: TargetProtocolVersion,
     targetTimeProof: TimeProof,
-    transferCounter: TransferCounter,
+    reassignmentCounter: ReassignmentCounter,
 ) {
 
-  def toFullTransferOutTree(
+  def toFullUnassignmentTree(
       hashOps: HashOps,
       hmacOps: HmacOps,
       seed: SaltSeed,
       uuid: UUID,
-  ): FullTransferOutTree = {
+  ): FullUnassignmentTree = {
     val commonDataSalt = Salt.tryDeriveSalt(seed, 0, hmacOps)
     val viewSalt = Salt.tryDeriveSalt(seed, 1, hmacOps)
 
-    val commonData = TransferOutCommonData
+    val commonData = UnassignmentCommonData
       .create(hashOps)(
         commonDataSalt,
         sourceDomain,
@@ -65,7 +65,7 @@ final case class TransferOutRequest(
         sourceProtocolVersion,
       )
 
-    val view = TransferOutView
+    val view = UnassignmentView
       .create(hashOps)(
         viewSalt,
         contract,
@@ -74,14 +74,14 @@ final case class TransferOutRequest(
         targetTimeProof,
         sourceProtocolVersion,
         targetProtocolVersion,
-        transferCounter,
+        reassignmentCounter,
       )
 
-    FullTransferOutTree(TransferOutViewTree(commonData, view, sourceProtocolVersion, hashOps))
+    FullUnassignmentTree(UnassignmentViewTree(commonData, view, sourceProtocolVersion, hashOps))
   }
 }
 
-object TransferOutRequest {
+object UnassignmentRequest {
 
   def validated(
       participantId: ParticipantId,
@@ -97,7 +97,7 @@ object TransferOutRequest {
       targetProtocolVersion: TargetProtocolVersion,
       sourceTopology: TopologySnapshot,
       targetTopology: TopologySnapshot,
-      transferCounter: TransferCounter,
+      reassignmentCounter: ReassignmentCounter,
       logger: TracedLogger,
   )(implicit
       traceContext: TraceContext,
@@ -105,13 +105,13 @@ object TransferOutRequest {
   ): EitherT[
     FutureUnlessShutdown,
     TransferProcessorError,
-    TransferOutRequestValidated,
+    UnassignmentRequestValidated,
   ] = {
     val contractId = contract.contractId
     val templateId = contract.contractInstance.unversioned.template
 
     for {
-      _ <- CanSubmitTransfer.transferOut(
+      _ <- CanSubmitTransfer.unassignment(
         contractId,
         sourceTopology,
         submitterMetadata.submitter,
@@ -133,7 +133,7 @@ object TransferOutRequest {
         targetDomain,
       )
     } yield {
-      val transferOutRequest = TransferOutRequest(
+      val unassignmentRequest = UnassignmentRequest(
         submitterMetadata,
         stakeholders,
         adminPartiesAndRecipients.adminParties,
@@ -145,10 +145,10 @@ object TransferOutRequest {
         targetDomain,
         targetProtocolVersion,
         timeProof,
-        transferCounter,
+        reassignmentCounter,
       )
 
-      TransferOutRequestValidated(transferOutRequest, adminPartiesAndRecipients.participants)
+      UnassignmentRequestValidated(unassignmentRequest, adminPartiesAndRecipients.participants)
     }
   }
 

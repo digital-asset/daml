@@ -16,7 +16,7 @@ import scala.util.Success
 
 /** Utilities shared between checks in phase 1 and phase 3
   */
-private[transfer] object TransferOutValidationUtil {
+private[transfer] object UnassignmentValidationUtil {
 
   def confirmingAdminParticipants(
       topologySnapshot: TopologySnapshot,

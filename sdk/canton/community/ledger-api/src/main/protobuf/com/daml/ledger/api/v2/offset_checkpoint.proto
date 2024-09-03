@@ -16,6 +16,7 @@ option java_package = "com.daml.ledger.api.v2";
 // * detect time out of commands.
 // * provide an offset which can be used to restart consumption.
 message OffsetCheckpoint {
+  // The participant's offset (see below for more)
   string offset = 1;
   repeated DomainTime domain_times = 2;
 }
@@ -28,3 +29,27 @@ message DomainTime {
   // Required
   google.protobuf.Timestamp record_time = 2;
 }
+
+// ** The participant's offset **
+
+// Describes a specific point in the stream of updates observed by this participant.
+// A participant offset is meaningful only in the context of its participant. Different
+// participants may associate different offsets to the same change synchronized over a domain,
+// and conversely, the same literal participant offset may refer to different changes on
+// different participants.
+//
+// This is also a unique index of the changes which happened on the virtual shared ledger.
+// The order of participant offsets is reflected in the order the updates that are
+// visible when subscribing to the ``UpdateService``. This ordering is also a fully causal
+// ordering for any specific domain: for two updates synchronized by the same domain, the
+// one with a bigger participant offset happened after than the one with a smaller participant
+// offset. Please note this is not true for updates synchronized by different domains.
+// Accordingly, the participant offset order may deviate from the order of the changes
+// on the virtual shared ledger.
+//
+// The Ledger API endpoints that take offsets allow to specify portions
+// of the participant data that is relevant for the client to read.
+//
+// Offsets returned by the Ledger API can be used as-is (e.g.
+// to keep track of processed transactions and provide a restart
+// point to use in case of failure).

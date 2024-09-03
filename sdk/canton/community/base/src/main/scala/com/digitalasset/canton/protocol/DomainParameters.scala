@@ -260,9 +260,9 @@ object OnboardingRestriction {
   *                                has been accepted.
   *                                Choose a higher value to reduce the likelihood of commands being rejected
   *                                due to timeouts.
-  * @param transferExclusivityTimeout this timeout affects who can initiate a transfer-in.
-  *                                   Before the timeout, only the submitter of the transfer-out can initiate the
-  *                                   corresponding transfer-in.
+  * @param assignmentExclusivityTimeout this timeout affects who can initiate a transfer-in.
+  *                                   Before the timeout, only the submitter of the unassignment can initiate the
+  *                                   corresponding assignment.
   *                                   From the timeout onwards, every stakeholder of the contract can initiate a transfer-in,
   *                                   if it has not yet happened.
   *                                   Moreover, if this timeout is zero, no automatic transfer-ins will occur.
@@ -307,7 +307,7 @@ object OnboardingRestriction {
 final case class DynamicDomainParameters private (
     confirmationResponseTimeout: NonNegativeFiniteDuration,
     mediatorReactionTimeout: NonNegativeFiniteDuration,
-    transferExclusivityTimeout: NonNegativeFiniteDuration,
+    assignmentExclusivityTimeout: NonNegativeFiniteDuration,
     topologyChangeDelay: NonNegativeFiniteDuration,
     ledgerTimeRecordTimeTolerance: NonNegativeFiniteDuration,
     mediatorDeduplicationTimeout: NonNegativeFiniteDuration,
@@ -370,16 +370,16 @@ final case class DynamicDomainParameters private (
     sequencerTopologyTimestampTolerance
 
   def automaticTransferInEnabled: Boolean =
-    transferExclusivityTimeout > NonNegativeFiniteDuration.Zero
+    assignmentExclusivityTimeout > NonNegativeFiniteDuration.Zero
 
   def update(
-      transferExclusivityTimeout: NonNegativeFiniteDuration = transferExclusivityTimeout,
+      assignmentExclusivityTimeout: NonNegativeFiniteDuration = assignmentExclusivityTimeout,
       reconciliationInterval: PositiveSeconds = reconciliationInterval,
       confirmationRequestsMaxRate: NonNegativeInt = confirmationRequestsMaxRate,
       maxRequestSize: MaxRequestSize = maxRequestSize,
   ): DynamicDomainParameters =
     this.copy(
-      transferExclusivityTimeout = transferExclusivityTimeout,
+      assignmentExclusivityTimeout = assignmentExclusivityTimeout,
       reconciliationInterval = reconciliationInterval,
       maxRequestSize = maxRequestSize,
       participantDomainLimits =
@@ -389,7 +389,7 @@ final case class DynamicDomainParameters private (
   def tryUpdate(
       confirmationResponseTimeout: NonNegativeFiniteDuration = confirmationResponseTimeout,
       mediatorReactionTimeout: NonNegativeFiniteDuration = mediatorReactionTimeout,
-      transferExclusivityTimeout: NonNegativeFiniteDuration = transferExclusivityTimeout,
+      assignmentExclusivityTimeout: NonNegativeFiniteDuration = assignmentExclusivityTimeout,
       topologyChangeDelay: NonNegativeFiniteDuration = topologyChangeDelay,
       ledgerTimeRecordTimeTolerance: NonNegativeFiniteDuration = ledgerTimeRecordTimeTolerance,
       mediatorDeduplicationTimeout: NonNegativeFiniteDuration = mediatorDeduplicationTimeout,
@@ -405,7 +405,7 @@ final case class DynamicDomainParameters private (
   ): DynamicDomainParameters = DynamicDomainParameters.tryCreate(
     confirmationResponseTimeout = confirmationResponseTimeout,
     mediatorReactionTimeout = mediatorReactionTimeout,
-    transferExclusivityTimeout = transferExclusivityTimeout,
+    assignmentExclusivityTimeout = assignmentExclusivityTimeout,
     topologyChangeDelay = topologyChangeDelay,
     ledgerTimeRecordTimeTolerance = ledgerTimeRecordTimeTolerance,
     mediatorDeduplicationTimeout = mediatorDeduplicationTimeout,
@@ -421,7 +421,7 @@ final case class DynamicDomainParameters private (
   def toProtoV30: v30.DynamicDomainParameters = v30.DynamicDomainParameters(
     confirmationResponseTimeout = Some(confirmationResponseTimeout.toProtoPrimitive),
     mediatorReactionTimeout = Some(mediatorReactionTimeout.toProtoPrimitive),
-    assignmentExclusivityTimeout = Some(transferExclusivityTimeout.toProtoPrimitive),
+    assignmentExclusivityTimeout = Some(assignmentExclusivityTimeout.toProtoPrimitive),
     topologyChangeDelay = Some(topologyChangeDelay.toProtoPrimitive),
     ledgerTimeRecordTimeTolerance = Some(ledgerTimeRecordTimeTolerance.toProtoPrimitive),
     mediatorDeduplicationTimeout = Some(mediatorDeduplicationTimeout.toProtoPrimitive),
@@ -439,7 +439,7 @@ final case class DynamicDomainParameters private (
     prettyOfClass(
       param("confirmation response timeout", _.confirmationResponseTimeout),
       param("mediator reaction timeout", _.mediatorReactionTimeout),
-      param("transfer exclusivity timeout", _.transferExclusivityTimeout),
+      param("assignment exclusivity timeout", _.assignmentExclusivityTimeout),
       param("topology change delay", _.topologyChangeDelay),
       param("ledger time record time tolerance", _.ledgerTimeRecordTimeTolerance),
       param("mediator deduplication timeout", _.mediatorDeduplicationTimeout),
@@ -481,7 +481,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
   private val defaultMediatorReactionTimeout: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.tryOfSeconds(30)
 
-  private val defaultTransferExclusivityTimeout: NonNegativeFiniteDuration =
+  private val defaultAssignmentExclusivityTimeout: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.tryOfSeconds(60)
 
   private val defaultTrafficControlParameters: Option[TrafficControlParameters] =
@@ -516,7 +516,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
   private def create(
       confirmationResponseTimeout: NonNegativeFiniteDuration,
       mediatorReactionTimeout: NonNegativeFiniteDuration,
-      transferExclusivityTimeout: NonNegativeFiniteDuration,
+      assignmentExclusivityTimeout: NonNegativeFiniteDuration,
       topologyChangeDelay: NonNegativeFiniteDuration,
       ledgerTimeRecordTimeTolerance: NonNegativeFiniteDuration,
       mediatorDeduplicationTimeout: NonNegativeFiniteDuration,
@@ -534,7 +534,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
       tryCreate(
         confirmationResponseTimeout,
         mediatorReactionTimeout,
-        transferExclusivityTimeout,
+        assignmentExclusivityTimeout,
         topologyChangeDelay,
         ledgerTimeRecordTimeTolerance,
         mediatorDeduplicationTimeout,
@@ -555,7 +555,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
   def tryCreate(
       confirmationResponseTimeout: NonNegativeFiniteDuration,
       mediatorReactionTimeout: NonNegativeFiniteDuration,
-      transferExclusivityTimeout: NonNegativeFiniteDuration,
+      assignmentExclusivityTimeout: NonNegativeFiniteDuration,
       topologyChangeDelay: NonNegativeFiniteDuration,
       ledgerTimeRecordTimeTolerance: NonNegativeFiniteDuration,
       mediatorDeduplicationTimeout: NonNegativeFiniteDuration,
@@ -572,7 +572,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
     DynamicDomainParameters(
       confirmationResponseTimeout,
       mediatorReactionTimeout,
-      transferExclusivityTimeout,
+      assignmentExclusivityTimeout,
       topologyChangeDelay,
       ledgerTimeRecordTimeTolerance,
       mediatorDeduplicationTimeout,
@@ -597,7 +597,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
     DynamicDomainParameters.tryCreate(
       confirmationResponseTimeout = defaultConfirmationResponseTimeout,
       mediatorReactionTimeout = mediatorReactionTimeout,
-      transferExclusivityTimeout = defaultTransferExclusivityTimeout,
+      assignmentExclusivityTimeout = defaultAssignmentExclusivityTimeout,
       topologyChangeDelay = topologyChangeDelay,
       ledgerTimeRecordTimeTolerance = defaultLedgerTimeRecordTimeTolerance,
       mediatorDeduplicationTimeout = defaultMediatorDeduplicationTimeout,
@@ -628,7 +628,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
     DynamicDomainParameters.tryCreate(
       confirmationResponseTimeout = defaultConfirmationResponseTimeout,
       mediatorReactionTimeout = mediatorReactionTimeout,
-      transferExclusivityTimeout = defaultTransferExclusivityTimeout,
+      assignmentExclusivityTimeout = defaultAssignmentExclusivityTimeout,
       topologyChangeDelay = topologyChangeDelay,
       ledgerTimeRecordTimeTolerance = defaultLedgerTimeRecordTimeTolerance,
       mediatorDeduplicationTimeout = defaultMediatorDeduplicationTimeout,
@@ -660,7 +660,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
     val v30.DynamicDomainParameters(
       confirmationResponseTimeoutP,
       mediatorReactionTimeoutP,
-      transferExclusivityTimeoutP,
+      assignmentExclusivityTimeoutP,
       topologyChangeDelayP,
       ledgerTimeRecordTimeToleranceP,
       reconciliationIntervalP,
@@ -684,10 +684,10 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
       )(
         mediatorReactionTimeoutP
       )
-      transferExclusivityTimeout <- NonNegativeFiniteDuration.fromProtoPrimitiveO(
-        "transferExclusivityTimeout"
+      assignmentExclusivityTimeout <- NonNegativeFiniteDuration.fromProtoPrimitiveO(
+        "assignmentExclusivityTimeout"
       )(
-        transferExclusivityTimeoutP
+        assignmentExclusivityTimeoutP
       )
       topologyChangeDelay <- NonNegativeFiniteDuration.fromProtoPrimitiveO("topologyChangeDelay")(
         topologyChangeDelayP
@@ -737,7 +737,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
         create(
           confirmationResponseTimeout = confirmationResponseTimeout,
           mediatorReactionTimeout = mediatorReactionTimeout,
-          transferExclusivityTimeout = transferExclusivityTimeout,
+          assignmentExclusivityTimeout = assignmentExclusivityTimeout,
           topologyChangeDelay = topologyChangeDelay,
           ledgerTimeRecordTimeTolerance = ledgerTimeRecordTimeTolerance,
           mediatorDeduplicationTimeout = mediatorDeduplicationTimeout,
@@ -803,9 +803,9 @@ final case class DynamicDomainParametersWithValidity(
       FutureUnlessShutdown.pure,
     )
 
-  def transferExclusivityLimitFor(baseline: CantonTimestamp): Either[String, CantonTimestamp] =
-    checkValidity(baseline, "transfer exclusivity limit").map(_ =>
-      baseline.add(transferExclusivityTimeout.unwrap)
+  def assignmentExclusivityLimitFor(baseline: CantonTimestamp): Either[String, CantonTimestamp] =
+    checkValidity(baseline, "assignment exclusivity limit").map(_ =>
+      baseline.add(assignmentExclusivityTimeout.unwrap)
     )
 
   /** Computes the participant response time for the given timestamp.
@@ -829,7 +829,8 @@ final case class DynamicDomainParametersWithValidity(
     parameters.mediatorDeduplicationTimeout
 
   def topologyChangeDelay: NonNegativeFiniteDuration = parameters.topologyChangeDelay
-  def transferExclusivityTimeout: NonNegativeFiniteDuration = parameters.transferExclusivityTimeout
+  def assignmentExclusivityTimeout: NonNegativeFiniteDuration =
+    parameters.assignmentExclusivityTimeout
   def sequencerTopologyTimestampTolerance: NonNegativeFiniteDuration =
     parameters.sequencerTopologyTimestampTolerance
   def submissionCostTimestampTopologyTolerance: NonNegativeFiniteDuration =

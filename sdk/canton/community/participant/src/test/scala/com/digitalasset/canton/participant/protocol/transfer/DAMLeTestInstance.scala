@@ -22,7 +22,6 @@ import com.digitalasset.canton.participant.store.memory.*
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.participant.util.DAMLe.ReinterpretationError
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
-import com.digitalasset.canton.platform.apiserver.execution.AuthorityResolver
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.*
@@ -69,7 +68,6 @@ object DAMLeTestInstance {
     val packageResolver = DAMLe.packageResolver(mockPackageService)
     new DAMLe(
       packageResolver,
-      AuthorityResolver(),
       None,
       engine,
       EngineLoggingConfig(),

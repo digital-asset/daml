@@ -25,7 +25,6 @@ service TopologyManagerReadService {
   rpc ListVettedPackages(ListVettedPackagesRequest) returns (ListVettedPackagesResponse);
 
   rpc ListPartyToParticipant(ListPartyToParticipantRequest) returns (ListPartyToParticipantResponse);
-  rpc ListAuthorityOf(ListAuthorityOfRequest) returns (ListAuthorityOfResponse);
 
   rpc ListDomainParametersState(ListDomainParametersStateRequest) returns (ListDomainParametersStateResponse);
   rpc ListMediatorDomainState(ListMediatorDomainStateRequest) returns (ListMediatorDomainStateResponse);
@@ -218,19 +217,6 @@ message ListPartyToParticipantResponse {
   message Result {
     BaseResult context = 1;
     com.digitalasset.canton.protocol.v30.PartyToParticipant item = 2;
-  }
-  repeated Result results = 2;
-}
-
-message ListAuthorityOfRequest {
-  BaseQuery base_query = 1;
-  string filter_party = 2;
-}
-
-message ListAuthorityOfResponse {
-  message Result {
-    BaseResult context = 1;
-    com.digitalasset.canton.protocol.v30.AuthorityOf item = 2;
   }
   repeated Result results = 2;
 }

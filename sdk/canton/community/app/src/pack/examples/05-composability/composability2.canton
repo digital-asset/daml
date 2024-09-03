@@ -26,9 +26,9 @@ val paintId = bootstrap.domain(
 // update parameters
 // disable automatic assignments
 iouDomainOwner.topology.domain_parameters
-  .propose_update(iouId, _.update(transferExclusivityTimeout = 0 seconds))
+  .propose_update(iouId, _.update(assignmentExclusivityTimeout = 0 seconds))
 paintDomainOwner.topology.domain_parameters
-  .propose_update(paintId, _.update(transferExclusivityTimeout = 2 seconds))
+  .propose_update(paintId, _.update(assignmentExclusivityTimeout = 2 seconds))
 
 
 // connect participants to the domains
@@ -115,7 +115,7 @@ val Seq(paintOffer) = decodeAllCreated(OfferToPaintHouseByOwner.COMPANION)(
   participant2.ledger_api.javaapi.commands.submit_flat(Seq(HouseOwner), paintOfferCmd, domainId = Some(paintId)))
 // architecture-handbook-entry-end: paint-offer
 
-// architecture-handbook-entry-begin: transfer-out
+// architecture-handbook-entry-begin: unassignment
 // Wait until the painter sees the paint offer in the active contract store
 participant3.ledger_api.state.acs.await_active_contract(Painter, paintOffer.id.toLf)
 
@@ -126,7 +126,7 @@ val paintOfferReassignmentId = participant3.ledger_api.commands.submit_unassign(
   paintId,                      // Source domain
   iouId                         // Target domain
 ).unassignedEvent.unassignId
-// architecture-handbook-entry-end: transfer-out
+// architecture-handbook-entry-end: unassignment
 
 // architecture-handbook-entry-begin: transfer-in
 participant3.ledger_api.commands.submit_assign(

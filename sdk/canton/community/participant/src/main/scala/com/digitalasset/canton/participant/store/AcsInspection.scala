@@ -20,7 +20,7 @@ import com.digitalasset.canton.topology.client.DomainTopologyClient
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{EitherUtil, MonadUtil}
-import com.digitalasset.canton.{LfPartyId, TransferCounter}
+import com.digitalasset.canton.{LfPartyId, ReassignmentCounter}
 
 import scala.collection.immutable.SortedMap
 import scala.collection.mutable
@@ -66,7 +66,7 @@ class AcsInspection(
   def getCurrentSnapshot()(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): Future[Option[AcsSnapshot[SortedMap[LfContractId, (CantonTimestamp, TransferCounter)]]]] =
+  ): Future[Option[AcsSnapshot[SortedMap[LfContractId, (CantonTimestamp, ReassignmentCounter)]]]] =
     for {
       requestIndex <- ledgerApiStore.value.domainIndex(domainId).map(_.requestIndex)
       snapshot <- requestIndex
@@ -74,8 +74,8 @@ class AcsInspection(
           val ts = cursorHead.timestamp
           val snapshotF = activeContractStore
             .snapshot(ts)
-            .map(_.map { case (id, (timestamp, transferCounter)) =>
-              id -> (timestamp, transferCounter)
+            .map(_.map { case (id, (timestamp, reassignmentCounter)) =>
+              id -> (timestamp, reassignmentCounter)
             })
 
           snapshotF.map(snapshot => Some(AcsSnapshot(snapshot, ts)))
@@ -91,7 +91,7 @@ class AcsInspection(
       traceContext: TraceContext,
       ec: ExecutionContext,
   ): EitherT[Future, AcsInspectionError, AcsSnapshot[
-    SortedMap[LfContractId, (CantonTimestamp, TransferCounter)]
+    SortedMap[LfContractId, (CantonTimestamp, ReassignmentCounter)]
   ]] =
     for {
       _ <-
@@ -120,11 +120,11 @@ class AcsInspection(
       traceContext: TraceContext,
       ec: ExecutionContext,
   ): EitherT[Future, AcsInspectionError, Option[
-    AcsSnapshot[Iterator[Seq[(LfContractId, TransferCounter)]]]
+    AcsSnapshot[Iterator[Seq[(LfContractId, ReassignmentCounter)]]]
   ]] = {
 
     type MaybeSnapshot =
-      Option[AcsSnapshot[SortedMap[LfContractId, (CantonTimestamp, TransferCounter)]]]
+      Option[AcsSnapshot[SortedMap[LfContractId, (CantonTimestamp, ReassignmentCounter)]]]
 
     val maybeSnapshotET: EitherT[Future, AcsInspectionError, MaybeSnapshot] = timestamp match {
       case Some(timestamp) =>
@@ -138,8 +138,8 @@ class AcsInspection(
     maybeSnapshotET.map(
       _.map { case AcsSnapshot(snapshot, ts) =>
         val groupedSnapshot = snapshot.iterator
-          .map { case (cid, (_, transferCounter)) =>
-            cid -> transferCounter
+          .map { case (cid, (_, reassignmentCounter)) =>
+            cid -> reassignmentCounter
           }
           .toSeq
           .grouped(
@@ -194,7 +194,7 @@ class AcsInspection(
       parties: Set[LfPartyId],
       timestamp: Option[CantonTimestamp],
       skipCleanTimestampCheck: Boolean = false,
-  )(f: (SerializableContract, TransferCounter) => Either[AcsInspectionError, Unit])(implicit
+  )(f: (SerializableContract, ReassignmentCounter) => Either[AcsInspectionError, Unit])(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
   ): EitherT[Future, AcsInspectionError, Option[(Set[LfPartyId], CantonTimestamp)]] =
@@ -220,12 +220,12 @@ class AcsInspection(
   private def forEachBatch(
       domainId: DomainId,
       parties: Set[LfPartyId],
-      f: (SerializableContract, TransferCounter) => Either[AcsInspectionError, Unit],
-  )(batch: Seq[(LfContractId, TransferCounter)])(implicit
+      f: (SerializableContract, ReassignmentCounter) => Either[AcsInspectionError, Unit],
+  )(batch: Seq[(LfContractId, ReassignmentCounter)])(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
   ): EitherT[Future, AcsInspectionError, Set[LfPartyId]] = {
-    val (cids, transferCounters) = batch.unzip
+    val (cids, reassignmentCounters) = batch.unzip
 
     val allStakeholders: mutable.Set[LfPartyId] = mutable.Set()
 
@@ -236,13 +236,13 @@ class AcsInspection(
           AcsInspectionError.InconsistentSnapshot(domainId, missingContract)
         )
 
-      contractsWithTransferCounter = batch.zip(transferCounters)
+      contractsWithReassignmentCounter = batch.zip(reassignmentCounters)
 
-      stakeholdersE = contractsWithTransferCounter
-        .traverse_ { case (storedContract, transferCounter) =>
+      stakeholdersE = contractsWithReassignmentCounter
+        .traverse_ { case (storedContract, reassignmentCounter) =>
           if (parties.exists(storedContract.contract.metadata.stakeholders)) {
             allStakeholders ++= storedContract.contract.metadata.stakeholders
-            f(storedContract.contract, transferCounter)
+            f(storedContract.contract, reassignmentCounter)
           } else
             Right(())
         }

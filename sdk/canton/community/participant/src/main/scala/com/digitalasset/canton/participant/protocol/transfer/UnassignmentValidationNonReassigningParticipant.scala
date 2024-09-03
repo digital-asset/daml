@@ -9,22 +9,22 @@ import cats.syntax.foldable.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.data.FullTransferOutTree
+import com.digitalasset.canton.data.FullUnassignmentTree
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.TracedLogger
-import com.digitalasset.canton.participant.protocol.transfer.TransferOutProcessorError.{
+import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.TransferProcessorError
+import com.digitalasset.canton.participant.protocol.transfer.UnassignmentProcessorError.{
   AdminPartyPermissionErrors,
   StakeholderHostingErrors,
   fromChain,
 }
-import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.TransferProcessorError
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.ExecutionContext
 
-private[transfer] sealed abstract case class TransferOutValidationNonReassigningParticipant(
-    request: FullTransferOutTree,
+private[transfer] sealed abstract case class UnassignmentValidationNonReassigningParticipant(
+    request: FullUnassignmentTree,
     sourceTopology: TopologySnapshot,
 ) {
 
@@ -74,7 +74,7 @@ private[transfer] sealed abstract case class TransferOutValidationNonReassigning
       ec: ExecutionContext,
       traceContext: TraceContext,
   ): FutureUnlessShutdown[ValidatedNec[String, Unit]] =
-    TransferOutValidationUtil
+    UnassignmentValidationUtil
       .confirmingAdminParticipants(sourceTopology, adminParty, logger)
       .map { adminParticipants =>
         Validated.condNec(
@@ -82,27 +82,27 @@ private[transfer] sealed abstract case class TransferOutValidationNonReassigning
             participant.adminParty.toLf == adminParty
           },
           (),
-          s"Admin party $adminParty not hosted on its transfer-out participant with confirmation permission.",
+          s"Admin party $adminParty not hosted on its unassignment participant with confirmation permission.",
         )
       }
 
 }
 
-object TransferOutValidationNonReassigningParticipant {
+object UnassignmentValidationNonReassigningParticipant {
 
   /* Checks that can be done by a non-reassigning participant
    * - every stakeholder is hosted on a participant with an admin party
    * - the admin parties are hosted only on their participants
    */
   def apply(
-      request: FullTransferOutTree,
+      request: FullUnassignmentTree,
       sourceTopology: TopologySnapshot,
       logger: TracedLogger,
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] = {
-    val validation = new TransferOutValidationNonReassigningParticipant(
+    val validation = new UnassignmentValidationNonReassigningParticipant(
       request,
       sourceTopology,
     ) {}

@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.sync
 
 import cats.syntax.either.*
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.digitalasset.canton.participant.{GlobalOffset, LedgerSyncOffset}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.daml.lf.data.{Bytes as LfBytes, Ref}
@@ -16,7 +15,6 @@ import java.nio.{ByteBuffer, ByteOrder}
   *  ParticipantState API ReadService still based on a byte string. Canton emits single-Long GlobalOffsets.
   */
 object UpstreamOffsetConvert {
-  import com.digitalasset.canton.participant.pretty.Implicits.*
 
   private val versionUpstreamOffsetsAsLong: Byte = 0
   private val longBasedByteLength: Int = 9 // One byte for the version plus 8 bytes for Long
@@ -55,25 +53,8 @@ object UpstreamOffsetConvert {
     }
   }
 
-  def toParticipantOffset(offset: GlobalOffset): ParticipantOffset =
-    ParticipantOffset(ParticipantOffset.Value.Absolute(fromGlobalOffset(offset).toHexString))
-
-  def toParticipantOffset(offset: String): ParticipantOffset = ParticipantOffset(
-    ParticipantOffset.Value.Absolute(offset)
-  )
-
-  def toLedgerSyncOffset(offset: ParticipantOffset): Either[String, LedgerSyncOffset] =
-    for {
-      absoluteOffset <- Either.cond(
-        offset.value.isAbsolute,
-        offset.getAbsolute,
-        show"offset must be an absolute offset, but received $offset",
-      )
-      ledgerSyncOffset <- toLedgerSyncOffset(absoluteOffset)
-    } yield ledgerSyncOffset
-
-  def tryToLedgerSyncOffset(offset: ParticipantOffset): LedgerSyncOffset =
-    toLedgerSyncOffset(offset).valueOr(err => throw new IllegalArgumentException(err))
+  def toStringOffset(offset: GlobalOffset): String =
+    fromGlobalOffset(offset).toHexString
 
   def tryToLedgerSyncOffset(offset: String): LedgerSyncOffset =
     toLedgerSyncOffset(offset).valueOr(err => throw new IllegalArgumentException(err))
@@ -81,7 +62,7 @@ object UpstreamOffsetConvert {
   def toLedgerSyncOffset(offset: String): Either[String, LedgerSyncOffset] =
     Ref.HexString.fromString(offset).map(LedgerSyncOffset.fromHexString)
 
-  def ledgerOffsetToGlobalOffset(ledgerOffset: ParticipantOffset): Either[String, GlobalOffset] =
+  def ledgerOffsetToGlobalOffset(ledgerOffset: String): Either[String, GlobalOffset] =
     for {
       ledgerSyncOffset <- toLedgerSyncOffset(ledgerOffset)
       globalOffset <- toGlobalOffset(ledgerSyncOffset)

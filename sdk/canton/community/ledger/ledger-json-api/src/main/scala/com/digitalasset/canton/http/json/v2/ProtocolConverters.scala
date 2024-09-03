@@ -3,12 +3,20 @@
 
 package com.digitalasset.canton.http.json.v2
 
+import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2 as lapi
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.canton.fetchcontracts.util.IdentifierConverters
 import com.digitalasset.canton.http.json.v2.JsContractEntry.JsContractEntry
 import com.digitalasset.canton.http.json.v2.JsReassignmentEvent.JsReassignmentEvent
-import com.digitalasset.canton.http.json.v2.JsSchema.{JsEvent, JsInterfaceView, JsStatus, JsTransaction, JsTransactionTree, JsTreeEvent}
+import com.digitalasset.canton.http.json.v2.JsSchema.{
+  JsEvent,
+  JsInterfaceView,
+  JsStatus,
+  JsTransaction,
+  JsTransactionTree,
+  JsTreeEvent,
+}
 import com.google.rpc.status.Status
 import io.circe.Json
 import ujson.StringRenderer
@@ -90,7 +98,10 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       opt
     }
 
-    def fromJson(jsCommands: JsCommands)(token: Option[String]): Future[lapi.commands.Commands] = {
+    def fromJson(jsCommands: JsCommands)(implicit
+        token: Option[String],
+        contextualizedErrorLogger: ContextualizedErrorLogger,
+    ): Future[lapi.commands.Commands] = {
       import jsCommands.*
 
       val convertedCommands: Seq[Future[lapi.commands.Command.Command]] = commands.map {
@@ -99,10 +110,9 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
             protoCreateArgsRecord <-
               schemaProcessors
                 .contractArgFromJsonToProto(
-                  templateId =
-                    IdentifierConverters.lfIdentifier(IdentifierConverter.fromJson(template_id)),
+                  template = IdentifierConverter.fromJson(template_id),
                   jsonArgsValue = create_arguments,
-                )(token)
+                )
 
           } yield lapi.commands.Command.Command.Create(
             lapi.commands.CreateCommand(
@@ -115,11 +125,10 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
           for {
             choiceArgs <-
               schemaProcessors.choiceArgsFromJsonToProto(
-                templateId =
-                  IdentifierConverters.lfIdentifier(IdentifierConverter.fromJson(template_id)),
+                template = IdentifierConverter.fromJson(template_id),
                 choiceName = lfChoiceName,
                 jsonArgsValue = choice_argument,
-              )(token)
+              )
           } yield lapi.commands.Command.Command.Exercise(
             lapi.commands.ExerciseCommand(
               templateId = Some(IdentifierConverter.fromJson(template_id)),
@@ -133,17 +142,15 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
           for {
             choiceArgs <-
               schemaProcessors.choiceArgsFromJsonToProto(
-                templateId =
-                  IdentifierConverters.lfIdentifier(IdentifierConverter.fromJson(cmd.template_id)),
+                template = IdentifierConverter.fromJson(cmd.template_id),
                 choiceName = Ref.ChoiceName.assertFromString(cmd.choice),
                 jsonArgsValue = cmd.choice_argument,
-              )(token)
+              )
             contractKey <-
               schemaProcessors.contractArgFromJsonToProto(
-                templateId =
-                  IdentifierConverters.lfIdentifier(IdentifierConverter.fromJson(cmd.template_id)),
+                template = IdentifierConverter.fromJson(cmd.template_id),
                 jsonArgsValue = cmd.contract_key,
-              )(token)
+              )
           } yield lapi.commands.Command.Command.ExerciseByKey(
             lapi.commands.ExerciseByKeyCommand(
               templateId = Some(IdentifierConverter.fromJson(cmd.template_id)),
@@ -157,18 +164,15 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
             createArgs <-
               schemaProcessors
                 .contractArgFromJsonToProto(
-                  templateId = IdentifierConverters.lfIdentifier(
-                    IdentifierConverter.fromJson(cmd.template_id)
-                  ),
+                  template = IdentifierConverter.fromJson(cmd.template_id),
                   jsonArgsValue = cmd.create_arguments,
-                )(token)
+                )
             choiceArgs <-
               schemaProcessors.choiceArgsFromJsonToProto(
-                templateId =
-                  IdentifierConverters.lfIdentifier(IdentifierConverter.fromJson(cmd.template_id)),
+                template = IdentifierConverter.fromJson(cmd.template_id),
                 choiceName = Ref.ChoiceName.assertFromString(cmd.choice),
                 jsonArgsValue = cmd.choice_argument,
-              )(token)
+              )
           } yield lapi.commands.Command.Command.CreateAndExercise(
             lapi.commands.CreateAndExerciseCommand(
               templateId = Some(IdentifierConverter.fromJson(cmd.template_id)),
@@ -301,6 +305,22 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
   object InterfaceView
       extends ProtocolConverter[com.daml.ledger.api.v2.event.InterfaceView, JsInterfaceView] {
 
+    def fromJson(
+        iview: JsInterfaceView
+    )(implicit
+        token: Option[String],
+        contextualizedErrorLogger: ContextualizedErrorLogger,
+    ): Future[lapi.event.InterfaceView] = for {
+      record <- schemaProcessors.contractArgFromJsonToProto(
+        IdentifierConverter.fromJson(iview.interface_id),
+        iview.view_value,
+      )
+    } yield lapi.event.InterfaceView(
+      interfaceId = Some(IdentifierConverter.fromJson(iview.interface_id)),
+      viewStatus = Some(JsStatusConverter.fromJson(iview.view_status)),
+      viewValue = iview.view_value.map(_ => record.getRecord),
+    )
+
     def toJson(
         iview: com.daml.ledger.api.v2.event.InterfaceView
     )(implicit token: Option[String]): Future[JsInterfaceView] =
@@ -358,7 +378,9 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       extends ProtocolConverter[lapi.transaction.TransactionTree, JsTransactionTree] {
     def toJson(
         lapiTransactionTree: lapi.transaction.TransactionTree
-    )(implicit token: Option[String]): Future[JsTransactionTree] = {
+    )(implicit
+        token: Option[String]
+    ): Future[JsTransactionTree] = {
       val jsEventsById = lapiTransactionTree.eventsById.view
         .mapValues(_.kind)
         .mapValues {
@@ -371,16 +393,38 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
             for {
               contractArgs <- created.createArguments
                 .map(args =>
-                  schemaProcessors.contractArgFromProtoToJson(
-                    lfIdentifier,
-                    args,
-                  )(token)
+                  schemaProcessors
+                    .contractArgFromProtoToJson(
+                      lfIdentifier,
+                      args,
+                    )(token)
+                    .map(Some(_))
                 )
-                .getOrElse(Future(ujson.Null))
+                .getOrElse(Future(None))
+              contractKeys <- created.contractKey
+                .map(args =>
+                  schemaProcessors
+                    .keyArgFromProtoToJson(
+                      lfIdentifier,
+                      args,
+                    )(token)
+                    .map(Some(_))
+                )
+                .getOrElse(Future(None))
+              interfaceViews <- Future.sequence(created.interfaceViews.map(InterfaceView.toJson))
             } yield JsTreeEvent.CreatedTreeEvent(
-              created.contractId,
-              IdentifierConverter.toJson(apiTemplateId),
-              contractArgs,
+              event_id = created.eventId,
+              contract_id = created.contractId,
+              template_id = IdentifierConverter.toJson(apiTemplateId),
+              contract_key = contractKeys.map(toCirce),
+              create_arguments = contractArgs.map(toCirce),
+              created_event_blob = created.createdEventBlob,
+              interface_views = interfaceViews,
+              witness_parties = created.witnessParties,
+              signatories = created.signatories,
+              observers = created.observers,
+              createdAt = created.createdAt,
+              packageName = created.packageName,
             )
           case lapi.transaction.TreeEvent.Kind.Exercised(exercised) =>
             val apiTemplateId = exercised.getTemplateId
@@ -393,17 +437,25 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
                 templateId = lfIdentifier,
                 choiceName = choiceName,
                 protoArgs = exercised.getChoiceArgument,
-              )(token)
+              )
               exerciseResult <- schemaProcessors.exerciseResultFromProtoToJson(
                 lfIdentifier,
                 choiceName,
                 exercised.getExerciseResult,
-              )(token)
+              )
             } yield JsTreeEvent.ExercisedTreeEvent(
-              exercised.contractId,
-              IdentifierConverter.toJson(apiTemplateId),
-              choiceArgs,
-              exerciseResult,
+              event_id = exercised.eventId,
+              contract_id = exercised.contractId,
+              template_id = IdentifierConverter.toJson(exercised.getTemplateId),
+              interface_id = exercised.interfaceId.map(IdentifierConverter.toJson).getOrElse(null),
+              choice = exercised.choice,
+              choice_argument = choiceArgs,
+              acting_parties = exercised.actingParties,
+              consuming = exercised.consuming,
+              witness_parties = exercised.witnessParties,
+              child_event_ids = exercised.childEventIds,
+              exercise_result = exerciseResult,
+              package_name = exercised.packageName,
             )
         }
       Future
@@ -429,59 +481,93 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
 
     def fromJson(
         jsTransactionTree: JsTransactionTree
-    )(implicit token: Option[String]): Future[lapi.transaction.TransactionTree] = {
+    )(implicit
+        token: Option[String],
+        contextualizedErrorLogger: ContextualizedErrorLogger,
+    ): Future[lapi.transaction.TransactionTree] = {
       val lapiEventsById = jsTransactionTree.events_by_id.view
         .mapValues {
-          case JsTreeEvent.CreatedTreeEvent(contractId, templateId, createArguments) =>
-            val apiTemplateId = IdentifierConverter.fromJson(templateId)
+          case treeEvent: JsTreeEvent.CreatedTreeEvent =>
+            val apiTemplateId = IdentifierConverter.fromJson(treeEvent.template_id)
             for {
-              protoCreateArgsRecord <- schemaProcessors.contractArgFromJsonToProto(
-                templateId = Ref.Identifier.assertFromString(templateId),
-                jsonArgsValue =
-                  ujson.read(CirceJson.transform(createArguments, StringRenderer()).toString),
-              )(token)
+              protoCreateArgsRecord <- treeEvent.create_arguments
+                .map(args =>
+                  schemaProcessors
+                    .contractArgFromJsonToProto(
+                      template = apiTemplateId,
+                      jsonArgsValue = ujson.read(
+                        CirceJson.transform(args, StringRenderer()).toString
+                      ),
+                    )
+                    .map(Some(_))
+                )
+                .getOrElse(Future(None))
+              protoCreateKey <- treeEvent.contract_key
+                .map(key =>
+                  schemaProcessors
+                    .keyArgFromJsonToProto(
+                      template = apiTemplateId,
+                      protoArgs = ujson.read(
+                        CirceJson.transform(key, StringRenderer()).toString
+                      ),
+                    )
+                    .map(Some(_))
+                )
+                .getOrElse(Future(None))
+              interfaceViews <- Future.sequence(
+                treeEvent.interface_views.map(InterfaceView.fromJson)
+              )
             } yield lapi.transaction.TreeEvent(
               kind = lapi.transaction.TreeEvent.Kind.Created(
                 lapi.event.CreatedEvent(
-                  contractId = contractId,
+                  eventId = treeEvent.event_id,
+                  contractId = treeEvent.contract_id,
                   templateId = Some(apiTemplateId),
-                  createArguments = Some(
-                    protoCreateArgsRecord.getRecord
-                  ),
+                  contractKey = protoCreateKey,
+                  createArguments = protoCreateArgsRecord.map(_.getRecord),
+                  createdEventBlob = treeEvent.created_event_blob,
+                  interfaceViews = interfaceViews,
+                  witnessParties = treeEvent.witness_parties,
+                  signatories = treeEvent.signatories,
+                  observers = treeEvent.observers,
+                  createdAt = treeEvent.createdAt,
+                  packageName = treeEvent.packageName,
                 )
               )
             )
-          case JsTreeEvent.ExercisedTreeEvent(
-                contractId,
-                templateId,
-                choiceArgument,
-                exerciseResult,
-              ) =>
-            val apiTemplateId = IdentifierConverter.fromJson(templateId)
-            val lfIdentifier = Ref.Identifier.assertFromString(
-              s"${apiTemplateId.packageId}:${apiTemplateId.moduleName}:${apiTemplateId.entityName}"
-            )
-            val choiceName = Ref.ChoiceName.assertFromString("notThere")
+          case treeEvent: JsTreeEvent.ExercisedTreeEvent =>
+            val apiTemplateId = IdentifierConverter.fromJson(treeEvent.template_id)
+            val choiceName = Ref.ChoiceName.assertFromString(treeEvent.choice)
             for {
               choiceArgs <- schemaProcessors.choiceArgsFromJsonToProto(
-                templateId = lfIdentifier,
+                template = apiTemplateId,
                 choiceName = choiceName,
-                jsonArgsValue =
-                  ujson.read(CirceJson.transform(choiceArgument, StringRenderer()).toString),
-              )(token)
+                jsonArgsValue = ujson.read(
+                  CirceJson.transform(treeEvent.choice_argument, StringRenderer()).toString
+                ),
+              )
               lapiExerciseResult <- schemaProcessors.exerciseResultFromJsonToProto(
-                lfIdentifier,
-                choiceName,
-                ujson.read(CirceJson.transform(exerciseResult, StringRenderer()).toString),
-              )(token)
+                template = apiTemplateId,
+                choiceName = choiceName,
+                ujson.read(
+                  CirceJson.transform(treeEvent.exercise_result, StringRenderer()).toString
+                ),
+              )
             } yield lapi.transaction.TreeEvent(
               kind = lapi.transaction.TreeEvent.Kind.Exercised(
                 lapi.event.ExercisedEvent(
-                  contractId = contractId,
+                  eventId = treeEvent.event_id,
+                  contractId = treeEvent.contract_id,
                   templateId = Some(apiTemplateId),
                   choice = choiceName,
+                  interfaceId = (Option(treeEvent.interface_id)).map(IdentifierConverter.fromJson),
                   choiceArgument = Some(choiceArgs),
                   exerciseResult = lapiExerciseResult,
+                  actingParties = treeEvent.acting_parties,
+                  consuming = treeEvent.consuming,
+                  witnessParties = treeEvent.witness_parties,
+                  childEventIds = treeEvent.child_event_ids,
+                  packageName = treeEvent.package_name,
                 )
               )
             )
@@ -520,20 +606,21 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
         .toJson(response.getTransaction)
         .map(tree =>
           JsSubmitAndWaitForTransactionTreeResponse(
-            transaction_tree = tree,
+            transaction_tree = tree
           )
         )
 
     def fromJson(
         response: JsSubmitAndWaitForTransactionTreeResponse
     )(implicit
-        token: Option[String]
+        token: Option[String],
+        contextualizedErrorLogger: ContextualizedErrorLogger,
     ): Future[lapi.command_service.SubmitAndWaitForTransactionTreeResponse] =
       TransactionTree
         .fromJson(response.transaction_tree)
         .map(tree =>
           lapi.command_service.SubmitAndWaitForTransactionTreeResponse(
-            transaction = Some(tree),
+            transaction = Some(tree)
           )
         )
   }
@@ -553,7 +640,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
         .toJson(response.getTransaction)
         .map(tx =>
           JsSubmitAndWaitForTransactionResponse(
-            transaction = tx,
+            transaction = tx
           )
         )
   }
@@ -855,7 +942,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     def toJson(
         value: lapi.update_service.GetUpdateTreesResponse
     )(implicit
-        token: Option[String]
+        token: Option[String],
     ): Future[JsGetUpdateTreesResponse] =
       (value.update match {
         case lapi.update_service.GetUpdateTreesResponse.Update.Empty => jsFail("Invalid value")
@@ -876,7 +963,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     def toJson(
         obj: lapi.update_service.GetTransactionTreeResponse
     )(implicit
-        token: Option[String]
+        token: Option[String],
     ): Future[JsGetTransactionTreeResponse] =
       TransactionTree.toJson(obj.getTransaction).map(JsGetTransactionTreeResponse)
   }
@@ -913,6 +1000,12 @@ object JsStatusConverter extends ProtocolConverter[com.google.rpc.status.Status,
   def toJson(lapi: Status): JsStatus = JsStatus(
     code = lapi.code,
     message = lapi.message,
-    details = lapi.details.map(_.toString).mkString,
+    details = lapi.details,
+  )
+
+  def fromJson(status: JsStatus): Status = Status(
+    code = status.code,
+    message = status.message,
+    details = status.details,
   )
 }

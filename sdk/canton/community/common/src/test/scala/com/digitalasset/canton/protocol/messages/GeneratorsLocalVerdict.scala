@@ -27,7 +27,7 @@ import com.digitalasset.canton.protocol.LocalRejectError.TransferInRejects.{
   ContractAlreadyArchived,
   ContractIsLocked,
 }
-import com.digitalasset.canton.protocol.LocalRejectError.TransferOutRejects.ActivenessCheckFailed
+import com.digitalasset.canton.protocol.LocalRejectError.UnassignmentRejects.ActivenessCheckFailed
 import com.digitalasset.canton.protocol.{LocalRejectErrorImpl, Malformed}
 import com.digitalasset.canton.version.ProtocolVersion
 import org.scalacheck.{Arbitrary, Gen}

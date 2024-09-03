@@ -9,99 +9,99 @@ import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.PackageUnknownTo
 import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.TransferProcessorError
 import com.digitalasset.canton.participant.store.ActiveContractStore.Status
-import com.digitalasset.canton.protocol.messages.DeliveredTransferOutResult
+import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
 import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId}
 import com.digitalasset.canton.sequencing.protocol.Recipients
 import com.digitalasset.canton.topology.DomainId
 
-trait TransferOutProcessorError extends TransferProcessorError
+trait UnassignmentProcessorError extends TransferProcessorError
 
-object TransferOutProcessorError {
+object UnassignmentProcessorError {
 
-  def fromChain(constructor: String => TransferOutProcessorError)(
+  def fromChain(constructor: String => UnassignmentProcessorError)(
       errors: NonEmptyChain[String]
-  ): TransferOutProcessorError =
+  ): UnassignmentProcessorError =
     constructor(errors.mkString_(", "))
 
   final case class SubmittingPartyMustBeStakeholderOut(
       contractId: LfContractId,
       submittingParty: LfPartyId,
       stakeholders: Set[LfPartyId],
-  ) extends TransferOutProcessorError {
+  ) extends UnassignmentProcessorError {
     override def message: String =
-      s"Cannot transfer-out contract `$contractId`: submitter `$submittingParty` is not a stakeholder"
+      s"Cannot unassign contract `$contractId`: submitter `$submittingParty` is not a stakeholder"
   }
 
   final case class UnexpectedDomain(reassignmentId: ReassignmentId, receivedOn: DomainId)
-      extends TransferOutProcessorError {
+      extends UnassignmentProcessorError {
     override def message: String =
-      s"Cannot transfer-out `$reassignmentId`: received transfer on $receivedOn"
+      s"Cannot unassign `$reassignmentId`: received transfer on $receivedOn"
   }
 
   final case class TargetDomainIsSourceDomain(domain: DomainId, contractId: LfContractId)
-      extends TransferOutProcessorError {
+      extends UnassignmentProcessorError {
     override def message: String =
-      s"Cannot transfer-out contract `$contractId`: source and target domains are the same"
+      s"Cannot unassign contract `$contractId`: source and target domains are the same"
   }
 
-  final case class UnknownContract(contractId: LfContractId) extends TransferOutProcessorError {
+  final case class UnknownContract(contractId: LfContractId) extends UnassignmentProcessorError {
     override def message: String =
-      s"Cannot transfer-out contract `$contractId`: unknown contract"
+      s"Cannot unassign contract `$contractId`: unknown contract"
   }
 
   final case class DeactivatedContract(contractId: LfContractId, status: Status)
-      extends TransferOutProcessorError {
+      extends UnassignmentProcessorError {
     override def message: String =
-      s"Cannot transfer-out contract `$contractId` because it's not active. Current status $status"
+      s"Cannot unassign contract `$contractId` because it's not active. Current status $status"
   }
 
-  final case object TransferCounterOverflow extends TransferProcessorError {
-    override def message: String = "Transfer counter overflow"
+  final case object ReassignmentCounterOverflow extends TransferProcessorError {
+    override def message: String = "Reassignment counter overflow"
   }
   final case class InvalidResult(
       reassignmentId: ReassignmentId,
-      result: DeliveredTransferOutResult.InvalidTransferOutResult,
-  ) extends TransferOutProcessorError {
+      result: DeliveredUnassignmentResult.InvalidUnassignmentResult,
+  ) extends UnassignmentProcessorError {
     override def message: String =
-      s"Cannot transfer-out `$reassignmentId`: invalid result"
+      s"Cannot unassign `$reassignmentId`: invalid result"
   }
 
-  final case class AutomaticTransferInError(message: String) extends TransferOutProcessorError
+  final case class AutomaticTransferInError(message: String) extends UnassignmentProcessorError
 
-  final case class PermissionErrors(message: String) extends TransferOutProcessorError
+  final case class PermissionErrors(message: String) extends UnassignmentProcessorError
 
-  final case class AdminPartyPermissionErrors(message: String) extends TransferOutProcessorError
+  final case class AdminPartyPermissionErrors(message: String) extends UnassignmentProcessorError
 
-  final case class StakeholderHostingErrors(message: String) extends TransferOutProcessorError
+  final case class StakeholderHostingErrors(message: String) extends UnassignmentProcessorError
 
   final case class AdminPartiesMismatch(
       contractId: LfContractId,
       expected: Set[LfPartyId],
       declared: Set[LfPartyId],
-  ) extends TransferOutProcessorError {
+  ) extends UnassignmentProcessorError {
     override def message: String =
-      s"Cannot transfer-out contract `$contractId`: admin parties mismatch"
+      s"Cannot unassign contract `$contractId`: admin parties mismatch"
   }
 
   final case class RecipientsMismatch(
       contractId: LfContractId,
       expected: Option[Recipients],
       declared: Recipients,
-  ) extends TransferOutProcessorError {
+  ) extends UnassignmentProcessorError {
     override def message: String =
-      s"Cannot transfer-out contract `$contractId`: recipients mismatch"
+      s"Cannot unassign contract `$contractId`: recipients mismatch"
   }
 
   final case class AbortedDueToShutdownOut(contractId: LfContractId)
-      extends TransferOutProcessorError {
+      extends UnassignmentProcessorError {
     override def message: String =
-      s"Cannot transfer-out contract `$contractId`: aborted due to shutdown"
+      s"Cannot unassign contract `$contractId`: aborted due to shutdown"
   }
 
   final case class PackageIdUnknownOrUnvetted(
       contractId: LfContractId,
       unknownTo: List[PackageUnknownTo],
-  ) extends TransferOutProcessorError {
+  ) extends UnassignmentProcessorError {
     override def message: String =
       s"Cannot transfer out contract `$contractId`: ${unknownTo.mkString(", ")}"
   }

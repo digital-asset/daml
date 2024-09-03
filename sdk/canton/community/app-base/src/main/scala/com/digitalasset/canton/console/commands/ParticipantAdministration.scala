@@ -7,7 +7,6 @@ import better.files.File
 import cats.syntax.either.*
 import cats.syntax.option.*
 import cats.syntax.traverse.*
-import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommands.Inspection.{
   CounterParticipantInfo,
@@ -520,7 +519,7 @@ class ParticipantPruningAdministrationGroup(
       |performs additional safety checks returning a ``NOT_FOUND`` error if ``pruneUpTo`` is higher than the
       |offset returned by ``find_safe_offset`` on any domain with events preceding the pruning offset."""
   )
-  def prune(pruneUpTo: ParticipantOffset): Unit =
+  def prune(pruneUpTo: String): Unit =
     consoleEnvironment.run(
       ledgerApiCommand(LedgerApiCommands.ParticipantPruningService.Prune(pruneUpTo))
     )
@@ -529,7 +528,7 @@ class ParticipantPruningAdministrationGroup(
     "Return the highest participant ledger offset whose record time is before or at the given one (if any) at which pruning is safely possible",
     FeatureFlag.Preview,
   )
-  def find_safe_offset(beforeOrAt: Instant = Instant.now()): Option[ParticipantOffset] =
+  def find_safe_offset(beforeOrAt: Instant = Instant.now()): Option[String] =
     check(FeatureFlag.Preview) {
       val ledgerEnd = consoleEnvironment.run(
         ledgerApiCommand(LedgerApiCommands.StateService.LedgerEnd())
@@ -558,7 +557,7 @@ class ParticipantPruningAdministrationGroup(
       |offset returned by ``find_safe_offset`` on any domain with events preceding the pruning offset."""
   )
   // Consider adding an "Enterprise" annotation if we end up having more enterprise-only commands than this lone enterprise command.
-  def prune_internally(pruneUpTo: ParticipantOffset): Unit =
+  def prune_internally(pruneUpTo: String): Unit =
     check(FeatureFlag.Preview) {
       consoleEnvironment.run(
         adminCommand(ParticipantAdminCommands.Pruning.PruneInternallyCommand(pruneUpTo))
@@ -614,7 +613,7 @@ class ParticipantPruningAdministrationGroup(
       |the event. Returns ``None`` if no such offset exists.
     """
   )
-  def get_offset_by_time(upToInclusive: Instant): Option[ParticipantOffset] =
+  def get_offset_by_time(upToInclusive: Instant): Option[String] =
     consoleEnvironment.run(
       adminCommand(
         ParticipantAdminCommands.Inspection.LookupOffsetByTime(
@@ -623,7 +622,7 @@ class ParticipantPruningAdministrationGroup(
       )
     ) match {
       case "" => None
-      case offset => Some(ParticipantOffset(ParticipantOffset.Value.Absolute(offset)))
+      case offset => Some(offset)
     }
 }
 
@@ -720,7 +719,7 @@ class CommitmentsAdministrationGroup(
     FeatureFlag.Preview,
   )
   @Help.Description(
-    """ Retrieves the contract ids and the transfer counters of the shared active contracts at the given timestamp
+    """ Retrieves the contract ids and the reassignment counters of the shared active contracts at the given timestamp
       | and on the given domain.
       | Returns an error if the participant cannot retrieve the data for the given commitment anymore.
       | The arguments are:
@@ -781,15 +780,15 @@ class CommitmentsAdministrationGroup(
   //  for parties hosted by both the counter-participant and the local participant, as the local participant doesn't have
   //  access to contracts of parties that it doesn't host.
   @Help.Summary(
-    "From a given set of contract ids and transfer counters, identify the contracts that are either not active, or have" +
-      "a different transfer counter, or are not shared with the given counter-participant.",
+    "From a given set of contract ids and reassignment counters, identify the contracts that are either not active, or have" +
+      "a different reassignment counter, or are not shared with the given counter-participant.",
     FeatureFlag.Preview,
   )
   @Help.Description(
     """ Returns the contract ids and the mismatch reason.
       | Returns an error if the participant cannot anymore retrieve the data for the given contracts.
       | The arguments are:
-      | - contracts: The contract ids and transfer counters that we check against our ACS
+      | - contracts: The contract ids and reassignment counters that we check against our ACS
       | - expectedDomain: The domain that the counterParticipant believes the given contracts reside on
       | - timestamp: The timestamp when the given contracts are active on the counter-participant
       | - counterParticipant: The counter participant with whom the contracts should be shared
@@ -949,7 +948,7 @@ class CommitmentsAdministrationGroup(
   def set_no_wait_commitments_from(
       counterParticipants: Seq[ParticipantId],
       domainIds: Seq[DomainId],
-      startingAt: Either[Instant, ParticipantOffset],
+      startingAt: Either[Instant, String],
   ): Map[ParticipantId, Seq[DomainId]] =
     consoleEnvironment.run(
       runner.adminCommand(

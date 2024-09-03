@@ -68,7 +68,7 @@ object EnvelopeContent
         case Content.EncryptedViewMessage(messageP) =>
           EncryptedViewMessage.fromProto(messageP)
         case Content.UnassignmentMediatorMessage(messageP) =>
-          TransferOutMediatorMessage.fromProtoV30(
+          UnassignmentMediatorMessage.fromProtoV30(
             (hashOps, SourceProtocolVersion(expectedProtocolVersion))
           )(messageP)
         case Content.AssignmentMediatorMessage(messageP) =>
