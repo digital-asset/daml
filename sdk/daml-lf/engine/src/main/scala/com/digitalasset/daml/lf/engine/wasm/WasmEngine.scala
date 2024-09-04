@@ -40,22 +40,22 @@ class WasmEngine(config: EngineConfig) {
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] = {
     val submissionTime = cmds.ledgerEffectiveTime
     val initialSeeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime)
-    val wasm = new WasmRunner(
-      submitters,
-      readAs,
-      initialSeeding,
-      submissionTime,
-      config.authorizationChecker,
-    )
-    // FIXME: for the moment, we always load a universe Wasm module
+    // FIXME: models a WASM API command
     val wexpr = WasmExpr(WasmEngine.universe, "main")
+    val wasm = new WasmRunner(
+      submitters = submitters,
+      readAs = readAs,
+      seeding = initialSeeding,
+      submissionTime = submissionTime,
+      authorizationChecker = config.authorizationChecker,
+      pkgInterface = pkgInterface,
+      wasmExpr = wexpr,
+      activeContractStore = WasmRunnerTestLib.acs(),
+    )
 
     mapToResult(
       submissionTime,
-      wasm.evaluateWasmExpression(
-        wexpr,
-        ledgerTime = cmds.ledgerEffectiveTime,
-      ),
+      wasm.evaluateWasmExpression(cmds.ledgerEffectiveTime),
     )
   }
 
@@ -70,22 +70,22 @@ class WasmEngine(config: EngineConfig) {
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] = {
     val readAs = Set.empty[Ref.Party]
     val initialSeeding = InitialSeeding.RootNodeSeeds(ImmArray(nodeSeed))
-    val wasm = new WasmRunner(
-      submitters,
-      readAs,
-      initialSeeding,
-      submissionTime,
-      config.authorizationChecker,
-    )
-    // FIXME: for the moment, we always load a universe Wasm module and ignore the replay command
+    // FIXME: models a WASM API command
     val wexpr = WasmExpr(WasmEngine.universe, "main")
+    val wasm = new WasmRunner(
+      submitters = submitters,
+      readAs = readAs,
+      seeding = initialSeeding,
+      submissionTime = submissionTime,
+      authorizationChecker = config.authorizationChecker,
+      pkgInterface = pkgInterface,
+      wasmExpr = wexpr,
+      activeContractStore = WasmRunnerTestLib.acs(),
+    )
 
     mapToResult(
       submissionTime,
-      wasm.evaluateWasmExpression(
-        wexpr,
-        ledgerTime = ledgerEffectiveTime,
-      ),
+      wasm.evaluateWasmExpression(ledgerEffectiveTime),
     )
   }
 
@@ -101,22 +101,22 @@ class WasmEngine(config: EngineConfig) {
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] = {
     val readAs = Set.empty[Ref.Party]
     val initialSeeding = Engine.initialSeeding(submissionSeed, participantId, submissionTime)
-    val wasm = new WasmRunner(
-      submitters,
-      readAs,
-      initialSeeding,
-      submissionTime,
-      config.authorizationChecker,
-    )
-    // FIXME: for the moment, we always load a universe Wasm module and ignore calculating commands to run from the given tx
+    // FIXME: models a WASM API command
     val wexpr = WasmExpr(WasmEngine.universe, "main")
+    val wasm = new WasmRunner(
+      submitters = submitters,
+      readAs = readAs,
+      seeding = initialSeeding,
+      submissionTime = submissionTime,
+      authorizationChecker = config.authorizationChecker,
+      pkgInterface = pkgInterface,
+      wasmExpr = wexpr,
+      activeContractStore = WasmRunnerTestLib.acs(),
+    )
 
     mapToResult(
       submissionTime,
-      wasm.evaluateWasmExpression(
-        wexpr,
-        ledgerTime = ledgerEffectiveTime,
-      ),
+      wasm.evaluateWasmExpression(ledgerEffectiveTime),
     )
   }
 

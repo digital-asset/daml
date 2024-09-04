@@ -10,7 +10,7 @@ import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.daml.lf.data.Ref.PackageVersion
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.Ast.{
-  BLInt64,
+  BLText,
   EBuiltinLit,
   FeatureFlags,
   Module,
@@ -72,7 +72,8 @@ class WasmRunnerTest
     )
     val submissionTime = Time.Timestamp.now()
     val initialSeeding = InitialSeeding.NoSeed
-    val wasm = new WasmRunner(
+    val wexpr = WasmExpr(wasmModule, "main")
+    val wasm = WasmRunner(
       submitters = Set.empty,
       readAs = Set.empty,
       seeding = initialSeeding,
@@ -80,15 +81,12 @@ class WasmRunnerTest
       authorizationChecker = NoopAuthorizationChecker,
       logger = createContextualizedLogger(mockLogger),
       activeContractStore = WasmRunnerTestLib.acs(),
+      wasmExpr = wexpr,
     )(LoggingContext.ForTesting)
-    val wexpr = WasmExpr(wasmModule, "main")
 
     getLocalContractStore(wasm) shouldBe empty
 
-    val result = wasm.evaluateWasmExpression(
-      wexpr,
-      ledgerTime = submissionTime,
-    )
+    val result = wasm.evaluateWasmExpression()
 
     inside(result) {
       case Right(
@@ -144,19 +142,11 @@ class WasmRunnerTest
               definitions = Map.empty,
               templates = Map(
                 Ref.DottedName.assertFromString("SimpleTemplate") -> Template(
-                  param = Ref.Name.assertFromString(
-                    "_0"
-                  ), // FIXME: template table func ptr to SimpleTemplate.new
-                  precond = EBuiltinLit(
-                    BLInt64(1)
-                  ), // FIXME: template table func ptr to SimpleTemplate.precond
-                  signatories = EBuiltinLit(
-                    BLInt64(2)
-                  ), // FIXME: template table func ptr to SimpleTemplate.signatories
+                  param = Ref.Name.assertFromString("new"),
+                  precond = EBuiltinLit(BLText("SimpleTemplate_precond")),
+                  signatories = EBuiltinLit(BLText("SimpleTemplate_signatories")),
                   choices = Map.empty,
-                  observers = EBuiltinLit(
-                    BLInt64(3)
-                  ), // FIXME: template table func ptr to SimpleTemplate.observers
+                  observers = EBuiltinLit(BLText("SimpleTemplate_observers")),
                   key = None,
                   implements = VectorMap.empty,
                 )
@@ -177,7 +167,8 @@ class WasmRunnerTest
         )
       )
     )
-    val wasm = new WasmRunner(
+    val wexpr = WasmExpr(wasmModule, "main")
+    val wasm = WasmRunner(
       submitters = submitters,
       readAs = readAs,
       seeding = initialSeeding,
@@ -185,16 +176,13 @@ class WasmRunnerTest
       authorizationChecker = DefaultAuthorizationChecker,
       logger = createContextualizedLogger(mockLogger),
       pkgInterface = pkgInterface,
+      wasmExpr = wexpr,
       activeContractStore = WasmRunnerTestLib.acs(),
     )(LoggingContext.ForTesting)
-    val wexpr = WasmExpr(wasmModule, "main")
 
     getLocalContractStore(wasm) shouldBe empty
 
-    val result = wasm.evaluateWasmExpression(
-      wexpr,
-      ledgerTime = submissionTime,
-    )
+    val result = wasm.evaluateWasmExpression()
 
     inside(result) {
       case Right(
@@ -292,19 +280,11 @@ class WasmRunnerTest
               definitions = Map.empty,
               templates = Map(
                 Ref.DottedName.assertFromString("SimpleTemplate") -> Template(
-                  param = Ref.Name.assertFromString(
-                    "_0"
-                  ), // FIXME: template table func ptr to SimpleTemplate.new
-                  precond = EBuiltinLit(
-                    BLInt64(1)
-                  ), // FIXME: template table func ptr to SimpleTemplate.precond
-                  signatories = EBuiltinLit(
-                    BLInt64(2)
-                  ), // FIXME: template table func ptr to SimpleTemplate.signatories
+                  param = Ref.Name.assertFromString("new"),
+                  precond = EBuiltinLit(BLText("SimpleTemplate_precond")),
+                  signatories = EBuiltinLit(BLText("SimpleTemplate_signatories")),
                   choices = Map.empty,
-                  observers = EBuiltinLit(
-                    BLInt64(3)
-                  ), // FIXME: template table func ptr to SimpleTemplate.observers
+                  observers = EBuiltinLit(BLText("SimpleTemplate_observers")),
                   key = None,
                   implements = VectorMap.empty,
                 )
@@ -324,7 +304,8 @@ class WasmRunnerTest
         )
       )
     )
-    val wasm = new WasmRunner(
+    val wexpr = WasmExpr(wasmModule, "main")
+    val wasm = WasmRunner(
       submitters = submitters,
       readAs = readAs,
       seeding = initialSeeding,
@@ -332,18 +313,15 @@ class WasmRunnerTest
       authorizationChecker = DefaultAuthorizationChecker,
       logger = createContextualizedLogger(mockLogger),
       pkgInterface = pkgInterface,
+      wasmExpr = wexpr,
       activeContractStore = WasmRunnerTestLib.acs({ case `contractId` =>
         contract
       }),
     )(LoggingContext.ForTesting)
-    val wexpr = WasmExpr(wasmModule, "main")
 
     getLocalContractStore(wasm) shouldBe empty
 
-    val result = wasm.evaluateWasmExpression(
-      wexpr,
-      ledgerTime = submissionTime,
-    )
+    val result = wasm.evaluateWasmExpression()
 
     inside(result) {
       case Right(
@@ -441,19 +419,11 @@ class WasmRunnerTest
               definitions = Map.empty,
               templates = Map(
                 Ref.DottedName.assertFromString("SimpleTemplate") -> Template(
-                  param = Ref.Name.assertFromString(
-                    "_0"
-                  ), // FIXME: template table func ptr to SimpleTemplate.new
-                  precond = EBuiltinLit(
-                    BLInt64(1)
-                  ), // FIXME: template table func ptr to SimpleTemplate.precond
-                  signatories = EBuiltinLit(
-                    BLInt64(2)
-                  ), // FIXME: template table func ptr to SimpleTemplate.signatories
+                  param = Ref.Name.assertFromString("new"),
+                  precond = EBuiltinLit(BLText("SimpleTemplate_precond")),
+                  signatories = EBuiltinLit(BLText("SimpleTemplate_signatories")),
                   choices = Map.empty,
-                  observers = EBuiltinLit(
-                    BLInt64(3)
-                  ), // FIXME: template table func ptr to SimpleTemplate.observers
+                  observers = EBuiltinLit(BLText("SimpleTemplate_observers")),
                   key = None,
                   implements = VectorMap.empty,
                 )
@@ -473,7 +443,8 @@ class WasmRunnerTest
         )
       )
     )
-    val wasm = new WasmRunner(
+    val wexpr = WasmExpr(wasmModule, "main")
+    val wasm = WasmRunner(
       submitters = submitters,
       readAs = stakeholders,
       seeding = initialSeeding,
@@ -481,18 +452,14 @@ class WasmRunnerTest
       authorizationChecker = DefaultAuthorizationChecker,
       logger = createContextualizedLogger(mockLogger),
       pkgInterface = pkgInterface,
+      wasmExpr = wexpr,
       activeContractStore = WasmRunnerTestLib.acs({ case `contractId` =>
         contract
       }),
+      initialLocalContractStore = Map(contractId -> contractInfo),
     )(LoggingContext.ForTesting)
-    val wexpr = WasmExpr(wasmModule, "main")
 
-    setLocalContractStore(wasm, Map(contractId -> contractInfo))
-
-    val result = wasm.evaluateWasmExpression(
-      wexpr,
-      ledgerTime = submissionTime,
-    )
+    val result = wasm.evaluateWasmExpression()
 
     inside(result) {
       case Right(
@@ -583,19 +550,11 @@ class WasmRunnerTest
               definitions = Map.empty,
               templates = Map(
                 Ref.DottedName.assertFromString("SimpleTemplate") -> Template(
-                  param = Ref.Name.assertFromString(
-                    "_0"
-                  ), // FIXME: template table func ptr to SimpleTemplate.new
-                  precond = EBuiltinLit(
-                    BLInt64(1)
-                  ), // FIXME: template table func ptr to SimpleTemplate.precond
-                  signatories = EBuiltinLit(
-                    BLInt64(2)
-                  ), // FIXME: template table func ptr to SimpleTemplate.signatories
+                  param = Ref.Name.assertFromString("new"),
+                  precond = EBuiltinLit(BLText("SimpleTemplate_precond")),
+                  signatories = EBuiltinLit(BLText("SimpleTemplate_signatories")),
                   choices = Map.empty,
-                  observers = EBuiltinLit(
-                    BLInt64(3)
-                  ), // FIXME: template table func ptr to SimpleTemplate.observers
+                  observers = EBuiltinLit(BLText("SimpleTemplate_observers")),
                   key = None,
                   implements = VectorMap.empty,
                 )
@@ -615,7 +574,8 @@ class WasmRunnerTest
         )
       )
     )
-    val wasm = new WasmRunner(
+    val wexpr = WasmExpr(wasmModule, "main")
+    val wasm = WasmRunner(
       submitters = submitters,
       readAs = stakeholders,
       seeding = initialSeeding,
@@ -623,18 +583,14 @@ class WasmRunnerTest
       authorizationChecker = DefaultAuthorizationChecker,
       logger = createContextualizedLogger(mockLogger),
       pkgInterface = pkgInterface,
+      wasmExpr = wexpr,
       activeContractStore = WasmRunnerTestLib.acs({ case `contractId` =>
         contract
       }),
+      initialLocalContractStore = Map(contractId -> contractInfo),
     )(LoggingContext.ForTesting)
-    val wexpr = WasmExpr(wasmModule, "main")
 
-    setLocalContractStore(wasm, Map(contractId -> contractInfo))
-
-    val result = wasm.evaluateWasmExpression(
-      wexpr,
-      ledgerTime = submissionTime,
-    )
+    val result = wasm.evaluateWasmExpression()
 
     inside(result) {
       case Right(
@@ -728,17 +684,6 @@ class WasmRunnerTest
   private def getLocalContractStore(
       runner: WasmRunner
   ): Map[LfValue.ContractId, ContractInfo] = {
-    val field = runner.getClass.getDeclaredField("localContractStore")
-    field.setAccessible(true)
-    field.get(runner).asInstanceOf[Map[LfValue.ContractId, ContractInfo]]
-  }
-
-  private def setLocalContractStore(
-      runner: WasmRunner,
-      localContractStore: Map[LfValue.ContractId, ContractInfo],
-  ): Unit = {
-    val field = runner.getClass.getDeclaredField("localContractStore")
-    field.setAccessible(true)
-    field.set(runner, localContractStore)
+    runner.incompleteTransaction._1
   }
 }
