@@ -18,11 +18,8 @@ import com.digitalasset.daml.lf.speedy.wasm.exports.{
   WasmChoiceExportFunctions,
   WasmTemplateExportFunctions,
 }
-import com.digitalasset.daml.lf.speedy.wasm.host.{
-  PureWasmHostFunctions,
-  UpdateWasmHostFunctions,
-  WasmRunnerHostFunctions,
-}
+import com.digitalasset.daml.lf.speedy.wasm.host.{PureWasmHostFunctions, UpdateWasmHostFunctions}
+import com.digitalasset.daml.lf.speedy.wasm.host.WasmHostFunctions
 import com.dylibso.chicory.runtime.{
   HostFunction => WasmHostFunction,
   HostImports => WasmHostImports,
@@ -46,12 +43,12 @@ final class WasmRunner(
     initialPtx: PartialTransaction,
 )(implicit loggingContext: LoggingContext)
     extends UpdateWasmHostFunctions(pkgInterface)
-    with WasmRunnerHostFunctions {
+    with WasmHostFunctions {
 
   import WasmUtils._
   import WasmTemplateExportFunctions._
   import WasmChoiceExportFunctions._
-  import WasmRunnerHostFunctions._
+  import host.internal.WasmRunnerHostFunctions._
   import WasmRunner._
 
   // TODO: do we care about Speedy limit enforcement?

@@ -11,7 +11,7 @@ import com.digitalasset.daml.lf.value.{Value => LfValue}
 import com.dylibso.chicory.runtime.{Instance => WasmInstance}
 
 object WasmChoiceExportFunctions {
-  import WasmRunnerExportFunctions._
+  import internal.WasmRunnerExportFunctions._
 
   private[wasm] def wasmChoiceExerciseFunction(
       choiceName: String,

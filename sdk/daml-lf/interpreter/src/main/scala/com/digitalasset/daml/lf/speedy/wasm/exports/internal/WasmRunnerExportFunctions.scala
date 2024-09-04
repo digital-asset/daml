@@ -3,7 +3,7 @@
 
 package com.digitalasset.daml.lf.speedy.wasm
 
-package exports
+package exports.internal
 
 import com.digitalasset.daml.lf.speedy.wasm.WasmUtils
 import com.digitalasset.daml.lf.transaction.TransactionVersion

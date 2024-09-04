@@ -18,9 +18,9 @@ import com.dylibso.chicory.runtime.{HostFunction => WasmHostFunction}
 import scala.concurrent.duration.Duration
 
 abstract class UpdateWasmHostFunctions(pkgInterface: PackageInterface)
-    extends SpeedyUtils(pkgInterface) { self: WasmRunnerHostFunctions =>
+    extends SpeedyUtils(pkgInterface) { self: WasmHostFunctions =>
   import WasmUtils._
-  import WasmRunnerHostFunctions._
+  import internal.WasmRunnerHostFunctions._
 
   val createContractFunc: WasmHostFunction =
     wasmFunction("createContract", 2, WasmValueResultType) { param =>

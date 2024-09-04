@@ -10,7 +10,7 @@ import com.dylibso.chicory.runtime.{HostFunction => WasmHostFunction}
 
 object PureWasmHostFunctions {
   import WasmUtils._
-  import WasmRunnerHostFunctions._
+  import internal.WasmRunnerHostFunctions._
 
   val createContractFunc: WasmHostFunction =
     wasmFunction("createContract", 2, WasmValueResultType) { _ =>

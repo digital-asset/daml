@@ -3,38 +3,14 @@
 
 package com.digitalasset.daml.lf.speedy.wasm
 
-package host
+package host.internal
 
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.speedy.wasm.WasmUtils
-import com.digitalasset.daml.lf.value.{Value => LfValue}
 import com.dylibso.chicory.runtime.{HostFunction => WasmHostFunction, Instance => WasmInstance}
 import com.dylibso.chicory.wasm.types.{Value => WasmValue, ValueType => WasmValueType}
 import com.google.protobuf.ByteString
 
-import scala.concurrent.duration.Duration
 import scala.jdk.CollectionConverters._
-
-trait WasmRunnerHostFunctions {
-
-  def logInfo(msg: String): Unit
-
-  def createContract(templateCons: Ref.TypeConRef, args: LfValue): LfValue.ContractId
-
-  def fetchContractArg(
-      templateId: Ref.TypeConRef,
-      contractId: LfValue.ContractId,
-      timeout: Duration,
-  ): LfValue
-
-  def exerciseChoice(
-      templateId: Ref.TypeConRef,
-      contractId: LfValue.ContractId,
-      choiceName: Ref.ChoiceName,
-      choiceArg: LfValue,
-      consuming: Boolean,
-  ): LfValue
-}
 
 object WasmRunnerHostFunctions {
   import WasmUtils._
