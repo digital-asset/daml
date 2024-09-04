@@ -3,8 +3,11 @@
 
 package com.digitalasset.daml.lf.speedy.wasm
 
+package host
+
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.language.PackageInterface
+import com.digitalasset.daml.lf.speedy.wasm.{SpeedyUtils, WasmUtils}
 import com.digitalasset.daml.lf.value.{
   Value => LfValue,
   ValueCoder => LfValueCoder,

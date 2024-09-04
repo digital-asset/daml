@@ -3,10 +3,13 @@
 
 package com.digitalasset.daml.lf.speedy.wasm
 
+package host
+
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.speedy.wasm.WasmUtils
 import com.digitalasset.daml.lf.value.{Value => LfValue}
-import com.dylibso.chicory.wasm.types.{Value => WasmValue, ValueType => WasmValueType}
 import com.dylibso.chicory.runtime.{HostFunction => WasmHostFunction, Instance => WasmInstance}
+import com.dylibso.chicory.wasm.types.{Value => WasmValue, ValueType => WasmValueType}
 import com.google.protobuf.ByteString
 
 import scala.concurrent.duration.Duration

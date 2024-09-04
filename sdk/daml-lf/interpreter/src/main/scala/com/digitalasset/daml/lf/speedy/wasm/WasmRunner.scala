@@ -14,6 +14,15 @@ import com.digitalasset.daml.lf.speedy.SResult.SVisibleToStakeholders
 import com.digitalasset.daml.lf.speedy.Speedy.{ContractInfo, UpdateMachine}
 import com.digitalasset.daml.lf.transaction.{ContractKeyUniquenessMode, Node}
 import com.digitalasset.daml.lf.value.{Value => LfValue}
+import com.digitalasset.daml.lf.speedy.wasm.exports.{
+  WasmChoiceExportFunctions,
+  WasmTemplateExportFunctions,
+}
+import com.digitalasset.daml.lf.speedy.wasm.host.{
+  PureWasmHostFunctions,
+  UpdateWasmHostFunctions,
+  WasmRunnerHostFunctions,
+}
 import com.dylibso.chicory.runtime.{
   HostFunction => WasmHostFunction,
   HostImports => WasmHostImports,

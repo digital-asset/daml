@@ -3,6 +3,9 @@
 
 package com.digitalasset.daml.lf.speedy.wasm
 
+package host
+
+import com.digitalasset.daml.lf.speedy.wasm.WasmUtils
 import com.dylibso.chicory.runtime.{HostFunction => WasmHostFunction}
 
 object PureWasmHostFunctions {

@@ -3,6 +3,8 @@
 
 package com.digitalasset.daml.lf.speedy.wasm
 
+package exports
+
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.transaction.TransactionVersion
 import com.digitalasset.daml.lf.value.{Value => LfValue}
