@@ -1,16 +1,14 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package model
-package test
+package com.digitalasset.daml.lf.model.test
 
 import cats.implicits.toTraverseOps
 import cats.instances.all._
-import com.daml.lf.command.ApiCommand
-import com.daml.lf.data.{FrontStack, ImmArray, Ref}
-import com.daml.lf.value.{Value => V}
-import com.daml.lf.model.test.Ledgers._
+import com.digitalasset.daml.lf.command.ApiCommand
+import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref}
+import com.digitalasset.daml.lf.value.{Value => V}
+import com.digitalasset.daml.lf.model.test.Ledgers._
 
 object ToCommands {
   sealed trait SomeContractId {

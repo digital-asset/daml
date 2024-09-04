@@ -1,18 +1,16 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package model
-package test
+package com.digitalasset.daml.lf.model.test
 
 import cats.Applicative
-import com.daml.lf.Spaces.Space
-import com.daml.lf.Spaces.{Space => S}
-import com.daml.lf.Spaces.Space.Instances._
+import com.digitalasset.daml.lf.model.test.Spaces.Space
+import com.digitalasset.daml.lf.model.test.Spaces.{Space => S}
+import com.digitalasset.daml.lf.model.test.Spaces.Space.Instances._
 import cats.syntax.all._
-import com.daml.lf.language.LanguageVersion
-import com.daml.lf.language.LanguageVersion.Features
-import com.daml.lf.model.test.Skeletons._
+import com.digitalasset.daml.lf.language.LanguageVersion
+import com.digitalasset.daml.lf.language.LanguageVersion.Features
+import com.digitalasset.daml.lf.model.test.Skeletons._
 
 import Ordering.Implicits.infixOrderingOps
 

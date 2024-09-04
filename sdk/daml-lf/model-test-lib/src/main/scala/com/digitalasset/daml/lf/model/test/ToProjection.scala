@@ -1,16 +1,14 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package model
-package test
+package com.digitalasset.daml.lf.model.test
 
 import com.daml.ledger.javaapi
-import com.daml.lf.data.Ref
-import com.daml.lf.ledger.EventId
-import com.daml.lf.model.test.Projections._
-import com.daml.lf.scenario.ScenarioLedger
-import com.daml.lf.value.{Value => V}
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.ledger.EventId
+import com.digitalasset.daml.lf.model.test.Projections._
+import com.digitalasset.daml.lf.scenario.ScenarioLedger
+import com.digitalasset.daml.lf.value.{Value => V}
 
 import scala.collection.mutable
 import scala.jdk.CollectionConverters._
@@ -77,8 +75,8 @@ object ToProjection {
       party: Ref.Party,
   ) {
 
-    import com.daml.lf.scenario.{ScenarioLedger => SL}
-    import com.daml.lf.transaction.{Node, NodeId}
+    import com.digitalasset.daml.lf.scenario.{ScenarioLedger => SL}
+    import com.digitalasset.daml.lf.transaction.{Node, NodeId}
 
     def fromScenarioLedger(scenarioLedger: ScenarioLedger): Projection =
       scenarioLedger.scenarioSteps.values
