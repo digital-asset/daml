@@ -135,7 +135,8 @@ object Node {
     override def mapCid(f: ContractId => ContractId): Node.Fetch =
       copy(coid = f(coid))
 
-    override def packageIds: Iterable[PackageId] = Iterable(templateId.packageId)
+    override def packageIds: Iterable[PackageId] =
+      Iterable(templateId.packageId) ++ interfaceId.map(_.packageId)
 
     override def informeesOfNode: Set[Party] = signatories | actingParties
     override def requiredAuthorizers: Set[Party] = actingParties
