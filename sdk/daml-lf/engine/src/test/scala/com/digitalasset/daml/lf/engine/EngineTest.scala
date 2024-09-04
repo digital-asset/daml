@@ -2607,7 +2607,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
                 val key = fetch.keyOpt.getOrElse(sys.error("unexpected empty contract key")).value
                 ReplayCommand.FetchByKey(fetch.templateId, key)
               case fetch: Node.Fetch =>
-                ReplayCommand.Fetch(fetch.templateId, fetch.coid)
+                ReplayCommand.Fetch(fetch.templateId, fetch.interfaceId, fetch.coid)
               case lookup: Node.LookupByKey =>
                 ReplayCommand.LookupByKey(lookup.templateId, lookup.key.value)
               case exe: Node.Exercise if exe.byKey =>

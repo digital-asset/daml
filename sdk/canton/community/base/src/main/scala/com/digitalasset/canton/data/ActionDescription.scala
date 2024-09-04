@@ -33,6 +33,7 @@ import com.digitalasset.canton.protocol.{
   v1,
   v2,
   v3,
+  v4,
 }
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -74,6 +75,7 @@ sealed trait ActionDescription
   protected def toProtoDescriptionV1: v1.ActionDescription.Description
   protected def toProtoDescriptionV2: v2.ActionDescription.Description
   protected def toProtoDescriptionV3: v3.ActionDescription.Description
+  protected def toProtoDescriptionV4: v4.ActionDescription.Description
 
   def toProtoV0: v0.ActionDescription =
     v0.ActionDescription(description = toProtoDescriptionV0)
@@ -87,6 +89,8 @@ sealed trait ActionDescription
   def toProtoV3: v3.ActionDescription =
     v3.ActionDescription(description = toProtoDescriptionV3)
 
+  def toProtoV4: v4.ActionDescription =
+    v4.ActionDescription(description = toProtoDescriptionV4)
 }
 
 object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription] {
@@ -108,6 +112,10 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
     ProtoVersion(3) -> VersionedProtoConverter(ProtocolVersion.v6)(v3.ActionDescription)(
       supportedProtoVersion(_)(fromProtoV3),
       _.toProtoV3.toByteString,
+    ),
+    ProtoVersion(4) -> VersionedProtoConverter(ProtocolVersion.v7)(v4.ActionDescription)(
+      supportedProtoVersion(_)(fromProtoV4),
+      _.toProtoV4.toByteString,
     ),
   )
 
@@ -222,7 +230,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
             byKey,
             version,
             Option.when(protocolVersion >= ProtocolVersion.v6)(templateId),
-            interfaceId.filter(_ => protocolVersion >= ProtocolVersion.v6),
+            interfaceId.filter(_ => protocolVersion >= ProtocolVersion.v7),
             protocolVersionRepresentativeFor(protocolVersion),
           )
         } yield actionDescription
@@ -509,11 +517,11 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
     } yield actionDescription
   }
 
-  private def fromFetchProtoV3(
-      f: v3.ActionDescription.FetchActionDescription,
+  private def fromFetchProtoV4(
+      f: v4.ActionDescription.FetchActionDescription,
       pv: RepresentativeProtocolVersion[ActionDescription.type],
   ): ParsingResult[FetchActionDescription] = {
-    val v3.ActionDescription.FetchActionDescription(
+    val v4.ActionDescription.FetchActionDescription(
       inputContractIdP,
       actorsP,
       byKey,
@@ -595,12 +603,28 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
       description match {
         case Create(create) => fromCreateProtoV0(create, pv)
         case Exercise(exercise) => fromExerciseProtoV3(exercise, pv)
-        case Fetch(fetch) => fromFetchProtoV3(fetch, pv)
+        case Fetch(fetch) => fromFetchProtoV1(fetch, pv)
         case LookupByKey(lookup) => fromLookupByKeyProtoV1(lookup, pv)
         case Empty => Left(FieldNotSet("description"))
       }
     }
+  }
 
+  private[data] def fromProtoV4(
+      actionDescriptionP: v4.ActionDescription
+  ): ParsingResult[ActionDescription] = {
+    import v4.ActionDescription.Description.*
+    val v4.ActionDescription(description) = actionDescriptionP
+
+    protocolVersionRepresentativeFor(ProtoVersion(4)).flatMap { pv =>
+      description match {
+        case Create(create) => fromCreateProtoV0(create, pv)
+        case Exercise(exercise) => fromExerciseProtoV3(exercise, pv)
+        case Fetch(fetch) => fromFetchProtoV4(fetch, pv)
+        case LookupByKey(lookup) => fromLookupByKeyProtoV1(lookup, pv)
+        case Empty => Left(FieldNotSet("description"))
+      }
+    }
   }
 
   private def lfVersionFromProtoVersioned(
@@ -648,6 +672,9 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
 
     override protected def toProtoDescriptionV3: v3.ActionDescription.Description.Create =
       v3.ActionDescription.Description.Create(toProtoDescriptionV0.value)
+
+    override protected def toProtoDescriptionV4: v4.ActionDescription.Description.Create =
+      v4.ActionDescription.Description.Create(toProtoDescriptionV0.value)
 
     override def pretty: Pretty[CreateActionDescription] = prettyOfClass(
       param("contract Id", _.contractId),
@@ -741,6 +768,9 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
           failed = failed,
         )
       )
+
+    override protected def toProtoDescriptionV4: v4.ActionDescription.Description.Exercise =
+      v4.ActionDescription.Description.Exercise(toProtoDescriptionV3.value)
 
     override def pretty: Pretty[ExerciseActionDescription] = prettyOfClass(
       param("input contract id", _.inputContractId),
@@ -881,7 +911,18 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
 
     override protected def toProtoDescriptionV3: v3.ActionDescription.Description.Fetch =
       v3.ActionDescription.Description.Fetch(
-        v3.ActionDescription.FetchActionDescription(
+        v1.ActionDescription.FetchActionDescription(
+          inputContractId = inputContractId.toProtoPrimitive,
+          actors = actors.toSeq,
+          byKey = byKey,
+          version = version.protoValue,
+          templateId = templateId.map(i => new RefIdentifierSyntax(i).toProtoPrimitive),
+        )
+      )
+
+    override protected def toProtoDescriptionV4: v4.ActionDescription.Description.Fetch =
+      v4.ActionDescription.Description.Fetch(
+        v4.ActionDescription.FetchActionDescription(
           inputContractId = inputContractId.toProtoPrimitive,
           actors = actors.toSeq,
           byKey = byKey,
@@ -977,6 +1018,9 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
           key = Some(GlobalKeySerialization.assertToProtoV1(LfVersioned(version, key)))
         )
       )
+
+    override protected def toProtoDescriptionV4: v4.ActionDescription.Description.LookupByKey =
+      v4.ActionDescription.Description.LookupByKey(toProtoDescriptionV3.value)
 
     override def pretty: Pretty[LookupByKeyActionDescription] = prettyOfClass(
       param("key", _.key),

@@ -197,7 +197,9 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
       ReplayCommand.ExerciseByKey(templateId, ValueUnit, "MyChoide", ValueUnit) -> List(
         templatePkgId
       ),
-      ReplayCommand.Fetch(templateId, toContractId("cid")) -> List(templatePkgId),
+      ReplayCommand.Fetch(templateId, None, toContractId("cid")) -> List(templatePkgId),
+      ReplayCommand.Fetch(templateId, Some(interfaceId), toContractId("cid")) ->
+        List(templatePkgId, interfacePkgId),
       ReplayCommand.FetchByKey(templateId, ValueUnit) -> List(templatePkgId),
       ReplayCommand.LookupByKey(templateId, ValueUnit) -> List(templatePkgId),
     )

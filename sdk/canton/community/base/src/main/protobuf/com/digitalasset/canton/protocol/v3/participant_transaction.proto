@@ -32,7 +32,7 @@ message ActionDescription {
   oneof description {
     v0.ActionDescription.CreateActionDescription create = 1;
     ExerciseActionDescription exercise = 2;
-    FetchActionDescription fetch = 3;
+    v1.ActionDescription.FetchActionDescription fetch = 3;
     v1.ActionDescription.LookupByKeyActionDescription lookup_by_key = 4;
   }
 
@@ -49,15 +49,5 @@ message ActionDescription {
     optional string interface_id = 9;
     optional string template_id = 10;
     repeated string package_preference = 11;
-  }
-
-  // Compared from v2: Add interfaceId
-  message FetchActionDescription {
-    string input_contract_id = 1;
-    repeated string actors = 2;
-    bool by_key = 3;
-    string version = 4;
-    optional string template_id = 5;
-    optional string interface_id = 6;
   }
 }

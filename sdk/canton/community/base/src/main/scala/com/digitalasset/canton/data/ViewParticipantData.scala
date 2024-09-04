@@ -223,8 +223,7 @@ final case class ViewParticipantData private (
         }
         RootAction(cmd, actors, failed, packagePreference)
 
-      // TODO Should interfaceId be used? should it be passed to the command?
-      case FetchActionDescription(inputContractId, actors, byKey, _version, templateIdO, _interfaceId) =>
+      case FetchActionDescription(inputContractId, actors, byKey, _version, templateIdO, interfaceId) =>
         val inputContract = coreInputs.getOrElse(
           inputContractId,
           throw InvalidViewParticipantData(
@@ -246,7 +245,7 @@ final case class ViewParticipantData private (
             )
           LfFetchByKeyCommand(templateId = templateId, key = key)
         } else {
-          LfFetchCommand(templateId = templateId, coid = inputContractId)
+          LfFetchCommand(templateId = templateId, interfaceId = interfaceId, coid = inputContractId)
         }
         RootAction(cmd, actors, failed = false, packageIdPreference = Set.empty)
 
@@ -308,7 +307,7 @@ final case class ViewParticipantData private (
     createdCore = createdCore.map(_.toProtoV2),
     createdInSubviewArchivedInCore = createdInSubviewArchivedInCore.toSeq.map(_.toProtoPrimitive),
     resolvedKeys = resolvedKeys.toList.map { case (k, res) => ResolvedKey(k, res).toProtoV1 },
-    actionDescription = Some(actionDescription.toProtoV3),
+    actionDescription = Some(actionDescription.toProtoV4),
     rollbackContext = if (rollbackContext.isEmpty) None else Some(rollbackContext.toProtoV0),
     salt = Some(salt.toProtoV0),
   )
@@ -582,7 +581,7 @@ object ViewParticipantData
       createdInSubviewArchivedInCoreP,
       resolvedKeysP,
       actionDescriptionP,
-      ActionDescription.fromProtoV3,
+      ActionDescription.fromProtoV4,
       CreatedContract.fromProtoV2,
       InputContract.fromProtoV2,
       ResolvedKey.fromProtoV1,
