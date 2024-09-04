@@ -96,7 +96,7 @@ da_scala_binary(
         lf_version = mangle_for_damlc(lf_version),
         pkg_version = pkg_version,
     ) for lf_version in ENGINE_LF_VERSIONS for (pkg_version, _) in PKG_VERSIONS],
-    main_class = "com.daml.lf.model.test.Demo",
+    main_class = "com.digitalasset.daml.lf.model.test.Demo",
     resources = ["//daml-script/runner:src/main/resources/logback.xml"],
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",

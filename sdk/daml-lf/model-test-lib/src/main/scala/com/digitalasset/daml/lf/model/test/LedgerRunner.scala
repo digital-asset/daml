@@ -1,9 +1,7 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package model
-package test
+package com.digitalasset.daml.lf.model.test
 
 import cats.implicits.toTraverseOps
 import cats.instances.all._
@@ -11,21 +9,27 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.v2.{TransactionFilterOuterClass => proto}
 import com.daml.ledger.javaapi
 import com.daml.ledger.rxjava.DamlLedgerClient
-import com.daml.lf.archive.{Dar, UniversalArchiveDecoder}
-import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{PackageId, Party}
-import com.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.{
+import com.digitalasset.daml.lf.archive.{Dar, UniversalArchiveDecoder}
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
+import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.grpcLedgerClient.{
   AdminLedgerClient,
   GrpcLedgerClient,
 }
-import com.daml.lf.engine.script.v2.ledgerinteraction.{IdeLedgerClient, ScriptLedgerClient}
-import com.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
-import com.daml.lf.model.test.LedgerImplicits._
-import com.daml.lf.model.test.LedgerRunner.ApiPorts
-import com.daml.lf.model.test.Ledgers.{ParticipantId, Scenario}
-import com.daml.lf.model.test.Projections.{PartyId, Projection}
-import com.daml.lf.model.test.ToProjection.{ContractIdReverseMapping, PartyIdReverseMapping}
-import com.daml.lf.speedy.{Compiler, RingBufferTraceLog, WarningLog}
+import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.{
+  IdeLedgerClient,
+  ScriptLedgerClient,
+}
+import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.model.test.LedgerImplicits._
+import com.digitalasset.daml.lf.model.test.LedgerRunner.ApiPorts
+import com.digitalasset.daml.lf.model.test.Ledgers.{ParticipantId, Scenario}
+import com.digitalasset.daml.lf.model.test.Projections.{PartyId, Projection}
+import com.digitalasset.daml.lf.model.test.ToProjection.{
+  ContractIdReverseMapping,
+  PartyIdReverseMapping,
+}
+import com.digitalasset.daml.lf.speedy.{Compiler, RingBufferTraceLog, WarningLog}
 import com.daml.logging.ContextualizedLogger
 import com.digitalasset.canton.ledger.client.configuration.{
   CommandClientConfiguration,
@@ -34,6 +38,7 @@ import com.digitalasset.canton.ledger.client.configuration.{
 }
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.daml.lf.PureCompiledPackages
 import com.google.protobuf.ByteString
 import org.apache.pekko.stream.Materializer
 
@@ -208,9 +213,14 @@ private class CantonLedgerRunner(
       participantId: ParticipantId,
       party: Ref.Party,
   ): List[javaapi.data.TransactionTree] = {
+    val ledgerClients = ledgerClientsForProjections(participantId)
+    val ledgerEnd = ledgerClients.getStateClient
+      .getLedgerEnd()
+      .blockingGet()
     ledgerClientsForProjections(participantId).getTransactionsClient
       .getTransactionsTrees(
-        javaapi.data.ParticipantOffset.ParticipantBegin.getInstance(),
+        "",
+        ledgerEnd,
         javaapi.data.TransactionFilter.fromProto(
           proto.TransactionFilter
             .newBuilder()

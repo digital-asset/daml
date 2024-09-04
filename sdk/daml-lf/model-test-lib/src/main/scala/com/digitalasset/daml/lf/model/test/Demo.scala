@@ -1,15 +1,13 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package model
-package test
+package com.digitalasset.daml.lf.model.test
 
 import com.daml.bazeltools.BazelRunfiles.rlocation
 import com.daml.grpc.adapter.{ExecutionSequencerFactory, PekkoExecutionSequencerPool}
-import com.daml.lf.language.LanguageVersion
-import com.daml.lf.model.test.LedgerRunner.ApiPorts
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.daml.lf.language.LanguageVersion
+import com.digitalasset.daml.lf.model.test.LedgerRunner.ApiPorts
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.Materializer
 import org.scalacheck.{Gen, Prop}

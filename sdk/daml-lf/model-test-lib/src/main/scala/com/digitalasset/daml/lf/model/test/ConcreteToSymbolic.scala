@@ -1,9 +1,9 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
+package com.digitalasset.daml.lf.model.test
 
-import com.daml.lf.model.test.{Ledgers => Conc, Symbolic => Sym}
+import com.digitalasset.daml.lf.model.test.{Ledgers => Conc, Symbolic => Sym}
 import com.microsoft.z3.{ArrayExpr, BoolSort, Context, IntSort}
 
 object ConcreteToSymbolic {
