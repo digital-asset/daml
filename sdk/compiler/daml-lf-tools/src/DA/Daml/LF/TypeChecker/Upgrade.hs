@@ -272,7 +272,9 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
                         closestGreater = minimumByMay ordFst $ filterUpgradeablePkgs (\(pastVersion, _, _) -> pastVersion > presentVersion) upgradeablePkgs
                         closestLesser = maximumByMay ordFst $ filterUpgradeablePkgs (\(pastVersion, _, _) -> pastVersion < presentVersion) upgradeablePkgs
                     if not (null equivalent)
-                      then error "two upgradeable packages with same name and version"
+                      then
+                        withPkgAsGamma presentPkg $
+                          throwWithContext $ EUpgradeMultiplePackagesWithSameNameAndVersion packageName presentVersion (presentPkgId : map (\(_,id,_) -> id) equivalent)
                       else do
                         let otherDepsWithSelf = upgradeablePackageMapToDeps $ addDep result upgradeablePackageMap
                         case closestGreater of

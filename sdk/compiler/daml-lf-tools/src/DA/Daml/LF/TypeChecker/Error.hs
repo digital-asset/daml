@@ -24,6 +24,7 @@ import qualified Data.Text as T
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import Numeric.Natural
+import qualified Data.List as L
 
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Pretty
@@ -216,6 +217,7 @@ data UnwarnableError
   | EUpgradeMissingImplementation !TypeConName !TypeConName
   | EForbiddenNewImplementation !TypeConName !TypeConName
   | EUpgradeDependenciesFormACycle ![(PackageId, Maybe PackageMetadata)]
+  | EUpgradeMultiplePackagesWithSameNameAndVersion !PackageName !RawPackageVersion ![PackageId]
   deriving (Show)
 
 data WarnableError
@@ -688,6 +690,7 @@ instance Pretty UnwarnableError where
       where
       pprintDep (pkgId, Just meta) = pPrint pkgId <> "(" <> pPrint (packageName meta) <> ", " <> pPrint (packageVersion meta) <> ")"
       pprintDep (pkgId, Nothing) = pPrint pkgId
+    EUpgradeMultiplePackagesWithSameNameAndVersion name version ids -> "Multiple packages with name " <> pPrint name <> " and version " <> pPrint (show version) <> ": " <> hcat (L.intersperse ", " (map pPrint ids))
 
 instance Pretty UpgradedRecordOrigin where
   pPrint = \case
