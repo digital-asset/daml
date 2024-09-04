@@ -32,8 +32,8 @@ import com.digitalasset.canton.participant.protocol.submission.{
   EncryptedViewMessageFactory,
   SeedGenerator,
 }
-import com.digitalasset.canton.participant.protocol.transfer.TransferInProcessingSteps.*
-import com.digitalasset.canton.participant.protocol.transfer.TransferInValidation.*
+import com.digitalasset.canton.participant.protocol.transfer.AssignmentProcessingSteps.*
+import com.digitalasset.canton.participant.protocol.transfer.AssignmentValidation.*
 import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.{
   CanSubmitTransfer,
@@ -66,7 +66,7 @@ import com.digitalasset.daml.lf.data.Bytes
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
-private[transfer] class TransferInProcessingSteps(
+private[transfer] class AssignmentProcessingSteps(
     val domainId: TargetDomainId,
     val participantId: ParticipantId,
     val engine: DAMLe,
@@ -80,26 +80,26 @@ private[transfer] class TransferInProcessingSteps(
       SubmissionParam,
       SubmissionResult,
       AssignmentViewType,
-      PendingTransferIn,
+      PendingAssignment,
     ]
     with NamedLogging {
 
-  import TransferInProcessingSteps.*
+  import AssignmentProcessingSteps.*
 
-  override def requestKind: String = "TransferIn"
+  override def requestKind: String = "Assignment"
 
   override def submissionDescription(param: SubmissionParam): String =
     s"Submitter ${param.submitterMetadata.submitter}, reassignmentId ${param.reassignmentId}"
 
   override type SubmissionResultArgs = PendingTransferSubmission
 
-  override type RequestType = ProcessingSteps.RequestType.TransferIn
-  override val requestType = ProcessingSteps.RequestType.TransferIn
+  override type RequestType = ProcessingSteps.RequestType.Assignment
+  override val requestType = ProcessingSteps.RequestType.Assignment
 
   override def pendingSubmissions(state: SyncDomainEphemeralState): PendingSubmissions =
-    state.pendingTransferInSubmissions
+    state.pendingAssignmentSubmissions
 
-  private val transferInValidation = new TransferInValidation(
+  private val assignmentValidation = new AssignmentValidation(
     domainId,
     staticDomainParameters,
     participantId,
@@ -108,7 +108,7 @@ private[transfer] class TransferInProcessingSteps(
     loggerFactory,
   )
 
-  override def submissionIdOfPendingRequest(pendingData: PendingTransferIn): RootHash =
+  override def submissionIdOfPendingRequest(pendingData: PendingAssignment): RootHash =
     pendingData.rootHash
 
   override def createSubmission(
@@ -158,7 +158,7 @@ private[transfer] class TransferInProcessingSteps(
       targetDomain = transferData.targetDomain
       _ = if (targetDomain != domainId)
         throw new IllegalStateException(
-          s"Transfer-in $reassignmentId: Transfer data for ${transferData.targetDomain} found on wrong domain $domainId"
+          s"Assignment $reassignmentId: Transfer data for ${transferData.targetDomain} found on wrong domain $domainId"
         )
 
       stakeholders = transferData.unassignmentRequest.stakeholders
@@ -168,14 +168,14 @@ private[transfer] class TransferInProcessingSteps(
       )
 
       _ <- CanSubmitTransfer
-        .transferIn(reassignmentId, topologySnapshot, submitter, participantId)
+        .assignment(reassignmentId, topologySnapshot, submitter, participantId)
         .mapK(FutureUnlessShutdown.outcomeK)
 
-      transferInUuid = seedGenerator.generateUuid()
+      assignmentUuid = seedGenerator.generateUuid()
       seed = seedGenerator.generateSaltSeed()
 
       fullTree <- EitherT.fromEither[FutureUnlessShutdown](
-        makeFullTransferInTree(
+        makeFullAssignmentTree(
           pureCrypto,
           seed,
           submitterMetadata,
@@ -186,7 +186,7 @@ private[transfer] class TransferInProcessingSteps(
           targetDomain,
           mediator,
           unassignmentResult,
-          transferInUuid,
+          assignmentUuid,
           transferData.sourceProtocolVersion,
           targetProtocolVersion,
         )
@@ -269,7 +269,7 @@ private[transfer] class TransferInProcessingSteps(
   )(implicit
       tc: TraceContext
   ): EitherT[FutureUnlessShutdown, EncryptedViewMessageError, WithRecipients[
-    FullTransferInTree
+    FullAssignmentTree
   ]] =
     EncryptedViewMessage
       .decryptFor(
@@ -279,14 +279,14 @@ private[transfer] class TransferInProcessingSteps(
         envelope.protocolMessage,
         participantId,
       ) { bytes =>
-        FullTransferInTree
+        FullAssignmentTree
           .fromByteString(snapshot.pureCrypto, targetProtocolVersion)(bytes)
           .leftMap(e => DefaultDeserializationError(e.toString))
       }
       .map(WithRecipients(_, envelope.recipients))
 
   override def computeActivenessSet(
-      parsedRequest: ParsedTransferRequest[FullTransferInTree]
+      parsedRequest: ParsedTransferRequest[FullAssignmentTree]
   )(implicit
       traceContext: TraceContext
   ): Either[TransferProcessorError, ActivenessSet] =
@@ -352,7 +352,7 @@ private[transfer] class TransferInProcessingSteps(
     // We perform the stakeholders check asynchronously so that we can complete the pending request
     // in the Phase37Synchronizer without waiting for it, thereby allowing us to concurrently receive a
     // mediator verdict.
-    val stakeholdersCheckResultET = transferInValidation
+    val stakeholdersCheckResultET = assignmentValidation
       .checkStakeholders(
         fullViewTree,
         getEngineAbortStatus = () => engineController.abortStatus,
@@ -374,8 +374,8 @@ private[transfer] class TransferInProcessingSteps(
           transferLookup.lookup(reassignmentId).toOption.value
         )
         .mapK(FutureUnlessShutdown.outcomeK)
-      validationResultO <- transferInValidation
-        .validateTransferInRequest(
+      validationResultO <- assignmentValidation
+        .validateAssignmentRequest(
           ts,
           fullViewTree,
           transferDataO,
@@ -417,7 +417,7 @@ private[transfer] class TransferInProcessingSteps(
       }
 
       // construct pending data and response
-      val entry = PendingTransferIn(
+      val entry = PendingAssignment(
         requestId,
         rc,
         sc,
@@ -448,9 +448,9 @@ private[transfer] class TransferInProcessingSteps(
 
   private def createConfirmationResponses(
       requestId: RequestId,
-      txInRequest: FullTransferInTree,
+      txInRequest: FullAssignmentTree,
       activenessResult: ActivenessResult,
-      validationResultO: Option[TransferInValidationResult],
+      validationResultO: Option[AssignmentValidationResult],
   )(implicit
       traceContext: TraceContext
   ): Either[InvalidConfirmationResponse, Seq[ConfirmationResponse]] =
@@ -467,27 +467,27 @@ private[transfer] class TransferInProcessingSteps(
             contractResult.notFree.toSeq match {
               case Seq((coid, Archived)) =>
                 Some(
-                  LocalRejectError.TransferInRejects.ContractAlreadyArchived
+                  LocalRejectError.AssignmentRejects.ContractAlreadyArchived
                     .Reject(show"coid=$coid")
                 )
               case Seq((coid, _state)) =>
                 Some(
-                  LocalRejectError.TransferInRejects.ContractAlreadyActive
+                  LocalRejectError.AssignmentRejects.ContractAlreadyActive
                     .Reject(show"coid=$coid")
                 )
               case coids =>
                 throw new RuntimeException(
-                  s"Activeness result for a transfer-in fails for multiple contract IDs $coids"
+                  s"Activeness result for an assignment fails for multiple contract IDs $coids"
                 )
             }
           } else if (contractResult.alreadyLocked.nonEmpty)
             Some(
-              LocalRejectError.TransferInRejects.ContractIsLocked
+              LocalRejectError.AssignmentRejects.ContractIsLocked
                 .Reject("")
             )
           else if (activenessResult.inactiveTransfers.nonEmpty)
             Some(
-              LocalRejectError.TransferInRejects.AlreadyCompleted
+              LocalRejectError.AssignmentRejects.AlreadyCompleted
                 .Reject("")
             )
           else
@@ -517,12 +517,12 @@ private[transfer] class TransferInProcessingSteps(
     }
 
   private[this] def withRequestId(requestId: RequestId, message: String) =
-    s"Transfer-in $requestId: $message"
+    s"Assignment $requestId: $message"
 
   override def getCommitSetAndContractsToBeStoredAndEvent(
       event: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
       verdict: Verdict,
-      pendingRequestData: PendingTransferIn,
+      pendingRequestData: PendingAssignment,
       pendingSubmissionMap: PendingSubmissions,
       hashOps: HashOps,
   )(implicit
@@ -532,7 +532,7 @@ private[transfer] class TransferInProcessingSteps(
     TransferProcessorError,
     CommitAndStoreContractsAndPublishEvent,
   ] = {
-    val PendingTransferIn(
+    val PendingAssignment(
       requestId,
       requestCounter,
       requestSequencerCounter,
@@ -564,9 +564,9 @@ private[transfer] class TransferInProcessingSteps(
           archivals = Map.empty,
           creations = Map.empty,
           unassignments = Map.empty,
-          transferIns = Map(
+          assignments = Map(
             contract.contractId ->
-              CommitSet.TransferInCommit(
+              CommitSet.AssignmentCommit(
                 reassignmentId,
                 contract.metadata,
                 reassignmentCounter,
@@ -681,7 +681,7 @@ private[transfer] class TransferInProcessingSteps(
   }
 }
 
-object TransferInProcessingSteps {
+object AssignmentProcessingSteps {
 
   final case class SubmissionParam(
       submitterMetadata: TransferSubmitterMetadata,
@@ -690,9 +690,9 @@ object TransferInProcessingSteps {
     val submitterLf: LfPartyId = submitterMetadata.submitter
   }
 
-  final case class SubmissionResult(transferInCompletionF: Future[com.google.rpc.status.Status])
+  final case class SubmissionResult(assignmentCompletionF: Future[com.google.rpc.status.Status])
 
-  final case class PendingTransferIn(
+  final case class PendingAssignment(
       override val requestId: RequestId,
       override val requestCounter: RequestCounter,
       override val requestSequencerCounter: SequencerCounter,
@@ -713,7 +713,7 @@ object TransferInProcessingSteps {
     override def rootHashO: Option[RootHash] = Some(rootHash)
   }
 
-  private[transfer] def makeFullTransferInTree(
+  private[transfer] def makeFullAssignmentTree(
       pureCrypto: CryptoPureApi,
       seed: SaltSeed,
       submitterMetadata: TransferSubmitterMetadata,
@@ -724,10 +724,10 @@ object TransferInProcessingSteps {
       targetDomain: TargetDomainId,
       targetMediator: MediatorGroupRecipient,
       unassignmentResult: DeliveredUnassignmentResult,
-      transferInUuid: UUID,
+      assignmentUuid: UUID,
       sourceProtocolVersion: SourceProtocolVersion,
       targetProtocolVersion: TargetProtocolVersion,
-  ): Either[TransferProcessorError, FullTransferInTree] = {
+  ): Either[TransferProcessorError, FullAssignmentTree] = {
     val commonDataSalt = Salt.tryDeriveSalt(seed, 0, pureCrypto)
     val viewSalt = Salt.tryDeriveSalt(seed, 1, pureCrypto)
 
@@ -737,7 +737,7 @@ object TransferInProcessingSteps {
         targetDomain,
         targetMediator,
         stakeholders,
-        transferInUuid,
+        assignmentUuid,
         submitterMetadata,
         targetProtocolVersion,
       )
@@ -755,6 +755,6 @@ object TransferInProcessingSteps {
         )
         .leftMap(reason => InvalidTransferView(reason))
       tree = AssignmentViewTree(commonData, view, targetProtocolVersion, pureCrypto)
-    } yield FullTransferInTree(tree)
+    } yield FullAssignmentTree(tree)
   }
 }

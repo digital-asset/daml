@@ -353,7 +353,7 @@ trait TransferStoreTest {
       val reassignmentId = transferData.reassignmentId
 
       val unassignmentOffset = UnassignmentGlobalOffset(10L)
-      val transferInOffset = AssignmentGlobalOffset(15L)
+      val assignmentOffset = AssignmentGlobalOffset(15L)
 
       val transferDataOnlyOut =
         transferData.copy(transferGlobalOffset =
@@ -361,7 +361,7 @@ trait TransferStoreTest {
         )
       val transferDataTransferComplete = transferData.copy(transferGlobalOffset =
         Some(
-          ReassignmentGlobalOffsets.create(unassignmentOffset.offset, transferInOffset.offset).value
+          ReassignmentGlobalOffsets.create(unassignmentOffset.offset, assignmentOffset.offset).value
         )
       )
 
@@ -413,11 +413,11 @@ trait TransferStoreTest {
                     retrievedTransferData.unassignmentGlobalOffset shouldBe Some(out)
 
                   case AssignmentGlobalOffset(in) =>
-                    retrievedTransferData.transferInGlobalOffset shouldBe Some(in)
+                    retrievedTransferData.assignmentGlobalOffset shouldBe Some(in)
 
                   case ReassignmentGlobalOffsets(out, in) =>
                     retrievedTransferData.unassignmentGlobalOffset shouldBe Some(out)
-                    retrievedTransferData.transferInGlobalOffset shouldBe Some(in)
+                    retrievedTransferData.assignmentGlobalOffset shouldBe Some(in)
                 }
               }
           }
@@ -450,17 +450,17 @@ trait TransferStoreTest {
           )
 
           _ <- store
-            .addTransfersOffsets(Map(reassignmentId -> transferInOffset))
+            .addTransfersOffsets(Map(reassignmentId -> assignmentOffset))
             .valueOrFailShutdown(
-              "add transfer-in offset 1"
+              "add assignment offset 1"
             )
 
           lookup1 <- valueOrFail(store.lookup(reassignmentId))("lookup transfer data")
 
           _ <- store
-            .addTransfersOffsets(Map(reassignmentId -> transferInOffset))
+            .addTransfersOffsets(Map(reassignmentId -> assignmentOffset))
             .valueOrFailShutdown(
-              "add transfer-in offset 2"
+              "add assignment offset 2"
             )
 
           lookup2 <- valueOrFail(store.lookup(reassignmentId))("lookup transfer data")
@@ -474,7 +474,7 @@ trait TransferStoreTest {
         }
       }
 
-      "return an error if transfer-in offset is the same as the unassignment" in {
+      "return an error if assignment offset is the same as the unassignment" in {
         val store = mk(targetDomain)
 
         for {
@@ -495,21 +495,21 @@ trait TransferStoreTest {
         } yield failedAdd.left.value shouldBe a[TransferGlobalOffsetsMerge]
       }
 
-      "return an error if unassignment offset is the same as the transfer-in" in {
+      "return an error if unassignment offset is the same as the assignment" in {
         val store = mk(targetDomain)
 
         for {
           _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add")
 
           _ <- store
-            .addTransfersOffsets(Map(reassignmentId -> transferInOffset))
+            .addTransfersOffsets(Map(reassignmentId -> assignmentOffset))
             .valueOrFailShutdown(
-              "add transfer-in offset"
+              "add assignment offset"
             )
 
           failedAdd <- store
             .addTransfersOffsets(
-              Map(reassignmentId -> UnassignmentGlobalOffset(transferInOffset.offset))
+              Map(reassignmentId -> UnassignmentGlobalOffset(assignmentOffset.offset))
             )
             .value
             .failOnShutdown
@@ -529,7 +529,7 @@ trait TransferStoreTest {
             )
 
           _ <- store
-            .addTransfersOffsets(Map(reassignmentId -> transferInOffset))
+            .addTransfersOffsets(Map(reassignmentId -> assignmentOffset))
             .valueOrFailShutdown(
               "add unassignment offset 2"
             )
@@ -552,14 +552,14 @@ trait TransferStoreTest {
             .failOnShutdown
 
           successfulAddInOffset <- store
-            .addTransfersOffsets(Map(reassignmentId -> transferInOffset))
+            .addTransfersOffsets(Map(reassignmentId -> assignmentOffset))
             .value
             .failOnShutdown
           failedAddInOffset <- store
             .addTransfersOffsets(
               Map(
                 reassignmentId -> AssignmentGlobalOffset(
-                  GlobalOffset.tryFromLong(transferInOffset.offset.toLong - 1)
+                  GlobalOffset.tryFromLong(assignmentOffset.offset.toLong - 1)
                 )
               )
             )
@@ -595,7 +595,7 @@ trait TransferStoreTest {
         val reassignmentId = transferData.reassignmentId
 
         val unassignmentOsset = 10L
-        val transferInOffset = 20L
+        val assignmentOffset = 20L
 
         for {
           _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add failed")
@@ -615,21 +615,21 @@ trait TransferStoreTest {
           lookupAtUnassignment <- store.findIncomplete(None, unassignmentOsset, None, limit)
 
           _ <- store
-            .addTransfersOffsets(Map(reassignmentId -> AssignmentGlobalOffset(transferInOffset)))
+            .addTransfersOffsets(Map(reassignmentId -> AssignmentGlobalOffset(assignmentOffset)))
             .valueOrFailShutdown(
-              "add transfer-in offset failed"
+              "add assignment offset failed"
             )
 
-          lookupBeforeTransferIn <- store.findIncomplete(
+          lookupBeforeAssignment <- store.findIncomplete(
             None,
-            transferInOffset - 1,
+            assignmentOffset - 1,
             None,
             limit,
           )
-          lookupAtTransferIn <- store.findIncomplete(None, transferInOffset, None, limit)
-          lookupAfterTransferIn <- store.findIncomplete(
+          lookupAtAssignment <- store.findIncomplete(None, assignmentOffset, None, limit)
+          lookupAfterAssignment <- store.findIncomplete(
             None,
-            transferInOffset,
+            assignmentOffset,
             None,
             limit,
           )
@@ -646,22 +646,22 @@ trait TransferStoreTest {
           )
 
           assertIsIncomplete(
-            lookupBeforeTransferIn,
+            lookupBeforeAssignment,
             transferData.copy(transferGlobalOffset =
               Some(UnassignmentGlobalOffset(unassignmentOsset))
             ),
           )
 
-          lookupAtTransferIn shouldBe empty
-          lookupAfterTransferIn shouldBe empty
+          lookupAtAssignment shouldBe empty
+          lookupAfterAssignment shouldBe empty
         }
       }
 
-      "list incomplete transfers (transfer-in done)" in {
+      "list incomplete transfers (assignment done)" in {
         val store = mk(targetDomain)
         val reassignmentId = transferData.reassignmentId
 
-        val transferInOffset = 10L
+        val assignmentOffset = 10L
         val unassignmentOffset = 20L
 
         for {
@@ -670,17 +670,17 @@ trait TransferStoreTest {
 
           _ <-
             store
-              .addTransfersOffsets(Map(reassignmentId -> AssignmentGlobalOffset(transferInOffset)))
+              .addTransfersOffsets(Map(reassignmentId -> AssignmentGlobalOffset(assignmentOffset)))
               .valueOrFailShutdown(
-                "add transfer-in offset failed"
+                "add assignment offset failed"
               )
-          lookupBeforeTransferIn <- store.findIncomplete(
+          lookupBeforeAssignment <- store.findIncomplete(
             None,
-            transferInOffset - 1,
+            assignmentOffset - 1,
             None,
             limit,
           )
-          lookupAtTransferIn <- store.findIncomplete(None, transferInOffset, None, limit)
+          lookupAtAssignment <- store.findIncomplete(None, assignmentOffset, None, limit)
 
           _ <-
             store
@@ -707,16 +707,16 @@ trait TransferStoreTest {
         } yield {
           lookupNoOffset shouldBe empty
 
-          lookupBeforeTransferIn shouldBe empty
+          lookupBeforeAssignment shouldBe empty
 
           assertIsIncomplete(
-            lookupAtTransferIn,
-            transferData.copy(transferGlobalOffset = Some(AssignmentGlobalOffset(transferInOffset))),
+            lookupAtAssignment,
+            transferData.copy(transferGlobalOffset = Some(AssignmentGlobalOffset(assignmentOffset))),
           )
 
           assertIsIncomplete(
             lookupBeforeUnassignment,
-            transferData.copy(transferGlobalOffset = Some(AssignmentGlobalOffset(transferInOffset))),
+            transferData.copy(transferGlobalOffset = Some(AssignmentGlobalOffset(assignmentOffset))),
           )
 
           lookupAtUnassignment shouldBe empty
@@ -826,7 +826,7 @@ trait TransferStoreTest {
         val reassignmentId = transferData.reassignmentId
 
         val unassignmentOffset = 10L
-        val transferInOffset = 20L
+        val assignmentOffset = 20L
         for {
           _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add failed")
 
@@ -840,36 +840,36 @@ trait TransferStoreTest {
           lookupAfterUnassignment <- store.findEarliestIncomplete()
 
           _ <- store
-            .addTransfersOffsets(Map(reassignmentId -> AssignmentGlobalOffset(transferInOffset)))
+            .addTransfersOffsets(Map(reassignmentId -> AssignmentGlobalOffset(assignmentOffset)))
             .valueOrFailShutdown(
-              "add transfer-in offset failed"
+              "add assignment offset failed"
             )
 
-          lookupAfterTransferIn <- store.findEarliestIncomplete()
+          lookupAfterAssignment <- store.findEarliestIncomplete()
         } yield {
           inside(lookupAfterUnassignment) { case Some((offset, _, _)) =>
             offset shouldBe GlobalOffset.tryFromLong(unassignmentOffset)
           }
-          lookupAfterTransferIn shouldBe None
+          lookupAfterAssignment shouldBe None
         }
       }
 
-      "find incomplete transfers (transfer-in done)" in {
+      "find incomplete transfers (assignment done)" in {
         val store = mk(targetDomain)
         val reassignmentId = transferData.reassignmentId
 
         val unassignmentOffset = 10L
-        val transferInOffset = 20L
+        val assignmentOffset = 20L
 
         for {
           _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add failed")
 
           _ <- store
-            .addTransfersOffsets(Map(reassignmentId -> AssignmentGlobalOffset(transferInOffset)))
+            .addTransfersOffsets(Map(reassignmentId -> AssignmentGlobalOffset(assignmentOffset)))
             .valueOrFailShutdown(
-              "add transfer-in offset failed"
+              "add assignment offset failed"
             )
-          lookupAfterTransferIn <- store.findEarliestIncomplete()
+          lookupAfterAssignment <- store.findEarliestIncomplete()
 
           _ <- store
             .addTransfersOffsets(
@@ -881,8 +881,8 @@ trait TransferStoreTest {
           lookupAfterUnassignment <- store.findEarliestIncomplete()
 
         } yield {
-          inside(lookupAfterTransferIn) { case Some((offset, _, _)) =>
-            offset shouldBe GlobalOffset.tryFromLong(transferInOffset)
+          inside(lookupAfterAssignment) { case Some((offset, _, _)) =>
+            offset shouldBe GlobalOffset.tryFromLong(assignmentOffset)
           }
           lookupAfterUnassignment shouldBe None
         }
@@ -894,10 +894,10 @@ trait TransferStoreTest {
         val reassignmentId3 = transferData3.reassignmentId
 
         val unassignmentOffset1 = 10L
-        val transferInOffset1 = 20L
+        val assignmentOffset1 = 20L
 
         val unassignmentOffset3 = 30L
-        val transferInOffset3 = 35L
+        val assignmentOffset3 = 35L
 
         for {
           lookupEmpty <- store.findEarliestIncomplete()
@@ -907,9 +907,9 @@ trait TransferStoreTest {
           lookupAllInFlight <- store.findEarliestIncomplete()
 
           _ <- store
-            .addTransfersOffsets(Map(reassignmentId1 -> AssignmentGlobalOffset(transferInOffset1)))
+            .addTransfersOffsets(Map(reassignmentId1 -> AssignmentGlobalOffset(assignmentOffset1)))
             .valueOrFailShutdown(
-              "add transfer-in offset failed"
+              "add assignment offset failed"
             )
 
           _ <- store
@@ -923,9 +923,9 @@ trait TransferStoreTest {
           lookupInFlightOrComplete <- store.findEarliestIncomplete()
 
           _ <- store
-            .addTransfersOffsets(Map(reassignmentId3 -> AssignmentGlobalOffset(transferInOffset3)))
+            .addTransfersOffsets(Map(reassignmentId3 -> AssignmentGlobalOffset(assignmentOffset3)))
             .valueOrFailShutdown(
-              "add transfer-in offset failed"
+              "add assignment offset failed"
             )
 
           _ <- store
@@ -952,13 +952,13 @@ trait TransferStoreTest {
         val reassignmentId3 = transferData3.reassignmentId
 
         val unassignmentOffset1 = 10L
-        val transferInOffset1 = 20L
+        val assignmentOffset1 = 20L
 
         // transfer 2 is incomplete
         val unassignmentOffset2 = 12L
 
         val unassignmentOffset3 = 30L
-        val transferInOffset3 = 35L
+        val assignmentOffset3 = 35L
 
         for {
           _ <- valueOrFail(store.addTransfer(transferData).failOnShutdown)("add failed")
@@ -966,9 +966,9 @@ trait TransferStoreTest {
           _ <- valueOrFail(store.addTransfer(transferData3).failOnShutdown)("add failed")
 
           _ <- store
-            .addTransfersOffsets(Map(reassignmentId1 -> AssignmentGlobalOffset(transferInOffset1)))
+            .addTransfersOffsets(Map(reassignmentId1 -> AssignmentGlobalOffset(assignmentOffset1)))
             .valueOrFailShutdown(
-              "add transfer-in offset failed"
+              "add assignment offset failed"
             )
 
           _ <- store
@@ -988,9 +988,9 @@ trait TransferStoreTest {
             )
 
           _ <- store
-            .addTransfersOffsets(Map(reassignmentId3 -> AssignmentGlobalOffset(transferInOffset3)))
+            .addTransfersOffsets(Map(reassignmentId3 -> AssignmentGlobalOffset(assignmentOffset3)))
             .valueOrFailShutdown(
-              "add transfer-in offset failed"
+              "add assignment offset failed"
             )
 
           _ <- store

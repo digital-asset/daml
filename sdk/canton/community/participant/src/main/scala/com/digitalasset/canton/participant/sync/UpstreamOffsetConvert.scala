@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant.sync
 
 import cats.syntax.either.*
 import com.digitalasset.canton.participant.{GlobalOffset, LedgerSyncOffset}
-import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.daml.lf.data.{Bytes as LfBytes, Ref}
 import com.google.protobuf.ByteString
 

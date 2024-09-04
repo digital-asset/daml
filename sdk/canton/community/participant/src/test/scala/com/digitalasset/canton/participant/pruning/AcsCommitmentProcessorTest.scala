@@ -29,8 +29,8 @@ import com.digitalasset.canton.participant.protocol.RequestJournal.{RequestData,
 import com.digitalasset.canton.participant.protocol.conflictdetection.CommitSet
 import com.digitalasset.canton.participant.protocol.conflictdetection.CommitSet.{
   ArchivalCommit,
+  AssignmentCommit,
   CreationCommit,
-  TransferInCommit,
   UnassignmentCommit,
 }
 import com.digitalasset.canton.participant.protocol.submission.*
@@ -150,7 +150,7 @@ sealed trait AcsCommitmentProcessorBaseTest
                 .value
             else
               acs
-                .transferInContract(
+                .assignContract(
                   cid,
                   TimeOfChange(RequestCounter(0), lifespan.activatedTs),
                   SourceDomainId(domainId),
@@ -478,7 +478,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       ),
       archivals = Map.empty[LfContractId, ArchivalCommit],
       unassignments = Map.empty[LfContractId, UnassignmentCommit],
-      transferIns = Map.empty[LfContractId, TransferInCommit],
+      assignments = Map.empty[LfContractId, AssignmentCommit],
     )
     val acs2 = AcsChange.tryFromCommitSet(
       cs2,
@@ -498,7 +498,7 @@ sealed trait AcsCommitmentProcessorBaseTest
           reassignmentCounter2,
         )
       ),
-      transferIns = Map.empty[LfContractId, TransferInCommit],
+      assignments = Map.empty[LfContractId, AssignmentCommit],
     )
     val acs4 = AcsChange.tryFromCommitSet(
       cs4,
@@ -515,8 +515,8 @@ sealed trait AcsCommitmentProcessorBaseTest
       ),
       archivals = Map.empty[LfContractId, ArchivalCommit],
       unassignments = Map.empty[LfContractId, UnassignmentCommit],
-      transferIns = Map[LfContractId, TransferInCommit](
-        coid(1, 0) -> TransferInCommit(
+      assignments = Map[LfContractId, AssignmentCommit](
+        coid(1, 0) -> AssignmentCommit(
           ReassignmentId(SourceDomainId(domainId), ts(4).forgetRefinement),
           ContractMetadata.tryCreate(Set.empty, Set(alice, bob), None),
           reassignmentCounter2,
@@ -543,7 +543,7 @@ sealed trait AcsCommitmentProcessorBaseTest
           reassignmentCounter2,
         )
       ),
-      transferIns = Map.empty[LfContractId, TransferInCommit],
+      assignments = Map.empty[LfContractId, AssignmentCommit],
     )
     val acs8 =
       AcsChange.tryFromCommitSet(
@@ -565,7 +565,7 @@ sealed trait AcsCommitmentProcessorBaseTest
         )
       ),
       unassignments = Map.empty[LfContractId, UnassignmentCommit],
-      transferIns = Map.empty[LfContractId, TransferInCommit],
+      assignments = Map.empty[LfContractId, AssignmentCommit],
     )
     val acs9 = AcsChange.tryFromCommitSet(
       cs9,
@@ -577,8 +577,8 @@ sealed trait AcsCommitmentProcessorBaseTest
       creations = Map.empty[LfContractId, CreationCommit],
       archivals = Map.empty[LfContractId, ArchivalCommit],
       unassignments = Map.empty[LfContractId, UnassignmentCommit],
-      transferIns = Map[LfContractId, TransferInCommit](
-        coid(2, 0) -> TransferInCommit(
+      assignments = Map[LfContractId, AssignmentCommit](
+        coid(2, 0) -> AssignmentCommit(
           ReassignmentId(SourceDomainId(domainId), ts(8).forgetRefinement),
           ContractMetadata.tryCreate(Set.empty, Set(alice, bob, carol), None),
           reassignmentCounter2,
@@ -601,7 +601,7 @@ sealed trait AcsCommitmentProcessorBaseTest
           reassignmentCounter3,
         )
       ),
-      transferIns = Map.empty[LfContractId, TransferInCommit],
+      assignments = Map.empty[LfContractId, AssignmentCommit],
     )
     val acs12 = AcsChange.tryFromCommitSet(
       cs12,
@@ -745,7 +745,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       ),
       archivals = Map.empty[LfContractId, ArchivalCommit],
       unassignments = Map.empty[LfContractId, UnassignmentCommit],
-      transferIns = Map.empty[LfContractId, TransferInCommit],
+      assignments = Map.empty[LfContractId, AssignmentCommit],
     )
     val acs2 = AcsChange.tryFromCommitSet(
       cs2,
@@ -764,7 +764,7 @@ sealed trait AcsCommitmentProcessorBaseTest
         ),
       ),
       unassignments = Map.empty[LfContractId, UnassignmentCommit],
-      transferIns = Map.empty[LfContractId, TransferInCommit],
+      assignments = Map.empty[LfContractId, AssignmentCommit],
     )
     val acs4 = AcsChange.tryFromCommitSet(
       cs4,
@@ -1819,8 +1819,8 @@ class AcsCommitmentProcessorTest
           cid2.leftSide -> CommitSet
             .UnassignmentCommit(TargetDomainId(domainId), Set(alice), reassignmentCounter2)
         ),
-        transferIns = Map[LfContractId, TransferInCommit](
-          cid3.leftSide -> CommitSet.TransferInCommit(
+        assignments = Map[LfContractId, AssignmentCommit](
+          cid3.leftSide -> CommitSet.AssignmentCommit(
             ReassignmentId(SourceDomainId(domainId), CantonTimestamp.Epoch),
             ContractMetadata.tryCreate(Set.empty, Set(bob), None),
             reassignmentCounter1,
@@ -1850,7 +1850,7 @@ class AcsCommitmentProcessorTest
         )(_ shouldBe initialReassignmentCounter)
       acs1.activations.get(cid1) shouldBe None
       acs1.deactivations.get(cid1) shouldBe None
-      // cid3 is a transient transfer-in and should not appear in the ACS change
+      // cid3 is a transient assignment and should not appear in the ACS change
       reassignmentCountersForArchivedTransient
         .get(cid3)
         .fold(

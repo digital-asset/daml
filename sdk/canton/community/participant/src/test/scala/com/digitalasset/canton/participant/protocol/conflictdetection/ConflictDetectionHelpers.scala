@@ -208,8 +208,8 @@ private[protocol] object ConflictDetectionHelpers extends ScalaFuturesWithPatien
           reassignmentCounter,
         )
       },
-      transferIns = tfIn.fmap(id =>
-        CommitSet.TransferInCommit(
+      assignments = tfIn.fmap(id =>
+        CommitSet.AssignmentCommit(
           id,
           ContractMetadata.empty,
           initialReassignmentCounter,

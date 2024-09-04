@@ -77,7 +77,7 @@ object TransferResultHelpers {
     DeliveredUnassignmentResult(signedContent)
   }
 
-  def transferInResult(targetDomain: TargetDomainId): ConfirmationResultMessage =
+  def assignmentResult(targetDomain: TargetDomainId): ConfirmationResultMessage =
     ConfirmationResultMessage.create(
       targetDomain.id,
       ViewType.AssignmentViewType,

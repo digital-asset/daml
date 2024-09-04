@@ -46,7 +46,7 @@ private[participant] class HookedAcs(private val acs: ActiveContractStore)(impli
     new AtomicReference[
       (
           Seq[(LfContractId, TransferDomainId, ReassignmentCounter, TimeOfChange)],
-          Boolean, // true for unassignment, false for transfer-in
+          Boolean, // true for unassignments, false for assignments
       ) => Future[Unit]
     ](
       noTransferAction
@@ -97,17 +97,17 @@ private[participant] class HookedAcs(private val acs: ActiveContractStore)(impli
       }
   }
 
-  override def transferInContracts(
-      transferIns: Seq[(LfContractId, SourceDomainId, ReassignmentCounter, TimeOfChange)]
+  override def assignContracts(
+      assignments: Seq[(LfContractId, SourceDomainId, ReassignmentCounter, TimeOfChange)]
   )(implicit
       traceContext: TraceContext
   ): CheckedT[Future, AcsError, AcsWarning, Unit] = CheckedT {
     val preTransfer = nextTransferHook.getAndSet(noTransferAction)
     preTransfer(
-      transferIns,
+      assignments,
       false,
     ).flatMap { _ =>
-      acs.transferInContracts(transferIns).value
+      acs.assignContracts(assignments).value
     }
   }
 

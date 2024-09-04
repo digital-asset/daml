@@ -7,9 +7,9 @@ import cats.implicits.*
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
-import com.digitalasset.canton.data.{CantonTimestamp, FullTransferInTree, TransferSubmitterMetadata}
+import com.digitalasset.canton.data.{CantonTimestamp, FullAssignmentTree, TransferSubmitterMetadata}
 import com.digitalasset.canton.participant.protocol.submission.SeedGenerator
-import com.digitalasset.canton.participant.protocol.transfer.TransferInValidation.*
+import com.digitalasset.canton.participant.protocol.transfer.AssignmentValidation.*
 import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.IncompatibleProtocolVersions
 import com.digitalasset.canton.participant.store.TransferStoreTest.transactionId1
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.submittingParticipant
@@ -27,7 +27,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 import java.util.UUID
 import scala.concurrent.{Future, Promise}
 
-class TransferInValidationTest
+class AssignmentValidationTest
     extends AsyncWordSpec
     with BaseTest
     with ProtocolVersionChecksAsyncWordSpec
@@ -59,7 +59,7 @@ class TransferInValidationTest
     TransferSubmitterMetadata(
       submitter,
       participant,
-      LedgerCommandId.assertFromString("transfer-in-validation-command-id"),
+      LedgerCommandId.assertFromString("assignment-validation-command-id"),
       submissionId = None,
       LedgerApplicationId.assertFromString("tests"),
       workflowId = None,
@@ -82,10 +82,10 @@ class TransferInValidationTest
 
   private val seedGenerator = new SeedGenerator(pureCrypto)
 
-  private val transferInValidation =
+  private val assignmentValidation =
     testInstance(targetDomain, Set(party1), Set(party1), cryptoSnapshot, None)
 
-  "validateTransferInRequest" should {
+  "validateAssignmentRequest" should {
     val contractId = ExampleTransactionFactory.suffixedId(10, 0)
     val contract = ExampleTransactionFactory.asSerializable(
       contractId,
@@ -98,7 +98,7 @@ class TransferInValidationTest
         submittingParticipant,
       )
     val inRequest =
-      makeFullTransferInTree(
+      makeFullAssignmentTree(
         party1,
         Set(party1),
         contract,
@@ -111,15 +111,15 @@ class TransferInValidationTest
     "succeed without errors in the basic case" in {
       for {
         result <- valueOrFail(
-          transferInValidation
-            .validateTransferInRequest(
+          assignmentValidation
+            .validateAssignmentRequest(
               CantonTimestamp.Epoch,
               inRequest,
               None,
               cryptoSnapshot,
               isReassigningParticipant = false,
             )
-        )("validation of transfer in request failed")
+        )("validation of assignment request failed")
       } yield {
         result shouldBe None
       }
@@ -165,18 +165,18 @@ class TransferInValidationTest
     "succeed without errors when transfer data is valid" in {
       for {
         result <- valueOrFail(
-          transferInValidation
-            .validateTransferInRequest(
+          assignmentValidation
+            .validateAssignmentRequest(
               CantonTimestamp.Epoch,
               inRequest,
               Some(transferData),
               cryptoSnapshot,
               isReassigningParticipant = false,
             )
-        )("validation of transfer in request failed")
+        )("validation of assignment request failed")
       } yield {
         result match {
-          case Some(TransferInValidationResult(confirmingParties)) =>
+          case Some(AssignmentValidationResult(confirmingParties)) =>
             assert(confirmingParties == Set(party1))
           case _ => fail()
         }
@@ -185,7 +185,7 @@ class TransferInValidationTest
 
     "wait for the topology state to be available " in {
       val promise: Promise[Unit] = Promise()
-      val transferInProcessingSteps2 =
+      val assignmentProcessingSteps2 =
         testInstance(
           targetDomain,
           Set(party1),
@@ -194,8 +194,8 @@ class TransferInValidationTest
           Some(promise.future), // Topology state is not available
         )
 
-      val inValidated = transferInProcessingSteps2
-        .validateTransferInRequest(
+      val inValidated = assignmentProcessingSteps2
+        .validateAssignmentRequest(
           CantonTimestamp.Epoch,
           inRequest,
           Some(transferData),
@@ -215,7 +215,7 @@ class TransferInValidationTest
     }
 
     "complain about inconsistent reassignment counters" in {
-      val inRequestWithWrongCounter = makeFullTransferInTree(
+      val inRequestWithWrongCounter = makeFullAssignmentTree(
         party1,
         Set(party1),
         contract,
@@ -227,8 +227,8 @@ class TransferInValidationTest
       )
       for {
         result <-
-          transferInValidation
-            .validateTransferInRequest(
+          assignmentValidation
+            .validateAssignmentRequest(
               CantonTimestamp.Epoch,
               inRequestWithWrongCounter,
               Some(transferData),
@@ -252,8 +252,8 @@ class TransferInValidationTest
         transferData.copy(sourceProtocolVersion = SourceProtocolVersion(ProtocolVersion.v32))
       for {
         result <-
-          transferInValidation
-            .validateTransferInRequest(
+          assignmentValidation
+            .validateAssignmentRequest(
               CantonTimestamp.Epoch,
               inRequest,
               Some(transferDataSourceDomainPVCNTestNet),
@@ -263,7 +263,7 @@ class TransferInValidationTest
             .value
       } yield {
         if (unassignmentRequest.targetProtocolVersion.v >= ProtocolVersion.v32) {
-          result shouldBe Right(Some(TransferInValidationResult(Set(party1))))
+          result shouldBe Right(Some(AssignmentValidationResult(Set(party1))))
         } else {
           result shouldBe Left(
             IncompatibleProtocolVersions(
@@ -283,10 +283,10 @@ class TransferInValidationTest
       stakeholders: Set[LfPartyId],
       snapshotOverride: DomainSnapshotSyncCryptoApi,
       awaitTimestampOverride: Option[Future[Unit]],
-  ): TransferInValidation = {
+  ): AssignmentValidation = {
     val damle = DAMLeTestInstance(participant, signatories, stakeholders)(loggerFactory)
 
-    new TransferInValidation(
+    new AssignmentValidation(
       domainId,
       defaultStaticDomainParameters,
       submittingParticipant,
@@ -302,7 +302,7 @@ class TransferInValidationTest
     )
   }
 
-  private def makeFullTransferInTree(
+  private def makeFullAssignmentTree(
       submitter: LfPartyId,
       stakeholders: Set[LfPartyId],
       contract: SerializableContract,
@@ -312,10 +312,10 @@ class TransferInValidationTest
       unassignmentResult: DeliveredUnassignmentResult,
       uuid: UUID = new UUID(4L, 5L),
       reassignmentCounter: ReassignmentCounter = initialReassignmentCounter,
-  ): FullTransferInTree = {
+  ): FullAssignmentTree = {
     val seed = seedGenerator.generateSaltSeed()
     valueOrFail(
-      TransferInProcessingSteps.makeFullTransferInTree(
+      AssignmentProcessingSteps.makeFullAssignmentTree(
         pureCrypto,
         seed,
         submitterInfo(submitter),
@@ -330,7 +330,7 @@ class TransferInValidationTest
         SourceProtocolVersion(testedProtocolVersion),
         TargetProtocolVersion(testedProtocolVersion),
       )
-    )("Failed to create FullTransferInTree")
+    )("Failed to create FullAssignmentTree")
   }
 
 }

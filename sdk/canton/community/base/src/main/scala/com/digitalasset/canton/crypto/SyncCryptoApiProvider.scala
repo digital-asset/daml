@@ -157,7 +157,9 @@ object SyncCryptoClient {
   def getSnapshotForTimestampUS(
       client: SyncCryptoClient[SyncCryptoApi],
       desiredTimestamp: CantonTimestamp,
-      previousTimestampO: Option[CantonTimestamp],
+      previousTimestampO: Option[
+        CantonTimestamp
+      ], // this value is updated once we are sure that this will be delivered to the sequencer
       protocolVersion: ProtocolVersion,
       warnIfApproximate: Boolean = true,
   )(implicit

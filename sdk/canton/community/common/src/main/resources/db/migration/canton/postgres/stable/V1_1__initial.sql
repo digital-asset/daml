@@ -195,13 +195,13 @@ create table common_topology_dispatching (
   watermark_ts bigint not null
 );
 
--- change type: activation [create, transfer-in], deactivation [archive, unassign]
+-- change type: activation [create, assign], deactivation [archive, unassign]
 -- `deactivation` comes before `activation` so that comparisons `(timestamp, change) <= (bound, 'deactivation')`
 -- select only deactivations if the timestamp matches the bound.
 create type change_type as enum ('deactivation', 'activation');
 
 -- The specific operation type that introduced a contract change.
-create type operation_type as enum ('create', 'add', 'transfer-in', 'archive', 'purge', 'unassign');
+create type operation_type as enum ('create', 'add', 'assign', 'archive', 'purge', 'unassign');
 
 -- Maintains the status of contracts
 create table par_active_contracts (
@@ -657,6 +657,9 @@ create table sequencer_counter_checkpoints (
   latest_sequencer_event_ts bigint null,
   primary key (member, counter)
 );
+
+-- This index helps fetching the latest checkpoint for a member
+create index idx_sequencer_counter_checkpoints_by_member_ts on sequencer_counter_checkpoints(member, ts);
 
 -- record the latest acknowledgement sent by a sequencer client of a member for the latest event they have successfully
 -- processed and will not re-read.

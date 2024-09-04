@@ -30,7 +30,7 @@ import com.digitalasset.canton.participant.protocol.submission.{
   ChangeIdHash,
   SubmissionTrackingData,
 }
-import com.digitalasset.canton.participant.protocol.transfer.TransferInProcessingSteps.PendingTransferIn
+import com.digitalasset.canton.participant.protocol.transfer.AssignmentProcessingSteps.PendingAssignment
 import com.digitalasset.canton.participant.protocol.transfer.UnassignmentProcessingSteps.PendingUnassignment
 import com.digitalasset.canton.participant.protocol.validation.PendingTransaction
 import com.digitalasset.canton.participant.store.{
@@ -109,7 +109,7 @@ trait ProcessingSteps[
   /** The type of errors that can occur during result processing */
   type ResultError <: WrapsProcessorError
 
-  /** The type of the request (transaction, unassignment, transfer-in) */
+  /** The type of the request (transaction, unassignment, assignment) */
   type RequestType <: ProcessingSteps.RequestType
   val requestType: RequestType
 
@@ -583,13 +583,13 @@ object ProcessingSteps {
 
     type Unassignment = Unassignment.type
 
-    case object TransferIn extends Transfer {
-      override type PendingRequestData = PendingTransferIn
+    case object Assignment extends Transfer {
+      override type PendingRequestData = PendingAssignment
 
-      override def pretty: Pretty[TransferIn] = prettyOfObject[TransferIn]
+      override def pretty: Pretty[Assignment] = prettyOfObject[Assignment]
 
     }
-    type TransferIn = TransferIn.type
+    type Assignment = Assignment.type
   }
 
   trait WrapsProcessorError {

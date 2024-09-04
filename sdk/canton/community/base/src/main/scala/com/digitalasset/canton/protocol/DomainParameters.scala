@@ -260,12 +260,12 @@ object OnboardingRestriction {
   *                                has been accepted.
   *                                Choose a higher value to reduce the likelihood of commands being rejected
   *                                due to timeouts.
-  * @param assignmentExclusivityTimeout this timeout affects who can initiate a transfer-in.
+  * @param assignmentExclusivityTimeout this timeout affects who can initiate the assignment.
   *                                   Before the timeout, only the submitter of the unassignment can initiate the
   *                                   corresponding assignment.
-  *                                   From the timeout onwards, every stakeholder of the contract can initiate a transfer-in,
+  *                                   From the timeout onwards, every stakeholder of the contract can initiate the assignment,
   *                                   if it has not yet happened.
-  *                                   Moreover, if this timeout is zero, no automatic transfer-ins will occur.
+  *                                   Moreover, if this timeout is zero, no automatic assignments will occur.
   *                                   Choose a low value, if you want to lower the time that contracts can be inactive
   *                                   due to ongoing transfers.
   *                                   Choosing a high value currently has no practical benefit, but
@@ -369,7 +369,7 @@ final case class DynamicDomainParameters private (
   def submissionCostTimestampTopologyTolerance: NonNegativeFiniteDuration =
     sequencerTopologyTimestampTolerance
 
-  def automaticTransferInEnabled: Boolean =
+  def automaticAssignmentEnabled: Boolean =
     assignmentExclusivityTimeout > NonNegativeFiniteDuration.Zero
 
   def update(
@@ -824,7 +824,7 @@ final case class DynamicDomainParametersWithValidity(
   def participantResponseDeadlineForF(timestamp: CantonTimestamp): Future[CantonTimestamp] =
     participantResponseDeadlineFor(timestamp).toFuture(new IllegalStateException(_))
 
-  def automaticTransferInEnabled: Boolean = parameters.automaticTransferInEnabled
+  def automaticAssignmentEnabled: Boolean = parameters.automaticAssignmentEnabled
   def mediatorDeduplicationTimeout: NonNegativeFiniteDuration =
     parameters.mediatorDeduplicationTimeout
 

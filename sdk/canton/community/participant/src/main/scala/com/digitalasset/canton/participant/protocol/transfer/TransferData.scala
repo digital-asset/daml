@@ -38,7 +38,7 @@ final case class TransferData(
   )
 
   def unassignmentGlobalOffset: Option[GlobalOffset] = transferGlobalOffset.flatMap(_.out)
-  def transferInGlobalOffset: Option[GlobalOffset] = transferGlobalOffset.flatMap(_.in)
+  def assignmentGlobalOffset: Option[GlobalOffset] = transferGlobalOffset.flatMap(_.in)
 
   def targetDomain: TargetDomainId = unassignmentRequest.targetDomain
 
@@ -148,7 +148,7 @@ object TransferData {
           Either.cond(
             offset == newIn,
             this,
-            s"Unable to merge transfer-in offsets $offset and $newIn",
+            s"Unable to merge assignment offsets $offset and $newIn",
           )
         case UnassignmentGlobalOffset(newOut) =>
           ReassignmentGlobalOffsets.create(newOut, offset)
@@ -156,7 +156,7 @@ object TransferData {
           Either.cond(
             offset == newIn,
             offsets,
-            s"Unable to merge transfer-in offsets $offset and $newIn",
+            s"Unable to merge assignment offsets $offset and $newIn",
           )
       }
 
@@ -169,6 +169,7 @@ object TransferData {
       assignment: GlobalOffset,
   ) extends TransferGlobalOffset {
     // TODO(#21081) Look for out, in through the code base
+    // TODO(#21081) Look for transferred
     require(out != in, s"Out and in offsets should be different; got $out")
 
     override def merge(
@@ -185,13 +186,13 @@ object TransferData {
           Either.cond(
             newIn == assignment,
             this,
-            s"Unable to merge transfer-in offsets $in and $newIn",
+            s"Unable to merge assignment offsets $in and $newIn",
           )
         case ReassignmentGlobalOffsets(newOut, newIn) =>
           Either.cond(
             newOut == unassignment && newIn == assignment,
             this,
-            s"Unable to merge transfer offsets ($out, $in) and ($newOut, $newIn)",
+            s"Unable to merge reassignment offsets ($out, $in) and ($newOut, $newIn)",
           )
       }
 

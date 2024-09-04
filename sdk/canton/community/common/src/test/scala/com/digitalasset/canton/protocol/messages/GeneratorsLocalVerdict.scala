@@ -5,6 +5,12 @@ package com.digitalasset.canton.protocol.messages
 
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.protocol.LocalRejectError.AssignmentRejects.{
+  AlreadyCompleted,
+  ContractAlreadyActive,
+  ContractAlreadyArchived,
+  ContractIsLocked,
+}
 import com.digitalasset.canton.protocol.LocalRejectError.ConsistencyRejections.{
   InactiveContracts,
   LockedContracts,
@@ -20,12 +26,6 @@ import com.digitalasset.canton.protocol.LocalRejectError.TimeRejects.{
   LedgerTime,
   LocalTimeout,
   SubmissionTime,
-}
-import com.digitalasset.canton.protocol.LocalRejectError.TransferInRejects.{
-  AlreadyCompleted,
-  ContractAlreadyActive,
-  ContractAlreadyArchived,
-  ContractIsLocked,
 }
 import com.digitalasset.canton.protocol.LocalRejectError.UnassignmentRejects.ActivenessCheckFailed
 import com.digitalasset.canton.protocol.{LocalRejectErrorImpl, Malformed}

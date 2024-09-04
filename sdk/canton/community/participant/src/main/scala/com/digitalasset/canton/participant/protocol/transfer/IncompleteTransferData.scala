@@ -13,13 +13,13 @@ import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
 import com.digitalasset.canton.version.Transfer.SourceProtocolVersion
 import io.scalaland.chimney.dsl.*
 
-/** Stores the data for a transfer that is incomplete, i.e., for which only the transfer-in or the unassignment was
+/** Stores the data for a transfer that is incomplete, i.e., for which only the assignment or the unassignment was
   * emitted on the multi-domain event log.
   *
   * If [[IncompleteTransferData.TransferEventGlobalOffset]] is a [[IncompleteTransferData.UnassignmentEventGlobalOffset]],
-  * it means that the unassignment event was emitted before or at `queryOffset` and that transfer-in event was not yet
+  * it means that the unassignment event was emitted before or at `queryOffset` and that assigned event was not yet
   * emitted or at an offset greater than `queryOffset`.
-  * The same holds symmetrically for a [[IncompleteTransferData.TransferInEventGlobalOffset]].
+  * The same holds symmetrically for a [[IncompleteTransferData.AssignmentEventGlobalOffset]].
   */
 final case class IncompleteTransferData private (
     sourceProtocolVersion: SourceProtocolVersion,
@@ -40,8 +40,8 @@ final case class IncompleteTransferData private (
   def unassignmentGlobalOffset: Option[GlobalOffset] =
     transferEventGlobalOffset.unassignmentGlobalOffset
 
-  def transferInGlobalOffset: Option[GlobalOffset] =
-    transferEventGlobalOffset.transferInGlobalOffset
+  def assignmentGlobalOffset: Option[GlobalOffset] =
+    transferEventGlobalOffset.assignmentGlobalOffset
 
   require(
     contract.contractId == unassignmentRequest.contractId,
@@ -53,7 +53,7 @@ final case class IncompleteTransferData private (
     .withFieldComputed(
       _.transferGlobalOffset,
       _.transferEventGlobalOffset match {
-        case IncompleteTransferData.TransferInEventGlobalOffset(globalOffset) =>
+        case IncompleteTransferData.AssignmentEventGlobalOffset(globalOffset) =>
           Some(TransferData.AssignmentGlobalOffset(globalOffset))
         case IncompleteTransferData.UnassignmentEventGlobalOffset(globalOffset) =>
           Some(TransferData.UnassignmentGlobalOffset(globalOffset))
@@ -71,7 +71,7 @@ object IncompleteTransferData {
       TransferEventGlobalOffset.create(
         queryOffset = queryOffset,
         unassignmentGlobalOffset = transferData.unassignmentGlobalOffset,
-        transferInGlobalOffset = transferData.transferInGlobalOffset,
+        assignmentGlobalOffset = transferData.assignmentGlobalOffset,
       )
 
     transferEventGlobalOffsetE.map { transferEventGlobalOffset =>
@@ -91,42 +91,46 @@ object IncompleteTransferData {
   sealed trait TransferEventGlobalOffset {
     def globalOffset: GlobalOffset
     def unassignmentGlobalOffset: Option[GlobalOffset]
-    def transferInGlobalOffset: Option[GlobalOffset]
+    def assignmentGlobalOffset: Option[GlobalOffset]
   }
 
-  final case class TransferInEventGlobalOffset(globalOffset: GlobalOffset)
+  final case class AssignmentEventGlobalOffset(globalOffset: GlobalOffset)
       extends TransferEventGlobalOffset {
     override def unassignmentGlobalOffset: Option[GlobalOffset] = None
 
-    override def transferInGlobalOffset: Option[GlobalOffset] = Some(globalOffset)
+    override def assignmentGlobalOffset: Option[GlobalOffset] = Some(globalOffset)
   }
 
   final case class UnassignmentEventGlobalOffset(globalOffset: GlobalOffset)
       extends TransferEventGlobalOffset {
     override def unassignmentGlobalOffset: Option[GlobalOffset] = Some(globalOffset)
 
-    override def transferInGlobalOffset: Option[GlobalOffset] = None
+    override def assignmentGlobalOffset: Option[GlobalOffset] = None
   }
 
   object TransferEventGlobalOffset {
     private[transfer] def create(
         queryOffset: GlobalOffset,
         unassignmentGlobalOffset: Option[GlobalOffset],
-        transferInGlobalOffset: Option[GlobalOffset],
+        assignmentGlobalOffset: Option[GlobalOffset],
     ): Either[String, TransferEventGlobalOffset] =
-      (unassignmentGlobalOffset, transferInGlobalOffset) match {
-        case (Some(out), None) if out <= queryOffset => Right(UnassignmentEventGlobalOffset(out))
+      (unassignmentGlobalOffset, assignmentGlobalOffset) match {
+        case (Some(unassignment), None) if unassignment <= queryOffset =>
+          Right(UnassignmentEventGlobalOffset(unassignment))
 
-        case (None, Some(in)) if in <= queryOffset => Right(TransferInEventGlobalOffset(in))
+        case (None, Some(assignment)) if assignment <= queryOffset =>
+          Right(AssignmentEventGlobalOffset(assignment))
 
-        case (Some(out), Some(in)) if out <= queryOffset && queryOffset < in =>
-          Right(UnassignmentEventGlobalOffset(out))
-        case (Some(out), Some(in)) if in <= queryOffset && queryOffset < out =>
-          Right(TransferInEventGlobalOffset(in))
+        case (Some(unassignment), Some(assignment))
+            if unassignment <= queryOffset && queryOffset < assignment =>
+          Right(UnassignmentEventGlobalOffset(unassignment))
+        case (Some(unassignment), Some(assignment))
+            if assignment <= queryOffset && queryOffset < unassignment =>
+          Right(AssignmentEventGlobalOffset(assignment))
 
         case _ =>
           Left(
-            s"Expecting incomplete transfer at offset $queryOffset, found out=$unassignmentGlobalOffset and in=$transferInGlobalOffset"
+            s"Expecting incomplete transfer at offset $queryOffset, found out=$unassignmentGlobalOffset and in=$assignmentGlobalOffset"
           )
       }
   }

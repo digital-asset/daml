@@ -112,7 +112,7 @@ final class RepairService(
     with HasCloseContext {
 
   private type MissingContract = (WithTransactionId[SerializableContract], RequestCounter)
-  private type MissingTransferIn = (LfContractId, SourceDomainId, ReassignmentCounter, TimeOfChange)
+  private type MissingAssignment = (LfContractId, SourceDomainId, ReassignmentCounter, TimeOfChange)
   private type MissingAdd = (LfContractId, ReassignmentCounter, TimeOfChange)
   private type MissingPurge = (LfContractId, TimeOfChange)
 
@@ -482,28 +482,28 @@ final class RepairService(
               .foldMapM { case (cid, acsStatus) =>
                 val storedContract = storedContracts.get(cid)
                 computePurgeOperations(repair, ignoreAlreadyPurged)(cid, acsStatus, storedContract)
-                  .map { case (missingPurge, missingTransferIn) =>
-                    (storedContract.toList, missingPurge, missingTransferIn)
+                  .map { case (missingPurge, missingAssignment) =>
+                    (storedContract.toList, missingPurge, missingAssignment)
                   }
               }
             operations <- EitherT.fromEither[Future](operationsE)
 
-            (contractsToPublishUpstream, missingPurges, missingTransferIns) = operations
+            (contractsToPublishUpstream, missingPurges, missingAssignments) = operations
 
             // Update the stores
             _ <- repair.domain.persistentState.activeContractStore
               .purgeContracts(missingPurges)
               .toEitherTWithNonaborts
               .leftMap(e =>
-                log(s"Failed to purge contractd $missingTransferIns in ActiveContractStore: $e")
+                log(s"Failed to purge contracts $missingAssignments in ActiveContractStore: $e")
               )
 
             _ <- repair.domain.persistentState.activeContractStore
-              .transferInContracts(missingTransferIns)
+              .assignContracts(missingAssignments)
               .toEitherTWithNonaborts
               .leftMap(e =>
                 log(
-                  s"Failed to transfer-in contractd $missingTransferIns in ActiveContractStore: $e"
+                  s"Failed to assign contracts $missingAssignments in ActiveContractStore: $e"
                 )
               )
 
@@ -832,17 +832,17 @@ final class RepairService(
             }
         }
 
-      (missingTransferIns, missingAdds) = contractsToAdd.foldLeft(
-        (Seq.empty[MissingTransferIn], Seq.empty[MissingAdd])
-      ) { case ((missingTransferIns, missingAdds), (contract, toc)) =>
+      (missingAssignments, missingAdds) = contractsToAdd.foldLeft(
+        (Seq.empty[MissingAssignment], Seq.empty[MissingAdd])
+      ) { case ((missingAssignments, missingAdds), (contract, toc)) =>
         contract.reassigningFrom match {
           case Some(sourceDomainId) =>
-            val newTransferIn = (contract.cid, sourceDomainId, contract.reassignmentCounter, toc)
-            (newTransferIn +: missingTransferIns, missingAdds)
+            val newAssignment = (contract.cid, sourceDomainId, contract.reassignmentCounter, toc)
+            (newAssignment +: missingAssignments, missingAdds)
 
           case None =>
             val newAdd = (contract.cid, contract.reassignmentCounter, toc)
-            (missingTransferIns, newAdd +: missingAdds)
+            (missingAssignments, newAdd +: missingAdds)
         }
       }
 
@@ -862,20 +862,19 @@ final class RepairService(
         )
 
       _ <- repair.domain.persistentState.activeContractStore
-        .transferInContracts(missingTransferIns)
+        .assignContracts(missingAssignments)
         .toEitherTWithNonaborts
         .leftMap(e =>
           log(
-            s"Failed to transfer-in ${missingTransferIns.map { case (cid, _, _, _) => cid }} in ActiveContractStore: $e"
+            s"Failed to assign ${missingAssignments.map { case (cid, _, _, _) => cid }} in ActiveContractStore: $e"
           )
         )
 
     } yield ()
 
-  /** For the given contract, returns the operations (purge, transfer-in to perform
+  /** For the given contract, returns the operations (purge, assignment) to perform
     * @param acsStatus Status of the contract
     * @param storedContractO Instance of the contract
-    * @return
     */
   private def computePurgeOperations(repair: RepairRequest, ignoreAlreadyPurged: Boolean)(
       cid: LfContractId,
@@ -883,8 +882,8 @@ final class RepairService(
       storedContractO: Option[SerializableContract],
   )(implicit
       traceContext: TraceContext
-  ): Either[String, (Seq[MissingPurge], Seq[MissingTransferIn])] = {
-    def ignoreOrError(reason: String): Either[String, (Seq[MissingPurge], Seq[MissingTransferIn])] =
+  ): Either[String, (Seq[MissingPurge], Seq[MissingAssignment])] = {
+    def ignoreOrError(reason: String): Either[String, (Seq[MissingPurge], Seq[MissingAssignment])] =
       Either.cond(
         ignoreAlreadyPurged,
         (Nil, Nil),
@@ -907,7 +906,7 @@ final class RepairService(
               log(show"Active contract $cid not found in contract store"),
             )
         } yield {
-          (Seq[MissingPurge]((cid, toc)), Seq.empty[MissingTransferIn])
+          (Seq[MissingPurge]((cid, toc)), Seq.empty[MissingAssignment])
         }
       case Some(ActiveContractStore.Archived) => ignoreOrError("archived contract")
       case Some(ActiveContractStore.Purged) => ignoreOrError("purged contract")
@@ -920,7 +919,7 @@ final class RepairService(
         reassignmentCounter.increment.map { newReassignmentCounter =>
           (
             Seq[MissingPurge]((cid, toc)),
-            Seq[MissingTransferIn](
+            Seq[MissingAssignment](
               (
                 cid,
                 SourceDomainId(targetDomain.unwrap),

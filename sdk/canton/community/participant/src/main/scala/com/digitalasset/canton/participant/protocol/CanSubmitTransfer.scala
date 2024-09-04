@@ -33,7 +33,7 @@ private[protocol] object CanSubmitTransfer {
     check(s"Unassignment of $contractId", topologySnapshot, submitter, participantId)
       .mapK(FutureUnlessShutdown.outcomeK)
 
-  def transferIn(
+  def assignment(
       reassignmentId: ReassignmentId,
       topologySnapshot: TopologySnapshot,
       submitter: LfPartyId,
@@ -42,7 +42,7 @@ private[protocol] object CanSubmitTransfer {
       ec: ExecutionContext,
       tc: TraceContext,
   ): EitherT[Future, TransferProcessorError, Unit] =
-    check(s"transfer-in `$reassignmentId`", topologySnapshot, submitter, participantId)
+    check(s"assignment `$reassignmentId`", topologySnapshot, submitter, participantId)
 
   private def check(
       kind: => String,

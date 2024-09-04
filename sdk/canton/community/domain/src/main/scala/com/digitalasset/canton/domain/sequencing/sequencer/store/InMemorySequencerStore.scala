@@ -11,13 +11,14 @@ import cats.syntax.option.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.{CantonTimestamp, Counter}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.block.UninitializedBlockHeight
 import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.sequencer.store.InMemorySequencerStore.CheckpointDataAtCounter
-import com.digitalasset.canton.lifecycle.CloseContext
+import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
@@ -235,12 +236,14 @@ class InMemorySequencerStore(
       )
     val CounterCheckpoint(counter, ts, latestTopologyClientTimestamp) = checkpoint
     val data = CheckpointDataAtCounter.fromCheckpoint(checkpoint)
-    val existingDataO = Option(memberCheckpoints.putIfAbsent(counter, data))
+    val existingDataO = Option(memberCheckpoints.put(counter, data))
 
     EitherT.cond[Future](
-      existingDataO.forall { existing =>
-        val CheckpointDataAtCounter(existingTs, existingLatestTopologyTs) = existing
-        existingTs == ts && (existingLatestTopologyTs == latestTopologyClientTimestamp || existingLatestTopologyTs.isEmpty)
+      existingDataO.forall {
+        case CheckpointDataAtCounter(existingTs, existingLatestTopologyTs)
+            if existingTs <= ts && existingLatestTopologyTs <= latestTopologyClientTimestamp =>
+          true
+        case _ => false
       },
       (),
       existingDataO
@@ -302,15 +305,15 @@ class InMemorySequencerStore(
     }
   }
 
-  override protected[store] def pruneEvents(timestamp: CantonTimestamp)(implicit
+  override protected[store] def pruneEvents(beforeExclusive: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): Future[Int] =
-    Future.successful(prune(events, timestamp))
+    Future.successful(prune(events, beforeExclusive))
 
-  override protected[store] def prunePayloads(timestamp: CantonTimestamp)(implicit
+  override protected[store] def prunePayloads(beforeExclusive: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): Future[Int] =
-    Future.successful(prune(payloads, timestamp))
+    Future.successful(prune(payloads, beforeExclusive))
 
   private def prune[A](
       timeOrderedSkipMap: ConcurrentSkipListMap[CantonTimestamp, A],
@@ -331,20 +334,21 @@ class InMemorySequencerStore(
 
   @SuppressWarnings(Array("org.wartremover.warts.Var", "org.wartremover.warts.While"))
   override protected[store] def pruneCheckpoints(
-      timestamp: CantonTimestamp
+      beforeExclusive: CantonTimestamp
   )(implicit traceContext: TraceContext): Future[Int] = Future.successful {
     val removedCheckpointsCounter = new AtomicInteger()
     checkpoints.foreach { case (_member, checkpoints) =>
-      var completed = false
+      var keep = false
 
       val entriesIterator = checkpoints.entrySet().iterator()
 
-      while (!completed && entriesIterator.hasNext) {
-        val CheckpointDataAtCounter(checkpointTimestamp, _) = entriesIterator.next().getValue
+      while (!keep && entriesIterator.hasNext) {
+        val checkpointData = entriesIterator.next().getValue
+        val CheckpointDataAtCounter(checkpointTimestamp, _) = checkpointData
 
-        completed = checkpointTimestamp >= timestamp
+        keep = checkpointTimestamp >= beforeExclusive
 
-        if (!completed) {
+        if (!keep) {
           removedCheckpointsCounter.incrementAndGet()
           entriesIterator.remove()
         }
@@ -360,37 +364,6 @@ class InMemorySequencerStore(
     import scala.jdk.OptionConverters.*
     events.keySet().stream().skip(skip.value.toLong).findFirst().toScala
   }
-
-  override protected[store] def adjustPruningTimestampForCounterCheckpoints(
-      timestamp: CantonTimestamp,
-      disabledMembers: Seq[SequencerMemberId],
-  )(implicit traceContext: TraceContext): Future[Option[CantonTimestamp]] =
-    Future.successful {
-      // find the timestamp of the checkpoint for or immediately preceding the desired pruning timestamp
-      // returns None if there is no appropriate checkpoint
-      def checkpointTimestamp(memberId: SequencerMemberId): Option[CantonTimestamp] =
-        checkpoints.get(memberId).flatMap { memberCheckpoints =>
-          // we assume that timestamps are increasing monotonically with the counter value, so we look in descending order
-          memberCheckpoints
-            .descendingMap()
-            .asScala
-            .find { case (_counter, CheckpointDataAtCounter(checkpointTimestamp, _)) =>
-              checkpointTimestamp < timestamp
-            }
-            .map(_._2.timestamp)
-        }
-
-      val timestamps = members.values.filterNot(m => disabledMembers.contains(m.memberId)).map {
-        case RegisteredMember(memberId, registeredFrom, _enabled) =>
-          // if the member doesn't have a counter checkpoint to use we'll have to use their registered timestamp
-          // which is effectively a counter checkpoint for where to start
-          checkpointTimestamp(memberId).getOrElse(registeredFrom)
-      }
-
-      // if there are some timestamps then take the minimum
-      // (the only reason there wouldn't be any timestamps would be no registered members or every member being ignored)
-      NonEmpty.from(timestamps.toSeq).map(_.reduceLeft(_ min _))
-    }
 
   override def status(
       now: CantonTimestamp
@@ -519,15 +492,36 @@ class InMemorySequencerStore(
 
         val checkpoint = CounterCheckpoint(
           checkpointO.map(_._1).getOrElse(counter(-1)) + memberEvents.size,
-          memberEvents
-            .map(_._1)
-            .maxOption
-            .orElse(checkpointO.map(_._2.timestamp))
-            .getOrElse(CantonTimestamp.MinValue),
+          timestamp,
           latestSequencerTimestamp,
         )
         (member, checkpoint)
       }.toMap
+    }
+  }
+
+  override def saveCounterCheckpoints(
+      checkpoints: Seq[(SequencerMemberId, CounterCheckpoint)]
+  )(implicit traceContext: TraceContext, externalCloseContext: CloseContext): Future[Unit] =
+    checkpoints.toList.parTraverse_ { case (memberId, checkpoint) =>
+      saveCounterCheckpoint(memberId, checkpoint).value
+    }
+
+  override def recordCounterCheckpointsAtTimestamp(
+      timestamp: CantonTimestamp
+  )(implicit traceContext: TraceContext): Future[Unit] = {
+    implicit val closeContext: CloseContext = CloseContext(
+      FlagCloseable(logger, ProcessingTimeout())
+    )
+    val memberCheckpoints = computeMemberCheckpoints(timestamp)
+    val memberIdCheckpointsF = memberCheckpoints.toList.parTraverseFilter {
+      case (member, checkpoint) =>
+        lookupMember(member).map {
+          _.map(_.memberId -> checkpoint)
+        }
+    }
+    memberIdCheckpointsF.flatMap { memberIdCheckpoints =>
+      saveCounterCheckpoints(memberIdCheckpoints)
     }
   }
 }

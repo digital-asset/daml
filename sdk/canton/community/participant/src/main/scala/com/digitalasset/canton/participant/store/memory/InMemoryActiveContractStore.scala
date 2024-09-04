@@ -18,9 +18,9 @@ import com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveCo
 import com.digitalasset.canton.participant.store.ActiveContractStore.ActivenessChangeDetail.{
   Add,
   Archive,
+  Assignment,
   Create,
   Purge,
-  TransferIn,
   Unassignment,
 }
 import com.digitalasset.canton.participant.store.data.{ActiveContractData, ActiveContractsData}
@@ -141,7 +141,7 @@ class InMemoryActiveContractStore(
           Future.successful(Active(reassignmentCounter))
         case ActivenessChangeDetail.Archive => Future.successful(Archived)
 
-        case assignment: ActivenessChangeDetail.TransferIn =>
+        case assignment: ActivenessChangeDetail.Assignment =>
           Future.successful(Active(assignment.reassignmentCounter))
         case unassignment: ActivenessChangeDetail.Unassignment =>
           domainIdFromIdx(unassignment.remoteDomainIdx).map(domainId =>
@@ -261,20 +261,20 @@ class InMemoryActiveContractStore(
     } yield preparedTransfers
   }
 
-  override def transferInContracts(
-      transferIns: Seq[(LfContractId, SourceDomainId, ReassignmentCounter, TimeOfChange)]
+  override def assignContracts(
+      assignments: Seq[(LfContractId, SourceDomainId, ReassignmentCounter, TimeOfChange)]
   )(implicit
       traceContext: TraceContext
   ): CheckedT[Future, AcsError, AcsWarning, Unit] = {
-    logger.trace(s"Assigning contracts: $transferIns")
+    logger.trace(s"Assigning contracts: $assignments")
 
     for {
-      preparedTransfers <- prepareTransfers(transferIns)
+      preparedTransfers <- prepareTransfers(assignments)
       _ <- CheckedT(Future.successful(preparedTransfers.to(LazyList).traverse_ {
         case (contractId, sourceDomain, reassignmentCounter, toc) =>
           updateTable(
             contractId,
-            _.addTransferIn(contractId, toc, sourceDomain, reassignmentCounter),
+            _.addAssignment(contractId, toc, sourceDomain, reassignmentCounter),
           )
       }))
     } yield ()
@@ -464,7 +464,7 @@ object InMemoryActiveContractStore {
   /** A contract status change consists of the actual [[ActivenessChange]] (timestamp, request counter, and kind)
     * and the details. The [[com.digitalasset.canton.participant.store.ActiveContractStore.ActivenessChangeDetail]]
     * determines whether the actual [[ActivenessChange]]
-    * is a creation/archival or a transfer-in/out. In the store, at most one
+    * is a creation/archival or a assignment/unassignment. In the store, at most one
     * [[com.digitalasset.canton.participant.store.ActiveContractStore.ActivenessChangeDetail]]
     * may be associated with the same [[ActivenessChange]].
     */
@@ -478,14 +478,14 @@ object InMemoryActiveContractStore {
       Deactivation(toc) -> ActivenessChangeDetail.Archive
     def purge(toc: TimeOfChange): IndividualChange =
       Deactivation(toc) -> ActivenessChangeDetail.Purge
-    def transferIn(
+    def assign(
         toc: TimeOfChange,
         remoteDomainIdx: Int,
         reassignmentCounter: ReassignmentCounter,
     ): IndividualChange =
-      Activation(toc) -> ActivenessChangeDetail.TransferIn(reassignmentCounter, remoteDomainIdx)
+      Activation(toc) -> ActivenessChangeDetail.Assignment(reassignmentCounter, remoteDomainIdx)
 
-    def unassignment(
+    def unassign(
         toc: TimeOfChange,
         remoteDomainIdx: Int,
         reassignmentCounter: ReassignmentCounter,
@@ -518,7 +518,7 @@ object InMemoryActiveContractStore {
   object ActivenessChange {
 
     /** Intended order is by [[com.digitalasset.canton.participant.util.TimeOfChange]]
-      * and then activations (creates/transfer-in) before deactivation,
+      * and then activations (creates/assignments) before deactivation,
       * but this is the reversed order because we want to iterate over the earlier events in the [[ChangeJournal]]
       */
     implicit val reverseOrderingForActivenessChange: Ordering[ActivenessChange] =
@@ -589,7 +589,7 @@ object InMemoryActiveContractStore {
       } yield this.copy(nextChanges)
     }
 
-    private[InMemoryActiveContractStore] def addTransferIn(
+    private[InMemoryActiveContractStore] def addAssignment(
         contractId: LfContractId,
         transfer: TimeOfChange,
         sourceDomainIdx: Int,
@@ -598,13 +598,13 @@ object InMemoryActiveContractStore {
       for {
         nextChanges <- addIndividualChange(
           contractId,
-          IndividualChange.transferIn(transfer, sourceDomainIdx, reassignmentCounter),
+          IndividualChange.assign(transfer, sourceDomainIdx, reassignmentCounter),
         )
         _ <- checkReassignmentCounterIncreases(
           contractId,
           transfer,
           reassignmentCounter,
-          ActiveContractStore.TransferType.TransferIn,
+          ActiveContractStore.TransferType.Assignment,
         )
         _ <- checkNewChangesJournal(contractId, transfer, nextChanges)
       } yield this.copy(nextChanges)
@@ -618,7 +618,7 @@ object InMemoryActiveContractStore {
       for {
         nextChanges <- addIndividualChange(
           contractId,
-          IndividualChange.unassignment(transfer, targetDomainIdx, reassignmentCounter),
+          IndividualChange.unassign(transfer, targetDomainIdx, reassignmentCounter),
         )
         _ <-
           checkReassignmentCounterIncreases(
@@ -649,7 +649,7 @@ object InMemoryActiveContractStore {
         transferType: ActiveContractStore.TransferType,
     ): Checked[AcsError, AcsWarning, Unit] = {
       val isActivation = transferType match {
-        case ActiveContractStore.TransferType.TransferIn => true
+        case ActiveContractStore.TransferType.Assignment => true
         case ActiveContractStore.TransferType.Unassignment => false
       }
 
@@ -715,7 +715,7 @@ object InMemoryActiveContractStore {
     }
 
     /** If the contract is active right after the given `timestamp`,
-      * returns the [[com.digitalasset.canton.data.CantonTimestamp]] of the latest creation or latest transfer-in.
+      * returns the [[com.digitalasset.canton.data.CantonTimestamp]] of the latest creation or latest assignment.
       */
     def activeBy(timestamp: CantonTimestamp): Option[(CantonTimestamp, ReassignmentCounter)] = {
       val iter = changes.iteratorFrom(ContractStatus.searchByTimestamp(timestamp))
@@ -728,7 +728,7 @@ object InMemoryActiveContractStore {
         )
 
         detail match {
-          case TransferIn(reassignmentCounter, _) => changeFor(reassignmentCounter)
+          case Assignment(reassignmentCounter, _) => changeFor(reassignmentCounter)
           case Create(reassignmentCounter) => changeFor(reassignmentCounter)
           case Add(reassignmentCounter) => changeFor(reassignmentCounter)
           case Archive | _: Unassignment | Purge => None
@@ -737,7 +737,7 @@ object InMemoryActiveContractStore {
     }
 
     /** If the contract is active right after the given `rc`,
-      * returns the [[com.digitalasset.canton.RequestCounter]] of the latest creation or latest transfer-in.
+      * returns the [[com.digitalasset.canton.RequestCounter]] of the latest creation or latest assignment.
       */
     def activeBy(rc: RequestCounter): Option[(RequestCounter, ReassignmentCounter)] =
       changes

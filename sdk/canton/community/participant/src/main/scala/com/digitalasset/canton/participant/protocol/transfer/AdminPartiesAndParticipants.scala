@@ -124,7 +124,7 @@ private[protocol] object AdminPartiesAndParticipants {
    * - If the party is hosted on a participant with submission permission,
    * then at least one such participant must also have submission permission
    * for that party on the target domain.
-   * This ensures that the party can initiate the transfer-in if needed and continue to use the contract on the
+   * This ensures that the party can initiate the assignment if needed and continue to use the contract on the
    * target domain, unless the permissions change in between.
    * - The party must be hosted on a participant that has confirmation permission
    * on both domains for this party.

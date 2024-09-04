@@ -84,11 +84,11 @@ trait TransferStore extends TransferLookup {
       _ <- addTransfersOffsets(preparedOffsets)
     } yield ()
 
-  /** Marks the transfer as completed, i.e., a transfer-in request was committed.
+  /** Marks the transfer as completed, i.e., an assignment request was committed.
     * If the transfer has already been completed then a [[TransferStore.TransferAlreadyCompleted]] is reported, and the
     * [[com.digitalasset.canton.participant.util.TimeOfChange]] of the completion is not changed from the old value.
     *
-    * @param timeOfCompletion Provides the request counter and activeness time of the committed transfer-in request.
+    * @param timeOfCompletion Provides the request counter and activeness time of the committed assignment request.
     */
   def completeTransfer(reassignmentId: ReassignmentId, timeOfCompletion: TimeOfChange)(implicit
       traceContext: TraceContext
@@ -384,13 +384,13 @@ trait TransferLookup {
     * was emitted on the multi-domain event log at `validAt`. That is, one of the following hold:
     *   1. Only unassignment was emitted
     *       - `t.unassignmentGlobalOffset` is smaller or equal to `validAt`
-    *       - `t.transferInGlobalOffset` is null or greater than `validAt`
-    *   2. Only transfer-in was emitted
-    *       - `t.transferInGlobalOffset` is smaller or equal to `validAt`
+    *       - `t.assignmentGlobalOffset` is null or greater than `validAt`
+    *   2. Only assignment was emitted
+    *       - `t.assignmentGlobalOffset` is smaller or equal to `validAt`
     *       - `t.unassignmentGlobalOffset` is null or greater than `validAt`
     *
     * In particular, for a transfer to be considered incomplete at `validAt`, then exactly one of the two offsets
-    * (unassignmentGlobalOffset, transferInGlobalOffset) is not null and smaller or equal to `validAt`.
+    * (unassignmentGlobalOffset, assignmentGlobalOffset) is not null and smaller or equal to `validAt`.
     *
     * @param sourceDomain if empty, select only transfers whose source domain matches the given one
     * @param validAt select only transfers that are successfully transferred-out
@@ -407,7 +407,7 @@ trait TransferLookup {
 
   /** Find utility to look for the earliest incomplete transfer w.r.t. the ledger end.
     * If an incomplete transfer exists, the method returns the global offset of the incomplete transfer for either the
-    * unassignment or the transfer-in, whichever of these is not null, the reassignment id and the target domain id.
+    * unassignment or the assignment, whichever of these is not null, the reassignment id and the target domain id.
     * It returns None if there is no incomplete transfer (either because all transfers are complete or are in-flight,
     * or because there are no transfers), or the transfer table is empty.
     */

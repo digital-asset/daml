@@ -12,7 +12,7 @@ import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.{SymbolicCrypto, SymbolicPureCrypto}
 import com.digitalasset.canton.data.ViewType.AssignmentViewType
-import com.digitalasset.canton.data.{CantonTimestamp, FullTransferInTree, TransferSubmitterMetadata}
+import com.digitalasset.canton.data.{CantonTimestamp, FullAssignmentTree, TransferSubmitterMetadata}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.ledger.api.{LedgerApiIndexer, LedgerApiStore}
@@ -26,8 +26,8 @@ import com.digitalasset.canton.participant.protocol.submission.{
   EncryptedViewMessageFactory,
   SeedGenerator,
 }
-import com.digitalasset.canton.participant.protocol.transfer.TransferInProcessingSteps.*
-import com.digitalasset.canton.participant.protocol.transfer.TransferInValidation.*
+import com.digitalasset.canton.participant.protocol.transfer.AssignmentProcessingSteps.*
+import com.digitalasset.canton.participant.protocol.transfer.AssignmentValidation.*
 import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.{
   NoTransferSubmissionPermission,
   ParsedTransferRequest,
@@ -61,7 +61,7 @@ import org.scalatest.wordspec.AsyncWordSpec
 import java.util.UUID
 import scala.concurrent.Future
 
-class TransferInProcessingStepsTest
+class AssignmentProcessingStepsTest
     extends AsyncWordSpec
     with BaseTest
     with HasTestCloseContext
@@ -95,7 +95,7 @@ class TransferInProcessingStepsTest
     TransferSubmitterMetadata(
       submitter,
       participant,
-      LedgerCommandId.assertFromString("transfer-in-processing-steps-command-id"),
+      LedgerCommandId.assertFromString("assignment-processing-steps-command-id"),
       submissionId = None,
       LedgerApplicationId.assertFromString("tests"),
       workflowId = None,
@@ -120,7 +120,7 @@ class TransferInProcessingStepsTest
       .forOwnerAndDomain(submittingParticipant, sourceDomain.unwrap)
       .currentSnapshotApproximation
 
-  private lazy val transferInProcessingSteps =
+  private lazy val assignmentProcessingSteps =
     testInstance(targetDomain, Set(party1), Set(party1), cryptoSnapshot, None)
 
   private lazy val indexedStringStore = new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1)
@@ -167,10 +167,10 @@ class TransferInProcessingStepsTest
   }
 
   def mkParsedRequest(
-      view: FullTransferInTree,
+      view: FullAssignmentTree,
       recipients: Recipients = RecipientsTest.testInstance,
       signatureO: Option[Signature] = None,
-  ): ParsedTransferRequest[FullTransferInTree] = ParsedTransferRequest(
+  ): ParsedTransferRequest[FullAssignmentTree] = ParsedTransferRequest(
     RequestCounter(1),
     CantonTimestamp.Epoch,
     SequencerCounter(1),
@@ -227,14 +227,14 @@ class TransferInProcessingStepsTest
         (persistentState, state) = deps
         _ <- setUpOrFail(transferData, unassignmentResult, persistentState).failOnShutdown
         _preparedSubmission <-
-          transferInProcessingSteps
+          assignmentProcessingSteps
             .createSubmission(
               submissionParam,
               targetMediator,
               state,
               cryptoSnapshot,
             )
-            .valueOrFailShutdown("transfer in submission")
+            .valueOrFailShutdown("assignment submission")
       } yield succeed
     }
 
@@ -283,7 +283,7 @@ class TransferInProcessingStepsTest
         (persistentState, state) = deps
         _ <- setUpOrFail(transferData2, unassignmentResult, persistentState).failOnShutdown
         preparedSubmission <- leftOrFailShutdown(
-          transferInProcessingSteps.createSubmission(
+          assignmentProcessingSteps.createSubmission(
             submissionParam,
             targetMediator,
             state,
@@ -306,7 +306,7 @@ class TransferInProcessingStepsTest
           "add transfer data failed"
         ).failOnShutdown
         preparedSubmission <- leftOrFailShutdown(
-          transferInProcessingSteps.createSubmission(
+          assignmentProcessingSteps.createSubmission(
             submissionParam,
             targetMediator,
             state,
@@ -331,7 +331,7 @@ class TransferInProcessingStepsTest
         (persistentState, state) = deps
         _ <- setUpOrFail(transferData, unassignmentResult, persistentState).failOnShutdown
         preparedSubmission <- leftOrFailShutdown(
-          transferInProcessingSteps.createSubmission(
+          assignmentProcessingSteps.createSubmission(
             submissionParam2,
             targetMediator,
             state,
@@ -361,7 +361,7 @@ class TransferInProcessingStepsTest
         (persistentState, state) = deps
         _ <- setUpOrFail(transferData, unassignmentResult, persistentState).failOnShutdown
         preparedSubmission <- leftOrFailShutdown(
-          transferInProcessingSteps.createSubmission(
+          assignmentProcessingSteps.createSubmission(
             submissionParam,
             targetMediator,
             state,
@@ -389,7 +389,7 @@ class TransferInProcessingStepsTest
         (persistentState, ephemeralState) = deps
         _ <- setUpOrFail(transferData2, unassignmentResult, persistentState).failOnShutdown
         preparedSubmission <- leftOrFailShutdown(
-          transferInProcessingSteps.createSubmission(
+          assignmentProcessingSteps.createSubmission(
             submissionParam2,
             targetMediator,
             ephemeralState,
@@ -417,7 +417,7 @@ class TransferInProcessingStepsTest
         submittingParticipant,
       )
     val inTree =
-      makeFullTransferInTree(
+      makeFullAssignmentTree(
         party1,
         Set(party1),
         contract,
@@ -430,20 +430,20 @@ class TransferInProcessingStepsTest
     "succeed without errors" in {
       val sessionKeyStore = SessionKeyStore(CachingConfigs.defaultSessionKeyCacheConfig)
       for {
-        inRequest <- encryptFullTransferInTree(inTree, sessionKeyStore)
+        inRequest <- encryptFullAssignmentTree(inTree, sessionKeyStore)
         envelopes = NonEmpty(
           Seq,
           OpenEnvelope(inRequest, RecipientsTest.testInstance)(testedProtocolVersion),
         )
         decrypted <-
-          transferInProcessingSteps
+          assignmentProcessingSteps
             .decryptViews(envelopes, cryptoSnapshot, sessionKeyStore)
             .valueOrFailShutdown(
               "decrypt request failed"
             )
         (WithRecipients(view, recipients), signature) = decrypted.views.loneElement
         activenessSet =
-          transferInProcessingSteps
+          assignmentProcessingSteps
             .computeActivenessSet(
               mkParsedRequest(
                 view,
@@ -459,7 +459,7 @@ class TransferInProcessingStepsTest
     }
 
     "fail when target domain is not current domain" in {
-      val inTree2 = makeFullTransferInTree(
+      val inTree2 = makeFullAssignmentTree(
         party1,
         Set(party1),
         contract,
@@ -469,7 +469,7 @@ class TransferInProcessingStepsTest
         unassignmentResult,
       )
       val error =
-        transferInProcessingSteps.computeActivenessSet(mkParsedRequest(inTree2)).left.value
+        assignmentProcessingSteps.computeActivenessSet(mkParsedRequest(inTree2)).left.value
 
       inside(error) { case UnexpectedDomain(_, targetD, currentD) =>
         assert(targetD == anotherDomain)
@@ -478,7 +478,7 @@ class TransferInProcessingStepsTest
     }
 
     "deduplicate requests with an alarm" in {
-      // Send the same transfer-in request twice
+      // Send the same assignment request twice
       val parsedRequest = mkParsedRequest(inTree)
       val viewWithMetadata = (
         WithRecipients(parsedRequest.fullViewTree, parsedRequest.recipients),
@@ -487,7 +487,7 @@ class TransferInProcessingStepsTest
       for {
         result <-
           loggerFactory.assertLogs(
-            transferInProcessingSteps.computeParsedRequest(
+            assignmentProcessingSteps.computeParsedRequest(
               parsedRequest.rc,
               parsedRequest.requestTimestamp,
               parsedRequest.sc,
@@ -535,7 +535,7 @@ class TransferInProcessingStepsTest
         (_persistentState, ephemeralState) = deps
 
         // party2 is incorrectly registered as a stakeholder
-        fullTransferInTree2 = makeFullTransferInTree(
+        fullAssignmentTree2 = makeFullAssignmentTree(
           party1,
           stakeholders = Set(party1, party2),
           contract,
@@ -548,9 +548,9 @@ class TransferInProcessingStepsTest
         transferLookup = ephemeralState.transferCache
 
         result <- leftOrFail(
-          transferInProcessingSteps
+          assignmentProcessingSteps
             .constructPendingDataAndResponse(
-              mkParsedRequest(fullTransferInTree2),
+              mkParsedRequest(fullAssignmentTree2),
               transferLookup,
               FutureUnlessShutdown.pure(mkActivenessResult()),
               engineController =
@@ -573,7 +573,7 @@ class TransferInProcessingStepsTest
         transferLookup = ephemeralState.transferCache
         contractLookup = ephemeralState.contractLookup
 
-        fullTransferInTree = makeFullTransferInTree(
+        fullAssignmentTree = makeFullAssignmentTree(
           party1,
           Set(party1),
           contract,
@@ -584,9 +584,9 @@ class TransferInProcessingStepsTest
         )
 
         _result <- valueOrFail(
-          transferInProcessingSteps
+          assignmentProcessingSteps
             .constructPendingDataAndResponse(
-              mkParsedRequest(fullTransferInTree),
+              mkParsedRequest(fullAssignmentTree),
               transferLookup,
               FutureUnlessShutdown.pure(mkActivenessResult()),
               engineController =
@@ -602,7 +602,7 @@ class TransferInProcessingStepsTest
   "get commit set and contracts to be stored and event" should {
     "succeed without errors" in {
 
-      val inRes = TransferResultHelpers.transferInResult(targetDomain)
+      val inRes = TransferResultHelpers.assignmentResult(targetDomain)
 
       val contractId = ExampleTransactionFactory.suffixedId(10, 0)
       val contract =
@@ -614,7 +614,7 @@ class TransferInProcessingStepsTest
       val reassignmentId = ReassignmentId(sourceDomain, CantonTimestamp.Epoch)
       val rootHash = mock[RootHash]
       when(rootHash.asLedgerTransactionId).thenReturn(LedgerTransactionId.fromString("id1"))
-      val pendingRequestData = TransferInProcessingSteps.PendingTransferIn(
+      val pendingRequestData = AssignmentProcessingSteps.PendingAssignment(
         RequestId(CantonTimestamp.Epoch),
         RequestCounter(1),
         SequencerCounter(1),
@@ -637,7 +637,7 @@ class TransferInProcessingStepsTest
         (_persistentState, state) = deps
 
         _result <- valueOrFail(
-          transferInProcessingSteps
+          assignmentProcessingSteps
             .getCommitSetAndContractsToBeStoredAndEvent(
               NoOpeningErrors(
                 SignedContent(
@@ -649,7 +649,7 @@ class TransferInProcessingStepsTest
               ),
               inRes.verdict,
               pendingRequestData,
-              state.pendingTransferInSubmissions,
+              state.pendingAssignmentSubmissions,
               crypto.pureCrypto,
             )
             .failOnShutdown
@@ -664,13 +664,13 @@ class TransferInProcessingStepsTest
       stakeholders: Set[LfPartyId],
       snapshotOverride: DomainSnapshotSyncCryptoApi,
       awaitTimestampOverride: Option[Future[Unit]],
-  ): TransferInProcessingSteps = {
+  ): AssignmentProcessingSteps = {
 
     val pureCrypto = new SymbolicPureCrypto
     val damle = DAMLeTestInstance(participant, signatories, stakeholders)(loggerFactory)
     val seedGenerator = new SeedGenerator(pureCrypto)
 
-    new TransferInProcessingSteps(
+    new AssignmentProcessingSteps(
       targetDomain,
       submittingParticipant,
       damle,
@@ -688,7 +688,7 @@ class TransferInProcessingStepsTest
     )
   }
 
-  private def makeFullTransferInTree(
+  private def makeFullAssignmentTree(
       submitter: LfPartyId,
       stakeholders: Set[LfPartyId],
       contract: SerializableContract,
@@ -697,11 +697,11 @@ class TransferInProcessingStepsTest
       targetMediator: MediatorGroupRecipient,
       unassignmentResult: DeliveredUnassignmentResult,
       uuid: UUID = new UUID(4L, 5L),
-  ): FullTransferInTree = {
+  ): FullAssignmentTree = {
     val seed = seedGenerator.generateSaltSeed()
 
     valueOrFail(
-      TransferInProcessingSteps.makeFullTransferInTree(
+      AssignmentProcessingSteps.makeFullAssignmentTree(
         crypto.pureCrypto,
         seed,
         submitterInfo(submitter),
@@ -716,14 +716,14 @@ class TransferInProcessingStepsTest
         SourceProtocolVersion(testedProtocolVersion),
         TargetProtocolVersion(testedProtocolVersion),
       )
-    )("Failed to create FullTransferInTree")
+    )("Failed to create FullAssignmentTree")
   }
 
-  private def encryptFullTransferInTree(
-      tree: FullTransferInTree,
+  private def encryptFullAssignmentTree(
+      tree: FullAssignmentTree,
       sessionKeyStore: SessionKeyStore,
   ): Future[EncryptedViewMessage[AssignmentViewType]] =
     EncryptedViewMessageFactory
       .create(AssignmentViewType)(tree, cryptoSnapshot, sessionKeyStore, testedProtocolVersion)
-      .valueOrFailShutdown("cannot encrypt transfer-in request")
+      .valueOrFailShutdown("cannot encrypt assignment request")
 }

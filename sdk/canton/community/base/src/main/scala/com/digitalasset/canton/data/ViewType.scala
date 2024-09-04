@@ -65,7 +65,7 @@ object ViewType {
   type UnassignmentViewType = UnassignmentViewType.type
 
   case object AssignmentViewType extends TransferViewType {
-    override type View = FullTransferInTree
+    override type View = FullAssignmentTree
     override def toProtoEnum: v30.ViewType = v30.ViewType.VIEW_TYPE_ASSIGNMENT
   }
   type AssignmentViewType = AssignmentViewType.type

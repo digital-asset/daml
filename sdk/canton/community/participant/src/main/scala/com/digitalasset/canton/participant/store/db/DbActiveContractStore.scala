@@ -117,7 +117,7 @@ class DbActiveContractStore(
         case Archive => Future.successful(Archived)
         case Add(reassignmentCounter) => Future.successful(Active(reassignmentCounter))
         case Purge => Future.successful(Purged)
-        case in: TransferIn => Future.successful(Active(in.reassignmentCounter))
+        case in: Assignment => Future.successful(Active(in.reassignmentCounter))
         case out: Unassignment =>
           domainIdFromIdx(out.remoteDomainIdx).map(id =>
             ReassignedAway(TargetDomainId(id), out.reassignmentCounter)
@@ -255,16 +255,16 @@ class DbActiveContractStore(
     } yield ()
   }
 
-  override def transferInContracts(
-      transferIns: Seq[(LfContractId, SourceDomainId, ReassignmentCounter, TimeOfChange)]
+  override def assignContracts(
+      assignments: Seq[(LfContractId, SourceDomainId, ReassignmentCounter, TimeOfChange)]
   )(implicit
       traceContext: TraceContext
   ): CheckedT[Future, AcsError, AcsWarning, Unit] =
     transferContracts(
-      transferIns,
-      TransferIn.apply,
+      assignments,
+      Assignment.apply,
       ChangeType.Activation,
-      ActivenessChangeDetail.transferIn,
+      ActivenessChangeDetail.assign,
     )
 
   override def unassignContracts(
@@ -794,7 +794,7 @@ class DbActiveContractStore(
                 case create: Create =>
                   Right((acts :+ (cid, create.toStateChangeType), deacts))
 
-                case in: TransferIn =>
+                case in: Assignment =>
                   Right((acts :+ (cid, in.toStateChangeType), deacts))
                 case out: Unassignment =>
                   Right((acts, deacts :+ (cid, out.toStateChangeType)))

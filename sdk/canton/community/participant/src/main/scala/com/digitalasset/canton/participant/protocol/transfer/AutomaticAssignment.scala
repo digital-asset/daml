@@ -10,9 +10,9 @@ import com.digitalasset.canton.data.{CantonTimestamp, TransferSubmitterMetadata}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.{BaseCantonError, MediatorError}
 import com.digitalasset.canton.logging.ErrorLoggingContext
-import com.digitalasset.canton.participant.protocol.transfer.TransferInValidation.NoTransferData
+import com.digitalasset.canton.participant.protocol.transfer.AssignmentValidation.NoTransferData
 import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.*
-import com.digitalasset.canton.participant.protocol.transfer.UnassignmentProcessorError.AutomaticTransferInError
+import com.digitalasset.canton.participant.protocol.transfer.UnassignmentProcessorError.AutomaticAssignmentError
 import com.digitalasset.canton.participant.store.TransferStore.TransferCompleted
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.*
@@ -24,7 +24,7 @@ import org.slf4j.event.Level
 
 import scala.concurrent.{ExecutionContext, Future}
 
-private[participant] object AutomaticTransferIn {
+private[participant] object AutomaticAssignment {
   def perform(
       id: ReassignmentId,
       targetDomain: TargetDomainId,
@@ -61,10 +61,10 @@ private[participant] object AutomaticTransferIn {
         possibleSubmittingParties <- EitherT.right(hostedStakeholders(targetIps.ipsSnapshot))
         inParty <- EitherT.fromOption[Future](
           possibleSubmittingParties.headOption,
-          AutomaticTransferInError("No possible submitting party for automatic transfer-in"),
+          AutomaticAssignmentError("No possible submitting party for automatic assignment"),
         )
         submissionResult <- transferCoordination
-          .transferIn(
+          .assign(
             targetDomain,
             TransferSubmitterMetadata(
               inParty,
@@ -78,7 +78,7 @@ private[participant] object AutomaticTransferIn {
           )(
             TraceContext.empty
           )
-        TransferInProcessingSteps.SubmissionResult(completionF) = submissionResult
+        AssignmentProcessingSteps.SubmissionResult(completionF) = submissionResult
         status <- EitherT.right(completionF)
       } yield status
 
@@ -120,7 +120,7 @@ private[participant] object AutomaticTransferIn {
         _ <-
           if (targetHostedStakeholders.nonEmpty) {
             logger.info(
-              s"Registering automatic submission of transfer-in with ID $id at time $exclusivityLimit, where base timestamp is $t0"
+              s"Registering automatic submission of assignment with ID $id at time $exclusivityLimit, where base timestamp is $t0"
             )
             for {
               _ <- transferCoordination.awaitDomainTime(targetDomain.unwrap, exclusivityLimit)
@@ -128,7 +128,7 @@ private[participant] object AutomaticTransferIn {
                 targetDomain.unwrap,
                 staticDomainParameters,
                 exclusivityLimit,
-                Future.successful(logger.debug(s"Automatic transfer-in triggered immediately")),
+                Future.successful(logger.debug(s"Automatic assignment triggered immediately")),
               )
 
               _ <- EitherTUtil.leftSubflatMap(performAutoInRepeatedly) {
@@ -147,7 +147,7 @@ private[participant] object AutomaticTransferIn {
           } else EitherT.pure[Future, TransferProcessorError](())
       } yield ()
 
-      EitherTUtil.doNotAwait(autoIn, "Automatic transfer-in failed", Level.INFO)
+      EitherTUtil.doNotAwait(autoIn, "Automatic assignment failed", Level.INFO)
     }
 
     for {
@@ -165,7 +165,7 @@ private[participant] object AutomaticTransferIn {
       ).leftWiden[TransferProcessorError]
     } yield {
 
-      if (targetDomainParameters.automaticTransferInEnabled)
+      if (targetDomainParameters.automaticAssignmentEnabled)
         triggerAutoIn(targetSnapshot, targetDomainParameters)
       else ()
     }

@@ -405,7 +405,7 @@ class DbContractStore(
                     )
                   } else success
                 case (StoredContract(_, _, Some(_)), StoredContract(_, _, None)) =>
-                  // a create or transfer-in contract must overwrite a divulged contract
+                  // a create or assign contract must overwrite a divulged contract
                   invalidateCache(data.contractId)
                   failWith(
                     s"Non-divulged contract ${item.contractId} did not replace divulged contract ${data.contractId}"

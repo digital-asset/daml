@@ -49,14 +49,14 @@ private[transfer] object TestTransferCoordination {
 
     val transferStores =
       domains.map(domain => domain -> new InMemoryTransferStore(domain, loggerFactory)).toMap
-    val transferInBySubmission = { (_: DomainId) => None }
+    val assignmentBySubmission = { (_: DomainId) => None }
     val protocolVersionGetter = (_: Traced[DomainId]) => Some(BaseTest.testedProtocolVersion)
 
     new TransferCoordination(
       transferStoreFor = id =>
         transferStores.get(id).toRight(UnknownDomain(id.unwrap, "not found")),
       recentTimeProofFor = recentTimeProofProvider,
-      inSubmissionById = transferInBySubmission,
+      inSubmissionById = assignmentBySubmission,
       protocolVersionFor = protocolVersionGetter,
       syncCryptoApi = defaultSyncCryptoApi(domains.toSeq.map(_.unwrap), packages, loggerFactory),
       loggerFactory,

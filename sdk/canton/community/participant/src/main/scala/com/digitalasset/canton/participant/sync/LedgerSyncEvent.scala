@@ -49,8 +49,8 @@ sealed trait LedgerSyncEvent extends Product with Serializable with PrettyPrinti
       case ev: LedgerSyncEvent.PartyAddedToParticipant => ev.copy(recordTime = timestamp)
       case ev: LedgerSyncEvent.PartyAllocationRejected => ev.copy(recordTime = timestamp)
       case ev: LedgerSyncEvent.Init => ev.copy(recordTime = timestamp)
-      case ev: LedgerSyncEvent.TransferredOut => ev.updateRecordTime(newRecordTime = timestamp)
-      case ev: LedgerSyncEvent.TransferredIn => ev.copy(recordTime = timestamp)
+      case ev: LedgerSyncEvent.Unassigned => ev.updateRecordTime(newRecordTime = timestamp)
+      case ev: LedgerSyncEvent.Assigned => ev.copy(recordTime = timestamp)
       case ev: LedgerSyncEvent.ContractsAdded => ev.copy(recordTime = timestamp)
       case ev: LedgerSyncEvent.ContractsPurged => ev.copy(recordTime = timestamp)
       case ev: LedgerSyncEvent.PartiesAddedToParticipant => ev.copy(recordTime = timestamp)
@@ -362,13 +362,13 @@ object LedgerSyncEvent {
     * @param templateId               The template-id of the contract that's being transferred-out.
     * @param targetDomain             The target domain of the transfer.
     * @param assignmentExclusivity    The timestamp of the timeout before which only the submitter can initiate the
-    *                                 corresponding transfer-in. Must be provided for the participant that submitted the unassignment.
+    *                                 corresponding assignment. Must be provided for the participant that submitted the unassignment.
     * @param workflowId               The workflowId specified by the submitter in the transfer command.
     * @param isReassigningParticipant True if the participant is reassigning.
     *                                 Note: false if the data comes from an old serialized event
     * @param reassignmentCounter          The [[com.digitalasset.canton.ReassignmentCounter]] of the contract.
     */
-  final case class TransferredOut(
+  final case class Unassigned(
       updateId: LedgerTransactionId,
       optCompletionInfo: Option[CompletionInfo],
       submitter: Option[LfPartyId],
@@ -389,12 +389,12 @@ object LedgerSyncEvent {
 
     def domainId: DomainId = sourceDomain.id
 
-    def updateRecordTime(newRecordTime: LfTimestamp): TransferredOut =
+    def updateRecordTime(newRecordTime: LfTimestamp): Unassigned =
       this.focus(_.reassignmentId.unassignmentTs).replace(CantonTimestamp(newRecordTime))
 
     override def kind: String = "out"
 
-    override def pretty: Pretty[TransferredOut] = prettyOfClass(
+    override def pretty: Pretty[Unassigned] = prettyOfClass(
       param("updateId", _.updateId),
       paramIfDefined("completionInfo", _.optCompletionInfo),
       param("submitter", _.submitter),
@@ -439,10 +439,10 @@ object LedgerSyncEvent {
     )
   }
 
-  /**  Signal the transfer-in of a contract from the source domain to the target domain.
+  /**  Signal the assignment of a contract from the source domain to the target domain.
     *
     * @param updateId                 Uniquely identifies the update.
-    * @param optCompletionInfo        Must be provided for the participant that submitted the transfer-in.
+    * @param optCompletionInfo        Must be provided for the participant that submitted the assignment.
     * @param submitter                The partyId of the transfer submitter, unless the operation is performed offline.
     * @param recordTime               The ledger-provided timestamp at which the contract was transferred in.
     * @param ledgerCreateTime         The ledger time of the transaction '''creating''' the contract
@@ -455,7 +455,7 @@ object LedgerSyncEvent {
     *                                 Note: false if the data comes from an old serialized event
     * @param reassignmentCounter          The [[com.digitalasset.canton.ReassignmentCounter]] of the contract.
     */
-  final case class TransferredIn(
+  final case class Assigned(
       updateId: LedgerTransactionId,
       optCompletionInfo: Option[CompletionInfo],
       submitter: Option[LfPartyId],
@@ -472,7 +472,7 @@ object LedgerSyncEvent {
       reassignmentCounter: ReassignmentCounter,
   ) extends TransferEvent {
 
-    override def pretty: Pretty[TransferredIn] = prettyOfClass(
+    override def pretty: Pretty[Assigned] = prettyOfClass(
       param("updateId", _.updateId),
       param("ledgerCreateTime", _.ledgerCreateTime),
       paramIfDefined("optCompletionInfo", _.optCompletionInfo),

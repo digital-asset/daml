@@ -23,7 +23,7 @@ import com.digitalasset.canton.lifecycle.{
   HasCloseContext,
 }
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.client.SequencerSubscriptionError.SequencedEventError
 import com.digitalasset.canton.sequencing.client.{
   SequencedEventValidator,
@@ -37,14 +37,14 @@ import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, Member, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.PekkoUtil.CombinedKillSwitch
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
+import com.digitalasset.canton.util.PekkoUtil.{CombinedKillSwitch, KillSwitchFlagCloseable}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{SequencerCounter, config}
 import org.apache.pekko.stream.*
-import org.apache.pekko.stream.scaladsl.{Flow, GraphDSL, Keep, Sink, Source, WireTap}
+import org.apache.pekko.stream.scaladsl.{Flow, Keep, Sink, Source}
 import org.apache.pekko.{Done, NotUsed}
 
 import java.sql.SQLTransientConnectionException
@@ -83,6 +83,7 @@ class SequencerReader(
     protocolVersion: ProtocolVersion,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
+    unifiedSequencer: Boolean,
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging
     with FlagCloseable
@@ -195,14 +196,9 @@ class SequencerReader(
         // after we start closing the subscription, we create a flag closeable that gets closed when this
         // subscriptions kill switch is activated. This flag closeable is wrapped in a close context below
         // which is passed down to saveCounterCheckpoint.
-        val killSwitchFlagCloseable = new FlagCloseable {
-          override protected def timeouts: ProcessingTimeout = SequencerReader.this.timeouts
-          override protected def logger: TracedLogger = SequencerReader.this.logger
-        }
-        val closeContextKillSwitch = new KillSwitch {
-          override def shutdown(): Unit = killSwitchFlagCloseable.close()
-          override def abort(ex: Throwable): Unit = killSwitchFlagCloseable.close()
-        }
+        val killSwitchFlagCloseable =
+          FlagCloseable(SequencerReader.this.logger, SequencerReader.this.timeouts)
+        val closeContextKillSwitch = new KillSwitchFlagCloseable(killSwitchFlagCloseable)
         Flow[UnsignedEventData]
           .buffer(1, OverflowStrategy.dropTail) // we only really need one event and can drop others
           .throttle(1, config.checkpointInterval.underlying)
@@ -236,14 +232,7 @@ class SequencerReader(
           .toMat(Sink.ignore)(Keep.both)
       }
 
-      // Essentially the Source.wireTap implementation except that we return the completion future of the sink
-      Flow.fromGraph(GraphDSL.createGraph(recordCheckpointSink) {
-        implicit b: GraphDSL.Builder[(KillSwitch, Future[Done])] => recordCheckpointShape =>
-          import GraphDSL.Implicits.*
-          val bcast = b.add(WireTap[UnsignedEventData]())
-          bcast.out1 ~> recordCheckpointShape
-          FlowShape(bcast.in, bcast.out0)
-      })
+      Flow[UnsignedEventData].wireTapMat(recordCheckpointSink)(Keep.right)
     }
 
     private def signValidatedEvent(
@@ -449,7 +438,17 @@ class SequencerReader(
       val eventsSource = validatedEventSrc.dropWhile(_.event.counter < startAt)
 
       eventsSource
-        .viaMat(recordCheckpointFlow)(Keep.right)
+        .viaMat(
+          if (unifiedSequencer) {
+            // We don't need to reader-side checkpoints for the unified mode
+            // TODO(#20910): Remove this in favor of periodic checkpoints
+            Flow[UnsignedEventData].viaMat(KillSwitches.single) { case (_, killSwitch) =>
+              (killSwitch, Future.successful(Done))
+            }
+          } else {
+            recordCheckpointFlow
+          }
+        )(Keep.right)
         .viaMat(KillSwitches.single) { case ((checkpointKillSwitch, checkpointDone), killSwitch) =>
           (new CombinedKillSwitch(checkpointKillSwitch, killSwitch), checkpointDone)
         }

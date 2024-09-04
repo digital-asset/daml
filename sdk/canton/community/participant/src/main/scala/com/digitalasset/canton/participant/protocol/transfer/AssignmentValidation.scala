@@ -11,7 +11,7 @@ import com.digitalasset.canton.data.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.EngineController.GetEngineAbortStatus
 import com.digitalasset.canton.participant.protocol.ProcessingSteps
-import com.digitalasset.canton.participant.protocol.transfer.TransferInValidation.*
+import com.digitalasset.canton.participant.protocol.transfer.AssignmentValidation.*
 import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.*
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.util.DAMLe
@@ -27,7 +27,7 @@ import com.google.common.annotations.VisibleForTesting
 
 import scala.concurrent.{ExecutionContext, Future}
 
-private[transfer] class TransferInValidation(
+private[transfer] class AssignmentValidation(
     domainId: TargetDomainId,
     staticDomainParameters: StaticDomainParameters,
     participantId: ParticipantId,
@@ -38,18 +38,18 @@ private[transfer] class TransferInValidation(
     extends NamedLogging {
 
   def checkStakeholders(
-      transferInRequest: FullTransferInTree,
+      assignmentRequest: FullAssignmentTree,
       getEngineAbortStatus: GetEngineAbortStatus,
   )(implicit traceContext: TraceContext): EitherT[Future, TransferProcessorError, Unit] = {
-    val reassignmentId = transferInRequest.unassignmentResultEvent.reassignmentId
+    val reassignmentId = assignmentRequest.unassignmentResultEvent.reassignmentId
 
-    val declaredContractStakeholders = transferInRequest.contract.metadata.stakeholders
-    val declaredViewStakeholders = transferInRequest.stakeholders
+    val declaredContractStakeholders = assignmentRequest.contract.metadata.stakeholders
+    val declaredViewStakeholders = assignmentRequest.stakeholders
 
     for {
       metadata <- engine
         .contractMetadata(
-          transferInRequest.contract.contractInstance,
+          assignmentRequest.contract.contractInstance,
           declaredContractStakeholders,
           getEngineAbortStatus,
         )
@@ -87,26 +87,26 @@ private[transfer] class TransferInValidation(
   }
 
   @VisibleForTesting
-  private[transfer] def validateTransferInRequest(
+  private[transfer] def validateAssignmentRequest(
       tsIn: CantonTimestamp,
-      transferInRequest: FullTransferInTree,
+      assignmentRequest: FullAssignmentTree,
       transferDataO: Option[TransferData],
       targetCrypto: DomainSnapshotSyncCryptoApi,
       isReassigningParticipant: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransferProcessorError, Option[TransferInValidationResult]] = {
-    val txOutResultEvent = transferInRequest.unassignmentResultEvent.result
+  ): EitherT[Future, TransferProcessorError, Option[AssignmentValidationResult]] = {
+    val txOutResultEvent = assignmentRequest.unassignmentResultEvent.result
 
-    val reassignmentId = transferInRequest.unassignmentResultEvent.reassignmentId
+    val reassignmentId = assignmentRequest.unassignmentResultEvent.reassignmentId
 
     def checkSubmitterIsStakeholder: Either[TransferProcessorError, Unit] =
       condUnitE(
-        transferInRequest.stakeholders.contains(transferInRequest.submitter),
+        assignmentRequest.stakeholders.contains(assignmentRequest.submitter),
         SubmittingPartyMustBeStakeholderIn(
           reassignmentId,
-          transferInRequest.submitter,
-          transferInRequest.stakeholders,
+          assignmentRequest.submitter,
+          assignmentRequest.stakeholders,
         ),
       )
 
@@ -152,7 +152,7 @@ private[transfer] class TransferInValidation(
           // TODO(i12926): Validate that the unassignment result received matches the unassignment result in transferData
 
           _ <- condUnitET[Future](
-            transferInRequest.contract == transferData.contract,
+            assignmentRequest.contract == transferData.contract,
             ContractDataMismatch(reassignmentId),
           )
           _ <- EitherT.fromEither[Future](checkSubmitterIsStakeholder)
@@ -176,25 +176,25 @@ private[transfer] class TransferInValidation(
 
           _ <- condUnitET[Future](
             tsIn >= exclusivityLimit
-              || unassignmentSubmitter == transferInRequest.submitter,
+              || unassignmentSubmitter == assignmentRequest.submitter,
             NonInitiatorSubmitsBeforeExclusivityTimeout(
               reassignmentId,
-              transferInRequest.submitter,
+              assignmentRequest.submitter,
               currentTimestamp = tsIn,
               timeout = exclusivityLimit,
             ),
           )
           _ <- condUnitET[Future](
-            transferData.creatingTransactionId == transferInRequest.creatingTransactionId,
+            transferData.creatingTransactionId == assignmentRequest.creatingTransactionId,
             CreatingTransactionIdMismatch(
               reassignmentId,
-              transferInRequest.creatingTransactionId,
+              assignmentRequest.creatingTransactionId,
               transferData.creatingTransactionId,
             ),
           )
           sourceIps = sourceCrypto.ipsSnapshot
 
-          stakeholders = transferInRequest.stakeholders
+          stakeholders = assignmentRequest.stakeholders
           sourceConfirmingParties <- EitherT.right(
             sourceIps.canConfirm(participantId, stakeholders)
           )
@@ -204,37 +204,37 @@ private[transfer] class TransferInValidation(
           confirmingParties = sourceConfirmingParties.intersect(targetConfirmingParties)
 
           _ <- EitherT.cond[Future](
-            // reassignment counter is the same in unassignment and transfer-in requests
-            transferInRequest.reassignmentCounter == transferData.reassignmentCounter,
+            // reassignment counter is the same in unassignment and assignment requests
+            assignmentRequest.reassignmentCounter == transferData.reassignmentCounter,
             (),
             InconsistentReassignmentCounter(
               reassignmentId,
-              transferInRequest.reassignmentCounter,
+              assignmentRequest.reassignmentCounter,
               transferData.reassignmentCounter,
             ): TransferProcessorError,
           )
 
-        } yield Some(TransferInValidationResult(confirmingParties.toSet))
+        } yield Some(AssignmentValidationResult(confirmingParties.toSet))
       case None =>
         for {
           _ <- EitherT.fromEither[Future](checkSubmitterIsStakeholder)
           res <-
             if (isReassigningParticipant) {
-              // This happens either in case of malicious transfer-ins (incorrectly declared reassigning participants)
+              // This happens either in case of malicious assignments (incorrectly declared reassigning participants)
               // OR if the transfer data has been pruned.
-              // The transfer-in should be rejected due to other validations (e.g. conflict detection), but
+              // The assignment should be rejected due to other validations (e.g. conflict detection), but
               // we could code this more defensively at some point
 
               val targetIps = targetCrypto.ipsSnapshot
               val confirmingPartiesF = targetIps
                 .canConfirm(
                   participantId,
-                  transferInRequest.stakeholders,
+                  assignmentRequest.stakeholders,
                 )
               EitherT(confirmingPartiesF.map { confirmingParties =>
-                Right(Some(TransferInValidationResult(confirmingParties))): Either[
+                Right(Some(AssignmentValidationResult(confirmingParties))): Either[
                   TransferProcessorError,
-                  Option[TransferInValidationResult],
+                  Option[AssignmentValidationResult],
                 ]
               })
             } else EitherT.rightT[Future, TransferProcessorError](None)
@@ -243,15 +243,15 @@ private[transfer] class TransferInValidation(
   }
 }
 
-object TransferInValidation {
-  final case class TransferInValidationResult(confirmingParties: Set[LfPartyId])
+object AssignmentValidation {
+  final case class AssignmentValidationResult(confirmingParties: Set[LfPartyId])
 
-  private[transfer] sealed trait TransferInValidationError extends TransferProcessorError
+  private[transfer] sealed trait AssignmentValidationError extends TransferProcessorError
 
   final case class NoTransferData(
       reassignmentId: ReassignmentId,
       lookupError: TransferStore.TransferLookupError,
-  ) extends TransferInValidationError {
+  ) extends AssignmentValidationError {
     override def message: String =
       s"Cannot find transfer data for transfer `$reassignmentId`: ${lookupError.cause}"
   }
@@ -259,33 +259,33 @@ object TransferInValidation {
   final case class UnassignmentIncomplete(
       reassignmentId: ReassignmentId,
       participant: ParticipantId,
-  ) extends TransferInValidationError {
+  ) extends AssignmentValidationError {
     override def message: String =
-      s"Cannot transfer-in `$reassignmentId` because unassignment is incomplete"
+      s"Cannot assign `$reassignmentId` because unassignment is incomplete"
   }
 
   final case class NoParticipantForReceivingParty(reassignmentId: ReassignmentId, party: LfPartyId)
-      extends TransferInValidationError {
+      extends AssignmentValidationError {
     override def message: String =
-      s"Cannot transfer-in `$reassignmentId` because $party is not active"
+      s"Cannot assign `$reassignmentId` because $party is not active"
   }
 
   final case class UnexpectedDomain(
       reassignmentId: ReassignmentId,
       targetDomain: DomainId,
       receivedOn: DomainId,
-  ) extends TransferInValidationError {
+  ) extends AssignmentValidationError {
     override def message: String =
-      s"Cannot transfer-in `$reassignmentId`: expecting domain `$targetDomain` but received on `$receivedOn`"
+      s"Cannot assign `$reassignmentId`: expecting domain `$targetDomain` but received on `$receivedOn`"
   }
 
   final case class ResultTimestampExceedsDecisionTime(
       reassignmentId: ReassignmentId,
       timestamp: CantonTimestamp,
       decisionTime: CantonTimestamp,
-  ) extends TransferInValidationError {
+  ) extends AssignmentValidationError {
     override def message: String =
-      s"Cannot transfer-in `$reassignmentId`: result time $timestamp exceeds decision time $decisionTime"
+      s"Cannot assign `$reassignmentId`: result time $timestamp exceeds decision time $decisionTime"
   }
 
   final case class NonInitiatorSubmitsBeforeExclusivityTimeout(
@@ -293,32 +293,32 @@ object TransferInValidation {
       submitter: LfPartyId,
       currentTimestamp: CantonTimestamp,
       timeout: CantonTimestamp,
-  ) extends TransferInValidationError {
+  ) extends AssignmentValidationError {
     override def message: String =
-      s"Cannot transfer-in `$reassignmentId`: only submitter can initiate before exclusivity timeout $timeout"
+      s"Cannot assign `$reassignmentId`: only submitter can initiate before exclusivity timeout $timeout"
   }
 
   final case class ContractDataMismatch(reassignmentId: ReassignmentId)
-      extends TransferInValidationError {
-    override def message: String = s"Cannot transfer-in `$reassignmentId`: contract data mismatch"
+      extends AssignmentValidationError {
+    override def message: String = s"Cannot assign `$reassignmentId`: contract data mismatch"
   }
 
   final case class CreatingTransactionIdMismatch(
       reassignmentId: ReassignmentId,
-      transferInTransactionId: TransactionId,
+      assignmentTransactionId: TransactionId,
       localTransactionId: TransactionId,
-  ) extends TransferInValidationError {
+  ) extends AssignmentValidationError {
     override def message: String =
-      s"Cannot transfer-in `$reassignmentId`: creating transaction id mismatch"
+      s"Cannot assign `$reassignmentId`: creating transaction id mismatch"
   }
 
   final case class InconsistentReassignmentCounter(
       reassignmentId: ReassignmentId,
       declaredReassignmentCounter: ReassignmentCounter,
       expectedReassignmentCounter: ReassignmentCounter,
-  ) extends TransferInValidationError {
+  ) extends AssignmentValidationError {
     override def message: String =
-      s"Cannot transfer-in $reassignmentId: reassignment counter $declaredReassignmentCounter in transfer-in does not match $expectedReassignmentCounter from the unassignment"
+      s"Cannot assign $reassignmentId: reassignment counter $declaredReassignmentCounter in assignment does not match $expectedReassignmentCounter from the unassignment"
   }
 
   final case class TransferSigningError(

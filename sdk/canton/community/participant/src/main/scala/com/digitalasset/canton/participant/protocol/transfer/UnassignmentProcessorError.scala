@@ -66,7 +66,7 @@ object UnassignmentProcessorError {
       s"Cannot unassign `$reassignmentId`: invalid result"
   }
 
-  final case class AutomaticTransferInError(message: String) extends UnassignmentProcessorError
+  final case class AutomaticAssignmentError(message: String) extends UnassignmentProcessorError
 
   final case class PermissionErrors(message: String) extends UnassignmentProcessorError
 

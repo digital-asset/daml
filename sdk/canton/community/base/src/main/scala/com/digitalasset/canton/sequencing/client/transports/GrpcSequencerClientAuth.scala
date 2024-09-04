@@ -4,6 +4,7 @@
 package com.digitalasset.canton.sequencing.client.transports
 
 import cats.data.EitherT
+import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.Crypto
@@ -52,10 +53,11 @@ class GrpcSequencerClientAuth(
       loggerFactory,
     )
 
-  def logout(channel: ManagedChannel): EitherT[FutureUnlessShutdown, Status, Unit] = {
-    val authenticationClient = new SequencerAuthenticationServiceStub(channel)
-    tokenProvider.logout(authenticationClient)
-  }
+  def logout(): EitherT[FutureUnlessShutdown, Status, Unit] =
+    channelPerEndpoint.forgetNE.toSeq.parTraverse_ { case (_, channel) =>
+      val authenticationClient = new SequencerAuthenticationServiceStub(channel)
+      tokenProvider.logout(authenticationClient)
+    }
 
   /** Wrap a grpc client with components to appropriately perform authentication */
   def apply[S <: AbstractStub[S]](client: S): S = {

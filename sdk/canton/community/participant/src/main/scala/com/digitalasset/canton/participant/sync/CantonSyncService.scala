@@ -1602,8 +1602,8 @@ class CantonSyncService(
       span.setAttribute("command_id", commandId)
       logger.debug(s"Received submit-reassignment $commandId from ledger-api server")
 
-      /* @param domain For unassignment this should be the source domain, for transfer-in this is the target domain
-       * @param remoteDomain For unassignment this should be the target domain, for transfer-in this is the source domain
+      /* @param domain For unassignment this should be the source domain, for assignment this is the target domain
+       * @param remoteDomain For unassignment this should be the target domain, for assignment this is the source domain
        */
       def doTransfer[E <: TransferProcessorError, T](
           domain: DomainId,
@@ -1675,7 +1675,7 @@ class CantonSyncService(
             domain = assign.targetDomain.unwrap,
             remoteDomain = assign.sourceDomain.unwrap,
           )(
-            _.submitTransferIn(
+            _.submitAssignment(
               submitterMetadata = TransferSubmitterMetadata(
                 submitter = submitter,
                 applicationId = applicationId,

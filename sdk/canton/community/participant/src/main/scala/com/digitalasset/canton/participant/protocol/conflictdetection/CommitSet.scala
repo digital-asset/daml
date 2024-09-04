@@ -22,7 +22,7 @@ import com.digitalasset.canton.{LfPartyId, ReassignmentCounter}
 /** Describes the effect of a confirmation request on the active contracts, contract keys, and transfers.
   * Transient contracts appear the following two sets:
   * <ol>
-  *   <li>The union of [[creations]] and [[transferIns]]</li>
+  *   <li>The union of [[creations]] and [[assignments]]</li>
   *   <li>The union of [[archivals]] or [[unassignments]]</li>
   * </ol>
   *
@@ -30,24 +30,24 @@ import com.digitalasset.canton.{LfPartyId, ReassignmentCounter}
   * @param creations    The contracts to be created.
   * @param unassignments The contracts to be transferred out, along with their target domains and stakeholders.
   *                     Must not contain contracts in [[archivals]].
-  * @param transferIns  The contracts to be transferred in, along with their reassignment IDs.
+  * @param assignments  The contracts to be transferred in, along with their reassignment IDs.
   * @throws java.lang.IllegalArgumentException if `unassignments` overlap with `archivals`
-  *                                            or `creations` overlaps with `transferIns`.
+  *                                            or `creations` overlaps with `assignments`.
   */
 final case class CommitSet(
     archivals: Map[LfContractId, ArchivalCommit],
     creations: Map[LfContractId, CreationCommit],
     unassignments: Map[LfContractId, UnassignmentCommit],
-    transferIns: Map[LfContractId, TransferInCommit],
+    assignments: Map[LfContractId, AssignmentCommit],
 ) extends PrettyPrinting {
   requireDisjoint(unassignments.keySet -> "unassignments", archivals.keySet -> "archivals")
-  requireDisjoint(transferIns.keySet -> "Transfer-ins", creations.keySet -> "creations")
+  requireDisjoint(assignments.keySet -> "assignments", creations.keySet -> "creations")
 
   override def pretty: Pretty[CommitSet] = prettyOfClass(
     paramIfNonEmpty("archivals", _.archivals),
     paramIfNonEmpty("creations", _.creations),
-    paramIfNonEmpty("transfer outs", _.unassignments),
-    paramIfNonEmpty("transfer ins", _.transferIns),
+    paramIfNonEmpty("unassignments", _.unassignments),
+    paramIfNonEmpty("assigments", _.assignments),
   )
 }
 
@@ -75,12 +75,12 @@ object CommitSet {
       param("reassignmentCounter", _.reassignmentCounter),
     )
   }
-  final case class TransferInCommit(
+  final case class AssignmentCommit(
       reassignmentId: ReassignmentId,
       contractMetadata: ContractMetadata,
       reassignmentCounter: ReassignmentCounter,
   ) extends PrettyPrinting {
-    override def pretty: Pretty[TransferInCommit] = prettyOfClass(
+    override def pretty: Pretty[AssignmentCommit] = prettyOfClass(
       param("reassignmentId", _.reassignmentId),
       param("contractMetadata", _.contractMetadata),
       param("reassignmentCounter", _.reassignmentCounter),
@@ -114,7 +114,7 @@ object CommitSet {
         archivals = archivals,
         creations = creations,
         unassignments = Map.empty,
-        transferIns = Map.empty,
+        assignments = Map.empty,
       )
     } else {
       SyncServiceAlarm

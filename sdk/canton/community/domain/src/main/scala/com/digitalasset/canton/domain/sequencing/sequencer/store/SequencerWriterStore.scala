@@ -99,6 +99,13 @@ trait SequencerWriterStore extends AutoCloseable {
   ): Future[Option[CantonTimestamp]] =
     store.deleteEventsPastWatermark(instanceIndex)
 
+  /** Record a counter checkpoints for all members at the given timestamp.
+    */
+  def recordCounterCheckpointsAtTimestamp(ts: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): Future[Unit] =
+    store.recordCounterCheckpointsAtTimestamp(ts)
+
 }
 
 /** Writer store that just passes directly through to the underlying store using the provided instance index. */
