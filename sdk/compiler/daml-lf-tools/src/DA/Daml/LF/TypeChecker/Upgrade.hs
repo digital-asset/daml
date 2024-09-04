@@ -14,7 +14,7 @@ import           Control.Monad.Reader (withReaderT)
 import           Control.Monad.Reader.Class (asks)
 import           Control.Lens hiding (Context)
 import           DA.Daml.LF.Ast as LF
-import           DA.Daml.LF.Ast.Alpha (alphaExpr, AlphaEnv(..), initialAlphaEnv, alphaType', alphaTypeCon)
+import           DA.Daml.LF.Ast.Alpha (alphaExpr', AlphaEnv(..), initialAlphaEnv, alphaType', alphaTypeCon)
 import           DA.Daml.LF.TypeChecker.Check (expandTypeSynonyms)
 import           DA.Daml.LF.TypeChecker.Env
 import           DA.Daml.LF.TypeChecker.Error
@@ -662,9 +662,9 @@ checkTemplate module_ template = do
             case resolvedWithPossibleError of
                 Left err ->
                     warnWithContextF present' (WCouldNotExtractForUpgradeChecking (T.pack field) (Just (T.pack err)))
-                Right resolvedExprs ->
-                    let exprsMatch = foldU alphaExpr $ fmap removeLocations resolvedExprs
-                    in
+                Right resolvedExprs -> do
+                    alphaEnv <- upgradingAlphaEnv
+                    let exprsMatch = foldU (alphaExpr' alphaEnv) $ fmap removeLocations resolvedExprs
                     unless exprsMatch act
 
         -- Each extract function takes an expression, extracts a relevant
@@ -829,8 +829,13 @@ checkQualName deps name =
 isUpgradedType :: Upgrading Type -> TcUpgradeM Bool
 isUpgradedType type_ = do
     expandedTypes <- runGammaUnderUpgrades (expandTypeSynonyms <$> type_)
+    alphaEnv <- upgradingAlphaEnv
+    pure $ foldU (alphaType' alphaEnv) expandedTypes
+
+upgradingAlphaEnv :: TcUpgradeM AlphaEnv
+upgradingAlphaEnv = do
     deps <- view upgradingDeps
-    pure $ foldU (alphaType' initialAlphaEnv { tconEquivalence = unfoldU (checkQualName deps) }) expandedTypes
+    pure $ initialAlphaEnv { alphaTypeCon = unfoldU (checkQualName deps), alphaExprVal = unfoldU (checkQualName deps) }
 
 removePkgId :: Qualified a -> Qualified a
 removePkgId a = a { qualPackage = PRSelf }
