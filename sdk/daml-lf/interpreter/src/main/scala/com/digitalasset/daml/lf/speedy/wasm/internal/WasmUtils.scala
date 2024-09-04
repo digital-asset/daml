@@ -3,6 +3,8 @@
 
 package com.digitalasset.daml.lf.speedy.wasm
 
+package internal
+
 import com.daml.scalautil.Statement.discard
 import com.dylibso.chicory.runtime.{Instance => WasmInstance}
 import com.dylibso.chicory.wasm.types.{Value => WasmValue, ValueType => WasmValueType}

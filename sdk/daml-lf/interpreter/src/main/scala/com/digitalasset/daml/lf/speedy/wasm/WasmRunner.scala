@@ -45,7 +45,7 @@ final class WasmRunner(
     extends UpdateWasmHostFunctions(pkgInterface)
     with WasmHostFunctions {
 
-  import WasmUtils._
+  import internal.WasmUtils._
   import WasmTemplateExportFunctions._
   import WasmChoiceExportFunctions._
   import host.internal.WasmRunnerHostFunctions._

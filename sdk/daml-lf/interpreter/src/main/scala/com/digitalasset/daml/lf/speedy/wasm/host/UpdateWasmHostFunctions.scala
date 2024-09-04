@@ -7,12 +7,13 @@ package host
 
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.language.PackageInterface
-import com.digitalasset.daml.lf.speedy.wasm.{SpeedyUtils, WasmUtils}
+import com.digitalasset.daml.lf.speedy.wasm.SpeedyUtils
 import com.digitalasset.daml.lf.value.{
   Value => LfValue,
   ValueCoder => LfValueCoder,
   ValueOuterClass => proto,
 }
+import com.digitalasset.daml.lf.speedy.wasm.internal.WasmUtils
 import com.dylibso.chicory.runtime.{HostFunction => WasmHostFunction}
 
 import scala.concurrent.duration.Duration

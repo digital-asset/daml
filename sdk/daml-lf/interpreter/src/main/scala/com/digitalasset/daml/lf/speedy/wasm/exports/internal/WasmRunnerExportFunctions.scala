@@ -5,9 +5,9 @@ package com.digitalasset.daml.lf.speedy.wasm
 
 package exports.internal
 
-import com.digitalasset.daml.lf.speedy.wasm.WasmUtils
 import com.digitalasset.daml.lf.transaction.TransactionVersion
 import com.digitalasset.daml.lf.value.{Value => LfValue, ValueCoder => LfValueCoder}
+import com.digitalasset.daml.lf.speedy.wasm.internal.WasmUtils
 import com.dylibso.chicory.runtime.{Instance => WasmInstance}
 
 object WasmRunnerExportFunctions {
