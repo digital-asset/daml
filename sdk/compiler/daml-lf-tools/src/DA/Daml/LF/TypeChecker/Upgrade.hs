@@ -22,7 +22,7 @@ import           Data.Bifunctor (first)
 import           Data.Either (partitionEithers)
 import           Data.Hashable
 import qualified Data.HashMap.Strict as HMS
-import           Data.List (foldl')
+import           Data.List (foldl', nub)
 import qualified Data.NameMap as NM
 import qualified Data.Text as T
 import           Development.IDE.Types.Diagnostics
@@ -76,11 +76,12 @@ mkGamma version upgradeInfo world =
 gammaM :: World -> TcPreUpgradeM Gamma
 gammaM world = asks (flip (uncurry mkGamma) world)
 
+{- HLINT ignore "Use nubOrd" -}
 extractDiagnostics :: Version -> UpgradeInfo -> TcPreUpgradeM () -> [Diagnostic]
 extractDiagnostics version upgradeInfo action =
   case runGammaF (version, upgradeInfo) action of
     Left err -> [toDiagnostic err]
-    Right ((), warnings) -> map toDiagnostic warnings
+    Right ((), warnings) -> map toDiagnostic (nub warnings)
 
 checkUpgrade
   :: LF.Package
