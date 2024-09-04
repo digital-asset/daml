@@ -2410,15 +2410,7 @@ private[lf] object SBuiltin {
 
                     // In Validation mode, we always call validateContractInfo
                     // In Submission mode, we only call validateContractInfo when src != dest
-                    val needValidationCall: Boolean =
-                      if (machine.validating) {
-                        upgradingIsEnabled
-                      } else {
-                        // we already check qualified names match
-                        upgradingIsEnabled && (srcTmplId.packageId != dstTmplId.packageId)
-                      }
-                    if (needValidationCall) {
-
+                    if (upgradingIsEnabled) {
                       validateContractInfo(machine, coid, srcTmplId, contract) { () =>
                         f(contract.packageName, contract.any)
                       }
@@ -2440,19 +2432,13 @@ private[lf] object SBuiltin {
       contract: ContractInfo,
   )(
       continue: () => Control[Question.Update]
-  ): Control[Question.Update] = {
-
-    val keyOpt: Option[GlobalKeyWithMaintainers] = contract.keyOpt match {
-      case None => None
-      case Some(cachedKey) =>
-        Some(cachedKey.globalKeyWithMaintainers)
-    }
+  ): Control[Question.Update] =
     machine.needUpgradeVerification(
       location = NameOf.qualifiedNameOfCurrentFunc,
       coid = coid,
       signatories = contract.signatories,
       observers = contract.observers,
-      keyOpt = keyOpt,
+      keyOpt = contract.gkeyWithMaintainers,
       continue = {
         case None =>
           continue()
@@ -2467,7 +2453,7 @@ private[lf] object SBuiltin {
                   dstTemplateId = contract.templateId,
                   signatories = contract.signatories,
                   observers = contract.observers,
-                  keyOpt = keyOpt,
+                  keyOpt = contract.gkeyWithMaintainers,
                   msg = msg,
                 )
               ),
@@ -2475,7 +2461,6 @@ private[lf] object SBuiltin {
           )
       },
     )
-  }
 
   private def importValue[Q](machine: Machine[Q], templateId: TypeConName, coinstArg: V)(
       f: SValue => Control[Q]

@@ -26,30 +26,23 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 
 import java.util
 
-class UpgradeTestV1 extends UpgradeTest(LanguageMajorVersion.V1)
-//class UpgradeTestV2 extends UpgradeTest(LanguageMajorVersion.V2)
-
-class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
-    extends AnyFreeSpec
-    with Matchers
-    with TableDrivenPropertyChecks
-    with Inside {
-
-  implicit val pkgId: Ref.PackageId = Ref.PackageId.assertFromString("-no-pkg-")
+class UpgradeTest extends AnyFreeSpec with Matchers with TableDrivenPropertyChecks with Inside {
 
   import SpeedyTestLib.UpgradeVerificationRequest
+
+  private val majorLanguageVersion = LanguageMajorVersion.V1
 
   private[this] implicit def parserParameters(implicit
       pkgId: Ref.PackageId
   ): ParserParameters[this.type] =
     ParserParameters(pkgId, languageVersion = majorLanguageVersion.maxStableVersion)
 
-  lazy val pkgId0 = Ref.PackageId.assertFromString("-pkg0-")
-  private lazy val pkg0 = {
+  implicit lazy val pkgId: Ref.PackageId = Ref.PackageId.assertFromString("-pkg-")
+  private lazy val pkg = {
     // Not upgradeable (LF <= 1.15)
     implicit def parserParameters: ParserParameters[this.type] =
-      ParserParameters(defaultPackageId = pkgId0, languageVersion = LanguageVersion.v1_15)
-    p""" metadata ( '-upgrade-test-' : '1.0.0' )
+      ParserParameters(defaultPackageId = pkgId, languageVersion = LanguageVersion.v1_15)
+    p""" metadata ( '-upgrade-test-' : '0.0.0' )
     module M {
 
       record @serializable T = { sig: Party, obs: Party, aNumber: Int64 };
@@ -66,11 +59,35 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           fetch_template @M:T cId;
 
       val mkList: Party -> Option Party -> List Party =
-        \(sig: Party) -> \(optSig: Option Party) ->
-          case optSig of
+        \(sig: Party) -> \(optParty: Option Party) ->
+          case optParty of
             None -> Cons @Party [sig] Nil @Party
           | Some extraSig -> Cons @Party [sig, extraSig] Nil @Party;
 
+    }
+    """
+  }
+
+  lazy val pkgId0 = Ref.PackageId.assertFromString("-pkg0-")
+  private lazy val pkg0 = {
+    // Not upgradeable (LF <= 1.15)
+    implicit def parserParameters: ParserParameters[this.type] =
+      ParserParameters(defaultPackageId = pkgId0, languageVersion = LanguageVersion.v1_15)
+    p""" metadata ( '-upgrade-test-' : '0.0.0' )
+    module M {
+
+      record @serializable T = { sig: Party, obs: Party, aNumber: Int64 };
+      template (this: T) = {
+        precondition True;
+        signatories '-pkg-':M:mkList (M:T {sig} this) (None @Party);
+        observers '-pkg-':M:mkList (M:T {obs} this) (None @Party);
+        agreement "Agreement";
+        key @Party (M:T {sig} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
+      };
+
+      val do_fetch: ContractId M:T -> Update M:T =
+        \(cId: ContractId M:T) ->
+          fetch_template @M:T cId;
     }
     """
   }
@@ -85,8 +102,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       record @serializable T = { sig: Party, obs: Party, aNumber: Int64 };
       template (this: T) = {
         precondition True;
-        signatories '-pkg0-':M:mkList (M:T {sig} this) (None @Party);
-        observers '-pkg0-':M:mkList (M:T {obs} this) (None @Party);
+        signatories '-pkg-':M:mkList (M:T {sig} this) (None @Party);
+        observers '-pkg-':M:mkList (M:T {obs} this) (None @Party);
         agreement "Agreement";
         key @Party (M:T {sig} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
       };
@@ -109,8 +126,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       record @serializable T = { sig: Party, obs: Party, aNumber: Int64 };
       template (this: T) = {
         precondition True;
-        signatories '-pkg0-':M:mkList (M:T {sig} this) (None @Party);
-        observers '-pkg0-':M:mkList (M:T {obs} this) (None @Party);
+        signatories '-pkg-':M:mkList (M:T {sig} this) (None @Party);
+        observers '-pkg-':M:mkList (M:T {obs} this) (None @Party);
         agreement "Agreement";
         key @Party (M:T {sig} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
       };
@@ -129,12 +146,18 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     p""" metadata ( '-upgrade-test-' : '3.0.0' )
       module M {
 
-      record @serializable T = { sig: Party, obs: Party, aNumber: Int64, optSig: Option Party };
+      record @serializable T = { sig: Party, obs: Party, aNumber: Int64, optParty: Option Party };
+      record @serializable CArg = { i: Int64 };
+      record @serializable CRet = { i: Int64 };
       template (this: T) = {
         precondition True;
-        signatories '-pkg0-':M:mkList (M:T {sig} this) (M:T {optSig} this);
-        observers '-pkg0-':M:mkList (M:T {obs} this) (None @Party);
+        signatories '-pkg-':M:mkList (M:T {sig} this) (M:T {optParty} this);
+        observers '-pkg-':M:mkList (M:T {obs} this) (None @Party);
         agreement "Agreement";
+        choice Noop (self) (a: M:CArg) : M:CRet,
+          controllers '-pkg-':M:mkList (M:T {sig} this) (None @Party),
+          observers Nil @Party
+          to upure @M:CRet (M:CRet { i = M:CArg {i} a });
         key @Party (M:T {sig} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
       };
 
@@ -153,12 +176,18 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     p""" metadata ( '-upgrade-test-' : '4.0.0' )
       module M {
 
-      record @serializable T = { sig: Party, obs: Party, aNumber: Int64, optSig: Option Party };
+      record @serializable T = { sig: Party, obs: Party, aNumber: Int64, optPart: Option Party };
+      record @serializable CArg = { i: Int64 };
+      record @serializable CRet = { i: Int64 };
       template (this: T) = {
         precondition True;
-        signatories '-pkg0-':M:mkList (M:T {obs} this) (None @Party);
-        observers '-pkg0-':M:mkList (M:T {sig} this) (None @Party);
+        signatories '-pkg-':M:mkList (M:T {obs} this) (None @Party);
+        observers '-pkg-':M:mkList (M:T {sig} this) (M:T {optPart} this);
         agreement "Agreement";
+        choice Noop (self) (a: M:CArg) : M:CRet,
+          controllers '-pkg-':M:mkList (M:T {sig} this) (None @Party),
+          observers Nil @Party
+          to upure @M:CRet (M:CRet { i = M:CArg {i} a });
         key @Party (M:T {obs} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
       };
 
@@ -180,7 +209,14 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
   private lazy val pkgs =
     PureCompiledPackages.assertBuild(
-      Map(pkgId0 -> pkg0, pkgId1 -> pkg1, pkgId2 -> pkg2, pkgId3 -> pkg3, pkgId4 -> pkg4),
+      Map(
+        pkgId -> pkg,
+        pkgId0 -> pkg0,
+        pkgId1 -> pkg1,
+        pkgId2 -> pkg2,
+        pkgId3 -> pkg3,
+        pkgId4 -> pkg4,
+      ),
       Compiler.Config.Dev(majorLanguageVersion),
     )
 
@@ -192,17 +228,18 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
   type Success = (Value, List[UpgradeVerificationRequest])
 
   // The given contractValue is wrapped as a contract available for ledger-fetch
-  def go(e: Expr, contract: ContractInstance): Either[SError, Success] = {
-    goFinish(e, contract).map(_._1)
+  def go(e: Expr, contract: ContractInstance, args: SValue*): Either[SError, Success] = {
+    goFinish(e, contract, args: _*).map(_._1)
   }
 
   private def goFinish(
       e: Expr,
       contract: ContractInstance,
+      args0: SValue*
   ): Either[SError, (Success, UpdateMachine.Result)] = {
 
     val se: SExpr = pkgs.compiler.unsafeCompile(e)
-    val args: Array[SValue] = Array(SContractId(theCid))
+    val args: Array[SValue] = (SContractId(theCid) +: args0).toArray
     val sexprToEval: SExpr = SEApp(se, args)
 
     implicit def logContext: LoggingContext = LoggingContext.ForTesting
@@ -219,7 +256,6 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
   // The given contractSValue is wrapped as a disclosedContract
   def goDisclosed(e: Expr, contractSValue: SValue): Either[SError, Success] = {
-
     val se: SExpr = pkgs.compiler.unsafeCompile(e)
     val args = Array[SValue](SContractId(theCid))
     val sexprToEval = SEApp(se, args)
@@ -274,7 +310,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
   "upgrade attempted" - {
 
-    "contract is LF < 1.17 -- should be reject" in {
+    // TEST_EVIDENCE: Upgrade: templates from a LF < 1.17 package cannot be upgraded to a template from another < 1.17 package (even with same package name, module path and template name).
+    "contract is LF < 1.17 upgrade as  < 1.17 -- should be reject" in {
       val v =
         makeRecord(
           ValueParty(alice),
@@ -282,9 +319,43 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           ValueInt64(100),
         )
 
-      go(e"'-pkg1-':M:do_fetch", ContractInstance(pkg0.name, i"'-pkg0-':M:T", v)) shouldBe a[
-        Left[_, _]
-      ]
+      inside(go(e"'-pkg0-':M:do_fetch", ContractInstance(pkg0.name, i"'-pkg-':M:T", v))) {
+        case Left(SError.SErrorDamlException(IE.WronglyTypedContract(_, expected, actual))) =>
+          expected shouldBe i"'-pkg0-':M:T"
+          actual shouldBe i"'-pkg-':M:T"
+      }
+    }
+
+    // TEST_EVIDENCE: Upgrade: templates from a LF < 1.17 package cannot be upgraded to a template from another >= 1.17 package (even with same package name, module path and template name).
+    "contract is LF < 1.17, upgraded as LF >= 1.17 -- should be reject" in {
+      val v =
+        makeRecord(
+          ValueParty(alice),
+          ValueParty(bob),
+          ValueInt64(100),
+        )
+
+      inside(go(e"'-pkg1-':M:do_fetch", ContractInstance(pkg0.name, i"'-pkg0-':M:T", v))) {
+        case Left(SError.SErrorDamlException(IE.WronglyTypedContract(_, expected, actual))) =>
+          expected shouldBe i"'-pkg1-':M:T"
+          actual shouldBe i"'-pkg0-':M:T"
+      }
+    }
+
+    // TEST_EVIDENCE: Upgrade: templates from a LF >= 1.17 package cannot be upgraded to a template from another < 1.17 package (even with same package name, module path and template name).
+    "contract is LF >= 1.17, upgrade as  LF < 1.17 -- should be reject" in {
+      val v =
+        makeRecord(
+          ValueParty(alice),
+          ValueParty(bob),
+          ValueInt64(100),
+        )
+
+      inside(go(e"'-pkg0-':M:do_fetch", ContractInstance(pkg0.name, i"'-pkg1-':M:T", v))) {
+        case Left(SError.SErrorDamlException(IE.WronglyTypedContract(_, expected, actual))) =>
+          expected shouldBe i"'-pkg0-':M:T"
+          actual shouldBe i"'-pkg1-':M:T"
+      }
     }
 
     "missing optional field -- None is manufactured" in {
@@ -460,6 +531,66 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           UpgradeVerificationRequest(theCid, Set(bob), Set(alice), Some(v4_key)),
         )
       }
+    }
+
+    "meta data change - should be rejected" - {
+
+      "signatories change in global contract" in {
+        val v =
+          makeRecord(
+            ValueParty(alice),
+            ValueParty(alice),
+            ValueInt64(100),
+            ValueOptional(Some(ValueParty(bob))),
+          )
+
+        inside(
+          go(
+            e"""
+              \(cid: ContractId '-pkg3-':M:T) ->
+                ubind x: '-pkg3-':M:T <- '-pkg3-':M:do_fetch cid
+                in '-pkg4-':M:do_fetch (COERCE_CONTRACT_ID @'-pkg3-':M:T  @'-pkg4-':M:T cid)
+             """,
+            ContractInstance(pkg3.name, i"'-pkg3-':M:T", v),
+          )
+        ) {
+          case Left(
+                SError.SErrorDamlException(
+                  IE.Dev(_, IE.Dev.Upgrade(error: IE.Dev.Upgrade.ValidationFailed))
+                )
+              ) =>
+            error.msg shouldBe "signatories"
+        }
+      }
+
+      "signatories in local contract" in {
+        inside(
+          go(
+            e"""
+              \(cid0: ContractId '-pkg3-':M:T) (alice: Party) (bob: Party) ->
+                ubind
+                  cid: ContractId '-pkg3-':M:T <- create @'-pkg3-':M:T ('-pkg3-':M:T {
+                    sig = alice,
+                    obs = alice,
+                    aNumber = 100,
+                    optParty = Some @Party bob
+                  })
+                in '-pkg4-':M:do_fetch (COERCE_CONTRACT_ID @'-pkg3-':M:T  @'-pkg4-':M:T cid)
+             """,
+            ContractInstance(pkg0.name, i"'-pkg0-':M:T", ValueUnit), // dummy contract (unused)
+            SValue.SParty(alice),
+            SValue.SParty(bob),
+          )
+        ) {
+          case Left(
+                SError.SErrorDamlException(
+                  IE.Dev(_, IE.Dev.Upgrade(error: IE.Dev.Upgrade.ValidationFailed))
+                )
+              ) =>
+            error.msg shouldBe "signatories"
+        }
+      }
+
     }
   }
 
