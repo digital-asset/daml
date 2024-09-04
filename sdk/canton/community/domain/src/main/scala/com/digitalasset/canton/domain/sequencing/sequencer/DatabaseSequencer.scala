@@ -249,6 +249,7 @@ class DatabaseSequencer(
       protocolVersion,
       timeouts,
       loggerFactory,
+      unifiedSequencer = unifiedSequencer,
     )
 
   override def isRegistered(member: Member)(implicit traceContext: TraceContext): Future[Boolean] =

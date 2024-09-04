@@ -451,13 +451,13 @@ class ParticipantNodeBootstrap(
         excludedPackageIds =
           if (parameters.excludeInfrastructureTransactions) {
             Set(
-              canton.internal.ping.Ping.TEMPLATE_ID,
-              canton.internal.bong.BongProposal.TEMPLATE_ID,
-              canton.internal.bong.Bong.TEMPLATE_ID,
-              canton.internal.bong.Merge.TEMPLATE_ID,
-              canton.internal.bong.Explode.TEMPLATE_ID,
-              canton.internal.bong.Collapse.TEMPLATE_ID,
-            ).map(x => LfPackageId.assertFromString(x.getPackageId))
+              canton.internal.ping.Ping.PACKAGE_ID,
+              canton.internal.bong.BongProposal.PACKAGE_ID,
+              canton.internal.bong.Bong.PACKAGE_ID,
+              canton.internal.bong.Merge.PACKAGE_ID,
+              canton.internal.bong.Explode.PACKAGE_ID,
+              canton.internal.bong.Collapse.PACKAGE_ID,
+            ).map(LfPackageId.assertFromString)
           } else {
             Set.empty[LfPackageId]
           }

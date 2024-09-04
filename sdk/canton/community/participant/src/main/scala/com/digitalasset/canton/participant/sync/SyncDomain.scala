@@ -210,7 +210,7 @@ class SyncDomain(
     testingConfig = testingConfig,
   )
 
-  private val transferInProcessor: TransferInProcessor = new TransferInProcessor(
+  private val assignmentProcessor: AssignmentProcessor = new AssignmentProcessor(
     TargetDomainId(domainId),
     participantId,
     damle,
@@ -329,7 +329,7 @@ class SyncDomain(
       ephemeral.requestTracker,
       transactionProcessor,
       unassignmentProcessor,
-      transferInProcessor,
+      assignmentProcessor,
       topologyProcessor,
       trafficProcessor,
       acsCommitmentProcessor.processBatch,
@@ -445,8 +445,8 @@ class SyncDomain(
           val changeWithAdjustedReassignmentCountersForUnassignments = ActiveContractIdsChange(
             change.activations,
             change.deactivations.fmap {
-              case StateChangeType(ContractChange.TransferredOut, reassignmentCounter) =>
-                StateChangeType(ContractChange.TransferredOut, reassignmentCounter - 1)
+              case StateChangeType(ContractChange.Unassigned, reassignmentCounter) =>
+                StateChangeType(ContractChange.Unassigned, reassignmentCounter - 1)
               case change => change
             },
           )
@@ -692,15 +692,15 @@ class SyncDomain(
       ephemeral.markAsRecovered()
       logger.debug("Sync domain is ready.")(initializationTraceContext)
       FutureUtil.doNotAwaitUnlessShutdown(
-        completeTransferIn,
-        "Failed to complete outstanding transfer-ins on startup. " +
-          "You may have to complete the transfer-ins manually.",
+        completeAssignment,
+        "Failed to complete outstanding assignments on startup. " +
+          "You may have to complete the assignments manually.",
       )
       ()
     }).value
   }
 
-  private def completeTransferIn(implicit tc: TraceContext): FutureUnlessShutdown[Unit] = {
+  private def completeAssignment(implicit tc: TraceContext): FutureUnlessShutdown[Unit] = {
 
     val fetchLimit = 1000
 
@@ -715,14 +715,14 @@ class SyncDomain(
             limit = fetchLimit,
           )
         )
-        // TODO(i9500): Here, transfer-ins are completed sequentially. Consider running several in parallel to speed
+        // TODO(i9500): Here, assignments are completed sequentially. Consider running several in parallel to speed
         // this up. It may be helpful to use the `RateLimiter`
         eithers <- MonadUtil
           .sequentialTraverse(pendingTransfers) { data =>
             logger.debug(s"Complete ${data.reassignmentId} after startup")
             val eitherF =
               performUnlessClosingEitherU[TransferProcessorError, Unit](functionFullName)(
-                AutomaticTransferIn.perform(
+                AutomaticAssignment.perform(
                   data.reassignmentId,
                   TargetDomainId(domainId),
                   staticDomainParameters,
@@ -760,7 +760,7 @@ class SyncDomain(
     logger.debug(s"Wait for replay to complete")
     for {
       // Wait to see a timestamp >= now from the domain -- when we see such a timestamp, it means that the participant
-      // has "caught up" on messages from the domain (and so should have seen all the transfer-ins)
+      // has "caught up" on messages from the domain (and so should have seen all the assignments)
       // TODO(i9009): This assumes the participant and domain clocks are synchronized, which may not be the case
       waitForReplay <- FutureUnlessShutdown.outcomeF(
         timeTracker
@@ -779,7 +779,7 @@ class SyncDomain(
         None: Option[(CantonTimestamp, SourceDomainId)]
       )(ts => completeTransfers(ts))
     } yield {
-      logger.debug(s"Transfer in completion has finished")
+      logger.debug(s"Assignment completion has finished")
     }
 
   }
@@ -845,28 +845,28 @@ class SyncDomain(
         .onShutdown(Left(DomainNotReady(domainId, "The domain is shutting down")))
     }
 
-  override def submitTransferIn(
+  override def submitAssignment(
       submitterMetadata: TransferSubmitterMetadata,
       reassignmentId: ReassignmentId,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransferProcessorError, FutureUnlessShutdown[
-    TransferInProcessingSteps.SubmissionResult
+    AssignmentProcessingSteps.SubmissionResult
   ]] =
     performUnlessClosingEitherT[TransferProcessorError, FutureUnlessShutdown[
-      TransferInProcessingSteps.SubmissionResult
+      AssignmentProcessingSteps.SubmissionResult
     ]](
       functionFullName,
       DomainNotReady(domainId, "The domain is shutting down."),
     ) {
-      logger.debug(s"Submitting transfer-in of `$reassignmentId` to `$domainId`")
+      logger.debug(s"Submitting assignment of `$reassignmentId` to `$domainId`")
 
       if (!ready)
         DomainNotReady(domainId, "Cannot submit unassignment before recovery").discard
 
-      transferInProcessor
+      assignmentProcessor
         .submit(
-          TransferInProcessingSteps
+          AssignmentProcessingSteps
             .SubmissionParam(submitterMetadata, reassignmentId)
         )
         .onShutdown(Left(DomainNotReady(domainId, "The domain is shutting down")))
@@ -894,7 +894,7 @@ class SyncDomain(
           acsCommitmentProcessor,
           transactionProcessor,
           unassignmentProcessor,
-          transferInProcessor,
+          assignmentProcessor,
           badRootHashMessagesRequestProcessor,
           topologyProcessor,
           ephemeral.timeTracker, // need to close time tracker before domain handle, as it might otherwise send messages

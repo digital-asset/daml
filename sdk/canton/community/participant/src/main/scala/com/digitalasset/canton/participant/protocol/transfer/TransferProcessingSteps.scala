@@ -530,13 +530,13 @@ object TransferProcessingSteps {
       stakeholders: Set[LfPartyId],
   ) extends TransferProcessorError {
     override def message: String =
-      s"Cannot transfer-in `$reassignmentId`: submitter `$submittingParty` is not a stakeholder"
+      s"Cannot assign `$reassignmentId`: submitter `$submittingParty` is not a stakeholder"
   }
 
   final case class TransferStoreFailed(reassignmentId: ReassignmentId, error: TransferStoreError)
       extends TransferProcessorError {
     override def message: String =
-      s"Cannot transfer `$reassignmentId`: internal transfer store error"
+      s"Cannot reassign `$reassignmentId`: internal transfer store error"
   }
 
   final case class EncryptionError(

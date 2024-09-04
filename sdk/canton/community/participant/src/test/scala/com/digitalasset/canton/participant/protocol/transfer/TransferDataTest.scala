@@ -14,7 +14,7 @@ import scala.language.implicitConversions
 class TransferDataTest extends AnyWordSpec with Matchers with EitherValues {
   private implicit def toGlobalOffset(i: Long): GlobalOffset = GlobalOffset.tryFromLong(i)
 
-  "TransferData.TransferGlobalOffset" should {
+  "TransferData.ReassignmentGlobalOffset" should {
     val unassignment1 = UnassignmentGlobalOffset(1)
     val unassignment2 = UnassignmentGlobalOffset(2)
 
@@ -35,7 +35,7 @@ class TransferDataTest extends AnyWordSpec with Matchers with EitherValues {
       unassignment1.merge(reassignment21) shouldBe Symbol("left") // 1 != 2
     }
 
-    "be mergeable (TransferInGlobalOffset)" in {
+    "be mergeable (AssignmentGlobalOffset)" in {
       assignment1.merge(unassignment1) shouldBe Symbol("left")
       assignment1.merge(unassignment2).value shouldBe reassignment21
 
@@ -46,7 +46,7 @@ class TransferDataTest extends AnyWordSpec with Matchers with EitherValues {
       assignment1.merge(reassignment21).value shouldBe reassignment21
     }
 
-    "be mergeable (TransferGlobalOffsets)" in {
+    "be mergeable (ReassignmentGlobalOffsets)" in {
       reassignment12.merge(unassignment1).value shouldBe reassignment12
       reassignment12.merge(unassignment2) shouldBe Symbol("left")
 

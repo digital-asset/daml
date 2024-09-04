@@ -128,14 +128,14 @@ val paintOfferReassignmentId = participant3.ledger_api.commands.submit_unassign(
 ).unassignedEvent.unassignId
 // architecture-handbook-entry-end: unassignment
 
-// architecture-handbook-entry-begin: transfer-in
+// architecture-handbook-entry-begin: assignment
 participant3.ledger_api.commands.submit_assign(
   Painter,
   paintOfferReassignmentId,
   paintId,
   iouId
 )
-// architecture-handbook-entry-end: transfer-in
+// architecture-handbook-entry-end: assignment
 
 // architecture-handbook-entry-begin: accept
 // Wait until the Painter sees the IOU contract on participant 3.
@@ -148,7 +148,7 @@ val Seq(painterIou) = decodeAllCreated(Iou.COMPANION)(acceptTx)
 val Seq(paintHouse) = decodeAllCreated(PaintHouse.COMPANION)(acceptTx)
 // architecture-handbook-entry-end: accept
 
-// architecture-handbook-entry-begin: automatic-transfer-in
+// architecture-handbook-entry-begin: automatic-assignment
 // Wait until the house owner sees the PaintHouse agreement
 participant2.ledger_api.state.acs.await_active_contract(HouseOwner, paintHouse.id.toLf)
 
@@ -170,7 +170,7 @@ utils.retry_until_true(10.seconds) {
   participant3.testing.acs_search(paintAlias, filterId=paintHouseId.contractId).nonEmpty &&
     participant2.testing.acs_search(paintAlias, filterId=paintHouseId.contractId).nonEmpty
 }
-// architecture-handbook-entry-end: automatic-transfer-in
+// architecture-handbook-entry-end: automatic-assignment
 
 // architecture-handbook-entry-begin: call
 // Painter converts the Iou into cash

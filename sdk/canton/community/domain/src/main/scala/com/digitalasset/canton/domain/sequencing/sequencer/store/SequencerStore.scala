@@ -584,6 +584,13 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
       closeContext: CloseContext,
   ): EitherT[Future, SaveCounterCheckpointError, Unit]
 
+  def saveCounterCheckpoints(
+      checkpoints: Seq[(SequencerMemberId, CounterCheckpoint)]
+  )(implicit
+      traceContext: TraceContext,
+      externalCloseContext: CloseContext,
+  ): Future[Unit]
+
   /** Fetch a checkpoint with a counter value less than the provided counter. */
   def fetchClosestCheckpointBefore(memberId: SequencerMemberId, counter: SequencerCounter)(implicit
       traceContext: TraceContext
@@ -669,43 +676,22 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
     val safeTimestamp = status.safePruningTimestamp
     logger.debug(s"Safe pruning timestamp is [$safeTimestamp]")
 
-    // as counter checkpoints may lag behind acknowledgements, we make sure to save checkpoints right before the
-    // requestedTimestamp so that when we compute the adjusted timestamp, it is not so far away in the past
+    // generates and saves counter checkpoints for all members at the requested timestamp
     def saveRecentCheckpoints(): Future[Unit] = for {
-      checkpoints <- checkpointsAtTimestamp(requestedTimestamp.immediatePredecessor)
-      _ <- checkpoints.toList.parTraverse { case (member, checkpoint) =>
-        for {
-          memberId <- lookupMember(member).map(
-            _.fold(ErrorUtil.invalidState(s"Member $member should be registered"))(_.memberId)
-          )
-          _ <- saveCounterCheckpoint(
-            memberId,
-            checkpoint,
-          ).value
-        } yield ()
-      }
-    } yield ()
-
-    // as counter checkpoints may slightly lag behind acknowledgements adjust the pruning timestamp backwards to the
-    // earliest counter checkpoint before the pruning timestamp
-    def adjustTimestamp(): Future[CantonTimestamp] =
-      for {
-        disabledMemberIds <- disabledClients.members.toList
-          .parTraverse(lookupMember)
-          .map(_.flatMap(_.toList).map(_.memberId))
-        adjustedTimestampO <- adjustPruningTimestampForCounterCheckpoints(
-          safeTimestamp, // use the safeTimestamp to decide what timestamps need to be kept due to checkpoints
-          disabledMemberIds,
+      checkpoints <- checkpointsAtTimestamp(requestedTimestamp)
+      _ = {
+        logger.debug(
+          s"Saving checkpoints $checkpoints for members at timestamp $requestedTimestamp"
         )
-        adjustedTimestamp = adjustedTimestampO.getOrElse {
-          // if there is no adjusted timestamp it suggests there are either no registered members or all registered members
-          // have been ignored. if we continued trusting that we would effectively delete all current data from the sequencer.
-          // it feels implausible that anyone with a semi-real domain would truly want to do this so instead we opt to log
-          // an error and throw.
-          logger.error(s"Preventing pruning as it would remove all data from the Sequencer")
-          sys.error("Preventing pruning as it would remove all data from the Sequencer")
+      }
+      checkpoints <- checkpoints.toList.parTraverse { case (member, checkpoint) =>
+        lookupMember(member).map {
+          case Some(registeredMember) => registeredMember.memberId -> checkpoint
+          case _ => ErrorUtil.invalidState(s"Member $member should be registered")
         }
-      } yield adjustedTimestamp min requestedTimestamp // only adjust timestamp to be earlier, i.e. prune less not more
+      }
+      _ <- saveCounterCheckpoints(checkpoints)
+    } yield ()
 
     // Setting the lower bound to this new timestamp prevents any future readers from reading before this point.
     // As we've already ensured all known enabled readers have read beyond this point this should be harmless.
@@ -721,16 +707,16 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
           () // effectively swallow
         }.merge)
 
-    def performPruning(adjustedTimestamp: CantonTimestamp): Future[String] =
+    def performPruning(atBeforeExclusive: CantonTimestamp): Future[String] =
       for {
-        eventsRemoved <- pruneEvents(adjustedTimestamp)
+        eventsRemoved <- pruneEvents(atBeforeExclusive)
         // purge all payloads before the point that they could be associated with these events.
         // this may leave some orphaned payloads but that's fine, they'll be pruned at a later point.
         // we do this as this approach is much quicker than looking at each event we prune and then looking up that payload
         // to delete, and also ensures payloads that may have been written for events that weren't sequenced are removed
         // (if the event was dropped due to a crash or validation issue).
-        payloadsRemoved <- prunePayloads(adjustedTimestamp.minus(payloadToEventMargin.duration))
-        checkpointsRemoved <- pruneCheckpoints(adjustedTimestamp)
+        payloadsRemoved <- prunePayloads(atBeforeExclusive.minus(payloadToEventMargin.duration))
+        checkpointsRemoved <- pruneCheckpoints(atBeforeExclusive)
       } yield s"Removed at least $eventsRemoved events, at least $payloadsRemoved payloads, at least $checkpointsRemoved counter checkpoints"
 
     for {
@@ -740,38 +726,11 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
       )
 
       _ <- EitherT.right(saveRecentCheckpoints())
+      _ <- EitherT.right(updateLowerBound(requestedTimestamp))
+      description <- EitherT.right(performPruning(requestedTimestamp))
 
-      adjustedTimestamp <- EitherT.right(adjustTimestamp())
-      additionalCheckpointInfo =
-        if (adjustedTimestamp < requestedTimestamp && logger.underlying.isInfoEnabled()) {
-          status.members
-            .filter(_.enabled)
-            .minByOption(_.safePruningTimestamp)
-            .map(_.member)
-            .fold("No enabled member")(memberMostBehind =>
-              s"The sequencer client member most behind is $memberMostBehind"
-            )
-        } else ""
-      _ = logger.info(
-        s"From safe timestamp [$safeTimestamp] and requested timestamp [$requestedTimestamp] we have picked pruning events at [$adjustedTimestamp] to support recorded counter checkpoints. $additionalCheckpointInfo"
-      )
-      _ <- EitherT.right(updateLowerBound(adjustedTimestamp))
-      description <- EitherT.right(performPruning(adjustedTimestamp))
-
-      // Read oldest event timestamp as using adjustedTimestamp would be incorrect when pruning was requested at an
-      // old timestamp at which the sequencer hadn't held any events.
-      actuallyPrunedUpTo <- EitherT.right(locatePruningTimestamp(NonNegativeInt.zero))
-    } yield SequencerPruningResult(actuallyPrunedUpTo, description)
+    } yield SequencerPruningResult(Some(requestedTimestamp), description)
   }
-
-  /** This takes the timestamp that is considered safe to prune from and walks it back to ensure that we have
-    * retained enough events to be able to start subscriptions from the counter checkpoint immediately preceding
-    * the timestamp.
-    */
-  protected[store] def adjustPruningTimestampForCounterCheckpoints(
-      timestamp: CantonTimestamp,
-      disabledMembers: Seq[SequencerMemberId],
-  )(implicit traceContext: TraceContext): Future[Option[CantonTimestamp]]
 
   /** Prune events before the given timestamp
     * @return a best efforts count of how many events were removed.
@@ -779,7 +738,7 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
     *         a full count from being returned (e.g. with a database we may retry a delete after a connectivity issue
     *         and find that all events were successfully removed and have 0 rows removed returned).
     */
-  protected[store] def pruneEvents(timestamp: CantonTimestamp)(implicit
+  protected[store] def pruneEvents(beforeExclusive: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): Future[Int]
 
@@ -788,14 +747,14 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
     *         this value can be less than the number of payloads actually removed if technical issues prevent
     *         a full count from being returned.
     */
-  protected[store] def prunePayloads(timestamp: CantonTimestamp)(implicit
+  protected[store] def prunePayloads(beforeExclusive: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): Future[Int]
 
   /** Prune counter checkpoints for the given member before the given timestamp.
     * @return A lower bound on the number of checkpoints removed.
     */
-  protected[store] def pruneCheckpoints(timestamp: CantonTimestamp)(implicit
+  protected[store] def pruneCheckpoints(beforeExclusive: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): Future[Int]
 
@@ -822,6 +781,12 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
       traceContext: TraceContext
   ): Future[Map[Member, CounterCheckpoint]]
 
+  /** Compute a counter checkpoint for every member at the requested `timestamp` and save it to the store.
+    */
+  def recordCounterCheckpointsAtTimestamp(timestamp: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): Future[Unit]
+
   def initializeFromSnapshot(initialState: SequencerInitialState)(implicit
       traceContext: TraceContext,
       closeContext: CloseContext,
@@ -830,23 +795,21 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
     val snapshot = initialState.snapshot
     val lastTs = snapshot.lastTs
     for {
-      _ <- snapshot.status.members.toSeq.parTraverse { memberStatus =>
+      memberCheckpoints <- eitherT(snapshot.status.members.toSeq.parTraverseFilter { memberStatus =>
         for {
-          id <- eitherT(registerMember(memberStatus.member, memberStatus.registeredAt))
+          id <- registerMember(memberStatus.member, memberStatus.registeredAt)
           _ <-
-            if (!memberStatus.enabled) eitherT(disableMember(memberStatus.member))
-            else EitherT.rightT[Future, String](())
-          _ <- eitherT(memberStatus.lastAcknowledged.fold(Future.unit)(ack => acknowledge(id, ack)))
-          _ <-
+            if (!memberStatus.enabled) disableMember(memberStatus.member)
+            else Future.unit
+          _ <- memberStatus.lastAcknowledged.fold(Future.unit)(ack => acknowledge(id, ack))
+          counterCheckpoint =
             // Some members can be registered, but not have any events yet, so there can be no CounterCheckpoint in the snapshot
-            snapshot.heads.get(memberStatus.member).fold(eitherT[String](Future.unit)) { counter =>
-              saveCounterCheckpoint(
-                id,
-                CounterCheckpoint(counter, lastTs, initialState.latestSequencerEventTimestamp),
-              ).leftMap(_.toString)
+            snapshot.heads.get(memberStatus.member).map { counter =>
+              (id -> CounterCheckpoint(counter, lastTs, initialState.latestSequencerEventTimestamp))
             }
-        } yield ()
-      }
+        } yield counterCheckpoint
+      })
+      _ <- EitherT.right(saveCounterCheckpoints(memberCheckpoints))
       _ <- saveLowerBound(lastTs).leftMap(_.toString)
       _ <- saveWatermark(0, lastTs).leftMap(_.toString)
     } yield ()

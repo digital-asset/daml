@@ -31,7 +31,7 @@ import com.digitalasset.canton.participant.protocol.submission.{
   EncryptedViewMessageFactory,
   SeedGenerator,
 }
-import com.digitalasset.canton.participant.protocol.transfer.TransferInValidation.TransferSigningError
+import com.digitalasset.canton.participant.protocol.transfer.AssignmentValidation.TransferSigningError
 import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.transfer.UnassignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.transfer.UnassignmentProcessorError.{
@@ -597,7 +597,7 @@ class UnassignmentProcessingSteps(
             contractId -> CommitSet
               .UnassignmentCommit(targetDomain, stakeholders, reassignmentCounter)
           ),
-          transferIns = Map.empty,
+          assignments = Map.empty,
         )
         val commitSetFO = Some(Future.successful(commitSet))
         for {
@@ -613,7 +613,7 @@ class UnassignmentProcessingSteps(
           notInitiator = pendingSubmissionData.isEmpty
           _ <-
             if (notInitiator && isReassigningParticipant)
-              triggerTransferInWhenExclusivityTimeoutExceeded(pendingRequestData)
+              triggerAssignmentWhenExclusivityTimeoutExceeded(pendingRequestData)
             else EitherT.pure[FutureUnlessShutdown, TransferProcessorError](())
 
           reassignmentAccepted <- createReassignmentAccepted(
@@ -709,7 +709,7 @@ class UnassignmentProcessingSteps(
       ),
     )
 
-  private[this] def triggerTransferInWhenExclusivityTimeoutExceeded(
+  private[this] def triggerAssignmentWhenExclusivityTimeoutExceeded(
       pendingRequestData: RequestType#PendingRequestData
   )(implicit
       traceContext: TraceContext
@@ -718,7 +718,7 @@ class UnassignmentProcessingSteps(
     val targetDomain = pendingRequestData.targetDomain
     val t0 = pendingRequestData.targetTimeProof.timestamp
 
-    AutomaticTransferIn.perform(
+    AutomaticAssignment.perform(
       pendingRequestData.reassignmentId,
       targetDomain,
       staticDomainParameters,

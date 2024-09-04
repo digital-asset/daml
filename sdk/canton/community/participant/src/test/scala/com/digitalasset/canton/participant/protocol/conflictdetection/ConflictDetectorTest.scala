@@ -1134,7 +1134,7 @@ class ConflictDetectorTest
       } yield succeed
     }
 
-    "transfer-in unknown contracts" in {
+    "assign unknown contracts" in {
       for {
         acs <- mkAcs()
         transferCache <- mkTransferCache(loggerFactory)(
@@ -1179,7 +1179,7 @@ class ConflictDetectorTest
       }
     }
 
-    "transfer-in a known contract" in {
+    "assign a known contract" in {
       val toc0 = TimeOfChange(RequestCounter(0), Epoch)
       for {
         acs <- mkAcs(
@@ -1217,15 +1217,15 @@ class ConflictDetectorTest
         )
         assert(
           fin == Left(NonEmptyChain(AcsError(ChangeAfterArchival(coid00, toc0, toc1)))),
-          s"Report transfer-in afeter archival.",
+          s"Report assignment after archival.",
         )
         assert(
           fetch00.contains(AcsContractState(active, RequestCounter(1), ts)),
-          s"Contract $coid00 is transferred in.",
+          s"Contract $coid00 is assigned.",
         )
         assert(
           fetch01.contains(AcsContractState(active, RequestCounter(1), ts)),
-          s"Contract $coid01 is transferred in.",
+          s"Contract $coid01 is assigned.",
         )
         assert(lookup1 == Left(TransferCompleted(transfer1, toc1)), s"$transfer1 completed")
         assert(lookup2 == Left(UnknownReassignmentId(transfer2)), s"$transfer2 does not exist")
@@ -1280,7 +1280,7 @@ class ConflictDetectorTest
           (coid00, toc0, active),
           (coid11, toc0, active),
         )
-        _ <- acs.transferInContract(coid01, toc0, sourceDomain1, reassignmentCounter1).value
+        _ <- acs.assignContract(coid01, toc0, sourceDomain1, reassignmentCounter1).value
         transferCache <- mkTransferCache(loggerFactory)(transfer2 -> mediator2)
         cd = mkCd(acs, transferCache)
         activenessSet = mkActivenessSet(
@@ -1478,7 +1478,7 @@ class ConflictDetectorTest
       }
     }
 
-    "double transfer-in a contract" in {
+    "double assignment of a contract" in {
       for {
         acs <- mkAcs()
         transferCache <- mkTransferCache(loggerFactory)(
@@ -1556,7 +1556,7 @@ class ConflictDetectorTest
       }
     }
 
-    "detect contract conflicts between transfer-ins" in {
+    "detect contract conflicts between assignments" in {
       for {
         transferCache <- mkTransferCache(loggerFactory)(
           transfer1 -> mediator1,
@@ -1580,7 +1580,7 @@ class ConflictDetectorTest
       }
     }
 
-    "detect conflicts between transfer-ins and creates" in {
+    "detect conflicts between assignments and creates" in {
       for {
         transferCache <- mkTransferCache(loggerFactory)(
           transfer1 -> mediator1,
@@ -1605,7 +1605,7 @@ class ConflictDetectorTest
       }
     }
 
-    "detect conflicts between racing transfer-ins" in {
+    "detect conflicts between racing assignments" in {
       val transferStore = new InMemoryTransferStore(TransferStoreTest.targetDomain, loggerFactory)
       val hookedStore = new TransferCacheTest.HookTransferStore(transferStore)
       for {
@@ -1635,7 +1635,7 @@ class ConflictDetectorTest
           } yield {
             assert(
               actRes2 == mkActivenessResult(inactiveTransfers = Set(transfer1)),
-              s"Double transfer-in $transfer1",
+              s"Double assignment $transfer1",
             )
             Checked.result(())
           })
@@ -1643,7 +1643,7 @@ class ConflictDetectorTest
         fin1 <- cd.finalizeRequest(commitSet, toc).flatten.failOnShutdown
         fin2 <- promise.future
       } yield {
-        assert(fin1 == Right(()), "First transfer-in succeeds")
+        assert(fin1 == Right(()), "First assignment succeeds")
         fin2.leftOrFail(s"Transfer $transfer1 was already completed").toList should contain(
           TransferStoreError(TransferAlreadyCompleted(transfer1, toc2))
         )

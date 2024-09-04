@@ -69,7 +69,7 @@ class SyncDomainEphemeralState(
   // Key is the root hash of the transfer tree
   val pendingUnassignmentSubmissions: TrieMap[RootHash, PendingTransferSubmission] =
     TrieMap.empty[RootHash, PendingTransferSubmission]
-  val pendingTransferInSubmissions: TrieMap[RootHash, PendingTransferSubmission] =
+  val pendingAssignmentSubmissions: TrieMap[RootHash, PendingTransferSubmission] =
     TrieMap.empty[RootHash, PendingTransferSubmission]
 
   val sessionKeyStore: SessionKeyStore = SessionKeyStore(sessionKeyCacheConfig)

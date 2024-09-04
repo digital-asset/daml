@@ -267,7 +267,7 @@ private final class ChangeAssignation(
       .mapAbort(e => s"Failed to mark contracts as transferred out: $e")
 
     val inF = repairTarget.domain.persistentState.activeContractStore
-      .transferInContracts(
+      .assignContracts(
         contracts.map { contract =>
           (
             contract.payload.contract.contractId,
@@ -294,7 +294,7 @@ private final class ChangeAssignation(
       _ <- MonadUtil.sequentialTraverse_(
         Iterator(
           unassignment(hostedSourceParties),
-          transferIn(hostedTargetParties),
+          assignment(hostedTargetParties),
         ).flatMap(changedContracts.map)
       )(repairIndexer.offer)
     } yield ()
@@ -353,7 +353,7 @@ private final class ChangeAssignation(
       )
     )
 
-  private def transferIn(hostedParties: Set[LfPartyId])(implicit
+  private def assignment(hostedParties: Set[LfPartyId])(implicit
       traceContext: TraceContext
   ): ChangeAssignation.Data[Changed] => Traced[Update] = contract =>
     Traced(

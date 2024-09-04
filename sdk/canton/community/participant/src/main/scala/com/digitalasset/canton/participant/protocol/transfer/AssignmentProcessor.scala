@@ -24,7 +24,7 @@ import com.digitalasset.canton.version.Transfer.TargetProtocolVersion
 
 import scala.concurrent.ExecutionContext
 
-class TransferInProcessor(
+class AssignmentProcessor(
     domainId: TargetDomainId,
     override val participantId: ParticipantId,
     damle: DAMLe,
@@ -42,12 +42,12 @@ class TransferInProcessor(
     override val testingConfig: TestingConfigInternal,
 )(implicit ec: ExecutionContext)
     extends ProtocolProcessor[
-      TransferInProcessingSteps.SubmissionParam,
-      TransferInProcessingSteps.SubmissionResult,
+      AssignmentProcessingSteps.SubmissionParam,
+      AssignmentProcessingSteps.SubmissionResult,
       AssignmentViewType,
       TransferProcessorError,
     ](
-      new TransferInProcessingSteps(
+      new AssignmentProcessingSteps(
         domainId,
         participantId,
         damle,
@@ -68,10 +68,10 @@ class TransferInProcessor(
       futureSupervisor,
     ) {
   override protected def metricsContextForSubmissionParam(
-      submissionParam: TransferInProcessingSteps.SubmissionParam
+      submissionParam: AssignmentProcessingSteps.SubmissionParam
   ): MetricsContext =
     MetricsContext(
       "application-id" -> submissionParam.submitterMetadata.applicationId,
-      "type" -> "transfer-in",
+      "type" -> "assignment",
     )
 }

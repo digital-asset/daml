@@ -6,6 +6,7 @@ package com.digitalasset.canton.domain.sequencing.sequencer
 import cats.data.EitherT
 import cats.syntax.functor.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
+import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
@@ -24,7 +25,13 @@ import com.digitalasset.canton.time.{NonNegativeFiniteDuration, SimClock}
 import com.digitalasset.canton.topology.{Member, ParticipantId, SequencerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.PekkoUtil
-import com.digitalasset.canton.{BaseTest, HasExecutorService, config}
+import com.digitalasset.canton.{
+  BaseTest,
+  HasExecutorService,
+  ProtocolVersionChecksAsyncWordSpec,
+  SequencerCounter,
+  config,
+}
 import com.google.protobuf.ByteString
 import org.apache.pekko.NotUsed
 import org.apache.pekko.actor.ActorSystem
@@ -43,7 +50,11 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.{Failure, Success}
 
 @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
-class SequencerWriterSourceTest extends AsyncWordSpec with BaseTest with HasExecutorService {
+class SequencerWriterSourceTest
+    extends AsyncWordSpec
+    with BaseTest
+    with HasExecutorService
+    with ProtocolVersionChecksAsyncWordSpec {
 
   class MockEventSignaller extends EventSignaller {
     private val listenerRef =
@@ -81,7 +92,11 @@ class SequencerWriterSourceTest extends AsyncWordSpec with BaseTest with HasExec
     implicit val actorSystem: ActorSystem = ActorSystem()
     val instanceIndex: Int = 0
     val testWriterConfig: SequencerWriterConfig.LowLatency =
-      SequencerWriterConfig.LowLatency()
+      SequencerWriterConfig
+        .LowLatency()
+        .copy(
+          checkpointInterval = NonNegativeFiniteDuration.tryOfSeconds(1).toConfig
+        )
     lazy val sequencerMember: Member = SequencerId(
       UniqueIdentifier.tryFromProtoPrimitive("sequencer::namespace")
     )
@@ -130,6 +145,8 @@ class SequencerWriterSourceTest extends AsyncWordSpec with BaseTest with HasExec
         loggerFactory,
         testedProtocolVersion,
         SequencerMetrics.noop(suiteName),
+        timeouts,
+        unifiedSequencer = testedUseUnifiedSequencer,
       )(executorService, implicitly[TraceContext])
         .toMat(Sink.ignore)(Keep.both),
     )
@@ -168,6 +185,7 @@ class SequencerWriterSourceTest extends AsyncWordSpec with BaseTest with HasExec
 
   private val alice = ParticipantId("alice")
   private val bob = ParticipantId("bob")
+  private val charlie = ParticipantId("charlie")
   private val messageId1 = MessageId.tryCreate("1")
   private val messageId2 = MessageId.tryCreate("2")
   private val nextPayload = new AtomicLong(1)
@@ -486,5 +504,58 @@ class SequencerWriterSourceTest extends AsyncWordSpec with BaseTest with HasExec
     check()
 
     resultP.future
+  }
+
+  "periodic checkpointing" should {
+    "produce checkpoints" onlyRunWhen (testedUseUnifiedSequencer) in withEnv() { implicit env =>
+      import env.*
+
+      for {
+        aliceId <- store.registerMember(alice, CantonTimestamp.Epoch)
+        _ <- store.registerMember(bob, CantonTimestamp.Epoch)
+        _ <- store.registerMember(charlie, CantonTimestamp.Epoch)
+        _ <- valueOrFail(
+          writer.send(
+            SubmissionRequest.tryCreate(
+              alice,
+              MessageId.tryCreate("test-deliver"),
+              batch = Batch.fromClosed(
+                testedProtocolVersion,
+                ClosedEnvelope.create(
+                  ByteString.EMPTY,
+                  Recipients.cc(bob),
+                  Seq.empty,
+                  testedProtocolVersion,
+                ),
+              ),
+              maxSequencingTime = CantonTimestamp.MaxValue,
+              topologyTimestamp = None,
+              aggregationRule = None,
+              submissionCost = None,
+              protocolVersion = testedProtocolVersion,
+            )
+          )
+        )("send")
+        eventTs <- eventuallyF(10.seconds) {
+          for {
+            events <- env.store.readEvents(aliceId)
+            _ = events.payloads should have size 1
+          } yield events.payloads.headOption.map(_.timestamp).valueOrFail("expected event to exist")
+        }
+        _ = (0 to 30).foreach { _ =>
+          Threading.sleep(100L) // wait for checkpoints to be generated
+          env.clock.advance(java.time.Duration.ofMillis(100))
+        }
+        checkpointingTs = clock.now
+        checkpoints <- store.checkpointsAtTimestamp(checkpointingTs)
+      } yield {
+        val expectedCheckpoints = Map(
+          alice -> CounterCheckpoint(SequencerCounter(0), checkpointingTs, None),
+          bob -> CounterCheckpoint(SequencerCounter(0), checkpointingTs, None),
+          charlie -> CounterCheckpoint(SequencerCounter(-1), checkpointingTs, None),
+        )
+        checkpoints should contain theSameElementsAs expectedCheckpoints
+      }
+    }
   }
 }

@@ -355,7 +355,7 @@ private[participant] class NaiveRequestTracker(
       * <ul>
       *   <li>Check the activeness of the contracts in [[ActivenessSet.deactivations]] and [[ActivenessSet.usageOnly]].</li>
       *   <li>Check the non-existence of the contracts in [[ActivenessSet.creations]].</li>
-      *   <li>Check the inactivity of the contracts in [[ActivenessSet.transferIns]].</li>
+      *   <li>Check the inactivity of the contracts in [[ActivenessSet.assignments]].</li>
       *   <li>Lock all contracts to be deactivated.</li>
       *   <li>Lock all contracts to be activated (created or transferred-in).</li>
       *   <li>Fulfill the `activenessResult` promise with the result</li>

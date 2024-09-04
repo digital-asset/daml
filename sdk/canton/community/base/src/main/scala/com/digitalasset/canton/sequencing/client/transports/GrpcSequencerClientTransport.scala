@@ -60,7 +60,7 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
     with NamedLogging {
 
   override def logout(): EitherT[FutureUnlessShutdown, Status, Unit] =
-    clientAuth.logout(channel)
+    clientAuth.logout()
 
   protected val sequencerServiceClient: SequencerServiceStub = clientAuth(
     new SequencerServiceStub(channel, options = callOptions)

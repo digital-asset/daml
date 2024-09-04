@@ -11,8 +11,8 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.MerkleTree.RevealSubtree
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.{
+  AssignmentMediatorMessage,
   DeliveredUnassignmentResult,
-  TransferInMediatorMessage,
 }
 import com.digitalasset.canton.protocol.{v30, *}
 import com.digitalasset.canton.sequencing.protocol.{
@@ -32,7 +32,7 @@ import com.google.protobuf.ByteString
 
 import java.util.UUID
 
-/** A transfer-in request embedded in a Merkle tree. The view may or may not be blinded. */
+/** an assignment request embedded in a Merkle tree. The view may or may not be blinded. */
 final case class AssignmentViewTree(
     commonData: MerkleTreeLeaf[AssignmentCommonData],
     view: MerkleTree[AssignmentView],
@@ -45,7 +45,7 @@ final case class AssignmentViewTree(
       AssignmentCommonData,
       AssignmentView,
       AssignmentViewTree,
-      TransferInMediatorMessage,
+      AssignmentMediatorMessage,
     ](commonData, view)(hashOps)
     with HasProtocolVersionedWrapper[AssignmentViewTree] {
 
@@ -73,8 +73,8 @@ final case class AssignmentViewTree(
   protected[this] override def createMediatorMessage(
       blindedTree: AssignmentViewTree,
       submittingParticipantSignature: Signature,
-  ): TransferInMediatorMessage =
-    TransferInMediatorMessage(blindedTree, submittingParticipantSignature)
+  ): AssignmentMediatorMessage =
+    AssignmentMediatorMessage(blindedTree, submittingParticipantSignature)
 
   override def pretty: Pretty[AssignmentViewTree] = prettyOfClass(
     param("common data", _.commonData),
@@ -91,7 +91,7 @@ object AssignmentViewTree
       HashOps,
     ] {
 
-  override val name: String = "TransferInViewTree"
+  override val name: String = "AssignmentViewTree"
 
   val supportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.ReassignmentViewTree)(
@@ -112,7 +112,7 @@ object AssignmentViewTree
     )
 
   def fromProtoV30(context: (HashOps, TargetProtocolVersion))(
-      transferInViewTreeP: v30.ReassignmentViewTree
+      assignmentViewTreeP: v30.ReassignmentViewTree
   ): ParsingResult[AssignmentViewTree] = {
     val (hashOps, expectedProtocolVersion) = context
     for {
@@ -127,18 +127,18 @@ object AssignmentViewTree
           rpv,
           hashOps,
         )
-      )(transferInViewTreeP)
+      )(assignmentViewTreeP)
     } yield res
   }
 }
 
-/** Aggregates the data of a transfer-in request that is sent to the mediator and the involved participants.
+/** Aggregates the data of an assignment request that is sent to the mediator and the involved participants.
   *
   * @param salt Salt for blinding the Merkle hash
   * @param targetDomain The domain on which the contract is transferred in
-  * @param targetMediatorGroup The mediator that coordinates the transfer-in request on the target domain
+  * @param targetMediatorGroup The mediator that coordinates the assignment request on the target domain
   * @param stakeholders The stakeholders of the transferred contract
-  * @param uuid The uuid of the transfer-in request
+  * @param uuid The uuid of the assignment request
   * @param submitterMetadata information about the submission
   */
 final case class AssignmentCommonData private (
@@ -176,7 +176,7 @@ final case class AssignmentCommonData private (
   override protected[this] def toByteStringUnmemoized: ByteString =
     super[HasProtocolVersionedWrapper].toByteString
 
-  override def hashPurpose: HashPurpose = HashPurpose.TransferInCommonData
+  override def hashPurpose: HashPurpose = HashPurpose.AssignmentCommonData
 
   def confirmingParties: Map[LfPartyId, PositiveInt] =
     stakeholders.map(_ -> PositiveInt.one).toMap
@@ -196,7 +196,7 @@ object AssignmentCommonData
       AssignmentCommonData,
       (HashOps, TargetProtocolVersion),
     ] {
-  override val name: String = "TransferInCommonData"
+  override val name: String = "AssignmentCommonData"
 
   val supportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.AssignmentCommonData)(
@@ -224,7 +224,7 @@ object AssignmentCommonData
 
   private[this] def fromProtoV30(
       context: (HashOps, TargetProtocolVersion),
-      transferInCommonDataP: v30.AssignmentCommonData,
+      assignmentCommonDataP: v30.AssignmentCommonData,
   )(
       bytes: ByteString
   ): ParsingResult[AssignmentCommonData] = {
@@ -236,7 +236,7 @@ object AssignmentCommonData
       uuidP,
       targetMediatorGroupP,
       submitterMetadataPO,
-    ) = transferInCommonDataP
+    ) = assignmentCommonDataP
 
     for {
       salt <- ProtoConverter.parseRequired(Salt.fromProtoV30, "salt", saltP)
@@ -262,7 +262,7 @@ object AssignmentCommonData
   }
 }
 
-/** Aggregates the data of a transfer-in request that is only sent to the involved participants
+/** Aggregates the data of an assignment request that is only sent to the involved participants
   *
   * @param salt                    The salt to blind the Merkle hash
   * @param contract                The contract to be transferred including the instance
@@ -291,7 +291,7 @@ final case class AssignmentView private (
   override protected[this] def toByteStringUnmemoized: ByteString =
     super[HasProtocolVersionedWrapper].toByteString
 
-  def hashPurpose: HashPurpose = HashPurpose.TransferInView
+  def hashPurpose: HashPurpose = HashPurpose.AssignmentView
 
   protected def toProtoV30: v30.AssignmentView =
     v30.AssignmentView(
@@ -318,7 +318,7 @@ final case class AssignmentView private (
 
 object AssignmentView
     extends HasMemoizedProtocolVersionedWithContextCompanion[AssignmentView, HashOps] {
-  override val name: String = "TransferInView"
+  override val name: String = "AssignmentView"
 
   val supportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.AssignmentView)(
@@ -348,7 +348,7 @@ object AssignmentView
     )
     .leftMap(_.getMessage)
 
-  private[this] def fromProtoV30(hashOps: HashOps, transferInViewP: v30.AssignmentView)(
+  private[this] def fromProtoV30(hashOps: HashOps, assignmentViewP: v30.AssignmentView)(
       bytes: ByteString
   ): ParsingResult[AssignmentView] = {
     val v30.AssignmentView(
@@ -359,7 +359,7 @@ object AssignmentView
       sourceProtocolVersionP,
       reassignmentCounterP,
     ) =
-      transferInViewP
+      assignmentViewP
     for {
       protocolVersion <- ProtocolVersion.fromProtoPrimitive(sourceProtocolVersionP)
       sourceProtocolVersion = SourceProtocolVersion(protocolVersion)
@@ -426,11 +426,11 @@ object AssignmentView
   *
   * @throws java.lang.IllegalArgumentException if the [[tree]] is not fully unblinded
   */
-final case class FullTransferInTree(tree: AssignmentViewTree)
+final case class FullAssignmentTree(tree: AssignmentViewTree)
     extends TransferViewTree
     with HasToByteString
     with PrettyPrinting {
-  require(tree.isFullyUnblinded, "A transfer-in request must be fully unblinded")
+  require(tree.isFullyUnblinded, "an assignment request must be fully unblinded")
 
   private[this] val commonData = tree.commonData.tryUnwrap
   private[this] val view = tree.view.tryUnwrap
@@ -453,7 +453,7 @@ final case class FullTransferInTree(tree: AssignmentViewTree)
 
   def mediatorMessage(
       submittingParticipantSignature: Signature
-  ): TransferInMediatorMessage = tree.mediatorMessage(submittingParticipantSignature)
+  ): AssignmentMediatorMessage = tree.mediatorMessage(submittingParticipantSignature)
 
   def targetDomain: TargetDomainId = commonData.targetDomain
 
@@ -472,21 +472,21 @@ final case class FullTransferInTree(tree: AssignmentViewTree)
   override def isReassigningParticipant(participantId: ParticipantId): Boolean =
     unassignmentResultEvent.unwrap.informees.contains(participantId.adminParty.toLf)
 
-  override def pretty: Pretty[FullTransferInTree] = prettyOfClass(unnamedParam(_.tree))
+  override def pretty: Pretty[FullAssignmentTree] = prettyOfClass(unnamedParam(_.tree))
 
   override def toByteString: ByteString = tree.toByteString
 }
 
-object FullTransferInTree {
+object FullAssignmentTree {
   def fromByteString(
       crypto: CryptoPureApi,
       targetProtocolVersion: TargetProtocolVersion,
-  )(bytes: ByteString): ParsingResult[FullTransferInTree] =
+  )(bytes: ByteString): ParsingResult[FullAssignmentTree] =
     for {
       tree <- AssignmentViewTree.fromByteString(crypto, targetProtocolVersion)(bytes)
       _ <- EitherUtil.condUnitE(
         tree.isFullyUnblinded,
-        OtherError(s"Transfer-in request ${tree.rootHash} is not fully unblinded"),
+        OtherError(s"Assignment request ${tree.rootHash} is not fully unblinded"),
       )
-    } yield FullTransferInTree(tree)
+    } yield FullAssignmentTree(tree)
 }

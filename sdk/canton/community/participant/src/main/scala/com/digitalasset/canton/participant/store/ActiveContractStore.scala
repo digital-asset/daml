@@ -36,8 +36,8 @@ import scala.concurrent.{ExecutionContext, Future}
   * Updates must be idempotent.</p>
   *
   * <p>Creations, transfers, and archivals can be mixed arbitrarily.
-  * A contract may be transferred-in and -out several times during its lifetime.
-  * It becomes active with every transfer-in and transferred away with every unassignment.
+  * A contract may be assigned and unassigned several times during its lifetime.
+  * It becomes active with every assignment and transferred away with every unassignment.
   * If the ACS detects irregularities, the change method reports them.</p>
   *
   * <p>These methods are supposed to be called by the `ConflictDetector` only,
@@ -61,6 +61,9 @@ trait ActiveContractStore
     extends ActiveContractSnapshot
     with ConflictDetectionStore[LfContractId, ActiveContractStore.Status] {
   import ActiveContractStore.*
+
+  // TODO(#21081) Look for -in and -out
+  // TODO(#21081) Look for tfin and tfout
 
   override protected def kind: String = "active contract journal entries"
   private[store] def indexedStringStore: IndexedStringStore
@@ -211,22 +214,22 @@ trait ActiveContractStore
 
   /** Marks the given contracts as transferred in from `toc`'s timestamp (inclusive) onwards.
     *
-    * @param transferIns The contract IDs to transfer-in, each with its source domain, reassignment counter and time of change.
+    * @param assignments The contract IDs to assign, each with its source domain, reassignment counter and time of change.
     * @return The future completes when the contract states have been updated.
     *         The following irregularities are reported:
     *         <ul>
-    *           <li>[[ActiveContractStore.SimultaneousActivation]] if a transfer-in from another domain or a creation
+    *           <li>[[ActiveContractStore.SimultaneousActivation]] if an assignment from another domain or a creation
     *             has been added with the same timestamp.</li>
     *           <li>[[ActiveContractStore.ChangeAfterArchival]] if this timestamp is after the earliest archival of the contract.</li>
     *           <li>[[ActiveContractStore.ChangeBeforeCreation]] if this timestamp is before the latest creation of the contract.</li>
     *           <li>[[ActiveContractStore.ReassignmentCounterShouldIncrease]] if the reassignment counter does not increase monotonically.</li>
     *         </ul>
     */
-  def transferInContracts(
-      transferIns: Seq[(LfContractId, SourceDomainId, ReassignmentCounter, TimeOfChange)]
+  def assignContracts(
+      assignments: Seq[(LfContractId, SourceDomainId, ReassignmentCounter, TimeOfChange)]
   )(implicit traceContext: TraceContext): CheckedT[Future, AcsError, AcsWarning, Unit]
 
-  def transferInContract(
+  def assignContract(
       contractId: LfContractId,
       toc: TimeOfChange,
       sourceDomain: SourceDomainId,
@@ -234,7 +237,7 @@ trait ActiveContractStore
   )(implicit
       traceContext: TraceContext
   ): CheckedT[Future, AcsError, AcsWarning, Unit] =
-    transferInContracts(Seq((contractId, sourceDomain, reassignmentCounter, toc)))
+    assignContracts(Seq((contractId, sourceDomain, reassignmentCounter, toc)))
 
   /** Marks the given contracts as [[ActiveContractStore.ReassignedAway]] from `toc`'s timestamp (inclusive) onwards.
     *
@@ -375,7 +378,7 @@ object ActiveContractStore {
     val archive: String36 = String36.tryCreate("archive")
     val add: String36 = String36.tryCreate("add")
     val purge: String36 = String36.tryCreate("purge")
-    val transferIn: String36 = String36.tryCreate("transfer-in")
+    val assign: String36 = String36.tryCreate("assign")
     val unassignment: String36 = String36.tryCreate("unassign")
 
     sealed trait HasReassignmentCounter extends ActivenessChangeDetail {
@@ -446,15 +449,15 @@ object ActiveContractStore {
       override def isTransfer: Boolean = false
     }
 
-    final case class TransferIn(reassignmentCounter: ReassignmentCounter, remoteDomainIdx: Int)
+    final case class Assignment(reassignmentCounter: ReassignmentCounter, remoteDomainIdx: Int)
         extends TransferChangeDetail {
-      override val name = ActivenessChangeDetail.transferIn
+      override val name = ActivenessChangeDetail.assign
 
       override def changeType: ChangeType = ChangeType.Activation
       override def toTransferType: ActiveContractStore.TransferType =
-        ActiveContractStore.TransferType.TransferIn
+        ActiveContractStore.TransferType.Assignment
 
-      override def contractChange: ContractChange = ContractChange.TransferredIn
+      override def contractChange: ContractChange = ContractChange.Assigned
     }
 
     final case class Unassignment(reassignmentCounter: ReassignmentCounter, remoteDomainIdx: Int)
@@ -465,7 +468,7 @@ object ActiveContractStore {
       override def toTransferType: ActiveContractStore.TransferType =
         ActiveContractStore.TransferType.Unassignment
 
-      override def contractChange: ContractChange = ContractChange.TransferredOut
+      override def contractChange: ContractChange = ContractChange.Unassigned
     }
 
     implicit val setParameterActivenessChangeDetail: SetParameter[ActivenessChangeDetail] =
@@ -498,7 +501,7 @@ object ActiveContractStore {
         ActivenessChangeDetail.Add(reassignmentCounter)
       } else if (operationName == ActivenessChangeDetail.purge.str) {
         ActivenessChangeDetail.Purge
-      } else if (operationName == "transfer-in" || operationName == "unassign") {
+      } else if (operationName == "assign" || operationName == "unassign") {
         val reassignmentCounter = reassignmentCounterO.getOrElse(
           throw new DbDeserializationException(
             s"reassignment counter should be defined for a $operationName"
@@ -511,8 +514,8 @@ object ActiveContractStore {
           )
         )
 
-        if (operationName == ActivenessChangeDetail.transferIn.str)
-          ActivenessChangeDetail.TransferIn(reassignmentCounter, remoteDomain)
+        if (operationName == ActivenessChangeDetail.assign.str)
+          ActivenessChangeDetail.Assignment(reassignmentCounter, remoteDomain)
         else
           ActivenessChangeDetail.Unassignment(reassignmentCounter, remoteDomain)
       } else throw new DbDeserializationException(s"Unknown operation type [$operationName]")
@@ -670,8 +673,8 @@ object ActiveContractStore {
     case object Unassignment extends TransferType {
       override def name: String = "unassignment"
     }
-    case object TransferIn extends TransferType {
-      override def name: String = "transfer-in"
+    case object Assignment extends TransferType {
+      override def name: String = "assignment"
     }
   }
   private[store] final case class ReassignmentCounterAtChangeInfo(
@@ -712,7 +715,7 @@ object ActiveContractStore {
     earliestAfterO.flatMap { earliestAfter =>
       earliestAfter.reassignmentCounter.map { nextReassignmentCounter =>
         val (condition, strict) = transferType match {
-          case TransferType.TransferIn =>
+          case TransferType.Assignment =>
             (reassignmentCounter <= nextReassignmentCounter) -> false
           case TransferType.Unassignment =>
             (reassignmentCounter < nextReassignmentCounter) -> true
@@ -831,10 +834,10 @@ trait ActiveContractSnapshot {
     * @throws java.lang.IllegalArgumentException If the intervals are in the wrong order.
     */
   /*
-   * In contrast to creates, transfer-ins and unassignments, the DB does not store reassignment counters
+   * In contrast to creates, assignments and unassignments, the DB does not store reassignment counters
    * for archivals. As such, to retrieve reassignment counters for archivals, for every contract `cid`
    * archived with request counter `rc`, we retrieve the biggest reassignment counter from an activation event
-   * (create or transfer in) with a request counter rc' <= rc.
+   * (create or assign) with a request counter rc' <= rc.
    * Some contracts archived between (`fromExclusive`, `toInclusive`] might have been activated last at time
    * lastActivationTime <= `fromExclusive`. Therefore, for retrieving the reassignment counter of archived contracts,
    * we may need to look at activations between (`fromExclusive`, `toInclusive`], and at activations taking
@@ -871,8 +874,8 @@ object ContractChange {
   case object Created extends ContractChange
   case object Archived extends ContractChange
   case object Purged extends ContractChange
-  case object TransferredOut extends ContractChange
-  case object TransferredIn extends ContractChange
+  case object Unassigned extends ContractChange
+  case object Assigned extends ContractChange
 }
 
 /** Type of state change of a contract as returned by [[com.digitalasset.canton.participant.store.ActiveContractStore.changesBetween]]

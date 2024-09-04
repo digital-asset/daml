@@ -26,7 +26,7 @@ import com.digitalasset.canton.participant.protocol.submission.{
   SequencedSubmission,
 }
 import com.digitalasset.canton.participant.protocol.transfer.{
-  TransferInProcessor,
+  AssignmentProcessor,
   UnassignmentProcessor,
 }
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor
@@ -796,7 +796,7 @@ private[participant] object MessageDispatcher {
         requestTracker: RequestTracker,
         transactionProcessor: TransactionProcessor,
         unassignmentProcessor: UnassignmentProcessor,
-        transferInProcessor: TransferInProcessor,
+        assignmentProcessor: AssignmentProcessor,
         topologyProcessor: TopologyTransactionProcessor,
         trafficProcessor: TrafficControlProcessor,
         acsCommitmentProcessor: AcsCommitmentProcessor.ProcessorType,
@@ -811,7 +811,7 @@ private[participant] object MessageDispatcher {
       val requestProcessors = new RequestProcessors {
         override def getInternal[P](viewType: ViewType { type Processor = P }): Option[P] =
           viewType match {
-            case AssignmentViewType => Some(transferInProcessor)
+            case AssignmentViewType => Some(assignmentProcessor)
             case UnassignmentViewType => Some(unassignmentProcessor)
             case TransactionViewType => Some(transactionProcessor)
             case _ => None

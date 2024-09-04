@@ -19,7 +19,7 @@ import com.digitalasset.canton.concurrent.{DirectExecutionContext, Threading}
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{HasLoggerName, NamedLoggerFactory, NamedLoggingContext}
 import com.digitalasset.canton.util.ShowUtil.*
@@ -1492,5 +1492,12 @@ object PekkoUtil extends HasLoggerName {
 
     override def done: Future[Done] =
       futureQueueConsumer.futureQueue.done
+  }
+
+  /** A `KillSwitch` that calls `FlagCloseable.close` on shutdown or abort.
+    */
+  class KillSwitchFlagCloseable(flagClosable: FlagCloseable) extends KillSwitch {
+    override def shutdown(): Unit = flagClosable.close()
+    override def abort(ex: Throwable): Unit = flagClosable.close()
   }
 }

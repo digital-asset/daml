@@ -452,7 +452,7 @@ final class GeneratorsData(
       )
     )
 
-  implicit val transferInCommonDataArb: Arbitrary[AssignmentCommonData] = Arbitrary(
+  implicit val assignmentCommonDataArb: Arbitrary[AssignmentCommonData] = Arbitrary(
     for {
       salt <- Arbitrary.arbitrary[Salt]
       targetDomain <- Arbitrary.arbitrary[TargetDomainId]
@@ -552,7 +552,7 @@ final class GeneratorsData(
       )
     }
 
-  implicit val transferInViewArb: Arbitrary[AssignmentView] = Arbitrary(
+  implicit val assignmentViewArb: Arbitrary[AssignmentView] = Arbitrary(
     for {
       salt <- Arbitrary.arbitrary[Salt]
       contract <- serializableContractArb(canHaveEmptyKey = true).arbitrary
@@ -601,14 +601,14 @@ final class GeneratorsData(
       )
   )
 
-  implicit val transferInViewTreeArb: Arbitrary[AssignmentViewTree] = Arbitrary(
+  implicit val assignViewTreeArb: Arbitrary[AssignmentViewTree] = Arbitrary(
     for {
-      commonData <- transferInCommonDataArb.arbitrary
-      transferInView <- transferInViewArb.arbitrary
+      commonData <- assignmentCommonDataArb.arbitrary
+      assignmentView <- assignmentViewArb.arbitrary
       hash = TestHash
     } yield AssignmentViewTree(
       commonData,
-      transferInView.blindFully,
+      assignmentView.blindFully,
       TargetProtocolVersion(protocolVersion),
       hash,
     )

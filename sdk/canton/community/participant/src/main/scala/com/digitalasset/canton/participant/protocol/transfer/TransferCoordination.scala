@@ -56,7 +56,7 @@ class TransferCoordination(
 
   /** Returns a future that completes when a snapshot can be taken on the given domain for the given timestamp.
     *
-    * This is used when a transfer-in blocks for the identity state at the unassignment. For more general uses,
+    * This is used when an assignment blocks for the identity state at the unassignment. For more general uses,
     * `awaitTimestamp` should be preferred as it triggers the progression of time on `domain` by requesting a tick.
     */
   private[transfer] def awaitUnassignmentTimestamp(
@@ -68,7 +68,7 @@ class TransferCoordination(
   ): Either[UnknownDomain, Future[Unit]] =
     syncCryptoApi
       .forDomain(domain.unwrap, staticDomainParameters)
-      .toRight(UnknownDomain(domain.unwrap, "When transfer-in waits for unassignment timestamp"))
+      .toRight(UnknownDomain(domain.unwrap, "When assignment waits for unassignment timestamp"))
       .map(_.awaitTimestamp(timestamp).getOrElse(Future.unit))
 
   /** Returns a future that completes when it is safe to take an identity snapshot for the given `timestamp` on the given `domain`.
@@ -125,17 +125,17 @@ class TransferCoordination(
       _ <- EitherT.right(FutureUnlessShutdown.outcomeF(wait.getOrElse(onImmediate)))
     } yield ()
 
-  /** Submits a transfer-in. Used by the [[UnassignmentProcessingSteps]] to automatically trigger the submission of a
-    * transfer-in after the exclusivity timeout.
+  /** Submits an assignment. Used by the [[UnassignmentProcessingSteps]] to automatically trigger the submission of
+    * an assignment after the exclusivity timeout.
     */
-  private[transfer] def transferIn(
+  private[transfer] def assign(
       targetDomain: TargetDomainId,
       submitterMetadata: TransferSubmitterMetadata,
       reassignmentId: ReassignmentId,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransferProcessorError, TransferInProcessingSteps.SubmissionResult] = {
-    logger.debug(s"Triggering automatic transfer-in of transfer `$reassignmentId`")
+  ): EitherT[Future, TransferProcessorError, AssignmentProcessingSteps.SubmissionResult] = {
+    logger.debug(s"Triggering automatic assignment of transfer `$reassignmentId`")
 
     for {
       inSubmission <- EitherT.fromEither[Future](
@@ -144,7 +144,7 @@ class TransferCoordination(
         )
       )
       submissionResult <- inSubmission
-        .submitTransferIn(
+        .submitAssignment(
           submitterMetadata,
           reassignmentId,
         )
@@ -304,12 +304,12 @@ trait TransferSubmissionHandle {
     UnassignmentProcessingSteps.SubmissionResult
   ]]
 
-  def submitTransferIn(
+  def submitAssignment(
       submitterMetadata: TransferSubmitterMetadata,
       reassignmentId: ReassignmentId,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransferProcessorError, FutureUnlessShutdown[
-    TransferInProcessingSteps.SubmissionResult
+    AssignmentProcessingSteps.SubmissionResult
   ]]
 }

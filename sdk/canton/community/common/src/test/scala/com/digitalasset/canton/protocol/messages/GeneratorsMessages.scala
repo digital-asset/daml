@@ -213,11 +213,11 @@ final class GeneratorsMessages(
     )
   )
 
-  private val transferInMediatorMessageArb: Arbitrary[TransferInMediatorMessage] = Arbitrary(
+  private val assignmentMediatorMessageArb: Arbitrary[AssignmentMediatorMessage] = Arbitrary(
     for {
       tree <- Arbitrary.arbitrary[AssignmentViewTree]
       submittingParticipantSignature <- Arbitrary.arbitrary[Signature]
-    } yield TransferInMediatorMessage(tree, submittingParticipantSignature)
+    } yield AssignmentMediatorMessage(tree, submittingParticipantSignature)
   )
 
   private val unassignmentMediatorMessageArb: Arbitrary[UnassignmentMediatorMessage] = Arbitrary(
@@ -266,7 +266,7 @@ final class GeneratorsMessages(
         rootHashMessageArb.arbitrary,
         informeeMessageArb.arbitrary,
         encryptedViewMessage.arbitrary,
-        transferInMediatorMessageArb.arbitrary,
+        assignmentMediatorMessageArb.arbitrary,
         unassignmentMediatorMessageArb.arbitrary,
         topologyTransactionsBroadcast.arbitrary,
       )

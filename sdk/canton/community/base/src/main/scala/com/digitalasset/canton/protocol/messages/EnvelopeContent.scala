@@ -72,7 +72,7 @@ object EnvelopeContent
             (hashOps, SourceProtocolVersion(expectedProtocolVersion))
           )(messageP)
         case Content.AssignmentMediatorMessage(messageP) =>
-          TransferInMediatorMessage.fromProtoV30(
+          AssignmentMediatorMessage.fromProtoV30(
             (hashOps, TargetProtocolVersion(expectedProtocolVersion))
           )(messageP)
         case Content.RootHashMessage(messageP) =>

@@ -191,7 +191,7 @@ class DbTransferStore(
           ${transferData.unassignmentRequest.submitter},
           ${transferData.sourceProtocolVersion},
           ${transferData.unassignmentGlobalOffset},
-          ${transferData.transferInGlobalOffset}
+          ${transferData.assignmentGlobalOffset}
         )
       """
 
@@ -208,7 +208,7 @@ class DbTransferStore(
             contract=${data.contract}, creating_transaction_id=${data.creatingTransactionId},
             transfer_out_result=${data.unassignmentResult}, submitter_lf=${data.unassignmentRequest.submitter},
             source_protocol_version=${data.sourceProtocolVersion},
-            transfer_out_global_offset=${data.unassignmentGlobalOffset}, transfer_in_global_offset=${data.transferInGlobalOffset}
+            transfer_out_global_offset=${data.unassignmentGlobalOffset}, transfer_in_global_offset=${data.assignmentGlobalOffset}
            where
               target_domain=$domain and origin_domain=${id.sourceDomain} and transfer_out_timestamp=${data.unassignmentTs}
           """

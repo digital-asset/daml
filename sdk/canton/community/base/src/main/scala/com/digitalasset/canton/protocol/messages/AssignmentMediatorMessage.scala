@@ -29,18 +29,18 @@ import com.digitalasset.canton.version.{
 
 import java.util.UUID
 
-/** Message sent to the mediator as part of a transfer-in request
+/** Message sent to the mediator as part of an assignment request
   *
-  * @param tree The transfer-in view tree blinded for the mediator
+  * @param tree The assignment view tree blinded for the mediator
   * @throws java.lang.IllegalArgumentException if the common data is blinded or the view is not blinded
   */
-final case class TransferInMediatorMessage(
+final case class AssignmentMediatorMessage(
     tree: AssignmentViewTree,
     override val submittingParticipantSignature: Signature,
 ) extends MediatorConfirmationRequest {
 
-  require(tree.commonData.isFullyUnblinded, "The transfer-in common data must be unblinded")
-  require(tree.view.isBlinded, "The transfer-in view must be blinded")
+  require(tree.commonData.isFullyUnblinded, "The assignment common data must be unblinded")
+  require(tree.view.isBlinded, "The assignment view must be blinded")
 
   override def submittingParticipant: ParticipantId = tree.submittingParticipant
 
@@ -50,8 +50,8 @@ final case class TransferInMediatorMessage(
   lazy val protocolVersion: TargetProtocolVersion = commonData.targetProtocolVersion
 
   override lazy val representativeProtocolVersion
-      : RepresentativeProtocolVersion[TransferInMediatorMessage.type] =
-    TransferInMediatorMessage.protocolVersionRepresentativeFor(protocolVersion.v)
+      : RepresentativeProtocolVersion[AssignmentMediatorMessage.type] =
+    AssignmentMediatorMessage.protocolVersionRepresentativeFor(protocolVersion.v)
 
   override def domainId: DomainId = commonData.targetDomain.unwrap
 
@@ -84,17 +84,17 @@ final case class TransferInMediatorMessage(
 
   override def viewType: ViewType = ViewType.AssignmentViewType
 
-  override def pretty: Pretty[TransferInMediatorMessage] = prettyOfClass(unnamedParam(_.tree))
+  override def pretty: Pretty[AssignmentMediatorMessage] = prettyOfClass(unnamedParam(_.tree))
 
-  @transient override protected lazy val companionObj: TransferInMediatorMessage.type =
-    TransferInMediatorMessage
+  @transient override protected lazy val companionObj: AssignmentMediatorMessage.type =
+    AssignmentMediatorMessage
 
   override def informeesArePublic: Boolean = true
 }
 
-object TransferInMediatorMessage
+object AssignmentMediatorMessage
     extends HasProtocolVersionedWithContextCompanion[
-      TransferInMediatorMessage,
+      AssignmentMediatorMessage,
       (HashOps, TargetProtocolVersion),
     ] {
 
@@ -106,30 +106,30 @@ object TransferInMediatorMessage
   )
 
   def fromProtoV30(context: (HashOps, TargetProtocolVersion))(
-      transferInMediatorMessageP: v30.AssignmentMediatorMessage
-  ): ParsingResult[TransferInMediatorMessage] = {
+      assignmentMediatorMessageP: v30.AssignmentMediatorMessage
+  ): ParsingResult[AssignmentMediatorMessage] = {
     val v30.AssignmentMediatorMessage(treePO, submittingParticipantSignaturePO) =
-      transferInMediatorMessageP
+      assignmentMediatorMessageP
     for {
       tree <- ProtoConverter
-        .required("TransferInMediatorMessage.tree", treePO)
+        .required("AssignmentMediatorMessage.tree", treePO)
         .flatMap(AssignmentViewTree.fromProtoV30(context))
       _ <- EitherUtil.condUnitE(
         tree.commonData.isFullyUnblinded,
-        OtherError(s"Transfer-in common data is blinded in request ${tree.rootHash}"),
+        OtherError(s"Assignment common data is blinded in request ${tree.rootHash}"),
       )
       _ <- EitherUtil.condUnitE(
         tree.view.isBlinded,
-        OtherError(s"Transfer-in view data is not blinded in request ${tree.rootHash}"),
+        OtherError(s"Assignment view data is not blinded in request ${tree.rootHash}"),
       )
       submittingParticipantSignature <- ProtoConverter
         .required(
-          "TransferInMediatorMessage.submittingParticipantSignature",
+          "AssignmentMediatorMessage.submittingParticipantSignature",
           submittingParticipantSignaturePO,
         )
         .flatMap(Signature.fromProtoV30)
-    } yield TransferInMediatorMessage(tree, submittingParticipantSignature)
+    } yield AssignmentMediatorMessage(tree, submittingParticipantSignature)
   }
 
-  override def name: String = "TransferInMediatorMessage"
+  override def name: String = "AssignmentMediatorMessage"
 }

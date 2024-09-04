@@ -264,11 +264,7 @@ class RecordOrderPublisher(
   }
 
   // TODO(i18695): try to remove the Traced[] from the Update here and in protocol processing if possible
-  /** Task to register the causality update `update` and publish the event `event` if defined.
-    * Some causality updates are not currently associated with an event, for example transfer-ins
-    * require a causality update but are not always associated with an event. This is why the event
-    * is optional.
-    */
+  /** Task to publish the event `event` if defined. */
   private[RecordOrderPublisher] case class EventPublicationTask(
       override val sequencerCounter: SequencerCounter,
       override val timestamp: CantonTimestamp,
@@ -334,7 +330,7 @@ class RecordOrderPublisher(
       // computes the acs change and publishes it
       logger.trace(
         show"The received commit set contains creations ${commitSet.creations}" +
-          show"transfer-ins ${commitSet.transferIns}" +
+          show"assignments ${commitSet.assignments}" +
           show"archivals ${commitSet.archivals} unassignments ${commitSet.unassignments}"
       )
 

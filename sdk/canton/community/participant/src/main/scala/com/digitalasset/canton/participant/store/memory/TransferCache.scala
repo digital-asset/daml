@@ -94,7 +94,7 @@ class TransferCache(transferStore: TransferStore, override val loggerFactory: Na
           }
         } else {
           /* A later request is already writing to the transfer store.
-           * To ensure that the earliest transfer-in request is recorded, we write the request to the store.`
+           * To ensure that the earliest assignment request is recorded, we write the request to the store.`
            * This write happens only after the ongoing write to not disturb the error reporting for the ongoing write.
            * However, it is not necessary to add this request to the cache
            * because the cache has already marked the transfer as having been completed.

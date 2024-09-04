@@ -173,7 +173,7 @@ class InMemoryTransferStore(
   )(implicit traceContext: TraceContext): Future[Seq[TransferData]] =
     Future.successful {
       def filter(entry: TransferEntry): Boolean =
-        entry.timeOfCompletion.isEmpty && // Always filter out completed transfer-in
+        entry.timeOfCompletion.isEmpty && // Always filter out completed assignment
           filterSource.forall(source => entry.transferData.sourceDomain == source) &&
           filterTimestamp.forall(ts => entry.transferData.reassignmentId.unassignmentTs == ts) &&
           filterSubmitter.forall(party => entry.transferData.unassignmentRequest.submitter == party)
@@ -192,7 +192,7 @@ class InMemoryTransferStore(
       implicit traceContext: TraceContext
   ): Future[Seq[TransferData]] = Future.successful {
     def filter(entry: TransferEntry): Boolean =
-      entry.timeOfCompletion.isEmpty && // Always filter out completed transfer-in
+      entry.timeOfCompletion.isEmpty && // Always filter out completed assignment
         requestAfter.forall(ts =>
           (
             entry.transferData.reassignmentId.unassignmentTs,
@@ -223,14 +223,14 @@ class InMemoryTransferStore(
   )(implicit traceContext: TraceContext): Future[Seq[IncompleteTransferData]] = {
     def onlyUnassignmentCompleted(entry: TransferEntry): Boolean =
       entry.transferData.unassignmentGlobalOffset.exists(_ <= validAt) &&
-        entry.transferData.transferInGlobalOffset.forall(_ > validAt)
+        entry.transferData.assignmentGlobalOffset.forall(_ > validAt)
 
-    def onlyTransferInCompleted(entry: TransferEntry): Boolean =
-      entry.transferData.transferInGlobalOffset.exists(_ <= validAt) &&
+    def onlyAssignmentCompleted(entry: TransferEntry): Boolean =
+      entry.transferData.assignmentGlobalOffset.exists(_ <= validAt) &&
         entry.transferData.unassignmentGlobalOffset.forall(_ > validAt)
 
     def incompleteTransfer(entry: TransferEntry): Boolean =
-      onlyUnassignmentCompleted(entry) || onlyTransferInCompleted(entry)
+      onlyUnassignmentCompleted(entry) || onlyAssignmentCompleted(entry)
 
     def filter(entry: TransferEntry): Boolean =
       sourceDomain.forall(_ == entry.transferData.sourceDomain) &&
@@ -255,7 +255,7 @@ class InMemoryTransferStore(
     if (transferDataMap.isEmpty) Future.successful(None)
     else {
       def incompleteTransfer(entry: TransferEntry): Boolean =
-        (entry.transferData.transferInGlobalOffset.isEmpty ||
+        (entry.transferData.assignmentGlobalOffset.isEmpty ||
           entry.transferData.unassignmentGlobalOffset.isEmpty) &&
           entry.transferData.targetDomain == domain
       val incompleteTransfers = transferDataMap.values
@@ -267,7 +267,7 @@ class InMemoryTransferStore(
         val incompleteTransfersOffsets = incompleteTransfers
           .mapFilter(entry =>
             (
-              entry.transferData.transferInGlobalOffset
+              entry.transferData.assignmentGlobalOffset
                 .orElse(entry.transferData.unassignmentGlobalOffset),
               entry.transferData.reassignmentId,
             ) match {
