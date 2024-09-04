@@ -164,21 +164,18 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
       fmap (HMS.fromListWith (<>) . catMaybes) $ forM pastDeps $ \pastDep -> do
           let (pkgId, pkg@LF.Package{packageMetadata = mbMeta}) = pastDep
           withPkgAsGamma pkg $ do
-            if LF.pkgSupportsUpgrades pkg
-              then
-                case mbMeta of
-                  Nothing -> do
-                    diagnosticWithContext $ WErrorToWarning $ WEDependencyHasNoMetadataDespiteUpgradeability pkgId UpgradedPackage
+            case mbMeta of
+              Nothing -> do
+                diagnosticWithContext $ WErrorToWarning $ WEDependencyHasNoMetadataDespiteUpgradeability pkgId UpgradedPackage
+                pure Nothing
+              Just meta -> do
+                let LF.PackageMetadata {packageName, packageVersion} = meta
+                case splitPackageVersion id packageVersion of
+                  Left version -> do
+                    diagnosticWithContext $ WErrorToWarning $ WEDependencyHasUnparseableVersion packageName version UpgradedPackage
                     pure Nothing
-                  Just meta -> do
-                    let LF.PackageMetadata {packageName, packageVersion} = meta
-                    case splitPackageVersion id packageVersion of
-                      Left version -> do
-                        diagnosticWithContext $ WErrorToWarning $ WEDependencyHasUnparseableVersion packageName version UpgradedPackage
-                        pure Nothing
-                      Right rawVersion ->
-                        pure $ Just (packageName, [(rawVersion, pkgId, pkg)])
-              else pure Nothing
+                  Right rawVersion ->
+                    pure $ Just (packageName, [(rawVersion, pkgId, pkg)])
 
     let withIdAndPkg dalfPkg = (dalfPackageId dalfPkg, dalfPkg, extPackagePkg (dalfPackagePkg dalfPkg))
         withoutIdAndPkg (_, dalfPkg, _) = dalfPkg
@@ -233,62 +230,59 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
     checkOneDep upgradeablePackageMap dalfPkg = do
       let LF.DalfPackage{dalfPackagePkg,dalfPackageId=presentPkgId} = dalfPkg
           presentPkg = extPackagePkg dalfPackagePkg
-      if not (LF.pkgSupportsUpgrades presentPkg)
-        then pure Nothing
-        else
-            case packageMetadata presentPkg of
-              Just meta ->
-                let PackageMetadata {packageName, packageVersion} = meta
-                in
-                case splitPackageVersion id packageVersion of
-                  Left version -> do
-                    withPkgAsGamma presentPkg $
-                      diagnosticWithContext $ WErrorToWarning $ WEDependencyHasUnparseableVersion packageName version UpgradedPackage
-                    pure Nothing
-                  Right presentVersion -> do
-                    let result = (packageName, (presentVersion, presentPkgId, presentPkg))
-                    case HMS.lookup packageName upgradeablePackageMap of
-                      Nothing -> pure ()
-                      Just upgradedPkgs -> do
-                        let equivalent = filter (\(pastVersion, pastPkgId, _) -> pastVersion == presentVersion && pastPkgId /= presentPkgId) upgradedPkgs
-                            ordFst = compare `on` (\(v,_,_) -> v)
-                            closestGreater = minimumByMay ordFst $ filter (\(pastVersion, _, _) -> pastVersion > presentVersion) upgradedPkgs
-                            closestLesser = maximumByMay ordFst $ filter (\(pastVersion, _, _) -> pastVersion < presentVersion) upgradedPkgs
-                        if not (null equivalent)
-                          then error "two upgradeable packages with same name and version"
-                          else do
-                            let otherDepsWithSelf = upgradeablePackageMapToDeps $ addDep result upgradeablePackageMap
-                            case closestGreater of
-                              Just (greaterPkgVersion, _greaterPkgId, greaterPkg) -> do
-                                let context = ContextDefUpgrading { cduPkgName = packageName, cduPkgVersion = Upgrading greaterPkgVersion presentVersion, cduSubContext = ContextNone, cduIsDependency = True }
-                                checkPackageBoth
-                                  CheckAll
-                                  (Just context)
-                                  greaterPkg
-                                  ((presentPkgId, presentPkg), otherDepsWithSelf)
-                                checkPackageSingle
-                                  (Just context)
-                                  presentPkg
-                              Nothing ->
-                                pure ()
-                            case closestLesser of
-                              Just (lesserPkgVersion, lesserPkgId, lesserPkg) -> do
-                                let context = ContextDefUpgrading { cduPkgName = packageName, cduPkgVersion = Upgrading lesserPkgVersion presentVersion, cduSubContext = ContextNone, cduIsDependency = True }
-                                checkPackageBoth
-                                  CheckAll
-                                  (Just context)
-                                  presentPkg
-                                  ((lesserPkgId, lesserPkg), otherDepsWithSelf)
-                                checkPackageSingle
-                                  (Just context)
-                                  presentPkg
-                              Nothing ->
-                                pure ()
-                    pure (Just result)
-              Nothing -> do
-                withPkgAsGamma presentPkg $
-                  diagnosticWithContext $ WErrorToWarning $ WEDependencyHasNoMetadataDespiteUpgradeability presentPkgId UpgradingPackage
-                pure Nothing
+      case packageMetadata presentPkg of
+        Just meta ->
+          let PackageMetadata {packageName, packageVersion} = meta
+          in
+          case splitPackageVersion id packageVersion of
+            Left version -> do
+              withPkgAsGamma presentPkg $
+                diagnosticWithContext $ WErrorToWarning $ WEDependencyHasUnparseableVersion packageName version UpgradedPackage
+              pure Nothing
+            Right presentVersion -> do
+              let result = (packageName, (presentVersion, presentPkgId, presentPkg))
+              case HMS.lookup packageName upgradeablePackageMap of
+                Nothing -> pure ()
+                Just upgradedPkgs -> do
+                  let equivalent = filter (\(pastVersion, pastPkgId, _) -> pastVersion == presentVersion && pastPkgId /= presentPkgId) upgradedPkgs
+                      ordFst = compare `on` (\(v,_,_) -> v)
+                      closestGreater = minimumByMay ordFst $ filter (\(pastVersion, _, _) -> pastVersion > presentVersion) upgradedPkgs
+                      closestLesser = maximumByMay ordFst $ filter (\(pastVersion, _, _) -> pastVersion < presentVersion) upgradedPkgs
+                  if not (null equivalent)
+                    then error "two upgradeable packages with same name and version"
+                    else do
+                      let otherDepsWithSelf = upgradeablePackageMapToDeps $ addDep result upgradeablePackageMap
+                      case closestGreater of
+                        Just (greaterPkgVersion, _greaterPkgId, greaterPkg) -> do
+                          let context = ContextDefUpgrading { cduPkgName = packageName, cduPkgVersion = Upgrading greaterPkgVersion presentVersion, cduSubContext = ContextNone, cduIsDependency = True }
+                          checkPackageBoth
+                            CheckAll
+                            (Just context)
+                            greaterPkg
+                            ((presentPkgId, presentPkg), otherDepsWithSelf)
+                          checkPackageSingle
+                            (Just context)
+                            presentPkg
+                        Nothing ->
+                          pure ()
+                      case closestLesser of
+                        Just (lesserPkgVersion, lesserPkgId, lesserPkg) -> do
+                          let context = ContextDefUpgrading { cduPkgName = packageName, cduPkgVersion = Upgrading lesserPkgVersion presentVersion, cduSubContext = ContextNone, cduIsDependency = True }
+                          checkPackageBoth
+                            CheckAll
+                            (Just context)
+                            presentPkg
+                            ((lesserPkgId, lesserPkg), otherDepsWithSelf)
+                          checkPackageSingle
+                            (Just context)
+                            presentPkg
+                        Nothing ->
+                          pure ()
+              pure (Just result)
+        Nothing -> do
+          withPkgAsGamma presentPkg $
+            diagnosticWithContext $ WErrorToWarning $ WEDependencyHasNoMetadataDespiteUpgradeability presentPkgId UpgradingPackage
+          pure Nothing
 
 checkPackageM :: CheckDepth -> LF.UpgradedPackageId -> Upgrading LF.Package -> TcUpgradeM ()
 checkPackageM checkDepth upgradedPackageId package = do
