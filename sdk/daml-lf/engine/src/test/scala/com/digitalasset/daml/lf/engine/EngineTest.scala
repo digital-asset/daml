@@ -1336,7 +1336,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           suffixLenientEngine
             .reinterpret(
               n.requiredAuthorizers,
-              ReplayCommand.Fetch(n.templateId, n.coid),
+              ReplayCommand.Fetch(n.templateId, None, n.coid),
               txMeta.nodeSeeds.toSeq.collectFirst { case (`nid`, seed) => seed },
               txMeta.submissionTime,
               let,
@@ -1382,6 +1382,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
 
       val fetchNode = ReplayCommand.Fetch(
         templateId = fetchedTid,
+        interfaceId = None,
         coid = fetchedCid,
       )
 
