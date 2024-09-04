@@ -612,30 +612,30 @@ test(
   doCreateFetchAndExercise(
     {
       ...buildAndLint.Main.Person,
-      templateId: `${buildAndLint.packageId}:Main:Person`,
+      templateId: templateIdWithPackageId(buildAndLint.Main.Person)(
+        buildAndLint.packageId,
+      ),
     },
     {
       ...buildAndLint.Main.AllTypes,
-      templateId: `${buildAndLint.packageId}:Main:AllTypes`,
+      templateId: templateIdWithPackageId(buildAndLint.Main.AllTypes)(
+        buildAndLint.packageId,
+      ),
     },
     {
       ...buildAndLint.Lib.Mod.NonTopLevel,
-      templateId: `${buildAndLint.packageId}:Lib.Mod:NonTopLevel`,
+      templateId: templateIdWithPackageId(buildAndLint.Lib.Mod.NonTopLevel)(
+        buildAndLint.packageId,
+      ),
     },
   ),
 );
 test(
   "create, fetch and exercise with package name",
   doCreateFetchAndExercise(
-    { ...buildAndLint.Main.Person, templateId: "#build-and-lint:Main:Person" },
-    {
-      ...buildAndLint.Main.AllTypes,
-      templateId: "#build-and-lint:Main:AllTypes",
-    },
-    {
-      ...buildAndLint.Lib.Mod.NonTopLevel,
-      templateId: "#build-and-lint:Lib.Mod:NonTopLevel",
-    },
+    buildAndLint.Main.Person,
+    buildAndLint.Main.AllTypes,
+    buildAndLint.Lib.Mod.NonTopLevel,
   ),
 );
 

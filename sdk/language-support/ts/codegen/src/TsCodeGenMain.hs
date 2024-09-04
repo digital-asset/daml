@@ -90,31 +90,45 @@ readPackages dars = concatMapM darToPackages dars
       forM (DAR.mainDalf dalfs : DAR.dalfs dalfs) $ \dalf ->
         either (fail . show) pure $ Archive.decodeArchive Archive.DecodeAsMain (BSL.toStrict dalf)
 
-unitIdToText :: (PackageName, PackageVersion) -> T.Text
-unitIdToText (pkgName, pkgVersion) = unPackageName pkgName <> "-" <> unPackageVersion pkgVersion
+newtype PackageNameVersion = PackageNameVersion (PackageName, PackageVersion)
+  deriving (Eq, Ord)
 
-packageUnitId :: Package -> (PackageName, PackageVersion)
-packageUnitId Package{packageMetadata=PackageMetadata{packageName, packageVersion}} = (packageName, packageVersion)
+pkgNameVerFromPackage :: Package -> PackageNameVersion
+pkgNameVerFromPackage Package{packageMetadata=PackageMetadata{packageName, packageVersion}} = PackageNameVersion (packageName, packageVersion)
+
+pkgNameVerToDir :: PackageNameVersion -> T.Text
+pkgNameVerToDir (PackageNameVersion (pkgName, pkgVersion)) = unPackageName pkgName <> "-" <> unPackageVersion pkgVersion
+
+pkgNameVerToPackageRef :: PackageNameVersion -> T.Text
+pkgNameVerToPackageRef (PackageNameVersion (nm, _)) = "#" <> unPackageName nm
 
 -- Work out the set of packages we have to generate script for and by
 -- what names.
 mergePackageMap :: [(PackageId, Package)] ->
-                   Either T.Text (Map.Map PackageId (PackageReference, Package))
-mergePackageMap ps = fst <$> foldM merge mempty ps
+                   Either T.Text (Map.Map PackageId Package)
+mergePackageMap ps = foldM merge mempty ps
   where
-    merge :: (Map.Map PackageId (PackageReference, Package), Set.Set (PackageName, PackageVersion)) ->
-                  (PackageId, Package) ->
-                  Either T.Text (Map.Map PackageId (PackageReference, Package), Set.Set (PackageName, PackageVersion))
-    merge (pkgs, usedUnitIds) (pkgId, pkg) = do
-        let ownUnitId = packageUnitId pkg
-            meta = packageMetadata pkg
-            pkgRef = PkgNameVer (packageName meta, packageVersion meta)
-            newUsedUnitIds = Set.insert ownUnitId usedUnitIds
+    merge :: Map.Map PackageId Package -> (PackageId, Package) -> Either T.Text (Map.Map PackageId Package)
+    merge pkgs (pkgId, pkg) = do
+        let usedPkgNmVers = Set.fromList $ map pkgNameVerFromPackage (Map.elems pkgs)
+            ownPkgNameVer = pkgNameVerFromPackage pkg
+            toText = pkgNameVerToDir -- Convenient representation for error messages
 
         -- Check if there is a package with the same name but a different package id.
-        when (pkgId `Map.notMember` pkgs && ownUnitId `Set.member` usedUnitIds) $
-            Left $ "Duplicate name '" <> unitIdToText ownUnitId <> "' for different packages detected"
-        pure (Map.insert pkgId (pkgRef, pkg) pkgs, newUsedUnitIds)
+        when (pkgId `Map.notMember` pkgs && ownPkgNameVer `Set.member` usedPkgNmVers) $
+            Left $ "Duplicate name '" <> toText ownPkgNameVer <> "' for different packages detected"
+
+        let update mbOld = case mbOld of
+                Nothing -> pure (Just pkg)
+                Just oldPkg -> do
+                    let oldPkgNameVer = pkgNameVerFromPackage oldPkg
+                    -- Check if we have colliding names for the same
+                    -- package.
+                    when (oldPkgNameVer /= ownPkgNameVer) $
+                        Left ("Different names ('" <> toText oldPkgNameVer <> "' and '" <> toText ownPkgNameVer <> "') for the same package detected")
+                    pure (Just pkg)
+
+        Map.alterF update pkgId pkgs
 
 -- Write packages for all the DALFs in all the DARs.
 main :: IO ()
@@ -135,33 +149,21 @@ main = do
           Left err -> fail . T.unpack $ err
           Right pkgMap -> do
               forM_ (Map.toList pkgMap) $
-                \(pkgId, (pkgRef, pkg)) -> do
-                     let pkgDesc = case pkgRef of
-                           PkgId _ -> unPackageId pkgId
-                           PkgNameVer (pkgName, _) -> unPackageName pkgName <> " (hash: " <> unPackageId pkgId <> ")"
-                         pkgUnitId = unitIdToText $ packageUnitId pkg
-                     T.putStrLn $ "Generating " <> pkgDesc
+                \(pkgId, pkg) -> do
+                     let pkgNameVer = pkgNameVerFromPackage pkg
+                     let PackageNameVersion (pkgName, _) = pkgNameVer
+                     T.putStrLn $ "Generating " <> unPackageName pkgName <> " (hash: " <> unPackageId pkgId <> ")"
                      daml2js Daml2jsParams{..}
 
-data PackageReference
-    = PkgNameVer (PackageName, PackageVersion)
-    | PkgId PackageId
- deriving (Eq, Ord)
-
-forTemplateId :: PackageReference -> T.Text
-forTemplateId (PkgNameVer (nm, _)) = "#" <> unPackageName nm
-forTemplateId (PkgId id) = unPackageId id
-
 newtype Scope = Scope {unScope :: T.Text}
-newtype Dependency = Dependency {_unDependency :: T.Text} deriving (Eq, Ord)
+newtype Dependency = Dependency {_unDependency :: PackageNameVersion} deriving (Eq, Ord)
 
 data Daml2jsParams = Daml2jsParams
   { opts :: Options  -- cli args
-  , pkgMap :: Map.Map PackageId (PackageReference, Package)
+  , pkgMap :: Map.Map PackageId Package
   , pkgId :: PackageId
   , pkg :: Package
-  , pkgUnitId :: T.Text
-  , pkgRef :: PackageReference
+  , pkgNameVer :: PackageNameVersion
   , releaseVersion :: ReleaseVersion
   }
 
@@ -171,7 +173,7 @@ daml2js Daml2jsParams {..} = do
     let Options {..} = opts
         scopeDir = optOutputDir
           -- The directory into which we generate packages e.g. '/path/to/daml2js'.
-        packageDir = scopeDir </> T.unpack pkgUnitId
+        packageDir = scopeDir </> (T.unpack $ pkgNameVerToDir pkgNameVer)
           -- The directory into which we write this package e.g. '/path/to/daml2js/davl-0.0.4'.
         packageSrcDir = packageDir </> "lib"
           -- Where the source files of this package are written e.g. '/path/to/daml2js/davl-0.0.4/lib'.
@@ -183,7 +185,7 @@ daml2js Daml2jsParams {..} = do
     -- Write .ts files for the package and harvest references to
     -- foreign packages as we do.
     (nonEmptyModNames, dependenciesSets) <- Control.Monad.mapAndUnzipM (writeModuleTs packageSrcDir scope) (NM.toList (packageModules pkg))
-    writeIndexTs pkgId pkgRef packageSrcDir (catMaybes nonEmptyModNames)
+    writeIndexTs pkgId packageSrcDir (catMaybes nonEmptyModNames)
     let dependencies = Set.toList (Set.unions dependenciesSets)
     -- Now write package metadata.
     writeTsConfig packageDir
@@ -192,7 +194,7 @@ daml2js Daml2jsParams {..} = do
       -- Write the .ts file for a single Daml-LF module.
       writeModuleTs :: FilePath -> Scope -> Module -> IO (Maybe ModuleName, Set.Set Dependency)
       writeModuleTs packageSrcDir scope mod = do
-        case genModule pkgMap scope pkgId pkgRef mod of
+        case genModule pkgMap scope pkgId pkgNameVer mod of
           Nothing -> pure (Nothing, Set.empty)
           Just ((jsSource, tsDecls), ds) -> do
             let outputDir = packageSrcDir </> joinPath (map T.unpack (unModuleName (moduleName mod)))
@@ -202,13 +204,13 @@ daml2js Daml2jsParams {..} = do
             pure (Just (moduleName mod), ds)
 
 -- Generate the .ts content for a single module.
-genModule :: Map.Map PackageId (PackageReference, Package) ->
-     Scope -> PackageId -> PackageReference -> Module -> Maybe ((T.Text, T.Text), Set.Set Dependency)
-genModule pkgMap (Scope scope) curPkgId curPkgRef mod
+genModule :: Map.Map PackageId Package ->
+     Scope -> PackageId -> PackageNameVersion -> Module -> Maybe ((T.Text, T.Text), Set.Set Dependency)
+genModule pkgMap (Scope scope) curPkgId curPkgNameVer mod
   | null serDefs && null ifaces =
     Nothing -- If no serializable types or interfaces, nothing to do.
   | otherwise =
-    let (decls, refs) = unzip (map (genDataDef curPkgId curPkgRef mod (interfaceChoices pkgMap curPkgId) tpls) serDefs)
+    let (decls, refs) = unzip (map (genDataDef curPkgId curPkgNameVer mod (interfaceChoices pkgMap curPkgId) tpls) serDefs)
         (ifaceDecls, ifaceRefs) = unzip (map (genIfaceDecl curPkgId mod) $ NM.toList ifaces)
         imports = (PRSelf, modName) `Set.delete` Set.unions (refs ++ ifaceRefs)
         (internalImports, externalImports) = splitImports imports
@@ -222,7 +224,7 @@ genModule pkgMap (Scope scope) curPkgId curPkgRef mod
         (jsBody, tsDeclsBody) = unzip $ map (unzip . map renderTsDecl) (ifaceDecls ++ decls)
         -- ifaceDecls need to come before decls, otherwise (JavaScript) interface choice objects
         -- will not be defined in template object.
-        depends = Set.map (Dependency . unitIdStr pkgMap) externalImports
+        depends = Set.map (Dependency . getPkgNameVer pkgMap) externalImports
    in Just ((makeMod ES5 jsBody, makeMod ES6 tsDeclsBody), depends)
   where
     modName = moduleName mod
@@ -267,11 +269,11 @@ genModule pkgMap (Scope scope) curPkgId curPkgRef mod
             (modPath (rootPath ++ unModuleName modName ++ ["module"]))
 
     -- The choice names for an interface from a package map.
-    interfaceChoices :: Map.Map PackageId (PackageReference, Package)
+    interfaceChoices :: Map.Map PackageId Package
                      -> PackageId -> InterfaceChoices
     interfaceChoices pkgMap selfPkg = InterfaceChoices $ \name@Qualified{qualPackage, qualModule, qualObject} ->
       fromMaybe (error $ "reference interface missing: " <> show name) $ do
-        (_, pkg) <- Map.lookup (case qualPackage of
+        pkg <- Map.lookup (case qualPackage of
                                   PRSelf -> selfPkg
                                   PRImport pkgId -> pkgId) pkgMap
         mod <- qualModule `NM.lookup` packageModules pkg
@@ -281,18 +283,18 @@ genModule pkgMap (Scope scope) curPkgId curPkgRef mod
     -- Calculate an import declaration for a module from another package.
     externalImportDecl
         :: JSSyntax
-        -> Map.Map PackageId (PackageReference, Package)
+        -> Map.Map PackageId Package
         -> PackageId
         -> T.Text
     externalImportDecl jsSyntax pkgMap pkgId =
-        importStmt jsSyntax (pkgVar pkgId) (scope <> "/" <> unitIdStr pkgMap pkgId)
+        importStmt jsSyntax (pkgVar pkgId) (scope <> "/" <> pkgNameVerToDir (getPkgNameVer pkgMap pkgId))
 
-    -- Produce a package name for a package ref.
-    unitIdStr :: Map.Map PackageId (PackageReference, Package) -> PackageId -> T.Text
-    unitIdStr pkgMap pkgId =
+    -- Produce a PackageNameVersion
+    getPkgNameVer :: Map.Map PackageId Package -> PackageId -> PackageNameVersion
+    getPkgNameVer pkgMap pkgId =
         case Map.lookup pkgId pkgMap of
           Nothing -> error "IMPOSSIBLE : package map malformed"
-          Just (_, pkg) -> unitIdToText $ packageUnitId pkg
+          Just pkg -> pkgNameVerFromPackage pkg
 
 newtype InterfaceChoices = InterfaceChoices (NM.Name TemplateImplements -> Set.Set ChoiceName)
 
@@ -305,16 +307,16 @@ importStmt ES5 asName impName =
 defDataTypes :: Module -> [DefDataType]
 defDataTypes mod = filter (getIsSerializable . dataSerializable) (NM.toList (moduleDataTypes mod))
 
-genDataDef :: PackageId -> PackageReference -> Module -> InterfaceChoices -> NM.NameMap Template
+genDataDef :: PackageId -> PackageNameVersion -> Module -> InterfaceChoices -> NM.NameMap Template
            -> DefDataType -> ([TsDecl], Set.Set ModuleRef)
-genDataDef curPkgId curPkgRef mod ifcChoices tpls def = case unTypeConName (dataTypeCon def) of
+genDataDef curPkgId curPkgNameVer mod ifcChoices tpls def = case unTypeConName (dataTypeCon def) of
     [] -> error "IMPOSSIBLE: empty type constructor name"
     _: _: _: _ -> error "IMPOSSIBLE: multi-part type constructor of more than two names"
 
-    [conName] -> genDefDataType curPkgId curPkgRef conName mod ifcChoices tpls def
+    [conName] -> genDefDataType curPkgId curPkgNameVer conName mod ifcChoices tpls def
     [c1, c2] -> ([DeclNamespace c1 tyDecls], refs)
       where
-        (decls, refs) = genDefDataType curPkgId curPkgRef c2 mod ifcChoices tpls def
+        (decls, refs) = genDefDataType curPkgId curPkgNameVer c2 mod ifcChoices tpls def
         tyDecls = [d | DeclTypeDef d <- decls]
 
 genIfaceDecl :: PackageId -> Module -> DefInterface -> ([TsDecl], Set.Set ModuleRef)
@@ -399,15 +401,15 @@ renderTemplateNamespace TemplateNamespace{..} = T.unlines $ concat
     tI = "typeof " <> tnsName <.> "templateId"
     tParams xs = "<" <> T.intercalate ", " xs <> ">"
 
-data TemplateRegistration = TemplateRegistration T.Text PackageId PackageReference
+data TemplateRegistration = TemplateRegistration T.Text PackageId PackageNameVersion
 
 renderTemplateRegistration :: TemplateRegistration -> T.Text
-renderTemplateRegistration (TemplateRegistration t pkgId pkgRef) = T.unlines
-  [ "damlTypes.registerTemplate(exports." <> t <> ", ['" <> unPackageId pkgId <> "', '" <> forTemplateId pkgRef <> "']);" ]
+renderTemplateRegistration (TemplateRegistration t pkgId pkgNameVer) = T.unlines
+  [ "damlTypes.registerTemplate(exports." <> t <> ", ['" <> unPackageId pkgId <> "', '" <> pkgNameVerToPackageRef pkgNameVer <> "']);" ]
 
 data TemplateDef = TemplateDef
   { tplName :: T.Text
-  , tplPkgRef :: PackageReference
+  , tplPkgNameVer :: PackageNameVersion
   , tplModule :: ModuleName
   , tplDecoder :: Decoder
   , tplEncode :: Encode
@@ -468,7 +470,7 @@ renderTemplateDef TemplateDef {..} =
         implsUnion = if null tplImplements' then "never"
           else T.intercalate " | " [ impl | (TsTypeConRef impl, _, _) <- tplImplements' ]
         templateId =
-            forTemplateId tplPkgRef <> ":" <>
+            pkgNameVerToPackageRef tplPkgNameVer <> ":" <>
             T.intercalate "." (unModuleName tplModule) <> ":" <>
             tplName
 
@@ -811,9 +813,9 @@ genTypeDef conName mod def =
   where
     paramNames = map (unTypeVarName . fst) (dataParams def)
 
-genDefDataType :: PackageId -> PackageReference -> T.Text -> Module -> InterfaceChoices -> NM.NameMap Template
+genDefDataType :: PackageId -> PackageNameVersion -> T.Text -> Module -> InterfaceChoices -> NM.NameMap Template
                -> DefDataType -> ([TsDecl], Set.Set ModuleRef)
-genDefDataType curPkgId curPkgRef conName mod (InterfaceChoices ifcChoices) tpls def =
+genDefDataType curPkgId curPkgNameVer conName mod (InterfaceChoices ifcChoices) tpls def =
     case dataCons def of
         DataVariant bs ->
           let
@@ -859,7 +861,7 @@ genDefDataType curPkgId curPkgRef conName mod (InterfaceChoices ifcChoices) tpls
                             , let ifaceRefs = Set.setOf qualifiedModuleRef impl]
                         dict = TemplateDef
                             { tplName = conName
-                            , tplPkgRef = curPkgRef
+                            , tplPkgNameVer = curPkgNameVer
                             , tplModule = moduleName mod
                             , tplDecoder = DecoderObject [(x, DecoderRef ser) | (x, ser) <- zip fieldNames fieldTypes]
                             , tplEncode = EncodeRecord $ zip fieldNames fieldTypes
@@ -872,7 +874,7 @@ genDefDataType curPkgId curPkgRef conName mod (InterfaceChoices ifcChoices) tpls
                           { tnsName = conName
                           , tnsMbKeyDef = TypeRef (moduleName mod) . tplKeyType <$> tplKey tpl
                           }
-                        registrations = TemplateRegistration conName curPkgId curPkgRef
+                        registrations = TemplateRegistration conName curPkgId curPkgNameVer
                         refs = Set.unions (fieldRefs ++ keyRefs : implRefs ++ chcRefs)
                     in
                     ([DeclTypeDef typeDesc, DeclTemplateDef dict, DeclTemplateNamespace associatedTypes, DeclTemplateRegistration registrations], refs)
@@ -1016,7 +1018,7 @@ packageJsonDependencies :: Scope -> [Dependency] -> Value
 packageJsonDependencies (Scope scope) dependencies = object $
     [ "@mojotech/json-type-validation" .= jtvVersion
     ] ++
-    [ Aeson.fromText (scope <> "/" <> unitId) .= ("file:../" <> unitId) | Dependency unitId <- dependencies ]
+    [ let dir = pkgNameVerToDir pkgNameVer in Aeson.fromText (scope <> "/" <> dir) .= ("file:../" <> dir) | Dependency pkgNameVer <- dependencies ]
 
 packageJsonPeerDependencies:: ReleaseVersion ->  Value
 packageJsonPeerDependencies releaseVersion = object
@@ -1040,9 +1042,9 @@ writePackageJson packageDir releaseVersion scope dependencies =
   in
   BSL.writeFile (packageDir </> "package.json") (encodePretty packageJson)
 
-writeIndexTs :: PackageId -> PackageReference -> FilePath -> [ModuleName] -> IO ()
-writeIndexTs pkgId pkgRef packageSrcDir modNames =
-  processIndexTree pkgId pkgRef packageSrcDir (buildIndexTree modNames)
+writeIndexTs :: PackageId -> FilePath -> [ModuleName] -> IO ()
+writeIndexTs pkgId packageSrcDir modNames =
+  processIndexTree pkgId packageSrcDir (buildIndexTree modNames)
 
 -- NOTE(MH): The module structure of a Daml package can have "holes", i.e.,
 -- you can have modules `A` and `A.B.C` but no module `A.B`. We call such a
@@ -1072,19 +1074,15 @@ buildIndexTree = foldl' merge empty . map path
       , children = Map.unionWith merge (children t1) (children t2)
       }
 
-processIndexTree :: PackageId -> PackageReference -> FilePath -> IndexTree -> IO ()
-processIndexTree pkgId pkgRef srcDir root = do
+processIndexTree :: PackageId -> FilePath -> IndexTree -> IO ()
+processIndexTree pkgId srcDir root = do
   T.writeFileUtf8 (srcDir </> "index.d.ts") $ T.unlines $
     reexportChildren ES6 root ++
-    [ "export declare const packageId = '" <> unPackageId pkgId <> "';"
-    , "export declare const packageReference = '" <> forTemplateId pkgRef <> "';"
-    ]
+    [ "export declare const packageId = '" <> unPackageId pkgId <> "';" ]
   T.writeFileUtf8 (srcDir </> "index.js") $ T.unlines $
     commonjsPrefix ++
     reexportChildren ES5 root ++
-    [ "exports.packageId = '" <> unPackageId pkgId <> "';"
-    , "exports.packageReference = '" <> forTemplateId pkgRef <> "';"
-    ]
+    [ "exports.packageId = '" <> unPackageId pkgId <> "';" ]
   processChildren (ModuleName []) root
   where
     processChildren :: ModuleName -> IndexTree -> IO ()
