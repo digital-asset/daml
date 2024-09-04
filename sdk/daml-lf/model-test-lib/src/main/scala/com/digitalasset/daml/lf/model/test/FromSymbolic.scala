@@ -1,11 +1,9 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package model
-package test
+package com.digitalasset.daml.lf.model.test
 
-import com.daml.lf.model.test.{Ledgers => L, Symbolic => S}
+import com.digitalasset.daml.lf.model.test.{Ledgers => L, Symbolic => S}
 import com.microsoft.z3.enumerations.Z3_lbool
 import com.microsoft.z3.{Context, IntNum, Model}
 import LedgerImplicits._

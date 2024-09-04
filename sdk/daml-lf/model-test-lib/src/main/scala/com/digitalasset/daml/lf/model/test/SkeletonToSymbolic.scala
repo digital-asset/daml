@@ -1,11 +1,9 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package model
-package test
+package com.digitalasset.daml.lf.model.test
 
-import com.daml.lf.model.test.{Skeletons => Skel, Symbolic => Sym}
+import com.digitalasset.daml.lf.model.test.{Skeletons => Skel, Symbolic => Sym}
 import com.microsoft.z3.Context
 
 import scala.annotation.nowarn

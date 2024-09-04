@@ -1,31 +1,29 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.daml.lf
-package model
-package test
+package com.digitalasset.daml.lf.model.test
 
 import cats.data.EitherT
 import cats.implicits.toTraverseOps
 import cats.instances.all._
-import com.daml.lf.data.Ref
-import com.daml.lf.engine.script.Disclosure
-import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
-import com.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient.{
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.engine.script.Disclosure
+import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient
+import com.digitalasset.daml.lf.engine.script.v2.ledgerinteraction.ScriptLedgerClient.{
   CommandResult,
   CommandWithMeta,
   CreateResult,
   ExerciseResult,
 }
-import com.daml.lf.model.test.LedgerImplicits._
-import com.daml.lf.model.test.Ledgers._
-import com.daml.lf.model.test.ToCommands.{
+import com.digitalasset.daml.lf.model.test.LedgerImplicits._
+import com.digitalasset.daml.lf.model.test.Ledgers._
+import com.digitalasset.daml.lf.model.test.ToCommands.{
   ContractIdMapping,
   PartyIdMapping,
   UniversalContractId,
   UniversalWithKeyContractId,
 }
-import com.daml.lf.value.{Value => V}
+import com.digitalasset.daml.lf.value.{Value => V}
 import org.apache.pekko.stream.Materializer
 import scalaz.OneAnd
 
@@ -38,8 +36,11 @@ object Interpreter {
       case TranslationError(error) => error.toString
       case SubmitFailure(failure) =>
         failure match {
-          case ScriptLedgerClient.SubmitFailure(statusError: com.daml.lf.scenario.Error, _) =>
-            com.daml.lf.scenario.Pretty.prettyError(statusError).render(80)
+          case ScriptLedgerClient.SubmitFailure(
+                statusError: com.digitalasset.daml.lf.scenario.Error,
+                _,
+              ) =>
+            com.digitalasset.daml.lf.scenario.Pretty.prettyError(statusError).render(80)
           case _ => failure.toString
         }
     }
