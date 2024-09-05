@@ -245,19 +245,31 @@ const registeredTemplates: { [key: string]: Template<object> } = {};
  */
 export const registerTemplate = <T extends object>(
   template: Template<T>,
+  packageSpecifiers: string[] = [],
 ): void => {
-  const templateId = template.templateId;
-  const oldTemplate = registeredTemplates[templateId];
-  if (oldTemplate === undefined) {
-    registeredTemplates[templateId] = template as unknown as Template<
-      object,
-      unknown,
-      string
-    >;
-    console.debug(`Registered template ${templateId}.`);
-  } else {
-    console.warn(`Trying to re-register template ${templateId}.`);
-  }
+  const aliases = packageSpecifiers.map(templateIdWithPackageId(template));
+  new Set([template.templateId].concat(aliases)).forEach(templateId => {
+    if (templateId in registeredTemplates) {
+      console.warn(`Trying to re-register template ${templateId}.`);
+    } else {
+      registeredTemplates[templateId] = template as unknown as Template<
+        object,
+        unknown,
+        string
+      >;
+      console.debug(`Registered template ${templateId}.`);
+    }
+  });
+};
+
+/**
+ * @internal
+ */
+export const templateIdWithPackageId = <T extends object, K, I extends string>(
+  t: Template<T, K, I>,
+) => {
+  return (pkgId: string): string =>
+    [pkgId].concat(t.templateId.split(":").slice(1)).join(":");
 };
 
 /**

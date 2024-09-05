@@ -69,8 +69,8 @@ PATH=$PATH:$GRPCURL
 # yarn.lock includes local paths and hashes for daml.js; remove them
 # before grepping
 hide_changing_paths() {
-    sed -Ee 's!^("@daml.js/)([0-9a-f]+)@file:daml2js/\2":!\1...": # elided for diff!' \
-        -e 's!( +"@daml.js/)[0-9a-f]+" "file:.*"!\1..." "file:..." # elided for diff!' "$1"
+    sed -Ee 's!^("@daml.js/)([0-9a-zA-Z\._-]+)@file:daml2js/\2":!\1...": # elided for diff!' \
+        -e 's!( +"@daml.js/)[0-9a-zA-Z\._-]+" "file:.*"!\1..." "file:..." # elided for diff!' "$1"
 }
 
 # Build, lint, test.
@@ -90,4 +90,4 @@ $YARN run build
 $YARN run lint
 # Invoke 'yarn test'. Control is thereby passed to
 # 'language-support/ts/codegen/tests/ts/build-and-lint-test/src/__tests__/test.ts'.
-JAVA=$JAVA CANTON=$CANTON DAR=$DAR UPLOAD_DAR=$UPLOAD_DAR HIDDEN_DAR=$HIDDEN_DAR $YARN test
+JAVA=$JAVA CANTON=$CANTON DAR=$DAR UPLOAD_DAR=$UPLOAD_DAR HIDDEN_DAR=$HIDDEN_DAR $YARN test -t "${BUILD_AND_LINT_TEST_NAME_PATTERN:-.*}"
