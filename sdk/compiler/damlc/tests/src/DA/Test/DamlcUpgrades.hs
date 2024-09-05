@@ -637,8 +637,10 @@ tests damlc =
                   let compiledRegex :: Regex
                       compiledRegex = makeRegexOpts defaultCompOpt { multiline = False } defaultExecOpt regexWithSeverity
                   if setUpgradeField && doTypecheck
-                      then unless (matchTest compiledRegex stderr) $
-                            assertFailure ("`daml build` succeeded, but did not give a warning matching '" <> show regexWithSeverity <> "':\n" <> show stderr)
+                      then case matchCount compiledRegex stderr of
+                            0 -> assertFailure ("`daml build` succeeded, but did not give a warning matching '" <> show regexWithSeverity <> "':\n" <> show stderr)
+                            1 -> pure ()
+                            _ -> assertFailure ("`daml build` succeeded, but gave a warning matching '" <> show regexWithSeverity <> "' more than once:\n" <> show stderr)
                       else when (matchTest compiledRegex stderr) $
                             assertFailure ("`daml build` succeeded, did not `upgrade:` field set, should NOT give a warning matching '" <> show regexWithSeverity <> "':\n" <> show stderr)
           where

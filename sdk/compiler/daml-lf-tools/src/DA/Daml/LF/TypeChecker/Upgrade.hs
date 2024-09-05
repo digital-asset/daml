@@ -83,12 +83,12 @@ extractDiagnostics version upgradeInfo action =
     Left err -> [toDiagnostic err]
     Right ((), warnings) -> map toDiagnostic (nub warnings)
 
-checkUpgrade
+checkPackage
   :: LF.Package
   -> [LF.DalfPackage] -> Version -> UpgradeInfo
   -> Maybe ((LF.PackageId, LF.Package), [(LF.PackageId, LF.Package)])
   -> [Diagnostic]
-checkUpgrade pkg deps version upgradeInfo mbUpgradedPkg =
+checkPackage pkg deps version upgradeInfo mbUpgradedPkg =
   extractDiagnostics version upgradeInfo $ do
     shouldTypecheck <- shouldTypecheckM
     when shouldTypecheck $ do
@@ -96,11 +96,11 @@ checkUpgrade pkg deps version upgradeInfo mbUpgradedPkg =
         Nothing -> pure ()
         Just (upgradedPkg, upgradingDeps) -> do
             deps <- checkUpgradeDependenciesM deps (upgradedPkg : upgradingDeps)
-            checkUpgradeBoth Nothing pkg (upgradedPkg, deps)
-      checkUpgradeSingle Nothing pkg
+            checkPackageBoth CheckShallow Nothing pkg (upgradedPkg, deps)
+      checkPackageSingle Nothing pkg
 
-checkUpgradeBoth :: Maybe Context -> LF.Package -> ((LF.PackageId, LF.Package), UpgradingDeps) -> TcPreUpgradeM ()
-checkUpgradeBoth mbContext pkg ((upgradedPkgId, upgradedPkg), upgradingDeps) =
+checkPackageBoth :: CheckDepth -> Maybe Context -> LF.Package -> ((LF.PackageId, LF.Package), UpgradingDeps) -> TcPreUpgradeM ()
+checkPackageBoth checkDepth mbContext pkg ((upgradedPkgId, upgradedPkg), upgradingDeps) =
   let presentWorld = initWorldSelf [] pkg
       pastWorld = initWorldSelf [] upgradedPkg
       upgradingWorld = Upgrading { _past = pastWorld, _present = presentWorld }
@@ -112,10 +112,13 @@ checkUpgradeBoth mbContext pkg ((upgradedPkgId, upgradedPkg), upgradingDeps) =
   in
   withReaderT (\(version, upgradeInfo) -> UpgradingEnv (mkGamma version upgradeInfo <$> upgradingWorld) upgradingDeps) $
     withMbContext $
-      checkUpgradeM (UpgradedPackageId upgradedPkgId) (Upgrading upgradedPkg pkg)
+      checkPackageM checkDepth (UpgradedPackageId upgradedPkgId) (Upgrading upgradedPkg pkg)
 
-checkUpgradeSingle :: Maybe Context -> LF.Package -> TcPreUpgradeM ()
-checkUpgradeSingle mbContext pkg =
+data CheckDepth = CheckDeep | CheckShallow
+  deriving (Show, Eq, Ord)
+
+checkPackageSingle :: Maybe Context -> LF.Package -> TcPreUpgradeM ()
+checkPackageSingle mbContext pkg =
   let presentWorld = initWorldSelf [] pkg
       withMbContext :: TcM () -> TcM ()
       withMbContext = maybe id withContext mbContext
@@ -147,9 +150,9 @@ checkModule world0 module_ deps version upgradeInfo mbUpgradedPkg =
                 Just pastModule -> do
                   let upgradingModule = Upgrading { _past = pastModule, _present = module_ }
                   checkModuleM upgradedPkgId upgradingModule
-      withReaderT (\(version, upgradeInfo) -> mkGamma version upgradeInfo world) $ do
-        checkNewInterfacesAreUnused module_
-        checkNewInterfacesHaveNoTemplates module_
+      --withReaderT (\(version, upgradeInfo) -> mkGamma version upgradeInfo world) $ do
+      --  checkNewInterfacesAreUnused module_
+      --  checkNewInterfacesHaveNoTemplates module_
 
 checkUpgradeDependenciesM
     :: [LF.DalfPackage]
@@ -257,11 +260,12 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
                             case closestGreater of
                               Just (greaterPkgVersion, _greaterPkgId, greaterPkg) -> do
                                 let context = ContextDefUpgrading { cduPkgName = packageName, cduPkgVersion = Upgrading greaterPkgVersion presentVersion, cduSubContext = ContextNone, cduIsDependency = True }
-                                checkUpgradeBoth
+                                checkPackageBoth
+                                  CheckDeep
                                   (Just context)
                                   greaterPkg
                                   ((presentPkgId, presentPkg), otherDepsWithSelf)
-                                checkUpgradeSingle
+                                checkPackageSingle
                                   (Just context)
                                   presentPkg
                               Nothing ->
@@ -269,11 +273,12 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
                             case closestLesser of
                               Just (lesserPkgVersion, lesserPkgId, lesserPkg) -> do
                                 let context = ContextDefUpgrading { cduPkgName = packageName, cduPkgVersion = Upgrading lesserPkgVersion presentVersion, cduSubContext = ContextNone, cduIsDependency = True }
-                                checkUpgradeBoth
+                                checkPackageBoth
+                                  CheckDeep
                                   (Just context)
                                   presentPkg
                                   ((lesserPkgId, lesserPkg), otherDepsWithSelf)
-                                checkUpgradeSingle
+                                checkPackageSingle
                                   (Just context)
                                   presentPkg
                               Nothing ->
@@ -284,10 +289,12 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
                   diagnosticWithContext $ WErrorToWarning $ WEDependencyHasNoMetadataDespiteUpgradeability presentPkgId UpgradingPackage
                 pure Nothing
 
-checkUpgradeM :: LF.UpgradedPackageId -> Upgrading LF.Package -> TcUpgradeM ()
-checkUpgradeM upgradedPackageId package = do
+checkPackageM :: CheckDepth -> LF.UpgradedPackageId -> Upgrading LF.Package -> TcUpgradeM ()
+checkPackageM checkDepth upgradedPackageId package = do
     (upgradedModules, _new) <- checkDeleted (EUpgradeMissingModule . NM.name) $ NM.toHashMap . packageModules <$> package
-    forM_ upgradedModules $ checkModuleM upgradedPackageId
+    case checkDepth of
+      CheckDeep -> forM_ upgradedModules $ checkModuleM upgradedPackageId
+      CheckShallow -> pure ()
 
 extractDelExistNew
     :: (Eq k, Hashable k)
