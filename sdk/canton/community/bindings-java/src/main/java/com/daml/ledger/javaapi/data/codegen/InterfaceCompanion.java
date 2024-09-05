@@ -42,15 +42,34 @@ public abstract class InterfaceCompanion<I, Id, View>
    * @hidden
    */
   protected InterfaceCompanion(
+      ContractTypeCompanion.Package packageInfo,
       String templateClassName,
       Identifier templateId,
       Function<String, Id> newContractId,
       ValueDecoder<View> valueDecoder,
       FromJson<View> fromJson,
       List<Choice<I, ?, ?>> choices) {
-    super(templateId, templateClassName, newContractId, choices);
+    super(packageInfo, templateId, templateClassName, newContractId, choices);
     this.valueDecoder = valueDecoder;
     this.fromJson = fromJson;
+  }
+
+  // TODO(i21140): remove this overload, once codegen no longer uses it.
+  private InterfaceCompanion(
+      String templateClassName,
+      Identifier templateId,
+      Function<String, Id> newContractId,
+      ValueDecoder<View> valueDecoder,
+      FromJson<View> fromJson,
+      List<Choice<I, ?, ?>> choices) {
+    this(
+        new ContractTypeCompanion.Package(templateId.getPackageId(), "?", PackageVersion.ZERO),
+        templateClassName,
+        templateId,
+        newContractId,
+        valueDecoder,
+        fromJson,
+        choices);
   }
 
   public View fromJson(String json) throws JsonLfDecoder.Error {
