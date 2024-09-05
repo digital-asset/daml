@@ -6,20 +6,19 @@ module DA.Daml.Doc.Transform.Annotations
     ) where
 
 import DA.Daml.Doc.Types
-import DA.Daml.Doc.Anchor
 
 import qualified Data.Text as T
 import Data.List.Extra
 import Control.Applicative ((<|>))
 
 -- | Apply HIDE and MOVE annotations.
-applyAnnotations :: [ModuleDoc] -> [ModuleDoc]
-applyAnnotations = applyMove . applyHide
+applyAnnotations :: AnchorGenerators -> [ModuleDoc] -> [ModuleDoc]
+applyAnnotations anchorGenerators = applyMove anchorGenerators . applyHide
 
 -- | Apply the MOVE annotation, which moves all the docs from one
 -- module to another.
-applyMove :: [ModuleDoc] -> [ModuleDoc]
-applyMove
+applyMove :: AnchorGenerators -> [ModuleDoc] -> [ModuleDoc]
+applyMove anchorGenerators
     = map (foldr1 combineModules)
     . groupSortOn md_name
     . map renameModule
@@ -31,7 +30,7 @@ applyMove
     renameModule md@ModuleDoc{..}
         | Just new <- isMove md_descr = md
             { md_name = new
-            , md_anchor = Just (moduleAnchor new)
+            , md_anchor = Just (ag_moduleAnchor anchorGenerators new)
                 -- Update the module anchor
             , md_descr = Nothing
                 -- Drop the renamed module's description.

@@ -15,11 +15,11 @@ import DA.Daml.Doc.Transform.DropEmpty
 
 import Data.Maybe
 
-applyTransform :: TransformOptions -> [ModuleDoc] -> [ModuleDoc]
-applyTransform opts@TransformOptions{..}
+applyTransform :: TransformOptions -> AnchorGenerators -> [ModuleDoc] -> [ModuleDoc]
+applyTransform opts@TransformOptions{..} anchorGenerators
     = distributeInstanceDocs opts
     . (if to_omitEmpty then mapMaybe dropEmptyDocs else id)
-    . (if to_ignoreAnnotations then id else applyAnnotations)
+    . (if to_ignoreAnnotations then id else applyAnnotations anchorGenerators)
     . (if to_dataOnly then map pruneNonData else id)
     . filter (keepModule opts)
   where

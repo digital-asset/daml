@@ -8,6 +8,7 @@ module DA.Daml.Doc.Driver
     , RenderFormat(..)
     , TransformOptions(..)
     , ExternalAnchorPath(..)
+    , ExternalAnchorBehaviour(..)
     , runDamlDoc
     , loadExternalAnchors
     ) where
@@ -39,9 +40,9 @@ import qualified Data.Aeson as AE
 import qualified Data.Aeson.Encode.Pretty as AP
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
-import qualified Data.HashMap.Strict as HMS
 import qualified Data.Text.Encoding as T
 import qualified Data.Text.Extended as T
+import qualified Network.URI as URI
 
 import SdkVersion.Class (SdkVersioned)
 
@@ -62,7 +63,7 @@ data DamldocOptions = DamldocOptions
     , do_baseURL :: Maybe T.Text -- ^ base URL for generated documentation
     , do_hooglePath :: Maybe FilePath -- ^ hoogle database output path
     , do_anchorPath :: Maybe FilePath -- ^ anchor table output path
-    , do_externalAnchorPath :: ExternalAnchorPath -- ^ external anchor table input path
+    , do_externalAnchorBehaviour :: ExternalAnchorBehaviour -- ^ Behaviour for linking external anchors
     , do_globalInternalExt :: String -- ^ File extension for internal links
     }
 
@@ -82,11 +83,15 @@ data ExternalAnchorPath
       -- ^ Read the AnchorMap from the given file
   deriving (Eq, Show, Read)
 
+data ExternalAnchorBehaviour
+  = ExternalAnchorMapPath ExternalAnchorPath
+  | ExternalAnchorFun (Maybe Packagename -> Anchor -> Maybe URI.URI)
+
 -- | Run damldocs!
 runDamlDoc :: SdkVersioned => DamldocOptions -> IO ()
 runDamlDoc options@DamldocOptions{..} = do
     docData <- inputDocData options
-    renderDocData options (applyTransform do_transformOptions docData)
+    renderDocData options (applyTransform do_transformOptions (eo_anchorGenerators do_extractOptions) docData)
 
 -- | Load doc data, either via the Daml typechecker or via JSON files.
 inputDocData :: SdkVersioned => DamldocOptions -> IO [ModuleDoc]
@@ -121,7 +126,7 @@ loadExternalAnchors eapath = do
             hPutStr stderr err
             exitFailure
     anchors <- case eapath of
-        NoExternalAnchorPath -> pure . Right $ AnchorMap HMS.empty
+        NoExternalAnchorPath -> pure . Right $ AnchorMap $ \_ _ -> Nothing
         DefaultExternalAnchorPath -> getDamlBaseAnchorsPath >>= tryLoadAnchors
         ExplicitExternalAnchorPath path -> tryLoadAnchors path
     either printAndExit pure anchors
@@ -158,7 +163,9 @@ renderDocData DamldocOptions{..} docData = do
             OutputJson ->
                 write do_outputPath $ T.decodeUtf8 . LBS.toStrict $ AP.encodePretty' jsonConf docData
             OutputDocs format -> do
-                externalAnchors <- loadExternalAnchors do_externalAnchorPath
+                externalAnchors <- case do_externalAnchorBehaviour of
+                  ExternalAnchorMapPath path -> loadExternalAnchors path
+                  ExternalAnchorFun f -> pure $ AnchorMap f
                 let renderOptions = RenderOptions
                         { ro_mode =
                           if do_combine
@@ -174,5 +181,6 @@ renderDocData DamldocOptions{..} docData = do
                         , ro_anchorPath = do_anchorPath
                         , ro_externalAnchors = externalAnchors
                         , ro_globalInternalExt = do_globalInternalExt
+                        , ro_anchorGenerators = eo_anchorGenerators do_extractOptions
                         }
                 renderDocs renderOptions docData

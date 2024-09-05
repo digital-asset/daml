@@ -382,6 +382,7 @@ emptyDocs name =
     let md_name = Modulename (T.pack name)
         md_anchor = Just (moduleAnchor md_name)
         md_descr = Nothing
+        md_packgeName = Nothing
         md_templates = []
         md_adts = []
         md_functions = []
@@ -460,7 +461,7 @@ runDamldocMany' testfiles importPathM mScriptPackageData = do
     Just docs -> do
       let names = md_name <$> take (length testfiles) docs
             -- extract names from docs since the front of docs matches testfiles
-          docs' = applyTransform defaultTransformOptions docs
+          docs' = applyTransform defaultTransformOptions defaultAnchorGenerators docs
             -- apply transforms to get instance data
           moduleMap = Map.fromList
             [ (md_name docM, docM)
@@ -489,8 +490,8 @@ fileTest externalAnchors scriptPackageData damlFile = do
       pure $ flip map expectations $ \expectation ->
         goldenVsStringDiff ("File: " <> expectation) diff expectation $ pure $
           case takeExtension expectation of
-            ".rst" -> TL.encodeUtf8 $ TL.fromStrict $ renderPage renderRst externalAnchors $ renderModule doc
-            ".md" -> TL.encodeUtf8 $ TL.fromStrict $ renderPage renderMd externalAnchors $ renderModule doc
+            ".rst" -> TL.encodeUtf8 $ TL.fromStrict $ renderPage renderRst externalAnchors defaultAnchorGenerators $ renderModule doc
+            ".md" -> TL.encodeUtf8 $ TL.fromStrict $ renderPage renderMd externalAnchors defaultAnchorGenerators $ renderModule doc
             ".json" -> replaceSdkPackages $ AP.encodePretty' jsonConf doc
             ".hoogle" -> TL.encodeUtf8 $ TL.fromStrict $ renderSimpleHoogle (HoogleEnv mempty) doc
             other -> error $ "Unsupported file extension " <> other

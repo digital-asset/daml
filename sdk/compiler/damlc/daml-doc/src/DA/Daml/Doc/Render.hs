@@ -64,11 +64,11 @@ renderDocs ro@RenderOptions{..} mods = do
                 . T.encodeUtf8
                 . renderTemplate ro template
                 . postProcessing
-                . renderPage formatter externalAnchors
+                . renderPage formatter externalAnchors ro_anchorGenerators
                 $ fold renderMap
 
         RenderToFolder path -> do
-            let (outputIndex, outputMap) = renderFolder formatter externalAnchors ro_globalInternalExt renderMap
+            let (outputIndex, outputMap) = renderFolder formatter externalAnchors ro_anchorGenerators ro_globalInternalExt renderMap
                 extension =
                     case ro_format of
                         Markdown -> "md"

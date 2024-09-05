@@ -27,15 +27,18 @@ import DA.Cli.Damlc.Command.MultiIde.SubIdeManagement
 import DA.Cli.Damlc.Command.MultiIde.Types
 import DA.Cli.Damlc.Command.MultiIde.Util
 import DA.Cli.Damlc.Command.MultiIde.DarDependencies (resolveSourceLocation, unpackDar, unpackedDarsLocation)
+import DA.Cli.Damlc.Command.MultiIde.DocDependencies (unpackDoc)
 import DA.Daml.LanguageServer.SplitGotoDefinition
 import Data.Foldable (traverse_)
 import Data.List (find, isInfixOf)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe, mapMaybe)
+import qualified Data.Text as T
 import qualified Language.LSP.Types as LSP
 import qualified Language.LSP.Types.Lens as LSP
 import System.Exit (exitSuccess)
 import System.FilePath.Posix (takeDirectory, takeExtension, takeFileName)
+import SdkVersion.Class (SdkVersioned)
 
 parseCustomResult :: Aeson.FromJSON a => String -> Either LSP.ResponseError Aeson.Value -> Either LSP.ResponseError a
 parseCustomResult name =
@@ -55,7 +58,7 @@ resolveAndUnpackSourceLocation miState pkgSource = do
 
 -- Handlers
 
-subIdeMessageHandler :: MultiIdeState -> IO () -> SubIdeInstance -> B.ByteString -> IO ()
+subIdeMessageHandler :: SdkVersioned => MultiIdeState -> IO () -> SubIdeInstance -> B.ByteString -> IO ()
 subIdeMessageHandler miState unblock ide bs = do
   logInfo miState $ "Got new message from " <> unPackageHome (ideHome ide)
 
@@ -114,7 +117,9 @@ subIdeMessageHandler miState unblock ide bs = do
               -- Didn't find a home for this name, we do not know where this is defined, so give back the (known to be wrong)
               -- .daml data-dependency path
               -- This is the worst case, we'll later add logic here to unpack and spinup an SubIde for the read-only dependency
-              Nothing -> replyLocations [loc]
+              Nothing -> do
+                path <- unpackDoc miState (fromMaybe (error "Non filepath uri??") $ LSP.uriToFilePath $ loc ^. LSP.uri) (tgdnModuleName name)
+                replyLocations [LSP.uri .~ LSP.Uri (T.pack path) $ loc]
               -- We found a daml.yaml for this definition, send the getDefinitionByName request to its SubIde
               Just sourceLocation -> do
                 home <- resolveAndUnpackSourceLocation miState sourceLocation

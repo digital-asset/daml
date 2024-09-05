@@ -12,6 +12,7 @@ module DA.Daml.Doc.Extract.Types
     ) where
 
 import DA.Daml.Doc.Types
+import DA.Daml.Doc.Anchor
 
 import qualified Data.Map.Strict as MS
 import qualified Data.Set as Set
@@ -23,7 +24,9 @@ data ExtractOptions = ExtractOptions
         -- ^ qualify non-local types
     , eo_simplifyQualifiedTypes :: Bool
         -- ^ drop common module prefix when qualifying types
-    } deriving (Eq, Show, Read)
+    , eo_anchorGenerators :: AnchorGenerators
+        -- ^ Generation of anchors, needed for multi-ide doc generation
+    } deriving (Eq, Show)
 
 data QualifyTypes
     = QualifyTypesAlways
@@ -36,6 +39,7 @@ defaultExtractOptions :: ExtractOptions
 defaultExtractOptions = ExtractOptions
     { eo_qualifyTypes = QualifyTypesNever
     , eo_simplifyQualifiedTypes = False
+    , eo_anchorGenerators = defaultAnchorGenerators
     }
 
 -- | Context in which to extract a module's docs. This is created from
