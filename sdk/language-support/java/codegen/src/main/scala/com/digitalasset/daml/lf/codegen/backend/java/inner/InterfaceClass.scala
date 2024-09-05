@@ -7,7 +7,7 @@ import com.daml.ledger.javaapi.data.ContractFilter
 import com.daml.ledger.javaapi.data.codegen.{Contract, InterfaceCompanion}
 import com.digitalasset.daml.lf.codegen.NodeWithContext.AuxiliarySignatures
 import com.digitalasset.daml.lf.codegen.backend.java.inner.TemplateClass.toChoiceNameField
-import com.digitalasset.daml.lf.data.Ref.{ChoiceName, PackageId, QualifiedName}
+import com.digitalasset.daml.lf.data.Ref.{ChoiceName, PackageId, PackageName, QualifiedName}
 import com.digitalasset.daml.lf.typesig.{DefInterface, PackageMetadata}
 import com.squareup.javapoet._
 import com.typesafe.scalalogging.StrictLogging
@@ -32,7 +32,7 @@ object InterfaceClass extends StrictLogging {
       val interfaceType = TypeSpec
         .classBuilder(interfaceName)
         .addModifiers(Modifier.FINAL, Modifier.PUBLIC)
-        .addFields(generateTemplateIdFields(packageId, interfaceId).asJava)
+        .addFields(generateTemplateIdFields(packageId, packageMetadata.name, interfaceId).asJava)
         .addField(ClassGenUtils.generatePackageIdField(packageId))
         .addField(ClassGenUtils.generatePackageNameField(packageMetadata.name))
         .addField(ClassGenUtils.generatePackageVersionField(packageMetadata.version))
@@ -150,11 +150,12 @@ object InterfaceClass extends StrictLogging {
 
   private def generateTemplateIdFields(
       packageId: PackageId,
+      pkgName: PackageName,
       name: QualifiedName,
   ): Seq[FieldSpec] =
     ClassGenUtils.generateTemplateIdFields(
       pkgId = packageId,
-      pkgName = None, // Interfaces are not addressable by package name
+      pkgName = pkgName,
       moduleName = name.module.toString,
       name = name.name.toString,
     )
