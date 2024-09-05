@@ -118,8 +118,8 @@ da_scala_dar_resources_library(
         visibility = ["//visibility:public"],
     )
     for test_name in [
-      "FailsWhenUpgradedFieldFromDifferentPackageName",
-      "WarnsWhenExpressionChangesPackageId",
+        "FailsWhenUpgradedFieldFromDifferentPackageName",
+        "WarnsWhenExpressionChangesPackageId",
     ]
     for project_name in [
         "name1",
@@ -492,7 +492,8 @@ da_scala_dar_resources_library(
         ("WarnsWhenTemplateChangesSignatories", {}, {}),
         ("WarnsWhenTemplateChangesAgreement", {}, {}),
         ("FailsWhenDatatypeChangesVariety", {}, {}),
-        ("WarnsWhenExpressionChangesPackageId",
+        (
+            "WarnsWhenExpressionChangesPackageId",
             {"data_dependencies": ["//test-common:upgrades-WarnsWhenExpressionChangesPackageId-dep-name1.dar"]},
             {"data_dependencies": ["//test-common:upgrades-WarnsWhenExpressionChangesPackageId-dep-name2.dar"]},
         ),
