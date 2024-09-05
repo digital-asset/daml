@@ -587,6 +587,7 @@ scala_library(
         "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:io_opentelemetry_opentelemetry_context",
         "@maven//:io_opentelemetry_opentelemetry_sdk_metrics",
+        "@maven//:io_opentelemetry_instrumentation_opentelemetry_hikaricp_3_0",
         "@maven//:io_scalaland_chimney_2_13",
         "@maven//:io_spray_spray_json_2_13",
         "@maven//:junit_junit",
