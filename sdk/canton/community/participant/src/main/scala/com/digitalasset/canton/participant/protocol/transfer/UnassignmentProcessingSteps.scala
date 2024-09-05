@@ -31,8 +31,8 @@ import com.digitalasset.canton.participant.protocol.submission.{
   EncryptedViewMessageFactory,
   SeedGenerator,
 }
-import com.digitalasset.canton.participant.protocol.transfer.AssignmentValidation.TransferSigningError
-import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.*
+import com.digitalasset.canton.participant.protocol.transfer.AssignmentValidation.ReassignmentSigningError
+import com.digitalasset.canton.participant.protocol.transfer.ReassignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.transfer.UnassignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.transfer.UnassignmentProcessorError.{
   TargetDomainIsSourceDomain,
@@ -73,13 +73,13 @@ class UnassignmentProcessingSteps(
     val domainId: SourceDomainId,
     val participantId: ParticipantId,
     val engine: DAMLe,
-    transferCoordination: TransferCoordination,
+    transferCoordination: ReassignmentCoordination,
     seedGenerator: SeedGenerator,
     staticDomainParameters: StaticDomainParameters,
     val sourceDomainProtocolVersion: SourceProtocolVersion,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
-    extends TransferProcessingSteps[
+    extends ReassignmentProcessingSteps[
       SubmissionParam,
       SubmissionResult,
       UnassignmentViewType,
@@ -87,7 +87,7 @@ class UnassignmentProcessingSteps(
     ]
     with NamedLogging {
 
-  override type SubmissionResultArgs = PendingTransferSubmission
+  override type SubmissionResultArgs = PendingReassignmentSubmission
 
   override type RequestType = ProcessingSteps.RequestType.Unassignment
   override val requestType: RequestType = ProcessingSteps.RequestType.Unassignment
@@ -105,7 +105,7 @@ class UnassignmentProcessingSteps(
 
   private def targetIsNotSource(contractId: LfContractId, target: TargetDomainId)(implicit
       ec: ExecutionContext
-  ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] =
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
     condUnitET[FutureUnlessShutdown](
       target.unwrap != domainId.unwrap,
       TargetDomainIsSourceDomain(domainId.unwrap, contractId),
@@ -118,7 +118,7 @@ class UnassignmentProcessingSteps(
       sourceRecentSnapshot: DomainSnapshotSyncCryptoApi,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, TransferProcessorError, Submission] = {
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Submission] = {
     val SubmissionParam(
       submitterMetadata,
       contractId,
@@ -197,7 +197,7 @@ class UnassignmentProcessingSteps(
       rootHash = fullTree.rootHash
       submittingParticipantSignature <- sourceRecentSnapshot
         .sign(rootHash.unwrap)
-        .leftMap(TransferSigningError)
+        .leftMap(ReassignmentSigningError)
       mediatorMessage = fullTree.mediatorMessage(submittingParticipantSignature)
       viewMessage <- EncryptedViewMessageFactory
         .create(UnassignmentViewType)(
@@ -206,12 +206,12 @@ class UnassignmentProcessingSteps(
           ephemeralState.sessionKeyStoreLookup,
           sourceDomainProtocolVersion.v,
         )
-        .leftMap[TransferProcessorError](EncryptionError(contractId, _))
+        .leftMap[ReassignmentProcessorError](EncryptionError(contractId, _))
       maybeRecipients = Recipients.ofSet(validated.recipients)
       recipientsT <- EitherT
         .fromOption[FutureUnlessShutdown](
           maybeRecipients,
-          NoStakeholders.logAndCreate(contractId, logger): TransferProcessorError,
+          NoStakeholders.logAndCreate(contractId, logger): ReassignmentProcessorError,
         )
     } yield {
       val rootHashMessage =
@@ -247,7 +247,7 @@ class UnassignmentProcessingSteps(
       pendingSubmissionMap: PendingSubmissions,
       submissionParam: SubmissionParam,
       pendingSubmissionId: PendingSubmissionId,
-  ): EitherT[Future, TransferProcessorError, SubmissionResultArgs] =
+  ): EitherT[Future, ReassignmentProcessorError, SubmissionResultArgs] =
     performPendingSubmissionMapUpdate(
       pendingSubmissionMap,
       None,
@@ -269,10 +269,10 @@ class UnassignmentProcessingSteps(
       contractId: LfContractId,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, TransferProcessorError, StoredContract] =
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, StoredContract] =
     contractLookup
       .lookup(contractId)
-      .toRight[TransferProcessorError](UnassignmentProcessorError.UnknownContract(contractId))
+      .toRight[ReassignmentProcessorError](UnassignmentProcessorError.UnknownContract(contractId))
       .mapK(FutureUnlessShutdown.outcomeK)
 
   override protected def decryptTree(
@@ -300,10 +300,10 @@ class UnassignmentProcessingSteps(
       .map(WithRecipients(_, envelope.recipients))
 
   override def computeActivenessSet(
-      parsedRequest: ParsedTransferRequest[FullUnassignmentTree]
+      parsedRequest: ParsedReassignmentRequest[FullUnassignmentTree]
   )(implicit
       traceContext: TraceContext
-  ): Either[TransferProcessorError, ActivenessSet] =
+  ): Either[ReassignmentProcessorError, ActivenessSet] =
     // TODO(i12926): Send a rejection if malformedPayloads is non-empty
     if (parsedRequest.fullViewTree.sourceDomain == domainId) {
       val contractId = parsedRequest.fullViewTree.contractId
@@ -358,7 +358,7 @@ class UnassignmentProcessingSteps(
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[FutureUnlessShutdown, TransferProcessorError, Option[TopologySnapshot]] =
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Option[TopologySnapshot]] =
     Option
       .when(isReassigningParticipant) {
         transferCoordination
@@ -371,18 +371,18 @@ class UnassignmentProcessingSteps(
       .traverse(_.map(_.ipsSnapshot))
 
   override def constructPendingDataAndResponse(
-      parsedRequestType: ParsedTransferRequest[FullUnassignmentTree],
-      transferLookup: TransferLookup,
+      parsedRequestType: ParsedReassignmentRequest[FullUnassignmentTree],
+      transferLookup: ReassignmentLookup,
       activenessF: FutureUnlessShutdown[ActivenessResult],
       engineController: EngineController,
   )(implicit
       traceContext: TraceContext
   ): EitherT[
     FutureUnlessShutdown,
-    TransferProcessorError,
+    ReassignmentProcessorError,
     StorePendingDataAndSendResponseAndCreateTimeout,
   ] = {
-    val ParsedTransferRequest(
+    val ParsedReassignmentRequest(
       rc,
       ts,
       sc,
@@ -406,7 +406,7 @@ class UnassignmentProcessingSteps(
       // we can expect to find the contract in the contract store.
       contractWithTransactionId <-
         // TODO(i15090): Validate contract data against contract id and contract metadata against contract data
-        EitherT.rightT[FutureUnlessShutdown, TransferProcessorError](
+        EitherT.rightT[FutureUnlessShutdown, ReassignmentProcessorError](
           WithTransactionId(view.contract, view.creatingTransactionId)
         )
 
@@ -448,10 +448,10 @@ class UnassignmentProcessingSteps(
       requestId = RequestId(ts)
       unassignmentDecisionTime <- ProcessingSteps
         .getDecisionTime(sourceSnapshot.ipsSnapshot, ts)
-        .leftMap(TransferParametersError(domainId.unwrap, _))
+        .leftMap(ReassignmentParametersError(domainId.unwrap, _))
         .mapK(FutureUnlessShutdown.outcomeK)
 
-      transferData = TransferData(
+      transferData = ReassignmentData(
         sourceProtocolVersion = sourceDomainProtocolVersion,
         unassignmentTs = ts,
         unassignmentRequestCounter = rc,
@@ -460,7 +460,7 @@ class UnassignmentProcessingSteps(
         contract = contract,
         creatingTransactionId = creatingTransactionId,
         unassignmentResult = None,
-        transferGlobalOffset = None,
+        reassignmentGlobalOffset = None,
       )
       _ <- ifThenET(isReassigningParticipant) {
         transferCoordination.addUnassignmentRequest(transferData)
@@ -532,12 +532,12 @@ class UnassignmentProcessingSteps(
       domainId: TargetDomainId,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, TransferProcessorError, Option[CantonTimestamp]] =
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Option[CantonTimestamp]] =
     targetTopology.traverse(
       ProcessingSteps
         .getAssignmentExclusivity(_, timestamp)
         .mapK(FutureUnlessShutdown.outcomeK)
-        .leftMap(TransferParametersError(domainId.unwrap, _))
+        .leftMap(ReassignmentParametersError(domainId.unwrap, _))
     )
 
   override def getCommitSetAndContractsToBeStoredAndEvent(
@@ -550,7 +550,7 @@ class UnassignmentProcessingSteps(
       traceContext: TraceContext
   ): EitherT[
     FutureUnlessShutdown,
-    TransferProcessorError,
+    ReassignmentProcessorError,
     CommitAndStoreContractsAndPublishEvent,
   ] = {
     val PendingUnassignment(
@@ -580,7 +580,7 @@ class UnassignmentProcessingSteps(
 
     def rejected(
         reason: TransactionRejection
-    ): EitherT[Future, TransferProcessorError, CommitAndStoreContractsAndPublishEvent] = for {
+    ): EitherT[Future, ReassignmentProcessorError, CommitAndStoreContractsAndPublishEvent] = for {
       _ <- ifThenET(isReassigningParticipant)(deleteTransfer(targetDomain, requestId))
 
       eventO <- EitherT.fromEither[Future](
@@ -614,7 +614,7 @@ class UnassignmentProcessingSteps(
           _ <-
             if (notInitiator && isReassigningParticipant)
               triggerAssignmentWhenExclusivityTimeoutExceeded(pendingRequestData)
-            else EitherT.pure[FutureUnlessShutdown, TransferProcessorError](())
+            else EitherT.pure[FutureUnlessShutdown, ReassignmentProcessorError](())
 
           reassignmentAccepted <- createReassignmentAccepted(
             contractId,
@@ -660,11 +660,13 @@ class UnassignmentProcessingSteps(
       hostedStakeholders: List[LfPartyId],
       requestCounter: RequestCounter,
       requestSequencerCounter: SequencerCounter,
-  ): EitherT[Future, TransferProcessorError, Update.ReassignmentAccepted] =
+  ): EitherT[Future, ReassignmentProcessorError, Update.ReassignmentAccepted] =
     for {
       updateId <- EitherT
         .fromEither[Future](rootHash.asLedgerTransactionId)
-        .leftMap[TransferProcessorError](FieldConversionError(reassignmentId, "Transaction Id", _))
+        .leftMap[ReassignmentProcessorError](
+          FieldConversionError(reassignmentId, "Transaction Id", _)
+        )
 
       completionInfo =
         Option.when(participantId == submitterMetadata.submittingParticipant)(
@@ -713,7 +715,7 @@ class UnassignmentProcessingSteps(
       pendingRequestData: RequestType#PendingRequestData
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] = {
 
     val targetDomain = pendingRequestData.targetDomain
     val t0 = pendingRequestData.targetTimeProof.timestamp
@@ -732,7 +734,7 @@ class UnassignmentProcessingSteps(
 
   private[this] def deleteTransfer(targetDomain: TargetDomainId, unassignmentRequestId: RequestId)(
       implicit traceContext: TraceContext
-  ): EitherT[Future, TransferProcessorError, Unit] = {
+  ): EitherT[Future, ReassignmentProcessorError, Unit] = {
     val reassignmentId = ReassignmentId(domainId, unassignmentRequestId.unwrap)
     transferCoordination.deleteTransfer(targetDomain, reassignmentId)
   }
@@ -819,7 +821,7 @@ object UnassignmentProcessingSteps {
       override val locallyRejectedF: FutureUnlessShutdown[Boolean],
       override val abortEngine: String => Unit,
       override val engineAbortStatusF: FutureUnlessShutdown[EngineAbortStatus],
-  ) extends PendingTransfer {
+  ) extends PendingReassignment {
 
     override def rootHashO: Option[RootHash] = Some(rootHash)
   }

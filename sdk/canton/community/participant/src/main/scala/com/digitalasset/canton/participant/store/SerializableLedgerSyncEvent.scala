@@ -81,10 +81,10 @@ private[store] final case class SerializableLedgerSyncEvent(event: LedgerSyncEve
           SyncEventP.CommandRejected(SerializableCommandRejected(commandRejected).toProtoV30)
 
         case unassigned: LedgerSyncEvent.Unassigned =>
-          SyncEventP.TransferredOut(SerializableTransferredOut(unassigned).toProtoV30)
+          SyncEventP.Unassigned(SerializableTransferredOut(unassigned).toProtoV30)
 
         case assigned: LedgerSyncEvent.Assigned =>
-          SyncEventP.TransferredIn(SerializableAssigned(assigned).toProtoV30)
+          SyncEventP.Assigned(SerializableAssigned(assigned).toProtoV30)
 
         case partiesAdded: LedgerSyncEvent.PartiesAddedToParticipant =>
           SyncEventP.PartiesAdded(SerializablePartiesAddedToParticipant(partiesAdded).toProtoV30)
@@ -163,9 +163,9 @@ private[store] object SerializableLedgerSyncEvent
         SerializableTransactionAccepted.fromProtoV30(transactionAccepted)
       case SyncEventP.CommandRejected(commandRejected) =>
         SerializableCommandRejected.fromProtoV30(commandRejected)
-      case SyncEventP.TransferredOut(unassignment) =>
+      case SyncEventP.Unassigned(unassignment) =>
         SerializableTransferredOut.fromProtoV30(unassignment)
-      case SyncEventP.TransferredIn(assignment) =>
+      case SyncEventP.Assigned(assignment) =>
         SerializableAssigned.fromProtoV30(assignment)
       case SyncEventP.ContractsAdded(contractsAdded) =>
         SerializableContractsAdded.fromProtoV30(contractsAdded)

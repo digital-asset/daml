@@ -11,13 +11,13 @@ import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, SyncCryptoAp
 import com.digitalasset.canton.data.{CantonTimestamp, TransferSubmitterMetadata}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.{
+import com.digitalasset.canton.participant.protocol.transfer.ReassignmentProcessingSteps.{
   ApplicationShutdown,
-  TransferProcessorError,
-  TransferStoreFailed,
+  ReassignmentProcessorError,
+  ReassignmentStoreFailed,
   UnknownDomain,
 }
-import com.digitalasset.canton.participant.store.TransferStore
+import com.digitalasset.canton.participant.store.ReassignmentStore
 import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
@@ -31,8 +31,8 @@ import com.digitalasset.canton.version.Transfer.TargetProtocolVersion
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class TransferCoordination(
-    transferStoreFor: TargetDomainId => Either[TransferProcessorError, TransferStore],
+class ReassignmentCoordination(
+    reassignmentStoreFor: TargetDomainId => Either[ReassignmentProcessorError, ReassignmentStore],
     recentTimeProofFor: RecentTimeProofProvider,
     inSubmissionById: DomainId => Option[TransferSubmissionHandle],
     val protocolVersionFor: Traced[DomainId] => Option[ProtocolVersion],
@@ -81,7 +81,7 @@ class TransferCoordination(
       timestamp: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
-  ): Either[TransferProcessorError, Option[Future[Unit]]] =
+  ): Either[ReassignmentProcessorError, Option[Future[Unit]]] =
     OptionUtil
       .zipWith(syncCryptoApi.forDomain(domain, staticDomainParameters), inSubmissionById(domain)) {
         (cryptoApi, handle) =>
@@ -102,12 +102,12 @@ class TransferCoordination(
       onImmediate: => Future[Unit],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransferProcessorError, Unit] =
+  ): EitherT[Future, ReassignmentProcessorError, Unit] =
     for {
       timeout <- EitherT.fromEither[Future](
         awaitTimestamp(domain, staticDomainParameters, timestamp)
       )
-      _ <- EitherT.right[TransferProcessorError](timeout.getOrElse(onImmediate))
+      _ <- EitherT.right[ReassignmentProcessorError](timeout.getOrElse(onImmediate))
     } yield ()
 
   private[transfer] def awaitTimestampUS(
@@ -117,7 +117,7 @@ class TransferCoordination(
       onImmediate: => Future[Unit],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] =
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
     for {
       wait <- EitherT.fromEither[FutureUnlessShutdown](
         awaitTimestamp(domain, staticDomainParameters, timestamp)
@@ -134,7 +134,7 @@ class TransferCoordination(
       reassignmentId: ReassignmentId,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransferProcessorError, AssignmentProcessingSteps.SubmissionResult] = {
+  ): EitherT[Future, ReassignmentProcessorError, AssignmentProcessingSteps.SubmissionResult] = {
     logger.debug(s"Triggering automatic assignment of transfer `$reassignmentId`")
 
     for {
@@ -164,12 +164,14 @@ class TransferCoordination(
       timestamp: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransferProcessorError, DomainSnapshotSyncCryptoApi] =
+  ): EitherT[Future, ReassignmentProcessorError, DomainSnapshotSyncCryptoApi] =
     EitherT
       .fromEither[Future](
         syncCryptoApi
           .forDomain(domain, staticDomainParameters)
-          .toRight(UnknownDomain(domain, "When getting crypto snapshot"): TransferProcessorError)
+          .toRight(
+            UnknownDomain(domain, "When getting crypto snapshot"): ReassignmentProcessorError
+          )
       )
       .semiflatMap(_.snapshot(timestamp))
 
@@ -179,7 +181,7 @@ class TransferCoordination(
       timestamp: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, TransferProcessorError, DomainSnapshotSyncCryptoApi] =
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, DomainSnapshotSyncCryptoApi] =
     for {
       _ <- awaitTimestampUS(
         domain,
@@ -199,7 +201,7 @@ class TransferCoordination(
       traceContext: TraceContext
   ): EitherT[
     FutureUnlessShutdown,
-    TransferProcessorError,
+    ReassignmentProcessorError,
     (TimeProof, DomainSnapshotSyncCryptoApi),
   ] =
     for {
@@ -214,17 +216,19 @@ class TransferCoordination(
 
   /** Stores the given transfer data on the target domain. */
   private[transfer] def addUnassignmentRequest(
-      transferData: TransferData
+      transferData: ReassignmentData
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] =
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
     for {
-      transferStore <- EitherT.fromEither[FutureUnlessShutdown](
-        transferStoreFor(transferData.targetDomain)
+      reassignmentStore <- EitherT.fromEither[FutureUnlessShutdown](
+        reassignmentStoreFor(transferData.targetDomain)
       )
-      _ <- transferStore
-        .addTransfer(transferData)
-        .leftMap[TransferProcessorError](TransferStoreFailed(transferData.reassignmentId, _))
+      _ <- reassignmentStore
+        .addReassignment(transferData)
+        .leftMap[ReassignmentProcessorError](
+          ReassignmentStoreFailed(transferData.reassignmentId, _)
+        )
     } yield ()
 
   /** Adds the unassignment result to the transfer stored on the given domain. */
@@ -233,39 +237,43 @@ class TransferCoordination(
       unassignmentResult: DeliveredUnassignmentResult,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] =
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
     for {
-      transferStore <- EitherT.fromEither[FutureUnlessShutdown](transferStoreFor(domain))
-      _ <- transferStore
+      reassignmentStore <- EitherT.fromEither[FutureUnlessShutdown](reassignmentStoreFor(domain))
+      _ <- reassignmentStore
         .addUnassignmentResult(unassignmentResult)
-        .leftMap[TransferProcessorError](TransferStoreFailed(unassignmentResult.reassignmentId, _))
+        .leftMap[ReassignmentProcessorError](
+          ReassignmentStoreFailed(unassignmentResult.reassignmentId, _)
+        )
     } yield ()
 
-  /** Removes the given [[com.digitalasset.canton.protocol.ReassignmentId]] from the given [[com.digitalasset.canton.topology.DomainId]]'s [[store.TransferStore]]. */
+  /** Removes the given [[com.digitalasset.canton.protocol.ReassignmentId]] from the given [[com.digitalasset.canton.topology.DomainId]]'s [[store.ReassignmentStore]]. */
   private[transfer] def deleteTransfer(
       targetDomain: TargetDomainId,
       reassignmentId: ReassignmentId,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransferProcessorError, Unit] =
+  ): EitherT[Future, ReassignmentProcessorError, Unit] =
     for {
-      transferStore <- EitherT.fromEither[Future](transferStoreFor(targetDomain))
-      _ <- EitherT.right[TransferProcessorError](transferStore.deleteTransfer(reassignmentId))
+      reassignmentStore <- EitherT.fromEither[Future](reassignmentStoreFor(targetDomain))
+      _ <- EitherT.right[ReassignmentProcessorError](
+        reassignmentStore.deleteReassignment(reassignmentId)
+      )
     } yield ()
 }
 
-object TransferCoordination {
+object ReassignmentCoordination {
   def apply(
       transferTimeProofFreshnessProportion: NonNegativeInt,
       syncDomainPersistentStateManager: SyncDomainPersistentStateManager,
       submissionHandles: DomainId => Option[TransferSubmissionHandle],
       syncCryptoApi: SyncCryptoApiProvider,
       loggerFactory: NamedLoggerFactory,
-  )(implicit ec: ExecutionContext): TransferCoordination = {
-    def domainDataFor(domain: TargetDomainId): Either[UnknownDomain, TransferStore] =
+  )(implicit ec: ExecutionContext): ReassignmentCoordination = {
+    def domainDataFor(domain: TargetDomainId): Either[UnknownDomain, ReassignmentStore] =
       syncDomainPersistentStateManager
         .get(domain.unwrap)
-        .map(_.transferStore)
+        .map(_.reassignmentStore)
         .toRight(UnknownDomain(domain.unwrap, "looking for persistent state"))
 
     val domainProtocolVersionGetter: Traced[DomainId] => Option[ProtocolVersion] =
@@ -279,8 +287,8 @@ object TransferCoordination {
       transferTimeProofFreshnessProportion,
     )
 
-    new TransferCoordination(
-      transferStoreFor = domainDataFor,
+    new ReassignmentCoordination(
+      reassignmentStoreFor = domainDataFor,
       recentTimeProofFor = recentTimeProofProvider,
       inSubmissionById = submissionHandles,
       protocolVersionFor = domainProtocolVersionGetter,
@@ -300,7 +308,7 @@ trait TransferSubmissionHandle {
       targetProtocolVersion: TargetProtocolVersion,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransferProcessorError, FutureUnlessShutdown[
+  ): EitherT[Future, ReassignmentProcessorError, FutureUnlessShutdown[
     UnassignmentProcessingSteps.SubmissionResult
   ]]
 
@@ -309,7 +317,7 @@ trait TransferSubmissionHandle {
       reassignmentId: ReassignmentId,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransferProcessorError, FutureUnlessShutdown[
+  ): EitherT[Future, ReassignmentProcessorError, FutureUnlessShutdown[
     AssignmentProcessingSteps.SubmissionResult
   ]]
 }

@@ -1084,7 +1084,7 @@ abstract class ProtocolProcessor[
 
             pendingDataAndResponses <- steps.constructPendingDataAndResponse(
               parsedRequest,
-              ephemeral.transferCache,
+              ephemeral.reassignmentCache,
               requestFuturesF.flatMap(_.activenessResult),
               engineController,
             )
@@ -1288,7 +1288,7 @@ abstract class ProtocolProcessor[
 
     for {
       _ <- EitherT.right(
-        ephemeral.recordOrderPublisher.tick(sc, resultTs, eventO = None)
+        ephemeral.recordOrderPublisher.tick(sc, resultTs, eventO = None, requestCounterO = None)
       )
 
       snapshot <- EitherT.right(

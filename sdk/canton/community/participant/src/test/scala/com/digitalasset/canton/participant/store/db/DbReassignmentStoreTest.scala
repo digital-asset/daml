@@ -14,17 +14,17 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import scala.concurrent.Future
 
-trait DbTransferStoreTest extends AsyncWordSpec with BaseTest with TransferStoreTest {
+trait DbReassignmentStoreTest extends AsyncWordSpec with BaseTest with TransferStoreTest {
   this: DbTest =>
 
   override def cleanDb(storage: DbStorage): Future[Int] = {
     import storage.api.*
-    storage.update(sqlu"truncate table par_transfers", functionFullName)
+    storage.update(sqlu"truncate table par_reassignments", functionFullName)
   }
 
   "DbTransferStore" should {
-    behave like transferStore(domainId =>
-      new DbTransferStore(
+    behave like reassignmentStore(domainId =>
+      new DbReassignmentStore(
         storage,
         domainId,
         TargetProtocolVersion(testedProtocolVersion),
@@ -38,6 +38,6 @@ trait DbTransferStoreTest extends AsyncWordSpec with BaseTest with TransferStore
   }
 }
 
-class TransferStoreTestH2 extends DbTransferStoreTest with H2Test
+class ReassignmentStoreTestH2 extends DbReassignmentStoreTest with H2Test
 
-class TransferStoreTestPostgres extends DbTransferStoreTest with PostgresTest
+class ReassignmentStoreTestPostgres extends DbReassignmentStoreTest with PostgresTest

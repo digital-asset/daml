@@ -49,10 +49,10 @@ private[backend] class IngestionStorageBackendTemplate(
           .offsetIsGreater("event_offset", ledgerOffset)}",
       SQL"DELETE FROM lapi_transaction_metering WHERE ${queryStrategy
           .offsetIsGreater("ledger_offset", ledgerOffset)}",
-      // As transfer global offsets are persisted before the ledger end, they might change after indexer recovery, so in the cleanup
+      // As reassignment global offsets are persisted before the ledger end, they might change after indexer recovery, so in the cleanup
       // phase here we make sure that all the persisted global offsets are revoked which are after the ledger end.
-      SQL"UPDATE par_transfers SET transfer_out_global_offset = null WHERE transfer_out_global_offset > ${ledgerOffset.toLong}",
-      SQL"UPDATE par_transfers SET transfer_in_global_offset = null WHERE transfer_in_global_offset > ${ledgerOffset.toLong}",
+      SQL"UPDATE par_reassignments SET unassignment_global_offset = null WHERE unassignment_global_offset > ${ledgerOffset.toLong}",
+      SQL"UPDATE par_reassignments SET assignment_global_offset = null WHERE assignment_global_offset > ${ledgerOffset.toLong}",
     ).map(_.execute()(connection)).discard
   }
 

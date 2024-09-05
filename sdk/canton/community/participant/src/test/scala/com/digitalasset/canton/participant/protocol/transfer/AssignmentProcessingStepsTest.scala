@@ -28,9 +28,9 @@ import com.digitalasset.canton.participant.protocol.submission.{
 }
 import com.digitalasset.canton.participant.protocol.transfer.AssignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.transfer.AssignmentValidation.*
-import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.{
-  NoTransferSubmissionPermission,
-  ParsedTransferRequest,
+import com.digitalasset.canton.participant.protocol.transfer.ReassignmentProcessingSteps.{
+  NoReassignmentSubmissionPermission,
+  ParsedReassignmentRequest,
   StakeholdersMismatch,
   SubmittingPartyMustBeStakeholderIn,
 }
@@ -170,7 +170,7 @@ class AssignmentProcessingStepsTest
       view: FullAssignmentTree,
       recipients: Recipients = RecipientsTest.testInstance,
       signatureO: Option[Signature] = None,
-  ): ParsedTransferRequest[FullAssignmentTree] = ParsedTransferRequest(
+  ): ParsedReassignmentRequest[FullAssignmentTree] = ParsedReassignmentRequest(
     RequestCounter(1),
     CantonTimestamp.Epoch,
     SequencerCounter(1),
@@ -188,15 +188,17 @@ class AssignmentProcessingStepsTest
 
   "prepare submission" should {
     def setUpOrFail(
-        transferData: TransferData,
+        transferData: ReassignmentData,
         unassignmentResult: DeliveredUnassignmentResult,
         persistentState: SyncDomainPersistentState,
     ): FutureUnlessShutdown[Unit] =
       for {
-        _ <- valueOrFail(persistentState.transferStore.addTransfer(transferData))(
+        _ <- valueOrFail(persistentState.reassignmentStore.addReassignment(transferData))(
           "add transfer data failed"
         )
-        _ <- valueOrFail(persistentState.transferStore.addUnassignmentResult(unassignmentResult))(
+        _ <- valueOrFail(
+          persistentState.reassignmentStore.addUnassignmentResult(unassignmentResult)
+        )(
           "add transfer out result failed"
         )
       } yield ()
@@ -266,7 +268,7 @@ class AssignmentProcessingStepsTest
             seed,
             uuid,
           )
-        TransferData(
+        ReassignmentData(
           SourceProtocolVersion(testedProtocolVersion),
           reassignmentId.unassignmentTs,
           RequestCounter(0),
@@ -302,7 +304,7 @@ class AssignmentProcessingStepsTest
         transferData <- transferDataF
         deps <- statefulDependencies
         (persistentState, state) = deps
-        _ <- valueOrFail(persistentState.transferStore.addTransfer(transferData))(
+        _ <- valueOrFail(persistentState.reassignmentStore.addReassignment(transferData))(
           "add transfer data failed"
         ).failOnShutdown
         preparedSubmission <- leftOrFailShutdown(
@@ -369,7 +371,8 @@ class AssignmentProcessingStepsTest
           )
         )("prepare submission did not return a left")
       } yield {
-        preparedSubmission should matchPattern { case NoTransferSubmissionPermission(_, _, _) => }
+        preparedSubmission should matchPattern { case NoReassignmentSubmissionPermission(_, _, _) =>
+        }
       }
     }
 
@@ -397,7 +400,7 @@ class AssignmentProcessingStepsTest
           )
         )("prepare submission did not return a left")
       } yield {
-        preparedSubmission should matchPattern { case NoTransferSubmissionPermission(_, _, _) =>
+        preparedSubmission should matchPattern { case NoReassignmentSubmissionPermission(_, _, _) =>
         }
       }
     }
@@ -545,7 +548,7 @@ class AssignmentProcessingStepsTest
           unassignmentResult,
         )
 
-        transferLookup = ephemeralState.transferCache
+        transferLookup = ephemeralState.reassignmentCache
 
         result <- leftOrFail(
           assignmentProcessingSteps
@@ -570,7 +573,7 @@ class AssignmentProcessingStepsTest
         deps <- statefulDependencies
         (_persistentState, ephemeralState) = deps
 
-        transferLookup = ephemeralState.transferCache
+        transferLookup = ephemeralState.reassignmentCache
         contractLookup = ephemeralState.contractLookup
 
         fullAssignmentTree = makeFullAssignmentTree(

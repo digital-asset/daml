@@ -14,7 +14,7 @@ import com.digitalasset.canton.participant.protocol.submission.{
   InFlightSubmissionTracker,
   SeedGenerator,
 }
-import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.TransferProcessorError
+import com.digitalasset.canton.participant.protocol.transfer.ReassignmentProcessingSteps.ReassignmentProcessorError
 import com.digitalasset.canton.participant.store.SyncDomainEphemeralState
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.protocol.{SourceDomainId, StaticDomainParameters}
@@ -29,7 +29,7 @@ class UnassignmentProcessor(
     override val participantId: ParticipantId,
     damle: DAMLe,
     staticDomainParameters: StaticDomainParameters,
-    transferCoordination: TransferCoordination,
+    transferCoordination: ReassignmentCoordination,
     inFlightSubmissionTracker: InFlightSubmissionTracker,
     ephemeral: SyncDomainEphemeralState,
     domainCrypto: DomainSyncCryptoClient,
@@ -45,7 +45,7 @@ class UnassignmentProcessor(
       UnassignmentProcessingSteps.SubmissionParam,
       UnassignmentProcessingSteps.SubmissionResult,
       UnassignmentViewType,
-      TransferProcessorError,
+      ReassignmentProcessorError,
     ](
       new UnassignmentProcessingSteps(
         domainId,

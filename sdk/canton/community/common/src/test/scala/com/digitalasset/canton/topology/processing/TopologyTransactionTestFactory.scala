@@ -49,9 +49,9 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
   val ns3k3_k3 = mkAdd(createNs(ns3, key3, isRootDelegation = true), key3)
   val ns6k3_k6 = mkAdd(createNs(ns6, key3, isRootDelegation = false), key6)
   val ns6k6_k6 = mkAdd(createNs(ns6, key6, isRootDelegation = true), key6)
-  val id1ak4_k2 = mkAdd(IdentifierDelegation(uid1a, key4), key2)
-  val id1ak4_k2p = mkAdd(IdentifierDelegation(uid1a, key4), key2)
   val id1ak4_k1 = mkAdd(IdentifierDelegation(uid1a, key4), key1)
+  val id1ak4_k2 = mkAdd(IdentifierDelegation(uid1a, key4), key2)
+  val id1ak6_k4 = mkAdd(IdentifierDelegation(uid1a, key6), key4)
 
   val id6k4_k1 = mkAdd(IdentifierDelegation(uid6, key4), key1)
 

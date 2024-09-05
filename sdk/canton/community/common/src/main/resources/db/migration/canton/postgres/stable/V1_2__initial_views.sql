@@ -219,7 +219,7 @@ create or replace view debug.par_active_contracts as
     change, operation,
     debug.canton_timestamp(ts) as ts,
     request_counter,
-    debug.resolve_common_static_string(remote_domain_idx) as remote_domain_idx, transfer_counter
+    debug.resolve_common_static_string(remote_domain_idx) as remote_domain_idx, reassignment_counter
   from par_active_contracts;
 
 create or replace view debug.par_fresh_submitted_transaction as
@@ -303,24 +303,24 @@ create or replace view debug.par_linearized_event_log as
     local_offset_discriminator
   from par_linearized_event_log;
 
-create or replace view debug.par_transfers as
+create or replace view debug.par_reassignments as
   select
     target_domain,
     origin_domain,
-    transfer_out_global_offset,
-    transfer_in_global_offset,
-    debug.canton_timestamp(transfer_out_timestamp) as transfer_out_timestamp,
-    transfer_out_request_counter,
-    transfer_out_request,
-    debug.canton_timestamp(transfer_out_decision_time) as transfer_out_decision_time,
+    unassignment_global_offset,
+    assignment_global_offset,
+    debug.canton_timestamp(unassignment_timestamp) as unassignment_timestamp,
+    unassignment_request_counter,
+    unassignment_request,
+    debug.canton_timestamp(unassignment_decision_time) as unassignment_decision_time,
     contract,
     creating_transaction_id,
-    transfer_out_result,
+    unassignment_result,
     submitter_lf,
     debug.canton_timestamp(time_of_completion_request_counter) as time_of_completion_request_counter,
     debug.canton_timestamp(time_of_completion_timestamp) as time_of_completion_timestamp,
     source_protocol_version
-  from par_transfers;
+  from par_reassignments;
 
 create or replace view debug.par_journal_requests as
   select

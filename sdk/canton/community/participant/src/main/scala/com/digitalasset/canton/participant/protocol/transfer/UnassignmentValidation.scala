@@ -8,7 +8,7 @@ import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.FullUnassignmentTree
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.TracedLogger
-import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.*
+import com.digitalasset.canton.participant.protocol.transfer.ReassignmentProcessingSteps.*
 import com.digitalasset.canton.protocol.LfTemplateId
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -32,7 +32,7 @@ private[transfer] final case class UnassignmentValidation(
 
   private def checkStakeholders(implicit
       ec: ExecutionContext
-  ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] =
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
     condUnitET(
       request.stakeholders == expectedStakeholders,
       StakeholdersMismatch(
@@ -46,7 +46,7 @@ private[transfer] final case class UnassignmentValidation(
   private def checkParticipants(logger: TracedLogger)(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,
-  ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] =
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
     targetTopology match {
       case Some(targetTopology) =>
         UnassignmentValidationReassigningParticipant(
@@ -65,7 +65,7 @@ private[transfer] final case class UnassignmentValidation(
 
   private def checkTemplateId()(implicit
       executionContext: ExecutionContext
-  ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] =
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
     EitherT.cond[FutureUnlessShutdown](
       expectedTemplateId == request.templateId,
       (),
@@ -90,7 +90,7 @@ private[transfer] object UnassignmentValidation {
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] = {
 
     val validation = UnassignmentValidation(
       request,

@@ -35,9 +35,9 @@ import com.digitalasset.canton.participant.util.{StateChange, TimeOfChange}
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
 import com.digitalasset.canton.protocol.{
   LfContractId,
+  ReassignmentDomainId,
   SourceDomainId,
   TargetDomainId,
-  TransferDomainId,
 }
 import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.store.memory.InMemoryPrunableByTime
@@ -233,18 +233,18 @@ class InMemoryActiveContractStore(
   }
 
   private def prepareTransfers(
-      transfers: Seq[(LfContractId, TransferDomainId, ReassignmentCounter, TimeOfChange)]
+      reassignments: Seq[(LfContractId, ReassignmentDomainId, ReassignmentCounter, TimeOfChange)]
   ): CheckedT[Future, AcsError, AcsWarning, Seq[
     (LfContractId, Int, ReassignmentCounter, TimeOfChange)
   ]] = {
-    val domains = transfers.map { case (_, domain, _, _) => domain.unwrap }.distinct
+    val domains = reassignments.map { case (_, domain, _, _) => domain.unwrap }.distinct
     type PreparedTransfer = (LfContractId, Int, ReassignmentCounter, TimeOfChange)
 
     for {
       domainIndices <- getDomainIndices(domains)
 
       preparedTransfersE = MonadUtil.sequentialTraverse(
-        transfers
+        reassignments
       ) { case (cid, remoteDomain, reassignmentCounter, toc) =>
         domainIndices
           .get(remoteDomain.unwrap)
@@ -561,14 +561,14 @@ object InMemoryActiveContractStore {
     }
 
     private[InMemoryActiveContractStore] def addCreation(
-        transferableContract: ActiveContractData,
+        activeContractData: ActiveContractData,
         toc: TimeOfChange,
         isCreation: Boolean,
     ): Checked[AcsError, AcsWarning, ContractStatus] = {
-      val contractId = transferableContract.contractId
+      val contractId = activeContractData.contractId
       val change =
-        if (isCreation) create(toc, transferableContract.reassignmentCounter)
-        else add(toc, transferableContract.reassignmentCounter)
+        if (isCreation) create(toc, activeContractData.reassignmentCounter)
+        else add(toc, activeContractData.reassignmentCounter)
 
       for {
         nextChanges <- addIndividualChange(contractId, change)
@@ -591,43 +591,43 @@ object InMemoryActiveContractStore {
 
     private[InMemoryActiveContractStore] def addAssignment(
         contractId: LfContractId,
-        transfer: TimeOfChange,
+        toc: TimeOfChange,
         sourceDomainIdx: Int,
         reassignmentCounter: ReassignmentCounter,
     ): Checked[AcsError, AcsWarning, ContractStatus] =
       for {
         nextChanges <- addIndividualChange(
           contractId,
-          IndividualChange.assign(transfer, sourceDomainIdx, reassignmentCounter),
+          IndividualChange.assign(toc, sourceDomainIdx, reassignmentCounter),
         )
         _ <- checkReassignmentCounterIncreases(
           contractId,
-          transfer,
+          toc,
           reassignmentCounter,
-          ActiveContractStore.TransferType.Assignment,
+          ActiveContractStore.ReassignmentType.Assignment,
         )
-        _ <- checkNewChangesJournal(contractId, transfer, nextChanges)
+        _ <- checkNewChangesJournal(contractId, toc, nextChanges)
       } yield this.copy(nextChanges)
 
     private[InMemoryActiveContractStore] def addUnassignment(
         contractId: LfContractId,
-        transfer: TimeOfChange,
+        toc: TimeOfChange,
         targetDomainIdx: Int,
         reassignmentCounter: ReassignmentCounter,
     ): Checked[AcsError, AcsWarning, ContractStatus] =
       for {
         nextChanges <- addIndividualChange(
           contractId,
-          IndividualChange.unassign(transfer, targetDomainIdx, reassignmentCounter),
+          IndividualChange.unassign(toc, targetDomainIdx, reassignmentCounter),
         )
         _ <-
           checkReassignmentCounterIncreases(
             contractId,
-            transfer,
+            toc,
             reassignmentCounter,
-            ActiveContractStore.TransferType.Unassignment,
+            ActiveContractStore.ReassignmentType.Unassignment,
           )
-        _ <- checkNewChangesJournal(contractId, transfer, nextChanges)
+        _ <- checkNewChangesJournal(contractId, toc, nextChanges)
       } yield this.copy(nextChanges)
 
     private[this] def addIndividualChange(
@@ -646,11 +646,11 @@ object InMemoryActiveContractStore {
         contractId: LfContractId,
         toc: TimeOfChange,
         reassignmentCounter: ReassignmentCounter,
-        transferType: ActiveContractStore.TransferType,
+        reassignmentType: ActiveContractStore.ReassignmentType,
     ): Checked[AcsError, AcsWarning, Unit] = {
-      val isActivation = transferType match {
-        case ActiveContractStore.TransferType.Assignment => true
-        case ActiveContractStore.TransferType.Unassignment => false
+      val isActivation = reassignmentType match {
+        case ActiveContractStore.ReassignmentType.Assignment => true
+        case ActiveContractStore.ReassignmentType.Unassignment => false
       }
 
       def toReassignmentCounterAtChangeInfo(
@@ -679,7 +679,7 @@ object InMemoryActiveContractStore {
           toc,
           reassignmentCounter,
           earliestChangeAfter,
-          transferType,
+          reassignmentType,
         )
       } yield ()
     }

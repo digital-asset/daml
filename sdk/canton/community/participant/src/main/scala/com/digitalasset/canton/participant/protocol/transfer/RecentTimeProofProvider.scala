@@ -9,9 +9,9 @@ import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.SyncCryptoApiProvider
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.{
+import com.digitalasset.canton.participant.protocol.transfer.ReassignmentProcessingSteps.{
   NoTimeProofFromDomain,
-  TransferProcessorError,
+  ReassignmentProcessorError,
 }
 import com.digitalasset.canton.protocol.{StaticDomainParameters, TargetDomainId}
 import com.digitalasset.canton.sequencing.protocol.TimeProof
@@ -40,7 +40,7 @@ private[transfer] class RecentTimeProofProvider(
 
   def get(targetDomainId: TargetDomainId, staticDomainParameters: StaticDomainParameters)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, TransferProcessorError, TimeProof] = {
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, TimeProof] = {
     val domain = targetDomainId.unwrap
 
     for {

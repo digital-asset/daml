@@ -330,7 +330,7 @@ final class GeneratorsData(
   {
     ((_: ViewType) match {
       case ViewType.TransactionViewType => ()
-      case _: ViewType.TransferViewType => ()
+      case _: ViewType.ReassignmentViewType => ()
       case _: ViewTypeTest => () // Only for tests, so we don't use it in the generator
     }).discard
   }

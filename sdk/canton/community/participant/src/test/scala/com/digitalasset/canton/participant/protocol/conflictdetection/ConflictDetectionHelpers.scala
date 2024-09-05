@@ -14,12 +14,12 @@ import com.digitalasset.canton.participant.store.ActiveContractStore.{
 }
 import com.digitalasset.canton.participant.store.memory.{
   InMemoryActiveContractStore,
-  InMemoryTransferStore,
-  TransferCache,
+  InMemoryReassignmentStore,
+  ReassignmentCache,
 }
 import com.digitalasset.canton.participant.store.{
   ActiveContractStore,
-  TransferStore,
+  ReassignmentStore,
   TransferStoreTest,
 }
 import com.digitalasset.canton.participant.util.TimeOfChange
@@ -62,11 +62,11 @@ private[protocol] trait ConflictDetectionHelpers {
 
   def mkTransferCache(
       loggerFactory: NamedLoggerFactory,
-      store: TransferStore =
-        new InMemoryTransferStore(TransferStoreTest.targetDomain, loggerFactory),
+      store: ReassignmentStore =
+        new InMemoryReassignmentStore(TransferStoreTest.targetDomain, loggerFactory),
   )(
       entries: (ReassignmentId, MediatorGroupRecipient)*
-  )(implicit traceContext: TraceContext): Future[TransferCache] =
+  )(implicit traceContext: TraceContext): Future[ReassignmentCache] =
     Future
       .traverse(entries) { case (reassignmentId, sourceMediator) =>
         for {
@@ -76,12 +76,12 @@ private[protocol] trait ConflictDetectionHelpers {
             targetDomainId = TransferStoreTest.targetDomain,
           )
           result <- store
-            .addTransfer(transfer)
+            .addReassignment(transfer)
             .value
             .failOnShutdown
         } yield result
       }
-      .map(_ => new TransferCache(store, loggerFactory)(parallelExecutionContext))
+      .map(_ => new ReassignmentCache(store, loggerFactory)(parallelExecutionContext))
 }
 
 private[protocol] object ConflictDetectionHelpers extends ScalaFuturesWithPatience {

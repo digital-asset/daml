@@ -33,7 +33,7 @@ trait SyncDomainPersistentState extends NamedLogging with AutoCloseable {
   def protocolVersion: ProtocolVersion
   def enableAdditionalConsistencyChecks: Boolean
   def contractStore: ContractStore
-  def transferStore: TransferStore
+  def reassignmentStore: ReassignmentStore
   def activeContractStore: ActiveContractStore
   def sequencedEventStore: SequencedEventStore
   def sendTrackerStore: SendTrackerStore

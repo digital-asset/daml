@@ -285,13 +285,13 @@ abstract class TopologyTransactionProcessorTest
       val st3 = fetch(store, ts(2).immediateSuccessor)
       process(proc, ts(3), 3, List(Factory.mkRemoveTx(id1ak4_k2)))
       val st4 = fetch(store, ts(3).immediateSuccessor)
-      process(proc, ts(4), 4, List(setSerial(id1ak4_k2p, PositiveInt.three)))
+      process(proc, ts(4), 4, List(setSerial(id1ak4_k2, PositiveInt.three)))
       val st5 = fetch(store, ts(4).immediateSuccessor)
       validate(st1, block1)
       validate(st2, List(ns1k1_k1))
       validate(st3, List(ns1k1_k1, ns1k2_k1p, id1ak4_k2, okm1bk5k1E_k4))
       validate(st4, List(ns1k1_k1, ns1k2_k1p))
-      validate(st5, List(ns1k1_k1, ns1k2_k1p, id1ak4_k2p, okm1bk5k1E_k4))
+      validate(st5, List(ns1k1_k1, ns1k2_k1p, id1ak4_k2, okm1bk5k1E_k4))
     }
 
     "cascading update and domain parameters change" in {

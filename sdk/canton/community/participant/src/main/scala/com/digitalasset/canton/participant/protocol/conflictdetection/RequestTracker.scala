@@ -11,7 +11,7 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDetector.LockedStates
 import com.digitalasset.canton.participant.protocol.conflictdetection.NaiveRequestTracker.TimedTask
 import com.digitalasset.canton.participant.store.ActiveContractStore.ContractState
-import com.digitalasset.canton.participant.store.{ActiveContractStore, TransferStore}
+import com.digitalasset.canton.participant.store.{ActiveContractStore, ReassignmentStore}
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
@@ -267,7 +267,7 @@ trait RequestTracker extends RequestTrackerLookup with AutoCloseable with NamedL
     *                  A [[scala.util.Failure$]] indicates that result processing failed and no commit set can be provided.
     * @return A future to indicate whether the request was successfully finalized.
     *         When this future completes, the request's effect is persisted to the [[store.ActiveContractStore]]
-    *         and the [[store.TransferStore]].
+    *         and the [[store.ReassignmentStore]].
     *         The future fails with an exception if the commit set tries to activate or deactivate
     *         a contract that was not locked during the activeness check.
     *         Otherwise, activeness irregularities are reported as [[scala.Left$]].
@@ -393,6 +393,6 @@ object RequestTracker {
   final case class AcsError(error: ActiveContractStore.AcsBaseError)
       extends RequestTrackerStoreError
 
-  final case class TransferStoreError(error: TransferStore.TransferStoreError)
+  final case class TransferStoreError(error: ReassignmentStore.ReassignmentStoreError)
       extends RequestTrackerStoreError
 }

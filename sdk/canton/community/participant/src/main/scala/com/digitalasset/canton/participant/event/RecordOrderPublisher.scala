@@ -98,6 +98,7 @@ class RecordOrderPublisher(
   private case class LastPublishedPersisted(
       sequencerCounter: SequencerCounter,
       timestamp: CantonTimestamp,
+      requestCounterO: Option[RequestCounter],
       updatePersisted: Future[Unit],
   )
 
@@ -108,7 +109,12 @@ class RecordOrderPublisher(
     lastPublishedPersistedRef.getAndUpdate { previousO =>
       previousO.foreach { previous =>
         assert(previous.timestamp < lastPublishedPersisted.timestamp)
-        assert(previous.sequencerCounter < lastPublishedPersisted.sequencerCounter)
+        assert(previous.sequencerCounter + 1 == lastPublishedPersisted.sequencerCounter)
+        lastPublishedPersisted.requestCounterO.foreach(currentRequestCounter =>
+          previous.requestCounterO.foreach(previousRequestCounter =>
+            assert(previousRequestCounter + 1 == currentRequestCounter)
+          )
+        )
       }
       Some(lastPublishedPersisted)
     }.discard
@@ -135,11 +141,16 @@ class RecordOrderPublisher(
     * Tick must be called exactly once for all sequencer counters higher than initTimestamp.
     *
     * @param eventO The update event to be published, or if absent the SequencerCounterMoved event will be published.
+    * @param requestCounterO The RequestCounter if applicable.
+    *                        For all requests requestCounterO needs to be provided, it is verified internally that
+    *                        the RequestCounter space is continuous.
+    *                        The provided requestCounterO must match the eventO's DomainIndex if provided.
     */
   def tick(
       sequencerCounter: SequencerCounter,
       timestamp: CantonTimestamp,
       eventO: Option[Traced[Update]],
+      requestCounterO: Option[RequestCounter],
   )(implicit traceContext: TraceContext): Future[Unit] =
     if (timestamp > initTimestamp) {
       eventO
@@ -153,10 +164,13 @@ class RecordOrderPublisher(
         EventPublicationTask(
           sequencerCounter,
           timestamp,
-        )(eventO)
+        )(
+          eventO,
+          requestCounterO,
+        )
       )
       logger.debug(
-        s"Observing time $timestamp for sequencer counter $sequencerCounter for publishing"
+        s"Observing time $timestamp for sequencer counter $sequencerCounter for publishing (with eventO:$eventO, requestCounterO:$requestCounterO)"
       )
       // Schedule a time observation task that delays the event publication
       // until the InFlightSubmissionTracker has synchronized with submission registration.
@@ -175,6 +189,7 @@ class RecordOrderPublisher(
       Future.unit
     }
 
+  // TODO(i18695) this new tracecontext is disturbing as completely disjoint from the event-processing it relates to
   def scheduleAcsChangePublication(
       recordSequencerCounter: SequencerCounter,
       timestamp: CantonTimestamp,
@@ -268,10 +283,13 @@ class RecordOrderPublisher(
   private[RecordOrderPublisher] case class EventPublicationTask(
       override val sequencerCounter: SequencerCounter,
       override val timestamp: CantonTimestamp,
-  )(val eventO: Option[Traced[Update]])(implicit val traceContext: TraceContext)
+  )(
+      val eventO: Option[Traced[Update]],
+      val requestCounterO: Option[RequestCounter],
+  )(implicit val traceContext: TraceContext)
       extends PublicationTask {
 
-    private val event = eventO.getOrElse(
+    private val event: Traced[Update] = eventO.getOrElse(
       Traced(
         SequencerIndexMoved(
           domainId = domainId,
@@ -279,9 +297,32 @@ class RecordOrderPublisher(
             counter = sequencerCounter,
             timestamp = timestamp,
           ),
+          requestCounterO = requestCounterO,
         )
       )
     )
+
+    // TODO(i18695): attempt to simplify data structures and data passing, so these assertions can be removed
+    assert(event.value.domainIndexOpt.isDefined)
+    event.value.domainIndexOpt.foreach { case (_, domainIndex) =>
+      assert(domainIndex.sequencerIndex.isDefined)
+      domainIndex.sequencerIndex.foreach { sequencerIndex =>
+        assert(sequencerIndex.timestamp == timestamp)
+        assert(sequencerIndex.counter == sequencerCounter)
+      }
+      requestCounterO match {
+        case Some(requestCounter) =>
+          assert(domainIndex.requestIndex.isDefined)
+          domainIndex.requestIndex.foreach { requestIndex =>
+            assert(requestIndex.counter == requestCounter)
+            assert(requestIndex.timestamp == timestamp)
+            assert(requestIndex.sequencerCounter == Some(sequencerCounter))
+          }
+
+        case None =>
+          assert(domainIndex.requestIndex.isEmpty)
+      }
+    }
 
     override def perform(): FutureUnlessShutdown[Unit] = performUnlessClosingUSF("publish-event") {
       logger.debug(s"Publish event with domain index ${event.value.domainIndexOpt}")
@@ -293,6 +334,7 @@ class RecordOrderPublisher(
               LastPublishedPersisted(
                 sequencerCounter = sequencerCounter,
                 timestamp = timestamp,
+                requestCounterO = requestCounterO,
                 updatePersisted = event.value.persisted.future,
               )
             )

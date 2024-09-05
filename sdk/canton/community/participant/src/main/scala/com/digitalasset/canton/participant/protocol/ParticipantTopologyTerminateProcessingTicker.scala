@@ -23,5 +23,5 @@ class ParticipantTopologyTerminateProcessingTicker(
       sequencedTime: SequencedTime,
       effectiveTime: EffectiveTime,
   )(implicit traceContext: TraceContext): Future[Unit] =
-    recordOrderPublisher.tick(sc, sequencedTime.value, eventO = None)
+    recordOrderPublisher.tick(sc, sequencedTime.value, eventO = None, requestCounterO = None)
 }

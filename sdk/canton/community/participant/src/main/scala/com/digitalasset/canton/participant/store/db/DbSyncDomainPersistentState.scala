@@ -76,7 +76,7 @@ class DbSyncDomainPersistentState(
       timeouts,
       loggerFactory,
     )
-  val transferStore: DbTransferStore = new DbTransferStore(
+  val reassignmentStore: DbReassignmentStore = new DbReassignmentStore(
     storage,
     TargetDomainId(domainId.item),
     TargetProtocolVersion(protocolVersion),
@@ -194,7 +194,7 @@ class DbSyncDomainPersistentState(
       topologyStore,
       topologyManager,
       contractStore,
-      transferStore,
+      reassignmentStore,
       activeContractStore,
       sequencedEventStore,
       requestJournalStore,

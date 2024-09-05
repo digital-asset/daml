@@ -23,11 +23,11 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.RequestTra
 }
 import com.digitalasset.canton.participant.store.ActiveContractStore
 import com.digitalasset.canton.participant.store.ActiveContractStore.*
-import com.digitalasset.canton.participant.store.TransferStore.{
-  TransferCompleted,
+import com.digitalasset.canton.participant.store.ReassignmentStore.{
+  ReassignmentCompleted,
   UnknownReassignmentId,
 }
-import com.digitalasset.canton.participant.store.memory.TransferCache
+import com.digitalasset.canton.participant.store.memory.ReassignmentCache
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -56,7 +56,7 @@ import scala.concurrent.{ExecutionContext, Future}
 // so that we are always aware of when a context switch may happen.
 private[participant] class ConflictDetector(
     private val acs: ActiveContractStore,
-    private val transferCache: TransferCache,
+    private val transferCache: ReassignmentCache,
     protected override val loggerFactory: NamedLoggerFactory,
     private val checkedInvariant: Boolean,
     private val executionContext: ExecutionContext,
@@ -266,7 +266,7 @@ private[participant] class ConflictDetector(
           logger.trace(withRC(rc, s"Checking that transfer $reassignmentId is active."))
           transferCache.lookup(reassignmentId).value.map {
             case Right(_) =>
-            case Left(UnknownReassignmentId(_)) | Left(TransferCompleted(_, _)) =>
+            case Left(UnknownReassignmentId(_)) | Left(ReassignmentCompleted(_, _)) =>
               val _ = inactiveTransfers += reassignmentId
           }
         }
@@ -453,7 +453,9 @@ private[participant] class ConflictDetector(
         // (Use a List rather than a Stream to ensure synchronicity!)
         // Writes to the TransferStore are still asynchronous.
         val pendingTransferWrites =
-          transfersToComplete.toList.map(t => transferCache.completeTransfer(t.reassignmentId, toc))
+          transfersToComplete.toList.map(t =>
+            transferCache.completeReassignment(t.reassignmentId, toc)
+          )
 
         pendingEvictions
           .put(

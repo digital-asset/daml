@@ -845,7 +845,7 @@ class TransactionProcessingSteps(
 
   override def constructPendingDataAndResponse(
       parsedRequest: ParsedTransactionRequest,
-      transferLookup: TransferLookup,
+      transferLookup: ReassignmentLookup,
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
       engineController: EngineController,
   )(implicit

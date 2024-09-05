@@ -592,7 +592,7 @@ final case class IdentifierDelegation(identifier: UniqueIdentifier, target: Sign
 
   override def requiredAuth(
       previous: Option[TopologyTransaction[TopologyChangeOp, TopologyMapping]]
-  ): RequiredAuth = RequiredUids(Set(identifier))
+  ): RequiredAuth = RequiredNamespaces(Set(namespace), requireRootDelegation = false)
 
   override def uniqueKey: MappingHash =
     IdentifierDelegation.uniqueKey(identifier, target.fingerprint)

@@ -12,7 +12,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.EngineController.GetEngineAbortStatus
 import com.digitalasset.canton.participant.protocol.ProcessingSteps
 import com.digitalasset.canton.participant.protocol.transfer.AssignmentValidation.*
-import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.*
+import com.digitalasset.canton.participant.protocol.transfer.ReassignmentProcessingSteps.*
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.protocol.*
@@ -32,7 +32,7 @@ private[transfer] class AssignmentValidation(
     staticDomainParameters: StaticDomainParameters,
     participantId: ParticipantId,
     engine: DAMLe,
-    transferCoordination: TransferCoordination,
+    transferCoordination: ReassignmentCoordination,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
     extends NamedLogging {
@@ -40,7 +40,7 @@ private[transfer] class AssignmentValidation(
   def checkStakeholders(
       assignmentRequest: FullAssignmentTree,
       getEngineAbortStatus: GetEngineAbortStatus,
-  )(implicit traceContext: TraceContext): EitherT[Future, TransferProcessorError, Unit] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, ReassignmentProcessorError, Unit] = {
     val reassignmentId = assignmentRequest.unassignmentResultEvent.reassignmentId
 
     val declaredContractStakeholders = assignmentRequest.contract.metadata.stakeholders
@@ -82,25 +82,25 @@ private[transfer] class AssignmentValidation(
           declaredContractStakeholders = Some(declaredContractStakeholders),
           expectedStakeholders = Right(recomputedStakeholders),
         ),
-      ).leftWiden[TransferProcessorError]
+      ).leftWiden[ReassignmentProcessorError]
     } yield ()
   }
 
   @VisibleForTesting
   private[transfer] def validateAssignmentRequest(
-      tsIn: CantonTimestamp,
+      assignmentRequestTs: CantonTimestamp,
       assignmentRequest: FullAssignmentTree,
-      transferDataO: Option[TransferData],
+      reassignmentDataO: Option[ReassignmentData],
       targetCrypto: DomainSnapshotSyncCryptoApi,
       isReassigningParticipant: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransferProcessorError, Option[AssignmentValidationResult]] = {
+  ): EitherT[Future, ReassignmentProcessorError, Option[AssignmentValidationResult]] = {
     val txOutResultEvent = assignmentRequest.unassignmentResultEvent.result
 
     val reassignmentId = assignmentRequest.unassignmentResultEvent.reassignmentId
 
-    def checkSubmitterIsStakeholder: Either[TransferProcessorError, Unit] =
+    def checkSubmitterIsStakeholder: Either[ReassignmentProcessorError, Unit] =
       condUnitE(
         assignmentRequest.stakeholders.contains(assignmentRequest.submitter),
         SubmittingPartyMustBeStakeholderIn(
@@ -112,10 +112,10 @@ private[transfer] class AssignmentValidation(
 
     val targetIps = targetCrypto.ipsSnapshot
 
-    transferDataO match {
-      case Some(transferData) =>
-        val sourceDomain = transferData.unassignmentRequest.sourceDomain
-        val unassignmentTs = transferData.unassignmentTs
+    reassignmentDataO match {
+      case Some(reassignmentData) =>
+        val sourceDomain = reassignmentData.unassignmentRequest.sourceDomain
+        val unassignmentTs = reassignmentData.unassignmentTs
         for {
           _ready <- {
             logger.info(
@@ -140,11 +140,11 @@ private[transfer] class AssignmentValidation(
           // TODO(i12926): Check the signatures of the mediator and the sequencer
 
           _ <- condUnitET[Future](
-            txOutResultEvent.content.timestamp <= transferData.unassignmentDecisionTime,
+            txOutResultEvent.content.timestamp <= reassignmentData.unassignmentDecisionTime,
             ResultTimestampExceedsDecisionTime(
               reassignmentId,
               timestamp = txOutResultEvent.content.timestamp,
-              decisionTime = transferData.unassignmentDecisionTime,
+              decisionTime = reassignmentData.unassignmentDecisionTime,
             ),
           )
 
@@ -152,17 +152,17 @@ private[transfer] class AssignmentValidation(
           // TODO(i12926): Validate that the unassignment result received matches the unassignment result in transferData
 
           _ <- condUnitET[Future](
-            assignmentRequest.contract == transferData.contract,
+            assignmentRequest.contract == reassignmentData.contract,
             ContractDataMismatch(reassignmentId),
           )
           _ <- EitherT.fromEither[Future](checkSubmitterIsStakeholder)
-          unassignmentSubmitter = transferData.unassignmentRequest.submitter
-          targetTimeProof = transferData.unassignmentRequest.targetTimeProof.timestamp
+          unassignmentSubmitter = reassignmentData.unassignmentRequest.submitter
+          targetTimeProof = reassignmentData.unassignmentRequest.targetTimeProof.timestamp
 
           // TODO(i12926): Check that transferData.unassignmentRequest.targetTimeProof.timestamp is in the past
           cryptoSnapshot <- transferCoordination
             .cryptoSnapshot(
-              transferData.targetDomain.unwrap,
+              reassignmentData.targetDomain.unwrap,
               staticDomainParameters,
               targetTimeProof,
             )
@@ -172,24 +172,23 @@ private[transfer] class AssignmentValidation(
               cryptoSnapshot.ipsSnapshot,
               targetTimeProof,
             )
-            .leftMap[TransferProcessorError](TransferParametersError(domainId.unwrap, _))
+            .leftMap[ReassignmentProcessorError](ReassignmentParametersError(domainId.unwrap, _))
 
           _ <- condUnitET[Future](
-            tsIn >= exclusivityLimit
-              || unassignmentSubmitter == assignmentRequest.submitter,
+            assignmentRequestTs >= exclusivityLimit || unassignmentSubmitter == assignmentRequest.submitter,
             NonInitiatorSubmitsBeforeExclusivityTimeout(
               reassignmentId,
               assignmentRequest.submitter,
-              currentTimestamp = tsIn,
+              currentTimestamp = assignmentRequestTs,
               timeout = exclusivityLimit,
             ),
           )
           _ <- condUnitET[Future](
-            transferData.creatingTransactionId == assignmentRequest.creatingTransactionId,
+            reassignmentData.creatingTransactionId == assignmentRequest.creatingTransactionId,
             CreatingTransactionIdMismatch(
               reassignmentId,
               assignmentRequest.creatingTransactionId,
-              transferData.creatingTransactionId,
+              reassignmentData.creatingTransactionId,
             ),
           )
           sourceIps = sourceCrypto.ipsSnapshot
@@ -205,13 +204,13 @@ private[transfer] class AssignmentValidation(
 
           _ <- EitherT.cond[Future](
             // reassignment counter is the same in unassignment and assignment requests
-            assignmentRequest.reassignmentCounter == transferData.reassignmentCounter,
+            assignmentRequest.reassignmentCounter == reassignmentData.reassignmentCounter,
             (),
             InconsistentReassignmentCounter(
               reassignmentId,
               assignmentRequest.reassignmentCounter,
-              transferData.reassignmentCounter,
-            ): TransferProcessorError,
+              reassignmentData.reassignmentCounter,
+            ): ReassignmentProcessorError,
           )
 
         } yield Some(AssignmentValidationResult(confirmingParties.toSet))
@@ -233,11 +232,11 @@ private[transfer] class AssignmentValidation(
                 )
               EitherT(confirmingPartiesF.map { confirmingParties =>
                 Right(Some(AssignmentValidationResult(confirmingParties))): Either[
-                  TransferProcessorError,
+                  ReassignmentProcessorError,
                   Option[AssignmentValidationResult],
                 ]
               })
-            } else EitherT.rightT[Future, TransferProcessorError](None)
+            } else EitherT.rightT[Future, ReassignmentProcessorError](None)
         } yield res
     }
   }
@@ -246,11 +245,11 @@ private[transfer] class AssignmentValidation(
 object AssignmentValidation {
   final case class AssignmentValidationResult(confirmingParties: Set[LfPartyId])
 
-  private[transfer] sealed trait AssignmentValidationError extends TransferProcessorError
+  private[transfer] sealed trait AssignmentValidationError extends ReassignmentProcessorError
 
-  final case class NoTransferData(
+  final case class NoReassignmentData(
       reassignmentId: ReassignmentId,
-      lookupError: TransferStore.TransferLookupError,
+      lookupError: ReassignmentStore.ReassignmentLookupError,
   ) extends AssignmentValidationError {
     override def message: String =
       s"Cannot find transfer data for transfer `$reassignmentId`: ${lookupError.cause}"
@@ -321,9 +320,9 @@ object AssignmentValidation {
       s"Cannot assign $reassignmentId: reassignment counter $declaredReassignmentCounter in assignment does not match $expectedReassignmentCounter from the unassignment"
   }
 
-  final case class TransferSigningError(
+  final case class ReassignmentSigningError(
       cause: SyncCryptoError
-  ) extends TransferProcessorError {
+  ) extends ReassignmentProcessorError {
     override def message: String = show"Unable to sign transfer request. $cause"
   }
 }

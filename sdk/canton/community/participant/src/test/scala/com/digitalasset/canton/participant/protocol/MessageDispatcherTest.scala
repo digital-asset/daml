@@ -206,6 +206,7 @@ trait MessageDispatcherTest {
           any[SequencerCounter],
           any[CantonTimestamp],
           any[Option[Traced[Update]]],
+          any[Option[RequestCounter]],
         )(any[TraceContext])
       )
         .thenAnswer(Future.unit)
@@ -471,7 +472,9 @@ trait MessageDispatcherTest {
         sc: SequencerCounter,
         ts: CantonTimestamp,
     ): Assertion = {
-      verify(sut.recordOrderPublisher).tick(isEq(sc), isEq(ts), isEq(None))(anyTraceContext)
+      verify(sut.recordOrderPublisher).tick(isEq(sc), isEq(ts), isEq(None), isEq(None))(
+        anyTraceContext
+      )
       succeed
     }
 
@@ -1392,7 +1395,7 @@ private[protocol] object MessageDispatcherTest {
 
   final case class DisabledTransferTestData[A <: ViewType](
       inOut: String,
-      viewType: ViewType.TransferViewType,
+      viewType: ViewType.ReassignmentViewType,
       view: EncryptedView[A],
   )
 

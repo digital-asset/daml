@@ -25,8 +25,8 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.{
 }
 import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionTracker.InFlightSubmissionTrackerDomainState
 import com.digitalasset.canton.participant.protocol.submission.{WatermarkLookup, WatermarkTracker}
-import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.PendingTransferSubmission
-import com.digitalasset.canton.participant.store.memory.TransferCache
+import com.digitalasset.canton.participant.protocol.transfer.ReassignmentProcessingSteps.PendingReassignmentSubmission
+import com.digitalasset.canton.participant.store.memory.ReassignmentCache
 import com.digitalasset.canton.participant.sync.TimelyRejectNotifier
 import com.digitalasset.canton.protocol.RootHash
 import com.digitalasset.canton.store.SessionKeyStore
@@ -66,11 +66,11 @@ class SyncDomainEphemeralState(
   override def closingState: ComponentHealthState =
     ComponentHealthState.failed("Disconnected from domain")
 
-  // Key is the root hash of the transfer tree
-  val pendingUnassignmentSubmissions: TrieMap[RootHash, PendingTransferSubmission] =
-    TrieMap.empty[RootHash, PendingTransferSubmission]
-  val pendingAssignmentSubmissions: TrieMap[RootHash, PendingTransferSubmission] =
-    TrieMap.empty[RootHash, PendingTransferSubmission]
+  // Key is the root hash of the reassignment tree
+  val pendingUnassignmentSubmissions: TrieMap[RootHash, PendingReassignmentSubmission] =
+    TrieMap.empty[RootHash, PendingReassignmentSubmission]
+  val pendingAssignmentSubmissions: TrieMap[RootHash, PendingReassignmentSubmission] =
+    TrieMap.empty[RootHash, PendingReassignmentSubmission]
 
   val sessionKeyStore: SessionKeyStore = SessionKeyStore(sessionKeyCacheConfig)
 
@@ -90,13 +90,13 @@ class SyncDomainEphemeralState(
 
   val contractStore: ContractStore = persistentState.contractStore
 
-  val transferCache =
-    new TransferCache(persistentState.transferStore, loggerFactory)
+  val reassignmentCache =
+    new ReassignmentCache(persistentState.reassignmentStore, loggerFactory)
 
   val requestTracker: RequestTracker = {
     val conflictDetector = new ConflictDetector(
       persistentState.activeContractStore,
-      transferCache,
+      reassignmentCache,
       loggerFactory,
       persistentState.enableAdditionalConsistencyChecks,
       executionContext,
@@ -195,7 +195,7 @@ trait SyncDomainEphemeralStateLookup {
 
   def contractLookup: ContractLookup = contractStore
 
-  def transferLookup: TransferLookup = transferCache
+  def reassignmentLookup: ReassignmentLookup = reassignmentCache
 
   def tracker: RequestTrackerLookup = requestTracker
   def observedTimestampLookup: WatermarkLookup[CantonTimestamp] = observedTimestampTracker

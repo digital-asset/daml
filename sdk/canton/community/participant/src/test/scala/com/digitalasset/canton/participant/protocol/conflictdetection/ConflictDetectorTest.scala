@@ -34,16 +34,16 @@ import com.digitalasset.canton.participant.store.ActiveContractStore.{
   ReassignedAway,
   Status,
 }
-import com.digitalasset.canton.participant.store.TransferStore.{
-  TransferAlreadyCompleted,
-  TransferCompleted,
+import com.digitalasset.canton.participant.store.ReassignmentStore.{
+  ReassignmentAlreadyCompleted,
+  ReassignmentCompleted,
   UnknownReassignmentId,
 }
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.memory.{
-  InMemoryTransferStore,
-  TransferCache,
-  TransferCacheTest,
+  InMemoryReassignmentStore,
+  ReassignmentCache,
+  ReassignmentCacheTest,
 }
 import com.digitalasset.canton.participant.util.{StateChange, TimeOfChange}
 import com.digitalasset.canton.protocol.{ExampleTransactionFactory, LfContractId, ReassignmentId}
@@ -86,12 +86,12 @@ class ConflictDetectorTest
 
   private val active = Active(initialReassignmentCounter)
 
-  private def defaultTransferCache: TransferCache =
-    new TransferCache(new InMemoryTransferStore(targetDomain, loggerFactory), loggerFactory)
+  private def defaultTransferCache: ReassignmentCache =
+    new ReassignmentCache(new InMemoryReassignmentStore(targetDomain, loggerFactory), loggerFactory)
 
   private def mkCd(
       acs: ActiveContractStore = mkEmptyAcs(),
-      transferCache: TransferCache = defaultTransferCache,
+      transferCache: ReassignmentCache = defaultTransferCache,
   ): ConflictDetector =
     new ConflictDetector(
       acs,
@@ -1174,7 +1174,7 @@ class ConflictDetectorTest
           s"Contract $coid01 is active.",
         )
         assert(fetch10.isEmpty, s"Contract $coid10 remains unknown.")
-        assert(lookup1 == Left(TransferCompleted(transfer1, toc)), s"$transfer1 completed")
+        assert(lookup1 == Left(ReassignmentCompleted(transfer1, toc)), s"$transfer1 completed")
         assert(lookup2.exists(_.reassignmentId == transfer2), s"$transfer2 has not been completed")
       }
     }
@@ -1227,7 +1227,7 @@ class ConflictDetectorTest
           fetch01.contains(AcsContractState(active, RequestCounter(1), ts)),
           s"Contract $coid01 is assigned.",
         )
-        assert(lookup1 == Left(TransferCompleted(transfer1, toc1)), s"$transfer1 completed")
+        assert(lookup1 == Left(ReassignmentCompleted(transfer1, toc1)), s"$transfer1 completed")
         assert(lookup2 == Left(UnknownReassignmentId(transfer2)), s"$transfer2 does not exist")
       }
     }
@@ -1340,7 +1340,7 @@ class ConflictDetectorTest
           s"Contract $coid20 is transferred in.",
         )
         assert(
-          lookup2 == Left(TransferCompleted(transfer2, TimeOfChange(RequestCounter(1), ts))),
+          lookup2 == Left(ReassignmentCompleted(transfer2, TimeOfChange(RequestCounter(1), ts))),
           s"$transfer2 completed",
         )
       }
@@ -1606,8 +1606,9 @@ class ConflictDetectorTest
     }
 
     "detect conflicts between racing assignments" in {
-      val transferStore = new InMemoryTransferStore(TransferStoreTest.targetDomain, loggerFactory)
-      val hookedStore = new TransferCacheTest.HookTransferStore(transferStore)
+      val reassignmentStore =
+        new InMemoryReassignmentStore(TransferStoreTest.targetDomain, loggerFactory)
+      val hookedStore = new ReassignmentCacheTest.HookReassignmentStore(reassignmentStore)
       for {
         transferCache <- mkTransferCache(loggerFactory, hookedStore)(transfer1 -> mediator1)
         cd = mkCd(transferCache = transferCache)
@@ -1645,7 +1646,7 @@ class ConflictDetectorTest
       } yield {
         assert(fin1 == Right(()), "First assignment succeeds")
         fin2.leftOrFail(s"Transfer $transfer1 was already completed").toList should contain(
-          TransferStoreError(TransferAlreadyCompleted(transfer1, toc2))
+          TransferStoreError(ReassignmentAlreadyCompleted(transfer1, toc2))
         )
       }
     }

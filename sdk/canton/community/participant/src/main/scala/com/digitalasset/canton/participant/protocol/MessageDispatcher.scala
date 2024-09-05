@@ -623,7 +623,7 @@ trait MessageDispatcher { this: NamedLogging =>
       traceContext: TraceContext
   ): FutureUnlessShutdown[ProcessingResult] = {
     lazy val future = FutureUnlessShutdown.outcomeF {
-      recordOrderPublisher.tick(sc, ts, eventO = None)
+      recordOrderPublisher.tick(sc, ts, eventO = None, requestCounterO = None)
     }
     doProcess(UnspecifiedMessageKind, future)
   }

@@ -485,8 +485,9 @@ class ParticipantNodeBootstrap(
                   ledgerParticipantId = participantId.toLf,
                   excludedPackageIds = excludedPackageIds,
                 ),
-                reassignmentOffsetPersistence =
-                  TransferStore.reassignmentOffsetPersistenceFor(syncDomainPersistentStateManager),
+                reassignmentOffsetPersistence = ReassignmentStore.reassignmentOffsetPersistenceFor(
+                  syncDomainPersistentStateManager
+                ),
                 postProcessor = inFlightSubmissionTracker.processPublications(_)(_),
                 loggerFactory = loggerFactory,
               )

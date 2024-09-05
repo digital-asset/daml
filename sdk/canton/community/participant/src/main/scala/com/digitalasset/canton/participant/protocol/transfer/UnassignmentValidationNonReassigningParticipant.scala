@@ -12,7 +12,7 @@ import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.FullUnassignmentTree
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.TracedLogger
-import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.TransferProcessorError
+import com.digitalasset.canton.participant.protocol.transfer.ReassignmentProcessingSteps.ReassignmentProcessorError
 import com.digitalasset.canton.participant.protocol.transfer.UnassignmentProcessorError.{
   AdminPartyPermissionErrors,
   StakeholderHostingErrors,
@@ -31,7 +31,7 @@ private[transfer] sealed abstract case class UnassignmentValidationNonReassignin
   private def stakeholdersHaveReassigningParticipant(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] =
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
     EitherT(
       FutureUnlessShutdown.outcomeF(
         sourceTopology.activeParticipantsOfPartiesWithInfo(request.stakeholders.toList).map {
@@ -60,7 +60,7 @@ private[transfer] sealed abstract case class UnassignmentValidationNonReassignin
   private def adminPartiesCanConfirm(logger: TracedLogger)(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[FutureUnlessShutdown, TransferProcessorError, List[Unit]] =
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, List[Unit]] =
     EitherT(
       request.adminParties.toList
         .parTraverse(adminPartyCanConfirm(logger))
@@ -101,7 +101,7 @@ object UnassignmentValidationNonReassigningParticipant {
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] = {
     val validation = new UnassignmentValidationNonReassigningParticipant(
       request,
       sourceTopology,

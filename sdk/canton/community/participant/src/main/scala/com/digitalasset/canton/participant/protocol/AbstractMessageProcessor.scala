@@ -59,6 +59,7 @@ abstract class AbstractMessageProcessor(
         requestSequencerCounter,
         requestTimestamp,
         eventO,
+        Some(requestCounter),
       )
     } yield ()
 

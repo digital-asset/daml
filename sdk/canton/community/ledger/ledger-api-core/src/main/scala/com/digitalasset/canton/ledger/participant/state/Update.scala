@@ -5,6 +5,7 @@ package com.digitalasset.canton.ledger.participant.state
 
 import com.daml.error.GrpcStatuses
 import com.daml.logging.entries.{LoggingEntry, LoggingValue, ToLoggingValue}
+import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.topology.DomainId
@@ -355,7 +356,7 @@ object Update {
       (completionInfo.messageUuid.isEmpty && domainIndex.exists(
         _.requestIndex.exists(_.sequencerCounter.isDefined)
       ))
-      // rejection from participant (timout, unsequenced) should have the messageUuid, and no domainIndex
+      // rejection from participant (timeout, unsequenced) should have the messageUuid, and no domainIndex
         || (completionInfo.messageUuid.isDefined && domainIndex.isEmpty)
     )
 
@@ -442,6 +443,7 @@ object Update {
   final case class SequencerIndexMoved(
       domainId: DomainId,
       sequencerIndex: SequencerIndex,
+      requestCounterO: Option[RequestCounter],
       persisted: Promise[Unit] = Promise(),
   ) extends Update {
     override def pretty: Pretty[SequencerIndexMoved] =
@@ -449,10 +451,20 @@ object Update {
         param("domainId", _.domainId.uid),
         param("sequencerCounter", _.sequencerIndex.counter),
         param("sequencerTimestamp", _.sequencerIndex.timestamp),
+        paramIfDefined("requestCounter", _.requestCounterO),
       )
 
     override def domainIndexOpt: Option[(DomainId, DomainIndex)] = Some(
-      domainId -> DomainIndex.of(sequencerIndex)
+      domainId -> DomainIndex(
+        requestIndex = requestCounterO.map(requestCounter =>
+          RequestIndex(
+            counter = requestCounter,
+            sequencerCounter = Some(sequencerIndex.counter),
+            timestamp = sequencerIndex.timestamp,
+          )
+        ),
+        sequencerIndex = Some(sequencerIndex),
+      )
     )
 
     override def recordTime: Timestamp = sequencerIndex.timestamp.underlying

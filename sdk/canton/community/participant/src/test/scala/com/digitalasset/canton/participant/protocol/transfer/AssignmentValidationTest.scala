@@ -10,7 +10,7 @@ import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.{CantonTimestamp, FullAssignmentTree, TransferSubmitterMetadata}
 import com.digitalasset.canton.participant.protocol.submission.SeedGenerator
 import com.digitalasset.canton.participant.protocol.transfer.AssignmentValidation.*
-import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.IncompatibleProtocolVersions
+import com.digitalasset.canton.participant.protocol.transfer.ReassignmentProcessingSteps.IncompatibleProtocolVersions
 import com.digitalasset.canton.participant.store.TransferStoreTest.transactionId1
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.submittingParticipant
 import com.digitalasset.canton.protocol.*
@@ -150,7 +150,7 @@ class AssignmentValidationTest
         uuid,
       )
     val transferData =
-      TransferData(
+      ReassignmentData(
         SourceProtocolVersion(testedProtocolVersion),
         CantonTimestamp.Epoch,
         RequestCounter(1),

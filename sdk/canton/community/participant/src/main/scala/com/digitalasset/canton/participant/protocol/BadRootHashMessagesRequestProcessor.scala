@@ -78,7 +78,8 @@ class BadRootHashMessagesRequestProcessor(
           Seq(signedRejection -> Recipients.cc(mediator)),
         )
         _ <- FutureUnlessShutdown.outcomeF(
-          ephemeral.recordOrderPublisher.tick(sequencerCounter, timestamp, eventO = None)
+          ephemeral.recordOrderPublisher
+            .tick(sequencerCounter, timestamp, eventO = None, requestCounterO = None)
         )
       } yield ()
     }

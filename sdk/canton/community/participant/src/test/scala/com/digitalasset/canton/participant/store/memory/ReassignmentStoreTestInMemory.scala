@@ -8,16 +8,16 @@ import com.digitalasset.canton.protocol.TargetDomainId
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.wordspec.AsyncWordSpec
 
-class TransferStoreTestInMemory
+class ReassignmentStoreTestInMemory
     extends AsyncWordSpec
     with BaseTest
     with HasExecutionContext
     with TransferStoreTest {
 
-  private def mk(domain: TargetDomainId): InMemoryTransferStore =
-    new InMemoryTransferStore(domain, loggerFactory)
+  private def mk(domain: TargetDomainId): InMemoryReassignmentStore =
+    new InMemoryReassignmentStore(domain, loggerFactory)
 
   "TransferStoreTestInMemory" should {
-    behave like transferStore(mk)
+    behave like reassignmentStore(mk)
   }
 }
