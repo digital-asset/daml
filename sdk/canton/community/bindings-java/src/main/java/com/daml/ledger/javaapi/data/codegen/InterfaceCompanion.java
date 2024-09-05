@@ -63,7 +63,7 @@ public abstract class InterfaceCompanion<I, Id, View>
       FromJson<View> fromJson,
       List<Choice<I, ?, ?>> choices) {
     this(
-        new ContractTypeCompanion.Package(templateId.getPackageId(), "?", "?"),
+        new ContractTypeCompanion.Package(templateId.getPackageId(), "?", PackageVersion.ZERO),
         templateClassName,
         templateId,
         newContractId,

@@ -5,6 +5,7 @@ package com.daml.ledger.javaapi.data.codegen;
 
 import com.daml.ledger.javaapi.data.CreatedEvent;
 import com.daml.ledger.javaapi.data.Identifier;
+import com.daml.ledger.javaapi.data.PackageVersion;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -27,9 +28,9 @@ public abstract class ContractTypeCompanion<Ct, Id, ContractType, Data> {
   public static class Package {
     public final String id;
     public final String name;
-    public final String version;
+    public final PackageVersion version;
 
-    public Package(String id, String name, String version) {
+    public Package(String id, String name, PackageVersion version) {
       this.id = id;
       this.name = name;
       this.version = version;

@@ -7,6 +7,7 @@ import com.daml.ledger.javaapi.data.CreatedEvent;
 import com.daml.ledger.javaapi.data.DamlRecord;
 import com.daml.ledger.javaapi.data.Identifier;
 import com.daml.ledger.javaapi.data.Value;
+import com.daml.ledger.javaapi.data.PackageVersion;
 import com.daml.ledger.javaapi.data.codegen.json.JsonLfDecoder;
 import java.util.List;
 import java.util.Optional;
@@ -130,7 +131,7 @@ public abstract class ContractCompanion<Ct, Id, Data>
         NewContract<Ct, Id, Data> newContract,
         List<Choice<Data, ?, ?>> choices) {
       this(
-          new ContractTypeCompanion.Package(templateId.getPackageId(), "?", "?"),
+          new ContractTypeCompanion.Package(templateId.getPackageId(), "?", PackageVersion.ZERO),
           templateClassName,
           templateId,
           newContractId,
@@ -203,7 +204,7 @@ public abstract class ContractCompanion<Ct, Id, Data>
         List<Choice<Data, ?, ?>> choices,
         Function<Value, Key> keyFromValue) {
       this(
-          new ContractTypeCompanion.Package(templateId.getPackageId(), "?", "?"),
+          new ContractTypeCompanion.Package(templateId.getPackageId(), "?", PackageVersion.ZERO),
           templateClassName,
           templateId,
           newContractId,
