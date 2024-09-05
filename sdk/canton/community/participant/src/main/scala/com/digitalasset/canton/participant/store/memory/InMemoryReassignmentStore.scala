@@ -14,8 +14,12 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.GlobalOffset
-import com.digitalasset.canton.participant.protocol.transfer.{IncompleteTransferData, TransferData}
-import com.digitalasset.canton.participant.store.TransferStore
+import com.digitalasset.canton.participant.protocol.transfer
+import com.digitalasset.canton.participant.protocol.transfer.{
+  IncompleteReassignmentData,
+  ReassignmentData,
+}
+import com.digitalasset.canton.participant.store.ReassignmentStore
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
 import com.digitalasset.canton.protocol.{ReassignmentId, SourceDomainId, TargetDomainId}
@@ -28,35 +32,35 @@ import scala.annotation.tailrec
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
 
-class InMemoryTransferStore(
+class InMemoryReassignmentStore(
     domain: TargetDomainId,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
-    extends TransferStore
+    extends ReassignmentStore
     with NamedLogging {
 
-  import TransferStore.*
+  import ReassignmentStore.*
 
   private[this] val transferDataMap: TrieMap[ReassignmentId, TransferEntry] =
     new TrieMap[ReassignmentId, TransferEntry]
 
-  override def addTransfer(
-      transferData: TransferData
+  override def addReassignment(
+      reassignmentData: ReassignmentData
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, TransferStoreError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, ReassignmentStoreError, Unit] = {
     ErrorUtil.requireArgument(
-      transferData.targetDomain == domain,
-      s"Domain ${domain.unwrap.unwrap}: Transfer store cannot store transfer for domain ${transferData.targetDomain.unwrap.unwrap}",
+      reassignmentData.targetDomain == domain,
+      s"Domain ${domain.unwrap.unwrap}: Reassignment store cannot store reassignment for domain ${reassignmentData.targetDomain.unwrap.unwrap}",
     )
 
-    val reassignmentId = transferData.reassignmentId
-    val newEntry = TransferEntry(transferData, None)
+    val reassignmentId = reassignmentData.reassignmentId
+    val newEntry = TransferEntry(reassignmentData, None)
 
-    val result: Either[TransferDataAlreadyExists, Unit] = MapsUtil
+    val result: Either[ReassignmentDataAlreadyExists, Unit] = MapsUtil
       .updateWithConcurrentlyM_[Checked[
-        TransferDataAlreadyExists,
-        TransferAlreadyCompleted,
+        ReassignmentDataAlreadyExists,
+        ReassignmentAlreadyCompleted,
         *,
       ], ReassignmentId, TransferEntry](
         transferDataMap,
@@ -71,11 +75,11 @@ class InMemoryTransferStore(
 
   private def editTransferEntry(
       reassignmentId: ReassignmentId,
-      updateEntry: TransferEntry => Either[TransferStoreError, TransferEntry],
-  ): EitherT[FutureUnlessShutdown, TransferStoreError, Unit] = {
+      updateEntry: TransferEntry => Either[ReassignmentStoreError, TransferEntry],
+  ): EitherT[FutureUnlessShutdown, ReassignmentStoreError, Unit] = {
     val res =
       MapsUtil
-        .updateWithConcurrentlyM_[Either[TransferStoreError, *], ReassignmentId, TransferEntry](
+        .updateWithConcurrentlyM_[Either[ReassignmentStoreError, *], ReassignmentId, TransferEntry](
           transferDataMap,
           reassignmentId,
           Left(UnknownReassignmentId(reassignmentId)),
@@ -89,26 +93,28 @@ class InMemoryTransferStore(
       unassignmentResult: DeliveredUnassignmentResult
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, TransferStoreError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, ReassignmentStoreError, Unit] = {
     val reassignmentId = unassignmentResult.reassignmentId
     editTransferEntry(reassignmentId, _.addUnassignmentResult(unassignmentResult))
   }
 
-  override def addTransfersOffsets(offsets: Map[ReassignmentId, TransferData.TransferGlobalOffset])(
-      implicit traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, TransferStoreError, Unit] = offsets.toList
+  override def addReassignmentsOffsets(
+      offsets: Map[ReassignmentId, transfer.ReassignmentData.ReassignmentGlobalOffset]
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, ReassignmentStoreError, Unit] = offsets.toList
     .parTraverse_ { case (reassignmentId, newGlobalOffset) =>
       editTransferEntry(reassignmentId, _.addUnassignmentGlobalOffset(newGlobalOffset))
     }
 
-  override def completeTransfer(reassignmentId: ReassignmentId, timeOfCompletion: TimeOfChange)(
+  override def completeReasignment(reassignmentId: ReassignmentId, timeOfCompletion: TimeOfChange)(
       implicit traceContext: TraceContext
-  ): CheckedT[Future, Nothing, TransferStoreError, Unit] =
+  ): CheckedT[Future, Nothing, ReassignmentStoreError, Unit] =
     CheckedT(Future.successful {
       val result = MapsUtil
         .updateWithConcurrentlyChecked_[
-          TransferStoreError,
-          TransferAlreadyCompleted,
+          ReassignmentStoreError,
+          ReassignmentAlreadyCompleted,
           ReassignmentId,
           TransferEntry,
         ](
@@ -136,7 +142,7 @@ class InMemoryTransferStore(
           if (newTimeOfCompletion.isDefined) {
             if (newTimeOfCompletion != entryTimeOfCompletion)
               throw new ConcurrentModificationException(
-                s"Completion of transfer $reassignmentId modified from $entryTimeOfCompletion to $newTimeOfCompletion while deleting completions."
+                s"Completion of reassignment $reassignmentId modified from $entryTimeOfCompletion to $newTimeOfCompletion while deleting completions."
               )
             val replaced =
               transferDataMap.replace(reassignmentId, newEntry, newEntry.clearCompletion)
@@ -157,12 +163,14 @@ class InMemoryTransferStore(
 
   override def lookup(
       reassignmentId: ReassignmentId
-  )(implicit traceContext: TraceContext): EitherT[Future, TransferLookupError, TransferData] =
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, ReassignmentLookupError, ReassignmentData] =
     EitherT(Future.successful {
       for {
         entry <- transferDataMap.get(reassignmentId).toRight(UnknownReassignmentId(reassignmentId))
-        _ <- entry.timeOfCompletion.map(TransferCompleted(reassignmentId, _)).toLeft(())
-      } yield entry.transferData
+        _ <- entry.timeOfCompletion.map(ReassignmentCompleted(reassignmentId, _)).toLeft(())
+      } yield entry.reassignmentData
     })
 
   override def find(
@@ -170,18 +178,22 @@ class InMemoryTransferStore(
       filterTimestamp: Option[CantonTimestamp],
       filterSubmitter: Option[LfPartyId],
       limit: Int,
-  )(implicit traceContext: TraceContext): Future[Seq[TransferData]] =
+  )(implicit traceContext: TraceContext): Future[Seq[ReassignmentData]] =
     Future.successful {
       def filter(entry: TransferEntry): Boolean =
         entry.timeOfCompletion.isEmpty && // Always filter out completed assignment
-          filterSource.forall(source => entry.transferData.sourceDomain == source) &&
-          filterTimestamp.forall(ts => entry.transferData.reassignmentId.unassignmentTs == ts) &&
-          filterSubmitter.forall(party => entry.transferData.unassignmentRequest.submitter == party)
+          filterSource.forall(source => entry.reassignmentData.sourceDomain == source) &&
+          filterTimestamp.forall(ts =>
+            entry.reassignmentData.reassignmentId.unassignmentTs == ts
+          ) &&
+          filterSubmitter.forall(party =>
+            entry.reassignmentData.unassignmentRequest.submitter == party
+          )
 
-      transferDataMap.values.to(LazyList).filter(filter).take(limit).map(_.transferData)
+      transferDataMap.values.to(LazyList).filter(filter).take(limit).map(_.reassignmentData)
     }
 
-  override def deleteTransfer(
+  override def deleteReassignment(
       reassignmentId: ReassignmentId
   )(implicit traceContext: TraceContext): Future[Unit] = {
     transferDataMap.remove(reassignmentId).discard
@@ -190,20 +202,20 @@ class InMemoryTransferStore(
 
   override def findAfter(requestAfter: Option[(CantonTimestamp, SourceDomainId)], limit: Int)(
       implicit traceContext: TraceContext
-  ): Future[Seq[TransferData]] = Future.successful {
+  ): Future[Seq[ReassignmentData]] = Future.successful {
     def filter(entry: TransferEntry): Boolean =
       entry.timeOfCompletion.isEmpty && // Always filter out completed assignment
         requestAfter.forall(ts =>
           (
-            entry.transferData.reassignmentId.unassignmentTs,
-            entry.transferData.sourceDomain,
+            entry.reassignmentData.reassignmentId.unassignmentTs,
+            entry.reassignmentData.sourceDomain,
           ) > ts
         )
 
     transferDataMap.values
       .to(LazyList)
       .filter(filter)
-      .map(_.transferData)
+      .map(_.reassignmentData)
       .sortBy(t => (t.reassignmentId.unassignmentTs, t.reassignmentId.sourceDomain))(
         // Explicitly use the standard ordering on two-tuples here
         // As Scala does not seem to infer the right implicits to use here
@@ -220,27 +232,28 @@ class InMemoryTransferStore(
       validAt: GlobalOffset,
       stakeholders: Option[NonEmpty[Set[LfPartyId]]],
       limit: NonNegativeInt,
-  )(implicit traceContext: TraceContext): Future[Seq[IncompleteTransferData]] = {
+  )(implicit traceContext: TraceContext): Future[Seq[IncompleteReassignmentData]] = {
     def onlyUnassignmentCompleted(entry: TransferEntry): Boolean =
-      entry.transferData.unassignmentGlobalOffset.exists(_ <= validAt) &&
-        entry.transferData.assignmentGlobalOffset.forall(_ > validAt)
+      entry.reassignmentData.unassignmentGlobalOffset.exists(_ <= validAt) &&
+        entry.reassignmentData.assignmentGlobalOffset.forall(_ > validAt)
 
     def onlyAssignmentCompleted(entry: TransferEntry): Boolean =
-      entry.transferData.assignmentGlobalOffset.exists(_ <= validAt) &&
-        entry.transferData.unassignmentGlobalOffset.forall(_ > validAt)
+      entry.reassignmentData.assignmentGlobalOffset.exists(_ <= validAt) &&
+        entry.reassignmentData.unassignmentGlobalOffset.forall(_ > validAt)
 
     def incompleteTransfer(entry: TransferEntry): Boolean =
       onlyUnassignmentCompleted(entry) || onlyAssignmentCompleted(entry)
 
     def filter(entry: TransferEntry): Boolean =
-      sourceDomain.forall(_ == entry.transferData.sourceDomain) &&
+      sourceDomain.forall(_ == entry.reassignmentData.sourceDomain) &&
         incompleteTransfer(entry) &&
-        stakeholders.forall(_.exists(entry.transferData.contract.metadata.stakeholders))
+        stakeholders.forall(_.exists(entry.reassignmentData.contract.metadata.stakeholders))
 
     val values = transferDataMap.values
       .to(LazyList)
       .collect {
-        case entry if filter(entry) => IncompleteTransferData.tryCreate(entry.transferData, validAt)
+        case entry if filter(entry) =>
+          IncompleteReassignmentData.tryCreate(entry.reassignmentData, validAt)
       }
       .sortBy(_.queryOffset)
       .take(limit.unwrap)
@@ -251,39 +264,39 @@ class InMemoryTransferStore(
   override def findEarliestIncomplete()(implicit
       traceContext: TraceContext
   ): Future[Option[(GlobalOffset, ReassignmentId, TargetDomainId)]] =
-    // empty table: there are no transfers
+    // empty table: there are no reassignments
     if (transferDataMap.isEmpty) Future.successful(None)
     else {
       def incompleteTransfer(entry: TransferEntry): Boolean =
-        (entry.transferData.assignmentGlobalOffset.isEmpty ||
-          entry.transferData.unassignmentGlobalOffset.isEmpty) &&
-          entry.transferData.targetDomain == domain
-      val incompleteTransfers = transferDataMap.values
+        (entry.reassignmentData.assignmentGlobalOffset.isEmpty ||
+          entry.reassignmentData.unassignmentGlobalOffset.isEmpty) &&
+          entry.reassignmentData.targetDomain == domain
+      val incompleteReassignments = transferDataMap.values
         .to(LazyList)
         .filter(entry => incompleteTransfer(entry))
-      // all transfers are complete
-      if (incompleteTransfers.isEmpty) Future.successful(None)
+      // all reassignments are complete
+      if (incompleteReassignments.isEmpty) Future.successful(None)
       else {
-        val incompleteTransfersOffsets = incompleteTransfers
+        val incompleteReassignmentOffsets = incompleteReassignments
           .mapFilter(entry =>
             (
-              entry.transferData.assignmentGlobalOffset
-                .orElse(entry.transferData.unassignmentGlobalOffset),
-              entry.transferData.reassignmentId,
+              entry.reassignmentData.assignmentGlobalOffset
+                .orElse(entry.reassignmentData.unassignmentGlobalOffset),
+              entry.reassignmentData.reassignmentId,
             ) match {
               case (Some(o), transferId) => Some((o, transferId))
               case (None, _) => None
             }
           )
-        // only in-flight transfers
-        if (incompleteTransfersOffsets.isEmpty) Future.successful(None)
+        // only in-flight reassignments
+        if (incompleteReassignmentOffsets.isEmpty) Future.successful(None)
         else {
           val default = (
             GlobalOffset.MaxValue,
             ReassignmentId(SourceDomainId(domain.unwrap), CantonTimestamp.MaxValue),
           )
           val minIncompleteTransferOffset =
-            incompleteTransfersOffsets.minByOption(_._1).getOrElse(default)
+            incompleteReassignmentOffsets.minByOption(_._1).getOrElse(default)
           Future.successful(
             Some((minIncompleteTransferOffset._1, minIncompleteTransferOffset._2, domain))
           )

@@ -7,14 +7,14 @@ import cats.data.NonEmptyChain
 import cats.implicits.catsSyntaxFoldableOps0
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.PackageUnknownTo
-import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.TransferProcessorError
+import com.digitalasset.canton.participant.protocol.transfer.ReassignmentProcessingSteps.ReassignmentProcessorError
 import com.digitalasset.canton.participant.store.ActiveContractStore.Status
 import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
 import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId}
 import com.digitalasset.canton.sequencing.protocol.Recipients
 import com.digitalasset.canton.topology.DomainId
 
-trait UnassignmentProcessorError extends TransferProcessorError
+trait UnassignmentProcessorError extends ReassignmentProcessorError
 
 object UnassignmentProcessorError {
 
@@ -55,7 +55,7 @@ object UnassignmentProcessorError {
       s"Cannot unassign contract `$contractId` because it's not active. Current status $status"
   }
 
-  final case object ReassignmentCounterOverflow extends TransferProcessorError {
+  final case object ReassignmentCounterOverflow extends ReassignmentProcessorError {
     override def message: String = "Reassignment counter overflow"
   }
   final case class InvalidResult(

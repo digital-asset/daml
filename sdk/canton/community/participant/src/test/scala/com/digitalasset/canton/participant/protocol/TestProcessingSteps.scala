@@ -36,9 +36,9 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.{
   ActivenessSet,
 }
 import com.digitalasset.canton.participant.store.{
+  ReassignmentLookup,
   SyncDomainEphemeralState,
   SyncDomainEphemeralStateLookup,
-  TransferLookup,
 }
 import com.digitalasset.canton.protocol.messages.EncryptedViewMessageError.SyncCryptoDecryptError
 import com.digitalasset.canton.protocol.messages.*
@@ -228,7 +228,7 @@ class TestProcessingSteps(
 
   override def constructPendingDataAndResponse(
       parsedRequest: ParsedRequestType,
-      transferLookup: TransferLookup,
+      transferLookup: ReassignmentLookup,
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
       engineController: EngineController,
   )(implicit

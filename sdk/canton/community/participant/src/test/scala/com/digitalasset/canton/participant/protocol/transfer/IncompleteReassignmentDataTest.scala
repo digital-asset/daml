@@ -5,14 +5,14 @@ package com.digitalasset.canton.participant.protocol.transfer
 
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.participant.GlobalOffset
-import com.digitalasset.canton.participant.protocol.transfer.IncompleteTransferData.TransferEventGlobalOffset
+import com.digitalasset.canton.participant.protocol.transfer.IncompleteReassignmentData.ReassignmentEventGlobalOffset
 import org.scalatest.wordspec.AnyWordSpec
 
-class IncompleteTransferDataTest extends AnyWordSpec with BaseTest {
+class IncompleteReassignmentDataTest extends AnyWordSpec with BaseTest {
   "TransferEventGlobalOffset" should {
     "be create from (queryOffset, unassignmentGlobalOffset, assignmentGlobalOffset)" in {
-      import TransferEventGlobalOffset.create
-      import IncompleteTransferData.{
+      import ReassignmentEventGlobalOffset.create
+      import IncompleteReassignmentData.{
         AssignmentEventGlobalOffset as Assignment,
         UnassignmentEventGlobalOffset as Unassignment,
       }

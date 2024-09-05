@@ -53,10 +53,10 @@ import com.digitalasset.canton.participant.protocol.TransactionProcessor.{
   TransactionSubmitted,
 }
 import com.digitalasset.canton.participant.protocol.submission.routing.DomainRouter
-import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.TransferProcessorError
+import com.digitalasset.canton.participant.protocol.transfer.ReassignmentProcessingSteps.ReassignmentProcessorError
 import com.digitalasset.canton.participant.protocol.transfer.{
-  IncompleteTransferData,
-  TransferCoordination,
+  IncompleteReassignmentData,
+  ReassignmentCoordination,
 }
 import com.digitalasset.canton.participant.pruning.{
   AcsCommitmentProcessor,
@@ -280,8 +280,8 @@ class CantonSyncService(
       loggerFactory,
     )(ec)
 
-  private val transferCoordination: TransferCoordination =
-    TransferCoordination(
+  private val transferCoordination: ReassignmentCoordination =
+    ReassignmentCoordination(
       parameters.transferTimeProofFreshnessProportion,
       syncDomainPersistentStateManager,
       connectedDomainsLookup.get,
@@ -1605,7 +1605,7 @@ class CantonSyncService(
       /* @param domain For unassignment this should be the source domain, for assignment this is the target domain
        * @param remoteDomain For unassignment this should be the target domain, for assignment this is the source domain
        */
-      def doTransfer[E <: TransferProcessorError, T](
+      def doTransfer[E <: ReassignmentProcessorError, T](
           domain: DomainId,
           remoteDomain: DomainId,
       )(
@@ -1731,10 +1731,10 @@ class CantonSyncService(
   def incompleteTransferData(
       validAt: GlobalOffset,
       stakeholders: Set[LfPartyId],
-  )(implicit traceContext: TraceContext): Future[List[IncompleteTransferData]] =
+  )(implicit traceContext: TraceContext): Future[List[IncompleteReassignmentData]] =
     syncDomainPersistentStateManager.getAll.values.toList
       .parTraverse {
-        _.transferStore.findIncomplete(
+        _.reassignmentStore.findIncomplete(
           sourceDomain = None,
           validAt = validAt,
           stakeholders = NonEmpty.from(stakeholders),
@@ -1753,7 +1753,7 @@ class CantonSyncService(
         error => Future.failed(new IllegalArgumentException(error)),
         incompleteTransferData(_, stakeholders).map(
           _.map(
-            _.transferEventGlobalOffset.globalOffset
+            _.reassignmentEventGlobalOffset.globalOffset
               .pipe(UpstreamOffsetConvert.fromGlobalOffset)
           ).toVector
         ),

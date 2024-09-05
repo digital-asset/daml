@@ -214,9 +214,9 @@ create table par_active_contracts (
   ts bigint not null,
   -- Request counter of the time of change
   request_counter bigint not null,
-  -- optional remote domain index in case of transfers
+  -- optional remote domain index in case of reassignments
   remote_domain_idx int,
-  transfer_counter bigint default null,
+  reassignment_counter bigint default null,
   primary key (domain_id, contract_id, ts, request_counter, change)
 );
 
@@ -373,28 +373,28 @@ create index idx_par_event_log_associated_domain on par_event_log (log_id, assoc
   where log_id = 0 -- must be the same as the ParticipantEventLog.ProductionParticipantEventLogId.index
     and associated_domain is not null;
 
-create table par_transfers (
+create table par_reassignments (
   -- reassignment id
   target_domain varchar(300) collate "C" not null,
   origin_domain varchar(300) collate "C" not null,
 
-  primary key (target_domain, origin_domain, transfer_out_timestamp),
+  primary key (target_domain, origin_domain, unassignment_timestamp),
 
-  transfer_out_global_offset bigint,
-  transfer_in_global_offset bigint,
+  unassignment_global_offset bigint,
+  assignment_global_offset bigint,
 
   -- UTC timestamp in microseconds relative to EPOCH
-  transfer_out_timestamp bigint not null,
-  transfer_out_request_counter bigint not null,
-  transfer_out_request bytea not null,
+  unassignment_timestamp bigint not null,
+  unassignment_request_counter bigint not null,
+  unassignment_request bytea not null,
   -- UTC timestamp in microseconds relative to EPOCH
-  transfer_out_decision_time bigint not null,
+  unassignment_decision_time bigint not null,
   contract bytea not null,
   creating_transaction_id bytea not null,
-  transfer_out_result bytea,
+  unassignment_result bytea,
   submitter_lf varchar(300) not null,
 
-  -- defined if transfer was completed
+  -- defined if reassignment was completed
   time_of_completion_request_counter bigint,
   -- UTC timestamp in microseconds relative to EPOCH
   time_of_completion_timestamp bigint,

@@ -9,11 +9,11 @@ import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, Signature}
-import com.digitalasset.canton.data.ViewType.TransferViewType
+import com.digitalasset.canton.data.ViewType.ReassignmentViewType
 import com.digitalasset.canton.data.{
   CantonTimestamp,
+  ReassignmentViewTree,
   TransferSubmitterMetadata,
-  TransferViewTree,
   ViewType,
 }
 import com.digitalasset.canton.error.TransactionError
@@ -37,13 +37,13 @@ import com.digitalasset.canton.participant.protocol.ProtocolProcessor.{
   ProcessorError,
 }
 import com.digitalasset.canton.participant.protocol.submission.EncryptedViewMessageFactory.EncryptedViewMessageCreationError
-import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.*
+import com.digitalasset.canton.participant.protocol.transfer.ReassignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.{
   ProcessingSteps,
   ProtocolProcessor,
   SubmissionTracker,
 }
-import com.digitalasset.canton.participant.store.TransferStore.TransferStoreError
+import com.digitalasset.canton.participant.store.ReassignmentStore.ReassignmentStoreError
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.protocol.*
@@ -67,65 +67,65 @@ import com.digitalasset.daml.lf.engine
 import scala.collection.concurrent
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
-trait TransferProcessingSteps[
+trait ReassignmentProcessingSteps[
     SubmissionParam,
     SubmissionResult,
-    RequestViewType <: TransferViewType,
-    PendingTransferType <: PendingTransfer,
+    RequestViewType <: ReassignmentViewType,
+    PendingTransferType <: PendingReassignment,
 ] extends ProcessingSteps[
       SubmissionParam,
       SubmissionResult,
       RequestViewType,
-      TransferProcessorError,
+      ReassignmentProcessorError,
     ]
     with NamedLogging {
 
   val participantId: ParticipantId
 
-  val domainId: TransferDomainId
+  val domainId: ReassignmentDomainId
 
   protected def engine: DAMLe
 
   protected implicit def ec: ExecutionContext
 
-  override type SubmissionSendError = TransferProcessorError
+  override type SubmissionSendError = ReassignmentProcessorError
 
   override type PendingSubmissionId = RootHash
 
-  override type PendingSubmissions = concurrent.Map[RootHash, PendingTransferSubmission]
+  override type PendingSubmissions = concurrent.Map[RootHash, PendingReassignmentSubmission]
 
-  override type PendingSubmissionData = PendingTransferSubmission
+  override type PendingSubmissionData = PendingReassignmentSubmission
 
-  override type RequestError = TransferProcessorError
+  override type RequestError = ReassignmentProcessorError
 
-  override type ResultError = TransferProcessorError
+  override type ResultError = ReassignmentProcessorError
 
-  override type RejectionArgs = TransferProcessingSteps.RejectionArgs[PendingTransferType]
+  override type RejectionArgs = ReassignmentProcessingSteps.RejectionArgs[PendingTransferType]
 
   override type RequestType <: ProcessingSteps.RequestType.Transfer
   override val requestType: RequestType
 
-  override type FullView <: TransferViewTree
-  override type ParsedRequestType = ParsedTransferRequest[FullView]
+  override type FullView <: ReassignmentViewTree
+  override type ParsedRequestType = ParsedReassignmentRequest[FullView]
 
-  override def embedNoMediatorError(error: NoMediatorError): TransferProcessorError =
+  override def embedNoMediatorError(error: NoMediatorError): ReassignmentProcessorError =
     GenericStepsError(error)
 
   override def removePendingSubmission(
-      pendingSubmissions: concurrent.Map[RootHash, PendingTransferSubmission],
+      pendingSubmissions: concurrent.Map[RootHash, PendingReassignmentSubmission],
       pendingSubmissionId: RootHash,
-  ): Option[PendingTransferSubmission] =
+  ): Option[PendingReassignmentSubmission] =
     pendingSubmissions.remove(pendingSubmissionId)
 
   override def postProcessSubmissionRejectedCommand(
       error: TransactionError,
-      pendingSubmission: PendingTransferSubmission,
+      pendingSubmission: PendingReassignmentSubmission,
   )(implicit traceContext: TraceContext): Unit =
     pendingSubmission.transferCompletion.success(error.rpcStatus())
 
   override def postProcessResult(
       verdict: Verdict,
-      pendingSubmission: PendingTransferSubmission,
+      pendingSubmission: PendingReassignmentSubmission,
   )(implicit traceContext: TraceContext): Unit = {
     val status = verdict match {
       case _: Approve =>
@@ -142,22 +142,26 @@ trait TransferProcessingSteps[
       parsedRequest: ParsedRequestType
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransferProcessorError, Unit] =
+  ): EitherT[Future, ReassignmentProcessorError, Unit] =
     // We don't authenticate input contracts on transfers
     EitherT.pure(())
 
   protected def performPendingSubmissionMapUpdate(
-      pendingSubmissionMap: concurrent.Map[RootHash, PendingTransferSubmission],
+      pendingSubmissionMap: concurrent.Map[RootHash, PendingReassignmentSubmission],
       reassignmentId: Option[ReassignmentId],
       submitterLf: LfPartyId,
       rootHash: RootHash,
-  ): EitherT[Future, TransferProcessorError, PendingTransferSubmission] = {
-    val pendingSubmission = PendingTransferSubmission()
+  ): EitherT[Future, ReassignmentProcessorError, PendingReassignmentSubmission] = {
+    val pendingSubmission = PendingReassignmentSubmission()
     val existing = pendingSubmissionMap.putIfAbsent(rootHash, pendingSubmission)
     EitherT.cond[Future](
       existing.isEmpty,
       pendingSubmission,
-      DuplicateTransferTreeHash(reassignmentId, submitterLf, rootHash): TransferProcessorError,
+      DuplicateReassignmentTreeHash(
+        reassignmentId,
+        submitterLf,
+        rootHash,
+      ): ReassignmentProcessorError,
     )
   }
 
@@ -178,7 +182,7 @@ trait TransferProcessingSteps[
       sessionKeyStore: SessionKeyStore,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, TransferProcessorError, DecryptedViews] = {
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, DecryptedViews] = {
     val result = for {
       decryptedEitherList <- batch.toNEF.parTraverse(
         decryptTree(snapshot, sessionKeyStore)(_).value
@@ -207,7 +211,7 @@ trait TransferProcessingSteps[
       mediator: MediatorGroupRecipient,
       snapshot: DomainSnapshotSyncCryptoApi,
       domainParameters: DynamicDomainParametersWithValidity,
-  )(implicit traceContext: TraceContext): Future[ParsedTransferRequest[FullView]] = {
+  )(implicit traceContext: TraceContext): Future[ParsedReassignmentRequest[FullView]] = {
 
     val numberOfViews = rootViewsWithMetadata.size
     if (numberOfViews > 1) {
@@ -224,7 +228,7 @@ trait TransferProcessingSteps[
     val (WithRecipients(viewTree, recipients), signature) = rootViewsWithMetadata.head1
 
     Future.successful(
-      ParsedTransferRequest(
+      ParsedReassignmentRequest(
         rc,
         ts,
         sc,
@@ -306,7 +310,7 @@ trait TransferProcessingSteps[
 
   override def createRejectionEvent(rejectionArgs: RejectionArgs)(implicit
       traceContext: TraceContext
-  ): Either[TransferProcessorError, Option[Traced[Update]]] = {
+  ): Either[ReassignmentProcessorError, Option[Traced[Update]]] = {
 
     val RejectionArgs(pendingTransfer, rejectionReason) = rejectionArgs
     val isSubmittingParticipant =
@@ -365,31 +369,32 @@ trait TransferProcessingSteps[
 
     override def embedSubmissionError(
         err: ProtocolProcessor.SubmissionProcessingError
-    ): TransferProcessorError =
+    ): ReassignmentProcessorError =
       GenericStepsError(err)
-    override def toSubmissionError(err: TransferProcessorError): TransferProcessorError = err
+    override def toSubmissionError(err: ReassignmentProcessorError): ReassignmentProcessorError =
+      err
   }
 
   override def embedRequestError(
       err: ProtocolProcessor.RequestProcessingError
-  ): TransferProcessorError =
+  ): ReassignmentProcessorError =
     GenericStepsError(err)
 
   override def embedResultError(
       err: ProtocolProcessor.ResultProcessingError
-  ): TransferProcessorError =
+  ): ReassignmentProcessorError =
     GenericStepsError(err)
 
 }
 
-object TransferProcessingSteps {
+object ReassignmentProcessingSteps {
 
-  final case class PendingTransferSubmission(
+  final case class PendingReassignmentSubmission(
       transferCompletion: Promise[com.google.rpc.status.Status] =
         Promise[com.google.rpc.status.Status]()
   )
 
-  final case class ParsedTransferRequest[VT <: TransferViewTree](
+  final case class ParsedReassignmentRequest[VT <: ReassignmentViewTree](
       override val rc: RequestCounter,
       override val requestTimestamp: CantonTimestamp,
       override val sc: SequencerCounter,
@@ -407,7 +412,7 @@ object TransferProcessingSteps {
     override def rootHash: RootHash = fullViewTree.rootHash
   }
 
-  trait PendingTransfer extends PendingRequestData with Product with Serializable {
+  trait PendingReassignment extends PendingRequestData with Product with Serializable {
     def requestId: RequestId
 
     def requestCounter: RequestCounter
@@ -419,73 +424,73 @@ object TransferProcessingSteps {
     override def isCleanReplay: Boolean = false
   }
 
-  final case class RejectionArgs[T <: PendingTransfer](
+  final case class RejectionArgs[T <: PendingReassignment](
       pendingTransfer: T,
       error: TransactionRejection,
   )
 
-  trait TransferProcessorError
+  trait ReassignmentProcessorError
       extends WrapsProcessorError
       with Product
       with Serializable
       with PrettyPrinting {
     override def underlyingProcessorError(): Option[ProcessorError] = None
 
-    override def pretty: Pretty[TransferProcessorError.this.type] = adHocPrettyInstance
+    override def pretty: Pretty[ReassignmentProcessorError.this.type] = adHocPrettyInstance
 
     def message: String
   }
 
-  final case class GenericStepsError(error: ProcessorError) extends TransferProcessorError {
+  final case class GenericStepsError(error: ProcessorError) extends ReassignmentProcessorError {
     override def underlyingProcessorError(): Option[ProcessorError] = Some(error)
 
     override def message: String = error.toString
   }
 
-  final case class InvalidTransferView(reason: String) extends TransferProcessorError {
+  final case class InvalidReassignmentView(reason: String) extends ReassignmentProcessorError {
     override def message: String = s"Invalid transfer common view: $reason"
   }
 
   final case class UnknownDomain(domainId: DomainId, context: String)
-      extends TransferProcessorError {
+      extends ReassignmentProcessorError {
     override def message: String = s"Unknown domain $domainId when $context"
   }
 
-  case object ApplicationShutdown extends TransferProcessorError {
+  case object ApplicationShutdown extends ReassignmentProcessorError {
     override def pretty: Pretty[ApplicationShutdown.type] = prettyOfObject[ApplicationShutdown.type]
     override def message: String = "Application is shutting down"
   }
 
   final case class DomainNotReady(domainId: DomainId, context: String)
-      extends TransferProcessorError {
+      extends ReassignmentProcessorError {
     override def message: String = s"Domain $domainId is not ready when $context"
   }
 
-  final case class TransferParametersError(domainId: DomainId, context: String)
-      extends TransferProcessorError {
+  final case class ReassignmentParametersError(domainId: DomainId, context: String)
+      extends ReassignmentProcessorError {
     override def message: String = s"Unable to compute transfer parameters for $domainId: $context"
   }
 
-  final case class MetadataNotFound(err: engine.Error) extends TransferProcessorError {
+  final case class MetadataNotFound(err: engine.Error) extends ReassignmentProcessorError {
     override def message: String = s"Contract metadata not found: ${err.message}"
   }
 
   final case class CreatingTransactionIdNotFound(contractId: LfContractId)
-      extends TransferProcessorError {
+      extends ReassignmentProcessorError {
     override def message: String = s"Creating transaction id not found for contract `$contractId`"
 
   }
 
   final case class NoTimeProofFromDomain(domainId: DomainId, reason: String)
-      extends TransferProcessorError {
+      extends ReassignmentProcessorError {
     override def message: String = s"Cannot fetch time proof for domain `$domainId`: $reason"
   }
 
-  final case class NoTransferSubmissionPermission(
+  final case class NoReassignmentSubmissionPermission(
       kind: String,
       party: LfPartyId,
       participantId: ParticipantId,
-  ) extends TransferProcessorError {
+  ) extends ReassignmentProcessorError {
 
     override def message: String =
       s"For $kind: $party does not have submission permission on $participantId"
@@ -496,12 +501,12 @@ object TransferProcessingSteps {
       declaredViewStakeholders: Set[LfPartyId],
       declaredContractStakeholders: Option[Set[LfPartyId]],
       expectedStakeholders: Either[String, Set[LfPartyId]],
-  ) extends TransferProcessorError {
+  ) extends ReassignmentProcessorError {
     override def message: String = s"For transfer `$reassignmentId`: stakeholders mismatch"
   }
 
   final case class NoStakeholders private (contractId: LfContractId)
-      extends TransferProcessorError {
+      extends ReassignmentProcessorError {
     override def message: String = s"Contract $contractId does not have any stakeholder"
   }
 
@@ -519,7 +524,7 @@ object TransferProcessingSteps {
   final case class TemplateIdMismatch(
       declaredTemplateId: LfTemplateId,
       expectedTemplateId: LfTemplateId,
-  ) extends TransferProcessorError {
+  ) extends ReassignmentProcessorError {
     override def message: String =
       s"Template ID mismatch for transfer. Declared=$declaredTemplateId, expected=$expectedTemplateId`"
   }
@@ -528,13 +533,15 @@ object TransferProcessingSteps {
       reassignmentId: ReassignmentId,
       submittingParty: LfPartyId,
       stakeholders: Set[LfPartyId],
-  ) extends TransferProcessorError {
+  ) extends ReassignmentProcessorError {
     override def message: String =
       s"Cannot assign `$reassignmentId`: submitter `$submittingParty` is not a stakeholder"
   }
 
-  final case class TransferStoreFailed(reassignmentId: ReassignmentId, error: TransferStoreError)
-      extends TransferProcessorError {
+  final case class ReassignmentStoreFailed(
+      reassignmentId: ReassignmentId,
+      error: ReassignmentStoreError,
+  ) extends ReassignmentProcessorError {
     override def message: String =
       s"Cannot reassign `$reassignmentId`: internal transfer store error"
   }
@@ -542,22 +549,22 @@ object TransferProcessingSteps {
   final case class EncryptionError(
       contractId: LfContractId,
       error: EncryptedViewMessageCreationError,
-  ) extends TransferProcessorError {
+  ) extends ReassignmentProcessorError {
     override def message: String = s"Cannot transfer contract `$contractId`: encryption error"
   }
 
   final case class DecryptionError[VT <: ViewType](
       reassignmentId: ReassignmentId,
       error: EncryptedViewMessageError,
-  ) extends TransferProcessorError {
+  ) extends ReassignmentProcessorError {
     override def message: String = s"Cannot transfer `$reassignmentId`: decryption error"
   }
 
-  final case class DuplicateTransferTreeHash(
+  final case class DuplicateReassignmentTreeHash(
       reassignmentId: Option[ReassignmentId],
       submitterLf: LfPartyId,
       hash: RootHash,
-  ) extends TransferProcessorError {
+  ) extends ReassignmentProcessorError {
     private def kind = reassignmentId.map(id => s"in: `$id`").getOrElse("out")
 
     override def message: String = s"Cannot transfer-$kind: duplicatehash"
@@ -566,7 +573,7 @@ object TransferProcessingSteps {
   final case class FailedToCreateResponse(
       reassignmentId: ReassignmentId,
       error: InvalidConfirmationResponse,
-  ) extends TransferProcessorError {
+  ) extends ReassignmentProcessorError {
     override def message: String = s"Cannot transfer `$reassignmentId`: failed to create response"
   }
 
@@ -574,7 +581,7 @@ object TransferProcessingSteps {
       contractId: LfContractId,
       source: SourceProtocolVersion,
       target: TargetProtocolVersion,
-  ) extends TransferProcessorError {
+  ) extends ReassignmentProcessorError {
     override def message: String =
       s"Cannot transfer contract `$contractId`: invalid transfer from domain with protocol version $source to domain with protocol version $target"
   }
@@ -583,7 +590,7 @@ object TransferProcessingSteps {
       reassignmentId: ReassignmentId,
       field: String,
       error: String,
-  ) extends TransferProcessorError {
+  ) extends ReassignmentProcessorError {
     override def message: String =
       s"Cannot transfer `$reassignmentId`: invalid conversion for `$field`"
 
@@ -594,7 +601,7 @@ object TransferProcessingSteps {
   }
 
   final case class ReinterpretationAborted(reassignmentId: ReassignmentId, reason: String)
-      extends TransferProcessorError {
+      extends ReassignmentProcessorError {
     override def message: String =
       s"Cannot transfer `$reassignmentId`: reinterpretation aborted for reason `$reason`"
   }

@@ -4,14 +4,14 @@
 package com.digitalasset.canton.participant.protocol.transfer
 
 import com.digitalasset.canton.participant.GlobalOffset
-import com.digitalasset.canton.participant.protocol.transfer.TransferData.*
+import com.digitalasset.canton.participant.protocol.transfer.ReassignmentData.*
 import org.scalatest.EitherValues
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.language.implicitConversions
 
-class TransferDataTest extends AnyWordSpec with Matchers with EitherValues {
+class ReassignmentDataTest extends AnyWordSpec with Matchers with EitherValues {
   private implicit def toGlobalOffset(i: Long): GlobalOffset = GlobalOffset.tryFromLong(i)
 
   "TransferData.ReassignmentGlobalOffset" should {

@@ -7,11 +7,11 @@ import cats.data.EitherT
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, SyncCryptoApiProvider}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.{
-  TransferProcessorError,
+import com.digitalasset.canton.participant.protocol.transfer.ReassignmentProcessingSteps.{
+  ReassignmentProcessorError,
   UnknownDomain,
 }
-import com.digitalasset.canton.participant.store.memory.InMemoryTransferStore
+import com.digitalasset.canton.participant.store.memory.InMemoryReassignmentStore
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.*
 import com.digitalasset.canton.protocol.{SourceDomainId, StaticDomainParameters, TargetDomainId}
 import com.digitalasset.canton.time.TimeProofTestUtil
@@ -37,7 +37,7 @@ private[transfer] object TestTransferCoordination {
       awaitTimestampOverride: Option[Option[Future[Unit]]] = None,
       loggerFactory: NamedLoggerFactory,
       packages: Seq[LfPackageId] = Seq.empty,
-  )(implicit ec: ExecutionContext): TransferCoordination = {
+  )(implicit ec: ExecutionContext): ReassignmentCoordination = {
 
     val recentTimeProofProvider = mock[RecentTimeProofProvider]
     when(
@@ -47,14 +47,14 @@ private[transfer] object TestTransferCoordination {
     )
       .thenReturn(EitherT.pure(TimeProofTestUtil.mkTimeProof(timeProofTimestamp)))
 
-    val transferStores =
-      domains.map(domain => domain -> new InMemoryTransferStore(domain, loggerFactory)).toMap
+    val reassignmentStores =
+      domains.map(domain => domain -> new InMemoryReassignmentStore(domain, loggerFactory)).toMap
     val assignmentBySubmission = { (_: DomainId) => None }
     val protocolVersionGetter = (_: Traced[DomainId]) => Some(BaseTest.testedProtocolVersion)
 
-    new TransferCoordination(
-      transferStoreFor = id =>
-        transferStores.get(id).toRight(UnknownDomain(id.unwrap, "not found")),
+    new ReassignmentCoordination(
+      reassignmentStoreFor = id =>
+        reassignmentStores.get(id).toRight(UnknownDomain(id.unwrap, "not found")),
       recentTimeProofFor = recentTimeProofProvider,
       inSubmissionById = assignmentBySubmission,
       protocolVersionFor = protocolVersionGetter,
@@ -68,7 +68,7 @@ private[transfer] object TestTransferCoordination {
           timestamp: CantonTimestamp,
       )(implicit
           traceContext: TraceContext
-      ): Either[TransferProcessingSteps.UnknownDomain, Future[Unit]] =
+      ): Either[ReassignmentProcessingSteps.UnknownDomain, Future[Unit]] =
         awaitTimestampOverride match {
           case None =>
             super.awaitUnassignmentTimestamp(sourceDomain, staticDomainParameters, timestamp)
@@ -81,7 +81,7 @@ private[transfer] object TestTransferCoordination {
           timestamp: CantonTimestamp,
       )(implicit
           traceContext: TraceContext
-      ): Either[TransferProcessorError, Option[Future[Unit]]] =
+      ): Either[ReassignmentProcessorError, Option[Future[Unit]]] =
         awaitTimestampOverride match {
           case None =>
             super.awaitTimestamp(domainId, staticDomainParameters, timestamp)
@@ -94,10 +94,10 @@ private[transfer] object TestTransferCoordination {
           timestamp: CantonTimestamp,
       )(implicit
           traceContext: TraceContext
-      ): EitherT[Future, TransferProcessorError, DomainSnapshotSyncCryptoApi] =
+      ): EitherT[Future, ReassignmentProcessorError, DomainSnapshotSyncCryptoApi] =
         snapshotOverride match {
           case None => super.cryptoSnapshot(domain, staticDomainParameters, timestamp)
-          case Some(cs) => EitherT.pure[Future, TransferProcessorError](cs)
+          case Some(cs) => EitherT.pure[Future, ReassignmentProcessorError](cs)
         }
     }
   }

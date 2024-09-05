@@ -180,7 +180,9 @@ class DefaultMessageDispatcher(
         if (triggerAcsChangePublication)
           recordOrderPublisher.scheduleEmptyAcsChangePublication(sc, ts)
       }
-      _ <- FutureUnlessShutdown.outcomeF(recordOrderPublisher.tick(sc, ts, eventO = None))
+      _ <- FutureUnlessShutdown.outcomeF(
+        recordOrderPublisher.tick(sc, ts, eventO = None, requestCounterO = None)
+      )
     } yield ()
 
   @VisibleForTesting

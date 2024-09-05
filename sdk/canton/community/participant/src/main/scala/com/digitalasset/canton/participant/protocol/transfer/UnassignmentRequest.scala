@@ -9,7 +9,7 @@ import com.digitalasset.canton.data.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.participant.protocol.CanSubmitTransfer
-import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.TransferProcessorError
+import com.digitalasset.canton.participant.protocol.transfer.ReassignmentProcessingSteps.ReassignmentProcessorError
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.{MediatorGroupRecipient, TimeProof}
 import com.digitalasset.canton.topology.ParticipantId
@@ -104,7 +104,7 @@ object UnassignmentRequest {
       ec: ExecutionContext,
   ): EitherT[
     FutureUnlessShutdown,
-    TransferProcessorError,
+    ReassignmentProcessorError,
     UnassignmentRequestValidated,
   ] = {
     val contractId = contract.contractId

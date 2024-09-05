@@ -915,12 +915,14 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
           Update.SequencerIndexMoved(
             domainId = someDomainId,
             sequencerIndex = someSequencerIndex1,
+            requestCounterO = None,
           )
         ),
         offset(10) -> Traced(
           Update.SequencerIndexMoved(
             domainId = someDomainId2,
             sequencerIndex = someSequencerIndex1,
+            requestCounterO = None,
           )
         ),
       ),
@@ -939,12 +941,14 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
           Update.SequencerIndexMoved(
             domainId = someDomainId,
             sequencerIndex = someSequencerIndex2,
+            requestCounterO = None,
           )
         ),
         offset(20) -> Traced(
           Update.SequencerIndexMoved(
             domainId = someDomainId2,
             sequencerIndex = someSequencerIndex2,
+            requestCounterO = None,
           )
         ),
       ),

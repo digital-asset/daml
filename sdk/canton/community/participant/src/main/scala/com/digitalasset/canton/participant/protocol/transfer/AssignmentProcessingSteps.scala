@@ -34,7 +34,7 @@ import com.digitalasset.canton.participant.protocol.submission.{
 }
 import com.digitalasset.canton.participant.protocol.transfer.AssignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.transfer.AssignmentValidation.*
-import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.*
+import com.digitalasset.canton.participant.protocol.transfer.ReassignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.{
   CanSubmitTransfer,
   EngineController,
@@ -70,13 +70,13 @@ private[transfer] class AssignmentProcessingSteps(
     val domainId: TargetDomainId,
     val participantId: ParticipantId,
     val engine: DAMLe,
-    transferCoordination: TransferCoordination,
+    transferCoordination: ReassignmentCoordination,
     seedGenerator: SeedGenerator,
     staticDomainParameters: StaticDomainParameters,
     targetProtocolVersion: TargetProtocolVersion,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
-    extends TransferProcessingSteps[
+    extends ReassignmentProcessingSteps[
       SubmissionParam,
       SubmissionResult,
       AssignmentViewType,
@@ -91,7 +91,7 @@ private[transfer] class AssignmentProcessingSteps(
   override def submissionDescription(param: SubmissionParam): String =
     s"Submitter ${param.submitterMetadata.submitter}, reassignmentId ${param.reassignmentId}"
 
-  override type SubmissionResultArgs = PendingTransferSubmission
+  override type SubmissionResultArgs = PendingReassignmentSubmission
 
   override type RequestType = ProcessingSteps.RequestType.Assignment
   override val requestType = ProcessingSteps.RequestType.Assignment
@@ -118,7 +118,7 @@ private[transfer] class AssignmentProcessingSteps(
       recentSnapshot: DomainSnapshotSyncCryptoApi,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, TransferProcessorError, Submission] = {
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Submission] = {
 
     val SubmissionParam(
       submitterMetadata,
@@ -130,7 +130,7 @@ private[transfer] class AssignmentProcessingSteps(
 
     def activeParticipantsOfParty(
         parties: Seq[LfPartyId]
-    ): EitherT[Future, TransferProcessorError, Set[ParticipantId]] = EitherT(
+    ): EitherT[Future, ReassignmentProcessorError, Set[ParticipantId]] = EitherT(
       topologySnapshot.activeParticipantsOfParties(parties).map { partyToParticipantAttributes =>
         partyToParticipantAttributes.toSeq
           .traverse { case (party, participants) =>
@@ -145,9 +145,9 @@ private[transfer] class AssignmentProcessingSteps(
     )
 
     for {
-      transferData <- ephemeralState.transferLookup
+      transferData <- ephemeralState.reassignmentLookup
         .lookup(reassignmentId)
-        .leftMap(err => NoTransferData(reassignmentId, err))
+        .leftMap(err => NoReassignmentData(reassignmentId, err))
         .mapK(FutureUnlessShutdown.outcomeK)
       unassignmentResult <- EitherT.fromEither[FutureUnlessShutdown](
         transferData.unassignmentResult.toRight(
@@ -195,7 +195,7 @@ private[transfer] class AssignmentProcessingSteps(
       rootHash = fullTree.rootHash
       submittingParticipantSignature <- recentSnapshot
         .sign(rootHash.unwrap)
-        .leftMap(TransferSigningError)
+        .leftMap(ReassignmentSigningError)
       mediatorMessage = fullTree.mediatorMessage(submittingParticipantSignature)
       recipientsSet <- activeParticipantsOfParty(stakeholders.toSeq).mapK(
         FutureUnlessShutdown.outcomeK
@@ -212,7 +212,7 @@ private[transfer] class AssignmentProcessingSteps(
           ephemeralState.sessionKeyStoreLookup,
           targetProtocolVersion.v,
         )
-        .leftMap[TransferProcessorError](EncryptionError(transferData.contract.contractId, _))
+        .leftMap[ReassignmentProcessorError](EncryptionError(transferData.contract.contractId, _))
     } yield {
       val rootHashMessage =
         RootHashMessage(
@@ -247,7 +247,7 @@ private[transfer] class AssignmentProcessingSteps(
       pendingSubmissionMap: PendingSubmissions,
       submissionParam: SubmissionParam,
       submissionId: PendingSubmissionId,
-  ): EitherT[Future, TransferProcessorError, SubmissionResultArgs] =
+  ): EitherT[Future, ReassignmentProcessorError, SubmissionResultArgs] =
     performPendingSubmissionMapUpdate(
       pendingSubmissionMap,
       Some(submissionParam.reassignmentId),
@@ -286,10 +286,10 @@ private[transfer] class AssignmentProcessingSteps(
       .map(WithRecipients(_, envelope.recipients))
 
   override def computeActivenessSet(
-      parsedRequest: ParsedTransferRequest[FullAssignmentTree]
+      parsedRequest: ParsedReassignmentRequest[FullAssignmentTree]
   )(implicit
       traceContext: TraceContext
-  ): Either[TransferProcessorError, ActivenessSet] =
+  ): Either[ReassignmentProcessorError, ActivenessSet] =
     // TODO(i12926): Send a rejection if malformedPayloads is non-empty
     if (parsedRequest.fullViewTree.targetDomain == domainId) {
       val contractId = parsedRequest.fullViewTree.contract.contractId
@@ -319,18 +319,18 @@ private[transfer] class AssignmentProcessingSteps(
 
   override def constructPendingDataAndResponse(
       parsedRequest: ParsedRequestType,
-      transferLookup: TransferLookup,
+      transferLookup: ReassignmentLookup,
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
       engineController: EngineController,
   )(implicit
       traceContext: TraceContext
   ): EitherT[
     FutureUnlessShutdown,
-    TransferProcessorError,
+    ReassignmentProcessorError,
     StorePendingDataAndSendResponseAndCreateTimeout,
   ] = {
 
-    val ParsedTransferRequest(
+    val ParsedReassignmentRequest(
       rc,
       ts,
       sc,
@@ -360,7 +360,7 @@ private[transfer] class AssignmentProcessingSteps(
       .mapK(FutureUnlessShutdown.outcomeK)
 
     for {
-      hostedStks <- EitherT.right[TransferProcessorError](
+      hostedStks <- EitherT.right[ReassignmentProcessorError](
         FutureUnlessShutdown.outcomeF(
           hostedStakeholders(
             fullViewTree.contract.metadata.stakeholders.toList,
@@ -370,7 +370,7 @@ private[transfer] class AssignmentProcessingSteps(
       )
 
       transferDataO <- EitherT
-        .right[TransferProcessorError](
+        .right[ReassignmentProcessorError](
           transferLookup.lookup(reassignmentId).toOption.value
         )
         .mapK(FutureUnlessShutdown.outcomeK)
@@ -384,7 +384,7 @@ private[transfer] class AssignmentProcessingSteps(
         )
         .mapK(FutureUnlessShutdown.outcomeK)
 
-      activenessResult <- EitherT.right[TransferProcessorError](activenessResultFuture)
+      activenessResult <- EitherT.right[ReassignmentProcessorError](activenessResultFuture)
     } yield {
       val responsesET = for {
         _ <- stakeholdersCheckResultET
@@ -397,7 +397,7 @@ private[transfer] class AssignmentProcessingSteps(
               validationResultO,
             )
           )
-          .leftMap(e => FailedToCreateResponse(reassignmentId, e): TransferProcessorError)
+          .leftMap(e => FailedToCreateResponse(reassignmentId, e): ReassignmentProcessorError)
       } yield {
         transferResponses.map(_ -> Recipients.cc(mediator))
       }
@@ -529,7 +529,7 @@ private[transfer] class AssignmentProcessingSteps(
       traceContext: TraceContext
   ): EitherT[
     FutureUnlessShutdown,
-    TransferProcessorError,
+    ReassignmentProcessorError,
     CommitAndStoreContractsAndPublishEvent,
   ] = {
     val PendingAssignment(
@@ -552,7 +552,7 @@ private[transfer] class AssignmentProcessingSteps(
 
     def rejected(
         reason: TransactionRejection
-    ): EitherT[Future, TransferProcessorError, CommitAndStoreContractsAndPublishEvent] = for {
+    ): EitherT[Future, ReassignmentProcessorError, CommitAndStoreContractsAndPublishEvent] = for {
       eventO <- EitherT.fromEither[Future](
         createRejectionEvent(RejectionArgs(pendingRequestData, reason))
       )
@@ -612,7 +612,7 @@ private[transfer] class AssignmentProcessingSteps(
       hostedStakeholders: List[LfPartyId],
       requestCounter: RequestCounter,
       requestSequencerCounter: SequencerCounter,
-  ): EitherT[Future, TransferProcessorError, Update] = {
+  ): EitherT[Future, ReassignmentProcessorError, Update] = {
     val targetDomain = domainId
     val contractInst = contract.contractInstance.unversioned
     val createNode: LfNodeCreate =
@@ -634,7 +634,7 @@ private[transfer] class AssignmentProcessingSteps(
 
     for {
       updateId <- EitherT.fromEither[Future](
-        rootHash.asLedgerTransactionId.leftMap[TransferProcessorError](
+        rootHash.asLedgerTransactionId.leftMap[ReassignmentProcessorError](
           FieldConversionError(reassignmentId, "Transaction id (root hash)", _)
         )
       )
@@ -708,7 +708,7 @@ object AssignmentProcessingSteps {
       override val locallyRejectedF: FutureUnlessShutdown[Boolean],
       override val abortEngine: String => Unit,
       override val engineAbortStatusF: FutureUnlessShutdown[EngineAbortStatus],
-  ) extends PendingTransfer {
+  ) extends PendingReassignment {
 
     override def rootHashO: Option[RootHash] = Some(rootHash)
   }
@@ -727,7 +727,7 @@ object AssignmentProcessingSteps {
       assignmentUuid: UUID,
       sourceProtocolVersion: SourceProtocolVersion,
       targetProtocolVersion: TargetProtocolVersion,
-  ): Either[TransferProcessorError, FullAssignmentTree] = {
+  ): Either[ReassignmentProcessorError, FullAssignmentTree] = {
     val commonDataSalt = Salt.tryDeriveSalt(seed, 0, pureCrypto)
     val viewSalt = Salt.tryDeriveSalt(seed, 1, pureCrypto)
 
@@ -753,7 +753,7 @@ object AssignmentProcessingSteps {
           targetProtocolVersion,
           reassignmentCounter,
         )
-        .leftMap(reason => InvalidTransferView(reason))
+        .leftMap(reason => InvalidReassignmentView(reason))
       tree = AssignmentViewTree(commonData, view, targetProtocolVersion, pureCrypto)
     } yield FullAssignmentTree(tree)
   }

@@ -9,10 +9,10 @@ import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.{CantonTimestamp, TransferSubmitterMetadata}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.submission.SeedGenerator
-import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.{
+import com.digitalasset.canton.participant.protocol.transfer.ReassignmentProcessingSteps.{
+  ReassignmentProcessorError,
   StakeholdersMismatch,
   TemplateIdMismatch,
-  TransferProcessorError,
 }
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.{MediatorGroupRecipient, Recipients}
@@ -157,7 +157,7 @@ class UnassignmentValidationTest
       sourceProtocolVersion: SourceProtocolVersion,
       expectedTemplateId: LfTemplateId,
       reassignmentCounter: ReassignmentCounter,
-  ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] = {
     val unassignmentRequest = UnassignmentRequest(
       submitterInfo(submitterParty1),
       // receiverParty2 is not a stakeholder on a contract, but it is listed as stakeholder here

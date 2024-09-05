@@ -234,8 +234,8 @@ object SyncDomainEphemeralStateFactory {
       _ <- persistentState.activeContractStore.deleteSince(
         processingStartingPoint.nextRequestCounter
       )
-      _ = logger.debug("Deleting transfer completions")
-      _ <- persistentState.transferStore.deleteCompletionsSince(
+      _ = logger.debug("Deleting reassignment completions")
+      _ <- persistentState.reassignmentStore.deleteCompletionsSince(
         processingStartingPoint.nextRequestCounter
       )
       _ = logger.debug("Deleting registered fresh requests")

@@ -52,19 +52,19 @@ object ViewType {
   }
   type TransactionViewType = TransactionViewType.type
 
-  sealed trait TransferViewType extends ViewType {
-    type View <: TransferViewTree with HasToByteString
+  sealed trait ReassignmentViewType extends ViewType {
+    type View <: ReassignmentViewTree with HasToByteString
     type FullView = View
     override type ViewSubmitterMetadata = TransferSubmitterMetadata
   }
 
-  case object UnassignmentViewType extends TransferViewType {
+  case object UnassignmentViewType extends ReassignmentViewType {
     override type View = FullUnassignmentTree
     override def toProtoEnum: v30.ViewType = v30.ViewType.VIEW_TYPE_UNASSIGNMENT
   }
   type UnassignmentViewType = UnassignmentViewType.type
 
-  case object AssignmentViewType extends TransferViewType {
+  case object AssignmentViewType extends ReassignmentViewType {
     override type View = FullAssignmentTree
     override def toProtoEnum: v30.ViewType = v30.ViewType.VIEW_TYPE_ASSIGNMENT
   }

@@ -8,7 +8,7 @@ import cats.syntax.bifunctor.*
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.submission.UsableDomain
-import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.TransferProcessorError
+import com.digitalasset.canton.participant.protocol.transfer.ReassignmentProcessingSteps.ReassignmentProcessorError
 import com.digitalasset.canton.protocol.TargetDomainId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
@@ -28,7 +28,7 @@ private[transfer] object TransferKnownAndVetted {
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] =
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
     // `checkPackagesVetted` is slightly too generic to check individual contracts but it will
     // become useful when we allow to reassign more than one contract at once
     UsableDomain
@@ -42,6 +42,6 @@ private[transfer] object TransferKnownAndVetted {
       .leftMap(unknownPackage =>
         UnassignmentProcessorError.PackageIdUnknownOrUnvetted(contractId, unknownPackage.unknownTo)
       )
-      .leftWiden[TransferProcessorError]
+      .leftWiden[ReassignmentProcessorError]
 
 }

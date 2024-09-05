@@ -14,9 +14,9 @@ import com.digitalasset.canton.participant.store.HookedAcs.noFetchAction
 import com.digitalasset.canton.participant.util.{StateChange, TimeOfChange}
 import com.digitalasset.canton.protocol.{
   LfContractId,
+  ReassignmentDomainId,
   SourceDomainId,
   TargetDomainId,
-  TransferDomainId,
 }
 import com.digitalasset.canton.pruning.{PruningPhase, PruningStatus}
 import com.digitalasset.canton.store.IndexedStringStore
@@ -45,7 +45,7 @@ private[participant] class HookedAcs(private val acs: ActiveContractStore)(impli
   private val nextTransferHook =
     new AtomicReference[
       (
-          Seq[(LfContractId, TransferDomainId, ReassignmentCounter, TimeOfChange)],
+          Seq[(LfContractId, ReassignmentDomainId, ReassignmentCounter, TimeOfChange)],
           Boolean, // true for unassignments, false for assignments
       ) => Future[Unit]
     ](
@@ -64,7 +64,7 @@ private[participant] class HookedAcs(private val acs: ActiveContractStore)(impli
     nextArchivePurgeHook.set(preArchive)
   def setTransferHook(
       preTransfer: (
-          Seq[(LfContractId, TransferDomainId, ReassignmentCounter, TimeOfChange)],
+          Seq[(LfContractId, ReassignmentDomainId, ReassignmentCounter, TimeOfChange)],
           Boolean,
       ) => Future[Unit]
   ): Unit =
@@ -204,7 +204,7 @@ object HookedAcs {
     Future.unit
 
   private val noTransferAction: (
-      Seq[(LfContractId, TransferDomainId, ReassignmentCounter, TimeOfChange)],
+      Seq[(LfContractId, ReassignmentDomainId, ReassignmentCounter, TimeOfChange)],
       Boolean,
   ) => Future[Unit] = { (_, _) => Future.unit }
 

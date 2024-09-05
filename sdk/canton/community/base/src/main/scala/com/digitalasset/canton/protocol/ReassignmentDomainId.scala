@@ -7,14 +7,14 @@ import cats.kernel.Order
 import com.digitalasset.canton.data.ViewType
 import com.digitalasset.canton.data.ViewType.{AssignmentViewType, UnassignmentViewType}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.TransferDomainId.TransferDomainIdCast
+import com.digitalasset.canton.protocol.ReassignmentDomainId.ReassignmentDomainIdCast
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.DomainId
 import slick.jdbc.{PositionedParameters, SetParameter}
 
 /** This trait can be used when distinction between source and target domain is important.
   */
-sealed trait TransferDomainId extends PrettyPrinting with Product with Serializable {
+sealed trait ReassignmentDomainId extends PrettyPrinting with Product with Serializable {
   def unwrap: DomainId
 
   def toProtoPrimitive: String = unwrap.toProtoPrimitive
@@ -24,25 +24,25 @@ sealed trait TransferDomainId extends PrettyPrinting with Product with Serializa
   override def pretty: Pretty[this.type] = prettyOfParam(_.unwrap)
 }
 
-object TransferDomainId {
-  implicit val orderTransferDomainId: Order[TransferDomainId] =
-    Order.by[TransferDomainId, String](_.toProtoPrimitive)
+object ReassignmentDomainId {
+  implicit val orderReassignmentDomainId: Order[ReassignmentDomainId] =
+    Order.by[ReassignmentDomainId, String](_.toProtoPrimitive)
 
-  implicit val setParameterTransferDomainId: SetParameter[TransferDomainId] =
-    (d: TransferDomainId, pp: PositionedParameters) => pp >> d.unwrap.toLengthLimitedString
-  implicit val setParameterTransferDomainIdO: SetParameter[Option[TransferDomainId]] =
-    (d: Option[TransferDomainId], pp: PositionedParameters) =>
+  implicit val setParameterReassignmentDomainId: SetParameter[ReassignmentDomainId] =
+    (d: ReassignmentDomainId, pp: PositionedParameters) => pp >> d.unwrap.toLengthLimitedString
+  implicit val setParameterReassignmentDomainIdO: SetParameter[Option[ReassignmentDomainId]] =
+    (d: Option[ReassignmentDomainId], pp: PositionedParameters) =>
       pp >> d.map(_.unwrap.toLengthLimitedString)
 
-  trait TransferDomainIdCast[Kind <: TransferDomainId] {
-    def toKind(domain: TransferDomainId): Option[Kind]
+  trait ReassignmentDomainIdCast[Kind <: ReassignmentDomainId] {
+    def toKind(domain: ReassignmentDomainId): Option[Kind]
   }
 
-  implicit val transferDomainIdCast: TransferDomainIdCast[TransferDomainId] =
-    (domain: TransferDomainId) => Some(domain)
+  implicit val transferDomainIdCast: ReassignmentDomainIdCast[ReassignmentDomainId] =
+    (domain: ReassignmentDomainId) => Some(domain)
 }
 
-final case class SourceDomainId(id: DomainId) extends TransferDomainId {
+final case class SourceDomainId(id: DomainId) extends ReassignmentDomainId {
   override def unwrap: DomainId = id
 
   override def toViewType: UnassignmentViewType = UnassignmentViewType
@@ -52,7 +52,7 @@ object SourceDomainId {
   implicit val orderSourceDomainId: Order[SourceDomainId] =
     Order.by[SourceDomainId, String](_.toProtoPrimitive)
 
-  implicit val sourceDomainIdCast: TransferDomainIdCast[SourceDomainId] = {
+  implicit val sourceDomainIdCast: ReassignmentDomainIdCast[SourceDomainId] = {
     case x: SourceDomainId => Some(x)
     case _ => None
   }
@@ -64,7 +64,7 @@ object SourceDomainId {
     DomainId.fromProtoPrimitive(proto, fieldName).map(SourceDomainId(_))
 }
 
-final case class TargetDomainId(id: DomainId) extends TransferDomainId {
+final case class TargetDomainId(id: DomainId) extends ReassignmentDomainId {
   override def unwrap: DomainId = id
 
   override def toViewType: AssignmentViewType = AssignmentViewType
@@ -72,7 +72,7 @@ final case class TargetDomainId(id: DomainId) extends TransferDomainId {
 }
 
 object TargetDomainId {
-  implicit val targetDomainIdCast: TransferDomainIdCast[TargetDomainId] = {
+  implicit val targetDomainIdCast: ReassignmentDomainIdCast[TargetDomainId] = {
     case x: TargetDomainId => Some(x)
     case _ => None
   }

@@ -10,10 +10,10 @@ import com.digitalasset.canton.data.{CantonTimestamp, TransferSubmitterMetadata}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.{BaseCantonError, MediatorError}
 import com.digitalasset.canton.logging.ErrorLoggingContext
-import com.digitalasset.canton.participant.protocol.transfer.AssignmentValidation.NoTransferData
-import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.*
+import com.digitalasset.canton.participant.protocol.transfer.AssignmentValidation.NoReassignmentData
+import com.digitalasset.canton.participant.protocol.transfer.ReassignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.transfer.UnassignmentProcessorError.AutomaticAssignmentError
-import com.digitalasset.canton.participant.store.TransferStore.TransferCompleted
+import com.digitalasset.canton.participant.store.ReassignmentStore.ReassignmentCompleted
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -29,7 +29,7 @@ private[participant] object AutomaticAssignment {
       id: ReassignmentId,
       targetDomain: TargetDomainId,
       staticDomainParameters: StaticDomainParameters,
-      transferCoordination: TransferCoordination,
+      transferCoordination: ReassignmentCoordination,
       stakeholders: Set[LfPartyId],
       unassignmentSubmitterMetadata: TransferSubmitterMetadata,
       participantId: ParticipantId,
@@ -37,7 +37,7 @@ private[participant] object AutomaticAssignment {
   )(implicit
       ec: ExecutionContext,
       elc: ErrorLoggingContext,
-  ): EitherT[Future, TransferProcessorError, Unit] = {
+  ): EitherT[Future, ReassignmentProcessorError, Unit] = {
     val logger = elc.logger
     implicit val traceContext: TraceContext = elc.traceContext
 
@@ -52,7 +52,8 @@ private[participant] object AutomaticAssignment {
           }.toSet
         )
 
-    def performAutoInOnce: EitherT[Future, TransferProcessorError, com.google.rpc.status.Status] =
+    def performAutoInOnce
+        : EitherT[Future, ReassignmentProcessorError, com.google.rpc.status.Status] =
       for {
         targetIps <- transferCoordination
           .getTimeProofAndSnapshot(targetDomain, staticDomainParameters)
@@ -82,9 +83,9 @@ private[participant] object AutomaticAssignment {
         status <- EitherT.right(completionF)
       } yield status
 
-    def performAutoInRepeatedly: EitherT[Future, TransferProcessorError, Unit] = {
+    def performAutoInRepeatedly: EitherT[Future, ReassignmentProcessorError, Unit] = {
       final case class StopRetry(
-          result: Either[TransferProcessorError, com.google.rpc.status.Status]
+          result: Either[ReassignmentProcessorError, com.google.rpc.status.Status]
       )
       val retryCount = 5
 
@@ -112,9 +113,9 @@ private[participant] object AutomaticAssignment {
           .fromEither[Future](
             targetDomainParameters
               .assignmentExclusivityLimitFor(t0)
-              .leftMap(TransferParametersError(targetDomain.unwrap, _))
+              .leftMap(ReassignmentParametersError(targetDomain.unwrap, _))
           )
-          .leftWiden[TransferProcessorError]
+          .leftWiden[ReassignmentProcessorError]
 
         targetHostedStakeholders <- EitherT.right(hostedStakeholders(targetSnapshot))
         _ <-
@@ -133,7 +134,7 @@ private[participant] object AutomaticAssignment {
 
               _ <- EitherTUtil.leftSubflatMap(performAutoInRepeatedly) {
                 // Filter out submission errors occurring because the transfer is already completed
-                case NoTransferData(_, TransferCompleted(_, _)) =>
+                case NoReassignmentData(_, ReassignmentCompleted(_, _)) =>
                   Right(())
                 // Filter out the case that the participant has disconnected from the target domain in the meantime.
                 case UnknownDomain(domain, _) if domain == targetDomain.unwrap =>
@@ -144,7 +145,7 @@ private[participant] object AutomaticAssignment {
                 case other => Left(other)
               }
             } yield ()
-          } else EitherT.pure[Future, TransferProcessorError](())
+          } else EitherT.pure[Future, ReassignmentProcessorError](())
       } yield ()
 
       EitherTUtil.doNotAwait(autoIn, "Automatic assignment failed", Level.INFO)
@@ -162,7 +163,7 @@ private[participant] object AutomaticAssignment {
         targetSnapshot
           .findDynamicDomainParameters()
           .map(_.leftMap(DomainNotReady(targetDomain.unwrap, _)))
-      ).leftWiden[TransferProcessorError]
+      ).leftWiden[ReassignmentProcessorError]
     } yield {
 
       if (targetDomainParameters.automaticAssignmentEnabled)

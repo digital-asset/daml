@@ -8,7 +8,7 @@ import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.FullUnassignmentTree
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.TracedLogger
-import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.TransferProcessorError
+import com.digitalasset.canton.participant.protocol.transfer.ReassignmentProcessingSteps.ReassignmentProcessorError
 import com.digitalasset.canton.participant.protocol.transfer.UnassignmentProcessorError.*
 import com.digitalasset.canton.protocol.LfTemplateId
 import com.digitalasset.canton.sequencing.protocol.Recipients
@@ -33,7 +33,7 @@ private[transfer] sealed abstract case class UnassignmentValidationReassigningPa
       expectedAdminParties: Set[LfPartyId]
   )(implicit
       ec: ExecutionContext
-  ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] =
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
     condUnitET[FutureUnlessShutdown](
       request.adminParties == expectedAdminParties,
       AdminPartiesMismatch(
@@ -47,7 +47,7 @@ private[transfer] sealed abstract case class UnassignmentValidationReassigningPa
       expectedParticipants: Set[ParticipantId]
   )(implicit
       ec: ExecutionContext
-  ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] = {
     val expectedRecipientsTree = Recipients.ofSet(expectedParticipants)
     condUnitET[FutureUnlessShutdown](
       expectedRecipientsTree.contains(recipients),
@@ -62,7 +62,7 @@ private[transfer] sealed abstract case class UnassignmentValidationReassigningPa
   private def checkVetted(stakeholders: Set[LfPartyId], templateId: LfTemplateId)(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] =
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
     TransferKnownAndVetted(
       stakeholders,
       targetTopology,
@@ -86,7 +86,7 @@ private[transfer] object UnassignmentValidationReassigningParticipant {
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] = {
     val validation = new UnassignmentValidationReassigningParticipant(
       request,
       expectedStakeholders,

@@ -6,7 +6,10 @@ package com.digitalasset.canton.participant.protocol.conflictdetection
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
-import com.digitalasset.canton.participant.store.memory.{InMemoryTransferStore, TransferCache}
+import com.digitalasset.canton.participant.store.memory.{
+  InMemoryReassignmentStore,
+  ReassignmentCache,
+}
 import com.digitalasset.canton.participant.store.{ActiveContractStore, TransferStoreTest}
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.{BaseTest, HasExecutorService, RequestCounter, SequencerCounter}
@@ -27,8 +30,8 @@ class NaiveRequestTrackerTest
       acs: ActiveContractStore,
   ): NaiveRequestTracker = {
     val transferCache =
-      new TransferCache(
-        new InMemoryTransferStore(TransferStoreTest.targetDomain, loggerFactory),
+      new ReassignmentCache(
+        new InMemoryReassignmentStore(TransferStoreTest.targetDomain, loggerFactory),
         loggerFactory,
       )
 

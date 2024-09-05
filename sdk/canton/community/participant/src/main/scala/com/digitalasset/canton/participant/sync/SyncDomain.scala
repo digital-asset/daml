@@ -43,9 +43,9 @@ import com.digitalasset.canton.participant.protocol.submission.{
   SeedGenerator,
   TransactionConfirmationRequestFactory,
 }
-import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.{
+import com.digitalasset.canton.participant.protocol.transfer.ReassignmentProcessingSteps.{
   DomainNotReady,
-  TransferProcessorError,
+  ReassignmentProcessorError,
 }
 import com.digitalasset.canton.participant.protocol.transfer.*
 import com.digitalasset.canton.participant.pruning.{
@@ -115,7 +115,7 @@ class SyncDomain(
     identityPusher: ParticipantTopologyDispatcher,
     topologyProcessorFactory: TopologyTransactionProcessor.Factory,
     missingKeysAlerter: MissingKeysAlerter,
-    transferCoordination: TransferCoordination,
+    transferCoordination: ReassignmentCoordination,
     inFlightSubmissionTracker: InFlightSubmissionTracker,
     commandProgressTracker: CommandProgressTracker,
     messageDispatcherFactory: MessageDispatcher.Factory[MessageDispatcher],
@@ -710,7 +710,7 @@ class SyncDomain(
       logger.debug(s"Fetch $fetchLimit pending transfers")
       val resF = for {
         pendingTransfers <- performUnlessClosingF(functionFullName)(
-          persistent.transferStore.findAfter(
+          persistent.reassignmentStore.findAfter(
             requestAfter = previous,
             limit = fetchLimit,
           )
@@ -721,7 +721,7 @@ class SyncDomain(
           .sequentialTraverse(pendingTransfers) { data =>
             logger.debug(s"Complete ${data.reassignmentId} after startup")
             val eitherF =
-              performUnlessClosingEitherU[TransferProcessorError, Unit](functionFullName)(
+              performUnlessClosingEitherU[ReassignmentProcessorError, Unit](functionFullName)(
                 AutomaticAssignment.perform(
                   data.reassignmentId,
                   TargetDomainId(domainId),
@@ -821,11 +821,11 @@ class SyncDomain(
       targetProtocolVersion: TargetProtocolVersion,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransferProcessorError, FutureUnlessShutdown[
+  ): EitherT[Future, ReassignmentProcessorError, FutureUnlessShutdown[
     UnassignmentProcessingSteps.SubmissionResult
   ]] =
     performUnlessClosingEitherT[
-      TransferProcessorError,
+      ReassignmentProcessorError,
       FutureUnlessShutdown[UnassignmentProcessingSteps.SubmissionResult],
     ](functionFullName, DomainNotReady(domainId, "The domain is shutting down.")) {
       logger.debug(s"Submitting unassignment of `$contractId` from `$domainId` to `$targetDomain`")
@@ -850,10 +850,10 @@ class SyncDomain(
       reassignmentId: ReassignmentId,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransferProcessorError, FutureUnlessShutdown[
+  ): EitherT[Future, ReassignmentProcessorError, FutureUnlessShutdown[
     AssignmentProcessingSteps.SubmissionResult
   ]] =
-    performUnlessClosingEitherT[TransferProcessorError, FutureUnlessShutdown[
+    performUnlessClosingEitherT[ReassignmentProcessorError, FutureUnlessShutdown[
       AssignmentProcessingSteps.SubmissionResult
     ]](
       functionFullName,
@@ -969,7 +969,7 @@ object SyncDomain {
         identityPusher: ParticipantTopologyDispatcher,
         topologyProcessorFactory: TopologyTransactionProcessor.Factory,
         missingKeysAlerter: MissingKeysAlerter,
-        transferCoordination: TransferCoordination,
+        transferCoordination: ReassignmentCoordination,
         inFlightSubmissionTracker: InFlightSubmissionTracker,
         commandProgressTracker: CommandProgressTracker,
         clock: Clock,
@@ -995,7 +995,7 @@ object SyncDomain {
         identityPusher: ParticipantTopologyDispatcher,
         topologyProcessorFactory: TopologyTransactionProcessor.Factory,
         missingKeysAlerter: MissingKeysAlerter,
-        transferCoordination: TransferCoordination,
+        transferCoordination: ReassignmentCoordination,
         inFlightSubmissionTracker: InFlightSubmissionTracker,
         commandProgressTracker: CommandProgressTracker,
         clock: Clock,

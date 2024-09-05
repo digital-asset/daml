@@ -35,9 +35,9 @@ import scala.concurrent.{ExecutionContext, Future}
   * Implementations must be thread-safe.
   * Updates must be idempotent.</p>
   *
-  * <p>Creations, transfers, and archivals can be mixed arbitrarily.
+  * <p>Creations, reassignments, and archivals can be mixed arbitrarily.
   * A contract may be assigned and unassigned several times during its lifetime.
-  * It becomes active with every assignment and transferred away with every unassignment.
+  * It becomes active with every assignment and reassigned away with every unassignment.
   * If the ACS detects irregularities, the change method reports them.</p>
   *
   * <p>These methods are supposed to be called by the `ConflictDetector` only,
@@ -80,7 +80,7 @@ trait ActiveContractStore
     *         The following irregularities are reported for each contract:
     *         <ul>
     *           <li>[[ActiveContractStore.DoubleContractCreation]] if the contract is created a second time.</li>
-    *           <li>[[ActiveContractStore.SimultaneousActivation]] if the contract is transferred in at the same time
+    *           <li>[[ActiveContractStore.SimultaneousActivation]] if the contract is assigned at the same time
     *             or has been created by a different request at the same time.</li>
     *           <li>[[ActiveContractStore.ChangeBeforeCreation]] for every change that occurs before the creation timestamp.
     *             This is reported only if no [[ActiveContractStore.DoubleContractCreation]] is reported.</li>
@@ -149,7 +149,7 @@ trait ActiveContractStore
     *         The following irregularities are reported for each contract:
     *         <ul>
     *           <li>[[ActiveContractStore.DoubleContractArchival]] if the contract is archived a second time.</li>
-    *           <li>[[ActiveContractStore.SimultaneousDeactivation]] if the contract is transferred out at the same time
+    *           <li>[[ActiveContractStore.SimultaneousDeactivation]] if the contract is unassigned at the same time
     *             or has been archived by a different request at the same time.</li>
     *           <li>[[ActiveContractStore.ChangeAfterArchival]] for every change that occurs after the archival timestamp.
     *             This is reported only if no [[ActiveContractStore.DoubleContractArchival]] is reported.</li>
@@ -200,9 +200,9 @@ trait ActiveContractStore
     * Since only the `ConflictDetector` tracks in-flight changesets,
     * this method cannot be used as a source of valid data to other components.
     *
-    * If a contract is created or transferred-in and archived or transferred-out at the same [[com.digitalasset.canton.participant.util.TimeOfChange]],
+    * If a contract is created or assigned and archived or unassigned at the same [[com.digitalasset.canton.participant.util.TimeOfChange]],
     * the contract is [[ActiveContractStore.Archived]] or [[ActiveContractStore.ReassignedAway]].
-    * A contract cannot be archived and transferred out at the same timestamp.
+    * A contract cannot be archived and unassigned at the same timestamp.
     *
     * @return The map from contracts in `contractIds` in the store to their latest state.
     *         Nonexistent contracts are excluded from the map.
@@ -212,7 +212,7 @@ trait ActiveContractStore
       traceContext: TraceContext
   ): Future[Map[LfContractId, ContractState]]
 
-  /** Marks the given contracts as transferred in from `toc`'s timestamp (inclusive) onwards.
+  /** Marks the given contracts as assigned from `toc`'s timestamp (inclusive) onwards.
     *
     * @param assignments The contract IDs to assign, each with its source domain, reassignment counter and time of change.
     * @return The future completes when the contract states have been updated.
@@ -241,7 +241,7 @@ trait ActiveContractStore
 
   /** Marks the given contracts as [[ActiveContractStore.ReassignedAway]] from `toc`'s timestamp (inclusive) onwards.
     *
-    * @param unassignments The contract IDs to transfer out, each with its target domain, reassignment counter and time of change.
+    * @param unassignments The contract IDs to unassign, each with its target domain, reassignment counter and time of change.
     * @return The future completes when the contract state has been updated.
     *         The following irregularities are reported:
     *         <ul>
@@ -370,7 +370,7 @@ object ActiveContractStore {
     def changeType: ChangeType
     def contractChange: ContractChange
 
-    def isTransfer: Boolean
+    def isReassignment: Boolean
   }
 
   object ActivenessChangeDetail {
@@ -387,12 +387,12 @@ object ActiveContractStore {
       def toStateChangeType: StateChangeType = StateChangeType(contractChange, reassignmentCounter)
     }
 
-    sealed trait TransferChangeDetail extends HasReassignmentCounter {
-      def toTransferType: ActiveContractStore.TransferType
+    sealed trait ReassignmentChangeDetail extends HasReassignmentCounter {
+      def toReassignmentType: ActiveContractStore.ReassignmentType
       def remoteDomainIdx: Int
       override def remoteDomainIdxO: Option[Int] = Some(remoteDomainIdx)
 
-      override def isTransfer: Boolean = true
+      override def isReassignment: Boolean = true
     }
 
     final case class Create(reassignmentCounter: ReassignmentCounter)
@@ -406,7 +406,7 @@ object ActiveContractStore {
 
       override def contractChange: ContractChange = ContractChange.Created
 
-      override def isTransfer: Boolean = false
+      override def isReassignment: Boolean = false
     }
 
     final case class Add(reassignmentCounter: ReassignmentCounter) extends HasReassignmentCounter {
@@ -417,7 +417,7 @@ object ActiveContractStore {
 
       override def contractChange: ContractChange = ContractChange.Created
 
-      override def isTransfer: Boolean = false
+      override def isReassignment: Boolean = false
     }
 
     /** The reassignment counter for archivals stored in the acs is always None, because we cannot
@@ -433,7 +433,7 @@ object ActiveContractStore {
 
       override def contractChange: ContractChange = ContractChange.Archived
 
-      override def isTransfer: Boolean = false
+      override def isReassignment: Boolean = false
     }
 
     case object Purge extends ActivenessChangeDetail {
@@ -446,27 +446,27 @@ object ActiveContractStore {
 
       override def contractChange: ContractChange = ContractChange.Created
 
-      override def isTransfer: Boolean = false
+      override def isReassignment: Boolean = false
     }
 
     final case class Assignment(reassignmentCounter: ReassignmentCounter, remoteDomainIdx: Int)
-        extends TransferChangeDetail {
+        extends ReassignmentChangeDetail {
       override val name = ActivenessChangeDetail.assign
 
       override def changeType: ChangeType = ChangeType.Activation
-      override def toTransferType: ActiveContractStore.TransferType =
-        ActiveContractStore.TransferType.Assignment
+      override def toReassignmentType: ActiveContractStore.ReassignmentType =
+        ActiveContractStore.ReassignmentType.Assignment
 
       override def contractChange: ContractChange = ContractChange.Assigned
     }
 
     final case class Unassignment(reassignmentCounter: ReassignmentCounter, remoteDomainIdx: Int)
-        extends TransferChangeDetail {
+        extends ReassignmentChangeDetail {
       override val name = ActivenessChangeDetail.unassignment
 
       override def changeType: ChangeType = ChangeType.Deactivation
-      override def toTransferType: ActiveContractStore.TransferType =
-        ActiveContractStore.TransferType.Unassignment
+      override def toReassignmentType: ActiveContractStore.ReassignmentType =
+        ActiveContractStore.ReassignmentType.Unassignment
 
       override def contractChange: ContractChange = ContractChange.Unassigned
     }
@@ -539,7 +539,7 @@ object ActiveContractStore {
       errorMessage: String
   ) extends AcsError
 
-  /** A contract is simultaneously created and/or transferred from possibly several source domains */
+  /** A contract is simultaneously created and/or reassigned from possibly several source domains */
   final case class SimultaneousActivation(
       contractId: LfContractId,
       toc: TimeOfChange,
@@ -549,7 +549,7 @@ object ActiveContractStore {
     override def timeOfChanges: List[TimeOfChange] = List(toc)
   }
 
-  /** A contract is simultaneously archived and/or transferred out to possibly several source domains */
+  /** A contract is simultaneously archived and/or unassigned to possibly several source domains */
   final case class SimultaneousDeactivation(
       contractId: LfContractId,
       toc: TimeOfChange,
@@ -646,17 +646,17 @@ object ActiveContractStore {
     override def pretty: Pretty[Purged.type] = prettyOfObject[Purged.type]
   }
 
-  /** The contract has been transferred out to the given `targetDomain` after it had resided on this domain.
+  /** The contract has been unassigned to the given `targetDomain` after it had resided on this domain.
     * It does not reside on the current domain, but the contract has existed at some time.
     *
     * In particular, this state does not imply any of the following:
     * <ul>
-    *   <li>The transfer was completed on the target domain.</li>
+    *   <li>The reassignment was completed on the target domain.</li>
     *   <li>The contract now resides on the target domain.</li>
     *   <li>The contract is active or archived on any other domain.</li>
     * </ul>
     *
-    * @param reassignmentCounter The reassignment counter of the unassignment request that transferred the contract away.
+    * @param reassignmentCounter The reassignment counter of the unassignment request that reassigned the contract away.
     */
   final case class ReassignedAway(
       targetDomain: TargetDomainId,
@@ -666,14 +666,14 @@ object ActiveContractStore {
     override def pretty: Pretty[ReassignedAway] = prettyOfClass(unnamedParam(_.targetDomain))
   }
 
-  private[store] sealed trait TransferType extends Product with Serializable {
+  private[store] sealed trait ReassignmentType extends Product with Serializable {
     def name: String
   }
-  private[store] object TransferType {
-    case object Unassignment extends TransferType {
+  private[store] object ReassignmentType {
+    case object Unassignment extends ReassignmentType {
       override def name: String = "unassignment"
     }
-    case object Assignment extends TransferType {
+    case object Assignment extends ReassignmentType {
       override def name: String = "assignment"
     }
   }
@@ -710,14 +710,14 @@ object ActiveContractStore {
       timeOfChange: TimeOfChange,
       reassignmentCounter: ReassignmentCounter,
       earliestAfterO: Option[ReassignmentCounterAtChangeInfo],
-      transferType: TransferType,
+      reassignmentType: ReassignmentType,
   ): Checked[Nothing, ReassignmentCounterShouldIncrease, Unit] =
     earliestAfterO.flatMap { earliestAfter =>
       earliestAfter.reassignmentCounter.map { nextReassignmentCounter =>
-        val (condition, strict) = transferType match {
-          case TransferType.Assignment =>
+        val (condition, strict) = reassignmentType match {
+          case ReassignmentType.Assignment =>
             (reassignmentCounter <= nextReassignmentCounter) -> false
-          case TransferType.Unassignment =>
+          case ReassignmentType.Unassignment =>
             (reassignmentCounter < nextReassignmentCounter) -> true
         }
         if (condition) Checked.unit
@@ -754,7 +754,7 @@ trait ActiveContractSnapshot {
     * @return A map from contracts to the latest timestamp (no later than the given `timestamp`)
     *         when they became active again.
     *         It contains exactly those contracts that were active right after the given timestamp.
-    *         If a contract is created or transferred-in and archived or transferred-out at the same timestamp,
+    *         If a contract is created or assigned and archived or unassigned at the same timestamp,
     *         it does not show up in any snapshot.
     *         The map is sorted by [[cats.kernel.Order]]`[`[[com.digitalasset.canton.protocol.LfContractId]]`]`.
     */
@@ -776,7 +776,7 @@ trait ActiveContractSnapshot {
     * @return A map from contracts to the latest request counter (no later than the given `rc`)
     *         when they became active again.
     *         It contains exactly those contracts that were active right after the given request counter.
-    *         If a contract is created or transferred-in and archived or transferred-out at the same request counter,
+    *         If a contract is created or assigned and archived or unassigned at the same request counter,
     *         it does not show up in any snapshot.
     *         The map is sorted by [[cats.kernel.Order]]`[`[[com.digitalasset.canton.protocol.LfContractId]]`]`.
     */

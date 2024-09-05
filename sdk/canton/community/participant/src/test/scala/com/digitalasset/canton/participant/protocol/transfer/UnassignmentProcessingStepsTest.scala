@@ -29,10 +29,10 @@ import com.digitalasset.canton.participant.protocol.submission.{
   EncryptedViewMessageFactory,
   SeedGenerator,
 }
-import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.{
-  NoTransferSubmissionPermission,
-  ParsedTransferRequest,
-  TransferProcessorError,
+import com.digitalasset.canton.participant.protocol.transfer.ReassignmentProcessingSteps.{
+  NoReassignmentSubmissionPermission,
+  ParsedReassignmentRequest,
+  ReassignmentProcessorError,
 }
 import com.digitalasset.canton.participant.protocol.transfer.UnassignmentProcessingSteps.PendingUnassignment
 import com.digitalasset.canton.participant.protocol.transfer.UnassignmentProcessorError.*
@@ -232,10 +232,12 @@ final class UnassignmentProcessingStepsTest
       Seq(templateId.packageId),
     )(directExecutionContext)
 
-  private lazy val coordination: TransferCoordination =
+  private lazy val coordination: ReassignmentCoordination =
     createTransferCoordination()
 
-  private def createOutProcessingSteps(transferCoordination: TransferCoordination = coordination) =
+  private def createOutProcessingSteps(
+      transferCoordination: ReassignmentCoordination = coordination
+  ) =
     new UnassignmentProcessingSteps(
       sourceDomain,
       submittingParticipant,
@@ -282,7 +284,7 @@ final class UnassignmentProcessingStepsTest
       view: FullUnassignmentTree,
       recipients: Recipients = RecipientsTest.testInstance,
       signatureO: Option[Signature] = None,
-  ): ParsedTransferRequest[FullUnassignmentTree] = ParsedTransferRequest(
+  ): ParsedReassignmentRequest[FullUnassignmentTree] = ParsedReassignmentRequest(
     RequestCounter(1),
     CantonTimestamp.Epoch,
     SequencerCounter(1),
@@ -314,7 +316,7 @@ final class UnassignmentProcessingStepsTest
         stakeholders: Set[LfPartyId],
         sourceTopologySnapshot: TopologySnapshot,
         targetTopologySnapshot: TopologySnapshot,
-    ): Either[TransferProcessorError, UnassignmentRequestValidated] =
+    ): Either[ReassignmentProcessorError, UnassignmentRequestValidated] =
       UnassignmentRequest
         .validated(
           submittingParticipant,
@@ -348,7 +350,7 @@ final class UnassignmentProcessingStepsTest
         createTestingTopologySnapshot(Map(submittingParticipant -> Map(submitter -> Confirmation)))
 
       val result = mkTxOutRes(Set(submitter), ipsNoSubmissionPermission, testingTopology)
-      result.left.value shouldBe a[NoTransferSubmissionPermission]
+      result.left.value shouldBe a[NoReassignmentSubmissionPermission]
     }
 
     "fail if a stakeholder cannot submit on target domain" in {
@@ -752,7 +754,7 @@ final class UnassignmentProcessingStepsTest
       unassignmentProcessingSteps
         .constructPendingDataAndResponse(
           mkParsedRequest(fullUnassignmentTree, Recipients.cc(submittingParticipant)),
-          state.transferCache,
+          state.reassignmentCache,
           FutureUnlessShutdown.pure(mkActivenessResult()),
           engineController =
             EngineController(submittingParticipant, RequestId(CantonTimestamp.Epoch), loggerFactory),

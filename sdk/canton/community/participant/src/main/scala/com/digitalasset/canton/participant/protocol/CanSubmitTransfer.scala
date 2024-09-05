@@ -7,9 +7,9 @@ import cats.data.EitherT
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.{
-  NoTransferSubmissionPermission,
-  TransferProcessorError,
+import com.digitalasset.canton.participant.protocol.transfer.ReassignmentProcessingSteps.{
+  NoReassignmentSubmissionPermission,
+  ReassignmentProcessorError,
 }
 import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId}
 import com.digitalasset.canton.topology.ParticipantId
@@ -29,7 +29,7 @@ private[protocol] object CanSubmitTransfer {
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] =
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
     check(s"Unassignment of $contractId", topologySnapshot, submitter, participantId)
       .mapK(FutureUnlessShutdown.outcomeK)
 
@@ -41,7 +41,7 @@ private[protocol] object CanSubmitTransfer {
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[Future, TransferProcessorError, Unit] =
+  ): EitherT[Future, ReassignmentProcessorError, Unit] =
     check(s"assignment `$reassignmentId`", topologySnapshot, submitter, participantId)
 
   private def check(
@@ -52,9 +52,9 @@ private[protocol] object CanSubmitTransfer {
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
-  ): EitherT[Future, TransferProcessorError, Unit] = {
-    lazy val noPermission: TransferProcessorError =
-      NoTransferSubmissionPermission(kind, submitter, participantId)
+  ): EitherT[Future, ReassignmentProcessorError, Unit] = {
+    lazy val noPermission: ReassignmentProcessorError =
+      NoReassignmentSubmissionPermission(kind, submitter, participantId)
     EitherT(
       topologySnapshot
         .hostedOn(Set(submitter), participantId)

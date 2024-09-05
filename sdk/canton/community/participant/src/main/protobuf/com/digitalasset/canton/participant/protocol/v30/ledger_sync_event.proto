@@ -18,8 +18,8 @@ message LedgerSyncEvent {
     TransactionAccepted transaction_accepted = 2;
     CommandRejected command_rejected = 3;
     PartyAllocationRejected party_allocation_rejected = 4;
-    Unassigned transferred_out = 5;
-    Assigned transferred_in = 6;
+    Unassigned unassigned = 5;
+    Assigned assigned = 6;
     ContractsAdded contracts_added = 7;
     ContractsPurged contracts_purged = 8;
     PartiesAddedToParticipant parties_added = 9;

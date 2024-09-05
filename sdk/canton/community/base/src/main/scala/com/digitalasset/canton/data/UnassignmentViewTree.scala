@@ -406,7 +406,7 @@ object UnassignmentView
   * @throws java.lang.IllegalArgumentException if the [[tree]] is not fully unblinded
   */
 final case class FullUnassignmentTree(tree: UnassignmentViewTree)
-    extends TransferViewTree
+    extends ReassignmentViewTree
     with HasToByteString
     with PrettyPrinting {
   require(tree.isFullyUnblinded, "An unassignment request must be fully unblinded")

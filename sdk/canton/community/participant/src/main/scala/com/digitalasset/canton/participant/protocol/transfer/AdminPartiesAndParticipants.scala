@@ -12,7 +12,7 @@ import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.TracedLogger
-import com.digitalasset.canton.participant.protocol.transfer.TransferProcessingSteps.TransferProcessorError
+import com.digitalasset.canton.participant.protocol.transfer.ReassignmentProcessingSteps.ReassignmentProcessorError
 import com.digitalasset.canton.participant.protocol.transfer.UnassignmentProcessorError.*
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.ParticipantId
@@ -48,7 +48,7 @@ private[protocol] object AdminPartiesAndParticipants {
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[FutureUnlessShutdown, TransferProcessorError, AdminPartiesAndParticipants] =
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, AdminPartiesAndParticipants] =
     for {
       _ <- submitterIsStakeholder(contractId, submitter, stakeholders)
       participantsByParty <- PartyParticipantPermissions(
@@ -78,7 +78,7 @@ private[protocol] object AdminPartiesAndParticipants {
       stakeholders: Set[LfPartyId],
   )(implicit
       ec: ExecutionContext
-  ): EitherT[FutureUnlessShutdown, TransferProcessorError, Unit] =
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
     condUnitET(
       stakeholders.contains(submitter),
       SubmittingPartyMustBeStakeholderOut(contractId, submitter, stakeholders),
@@ -110,7 +110,7 @@ private[protocol] object AdminPartiesAndParticipants {
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[FutureUnlessShutdown, TransferProcessorError, Set[LfPartyId]] =
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Set[LfPartyId]] =
     EitherT(
       unassignmentParticipants
         .parTraverse(adminParty(sourceTopology, logger))
@@ -133,7 +133,7 @@ private[protocol] object AdminPartiesAndParticipants {
       permissions: PartyParticipantPermissions
   )(implicit
       ec: ExecutionContext
-  ): EitherT[FutureUnlessShutdown, TransferProcessorError, List[ParticipantId]] = {
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, List[ParticipantId]] = {
 
     def validate(sourceTs: CantonTimestamp, targetTs: CantonTimestamp)(
         permission: PartyParticipantPermissions.PerParty

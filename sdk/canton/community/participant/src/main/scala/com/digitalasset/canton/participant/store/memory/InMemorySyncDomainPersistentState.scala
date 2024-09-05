@@ -56,7 +56,8 @@ class InMemorySyncDomainPersistentState(
   val contractStore = new InMemoryContractStore(loggerFactory)
   val activeContractStore =
     new InMemoryActiveContractStore(indexedStringStore, protocolVersion, loggerFactory)
-  val transferStore = new InMemoryTransferStore(TargetDomainId(domainId.item), loggerFactory)
+  val reassignmentStore =
+    new InMemoryReassignmentStore(TargetDomainId(domainId.item), loggerFactory)
   val sequencedEventStore = new InMemorySequencedEventStore(loggerFactory)
   val requestJournalStore = new InMemoryRequestJournalStore(loggerFactory)
   val acsCommitmentStore =

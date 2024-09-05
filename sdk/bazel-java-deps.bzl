@@ -184,6 +184,7 @@ def install_java_deps():
             "io.netty:netty-tcnative-boringssl-static:{}".format(netty_tcnative_version),
             "io.opentelemetry.instrumentation:opentelemetry-grpc-1.6:{}".format(opentelemetry_instrumentation_version),
             "io.opentelemetry.instrumentation:opentelemetry-runtime-telemetry-java8:{}".format(opentelemetry_instrumentation_version),
+            "io.opentelemetry.instrumentation:opentelemetry-hikaricp-3.0:{}".format(opentelemetry_instrumentation_version),
             "io.opentelemetry:opentelemetry-api:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-context:{}".format(opentelemetry_version),
             "io.opentelemetry:opentelemetry-exporter-common:{}".format(opentelemetry_version),

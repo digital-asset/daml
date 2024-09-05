@@ -34,9 +34,9 @@ import com.digitalasset.canton.participant.protocol.transfer.AssignmentProcessin
 import com.digitalasset.canton.participant.protocol.transfer.UnassignmentProcessingSteps.PendingUnassignment
 import com.digitalasset.canton.participant.protocol.validation.PendingTransaction
 import com.digitalasset.canton.participant.store.{
+  ReassignmentLookup,
   SyncDomainEphemeralState,
   SyncDomainEphemeralStateLookup,
-  TransferLookup,
 }
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
@@ -435,13 +435,13 @@ trait ProcessingSteps[
   /** Phase 3, step 3:
     * Yields the pending data and confirmation responses for the case that at least one payload is well-formed.
     *
-    * @param transferLookup             Read-only interface of the [[com.digitalasset.canton.participant.store.memory.TransferCache]]
+    * @param transferLookup             Read-only interface of the [[com.digitalasset.canton.participant.store.memory.ReassignmentCache]]
     * @param activenessResultFuture     Future of the result of the activeness check
     * @return Returns the `requestType.PendingRequestData` to be stored until Phase 7 and the responses to be sent to the mediator.
     */
   def constructPendingDataAndResponse(
       parsedRequest: ParsedRequestType,
-      transferLookup: TransferLookup,
+      transferLookup: ReassignmentLookup,
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
       engineController: EngineController,
   )(implicit

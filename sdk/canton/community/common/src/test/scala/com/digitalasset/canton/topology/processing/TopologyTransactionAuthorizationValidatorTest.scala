@@ -407,7 +407,7 @@ class TopologyTransactionAuthorizationValidatorTest
           res <- validate(
             validator,
             ts(0),
-            List(id1ak4_k1, ns1k1_k1, id1ak4_k1, id6k4_k1),
+            List(id1ak4_k1, ns1k1_k1, id1ak4_k1, id6k4_k1, id1ak6_k4),
             Map.empty,
             expectFullAuthorization = true,
           )
@@ -419,6 +419,8 @@ class TopologyTransactionAuthorizationValidatorTest
               None,
               None,
               Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key1.fingerprint))),
+              // fails because IDDs cannot be signed by keys authorized by other IDDs
+              Some(_ == NoDelegationFoundForKeys(Set(SigningKeys.key4.fingerprint))),
             ),
           )
         }

@@ -1757,6 +1757,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           counter = SequencerCounter(1000),
           timestamp = CantonTimestamp.ofEpochMicro(2000),
         ),
+        requestCounterO = None,
       )
       val dtos = updateToDtos(update)
 
