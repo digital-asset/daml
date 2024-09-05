@@ -150,9 +150,6 @@ checkModule world0 module_ deps version upgradeInfo mbUpgradedPkg =
                 Just pastModule -> do
                   let upgradingModule = Upgrading { _past = pastModule, _present = module_ }
                   checkModuleM upgradedPkgId upgradingModule
-      --withReaderT (\(version, upgradeInfo) -> mkGamma version upgradeInfo world) $ do
-      --  checkNewInterfacesAreUnused module_
-      --  checkNewInterfacesHaveNoTemplates module_
 
 checkUpgradeDependenciesM
     :: [LF.DalfPackage]
