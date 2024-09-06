@@ -1195,7 +1195,7 @@ private[lf] object Speedy {
           case Left(error) => throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, error.pretty)
         }
 
-      def go(ty: Destructor.Type, value: V): SValue = {
+      def go(ty: Type, value: V): SValue = {
         def typeMismatch = throw SErrorCrash(
           NameOf.qualifiedNameOfCurrentFunc,
           s"mismatching type: $ty and value: $value",
@@ -1356,7 +1356,7 @@ private[lf] object Speedy {
             }
         }
       }
-      Control.Value(go(Destructor.wrap(typ0), value0))
+      Control.Value(go(typ0, value0))
     }
   }
 

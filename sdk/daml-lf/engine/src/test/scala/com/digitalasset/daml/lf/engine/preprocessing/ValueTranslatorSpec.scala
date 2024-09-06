@@ -123,7 +123,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
       (
         TTextMap(TText),
         ValueTextMap(SortedLookupList.Empty),
-        SMap(true)
+        SMap(true),
       ),
       (
         TGenMap(TInt64, TText),
@@ -133,7 +133,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
       (
         TGenMap(TInt64, TText),
         ValueGenMap(ImmArray.empty),
-        SMap(false)
+        SMap(false),
       ),
       (TOptional(TText), ValueOptional(Some(ValueText("text"))), SOptional(Some(SText("text")))),
       (

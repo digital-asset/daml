@@ -9,18 +9,6 @@ import com.digitalasset.daml.lf.language.{Util => AstUtil}
 
 import scala.collection.immutable.ArraySeq
 
-sealed abstract class TypeDestructor {
-
-  import TypeDestructor._
-
-  type Type <: Ast.Type
-
-  def wrap(typ: Ast.Type): Type
-
-  def destruct(state: Type): Either[Error, TypeF[Type]]
-
-}
-
 object TypeDestructor {
 
   sealed abstract class TypeF[+Type] extends Product with Serializable
@@ -99,23 +87,19 @@ object TypeDestructor {
   }
 
   def apply(pkgInterface: PackageInterface): TypeDestructor =
-    new TypeDestructorImpl(pkgInterface)
+    new TypeDestructor(pkgInterface)
 
 }
 
-private final class TypeDestructorImpl(pkgInterface: PackageInterface) extends TypeDestructor {
+final class TypeDestructor(pkgInterface: PackageInterface) {
   self =>
 
   import TypeDestructor.TypeF
   import TypeF._
 
-  override type Type = Ast.Type
-
-  override def wrap(typ: Ast.Type): Type = typ
-
   private var cache: Map[Ast.Type, TypeF[Ast.Type]] = Map.empty
 
-  override def destruct(state: Type): Either[TypeDestructor.Error, TypeF[Type]] =
+  def destruct(state: Ast.Type): Either[TypeDestructor.Error, TypeF[Ast.Type]] =
     cache.get(state) match {
       case Some(typeF) =>
         Right(typeF)
@@ -128,7 +112,7 @@ private final class TypeDestructorImpl(pkgInterface: PackageInterface) extends T
   private def go(
       typ0: Ast.Type,
       args: List[Ast.Type],
-  ): Either[TypeDestructor.Error, TypeF[Type]] = {
+  ): Either[TypeDestructor.Error, TypeF[Ast.Type]] = {
     def prettyType = args.foldLeft(typ0)(Ast.TApp).pretty
 
     def unsupportedType = TypeDestructor.Error.TypeError(s"unsupported type $prettyType")
@@ -165,7 +149,7 @@ private final class TypeDestructorImpl(pkgInterface: PackageInterface) extends T
           destructor <- dataDef.cons match {
             case Ast.DataRecord(fields) =>
               Right(
-                RecordF[Type](
+                RecordF[Ast.Type](
                   tycon,
                   pkgName,
                   fields.toSeq.view.map(_._1).to(Ref.Name.ArraySeq),
@@ -176,7 +160,7 @@ private final class TypeDestructorImpl(pkgInterface: PackageInterface) extends T
               )
             case Ast.DataVariant(variants) =>
               Right(
-                VariantF[Type](
+                VariantF[Ast.Type](
                   tycon,
                   pkgName,
                   variants.toSeq.view.map(_._1).to(Ref.Name.ArraySeq),

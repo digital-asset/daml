@@ -72,7 +72,7 @@ private[lf] final class ValueTranslator(
 
     // TODO: https://github.com/digital-asset/daml/issues/17082
     //   Should we consider factorizing this code with Seedy.Machine#importValues
-    def go(ty0: Destructor.Type, value0: Value, nesting: Int): SValue =
+    def go(ty0: Type, value0: Value, nesting: Int): SValue =
       if (nesting > Value.MAXIMUM_NESTING) {
         throw Error.Preprocessing.ValueNesting(value)
       } else {
@@ -180,7 +180,7 @@ private[lf] final class ValueTranslator(
               ) =>
             checkUserTypeId(tyCon, mbId)
 
-            def addMissingField(lbl: Ref.Name, ty: Destructor.Type): (Option[Ref.Name], Value) =
+            def addMissingField(lbl: Ref.Name, ty: Type): (Option[Ref.Name], Value) =
               destruct(ty) match {
                 // If missing field is optional, fill it with None
                 case OptionalF(_) => (Some(lbl), Value.ValueOptional(None))
@@ -198,7 +198,7 @@ private[lf] final class ValueTranslator(
               //   filled with Nones when type is Optional
               // extraFields: Unknown additional fields with name and value
               val (correctFields, extraFields): (
-                  View[(Ref.Name, Value, Destructor.Type)],
+                  View[(Ref.Name, Value, Type)],
                   View[(Option[Ref.Name], Value)],
               ) =
                 oLabeledFlds match {
@@ -316,7 +316,7 @@ private[lf] final class ValueTranslator(
         }
       }
 
-    go(Destructor.wrap(ty), value, 0)
+    go(ty, value, 0)
   }
 
   // This does not try to pull missing packages, return an error instead.
