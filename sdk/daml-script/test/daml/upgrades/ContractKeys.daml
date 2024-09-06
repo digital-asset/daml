@@ -6,6 +6,8 @@ module ContractKeys (main) where
 import UpgradeTestLib
 import qualified V1.ContractKeys as V1
 import qualified V2.ContractKeys as V2
+import qualified V1.ChangedKeyExpr as V1
+import qualified V2.ChangedKeyExpr as V2
 import qualified V1.UpgradedContractKeys as V1
 import qualified V2.UpgradedContractKeys as V2
 
@@ -20,6 +22,8 @@ main = tests
   , ("ExerciseByKey command an unchanged old key for a new contract", exerciseCmdKeyUnchanged)
   , ("Fetching an unchanged old key for a new contract", fetchKeyUnchanged)
   , ("ExerciseByKey in Update an unchanged old key for a new contract", exerciseUpdateKeyUnchanged)
+  , ("Query an old key for a new contract, key expression changed but key value unchanged", queryKeyChangedExprSameValue)
+  , ("Query an old key for a new contract, key expression and key value changed", queryKeyChangedExprChangedValue)
   , ("Query an Upgraded old key for a new contract", queryKeyUpgraded)
   , ("ExerciseByKey command an Upgraded old key for a new contract", exerciseCmdKeyUpgraded)
   , ("Fetching an Upgraded old key for a new contract", fetchKeyUpgraded)
@@ -97,6 +101,66 @@ exerciseUpdateKeyUnchanged = test $ do
   _ <- a `submit` createCmd (V1.UnchangedKey a 1)
   res <- a `submit` createAndExerciseCmd (V2.UnchangedKeyHelper a) (V2.UnchangedKeyExercise $ V2.UnchangedKeyKey a 1)
   res === "V2"
+
+{- MODULE
+package: contract-key-upgrades
+contents: |
+  module ChangedKeyExpr where
+
+  data ChangedKeyExprKey = ChangedKeyExprKey with
+      p : Party
+      b : Bool
+    deriving (Eq, Show)
+
+  template ChangedKeyExpr
+    with
+      party : Party
+      b : Bool
+    where
+      signatory party
+      key (ChangedKeyExprKey party False) : ChangedKeyExprKey -- @V 1
+      key (ChangedKeyExprKey party b)     : ChangedKeyExprKey -- @V  2
+      maintainer key.p
+
+      choice ChangedKeyExprCall : Text
+        controller party
+        do pure "V1"                                          -- @V 1
+        do pure "V2"                                          -- @V  2
+
+  template ChangedKeyExprHelper
+    with
+      party : Party
+    where
+      signatory party
+      choice ChangedKeyExprFetch : (ContractId ChangedKeyExpr, ChangedKeyExpr) with
+          k : ChangedKeyExprKey
+        controller party
+        do fetchByKey k
+
+      choice ChangedKeyExprExercise : Text with
+          k : ChangedKeyExprKey
+        controller party
+        do exerciseByKey @ChangedKeyExpr k ChangedKeyExprCall
+-}
+
+queryKeyChangedExprSameValue : Test
+queryKeyChangedExprSameValue = test $ do
+  a <- allocateParty "alice"
+  cid <- a `submit` createExactCmd (V1.ChangedKeyExpr a False)
+  keyRes <- queryContractKey a $ V2.ChangedKeyExprKey a False
+  case keyRes of
+    Some (foundCid, foundContract) | show foundCid == show cid && foundContract == V2.ChangedKeyExpr a False -> pure ()
+    _ -> assertFail $ "Didn't find correct contract, expected " <> show (cid, V2.ChangedKeyExpr a False) <> ", got " <> show keyRes
+
+queryKeyChangedExprChangedValue : Test
+queryKeyChangedExprChangedValue = test $ do
+  a <- allocateParty "alice"
+  cid <- a `submit` createExactCmd (V1.ChangedKeyExpr a True)
+  -- the following query works, even though the key value changed!
+  keyRes <- queryContractKey a $ V2.ChangedKeyExprKey a False
+  case keyRes of
+    Some (foundCid, foundContract) | show foundCid == show cid && foundContract == V2.ChangedKeyExpr a True -> pure ()
+    _ -> assertFail $ "Didn't find correct contract, expected " <> show (cid, V2.ChangedKeyExpr a True) <> ", got " <> show keyRes
 
 {- MODULE
 package: contract-key-upgrades
