@@ -92,17 +92,17 @@ object TypeSig {
     final case class Var(name: Ref.Name) extends SerializableType
   }
 
-  sealed trait DataType extends Product with Serializable
+  sealed trait DataTypeSig extends Product with Serializable
 
   final case class RecordSig(params: Seq[Ref.Name], fields: VectorMap[Ref.Name, SerializableType])
-      extends DataType
+      extends DataTypeSig
 
   final case class VariantSig(
       params: Seq[Ref.Name],
       constructor: VectorMap[Ref.Name, SerializableType],
-  ) extends DataType
+  ) extends DataTypeSig
 
-  final case class EnumSig(constructor: Seq[Ref.Name]) extends DataType
+  final case class EnumSig(constructor: Seq[Ref.Name]) extends DataTypeSig
 
   final case class ChoiceSig(
       consuming: Boolean,
