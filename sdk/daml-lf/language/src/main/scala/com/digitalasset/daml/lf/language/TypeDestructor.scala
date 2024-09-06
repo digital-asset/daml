@@ -137,7 +137,7 @@ final class TypeDestructor(pkgInterface: PackageInterface) {
             params.toSeq.view.map(_._1) zip args.view,
             TypeDestructor.Error.TypeError(s"wrong number of argument for $tycon"),
           )
-          destructor <- dataDef.cons match {
+          destructed <- dataDef.cons match {
             case Ast.DataRecord(fields) =>
               Right(
                 RecordF[Ast.Type](
@@ -171,7 +171,7 @@ final class TypeDestructor(pkgInterface: PackageInterface) {
             case Ast.DataInterface =>
               Left(unsupportedType)
           }
-        } yield destructor
+        } yield destructed
       case Ast.TBuiltin(bt) =>
         bt match {
           case Ast.BTInt64 =>
