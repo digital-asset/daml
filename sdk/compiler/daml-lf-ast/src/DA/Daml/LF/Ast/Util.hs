@@ -84,8 +84,7 @@ isUtilityPackage pkg =
 
 pkgSupportsUpgrades :: Package -> Bool
 pkgSupportsUpgrades pkg =
-  not (isUtilityPackage pkg) &&
-    packageLfVersion pkg `supports` featurePackageUpgrades
+  packageLfVersion pkg `supports` featurePackageUpgrades
 
 data Arg
   = TmArg Expr

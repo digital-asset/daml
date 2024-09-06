@@ -10,7 +10,7 @@ module DA.Daml.LF.TypeChecker.Upgrade (
     ) where
 
 import           Control.Monad (unless, forM, forM_, when)
-import           Control.Monad.Reader (withReaderT)
+import           Control.Monad.Reader (withReaderT, ask)
 import           Control.Monad.Reader.Class (asks)
 import           Control.Lens hiding (Context)
 import           DA.Daml.LF.Ast as LF
@@ -30,20 +30,21 @@ import           Development.IDE.Types.Diagnostics
 import Data.Maybe (catMaybes, mapMaybe)
 import Safe (maximumByMay, minimumByMay)
 import Data.Function (on)
+import Module (UnitId)
 
 -- Allows us to split the world into upgraded and non-upgraded
 type TcUpgradeM = TcMF UpgradingEnv
 type TcPreUpgradeM = TcMF (Version, UpgradeInfo)
 
-type UpgradingDeps = HMS.HashMap LF.PackageId (LF.PackageName, UpgradeablePackageVersion)
+type UpgradingDeps = HMS.HashMap LF.PackageId (LF.PackageName, Maybe RawPackageVersion, Bool, Bool)
 
-type UpgradeablePackage = (UpgradeablePackageVersion, LF.PackageId, LF.Package)
+type UpgradeablePackage = (Maybe RawPackageVersion, LF.PackageId, LF.Package)
 type UpgradeablePackageMap = HMS.HashMap LF.PackageName [UpgradeablePackage]
 
-data UpgradeablePackageVersion
-  = NotUpgradeable
-  | UpgradeablePackageVersion RawPackageVersion
-  deriving (Show, Eq, Ord)
+--data UpgradeablePackageVersion
+--  = NotUpgradeable
+--  | UpgradeablePackageVersion RawPackageVersion
+--  deriving (Show, Eq, Ord)
 
 data UpgradingEnv = UpgradingEnv
   { _upgradingGamma :: Upgrading Gamma
@@ -94,8 +95,8 @@ extractDiagnostics version upgradeInfo action =
 
 checkPackage
   :: LF.Package
-  -> [LF.DalfPackage] -> Version -> UpgradeInfo
-  -> Maybe ((LF.PackageId, LF.Package), [(LF.PackageId, LF.Package)])
+  -> [(UnitId, LF.DalfPackage)] -> Version -> UpgradeInfo
+  -> Maybe (UpgradedPkgWithNameAndVersion, [UpgradedPkgWithNameAndVersion])
   -> [Diagnostic]
 checkPackage pkg deps version upgradeInfo mbUpgradedPkg =
   extractDiagnostics version upgradeInfo $ do
@@ -103,9 +104,10 @@ checkPackage pkg deps version upgradeInfo mbUpgradedPkg =
     when shouldTypecheck $ do
       case mbUpgradedPkg of
         Nothing -> pure ()
-        Just (upgradedPkg, upgradingDeps) -> do
+        Just (upgradedPkg@(upgradedPkgId, upgradedPkgPkg, _, _), upgradingDeps) -> do
             deps <- checkUpgradeDependenciesM deps (upgradedPkg : upgradingDeps)
-            checkPackageBoth CheckOnlyMissingModules Nothing pkg (upgradedPkg, deps)
+            checkPackageBoth CheckOnlyMissingModules Nothing pkg ((upgradedPkgId, upgradedPkgPkg), deps)
+      checkPackageSingle Nothing pkg
 
 checkPackageBoth :: CheckDepth -> Maybe Context -> LF.Package -> ((LF.PackageId, LF.Package), UpgradingDeps) -> TcPreUpgradeM ()
 checkPackageBoth checkDepth mbContext pkg ((upgradedPkgId, upgradedPkg), upgradingDeps) =
@@ -136,10 +138,12 @@ checkPackageSingle mbContext pkg =
       checkNewInterfacesAreUnused pkg
       checkNewInterfacesHaveNoTemplates
 
+type UpgradedPkgWithNameAndVersion = (LF.PackageId, LF.Package, LF.PackageName, Maybe LF.PackageVersion)
+
 checkModule
   :: LF.World -> LF.Module
-  -> [LF.DalfPackage] -> Version -> UpgradeInfo
-  -> Maybe ((LF.PackageId, LF.Package), [(LF.PackageId, LF.Package)])
+  -> [(UnitId, LF.DalfPackage)] -> Version -> UpgradeInfo
+  -> Maybe (UpgradedPkgWithNameAndVersion, [UpgradedPkgWithNameAndVersion])
   -> [Diagnostic]
 checkModule world0 module_ deps version upgradeInfo mbUpgradedPkg =
   extractDiagnostics version upgradeInfo $
@@ -150,7 +154,7 @@ checkModule world0 module_ deps version upgradeInfo mbUpgradedPkg =
         checkNewInterfacesHaveNoTemplates
       case mbUpgradedPkg of
         Nothing -> pure ()
-        Just (upgradedPkgWithId@(upgradedPkgIdRaw, upgradedPkg), upgradingDeps) -> do
+        Just (upgradedPkgWithId@(upgradedPkgIdRaw, upgradedPkg, _, _), upgradingDeps) -> do
             let upgradedPkgId = UpgradedPackageId upgradedPkgIdRaw
             -- TODO: https://github.com/digital-asset/daml/issues/19859
             deps <- checkUpgradeDependenciesM deps (upgradedPkgWithId : upgradingDeps)
@@ -164,35 +168,29 @@ checkModule world0 module_ deps version upgradeInfo mbUpgradedPkg =
 
 
 checkUpgradeDependenciesM
-    :: [LF.DalfPackage]
-    -> [(LF.PackageId, LF.Package)]
+    :: [(UnitId, LF.DalfPackage)]
+    -> [UpgradedPkgWithNameAndVersion]
     -> TcPreUpgradeM UpgradingDeps
 checkUpgradeDependenciesM presentDeps pastDeps = do
     initialUpgradeablePackageMap <-
       fmap (HMS.fromListWith (<>) . catMaybes) $ forM pastDeps $ \pastDep -> do
-          let (pkgId, pkg@LF.Package{packageMetadata = mbMeta}) = pastDep
-          withPkgAsGamma pkg $ do
-            if not (pkgSupportsUpgrades pkg)
-              then case packageMetadata pkg of
-                Just meta ->
-                  pure $ Just (packageName meta, [(NotUpgradeable, pkgId, pkg)])
-                Nothing ->
-                  pure Nothing
-              else case mbMeta of
-                Nothing -> do
+          let (pkgId, pkg, pkgName, mbPkgVersion) = pastDep
+          withPkgAsGamma pkg $
+            case mbPkgVersion of
+              Nothing -> do
+                when (pkgSupportsUpgrades pkg && PackageName "daml-prim" /= pkgName) $
                   diagnosticWithContext $ WErrorToWarning $ WEDependencyHasNoMetadataDespiteUpgradeability pkgId UpgradedPackage
-                  pure Nothing
-                Just meta -> do
-                  let LF.PackageMetadata {packageName, packageVersion} = meta
-                  case splitPackageVersion id packageVersion of
-                    Left version -> do
-                      diagnosticWithContext $ WErrorToWarning $ WEDependencyHasUnparseableVersion packageName version UpgradedPackage
-                      pure Nothing
-                    Right rawVersion ->
-                      pure $ Just (packageName, [(UpgradeablePackageVersion rawVersion, pkgId, pkg)])
+                pure $ Just (pkgName, [(Nothing, pkgId, pkg)])
+              Just packageVersion -> do
+                case splitPackageVersion id packageVersion of
+                  Left version -> do
+                    diagnosticWithContext $ WErrorToWarning $ WEDependencyHasUnparseableVersion pkgName version UpgradedPackage
+                    pure Nothing
+                  Right rawVersion ->
+                    pure $ Just (pkgName, [(Just rawVersion, pkgId, pkg)])
 
-    let withIdAndPkg dalfPkg = (dalfPackageId dalfPkg, dalfPkg, extPackagePkg (dalfPackagePkg dalfPkg))
-        withoutIdAndPkg (_, dalfPkg, _) = dalfPkg
+    let withIdAndPkg x@(_, dalfPkg) = (dalfPackageId dalfPkg, x, extPackagePkg (dalfPackagePkg dalfPkg))
+        withoutIdAndPkg (_, x, _) = x
 
     -- TODO: https://github.com/digital-asset/daml/issues/19859
     case topoSortPackages (map withIdAndPkg presentDeps) of
@@ -206,15 +204,16 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
         upgradeablePackageMap <- checkAllDeps initialUpgradeablePackageMap dependenciesFirst
         pure $ upgradeablePackageMapToDeps upgradeablePackageMap
     where
+    withPkgAsGamma :: Package -> TcM a -> TcPreUpgradeM a
     withPkgAsGamma pkg action =
       withReaderT (\(version, _) -> emptyGamma (initWorldSelf [] pkg) version) action
 
     upgradeablePackageMapToDeps :: UpgradeablePackageMap -> UpgradingDeps
     upgradeablePackageMapToDeps upgradeablePackageMap =
       HMS.fromList
-        [ (pkgId, (pkgName, pkgVersion))
+        [ (pkgId, (pkgName, pkgVersion, pkgSupportsUpgrades pkg, isUtilityPackage pkg))
         | (pkgName, versions) <- HMS.toList upgradeablePackageMap
-        , (pkgVersion, pkgId, _) <- versions
+        , (pkgVersion, pkgId, pkg) <- versions
         ]
 
     addDep
@@ -226,7 +225,7 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
 
     checkAllDeps
       :: UpgradeablePackageMap
-      -> [LF.DalfPackage]
+      -> [(UnitId, LF.DalfPackage)]
       -> TcPreUpgradeM UpgradeablePackageMap
     checkAllDeps upgradeablePackageMap [] = pure upgradeablePackageMap
     checkAllDeps upgradeablePackageMap (pkg:rest) = do
@@ -239,75 +238,69 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
 
     checkOneDep
       :: UpgradeablePackageMap
-      -> LF.DalfPackage
+      -> (UnitId, LF.DalfPackage)
       -> TcPreUpgradeM (Maybe (LF.PackageName, UpgradeablePackage))
-    checkOneDep upgradeablePackageMap dalfPkg = do
-      let LF.DalfPackage{dalfPackagePkg,dalfPackageId=presentPkgId} = dalfPkg
+    checkOneDep upgradeablePackageMap (unitId, dalfPkg) = do
+      let (packageName, mbPkgVersion) = LF.splitUnitId unitId
+          LF.DalfPackage{dalfPackagePkg,dalfPackageId=presentPkgId} = dalfPkg
           presentPkg = extPackagePkg dalfPackagePkg
-      if not (pkgSupportsUpgrades presentPkg)
-        then case packageMetadata presentPkg of
-          Just meta ->
-            pure $ Just (packageName meta, (NotUpgradeable, presentPkgId, presentPkg))
-          Nothing ->
-            pure Nothing
-        else case packageMetadata presentPkg of
-          Just meta ->
-            let PackageMetadata {packageName, packageVersion} = meta
-            in
-            case splitPackageVersion id packageVersion of
-              Left version -> do
-                withPkgAsGamma presentPkg $
+      versionAndInfo <- ask
+      withPkgAsGamma presentPkg $
+        case mbPkgVersion of
+            Nothing -> do
+              when (pkgSupportsUpgrades presentPkg && PackageName "daml-prim" /= packageName) $
+                diagnosticWithContext $ WErrorToWarning $ WEDependencyHasNoMetadataDespiteUpgradeability presentPkgId UpgradedPackage
+              pure $ Just (packageName, (Nothing, presentPkgId, presentPkg))
+            Just packageVersion ->
+              case splitPackageVersion id packageVersion of
+                Left version -> do
                   diagnosticWithContext $ WErrorToWarning $ WEDependencyHasUnparseableVersion packageName version UpgradedPackage
-                pure Nothing
-              Right presentVersion -> do
-                let result = (packageName, (UpgradeablePackageVersion presentVersion, presentPkgId, presentPkg))
-                case HMS.lookup packageName upgradeablePackageMap of
-                  Nothing -> pure ()
-                  Just upgradeablePkgs -> do
-                    let filterUpgradeablePkgs pred = mapMaybe $ \case
-                          (UpgradeablePackageVersion v, pkgId, pkg) | pred (v, pkgId, pkg) -> Just (v, pkgId, pkg)
-                          _ -> Nothing
-                        equivalent = filterUpgradeablePkgs (\(pastVersion, pastPkgId, _) -> pastVersion == presentVersion && pastPkgId /= presentPkgId) upgradeablePkgs
-                        ordFst = compare `on` (\(v,_,_) -> v)
-                        closestGreater = minimumByMay ordFst $ filterUpgradeablePkgs (\(pastVersion, _, _) -> pastVersion > presentVersion) upgradeablePkgs
-                        closestLesser = maximumByMay ordFst $ filterUpgradeablePkgs (\(pastVersion, _, _) -> pastVersion < presentVersion) upgradeablePkgs
-                    if not (null equivalent)
-                      then
-                        withPkgAsGamma presentPkg $
-                          throwWithContext $ EUpgradeMultiplePackagesWithSameNameAndVersion packageName presentVersion (presentPkgId : map (\(_,id,_) -> id) equivalent)
-                      else do
-                        let otherDepsWithSelf = upgradeablePackageMapToDeps $ addDep result upgradeablePackageMap
-                        case closestGreater of
-                          Just (greaterPkgVersion, _greaterPkgId, greaterPkg) -> do
-                            let context = ContextDefUpgrading { cduPkgName = packageName, cduPkgVersion = Upgrading greaterPkgVersion presentVersion, cduSubContext = ContextNone, cduIsDependency = True }
-                            checkPackageBoth
-                              CheckAll
-                              (Just context)
-                              greaterPkg
-                              ((presentPkgId, presentPkg), otherDepsWithSelf)
-                            checkPackageSingle
-                              (Just context)
-                              presentPkg
-                          Nothing ->
-                            pure ()
-                        case closestLesser of
-                          Just (lesserPkgVersion, lesserPkgId, lesserPkg) -> do
-                            let context = ContextDefUpgrading { cduPkgName = packageName, cduPkgVersion = Upgrading lesserPkgVersion presentVersion, cduSubContext = ContextNone, cduIsDependency = True }
-                            checkPackageBoth
-                              CheckAll
-                              (Just context)
-                              presentPkg
-                              ((lesserPkgId, lesserPkg), otherDepsWithSelf)
-                            checkPackageSingle
-                              (Just context)
-                              presentPkg
-                          Nothing ->
-                            pure ()
-                pure (Just result)
-          Nothing -> do
-            withPkgAsGamma presentPkg $
-              diagnosticWithContext $ WErrorToWarning $ WEDependencyHasNoMetadataDespiteUpgradeability presentPkgId UpgradingPackage
-            pure Nothing
+                  pure Nothing
+                Right presentVersion -> do
+                  let result = (packageName, (Just presentVersion, presentPkgId, presentPkg))
+                  unless (packageName `elem` [PackageName "daml-prim", PackageName "daml-stdlib"]) $
+                    case HMS.lookup packageName upgradeablePackageMap of
+                      Nothing -> pure ()
+                      Just upgradeablePkgs -> do
+                        let filterUpgradeablePkgs pred = mapMaybe $ \case
+                              (Just v, pkgId, pkg) | pred (v, pkgId, pkg) -> Just (v, pkgId, pkg)
+                              _ -> Nothing
+                            equivalent = filterUpgradeablePkgs (\(pastVersion, pastPkgId, _) -> pastVersion == presentVersion && pastPkgId /= presentPkgId) upgradeablePkgs
+                            ordFst = compare `on` (\(v,_,_) -> v)
+                            closestGreater = minimumByMay ordFst $ filterUpgradeablePkgs (\(pastVersion, _, _) -> pastVersion > presentVersion) upgradeablePkgs
+                            closestLesser = maximumByMay ordFst $ filterUpgradeablePkgs (\(pastVersion, _, _) -> pastVersion < presentVersion) upgradeablePkgs
+                        if not (null equivalent)
+                          then
+                            throwWithContext $ EUpgradeMultiplePackagesWithSameNameAndVersion packageName presentVersion (presentPkgId : map (\(_,id,_) -> id) equivalent)
+                          else do
+                            let otherDepsWithSelf = upgradeablePackageMapToDeps $ addDep result upgradeablePackageMap
+                            case closestGreater of
+                              Just (greaterPkgVersion, _greaterPkgId, greaterPkg) -> withReaderT (const versionAndInfo) $ do
+                                let context = ContextDefUpgrading { cduPkgName = packageName, cduPkgVersion = Upgrading greaterPkgVersion presentVersion, cduSubContext = ContextNone, cduIsDependency = True }
+                                checkPackageBoth
+                                  CheckAll
+                                  (Just context)
+                                  greaterPkg
+                                  ((presentPkgId, presentPkg), otherDepsWithSelf)
+                                checkPackageSingle
+                                  (Just context)
+                                  presentPkg
+                              Nothing ->
+                                pure ()
+                            case closestLesser of
+                              Just (lesserPkgVersion, lesserPkgId, lesserPkg) -> withReaderT (const versionAndInfo) $ do
+                                let context = ContextDefUpgrading { cduPkgName = packageName, cduPkgVersion = Upgrading lesserPkgVersion presentVersion, cduSubContext = ContextNone, cduIsDependency = True }
+                                checkPackageBoth
+                                  CheckAll
+                                  (Just context)
+                                  presentPkg
+                                  ((lesserPkgId, lesserPkg), otherDepsWithSelf)
+                                checkPackageSingle
+                                  (Just context)
+                                  presentPkg
+                              Nothing ->
+                                pure ()
+                  pure (Just result)
 
 checkPackageM :: CheckDepth -> LF.UpgradedPackageId -> Upgrading LF.Package -> TcUpgradeM ()
 checkPackageM checkDepth upgradedPackageId package = do
@@ -820,25 +813,8 @@ checkType type_ err = do
     sameType <- isUpgradedType type_
     unless sameType $ diagnosticWithContextF present' err
 
-checkQualNameM :: (Show a, Eq a) => Upgrading (Qualified a) -> TcUpgradeM Bool
-checkQualNameM name = do
-    deps <- view upgradingDeps
-    pure (checkQualName deps name)
-
-pkgIdsAreUpgraded :: UpgradingDeps -> Upgrading PackageId -> Bool
-pkgIdsAreUpgraded deps pkgId =
-  case HMS.lookup <$> pkgId <*> pure deps of
-    Upgrading { _past = Just (pastName, pastVersion), _present = Just (presentName, presentVersion) } ->
-      pastName == presentName &&
-      case (pastVersion, presentVersion) of
-        (UpgradeablePackageVersion v1, UpgradeablePackageVersion v2) -> v1 < v2
-        (NotUpgradeable, _) -> True
-        (_, NotUpgradeable) -> True
-    _ ->
-      False
-
-checkQualName :: (Show a, Eq a) => UpgradingDeps -> Upgrading (Qualified a) -> Bool
-checkQualName deps name =
+checkQualVal :: UpgradingDeps -> Upgrading (Qualified ExprValName) -> Bool
+checkQualVal deps name =
     let namesAreSame = foldU (==) (fmap removePkgId name)
         qualificationIsSame = foldU (==) (fmap qualPackage name)
         qualificationIsUpgraded =
@@ -848,6 +824,62 @@ checkQualName deps name =
             _ -> False
     in
     namesAreSame && (qualificationIsSame || qualificationIsUpgraded)
+  where
+    pkgIdsAreUpgraded :: UpgradingDeps -> Upgrading PackageId -> Bool
+    pkgIdsAreUpgraded deps pkgId =
+      case HMS.lookup <$> pkgId <*> pure deps of
+        Upgrading { _past = Just (pastName, mbPastVersion, pastSupportsUpgrades, pastIsUtilityPkg), _present = Just (presentName, mbPresentVersion, presentSupportsUpgrades, presentIsUtilityPkg) } ->
+          pastName == presentName &&
+          case (pastSupportsUpgrades, presentSupportsUpgrades) of
+            (False, False) -> foldU (==) pkgId -- Both packages don't support upgrades (<= LF 1.15) so IDs should be identical
+            (True, True) ->
+              case (pastIsUtilityPkg, presentIsUtilityPkg) of
+                (True, True) ->
+                  case (mbPastVersion, mbPresentVersion) of
+                    (Just pastVersion, Just presentVersion) -> pastVersion < presentVersion
+                    _ -> True -- This case should not be possible
+                (False, False) ->
+                  presentName `elem` [PackageName "daml-stdlib", PackageName "daml-prim"]
+                  || case (mbPastVersion, mbPresentVersion) of
+                      (Just pastVersion, Just presentVersion) -> pastVersion < presentVersion
+                      (Nothing, Nothing) -> True -- Only daml-prim has no version field
+                      _ -> True -- This case should not be possible
+                _ -> False -- Shouldn't go from utility package to non-utility package
+            _ -> False -- 
+        _ ->
+          False
+
+checkQualType :: UpgradingDeps -> Upgrading (Qualified TypeConName) -> Bool
+checkQualType deps name =
+    let namesAreSame = foldU (==) (fmap removePkgId name)
+        qualificationIsSame = foldU (==) (fmap qualPackage name)
+        qualificationIsUpgraded =
+          case qualPackage <$> name of
+            Upgrading { _past = PRImport pastPkgId, _present = PRImport presentPkgId } ->
+              pkgIdsAreUpgraded deps Upgrading { _past = pastPkgId, _present = presentPkgId }
+            _ -> False
+    in
+    namesAreSame && (qualificationIsSame || qualificationIsUpgraded)
+  where
+    pkgIdsAreUpgraded :: UpgradingDeps -> Upgrading PackageId -> Bool
+    pkgIdsAreUpgraded deps pkgId =
+      case HMS.lookup <$> pkgId <*> pure deps of
+        Upgrading { _past = Just (pastName, mbPastVersion, pastSupportsUpgrades, pastIsUtilityPkg), _present = Just (presentName, mbPresentVersion, presentSupportsUpgrades, presentIsUtilityPkg) } ->
+          pastName == presentName &&
+          case (pastSupportsUpgrades, presentSupportsUpgrades) of
+            (False, False) -> foldU (==) pkgId -- Both packages don't support upgrades (<= LF 1.15) so IDs should be identical
+            (True, True) ->
+              case (pastIsUtilityPkg, presentIsUtilityPkg) of
+                (False, False) ->
+                  presentName `elem` [PackageName "daml-stdlib", PackageName "daml-prim"]
+                  || case (mbPastVersion, mbPresentVersion) of
+                      (Just pastVersion, Just presentVersion) -> pastVersion < presentVersion
+                      (Nothing, Nothing) -> True -- Only daml-prim has no version field
+                      _ -> True -- This case should not be possible
+                _ -> True -- This case should not be possible
+            _ -> False -- Cannot go from 1.15 (non-upgradeable) to 1.17 (upgradeable)
+        _ ->
+          False
 
 isUpgradedType :: Upgrading Type -> TcUpgradeM Bool
 isUpgradedType type_ = do
@@ -858,7 +890,7 @@ isUpgradedType type_ = do
 upgradingAlphaEnv :: TcUpgradeM AlphaEnv
 upgradingAlphaEnv = do
     deps <- view upgradingDeps
-    pure $ initialAlphaEnv { alphaTypeCon = unfoldU (checkQualName deps), alphaExprVal = unfoldU (checkQualName deps) }
+    pure $ initialAlphaEnv { alphaTypeCon = unfoldU (checkQualType deps), alphaExprVal = unfoldU (checkQualVal deps) }
 
 removePkgId :: Qualified a -> Qualified a
 removePkgId a = a { qualPackage = PRSelf }
