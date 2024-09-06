@@ -29,7 +29,7 @@ class JsEventService(
 
   import JsEventServiceCodecs.*
 
-  private lazy val events = baseEndpoint.in("events")
+  private lazy val events = v2Endpoint.in("events")
 
   private def eventServiceClient(token: Option[String] = None)(implicit
       traceContext: TraceContext

@@ -142,6 +142,62 @@ class PackageMetadataSpec extends AnyWordSpec with Matchers {
     }
   }
 
+  "PackageMetadata.resolveTypeConRef" should {
+    "resolve all known upgradable template-ids for a (package-name, qualified-name) tuple" in new Scope {
+      val packageMetadata = PackageMetadata(
+        packageNameMap = Map(
+          pkgName1 -> PackageResolution(
+            // Package ids 1, 3 and 4 share this package name.
+            allPackageIdsForName = NonEmpty(Set, pkgId1, pkgId3, pkgId4),
+            preference = irrelevantPackagePreference,
+          )
+        ),
+        // The "mod:t1B" template only exists in package ids 3 and 4
+        templates = Set(template1A, template1B_v2, template1B_v3),
+      )
+
+      packageMetadata.resolveTypeConRef(
+        Ref.TypeConRef(Ref.PackageRef.Name(pkgName1), template1B.qualifiedName)
+      ) shouldBe Set(template1B_v2, template1B_v3)
+    }
+
+    "resolve interfaces too" in new Scope {
+      val packageMetadata = PackageMetadata(
+        packageNameMap = Map(
+          pkgName1 -> PackageResolution(
+            allPackageIdsForName = NonEmpty(Set, pkgId1, pkgId3, pkgId4),
+            preference = irrelevantPackagePreference,
+          )
+        ),
+        templates = Set.empty,
+        interfaces = Set(interface1),
+      )
+
+      packageMetadata.resolveTypeConRef(
+        Ref.TypeConRef(Ref.PackageRef.Name(pkgName1), interface1.qualifiedName)
+      ) shouldBe Set(interface1)
+    }
+
+    "return an empty set if any of the resolution sets in PackageMetadata are empty" in new Scope {
+      val typeConRef = Ref.TypeConRef(Ref.PackageRef.Name(pkgName1), template1B.qualifiedName)
+
+      PackageMetadata(
+        templates = Set.empty, // No known templates
+        packageNameMap = Map(
+          pkgName1 -> PackageResolution(
+            allPackageIdsForName = NonEmpty(Set, pkgId1, pkgId3),
+            preference = irrelevantPackagePreference,
+          )
+        ),
+      ).resolveTypeConRef(typeConRef) shouldBe Set.empty
+
+      PackageMetadata(
+        templates = Set(template1B), // We know about a template...
+        packageNameMap = Map.empty, // But not about package names.
+      ).resolveTypeConRef(typeConRef) shouldBe Set.empty
+    }
+  }
+
   private trait Scope {
     // Two package name scopes:
     // * pkg1 - upgradable
@@ -155,15 +211,19 @@ class PackageMetadataSpec extends AnyWordSpec with Matchers {
     //   - interface3 implemented by template2A
     // Version 1.2 of pkg1 (pkgId3) is uploaded with:
     //   - template1B_v2 is a newer version of template1B
+    // Version 1.3 of pkg1 (pkgId4) is uploaded with:
+    //   - template1B_v3 is a newer version of template1B_v2
 
     val pkgName1 = Ref.PackageName.assertFromString("pkg1")
 
     val pkg1Version1 = Ref.PackageVersion.assertFromString("1.1")
     val pkg1Version2 = Ref.PackageVersion.assertFromString("1.2")
+    val pkg1Version3 = Ref.PackageVersion.assertFromString("1.3")
 
     val pkgId1 = Ref.PackageId.assertFromString("PkgId1")
     val pkgId2 = Ref.PackageId.assertFromString("PkgId2")
     val pkgId3 = Ref.PackageId.assertFromString("PkgId3")
+    val pkgId4 = Ref.PackageId.assertFromString("PkgId4")
 
     val interface1 = Ref.Identifier.assertFromString(s"$pkgId1:mod:i1")
     val interface2 = Ref.Identifier.assertFromString(s"$pkgId1:mod:i2")
@@ -174,5 +234,11 @@ class PackageMetadataSpec extends AnyWordSpec with Matchers {
     val template1C = Ref.Identifier.assertFromString(s"$pkgId1:mod:t1C")
     val template2A = Ref.Identifier.assertFromString(s"$pkgId2:mod:t2A")
     val template1B_v2 = Ref.Identifier.assertFromString(s"$pkgId3:mod:t1B")
+    val template1B_v3 = Ref.Identifier.assertFromString(s"$pkgId4:mod:t1B")
+
+    val irrelevantPackagePreference = LocalPackagePreference(
+      Ref.PackageVersion.assertFromString("0"),
+      Ref.PackageId.assertFromString("0"),
+    )
   }
 }

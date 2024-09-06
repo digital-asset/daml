@@ -15,8 +15,8 @@ object HandshakeValidator {
     */
   def clientIsCompatible(
       serverVersion: ProtocolVersion,
-      clientVersionsP: Seq[String],
-      minClientVersionP: Option[String],
+      clientVersionsP: Seq[Int],
+      minClientVersionP: Option[Int],
   ): Either[String, Unit] =
     for {
       // Client may mention a protocol version which is not known to the domain

@@ -28,7 +28,17 @@ public class ContractDecoder {
                 c ->
                     Stream.of(
                         Map.entry(c.TEMPLATE_ID, c), Map.entry(c.getTemplateIdWithPackageId(), c)))
-            .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue(), (v, _v) -> v));
+            .collect(
+                Collectors.toMap(
+                    e -> e.getKey(),
+                    e -> e.getValue(),
+                    (v1, v2) -> {
+                      throw new IllegalArgumentException(
+                          "Clashing templates with the same key "
+                              + v1.TEMPLATE_ID
+                              + " and "
+                              + v2.TEMPLATE_ID);
+                    }));
   }
 
   public Contract<?, ?> fromCreatedEvent(CreatedEvent event) throws IllegalArgumentException {

@@ -93,7 +93,7 @@ package object logging {
             filter.templateFilters.map(_.templateTypeRef)
           ),
           "interfaces" -> LoggingValue.from(
-            filter.interfaceFilters.map(_.interfaceId)
+            filter.interfaceFilters.map(_.interfaceTypeRef)
           ),
         )
           ++ (filter.templateWildcardFilter match {

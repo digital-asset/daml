@@ -256,7 +256,6 @@ final case class Presequenced[+E <: StoreEvent[_]](
     maxSequencingTimeO: Option[CantonTimestamp],
     blockSequencerTimestampO: Option[CantonTimestamp] = None,
 ) extends HasTraceContext {
-  import cats.implicits.*
 
   def map[F <: StoreEvent[_]](fn: E => F): Presequenced[F] =
     this.copy(event = fn(event))
@@ -270,17 +269,6 @@ final case class Presequenced[+E <: StoreEvent[_]](
   }
 
   override def traceContext: TraceContext = event.traceContext
-
-  /** Checks if the event can be sequenced at this timestamp.
-    * Will return the max-sequencing-time as an error for use in error messages.
-    */
-  def isMaxSequencingTimeValid(timestamp: CantonTimestamp): Either[CantonTimestamp, Unit] =
-    maxSequencingTimeO
-      .toLeft(()) // if there's no max sequencing time then we can always be sequenced
-      .leftFlatMap { maxSequencingTime =>
-        // otherwise we're only valid if the timestamp is less than or equal to the max sequencing time
-        Either.cond(timestamp <= maxSequencingTime, (), maxSequencingTime)
-      }
 }
 
 object Presequenced {
@@ -408,8 +396,6 @@ final case class RegisteredMember(
     enabled: Boolean,
 )
 
-case object MemberDisabledError
-
 /** Used for verifying what pruning is doing in tests */
 @VisibleForTesting
 private[store] final case class SequencerStoreRecordCounts(
@@ -455,6 +441,10 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
   protected implicit val executionContext: ExecutionContext
 
   private val memberCache = new SequencerMemberCache(Traced.lift(lookupMemberInternal(_)(_)))
+
+  /** Whether the sequencer store operates is used for a block sequencer or a standalone database sequencer.
+    */
+  def blockSequencerMode: Boolean
 
   /** Validate that the commit mode of a session is inline with the configured expected commit mode.
     * Return a human readable message about the mismatch in commit modes if not.
@@ -824,7 +814,7 @@ object SequencerStore {
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
       sequencerMember: Member,
-      unifiedSequencer: Boolean,
+      blockSequencerMode: Boolean,
       overrideCloseContext: Option[CloseContext] = None,
   )(implicit executionContext: ExecutionContext): SequencerStore =
     storage match {
@@ -832,7 +822,7 @@ object SequencerStore {
         new InMemorySequencerStore(
           protocolVersion,
           sequencerMember,
-          unifiedSequencer = unifiedSequencer,
+          blockSequencerMode = blockSequencerMode,
           loggerFactory,
         )
       case dbStorage: DbStorage =>
@@ -843,7 +833,7 @@ object SequencerStore {
           timeouts,
           loggerFactory,
           sequencerMember,
-          unifiedSequencer = unifiedSequencer,
+          blockSequencerMode = blockSequencerMode,
           overrideCloseContext,
         )
     }

@@ -4,8 +4,7 @@
 package com.digitalasset.canton.domain.block.update
 
 import cats.syntax.functor.*
-import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, SyncCryptoApi}
+import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block.data.BlockUpdateEphemeralState
 import com.digitalasset.canton.domain.block.update.BlockUpdateGeneratorImpl.{
@@ -15,15 +14,9 @@ import com.digitalasset.canton.domain.block.update.BlockUpdateGeneratorImpl.{
 import com.digitalasset.canton.domain.block.update.SequencedSubmissionsValidator.SequencedSubmissionsValidationResult
 import com.digitalasset.canton.domain.block.update.SubmissionRequestValidator.SubmissionRequestValidationResult
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
-import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.{
-  SignedOrderingRequest,
-  SignedOrderingRequestOps,
-}
+import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.SignedOrderingRequestOps
 import com.digitalasset.canton.domain.sequencing.sequencer.*
-import com.digitalasset.canton.domain.sequencing.sequencer.store.{
-  CounterCheckpoint,
-  SequencerMemberValidator,
-}
+import com.digitalasset.canton.domain.sequencing.sequencer.store.SequencerMemberValidator
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitManager
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -44,7 +37,6 @@ private[update] final class SequencedSubmissionsValidator(
     rateLimitManager: SequencerRateLimitManager,
     override val loggerFactory: NamedLoggerFactory,
     metrics: SequencerMetrics,
-    unifiedSequencer: Boolean,
     memberValidator: SequencerMemberValidator,
 )(implicit closeContext: CloseContext)
     extends NamedLogging {
@@ -58,7 +50,6 @@ private[update] final class SequencedSubmissionsValidator(
       rateLimitManager,
       loggerFactory,
       metrics,
-      unifiedSequencer = unifiedSequencer,
       memberValidator = memberValidator,
     )
 
@@ -124,11 +115,7 @@ private[update] final class SequencedSubmissionsValidator(
           outcome,
           resultIfNoDeliverEvents = partialResult,
           inFlightAggregationUpdates,
-          topologyOrSequencingSnapshot,
-          sequencingTimestamp,
           sequencerEventTimestamp,
-          latestSequencerEventTimestamp,
-          signedOrderingRequest,
           remainingReversedEvents = reversedEvents,
           remainingReversedOutcomes = reversedOutcomes,
         )
@@ -148,96 +135,45 @@ private[update] final class SequencedSubmissionsValidator(
       outcome: SubmissionRequestOutcome,
       resultIfNoDeliverEvents: SequencedSubmissionsValidationResult,
       inFlightAggregationUpdates: InFlightAggregationUpdates,
-      topologyOrSequencingSnapshot: SyncCryptoApi,
-      sequencingTimestamp: CantonTimestamp,
       sequencerEventTimestamp: Option[CantonTimestamp],
-      latestSequencerEventTimestamp: Option[CantonTimestamp],
-      signedOrderingRequest: SignedOrderingRequest,
       remainingReversedEvents: Seq[UnsignedChunkEvents],
       remainingReversedOutcomes: Seq[SubmissionRequestOutcome],
   )(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[SequencedSubmissionsValidationResult] = {
     val SubmissionRequestOutcome(
-      deliverEvents,
+      _,
       newAggregationO,
       unifiedOutcome,
     ) = outcome
 
-    if (unifiedSequencer) {
-      unifiedOutcome match {
-        case deliverableOutcome: DeliverableSubmissionOutcome =>
-          val (newInFlightAggregations, newInFlightAggregationUpdates) =
-            newAggregationO.fold(state.inFlightAggregations -> inFlightAggregationUpdates) {
-              case (aggregationId, inFlightAggregationUpdate) =>
-                InFlightAggregations.tryApplyUpdates(
-                  state.inFlightAggregations,
-                  Map(aggregationId -> inFlightAggregationUpdate),
-                  ignoreInFlightAggregationErrors = false,
-                ) ->
-                  MapsUtil.extendedMapWith(
-                    inFlightAggregationUpdates,
-                    Iterable(aggregationId -> inFlightAggregationUpdate),
-                  )(_ tryMerge _)
-            }
-          val newState = state.copy(inFlightAggregations = newInFlightAggregations)
-          FutureUnlessShutdown.pure(
-            SequencedSubmissionsValidationResult(
-              newState,
-              Seq.empty,
-              newInFlightAggregationUpdates,
-              sequencerEventTimestamp,
-              outcome +: remainingReversedOutcomes,
-            )
+    unifiedOutcome match {
+      case _: DeliverableSubmissionOutcome =>
+        val (newInFlightAggregations, newInFlightAggregationUpdates) =
+          newAggregationO.fold(state.inFlightAggregations -> inFlightAggregationUpdates) {
+            case (aggregationId, inFlightAggregationUpdate) =>
+              InFlightAggregations.tryApplyUpdates(
+                state.inFlightAggregations,
+                Map(aggregationId -> inFlightAggregationUpdate),
+                ignoreInFlightAggregationErrors = false,
+              ) ->
+                MapsUtil.extendedMapWith(
+                  inFlightAggregationUpdates,
+                  Iterable(aggregationId -> inFlightAggregationUpdate),
+                )(_ tryMerge _)
+          }
+        val newState = state.copy(inFlightAggregations = newInFlightAggregations)
+        FutureUnlessShutdown.pure(
+          SequencedSubmissionsValidationResult(
+            newState,
+            Seq.empty,
+            newInFlightAggregationUpdates,
+            sequencerEventTimestamp,
+            outcome +: remainingReversedOutcomes,
           )
-        case _ => // Discarded submission
-          FutureUnlessShutdown.pure(resultIfNoDeliverEvents)
-      }
-    } else {
-      NonEmpty.from(deliverEvents) match {
-        case None => // No state update if there is nothing to deliver
-          FutureUnlessShutdown.pure(resultIfNoDeliverEvents)
-        case Some(deliverEventsNE) =>
-          val newCheckpoints = state.checkpoints ++ deliverEvents.fmap(d =>
-            CounterCheckpoint(d.counter, d.timestamp, None)
-          ) // ordering of the two operands matters
-          val (newInFlightAggregations, newInFlightAggregationUpdates) =
-            newAggregationO.fold(state.inFlightAggregations -> inFlightAggregationUpdates) {
-              case (aggregationId, inFlightAggregationUpdate) =>
-                InFlightAggregations.tryApplyUpdates(
-                  state.inFlightAggregations,
-                  Map(aggregationId -> inFlightAggregationUpdate),
-                  ignoreInFlightAggregationErrors = false,
-                ) ->
-                  MapsUtil.extendedMapWith(
-                    inFlightAggregationUpdates,
-                    Iterable(aggregationId -> inFlightAggregationUpdate),
-                  )(_ tryMerge _)
-            }
-          val newState =
-            state.copy(
-              inFlightAggregations = newInFlightAggregations,
-              checkpoints = newCheckpoints,
-            )
-
-          val unsignedEvents = UnsignedChunkEvents(
-            signedOrderingRequest.submissionRequest.sender,
-            deliverEventsNE,
-            topologyOrSequencingSnapshot,
-            sequencingTimestamp,
-            latestSequencerEventTimestamp,
-            traceContext,
-          )
-          FutureUnlessShutdown.pure(
-            SequencedSubmissionsValidationResult(
-              newState,
-              unsignedEvents +: remainingReversedEvents,
-              newInFlightAggregationUpdates,
-              sequencerEventTimestamp,
-              outcome +: remainingReversedOutcomes,
-            )
-          )
-      }
+        )
+      case _ => // Discarded submission
+        FutureUnlessShutdown.pure(resultIfNoDeliverEvents)
     }
   }
 }

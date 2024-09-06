@@ -13,7 +13,7 @@ class SequencerStoreTestInMemory extends AsyncWordSpec with BaseTest with Sequen
       new InMemorySequencerStore(
         protocolVersion = testedProtocolVersion,
         sequencerMember = sequencerMember,
-        unifiedSequencer = testedUseUnifiedSequencer,
+        blockSequencerMode = true,
         loggerFactory = loggerFactory,
       )
     )

@@ -45,7 +45,6 @@ abstract class DatabaseSequencerApiTest extends SequencerApiTest {
       crypto,
       metrics,
       loggerFactory,
-      unifiedSequencer = testedUseUnifiedSequencer,
       runtimeReady = FutureUnlessShutdown.unit,
     )(executorService, tracer, materializer)
   }

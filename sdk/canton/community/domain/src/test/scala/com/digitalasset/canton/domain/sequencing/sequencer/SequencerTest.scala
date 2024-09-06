@@ -70,7 +70,7 @@ class SequencerTest extends FixtureAsyncWordSpec with BaseTest with HasExecution
     val store = new InMemorySequencerStore(
       protocolVersion = testedProtocolVersion,
       sequencerMember = topologyClientMember,
-      unifiedSequencer = testedUseUnifiedSequencer,
+      blockSequencerMode = true,
       loggerFactory = loggerFactory,
     )
     val clock = new WallClock(timeouts, loggerFactory = loggerFactory)
@@ -107,7 +107,6 @@ class SequencerTest extends FixtureAsyncWordSpec with BaseTest with HasExecution
         crypto,
         metrics,
         loggerFactory,
-        unifiedSequencer = testedUseUnifiedSequencer,
         runtimeReady = FutureUnlessShutdown.unit,
       )(parallelExecutionContext, tracer, materializer)
 

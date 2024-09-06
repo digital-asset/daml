@@ -59,7 +59,6 @@ final case class CompleteBlockUpdate(block: BlockInfo) extends OrderedBlockUpdat
   *                             This is used by the unified sequencer to generate and write events in the database sequencer.
   */
 final case class ChunkUpdate[+E <: ChunkEvents](
-    newMembers: Map[Member, CantonTimestamp] = Map.empty,
     acknowledgements: Map[Member, CantonTimestamp] = Map.empty,
     invalidAcknowledgements: Seq[(Member, CantonTimestamp, BaseAlarm)] = Seq.empty,
     events: Seq[E] = Seq.empty,
@@ -68,11 +67,6 @@ final case class ChunkUpdate[+E <: ChunkEvents](
     state: BlockUpdateEphemeralState,
     submissionsOutcomes: Seq[SubmissionRequestOutcome] = Seq.empty,
 ) extends OrderedBlockUpdate[E] {
-  // ensure that all new members appear in the ephemeral state
-  require(
-    newMembers.keys.forall(state.registeredMembers.contains),
-    "newMembers should be placed within the ephemeral state",
-  )
   // check all events are from registered members
   require(
     events.view.flatMap(_.members).forall(state.registeredMembers.contains),

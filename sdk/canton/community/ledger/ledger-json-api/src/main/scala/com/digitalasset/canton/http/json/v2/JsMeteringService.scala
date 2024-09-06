@@ -19,7 +19,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class JsMeteringService(meteringReportClient: MeteringReportClient, val loggerFactory: NamedLoggerFactory) extends Endpoints {
   import JsMeteringServiceCodecs.*
-  private lazy val metering = baseEndpoint.in("metering")
+  private lazy val metering = v2Endpoint.in("metering")
 
   private val report =
     metering

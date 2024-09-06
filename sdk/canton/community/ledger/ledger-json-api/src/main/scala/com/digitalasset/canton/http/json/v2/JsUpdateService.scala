@@ -38,7 +38,7 @@ class JsUpdateService(
 
   import JsUpdateServiceCodecs.*
 
-  private lazy val updates = baseEndpoint.in("updates")
+  private lazy val updates = v2Endpoint.in("updates")
 
   private def updateServiceClient(token: Option[String] = None)(implicit
       traceContext: TraceContext

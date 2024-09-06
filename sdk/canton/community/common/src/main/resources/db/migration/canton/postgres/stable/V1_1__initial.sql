@@ -960,9 +960,13 @@ create table ord_availability_batch (
   primary key (id)
 );
 
-create table ord_pbft_messages(
+-- messages stored during the progress of a block possibly across different pbft views
+create table ord_pbft_messages_in_progress(
   -- global sequence number of the ordered block
   block_number bigint not null,
+
+  -- view number
+  view_number smallint not null,
 
   -- pbft message for the block
   message bytea not null,
@@ -973,11 +977,32 @@ create table ord_pbft_messages(
   -- sender of the message
   from_sequencer_id varchar(300) collate "C" not null,
 
-  -- for each block number, we only expect one message of each kind for the same sender.
+  -- for each block number, we only expect one message of each kind for the same sender and view number.
+  primary key (block_number, view_number, from_sequencer_id, discriminator)
+);
+
+-- final pbft messages stored only once for each block when it completes
+-- currently only commit messages and the pre-prepare used for that block
+create table ord_pbft_messages_completed(
+  -- global sequence number of the ordered block
+  block_number bigint not null,
+
+  -- pbft message for the block
+  message bytea not null,
+
+  -- pbft message discriminator (0 = pre-prepare, 2 = commit)
+  discriminator smallint not null,
+
+  -- sender of the message
+  from_sequencer_id varchar(300) collate "C" not null,
+
+  -- for each completed block number, we only expect one message of each kind for the same sender.
   -- in the case of pre-prepare, we only expect one message for the whole block, but for simplicity
   -- we won't differentiate that at the database level.
   primary key (block_number, from_sequencer_id, discriminator)
 );
+
+
 
 -- Stores metadata for blocks that have been assigned timestamps in the output module
 create table ord_metadata_output_blocks (

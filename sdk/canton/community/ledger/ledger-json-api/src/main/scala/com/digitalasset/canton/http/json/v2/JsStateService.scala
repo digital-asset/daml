@@ -41,7 +41,7 @@ class JsStateService(
 
   import JsStateServiceCodecs.*
 
-  private lazy val state = baseEndpoint.in("state")
+  private lazy val state = v2Endpoint.in("state")
 //  private lazy val wsState = wsEndpoint.in("state")
 
   private def stateServiceClient(token: Option[String] = None)(implicit

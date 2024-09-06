@@ -164,11 +164,11 @@ class GrpcSequencerConnectClient(
           logPolicy = CantonGrpcUtil.silentLogPolicy,
           retryPolicy = CantonGrpcUtil.RetryPolicy.noRetry,
           token = None,
-        )(_.handshake(SequencerConnect.HandshakeRequest(Some(request.toProtoV30))))
+        )(_.handshake(request.toProtoV30))
         .leftMap(err => Error.Transport(err.toString))
 
       handshakeResponse <- EitherT
-        .fromEither[Future](HandshakeResponse.fromProtoV30(responseP.getHandshakeResponse))
+        .fromEither[Future](HandshakeResponse.fromProtoV30(responseP))
         .leftMap[Error](err => Error.DeserializationFailure(err.toString))
       _ = if (handshakeResponse.serverProtocolVersion.isDeprecated && !dontWarnOnDeprecatedPV)
         DeprecatedProtocolVersion.WarnSequencerClient(

@@ -68,8 +68,8 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues {
             expectedTemplates.map(TemplateFilter(_, includeCreatedEventBlob = false)),
           interfaceFilters = Set(
             InterfaceFilter(
-              interfaceId = Ref.Identifier(
-                Ref.PackageId.assertFromString(packageId),
+              interfaceTypeRef = Ref.TypeConRef(
+                Ref.PackageRef.assertFromString(packageId),
                 Ref.QualifiedName(
                   Ref.DottedName.assertFromString(includedModule),
                   Ref.DottedName.assertFromString(includedTemplate),

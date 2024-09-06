@@ -4,7 +4,6 @@
 package com.digitalasset.canton.version
 
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.ProtoDeserializationError.OtherError
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.ProtocolVersion.unsupportedErrorMessage
 import org.scalatest.wordspec.AnyWordSpec
@@ -84,24 +83,7 @@ class ProtocolVersionTest extends AnyWordSpec with BaseTest {
       } should have message unsupportedErrorMessage(invalidProtocolVersion)
     }
 
-    "parse version string with fromProtoPrimitiveHandshake" in {
-      ProtocolVersion.supported.foreach { supported =>
-        val result = ProtocolVersion.fromProtoPrimitiveHandshake(supported.toString)
-        result shouldBe a[ParsingResult[?]]
-        result.value shouldBe supported
-      }
-    }
-
-    "fail parsing version string with fromProtoPrimitiveHandshake" in {
-      val result =
-        ProtocolVersion.fromProtoPrimitiveHandshake(invalidProtocolVersionNumber.toString)
-      result shouldBe a[ParsingResult[?]]
-      result.left.value should have message unsupportedErrorMessage(invalidProtocolVersion)
-
-      ProtocolVersion.fromProtoPrimitiveHandshake("chop").left.value shouldBe a[OtherError]
-    }
-
-    "parse version string with fromProtoPrimitive" in {
+    "parse version with fromProtoPrimitive" in {
       ProtocolVersion.supported.foreach { supported =>
         val result = ProtocolVersion.fromProtoPrimitive(supported.toProtoPrimitive)
         result shouldBe a[ParsingResult[?]]
@@ -109,7 +91,7 @@ class ProtocolVersionTest extends AnyWordSpec with BaseTest {
       }
     }
 
-    "fail parsing version string fromProtoPrimitive" in {
+    "fail parsing version fromProtoPrimitive" in {
       val result = ProtocolVersion.fromProtoPrimitive(invalidProtocolVersionNumber)
       result shouldBe a[ParsingResult[?]]
       result.left.value should have message unsupportedErrorMessage(invalidProtocolVersion)

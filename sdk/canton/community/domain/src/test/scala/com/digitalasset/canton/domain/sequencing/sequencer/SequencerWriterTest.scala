@@ -71,7 +71,7 @@ class SequencerWriterTest extends FixtureAsyncWordSpec with BaseTest {
     val store = new InMemorySequencerStore(
       protocolVersion = testedProtocolVersion,
       sequencerMember = sequencerMember,
-      unifiedSequencer = testedUseUnifiedSequencer,
+      blockSequencerMode = true,
       loggerFactory = loggerFactory,
     )
     val instanceIndex = 0
@@ -90,7 +90,7 @@ class SequencerWriterTest extends FixtureAsyncWordSpec with BaseTest {
         testedProtocolVersion,
         PositiveInt.tryCreate(5),
         sequencerMember,
-        unifiedSequencer = testedUseUnifiedSequencer,
+        blockSequencerMode = true,
       ) {
         override val generalStore: SequencerStore = store
       }

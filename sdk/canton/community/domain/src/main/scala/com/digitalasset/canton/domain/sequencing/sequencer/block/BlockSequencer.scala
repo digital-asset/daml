@@ -18,21 +18,11 @@ import com.digitalasset.canton.domain.block.update.{BlockUpdateGeneratorImpl, Lo
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.admin.data.SequencerHealthStatus
 import com.digitalasset.canton.domain.sequencing.sequencer.PruningError.UnsafePruningPoint
-import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.{
-  EventSource,
-  SignedOrderingRequest,
-}
+import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.SignedOrderingRequest
 import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
-import com.digitalasset.canton.domain.sequencing.sequencer.errors.{
-  CreateSubscriptionError,
-  SequencerError,
-}
-import com.digitalasset.canton.domain.sequencing.sequencer.traffic.TimestampSelector.{
-  ExactTimestamp,
-  TimestampSelector,
-  *,
-}
+import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError
+import com.digitalasset.canton.domain.sequencing.sequencer.traffic.TimestampSelector.*
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
   SequencerRateLimitError,
   SequencerRateLimitManager,
@@ -43,7 +33,6 @@ import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.pretty.CantonPrettyPrinter
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.Storage
-import com.digitalasset.canton.scheduler.PruningScheduler
 import com.digitalasset.canton.sequencing.client.SequencerClientSend
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors.TrafficControlError
@@ -88,7 +77,6 @@ class BlockSequencer(
     prettyPrinter: CantonPrettyPrinter,
     metrics: SequencerMetrics,
     loggerFactory: NamedLoggerFactory,
-    unifiedSequencer: Boolean,
     exitOnFatalFailures: Boolean,
     runtimeReady: FutureUnlessShutdown[Unit],
 )(implicit executionContext: ExecutionContext, materializer: Materializer, tracer: Tracer)
@@ -117,7 +105,7 @@ class BlockSequencer(
       cryptoApi,
       metrics,
       loggerFactory,
-      unifiedSequencer,
+      blockSequencerMode = true,
       runtimeReady,
     )
     with DatabaseSequencerIntegration
@@ -158,7 +146,6 @@ class BlockSequencer(
       orderingTimeFixMode,
       metrics,
       loggerFactory,
-      unifiedSequencer = unifiedSequencer,
       memberValidator = memberValidator,
     )(CloseContext(cryptoApi))
 
@@ -182,13 +169,8 @@ class BlockSequencer(
       .queue[Traced[BlockSequencer.LocalEvent]](bufferSize = 1000, OverflowStrategy.backpressure)
       .map(_.map(event => LocalBlockUpdate(event)))
     val combinedSource = Source.combineMat(driverSource, localSource)(Merge(_))(Keep.both)
-    val sequencerIntegration = if (unifiedSequencer) {
-      this
-    } else {
-      SequencerIntegration.Noop
-    }
     val combinedSourceWithBlockHandling = combinedSource.async
-      .via(stateManager.applyBlockUpdate(sequencerIntegration))
+      .via(stateManager.applyBlockUpdate(this))
       .wireTap { lastTs =>
         metrics.block.delay.updateValue((clock.now - lastTs.value).toMillis)
       }
@@ -374,67 +356,6 @@ class BlockSequencer(
     } yield ()
   }
 
-  override def readInternal(member: Member, offset: SequencerCounter)(implicit
-      traceContext: TraceContext
-  ): EitherT[Future, CreateSubscriptionError, EventSource] = {
-    logger.debug(s"Answering readInternal(member = $member, offset = $offset)")
-    if (unifiedSequencer) {
-      super.readInternal(member, offset)
-    } else {
-      EitherT
-        .right(cryptoApi.currentSnapshotApproximation.ipsSnapshot.isMemberKnown(member))
-        .flatMap { isKnown =>
-          if (isKnown) {
-            EitherT.fromEither[Future](stateManager.readEventsForMember(member, offset))
-          } else {
-            EitherT.leftT(CreateSubscriptionError.UnknownMember(member))
-          }
-        }
-    }
-  }
-
-  override def isRegistered(
-      member: Member
-  )(implicit traceContext: TraceContext): Future[Boolean] =
-    if (unifiedSequencer) {
-      super.isRegistered(member)
-    } else {
-      cryptoApi.headSnapshot.ipsSnapshot.isMemberKnown(member)
-    }
-
-  /** Important: currently both the disable member and the prune functionality on the block sequencer are
-    * purely local operations that do not affect other block sequencers that share the same source of
-    * events.
-    */
-  override protected def disableMemberInternal(
-      member: Member
-  )(implicit traceContext: TraceContext): Future[Unit] =
-    if (!unifiedSequencer) {
-      if (!stateManager.isMemberRegistered(member)) {
-        logger.warn(s"disableMember attempted to use member [$member] but they are not registered")
-        Future.unit
-      } else if (!stateManager.isMemberEnabled(member)) {
-        logger.debug(
-          s"disableMember attempted to use member [$member] but they are already disabled"
-        )
-        Future.unit
-      } else {
-        val disabledF =
-          futureSupervisor.supervised(s"Waiting for member $member to be disabled")(
-            stateManager.waitForMemberToBeDisabled(member)
-          )
-        for {
-          _ <- placeLocalEvent(BlockSequencer.DisableMember(member))
-          _ <- disabledF
-          _ <- super.disableMemberInternal(
-            member
-          ) // Now members are also always stored in DBS, so we disable there as well
-        } yield ()
-      }
-    } else {
-      super.disableMemberInternal(member)
-    }
-
   override protected def localSequencerMember: Member = sequencerId
 
   override protected def acknowledgeSignedInternal(
@@ -484,7 +405,7 @@ class BlockSequencer(
               trafficConsumed,
               implementationSpecificInfo,
             )
-            .tap(snapshot =>
+            .tap(_ =>
               if (logger.underlying.isDebugEnabled()) {
                 logger.trace(
                   s"Snapshot for timestamp $timestamp generated from ephemeral state:\n$blockEphemeralState"
@@ -493,18 +414,14 @@ class BlockSequencer(
             )
         }
       finalSnapshot <- {
-        if (unifiedSequencer) {
-          super.snapshot(bsSnapshot.lastTs).map { dbsSnapshot =>
-            dbsSnapshot.copy(
-              latestBlockHeight = bsSnapshot.latestBlockHeight,
-              inFlightAggregations = bsSnapshot.inFlightAggregations,
-              additional = bsSnapshot.additional,
-              trafficPurchased = bsSnapshot.trafficPurchased,
-              trafficConsumed = bsSnapshot.trafficConsumed,
-            )(dbsSnapshot.representativeProtocolVersion)
-          }
-        } else {
-          EitherT.pure[Future, SequencerError](bsSnapshot)
+        super.snapshot(bsSnapshot.lastTs).map { dbsSnapshot =>
+          dbsSnapshot.copy(
+            latestBlockHeight = bsSnapshot.latestBlockHeight,
+            inFlightAggregations = bsSnapshot.inFlightAggregations,
+            additional = bsSnapshot.additional,
+            trafficPurchased = bsSnapshot.trafficPurchased,
+            trafficConsumed = bsSnapshot.trafficConsumed,
+          )(dbsSnapshot.representativeProtocolVersion)
         }
       }
     } yield {
@@ -513,13 +430,6 @@ class BlockSequencer(
       )
       finalSnapshot
     }
-
-  override def pruningStatus(implicit
-      traceContext: TraceContext
-  ): Future[SequencerPruningStatus] = if (unifiedSequencer)
-    super[DatabaseSequencer].pruningStatus
-  else
-    store.pruningStatus().map(_.toSequencerPruningStatus(clock.now))
 
   /** Important: currently both the disable member and the prune functionality on the block sequencer are
     * purely local operations that do not affect other block sequencers that share the same source of
@@ -548,16 +458,12 @@ class BlockSequencer(
                 eventsMsg <- store.prune(requestedTimestamp)
                 trafficMsg <- blockRateLimitManager.prune(requestedTimestamp)
                 msgEither <-
-                  if (unifiedSequencer) {
-                    super[DatabaseSequencer]
-                      .prune(requestedTimestamp)
-                      .map(dbsMsg =>
-                        s"${eventsMsg.replace("0 events and ", "")}\n$dbsMsg\n$trafficMsg"
-                      )
-                      .value
-                  } else {
-                    Future.successful(Right(s"$eventsMsg\n$trafficMsg"))
-                  }
+                  super[DatabaseSequencer]
+                    .prune(requestedTimestamp)
+                    .map(dbsMsg =>
+                      s"${eventsMsg.replace("0 events and ", "")}\n$dbsMsg\n$trafficMsg"
+                    )
+                    .value
               } yield msgEither,
               s"pruning sequencer at $requestedTimestamp",
             )
@@ -601,9 +507,6 @@ class BlockSequencer(
   override def reportMaxEventAgeMetric(
       oldestEventTimestamp: Option[CantonTimestamp]
   ): Either[PruningSupportError, Unit] = Either.left(PruningError.NotSupported)
-
-  override def pruningSchedulerBuilder: Option[Storage => PruningScheduler] =
-    if (unifiedSequencer) super.pruningSchedulerBuilder else None
 
   override protected def healthInternal(implicit
       traceContext: TraceContext

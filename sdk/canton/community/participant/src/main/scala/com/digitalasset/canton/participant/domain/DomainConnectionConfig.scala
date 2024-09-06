@@ -49,6 +49,7 @@ import java.net.URI
   *                          trying to reconnect to a domain.
   * @param maxRetryDelay control the backoff parameter such that the retry interval does not grow above this value
   * @param timeTracker the domain time tracker settings. don't change it unless you know what you are doing.
+  * @param initializeFromTrustedDomain if false will automatically generate a DomainTrustCertificate when connecting to a new domain.
   */
 final case class DomainConnectionConfig(
     domain: DomainAlias,

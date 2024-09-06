@@ -9,6 +9,7 @@ import com.digitalasset.canton.http.PackageService
 import com.digitalasset.canton.http.util.Logging.instanceUUIDLogCtx
 import com.digitalasset.canton.http.json.v2.damldefinitionsservice.DamlDefinitionsView
 import com.digitalasset.canton.ledger.client.LedgerClient
+import com.digitalasset.canton.ledger.client.services.version.VersionClient
 import com.digitalasset.canton.ledger.participant.state.WriteService
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import org.apache.pekko.http.scaladsl.server.Route
@@ -30,25 +31,30 @@ class V2Routes(
     userManagementService: JsUserManagementService,
     versionService: JsVersionService,
     metadataServiceIfEnabled: Option[JsDamlDefinitionsService],
+    versionClient: VersionClient,
     val loggerFactory: NamedLoggerFactory,
-)(ec: ExecutionContext)
+)(implicit ec: ExecutionContext)
     extends Endpoints
     with NamedLogging {
+  private val serverEndpoints = commandService.endpoints()
+    ++ eventService.endpoints()
+    ++ versionService.endpoints()
+    ++ packageService.endpoints()
+    ++ partyManagementService.endpoints()
+    ++ stateService.endpoints()
+    ++ updateService.endpoints()
+    ++ userManagementService.endpoints()
+    ++ identityProviderService.endpoints()
+    ++ meteringService.endpoints()
+    ++ metadataServiceIfEnabled.toList.flatMap(_.endpoints())
+
+  private val docs =
+    new JsApiDocsService(versionClient, serverEndpoints.map(_.endpoint), loggerFactory)
 
   val v2Routes: Route =
-    PekkoHttpServerInterpreter()(ec).toRoute(
-      commandService.endpoints()
-        ++ eventService.endpoints()
-        ++ versionService.endpoints()
-        ++ packageService.endpoints()
-        ++ partyManagementService.endpoints()
-        ++ stateService.endpoints()
-        ++ updateService.endpoints()
-        ++ userManagementService.endpoints()
-        ++ identityProviderService.endpoints()
-        ++ meteringService.endpoints()
-        ++ metadataServiceIfEnabled.toList.flatMap(_.endpoints())
-    )
+    PekkoHttpServerInterpreter()(ec).toRoute(serverEndpoints)
+
+  val docsRoute = PekkoHttpServerInterpreter()(ec).toRoute(docs.endpoints())
 }
 
 object V2Routes {
@@ -91,7 +97,11 @@ object V2Routes {
       new JsPartyManagementService(ledgerClient.partyManagementClient, loggerFactory)
 
     val jsPackageService =
-      new JsPackageService(ledgerClient.packageService, ledgerClient.packageManagementClient, loggerFactory)(
+      new JsPackageService(
+        ledgerClient.packageService,
+        ledgerClient.packageManagementClient,
+        loggerFactory,
+      )(
         executionContext,
         materializer,
       )
@@ -126,8 +136,8 @@ object V2Routes {
       userManagementService,
       versionService,
       damlDefinitionsServiceIfEnabled,
+      ledgerClient.versionClient,
       loggerFactory,
     )(executionContext)
   }
-
 }

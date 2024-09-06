@@ -138,7 +138,7 @@ class SequencerWriter(
     protocolVersion: ProtocolVersion,
     maxSqlInListSize: PositiveNumeric[Int],
     sequencerMember: Member,
-    unifiedSequencer: Boolean,
+    blockSequencerMode: Boolean,
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging
     with FlagCloseableAsync
@@ -152,7 +152,7 @@ class SequencerWriter(
       timeouts,
       loggerFactory,
       sequencerMember,
-      unifiedSequencer = unifiedSequencer,
+      blockSequencerMode = blockSequencerMode,
       // Overriding the store's close context with the writers, so that when the writer gets closed, the store
       // stops retrying forever
       overrideCloseContext = Some(this.closeContext),
@@ -502,7 +502,7 @@ object SequencerWriter {
       protocolVersion: ProtocolVersion,
       loggerFactory: NamedLoggerFactory,
       sequencerMember: Member,
-      unifiedSequencer: Boolean,
+      blockSequencerMode: Boolean,
       metrics: SequencerMetrics,
   )(implicit materializer: Materializer, executionContext: ExecutionContext): SequencerWriter = {
     val logger = TracedLogger(SequencerWriter.getClass, loggerFactory)
@@ -523,7 +523,7 @@ object SequencerWriter {
           protocolVersion,
           metrics,
           processingTimeout,
-          unifiedSequencer = unifiedSequencer,
+          blockSequencerMode = blockSequencerMode,
         )
           .toMat(Sink.ignore)(Keep.both)
           .mapMaterializedValue(m => new RunningSequencerWriterFlow(m._1, m._2.void)),
@@ -540,7 +540,7 @@ object SequencerWriter {
       protocolVersion,
       writerConfig.maxSqlInListSize,
       sequencerMember,
-      unifiedSequencer = unifiedSequencer,
+      blockSequencerMode = blockSequencerMode,
     )
   }
 

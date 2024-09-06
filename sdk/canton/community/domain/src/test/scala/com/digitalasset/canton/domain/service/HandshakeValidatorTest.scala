@@ -10,7 +10,7 @@ class HandshakeValidatorTest extends AsyncWordSpec with BaseTest {
   "HandshakeValidator" should {
     "happy path" in {
 
-      val tested = testedProtocolVersion.toString
+      val tested = testedProtocolVersion.v
 
       // success because both support tested protocol version
       HandshakeValidator
@@ -23,8 +23,8 @@ class HandshakeValidatorTest extends AsyncWordSpec with BaseTest {
     }
 
     "succeed even if one client version is unknown to the server" in {
-      val unknownProtocolVersion = "42000"
-      val tested = testedProtocolVersion.toString
+      val unknownProtocolVersion = 42000
+      val tested = testedProtocolVersion.v
 
       // success because both support tested protocol version
       HandshakeValidator
@@ -48,14 +48,14 @@ class HandshakeValidatorTest extends AsyncWordSpec with BaseTest {
 
     "take minimum protocol version into account" in {
       if (testedProtocolVersion.isStable) {
-        val tested = testedProtocolVersion.toString
+        val tested = testedProtocolVersion.v
 
         // testedProtocolVersion is lower than minimum protocol version
         HandshakeValidator
           .clientIsCompatible(
             serverVersion = testedProtocolVersion,
             Seq(tested),
-            minClientVersionP = Some("42"),
+            minClientVersionP = Some(42),
           )
           .left
           .value shouldBe a[String]

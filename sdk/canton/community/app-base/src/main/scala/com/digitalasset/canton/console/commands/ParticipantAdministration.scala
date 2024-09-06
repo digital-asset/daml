@@ -68,7 +68,7 @@ import com.digitalasset.canton.console.{
   SequencerReference,
 }
 import com.digitalasset.canton.crypto.SyncCryptoApiProvider
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.grpc.{ByteStringStreamObserver, FileStreamObserver}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
@@ -700,6 +700,13 @@ class LocalCommitmentsAdministrationGroup(
         domain,
         timestampFromInstant(endAtOrBefore),
       )
+    }
+
+  def lastComputedAndSent(
+      domain: DomainAlias
+  ): Option[CantonTimestampSecond] =
+    access { node =>
+      node.sync.stateInspection.findLastComputedAndSent(domain)
     }
 }
 

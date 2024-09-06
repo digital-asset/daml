@@ -195,7 +195,7 @@ object SequencerWriterSource {
       protocolVersion: ProtocolVersion,
       metrics: SequencerMetrics,
       timeouts: ProcessingTimeout,
-      unifiedSequencer: Boolean,
+      blockSequencerMode: Boolean,
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
@@ -283,7 +283,7 @@ object SequencerWriterSource {
       .via(RecordWatermarkDelayMetricFlow(clock, metrics))
       .via(NotifyEventSignallerFlow(eventSignaller))
       .via(
-        if (unifiedSequencer) { // write side checkpoints are only activated for unified sequencer mode
+        if (blockSequencerMode) { // write side checkpoints are only activated for unified sequencer mode
           // TODO(#20910): Always enable periodic checkpoints.
           //  we need to use a different source of time for periodic checkpoints. Here we use watermark,
           //  since we know that in BlockSequencer we are the only party writing to the events table.

@@ -83,7 +83,7 @@ class SequencerReader(
     protocolVersion: ProtocolVersion,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
-    unifiedSequencer: Boolean,
+    blockSequencerMode: Boolean,
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging
     with FlagCloseable
@@ -439,7 +439,7 @@ class SequencerReader(
 
       eventsSource
         .viaMat(
-          if (unifiedSequencer) {
+          if (blockSequencerMode) {
             // We don't need to reader-side checkpoints for the unified mode
             // TODO(#20910): Remove this in favor of periodic checkpoints
             Flow[UnsignedEventData].viaMat(KillSwitches.single) { case (_, killSwitch) =>

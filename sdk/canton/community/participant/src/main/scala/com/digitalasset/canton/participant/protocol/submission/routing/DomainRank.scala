@@ -9,7 +9,7 @@ import cats.syntax.parallel.*
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.CanSubmitTransfer
-import com.digitalasset.canton.participant.protocol.transfer.{
+import com.digitalasset.canton.participant.protocol.reassignment.{
   AdminPartiesAndParticipants,
   UnassignmentProcessorError,
 }

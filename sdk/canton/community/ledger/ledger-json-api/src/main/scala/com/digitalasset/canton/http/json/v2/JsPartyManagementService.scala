@@ -26,7 +26,7 @@ class JsPartyManagementService(
     with NamedLogging {
   import JsPartyManagementCodecs.*
 
-  private val parties = baseEndpoint.in("parties")
+  private val parties = v2Endpoint.in("parties")
   private val partyPath = "party"
 
   def endpoints() =

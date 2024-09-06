@@ -659,6 +659,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
     )
     def decentralized_namespace(
         owners: Seq[InstanceReference],
+        threshold: PositiveInt,
         store: String = AuthorizedStore.filterName,
     ): (Namespace, Seq[GenericSignedTopologyTransaction]) = {
       val ownersNE = NonEmpty
@@ -685,7 +686,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
           existingDnsO.getOrElse(
             owner.topology.decentralized_namespaces.propose_new(
               owners.map(_.namespace).toSet,
-              PositiveInt.tryCreate(1.max(owners.size - 1)),
+              threshold,
               store = store,
             )
           )
@@ -818,12 +819,17 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         domainName: String,
         staticDomainParameters: data.StaticDomainParameters,
         domainOwners: Seq[InstanceReference],
+        domainThreshold: PositiveInt,
         sequencers: Seq[SequencerReference],
         mediatorsToSequencers: Map[MediatorReference, Seq[SequencerReference]],
         mediatorRequestAmplification: SubmissionRequestAmplification,
     ): DomainId = {
       val (decentralizedNamespace, foundingTxs) =
-        bootstrap.decentralized_namespace(domainOwners, store = AuthorizedStore.filterName)
+        bootstrap.decentralized_namespace(
+          domainOwners,
+          domainThreshold,
+          store = AuthorizedStore.filterName,
+        )
 
       val domainId = DomainId(
         UniqueIdentifier.tryCreate(domainName, decentralizedNamespace.toProtoPrimitive)
@@ -919,7 +925,8 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         domainName: String,
         sequencers: Seq[SequencerReference],
         mediators: Seq[MediatorReference],
-        domainOwners: Seq[InstanceReference] = Seq.empty,
+        domainOwners: Seq[InstanceReference],
+        domainThreshold: PositiveInt,
         staticDomainParameters: data.StaticDomainParameters,
         mediatorRequestAmplification: SubmissionRequestAmplification =
           SubmissionRequestAmplification.NoAmplification,
@@ -929,6 +936,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         sequencers,
         mediators.map(_ -> sequencers).toMap,
         domainOwners,
+        domainThreshold,
         staticDomainParameters,
         mediatorRequestAmplification,
       )
@@ -942,6 +950,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         sequencers: Seq[SequencerReference],
         mediatorsToSequencers: Map[MediatorReference, Seq[SequencerReference]],
         domainOwners: Seq[InstanceReference],
+        domainThreshold: PositiveInt,
         staticDomainParameters: data.StaticDomainParameters,
         mediatorRequestAmplification: SubmissionRequestAmplification,
     ): DomainId = {
@@ -965,6 +974,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
             domainName,
             staticDomainParameters,
             domainOwnersOrDefault,
+            domainThreshold,
             uniqueSequencers,
             mediatorsToSequencers,
             mediatorRequestAmplification,

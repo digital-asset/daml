@@ -21,7 +21,7 @@ class JsVersionService(versionClient: VersionClient, val loggerFactory: NamedLog
     val executionContext: ExecutionContext
 ) extends Endpoints {
   import JsVersionServiceCodecs.*
-  private val version = baseEndpoint.in("version")
+  private val version = v2Endpoint.in("version")
 
   def endpoints() = List(
     json(

@@ -188,7 +188,7 @@ object DomainProtocolVersion {
     ConfigReader.fromString[DomainProtocolVersion] { str =>
       for {
         version <- ProtocolVersion
-          .parseUnchecked(str)
+          .parseUncheckedS(str)
           .leftMap[FailureReason](InvalidProtocolVersion)
         _ <- Either.cond(
           // we support development versions when parsing, but catch dev versions without
@@ -229,7 +229,7 @@ object ParticipantProtocolVersion {
     ConfigReader.fromString[ParticipantProtocolVersion] { str =>
       for {
         version <- ProtocolVersion
-          .parseUnchecked(str)
+          .parseUncheckedS(str)
           .leftMap[FailureReason](InvalidProtocolVersion)
         _ <- Either.cond(
           // same as domain: support parsing of dev

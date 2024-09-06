@@ -38,16 +38,16 @@ import com.digitalasset.canton.participant.protocol.TransactionProcessor.{
   TransactionSubmissionResult,
 }
 import com.digitalasset.canton.participant.protocol.*
+import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.{
+  DomainNotReady,
+  ReassignmentProcessorError,
+}
+import com.digitalasset.canton.participant.protocol.reassignment.*
 import com.digitalasset.canton.participant.protocol.submission.{
   InFlightSubmissionTracker,
   SeedGenerator,
   TransactionConfirmationRequestFactory,
 }
-import com.digitalasset.canton.participant.protocol.transfer.ReassignmentProcessingSteps.{
-  DomainNotReady,
-  ReassignmentProcessorError,
-}
-import com.digitalasset.canton.participant.protocol.transfer.*
 import com.digitalasset.canton.participant.pruning.{
   AcsCommitmentProcessor,
   JournalGarbageCollector,

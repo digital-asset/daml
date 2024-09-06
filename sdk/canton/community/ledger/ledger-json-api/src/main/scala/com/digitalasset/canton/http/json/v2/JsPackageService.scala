@@ -31,7 +31,7 @@ class JsPackageService(
 )(implicit val executionContext: ExecutionContext, materializer: Materializer)
     extends Endpoints {
 
-  private val packages = baseEndpoint.in("packages")
+  private val packages = v2Endpoint.in("packages")
   private val packageIdPath = "package-id"
   def endpoints() =
     List(

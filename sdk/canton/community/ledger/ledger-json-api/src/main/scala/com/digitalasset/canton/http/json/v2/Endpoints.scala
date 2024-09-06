@@ -37,7 +37,7 @@ trait Endpoints extends NamedLogging {
 
   case class TracedInput[A](in: A, traceContext: TraceContext)
 
-  lazy val baseEndpoint: Endpoint[CallerContext, Unit, JsCantonError, Unit, Any] = endpoint
+  lazy val baseEndpoint: Endpoint[CallerContext, Unit, Unit, Unit, Any] = endpoint
     .securityIn(
       auth
         .bearer[Option[String]]()
@@ -55,6 +55,8 @@ trait Endpoints extends NamedLogging {
         )
         .map(tokens => CallerContext(tokens._1.orElse(tokens._2)))(cc => (cc.jwt, cc.jwt))
     )
+
+  lazy val v2Endpoint: Endpoint[CallerContext, Unit, JsCantonError, Unit, Any] = baseEndpoint
     .errorOut(jsonBody[JsCantonError])
     .in("v2")
 
@@ -216,6 +218,11 @@ trait Endpoints extends NamedLogging {
 
     override def validator: Validator[TracedInput[I]] = Validator.pass
   }
+
+  protected def withTraceHeaders[P, E](
+      endpoint: Endpoint[CallerContext, P, E, Unit, Any]
+  ) =
+    endpoint.in(headers).mapIn(traceHeadersMapping[P]())
 
   implicit class FutureOps[R](future: Future[R]) {
     implicit val executionContext: ExecutionContext = ExecutionContext.parasitic
