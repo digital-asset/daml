@@ -1,9 +1,10 @@
 import java.nio.file.{Files, Paths}
 import java.nio.charset.StandardCharsets
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.version.ProtocolVersion
 
 val staticDomainParameters = StaticDomainParameters.defaults(sequencer1.config.crypto, ProtocolVersion.dev)
 val domainOwners = Seq(sequencer1, mediator1)
-bootstrap.domain("mydomain", Seq(sequencer1), Seq(mediator1), domainOwners, staticDomainParameters)
+bootstrap.domain("mydomain", Seq(sequencer1), Seq(mediator1), domainOwners, PositiveInt.one, staticDomainParameters)
 `build-and-lint-test`.domains.connect_local(sequencer1, "mydomain")
 Files.write(Paths.get("completion_marker"), "Completed".getBytes(StandardCharsets.UTF_8))

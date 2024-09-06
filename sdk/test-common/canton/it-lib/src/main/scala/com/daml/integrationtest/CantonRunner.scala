@@ -165,11 +165,12 @@ object CantonRunner {
     val bootstrapContent =
       s"""import java.nio.file.{Files, Paths}
          |import java.nio.charset.StandardCharsets
+         |import com.digitalasset.canton.config.RequireTypes.PositiveInt
          |import com.digitalasset.canton.version.ProtocolVersion
          |
          |val staticDomainParameters = StaticDomainParameters.defaults(sequencer1.config.crypto, $protocolVersion)
          |val domainOwners = Seq(sequencer1, mediator1)
-         |bootstrap.domain("mydomain", Seq(sequencer1), Seq(mediator1), domainOwners, staticDomainParameters)
+         |bootstrap.domain("mydomain", Seq(sequencer1), Seq(mediator1), domainOwners, PositiveInt.one, staticDomainParameters)
          |${bootstrapConnectParticipants}
          |${config.bootstrapScript.getOrElse("")}
          |$bootstrapUploadDar
