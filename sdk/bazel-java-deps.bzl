@@ -45,6 +45,7 @@ version_specific = {
 # This effectively means all io.grpc:*, io.netty:*, and `com.google.protobuf:protobuf-java
 # need to be updated with careful consideration.
 
+apispec_version = "0.7.1"
 netty_tcnative_version = "2.0.61.Final"
 netty_version = "4.1.108.Final"
 grpc_version = "1.60.0"
@@ -108,7 +109,13 @@ def install_java_deps():
             "com.lihaoyi:upickle-core_{}:{}".format(scala_major_version, ujson_version),
             "com.oracle.database.jdbc.debug:ojdbc8_g:19.18.0.0",
             "com.oracle.database.jdbc:ojdbc8:19.18.0.0",
+            "com.softwaremill.sttp.apispec:asyncapi-circe-yaml_{}:{}".format(scala_major_version, apispec_version),
+            "com.softwaremill.sttp.apispec:openapi-circe-yaml_{}:{}".format(scala_major_version, apispec_version),
+            "com.softwaremill.sttp.apispec:asyncapi-model_{}:{}".format(scala_major_version, apispec_version),
+            "com.softwaremill.sttp.apispec:openapi-model_{}:{}".format(scala_major_version, apispec_version),
             "com.softwaremill.sttp.tapir:tapir-json-circe_{}:{}".format(scala_major_version, tapir_version),
+            "com.softwaremill.sttp.tapir:tapir-asyncapi-docs_{}:{}".format(scala_major_version, tapir_version),
+            "com.softwaremill.sttp.tapir:tapir-openapi-docs_{}:{}".format(scala_major_version, tapir_version),
             "com.softwaremill.sttp.tapir:tapir-pekko-http-server_{}:{}".format(scala_major_version, tapir_version),
             "com.sparkjava:spark-core:2.9.4",
             "com.squareup:javapoet:1.13.0",
