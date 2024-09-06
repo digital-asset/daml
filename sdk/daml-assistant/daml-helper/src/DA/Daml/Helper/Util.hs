@@ -306,6 +306,7 @@ withCantonSandbox options remainingArgs k = do
             [ "import com.digitalasset.canton.config.RequireTypes.PositiveInt"
             , "import com.digitalasset.canton.version.ProtocolVersion"
             , ""
+            , ""
             , "val staticDomainParameters = StaticDomainParameters.defaults(sequencer1.config.crypto, ProtocolVersion.latest)"
             , "val domainOwners = Seq(sequencer1, mediator1)"
             , "bootstrap.domain(\"mydomain\", Seq(sequencer1), Seq(mediator1), domainOwners, PositiveInt.one, staticDomainParameters)"
