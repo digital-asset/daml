@@ -79,7 +79,7 @@ private[lf] final class ValueTranslator(
         val newNesting = nesting + 1
         def typeError(msg: String = s"mismatching type: ${ty0.pretty} and value: $value0") =
           throw Error.Preprocessing.TypeMismatch(ty0, value0, msg)
-        def destruct(typ: Destructor.Type) =
+        def destruct(typ: Type) =
           Destructor.destruct(typ) match {
             case Right(value) => value
             case Left(TypeDestructor.Error.TypeError(err)) =>
@@ -152,7 +152,7 @@ private[lf] final class ValueTranslator(
             }
           case (TextMapF(a), ValueTextMap(entries)) =>
             if (entries.isEmpty) {
-              SValue.SValue.EmptyGenMap
+              SValue.SValue.EmptyTextMap
             } else {
               SValue.SMap(
                 isTextMap = true,
