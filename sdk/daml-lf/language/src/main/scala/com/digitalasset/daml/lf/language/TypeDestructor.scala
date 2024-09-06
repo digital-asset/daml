@@ -97,17 +97,8 @@ final class TypeDestructor(pkgInterface: PackageInterface) {
   import TypeDestructor.TypeF
   import TypeF._
 
-  private var cache: Map[Ast.Type, TypeF[Ast.Type]] = Map.empty
-
   def destruct(state: Ast.Type): Either[TypeDestructor.Error, TypeF[Ast.Type]] =
-    cache.get(state) match {
-      case Some(typeF) =>
-        Right(typeF)
-      case None =>
-        val result = go(state, List.empty)
-        val _ = result.foreach(typeF => cache = cache.updated(state, typeF))
-        result
-    }
+    go(state, List.empty)
 
   private def go(
       typ0: Ast.Type,
