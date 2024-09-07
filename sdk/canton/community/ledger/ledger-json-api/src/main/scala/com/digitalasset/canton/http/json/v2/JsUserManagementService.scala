@@ -27,7 +27,7 @@ class JsUserManagementService(
     with NamedLogging {
   import JsUserManagementCodecs.*
 
-  private val users = baseEndpoint.in("users")
+  private val users = v2Endpoint.in("users")
   private val userIdPath = "user-id"
   def endpoints() = List(
     json(

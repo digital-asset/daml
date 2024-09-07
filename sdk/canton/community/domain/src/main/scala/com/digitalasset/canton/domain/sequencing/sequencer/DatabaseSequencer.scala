@@ -74,7 +74,6 @@ object DatabaseSequencer {
       cryptoApi: DomainSyncCryptoClient,
       metrics: SequencerMetrics,
       loggerFactory: NamedLoggerFactory,
-      unifiedSequencer: Boolean,
       runtimeReady: FutureUnlessShutdown[Unit],
   )(implicit
       ec: ExecutionContext,
@@ -113,7 +112,7 @@ object DatabaseSequencer {
       cryptoApi,
       metrics,
       loggerFactory,
-      unifiedSequencer,
+      blockSequencerMode = false,
       runtimeReady,
     )
   }
@@ -139,7 +138,7 @@ class DatabaseSequencer(
     cryptoApi: DomainSyncCryptoClient,
     metrics: SequencerMetrics,
     loggerFactory: NamedLoggerFactory,
-    unifiedSequencer: Boolean,
+    blockSequencerMode: Boolean,
     runtimeReady: FutureUnlessShutdown[Unit],
 )(implicit ec: ExecutionContext, tracer: Tracer, materializer: Materializer)
     extends BaseSequencer(
@@ -162,7 +161,7 @@ class DatabaseSequencer(
     protocolVersion,
     loggerFactory,
     topologyClientMember,
-    unifiedSequencer = unifiedSequencer,
+    blockSequencerMode = blockSequencerMode,
     metrics = metrics,
   )
 
@@ -249,7 +248,7 @@ class DatabaseSequencer(
       protocolVersion,
       timeouts,
       loggerFactory,
-      unifiedSequencer = unifiedSequencer,
+      blockSequencerMode = blockSequencerMode,
     )
 
   override def isRegistered(member: Member)(implicit traceContext: TraceContext): Future[Boolean] =

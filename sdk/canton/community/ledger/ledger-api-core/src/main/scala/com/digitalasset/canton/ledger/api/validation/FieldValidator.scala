@@ -6,7 +6,7 @@ package com.digitalasset.canton.ledger.api.validation
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2.value.Identifier
 import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, JwksUrl, TemplateFilter}
+import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, JwksUrl}
 import com.digitalasset.canton.ledger.api.util.TimestampConversion
 import com.digitalasset.canton.ledger.api.validation.ResourceAnnotationValidator.{
   AnnotationsSizeExceededError,
@@ -227,20 +227,6 @@ object FieldValidator {
         .left
         .map(invalidField("package reference", _))
     } yield Ref.TypeConRef(pkgRef, qualifiedName)
-
-  def validateIdentifierWithPackageUpgrading(
-      identifier: Identifier,
-      includeCreatedEventBlob: Boolean,
-  )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, TemplateFilter] =
-    for {
-      typeRef <- validateTypeConRef(identifier)
-      templateFilter = TemplateFilter(
-        templateTypeRef = typeRef,
-        includeCreatedEventBlob = includeCreatedEventBlob,
-      )
-    } yield templateFilter
 
   def optionalString[T](s: String)(
       someValidation: String => Either[StatusRuntimeException, T]

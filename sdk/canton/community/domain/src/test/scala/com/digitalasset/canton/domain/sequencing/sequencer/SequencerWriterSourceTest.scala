@@ -105,7 +105,7 @@ class SequencerWriterSourceTest
     ) extends InMemorySequencerStore(
           testedProtocolVersion,
           sequencerMember,
-          testedUseUnifiedSequencer,
+          blockSequencerMode = true,
           lFactory,
         )(
           ec
@@ -146,7 +146,7 @@ class SequencerWriterSourceTest
         testedProtocolVersion,
         SequencerMetrics.noop(suiteName),
         timeouts,
-        unifiedSequencer = testedUseUnifiedSequencer,
+        blockSequencerMode = true,
       )(executorService, implicitly[TraceContext])
         .toMat(Sink.ignore)(Keep.both),
     )
@@ -507,7 +507,8 @@ class SequencerWriterSourceTest
   }
 
   "periodic checkpointing" should {
-    "produce checkpoints" onlyRunWhen (testedUseUnifiedSequencer) in withEnv() { implicit env =>
+    // TODO(#16087) ignore test for blockSequencerMode=false
+    "produce checkpoints" in withEnv() { implicit env =>
       import env.*
 
       for {

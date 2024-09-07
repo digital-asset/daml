@@ -246,7 +246,7 @@ object GrpcSequencerAuthenticationService extends GrpcSequencerAuthenticationErr
 
     final case class ChallengeFailure(
         member: String,
-        supportedProtocol: Seq[String],
+        supportedProtocol: Seq[Int],
         response: Status,
     )(implicit val loggingContext: ErrorLoggingContext)
         extends CantonError.Impl(
@@ -276,7 +276,7 @@ object GrpcSequencerAuthenticationService extends GrpcSequencerAuthenticationErr
 
     final case class ChallengeFailure(
         member: String,
-        supportedProtocol: Seq[String],
+        supportedProtocol: Seq[Int],
         response: Status,
     )(implicit override val loggingContext: ErrorLoggingContext)
         extends Alarm(

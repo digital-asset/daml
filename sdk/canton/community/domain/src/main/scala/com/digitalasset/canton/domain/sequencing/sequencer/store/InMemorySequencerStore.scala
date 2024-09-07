@@ -45,7 +45,7 @@ class UniqueKeyViolationException(message: String) extends RuntimeException(mess
 class InMemorySequencerStore(
     protocolVersion: ProtocolVersion,
     sequencerMember: Member,
-    unifiedSequencer: Boolean,
+    override val blockSequencerMode: Boolean,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit
     protected val executionContext: ExecutionContext
@@ -102,7 +102,7 @@ class InMemorySequencerStore(
           // if we found an existing payload it must have a matching instance discriminator
           if (existingPayload.instanceDiscriminator == instanceDiscriminator) None // no error
           else {
-            if (unifiedSequencer) {
+            if (blockSequencerMode) {
               None
             } else {
               SavePayloadsError.ConflictingPayloadId(id, existingPayload.instanceDiscriminator).some
@@ -462,7 +462,7 @@ class InMemorySequencerStore(
 
     watermarkO.fold[Map[Member, CounterCheckpoint]](Map()) { watermark =>
       val registeredMembers = members.filter {
-        case (member, RegisteredMember(_, registeredFrom, enabled)) =>
+        case (_member, RegisteredMember(_, registeredFrom, enabled)) =>
           enabled && registeredFrom <= timestamp
       }.toSeq
       val validEvents = events

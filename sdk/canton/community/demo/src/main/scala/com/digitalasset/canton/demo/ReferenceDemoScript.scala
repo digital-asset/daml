@@ -8,6 +8,7 @@ import com.daml.ledger.javaapi.data.{Template, TransactionTree}
 import com.digitalasset.canton.admin.api.client.data.StaticDomainParameters
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.commands.DomainChoice
 import com.digitalasset.canton.console.{
   ConsoleEnvironment,
@@ -609,6 +610,7 @@ object ReferenceDemoScript {
       sequencers = bankingSequencers,
       mediators = bankingMediators,
       domainOwners = bankingSequencers ++ bankingMediators,
+      domainThreshold = PositiveInt.one,
       staticDomainParameters = StaticDomainParameters.defaultsWithoutKMS(ProtocolVersion.latest),
     )
     val medicalSequencers = consoleEnvironment.sequencers.all.filter(_.name == SequencerMedical)
@@ -618,6 +620,7 @@ object ReferenceDemoScript {
       sequencers = medicalSequencers,
       mediators = medicalMediators,
       domainOwners = medicalSequencers ++ medicalMediators,
+      domainThreshold = PositiveInt.one,
       staticDomainParameters = StaticDomainParameters.defaultsWithoutKMS(ProtocolVersion.latest),
     )
 

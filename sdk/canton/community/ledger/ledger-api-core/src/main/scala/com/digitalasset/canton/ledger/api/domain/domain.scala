@@ -23,7 +23,7 @@ final case class TransactionFilter(
 )
 
 final case class InterfaceFilter(
-    interfaceId: Ref.Identifier,
+    interfaceTypeRef: Ref.TypeConRef,
     includeView: Boolean,
     includeCreatedEventBlob: Boolean,
 )

@@ -132,7 +132,7 @@ class SequencerReaderTest
     val store = new InMemorySequencerStore(
       protocolVersion = testedProtocolVersion,
       sequencerMember = topologyClientMember,
-      unifiedSequencer = testedUseUnifiedSequencer,
+      blockSequencerMode = true,
       loggerFactory = loggerFactory,
     )
     val instanceIndex: Int = 0
@@ -155,7 +155,7 @@ class SequencerReaderTest
       testedProtocolVersion,
       timeouts,
       loggerFactory,
-      unifiedSequencer = testedUseUnifiedSequencer,
+      blockSequencerMode = true,
     )
     val defaultTimeout: FiniteDuration = 20.seconds
     implicit val closeContext: CloseContext = CloseContext(reader)
@@ -449,7 +449,8 @@ class SequencerReaderTest
 
     "counter checkpoint" should {
       // Note: unified sequencer mode creates checkpoints using sequencer writer
-      "issue counter checkpoints occasionally" onlyRunWhen (!testedUseUnifiedSequencer) in { env =>
+      // TODO(#16087) revive test for blockSequencerMode=false
+      "issue counter checkpoints occasionally" ignore { env =>
         import env.*
 
         import scala.jdk.CollectionConverters.*
@@ -812,72 +813,72 @@ class SequencerReaderTest
         }
       }
 
-      "do not update the topology client timestamp" onlyRunWhen (!testedUseUnifiedSequencer) in {
-        env =>
-          import env.*
+      // TODO(#16087) revive test for blockSequencerMode=false
+      "do not update the topology client timestamp" ignore { env =>
+        import env.*
 
-          for {
-            domainParamsO <- cryptoD.headSnapshot.ipsSnapshot.findDynamicDomainParameters()
-            domainParams = domainParamsO.valueOrFail("No domain parameters found")
-            signingTolerance = domainParams.sequencerTopologyTimestampTolerance
-            signingToleranceInSec = signingTolerance.duration.toSeconds
+        for {
+          domainParamsO <- cryptoD.headSnapshot.ipsSnapshot.findDynamicDomainParameters()
+          domainParams = domainParamsO.valueOrFail("No domain parameters found")
+          signingTolerance = domainParams.sequencerTopologyTimestampTolerance
+          signingToleranceInSec = signingTolerance.duration.toSeconds
 
-            topologyClientMemberId <- store.registerMember(topologyClientMember, ts0)
-            aliceId <- store.registerMember(alice, ts0)
+          topologyClientMemberId <- store.registerMember(topologyClientMember, ts0)
+          aliceId <- store.registerMember(alice, ts0)
 
-            recipientsTopo = NonEmpty(SortedSet, aliceId, topologyClientMemberId)
-            recipientsAlice = NonEmpty(SortedSet, aliceId)
-            testData = Seq(
-              // Sequencing ts, signing ts relative to ts0, recipients
-              (1L, None, recipientsTopo),
-              (signingToleranceInSec + 1L, Some(0L), recipientsTopo),
-            ) ++ (2L to 60L).map(i => (signingToleranceInSec + i, None, recipientsAlice))
-            batch = Batch.fromClosed(
+          recipientsTopo = NonEmpty(SortedSet, aliceId, topologyClientMemberId)
+          recipientsAlice = NonEmpty(SortedSet, aliceId)
+          testData = Seq(
+            // Sequencing ts, signing ts relative to ts0, recipients
+            (1L, None, recipientsTopo),
+            (signingToleranceInSec + 1L, Some(0L), recipientsTopo),
+          ) ++ (2L to 60L).map(i => (signingToleranceInSec + i, None, recipientsAlice))
+          batch = Batch.fromClosed(
+            testedProtocolVersion,
+            ClosedEnvelope.create(
+              ByteString.copyFromUtf8("test envelope"),
+              Recipients.cc(alice, bob),
+              Seq.empty,
               testedProtocolVersion,
-              ClosedEnvelope.create(
-                ByteString.copyFromUtf8("test envelope"),
-                Recipients.cc(alice, bob),
-                Seq.empty,
-                testedProtocolVersion,
-              ),
-            )
+            ),
+          )
 
-            delivers = testData.map { case (sequenceTs, signingTsO, recipients) =>
-              val storeEvent = TraceContext
-                .withNewTraceContext { eventTraceContext =>
-                  mockDeliverStoreEvent(
-                    sender = aliceId,
-                    payloadId = PayloadId(ts0.plusSeconds(sequenceTs)),
-                    signingTs = signingTsO.map(ts0.plusSeconds),
-                    traceContext = eventTraceContext,
-                  )(recipients)
-                }
-                .map(id => Payload(id, batch.toByteString))
-              Sequenced(ts0.plusSeconds(sequenceTs), storeEvent)
-            }
-            _ <- storePayloadsAndWatermark(delivers)
-            // take some events
-            queue = readWithQueue(alice, SequencerCounter(0))
-            // read a bunch of items
-            readEvents <- MonadUtil.sequentialTraverse(1L to 61L)(_ => pullFromQueue(queue))
-            // wait for a bit over the checkpoint interval (although I would expect because these actions are using the same scheduler the actions may be correctly ordered regardless)
-            _ <- waitFor(testConfig.checkpointInterval.underlying * 3)
-            // close the queue before we make any assertions
-            _ = queue.cancel()
-            lastEventRead = readEvents.lastOption.value.value
-            _ = logger.debug(s"Fetching checkpoint for event with counter ${lastEventRead.counter}")
-            checkpointForLastEventO <- store.fetchClosestCheckpointBefore(
-              aliceId,
-              lastEventRead.counter + 1,
-            )
-          } yield {
-            // check it created a checkpoint for a recent event
-            checkpointForLastEventO.value.counter should be >= SequencerCounter(10)
-            checkpointForLastEventO.value.latestTopologyClientTimestamp shouldBe Some(
-              // This is before the timestamp of the second event
-              CantonTimestamp.ofEpochSecond(1)
-            )
+          delivers = testData.map { case (sequenceTs, signingTsO, recipients) =>
+            val storeEvent = TraceContext
+              .withNewTraceContext { eventTraceContext =>
+                mockDeliverStoreEvent(
+                  sender = aliceId,
+                  payloadId = PayloadId(ts0.plusSeconds(sequenceTs)),
+                  signingTs = signingTsO.map(ts0.plusSeconds),
+                  traceContext = eventTraceContext,
+                )(recipients)
+              }
+              .map(id => Payload(id, batch.toByteString))
+            Sequenced(ts0.plusSeconds(sequenceTs), storeEvent)
           }
+          _ <- storePayloadsAndWatermark(delivers)
+          // take some events
+          queue = readWithQueue(alice, SequencerCounter(0))
+          // read a bunch of items
+          readEvents <- MonadUtil.sequentialTraverse(1L to 61L)(_ => pullFromQueue(queue))
+          // wait for a bit over the checkpoint interval (although I would expect because these actions are using the same scheduler the actions may be correctly ordered regardless)
+          _ <- waitFor(testConfig.checkpointInterval.underlying * 3)
+          // close the queue before we make any assertions
+          _ = queue.cancel()
+          lastEventRead = readEvents.lastOption.value.value
+          _ = logger.debug(s"Fetching checkpoint for event with counter ${lastEventRead.counter}")
+          checkpointForLastEventO <- store.fetchClosestCheckpointBefore(
+            aliceId,
+            lastEventRead.counter + 1,
+          )
+        } yield {
+          // check it created a checkpoint for a recent event
+          checkpointForLastEventO.value.counter should be >= SequencerCounter(10)
+          checkpointForLastEventO.value.latestTopologyClientTimestamp shouldBe Some(
+            // This is before the timestamp of the second event
+            CantonTimestamp.ofEpochSecond(1)
+          )
+        }
       }
     }
   }

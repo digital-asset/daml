@@ -119,7 +119,7 @@ class AuthenticationTokenProvider(
       .challenge(
         ChallengeRequest(
           member.toProtoPrimitive,
-          supportedProtocolVersions.map(_.toProtoPrimitiveS),
+          supportedProtocolVersions.map(_.toProtoPrimitive),
         )
       )
       .map(response => response.value)

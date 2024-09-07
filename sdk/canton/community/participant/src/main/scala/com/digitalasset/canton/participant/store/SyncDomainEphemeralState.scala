@@ -23,9 +23,9 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.{
   RequestTracker,
   RequestTrackerLookup,
 }
+import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.PendingReassignmentSubmission
 import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionTracker.InFlightSubmissionTrackerDomainState
 import com.digitalasset.canton.participant.protocol.submission.{WatermarkLookup, WatermarkTracker}
-import com.digitalasset.canton.participant.protocol.transfer.ReassignmentProcessingSteps.PendingReassignmentSubmission
 import com.digitalasset.canton.participant.store.memory.ReassignmentCache
 import com.digitalasset.canton.participant.sync.TimelyRejectNotifier
 import com.digitalasset.canton.protocol.RootHash

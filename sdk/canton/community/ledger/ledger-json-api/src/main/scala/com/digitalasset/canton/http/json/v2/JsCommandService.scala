@@ -35,7 +35,7 @@ class JsCommandService(
 
   import JsCommandServiceCodecs.*
 
-  private lazy val commands = baseEndpoint.in("commands")
+  private lazy val commands = v2Endpoint.in("commands")
 
   private def commandServiceClient(token: Option[String] = None)(implicit
       traceContext: TraceContext

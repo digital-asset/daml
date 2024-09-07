@@ -221,6 +221,9 @@ object MediatorGroupRecipient {
     }
 }
 
+/** All known members of the domain, i.e., the return value of
+  * [[com.digitalasset.canton.topology.client.MembersTopologySnapshotClient#allMembers]].
+  */
 case object AllMembersOfDomain extends GroupRecipient {
 
   override def isAuthorized(snapshot: TopologySnapshot)(implicit

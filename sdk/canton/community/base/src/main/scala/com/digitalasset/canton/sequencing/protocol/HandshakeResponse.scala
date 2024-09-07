@@ -4,45 +4,30 @@
 package com.digitalasset.canton.sequencing.protocol
 
 import com.digitalasset.canton.ProtoDeserializationError
-import com.digitalasset.canton.protocol.v30
+import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.ProtocolVersion
 
 sealed trait HandshakeResponse {
   val serverProtocolVersion: ProtocolVersion
-
-  def toProtoV30: v30.Handshake.Response
 }
 
 object HandshakeResponse {
-  final case class Success(serverProtocolVersion: ProtocolVersion) extends HandshakeResponse {
-    override def toProtoV30: v30.Handshake.Response =
-      v30.Handshake.Response(
-        serverProtocolVersion.toProtoPrimitiveS,
-        v30.Handshake.Response.Value.Success(v30.Handshake.Success()),
-      )
-  }
+  final case class Success(serverProtocolVersion: ProtocolVersion) extends HandshakeResponse
   final case class Failure(serverProtocolVersion: ProtocolVersion, reason: String)
-      extends HandshakeResponse {
-    override def toProtoV30: v30.Handshake.Response =
-      v30.Handshake
-        .Response(
-          serverProtocolVersion.toProtoPrimitiveS,
-          v30.Handshake.Response.Value.Failure(v30.Handshake.Failure(reason)),
-        )
-  }
+      extends HandshakeResponse
 
   def fromProtoV30(
-      responseP: v30.Handshake.Response
+      responseP: v30.SequencerConnect.HandshakeResponse
   ): ParsingResult[HandshakeResponse] =
     responseP.value match {
-      case v30.Handshake.Response.Value.Empty =>
-        Left(ProtoDeserializationError.FieldNotSet("Handshake.Response.value"))
-      case v30.Handshake.Response.Value.Success(_success) =>
-        ProtocolVersion.fromProtoPrimitiveHandshake(responseP.serverProtocolVersion).map(Success)
-      case v30.Handshake.Response.Value.Failure(failure) =>
+      case v30.SequencerConnect.HandshakeResponse.Value.Empty =>
+        Left(ProtoDeserializationError.FieldNotSet("HandshakeResponse.value"))
+      case v30.SequencerConnect.HandshakeResponse.Value.Success(_success) =>
+        ProtocolVersion.fromProtoPrimitive(responseP.serverProtocolVersion).map(Success)
+      case v30.SequencerConnect.HandshakeResponse.Value.Failure(failure) =>
         ProtocolVersion
-          .fromProtoPrimitiveHandshake(responseP.serverProtocolVersion)
+          .fromProtoPrimitive(responseP.serverProtocolVersion)
           .map(Failure(_, failure.reason))
     }
 }

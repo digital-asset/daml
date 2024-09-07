@@ -24,7 +24,7 @@ class JsIdentityProviderService(
 ) extends Endpoints
     with NamedLogging {
   import JsIdentityProviderCodecs.*
-  private val idps = baseEndpoint.in("idps")
+  private val idps = v2Endpoint.in("idps")
   private val identityProviderPath = "idp-id"
 
   def endpoints() =

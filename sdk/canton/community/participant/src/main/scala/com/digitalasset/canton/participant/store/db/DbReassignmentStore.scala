@@ -18,8 +18,8 @@ import com.digitalasset.canton.data.{CantonTimestamp, FullUnassignmentTree}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.GlobalOffset
-import com.digitalasset.canton.participant.protocol.transfer.ReassignmentData.ReassignmentGlobalOffset
-import com.digitalasset.canton.participant.protocol.transfer.{
+import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentData.ReassignmentGlobalOffset
+import com.digitalasset.canton.participant.protocol.reassignment.{
   IncompleteReassignmentData,
   ReassignmentData,
 }

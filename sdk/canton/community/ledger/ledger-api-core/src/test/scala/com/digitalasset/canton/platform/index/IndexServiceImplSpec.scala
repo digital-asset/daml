@@ -646,10 +646,41 @@ class IndexServiceImplSpec
       )
   }
 
+  it should "return an unknown type reference for a package name/template qualified name with no known interface-ids" in new Scope {
+    val unknownInterfaceRefFilter = InterfaceFilter(
+      interfaceTypeRef = TypeConRef.assertFromString(
+        s"${Ref.PackageRef.Name(packageName1).toString}:unknownModule:unknownInterface"
+      ),
+      includeView = true,
+      includeCreatedEventBlob = false,
+    )
+
+    checkUnknownIdentifiers(
+      TransactionFilter(
+        filtersByParty = Map(
+          party -> CumulativeFilter(
+            templateFilters = Set(template1Filter),
+            interfaceFilters = Set(iface1Filter, unknownInterfaceRefFilter),
+            templateWildcardFilter = None,
+          )
+        )
+      ),
+      PackageMetadata(
+        interfaces = Set(iface1),
+        templates = Set.empty,
+        packageNameMap = Map(packageName1 -> packageResolutionForInterface1),
+      ),
+    ).left.value shouldBe RequestValidationErrors.NotFound.NoInterfaceForPackageNameAndQualifiedName
+      .Reject(
+        noKnownReferences =
+          Set(packageName1 -> Ref.QualifiedName.assertFromString("unknownModule:unknownInterface"))
+      )
+  }
+
   it should "succeed for all query filter identifiers known" in new Scope {
     val filters = CumulativeFilter(
       templateFilters = Set(template1Filter, packageNameScopedTemplateFilter),
-      interfaceFilters = Set(iface1Filter),
+      interfaceFilters = Set(iface1Filter, packageNameScopedInterfaceFilter),
       templateWildcardFilter = None,
     )
 
@@ -718,59 +749,6 @@ class IndexServiceImplSpec
         List(Right(iface1), Right(iface2))
       )
       .cause shouldBe "Interfaces do not exist: [PackageId:ModuleName:iface1, PackageId:ModuleName:iface2]."
-  }
-
-  behavior of "IndexServiceImpl.resolveUpgradableTemplates"
-
-  it should "resolve all known upgradable template-ids for a (package-name, qualified-name) tuple" in new Scope {
-    val packageResolution: PackageResolution = {
-      val preferredPackageId = Ref.PackageId.assertFromString("PackageId")
-      PackageResolution(
-        preference =
-          LocalPackagePreference(Ref.PackageVersion.assertFromString("0.1"), preferredPackageId),
-        allPackageIdsForName =
-          NonEmpty(Set, Ref.PackageId.assertFromString("PackageId0"), preferredPackageId),
-      )
-    }
-    private val packageMetadata: PackageMetadata = PackageMetadata(
-      templates = Set(template2),
-      packageNameMap = Map(packageName1 -> packageResolution),
-    )
-    resolveUpgradableTemplates(
-      packageMetadata,
-      packageName1,
-      template2.qualifiedName,
-    ) shouldBe Set(template2)
-  }
-
-  it should "return an empty set if any of the resolution sets in PackageMetadata are empty" in new Scope {
-    val packageResolution: PackageResolution = {
-      val preferredPackageId = Ref.PackageId.assertFromString("PackageId")
-      PackageResolution(
-        preference =
-          LocalPackagePreference(Ref.PackageVersion.assertFromString("0.1"), preferredPackageId),
-        allPackageIdsForName =
-          NonEmpty(Set, Ref.PackageId.assertFromString("PackageId0"), preferredPackageId),
-      )
-    }
-
-    resolveUpgradableTemplates(
-      PackageMetadata(
-        templates = Set.empty,
-        packageNameMap = Map(packageName1 -> packageResolution),
-      ),
-      packageName1,
-      template2.qualifiedName,
-    ) shouldBe Set.empty
-
-    resolveUpgradableTemplates(
-      PackageMetadata(
-        templates = Set(template2),
-        packageNameMap = Map.empty,
-      ),
-      packageName1,
-      template2.qualifiedName,
-    ) shouldBe Set.empty
   }
 
   behavior of "IndexServiceImpl.injectCheckpoint"
@@ -1261,16 +1239,14 @@ object IndexServiceImplSpec {
       QualifiedName.assertFromString("ModuleName:template1")
 
     val packageName1: Ref.PackageName = Ref.PackageName.assertFromString("PackageName1")
-    val packageName2: Ref.PackageName = Ref.PackageName.assertFromString("PackageName2")
+    val packageName1Ref: Ref.PackageRef = Ref.PackageRef.Name(packageName1)
     val template1: Identifier = Identifier.assertFromString("PackageId:ModuleName:template1")
     val template1Filter: TemplateFilter =
       TemplateFilter(templateId = template1, includeCreatedEventBlob = false)
 
     val packageNameScopedTemplateFilter: TemplateFilter =
       TemplateFilter(
-        templateTypeRef = TypeConRef.assertFromString(
-          s"${Ref.PackageRef.Name(packageName1).toString}:ModuleName:template1"
-        ),
+        templateTypeRef = TypeConRef.assertFromString(s"$packageName1Ref:ModuleName:template1"),
         includeCreatedEventBlob = false,
       )
     val template2: Identifier = Identifier.assertFromString("PackageId:ModuleName:template2")
@@ -1281,13 +1257,18 @@ object IndexServiceImplSpec {
       TemplateFilter(templateId = template3, includeCreatedEventBlob = false)
     val iface1: Identifier = Identifier.assertFromString("PackageId:ModuleName:iface1")
     val iface1Filter: InterfaceFilter = InterfaceFilter(
-      iface1,
+      TypeConRef.fromIdentifier(iface1),
+      includeView = true,
+      includeCreatedEventBlob = false,
+    )
+    val packageNameScopedInterfaceFilter = InterfaceFilter(
+      interfaceTypeRef = TypeConRef.assertFromString(s"$packageName1Ref:ModuleName:iface1"),
       includeView = true,
       includeCreatedEventBlob = false,
     )
     val iface2: Identifier = Identifier.assertFromString("PackageId:ModuleName:iface2")
     val iface2Filter: InterfaceFilter = InterfaceFilter(
-      iface2,
+      TypeConRef.fromIdentifier(iface2),
       includeView = true,
       includeCreatedEventBlob = false,
     )
@@ -1300,6 +1281,13 @@ object IndexServiceImplSpec {
         template1.packageId,
       ),
       allPackageIdsForName = NonEmpty(Set, template1.packageId),
+    )
+    val packageResolutionForInterface1 = PackageResolution(
+      preference = LocalPackagePreference(
+        Ref.PackageVersion.assertFromString("0.1"),
+        iface1.packageId,
+      ),
+      allPackageIdsForName = NonEmpty(Set, iface1.packageId),
     )
   }
 }

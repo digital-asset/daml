@@ -4,14 +4,7 @@
 package com.digitalasset.canton.domain.sequencing.config
 
 import com.digitalasset.canton.config.RequireTypes.PositiveDouble
-import com.digitalasset.canton.config.{
-  BatchingConfig,
-  CachingConfigs,
-  LocalNodeParametersConfig,
-  ProtocolConfig,
-  WatchdogConfig,
-}
-import com.digitalasset.canton.environment.DefaultNodeParameters
+import com.digitalasset.canton.config.*
 
 /** Various parameters for non-standard sequencer settings
   *
@@ -27,7 +20,6 @@ final case class SequencerNodeParameterConfig(
     maxConfirmationRequestsBurstFactor: PositiveDouble = PositiveDouble.tryCreate(0.5),
     override val batching: BatchingConfig = BatchingConfig(),
     override val caching: CachingConfigs = CachingConfigs(),
-    override val useUnifiedSequencer: Boolean = DefaultNodeParameters.UseUnifiedSequencer,
     override val watchdog: Option[WatchdogConfig] = None,
 ) extends ProtocolConfig
     with LocalNodeParametersConfig

@@ -518,7 +518,6 @@ private[canton] object CantonNodeParameterConverter {
       nonStandardConfig = parent.parameters.nonStandardConfig,
       dbMigrateAndStart = node.storage.parameters.migrateAndStart,
       exitOnFatalFailures = parent.parameters.exitOnFatalFailures,
-      useUnifiedSequencer = node.parameters.useUnifiedSequencer,
       watchdog = node.parameters.watchdog,
     )
 

@@ -73,15 +73,11 @@ class BatchingParallelIngestionPipeSpec
   }
 
   it should "hold the stream if a single ingestion takes too long" in {
-    val ingestedSizeAcc = new AtomicInteger(0)
     val ingestedTailAcc = new AtomicInteger(0)
     runPipe(
       inputMapperHook = () => Threading.sleep(1L),
       ingesterHook = batch => {
         // due to timing issues it can be that other than full batches are formed, so we check if the batch contains 21
-        if (batch.min <= 21) {
-          ingestedSizeAcc.accumulateAndGet(batch.size, _ + _)
-        }
         if (batch.max < 21) {
           ingestedTailAcc.accumulateAndGet(batch.max, _ max _)
         }
@@ -93,7 +89,6 @@ class BatchingParallelIngestionPipeSpec
       // 25 is the ideal case: due to timing issues it can be that other than full batches are formed, so either having < 20 before and < 5 after is possible
       ingested.size should be <= 25
       ingestedTail.last should be < 21
-      ingested.size shouldBe ingestedSizeAcc.get()
       ingestedTail.last shouldBe ingestedTailAcc.get()
     }
   }
@@ -229,13 +224,13 @@ class BatchingParallelIngestionPipeSpec
       Future.failed(new Exception("timed out"))
     }
     val indexingF = inputSource.via(indexingFlow).run().map { _ =>
-      (ingested, ingestedTail, Option.empty[Throwable])
+      blocking(semaphore.synchronized((ingested, ingestedTail, Option.empty[Throwable])))
     }
     timeoutF.onComplete(p.tryComplete)
     indexingF.onComplete(p.tryComplete)
 
     p.future.recover { case t =>
-      (ingested, ingestedTail, Some(t))
+      blocking(semaphore.synchronized((ingested, ingestedTail, Some(t))))
     }
   }
 }

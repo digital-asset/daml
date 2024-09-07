@@ -48,7 +48,6 @@ class DriverBlockSequencerFactory[C](
       health: Option[SequencerHealthConfig],
       storage,
       protocolVersion,
-      sequencerId,
       nodeParameters,
       loggerFactory,
       testingInterceptor,
@@ -116,7 +115,6 @@ class DriverBlockSequencerFactory[C](
       metrics,
       domainLoggerFactory,
       exitOnFatalFailures = nodeParameters.exitOnFatalFailures,
-      unifiedSequencer = nodeParameters.useUnifiedSequencer,
       runtimeReady = runtimeReady,
     )
 }

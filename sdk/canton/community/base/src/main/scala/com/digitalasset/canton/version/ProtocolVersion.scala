@@ -164,7 +164,7 @@ object ProtocolVersion {
     *
     * Otherwise, use one of the other factory methods.
     */
-  def parseUnchecked(rawVersion: String): Either[String, ProtocolVersion] =
+  def parseUncheckedS(rawVersion: String): Either[String, ProtocolVersion] =
     rawVersion.toIntOption match {
       case Some(value) => Right(ProtocolVersion(value))
 
@@ -176,6 +176,10 @@ object ProtocolVersion {
             Left(s"Unable to convert string `$rawVersion` to a protocol version.")
           }
     }
+
+  /** Same as above when parsing a raw version value */
+  def parseUnchecked(rawVersion: Int): Either[String, ProtocolVersion] =
+    Right(ProtocolVersion(rawVersion))
 
   /** Creates a [[ProtocolVersion]] from the given raw version value and ensures that it is a supported version.
     * @param rawVersion   String to be parsed.
@@ -189,7 +193,7 @@ object ProtocolVersion {
       rawVersion: String,
       allowDeleted: Boolean = false,
   ): Either[String, ProtocolVersion] =
-    parseUnchecked(rawVersion).flatMap { pv =>
+    parseUncheckedS(rawVersion).flatMap { pv =>
       val isSupported = pv.isSupported || (allowDeleted && pv.isDeleted)
 
       Either.cond(isSupported, pv, unsupportedErrorMessage(pv, includeDeleted = allowDeleted))
@@ -210,13 +214,6 @@ object ProtocolVersion {
 
     Either.cond(isSupported, pv, OtherError(unsupportedErrorMessage(pv)))
   }
-
-  /** Like [[create]] ensures a supported protocol version; tailored to (de-)serialization purposes.
-    * For handshake, we want to use a string as the primitive type and not an int because that is
-    * an endpoint that should never change. Using string allows us to evolve the scheme if needed.
-    */
-  def fromProtoPrimitiveHandshake(rawVersion: String): ParsingResult[ProtocolVersion] =
-    ProtocolVersion.create(rawVersion).leftMap(OtherError)
 
   final case class InvalidProtocolVersion(override val description: String) extends FailureReason
 
@@ -269,7 +266,7 @@ object ProtocolVersion {
   lazy val minimum: ProtocolVersion = v32
 
   private def parseFromBuildInfo(pv: Seq[String]): List[ProtocolVersion] =
-    pv.map(parseUnchecked)
+    pv.map(parseUncheckedS)
       .map(_.valueOr(sys.error))
       .toList
 }

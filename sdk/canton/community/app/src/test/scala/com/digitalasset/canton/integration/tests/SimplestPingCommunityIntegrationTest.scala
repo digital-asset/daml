@@ -5,6 +5,7 @@ package com.digitalasset.canton.integration.tests
 
 import com.digitalasset.canton.admin.api.client.data.{NodeStatus, WaitingForInitialization}
 import com.digitalasset.canton.config.CommunityStorageConfig
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.InstanceReference
 import com.digitalasset.canton.integration.CommunityTests.{
   CommunityIntegrationTest,
@@ -46,6 +47,7 @@ sealed trait SimplestPingCommunityIntegrationTest
       Seq(sequencer1),
       Seq(mediator1),
       Seq[InstanceReference](sequencer1, mediator1),
+      PositiveInt.two,
       staticDomainParameters = CommunityEnvironmentDefinition.defaultStaticDomainParameters,
     )
 

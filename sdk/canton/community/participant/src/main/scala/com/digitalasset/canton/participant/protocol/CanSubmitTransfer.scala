@@ -7,7 +7,7 @@ import cats.data.EitherT
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.participant.protocol.transfer.ReassignmentProcessingSteps.{
+import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.{
   NoReassignmentSubmissionPermission,
   ReassignmentProcessorError,
 }
