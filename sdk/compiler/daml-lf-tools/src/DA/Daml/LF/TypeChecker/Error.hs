@@ -220,7 +220,7 @@ data UnwarnableError
 
 data WarnableError
   = WEUpgradeShouldDefineIfacesAndTemplatesSeparately
-  | WEUpgradeShouldDefineIfaceWithoutImplementation !TypeConName ![TypeConName]
+  | WEUpgradeShouldDefineIfaceWithoutImplementation !ModuleName !TypeConName !TypeConName
   | WEUpgradeShouldDefineTplInSeparatePackage !TypeConName !TypeConName
   | WEDependencyHasUnparseableVersion !PackageName !PackageVersion !PackageUpgradeOrigin
   | WEDependencyHasNoMetadataDespiteUpgradeability !PackageId !PackageUpgradeOrigin
@@ -234,13 +234,12 @@ instance Pretty WarnableError where
         , "It is recommended that interfaces are defined in their own package separate from their implementations."
         , "Ignore this error message with the --warn-bad-interface-instances=yes flag."
         ]
-    WEUpgradeShouldDefineIfaceWithoutImplementation iface implementingTemplates ->
-      vsep $ concat
-        [ [ "The interface " <> pPrint iface <> " was defined in this package and implemented in this package by the following templates:" ]
-        , map (quotes . pPrint) implementingTemplates
-        , [ "This may make this package and its dependents not upgradeable." ]
-        , [ "It is recommended that interfaces are defined in their own package separate from their implementations." ]
-        , [ "Ignore this error message with the --warn-bad-interface-instances=yes flag." ]
+    WEUpgradeShouldDefineIfaceWithoutImplementation implModule implIface implTpl ->
+      vsep
+        [ "The interface " <> pPrint implIface <> " was defined in this package and implemented in " <> pPrint implModule <> " by " <> pPrint implTpl
+        , "This may make this package and its dependents not upgradeable."
+        , "It is recommended that interfaces are defined in their own package separate from their implementations."
+        , "Ignore this error message with the --warn-bad-interface-instances=yes flag."
         ]
     WEUpgradeShouldDefineTplInSeparatePackage tpl iface ->
       vsep

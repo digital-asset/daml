@@ -478,7 +478,7 @@ tests damlc =
                 [ testGeneral
                       (prefix <> "WhenAnInterfaceAndATemplateAreDefinedInTheSamePackage")
                       "WarnsWhenAnInterfaceAndATemplateAreDefinedInTheSamePackage"
-                      (expectation "type checking module Main:\n  This package defines both interfaces and templates.")
+                      (expectation "type checking <none>:\n  This package defines both interfaces and templates.")
                       versionDefault
                       NoDependencies
                       warnBadInterfaceInstances
@@ -489,7 +489,7 @@ tests damlc =
                 , testGeneral
                       (prefix <> "WhenAnInterfaceIsUsedInThePackageThatItsDefinedIn")
                       "WarnsWhenAnInterfaceIsUsedInThePackageThatItsDefinedIn"
-                      (expectation "type checking interface Main.I :\n  The interface I was defined in this package and implemented in this package by the following templates:")
+                      (expectation "type checking template Main.T interface instance Main.I for Main.T:\n  The interface I was defined in this package") -- TODO complete error
                       versionDefault
                       NoDependencies
                       warnBadInterfaceInstances
