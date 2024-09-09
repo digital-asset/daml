@@ -243,6 +243,9 @@ runCommand env@Env{..} = \case
                     Left _ -> const False
                     Right vs -> (`elem` vs)
 
+            -- Note that the VSCode extension (extension.ts) uses these exact strings to determine the active sdk version.
+            -- Changes to these strings should be reflected in the extension, and the extension must remain backwards compatible
+            -- with older versions of the `daml version` output.
             versionAttrs v = catMaybes
                 [ ("selected by env var " <> pack sdkVersionEnvVar)
                     <$ guard (Just (unpack $ versionToText v) == envSelectedVersionM)

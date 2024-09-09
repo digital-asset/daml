@@ -29,6 +29,9 @@ import * as util from "util";
 import fetch from "node-fetch";
 import { getOrd } from "fp-ts/lib/Array";
 import { ordNumber } from "fp-ts/lib/Ord";
+import * as semver from "semver";
+import { exec as execSync } from "child_process";
+const exec = util.promisify(execSync);
 
 let damlRoot: string = path.join(os.homedir(), ".daml");
 
@@ -86,7 +89,7 @@ export async function activate(context: vscode.ExtensionContext) {
     config: vscode.WorkspaceConfiguration,
     consent: boolean | undefined,
   ) {
-    damlLanguageClient = createLanguageClient(config, consent);
+    damlLanguageClient = await createLanguageClient(config, consent);
     damlLanguageClient.registerProposedFeatures();
 
     virtualResourceManager = new VirtualResourceManager(
@@ -285,8 +288,24 @@ function addIfInConfig(
 function getLanguageServerArgs(
   config: vscode.WorkspaceConfiguration,
   telemetryConsent: boolean | undefined,
+  sdkVersion: string | undefined,
 ): string[] {
-  const multiIDESupport = config.get("multiPackageIdeSupport");
+  let multiIDESupport = config.get("multiPackageIdeSupport");
+
+  // We'll say multi-ide is introduced in 2.9.0. The command existed
+  // in 2.8, but it was unfinished, so we shouldn't allow it to be used.
+  if (
+    multiIDESupport &&
+    sdkVersion &&
+    sdkVersion != "0.0.0" &&
+    semver.lt(sdkVersion, "2.9.0")
+  ) {
+    multiIDESupport = false;
+    window.showWarningMessage(
+      `Selected Daml SDK version (${sdkVersion}) does not support Multi-IDE.\nMulti-IDE is disabled for this project.`,
+    );
+  }
+
   isMultiIde = !!multiIDESupport;
   const logLevel = config.get("logLevel");
   const isDebug = logLevel == "Debug" || logLevel == "Telemetry";
@@ -318,10 +337,28 @@ function getLanguageServerArgs(
   return serverArgs;
 }
 
-export function createLanguageClient(
+async function getSdkVersion(
+  damlPath: string,
+  projectPath: string | undefined,
+): Promise<string | undefined> {
+  // Ordered by priority
+  const selectionStrings = [
+    "selected by env var ",
+    "project SDK version from daml.yaml",
+    "default SDK version for new projects",
+  ];
+  const { stdout } = await exec(damlPath + " version", { cwd: projectPath });
+  const lines = stdout.split("\n");
+  for (const selection of selectionStrings) {
+    const line = lines.find((line: string) => line.includes(selection));
+    if (line) return line.trim().split(" ")[0];
+  }
+}
+
+export async function createLanguageClient(
   config: vscode.WorkspaceConfiguration,
   telemetryConsent: boolean | undefined,
-): LanguageClient {
+): Promise<LanguageClient> {
   // Options to control the language client
   let clientOptions: LanguageClientOptions = {
     // Register the server for Daml
@@ -344,7 +381,12 @@ export function createLanguageClient(
     }
   }
 
-  const serverArgs = getLanguageServerArgs(config, telemetryConsent);
+  const sdkVersion = await getSdkVersion(command, vscode.workspace.rootPath);
+  const serverArgs = getLanguageServerArgs(
+    config,
+    telemetryConsent,
+    sdkVersion,
+  );
 
   const languageClient = new LanguageClient(
     "daml-language-server",
