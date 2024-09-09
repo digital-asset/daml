@@ -594,6 +594,16 @@ osName = case System.Info.os of
     "mingw32" -> "windows"
     p -> error ("daml: Unknown operating system " ++ p)
 
+-- | Architecture-specific part of the asset name
+archName :: Text
+archName = case System.Info.arch of
+    "x86_64"   -> "x86_64"
+    "aarch64" -> "aarch64"
+    p -> error ("daml: Unknown architecture " ++ p)
+
+archSuffix :: ReleaseVersion -> T.Text
+archSuffix v = if isDaml3OrHigher v then "-" <> archName else ""
+
 newtype ArtifactoryApiKey = ArtifactoryApiKey
     { unwrapArtifactoryApiKey :: Text
     } deriving (Eq, Show, FromJSON)
@@ -620,6 +630,7 @@ artifactoryVersionLocation releaseVersion apiKey =
                 , sdkVersionToText (sdkVersionFromReleaseVersion releaseVersion)
                 , "-"
                 , osName
+                , archSuffix releaseVersion
                 , "-ee.tar.gz"
                 ]
             , hilHeaders =
@@ -635,6 +646,7 @@ artifactoryVersionLocation releaseVersion apiKey =
                 , sdkVersionToText (sdkVersionFromReleaseVersion releaseVersion)
                 , "-"
                 , osName
+                , archSuffix releaseVersion
                 , "-ee.tar.gz" 
                 ]
             , hilHeaders =
@@ -680,6 +692,7 @@ renderVersionLocation releaseVersion prefix =
       , V.toText (unwrapSdkVersion (sdkVersionFromReleaseVersion releaseVersion))
       , "-"
       , osName
+      , archSuffix releaseVersion
       , ".tar.gz"
       ]
 
