@@ -3,8 +3,9 @@
 
 -- @SUPPORTS-LF-FEATURE DAML_INTERFACE
 
--- @ WARN since-lf=1.17 2.0; warn-bad-interface-instances
--- @ WARN since-lf=1.17 2.0; warn-bad-interface-instances
+-- @ WARN since-lf=1.16 2.0; warn-bad-interface-instances
+-- @ WARN since-lf=1.16 2.0; warn-bad-interface-instances
+-- @ WARN since-lf=1.16 2.0; warn-bad-interface-instances
 -- | Test interface conversion functions specifically.
 module InterfaceConversions where
 
@@ -134,9 +135,9 @@ templateInterfaceMatchingTest = exerciseTest TemplateInterfaceMatching
 -- for actions that make sense for the common interface Iface.
 -- See useActionFrom
 voidFromInterfaceTest = exerciseTest VoidFromInterface
--- @ERROR range=138:1-138:23; Attempt to fetch or exercise a wrongly typed contract.
+-- @ERROR range=139:1-139:23; Attempt to fetch or exercise a wrongly typed contract.
 fetchFromInterfaceTest = exerciseTest FetchFromInterface
--- @ERROR range=140:1-140:25; Attempt to fetch or exercise a wrongly typed contract.
+-- @ERROR range=141:1-141:25; Attempt to fetch or exercise a wrongly typed contract.
 archiveFromInterfaceTest = exerciseTest ArchiveFromInterface
 
 -- Test that using coerceInterfaceContractId incorrectly will result
@@ -144,9 +145,9 @@ archiveFromInterfaceTest = exerciseTest ArchiveFromInterface
 -- id as if it were a Iface2 contract id will always fail.
 -- See useActionCoerce
 voidCoerceInterfaceTest = exerciseTest VoidCoerceInterface
--- @ERROR range=148:1-148:28; Attempt to use a contract via an interface that the contract does not implement
+-- @ERROR range=149:1-149:28; Attempt to use a contract via an interface that the contract does not implement
 exerciseCoerceInterfaceTest = exerciseTest ExerciseCoerceInterface
--- @ERROR range=150:1-150:25; Attempt to use a contract via an interface that the contract does not implement
+-- @ERROR range=151:1-151:25; Attempt to use a contract via an interface that the contract does not implement
 fetchCoerceInterfaceTest = exerciseTest FetchCoerceInterface
--- @ERROR range=152:1-152:27; Attempt to use a contract via an interface that the contract does not implement
+-- @ERROR range=153:1-153:27; Attempt to use a contract via an interface that the contract does not implement
 archiveCoerceInterfaceTest = exerciseTest ArchiveCoerceInterface

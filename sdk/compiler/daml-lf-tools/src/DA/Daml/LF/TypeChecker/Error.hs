@@ -46,6 +46,7 @@ data Context
       , cduSubContext :: !Context -- Context within the package of the error
       , cduIsDependency :: !Bool -- Is the package a dependency package or is it the main package?
       }
+  deriving (Eq)
 
 data TemplatePart
   = TPWhole
@@ -57,12 +58,14 @@ data TemplatePart
   -- ^ Specifically the `key` keyword, not maintainers
   | TPChoice TemplateChoice
   | TPInterfaceInstance InterfaceInstanceHead (Maybe SourceLoc)
+  deriving (Eq)
 
 data InterfacePart
   = IPWhole
   | IPMethod InterfaceMethod
   | IPChoice TemplateChoice
   | IPInterfaceInstance InterfaceInstanceHead (Maybe SourceLoc)
+  deriving (Eq)
 
 data SerializabilityRequirement
   = SRTemplateArg
@@ -72,7 +75,7 @@ data SerializabilityRequirement
   | SRDataType
   | SRExceptionArg
   | SRView
-  deriving (Show)
+  deriving (Show, Eq)
 
 -- | Reason why a type is not serializable.
 data UnserializabilityReason
@@ -217,11 +220,11 @@ data UnwarnableError
 
 data WarnableError
   = WEUpgradeShouldDefineIfacesAndTemplatesSeparately
-  | WEUpgradeShouldDefineIfaceWithoutImplementation !TypeConName ![TypeConName]
+  | WEUpgradeShouldDefineIfaceWithoutImplementation !ModuleName !TypeConName !TypeConName
   | WEUpgradeShouldDefineTplInSeparatePackage !TypeConName !TypeConName
   | WEDependencyHasUnparseableVersion !PackageName !PackageVersion !PackageUpgradeOrigin
   | WEDependencyHasNoMetadataDespiteUpgradeability !PackageId !PackageUpgradeOrigin
-  deriving (Show)
+  deriving (Eq, Show)
 
 instance Pretty WarnableError where
   pPrint = \case
@@ -231,13 +234,12 @@ instance Pretty WarnableError where
         , "It is recommended that interfaces are defined in their own package separate from their implementations."
         , "Ignore this error message with the --warn-bad-interface-instances=yes flag."
         ]
-    WEUpgradeShouldDefineIfaceWithoutImplementation iface implementingTemplates ->
-      vsep $ concat
-        [ [ "The interface " <> pPrint iface <> " was defined in this package and implemented in this package by the following templates:" ]
-        , map (quotes . pPrint) implementingTemplates
-        , [ "This may make this package and its dependents not upgradeable." ]
-        , [ "It is recommended that interfaces are defined in their own package separate from their implementations." ]
-        , [ "Ignore this error message with the --warn-bad-interface-instances=yes flag." ]
+    WEUpgradeShouldDefineIfaceWithoutImplementation implModule implIface implTpl ->
+      vsep
+        [ "The interface " <> pPrint implIface <> " was defined in this package and implemented in " <> pPrint implModule <> " by " <> pPrint implTpl
+        , "This may make this package and its dependents not upgradeable."
+        , "It is recommended that interfaces are defined in their own package separate from their implementations."
+        , "Ignore this error message with the --warn-bad-interface-instances=yes flag."
         ]
     WEUpgradeShouldDefineTplInSeparatePackage tpl iface ->
       vsep
@@ -774,7 +776,7 @@ data Warning
     -- signatories. If the expression changes shape so that we can't get the
     -- underlying expression that has changed, this warning is emitted.
   | WErrorToWarning !WarnableError
-  deriving (Show)
+  deriving (Eq, Show)
 
 warningLocation :: Warning -> Maybe SourceLoc
 warningLocation = \case

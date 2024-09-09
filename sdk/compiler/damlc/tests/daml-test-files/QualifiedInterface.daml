@@ -4,6 +4,8 @@
 {-# LANGUAGE ApplicativeDo #-}
 
 -- @SUPPORTS-LF-FEATURE DAML_INTERFACE
+-- @ WARN since-lf=1.16 2.0; warn-bad-interface-instances
+-- @ WARN since-lf=1.16 2.0; warn-bad-interface-instances
 
 module QualifiedInterface where
 
