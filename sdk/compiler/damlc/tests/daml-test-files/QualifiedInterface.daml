@@ -3,6 +3,8 @@
 
 {-# LANGUAGE ApplicativeDo #-}
 
+-- @ WARN warn-bad-interface-instances
+-- @ WARN warn-bad-interface-instances
 
 module QualifiedInterface where
 
