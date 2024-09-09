@@ -292,7 +292,7 @@ trait SequencerBlockStore extends AutoCloseable {
         )
     }
 
-    inFlightAggregationsAtEndOfBlock.foreach { case (aggregationId, inFlightAggregation) =>
+    inFlightAggregationsAtEndOfBlock.foreach { case (_aggregationId, inFlightAggregation) =>
       inFlightAggregation.checkInvariant()
     }
   }
@@ -304,24 +304,21 @@ object SequencerBlockStore {
       protocolVersion: ProtocolVersion,
       timeouts: ProcessingTimeout,
       enableAdditionalConsistencyChecks: Boolean,
-      checkedInvariant: Option[Member],
       loggerFactory: NamedLoggerFactory,
-      unifiedSequencer: Boolean,
   )(implicit
       executionContext: ExecutionContext
   ): SequencerBlockStore =
     storage match {
       case _: MemoryStorage =>
-        new InMemorySequencerBlockStore(checkedInvariant, loggerFactory)
+        new InMemorySequencerBlockStore(checkedInvariant = None, loggerFactory)
       case dbStorage: DbStorage =>
         new DbSequencerBlockStore(
           dbStorage,
           protocolVersion,
           timeouts,
           enableAdditionalConsistencyChecks,
-          checkedInvariant,
+          checkedInvariant = None,
           loggerFactory,
-          unifiedSequencer = unifiedSequencer,
         )
     }
 }

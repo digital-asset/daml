@@ -53,7 +53,6 @@ abstract class BlockSequencerFactory(
     health: Option[SequencerHealthConfig],
     storage: Storage,
     protocolVersion: ProtocolVersion,
-    sequencerId: SequencerId,
     nodeParameters: CantonNodeParameters,
     override val loggerFactory: NamedLoggerFactory,
     testingInterceptor: Option[TestingInterceptor],
@@ -67,12 +66,7 @@ abstract class BlockSequencerFactory(
     protocolVersion,
     nodeParameters.processingTimeouts,
     nodeParameters.enableAdditionalConsistencyChecks,
-    // Block sequencer invariant checks will fail in unified sequencer mode
-    checkedInvariant = Option.when(
-      nodeParameters.enableAdditionalConsistencyChecks && !nodeParameters.useUnifiedSequencer
-    )(sequencerId),
     loggerFactory,
-    unifiedSequencer = nodeParameters.useUnifiedSequencer,
   )
 
   private val trafficPurchasedStore = TrafficPurchasedStore(
@@ -227,16 +221,12 @@ abstract class BlockSequencerFactory(
       nodeParameters.enableAdditionalConsistencyChecks,
       nodeParameters.processingTimeouts,
       domainLoggerFactory,
-      nodeParameters.useUnifiedSequencer,
     )
 
     for {
       _ <- balanceManager.initialize
       stateManager <- stateManagerF
     } yield {
-      logger.info(
-        s"Creating block sequencer with unified mode set to: ${nodeParameters.useUnifiedSequencer}"
-      )
       val sequencer = createBlockSequencer(
         name,
         domainId,

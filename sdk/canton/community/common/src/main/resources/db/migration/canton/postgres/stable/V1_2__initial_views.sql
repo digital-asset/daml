@@ -683,13 +683,22 @@ create or replace view debug.ord_availability_batch as
     batch
   from ord_availability_batch;
 
-create or replace view debug.ord_pbft_messages as
+create or replace view debug.ord_pbft_messages_in_progress as
+select
+    block_number,
+    view_number,
+    message,
+    discriminator,
+    from_sequencer_id
+from ord_pbft_messages_in_progress;
+
+create or replace view debug.ord_pbft_messages_completed as
   select
     block_number,
     message,
     discriminator,
     from_sequencer_id
-  from ord_pbft_messages;
+  from ord_pbft_messages_completed;
 
 create or replace view debug.ord_metadata_output_blocks as
   select

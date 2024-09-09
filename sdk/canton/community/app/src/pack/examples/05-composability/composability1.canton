@@ -12,6 +12,7 @@ val iouId = bootstrap.domain(
   sequencers = Seq(iou_sequencer),
   mediators = Seq(iou_mediator),
   domainOwners = Seq(iouDomainOwner),
+  domainThreshold = PositiveInt.one,
   staticDomainParameters = StaticDomainParameters.defaultsWithoutKMS(ProtocolVersion.latest),
 )
 
@@ -21,6 +22,7 @@ val paintId = bootstrap.domain(
   sequencers = Seq(paint_sequencer),
   mediators = Seq(paint_mediator),
   domainOwners = Seq(paintDomainOwner),
+  domainThreshold = PositiveInt.one,
   staticDomainParameters = StaticDomainParameters.defaultsWithoutKMS(ProtocolVersion.latest),
 )
 

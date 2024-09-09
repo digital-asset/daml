@@ -13,8 +13,8 @@ import com.digitalasset.canton.ledger.participant.state.{Reassignment, Update}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.participant.GlobalOffset
-import com.digitalasset.canton.participant.protocol.transfer.ReassignmentData.*
-import com.digitalasset.canton.participant.protocol.transfer.{
+import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentData.*
+import com.digitalasset.canton.participant.protocol.reassignment.{
   IncompleteReassignmentData,
   ReassignmentData,
 }
@@ -37,7 +37,7 @@ trait ReassignmentStore extends ReassignmentLookup {
   /** Adds the reassignment to the store.
     *
     * Calls to this method are idempotent, independent of the order.
-    * Differences in [[protocol.transfer.ReassignmentData!.unassignmentResult]] between two calls are ignored
+    * Differences in [[protocol.reassignment.ReassignmentData!.unassignmentResult]] between two calls are ignored
     * if the field is [[scala.None$]] in one of the calls. If applicable, the field content is merged.
     *
     * @throws java.lang.IllegalArgumentException if the reassignment's target domain is not
@@ -51,7 +51,7 @@ trait ReassignmentStore extends ReassignmentLookup {
     * provided that the reassignment data has previously been stored.
     *
     * The same [[com.digitalasset.canton.protocol.messages.ConfirmationResultMessage]] can be added any number of times.
-    * This includes unassignment results that are in the [[protocol.transfer.ReassignmentData!.unassignmentResult]]
+    * This includes unassignment results that are in the [[protocol.reassignment.ReassignmentData!.unassignmentResult]]
     * added with [[addReassignment]].
     *
     * @param unassignmentResult The unassignment result to add

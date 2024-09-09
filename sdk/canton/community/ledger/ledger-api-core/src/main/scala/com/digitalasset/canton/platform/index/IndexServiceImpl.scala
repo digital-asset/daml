@@ -538,22 +538,29 @@ object IndexServiceImpl {
     val unknownInterfaceIds = Set.newBuilder[Identifier]
     val packageNamesWithNoTemplatesForQualifiedNameBuilder =
       Set.newBuilder[(Ref.PackageName, Ref.QualifiedName)]
+    val packageNamesWithNoInterfacesForQualifiedNameBuilder =
+      Set.newBuilder[(Ref.PackageName, Ref.QualifiedName)]
 
-    def checkTypeConRef(typeConRef: TypeConRef): Unit = typeConRef match {
+    def checkTypeConRef(
+        knownIds: Set[Identifier],
+        handleUnknownIdForPkgName: (((Ref.PackageName, Ref.QualifiedName)) => Unit),
+        handleUnknownId: (Identifier => Unit),
+        handleUnknownPkgName: (Ref.PackageName => Unit),
+    )(typeConRef: TypeConRef): Unit = typeConRef match {
       case TypeConRef(PackageRef.Name(packageName), qualifiedName) =>
         metadata.packageNameMap.get(packageName) match {
           case Some(PackageResolution(_, allPackageIdsForName))
               if !allPackageIdsForName.view
                 .map(Ref.Identifier(_, qualifiedName))
-                .exists(metadata.templates) =>
-            packageNamesWithNoTemplatesForQualifiedNameBuilder += (packageName -> qualifiedName)
-          case None => unknownPackageNames += packageName
+                .exists(knownIds) =>
+            handleUnknownIdForPkgName(packageName -> qualifiedName)
+          case None => handleUnknownPkgName(packageName)
           case _ => ()
         }
 
       case TypeConRef(PackageRef.Id(packageId), qName) =>
-        val templateId = Identifier(packageId, qName)
-        if (!metadata.templates.contains(templateId)) unknownTemplateIds += templateId
+        val id = Identifier(packageId, qName)
+        if (!knownIds.contains(id)) handleUnknownId(id)
     }
 
     val cumulativeFilters = domainTransactionFilter.filtersByParty.iterator.map(
@@ -562,10 +569,26 @@ object IndexServiceImpl {
 
     cumulativeFilters.foreach {
       case CumulativeFilter(templateFilters, interfaceFilters, _wildacrdFilter) =>
-        templateFilters.iterator.map(_.templateTypeRef).foreach(checkTypeConRef)
-        interfaceFilters.iterator.map(_.interfaceId).foreach { interfaceId =>
-          if (!metadata.interfaces.contains(interfaceId)) unknownInterfaceIds += interfaceId
-        }
+        templateFilters.iterator
+          .map(_.templateTypeRef)
+          .foreach(
+            checkTypeConRef(
+              metadata.templates,
+              (packageNamesWithNoTemplatesForQualifiedNameBuilder += _),
+              (unknownTemplateIds += _),
+              (unknownPackageNames += _),
+            )
+          )
+        interfaceFilters.iterator
+          .map(_.interfaceTypeRef)
+          .foreach(
+            checkTypeConRef(
+              metadata.interfaces,
+              (packageNamesWithNoInterfacesForQualifiedNameBuilder += _),
+              (unknownInterfaceIds += _),
+              (unknownPackageNames += _),
+            )
+          )
     }
 
     val packageNames = unknownPackageNames.result()
@@ -573,6 +596,8 @@ object IndexServiceImpl {
     val interfaceIds = unknownInterfaceIds.result()
     val packageNamesWithNoTemplatesForQualifiedName =
       packageNamesWithNoTemplatesForQualifiedNameBuilder.result()
+    val packageNamesWithNoInterfacesForQualifiedName =
+      packageNamesWithNoInterfacesForQualifiedNameBuilder.result()
 
     for {
       _ <- EitherUtil.condUnitE(
@@ -583,6 +608,12 @@ object IndexServiceImpl {
         packageNamesWithNoTemplatesForQualifiedName.isEmpty,
         RequestValidationErrors.NotFound.NoTemplatesForPackageNameAndQualifiedName.Reject(
           packageNamesWithNoTemplatesForQualifiedName
+        ),
+      )
+      _ <- EitherUtil.condUnitE(
+        packageNamesWithNoInterfacesForQualifiedName.isEmpty,
+        RequestValidationErrors.NotFound.NoInterfaceForPackageNameAndQualifiedName.Reject(
+          packageNamesWithNoInterfacesForQualifiedName
         ),
       )
       _ <- EitherUtil.condUnitE(
@@ -674,7 +705,7 @@ object IndexServiceImpl {
         transactionFilter,
         verbose,
         interfaceId => metadata.interfacesImplementedBy.getOrElse(interfaceId, Set.empty),
-        resolveTemplateRef(metadata),
+        metadata.resolveTypeConRef(_),
         alwaysPopulateArguments,
       )
       Some(
@@ -689,54 +720,19 @@ object IndexServiceImpl {
     }
   }
 
-  private def resolveTemplateRef(metadata: PackageMetadata): TypeConRef => Set[Identifier] = {
-    case TypeConRef(PackageRef.Name(packageName), qualifiedName) =>
-      resolveUpgradableTemplates(metadata, packageName, qualifiedName)
-    case TypeConRef(PackageRef.Id(packageId), qName) => Set(Identifier(packageId, qName))
-  }
-
-  /** Resolve all template ids for (package-name, qualified-name).
-    *
-    * As context, package-level upgrading compatibility between two packages pkg1 and pkg2,
-    * where pkg2 upgrades pkg1 and they both have the same package-name,
-    * ensures that all templates defined in pkg1 are present in pkg2.
-    * Then, for resolving all the template-ids for (package-name, qualified-name):
-    *
-    * * we first create all possible template-ids by concatenation with the requested qualified-name
-    *   of the known package-ids for the requested package-name.
-    *
-    * * Then, since some templates can only be defined later (in a package with greater package-version),
-    *   we filter the previous result by intersection with the known template-id set.
-    */
-  private[index] def resolveUpgradableTemplates(
-      packageMetadata: PackageMetadata,
-      packageName: Ref.PackageName,
-      qualifiedName: Ref.QualifiedName,
-  ): Set[Identifier] =
-    packageMetadata.packageNameMap
-      .get(packageName)
-      .map(_.allPackageIdsForName.iterator)
-      .getOrElse(Iterator.empty)
-      .map(packageId => Identifier(packageId, qualifiedName))
-      .toSet
-      .intersect(packageMetadata.templates)
-
   private def templateIds(
       metadata: PackageMetadata,
       cumulativeFilter: CumulativeFilter,
   ): Set[Identifier] = {
     val fromInterfacesDefs = cumulativeFilter.interfaceFilters.view
-      .map(_.interfaceId)
-      .flatMap(metadata.interfacesImplementedBy.getOrElse(_, Set.empty))
+      .map(_.interfaceTypeRef)
+      .flatMap(metadata.resolveTypeConRef(_))
+      .flatMap(metadata.interfacesImplementedBy.getOrElse(_, Set.empty).view)
       .toSet
 
     val fromTemplateDefs = cumulativeFilter.templateFilters.view
       .map(_.templateTypeRef)
-      .flatMap {
-        case TypeConRef(PackageRef.Name(packageName), qualifiedName) =>
-          resolveUpgradableTemplates(metadata, packageName, qualifiedName)
-        case TypeConRef(PackageRef.Id(packageId), qName) => Iterator(Identifier(packageId, qName))
-      }
+      .flatMap(metadata.resolveTypeConRef(_))
 
     fromInterfacesDefs ++ fromTemplateDefs
   }

@@ -23,7 +23,7 @@ service SequencerAuthenticationService {
 message SequencerAuthentication {
   message ChallengeRequest {
     string member = 1;
-    repeated string member_protocol_versions = 2;
+    repeated int32 member_protocol_versions = 2;
   }
 
   message ChallengeResponse {

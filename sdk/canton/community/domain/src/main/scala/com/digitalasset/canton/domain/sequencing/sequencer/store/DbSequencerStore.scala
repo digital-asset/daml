@@ -63,7 +63,7 @@ class DbSequencerStore(
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
     sequencerMember: Member,
-    unifiedSequencer: Boolean,
+    override val blockSequencerMode: Boolean,
     overrideCloseContext: Option[CloseContext] = None,
 )(protected implicit val executionContext: ExecutionContext)
     extends SequencerStore
@@ -587,7 +587,7 @@ class DbSequencerStore(
   override def savePayloads(payloads: NonEmpty[Seq[Payload]], instanceDiscriminator: UUID)(implicit
       traceContext: TraceContext
   ): EitherT[Future, SavePayloadsError, Unit] =
-    if (unifiedSequencer) {
+    if (blockSequencerMode) {
       savePayloadsUS(payloads, instanceDiscriminator)
     } else {
       savePayloadsResolvingConflicts(payloads, instanceDiscriminator)

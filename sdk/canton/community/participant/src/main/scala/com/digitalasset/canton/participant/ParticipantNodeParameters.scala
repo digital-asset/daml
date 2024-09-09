@@ -4,27 +4,10 @@
 package com.digitalasset.canton.participant
 
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveNumeric}
-import com.digitalasset.canton.config.{
-  ApiLoggingConfig,
-  BatchAggregatorConfig,
-  BatchingConfig,
-  CachingConfigs,
-  DefaultProcessingTimeouts,
-  LoggingConfig,
-}
-import com.digitalasset.canton.environment.{
-  CantonNodeParameters,
-  DefaultNodeParameters,
-  HasGeneralCantonNodeParameters,
-}
+import com.digitalasset.canton.config.*
+import com.digitalasset.canton.environment.{CantonNodeParameters, HasGeneralCantonNodeParameters}
 import com.digitalasset.canton.participant.admin.AdminWorkflowConfig
-import com.digitalasset.canton.participant.config.{
-  CantonEngineConfig,
-  LedgerApiServerParametersConfig,
-  ParticipantProtocolConfig,
-  ParticipantStoreConfig,
-  PartyNotificationConfig,
-}
+import com.digitalasset.canton.participant.config.*
 import com.digitalasset.canton.participant.sync.CommandProgressTrackerConfig
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
@@ -74,7 +57,6 @@ object ParticipantNodeParameters {
       sequencerClient = SequencerClientConfig(),
       dbMigrateAndStart = false,
       exitOnFatalFailures = true,
-      useUnifiedSequencer = DefaultNodeParameters.UseUnifiedSequencer,
       watchdog = None,
     ),
     partyChangeNotification = PartyNotificationConfig.Eager,

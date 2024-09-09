@@ -11,7 +11,6 @@ import com.daml.metrics.api.opentelemetry.OpenTelemetryMetricsFactory
 import com.digitalasset.canton.concurrent.{DirectExecutionContext, FutureSupervisor, Threading}
 import com.digitalasset.canton.config.{DefaultProcessingTimeouts, ProcessingTimeout}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCryptoProvider
-import com.digitalasset.canton.environment.DefaultNodeParameters
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLogging, SuppressingLogger}
 import com.digitalasset.canton.metrics.OpenTelemetryOnDemandMetricsReader
@@ -75,7 +74,6 @@ trait TestEssentials
     BaseTest.testedReleaseProtocolVersion
   protected lazy val defaultStaticDomainParameters: StaticDomainParameters =
     BaseTest.defaultStaticDomainParameters
-  protected lazy val testedUseUnifiedSequencer: Boolean = BaseTest.testedUseUnifiedSequencer
 
   // default to providing an empty trace context to all tests
   protected implicit def traceContext: TraceContext = TraceContext.empty
@@ -472,17 +470,15 @@ object BaseTest {
     testedProtocolVersion
   )
 
-  lazy val testedUseUnifiedSequencer: Boolean = tryGetUseUnifiedSequencerFromEnv
-
   lazy val CantonExamplesPath: String = getResourcePath("CantonExamples.dar")
   lazy val CantonTestsPath: String = getResourcePath("CantonTests-3.2.0.dar")
   lazy val CantonTestsDevPath: String = getResourcePath("CantonTestsDev-3.2.0.dar")
   lazy val CantonLfDev: String = getResourcePath("CantonLfDev-3.2.0.dar")
   lazy val CantonLfV21: String = getResourcePath("CantonLfV21-3.2.0.dar")
   lazy val PerformanceTestPath: String = getResourcePath("PerformanceTest.dar")
-  lazy val DamlScript3TestFilesPath: String = getResourcePath("DamlScript3TestFiles.dar")
-  lazy val DamlTestFilesPath: String = getResourcePath("DamlTestFiles.dar")
-  lazy val DamlTestLfDevFilesPath: String = getResourcePath("DamlTestLfDevFiles.dar")
+  lazy val DamlScript3TestFilesPath: String = getResourcePath("DamlScript3TestFiles-3.2.0.dar")
+  lazy val DamlTestFilesPath: String = getResourcePath("DamlTestFiles-3.2.0.dar")
+  lazy val DamlTestLfDevFilesPath: String = getResourcePath("DamlTestLfDevFiles-3.2.0.dar")
 
   def getResourcePath(name: String): String =
     Option(getClass.getClassLoader.getResource(name))
@@ -495,12 +491,6 @@ object BaseTest {
   protected def tryGetProtocolVersionFromEnv: Option[ProtocolVersion] = sys.env
     .get("CANTON_PROTOCOL_VERSION")
     .map(ProtocolVersion.tryCreate)
-
-  protected def tryGetUseUnifiedSequencerFromEnv: Boolean = sys.env
-    .get("CANTON_UNIFIED_SEQUENCER")
-    .map(_.toBoolean)
-    .getOrElse(DefaultNodeParameters.UseUnifiedSequencer)
-
 }
 
 trait BaseTestWordSpec extends BaseTest with AnyWordSpecLike {

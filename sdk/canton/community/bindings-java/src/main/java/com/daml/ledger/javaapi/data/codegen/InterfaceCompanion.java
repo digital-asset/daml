@@ -55,7 +55,7 @@ public abstract class InterfaceCompanion<I, Id, View>
   }
 
   // TODO(i21140): remove this overload, once codegen no longer uses it.
-  private InterfaceCompanion(
+  protected InterfaceCompanion(
       String templateClassName,
       Identifier templateId,
       Function<String, Id> newContractId,

@@ -120,7 +120,6 @@ class BlockUpdateGeneratorImpl(
     orderingTimeFixMode: OrderingTimeFixMode,
     metrics: SequencerMetrics,
     protected val loggerFactory: NamedLoggerFactory,
-    unifiedSequencer: Boolean,
     memberValidator: SequencerMemberValidator,
 )(implicit val closeContext: CloseContext)
     extends BlockUpdateGenerator
@@ -138,7 +137,6 @@ class BlockUpdateGeneratorImpl(
       orderingTimeFixMode,
       loggerFactory,
       metrics,
-      unifiedSequencer = unifiedSequencer,
       memberValidator = memberValidator,
     )
 
@@ -210,7 +208,7 @@ class BlockUpdateGeneratorImpl(
       ec: ExecutionContext
   ): FutureUnlessShutdown[SignedChunkEvents] = {
     val UnsignedChunkEvents(
-      sender,
+      _sender,
       events,
       topologyOrSequencingSnapshot,
       sequencingTimestamp,

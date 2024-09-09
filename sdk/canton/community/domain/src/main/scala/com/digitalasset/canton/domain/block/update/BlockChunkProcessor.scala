@@ -34,7 +34,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRate
 import com.digitalasset.canton.error.BaseAlarm
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.sequencing.GroupAddressResolver
 import com.digitalasset.canton.sequencing.client.SequencedEventValidator
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.topology.*
@@ -57,7 +56,6 @@ private[update] final class BlockChunkProcessor(
     orderingTimeFixMode: OrderingTimeFixMode,
     override val loggerFactory: NamedLoggerFactory,
     metrics: SequencerMetrics,
-    unifiedSequencer: Boolean,
     memberValidator: SequencerMemberValidator,
 )(implicit closeContext: CloseContext)
     extends NamedLogging {
@@ -71,7 +69,6 @@ private[update] final class BlockChunkProcessor(
       rateLimitManager,
       loggerFactory,
       metrics,
-      unifiedSequencer = unifiedSequencer,
       memberValidator = memberValidator,
     )
 
@@ -105,38 +102,14 @@ private[update] final class BlockChunkProcessor(
           state.ephemeral.headCounter(sequencerId),
           orderingRequests,
         )
-      newMembers <-
-        if (unifiedSequencer) {
-          // Unified sequencer mode doesn't store members in the ephemeral state.
-          // By the point we are processing a submission with topology/sequencing time topology snapshot,
-          // all the valid members will be already in the members database of DBS
-          FutureUnlessShutdown.pure(Map.empty[Member, CantonTimestamp])
-        } else {
-          detectMembersWithoutSequencerCounters(state, sequencedSubmissionsWithSnapshots)
-        }
-
-      _ = if (newMembers.nonEmpty) {
-        logger.info(s"Detected new members without sequencer counter: $newMembers")
-      }
 
       acksValidationResult <- processAcknowledgements(state, fixedTsChanges)
       (acksByMember, invalidAcks) = acksValidationResult
 
-      // Warn if we use an approximate snapshot but only after we've read at least one
-      warnIfApproximate = state.ephemeral.headCounterAboveGenesis(sequencerId)
-
-      _ <-
-        registerNewMemberTraffic(
-          state,
-          lastTsBeforeValidation,
-          newMembers,
-          warnIfApproximate,
-        )
       stateWithNewMembers = addNewMembers(
         state,
         height,
         index,
-        newMembers,
         acksByMember,
       )
 
@@ -158,7 +131,6 @@ private[update] final class BlockChunkProcessor(
         finalEphemeralState.evictExpiredInFlightAggregations(lastTsBeforeValidation)
       chunkUpdate =
         ChunkUpdate(
-          newMembers,
           acksByMember,
           invalidAcks,
           reversedSignedEvents.reverse,
@@ -178,7 +150,6 @@ private[update] final class BlockChunkProcessor(
             o.sequencingTime
           }
           .maxOption
-          .orElse(newMembers.values.maxOption)
           .getOrElse(state.lastChunkTs)
 
       newState =
@@ -307,133 +278,30 @@ private[update] final class BlockChunkProcessor(
       }
     }
 
-  private def registerNewMemberTraffic(
-      state: State,
-      lastTsBeforeValidation: CantonTimestamp,
-      newMembers: Map[Member, CantonTimestamp],
-      warnIfApproximate: Boolean,
-  )(implicit
-      ec: ExecutionContext,
-      traceContext: TraceContext,
-  ): FutureUnlessShutdown[Unit] =
-    if (newMembers.nonEmpty) {
-      // We are using the snapshot at lastTs for all new members in this chunk rather than their registration times.
-      // In theory, a parameter change could have become effective in between, but we deliberately ignore this for now.
-      // Moreover, a member is effectively registered when it appears in the topology state with the relevant certificate,
-      // but the traffic state here is created only when the member sends or receives the first message.
-      for {
-        snapshot <- SyncCryptoClient
-          .getSnapshotForTimestampUS(
-            client = domainSyncCryptoApi,
-            desiredTimestamp = lastTsBeforeValidation,
-            previousTimestampO = state.latestSequencerEventTimestamp,
-            protocolVersion = protocolVersion,
-            warnIfApproximate = warnIfApproximate,
-          )
-        parameters <- snapshot.ipsSnapshot.trafficControlParameters(protocolVersion)
-        _ <- parameters match {
-          case Some(params) =>
-            newMembers.toList
-              .parTraverse_ { case (member, timestamp) =>
-                // Note: in unified sequencer mode, rate limiter uses a default value if member is not present in its state
-                rateLimitManager
-                  .registerNewMemberAt(
-                    member,
-                    timestamp.immediatePredecessor,
-                    params,
-                  )
-                  .map(member -> _)
-              }
-          case _ => FutureUnlessShutdown.unit
-        }
-      } yield ()
-    } else FutureUnlessShutdown.unit
-
   private def addNewMembers(
       state: State,
       height: Long,
       index: Int,
-      newMembers: Map[Member, CantonTimestamp],
       acksByMember: Map[Member, CantonTimestamp],
   )(implicit traceContext: TraceContext): State = {
-    val newMemberStatus = newMembers.map { case (member, ts) =>
-      member -> InternalSequencerMemberStatus(ts, None)
-    }
-
     val newMembersWithAcknowledgements =
-      acksByMember.foldLeft(state.ephemeral.membersMap ++ newMemberStatus) {
-        case (membersMap, (member, timestamp)) =>
-          membersMap
-            .get(member)
-            .fold {
-              logger.debug(
-                s"Ack at $timestamp for $member (block $height, chunk $index) being ignored because the member has not yet been registered."
-              )
-              membersMap
-            } { memberStatus =>
-              membersMap.updated(member, memberStatus.copy(lastAcknowledged = Some(timestamp)))
-            }
+      acksByMember.foldLeft(state.ephemeral.membersMap) { case (membersMap, (member, timestamp)) =>
+        membersMap
+          .get(member)
+          .fold {
+            logger.debug(
+              s"Ack at $timestamp for $member (block $height, chunk $index) being ignored because the member has not yet been registered."
+            )
+            membersMap
+          } { memberStatus =>
+            membersMap.updated(member, memberStatus.copy(lastAcknowledged = Some(timestamp)))
+          }
       }
 
     state
       .focus(_.ephemeral.membersMap)
       .replace(newMembersWithAcknowledgements)
   }
-
-  private def detectMembersWithoutSequencerCounters(
-      state: BlockUpdateGeneratorImpl.State,
-      sequencedSubmissions: Seq[SequencedSubmission],
-  )(implicit
-      ec: ExecutionContext,
-      traceContext: TraceContext,
-  ): FutureUnlessShutdown[Map[Member, CantonTimestamp]] =
-    sequencedSubmissions
-      .parFoldMapA { sequencedSubmission =>
-        val SequencedSubmission(
-          sequencingTimestamp,
-          signedOrderingRequest,
-          topologyOrSequencingSnapshot,
-          topologyTimestampError,
-        ) =
-          sequencedSubmission
-        val event = signedOrderingRequest.signedSubmissionRequest
-
-        import event.content.sender
-        for {
-          groupToMembers <- FutureUnlessShutdown.outcomeF(
-            GroupAddressResolver.resolveGroupsToMembers(
-              event.content.batch.allRecipients.collect { case groupRecipient: GroupRecipient =>
-                groupRecipient
-              },
-              topologyOrSequencingSnapshot.ipsSnapshot,
-            )
-          )
-          memberRecipients = event.content.batch.allRecipients.collect {
-            case MemberRecipient(member) => member
-          }
-          eligibleSenders = event.content.aggregationRule.fold(Seq.empty[Member])(
-            _.eligibleSenders
-          )
-          knownMemberRecipientsOrSender <- FutureUnlessShutdown.outcomeF(
-            topologyOrSequencingSnapshot.ipsSnapshot
-              .areMembersKnown(
-                Set(sender) ++ eligibleSenders ++ memberRecipients.toSeq
-              )
-          )
-        } yield {
-          val knownGroupMembers = groupToMembers.values.flatten
-
-          val allMembersInSubmission =
-            Set.empty ++ knownGroupMembers ++ knownMemberRecipientsOrSender
-          (allMembersInSubmission -- state.ephemeral.registeredMembers)
-            .map(_ -> sequencingTimestamp)
-            .toSeq
-        }
-      }
-      .map(
-        _.groupBy { case (member, _) => member }
-          .mapFilter(tssForMember => tssForMember.map { case (_, ts) => ts }.minOption)
-      )
 
   private def processAcknowledgements(
       state: State,

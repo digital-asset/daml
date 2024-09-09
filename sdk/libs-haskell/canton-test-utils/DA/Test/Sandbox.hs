@@ -162,11 +162,12 @@ getCantonBootstrap :: SandboxConfig -> FilePath -> String
 getCantonBootstrap conf portFile = unlines $ domainBootstrap <> (upload <$> dars conf) <> [cpPortFile]
   where
     domainBootstrap =
-        [ "import com.digitalasset.canton.version.ProtocolVersion"
+        [ "import com.digitalasset.canton.config.RequireTypes.PositiveInt"
+        , "import com.digitalasset.canton.version.ProtocolVersion"
         , ""
         , "val staticDomainParameters = StaticDomainParameters.defaults(sequencer1.config.crypto, " <> protocolVersion <> ")"
         , "val domainOwners = Seq(sequencer1, mediator1)"
-        , "bootstrap.domain(\"mydomain\", Seq(sequencer1), Seq(mediator1), domainOwners, staticDomainParameters)"
+        , "bootstrap.domain(\"mydomain\", Seq(sequencer1), Seq(mediator1), domainOwners, PositiveInt.one, staticDomainParameters)"
         , "`" <> getParticipantName conf <> "`.domains.connect_local(sequencer1, \"mydomain\")"
         ]
     protocolVersion = if devVersionSupport conf then "ProtocolVersion.dev" else "ProtocolVersion.latest"

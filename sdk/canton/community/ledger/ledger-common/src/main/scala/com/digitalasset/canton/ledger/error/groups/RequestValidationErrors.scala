@@ -162,6 +162,26 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
                   .mkString(", ")}]."
           )
     }
+
+    @Explanation(
+      "The queried type reference for the specified package name and interface qualified-name does not reference any interface uploaded on this participant"
+    )
+    @Resolution(
+      "Use a interface qualified-name referencing already uploaded interface-ids or ask the participant operator to upload the necessary packages."
+    )
+    object NoInterfaceForPackageNameAndQualifiedName
+        extends ErrorCode(
+          id = "NO_INTERFACE_FOR_PACKAGE_NAME_AND_QUALIFIED_NAME",
+          category = ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
+        ) {
+      final case class Reject(noKnownReferences: Set[(Ref.PackageName, Ref.QualifiedName)])(implicit
+          contextualizedErrorLogger: ContextualizedErrorLogger
+      ) extends DamlErrorWithDefiniteAnswer(
+            cause =
+              s"The following package-name/interface qualified-name pairs do not reference any interface-id uploaded on this participant: [${noKnownReferences
+                  .mkString(", ")}]."
+          )
+    }
   }
 
   @Explanation("This rejection is given when a read request tries to access pruned data.")

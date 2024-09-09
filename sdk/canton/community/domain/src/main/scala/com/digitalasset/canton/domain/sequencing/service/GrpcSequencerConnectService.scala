@@ -15,10 +15,15 @@ import com.digitalasset.canton.domain.api.v30.SequencerConnect.{
   GetDomainIdResponse,
   GetDomainParametersRequest,
   GetDomainParametersResponse,
+  HandshakeRequest,
+  HandshakeResponse,
   RegisterOnboardingTopologyTransactionsResponse,
+  VerifyActiveRequest,
+  VerifyActiveResponse,
 }
 import com.digitalasset.canton.domain.api.v30 as proto
 import com.digitalasset.canton.domain.sequencing.authentication.grpc.IdentityContextHelper
+import com.digitalasset.canton.domain.service.HandshakeValidator
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.protocol.StaticDomainParameters
@@ -44,7 +49,6 @@ class GrpcSequencerConnectService(
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends proto.SequencerConnectServiceGrpc.SequencerConnectService
-    with GrpcHandshakeService
     with NamedLogging {
 
   protected val serverProtocolVersion: ProtocolVersion = staticDomainParameters.protocolVersion
@@ -73,10 +77,7 @@ class GrpcSequencerConnectService(
     response.map(GetDomainParametersResponse(_))
   }
 
-  def verifyActive(
-      request: proto.SequencerConnect.VerifyActiveRequest
-  ): Future[proto.SequencerConnect.VerifyActiveResponse] = {
-    import proto.SequencerConnect.VerifyActiveResponse
+  def verifyActive(request: VerifyActiveRequest): Future[VerifyActiveResponse] = {
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val resultF = for {
       participant <- EitherT.fromEither[Future](getParticipantFromGrpcContext())
@@ -96,18 +97,23 @@ class GrpcSequencerConnectService(
       .map(VerifyActiveResponse(_))
   }
 
-  override def handshake(
-      request: SequencerConnect.HandshakeRequest
-  ): Future[SequencerConnect.HandshakeResponse] =
+  override def handshake(request: HandshakeRequest): Future[HandshakeResponse] =
     Future.successful {
-      SequencerConnect.HandshakeResponse(
-        Some(
-          handshake(
-            request.getHandshakeRequest.clientProtocolVersions,
-            request.getHandshakeRequest.minimumProtocolVersion,
-          )
+      val response = HandshakeValidator
+        .clientIsCompatible(
+          serverProtocolVersion,
+          request.clientProtocolVersions,
+          request.minimumProtocolVersion,
         )
-      )
+        .fold[HandshakeResponse.Value](
+          failure =>
+            HandshakeResponse.Value
+              .Failure(SequencerConnect.HandshakeResponse.Failure(failure)),
+          _ =>
+            HandshakeResponse.Value
+              .Success(SequencerConnect.HandshakeResponse.Success()),
+        )
+      HandshakeResponse(serverProtocolVersion.toProtoPrimitive, response)
     }
 
   override def registerOnboardingTopologyTransactions(

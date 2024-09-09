@@ -24,14 +24,14 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.{
   ActivenessSet,
   CommitSet,
 }
+import com.digitalasset.canton.participant.protocol.reassignment.AssignmentProcessingSteps.PendingAssignment
+import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessingSteps.PendingUnassignment
 import com.digitalasset.canton.participant.protocol.submission.CommandDeduplicator.DeduplicationFailed
 import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionTracker.InFlightSubmissionTrackerError
 import com.digitalasset.canton.participant.protocol.submission.{
   ChangeIdHash,
   SubmissionTrackingData,
 }
-import com.digitalasset.canton.participant.protocol.transfer.AssignmentProcessingSteps.PendingAssignment
-import com.digitalasset.canton.participant.protocol.transfer.UnassignmentProcessingSteps.PendingUnassignment
 import com.digitalasset.canton.participant.protocol.validation.PendingTransaction
 import com.digitalasset.canton.participant.store.{
   ReassignmentLookup,

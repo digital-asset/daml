@@ -28,7 +28,7 @@ trait DbSequencerStoreTest extends SequencerStoreTest with MultiTenantedSequence
         timeouts,
         loggerFactory,
         sequencerMember,
-        unifiedSequencer = testedUseUnifiedSequencer,
+        blockSequencerMode = true,
       )
     )
     behave like multiTenantedSequencerStore(() =>
@@ -39,7 +39,7 @@ trait DbSequencerStoreTest extends SequencerStoreTest with MultiTenantedSequence
         timeouts,
         loggerFactory,
         sequencerMember,
-        unifiedSequencer = testedUseUnifiedSequencer,
+        blockSequencerMode = true,
       )
     )
   }

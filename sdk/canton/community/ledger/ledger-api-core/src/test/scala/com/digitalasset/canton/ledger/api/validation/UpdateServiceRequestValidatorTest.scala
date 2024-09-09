@@ -319,7 +319,7 @@ class UpdateServiceRequestValidatorTest
                 ),
                 interfaceFilters = Set(
                   domain.InterfaceFilter(
-                    interfaceId = Ref.Identifier.assertFromString(
+                    interfaceTypeRef = Ref.TypeConRef.assertFromString(
                       "packageId:includedModule:includedTemplate"
                     ),
                     includeView = true,

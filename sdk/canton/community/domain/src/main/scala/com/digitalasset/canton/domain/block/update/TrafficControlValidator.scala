@@ -52,25 +52,21 @@ private[update] class TrafficControlValidator(
     rateLimitManager: SequencerRateLimitManager,
     override val loggerFactory: NamedLoggerFactory,
     metrics: SequencerMetrics,
-    unifiedSequencer: Boolean,
 )(implicit closeContext: CloseContext)
     extends NamedLogging {
 
   private def invalidSubmissionRequest(
-      state: BlockUpdateEphemeralState,
       submissionRequest: SubmissionRequest,
       sequencingTimestamp: CantonTimestamp,
       sequencerError: SequencerDeliverError,
   )(implicit traceContext: TraceContext): SubmissionRequestOutcome =
     SubmissionRequestValidator.invalidSubmissionRequest(
-      state,
       submissionRequest,
       sequencingTimestamp,
       sequencerError,
       logger,
       domainId,
       protocolVersion,
-      unifiedSequencer = unifiedSequencer,
     )
 
   def applyTrafficControl(
@@ -105,7 +101,6 @@ private[update] class TrafficControlValidator(
             latestSequencerEventTimestamp,
             warnIfApproximate =
               state.headCounterAboveGenesis(signedOrderingRequest.submissionRequest.sender),
-            state,
           )
             .map { receipt =>
               // On successful consumption, updated the result with the receipt
@@ -152,7 +147,6 @@ private[update] class TrafficControlValidator(
       sequencingTimestamp: CantonTimestamp,
       latestSequencerEventTimestamp: Option[CantonTimestamp],
       warnIfApproximate: Boolean,
-      st: BlockUpdateEphemeralState,
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
@@ -180,7 +174,6 @@ private[update] class TrafficControlValidator(
             s"Sender does not have enough traffic at $sequencingTimestamp for event with cost ${error.trafficCost} processed by sequencer ${orderingRequest.signature.signedBy}"
           )
           invalidSubmissionRequest(
-            st,
             request.content,
             sequencingTimestamp,
             SequencerErrors.TrafficCredit(error.toString),
@@ -203,7 +196,6 @@ private[update] class TrafficControlValidator(
               s" to sequencer ${orderingRequest.signature.signedBy} was outdated: $error."
           )
           invalidSubmissionRequest(
-            st,
             request.content,
             sequencingTimestamp,
             SequencerErrors.OutdatedTrafficCost(error.toString),

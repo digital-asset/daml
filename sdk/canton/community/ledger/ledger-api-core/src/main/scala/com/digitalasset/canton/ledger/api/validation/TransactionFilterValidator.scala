@@ -95,20 +95,20 @@ object TransactionFilterValidator {
   ): Either[StatusRuntimeException, domain.TemplateFilter] =
     for {
       templateId <- requirePresence(filter.templateId, "templateId")
-      validatedIds <- validateIdentifierWithPackageUpgrading(
-        templateId,
-        filter.includeCreatedEventBlob,
-      )
-    } yield validatedIds
+      typeConRef <- validateTypeConRef(templateId)
+    } yield domain.TemplateFilter(
+      templateTypeRef = typeConRef,
+      includeCreatedEventBlob = filter.includeCreatedEventBlob,
+    )
 
   private def validateInterfaceFilter(filter: InterfaceFilter)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, domain.InterfaceFilter] =
     for {
       interfaceId <- requirePresence(filter.interfaceId, "interfaceId")
-      validatedId <- validateIdentifier(interfaceId)
+      typeConRef <- validateTypeConRef(interfaceId)
     } yield domain.InterfaceFilter(
-      interfaceId = validatedId,
+      interfaceTypeRef = typeConRef,
       includeView = filter.includeInterfaceView,
       includeCreatedEventBlob = filter.includeCreatedEventBlob,
     )
