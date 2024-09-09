@@ -42,6 +42,10 @@ releaseVersionFromReleaseVersion (OldReleaseVersion bothVersion) = bothVersion
 unresolvedVersionFromReleaseVersion :: ReleaseVersion -> UnresolvedReleaseVersion
 unresolvedVersionFromReleaseVersion = UnresolvedReleaseVersion . releaseVersionFromReleaseVersion
 
+isDaml3OrHigher :: ReleaseVersion -> Bool
+isDaml3OrHigher v =
+  L.view V.major (releaseVersionFromReleaseVersion v) >= 3
+
 mkReleaseVersion :: UnresolvedReleaseVersion -> SdkVersion -> ReleaseVersion
 mkReleaseVersion release sdk =
     let unwrappedRelease = unwrapUnresolvedReleaseVersion release
