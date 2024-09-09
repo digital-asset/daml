@@ -3,6 +3,7 @@
 
 {-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE FlexibleInstances #-}
 
 module DA.Daml.LF.TypeChecker.Upgrade (
         module DA.Daml.LF.TypeChecker.Upgrade
@@ -22,7 +23,7 @@ import           Data.Bifunctor (first)
 import           Data.Either (partitionEithers)
 import           Data.Hashable
 import qualified Data.HashMap.Strict as HMS
-import           Data.List (foldl')
+import           Data.List (foldl', nub)
 import qualified Data.NameMap as NM
 import qualified Data.Text as T
 import           Development.IDE.Types.Diagnostics
@@ -76,18 +77,19 @@ mkGamma version upgradeInfo world =
 gammaM :: World -> TcPreUpgradeM Gamma
 gammaM world = asks (flip (uncurry mkGamma) world)
 
+{- HLINT ignore "Use nubOrd" -}
 extractDiagnostics :: Version -> UpgradeInfo -> TcPreUpgradeM () -> [Diagnostic]
 extractDiagnostics version upgradeInfo action =
   case runGammaF (version, upgradeInfo) action of
     Left err -> [toDiagnostic err]
-    Right ((), warnings) -> map toDiagnostic warnings
+    Right ((), warnings) -> map toDiagnostic (nub warnings)
 
-checkUpgrade
+checkPackage
   :: LF.Package
   -> [LF.DalfPackage] -> Version -> UpgradeInfo
   -> Maybe ((LF.PackageId, LF.Package), [(LF.PackageId, LF.Package)])
   -> [Diagnostic]
-checkUpgrade pkg deps version upgradeInfo mbUpgradedPkg =
+checkPackage pkg deps version upgradeInfo mbUpgradedPkg =
   extractDiagnostics version upgradeInfo $ do
     shouldTypecheck <- shouldTypecheckM
     when shouldTypecheck $ do
@@ -95,11 +97,10 @@ checkUpgrade pkg deps version upgradeInfo mbUpgradedPkg =
         Nothing -> pure ()
         Just (upgradedPkg, upgradingDeps) -> do
             deps <- checkUpgradeDependenciesM deps (upgradedPkg : upgradingDeps)
-            checkUpgradeBoth Nothing pkg (upgradedPkg, deps)
-      checkUpgradeSingle Nothing pkg
+            checkPackageBoth CheckOnlyMissingModules Nothing pkg (upgradedPkg, deps)
 
-checkUpgradeBoth :: Maybe Context -> LF.Package -> ((LF.PackageId, LF.Package), UpgradingDeps) -> TcPreUpgradeM ()
-checkUpgradeBoth mbContext pkg ((upgradedPkgId, upgradedPkg), upgradingDeps) =
+checkPackageBoth :: CheckDepth -> Maybe Context -> LF.Package -> ((LF.PackageId, LF.Package), UpgradingDeps) -> TcPreUpgradeM ()
+checkPackageBoth checkDepth mbContext pkg ((upgradedPkgId, upgradedPkg), upgradingDeps) =
   let presentWorld = initWorldSelf [] pkg
       pastWorld = initWorldSelf [] upgradedPkg
       upgradingWorld = Upgrading { _past = pastWorld, _present = presentWorld }
@@ -111,10 +112,13 @@ checkUpgradeBoth mbContext pkg ((upgradedPkgId, upgradedPkg), upgradingDeps) =
   in
   withReaderT (\(version, upgradeInfo) -> UpgradingEnv (mkGamma version upgradeInfo <$> upgradingWorld) upgradingDeps) $
     withMbContext $
-      checkUpgradeM (UpgradedPackageId upgradedPkgId) (Upgrading upgradedPkg pkg)
+      checkPackageM checkDepth (UpgradedPackageId upgradedPkgId) (Upgrading upgradedPkg pkg)
 
-checkUpgradeSingle :: Maybe Context -> LF.Package -> TcPreUpgradeM ()
-checkUpgradeSingle mbContext pkg =
+data CheckDepth = CheckAll | CheckOnlyMissingModules
+  deriving (Show, Eq, Ord)
+
+checkPackageSingle :: Maybe Context -> LF.Package -> TcPreUpgradeM ()
+checkPackageSingle mbContext pkg =
   let presentWorld = initWorldSelf [] pkg
       withMbContext :: TcM () -> TcM ()
       withMbContext = maybe id withContext mbContext
@@ -122,7 +126,7 @@ checkUpgradeSingle mbContext pkg =
   withReaderT (\(version, upgradeInfo) -> mkGamma version upgradeInfo presentWorld) $
     withMbContext $ do
       checkNewInterfacesAreUnused pkg
-      checkNewInterfacesHaveNoTemplates pkg
+      checkNewInterfacesHaveNoTemplates
 
 checkModule
   :: LF.World -> LF.Module
@@ -133,6 +137,9 @@ checkModule world0 module_ deps version upgradeInfo mbUpgradedPkg =
   extractDiagnostics version upgradeInfo $
     when (shouldTypecheck version upgradeInfo) $ do
       let world = extendWorldSelf module_ world0
+      withReaderT (\(version, upgradeInfo) -> mkGamma version upgradeInfo world) $ do
+        checkNewInterfacesAreUnused module_
+        checkNewInterfacesHaveNoTemplates
       case mbUpgradedPkg of
         Nothing -> pure ()
         Just (upgradedPkgWithId@(upgradedPkgIdRaw, upgradedPkg), upgradingDeps) -> do
@@ -146,9 +153,7 @@ checkModule world0 module_ deps version upgradeInfo mbUpgradedPkg =
                 Just pastModule -> do
                   let upgradingModule = Upgrading { _past = pastModule, _present = module_ }
                   checkModuleM upgradedPkgId upgradingModule
-      withReaderT (\(version, upgradeInfo) -> mkGamma version upgradeInfo world) $ do
-        checkNewInterfacesAreUnused module_
-        checkNewInterfacesHaveNoTemplates module_
+
 
 checkUpgradeDependenciesM
     :: [LF.DalfPackage]
@@ -251,11 +256,12 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
                             case closestGreater of
                               Just (greaterPkgVersion, _greaterPkgId, greaterPkg) -> do
                                 let context = ContextDefUpgrading { cduPkgName = packageName, cduPkgVersion = Upgrading greaterPkgVersion presentVersion, cduSubContext = ContextNone, cduIsDependency = True }
-                                checkUpgradeBoth
+                                checkPackageBoth
+                                  CheckAll
                                   (Just context)
                                   greaterPkg
                                   ((presentPkgId, presentPkg), otherDepsWithSelf)
-                                checkUpgradeSingle
+                                checkPackageSingle
                                   (Just context)
                                   presentPkg
                               Nothing ->
@@ -263,21 +269,24 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
                             case closestLesser of
                               Just (lesserPkgVersion, lesserPkgId, lesserPkg) -> do
                                 let context = ContextDefUpgrading { cduPkgName = packageName, cduPkgVersion = Upgrading lesserPkgVersion presentVersion, cduSubContext = ContextNone, cduIsDependency = True }
-                                checkUpgradeBoth
+                                checkPackageBoth
+                                  CheckAll
                                   (Just context)
                                   presentPkg
                                   ((lesserPkgId, lesserPkg), otherDepsWithSelf)
-                                checkUpgradeSingle
+                                checkPackageSingle
                                   (Just context)
                                   presentPkg
                               Nothing ->
                                 pure ()
                     pure (Just result)
 
-checkUpgradeM :: LF.UpgradedPackageId -> Upgrading LF.Package -> TcUpgradeM ()
-checkUpgradeM upgradedPackageId package = do
+checkPackageM :: CheckDepth -> LF.UpgradedPackageId -> Upgrading LF.Package -> TcUpgradeM ()
+checkPackageM checkDepth upgradedPackageId package = do
     (upgradedModules, _new) <- checkDeleted (EUpgradeMissingModule . NM.name) $ NM.toHashMap . packageModules <$> package
-    forM_ upgradedModules $ checkModuleM upgradedPackageId
+    case checkDepth of
+      CheckAll -> forM_ upgradedModules $ checkModuleM upgradedPackageId
+      CheckOnlyMissingModules -> pure ()
 
 extractDelExistNew
     :: (Eq k, Hashable k)
@@ -491,20 +500,19 @@ instance HasModules LF.Module where
 instance HasModules LF.Package where
   getModules pkg = LF.packageModules pkg
 
+instance HasModules [LF.Module] where
+  getModules = NM.fromList
+
 -- Check that a module or package does not define both interfaces and templates.
 -- This warning should trigger even when no previous version DAR is specified in
 -- the `upgrades:` field.
-checkNewInterfacesHaveNoTemplates :: HasModules a => a -> TcM ()
-checkNewInterfacesHaveNoTemplates hasModules =
-    let modules = NM.toHashMap (getModules hasModules)
-        templateDefined = HMS.filter (not . NM.null . moduleTemplates) modules
-        interfaceDefined = HMS.filter (not . NM.null . moduleInterfaces) modules
-        templateAndInterfaceDefined =
-            HMS.intersectionWith (,) templateDefined interfaceDefined
-    in
-    forM_ (HMS.toList templateAndInterfaceDefined) $ \(_, (module_, _)) ->
-        withContext (ContextDefModule module_) $
-            diagnosticWithContext WEUpgradeShouldDefineIfacesAndTemplatesSeparately
+checkNewInterfacesHaveNoTemplates :: TcM ()
+checkNewInterfacesHaveNoTemplates = do
+    modules <- NM.toList . getWorldSelfPkgModules <$> getWorld
+    let templateDefined = filter (not . NM.null . moduleTemplates) modules
+        interfaceDefined = filter (not . NM.null . moduleInterfaces) modules
+    when (not (null templateDefined) && not (null interfaceDefined)) $
+        diagnosticWithContext WEUpgradeShouldDefineIfacesAndTemplatesSeparately
 
 -- Check that any interfaces defined in this package or module do not also have
 -- an instance. Interfaces defined in other packages are allowed to have
@@ -513,26 +521,20 @@ checkNewInterfacesHaveNoTemplates hasModules =
 -- the `upgrades:` field.
 checkNewInterfacesAreUnused :: HasModules a => a -> TcM ()
 checkNewInterfacesAreUnused hasModules =
-    forM_ definedAndInstantiated $ \((module_, iface), implementations) ->
-        withContext (ContextDefInterface module_ iface IPWhole) $
-            diagnosticWithContext $ WEUpgradeShouldDefineIfaceWithoutImplementation (NM.name iface) ((\(_,a,_) -> NM.name a) <$> implementations)
+    forM_ (HMS.toList (instantiatedIfaces modules)) $ \(ifaceQualName, modTplImpls) ->
+        case qualPackage ifaceQualName of
+          PRSelf -> do
+            defIface <- inWorld (lookupInterface ifaceQualName)
+            forM_ modTplImpls $ \modTplImpl -> do
+              let (instanceModule, instanceTpl, instanceTplName, instanceImpl) = modTplImpl
+              withContext (ContextTemplate instanceModule instanceTpl (TPInterfaceInstance (InterfaceInstanceHead (tpiInterface instanceImpl) instanceTplName) (tpiLocation instanceImpl))) $
+                  diagnosticWithContext $ WEUpgradeShouldDefineIfaceWithoutImplementation (NM.name instanceModule) (NM.name defIface) (qualObject instanceTplName)
+          _ -> pure ()
     where
     modules = getModules hasModules
 
-    definedIfaces :: HMS.HashMap (LF.Qualified LF.TypeConName) (Module, DefInterface)
-    definedIfaces = HMS.unions
-        [ HMS.mapKeys qualify $ HMS.map (module_,) $ NM.toHashMap (moduleInterfaces module_)
-        | module_ <- NM.elems (getModules hasModules)
-        , let qualify :: LF.TypeConName -> LF.Qualified LF.TypeConName
-              qualify tcn = Qualified PRSelf (NM.name module_) tcn
-        ]
-
-    definedAndInstantiated
-        :: HMS.HashMap
-            (LF.Qualified LF.TypeConName)
-            ((Module, DefInterface), [(Module, Template, TemplateImplements)])
-    definedAndInstantiated = HMS.intersectionWith (,) definedIfaces (instantiatedIfaces modules)
-
+-- When upgrading a package, check that the interfaces defined in the previous
+-- version are not instantiated by any templates in the current version.
 checkUpgradedInterfacesAreUnused
     :: LF.UpgradedPackageId
     -> Module
@@ -553,11 +555,12 @@ checkUpgradedInterfacesAreUnused upgradedPackageId module_ newInstances = do
           PRImport identifierOrigin -> unUpgradedPackageId upgradedPackageId == identifierOrigin
           _ -> False
 
-instantiatedIfaces :: NM.NameMap LF.Module -> HMS.HashMap (LF.Qualified LF.TypeConName) [(Module, Template, TemplateImplements)]
+instantiatedIfaces :: NM.NameMap LF.Module -> HMS.HashMap (LF.Qualified LF.TypeConName) [(Module, Template, Qualified TypeConName, TemplateImplements)]
 instantiatedIfaces modules = foldl' (HMS.unionWith (<>)) HMS.empty $ (map . fmap) pure
-    [ HMS.map (module_,template,) $ NM.toHashMap $ tplImplements template
+    [ HMS.map (module_,template,qualifiedTemplateName,) $ NM.toHashMap $ tplImplements template
     | module_ <- NM.elems modules
     , template <- NM.elems (moduleTemplates module_)
+    , let qualifiedTemplateName = Qualified PRSelf (NM.name module_) (NM.name template)
     ]
 
 checkTemplate :: Upgrading Module -> Upgrading LF.Template -> TcUpgradeM ()
