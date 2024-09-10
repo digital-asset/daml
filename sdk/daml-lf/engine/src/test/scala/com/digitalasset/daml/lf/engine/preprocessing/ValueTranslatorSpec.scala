@@ -144,8 +144,28 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
       ),
     )
 
+    val emptyTestCase = Table[Ast.Type, Value, speedy.SValue](
+      ("type", "value", "svalue"),
+      (TList(TText), ValueList(FrontStack.empty), SList(FrontStack.empty)),
+      (
+        TOptional(TText),
+        ValueOptional(None),
+        SOptional(None),
+      ),
+      (
+        TTextMap(TText),
+        ValueTextMap(SortedLookupList.Empty),
+        SMap(true),
+      ),
+      (
+        TGenMap(TInt64, TText),
+        ValueGenMap(ImmArray.empty),
+        SMap(false),
+      ),
+    )
+
     "succeeds on well type values" in {
-      forAll(testCases) { (typ, value, svalue) =>
+      forAll(testCases ++ emptyTestCase) { (typ, value, svalue) =>
         Try(
           unsafeTranslateValue(typ, value, Config.Strict)
         ) shouldBe Success(svalue)

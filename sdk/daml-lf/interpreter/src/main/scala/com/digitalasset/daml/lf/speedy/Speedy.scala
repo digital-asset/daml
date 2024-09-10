@@ -9,7 +9,7 @@ import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, NoCopy, Ref, Time}
 import com.digitalasset.daml.lf.interpretation.{Error => IError}
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.{LookupError, Util => AstUtil}
+import com.digitalasset.daml.lf.language.{LookupError, TypeDestructor}
 import com.digitalasset.daml.lf.language.LanguageVersionRangeOps._
 import com.digitalasset.daml.lf.speedy.Compiler.{CompilationError, PackageNotFound}
 import com.digitalasset.daml.lf.speedy.PartialTransaction.NodeSeeds
@@ -1186,6 +1186,9 @@ private[lf] object Speedy {
     // Raises an exception if missing a package.
     private[speedy] final def importValue(typ0: Type, value0: V): Control.Value = {
 
+      import TypeDestructor.TypeF._
+      val Destructor = TypeDestructor(compiledPackages.pkgInterface)
+
       def assertRight[X](x: Either[LookupError, X]): X =
         x match {
           case Right(value) => value
@@ -1198,82 +1201,36 @@ private[lf] object Speedy {
           s"mismatching type: $ty and value: $value",
         )
 
-        val (tyFun, argTypes) = AstUtil.destructApp(ty)
-        tyFun match {
-          case TBuiltin(_) =>
-            argTypes match {
-              case Nil =>
-                value match {
-                  case V.ValueInt64(value) =>
-                    SValue.SInt64(value)
-                  case V.ValueNumeric(value) =>
-                    SValue.SNumeric(value)
-                  case V.ValueText(value) =>
-                    SValue.SText(value)
-                  case V.ValueTimestamp(value) =>
-                    SValue.STimestamp(value)
-                  case V.ValueDate(value) =>
-                    SValue.SDate(value)
-                  case V.ValueParty(value) =>
-                    SValue.SParty(value)
-                  case V.ValueBool(b) =>
-                    if (b) SValue.SValue.True else SValue.SValue.False
-                  case V.ValueUnit =>
-                    SValue.SValue.Unit
+        value match {
+          case leaf: V.ValueCidlessLeaf =>
+            leaf match {
+              case V.ValueEnum(_, value) =>
+                Destructor.destruct(ty) match {
+                  case Right(enumF: EnumF) =>
+                    SValue.SEnum(enumF.tyCon, value, assertRight(enumF.consRank(value)))
                   case _ =>
                     typeMismatch
                 }
-              case elemType :: Nil =>
-                value match {
-                  case V.ValueContractId(cid) =>
-                    SValue.SContractId(cid)
-                  case V.ValueNumeric(d) =>
-                    SValue.SNumeric(d)
-                  case V.ValueOptional(mb) =>
-                    mb match {
-                      case Some(value) => SValue.SOptional(Some(go(elemType, value)))
-                      case None => SValue.SValue.None
-                    }
-                  // list
-                  case V.ValueList(ls) =>
-                    SValue.SList(ls.map(go(elemType, _)))
-
-                  // textMap
-                  case V.ValueTextMap(entries) =>
-                    SValue.SMap.fromOrderedEntries(
-                      isTextMap = true,
-                      entries = entries.toImmArray.toSeq.view.map { case (k, v) =>
-                        SValue.SText(k) -> go(elemType, v)
-                      },
-                    )
-                  case _ =>
-                    typeMismatch
-                }
-              case keyType :: valueType :: Nil =>
-                value match {
-                  // genMap
-                  case V.ValueGenMap(entries) =>
-                    SValue.SMap.fromOrderedEntries(
-                      isTextMap = false,
-                      entries = entries.toSeq.view.map { case (k, v) =>
-                        go(keyType, k) -> go(valueType, v)
-                      },
-                    )
-                  case _ =>
-                    typeMismatch
-                }
-              case _ =>
-                typeMismatch
+              case V.ValueInt64(value) =>
+                SValue.SInt64(value)
+              case V.ValueNumeric(value) =>
+                SValue.SNumeric(value)
+              case V.ValueText(value) =>
+                SValue.SText(value)
+              case V.ValueTimestamp(value) =>
+                SValue.STimestamp(value)
+              case V.ValueDate(value) =>
+                SValue.SDate(value)
+              case V.ValueParty(value) =>
+                SValue.SParty(value)
+              case V.ValueBool(value) =>
+                if (value) SValue.SValue.True else SValue.SValue.False
+              case V.ValueUnit =>
+                SValue.SUnit
             }
-          case TTyCon(tyCon) =>
-            value match {
-              case V.ValueRecord(_, sourceElements) => { // This _ is the source typecon, which we ignore.
-                val lookupResult = assertRight(
-                  compiledPackages.pkgInterface.lookupDataRecord(tyCon)
-                )
-                val targetFieldsAndTypes: ImmArray[(Name, Type)] = lookupResult.dataRecord.fields
-                lazy val subst = lookupResult.subst(argTypes)
-
+          case V.ValueRecord(_, sourceElements) =>
+            Destructor.destruct(ty) match {
+              case Right(recordF: RecordF[_]) =>
                 // This code implements the compatibility transformation used for up/down-grading
                 // And handles the cases:
                 // - UPGRADE:   numT > numS : creates a None for each missing fields.
@@ -1284,28 +1241,22 @@ private[lf] object Speedy {
                 // but since we don't consult the source type (may be unavailable), we wont know.
 
                 val numS: Int = sourceElements.length
-                val numT: Int = targetFieldsAndTypes.length
+                val numT: Int = recordF.fieldTypes.length
 
                 // traverse the sourceElements, "get"ing the corresponding target type
                 // when there is no corresponding type, we must be downgrading, and so we insist the value is None
                 val values0: List[SValue] =
-                  sourceElements.toSeq.view.zipWithIndex.flatMap { case ((optName, v), i) =>
-                    targetFieldsAndTypes.get(i) match {
-                      case Some((targetField, targetFieldType)) =>
-                        optName match {
-                          case None => ()
-                          case Some(sourceField) =>
-                            // value is not normalized; check field names match
-                            assert(sourceField == targetField)
-                        }
-                        val typ: Type = AstUtil.substitute(targetFieldType, subst)
-                        val sv: SValue = go(typ, v)
+                  sourceElements.toSeq.view.zipWithIndex.flatMap { case ((_, v), i) =>
+                    recordF.fieldTypes.lift(i) match {
+                      case Some(targetFieldType) =>
+                        val sv: SValue = go(targetFieldType, v)
                         List(sv)
                       case None => { // DOWNGRADE
                         // i ranges from 0 to numS-1. So i >= numT implies numS > numT
                         assert((numS > i) && (i >= numT))
                         v match {
-                          case V.ValueOptional(None) => List() // ok, drop
+                          case V.ValueOptional(None) =>
+                            List.empty // ok, drop
                           case V.ValueOptional(Some(_)) =>
                             throw SErrorDamlException(
                               IError.Dev(
@@ -1325,66 +1276,86 @@ private[lf] object Speedy {
                     }
                   }.toList
 
-                val fields: ImmArray[Name] =
-                  targetFieldsAndTypes.map { case (name, _) =>
-                    name
-                  }
-
                 val values: util.ArrayList[SValue] = {
                   if (numT > numS) {
+                    // UPGRADE
 
-                    def isOptionalType(typ: Type): Boolean = {
-                      typ match {
-                        case TApp(TBuiltin(BTOptional), _) => true
-                        case _ => false
-                      }
+                    recordF.fieldTypes.view.drop(numS).map(Destructor.destruct(_)).foreach {
+                      case Right(OptionalF(_)) =>
+                      case _ =>
+                        throw SErrorCrash(
+                          NameOf.qualifiedNameOfCurrentFunc,
+                          "Unexpected non-optional extra template field type encountered during upgrading.",
+                        )
                     }
 
-                    val extraFieldsWithNonOptionType: List[Name] =
-                      targetFieldsAndTypes.toList
-                        .drop(numS)
-                        .filter { case (_, typ) => !isOptionalType(typ) }
-                        .map { case (name, _) => name }
-
-                    if (extraFieldsWithNonOptionType.length == 0) {
-                      values0.padTo(numT, SValue.SValue.None) // UPGRADE
-                    } else {
-                      // TODO: https://github.com/digital-asset/daml/issues/17082
-                      // - Impossible (ill typed) case. Ok to crash here?
-                      throw SErrorCrash(
-                        NameOf.qualifiedNameOfCurrentFunc,
-                        "Unexpected non-optional extra template field type encountered during upgrading.",
-                      )
-                    }
+                    values0.padTo(numT, SValue.SValue.None)
                   } else {
                     values0
                   }
                 }.to(ArrayList)
 
-                SValue.SRecord(tyCon, fields, values)
-              }
+                SValue.SRecord(recordF.tyCon, recordF.fieldNames.to(ImmArray), values)
 
-              case V.ValueVariant(_, constructor, value) =>
-                val info =
-                  assertRight(
-                    compiledPackages.pkgInterface.lookupVariantConstructor(tyCon, constructor)
-                  )
-                val valType = info.concreteType(argTypes)
-                SValue.SVariant(tyCon, constructor, info.rank, go(valType, value))
-              case V.ValueEnum(_, constructor) =>
-                val rank =
-                  assertRight(
-                    compiledPackages.pkgInterface.lookupEnumConstructor(tyCon, constructor)
-                  )
-                SValue.SEnum(tyCon, constructor, rank)
               case _ =>
                 typeMismatch
             }
-          case _ =>
-            typeMismatch
+          case V.ValueVariant(_, variant, value) =>
+            Destructor.destruct(ty) match {
+              case Right(variantF: VariantF[_]) =>
+                val rank = assertRight(variantF.consRank(variant))
+                val a = variantF.consTypes(rank)
+                SValue.SVariant(variantF.tyCon, variant, rank, go(a, value))
+              case _ =>
+                typeMismatch
+            }
+          case V.ValueContractId(value) =>
+            SValue.SContractId(value)
+          case V.ValueList(values) =>
+            Destructor.destruct(ty) match {
+              case Right(ListF(a)) =>
+                SValue.SList(values.map(go(a, _)))
+              case _ =>
+                typeMismatch
+            }
+          case V.ValueOptional(value) =>
+            value match {
+              case Some(value) =>
+                Destructor.destruct(ty) match {
+                  case Right(OptionalF(a)) =>
+                    SValue.SOptional(Some(go(a, value)))
+                  case _ =>
+                    typeMismatch
+                }
+              case None =>
+                SValue.SValue.None
+            }
+          case V.ValueTextMap(entries) =>
+            Destructor.destruct(ty) match {
+              case Right(TextMapF(a)) =>
+                SValue.SMap.fromOrderedEntries(
+                  isTextMap = true,
+                  entries = entries.toImmArray.toSeq.view.map { case (k, v) =>
+                    SValue.SText(k) -> go(a, v)
+                  },
+                )
+              case _ =>
+                typeMismatch
+            }
+          case V.ValueGenMap(entries) =>
+            Destructor.destruct(ty) match {
+              case Right(MapF(a, b)) =>
+                SValue.SMap.fromOrderedEntries(
+                  isTextMap = false,
+                  entries = entries.toSeq.view.map { case (k, v) =>
+                    go(a, k) -> go(b, v)
+                  },
+                )
+              case _ =>
+                typeMismatch
+            }
         }
       }
-
       Control.Value(go(typ0, value0))
     }
   }
