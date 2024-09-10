@@ -85,6 +85,8 @@ $bazel build //... \
   --build_event_publish_all_actions \
   --execution_log_json_file "$ARTIFACT_DIRS/logs/build_execution${execution_log_postfix}.json.gz"
 
+echo "Here"
+
 # Set up a shared PostgreSQL instance.
 export POSTGRESQL_ROOT_DIR="${POSTGRESQL_TMP_ROOT_DIR:-$DIR/.tmp-pg}/daml/postgresql"
 export POSTGRESQL_DATA_DIR="${POSTGRESQL_ROOT_DIR}/data"
