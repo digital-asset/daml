@@ -34,6 +34,8 @@ module DA.Daml.Assistant.Version
     , InstallLocation(..)
     , HttpInstallLocation(..)
     , resolveReleaseVersionFromArtifactory
+    , renderVersionLocation
+    , renderVersionLocationOverrideOsArch
     ) where
 
 import Network.URI.Encode
@@ -587,22 +589,32 @@ resolveReleaseVersionFromArtifactory (Just damlPath) unresolvedVersion = do
     _ -> pure (Right Nothing)
 
 -- | OS-specific part of the asset name.
-osName :: Text
-osName = case System.Info.os of
-    "darwin"  -> "macos"
-    "linux"   -> "linux"
-    "mingw32" -> "windows"
-    p -> error ("daml: Unknown operating system " ++ p)
+osName :: String -> Text
+osName os = case os `lookup` supportedOsNames of
+    Just osName -> osName
+    Nothing -> error ("daml: Unknown operating system " ++ os)
+
+supportedOsNames :: [(String, Text)]
+supportedOsNames =
+  [ ("darwin", "macos")
+  , ("linux", "linux")
+  , ("mingw32", "windows")
+  ]
 
 -- | Architecture-specific part of the asset name
-archName :: Text
-archName = case System.Info.arch of
-    "x86_64"   -> "x86_64"
-    "aarch64" -> "aarch64"
-    p -> error ("daml: Unknown architecture " ++ p)
+archName :: String -> Text
+archName arch = case arch `lookup` supportedArchNames of
+    Just archName -> archName
+    Nothing -> error ("daml: Unknown architecture " ++ arch)
 
-archSuffix :: ReleaseVersion -> T.Text
-archSuffix v = if isDaml3OrHigher v then "-" <> archName else ""
+supportedArchNames :: [(String, Text)]
+supportedArchNames =
+  [ ("x86_64", "x86_64")
+  , ("aarch64", "aarch64")
+  ]
+
+archSuffix :: ReleaseVersion -> String -> T.Text
+archSuffix v arch = if isDaml3OrHigher v then "-" <> archName arch else ""
 
 newtype ArtifactoryApiKey = ArtifactoryApiKey
     { unwrapArtifactoryApiKey :: Text
@@ -629,8 +641,8 @@ artifactoryVersionLocation releaseVersion apiKey =
                 , "/daml-sdk-"
                 , sdkVersionToText (sdkVersionFromReleaseVersion releaseVersion)
                 , "-"
-                , osName
-                , archSuffix releaseVersion
+                , osName System.Info.os
+                , archSuffix releaseVersion System.Info.arch
                 , "-ee.tar.gz"
                 ]
             , hilHeaders =
@@ -645,8 +657,8 @@ artifactoryVersionLocation releaseVersion apiKey =
                 , "/daml-sdk-"
                 , sdkVersionToText (sdkVersionFromReleaseVersion releaseVersion)
                 , "-"
-                , osName
-                , archSuffix releaseVersion
+                , osName System.Info.os
+                , archSuffix releaseVersion System.Info.arch
                 , "-ee.tar.gz" 
                 ]
             , hilHeaders =
@@ -684,6 +696,10 @@ alternateVersionLocation releaseVersion prefix = do
 -- | Install location for particular version.
 renderVersionLocation :: ReleaseVersion -> Text -> Text
 renderVersionLocation releaseVersion prefix =
+    renderVersionLocationOverrideOsArch releaseVersion prefix System.Info.os System.Info.arch
+
+renderVersionLocationOverrideOsArch :: ReleaseVersion -> Text -> String -> String -> Text
+renderVersionLocationOverrideOsArch releaseVersion prefix os arch =
     T.concat
       [ prefix
       , "/"
@@ -691,8 +707,8 @@ renderVersionLocation releaseVersion prefix =
       , "/daml-sdk-"
       , V.toText (unwrapSdkVersion (sdkVersionFromReleaseVersion releaseVersion))
       , "-"
-      , osName
-      , archSuffix releaseVersion
+      , osName os
+      , archSuffix releaseVersion arch
       , ".tar.gz"
       ]
 
