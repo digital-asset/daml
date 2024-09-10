@@ -68,7 +68,7 @@ abstract class UpdateWasmHostFunctions(pkgInterface: PackageInterface)
     }
 
   val exerciseChoiceFunc: WasmHostFunction =
-    wasmFunction("exerciseChoice", 5, WasmValueResultType) { param =>
+    wasmFunction("exerciseChoice", 4, WasmValueResultType) { param =>
       val templateId =
         LfValueCoder
           .decodeIdentifier(proto.Identifier.parseFrom(param(0)))
@@ -88,17 +88,8 @@ abstract class UpdateWasmHostFunctions(pkgInterface: PackageInterface)
       val choiceArg = LfValueCoder
         .decodeValue(txVersion, param(3))
         .fold(err => throw new RuntimeException(err.toString), identity)
-      assert(
-        param(4).toByteArray.length == 1,
-        s"exerciseChoice(_, _, _, _, consuming: bool): invalid byte encoding ${param(4).toByteArray.map("%02x".format(_)).mkString}",
-      )
-      val consuming = param(4).toByteArray.head match {
-        case 0 => false
-        case 1 => true
-        case _ => ??? // TODO: manage invalid bool value case
-      }
 
-      val result = exerciseChoice(templateId, optContractId.get, choiceName, choiceArg, consuming)
+      val result = exerciseChoice(templateId, optContractId.get, choiceName, choiceArg)
 
       LfValueCoder
         .encodeValue(txVersion, result)

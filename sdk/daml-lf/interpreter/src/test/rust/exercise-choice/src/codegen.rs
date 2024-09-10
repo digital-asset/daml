@@ -5,6 +5,20 @@ use crate::templates;
 impl templates::SimpleTemplate_increment {
     #[no_mangle]
     #[allow(non_snake_case)]
+    pub unsafe fn SimpleTemplate_increment_consuming_property() -> *mut ledger::internal::ByteString {
+        use protobuf::Message;
+
+        let result = templates::SimpleTemplate::choices().get(&String::from("SimpleTemplate_increment")).unwrap().consuming();
+        let resultBytes = result.write_to_bytes().unwrap();
+        let boxedResult = Box::new(ledger::internal::ByteString { ptr: resultBytes.as_ptr(), size: resultBytes.len() });
+
+        std::mem::forget(resultBytes);
+
+        return Box::into_raw(boxedResult);
+    }
+
+    #[no_mangle]
+    #[allow(non_snake_case)]
     pub unsafe fn SimpleTemplate_increment_choice_exercise(contractArgPtr: *const ledger::internal::ByteString, choiceArgPtr: *const ledger::internal::ByteString) -> *mut ledger::internal::ByteString {
         use protobuf::Message;
 
@@ -69,6 +83,20 @@ impl templates::SimpleTemplate_increment {
 }
 
 impl templates::SimpleTemplate_decrement {
+    #[no_mangle]
+    #[allow(non_snake_case)]
+    pub unsafe fn SimpleTemplate_decrement_consuming_property() -> *mut ledger::internal::ByteString {
+        use protobuf::Message;
+
+        let result = templates::SimpleTemplate::choices().get(&String::from("SimpleTemplate_decrement")).unwrap().consuming();
+        let resultBytes = result.write_to_bytes().unwrap();
+        let boxedResult = Box::new(ledger::internal::ByteString { ptr: resultBytes.as_ptr(), size: resultBytes.len() });
+
+        std::mem::forget(resultBytes);
+
+        return Box::into_raw(boxedResult);
+    }
+
     #[no_mangle]
     #[allow(non_snake_case)]
     pub unsafe fn SimpleTemplate_decrement_choice_exercise(contractArgPtr: *const ledger::internal::ByteString, choiceArgPtr: *const ledger::internal::ByteString) -> *mut ledger::internal::ByteString {

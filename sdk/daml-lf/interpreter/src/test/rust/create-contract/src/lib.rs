@@ -214,7 +214,7 @@ pub fn main() {
     arg.set_record(argRec);
 
     templateId.package_id = String::from("cae3f9de0ee19fa89d4b65439865e1942a3a98b50c86156c3ab1b09e8266c833");
-    templateId.module_name = Vec::from([String::from("create_contract")]);
+    templateId.module_name = Vec::from([String::from("wasm_module")]);
     templateId.name = Vec::from([String::from("SimpleTemplate"), String::from("new")]);
 
     let mut contractId = ledger::createContract(templateId, arg);

@@ -216,7 +216,7 @@ pub fn main() {
     let mut contractId = lf::Value::new();
 
     templateId.package_id = String::from("cae3f9de0ee19fa89d4b65439865e1942a3a98b50c86156c3ab1b09e8266c833");
-    templateId.module_name = Vec::from([String::from("fetch_contract")]);
+    templateId.module_name = Vec::from([String::from("wasm_module")]);
     templateId.name = Vec::from([String::from("SimpleTemplate"), String::from("new")]);
 
     contractId.set_contract_id(hex::decode("0083d63f9d6c27eb34b37890d0f365c99505f32f06727fbefa2931f9d99d51f9ac").unwrap());

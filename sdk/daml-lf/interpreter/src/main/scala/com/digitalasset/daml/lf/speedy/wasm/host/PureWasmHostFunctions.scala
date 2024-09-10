@@ -27,7 +27,7 @@ object PureWasmHostFunctions {
     }
 
   val exerciseChoiceFunc: WasmHostFunction =
-    wasmFunction("exerciseChoice", 5, WasmValueResultType) { _ =>
+    wasmFunction("exerciseChoice", 4, WasmValueResultType) { _ =>
       throw new RuntimeException(
         "Host functions can not be called from pure WASM exported functions: exerciseChoice"
       )

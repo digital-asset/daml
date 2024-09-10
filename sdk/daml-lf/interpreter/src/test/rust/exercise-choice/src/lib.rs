@@ -43,7 +43,7 @@ pub fn main() {
 
     choiceArg.set_unit(choiceArg.unit().clone());
 
-    let mut newContractId = ledger::api::exerciseChoice(templates::SimpleTemplate::templateId(), contractId.clone(), "SimpleTemplate_increment", choiceArg, true);
+    let mut newContractId = ledger::api::exerciseChoice(templates::SimpleTemplate::templateId(), contractId.clone(), "SimpleTemplate_increment", choiceArg);
 
     ledger::api::logInfo(&format!("result of exercising choice {} on contract ID {} is {}", "SimpleTemplate_increment", hex::encode(contractId.take_contract_id()), hex::encode(newContractId.take_contract_id())));
 }

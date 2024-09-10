@@ -103,4 +103,20 @@ object WasmChoiceExportFunctions {
         ???
     }
   }
+
+  private[wasm] def wasmChoiceConsumingProperty(
+      choiceName: String,
+      txVersion: TransactionVersion,
+  )(implicit
+      instance: WasmInstance
+  ): Boolean = {
+    wasmChoiceProperty(s"${choiceName}_consuming_property", txVersion) match {
+      case LfValue.ValueBool(value) =>
+        value
+
+      case _ =>
+        // TODO: manage fall through case
+        ???
+    }
+  }
 }

@@ -27,6 +27,5 @@ trait WasmHostFunctions {
       contractId: LfValue.ContractId,
       choiceName: Ref.ChoiceName,
       choiceArg: LfValue,
-      consuming: Boolean,
   ): LfValue
 }

@@ -8,7 +8,6 @@ package wasm
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.language.PackageInterface
 import com.digitalasset.daml.lf.speedy.SError.SErrorCrash
 import com.digitalasset.daml.lf.speedy.SResult.SVisibleToStakeholders
 import com.digitalasset.daml.lf.speedy.Speedy.{ContractInfo, UpdateMachine}
@@ -31,18 +30,39 @@ import com.google.protobuf.ByteString
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
+/*
+    Notes:
+    - Speedy ~ WasmRunner
+    - SBuiltin <~ WasmRunnerHostFunction
+    - ledger.ApiCommand ~ WasmRunner.WasmExpr
+    - Speedy.Machine ~ WasmInstance
+    - Speedy.PureMachine ~ WasmRunner.PureWasmInstance
+    - Speedy.UpdateMachine ~ WasmRunner.UpdateWasmInstance
+    - Dalf ~ WASM module
+    - Daml-LF ~ WASM S-Expr
+
+    "internal" packages/modules are at the FFI level
+    "exports" and "host" packages are at the value.proto level
+
+    Wasm FFI only allows for functions that have zero or more i32 arguments and returns at most one i32 value
+
+    ByteString's are used to define the ABI between WASM and Scala
+    - i32 pointer to a byte slice (c.f. an array) + i32 length
+    - when we add in error codes to ABI, we'll also add a byte tag field to our ABI ByteStrings
+ */
+
 final class WasmRunner(
     submitters: Set[Party],
     readAs: Set[Party],
     submissionTime: Time.Timestamp,
     logger: ContextualizedLogger = ContextualizedLogger.get(classOf[WasmRunner]),
-    pkgInterface: language.PackageInterface = PackageInterface.Empty,
+    compiledPackages: PureCompiledPackages,
     wasmExpr: WasmRunner.WasmExpr,
     activeContractStore: ParticipantContractStore,
     initialLocalContractStore: Map[LfValue.ContractId, ContractInfo],
     initialPtx: PartialTransaction,
 )(implicit loggingContext: LoggingContext)
-    extends UpdateWasmHostFunctions(pkgInterface)
+    extends UpdateWasmHostFunctions(compiledPackages.pkgInterface)
     with WasmHostFunctions {
 
   import internal.WasmUtils._
@@ -64,45 +84,70 @@ final class WasmRunner(
   }
 
   override def createContract(templateId: Ref.TypeConRef, argsV: LfValue): LfValue.ContractId = {
-    val templateTypeCon = templateId.assertToTypeConName
-    val (pkgName, pkgVersion) = tmplId2PackageNameVersion(templateTypeCon)
-    val argsSV = toSValue(argsV)
-    val txVersion = tmplId2TxVersion(templateTypeCon)
-    val templateName = templateId.qName.name.segments.head
-    val precond = wasmTemplatePrecondFunction(templateName, txVersion)(argsV)(PureWasmInstance())
-
-    if (precond) {
-      val signatories =
-        wasmTemplateSignatoriesFunction(templateName, txVersion)(argsV)(PureWasmInstance())
-      val observers =
-        wasmTemplateObserversFunction(templateName, txVersion)(argsV)(PureWasmInstance())
-      val contractInfo = ContractInfo(
-        txVersion,
-        pkgName,
-        pkgVersion,
-        templateTypeCon,
-        argsSV,
-        signatories,
-        observers,
-        None,
-      )
-      val (contractId, updatedPtx) = ptx
-        .insertCreate(submissionTime, contractInfo, None)
-        .fold(
-          { case (_, err) =>
-            // TODO: manage Left case
-            throw new RuntimeException(err.toString)
-          },
-          identity,
+    lookupPackageLanguageType(templateId) match {
+      case DamlLanguageType =>
+        val DamlRunner = new SpeedyRunner(
+          submitters = submitters,
+          readAs = readAs,
+          submissionTime = submissionTime,
+          logger = logger,
+          compiledPackages = compiledPackages,
+          activeContractStore = activeContractStore,
+          initialLocalContractStore = localContractStore,
+          initialPtx = ptx,
         )
 
-      localContractStore = localContractStore + (contractId -> contractInfo)
-      ptx = updatedPtx
+        val result = DamlRunner.createContract(templateId, argsV)
 
-      contractId
-    } else {
-      // TODO: manage precond failure case
-      ???
+        val (updatedLocalContractStore, updatedPtx) = DamlRunner.incompleteTransaction
+
+        localContractStore = updatedLocalContractStore
+        ptx = updatedPtx
+
+        result
+
+      case WasmLanguageType =>
+        val templateTypeCon = templateId.assertToTypeConName
+        val (pkgName, pkgVersion) = tmplId2PackageNameVersion(templateTypeCon)
+        val argsSV = toSValue(argsV)
+        val txVersion = tmplId2TxVersion(templateTypeCon)
+        val templateName = templateId.qName.name.segments.head
+        val precond =
+          wasmTemplatePrecondFunction(templateName, txVersion)(argsV)(PureWasmInstance())
+
+        if (precond) {
+          val signatories =
+            wasmTemplateSignatoriesFunction(templateName, txVersion)(argsV)(PureWasmInstance())
+          val observers =
+            wasmTemplateObserversFunction(templateName, txVersion)(argsV)(PureWasmInstance())
+          val contractInfo = ContractInfo(
+            txVersion,
+            pkgName,
+            pkgVersion,
+            templateTypeCon,
+            argsSV,
+            signatories,
+            observers,
+            None,
+          )
+          val (contractId, updatedPtx) = ptx
+            .insertCreate(submissionTime, contractInfo, None)
+            .fold(
+              { case (_, err) =>
+                // TODO: manage Left case
+                throw new RuntimeException(err.toString)
+              },
+              identity,
+            )
+
+          localContractStore = localContractStore + (contractId -> contractInfo)
+          ptx = updatedPtx
+
+          contractId
+        } else {
+          // TODO: manage precond failure case
+          ???
+        }
     }
   }
 
@@ -111,89 +156,119 @@ final class WasmRunner(
       contractId: LfValue.ContractId,
       timeout: Duration,
   ): LfValue = {
-    val templateTypeCon = templateId.assertToTypeConName
-    val txVersion = tmplId2TxVersion(templateTypeCon)
+    lookupPackageLanguageType(templateId) match {
+      case DamlLanguageType =>
+        val DamlRunner = new SpeedyRunner(
+          submitters = submitters,
+          readAs = readAs,
+          submissionTime = submissionTime,
+          logger = logger,
+          compiledPackages = compiledPackages,
+          activeContractStore = activeContractStore,
+          initialLocalContractStore = localContractStore,
+          initialPtx = ptx,
+        )
 
-    localContractStore.get(contractId) match {
-      case Some(contractInfo) if contractInfo.templateId == templateTypeCon =>
-        contractInfo.arg
+        val result = DamlRunner.fetchContractArg(templateId, contractId, timeout)
 
-      case Some(_) =>
-        // TODO: manage wrongly typed contract case
-        ???
+        val (updatedLocalContractStore, updatedPtx) = DamlRunner.incompleteTransaction
 
-      case _ =>
-        Await.result(
-          activeContractStore.lookupActiveContract(submitters ++ readAs, contractId),
-          timeout,
-        ) match {
-          case Some(contract) =>
-            if (contract.unversioned.template.toRef == templateId) {
-              val templateName = templateId.qName.name.segments.head
-              val precond =
-                wasmTemplatePrecondFunction(templateName, txVersion)(contract.unversioned.arg)(
-                  PureWasmInstance()
-                )
+        localContractStore = updatedLocalContractStore
+        ptx = updatedPtx
 
-              if (precond) {
-                val signatories =
-                  wasmTemplateSignatoriesFunction(templateName, txVersion)(
-                    contract.unversioned.arg
-                  )(PureWasmInstance())
-                val observers =
-                  wasmTemplateObserversFunction(templateName, txVersion)(contract.unversioned.arg)(
-                    PureWasmInstance()
-                  )
-                val contractInfo = ContractInfo(
-                  txVersion,
-                  contract.unversioned.packageName,
-                  contract.unversioned.packageVersion,
-                  templateTypeCon,
-                  toSValue(contract.unversioned.arg),
-                  signatories,
-                  observers,
-                  None,
-                )
+        result
 
-                // TODO: what about being able to run in validation mode (c.f. Speedy)?
-                SVisibleToStakeholders.fromSubmitters(submitters, readAs)(
-                  contractInfo.stakeholders
-                ) match {
-                  case SVisibleToStakeholders.Visible =>
-                    ()
+      case WasmLanguageType =>
+        val templateTypeCon = templateId.assertToTypeConName
+        val txVersion = tmplId2TxVersion(templateTypeCon)
 
-                  case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
-                    val readers = (actAs union readAs).mkString(",")
-                    val stakeholders = contractInfo.stakeholders.mkString(",")
-                    logger.warn(
-                      s"""Tried to fetch or exercise $templateId on contract $contractId
-                         | but none of the reading parties [$readers] are contract stakeholders [$stakeholders].
-                         | Use of divulged contracts is deprecated and incompatible with pruning.
-                         | To remedy, add one of the readers [$readers] as an observer to the contract.
-                         |""".stripMargin.replaceAll("\r|\n", "")
+        localContractStore.get(contractId) match {
+          case Some(contractInfo)
+              if getTemplateName(contractInfo.templateId) == getTemplateName(templateTypeCon) =>
+            contractInfo.arg
+
+          case Some(contractInfo) =>
+            // TODO: manage wrongly typed contract case
+            logger.error(
+              s"Invalid template type for contract ID $contractId: expected $templateTypeCon but found ${contractInfo.templateId}"
+            )
+            ???
+
+          case _ =>
+            Await.result(
+              activeContractStore.lookupActiveContract(submitters ++ readAs, contractId),
+              timeout,
+            ) match {
+              case Some(contract) =>
+                if (contract.unversioned.template.toRef == templateId) {
+                  val templateName = getTemplateName(templateId)
+                  val precond =
+                    wasmTemplatePrecondFunction(templateName, txVersion)(contract.unversioned.arg)(
+                      PureWasmInstance()
                     )
+
+                  if (precond) {
+                    val signatories =
+                      wasmTemplateSignatoriesFunction(templateName, txVersion)(
+                        contract.unversioned.arg
+                      )(PureWasmInstance())
+                    val observers =
+                      wasmTemplateObserversFunction(templateName, txVersion)(
+                        contract.unversioned.arg
+                      )(
+                        PureWasmInstance()
+                      )
+                    val contractInfo = ContractInfo(
+                      txVersion,
+                      contract.unversioned.packageName,
+                      contract.unversioned.packageVersion,
+                      templateTypeCon,
+                      toSValue(contract.unversioned.arg),
+                      signatories,
+                      observers,
+                      None,
+                    )
+
+                    // TODO: what about being able to run in validation mode (c.f. Speedy)?
+                    SVisibleToStakeholders.fromSubmitters(submitters, readAs)(
+                      contractInfo.stakeholders
+                    ) match {
+                      case SVisibleToStakeholders.Visible =>
+                        ()
+
+                      case SVisibleToStakeholders.NotVisible(actAs, readAs) =>
+                        val readers = (actAs union readAs).mkString(",")
+                        val stakeholders = contractInfo.stakeholders.mkString(",")
+                        logger.warn(
+                          s"""Tried to fetch or exercise $templateId on contract $contractId
+                           | but none of the reading parties [$readers] are contract stakeholders [$stakeholders].
+                           | Use of divulged contracts is deprecated and incompatible with pruning.
+                           | To remedy, add one of the readers [$readers] as an observer to the contract.
+                           |""".stripMargin.replaceAll("\r|\n", "")
+                        )
+                    }
+
+                    val updatedPtx =
+                      ptx
+                        .insertFetch(contractId, contractInfo, None, byKey = false, txVersion)
+                        .fold(err => throw new RuntimeException(err.toString), identity)
+
+                    ptx = updatedPtx
+
+                    contract.unversioned.arg
+                  } else {
+                    // TODO: manage precond failure case
+                    ???
+                  }
+                } else {
+                  // TODO: manage wrongly typed contract case
+                  ???
                 }
 
-                val updatedPtx =
-                  ptx
-                    .insertFetch(contractId, contractInfo, None, byKey = false, txVersion)
-                    .fold(err => throw new RuntimeException(err.toString), identity)
-
-                ptx = updatedPtx
-
-                contract.unversioned.arg
-              } else {
-                // TODO: manage precond failure case
+              case None =>
+                // TODO: manage contract lookup failure
                 ???
-              }
-            } else {
-              // TODO: manage wrongly typed contract case
-              ???
             }
-
-          case None =>
-            // TODO: manage contract lookup failure
-            ???
         }
     }
   }
@@ -203,73 +278,104 @@ final class WasmRunner(
       contractId: LfValue.ContractId,
       choiceName: Ref.ChoiceName,
       choiceArg: LfValue,
-      consuming: Boolean,
   ): LfValue = {
-    val templateTypeCon = templateId.assertToTypeConName
-    val txVersion = tmplId2TxVersion(templateTypeCon)
-    val (pkgName, _) = tmplId2PackageNameVersion(templateTypeCon)
-    val contractInfo = localContractStore.get(contractId) match {
-      case Some(contractInfo) if contractInfo.templateId == templateTypeCon =>
-        contractInfo
+    // TODO: this is a hack - need to better architect Daml exerciseChoice calls
+    lookupPackageLanguageType(templateId) match {
+      case DamlLanguageType =>
+        val DamlRunner = new SpeedyRunner(
+          submitters = submitters,
+          readAs = readAs,
+          submissionTime = submissionTime,
+          logger = logger,
+          compiledPackages = compiledPackages,
+          activeContractStore = activeContractStore,
+          initialLocalContractStore = localContractStore,
+          initialPtx = ptx,
+        )
 
-      case Some(_) =>
-        // TODO: manage wrongly typed contract case
-        ???
+        val result = DamlRunner.exerciseChoice(templateId, contractId, choiceName, choiceArg)
 
-      case None =>
-        // TODO: manage contract not being locally known (e.g. global contract not fetched)
-        ???
-    }
-    val controllers =
-      wasmChoiceControllersFunction(choiceName, txVersion)(contractInfo.arg, choiceArg)(
-        PureWasmInstance()
-      )
-    val observers = wasmChoiceObserversFunction(choiceName, txVersion)(contractInfo.arg, choiceArg)(
-      PureWasmInstance()
-    )
-    val authorizers =
-      wasmChoiceAuthorizersFunction(choiceName, txVersion)(contractInfo.arg, choiceArg)(
-        PureWasmInstance()
-      )
+        val (updatedLocalContractStore, updatedPtx) = DamlRunner.incompleteTransaction
 
-    val startPtx = ptx
-      .beginExercises(
-        packageName = pkgName,
-        templateId = templateTypeCon,
-        targetId = contractId,
-        contract = contractInfo,
-        interfaceId = None,
-        choiceId = choiceName,
-        optLocation = None,
-        consuming = consuming,
-        actingParties = controllers,
-        choiceObservers = observers,
-        choiceAuthorizers = authorizers,
-        byKey = false,
-        chosenValue = choiceArg,
-        version = txVersion,
-      )
-      .fold(err => throw new RuntimeException(err.toString), identity)
+        localContractStore = updatedLocalContractStore
+        ptx = updatedPtx
 
-    ptx = startPtx
+        result
 
-    try {
-      val result = wasmChoiceExerciseFunction(choiceName, txVersion)(contractInfo.arg, choiceArg)(
-        UpdateWasmInstance()
-      )
+      case WasmLanguageType =>
+        val templateTypeCon = templateId.assertToTypeConName
+        val txVersion = tmplId2TxVersion(templateTypeCon)
+        val (pkgName, _) = tmplId2PackageNameVersion(templateTypeCon)
+        val contractInfo = localContractStore.get(contractId) match {
+          case Some(contractInfo)
+              if getTemplateName(contractInfo.templateId) == getTemplateName(templateTypeCon) =>
+            contractInfo
 
-      val endPtx = ptx.endExercises(txVer => toSValue(result).toNormalizedValue(txVer))
+          case Some(contractInfo) =>
+            // TODO: manage wrongly typed contract case
+            logger.error(
+              s"Invalid template type for contract ID $contractId: expected $templateTypeCon but found ${contractInfo.templateId}"
+            )
+            ???
 
-      ptx = endPtx
+          case None =>
+            // TODO: manage contract not being locally known (e.g. global contract not fetched)
+            ???
+        }
+        val controllers =
+          wasmChoiceControllersFunction(choiceName, txVersion)(contractInfo.arg, choiceArg)(
+            PureWasmInstance()
+          )
+        val observers =
+          wasmChoiceObserversFunction(choiceName, txVersion)(contractInfo.arg, choiceArg)(
+            PureWasmInstance()
+          )
+        val authorizers =
+          wasmChoiceAuthorizersFunction(choiceName, txVersion)(contractInfo.arg, choiceArg)(
+            PureWasmInstance()
+          )
+        val consuming = wasmChoiceConsumingProperty(choiceName, txVersion)(PureWasmInstance())
 
-      result
-    } catch {
-      case exn: Throwable =>
-        val abortPtx = ptx.abortExercises
+        val startPtx = ptx
+          .beginExercises(
+            packageName = pkgName,
+            templateId = templateTypeCon,
+            targetId = contractId,
+            contract = contractInfo,
+            interfaceId = None,
+            choiceId = choiceName,
+            optLocation = None,
+            consuming = consuming,
+            actingParties = controllers,
+            choiceObservers = observers,
+            choiceAuthorizers = authorizers,
+            byKey = false,
+            chosenValue = choiceArg,
+            version = txVersion,
+          )
+          .fold(err => throw new RuntimeException(err.toString), identity)
 
-        ptx = abortPtx
+        ptx = startPtx
 
-        throw exn
+        try {
+          val result =
+            wasmChoiceExerciseFunction(choiceName, txVersion)(contractInfo.arg, choiceArg)(
+              UpdateWasmInstance()
+            )
+
+          val endPtx = ptx.endExercises(txVer => toSValue(result).toNormalizedValue(txVer))
+
+          ptx = endPtx
+
+          result
+        } catch {
+          case exn: Throwable =>
+            val abortPtx = ptx.abortExercises
+
+            ptx = abortPtx
+
+            throw exn
+        }
     }
   }
 
@@ -279,7 +385,7 @@ final class WasmRunner(
     val exprEvaluator = instance.export(wasmExpr.name)
 
     // Calling imported host functions applies a series of (transactional) side effects to ptx
-    val _ = exprEvaluator.apply(wasmExpr.args.map(copyByteArray).flatten: _*)
+    val _ = exprEvaluator.apply(wasmExpr.args.map(copyByteString).flatten: _*)
 
     finish
   }
@@ -327,11 +433,40 @@ final class WasmRunner(
 
     ByteString.empty()
   }
+
+  private def lookupPackageLanguageType(templateId: Ref.TypeConRef): PackageLanguageType = {
+    // TODO: this is a hack
+    val knownWasmLanguageTypes = List(
+      "cae3f9de0ee19fa89d4b65439865e1942a3a98b50c86156c3ab1b09e8266c833"
+    )
+    val pkgId = templateId.assertToTypeConName.packageId
+
+    if (
+      compiledPackages.pkgInterface.lookupPackage(pkgId).isRight && !knownWasmLanguageTypes
+        .contains(pkgId)
+    ) {
+      DamlLanguageType
+    } else {
+      WasmLanguageType
+    }
+  }
+
+  private def getTemplateName(templateId: Ref.TypeConRef): String = {
+    templateId.qName.name.segments.head
+  }
+
+  private def getTemplateName(templateId: Ref.Identifier): String = {
+    templateId.qualifiedName.name.segments.head
+  }
 }
 
 object WasmRunner {
 
-  final case class WasmExpr(module: ByteString, name: String, args: Array[Byte]*)
+  final case class WasmExpr(module: ByteString, name: String, args: ByteString*)
+
+  private sealed trait PackageLanguageType
+  private case object WasmLanguageType extends PackageLanguageType
+  private case object DamlLanguageType extends PackageLanguageType
 
   def apply(
       submitters: Set[Party],
@@ -341,7 +476,7 @@ object WasmRunner {
       authorizationChecker: AuthorizationChecker,
       contractKeyUniqueness: ContractKeyUniquenessMode = ContractKeyUniquenessMode.Strict,
       logger: ContextualizedLogger = ContextualizedLogger.get(classOf[WasmRunner]),
-      pkgInterface: language.PackageInterface = PackageInterface.Empty,
+      compiledPackages: PureCompiledPackages,
       wasmExpr: WasmRunner.WasmExpr,
       activeContractStore: ParticipantContractStore,
       initialLocalContractStore: Map[LfValue.ContractId, ContractInfo] = Map.empty,
@@ -351,7 +486,7 @@ object WasmRunner {
       readAs = readAs,
       submissionTime = submissionTime,
       logger = logger,
-      pkgInterface = pkgInterface,
+      compiledPackages = compiledPackages,
       wasmExpr = wasmExpr,
       activeContractStore = activeContractStore,
       initialLocalContractStore = initialLocalContractStore,
@@ -406,7 +541,11 @@ object WasmRunner {
       )
     case LfValue.ValueRecord(None, fields) =>
       // As this is not really used anywhere else, use a fake type constructor
-      val tyCon = Ref.Identifier.assertFromString("package:module:record")
+      //      val tyCon = Ref.Identifier.assertFromString("package:module:record")
+      // TODO: in order for data-interoperability tests to progress, we need to ensure a real Daml template ID is used here
+      val tyCon = Ref.Identifier.assertFromString(
+        "feadceaea7984045371ed7f47f4343319e6cd76332682789125a547979118412:SimpleTemplate:SimpleTemplate"
+      )
       val fieldNames =
         ImmArray.from(fields.indices.map(index => Ref.Name.assertFromString(s"_$index")))
       SValue.SRecord(
@@ -415,20 +554,20 @@ object WasmRunner {
         ArrayList.from(fields.map(kv => toSValue(kv._2)).toArray[SValue]),
       )
     case LfValue.ValueVariant(Some(tyCon), variant, value) =>
-      // No applications, so rank is always 0
+      // FIXME: rank is number of constructors
       SValue.SVariant(tyCon, variant, 0, toSValue(value))
     case LfValue.ValueVariant(None, variant, value) =>
       // As this is not really used anywhere else, use a fake type constructor
       val tyCon = Ref.Identifier.assertFromString("package:module:variant")
-      // No applications, so rank is always 0
+      // FIXME: rank is number of constructors
       SValue.SVariant(tyCon, variant, 0, toSValue(value))
     case LfValue.ValueEnum(Some(tyCon), value) =>
-      // No applications, so rank is always 0
+      // FIXME: rank is number of constructors
       SValue.SEnum(tyCon, value, 0)
     case LfValue.ValueEnum(None, value) =>
       // As this is not really used anywhere else, use a fake type constructor
       val tyCon = Ref.Identifier.assertFromString("package:module:enum")
-      // No applications, so rank is always 0
+      // FIXME: rank is number of constructors
       SValue.SEnum(tyCon, value, 0)
   }
 }

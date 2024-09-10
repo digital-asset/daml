@@ -1,0 +1,89 @@
+Manifest-Version: 1.0
+Created-By: damlc
+Name: data-interoperability-0.1.0
+Sdk-Version: 2.9.4
+Main-Dalf: data-interoperability-0.1.0-b99189fdbae04b9f847231de3db2474f
+ 937c69b7d39f3a60c98ea21610877dc2/data-interoperability-0.1.0-b99189fdb
+ ae04b9f847231de3db2474f937c69b7d39f3a60c98ea21610877dc2.dalf
+Dalfs: data-interoperability-0.1.0-b99189fdbae04b9f847231de3db2474f937c
+ 69b7d39f3a60c98ea21610877dc2/data-interoperability-0.1.0-b99189fdbae04
+ b9f847231de3db2474f937c69b7d39f3a60c98ea21610877dc2.dalf, data-interop
+ erability-0.1.0-b99189fdbae04b9f847231de3db2474f937c69b7d39f3a60c98ea2
+ 1610877dc2/daml-prim-315cb5676675c14e71453d4a9a2a58900e5b50d6665cba4cd
+ f21f58b22abff83.dalf, data-interoperability-0.1.0-b99189fdbae04b9f8472
+ 31de3db2474f937c69b7d39f3a60c98ea21610877dc2/daml-prim-DA-Exception-Ar
+ ithmeticError-cb0552debf219cc909f51cbb5c3b41e9981d39f8f645b1f35e2ef5be
+ 2e0b858a.dalf, data-interoperability-0.1.0-b99189fdbae04b9f847231de3db
+ 2474f937c69b7d39f3a60c98ea21610877dc2/daml-prim-DA-Exception-Assertion
+ Failed-3f4deaf145a15cdcfa762c058005e2edb9baa75bb7f95a4f8f6f937378e8641
+ 5.dalf, data-interoperability-0.1.0-b99189fdbae04b9f847231de3db2474f93
+ 7c69b7d39f3a60c98ea21610877dc2/daml-prim-DA-Exception-GeneralError-868
+ 28b9843465f419db1ef8a8ee741d1eef645df02375ebf509cdc8c3ddd16cb.dalf, da
+ ta-interoperability-0.1.0-b99189fdbae04b9f847231de3db2474f937c69b7d39f
+ 3a60c98ea21610877dc2/daml-prim-DA-Exception-PreconditionFailed-f20de1e
+ 4e37b92280264c08bf15eca0be0bc5babd7a7b5e574997f154c00cb78.dalf, data-i
+ nteroperability-0.1.0-b99189fdbae04b9f847231de3db2474f937c69b7d39f3a60
+ c98ea21610877dc2/daml-prim-DA-Internal-Erased-76bf0fd12bd945762a01f8fc
+ 5bbcdfa4d0ff20f8762af490f8f41d6237c6524f.dalf, data-interoperability-0
+ .1.0-b99189fdbae04b9f847231de3db2474f937c69b7d39f3a60c98ea21610877dc2/
+ daml-prim-DA-Internal-NatSyn-38e6274601b21d7202bb995bc5ec147decda5a01b
+ 68d57dda422425038772af7.dalf, data-interoperability-0.1.0-b99189fdbae0
+ 4b9f847231de3db2474f937c69b7d39f3a60c98ea21610877dc2/daml-prim-DA-Inte
+ rnal-PromotedText-d58cf9939847921b2aab78eaa7b427dc4c649d25e6bee3c749ac
+ e4c3f52f5c97.dalf, data-interoperability-0.1.0-b99189fdbae04b9f847231d
+ e3db2474f937c69b7d39f3a60c98ea21610877dc2/daml-prim-DA-Types-40f452260
+ bef3f29dede136108fc08a88d5a5250310281067087da6f0baddff7.dalf, data-int
+ eroperability-0.1.0-b99189fdbae04b9f847231de3db2474f937c69b7d39f3a60c9
+ 8ea21610877dc2/daml-prim-GHC-Prim-e491352788e56ca4603acc411ffe1a49fefd
+ 76ed8b163af86cf5ee5f4c38645b.dalf, data-interoperability-0.1.0-b99189f
+ dbae04b9f847231de3db2474f937c69b7d39f3a60c98ea21610877dc2/daml-prim-GH
+ C-Tuple-6839a6d3d430c569b2425e9391717b44ca324b88ba621d597778811b2d0503
+ 1d.dalf, data-interoperability-0.1.0-b99189fdbae04b9f847231de3db2474f9
+ 37c69b7d39f3a60c98ea21610877dc2/daml-prim-GHC-Types-518032f41fd0175461
+ b35ae0c9691e08b4aea55e62915f8360af2cc7a1f2ba6c.dalf, data-interoperabi
+ lity-0.1.0-b99189fdbae04b9f847231de3db2474f937c69b7d39f3a60c98ea216108
+ 77dc2/daml-stdlib-2.9.4-0ac726b6369cbf641f80633cf95b7ebab834f6c0a50ae7
+ a6f9098de157dd2751.dalf, data-interoperability-0.1.0-b99189fdbae04b9f8
+ 47231de3db2474f937c69b7d39f3a60c98ea21610877dc2/daml-stdlib-DA-Action-
+ State-Type-10e0333b52bba1ff147fc408a6b7d68465b157635ee230493bd6029b750
+ dcb05.dalf, data-interoperability-0.1.0-b99189fdbae04b9f847231de3db247
+ 4f937c69b7d39f3a60c98ea21610877dc2/daml-stdlib-DA-Date-Types-bfcd37bd6
+ b84768e86e432f5f6c33e25d9e7724a9d42e33875ff74f6348e733f.dalf, data-int
+ eroperability-0.1.0-b99189fdbae04b9f847231de3db2474f937c69b7d39f3a60c9
+ 8ea21610877dc2/daml-stdlib-DA-Internal-Any-cc348d369011362a5190fe96dd1
+ f0dfbc697fdfd10e382b9e9666f0da05961b7.dalf, data-interoperability-0.1.
+ 0-b99189fdbae04b9f847231de3db2474f937c69b7d39f3a60c98ea21610877dc2/dam
+ l-stdlib-DA-Internal-Down-057eed1fd48c238491b8ea06b9b5bf85a5d4c9275dd3
+ f6183e0e6b01730cc2ba.dalf, data-interoperability-0.1.0-b99189fdbae04b9
+ f847231de3db2474f937c69b7d39f3a60c98ea21610877dc2/daml-stdlib-DA-Inter
+ nal-Interface-AnyView-Types-6df2d1fd8ea994ed048a79587b2722e3a887ac7592
+ abf31ecf46fe09ac02d689.dalf, data-interoperability-0.1.0-b99189fdbae04
+ b9f847231de3db2474f937c69b7d39f3a60c98ea21610877dc2/daml-stdlib-DA-Int
+ ernal-Template-d14e08374fc7197d6a0de468c968ae8ba3aadbf9315476fd3907183
+ 1f5923662.dalf, data-interoperability-0.1.0-b99189fdbae04b9f847231de3d
+ b2474f937c69b7d39f3a60c98ea21610877dc2/daml-stdlib-DA-Logic-Types-c1f1
+ f00558799eec139fb4f4c76f95fb52fa1837a5dd29600baa1c8ed1bdccfd.dalf, dat
+ a-interoperability-0.1.0-b99189fdbae04b9f847231de3db2474f937c69b7d39f3
+ a60c98ea21610877dc2/daml-stdlib-DA-Monoid-Types-6c2c0667393c5f92f18851
+ 63068cd31800d2264eb088eb6fc740e11241b2bf06.dalf, data-interoperability
+ -0.1.0-b99189fdbae04b9f847231de3db2474f937c69b7d39f3a60c98ea21610877dc
+ 2/daml-stdlib-DA-NonEmpty-Types-e22bce619ae24ca3b8e6519281cb5a33b64b31
+ 90cc763248b4c3f9ad5087a92c.dalf, data-interoperability-0.1.0-b99189fdb
+ ae04b9f847231de3db2474f937c69b7d39f3a60c98ea21610877dc2/daml-stdlib-DA
+ -Random-Types-e4cc67c3264eba4a19c080cac5ab32d87551578e0f5f58b6a9460f91
+ c7abc254.dalf, data-interoperability-0.1.0-b99189fdbae04b9f847231de3db
+ 2474f937c69b7d39f3a60c98ea21610877dc2/daml-stdlib-DA-Semigroup-Types-8
+ a7806365bbd98d88b4c13832ebfa305f6abaeaf32cfa2b7dd25c4fa489b79fb.dalf, 
+ data-interoperability-0.1.0-b99189fdbae04b9f847231de3db2474f937c69b7d3
+ 9f3a60c98ea21610877dc2/daml-stdlib-DA-Set-Types-97b883cd8a2b7f49f90d5d
+ 39c981cf6e110cf1f1c64427a28a6d58ec88c43657.dalf, data-interoperability
+ -0.1.0-b99189fdbae04b9f847231de3db2474f937c69b7d39f3a60c98ea21610877dc
+ 2/daml-stdlib-DA-Stack-Types-5921708ce82f4255deb1b26d2c05358b548720938
+ a5a325718dc69f381ba47ff.dalf, data-interoperability-0.1.0-b99189fdbae0
+ 4b9f847231de3db2474f937c69b7d39f3a60c98ea21610877dc2/daml-stdlib-DA-Ti
+ me-Types-733e38d36a2759688a4b2c4cec69d48e7b55ecc8dedc8067b815926c917a1
+ 82a.dalf, data-interoperability-0.1.0-b99189fdbae04b9f847231de3db2474f
+ 937c69b7d39f3a60c98ea21610877dc2/daml-stdlib-DA-Validation-Types-99a27
+ 05ed38c1c26cbb8fe7acf36bbf626668e167a33335de932599219e0a235.dalf
+Format: daml-lf
+Encryption: non-encrypted

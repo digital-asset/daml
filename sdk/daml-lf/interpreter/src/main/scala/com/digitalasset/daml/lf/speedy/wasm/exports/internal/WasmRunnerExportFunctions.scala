@@ -13,6 +13,25 @@ import com.dylibso.chicory.runtime.{Instance => WasmInstance}
 object WasmRunnerExportFunctions {
   import WasmUtils._
 
+  private[wasm] def wasmChoiceProperty(
+      choiceName: String,
+      txVersion: TransactionVersion,
+  )(implicit instance: WasmInstance): LfValue = {
+    val choice = instance.export(choiceName)
+    val consumingPtr = choice.apply()
+    try {
+      if (consumingPtr.nonEmpty) {
+        LfValueCoder
+          .decodeValue(txVersion, copyWasmValue(consumingPtr))
+          .fold(err => throw new RuntimeException(err.toString), identity)
+      } else {
+        LfValue.ValueUnit
+      }
+    } finally {
+      deallocByteString(consumingPtr.head)
+    }
+  }
+
   private[wasm] def wasmChoiceFunction(
       choiceName: String,
       txVersion: TransactionVersion,

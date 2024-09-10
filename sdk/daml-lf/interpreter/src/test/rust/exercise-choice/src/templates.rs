@@ -9,6 +9,14 @@ pub struct SimpleTemplate_increment;
 
 #[allow(non_snake_case)]
 impl ledger::api::Choice for SimpleTemplate_increment {
+    fn consuming(&self) -> lf::Value {
+        let mut result = lf::Value::new();
+
+        result.set_bool(true);
+
+        return result;
+    }
+
     fn exercise(&self, contractArg: lf::Value, choiceArg: lf::Value) -> lf::Value {
         assert!(choiceArg.has_unit());
 
@@ -75,6 +83,14 @@ pub struct SimpleTemplate_decrement;
 
 #[allow(non_snake_case)]
 impl ledger::api::Choice for SimpleTemplate_decrement {
+    fn consuming(&self) -> lf::Value {
+        let mut result = lf::Value::new();
+
+        result.set_bool(true);
+
+        return result;
+    }
+
     fn exercise(&self, contractArg: lf::Value, choiceArg: lf::Value) -> lf::Value {
         assert!(choiceArg.has_unit());
 
@@ -159,7 +175,7 @@ impl ledger::api::Template<SimpleTemplate> for SimpleTemplate {
         let mut templateId = lf::Identifier::new();
 
         templateId.package_id = String::from("cae3f9de0ee19fa89d4b65439865e1942a3a98b50c86156c3ab1b09e8266c833");
-        templateId.module_name = Vec::from([String::from("exercise_choice")]);
+        templateId.module_name = Vec::from([String::from("wasm_module")]);
         templateId.name = Vec::from([String::from("SimpleTemplate"), String::from("new")]);
 
         return templateId;

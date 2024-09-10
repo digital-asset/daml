@@ -82,7 +82,7 @@ da_scala_test_suite(
             "src/test/scala/com/daml/daml/lf/speedy/SBuiltinBigNumericTest.scala",
         ],
     ),
-    data = glob(["src/test/resources/*.wasm"]),
+    data = glob(["src/test/resources/*.wasm"]) + glob(["src/test/resources/*.dar"]),
     scala_deps = [
         "@maven//:org_mockito_mockito_scala",
         "@maven//:org_scalacheck_scalacheck",
@@ -101,6 +101,8 @@ da_scala_test_suite(
         ":interpreter-test-lib",
         "//bazel_tools/runfiles:scala_runfiles",
         "//daml-lf/api-type-signature",
+        "//daml-lf/archive:daml_lf_archive_proto_java",
+        "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/parser",

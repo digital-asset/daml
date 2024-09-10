@@ -7,18 +7,18 @@ package wasm
 
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
+import com.digitalasset.daml.lf.archive.{DarReader, Decode}
 import com.digitalasset.daml.lf.data.Ref.PackageVersion
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.language.Ast.{
-  BLText,
-  EBuiltinLit,
   FeatureFlags,
-  Module,
-  Package,
+  ModuleSignature,
   PackageMetadata,
-  Template,
+  PackageSignature,
+  TemplateSignature,
 }
-import com.digitalasset.daml.lf.language.{LanguageVersion, PackageInterface}
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.speedy.NoopAuthorizationChecker
 import com.digitalasset.daml.lf.speedy.Speedy.{ContractInfo, UpdateMachine}
 import com.digitalasset.daml.lf.speedy.wasm.WasmRunner.WasmExpr
@@ -51,6 +51,58 @@ class WasmRunnerTest
 
   private val languages: Map[String, String] = Map("rust" -> "rs")
   private val mockLogger = mock[Logger]
+  private val darFile = Paths
+    .get(
+      BazelRunfiles.rlocation("daml-lf/interpreter/src/test/resources/data-interoperability.dar")
+    )
+    .toFile
+  private val dar = DarReader.assertReadArchiveFromFile(darFile)
+  private val config = Compiler.Config.Dev(LanguageMajorVersion.V2)
+  private val wasmModuleName = Ref.ModuleName.assertFromString("wasm_module")
+  private val wasmPkgName = Ref.PackageName.assertFromString("wasm_package")
+  private val wasmCompiledPackages = Map(
+    Ref.PackageId.assertFromString(
+      "cae3f9de0ee19fa89d4b65439865e1942a3a98b50c86156c3ab1b09e8266c833"
+    ) -> PackageSignature(
+      modules = Map(
+        wasmModuleName -> ModuleSignature(
+          name = wasmModuleName,
+          definitions = Map.empty,
+          templates = Map(
+            Ref.DottedName.assertFromString("SimpleTemplate") -> TemplateSignature(
+              param = Ref.Name.assertFromString("new"),
+              precond = (),
+              signatories = (),
+              choices = Map.empty,
+              observers = (),
+              key = None,
+              implements = VectorMap.empty,
+            )
+          ),
+          exceptions = Map.empty,
+          interfaces = Map.empty,
+          featureFlags = FeatureFlags.default,
+        )
+      ),
+      directDeps = Set.empty,
+      languageVersion = LanguageVersion.Features.default,
+      metadata = PackageMetadata(
+        name = wasmPkgName,
+        // TODO: this should be pulled from the Cargo.toml file?
+        version = PackageVersion.assertFromString("0.1.0"),
+        upgradedPackageId = None,
+      ),
+    )
+  )
+  private val damlCompiledPackages = PureCompiledPackages.assertBuild(
+    dar.all.map(Decode.assertDecodeArchivePayload(_)).toMap,
+    config,
+  )
+  private val compiledPackages = PureCompiledPackages(
+    packages = damlCompiledPackages.signatures ++ wasmCompiledPackages,
+    definitions = damlCompiledPackages.definitions,
+    compilerConfig = config,
+  )
 
   override def beforeEach(): Unit = {
     val _ = when(mockLogger.isInfoEnabled()).thenReturn(true)
@@ -82,6 +134,7 @@ class WasmRunnerTest
       logger = createContextualizedLogger(mockLogger),
       activeContractStore = WasmRunnerTestLib.acs(),
       wasmExpr = wexpr,
+      compiledPackages = compiledPackages,
     )(LoggingContext.ForTesting)
 
     getLocalContractStore(wasm) shouldBe empty
@@ -127,46 +180,7 @@ class WasmRunnerTest
     val submitters = Set(bob)
     val readAs = Set.empty[Ref.Party]
     val stakeholders = submitters ++ readAs
-    val pkgName = Ref.PackageName.assertFromString("package-1")
-    val modName = Ref.ModuleName.assertFromString("create_contract")
-    // TODO: following should be built using the (disassembled output of?) wasm code
-    val pkgInterface = PackageInterface(
-      Map(
-        // TODO: this should be the wasm module/zip hash
-        Ref.PackageId.assertFromString(
-          "cae3f9de0ee19fa89d4b65439865e1942a3a98b50c86156c3ab1b09e8266c833"
-        ) -> Package(
-          modules = Map(
-            modName -> Module(
-              name = modName,
-              definitions = Map.empty,
-              templates = Map(
-                Ref.DottedName.assertFromString("SimpleTemplate") -> Template(
-                  param = Ref.Name.assertFromString("new"),
-                  precond = EBuiltinLit(BLText("SimpleTemplate_precond")),
-                  signatories = EBuiltinLit(BLText("SimpleTemplate_signatories")),
-                  choices = Map.empty,
-                  observers = EBuiltinLit(BLText("SimpleTemplate_observers")),
-                  key = None,
-                  implements = VectorMap.empty,
-                )
-              ),
-              exceptions = Map.empty,
-              interfaces = Map.empty,
-              featureFlags = FeatureFlags.default,
-            )
-          ),
-          directDeps = Set.empty,
-          languageVersion = LanguageVersion.Features.default,
-          metadata = PackageMetadata(
-            name = pkgName,
-            // TODO: this should be pulled from the Cargo.toml file?
-            version = PackageVersion.assertFromString("0.1.0"),
-            upgradedPackageId = None,
-          ),
-        )
-      )
-    )
+    val pkgName = Ref.PackageName.assertFromString("wasm_package")
     val wexpr = WasmExpr(wasmModule, "main")
     val wasm = WasmRunner(
       submitters = submitters,
@@ -175,7 +189,7 @@ class WasmRunnerTest
       submissionTime = submissionTime,
       authorizationChecker = DefaultAuthorizationChecker,
       logger = createContextualizedLogger(mockLogger),
-      pkgInterface = pkgInterface,
+      compiledPackages = compiledPackages,
       wasmExpr = wexpr,
       activeContractStore = WasmRunnerTestLib.acs(),
     )(LoggingContext.ForTesting)
@@ -212,7 +226,7 @@ class WasmRunnerTest
               ) =>
             verify(mockLogger).info(s"created contract with ID ${contractId.coid}")
             templateId shouldBe Ref.TypeConName.assertFromString(
-              "cae3f9de0ee19fa89d4b65439865e1942a3a98b50c86156c3ab1b09e8266c833:create_contract:SimpleTemplate.new"
+              "cae3f9de0ee19fa89d4b65439865e1942a3a98b50c86156c3ab1b09e8266c833:wasm_module:SimpleTemplate.new"
             )
             fields.length shouldBe 2
             fields(0) shouldBe (None, ValueParty(bob))
@@ -252,12 +266,11 @@ class WasmRunnerTest
     val submitters = Set(bob)
     val readAs = Set.empty[Ref.Party]
     val stakeholders = submitters ++ readAs
-    val pkgName = Ref.PackageName.assertFromString("package-1")
+    val pkgName = Ref.PackageName.assertFromString("wasm_package")
     // TODO: this should be pulled from the Cargo.toml file?
     val pkgVersion = PackageVersion.assertFromString("0.1.0")
-    val modName = Ref.ModuleName.assertFromString("fetch_contract")
     val templateId = Ref.TypeConName.assertFromString(
-      "cae3f9de0ee19fa89d4b65439865e1942a3a98b50c86156c3ab1b09e8266c833:fetch_contract:SimpleTemplate.new"
+      "cae3f9de0ee19fa89d4b65439865e1942a3a98b50c86156c3ab1b09e8266c833:wasm_module:SimpleTemplate.new"
     )
     val txVersion = TransactionVersion.V31
     val count = 42L
@@ -267,43 +280,6 @@ class WasmRunnerTest
     )
     val contract =
       VersionedContractInstance(pkgName, Some(pkgVersion), templateId, Versioned(txVersion, argV))
-    // TODO: following should be built using the (disassembled output of?) wasm code
-    val pkgInterface = PackageInterface(
-      Map(
-        // TODO: this should be the wasm module/zip hash
-        Ref.PackageId.assertFromString(
-          "cae3f9de0ee19fa89d4b65439865e1942a3a98b50c86156c3ab1b09e8266c833"
-        ) -> Package(
-          modules = Map(
-            modName -> Module(
-              name = modName,
-              definitions = Map.empty,
-              templates = Map(
-                Ref.DottedName.assertFromString("SimpleTemplate") -> Template(
-                  param = Ref.Name.assertFromString("new"),
-                  precond = EBuiltinLit(BLText("SimpleTemplate_precond")),
-                  signatories = EBuiltinLit(BLText("SimpleTemplate_signatories")),
-                  choices = Map.empty,
-                  observers = EBuiltinLit(BLText("SimpleTemplate_observers")),
-                  key = None,
-                  implements = VectorMap.empty,
-                )
-              ),
-              exceptions = Map.empty,
-              interfaces = Map.empty,
-              featureFlags = FeatureFlags.default,
-            )
-          ),
-          directDeps = Set.empty,
-          languageVersion = LanguageVersion.Features.default,
-          metadata = PackageMetadata(
-            name = pkgName,
-            version = pkgVersion,
-            upgradedPackageId = None,
-          ),
-        )
-      )
-    )
     val wexpr = WasmExpr(wasmModule, "main")
     val wasm = WasmRunner(
       submitters = submitters,
@@ -312,7 +288,7 @@ class WasmRunnerTest
       submissionTime = submissionTime,
       authorizationChecker = DefaultAuthorizationChecker,
       logger = createContextualizedLogger(mockLogger),
-      pkgInterface = pkgInterface,
+      compiledPackages = compiledPackages,
       wasmExpr = wexpr,
       activeContractStore = WasmRunnerTestLib.acs({ case `contractId` =>
         contract
@@ -381,12 +357,11 @@ class WasmRunnerTest
     val submitters = Set(bob)
     val readAs = Set.empty[Ref.Party]
     val stakeholders = submitters ++ readAs
-    val pkgName = Ref.PackageName.assertFromString("package-1")
+    val pkgName = Ref.PackageName.assertFromString("wasm_package")
     // TODO: this should be pulled from the Cargo.toml file?
     val pkgVersion = PackageVersion.assertFromString("0.1.0")
-    val modName = Ref.ModuleName.assertFromString("fetch_contract")
     val templateId = Ref.TypeConName.assertFromString(
-      "cae3f9de0ee19fa89d4b65439865e1942a3a98b50c86156c3ab1b09e8266c833:fetch_contract:SimpleTemplate.new"
+      "cae3f9de0ee19fa89d4b65439865e1942a3a98b50c86156c3ab1b09e8266c833:wasm_module:SimpleTemplate.new"
     )
     val txVersion = TransactionVersion.V31
     val count = 42L
@@ -406,43 +381,6 @@ class WasmRunnerTest
       stakeholders,
       None,
     )
-    // TODO: following should be built using the (disassembled output of?) wasm code
-    val pkgInterface = PackageInterface(
-      Map(
-        // TODO: this should be the wasm module/zip hash
-        Ref.PackageId.assertFromString(
-          "cae3f9de0ee19fa89d4b65439865e1942a3a98b50c86156c3ab1b09e8266c833"
-        ) -> Package(
-          modules = Map(
-            modName -> Module(
-              name = modName,
-              definitions = Map.empty,
-              templates = Map(
-                Ref.DottedName.assertFromString("SimpleTemplate") -> Template(
-                  param = Ref.Name.assertFromString("new"),
-                  precond = EBuiltinLit(BLText("SimpleTemplate_precond")),
-                  signatories = EBuiltinLit(BLText("SimpleTemplate_signatories")),
-                  choices = Map.empty,
-                  observers = EBuiltinLit(BLText("SimpleTemplate_observers")),
-                  key = None,
-                  implements = VectorMap.empty,
-                )
-              ),
-              exceptions = Map.empty,
-              interfaces = Map.empty,
-              featureFlags = FeatureFlags.default,
-            )
-          ),
-          directDeps = Set.empty,
-          languageVersion = LanguageVersion.Features.default,
-          metadata = PackageMetadata(
-            name = pkgName,
-            version = pkgVersion,
-            upgradedPackageId = None,
-          ),
-        )
-      )
-    )
     val wexpr = WasmExpr(wasmModule, "main")
     val wasm = WasmRunner(
       submitters = submitters,
@@ -451,7 +389,7 @@ class WasmRunnerTest
       submissionTime = submissionTime,
       authorizationChecker = DefaultAuthorizationChecker,
       logger = createContextualizedLogger(mockLogger),
-      pkgInterface = pkgInterface,
+      compiledPackages = compiledPackages,
       wasmExpr = wexpr,
       activeContractStore = WasmRunnerTestLib.acs({ case `contractId` =>
         contract
@@ -485,6 +423,39 @@ class WasmRunnerTest
     )
   }
 
+  /*
+      WasmRunner(ptx)         exercise-contract.wasm
+      ---------------         ----------------------
+           |
+           +            -0->         main()                                                                      [Export function]
+                                       |
+           +            <-1-     exerciseChoice(templateId, contractId, choiceName, choiceArg, consuming = true) [Host function]
+           |
+    ptx.beginExercises
+           |
+SimpleTemplate_increment.exercise -2-> +                                                                         [Export function]
+                                       |
+                                 updatedContract
+                                       |
+           +            <-3-     createContract(templateId, updatedContract)                                     [Host function]
+           |
+    ptx.insertCreate
+           |
+        newCoId         -R3->          +
+                                       |
+           +            <-R2-      newCoId
+           |
+     ptx.endExercises
+           |
+        newCoId         -R1->          +
+                                       |
+           +            <-4-  logInfo("..$newCoId..)                                                             [Host function]
+           |
+logger.info("..$newCoId..") -R4->      +
+                                       |
+           +            <-R0-          +
+           |
+   */
   "exercise-choice" in {
     val wasmModule = ByteString.readFrom(
       Files.newInputStream(
@@ -508,16 +479,14 @@ class WasmRunnerTest
     )
     val bob = Ref.Party.assertFromString("bob")
     val alice = Ref.Party.assertFromString("alice")
-//    val charlie = Ref.Party.assertFromString("charlie")
     val submitters = Set(bob)
     val readAs = Set.empty[Ref.Party]
     val stakeholders = submitters ++ readAs
-    val pkgName = Ref.PackageName.assertFromString("package-1")
+    val pkgName = Ref.PackageName.assertFromString("wasm_package")
     // TODO: this should be pulled from the Cargo.toml file?
     val pkgVersion = PackageVersion.assertFromString("0.1.0")
-    val modName = Ref.ModuleName.assertFromString("exercise_choice")
     val templateId = Ref.TypeConName.assertFromString(
-      "cae3f9de0ee19fa89d4b65439865e1942a3a98b50c86156c3ab1b09e8266c833:exercise_choice:SimpleTemplate.new"
+      "cae3f9de0ee19fa89d4b65439865e1942a3a98b50c86156c3ab1b09e8266c833:wasm_module:SimpleTemplate.new"
     )
     val txVersion = TransactionVersion.V31
     val count = 42L
@@ -537,43 +506,6 @@ class WasmRunnerTest
       stakeholders,
       None,
     )
-    // TODO: following should be built using the (disassembled output of?) wasm code
-    val pkgInterface = PackageInterface(
-      Map(
-        // TODO: this should be the wasm module/zip hash
-        Ref.PackageId.assertFromString(
-          "cae3f9de0ee19fa89d4b65439865e1942a3a98b50c86156c3ab1b09e8266c833"
-        ) -> Package(
-          modules = Map(
-            modName -> Module(
-              name = modName,
-              definitions = Map.empty,
-              templates = Map(
-                Ref.DottedName.assertFromString("SimpleTemplate") -> Template(
-                  param = Ref.Name.assertFromString("new"),
-                  precond = EBuiltinLit(BLText("SimpleTemplate_precond")),
-                  signatories = EBuiltinLit(BLText("SimpleTemplate_signatories")),
-                  choices = Map.empty,
-                  observers = EBuiltinLit(BLText("SimpleTemplate_observers")),
-                  key = None,
-                  implements = VectorMap.empty,
-                )
-              ),
-              exceptions = Map.empty,
-              interfaces = Map.empty,
-              featureFlags = FeatureFlags.default,
-            )
-          ),
-          directDeps = Set.empty,
-          languageVersion = LanguageVersion.Features.default,
-          metadata = PackageMetadata(
-            name = pkgName,
-            version = pkgVersion,
-            upgradedPackageId = None,
-          ),
-        )
-      )
-    )
     val wexpr = WasmExpr(wasmModule, "main")
     val wasm = WasmRunner(
       submitters = submitters,
@@ -582,7 +514,7 @@ class WasmRunnerTest
       submissionTime = submissionTime,
       authorizationChecker = DefaultAuthorizationChecker,
       logger = createContextualizedLogger(mockLogger),
-      pkgInterface = pkgInterface,
+      compiledPackages = compiledPackages,
       wasmExpr = wexpr,
       activeContractStore = WasmRunnerTestLib.acs({ case `contractId` =>
         contract
@@ -653,7 +585,7 @@ class WasmRunnerTest
                     s"result of exercising choice SimpleTemplate_increment on contract ID ${contractId.coid} is ${newContractId.coid}"
                   )
                   templateId shouldBe Ref.TypeConName.assertFromString(
-                    "cae3f9de0ee19fa89d4b65439865e1942a3a98b50c86156c3ab1b09e8266c833:exercise_choice:SimpleTemplate.new"
+                    "cae3f9de0ee19fa89d4b65439865e1942a3a98b50c86156c3ab1b09e8266c833:wasm_module:SimpleTemplate.new"
                   )
                   fields.length shouldBe 2
                   fields(0) shouldBe (None, ValueParty(Ref.Party.assertFromString("bob")))
