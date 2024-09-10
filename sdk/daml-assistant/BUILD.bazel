@@ -129,6 +129,7 @@ da_haskell_test(
         "extra",
         "filepath",
         "safe-exceptions",
+        "semver",
         "tar-conduit",
         "tasty",
         "tasty-hunit",
