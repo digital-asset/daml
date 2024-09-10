@@ -593,7 +593,7 @@ private[lf] object Pretty {
               text("$update")
             case _: SBRecUpdMulti =>
               text("$updateMulti")
-            case SBRecProj(id, _, field) =>
+            case SBRecProj(id, field) =>
               text("$project") + char('[') + text(id.qualifiedName.toString) + char(':') + str(
                 field
               ) + char(']')

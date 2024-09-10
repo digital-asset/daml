@@ -214,7 +214,7 @@ private[lf] final class PhaseOne(
             NameOf.qualifiedNameOfCurrentFunc,
             pkgInterface.lookupRecordFieldInfo(tapp.tycon, field),
           ).index
-          Return(SBRecProj(tapp.tycon, field, fieldNum)(record))
+          Return(SBRecProj(tapp.tycon, fieldNum)(record))
         }
       case erecupd: ERecUpd =>
         compileERecUpd(env, erecupd)
@@ -530,7 +530,7 @@ private[lf] final class PhaseOne(
     tapp match {
       case TypeConApp(tycon, _) =>
         if (fields.isEmpty)
-          Return(SEValue(SRecordRep(tycon, ImmArray.Empty, ArrayList.empty)))
+          Return(SEValue(SRecord(tycon, ImmArray.Empty, ArrayList.empty)))
         else {
           val exps = fields.toList.map(_._2)
           compileExps(env, exps) { exps =>
@@ -543,25 +543,23 @@ private[lf] final class PhaseOne(
   private[this] def compileERecUpd(env: Env, erecupd: ERecUpd): Work = {
     val tapp = erecupd.tycon
     val (record, fields, updates) = collectRecUpds(erecupd)
-    val fieldsAndNums =
-      fields.map { field =>
-        val fieldNum: Int = handleLookup(
-          NameOf.qualifiedNameOfCurrentFunc,
-          pkgInterface.lookupRecordFieldInfo(tapp.tycon, field),
-        ).index
-        (field, fieldNum)
-      }
-    if (fieldsAndNums.length == 1) {
-      compileExp(env, record) { record =>
-        compileExp(env, updates.head) { update =>
-          val (field, fieldNum) = fieldsAndNums.head
-          Return(SBRecUpd(tapp.tycon, field, fieldNum)(record, update))
+    val fieldNums = fields.map { field =>
+      handleLookup(
+        NameOf.qualifiedNameOfCurrentFunc,
+        pkgInterface.lookupRecordFieldInfo(tapp.tycon, field),
+      ).index
+    }
+    fieldNums match {
+      case List(num) =>
+        compileExp(env, record) { record =>
+          compileExp(env, updates.head) { update =>
+            Return(SBRecUpd(tapp.tycon, num)(record, update))
+          }
         }
-      }
-    } else {
-      compileExps(env, record :: updates) { exps =>
-        Return(SBRecUpdMulti(tapp.tycon, fieldsAndNums)(exps: _*))
-      }
+      case _ =>
+        compileExps(env, record :: updates) { exps =>
+          Return(SBRecUpdMulti(tapp.tycon, fieldNums)(exps: _*))
+        }
     }
   }
 

@@ -1724,7 +1724,7 @@ private[lf] object Speedy {
         }
       case SValue.SContractId(_) | SValue.SDate(_) | SValue.SNumeric(_) | SValue.SInt64(_) |
           SValue.SParty(_) | SValue.SText(_) | SValue.STimestamp(_) | SValue.SStruct(_, _) |
-          SValue.SMap(_, _) | _: SValue.SRecordRep | SValue.SAny(_, _) | SValue.STypeRep(_) |
+          SValue.SMap(_, _) | SValue.SRecord(_, _, _) | SValue.SAny(_, _) | SValue.STypeRep(_) |
           SValue.SBigNumeric(_) | _: SValue.SPAP | SValue.SToken => {
         throw SErrorCrash(NameOf.qualifiedNameOfCurrentFunc, "Match on non-matchable value")
       }
