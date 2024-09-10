@@ -106,6 +106,53 @@ class WasmSpeedyDataInteroperabilityTest
     Mockito.reset(mockLogger)
   }
 
+  /*
+  sequenceDiagram
+      participant WasmRunner
+      participant WASM
+      participant SpeedyRunner
+      participant Daml-LF
+      participant PartialTransaction
+
+      WasmRunner ->>+ WASM: main()
+      WASM ->>+ WasmRunner: createContract(damlTid, arg)
+      WasmRunner ->>+ SpeedyRunner: createContract(damlTid, arg)
+      SpeedyRunner ->>+ Daml-LF: CreateDefRef(damlTid)(arg)
+      Daml-LF ->>- SpeedyRunner: cid0
+      SpeedyRunner ->>- WasmRunner: cid0
+      WasmRunner ->> PartialTransaction: ptx.createNode(cid0)
+      WasmRunner ->>- WASM: cid0
+
+      WASM ->>+ WasmRunner: logInfo(cid0)
+      WasmRunner ->> WasmRunner: logger.info(cid0)
+      WasmRunner ->>- WASM:
+
+      WASM ->>+ WasmRunner: exerciseChoice(damlTid, cid0, "incr", ())
+      WasmRunner ->>+ SpeedyRunner: exerciseChoice(damlTid, cid0, "incr", ())
+      SpeedyRunner ->> PartialTransaction: ptx.beginExercises(cid0)
+      SpeedyRunner ->>+ Daml-LF: TemplateChoiceDefRef(damlTid, "incr")(cid0, ())
+      Daml-LF ->>- SpeedyRunner: cid1
+      SpeedyRunner ->> PartialTransaction: ptx.endExercise(cid0)
+      SpeedyRunner ->>- WasmRunner: cid1
+      WasmRunner ->>- WASM: cid1
+
+      WASM ->>+ WasmRunner: logInfo(cid1)
+      WasmRunner ->> WasmRunner: logger.info(cid1)
+      WasmRunner ->>- WASM:
+
+      WASM ->>+ WasmRunner: exerciseChoice(wasmTid, cid1, "incr", ())
+      WasmRunner ->> PartialTransaction: ptx.beginExercises(cid1)
+      WasmRunner ->>+ WASM: incr(wasmTid, cid1, ())
+      WASM ->>- WasmRunner: cid2
+      WasmRunner ->> PartialTransaction: ptx.endExercise(cid1)
+      WasmRunner ->>- WASM: cid2
+
+      WASM ->>+ WasmRunner: logInfo(cid2)
+      WasmRunner ->> WasmRunner: logger.info(cid2)
+      WasmRunner ->>- WASM:
+
+      WASM ->>- WasmRunner:
+   */
   "WASM to Speedy data-interoperability" in {
     val wasmModule = ByteString.readFrom(
       Files.newInputStream(
