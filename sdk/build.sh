@@ -76,6 +76,8 @@ else
     bazel=bazel
 fi
 
+echo "Here"
+
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
 $bazel build //... \
   --build_tag_filters "${tag_filter}" \
@@ -84,8 +86,6 @@ $bazel build //... \
   --build_event_json_file build-events.json \
   --build_event_publish_all_actions \
   --execution_log_json_file "$ARTIFACT_DIRS/logs/build_execution${execution_log_postfix}.json.gz"
-
-echo "Here"
 
 # Set up a shared PostgreSQL instance.
 export POSTGRESQL_ROOT_DIR="${POSTGRESQL_TMP_ROOT_DIR:-$DIR/.tmp-pg}/daml/postgresql"
