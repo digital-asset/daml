@@ -121,19 +121,9 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
         SMap(true, SText("0") -> SValue.True, SText("1") -> SValue.False),
       ),
       (
-        TTextMap(TText),
-        ValueTextMap(SortedLookupList.Empty),
-        SMap(true),
-      ),
-      (
         TGenMap(TInt64, TText),
         ValueGenMap(ImmArray(ValueInt64(1) -> ValueText("1"), ValueInt64(42) -> ValueText("42"))),
         SMap(false, SInt64(1) -> SText("1"), SInt64(42) -> SText("42")),
-      ),
-      (
-        TGenMap(TInt64, TText),
-        ValueGenMap(ImmArray.empty),
-        SMap(false),
       ),
       (TOptional(TText), ValueOptional(Some(ValueText("text"))), SOptional(Some(SText("text")))),
       (
@@ -154,8 +144,28 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
       ),
     )
 
+    val emptyTestCase = Table[Ast.Type, Value, speedy.SValue](
+      ("type", "value", "svalue"),
+      (TList(TText), ValueList(FrontStack.empty), SList(FrontStack.empty)),
+      (
+        TOptional(TText),
+        ValueOptional(None),
+        SOptional(None),
+      ),
+      (
+        TTextMap(TText),
+        ValueTextMap(SortedLookupList.Empty),
+        SMap(true),
+      ),
+      (
+        TGenMap(TInt64, TText),
+        ValueGenMap(ImmArray.empty),
+        SMap(false),
+      ),
+    )
+
     "succeeds on well type values" in {
-      forAll(testCases) { (typ, value, svalue) =>
+      forAll(testCases ++ emptyTestCase) { (typ, value, svalue) =>
         Try(
           unsafeTranslateValue(typ, value, Config.Strict)
         ) shouldBe Success(svalue)
