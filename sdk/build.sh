@@ -76,16 +76,14 @@ else
     bazel=bazel
 fi
 
-#xcode-select -v
-#$bazel version
-#$bazel info
+$bazel version
+$bazel info
 #SERVER_LOG=`bazel info server_log`
 #OUTPUT_BASE=`bazel info output_base`
 #$bazel clean --expunge
 
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
 $bazel build //... \
-  -s --verbose_failures \
   --build_tag_filters "${tag_filter}" \
   --profile build-profile.json \
   --experimental_profile_include_target_label \
