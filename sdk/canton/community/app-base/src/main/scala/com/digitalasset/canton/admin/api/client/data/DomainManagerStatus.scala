@@ -87,7 +87,7 @@ object DomainManagerStatus {
             active = status.active,
             topologyQueue = status.topologyQueue,
             components = status.components,
-            version = Some(ReleaseVersion.current),
+            version = status.version,
             protocolVersion = protocolVersion.some,
           )
         )

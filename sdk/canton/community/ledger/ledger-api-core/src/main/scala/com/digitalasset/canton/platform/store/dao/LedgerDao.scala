@@ -49,7 +49,6 @@ private[platform] trait LedgerDaoTransactionsReader {
       endInclusive: Offset,
       filter: TemplatePartiesFilter,
       eventProjectionProperties: EventProjectionProperties,
-      multiDomainEnabled: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Source[(Offset, GetUpdatesResponse), NotUsed]
 
   def lookupFlatTransactionById(
@@ -62,7 +61,6 @@ private[platform] trait LedgerDaoTransactionsReader {
       endInclusive: Offset,
       requestingParties: Set[Party],
       eventProjectionProperties: EventProjectionProperties,
-      multiDomainEnabled: Boolean,
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Source[(Offset, GetUpdateTreesResponse), NotUsed]
@@ -76,7 +74,6 @@ private[platform] trait LedgerDaoTransactionsReader {
       activeAt: Offset,
       filter: TemplatePartiesFilter,
       eventProjectionProperties: EventProjectionProperties,
-      multiDomainEnabled: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetActiveContractsResponse, NotUsed]
 }
 

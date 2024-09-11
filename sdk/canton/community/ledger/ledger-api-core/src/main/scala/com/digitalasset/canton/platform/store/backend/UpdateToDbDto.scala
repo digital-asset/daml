@@ -16,7 +16,7 @@ import com.digitalasset.canton.ledger.api.DeduplicationPeriod.{
 }
 import com.digitalasset.canton.ledger.configuration.Configuration
 import com.digitalasset.canton.ledger.offset.Offset
-import com.digitalasset.canton.ledger.participant.state.v2.{CompletionInfo, Reassignment, Update}
+import com.digitalasset.canton.ledger.participant.state.v2.{CompletionInfo, Update}
 import com.digitalasset.canton.metrics.{IndexedUpdatesMetrics, Metrics}
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.store.dao.JdbcLedgerDao
@@ -33,7 +33,6 @@ object UpdateToDbDto {
       translation: LfValueSerialization,
       compressionStrategy: CompressionStrategy,
       metrics: Metrics,
-      multiDomainEnabled: Boolean,
   )(implicit mc: MetricsContext): Offset => Traced[Update] => Iterator[DbDto] = {
     offset => tracedUpdate =>
       import Update.*
@@ -54,14 +53,13 @@ object UpdateToDbDto {
               IndexedUpdatesMetrics.Labels.status.rejected,
             )
           }
-          val domainId = u.domainId.map(_.toProtoPrimitive).filter(_ => multiDomainEnabled)
           Iterator(
             commandCompletion(
               offset = offset,
               recordTime = u.recordTime,
               transactionId = None,
               completionInfo = u.completionInfo,
-              domainId = domainId,
+              domainId = None,
               serializedTraceContext = serializedTraceContext,
             ).copy(
               rejection_status_code = Some(u.reasonTemplate.code),
@@ -218,8 +216,6 @@ object UpdateToDbDto {
             event_sequential_id_first = 0, // this is filled later
             event_sequential_id_last = 0, // this is filled later
           )
-          val domainId =
-            u.transactionMeta.optDomainId.map(_.toProtoPrimitive).filter(_ => multiDomainEnabled)
           val events: Iterator[DbDto] = preorderTraversal.iterator
             .flatMap {
               case (nodeId, create: Create) =>
@@ -266,7 +262,7 @@ object UpdateToDbDto {
                       // Allow None as the original participant might be running
                       // with a version predating the introduction of contract driver metadata
                       u.contractMetadata.get(create.coid).map(_.toByteArray),
-                    domain_id = domainId,
+                    domain_id = None,
                     trace_context = serializedTraceContext,
                   )
                 ) ++ stakeholders.iterator.map(
@@ -326,7 +322,7 @@ object UpdateToDbDto {
                       compressionStrategy.exerciseArgumentCompression.id,
                     exercise_result_compression = compressionStrategy.exerciseResultCompression.id,
                     event_sequential_id = 0, // this is filled later
-                    domain_id = domainId,
+                    domain_id = None,
                     trace_context = serializedTraceContext,
                   )
                 ) ++ {
@@ -379,7 +375,7 @@ object UpdateToDbDto {
                   .map(compressionStrategy.createArgumentCompression.compress),
                 create_argument_compression = compressionStrategy.createArgumentCompression.id,
                 event_sequential_id = 0, // this is filled later
-                domain_id = domainId,
+                domain_id = None,
               )
           }
 
@@ -390,7 +386,7 @@ object UpdateToDbDto {
                 recordTime = u.recordTime,
                 transactionId = Some(u.transactionId),
                 _,
-                domainId = domainId,
+                domainId = None,
                 serializedTraceContext = serializedTraceContext,
               )
             )
@@ -400,115 +396,6 @@ object UpdateToDbDto {
           // will be assigned consecutive event sequential ids
           // and transaction meta is assigned sequential ids of its first and last event
           events ++ divulgences ++ completions ++ Seq(transactionMeta)
-
-        case u: ReassignmentAccepted if multiDomainEnabled =>
-          val events = u.reassignment match {
-            case unassign: Reassignment.Unassign =>
-              val flatEventWitnesses = unassign.stakeholders.map(_.toString)
-              val templateId = unassign.templateId.toString
-              Iterator(
-                DbDto.EventUnassign(
-                  event_offset = offset.toHexString,
-                  update_id = u.updateId,
-                  command_id = u.optCompletionInfo.map(_.commandId),
-                  workflow_id = u.workflowId,
-                  submitter = u.reassignmentInfo.submitter,
-                  contract_id = unassign.contractId.coid,
-                  template_id = templateId,
-                  flat_event_witnesses = flatEventWitnesses.toSet,
-                  event_sequential_id = 0L, // this is filled later
-                  source_domain_id = u.reassignmentInfo.sourceDomain.unwrap.toProtoPrimitive,
-                  target_domain_id = u.reassignmentInfo.targetDomain.unwrap.toProtoPrimitive,
-                  unassign_id = u.reassignmentInfo.unassignId.toMicros.toString,
-                  reassignment_counter = u.reassignmentInfo.reassignmentCounter,
-                  assignment_exclusivity = unassign.assignmentExclusivity.map(_.micros),
-                  trace_context = serializedTraceContext,
-                )
-              ) ++ flatEventWitnesses.map(
-                DbDto.IdFilterUnassignStakeholder(
-                  0L, // this is filled later
-                  templateId,
-                  _,
-                )
-              )
-            case assign: Reassignment.Assign =>
-              val templateId = assign.createNode.templateId.toString
-              val flatEventWitnesses =
-                assign.createNode.stakeholders.map(_.toString)
-              val (createArgument, createKeyValue) = translation.serialize(assign.createNode)
-              Iterator(
-                DbDto.EventAssign(
-                  event_offset = offset.toHexString,
-                  update_id = u.updateId,
-                  command_id = u.optCompletionInfo.map(_.commandId),
-                  workflow_id = u.workflowId,
-                  submitter = u.reassignmentInfo.submitter,
-                  contract_id = assign.createNode.coid.coid,
-                  template_id = templateId,
-                  flat_event_witnesses = flatEventWitnesses,
-                  create_argument = createArgument,
-                  create_signatories = assign.createNode.signatories.map(_.toString),
-                  create_observers = assign.createNode.stakeholders
-                    .diff(assign.createNode.signatories)
-                    .map(_.toString),
-                  create_agreement_text = Some(assign.createNode.agreementText).filter(_.nonEmpty),
-                  create_key_value = createKeyValue
-                    .map(compressionStrategy.createKeyValueCompression.compress),
-                  create_key_maintainers =
-                    assign.createNode.keyOpt.map(_.maintainers.map(_.toString)),
-                  create_key_hash =
-                    assign.createNode.keyOpt.map(_.globalKey.hash.bytes.toHexString),
-                  create_argument_compression = compressionStrategy.createArgumentCompression.id,
-                  create_key_value_compression =
-                    compressionStrategy.createKeyValueCompression.id.filter(_ =>
-                      createKeyValue.isDefined
-                    ),
-                  event_sequential_id = 0L, // this is filled later
-                  ledger_effective_time = assign.ledgerEffectiveTime.micros,
-                  driver_metadata = assign.contractMetadata.toByteArray,
-                  source_domain_id = u.reassignmentInfo.sourceDomain.unwrap.toProtoPrimitive,
-                  target_domain_id = u.reassignmentInfo.targetDomain.unwrap.toProtoPrimitive,
-                  unassign_id = u.reassignmentInfo.unassignId.toMicros.toString,
-                  reassignment_counter = u.reassignmentInfo.reassignmentCounter,
-                  trace_context = serializedTraceContext,
-                )
-              ) ++ flatEventWitnesses.map(
-                DbDto.IdFilterAssignStakeholder(
-                  0L, // this is filled later
-                  templateId,
-                  _,
-                )
-              )
-          }
-
-          val completions = u.optCompletionInfo.iterator.map(
-            commandCompletion(
-              offset = offset,
-              recordTime = u.recordTime,
-              transactionId = Some(u.updateId),
-              _,
-              domainId = u.reassignment match {
-                case _: Reassignment.Unassign =>
-                  Some(u.reassignmentInfo.sourceDomain.unwrap.toProtoPrimitive)
-                case _: Reassignment.Assign =>
-                  Some(u.reassignmentInfo.targetDomain.unwrap.toProtoPrimitive)
-              },
-              serializedTraceContext = serializedTraceContext,
-            )
-          )
-
-          val transactionMeta = DbDto.TransactionMeta(
-            transaction_id = u.updateId,
-            event_offset = offset.toHexString,
-            event_sequential_id_first = 0, // this is filled later
-            event_sequential_id_last = 0, // this is filled later
-          )
-
-          // TransactionMeta DTO must come last in this sequence
-          // because in a later stage the preceding events
-          // will be assigned consecutive event sequential ids
-          // and transaction meta is assigned sequential ids of its first and last event
-          events ++ completions ++ Seq(transactionMeta)
 
         case _: ReassignmentAccepted => Iterator.empty
       }
