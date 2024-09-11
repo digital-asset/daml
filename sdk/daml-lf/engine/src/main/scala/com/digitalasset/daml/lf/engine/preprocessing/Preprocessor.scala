@@ -228,7 +228,8 @@ private[engine] final class Preprocessor(
         case ReplayCommand.Exercise(templateId, interfaceId, _, _, _) =>
           templateId :: interfaceId.toList
         case ReplayCommand.ExerciseByKey(templateId, _, _, _) => List(templateId)
-        case ReplayCommand.Fetch(templateId, _) => List(templateId)
+        case ReplayCommand.Fetch(templateId, interfaceId, _) =>
+          templateId :: interfaceId.toList
         case ReplayCommand.FetchByKey(templateId, _) => List(templateId)
         case ReplayCommand.LookupByKey(templateId, _) => List(templateId)
       }

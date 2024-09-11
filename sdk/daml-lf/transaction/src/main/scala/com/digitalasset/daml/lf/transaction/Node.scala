@@ -125,9 +125,9 @@ object Node {
       stakeholders: Set[Party],
       override val keyOpt: Option[GlobalKeyWithMaintainers],
       override val byKey: Boolean,
+      val interfaceId: Option[TypeConName],
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
-      val isInterfaceFetch: Boolean,
   ) extends LeafOnlyAction {
     @deprecated("use keyOpt", since = "2.6.0")
     def key: Option[GlobalKeyWithMaintainers] = keyOpt
@@ -135,7 +135,8 @@ object Node {
     override def mapCid(f: ContractId => ContractId): Node.Fetch =
       copy(coid = f(coid))
 
-    override def packageIds: Iterable[PackageId] = Iterable(templateId.packageId)
+    override def packageIds: Iterable[PackageId] =
+      Iterable(templateId.packageId) ++ interfaceId.map(_.packageId)
 
     override def informeesOfNode: Set[Party] = signatories | actingParties
     override def requiredAuthorizers: Set[Party] = actingParties

@@ -345,13 +345,22 @@ private[lf] final class CommandPreprocessor(
           // exercise-by-key nodes.
           strictKey = false,
         )
-      case command.ReplayCommand.Fetch(typeId, coid) =>
+      case command.ReplayCommand.Fetch(typeId, ifaceIdOpt, coid) =>
         val cid = valueTranslator.unsafeTranslateCid(coid)
-        handleLookup(pkgInterface.lookupTemplateOrInterface(typeId)) match {
-          case TemplateOrInterface.Template(_) =>
-            speedy.Command.FetchTemplate(typeId, cid)
-          case TemplateOrInterface.Interface(_) =>
-            speedy.Command.FetchInterface(typeId, cid)
+        ifaceIdOpt match {
+          case Some(ifaceId) =>
+            val _ = handleLookup(pkgInterface.lookupInterfaceInstance(ifaceId, typeId))
+            speedy.Command.FetchInterface(ifaceId, cid)
+          case None =>
+            handleLookup(pkgInterface.lookupTemplateOrInterface(typeId)) match {
+              case TemplateOrInterface.Template(_) =>
+                speedy.Command.FetchTemplate(typeId, cid)
+              case TemplateOrInterface.Interface(_) =>
+                // We should not accept interface ID, however we keep it
+                // - for backward compatibility with PV 5
+                // - @Matthias agrees this does not provide to a malicious submitter any advantage
+                speedy.Command.FetchInterface(typeId, cid)
+            }
         }
       case command.ReplayCommand.FetchByKey(templateId, key) =>
         val ckTtype = handleLookup(pkgInterface.lookupTemplateKey(templateId)).typ
