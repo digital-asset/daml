@@ -40,11 +40,11 @@ import scala.concurrent.{ExecutionContext, Future}
 /** @param outboxQueue If a [[DomainOutboxQueue]] is provided, the processed transactions are not directly stored,
   *                    but rather sent to the domain via an ephemeral queue (i.e. no persistence).
   */
-class TopologyStateProcessor(
+class TopologyStateProcessor[+PureCrypto <: CryptoPureApi](
     val store: TopologyStore[TopologyStoreId],
     outboxQueue: Option[DomainOutboxQueue],
     topologyMappingChecks: TopologyMappingChecks,
-    pureCrypto: CryptoPureApi,
+    pureCrypto: PureCrypto,
     loggerFactoryParent: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
@@ -183,7 +183,7 @@ class TopologyStateProcessor(
           // doesn't automatically imply successful validation once the transactions have been sequenced.
           clearCaches()
           EitherT.rightT[Future, Lft](queue.enqueue(validatedTx.map(_.transaction))).map { result =>
-            logger.info("Enqueued topology transactions:\n" + validatedTx.mkString((",\n")))
+            logger.info("Enqueued topology transactions:\n" + validatedTx.mkString(",\n"))
             result
           }
 

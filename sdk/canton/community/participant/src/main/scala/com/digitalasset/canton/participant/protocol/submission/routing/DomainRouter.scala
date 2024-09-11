@@ -67,10 +67,10 @@ class DomainRouter(
     ) => EitherT[Future, TransactionRoutingError, FutureUnlessShutdown[
       TransactionSubmissionResult
     ]],
-    contractsTransferer: ContractsTransfer,
+    contractsReassigner: ContractsReassigner,
     snapshotProvider: DomainStateProvider,
     serializableContractAuthenticator: SerializableContractAuthenticator,
-    autoTransferTransaction: Boolean,
+    enableAutomaticReassignments: Boolean,
     domainSelectorFactory: DomainSelectorFactory,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
@@ -151,7 +151,7 @@ class DomainRouter(
             s"Choosing the domain as single-domain workflow for ${submitterInfo.commandId}"
           )
           domainSelector.forSingleDomain
-        } else if (autoTransferTransaction) {
+        } else if (enableAutomaticReassignments) {
           logger.debug(
             s"Choosing the domain as multi-domain workflow for ${submitterInfo.commandId}"
           )
@@ -163,7 +163,7 @@ class DomainRouter(
             ): TransactionRoutingError
           )
         }
-      _ <- contractsTransferer.transfer(
+      _ <- contractsReassigner.reassign(
         domainRankTarget,
         submitterInfo,
       )
@@ -201,7 +201,7 @@ class DomainRouter(
   /** We have a multi-domain transaction if the input contracts are on more than one domain,
     * if the (single) input domain does not host all informees
     * or if the target domain is different than the domain of the input contracts
-    * (because we will need to transfer the contracts to a domain that that *does* host all informees.
+    * (because we will need to reassign the contracts to a domain that *does* host all informees.
     * Transactions without input contracts are always single-domain.
     */
   private def isMultiDomainTx(
@@ -233,8 +233,8 @@ class DomainRouter(
       }
     }
 
-    // Check that at least one party listed in actAs or readAs is a stakeholder so that we can transfer the contract if needed.
-    // This check is overly strict on behalf of contracts that turn out not to need to be transferred.
+    // Check that at least one party listed in actAs or readAs is a stakeholder so that we can reassign the contract if needed.
+    // This check is overly strict on behalf of contracts that turn out not to need to be reassigned.
     val readerNotBeingStakeholder = contractData.filter { data =>
       data.stakeholders.intersect(transactionData.readers).isEmpty
     }
@@ -274,8 +274,8 @@ object DomainRouter {
       loggerFactory: NamedLoggerFactory,
   )(implicit ec: ExecutionContext): DomainRouter = {
 
-    val transfer =
-      new ContractsTransfer(
+    val reassigner =
+      new ContractsReassigner(
         connectedDomains,
         submittingParticipant = participantId,
         loggerFactory,
@@ -304,10 +304,10 @@ object DomainRouter {
 
     new DomainRouter(
       submit(connectedDomains),
-      transfer,
+      reassigner,
       domainStateProvider,
       serializableContractAuthenticator,
-      autoTransferTransaction = parameters.enablePreviewFeatures,
+      enableAutomaticReassignments = parameters.enablePreviewFeatures,
       domainSelectorFactory,
       parameters.processingTimeouts,
       loggerFactory,

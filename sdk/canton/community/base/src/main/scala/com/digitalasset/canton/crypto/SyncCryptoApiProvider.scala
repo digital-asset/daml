@@ -110,7 +110,7 @@ class SyncCryptoApiProvider(
 trait SyncCryptoClient[+T <: SyncCryptoApi] extends TopologyClientApi[T] {
   this: HasFutureSupervision =>
 
-  def pureCrypto: CryptoPureApi
+  val pureCrypto: DomainCryptoPureApi
 
   /** Returns a snapshot of the current member topology for the given domain.
     * The future will log a warning and await the snapshot if the data is not there yet.
@@ -341,7 +341,8 @@ class DomainSyncCryptoClient(
     with NamedLogging
     with FlagCloseable {
 
-  override def pureCrypto: CryptoPureApi = crypto.pureCrypto
+  override val pureCrypto: DomainCryptoPureApi =
+    new DomainCryptoPureApi(staticDomainParameters, crypto.pureCrypto)
 
   override def snapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
@@ -473,7 +474,8 @@ class DomainSnapshotSyncCryptoApi(
     extends SyncCryptoApi
     with NamedLogging {
 
-  override val pureCrypto: CryptoPureApi = crypto.pureCrypto
+  override val pureCrypto: CryptoPureApi =
+    new DomainCryptoPureApi(staticDomainParameters, crypto.pureCrypto)
   private val validKeysCache =
     TracedScaffeine
       .buildTracedAsyncFuture[Member, Map[Fingerprint, SigningPublicKey]](
@@ -539,7 +541,7 @@ class DomainSnapshotSyncCryptoApi(
     validKeys.get(signature.signedBy) match {
       case Some(key) =>
         if (staticDomainParameters.requiredSigningKeySchemes.contains(key.scheme))
-          crypto.pureCrypto.verifySignature(hash, key, signature)
+          pureCrypto.verifySignature(hash, key, signature)
         else
           Left(
             InvalidCryptoScheme(
@@ -715,7 +717,7 @@ class DomainSnapshotSyncCryptoApi(
         )
       )
       .flatMap(k =>
-        crypto.pureCrypto
+        pureCrypto
           .encryptWithVersion(message, k, version)
           .bimap(error => member -> SyncCryptoEncryptionError(error), member -> _)
       )

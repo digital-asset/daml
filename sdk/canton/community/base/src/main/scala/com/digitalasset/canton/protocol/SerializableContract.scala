@@ -43,7 +43,7 @@ case class SerializableContract(
     contractSalt: Option[Salt],
 )
 // The class implements `HasVersionedWrapper` because we serialize it to an anonymous binary format (ByteString/Array[Byte]) when
-// writing to the TransferStore and thus need to encode the version of the serialized Protobuf message
+// writing to the ReassignmentStore and thus need to encode the version of the serialized Protobuf message
     extends HasVersionedWrapper[SerializableContract]
     with PrettyPrinting {
 

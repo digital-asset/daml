@@ -9,7 +9,7 @@ import com.digitalasset.canton.participant.protocol.reassignment.IncompleteReass
 import org.scalatest.wordspec.AnyWordSpec
 
 class IncompleteReassignmentDataTest extends AnyWordSpec with BaseTest {
-  "TransferEventGlobalOffset" should {
+  "ReassignmentEventGlobalOffset" should {
     "be create from (queryOffset, unassignmentGlobalOffset, assignmentGlobalOffset)" in {
       import ReassignmentEventGlobalOffset.create
       import IncompleteReassignmentData.{

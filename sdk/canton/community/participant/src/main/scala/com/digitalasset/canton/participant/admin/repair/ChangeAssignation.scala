@@ -74,7 +74,7 @@ private final class ChangeAssignation(
       transactionId = randomTransactionId(syncCrypto)
       _ <- persistContracts(transactionId, contracts)
       _ <- persistUnassignAndAssign(contracts).toEitherT
-      _ <- EitherT.right(insertTransferEventsInLog(contracts))
+      _ <- EitherT.right(insertReassignmentEventsInLog(contracts))
     } yield ()
 
   private def changingContractsAtSource(
@@ -106,7 +106,7 @@ private final class ChangeAssignation(
           case (cid, Some(ActiveContractStore.Purged)) =>
             errorUnlessSkipInactive(cid, "has been purged")
           case (cid, Some(ActiveContractStore.ReassignedAway(target, _reassignmentCounter))) =>
-            errorUnlessSkipInactive(cid, s"has been transferred to $target")
+            errorUnlessSkipInactive(cid, s"has been reassigned to $target")
         }
         .map(_.flatten)
     )
@@ -253,7 +253,7 @@ private final class ChangeAssignation(
       traceContext: TraceContext,
   ): CheckedT[Future, String, ActiveContractStore.AcsWarning, Unit] = {
 
-    val outF = repairSource.domain.persistentState.activeContractStore
+    val unassignF = repairSource.domain.persistentState.activeContractStore
       .unassignContracts(
         contracts.map { contract =>
           (
@@ -264,9 +264,9 @@ private final class ChangeAssignation(
           )
         }
       )
-      .mapAbort(e => s"Failed to mark contracts as transferred out: $e")
+      .mapAbort(e => s"Failed to mark contracts as unassigned: $e")
 
-    val inF = repairTarget.domain.persistentState.activeContractStore
+    val assignF = repairTarget.domain.persistentState.activeContractStore
       .assignContracts(
         contracts.map { contract =>
           (
@@ -277,12 +277,12 @@ private final class ChangeAssignation(
           )
         }
       )
-      .mapAbort(e => s"Failed to mark contracts as transferred in: $e")
+      .mapAbort(e => s"Failed to mark contracts as assigned: $e")
 
-    outF.flatMap(_ => inF)
+    unassignF.flatMap(_ => assignF)
   }
 
-  private def insertTransferEventsInLog(
+  private def insertReassignmentEventsInLog(
       changedContracts: List[ChangeAssignation.Data[Changed]]
   )(implicit
       executionContext: ExecutionContext,

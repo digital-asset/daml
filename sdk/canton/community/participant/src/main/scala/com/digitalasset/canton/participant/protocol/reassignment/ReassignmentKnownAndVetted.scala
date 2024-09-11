@@ -17,7 +17,7 @@ import com.digitalasset.daml.lf.value.Value.ContractId
 
 import scala.concurrent.ExecutionContext
 
-private[reassignment] object TransferKnownAndVetted {
+private[reassignment] object ReassignmentKnownAndVetted {
 
   def apply(
       stakeholders: Set[LfPartyId],

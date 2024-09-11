@@ -16,7 +16,7 @@ import com.digitalasset.canton.participant.protocol.reassignment.{
 }
 import com.digitalasset.canton.participant.store.ReassignmentStore.*
 import com.digitalasset.canton.participant.store.memory.ReassignmentCacheTest.HookReassignmentStore
-import com.digitalasset.canton.participant.store.{ReassignmentStore, TransferStoreTest}
+import com.digitalasset.canton.participant.store.{ReassignmentStore, ReassignmentStoreTest}
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
 import com.digitalasset.canton.protocol.{ReassignmentId, SourceDomainId, TargetDomainId}
@@ -31,66 +31,66 @@ import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Try
 
 class ReassignmentCacheTest extends AsyncWordSpec with BaseTest with HasExecutorService {
-  import TransferStoreTest.*
+  import ReassignmentStoreTest.*
 
-  val transferDataF =
-    mkTransferDataForDomain(
-      transfer10,
+  val reassignmentDataF =
+    mkReassignmentDataForDomain(
+      reassignment10,
       mediator1,
-      targetDomainId = TransferStoreTest.targetDomain,
+      targetDomainId = ReassignmentStoreTest.targetDomain,
     )
   val toc = TimeOfChange(RequestCounter(0), CantonTimestamp.Epoch)
 
-  "find transfers in the backing store" in {
+  "find reassignments in the backing store" in {
     val store = new InMemoryReassignmentStore(targetDomain, loggerFactory)
     val cache = new ReassignmentCache(store, loggerFactory)
 
     for {
-      transferData <- transferDataF
-      _ <- valueOrFail(store.addReassignment(transferData).failOnShutdown)("add failed")
-      _ <- valueOrFail(store.lookup(transfer10))("lookup did not find transfer")
-      lookup11 <- cache.lookup(transfer11).value
-      () <- store.deleteReassignment(transfer10)
-      deleted <- cache.lookup(transfer10).value
+      reassignmentData <- reassignmentDataF
+      _ <- valueOrFail(store.addReassignment(reassignmentData).failOnShutdown)("add failed")
+      _ <- valueOrFail(store.lookup(reassignment10))("lookup did not find reassignment")
+      lookup11 <- cache.lookup(reassignment11).value
+      () <- store.deleteReassignment(reassignment10)
+      deleted <- cache.lookup(reassignment10).value
     } yield {
-      lookup11 shouldBe Left(UnknownReassignmentId(transfer11))
-      deleted shouldBe Left(UnknownReassignmentId(transfer10))
+      lookup11 shouldBe Left(UnknownReassignmentId(reassignment11))
+      deleted shouldBe Left(UnknownReassignmentId(reassignment10))
     }
   }
 
-  "completeTransfer" should {
-    "immediately report the transfer as completed" in {
+  "completeReassignment" should {
+    "immediately report the reassignment as completed" in {
       val backingStore = new InMemoryReassignmentStore(targetDomain, loggerFactory)
       val store = new HookReassignmentStore(backingStore)
       val cache = new ReassignmentCache(store, loggerFactory)
       for {
-        transferData <- transferDataF
-        _ <- valueOrFail(store.addReassignment(transferData).failOnShutdown)("add failed")
+        reassignmentData <- reassignmentDataF
+        _ <- valueOrFail(store.addReassignment(reassignmentData).failOnShutdown)("add failed")
         _ = store.preComplete { (reassignmentId, _) =>
-          assert(reassignmentId == transfer10)
+          assert(reassignmentId == reassignment10)
           CheckedT(
-            cache.lookup(transfer10).value.map {
-              case Left(ReassignmentCompleted(`transfer10`, `toc`)) => Checked.result(())
+            cache.lookup(reassignment10).value.map {
+              case Left(ReassignmentCompleted(`reassignment10`, `toc`)) => Checked.result(())
               case result => fail(s"Invalid lookup result $result")
             }
           )
         }
-        _ <- valueOrFail(cache.completeReassignment(transfer10, toc))("first completion failed")
-        storeLookup <- store.lookup(transfer10).value
+        _ <- valueOrFail(cache.completeReassignment(reassignment10, toc))("first completion failed")
+        storeLookup <- store.lookup(reassignment10).value
       } yield assert(
-        storeLookup == Left(ReassignmentCompleted(transfer10, toc)),
-        s"transfer is gone from store when completeTransfer finished",
+        storeLookup == Left(ReassignmentCompleted(reassignment10, toc)),
+        s"reassignment is gone from store when completeReassignment finished",
       )
     }
 
-    "report missing transfers" in {
+    "report missing reassignments" in {
       val store = new InMemoryReassignmentStore(targetDomain, loggerFactory)
       val cache = new ReassignmentCache(store, loggerFactory)
 
       for {
-        missing <- cache.completeReassignment(transfer10, toc).value
+        missing <- cache.completeReassignment(reassignment10, toc).value
       } yield {
-        assert(missing == Checked.continue(UnknownReassignmentId(transfer10)))
+        assert(missing == Checked.continue(UnknownReassignmentId(reassignment10)))
       }
     }
 
@@ -104,23 +104,23 @@ class ReassignmentCacheTest extends AsyncWordSpec with BaseTest with HasExecutor
       val promise = Promise[Checked[Nothing, ReassignmentStoreError, Unit]]()
 
       for {
-        transferData <- transferDataF
-        _ <- valueOrFail(store.addReassignment(transferData).failOnShutdown)("add failed")
+        reassignmentData <- reassignmentDataF
+        _ <- valueOrFail(store.addReassignment(reassignmentData).failOnShutdown)("add failed")
         _ = store.preComplete { (reassignmentId, _) =>
-          assert(reassignmentId == transfer10)
-          promise.completeWith(cache.completeReassignment(transfer10, toc2).value)
+          assert(reassignmentId == reassignment10)
+          promise.completeWith(cache.completeReassignment(reassignment10, toc2).value)
           CheckedT.resultT(())
         }
-        _ <- valueOrFail(cache.completeReassignment(transfer10, toc))("first completion failed")
-        complete3 <- cache.completeReassignment(transfer10, toc3).value
+        _ <- valueOrFail(cache.completeReassignment(reassignment10, toc))("first completion failed")
+        complete3 <- cache.completeReassignment(reassignment10, toc3).value
         complete2 <- promise.future
       } yield {
         assert(
-          complete2 == Checked.continue(ReassignmentAlreadyCompleted(transfer10, toc2)),
+          complete2 == Checked.continue(ReassignmentAlreadyCompleted(reassignment10, toc2)),
           s"second completion fails",
         )
         assert(
-          complete3 == Checked.continue(ReassignmentAlreadyCompleted(transfer10, toc3)),
+          complete3 == Checked.continue(ReassignmentAlreadyCompleted(reassignment10, toc3)),
           "third completion refers back to first",
         )
       }
@@ -135,19 +135,21 @@ class ReassignmentCacheTest extends AsyncWordSpec with BaseTest with HasExecutor
       val promise = Promise[Checked[Nothing, ReassignmentStoreError, Unit]]()
 
       for {
-        transferData <- transferDataF
-        _ <- valueOrFail(store.addReassignment(transferData).failOnShutdown)("add failed")
-        _ <- valueOrFail(store.completeReasignment(transfer10, toc2))("first completion failed")
+        reassignmentData <- reassignmentDataF
+        _ <- valueOrFail(store.addReassignment(reassignmentData).failOnShutdown)("add failed")
+        _ <- valueOrFail(store.completeReasignment(reassignment10, toc2))("first completion failed")
         _ = store.preComplete { (reassignmentId, _) =>
-          assert(reassignmentId == transfer10)
-          promise.completeWith(cache.completeReassignment(transfer10, toc).value)
+          assert(reassignmentId == reassignment10)
+          promise.completeWith(cache.completeReassignment(reassignment10, toc).value)
           CheckedT.resultT(())
         }
-        complete1 <- cache.completeReassignment(transfer10, toc).value
+        complete1 <- cache.completeReassignment(reassignment10, toc).value
         complete2 <- promise.future
       } yield {
-        complete1.nonaborts.toList.toSet shouldBe Set(ReassignmentAlreadyCompleted(transfer10, toc))
-        complete2 shouldBe Checked.continue(ReassignmentAlreadyCompleted(transfer10, toc))
+        complete1.nonaborts.toList.toSet shouldBe Set(
+          ReassignmentAlreadyCompleted(reassignment10, toc)
+        )
+        complete2 shouldBe Checked.continue(ReassignmentAlreadyCompleted(reassignment10, toc))
       }
     }
 
@@ -159,20 +161,22 @@ class ReassignmentCacheTest extends AsyncWordSpec with BaseTest with HasExecutor
       val promise = Promise[Assertion]()
 
       for {
-        transferData <- transferDataF
-        _ <- valueOrFail(store.addReassignment(transferData).failOnShutdown)("add failed")
+        reassignmentData <- reassignmentDataF
+        _ <- valueOrFail(store.addReassignment(reassignmentData).failOnShutdown)("add failed")
         _ = store.preComplete { (reassignmentId, _) =>
-          assert(reassignmentId == transfer10)
+          assert(reassignmentId == reassignment10)
           val f = for {
-            _ <- valueOrFail(cache.completeReassignment(transfer10, toc))(
+            _ <- valueOrFail(cache.completeReassignment(reassignment10, toc))(
               "second completion should be idempotent"
             )
-            lookup <- store.lookup(transfer10).value
-          } yield lookup shouldBe Left(ReassignmentCompleted(transfer10, toc))
+            lookup <- store.lookup(reassignment10).value
+          } yield lookup shouldBe Left(ReassignmentCompleted(reassignment10, toc))
           promise.completeWith(f)
           CheckedT.resultT(())
         }
-        _ <- valueOrFail(cache.completeReassignment(transfer10, toc))("first completion succeeds")
+        _ <- valueOrFail(cache.completeReassignment(reassignment10, toc))(
+          "first completion succeeds"
+        )
         _ <- promise.future
       } yield succeed
     }
@@ -186,18 +190,18 @@ class ReassignmentCacheTest extends AsyncWordSpec with BaseTest with HasExecutor
       val cache = new ReassignmentCache(store, loggerFactory)
 
       for {
-        transferData <- transferDataF
-        _ <- valueOrFail(store.addReassignment(transferData).failOnShutdown)("add failed")
-        _ <- valueOrFail(cache.completeReassignment(transfer10, laterTimestampedCompletion))(
+        reassignmentData <- reassignmentDataF
+        _ <- valueOrFail(store.addReassignment(reassignmentData).failOnShutdown)("add failed")
+        _ <- valueOrFail(cache.completeReassignment(reassignment10, laterTimestampedCompletion))(
           "first completion fails"
         )
-        complete <- cache.completeReassignment(transfer10, earlierTimestampedCompletion).value
-        lookup <- leftOrFail(store.lookup(transfer10))("lookup succeeded")
+        complete <- cache.completeReassignment(reassignment10, earlierTimestampedCompletion).value
+        lookup <- leftOrFail(store.lookup(reassignment10))("lookup succeeded")
       } yield {
         complete.nonaborts shouldBe Chain(
-          ReassignmentAlreadyCompleted(transfer10, earlierTimestampedCompletion)
+          ReassignmentAlreadyCompleted(reassignment10, earlierTimestampedCompletion)
         )
-        lookup shouldBe ReassignmentCompleted(transfer10, laterTimestampedCompletion)
+        lookup shouldBe ReassignmentCompleted(reassignment10, laterTimestampedCompletion)
       }
     }
 
@@ -219,15 +223,15 @@ class ReassignmentCacheTest extends AsyncWordSpec with BaseTest with HasExecutor
         )
       ] =
         for {
-          complete <- cache.completeReassignment(transfer10, time).value
-          lookup <- (store.lookup(transfer10)(traceContext)).value
+          complete <- cache.completeReassignment(reassignment10, time).value
+          lookup <- (store.lookup(reassignment10)(traceContext)).value
         } yield {
           complete -> lookup
         }
 
       for {
-        transferData <- transferDataF
-        _ <- valueOrFail(store.addReassignment(transferData).failOnShutdown)("add failed")
+        reassignmentData <- reassignmentDataF
+        _ <- valueOrFail(store.addReassignment(reassignmentData).failOnShutdown)("add failed")
 
         resultFutures = (timestamps).map { time =>
           completeAndLookup(time)

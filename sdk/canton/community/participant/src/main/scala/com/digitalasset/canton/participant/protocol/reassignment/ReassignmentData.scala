@@ -16,7 +16,7 @@ import com.digitalasset.canton.protocol.{
 }
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.util.OptionUtil
-import com.digitalasset.canton.version.Transfer.SourceProtocolVersion
+import com.digitalasset.canton.version.Reassignment.SourceProtocolVersion
 import com.digitalasset.canton.{ReassignmentCounter, RequestCounter}
 
 /** Stores the data for a reassignment that needs to be passed from the source domain to the target domain. */
@@ -173,8 +173,6 @@ object ReassignmentData {
       unassignmentOffset: GlobalOffset,
       assignmentOffset: GlobalOffset,
   ) extends ReassignmentGlobalOffset {
-    // TODO(#21081) Look for out, in through the code base
-    // TODO(#21081) Look for transferred
     require(
       unassignmentOffset != assignmentOffset,
       s"Unassignment and assignment offsets should be different; got $unassignmentOffset",

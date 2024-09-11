@@ -238,7 +238,7 @@ object ReassignmentStore {
     def reassignmentId: ReassignmentId = old.reassignmentId
 
     override def message: String =
-      s"Transfer data for reassignment `$reassignmentId` already exists and differs from the new one"
+      s"Reassignment data for reassignment `$reassignmentId` already exists and differs from the new one"
   }
 
   final case class UnassignmentResultAlreadyExists(
@@ -267,19 +267,19 @@ object ReassignmentStore {
       reassignmentId: ReassignmentId,
       newCompletion: TimeOfChange,
   ) extends ReassignmentStoreError {
-    override def message: String = s"Transfer `$reassignmentId` is already completed"
+    override def message: String = s"Reassignment `$reassignmentId` is already completed"
   }
 
   /** The data for a reassignment and possible when the reassignment was completed. */
-  final case class TransferEntry(
+  final case class ReassignmentEntry(
       reassignmentData: ReassignmentData,
       timeOfCompletion: Option[TimeOfChange],
   ) {
     def isCompleted: Boolean = timeOfCompletion.nonEmpty
 
     def mergeWith(
-        other: TransferEntry
-    ): Checked[ReassignmentDataAlreadyExists, ReassignmentAlreadyCompleted, TransferEntry] =
+        other: ReassignmentEntry
+    ): Checked[ReassignmentDataAlreadyExists, ReassignmentAlreadyCompleted, ReassignmentEntry] =
       for {
         mergedData <- Checked.fromEither(
           reassignmentData
@@ -309,11 +309,11 @@ object ReassignmentStore {
           }(Checked.result)
       } yield
         if ((mergedData eq reassignmentData) && (mergedToc eq timeOfCompletion)) this
-        else TransferEntry(mergedData, mergedToc)
+        else ReassignmentEntry(mergedData, mergedToc)
 
     private[store] def addUnassignmentResult(
         unassignmentResult: DeliveredUnassignmentResult
-    ): Either[UnassignmentResultAlreadyExists, TransferEntry] =
+    ): Either[UnassignmentResultAlreadyExists, ReassignmentEntry] =
       reassignmentData
         .addUnassignmentResult(unassignmentResult)
         .toRight {
@@ -322,11 +322,11 @@ object ReassignmentStore {
           )
           UnassignmentResultAlreadyExists(reassignmentData.reassignmentId, old, unassignmentResult)
         }
-        .map(TransferEntry(_, timeOfCompletion))
+        .map(ReassignmentEntry(_, timeOfCompletion))
 
     private[store] def addUnassignmentGlobalOffset(
         offset: ReassignmentGlobalOffset
-    ): Either[ReassignmentGlobalOffsetsMerge, TransferEntry] = {
+    ): Either[ReassignmentGlobalOffsetsMerge, ReassignmentEntry] = {
 
       val newGlobalOffsetE = reassignmentData.reassignmentGlobalOffset
         .fold[Either[ReassignmentGlobalOffsetsMerge, ReassignmentGlobalOffset]](Right(offset))(
@@ -342,10 +342,10 @@ object ReassignmentStore {
 
     def complete(
         timeOfChange: TimeOfChange
-    ): Checked[ReassignmentDataAlreadyExists, ReassignmentAlreadyCompleted, TransferEntry] =
-      mergeWith(TransferEntry(reassignmentData, Some(timeOfChange)))
+    ): Checked[ReassignmentDataAlreadyExists, ReassignmentAlreadyCompleted, ReassignmentEntry] =
+      mergeWith(ReassignmentEntry(reassignmentData, Some(timeOfChange)))
 
-    def clearCompletion: TransferEntry = TransferEntry(reassignmentData, None)
+    def clearCompletion: ReassignmentEntry = ReassignmentEntry(reassignmentData, None)
   }
 }
 
@@ -372,7 +372,7 @@ trait ReassignmentLookup {
   )(implicit traceContext: TraceContext): Future[Seq[ReassignmentData]]
 
   /** Find utility to look for in-flight reassignments.
-    * Transfers are ordered by the tuple (request timestamp, source domain ID), ie reassignments are ordered by request timestamps
+    * Reassignments are ordered by the tuple (request timestamp, source domain ID), ie reassignments are ordered by request timestamps
     * and ties are broken with lexicographic ordering on domain IDs.
     *
     * The ordering here has been chosen to allow a participant to fetch all the pending reassignments. The ordering has to
@@ -387,7 +387,7 @@ trait ReassignmentLookup {
   ): Future[Seq[ReassignmentData]]
 
   /** Find utility to look for incomplete reassignments.
-    * Transfers are ordered by global offset.
+    * Reassignments are ordered by global offset.
     *
     * A reassignment `t` is considered as incomplete at offset `validAt` if only one of the two reassignment events
     * was emitted on the multi-domain event log at `validAt`. That is, one of the following hold:

@@ -1,4 +1,4 @@
-// Composability tutorial part 1 - auto transfers section
+// Composability tutorial part 1 - auto reassignments section
 
 // create the domains
 val iouAlias = "iou"

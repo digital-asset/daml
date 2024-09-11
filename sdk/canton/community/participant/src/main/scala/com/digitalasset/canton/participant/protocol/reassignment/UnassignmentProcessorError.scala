@@ -35,7 +35,7 @@ object UnassignmentProcessorError {
   final case class UnexpectedDomain(reassignmentId: ReassignmentId, receivedOn: DomainId)
       extends UnassignmentProcessorError {
     override def message: String =
-      s"Cannot unassign `$reassignmentId`: received transfer on $receivedOn"
+      s"Cannot unassign `$reassignmentId`: received reassignment on $receivedOn"
   }
 
   final case class TargetDomainIsSourceDomain(domain: DomainId, contractId: LfContractId)
@@ -103,7 +103,7 @@ object UnassignmentProcessorError {
       unknownTo: List[PackageUnknownTo],
   ) extends UnassignmentProcessorError {
     override def message: String =
-      s"Cannot transfer out contract `$contractId`: ${unknownTo.mkString(", ")}"
+      s"Cannot unassign contract `$contractId`: ${unknownTo.mkString(", ")}"
   }
 
 }

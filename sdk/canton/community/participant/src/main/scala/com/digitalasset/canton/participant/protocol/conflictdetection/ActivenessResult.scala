@@ -11,20 +11,20 @@ import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId}
   * If all sets are empty, the activeness check was successful.
   *
   * @param contracts The contracts whose activeness check has failed
-  * @param inactiveTransfers The transfers that shall be completed, but that are not active.
+  * @param inactiveReassignments The reassignments that shall be completed, but that are not active.
   */
 final case class ActivenessResult(
     contracts: ActivenessCheckResult[LfContractId, ActiveContractStore.Status],
-    inactiveTransfers: Set[ReassignmentId],
+    inactiveReassignments: Set[ReassignmentId],
 ) extends PrettyPrinting {
 
   def isSuccessful: Boolean =
-    contracts.isSuccessful && inactiveTransfers.isEmpty
+    contracts.isSuccessful && inactiveReassignments.isEmpty
 
   override def pretty: Pretty[ActivenessResult] =
     prettyOfClass(
       param("contracts", _.contracts, !_.contracts.isEmpty),
-      paramIfNonEmpty("inactiveTransfers", _.inactiveTransfers),
+      paramIfNonEmpty("inactiveReassignments", _.inactiveReassignments),
     )
 }
 

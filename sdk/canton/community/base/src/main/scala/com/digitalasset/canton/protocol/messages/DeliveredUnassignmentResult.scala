@@ -63,7 +63,7 @@ object DeliveredUnassignmentResult {
   ): Either[InvalidUnassignmentResult, DeliveredUnassignmentResult] =
     for {
       // The event signature would be invalid if some envelopes could not be opened upstream.
-      // However, this should not happen, because transfer out messages are sent by the mediator,
+      // However, this should not happen, because unassignment messages are sent by the mediator,
       // who is trusted not to send bad envelopes.
       result <- Either.cond(
         resultE.hasNoErrors,

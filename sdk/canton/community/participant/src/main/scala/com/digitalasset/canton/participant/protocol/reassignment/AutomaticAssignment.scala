@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.protocol.reassignment
 import cats.data.*
 import cats.syntax.bifunctor.*
 import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.data.{CantonTimestamp, TransferSubmitterMetadata}
+import com.digitalasset.canton.data.{CantonTimestamp, ReassignmentSubmitterMetadata}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.{BaseCantonError, MediatorError}
 import com.digitalasset.canton.logging.ErrorLoggingContext
@@ -29,9 +29,9 @@ private[participant] object AutomaticAssignment {
       id: ReassignmentId,
       targetDomain: TargetDomainId,
       staticDomainParameters: StaticDomainParameters,
-      transferCoordination: ReassignmentCoordination,
+      reassignmentCoordination: ReassignmentCoordination,
       stakeholders: Set[LfPartyId],
-      unassignmentSubmitterMetadata: TransferSubmitterMetadata,
+      unassignmentSubmitterMetadata: ReassignmentSubmitterMetadata,
       participantId: ParticipantId,
       t0: CantonTimestamp,
   )(implicit
@@ -55,7 +55,7 @@ private[participant] object AutomaticAssignment {
     def performAutoInOnce
         : EitherT[Future, ReassignmentProcessorError, com.google.rpc.status.Status] =
       for {
-        targetIps <- transferCoordination
+        targetIps <- reassignmentCoordination
           .getTimeProofAndSnapshot(targetDomain, staticDomainParameters)
           .map(_._2)
           .onShutdown(Left(DomainNotReady(targetDomain.unwrap, "Shutdown of time tracker")))
@@ -64,10 +64,10 @@ private[participant] object AutomaticAssignment {
           possibleSubmittingParties.headOption,
           AutomaticAssignmentError("No possible submitting party for automatic assignment"),
         )
-        submissionResult <- transferCoordination
+        submissionResult <- reassignmentCoordination
           .assign(
             targetDomain,
-            TransferSubmitterMetadata(
+            ReassignmentSubmitterMetadata(
               inParty,
               participantId,
               unassignmentSubmitterMetadata.commandId,
@@ -124,8 +124,8 @@ private[participant] object AutomaticAssignment {
               s"Registering automatic submission of assignment with ID $id at time $exclusivityLimit, where base timestamp is $t0"
             )
             for {
-              _ <- transferCoordination.awaitDomainTime(targetDomain.unwrap, exclusivityLimit)
-              _ <- transferCoordination.awaitTimestamp(
+              _ <- reassignmentCoordination.awaitDomainTime(targetDomain.unwrap, exclusivityLimit)
+              _ <- reassignmentCoordination.awaitTimestamp(
                 targetDomain.unwrap,
                 staticDomainParameters,
                 exclusivityLimit,
@@ -133,7 +133,7 @@ private[participant] object AutomaticAssignment {
               )
 
               _ <- EitherTUtil.leftSubflatMap(performAutoInRepeatedly) {
-                // Filter out submission errors occurring because the transfer is already completed
+                // Filter out submission errors occurring because the reassignment is already completed
                 case NoReassignmentData(_, ReassignmentCompleted(_, _)) =>
                   Right(())
                 // Filter out the case that the participant has disconnected from the target domain in the meantime.
@@ -152,7 +152,7 @@ private[participant] object AutomaticAssignment {
     }
 
     for {
-      targetIps <- transferCoordination.cryptoSnapshot(
+      targetIps <- reassignmentCoordination.cryptoSnapshot(
         targetDomain.unwrap,
         staticDomainParameters,
         t0,

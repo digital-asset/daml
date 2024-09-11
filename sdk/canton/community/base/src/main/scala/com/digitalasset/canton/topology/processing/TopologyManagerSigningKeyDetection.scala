@@ -7,8 +7,8 @@ import cats.data.EitherT
 import cats.instances.order.*
 import cats.syntax.foldable.*
 import cats.syntax.parallel.*
-import com.digitalasset.canton.crypto.store.CryptoPrivateStoreError
-import com.digitalasset.canton.crypto.{Crypto, Fingerprint}
+import com.digitalasset.canton.crypto.store.{CryptoPrivateStore, CryptoPrivateStoreError}
+import com.digitalasset.canton.crypto.{CryptoPureApi, Fingerprint}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -23,7 +23,7 @@ import scala.concurrent.ExecutionContext
 
 /** Component that determines the signing keys both relevant for the transaction and available
   * on the node.
-  * The selection rules are as follow:
+  * The selection rules are as follows:
   * General objectives:
   * <ul>
   *   <li>the selected keys must be in the node's private crypto store</li>
@@ -67,12 +67,13 @@ import scala.concurrent.ExecutionContext
   *
   * If there is no identifier delegation, follow the rules for namespaces for the UID's namespace.
   */
-class TopologyManagerSigningKeyDetection(
+class TopologyManagerSigningKeyDetection[+PureCrypto <: CryptoPureApi](
     @VisibleForTesting override protected[processing] val store: TopologyStore[TopologyStoreId],
-    protected val crypto: Crypto,
+    protected val pureCrypto: PureCrypto,
+    protected val cryptoPrivateStore: CryptoPrivateStore,
     val loggerFactory: NamedLoggerFactory,
 )(implicit override val executionContext: ExecutionContext)
-    extends TransactionAuthorizationCache
+    extends TransactionAuthorizationCache[PureCrypto]
     with NamedLogging {
 
   private def filterKnownKeysForNamespace(
@@ -95,7 +96,7 @@ class TopologyManagerSigningKeyDetection(
               (delegation.mapping.target.fingerprint, level)
           }
           .parFilterA { case (fingerprint, _) =>
-            crypto.cryptoPrivateStore.existsSigningKey(fingerprint)
+            cryptoPrivateStore.existsSigningKey(fingerprint)
           }
           .map { usableKeys =>
             val selectedKeys =
@@ -121,7 +122,7 @@ class TopologyManagerSigningKeyDetection(
           requireRoot = false,
         )
         if (isIddAuthorized) {
-          crypto.cryptoPrivateStore
+          cryptoPrivateStore
             .existsSigningKey(idd.mapping.target.fingerprint)
             .map(Option.when(_)(idd.mapping.target.fingerprint))
         } else {
@@ -184,7 +185,7 @@ class TopologyManagerSigningKeyDetection(
             if (knownIddKeys.nonEmpty) logger.debug(s"Keys for $uid: $knownIddKeys")
 
             if (knownIddKeys.isEmpty || returnAllValidKeys) {
-              // if we don't know of any keys delegated to by IDDs or we should return all valid keys,
+              // if we don't know of any keys delegated to by IDDs, or we should return all valid keys,
               // we try to find keys that could sign on behalf of the uid's namespace.
               filterKnownKeysForNamespace(
                 uid.namespace,
@@ -205,7 +206,7 @@ class TopologyManagerSigningKeyDetection(
       }
       knownExtraKeys = referencedAuth.extraKeys.toSeq
         .parFilterA { key =>
-          crypto.cryptoPrivateStore.existsSigningKey(key)
+          cryptoPrivateStore.existsSigningKey(key)
         }
         .map { keys =>
           if (keys.nonEmpty) logger.debug(s"Keys for extra keys: $keys")
@@ -214,7 +215,7 @@ class TopologyManagerSigningKeyDetection(
 
       selfSigned = EitherT.rightT[FutureUnlessShutdown, CryptoPrivateStoreError](
         toSign.mapping match {
-          case NamespaceDelegation(ns, target, true) if (ns.fingerprint == target.fingerprint) =>
+          case NamespaceDelegation(ns, target, true) if ns.fingerprint == target.fingerprint =>
             Seq(target.fingerprint)
           case _ => Seq.empty
         }

@@ -24,7 +24,7 @@ import com.digitalasset.canton.protocol.messages.{
 import com.digitalasset.canton.sequencing.protocol.{Batch, MediatorGroupRecipient, SignedContent}
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.util.SeqUtil
-import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
+import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.version.{ProtocolVersion, RepresentativeProtocolVersion}
 import com.digitalasset.canton.{LfInterfaceId, LfPackageId, LfPartyId, LfVersioned}
 import com.digitalasset.daml.lf.value.Value.ValueInt64
@@ -432,7 +432,7 @@ final class GeneratorsData(
   private val sourceProtocolVersion = SourceProtocolVersion(protocolVersion)
   private val targetProtocolVersion = TargetProtocolVersion(protocolVersion)
 
-  implicit val transferSubmitterMetadataArb: Arbitrary[TransferSubmitterMetadata] =
+  implicit val reassignmentSubmitterMetadataArb: Arbitrary[ReassignmentSubmitterMetadata] =
     Arbitrary(
       for {
         submitter <- Arbitrary.arbitrary[LfPartyId]
@@ -442,7 +442,7 @@ final class GeneratorsData(
         submissionId <- Gen.option(ledgerSubmissionIdArb.arbitrary)
         workflowId <- Gen.option(workflowIdArb.arbitrary.map(_.unwrap))
 
-      } yield TransferSubmitterMetadata(
+      } yield ReassignmentSubmitterMetadata(
         submitter,
         submittingParticipant,
         commandId,
@@ -462,7 +462,7 @@ final class GeneratorsData(
       stakeholders <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
       uuid <- Gen.uuid
 
-      submitterMetadata <- Arbitrary.arbitrary[TransferSubmitterMetadata]
+      submitterMetadata <- Arbitrary.arbitrary[ReassignmentSubmitterMetadata]
 
       hashOps = TestHash // Not used for serialization
 
@@ -489,7 +489,7 @@ final class GeneratorsData(
       adminParties <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
       uuid <- Gen.uuid
 
-      submitterMetadata <- Arbitrary.arbitrary[TransferSubmitterMetadata]
+      submitterMetadata <- Arbitrary.arbitrary[ReassignmentSubmitterMetadata]
 
       hashOps = TestHash // Not used for serialization
 

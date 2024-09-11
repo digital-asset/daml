@@ -12,7 +12,11 @@ import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.{SymbolicCrypto, SymbolicPureCrypto}
 import com.digitalasset.canton.data.ViewType.AssignmentViewType
-import com.digitalasset.canton.data.{CantonTimestamp, FullAssignmentTree, TransferSubmitterMetadata}
+import com.digitalasset.canton.data.{
+  CantonTimestamp,
+  FullAssignmentTree,
+  ReassignmentSubmitterMetadata,
+}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.ledger.api.{LedgerApiIndexer, LedgerApiStore}
@@ -35,13 +39,13 @@ import com.digitalasset.canton.participant.protocol.submission.{
   SeedGenerator,
 }
 import com.digitalasset.canton.participant.protocol.{EngineController, ProcessingStartingPoints}
-import com.digitalasset.canton.participant.store.TransferStoreTest.{contract, transactionId1}
+import com.digitalasset.canton.participant.store.ReassignmentStoreTest.{contract, transactionId1}
 import com.digitalasset.canton.participant.store.memory.*
 import com.digitalasset.canton.participant.store.{
   ParticipantNodeEphemeralState,
+  ReassignmentStoreTest,
   SyncDomainEphemeralState,
   SyncDomainPersistentState,
-  TransferStoreTest,
 }
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.{submitter, submittingParticipant}
@@ -55,7 +59,7 @@ import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.version.HasTestCloseContext
-import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
+import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.util.UUID
@@ -91,8 +95,8 @@ class AssignmentProcessingStepsTest
 
   private lazy val initialReassignmentCounter: ReassignmentCounter = ReassignmentCounter.Genesis
 
-  private def submitterInfo(submitter: LfPartyId): TransferSubmitterMetadata =
-    TransferSubmitterMetadata(
+  private def submitterInfo(submitter: LfPartyId): ReassignmentSubmitterMetadata =
+    ReassignmentSubmitterMetadata(
       submitter,
       participant,
       LedgerCommandId.assertFromString("assignment-processing-steps-command-id"),
@@ -134,7 +138,7 @@ class AssignmentProcessingStepsTest
         clock,
         crypto,
         IndexedDomain.tryCreate(targetDomain.unwrap, 1),
-        testedProtocolVersion,
+        defaultStaticDomainParameters,
         enableAdditionalConsistencyChecks = true,
         indexedStringStore = indexedStringStore,
         packageDependencyResolver = mock[PackageDependencyResolver],
@@ -188,24 +192,24 @@ class AssignmentProcessingStepsTest
 
   "prepare submission" should {
     def setUpOrFail(
-        transferData: ReassignmentData,
+        reassignmentData: ReassignmentData,
         unassignmentResult: DeliveredUnassignmentResult,
         persistentState: SyncDomainPersistentState,
     ): FutureUnlessShutdown[Unit] =
       for {
-        _ <- valueOrFail(persistentState.reassignmentStore.addReassignment(transferData))(
-          "add transfer data failed"
+        _ <- valueOrFail(persistentState.reassignmentStore.addReassignment(reassignmentData))(
+          "add reassignment data failed"
         )
         _ <- valueOrFail(
           persistentState.reassignmentStore.addUnassignmentResult(unassignmentResult)
         )(
-          "add transfer out result failed"
+          "add unassignment result failed"
         )
       } yield ()
 
     val reassignmentId = ReassignmentId(sourceDomain, CantonTimestamp.Epoch)
-    val transferDataF =
-      TransferStoreTest.mkTransferDataForDomain(
+    val reassignmentDataF =
+      ReassignmentStoreTest.mkReassignmentDataForDomain(
         reassignmentId,
         sourceMediator,
         party1,
@@ -216,7 +220,7 @@ class AssignmentProcessingStepsTest
       reassignmentId,
     )
     val unassignmentResult =
-      TransferResultHelpers.unassignmentResult(
+      ReassignmentResultHelpers.unassignmentResult(
         sourceDomain,
         cryptoSnapshot,
         participant,
@@ -224,10 +228,10 @@ class AssignmentProcessingStepsTest
 
     "succeed without errors" in {
       for {
-        transferData <- transferDataF
+        reassignmentData <- reassignmentDataF
         deps <- statefulDependencies
         (persistentState, state) = deps
-        _ <- setUpOrFail(transferData, unassignmentResult, persistentState).failOnShutdown
+        _ <- setUpOrFail(reassignmentData, unassignmentResult, persistentState).failOnShutdown
         _preparedSubmission <-
           assignmentProcessingSteps
             .createSubmission(
@@ -245,8 +249,8 @@ class AssignmentProcessingStepsTest
         submitterInfo(party1),
         Set(party1, party2), // Party 2 is a stakeholder and therefore a receiving party
         Set.empty,
-        TransferStoreTest.transactionId1,
-        TransferStoreTest.contract,
+        ReassignmentStoreTest.transactionId1,
+        ReassignmentStoreTest.contract,
         reassignmentId.sourceDomain,
         SourceProtocolVersion(testedProtocolVersion),
         sourceMediator,
@@ -260,7 +264,7 @@ class AssignmentProcessingStepsTest
       )
       val uuid = new UUID(1L, 2L)
       val seed = seedGenerator.generateSaltSeed()
-      val transferData2 = {
+      val reassignmentData2 = {
         val fullUnassignmentTree = unassignmentRequest
           .toFullUnassignmentTree(
             crypto.pureCrypto,
@@ -283,7 +287,7 @@ class AssignmentProcessingStepsTest
       for {
         deps <- statefulDependencies
         (persistentState, state) = deps
-        _ <- setUpOrFail(transferData2, unassignmentResult, persistentState).failOnShutdown
+        _ <- setUpOrFail(reassignmentData2, unassignmentResult, persistentState).failOnShutdown
         preparedSubmission <- leftOrFailShutdown(
           assignmentProcessingSteps.createSubmission(
             submissionParam,
@@ -301,11 +305,11 @@ class AssignmentProcessingStepsTest
 
     "fail when unassignment processing is not yet complete" in {
       for {
-        transferData <- transferDataF
+        reassignmentData <- reassignmentDataF
         deps <- statefulDependencies
         (persistentState, state) = deps
-        _ <- valueOrFail(persistentState.reassignmentStore.addReassignment(transferData))(
-          "add transfer data failed"
+        _ <- valueOrFail(persistentState.reassignmentStore.addReassignment(reassignmentData))(
+          "add reassignment data failed"
         ).failOnShutdown
         preparedSubmission <- leftOrFailShutdown(
           assignmentProcessingSteps.createSubmission(
@@ -328,10 +332,10 @@ class AssignmentProcessingStepsTest
       )
 
       for {
-        transferData <- transferDataF
+        reassignmentData <- reassignmentDataF
         deps <- statefulDependencies
         (persistentState, state) = deps
-        _ <- setUpOrFail(transferData, unassignmentResult, persistentState).failOnShutdown
+        _ <- setUpOrFail(reassignmentData, unassignmentResult, persistentState).failOnShutdown
         preparedSubmission <- leftOrFailShutdown(
           assignmentProcessingSteps.createSubmission(
             submissionParam2,
@@ -358,10 +362,10 @@ class AssignmentProcessingStepsTest
         .currentSnapshotApproximation
 
       for {
-        transferData <- transferDataF
+        reassignmentData <- reassignmentDataF
         deps <- statefulDependencies
         (persistentState, state) = deps
-        _ <- setUpOrFail(transferData, unassignmentResult, persistentState).failOnShutdown
+        _ <- setUpOrFail(reassignmentData, unassignmentResult, persistentState).failOnShutdown
         preparedSubmission <- leftOrFailShutdown(
           assignmentProcessingSteps.createSubmission(
             submissionParam,
@@ -382,7 +386,7 @@ class AssignmentProcessingStepsTest
         reassignmentId,
       )
       for {
-        transferData2 <- TransferStoreTest.mkTransferDataForDomain(
+        reassignmentData2 <- ReassignmentStoreTest.mkReassignmentDataForDomain(
           reassignmentId,
           sourceMediator,
           party2,
@@ -390,7 +394,7 @@ class AssignmentProcessingStepsTest
         )
         deps <- statefulDependencies
         (persistentState, ephemeralState) = deps
-        _ <- setUpOrFail(transferData2, unassignmentResult, persistentState).failOnShutdown
+        _ <- setUpOrFail(reassignmentData2, unassignmentResult, persistentState).failOnShutdown
         preparedSubmission <- leftOrFailShutdown(
           assignmentProcessingSteps.createSubmission(
             submissionParam2,
@@ -414,7 +418,7 @@ class AssignmentProcessingStepsTest
     )
 
     val unassignmentResult =
-      TransferResultHelpers.unassignmentResult(
+      ReassignmentResultHelpers.unassignmentResult(
         sourceDomain,
         cryptoSnapshot,
         submittingParticipant,
@@ -457,7 +461,7 @@ class AssignmentProcessingStepsTest
             .value
       } yield {
         decrypted.decryptionErrors shouldBe Seq.empty
-        activenessSet shouldBe mkActivenessSet(tfIn = Set(contractId))
+        activenessSet shouldBe mkActivenessSet(assign = Set(contractId))
       }
     }
 
@@ -526,7 +530,7 @@ class AssignmentProcessingStepsTest
         metadata = ContractMetadata.tryCreate(Set.empty, Set(party1), None),
       )
     val unassignmentResult =
-      TransferResultHelpers.unassignmentResult(
+      ReassignmentResultHelpers.unassignmentResult(
         sourceDomain,
         cryptoSnapshot,
         submittingParticipant,
@@ -548,13 +552,13 @@ class AssignmentProcessingStepsTest
           unassignmentResult,
         )
 
-        transferLookup = ephemeralState.reassignmentCache
+        reassignmentLookup = ephemeralState.reassignmentCache
 
         result <- leftOrFail(
           assignmentProcessingSteps
             .constructPendingDataAndResponse(
               mkParsedRequest(fullAssignmentTree2),
-              transferLookup,
+              reassignmentLookup,
               FutureUnlessShutdown.pure(mkActivenessResult()),
               engineController =
                 EngineController(participant, RequestId(CantonTimestamp.Epoch), loggerFactory),
@@ -573,7 +577,7 @@ class AssignmentProcessingStepsTest
         deps <- statefulDependencies
         (_persistentState, ephemeralState) = deps
 
-        transferLookup = ephemeralState.reassignmentCache
+        reassignmentLookup = ephemeralState.reassignmentCache
         contractLookup = ephemeralState.contractLookup
 
         fullAssignmentTree = makeFullAssignmentTree(
@@ -590,7 +594,7 @@ class AssignmentProcessingStepsTest
           assignmentProcessingSteps
             .constructPendingDataAndResponse(
               mkParsedRequest(fullAssignmentTree),
-              transferLookup,
+              reassignmentLookup,
               FutureUnlessShutdown.pure(mkActivenessResult()),
               engineController =
                 EngineController(participant, RequestId(CantonTimestamp.Epoch), loggerFactory),
@@ -605,7 +609,7 @@ class AssignmentProcessingStepsTest
   "get commit set and contracts to be stored and event" should {
     "succeed without errors" in {
 
-      val inRes = TransferResultHelpers.assignmentResult(targetDomain)
+      val inRes = ReassignmentResultHelpers.assignmentResult(targetDomain)
 
       val contractId = ExampleTransactionFactory.suffixedId(10, 0)
       val contract =
@@ -677,7 +681,7 @@ class AssignmentProcessingStepsTest
       targetDomain,
       submittingParticipant,
       damle,
-      TestTransferCoordination.apply(
+      TestReassignmentCoordination.apply(
         Set(),
         CantonTimestamp.Epoch,
         Some(snapshotOverride),

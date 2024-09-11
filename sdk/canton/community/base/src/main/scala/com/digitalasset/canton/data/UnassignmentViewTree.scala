@@ -16,7 +16,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.util.EitherUtil
-import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
+import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.version.*
 import com.digitalasset.canton.{LfPartyId, LfWorkflowId, ReassignmentCounter}
 import com.google.protobuf.ByteString
@@ -32,7 +32,7 @@ final case class UnassignmentViewTree(
       UnassignmentViewTree.type
     ],
     hashOps: HashOps,
-) extends GenTransferViewTree[
+) extends GenReassignmentViewTree[
       UnassignmentCommonData,
       UnassignmentView,
       UnassignmentViewTree,
@@ -109,7 +109,7 @@ object UnassignmentViewTree
 
     for {
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
-      res <- GenTransferViewTree.fromProtoV30(
+      res <- GenReassignmentViewTree.fromProtoV30(
         UnassignmentCommonData.fromByteString(expectedProtocolVersion.v)(
           (hashOps, expectedProtocolVersion)
         ),
@@ -130,7 +130,7 @@ object UnassignmentViewTree
   * @param salt Salt for blinding the Merkle hash
   * @param sourceDomain The domain to which the unassignment request is sent
   * @param sourceMediatorGroup The mediator that coordinates the unassignment request on the source domain
-  * @param stakeholders The stakeholders of the contract to be transferred
+  * @param stakeholders The stakeholders of the contract to be reassigned
   * @param adminParties The admin parties of reassigning unassignment participants
   * @param uuid The request UUID of the unassignment
   * @param submitterMetadata information about the submission
@@ -142,7 +142,7 @@ final case class UnassignmentCommonData private (
     stakeholders: Set[LfPartyId],
     adminParties: Set[LfPartyId],
     uuid: UUID,
-    submitterMetadata: TransferSubmitterMetadata,
+    submitterMetadata: ReassignmentSubmitterMetadata,
 )(
     hashOps: HashOps,
     val sourceProtocolVersion: SourceProtocolVersion,
@@ -209,7 +209,7 @@ object UnassignmentCommonData
       stakeholders: Set[LfPartyId],
       adminParties: Set[LfPartyId],
       uuid: UUID,
-      submitterMetadata: TransferSubmitterMetadata,
+      submitterMetadata: ReassignmentSubmitterMetadata,
       sourceProtocolVersion: SourceProtocolVersion,
   ): UnassignmentCommonData = UnassignmentCommonData(
     salt,
@@ -250,7 +250,7 @@ object UnassignmentCommonData
       uuid <- ProtoConverter.UuidConverter.fromProtoPrimitive(uuidP)
       submitterMetadata <- ProtoConverter
         .required("submitter_metadata", submitterMetadataPO)
-        .flatMap(TransferSubmitterMetadata.fromProtoV30)
+        .flatMap(ReassignmentSubmitterMetadata.fromProtoV30)
 
     } yield UnassignmentCommonData(
       salt,
@@ -267,9 +267,9 @@ object UnassignmentCommonData
 /** Aggregates the data of an unassignment request that is only sent to the involved participants
   */
 /** @param salt The salt used to blind the Merkle hash.
-  * @param contract Contract being transferred
+  * @param contract Contract being reassigned
   * @param creatingTransactionId Id of the transaction that created the contract
-  * @param targetDomain The domain to which the contract is transferred.
+  * @param targetDomain The domain to which the contract is reassigned.
   * @param targetTimeProof The sequenced event from the target domain whose timestamp defines
   *                        the baseline for measuring time periods on the target domain
   * @param targetProtocolVersion Protocol version of the target domain
@@ -414,7 +414,7 @@ final case class FullUnassignmentTree(tree: UnassignmentViewTree)
   private[this] val commonData = tree.commonData.tryUnwrap
   private[this] val view = tree.view.tryUnwrap
 
-  def submitterMetadata: TransferSubmitterMetadata = commonData.submitterMetadata
+  def submitterMetadata: ReassignmentSubmitterMetadata = commonData.submitterMetadata
 
   def submitter: LfPartyId = submitterMetadata.submitter
 

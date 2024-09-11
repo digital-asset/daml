@@ -10,10 +10,10 @@ import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.protocol.reassignment.IncompleteReassignmentData.ReassignmentEventGlobalOffset
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
-import com.digitalasset.canton.version.Transfer.SourceProtocolVersion
+import com.digitalasset.canton.version.Reassignment.SourceProtocolVersion
 import io.scalaland.chimney.dsl.*
 
-/** Stores the data for a transfer that is incomplete, i.e., for which only the assignment or the unassignment was
+/** Stores the data for a reassignment that is incomplete, i.e., for which only the assignment or the unassignment was
   * emitted on the multi-domain event log.
   *
   * If [[IncompleteReassignmentData.ReassignmentEventGlobalOffset]] is a [[IncompleteReassignmentData.UnassignmentEventGlobalOffset]],
@@ -48,7 +48,7 @@ final case class IncompleteReassignmentData private (
     s"Supplied contract with ID ${contract.contractId} differs from the ID ${unassignmentRequest.contractId} of the unassignment request.",
   )
 
-  def toTransferData: ReassignmentData = this
+  def toReassignmentData: ReassignmentData = this
     .into[ReassignmentData]
     .withFieldComputed(
       _.reassignmentGlobalOffset,
@@ -64,31 +64,31 @@ final case class IncompleteReassignmentData private (
 
 object IncompleteReassignmentData {
   def create(
-      transferData: ReassignmentData,
+      reassignmentData: ReassignmentData,
       queryOffset: GlobalOffset,
   ): Either[String, IncompleteReassignmentData] = {
-    val transferEventGlobalOffsetE: Either[String, ReassignmentEventGlobalOffset] =
+    val reassignmentEventGlobalOffsetE: Either[String, ReassignmentEventGlobalOffset] =
       ReassignmentEventGlobalOffset.create(
         queryOffset = queryOffset,
-        unassignmentGlobalOffset = transferData.unassignmentGlobalOffset,
-        assignmentGlobalOffset = transferData.assignmentGlobalOffset,
+        unassignmentGlobalOffset = reassignmentData.unassignmentGlobalOffset,
+        assignmentGlobalOffset = reassignmentData.assignmentGlobalOffset,
       )
 
-    transferEventGlobalOffsetE.map { transferEventGlobalOffset =>
-      transferData
+    reassignmentEventGlobalOffsetE.map { reassignmentEventGlobalOffset =>
+      reassignmentData
         .into[IncompleteReassignmentData]
         .withFieldConst(_.queryOffset, queryOffset)
-        .withFieldConst(_.reassignmentEventGlobalOffset, transferEventGlobalOffset)
+        .withFieldConst(_.reassignmentEventGlobalOffset, reassignmentEventGlobalOffset)
         .transform
     }
   }
 
   def tryCreate(
-      transferData: ReassignmentData,
+      reassignmentData: ReassignmentData,
       queryOffset: GlobalOffset,
   ): IncompleteReassignmentData =
-    create(transferData, queryOffset).valueOr(err =>
-      throw new IllegalArgumentException(s"Unable to create IncompleteTransferData: $err")
+    create(reassignmentData, queryOffset).valueOr(err =>
+      throw new IllegalArgumentException(s"Unable to create IncompleteReassignmentData: $err")
     )
 
   sealed trait ReassignmentEventGlobalOffset {
@@ -133,7 +133,7 @@ object IncompleteReassignmentData {
 
         case _ =>
           Left(
-            s"Expecting incomplete transfer at offset $queryOffset, found unassignment=$unassignmentGlobalOffset and assignment=$assignmentGlobalOffset"
+            s"Expecting incomplete reassignment at offset $queryOffset, found unassignment=$unassignmentGlobalOffset and assignment=$assignmentGlobalOffset"
           )
       }
   }

@@ -127,7 +127,7 @@ message DomainTrustCertificate {
   // the uid of the domain that the participant trusts
   string domain = 2;
 
-  reserved 3; // was bool transfer_only_to_given_target_domains = 3;
+  reserved 3; // was bool reassignment_only_to_given_target_domains = 3;
 
   reserved 4; // was repeated string target_domains = 4;
 }

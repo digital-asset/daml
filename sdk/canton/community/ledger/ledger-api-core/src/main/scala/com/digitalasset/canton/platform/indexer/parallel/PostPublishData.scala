@@ -75,10 +75,10 @@ object PostPublishData {
       )
 
     update.value match {
-      // please note: we pass into deduplication and inflight tracking only the transactions and not the transfers at acceptance
+      // please note: we pass into deduplication and inflight tracking only the transactions and not the reassignments at acceptance
       case u: TransactionAccepted =>
         u.completionInfoO.map(from(u.domainId, u.domainIndex, accepted = true))
-      // but: we pass into deduplication and inflight tracking both the transactions and the transfers upon rejection
+      // but: we pass into deduplication and inflight tracking both the transactions and the reassignments upon rejection
       case u: CommandRejected =>
         Some(from(u.domainId, u.domainIndex, accepted = false)(u.completionInfo))
       case _ => None

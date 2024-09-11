@@ -36,7 +36,7 @@ import com.digitalasset.canton.participant.protocol.submission.{
   SeedGenerator,
 }
 import com.digitalasset.canton.participant.protocol.{
-  CanSubmitTransfer,
+  CanSubmitReassignment,
   EngineController,
   ProcessingSteps,
 }
@@ -53,7 +53,7 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
+import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{
   LfPartyId,
   ReassignmentCounter,
@@ -70,7 +70,7 @@ private[reassignment] class AssignmentProcessingSteps(
     val domainId: TargetDomainId,
     val participantId: ParticipantId,
     val engine: DAMLe,
-    transferCoordination: ReassignmentCoordination,
+    reassignmentCoordination: ReassignmentCoordination,
     seedGenerator: SeedGenerator,
     staticDomainParameters: StaticDomainParameters,
     targetProtocolVersion: TargetProtocolVersion,
@@ -104,7 +104,7 @@ private[reassignment] class AssignmentProcessingSteps(
     staticDomainParameters,
     participantId,
     engine,
-    transferCoordination,
+    reassignmentCoordination,
     loggerFactory,
   )
 
@@ -145,29 +145,29 @@ private[reassignment] class AssignmentProcessingSteps(
     )
 
     for {
-      transferData <- ephemeralState.reassignmentLookup
+      reassignmentData <- ephemeralState.reassignmentLookup
         .lookup(reassignmentId)
         .leftMap(err => NoReassignmentData(reassignmentId, err))
         .mapK(FutureUnlessShutdown.outcomeK)
       unassignmentResult <- EitherT.fromEither[FutureUnlessShutdown](
-        transferData.unassignmentResult.toRight(
+        reassignmentData.unassignmentResult.toRight(
           UnassignmentIncomplete(reassignmentId, participantId)
         )
       )
 
-      targetDomain = transferData.targetDomain
+      targetDomain = reassignmentData.targetDomain
       _ = if (targetDomain != domainId)
         throw new IllegalStateException(
-          s"Assignment $reassignmentId: Transfer data for ${transferData.targetDomain} found on wrong domain $domainId"
+          s"Assignment $reassignmentId: Reassignment data for ${reassignmentData.targetDomain} found on wrong domain $domainId"
         )
 
-      stakeholders = transferData.unassignmentRequest.stakeholders
+      stakeholders = reassignmentData.unassignmentRequest.stakeholders
       _ <- condUnitET[FutureUnlessShutdown](
         stakeholders.contains(submitter),
         SubmittingPartyMustBeStakeholderIn(reassignmentId, submitter, stakeholders),
       )
 
-      _ <- CanSubmitTransfer
+      _ <- CanSubmitReassignment
         .assignment(reassignmentId, topologySnapshot, submitter, participantId)
         .mapK(FutureUnlessShutdown.outcomeK)
 
@@ -180,14 +180,14 @@ private[reassignment] class AssignmentProcessingSteps(
           seed,
           submitterMetadata,
           stakeholders,
-          transferData.contract,
-          transferData.reassignmentCounter,
-          transferData.creatingTransactionId,
+          reassignmentData.contract,
+          reassignmentData.reassignmentCounter,
+          reassignmentData.creatingTransactionId,
           targetDomain,
           mediator,
           unassignmentResult,
           assignmentUuid,
-          transferData.sourceProtocolVersion,
+          reassignmentData.sourceProtocolVersion,
           targetProtocolVersion,
         )
       )
@@ -203,7 +203,7 @@ private[reassignment] class AssignmentProcessingSteps(
       recipients <- EitherT.fromEither[FutureUnlessShutdown](
         Recipients
           .ofSet(recipientsSet)
-          .toRight(NoStakeholders.logAndCreate(transferData.contract.contractId, logger))
+          .toRight(NoStakeholders.logAndCreate(reassignmentData.contract.contractId, logger))
       )
       viewMessage <- EncryptedViewMessageFactory
         .create(AssignmentViewType)(
@@ -212,7 +212,9 @@ private[reassignment] class AssignmentProcessingSteps(
           ephemeralState.sessionKeyStoreLookup,
           targetProtocolVersion.v,
         )
-        .leftMap[ReassignmentProcessorError](EncryptionError(transferData.contract.contractId, _))
+        .leftMap[ReassignmentProcessorError](
+          EncryptionError(reassignmentData.contract.contractId, _)
+        )
     } yield {
       val rootHashMessage =
         RootHashMessage(
@@ -239,7 +241,7 @@ private[reassignment] class AssignmentProcessingSteps(
         viewMessage -> recipients,
         rootHashMessage -> rootHashRecipients,
       )
-      TransferSubmission(Batch.of(targetProtocolVersion.v, messages*), rootHash)
+      ReassignmentsSubmission(Batch.of(targetProtocolVersion.v, messages*), rootHash)
     }
   }
 
@@ -259,7 +261,7 @@ private[reassignment] class AssignmentProcessingSteps(
       deliver: Deliver[Envelope[_]],
       pendingSubmission: SubmissionResultArgs,
   ): SubmissionResult =
-    SubmissionResult(pendingSubmission.transferCompletion.future)
+    SubmissionResult(pendingSubmission.reassignmentCompletion.future)
 
   override protected def decryptTree(
       snapshot: DomainSnapshotSyncCryptoApi,
@@ -319,7 +321,7 @@ private[reassignment] class AssignmentProcessingSteps(
 
   override def constructPendingDataAndResponse(
       parsedRequest: ParsedRequestType,
-      transferLookup: ReassignmentLookup,
+      reassignmentLookup: ReassignmentLookup,
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
       engineController: EngineController,
   )(implicit
@@ -369,16 +371,16 @@ private[reassignment] class AssignmentProcessingSteps(
         )
       )
 
-      transferDataO <- EitherT
+      reassignmentDataO <- EitherT
         .right[ReassignmentProcessorError](
-          transferLookup.lookup(reassignmentId).toOption.value
+          reassignmentLookup.lookup(reassignmentId).toOption.value
         )
         .mapK(FutureUnlessShutdown.outcomeK)
       validationResultO <- assignmentValidation
         .validateAssignmentRequest(
           ts,
           fullViewTree,
-          transferDataO,
+          reassignmentDataO,
           targetCrypto,
           isReassigningParticipant,
         )
@@ -388,7 +390,7 @@ private[reassignment] class AssignmentProcessingSteps(
     } yield {
       val responsesET = for {
         _ <- stakeholdersCheckResultET
-        transferResponses <- EitherT
+        reassignmentResponses <- EitherT
           .fromEither[FutureUnlessShutdown](
             createConfirmationResponses(
               requestId,
@@ -399,7 +401,7 @@ private[reassignment] class AssignmentProcessingSteps(
           )
           .leftMap(e => FailedToCreateResponse(reassignmentId, e): ReassignmentProcessorError)
       } yield {
-        transferResponses.map(_ -> Recipients.cc(mediator))
+        reassignmentResponses.map(_ -> Recipients.cc(mediator))
       }
 
       // We consider that we rejected if we fail to process or if at least one of the responses is not "approve'
@@ -485,7 +487,7 @@ private[reassignment] class AssignmentProcessingSteps(
               LocalRejectError.AssignmentRejects.ContractIsLocked
                 .Reject("")
             )
-          else if (activenessResult.inactiveTransfers.nonEmpty)
+          else if (activenessResult.inactiveReassignments.nonEmpty)
             Some(
               LocalRejectError.AssignmentRejects.AlreadyCompleted
                 .Reject("")
@@ -512,7 +514,7 @@ private[reassignment] class AssignmentProcessingSteps(
             domainId.id,
             targetProtocolVersion.v,
           )
-          .map(transferResponse => Seq(transferResponse))
+          .map(reassignmentResponse => Seq(reassignmentResponse))
 
     }
 
@@ -604,7 +606,7 @@ private[reassignment] class AssignmentProcessingSteps(
   private[reassignment] def createReassignmentAccepted(
       contract: SerializableContract,
       recordTime: CantonTimestamp,
-      submitterMetadata: TransferSubmitterMetadata,
+      submitterMetadata: ReassignmentSubmitterMetadata,
       reassignmentId: ReassignmentId,
       rootHash: RootHash,
       isReassigningParticipant: Boolean,
@@ -684,7 +686,7 @@ private[reassignment] class AssignmentProcessingSteps(
 object AssignmentProcessingSteps {
 
   final case class SubmissionParam(
-      submitterMetadata: TransferSubmitterMetadata,
+      submitterMetadata: ReassignmentSubmitterMetadata,
       reassignmentId: ReassignmentId,
   ) {
     val submitterLf: LfPartyId = submitterMetadata.submitter
@@ -699,7 +701,7 @@ object AssignmentProcessingSteps {
       rootHash: RootHash,
       contract: SerializableContract,
       reassignmentCounter: ReassignmentCounter,
-      submitterMetadata: TransferSubmitterMetadata,
+      submitterMetadata: ReassignmentSubmitterMetadata,
       creatingTransactionId: TransactionId,
       isReassigningParticipant: Boolean,
       reassignmentId: ReassignmentId,
@@ -716,7 +718,7 @@ object AssignmentProcessingSteps {
   private[reassignment] def makeFullAssignmentTree(
       pureCrypto: CryptoPureApi,
       seed: SaltSeed,
-      submitterMetadata: TransferSubmitterMetadata,
+      submitterMetadata: ReassignmentSubmitterMetadata,
       stakeholders: Set[LfPartyId],
       contract: SerializableContract,
       reassignmentCounter: ReassignmentCounter,

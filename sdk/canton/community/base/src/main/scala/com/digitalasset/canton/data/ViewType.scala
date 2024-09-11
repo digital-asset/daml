@@ -55,7 +55,7 @@ object ViewType {
   sealed trait ReassignmentViewType extends ViewType {
     type View <: ReassignmentViewTree with HasToByteString
     type FullView = View
-    override type ViewSubmitterMetadata = TransferSubmitterMetadata
+    override type ViewSubmitterMetadata = ReassignmentSubmitterMetadata
   }
 
   case object UnassignmentViewType extends ReassignmentViewType {

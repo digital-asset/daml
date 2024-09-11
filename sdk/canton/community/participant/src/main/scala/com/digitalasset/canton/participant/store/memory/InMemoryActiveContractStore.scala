@@ -232,18 +232,18 @@ class InMemoryActiveContractStore(
     }
   }
 
-  private def prepareTransfers(
+  private def prepareReassignments(
       reassignments: Seq[(LfContractId, ReassignmentDomainId, ReassignmentCounter, TimeOfChange)]
   ): CheckedT[Future, AcsError, AcsWarning, Seq[
     (LfContractId, Int, ReassignmentCounter, TimeOfChange)
   ]] = {
     val domains = reassignments.map { case (_, domain, _, _) => domain.unwrap }.distinct
-    type PreparedTransfer = (LfContractId, Int, ReassignmentCounter, TimeOfChange)
+    type PreparedReassignment = (LfContractId, Int, ReassignmentCounter, TimeOfChange)
 
     for {
       domainIndices <- getDomainIndices(domains)
 
-      preparedTransfersE = MonadUtil.sequentialTraverse(
+      preparedReassignmentsE = MonadUtil.sequentialTraverse(
         reassignments
       ) { case (cid, remoteDomain, reassignmentCounter, toc) =>
         domainIndices
@@ -252,13 +252,15 @@ class InMemoryActiveContractStore(
           .map(domainIdx => (cid, domainIdx.index, reassignmentCounter, toc))
       }
 
-      preparedTransfers <- CheckedT.fromChecked(Checked.fromEither(preparedTransfersE)): CheckedT[
+      preparedReassignments <- CheckedT.fromChecked(
+        Checked.fromEither(preparedReassignmentsE)
+      ): CheckedT[
         Future,
         AcsError,
         AcsWarning,
-        Seq[PreparedTransfer],
+        Seq[PreparedReassignment],
       ]
-    } yield preparedTransfers
+    } yield preparedReassignments
   }
 
   override def assignContracts(
@@ -269,8 +271,8 @@ class InMemoryActiveContractStore(
     logger.trace(s"Assigning contracts: $assignments")
 
     for {
-      preparedTransfers <- prepareTransfers(assignments)
-      _ <- CheckedT(Future.successful(preparedTransfers.to(LazyList).traverse_ {
+      preparedReassignments <- prepareReassignments(assignments)
+      _ <- CheckedT(Future.successful(preparedReassignments.to(LazyList).traverse_ {
         case (contractId, sourceDomain, reassignmentCounter, toc) =>
           updateTable(
             contractId,
@@ -288,8 +290,8 @@ class InMemoryActiveContractStore(
     logger.trace(s"Unassigning contracts: $unassignments")
 
     for {
-      preparedTransfers <- prepareTransfers(unassignments)
-      _ <- CheckedT(Future.successful(preparedTransfers.to(LazyList).traverse_ {
+      preparedReassignments <- prepareReassignments(unassignments)
+      _ <- CheckedT(Future.successful(preparedReassignments.to(LazyList).traverse_ {
         case (contractId, sourceDomain, reassignmentCounter, toc) =>
           updateTable(
             contractId,

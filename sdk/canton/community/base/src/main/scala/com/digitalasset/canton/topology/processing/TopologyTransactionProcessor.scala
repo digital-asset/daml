@@ -11,7 +11,7 @@ import com.daml.nonempty.NonEmptyReturningOps.*
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.concurrent.{DirectExecutionContext, FutureSupervisor}
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.crypto.CryptoPureApi
+import com.digitalasset.canton.crypto.DomainCryptoPureApi
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.environment.CantonNodeParameters
@@ -61,7 +61,7 @@ import scala.math.Ordering.Implicits.*
   */
 class TopologyTransactionProcessor(
     domainId: DomainId,
-    pureCrypto: CryptoPureApi,
+    pureCrypto: DomainCryptoPureApi,
     store: TopologyStore[TopologyStoreId.DomainStore],
     acsCommitmentScheduleEffectiveTime: Traced[EffectiveTime] => Unit,
     terminateProcessing: TerminateProcessing,
@@ -514,7 +514,7 @@ object TopologyTransactionProcessor {
       topologyStore: TopologyStore[TopologyStoreId.DomainStore],
       domainId: DomainId,
       protocolVersion: ProtocolVersion,
-      pureCrypto: CryptoPureApi,
+      pureCrypto: DomainCryptoPureApi,
       parameters: CantonNodeParameters,
       clock: Clock,
       futureSupervisor: FutureSupervisor,

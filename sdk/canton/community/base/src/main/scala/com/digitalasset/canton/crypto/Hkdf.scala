@@ -34,14 +34,14 @@ trait HkdfOps {
     } yield ()
   }
 
-  protected def hkdfExpandInternal(
+  protected[crypto] def hkdfExpandInternal(
       keyMaterial: SecureRandomness,
       outputBytes: Int,
       info: HkdfInfo,
       algorithm: HmacAlgorithm = defaultHmacAlgorithm,
   ): Either[HkdfError, SecureRandomness]
 
-  protected def computeHkdfInternal(
+  protected[crypto] def computeHkdfInternal(
       keyMaterial: ByteString,
       outputBytes: Int,
       info: HkdfInfo,

@@ -106,7 +106,7 @@ object AcsChange extends HasLoggerName {
        The keys are made of the contract id and reassignment counter.
        An unassignment with reassignment counter c cancels out an assignment / create with reassignment counter c-1.
        Thus, to be able to match active contracts that are being deactivated, we decrement the reassignment counters for unassignments.
-       We *do not* need to decrement the transfer counter for archives, because we already obtain each archival's
+       We *do not* need to decrement the reassignment counter for archives, because we already obtain each archival's
        reassignment counter from the last create / assign event on that contract.
      */
     val tmpActivations = commitSet.creations.map { case (contractId, data) =>
@@ -185,7 +185,7 @@ object AcsChange extends HasLoggerName {
   ): Map[LfContractId, ReassignmentCounter] = {
 
     // We first search in assignments, because they would have the most recent reassignment counter.
-    val transientCidsTransferredIn = commitSet.assignments.collect {
+    val transientCidsAssigned = commitSet.assignments.collect {
       case (contractId, tcAndContractHash) if commitSet.archivals.keySet.contains(contractId) =>
         (contractId, tcAndContractHash.reassignmentCounter)
     }
@@ -193,11 +193,11 @@ object AcsChange extends HasLoggerName {
     // Then we search in creations
     val transientCidsCreated = commitSet.creations.collect {
       case (contractId, tcAndContractHash)
-          if commitSet.archivals.keySet.contains(contractId) && !transientCidsTransferredIn.keySet
+          if commitSet.archivals.keySet.contains(contractId) && !transientCidsAssigned.keySet
             .contains(contractId) =>
         (contractId, tcAndContractHash.reassignmentCounter)
     }
 
-    transientCidsTransferredIn ++ transientCidsCreated
+    transientCidsAssigned ++ transientCidsCreated
   }
 }

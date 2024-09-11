@@ -32,7 +32,8 @@ class TopologyManagerSigningKeyDetectionTest
     def mk() =
       new TopologyManagerSigningKeyDetection(
         new InMemoryTopologyStore(DomainStore(Factory.domainId1), loggerFactory, timeouts),
-        Factory.cryptoApi.crypto,
+        Factory.cryptoApi.crypto.pureCrypto,
+        Factory.cryptoApi.crypto.cryptoPrivateStore,
         loggerFactory,
       )
 

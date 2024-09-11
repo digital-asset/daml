@@ -376,8 +376,8 @@ trait CantonConfig {
         adminWorkflow = participantParameters.adminWorkflow,
         maxUnzippedDarSize = participantParameters.maxUnzippedDarSize,
         stores = participantParameters.stores,
-        transferTimeProofFreshnessProportion =
-          participantParameters.transferTimeProofFreshnessProportion,
+        reassignmentTimeProofFreshnessProportion =
+          participantParameters.reassignmentTimeProofFreshnessProportion,
         protocolConfig = ParticipantProtocolConfig(
           minimumProtocolVersion = participantParameters.minimumProtocolVersion.map(_.unwrap),
           alphaVersionSupport = participantParameters.alphaVersionSupport,

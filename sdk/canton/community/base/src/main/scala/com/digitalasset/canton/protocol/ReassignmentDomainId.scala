@@ -38,7 +38,7 @@ object ReassignmentDomainId {
     def toKind(domain: ReassignmentDomainId): Option[Kind]
   }
 
-  implicit val transferDomainIdCast: ReassignmentDomainIdCast[ReassignmentDomainId] =
+  implicit val reassignmentDomainIdCast: ReassignmentDomainIdCast[ReassignmentDomainId] =
     (domain: ReassignmentDomainId) => Some(domain)
 }
 

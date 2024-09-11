@@ -32,7 +32,7 @@ private[reassignment] class AssignmentValidation(
     staticDomainParameters: StaticDomainParameters,
     participantId: ParticipantId,
     engine: DAMLe,
-    transferCoordination: ReassignmentCoordination,
+    reassignmentCoordination: ReassignmentCoordination,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
     extends NamedLogging {
@@ -122,7 +122,7 @@ private[reassignment] class AssignmentValidation(
               s"Waiting for topology state at $unassignmentTs on unassignment domain $sourceDomain ..."
             )
             EitherT(
-              transferCoordination
+              reassignmentCoordination
                 .awaitUnassignmentTimestamp(
                   sourceDomain,
                   staticDomainParameters,
@@ -132,7 +132,7 @@ private[reassignment] class AssignmentValidation(
             )
           }
 
-          sourceCrypto <- transferCoordination.cryptoSnapshot(
+          sourceCrypto <- reassignmentCoordination.cryptoSnapshot(
             sourceDomain.unwrap,
             staticDomainParameters,
             unassignmentTs,
@@ -149,7 +149,7 @@ private[reassignment] class AssignmentValidation(
           )
 
           // TODO(i12926): Validate the shipped unassignment result w.r.t. stakeholders
-          // TODO(i12926): Validate that the unassignment result received matches the unassignment result in transferData
+          // TODO(i12926): Validate that the unassignment result received matches the unassignment result in reassignmentData
 
           _ <- condUnitET[Future](
             assignmentRequest.contract == reassignmentData.contract,
@@ -159,8 +159,8 @@ private[reassignment] class AssignmentValidation(
           unassignmentSubmitter = reassignmentData.unassignmentRequest.submitter
           targetTimeProof = reassignmentData.unassignmentRequest.targetTimeProof.timestamp
 
-          // TODO(i12926): Check that transferData.unassignmentRequest.targetTimeProof.timestamp is in the past
-          cryptoSnapshot <- transferCoordination
+          // TODO(i12926): Check that reassignmentData.unassignmentRequest.targetTimeProof.timestamp is in the past
+          cryptoSnapshot <- reassignmentCoordination
             .cryptoSnapshot(
               reassignmentData.targetDomain.unwrap,
               staticDomainParameters,
@@ -220,7 +220,7 @@ private[reassignment] class AssignmentValidation(
           res <-
             if (isReassigningParticipant) {
               // This happens either in case of malicious assignments (incorrectly declared reassigning participants)
-              // OR if the transfer data has been pruned.
+              // OR if the reassignment data has been pruned.
               // The assignment should be rejected due to other validations (e.g. conflict detection), but
               // we could code this more defensively at some point
 
@@ -252,7 +252,7 @@ object AssignmentValidation {
       lookupError: ReassignmentStore.ReassignmentLookupError,
   ) extends AssignmentValidationError {
     override def message: String =
-      s"Cannot find transfer data for transfer `$reassignmentId`: ${lookupError.cause}"
+      s"Cannot find reassignment data for reassignment `$reassignmentId`: ${lookupError.cause}"
   }
 
   final case class UnassignmentIncomplete(
@@ -323,6 +323,6 @@ object AssignmentValidation {
   final case class ReassignmentSigningError(
       cause: SyncCryptoError
   ) extends ReassignmentProcessorError {
-    override def message: String = show"Unable to sign transfer request. $cause"
+    override def message: String = show"Unable to sign reassignment request. $cause"
   }
 }

@@ -14,7 +14,7 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.util.BinaryFileUtil
-import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
+import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{ProtoDeserializationError, checked}
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.{ByteString, InvalidProtocolBufferException}
@@ -1166,7 +1166,7 @@ trait HasProtocolVersionedWithContextAndValidationCompanion[
 }
 
 /** Similar to [[HasProtocolVersionedWithContextAndValidationCompanion]] but the deserialization
-  * context contains a [[com.digitalasset.canton.version.Transfer.TargetProtocolVersion]] for validation.
+  * context contains a [[com.digitalasset.canton.version.Reassignment.TargetProtocolVersion]] for validation.
   */
 trait HasProtocolVersionedWithContextAndValidationWithTargetProtocolVersionCompanion[
     ValueClass <: HasRepresentativeProtocolVersion,
@@ -1182,7 +1182,7 @@ trait HasProtocolVersionedWithContextAndValidationWithTargetProtocolVersionCompa
 }
 
 /** Similar to [[HasProtocolVersionedWithContextAndValidationCompanion]] but the deserialization
-  * context contains a [[com.digitalasset.canton.version.Transfer.SourceProtocolVersion]] for validation.
+  * context contains a [[com.digitalasset.canton.version.Reassignment.SourceProtocolVersion]] for validation.
   */
 trait HasProtocolVersionedWithContextAndValidationWithSourceProtocolVersionCompanion[
     ValueClass <: HasRepresentativeProtocolVersion,

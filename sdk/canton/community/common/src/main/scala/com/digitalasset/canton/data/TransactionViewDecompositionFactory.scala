@@ -78,7 +78,10 @@ case object TransactionViewDecompositionFactory {
       throw new IllegalStateException(s"Did not find $nodeId in node map"),
     )
 
-    private def build(nodeId: LfNodeId, state: BuildState[NewView]): BuildState[NewView] =
+    private def build(
+        nodeId: LfNodeId,
+        state: BuildState[NewView],
+    ): BuildState[NewView] =
       node(nodeId) match {
         case actionNode: LfActionNode =>
           val info = actionNodeInfoM(nodeId)
@@ -87,7 +90,10 @@ case object TransactionViewDecompositionFactory {
           builds(rollbackNode.children.toSeq, state.enterRollback()).exitRollback()
       }
 
-    def builds(nodeIds: Seq[LfNodeId], state: BuildState[NewView]): BuildState[NewView] =
+    def builds(
+        nodeIds: Seq[LfNodeId],
+        state: BuildState[NewView],
+    ): BuildState[NewView] =
       nodeIds.foldLeft(state)((s, nid) => build(nid, s))
 
     private def buildNewView[V >: NewView](
@@ -178,6 +184,7 @@ case object TransactionViewDecompositionFactory {
   )(implicit ec: ExecutionContext, tc: TraceContext): Future[Seq[NewView]] = {
 
     val tx: LfVersionedTransaction = transaction.unwrap
+    val rootNodes = tx.roots.toSeq
 
     val policyMapF: Iterable[Future[(NodeId, ActionNodeInfo)]] =
       tx.nodes.collect { case (nodeId, node: LfActionNode) =>
@@ -185,8 +192,14 @@ case object TransactionViewDecompositionFactory {
           case e: LfNodeExercises => e.children.toSeq
           case _ => Seq.empty
         }
+
+        /* A submittingAdminParty is passed and added (if defined) as an extra confirming party.
+         * This is only called for the root action nodes (and respective views) to guarantee proper authorization.
+         * Its subsequent quorum will include the submitting party.
+         */
         createActionNodeInfo(
           topologySnapshot,
+          if (rootNodes.contains(nodeId)) submittingAdminPartyO else None,
           node,
           nodeId,
           childNodeIds,
@@ -196,17 +209,15 @@ case object TransactionViewDecompositionFactory {
 
     Future.sequence(policyMapF).map(_.toMap).map { policyMap =>
       Builder(tx.nodes, policyMap)
-        .builds(tx.roots.toSeq, BuildState[NewView](rollbackContext = viewRbContext))
+        .builds(rootNodes, BuildState[NewView](rollbackContext = viewRbContext))
         .views
-        .map(
-          _.withSubmittingAdminParty(submittingAdminPartyO)
-        )
         .toList
     }
   }
 
   private def createActionNodeInfo(
       topologySnapshot: TopologySnapshot,
+      submittingAdminPartyO: Option[LfPartyId],
       node: LfActionNode,
       nodeId: LfNodeId,
       childNodeIds: Seq[LfNodeId],
@@ -225,7 +236,7 @@ case object TransactionViewDecompositionFactory {
         threshold,
       )
 
-    val itF = informeesParticipantsAndThreshold(node, topologySnapshot)
+    val itF = informeesParticipantsAndThreshold(node, topologySnapshot, submittingAdminPartyO)
     itF.map { case (i, t) =>
       nodeId -> ActionNodeInfo(
         i.fmap { case (participants, _) => participants },
@@ -242,6 +253,7 @@ case object TransactionViewDecompositionFactory {
   def informeesParticipantsAndThreshold(
       node: LfActionNode,
       topologySnapshot: TopologySnapshot,
+      submittingAdminPartyO: Option[LfPartyId] = None,
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -249,7 +261,8 @@ case object TransactionViewDecompositionFactory {
     (Map[LfPartyId, (Set[ParticipantId], NonNegativeInt)], NonNegativeInt)
   ] = {
     val confirmingParties =
-      LfTransactionUtil.signatoriesOrMaintainers(node) | LfTransactionUtil.actingParties(node)
+      submittingAdminPartyO.fold[Set[LfPartyId]](Set.empty)(Set(_)) |
+        LfTransactionUtil.signatoriesOrMaintainers(node) | LfTransactionUtil.actingParties(node)
     require(
       confirmingParties.nonEmpty,
       "There must be at least one confirming party, as every node must have at least one signatory.",
@@ -273,31 +286,4 @@ case object TransactionViewDecompositionFactory {
       .map(informeesMap => (informeesMap, threshold))
   }
 
-  /** This method adds an additional quorum with the submitting admin party with threshold 1, thus making sure
-    * that the submitting admin party has to confirm the view for it to be accepted.
-    */
-  def withSubmittingAdminParty(
-      submittingAdminPartyO: Option[LfPartyId]
-  )(viewConfirmationParameters: ViewConfirmationParameters): ViewConfirmationParameters =
-    submittingAdminPartyO match {
-      case Some(submittingAdminParty) =>
-        val newQuorum = Quorum(
-          Map(submittingAdminParty -> PositiveInt.one),
-          NonNegativeInt.one,
-        )
-
-        if (viewConfirmationParameters.quorums.contains(newQuorum))
-          viewConfirmationParameters
-        else {
-          val newQuorumList = viewConfirmationParameters.quorums :+ newQuorum
-          /* We are using tryCreate() because we are sure that the new confirmer is in the list of informees, since
-           * it is added at the same time.
-           */
-          ViewConfirmationParameters.tryCreate(
-            viewConfirmationParameters.informees + submittingAdminParty,
-            newQuorumList,
-          )
-        }
-      case None => viewConfirmationParameters
-    }
 }

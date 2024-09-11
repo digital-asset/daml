@@ -73,7 +73,7 @@ private[routing] class DomainSelector(
   /** Choose the appropriate domain for a transaction.
     * The domain is chosen as follows:
     * 1. Domain whose id equals `transactionData.prescribedDomainO` (if non-empty)
-    * 2. The domain with the smaller number of transfers on which all informees have active participants
+    * 2. The domain with the smaller number of reassignments on which all informees have active participants
     */
   def forMultiDomain(implicit
       traceContext: TraceContext
@@ -94,7 +94,7 @@ private[routing] class DomainSelector(
       case None =>
         for {
           admissibleDomains <- filterDomains(admissibleDomains)
-          domainRank <- pickDomainIdAndComputeTransfers(contracts, admissibleDomains)
+          domainRank <- pickDomainIdAndComputeReassignments(contracts, admissibleDomains)
         } yield domainRank
     }
   }
@@ -254,7 +254,7 @@ private[routing] class DomainSelector(
 
     } yield ()
 
-  private def pickDomainIdAndComputeTransfers(
+  private def pickDomainIdAndComputeReassignments(
       contracts: Seq[ContractData],
       domains: NonEmpty[Set[DomainId]],
   )(implicit
@@ -273,12 +273,12 @@ private[routing] class DomainSelector(
             .value
         )
       // Priority of domain
-      // Number of Transfers if we use this domain
-      // pick according to least amount of transfers
+      // Number of reassignments if we use this domain
+      // pick according to the least amount of reassignments
     } yield rankedDomains.minOption
       .toRight(
-        TransactionRoutingError.AutomaticTransferForTransactionFailure.Failed(
-          s"None of the following $domains is suitable for automatic transfer."
+        TransactionRoutingError.AutomaticReassignmentForTransactionFailure.Failed(
+          s"None of the following $domains is suitable for automatic reassignment."
         )
       )
 

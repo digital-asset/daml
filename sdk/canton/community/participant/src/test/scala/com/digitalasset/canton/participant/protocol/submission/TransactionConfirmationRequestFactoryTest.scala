@@ -98,7 +98,7 @@ class TransactionConfirmationRequestFactoryTest
   // asymmetric encryption ciphertexts.
   private def newCryptoSnapshot: DomainSnapshotSyncCryptoApi = {
     val cryptoSnapshot = createCryptoSnapshot(defaultTopology)
-    cryptoSnapshot.pureCrypto match {
+    cryptoSnapshot.crypto.pureCrypto match {
       case crypto: SymbolicPureCrypto => crypto.setRandomnessFlag(true)
       case _ => ()
     }

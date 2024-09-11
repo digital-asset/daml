@@ -64,10 +64,10 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
 
     val defaultDomainRank = DomainRank(Map.empty, 0, da)
 
-    def transfersDaToAcme(contracts: Set[LfContractId]) = DomainRank(
-      transfers = contracts.map(_ -> (signatory, da)).toMap, // current domain is da
+    def reassignmentsDaToAcme(contracts: Set[LfContractId]) = DomainRank(
+      reassignments = contracts.map(_ -> (signatory, da)).toMap, // current domain is da
       priority = 0,
-      domainId = acme, // transfer to acme
+      domainId = acme, // reassign to acme
     )
 
     "return correct value in happy path" in {
@@ -103,8 +103,8 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
           domainsOfAllInformee = NonEmpty.mk(Set, acme),
         )
 
-      // Multi domain: transfer proposal (da -> acme)
-      val domainRank = transfersDaToAcme(selector.inputContractIds)
+      // Multi domain: reassignment proposal (da -> acme)
+      val domainRank = reassignmentsDaToAcme(selector.inputContractIds)
       selector.forMultiDomain.futureValue shouldBe domainRank
 
       // Multi domain, missing connection to acme: error
@@ -120,7 +120,7 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
 
     "take priority into account (multi domain setting)" in {
       def pickDomain(bestDomain: DomainId): DomainId = selectorForExerciseByInterface(
-        // da is not in the list to force transfer
+        // da is not in the list to force reassignment
         admissibleDomains = NonEmpty.mk(Set, acme, repair),
         connectedDomains = Set(acme, da, repair),
         priorityOfDomain = d => if (d == bestDomain) 10 else 0,
@@ -233,7 +233,7 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
         party3 -> List(participantId3),
       )
 
-      // this test requires a transfer that is only possible from da to repair.
+      // this test requires a reassignment that is only possible from da to repair.
       // All submitters are connected to the repair domain as follow:
       //        Map(
       //          submitterParticipantId -> Set(da, repair),
@@ -251,7 +251,7 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
 
       selector.forSingleDomain.leftValue shouldBe InputContractsOnDifferentDomains(Set(da, repair))
       selector.forMultiDomain.futureValue shouldBe DomainRank(
-        transfers = Map(treeExercises.inputContract3Id -> (signatory, da)),
+        reassignments = Map(treeExercises.inputContract3Id -> (signatory, da)),
         priority = 0,
         domainId = repair,
       )
@@ -288,7 +288,7 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
           )
       }
 
-      "propose transfers when needed" in {
+      "propose reassignments when needed" in {
         val selector = selectorForExerciseByInterface(
           prescribedDomainId = Some(acme),
           connectedDomains = Set(acme, da),
@@ -302,8 +302,8 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
             inputContractDomain = da,
           )
 
-        // Multi domain: transfer proposal (da -> acme)
-        val domainRank = transfersDaToAcme(selector.inputContractIds)
+        // Multi domain: reassignment proposal (da -> acme)
+        val domainRank = reassignmentsDaToAcme(selector.inputContractIds)
         selector.forMultiDomain.futureValue shouldBe domainRank
       }
     }
@@ -327,7 +327,7 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
     import DomainSelectorTest.ForSimpleTopology.*
     import SimpleTopology.*
 
-    "minimize the number of transfers" in {
+    "minimize the number of reassignments" in {
       val threeExercises = ThreeExercises(fixtureTransactionVersion)
 
       val domains = NonEmpty.mk(Set, acme, da, repair)
@@ -342,7 +342,7 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
 
       /*
         Two contracts on acme, one on repair
-        Expected: transfer to acme
+        Expected: reassign to acme
        */
       {
         val domainsOfContracts = Map(
@@ -352,9 +352,9 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
         )
 
         val expectedDomainRank = DomainRank(
-          transfers = Map(threeExercises.inputContract3Id -> (signatory, repair)),
+          reassignments = Map(threeExercises.inputContract3Id -> (signatory, repair)),
           priority = 0,
-          domainId = acme, // transfer to acme
+          domainId = acme, // reassign to acme
         )
 
         selectDomain(domainsOfContracts) shouldBe expectedDomainRank
@@ -362,7 +362,7 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
 
       /*
         Two contracts on repair, one on acme
-        Expected: transfer to repair
+        Expected: reassign to repair
        */
       {
         val domainsOfContracts = Map(
@@ -372,9 +372,9 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
         )
 
         val expectedDomainRank = DomainRank(
-          transfers = Map(threeExercises.inputContract1Id -> (signatory, acme)),
+          reassignments = Map(threeExercises.inputContract1Id -> (signatory, acme)),
           priority = 0,
-          domainId = repair, // transfer to repair
+          domainId = repair, // reassign to repair
         )
 
         selectDomain(domainsOfContracts) shouldBe expectedDomainRank

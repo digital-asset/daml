@@ -184,8 +184,8 @@ final class RepairService(
       case Some(ActiveContractStore.Purged) => addContract(reassigningFrom = None)
       case Some(ActiveContractStore.ReassignedAway(targetDomain, reassignmentCounter)) =>
         log(
-          s"Marking contract ${repairContract.contract.contractId} previously transferred-out to $targetDomain as " +
-            s"transferred-in from $targetDomain (even though contract may have been transferred to yet another domain since)."
+          s"Marking contract ${repairContract.contract.contractId} previously unassigned to $targetDomain as " +
+            s"assigned from $targetDomain (even though contract may have been reassigned to yet another domain since)."
         ).discard
 
         val isReassignmentCounterIncreasing =
@@ -557,7 +557,7 @@ final class RepairService(
 
   /** Change the assignation of a contract from one domain to another
     *
-    * This function here allows us to manually insert a transfer out / in into the respective
+    * This function here allows us to manually insert a unassignment/assignment into the respective
     * journals in order to move a contract from one domain to another. The procedure will result in
     * a consistent state if and only if all the counter parties run the same command. Failure to do so,
     * will results in participants reporting errors and possibly break.
@@ -912,8 +912,8 @@ final class RepairService(
       case Some(ActiveContractStore.Purged) => ignoreOrError("purged contract")
       case Some(ActiveContractStore.ReassignedAway(targetDomain, reassignmentCounter)) =>
         log(
-          s"Purging contract $cid previously marked as transferred away to $targetDomain. " +
-            s"Marking contract as transferred-in from $targetDomain (even though contract may have since been transferred to yet another domain) and subsequently as archived."
+          s"Purging contract $cid previously marked as reassigned to $targetDomain. " +
+            s"Marking contract as assigned from $targetDomain (even though contract may have since been reassigned to yet another domain) and subsequently as archived."
         ).discard
 
         reassignmentCounter.increment.map { newReassignmentCounter =>

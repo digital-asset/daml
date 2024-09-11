@@ -7,8 +7,8 @@ import cats.Apply
 import cats.instances.list.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.crypto.SignatureCheckError.InvalidSignature
-import com.digitalasset.canton.crypto.{Signature, SigningPublicKey}
+import com.digitalasset.canton.crypto.SignatureCheckError.{InvalidCryptoScheme, InvalidSignature}
+import com.digitalasset.canton.crypto.{DomainCryptoPureApi, Signature, SigningPublicKey}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
@@ -49,7 +49,10 @@ class TopologyTransactionAuthorizationValidatorTest
     ) = {
       val validator =
         new TopologyTransactionAuthorizationValidator(
-          Factory.cryptoApi.crypto.pureCrypto,
+          new DomainCryptoPureApi(
+            defaultStaticDomainParameters,
+            Factory.cryptoApi.crypto.pureCrypto,
+          ),
           store,
           validationIsFinal = validationIsFinal,
           loggerFactory,
@@ -61,7 +64,7 @@ class TopologyTransactionAuthorizationValidatorTest
         validated: Seq[ValidatedTopologyTransaction[TopologyChangeOp, TopologyMapping]],
         expectedOutcome: Seq[Option[TopologyTransactionRejection => Boolean]],
     ) = {
-      validated should have length (expectedOutcome.size.toLong)
+      validated should have length expectedOutcome.size.toLong
       validated.zipWithIndex.zip(expectedOutcome).foreach {
         case ((ValidatedTopologyTransaction(tx, Some(err), _), _), Some(expected)) =>
           assert(expected(err), s"Error $err was not expected for transaction: $tx")
@@ -72,7 +75,7 @@ class TopologyTransactionAuthorizationValidatorTest
     }
 
     def validate(
-        validator: TopologyTransactionAuthorizationValidator,
+        validator: TopologyTransactionAuthorizationValidator[DomainCryptoPureApi],
         timestamp: CantonTimestamp,
         toValidate: Seq[GenericSignedTopologyTransaction],
         inStore: Map[MappingHash, GenericSignedTopologyTransaction],
@@ -104,6 +107,7 @@ class TopologyTransactionAuthorizationValidatorTest
           check(res, Seq(None, None))
         }
       }
+
       "fail to add if the signature is invalid" in {
         val validator = mk()
         import Factory.*
@@ -125,6 +129,36 @@ class TopologyTransactionAuthorizationValidatorTest
                 case TopologyTransactionRejection.SignatureCheckFailed(_) => true
                 case _ => false
               },
+            ),
+          )
+        }
+      }
+
+      // TODO(#20714): Add test for invalid signature scheme usage in the transaction protocol (probably as part of the LedgerAuthorizationIntegrationTest).
+      "fail to add if the signing key has an unsupported scheme" in {
+        val validator = mk()
+        import Factory.*
+        for {
+          validatedTopologyTransactions <- validate(
+            validator,
+            ts(0),
+            List(ns1k1_k1_unsupportedScheme),
+            Map.empty,
+            expectFullAuthorization = true,
+          )
+        } yield {
+          check(
+            validatedTopologyTransactions,
+            Seq(
+              Some {
+                case TopologyTransactionRejection.SignatureCheckFailed(
+                      InvalidCryptoScheme(message)
+                    ) =>
+                  message ==
+                    s"The signing key scheme ${Factory.SigningKeys.key1_unsupportedScheme.scheme} is not part " +
+                    s"of the required schemes: ${defaultStaticDomainParameters.requiredSigningKeySchemes}"
+                case _ => false
+              }
             ),
           )
         }
@@ -972,9 +1006,9 @@ class TopologyTransactionAuthorizationValidatorTest
         val signatures = validatedPkgTx.transaction.signatures
 
         validatedPkgTx.rejectionReason shouldBe None
-        signatures.map(_.signedBy).forgetNE should contain theSameElementsAs (Set(key1, key8).map(
+        signatures.map(_.signedBy).forgetNE should contain theSameElementsAs Set(key1, key8).map(
           _.id
-        ))
+        )
 
         resultOnlySuperfluousSignatures.loneElement.rejectionReason shouldBe Some(
           TopologyTransactionRejection.NoDelegationFoundForKeys(Set(key3.id, key5.id))

@@ -73,7 +73,7 @@ object PasswordBasedEncrypted extends HasVersionedMessageCompanion[PasswordBased
 /** Password-Based Encryption (PBE) */
 trait PasswordBasedEncryptionOps { this: EncryptionOps =>
 
-  protected def defaultPbkdfScheme: PbkdfScheme
+  protected[crypto] def defaultPbkdfScheme: PbkdfScheme
 
   /** Derive a symmetric encryption key from a given password.
     *

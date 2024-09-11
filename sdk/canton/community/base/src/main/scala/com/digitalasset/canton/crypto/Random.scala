@@ -15,7 +15,7 @@ import scala.util.Random
 
 trait RandomOps {
 
-  protected def generateRandomBytes(length: Int): Array[Byte]
+  protected[crypto] def generateRandomBytes(length: Int): Array[Byte]
 
   def generateRandomByteString(length: Int): ByteString =
     ByteString.copyFrom(generateRandomBytes(length))

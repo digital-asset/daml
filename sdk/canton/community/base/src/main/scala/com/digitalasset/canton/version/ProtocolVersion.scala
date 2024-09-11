@@ -281,9 +281,9 @@ object ReleaseProtocolVersion {
   val latest: ReleaseProtocolVersion = ReleaseProtocolVersion(ProtocolVersion.latest)
 }
 
-object Transfer {
+object Reassignment {
 
-  /** When dealing with transfer, allow to be more precise with respect to the domain */
+  /** When dealing with reassignments, allow to be more precise with respect to the domain */
   final case class SourceProtocolVersion(v: ProtocolVersion) extends AnyVal
 
   object SourceProtocolVersion {

@@ -19,7 +19,7 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.util.EitherUtil
-import com.digitalasset.canton.version.Transfer.TargetProtocolVersion
+import com.digitalasset.canton.version.Reassignment.TargetProtocolVersion
 import com.digitalasset.canton.version.{
   HasProtocolVersionedWithContextCompanion,
   ProtoVersion,

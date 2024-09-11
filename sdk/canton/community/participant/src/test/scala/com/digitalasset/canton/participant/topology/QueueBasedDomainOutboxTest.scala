@@ -98,10 +98,10 @@ class QueueBasedDomainOutboxTest
       participant1.uid,
       clock,
       crypto,
+      defaultStaticDomainParameters,
       target,
       queue,
       // we don't need the validation logic to run, because we control the outcome of transactions manually
-      testedProtocolVersion,
       exitOnFatalFailures = true,
       timeouts,
       futureSupervisor,
@@ -347,7 +347,7 @@ class QueueBasedDomainOutboxTest
       } yield {
         observed1.map(_.transaction) shouldBe slice1
         handle.buffer.map(_.transaction) shouldBe slice2
-        handle.batches should not be (empty)
+        handle.batches should not be empty
         forAll(handle.batches)(_.size shouldBe 1)
       }
     }

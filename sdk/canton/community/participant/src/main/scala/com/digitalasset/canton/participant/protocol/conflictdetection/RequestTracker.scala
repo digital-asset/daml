@@ -183,7 +183,7 @@ trait RequestTracker extends RequestTrackerLookup with AutoCloseable with NamedL
     * and timestamp `requestTimestamp`, like the [[RequestTracker!.tick]] operation.
     *
     * The activeness check request is expressed as an activeness set comprising all the contracts that must be active
-    * and those that may be created or transferred-in.
+    * and those that may be created or assigned.
     * This operation returns a pair of futures indicating the outcome of the activeness check
     * and the timeout state of the request, described below.
     *
@@ -393,6 +393,6 @@ object RequestTracker {
   final case class AcsError(error: ActiveContractStore.AcsBaseError)
       extends RequestTrackerStoreError
 
-  final case class TransferStoreError(error: ReassignmentStore.ReassignmentStoreError)
+  final case class ReassignmentsStoreError(error: ReassignmentStore.ReassignmentStoreError)
       extends RequestTrackerStoreError
 }

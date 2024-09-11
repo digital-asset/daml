@@ -188,7 +188,7 @@ class ParticipantTopologyDispatcher(
               serial = None,
               // TODO(#12390) auto-determine signing keys
               signingKeys = Seq(participantId.fingerprint),
-              protocolVersion = state.protocolVersion,
+              protocolVersion = state.staticDomainParameters.protocolVersion,
               expectFullAuthorization = true,
             )
             // TODO(#14048) improve error handling

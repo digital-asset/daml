@@ -1393,7 +1393,7 @@ trait MessageDispatcherTest {
 
 private[protocol] object MessageDispatcherTest {
 
-  final case class DisabledTransferTestData[A <: ViewType](
+  final case class DisabledReassignmentTestData[A <: ViewType](
       inOut: String,
       viewType: ViewType.ReassignmentViewType,
       view: EncryptedView[A],

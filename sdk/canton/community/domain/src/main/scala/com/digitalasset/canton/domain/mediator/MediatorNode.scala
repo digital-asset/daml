@@ -17,7 +17,12 @@ import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorServic
 import com.digitalasset.canton.config.*
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
-import com.digitalasset.canton.crypto.{Crypto, CryptoHandshakeValidator, DomainSyncCryptoClient}
+import com.digitalasset.canton.crypto.{
+  Crypto,
+  CryptoHandshakeValidator,
+  DomainCryptoPureApi,
+  DomainSyncCryptoClient,
+}
 import com.digitalasset.canton.domain.Domain
 import com.digitalasset.canton.domain.mediator.admin.data.MediatorNodeStatus
 import com.digitalasset.canton.domain.mediator.admin.gprc.{
@@ -394,18 +399,16 @@ class MediatorNodeBootstrap(
           futureSupervisor = arguments.futureSupervisor,
         )
 
-      def createDomainTopologyManager(
-          protocolVersion: ProtocolVersion
-      ): Either[String, DomainTopologyManager] = {
+      def createDomainTopologyManager(): Either[String, DomainTopologyManager] = {
         val outboxQueue = new DomainOutboxQueue(loggerFactory)
 
         val topologyManager = new DomainTopologyManager(
           nodeId = mediatorId.uid,
           clock = clock,
           crypto = crypto,
+          staticDomainParameters = staticDomainParameters,
           store = domainTopologyStore,
           outboxQueue = outboxQueue,
-          protocolVersion = protocolVersion,
           exitOnFatalFailures = parameters.exitOnFatalFailures,
           timeouts = timeouts,
           futureSupervisor = futureSupervisor,
@@ -442,7 +445,7 @@ class MediatorNodeBootstrap(
             .mapK(FutureUnlessShutdown.outcomeK)
 
           domainTopologyManager <- EitherT.fromEither[FutureUnlessShutdown](
-            createDomainTopologyManager(domainConfig.domainParameters.protocolVersion)
+            createDomainTopologyManager()
           )
           domainOutboxFactory = createDomainOutboxFactory(domainTopologyManager)
 
@@ -563,7 +566,7 @@ class MediatorNodeBootstrap(
               domainTopologyStore,
               domainId,
               domainConfig.domainParameters.protocolVersion,
-              crypto.pureCrypto,
+              new DomainCryptoPureApi(staticDomainParameters, crypto.pureCrypto),
               arguments.parameterConfig,
               arguments.clock,
               arguments.futureSupervisor,

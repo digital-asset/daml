@@ -20,7 +20,7 @@ final case class ParticipantNodeParameters(
     adminWorkflow: AdminWorkflowConfig,
     maxUnzippedDarSize: Int,
     stores: ParticipantStoreConfig,
-    transferTimeProofFreshnessProportion: NonNegativeInt,
+    reassignmentTimeProofFreshnessProportion: NonNegativeInt,
     protocolConfig: ParticipantProtocolConfig,
     ledgerApiServerParameters: LedgerApiServerParametersConfig,
     excludeInfrastructureTransactions: Boolean,
@@ -65,7 +65,7 @@ object ParticipantNodeParameters {
     ),
     maxUnzippedDarSize = 10,
     stores = ParticipantStoreConfig(),
-    transferTimeProofFreshnessProportion = NonNegativeInt.tryCreate(3),
+    reassignmentTimeProofFreshnessProportion = NonNegativeInt.tryCreate(3),
     protocolConfig = ParticipantProtocolConfig(
       Some(testedProtocolVersion),
       // TODO(i15561): Revert back to `false` once there is a stable Daml 3 protocol version

@@ -947,11 +947,7 @@ class ConfirmationRequestAndResponseProcessorTest
                     ),
                     signatory -> ConsortiumVotingState(),
                   ),
-                  Seq(
-                    signatoryQuorum,
-                    // the new confirming party quorum is `empty`
-                    Quorum.empty,
-                  ),
+                  Seq(signatoryQuorum),
                   Nil,
                 ),
               view10Position ->

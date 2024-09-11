@@ -8,20 +8,20 @@ import com.digitalasset.canton.crypto.{HashOps, HmacOps, Salt, SaltSeed}
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.TracedLogger
-import com.digitalasset.canton.participant.protocol.CanSubmitTransfer
+import com.digitalasset.canton.participant.protocol.CanSubmitReassignment
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.ReassignmentProcessorError
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.{MediatorGroupRecipient, TimeProof}
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
+import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{LfPartyId, ReassignmentCounter}
 
 import java.util.UUID
 import scala.concurrent.ExecutionContext
 
-/** Request to transfer a contract away from a domain.
+/** Request to reassign a contract away from a domain.
   *
   * @param adminParties admin parties of participants that (a) host a stakeholder of the contract and
   *                     (b) are connected to both source and target domain
@@ -30,7 +30,7 @@ import scala.concurrent.ExecutionContext
   * @param reassignmentCounter The new reassignment counter (incremented value compared to the one in the ACS).
   */
 final case class UnassignmentRequest(
-    submitterMetadata: TransferSubmitterMetadata,
+    submitterMetadata: ReassignmentSubmitterMetadata,
     stakeholders: Set[LfPartyId],
     adminParties: Set[LfPartyId],
     creatingTransactionId: TransactionId,
@@ -88,7 +88,7 @@ object UnassignmentRequest {
       timeProof: TimeProof,
       creatingTransactionId: TransactionId,
       contract: SerializableContract,
-      submitterMetadata: TransferSubmitterMetadata,
+      submitterMetadata: ReassignmentSubmitterMetadata,
       stakeholders: Set[LfPartyId],
       sourceDomain: SourceDomainId,
       sourceProtocolVersion: SourceProtocolVersion,
@@ -111,7 +111,7 @@ object UnassignmentRequest {
     val templateId = contract.contractInstance.unversioned.template
 
     for {
-      _ <- CanSubmitTransfer.unassignment(
+      _ <- CanSubmitReassignment.unassignment(
         contractId,
         sourceTopology,
         submitterMetadata.submitter,
@@ -125,7 +125,7 @@ object UnassignmentRequest {
         targetTopology,
         logger,
       )
-      _ <- TransferKnownAndVetted(
+      _ <- ReassignmentKnownAndVetted(
         stakeholders,
         targetTopology,
         contractId,

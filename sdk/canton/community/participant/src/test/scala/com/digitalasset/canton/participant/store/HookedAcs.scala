@@ -32,7 +32,7 @@ import scala.concurrent.{ExecutionContext, Future}
 private[participant] class HookedAcs(private val acs: ActiveContractStore)(implicit
     val ec: ExecutionContext
 ) extends ActiveContractStore {
-  import HookedAcs.{noArchivePurgeAction, noCreateAddAction, noTransferAction}
+  import HookedAcs.{noArchivePurgeAction, noCreateAddAction, noReassignmentAction}
 
   private val nextCreateAddHook
       : AtomicReference[(Seq[(LfContractId, ReassignmentCounter, TimeOfChange)]) => Future[Unit]] =
@@ -42,14 +42,14 @@ private[participant] class HookedAcs(private val acs: ActiveContractStore)(impli
   private val nextArchivePurgeHook
       : AtomicReference[Seq[(LfContractId, TimeOfChange)] => Future[Unit]] =
     new AtomicReference[Seq[(LfContractId, TimeOfChange)] => Future[Unit]](noArchivePurgeAction)
-  private val nextTransferHook =
+  private val nextReassignmentHook =
     new AtomicReference[
       (
           Seq[(LfContractId, ReassignmentDomainId, ReassignmentCounter, TimeOfChange)],
           Boolean, // true for unassignments, false for assignments
       ) => Future[Unit]
     ](
-      noTransferAction
+      noReassignmentAction
     )
   private val nextFetchHook: AtomicReference[Iterable[LfContractId] => Future[Unit]] =
     new AtomicReference[Iterable[LfContractId] => Future[Unit]](noFetchAction)
@@ -62,13 +62,13 @@ private[participant] class HookedAcs(private val acs: ActiveContractStore)(impli
     nextCreateAddHook.set(preCreate)
   def setArchivePurgeHook(preArchive: (Seq[(LfContractId, TimeOfChange)]) => Future[Unit]): Unit =
     nextArchivePurgeHook.set(preArchive)
-  def setTransferHook(
-      preTransfer: (
+  def setReassignmentHook(
+      preReassignment: (
           Seq[(LfContractId, ReassignmentDomainId, ReassignmentCounter, TimeOfChange)],
           Boolean,
       ) => Future[Unit]
   ): Unit =
-    nextTransferHook.set(preTransfer)
+    nextReassignmentHook.set(preReassignment)
   def setFetchHook(preFetch: Iterable[LfContractId] => Future[Unit]): Unit =
     nextFetchHook.set(preFetch)
 
@@ -102,11 +102,8 @@ private[participant] class HookedAcs(private val acs: ActiveContractStore)(impli
   )(implicit
       traceContext: TraceContext
   ): CheckedT[Future, AcsError, AcsWarning, Unit] = CheckedT {
-    val preTransfer = nextTransferHook.getAndSet(noTransferAction)
-    preTransfer(
-      assignments,
-      false,
-    ).flatMap { _ =>
+    val preReassignment = nextReassignmentHook.getAndSet(noReassignmentAction)
+    preReassignment(assignments, false).flatMap { _ =>
       acs.assignContracts(assignments).value
     }
   }
@@ -116,8 +113,8 @@ private[participant] class HookedAcs(private val acs: ActiveContractStore)(impli
   )(implicit
       traceContext: TraceContext
   ): CheckedT[Future, AcsError, AcsWarning, Unit] = CheckedT {
-    val preTransfer = nextTransferHook.getAndSet(noTransferAction)
-    preTransfer(
+    val preReassignment = nextReassignmentHook.getAndSet(noReassignmentAction)
+    preReassignment(
       unassignments,
       true,
     ).flatMap { _ =>
@@ -203,7 +200,7 @@ object HookedAcs {
   private val noArchivePurgeAction: Seq[(LfContractId, TimeOfChange)] => Future[Unit] = _ =>
     Future.unit
 
-  private val noTransferAction: (
+  private val noReassignmentAction: (
       Seq[(LfContractId, ReassignmentDomainId, ReassignmentCounter, TimeOfChange)],
       Boolean,
   ) => Future[Unit] = { (_, _) => Future.unit }

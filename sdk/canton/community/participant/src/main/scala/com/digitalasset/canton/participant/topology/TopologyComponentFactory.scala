@@ -5,12 +5,13 @@ package com.digitalasset.canton.participant.topology
 
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{BatchingConfig, CachingConfigs, ProcessingTimeout}
-import com.digitalasset.canton.crypto.Crypto
+import com.digitalasset.canton.crypto.{Crypto, DomainCryptoPureApi}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
 import com.digitalasset.canton.participant.protocol.ParticipantTopologyTerminateProcessingTicker
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
+import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.client.*
@@ -36,6 +37,7 @@ class TopologyComponentFactory(
 ) {
 
   def createTopologyProcessorFactory(
+      staticDomainParameters: StaticDomainParameters,
       partyNotifier: LedgerServerPartyNotifier,
       missingKeysAlerter: MissingKeysAlerter,
       topologyClient: DomainTopologyClientWithInit,
@@ -52,7 +54,7 @@ class TopologyComponentFactory(
 
       val processor = new TopologyTransactionProcessor(
         domainId,
-        crypto.pureCrypto,
+        new DomainCryptoPureApi(staticDomainParameters, crypto.pureCrypto),
         topologyStore,
         acsCommitmentScheduleEffectiveTime,
         terminateTopologyProcessing,

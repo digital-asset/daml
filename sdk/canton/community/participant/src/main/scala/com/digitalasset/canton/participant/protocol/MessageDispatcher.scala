@@ -209,7 +209,7 @@ trait MessageDispatcher { this: NamedLogging =>
       // It is safe to not wedge repair requests with the sequenced events they're tagged to
       // because wedging affects only request counter allocation.
       repairProcessorResult <- repairProcessorWedging(ts)
-      transactionTransferResult <- processTransactionAndTransferMessages(
+      transactionReassignmentResult <- processTransactionAndReassignmentMessages(
         eventE,
         sc,
         ts,
@@ -221,7 +221,7 @@ trait MessageDispatcher { this: NamedLogging =>
         trafficResult,
         acsCommitmentResult,
         repairProcessorResult,
-        transactionTransferResult,
+        transactionReassignmentResult,
       )
     )
   }
@@ -249,7 +249,7 @@ trait MessageDispatcher { this: NamedLogging =>
       trafficProcessor.processSetTrafficPurchasedEnvelopes(ts, timestampOfSigningKeyO, envelopes),
     )
 
-  private def processTransactionAndTransferMessages(
+  private def processTransactionAndReassignmentMessages(
       event: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
       sc: SequencerCounter,
       ts: CantonTimestamp,

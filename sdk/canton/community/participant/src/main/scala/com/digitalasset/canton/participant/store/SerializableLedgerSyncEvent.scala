@@ -81,7 +81,7 @@ private[store] final case class SerializableLedgerSyncEvent(event: LedgerSyncEve
           SyncEventP.CommandRejected(SerializableCommandRejected(commandRejected).toProtoV30)
 
         case unassigned: LedgerSyncEvent.Unassigned =>
-          SyncEventP.Unassigned(SerializableTransferredOut(unassigned).toProtoV30)
+          SyncEventP.Unassigned(SerializableUnassigned(unassigned).toProtoV30)
 
         case assigned: LedgerSyncEvent.Assigned =>
           SyncEventP.Assigned(SerializableAssigned(assigned).toProtoV30)
@@ -164,7 +164,7 @@ private[store] object SerializableLedgerSyncEvent
       case SyncEventP.CommandRejected(commandRejected) =>
         SerializableCommandRejected.fromProtoV30(commandRejected)
       case SyncEventP.Unassigned(unassignment) =>
-        SerializableTransferredOut.fromProtoV30(unassignment)
+        SerializableUnassigned.fromProtoV30(unassignment)
       case SyncEventP.Assigned(assignment) =>
         SerializableAssigned.fromProtoV30(assignment)
       case SyncEventP.ContractsAdded(contractsAdded) =>
@@ -801,7 +801,7 @@ object SerializableRejectionReasonTemplate {
     } yield LedgerSyncEvent.CommandRejected.FinalReason(rpcStatus)
 }
 
-private[store] final case class SerializableTransferredOut(
+private[store] final case class SerializableUnassigned(
     unassigned: LedgerSyncEvent.Unassigned
 ) {
   def toProtoV30: v30.Unassigned = {
@@ -841,7 +841,7 @@ private[store] final case class SerializableTransferredOut(
   }
 }
 
-private[store] object SerializableTransferredOut {
+private[store] object SerializableUnassigned {
   def fromProtoV30(
       unassignedP: v30.Unassigned
   ): ParsingResult[LedgerSyncEvent.Unassigned] = {

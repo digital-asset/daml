@@ -161,7 +161,9 @@ final class SyncStateInspection(
   }
 
   def allProtocolVersions: Map[DomainId, ProtocolVersion] =
-    syncDomainPersistentStateManager.getAll.view.mapValues(_.protocolVersion).toMap
+    syncDomainPersistentStateManager.getAll.view
+      .mapValues(_.staticDomainParameters.protocolVersion)
+      .toMap
 
   def exportAcsDumpActiveContracts(
       outputStream: OutputStream,
@@ -181,7 +183,10 @@ final class SyncStateInspection(
       MonadUtil.sequentialTraverse_(allDomains) {
         case (domainId, state) if filterDomain(domainId) =>
           val (domainIdForExport, protocolVersion) =
-            contractDomainRenames.getOrElse(domainId, (domainId, state.protocolVersion))
+            contractDomainRenames.getOrElse(
+              domainId,
+              (domainId, state.staticDomainParameters.protocolVersion),
+            )
           val acsInspection = state.acsInspection
 
           val ret = for {

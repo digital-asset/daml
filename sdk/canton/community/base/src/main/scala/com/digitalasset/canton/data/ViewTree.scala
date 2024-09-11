@@ -42,7 +42,7 @@ trait ViewTree extends PrettyPrinting {
 /** Supertype of [[FullUnassignmentTree]] and [[FullAssignmentTree]]
   */
 trait ReassignmentViewTree extends ViewTree {
-  def submitterMetadata: TransferSubmitterMetadata
+  def submitterMetadata: ReassignmentSubmitterMetadata
 
   def isReassigningParticipant(participantId: ParticipantId): Boolean
 

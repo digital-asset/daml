@@ -270,7 +270,7 @@ class ProtocolProcessorTest
         clock,
         crypto.crypto,
         IndexedDomain.tryCreate(domain, 1),
-        testedProtocolVersion,
+        defaultStaticDomainParameters,
         enableAdditionalConsistencyChecks = true,
         new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1), // only one domain needed
         exitOnFatalFailures = true,

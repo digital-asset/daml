@@ -8,7 +8,7 @@ import cats.instances.future.catsStdInstancesForFuture
 import cats.syntax.functor.*
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, SyncCryptoApiProvider}
-import com.digitalasset.canton.data.{CantonTimestamp, TransferSubmitterMetadata}
+import com.digitalasset.canton.data.{CantonTimestamp, ReassignmentSubmitterMetadata}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.{
@@ -27,14 +27,14 @@ import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.OptionUtil
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.version.Transfer.TargetProtocolVersion
+import com.digitalasset.canton.version.Reassignment.TargetProtocolVersion
 
 import scala.concurrent.{ExecutionContext, Future}
 
 class ReassignmentCoordination(
     reassignmentStoreFor: TargetDomainId => Either[ReassignmentProcessorError, ReassignmentStore],
     recentTimeProofFor: RecentTimeProofProvider,
-    inSubmissionById: DomainId => Option[TransferSubmissionHandle],
+    inSubmissionById: DomainId => Option[ReassignmentSubmissionHandle],
     val protocolVersionFor: Traced[DomainId] => Option[ProtocolVersion],
     syncCryptoApi: SyncCryptoApiProvider,
     override val loggerFactory: NamedLoggerFactory,
@@ -130,12 +130,12 @@ class ReassignmentCoordination(
     */
   private[reassignment] def assign(
       targetDomain: TargetDomainId,
-      submitterMetadata: TransferSubmitterMetadata,
+      submitterMetadata: ReassignmentSubmitterMetadata,
       reassignmentId: ReassignmentId,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, ReassignmentProcessorError, AssignmentProcessingSteps.SubmissionResult] = {
-    logger.debug(s"Triggering automatic assignment of transfer `$reassignmentId`")
+    logger.debug(s"Triggering automatic assignment of reassignment `$reassignmentId`")
 
     for {
       inSubmission <- EitherT.fromEither[Future](
@@ -214,24 +214,24 @@ class ReassignmentCoordination(
       )
     } yield (timeProof, targetCrypto)
 
-  /** Stores the given transfer data on the target domain. */
+  /** Stores the given reassignment data on the target domain. */
   private[reassignment] def addUnassignmentRequest(
-      transferData: ReassignmentData
+      reassignmentData: ReassignmentData
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
     for {
       reassignmentStore <- EitherT.fromEither[FutureUnlessShutdown](
-        reassignmentStoreFor(transferData.targetDomain)
+        reassignmentStoreFor(reassignmentData.targetDomain)
       )
       _ <- reassignmentStore
-        .addReassignment(transferData)
+        .addReassignment(reassignmentData)
         .leftMap[ReassignmentProcessorError](
-          ReassignmentStoreFailed(transferData.reassignmentId, _)
+          ReassignmentStoreFailed(reassignmentData.reassignmentId, _)
         )
     } yield ()
 
-  /** Adds the unassignment result to the transfer stored on the given domain. */
+  /** Adds the unassignment result to the reassignment stored on the given domain. */
   private[reassignment] def addUnassignmentResult(
       domain: TargetDomainId,
       unassignmentResult: DeliveredUnassignmentResult,
@@ -248,7 +248,7 @@ class ReassignmentCoordination(
     } yield ()
 
   /** Removes the given [[com.digitalasset.canton.protocol.ReassignmentId]] from the given [[com.digitalasset.canton.topology.DomainId]]'s [[store.ReassignmentStore]]. */
-  private[reassignment] def deleteTransfer(
+  private[reassignment] def deleteReassignment(
       targetDomain: TargetDomainId,
       reassignmentId: ReassignmentId,
   )(implicit
@@ -264,9 +264,9 @@ class ReassignmentCoordination(
 
 object ReassignmentCoordination {
   def apply(
-      transferTimeProofFreshnessProportion: NonNegativeInt,
+      reassignmentTimeProofFreshnessProportion: NonNegativeInt,
       syncDomainPersistentStateManager: SyncDomainPersistentStateManager,
-      submissionHandles: DomainId => Option[TransferSubmissionHandle],
+      submissionHandles: DomainId => Option[ReassignmentSubmissionHandle],
       syncCryptoApi: SyncCryptoApiProvider,
       loggerFactory: NamedLoggerFactory,
   )(implicit ec: ExecutionContext): ReassignmentCoordination = {
@@ -284,7 +284,7 @@ object ReassignmentCoordination {
       submissionHandles,
       syncCryptoApi,
       loggerFactory,
-      transferTimeProofFreshnessProportion,
+      reassignmentTimeProofFreshnessProportion,
     )
 
     new ReassignmentCoordination(
@@ -298,11 +298,11 @@ object ReassignmentCoordination {
   }
 }
 
-trait TransferSubmissionHandle {
+trait ReassignmentSubmissionHandle {
   def timeTracker: DomainTimeTracker
 
   def submitUnassignment(
-      submitterMetadata: TransferSubmitterMetadata,
+      submitterMetadata: ReassignmentSubmitterMetadata,
       contractId: LfContractId,
       targetDomain: TargetDomainId,
       targetProtocolVersion: TargetProtocolVersion,
@@ -313,7 +313,7 @@ trait TransferSubmissionHandle {
   ]]
 
   def submitAssignment(
-      submitterMetadata: TransferSubmitterMetadata,
+      submitterMetadata: ReassignmentSubmitterMetadata,
       reassignmentId: ReassignmentId,
   )(implicit
       traceContext: TraceContext

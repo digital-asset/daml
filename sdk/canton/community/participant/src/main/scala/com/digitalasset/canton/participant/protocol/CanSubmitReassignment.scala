@@ -19,7 +19,7 @@ import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.{ExecutionContext, Future}
 
-private[protocol] object CanSubmitTransfer {
+private[protocol] object CanSubmitReassignment {
 
   def unassignment(
       contractId: LfContractId,
@@ -62,7 +62,7 @@ private[protocol] object CanSubmitTransfer {
         .flatMap {
           case Some(attribute) if attribute.permission == Submission => Future.successful(Right(()))
           case Some(attribute) if attribute.permission.canConfirm =>
-            // We allow transfer submissions by each individual active participants of a consortium party
+            // We allow reassignment submissions by each individual active participants of a consortium party
             topologySnapshot.consortiumThresholds(Set(submitter)).map { thresholds =>
               Either.cond(thresholds.get(submitter).exists(_ > PositiveInt.one), (), noPermission)
             }

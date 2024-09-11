@@ -585,9 +585,10 @@ abstract class CantonNodeBootstrapImpl[
         // create namespace key
         namespaceKey <- CantonNodeBootstrapImpl.getOrCreateSigningKey(crypto)(s"$name-namespace")
         // create id
-        identifierName = arguments.config.init.identity
-          .flatMap(_.nodeIdentifier.identifierName)
-          .getOrElse(name.unwrap)
+        identifierName =
+          arguments.config.init.identity
+            .flatMap(_.nodeIdentifier.identifierName)
+            .getOrElse(name.unwrap)
         uid <- EitherT
           .fromEither[FutureUnlessShutdown](
             UniqueIdentifier

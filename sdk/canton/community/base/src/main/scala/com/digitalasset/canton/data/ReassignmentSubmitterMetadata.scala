@@ -10,11 +10,11 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.{ParticipantId, UniqueIdentifier}
 
-/** Information about the submitters of the transaction in the case of a Transfer.
+/** Information about the submitters of the transaction in the case of a reassignment.
   * This data structure is quite similar to [[com.digitalasset.canton.data.SubmitterMetadata]]
   * but differ on a small number of fields.
   */
-final case class TransferSubmitterMetadata(
+final case class ReassignmentSubmitterMetadata(
     submitter: LfPartyId,
     submittingParticipant: ParticipantId,
     commandId: LedgerCommandId,
@@ -33,7 +33,7 @@ final case class TransferSubmitterMetadata(
       workflowId = workflowId.getOrElse(""),
     )
 
-  override def pretty: Pretty[TransferSubmitterMetadata] = prettyOfClass(
+  override def pretty: Pretty[ReassignmentSubmitterMetadata] = prettyOfClass(
     param("submitter", _.submitter),
     param("submitting participant", _.submittingParticipant),
     param("command id", _.commandId),
@@ -43,10 +43,10 @@ final case class TransferSubmitterMetadata(
   )
 }
 
-object TransferSubmitterMetadata {
+object ReassignmentSubmitterMetadata {
   def fromProtoV30(
-      transferSubmitterMetadataP: v30.ReassignmentSubmitterMetadata
-  ): ParsingResult[TransferSubmitterMetadata] = {
+      reassignmentSubmitterMetadataP: v30.ReassignmentSubmitterMetadata
+  ): ParsingResult[ReassignmentSubmitterMetadata] = {
     val v30.ReassignmentSubmitterMetadata(
       submitterP,
       submittingParticipantP,
@@ -54,7 +54,7 @@ object TransferSubmitterMetadata {
       submissionIdP,
       applicationIdP,
       workflowIdP,
-    ) = transferSubmitterMetadataP
+    ) = reassignmentSubmitterMetadataP
 
     for {
       submitter <- ProtoConverter.parseLfPartyId(submitterP)
@@ -66,7 +66,7 @@ object TransferSubmitterMetadata {
       submissionId <- ProtoConverter.parseLFSubmissionIdO(submissionIdP)
       applicationId <- ProtoConverter.parseLFApplicationId(applicationIdP)
       workflowId <- ProtoConverter.parseLFWorkflowIdO(workflowIdP)
-    } yield TransferSubmitterMetadata(
+    } yield ReassignmentSubmitterMetadata(
       submitter,
       submittingParticipant,
       commandId,

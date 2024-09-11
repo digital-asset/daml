@@ -7,8 +7,8 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
-import com.digitalasset.canton.crypto.SigningPublicKey
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
+import com.digitalasset.canton.crypto.{DomainCryptoPureApi, SigningPublicKey}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.DynamicDomainParameters
@@ -52,7 +52,7 @@ abstract class TopologyTransactionProcessorTest
 
     val proc = new TopologyTransactionProcessor(
       domainId,
-      crypto,
+      new DomainCryptoPureApi(defaultStaticDomainParameters, crypto),
       store,
       _ => (),
       TerminateProcessing.NoOpTerminateTopologyProcessing,
@@ -197,7 +197,7 @@ abstract class TopologyTransactionProcessorTest
         .valueOrFail("Couldn't find DND")
 
       // check that we indeed stored 2 proposals
-      storeAfterProcessing.result.filter(_.validFrom == EffectiveTime(ts(4))) should have size (2)
+      storeAfterProcessing.result.filter(_.validFrom == EffectiveTime(ts(4))) should have size 2
 
       val proc2 = mk(store)._1
       process(proc2, ts(0), 0, block1)
@@ -366,7 +366,7 @@ abstract class TopologyTransactionProcessorTest
           .value
 
         dopInStore.mapping shouldBe dopMapping
-        dopInStore.transaction.signatures.forgetNE.toSeq should have size (expectedSignatures.toLong)
+        dopInStore.transaction.signatures.forgetNE.toSeq should have size expectedSignatures.toLong
         dopInStore.validUntil shouldBe None
         dopInStore.validFrom shouldBe EffectiveTime(expectedValidFrom)
       }
@@ -568,7 +568,7 @@ abstract class TopologyTransactionProcessorTest
           .value
 
         dopInStore.mapping shouldBe transactionToLookUp.mapping
-        dopInStore.transaction.signatures.forgetNE.toSeq should have size (expectedSignatures.toLong)
+        dopInStore.transaction.signatures.forgetNE.toSeq should have size expectedSignatures.toLong
         dopInStore.validUntil shouldBe None
         dopInStore.validFrom shouldBe EffectiveTime(expectedValidFrom)
       }

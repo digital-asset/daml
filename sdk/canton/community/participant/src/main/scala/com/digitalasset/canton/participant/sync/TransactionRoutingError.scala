@@ -312,7 +312,7 @@ object TransactionRoutingError extends RoutingErrorGroup {
     }
 
     @Explanation(
-      """This error indicates that the transaction requires contract transfers for which the submitter must be a stakeholder."""
+      """This error indicates that the transaction requires contract reassignments for which the submitter must be a stakeholder."""
     )
     @Resolution(
       "Check that your participant node is connected to all domains you expect and check that the parties are hosted on these domains as you expect them to be."
@@ -324,7 +324,7 @@ object TransactionRoutingError extends RoutingErrorGroup {
         ) {
       final case class Error(cids: Seq[LfContractId])
           extends TransactionErrorImpl(
-            cause = "The given contracts cannot be transferred as no submitter is a stakeholder."
+            cause = "The given contracts cannot be reassigned as no submitter is a stakeholder."
           )
           with TransactionRoutingError
     }
@@ -372,7 +372,7 @@ object TransactionRoutingError extends RoutingErrorGroup {
       """This error indicates that the transaction is referring to contracts whose domain is not currently known."""
     )
     @Resolution(
-      "Ensure all transfer operations on contracts used by the transaction have completed and check connectivity to domains."
+      "Ensure all reassignment operations on contracts used by the transaction have completed and check connectivity to domains."
     )
     object UnknownContractDomains
         extends ErrorCode(
@@ -383,7 +383,7 @@ object TransactionRoutingError extends RoutingErrorGroup {
       final case class Error(contractIds: List[String])
           extends TransactionErrorImpl(
             cause =
-              s"The domains for the contracts $contractIds are currently unknown due to ongoing contract transfers or disconnected domains"
+              s"The domains for the contracts $contractIds are currently unknown due to ongoing contract reassignments or disconnected domains"
           )
           with TransactionRoutingError {
         override def resources: Seq[(ErrorResource, String)] = Seq(
@@ -394,15 +394,15 @@ object TransactionRoutingError extends RoutingErrorGroup {
   }
 
   @Explanation(
-    """This error indicates that the automated transfer could not succeed, as the current topology does not
-      allow the transfer to complete, mostly due to lack of confirmation permissions of the involved parties."""
+    """This error indicates that the automated reassignment could not succeed, as the current topology does not
+      allow the reassignment to complete, mostly due to lack of confirmation permissions of the involved parties."""
   )
   @Resolution(
     """Inspect the message and your topology and ensure appropriate permissions exist."""
   )
-  object AutomaticTransferForTransactionFailure
+  object AutomaticReassignmentForTransactionFailure
       extends ErrorCode(
-        id = "AUTOMATIC_TRANSFER_FOR_TRANSACTION_FAILED",
+        id = "AUTOMATIC_REASSIGNMENT_FOR_TRANSACTION_FAILED",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
     final case class Failed(reason: String)
