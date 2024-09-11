@@ -123,7 +123,6 @@ private[index] class IndexServiceImpl(
       transactionFilter: domain.TransactionFilter,
       sendPrunedOffsets: Boolean,
       verbose: Boolean,
-      multiDomainEnabled: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetUpdatesResponse, NotUsed] =
     withValidatedFilter(transactionFilter, packageMetadataView.current()) {
       enhanceWithPrunedOffsets(
@@ -156,7 +155,6 @@ private[index] class IndexServiceImpl(
                           endInclusive,
                           templateFilter,
                           eventProjectionProperties,
-                          multiDomainEnabled,
                         )
                     }
               },
@@ -183,7 +181,6 @@ private[index] class IndexServiceImpl(
       transactionFilter: domain.TransactionFilter,
       sendPrunedOffsets: Boolean,
       verbose: Boolean,
-      multiDomainEnabled: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetUpdateTreesResponse, NotUsed] =
     withValidatedFilter(transactionFilter, packageMetadataView.current()) {
       val parties = transactionFilter.filtersByParty.keySet
@@ -217,7 +214,6 @@ private[index] class IndexServiceImpl(
                           endInclusive,
                           parties, // on the query filter side we treat every party as wildcard party
                           eventProjectionProperties,
-                          multiDomainEnabled,
                         )
                     }
               },
@@ -295,7 +291,6 @@ private[index] class IndexServiceImpl(
       transactionFilter: TransactionFilter,
       verbose: Boolean,
       activeAtO: Option[Offset],
-      multiDomainEnabled: Boolean,
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Source[GetActiveContractsResponse, NotUsed] = {
@@ -324,7 +319,6 @@ private[index] class IndexServiceImpl(
                 activeAt = activeAt,
                 filter = templateFilter,
                 eventProjectionProperties = eventProjectionProperties,
-                multiDomainEnabled = multiDomainEnabled,
               )
           }
         activeContractsSource

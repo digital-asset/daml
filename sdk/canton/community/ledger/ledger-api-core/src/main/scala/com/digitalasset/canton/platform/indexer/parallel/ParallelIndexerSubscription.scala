@@ -56,7 +56,6 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
     stringInterningView: StringInterning & InternizingStringInterningView,
     tracer: Tracer,
     loggerFactory: NamedLoggerFactory,
-    multiDomainEnabled: Boolean,
 ) extends NamedLogging
     with Spanning {
   import ParallelIndexerSubscription.*
@@ -87,7 +86,6 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
                 translation = translation,
                 compressionStrategy = compressionStrategy,
                 metrics = metrics,
-                multiDomainEnabled = multiDomainEnabled,
               )
             ),
             UpdateToMeteringDbDto(metrics = metrics.daml.indexerEvents),

@@ -4,13 +4,7 @@
 package com.digitalasset.canton.platform.apiserver.services
 
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse as GetActiveContractsResponseV1
-import com.daml.ledger.api.v1.command_completion_service.{
-  CompletionStreamRequest as CompletionStreamRequestV1,
-  CompletionStreamResponse as CompletionStreamResponseV1,
-}
-import com.daml.ledger.api.v1.command_service.SubmitAndWaitRequest as SubmitAndWaitRequestV1
-import com.daml.ledger.api.v1.command_submission_service.SubmitRequest as SubmitRequestV1
-import com.daml.ledger.api.v1.commands.Commands as CommandsV1
+import com.daml.ledger.api.v1.command_completion_service.CompletionStreamResponse as CompletionStreamResponseV1
 import com.daml.ledger.api.v1.completion.Completion as CompletionV1
 import com.daml.ledger.api.v1.event_query_service.GetEventsByContractIdResponse as GetEventsByContractIdResponseV1
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
@@ -26,13 +20,7 @@ import com.daml.ledger.api.v1.transaction_service.{
   GetTransactionTreesResponse as GetTransactionTreesResponseV1,
   GetTransactionsResponse as GetTransactionsResponseV1,
 }
-import com.daml.ledger.api.v2.command_completion_service.{
-  CompletionStreamRequest as CompletionStreamRequestV2,
-  CompletionStreamResponse as CompletionStreamResponseV2,
-}
-import com.daml.ledger.api.v2.command_service.SubmitAndWaitRequest as SubmitAndWaitRequestV2
-import com.daml.ledger.api.v2.command_submission_service.SubmitRequest as SubmitRequestV2
-import com.daml.ledger.api.v2.commands.Commands as CommandsV2
+import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse as CompletionStreamResponseV2
 import com.daml.ledger.api.v2.completion.Completion as CompletionV2
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse as GetEventsByContractIdResponseV2
 import com.daml.ledger.api.v2.participant_offset.ParticipantOffset
@@ -88,14 +76,6 @@ object ApiConversions {
       ledgerId = "",
       transactionId = getTransactionByIdRequest.updateId,
       requestingParties = getTransactionByIdRequest.requestingParties,
-    )
-
-  def toV1(completionStreamRequest: CompletionStreamRequestV2): CompletionStreamRequestV1 =
-    CompletionStreamRequestV1(
-      ledgerId = "",
-      applicationId = completionStreamRequest.applicationId,
-      parties = completionStreamRequest.parties,
-      offset = completionStreamRequest.beginExclusive.map(toV1),
     )
 
   def toV1(completion: CompletionV2): CompletionV1 =
@@ -172,31 +152,6 @@ object ApiConversions {
   ): GetTransactionResponseV1 =
     GetTransactionResponseV1(getTransactionTreeResponse.transaction.map(toV1))
 
-  def toV1(commands: CommandsV2): CommandsV1 =
-    CommandsV1(
-      ledgerId = "",
-      workflowId = commands.workflowId,
-      applicationId = commands.applicationId,
-      commandId = commands.commandId,
-      party = commands.party,
-      commands = commands.commands,
-      deduplicationPeriod = commands.deduplicationPeriod match {
-        case CommandsV2.DeduplicationPeriod.Empty =>
-          CommandsV1.DeduplicationPeriod.Empty
-        case CommandsV2.DeduplicationPeriod.DeduplicationDuration(value) =>
-          CommandsV1.DeduplicationPeriod.DeduplicationDuration(value)
-        case CommandsV2.DeduplicationPeriod.DeduplicationOffset(value) =>
-          CommandsV1.DeduplicationPeriod.DeduplicationOffset(value)
-      },
-      minLedgerTimeAbs = commands.minLedgerTimeAbs,
-      minLedgerTimeRel = commands.minLedgerTimeRel,
-      actAs = commands.actAs,
-      readAs = commands.readAs,
-      submissionId = commands.submissionId,
-      disclosedContracts = commands.disclosedContracts,
-      packageIdSelectionPreference = commands.packageIdSelectionPreference,
-    )
-
   def toV1(getActiveContractsResponse: GetActiveContractsResponseV2): GetActiveContractsResponseV1 =
     GetActiveContractsResponseV1(
       offset = getActiveContractsResponse.offset,
@@ -220,10 +175,4 @@ object ApiConversions {
       createEvent = getEventsByContractIdResponse.created.flatMap(_.createdEvent),
       archiveEvent = getEventsByContractIdResponse.archived.flatMap(_.archivedEvent),
     )
-
-  def toV1(submitRequest: SubmitRequestV2): SubmitRequestV1 =
-    SubmitRequestV1(submitRequest.commands.map(toV1))
-
-  def toV1(submitAndWaitRequest: SubmitAndWaitRequestV2): SubmitAndWaitRequestV1 =
-    SubmitAndWaitRequestV1(submitAndWaitRequest.commands.map(toV1))
 }

@@ -4,7 +4,6 @@
 package com.digitalasset.canton.ledger.participant.state.v2.metrics
 
 import com.daml.metrics.Timed
-import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.v2.{ReadService, SubmissionResult, Update}
@@ -29,14 +28,6 @@ final class TimedReadService(delegate: ReadService, metrics: Metrics) extends Re
     Timed.future(
       metrics.daml.services.read.getConnectedDomains,
       delegate.getConnectedDomains(request),
-    )
-
-  override def incompleteReassignmentOffsets(validAt: Offset, stakeholders: Set[LfPartyId])(implicit
-      traceContext: TraceContext
-  ): Future[Vector[Offset]] =
-    Timed.future(
-      metrics.daml.services.read.getConnectedDomains,
-      delegate.incompleteReassignmentOffsets(validAt, stakeholders),
     )
 
   override def validateDar(dar: ByteString)(implicit

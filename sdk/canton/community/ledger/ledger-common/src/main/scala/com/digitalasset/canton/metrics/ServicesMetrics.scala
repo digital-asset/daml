@@ -206,9 +206,6 @@ class ServicesMetrics(
     @MetricDoc.FanInstanceTag
     val getConnectedDomains: Timer = factory.timer(prefix :+ "get_connected_domains")
     @MetricDoc.FanInstanceTag
-    val incompleteReassignmentOffsets: Timer =
-      factory.timer(prefix :+ "incomplete_reassignment_offsets")
-    @MetricDoc.FanInstanceTag
     val validateDar: Timer = factory.timer(prefix :+ "validate_dar")
   }
 
