@@ -29,8 +29,8 @@ option csharp_namespace = "Com.DigitalAsset.Daml.Lf.Archive.DamlLf2";
 // values.
 message Unit {}
 
-// Package reference
-message PackageRef {
+// Package id
+message PackageId {
   oneof Sum {
 
     // Reference to the package of which the package this reference
@@ -45,32 +45,32 @@ message PackageRef {
 }
 
 // A fully qualified module reference
-message ModuleRef {
+message ModuleId {
   // package where the module is defined.
-  PackageRef package_ref = 1;
+  PackageId package_id = 1;
   int32 module_name_interned_dname = 2;
 }
 
 // A fully qualified reference to a type constructor name.
-message TypeConName {
+message TypeConId {
   // Module where the type is defined.
-  ModuleRef module = 1;
+  ModuleId module = 1;
   // *Must be a valid interned name*
   int32 name_interned_dname = 2;
 }
 
 // A fully qualified reference to a type synonym name.
-message TypeSynName {
+message TypeSynId {
   // Module where the type is defined.
-  ModuleRef module = 1;
+  ModuleId module = 1;
   // *Must be a valid interned name*
   int32 name_interned_dname = 2;
 }
 
 // A fully qualified reference to a value definition.
-message ValName {
+message ValId {
   // Module where the value is defined
-  ModuleRef module = 1;
+  ModuleId module = 1;
   // *Must be a valid interned name*
   int32 name_interned_dname = 2;
 }
@@ -212,7 +212,7 @@ message Type {
   message Con {
 
     // Name of the type constructor name
-    TypeConName tycon = 1;
+    TypeConId tycon = 1;
 
     // Type to which the constructor name is applied.
     repeated Type args = 2;
@@ -222,7 +222,7 @@ message Type {
   message Syn {
 
     // Name of the type synonym
-    TypeSynName tysyn = 1;
+    TypeSynId tysyn = 1;
 
     // Types to which the synonym is applied.
     repeated Type args = 2;
@@ -417,7 +417,7 @@ message Location {
     int32 end_col = 4;
   }
 
-  ModuleRef module = 1; // (*optional*), if missing the line is within the current module.
+  ModuleId module = 1; // (*optional*), if missing the line is within the current module.
   Range range = 2;
 }
 
@@ -481,7 +481,7 @@ message Expr {
   message EnumCon {
 
     // Name of the type constructor name
-    TypeConName tycon = 1;
+    TypeConId tycon = 1;
 
     // *Must be a valid interned identifier*
     int32 enum_con_interned_str = 2;
@@ -599,7 +599,7 @@ message Expr {
 
   // Wrap a value in Any
   message ToAny {
-    // type of argument. Must be the TypeConName of a template.
+    // type of argument. Must be the TypeConId of a template.
     Type type = 1;
     // argument
     Expr expr = 2;
@@ -607,7 +607,7 @@ message Expr {
 
   // Extract the given type from Any or return None on type-mismatch
   message FromAny {
-    // type that should be extracted. Must be the TypeConName of a template.
+    // type that should be extracted. Must be the TypeConId of a template.
     Type type = 1;
     // Value of type Any
     Expr expr = 2;
@@ -641,35 +641,35 @@ message Expr {
 
   // Convert a template payload to an interface.
   message ToInterface {
-    TypeConName interface_type = 1;
-    TypeConName template_type = 2;
+    TypeConId interface_type = 1;
+    TypeConId template_type = 2;
     Expr template_expr = 3;
   }
 
   // Convert an interface back to a template payload if possible.
   message FromInterface {
-    TypeConName interface_type = 1;
-    TypeConName template_type = 2;
+    TypeConId interface_type = 1;
+    TypeConId template_type = 2;
     Expr interface_expr = 3;
   }
 
   // Invoke an interface method.
   message CallInterface {
-    TypeConName interface_type = 1;
+    TypeConId interface_type = 1;
     int32 method_interned_name = 2;
     Expr interface_expr = 3;
   }
 
   // Obtain an interface view
   message ViewInterface {
-    TypeConName interface = 1;
+    TypeConId interface = 1;
     Expr expr = 2;
   }
 
   // Obtain the signatories of a contract through an interface
   message SignatoryInterface {
     // Interface type
-    TypeConName interface = 1;
+    TypeConId interface = 1;
     // Interface argument
     Expr expr = 2;
   }
@@ -677,7 +677,7 @@ message Expr {
   // Obtain the observers of a contract through an interface
   message ObserverInterface {
     // Interface type
-    TypeConName interface = 1;
+    TypeConId interface = 1;
     // Interface argument
     Expr expr = 2;
   }
@@ -686,30 +686,30 @@ message Expr {
 
   // Convert an interface back to a template payload, or raises WronglyTypedContract if not possible.
   message UnsafeFromInterface {
-    TypeConName interface_type = 1;
-    TypeConName template_type = 2;
+    TypeConId interface_type = 1;
+    TypeConId template_type = 2;
     Expr contract_id_expr = 3;
     Expr interface_expr = 4;
   }
 
   // Upcast from an interface payload to an interface it requires.
   message ToRequiredInterface {
-    TypeConName required_interface = 1;
-    TypeConName requiring_interface = 2;
+    TypeConId required_interface = 1;
+    TypeConId requiring_interface = 2;
     Expr expr = 3;
   }
 
   // Downcast from an interface payload to an interface that requires it, if possible.
   message FromRequiredInterface {
-    TypeConName required_interface = 1;
-    TypeConName requiring_interface = 2;
+    TypeConId required_interface = 1;
+    TypeConId requiring_interface = 2;
     Expr expr = 3;
   }
 
   // Downcast from an interface payload to an interface that requires it, or raises WronglyTypedContract if not possible.
   message UnsafeFromRequiredInterface {
-    TypeConName required_interface = 1;
-    TypeConName requiring_interface = 2;
+    TypeConId required_interface = 1;
+    TypeConId requiring_interface = 2;
     Expr contract_id_expr = 3;
     Expr interface_expr = 4;
   }
@@ -717,14 +717,14 @@ message Expr {
   // Obtain the type representation of a contract through an interface
   message InterfaceTemplateTypeRep {
     // interface type
-    TypeConName interface = 1;
+    TypeConId interface = 1;
     // interface argument
     Expr expr = 2;
   }
 
   // Obtain the controllers for a choice.
   message ChoiceController {
-    TypeConName template = 1;
+    TypeConId template = 1;
     int32 choice_interned_str = 2;
     Expr contract_expr = 3;
     Expr choice_arg_expr = 4;
@@ -732,7 +732,7 @@ message Expr {
 
   // Obtain the observers for a choice.
   message ChoiceObserver {
-    TypeConName template = 1;
+    TypeConId template = 1;
     int32 choice_interned_str = 2;
     Expr contract_expr = 3;
     Expr choice_arg_expr = 4;
@@ -753,7 +753,7 @@ message Expr {
     int32 var_interned_str = 2;
 
     // Defined value ('ExpVal')
-    ValName val = 3;
+    ValId val = 3;
 
     // Builtin function ('ExpBuiltin')
     BuiltinFunction builtin = 4;
@@ -887,7 +887,7 @@ message CaseAlt {
   message Variant {
 
     // name of the type constructor
-    TypeConName con = 1;
+    TypeConId con = 1;
 
     // *Must be a valid interned identifier*
     int32 variant_interned_str = 2;
@@ -900,7 +900,7 @@ message CaseAlt {
   message Enum {
 
     // name of the type constructor
-    TypeConName con = 1;
+    TypeConId con = 1;
 
     // *Must be a valid interned identifier*
     int32 constructor_interned_str = 2;
@@ -960,7 +960,7 @@ message Update {
   // Create Update
   message Create {
     // Template type
-    TypeConName template = 1;
+    TypeConId template = 1;
     // Template argument
     Expr expr = 2;
   }
@@ -968,7 +968,7 @@ message Update {
   // Interface Create Update
   message CreateInterface {
     // Interface type
-    TypeConName interface = 1;
+    TypeConId interface = 1;
     // Interface argument
     Expr expr = 2;
   }
@@ -976,7 +976,7 @@ message Update {
   // Exercise Update
   message Exercise {
     // Template type
-    TypeConName template = 1;
+    TypeConId template = 1;
 
     // *Must be a valid interned identifier*
     int32 choice_interned_str = 6;
@@ -994,7 +994,7 @@ message Update {
   // *Available in versions >= 2.dev*
   message SoftExercise {
     // Template type
-    TypeConName template = 1;
+    TypeConId template = 1;
     // *Must be a valid interned identifier*
     int32 choice_interned_str = 2;
     // contract id
@@ -1006,7 +1006,7 @@ message Update {
   // Dynamic Exercise Update
   message DynamicExercise {
     // Template type
-    TypeConName template = 1;
+    TypeConId template = 1;
 
     // name of the exercised template choice
     // *Must be a valid interned identifier*
@@ -1021,7 +1021,7 @@ message Update {
   // Interface Exercise Update
   message ExerciseInterface {
     // Interface type
-    TypeConName interface = 1;
+    TypeConId interface = 1;
 
     // name of the exercised template choice
     // *Must be a valid interned identifier*
@@ -1039,7 +1039,7 @@ message Update {
  // ExerciseByKey Update
   message ExerciseByKey {
     // Template type
-    TypeConName template = 1;
+    TypeConId template = 1;
     // *Must be a valid interned identifier*
     int32 choice_interned_str = 2;
     // key
@@ -1051,7 +1051,7 @@ message Update {
   // Fetch Update
   message Fetch {
     // Template type
-    TypeConName template = 1;
+    TypeConId template = 1;
     // contract id
     Expr cid = 2;
   }
@@ -1061,7 +1061,7 @@ message Update {
   // *Available in versions >= 2.dev*
   message SoftFetch {
     // Template type
-    TypeConName template = 1;
+    TypeConId template = 1;
     // contract id
     Expr cid = 2;
   }
@@ -1069,7 +1069,7 @@ message Update {
   // Interface Fetch Update
   message FetchInterface {
     // Interface type
-    TypeConName interface = 1;
+    TypeConId interface = 1;
     // contract id
     Expr cid = 2;
   }
@@ -1084,7 +1084,7 @@ message Update {
 
   // Retrieve by key Update
   message RetrieveByKey {
-    TypeConName template = 1;
+    TypeConId template = 1;
     // Note: The following field could be reused as it was dropped when RetrieveByKey was still in 2.dev
     reserved 2; // was key.
   }
@@ -1223,7 +1223,7 @@ message DefTemplate {
 
   // An interface instance defined in this template.
   message Implements {
-    TypeConName interface = 1;
+    TypeConId interface = 1;
     InterfaceInstanceBody body = 2;
     Location location = 3;
   }
@@ -1289,7 +1289,7 @@ message DefInterface {
   // View type for this interface
   Type view = 6;
 
-  repeated TypeConName requires = 7;
+  repeated TypeConId requires = 7;
 }
 
 // Exception definition
