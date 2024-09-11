@@ -83,6 +83,7 @@ $bazel info
 #SERVER_LOG=`bazel info server_log`
 #OUTPUT_BASE=`bazel info output_base`
 #$bazel clean --expunge
+export NIX_DEBUG=7
 
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
 $bazel build //... \
