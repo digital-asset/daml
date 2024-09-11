@@ -148,7 +148,7 @@
 - Evaluation order of successful lookup_by_key of a cached global contract: [EvaluationOrderTest.scala](daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/speedy/EvaluationOrderTest.scala#L3021)
 - Evaluation order of successful lookup_by_key of a local contract: [EvaluationOrderTest.scala](daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/speedy/EvaluationOrderTest.scala#L3098)
 - Evaluation order of successful lookup_by_key of a non-cached global contract: [EvaluationOrderTest.scala](daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/speedy/EvaluationOrderTest.scala#L2940)
-- Exceptions, throw/catch.: [ExceptionTest.scala](daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/speedy/ExceptionTest.scala#L30)
+- Exceptions, throw/catch.: [ExceptionTest.scala](daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/speedy/ExceptionTest.scala#L34)
 - Rollback creates cannot be exercise: [EngineTest.scala](daml-lf/engine/src/test/scala/com/digitalasset/daml/lf/engine/EngineTest.scala#L2120)
 - This checks that type checking in exercise_interface is done after checking activeness.: [EvaluationOrderTest.scala](daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/speedy/EvaluationOrderTest.scala#L1988)
 - This checks that type checking is done after checking activeness.: [EvaluationOrderTest.scala](daml-lf/interpreter/src/test/scala/com/digitalasset/daml/lf/speedy/EvaluationOrderTest.scala#L1876)
