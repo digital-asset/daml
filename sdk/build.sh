@@ -77,6 +77,7 @@ else
 fi
 
 xcode-select -v
+$bazel version
 $bazel clean --expunge
 
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
