@@ -339,7 +339,7 @@ object LedgerSyncEvent {
     }
   }
 
-  sealed trait TransferEvent extends LedgerSyncEvent {
+  sealed trait ReassignmentEvent extends LedgerSyncEvent {
     def reassignmentId: ReassignmentId
     def sourceDomain: SourceDomainId = reassignmentId.sourceDomain
     def targetDomain: TargetDomainId
@@ -349,21 +349,21 @@ object LedgerSyncEvent {
     def contractId: LfContractId
 
     override def description: String =
-      s"transferred-$kind $contractId from $sourceDomain to $targetDomain"
+      s"$kind $contractId from $sourceDomain to $targetDomain"
   }
 
   /** Signal the unassignment of a contract from source to target domain.
     *
     * @param updateId                 Uniquely identifies the update.
     * @param optCompletionInfo        Must be provided for the participant that submitted the unassignment.
-    * @param submitter                The partyId of the transfer submitter, unless the operation was performed offline.
-    * @param reassignmentId           Uniquely identifies the transfer. See [[com.digitalasset.canton.protocol.ReassignmentId]].
-    * @param contractId               The contract-id that's being transferred-out.
-    * @param templateId               The template-id of the contract that's being transferred-out.
-    * @param targetDomain             The target domain of the transfer.
+    * @param submitter                The partyId of the reassignment submitter, unless the operation was performed offline.
+    * @param reassignmentId           Uniquely identifies the reassignment. See [[com.digitalasset.canton.protocol.ReassignmentId]].
+    * @param contractId               The contract-id that's being unassigned.
+    * @param templateId               The template-id of the contract that's being unassigned.
+    * @param targetDomain             The target domain of the reassignment.
     * @param assignmentExclusivity    The timestamp of the timeout before which only the submitter can initiate the
     *                                 corresponding assignment. Must be provided for the participant that submitted the unassignment.
-    * @param workflowId               The workflowId specified by the submitter in the transfer command.
+    * @param workflowId               The workflowId specified by the submitter in the reassignment command.
     * @param isReassigningParticipant True if the participant is reassigning.
     *                                 Note: false if the data comes from an old serialized event
     * @param reassignmentCounter          The [[com.digitalasset.canton.ReassignmentCounter]] of the contract.
@@ -383,7 +383,7 @@ object LedgerSyncEvent {
       isReassigningParticipant: Boolean,
       hostedStakeholders: List[LfPartyId],
       reassignmentCounter: ReassignmentCounter,
-  ) extends TransferEvent {
+  ) extends ReassignmentEvent {
 
     override def recordTime: LfTimestamp = reassignmentId.unassignmentTs.underlying
 
@@ -392,7 +392,7 @@ object LedgerSyncEvent {
     def updateRecordTime(newRecordTime: LfTimestamp): Unassigned =
       this.focus(_.reassignmentId.unassignmentTs).replace(CantonTimestamp(newRecordTime))
 
-    override def kind: String = "out"
+    override def kind: String = "unassigned"
 
     override def pretty: Pretty[Unassigned] = prettyOfClass(
       param("updateId", _.updateId),
@@ -427,7 +427,7 @@ object LedgerSyncEvent {
           contractId = contractId,
           templateId = templateId.getOrElse(
             throw new IllegalStateException(
-              s"templateId should not be empty in transfer-id: $reassignmentId"
+              s"templateId should not be empty in reassignment-id: $reassignmentId"
             )
           ),
           packageName = packageName,
@@ -443,14 +443,14 @@ object LedgerSyncEvent {
     *
     * @param updateId                 Uniquely identifies the update.
     * @param optCompletionInfo        Must be provided for the participant that submitted the assignment.
-    * @param submitter                The partyId of the transfer submitter, unless the operation is performed offline.
-    * @param recordTime               The ledger-provided timestamp at which the contract was transferred in.
+    * @param submitter                The partyId of the reassignment submitter, unless the operation is performed offline.
+    * @param recordTime               The ledger-provided timestamp at which the contract was assigned.
     * @param ledgerCreateTime         The ledger time of the transaction '''creating''' the contract
-    * @param createNode               Denotes the creation of the contract being transferred-in.
-    * @param contractMetadata         Contains contract metadata of the contract transferred assigned by the ledger implementation
-    * @param reassignmentId           Uniquely identifies the transfer. See [[com.digitalasset.canton.protocol.ReassignmentId]].
-    * @param targetDomain             The target domain of the transfer.
-    * @param workflowId               The workflowId specified by the submitter in the transfer command.
+    * @param createNode               Denotes the creation of the contract being assigned.
+    * @param contractMetadata         Contains contract metadata of the contract reassigned
+    * @param reassignmentId           Uniquely identifies the reassignment. See [[com.digitalasset.canton.protocol.ReassignmentId]].
+    * @param targetDomain             The target domain of the reassignment.
+    * @param workflowId               The workflowId specified by the submitter in the reassignment command.
     * @param isReassigningParticipant True if the participant is reassigning.
     *                                 Note: false if the data comes from an old serialized event
     * @param reassignmentCounter          The [[com.digitalasset.canton.ReassignmentCounter]] of the contract.
@@ -470,7 +470,7 @@ object LedgerSyncEvent {
       isReassigningParticipant: Boolean,
       hostedStakeholders: List[LfPartyId],
       reassignmentCounter: ReassignmentCounter,
-  ) extends TransferEvent {
+  ) extends ReassignmentEvent {
 
     override def pretty: Pretty[Assigned] = prettyOfClass(
       param("updateId", _.updateId),
@@ -487,7 +487,7 @@ object LedgerSyncEvent {
       param("reassignmentCounter", _.reassignmentCounter),
     )
 
-    override def kind: String = "in"
+    override def kind: String = "assigned"
 
     override def contractId: LfContractId = createNode.coid
 

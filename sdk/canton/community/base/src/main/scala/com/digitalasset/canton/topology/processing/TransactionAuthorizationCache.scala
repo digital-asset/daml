@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.topology.processing
 
+import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.NamedLogging
@@ -19,7 +20,7 @@ import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
 
 /** cache for working with topology transaction authorization */
-trait TransactionAuthorizationCache {
+trait TransactionAuthorizationCache[+PureCrypto <: CryptoPureApi] {
   this: NamedLogging =>
 
   /** Invariants:
@@ -47,6 +48,8 @@ trait TransactionAuthorizationCache {
     new TrieMap[UniqueIdentifier, Set[AuthorizedIdentifierDelegation]]()
 
   protected def store: TopologyStore[TopologyStoreId]
+
+  protected def pureCrypto: PureCrypto
 
   implicit protected def executionContext: ExecutionContext
 

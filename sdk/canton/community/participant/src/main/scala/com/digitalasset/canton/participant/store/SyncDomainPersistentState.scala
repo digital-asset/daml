@@ -12,13 +12,13 @@ import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
 import com.digitalasset.canton.participant.store.db.DbSyncDomainPersistentState
 import com.digitalasset.canton.participant.store.memory.InMemorySyncDomainPersistentState
+import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.store.*
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.store.TopologyStore
 import com.digitalasset.canton.topology.store.TopologyStoreId.DomainStore
 import com.digitalasset.canton.topology.{DomainOutboxQueue, DomainTopologyManager, ParticipantId}
-import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.ExecutionContext
 
@@ -30,7 +30,7 @@ trait SyncDomainPersistentState extends NamedLogging with AutoCloseable {
   /** The crypto operations used on the domain */
   def pureCryptoApi: CryptoPureApi
   def domainId: IndexedDomain
-  def protocolVersion: ProtocolVersion
+  def staticDomainParameters: StaticDomainParameters
   def enableAdditionalConsistencyChecks: Boolean
   def contractStore: ContractStore
   def reassignmentStore: ReassignmentStore
@@ -55,7 +55,7 @@ object SyncDomainPersistentState {
       participantId: ParticipantId,
       storage: Storage,
       domainId: IndexedDomain,
-      protocolVersion: ProtocolVersion,
+      staticDomainParameters: StaticDomainParameters,
       clock: Clock,
       crypto: Crypto,
       parameters: ParticipantNodeParameters,
@@ -73,7 +73,7 @@ object SyncDomainPersistentState {
           clock,
           crypto,
           domainId,
-          protocolVersion,
+          staticDomainParameters,
           parameters.enableAdditionalConsistencyChecks,
           indexedStringStore,
           exitOnFatalFailures = parameters.exitOnFatalFailures,
@@ -87,7 +87,7 @@ object SyncDomainPersistentState {
         new DbSyncDomainPersistentState(
           participantId,
           domainId,
-          protocolVersion,
+          staticDomainParameters,
           clock,
           db,
           crypto,

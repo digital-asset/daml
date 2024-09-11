@@ -398,7 +398,7 @@ class ReferenceDemoScript(
             participant3.ledger_api.javaapi.state.acs
               .await(M.bank.Cash.COMPANION)(insurance, _.data.amount.quantity == 15)
 
-          // settle claim (will invoke auto-transfer to the banking domain)
+          // settle claim (will invoke automatic reassignment to the banking domain)
           val settleClaim =
             insuranceLookup(M.healthinsurance.Claim.COMPANION).id
               .exerciseAcceptAndSettleClaim(findCashCid.id)

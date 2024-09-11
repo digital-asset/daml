@@ -431,10 +431,10 @@ class ExampleTransactionFactory(
     val submittingAdminPartyO =
       Option.when(isRoot)(submitterMetadata.submittingParticipant.adminParty.toLf)
     TransactionViewDecompositionFactory
-      .informeesParticipantsAndThreshold(rootNode, topologySnapshot)
+      .informeesParticipantsAndThreshold(rootNode, topologySnapshot, submittingAdminPartyO)
       .map { case (viewInformeesWithParticipantData, viewThreshold) =>
         val viewInformees = viewInformeesWithParticipantData.fmap(_._2)
-        val result = NewView(
+        NewView(
           rootNode,
           ViewConfirmationParameters.create(viewInformees, viewThreshold),
           rootSeed,
@@ -442,8 +442,6 @@ class ExampleTransactionFactory(
           tailNodes,
           rootRbContext,
         )
-
-        result.withSubmittingAdminParty(submittingAdminPartyO)
       }
   }
 
@@ -659,14 +657,11 @@ class ExampleTransactionFactory(
     val (rawInformeesWithParticipantData, rawThreshold) =
       Await.result(
         TransactionViewDecompositionFactory
-          .informeesParticipantsAndThreshold(node, topologySnapshot),
+          .informeesParticipantsAndThreshold(node, topologySnapshot, submittingAdminPartyO),
         10.seconds,
       )
     val rawInformees = rawInformeesWithParticipantData.fmap { case (_, weight) => weight }
-    val viewConfirmationParameters =
-      TransactionViewDecompositionFactory.withSubmittingAdminParty(submittingAdminPartyO)(
-        ViewConfirmationParameters.create(rawInformees, rawThreshold)
-      )
+    val viewConfirmationParameters = ViewConfirmationParameters.create(rawInformees, rawThreshold)
 
     viewInternal(
       node,
@@ -700,28 +695,29 @@ class ExampleTransactionFactory(
       val (rawInformeesWithParticipantData, rawThreshold) =
         Await.result(
           TransactionViewDecompositionFactory
-            .informeesParticipantsAndThreshold(nodeToMerge, topologySnapshot),
+            .informeesParticipantsAndThreshold(
+              nodeToMerge,
+              topologySnapshot,
+              Option.when(isRoot && nodeToMerge == node)(
+                submitterMetadata.submittingParticipant.adminParty.toLf
+              ),
+            ),
           10.seconds,
         )
       val rawInformees = rawInformeesWithParticipantData.fmap { case (_, weight) => weight }
       ViewConfirmationParameters.create(rawInformees, rawThreshold)
     }
 
-    val submittingAdminPartyO =
-      Option.when(isRoot)(submitterMetadata.submittingParticipant.adminParty.toLf)
-
     val viewConfirmationParameters =
-      TransactionViewDecompositionFactory.withSubmittingAdminParty(submittingAdminPartyO)(
-        ViewConfirmationParameters.tryCreate(
-          viewConfirmationParametersToMerge
-            .flatMap(_.informees)
-            .toSet,
-          viewConfirmationParametersToMerge
-            .flatMap(
-              _.quorums
-            )
-            .distinct,
-        )
+      ViewConfirmationParameters.tryCreate(
+        viewConfirmationParametersToMerge
+          .flatMap(_.informees)
+          .toSet,
+        viewConfirmationParametersToMerge
+          .flatMap(
+            _.quorums
+          )
+          .distinct,
       )
 
     viewInternal(
@@ -1546,29 +1542,20 @@ class ExampleTransactionFactory(
           case _ => Set.empty
         }.toSet ++ v1Pre.viewConfirmationParameters.informees
 
-        val quorumsAux = {
-          val (quorumSubmittingParticipant, quorumOther) =
-            v1Pre.viewConfirmationParameters.quorums.partition(q =>
-              q == Quorum(
-                confirmers = Map(submitter -> PositiveInt.one),
-                threshold = NonNegativeInt.one,
-              )
-            )
-
-          /* the submitting participant quorum should only be added at the end after the other quorums have been merged
-           * to mimic what happens during view decomposition.
-           */
-          (quorumOther ++ v1TailNodes.mapFilter {
+        val quorumsAux =
+          (v1Pre.viewConfirmationParameters.quorums ++ v1TailNodes.mapFilter {
             case SameView(lfNode, nodeId, _) if !nodesNotChildren.contains(nodeId) =>
+              val confirmingParties =
+                LfTransactionUtil.signatoriesOrMaintainers(lfNode) | LfTransactionUtil
+                  .actingParties(lfNode)
               Some(
                 Quorum(
-                  confirmers = lfNode.requiredAuthorizers.map(pId => pId -> PositiveInt.one).toMap,
-                  threshold = NonNegativeInt.tryCreate(lfNode.requiredAuthorizers.size),
+                  confirmers = confirmingParties.map(pId => pId -> PositiveInt.one).toMap,
+                  threshold = NonNegativeInt.tryCreate(confirmingParties.size),
                 )
               )
             case _ => None
-          } ++ quorumSubmittingParticipant).distinct
-        }
+          }).distinct
 
         (informeesAux, quorumsAux)
       }

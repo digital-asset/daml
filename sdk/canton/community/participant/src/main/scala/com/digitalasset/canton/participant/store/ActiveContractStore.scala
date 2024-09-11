@@ -62,9 +62,6 @@ trait ActiveContractStore
     with ConflictDetectionStore[LfContractId, ActiveContractStore.Status] {
   import ActiveContractStore.*
 
-  // TODO(#21081) Look for -in and -out
-  // TODO(#21081) Look for tfin and tfout
-
   override protected def kind: String = "active contract journal entries"
   private[store] def indexedStringStore: IndexedStringStore
 

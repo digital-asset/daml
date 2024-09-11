@@ -120,7 +120,7 @@ private[protocol] object AdminPartiesAndParticipants {
         )
     )
 
-  /* Computes the unassignment participants for the transfers and checks the following hosting requirements for each party:
+  /* Computes the unassignment participants for the reassignments and checks the following hosting requirements for each party:
    * - If the party is hosted on a participant with submission permission,
    * then at least one such participant must also have submission permission
    * for that party on the target domain.

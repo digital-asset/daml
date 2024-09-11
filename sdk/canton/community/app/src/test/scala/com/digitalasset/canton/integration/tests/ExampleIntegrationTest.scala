@@ -46,7 +46,7 @@ abstract class ExampleIntegrationTest(configPaths: File*)
         CommunityConfigTransforms.updateAllParticipantConfigs { case (_, config) =>
           // to make sure that the picked up time for the snapshot is the most recent one
           config
-            .focus(_.parameters.transferTimeProofFreshnessProportion)
+            .focus(_.parameters.reassignmentTimeProofFreshnessProportion)
             .replace(NonNegativeInt.zero)
         },
         CommunityConfigTransforms.uniquePorts,

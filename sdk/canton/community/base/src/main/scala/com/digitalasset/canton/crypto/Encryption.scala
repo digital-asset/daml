@@ -44,7 +44,7 @@ import scala.concurrent.ExecutionContext
 /** Encryption operations that do not require access to a private key store but operates with provided keys. */
 trait EncryptionOps {
 
-  protected def decryptWithInternal[M](
+  protected[crypto] def decryptWithInternal[M](
       encrypted: AsymmetricEncrypted[M],
       privateKey: EncryptionPrivateKey,
   )(

@@ -16,7 +16,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.protocol.DynamicDomainParameters
+import com.digitalasset.canton.protocol.{DynamicDomainParameters, StaticDomainParameters}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.TopologyManagerError.{
   DangerousCommandRequiresForce,
@@ -55,31 +55,31 @@ class DomainTopologyManager(
     nodeId: UniqueIdentifier,
     clock: Clock,
     crypto: Crypto,
+    staticDomainParameters: StaticDomainParameters,
     override val store: TopologyStore[DomainStore],
     val outboxQueue: DomainOutboxQueue,
-    protocolVersion: ProtocolVersion,
     exitOnFatalFailures: Boolean,
     timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
     loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
-    extends TopologyManager[DomainStore](
+    extends TopologyManager[DomainStore, DomainCryptoPureApi](
       nodeId,
       clock,
       crypto,
       store,
-      TopologyManager.PV(protocolVersion),
+      TopologyManager.PV(staticDomainParameters.protocolVersion),
       exitOnFatalFailures = exitOnFatalFailures,
       timeouts,
       futureSupervisor,
       loggerFactory,
     ) {
-  override protected val processor: TopologyStateProcessor =
-    new TopologyStateProcessor(
+  override protected val processor: TopologyStateProcessor[DomainCryptoPureApi] =
+    new TopologyStateProcessor[DomainCryptoPureApi](
       store,
       Some(outboxQueue),
       new ValidatingTopologyMappingChecks(store, loggerFactory),
-      crypto.pureCrypto,
+      new DomainCryptoPureApi(staticDomainParameters, crypto.pureCrypto),
       loggerFactory,
     )
 
@@ -99,7 +99,7 @@ class AuthorizedTopologyManager(
     futureSupervisor: FutureSupervisor,
     loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
-    extends TopologyManager[AuthorizedStore](
+    extends TopologyManager[AuthorizedStore, CryptoPureApi](
       nodeId,
       clock,
       crypto,
@@ -110,8 +110,8 @@ class AuthorizedTopologyManager(
       futureSupervisor,
       loggerFactory,
     ) {
-  override protected val processor: TopologyStateProcessor =
-    new TopologyStateProcessor(
+  override protected val processor: TopologyStateProcessor[CryptoPureApi] =
+    new TopologyStateProcessor[CryptoPureApi](
       store,
       None,
       NoopTopologyMappingChecks,
@@ -124,7 +124,7 @@ class AuthorizedTopologyManager(
   override def timestampForValidation(): CantonTimestamp = clock.uniqueTime()
 }
 
-abstract class TopologyManager[+StoreID <: TopologyStoreId](
+abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: CryptoPureApi](
     val nodeId: UniqueIdentifier,
     val clock: Clock,
     val crypto: Crypto,
@@ -150,7 +150,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
     crashOnFailure = exitOnFatalFailures,
   )
 
-  protected val processor: TopologyStateProcessor
+  protected val processor: TopologyStateProcessor[PureCrypto]
 
   override def queueSize: Int = sequentialQueue.queueSize
 
@@ -232,7 +232,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
     *
     * @param transactionHash the uniquely identifying hash of a previously proposed topology transaction
     * @param signingKeys the key which should be used to sign
-    * @param force force dangerous operations, such as removing the last signing key of a participant
+    * @param forceChanges force dangerous operations, such as removing the last signing key of a participant
     * @param expectFullAuthorization whether the resulting transaction must be fully authorized or not
     * @return the signed transaction or an error code of why the addition failed
     */
@@ -359,7 +359,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
       // find signing keys.
       keysToUseForSigning <- determineKeysToUse(transaction, signingKeys, forceChanges)
       // If the same operation and mapping is proposed repeatedly, insist that
-      // new keys are being added. Otherwise reject consistently with daml 2.x-based topology management.
+      // new keys are being added. Otherwise, reject consistently with daml 2.x-based topology management.
       _ <- existingTransactionTuple match {
         case Some((`transactionOp`, `transactionMapping`, _, existingSignatures)) =>
           EitherT.cond[FutureUnlessShutdown][TopologyManagerError, Unit](
@@ -423,7 +423,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
           usableKeys <- loadValidSigningKeys(transaction, returnAllValidKeys = true)
           unusableKeys = explicitlySpecifiedKeysToUse.toSet -- usableKeys
 
-          // log that the force flag overrides unusuable keys
+          // log that the force flag overrides unusable keys
           _ = if (unusableKeys.nonEmpty && useForce) {
             logger.info(
               s"ForceFlag permits usage of keys not suitable for the signing the transaction: $unusableKeys"
@@ -436,7 +436,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
             TopologyManagerError.NoAppropriateSigningKeyInStore
               .Failure(unusableKeys.toSeq): TopologyManagerError,
           )
-          // We only get here if there are no unusable keys or the caller has use the force flag to use them anyway
+          // We only get here if there are no unusable keys or the caller has used the force flag to use them anyway
         } yield explicitlySpecifiedKeysToUse
 
       // the caller has not specified any keys to be used.
@@ -466,7 +466,12 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId](
           )
         )
         .mapK(FutureUnlessShutdown.outcomeK)
-      result <- new TopologyManagerSigningKeyDetection(store, crypto, loggerFactory)
+      result <- new TopologyManagerSigningKeyDetection(
+        store,
+        crypto.pureCrypto,
+        crypto.cryptoPrivateStore,
+        loggerFactory,
+      )
         .getValidSigningKeysForTransaction(
           timestampForValidation(),
           transaction,

@@ -89,14 +89,14 @@ private object AuthorizationKeys {
   * (3) finally, what we compute as the "authorized graph" is then used to compute the derived table
   *     of "namespace delegations"
   */
-class TopologyTransactionAuthorizationValidator(
-    val pureCrypto: CryptoPureApi,
+class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
+    val pureCrypto: PureCrypto,
     val store: TopologyStore[TopologyStoreId],
     validationIsFinal: Boolean,
     val loggerFactory: NamedLoggerFactory,
 )(implicit override val executionContext: ExecutionContext)
     extends NamedLogging
-    with TransactionAuthorizationCache {
+    with TransactionAuthorizationCache[PureCrypto] {
 
   private val domainId =
     TopologyStoreId.select[TopologyStoreId.DomainStore](store).map(_.storeId.domainId)

@@ -845,7 +845,7 @@ class TransactionProcessingSteps(
 
   override def constructPendingDataAndResponse(
       parsedRequest: ParsedTransactionRequest,
-      transferLookup: ReassignmentLookup,
+      reassignmentLookup: ReassignmentLookup,
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
       engineController: EngineController,
   )(implicit
@@ -952,9 +952,9 @@ class TransactionProcessingSteps(
           throw new RuntimeException(
             s"Activeness result for a transaction confirmation request contains already non-free contracts ${contractResult.notFree}"
           )
-        if (activenessResult.inactiveTransfers.nonEmpty)
+        if (activenessResult.inactiveReassignments.nonEmpty)
           throw new RuntimeException(
-            s"Activeness result for a transaction confirmation request contains inactive transfers ${activenessResult.inactiveTransfers}"
+            s"Activeness result for a transaction confirmation request contains inactive reassignments ${activenessResult.inactiveReassignments}"
           )
         activenessResult
     }

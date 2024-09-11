@@ -11,7 +11,7 @@ import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.NonNegativeFiniteDuration as _
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
-import com.digitalasset.canton.crypto.{Crypto, DomainSyncCryptoClient}
+import com.digitalasset.canton.crypto.{Crypto, DomainCryptoPureApi, DomainSyncCryptoClient}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.admin.data.{
@@ -285,9 +285,9 @@ class SequencerNodeBootstrap(
                   sequencerId.uid,
                   clock,
                   crypto,
+                  existing.domainParameters,
                   store = createDomainTopologyStore(existing.domainId),
                   outboxQueue = new DomainOutboxQueue(loggerFactory),
-                  protocolVersion = existing.domainParameters.protocolVersion,
                   exitOnFatalFailures = parameters.exitOnFatalFailures,
                   timeouts,
                   futureSupervisor,
@@ -397,9 +397,9 @@ class SequencerNodeBootstrap(
               sequencerId.uid,
               clock,
               crypto,
+              request.domainParameters,
               store,
               outboxQueue,
-              request.domainParameters.protocolVersion,
               exitOnFatalFailures = parameters.exitOnFatalFailures,
               timeouts,
               futureSupervisor,
@@ -497,7 +497,7 @@ class SequencerNodeBootstrap(
               domainTopologyStore,
               domainId,
               staticDomainParameters.protocolVersion,
-              crypto.pureCrypto,
+              new DomainCryptoPureApi(staticDomainParameters, crypto.pureCrypto),
               parameters,
               clock,
               futureSupervisor,

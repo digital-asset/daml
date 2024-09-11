@@ -20,7 +20,7 @@ import com.digitalasset.canton.crypto.{CryptoPureApi, SyncCryptoApiProvider}
 import com.digitalasset.canton.data.{
   CantonTimestamp,
   ProcessedDisclosedContract,
-  TransferSubmitterMetadata,
+  ReassignmentSubmitterMetadata,
 }
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.*
@@ -94,7 +94,7 @@ import com.digitalasset.canton.util.FutureInstances.parallelFuture
 import com.digitalasset.canton.util.OptionUtils.OptionExtension
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.version.Transfer.TargetProtocolVersion
+import com.digitalasset.canton.version.Reassignment.TargetProtocolVersion
 import com.digitalasset.daml.lf.archive.DamlLf
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, SubmissionId}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
@@ -280,9 +280,9 @@ class CantonSyncService(
       loggerFactory,
     )(ec)
 
-  private val transferCoordination: ReassignmentCoordination =
+  private val reassignmentCoordination: ReassignmentCoordination =
     ReassignmentCoordination(
-      parameters.transferTimeProofFreshnessProportion,
+      parameters.reassignmentTimeProofFreshnessProportion,
       syncDomainPersistentStateManager,
       connectedDomainsLookup.get,
       syncCrypto,
@@ -942,7 +942,7 @@ class CantonSyncService(
       }
 
     def startDomains(domains: Seq[DomainAlias]): EitherT[Future, SyncServiceError, Unit] = {
-      // we need to start all domains concurrently in order to avoid the transfer processing
+      // we need to start all domains concurrently in order to avoid the reassignment processing
       // to hang
       val futE = Future.traverse(domains)(domain =>
         (for {
@@ -1304,13 +1304,14 @@ class CantonSyncService(
           identityPusher,
           domainHandle.topologyFactory
             .createTopologyProcessorFactory(
+              domainHandle.staticParameters,
               partyNotifier,
               missingKeysAlerter,
               domainHandle.topologyClient,
               ephemeral.recordOrderPublisher,
             ),
           missingKeysAlerter,
-          transferCoordination,
+          reassignmentCoordination,
           participantNodeEphemeralState.inFlightSubmissionTracker,
           commandProgressTracker,
           clock,
@@ -1605,11 +1606,11 @@ class CantonSyncService(
       /* @param domain For unassignment this should be the source domain, for assignment this is the target domain
        * @param remoteDomain For unassignment this should be the target domain, for assignment this is the source domain
        */
-      def doTransfer[E <: ReassignmentProcessorError, T](
+      def doReassignment[E <: ReassignmentProcessorError, T](
           domain: DomainId,
           remoteDomain: DomainId,
       )(
-          transfer: SyncDomain => EitherT[Future, E, FutureUnlessShutdown[T]]
+          reassign: SyncDomain => EitherT[Future, E, FutureUnlessShutdown[T]]
       )(implicit traceContext: TraceContext): Future[SubmissionResult] = {
         for {
           syncDomain <- EitherT.fromOption[Future](
@@ -1617,7 +1618,7 @@ class CantonSyncService(
             ifNone = RequestValidationErrors.InvalidArgument
               .Reject(s"Domain ID not found: $domain"): DamlError,
           )
-          _ <- transfer(syncDomain)
+          _ <- reassign(syncDomain)
             .leftMap(error =>
               RequestValidationErrors.InvalidArgument
                 .Reject(
@@ -1650,12 +1651,12 @@ class CantonSyncService(
               TargetProtocolVersion(_)
             )
 
-            submissionResult <- doTransfer(
+            submissionResult <- doReassignment(
               domain = unassign.sourceDomain.unwrap,
               remoteDomain = unassign.targetDomain.unwrap,
             )(
               _.submitUnassignment(
-                submitterMetadata = TransferSubmitterMetadata(
+                submitterMetadata = ReassignmentSubmitterMetadata(
                   submitter = submitter,
                   applicationId = applicationId,
                   submittingParticipant = participantId,
@@ -1671,12 +1672,12 @@ class CantonSyncService(
           } yield submissionResult
 
         case assign: ReassignmentCommand.Assign =>
-          doTransfer(
+          doReassignment(
             domain = assign.targetDomain.unwrap,
             remoteDomain = assign.sourceDomain.unwrap,
           )(
             _.submitAssignment(
-              submitterMetadata = TransferSubmitterMetadata(
+              submitterMetadata = ReassignmentSubmitterMetadata(
                 submitter = submitter,
                 applicationId = applicationId,
                 submittingParticipant = participantId,
@@ -1728,7 +1729,7 @@ class CantonSyncService(
     Future.sequence(result).map(_.flatten).map(ConnectedDomainResponse.apply)
   }
 
-  def incompleteTransferData(
+  def incompleteReassignmentData(
       validAt: GlobalOffset,
       stakeholders: Set[LfPartyId],
   )(implicit traceContext: TraceContext): Future[List[IncompleteReassignmentData]] =
@@ -1751,7 +1752,7 @@ class CantonSyncService(
       .toGlobalOffset(validAt)
       .fold(
         error => Future.failed(new IllegalArgumentException(error)),
-        incompleteTransferData(_, stakeholders).map(
+        incompleteReassignmentData(_, stakeholders).map(
           _.map(
             _.reassignmentEventGlobalOffset.globalOffset
               .pipe(UpstreamOffsetConvert.fromGlobalOffset)
@@ -1778,7 +1779,7 @@ object CantonSyncService {
     /*
     This is used with reconnectDomains.
     Because of the comment
-      we need to start all domains concurrently in order to avoid the transfer processing
+      we need to start all domains concurrently in order to avoid the reassignment processing
     then we need to be able to delay starting the sync domain.
      */
     case object ReconnectDomains extends ConnectDomain {

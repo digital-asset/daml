@@ -5,39 +5,39 @@ package com.digitalasset.canton.participant.protocol.submission.routing
 
 import cats.data.EitherT
 import cats.syntax.parallel.*
-import com.digitalasset.canton.data.TransferSubmitterMetadata
+import com.digitalasset.canton.data.ReassignmentSubmitterMetadata
 import com.digitalasset.canton.ledger.participant.state.SubmitterInfo
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.sync.TransactionRoutingError.AutomaticTransferForTransactionFailure
+import com.digitalasset.canton.participant.sync.TransactionRoutingError.AutomaticReassignmentForTransactionFailure
 import com.digitalasset.canton.participant.sync.{ConnectedDomainsLookup, TransactionRoutingError}
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.version.Transfer.TargetProtocolVersion
+import com.digitalasset.canton.version.Reassignment.TargetProtocolVersion
 
 import scala.concurrent.{ExecutionContext, Future}
 
-private[routing] class ContractsTransfer(
+private[routing] class ContractsReassigner(
     connectedDomains: ConnectedDomainsLookup,
     submittingParticipant: ParticipantId,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
-  def transfer(
+  def reassign(
       domainRankTarget: DomainRank,
       submitterInfo: SubmitterInfo,
   )(implicit traceContext: TraceContext): EitherT[Future, TransactionRoutingError, Unit] =
-    if (domainRankTarget.transfers.nonEmpty) {
+    if (domainRankTarget.reassignments.nonEmpty) {
       logger.info(
         s"Automatic transaction reassignment to domain ${domainRankTarget.domainId}"
       )
-      domainRankTarget.transfers.toSeq.parTraverse_ { case (cid, (lfParty, sourceDomainId)) =>
+      domainRankTarget.reassignments.toSeq.parTraverse_ { case (cid, (lfParty, sourceDomainId)) =>
         perform(
           SourceDomainId(sourceDomainId),
           TargetDomainId(domainRankTarget.domainId),
-          TransferSubmitterMetadata(
+          ReassignmentSubmitterMetadata(
             submitter = lfParty,
             submittingParticipant,
             submitterInfo.commandId,
@@ -55,10 +55,10 @@ private[routing] class ContractsTransfer(
   private def perform(
       sourceDomain: SourceDomainId,
       targetDomain: TargetDomainId,
-      submitterMetadata: TransferSubmitterMetadata,
+      submitterMetadata: ReassignmentSubmitterMetadata,
       contractId: LfContractId,
   )(implicit traceContext: TraceContext): EitherT[Future, TransactionRoutingError, Unit] = {
-    val transfer = for {
+    val reassignment = for {
       sourceSyncDomain <- EitherT.fromEither[Future](
         connectedDomains.get(sourceDomain.unwrap).toRight("Not connected to the source domain")
       )
@@ -85,7 +85,7 @@ private[routing] class ContractsTransfer(
       _unassignmentApprove <- EitherT.cond[Future](
         unassignmentStatus.code == com.google.rpc.Code.OK_VALUE,
         (),
-        s"The transfer out for ${outResult.reassignmentId} failed with status $unassignmentStatus",
+        s"The reassignment out for ${outResult.reassignmentId} failed with status $unassignmentStatus",
       )
 
       _unit <- EitherT
@@ -109,8 +109,8 @@ private[routing] class ContractsTransfer(
       )
     } yield ()
 
-    transfer.leftMap[TransactionRoutingError](str =>
-      AutomaticTransferForTransactionFailure.Failed(str)
+    reassignment.leftMap[TransactionRoutingError](str =>
+      AutomaticReassignmentForTransactionFailure.Failed(str)
     )
   }
 }

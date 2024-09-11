@@ -267,7 +267,7 @@ object OnboardingRestriction {
   *                                   if it has not yet happened.
   *                                   Moreover, if this timeout is zero, no automatic assignments will occur.
   *                                   Choose a low value, if you want to lower the time that contracts can be inactive
-  *                                   due to ongoing transfers.
+  *                                   due to ongoing reassignments.
   *                                   Choosing a high value currently has no practical benefit, but
   *                                   will have benefits in a future version.
   * TODO(M41): Document those benefits

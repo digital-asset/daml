@@ -25,7 +25,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.util.EitherUtil
-import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
+import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.version.*
 import com.digitalasset.canton.{LfPartyId, LfWorkflowId, ReassignmentCounter}
 import com.google.protobuf.ByteString
@@ -41,7 +41,7 @@ final case class AssignmentViewTree(
       AssignmentViewTree.type
     ],
     hashOps: HashOps,
-) extends GenTransferViewTree[
+) extends GenReassignmentViewTree[
       AssignmentCommonData,
       AssignmentView,
       AssignmentViewTree,
@@ -117,7 +117,7 @@ object AssignmentViewTree
     val (hashOps, expectedProtocolVersion) = context
     for {
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
-      res <- GenTransferViewTree.fromProtoV30(
+      res <- GenReassignmentViewTree.fromProtoV30(
         AssignmentCommonData.fromByteString(expectedProtocolVersion.v)(
           (hashOps, expectedProtocolVersion)
         ),
@@ -135,9 +135,9 @@ object AssignmentViewTree
 /** Aggregates the data of an assignment request that is sent to the mediator and the involved participants.
   *
   * @param salt Salt for blinding the Merkle hash
-  * @param targetDomain The domain on which the contract is transferred in
+  * @param targetDomain The domain on which the contract is assigned
   * @param targetMediatorGroup The mediator that coordinates the assignment request on the target domain
-  * @param stakeholders The stakeholders of the transferred contract
+  * @param stakeholders The stakeholders of the reassigned contract
   * @param uuid The uuid of the assignment request
   * @param submitterMetadata information about the submission
   */
@@ -147,7 +147,7 @@ final case class AssignmentCommonData private (
     targetMediatorGroup: MediatorGroupRecipient,
     stakeholders: Set[LfPartyId],
     uuid: UUID,
-    submitterMetadata: TransferSubmitterMetadata,
+    submitterMetadata: ReassignmentSubmitterMetadata,
 )(
     hashOps: HashOps,
     val targetProtocolVersion: TargetProtocolVersion,
@@ -211,7 +211,7 @@ object AssignmentCommonData
       targetMediator: MediatorGroupRecipient,
       stakeholders: Set[LfPartyId],
       uuid: UUID,
-      submitterMetadata: TransferSubmitterMetadata,
+      submitterMetadata: ReassignmentSubmitterMetadata,
       targetProtocolVersion: TargetProtocolVersion,
   ): AssignmentCommonData = AssignmentCommonData(
     salt,
@@ -249,7 +249,7 @@ object AssignmentCommonData
       uuid <- ProtoConverter.UuidConverter.fromProtoPrimitive(uuidP)
       submitterMetadata <- ProtoConverter
         .required("submitter_metadata", submitterMetadataPO)
-        .flatMap(TransferSubmitterMetadata.fromProtoV30)
+        .flatMap(ReassignmentSubmitterMetadata.fromProtoV30)
 
     } yield AssignmentCommonData(
       salt,
@@ -265,7 +265,7 @@ object AssignmentCommonData
 /** Aggregates the data of an assignment request that is only sent to the involved participants
   *
   * @param salt                    The salt to blind the Merkle hash
-  * @param contract                The contract to be transferred including the instance
+  * @param contract                The contract to be reassigned including the instance
   * @param creatingTransactionId   The id of the transaction that created the contract
   * @param unassignmentResultEvent The signed deliver event of the unassignment result message
   * @param sourceProtocolVersion   Protocol version of the source domain.
@@ -305,7 +305,7 @@ final case class AssignmentView private (
 
   override def pretty: Pretty[AssignmentView] = prettyOfClass(
     param("creating transaction id", _.creatingTransactionId),
-    param("transfer out result event", _.unassignmentResultEvent),
+    param("unassignment result event", _.unassignmentResultEvent),
     param("source protocol version", _.sourceProtocolVersion.v),
     param("reassignment counter", _.reassignmentCounter),
     param(
@@ -435,7 +435,7 @@ final case class FullAssignmentTree(tree: AssignmentViewTree)
   private[this] val commonData = tree.commonData.tryUnwrap
   private[this] val view = tree.view.tryUnwrap
 
-  def submitterMetadata: TransferSubmitterMetadata = commonData.submitterMetadata
+  def submitterMetadata: ReassignmentSubmitterMetadata = commonData.submitterMetadata
 
   def submitter: LfPartyId = submitterMetadata.submitter
 

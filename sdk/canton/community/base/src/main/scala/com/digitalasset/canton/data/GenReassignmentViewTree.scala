@@ -17,11 +17,11 @@ import com.digitalasset.canton.version.{
 }
 import com.google.protobuf.ByteString
 
-/** A transfer request tree has two children:
+/** A reassignment request tree has two children:
   * The `commonData` for the mediator and the involved participants
   * and the `view` only for the involved participants.
   */
-abstract class GenTransferViewTree[
+abstract class GenReassignmentViewTree[
     CommonData <: HasProtocolVersionedWrapper[CommonData] & HasCryptographicEvidence,
     View <: HasProtocolVersionedWrapper[View],
     Tree,
@@ -56,7 +56,7 @@ abstract class GenTransferViewTree[
 
   def viewHash: ViewHash = ViewHash.fromRootHash(rootHash)
 
-  /** Blinds the transfer view tree such that the `view` is blinded and the `commonData` remains revealed. */
+  /** Blinds the reassignment view tree such that the `view` is blinded and the `commonData` remains revealed. */
   def mediatorMessage(
       submittingParticipantSignature: Signature
   ): MediatorMessage = {
@@ -68,14 +68,14 @@ abstract class GenTransferViewTree[
     createMediatorMessage(blinded.tryUnwrap, submittingParticipantSignature)
   }
 
-  /** Creates the mediator message from an appropriately blinded transfer view tree. */
+  /** Creates the mediator message from an appropriately blinded reassignment view tree. */
   protected[this] def createMediatorMessage(
       blindedTree: Tree,
       submittingParticipantSignature: Signature,
   ): MediatorMessage
 }
 
-object GenTransferViewTree {
+object GenReassignmentViewTree {
   private[data] def fromProtoV30[CommonData, View, Tree](
       deserializeCommonData: ByteString => ParsingResult[CommonData],
       deserializeView: ByteString => ParsingResult[MerkleTree[View]],
@@ -85,10 +85,10 @@ object GenTransferViewTree {
     val v30.ReassignmentViewTree(commonDataP, viewP) = treeP
     for {
       commonData <- deserializeCommonData(commonDataP)
-        .leftMap(error => OtherError(s"transferCommonData: $error"))
+        .leftMap(error => OtherError(s"reassignmentCommonData: $error"))
       view <- MerkleTree
         .fromProtoOptionV30(viewP, deserializeView(_))
-        .leftMap(error => OtherError(s"transferView: $error"))
+        .leftMap(error => OtherError(s"reassignmentView: $error"))
     } yield createTree(commonData, view)
   }
 }

@@ -97,18 +97,18 @@ val Seq(paintOffer) = decodeAllCreated(OfferToPaintHouseByOwner.COMPANION)(
   participant2.ledger_api.javaapi.commands.submit_flat(Seq(HouseOwner), paintOfferCmd, domainId = Some(paintId)))
 // architecture-handbook-entry-end: paint-offer
 
-// architecture-handbook-entry-begin: transfer
+// architecture-handbook-entry-begin: reassignment
 // Wait until the painter sees the paint offer in the active contract store
 participant3.ledger_api.state.acs.await_active_contract(Painter, paintOffer.id.toLf)
 
-// Painter transfers the paint offer to the IOU domain
+// Painter reassigns the paint offer to the IOU domain
 participant3.ledger_api.commands.submit_reassign(
-  Painter,                   // Initiator of the transfer
-  paintOffer.id.toLf,        // Contract to be transferred
+  Painter,                   // Initiator of the reassignment
+  paintOffer.id.toLf,        // Contract to be reassigned
   paintId,                   // Source domain
   iouId                      // Target domain
 )
-// architecture-handbook-entry-end: transfer
+// architecture-handbook-entry-end: reassignment
 
 // architecture-handbook-entry-begin: accept
 // Painter accepts the paint offer on the IOU domain
@@ -118,7 +118,7 @@ val Seq(painterIou) = decodeAllCreated(Iou.COMPANION)(acceptTx)
 val Seq(paintHouse) = decodeAllCreated(PaintHouse.COMPANION)(acceptTx)
 // architecture-handbook-entry-end: accept
 
-// architecture-handbook-entry-begin: transfer-back
+// architecture-handbook-entry-begin: reassignment-back
 // Wait until the house owner sees the PaintHouse agreement
 participant2.ledger_api.state.acs.await_active_contract(HouseOwner, paintHouse.id.toLf)
 
@@ -129,7 +129,7 @@ participant2.ledger_api.commands.submit_reassign(
   iouId,
   paintId
 )
-// architecture-handbook-entry-end: transfer-back
+// architecture-handbook-entry-end: reassignment-back
 
 // architecture-handbook-entry-begin: call
 // Painter converts the Iou into cash

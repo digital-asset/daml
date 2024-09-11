@@ -29,7 +29,7 @@ import org.mockito.MockitoSugar.mock
 
 import scala.concurrent.{ExecutionContext, Future}
 
-private[reassignment] object TestTransferCoordination {
+private[reassignment] object TestReassignmentCoordination {
   def apply(
       domains: Set[TargetDomainId],
       timeProofTimestamp: CantonTimestamp,

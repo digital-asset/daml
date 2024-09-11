@@ -33,8 +33,8 @@ import com.digitalasset.canton.version.ProtocolVersionValidation
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class GrpcTopologyManagerWriteService(
-    managers: => Seq[TopologyManager[TopologyStoreId]],
+class GrpcTopologyManagerWriteService[PureCrypto <: CryptoPureApi](
+    managers: => Seq[TopologyManager[TopologyStoreId, PureCrypto]],
     crypto: Crypto,
     override val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
@@ -250,7 +250,7 @@ class GrpcTopologyManagerWriteService(
       store: String
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CantonError, TopologyManager[TopologyStoreId]] =
+  ): EitherT[FutureUnlessShutdown, CantonError, TopologyManager[TopologyStoreId, PureCrypto]] =
     for {
       targetStore <- EitherT.cond[FutureUnlessShutdown](
         store.nonEmpty,

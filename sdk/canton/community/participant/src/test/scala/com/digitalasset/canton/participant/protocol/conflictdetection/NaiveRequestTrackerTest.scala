@@ -10,7 +10,7 @@ import com.digitalasset.canton.participant.store.memory.{
   InMemoryReassignmentStore,
   ReassignmentCache,
 }
-import com.digitalasset.canton.participant.store.{ActiveContractStore, TransferStoreTest}
+import com.digitalasset.canton.participant.store.{ActiveContractStore, ReassignmentStoreTest}
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.{BaseTest, HasExecutorService, RequestCounter, SequencerCounter}
 import org.scalatest.wordspec.AsyncWordSpec
@@ -29,16 +29,16 @@ class NaiveRequestTrackerTest
       ts: CantonTimestamp,
       acs: ActiveContractStore,
   ): NaiveRequestTracker = {
-    val transferCache =
+    val reassignmentCache =
       new ReassignmentCache(
-        new InMemoryReassignmentStore(TransferStoreTest.targetDomain, loggerFactory),
+        new InMemoryReassignmentStore(ReassignmentStoreTest.targetDomain, loggerFactory),
         loggerFactory,
       )
 
     val conflictDetector =
       new ConflictDetector(
         acs,
-        transferCache,
+        reassignmentCache,
         loggerFactory,
         checkedInvariant = true,
         parallelExecutionContext,

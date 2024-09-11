@@ -631,7 +631,7 @@ class JcePureCrypto(
       case Left(err) => Left(err)
     }
 
-  override protected def decryptWithInternal[M](
+  override protected[crypto] def decryptWithInternal[M](
       encrypted: AsymmetricEncrypted[M],
       privateKey: EncryptionPrivateKey,
   )(
@@ -857,7 +857,7 @@ class JcePureCrypto(
     } yield expansion
   }
 
-  override protected def computeHkdfInternal(
+  override protected[crypto] def computeHkdfInternal(
       keyMaterial: ByteString,
       outputBytes: Int,
       info: HkdfInfo,
@@ -869,7 +869,7 @@ class JcePureCrypto(
     hkdf(params, outputBytes, algorithm)
   }
 
-  override protected def hkdfExpandInternal(
+  override protected[crypto] def hkdfExpandInternal(
       keyMaterial: SecureRandomness,
       outputBytes: Int,
       info: HkdfInfo,
@@ -880,7 +880,7 @@ class JcePureCrypto(
     hkdf(params, outputBytes, algorithm)
   }
 
-  override protected def generateRandomBytes(length: Int): Array[Byte] =
+  override protected[crypto] def generateRandomBytes(length: Int): Array[Byte] =
     JceSecureRandom.generateRandomBytes(length)
 
   override def deriveSymmetricKey(

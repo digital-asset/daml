@@ -5,7 +5,7 @@ package com.digitalasset.canton
 
 import com.digitalasset.canton.SerializationDeserializationTestHelpers.DefaultValueUntilExclusive
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
+import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
 import org.reflections.Reflections

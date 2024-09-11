@@ -228,7 +228,7 @@ class TestProcessingSteps(
 
   override def constructPendingDataAndResponse(
       parsedRequest: ParsedRequestType,
-      transferLookup: ReassignmentLookup,
+      reassignmentLookup: ReassignmentLookup,
       activenessResultFuture: FutureUnlessShutdown[ActivenessResult],
       engineController: EngineController,
   )(implicit

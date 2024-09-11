@@ -29,7 +29,7 @@ import com.digitalasset.canton.topology.transaction.{
   SignedTopologyTransaction,
   TopologyTransaction,
 }
-import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
+import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{BaseTest, SerializationDeserializationTestHelpers}
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AnyWordSpec

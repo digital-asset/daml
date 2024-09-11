@@ -19,7 +19,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import scala.concurrent.duration.*
 import scala.concurrent.{Await, ExecutionContext}
 
-object TransferResultHelpers {
+object ReassignmentResultHelpers {
 
   def unassignmentResult(
       sourceDomain: SourceDomainId,
@@ -29,7 +29,7 @@ object TransferResultHelpers {
     val protocolVersion = BaseTest.testedProtocolVersion
 
     implicit val ec: ExecutionContext = DirectExecutionContext(
-      NamedLoggerFactory("test-area", "transfer").getLogger(TransferResultHelpers.getClass)
+      NamedLoggerFactory("test-area", "reassignment").getLogger(ReassignmentResultHelpers.getClass)
     )
 
     val result =

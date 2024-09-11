@@ -41,8 +41,8 @@ class InMemoryReassignmentStore(
 
   import ReassignmentStore.*
 
-  private[this] val transferDataMap: TrieMap[ReassignmentId, TransferEntry] =
-    new TrieMap[ReassignmentId, TransferEntry]
+  private[this] val reassignmentDataMap: TrieMap[ReassignmentId, ReassignmentEntry] =
+    new TrieMap[ReassignmentId, ReassignmentEntry]
 
   override def addReassignment(
       reassignmentData: ReassignmentData
@@ -55,15 +55,15 @@ class InMemoryReassignmentStore(
     )
 
     val reassignmentId = reassignmentData.reassignmentId
-    val newEntry = TransferEntry(reassignmentData, None)
+    val newEntry = ReassignmentEntry(reassignmentData, None)
 
     val result: Either[ReassignmentDataAlreadyExists, Unit] = MapsUtil
       .updateWithConcurrentlyM_[Checked[
         ReassignmentDataAlreadyExists,
         ReassignmentAlreadyCompleted,
         *,
-      ], ReassignmentId, TransferEntry](
-        transferDataMap,
+      ], ReassignmentId, ReassignmentEntry](
+        reassignmentDataMap,
         reassignmentId,
         Checked.result(newEntry),
         _.mergeWith(newEntry),
@@ -73,14 +73,17 @@ class InMemoryReassignmentStore(
     EitherT(FutureUnlessShutdown.pure(result))
   }
 
-  private def editTransferEntry(
+  private def editReassignmentEntry(
       reassignmentId: ReassignmentId,
-      updateEntry: TransferEntry => Either[ReassignmentStoreError, TransferEntry],
+      updateEntry: ReassignmentEntry => Either[ReassignmentStoreError, ReassignmentEntry],
   ): EitherT[FutureUnlessShutdown, ReassignmentStoreError, Unit] = {
     val res =
       MapsUtil
-        .updateWithConcurrentlyM_[Either[ReassignmentStoreError, *], ReassignmentId, TransferEntry](
-          transferDataMap,
+        .updateWithConcurrentlyM_[Either[
+          ReassignmentStoreError,
+          *,
+        ], ReassignmentId, ReassignmentEntry](
+          reassignmentDataMap,
           reassignmentId,
           Left(UnknownReassignmentId(reassignmentId)),
           updateEntry,
@@ -95,7 +98,7 @@ class InMemoryReassignmentStore(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentStoreError, Unit] = {
     val reassignmentId = unassignmentResult.reassignmentId
-    editTransferEntry(reassignmentId, _.addUnassignmentResult(unassignmentResult))
+    editReassignmentEntry(reassignmentId, _.addUnassignmentResult(unassignmentResult))
   }
 
   override def addReassignmentsOffsets(
@@ -104,7 +107,7 @@ class InMemoryReassignmentStore(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentStoreError, Unit] = offsets.toList
     .parTraverse_ { case (reassignmentId, newGlobalOffset) =>
-      editTransferEntry(reassignmentId, _.addUnassignmentGlobalOffset(newGlobalOffset))
+      editReassignmentEntry(reassignmentId, _.addUnassignmentGlobalOffset(newGlobalOffset))
     }
 
   override def completeReasignment(reassignmentId: ReassignmentId, timeOfCompletion: TimeOfChange)(
@@ -116,9 +119,9 @@ class InMemoryReassignmentStore(
           ReassignmentStoreError,
           ReassignmentAlreadyCompleted,
           ReassignmentId,
-          TransferEntry,
+          ReassignmentEntry,
         ](
-          transferDataMap,
+          reassignmentDataMap,
           reassignmentId,
           Checked.abort(UnknownReassignmentId(reassignmentId)),
           _.complete(timeOfCompletion),
@@ -129,12 +132,12 @@ class InMemoryReassignmentStore(
   override def deleteCompletionsSince(
       criterionInclusive: RequestCounter
   )(implicit traceContext: TraceContext): Future[Unit] = Future.successful {
-    transferDataMap.foreach { case (reassignmentId, entry) =>
+    reassignmentDataMap.foreach { case (reassignmentId, entry) =>
       val entryTimeOfCompletion = entry.timeOfCompletion
 
       // Standard retry loop for clearing the completion in case the entry is updated concurrently.
       // Ensures progress as one writer succeeds in each iteration.
-      @tailrec def clearCompletionCAS(): Unit = transferDataMap.get(reassignmentId) match {
+      @tailrec def clearCompletionCAS(): Unit = reassignmentDataMap.get(reassignmentId) match {
         case None =>
           () // The reassignment ID has been deleted in the meantime so there's no completion to be cleared any more.
         case Some(newEntry) =>
@@ -145,7 +148,7 @@ class InMemoryReassignmentStore(
                 s"Completion of reassignment $reassignmentId modified from $entryTimeOfCompletion to $newTimeOfCompletion while deleting completions."
               )
             val replaced =
-              transferDataMap.replace(reassignmentId, newEntry, newEntry.clearCompletion)
+              reassignmentDataMap.replace(reassignmentId, newEntry, newEntry.clearCompletion)
             if (!replaced) clearCompletionCAS()
           }
       }
@@ -155,7 +158,7 @@ class InMemoryReassignmentStore(
        * (e.g., an unassignment result has been added), then clear the table's entry.
        */
       if (entry.timeOfCompletion.exists(_.rc >= criterionInclusive)) {
-        val replaced = transferDataMap.replace(reassignmentId, entry, entry.clearCompletion)
+        val replaced = reassignmentDataMap.replace(reassignmentId, entry, entry.clearCompletion)
         if (!replaced) clearCompletionCAS()
       }
     }
@@ -168,7 +171,9 @@ class InMemoryReassignmentStore(
   ): EitherT[Future, ReassignmentLookupError, ReassignmentData] =
     EitherT(Future.successful {
       for {
-        entry <- transferDataMap.get(reassignmentId).toRight(UnknownReassignmentId(reassignmentId))
+        entry <- reassignmentDataMap
+          .get(reassignmentId)
+          .toRight(UnknownReassignmentId(reassignmentId))
         _ <- entry.timeOfCompletion.map(ReassignmentCompleted(reassignmentId, _)).toLeft(())
       } yield entry.reassignmentData
     })
@@ -180,7 +185,7 @@ class InMemoryReassignmentStore(
       limit: Int,
   )(implicit traceContext: TraceContext): Future[Seq[ReassignmentData]] =
     Future.successful {
-      def filter(entry: TransferEntry): Boolean =
+      def filter(entry: ReassignmentEntry): Boolean =
         entry.timeOfCompletion.isEmpty && // Always filter out completed assignment
           filterSource.forall(source => entry.reassignmentData.sourceDomain == source) &&
           filterTimestamp.forall(ts =>
@@ -190,20 +195,20 @@ class InMemoryReassignmentStore(
             entry.reassignmentData.unassignmentRequest.submitter == party
           )
 
-      transferDataMap.values.to(LazyList).filter(filter).take(limit).map(_.reassignmentData)
+      reassignmentDataMap.values.to(LazyList).filter(filter).take(limit).map(_.reassignmentData)
     }
 
   override def deleteReassignment(
       reassignmentId: ReassignmentId
   )(implicit traceContext: TraceContext): Future[Unit] = {
-    transferDataMap.remove(reassignmentId).discard
+    reassignmentDataMap.remove(reassignmentId).discard
     Future.unit
   }
 
   override def findAfter(requestAfter: Option[(CantonTimestamp, SourceDomainId)], limit: Int)(
       implicit traceContext: TraceContext
   ): Future[Seq[ReassignmentData]] = Future.successful {
-    def filter(entry: TransferEntry): Boolean =
+    def filter(entry: ReassignmentEntry): Boolean =
       entry.timeOfCompletion.isEmpty && // Always filter out completed assignment
         requestAfter.forall(ts =>
           (
@@ -212,7 +217,7 @@ class InMemoryReassignmentStore(
           ) > ts
         )
 
-    transferDataMap.values
+    reassignmentDataMap.values
       .to(LazyList)
       .filter(filter)
       .map(_.reassignmentData)
@@ -233,23 +238,23 @@ class InMemoryReassignmentStore(
       stakeholders: Option[NonEmpty[Set[LfPartyId]]],
       limit: NonNegativeInt,
   )(implicit traceContext: TraceContext): Future[Seq[IncompleteReassignmentData]] = {
-    def onlyUnassignmentCompleted(entry: TransferEntry): Boolean =
+    def onlyUnassignmentCompleted(entry: ReassignmentEntry): Boolean =
       entry.reassignmentData.unassignmentGlobalOffset.exists(_ <= validAt) &&
         entry.reassignmentData.assignmentGlobalOffset.forall(_ > validAt)
 
-    def onlyAssignmentCompleted(entry: TransferEntry): Boolean =
+    def onlyAssignmentCompleted(entry: ReassignmentEntry): Boolean =
       entry.reassignmentData.assignmentGlobalOffset.exists(_ <= validAt) &&
         entry.reassignmentData.unassignmentGlobalOffset.forall(_ > validAt)
 
-    def incompleteTransfer(entry: TransferEntry): Boolean =
+    def incompleteReassignment(entry: ReassignmentEntry): Boolean =
       onlyUnassignmentCompleted(entry) || onlyAssignmentCompleted(entry)
 
-    def filter(entry: TransferEntry): Boolean =
+    def filter(entry: ReassignmentEntry): Boolean =
       sourceDomain.forall(_ == entry.reassignmentData.sourceDomain) &&
-        incompleteTransfer(entry) &&
+        incompleteReassignment(entry) &&
         stakeholders.forall(_.exists(entry.reassignmentData.contract.metadata.stakeholders))
 
-    val values = transferDataMap.values
+    val values = reassignmentDataMap.values
       .to(LazyList)
       .collect {
         case entry if filter(entry) =>
@@ -265,13 +270,13 @@ class InMemoryReassignmentStore(
       traceContext: TraceContext
   ): Future[Option[(GlobalOffset, ReassignmentId, TargetDomainId)]] =
     // empty table: there are no reassignments
-    if (transferDataMap.isEmpty) Future.successful(None)
+    if (reassignmentDataMap.isEmpty) Future.successful(None)
     else {
-      def incompleteTransfer(entry: TransferEntry): Boolean =
+      def incompleteTransfer(entry: ReassignmentEntry): Boolean =
         (entry.reassignmentData.assignmentGlobalOffset.isEmpty ||
           entry.reassignmentData.unassignmentGlobalOffset.isEmpty) &&
           entry.reassignmentData.targetDomain == domain
-      val incompleteReassignments = transferDataMap.values
+      val incompleteReassignments = reassignmentDataMap.values
         .to(LazyList)
         .filter(entry => incompleteTransfer(entry))
       // all reassignments are complete
@@ -284,7 +289,7 @@ class InMemoryReassignmentStore(
                 .orElse(entry.reassignmentData.unassignmentGlobalOffset),
               entry.reassignmentData.reassignmentId,
             ) match {
-              case (Some(o), transferId) => Some((o, transferId))
+              case (Some(o), reassignmentId) => Some((o, reassignmentId))
               case (None, _) => None
             }
           )

@@ -69,9 +69,9 @@ class SyncDomainPersistentStateManager(
     * Must not be called concurrently with itself or other methods of this class.
     */
   def initializePersistentStates()(implicit traceContext: TraceContext): Future[Unit] = {
-    def getProtocolVersion(domainId: DomainId)(implicit
+    def getStaticDomainParameters(domainId: DomainId)(implicit
         traceContext: TraceContext
-    ): EitherT[Future, String, ProtocolVersion] =
+    ): EitherT[Future, String, StaticDomainParameters] =
       EitherT
         .fromOptionF(
           DomainParameterStore(
@@ -82,7 +82,6 @@ class SyncDomainPersistentStateManager(
           ).lastParameters,
           "No domain parameters in store",
         )
-        .map(_.protocolVersion)
 
     aliasResolution.aliases.toList.parTraverse_ { alias =>
       val resultE = for {
@@ -90,8 +89,8 @@ class SyncDomainPersistentStateManager(
           aliasResolution.domainIdForAlias(alias).toRight("Unknown domain-id")
         )
         domainIdIndexed <- EitherT.right(IndexedDomain.indexed(indexedStringStore)(domainId))
-        protocolVersion <- getProtocolVersion(domainId)
-        persistentState = createPersistentState(domainIdIndexed, protocolVersion)
+        staticDomainParameters <- getStaticDomainParameters(domainId)
+        persistentState = createPersistentState(domainIdIndexed, staticDomainParameters)
         _lastProcessedPresent <- persistentState.sequencedEventStore
           .find(SequencedEventStore.LatestUpto(CantonTimestamp.MaxValue))
           .leftMap(_ => "No persistent event")
@@ -121,7 +120,7 @@ class SyncDomainPersistentStateManager(
       traceContext: TraceContext
   ): EitherT[Future, DomainRegistryError, SyncDomainPersistentState] = {
     // TODO(#14048) does this method need to be synchronized?
-    val persistentState = createPersistentState(domainId, domainParameters.protocolVersion)
+    val persistentState = createPersistentState(domainId, domainParameters)
     for {
       _ <- checkAndUpdateDomainParameters(
         domainAlias,
@@ -137,10 +136,10 @@ class SyncDomainPersistentStateManager(
 
   private def createPersistentState(
       domainId: IndexedDomain,
-      protocolVersion: ProtocolVersion,
+      staticDomainParameters: StaticDomainParameters,
   ): SyncDomainPersistentState =
     get(domainId.item)
-      .getOrElse(mkPersistentState(domainId, protocolVersion))
+      .getOrElse(mkPersistentState(domainId, staticDomainParameters))
 
   private def checkAndUpdateDomainParameters(
       alias: DomainAlias,
@@ -165,7 +164,7 @@ class SyncDomainPersistentStateManager(
     } yield ()
 
   def protocolVersionFor(domainId: DomainId): Option[ProtocolVersion] =
-    get(domainId).map(_.protocolVersion)
+    get(domainId).map(_.staticDomainParameters.protocolVersion)
 
   private val domainStates: concurrent.Map[DomainId, SyncDomainPersistentState] =
     TrieMap[DomainId, SyncDomainPersistentState]()
@@ -198,13 +197,13 @@ class SyncDomainPersistentStateManager(
 
   private def mkPersistentState(
       domainId: IndexedDomain,
-      protocolVersion: ProtocolVersion,
+      staticDomainParameters: StaticDomainParameters,
   ): SyncDomainPersistentState = SyncDomainPersistentState
     .create(
       participantId,
       storage,
       domainId,
-      protocolVersion,
+      staticDomainParameters,
       clock,
       crypto,
       parameters,

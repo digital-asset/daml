@@ -747,7 +747,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
 
           addAdd <- acs.markContractAdded((coid00, initialReassignmentCounter, toc0)).value
           createAdd <- acs.markContractAdded((coid01, initialReassignmentCounter, toc1)).value
-          tfInAdd <- acs.markContractAdded((coid02, initialReassignmentCounter, toc1)).value
+          assignmentAdd <- acs.markContractAdded((coid02, initialReassignmentCounter, toc1)).value
         } yield {
           assert(added.successful, "add is successful")
           assert(created.successful, "create is successful")
@@ -760,7 +760,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
             "cannot add an active contract",
           )
           assert(
-            tfInAdd.nonaborts.toList
+            assignmentAdd.nonaborts.toList
               .contains(DoubleContractCreation(coid02, toc0, toc1)),
             "cannot add an active contract",
           )
@@ -901,7 +901,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
               toc2.timestamp,
             )
           ),
-          s"Contract $coid00 has been transferred away",
+          s"Contract $coid00 has been reassigned away",
         )
         assert(
           snapshot1 == Map(
@@ -912,7 +912,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         )
         assert(
           snapshot2 == Map(coid01 -> (toc.timestamp, initialReassignmentCounter)),
-          s"Transferred contract is inactive",
+          s"Reassigned contract is inactive",
         )
       }
     }
@@ -931,20 +931,20 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         assert(assignment.successful, "assignment succeeds")
         assert(
           fetch.contains(ContractState(active, rc, ts)),
-          s"transferred-in contract $coid00 is active",
+          s"assigned contract $coid00 is active",
         )
         assert(
           snapshot1 == Map.empty,
-          s"Transferred contract is not active before the transfer",
+          s"Reassigned contract is not active before the reassignment",
         )
         assert(
           snapshot2 == Map(coid00 -> (ts, initialReassignmentCounter)),
-          s"Transferred contract becomes active with the assignment",
+          s"Reassigned contract becomes active with the assignment",
         )
       }
     }
 
-    "contracts can be transferred multiple times" in {
+    "contracts can be reassigned multiple times" in {
       val acs = mk()
       val toc1 = TimeOfChange(rc, ts)
       val toc2 = TimeOfChange(rc + 2, ts.plusSeconds(1))
@@ -989,7 +989,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
               toc2.timestamp,
             )
           ),
-          s"Contract $coid00 is transferred away",
+          s"Contract $coid00 is reassigned away",
         )
         assert(assignment1.successful, "first assignment succeeds")
         assert(
@@ -1005,7 +1005,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
               toc4.timestamp,
             )
           ),
-          s"Contract $coid00 is again transferred away",
+          s"Contract $coid00 is again reassigned away",
         )
         assert(assignment2.successful, "second assignment succeeds")
         assert(
@@ -1034,7 +1034,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
       }
     }
 
-    "transfers can be stored out of order" in {
+    "reassignments can be stored out of order" in {
       val acs = mk()
       val toc1 = TimeOfChange(rc, ts)
       val toc2 = TimeOfChange(rc + 2, ts.plusSeconds(1))
@@ -1106,7 +1106,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
           fetch.contains(
             ContractState(ReassignedAway(targetDomain1, initialReassignmentCounter), rc, ts)
           ),
-          "contract is transferred away",
+          "contract is reassigned away",
         )
       }
     }
@@ -1126,7 +1126,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         assignment1 shouldBe Symbol("successful")
         assignment2 shouldBe Symbol("successful")
 
-        assert(fetch.contains(ContractState(active, rc, ts)), "contract is transferred in")
+        assert(fetch.contains(ContractState(active, rc, ts)), "contract is assigned")
       }
     }
 
@@ -1149,7 +1149,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
           fetch.contains(
             ContractState(ReassignedAway(targetDomain2, initialReassignmentCounter), rc, ts)
           ),
-          "contract is transferred away",
+          "contract is reassigned away",
         )
         assert(snapshot == Map.empty, "contract is not in snapshot")
       }
@@ -1336,7 +1336,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         assert(snapshot1 == Map.empty, "contract is inactive after the first unassignment")
         assert(
           snapshot3 == Map(coid00 -> (toc3.timestamp, reassignmentCounter3)),
-          "archival deactivates transferred-in contract",
+          "archival deactivates assigned contract",
         )
         assert(snapshot4 == Map.empty, "second unassignment deactivates the contract again")
         assert(assignment4.successful, s"assignment of $coid01 succeeds")
@@ -1864,7 +1864,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
       } yield {
         // The reassignment counter of the archived contract coid00 should be the same as the created contract
         reassignmentCounterSnapshot1 shouldBe Map(coid00 -> initialReassignmentCounter)
-        // The reassignment counter of the archived contract coid01 should be the same as the transfered-in contract
+        // The reassignment counter of the archived contract coid01 should be the same as the assigned contract
         reassignmentCounterSnapshot2 shouldBe Map(coid01 -> reassignmentCounter5)
       }
     }
@@ -1971,7 +1971,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         } yield { resO shouldBe Some(coid00) }
       }
 
-      "a contract is transferred-in for the package" in {
+      "a contract is assigned for the package" in {
         for {
           resO <- activateMaybeDeactivate(activate = { acs =>
             acs.assignContract(
@@ -2040,7 +2040,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
           _ <- valueOrFail(
             acs.unassignContracts(coid00, toc2, targetDomain1, reassignmentCounter1)
           )(
-            s"transfer out contract at $toc2"
+            s"unassign contract at $toc2"
           )
           _ <- valueOrFail(
             acs.assignContract(

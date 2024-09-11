@@ -68,7 +68,7 @@ import scala.concurrent.{ExecutionContext, Future, blocking}
 import scala.util.{Failure, Success}
 
 /** The [[ProtocolProcessor]] orchestrates Phase 3, 4, and 7 of the synchronization protocol.
-  * For this, it combines [[ProcessingSteps]] specific to a particular kind of request (transaction / transfer)
+  * For this, it combines [[ProcessingSteps]] specific to a particular kind of request (transaction / reassignment)
   * with the common processing steps.
   *
   * @param steps The specific processing steps

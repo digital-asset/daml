@@ -116,7 +116,7 @@ object LocalRejectError extends LocalRejectionGroup {
   object ConsistencyRejections extends ErrorGroup() {
     @Explanation(
       """The transaction is referring to locked contracts which are in the process of being
-        created, transferred, or archived by another transaction. If the other transaction fails, this transaction could be successfully retried."""
+        created, reassigned, or archived by another transaction. If the other transaction fails, this transaction could be successfully retried."""
     )
     @Resolution("Retry the transaction")
     object LockedContracts
@@ -134,7 +134,7 @@ object LocalRejectError extends LocalRejectionGroup {
 
     @Explanation(
       """The transaction is referring to contracts that have either been previously
-                                archived, transferred to another domain, or do not exist."""
+                                archived, reassigned to another domain, or do not exist."""
     )
     @Resolution("Inspect your contract state and try a different transaction.")
     object InactiveContracts
@@ -291,8 +291,8 @@ object LocalRejectError extends LocalRejectionGroup {
   object UnassignmentRejects extends ErrorGroup() {
 
     @Explanation(
-      """Activeness check failed for transfer out submission. This rejection occurs if the contract to be
-        |transferred has already been transferred or is currently locked (due to a competing transaction)
+      """Activeness check failed for unassignment submission. This rejection occurs if the contract to be
+        |reassigned has already been reassigned or is currently locked (due to a competing transaction)
         |on  domain."""
     )
     @Resolution(
@@ -300,7 +300,7 @@ object LocalRejectError extends LocalRejectionGroup {
     )
     object ActivenessCheckFailed
         extends LocalRejectErrorCode(
-          id = "TRANSFER_OUT_ACTIVENESS_CHECK_FAILED",
+          id = "UNASSIGNMENT_ACTIVENESS_CHECK_FAILED",
           ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
         ) {
 
@@ -312,17 +312,17 @@ object LocalRejectError extends LocalRejectionGroup {
 
   object AssignmentRejects extends ErrorGroup() {
     @Explanation(
-      """This rejection is emitted by a participant if a transfer would be invoked on an already archived contract."""
+      """This rejection is emitted by a participant if a reassignment would be invoked on an already archived contract."""
     )
     object ContractAlreadyArchived
         extends LocalRejectErrorCode(
-          id = "TRANSFER_IN_CONTRACT_ALREADY_ARCHIVED",
+          id = "ASSIGNMENT_CONTRACT_ALREADY_ARCHIVED",
           ErrorCategory.InvalidGivenCurrentSystemStateResourceMissing,
         ) {
 
       final case class Reject(override val _details: String)
           extends LocalRejectErrorImpl(
-            _causePrefix = "Rejected transfer as transferred contract is already archived. "
+            _causePrefix = "Rejected reassignment as reassigned contract is already archived. "
           )
     }
 
@@ -331,14 +331,14 @@ object LocalRejectError extends LocalRejectionGroup {
     )
     object ContractAlreadyActive
         extends LocalRejectErrorCode(
-          id = "TRANSFER_IN_CONTRACT_ALREADY_ACTIVE",
+          id = "ASSIGNMENT_CONTRACT_ALREADY_ACTIVE",
           ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
         ) {
 
       final case class Reject(override val _details: String)
           extends LocalRejectErrorImpl(
             _causePrefix =
-              "Rejected transfer as the contract is already active on the target domain. "
+              "Rejected reassignment as the contract is already active on the target domain. "
           )
     }
 
@@ -347,13 +347,13 @@ object LocalRejectError extends LocalRejectionGroup {
     )
     object ContractIsLocked
         extends LocalRejectErrorCode(
-          id = "TRANSFER_IN_CONTRACT_IS_LOCKED",
+          id = "ASSIGNMENT_CONTRACT_IS_LOCKED",
           ErrorCategory.ContentionOnSharedResources,
         ) {
 
       final case class Reject(override val _details: String)
           extends LocalRejectErrorImpl(
-            _causePrefix = "Rejected transfer as the transferred contract is locked."
+            _causePrefix = "Rejected reassignment as the reassigned contract is locked."
           )
     }
 
@@ -362,13 +362,13 @@ object LocalRejectError extends LocalRejectionGroup {
     )
     object AlreadyCompleted
         extends LocalRejectErrorCode(
-          id = "TRANSFER_IN_ALREADY_COMPLETED",
+          id = "ASSIGNMENT_ALREADY_COMPLETED",
           ErrorCategory.InvalidGivenCurrentSystemStateResourceExists,
         ) {
 
       final case class Reject(override val _details: String)
           extends LocalRejectErrorImpl(
-            _causePrefix = "Rejected transfer as the transfer has already completed "
+            _causePrefix = "Rejected reassignment as the reassignment has already completed "
           )
     }
   }

@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.protocol.reassignment
 import cats.data.EitherT
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
-import com.digitalasset.canton.data.{CantonTimestamp, TransferSubmitterMetadata}
+import com.digitalasset.canton.data.{CantonTimestamp, ReassignmentSubmitterMetadata}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.{
   ReassignmentProcessorError,
@@ -20,12 +20,11 @@ import com.digitalasset.canton.time.TimeProofTestUtil
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
-import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
+import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.util.UUID
 
-// TODO(#21081) Check file names, test names and packages
 class UnassignmentValidationTest
     extends AsyncWordSpec
     with BaseTest
@@ -48,8 +47,8 @@ class UnassignmentValidationTest
 
   private val initialReassignmentCounter: ReassignmentCounter = ReassignmentCounter.Genesis
 
-  private def submitterInfo(submitter: LfPartyId): TransferSubmitterMetadata =
-    TransferSubmitterMetadata(
+  private def submitterInfo(submitter: LfPartyId): ReassignmentSubmitterMetadata =
+    ReassignmentSubmitterMetadata(
       submitter,
       participant,
       DefaultDamlValues.lfCommandId(),
@@ -102,7 +101,7 @@ class UnassignmentValidationTest
   val sourcePV = SourceProtocolVersion(testedProtocolVersion)
   val targetPV = TargetProtocolVersion(testedProtocolVersion)
 
-  "transfer out validation" should {
+  "unassignment validation" should {
     "succeed without errors" in {
       val validation = mkUnassignmentValidation(
         stakeholders,
@@ -125,7 +124,7 @@ class UnassignmentValidationTest
       initialReassignmentCounter,
     )
     for {
-      res <- validation.leftOrFailShutdown("couldn't get left from transfer out validation")
+      res <- validation.leftOrFailShutdown("couldn't get left from unassignment validation")
     } yield {
       res shouldBe StakeholdersMismatch(
         None,

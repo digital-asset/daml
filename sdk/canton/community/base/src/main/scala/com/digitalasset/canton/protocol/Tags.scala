@@ -178,7 +178,7 @@ object RequestId {
     CantonTimestamp.fromProtoPrimitive(requestIdP).map(RequestId(_))
 }
 
-/** A transfer is identified by the source domain and the sequencer timestamp on the unassignment request. */
+/** A reassignment is identified by the source domain and the sequencer timestamp on the unassignment request. */
 final case class ReassignmentId(sourceDomain: SourceDomainId, unassignmentTs: CantonTimestamp)
     extends PrettyPrinting {
   def toProtoV30: v30.ReassignmentId =

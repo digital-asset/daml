@@ -105,7 +105,7 @@ package object canton {
 
   val SequencerCounter = new CounterCompanion[SequencerCounterDiscriminator] {}
 
-  /** The counter assigned by the transaction processor to confirmation and transfer requests. */
+  /** The counter assigned by the transaction processor to confirmation and reassignment requests. */
   type RequestCounterDiscriminator
   type RequestCounter = Counter[RequestCounterDiscriminator]
 

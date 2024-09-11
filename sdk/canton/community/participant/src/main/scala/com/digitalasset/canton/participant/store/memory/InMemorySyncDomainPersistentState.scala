@@ -15,7 +15,7 @@ import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
 import com.digitalasset.canton.participant.store.{AcsInspection, SyncDomainPersistentState}
 import com.digitalasset.canton.participant.topology.ParticipantTopologyValidation
-import com.digitalasset.canton.protocol.TargetDomainId
+import com.digitalasset.canton.protocol.{StaticDomainParameters, TargetDomainId}
 import com.digitalasset.canton.store.memory.{InMemorySendTrackerStore, InMemorySequencedEventStore}
 import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore}
 import com.digitalasset.canton.time.Clock
@@ -30,7 +30,6 @@ import com.digitalasset.canton.topology.{
   TopologyManagerError,
 }
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.ExecutionContext
 
@@ -39,7 +38,7 @@ class InMemorySyncDomainPersistentState(
     clock: Clock,
     crypto: Crypto,
     override val domainId: IndexedDomain,
-    val protocolVersion: ProtocolVersion,
+    val staticDomainParameters: StaticDomainParameters,
     override val enableAdditionalConsistencyChecks: Boolean,
     indexedStringStore: IndexedStringStore,
     exitOnFatalFailures: Boolean,
@@ -55,7 +54,11 @@ class InMemorySyncDomainPersistentState(
 
   val contractStore = new InMemoryContractStore(loggerFactory)
   val activeContractStore =
-    new InMemoryActiveContractStore(indexedStringStore, protocolVersion, loggerFactory)
+    new InMemoryActiveContractStore(
+      indexedStringStore,
+      staticDomainParameters.protocolVersion,
+      loggerFactory,
+    )
   val reassignmentStore =
     new InMemoryReassignmentStore(TargetDomainId(domainId.item), loggerFactory)
   val sequencedEventStore = new InMemorySequencedEventStore(loggerFactory)
@@ -74,13 +77,13 @@ class InMemorySyncDomainPersistentState(
     )
 
   override val domainOutboxQueue = new DomainOutboxQueue(loggerFactory)
-  override val topologyManager = new DomainTopologyManager(
+  override val topologyManager: DomainTopologyManager = new DomainTopologyManager(
     participantId.uid,
     clock,
     crypto,
+    staticDomainParameters,
     topologyStore,
     domainOutboxQueue,
-    protocolVersion = protocolVersion,
     exitOnFatalFailures = exitOnFatalFailures,
     timeouts,
     futureSupervisor,

@@ -45,7 +45,7 @@ import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{Checked, CheckedT, ErrorUtil, MonadUtil, SimpleExecutionQueue}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
+import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{LfPartyId, RequestCounter}
 import com.google.protobuf.ByteString
 import slick.jdbc.TransactionIsolation.Serializable
@@ -142,8 +142,8 @@ class DbReassignmentStore(
     )
   }
 
-  private implicit val getResultTransferEntry: GetResult[TransferEntry] = GetResult(r =>
-    TransferEntry(
+  private implicit val getResultReassignmentEntry: GetResult[ReassignmentEntry] = GetResult(r =>
+    ReassignmentEntry(
       getResultReassignmentData(r),
       GetResult[Option[TimeOfChange]].apply(r),
     )
@@ -151,7 +151,7 @@ class DbReassignmentStore(
 
   /*
    Used to ensure updates of the unassignment/in global offsets are sequential
-   Note: this safety could be removed as the callers of `addTransfersOffsets` are the multi-domain event log and the
+   Note: this safety could be removed as the callers of `addReassignmentsOffsets` are the multi-domain event log and the
    `InFlightSubmissionTracker` which both call this sequentially.
    */
   private val sequentialQueue = new SimpleExecutionQueue(
@@ -174,7 +174,7 @@ class DbReassignmentStore(
     )
 
     val reassignmentId: ReassignmentId = reassignmentData.reassignmentId
-    val newEntry = TransferEntry(reassignmentData, None)
+    val newEntry = ReassignmentEntry(reassignmentData, None)
 
     import DbStorage.Implicits.*
     val insert: DBIO[Int] = sqlu"""
@@ -199,9 +199,9 @@ class DbReassignmentStore(
       """
 
     def insertExisting(
-        existingEntry: TransferEntry
+        existingEntry: ReassignmentEntry
     ): Checked[ReassignmentStoreError, ReassignmentAlreadyCompleted, Option[DBIO[Int]]] = {
-      def update(entry: TransferEntry): DBIO[Int] = {
+      def update(entry: ReassignmentEntry): DBIO[Int] = {
         val id = entry.reassignmentData.reassignmentId
         val data = entry.reassignmentData
         sqlu"""
@@ -234,17 +234,17 @@ class DbReassignmentStore(
   ): EitherT[Future, ReassignmentStore.ReassignmentLookupError, ReassignmentData] =
     EitherT(storage.query(entryExists(reassignmentId), functionFullName).map {
       case None => Left(UnknownReassignmentId(reassignmentId))
-      case Some(TransferEntry(_, Some(timeOfCompletion))) =>
+      case Some(ReassignmentEntry(_, Some(timeOfCompletion))) =>
         Left(ReassignmentCompleted(reassignmentId, timeOfCompletion))
-      case Some(transferEntry) => Right(transferEntry.reassignmentData)
+      case Some(reassignmentEntry) => Right(reassignmentEntry.reassignmentData)
     })
 
-  private def entryExists(id: ReassignmentId): DbAction.ReadOnly[Option[TransferEntry]] = sql"""
+  private def entryExists(id: ReassignmentId): DbAction.ReadOnly[Option[ReassignmentEntry]] = sql"""
      select source_protocol_version, unassignment_timestamp, unassignment_request_counter, unassignment_request, unassignment_decision_time,
      contract, creating_transaction_id, unassignment_result, unassignment_global_offset, assignment_global_offset,
      time_of_completion_request_counter, time_of_completion_timestamp
      from par_reassignments where target_domain=$domain and origin_domain=${id.sourceDomain} and unassignment_timestamp=${id.unassignmentTs}
-    """.as[TransferEntry].headOption
+    """.as[ReassignmentEntry].headOption
 
   override def addUnassignmentResult(
       unassignmentResult: DeliveredUnassignmentResult
@@ -294,7 +294,7 @@ class DbReassignmentStore(
     if (offsets.isEmpty) EitherT.pure[FutureUnlessShutdown, ReassignmentStoreError](())
     else
       MonadUtil.sequentialTraverse_(offsets.toList.grouped(batchSize))(offsets =>
-        addTransfersOffsetsInternal(NonEmptyUtil.fromUnsafe(offsets))
+        addReassignmentsOffsetsInternal(NonEmptyUtil.fromUnsafe(offsets))
       )
 
   /*
@@ -302,7 +302,7 @@ class DbReassignmentStore(
       - reassignment id to be all distinct
       - size of the list be within bounds that allow for single DB queries (use `batchSize`)
    */
-  private def addTransfersOffsetsInternal(
+  private def addReassignmentsOffsetsInternal(
       offsets: NonEmpty[List[(ReassignmentId, ReassignmentGlobalOffset)]]
   )(implicit
       traceContext: TraceContext
@@ -375,7 +375,7 @@ class DbReassignmentStore(
       )
     } yield ()
 
-    sequentialQueue.executeE(task, "addTransfersOffsets")
+    sequentialQueue.executeE(task, "addReassignmentsOffsets")
   }
 
   override def completeReasignment(reassignmentId: ReassignmentId, timeOfCompletion: TimeOfChange)(
@@ -396,13 +396,13 @@ class DbReassignmentStore(
         if (changed > 0) {
           if (changed != 1)
             logger.error(
-              s"Transfer completion query changed $changed lines. It should only change 1."
+              s"Reassignment completion query changed $changed lines. It should only change 1."
             )
           Right(())
         } else {
           if (changed != 0)
             logger.error(
-              s"Transfer completion query changed $changed lines -- this should not be negative."
+              s"Reassignment completion query changed $changed lines -- this should not be negative."
             )
           Left(ReassignmentAlreadyCompleted(reassignmentId, timeOfCompletion))
         }

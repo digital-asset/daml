@@ -160,7 +160,7 @@ class SyncDomainEphemeralState(
   val timeTracker: DomainTimeTracker = createTimeTracker()
 
   val submissionTracker: SubmissionTracker =
-    SubmissionTracker(persistentState.protocolVersion)(
+    SubmissionTracker(persistentState.staticDomainParameters.protocolVersion)(
       participantId,
       persistentState.submissionTrackerStore,
       futureSupervisor,

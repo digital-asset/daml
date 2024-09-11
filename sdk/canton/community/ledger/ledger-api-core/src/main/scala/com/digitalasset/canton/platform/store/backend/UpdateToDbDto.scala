@@ -62,7 +62,7 @@ object UpdateToDbDto {
               requestIndex = u.domainIndex.flatMap(_.requestIndex),
               serializedTraceContext = serializedTraceContext,
               isTransaction =
-                true, // please note from usage point of view (deduplication) rejections are always used both for transactions and transfers at the moment.
+                true, // please note from usage point of view (deduplication) rejections are always used both for transactions and reassignments at the moment.
             ).copy(
               rejection_status_code = Some(u.reasonTemplate.code),
               rejection_status_message = Some(u.reasonTemplate.message),

@@ -7,11 +7,15 @@ import cats.implicits.*
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
-import com.digitalasset.canton.data.{CantonTimestamp, FullAssignmentTree, TransferSubmitterMetadata}
+import com.digitalasset.canton.data.{
+  CantonTimestamp,
+  FullAssignmentTree,
+  ReassignmentSubmitterMetadata,
+}
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidation.*
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.IncompatibleProtocolVersions
 import com.digitalasset.canton.participant.protocol.submission.SeedGenerator
-import com.digitalasset.canton.participant.store.TransferStoreTest.transactionId1
+import com.digitalasset.canton.participant.store.ReassignmentStoreTest.transactionId1
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.submittingParticipant
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
@@ -21,7 +25,7 @@ import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
+import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.util.UUID
@@ -55,8 +59,8 @@ class AssignmentValidationTest
 
   private val initialReassignmentCounter: ReassignmentCounter = ReassignmentCounter.Genesis
 
-  private def submitterInfo(submitter: LfPartyId): TransferSubmitterMetadata =
-    TransferSubmitterMetadata(
+  private def submitterInfo(submitter: LfPartyId): ReassignmentSubmitterMetadata =
+    ReassignmentSubmitterMetadata(
       submitter,
       participant,
       LedgerCommandId.assertFromString("assignment-validation-command-id"),
@@ -92,7 +96,7 @@ class AssignmentValidationTest
       contractInstance = ExampleTransactionFactory.contractInstance(),
     )
     val unassignmentResult =
-      TransferResultHelpers.unassignmentResult(
+      ReassignmentResultHelpers.unassignmentResult(
         sourceDomain,
         cryptoSnapshot,
         submittingParticipant,
@@ -149,7 +153,7 @@ class AssignmentValidationTest
         seed,
         uuid,
       )
-    val transferData =
+    val reassignmentData =
       ReassignmentData(
         SourceProtocolVersion(testedProtocolVersion),
         CantonTimestamp.Epoch,
@@ -162,14 +166,14 @@ class AssignmentValidationTest
         None,
       )
 
-    "succeed without errors when transfer data is valid" in {
+    "succeed without errors when reassignment data is valid" in {
       for {
         result <- valueOrFail(
           assignmentValidation
             .validateAssignmentRequest(
               CantonTimestamp.Epoch,
               inRequest,
-              Some(transferData),
+              Some(reassignmentData),
               cryptoSnapshot,
               isReassigningParticipant = false,
             )
@@ -198,7 +202,7 @@ class AssignmentValidationTest
         .validateAssignmentRequest(
           CantonTimestamp.Epoch,
           inRequest,
-          Some(transferData),
+          Some(reassignmentData),
           cryptoSnapshot,
           isReassigningParticipant = false,
         )
@@ -223,7 +227,7 @@ class AssignmentValidationTest
         targetDomain,
         targetMediator,
         unassignmentResult,
-        reassignmentCounter = transferData.reassignmentCounter + 1,
+        reassignmentCounter = reassignmentData.reassignmentCounter + 1,
       )
       for {
         result <-
@@ -231,7 +235,7 @@ class AssignmentValidationTest
             .validateAssignmentRequest(
               CantonTimestamp.Epoch,
               inRequestWithWrongCounter,
-              Some(transferData),
+              Some(reassignmentData),
               cryptoSnapshot,
               isReassigningParticipant = true,
             )
@@ -241,22 +245,22 @@ class AssignmentValidationTest
           InconsistentReassignmentCounter(
             reassignmentId,
             inRequestWithWrongCounter.reassignmentCounter,
-            transferData.reassignmentCounter,
+            reassignmentData.reassignmentCounter,
           )
         )
       }
     }
 
-    "disallow transfers from source domain supporting reassignment counter to destination domain not supporting them" in {
-      val transferDataSourceDomainPVCNTestNet =
-        transferData.copy(sourceProtocolVersion = SourceProtocolVersion(ProtocolVersion.v32))
+    "disallow reassignments from source domain supporting reassignment counter to destination domain not supporting them" in {
+      val reassignmentDataSourceDomainPVCNTestNet =
+        reassignmentData.copy(sourceProtocolVersion = SourceProtocolVersion(ProtocolVersion.v32))
       for {
         result <-
           assignmentValidation
             .validateAssignmentRequest(
               CantonTimestamp.Epoch,
               inRequest,
-              Some(transferDataSourceDomainPVCNTestNet),
+              Some(reassignmentDataSourceDomainPVCNTestNet),
               cryptoSnapshot,
               isReassigningParticipant = true,
             )
@@ -267,8 +271,8 @@ class AssignmentValidationTest
         } else {
           result shouldBe Left(
             IncompatibleProtocolVersions(
-              transferDataSourceDomainPVCNTestNet.contract.contractId,
-              transferDataSourceDomainPVCNTestNet.sourceProtocolVersion,
+              reassignmentDataSourceDomainPVCNTestNet.contract.contractId,
+              reassignmentDataSourceDomainPVCNTestNet.sourceProtocolVersion,
               unassignmentRequest.targetProtocolVersion,
             )
           )
@@ -291,7 +295,7 @@ class AssignmentValidationTest
       defaultStaticDomainParameters,
       submittingParticipant,
       damle,
-      TestTransferCoordination.apply(
+      TestReassignmentCoordination.apply(
         Set(),
         CantonTimestamp.Epoch,
         Some(snapshotOverride),

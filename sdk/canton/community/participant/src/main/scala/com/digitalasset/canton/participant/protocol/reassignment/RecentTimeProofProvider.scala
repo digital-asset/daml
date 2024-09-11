@@ -23,20 +23,20 @@ import scala.concurrent.ExecutionContext
 
 /** Returns a recent time proof received from the given domain. */
 private[reassignment] class RecentTimeProofProvider(
-    submissionHandles: DomainId => Option[TransferSubmissionHandle],
+    submissionHandles: DomainId => Option[ReassignmentSubmissionHandle],
     syncCryptoApi: SyncCryptoApiProvider,
     override val loggerFactory: NamedLoggerFactory,
-    transferTimeProofFreshnessProportion: NonNegativeInt,
+    reassignmentTimeProofFreshnessProportion: NonNegativeInt,
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
 
   private def calculateFreshness(
       exclusivityTimeout: NonNegativeFiniteDuration
   ): NonNegativeFiniteDuration =
-    if (transferTimeProofFreshnessProportion.unwrap == 0)
+    if (reassignmentTimeProofFreshnessProportion.unwrap == 0)
       NonNegativeFiniteDuration.Zero // always fetch time proof
     else
-      exclusivityTimeout / transferTimeProofFreshnessProportion
+      exclusivityTimeout / reassignmentTimeProofFreshnessProportion
 
   def get(targetDomainId: TargetDomainId, staticDomainParameters: StaticDomainParameters)(implicit
       traceContext: TraceContext

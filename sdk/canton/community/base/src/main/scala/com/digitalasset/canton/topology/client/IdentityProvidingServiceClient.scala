@@ -79,7 +79,7 @@ trait TopologyClientApi[+T] { this: HasFutureSupervision =>
     * we've sent the transaction. Therefore, this function will return the
     * best snapshot approximation known.
     *
-    * The snapshot returned by this method should be used when preparing a transaction or transfer request (Phase 1).
+    * The snapshot returned by this method should be used when preparing a transaction or reassignment request (Phase 1).
     * It must not be used when validating a request (Phase 2 - 7); instead, use one of the `snapshot` methods with the request timestamp.
     */
   def currentSnapshotApproximation(implicit traceContext: TraceContext): T
@@ -119,7 +119,7 @@ trait TopologyClientApi[+T] { this: HasFutureSupervision =>
     * Use this method if you are sure to be synchronized with the topology state updates.
     * The method will block & wait for an update, but emit a warning if it is not available
     *
-    * The snapshot returned by this method should be used for validating transaction and transfer requests (Phase 2 - 7).
+    * The snapshot returned by this method should be used for validating transaction and reassignment requests (Phase 2 - 7).
     * Use the request timestamp as parameter for this method.
     * Do not use a response or result timestamp, because all validation steps must use the same topology snapshot.
     */
@@ -130,7 +130,7 @@ trait TopologyClientApi[+T] { this: HasFutureSupervision =>
 
   /** Waits until a snapshot is available
     *
-    * The snapshot returned by this method should be used for validating transaction and transfer requests (Phase 2 - 7).
+    * The snapshot returned by this method should be used for validating transaction and reassignment requests (Phase 2 - 7).
     * Use the request timestamp as parameter for this method.
     * Do not use a response or result timestamp, because all validation steps must use the same topology snapshot.
     */
@@ -159,7 +159,7 @@ trait TopologyClientApi[+T] { this: HasFutureSupervision =>
     *
     * Fails with an exception if the state is not yet known.
     *
-    * The snapshot returned by this method should be used for validating transaction and transfer requests (Phase 2 - 7).
+    * The snapshot returned by this method should be used for validating transaction and reassignment requests (Phase 2 - 7).
     * Use the request timestamp as parameter for this method.
     * Do not use a response or result timestamp, because all validation steps must use the same topology snapshot.
     */

@@ -14,7 +14,7 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
-import com.digitalasset.canton.version.Transfer.SourceProtocolVersion
+import com.digitalasset.canton.version.Reassignment.SourceProtocolVersion
 
 import scala.concurrent.ExecutionContext
 

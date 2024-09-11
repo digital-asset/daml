@@ -13,7 +13,7 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
-import com.digitalasset.canton.data.{CantonTimestamp, TransferSubmitterMetadata}
+import com.digitalasset.canton.data.{CantonTimestamp, ReassignmentSubmitterMetadata}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.health.{
   AtomicHealthComponent,
@@ -83,7 +83,7 @@ import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{EitherUtil, ErrorUtil, FutureUtil, MonadUtil}
-import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
+import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.daml.lf.engine.Engine
 import io.grpc.Status
 import io.opentelemetry.api.trace.Tracer
@@ -115,7 +115,7 @@ class SyncDomain(
     identityPusher: ParticipantTopologyDispatcher,
     topologyProcessorFactory: TopologyTransactionProcessor.Factory,
     missingKeysAlerter: MissingKeysAlerter,
-    transferCoordination: ReassignmentCoordination,
+    reassignmentCoordination: ReassignmentCoordination,
     inFlightSubmissionTracker: InFlightSubmissionTracker,
     commandProgressTracker: CommandProgressTracker,
     messageDispatcherFactory: MessageDispatcher.Factory[MessageDispatcher],
@@ -127,7 +127,7 @@ class SyncDomain(
 )(implicit ec: ExecutionContext, tracer: Tracer)
     extends NamedLogging
     with StartAndCloseable[Either[SyncDomainInitializationError, Unit]]
-    with TransferSubmissionHandle
+    with ReassignmentSubmissionHandle
     with CloseableHealthComponent
     with AtomicHealthComponent
     with HasCloseContext {
@@ -197,7 +197,7 @@ class SyncDomain(
     participantId,
     damle,
     staticDomainParameters,
-    transferCoordination,
+    reassignmentCoordination,
     inFlightSubmissionTracker,
     ephemeral,
     domainCrypto,
@@ -215,7 +215,7 @@ class SyncDomain(
     participantId,
     damle,
     staticDomainParameters,
-    transferCoordination,
+    reassignmentCoordination,
     inFlightSubmissionTracker,
     ephemeral,
     domainCrypto,
@@ -474,7 +474,7 @@ class SyncDomain(
       // generally, the topology client will be initialised by the topology processor. however,
       // if there is nothing to be replayed, then the topology processor will only be initialised
       // once the first event is dispatched.
-      // however, this is bad for transfer processing as we need to be able to access the topology state
+      // however, this is bad for reassignment processing as we need to be able to access the topology state
       // across domains and this requires that the clients are separately initialised on the participants
       val resubscriptionTs = ephemeral.startingPoints.processing.prenextTimestamp
       logger.debug(s"Initialising topology client at clean head=$resubscriptionTs")
@@ -704,12 +704,12 @@ class SyncDomain(
 
     val fetchLimit = 1000
 
-    def completeTransfers(
+    def completeReassignments(
         previous: Option[(CantonTimestamp, SourceDomainId)]
     ): FutureUnlessShutdown[Either[Option[(CantonTimestamp, SourceDomainId)], Unit]] = {
-      logger.debug(s"Fetch $fetchLimit pending transfers")
+      logger.debug(s"Fetch $fetchLimit pending reassignments")
       val resF = for {
-        pendingTransfers <- performUnlessClosingF(functionFullName)(
+        pendingReassignments <- performUnlessClosingF(functionFullName)(
           persistent.reassignmentStore.findAfter(
             requestAfter = previous,
             limit = fetchLimit,
@@ -718,7 +718,7 @@ class SyncDomain(
         // TODO(i9500): Here, assignments are completed sequentially. Consider running several in parallel to speed
         // this up. It may be helpful to use the `RateLimiter`
         eithers <- MonadUtil
-          .sequentialTraverse(pendingTransfers) { data =>
+          .sequentialTraverse(pendingReassignments) { data =>
             logger.debug(s"Complete ${data.reassignmentId} after startup")
             val eitherF =
               performUnlessClosingEitherU[ReassignmentProcessorError, Unit](functionFullName)(
@@ -726,7 +726,7 @@ class SyncDomain(
                   data.reassignmentId,
                   TargetDomainId(domainId),
                   staticDomainParameters,
-                  transferCoordination,
+                  reassignmentCoordination,
                   data.contract.metadata.stakeholders,
                   data.unassignmentRequest.submitterMetadata,
                   participantId,
@@ -737,22 +737,22 @@ class SyncDomain(
           }
 
       } yield {
-        // Log any errors, then discard the errors and continue to complete pending transfers
+        // Log any errors, then discard the errors and continue to complete pending reassignments
         eithers.foreach {
           case Left((reassignmentId, error)) =>
             logger.debug(
-              s"Failed to complete pending transfer $reassignmentId. The error was $error."
+              s"Failed to complete pending reassignment $reassignmentId. The error was $error."
             )
           case Right(()) => ()
         }
 
-        pendingTransfers.lastOption.map(t => t.reassignmentId.unassignmentTs -> t.sourceDomain)
+        pendingReassignments.lastOption.map(t => t.reassignmentId.unassignmentTs -> t.sourceDomain)
       }
 
       resF.map {
-        // Continue completing transfers that are after the last completed transfer
+        // Continue completing reassignments that are after the last completed reassignment
         case Some(value) => Left(Some(value))
-        // We didn't find any uncompleted transfers, so stop
+        // We didn't find any uncompleted reassignments, so stop
         case None => Right(())
       }
     }
@@ -777,7 +777,7 @@ class SyncDomain(
 
       _bool <- Monad[FutureUnlessShutdown].tailRecM(
         None: Option[(CantonTimestamp, SourceDomainId)]
-      )(ts => completeTransfers(ts))
+      )(ts => completeReassignments(ts))
     } yield {
       logger.debug(s"Assignment completion has finished")
     }
@@ -815,7 +815,7 @@ class SyncDomain(
     }
 
   override def submitUnassignment(
-      submitterMetadata: TransferSubmitterMetadata,
+      submitterMetadata: ReassignmentSubmitterMetadata,
       contractId: LfContractId,
       targetDomain: TargetDomainId,
       targetProtocolVersion: TargetProtocolVersion,
@@ -846,7 +846,7 @@ class SyncDomain(
     }
 
   override def submitAssignment(
-      submitterMetadata: TransferSubmitterMetadata,
+      submitterMetadata: ReassignmentSubmitterMetadata,
       reassignmentId: ReassignmentId,
   )(implicit
       traceContext: TraceContext
@@ -969,7 +969,7 @@ object SyncDomain {
         identityPusher: ParticipantTopologyDispatcher,
         topologyProcessorFactory: TopologyTransactionProcessor.Factory,
         missingKeysAlerter: MissingKeysAlerter,
-        transferCoordination: ReassignmentCoordination,
+        reassignmentCoordination: ReassignmentCoordination,
         inFlightSubmissionTracker: InFlightSubmissionTracker,
         commandProgressTracker: CommandProgressTracker,
         clock: Clock,
@@ -995,7 +995,7 @@ object SyncDomain {
         identityPusher: ParticipantTopologyDispatcher,
         topologyProcessorFactory: TopologyTransactionProcessor.Factory,
         missingKeysAlerter: MissingKeysAlerter,
-        transferCoordination: ReassignmentCoordination,
+        reassignmentCoordination: ReassignmentCoordination,
         inFlightSubmissionTracker: InFlightSubmissionTracker,
         commandProgressTracker: CommandProgressTracker,
         clock: Clock,
@@ -1018,7 +1018,7 @@ object SyncDomain {
         identityPusher,
         topologyProcessorFactory,
         missingKeysAlerter,
-        transferCoordination,
+        reassignmentCoordination,
         inFlightSubmissionTracker,
         commandProgressTracker,
         MessageDispatcher.DefaultFactory,

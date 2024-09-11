@@ -15,7 +15,7 @@ import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
 import com.digitalasset.canton.participant.store.{AcsInspection, SyncDomainPersistentState}
 import com.digitalasset.canton.participant.topology.ParticipantTopologyValidation
-import com.digitalasset.canton.protocol.TargetDomainId
+import com.digitalasset.canton.protocol.{StaticDomainParameters, TargetDomainId}
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.DbSequencedEventStore
 import com.digitalasset.canton.store.memory.InMemorySendTrackerStore
@@ -32,15 +32,14 @@ import com.digitalasset.canton.topology.{
   TopologyManagerError,
 }
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
-import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.version.Transfer.TargetProtocolVersion
+import com.digitalasset.canton.version.Reassignment.TargetProtocolVersion
 
 import scala.concurrent.ExecutionContext
 
 class DbSyncDomainPersistentState(
     participantId: ParticipantId,
     override val domainId: IndexedDomain,
-    val protocolVersion: ProtocolVersion,
+    val staticDomainParameters: StaticDomainParameters,
     clock: Clock,
     storage: DbStorage,
     crypto: Crypto,
@@ -68,7 +67,7 @@ class DbSyncDomainPersistentState(
     new DbContractStore(
       storage,
       domainId,
-      protocolVersion,
+      staticDomainParameters.protocolVersion,
       batching.maxItemsInSqlClause,
       caching.contractStore,
       dbQueryBatcherConfig = batching.aggregator,
@@ -79,7 +78,7 @@ class DbSyncDomainPersistentState(
   val reassignmentStore: DbReassignmentStore = new DbReassignmentStore(
     storage,
     TargetDomainId(domainId.item),
-    TargetProtocolVersion(protocolVersion),
+    TargetProtocolVersion(staticDomainParameters.protocolVersion),
     pureCryptoApi,
     futureSupervisor,
     exitOnFatalFailures = parameters.exitOnFatalFailures,
@@ -94,14 +93,14 @@ class DbSyncDomainPersistentState(
       batching.maxItemsInSqlClause,
       parameters.stores.journalPruning.toInternal,
       indexedStringStore,
-      protocolVersion,
+      staticDomainParameters.protocolVersion,
       timeouts,
       loggerFactory,
     )
   val sequencedEventStore = new DbSequencedEventStore(
     storage,
     domainId,
-    protocolVersion,
+    staticDomainParameters.protocolVersion,
     timeouts,
     loggerFactory,
   )
@@ -117,7 +116,7 @@ class DbSyncDomainPersistentState(
   val acsCommitmentStore = new DbAcsCommitmentStore(
     storage,
     domainId,
-    protocolVersion,
+    staticDomainParameters.protocolVersion,
     timeouts,
     futureSupervisor,
     exitOnFatalFailures = parameters.exitOnFatalFailures,
@@ -152,10 +151,10 @@ class DbSyncDomainPersistentState(
     participantId.uid,
     clock = clock,
     crypto = crypto,
+    staticDomainParameters = staticDomainParameters,
     store = topologyStore,
     outboxQueue = domainOutboxQueue,
     exitOnFatalFailures = parameters.exitOnFatalFailures,
-    protocolVersion = protocolVersion,
     timeouts = timeouts,
     futureSupervisor = futureSupervisor,
     loggerFactory = loggerFactory,

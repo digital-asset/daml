@@ -57,7 +57,7 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.EitherTUtil.{condUnitET, ifThenET}
-import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
+import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{
   LfPackageName,
   LfPartyId,
@@ -73,7 +73,7 @@ class UnassignmentProcessingSteps(
     val domainId: SourceDomainId,
     val participantId: ParticipantId,
     val engine: DAMLe,
-    transferCoordination: ReassignmentCoordination,
+    reassignmentCoordination: ReassignmentCoordination,
     seedGenerator: SeedGenerator,
     staticDomainParameters: StaticDomainParameters,
     val sourceDomainProtocolVersion: SourceProtocolVersion,
@@ -134,7 +134,7 @@ class UnassignmentProcessingSteps(
       storedContract <- getStoredContract(ephemeralState.contractLookup, contractId)
       stakeholders = storedContract.contract.metadata.stakeholders
 
-      timeProofAndSnapshot <- transferCoordination.getTimeProofAndSnapshot(
+      timeProofAndSnapshot <- reassignmentCoordination.getTimeProofAndSnapshot(
         targetDomain,
         staticDomainParameters,
       )
@@ -239,7 +239,7 @@ class UnassignmentProcessingSteps(
         viewMessage -> recipientsT,
         rootHashMessage -> rootHashRecipients,
       )
-      TransferSubmission(Batch.of(sourceDomainProtocolVersion.v, messages*), rootHash)
+      ReassignmentsSubmission(Batch.of(sourceDomainProtocolVersion.v, messages*), rootHash)
     }
   }
 
@@ -261,7 +261,7 @@ class UnassignmentProcessingSteps(
   ): SubmissionResult = {
     val requestId = RequestId(deliver.timestamp)
     val reassignmentId = ReassignmentId(domainId, requestId.unwrap)
-    SubmissionResult(reassignmentId, pendingSubmission.transferCompletion.future)
+    SubmissionResult(reassignmentId, pendingSubmission.reassignmentCompletion.future)
   }
 
   private[this] def getStoredContract(
@@ -361,7 +361,7 @@ class UnassignmentProcessingSteps(
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Option[TopologySnapshot]] =
     Option
       .when(isReassigningParticipant) {
-        transferCoordination
+        reassignmentCoordination
           .awaitTimestampAndGetCryptoSnapshot(
             domainId.unwrap,
             staticDomainParameters,
@@ -372,7 +372,7 @@ class UnassignmentProcessingSteps(
 
   override def constructPendingDataAndResponse(
       parsedRequestType: ParsedReassignmentRequest[FullUnassignmentTree],
-      transferLookup: ReassignmentLookup,
+      reassignmentLookup: ReassignmentLookup,
       activenessF: FutureUnlessShutdown[ActivenessResult],
       engineController: EngineController,
   )(implicit
@@ -402,7 +402,7 @@ class UnassignmentProcessingSteps(
     val reassignmentId: ReassignmentId = ReassignmentId(fullTree.sourceDomain, ts)
     val view = fullTree.tree.view.tryUnwrap
     for {
-      // Since the transfer out request should be sent only to participants that host a stakeholder of the contract,
+      // Since the unassignment request should be sent only to participants that host a stakeholder of the contract,
       // we can expect to find the contract in the contract store.
       contractWithTransactionId <-
         // TODO(i15090): Validate contract data against contract id and contract metadata against contract data
@@ -451,7 +451,7 @@ class UnassignmentProcessingSteps(
         .leftMap(ReassignmentParametersError(domainId.unwrap, _))
         .mapK(FutureUnlessShutdown.outcomeK)
 
-      transferData = ReassignmentData(
+      reassignmentData = ReassignmentData(
         sourceProtocolVersion = sourceDomainProtocolVersion,
         unassignmentTs = ts,
         unassignmentRequestCounter = rc,
@@ -463,7 +463,7 @@ class UnassignmentProcessingSteps(
         reassignmentGlobalOffset = None,
       )
       _ <- ifThenET(isReassigningParticipant) {
-        transferCoordination.addUnassignmentRequest(transferData)
+        reassignmentCoordination.addUnassignmentRequest(reassignmentData)
       }
       confirmingStakeholders <- EitherT.right(
         FutureUnlessShutdown.outcomeF(
@@ -581,7 +581,7 @@ class UnassignmentProcessingSteps(
     def rejected(
         reason: TransactionRejection
     ): EitherT[Future, ReassignmentProcessorError, CommitAndStoreContractsAndPublishEvent] = for {
-      _ <- ifThenET(isReassigningParticipant)(deleteTransfer(targetDomain, requestId))
+      _ <- ifThenET(isReassigningParticipant)(deleteReassignment(targetDomain, requestId))
 
       eventO <- EitherT.fromEither[Future](
         createRejectionEvent(RejectionArgs(pendingRequestData, reason))
@@ -606,7 +606,7 @@ class UnassignmentProcessingSteps(
               .fromEither[FutureUnlessShutdown](DeliveredUnassignmentResult.create(event))
               .leftMap(err => UnassignmentProcessorError.InvalidResult(reassignmentId, err))
               .flatMap(deliveredResult =>
-                transferCoordination.addUnassignmentResult(targetDomain, deliveredResult)
+                reassignmentCoordination.addUnassignmentResult(targetDomain, deliveredResult)
               )
           }
 
@@ -650,7 +650,7 @@ class UnassignmentProcessingSteps(
       templateId: LfTemplateId,
       packageName: LfPackageName,
       contractStakeholders: Set[LfPartyId],
-      submitterMetadata: TransferSubmitterMetadata,
+      submitterMetadata: ReassignmentSubmitterMetadata,
       reassignmentId: ReassignmentId,
       targetDomain: TargetDomainId,
       rootHash: RootHash,
@@ -724,7 +724,7 @@ class UnassignmentProcessingSteps(
       pendingRequestData.reassignmentId,
       targetDomain,
       staticDomainParameters,
-      transferCoordination,
+      reassignmentCoordination,
       pendingRequestData.stakeholders,
       pendingRequestData.submitterMetadata,
       participantId,
@@ -732,11 +732,14 @@ class UnassignmentProcessingSteps(
     )
   }.mapK(FutureUnlessShutdown.outcomeK)
 
-  private[this] def deleteTransfer(targetDomain: TargetDomainId, unassignmentRequestId: RequestId)(
-      implicit traceContext: TraceContext
+  private[this] def deleteReassignment(
+      targetDomain: TargetDomainId,
+      unassignmentRequestId: RequestId,
+  )(implicit
+      traceContext: TraceContext
   ): EitherT[Future, ReassignmentProcessorError, Unit] = {
     val reassignmentId = ReassignmentId(domainId, unassignmentRequestId.unwrap)
-    transferCoordination.deleteTransfer(targetDomain, reassignmentId)
+    reassignmentCoordination.deleteReassignment(targetDomain, reassignmentId)
   }
 
   private[this] def createUnassignmentResponse(
@@ -787,7 +790,7 @@ class UnassignmentProcessingSteps(
 object UnassignmentProcessingSteps {
 
   final case class SubmissionParam(
-      submitterMetadata: TransferSubmitterMetadata,
+      submitterMetadata: ReassignmentSubmitterMetadata,
       contractId: LfContractId,
       targetDomain: TargetDomainId,
       targetProtocolVersion: TargetProtocolVersion,
@@ -810,7 +813,7 @@ object UnassignmentProcessingSteps {
       templateId: LfTemplateId,
       packageName: LfPackageName,
       isReassigningParticipant: Boolean,
-      submitterMetadata: TransferSubmitterMetadata,
+      submitterMetadata: ReassignmentSubmitterMetadata,
       reassignmentId: ReassignmentId,
       targetDomain: TargetDomainId,
       stakeholders: Set[LfPartyId],

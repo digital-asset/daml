@@ -14,7 +14,7 @@ import com.digitalasset.canton.data.ViewType.UnassignmentViewType
 import com.digitalasset.canton.data.{
   CantonTimestamp,
   FullUnassignmentTree,
-  TransferSubmitterMetadata,
+  ReassignmentSubmitterMetadata,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.admin.PackageDependencyResolver
@@ -61,7 +61,7 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.HasTestCloseContext
-import com.digitalasset.canton.version.Transfer.{SourceProtocolVersion, TargetProtocolVersion}
+import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{
   BaseTest,
   HasExecutorService,
@@ -120,8 +120,8 @@ final class UnassignmentProcessingStepsTest
 
   private lazy val initialReassignmentCounter: ReassignmentCounter = ReassignmentCounter.Genesis
 
-  private def submitterMetadata(submitter: LfPartyId): TransferSubmitterMetadata =
-    TransferSubmitterMetadata(
+  private def submitterMetadata(submitter: LfPartyId): ReassignmentSubmitterMetadata =
+    ReassignmentSubmitterMetadata(
       submitter,
       submittingParticipant,
       LedgerCommandId.assertFromString("unassignment-processing-steps-command-id"),
@@ -144,7 +144,7 @@ final class UnassignmentProcessingStepsTest
       clock,
       crypto,
       IndexedDomain.tryCreate(sourceDomain.unwrap, 1),
-      testedProtocolVersion,
+      defaultStaticDomainParameters,
       enableAdditionalConsistencyChecks = true,
       indexedStringStore = indexedStringStore,
       exitOnFatalFailures = true,
@@ -220,10 +220,10 @@ final class UnassignmentProcessingStepsTest
 
   private lazy val seedGenerator = new SeedGenerator(crypto.pureCrypto)
 
-  private def createTransferCoordination(
+  private def createReassignmentCoordination(
       cryptoSnapshot: DomainSnapshotSyncCryptoApi = cryptoSnapshot
   ) =
-    TestTransferCoordination(
+    TestReassignmentCoordination(
       Set(TargetDomainId(sourceDomain.unwrap), targetDomain),
       CantonTimestamp.Epoch,
       Some(cryptoSnapshot),
@@ -233,16 +233,16 @@ final class UnassignmentProcessingStepsTest
     )(directExecutionContext)
 
   private lazy val coordination: ReassignmentCoordination =
-    createTransferCoordination()
+    createReassignmentCoordination()
 
   private def createOutProcessingSteps(
-      transferCoordination: ReassignmentCoordination = coordination
+      reassignmentCoordination: ReassignmentCoordination = coordination
   ) =
     new UnassignmentProcessingSteps(
       sourceDomain,
       submittingParticipant,
       damle,
-      transferCoordination,
+      reassignmentCoordination,
       seedGenerator,
       defaultStaticDomainParameters,
       SourceProtocolVersion(testedProtocolVersion),
@@ -415,7 +415,7 @@ final class UnassignmentProcessingStepsTest
     }
 
     // TODO(i13201) This should ideally be covered in integration tests as well
-    "fail if the package for the contract being transferred is unvetted on the target domain" in {
+    "fail if the package for the contract being reassigned is unvetted on the target domain" in {
       val sourceDomainTopology =
         createTestingTopologySnapshot(
           Map(
@@ -446,7 +446,7 @@ final class UnassignmentProcessingStepsTest
       result.left.value shouldBe a[PackageIdUnknownOrUnvetted]
     }
 
-    "fail if the package for the contract being transferred is unvetted on one non-reassigning participant connected to the target domain" in {
+    "fail if the package for the contract being reassigned is unvetted on one non-reassigning participant connected to the target domain" in {
 
       val sourceDomainTopology =
         createTestingIdentityFactory(
@@ -772,11 +772,11 @@ final class UnassignmentProcessingStepsTest
     }
 
     // TODO(i13201) This should ideally be covered in integration tests as well
-    "prevent the contract being transferred is not vetted on the target domain since version 5" in {
+    "prevent the contract being reassigned is not vetted on the target domain since version 5" in {
       val outProcessingStepsWithoutPackages = {
         val f = createCryptoFactory(packages = Seq.empty)
         val s = createCryptoSnapshot(f)
-        val c = createTransferCoordination(s)
+        val c = createReassignmentCoordination(s)
         createOutProcessingSteps(c)
       }
 
@@ -791,7 +791,7 @@ final class UnassignmentProcessingStepsTest
       val state = mkState
       val reassignmentId = ReassignmentId(sourceDomain, CantonTimestamp.Epoch)
       val rootHash = TestHash.dummyRootHash
-      val transferResult =
+      val reassignmentResult =
         ConfirmationResultMessage.create(
           sourceDomain.id,
           UnassignmentViewType,
@@ -812,7 +812,7 @@ final class UnassignmentProcessingStepsTest
       for {
         signedResult <- SignedProtocolMessage
           .trySignAndCreate(
-            transferResult,
+            reassignmentResult,
             cryptoSnapshot,
             testedProtocolVersion,
           )
@@ -866,7 +866,7 @@ final class UnassignmentProcessingStepsTest
           outProcessingSteps
             .getCommitSetAndContractsToBeStoredAndEvent(
               NoOpeningErrors(signedContent),
-              transferResult.verdict,
+              reassignmentResult.verdict,
               pendingOut,
               state.pendingUnassignmentSubmissions,
               crypto.pureCrypto,

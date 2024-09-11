@@ -4,7 +4,6 @@
 package com.digitalasset.canton.data
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.*
 
@@ -49,22 +48,6 @@ object TransactionViewDecomposition {
       NonEmpty(Seq, SameView(rootNode, nodeId, rbContext), tailNodes*)
 
     def childViews: Seq[NewView] = tailNodes.collect { case v: NewView => v }
-
-    /** This view with the submittingAdminParty (if defined) added as an extra confirming party.
-      * This needs to be called on root views to guarantee proper authorization.
-      * It adds an extra quorum with the submitting party.
-      */
-    def withSubmittingAdminParty(
-        submittingAdminPartyO: Option[LfPartyId]
-    ): NewView = {
-      val newViewConfirmationParameters =
-        TransactionViewDecompositionFactory.withSubmittingAdminParty(submittingAdminPartyO)(
-          viewConfirmationParameters
-        )
-      copy(
-        viewConfirmationParameters = newViewConfirmationParameters
-      )
-    }
 
     override def pretty: Pretty[NewView] = prettyOfClass(
       param("root node template", _.rootNode.templateId),
