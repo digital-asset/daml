@@ -12,7 +12,7 @@ private[speedy] object SValueIterable {
   that =>
   private[iterable] def iterator(v: SValue): Iterator[SValue] = v match {
     case SValue.SPAP(prim, actuals, _) => iterator(prim) ++ actuals.asScala.iterator
-    case SValue.SRecordRep(_, _, values) => values.asScala.iterator
+    case SValue.SRecord(_, _, values) => values.asScala.iterator
     case SValue.SStruct(_, values) => values.asScala.iterator
     case SValue.SVariant(_, _, _, value) => Iterator(value)
     case SValue.SEnum(_, _, _) => Iterator.empty

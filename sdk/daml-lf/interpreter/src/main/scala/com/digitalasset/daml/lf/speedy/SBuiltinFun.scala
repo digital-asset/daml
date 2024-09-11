@@ -785,44 +785,44 @@ private[lf] object SBuiltinFun {
   /** $rcon[R, fields] :: a -> b -> ... -> R */
   final case class SBRecCon(id: Identifier, fields: ImmArray[Name])
       extends SBuiltinPure(fields.length) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SRecord = {
+    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       SRecord(id, fields, args)
     }
   }
 
   /** $rupd[R, field] :: R -> a -> R */
-  final case class SBRecUpd(id: Identifier, field: Name, fieldNum: Int) extends SBuiltinPure(2) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SRecord = {
+  final case class SBRecUpd(id: Identifier, field: Int) extends SBuiltinPure(2) {
+    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       val record = getSRecord(args, 0)
       if (record.id != id) {
         crash(s"type mismatch on record update: expected $id, got record of type ${record.id}")
       }
-      val value = args.get(1)
-      record.updateField(fieldNum, field, value)
+      val values2 = record.values.clone.asInstanceOf[util.ArrayList[SValue]]
+      discard(values2.set(field, args.get(1)))
+      record.copy(values = values2)
     }
   }
 
   /** $rupdmulti[R, [field_1, ..., field_n]] :: R -> a_1 -> ... -> a_n -> R */
-  final case class SBRecUpdMulti(id: Identifier, fields: List[(Name, Int)])
-      extends SBuiltinPure(1 + fields.length) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SRecord = {
+  final case class SBRecUpdMulti(id: Identifier, updateFields: List[Int])
+      extends SBuiltinPure(1 + updateFields.length) {
+    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       val record = getSRecord(args, 0)
       if (record.id != id) {
         crash(s"type mismatch on record update: expected $id, got record of type ${record.id}")
       }
-      fields.zipWithIndex.foldLeft(record) { case (r, ((field, fieldNum), i)) =>
-        val value = args.get(i + 1)
-        r.updateField(fieldNum, field, value)
+      val values2 = record.values.clone.asInstanceOf[util.ArrayList[SValue]]
+      (updateFields.iterator zip args.iterator.asScala.drop(1)).foreach { case (updateField, arg) =>
+        values2.set(updateField, arg)
       }
+      record.copy(values = values2)
     }
   }
 
   /** $rproj[R, field] :: R -> a */
-  final case class SBRecProj(id: Identifier, field: Name, fieldNum: Int) extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SValue = {
-      val record: SRecord = getSRecord(args, 0)
-      record.lookupField(fieldNum, field)
-    }
+  final case class SBRecProj(id: Identifier, field: Int) extends SBuiltinPure(1) {
+    override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue =
+      getSRecord(args, 0).values.get(field)
   }
 
   // SBStructCon sorts the field after evaluation of its arguments to preserve
@@ -1765,7 +1765,6 @@ private[lf] object SBuiltinFun {
 
   /** $any-exception-message :: AnyException -> Text */
   final case object SBAnyExceptionMessage extends SBuiltinFun(1) {
-    val field = Ref.Name.assertFromString("message")
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
         machine: Machine[Q],
@@ -1773,7 +1772,7 @@ private[lf] object SBuiltinFun {
       val exception = getSAnyException(args, 0)
       exception.id match {
         case machine.valueArithmeticError.tyCon =>
-          Control.Value(exception.lookupField(fieldNum = 0, field))
+          Control.Value(exception.values.get(0))
         case tyCon =>
           val e = SEApp(SEVal(ExceptionMessageDefRef(tyCon)), Array(exception))
           Control.Expression(e)

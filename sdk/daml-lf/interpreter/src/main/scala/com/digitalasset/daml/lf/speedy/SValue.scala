@@ -70,9 +70,8 @@ sealed abstract class SValue {
         case r: SRecord =>
           V.ValueRecord(
             maybeEraseTypeInfo(r.id),
-            r.fields.toSeq.zipWithIndex
-              .map { case (field, fieldNum) =>
-                val sv = r.lookupField(fieldNum, field)
+            (r.fields.toSeq.view zip r.values.iterator().asScala)
+              .map { case (field, sv) =>
                 (maybeEraseTypeInfo(field), go(sv, nextMaxNesting))
               }
               .to(ImmArray),
@@ -172,46 +171,8 @@ object SValue {
     * And is also used when we convert the svalue back to a normalised LF value.
     */
 
-  sealed abstract class SRecord extends SValue {
-    def id: Identifier
-    def fields: ImmArray[Name]
-    def values: util.ArrayList[SValue]
-    def lookupField(fieldNum: Int, field: Name): SValue
-    def updateField(fieldNum: Int, field: Name, value: SValue): SRecord
-  }
-
-  object SRecord {
-    def apply(id: Identifier, fields: ImmArray[Name], values: util.ArrayList[SValue]): SRecord = {
-      if (fields.length != values.size) {
-        throw SError.SErrorCrash(
-          NameOf.qualifiedNameOfCurrentFunc,
-          s"SRecord.apply(#fields=${fields.length}; #values=${values.size}: mismatch!\n- fields=${fields}\n- values=${values}",
-        )
-      }
-      SRecordRep(id, fields, values)
-    }
-    def unapply(x: SRecord): Option[(Identifier, ImmArray[Name], util.ArrayList[SValue])] = {
-      Some((x.id, x.fields, x.values))
-    }
-  }
-
-  @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
-  final case class SRecordRep(
-      id: Identifier,
-      fields: ImmArray[Name],
-      values: util.ArrayList[SValue],
-  ) extends SRecord {
-
-    def lookupField(fieldNum: Int, field: Name): SValue = {
-      values.get(fieldNum)
-    }
-
-    def updateField(fieldNum: Int, field: Name, value: SValue): SRecord = {
-      val values2: util.ArrayList[SValue] = values.clone.asInstanceOf[util.ArrayList[SValue]]
-      discard(values2.set(fieldNum, value))
-      this.copy(values = values2)
-    }
-  }
+  final case class SRecord(id: Identifier, fields: ImmArray[Name], values: util.ArrayList[SValue])
+      extends SValue
 
   @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
   // values must be ordered according fieldNames

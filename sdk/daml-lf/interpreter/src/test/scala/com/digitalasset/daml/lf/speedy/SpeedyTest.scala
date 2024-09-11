@@ -342,7 +342,7 @@ module M {
             SELet1General(
               SEVal(LfDefRef(qualify("M:origin"))),
               SEAppAtomicSaturatedBuiltin(
-                SBRecUpd(qualify("M:Point"), Name.assertFromString("x"), 0),
+                SBRecUpd(qualify("M:Point"), 0),
                 Array(SELocS(1), SEValue(SInt64(1))),
               ),
             )
@@ -372,7 +372,7 @@ module M {
               SEAppAtomicSaturatedBuiltin(
                 SBRecUpdMulti(
                   qualify("M:Point"),
-                  List(Name.assertFromString("x"), Name.assertFromString("y")).zipWithIndex,
+                  List(0, 1),
                 ),
                 Array(
                   SELocS(1),
@@ -417,7 +417,7 @@ module M {
                 SEAppAtomicSaturatedBuiltin(
                   SBRecUpdMulti(
                     qualify("M:Point"),
-                    List(Name.assertFromString("x"), Name.assertFromString("y")).zipWithIndex,
+                    List(0, 1),
                   ),
                   Array(
                     SELocS(1),
@@ -458,10 +458,7 @@ module M {
                     SEAppAtomicSaturatedBuiltin(
                       SBRecUpdMulti(
                         qualify("M:Point"),
-                        List(
-                          Name.assertFromString("x"),
-                          Name.assertFromString("y"),
-                        ).zipWithIndex,
+                        List(0, 1),
                       ),
                       Array(SELocS(1), SELocS(2), SELocS(4)),
                     ),
@@ -495,11 +492,7 @@ module M {
               SEAppAtomicSaturatedBuiltin(
                 SBRecUpdMulti(
                   qualify("M:Point"),
-                  List(
-                    (Name.assertFromString("x"), 0),
-                    (Name.assertFromString("y"), 1),
-                    (Name.assertFromString("x"), 0),
-                  ),
+                  List(0, 1, 0),
                 ),
                 Array(
                   SELocS(1),
