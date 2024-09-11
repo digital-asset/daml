@@ -81,7 +81,7 @@ $bazel clean --expunge
 
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
 $bazel build //... \
-  -s --client_debug \
+  -s \
   --build_tag_filters "${tag_filter}" \
   --profile build-profile.json \
   --experimental_profile_include_target_label \
