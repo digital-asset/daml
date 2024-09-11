@@ -29,7 +29,6 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
     with Matchers
     with TableDrivenPropertyChecks {
 
-  import ValueTranslator.Config
   import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
   import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.Implicits.{
     defaultPackageId => _,
@@ -166,9 +165,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
 
     "succeeds on well type values" in {
       forAll(testCases ++ emptyTestCase) { (typ, value, svalue) =>
-        Try(
-          unsafeTranslateValue(typ, value, Config.Strict)
-        ) shouldBe Success(svalue)
+        Try(unsafeTranslateValue(typ, value)) shouldBe Success(svalue)
       }
     }
 
@@ -184,9 +181,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
       val svalue = SRecord("Mod:Tuple", ImmArray("x", "y"), ArrayList(SInt64(33), SText("a")))
 
       forEvery(testCases)(testCase =>
-        Try(
-          unsafeTranslateValue(typ, testCase, Config.Strict)
-        ) shouldBe Success(svalue)
+        Try(unsafeTranslateValue(typ, testCase)) shouldBe Success(svalue)
       )
     }
 
@@ -202,9 +197,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
       val svalue = SRecord("Mod:Tuple", ImmArray("x", "y"), ArrayList(SInt64(33), SText("a")))
 
       forEvery(testCases)(testCase =>
-        Try(
-          unsafeTranslateValue(typ, testCase, Config.Upgradeable)
-        ) shouldBe Success(svalue)
+        Try(unsafeTranslateValue(typ, testCase)) shouldBe Success(svalue)
       )
     }
 
@@ -336,11 +329,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
         ),
       )
 
-      forEvery(testCases)((result, value) =>
-        Try(
-          unsafeTranslateValue(typ, value, Config.Upgradeable)
-        ) shouldBe result
-      )
+      forEvery(testCases)((result, value) => Try(unsafeTranslateValue(typ, value)) shouldBe result)
     }
 
     "handle different representation of the same variant" in {
@@ -352,22 +341,14 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
       )
       val svalue = SVariant("Mod:Either", "Left", 0, SText("some test"))
 
-      forEvery(testCases)(value =>
-        Try(
-          unsafeTranslateValue(typ, value, Config.Strict)
-        ) shouldBe Success(svalue)
-      )
+      forEvery(testCases)(value => Try(unsafeTranslateValue(typ, value)) shouldBe Success(svalue))
     }
 
     "handle different representation of the same enum" in {
       val typ = t"Mod:Color"
       val testCases = Table("enum", ValueEnum("Mod:Color", "green"), ValueEnum("", "green"))
       val svalue = SEnum("Mod:Color", "green", 1)
-      forEvery(testCases)(value =>
-        Try(
-          unsafeTranslateValue(typ, value, Config.Strict)
-        ) shouldBe Success(svalue)
-      )
+      forEvery(testCases)(value => Try(unsafeTranslateValue(typ, value)) shouldBe Success(svalue))
     }
 
     "return proper mismatch error" in {
@@ -381,7 +362,6 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
               "y" -> ValueParty("Alice"), // Here the field has type Party instead of Text
             ),
           ),
-          Config.Strict,
         )
       )
       inside(res) { case Failure(Error.Preprocessing.TypeMismatch(typ, value, _)) =>
@@ -395,7 +375,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
         forAll(testCases) { (_, value2, _) =>
           if (value1 != value2) {
             a[Error.Preprocessing.Error] shouldBe thrownBy(
-              unsafeTranslateValue(typ1, value2, Config.Strict)
+              unsafeTranslateValue(typ1, value2)
             )
           }
         }
@@ -416,20 +396,8 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
       val tooBig = mkMyList(50)
       val failure = Failure(Error.Preprocessing.ValueNesting(tooBig))
 
-      Try(
-        unsafeTranslateValue(
-          t"Mod:MyList",
-          notTooBig,
-          Config.Strict,
-        )
-      ) shouldBe a[Success[_]]
-      Try(
-        unsafeTranslateValue(
-          t"Mod:MyList",
-          tooBig,
-          Config.Strict,
-        )
-      ) shouldBe failure
+      Try(unsafeTranslateValue(t"Mod:MyList", notTooBig)) shouldBe a[Success[_]]
+      Try(unsafeTranslateValue(t"Mod:MyList", tooBig)) shouldBe failure
     }
 
     def testCasesForCid(culprit: ContractId) = {
@@ -472,13 +440,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
 
       cids.foreach(cid =>
         forEvery(testCasesForCid(cid))((typ, value) =>
-          Try(
-            valueTranslator.unsafeTranslateValue(
-              typ,
-              value,
-              Config.Strict,
-            )
-          ) shouldBe a[Success[_]]
+          Try(valueTranslator.unsafeTranslateValue(typ, value)) shouldBe a[Success[_]]
         )
       )
     }
@@ -499,22 +461,10 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
       val failure = Failure(Error.Preprocessing.IllegalContractId.NonSuffixV1ContractId(illegalCid))
 
       forEvery(testCasesForCid(legalCid))((typ, value) =>
-        Try(
-          valueTranslator.unsafeTranslateValue(
-            typ,
-            value,
-            Config.Strict,
-          )
-        ) shouldBe a[Success[_]]
+        Try(valueTranslator.unsafeTranslateValue(typ, value)) shouldBe a[Success[_]]
       )
       forEvery(testCasesForCid(illegalCid))((typ, value) =>
-        Try(
-          valueTranslator.unsafeTranslateValue(
-            typ,
-            value,
-            Config.Strict,
-          )
-        ) shouldBe failure
+        Try(valueTranslator.unsafeTranslateValue(typ, value)) shouldBe failure
       )
     }
 

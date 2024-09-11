@@ -207,7 +207,6 @@ object ScriptF {
                     env.valueTranslator,
                     env.scriptIds,
                     _,
-                    client.enableContractUpgrading,
                   )
                 )
                 .flatMap { rs =>
@@ -217,7 +216,6 @@ object ScriptF {
                       env.valueTranslator,
                       env.scriptIds,
                       tree,
-                      client.enableContractUpgrading,
                     )
                     .map((rs, _))
                 }
@@ -261,8 +259,7 @@ object ScriptF {
           acs
             .to(FrontStack)
             .traverse(
-              Converter
-                .fromCreated(env.valueTranslator, _, tplId, client.enableContractUpgrading)
+              Converter.fromCreated(env.valueTranslator, _, tplId)
             )
         )
       } yield SEValue(SList(res))
@@ -288,7 +285,6 @@ object ScriptF {
                 env.valueTranslator,
                 tplId,
                 c.argument,
-                client.enableContractUpgrading,
               )
               .map(
                 makeTuple(
@@ -367,16 +363,12 @@ object ScriptF {
       key: AnyContractKey,
   ) extends Cmd {
     private def translateKey(
-        env: Env,
-        enableContractUpgrading: Boolean,
+        env: Env
     )(id: Identifier, v: Value): Either[String, SValue] =
       for {
         keyTy <- env.lookupKeyTy(id)
-        translatorConfig =
-          if (enableContractUpgrading) preprocessing.ValueTranslator.Config.Coerceable
-          else preprocessing.ValueTranslator.Config.Strict
         translated <- env.valueTranslator
-          .translateValue(keyTy, v, translatorConfig)
+          .translateValue(keyTy, v)
           .left
           .map(_.message)
       } yield translated
@@ -392,11 +384,11 @@ object ScriptF {
           parties,
           tplId,
           key.key,
-          translateKey(env, client.enableContractUpgrading),
+          translateKey(env),
         )
         optR <- Converter.toFuture(
           optR.traverse(
-            Converter.fromCreated(env.valueTranslator, _, tplId, client.enableContractUpgrading)
+            Converter.fromCreated(env.valueTranslator, _, tplId)
           )
         )
       } yield SEValue(SOptional(optR))
