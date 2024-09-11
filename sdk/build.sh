@@ -76,6 +76,8 @@ else
     bazel=bazel
 fi
 
+ls /nix/store/*bazel*
+
 $bazel version
 $bazel info
 #SERVER_LOG=`bazel info server_log`
