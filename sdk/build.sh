@@ -80,6 +80,7 @@ xcode-select -v
 $bazel version
 $bazel info
 SERVER_LOG=`bazel info server_log`
+OUTPUT_BASE=`bazel info output_base`
 $bazel clean --expunge
 
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
@@ -92,7 +93,7 @@ $bazel build //... \
   --build_event_publish_all_actions \
   --execution_log_json_file "$ARTIFACT_DIRS/logs/build_execution${execution_log_postfix}.json.gz" || true
 
-cat $SERVER_LOG
+find $OUTPUT_BASE 
 
 exit
 
