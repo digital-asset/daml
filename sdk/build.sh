@@ -76,12 +76,12 @@ else
     bazel=bazel
 fi
 
-xcode-select -v
-$bazel version
-$bazel info
-SERVER_LOG=`bazel info server_log`
-OUTPUT_BASE=`bazel info output_base`
-$bazel clean --expunge
+#xcode-select -v
+#$bazel version
+#$bazel info
+#SERVER_LOG=`bazel info server_log`
+#OUTPUT_BASE=`bazel info output_base`
+#$bazel clean --expunge
 
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
 $bazel build //... \
@@ -93,12 +93,12 @@ $bazel build //... \
   --build_event_publish_all_actions \
   --execution_log_json_file "$ARTIFACT_DIRS/logs/build_execution${execution_log_postfix}.json.gz" || true
 
-find $OUTPUT_BASE 
-cat $OUTPUT_BASE/command*.log
-cat $OUTPUT_BASE/java.log*
-cat $OUTPUT_BASE/java.log
+#find $OUTPUT_BASE 
+#cat $OUTPUT_BASE/command*.log
+#cat $OUTPUT_BASE/java.log*
+#cat $OUTPUT_BASE/java.log
 
-exit 1
+#exit 1
 
 # Set up a shared PostgreSQL instance.
 export POSTGRESQL_ROOT_DIR="${POSTGRESQL_TMP_ROOT_DIR:-$DIR/.tmp-pg}/daml/postgresql"
