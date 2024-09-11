@@ -76,6 +76,8 @@ else
     bazel=bazel
 fi
 
+$bazel clean expunge
+
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
 $bazel build //... \
   -s \
