@@ -34,12 +34,20 @@ main = tests
         , ("queryContractKey, src=v1 tgt=v2", qckKeyChangedExprSameValue)
         , ("fetch, src=v1 tgt=v2", fetchKeyChangedExprSameValue)
         , ("fetchByKey, src=v1 tgt=v2", fbkKeyChangedExprSameValue)
+        , ("exercise, src=v1 tgt=v2", exerciseKeyChangedExprSameValue)
+        , ("exerciseByKey, src=v1 tgt=v2", ebkKeyChangedExprSameValue)
+        , ("exerciseCmd, src=v1 tgt=v2", exerciseCmdKeyChangedExprSameValue)
+        , ("exerciseByKeyCmd, src=v1 tgt=v2", ebkCmdKeyChangedExprSameValue)
         ]
       , (,) "Changed key value" $ tests
         [ broken ("queryContractId, src=v1 tgt=v2", queryKeyChangedExprChangedValue)
         , broken ("queryContractKey, src=v1 tgt=v2", qckKeyChangedExprChangedValue)
         , ("fetch, src=v1 tgt=v2", fetchKeyChangedExprChangedValue)
         , broken ("fetchByKey, src=v1 tgt=v2", fbkKeyChangedExprChangedValue)
+        , ("exercise, src=v1 tgt=v2", exerciseKeyChangedExprChangedValue)
+        , broken ("exerciseByKey, src=v1 tgt=v2", ebkKeyChangedExprChangedValue)
+        , ("exerciseCmd, src=v1 tgt=v2", exerciseCmdKeyChangedExprChangedValue)
+        , broken ("exerciseByKeyCmd, src=v1 tgt=v2", ebkCmdKeyChangedExprChangedValue)
         ]
       ]
     ]
@@ -167,6 +175,11 @@ contents: |
         do fetchByKey k
 
       choice ChangedKeyExprExercise : Text with
+          cid : ContractId ChangedKeyExpr
+        controller party
+        do exercise @ChangedKeyExpr cid ChangedKeyExprCall
+
+      choice ChangedKeyExprExerciseByKey : Text with
           k : ChangedKeyExprKey
         controller party
         do exerciseByKey @ChangedKeyExpr k ChangedKeyExprCall
@@ -235,6 +248,62 @@ fbkKeyChangedExprChangedValue = test $ do
   -- the fetch inside the following command works, even though the key value changed!
   expectKeyChangedError =<<
     a `trySubmit` createAndExerciseCmd (V2.ChangedKeyExprHelper a) (V2.ChangedKeyExprFetchByKey $ V2.ChangedKeyExprKey a False)
+
+exerciseKeyChangedExprSameValue : Test
+exerciseKeyChangedExprSameValue = test $ do
+  a <- allocateParty "alice"
+  cid <- a `submit` createExactCmd (V1.ChangedKeyExpr a False)
+  res <- a `submit` createAndExerciseCmd (V2.ChangedKeyExprHelper a) (V2.ChangedKeyExprExercise $ coerceContractId cid)
+  res === "V2"
+
+ebkKeyChangedExprSameValue : Test
+ebkKeyChangedExprSameValue = test $ do
+  a <- allocateParty "alice"
+  _ <- a `submit` createExactCmd (V1.ChangedKeyExpr a False)
+  res <- a `submit` createAndExerciseCmd (V2.ChangedKeyExprHelper a) (V2.ChangedKeyExprExerciseByKey $ V2.ChangedKeyExprKey a False)
+  res === "V2"
+
+exerciseCmdKeyChangedExprSameValue : Test
+exerciseCmdKeyChangedExprSameValue = test $ do
+  a <- allocateParty "alice"
+  cid <- a `submit` createExactCmd (V1.ChangedKeyExpr a False)
+  res <- a `submit` exerciseExactCmd @V2.ChangedKeyExpr (coerceContractId cid) V2.ChangedKeyExprCall
+  res === "V2"
+
+ebkCmdKeyChangedExprSameValue : Test
+ebkCmdKeyChangedExprSameValue = test $ do
+  a <- allocateParty "alice"
+  _ <- a `submit` createExactCmd (V1.ChangedKeyExpr a False)
+  res <- a `submit` exerciseByKeyExactCmd @V2.ChangedKeyExpr (V2.ChangedKeyExprKey a False) V2.ChangedKeyExprCall
+  res === "V2"
+
+exerciseKeyChangedExprChangedValue : Test
+exerciseKeyChangedExprChangedValue = test $ do
+  a <- allocateParty "alice"
+  cid <- a `submit` createExactCmd (V1.ChangedKeyExpr a True)
+  expectKeyChangedError =<<
+    a `trySubmit` createAndExerciseCmd (V2.ChangedKeyExprHelper a) (V2.ChangedKeyExprExercise $ coerceContractId cid)
+
+ebkKeyChangedExprChangedValue : Test
+ebkKeyChangedExprChangedValue = test $ do
+  a <- allocateParty "alice"
+  _ <- a `submit` createExactCmd (V1.ChangedKeyExpr a True)
+  expectKeyChangedError =<<
+    a `trySubmit` createAndExerciseCmd (V2.ChangedKeyExprHelper a) (V2.ChangedKeyExprExerciseByKey $ V2.ChangedKeyExprKey a False)
+
+exerciseCmdKeyChangedExprChangedValue : Test
+exerciseCmdKeyChangedExprChangedValue = test $ do
+  a <- allocateParty "alice"
+  cid <- a `submit` createExactCmd (V1.ChangedKeyExpr a True)
+  expectKeyChangedError =<<
+    a `trySubmit` exerciseExactCmd @V2.ChangedKeyExpr (coerceContractId cid) V2.ChangedKeyExprCall
+
+ebkCmdKeyChangedExprChangedValue : Test
+ebkCmdKeyChangedExprChangedValue = test $ do
+  a <- allocateParty "alice"
+  _ <- a `submit` createExactCmd (V1.ChangedKeyExpr a True)
+  expectKeyChangedError =<<
+    a `trySubmit` exerciseByKeyExactCmd @V2.ChangedKeyExpr (V2.ChangedKeyExprKey a False) V2.ChangedKeyExprCall
 
 {- MODULE
 package: contract-key-upgrades
