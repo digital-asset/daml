@@ -223,7 +223,7 @@ final case class ViewParticipantData private (
         }
         RootAction(cmd, actors, failed, packagePreference)
 
-      case FetchActionDescription(inputContractId, actors, byKey, _version, templateIdO) =>
+      case FetchActionDescription(inputContractId, actors, byKey, _version, templateIdO, interfaceId) =>
         val inputContract = coreInputs.getOrElse(
           inputContractId,
           throw InvalidViewParticipantData(
@@ -245,7 +245,7 @@ final case class ViewParticipantData private (
             )
           LfFetchByKeyCommand(templateId = templateId, key = key)
         } else {
-          LfFetchCommand(templateId = templateId, coid = inputContractId)
+          LfFetchCommand(templateId = templateId, interfaceId = interfaceId, coid = inputContractId)
         }
         RootAction(cmd, actors, failed = false, packageIdPreference = Set.empty)
 
@@ -308,6 +308,16 @@ final case class ViewParticipantData private (
     createdInSubviewArchivedInCore = createdInSubviewArchivedInCore.toSeq.map(_.toProtoPrimitive),
     resolvedKeys = resolvedKeys.toList.map { case (k, res) => ResolvedKey(k, res).toProtoV1 },
     actionDescription = Some(actionDescription.toProtoV3),
+    rollbackContext = if (rollbackContext.isEmpty) None else Some(rollbackContext.toProtoV0),
+    salt = Some(salt.toProtoV0),
+  )
+
+  private[ViewParticipantData] def toProtoV5: v5.ViewParticipantData = v5.ViewParticipantData(
+    coreInputs = coreInputs.values.map(_.toProtoV2).toSeq,
+    createdCore = createdCore.map(_.toProtoV2),
+    createdInSubviewArchivedInCore = createdInSubviewArchivedInCore.toSeq.map(_.toProtoPrimitive),
+    resolvedKeys = resolvedKeys.toList.map { case (k, res) => ResolvedKey(k, res).toProtoV1 },
+    actionDescription = Some(actionDescription.toProtoV4),
     rollbackContext = if (rollbackContext.isEmpty) None else Some(rollbackContext.toProtoV0),
     salt = Some(salt.toProtoV0),
   )
@@ -388,6 +398,10 @@ object ViewParticipantData
     ProtoVersion(4) -> VersionedProtoConverter(ProtocolVersion.v6)(v4.ViewParticipantData)(
       supportedProtoVersionMemoized(_)(fromProtoV4),
       _.toProtoV4.toByteString,
+    ),
+    ProtoVersion(5) -> VersionedProtoConverter(ProtocolVersion.v7)(v5.ViewParticipantData)(
+      supportedProtoVersionMemoized(_)(fromProtoV5),
+      _.toProtoV5.toByteString,
     ),
   )
 
@@ -490,7 +504,7 @@ object ViewParticipantData
       rbContextP,
     ) = dataP
 
-    fromProtoV1V2V3V4(hashOps, protoVersion)(
+    fromProtoV1V2V3V4V5(hashOps, protoVersion)(
       saltP,
       coreInputsP,
       createdCoreP,
@@ -518,7 +532,7 @@ object ViewParticipantData
       rbContextP,
     ) = dataP
 
-    fromProtoV1V2V3V4(hashOps, ProtoVersion(2))(
+    fromProtoV1V2V3V4V5(hashOps, ProtoVersion(2))(
       saltP,
       coreInputsP,
       createdCoreP,
@@ -546,7 +560,7 @@ object ViewParticipantData
       rbContextP,
     ) = dataP
 
-    fromProtoV1V2V3V4(hashOps, ProtoVersion(3))(
+    fromProtoV1V2V3V4V5(hashOps, ProtoVersion(3))(
       saltP,
       coreInputsP,
       createdCoreP,
@@ -574,7 +588,7 @@ object ViewParticipantData
       rbContextP,
     ) = dataP
 
-    fromProtoV1V2V3V4(hashOps, ProtoVersion(4))(
+    fromProtoV1V2V3V4V5(hashOps, ProtoVersion(4))(
       saltP,
       coreInputsP,
       createdCoreP,
@@ -589,7 +603,35 @@ object ViewParticipantData
     )(bytes)
   }
 
-  private def fromProtoV1V2V3V4[
+  private def fromProtoV5(hashOps: HashOps, dataP: v5.ViewParticipantData)(
+      bytes: ByteString
+  ): ParsingResult[ViewParticipantData] = {
+    val v5.ViewParticipantData(
+      saltP,
+      coreInputsP,
+      createdCoreP,
+      createdInSubviewArchivedInCoreP,
+      resolvedKeysP,
+      actionDescriptionP,
+      rbContextP,
+    ) = dataP
+
+    fromProtoV1V2V3V4V5(hashOps, ProtoVersion(5))(
+      saltP,
+      coreInputsP,
+      createdCoreP,
+      createdInSubviewArchivedInCoreP,
+      resolvedKeysP,
+      actionDescriptionP,
+      ActionDescription.fromProtoV4,
+      CreatedContract.fromProtoV2,
+      InputContract.fromProtoV2,
+      ResolvedKey.fromProtoV1,
+      rbContextP,
+    )(bytes)
+  }
+
+  private def fromProtoV1V2V3V4V5[
       ActionDescriptionProto,
       CreatedContractProto,
       InputContractProto,
