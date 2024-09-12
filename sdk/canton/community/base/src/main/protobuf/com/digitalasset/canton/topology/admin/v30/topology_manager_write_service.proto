@@ -193,4 +193,6 @@ enum ForceFlag {
    * Using this force flag likely causes the transaction to be rejected at a later stage of the processing.
    */
   FORCE_FLAG_ALLOW_UNVALIDATED_SIGNING_KEYS = 7;
+  /** Required when unvetting a package with active contracts */
+  FORCE_FLAG_ALLOW_UNVET_PACKAGE_WITH_ACTIVE_CONTRACTS = 8;
 }
