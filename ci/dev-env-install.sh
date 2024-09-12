@@ -57,3 +57,5 @@ done
 if [[ $NIX_FAILED -ne 0 ]]; then
     exit 1
 fi
+
+ls /nix/store/*bazel*
