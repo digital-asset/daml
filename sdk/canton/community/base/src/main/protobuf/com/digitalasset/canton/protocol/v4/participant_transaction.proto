@@ -23,25 +23,3 @@ message ViewParticipantData {
   v3.ActionDescription action_description = 6;
   v0.ViewParticipantData.RollbackContext rollback_context = 7; // optional; defaults to the empty RollbackContext if omitted.
 }
-
-message ActionDescription {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.UnstableProtoVersion";
-
-  // Compared to v3: Update FetchActionDescription
-  oneof description {
-    v0.ActionDescription.CreateActionDescription create = 1;
-    v3.ActionDescription.ExerciseActionDescription exercise = 2;
-    FetchActionDescription fetch = 3;
-    v1.ActionDescription.LookupByKeyActionDescription lookup_by_key = 4;
-  }
-
-  // Compared from v1: Add interfaceId
-  message FetchActionDescription {
-    string input_contract_id = 1;
-    repeated string actors = 2;
-    bool by_key = 3;
-    string version = 4;
-    optional string template_id = 5;
-    optional string interface_id = 6;
-  }
-}

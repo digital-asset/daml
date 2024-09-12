@@ -135,7 +135,7 @@ object ExampleTransactionFactory {
       byKey: Boolean = false,
       version: LfTransactionVersion = transactionVersion,
       templateId: LfTemplateId = templateId,
-      interfaceId: Option[LfTemplateId] = None,
+      byInterface: Boolean = false,
   ): LfNodeFetch =
     LfNodeFetch(
       coid = cid,
@@ -147,7 +147,7 @@ object ExampleTransactionFactory {
       keyOpt = key,
       byKey = byKey,
       version = version,
-      interfaceId = interfaceId,
+      isInterfaceFetch = byInterface,
     )
 
   def createNode(
