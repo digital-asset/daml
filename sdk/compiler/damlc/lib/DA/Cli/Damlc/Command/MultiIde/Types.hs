@@ -308,7 +308,7 @@ data MultiIdeState = MultiIdeState
   , misSubIdeMessageHandler :: SubIdeMessageHandler
   , misUnsafeAddNewSubIdeAndSend :: UnsafeAddNewSubIdeAndSend
   , misSdkInstallDatasVar :: SdkInstallDatasVar
-  , misIdentifier :: T.Text
+  , misIdentifier :: Maybe T.Text
   }
 
 logError :: MultiIdeState -> String -> IO ()
@@ -327,7 +327,7 @@ newMultiIdeState
   :: FilePath
   -> PackageHome
   -> Logger.Priority
-  -> T.Text
+  -> Maybe T.Text
   -> [String]
   -> (MultiIdeState -> SubIdeMessageHandler)
   -> (MultiIdeState -> UnsafeAddNewSubIdeAndSend)

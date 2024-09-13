@@ -220,7 +220,10 @@ commandsToPrefix :: [T.Text]
 commandsToPrefix = ["typesignature.add"]
 
 prefixCommand :: MultiIdeState -> T.Text -> T.Text
-prefixCommand miState cmd = if cmd `elem` commandsToPrefix then misIdentifier miState <> "." <> cmd else cmd
+prefixCommand miState cmd = if cmd `elem` commandsToPrefix then (maybe "" (<> ".") $ misIdentifier miState) <> cmd else cmd
+
+unprefixCommand :: MultiIdeState -> T.Text -> T.Text
+unprefixCommand miState cmd = fromMaybe cmd $ T.stripPrefix (maybe "" (<> ".") $ misIdentifier miState) cmd
 
 -- Adds the unique identifier to the front of commands in code lens replies
 addCommandPrefixes :: MultiIdeState -> LSP.FromServerMessage -> LSP.FromServerMessage
@@ -232,6 +235,6 @@ addCommandPrefixes _ msg = msg
 -- This function strips the unique identifier we prefix commands with so they can be forwarded to subIDEs as normal
 stripCommandPrefixes :: MultiIdeState -> LSP.FromClientMessage' a -> LSP.FromClientMessage' a
 stripCommandPrefixes miState (LSP.FromClientMess LSP.SWorkspaceExecuteCommand req) =
-  let stripPrefix = LSP.params . LSP.command %~ (\s -> fromMaybe s $ T.stripPrefix (misIdentifier miState <> ".") s)
+  let stripPrefix = LSP.params . LSP.command %~ unprefixCommand miState
    in LSP.FromClientMess LSP.SWorkspaceExecuteCommand $ stripPrefix req
 stripCommandPrefixes _ msg = msg

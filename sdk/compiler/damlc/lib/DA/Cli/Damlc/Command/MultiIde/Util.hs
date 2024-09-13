@@ -57,8 +57,8 @@ modifyTMVarM var f = do
   putTMVar var x'
 
 -- Taken directly from the Initialize response
-initializeResult :: T.Text -> LSP.InitializeResult
-initializeResult commandPrefix = LSP.InitializeResult 
+initializeResult :: Maybe T.Text -> LSP.InitializeResult
+initializeResult mCommandPrefix = LSP.InitializeResult 
   { _capabilities = LSP.ServerCapabilities 
       { _textDocumentSync = Just $ LSP.InL $ LSP.TextDocumentSyncOptions 
           { _openClose = Just True
@@ -91,7 +91,11 @@ initializeResult commandPrefix = LSP.InitializeResult
       , _documentOnTypeFormattingProvider = Nothing
       , _renameProvider = false
       , _foldingRangeProvider = false
-      , _executeCommandProvider = Just (LSP.ExecuteCommandOptions {_workDoneProgress = Nothing, _commands = LSP.List [commandPrefix <> ".typesignature.add"]})
+      , _executeCommandProvider = Just (LSP.ExecuteCommandOptions
+          { _workDoneProgress = Nothing
+          , _commands = LSP.List
+              [maybe "" (<> ".") mCommandPrefix <> "typesignature.add"]
+          })
       , _selectionRangeProvider = false
       , _callHierarchyProvider = false
       , _semanticTokensProvider = Just $ LSP.InR $ LSP.SemanticTokensRegistrationOptions

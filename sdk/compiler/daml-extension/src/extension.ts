@@ -244,30 +244,33 @@ async function startLanguageServers(context: ExtensionContext) {
     );
     if (!ideManifest)
       throw "Failed to find and parse ide manifest for gradle project.";
+    // If we only have one Multi-IDE, we don't need the `--ide-identifier`, which gives us slightly improved backwards compatibility
+    const singleMultiIde = Object.keys(ideManifest).length == 1;
     let n = 0;
     for (const projectPath in ideManifest) {
       let envVars = ideManifest[projectPath];
       n++;
-      damlLanguageClients[projectPath] = await DamlLanguageClient.build(
+      const languageClient = await DamlLanguageClient.build(
         projectPath,
         envVars,
         config,
         consent,
-        n.toString(),
         context,
         webviewFiles,
+        singleMultiIde ? undefined : n.toString(),
       );
+      if (languageClient) damlLanguageClients[projectPath] = languageClient;
     }
   } else {
-    damlLanguageClients[rootPath] = await DamlLanguageClient.build(
+    const languageClient = await DamlLanguageClient.build(
       rootPath,
       {},
       config,
       consent,
-      "1",
       context,
       webviewFiles,
     );
+    if (languageClient) damlLanguageClients[rootPath] = languageClient;
   }
 }
 

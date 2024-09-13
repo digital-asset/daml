@@ -35,6 +35,21 @@ namespace DamlKeepAliveRequest {
 
 let damlRoot: string = path.join(os.homedir(), ".daml");
 
+class UnsupportedFeature extends Error {
+  featureName: string;
+  sdkVersion: string;
+
+  constructor(_featureName: string, _sdkVersion: string) {
+    super();
+    this.featureName = _featureName;
+    this.sdkVersion = _sdkVersion;
+  }
+
+  render(): string {
+    return `Daml IDE feature ${this.featureName} is not supported in SDK Version ${this.sdkVersion}\nPlease update your daml SDK`;
+  }
+}
+
 export class DamlLanguageClient {
   languageClient: LanguageClient;
   virtualResourceManager: VirtualResourceManager;
@@ -60,18 +75,30 @@ export class DamlLanguageClient {
     envVars: { [envVarName: string]: string },
     config: vscode.WorkspaceConfiguration,
     telemetryConsent: boolean | undefined,
-    identifier: string,
     _context: vscode.ExtensionContext,
     _webviewFiles: WebviewFiles,
-  ): Promise<DamlLanguageClient> {
-    const [languageClient, multiIdeSupport] = await DamlLanguageClient.createLanguageClient(
-      rootPath,
-      envVars,
-      config,
-      telemetryConsent,
-      identifier,
-    );
-    return new DamlLanguageClient(languageClient, multiIdeSupport, _context, _webviewFiles,)
+    identifier: string | undefined = undefined,
+  ): Promise<DamlLanguageClient | null> {
+    try {
+      const [languageClient, multiIdeSupport] =
+        await DamlLanguageClient.createLanguageClient(
+          rootPath,
+          envVars,
+          config,
+          telemetryConsent,
+          identifier,
+        );
+      return new DamlLanguageClient(
+        languageClient,
+        multiIdeSupport,
+        _context,
+        _webviewFiles,
+      );
+    } catch (err) {
+      if (!(err instanceof UnsupportedFeature)) throw err;
+      vscode.window.showErrorMessage(err.render());
+      return null;
+    }
   }
 
   constructor(
@@ -171,7 +198,10 @@ export class DamlLanguageClient {
       "project SDK version from daml.yaml",
       "default SDK version for new projects",
     ];
-    const { stdout } = await util.promisify(child_process.exec)(damlPath + " version", { cwd: projectPath });
+    const { stdout } = await util.promisify(child_process.exec)(
+      damlPath + " version",
+      { cwd: projectPath },
+    );
     const lines = stdout.split("\n");
     for (const selection of selectionStrings) {
       const line = lines.find((line: string) => line.includes(selection));
@@ -179,11 +209,23 @@ export class DamlLanguageClient {
     }
   }
 
+  private static async getMultiIdeIdentifierSupport(
+    damlPath: string,
+    projectPath: string | undefined,
+  ): Promise<boolean> {
+    const { stdout } = await util.promisify(child_process.exec)(
+      damlPath + " multi-ide --help",
+      { cwd: projectPath },
+    );
+    return stdout.includes("--ide-identifier");
+  }
+
   private static getMultiIdeSupport(
     config: vscode.WorkspaceConfiguration,
     sdkVersion: string | undefined,
   ): boolean {
-    const multiIDESupport: boolean = config.get("multiPackageIdeSupport") || false;
+    const multiIDESupport: boolean =
+      config.get("multiPackageIdeSupport") || false;
 
     // We'll say multi-ide is introduced in 2.9.0. The command existed
     // in 2.8, but it was unfinished, so we shouldn't allow it to be used.
@@ -205,7 +247,7 @@ export class DamlLanguageClient {
     config: vscode.WorkspaceConfiguration,
     telemetryConsent: boolean | undefined,
     multiIdeSupport: boolean,
-    identifier: string,
+    identifier: string | undefined,
   ): string[] {
     const logLevel = config.get("logLevel");
     const isDebug = logLevel == "Debug" || logLevel == "Telemetry";
@@ -222,7 +264,7 @@ export class DamlLanguageClient {
     }
     if (multiIdeSupport === true) {
       args.push("--log-level=" + logLevel);
-      args.push("--ide-identifier=" + identifier);
+      if (identifier) args.push("--ide-identifier=" + identifier);
     } else {
       if (isDebug) args.push("--debug");
     }
@@ -230,10 +272,14 @@ export class DamlLanguageClient {
     // split on an empty string returns an array with a single empty string
     const extraArgs = extraArgsString === "" ? [] : extraArgsString.split(" ");
     args = args.concat(extraArgs);
-    const serverArgs: string[] = DamlLanguageClient.addIfInConfig(config, args, [
-      ["profile", ["+RTS", "-h", "-RTS"]],
-      ["autorunAllTests", ["--studio-auto-run-all-scenarios=yes"]],
-    ]);
+    const serverArgs: string[] = DamlLanguageClient.addIfInConfig(
+      config,
+      args,
+      [
+        ["profile", ["+RTS", "-h", "-RTS"]],
+        ["autorunAllTests", ["--studio-auto-run-all-scenarios=yes"]],
+      ],
+    );
 
     return serverArgs;
   }
@@ -258,7 +304,7 @@ export class DamlLanguageClient {
     envVars: { [envVarName: string]: string },
     config: vscode.WorkspaceConfiguration,
     telemetryConsent: boolean | undefined,
-    identifier: string,
+    identifier: string | undefined,
   ): Promise<[LanguageClient, boolean]> {
     // Options to control the language client
     let clientOptions: LanguageClientOptions = {
@@ -269,9 +315,19 @@ export class DamlLanguageClient {
     };
 
     const command = DamlLanguageClient.findDamlCommand();
-
-    const sdkVersion = await DamlLanguageClient.getSdkVersion(command, rootPath);
-    const multiIdeSupport = DamlLanguageClient.getMultiIdeSupport(config, sdkVersion);
+    const sdkVersion = await DamlLanguageClient.getSdkVersion(
+      command,
+      rootPath,
+    );
+    const multiIdeSupport = DamlLanguageClient.getMultiIdeSupport(
+      config,
+      sdkVersion,
+    );
+    const identifierSupport =
+      multiIdeSupport &&
+      DamlLanguageClient.getMultiIdeIdentifierSupport(command, rootPath);
+    if (!identifierSupport && identifier != undefined)
+      throw new UnsupportedFeature("Gradle Support", sdkVersion || "unknown");
     const serverArgs = DamlLanguageClient.getLanguageServerArgs(
       config,
       telemetryConsent,
@@ -280,8 +336,8 @@ export class DamlLanguageClient {
     );
 
     const languageClient = new LanguageClient(
-      "daml-language-server-" + identifier,
-      "Daml Language Server " + identifier,
+      "daml-language-server" + (identifier ? "-" + identifier : ""),
+      "Daml Language Server" + (identifier ? " " + identifier : ""),
       {
         args: serverArgs,
         command: command,
