@@ -142,19 +142,6 @@ trait ReadService extends ReportsHealth {
   ): Future[ReadService.ConnectedDomainResponse] =
     throw new UnsupportedOperationException()
 
-  /** Get the offsets of the incomplete assigned/unassigned events for a set of stakeholders.
-    *
-    * @param validAt The offset of validity in participant offset terms.
-    * @param stakeholders Only offsets are returned which have at least one stakeholder from this set.
-    * @return All the offset of assigned/unassigned events which do not have their conterparts visible at
-    *         the validAt offset, and only for the reassignments for which this participant is reassigning.
-    */
-  def incompleteReassignmentOffsets(
-      validAt: Offset,
-      stakeholders: Set[LfPartyId],
-  )(implicit traceContext: TraceContext): Future[Vector[Offset]] =
-    throw new UnsupportedOperationException()
-
   def validateDar(
       dar: ByteString
   )(implicit

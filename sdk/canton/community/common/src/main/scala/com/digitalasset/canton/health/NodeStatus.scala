@@ -64,8 +64,21 @@ object NodeStatus {
     def uptime: Duration
     def ports: Map[String, Port]
     def active: Boolean
-    def toProtoV0: v0.NodeStatus.Status // explicitly making it public
-    protected def toProtoV1: v1.Status
+    def toProtoV0: v0.NodeStatus.Status
+
+    def topologyQueue: TopologyQueueStatus
+    def version: ReleaseVersion
+
+    protected def toProtoV1: v1.Status = v1.Status(
+      uid.toProtoPrimitive,
+      Some(DurationConverter.toProtoPrimitive(uptime)),
+      ports.fmap(_.unwrap),
+      active,
+      topologyQueues = Some(topologyQueue.toProtoV0),
+      components = components.map(_.toProtoV0),
+      version = version.fullVersion,
+    )
+
     def components: Seq[ComponentStatus]
   }
 
@@ -112,16 +125,6 @@ final case class SimpleStatus(
       topologyQueues = Some(topologyQueue.toProtoV0),
       components = components.map(_.toProtoV0),
     )
-
-  override def toProtoV1: v1.Status = v1.Status(
-    uid.toProtoPrimitive,
-    Some(DurationConverter.toProtoPrimitive(uptime)),
-    ports.fmap(_.unwrap),
-    active,
-    topologyQueues = Some(topologyQueue.toProtoV0),
-    components = components.map(_.toProtoV0),
-    version = version.fullVersion,
-  )
 }
 
 /** Health status of the sequencer component itself.

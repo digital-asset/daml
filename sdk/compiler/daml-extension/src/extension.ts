@@ -10,12 +10,11 @@ import * as fs from "fs";
 import { ViewColumn, ExtensionContext } from "vscode";
 import * as util from "util";
 import fetch from "node-fetch";
-import { getOrd } from "fp-ts/lib/Array";
-import { ordNumber } from "fp-ts/lib/Ord";
 import { DamlLanguageClient } from "./language_client";
 import { resetTelemetryConsent, getTelemetryConsent } from "./telemetry";
 import { WebviewFiles, getVRFilePath } from "./virtual_resource_manager";
 import * as child_process from "child_process";
+import * as semver from "semver";
 
 const versionContextKey = "version";
 
@@ -249,7 +248,7 @@ async function startLanguageServers(context: ExtensionContext) {
     for (const projectPath in ideManifest) {
       let envVars = ideManifest[projectPath];
       n++;
-      damlLanguageClients[projectPath] = new DamlLanguageClient(
+      damlLanguageClients[projectPath] = await DamlLanguageClient.build(
         projectPath,
         envVars,
         config,
@@ -260,7 +259,7 @@ async function startLanguageServers(context: ExtensionContext) {
       );
     }
   } else {
-    damlLanguageClients[rootPath] = new DamlLanguageClient(
+    damlLanguageClients[rootPath] = await DamlLanguageClient.build(
       rootPath,
       {},
       config,
@@ -306,21 +305,11 @@ async function showReleaseNotesIfNewVersion(context: ExtensionContext) {
     extensionVersion !== "" &&
     (!recordedVersion ||
       (typeof recordedVersion === "string" &&
-        checkVersionUpgrade(recordedVersion, extensionVersion)))
+        semver.lt(recordedVersion, extensionVersion)))
   ) {
     await showReleaseNotes(extensionVersion);
     await context.globalState.update(versionContextKey, extensionVersion);
   }
-}
-
-// Check that `version2` is an upgrade from `version1`,
-// i.e. that the components of the version number have increased
-// (checked from major to minor version numbers).
-function checkVersionUpgrade(version1: string, version2: string) {
-  const comps1 = version1.split(".").map(Number);
-  const comps2 = version2.split(".").map(Number);
-  const o = getOrd(ordNumber);
-  return o.compare(comps2, comps1) > 0;
 }
 
 // Show the release notes from the Daml Blog.

@@ -11,9 +11,10 @@ import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.daml.lf.speedy.SError.SError
 import com.daml.lf.speedy.SExpr.{SEApp, SExpr}
 import com.daml.lf.speedy.SValue.SContractId
+import com.daml.lf.speedy.Speedy.UpdateMachine
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.testing.parser.ParserParameters
-import com.daml.lf.transaction.TransactionVersion.V16
+import com.daml.lf.transaction.TransactionVersion.V17
 import com.daml.lf.transaction.{GlobalKeyWithMaintainers, Versioned}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value._
@@ -197,6 +198,13 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
   // The given contractValue is wrapped as a contract available for ledger-fetch
   def go(e: Expr, contract: ContractInstance): Either[SError, Success] = {
+    goFinish(e, contract).map(_._1)
+  }
+
+  private def goFinish(
+      e: Expr,
+      contract: ContractInstance,
+  ): Either[SError, (Success, UpdateMachine.Result)] = {
 
     val se: SExpr = pkgs.compiler.unsafeCompile(e)
     val args: Array[SValue] = Array(SContractId(theCid))
@@ -207,10 +215,10 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     val machine = Speedy.Machine.fromUpdateSExpr(pkgs, seed, sexprToEval, Set(alice, bob))
 
     SpeedyTestLib
-      .runCollectRequests(machine, getContract = Map(theCid -> Versioned(V16, contract)))
+      .runCollectRequests(machine, getContract = Map(theCid -> Versioned(V17, contract)))
       .map { case (sv, _, uvs) => // ignoring any AuthRequest
-        val v = sv.toNormalizedValue(V16)
-        (v, uvs)
+        val v = sv.toNormalizedValue(V17)
+        ((v, uvs), data.assertRight(machine.finish.left.map(_.toString)))
       }
   }
 
@@ -228,7 +236,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     val contractInfo: Speedy.ContractInfo =
       // NICK: where does this contract-info even get used?
       Speedy.ContractInfo(
-        version = V16,
+        version = V17,
         packageName = pkgName,
         templateId = i"'-unknown-':M:T",
         value = contractSValue,
@@ -242,7 +250,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     SpeedyTestLib
       .runCollectRequests(machine)
       .map { case (sv, _, uvs) => // ignoring any AuthRequest
-        val v = sv.toNormalizedValue(V16)
+        val v = sv.toNormalizedValue(V17)
         (v, uvs)
       }
   }
@@ -266,12 +274,12 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       i"'-pkg1-':M:T",
       ValueParty(alice),
       Set(alice),
-      crypto.Hash.KeyPackageName.assertBuild(pkgName, V16),
+      crypto.Hash.KeyPackageName.assertBuild(pkgName, V17),
     )
 
   "upgrade attempted" - {
 
-    "contract is LF < 1.16 -- should be reject" in {
+    "contract is LF < 1.17 -- should be reject" in {
       val v =
         makeRecord(
           ValueParty(alice),
@@ -418,17 +426,22 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
   "upgrade" - {
     "be able to fetch a same contract using different versions" in {
       // The following code is not properly typed, but emulates two commands that fetch a same contract using different versions.
-      val res = go(
+
+      val instance = ContractInstance(pkgName, i"'-pkg1-':M:T", v1_base)
+      val res = goFinish(
         e"""\(cid: ContractId '-pkg1-':M:T) ->
                ubind
                  x1: Unit <- '-pkg2-':M:do_fetch cid;
                  x2: Unit <- '-pkg3-':M:do_fetch cid
                in upure @Unit ()
           """,
-        ContractInstance(pkgName, i"'-pkg1-':M:T", v1_base),
+        instance,
       )
-      res shouldBe a[Right[_, _]]
+      inside(res) { case Right((_, result)) =>
+        result.contractPackages shouldBe Map(theCid -> instance.template.packageId)
+      }
     }
+
     "do recompute and check immutability of meta data when using different versions" in {
       // The following code is not properly typed, but emulates two commands that fetch a same contract using different versions.
       val res: Either[SError, (Value, List[UpgradeVerificationRequest])] = go(
@@ -445,7 +458,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           i"'-pkg1-':M:T",
           ValueParty(bob),
           Set(bob),
-          crypto.Hash.KeyPackageName.assertBuild(pkgName, V16),
+          crypto.Hash.KeyPackageName.assertBuild(pkgName, V17),
         )
         verificationRequests shouldBe List(
           UpgradeVerificationRequest(theCid, Set(alice), Set(bob), Some(v1_key)),

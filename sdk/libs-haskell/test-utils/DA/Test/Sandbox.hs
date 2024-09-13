@@ -146,6 +146,7 @@ createCantonSandbox dir sandboxOutput conf = do
         bootstrapPath = dir </> "canton-bootstrap.canton"
     BSL.writeFile configPath configStr
     writeFile bootstrapPath bootstrapStr
+    putStrLn "configStr"
     cantonSandboxProc <- getCantonSandboxProc configPath bootstrapPath
 
     mask $ \unmask -> do
@@ -214,7 +215,7 @@ getCantonConfig conf@SandboxConfig{..} portFile mCerts (ledgerPort, adminPort, d
                               [ "domain-parameters" Aeson..= Aeson.object
                                   [ "protocol-version" Aeson..= 
                                     (if | devVersionSupport -> ("dev" :: T.Text)
-                                        | previewVersionSupport -> "6"
+                                        | previewVersionSupport -> "5"
                                         | otherwise -> "5") ]
                               ]
                         ]

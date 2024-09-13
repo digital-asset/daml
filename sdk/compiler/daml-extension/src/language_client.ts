@@ -25,6 +25,9 @@ import {
   DamlVirtualResourceDidProgressNotification,
   WebviewFiles,
 } from "./virtual_resource_manager";
+import * as semver from "semver";
+import * as util from "util";
+import * as child_process from "child_process";
 
 namespace DamlKeepAliveRequest {
   export let type = new RequestType<void, void, void>("daml/keepAlive");
@@ -52,7 +55,7 @@ export class DamlLanguageClient {
   // DA.Daml.LanguageServer.
   private keepAliveTimeout = 120000;
 
-  constructor(
+  static async build(
     rootPath: string,
     envVars: { [envVarName: string]: string },
     config: vscode.WorkspaceConfiguration,
@@ -60,18 +63,29 @@ export class DamlLanguageClient {
     identifier: string,
     _context: vscode.ExtensionContext,
     _webviewFiles: WebviewFiles,
-  ) {
-    this.context = _context;
-    this.webviewFiles = _webviewFiles;
-
-    this.languageClient = this.createLanguageClient(
+  ): Promise<DamlLanguageClient> {
+    const [languageClient, multiIdeSupport] = await DamlLanguageClient.createLanguageClient(
       rootPath,
       envVars,
       config,
       telemetryConsent,
       identifier,
     );
+    return new DamlLanguageClient(languageClient, multiIdeSupport, _context, _webviewFiles,)
+  }
+
+  constructor(
+    languageClient: LanguageClient,
+    multiIdeSupport: boolean,
+    _context: vscode.ExtensionContext,
+    _webviewFiles: WebviewFiles,
+  ) {
+    this.context = _context;
+    this.webviewFiles = _webviewFiles;
+
+    this.languageClient = languageClient;
     this.languageClient.registerProposedFeatures();
+    this.isMultiIde = multiIdeSupport;
 
     this.virtualResourceManager = new VirtualResourceManager(
       this.languageClient,
@@ -135,7 +149,7 @@ export class DamlLanguageClient {
     else (<any>this.languageClient)._serverProcess.kill("SIGTERM");
   }
 
-  private addIfInConfig(
+  private static addIfInConfig(
     config: vscode.WorkspaceConfiguration,
     baseArgs: string[],
     toAdd: [string, string[]][],
@@ -147,17 +161,56 @@ export class DamlLanguageClient {
     return [].concat.apply([], <any>addedArgs);
   }
 
-  private getLanguageServerArgs(
+  private static async getSdkVersion(
+    damlPath: string,
+    projectPath: string | undefined,
+  ): Promise<string | undefined> {
+    // Ordered by priority
+    const selectionStrings = [
+      "selected by env var ",
+      "project SDK version from daml.yaml",
+      "default SDK version for new projects",
+    ];
+    const { stdout } = await util.promisify(child_process.exec)(damlPath + " version", { cwd: projectPath });
+    const lines = stdout.split("\n");
+    for (const selection of selectionStrings) {
+      const line = lines.find((line: string) => line.includes(selection));
+      if (line) return line.trim().split(" ")[0];
+    }
+  }
+
+  private static getMultiIdeSupport(
+    config: vscode.WorkspaceConfiguration,
+    sdkVersion: string | undefined,
+  ): boolean {
+    const multiIDESupport: boolean = config.get("multiPackageIdeSupport") || false;
+
+    // We'll say multi-ide is introduced in 2.9.0. The command existed
+    // in 2.8, but it was unfinished, so we shouldn't allow it to be used.
+    if (
+      multiIDESupport &&
+      sdkVersion &&
+      sdkVersion != "0.0.0" &&
+      semver.lt(sdkVersion, "2.9.0")
+    ) {
+      vscode.window.showWarningMessage(
+        `Selected Daml SDK version (${sdkVersion}) does not support Multi-IDE.\nMulti-IDE is disabled for this project.`,
+      );
+      return false;
+    }
+    return multiIDESupport;
+  }
+
+  private static getLanguageServerArgs(
     config: vscode.WorkspaceConfiguration,
     telemetryConsent: boolean | undefined,
+    multiIdeSupport: boolean,
     identifier: string,
   ): string[] {
-    const multiIDESupport = config.get("multiPackageIdeSupport");
-    this.isMultiIde = !!multiIDESupport;
     const logLevel = config.get("logLevel");
     const isDebug = logLevel == "Debug" || logLevel == "Telemetry";
 
-    let args: string[] = [multiIDESupport ? "multi-ide" : "ide", "--"];
+    let args: string[] = [multiIdeSupport ? "multi-ide" : "ide", "--"];
 
     if (telemetryConsent === true) {
       args.push("--telemetry");
@@ -167,7 +220,7 @@ export class DamlLanguageClient {
       // The user has not made an explicit choice.
       args.push("--telemetry-ignored");
     }
-    if (multiIDESupport === true) {
+    if (multiIdeSupport === true) {
       args.push("--log-level=" + logLevel);
       args.push("--ide-identifier=" + identifier);
     } else {
@@ -177,7 +230,7 @@ export class DamlLanguageClient {
     // split on an empty string returns an array with a single empty string
     const extraArgs = extraArgsString === "" ? [] : extraArgsString.split(" ");
     args = args.concat(extraArgs);
-    const serverArgs: string[] = this.addIfInConfig(config, args, [
+    const serverArgs: string[] = DamlLanguageClient.addIfInConfig(config, args, [
       ["profile", ["+RTS", "-h", "-RTS"]],
       ["autorunAllTests", ["--studio-auto-run-all-scenarios=yes"]],
     ]);
@@ -185,15 +238,28 @@ export class DamlLanguageClient {
     return serverArgs;
   }
 
-  // Update the manual watchers in haskell side to be aware of the root directory, and only ask for that
-
-  private createLanguageClient(
+  static findDamlCommand(): string {
+    try {
+      return which.sync("daml");
+    } catch (ex) {
+      const damlCmdPath = path.join(damlRoot, "bin", "daml");
+      if (fs.existsSync(damlCmdPath)) {
+        return damlCmdPath;
+      } else {
+        vscode.window.showErrorMessage(
+          "Failed to start the Daml language server. Make sure the assistant is installed.",
+        );
+        throw new Error("Failed to locate assistant.");
+      }
+    }
+  }
+  private static async createLanguageClient(
     rootPath: string,
     envVars: { [envVarName: string]: string },
     config: vscode.WorkspaceConfiguration,
     telemetryConsent: boolean | undefined,
     identifier: string,
-  ): LanguageClient {
+  ): Promise<[LanguageClient, boolean]> {
     // Options to control the language client
     let clientOptions: LanguageClientOptions = {
       // Register the server for Daml
@@ -202,25 +268,14 @@ export class DamlLanguageClient {
       ],
     };
 
-    let command: string;
+    const command = DamlLanguageClient.findDamlCommand();
 
-    try {
-      command = which.sync("daml");
-    } catch (ex) {
-      const damlCmdPath = path.join(damlRoot, "bin", "daml");
-      if (fs.existsSync(damlCmdPath)) {
-        command = damlCmdPath;
-      } else {
-        vscode.window.showErrorMessage(
-          "Failed to start the Daml language server. Make sure the assistant is installed.",
-        );
-        throw new Error("Failed to locate assistant.");
-      }
-    }
-
-    const serverArgs = this.getLanguageServerArgs(
+    const sdkVersion = await DamlLanguageClient.getSdkVersion(command, rootPath);
+    const multiIdeSupport = DamlLanguageClient.getMultiIdeSupport(config, sdkVersion);
+    const serverArgs = DamlLanguageClient.getLanguageServerArgs(
       config,
       telemetryConsent,
+      multiIdeSupport,
       identifier,
     );
 
@@ -235,7 +290,7 @@ export class DamlLanguageClient {
       clientOptions,
       true,
     );
-    return languageClient;
+    return [languageClient, multiIdeSupport];
   }
 
   private startKeepAliveWatchdog() {

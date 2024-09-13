@@ -163,7 +163,7 @@ class PackageServiceTest extends AsyncWordSpec with BaseTest with HasExecutionCo
             agreement "Agreement";
           };
        }"""
-      }(LanguageVersion.v1_16, Ref.PackageId.assertFromString("-self-"))
+      }(LanguageVersion.v1_17, Ref.PackageId.assertFromString("-self-"))
 
       val pkgId = DamlPackageStore.readPackageId(archive)
       val expectedPackageIdAndState = PackageDescription(
@@ -425,5 +425,5 @@ class PackageServiceTest extends AsyncWordSpec with BaseTest with HasExecutionCo
             agreement "Agreement";
           };
        }"""
-    }(LanguageVersion.v1_16, Ref.PackageId.assertFromString("-self-"))
+    }(LanguageVersion.v1_17, Ref.PackageId.assertFromString("-self-"))
 }

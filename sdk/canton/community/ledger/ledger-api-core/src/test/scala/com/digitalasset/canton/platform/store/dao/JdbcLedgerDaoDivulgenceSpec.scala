@@ -101,6 +101,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
         ),
         byKey = false,
         version = TransactionVersion.minVersion,
+        interfaceId = None,
       )
 
       val exercise3c = Node.Exercise(

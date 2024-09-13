@@ -7,7 +7,7 @@ import cats.syntax.option.*
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.domain.admin.v0 as domainV0
 import com.digitalasset.canton.health.NodeStatus.{multiline, portsString}
-import com.digitalasset.canton.health.admin.{v0, v1}
+import com.digitalasset.canton.health.admin.v0
 import com.digitalasset.canton.health.{
   ComponentStatus,
   NodeStatus,
@@ -51,12 +51,6 @@ final case class DomainManagerNodeStatus(
     .enableMethodAccessors
     .transform
     .toProtoV0
-
-  override def toProtoV1: v1.Status = this
-    .into[SimpleStatus]
-    .enableMethodAccessors
-    .transform
-    .toProtoV1
 
   def toDomainManagerStatusProto
       : domainV0.DomainManagerStatusResponse.DomainManagerStatusResponseStatus =

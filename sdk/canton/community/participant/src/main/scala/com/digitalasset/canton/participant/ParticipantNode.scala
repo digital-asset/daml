@@ -498,10 +498,7 @@ object ParticipantNodeBootstrap {
         meteringReportKey = CommunityKey,
         futureSupervisor = arguments.futureSupervisor,
         loggerFactory = arguments.loggerFactory,
-        multiDomainEnabled = multiDomainEnabledForLedgerApiServer,
       )
-
-    protected def multiDomainEnabledForLedgerApiServer: Boolean
 
     protected def createNode(
         arguments: Arguments,
@@ -574,8 +571,6 @@ object ParticipantNodeBootstrap {
         ledgerApiServerFactory = ledgerApiServerFactory,
         setInitialized = () => (),
       )
-
-    override protected def multiDomainEnabledForLedgerApiServer: Boolean = false
   }
 }
 
@@ -607,7 +602,7 @@ class ParticipantNode(
     val metrics: ParticipantMetrics,
     val config: LocalParticipantConfig,
     val nodeParameters: ParticipantNodeParameters,
-    storage: Storage,
+    val storage: Storage,
     override protected val clock: Clock,
     val topologyManager: ParticipantTopologyManager,
     val cryptoPureApi: CryptoPureApi,

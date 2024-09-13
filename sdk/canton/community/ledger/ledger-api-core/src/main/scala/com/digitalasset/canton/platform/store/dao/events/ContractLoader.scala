@@ -18,11 +18,7 @@ import com.digitalasset.canton.logging.{
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.indexer.parallel.BatchN
 import com.digitalasset.canton.platform.store.backend.ContractStorageBackend
-import com.digitalasset.canton.platform.store.backend.ContractStorageBackend.{
-  RawArchivedContract,
-  RawContractState,
-  RawCreatedContract,
-}
+import com.digitalasset.canton.platform.store.backend.ContractStorageBackend.RawContractState
 import com.digitalasset.canton.platform.store.dao.DbDispatcher
 import io.grpc.{Metadata, StatusRuntimeException}
 import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
@@ -132,7 +128,6 @@ object ContractLoader {
       maxQueueSize: Int,
       maxBatchSize: Int,
       parallelism: Int,
-      multiDomainEnabled: Boolean,
       loggerFactory: NamedLoggerFactory,
   )(implicit
       materializer: Materializer,
@@ -169,38 +164,13 @@ object ContractLoader {
                     before = latestValidAtOffset,
                   )
                 )(usedLoggingContext)
-            def additionalContractsF(
-                archivedContracts: Map[ContractId, RawArchivedContract],
-                createdContracts: Map[ContractId, RawCreatedContract],
-            ): Future[Map[ContractId, RawCreatedContract]] =
-              if (multiDomainEnabled) {
-                val notFoundContractIds = contractIds.view
-                  .filterNot(archivedContracts.contains)
-                  .filterNot(createdContracts.contains)
-                  .toSeq
-                if (notFoundContractIds.isEmpty) Future.successful(Map.empty)
-                else
-                  dbDispatcher.executeSql(metrics.daml.index.db.lookupAssignedContractsDbMetrics)(
-                    // The latestValidAtOffset is not used here as an upper bound for the lookup,
-                    // since the ContractStateCache only tracks creation and archival, therefore the
-                    // index is not moving ahead in case of assignment. This in corner cases would mean
-                    // that the index is behind of some assignments.
-                    // Instead the query is constrained by the ledgerEndCache.
-                    contractStorageBackend.assignedContracts(notFoundContractIds)
-                  )(usedLoggingContext)
-              } else Future.successful(Map.empty)
             for {
               archivedContracts <- archivedContractsF
               createdContracts <- createdContractsF
-              additionalContracts <- additionalContractsF(
-                archivedContracts = archivedContracts,
-                createdContracts = createdContracts,
-              )
             } yield batch.view.flatMap { case ((contractId, offset), _) =>
               archivedContracts
                 .get(contractId)
                 .orElse(createdContracts.get(contractId): Option[RawContractState])
-                .orElse(additionalContracts.get(contractId): Option[RawContractState])
                 .map((contractId, offset) -> _)
                 .toList
             }.toMap

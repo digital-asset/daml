@@ -81,7 +81,6 @@ class IndexerBenchmark extends NamedLogging {
               indexerExecutionContext,
               tracer,
               loggerFactory,
-              multiDomainEnabled = false,
               maxEventsByContractKeyCacheSize = None,
             )
             .acquire()
@@ -96,7 +95,6 @@ class IndexerBenchmark extends NamedLogging {
           servicesExecutionContext,
           tracer,
           loggerFactory,
-          multiDomainEnabled = false,
           dataSourceProperties,
           highAvailability,
         )

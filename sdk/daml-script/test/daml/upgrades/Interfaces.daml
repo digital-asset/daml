@@ -30,7 +30,7 @@ contents: |
 
   data IV = IV with
     owner : Party
-    version : Text
+    payload : Optional Int
 
   interface I where
     viewtype IV
@@ -62,10 +62,10 @@ contents: |
     signatory party
 
     choice CallInterface : Text with
-        cid : ContractId I
+        icid : ContractId I
       controller party
       do
-        exercise cid GetVersion
+        exercise icid GetVersion
 -}
 
 -- The versioned/upgraded package
@@ -85,24 +85,32 @@ contents: |
 
   template FITemplate with
       party : Party
+      payload : Optional Int   -- @V  2
     where
     signatory party
 
     interface instance I for FITemplate where
-      view = IV party "V1" -- @V 1
-      view = IV party "V2" -- @V  2
-      getVersion = "V1"    -- @V 1
-      getVersion = "V2"    -- @V  2
+      view = IV party None     -- @V 1
+      view = IV party payload  -- @V  2
+      getVersion = "V1"        -- @V 1
+      getVersion = "V2"        -- @V  2
 
-    -- This choice exists here for convenience. It could be in a separate package which depends on this,
+    -- Following two choices exist here for convenience. They could be in a separate package which depends on this,
     -- but additional unnecessary packages simply wastes time.
-    choice FetchFromInterface : Text with
-        cid : ContractId I
+    choice FetchFromInterface : Optional Int with
+        icid : ContractId I
       controller party
       do
-        (_, res) <- fromSomeNote "Failed to fetch contract" <$> fetchFromInterface @FITemplate cid
+        (_, res) <- fromSomeNote "Failed to fetch contract" <$> fetchFromInterface @FITemplate icid
         let v = view $ toInterface @I res
-        pure v.version
+        pure v.payload
+
+    choice FetchInterface : () with
+        icid : ContractId I
+      controller party
+      do
+        fetch icid
+        pure ()
 -}
 
 -- Alt templates package to test multiple preference at once
@@ -121,14 +129,15 @@ contents: |
 
   template FITemplateAlt with
       party : Party
+      payload : Optional Int   -- @V  2
     where
     signatory party
 
     interface instance I for FITemplateAlt where
-      view = IV party "V1" -- @V 1
-      view = IV party "V2" -- @V  2
-      getVersion = "V1"    -- @V 1
-      getVersion = "V2"    -- @V  2
+      view = IV party None     -- @V 1
+      view = IV party payload  -- @V  2
+      getVersion = "V1"        -- @V 1
+      getVersion = "V2"        -- @V  2
 -}
 
 interfacesV1 : PackageId
@@ -152,8 +161,10 @@ main = tests
   , ("Package map preference is used for interface implementation selection at choice body level", interfaceChoicePackagePreferenceUpdate)
   , ("Multiple interface exercises use their respective package preference entries at command level", multipleInterfaceChoicePackagePreferenceCommand)
   , ("Multiple interface exercises use their respective package preference entries at choice body level", multipleInterfaceChoicePackagePreferenceUpdate)
-  , broken ("queryInterfaceContractId uses highest version of view", queryInterfaceUpgrades)
-  , broken ("fetchFromInterface upgrades payload to match request", fetchFromInterfaceUpgrades)
+  , ("queryInterfaceContractId works as intended in the presence of upgraded packages", queryInterfaceUpgrades)
+  , ("fetchFromInterface works as intended in the presence of upgraded packages", fetchFromInterfaceUpgrades)
+  -- IDE Ledger doesn't support unvetting
+  , brokenOnIDELedger ("Can fetch interface from V1 contract when V1 unvetted", fetchWithoutV1)
   ]
 
 setupAliceAndInterface : Script (Party, ContractId I)
@@ -171,7 +182,7 @@ defaultHighestVersionChoiceImplementationCommand = test $ do
 defaultHighestVersionChoiceImplementationUpdate : Test
 defaultHighestVersionChoiceImplementationUpdate = test $ do
   (alice, icid) <- setupAliceAndInterface
-  res <- alice `submit` createAndExerciseCmd (Caller with party = alice) (CallInterface with cid = icid)
+  res <- alice `submit` createAndExerciseCmd (Caller with party = alice) (CallInterface with icid = icid)
   res === "V2"
 
 interfaceChoicePackagePreferenceCommand : Test
@@ -189,7 +200,7 @@ interfaceChoicePackagePreferenceUpdate = test $ do
   res <-
     submitWithOptions
       (actAs alice <> packagePreference [interfacesV1])
-      (createAndExerciseCmd (Caller with party = alice) (CallInterface with cid = icid))
+      (createAndExerciseCmd (Caller with party = alice) (CallInterface with icid = icid))
   res === "V1"
 
 multipleInterfaceChoicePackagePreference : (Party -> ContractId I -> Commands Text) -> Test
@@ -200,7 +211,7 @@ multipleInterfaceChoicePackagePreference doExercise = test $ do
   let icid = toInterfaceContractId @I cid
       icidAlt = toInterfaceContractId @I cidAlt
       -- Tests all 4 combinations of 2 versions for 2 packages
-      cases = 
+      cases =
         [ (interfacesVersion, interfacesVersionStr, interfacesAltVersion, interfacesAltVersionStr)
         | (interfacesVersion, interfacesVersionStr) <- [(interfacesV1, "V1"), (interfacesV2, "V2")]
         , (interfacesAltVersion, interfacesAltVersionStr) <- [(interfacesAltV1, "V1"), (interfacesAltV2, "V2")]
@@ -223,16 +234,25 @@ multipleInterfaceChoicePackagePreferenceCommand =
 multipleInterfaceChoicePackagePreferenceUpdate : Test
 multipleInterfaceChoicePackagePreferenceUpdate =
   multipleInterfaceChoicePackagePreference $ \alice icid ->
-    createAndExerciseCmd (Caller with party = alice) (CallInterface with cid = icid)
+    createAndExerciseCmd (Caller with party = alice) (CallInterface with icid = icid)
 
 queryInterfaceUpgrades : Test
 queryInterfaceUpgrades = test $ do
   (alice, icid) <- setupAliceAndInterface
   res <- fromSomeNote "Failed to find contract" <$> alice `queryInterfaceContractId` icid
-  res.version === "V2"
+  res.payload === None
 
 fetchFromInterfaceUpgrades : Test
 fetchFromInterfaceUpgrades = test $ do
   (alice, icid) <- setupAliceAndInterface
-  res <- alice `submit` createAndExerciseCmd (V2.FITemplate with party = alice) (V2.FetchFromInterface with cid = icid)
-  res === "V2"
+  resV1 <- alice `submit` createAndExerciseExactCmd (V1.FITemplate with party = alice) (V1.FetchFromInterface with icid = icid)
+  resV1 === None
+  resV2 <- alice `submit` createAndExerciseExactCmd (V2.FITemplate with party = alice, payload = None) (V2.FetchFromInterface with icid = icid)
+  resV2 === None
+
+fetchWithoutV1 : Test
+fetchWithoutV1 = test $ do
+  (alice, icid) <- setupAliceAndInterface
+  withUnvettedDarOnParticipant "interfaces-1.0.0" participant0 $ do
+    alice `submit` createAndExerciseCmd (V2.FITemplate alice None) (V2.FetchInterface icid)
+  pure ()

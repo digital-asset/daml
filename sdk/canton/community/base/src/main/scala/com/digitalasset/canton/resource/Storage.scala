@@ -42,9 +42,8 @@ import com.digitalasset.canton.store.db.{DbDeserializationException, DbSerializa
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.*
-import com.digitalasset.canton.util.retry.RetryUtil.DbExceptionRetryable
 import com.digitalasset.canton.util.retry.{DbRetries, RetryEither}
+import com.digitalasset.canton.util.{Thereafter, *}
 import com.digitalasset.canton.{LfPackageId, LfPackageVersion, LfPartyId}
 import com.google.protobuf.ByteString
 import com.typesafe.config.{Config, ConfigValueFactory}
@@ -324,7 +323,7 @@ trait DbStorage extends Storage { self: NamedLogging =>
           else dbConfig.parameters.connectionTimeout.asFiniteApproximation
         ),
       )
-      .apply(body, DbExceptionRetryable)
+      .apply(body, DbExceptionRetryPolicy)
       .thereafter { _ =>
         if (logOperations) {
           logger.debug(s"completed $action: $operationName")
@@ -677,6 +676,7 @@ object DbStorage {
       scheduler: Option[ScheduledExecutorService],
       forMigration: Boolean = false,
       retryConfig: DbStorage.RetryConfig = DbStorage.RetryConfig.failFast,
+      additionalConfigDefaults: Option[Config] = None,
   )(
       loggerFactory: NamedLoggerFactory
   )(implicit closeContext: CloseContext): EitherT[UnlessShutdown, String, Database] = {
@@ -685,12 +685,17 @@ object DbStorage {
 
     TraceContext.withNewTraceContext { implicit traceContext =>
       // Must be called to set proper defaults in case of H2
-      val configWithFallbacks: Config =
-        DbConfig.configWithFallback(config)(
-          numThreads,
-          s"slick-${loggerFactory.threadName}-${poolNameIndex.incrementAndGet()}",
-          logger,
-        )
+      val configWithFallbacks: Config = {
+        val cfg = DbConfig
+          .configWithFallback(config)(
+            numThreads,
+            s"slick-${loggerFactory.threadName}-${poolNameIndex.incrementAndGet()}",
+            logger,
+          )
+
+        // Apply the additional config defaults if they exists
+        additionalConfigDefaults.map(cfg.withFallback(_)).getOrElse(cfg)
+      }
 
       val configWithMigrationFallbacks: Config = if (forMigration) {
         if (configWithFallbacks.hasPath("numThreads")) {

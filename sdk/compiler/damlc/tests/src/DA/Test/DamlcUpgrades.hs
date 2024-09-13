@@ -19,7 +19,7 @@ import SdkVersion (SdkVersioned, sdkVersion, withSdkVersions)
 import DA.Daml.LF.Ast.Version
 import Text.Regex.TDFA
 import qualified Data.Text as T
-import Safe (fromJustNote)
+import Data.Maybe (maybeToList)
 
 main :: IO ()
 main = withSdkVersions $ do
@@ -314,14 +314,28 @@ tests damlc =
                       False
                       setUpgradeField
                 , test
-                      "SucceedsWhenAnInstanceIsAddedSeparateDep"
+                      "FailsWhenAnInstanceIsAddedSeparateDep"
+                      (FailWithError "\ESC\\[0;91merror type checking template Main.T :\n  Implementation of interface I by template T appears in this package, but does not appear in package that is being upgraded.")
+                      versionDefault
+                      SeparateDep
+                      False
+                      setUpgradeField
+                , test
+                      "FailsWhenAnInstanceIsAddedUpgradedPackage"
+                      (FailWithError "\ESC\\[0;91merror type checking template Main.T :\n  Implementation of interface I by template T appears in this package, but does not appear in package that is being upgraded.")
+                      versionDefault
+                      DependOnV1
+                      True
+                      setUpgradeField
+                , test
+                      "SucceedsWhenAnInstanceIsAddedToNewTemplateSeparateDep"
                       Succeed
                       versionDefault
                       SeparateDep
                       False
                       setUpgradeField
                 , test
-                      "SucceedsWhenAnInstanceIsAddedUpgradedPackage"
+                      "SucceedsWhenAnInstanceIsAddedToNewTemplateUpgradedPackage"
                       Succeed
                       versionDefault
                       DependOnV1
@@ -370,6 +384,13 @@ tests damlc =
                       False
                       setUpgradeField
                 , test
+                      "TemplateChangedKeyType2"
+                      Succeed
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                , test
                       "RecordFieldsNewNonOptional"
                       (FailWithError "\ESC\\[0;91merror type checking data type Main.Struct:\n  The upgraded data type Struct has added new fields, but those fields are not Optional.")
                       versionDefault
@@ -387,14 +408,14 @@ tests damlc =
                       "FailsWithSynonymReturnTypeChangeInSeparatePackage"
                       (FailWithError "\ESC\\[0;91merror type checking template Main.T choice C:\n  The upgraded choice C cannot change its return type.")
                       versionDefault
-                      SeparateDeps
+                      (SeparateDeps False)
                       False
                       setUpgradeField
                 , test
                       "SucceedsWhenUpgradingADependency"
                       Succeed
                       versionDefault
-                      SeparateDeps
+                      (SeparateDeps False)
                       False
                       setUpgradeField
                 , test
@@ -411,6 +432,45 @@ tests damlc =
                       NoDependencies
                       False
                       setUpgradeField
+                , test
+                      "FailsWhenDepsDowngradeVersionsWhileUsingDatatypes"
+                      (FailWithError "\ESC\\[0;91merror type checking data type Main.Main:\n  The upgraded data type Main has changed the types of some of its original fields.")
+                      versionDefault
+                      (SeparateDeps True)
+                      False
+                      setUpgradeField
+                , test
+                      "SucceedsWhenDepsDowngradeVersionsWithoutUsingDatatypes"
+                      Succeed
+                      versionDefault
+                      (SeparateDeps True)
+                      False
+                      setUpgradeField
+                , test
+                      "FailsWhenDependencyIsNotAValidUpgrade"
+                      (FailWithError "\ESC\\[0;91merror while validating that dependency upgrades-example-FailsWhenDependencyIsNotAValidUpgrade-dep version 0.0.2 is a valid upgrade of version 0.0.1\n  error type checking data type Dep.Dep:\n    The upgraded data type Dep has added new fields, but those fields are not Optional.")
+                      versionDefault
+                      (SeparateDeps False)
+                      False
+                      setUpgradeField
+                , testWithAdditionalDars
+                      "FailsWhenUpgradedFieldPackagesAreNotUpgradable"
+                      (FailWithError "\ESC\\[0;91merror type checking data type ProjectMain.T:\n  The upgraded data type T has changed the types of some of its original fields.")
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                      ["upgrades-SucceedsWhenATopLevelRecordAddsAnOptionalFieldAtTheEnd-v2.dar"] -- Note that dependencies are in different order
+                      ["upgrades-SucceedsWhenATopLevelRecordAddsAnOptionalFieldAtTheEnd-v1.dar"]
+                , testWithAdditionalDars
+                      "FailsWhenUpgradedFieldFromDifferentPackageName"
+                      (FailWithError "\ESC\\[0;91merror type checking data type Main.A:\n  The upgraded data type A has changed the types of some of its original fields.")
+                      versionDefault
+                      NoDependencies
+                      False
+                      setUpgradeField
+                      ["upgrades-FailsWhenUpgradedFieldFromDifferentPackageName-dep-name1.dar"]
+                      ["upgrades-FailsWhenUpgradedFieldFromDifferentPackageName-dep-name2.dar"]
                 ]
             | setUpgradeField <- [True, False]
             ] ++
@@ -418,30 +478,25 @@ tests damlc =
                 [ testGeneral
                       (prefix <> "WhenAnInterfaceAndATemplateAreDefinedInTheSamePackage")
                       "WarnsWhenAnInterfaceAndATemplateAreDefinedInTheSamePackage"
-                      (expectation "type checking module Main:\n  This package defines both interfaces and templates.")
+                      (expectation "type checking <none>:\n  This package defines both interfaces and templates.")
                       versionDefault
                       NoDependencies
                       warnBadInterfaceInstances
                       True
                       doTypecheck
+                      []
+                      []
                 , testGeneral
                       (prefix <> "WhenAnInterfaceIsUsedInThePackageThatItsDefinedIn")
                       "WarnsWhenAnInterfaceIsUsedInThePackageThatItsDefinedIn"
-                      (expectation "type checking interface Main.I :\n  The interface I was defined in this package and implemented in this package by the following templates:")
+                      (expectation "type checking template Main.T interface instance Main.I for Main.T:\n  The interface I was defined in this package") -- TODO complete error
                       versionDefault
                       NoDependencies
                       warnBadInterfaceInstances
                       True
                       doTypecheck
-                , testGeneral
-                      (prefix <> "WhenAnInterfaceIsDefinedAndThenUsedInAPackageThatUpgradesIt")
-                      "WarnsWhenAnInterfaceIsDefinedAndThenUsedInAPackageThatUpgradesIt"
-                      (expectation "type checking template Main.T interface instance [0-9a-f]+:Main:I for Main:T:\n  The template T has implemented interface I, which is defined in a previous version of this package.")
-                      versionDefault
-                      DependOnV1
-                      warnBadInterfaceInstances
-                      True
-                      doTypecheck
+                      []
+                      []
                 ]
             | warnBadInterfaceInstances <- [True, False]
             , let prefix = if warnBadInterfaceInstances then "Warns" else "Fail"
@@ -453,15 +508,9 @@ tests damlc =
             ]
        )
   where
-    --contractKeysMinVersion :: LF.Version
-    --contractKeysMinVersion = LF.versionDefault
-
+    -- TODO: https://github.com/digital-asset/daml/issues/19862
     versionDefault :: LF.Version
-    versionDefault =
-      maxMinorVersion LF.versionDefault $ LF.versionMinor $
-        fromJustNote
-            "Expected at least one LF 1.x version to support package upgrades." 
-            (LF.featureMinVersion LF.featurePackageUpgrades LF.V1)
+    versionDefault = version1_dev
 
     test
         :: String
@@ -472,7 +521,19 @@ tests damlc =
         -> Bool
         -> TestTree
     test name expectation lfVersion sharedDep warnBadInterfaceInstances setUpgradeField =
-            testGeneral name name expectation lfVersion sharedDep warnBadInterfaceInstances setUpgradeField True
+            testGeneral name name expectation lfVersion sharedDep warnBadInterfaceInstances setUpgradeField True [] []
+
+    testWithAdditionalDars
+        :: String
+        -> Expectation
+        -> LF.Version
+        -> Dependency
+        -> Bool
+        -> Bool
+        -> [String] -> [String]
+        -> TestTree
+    testWithAdditionalDars name expectation lfVersion sharedDep warnBadInterfaceInstances setUpgradeField additionalDarsV1 additionalDarsV2 =
+            testGeneral name name expectation lfVersion sharedDep warnBadInterfaceInstances setUpgradeField True additionalDarsV1 additionalDarsV2
 
     testGeneral
         :: String
@@ -483,12 +544,13 @@ tests damlc =
         -> Bool
         -> Bool
         -> Bool
+        -> [String] -> [String]
         -> TestTree
-    testGeneral name location expectation lfVersion sharedDep warnBadInterfaceInstances setUpgradeField doTypecheck =
+    testGeneral name location expectation lfVersion sharedDep warnBadInterfaceInstances setUpgradeField doTypecheck additionalDarsV1 additionalDarsV2 =
         let upgradeFieldTrailer = if not setUpgradeField then " (no upgrades field)" else ""
             doTypecheckTrailer = if not doTypecheck then " (disable typechecking)" else ""
         in
-        testCase (name <> upgradeFieldTrailer <> doTypecheckTrailer) $
+        testCase (name <> upgradeFieldTrailer <> doTypecheckTrailer) $ do
         withTempDir $ \dir -> do
             let newDir = dir </> "newVersion"
             let oldDir = dir </> "oldVersion"
@@ -496,6 +558,7 @@ tests damlc =
             let oldDar = oldDir </> "old.dar"
 
             let testRunfile path = locateRunfiles (mainWorkspace </> "test-common/src/main/daml/upgrades" </> path)
+            let testAdditionaDarRunfile darName = locateRunfiles (mainWorkspace </> "test-common" </> darName)
 
             v1FilePaths <- listDirectory =<< testRunfile (location </> "v1")
             let oldVersion = flip map v1FilePaths $ \path ->
@@ -517,10 +580,10 @@ tests damlc =
                       )
                 let sharedDir = dir </> "shared"
                 let sharedDar = sharedDir </> "out.dar"
-                writeFiles sharedDir (projectFile ("upgrades-example-" <> location <> "-dep") Nothing Nothing : sharedDepFiles)
+                writeFiles sharedDir (projectFile "0.0.1" ("upgrades-example-" <> location <> "-dep") Nothing Nothing [] : sharedDepFiles)
                 callProcessSilent damlc ["build", "--project-root", sharedDir, "-o", sharedDar]
                 pure (Just sharedDar, Just sharedDar)
-              SeparateDeps -> do
+              SeparateDeps { shouldSwap } -> do
                 depV1FilePaths <- listDirectory =<< testRunfile (location </> "dep-v1")
                 let depV1Files = flip map depV1FilePaths $ \path ->
                       ( "daml" </> path
@@ -528,7 +591,7 @@ tests damlc =
                       )
                 let depV1Dir = dir </> "shared-v1"
                 let depV1Dar = depV1Dir </> "out.dar"
-                writeFiles depV1Dir (projectFile ("upgrades-example-" <> location <> "-dep-v1") Nothing Nothing : depV1Files)
+                writeFiles depV1Dir (projectFile "0.0.1" ("upgrades-example-" <> location <> "-dep") Nothing Nothing [] : depV1Files)
                 callProcessSilent damlc ["build", "--project-root", depV1Dir, "-o", depV1Dar]
 
                 depV2FilePaths <- listDirectory =<< testRunfile (location </> "dep-v2")
@@ -538,19 +601,23 @@ tests damlc =
                       )
                 let depV2Dir = dir </> "shared-v2"
                 let depV2Dar = depV2Dir </> "out.dar"
-                writeFiles depV2Dir (projectFile ("upgrades-example-" <> location <> "-dep-v2") Nothing Nothing : depV2Files)
+                writeFiles depV2Dir (projectFile "0.0.2" ("upgrades-example-" <> location <> "-dep") Nothing Nothing [] : depV2Files)
                 callProcessSilent damlc ["build", "--project-root", depV2Dir, "-o", depV2Dar]
 
-                pure (Just depV1Dar, Just depV2Dar)
+                if shouldSwap
+                   then pure (Just depV2Dar, Just depV1Dar)
+                   else pure (Just depV1Dar, Just depV2Dar)
               DependOnV1 ->
                 pure (Nothing, Just oldDar)
               _ ->
                 pure (Nothing, Nothing)
 
-            writeFiles oldDir (projectFile ("upgrades-example-" <> location) Nothing depV1Dar : oldVersion)
+            v1AdditionalDarsRunFiles <- traverse testAdditionaDarRunfile additionalDarsV1
+            writeFiles oldDir (projectFile "0.0.1" ("upgrades-example-" <> location) Nothing depV1Dar v1AdditionalDarsRunFiles : oldVersion)
             callProcessSilent damlc ["build", "--project-root", oldDir, "-o", oldDar]
 
-            writeFiles newDir (projectFile ("upgrades-example-" <> location <> "-v2") (if setUpgradeField then Just oldDar else Nothing) depV2Dar : newVersion)
+            v2AdditionalDarsRunFiles <- traverse testAdditionaDarRunfile additionalDarsV2
+            writeFiles newDir (projectFile "0.0.2" ("upgrades-example-" <> location) (if setUpgradeField then Just oldDar else Nothing) depV2Dar v2AdditionalDarsRunFiles : newVersion)
 
             case expectation of
               Succeed ->
@@ -570,18 +637,20 @@ tests damlc =
                   let compiledRegex :: Regex
                       compiledRegex = makeRegexOpts defaultCompOpt { multiline = False } defaultExecOpt regexWithSeverity
                   if setUpgradeField && doTypecheck
-                      then unless (matchTest compiledRegex stderr) $
-                            assertFailure ("`daml build` succeeded, but did not give a warning matching '" <> show regexWithSeverity <> "':\n" <> show stderr)
+                      then case matchCount compiledRegex stderr of
+                            0 -> assertFailure ("`daml build` succeeded, but did not give a warning matching '" <> show regexWithSeverity <> "':\n" <> show stderr)
+                            1 -> pure ()
+                            _ -> assertFailure ("`daml build` succeeded, but gave a warning matching '" <> show regexWithSeverity <> "' more than once:\n" <> show stderr)
                       else when (matchTest compiledRegex stderr) $
                             assertFailure ("`daml build` succeeded, did not `upgrade:` field set, should NOT give a warning matching '" <> show regexWithSeverity <> "':\n" <> show stderr)
           where
-          projectFile name upgradedFile mbDep =
+          projectFile version name upgradedFile mbDep darDeps =
               ( "daml.yaml"
               , pure $ unlines $
                 [ "sdk-version: " <> sdkVersion
                 , "name: " <> name
                 , "source: daml"
-                , "version: 0.0.1"
+                , "version: " <> version
                 , "dependencies:"
                 , "  - daml-prim"
                 , "  - daml-stdlib"
@@ -591,8 +660,13 @@ tests damlc =
                   ++ ["  - --typecheck-upgrades=no" | not doTypecheck]
                   ++ ["  - --warn-bad-interface-instances=yes" | warnBadInterfaceInstances ]
                   ++ ["upgrades: '" <> path <> "'" | Just path <- pure upgradedFile]
-                  ++ ["data-dependencies:\n -  '" <> path <> "'" | Just path <- pure mbDep]
+                  ++ renderDataDeps (maybeToList mbDep ++ darDeps)
               )
+
+          renderDataDeps :: [String] -> [String]
+          renderDataDeps [] = []
+          renderDataDeps paths =
+            ["data-dependencies:"] ++ [" -  '" <> path <> "'" | path <- paths]
 
     writeFiles dir fs =
         for_ fs $ \(file, ioContent) -> do
@@ -610,4 +684,4 @@ data Dependency
   = NoDependencies
   | DependOnV1
   | SeparateDep
-  | SeparateDeps
+  | SeparateDeps { shouldSwap :: Bool }

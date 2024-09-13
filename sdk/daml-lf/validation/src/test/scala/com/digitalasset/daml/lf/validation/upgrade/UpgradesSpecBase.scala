@@ -98,7 +98,7 @@ trait LongTests { this: UpgradesSpec =>
 
     s"uploading the standard library twice for two different LF versions succeeds ($suffix)" in {
       for {
-        result1 <- uploadPackage("test-common/upgrades-EmptyProject-v116.dar")
+        result1 <- uploadPackage("test-common/upgrades-EmptyProject-v117.dar")
         result2 <- uploadPackage("test-common/upgrades-EmptyProject-v1dev.dar")
       } yield {
         // We expect both results to be error-free
@@ -206,6 +206,13 @@ trait LongTests { this: UpgradesSpec =>
         "test-common/upgrades-FailsWhenTemplateChangesKeyType-v1.dar",
         "test-common/upgrades-FailsWhenTemplateChangesKeyType-v2.dar",
         assertPackageUpgradeCheck(Some("The upgraded template A cannot change its key type.")),
+      )
+    }
+    s"Succeeds when template upgrades its key type ($suffix)" in {
+      testPackagePair(
+        "test-common/upgrades-SucceedsWhenTemplateUpgradesKeyType-v1.dar",
+        "test-common/upgrades-SucceedsWhenTemplateUpgradesKeyType-v2.dar",
+        assertPackageUpgradeCheck(None),
       )
     }
     s"Fails when template removes key type ($suffix)" in {
@@ -592,7 +599,7 @@ trait LongTests { this: UpgradesSpec =>
 
     "report no upgrade errors when the upgrade use a newer version of LF" in {
       testPackagePair(
-        mkTrivialPkg("-increasing-lf-version-", "1.0.0", LanguageVersion.v1_16),
+        mkTrivialPkg("-increasing-lf-version-", "1.0.0", LanguageVersion.v1_17),
         mkTrivialPkg("-increasing-lf-version-", "2.0.0", LanguageVersion.v1_dev),
         assertPackageUpgradeCheck(None),
       )
@@ -601,7 +608,7 @@ trait LongTests { this: UpgradesSpec =>
     "report upgrade errors when the upgrade use a older version of LF" in
       testPackagePair(
         mkTrivialPkg("-decreasing-lf-version-", "1.0.0", LanguageVersion.v1_dev),
-        mkTrivialPkg("-decreasing-lf-version-", "2.0.0", LanguageVersion.v1_16),
+        mkTrivialPkg("-decreasing-lf-version-", "2.0.0", LanguageVersion.v1_17),
         assertPackageUpgradeCheck(Some("The upgraded package uses an older LF version")),
       )
 
@@ -626,6 +633,30 @@ trait LongTests { this: UpgradesSpec =>
           Some("The upgraded template A has changed the types of some of its original fields."),
         ),
       )
+
+    "Fails when a package embeds a previous version of itself it is not a valid upgrade of" in {
+      for {
+        uploadResult <- uploadPackage(
+          "test-common/upgrades-FailsWhenDepIsInvalidPreviousVersionOfSelf-v2.dar"
+        )
+      } yield {
+        // We expect the optional error to be defined. We do not check the error message because the machinery for
+        // reading the logs in this class is tailored towards package pairs. But the test below, which is identical to
+        // this one except the upgrade is valid, proves that it fails for the expected reason.
+        assert(uploadResult._2.isDefined)
+      }
+    }
+
+    "Succeeds when a package embeds a previous version of itself it is a valid upgrade of" in {
+      for {
+        uploadResult <- uploadPackage(
+          "test-common/upgrades-SucceedsWhenDepIsValidPreviousVersionOfSelf-v2.dar"
+        )
+      } yield {
+        // We expect the optional error to be empty.
+        assert(uploadResult._2.isEmpty)
+      }
+    }
 
     "Succeeds even when non-serializable types are incompatible" in {
       testPackagePair(
@@ -695,23 +726,47 @@ trait LongTests { this: UpgradesSpec =>
       } yield result
     }
 
-    "Succeeds when an instance is added (separate dep)." in {
+    "Fails when an instance is added (separate dep)." in {
       for {
-        _ <- uploadPackage("test-common/upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-dep.dar")
+        _ <- uploadPackage("test-common/upgrades-FailsWhenAnInstanceIsAddedSeparateDep-dep.dar")
         result <- testPackagePair(
-          "test-common/upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-v1.dar",
-          "test-common/upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-v2.dar",
+          "test-common/upgrades-FailsWhenAnInstanceIsAddedSeparateDep-v1.dar",
+          "test-common/upgrades-FailsWhenAnInstanceIsAddedSeparateDep-v2.dar",
           assertPackageUpgradeCheck(
-            None
+            Some(
+              "Implementation of interface .*:Dep:I by template T appears in this package, but does not appear in package that is being upgraded."
+            )
           ),
         )
       } yield result
     }
 
-    "Succeeds when an instance is added (upgraded package)." in {
+    "Fails when an instance is added (upgraded package)." in {
       testPackagePair(
-        "test-common/upgrades-SucceedsWhenAnInstanceIsAddedUpgradedPackage-v1.dar",
-        "test-common/upgrades-SucceedsWhenAnInstanceIsAddedUpgradedPackage-v2.dar",
+        "test-common/upgrades-FailsWhenAnInstanceIsAddedUpgradedPackage-v1.dar",
+        "test-common/upgrades-FailsWhenAnInstanceIsAddedUpgradedPackage-v2.dar",
+        assertPackageUpgradeCheck(
+          Some(
+            "Implementation of interface .*:Main:I by template T appears in this package, but does not appear in package that is being upgraded."
+          )
+        ),
+      )
+    }
+
+    "Succeeds when an instance is added to a new template (upgraded package)." in {
+      testPackagePair(
+        "test-common/upgrades-SucceedsWhenAnInstanceIsAddedToNewTemplateUpgradedPackage-v1.dar",
+        "test-common/upgrades-SucceedsWhenAnInstanceIsAddedToNewTemplateUpgradedPackage-v2.dar",
+        assertPackageUpgradeCheck(
+          None
+        ),
+      )
+    }
+
+    "Succeeds when an instance is added to a new template (separate dep)." in {
+      testPackagePair(
+        "test-common/upgrades-SucceedsWhenAnInstanceIsAddedToNewTemplateSeparateDep-v1.dar",
+        "test-common/upgrades-SucceedsWhenAnInstanceIsAddedToNewTemplateSeparateDep-v2.dar",
         assertPackageUpgradeCheck(
           None
         ),

@@ -145,7 +145,7 @@ object SequencerStatus {
             connectedParticipants = participants,
             topologyQueue = status.topologyQueue,
             components = status.components,
-            version = Some(ReleaseVersion.current),
+            version = status.version,
             protocolVersion = protocolVersion.some,
             domainId = domainId,
             sequencer = sequencer,

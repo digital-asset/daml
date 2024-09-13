@@ -363,6 +363,10 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         case Right(()) => ()
       }
     }
+
+    "return contract id package in metadata" in {
+      txMeta.contractPackages shouldBe Map(cid -> templateId.packageId)
+    }
   }
 
   "exercise-by-key command with missing key" should {
@@ -1332,7 +1336,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           suffixLenientEngine
             .reinterpret(
               n.requiredAuthorizers,
-              ReplayCommand.Fetch(n.templateId, n.coid),
+              ReplayCommand.Fetch(n.templateId, None, n.coid),
               txMeta.nodeSeeds.toSeq.collectFirst { case (`nid`, seed) => seed },
               txMeta.submissionTime,
               let,
@@ -1378,6 +1382,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
 
       val fetchNode = ReplayCommand.Fetch(
         templateId = fetchedTid,
+        interfaceId = None,
         coid = fetchedCid,
       )
 
@@ -2603,7 +2608,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
                 val key = fetch.keyOpt.getOrElse(sys.error("unexpected empty contract key")).value
                 ReplayCommand.FetchByKey(fetch.templateId, key)
               case fetch: Node.Fetch =>
-                ReplayCommand.Fetch(fetch.templateId, fetch.coid)
+                ReplayCommand.Fetch(fetch.templateId, fetch.interfaceId, fetch.coid)
               case lookup: Node.LookupByKey =>
                 ReplayCommand.LookupByKey(lookup.templateId, lookup.key.value)
               case exe: Node.Exercise if exe.byKey =>
@@ -2663,6 +2668,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
           nodeSeeds = state.nodeSeeds.toImmArray,
           globalKeyMapping = Map.empty,
           disclosedEvents = ImmArray.empty,
+          contractPackages = Map.empty,
         ),
       )
     )
@@ -2691,6 +2697,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
       inside(result) { case Right((transaction, metadata)) =>
         transaction should haveDisclosedInputContracts(usedDisclosedContract)
         metadata should haveDisclosedEvents(expectedDisclosedEvent)
+        metadata should haveDisclosedContractIdPackages(expectedDisclosedEvent)
       }
     }
 
@@ -2717,6 +2724,26 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
           expectedResult == actualResult,
           s"Failed with unexpected disclosed contracts: $expectedResult != $actualResult $debugMessage",
           s"Failed with unexpected disclosed contracts: $expectedResult == $actualResult",
+        )
+      }
+
+    def haveDisclosedContractIdPackages(
+        expectedProcessedDisclosedContracts: Node.Create*
+    ): Matcher[Tx.Metadata] =
+      Matcher { metadata =>
+        val expectedResult = Seq(expectedProcessedDisclosedContracts: _*)
+          .map(c => c.coid -> c.templateId.packageId)
+          .toMap
+        val actualResult = metadata.contractPackages
+
+        val missing = expectedResult -- actualResult.keySet
+
+        val debugMessage = s"Missing contractIds package mappings: $missing"
+
+        MatchResult(
+          missing.isEmpty,
+          s"Failed with missing disclosed contracts: $expectedResult != $actualResult $debugMessage",
+          s"Failed with missing disclosed contracts: $expectedResult == $actualResult",
         )
       }
 

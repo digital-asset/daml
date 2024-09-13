@@ -276,9 +276,14 @@ object TransactionCoder {
                 )
               } yield nodeBuilder.setCreate(builder).build()
 
-            case nf @ Node.Fetch(_, _, _, _, _, _, _, _, _) =>
+            case nf @ Node.Fetch(_, _, _, _, _, _, _, _, _, _) =>
               val builder = TransactionOuterClass.NodeFetch.newBuilder()
               discard(builder.setTemplateId(ValueCoder.encodeIdentifier(nf.templateId)))
+              if (nodeVersion >= TransactionVersion.minUpgrade) {
+                nf.interfaceId.foreach(iface =>
+                  builder.setInterfaceId(ValueCoder.encodeIdentifier(iface))
+                )
+              }
               nf.stakeholders.foreach(builder.addStakeholders)
               nf.signatories.foreach(builder.addSignatories)
               discard(builder.setContractIdStruct(encodeCid.encode(nf.coid)))
@@ -500,6 +505,12 @@ object TransactionCoder {
           ni <- nodeId
           pkgName <- decodePackageName(protoFetch.getPackageName, nodeVersion)
           templateId <- ValueCoder.decodeIdentifier(protoFetch.getTemplateId)
+          interfaceId <-
+            if (nodeVersion >= TransactionVersion.minUpgrade && protoFetch.hasInterfaceId) {
+              ValueCoder.decodeIdentifier(protoFetch.getInterfaceId).map(Some(_))
+            } else {
+              Right(None)
+            }
           c <- decodeCid.decode(protoFetch.getContractIdStruct)
           actingParties <- toPartySet(protoFetch.getActorsList)
           stakeholders <- toPartySet(protoFetch.getStakeholdersList)
@@ -521,6 +532,7 @@ object TransactionCoder {
           keyOpt = keyOpt,
           byKey = byKey,
           version = nodeVersion,
+          interfaceId = interfaceId,
         )
 
       case NodeTypeCase.EXERCISE =>

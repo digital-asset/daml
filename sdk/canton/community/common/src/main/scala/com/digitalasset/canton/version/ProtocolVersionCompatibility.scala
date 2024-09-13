@@ -121,7 +121,7 @@ object ProtocolVersionCompatibility {
         s"Please add the supported protocol versions of $node node of release version $release to `majorMinorToProtocolVersions` in `ReleaseVersionToProtocolVersions.scala`."
       )
 
-    stableVersions.map(_ ++ beta ++ unstable)
+    stableVersions.map(_ ++ beta ++ unstable).map(_.distinct.sorted)
   }
 
   final case class UnsupportedVersion(version: ProtocolVersion, supported: Seq[ProtocolVersion])
@@ -152,8 +152,13 @@ object ProtocolVersionCompatibility {
       server: ProtocolVersion,
       clientMinimumProtocolVersion: Option[ProtocolVersion],
   ): Either[HandshakeError, Unit] = {
-    val clientSupportsRequiredVersion = clientSupportedVersions.contains(server)
+    val clientSupportsRequiredVersion =
+      clientSupportedVersions
+        .filter(clientVersion => clientMinimumProtocolVersion.forall(_ <= clientVersion))
+        .contains(server)
+
     val clientMinVersionLargerThanReqVersion = clientMinimumProtocolVersion.exists(_ > server)
+
     // if dev-version support is on for participant and domain, ignore the min protocol version
     if (clientSupportsRequiredVersion && server.isUnstable)
       Right(())

@@ -127,7 +127,7 @@ object DomainNodeStatus {
             sequencer = sequencer,
             topologyQueue = status.topologyQueue,
             components = status.components,
-            version = Some(ReleaseVersion.current),
+            version = status.version,
             protocolVersion = protocolVersion.some,
           )
         )

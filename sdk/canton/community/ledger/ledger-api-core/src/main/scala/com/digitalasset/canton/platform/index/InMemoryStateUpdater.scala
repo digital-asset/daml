@@ -21,7 +21,7 @@ import com.digitalasset.canton.ledger.api.DeduplicationPeriod.{
   DeduplicationOffset,
 }
 import com.digitalasset.canton.ledger.offset.Offset
-import com.digitalasset.canton.ledger.participant.state.v2.{CompletionInfo, Reassignment, Update}
+import com.digitalasset.canton.ledger.participant.state.v2.{CompletionInfo, Update}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.metrics.Metrics
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
@@ -94,7 +94,6 @@ private[platform] object InMemoryStateUpdater {
       inMemoryState: InMemoryState,
       prepareUpdatesParallelism: Int,
       preparePackageMetadataTimeOutWarning: FiniteDuration,
-      multiDomainEnabled: Boolean,
       metrics: Metrics,
       loggerFactory: NamedLoggerFactory,
   )(implicit traceContext: TraceContext): ResourceOwner[UpdaterFlow] = for {
@@ -126,8 +125,7 @@ private[platform] object InMemoryStateUpdater {
         Timed.value(
           metrics.daml.index.packageMetadata.decodeArchive,
           PackageMetadata.from(archive),
-        ),
-      multiDomainEnabled = multiDomainEnabled,
+        )
     ),
     update = update(inMemoryState, logger),
   )
@@ -146,8 +144,7 @@ private[platform] object InMemoryStateUpdater {
       }
 
   private[index] def prepare(
-      archiveToMetadata: DamlLf.Archive => PackageMetadata,
-      multiDomainEnabled: Boolean,
+      archiveToMetadata: DamlLf.Archive => PackageMetadata
   )(
       batch: Vector[(Offset, Traced[Update])],
       lastEventSequentialId: Long,
@@ -161,8 +158,6 @@ private[platform] object InMemoryStateUpdater {
           t.map(_ => convertTransactionAccepted(offset, u, t.traceContext))
         case (offset, r @ Traced(u: Update.CommandRejected)) =>
           r.map(_ => convertTransactionRejected(offset, u, r.traceContext))
-        case (offset, r @ Traced(u: Update.ReassignmentAccepted)) if multiDomainEnabled =>
-          r.map(_ => convertReassignmentAccepted(offset, u, r.traceContext))
       },
       lastOffset = offset,
       lastEventSequentialId = lastEventSequentialId,
@@ -474,84 +469,6 @@ private[platform] object InMemoryStateUpdater {
         ),
         submitters = u.completionInfo.actAs.toSet,
       ),
-    )
-  }
-
-  private def convertReassignmentAccepted(
-      offset: Offset,
-      u: Update.ReassignmentAccepted,
-      traceContext: TraceContext,
-  ): TransactionLogUpdate.ReassignmentAccepted = {
-    val completionDetails = u.optCompletionInfo
-      .map { completionInfo =>
-        val (deduplicationOffset, deduplicationDurationSeconds, deduplicationDurationNanos) =
-          deduplicationInfo(completionInfo)
-
-        CompletionDetails(
-          CompletionFromTransaction.acceptedCompletion(
-            recordTime = u.recordTime,
-            offset = offset,
-            commandId = completionInfo.commandId,
-            transactionId = u.updateId,
-            applicationId = completionInfo.applicationId,
-            optSubmissionId = completionInfo.submissionId,
-            optDeduplicationOffset = deduplicationOffset,
-            optDeduplicationDurationSeconds = deduplicationDurationSeconds,
-            optDeduplicationDurationNanos = deduplicationDurationNanos,
-            domainId = Some(u.reassignment match {
-              case _: Reassignment.Assign => u.reassignmentInfo.targetDomain.unwrap.toProtoPrimitive
-              case _: Reassignment.Unassign =>
-                u.reassignmentInfo.sourceDomain.unwrap.toProtoPrimitive
-            }),
-            traceContext = traceContext,
-          ),
-          submitters = completionInfo.actAs.toSet,
-        )
-      }
-
-    TransactionLogUpdate.ReassignmentAccepted(
-      updateId = u.updateId,
-      commandId = u.optCompletionInfo.map(_.commandId).getOrElse(""),
-      workflowId = u.workflowId.getOrElse(""),
-      offset = offset,
-      completionDetails = completionDetails,
-      reassignmentInfo = u.reassignmentInfo,
-      reassignment = u.reassignment match {
-        case assign: Reassignment.Assign =>
-          val create = assign.createNode
-          TransactionLogUpdate.ReassignmentAccepted.Assigned(
-            TransactionLogUpdate.CreatedEvent(
-              eventOffset = offset,
-              transactionId = u.updateId,
-              nodeIndex = 0, // set 0 for assign-created
-              eventSequentialId = 0L,
-              eventId = EventId(u.updateId, NodeId(0)), // set 0 for assign-created
-              contractId = create.coid,
-              ledgerEffectiveTime = assign.ledgerEffectiveTime,
-              templateId = create.templateId,
-              packageName = create.packageName,
-              commandId = u.optCompletionInfo.map(_.commandId).getOrElse(""),
-              workflowId = u.workflowId.getOrElse(""),
-              contractKey =
-                create.keyOpt.map(k => com.daml.lf.transaction.Versioned(create.version, k.value)),
-              treeEventWitnesses = Set.empty,
-              flatEventWitnesses = u.reassignmentInfo.hostedStakeholders.toSet,
-              submitters = u.optCompletionInfo
-                .map(_.actAs.toSet)
-                .getOrElse(Set.empty),
-              createArgument = com.daml.lf.transaction.Versioned(create.version, create.arg),
-              createSignatories = create.signatories,
-              createObservers = create.stakeholders.diff(create.signatories),
-              createAgreementText = Some(create.agreementText).filter(_.nonEmpty),
-              createKeyHash = create.keyOpt.map(_.globalKey.hash),
-              createKey = create.keyOpt.map(_.globalKey),
-              createKeyMaintainers = create.keyOpt.map(_.maintainers),
-              driverMetadata = Some(assign.contractMetadata),
-            )
-          )
-        case unassign: Reassignment.Unassign =>
-          TransactionLogUpdate.ReassignmentAccepted.Unassigned(unassign)
-      },
     )
   }
 

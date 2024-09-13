@@ -22,8 +22,7 @@ import com.digitalasset.canton.sequencing.authentication.grpc.AuthenticationToke
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.{DomainId, Member}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
-import com.digitalasset.canton.util.retry.Pause
-import com.digitalasset.canton.util.retry.RetryUtil.NoExnRetryable
+import com.digitalasset.canton.util.retry.{NoExceptionRetryPolicy, Pause}
 import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.Status
 
@@ -86,7 +85,7 @@ class AuthenticationTokenProvider(
           maxRetries = config.retries.value,
           delay = config.pauseRetries.underlying,
           operationName = "generate sequencer authentication token",
-        ).unlessShutdown(FutureUnlessShutdown.outcomeF(generateTokenET), NoExnRetryable)
+        ).unlessShutdown(FutureUnlessShutdown.outcomeF(generateTokenET), NoExceptionRetryPolicy)
           .onShutdown(Left(shutdownStatus))
       }
     }

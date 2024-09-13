@@ -159,6 +159,7 @@ class ReplayCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
       // TEST_EVIDENCE: Integrity: well formed fetch replay command is accepted
       val validFetch = ReplayCommand.Fetch(
         "Mod:Record",
+        "",
         newCid,
       )
       // TEST_EVIDENCE: Integrity: well formed fetch-by-key replay command is accepted

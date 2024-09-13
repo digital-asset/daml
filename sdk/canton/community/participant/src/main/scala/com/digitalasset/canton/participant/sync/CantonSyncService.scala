@@ -121,7 +121,6 @@ import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.FutureConverters.*
-import scala.util.chaining.scalaUtilChainingOps
 import scala.util.{Failure, Right, Success}
 
 /** The Canton-based synchronization service.
@@ -1655,22 +1654,6 @@ class CantonSyncService(
         )
       }
       .map(_.flatten)
-
-  override def incompleteReassignmentOffsets(
-      validAt: LedgerSyncOffset,
-      stakeholders: Set[LfPartyId],
-  )(implicit traceContext: TraceContext): Future[Vector[LedgerSyncOffset]] =
-    UpstreamOffsetConvert
-      .toGlobalOffset(validAt)
-      .fold(
-        error => Future.failed(new IllegalArgumentException(error)),
-        incompleteTransferData(_, stakeholders).map(
-          _.map(
-            _.transferEventGlobalOffset.globalOffset
-              .pipe(UpstreamOffsetConvert.fromGlobalOffset)
-          ).toVector
-        ),
-      )
 }
 
 object CantonSyncService {

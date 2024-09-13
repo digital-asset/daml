@@ -12,5 +12,7 @@ service EnterpriseParticipantReplicationService {
 message SetPassive {
   message Request {}
 
-  message Response {}
+  message Response {
+    bool became_passive = 1;
+  }
 }

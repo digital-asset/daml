@@ -186,7 +186,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
               verbose = true,
               wildcardWitnesses = Set(alice, bob, charlie),
             ),
-            multiDomainEnabled = false,
           )
       )
     } yield {
@@ -220,7 +219,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
               verbose = true,
               wildcardWitnesses = Set(alice),
             ),
-            multiDomainEnabled = false,
           )
       )
       resultForBob <- transactionsOf(
@@ -233,7 +231,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
               verbose = true,
               wildcardWitnesses = Set(bob),
             ),
-            multiDomainEnabled = false,
           )
       )
       resultForCharlie <- transactionsOf(
@@ -246,7 +243,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
               verbose = true,
               wildcardWitnesses = Set(charlie),
             ),
-            multiDomainEnabled = false,
           )
       )
     } yield {
@@ -277,7 +273,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             endInclusive = to.lastOffset,
             filter = TemplatePartiesFilter(Map(otherTemplateId -> Set(alice)), Set.empty),
             eventProjectionProperties = EventProjectionProperties(verbose = true, Set.empty),
-            multiDomainEnabled = false,
           )
       )
     } yield {
@@ -314,7 +309,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
               Set.empty,
             ),
             eventProjectionProperties = EventProjectionProperties(verbose = true, Set.empty),
-            multiDomainEnabled = false,
           )
       )
     } yield {
@@ -358,7 +352,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
               Set.empty,
             ),
             eventProjectionProperties = EventProjectionProperties(verbose = true, Set.empty),
-            multiDomainEnabled = false,
           )
       )
     } yield {
@@ -401,7 +394,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
               Set(bob),
             ),
             eventProjectionProperties = EventProjectionProperties(verbose = true, Set.empty),
-            multiDomainEnabled = false,
           )
       )
     } yield {
@@ -430,7 +422,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           offset,
           TemplatePartiesFilter(Map.empty, exercise.actAs.toSet),
           eventProjectionProperties = EventProjectionProperties(verbose = true, Set.empty),
-          multiDomainEnabled = false,
         )
         .runWith(Sink.seq)
     } yield {
@@ -463,7 +454,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           offset2,
           TemplatePartiesFilter(Map.empty, exercise.actAs.toSet),
           eventProjectionProperties = EventProjectionProperties(verbose = true, Set.empty),
-          multiDomainEnabled = false,
         )
         .runWith(Sink.seq)
 
@@ -494,7 +484,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           endOffsetFromTheFuture,
           TemplatePartiesFilter(Map.empty, Set(alice)),
           eventProjectionProperties = EventProjectionProperties(verbose = true, Set.empty),
-          multiDomainEnabled = false,
         )
         .runWith(Sink.seq)
 
@@ -543,7 +532,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
             endOffset,
             TemplatePartiesFilter(Map.empty, Set(alice)),
             eventProjectionProperties = EventProjectionProperties(verbose = true, Set.empty),
-            multiDomainEnabled = false,
           )
           .runWith(Sink.seq)
       )(ResourceContext(executionContext))
@@ -594,7 +582,6 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
               to.lastOffset,
               cp.filter,
               EventProjectionProperties(verbose = true, Set.empty),
-              multiDomainEnabled = false,
             )
             .runWith(Sink.seq)
           readOffsets = response flatMap { case (_, gtr) => Seq(gtr.getTransaction.offset) }

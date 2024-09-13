@@ -143,6 +143,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
       keyOpt = toOptKeyWithMaintainers(templateId, key),
       byKey = byKey,
       version = txVersion,
+      interfaceId = None,
     )
   }
 

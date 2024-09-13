@@ -261,6 +261,8 @@ conformance_test(
                 # the unexpected arg is now interpreted as a non-optional upgrade field
                 "CommandServiceIT:CSRefuseBadParameter",
                 "CommandServiceIT:CSBadCreateAndExercise",
+                # test failing now that we assume retroactive interface instances are not allowed
+                "InterfaceIT:ExerciseRetroactiveInterfaceInstanceSuccess",
             ]),
         ],
     )

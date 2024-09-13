@@ -84,7 +84,8 @@ private[preprocessing] final class TransactionPreprocessor(
                     key.globalKey.key,
                     exe.choiceId,
                     exe.chosenValue,
-                    strict = true,
+                    strictArgument = true,
+                    strictKey = true,
                   )
                 case _ =>
                   commandPreprocessor.unsafePreprocessExerciseTemplate(

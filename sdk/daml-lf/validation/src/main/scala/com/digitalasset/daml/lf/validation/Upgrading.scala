@@ -7,7 +7,7 @@ package validation
 import com.daml.lf.data.Ref.TypeConName
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{Ast, LanguageVersion, PackageInterface}
+import com.daml.lf.language.{Ast, LanguageVersion}
 
 import scala.annotation.tailrec
 import scala.util.{Failure, Success, Try}
@@ -196,6 +196,11 @@ object UpgradeError {
     override def message: String =
       s"Implementation of interface $iface by template $tpl appears in package that is being upgraded, but does not appear in this package."
   }
+
+  final case class ForbiddenNewInstance(tpl: Ref.DottedName, iface: Ref.TypeConName) extends Error {
+    override def message: String =
+      s"Implementation of interface $iface by template $tpl appears in this package, but does not appear in package that is being upgraded."
+  }
 }
 
 sealed abstract class UpgradedRecordOrigin
@@ -383,168 +388,7 @@ case class TypecheckUpgrades(
 ) {
   import TypecheckUpgrades._
 
-  private lazy val packageId: Upgrading[Ref.PackageId] = packages.map(_._1)
   private lazy val _package: Upgrading[Ast.Package] = packages.map(_._2)
-
-  private val packageInterface: Upgrading[PackageInterface] =
-    packages.map { case (pkgId, pkgAst) => PackageInterface(Map(pkgId -> pkgAst)) }
-
-  /** The set of type constructors whose definitions are structurally equal between the
-    * past and present packages. It is built by building the largest fixed point of
-    * [[genStructurallyEqualTyConsStep]], which removes type constructors whose definitions
-    * are not structurally equal from a set. The set is seeded with the qualified names of
-    *  all type constructors present in both packages and whose definitions are serializable.
-    */
-  private lazy val structurallyEqualTyCons: Set[Ref.QualifiedName] = {
-    def tyCons(pkg: Ast.Package): Set[Ref.QualifiedName] = {
-      pkg.modules.flatMap { case (moduleName, module) =>
-        module.definitions.collect {
-          case (name, dt: DDataType) if dt.serializable =>
-            Ref.QualifiedName(moduleName, name)
-        }
-      }.toSet
-    }
-    val commonTyCons = tyCons(_package.past).intersect(tyCons(_package.present))
-    genStructurallyEqualTyCons(commonTyCons)
-  }
-
-  /** Computes the fixed point of genStructurallyEqualTyConsStep.
-    */
-  @tailrec
-  private def genStructurallyEqualTyCons(tyCons: Set[Ref.QualifiedName]): Set[Ref.QualifiedName] = {
-    val newTyCOns = genStructurallyEqualTyConsStep(tyCons)
-    if (newTyCOns == tyCons) tyCons
-    else genStructurallyEqualTyCons(newTyCOns)
-  }
-
-  /** For each type constructor name in [[tyCons]], checks that the definition of [[tyCons]] in
-    * the past and present packages are structurally equal, assuming that the type constructors
-    * in [[tyCons]] are structurally equal. Removes those that aren't.
-    */
-  def genStructurallyEqualTyConsStep(tyCons: Set[Ref.QualifiedName]): Set[Ref.QualifiedName] = {
-    tyCons.filter { name =>
-      val pastTypeConName = TypeConName(packageId.past, name)
-      val presentTypeConName = TypeConName(packageId.present, name)
-      structurallyEqualDataTypes(
-        tyCons,
-        Util.handleLookup(
-          Context.DefDataType(pastTypeConName),
-          packageInterface.past
-            .lookupDataType(pastTypeConName),
-        ),
-        Util.handleLookup(
-          Context.DefDataType(presentTypeConName),
-          packageInterface.present
-            .lookupDataType(presentTypeConName),
-        ),
-      )
-    }
-  }
-
-  /** Checks that [[pastDataType]] and [[presentDataType]] are structurally equal, assuming that
-    * the type constructors in [[tyCons]] are structurally equal.
-    */
-  def structurallyEqualDataTypes(
-      tyCons: Set[Ref.QualifiedName],
-      pastDataType: DDataType,
-      presentDataType: DDataType,
-  ): Boolean =
-    structurallyEqualDataCons(
-      tyCons,
-      Closure(Env().extend(pastDataType.params.map(_._1)), pastDataType.cons),
-      Closure(Env().extend(presentDataType.params.map(_._1)), presentDataType.cons),
-    )
-
-  /** Checks that [[pastCons]] and [[presentCons]] are structurally equal, assuming that
-    * the type constructors in [[tyCons]] are structurally equal.
-    */
-  private def structurallyEqualDataCons(
-      tyCons: Set[Ref.QualifiedName],
-      pastCons: Closure[DataCons],
-      presentCons: Closure[DataCons],
-  ): Boolean =
-    (pastCons.value, presentCons.value) match {
-      case (DataRecord(pastFields), DataRecord(presentFields)) =>
-        pastFields.length == presentFields.length &&
-        pastFields.iterator.zip(presentFields.iterator).forall {
-          case ((pastFieldName, pastType), (presentFieldName, presentType)) =>
-            pastFieldName == presentFieldName &&
-            structurallyEqualTypes(
-              tyCons,
-              Closure(pastCons.env, pastType),
-              Closure(presentCons.env, presentType),
-            )
-        }
-      case (DataVariant(pastVariants), DataVariant(presentVariants)) =>
-        pastVariants.length == presentVariants.length &&
-        pastVariants.iterator.zip(presentVariants.iterator).forall {
-          case ((pastVariantName, pastType), (presentVariantName, presentType)) =>
-            pastVariantName == presentVariantName &&
-            structurallyEqualTypes(
-              tyCons,
-              Closure(pastCons.env, pastType),
-              Closure(presentCons.env, presentType),
-            )
-        }
-      case (DataEnum(pastConstructors), DataEnum(presentConstructors)) =>
-        pastConstructors.length == presentConstructors.length &&
-        pastConstructors.iterator.zip(presentConstructors.iterator).forall {
-          case (pastCtor, presentCtor) => pastCtor == presentCtor
-        }
-      case _ =>
-        false
-    }
-
-  /** Checks that [[pastType]] and [[presentType]] are structurally equal, assuming that
-    * the type constructors in [[tyCons]] are structurally equal.
-    */
-  private def structurallyEqualTypes(
-      tyCons: Set[Ref.QualifiedName],
-      pastType: Closure[Ast.Type],
-      presentType: Closure[Ast.Type],
-  ): Boolean =
-    structurallyEqualTypes(
-      tyCons,
-      pastType.env,
-      presentType.env,
-      List((pastType.value, presentType.value)),
-    )
-
-  /** A stack-safe version of [[structurallyEqualTypes]] that uses a work list.
-    */
-  @tailrec
-  private def structurallyEqualTypes(
-      tyCons: Set[Ref.QualifiedName],
-      envPast: Env,
-      envPresent: Env,
-      trips: List[(Type, Type)],
-  ): Boolean = {
-    trips match {
-      case Nil => true
-      case (t1, t2) :: trips =>
-        (t1, t2) match {
-          case (TVar(x1), TVar(x2)) =>
-            envPast.binderDepth(x1) == envPresent.binderDepth(x2) &&
-            structurallyEqualTypes(tyCons, envPast, envPresent, trips)
-          case (TNat(n1), TNat(n2)) =>
-            n1 == n2 && structurallyEqualTypes(tyCons, envPast, envPresent, trips)
-          case (TTyCon(c1), TTyCon(c2)) =>
-            // Either c1 and c2 are the same type constructor from the exact same package (e.g. Tuple2),
-            // or they must have the same qualified name and be structurally equal by co-induction
-            // hypothesis.
-            (c1 == c2 ||
-              (c1.qualifiedName == c2.qualifiedName &&
-                tyCons.contains(c1.qualifiedName))) &&
-            structurallyEqualTypes(tyCons, envPast, envPresent, trips)
-          case (TApp(f1, a1), TApp(f2, a2)) =>
-            structurallyEqualTypes(tyCons, envPast, envPresent, (f1, f2) :: (a1, a2) :: trips)
-          case (TBuiltin(b1), TBuiltin(b2)) =>
-            b1 == b2 && structurallyEqualTypes(tyCons, envPast, envPresent, trips)
-          case _ =>
-            false
-        }
-    }
-  }
 
   private def check(): Try[Unit] = {
     for {
@@ -604,7 +448,7 @@ case class TypecheckUpgrades(
 
     val moduleWithMetadata = module.map(ModuleWithMetadata)
     for {
-      (existingTemplates, _new) <- checkDeleted(
+      (existingTemplates, newTemplates) <- checkDeleted(
         module.map(_.templates),
         (name: Ref.DottedName, _: Ast.Template) => UpgradeError.MissingTemplate(name),
       )
@@ -613,15 +457,13 @@ case class TypecheckUpgrades(
       (_ifaceDel, ifaceExisting, _ifaceNew) = extractDelExistNew(ifaceDts)
       _ <- checkContinuedIfaces(ifaceExisting)
 
-      (_instanceExisting, _instanceNew) <-
-        checkDeleted(
-          module.map(flattenInstances(_)),
-          (tplImpl: (Ref.DottedName, Ref.TypeConName), _: (Ast.Template, Ast.TemplateImplements)) =>
-            {
-              val (tpl, impl) = tplImpl
-              UpgradeError.MissingImplementation(tpl, impl)
-            },
-        )
+      (instanceDel, _instanceExisting, instanceNew) = extractDelExistNew(
+        module.map(flattenInstances)
+      )
+      _ <- checkDeletedInstances(instanceDel)
+      _ <- checkAddedInstances(instanceNew.view.filterKeys { case (tyCon, _) =>
+        !newTemplates.contains(tyCon)
+      }.toMap)
 
       (existingDatatypes, _new) <- checkDeleted(
         unownedDts,
@@ -643,6 +485,22 @@ case class TypecheckUpgrades(
     ).map(_ => ())
   }
 
+  private def checkDeletedInstances(
+      deletedInstances: Map[(Ref.DottedName, TypeConName), (Ast.Template, Ast.TemplateImplements)]
+  ): Try[Unit] =
+    deletedInstances.headOption match {
+      case Some(((tpl, iface), _)) => fail(UpgradeError.MissingImplementation(tpl, iface))
+      case None => Success(())
+    }
+
+  private def checkAddedInstances(
+      newInstances: Map[(Ref.DottedName, TypeConName), (Ast.Template, Ast.TemplateImplements)]
+  ): Try[Unit] =
+    newInstances.headOption match {
+      case Some(((tpl, iface), _)) => fail(UpgradeError.ForbiddenNewInstance(tpl, iface))
+      case None => Success(())
+    }
+
   private def checkTemplate(
       templateAndName: (Ref.DottedName, Upgrading[Ast.Template])
   ): Try[Unit] = {
@@ -662,15 +520,15 @@ case class TypecheckUpgrades(
     val compatibleNames = past.qualifiedName == present.qualifiedName
     val compatiblePackages =
       (packageMap.get(past.packageId), packageMap.get(present.packageId)) match {
-        // The two packages have LF versions < 1.16.
-        // They must be the exact same package as LF < 1.16 don't support upgrades.
+        // The two packages have LF versions < 1.17.
+        // They must be the exact same package as LF < 1.17 don't support upgrades.
         case (None, None) => past.packageId == present.packageId
-        // The two packages have LF versions >= 1.16.
+        // The two packages have LF versions >= 1.17.
         // The present package must be a valid upgrade of the past package. Since we validate uploaded packages in
         // topological order, the package version ordering is a proxy for the "upgrades" relationship.
         case (Some((pastName, pastVersion)), Some((presentName, presentVersion))) =>
           pastName == presentName && pastVersion <= presentVersion
-        // LF versions < 1.16 and >= 1.16 are not comparable.
+        // LF versions < 1.17 and >= 1.17 are not comparable.
         case (_, _) => false
       }
     compatibleNames && compatiblePackages
@@ -724,13 +582,7 @@ case class TypecheckUpgrades(
       case Upgrading(None, None) => Success(());
       case Upgrading(Some(pastKey), Some(presentKey)) => {
         val keyPastPresent = Upgrading(pastKey.typ, presentKey.typ)
-        if (
-          !structurallyEqualTypes(
-            structurallyEqualTyCons,
-            Closure(Env(), pastKey.typ),
-            Closure(Env(), presentKey.typ),
-          )
-        )
+        if (!checkType(Upgrading(Closure(Env(), pastKey.typ), Closure(Env(), presentKey.typ))))
           fail(UpgradeError.TemplateChangedKeyType(templateName, keyPastPresent))
         else
           Success(())

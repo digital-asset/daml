@@ -46,7 +46,7 @@ import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
-import com.digitalasset.canton.util.retry.RetryUtil.AllExnRetryable
+import com.digitalasset.canton.util.retry.AllExceptionRetryPolicy
 import com.digitalasset.canton.util.{
   BatchAggregator,
   FutureUtil,
@@ -147,7 +147,7 @@ class PingService(
             .getPackageStatus(M.Ping.PACKAGE_ID)
             .map(_.packageStatus.isRegistered)
         ),
-        AllExnRetryable,
+        AllExceptionRetryPolicy,
       )
       .map(_ => ())
   }

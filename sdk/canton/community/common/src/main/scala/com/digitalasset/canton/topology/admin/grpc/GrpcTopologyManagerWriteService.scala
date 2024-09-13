@@ -3,12 +3,12 @@
 
 package com.digitalasset.canton.topology.admin.grpc
 
-import cats.data.EitherT
+import cats.data.{EitherT, OptionT}
 import cats.syntax.bifunctor.*
 import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
-import com.digitalasset.canton.crypto.store.{CryptoPublicStore, CryptoPublicStoreError}
+import com.digitalasset.canton.crypto.store.CryptoPublicStore
 import com.digitalasset.canton.crypto.{Fingerprint, PublicKey, SigningPublicKey}
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -106,11 +106,10 @@ final class GrpcTopologyManagerWriteService[T <: CantonError](
 
   private def parseKeyInStoreResponse[K <: PublicKey](
       fp: Fingerprint,
-      result: EitherT[Future, CryptoPublicStoreError, Option[K]],
+      result: OptionT[Future, K],
   )(implicit traceContext: TraceContext): EitherT[Future, CantonError, K] =
     result
-      .leftMap(TopologyManagerError.InternalError.CryptoPublicError(_))
-      .subflatMap(_.toRight(TopologyManagerError.PublicKeyNotInStore.Failure(fp): CantonError))
+      .toRight(TopologyManagerError.PublicKeyNotInStore.Failure(fp): CantonError)
 
   private def getSigningPublicKey(
       fingerprint: Fingerprint

@@ -119,14 +119,14 @@
                     "description": "Extra arguments passed to `damlc ide`. This can be used to enable additional warnings via `--ghc-option -W`"
                 },
                 "daml.multiPackageIdeSupport": {
-                  "type": "boolean",
-                  "default": false,
-                  "description": "Enables the Initial Access support for multi-package compatibility in the IDE."
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Enables the Initial Access support for multi-package compatibility in the IDE."
                 },
                 "daml.multiPackageIdeGradleSupport": {
-                  "type": "boolean",
-                  "default": false,
-                  "description": "Incomplete/Experimental: Enable multi-package IDE Gradle integration."
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Incomplete/Experimental: Enable multi-package IDE Gradle integration."
                 }
             }
         },
@@ -151,11 +151,13 @@
         "build": "node ./node_modules/typescript/bin/tsc -p ./"
     },
     "dependencies": {
+        "@types/semver": "^7.5.8",
         "@types/tmp": "0.0.29",
         "@types/which": "1.3.1",
         "@types/xml2js": "^0.4.5",
         "fp-ts": "^2.1.1",
         "node-fetch": "^2.6.7",
+        "semver": "^7.5.4",
         "tmp": "0.0.29",
         "vscode-languageclient": "^7.0.0",
         "which": "1.3.1",

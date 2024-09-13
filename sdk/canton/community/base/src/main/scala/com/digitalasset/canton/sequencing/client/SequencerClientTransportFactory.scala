@@ -19,7 +19,7 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.*
-import com.digitalasset.canton.util.retry.RetryUtil.NoExnRetryable
+import com.digitalasset.canton.util.retry.NoExceptionRetryPolicy
 import io.grpc.ConnectivityState
 import org.apache.pekko.stream.Materializer
 import org.slf4j.event.Level
@@ -165,7 +165,7 @@ object SequencerClientTransportFactory {
           )
           .unlessShutdown(
             closeContext.context.performUnlessClosingF(name)(check().value),
-            NoExnRetryable,
+            NoExceptionRetryPolicy,
           )
       ).thereafter { _ =>
         closeChannel()

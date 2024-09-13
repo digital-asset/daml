@@ -12,10 +12,9 @@ import com.daml.lf.crypto
 import com.daml.lf.data.Ref.Identifier
 import com.daml.lf.data.Time.Timestamp
 import com.daml.lf.data.{Bytes, Ref, Time}
-import com.daml.lf.ledger.EventId
+import com.daml.lf.transaction.CommittedTransaction
 import com.daml.lf.transaction.test.TestNodeBuilder.CreateTransactionVersion
 import com.daml.lf.transaction.test.{TestNodeBuilder, TransactionBuilder}
-import com.daml.lf.transaction.{CommittedTransaction, NodeId}
 import com.daml.lf.value.Value
 import com.digitalasset.canton.BaseTest.{pvPackageName, pvTransactionVersion}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -35,7 +34,6 @@ import com.digitalasset.canton.platform.store.cache.{
   MutableLedgerEndCache,
 }
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
-import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate.CreatedEvent
 import com.digitalasset.canton.platform.store.interning.StringInterningView
 import com.digitalasset.canton.platform.store.packagemeta.{PackageMetadata, PackageMetadataView}
 import com.digitalasset.canton.platform.{DispatcherState, InMemoryState}
@@ -99,12 +97,12 @@ class InMemoryStateUpdaterSpec
 
   "prepare" should "throw exception for an empty vector" in new Scope {
     an[NoSuchElementException] should be thrownBy {
-      InMemoryStateUpdater.prepare(emptyArchiveToMetadata, false)(Vector.empty, 0L)
+      InMemoryStateUpdater.prepare(emptyArchiveToMetadata)(Vector.empty, 0L)
     }
   }
 
   "prepare" should "prepare a batch of a single update" in new Scope {
-    InMemoryStateUpdater.prepare(emptyArchiveToMetadata, false)(
+    InMemoryStateUpdater.prepare(emptyArchiveToMetadata)(
       Vector(update1),
       0L,
     ) shouldBe PrepareResult(
@@ -117,7 +115,7 @@ class InMemoryStateUpdaterSpec
   }
 
   "prepare" should "prepare a batch without reassignments if multi domain is disabled" in new Scope {
-    InMemoryStateUpdater.prepare(emptyArchiveToMetadata, false)(
+    InMemoryStateUpdater.prepare(emptyArchiveToMetadata)(
       Vector(update1, update7, update8),
       0L,
     ) shouldBe PrepareResult(
@@ -129,21 +127,8 @@ class InMemoryStateUpdaterSpec
     )
   }
 
-  "prepare" should "prepare a batch with reassignments if multi domain is enabled" in new Scope {
-    InMemoryStateUpdater.prepare(emptyArchiveToMetadata, true)(
-      Vector(update1, update7, update8),
-      0L,
-    ) shouldBe PrepareResult(
-      Vector(txLogUpdate1, assignLogUpdate, unassignLogUpdate),
-      offset(8L),
-      0L,
-      update1._2.traceContext,
-      PackageMetadata(),
-    )
-  }
-
   "prepare" should "set last offset and eventSequentialId to last element" in new Scope {
-    InMemoryStateUpdater.prepare(emptyArchiveToMetadata, false)(
+    InMemoryStateUpdater.prepare(emptyArchiveToMetadata)(
       Vector(update1, metadataChangedUpdate),
       6L,
     ) shouldBe PrepareResult(
@@ -164,7 +149,7 @@ class InMemoryStateUpdaterSpec
       case _ => fail("unexpected archive hash")
     }
 
-    InMemoryStateUpdater.prepare(metadata, false)(
+    InMemoryStateUpdater.prepare(metadata)(
       Vector(update5, update6),
       0L,
     ) shouldBe PrepareResult(
@@ -251,78 +236,6 @@ object InMemoryStateUpdaterSpec {
         events = Vector(),
         completionDetails = None,
         domainId = None,
-      )
-    )(emptyTraceContext)
-
-    val assignLogUpdate = Traced(
-      TransactionLogUpdate.ReassignmentAccepted(
-        updateId = "tx3",
-        commandId = "",
-        workflowId = workflowId,
-        offset = offset(7L),
-        completionDetails = None,
-        reassignmentInfo = ReassignmentInfo(
-          sourceDomain = SourceDomainId(domainId1),
-          targetDomain = TargetDomainId(domainId2),
-          submitter = Option(party1),
-          reassignmentCounter = 15L,
-          hostedStakeholders = party2 :: Nil,
-          unassignId = CantonTimestamp.assertFromLong(155555L),
-        ),
-        reassignment = TransactionLogUpdate.ReassignmentAccepted.Assigned(
-          CreatedEvent(
-            eventOffset = offset(7L),
-            transactionId = "tx3",
-            nodeIndex = 0,
-            eventSequentialId = 0,
-            eventId = EventId(txId3, NodeId(0)),
-            contractId = someCreateNode.coid,
-            ledgerEffectiveTime = Timestamp.assertFromLong(12222),
-            templateId = templateId,
-            packageName = pvPackageName,
-            commandId = "",
-            workflowId = workflowId,
-            contractKey = None,
-            treeEventWitnesses = Set.empty,
-            flatEventWitnesses = Set(party2),
-            submitters = Set.empty,
-            createArgument =
-              com.daml.lf.transaction.Versioned(someCreateNode.version, someCreateNode.arg),
-            createSignatories = Set(party1),
-            createObservers = Set(party2),
-            createAgreementText = Some("agreement text"),
-            createKeyHash = None,
-            createKey = None,
-            createKeyMaintainers = None,
-            driverMetadata = Some(someContractMetadataBytes),
-          )
-        ),
-      )
-    )(emptyTraceContext)
-
-    val unassignLogUpdate = Traced(
-      TransactionLogUpdate.ReassignmentAccepted(
-        updateId = "tx4",
-        commandId = "",
-        workflowId = workflowId,
-        offset = offset(8L),
-        completionDetails = None,
-        reassignmentInfo = ReassignmentInfo(
-          sourceDomain = SourceDomainId(domainId2),
-          targetDomain = TargetDomainId(domainId1),
-          submitter = Option(party2),
-          reassignmentCounter = 15L,
-          hostedStakeholders = party1 :: Nil,
-          unassignId = CantonTimestamp.assertFromLong(1555551L),
-        ),
-        reassignment = TransactionLogUpdate.ReassignmentAccepted.Unassigned(
-          Reassignment.Unassign(
-            contractId = someCreateNode.coid,
-            templateId = templateId2,
-            stakeholders = List(party2),
-            assignmentExclusivity = Some(Timestamp.assertFromLong(123456L)),
-          )
-        ),
       )
     )(emptyTraceContext)
 

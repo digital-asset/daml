@@ -131,6 +131,7 @@ trait TestNodeBuilder {
       keyOpt = contract.keyOpt,
       byKey = byKey,
       version = contractTxVersion(contract),
+      interfaceId = None,
     )
 
   def lookupByKey(contract: Node.Create, found: Boolean = true): Node.LookupByKey =

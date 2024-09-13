@@ -31,7 +31,7 @@ import com.daml.lf.transaction.{
   IncompleteTransaction => IncompleteTx,
   TransactionVersion => TxVersion,
 }
-import com.daml.lf.value.Value.ValueArithmeticError
+import com.daml.lf.value.Value.{ContractId, ValueArithmeticError}
 import com.daml.lf.value.{Value => V}
 import com.daml.nameof.NameOf
 import com.daml.scalautil.Statement.discard
@@ -663,6 +663,7 @@ private[lf] object Speedy {
         zipSameLength(seeds, ptx.actionNodeSeeds.toImmArray),
         ptx.contractState.globalKeyInputs.transform((_, v) => v.toKeyMapping),
         disclosedCreateEvents,
+        contractsCache.view.mapValues(_.template.packageId).toMap,
       )
     }
 
@@ -771,6 +772,7 @@ private[lf] object Speedy {
         seeds: NodeSeeds,
         globalKeyMapping: Map[GlobalKey, KeyMapping],
         disclosedCreateEvent: ImmArray[Node.Create],
+        contractPackages: Map[ContractId, PackageId],
     )
   }
 

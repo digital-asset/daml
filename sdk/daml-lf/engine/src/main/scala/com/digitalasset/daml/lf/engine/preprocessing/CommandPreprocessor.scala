@@ -35,19 +35,7 @@ private[lf] final class CommandPreprocessor(
     if (strict || !enableUpgrading) ValueTranslator.Config.Strict
     else ValueTranslator.Config.Upgradeable
 
-  private[this] def translateUpgradableArg(
-      typ: Ast.Type,
-      value: Value,
-      strict: Boolean,
-      enableUpgrading: Boolean,
-  ) =
-    valueTranslator.unsafeTranslateValue(
-      ty = typ,
-      value = value,
-      config = valueTranslatorConfig(strict, enableUpgrading),
-    )
-
-  private[this] def translateNonUpgradableArg(
+  private[this] def translateArg(
       typ: Ast.Type,
       value: Value,
       strict: Boolean,
@@ -86,7 +74,7 @@ private[lf] final class CommandPreprocessor(
     }
     // TODO: https://github.com/digital-asset/daml/issues/17082
     //  for now we need the package of the disclosed contract
-    val arg = translateUpgradableArg(
+    val arg = translateArg(
       Ast.TTyCon(disc.templateId),
       disc.argument,
       strict = true,
@@ -108,7 +96,7 @@ private[lf] final class CommandPreprocessor(
       strict: Boolean,
   ): speedy.Command.Create = {
     discard(handleLookup(pkgInterface.lookupTemplate(templateId)))
-    val arg = translateUpgradableArg(
+    val arg = translateArg(
       Ast.TTyCon(templateId),
       argument,
       strict = strict,
@@ -143,7 +131,7 @@ private[lf] final class CommandPreprocessor(
       templateId = templateId,
       contractId = valueTranslator.unsafeTranslateCid(contractId),
       choiceId = choiceId,
-      argument = translateUpgradableArg(
+      argument = translateArg(
         choice.argBinder._2,
         argument,
         strict = strict,
@@ -164,7 +152,7 @@ private[lf] final class CommandPreprocessor(
       interfaceId = ifaceId,
       contractId = valueTranslator.unsafeTranslateCid(contractId),
       choiceId = choiceId,
-      argument = translateNonUpgradableArg(
+      argument = translateArg(
         choice.argBinder._2,
         argument,
         strict = strict,
@@ -179,22 +167,23 @@ private[lf] final class CommandPreprocessor(
       contractKey: Value,
       choiceId: Ref.ChoiceName,
       argument: Value,
-      strict: Boolean,
+      strictArgument: Boolean,
+      strictKey: Boolean,
   ): speedy.Command.ExerciseByKey = {
     val choiceArgType = handleLookup(
       pkgInterface.lookupTemplateChoice(templateId, choiceId)
     ).argBinder._2
     val ckTtype = handleLookup(pkgInterface.lookupTemplateKey(templateId)).typ
-    val arg = translateUpgradableArg(
+    val arg = translateArg(
       choiceArgType,
       argument,
-      strict = strict,
+      strict = strictArgument,
       isUpgradable(templateId.packageId),
     )
-    val key = translateNonUpgradableArg(
+    val key = translateArg(
       ckTtype,
       contractKey,
-      strict = strict,
+      strict = strictKey,
       isUpgradable(templateId.packageId),
     )
     speedy.Command.ExerciseByKey(templateId, key, choiceId, arg)
@@ -208,7 +197,7 @@ private[lf] final class CommandPreprocessor(
       choiceArgument: Value,
       strict: Boolean,
   ): speedy.Command.CreateAndExercise = {
-    val createArg = translateUpgradableArg(
+    val createArg = translateArg(
       Ast.TTyCon(templateId),
       createArgument,
       strict = strict,
@@ -217,7 +206,7 @@ private[lf] final class CommandPreprocessor(
     val choiceArgType = handleLookup(
       pkgInterface.lookupTemplateChoice(templateId, choiceId)
     ).argBinder._2
-    val choiceArg = translateUpgradableArg(
+    val choiceArg = translateArg(
       choiceArgType,
       choiceArgument,
       strict = strict,
@@ -239,7 +228,7 @@ private[lf] final class CommandPreprocessor(
       strict: Boolean,
   ): speedy.Command.LookupByKey = {
     val ckTtype = handleLookup(pkgInterface.lookupTemplateKey(templateId)).typ
-    val key = translateNonUpgradableArg(
+    val key = translateArg(
       ckTtype,
       contractKey,
       strict = strict,
@@ -293,7 +282,14 @@ private[lf] final class CommandPreprocessor(
             templateRef,
             language.Reference.Template(templateRef),
           )
-        unsafePreprocessExerciseByKey(templateId, contractKey, choiceId, argument, strict = false)
+        unsafePreprocessExerciseByKey(
+          templateId,
+          contractKey,
+          choiceId,
+          argument,
+          strictArgument = false,
+          strictKey = false,
+        )
       case command.ApiCommand.CreateAndExercise(
             templateRef,
             createArgument,
@@ -336,18 +332,39 @@ private[lf] final class CommandPreprocessor(
             choiceId,
             argument,
           ) =>
-        unsafePreprocessExerciseByKey(templateId, contractKey, choiceId, argument, strict = true)
-      case command.ReplayCommand.Fetch(typeId, coid) =>
+        unsafePreprocessExerciseByKey(
+          templateId,
+          contractKey,
+          choiceId,
+          argument,
+          strictArgument = true,
+          // When reconstructing an exercise-by-key node from a view, we pull the key from the corresponding input
+          // contract. That input contract may use a different package version for the type of its input key than
+          // the version that was used for constructing the node in the submitting participant, which needs to be the
+          // same when re-interpreting the node. Therefore, we need to allow upgrading keys when re-interpreting
+          // exercise-by-key nodes.
+          strictKey = false,
+        )
+      case command.ReplayCommand.Fetch(typeId, ifaceIdOpt, coid) =>
         val cid = valueTranslator.unsafeTranslateCid(coid)
-        handleLookup(pkgInterface.lookupTemplateOrInterface(typeId)) match {
-          case TemplateOrInterface.Template(_) =>
-            speedy.Command.FetchTemplate(typeId, cid)
-          case TemplateOrInterface.Interface(_) =>
-            speedy.Command.FetchInterface(typeId, cid)
+        ifaceIdOpt match {
+          case Some(ifaceId) =>
+            val _ = handleLookup(pkgInterface.lookupInterfaceInstance(ifaceId, typeId))
+            speedy.Command.FetchInterface(ifaceId, cid)
+          case None =>
+            handleLookup(pkgInterface.lookupTemplateOrInterface(typeId)) match {
+              case TemplateOrInterface.Template(_) =>
+                speedy.Command.FetchTemplate(typeId, cid)
+              case TemplateOrInterface.Interface(_) =>
+                // We should not accept interface ID, however we keep it
+                // - for backward compatibility with PV 5
+                // - @Matthias agrees this does not provide to a malicious submitter any advantage
+                speedy.Command.FetchInterface(typeId, cid)
+            }
         }
       case command.ReplayCommand.FetchByKey(templateId, key) =>
         val ckTtype = handleLookup(pkgInterface.lookupTemplateKey(templateId)).typ
-        val sKey = translateNonUpgradableArg(
+        val sKey = translateArg(
           ckTtype,
           key,
           strict = true,
@@ -356,7 +373,7 @@ private[lf] final class CommandPreprocessor(
         speedy.Command.FetchByKey(templateId, sKey)
       case command.ReplayCommand.LookupByKey(templateId, key) =>
         val ckTtype = handleLookup(pkgInterface.lookupTemplateKey(templateId)).typ
-        val sKey = translateNonUpgradableArg(
+        val sKey = translateArg(
           ckTtype,
           key,
           strict = true,
@@ -402,7 +419,7 @@ private[lf] final class CommandPreprocessor(
     discard(handleLookup(pkgInterface.lookupInterface(interfaceId)))
     discard(handleLookup(pkgInterface.lookupInterfaceInstance(interfaceId, templateId)))
 
-    val arg = translateNonUpgradableArg(
+    val arg = translateArg(
       Ast.TTyCon(templateId),
       argument,
       strict = true,

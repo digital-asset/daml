@@ -5,6 +5,7 @@ package com.daml.lf
 package engine
 package preprocessing
 
+import com.daml.lf.command.ReplayCommand
 import com.daml.lf.data.{Ref, ImmArray}
 import com.daml.lf.language.{Ast, LookupError}
 import com.daml.lf.speedy.SValue
@@ -220,10 +221,22 @@ private[engine] final class Preprocessor(
 
   private[engine] def preprocessReplayCommand(
       cmd: command.ReplayCommand
-  ): Result[speedy.Command] =
-    safelyRun(pullPackage(List(cmd.templateId))) {
+  ): Result[speedy.Command] = {
+    def templateAndInterfaceIds =
+      cmd match {
+        case ReplayCommand.Create(templateId, _) => List(templateId)
+        case ReplayCommand.Exercise(templateId, interfaceId, _, _, _) =>
+          templateId :: interfaceId.toList
+        case ReplayCommand.ExerciseByKey(templateId, _, _, _) => List(templateId)
+        case ReplayCommand.Fetch(templateId, interfaceId, _) =>
+          templateId :: interfaceId.toList
+        case ReplayCommand.FetchByKey(templateId, _) => List(templateId)
+        case ReplayCommand.LookupByKey(templateId, _) => List(templateId)
+      }
+    safelyRun(pullPackage(templateAndInterfaceIds)) {
       commandPreprocessor.unsafePreprocessReplayCommand(cmd)
     }
+  }
 
   /** Translates a complete transaction. Assumes no contract ID suffixes are used */
   def translateTransactionRoots(

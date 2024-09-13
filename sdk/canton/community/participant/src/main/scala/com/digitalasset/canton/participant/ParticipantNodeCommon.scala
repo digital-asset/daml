@@ -76,7 +76,6 @@ class CantonLedgerApiServerFactory(
     testingTimeService: TestingTimeService,
     allocateIndexerLockIds: DbConfig => Either[String, Option[IndexerLockIds]],
     meteringReportKey: MeteringReportKey,
-    val multiDomainEnabled: Boolean,
     futureSupervisor: FutureSupervisor,
     val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {
@@ -157,7 +156,6 @@ class CantonLedgerApiServerFactory(
           // start ledger API server iff participant replica is active
           startLedgerApiServer = sync.isActive(),
           futureSupervisor = futureSupervisor,
-          multiDomainEnabled = multiDomainEnabled,
           parameters = parameters,
         )(executionContext, actorSystem)
         .leftMap { err =>
@@ -473,7 +471,7 @@ trait ParticipantNodeBootstrapCommon[T <: ParticipantNodeCommon] {
         arguments.futureSupervisor,
         loggerFactory,
         skipRecipientsCheck,
-        multiDomainLedgerAPIEnabled = ledgerApiServerFactory.multiDomainEnabled,
+        multiDomainLedgerAPIEnabled = false,
         arguments.testingConfig,
       )
 

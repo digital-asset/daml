@@ -5,6 +5,7 @@
 -- @ WARN since-lf=1.16 2.0; warn-bad-interface-instances
 -- @ WARN since-lf=1.16 2.0; warn-bad-interface-instances
 -- @ WARN since-lf=1.16 2.0; warn-bad-interface-instances
+-- @ WARN since-lf=1.16 2.0; warn-bad-interface-instances
 
 -- | Try out some upcasts and downcasts, checking that everything works.
 module InterfaceUpcastDowncast where
@@ -127,7 +128,7 @@ templateInterfaceMatching = exerciseTest TemplateInterfaceMatching
 -- will always fail, even for actions that make sense with A contracts.
 -- See useAction
 voidUseAction = exerciseTest VoidUseAction
--- @ERROR range=131:1-131:15; Attempt to use a contract via an interface that the contract does not implement
+-- @ERROR range=132:1-132:15; Attempt to use a contract via an interface that the contract does not implement
 fetchUseAction = exerciseTest FetchUseAction
--- @ERROR range=133:1-133:18; Attempt to use a contract via an interface that the contract does not implement
+-- @ERROR range=134:1-134:18; Attempt to use a contract via an interface that the contract does not implement
 exerciseUseAction = exerciseTest ExerciseUseAction

@@ -11,8 +11,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.client.{SendAsyncClientError, SequencerClient}
 import com.digitalasset.canton.sequencing.protocol.TimeProof
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.retry.RetryUtil.AllExnRetryable
-import com.digitalasset.canton.util.retry.{Backoff, Success}
+import com.digitalasset.canton.util.retry.{AllExceptionRetryPolicy, Backoff, Success}
 import com.digitalasset.canton.util.{FutureUtil, HasFlushFuture, retry}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
@@ -103,24 +102,25 @@ private[time] class TimeProofRequestSubmitterImpl(
             config.maxRetryDelay.underlying,
             "request current time",
           )
-
-          retrySendTimeRequest(mkRequest(), AllExnRetryable) map { _ =>
-            // if we still care about the outcome (we could have witnessed a recent time while sending the request),
-            // then schedule retrying a new request.
-            // this will short circuit if a new timestamp is not needed at that point.
-            if (stillPending) {
-              // intentionally don't wait for future
-              FutureUtil.doNotAwait(
-                clock
-                  .scheduleAfter(
-                    _ => eventuallySendRequest(),
-                    config.maxSequencingDelay.asJava,
-                  )
-                  .onShutdown(()),
-                "requesting current domain time",
-              )
+          retrySendTimeRequest
+            .apply(mkRequest(), AllExceptionRetryPolicy)
+            .map { _ =>
+              // if we still care about the outcome (we could have witnessed a recent time while sending the request),
+              // then schedule retrying a new request.
+              // this will short circuit if a new timestamp is not needed at that point.
+              if (stillPending) {
+                // intentionally don't wait for future
+                FutureUtil.doNotAwait(
+                  clock
+                    .scheduleAfter(
+                      _ => eventuallySendRequest(),
+                      config.maxSequencingDelay.asJava,
+                    )
+                    .onShutdown(()),
+                  "requesting current domain time",
+                )
+              }
             }
-          }
         }
       }.onShutdown(
         // using instead of discard to highlight that this change goes with reducing activity during shutdown
