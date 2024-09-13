@@ -43,7 +43,9 @@ trait ParticipantTopologyValidation extends NamedLogging {
         packageDependencyResolver,
         forceFlags,
       )
-      _ <- toBeDeleted.toList.parTraverse_(packageId => isPackageInUse(packageId, acsInspections))
+      _ <- toBeDeleted.toList.parTraverse_(packageId =>
+        isPackageInUse(packageId, acsInspections, forceFlags)
+      )
     } yield ()
   }
 
@@ -68,7 +70,7 @@ trait ParticipantTopologyValidation extends NamedLogging {
                 )
               case true =>
                 logger.debug(
-                  s"Allow to disable $PartyId with active contracts on $domainId because force flag DisablePartyWithActiveContracts is set."
+                  s"Allow to disable $PartyId with active contracts on $domainId because force flag ${ForceFlag.DisablePartyWithActiveContracts} is set."
                 )
                 Right(())
               case false =>
@@ -115,6 +117,7 @@ trait ParticipantTopologyValidation extends NamedLogging {
   private def isPackageInUse(
       packageId: PackageId,
       acsInspections: () => Map[DomainId, AcsInspection],
+      forceFlags: ForceFlags,
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
@@ -125,6 +128,11 @@ trait ParticipantTopologyValidation extends NamedLogging {
           acsInspection.activeContractStore
             .packageUsage(packageId, acsInspection.contractStore)
             .map {
+              case Some(_) if forceFlags.permits(ForceFlag.AllowUnvetPackageWithActiveContracts) =>
+                logger.debug(
+                  s"Allowing the unvetting of $packageId on $domainId because force flag ${ForceFlag.AllowUnvetPackageWithActiveContracts} is set."
+                )
+                Right(())
               case Some(contractId) =>
                 Left(
                   ParticipantTopologyManagerError.PackageIdInUse
