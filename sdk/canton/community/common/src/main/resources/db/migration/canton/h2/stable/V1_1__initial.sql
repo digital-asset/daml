@@ -917,23 +917,19 @@ create table seq_traffic_control_consumed_journal (
 
 --   BFT Ordering Tables
 
--- Stores metadata for epochs completed in entirety
+-- Stores metadata for epochs
 -- Individual blocks/transactions exist in separate table
-create table ord_completed_epochs (
+create table ord_epochs (
     -- strictly-increasing, contiguous epoch number
     epoch_number bigint not null primary key,
     -- first block sequence number (globally) of the epoch
     start_block_number bigint not null,
     -- number of total blocks in the epoch
-    epoch_length integer not null
-);
-
--- Stores consensus state for active epoch
-create table ord_active_epoch (
-    -- epoch number that consensus is actively working on
-    epoch_number bigint not null,
-    -- global sequence number of the ordered block
-    block_number bigint not null primary key
+    epoch_length integer not null,
+    -- Sequencing instant of the topology snapshot in force for the epoch
+    topology_ts bigint not null,
+    -- whether the epoch is in progress
+    in_progress bool not null
 );
 
 create table ord_availability_batch(
@@ -946,6 +942,9 @@ create table ord_availability_batch(
 create table ord_pbft_messages_in_progress(
     -- global sequence number of the ordered block
     block_number bigint not null,
+
+    -- epoch number of the block
+    epoch_number bigint not null,
 
     -- view number
     view_number smallint not null,
@@ -970,6 +969,9 @@ create table ord_pbft_messages_in_progress(
 create table ord_pbft_messages_completed(
     -- global sequence number of the ordered block
     block_number bigint not null,
+
+    -- epoch number of the block
+    epoch_number bigint not null,
 
     -- pbft message for the block
     message binary large object not null,

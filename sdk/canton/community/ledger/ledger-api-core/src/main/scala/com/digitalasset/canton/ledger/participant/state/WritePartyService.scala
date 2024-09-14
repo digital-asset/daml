@@ -22,7 +22,7 @@ trait WritePartyService {
     * - Use the given hint as is, and reject the call if such a party already exists
     *
     * Successful party allocations will result in a [[com.digitalasset.canton.ledger.participant.state.Update.PartyAddedToParticipant]]
-    * message. See the comments on [[com.digitalasset.canton.ledger.participant.state.ReadService.stateUpdates]] and [[com.digitalasset.canton.ledger.participant.state.Update]] for
+    * message. See the comments on [[com.digitalasset.canton.ledger.participant.state.Update]] for
     * further details.
     *
     * @param hint             A party identifier suggestion

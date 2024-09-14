@@ -931,27 +931,21 @@ create table seq_traffic_control_consumed_journal (
 
 --   BFT Ordering Tables
 
--- Stores metadata for epochs completed in entirety
+-- Stores metadata for epochs
 -- Individual blocks/transactions exist in separate table
-create table ord_completed_epochs (
+create table ord_epochs (
   -- strictly-increasing, contiguous epoch number
   epoch_number bigint not null primary key,
   -- first block sequence number (globally) of the epoch
   start_block_number bigint not null,
   -- number of total blocks in the epoch
   epoch_length integer not null,
+  -- Sequencing instant of the topology snapshot in force for the epoch
+  topology_ts bigint not null,
+  -- whether the epoch is in progress
+  in_progress bool not null,
   -- enable idempotent writes: "on conflict, do nothing"
-  constraint unique_epoch unique (epoch_number, start_block_number, epoch_length)
-);
-
--- Stores consensus state for active epoch
-create table ord_active_epoch (
-  -- epoch number that consensus is actively working on
-  epoch_number bigint not null,
-  -- global sequence number of the ordered block
-  block_number bigint not null primary key,
-  -- enable idempotent writes: "on conflict, do nothing"
-  constraint unique_block unique (epoch_number, block_number)
+  constraint unique_epoch unique (epoch_number, start_block_number, epoch_length, topology_ts, in_progress)
 );
 
 create table ord_availability_batch (
@@ -964,6 +958,9 @@ create table ord_availability_batch (
 create table ord_pbft_messages_in_progress(
   -- global sequence number of the ordered block
   block_number bigint not null,
+
+  -- epoch number of the block
+  epoch_number bigint not null,
 
   -- view number
   view_number smallint not null,
@@ -987,6 +984,9 @@ create table ord_pbft_messages_completed(
   -- global sequence number of the ordered block
   block_number bigint not null,
 
+  -- epoch number of the block
+  epoch_number bigint not null,
+
   -- pbft message for the block
   message bytea not null,
 
@@ -996,13 +996,14 @@ create table ord_pbft_messages_completed(
   -- sender of the message
   from_sequencer_id varchar(300) collate "C" not null,
 
+  -- fail when updating an existing row
+  constraint unique_message unique (block_number, epoch_number, from_sequencer_id, discriminator),
+
   -- for each completed block number, we only expect one message of each kind for the same sender.
   -- in the case of pre-prepare, we only expect one message for the whole block, but for simplicity
   -- we won't differentiate that at the database level.
   primary key (block_number, from_sequencer_id, discriminator)
 );
-
-
 
 -- Stores metadata for blocks that have been assigned timestamps in the output module
 create table ord_metadata_output_blocks (

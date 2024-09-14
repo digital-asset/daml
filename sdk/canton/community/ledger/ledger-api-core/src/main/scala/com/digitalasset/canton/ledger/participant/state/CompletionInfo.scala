@@ -26,7 +26,7 @@ import java.util.UUID
   *                               depends on the particular implementation.
   *
   *                               This allows auditing the deduplication guarantee described in the
-  *                               [[ReadService.stateUpdates]].
+  *                               [[Update]].
   *
   *                               Optional as some implementations may not be able to provide this
   *                               deduplication information. If an implementation does not provide

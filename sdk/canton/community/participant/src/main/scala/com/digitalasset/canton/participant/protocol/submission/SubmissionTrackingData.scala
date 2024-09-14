@@ -15,7 +15,6 @@ import com.digitalasset.canton.participant.store.{
   SerializableCompletionInfo,
   SerializableRejectionReasonTemplate,
 }
-import com.digitalasset.canton.participant.sync.LedgerSyncEvent.CommandRejected
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.DomainId
@@ -234,9 +233,7 @@ object TransactionSubmissionTrackingData {
     override def toProtoV30: v30.TransactionSubmissionTrackingData.RejectionCause =
       v30.TransactionSubmissionTrackingData.RejectionCause(
         cause = v30.TransactionSubmissionTrackingData.RejectionCause.Cause.RejectionReasonTemplate(
-          SerializableRejectionReasonTemplate(
-            CommandRejected.FinalReason(template.status)
-          ).toProtoV30
+          SerializableRejectionReasonTemplate(template.status).toProtoV30
         )
       )
 
@@ -248,7 +245,7 @@ object TransactionSubmissionTrackingData {
   object CauseWithTemplate {
 
     /** Log the `error` and then convert it into a
-      * [[com.digitalasset.canton.participant.sync.LedgerSyncEvent.CommandRejected.FinalReason]]
+      * [[com.digitalasset.canton.ledger.participant.state.Update.CommandRejected.FinalReason]]
       */
     def apply(
         error: TransactionError
@@ -258,7 +255,7 @@ object TransactionSubmissionTrackingData {
     }
 
     /** Log the `status` and then convert it into a
-      * [[com.digitalasset.canton.participant.sync.LedgerSyncEvent.CommandRejected.FinalReason]]
+      * [[com.digitalasset.canton.ledger.participant.state.Update.CommandRejected.FinalReason]]
       */
     def apply(
         status: Status
@@ -271,7 +268,7 @@ object TransactionSubmissionTrackingData {
         templateP: v30.CommandRejected.GrpcRejectionReasonTemplate
     ): ParsingResult[CauseWithTemplate] =
       for {
-        template <- SerializableRejectionReasonTemplate.fromProtoV30(templateP)
-      } yield CauseWithTemplate(Update.CommandRejected.FinalReason(template.status))
+        templateStatus <- SerializableRejectionReasonTemplate.fromProtoV30(templateP)
+      } yield CauseWithTemplate(Update.CommandRejected.FinalReason(templateStatus))
   }
 }

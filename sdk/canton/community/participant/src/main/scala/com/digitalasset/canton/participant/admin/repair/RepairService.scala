@@ -47,7 +47,7 @@ import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
 import com.digitalasset.canton.participant.protocol.RequestJournal.RequestState
 import com.digitalasset.canton.participant.store.*
-import com.digitalasset.canton.participant.sync.{LedgerSyncEvent, SyncDomainPersistentStateManager}
+import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
 import com.digitalasset.canton.participant.util.DAMLe.ContractWithMetadata
 import com.digitalasset.canton.participant.util.{DAMLe, TimeOfChange}
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
@@ -992,7 +992,7 @@ final class RepairService(
         ledgerEffectiveTime = repair.timestamp.toLf,
         workflowId = None,
         submissionTime = repair.timestamp.toLf,
-        submissionSeed = LedgerSyncEvent.noOpSeed,
+        submissionSeed = Update.noOpSeed,
         optUsedPackages = None,
         optNodeSeeds = None,
         optByKeyNodes = None,
@@ -1043,7 +1043,7 @@ final class RepairService(
           ledgerEffectiveTime = ledgerCreateTime.toLf,
           workflowId = workflowIdProvider(),
           submissionTime = repair.timestamp.toLf,
-          submissionSeed = LedgerSyncEvent.noOpSeed,
+          submissionSeed = Update.noOpSeed,
           optUsedPackages = None,
           optNodeSeeds = None,
           optByKeyNodes = None,

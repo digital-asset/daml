@@ -21,14 +21,6 @@ package com.digitalasset.canton.ledger.participant
   * all ledger participants must support. These methods are for example
   * exposed via the Daml Ledger API. Actual ledger participant implementations
   * likely support more implementation-specific methods. They are however not
-  * exposed via the Daml Ledger API. The [[ReadService]] interface contains
-  * the one method [[ReadService.stateUpdates]] to read the state of a ledger
-  * participant. It represents the participant state as a stream of
-  * [[Update]]s to an initial participant state. The typical consumer of this
-  * method is a class that subscribes to this stream of [[Update]]s and
-  * reconstructs (a view of) the actual participant state. See the comments
-  * on [[Update]] and [[ReadService.stateUpdates]] for details about the kind
-  * of updates and the guarantees given to consumers of the stream of
-  * [[Update]]s.
+  * exposed via the Daml Ledger API.
   */
 package object state

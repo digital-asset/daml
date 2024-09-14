@@ -21,8 +21,8 @@ import org.slf4j.event.Level
 
 import scala.concurrent.{ExecutionContext, Future}
 
-/** Helper to publish participant events in a thread-safe way. For "regular" SingleDimensionEventLogs representing
-  * domains thread safety is taken care of by the [[com.digitalasset.canton.participant.event.RecordOrderPublisher]].
+/** Helper to publish participant events in a thread-safe way. For "regular" domain related events
+  * thread safety is taken care of by the [[com.digitalasset.canton.participant.event.RecordOrderPublisher]].
   *
   * ParticipantEventPublisher also encapsulates the participant clock generating unique participant recordTime.
   *
