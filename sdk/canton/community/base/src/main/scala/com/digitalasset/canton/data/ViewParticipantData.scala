@@ -223,7 +223,14 @@ final case class ViewParticipantData private (
         }
         RootAction(cmd, actors, failed, packagePreference)
 
-      case FetchActionDescription(inputContractId, actors, byKey, _version, templateIdO, interfaceId) =>
+      case FetchActionDescription(
+            inputContractId,
+            actors,
+            byKey,
+            _version,
+            templateIdO,
+            interfaceId,
+          ) =>
         val inputContract = coreInputs.getOrElse(
           inputContractId,
           throw InvalidViewParticipantData(
