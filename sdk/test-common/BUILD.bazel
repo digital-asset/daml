@@ -108,7 +108,8 @@ da_scala_dar_resources_library(
     for identifier in [
         # More more more tests ported from DamlcUpgrades.hs
         "FailsWhenAnInstanceIsDropped",
-        "SucceedsWhenAnInstanceIsAddedSeparateDep",
+        "FailsWhenAnInstanceIsAddedSeparateDep",
+        "SucceedsWhenAnInstanceIsAddedToNewTemplateSeparateDep",
     ]
 ]
 
@@ -263,11 +264,23 @@ da_scala_dar_resources_library(
         ("FailsOnlyInModuleNotInReexports", {}, {}),
         ("FailsWhenDatatypeChangesVariety", {}, {}),
         (
-            "SucceedsWhenAnInstanceIsAddedUpgradedPackage",
+            "FailsWhenAnInstanceIsAddedUpgradedPackage",
             {},
             {"data_dependencies": [
-                "//test-common:upgrades-SucceedsWhenAnInstanceIsAddedUpgradedPackage-v1.dar",
+                "//test-common:upgrades-FailsWhenAnInstanceIsAddedUpgradedPackage-v1.dar",
             ]},
+        ),
+        (
+            "SucceedsWhenAnInstanceIsAddedToNewTemplateUpgradedPackage",
+            {},
+            {"data_dependencies": [
+                "//test-common:upgrades-SucceedsWhenAnInstanceIsAddedToNewTemplateUpgradedPackage-v1.dar",
+            ]},
+        ),
+        (
+            "SucceedsWhenAnInstanceIsAddedToNewTemplateSeparateDep",
+            {"data_dependencies": ["//test-common:upgrades-SucceedsWhenAnInstanceIsAddedToNewTemplateSeparateDep-dep.dar"]},
+            {"data_dependencies": ["//test-common:upgrades-SucceedsWhenAnInstanceIsAddedToNewTemplateSeparateDep-dep.dar"]},
         ),
         (
             "WarnsWhenAnInterfaceIsDefinedAndThenUsedInAPackageThatUpgradesIt",
@@ -282,9 +295,9 @@ da_scala_dar_resources_library(
             {"data_dependencies": ["//test-common:upgrades-FailsWhenAnInstanceIsDropped-dep.dar"]},
         ),
         (
-            "SucceedsWhenAnInstanceIsAddedSeparateDep",
-            {"data_dependencies": ["//test-common:upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-dep.dar"]},
-            {"data_dependencies": ["//test-common:upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-dep.dar"]},
+            "FailsWhenAnInstanceIsAddedSeparateDep",
+            {"data_dependencies": ["//test-common:upgrades-FailsWhenAnInstanceIsAddedSeparateDep-dep.dar"]},
+            {"data_dependencies": ["//test-common:upgrades-FailsWhenAnInstanceIsAddedSeparateDep-dep.dar"]},
         ),
     ]
 ]
