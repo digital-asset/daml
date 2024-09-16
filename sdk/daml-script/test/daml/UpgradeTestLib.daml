@@ -5,6 +5,7 @@ module UpgradeTestLib (
   participant0,
   participant1,
   tests,
+  subtree,
   broken,
   withUnvettedDar,
   withUnvettedDarOnParticipant,
@@ -19,28 +20,48 @@ import DA.Assert
 import DA.Foldable
 import DA.Time
 
+import DA.Text qualified as T
+
 participant0 : ParticipantName
 participant0 = ParticipantName "participant0"
 
 participant1 : ParticipantName
 participant1 = ParticipantName "participant1"
 
-type TestTree = Text -> Script ()
+data RunMode
+  = IdeLedger
+  | Canton
+  deriving (Show)
 
-type Test = Text -> Script ()
+data TestState = TestState
+  { runMode : RunMode
+  , testPath : [Text]
+  }
+
+type TestTree = TestState -> Script ()
+
+type Test = TestState -> Script ()
 
 tests : [(Text, Test)] -> TestTree
-tests cases runMode = forA_ cases $ \(testName, test) -> do
-  debugRaw $ "Testing: " <> testName
-  test runMode
+tests cases testState = forA_ cases $ \(testName, test) -> do
+  test testState { testPath = testName :: testState.testPath }
 
 test : Script () -> Test
-test act _ = act
+test act TestState { runMode, testPath } = do
+  debugRaw $ T.unwords
+    [ "Testing:"
+    , "[" <> show runMode <> "]"
+    , T.intercalate " - " (reverse testPath)
+    ]
+  act
+
+subtree : Text -> [(Text, Test)] -> (Text, Test)
+subtree group cases = (group, tests cases)
 
 -- | Used to tag a test as failing by erroring in any way, once all this behaviour works, this function can be removed
 brokenScript : Test -> Test
-brokenScript act runMode = do
-  tryToEither (\() -> liftFailedCommandToException $ act runMode) >>= \case
+brokenScript act testState = do
+  tryToEither (\() -> liftFailedCommandToException $ act testState) >>= \case
     Right _ -> assertFail "Expected failed and got success! Did you fix this logic? Remove the wrapping `broken` to mark this as working."
     Left _ -> pure ()
 
@@ -70,17 +91,17 @@ broken : (Text, Test) -> (Text, Test)
 broken (name, act) = ("(BROKEN) " <> name, brokenScript act)
 
 brokenOnCanton : (Text, Test) -> (Text, Test)
-brokenOnCanton (name, act) = 
+brokenOnCanton (name, act) =
   ( "(BROKEN ON CANTON) " <> name
-  , \case
-    "canton" -> brokenScript act "canton"
-    runMode -> act runMode
+  , \testState -> case testState.runMode of
+    Canton -> brokenScript act testState
+    _ -> act testState
   )
 
 brokenOnIDELedger : (Text, Test) -> (Text, Test)
-brokenOnIDELedger (name, act) = 
+brokenOnIDELedger (name, act) =
   ( "(BROKEN ON IDE-LEDGER) " <> name
-  , \case
-    "ide-ledger" -> brokenScript act "ide-ledger"
-    runMode -> act runMode
+  , \testState -> case testState.runMode of
+    IdeLedger -> brokenScript act testState
+    _ -> act testState
   )

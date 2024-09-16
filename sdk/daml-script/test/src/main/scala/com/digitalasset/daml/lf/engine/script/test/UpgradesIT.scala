@@ -9,6 +9,7 @@ import io.circe.yaml
 import java.io.File
 import java.nio.file.{Files, Path, Paths}
 import com.daml.bazeltools.BazelRunfiles.{requiredResource, rlocation}
+import com.digitalasset.daml.lf.data.{FrontStack, ImmArray}
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.engine.script.ScriptTimeMode
 import com.digitalasset.daml.lf.engine.script.test.DarUtil.{buildDar, Dar, DataDep}
@@ -78,7 +79,12 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
           _ <- run(
             participants,
             QualifiedName.assertFromString(s"${testCase.name}:main"),
-            inputValue = Some(Value.ValueText("ide-ledger")),
+            inputValue = Some(
+              mkInitialTestState(
+                testCaseName = testCase.name,
+                runMode = runModeIdeLedger,
+              )
+            ),
             dar = testDar,
             enableContractUpgrading = true,
           )
@@ -126,7 +132,12 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
           _ <- run(
             clients,
             QualifiedName.assertFromString(s"${testCase.name}:main"),
-            inputValue = Some(Value.ValueText("canton")),
+            inputValue = Some(
+              mkInitialTestState(
+                testCaseName = testCase.name,
+                runMode = runModeCanton,
+              )
+            ),
             dar = testDar,
             enableContractUpgrading = true,
           )
@@ -134,6 +145,25 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
       }
     }
   }
+
+  private def mkInitialTestState(
+      testCaseName: String,
+      runMode: Value,
+  ): Value = {
+    Value.ValueRecord(
+      None,
+      ImmArray(
+        (None, runMode),
+        (None, Value.ValueList(FrontStack(Value.ValueText(testCaseName)))),
+      ),
+    )
+  }
+
+  private val runModeCanton: Value =
+    Value.ValueEnum(None, Name.assertFromString("Canton"))
+
+  private val runModeIdeLedger: Value =
+    Value.ValueEnum(None, Name.assertFromString("IdeLedger"))
 
   private def assertDepsVetted(
       client: TestingAdminLedgerClient,
