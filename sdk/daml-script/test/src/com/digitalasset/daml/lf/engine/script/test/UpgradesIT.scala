@@ -74,12 +74,9 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
             participants,
             QualifiedName.assertFromString(s"${testCase.name}:main"),
             inputValue = Some(
-              Value.ValueRecord(
-                None,
-                ImmArray(
-                  (None, Value.ValueEnum(None, Name.assertFromString("IdeLedger"))),
-                  (None, Value.ValueList(FrontStack(Value.ValueText(testCase.name)))),
-                ),
+              mkInitialTestState(
+                testCaseName = testCase.name,
+                runMode = runModeIdeLedger,
               )
             ),
             dar = testDar,
@@ -130,12 +127,9 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
             clients,
             QualifiedName.assertFromString(s"${testCase.name}:main"),
             inputValue = Some(
-              Value.ValueRecord(
-                None,
-                ImmArray(
-                  (None, Value.ValueEnum(None, Name.assertFromString("Canton"))),
-                  (None, Value.ValueList(FrontStack(Value.ValueText(testCase.name)))),
-                ),
+              mkInitialTestState(
+                testCaseName = testCase.name,
+                runMode = runModeCanton,
               )
             ),
             dar = testDar,
@@ -145,6 +139,25 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
       }
     }
   }
+
+  private def mkInitialTestState(
+      testCaseName: String,
+      runMode: Value,
+  ): Value = {
+    Value.ValueRecord(
+      None,
+      ImmArray(
+        (None, runMode),
+        (None, Value.ValueList(FrontStack(Value.ValueText(testCaseName)))),
+      ),
+    )
+  }
+
+  private val runModeCanton: Value =
+    Value.ValueEnum(None, Name.assertFromString("Canton"))
+
+  private val runModeIdeLedger: Value =
+    Value.ValueEnum(None, Name.assertFromString("IdeLedger"))
 
   private def assertDepsVetted(
       client: TestingAdminLedgerClient,
