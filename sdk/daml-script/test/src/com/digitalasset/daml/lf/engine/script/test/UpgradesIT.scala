@@ -73,10 +73,15 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
           _ <- run(
             participants,
             QualifiedName.assertFromString(s"${testCase.name}:main"),
-            inputValue = Some(Value.ValueRecord(None, ImmArray(
-              (None, Value.ValueEnum(None, Name.assertFromString("IdeLedger"))),
-              (None, Value.ValueList(FrontStack(Value.ValueText(testCase.name))))
-            ))),
+            inputValue = Some(
+              Value.ValueRecord(
+                None,
+                ImmArray(
+                  (None, Value.ValueEnum(None, Name.assertFromString("IdeLedger"))),
+                  (None, Value.ValueList(FrontStack(Value.ValueText(testCase.name)))),
+                ),
+              )
+            ),
             dar = testDar,
             enableContractUpgrading = true,
           )
@@ -124,10 +129,15 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
           _ <- run(
             clients,
             QualifiedName.assertFromString(s"${testCase.name}:main"),
-            inputValue = Some(Value.ValueRecord(None, ImmArray(
-              (None, Value.ValueEnum(None, Name.assertFromString("Canton"))),
-              (None, Value.ValueList(FrontStack(Value.ValueText(testCase.name))))
-            ))),
+            inputValue = Some(
+              Value.ValueRecord(
+                None,
+                ImmArray(
+                  (None, Value.ValueEnum(None, Name.assertFromString("Canton"))),
+                  (None, Value.ValueList(FrontStack(Value.ValueText(testCase.name)))),
+                ),
+              )
+            ),
             dar = testDar,
             enableContractUpgrading = true,
           )
