@@ -314,6 +314,11 @@ class IdeLedgerClient(
           translated,
           optLocation,
           nextSeed(),
+          packageResolution = Map(
+            PackageName.assertFromString("-dummy-package-name-") -> PackageId.assertFromString(
+              "-homePackageId-"
+            )
+          ),
           traceLog = traceLog,
           warningLog = warningLog,
         )(Script.DummyLoggingContext)
