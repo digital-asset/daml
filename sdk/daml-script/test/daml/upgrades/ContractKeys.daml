@@ -21,15 +21,15 @@ versions: 2
 
 main : TestTree
 main = tests
-  [ (,) "Unchanged key type" $ tests
-    [ (,) "Unchanged key expression" $ tests
+  [ subtree "Unchanged key type"
+    [ subtree "Unchanged key expression"
       [ ("queryContractKey, src=v1 tgt=v2", queryKeyUnchanged)
       , ("exerciseByKeyCmd, src=v1 tgt=v2", exerciseCmdKeyUnchanged)
       , ("fetchByKey, src=v1 tgt=v2 ", fetchKeyUnchanged)
       , ("exerciseByKey, src=v1 tgt=v2", exerciseUpdateKeyUnchanged)
       ]
-    , (,) "Changed key expression" $ tests
-      [ (,) "Unchanged key value" $ tests
+    , subtree "Changed key expression"
+      [ subtree "Unchanged key value"
         [ ("queryContractId, src=v1 tgt=v2", queryKeyChangedExprSameValue)
         , ("queryContractKey, src=v1 tgt=v2", qckKeyChangedExprSameValue)
         , ("fetch, src=v1 tgt=v2", fetchKeyChangedExprSameValue)
@@ -39,7 +39,7 @@ main = tests
         , ("exerciseCmd, src=v1 tgt=v2", exerciseCmdKeyChangedExprSameValue)
         , ("exerciseByKeyCmd, src=v1 tgt=v2", ebkCmdKeyChangedExprSameValue)
         ]
-      , (,) "Changed key value" $ tests
+      , subtree "Changed key value"
         [ broken ("queryContractId, src=v1 tgt=v2", queryKeyChangedExprChangedValue)
         , broken ("queryContractKey, src=v1 tgt=v2", qckKeyChangedExprChangedValue)
         , ("fetch, src=v1 tgt=v2", fetchKeyChangedExprChangedValue)
@@ -51,8 +51,8 @@ main = tests
         ]
       ]
     ]
-  , (,) "Changed key type" $ tests
-    [ (,) "Unchanged key value (modulo trailing `None`s)" $ tests
+  , subtree "Changed key type"
+    [ subtree "Unchanged key value (modulo trailing `None`s)"
       [ ("queryContractKey, src=v1 tgt=v2", queryKeyUpgraded)
       , ("exerciseByKeyCmd, src=v1 tgt=v2", exerciseCmdKeyUpgraded)
       , ("fetch, src=v1 tgt=v2", fetchKeyUpgraded)
