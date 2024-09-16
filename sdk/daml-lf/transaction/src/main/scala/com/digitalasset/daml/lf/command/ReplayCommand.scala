@@ -43,9 +43,9 @@ object ReplayCommand {
       argument: Value,
   ) extends ReplayCommand
 
-  /** Fetch a template, not by interface */
   final case class Fetch(
       templateId: Identifier,
+      interfaceId: Option[Identifier],
       coid: Value.ContractId,
   ) extends ReplayCommand
 

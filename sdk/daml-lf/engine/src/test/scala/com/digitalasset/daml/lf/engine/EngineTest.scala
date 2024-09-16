@@ -1313,7 +1313,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
           suffixLenientEngine
             .reinterpret(
               n.requiredAuthorizers,
-              ReplayCommand.Fetch(n.templateId, n.coid),
+              ReplayCommand.Fetch(n.templateId, n.interfaceId, n.coid),
               txMeta.nodeSeeds.toSeq.collectFirst { case (`nid`, seed) => seed },
               txMeta.submissionTime,
               let,
@@ -1362,6 +1362,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
 
       val fetchNode = ReplayCommand.Fetch(
         templateId = fetchedTid,
+        interfaceId = None,
         coid = fetchedCid,
       )
 
@@ -2567,7 +2568,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
                 val key = fetch.keyOpt.getOrElse(sys.error("unexpected empty contract key")).value
                 ReplayCommand.FetchByKey(fetch.templateId, key)
               case fetch: Node.Fetch =>
-                ReplayCommand.Fetch(fetch.templateId, fetch.coid)
+                ReplayCommand.Fetch(fetch.templateId, None, fetch.coid)
               case lookup: Node.LookupByKey =>
                 ReplayCommand.LookupByKey(lookup.templateId, lookup.key.value)
               case exe: Node.Exercise if exe.byKey =>

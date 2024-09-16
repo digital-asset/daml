@@ -1218,7 +1218,9 @@ private[lf] object SBuiltinFun {
     }
   }
 
-  final case object SBResolveSBUInsertFetchNode extends SBuiltinFun(1) {
+  final case class SBResolveSBUInsertFetchNode(
+      interfaceId: TypeConName
+  ) extends SBuiltinFun(1) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
         machine: Machine[Q],
@@ -1227,6 +1229,7 @@ private[lf] object SBuiltinFun {
         SBUInsertFetchNode(
           getSAnyContract(args, 0)._1,
           byKey = false,
+          interfaceId = Some(interfaceId),
         )
       )
       Control.Expression(e)
@@ -1266,13 +1269,27 @@ private[lf] object SBuiltinFun {
   // matches the template type, and then return the SAny internal value.
   final case class SBFromInterface(
       tplId: TypeConName
-  ) extends SBuiltinPure(1) {
-    override private[speedy] def executePure(args: util.ArrayList[SValue]): SOptional = {
+  ) extends SBuiltinFun(1) {
+    override private[speedy] def execute[Q](
+        args: util.ArrayList[SValue],
+        machine: Machine[Q],
+    ): Control[Q] = {
       val (tyCon, record) = getSAnyContract(args, 0)
+
       if (tplId == tyCon) {
-        SOptional(Some(record))
+        Control.Value(SOptional(Some(record)))
+      } else if (tplId.qualifiedName == tyCon.qualifiedName) {
+        val (tplIdPkgName, _) = machine.tmplId2PackageNameVersion(tplId)
+        val (tyConPkgName, _) = machine.tmplId2PackageNameVersion(tyCon)
+        if (tplIdPkgName == tyConPkgName) {
+          importValue(machine, tplId, record.toUnnormalizedValue) { templateArg =>
+            Control.Value(SOptional(Some(templateArg)))
+          }
+        } else {
+          Control.Value(SOptional(None))
+        }
       } else {
-        SOptional(None)
+        Control.Value(SOptional(None))
       }
     }
   }
@@ -1393,6 +1410,7 @@ private[lf] object SBuiltinFun {
   final case class SBUInsertFetchNode(
       templateId: TypeConName,
       byKey: Boolean,
+      interfaceId: Option[TypeConName],
   ) extends UpdateBuiltin(2) {
 
     protected def executeUpdate(
@@ -1410,6 +1428,7 @@ private[lf] object SBuiltinFun {
             optLocation = machine.getLastLocation,
             byKey = byKey,
             version = version,
+            interfaceId = interfaceId,
           ) match {
             case Right(ptx) =>
               machine.ptx = ptx
