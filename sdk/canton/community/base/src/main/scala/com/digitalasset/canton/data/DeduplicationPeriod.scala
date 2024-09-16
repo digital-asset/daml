@@ -12,8 +12,6 @@ import scala.util.{Failure, Success, Try}
 /** Specifies the deduplication period for a command submission.
   * Note that we would like to keep this easily extensible to support offsets and absolute
   * timestamps, hence the usage of a trait here.
-  *
-  * @see com.digitalasset.canton.ledger.participant.state.v2.ReadService.stateUpdates for the deduplication guarantee
   */
 sealed trait DeduplicationPeriod extends Product with Serializable
 

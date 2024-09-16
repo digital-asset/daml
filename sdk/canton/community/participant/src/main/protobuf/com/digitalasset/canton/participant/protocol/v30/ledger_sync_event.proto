@@ -9,6 +9,7 @@ import "com/digitalasset/canton/protocol/v30/participant_reassignment.proto";
 import "com/digitalasset/canton/protocol/v30/participant_transaction.proto";
 import "scalapb/scalapb.proto";
 
+// TODO(i18695) Remove
 // LedgerSyncEvent is a canton type alias for the daml-on-x com.daml.ledger.participant.state.v2.Update
 message LedgerSyncEvent {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.StorageProtoVersion";

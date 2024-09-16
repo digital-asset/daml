@@ -241,8 +241,8 @@ class TransactionProcessingSteps(
     ): TransactionSubmissionTrackingData = {
       // If the deduplication period is not supported, we report the empty deduplication period to be on the safe side
       // Ideally, we'd report the offset that is being assigned to the completion event,
-      // but that is not supported in our current architecture as the MultiDomainEventLog assigns the global offset
-      // only after the event has been inserted to the ParticipantEventLog.
+      // but that is not supported in our current architecture as the indexer assigns the global offset at a later stage
+      // of processing.
       lazy val emptyDeduplicationPeriod =
         DeduplicationPeriod.DeduplicationDuration(java.time.Duration.ZERO)
 
@@ -1312,7 +1312,7 @@ class TransactionProcessingSteps(
             submissionTime = lfTx.metadata.submissionTime.toLf,
             // Set the submission seed to zeros one (None no longer accepted) because it is pointless for projected
             // transactions and it leaks the structure of the omitted parts of the transaction.
-            submissionSeed = LedgerSyncEvent.noOpSeed,
+            submissionSeed = Update.noOpSeed,
             optUsedPackages = None,
             optNodeSeeds = Some(lfTx.metadata.seeds.to(ImmArray)),
             optByKeyNodes = None, // optByKeyNodes is unused by the indexer

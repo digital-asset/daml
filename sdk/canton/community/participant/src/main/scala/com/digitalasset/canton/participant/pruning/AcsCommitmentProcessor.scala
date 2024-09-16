@@ -1924,7 +1924,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
       cleanReplayTs <- cleanReplayF
 
       // 2. Pruning must not delete events from the event log for which there are still in-flight submissions.
-      // We check here the `SingleDimensionEventLog` for the domain; the participant event log must be taken care of separately.
+      // We check here the domain related events only.
       //
       // Processing of sequenced events may concurrently move the earliest in-flight submission back in time
       // (from timeout to sequencing timestamp), but this can only happen if the corresponding request is not yet clean,

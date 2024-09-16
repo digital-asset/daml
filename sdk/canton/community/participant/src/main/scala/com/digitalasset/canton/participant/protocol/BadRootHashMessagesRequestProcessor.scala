@@ -22,7 +22,7 @@ import com.digitalasset.canton.sequencing.protocol.{MediatorGroupRecipient, Reci
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{LfPartyId, SequencerCounter, checked}
+import com.digitalasset.canton.{SequencerCounter, checked}
 
 import scala.concurrent.ExecutionContext
 
@@ -82,19 +82,5 @@ class BadRootHashMessagesRequestProcessor(
             .tick(sequencerCounter, timestamp, eventO = None, requestCounterO = None)
         )
       } yield ()
-    }
-
-  def participantIsAddressByPartyGroupAddress(
-      timestamp: CantonTimestamp,
-      parties: Seq[LfPartyId],
-      participantId: ParticipantId,
-  )(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Boolean] =
-    performUnlessClosingUSF(functionFullName) {
-      for {
-        snapshot <- crypto.awaitIpsSnapshotUS(timestamp)
-        p <- FutureUnlessShutdown.outcomeF(snapshot.activeParticipantsOfParties(parties))
-      } yield p.values.exists(_.contains(participantId))
     }
 }

@@ -17,12 +17,16 @@ sealed trait MetricValue extends PrettyPrinting {
   def attributes: Map[String, String]
 
   def toCsvHeader(data: MetricData): String
-  def toCsvRow(ts: CantonTimestamp, data: MetricData): String
+  def toCsvRow(ts: CantonTimestamp, data: MetricData, unknownKeys: Seq[String]): String
 
   final def select[TargetType <: MetricValue](implicit
       M: ClassTag[TargetType]
   ): Option[TargetType] = M.unapply(this)
 
+  protected def renderUnknownKeys(unknownKeys: Seq[String]): String =
+    unknownKeys
+      .flatMap(k => attributes.get(k).map(v => s"$k=$v"))
+      .mkString(";")
 }
 
 object MetricValue {
@@ -67,11 +71,13 @@ object MetricValue {
     def value: T
 
     override def toCsvHeader(data: MetricData): String =
-      Seq("timestamp", "count").mkString(",")
+      (Seq("timestamp", "count", "attributes")).mkString(",")
 
-    override def toCsvRow(ts: CantonTimestamp, data: MetricData): String =
-      Seq(ts.getEpochSecond.toString, value.toString).mkString(",")
-
+    override def toCsvRow(ts: CantonTimestamp, data: MetricData, unknownKeys: Seq[String]): String =
+      (Seq(ts.getEpochSecond.toString, value.toString) :+ renderUnknownKeys(
+        unknownKeys
+      ))
+        .mkString(",")
   }
 
   final case class LongPoint(value: Long, attributes: Map[String, String])
@@ -117,13 +123,15 @@ object MetricValue {
     )
 
     override def toCsvHeader(data: MetricData): String =
-      (Seq("timestamp", "sum", "count") ++ quantiles.map(_.getQuantile).map(x => s"p$x%2.0f"))
+      (Seq("timestamp", "sum", "count") ++ quantiles
+        .map(_.getQuantile)
+        .map(x => s"p$x%2.0f") :+ "attributes")
         .mkString(",")
 
-    override def toCsvRow(ts: CantonTimestamp, data: MetricData): String =
+    override def toCsvRow(ts: CantonTimestamp, data: MetricData, unknownKeys: Seq[String]): String =
       (Seq(ts.getEpochSecond.toString, sum.toString, count.toString) ++ quantiles.map(
         _.getValue.toString
-      ))
+      ) :+ renderUnknownKeys(unknownKeys))
         .mkString(",")
 
   }
@@ -168,11 +176,13 @@ object MetricValue {
     )
 
     override def toCsvHeader(data: MetricData): String =
-      (Seq("timestamp", "sum", "count"))
+      (Seq("timestamp", "sum", "count", "attributes"))
         .mkString(",")
 
-    override def toCsvRow(ts: CantonTimestamp, data: MetricData): String =
-      (Seq(ts.getEpochSecond.toString, sum.toString, count.toString))
+    override def toCsvRow(ts: CantonTimestamp, data: MetricData, unknownKeys: Seq[String]): String =
+      (Seq(ts.getEpochSecond.toString, sum.toString, count.toString) :+ renderUnknownKeys(
+        unknownKeys
+      ))
         .mkString(",")
 
   }

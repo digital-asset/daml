@@ -76,14 +76,22 @@ class CsvReporter(config: MetricsReporterConfig.Csv, val loggerFactory: NamedLog
   private def writeRow(ts: CantonTimestamp, value: MetricValue, data: MetricData): Unit = if (
     running.get()
   ) {
-    val knownKeys = config.contextKeys.filter(key => value.attributes.contains(key))
+    def stripNamespace(s: String): String = {
+      val parts = s.split("::")
+      if (parts.length > 1) parts.head else s
+    }
+    val knownKeys = config.contextKeys.filter(value.attributes.contains)
+    val unknownKeys = value.attributes.keys.filterNot(config.contextKeys.contains).toSeq.sorted
     val prefix = knownKeys
       .flatMap { key =>
-        value.attributes.get(key).toList
+        // remove namespaces from file names ...
+        value.attributes.get(key).toList.map(stripNamespace)
       }
       .mkString(".")
+
     val name =
       ((if (prefix.isEmpty) Seq.empty else Seq(prefix)) ++ Seq(data.getName, "csv")).mkString(".")
+
     tryOrStop {
       val (_, bufferedWriter) = files.getOrElseUpdate(
         name, {
@@ -101,7 +109,7 @@ class CsvReporter(config: MetricsReporterConfig.Csv, val loggerFactory: NamedLog
           (writer, bufferedWriter)
         },
       )
-      bufferedWriter.append(value.toCsvRow(ts, data))
+      bufferedWriter.append(value.toCsvRow(ts, data, unknownKeys))
       bufferedWriter.newLine()
     }
   }

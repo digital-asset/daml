@@ -8,6 +8,7 @@ import com.daml.logging.entries.{LoggingEntry, LoggingValue, ToLoggingValue}
 import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.protocol.LfHash
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
@@ -19,11 +20,31 @@ import scala.concurrent.Promise
 
 /** An update to the (abstract) participant state.
   *
-  * [[Update]]'s are used in [[ReadService.stateUpdates]] to communicate
+  * [[Update]]'s are used in to communicate
   * changes to abstract participant state to consumers.
   *
   * We describe the possible updates in the comments of
   * each of the case classes implementing [[Update]].
+  *
+  * Deduplication guarantee:
+  * Let there be a [[Update.TransactionAccepted]] with [[CompletionInfo]]
+  * or a [[Update.CommandRejected]] with [[CompletionInfo]] at offset `off2`.
+  * If `off2`'s [[CompletionInfo.optDeduplicationPeriod]] is a [[com.digitalasset.canton.data.DeduplicationPeriod.DeduplicationOffset]],
+  * let `off1` be the first offset after the deduplication offset.
+  * If the deduplication period is a [[com.digitalasset.canton.data.DeduplicationPeriod.DeduplicationDuration]],
+  * let `off1` be the first offset whose record time is at most the duration before `off2`'s record time (inclusive).
+  * Then there is no other [[Update.TransactionAccepted]] with [[CompletionInfo]] for the same [[CompletionInfo.changeId]]
+  * between the offsets `off1` and `off2` inclusive.
+  *
+  * So if a command submission has resulted in a [[Update.TransactionAccepted]],
+  * other command submissions with the same [[SubmitterInfo.changeId]] must be deduplicated
+  * if the earlier's [[Update.TransactionAccepted]] falls within the latter's [[CompletionInfo.optDeduplicationPeriod]].
+  *
+  * Implementations MAY extend the deduplication period from [[SubmitterInfo]] arbitrarily
+  * and reject a command submission as a duplicate even if its deduplication period does not include
+  * the earlier's [[Update.TransactionAccepted]].
+  * A [[Update.CommandRejected]] completion does not trigger deduplication and implementations SHOULD
+  * process such resubmissions normally.
   */
 sealed trait Update extends Product with Serializable with PrettyPrinting {
 
@@ -43,6 +64,12 @@ sealed trait WithoutDomainIndex extends Update {
 }
 
 object Update {
+
+  /** Produces a constant dummy transaction seed for transactions in which we cannot expose a seed. Essentially all of
+    * them. TransactionMeta.submissionSeed can no longer be set to None starting with Daml 1.3
+    */
+  def noOpSeed: LfHash =
+    LfHash.assertFromString("00" * LfHash.underlyingHashLength)
 
   /** Signal used only to increase the offset of the participant in the initialization stage. */
   final case class Init(
@@ -171,7 +198,7 @@ object Update {
     *                          completion event for this transaction. This in particular applies if
     *                          this participant has submitted the command to the [[WriteService]].
     *
-    *                          The [[ReadService]] implementation must ensure that command
+    *                          The Offset-order of Updates must ensure that command
     *                          deduplication guarantees are met.
     * @param transactionMeta   The metadata of the transaction that was provided by the submitter.
     *                          It is visible to all parties that can see the transaction.
@@ -369,7 +396,7 @@ object Update {
         param("domainId", _.domainId.uid),
       )
 
-    /** If true, the [[ReadService]]'s deduplication guarantees apply to this rejection.
+    /** If true, the deduplication guarantees apply to this rejection.
       * The participant state implementations should strive to set this flag to true as often as
       * possible so that applications get better guarantees.
       */
@@ -414,7 +441,7 @@ object Update {
       def status: RpcStatus
 
       /** Whether the rejection is a definite answer for the deduplication guarantees
-        * specified for [[ReadService.stateUpdates]].
+        * specified for [[Update]].
         */
       def definiteAnswer: Boolean
     }

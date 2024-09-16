@@ -60,10 +60,4 @@ object UpstreamOffsetConvert {
 
   def toLedgerSyncOffset(offset: String): Either[String, LedgerSyncOffset] =
     Ref.HexString.fromString(offset).map(LedgerSyncOffset.fromHexString)
-
-  def ledgerOffsetToGlobalOffset(ledgerOffset: String): Either[String, GlobalOffset] =
-    for {
-      ledgerSyncOffset <- toLedgerSyncOffset(ledgerOffset)
-      globalOffset <- toGlobalOffset(ledgerSyncOffset)
-    } yield globalOffset
 }

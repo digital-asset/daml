@@ -10,7 +10,6 @@ import com.digitalasset.canton.participant.store.InFlightSubmissionStore.{
   InFlightByMessageId,
   InFlightBySequencingInfo,
 }
-import com.digitalasset.canton.participant.sync.TimestampedEvent.TimelyRejectionEventId
 import com.digitalasset.canton.protocol.RootHash
 import com.digitalasset.canton.sequencing.protocol.MessageId
 import com.digitalasset.canton.store.db.DbSerializationException
@@ -90,14 +89,6 @@ final case class InFlightSubmission[+SequencingInfo <: SubmissionSequencingInfo]
     param("sequencing info", _.sequencingInfo),
     param("submission trace context", _.submissionTraceContext),
   )
-
-  /** @param ev Enforces that this method is called only on unsequenced in-flight submissions
-    *           as there is no point in talking about timely rejections for sequenced submissions.
-    */
-  def timelyRejectionEventId(implicit
-      ev: SequencingInfo <:< UnsequencedSubmission
-  ): TimelyRejectionEventId =
-    TimelyRejectionEventId(submissionDomain, messageUuid)
 
   def referenceByMessageId: InFlightByMessageId = InFlightByMessageId(submissionDomain, messageId)
 
