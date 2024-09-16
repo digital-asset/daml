@@ -56,7 +56,9 @@ class ParallelIndexerMetrics(
       summary = "The number of the state updates persisted to the database.",
       description = """The number of the state updates persisted to the database. There are
                     |updates such as accepted transactions, configuration changes,
-                    |party allocations, rejections, etc.""",
+                    |party allocations, rejections, etc, but they also include synthetic events
+                    |when the node learned about the sequencer clock advancing without any actual
+                    |ledger event such as due to submission receipts or time proofs.""",
       qualification = MetricQualification.Traffic,
     )
   )

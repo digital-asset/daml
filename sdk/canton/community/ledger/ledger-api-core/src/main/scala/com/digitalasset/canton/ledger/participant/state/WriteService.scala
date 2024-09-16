@@ -58,7 +58,7 @@ trait WriteService
     * This method must be thread-safe.
     *
     * The result of the transaction submission is communicated asynchronously
-    * via a [[com.digitalasset.canton.ledger.participant.state.ReadService]] implementation backed by the same participant
+    * via a sequence of [[com.digitalasset.canton.ledger.participant.state.Update]] implementation backed by the same participant
     * state as this [[com.digitalasset.canton.ledger.participant.state.WriteService]]. Successful transaction acceptance is
     * communicated using a [[com.digitalasset.canton.ledger.participant.state.Update.TransactionAccepted]] message. Failed
     * transaction acceptance is communicated when possible via a
@@ -100,7 +100,7 @@ trait WriteService
     *
     * @param submitterInfo               the information provided by the submitter for
     *                                    correlating this submission with its acceptance or rejection on the
-    *                                    associated [[com.digitalasset.canton.ledger.participant.state.ReadService]].
+    *                                    associated [[com.digitalasset.canton.ledger.participant.state.Update]].
     * @param optDomainId                 the optional ID of the domain on which the submitter wants the transaction to be sequenced.
     *                                    if empty, the participant will automatically attempt to find a suitable domain based on the
     *                                    parties and contracts involved in the submission.

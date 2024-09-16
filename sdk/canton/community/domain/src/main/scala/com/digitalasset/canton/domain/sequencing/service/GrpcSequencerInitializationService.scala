@@ -99,15 +99,49 @@ class GrpcSequencerInitializationService(
           )
         )
 
-      // check that there is at most 1 effective transaction per unique key
+      // check that the snapshot is consistent with respect to effective proposals and effective fully authorized transactions
       multipleEffectivePerUniqueKey = genesisState.result
         .groupBy(_.transaction.mapping.uniqueKey)
-        .view
         // only retain effective transactions
-        .mapValues(_.filter(_.validUntil.isEmpty))
-        // only retain unique keys for which there is more than 1 effective transaction
-        .filter(_._2.size > 1)
-        .toMap
+        .values
+        .toSeq
+        .flatMap { topoTxs =>
+          val (proposals, fullyAuthorized) =
+            topoTxs.filter(tx => tx.validUntil.isEmpty).partition(_.transaction.isProposal)
+
+          val maxFullyAuthorizedSerialO = fullyAuthorized.view.map(_.serial).maxOption
+
+          val allProposalsLessThanOrEqualMaxSerial = {
+            val unexpectedEffectiveProposals = maxFullyAuthorizedSerialO.toList.flatMap {
+              maxFullyAuthorizedSerial => proposals.filter(_.serial <= maxFullyAuthorizedSerial)
+            }
+            if (unexpectedEffectiveProposals.nonEmpty) {
+              Seq(
+                "effective proposals with serial less than or equal to the highest fully authorized transaction" -> unexpectedEffectiveProposals
+              )
+            } else Seq.empty
+          }
+
+          val multipleEffectiveProposalsWithDifferentSerials =
+            if (proposals.map(_.serial).distinct.sizeIs > 1) {
+              Seq("muliple effective proposals with different serials" -> proposals)
+            } else Seq.empty
+
+          val multipleEffectiveProposalsForSameTransactionHash =
+            proposals
+              .groupBy(_.hash)
+              .filter(_._2.sizeIs > 1)
+              .values
+              .map(
+                "multiple effective proposals for the same transaction hash" -> _
+              )
+
+          val multipleFullyAuthorized = if (fullyAuthorized.sizeIs > 1) {
+            Seq("concurrently effective transactions with the same unique key" -> fullyAuthorized)
+          } else Seq.empty
+
+          multipleFullyAuthorized ++ multipleEffectiveProposalsForSameTransactionHash ++ allProposalsLessThanOrEqualMaxSerial ++ multipleEffectiveProposalsWithDifferentSerials
+        }
 
       _ <- EitherTUtil.condUnitET[Future](
         multipleEffectivePerUniqueKey.isEmpty,

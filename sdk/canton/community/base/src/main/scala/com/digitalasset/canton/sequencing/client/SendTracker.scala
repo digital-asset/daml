@@ -292,7 +292,7 @@ class SendTracker(
         for {
           _ <- store.removePendingSend(messageId)
         } yield {
-          metrics.submissions.inFlight.dec()
+          metrics.submissions.inFlight.dec()(eventSpecificMetricsContext)
         }
       case (Some(_), _) =>
         // We observed the command being sequenced but it arrived too late to be processed.

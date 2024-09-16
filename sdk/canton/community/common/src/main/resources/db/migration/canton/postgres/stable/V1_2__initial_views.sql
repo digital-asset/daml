@@ -664,18 +664,14 @@ create or replace view debug.seq_traffic_control_initial_timestamp as
     debug.canton_timestamp(initial_timestamp) as initial_timestamp
   from seq_traffic_control_initial_timestamp;
 
-create or replace view debug.ord_completed_epochs as
+create or replace view debug.ord_epochs as
   select
     epoch_number,
     start_block_number,
-    epoch_length
-  from ord_completed_epochs;
-
-create or replace view debug.ord_active_epoch as
-  select
-    epoch_number,
-    block_number
-  from ord_active_epoch;
+    epoch_length,
+    debug.canton_timestamp(topology_ts) as topology_ts,
+    in_progress
+  from ord_epochs;
 
 create or replace view debug.ord_availability_batch as
   select
@@ -686,6 +682,7 @@ create or replace view debug.ord_availability_batch as
 create or replace view debug.ord_pbft_messages_in_progress as
 select
     block_number,
+    epoch_number,
     view_number,
     message,
     discriminator,
@@ -695,6 +692,7 @@ from ord_pbft_messages_in_progress;
 create or replace view debug.ord_pbft_messages_completed as
   select
     block_number,
+    epoch_number,
     message,
     discriminator,
     from_sequencer_id

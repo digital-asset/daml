@@ -125,17 +125,6 @@ class ParticipantMetrics(
       )
       .value
 
-  val updatesPublished: Meter = openTelemetryMetricsFactory.meter(
-    MetricInfo(
-      prefix :+ "updates-published",
-      summary = "Number of updates published through the read service to the indexer",
-      description =
-        """When an update is published through the read service, it has already been committed to the ledger.
-        |The indexer will subsequently store the update in a form that allows for querying the ledger efficiently.""",
-      qualification = MetricQualification.Traffic,
-    )
-  )
-
   val inflightValidationRequests: Gauge[Int] =
     openTelemetryMetricsFactory.gauge(
       MetricInfo(

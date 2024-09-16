@@ -22,9 +22,9 @@ import com.digitalasset.daml.lf.data.Ref
   *                             within all the submissions by the same parties and application.
   * @param deduplicationPeriod  The deduplication period for the command submission.
   *                             Used for the deduplication guarantee described in the
-  *                            [[ReadService.stateUpdates]].
-  * @param submissionId        An identifier for the submission that allows an application to
-  *                            correlate completions to its submissions.
+  *                             [[Update]].
+  * @param submissionId         An identifier for the submission that allows an application to
+  *                             correlate completions to its submissions.
   */
 final case class SubmitterInfo(
     actAs: List[Ref.Party],

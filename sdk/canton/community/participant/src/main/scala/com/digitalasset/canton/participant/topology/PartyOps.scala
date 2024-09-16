@@ -112,7 +112,7 @@ class PartyOps(
             ParticipantTopologyManagerError.IdentityManagerParentError(
               InconsistentTopologySnapshot
                 .MultipleEffectiveMappingsPerUniqueKey(
-                  multiple.groupBy(_.mapping.uniqueKey)
+                  Seq("multiple effective transactions at the same time" -> multiple)
                 )
             )
           )
