@@ -141,6 +141,7 @@ import com.digitalasset.canton.ledger.client.services.admin.IdentityProviderConf
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.networking.grpc.ForwardingStreamObserver
+import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.platform.apiserver.execution.CommandStatus
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.serialization.ProtoConverter
@@ -1513,7 +1514,9 @@ object LedgerApiCommands {
           CompletionStreamRequest(
             applicationId = applicationId,
             parties = Seq(partyId),
-            beginExclusive = beginOffsetExclusive,
+            beginExclusive = Option.unless(beginOffsetExclusive.isEmpty)(
+              ApiOffset.assertFromString(beginOffsetExclusive).toLong
+            ),
           )
         )
 
@@ -1555,7 +1558,9 @@ object LedgerApiCommands {
         CompletionStreamRequest(
           applicationId = applicationId,
           parties = parties,
-          beginExclusive = offset,
+          beginExclusive = Option.unless(offset.isEmpty)(
+            ApiOffset.assertFromString(offset).toLong
+          ),
         )
       }
 

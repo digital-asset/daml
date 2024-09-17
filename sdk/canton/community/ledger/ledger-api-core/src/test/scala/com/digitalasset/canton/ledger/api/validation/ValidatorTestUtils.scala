@@ -31,7 +31,8 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues {
     Ref.QualifiedName.assertFromString(s"$includedModule:$includedTemplate")
   protected val packageId = Ref.PackageId.assertFromString("packageId")
   protected val packageId2 = Ref.PackageId.assertFromString("packageId2")
-  protected val offset = ParticipantOffset.fromString("0042")
+  protected val offset = ParticipantOffset.fromString("00000000000000002a")
+  protected val offsetLong = Some(42L)
   protected val party = Ref.Party.assertFromString("party")
   protected val party2 = Ref.Party.assertFromString("party2")
   protected val verbose = false

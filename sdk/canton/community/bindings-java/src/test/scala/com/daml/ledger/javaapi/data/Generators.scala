@@ -610,13 +610,15 @@ object Generators {
     for {
       applicationId <- Arbitrary.arbString.arbitrary
       parties <- Gen.listOf(Arbitrary.arbString.arbitrary)
-      beginExclusive <- Arbitrary.arbString.arbitrary
-    } yield Request
-      .newBuilder()
-      .setApplicationId(applicationId)
-      .addAllParties(parties.asJava)
-      .setBeginExclusive(beginExclusive)
-      .build()
+      beginExclusive <- Gen.option(Arbitrary.arbLong.arbitrary)
+    } yield {
+      val builder = Request
+        .newBuilder()
+        .setApplicationId(applicationId)
+        .addAllParties(parties.asJava)
+      beginExclusive.foreach(builder.setBeginExclusive)
+      builder.build()
+    }
   }
 
   def completionGen: Gen[v2.CompletionOuterClass.Completion] = {
