@@ -691,6 +691,27 @@ class ValidatingTopologyMappingChecksTest
           None,
         ) shouldBe Right(())
       }
+
+      "reject a rejoining participant" in {
+        val (checks, store) = mk()
+        val dtcRemoval = factory.mkRemove(
+          DomainTrustCertificate(
+            participant1,
+            domainId,
+          )
+        )
+        addToStore(
+          store,
+          dtcRemoval,
+        )
+        val rejoin =
+          factory.mkAdd(DomainTrustCertificate(participant1, domainId), serial = PositiveInt.two)
+
+        checkTransaction(checks, rejoin, Some(dtcRemoval)) shouldBe Left(
+          TopologyTransactionRejection.MembersCannotRejoinDomain(Seq(participant1))
+        )
+      }
+
     }
 
     "validating MediatorDomainState" should {
@@ -779,6 +800,79 @@ class ValidatingTopologyMappingChecksTest
           s"the following mediators were defined both as active and observer: $med1"
         )
       }
+
+      "report MembersCannotRejoinDomain for mediators that are being re-onboarded" in {
+        val (checks, store) = mk()
+        val (Seq(med1, med2, med3), transactions) = generateMemberIdentities(3, MediatorId(_))
+
+        def mkGroups(
+            serial: PositiveInt,
+            groupSetup: (NonNegativeInt, Seq[MediatorId])*
+        ): Seq[SignedTopologyTransaction[TopologyChangeOp.Replace, MediatorDomainState]] =
+          groupSetup.map { case (group, mediators) =>
+            factory.mkAdd(
+              MediatorDomainState
+                .create(
+                  domainId,
+                  group,
+                  PositiveInt.one,
+                  active = mediators,
+                  Seq.empty,
+                )
+                .value,
+              // the signing key is not relevant for the test
+              signingKey = factory.SigningKeys.key1,
+              serial = serial,
+            )
+          }
+
+        val Seq(group0, group1) = mkGroups(
+          PositiveInt.one,
+          NonNegativeInt.zero -> Seq(med1, med3),
+          NonNegativeInt.one -> Seq(med2, med3),
+        )
+
+        addToStore(store, (transactions :+ group0 :+ group1)*)
+
+        val Seq(group0RemoveMed1, group1RemoveMed2) = mkGroups(
+          PositiveInt.two,
+          NonNegativeInt.zero -> Seq(med3),
+          NonNegativeInt.one -> Seq(med3),
+        )
+
+        store
+          .update(
+            SequencedTime(ts1),
+            EffectiveTime(ts1),
+            removeMapping = Map(
+              group0.mapping.uniqueKey -> PositiveInt.one,
+              group1.mapping.uniqueKey -> PositiveInt.one,
+            ),
+            removeTxs = Set.empty,
+            additions = Seq(
+              ValidatedTopologyTransaction(group0RemoveMed1),
+              ValidatedTopologyTransaction(group1RemoveMed2),
+            ),
+          )
+          .futureValue
+
+        val Seq(med1RejoinsGroup0, med2RejoinsGroup0) = mkGroups(
+          PositiveInt.three,
+          // try joining the same group
+          NonNegativeInt.zero -> Seq(med1, med3),
+          // try joining another group
+          NonNegativeInt.zero -> Seq(med2, med3),
+        )
+
+        checkTransaction(checks, med1RejoinsGroup0, Some(group0RemoveMed1)) shouldBe Left(
+          TopologyTransactionRejection.MembersCannotRejoinDomain(Seq(med1))
+        )
+
+        checkTransaction(checks, med2RejoinsGroup0, Some(group0RemoveMed1)) shouldBe Left(
+          TopologyTransactionRejection.MembersCannotRejoinDomain(Seq(med2))
+        )
+      }
+
     }
 
     "validating SequencerDomainState" should {
@@ -830,6 +924,58 @@ class ValidatingTopologyMappingChecksTest
         )
       }
 
+      "report MembersCannotRejoinDomain for sequencers that are being re-onboarded" in {
+        val (checks, store) = mk()
+        val (Seq(seq1, seq2), transactions) = generateMemberIdentities(2, SequencerId(_))
+
+        def mkSDS(
+            serial: PositiveInt,
+            sequencers: SequencerId*
+        ): SignedTopologyTransaction[TopologyChangeOp.Replace, SequencerDomainState] =
+          factory.mkAdd(
+            SequencerDomainState
+              .create(
+                domainId,
+                PositiveInt.one,
+                active = sequencers,
+                Seq.empty,
+              )
+              .value,
+            // the signing key is not relevant for the test
+            signingKey = factory.SigningKeys.key1,
+            serial = serial,
+          )
+
+        val sds_S1_S2 = mkSDS(
+          PositiveInt.one,
+          seq1,
+          seq2,
+        )
+
+        addToStore(store, (transactions :+ sds_S1_S2)*)
+
+        val sds_S1 = mkSDS(PositiveInt.two, seq1)
+
+        store
+          .update(
+            SequencedTime(ts1),
+            EffectiveTime(ts1),
+            removeMapping = Map(
+              sds_S1.mapping.uniqueKey -> PositiveInt.one
+            ),
+            removeTxs = Set.empty,
+            additions = Seq(
+              ValidatedTopologyTransaction(sds_S1)
+            ),
+          )
+          .futureValue
+
+        val sds_S1_rejoining_S2 = mkSDS(PositiveInt.three, seq1, seq2)
+
+        checkTransaction(checks, sds_S1_rejoining_S2, Some(sds_S1)) shouldBe Left(
+          TopologyTransactionRejection.MembersCannotRejoinDomain(Seq(seq2))
+        )
+      }
     }
 
     "validating OwnerToKeyMapping" should {

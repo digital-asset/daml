@@ -16,12 +16,7 @@ import com.digitalasset.canton.topology.store.TopologyTransactionRejection.{
   InvalidTopologyMapping,
   NamespaceAlreadyInUse,
 }
-import com.digitalasset.canton.topology.store.{
-  TopologyStore,
-  TopologyStoreId,
-  TopologyTransactionRejection,
-  TopologyTransactions,
-}
+import com.digitalasset.canton.topology.store.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyMapping.{Code, MappingHash}
 import com.digitalasset.canton.topology.transaction.TopologyMappingChecks.PendingChangesLookup
@@ -88,7 +83,14 @@ class ValidatingTopologyMappingChecks(
       case (Code.DomainTrustCertificate, None | Some(Code.DomainTrustCertificate)) =>
         val checkReplace = toValidate
           .select[TopologyChangeOp.Replace, DomainTrustCertificate]
-          .map(checkDomainTrustCertificateReplace(effective, _, pendingChangesLookup))
+          .map(
+            checkDomainTrustCertificateReplace(
+              effective,
+              _,
+              inStore.flatMap(_.selectMapping[DomainTrustCertificate]),
+              pendingChangesLookup,
+            )
+          )
 
         val checkRemove = toValidate
           .select[TopologyChangeOp.Remove, DomainTrustCertificate]
@@ -133,6 +135,17 @@ class ValidatingTopologyMappingChecks(
               effective,
               _,
               inStore.flatMap(_.select[TopologyChangeOp.Replace, MediatorDomainState]),
+              pendingChangesLookup,
+            )
+          )
+      case (Code.SequencerDomainState, None | Some(Code.SequencerDomainState)) =>
+        toValidate
+          .select[TopologyChangeOp.Replace, SequencerDomainState]
+          .map(
+            checkSequencerDomainStateReplace(
+              effective,
+              _,
+              inStore.flatMap(_.select[TopologyChangeOp.Replace, SequencerDomainState]),
               pendingChangesLookup,
             )
           )
@@ -182,6 +195,36 @@ class ValidatingTopologyMappingChecks(
     } yield ()
 
   }
+
+  private def loadHistoryFromStore(
+      effectiveTime: EffectiveTime,
+      code: Code,
+      pendingChangesLookup: PendingChangesLookup,
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, TopologyTransactionRejection, Seq[GenericSignedTopologyTransaction]] =
+    EitherT.right[TopologyTransactionRejection](
+      store
+        .inspect(
+          proposals = false,
+          // effective time has exclusive semantics, but TimeQuery.Range.until has always had inclusive semantics.
+          // therefore, we take the immediatePredecessor here
+          timeQuery =
+            TimeQuery.Range(from = None, until = Some(effectiveTime.value.immediatePredecessor)),
+          asOfExclusiveO = None,
+          op = None,
+          types = Seq(code),
+          idFilter = None,
+          namespaceFilter = None,
+        )
+        .map { storedTxs =>
+          val pending = pendingChangesLookup.values
+            .filter(pendingTx =>
+              !pendingTx.isProposal && pendingTx.transaction.mapping.code == code
+            )
+          (storedTxs.result.map(_.transaction) ++ pending)
+        }
+    )
 
   @VisibleForTesting
   private[transaction] def loadFromStore(
@@ -300,7 +343,8 @@ class ValidatingTopologyMappingChecks(
 
   private def checkDomainTrustCertificateReplace(
       effective: EffectiveTime,
-      toValidate: SignedTopologyTransaction[TopologyChangeOp, DomainTrustCertificate],
+      toValidate: SignedTopologyTransaction[TopologyChangeOp.Replace, DomainTrustCertificate],
+      inStore: Option[SignedTopologyTransaction[TopologyChangeOp, DomainTrustCertificate]],
       pendingChangesLookup: PendingChangesLookup,
   )(implicit traceContext: TraceContext): EitherT[Future, TopologyTransactionRejection, Unit] = {
     // Checks if the participant is allowed to submit its domain trust certificate
@@ -404,7 +448,13 @@ class ValidatingTopologyMappingChecks(
       }
     } yield ()
 
+    def checkParticipantDoesNotRejoin() = EitherTUtil.condUnitET(
+      inStore.forall(_.operation != TopologyChangeOp.Remove),
+      TopologyTransactionRejection.MembersCannotRejoinDomain(Seq(toValidate.mapping.participantId)),
+    )
+
     for {
+      _ <- checkParticipantDoesNotRejoin()
       _ <- checkPartyIdDoesntExist()
       restriction <- loadOnboardingRestriction()
       _ <- checkDomainIsNotLocked(restriction)
@@ -541,24 +591,77 @@ class ValidatingTopologyMappingChecks(
     val newMediators = (toValidate.mapping.allMediatorsInGroup.toSet -- inStore.toList.flatMap(
       _.mapping.allMediatorsInGroup
     )).map(identity[Member])
-    for {
-      result <- loadFromStore(effectiveTime, Set(Code.MediatorDomainState), pendingChangesLookup)
-      mediatorsAlreadyAssignedToGroups = result
-        .flatMap(_.selectMapping[MediatorDomainState])
-        .flatMap(tx =>
-          tx.mapping.allMediatorsInGroup.collect {
-            case med if newMediators.contains(med) => med -> tx.mapping.group
-          }
+
+    def checkMediatorNotAlreadyAssignedToOtherGroup() =
+      for {
+        result <- loadFromStore(effectiveTime, Set(Code.MediatorDomainState), pendingChangesLookup)
+        mediatorsAlreadyAssignedToGroups = result
+          .flatMap(_.selectMapping[MediatorDomainState])
+          .flatMap(tx =>
+            tx.mapping.allMediatorsInGroup.collect {
+              case med if newMediators.contains(med) => med -> tx.mapping.group
+            }
+          )
+          .toMap
+        _ <- EitherTUtil.condUnitET[Future](
+          mediatorsAlreadyAssignedToGroups.isEmpty,
+          TopologyTransactionRejection.MediatorsAlreadyInOtherGroups(
+            toValidate.mapping.group,
+            mediatorsAlreadyAssignedToGroups,
+          ): TopologyTransactionRejection,
         )
-        .toMap
-      _ <- EitherTUtil.condUnitET[Future](
-        mediatorsAlreadyAssignedToGroups.isEmpty,
-        TopologyTransactionRejection.MediatorsAlreadyInOtherGroups(
-          toValidate.mapping.group,
-          mediatorsAlreadyAssignedToGroups,
-        ): TopologyTransactionRejection,
-      )
+      } yield ()
+
+    def checkMediatorsDontRejoin(): EitherT[Future, TopologyTransactionRejection, Unit] =
+      loadHistoryFromStore(effectiveTime, code = Code.MediatorDomainState, pendingChangesLookup)
+        .flatMap { mdsHistory =>
+          val allMediatorsPreviouslyOnDomain = mdsHistory.view
+            .flatMap(_.selectMapping[MediatorDomainState])
+            .flatMap(_.mapping.allMediatorsInGroup)
+            .toSet[Member]
+          val rejoiningMediators = newMediators.intersect(allMediatorsPreviouslyOnDomain)
+          EitherTUtil.condUnitET(
+            rejoiningMediators.isEmpty,
+            TopologyTransactionRejection.MembersCannotRejoinDomain(rejoiningMediators.toSeq),
+          )
+        }
+
+    for {
+      _ <- checkMediatorNotAlreadyAssignedToOtherGroup()
+      _ <- checkMediatorsDontRejoin()
     } yield ()
+  }
+
+  private def checkSequencerDomainStateReplace(
+      effectiveTime: EffectiveTime,
+      toValidate: SignedTopologyTransaction[TopologyChangeOp.Replace, SequencerDomainState],
+      inStore: Option[SignedTopologyTransaction[TopologyChangeOp.Replace, SequencerDomainState]],
+      pendingChangesLookup: PendingChangesLookup,
+  )(implicit traceContext: TraceContext): EitherT[Future, TopologyTransactionRejection, Unit] = {
+    val newSequencers = (toValidate.mapping.allSequencers.toSet -- inStore.toList.flatMap(
+      _.mapping.allSequencers
+    )).map(identity[Member])
+
+    def checkSequencersDontRejoin(): EitherT[Future, TopologyTransactionRejection, Unit] =
+      loadHistoryFromStore(
+        effectiveTime,
+        code = Code.SequencerDomainState,
+        pendingChangesLookup,
+      )
+        .flatMap { sdsHistory =>
+          val allSequencersPreviouslyOnDomain = sdsHistory.view
+            .flatMap(_.selectMapping[SequencerDomainState])
+            .flatMap(_.mapping.allSequencers)
+            .toSet[Member]
+          val rejoiningSequencers = newSequencers.intersect(allSequencersPreviouslyOnDomain)
+          EitherTUtil.condUnitET(
+            rejoiningSequencers.isEmpty,
+            TopologyTransactionRejection
+              .MembersCannotRejoinDomain(rejoiningSequencers.toSeq),
+          )
+        }
+
+    checkSequencersDontRejoin()
   }
 
   private def checkDecentralizedNamespaceDefinitionReplace(
