@@ -884,7 +884,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
       override val byKey: Boolean,
       override val version: LfTransactionVersion,
       templateId: Option[LfTemplateId],
-      interfaceId: Option[LfTemplateId]
+      interfaceId: Option[LfTemplateId],
   )(
       override val representativeProtocolVersion: RepresentativeProtocolVersion[
         ActionDescription.type
@@ -948,6 +948,10 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
         : RepresentativeProtocolVersion[ActionDescription.type] =
       protocolVersionRepresentativeFor(ProtocolVersion.v6)
 
+    private[data] val interfaceIdSupportedSince
+        : RepresentativeProtocolVersion[ActionDescription.type] =
+      protocolVersionRepresentativeFor(ProtocolVersion.v7)
+
     def tryCreate(
         inputContractId: LfContractId,
         actors: Set[LfPartyId],
@@ -957,9 +961,8 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
         interfaceId: Option[LfInterfaceId],
         protocolVersion: RepresentativeProtocolVersion[ActionDescription.type],
     ): FetchActionDescription =
-      create(inputContractId, actors, byKey, version, templateId, interfaceId, protocolVersion).valueOr(err =>
-        throw err
-      )
+      create(inputContractId, actors, byKey, version, templateId, interfaceId, protocolVersion)
+        .valueOr(err => throw err)
 
     def create(
         inputContractId: LfContractId,
@@ -981,7 +984,14 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
             s"Protocol version is equivalent to ${protocolVersion.representative} but template id is supported since protocol version $templateIdSupportedSince"
           ),
         )
-      } yield new FetchActionDescription(inputContractId, actors, byKey, version, templateId, interfaceId)(
+      } yield new FetchActionDescription(
+        inputContractId,
+        actors,
+        byKey,
+        version,
+        templateId,
+        interfaceId,
+      )(
         protocolVersion
       )
     }
