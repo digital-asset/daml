@@ -12,11 +12,11 @@ import java.util.stream.Collectors;
 
 public final class OffsetCheckpoint {
 
-  private final String offset;
+  private final Long offset;
 
   private final List<DomainTime> domainTimes;
 
-  public OffsetCheckpoint(@NonNull String offset, @NonNull List<DomainTime> domainTimes) {
+  public OffsetCheckpoint(@NonNull Long offset, @NonNull List<DomainTime> domainTimes) {
     this.offset = offset;
     this.domainTimes = domainTimes;
   }
@@ -40,7 +40,7 @@ public final class OffsetCheckpoint {
   }
 
   @NonNull
-  public String getOffset() {
+  public Long getOffset() {
     return offset;
   }
 
