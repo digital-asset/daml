@@ -1705,7 +1705,6 @@ filegroup(
             "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/update_service.proto",
         ],
     ),
-
     visibility = ["//visibility:private"],
 )
 
