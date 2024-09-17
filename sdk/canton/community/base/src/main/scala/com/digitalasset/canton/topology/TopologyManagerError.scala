@@ -672,6 +672,20 @@ object TopologyManagerError extends TopologyManagerErrorGroup {
         with TopologyManagerError
   }
 
+  object MemberCannotRejoinDomain
+      extends ErrorCode(
+        id = "MEMBER_CANNOT_REJOIN_DOMAIN",
+        ErrorCategory.InvalidGivenCurrentSystemStateOther,
+      ) {
+    final case class Reject(members: Seq[Member])(implicit
+        override val loggingContext: ErrorLoggingContext
+    ) extends CantonError.Impl(
+          cause =
+            s"Members ${members.sorted} tried to rejoin a domain which they had previously left."
+        )
+        with TopologyManagerError
+  }
+
   @Explanation(
     """This error indicates that the namespace is already used by another entity."""
   )

@@ -96,7 +96,7 @@ private[reassignment] class AssignmentValidation(
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, ReassignmentProcessorError, Option[AssignmentValidationResult]] = {
-    val txOutResultEvent = assignmentRequest.unassignmentResultEvent.result
+    val unassignmentResultEvent = assignmentRequest.unassignmentResultEvent.result
 
     val reassignmentId = assignmentRequest.unassignmentResultEvent.reassignmentId
 
@@ -140,10 +140,10 @@ private[reassignment] class AssignmentValidation(
           // TODO(i12926): Check the signatures of the mediator and the sequencer
 
           _ <- condUnitET[Future](
-            txOutResultEvent.content.timestamp <= reassignmentData.unassignmentDecisionTime,
+            unassignmentResultEvent.content.timestamp <= reassignmentData.unassignmentDecisionTime,
             ResultTimestampExceedsDecisionTime(
               reassignmentId,
-              timestamp = txOutResultEvent.content.timestamp,
+              timestamp = unassignmentResultEvent.content.timestamp,
               decisionTime = reassignmentData.unassignmentDecisionTime,
             ),
           )

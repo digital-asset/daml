@@ -975,34 +975,6 @@ object ParticipantAdminCommands {
         InspectionServiceGrpc.stub(channel)
     }
 
-    final case class LookupContractDomain(contractIds: Set[LfContractId])
-        extends Base[
-          v30.LookupContractDomain.Request,
-          v30.LookupContractDomain.Response,
-          Map[LfContractId, String],
-        ] {
-      override def createRequest() = Right(
-        v30.LookupContractDomain.Request(contractIds.toSeq.map(_.coid))
-      )
-
-      override def submitRequest(
-          service: InspectionServiceStub,
-          request: v30.LookupContractDomain.Request,
-      ): Future[v30.LookupContractDomain.Response] =
-        service.lookupContractDomain(request)
-
-      override def handleResponse(
-          response: v30.LookupContractDomain.Response
-      ): Either[String, Map[LfContractId, String]] = Right(
-        response.results.map { case (id, domain) =>
-          LfContractId.assertFromString(id) -> domain
-        }
-      )
-
-      override def timeoutType: TimeoutType = DefaultUnboundedTimeout
-
-    }
-
     final case class LookupOffsetByTime(ts: Timestamp)
         extends Base[v30.LookupOffsetByTime.Request, v30.LookupOffsetByTime.Response, String] {
       override def createRequest() = Right(v30.LookupOffsetByTime.Request(Some(ts)))

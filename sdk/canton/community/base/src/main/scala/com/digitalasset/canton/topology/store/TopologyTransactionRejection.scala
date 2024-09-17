@@ -249,4 +249,13 @@ object TopologyTransactionRejection {
     override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
       TopologyManagerError.MediatorsAlreadyInOtherGroups.Reject(group, mediators)
   }
+
+  final case class MembersCannotRejoinDomain(members: Seq[Member])
+      extends TopologyTransactionRejection {
+    override def asString: String =
+      s"Member ${members.sorted} tried to rejoin a domain from which they had previously left."
+
+    override def toTopologyManagerError(implicit elc: ErrorLoggingContext): TopologyManagerError =
+      TopologyManagerError.MemberCannotRejoinDomain.Reject(members)
+  }
 }

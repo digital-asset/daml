@@ -312,7 +312,7 @@ final class UnassignmentProcessingStepsTest
         .toMap,
     )
 
-    def mkTxOutRes(
+    def mkUnassignmentResult(
         stakeholders: Set[LfPartyId],
         sourceTopologySnapshot: TopologySnapshot,
         targetTopologySnapshot: TopologySnapshot,
@@ -341,7 +341,7 @@ final class UnassignmentProcessingStepsTest
 
     "fail if submitter is not a stakeholder" in {
       val stakeholders = Set(party1, party2)
-      val result = mkTxOutRes(stakeholders, testingTopology, testingTopology)
+      val result = mkUnassignmentResult(stakeholders, testingTopology, testingTopology)
       result.left.value shouldBe a[SubmittingPartyMustBeStakeholderOut]
     }
 
@@ -349,7 +349,7 @@ final class UnassignmentProcessingStepsTest
       val ipsNoSubmissionPermission =
         createTestingTopologySnapshot(Map(submittingParticipant -> Map(submitter -> Confirmation)))
 
-      val result = mkTxOutRes(Set(submitter), ipsNoSubmissionPermission, testingTopology)
+      val result = mkUnassignmentResult(Set(submitter), ipsNoSubmissionPermission, testingTopology)
       result.left.value shouldBe a[NoReassignmentSubmissionPermission]
     }
 
@@ -362,7 +362,7 @@ final class UnassignmentProcessingStepsTest
       )
 
       val stakeholders = Set(submitter, party1)
-      val result = mkTxOutRes(stakeholders, testingTopology, ipsNoSubmissionOnTarget)
+      val result = mkUnassignmentResult(stakeholders, testingTopology, ipsNoSubmissionOnTarget)
       result.left.value shouldBe a[PermissionErrors]
     }
 
@@ -382,7 +382,8 @@ final class UnassignmentProcessingStepsTest
       )
 
       val stakeholders = Set(submitter, party1)
-      val result = mkTxOutRes(stakeholders, ipsConfirmationOnSource, ipsNoConfirmationOnTarget)
+      val result =
+        mkUnassignmentResult(stakeholders, ipsConfirmationOnSource, ipsNoConfirmationOnTarget)
       result.left.value shouldBe a[PermissionErrors]
     }
 
@@ -396,7 +397,7 @@ final class UnassignmentProcessingStepsTest
       )
 
       val stakeholders = Set(submitter, party1)
-      val result = mkTxOutRes(stakeholders, testingTopology, ipsDifferentParticipant)
+      val result = mkUnassignmentResult(stakeholders, testingTopology, ipsDifferentParticipant)
       result.left.value shouldBe a[PermissionErrors]
     }
 
@@ -409,7 +410,7 @@ final class UnassignmentProcessingStepsTest
       )
       val result =
         loggerFactory.suppressWarningsAndErrors(
-          mkTxOutRes(Set(submitter, party1), ipsAdminNoConfirmation, testingTopology)
+          mkUnassignmentResult(Set(submitter, party1), ipsAdminNoConfirmation, testingTopology)
         )
       result.left.value shouldBe a[PermissionErrors]
     }
@@ -437,7 +438,7 @@ final class UnassignmentProcessingStepsTest
         )
 
       val result =
-        mkTxOutRes(
+        mkUnassignmentResult(
           stakeholders = Set(submitter, adminSubmitter, admin1),
           sourceTopologySnapshot = sourceDomainTopology,
           targetTopologySnapshot = targetDomainTopology,
@@ -471,7 +472,7 @@ final class UnassignmentProcessingStepsTest
 
       // `party1` is a stakeholder hosted on `participant1`, but it has not vetted `templateId.packageId` on the target domain
       val result =
-        mkTxOutRes(
+        mkUnassignmentResult(
           stakeholders = Set(submitter, party1, adminSubmitter, admin1),
           sourceTopologySnapshot = sourceDomainTopology,
           targetTopologySnapshot = targetDomainTopology,
@@ -491,7 +492,7 @@ final class UnassignmentProcessingStepsTest
       )
       val result =
         loggerFactory.suppressWarningsAndErrors(
-          mkTxOutRes(Set(submitter, party1), ipsAdminNoConfirmation, testingTopology)
+          mkUnassignmentResult(Set(submitter, party1), ipsAdminNoConfirmation, testingTopology)
         )
       result.value shouldEqual
         UnassignmentRequestValidated(
@@ -545,7 +546,7 @@ final class UnassignmentProcessingStepsTest
         ).map(_ -> Seq(templateId.packageId)).toMap,
       )
       val stakeholders = Set(submitter, party1)
-      val result = mkTxOutRes(stakeholders, ipsSource, ipsTarget)
+      val result = mkUnassignmentResult(stakeholders, ipsSource, ipsTarget)
       result.value shouldEqual
         UnassignmentRequestValidated(
           UnassignmentRequest(
@@ -568,7 +569,7 @@ final class UnassignmentProcessingStepsTest
 
     "allow admin parties as stakeholders" in {
       val stakeholders = Set(submitter, adminSubmitter, admin1)
-      mkTxOutRes(stakeholders, testingTopology, testingTopology) shouldBe Right(
+      mkUnassignmentResult(stakeholders, testingTopology, testingTopology) shouldBe Right(
         UnassignmentRequestValidated(
           UnassignmentRequest(
             submitterMetadata = submitterMetadata(submitter),

@@ -4,8 +4,7 @@
 package com.digitalasset.canton.participant.admin.inspection
 
 import cats.Eval
-import cats.data.{EitherT, OptionT}
-import cats.syntax.parallel.*
+import cats.data.EitherT
 import cats.syntax.traverse.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
@@ -37,7 +36,6 @@ import com.digitalasset.canton.store.SequencedEventStore.{
 import com.digitalasset.canton.store.{SequencedEventRangeOverlapsWithPruning, SequencedEventStore}
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{EitherTUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -73,36 +71,6 @@ final class SyncStateInspection(
     extends NamedLogging {
 
   import SyncStateInspection.getOrFail
-
-  /** For a set of contracts lookup which domain they are currently in.
-    * If a contract is not found in a available ACS it will be omitted from the response.
-    */
-  def lookupContractDomain(
-      contractIds: Set[LfContractId]
-  )(implicit traceContext: TraceContext): Future[Map[LfContractId, DomainAlias]] = {
-    def lookupAlias(domainId: DomainId): DomainAlias =
-      // am assuming that an alias can't be missing once registered
-      syncDomainPersistentStateManager
-        .aliasForDomainId(domainId)
-        .getOrElse(sys.error(s"missing alias for domain [$domainId]"))
-
-    syncDomainPersistentStateManager.getAll.toList
-      .map { case (id, state) => lookupAlias(id) -> state }
-      .parTraverse { case (alias, state) =>
-        OptionT(
-          participantNodePersistentState.value.ledgerApiStore
-            .domainIndex(state.domainId.domainId)
-            .map(_.requestIndex)
-        )
-          .semiflatMap(cleanRequest =>
-            state.activeContractStore
-              .contractSnapshot(contractIds, cleanRequest.timestamp)
-              .map(_.keySet.map(_ -> alias))
-          )
-          .getOrElse(List.empty[(LfContractId, DomainAlias)])
-      }
-      .map(_.flatten.toMap)
-  }
 
   /** Returns the potentially large ACS of a given domain
     * containing a map of contract IDs to tuples containing the latest activation timestamp and the contract reassignment counter

@@ -450,7 +450,7 @@ private[reassignment] class AssignmentProcessingSteps(
 
   private def createConfirmationResponses(
       requestId: RequestId,
-      txInRequest: FullAssignmentTree,
+      assignmentRequest: FullAssignmentTree,
       activenessResult: ActivenessResult,
       validationResultO: Option[AssignmentValidationResult],
   )(implicit
@@ -509,7 +509,7 @@ private[reassignment] class AssignmentProcessingSteps(
             participantId,
             Some(ViewPosition.root),
             localVerdict,
-            txInRequest.rootHash,
+            assignmentRequest.rootHash,
             validationResult.confirmingParties,
             domainId.id,
             targetProtocolVersion.v,

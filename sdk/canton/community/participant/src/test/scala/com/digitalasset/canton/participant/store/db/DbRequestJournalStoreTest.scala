@@ -24,10 +24,7 @@ trait DbRequestJournalStoreTest extends AsyncWordSpec with BaseTest with Request
   override def cleanDb(storage: DbStorage): Future[Unit] = {
     import storage.api.*
     storage.update(
-      DBIO.seq(
-        sqlu"truncate table par_journal_requests",
-        sqlu"truncate table par_head_clean_counters",
-      ),
+      DBIO.seq(sqlu"truncate table par_journal_requests"),
       functionFullName,
     )
   }

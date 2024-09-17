@@ -73,6 +73,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
         TopologyChangeOp,
         RepresentativeProtocolVersion[SignedTopologyTransaction.type],
         Hash,
+        TxHash,
     )
   ]
   private val watermark = new AtomicReference[Option[CantonTimestamp]](None)
@@ -162,6 +163,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
             tx.operation,
             tx.transaction.representativeProtocolVersion,
             tx.transaction.hashOfSignatures,
+            tx.hash,
           )
           if (topologyTransactionsStoreUniqueIndex.add(uniqueKey)) {
             topologyTransactionStore.append(

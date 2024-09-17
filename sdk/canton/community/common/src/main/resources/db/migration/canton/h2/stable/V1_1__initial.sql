@@ -291,66 +291,6 @@ create table par_domains(
     CONSTRAINT par_domains_unique unique (alias, domain_id)
 );
 
-create table par_event_log (
-    -- Unique log_id for each instance of the event log.
-    -- If positive, it is an index referring to a domain id stored in common_static_strings.
-    -- If zero, it refers to the production participant event log.
-    -- If negative, it refers to a participant event log used in tests only.
-    log_id int not null,
-    local_offset_tie_breaker bigint not null,
-    -- timestamp, micros from epoch
-    local_offset_effective_time bigint NOT NULL DEFAULT 0,
-    -- 0 for requests, 1 for topology events
-    local_offset_discriminator smallint NOT NULL DEFAULT 0,
-    primary key (log_id, local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker),
-    -- UTC timestamp of the event in microseconds relative to EPOCH
-    ts bigint not null,
-    -- sequencer counter corresponding to the underlying request, if there is one
-    request_sequencer_counter bigint,
-    -- Optional event ID:
-    -- If the event is an Update.TransactionAccepted, this is the transaction id prefixed by `T`, to enable efficient lookup
-    -- of the domain that the transaction was executed on.
-    -- For timely-rejected transaction (not an Update.TransactionAccepted),
-    -- this is the message UUID of the SubmissionRequest, prefixed by `M`, the domain ID, and the separator `#`.
-    -- NULL if the event is neither an Update.TransactionAccepted nor was created as part of a timely rejection.
-    event_id varchar(300),
-    -- Optional domain ID:
-    -- For timely-rejected transactions (not an Update.TransactionAccepted) in the participant event log,
-    -- this is the domain ID to which the transaction was supposed to be submitted.
-    -- NULL if this is not a timely rejection in the participant event log.
-    associated_domain integer,
-    -- LedgerSyncEvent serialized using protobuf
-    content binary large object not null,
-    -- TraceContext is serialized using protobuf
-    trace_context binary large object not null
-
-);
--- Not strictly required, but sometimes useful.
-create index idx_par_event_log_timestamp on par_event_log (log_id, ts);
-create unique index idx_par_event_log_event_id on par_event_log (event_id);
-CREATE INDEX idx_par_event_log_local_offset ON par_event_log (local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker);
-
--- Persist a single, linearized, multi-domain event log for the local participant
-create table par_linearized_event_log (
-    -- Global offset
-    global_offset bigserial not null primary key,
-    -- Corresponds to an entry in the par_event_log table.
-    log_id int not null,
-    -- Offset in the event log instance designated by log_id
-    local_offset_tie_breaker bigint not null,
-    -- The participant's local time when the event was published, in microseconds relative to EPOCH.
-    -- Increases monotonically with the global offset
-    publication_time bigint not null,
-    local_offset_effective_time bigint NOT NULL DEFAULT 0, -- timestamp, micros from epoch
-    local_offset_discriminator smallint NOT NULL DEFAULT 0, -- 0 for requests, 1 for topology events
-    constraint foreign_key_event_log foreign key (log_id, local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker) references par_event_log(log_id, local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker) on delete cascade
-);
-create unique index idx_par_linearized_event_log_offset ON par_linearized_event_log (log_id, local_offset_effective_time, local_offset_discriminator, local_offset_tie_breaker);
-create index idx_par_linearized_event_log_publication_time on par_linearized_event_log (publication_time, global_offset);
-
--- H2 does not (yet) support partial indices, so we index everything
-create index idx_par_event_log_associated_domain on par_event_log (log_id, associated_domain, ts);
-
 create table par_reassignments (
     -- reassignment id
     target_domain varchar(300) not null,
@@ -393,14 +333,6 @@ create table par_journal_requests (
     primary key (domain_id, request_counter));
 create index idx_par_journal_request_timestamp on par_journal_requests (domain_id, request_timestamp);
 create index idx_par_journal_request_commit_time on par_journal_requests (domain_id, commit_time);
-
--- the last recorded head clean counter for each domain
-create table par_head_clean_counters (
-    domain_id integer not null primary key,
-    prehead_counter bigint not null, -- request counter of the prehead request
-    -- UTC timestamp in microseconds relative to EPOCH
-    ts bigint not null
-);
 
 -- locally computed ACS commitments to a specific period, counter-participant and domain
 create table par_computed_acs_commitments (
@@ -873,7 +805,7 @@ CREATE TABLE common_topology_transactions (
     -- tx_hash but different signatures
     hash_of_signatures varchar(300) not null,
     -- index used for idempotency during crash recovery
-    unique (store_id, mapping_key_hash, serial_counter, valid_from, operation, representative_protocol_version, hash_of_signatures)
+    unique (store_id, mapping_key_hash, serial_counter, valid_from, operation, representative_protocol_version, hash_of_signatures, tx_hash)
 );
 
 CREATE INDEX idx_common_topology_transactions ON common_topology_transactions (store_id, transaction_type, namespace, identifier, valid_until, valid_from);
