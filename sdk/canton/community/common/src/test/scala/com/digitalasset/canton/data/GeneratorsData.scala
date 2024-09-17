@@ -242,12 +242,18 @@ final class GeneratorsData(
           Gen.option(Arbitrary.arbitrary[LfTemplateId])
         else
           Gen.const(None)
+      interfaceId <-
+        if (rpv >= FetchActionDescription.interfaceIdSupportedSince)
+          Gen.option(Arbitrary.arbitrary[LfInterfaceId])
+        else
+          Gen.const(None)
     } yield FetchActionDescription.tryCreate(
       inputContractId,
       actors,
       byKey,
       version,
       templateId,
+      interfaceId,
       rpv,
     )
 
