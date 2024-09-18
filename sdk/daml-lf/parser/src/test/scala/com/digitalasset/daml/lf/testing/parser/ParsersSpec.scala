@@ -386,6 +386,10 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
           EObserverInterface(I.tycon, e"body"),
         "observer_interface @'-pkgId-':Mod:I body" ->
           EObserverInterface(I.tycon, e"body"),
+        "view_interface @Mod:I body" ->
+          EViewInterface(I.tycon, e"body"),
+        "view_interface @'-pkgId-':Mod:I body" ->
+          EViewInterface(I.tycon, e"body"),
         "choice_controller @Mod:T ChoiceName contract choiceArg" ->
           EChoiceController(T.tycon, n"ChoiceName", e"contract", e"choiceArg"),
         "choice_controller @'-pkgId-':Mod:T ChoiceName contract choiceArg" ->
@@ -990,6 +994,7 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
     "interface_template_type_rep",
     "signatory_interface",
     "observer_interface",
+    "view_interface",
   )
 
   private val modName = DottedName.assertFromString("Mod")
