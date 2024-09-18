@@ -4,7 +4,6 @@
 package com.daml.ledger.javaapi.data;
 
 import com.daml.ledger.api.v2.TraceContextOuterClass;
-import com.google.protobuf.StringValue;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -37,8 +36,8 @@ public class Utils {
   public static TraceContextOuterClass.TraceContext newProtoTraceContext(
       String traceParent, String traceState) {
     return TraceContextOuterClass.TraceContext.newBuilder()
-        .setTraceparent(StringValue.of(traceParent))
-        .setTracestate(StringValue.of(traceState))
+        .setTraceparent(traceParent)
+        .setTracestate(traceState)
         .build();
   }
 }
