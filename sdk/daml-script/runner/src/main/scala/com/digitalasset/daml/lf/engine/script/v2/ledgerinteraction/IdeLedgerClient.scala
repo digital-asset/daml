@@ -16,6 +16,7 @@ import com.digitalasset.canton.ledger.api.domain.{
   User,
   UserRight,
 }
+import com.digitalasset.daml.lf.command.ApiCommand
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.preprocessing.ValueTranslator
@@ -49,6 +50,7 @@ import scalaz.syntax.foldable._
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
+import scala.math.Ordered.orderingToOrdered
 
 // Client for the script service.
 class IdeLedgerClient(
@@ -98,6 +100,16 @@ class IdeLedgerClient(
         originalCompiledPackages
     preprocessor = makePreprocessor
   }
+
+  // Returns false if the package is unknown, leaving the packageId unmodified
+  // so later computation can throw a better formulated error
+  def packageSupportsUpgrades(packageId: PackageId): Boolean =
+    compiledPackages.pkgInterface
+      .lookupPackage(packageId)
+      .fold(
+        _ => false,
+        pkgSig => pkgSig.languageVersion >= LanguageVersion.Features.packageUpgrades,
+      )
 
   private var _ledger: ScenarioLedger = ScenarioLedger.initialLedger(Time.Timestamp.Epoch)
   def ledger: ScenarioLedger = _ledger
@@ -466,11 +478,63 @@ class IdeLedgerClient(
   ): ScenarioRunner.SubmissionError =
     makeEmptySubmissionError(scenario.Error.PartiesNotAllocated(unallocatedSubmitters))
 
+  /* Given a daml-script CommandWithMeta, returns the corresponding IDE Ledger
+   * ApiCommand. If the CommandWithMeta has an explicit package id, or is <LF1.16,
+   * the ApiCommand will have the same PackageRef, otherwise it will be
+   * replaced with PackageRef.Name, such that the preprocess will replace it
+   * according to package resolution
+   */
+  private def toCommand(
+      cmdWithMeta: ScriptLedgerClient.CommandWithMeta,
+      // This map only contains packageIds >=LF1.16
+      packageIdMap: PartialFunction[PackageId, ScriptLedgerClient.ReadablePackageId],
+  ): ApiCommand = {
+    def adjustTypeConRef(old: TypeConRef): TypeConRef =
+      old match {
+        case TypeConRef(PackageRef.Id(packageIdMap(nameVersion)), qName) =>
+          TypeConRef(PackageRef.Name(nameVersion.name), qName)
+        case ref => ref
+      }
+
+    val ScriptLedgerClient.CommandWithMeta(cmd, explicitPackageId) = cmdWithMeta
+
+    cmd match {
+      case _ if explicitPackageId => cmd
+      case ApiCommand.Create(templateRef, argument) =>
+        ApiCommand.Create(
+          adjustTypeConRef(templateRef),
+          argument,
+        )
+      case ApiCommand.Exercise(typeRef, contractId, choiceId, argument) =>
+        ApiCommand.Exercise(
+          adjustTypeConRef(typeRef),
+          contractId,
+          choiceId,
+          argument,
+        )
+      case ApiCommand.ExerciseByKey(templateRef, contractKey, choiceId, argument) =>
+        ApiCommand.ExerciseByKey(
+          adjustTypeConRef(templateRef),
+          contractKey,
+          choiceId,
+          argument,
+        )
+      case ApiCommand.CreateAndExercise(templateRef, createArgument, choiceId, choiceArgument) =>
+        ApiCommand.CreateAndExercise(
+          adjustTypeConRef(templateRef),
+          createArgument,
+          choiceId,
+          choiceArgument,
+        )
+    }
+  }
+
   // unsafe version of submit that does not clear the commit.
   private def unsafeSubmit(
       actAs: OneAnd[Set, Ref.Party],
       readAs: Set[Ref.Party],
       disclosures: List[Disclosure],
+      packagePreference: List[PackageId],
       commands: List[ScriptLedgerClient.CommandWithMeta],
       optLocation: Option[Location],
   ): Either[
@@ -482,6 +546,8 @@ class IdeLedgerClient(
     if (unallocatedSubmitters.nonEmpty) {
       Left(makePartiesNotAllocatedError(unallocatedSubmitters))
     } else {
+      val reversePackageIdMap = getPackageIdReverseMap()
+      val packageMap = calculatePackageMap(packagePreference, reversePackageIdMap)
       @tailrec
       def loop(
           result: ScenarioRunner.SubmissionResult[ScenarioLedger.CommitResult]
@@ -528,8 +594,10 @@ class IdeLedgerClient(
         try {
           Right(
             preprocessor.unsafePreprocessApiCommands(
-              Map.empty,
-              commands.map(_.command).to(ImmArray),
+              packageMap,
+              commands
+                .map(toCommand(_, reversePackageIdMap.view.filterKeys(packageSupportsUpgrades(_))))
+                .to(ImmArray),
             )
           )
         } catch {
@@ -574,6 +642,7 @@ class IdeLedgerClient(
             translated,
             optLocation,
             nextSeed(),
+            packageMap,
             traceLog,
             warningLog,
           )(Script.DummyLoggingContext)
@@ -598,11 +667,15 @@ class IdeLedgerClient(
     ScriptLedgerClient.SubmitFailure,
     (Seq[ScriptLedgerClient.CommandResult], ScriptLedgerClient.TransactionTree),
   ]] = Future {
-    optPackagePreference.foreach(_ =>
-      throw new IllegalArgumentException("IDE Ledger does not support Package Preference")
-    )
     synchronized {
-      unsafeSubmit(actAs, readAs, disclosures, commands, optLocation) match {
+      unsafeSubmit(
+        actAs,
+        readAs,
+        disclosures,
+        optPackagePreference.getOrElse(List()),
+        commands,
+        optLocation,
+      ) match {
         case Right(ScenarioRunner.Commit(result, _, tx)) =>
           _ledger = result.newLedger
           val transaction = result.richTransaction.transaction
@@ -791,12 +864,46 @@ class IdeLedgerClient(
       .listUserRights(id, IdentityProviderId.Default)(LoggingContextWithTrace.empty, implicitly)
       .map(_.toOption.map(_.toList))
 
-  def getPackageIdMap: Map[ScriptLedgerClient.ReadablePackageId, PackageId] =
-    getPackageIdPairs.toMap
-  def getPackageIdReverseMap(): Map[PackageId, ScriptLedgerClient.ReadablePackageId] =
-    getPackageIdPairs.map(_.swap).toMap
+  /* Generate a package name map based on package preference then highest version
+   */
+  def calculatePackageMap(
+      packagePreference: List[PackageId],
+      reverseMap: Map[PackageId, ScriptLedgerClient.ReadablePackageId],
+  ): Map[PackageName, PackageId] = {
+    // Map containing only elements of the package preference
+    val pkgPrefMap: Map[PackageName, PackageId] = packagePreference
+      .map(pkgId =>
+        (
+          reverseMap
+            .getOrElse(pkgId, throw new IllegalArgumentException(s"No such PackageId $pkgId"))
+            .name,
+          if (packageSupportsUpgrades(pkgId)) pkgId
+          else throw new IllegalArgumentException(s"Package $pkgId does not support Upgrades."),
+        )
+      )
+      .toMap
+    val ordering: Ordering[(PackageVersion, PackageId)] = Ordering[PackageVersion].on(_._1)
+    // Map containing only highest versions of upgrades compatible packages, could be cached
+    val highestVersionMap: Map[PackageName, PackageId] = getPackageIdMap()
+      .filter { case (_, pkgId) => packageSupportsUpgrades(pkgId) }
+      .groupMapReduce(_._1.name) { case (nameVersion, packageId) =>
+        (nameVersion.version, packageId)
+      }(ordering.max)
+      .view
+      .mapValues(_._2)
+      .toMap
 
-  def getPackageIdPairs: collection.View[(ScriptLedgerClient.ReadablePackageId, PackageId)] =
+    // Preference overrides highest version
+    highestVersionMap ++ pkgPrefMap
+  }
+
+  def getPackageIdMap(): Map[ScriptLedgerClient.ReadablePackageId, PackageId] =
+    getPackageIdPairs().toMap
+
+  def getPackageIdReverseMap(): Map[PackageId, ScriptLedgerClient.ReadablePackageId] =
+    getPackageIdPairs().map(_.swap).toMap
+
+  def getPackageIdPairs(): collection.View[(ScriptLedgerClient.ReadablePackageId, PackageId)] =
     (for {
       entry <- originalCompiledPackages.signatures.view
       (pkgId, pkg) = entry
@@ -811,7 +918,7 @@ class IdeLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Unit] = Future {
-    val packageMap = getPackageIdMap
+    val packageMap = getPackageIdMap()
     val pkgIdsToVet = packages.map(pkg =>
       packageMap.getOrElse(pkg, throw new IllegalArgumentException(s"Unknown package $pkg"))
     )
@@ -825,7 +932,7 @@ class IdeLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[Unit] = Future {
-    val packageMap = getPackageIdMap
+    val packageMap = getPackageIdMap()
     val pkgIdsToUnvet = packages.map(pkg =>
       packageMap.getOrElse(pkg, throw new IllegalArgumentException(s"Unknown package $pkg"))
     )
@@ -839,14 +946,14 @@ class IdeLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[List[ScriptLedgerClient.ReadablePackageId]] =
-    Future.successful(getPackageIdMap.filter(kv => !unvettedPackages(kv._2)).keys.toList)
+    Future.successful(getPackageIdMap().filter(kv => !unvettedPackages(kv._2)).keys.toList)
 
   override def listAllPackages()(implicit
       ec: ExecutionContext,
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[List[ScriptLedgerClient.ReadablePackageId]] =
-    Future.successful(getPackageIdMap.keys.toList)
+    Future.successful(getPackageIdMap().keys.toList)
 
   // TODO(#17708): Support vetting/unvetting DARs in IDELedgerClient
   override def vetDar(name: String)(implicit
