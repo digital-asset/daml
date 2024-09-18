@@ -246,14 +246,14 @@ queryInterfaceUpgrades = test $ do
 fetchFromInterfaceUpgrades : Test
 fetchFromInterfaceUpgrades = test $ do
   (alice, icid) <- setupAliceAndInterface
-  resV1 <- alice `submit` createAndExerciseExactCmd (V1.FITemplate with party = alice) (V1.FetchFromInterface with cid = icid)
+  resV1 <- alice `submit` createAndExerciseExactCmd (V1.FITemplate with party = alice) (V1.FetchFromInterface with icid = icid)
   resV1 === None
-  resV2 <- alice `submit` createAndExerciseExactCmd (V2.FITemplate with party = alice, payload = None) (V2.FetchFromInterface with cid = icid)
+  resV2 <- alice `submit` createAndExerciseExactCmd (V2.FITemplate with party = alice, payload = None) (V2.FetchFromInterface with icid = icid)
   resV2 === None
 
 fetchWithoutV1 : Test
 fetchWithoutV1 = test $ do
   (alice, icid) <- setupAliceAndInterface
   withUnvettedDarOnParticipant "interfaces-1.0.0" participant0 $ do
-    alice `submit` createAndExerciseCmd (V2.FITemplate alice) (V2.FetchInterface icid)
+    alice `submit` createAndExerciseCmd (V2.FITemplate alice None) (V2.FetchInterface icid)
   pure ()

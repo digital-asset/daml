@@ -628,7 +628,6 @@ private[lf] object Pretty {
               )
             case SBUCreate(id) => text(s"$$create($id)")
             case SBFetchTemplate(templateId) => text(s"$$fetchAny($templateId)")
-            case SBSoftFetchInterface => text(s"$$softFetchInterface")
             case SBUGetTime | SBSGetTime => text("$getTime")
             case _ => str(x)
           }
