@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.engine.script
+package test
 
 import com.daml.bazeltools.BazelRunfiles
 import org.scalatest.Suite

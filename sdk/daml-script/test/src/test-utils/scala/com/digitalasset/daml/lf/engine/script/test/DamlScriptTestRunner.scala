@@ -1,18 +1,18 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.engine.script
+package com.digitalasset.daml.lf
+package engine.script.test
 
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.integrationtest.CantonConfig.TimeProviderType
 import com.daml.integrationtest.CantonFixture
 import com.daml.scalautil.Statement.discard
-import org.scalatest.{Assertion, Suite}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+import org.scalatest.{Assertion, Suite}
 
-import java.nio.file.Files
-import java.nio.file.Path
+import java.nio.file.{Files, Path}
 
 trait DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers {
   self: Suite =>
