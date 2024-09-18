@@ -52,6 +52,7 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
       eInterfaceTemplateTypeRep |
       eSignatoryInterface |
       eObserverInterface |
+      eViewInterface |
       eChoiceController |
       eChoiceObserver |
       (id ^? builtinFunctions) ^^ EBuiltinFun |
@@ -283,6 +284,11 @@ private[parser] class ExprParser[P](parserParameters: ParserParameters[P]) {
   private lazy val eObserverInterface: Parser[Expr] =
     `observer_interface` ~! `@` ~> fullIdentifier ~ expr0 ^^ { case ifaceId ~ e =>
       EObserverInterface(ifaceId, e)
+    }
+
+  private lazy val eViewInterface: Parser[Expr] =
+    `view_interface` ~! `@` ~> fullIdentifier ~ expr0 ^^ { case ifaceId ~ e =>
+      EViewInterface(ifaceId, e)
     }
 
   private lazy val eChoiceController: Parser[Expr] =
