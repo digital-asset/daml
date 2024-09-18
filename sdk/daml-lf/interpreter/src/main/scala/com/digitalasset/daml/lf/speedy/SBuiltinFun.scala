@@ -1396,9 +1396,9 @@ private[lf] object SBuiltinFun {
       val (srcPkgName, _) = machine.tmplId2PackageNameVersion(dstTplId)
       val (dstPkgName, _) = machine.tmplId2PackageNameVersion(srcTplId)
       if (srcPkgName == dstPkgName) {
-          // This isn't ideal as its a large uncached computation in a non Update primative.
-          // Ideally this would run in Update, and not iterate the value twice
-          // i.e. using an upgrade transformation function directly on SValues
+        // This isn't ideal as its a large uncached computation in a non Update primative.
+        // Ideally this would run in Update, and not iterate the value twice
+        // i.e. using an upgrade transformation function directly on SValues
         importValue(machine, dstTplId, srcArg.toUnnormalizedValue) { templateArg =>
           k(Some(templateArg))
         }
