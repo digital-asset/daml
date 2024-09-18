@@ -843,7 +843,7 @@ object Generators {
   def offsetCheckpointGen: Gen[v2.OffsetCheckpointOuterClass.OffsetCheckpoint] = {
     import v2.OffsetCheckpointOuterClass.OffsetCheckpoint
     for {
-      offset <- Arbitrary.arbString.arbitrary
+      offset <- Arbitrary.arbLong.arbitrary
       domainTimes <- Gen.listOf(domainTimeGen)
     } yield OffsetCheckpoint
       .newBuilder()
