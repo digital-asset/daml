@@ -35,6 +35,15 @@ class CommandHistograms(val prefix: MetricName)(implicit
     qualification = MetricQualification.Latency,
   )
 
+  val interactive_prepares: Item = Item(
+    prefix :+ "interactive_prepares",
+    summary = "The time to prepare a transaction for interactive submission.",
+    description =
+      """The time to validate and interpret a command before it is returned to the caller
+                    |for external signing.""",
+    qualification = MetricQualification.Latency,
+  )
+
 }
 
 class CommandMetrics(
@@ -49,6 +58,7 @@ class CommandMetrics(
   val reassignmentValidation: Timer = factory.timer(inventory.reassignmentValidation.info)
 
   val submissions: Timer = factory.timer(inventory.submissions.info)
+  val interactivePrepares: Timer = factory.timer(inventory.interactive_prepares.info)
 
   val submissionsRunning: Counter = factory.counter(
     MetricInfo(
@@ -59,6 +69,18 @@ class CommandMetrics(
         """The number of the Daml commands that are currently being handled by the ledger
                     |api server (including validation, interpretation, and handing the transaction
                     |over to the synchronization services).""",
+      qualification = MetricQualification.Saturation,
+    )
+  )
+
+  val preparesRunning: Counter = factory.counter(
+    MetricInfo(
+      inventory.prefix :+ "prepares_running",
+      summary =
+        "The number of the Daml commands for which transactions are currently being prepared by the ledger api server.",
+      description =
+        """The number of the Daml commands that are currently being prepared by the ledger
+          |api server (including validation, interpretation).""",
       qualification = MetricQualification.Saturation,
     )
   )

@@ -22,6 +22,7 @@ import com.digitalasset.canton.platform.config.{
   CommandServiceConfig,
   IdentityProviderManagementConfig,
   IndexServiceConfig as LedgerIndexServiceConfig,
+  InteractiveSubmissionServiceConfig,
   PartyManagementServiceConfig,
   UserManagementServiceConfig,
 }
@@ -177,6 +178,7 @@ final case class RemoteParticipantConfig(
   *                                  as the ledger api server uses java.time.duration that does not support infinite scala durations.
   * @param enableCommandInspection   enable command inspection service over the ledger api
   * @param identityProviderManagement configurations pertaining to the ledger api server's "identity provider management service"
+  * @param interactiveSubmissionServiceConfig config for interactive submission service over the ledger api
   */
 final case class LedgerApiServerConfig(
     address: String = "127.0.0.1",
@@ -202,6 +204,8 @@ final case class LedgerApiServerConfig(
     enableCommandInspection: Boolean = true,
     identityProviderManagement: IdentityProviderManagementConfig =
       LedgerApiServerConfig.DefaultIdentityProviderManagementConfig,
+    interactiveSubmissionService: InteractiveSubmissionServiceConfig =
+      InteractiveSubmissionServiceConfig.Default,
 ) extends CommunityServerConfig // We can't currently expose enterprise server features at the ledger api anyway
     {
 

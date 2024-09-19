@@ -54,24 +54,6 @@ public abstract class InterfaceCompanion<I, Id, View>
     this.fromJson = fromJson;
   }
 
-  // TODO(i21140): remove this overload, once codegen no longer uses it.
-  protected InterfaceCompanion(
-      String templateClassName,
-      Identifier templateId,
-      Function<String, Id> newContractId,
-      ValueDecoder<View> valueDecoder,
-      FromJson<View> fromJson,
-      List<Choice<I, ?, ?>> choices) {
-    this(
-        new ContractTypeCompanion.Package(templateId.getPackageId(), "?", PackageVersion.ZERO),
-        templateClassName,
-        templateId,
-        newContractId,
-        valueDecoder,
-        fromJson,
-        choices);
-  }
-
   public View fromJson(String json) throws JsonLfDecoder.Error {
     return this.fromJson.decode(json);
   }

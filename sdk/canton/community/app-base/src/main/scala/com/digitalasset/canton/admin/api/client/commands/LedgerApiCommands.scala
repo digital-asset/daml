@@ -81,6 +81,12 @@ import com.daml.ledger.api.v2.event_query_service.{
   GetEventsByContractIdRequest,
   GetEventsByContractIdResponse,
 }
+import com.daml.ledger.api.v2.interactive_submission_service.InteractiveSubmissionServiceGrpc.InteractiveSubmissionServiceStub
+import com.daml.ledger.api.v2.interactive_submission_service.{
+  InteractiveSubmissionServiceGrpc,
+  PrepareSubmissionRequest,
+  PrepareSubmissionResponse,
+}
 import com.daml.ledger.api.v2.reassignment.{AssignedEvent, Reassignment, UnassignedEvent}
 import com.daml.ledger.api.v2.reassignment_command.{
   AssignCommand,
@@ -1301,6 +1307,57 @@ object LedgerApiCommands {
       override def handleResponse(response: SubmitReassignmentResponse): Either[String, Unit] =
         Right(())
     }
+  }
+
+  object InteractiveSubmissionService {
+    trait BaseCommand[Req, Resp, Res] extends GrpcAdminCommand[Req, Resp, Res] {
+      override type Svc = InteractiveSubmissionServiceStub
+      override def createService(channel: ManagedChannel): InteractiveSubmissionServiceStub =
+        InteractiveSubmissionServiceGrpc.stub(channel)
+    }
+
+    final case class PrepareCommand(
+        override val actAs: Seq[LfPartyId],
+        override val readAs: Seq[LfPartyId],
+        override val commands: Seq[Command],
+        override val workflowId: String,
+        override val commandId: String,
+        override val deduplicationPeriod: Option[DeduplicationPeriod],
+        override val submissionId: String,
+        override val minLedgerTimeAbs: Option[Instant],
+        override val disclosedContracts: Seq[DisclosedContract],
+        override val domainId: Option[DomainId],
+        override val applicationId: String,
+        override val packageIdSelectionPreference: Seq[LfPackageId],
+    ) extends SubmitCommand
+        with BaseCommand[
+          PrepareSubmissionRequest,
+          PrepareSubmissionResponse,
+          PrepareSubmissionResponse,
+        ] {
+
+      override def createRequest(): Either[String, PrepareSubmissionRequest] =
+        Right(
+          PrepareSubmissionRequest(
+            commands = Some(mkCommand)
+          )
+        )
+
+      override def submitRequest(
+          service: InteractiveSubmissionServiceStub,
+          request: PrepareSubmissionRequest,
+      ): Future[PrepareSubmissionResponse] =
+        service.prepareSubmission(request)
+
+      override def handleResponse(
+          response: PrepareSubmissionResponse
+      ): Either[String, PrepareSubmissionResponse] =
+        Right(response)
+
+      override def timeoutType: TimeoutType = DefaultUnboundedTimeout
+
+    }
+
   }
 
   object CommandService {

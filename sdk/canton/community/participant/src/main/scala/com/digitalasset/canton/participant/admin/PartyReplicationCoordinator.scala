@@ -395,9 +395,9 @@ object PartyReplicationCoordinator {
 
   @VisibleForTesting
   lazy val channelProposalTemplate: Identifier =
-    apiIdentifierFromJavaIdentifier(M.partyreplication.ChannelProposal.TEMPLATE_ID)
+    apiIdentifierFromJavaIdentifier(M.partyreplication.ChannelProposal.TEMPLATE_ID_WITH_PACKAGE_ID)
   lazy val channelAgreementTemplate: Identifier =
-    apiIdentifierFromJavaIdentifier(M.partyreplication.ChannelAgreement.TEMPLATE_ID)
+    apiIdentifierFromJavaIdentifier(M.partyreplication.ChannelAgreement.TEMPLATE_ID_WITH_PACKAGE_ID)
 
   private def isTemplateChannelRelated(id: Identifier) =
     id == channelProposalTemplate || id == channelAgreementTemplate

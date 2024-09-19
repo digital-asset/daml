@@ -360,17 +360,17 @@ object PingService {
           (javaEvent.getTemplateId, javaEvent, context)
         }
         .flatMap {
-          case (M.ping.Ping.COMPANION.TEMPLATE_ID, event, context) =>
+          case (M.ping.Ping.TEMPLATE_ID_WITH_PACKAGE_ID, event, context) =>
             Seq(pingCreated(context, M.ping.Ping.COMPANION.fromCreatedEvent(event)))
-          case (M.bong.BongProposal.COMPANION.TEMPLATE_ID, event, context) =>
+          case (M.bong.BongProposal.TEMPLATE_ID_WITH_PACKAGE_ID, event, context) =>
             Seq(bongProposalCreated(context, M.bong.BongProposal.COMPANION.fromCreatedEvent(event)))
-          case (M.bong.Explode.COMPANION.TEMPLATE_ID, event, context) =>
+          case (M.bong.Explode.TEMPLATE_ID_WITH_PACKAGE_ID, event, context) =>
             Seq(explodeCreated(context, M.bong.Explode.COMPANION.fromCreatedEvent(event)))
-          case (M.bong.Collapse.COMPANION.TEMPLATE_ID, event, context) =>
+          case (M.bong.Collapse.TEMPLATE_ID_WITH_PACKAGE_ID, event, context) =>
             Seq(collapseCreated(context, M.bong.Collapse.COMPANION.fromCreatedEvent(event)))
-          case (M.bong.Merge.COMPANION.TEMPLATE_ID, event, context) =>
+          case (M.bong.Merge.TEMPLATE_ID_WITH_PACKAGE_ID, event, context) =>
             Seq(mergeCreated(context, M.bong.Merge.COMPANION.fromCreatedEvent(event)))
-          case (M.bong.Bong.COMPANION.TEMPLATE_ID, event, context) =>
+          case (M.bong.Bong.TEMPLATE_ID_WITH_PACKAGE_ID, event, context) =>
             Seq(bongCreated(context, M.bong.Bong.COMPANION.fromCreatedEvent(event)))
           case _ => Seq.empty
         }

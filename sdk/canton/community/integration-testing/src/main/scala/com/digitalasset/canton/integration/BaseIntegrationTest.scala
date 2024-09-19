@@ -19,6 +19,7 @@ import org.scalatest.wordspec.FixtureAnyWordSpec
 import org.scalatest.{Assertion, ConfigMap, Outcome}
 
 import scala.collection.immutable
+import scala.jdk.CollectionConverters.*
 
 /** A highly opinionated base trait for writing integration tests interacting with a canton environment using console commands.
   * Tests must mixin a further [[EnvironmentSetup]] implementation to define when the canton environment is setup around the individual tests:
@@ -131,4 +132,28 @@ private[integration] trait BaseIntegrationTest[E <: Environment, TCE <: TestCons
       testOutcome
     }
   }
+
+  import com.daml.ledger.javaapi.data.{Command, CreateCommand, Identifier}
+  implicit class EnrichedCommands(commands: java.util.List[Command]) {
+    def overridePackageId(packageIdOverride: String): java.util.List[Command] =
+      commands.asScala
+        .map {
+          case cmd: CreateCommand =>
+            new CreateCommand(
+              identifierWithPackageIdOverride(packageIdOverride, cmd.getTemplateId),
+              cmd.getCreateArguments,
+            ): Command
+          case other => fail(s"Unexpected command $other")
+        }
+        .toList
+        .asJava
+
+    private def identifierWithPackageIdOverride(packageIdOverride: String, templateId: Identifier) =
+      new Identifier(
+        packageIdOverride,
+        templateId.getModuleName,
+        templateId.getEntityName,
+      )
+  }
+
 }

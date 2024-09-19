@@ -1,0 +1,50 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package com.daml.ledger.api.v2;
+
+import "com/daml/ledger/api/v2/commands.proto";
+
+option csharp_namespace = "Com.Daml.Ledger.Api.V2";
+option java_outer_classname = "InteractiveSubmissionServiceOuterClass";
+option java_package = "com.daml.ledger.api.v2";
+
+// The InteractiveSubmissionService allows to submit commands in 2-steps:
+// 1) prepare transaction from commands, 2) submit the prepared transaction
+// This gives callers the ability to sign the daml transaction with their own signing keys
+service InteractiveSubmissionService {
+  // Requires `readAs` scope for the submitting party when LAPI User authorization is enabled
+  rpc PrepareSubmission(PrepareSubmissionRequest) returns (PrepareSubmissionResponse);
+}
+
+message PrepareSubmissionRequest {
+  Commands commands = 1; // Commands for which to prepare a transaction
+}
+
+message PrepareSubmissionResponse {
+  // the interpreted transaction, it represents the ledger changes necessary to execute the commands specified in the request
+  // TODO(i20660): Document serialization
+  bytes prepared_transaction = 1;
+  // hash of the transaction, this is what needs to be signed by the party to authorize the transaction
+  // TODO(i20660): Document hashing algorithm
+  bytes prepared_transaction_hash = 2;
+}
+
+message Signature {
+  SignatureFormat format = 1;
+
+  bytes signature = 2;
+
+  // The fingerprint/id of the keypair used to create this signature and needed to verify.
+  // The referenced key provides the context for the used signature scheme.
+  string signed_by = 3;
+}
+
+enum SignatureFormat {
+  SIGNATURE_FORMAT_UNSPECIFIED = 0;
+
+  // Signature scheme specific signature format
+  SIGNATURE_FORMAT_RAW = 1;
+}

@@ -121,26 +121,6 @@ public abstract class ContractCompanion<Ct, Id, Data>
       this.newContract = newContract;
     }
 
-    // TODO(i21140): remove this overload, once codegen no longer uses it.
-    public WithoutKey(
-        String templateClassName,
-        Identifier templateId,
-        Function<String, Id> newContractId,
-        Function<DamlRecord, Data> fromValue,
-        FromJson<Data> fromJson,
-        NewContract<Ct, Id, Data> newContract,
-        List<Choice<Data, ?, ?>> choices) {
-      this(
-          new ContractTypeCompanion.Package(templateId.getPackageId(), "?", PackageVersion.ZERO),
-          templateClassName,
-          templateId,
-          newContractId,
-          fromValue,
-          fromJson,
-          newContract,
-          choices);
-    }
-
     public Ct fromIdAndRecord(
         String contractId, DamlRecord record$, Set<String> signatories, Set<String> observers) {
       Id id = newContractId.apply(contractId);
@@ -191,28 +171,6 @@ public abstract class ContractCompanion<Ct, Id, Data>
           packageInfo, templateClassName, templateId, newContractId, fromValue, fromJson, choices);
       this.newContract = newContract;
       this.keyFromValue = keyFromValue;
-    }
-
-    // TODO(i21140): remove this overload, once codegen no longer uses it.
-    public WithKey(
-        String templateClassName,
-        Identifier templateId,
-        Function<String, Id> newContractId,
-        Function<DamlRecord, Data> fromValue,
-        FromJson<Data> fromJson,
-        NewContract<Ct, Id, Data, Key> newContract,
-        List<Choice<Data, ?, ?>> choices,
-        Function<Value, Key> keyFromValue) {
-      this(
-          new ContractTypeCompanion.Package(templateId.getPackageId(), "?", PackageVersion.ZERO),
-          templateClassName,
-          templateId,
-          newContractId,
-          fromValue,
-          fromJson,
-          newContract,
-          choices,
-          keyFromValue);
     }
 
     public Ct fromIdAndRecord(

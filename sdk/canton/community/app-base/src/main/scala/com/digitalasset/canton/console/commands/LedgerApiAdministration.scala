@@ -14,6 +14,7 @@ import com.daml.ledger.api.v2.commands.{Command, DisclosedContract}
 import com.daml.ledger.api.v2.completion.Completion
 import com.daml.ledger.api.v2.event.CreatedEvent
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
+import com.daml.ledger.api.v2.interactive_submission_service.PrepareSubmissionResponse as PrepareResponseProto
 import com.daml.ledger.api.v2.reassignment.Reassignment as ReassignmentProto
 import com.daml.ledger.api.v2.state_service.{
   ActiveContract,
@@ -399,6 +400,55 @@ trait BaseLedgerApiAdministration extends NoTracing {
             )
           )
         })
+    }
+
+    @Help.Summary("Interactive submission", FeatureFlag.Testing)
+    @Help.Group("Interactive Submission")
+    object interactive_submission extends Helpful {
+
+      @Help.Summary(
+        "Prepare a transaction for interactive submission"
+      )
+      @Help.Description(
+        """Prepare a transaction for interactive submission.
+          |Similar to submit, except instead of submitting the transaction to the network,
+          |a serialized version of the transaction will be returned, along with a hash.
+          |This allows non-hosted parties to sign the hash with they private key before submitting it via the
+          |execute command. If you wish to directly submit a command instead without the external signing step,
+          |use submit instead."""
+      )
+      def prepare(
+          actAs: Seq[PartyId],
+          commands: Seq[Command],
+          domainId: Option[DomainId] = None,
+          workflowId: String = "",
+          commandId: String = "",
+          deduplicationPeriod: Option[DeduplicationPeriod] = None,
+          submissionId: String = "",
+          minLedgerTimeAbs: Option[Instant] = None,
+          readAs: Seq[PartyId] = Seq.empty,
+          disclosedContracts: Seq[DisclosedContract] = Seq.empty,
+          applicationId: String = applicationId,
+          userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
+      ): PrepareResponseProto =
+        consoleEnvironment.run {
+          ledgerApiCommand(
+            LedgerApiCommands.InteractiveSubmissionService.PrepareCommand(
+              actAs.map(_.toLf),
+              readAs.map(_.toLf),
+              commands,
+              workflowId,
+              commandId,
+              deduplicationPeriod,
+              submissionId,
+              minLedgerTimeAbs,
+              disclosedContracts,
+              domainId,
+              applicationId,
+              userPackageSelectionPreference,
+            )
+          )
+        }
     }
 
     @Help.Summary("Submit commands", FeatureFlag.Testing)
@@ -1763,6 +1813,51 @@ trait BaseLedgerApiAdministration extends NoTracing {
     @Help.Summary("Group of commands that utilize java bindings", FeatureFlag.Testing)
     @Help.Group("Ledger Api (Java bindings)")
     object javaapi extends Helpful {
+
+      @Help.Summary("Interactive submission", FeatureFlag.Testing)
+      @Help.Group("Interactive Submission")
+      object interactive_submission extends Helpful {
+
+        @Help.Summary(
+          "Prepare a transaction for interactive submission"
+        )
+        @Help.Description(
+          "Prepare a transaction for interactive submission"
+        )
+        def prepare(
+            actAs: Seq[PartyId],
+            commands: Seq[javab.data.Command],
+            domainId: Option[DomainId] = None,
+            workflowId: String = "",
+            commandId: String = "",
+            deduplicationPeriod: Option[DeduplicationPeriod] = None,
+            submissionId: String = "",
+            minLedgerTimeAbs: Option[Instant] = None,
+            readAs: Seq[PartyId] = Seq.empty,
+            disclosedContracts: Seq[javab.data.DisclosedContract] = Seq.empty,
+            applicationId: String = applicationId,
+            userPackageSelectionPreference: Seq[LfPackageId] = Seq.empty,
+        ): PrepareResponseProto =
+          consoleEnvironment.run {
+            ledgerApiCommand(
+              LedgerApiCommands.InteractiveSubmissionService.PrepareCommand(
+                actAs.map(_.toLf),
+                readAs.map(_.toLf),
+                commands.map(c => Command.fromJavaProto(c.toProtoCommand)),
+                workflowId,
+                commandId,
+                deduplicationPeriod,
+                submissionId,
+                minLedgerTimeAbs,
+                disclosedContracts.map(c => DisclosedContract.fromJavaProto(c.toProto)),
+                domainId,
+                applicationId,
+                userPackageSelectionPreference,
+              )
+            )
+          }
+      }
+
       @Help.Summary("Submit commands (Java bindings)", FeatureFlag.Testing)
       @Help.Group("Command Submission (Java bindings)")
       object commands extends Helpful {
@@ -2167,7 +2262,9 @@ trait BaseLedgerApiAdministration extends NoTracing {
             consoleEnvironment.runE {
               result
                 .get()
-                .toRight(s"Failed to find contract of type ${companion.TEMPLATE_ID} after $timeout")
+                .toRight(
+                  s"Failed to find contract of type ${companion.getTemplateIdWithPackageId} after $timeout"
+                )
             }
           })
 
@@ -2187,22 +2284,22 @@ trait BaseLedgerApiAdministration extends NoTracing {
               partyId: PartyId,
               predicate: TC => Boolean = (_: TC) => true,
           ): Seq[TC] = check(FeatureFlag.Testing) {
-            val javaTemplateId = templateCompanion.TEMPLATE_ID
+            val javaTemplateId = templateCompanion.getTemplateIdWithPackageId
             val templateId = TemplateId(
-              javaTemplateId.getPackageId,
+              templateCompanion.PACKAGE.id,
               javaTemplateId.getModuleName,
               javaTemplateId.getEntityName,
             )
             ledger_api.state.acs
               .of_party(partyId, filterTemplates = Seq(templateId))
               .map(_.event)
-              .flatMap(ev =>
+              .flatMap { ev =>
                 JavaDecodeUtil
                   .decodeCreated(templateCompanion)(
                     javab.data.CreatedEvent.fromProto(CreatedEvent.toJavaProto(ev))
                   )
                   .toList
-              )
+              }
               .filter(predicate)
           }
         }
