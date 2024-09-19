@@ -312,14 +312,14 @@ tests damlc =
                       "FailsWhenAnInstanceIsDropped"
                       (FailWithError "\ESC\\[0;91merror type checking template Main.T :\n  Implementation of interface I by template T appears in package that is being upgraded, but does not appear in this package.")
                       versionDefault
-                      SeparateDep
+                      SharedDep
                       False
                       setUpgradeField
                 , test
                       "FailsWhenAnInstanceIsAddedSeparateDep"
                       (FailWithError "\ESC\\[0;91merror type checking template Main.T :\n  Implementation of interface I by template T appears in this package, but does not appear in package that is being upgraded.")
                       versionDefault
-                      SeparateDep
+                      SharedDep
                       False
                       setUpgradeField
                 , test
@@ -333,7 +333,7 @@ tests damlc =
                       "SucceedsWhenAnInstanceIsAddedToNewTemplateSeparateDep"
                       Succeed
                       versionDefault
-                      SeparateDep
+                      SharedDep
                       False
                       setUpgradeField
                 , test
@@ -473,15 +473,13 @@ tests damlc =
                       setUpgradeField
                       ["upgrades-FailsWhenUpgradedFieldFromDifferentPackageName-dep-name1.dar"]
                       ["upgrades-FailsWhenUpgradedFieldFromDifferentPackageName-dep-name2.dar"]
-                , testWithAdditionalDars
+                , test
                       "SucceedsWhenUpgradingLFVersionWithoutExpressionWarning"
                       (SucceedWithoutWarning "\ESC\\[0;93mwarning while type checking data type Main.T:\n  The upgraded template T has changed the definition of its signatories.")
                       (version1_16, versionDefault)
                       NoDependencies
                       False
                       setUpgradeField
-                      []
-                      []
                 , testWithAdditionalDars
                       "WarnsWhenExpressionChangesPackageId"
                       (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template Main.T signatories:\n  The upgraded template T has changed the definition of its signatories.")
@@ -596,7 +594,7 @@ tests damlc =
 
             let (oldLfVersion, newLfVersion) = versionPair lfVersion
             (depV1Dar, depV2Dar) <- case sharedDep of
-              SeparateDep -> do
+              SharedDep -> do
                 depFilePaths <- listDirectory =<< testRunfile (location </> "dep")
                 let sharedDepFiles = flip map depFilePaths $ \path ->
                       ( "daml" </> path
@@ -724,7 +722,7 @@ data Expectation
 data Dependency
   = NoDependencies
   | DependOnV1
-  | SeparateDep
+  | SharedDep
   | SeparateDeps { shouldSwap :: Bool }
 
 class IsVersionPair a where

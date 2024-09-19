@@ -36,14 +36,14 @@ import Module (UnitId)
 type TcUpgradeM = TcMF UpgradingEnv
 type TcPreUpgradeM = TcMF (Version, UpgradeInfo)
 
-type UpgradingDeps = HMS.HashMap LF.PackageId (LF.PackageName, Maybe RawPackageVersion, Bool, Bool)
+type DepsMap = HMS.HashMap LF.PackageId (LF.PackageName, Maybe RawPackageVersion, Bool, Bool)
 
 type UpgradeablePackage = (Maybe RawPackageVersion, LF.PackageId, LF.Package)
 type UpgradeablePackageMap = HMS.HashMap LF.PackageName [UpgradeablePackage]
 
 data UpgradingEnv = UpgradingEnv
   { _upgradingGamma :: Upgrading Gamma
-  , _upgradingDeps :: UpgradingDeps
+  , _depsMap :: DepsMap
   }
 
 makeLenses ''UpgradingEnv
@@ -100,12 +100,11 @@ checkPackage pkg deps version upgradeInfo mbUpgradedPkg =
       case mbUpgradedPkg of
         Nothing -> pure ()
         Just (upgradedPkg@(upgradedPkgId, upgradedPkgPkg, _, _), upgradingDeps) -> do
-            deps <- checkUpgradeDependenciesM deps (upgradedPkg : upgradingDeps)
-            checkPackageBoth CheckOnlyMissingModules Nothing pkg ((upgradedPkgId, upgradedPkgPkg), deps)
-      checkPackageSingle Nothing pkg
+            depsMap <- checkUpgradeDependenciesM deps (upgradedPkg : upgradingDeps)
+            checkPackageBoth CheckOnlyMissingModules Nothing pkg ((upgradedPkgId, upgradedPkgPkg), depsMap)
 
-checkPackageBoth :: CheckDepth -> Maybe Context -> LF.Package -> ((LF.PackageId, LF.Package), UpgradingDeps) -> TcPreUpgradeM ()
-checkPackageBoth checkDepth mbContext pkg ((upgradedPkgId, upgradedPkg), upgradingDeps) =
+checkPackageBoth :: CheckDepth -> Maybe Context -> LF.Package -> ((LF.PackageId, LF.Package), DepsMap) -> TcPreUpgradeM ()
+checkPackageBoth checkDepth mbContext pkg ((upgradedPkgId, upgradedPkg), depsMap) =
   let presentWorld = initWorldSelf [] pkg
       pastWorld = initWorldSelf [] upgradedPkg
       upgradingWorld = Upgrading { _past = pastWorld, _present = presentWorld }
@@ -115,7 +114,7 @@ checkPackageBoth checkDepth mbContext pkg ((upgradedPkgId, upgradedPkg), upgradi
           Nothing -> id
           Just context -> withContextF present' context
   in
-  withReaderT (\(version, upgradeInfo) -> UpgradingEnv (mkGamma version upgradeInfo <$> upgradingWorld) upgradingDeps) $
+  withReaderT (\(version, upgradeInfo) -> UpgradingEnv (mkGamma version upgradeInfo <$> upgradingWorld) depsMap) $
     withMbContext $
       checkPackageM checkDepth (UpgradedPackageId upgradedPkgId) (Upgrading upgradedPkg pkg)
 
@@ -152,9 +151,9 @@ checkModule world0 module_ deps version upgradeInfo mbUpgradedPkg =
         Just (upgradedPkgWithId@(upgradedPkgIdRaw, upgradedPkg, _, _), upgradingDeps) -> do
             let upgradedPkgId = UpgradedPackageId upgradedPkgIdRaw
             -- TODO: https://github.com/digital-asset/daml/issues/19859
-            deps <- checkUpgradeDependenciesM deps (upgradedPkgWithId : upgradingDeps)
+            depsMap <- checkUpgradeDependenciesM deps (upgradedPkgWithId : upgradingDeps)
             let upgradingWorld = Upgrading { _past = initWorldSelf [] upgradedPkg, _present = world }
-            withReaderT (\(version, upgradeInfo) -> UpgradingEnv (mkGamma version upgradeInfo <$> upgradingWorld) deps) $
+            withReaderT (\(version, upgradeInfo) -> UpgradingEnv (mkGamma version upgradeInfo <$> upgradingWorld) depsMap) $
               case NM.lookup (NM.name module_) (LF.packageModules upgradedPkg) of
                 Nothing -> pure ()
                 Just pastModule -> do
@@ -165,7 +164,7 @@ checkModule world0 module_ deps version upgradeInfo mbUpgradedPkg =
 checkUpgradeDependenciesM
     :: [(UnitId, LF.DalfPackage)]
     -> [UpgradedPkgWithNameAndVersion]
-    -> TcPreUpgradeM UpgradingDeps
+    -> TcPreUpgradeM DepsMap
 checkUpgradeDependenciesM presentDeps pastDeps = do
     initialUpgradeablePackageMap <-
       fmap (HMS.fromListWith (<>) . catMaybes) $ forM pastDeps $ \pastDep -> do
@@ -184,7 +183,9 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
                   Right rawVersion ->
                     pure $ Just (pkgName, [(Just rawVersion, pkgId, pkg)])
 
-    let withIdAndPkg x@(_, dalfPkg) = (dalfPackageId dalfPkg, x, extPackagePkg (dalfPackagePkg dalfPkg))
+    let withIdAndPkg :: (UnitId, LF.DalfPackage) -> (LF.PackageId, (UnitId, LF.DalfPackage), LF.Package)
+        withIdAndPkg x@(_, dalfPkg) = (dalfPackageId dalfPkg, x, extPackagePkg (dalfPackagePkg dalfPkg))
+        withoutIdAndPkg :: (LF.PackageId, (UnitId, LF.DalfPackage), LF.Package) -> (UnitId, LF.DalfPackage)
         withoutIdAndPkg (_, x, _) = x
 
     -- TODO: https://github.com/digital-asset/daml/issues/19859
@@ -203,7 +204,7 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
     withPkgAsGamma pkg action =
       withReaderT (\(version, _) -> emptyGamma (initWorldSelf [] pkg) version) action
 
-    upgradeablePackageMapToDeps :: UpgradeablePackageMap -> UpgradingDeps
+    upgradeablePackageMapToDeps :: UpgradeablePackageMap -> DepsMap
     upgradeablePackageMapToDeps upgradeablePackageMap =
       HMS.fromList
         [ (pkgId, (pkgName, pkgVersion, pkgSupportsUpgrades pkg, isUtilityPackage pkg))
@@ -808,21 +809,21 @@ checkType type_ err = do
     sameType <- isUpgradedType type_
     unless sameType $ diagnosticWithContextF present' err
 
-checkQualVal :: UpgradingDeps -> Upgrading (Qualified ExprValName) -> Bool
-checkQualVal deps name =
+checkQualVal :: DepsMap -> Upgrading (Qualified ExprValName) -> Bool
+checkQualVal depsMap name =
     let namesAreSame = foldU (==) (fmap removePkgId name)
         qualificationIsSame = foldU (==) (fmap qualPackage name)
         qualificationIsUpgraded =
           case qualPackage <$> name of
             Upgrading { _past = PRImport pastPkgId, _present = PRImport presentPkgId } ->
-              pkgIdsAreUpgraded deps Upgrading { _past = pastPkgId, _present = presentPkgId }
+              pkgIdsAreUpgraded depsMap Upgrading { _past = pastPkgId, _present = presentPkgId }
             _ -> False
     in
     namesAreSame && (qualificationIsSame || qualificationIsUpgraded)
   where
-    pkgIdsAreUpgraded :: UpgradingDeps -> Upgrading PackageId -> Bool
-    pkgIdsAreUpgraded deps pkgId =
-      case HMS.lookup <$> pkgId <*> pure deps of
+    pkgIdsAreUpgraded :: DepsMap -> Upgrading PackageId -> Bool
+    pkgIdsAreUpgraded depsMap pkgId =
+      case HMS.lookup <$> pkgId <*> pure depsMap of
         Upgrading { _past = Just (pastName, mbPastVersion, pastSupportsUpgrades, pastIsUtilityPkg), _present = Just (presentName, mbPresentVersion, presentSupportsUpgrades, presentIsUtilityPkg) } ->
           pastName == presentName &&
           case (pastSupportsUpgrades, presentSupportsUpgrades) of
@@ -832,33 +833,33 @@ checkQualVal deps name =
                 (True, True) ->
                   case (mbPastVersion, mbPresentVersion) of
                     (Just pastVersion, Just presentVersion) -> pastVersion < presentVersion
-                    _ -> True -- This case should not be possible
+                    _ -> False -- Not possible
                 (False, False) ->
                   presentName `elem` [PackageName "daml-stdlib", PackageName "daml-prim"]
                   || case (mbPastVersion, mbPresentVersion) of
                       (Just pastVersion, Just presentVersion) -> pastVersion < presentVersion
                       (Nothing, Nothing) -> True -- Only daml-prim has no version field
-                      _ -> True -- This case should not be possible
+                      _ -> False -- Not possible
                 _ -> False -- Shouldn't go from utility package to non-utility package
-            _ -> False -- 
+            _ -> False -- Going from supports upgrades to not supports upgrades, or vice versa, could indicate a problem
         _ ->
-          False
+          False -- Not possible
 
-checkQualType :: UpgradingDeps -> Upgrading (Qualified TypeConName) -> Bool
-checkQualType deps name =
+checkQualType :: DepsMap -> Upgrading (Qualified TypeConName) -> Bool
+checkQualType depsMap name =
     let namesAreSame = foldU (==) (fmap removePkgId name)
         qualificationIsSame = foldU (==) (fmap qualPackage name)
         qualificationIsUpgraded =
           case qualPackage <$> name of
             Upgrading { _past = PRImport pastPkgId, _present = PRImport presentPkgId } ->
-              pkgIdsAreUpgraded deps Upgrading { _past = pastPkgId, _present = presentPkgId }
+              pkgIdsAreUpgraded depsMap Upgrading { _past = pastPkgId, _present = presentPkgId }
             _ -> False
     in
     namesAreSame && (qualificationIsSame || qualificationIsUpgraded)
   where
-    pkgIdsAreUpgraded :: UpgradingDeps -> Upgrading PackageId -> Bool
-    pkgIdsAreUpgraded deps pkgId =
-      case HMS.lookup <$> pkgId <*> pure deps of
+    pkgIdsAreUpgraded :: DepsMap -> Upgrading PackageId -> Bool
+    pkgIdsAreUpgraded depsMap pkgId =
+      case HMS.lookup <$> pkgId <*> pure depsMap of
         Upgrading { _past = Just (pastName, mbPastVersion, pastSupportsUpgrades, pastIsUtilityPkg), _present = Just (presentName, mbPresentVersion, presentSupportsUpgrades, presentIsUtilityPkg) } ->
           pastName == presentName &&
           case (pastSupportsUpgrades, presentSupportsUpgrades) of
@@ -870,11 +871,10 @@ checkQualType deps name =
                   || case (mbPastVersion, mbPresentVersion) of
                       (Just pastVersion, Just presentVersion) -> pastVersion < presentVersion
                       (Nothing, Nothing) -> True -- Only daml-prim has no version field
-                      _ -> True -- This case should not be possible
-                _ -> True -- This case should not be possible
-            _ -> False -- Cannot go from 1.15 (non-upgradeable) to 1.17 (upgradeable)
-        _ ->
-          False
+                      _ -> False -- Not possible
+                _ -> False -- Not possible to have types from utility packages
+            _ -> False -- Shouldn't go from 1.15 (non-upgradeable) to 1.17 (upgradeable)
+        _ -> False -- Not possible
 
 isUpgradedType :: Upgrading Type -> TcUpgradeM Bool
 isUpgradedType type_ = do
@@ -884,8 +884,8 @@ isUpgradedType type_ = do
 
 upgradingAlphaEnv :: TcUpgradeM AlphaEnv
 upgradingAlphaEnv = do
-    deps <- view upgradingDeps
-    pure $ initialAlphaEnv { alphaTypeCon = unfoldU (checkQualType deps), alphaExprVal = unfoldU (checkQualVal deps) }
+    depsMap <- view depsMap
+    pure $ initialAlphaEnv { alphaTypeCon = unfoldU (checkQualType depsMap), alphaExprVal = unfoldU (checkQualVal depsMap) }
 
 removePkgId :: Qualified a -> Qualified a
 removePkgId a = a { qualPackage = PRSelf }
