@@ -327,6 +327,7 @@ class AcsCommitmentProcessor(
     FutureUtil.logOnFailureUnlessShutdown(
       executed,
       "Failed to initialize the ACS commitment processor.",
+      logPassiveInstanceAtInfo = true,
     )
   }
 
@@ -833,6 +834,7 @@ class AcsCommitmentProcessor(
         // Close ourselves so that we don't process any more messages
         close()
       },
+      logPassiveInstanceAtInfo = true,
     )
   }
 
@@ -1391,6 +1393,7 @@ class AcsCommitmentProcessor(
               .value
           } yield (),
           message,
+          logPassiveInstanceAtInfo = true,
         )
       }
     }
@@ -1405,6 +1408,7 @@ class AcsCommitmentProcessor(
             ),
           s"Failed to schedule sending commitment message batch for period $period at time ${clock.now
               .add(java.time.Duration.ofMillis(delayMillis.toLong))}",
+          logPassiveInstanceAtInfo = true,
         )
         .discard
     }

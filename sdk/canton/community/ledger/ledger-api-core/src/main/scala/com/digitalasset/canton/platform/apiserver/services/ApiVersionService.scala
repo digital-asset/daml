@@ -75,6 +75,9 @@ private[apiserver] final class ApiVersionService(
         ExperimentalFeatures.of(
           staticTime = Some(ExperimentalStaticTime(supported = ledgerFeatures.staticTime)),
           commandInspectionService = Some(ledgerFeatures.commandInspectionService),
+          interactiveSubmissionService = Some(
+            ExperimentalInteractiveSubmissionService(ledgerFeatures.interactiveSubmissionService)
+          ),
         )
       ),
       offsetCheckpoint = Some(ledgerFeatures.offsetCheckpointFeature),

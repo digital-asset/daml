@@ -566,13 +566,6 @@
             <testing>true</testing>
         </rewrite>
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.participant.protocol.AcsCommitmentProcessor:ReplicatedParticipantTestPostgres</logger>
-            <contains>Failed to process incoming commitment</contains>
-            <exceptionMessage>DbStorage instance is not active</exceptionMessage>
-            <maxLevel>INFO</maxLevel>
-            <testing>true</testing>
-        </rewrite>
-        <rewrite class="com.digitalasset.canton.logging.Rewrite">
             <logger>com.digitalasset.canton.sequencing.client.RichSequencerClientImpl:ReplicatedParticipantTestPostgres</logger>
             <contains>Synchronous event processing stopped because instance became passive</contains>
             <maxLevel>INFO</maxLevel>

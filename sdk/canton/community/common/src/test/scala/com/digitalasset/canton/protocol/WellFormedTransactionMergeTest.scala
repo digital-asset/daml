@@ -43,10 +43,16 @@ class WellFormedTransactionMergeTest
   import TransactionBuilder.Implicits.*
 
   private val subTxTree0 = TxTree(
-    tb.fetch(create(newLfContractId(), iou.Iou.TEMPLATE_ID, alice, bob), byKey = false)
+    tb.fetch(
+      create(newLfContractId(), iou.Iou.TEMPLATE_ID_WITH_PACKAGE_ID, alice, bob),
+      byKey = false,
+    )
   )
-  private val subTxTree1 = TxTree(create(newLfContractId(), iou.Iou.TEMPLATE_ID, alice, bob))
-  private val contractCreate = create(newLfContractId(), iou.Iou.TEMPLATE_ID, alice, alice)
+  private val subTxTree1 = TxTree(
+    create(newLfContractId(), iou.Iou.TEMPLATE_ID_WITH_PACKAGE_ID, alice, bob)
+  )
+  private val contractCreate =
+    create(newLfContractId(), iou.Iou.TEMPLATE_ID_WITH_PACKAGE_ID, alice, alice)
   private val subTxTree2 = Seq(
     TxTree(contractCreate),
     TxTree(tb.fetch(contractCreate, byKey = false)),
@@ -64,7 +70,7 @@ class WellFormedTransactionMergeTest
         TxTree(
           create(
             newLfContractId(),
-            iou.GetCash.TEMPLATE_ID,
+            iou.GetCash.TEMPLATE_ID_WITH_PACKAGE_ID,
             alice,
             alice,
             arg = args(
@@ -80,11 +86,11 @@ class WellFormedTransactionMergeTest
     ),
   )
   private val subTxTree3 = TxTree(
-    create(newLfContractId(), iou.Iou.TEMPLATE_ID, carol, alice, Seq(bob))
+    create(newLfContractId(), iou.Iou.TEMPLATE_ID_WITH_PACKAGE_ID, carol, alice, Seq(bob))
   )
   private val subTxTree4 = TxTree(
     tb.exercise(
-      contract = create(newLfContractId(), iou.Iou.TEMPLATE_ID, bob, bob),
+      contract = create(newLfContractId(), iou.Iou.TEMPLATE_ID_WITH_PACKAGE_ID, bob, bob),
       choice = "Archive",
       consuming = true,
       actingParties = Set(bob.toLf),
@@ -317,7 +323,7 @@ class WellFormedTransactionMergeTest
       id = cid,
       templateId = lfTemplateId,
       argument = template match {
-        case iou.Iou.TEMPLATE_ID =>
+        case iou.Iou.TEMPLATE_ID_WITH_PACKAGE_ID =>
           require(
             arg == notUsed,
             "For IOUs, this function figures out the sig and obs parameters by itself",

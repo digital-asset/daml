@@ -36,10 +36,12 @@ import com.digitalasset.canton.platform.apiserver.services.command.{
   CommandInspectionServiceImpl,
   CommandServiceImpl,
   CommandSubmissionServiceImpl,
+  InteractiveSubmissionServiceImpl,
 }
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
 import com.digitalasset.canton.platform.config.{
   CommandServiceConfig,
+  InteractiveSubmissionServiceConfig,
   PartyManagementServiceConfig,
   UserManagementServiceConfig,
 }
@@ -104,6 +106,7 @@ object ApiServices {
       telemetry: Telemetry,
       val loggerFactory: NamedLoggerFactory,
       dynParamGetter: DynamicDomainParameterGetter,
+      interactiveSubmissionServiceConfig: InteractiveSubmissionServiceConfig,
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
@@ -404,9 +407,35 @@ object ApiServices {
           loggerFactory = loggerFactory,
         )
 
+        val apiInteractiveSubmissionService =
+          Option.when(interactiveSubmissionServiceConfig.enabled) {
+            val interactiveSubmissionService =
+              InteractiveSubmissionServiceImpl.createApiService(
+                seedService,
+                commandExecutor,
+                metrics,
+                interactiveSubmissionServiceConfig,
+                loggerFactory,
+              )
+
+            new ApiInteractiveSubmissionService(
+              commandsValidator = commandsValidator,
+              interactiveSubmissionService = interactiveSubmissionService,
+              currentLedgerTime = () => timeProvider.getCurrentTime,
+              currentUtcTime = () => Instant.now,
+              maxDeduplicationDuration = maxDeduplicationDuration.asJava,
+              submissionIdGenerator = SubmissionIdGenerator.Random,
+              metrics = metrics,
+              telemetry = telemetry,
+              loggerFactory = loggerFactory,
+            )
+          }
+
         List(
           new CommandSubmissionServiceAuthorization(apiSubmissionService, authorizer),
           new CommandServiceAuthorization(apiCommandService, authorizer),
+        ) ++ apiInteractiveSubmissionService.toList.map(
+          new InteractiveSubmissionServiceAuthorization(_, authorizer)
         )
       }
 

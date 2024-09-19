@@ -321,6 +321,7 @@ class StartableStoppableLedgerApiServer(
         loggerFactory = loggerFactory,
         authenticateContract = authenticateContract,
         dynParamGetter = config.syncService.dynamicDomainParameterGetter,
+        interactiveSubmissionServiceConfig = config.serverConfig.interactiveSubmissionService,
       )
       _ <- startHttpApiIfEnabled(timedWriteService)
       _ <- config.serverConfig.userManagementService.additionalAdminUserId
@@ -429,6 +430,7 @@ class StartableStoppableLedgerApiServer(
         (config.serverConfig.indexService.offsetCheckpointCacheUpdateInterval + config.serverConfig.indexService.idleStreamOffsetCheckpointTimeout).toProtoPrimitive
       )
     ),
+    interactiveSubmissionService = config.serverConfig.interactiveSubmissionService.enabled,
   )
 
   private def startHttpApiIfEnabled(writeService: WriteService): ResourceOwner[Unit] =

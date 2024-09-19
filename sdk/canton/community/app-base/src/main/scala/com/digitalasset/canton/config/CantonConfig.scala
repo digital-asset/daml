@@ -77,7 +77,10 @@ import com.digitalasset.canton.platform.apiserver.configuration.{
   EngineLoggingConfig,
   RateLimitingConfig,
 }
-import com.digitalasset.canton.platform.config.ActiveContractsServiceStreamsConfig
+import com.digitalasset.canton.platform.config.{
+  ActiveContractsServiceStreamsConfig,
+  InteractiveSubmissionServiceConfig,
+}
 import com.digitalasset.canton.protocol.AcsCommitmentsCatchUpConfig
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.pureconfigutils.HttpServerConfig
@@ -790,6 +793,9 @@ object CantonConfig {
       deriveReader[AuthServiceConfig]
     lazy implicit val rateLimitConfigReader: ConfigReader[RateLimitingConfig] =
       deriveReader[RateLimitingConfig]
+    lazy implicit val ledgerApiInteractiveSubmissionServiceConfigReader
+        : ConfigReader[InteractiveSubmissionServiceConfig] =
+      deriveReader[InteractiveSubmissionServiceConfig]
     lazy implicit val ledgerApiServerConfigReader: ConfigReader[LedgerApiServerConfig] =
       deriveReader[LedgerApiServerConfig]
 
@@ -1215,6 +1221,9 @@ object CantonConfig {
       deriveWriter[AuthServiceConfig]
     lazy implicit val rateLimitConfigWriter: ConfigWriter[RateLimitingConfig] =
       deriveWriter[RateLimitingConfig]
+    lazy implicit val ledgerApiInteractiveSubmissionServiceConfigWriter
+        : ConfigWriter[InteractiveSubmissionServiceConfig] =
+      deriveWriter[InteractiveSubmissionServiceConfig]
     lazy implicit val ledgerApiServerConfigWriter: ConfigWriter[LedgerApiServerConfig] =
       deriveWriter[LedgerApiServerConfig]
     lazy implicit val sequencerTrafficConfigWriter: ConfigWriter[SequencerTrafficConfig] =
