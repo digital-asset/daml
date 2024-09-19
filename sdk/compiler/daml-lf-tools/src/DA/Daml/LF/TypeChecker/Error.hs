@@ -1,6 +1,7 @@
 -- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# OPTIONS_GHC -Wno-orphans #-}
 module DA.Daml.LF.TypeChecker.Error(
     Context(..),
     Error(..),
@@ -28,6 +29,7 @@ import qualified Data.List as L
 
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Pretty
+import DA.Daml.LF.Ast.Alpha (Mismatch(..), SomeName(..))
 import DA.Daml.UtilLF (sourceLocToRange)
 
 -- TODO(MH): Rework the context machinery to avoid code duplication.
@@ -764,15 +766,15 @@ instance ToDiagnostic UnwarnableError where
 
 data Warning
   = WContext !Context !Warning
-  | WTemplateChangedPrecondition !TypeConName
-  | WTemplateChangedSignatories !TypeConName
-  | WTemplateChangedObservers !TypeConName
-  | WTemplateChangedAgreement !TypeConName
-  | WChoiceChangedControllers !ChoiceName
-  | WChoiceChangedObservers !ChoiceName
-  | WChoiceChangedAuthorizers !ChoiceName
-  | WTemplateChangedKeyExpression !TypeConName
-  | WTemplateChangedKeyMaintainers !TypeConName
+  | WTemplateChangedPrecondition !TypeConName ![Mismatch]
+  | WTemplateChangedSignatories !TypeConName ![Mismatch]
+  | WTemplateChangedObservers !TypeConName ![Mismatch]
+  | WTemplateChangedAgreement !TypeConName ![Mismatch]
+  | WChoiceChangedControllers !ChoiceName ![Mismatch]
+  | WChoiceChangedObservers !ChoiceName ![Mismatch]
+  | WChoiceChangedAuthorizers !ChoiceName ![Mismatch]
+  | WTemplateChangedKeyExpression !TypeConName ![Mismatch]
+  | WTemplateChangedKeyMaintainers !TypeConName ![Mismatch]
   | WCouldNotExtractForUpgradeChecking !T.Text !(Maybe T.Text)
     -- ^ When upgrading, we extract relevant expressions for things like
     -- signatories. If the expression changes shape so that we can't get the
@@ -788,17 +790,26 @@ warningLocation = \case
 instance Pretty Warning where
   pPrint = \case
     WContext ctx warning -> prettyWithContext ctx (Left warning)
-    WTemplateChangedPrecondition template -> "The upgraded template " <> pPrint template <> " has changed the definition of its precondition."
-    WTemplateChangedSignatories template -> "The upgraded template " <> pPrint template <> " has changed the definition of its signatories."
-    WTemplateChangedObservers template -> "The upgraded template " <> pPrint template <> " has changed the definition of its observers."
-    WTemplateChangedAgreement template -> "The upgraded template " <> pPrint template <> " has changed the definition of agreement."
-    WChoiceChangedControllers choice -> "The upgraded choice " <> pPrint choice <> " has changed the definition of controllers."
-    WChoiceChangedObservers choice -> "The upgraded choice " <> pPrint choice <> " has changed the definition of observers."
-    WChoiceChangedAuthorizers choice -> "The upgraded choice " <> pPrint choice <> " has changed the definition of authorizers."
-    WTemplateChangedKeyExpression template -> "The upgraded template " <> pPrint template <> " has changed the expression for computing its key."
-    WTemplateChangedKeyMaintainers template -> "The upgraded template " <> pPrint template <> " has changed the maintainers for its key."
+    WTemplateChangedPrecondition template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the definition of its precondition."
+    WTemplateChangedSignatories template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the definition of its signatories."
+    WTemplateChangedObservers template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the definition of its observers."
+    WTemplateChangedAgreement template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the definition of agreement."
+    WChoiceChangedControllers choice mismatches -> withMismatchInfo mismatches $ "The upgraded choice " <> pPrint choice <> " has changed the definition of controllers."
+    WChoiceChangedObservers choice mismatches -> withMismatchInfo mismatches $ "The upgraded choice " <> pPrint choice <> " has changed the definition of observers."
+    WChoiceChangedAuthorizers choice mismatches -> withMismatchInfo mismatches $ "The upgraded choice " <> pPrint choice <> " has changed the definition of authorizers."
+    WTemplateChangedKeyExpression template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the expression for computing its key."
+    WTemplateChangedKeyMaintainers template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the maintainers for its key."
     WCouldNotExtractForUpgradeChecking attribute mbExtra -> "Could not check if the upgrade of " <> text attribute <> " is valid because its expression is the not the right shape." <> foldMap (const " Extra context: " <> text) mbExtra
     WErrorToWarning err -> pPrint err
+    where
+    withMismatchInfo :: [Mismatch] -> Doc ann -> Doc ann
+    withMismatchInfo [] doc = doc
+    withMismatchInfo mismatches doc =
+      vcat
+        [ doc
+        , "There are " <> string (show (length mismatches)) <> " differences in the expression, including:"
+        , nest 2 $ vcat $ map pPrint (take 3 mismatches)
+        ]
 
 instance ToDiagnostic Warning where
   toDiagnostic warning = Diagnostic
@@ -810,3 +821,22 @@ instance ToDiagnostic Warning where
       , _message = renderPretty warning
       , _relatedInformation = Nothing
       }
+
+instance Pretty SomeName where
+  pPrint = \case
+    SNTypeVarName typeVarName -> pPrint typeVarName
+    SNExprVarName exprVarName -> pPrint exprVarName
+    SNTypeConName typeConName -> pPrint typeConName
+    SNExprValName exprValName -> pPrint exprValName
+    SNFieldName fieldName -> pPrint fieldName
+    SNChoiceName choiceName -> pPrint choiceName
+    SNTypeSynName typeSynName -> pPrint typeSynName
+    SNVariantConName variantConName -> pPrint variantConName
+    SNMethodName methodName -> pPrint methodName
+    SNQualified qualified -> pPrint qualified
+
+instance Pretty Mismatch where
+  pPrint = \case
+    NameMismatch name1 name2 reason -> "Name " <> pPrint name1 <> " and name " <> pPrint name2 <> " differ for the following reason: " <> string reason
+    BindingMismatch var1 var2 -> "Name " <> pPrint var1 <> " and name " <> pPrint var2 <> " refer to different bindings in the environment."
+    StructuralMismatch -> "Expression is structurally different."
