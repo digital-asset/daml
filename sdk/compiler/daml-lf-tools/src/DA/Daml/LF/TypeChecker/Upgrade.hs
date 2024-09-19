@@ -41,11 +41,6 @@ type UpgradingDeps = HMS.HashMap LF.PackageId (LF.PackageName, Maybe RawPackageV
 type UpgradeablePackage = (Maybe RawPackageVersion, LF.PackageId, LF.Package)
 type UpgradeablePackageMap = HMS.HashMap LF.PackageName [UpgradeablePackage]
 
---data UpgradeablePackageVersion
---  = NotUpgradeable
---  | UpgradeablePackageVersion RawPackageVersion
---  deriving (Show, Eq, Ord)
-
 data UpgradingEnv = UpgradingEnv
   { _upgradingGamma :: Upgrading Gamma
   , _upgradingDeps :: UpgradingDeps
