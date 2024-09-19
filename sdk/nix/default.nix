@@ -165,6 +165,8 @@ in rec {
     wget = pkgs.wget;
     grpcurl = pkgs.grpcurl;
 
+    gh = pkgs.gitAndTools.gh;
+
     # String mangling tooling.
     base64 = pkgs.coreutils;
     bc = pkgs.bc;
