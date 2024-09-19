@@ -24,19 +24,23 @@ object LookupError {
   }
 
   object MissingPackage {
-    def unapply(err: NotFound): Option[(PackageId, Reference)] =
+    def unapply(err: NotFound): Option[(PackageRef, Reference)] =
       err.notFound match {
-        case Reference.Package(packageId) => Some(packageId -> err.context)
+        case Reference.Package(packageRef) => Some(packageRef -> err.context)
         case _ => None
       }
 
-    def apply(pkgId: PackageId): NotFound = {
-      val ref = Reference.Package(pkgId)
+    def apply(pkgRef: PackageRef): NotFound = {
+      val ref = Reference.Package(pkgRef)
       LookupError.NotFound(ref, ref)
     }
 
-    def pretty(pkgId: PackageId, context: Reference): String =
-      s"Couldn't find package $pkgId" + contextDetails(context)
+    def apply(pkgId: PackageId): NotFound = apply(PackageRef.Id(pkgId))
+
+    def pretty(pkgRef: PackageRef, context: Reference): String =
+      s"Couldn't find package $pkgRef" + contextDetails(context)
+
+    def pretty(pkgId: PackageId, context: Reference): String = pretty(PackageRef.Id(pkgId), context)
   }
 
 }
@@ -47,13 +51,10 @@ sealed abstract class Reference extends Product with Serializable {
 
 object Reference {
 
-  final case class PackageWithName(packageName: PackageName) extends Reference {
-    override def pretty: String = s"package $packageName"
+  final case class Package(packageRef: PackageRef) extends Reference {
+    override def pretty: String = s"package $packageRef"
   }
-
-  final case class Package(packageId: PackageId) extends Reference {
-    override def pretty: String = s"package $packageId"
-  }
+  object Package { def apply(packageId: PackageId): Package = apply(PackageRef.Id(packageId)) }
 
   final case class Module(packageId: PackageId, moduleName: ModuleName) extends Reference {
     override def pretty: String = s"module $packageId:$moduleName"

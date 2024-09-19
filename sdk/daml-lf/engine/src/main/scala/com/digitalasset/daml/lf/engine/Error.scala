@@ -37,14 +37,19 @@ object Error {
       def message: String = validationError.pretty
     }
 
-    final case class MissingPackage(packageId: Ref.PackageId, context: language.Reference)
+    final case class MissingPackage(packageRef: Ref.PackageRef, context: language.Reference)
         extends Error {
-      override def message: String = LookupError.MissingPackage.pretty(packageId, context)
+      override def message: String = LookupError.MissingPackage.pretty(packageRef, context)
     }
 
     object MissingPackage {
-      def apply(packageId: Ref.PackageId): MissingPackage =
-        MissingPackage(packageId, language.Reference.Package(packageId))
+      def apply(packageRef: Ref.PackageRef): MissingPackage =
+        MissingPackage(packageRef, language.Reference.Package(packageRef))
+
+      def apply(packageId: Ref.PackageId): MissingPackage = apply(Ref.PackageRef.Id(packageId))
+
+      def apply(packageId: Ref.PackageId, context: language.Reference): MissingPackage =
+        apply(Ref.PackageRef.Id(packageId), context)
     }
 
     final case class AllowedLanguageVersion(
