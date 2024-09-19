@@ -116,3 +116,21 @@ myPackageId = getPackageId "my-package-0.0.1"
 ```
 Concretely, `PackageIds.getPackageId` takes the unit-id of the package (name-version) and gives back the wrapped `PackageId`.
 It will error at runtime if the unit-id doesn't exist.
+
+## Getting quick feedback on damlc errors
+
+Running `//daml-script/test:upgrade-test` to get feedback from damlc when
+modifying or creating a new test module is slow because it spins up a new canton
+sandbox each time before compiling it. To circumvent this problem, there is a
+utility binary whose job is to compile the test modules only. To use it run:
+```
+bazel run //daml-script/test:compile-upgrade-test-cases compile
+```
+You can also specify a regex to filter the test modules to compile:
+```
+bazel run //daml-script/test:compile-upgrade-test-cases compile Package
+```
+The `list` command lists all available test modules:
+```
+bazel run //daml-script/test:compile-upgrade-test-cases list
+```
