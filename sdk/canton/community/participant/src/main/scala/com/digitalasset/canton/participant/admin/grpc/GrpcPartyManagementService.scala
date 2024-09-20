@@ -10,6 +10,8 @@ import com.digitalasset.canton.admin.participant.v30.{
   StartPartyReplicationRequest,
   StartPartyReplicationResponse,
 }
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
 import com.digitalasset.canton.participant.admin.PartyReplicationCoordinator
 import com.digitalasset.canton.participant.admin.PartyReplicationCoordinator.{
   ChannelId,
@@ -25,9 +27,13 @@ import scala.concurrent.{ExecutionContext, Future}
 
 /** grpc service to allow modifying party hosting on participants
   */
-class GrpcPartyManagementService(coordinator: PartyReplicationCoordinator)(implicit
+class GrpcPartyManagementService(
+    coordinator: PartyReplicationCoordinator,
+    protected val loggerFactory: NamedLoggerFactory,
+)(implicit
     ec: ExecutionContext
-) extends PartyManagementServiceGrpc.PartyManagementService {
+) extends PartyManagementServiceGrpc.PartyManagementService
+    with NamedLogging {
 
   override def startPartyReplication(
       request: StartPartyReplicationRequest
@@ -44,6 +50,7 @@ class GrpcPartyManagementService(coordinator: PartyReplicationCoordinator)(impli
       _ <- coordinator
         .startPartyReplication(args)
         .leftMap(toStatusRuntimeException(Status.FAILED_PRECONDITION))
+        .onShutdown(Left(AbortedDueToShutdown.Error().asGrpcError))
     } yield StartPartyReplicationResponse())
   }
 

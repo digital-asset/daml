@@ -23,22 +23,23 @@ import com.digitalasset.canton.time.PositiveFiniteDuration
   * @param maxBaseTrafficAmount maximum amount of bytes per maxBaseTrafficAccumulationDuration acquired as "free" traffic per member
   * @param readVsWriteScalingFactor multiplier used to compute cost of an event. In per ten-mil (1 / 10 000). Defaults to 200 (=2%).
   *                                 A multiplier of 2% means the base cost will be increased by 2% to produce the effective cost.
-  * @param maxBaseTrafficAccumulationDuration maximum amount of time the base rate traffic will accumulate before being capped
+  * @param maxBaseTrafficAccumulationDuration maximum amount of time the base rate traffic will accumulate before being capped.
+  *                                            Minimum 1 second. The value will be rounded to the second.
   * @param setBalanceRequestSubmissionWindowSize time window used to compute the max sequencing time set for balance update requests
   *                                               The max sequencing time chosen will be the upper bound of the time window at which the request is submitted
   */
 final case class TrafficControlParameters(
     maxBaseTrafficAmount: NonNegativeLong = DefaultBaseTrafficAmount,
     readVsWriteScalingFactor: PositiveInt = DefaultReadVsWriteScalingFactor,
-    maxBaseTrafficAccumulationDuration: time.NonNegativeFiniteDuration =
+    maxBaseTrafficAccumulationDuration: time.PositiveSeconds =
       DefaultMaxBaseTrafficAccumulationDuration,
     setBalanceRequestSubmissionWindowSize: PositiveFiniteDuration =
       DefaultSetBalanceRequestSubmissionWindowSize,
     enforceRateLimiting: Boolean = DefaultEnforceRateLimiting,
 ) extends PrettyPrinting {
-  lazy val baseRate: NonNegativeLong =
+  val baseRate: NonNegativeLong =
     NonNegativeLong.tryCreate(
-      maxBaseTrafficAmount.value / maxBaseTrafficAccumulationDuration.unwrap.toSeconds
+      maxBaseTrafficAmount.value / maxBaseTrafficAccumulationDuration.duration.toSeconds
     )
 
   def toProtoV30: protoV30.TrafficControlParameters = protoV30.TrafficControlParameters(
@@ -63,8 +64,8 @@ object TrafficControlParameters {
   val DefaultBaseTrafficAmount: NonNegativeLong = NonNegativeLong.tryCreate(10 * 20 * 1024)
   val DefaultReadVsWriteScalingFactor: PositiveInt =
     PositiveInt.tryCreate(200)
-  val DefaultMaxBaseTrafficAccumulationDuration: time.NonNegativeFiniteDuration =
-    time.NonNegativeFiniteDuration.apply(time.PositiveSeconds.tryOfMinutes(10L))
+  val DefaultMaxBaseTrafficAccumulationDuration: time.PositiveSeconds =
+    time.PositiveSeconds.tryOfMinutes(10)
   val DefaultSetBalanceRequestSubmissionWindowSize: time.PositiveFiniteDuration =
     time.PositiveFiniteDuration.tryOfMinutes(4L)
   val DefaultEnforceRateLimiting: Boolean = true
@@ -78,7 +79,7 @@ object TrafficControlParameters {
         proto.maxBaseTrafficAmount,
       )
       maxBaseTrafficAccumulationDuration <- ProtoConverter.parseRequired(
-        time.NonNegativeFiniteDuration.fromProtoPrimitive("max_base_traffic_accumulation_duration"),
+        time.PositiveSeconds.fromProtoPrimitive("max_base_traffic_accumulation_duration"),
         "max_base_traffic_accumulation_duration",
         proto.maxBaseTrafficAccumulationDuration,
       )

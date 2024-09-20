@@ -67,6 +67,7 @@ import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.client.RichSequencerClient
+import com.digitalasset.canton.sequencing.client.channel.SequencerChannelClient
 import com.digitalasset.canton.sequencing.protocol.{ClosedEnvelope, Envelope, TrafficState}
 import com.digitalasset.canton.sequencing.traffic.TrafficControlProcessor
 import com.digitalasset.canton.store.SequencedEventStore
@@ -142,6 +143,8 @@ class SyncDomain(
     ComponentHealthState.failed("Disconnected from domain")
 
   private[canton] val sequencerClient: RichSequencerClient = domainHandle.sequencerClient
+  private[canton] val sequencerChannelClientO: Option[SequencerChannelClient] =
+    domainHandle.sequencerChannelClientO
   val timeTracker: DomainTimeTracker = ephemeral.timeTracker
   val staticDomainParameters: StaticDomainParameters = domainHandle.staticParameters
 

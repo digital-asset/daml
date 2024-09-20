@@ -7,9 +7,10 @@ package com.digitalasset.canton.sequencer.admin.v30;
 
 message BftSequencerSnapshotAdditionalInfo {
   // State transfer metadata for onboarding
-  map<string, FirstKnownAtEpochNumber> sequencers_to_first_known_epochs = 1;
+  map<string, FirstKnownAt> sequencers_first_known_at = 1;
 
-  message FirstKnownAtEpochNumber {
-    optional int64 number = 1;
+  message FirstKnownAt {
+    optional int64 timestamp = 1;
+    optional int64 epoch_number = 2;
   }
 }

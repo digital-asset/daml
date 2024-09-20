@@ -28,6 +28,7 @@ import com.digitalasset.canton.participant.topology.{
   TopologyComponentFactory,
 }
 import com.digitalasset.canton.protocol.StaticDomainParameters
+import com.digitalasset.canton.sequencing.client.channel.SequencerChannelClient
 import com.digitalasset.canton.sequencing.client.{
   RecordingConfig,
   ReplayConfig,
@@ -89,6 +90,7 @@ class GrpcDomainRegistry(
       override val domainAlias: DomainAlias,
       override val staticParameters: StaticDomainParameters,
       sequencer: RichSequencerClient,
+      override val sequencerChannelClientO: Option[SequencerChannelClient],
       override val topologyClient: DomainTopologyClientWithInit,
       override val topologyFactory: TopologyComponentFactory,
       override val domainPersistentState: SyncDomainPersistentState,
@@ -108,6 +110,7 @@ class GrpcDomainRegistry(
           topologyDispatcher.domainDisconnected(domainAlias),
         ),
         SyncCloseable("sequencerClient", sequencerClient.close()),
+        SyncCloseable("sequencerChannelClient", sequencerChannelClientO.foreach(_.close())),
       )
     }
   }
@@ -169,6 +172,7 @@ class GrpcDomainRegistry(
       domainHandle.alias,
       domainHandle.staticParameters,
       domainHandle.sequencer,
+      domainHandle.channelSequencerClientO,
       domainHandle.topologyClient,
       domainHandle.topologyFactory,
       domainHandle.domainPersistentState,

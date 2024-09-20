@@ -15,6 +15,7 @@ import com.digitalasset.canton.participant.sync.SyncServiceError.DomainRegistryE
 import com.digitalasset.canton.participant.topology.TopologyComponentFactory
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.sequencing.client.RichSequencerClient
+import com.digitalasset.canton.sequencing.client.channel.SequencerChannelClient
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
 import com.digitalasset.canton.tracing.TraceContext
@@ -372,6 +373,9 @@ trait DomainHandle extends AutoCloseable {
 
   /** Client to the domain's sequencer. */
   def sequencerClient: RichSequencerClient
+
+  /** Client to the sequencer channel client. */
+  def sequencerChannelClientO: Option[SequencerChannelClient]
 
   def staticParameters: StaticDomainParameters
 

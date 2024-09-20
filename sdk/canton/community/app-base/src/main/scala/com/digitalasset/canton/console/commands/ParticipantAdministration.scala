@@ -1478,7 +1478,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
         The arguments are:
           domain - A local domain or sequencer reference
           alias - The name you will be using to refer to this domain. Can not be changed anymore.
-          handshake only - If yes, only the handshake will be perfomed (no domain connection)
+          handshake only - If yes, only the handshake will be performed (no domain connection)
           maxRetryDelayMillis - Maximal amount of time (in milliseconds) between two connection attempts.
           priority - The priority of the domain. The higher the more likely a domain will be used.
           synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
@@ -1511,7 +1511,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
     @Help.Description("""
         The arguments are:
           config - Config for the domain connection
-          handshake only - If yes, only the handshake will be perfomed (no domain connection)
+          handshake only - If yes, only the handshake will be performed (no domain connection)
           validation - Whether to validate the connectivity and ids of the given sequencers (default All)
           synchronize - A timeout duration indicating how long to wait for all topology changes to have been effected on all local nodes.
         """)

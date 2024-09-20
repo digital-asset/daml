@@ -49,8 +49,8 @@ trait SequencerConnectClient extends NamedLogging with AutoCloseable {
       traceContext: TraceContext
   ): EitherT[Future, Error, HandshakeResponse]
 
-  def isActive(participantId: ParticipantId, waitForActive: Boolean)(implicit
-      traceContext: TraceContext
+  def isActive(participantId: ParticipantId, domainAlias: DomainAlias, waitForActive: Boolean)(
+      implicit traceContext: TraceContext
   ): EitherT[Future, Error, Boolean]
 
   protected def handleVerifyActiveResponse(
@@ -74,7 +74,7 @@ trait SequencerConnectClient extends NamedLogging with AutoCloseable {
 object SequencerConnectClient {
 
   type Builder =
-    SequencerConnection => EitherT[Future, Error, SequencerConnectClient]
+    (DomainAlias, SequencerConnection) => EitherT[Future, Error, SequencerConnectClient]
 
   sealed trait Error {
     def message: String
@@ -89,6 +89,7 @@ object SequencerConnectClient {
   }
 
   def apply(
+      domainAlias: DomainAlias,
       sequencerConnection: SequencerConnection,
       timeouts: ProcessingTimeout,
       traceContextPropagation: TracingConfig.Propagation,
@@ -104,10 +105,12 @@ object SequencerConnectClient {
               connection,
               timeouts,
               traceContextPropagation,
-              SequencerClient.loggerFactoryWithSequencerConnection(
-                loggerFactory,
-                connection.sequencerAlias,
-              ),
+              SequencerClient
+                .loggerFactoryWithSequencerAlias(
+                  loggerFactory.append("domainAlias", domainAlias.toString),
+                  connection.sequencerAlias,
+                )
+                .append("sequencerConnection", connection.endpoints.map(_.toString).mkString(",")),
             )
           )
       }

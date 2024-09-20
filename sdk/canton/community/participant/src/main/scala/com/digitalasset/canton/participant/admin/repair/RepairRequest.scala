@@ -23,6 +23,8 @@ private[repair] final case class RepairRequest(
 
   val timestamp: CantonTimestamp = domain.startingPoints.processing.prenextTimestamp
 
+  def firstTimeOfChange = TimeOfChange(requestCounters.head1, timestamp)
+
   def timesOfChange: Seq[TimeOfChange] =
     requestCounters.map(rc => TimeOfChange(rc, timestamp))
 

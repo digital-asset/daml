@@ -672,6 +672,32 @@ object ParticipantAdminCommands {
       override def handleResponse(response: UnignoreEventsResponse): Either[String, Unit] =
         Right(())
     }
+
+    final case class RollbackUnassignment(unassignId: String, source: DomainId, target: DomainId)
+        extends GrpcAdminCommand[RollbackUnassignmentRequest, RollbackUnassignmentResponse, Unit] {
+      override type Svc = ParticipantRepairServiceStub
+
+      override def createService(channel: ManagedChannel): ParticipantRepairServiceStub =
+        ParticipantRepairServiceGrpc.stub(channel)
+
+      override def createRequest(): Either[String, RollbackUnassignmentRequest] =
+        Right(
+          RollbackUnassignmentRequest(
+            unassignId = unassignId,
+            source = source.toProtoPrimitive,
+            target = target.toProtoPrimitive,
+          )
+        )
+
+      override def submitRequest(
+          service: ParticipantRepairServiceStub,
+          request: RollbackUnassignmentRequest,
+      ): Future[RollbackUnassignmentResponse] =
+        service.rollbackUnassignment(request)
+
+      override def handleResponse(response: RollbackUnassignmentResponse): Either[String, Unit] =
+        Right(())
+    }
   }
 
   object Ping {

@@ -620,6 +620,11 @@ object ActiveContractStore {
       case Active(_) => true
       case _ => false
     }
+
+    def isReassignedAway: Boolean = this match {
+      case ReassignedAway(_, _) => true
+      case _ => false
+    }
   }
 
   /** The contract has been created and is active. */
