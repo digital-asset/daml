@@ -617,7 +617,9 @@ extractUpgradedPackageRule opts = do
         diags = case mainAndDeps of
           Left _ -> [ideErrorPretty packageConfigFilePath ("Could not decode file as a DAR." :: T.Text)]
           Right ((_, mainPkg), _) -> getUpgradedPackageErrs opts packageConfigFilePath mainPkg
-    pure (diags, guard (null diags) >> rightToMaybe mainAndDeps)
+    extras <- getShakeExtras
+    updateFileDiagnostics packageConfigFilePath ExtractUpgradedPackageFile extras $ map (\(_,y,z) -> (y,z)) diags
+    pure ([], guard (null diags) >> rightToMaybe mainAndDeps)
 
 readDalfPackage :: FilePath -> IO (Either FileDiagnostic LF.DalfPackage)
 readDalfPackage dalf = do
