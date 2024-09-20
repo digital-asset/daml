@@ -7,15 +7,15 @@ import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.sequencing.TrafficControlParameters as TrafficControlParametersInternal
 import com.digitalasset.canton.time.{
-  NonNegativeFiniteDuration as InternalNonNegativeFiniteDuration,
   PositiveFiniteDuration as InternalPositiveFiniteDuration,
+  PositiveSeconds as InternalPositiveSeconds,
 }
 
 // TODO(#15650) Properly expose new BFT parameters and domain limits
 final case class TrafficControlParameters(
     maxBaseTrafficAmount: NonNegativeLong,
     readVsWriteScalingFactor: PositiveInt,
-    maxBaseTrafficAccumulationDuration: config.NonNegativeFiniteDuration,
+    maxBaseTrafficAccumulationDuration: config.PositiveDurationSeconds,
     setBalanceRequestSubmissionWindowSize: config.PositiveFiniteDuration,
     enforceRateLimiting: Boolean,
 ) {
@@ -25,7 +25,7 @@ final case class TrafficControlParameters(
       maxBaseTrafficAmount = maxBaseTrafficAmount,
       readVsWriteScalingFactor = readVsWriteScalingFactor,
       maxBaseTrafficAccumulationDuration =
-        InternalNonNegativeFiniteDuration.fromConfig(maxBaseTrafficAccumulationDuration),
+        InternalPositiveSeconds.fromConfig(maxBaseTrafficAccumulationDuration),
       setBalanceRequestSubmissionWindowSize =
         InternalPositiveFiniteDuration.fromConfig(setBalanceRequestSubmissionWindowSize),
       enforceRateLimiting = enforceRateLimiting,

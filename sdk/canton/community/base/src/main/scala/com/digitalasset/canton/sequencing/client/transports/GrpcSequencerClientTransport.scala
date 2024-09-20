@@ -13,7 +13,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.domain.api.v30.SequencerServiceGrpc.SequencerServiceStub
 import com.digitalasset.canton.lifecycle.Lifecycle.CloseableChannel
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, Lifecycle}
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.metrics.SequencerClientMetrics
 import com.digitalasset.canton.networking.grpc.GrpcError.{
@@ -57,6 +57,7 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
     esf: ExecutionSequencerFactory,
     materializer: Materializer,
 ) extends SequencerClientTransportCommon
+    with GrpcClientTransportHelpers
     with NamedLogging {
 
   override def logout(): EitherT[FutureUnlessShutdown, Status, Unit] =
@@ -65,18 +66,6 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
   protected val sequencerServiceClient: SequencerServiceStub = clientAuth(
     new SequencerServiceStub(channel, options = callOptions)
   )
-  private val noLoggingShutdownErrorsLogPolicy: GrpcError => TracedLogger => TraceContext => Unit =
-    err =>
-      logger =>
-        traceContext =>
-          err match {
-            case _: GrpcClientGaveUp | _: GrpcServerError | _: GrpcServiceUnavailable =>
-              // avoid logging client errors that typically happen during shutdown (such as grpc context cancelled)
-              performUnlessClosing("grpc-client-transport-log")(err.log(logger)(traceContext))(
-                traceContext
-              ).discard
-            case _ => err.log(logger)(traceContext)
-          }
 
   override def sendAsyncSigned(
       request: SignedContent[SubmissionRequest],
@@ -171,35 +160,6 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
       case _: GrpcError.GrpcClientGaveUp => false
     }
 
-  /** Retry policy to retry once for authentication failures to allow re-authentication and optionally retry when unavailable. */
-  private def retryPolicy(
-      retryOnUnavailable: Boolean
-  )(implicit traceContext: TraceContext): GrpcError => Boolean = {
-    // we allow one retry if the failure was due to an auth token expiration
-    // if it's not refresh upon the next call we shouldn't retry again
-    val hasRetriedDueToTokenExpiration = new AtomicBoolean(false)
-
-    error =>
-      if (isClosing) false // don't even think about retrying if we're closing
-      else
-        error match {
-          case requestRefused: GrpcError.GrpcRequestRefusedByServer
-              if !hasRetriedDueToTokenExpiration
-                .get() && requestRefused.isAuthenticationTokenMissing =>
-            logger.info(
-              "Retrying once to give the sequencer the opportunity to refresh the authentication token."
-            )
-            hasRetriedDueToTokenExpiration.set(true) // don't allow again
-            true
-          // Retrying to recover from transient failures, e.g.:
-          // - network outages
-          // - sequencer starting up during integration tests
-          case _: GrpcServiceUnavailable => retryOnUnavailable
-          // don't retry on anything else as the request may have been received and a subsequent send may cause duplicates
-          case _ => false
-        }
-  }
-
   override def getTrafficStateForMember(request: GetTrafficStateForMemberRequest)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, GetTrafficStateForMemberResponse] = {
@@ -285,6 +245,52 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
       clientAuth,
       new CloseableChannel(channel, logger, "grpc-sequencer-transport"),
     )(logger)
+}
+
+trait GrpcClientTransportHelpers {
+  this: FlagCloseable & NamedLogging =>
+  protected val noLoggingShutdownErrorsLogPolicy
+      : GrpcError => TracedLogger => TraceContext => Unit =
+    err =>
+      logger =>
+        traceContext =>
+          err match {
+            case _: GrpcClientGaveUp | _: GrpcServerError | _: GrpcServiceUnavailable =>
+              // avoid logging client errors that typically happen during shutdown (such as grpc context cancelled)
+              performUnlessClosing("grpc-client-transport-log")(err.log(logger)(traceContext))(
+                traceContext
+              ).discard
+            case _ => err.log(logger)(traceContext)
+          }
+
+  /** Retry policy to retry once for authentication failures to allow re-authentication and optionally retry when unavailable. */
+  protected def retryPolicy(
+      retryOnUnavailable: Boolean
+  )(implicit traceContext: TraceContext): GrpcError => Boolean = {
+    // we allow one retry if the failure was due to an auth token expiration
+    // if it's not refresh upon the next call we shouldn't retry again
+    val hasRetriedDueToTokenExpiration = new AtomicBoolean(false)
+
+    error =>
+      if (isClosing) false // don't even think about retrying if we're closing
+      else
+        error match {
+          case requestRefused: GrpcError.GrpcRequestRefusedByServer
+              if !hasRetriedDueToTokenExpiration
+                .get() && requestRefused.isAuthenticationTokenMissing =>
+            logger.info(
+              "Retrying once to give the sequencer the opportunity to refresh the authentication token."
+            )
+            hasRetriedDueToTokenExpiration.set(true) // don't allow again
+            true
+          // Retrying to recover from transient failures, e.g.:
+          // - network outages
+          // - sequencer starting up during integration tests
+          case _: GrpcServiceUnavailable => retryOnUnavailable
+          // don't retry on anything else as the request may have been received and a subsequent send may cause duplicates
+          case _ => false
+        }
+  }
 }
 
 class GrpcSequencerClientTransport(

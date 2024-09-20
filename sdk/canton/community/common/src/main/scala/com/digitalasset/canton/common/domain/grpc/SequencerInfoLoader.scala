@@ -62,8 +62,9 @@ class SequencerInfoLoader(
 ) extends NamedLogging {
 
   private def sequencerConnectClientBuilder: SequencerConnectClient.Builder = {
-    (config: SequencerConnection) =>
+    (domainAlias: DomainAlias, config: SequencerConnection) =>
       SequencerConnectClient(
+        domainAlias,
         config,
         timeouts,
         traceContextPropagation,
@@ -137,7 +138,7 @@ class SequencerInfoLoader(
     connection match {
       case grpc: GrpcSequencerConnection =>
         for {
-          client <- sequencerConnectClientBuilder(grpc).leftMap(
+          client <- sequencerConnectClientBuilder(domainAlias, grpc).leftMap(
             SequencerInfoLoader.fromSequencerConnectClientError(domainAlias)
           )
           // retry the bootstrapping info parameters. we want to maximise the number of
@@ -292,9 +293,14 @@ class SequencerInfoLoader(
   )(
       getInfo: SequencerConnection => Future[LoadSequencerEndpointInformationResult]
   )(implicit traceContext: TraceContext): Future[Seq[LoadSequencerEndpointInformationResult]] = {
-    logger.debug(
-      s"Loading sequencer info entries with ${connections.size} connections, parallelism ${parallelism.unwrap}, threshold $maybeThreshold"
-    )
+    if (logger.underlying.isDebugEnabled()) {
+      val grpcConnections = connections.collect { case grpc: GrpcSequencerConnection => grpc }
+      logger.debug(
+        s"Loading sequencer info entries with ${connections.size} connections (${grpcConnections
+            .map(conn => s"${conn.sequencerAlias.unwrap}=${conn.endpoints.mkString(",")}")
+            .mkString(";")}), parallelism ${parallelism.unwrap}, threshold $maybeThreshold, domain ${domainAlias.unwrap}"
+      )
+    }
     val promise = Promise[Seq[LoadSequencerEndpointInformationResult]]()
     val connectionsSize = connections.size
     val (initialConnections, remainingConnections) = connections.splitAt(parallelism.unwrap)

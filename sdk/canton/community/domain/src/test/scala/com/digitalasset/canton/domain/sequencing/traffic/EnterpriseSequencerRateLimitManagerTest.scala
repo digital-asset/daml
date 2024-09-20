@@ -24,7 +24,7 @@ import com.digitalasset.canton.sequencing.traffic.{
   TrafficPurchased,
   TrafficReceipt,
 }
-import com.digitalasset.canton.time.NonNegativeFiniteDuration
+import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.DefaultTestIdentities.*
 import com.digitalasset.canton.topology.{DefaultTestIdentities, Member, TestingTopology}
 import com.digitalasset.canton.tracing.TraceContext
@@ -46,7 +46,7 @@ class EnterpriseSequencerRateLimitManagerTest
   private val maxBaseTrafficRemainder = NonNegativeLong.tryCreate(5)
   private val trafficConfig: TrafficControlParameters = TrafficControlParameters(
     maxBaseTrafficAmount = maxBaseTrafficRemainder,
-    maxBaseTrafficAccumulationDuration = NonNegativeFiniteDuration.tryOfSeconds(1),
+    maxBaseTrafficAccumulationDuration = PositiveSeconds.tryOfSeconds(1),
   )
 
   private val senderTs = CantonTimestamp.Epoch

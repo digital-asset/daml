@@ -17,16 +17,20 @@ template ChannelProposal
   with
     sourceParticipant : Party -- participant admin party
     targetParticipant : Party -- participant admin party
-    sequencerUid : Text
+    sequencerUids : [Text] -- sequencerUis needs to be non-empty as otherwise it is impossible to accept the proposal
     payloadMetadata : PartyReplicationMetadata
   where
     signatory targetParticipant
     observer sourceParticipant
 
     -- The source participant decides whether to accept the channel proposal
+    -- and if so, indicates one of the sequencer UIDs to host the channel
     choice Accept : ContractId ChannelAgreement
+      with
+        sequencerUid : Text
       controller sourceParticipant
         do
+          assertMsg "sequencerUid needs to be one of sequencerUids" (sequencerUid `elem` sequencerUids)
           channelAgreement <- create ChannelAgreement with sourceParticipant, targetParticipant, sequencerUid, payloadMetadata
           return channelAgreement
 

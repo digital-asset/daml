@@ -8,9 +8,11 @@ import com.digitalasset.canton.DomainAlias
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.RepairServiceErrorGroup
 import com.digitalasset.canton.error.{BaseCantonError, CantonError}
-import com.digitalasset.canton.logging.ErrorLoggingContext
+import com.digitalasset.canton.logging.{ErrorLoggingContext, TracedLogger}
+import com.digitalasset.canton.participant.store.AcsInspectionError
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 
 sealed trait RepairServiceError extends Product with Serializable with BaseCantonError
@@ -169,4 +171,39 @@ object RepairServiceError extends RepairServiceErrorGroup {
         with RepairServiceError
   }
 
+  def fromAcsInspectionError(acsError: AcsInspectionError, logger: TracedLogger)(implicit
+      traceContext: TraceContext,
+      elc: ErrorLoggingContext,
+  ): RepairServiceError =
+    acsError match {
+      case AcsInspectionError.TimestampAfterPrehead(domainId, requested, clean) =>
+        RepairServiceError.InvalidAcsSnapshotTimestamp.Error(
+          requested,
+          clean,
+          domainId,
+        )
+      case AcsInspectionError.TimestampBeforePruning(domainId, requested, pruned) =>
+        RepairServiceError.UnavailableAcsSnapshot.Error(
+          requested,
+          pruned,
+          domainId,
+        )
+      case AcsInspectionError.InconsistentSnapshot(domainId, missingContract) =>
+        logger.warn(
+          s"Inconsistent ACS snapshot for domain $domainId. Contract $missingContract (and possibly others) is missing."
+        )
+        RepairServiceError.InconsistentAcsSnapshot.Error(domainId)
+      case AcsInspectionError.SerializationIssue(domainId, contractId, errorMessage) =>
+        logger.error(
+          s"Contract $contractId for domain $domainId cannot be serialized due to: $errorMessage"
+        )
+        RepairServiceError.SerializationError.Error(domainId, contractId)
+      case AcsInspectionError.InvariantIssue(domainId, contractId, errorMessage) =>
+        logger.error(
+          s"Contract $contractId for domain $domainId cannot be serialized due to an invariant violation: $errorMessage"
+        )
+        RepairServiceError.SerializationError.Error(domainId, contractId)
+      case AcsInspectionError.OffboardingParty(domainId, error) =>
+        RepairServiceError.InvalidArgument.Error(s"Parties offboarding on domain $domainId: $error")
+    }
 }

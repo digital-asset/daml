@@ -15,7 +15,7 @@ import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.domain.api.v30.SequencerConnect
 import com.digitalasset.canton.domain.api.v30.SequencerConnect.GetDomainParametersResponse.Parameters
 import com.digitalasset.canton.domain.api.v30.SequencerConnect.VerifyActiveRequest
-import com.digitalasset.canton.lifecycle.{FlagCloseable, Lifecycle}
+import com.digitalasset.canton.lifecycle.FlagCloseable
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, ClientChannelBuilder}
 import com.digitalasset.canton.protocol.StaticDomainParameters
@@ -31,8 +31,8 @@ import com.digitalasset.canton.topology.{
   UniqueIdentifier,
 }
 import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
+import com.digitalasset.canton.util.retry
 import com.digitalasset.canton.util.retry.{AllExceptionRetryPolicy, Success}
-import com.digitalasset.canton.util.{Thereafter, retry}
 import com.digitalasset.canton.version.HandshakeErrors.DeprecatedProtocolVersion
 import com.digitalasset.canton.{DomainAlias, ProtoDeserializationError}
 import io.grpc.ClientInterceptors
@@ -177,16 +177,10 @@ class GrpcSequencerConnectClient(
         )
     } yield handshakeResponse
 
-  def isActive(participantId: ParticipantId, waitForActive: Boolean)(implicit
-      traceContext: TraceContext
+  def isActive(participantId: ParticipantId, domainAlias: DomainAlias, waitForActive: Boolean)(
+      implicit traceContext: TraceContext
   ): EitherT[Future, Error, Boolean] = {
-    import Thereafter.syntax.*
     val interceptor = new SequencerConnectClientInterceptor(participantId, loggerFactory)
-
-    val channel = builder.build()
-    val closeableChannel = Lifecycle.toCloseableChannel(channel, logger, "sendSingleGrpcRequest")
-    val interceptedChannel = ClientInterceptors.intercept(closeableChannel.channel, interceptor)
-    val service = v30.SequencerConnectServiceGrpc.stub(interceptedChannel)
 
     // retry in case of failure. Also if waitForActive is true, retry if response is negative
     implicit val success: Success[Either[Error, Boolean]] =
@@ -195,8 +189,23 @@ class GrpcSequencerConnectClient(
         case Right(value) => value || !waitForActive
       }
 
-    def verifyActive(): Future[Either[Error, Boolean]] =
-      service.verifyActive(VerifyActiveRequest()).map(handleVerifyActiveResponse)
+    def verifyActive(): EitherT[Future, Error, Boolean] =
+      CantonGrpcUtil
+        .sendSingleGrpcRequest(
+          serverName = domainAlias.unwrap,
+          requestDescription = "verify active",
+          channel = builder.build(),
+          stubFactory = channel =>
+            v30.SequencerConnectServiceGrpc
+              .stub(ClientInterceptors.intercept(channel, interceptor)),
+          timeout = timeouts.network.unwrap,
+          logger = logger,
+          logPolicy = CantonGrpcUtil.silentLogPolicy,
+          retryPolicy = CantonGrpcUtil.RetryPolicy.noRetry,
+          token = None,
+        )(_.verifyActive(VerifyActiveRequest()))
+        .leftMap(err => Error.Transport(err.toString))
+        .subflatMap(handleVerifyActiveResponse)
 
     // The verify active check within the sequencer connect service uses the sequenced topology state.
     // The retry logic was previously used as the "auto approve identity registration strategy"
@@ -208,8 +217,8 @@ class GrpcSequencerConnectClient(
     EitherT(
       retry
         .Pause(logger, this, maxRetries, interval, "verify active")
-        .apply(verifyActive(), AllExceptionRetryPolicy)
-    ).thereafter(_ => closeableChannel.close())
+        .apply(verifyActive().value, AllExceptionRetryPolicy)
+    )
   }
 
   override def registerOnboardingTopologyTransactions(

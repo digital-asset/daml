@@ -32,25 +32,56 @@ import com.digitalasset.daml.lf.data.Bytes
 import scala.concurrent.{ExecutionContext, Future}
 
 private final class ChangeAssignation(
-    contractIds: Iterable[ChangeAssignation.Data[LfContractId]],
-    repairSource: RepairRequest,
-    repairTarget: RepairRequest,
-    skipInactive: Boolean,
+    val repairSource: RepairRequest,
+    val repairTarget: RepairRequest,
     participantId: ParticipantId,
     syncCrypto: SyncCryptoApiProvider,
     repairIndexer: FutureQueue[Traced[Update]],
     val loggerFactory: NamedLoggerFactory,
-) extends NamedLogging {
+)(implicit executionContext: ExecutionContext)
+    extends NamedLogging {
 
   private val sourceDomainId = SourceDomainId(repairSource.domain.id)
   private val targetDomainId = TargetDomainId(repairTarget.domain.id)
   private val reassignmentId = ReassignmentId(sourceDomainId, repairSource.timestamp)
 
+  /** Completes the processing of unassigned contract. Insert the contract in the target domain
+    * and publish the assignment event.
+    */
+  def completeUnassigned(
+      unassignedData: ChangeAssignation.Data[(LfContractId, ReassignmentCounter)]
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, String, Unit] = {
+    val contractId = unassignedData.payload._1
+    for {
+      contractStatusAtSource <- EitherT.right(
+        repairSource.domain.persistentState.activeContractStore
+          .fetchStates(Seq(contractId))
+      )
+      _ <- EitherT.cond[Future](
+        contractStatusAtSource.get(contractId).exists(_.status.isReassignedAway),
+        (),
+        s"Contract $contractId is not unassigned in source domain ${repairSource.domain.alias}" +
+          s"Current status: ${contractStatusAtSource.get(contractId).map(_.status)}.",
+      )
+
+      unassignedContract <- readContract(unassignedData)
+      transactionId = randomTransactionId(syncCrypto)
+
+      _ <- persistContractsAtTarget(transactionId, List(unassignedContract))
+      _ <- persistAssignments(List(unassignedContract)).toEitherT
+      _ <- EitherT.right(publishAssignmentEvents(List(unassignedContract)))
+    } yield ()
+  }
+
   /** Change the domain assignation for contracts from [[repairSource]] to [[repairTarget]]
     */
-  private def run()(implicit
-      executionContext: ExecutionContext,
-      traceContext: TraceContext,
+  def changeAssignation(
+      contractIds: Iterable[ChangeAssignation.Data[LfContractId]],
+      skipInactive: Boolean,
+  )(implicit
+      traceContext: TraceContext
   ): EitherT[Future, String, Unit] =
     for {
       contractStatusAtSource <- EitherT.right(
@@ -58,7 +89,11 @@ private final class ChangeAssignation(
           .fetchStates(contractIds.map(_.payload))
       )
       _ = logger.debug(s"Contracts status at source: $contractStatusAtSource")
-      contractsAtSource <- changingContractsAtSource(contractStatusAtSource)
+      contractsAtSource <- changingContractsAtSource(
+        contractIds,
+        contractStatusAtSource,
+        skipInactive,
+      )
       sourceContractIds = contractsAtSource.map(_.payload._1)
       _ = logger.debug(s"Contracts changing assignation from source: $sourceContractIds")
       contractStatusAtTarget <- EitherT.right(
@@ -72,15 +107,15 @@ private final class ChangeAssignation(
         s"Contracts that need to change assignation with persistence status: $contracts"
       )
       transactionId = randomTransactionId(syncCrypto)
-      _ <- persistContracts(transactionId, contracts)
+      _ <- persistContractsAtTarget(transactionId, contracts)
       _ <- persistUnassignAndAssign(contracts).toEitherT
-      _ <- EitherT.right(insertReassignmentEventsInLog(contracts))
+      _ <- EitherT.right(publishReassignmentEvents(contracts))
     } yield ()
 
   private def changingContractsAtSource(
-      source: Map[LfContractId, ContractState]
-  )(implicit
-      executionContext: ExecutionContext
+      contractIds: Iterable[ChangeAssignation.Data[LfContractId]],
+      source: Map[LfContractId, ContractState],
+      skipInactive: Boolean,
   ): EitherT[Future, String, List[ChangeAssignation.Data[(LfContractId, ReassignmentCounter)]]] = {
     def errorUnlessSkipInactive(
         cid: ChangeAssignation.Data[LfContractId],
@@ -116,8 +151,7 @@ private final class ChangeAssignation(
       sourceContracts: List[ChangeAssignation.Data[(LfContractId, ReassignmentCounter)]],
       targetStatus: Map[LfContractId, ContractState],
   )(implicit
-      executionContext: ExecutionContext,
-      traceContext: TraceContext,
+      traceContext: TraceContext
   ): EitherT[Future, String, List[ChangeAssignation.Data[(LfContractId, ReassignmentCounter)]]] = {
     val filteredE =
       sourceContracts
@@ -148,8 +182,7 @@ private final class ChangeAssignation(
   }
 
   private def stakeholdersAtSource(contractIds: Set[LfContractId])(implicit
-      executionContext: ExecutionContext,
-      traceContext: TraceContext,
+      traceContext: TraceContext
   ): EitherT[Future, String, Map[LfContractId, Set[LfPartyId]]] =
     repairSource.domain.persistentState.contractStore
       .lookupStakeholders(contractIds)
@@ -161,8 +194,7 @@ private final class ChangeAssignation(
       contractId: LfContractId,
       stakeholders: Set[LfPartyId],
   )(implicit
-      executionContext: ExecutionContext,
-      traceContext: TraceContext,
+      traceContext: TraceContext
   ): EitherT[Future, String, Unit] =
     EitherT(hostsParties(repairTarget.domain.topologySnapshot, stakeholders, participantId).map {
       hosted =>
@@ -178,8 +210,7 @@ private final class ChangeAssignation(
         ChangeAssignation.Data[(LfContractId, ReassignmentCounter)]
       ]
   )(implicit
-      executionContext: ExecutionContext,
-      traceContext: TraceContext,
+      traceContext: TraceContext
   ): EitherT[Future, String, List[
     (SerializableContract, ChangeAssignation.Data[(LfContractId, ReassignmentCounter)])
   ]] =
@@ -190,11 +221,27 @@ private final class ChangeAssignation(
         s"Failed to look up contract $contractId in domain ${repairSource.domain.alias}"
       )
 
+  private def readContract(
+      contractIdWithReassignmentCounter: ChangeAssignation.Data[(LfContractId, ReassignmentCounter)]
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, String, ChangeAssignation.Data[Changed]] = {
+    val contractId = contractIdWithReassignmentCounter.payload._1
+    for {
+      contracts <- readContracts(List(contractIdWithReassignmentCounter))
+      contract <-
+        EitherT.fromOption[Future](
+          contracts.find(_.payload.contract.contractId == contractId),
+          s"Cannot read contract $contractId",
+        )
+    } yield contract
+  }
+
   private def readContracts(
       contractIdsWithReassignmentCounters: List[
         ChangeAssignation.Data[(LfContractId, ReassignmentCounter)]
       ]
-  )(implicit executionContext: ExecutionContext, traceContext: TraceContext): EitherT[
+  )(implicit traceContext: TraceContext): EitherT[
     Future,
     String,
     List[ChangeAssignation.Data[Changed]],
@@ -224,12 +271,11 @@ private final class ChangeAssignation(
       }
     }
 
-  private def persistContracts(
+  private def persistContractsAtTarget(
       transactionId: TransactionId,
       contracts: List[ChangeAssignation.Data[Changed]],
   )(implicit
-      executionContext: ExecutionContext,
-      traceContext: TraceContext,
+      traceContext: TraceContext
   ): EitherT[Future, String, Unit] =
     for {
       _ <- EitherT.right {
@@ -246,11 +292,26 @@ private final class ChangeAssignation(
       }
     } yield ()
 
+  private def persistAssignments(contracts: List[ChangeAssignation.Data[Changed]])(implicit
+      traceContext: TraceContext
+  ): CheckedT[Future, String, ActiveContractStore.AcsWarning, Unit] =
+    repairTarget.domain.persistentState.activeContractStore
+      .assignContracts(
+        contracts.map { contract =>
+          (
+            contract.payload.contract.contractId,
+            sourceDomainId,
+            contract.payload.reassignmentCounter,
+            contract.targetTimeOfChange,
+          )
+        }
+      )
+      .mapAbort(e => s"Failed to mark contracts as assigned: $e")
+
   private def persistUnassignAndAssign(
       contracts: List[ChangeAssignation.Data[Changed]]
   )(implicit
-      executionContext: ExecutionContext,
-      traceContext: TraceContext,
+      traceContext: TraceContext
   ): CheckedT[Future, String, ActiveContractStore.AcsWarning, Unit] = {
 
     val unassignF = repairSource.domain.persistentState.activeContractStore
@@ -266,27 +327,25 @@ private final class ChangeAssignation(
       )
       .mapAbort(e => s"Failed to mark contracts as unassigned: $e")
 
-    val assignF = repairTarget.domain.persistentState.activeContractStore
-      .assignContracts(
-        contracts.map { contract =>
-          (
-            contract.payload.contract.contractId,
-            sourceDomainId,
-            contract.payload.reassignmentCounter,
-            contract.targetTimeOfChange,
-          )
-        }
-      )
-      .mapAbort(e => s"Failed to mark contracts as assigned: $e")
-
-    unassignF.flatMap(_ => assignF)
+    unassignF.flatMap(_ => persistAssignments(contracts))
   }
 
-  private def insertReassignmentEventsInLog(
+  private def publishAssignmentEvents(
+      changedContracts: List[ChangeAssignation.Data[Changed]]
+  )(implicit traceContext: TraceContext): Future[Unit] =
+    for {
+      hostedTargetParties <- hostedParties(repairTarget, changedContracts, participantId)
+      _ <- MonadUtil.sequentialTraverse_(
+        Iterator(
+          assignment(hostedTargetParties)
+        ).flatMap(changedContracts.map)
+      )(repairIndexer.offer)
+    } yield ()
+
+  private def publishReassignmentEvents(
       changedContracts: List[ChangeAssignation.Data[Changed]]
   )(implicit
-      executionContext: ExecutionContext,
-      traceContext: TraceContext,
+      traceContext: TraceContext
   ): Future[Unit] =
     for {
       hostedSourceParties <- hostedParties(repairSource, changedContracts, participantId)
@@ -304,8 +363,7 @@ private final class ChangeAssignation(
       changedContracts: List[ChangeAssignation.Data[Changed]],
       participantId: ParticipantId,
   )(implicit
-      executionContext: ExecutionContext,
-      traceContext: TraceContext,
+      traceContext: TraceContext
   ): Future[Set[LfPartyId]] =
     hostsParties(
       repair.domain.topologySnapshot,
@@ -400,7 +458,48 @@ private[repair] object ChangeAssignation {
       payload: Payload,
       sourceTimeOfChange: TimeOfChange,
       targetTimeOfChange: TimeOfChange,
-  )
+  ) {
+    def incrementRequestCounter: Either[String, Data[Payload]] =
+      for {
+        incrementedSourceRc <- sourceTimeOfChange.rc.increment
+        incrementedTargetRc <- targetTimeOfChange.rc.increment
+
+      } yield copy(
+        sourceTimeOfChange = sourceTimeOfChange.copy(rc = incrementedSourceRc),
+        targetTimeOfChange = targetTimeOfChange.copy(rc = incrementedTargetRc),
+      )
+  }
+
+  object Data {
+    def from[Payload](
+        payloads: Seq[Payload],
+        changeAssignation: ChangeAssignation,
+    ): Either[String, Seq[Data[Payload]]] =
+      if (
+        payloads.size == changeAssignation.repairSource.timesOfChange.size &&
+        payloads.size == changeAssignation.repairTarget.timesOfChange.size
+      ) {
+        Right(
+          payloads
+            .zip(changeAssignation.repairSource.timesOfChange)
+            .zip(changeAssignation.repairTarget.timesOfChange)
+            .map { case ((contractId, sourceToc), targetToc) =>
+              ChangeAssignation.Data(contractId, sourceToc, targetToc)
+            }
+        )
+      } else
+        Left(
+          s"Payloads size ${payloads.size} does not match timesOfChange size ${changeAssignation.repairSource.timesOfChange.size} or ${changeAssignation.repairTarget.timesOfChange.size}"
+        )
+
+    def from[Payload](payload: Payload, changeAssignation: ChangeAssignation): Data[Payload] =
+      ChangeAssignation
+        .Data(
+          payload,
+          changeAssignation.repairSource.firstTimeOfChange,
+          changeAssignation.repairTarget.firstTimeOfChange,
+        )
+  }
 
   /** @param contract Contract that changed its domain
     * @param reassignmentCounter Reassignment counter
@@ -411,29 +510,4 @@ private[repair] object ChangeAssignation {
       reassignmentCounter: ReassignmentCounter,
       isNew: Boolean,
   )
-
-  def apply(
-      contractIds: Iterable[ChangeAssignation.Data[LfContractId]],
-      repairSource: RepairRequest,
-      repairTarget: RepairRequest,
-      skipInactive: Boolean,
-      participantId: ParticipantId,
-      syncCrypto: SyncCryptoApiProvider,
-      repairIndexer: FutureQueue[Traced[Update]],
-      loggerFactory: NamedLoggerFactory,
-  )(implicit
-      executionContext: ExecutionContext,
-      traceContext: TraceContext,
-  ): EitherT[Future, String, Unit] =
-    new ChangeAssignation(
-      contractIds,
-      repairSource,
-      repairTarget,
-      skipInactive,
-      participantId,
-      syncCrypto,
-      repairIndexer,
-      loggerFactory,
-    ).run()
-
 }

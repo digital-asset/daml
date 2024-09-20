@@ -145,7 +145,7 @@ class StartableStoppableLedgerApiDependentServices(
                 registry
                   .addService(
                     PartyManagementServiceGrpc.bindService(
-                      new GrpcPartyManagementService(partyReplicationCoordinator),
+                      new GrpcPartyManagementService(partyReplicationCoordinator, loggerFactory),
                       ec,
                     )
                   )

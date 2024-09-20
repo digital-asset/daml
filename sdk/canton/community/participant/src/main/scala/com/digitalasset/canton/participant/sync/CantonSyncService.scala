@@ -1178,9 +1178,8 @@ class CantonSyncService(
       EitherT.rightT(())
     } else {
 
-      logger.debug(s"Connecting to domain: ${domainAlias.unwrap}")
+      logger.debug(s"About to perform handshake with domain: ${domainAlias.unwrap}")
       for {
-
         domainConnectionConfig <- domainConnectionConfigByAlias(domainAlias)
           .mapK(FutureUnlessShutdown.outcomeK)
           .leftMap[SyncServiceError] { case MissingConfigForAlias(alias) =>
@@ -1191,6 +1190,9 @@ class CantonSyncService(
           domainConnectionConfig.status.isActive || skipStatusCheck,
           SyncServiceError.SyncServiceDomainIsNotActive
             .Error(domainAlias, domainConnectionConfig.status): SyncServiceError,
+        )
+        _ = logger.debug(
+          s"Performing handshake with domain with config: ${domainConnectionConfig.config}"
         )
         domainHandle <- EitherT(domainRegistry.connect(domainConnectionConfig.config))
           .leftMap[SyncServiceError](err =>
@@ -1231,7 +1233,7 @@ class CantonSyncService(
       EitherT.rightT(())
     } else {
 
-      logger.debug(s"Connecting to domain: ${domainAlias.unwrap}")
+      logger.debug(s"About to connect to domain: ${domainAlias.unwrap}")
       val domainMetrics = metrics.domainMetrics(domainAlias)
 
       val ret: EitherT[FutureUnlessShutdown, SyncServiceError, Unit] = for {
@@ -1248,6 +1250,7 @@ class CantonSyncService(
           SyncServiceError.SyncServiceDomainIsNotActive
             .Error(domainAlias, domainConnectionConfig.status): SyncServiceError,
         )
+        _ = logger.debug(s"Connecting to domain with config: ${domainConnectionConfig.config}")
         domainHandle <- connect(domainConnectionConfig.config)
 
         domainId = domainHandle.domainId

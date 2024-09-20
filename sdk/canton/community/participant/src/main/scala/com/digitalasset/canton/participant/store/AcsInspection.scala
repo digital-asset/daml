@@ -291,7 +291,7 @@ object AcsInspection {
   }
 }
 
-sealed abstract class AcsInspectionError extends Product with Serializable with HasDomainId {}
+sealed abstract class AcsInspectionError extends Product with Serializable with HasDomainId
 
 object AcsInspectionError {
   final case class TimestampAfterPrehead(

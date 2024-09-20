@@ -253,7 +253,7 @@ object SequencerClientFactory {
           traceContext: TraceContext,
       ): SequencerClientTransport & SequencerClientTransportPekko = {
         val loggerFactoryWithSequencerAlias =
-          SequencerClient.loggerFactoryWithSequencerConnection(
+          SequencerClient.loggerFactoryWithSequencerAlias(
             loggerFactory,
             connection.sequencerAlias,
           )
@@ -308,7 +308,7 @@ object SequencerClientFactory {
           executionContext: ExecutionContextExecutor
       ): ManagedChannel = {
         val channelBuilder = ClientChannelBuilder(
-          SequencerClient.loggerFactoryWithSequencerConnection(loggerFactory, conn.sequencerAlias)
+          SequencerClient.loggerFactoryWithSequencerAlias(loggerFactory, conn.sequencerAlias)
         )
         GrpcSequencerChannelBuilder(
           channelBuilder,
@@ -348,7 +348,7 @@ object SequencerClientFactory {
           config.authToken,
           clock,
           processingTimeout,
-          SequencerClient.loggerFactoryWithSequencerConnection(
+          SequencerClient.loggerFactoryWithSequencerAlias(
             loggerFactory,
             connection.sequencerAlias,
           ),
@@ -371,7 +371,7 @@ object SequencerClientFactory {
           metrics,
           processingTimeout,
           SequencerClient
-            .loggerFactoryWithSequencerConnection(loggerFactory, connection.sequencerAlias),
+            .loggerFactoryWithSequencerAlias(loggerFactory, connection.sequencerAlias),
           domainParameters.protocolVersion,
         )
       }

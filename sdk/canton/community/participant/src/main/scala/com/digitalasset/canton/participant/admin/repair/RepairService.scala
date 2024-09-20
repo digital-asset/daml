@@ -590,25 +590,31 @@ final class RepairService(
                 numberOfContracts,
               )
 
-              changeAssignationData =
-                contractIds
-                  .zip(repairSource.timesOfChange)
-                  .zip(repairTarget.timesOfChange)
-                  .map { case ((contractId, sourceToc), targetToc) =>
-                    ChangeAssignation.Data(contractId, sourceToc, targetToc)
-                  }
+              changeAssignation = new ChangeAssignation(
+                repairSource,
+                repairTarget,
+                participantId,
+                syncCrypto,
+                repairIndexer,
+                loggerFactory,
+              )
+
+              changeAssignationData <- EitherT.fromEither[Future](
+                ChangeAssignation.Data.from(contractIds, changeAssignation)
+              )
 
               _ <- cleanRepairRequests(repairTarget, repairSource)
 
               // Note the following purposely fails if any contract fails which results in not all contracts being processed.
-              _ <- changeAssignationBatched(
-                changeAssignationData,
-                repairSource,
-                repairTarget,
-                skipInactive,
-                batchSize,
-                repairIndexer,
-              )
+              _ <- MonadUtil
+                .batchedSequentialTraverse(
+                  parallelism = threadsAvailableForWriting * PositiveInt.two,
+                  batchSize,
+                )(
+                  changeAssignationData
+                )(changeAssignation.changeAssignation(_, skipInactive).map(_ => Seq[Unit]()))
+                .map(_ => ())
+
             } yield ()
           }
         } yield ()
@@ -634,6 +640,59 @@ final class RepairService(
       } yield (),
     )
   }
+
+  /** Rollback the Unassignment. The contract is re-assigned to the source domain.
+    * The reassignment counter is increased by two. The contract is inserted into the contract store
+    * on the target domain if it is not already there. Additionally, we publish the reassignment events.
+    */
+  def rollbackUnassignment(
+      reassignmentId: ReassignmentId,
+      target: TargetDomainId,
+  )(implicit context: TraceContext): EitherT[Future, String, Unit] =
+    withRepairIndexer { repairIndexer =>
+      for {
+        sourceRepairRequest <- initRepairRequestAndVerifyPreconditions(
+          reassignmentId.sourceDomain.id
+        )
+        targetRepairRequest <- initRepairRequestAndVerifyPreconditions(target.id)
+        reassignmentData <-
+          targetRepairRequest.domain.persistentState.reassignmentStore
+            .lookup(reassignmentId)
+            .leftMap(_.message)
+
+        changeAssignation = new ChangeAssignation(
+          sourceRepairRequest,
+          targetRepairRequest,
+          participantId,
+          syncCrypto,
+          repairIndexer,
+          loggerFactory,
+        )
+        unassignmentData = ChangeAssignation.Data.from(
+          (reassignmentData.contract.contractId, reassignmentData.reassignmentCounter),
+          changeAssignation,
+        )
+        _ <- changeAssignation.completeUnassigned(unassignmentData)
+
+        changeAssignationBack = new ChangeAssignation(
+          targetRepairRequest,
+          sourceRepairRequest,
+          participantId,
+          syncCrypto,
+          repairIndexer,
+          loggerFactory,
+        )
+        contractIdData <- EitherT.fromEither[Future](
+          ChangeAssignation.Data
+            .from(
+              reassignmentData.contract.contractId,
+              changeAssignationBack,
+            )
+            .incrementRequestCounter
+        )
+        _ <- changeAssignationBack.changeAssignation(Seq(contractIdData), skipInactive = false)
+      } yield ()
+    }
 
   private def performIfRangeSuitableForIgnoreOperations[T](
       domain: DomainId,
@@ -931,32 +990,6 @@ final class RepairService(
         }
     }
   }
-
-  private def changeAssignationBatched(
-      contractIds: Seq[ChangeAssignation.Data[LfContractId]],
-      repairSource: RepairRequest,
-      repairTarget: RepairRequest,
-      skipInactive: Boolean,
-      batchSize: PositiveInt,
-      repairIndexer: FutureQueue[Traced[Update]],
-  )(implicit traceContext: TraceContext): EitherT[Future, String, Unit] =
-    MonadUtil
-      .batchedSequentialTraverse(threadsAvailableForWriting * PositiveInt.two, batchSize)(
-        contractIds
-      )(
-        ChangeAssignation(
-          _,
-          repairSource,
-          repairTarget,
-          skipInactive,
-          participantId,
-          syncCrypto,
-          repairIndexer,
-          loggerFactory,
-        )
-          .map(_ => Seq[Unit]())
-      )
-      .map(_ => ())
 
   private def toArchive(c: SerializableContract): LfNodeExercises = LfNodeExercises(
     targetCoid = c.contractId,
@@ -1390,9 +1423,6 @@ final class RepairService(
 }
 
 object RepairService {
-
-  /** The timestamp to be used for a repair request on a domain without requests */
-  val RepairTimestampOnEmptyDomain: CantonTimestamp = CantonTimestamp.MinValue
 
   object ContractConverter extends HasLoggerName {
 

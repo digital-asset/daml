@@ -403,6 +403,28 @@ abstract class LocalParticipantRepairAdministration(
         )(tc)
       )
     )
+
+  @Help.Summary("Rollback an unassignment by re-assigning the contract to the source domain.")
+  @Help.Description(
+    """This is a last resort command to recover from an unassignment that cannot be completed on the target domain.
+        Arguments:
+        - unassignId - set of contract ids that should change assignation to the new domain
+        - source - the source domain id
+        - target - alias of the target domain"""
+  )
+  def rollback_unassignment(
+      unassignId: String,
+      source: DomainId,
+      target: DomainId,
+  ): Unit =
+    check(FeatureFlag.Repair) {
+      consoleEnvironment.run {
+        runner.adminCommand(
+          ParticipantAdminCommands.ParticipantRepairManagement
+            .RollbackUnassignment(unassignId = unassignId, source = source, target = target)
+        )
+      }
+    }
 }
 
 object ParticipantRepairAdministration {

@@ -4,6 +4,8 @@
 package com.digitalasset.canton.participant.admin
 
 import cats.syntax.either.*
+import cats.syntax.traverse.*
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.admin.PartyReplicationCoordinator.ChannelId
@@ -16,11 +18,13 @@ import com.digitalasset.canton.topology.{
   UniqueIdentifier,
 }
 
+import scala.jdk.CollectionConverters.*
+
 final case class ChannelProposalParams private (
     ts: CantonTimestamp,
     partyId: PartyId,
     targetParticipantId: ParticipantId,
-    sequencerId: SequencerId,
+    sequencerIds: NonEmpty[List[SequencerId]],
     domainId: DomainId,
 )
 
@@ -47,10 +51,13 @@ object ChannelProposalParams {
             err => s"Invalid targetParticipant admin party $err",
             adminPartyId => ParticipantId(adminPartyId.uid),
           )
-      sequencerId <-
-        UniqueIdentifier
-          .fromProtoPrimitive(c.sequencerUid, "sequencerUid")
-          .bimap(err => s"Invalid sequencerUid $err", SequencerId(_))
+      sequencerIds <-
+        c.sequencerUids.asScala.toList.traverse(sequencerUid =>
+          UniqueIdentifier
+            .fromProtoPrimitive(sequencerUid, "sequencerUids")
+            .bimap(err => s"Invalid unique identifier $sequencerUid: $err", SequencerId(_))
+        )
+      sequencerIdsNE <- NonEmpty.from(sequencerIds).toRight("Empty sequencerIds")
       domainId <-
         DomainId
           .fromProtoPrimitive(domain, "domain")
@@ -60,5 +67,5 @@ object ChannelProposalParams {
       _ <- NonNegativeLong
         .create(c.payloadMetadata.startAtWatermark)
         .leftMap(_ => s"Invalid, negative startAtWatermark ${c.payloadMetadata.startAtWatermark}")
-    } yield ChannelProposalParams(ts, partyId, targetParticipantId, sequencerId, domainId)
+    } yield ChannelProposalParams(ts, partyId, targetParticipantId, sequencerIdsNE, domainId)
 }

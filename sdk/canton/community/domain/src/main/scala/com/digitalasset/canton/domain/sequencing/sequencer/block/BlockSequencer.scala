@@ -264,8 +264,10 @@ class BlockSequencer(
       .validateRequestAtSubmissionTime(
         request.content,
         request.timestampOfSigningKey,
-        stateManager.getHeadState.block.lastTs,
-        stateManager.getHeadState.block.latestSequencerEventTimestamp,
+        // Use the timestamp of the latest chunk here, such that top ups that happened in an earlier chunk of the
+        // current block can be reflected in the traffic state used to validate the request
+        stateManager.getHeadState.chunk.lastTs,
+        stateManager.getHeadState.chunk.latestSequencerEventTimestamp,
       )
       .leftMap {
         // If the cost is outdated, we bounce the request with a specific SendAsyncError so the

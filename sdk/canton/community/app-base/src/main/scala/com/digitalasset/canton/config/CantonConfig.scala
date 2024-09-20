@@ -419,6 +419,8 @@ trait CantonConfig {
         protocol = CantonNodeParameterConverter.protocol(this, sequencerNodeConfig.parameters),
         maxConfirmationRequestsBurstFactor =
           sequencerNodeConfig.parameters.maxConfirmationRequestsBurstFactor,
+        unsafeEnableOnlinePartyReplication =
+          sequencerNodeConfig.parameters.unsafeEnableOnlinePartyReplication,
       )
     }
 
