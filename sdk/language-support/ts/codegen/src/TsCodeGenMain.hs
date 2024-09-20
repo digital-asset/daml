@@ -109,8 +109,8 @@ mergePackageMap :: [(PackageId, Package, Bool)] ->
                    Either T.Text (Map.Map PackageId Package)
 mergePackageMap ps = foldM merge mempty ps
   where
-    merge :: Map.Map PackageId Package -> (PackageId, Package) -> Either T.Text (Map.Map PackageId Package)
-    merge pkgs (pkgId, pkg, isMain) = do
+    merge :: Map.Map PackageId Package -> (PackageId, Package, Bool) -> Either T.Text (Map.Map PackageId Package)
+    merge pkgs (pkgId, pkg, _isMain) = do
         let usedPkgNmVers = Set.fromList $ map pkgNameVerFromPackage (Map.elems pkgs)
             ownPkgNameVer = pkgNameVerFromPackage pkg
             toText = pkgNameVerToDir -- Convenient representation for error messages
