@@ -147,6 +147,7 @@ import com.digitalasset.canton.ledger.client.services.admin.IdentityProviderConf
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.networking.grpc.ForwardingStreamObserver
+import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.platform.apiserver.execution.CommandStatus
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.serialization.ProtoConverter
@@ -1463,8 +1464,7 @@ object LedgerApiCommands {
       override def handleResponse(
           response: GetLedgerEndResponse
       ): Either[String, String] =
-        if (response.offset.nonEmpty) Right(response.offset)
-        else Left("Empty LedgerEndResponse received without offset")
+        Right(ApiOffset.fromLongO(response.offset))
     }
 
     final case class GetConnectedDomains(partyId: LfPartyId)
@@ -1570,7 +1570,7 @@ object LedgerApiCommands {
           CompletionStreamRequest(
             applicationId = applicationId,
             parties = Seq(partyId),
-            beginExclusive = beginOffsetExclusive,
+            beginExclusive = ApiOffset.assertFromStringToLongO(beginOffsetExclusive),
           )
         )
 
@@ -1612,7 +1612,7 @@ object LedgerApiCommands {
         CompletionStreamRequest(
           applicationId = applicationId,
           parties = parties,
-          beginExclusive = offset,
+          beginExclusive = ApiOffset.assertFromStringToLongO(offset),
         )
       }
 

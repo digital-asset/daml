@@ -145,7 +145,11 @@ final class ApiStateService(
       TraceContext.fromDamlTelemetryContext(telemetry.contextFromGrpcThreadLocalContext())
     txService
       .currentLedgerEnd()
-      .map(offset => GetLedgerEndResponse(offset))
+      .map(offset =>
+        GetLedgerEndResponse(
+          ApiOffset.assertFromStringToLongO(offset)
+        )
+      )
       .andThen(logger.logErrorsOnCall[GetLedgerEndResponse])
   }
 
@@ -158,8 +162,9 @@ final class ApiStateService(
       .latestPrunedOffsets()
       .map { case (prunedUptoInclusive, divulgencePrunedUptoInclusive) =>
         GetLatestPrunedOffsetsResponse(
-          participantPrunedUpToInclusive = prunedUptoInclusive,
-          allDivulgedContractsPrunedUpToInclusive = divulgencePrunedUptoInclusive,
+          participantPrunedUpToInclusive = ApiOffset.assertFromStringToLongO(prunedUptoInclusive),
+          allDivulgedContractsPrunedUpToInclusive =
+            ApiOffset.assertFromStringToLongO(divulgencePrunedUptoInclusive),
         )
       }
       .andThen(logger.logErrorsOnCall[GetLatestPrunedOffsetsResponse])

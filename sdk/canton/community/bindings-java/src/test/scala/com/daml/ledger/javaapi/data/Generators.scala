@@ -554,22 +554,25 @@ object Generators {
 
   def getLedgerEndResponseGen: Gen[v2.StateServiceOuterClass.GetLedgerEndResponse] =
     for {
-      offset <- Arbitrary.arbString.arbitrary
-    } yield v2.StateServiceOuterClass.GetLedgerEndResponse
-      .newBuilder()
-      .setOffset(offset)
-      .build()
+      offset <- Gen.option(Arbitrary.arbLong.arbitrary)
+    } yield {
+      val builder = v2.StateServiceOuterClass.GetLedgerEndResponse
+        .newBuilder()
+      offset.foreach(builder.setOffset)
+      builder.build()
+    }
 
   def getLatestPrunedOffsetsResponseGen
       : Gen[v2.StateServiceOuterClass.GetLatestPrunedOffsetsResponse] =
     for {
-      participantPruned <- Arbitrary.arbString.arbitrary
-      allDivulgedPruned <- Arbitrary.arbString.arbitrary
-    } yield v2.StateServiceOuterClass.GetLatestPrunedOffsetsResponse
-      .newBuilder()
-      .setParticipantPrunedUpToInclusive(participantPruned)
-      .setAllDivulgedContractsPrunedUpToInclusive(allDivulgedPruned)
-      .build()
+      participantPruned <- Gen.option(Arbitrary.arbLong.arbitrary)
+      allDivulgedPruned <- Gen.option(Arbitrary.arbLong.arbitrary)
+    } yield {
+      val builder = v2.StateServiceOuterClass.GetLatestPrunedOffsetsResponse.newBuilder()
+      participantPruned.foreach(builder.setParticipantPrunedUpToInclusive)
+      allDivulgedPruned.foreach(builder.setAllDivulgedContractsPrunedUpToInclusive)
+      builder.build()
+    }
 
   def createdGen: Gen[v2.EventQueryServiceOuterClass.Created] =
     for {
@@ -610,13 +613,15 @@ object Generators {
     for {
       applicationId <- Arbitrary.arbString.arbitrary
       parties <- Gen.listOf(Arbitrary.arbString.arbitrary)
-      beginExclusive <- Arbitrary.arbString.arbitrary
-    } yield Request
-      .newBuilder()
-      .setApplicationId(applicationId)
-      .addAllParties(parties.asJava)
-      .setBeginExclusive(beginExclusive)
-      .build()
+      beginExclusive <- Gen.option(Arbitrary.arbLong.arbitrary)
+    } yield {
+      val builder = Request
+        .newBuilder()
+        .setApplicationId(applicationId)
+        .addAllParties(parties.asJava)
+      beginExclusive.foreach(builder.setBeginExclusive)
+      builder.build()
+    }
   }
 
   def completionGen: Gen[v2.CompletionOuterClass.Completion] = {
