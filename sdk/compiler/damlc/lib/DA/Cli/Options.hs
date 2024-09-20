@@ -410,6 +410,7 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
     ~(optMbPackageName, optMbPackageVersion) <-
         fmap parseUnitId parsePkgName
 
+    let optMbPackageConfigPath = Nothing
     optImportPath <- optImportPath
     optPackageDbs <- optPackageDir
     optAccessTokenPath <- optAccessTokenPath

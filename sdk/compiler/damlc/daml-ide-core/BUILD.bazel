@@ -66,6 +66,7 @@ da_haskell_library(
         "//compiler/damlc/daml-package-config",
         "//compiler/damlc/daml-rule-types",
         "//compiler/scenario-service/client",
+        "//daml-assistant:daml-project-config",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
         "//sdk-version/hs:sdk-version-class-lib",
