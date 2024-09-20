@@ -17,6 +17,7 @@ module DA.Daml.LF.TypeChecker.Error(
     toDiagnostic,
     Warning(..),
     PackageUpgradeOrigin(..),
+    UpgradeMismatchReason(..),
     ) where
 
 import Control.Applicative
@@ -766,15 +767,15 @@ instance ToDiagnostic UnwarnableError where
 
 data Warning
   = WContext !Context !Warning
-  | WTemplateChangedPrecondition !TypeConName ![Mismatch]
-  | WTemplateChangedSignatories !TypeConName ![Mismatch]
-  | WTemplateChangedObservers !TypeConName ![Mismatch]
-  | WTemplateChangedAgreement !TypeConName ![Mismatch]
-  | WChoiceChangedControllers !ChoiceName ![Mismatch]
-  | WChoiceChangedObservers !ChoiceName ![Mismatch]
-  | WChoiceChangedAuthorizers !ChoiceName ![Mismatch]
-  | WTemplateChangedKeyExpression !TypeConName ![Mismatch]
-  | WTemplateChangedKeyMaintainers !TypeConName ![Mismatch]
+  | WTemplateChangedPrecondition !TypeConName ![Mismatch String]
+  | WTemplateChangedSignatories !TypeConName ![Mismatch String]
+  | WTemplateChangedObservers !TypeConName ![Mismatch String]
+  | WTemplateChangedAgreement !TypeConName ![Mismatch String]
+  | WChoiceChangedControllers !ChoiceName ![Mismatch String]
+  | WChoiceChangedObservers !ChoiceName ![Mismatch String]
+  | WChoiceChangedAuthorizers !ChoiceName ![Mismatch String]
+  | WTemplateChangedKeyExpression !TypeConName ![Mismatch String]
+  | WTemplateChangedKeyMaintainers !TypeConName ![Mismatch String]
   | WCouldNotExtractForUpgradeChecking !T.Text !(Maybe T.Text)
     -- ^ When upgrading, we extract relevant expressions for things like
     -- signatories. If the expression changes shape so that we can't get the
@@ -802,8 +803,14 @@ instance Pretty Warning where
     WCouldNotExtractForUpgradeChecking attribute mbExtra -> "Could not check if the upgrade of " <> text attribute <> " is valid because its expression is the not the right shape." <> foldMap (const " Extra context: " <> text) mbExtra
     WErrorToWarning err -> pPrint err
     where
-    withMismatchInfo :: [Mismatch] -> Doc ann -> Doc ann
+    withMismatchInfo :: [Mismatch String] -> Doc ann -> Doc ann
     withMismatchInfo [] doc = doc
+    withMismatchInfo [mismatch] doc =
+      vcat
+        [ doc
+        , "There is 1 difference in the expression:"
+        , nest 2 $ pPrint mismatch
+        ]
     withMismatchInfo mismatches doc =
       vcat
         [ doc
@@ -835,8 +842,10 @@ instance Pretty SomeName where
     SNMethodName methodName -> pPrint methodName
     SNQualified qualified -> pPrint qualified
 
-instance Pretty Mismatch where
+instance Pretty reason => Pretty (Mismatch reason) where
   pPrint = \case
-    NameMismatch name1 name2 reason -> "Name " <> pPrint name1 <> " and name " <> pPrint name2 <> " differ for the following reason: " <> string reason
+    NameMismatch name1 name2 reason -> "Name " <> pPrint name1 <> " and name " <> pPrint name2 <> " differ for the following reason: " <> pPrint reason
     BindingMismatch var1 var2 -> "Name " <> pPrint var1 <> " and name " <> pPrint var2 <> " refer to different bindings in the environment."
     StructuralMismatch -> "Expression is structurally different."
+
+type UpgradeMismatchReason = String

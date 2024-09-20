@@ -16,23 +16,25 @@ module DA.Daml.LF.Ast.Alpha
     , toMismatch
     , nameMismatch
     , alphaEq
-    , mismatchOr, mismatchAnd
+    , andMismatches
     ) where
 
 import qualified Data.Map.Strict as Map
 
 import DA.Daml.LF.Ast.Base
 
-import Prelude hiding (Bool, (&&), and)
+import Prelude hiding ((&&))
 import qualified Prelude as P
 
 -- Datatypes for tracking origins of mismatches between types and between
 -- expressions
-data Mismatch
-  = NameMismatch SomeName SomeName String
+data Mismatch reason
+  = NameMismatch SomeName SomeName (Maybe reason)
   | BindingMismatch SomeName SomeName
   | StructuralMismatch
   deriving (Show, Eq, Ord)
+
+type Mismatches reason = [Mismatch reason]
 
 data SomeName
   = SNTypeVarName TypeVarName
@@ -62,51 +64,41 @@ instance IsSomeName MethodName where toSomeName = SNMethodName
 instance IsSomeName a => IsSomeName (Qualified a) where
   toSomeName = SNQualified . fmap toSomeName
 
-bindingMismatch :: IsSomeName a => a -> a -> Mismatch
+bindingMismatch :: IsSomeName a => a -> a -> Mismatch reason
 bindingMismatch l r = BindingMismatch (toSomeName l) (toSomeName r)
 
-structuralMismatch :: Bool
-structuralMismatch = false StructuralMismatch
+structuralMismatch :: Mismatches reason
+structuralMismatch = [StructuralMismatch]
 
-type Bool = [Mismatch]
-
-(&&), mismatchAnd :: Bool -> Bool -> Bool
-(&&) = (P.<>)
-mismatchAnd = (&&)
-
-mismatchOr :: Bool -> Bool -> Bool
-mismatchOr [] _ = []
-mismatchOr _ [] = []
-mismatchOr xs ys = xs <> ys
+andMismatches, (&&) :: Mismatches reason -> Mismatches reason -> Mismatches reason
+andMismatches = (P.<>)
+(&&) = andMismatches
 
 infixr 3 &&
 
-alphaEq :: Eq a => Mismatch -> a -> a -> Bool
-alphaEq msg x y = if x == y then true else false msg
+alphaEq :: Eq a => Mismatch reason -> a -> a -> Mismatches reason
+alphaEq msg x y = if x == y then noMismatch else [msg]
 
-alphaEq' :: (IsSomeName a) => a -> a -> Bool
-alphaEq' x y = alphaEq (nameMismatch x y "Names are not equal") x y
+alphaEq' :: (IsSomeName a) => a -> a -> Mismatches reason
+alphaEq' x y = alphaEq (nameMismatch x y Nothing) x y
 
-nameMismatch :: IsSomeName a => a -> a -> String -> Mismatch
+nameMismatch :: IsSomeName a => a -> a -> Maybe reason -> Mismatch reason
 nameMismatch x y reason = NameMismatch (toSomeName x) (toSomeName y) reason
 
-eqStructural :: (Eq a) => a -> a -> Bool
+eqStructural :: (Eq a) => a -> a -> Mismatches reason
 eqStructural = alphaEq StructuralMismatch
 
-and :: [Bool] -> Bool
-and = concat
+allMismatches :: [Mismatches reason] -> Mismatches reason
+allMismatches = concat
 
-true :: Bool
-true = []
+noMismatch :: Mismatches reason
+noMismatch = []
 
-false :: Mismatch -> Bool
-false = (:[])
-
-toMismatch :: P.Bool -> Mismatch -> Bool
-toMismatch b m = if b then true else false m
+toMismatch :: P.Bool -> Mismatch reason -> Mismatches reason
+toMismatch b m = if b then noMismatch else [m]
 
 -- | Auxiliary data structure to track bound variables.
-data AlphaEnv = AlphaEnv
+data AlphaEnv reason = AlphaEnv
   { currentDepth :: !Int
     -- ^ Current binding depth.
   , boundTypeVarsLhs :: !(Map.Map TypeVarName Int)
@@ -121,44 +113,44 @@ data AlphaEnv = AlphaEnv
   , boundExprVarsRhs :: !(Map.Map ExprVarName Int)
     -- ^ Maps bound expr variables from the right-hand-side to
     -- the depth of the binder which introduced them.
-  , alphaTypeCon :: !(Qualified TypeConName -> Qualified TypeConName -> Bool)
+  , alphaTypeCon :: !(Qualified TypeConName -> Qualified TypeConName -> Mismatches reason)
     -- ^ Defines how names in typecons should be compared
     -- Unlike above fields, this should not mutate over the course of the alpha
     -- equivalence check
-  , alphaExprVal :: !(Qualified ExprValName -> Qualified ExprValName -> Bool)
+  , alphaExprVal :: !(Qualified ExprValName -> Qualified ExprValName -> Mismatches reason)
     -- ^ Defines how names in expressions should be compared
     -- Unlike above fields, this should not mutate over the course of the alpha
     -- equivalence check
   }
 
-onList :: (a -> a -> Bool) -> [a] -> [a] -> Bool
+onList :: (a -> a -> Mismatches reason) -> [a] -> [a] -> Mismatches reason
 onList f xs ys = alphaEq StructuralMismatch (length xs) (length ys)
-    && and (zipWith f xs ys)
+    && allMismatches (zipWith f xs ys)
 
-onFieldList :: (IsSomeName a) => (b -> b -> Bool) -> [(a,b)] -> [(a,b)] -> Bool
-onFieldList f xs ys = and (zipWith alphaEq' (map fst xs) (map fst ys))
-    && and (zipWith f (map snd xs) (map snd ys))
+onFieldList :: (IsSomeName a) => (b -> b -> Mismatches reason) -> [(a,b)] -> [(a,b)] -> Mismatches reason
+onFieldList f xs ys = allMismatches (zipWith alphaEq' (map fst xs) (map fst ys))
+    && allMismatches (zipWith f (map snd xs) (map snd ys))
 
-bindTypeVar :: TypeVarName -> TypeVarName -> AlphaEnv -> AlphaEnv
+bindTypeVar :: TypeVarName -> TypeVarName -> AlphaEnv reason -> AlphaEnv reason
 bindTypeVar x1 x2 env@AlphaEnv{..} = env
     { currentDepth = currentDepth + 1
     , boundTypeVarsLhs = Map.insert x1 currentDepth boundTypeVarsLhs
     , boundTypeVarsRhs = Map.insert x2 currentDepth boundTypeVarsRhs }
 
-bindExprVar :: ExprVarName -> ExprVarName -> AlphaEnv -> AlphaEnv
+bindExprVar :: ExprVarName -> ExprVarName -> AlphaEnv reason -> AlphaEnv reason
 bindExprVar x1 x2 env@AlphaEnv{..} = env
     { currentDepth = currentDepth + 1
     , boundExprVarsLhs = Map.insert x1 currentDepth boundExprVarsLhs
     , boundExprVarsRhs = Map.insert x2 currentDepth boundExprVarsRhs }
 
-alphaTypeVar :: AlphaEnv -> TypeVarName -> TypeVarName -> Bool
+alphaTypeVar :: AlphaEnv reason -> TypeVarName -> TypeVarName -> Mismatches reason
 alphaTypeVar AlphaEnv{..} x1 x2 =
     case (Map.lookup x1 boundTypeVarsLhs, Map.lookup x2 boundTypeVarsRhs) of
         (Just l1, Just l2) -> toMismatch (l1 == l2) (bindingMismatch x1 x2)
         (Nothing, Nothing) -> alphaEq' x1 x2
         _ -> [bindingMismatch x1 x2]
 
-alphaExprVar :: AlphaEnv -> ExprVarName -> ExprVarName -> Bool
+alphaExprVar :: AlphaEnv reason -> ExprVarName -> ExprVarName -> Mismatches reason
 alphaExprVar AlphaEnv{..} x1 x2 =
     case (Map.lookup x1 boundExprVarsLhs, Map.lookup x2 boundExprVarsRhs) of
         (Just l1, Just l2) -> toMismatch (l1 == l2) (bindingMismatch x1 x2)
@@ -166,18 +158,18 @@ alphaExprVar AlphaEnv{..} x1 x2 =
         _ -> [bindingMismatch x1 x2]
 
 -- | Strongly typed version of alphaEq' for qualified type constructor names.
-alphaTypeConDefault :: Qualified TypeConName -> Qualified TypeConName -> Bool
+alphaTypeConDefault :: Qualified TypeConName -> Qualified TypeConName -> Mismatches reason
 alphaTypeConDefault = alphaEq'
 
 -- | Strongly typed version of alphaEq' for qualified expression value names.
-alphaExprValDefault :: Qualified ExprValName -> Qualified ExprValName -> Bool
+alphaExprValDefault :: Qualified ExprValName -> Qualified ExprValName -> Mismatches reason
 alphaExprValDefault = alphaEq'
 
 -- | Strongly typed version of alphaEq' for method names.
-alphaMethod :: MethodName -> MethodName -> Bool
+alphaMethod :: MethodName -> MethodName -> Mismatches reason
 alphaMethod = alphaEq'
 
-alphaType' :: AlphaEnv -> Type -> Type -> Bool
+alphaType' :: AlphaEnv reason -> Type -> Type -> Mismatches reason
 alphaType' env = \case
     TVar x1 -> \case
         TVar x2 -> alphaTypeVar env x1 x2
@@ -206,11 +198,11 @@ alphaType' env = \case
         TSynApp s2 ts2 -> alphaEq' s1 s2 && onList (alphaType' env) ts1 ts2
         _ -> structuralMismatch
 
-alphaTypeConApp :: AlphaEnv -> TypeConApp -> TypeConApp -> Bool
+alphaTypeConApp :: AlphaEnv reason -> TypeConApp -> TypeConApp -> Mismatches reason
 alphaTypeConApp env (TypeConApp c1 ts1) (TypeConApp c2 ts2) =
     alphaTypeCon env c1 c2 && onList (alphaType' env) ts1 ts2
 
-alphaExpr' :: AlphaEnv -> Expr -> Expr -> Bool
+alphaExpr' :: AlphaEnv reason -> Expr -> Expr -> Mismatches reason
 alphaExpr' env = \case
     EVar x1 -> \case
         EVar x2 -> alphaExprVar env x1 x2
@@ -410,18 +402,18 @@ alphaExpr' env = \case
             && alphaExpr' env e1b e2b
         _ -> structuralMismatch
     EExperimental n1 t1 -> \case
-        EExperimental n2 t2 -> n1 `eqStructural` n2 && alphaType' initialAlphaEnv t1 t2 -- TODO: Should alphaType receive env here?
+        EExperimental n2 t2 -> n1 `eqStructural` n2 && alphaType' env t1 t2
         _ -> structuralMismatch
 
-alphaBinding :: AlphaEnv -> Binding -> Binding -> (AlphaEnv -> Bool) -> Bool
+alphaBinding :: AlphaEnv reason -> Binding -> Binding -> (AlphaEnv reason -> Mismatches reason) -> Mismatches reason
 alphaBinding env (Binding (x1,t1) e1) (Binding (x2,t2) e2) k =
     alphaType' env t1 t2 && alphaExpr' env e1 e2 && k (bindExprVar x1 x2 env)
 
-alphaCase :: AlphaEnv -> CaseAlternative -> CaseAlternative -> Bool
+alphaCase :: AlphaEnv reason -> CaseAlternative -> CaseAlternative -> Mismatches reason
 alphaCase env (CaseAlternative p1 e1) (CaseAlternative p2 e2) =
     alphaPattern env p1 p2 (\env' -> alphaExpr' env' e1 e2)
 
-alphaPattern :: AlphaEnv -> CasePattern -> CasePattern -> (AlphaEnv -> Bool) -> Bool
+alphaPattern :: AlphaEnv reason -> CasePattern -> CasePattern -> (AlphaEnv reason -> Mismatches reason) -> Mismatches reason
 alphaPattern env p1 p2 k = case p1 of
     CPVariant t1 c1 x1 -> case p2 of
         CPVariant t2 c2 x2 -> alphaTypeCon env t1 t2 && alphaEq' c1 c2 && k (bindExprVar x1 x2 env)
@@ -451,7 +443,7 @@ alphaPattern env p1 p2 k = case p1 of
         CPDefault -> k env
         _ -> structuralMismatch
 
-alphaUpdate :: AlphaEnv -> Update -> Update -> Bool
+alphaUpdate :: AlphaEnv reason -> Update -> Update -> Mismatches reason
 alphaUpdate env = \case
     UPure t1 e1 -> \case
         UPure t2 e2 -> alphaType' env t1 t2
@@ -490,7 +482,7 @@ alphaUpdate env = \case
     UExerciseInterface i1 c1 e1a e1b e1c -> \case
         UExerciseInterface i2 c2 e2a e2b e2c ->
             let eqMaybe1 f (Just a) (Just b) = f a b
-                eqMaybe1 _ Nothing Nothing = true
+                eqMaybe1 _ Nothing Nothing = noMismatch
                 eqMaybe1 _ _ _ = structuralMismatch
             in
             alphaTypeCon env i1 i2
@@ -518,7 +510,7 @@ alphaUpdate env = \case
             && alphaExpr' env e1 e2
         _ -> structuralMismatch
     UGetTime -> \case
-        UGetTime -> true
+        UGetTime -> noMismatch
         _ -> structuralMismatch
     UEmbedExpr t1 e1 -> \case
         UEmbedExpr t2 e2 -> alphaType' env t1 t2
@@ -536,11 +528,11 @@ alphaUpdate env = \case
             && alphaExpr' (bindExprVar x1 x2 env) e1b e2b
         _ -> structuralMismatch
 
-alphaRetrieveByKey :: AlphaEnv -> RetrieveByKey -> RetrieveByKey -> Bool
+alphaRetrieveByKey :: AlphaEnv reason -> RetrieveByKey -> RetrieveByKey -> Mismatches reason
 alphaRetrieveByKey env (RetrieveByKey t1 e1) (RetrieveByKey t2 e2) =
     alphaTypeCon env t1 t2 && alphaExpr' env e1 e2
 
-alphaScenario :: AlphaEnv -> Scenario -> Scenario -> Bool
+alphaScenario :: AlphaEnv reason -> Scenario -> Scenario -> Mismatches reason
 alphaScenario env = \case
     SPure t1 e1 -> \case
         SPure t2 e2 -> alphaType' env t1 t2
@@ -564,7 +556,7 @@ alphaScenario env = \case
         SPass e2 -> alphaExpr' env e1 e2
         _ -> structuralMismatch
     SGetTime -> \case
-        SGetTime -> true
+        SGetTime -> noMismatch
         _ -> structuralMismatch
     SGetParty e1 -> \case
         SGetParty e2 -> alphaExpr' env e1 e2
@@ -574,7 +566,7 @@ alphaScenario env = \case
             && alphaExpr' env e1 e2
         _ -> structuralMismatch
 
-initialAlphaEnv :: AlphaEnv
+initialAlphaEnv :: AlphaEnv reason
 initialAlphaEnv = AlphaEnv
     { currentDepth = 0
     , boundTypeVarsLhs = Map.empty

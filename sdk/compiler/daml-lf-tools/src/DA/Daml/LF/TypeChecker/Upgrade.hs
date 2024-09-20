@@ -14,7 +14,7 @@ import           Control.Monad.Reader (withReaderT, ask)
 import           Control.Monad.Reader.Class (asks)
 import           Control.Lens hiding (Context)
 import           DA.Daml.LF.Ast as LF
-import           DA.Daml.LF.Ast.Alpha (alphaExpr', AlphaEnv(..), initialAlphaEnv, alphaType', alphaTypeCon, Mismatch(..), alphaEq, mismatchAnd, nameMismatch)
+import           DA.Daml.LF.Ast.Alpha (alphaExpr', AlphaEnv(..), initialAlphaEnv, alphaType', alphaTypeCon, Mismatch(..), alphaEq, andMismatches, nameMismatch)
 import qualified DA.Daml.LF.Ast.Alpha as Alpha
 import           DA.Daml.LF.TypeChecker.Check (expandTypeSynonyms)
 import           DA.Daml.LF.TypeChecker.Env
@@ -684,7 +684,7 @@ checkTemplate module_ template = do
 
         -- Given an extractor from the list below, whenDifferent runs an action
         -- when the relevant expressions differ.
-        whenDifferent :: Show a => String -> (a -> Module -> Either String Expr) -> Upgrading a -> ([Alpha.Mismatch] -> TcUpgradeM ()) -> TcUpgradeM ()
+        whenDifferent :: Show a => String -> (a -> Module -> Either String Expr) -> Upgrading a -> ([Alpha.Mismatch UpgradeMismatchReason] -> TcUpgradeM ()) -> TcUpgradeM ()
         whenDifferent field extractor exprs act =
             let resolvedWithPossibleError = sequence $ extractor <$> exprs <*> module_
             in
@@ -830,7 +830,7 @@ checkType type_ err = do
     sameType <- isUpgradedType type_
     unless sameType $ diagnosticWithContextF present' err
 
-checkQualVal :: DepsMap -> Upgrading (Qualified ExprValName) -> [Mismatch]
+checkQualVal :: DepsMap -> Upgrading (Qualified ExprValName) -> [Mismatch UpgradeMismatchReason]
 checkQualVal deps name =
     let namesAreSame = foldU (alphaEq (nameMismatch' "names differ")) (fmap removePkgId name)
         qualificationIsSameOrUpgraded =
@@ -846,9 +846,9 @@ checkQualVal deps name =
           | StructuralMismatch `elem` mismatches = [StructuralMismatch]
           | otherwise = mismatches
     in
-    prioritizeMismatches (namesAreSame `mismatchAnd` qualificationIsSameOrUpgraded)
+    prioritizeMismatches (namesAreSame `andMismatches` qualificationIsSameOrUpgraded)
   where
-    nameMismatch' reason = foldU nameMismatch name reason
+    nameMismatch' reason = foldU nameMismatch name (Just reason)
     ifMismatch b reason = [nameMismatch' reason | not b]
     tryShowPkgId :: LF.PackageId -> String
     tryShowPkgId pkgId =
@@ -856,14 +856,14 @@ checkQualVal deps name =
         Nothing -> T.unpack (LF.unPackageId pkgId)
         Just dep -> show dep
 
-    pkgIdsAreUpgraded :: DepsMap -> Upgrading PackageId -> [Mismatch]
+    pkgIdsAreUpgraded :: DepsMap -> Upgrading PackageId -> [Mismatch UpgradeMismatchReason]
     pkgIdsAreUpgraded deps pkgId =
       case flip HMS.lookup deps <$> pkgId of
         Upgrading { _past = Just pastDep, _present = Just presentDep } ->
           let upgradingDep = Upgrading { _past = pastDep, _present = presentDep }
           in
           ifMismatch (foldU (==) (fmap udPkgName upgradingDep)) ("Name came from package '" <> show (_past upgradingDep) <> "' and now comes from differently-named package '" <> show (_present upgradingDep) <> "'")
-          `mismatchAnd`
+          `andMismatches`
           case udVersionSupportsUpgrades <$> upgradingDep of
             Upgrading False False -> ifMismatch (foldU (==) pkgId) ("Name came from package '" <> show (_past upgradingDep) <> "' and now comes from package '" <> show (_present upgradingDep) <> "'. Neither package supports upgrades, which may mean they have different implementations of the name.")
             Upgrading True True ->
@@ -890,7 +890,7 @@ checkQualVal deps name =
         Upgrading { _past = Nothing, _present = Just _ } ->
           [nameMismatch' ("Name came from package '" <> tryShowPkgId (_past pkgId) <> "' and now comes from package '" <> tryShowPkgId (_present pkgId) <> "'. Could not find " <> tryShowPkgId (_past pkgId) <> " in the package list.")]
 
-checkQualType :: DepsMap -> Upgrading (Qualified TypeConName) -> [Mismatch]
+checkQualType :: DepsMap -> Upgrading (Qualified TypeConName) -> [Mismatch UpgradeMismatchReason]
 checkQualType deps name =
     let namesAreSame = foldU (alphaEq (nameMismatch' "names differ")) (fmap removePkgId name)
         qualificationIsSameOrUpgraded =
@@ -904,9 +904,9 @@ checkQualType deps name =
           | StructuralMismatch `elem` mismatches = [StructuralMismatch]
           | otherwise = mismatches
     in
-    prioritizeMismatches (namesAreSame `mismatchAnd` qualificationIsSameOrUpgraded)
+    prioritizeMismatches (namesAreSame `andMismatches` qualificationIsSameOrUpgraded)
   where
-    nameMismatch' reason = foldU nameMismatch name reason
+    nameMismatch' reason = foldU nameMismatch name (Just reason)
     ifMismatch b reason = [nameMismatch' reason | not b]
     tryShowPkgId :: LF.PackageId -> String
     tryShowPkgId pkgId =
@@ -914,14 +914,14 @@ checkQualType deps name =
         Nothing -> T.unpack (LF.unPackageId pkgId)
         Just dep -> show dep
 
-    pkgIdsAreUpgraded :: DepsMap -> Upgrading PackageId -> [Mismatch]
+    pkgIdsAreUpgraded :: DepsMap -> Upgrading PackageId -> [Mismatch UpgradeMismatchReason]
     pkgIdsAreUpgraded deps pkgId =
       case flip HMS.lookup deps <$> pkgId of
         Upgrading { _past = Just pastDep, _present = Just presentDep } ->
           let upgradingDep = Upgrading { _past = pastDep, _present = presentDep }
           in
           ifMismatch (foldU (==) (fmap udPkgName upgradingDep)) ("Name came from package '" <> show (_past upgradingDep) <> "' and now comes from differently-named package '" <> show (_present upgradingDep) <> "'")
-          `mismatchAnd`
+          `andMismatches`
           case udVersionSupportsUpgrades <$> upgradingDep of
             Upgrading False False -> ifMismatch (foldU (==) pkgId) ("Name came from package '" <> show (_past upgradingDep) <> "' and now comes from package '" <> show (_present upgradingDep) <> "'. Neither package supports upgrades, which means their datatypes cannot be compatible.")
             Upgrading True True ->
@@ -954,7 +954,7 @@ isUpgradedType type_ = do
     alphaEnv <- upgradingAlphaEnv
     pure $ null $ foldU (alphaType' alphaEnv) expandedTypes
 
-upgradingAlphaEnv :: TcUpgradeM AlphaEnv
+upgradingAlphaEnv :: TcUpgradeM (AlphaEnv UpgradeMismatchReason)
 upgradingAlphaEnv = do
     depsMap <- view depsMap
     pure $ initialAlphaEnv { alphaTypeCon = unfoldU (checkQualType depsMap), alphaExprVal = unfoldU (checkQualVal depsMap) }

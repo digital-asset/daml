@@ -503,6 +503,7 @@ tests damlc =
                       (SeparateDeps True)
                       False
                       setUpgradeField
+                -- TODO https://github.com/digital-asset/daml/issues/19980
                 -- Currently there is no good way to test BindingMismatch errors
                 -- in upgrades, because LF turns lambdas into their own
                 -- top-level definitions, which are not expanded by the
