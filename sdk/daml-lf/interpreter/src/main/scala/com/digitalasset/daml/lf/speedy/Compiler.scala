@@ -838,7 +838,7 @@ private[lf] final class Compiler(
                 (signatoriesPos, env) =>
                   let(env, t.ObserversDefRef(tmplId)(env.toSEVar(tmplArgPos))) {
                     (observersPos, env) =>
-                      val body = tmpl.key match {
+                      val mbKeyWithMaintainers = tmpl.key match {
                         case None =>
                           s.SEValue.None
                         case Some(tmplKey) =>
@@ -852,14 +852,14 @@ private[lf] final class Compiler(
                             SBSome(translateKeyWithMaintainers(env, keyPos, tmplKey))
                           }
                       }
-                      let(env, body) { (bodyPos, env) =>
+                      let(env, mbKeyWithMaintainers) { (mbKeyWithMaintainersPos, env) =>
                         SBuildContractInfoStruct(
                           env.toSEVar(typePos),
                           env.toSEVar(tmplArgPos),
                           env.toSEVar(agreementTextPos),
                           env.toSEVar(signatoriesPos),
                           env.toSEVar(observersPos),
-                          env.toSEVar(bodyPos),
+                          env.toSEVar(mbKeyWithMaintainersPos),
                         )
                       }
                   }
@@ -998,16 +998,17 @@ private[lf] final class Compiler(
     //        _ = $insertLookup(tmplId> <keyWithM> <mbCid>
     //    in <mbCid>
     topLevelFunction2(t.LookupByKeyDefRef(tmplId)) { (keyPos, _, env) =>
-      let(env, translateKeyWithMaintainers(env, keyPos, tmplKey)) { (keyWithMPos, env) =>
-        let(env, SBULookupKey(tmplId, optTargetTemplateId)(env.toSEVar(keyWithMPos))) {
-          (maybeCidPos, env) =>
-            let(
-              env,
-              SBUInsertLookupNode(tmplId)(env.toSEVar(keyWithMPos), env.toSEVar(maybeCidPos)),
-            ) { (_, env) =>
-              env.toSEVar(maybeCidPos)
-            }
-        }
+      let(env, s.SEPreventCatch(translateKeyWithMaintainers(env, keyPos, tmplKey))) {
+        (keyWithMPos, env) =>
+          let(env, SBULookupKey(tmplId, optTargetTemplateId)(env.toSEVar(keyWithMPos))) {
+            (maybeCidPos, env) =>
+              let(
+                env,
+                SBUInsertLookupNode(tmplId)(env.toSEVar(keyWithMPos), env.toSEVar(maybeCidPos)),
+              ) { (_, env) =>
+                env.toSEVar(maybeCidPos)
+              }
+          }
       }
     }
 
@@ -1028,20 +1029,21 @@ private[lf] final class Compiler(
     //        _ = $insertFetch <coid> <signatories> <observers> (Some <keyWithM> )
     //    in { contractId: ContractId Foo, contract: Foo }
     topLevelFunction2(t.FetchByKeyDefRef(tmplId)) { (keyPos, tokenPos, env) =>
-      let(env, translateKeyWithMaintainers(env, keyPos, tmplKey)) { (keyWithMPos, env) =>
-        let(env, SBUFetchKey(tmplId, optTargetTemplateId)(env.toSEVar(keyWithMPos))) {
-          (cidPos, env) =>
-            let(
-              env,
-              translateFetchTemplateBody(env, tmplId, optTargetTemplateId)(
-                cidPos,
-                Some(keyWithMPos),
-                tokenPos,
-              ),
-            ) { (contractPos, env) =>
-              FetchByKeyResult(env.toSEVar(cidPos), env.toSEVar(contractPos))
-            }
-        }
+      let(env, s.SEPreventCatch(translateKeyWithMaintainers(env, keyPos, tmplKey))) {
+        (keyWithMPos, env) =>
+          let(env, SBUFetchKey(tmplId, optTargetTemplateId)(env.toSEVar(keyWithMPos))) {
+            (cidPos, env) =>
+              let(
+                env,
+                translateFetchTemplateBody(env, tmplId, optTargetTemplateId)(
+                  cidPos,
+                  Some(keyWithMPos),
+                  tokenPos,
+                ),
+              ) { (contractPos, env) =>
+                FetchByKeyResult(env.toSEVar(cidPos), env.toSEVar(contractPos))
+              }
+          }
       }
     }
 
