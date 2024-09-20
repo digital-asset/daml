@@ -84,8 +84,7 @@ isUtilityPackage pkg =
 
 pkgSupportsUpgrades :: Package -> Bool
 pkgSupportsUpgrades pkg =
-  not (isUtilityPackage pkg) &&
-    packageLfVersion pkg `supports` featurePackageUpgrades
+  packageLfVersion pkg `supports` featurePackageUpgrades
 
 data Arg
   = TmArg Expr
@@ -427,3 +426,6 @@ foldU f u = f (_past u) (_present u)
 
 unsafeZipUpgrading :: Upgrading [a] -> [Upgrading a]
 unsafeZipUpgrading = foldU (zipWith Upgrading)
+
+unfoldU :: (Upgrading a -> b) -> a -> a -> b
+unfoldU f past present = f Upgrading { _past = past, _present = present }

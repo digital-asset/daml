@@ -110,13 +110,17 @@ da_scala_dar_resources_library(
 # Compiles FailsWhenUpgradedFieldFromDifferentPackageName/dep/Dep.daml to two packages with different names.
 [
     daml_compile(
-        name = "upgrades-FailsWhenUpgradedFieldFromDifferentPackageName-dep-{}".format(project_name),
-        srcs = glob(["src/main/daml/upgrades/FailsWhenUpgradedFieldFromDifferentPackageName/dep/Dep.daml"]),
+        name = "upgrades-{}-dep-{}".format(test_name, project_name),
+        srcs = glob(["src/main/daml/upgrades/{}/dep/Dep.daml".format(test_name)]),
         project_name = project_name,
         target = "1.dev",
         version = "1.0.0",
         visibility = ["//visibility:public"],
     )
+    for test_name in [
+        "FailsWhenUpgradedFieldFromDifferentPackageName",
+        "WarnsWhenExpressionChangesPackageId",
+    ]
     for project_name in [
         "name1",
         "name2",
@@ -488,6 +492,12 @@ da_scala_dar_resources_library(
         ("WarnsWhenTemplateChangesSignatories", {}, {}),
         ("WarnsWhenTemplateChangesAgreement", {}, {}),
         ("FailsWhenDatatypeChangesVariety", {}, {}),
+        (
+            "WarnsWhenExpressionChangesPackageId",
+            {"data_dependencies": ["//test-common:upgrades-WarnsWhenExpressionChangesPackageId-dep-name1.dar"]},
+            {"data_dependencies": ["//test-common:upgrades-WarnsWhenExpressionChangesPackageId-dep-name2.dar"]},
+        ),
+        ("SucceedsWhenUpgradingLFVersionWithoutExpressionWarning", {}, {}),
     ]
 ]
 
