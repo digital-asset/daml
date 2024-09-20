@@ -48,12 +48,14 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.UTF8 as BS
 import Data.Either.Extra
 import Data.Foldable
+import Data.Function (on)
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.HashSet as HashSet
 import Data.Hashable (Hashable())
 import qualified Data.IntMap.Strict as IntMap
 import Data.List.Extra
 import qualified Data.List.NonEmpty as NonEmpty
+import Data.List.Split (splitWhen)
 import qualified Data.Map.Strict as Map
 import Data.Maybe
 import qualified Data.NameMap as NM
@@ -542,15 +544,23 @@ getUpgradedPackageErrs :: Options -> LSP.NormalizedFilePath -> LF.Package -> [Fi
 getUpgradedPackageErrs opts file mainPkg = catMaybes $
   [ justIf (not $ optDamlLfVersion opts `LF.supports` LF.featurePackageUpgrades) $
       ideErrorPretty file $ mconcat
-        [ "Main package LF Version "
-        , LF.renderVersion $ optDamlLfVersion opts
-        , " does not support Smart Contract Upgrades"
+        [ "Main package LF Version ("
+        , T.pack $ LF.renderVersion $ optDamlLfVersion opts
+        , ") does not support Smart Contract Upgrades"
         ]
   , justIf (not $ LF.packageLfVersion mainPkg `LF.supports` LF.featurePackageUpgrades) $
       ideErrorPretty file $ mconcat
-        [ "Upgraded package LF Version "
-        , LF.renderVersion $ LF.packageLfVersion mainPkg
-        , " does not support Smart Contract Upgrades"
+        [ "Upgraded package LF Version ("
+        , T.pack $ LF.renderVersion $ LF.packageLfVersion mainPkg
+        , ") does not support Smart Contract Upgrades"
+        ]
+  , justIf (optDamlLfVersion opts `lfVersionLt` LF.packageLfVersion mainPkg) $
+      ideErrorPretty file $ mconcat
+        [ "Upgraded package LF Version ("
+        , T.pack $ LF.renderVersion $ LF.packageLfVersion mainPkg
+        , ") cannot be higher than main package LF Version ("
+        , T.pack $ LF.renderVersion $ optDamlLfVersion opts
+        , ")"
         ]
   ] ++ case LF.packageMetadata mainPkg of
     Nothing -> [Just $ ideErrorPretty file ("Upgraded DAR does not contain metadata" :: T.Text)]
@@ -563,14 +573,30 @@ getUpgradedPackageErrs opts file mainPkg = catMaybes $
             ]
       , justIf (optMbPackageVersion opts == Just (LF.packageVersion meta)) $
           ideErrorPretty file $ mconcat
-            [ "Upgradeed package cannot have the same package version as main package ("
+            [ "Upgraded package cannot have the same package version as main package ("
             , LF.unPackageVersion $ LF.packageVersion meta
+            , ")"
+            ]
+      , justIf (maybe False (`packageVersionLt` LF.packageVersion meta) $ optMbPackageVersion opts) $
+          ideErrorPretty file $ mconcat
+            [ "Upgraded package cannot have a higher package version ("
+            , LF.unPackageVersion $ LF.packageVersion meta
+            , ") than main package ("
+            , LF.unPackageVersion $ fromJust $ optMbPackageVersion opts
             , ")"
             ]
       ]
   where
     justIf :: Bool -> a -> Maybe a
     justIf cond val = guard cond >> Just val
+
+    packageVersionLt :: LF.PackageVersion -> LF.PackageVersion -> Bool
+    packageVersionLt = (<) `on` fmap (read @Int) . splitWhen (=='.') . T.unpack . LF.unPackageVersion
+
+    -- We assume major will always be 1 (or at least the same), since Version.supportedOutputVersions does not contain any 2. versions
+    -- TODO: Is this acceptable?
+    lfVersionLt :: LF.Version -> LF.Version -> Bool
+    lfVersionLt = (<) `on` LF.versionMinor
 
 extractUpgradedPackageRule :: Options -> Rules ()
 extractUpgradedPackageRule opts = do

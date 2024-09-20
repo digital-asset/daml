@@ -471,6 +471,76 @@ tests damlc =
                       setUpgradeField
                       ["upgrades-FailsWhenUpgradedFieldFromDifferentPackageName-dep-name1.dar"]
                       ["upgrades-FailsWhenUpgradedFieldFromDifferentPackageName-dep-name2.dar"]
+                , testMetadata
+                      "FailsWhenUpgradesPackageHasDifferentPackageName"
+                      (FailWithError "\ESC\\[0;91mUpgraded package must have the same package name as main package.\nExpected my-package2\nGot my-package")
+                      "my-package"
+                      "0.0.1"
+                      versionDefault
+                      "my-package2"
+                      "0.0.2"
+                      versionDefault
+                      setUpgradeField
+                , testMetadata
+                      "FailsWhenUpgradesPackageHasEqualVersion"
+                      (FailWithError "\ESC\\[0;91mUpgraded package cannot have the same package version as main package \\(0.0.1\\)")
+                      "my-package"
+                      "0.0.1"
+                      versionDefault
+                      "my-package"
+                      "0.0.1"
+                      versionDefault
+                      setUpgradeField
+                , testMetadata
+                      "FailsWhenUpgradesPackageHasHigherVersion"
+                      (FailWithError "\ESC\\[0;91mUpgraded package cannot have a higher package version \\(0.0.2\\) than main package \\(0.0.1\\)")
+                      "my-package"
+                      "0.0.2"
+                      versionDefault
+                      "my-package"
+                      "0.0.1"
+                      versionDefault
+                      setUpgradeField
+                , testMetadata
+                      "FailsWhenUpgradesPackageDoesNotSupportUpgrades"
+                      (FailWithError "\ESC\\[0;91mUpgraded package LF Version \\(1.15\\) does not support Smart Contract Upgrades")
+                      "my-package"
+                      "0.0.1"
+                      version1_15
+                      "my-package"
+                      "0.0.2"
+                      versionDefault
+                      setUpgradeField
+                , testMetadata
+                      "FailsWhenMainPackageDoesNotSupportUpgrades"
+                      (FailWithError "\ESC\\[0;91mMain package LF Version \\(1.15\\) does not support Smart Contract Upgrades")
+                      "my-package"
+                      "0.0.1"
+                      versionDefault
+                      "my-package"
+                      "0.0.2"
+                      version1_15
+                      setUpgradeField
+                , testMetadata
+                      "FailsWhenUpgradesPackageHasHigherLFVersion"
+                      (FailWithError "\ESC\\[0;91mUpgraded package LF Version \\(1.dev\\) cannot be higher than main package LF Version \\(1.17\\)")
+                      "my-package"
+                      "0.0.1"
+                      version1_dev
+                      "my-package"
+                      "0.0.2"
+                      version1_17
+                      setUpgradeField
+                , testMetadata
+                      "SucceedsWhenUpgradesPackageHasLowerLFVersion"
+                      Succeed
+                      "my-package"
+                      "0.0.1"
+                      version1_17
+                      "my-package"
+                      "0.0.2"
+                      version1_dev
+                      setUpgradeField
                 ]
             | setUpgradeField <- [True, False]
             ] ++
@@ -619,55 +689,82 @@ tests damlc =
             v2AdditionalDarsRunFiles <- traverse testAdditionaDarRunfile additionalDarsV2
             writeFiles newDir (projectFile "0.0.2" ("upgrades-example-" <> location) (if setUpgradeField then Just oldDar else Nothing) depV2Dar v2AdditionalDarsRunFiles : newVersion)
 
-            case expectation of
-              Succeed ->
-                  callProcessSilent damlc ["build", "--project-root", newDir, "-o", newDar]
-              FailWithError _ | not (doTypecheck && setUpgradeField) ->
-                  callProcessSilent damlc ["build", "--project-root", newDir, "-o", newDar]
-              FailWithError regex -> do
-                  stderr <- callProcessForStderr damlc ["build", "--project-root", newDir, "-o", newDar]
-                  let regexWithSeverity = "Severity: DsError\nMessage: \n" <> regex
-                  let compiledRegex :: Regex
-                      compiledRegex = makeRegexOpts defaultCompOpt { multiline = False } defaultExecOpt regexWithSeverity
-                  unless (matchTest compiledRegex stderr) $
-                      assertFailure ("`daml build` failed as expected, but did not give an error matching '" <> show regexWithSeverity <> "':\n" <> show stderr)
-              SucceedWithWarning regex -> do
-                  stderr <- callProcessForSuccessfulStderr damlc ["build", "--project-root", newDir, "-o", newDar]
-                  let regexWithSeverity = "Severity: DsWarning\nMessage: \n" <> regex
-                  let compiledRegex :: Regex
-                      compiledRegex = makeRegexOpts defaultCompOpt { multiline = False } defaultExecOpt regexWithSeverity
-                  if setUpgradeField && doTypecheck
-                      then case matchCount compiledRegex stderr of
-                            0 -> assertFailure ("`daml build` succeeded, but did not give a warning matching '" <> show regexWithSeverity <> "':\n" <> show stderr)
-                            1 -> pure ()
-                            _ -> assertFailure ("`daml build` succeeded, but gave a warning matching '" <> show regexWithSeverity <> "' more than once:\n" <> show stderr)
-                      else when (matchTest compiledRegex stderr) $
-                            assertFailure ("`daml build` succeeded, did not `upgrade:` field set, should NOT give a warning matching '" <> show regexWithSeverity <> "':\n" <> show stderr)
-          where
-          projectFile version name upgradedFile mbDep darDeps =
-              ( "daml.yaml"
-              , pure $ unlines $
-                [ "sdk-version: " <> sdkVersion
-                , "name: " <> name
-                , "source: daml"
-                , "version: " <> version
-                , "dependencies:"
-                , "  - daml-prim"
-                , "  - daml-stdlib"
-                , "build-options:"
-                , "  - --target=" <> LF.renderVersion lfVersion
-                ]
-                  ++ ["  - --typecheck-upgrades=no" | not doTypecheck]
-                  ++ ["  - --warn-bad-interface-instances=yes" | warnBadInterfaceInstances ]
-                  ++ ["upgrades: '" <> path <> "'" | Just path <- pure upgradedFile]
-                  ++ renderDataDeps (maybeToList mbDep ++ darDeps)
-              )
+            handleExpectation expectation newDir newDar (doTypecheck && setUpgradeField) Nothing
+      where
+        projectFile version name upgradedFile mbDep darDeps =
+          makeProjectFile name version lfVersion upgradedFile (maybeToList mbDep ++ darDeps) doTypecheck warnBadInterfaceInstances
 
-          renderDataDeps :: [String] -> [String]
-          renderDataDeps [] = []
-          renderDataDeps paths =
-            ["data-dependencies:"] ++ [" -  '" <> path <> "'" | path <- paths]
+    handleExpectation :: Expectation -> FilePath -> FilePath -> Bool -> Maybe FilePath -> IO ()
+    handleExpectation expectation dir dar shouldRunChecks expectedDiagFile =
+      case expectation of
+        Succeed ->
+            callProcessSilent damlc ["build", "--project-root", dir, "-o", dar]
+        FailWithError _ | not shouldRunChecks ->
+            callProcessSilent damlc ["build", "--project-root", dir, "-o", dar]
+        FailWithError regex -> do
+            stderr <- callProcessForStderr damlc ["build", "--project-root", dir, "-o", dar]
+            let regexWithSeverity = regexPrefix <> "Severity: DsError\nMessage: \n" <> regex
+            let compiledRegex :: Regex
+                compiledRegex = makeRegexOpts defaultCompOpt { multiline = False } defaultExecOpt regexWithSeverity
+            unless (matchTest compiledRegex stderr) $
+                assertFailure ("`daml build` failed as expected, but did not give an error matching '" <> show regexWithSeverity <> "':\n" <> show stderr)
+        SucceedWithWarning regex -> do
+            stderr <- callProcessForSuccessfulStderr damlc ["build", "--project-root", dir, "-o", dar]
+            let regexWithSeverity = regexPrefix <> "Severity: DsWarning\nMessage: \n" <> regex
+            let compiledRegex :: Regex
+                compiledRegex = makeRegexOpts defaultCompOpt { multiline = False } defaultExecOpt regexWithSeverity
+            if shouldRunChecks
+                then case matchCount compiledRegex stderr of
+                      0 -> assertFailure ("`daml build` succeeded, but did not give a warning matching '" <> show regexWithSeverity <> "':\n" <> show stderr)
+                      1 -> pure ()
+                      _ -> assertFailure ("`daml build` succeeded, but gave a warning matching '" <> show regexWithSeverity <> "' more than once:\n" <> show stderr)
+                else when (matchTest compiledRegex stderr) $
+                      assertFailure ("`daml build` succeeded, did not have `upgrade:` field set, should NOT give a warning matching '" <> show regexWithSeverity <> "':\n" <> show stderr)
+      where
+        regexPrefix = maybe "" (\filePat -> "File: +" <> T.pack filePat <> ".+") expectedDiagFile
 
+    testMetadata :: String -> Expectation -> String -> String -> LF.Version -> String -> String -> LF.Version -> Bool -> TestTree
+    testMetadata name expectation v1Name v1Version v1LfVersion v2Name v2Version v2LfVersion setUpgradeField =
+        let upgradeFieldTrailer = if not setUpgradeField then " (no upgrades field)" else ""
+        in
+        testCase (name <> upgradeFieldTrailer) $ do
+        withTempDir $ \dir -> do
+            let newDir = dir </> "newVersion"
+            let oldDir = dir </> "oldVersion"
+            let newDar = newDir </> "out.dar"
+            let oldDar = oldDir </> "old.dar"
+            writeFiles oldDir [makeProjectFile v1Name v1Version v1LfVersion Nothing [] True False, ("daml/Main.daml", pure "module Main where")]
+            callProcessSilent damlc ["build", "--project-root", oldDir, "-o", oldDar]
+            writeFiles newDir [makeProjectFile v2Name v2Version v2LfVersion (guard setUpgradeField >> Just oldDar) [] True False, ("daml/Main.daml", pure "module Main where")]
+            -- Metadata errors are reported on the daml.yaml file
+            handleExpectation expectation newDir newDar setUpgradeField (Just $ newDir </> "daml.yaml")
+
+    makeProjectFile :: String -> String -> LF.Version -> Maybe FilePath -> [FilePath] -> Bool -> Bool -> (FilePath, IO String)
+    makeProjectFile name version lfVersion upgradedFile deps doTypecheck warnBadInterfaceInstances =
+        ( "daml.yaml"
+        , pure $ unlines $
+          [ "sdk-version: " <> sdkVersion
+          , "name: " <> name
+          , "source: daml"
+          , "version: " <> version
+          , "dependencies:"
+          , "  - daml-prim"
+          , "  - daml-stdlib"
+          , "build-options:"
+          , "  - --target=" <> LF.renderVersion lfVersion
+          ]
+            ++ ["  - --typecheck-upgrades=no" | not doTypecheck]
+            ++ ["  - --warn-bad-interface-instances=yes" | warnBadInterfaceInstances ]
+            ++ ["upgrades: '" <> path <> "'" | Just path <- pure upgradedFile]
+            ++ renderDataDeps deps
+        )
+      where
+        renderDataDeps :: [String] -> [String]
+        renderDataDeps [] = []
+        renderDataDeps paths =
+          ["data-dependencies:"] ++ [" -  '" <> path <> "'" | path <- paths]
+
+    writeFiles :: FilePath -> [(FilePath, IO String)] -> IO ()
     writeFiles dir fs =
         for_ fs $ \(file, ioContent) -> do
             content <- ioContent
