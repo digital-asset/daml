@@ -14,7 +14,6 @@ import           Control.Monad.Reader (withReaderT, ask)
 import           Control.Monad.Reader.Class (asks)
 import           Control.Lens hiding (Context)
 import           DA.Daml.LF.Ast as LF
-import           DA.Daml.LF.Ast.Alpha (alphaExpr', AlphaEnv(..), initialAlphaEnv, alphaType', alphaTypeCon, Mismatch(..), alphaEq, andMismatches, nameMismatch)
 import qualified DA.Daml.LF.Ast.Alpha as Alpha
 import           DA.Daml.LF.TypeChecker.Check (expandTypeSynonyms)
 import           DA.Daml.LF.TypeChecker.Env
@@ -28,7 +27,7 @@ import           Data.List (foldl', nub)
 import qualified Data.NameMap as NM
 import qualified Data.Text as T
 import           Development.IDE.Types.Diagnostics
-import Data.Maybe (catMaybes, mapMaybe)
+import Data.Maybe (catMaybes, mapMaybe, isNothing)
 import Safe (maximumByMay, minimumByMay)
 import Data.Function (on)
 import Module (UnitId)
@@ -38,19 +37,6 @@ type TcUpgradeM = TcMF UpgradingEnv
 type TcPreUpgradeM = TcMF (Version, UpgradeInfo)
 
 type DepsMap = HMS.HashMap LF.PackageId UpgradingDep
-data UpgradingDep = UpgradingDep
-  { udPkgName :: LF.PackageName
-  , udMbPackageVersion :: Maybe RawPackageVersion
-  , udVersionSupportsUpgrades :: Bool
-  , udIsUtilityPackage :: Bool
-  , udPkgId :: LF.PackageId
-  }
-
-instance Show UpgradingDep where
-  show UpgradingDep {..} = T.unpack (LF.unPackageName udPkgName) <> " (" <> T.unpack (LF.unPackageId udPkgId) <> ")" <>
-    case udMbPackageVersion of
-      Just udPackageVersion -> " (v" <> show udPackageVersion <> ")"
-      Nothing -> mempty
 
 type UpgradeablePackage = (Maybe RawPackageVersion, LF.PackageId, LF.Package)
 type UpgradeablePackageMap = HMS.HashMap LF.PackageName [UpgradeablePackage]
@@ -693,7 +679,7 @@ checkTemplate module_ template = do
                     warnWithContextF present' (WCouldNotExtractForUpgradeChecking (T.pack field) (Just (T.pack err)))
                 Right resolvedExprs -> do
                     alphaEnv <- upgradingAlphaEnv
-                    let exprsMatchWarnings = foldU (alphaExpr' alphaEnv) $ fmap removeLocations resolvedExprs
+                    let exprsMatchWarnings = foldU (Alpha.alphaExpr' alphaEnv) $ fmap removeLocations resolvedExprs
                     unless (null exprsMatchWarnings) (act exprsMatchWarnings)
 
         -- Each extract function takes an expression, extracts a relevant
@@ -830,134 +816,76 @@ checkType type_ err = do
     sameType <- isUpgradedType type_
     unless sameType $ diagnosticWithContextF present' err
 
-checkQualVal :: DepsMap -> Upgrading (Qualified ExprValName) -> [Mismatch UpgradeMismatchReason]
-checkQualVal deps name =
-    let namesAreSame = foldU (alphaEq (nameMismatch' "names differ")) (fmap removePkgId name)
+checkQualName :: Alpha.IsSomeName a => DepsMap -> Upgrading (Qualified a) -> [Alpha.Mismatch UpgradeMismatchReason]
+checkQualName deps name =
+    let namesAreSame = foldU Alpha.alphaEq' (fmap removePkgId name)
         qualificationIsSameOrUpgraded =
           case qualPackage <$> name of
             Upgrading { _past = PRImport pastPkgId, _present = PRImport presentPkgId } ->
               if pastPkgId == presentPkgId
               then []
               else pkgIdsAreUpgraded deps Upgrading { _past = pastPkgId, _present = presentPkgId }
-            Upgrading PRSelf (PRImport pkgId) -> [nameMismatch' ("Name came from current package and now comes from different package '" <> tryShowPkgId pkgId <> "'")]
-            Upgrading (PRImport pkgId) PRSelf -> [nameMismatch' ("Name came from different package '" <> tryShowPkgId pkgId <> "' and now comes from current package")]
+            Upgrading PRSelf (PRImport pkgId) -> [nameMismatch' (OriginChangedFromSelfToImport (tryGetPkgId pkgId))]
+            Upgrading (PRImport pkgId) PRSelf -> [nameMismatch' (OriginChangedFromImportToSelf (tryGetPkgId pkgId))]
             Upgrading PRSelf PRSelf -> []
         prioritizeMismatches mismatches
-          | StructuralMismatch `elem` mismatches = [StructuralMismatch]
+          | Alpha.StructuralMismatch `elem` mismatches = [Alpha.StructuralMismatch]
           | otherwise = mismatches
     in
-    prioritizeMismatches (namesAreSame `andMismatches` qualificationIsSameOrUpgraded)
+    prioritizeMismatches (namesAreSame `Alpha.andMismatches` qualificationIsSameOrUpgraded)
   where
-    nameMismatch' reason = foldU nameMismatch name (Just reason)
+    nameMismatch' reason = foldU Alpha.nameMismatch name (Just reason)
     ifMismatch b reason = [nameMismatch' reason | not b]
-    tryShowPkgId :: LF.PackageId -> String
-    tryShowPkgId pkgId =
+    tryGetPkgId :: LF.PackageId -> Either PackageId UpgradingDep
+    tryGetPkgId pkgId =
       case HMS.lookup pkgId deps of
-        Nothing -> T.unpack (LF.unPackageId pkgId)
-        Just dep -> show dep
+        Nothing -> Left pkgId
+        Just dep -> Right dep
 
-    pkgIdsAreUpgraded :: DepsMap -> Upgrading PackageId -> [Mismatch UpgradeMismatchReason]
+    pkgIdsAreUpgraded :: DepsMap -> Upgrading PackageId -> [Alpha.Mismatch UpgradeMismatchReason]
     pkgIdsAreUpgraded deps pkgId =
       case flip HMS.lookup deps <$> pkgId of
         Upgrading { _past = Just pastDep, _present = Just presentDep } ->
           let upgradingDep = Upgrading { _past = pastDep, _present = presentDep }
           in
-          ifMismatch (foldU (==) (fmap udPkgName upgradingDep)) ("Name came from package '" <> show (_past upgradingDep) <> "' and now comes from differently-named package '" <> show (_present upgradingDep) <> "'")
-          `andMismatches`
+          ifMismatch (foldU (==) (fmap udPkgName upgradingDep)) (PackageNameChanged upgradingDep)
+          `Alpha.andMismatches`
           case udVersionSupportsUpgrades <$> upgradingDep of
-            Upgrading False False -> ifMismatch (foldU (==) pkgId) ("Name came from package '" <> show (_past upgradingDep) <> "' and now comes from package '" <> show (_present upgradingDep) <> "'. Neither package supports upgrades, which may mean they have different implementations of the name.")
+            Upgrading False False -> ifMismatch (foldU (==) pkgId) (DifferentPackagesNeitherOfWhichSupportsUpgrades upgradingDep)
             Upgrading True True ->
               case udIsUtilityPackage <$> upgradingDep of
                 Upgrading True True ->
                   if udPkgName (_present upgradingDep) `elem` [PackageName "daml-stdlib", PackageName "daml-prim"]
                   then []
                   else case udMbPackageVersion `traverse` upgradingDep of
-                    Just version -> ifMismatch (_past version > _present version) ("Name came from package '" <> show (_past upgradingDep) <> "' and now comes from package '" <> show (_present upgradingDep) <> "'. Both packages support upgrades, but the previous package had a higher version than the current one.")
+                    Just version -> ifMismatch (_past version > _present version) (PastPackageHasHigherVersion upgradingDep)
                     _ -> [] -- This case should not be possible
                 Upgrading False False ->
                   case udMbPackageVersion <$> upgradingDep of
-                      Upgrading (Just pastVersion) (Just presentVersion) -> ifMismatch (pastVersion < presentVersion) ("Name came from package '" <> show (_past upgradingDep) <> "' and now comes from package '" <> show (_present upgradingDep) <> "'. Both packages support upgrades, but the previous package had a higher version than the current one.")
+                      Upgrading (Just pastVersion) (Just presentVersion) -> ifMismatch (pastVersion < presentVersion) (PastPackageHasHigherVersion upgradingDep)
                       Upgrading Nothing Nothing -> [] -- Only daml-prim has no version field
                       _ -> [] -- This case should not be possible
-                Upgrading False True -> [nameMismatch' ("Name came from package '" <> show (_past upgradingDep) <> "' and now comes from package '" <> show (_present upgradingDep) <> "'. Both packages support upgrades, but the previous package was not a utility package and the current one is.")]
-                Upgrading True False -> [nameMismatch' ("Name came from package '" <> show (_past upgradingDep) <> "' and now comes from package '" <> show (_present upgradingDep) <> "'. Both packages support upgrades, but the previous package was a utility package and the current one is not.")]
-            Upgrading False True -> [nameMismatch' ("Name came from package '" <> show (_past upgradingDep) <> "' and now comes from package '" <> show (_present upgradingDep) <> "'. The previous package did not support upgrades and the current one does.")]
-            Upgrading True False -> [nameMismatch' ("Name came from package '" <> show (_past upgradingDep) <> "' and now comes from package '" <> show (_present upgradingDep) <> "'. The previous package supported upgrades and the current one does not.")]
-        Upgrading { _past = Nothing, _present = Nothing } ->
-          [nameMismatch' ("Name came from package '" <> tryShowPkgId (_past pkgId) <> "' and now comes from package '" <> tryShowPkgId (_present pkgId) <> "'. Could not find " <> tryShowPkgId (_past pkgId) <> " nor " <> tryShowPkgId (_present pkgId) <> " in the package list.")]
-        Upgrading { _past = Just _, _present = Nothing } ->
-          [nameMismatch' ("Name came from package '" <> tryShowPkgId (_past pkgId) <> "' and now comes from package '" <> tryShowPkgId (_present pkgId) <> "'. Could not find " <> tryShowPkgId (_present pkgId) <> " in the package list.")]
-        Upgrading { _past = Nothing, _present = Just _ } ->
-          [nameMismatch' ("Name came from package '" <> tryShowPkgId (_past pkgId) <> "' and now comes from package '" <> tryShowPkgId (_present pkgId) <> "'. Could not find " <> tryShowPkgId (_past pkgId) <> " in the package list.")]
-
-checkQualType :: DepsMap -> Upgrading (Qualified TypeConName) -> [Mismatch UpgradeMismatchReason]
-checkQualType deps name =
-    let namesAreSame = foldU (alphaEq (nameMismatch' "names differ")) (fmap removePkgId name)
-        qualificationIsSameOrUpgraded =
-          case qualPackage <$> name of
-            Upgrading { _past = PRImport pastPkgId, _present = PRImport presentPkgId } ->
-              pkgIdsAreUpgraded deps Upgrading { _past = pastPkgId, _present = presentPkgId }
-            Upgrading PRSelf (PRImport {}) -> [nameMismatch' "Name came from current package and now comes from different package"]
-            Upgrading (PRImport {}) PRSelf -> [nameMismatch' "Name came from different package and now comes from current package"]
-            Upgrading PRSelf PRSelf -> []
-        prioritizeMismatches mismatches
-          | StructuralMismatch `elem` mismatches = [StructuralMismatch]
-          | otherwise = mismatches
-    in
-    prioritizeMismatches (namesAreSame `andMismatches` qualificationIsSameOrUpgraded)
-  where
-    nameMismatch' reason = foldU nameMismatch name (Just reason)
-    ifMismatch b reason = [nameMismatch' reason | not b]
-    tryShowPkgId :: LF.PackageId -> String
-    tryShowPkgId pkgId =
-      case HMS.lookup pkgId deps of
-        Nothing -> T.unpack (LF.unPackageId pkgId)
-        Just dep -> show dep
-
-    pkgIdsAreUpgraded :: DepsMap -> Upgrading PackageId -> [Mismatch UpgradeMismatchReason]
-    pkgIdsAreUpgraded deps pkgId =
-      case flip HMS.lookup deps <$> pkgId of
-        Upgrading { _past = Just pastDep, _present = Just presentDep } ->
-          let upgradingDep = Upgrading { _past = pastDep, _present = presentDep }
-          in
-          ifMismatch (foldU (==) (fmap udPkgName upgradingDep)) ("Name came from package '" <> show (_past upgradingDep) <> "' and now comes from differently-named package '" <> show (_present upgradingDep) <> "'")
-          `andMismatches`
-          case udVersionSupportsUpgrades <$> upgradingDep of
-            Upgrading False False -> ifMismatch (foldU (==) pkgId) ("Name came from package '" <> show (_past upgradingDep) <> "' and now comes from package '" <> show (_present upgradingDep) <> "'. Neither package supports upgrades, which means their datatypes cannot be compatible.")
-            Upgrading True True ->
-              case udIsUtilityPackage <$> upgradingDep of
-                Upgrading True True ->
-                  if udPkgName (_present upgradingDep) `elem` [PackageName "daml-stdlib", PackageName "daml-prim"]
-                  then []
-                  else case udMbPackageVersion `traverse` upgradingDep of
-                    Just version -> ifMismatch (_past version > _present version) ("Name came from package '" <> show (_past upgradingDep) <> "' and now comes from package '" <> show (_present upgradingDep) <> "'. Both packages support upgrades, but the previous package had a higher version than the current one.")
-                    _ -> [] -- This case should not be possible
-                Upgrading False False ->
-                  case udMbPackageVersion <$> upgradingDep of
-                      Upgrading (Just pastVersion) (Just presentVersion) -> ifMismatch (pastVersion < presentVersion) ("Name came from package '" <> show (_past upgradingDep) <> "' and now comes from package '" <> show (_present upgradingDep) <> "'. Both packages support upgrades, but the previous package had a higher version than the current one.")
-                      Upgrading Nothing Nothing -> [] -- Only daml-prim has no version field
-                      _ -> [] -- This case should not be possible
-                Upgrading False True -> [nameMismatch' ("Name came from package '" <> show (_past upgradingDep) <> "' and now comes from package '" <> show (_present upgradingDep) <> "'. Both packages support upgrades, but the previous package was not a utility package and the current one is.")]
-                Upgrading True False -> [nameMismatch' ("Name came from package '" <> show (_past upgradingDep) <> "' and now comes from package '" <> show (_present upgradingDep) <> "'. Both packages support upgrades, but the previous package was a utility package and the current one is not.")]
-            Upgrading False True -> [nameMismatch' ("Name came from package '" <> show (_past upgradingDep) <> "' and now comes from package '" <> show (_present upgradingDep) <> "'. The previous package did not support upgrades and the current one does.")]
-            Upgrading True False -> [nameMismatch' ("Name came from package '" <> show (_past upgradingDep) <> "' and now comes from package '" <> show (_present upgradingDep) <> "'. The previous package supported upgrades and the current one does not.")]
-        Upgrading { _past = Nothing, _present = Nothing } ->
-          [nameMismatch' ("Name came from package '" <> tryShowPkgId (_past pkgId) <> "' and now comes from package '" <> tryShowPkgId (_present pkgId) <> "'. Could not find " <> tryShowPkgId (_past pkgId) <> " nor " <> tryShowPkgId (_present pkgId) <> " in the package list.")]
-        Upgrading { _past = Just _, _present = Nothing } ->
-          [nameMismatch' ("Name came from package '" <> tryShowPkgId (_past pkgId) <> "' and now comes from package '" <> tryShowPkgId (_present pkgId) <> "'. Could not find " <> tryShowPkgId (_present pkgId) <> " in the package list.")]
-        Upgrading { _past = Nothing, _present = Just _ } ->
-          [nameMismatch' ("Name came from package '" <> tryShowPkgId (_past pkgId) <> "' and now comes from package '" <> tryShowPkgId (_present pkgId) <> "'. Could not find " <> tryShowPkgId (_past pkgId) <> " in the package list.")]
+                Upgrading False True -> [nameMismatch' (PackageChangedFromSchemaToUtilityPackage upgradingDep)]
+                Upgrading True False -> [nameMismatch' (PackageChangedFromUtilityToSchemaPackage upgradingDep)]
+            Upgrading False True -> [nameMismatch' (PackageChangedFromDoesNotSupportUpgradesToSupportUpgrades upgradingDep)]
+            Upgrading True False -> [nameMismatch' (PackageChangedFromSupportUpgradesToDoesNotSupportUpgrades upgradingDep)]
+        Upgrading { _past = pastDepLookup, _present = presentDepLookup } ->
+          ifMismatch (isNothing pastDepLookup) (CouldNotFindPackageForPastIdentifier (Left (_past pkgId)))
+          `Alpha.andMismatches` ifMismatch (isNothing presentDepLookup) (CouldNotFindPackageForPastIdentifier (Left (_present pkgId)))
 
 isUpgradedType :: Upgrading Type -> TcUpgradeM Bool
 isUpgradedType type_ = do
     expandedTypes <- runGammaUnderUpgrades (expandTypeSynonyms <$> type_)
     alphaEnv <- upgradingAlphaEnv
-    pure $ null $ foldU (alphaType' alphaEnv) expandedTypes
+    -- NOTE: The warning messages generated by alphaType' via checkQualName
+    -- below are only designed for the expression warnings and won't make sense
+    -- if used to describe issues with types.
+    pure $ null $ foldU (Alpha.alphaType' alphaEnv) expandedTypes
 
-upgradingAlphaEnv :: TcUpgradeM (AlphaEnv UpgradeMismatchReason)
+upgradingAlphaEnv :: TcUpgradeM (Alpha.AlphaEnv UpgradeMismatchReason)
 upgradingAlphaEnv = do
     depsMap <- view depsMap
-    pure $ initialAlphaEnv { alphaTypeCon = unfoldU (checkQualType depsMap), alphaExprVal = unfoldU (checkQualVal depsMap) }
+    pure $ Alpha.initialAlphaEnv { Alpha.alphaTypeCon = unfoldU (checkQualName depsMap), Alpha.alphaExprVal = unfoldU (checkQualName depsMap) }
 
 removePkgId :: Qualified a -> Qualified a
 removePkgId a = a { qualPackage = PRSelf }

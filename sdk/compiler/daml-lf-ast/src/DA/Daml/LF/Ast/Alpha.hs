@@ -13,9 +13,11 @@ module DA.Daml.LF.Ast.Alpha
     , AlphaEnv(..)
     , Mismatch(..)
     , SomeName(..)
+    , IsSomeName(..)
     , toMismatch
     , nameMismatch
     , alphaEq
+    , alphaEq'
     , andMismatches
     ) where
 

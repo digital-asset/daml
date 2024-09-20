@@ -767,15 +767,15 @@ instance ToDiagnostic UnwarnableError where
 
 data Warning
   = WContext !Context !Warning
-  | WTemplateChangedPrecondition !TypeConName ![Mismatch String]
-  | WTemplateChangedSignatories !TypeConName ![Mismatch String]
-  | WTemplateChangedObservers !TypeConName ![Mismatch String]
-  | WTemplateChangedAgreement !TypeConName ![Mismatch String]
-  | WChoiceChangedControllers !ChoiceName ![Mismatch String]
-  | WChoiceChangedObservers !ChoiceName ![Mismatch String]
-  | WChoiceChangedAuthorizers !ChoiceName ![Mismatch String]
-  | WTemplateChangedKeyExpression !TypeConName ![Mismatch String]
-  | WTemplateChangedKeyMaintainers !TypeConName ![Mismatch String]
+  | WTemplateChangedPrecondition !TypeConName ![Mismatch UpgradeMismatchReason]
+  | WTemplateChangedSignatories !TypeConName ![Mismatch UpgradeMismatchReason]
+  | WTemplateChangedObservers !TypeConName ![Mismatch UpgradeMismatchReason]
+  | WTemplateChangedAgreement !TypeConName ![Mismatch UpgradeMismatchReason]
+  | WChoiceChangedControllers !ChoiceName ![Mismatch UpgradeMismatchReason]
+  | WChoiceChangedObservers !ChoiceName ![Mismatch UpgradeMismatchReason]
+  | WChoiceChangedAuthorizers !ChoiceName ![Mismatch UpgradeMismatchReason]
+  | WTemplateChangedKeyExpression !TypeConName ![Mismatch UpgradeMismatchReason]
+  | WTemplateChangedKeyMaintainers !TypeConName ![Mismatch UpgradeMismatchReason]
   | WCouldNotExtractForUpgradeChecking !T.Text !(Maybe T.Text)
     -- ^ When upgrading, we extract relevant expressions for things like
     -- signatories. If the expression changes shape so that we can't get the
@@ -803,7 +803,7 @@ instance Pretty Warning where
     WCouldNotExtractForUpgradeChecking attribute mbExtra -> "Could not check if the upgrade of " <> text attribute <> " is valid because its expression is the not the right shape." <> foldMap (const " Extra context: " <> text) mbExtra
     WErrorToWarning err -> pPrint err
     where
-    withMismatchInfo :: [Mismatch String] -> Doc ann -> Doc ann
+    withMismatchInfo :: [Mismatch UpgradeMismatchReason] -> Doc ann -> Doc ann
     withMismatchInfo [] doc = doc
     withMismatchInfo [mismatch] doc =
       vcat
@@ -848,4 +848,51 @@ instance Pretty reason => Pretty (Mismatch reason) where
     BindingMismatch var1 var2 -> "Name " <> pPrint var1 <> " and name " <> pPrint var2 <> " refer to different bindings in the environment."
     StructuralMismatch -> "Expression is structurally different."
 
-type UpgradeMismatchReason = String
+type MbUpgradingDep = Either PackageId UpgradingDep
+
+data UpgradeMismatchReason
+  = CustomReason String
+  | OriginChangedFromSelfToImport MbUpgradingDep
+  | OriginChangedFromImportToSelf MbUpgradingDep
+  | PackageNameChanged (Upgrading UpgradingDep)
+  | DifferentPackagesNeitherOfWhichSupportsUpgrades (Upgrading UpgradingDep)
+  | PastPackageHasHigherVersion (Upgrading UpgradingDep)
+  | PackageChangedFromUtilityToSchemaPackage (Upgrading UpgradingDep)
+  | PackageChangedFromSchemaToUtilityPackage (Upgrading UpgradingDep)
+  | PackageChangedFromDoesNotSupportUpgradesToSupportUpgrades (Upgrading UpgradingDep)
+  | PackageChangedFromSupportUpgradesToDoesNotSupportUpgrades (Upgrading UpgradingDep)
+  | CouldNotFindPackageForPastIdentifier MbUpgradingDep
+  | CouldNotFindPackageForPresentIdentifier MbUpgradingDep
+  deriving (Eq, Show)
+
+instance Pretty UpgradingDep where
+  pPrint = string . show
+
+instance Pretty UpgradeMismatchReason where
+  pPrint = \case
+    CustomReason str -> string str
+    OriginChangedFromSelfToImport import_ ->
+      "Name came from the current package and now comes from different package '" <> tryShowPkgId import_ <> "'"
+    OriginChangedFromImportToSelf import_ ->
+      "Name came from different package '" <> tryShowPkgId import_ <> "' and now comes from the current package"
+    PackageNameChanged pkg ->
+      "Name came from package '" <> pPrint (_past pkg) <> "' and now comes from differently-named package '" <> pPrint (_present pkg) <> "'"
+    DifferentPackagesNeitherOfWhichSupportsUpgrades pkg ->
+      "Name came from package '" <> pPrint (_past pkg) <> "' and now comes from package '" <> pPrint (_present pkg) <> "'. Neither package supports upgrades, which may mean they have different implementations of the name."
+    PastPackageHasHigherVersion pkg ->
+      "Name came from package '" <> pPrint (_past pkg) <> "' and now comes from package '" <> pPrint (_present pkg) <> "'. Both packages support upgrades, but the previous package had a higher version than the current one."
+    PackageChangedFromSchemaToUtilityPackage pkg ->
+      "Name came from package '" <> pPrint (_past pkg) <> "' and now comes from package '" <> pPrint (_present pkg) <> "'. Both packages support upgrades, but the previous package was not a utility package and the current one is."
+    PackageChangedFromUtilityToSchemaPackage pkg ->
+      "Name came from package '" <> pPrint (_past pkg) <> "' and now comes from package '" <> pPrint (_present pkg) <> "'. Both packages support upgrades, but the previous package was a utility package and the current one is not."
+    PackageChangedFromDoesNotSupportUpgradesToSupportUpgrades pkg ->
+      "Name came from package '" <> pPrint (_past pkg) <> "' and now comes from package '" <> pPrint (_present pkg) <> "'. The previous package did not support upgrades and the current one does."
+    PackageChangedFromSupportUpgradesToDoesNotSupportUpgrades pkg ->
+      "Name came from package '" <> pPrint (_past pkg) <> "' and now comes from package '" <> pPrint (_present pkg) <> "'. The previous package supported upgrades and the current one does not."
+    CouldNotFindPackageForPastIdentifier pkg ->
+      "Could not find " <> tryShowPkgId pkg <> " in the package list for past version of this name."
+    CouldNotFindPackageForPresentIdentifier pkg ->
+      "Could not find " <> tryShowPkgId pkg <> " in the package list for present version of this name."
+    where
+      tryShowPkgId (Left pkgId) = pPrint pkgId
+      tryShowPkgId (Right dep) = string (show dep)
