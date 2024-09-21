@@ -41,7 +41,6 @@ import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.version.ProtocolVersion
-import monocle.Monocle.toAppliedFocusOps
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -80,7 +79,7 @@ private[update] final class BlockChunkProcessor(
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): FutureUnlessShutdown[(BlockUpdateGeneratorImpl.State, ChunkUpdate[UnsignedChunkEvents])] = {
+  ): FutureUnlessShutdown[(BlockUpdateGeneratorImpl.State, ChunkUpdate)] = {
     val (lastTsBeforeValidation, fixedTsChanges) = fixTimestamps(height, index, state, chunkEvents)
 
     // TODO(i18438): verify the signature of the sequencer on the SendEvent
@@ -99,44 +98,37 @@ private[update] final class BlockChunkProcessor(
       sequencedSubmissionsWithSnapshots <-
         addSnapshots(
           state.latestSequencerEventTimestamp,
-          state.ephemeral.headCounter(sequencerId),
+          None,
           orderingRequests,
         )
 
       acksValidationResult <- processAcknowledgements(state, fixedTsChanges)
       (acksByMember, invalidAcks) = acksValidationResult
 
-      stateWithNewMembers = addNewMembers(
-        state,
-        height,
-        index,
-        acksByMember,
-      )
-
       validationResult <-
         sequencedSubmissionsValidator.validateSequencedSubmissions(
-          stateWithNewMembers,
+          state,
           height,
           sequencedSubmissionsWithSnapshots,
         )
       SequencedSubmissionsValidationResult(
-        finalEphemeralState,
-        reversedSignedEvents,
+        finalInFlightAggregations,
         inFlightAggregationUpdates,
         lastSequencerEventTimestamp,
         reversedOutcomes,
       ) = validationResult
 
-      finalEphemeralStateWithAggregationExpiry =
-        finalEphemeralState.evictExpiredInFlightAggregations(lastTsBeforeValidation)
+      finalInFlightAggregationsWithAggregationExpiry =
+        finalInFlightAggregations.filterNot { case (_, inFlightAggregation) =>
+          inFlightAggregation.expired(lastTsBeforeValidation)
+        }
       chunkUpdate =
         ChunkUpdate(
           acksByMember,
           invalidAcks,
-          reversedSignedEvents.reverse,
           inFlightAggregationUpdates,
           lastSequencerEventTimestamp,
-          finalEphemeralStateWithAggregationExpiry,
+          finalInFlightAggregationsWithAggregationExpiry,
           reversedOutcomes.reverse,
         )
 
@@ -157,7 +149,7 @@ private[update] final class BlockChunkProcessor(
           state.lastBlockTs,
           lastChunkTsOfSuccessfulEvents,
           lastSequencerEventTimestamp.orElse(state.latestSequencerEventTimestamp),
-          finalEphemeralStateWithAggregationExpiry,
+          finalInFlightAggregationsWithAggregationExpiry,
         )
     } yield (newState, chunkUpdate)
   }
@@ -277,31 +269,6 @@ private[update] final class BlockChunkProcessor(
         )(traceContext)
       }
     }
-
-  private def addNewMembers(
-      state: State,
-      height: Long,
-      index: Int,
-      acksByMember: Map[Member, CantonTimestamp],
-  )(implicit traceContext: TraceContext): State = {
-    val newMembersWithAcknowledgements =
-      acksByMember.foldLeft(state.ephemeral.membersMap) { case (membersMap, (member, timestamp)) =>
-        membersMap
-          .get(member)
-          .fold {
-            logger.debug(
-              s"Ack at $timestamp for $member (block $height, chunk $index) being ignored because the member has not yet been registered."
-            )
-            membersMap
-          } { memberStatus =>
-            membersMap.updated(member, memberStatus.copy(lastAcknowledged = Some(timestamp)))
-          }
-      }
-
-    state
-      .focus(_.ephemeral.membersMap)
-      .replace(newMembersWithAcknowledgements)
-  }
 
   private def processAcknowledgements(
       state: State,

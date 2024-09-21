@@ -53,7 +53,6 @@ import org.apache.pekko.stream.*
 import org.apache.pekko.stream.scaladsl.{Keep, Merge, Sink, Source}
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.chaining.*
 import scala.util.{Failure, Success}
 
 class BlockSequencer(
@@ -64,6 +63,7 @@ class BlockSequencer(
     sequencerId: SequencerId,
     stateManager: BlockSequencerStateManagerBase,
     store: SequencerBlockStore,
+    blockSequencerConfig: BlockSequencerConfig,
     trafficPurchasedStore: TrafficPurchasedStore,
     storage: Storage,
     futureSupervisor: FutureSupervisor,
@@ -82,8 +82,7 @@ class BlockSequencer(
 )(implicit executionContext: ExecutionContext, materializer: Materializer, tracer: Tracer)
     extends DatabaseSequencer(
       SequencerWriterStoreFactory.singleInstance,
-      // TODO(#18407): Allow partial configuration of DBS as a part of unified sequencer
-      DatabaseSequencerConfig.ForBlockSequencer(),
+      blockSequencerConfig.toDatabaseSequencerConfig,
       None,
       TotalNodeCountValues.SingleSequencerTotalNodeCount,
       new LocalSequencerStateEventSignaller(
@@ -141,7 +140,6 @@ class BlockSequencer(
       protocolVersion,
       cryptoApi,
       sequencerId,
-      stateManager.maybeLowerTopologyTimestampBound,
       blockRateLimitManager,
       orderingTimeFixMode,
       metrics,
@@ -291,7 +289,7 @@ class BlockSequencer(
           )
           SendAsyncError.TrafficControlError(
             TrafficControlErrorReason.Error(
-              TrafficControlErrorReason.Error.Reason.InsufficientTraffic(
+              TrafficControlErrorReason.Error.Reason.OutdatedTrafficCost(
                 s"Submission was refused because traffic cost was outdated. Re-submit after the having observed the validation timestamp and processed its topology state: $outdated"
               )
             )
@@ -312,8 +310,8 @@ class BlockSequencer(
       batch,
       maxSequencingTime,
       _,
-      _aggregationRule,
-      _submissionCost,
+      _,
+      _,
     ) = submission
     logger.debug(
       s"Request to send submission with id ${submission.messageId} with max sequencing time $maxSequencingTime from $sender to ${batch.allRecipients}"
@@ -386,44 +384,37 @@ class BlockSequencer(
           info.toByteString,
         )
       )
-      bsSnapshot <- store
-        .readStateForBlockContainingTimestamp(timestamp)
-        .flatMap { blockEphemeralState =>
-          for {
-            // Look up traffic info at the latest timestamp from the block,
-            // because that's where the onboarded sequencer will start reading
-            trafficPurchased <- EitherT.right[SequencerError](
-              trafficPurchasedStore
-                .lookupLatestBeforeInclusive(blockEphemeralState.latestBlock.lastTs)
-            )
-            trafficConsumed <- EitherT.right[SequencerError](
-              blockRateLimitManager.trafficConsumedStore
-                .lookupLatestBeforeInclusive(blockEphemeralState.latestBlock.lastTs)
-            )
-          } yield blockEphemeralState
-            .toSequencerSnapshot(
-              protocolVersion,
-              trafficPurchased,
-              trafficConsumed,
-              implementationSpecificInfo,
-            )
-            .tap(_ =>
-              if (logger.underlying.isDebugEnabled()) {
-                logger.trace(
-                  s"Snapshot for timestamp $timestamp generated from ephemeral state:\n$blockEphemeralState"
-                )
-              }
-            )
-        }
+      blockState <- store.readStateForBlockContainingTimestamp(timestamp)
+      // Look up traffic info at the latest timestamp from the block,
+      // because that's where the onboarded sequencer will start reading
+      trafficPurchased <- EitherT.right[SequencerError](
+        trafficPurchasedStore
+          .lookupLatestBeforeInclusive(blockState.latestBlock.lastTs)
+      )
+      trafficConsumed <- EitherT.right[SequencerError](
+        blockRateLimitManager.trafficConsumedStore
+          .lookupLatestBeforeInclusive(blockState.latestBlock.lastTs)
+      )
+
+      _ = if (logger.underlying.isDebugEnabled()) {
+        logger.debug(
+          s"""BlockSequencer data for snapshot for timestamp $timestamp:
+             |blockState: $blockState
+             |trafficPurchased: $trafficPurchased
+             |trafficConsumed: $trafficConsumed
+             |implementationSpecificInfo: $implementationSpecificInfo""".stripMargin
+        )
+      }
       finalSnapshot <- {
-        super.snapshot(bsSnapshot.lastTs).map { dbsSnapshot =>
-          dbsSnapshot.copy(
-            latestBlockHeight = bsSnapshot.latestBlockHeight,
-            inFlightAggregations = bsSnapshot.inFlightAggregations,
-            additional = bsSnapshot.additional,
-            trafficPurchased = bsSnapshot.trafficPurchased,
-            trafficConsumed = bsSnapshot.trafficConsumed,
+        super.snapshot(blockState.latestBlock.lastTs).map { dbsSnapshot =>
+          val finalSnapshot = dbsSnapshot.copy(
+            latestBlockHeight = blockState.latestBlock.height,
+            inFlightAggregations = blockState.inFlightAggregations,
+            additional = implementationSpecificInfo,
+            trafficPurchased = trafficPurchased,
+            trafficConsumed = trafficConsumed,
           )(dbsSnapshot.representativeProtocolVersion)
+          finalSnapshot
         }
       }
     } yield {
@@ -584,12 +575,16 @@ class BlockSequencer(
         requestedMembers,
         timestamp,
         stateManager.getHeadState.block.latestSequencerEventTimestamp,
+        // TODO(#18401) set warnIfApproximate to true and check that we don't get warnings
         // Warn on approximate topology or traffic purchased when getting exact traffic states only (so when selector is not LatestApproximate)
-        warnIfApproximate = selector != LatestApproximate &&
-          // Also don't warn until the sequencer has at least received one event
-          stateManager.getHeadState.chunk.ephemeral
-            .headCounter(sequencerId)
-            .exists(_ > SequencerCounter.Genesis),
+        // selector != LatestApproximate
+
+        // Also don't warn until the sequencer has at least received one event
+        // This used to check the ephemeral state for headCounter(sequencerId).exists(_ > Genesis),
+        // but because the ephemeral state for the block sequencer didn't actually contain
+        // any sequencer counter data anymore, this condition was always false, which made the overall expression
+        // for warnIfApproximate false
+        warnIfApproximate = false,
       )
     }
 
@@ -662,6 +657,5 @@ class BlockSequencer(
 
 object BlockSequencer {
   sealed trait LocalEvent extends Product with Serializable
-  final case class DisableMember(member: Member) extends LocalEvent
   final case class UpdateInitialMemberCounters(timestamp: CantonTimestamp) extends LocalEvent
 }

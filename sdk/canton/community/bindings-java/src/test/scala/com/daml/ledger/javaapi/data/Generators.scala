@@ -554,11 +554,13 @@ object Generators {
 
   def getLedgerEndResponseGen: Gen[v2.StateServiceOuterClass.GetLedgerEndResponse] =
     for {
-      offset <- Arbitrary.arbString.arbitrary
-    } yield v2.StateServiceOuterClass.GetLedgerEndResponse
-      .newBuilder()
-      .setOffset(offset)
-      .build()
+      offset <- Gen.option(Arbitrary.arbLong.arbitrary)
+    } yield {
+      val builder = v2.StateServiceOuterClass.GetLedgerEndResponse
+        .newBuilder()
+      offset.foreach(builder.setOffset)
+      builder.build()
+    }
 
   def getLatestPrunedOffsetsResponseGen
       : Gen[v2.StateServiceOuterClass.GetLatestPrunedOffsetsResponse] =
@@ -610,13 +612,15 @@ object Generators {
     for {
       applicationId <- Arbitrary.arbString.arbitrary
       parties <- Gen.listOf(Arbitrary.arbString.arbitrary)
-      beginExclusive <- Arbitrary.arbString.arbitrary
-    } yield Request
-      .newBuilder()
-      .setApplicationId(applicationId)
-      .addAllParties(parties.asJava)
-      .setBeginExclusive(beginExclusive)
-      .build()
+      beginExclusive <- Gen.option(Arbitrary.arbLong.arbitrary)
+    } yield {
+      val builder = Request
+        .newBuilder()
+        .setApplicationId(applicationId)
+        .addAllParties(parties.asJava)
+      beginExclusive.foreach(builder.setBeginExclusive)
+      builder.build()
+    }
   }
 
   def completionGen: Gen[v2.CompletionOuterClass.Completion] = {

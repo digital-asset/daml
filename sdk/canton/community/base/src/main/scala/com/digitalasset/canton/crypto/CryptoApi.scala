@@ -69,7 +69,6 @@ trait CryptoPureApi
     extends EncryptionOps
     with SigningOps
     with HmacOps
-    with HkdfOps
     with HashOps
     with RandomOps
     with PasswordBasedEncryptionOps

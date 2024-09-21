@@ -403,6 +403,33 @@ class ErrorFactoriesSpec
       )
     }
 
+    "return a nonPositiveOffset error" in {
+      val msg =
+        s"NON_POSITIVE_OFFSET(8,$truncatedCorrelationId): Offset -123 in fieldName123 is not a positive integer: message123"
+      assertError(
+        RequestValidationErrors.NonPositiveOffset
+          .Error(
+            fieldName = "fieldName123",
+            offsetValue = -123L,
+            message = "message123",
+          )(contextualizedErrorLogger)
+          .asGrpcError
+      )(
+        code = Code.INVALID_ARGUMENT,
+        message = msg,
+        details = Seq[ErrorDetails.ErrorDetail](
+          ErrorDetails.ErrorInfoDetail(
+            "NON_POSITIVE_OFFSET",
+            Map("category" -> "8", "test" -> getClass.getSimpleName),
+          ),
+          expectedCorrelationIdRequestInfo,
+        ),
+        logLevel = Level.INFO,
+        logMessage = msg,
+        logErrorContextRegEx = expectedLocationRegex,
+      )
+    }
+
     "return an offsetAfterLedgerEnd error" in {
       val expectedMessage = s"Absolute offset (AABBCC) is after ledger end (E)"
       val msg = s"OFFSET_AFTER_LEDGER_END(12,$truncatedCorrelationId): $expectedMessage"

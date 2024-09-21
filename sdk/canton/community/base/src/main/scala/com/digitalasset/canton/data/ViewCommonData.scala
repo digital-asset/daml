@@ -208,14 +208,14 @@ object ViewConfirmationParameters {
     */
   def createOnlyWithConfirmers(
       confirmers: Map[LfPartyId, PositiveInt],
-      threshold: NonNegativeInt,
+      viewThreshold: NonNegativeInt,
   ): ViewConfirmationParameters =
     ViewConfirmationParameters(
       confirmers.keySet,
       Seq(
         Quorum(
           confirmers,
-          threshold,
+          viewThreshold,
         )
       ),
     )

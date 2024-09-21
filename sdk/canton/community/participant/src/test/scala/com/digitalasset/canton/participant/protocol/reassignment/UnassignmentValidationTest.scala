@@ -13,6 +13,7 @@ import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentPro
   StakeholdersMismatch,
   TemplateIdMismatch,
 }
+import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessorError.ReassigningParticipantsMismatch
 import com.digitalasset.canton.participant.protocol.submission.SeedGenerator
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.{MediatorGroupRecipient, Recipients}
@@ -21,14 +22,11 @@ import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
-import org.scalatest.wordspec.AsyncWordSpec
+import org.scalatest.wordspec.AnyWordSpec
 
 import java.util.UUID
 
-class UnassignmentValidationTest
-    extends AsyncWordSpec
-    with BaseTest
-    with ProtocolVersionChecksAsyncWordSpec {
+class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecutionContext {
   private val sourceDomain = SourceDomainId(
     DomainId.tryFromString("domain::source")
   )
@@ -44,6 +42,7 @@ class UnassignmentValidationTest
   ).toLf
 
   private val participant = ParticipantId.tryFromProtoPrimitive("PAR::bothdomains::participant")
+  private val otherParticipant = ParticipantId.tryFromProtoPrimitive("PAR::domain::participant")
 
   private val initialReassignmentCounter: ReassignmentCounter = ReassignmentCounter.Genesis
 
@@ -57,21 +56,21 @@ class UnassignmentValidationTest
       workflowId = None,
     )
 
-  val contractId = ExampleTransactionFactory.suffixedId(10, 0)
+  private val contractId = ExampleTransactionFactory.suffixedId(10, 0)
 
-  val reassignmentId = ReassignmentId(sourceDomain, CantonTimestamp.Epoch)
-  val uuid = new UUID(3L, 4L)
+  private val reassignmentId = ReassignmentId(sourceDomain, CantonTimestamp.Epoch)
+  private val uuid = new UUID(3L, 4L)
   private val pureCrypto = new SymbolicPureCrypto
   private val seedGenerator = new SeedGenerator(pureCrypto)
-  val seed = seedGenerator.generateSaltSeed()
+  private val seed = seedGenerator.generateSaltSeed()
 
   private val templateId =
     LfTemplateId.assertFromString("unassignmentvalidationtestpackage:template:id")
 
-  val wrongTemplateId =
+  private val wrongTemplateId =
     LfTemplateId.assertFromString("unassignmentvalidatoionpackage:wrongtemplate:id")
 
-  val contract = ExampleTransactionFactory.asSerializable(
+  private val contract = ExampleTransactionFactory.asSerializable(
     contractId,
     contractInstance = ExampleTransactionFactory.contractInstance(templateId = templateId),
     metadata = ContractMetadata.tryCreate(
@@ -97,9 +96,9 @@ class UnassignmentValidationTest
     )
     .build(loggerFactory)
 
-  val stakeholders = Set(submitterParty1)
-  val sourcePV = SourceProtocolVersion(testedProtocolVersion)
-  val targetPV = TargetProtocolVersion(testedProtocolVersion)
+  private val stakeholders = Set(submitterParty1)
+  private val sourcePV = SourceProtocolVersion(testedProtocolVersion)
+  private val targetPV = TargetProtocolVersion(testedProtocolVersion)
 
   "unassignment validation" should {
     "succeed without errors" in {
@@ -109,9 +108,8 @@ class UnassignmentValidationTest
         templateId,
         initialReassignmentCounter,
       )
-      for {
-        _ <- validation.valueOrFailShutdown("validation failed")
-      } yield succeed
+
+      validation.valueOrFailShutdown("validation failed").futureValue shouldBe ()
     }
   }
 
@@ -123,32 +121,58 @@ class UnassignmentValidationTest
       templateId,
       initialReassignmentCounter,
     )
-    for {
-      res <- validation.leftOrFailShutdown("couldn't get left from unassignment validation")
-    } yield {
-      res shouldBe StakeholdersMismatch(
-        None,
-        Set(submitterParty1, receiverParty2),
-        None,
-        Right(Set(submitterParty1)),
-      )
-    }
+
+    validation.futureValueUS.left.value shouldBe StakeholdersMismatch(
+      None,
+      Set(submitterParty1, receiverParty2),
+      None,
+      Right(Set(submitterParty1)),
+    )
   }
 
   "detect template id mismatch" in {
     // template id does not match the one in the contract
-    val validation =
+    val validation = mkUnassignmentValidation(
+      stakeholders,
+      sourcePV,
+      wrongTemplateId,
+      initialReassignmentCounter,
+    )
+
+    validation.futureValueUS.left.value shouldBe TemplateIdMismatch(
+      templateId.leftSide,
+      wrongTemplateId.leftSide,
+    )
+  }
+
+  "detect reassigning participant mismatch" in {
+    def unassignmentValidation(reassigningParticipants: Set[ParticipantId]) =
       mkUnassignmentValidation(
         stakeholders,
         sourcePV,
-        wrongTemplateId,
+        templateId,
         initialReassignmentCounter,
-      ).value
-    for {
-      res <- validation.failOnShutdown
-    } yield {
-      res shouldBe Left(TemplateIdMismatch(templateId.leftSide, wrongTemplateId.leftSide))
-    }
+        reassigningParticipants = reassigningParticipants,
+      ).futureValueUS
+
+    // Happy path / control
+    unassignmentValidation(reassigningParticipants = Set(participant)).value shouldBe ()
+
+    unassignmentValidation(
+      reassigningParticipants = Set(otherParticipant)
+    ).left.value shouldBe ReassigningParticipantsMismatch(
+      contractId,
+      expected = Set(participant),
+      declared = Set(otherParticipant),
+    )
+
+    unassignmentValidation(
+      reassigningParticipants = Set()
+    ).left.value shouldBe ReassigningParticipantsMismatch(
+      contractId,
+      expected = Set(participant),
+      declared = Set(),
+    )
   }
 
   private def mkUnassignmentValidation(
@@ -156,12 +180,13 @@ class UnassignmentValidationTest
       sourceProtocolVersion: SourceProtocolVersion,
       expectedTemplateId: LfTemplateId,
       reassignmentCounter: ReassignmentCounter,
+      reassigningParticipants: Set[ParticipantId] = Set(participant),
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] = {
     val unassignmentRequest = UnassignmentRequest(
       submitterInfo(submitterParty1),
       // receiverParty2 is not a stakeholder on a contract, but it is listed as stakeholder here
       newStakeholders,
-      Set(participant.adminParty.toLf),
+      reassigningParticipants = reassigningParticipants,
       ExampleTransactionFactory.transactionId(0),
       contract,
       reassignmentId.sourceDomain,
@@ -180,7 +205,7 @@ class UnassignmentValidationTest
         uuid,
       )
 
-    UnassignmentValidation(
+    UnassignmentValidation.perform(
       fullUnassignmentTree,
       stakeholders,
       expectedTemplateId,
@@ -188,7 +213,6 @@ class UnassignmentValidationTest
       identityFactory.topologySnapshot(),
       Some(identityFactory.topologySnapshot()),
       Recipients.cc(participant),
-      logger,
     )
   }
 }

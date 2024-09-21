@@ -19,7 +19,6 @@ class JceCryptoTest
     with SigningTest
     with EncryptionTest
     with PrivateKeySerializationTest
-    with HkdfTest
     with PasswordBasedEncryptionTest
     with RandomTest
     with PublicKeyValidationTest {
@@ -103,7 +102,6 @@ class JceCryptoTest
       }
     }
 
-    behave like hkdfProvider(jceCrypto().map(_.pureCrypto))
     behave like randomnessProvider(jceCrypto().map(_.pureCrypto))
 
     behave like pbeProvider(

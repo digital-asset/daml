@@ -34,6 +34,10 @@ import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentPro
   TargetDomainIsSourceDomain,
   UnexpectedDomain,
 }
+import com.digitalasset.canton.participant.protocol.submission.EncryptedViewMessageFactory.{
+  ViewHashAndRecipients,
+  ViewKeyData,
+}
 import com.digitalasset.canton.participant.protocol.submission.{
   EncryptedViewMessageFactory,
   SeedGenerator,
@@ -134,6 +138,7 @@ class UnassignmentProcessingSteps(
       storedContract <- getStoredContract(ephemeralState.contractLookup, contractId)
       stakeholders = storedContract.contract.metadata.stakeholders
 
+      // TODO(#21325) This should be the static domain parameters of the target domain
       timeProofAndSnapshot <- reassignmentCoordination.getTimeProofAndSnapshot(
         targetDomain,
         staticDomainParameters,
@@ -182,7 +187,6 @@ class UnassignmentProcessingSteps(
         sourceRecentSnapshot.ipsSnapshot,
         targetCrypto.ipsSnapshot,
         newReassignmentCounter,
-        logger,
       )
 
       unassignmentUuid = seedGenerator.generateUuid()
@@ -199,20 +203,31 @@ class UnassignmentProcessingSteps(
         .sign(rootHash.unwrap)
         .leftMap(ReassignmentSigningError)
       mediatorMessage = fullTree.mediatorMessage(submittingParticipantSignature)
-      viewMessage <- EncryptedViewMessageFactory
-        .create(UnassignmentViewType)(
-          fullTree,
-          sourceRecentSnapshot,
-          ephemeralState.sessionKeyStoreLookup,
-          sourceDomainProtocolVersion.v,
-        )
-        .leftMap[ReassignmentProcessorError](EncryptionError(contractId, _))
       maybeRecipients = Recipients.ofSet(validated.recipients)
       recipientsT <- EitherT
         .fromOption[FutureUnlessShutdown](
           maybeRecipients,
           NoStakeholders.logAndCreate(contractId, logger): ReassignmentProcessorError,
         )
+      viewsToKeyMap <- EncryptedViewMessageFactory
+        .generateKeysFromRecipients(
+          Seq((ViewHashAndRecipients(fullTree.viewHash, recipientsT), fullTree.informees.toList)),
+          parallel = true,
+          pureCrypto,
+          sourceRecentSnapshot,
+          ephemeralState.sessionKeyStoreLookup,
+          targetProtocolVersion.v,
+        )
+        .leftMap[ReassignmentProcessorError](EncryptionError(contractId, _))
+      ViewKeyData(_, viewKey, viewKeyMap) = viewsToKeyMap(fullTree.viewHash)
+      viewMessage <- EncryptedViewMessageFactory
+        .create(UnassignmentViewType)(
+          fullTree,
+          (viewKey, viewKeyMap),
+          sourceRecentSnapshot,
+          sourceDomainProtocolVersion.v,
+        )
+        .leftMap[ReassignmentProcessorError](EncryptionError(contractId, _))
     } yield {
       val rootHashMessage =
         RootHashMessage(
@@ -352,23 +367,19 @@ class UnassignmentProcessingSteps(
     */
   // TODO(i12926): Prevent deadlocks. Detect non-sensible timestamps. Verify sequencer signature on time proof.
   private def getTopologySnapshotAtTimestamp(
-      isReassigningParticipant: Boolean,
       domainId: TargetDomainId,
       timestamp: CantonTimestamp,
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Option[TopologySnapshot]] =
-    Option
-      .when(isReassigningParticipant) {
-        reassignmentCoordination
-          .awaitTimestampAndGetCryptoSnapshot(
-            domainId.unwrap,
-            staticDomainParameters,
-            timestamp,
-          )
-      }
-      .traverse(_.map(_.ipsSnapshot))
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, TopologySnapshot] =
+    reassignmentCoordination
+      .awaitTimestampAndGetCryptoSnapshot(
+        domainId.unwrap,
+        staticDomainParameters,
+        timestamp,
+      )
+      .map(_.ipsSnapshot)
 
   override def constructPendingDataAndResponse(
       parsedRequestType: ParsedReassignmentRequest[FullUnassignmentTree],
@@ -412,15 +423,17 @@ class UnassignmentProcessingSteps(
 
       WithTransactionId(contract, creatingTransactionId) = contractWithTransactionId
 
-      isReassigningParticipant = fullTree.adminParties.contains(participantId.adminParty.toLf)
+      isReassigningParticipant = fullTree.isReassigningParticipant(participantId)
 
-      targetTopology <- getTopologySnapshotAtTimestamp(
-        isReassigningParticipant,
-        fullTree.targetDomain,
-        fullTree.targetTimeProof.timestamp,
-      )
+      targetTopology <-
+        if (isReassigningParticipant)
+          getTopologySnapshotAtTimestamp(
+            fullTree.targetDomain,
+            fullTree.targetTimeProof.timestamp,
+          ).map(Some(_))
+        else EitherT.pure[FutureUnlessShutdown, ReassignmentProcessorError](None)
 
-      _ <- UnassignmentValidation(
+      _ <- UnassignmentValidation.perform(
         fullTree,
         contract.metadata.stakeholders,
         contract.rawContractInstance.contractInstance.unversioned.template,
@@ -428,7 +441,6 @@ class UnassignmentProcessingSteps(
         sourceSnapshot.ipsSnapshot,
         targetTopology,
         recipients,
-        logger,
       )
 
       assignmentExclusivity <- getAssignmentExclusivity(
@@ -759,11 +771,9 @@ class UnassignmentProcessingSteps(
       declaredReassignmentCounter > ReassignmentCounter.Genesis &&
         activenessResult.isSuccessful &&
         activenessResult.contracts.priorStates == expectedPriorReassignmentCounter
+
     // send a response only if the participant is a reassigning participant or the activeness check has failed
     if (isReassigningParticipant || !successful) {
-      val adminPartySet =
-        if (isReassigningParticipant) Set(participantId.adminParty.toLf) else Set.empty[LfPartyId]
-      val confirmingParties = confirmingStakeholders union adminPartySet
       val localVerdict =
         if (successful) LocalApprove(sourceDomainProtocolVersion.v)
         else
@@ -777,7 +787,7 @@ class UnassignmentProcessingSteps(
           Some(ViewPosition.root),
           localVerdict,
           rootHash,
-          confirmingParties,
+          confirmingStakeholders,
           domainId.unwrap,
           sourceDomainProtocolVersion.v,
         )

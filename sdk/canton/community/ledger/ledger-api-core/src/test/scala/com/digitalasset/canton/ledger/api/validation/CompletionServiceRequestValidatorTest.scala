@@ -20,7 +20,7 @@ class CompletionServiceRequestValidatorTest
   private val grpcCompletionReq = GrpcCompletionStreamRequest(
     expectedApplicationId,
     List(party),
-    offset,
+    offsetLong,
   )
   private val completionReq = CompletionStreamRequest(
     Ref.ApplicationId.assertFromString(expectedApplicationId),
@@ -56,14 +56,26 @@ class CompletionServiceRequestValidatorTest
         )
       }
 
-      "return the correct error on unknown begin boundary" in {
+      "return the correct error on zero begin exclusive offset" in {
         requestMustFailWith(
           request = validator.validateGrpcCompletionStreamRequest(
-            grpcCompletionReq.withBeginExclusive("@#!#$@")
+            grpcCompletionReq.withBeginExclusive(0)
           ),
           code = INVALID_ARGUMENT,
           description =
-            "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: cannot parse HexString @#!#$@",
+            "NON_POSITIVE_OFFSET(8,0): Offset 0 in begin_exclusive is not a positive integer: the offset in begin_exclusive field has to be a positive integer (>0)",
+          metadata = Map.empty,
+        )
+      }
+
+      "return the correct error on negative begin exclusive offset" in {
+        requestMustFailWith(
+          request = validator.validateGrpcCompletionStreamRequest(
+            grpcCompletionReq.withBeginExclusive(-100)
+          ),
+          code = INVALID_ARGUMENT,
+          description =
+            "NON_POSITIVE_OFFSET(8,0): Offset -100 in begin_exclusive is not a positive integer: the offset in begin_exclusive field has to be a positive integer (>0)",
           metadata = Map.empty,
         )
       }
@@ -79,7 +91,7 @@ class CompletionServiceRequestValidatorTest
       "tolerate empty offset (participant begin)" in {
         inside(
           validator.validateGrpcCompletionStreamRequest(
-            grpcCompletionReq.withBeginExclusive("")
+            grpcCompletionReq.clearBeginExclusive
           )
         ) { case Right(req) =>
           req.applicationId shouldEqual expectedApplicationId

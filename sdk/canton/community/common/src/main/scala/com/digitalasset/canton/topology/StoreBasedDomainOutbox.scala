@@ -41,6 +41,7 @@ import com.digitalasset.canton.topology.transaction.{
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{DelayUtil, EitherTUtil, ErrorUtil, SingleUseCell}
 import com.digitalasset.canton.version.ProtocolVersion
+import org.slf4j.event.Level
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 import scala.concurrent.duration.*
@@ -204,22 +205,19 @@ class StoreBasedDomainOutbox(
     for {
       // load current authorized timestamp and watermark
       _ <- EitherT.right(loadWatermarksF)
-      // run initial flush
-      _ <- flush(initialize = true)
+      // run initial flush in the background
+      _ = flushAsync(initialize = true)
     } yield ()
   }
 
   private def kickOffFlush(): Unit =
-    // It's fine to ignore shutdown because we do not await the future anyway.
     if (initialized.get()) {
-      TraceContext.withNewTraceContext(implicit tc =>
-        EitherTUtil.doNotAwait(flush().onShutdown(Either.unit), "domain outbox flusher")
-      )
+      TraceContext.withNewTraceContext(implicit tc => flushAsync())
     }
 
-  private def flush(initialize: Boolean = false)(implicit
+  private def flushAsync(initialize: Boolean = false)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, String, Unit] = {
+  ): Unit = {
     def markDone(delayRetry: Boolean = false): Unit = {
       val updated = watermarks.getAndUpdate(_.done())
       // if anything has been pushed in the meantime, we need to kick off a new flush
@@ -236,9 +234,7 @@ class StoreBasedDomainOutbox(
     val cur = watermarks.getAndUpdate(_.setRunning())
 
     // only flush if we are not running yet
-    if (cur.running) {
-      EitherT.rightT(())
-    } else {
+    if (!cur.running) {
       // mark as initialised (it's safe now for a concurrent thread to invoke flush as well)
       if (initialize)
         initialized.set(true)
@@ -278,17 +274,18 @@ class StoreBasedDomainOutbox(
             updateWatermark(pending, applicable, responses)
           )
         } yield ()
-        ret.transform {
-          case x @ Left(_) =>
-            markDone(delayRetry = true)
+
+        // It's fine to ignore shutdown because we do not await the future anyway.
+        EitherTUtil.doNotAwaitUS(
+          ret.transform { x =>
+            markDone(delayRetry = x.isLeft)
             x
-          case x @ Right(_) =>
-            markDone()
-            x
-        }
+          },
+          "domain outbox flusher",
+          failLevel = Level.WARN,
+        )
       } else {
         markDone()
-        EitherT.rightT(())
       }
     }
   }

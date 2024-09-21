@@ -2242,6 +2242,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           @Help.Description(
             """This function can be used for contracts with a code-generated Java model.
               |You can refine your search using the `filter` function argument.
+              |You can restrict search to a domain by specifying the optional domain id.
               |The command will wait until the contract appears or throw an exception once it times out."""
           )
           def await[
@@ -2251,11 +2252,12 @@ trait BaseLedgerApiAdministration extends NoTracing {
           ](companion: javab.data.codegen.ContractCompanion[TC, TCid, T])(
               partyId: PartyId,
               predicate: TC => Boolean = (_: TC) => true,
+              domainFilter: Option[DomainId] = None,
               timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
           ): TC = check(FeatureFlag.Testing)({
             val result = new AtomicReference[Option[TC]](None)
             ConsoleMacros.utils.retry_until_true(timeout) {
-              val tmp = filter(companion)(partyId, predicate)
+              val tmp = filter(companion)(partyId, predicate, domainFilter)
               result.set(tmp.headOption)
               tmp.nonEmpty
             }
@@ -2274,7 +2276,8 @@ trait BaseLedgerApiAdministration extends NoTracing {
           )
           @Help.Description(
             """To use this function, ensure a code-generated Java model for the target template exists.
-              |You can refine your search using the `predicate` function argument."""
+              |You can refine your search using the `predicate` function argument.
+              |You can restrict search to a domain by specifying the optional domain id."""
           )
           def filter[
               TC <: javab.data.codegen.Contract[TCid, T],
@@ -2283,6 +2286,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
           ](templateCompanion: javab.data.codegen.ContractCompanion[TC, TCid, T])(
               partyId: PartyId,
               predicate: TC => Boolean = (_: TC) => true,
+              domainFilter: Option[DomainId] = None,
           ): Seq[TC] = check(FeatureFlag.Testing) {
             val javaTemplateId = templateCompanion.getTemplateIdWithPackageId
             val templateId = TemplateId(
@@ -2290,9 +2294,16 @@ trait BaseLedgerApiAdministration extends NoTracing {
               javaTemplateId.getModuleName,
               javaTemplateId.getEntityName,
             )
+
+            def domainPredicate(entry: WrappedContractEntry) =
+              domainFilter match {
+                case Some(_domainId) => entry.domainId == domainFilter
+                case None => true
+              }
+
             ledger_api.state.acs
               .of_party(partyId, filterTemplates = Seq(templateId))
-              .map(_.event)
+              .collect { case entry if domainPredicate(entry) => entry.event }
               .flatMap { ev =>
                 JavaDecodeUtil
                   .decodeCreated(templateCompanion)(

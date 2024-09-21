@@ -864,8 +864,8 @@ object EncryptionKeyCreationError {
     )
   }
 
-  final case class InternalConversionError(error: String) extends EncryptionKeyCreationError {
-    override def pretty: Pretty[InternalConversionError] = prettyOfClass(
+  final case class NoRandomnessProvided(error: String) extends EncryptionKeyCreationError {
+    override def pretty: Pretty[NoRandomnessProvided] = prettyOfClass(
       unnamedParam(_.error.unquoted)
     )
   }

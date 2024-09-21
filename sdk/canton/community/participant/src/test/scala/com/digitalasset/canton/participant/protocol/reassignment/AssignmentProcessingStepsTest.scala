@@ -29,10 +29,14 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDe
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidation.*
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.{
+  AssignmentSubmitterMustBeStakeholder,
   NoReassignmentSubmissionPermission,
   ParsedReassignmentRequest,
   StakeholdersMismatch,
-  SubmittingPartyMustBeStakeholderIn,
+}
+import com.digitalasset.canton.participant.protocol.submission.EncryptedViewMessageFactory.{
+  ViewHashAndRecipients,
+  ViewKeyData,
 }
 import com.digitalasset.canton.participant.protocol.submission.{
   EncryptedViewMessageFactory,
@@ -345,7 +349,8 @@ class AssignmentProcessingStepsTest
           )
         )("prepare submission did not return a left")
       } yield {
-        preparedSubmission should matchPattern { case SubmittingPartyMustBeStakeholderIn(_, _, _) =>
+        preparedSubmission should matchPattern {
+          case AssignmentSubmitterMustBeStakeholder(_, _, _) =>
         }
       }
     }
@@ -437,7 +442,7 @@ class AssignmentProcessingStepsTest
     "succeed without errors" in {
       val sessionKeyStore = SessionKeyStore(CachingConfigs.defaultSessionKeyCacheConfig)
       for {
-        inRequest <- encryptFullAssignmentTree(inTree, sessionKeyStore)
+        inRequest <- encryptFullAssignmentTree(inTree, RecipientsTest.testInstance, sessionKeyStore)
         envelopes = NonEmpty(
           Seq,
           OpenEnvelope(inRequest, RecipientsTest.testInstance)(testedProtocolVersion),
@@ -722,15 +727,35 @@ class AssignmentProcessingStepsTest
         uuid,
         SourceProtocolVersion(testedProtocolVersion),
         TargetProtocolVersion(testedProtocolVersion),
+        reassigningParticipants = Set.empty,
       )
     )("Failed to create FullAssignmentTree")
   }
 
   private def encryptFullAssignmentTree(
       tree: FullAssignmentTree,
+      recipients: Recipients,
       sessionKeyStore: SessionKeyStore,
   ): Future[EncryptedViewMessage[AssignmentViewType]] =
-    EncryptedViewMessageFactory
-      .create(AssignmentViewType)(tree, cryptoSnapshot, sessionKeyStore, testedProtocolVersion)
-      .valueOrFailShutdown("cannot encrypt assignment request")
+    for {
+      viewsToKeyMap <- EncryptedViewMessageFactory
+        .generateKeysFromRecipients(
+          Seq((ViewHashAndRecipients(tree.viewHash, recipients), tree.informees.toList)),
+          parallel = true,
+          crypto.pureCrypto,
+          cryptoSnapshot,
+          sessionKeyStore,
+          testedProtocolVersion,
+        )
+        .valueOrFailShutdown("cannot generate encryption key for transfer-in request")
+      ViewKeyData(_, viewKey, viewKeyMap) = viewsToKeyMap(tree.viewHash)
+      encryptedTree <- EncryptedViewMessageFactory
+        .create(AssignmentViewType)(
+          tree,
+          (viewKey, viewKeyMap),
+          cryptoSnapshot,
+          testedProtocolVersion,
+        )
+        .valueOrFailShutdown("cannot encrypt assignment request")
+    } yield encryptedTree
 }

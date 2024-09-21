@@ -20,6 +20,7 @@ import com.digitalasset.canton.topology.{DomainId, Member}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.version.ProtocolVersion
+import org.slf4j.event.Level
 
 import java.util.UUID
 import scala.concurrent.ExecutionContext
@@ -104,7 +105,9 @@ class DomainTopologyService(
       sendRequest(request, sendCallback)
         .biSemiflatMap(
           sendAsyncClientError => {
-            logger.error(s"Failed broadcasting topology transactions: $sendAsyncClientError")
+            logger.warn(
+              s"Failed broadcasting topology transactions: $sendAsyncClientError. This will be retried automatically."
+            )
             FutureUnlessShutdown.pure[TopologyTransactionsBroadcast.State](
               TopologyTransactionsBroadcast.State.Failed
             )
@@ -144,7 +147,8 @@ class DomainTopologyService(
         // Do not amplify because we are running our own retry loop here anyway
         amplify = false,
       ),
-      s"Failed sending topology transaction broadcast: $request",
+      s"Failed sending topology transaction broadcast: $request. This will be retried automatically.",
+      level = Level.WARN,
     )
   }
 }

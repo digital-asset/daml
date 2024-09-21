@@ -62,11 +62,12 @@ final case class AssignmentMediatorMessage(
   override def informeesAndConfirmationParamsByViewPosition
       : Map[ViewPosition, ViewConfirmationParameters] = {
     val confirmingParties = commonData.confirmingParties
-    val threshold = NonNegativeInt.tryCreate(confirmingParties.size)
+    val viewThreshold = NonNegativeInt.tryCreate(confirmingParties.size)
+
     Map(
       tree.viewPosition -> ViewConfirmationParameters.createOnlyWithConfirmers(
         confirmingParties,
-        threshold,
+        viewThreshold,
       )
     )
   }

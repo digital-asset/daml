@@ -1503,7 +1503,7 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
     val unassignmentRequest = UnassignmentRequest(
       submitterMetadata(submittingParty),
       Set(submittingParty),
-      Set.empty,
+      reassigningParticipants = Set(DefaultTestIdentities.participant1),
       creatingTransactionId,
       contract,
       reassignmentId.sourceDomain,

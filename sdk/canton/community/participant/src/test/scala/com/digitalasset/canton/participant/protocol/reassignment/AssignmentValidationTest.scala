@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.protocol.reassignment
 
-import cats.implicits.*
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
@@ -16,7 +15,6 @@ import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValid
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.IncompatibleProtocolVersions
 import com.digitalasset.canton.participant.protocol.submission.SeedGenerator
 import com.digitalasset.canton.participant.store.ReassignmentStoreTest.transactionId1
-import com.digitalasset.canton.protocol.ExampleTransactionFactory.submittingParticipant
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
@@ -49,12 +47,13 @@ class AssignmentValidationTest
   private val party1: LfPartyId = PartyId(
     UniqueIdentifier.tryFromProtoPrimitive("party1::party")
   ).toLf
-  private val party2: LfPartyId = PartyId(
-    UniqueIdentifier.tryFromProtoPrimitive("party2::party")
-  ).toLf
 
-  private val participant = ParticipantId(
+  private val submittingParticipant = ParticipantId(
     UniqueIdentifier.tryFromProtoPrimitive("bothdomains::participant")
+  )
+
+  private val otherParticipant = ParticipantId(
+    UniqueIdentifier.tryFromProtoPrimitive("domain::participant")
   )
 
   private val initialReassignmentCounter: ReassignmentCounter = ReassignmentCounter.Genesis
@@ -62,7 +61,7 @@ class AssignmentValidationTest
   private def submitterInfo(submitter: LfPartyId): ReassignmentSubmitterMetadata =
     ReassignmentSubmitterMetadata(
       submitter,
-      participant,
+      submittingParticipant,
       LedgerCommandId.assertFromString("assignment-validation-command-id"),
       submissionId = None,
       LedgerApplicationId.assertFromString("tests"),
@@ -74,7 +73,9 @@ class AssignmentValidationTest
     .withReversedTopology(
       Map(submittingParticipant -> Map(party1 -> ParticipantPermission.Submission))
     )
-    .withSimpleParticipants(participant) // required such that `participant` gets a signing key
+    .withSimpleParticipants(
+      submittingParticipant
+    ) // required such that `participant` gets a signing key
     .build(loggerFactory)
 
   private val cryptoSnapshot =
@@ -101,39 +102,28 @@ class AssignmentValidationTest
         cryptoSnapshot,
         submittingParticipant,
       )
-    val inRequest =
-      makeFullAssignmentTree(
-        party1,
-        Set(party1),
-        contract,
-        transactionId1,
-        targetDomain,
-        targetMediator,
-        unassignmentResult,
-      )
+    val assignmentRequest = makeFullAssignmentTree(
+      contract,
+      unassignmentResult,
+    )
 
     "succeed without errors in the basic case" in {
-      for {
-        result <- valueOrFail(
-          assignmentValidation
-            .validateAssignmentRequest(
-              CantonTimestamp.Epoch,
-              inRequest,
-              None,
-              cryptoSnapshot,
-              isReassigningParticipant = false,
-            )
-        )("validation of assignment request failed")
-      } yield {
-        result shouldBe None
-      }
+      assignmentValidation
+        .validateAssignmentRequest(
+          CantonTimestamp.Epoch,
+          assignmentRequest,
+          None,
+          cryptoSnapshot,
+          isReassigningParticipant = false,
+        )
+        .futureValue shouldBe None
     }
 
     val reassignmentId = ReassignmentId(sourceDomain, CantonTimestamp.Epoch)
     val unassignmentRequest = UnassignmentRequest(
       submitterInfo(party1),
-      Set(party1, party2), // Party 2 is a stakeholder and therefore a receiving party
-      Set.empty,
+      stakeholders = Set.empty,
+      reassigningParticipants = Set(submittingParticipant),
       ExampleTransactionFactory.transactionId(0),
       contract,
       reassignmentId.sourceDomain,
@@ -167,24 +157,17 @@ class AssignmentValidationTest
       )
 
     "succeed without errors when reassignment data is valid" in {
-      for {
-        result <- valueOrFail(
-          assignmentValidation
-            .validateAssignmentRequest(
-              CantonTimestamp.Epoch,
-              inRequest,
-              Some(reassignmentData),
-              cryptoSnapshot,
-              isReassigningParticipant = false,
-            )
-        )("validation of assignment request failed")
-      } yield {
-        result match {
-          case Some(AssignmentValidationResult(confirmingParties)) =>
-            assert(confirmingParties == Set(party1))
-          case _ => fail()
-        }
-      }
+      assignmentValidation
+        .validateAssignmentRequest(
+          CantonTimestamp.Epoch,
+          assignmentRequest,
+          Some(reassignmentData),
+          cryptoSnapshot,
+          isReassigningParticipant = false,
+        )
+        .futureValue
+        .value
+        .confirmingParties shouldBe Set(party1)
     }
 
     "wait for the topology state to be available " in {
@@ -201,7 +184,7 @@ class AssignmentValidationTest
       val inValidated = assignmentProcessingSteps2
         .validateAssignmentRequest(
           CantonTimestamp.Epoch,
-          inRequest,
+          assignmentRequest,
           Some(reassignmentData),
           cryptoSnapshot,
           isReassigningParticipant = false,
@@ -220,35 +203,63 @@ class AssignmentValidationTest
 
     "complain about inconsistent reassignment counters" in {
       val inRequestWithWrongCounter = makeFullAssignmentTree(
-        party1,
-        Set(party1),
         contract,
-        transactionId1,
-        targetDomain,
-        targetMediator,
         unassignmentResult,
         reassignmentCounter = reassignmentData.reassignmentCounter + 1,
       )
-      for {
-        result <-
-          assignmentValidation
-            .validateAssignmentRequest(
-              CantonTimestamp.Epoch,
-              inRequestWithWrongCounter,
-              Some(reassignmentData),
-              cryptoSnapshot,
-              isReassigningParticipant = true,
-            )
-            .value
-      } yield {
-        result shouldBe Left(
-          InconsistentReassignmentCounter(
-            reassignmentId,
-            inRequestWithWrongCounter.reassignmentCounter,
-            reassignmentData.reassignmentCounter,
-          )
+
+      assignmentValidation
+        .validateAssignmentRequest(
+          CantonTimestamp.Epoch,
+          inRequestWithWrongCounter,
+          Some(reassignmentData),
+          cryptoSnapshot,
+          isReassigningParticipant = true,
         )
+        .value
+        .futureValue
+        .left
+        .value shouldBe InconsistentReassignmentCounter(
+        reassignmentId,
+        inRequestWithWrongCounter.reassignmentCounter,
+        reassignmentData.reassignmentCounter,
+      )
+    }
+
+    "detect reassigning participant mismatch" in {
+      def validate(reassigningParticipants: Set[ParticipantId]) = {
+        val assignmentRequest = makeFullAssignmentTree(
+          contract,
+          unassignmentResult,
+          reassigningParticipants = reassigningParticipants,
+        )
+
+        assignmentValidation
+          .validateAssignmentRequest(
+            CantonTimestamp.Epoch,
+            assignmentRequest,
+            Some(reassignmentData),
+            cryptoSnapshot,
+            isReassigningParticipant = false,
+          )
+          .value
+          .futureValue
       }
+
+      // Happy path / control
+      validate(Set(submittingParticipant)).value.value.confirmingParties shouldBe Set(party1)
+
+      validate(Set(otherParticipant)).left.value shouldBe ReassigningParticipantsMismatch(
+        unassignmentResult.reassignmentId,
+        expected = Set(submittingParticipant),
+        declared = Set(otherParticipant),
+      )
+
+      validate(Set()).left.value shouldBe ReassigningParticipantsMismatch(
+        unassignmentResult.reassignmentId,
+        expected = Set(submittingParticipant),
+        declared = Set(),
+      )
     }
 
     "disallow reassignments from source domain supporting reassignment counter to destination domain not supporting them" in {
@@ -259,7 +270,7 @@ class AssignmentValidationTest
           assignmentValidation
             .validateAssignmentRequest(
               CantonTimestamp.Epoch,
-              inRequest,
+              assignmentRequest,
               Some(reassignmentDataSourceDomainPVCNTestNet),
               cryptoSnapshot,
               isReassigningParticipant = true,
@@ -288,7 +299,7 @@ class AssignmentValidationTest
       snapshotOverride: DomainSnapshotSyncCryptoApi,
       awaitTimestampOverride: Option[Future[Unit]],
   ): AssignmentValidation = {
-    val damle = DAMLeTestInstance(participant, signatories, stakeholders)(loggerFactory)
+    val damle = DAMLeTestInstance(submittingParticipant, signatories, stakeholders)(loggerFactory)
 
     new AssignmentValidation(
       domainId,
@@ -307,15 +318,16 @@ class AssignmentValidationTest
   }
 
   private def makeFullAssignmentTree(
-      submitter: LfPartyId,
-      stakeholders: Set[LfPartyId],
       contract: SerializableContract,
-      creatingTransactionId: TransactionId,
-      targetDomain: TargetDomainId,
-      targetMediator: MediatorGroupRecipient,
       unassignmentResult: DeliveredUnassignmentResult,
+      submitter: LfPartyId = party1,
+      stakeholders: Set[LfPartyId] = Set(party1),
+      creatingTransactionId: TransactionId = transactionId1,
       uuid: UUID = new UUID(4L, 5L),
+      targetDomain: TargetDomainId = targetDomain,
+      targetMediator: MediatorGroupRecipient = targetMediator,
       reassignmentCounter: ReassignmentCounter = initialReassignmentCounter,
+      reassigningParticipants: Set[ParticipantId] = Set(submittingParticipant),
   ): FullAssignmentTree = {
     val seed = seedGenerator.generateSaltSeed()
     valueOrFail(
@@ -333,6 +345,7 @@ class AssignmentValidationTest
         uuid,
         SourceProtocolVersion(testedProtocolVersion),
         TargetProtocolVersion(testedProtocolVersion),
+        reassigningParticipants = reassigningParticipants,
       )
     )("Failed to create FullAssignmentTree")
   }

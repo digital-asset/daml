@@ -234,7 +234,8 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
             transaction_id,
             submission_id,
             message_uuid,
-            request_sequencer_counter
+            request_sequencer_counter,
+            domain_id
           FROM lapi_command_completions
       """
       .asVectorOf(
@@ -245,8 +246,9 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
           str("transaction_id").? ~
           str("submission_id").? ~
           str("message_uuid").? ~
-          long("request_sequencer_counter").? map {
-            case offset ~ applicationId ~ submitters ~ commandId ~ transactionId ~ submissionId ~ messageUuid ~ requestSequencerCounter =>
+          long("request_sequencer_counter").? ~
+          long("domain_id") map {
+            case offset ~ applicationId ~ submitters ~ commandId ~ transactionId ~ submissionId ~ messageUuid ~ requestSequencerCounter ~ domainId =>
               (
                 applicationId,
                 submitters.toList,
@@ -255,6 +257,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
                 submissionId,
                 messageUuid,
                 requestSequencerCounter,
+                domainId,
               ) -> offset
           }
       )(connection)

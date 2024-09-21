@@ -4,12 +4,11 @@
 package com.digitalasset.canton.store
 
 import cats.data.EitherT
-import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.SessionKeyCacheConfig
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.sequencing.protocol.Recipients
 import com.digitalasset.canton.store.SessionKeyStore.RecipientGroup
-import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.tracing.TraceContext
 import com.github.blemale.scaffeine.Cache
 
@@ -75,7 +74,7 @@ object SessionKeyStoreDisabled extends SessionKeyStore {
 final class SessionKeyStoreWithInMemoryCache(sessionKeysCacheConfig: SessionKeyCacheConfig)
     extends SessionKeyStore {
 
-  /** This cache keeps track of the session key information for each recipient group, which is then used to encrypt the randomness that is
+  /** This cache keeps track of the session key information for each recipient tree, which is then used to encrypt the randomness that is
     * part of the encrypted view messages.
     *
     * This cache may create interesting eviction strategies during a key roll of a recipient.
@@ -87,7 +86,7 @@ final class SessionKeyStoreWithInMemoryCache(sessionKeysCacheConfig: SessionKeyC
     * - tx3 and tx4 pick a snapshot where the key is invalid
     *
     * However, due to concurrency, they interleave for the encrypted view message factory as tx1, tx3, tx2, tx4
-    * - tx1 populates the cache for the recipients with a new session key;
+    * - tx1 populates the cache for the recipients' tree with a new session key;
     * - tx3 notices that the key is no longer valid, produces a new session key and replaces the old one;
     * - tx2 finds the session key from tx3, but considers it invalid because the key is not active. So create a new session key and evict the old on;
     * - tx4 installs again a new session key
@@ -158,9 +157,10 @@ object SessionKeyStore {
       new SessionKeyStoreWithInMemoryCache(sessionKeyCacheConfig)
     else SessionKeyStoreDisabled
 
-  // Defines a set of recipients and the crypto scheme used to generate the session key for that group
+  // Defines a recipients tree and the crypto scheme used to generate the session key for that group
   final case class RecipientGroup(
-      recipients: NonEmpty[Set[ParticipantId]],
+      recipients: Recipients,
       cryptoScheme: SymmetricKeyScheme,
   )
+
 }

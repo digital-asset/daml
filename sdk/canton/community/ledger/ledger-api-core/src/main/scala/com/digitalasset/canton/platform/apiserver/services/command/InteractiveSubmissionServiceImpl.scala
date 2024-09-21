@@ -5,9 +5,7 @@ package com.digitalasset.canton.platform.apiserver.services.command
 
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2.interactive_submission_service.*
-import com.daml.scalautil.future.FutureConversion.*
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
-import com.digitalasset.canton.discard.Implicits.DiscardOps.*
 import com.digitalasset.canton.ledger.api.domain.{Commands as ApiCommands, SubmissionId}
 import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService
 import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.PrepareRequest as PrepareRequestInternal

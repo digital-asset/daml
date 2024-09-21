@@ -66,7 +66,7 @@ import DeduplicationPeriod.DeduplicationDuration
 /** Provides convenience methods for creating [[ExampleTransaction]]s and parts thereof.
   */
 object ExampleTransactionFactory {
-  val hkdfOps: HkdfOps = new SymbolicPureCrypto()
+  val pureCrypto: CryptoPureApi = new SymbolicPureCrypto()
   // Helper methods for Daml-LF types
   val languageVersion = LfTransactionBuilder.defaultLanguageVersion
   val packageId = LfTransactionBuilder.defaultPackageId
@@ -399,7 +399,7 @@ object ExampleTransactionFactory {
   * Also provides convenience methods for creating [[ExampleTransaction]]s and parts thereof.
   */
 class ExampleTransactionFactory(
-    val cryptoOps: HashOps with HmacOps with HkdfOps with RandomOps = new SymbolicPureCrypto,
+    val cryptoOps: HashOps with HmacOps with RandomOps = new SymbolicPureCrypto,
     versionOverride: Option[ProtocolVersion] = None,
 )(
     val transactionSalt: Salt = TestSalt.generateSalt(0),

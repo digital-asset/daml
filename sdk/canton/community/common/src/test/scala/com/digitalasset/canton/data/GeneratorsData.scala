@@ -463,6 +463,9 @@ final class GeneratorsData(
       uuid <- Gen.uuid
 
       submitterMetadata <- Arbitrary.arbitrary[ReassignmentSubmitterMetadata]
+      reassigningParticipants <- Gen.containerOf[Set, ParticipantId](
+        Arbitrary.arbitrary[ParticipantId]
+      )
 
       hashOps = TestHash // Not used for serialization
 
@@ -475,6 +478,7 @@ final class GeneratorsData(
         uuid,
         submitterMetadata,
         targetProtocolVersion,
+        reassigningParticipants,
       )
   )
 
@@ -486,7 +490,9 @@ final class GeneratorsData(
       sourceMediator <- Arbitrary.arbitrary[MediatorGroupRecipient]
 
       stakeholders <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
-      adminParties <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
+      reassigningParticipants <- Gen.containerOf[Set, ParticipantId](
+        Arbitrary.arbitrary[ParticipantId]
+      )
       uuid <- Gen.uuid
 
       submitterMetadata <- Arbitrary.arbitrary[ReassignmentSubmitterMetadata]
@@ -499,7 +505,7 @@ final class GeneratorsData(
         sourceDomain,
         sourceMediator,
         stakeholders,
-        adminParties,
+        reassigningParticipants,
         uuid,
         submitterMetadata,
         sourceProtocolVersion,
@@ -645,7 +651,7 @@ final class GeneratorsData(
     )
   )
 
-  private var unblindedSubviewHashesForLightTransactionTree: Seq[ViewHash] = _
+  private var unblindedSubviewHashesForLightTransactionTree: Seq[ViewHashAndKey] = _
 
   private val transactionViewForLightTransactionTreeArb: Arbitrary[TransactionView] = Arbitrary(
     for {
@@ -657,8 +663,15 @@ final class GeneratorsData(
       subviews = TransactionSubviews
         .apply(Seq(transactionViewWithEmptySubview))(protocolVersion, hashOps)
       subviewHashes = subviews.trySubviewHashes
+      pureCrypto = ExampleTransactionFactory.pureCrypto
+      subviewHashesAndKeys = subviewHashes.map { hash =>
+        ViewHashAndKey(
+          hash,
+          pureCrypto.generateSecureRandomness(pureCrypto.defaultSymmetricKeyScheme.keySizeInBytes),
+        )
+      }
     } yield {
-      unblindedSubviewHashesForLightTransactionTree = subviewHashes
+      unblindedSubviewHashesForLightTransactionTree = subviewHashesAndKeys
       TransactionView.tryCreate(hashOps)(
         viewCommonData = viewCommonData,
         viewParticipantData = viewParticipantData,

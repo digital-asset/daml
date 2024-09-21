@@ -150,9 +150,7 @@ abstract class BaseSequencer(
   override def read(member: Member, offset: SequencerCounter)(implicit
       traceContext: TraceContext
   ): EitherT[Future, CreateSubscriptionError, Sequencer.EventSource] =
-    for {
-      source <- readInternal(member, offset)
-    } yield source
+    readInternal(member, offset)
 
   protected def readInternal(member: Member, offset: SequencerCounter)(implicit
       traceContext: TraceContext

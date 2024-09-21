@@ -204,8 +204,6 @@ class ProtocolProcessorTest
     domain,
   )
 
-  private val encryptedRandomnessTest =
-    Encrypted.fromByteString[SecureRandomness](ByteString.EMPTY)
   private val sessionKeyMapTest = NonEmpty(
     Seq,
     new AsymmetricEncrypted[SecureRandomness](
@@ -389,8 +387,7 @@ class ProtocolProcessorTest
   private lazy val viewMessage: EncryptedViewMessage[TestViewType] = EncryptedViewMessage(
     submittingParticipantSignature = None,
     viewHash = viewHash,
-    randomness = encryptedRandomnessTest,
-    sessionKey = sessionKeyMapTest,
+    sessionKeys = sessionKeyMapTest,
     encryptedView = encryptedView,
     domainId = DefaultTestIdentities.domainId,
     SymmetricKeyScheme.Aes128Gcm,
@@ -452,7 +449,7 @@ class ProtocolProcessorTest
         .valueOrFailShutdown("submission")
         .futureValue
         .failOnShutdown("shutting down while test is running")
-        .futureValue shouldBe (())
+        .futureValue shouldBe ()
       submissionMap.get(0) shouldBe Some(()) // store the pending submission
     }
 
@@ -497,7 +494,7 @@ class ProtocolProcessorTest
         .valueOrFailShutdown("submission")
         .futureValue
         .failOnShutdown("shutting down while test is running")
-        .futureValue shouldBe (())
+        .futureValue shouldBe ()
       submissionMap.get(1) shouldBe Some(())
       val afterDecisionTime = parameters.decisionTimeFor(CantonTimestamp.Epoch).value.plusMillis(1)
       val asyncRes = sut
@@ -653,8 +650,7 @@ class ProtocolProcessorTest
       val viewMessageWrongRH = EncryptedViewMessage(
         submittingParticipantSignature = None,
         viewHash = viewHash1,
-        randomness = encryptedRandomnessTest,
-        sessionKey = sessionKeyMapTest,
+        sessionKeys = sessionKeyMapTest,
         encryptedView = encryptedViewWrongRH,
         domainId = DefaultTestIdentities.domainId,
         SymmetricKeyScheme.Aes128Gcm,
@@ -689,8 +685,7 @@ class ProtocolProcessorTest
       val viewMessageDecryptError: EncryptedViewMessage[TestViewType] = EncryptedViewMessage(
         submittingParticipantSignature = None,
         viewHash = viewHash,
-        randomness = encryptedRandomnessTest,
-        sessionKey = sessionKeyMapTest,
+        sessionKeys = sessionKeyMapTest,
         encryptedView = EncryptedView(TestViewType)(Encrypted.fromByteString(ByteString.EMPTY)),
         domainId = DefaultTestIdentities.domainId,
         viewEncryptionScheme = SymmetricKeyScheme.Aes128Gcm,

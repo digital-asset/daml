@@ -512,6 +512,32 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
     )
   }
 
+  it should "not detect same completion entries for different offsets, if domain-id differs" in {
+    val updates = Vector(
+      dtoCompletion(
+        offset(1)
+      ),
+      dtoCompletion(
+        offset(2),
+        commandId = "commandid",
+        submissionId = Some("submissionid"),
+        transactionId = Some(transactionIdFromOffset(offset(2))),
+      ),
+      dtoCompletion(
+        offset(3),
+        commandId = "commandid",
+        submissionId = Some("submissionid"),
+        transactionId = Some(transactionIdFromOffset(offset(2))),
+        domainId = "x::otherdomainid",
+      ),
+    )
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(ingest(updates, _))
+    executeSql(updateLedgerEnd(offset(5), 4L))
+    executeSql(backend.integrity.onlyForTestingVerifyIntegrity())
+  }
+
   it should "not find errors beyond the ledger end" in {
     val updates = Vector(
       dtoCreate(offset(1), 1L, hashCid("#1")),
