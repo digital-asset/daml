@@ -672,7 +672,9 @@ test("exercise using explicit disclosure", async () => {
     { encoding: "utf8" },
   );
 
-  const ledgerEnd = JSON.parse(ledgerEndResponse).offset;
+  const ledgerEnd = Number(JSON.parse(ledgerEndResponse).offset)
+    .toString(16)
+    .padStart(18, "0");
 
   // TODO(https://digitalasset.atlassian.net/browse/LT-5)
   // The JSON API does not expose created_event_blob so we read it directly through the gRPC API.

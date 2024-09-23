@@ -53,7 +53,7 @@ final class StateServiceImpl(
     val result =
       ledgerContent
         .map[GetLedgerEndResponse](t => GetLedgerEndResponse(t.offset))
-        .last(GetLedgerEndResponse(""))
+        .last(GetLedgerEndResponse(None))
     result.subscribe(promise.success _, promise.failure _)
     promise.future
   }

@@ -66,7 +66,13 @@ public class IouMain {
                   });
             });
 
-    String ledgerEnd = client.getStateClient().getLedgerEnd().blockingGet();
+    String ledgerEnd =
+        client
+            .getStateClient()
+            .getLedgerEnd()
+            .blockingGet()
+            .map(num -> String.format("%018x", num))
+            .orElse("");
 
     Disposable ignore =
         client
