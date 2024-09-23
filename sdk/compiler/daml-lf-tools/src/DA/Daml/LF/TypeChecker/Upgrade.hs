@@ -14,7 +14,7 @@ import           Control.Monad.Reader (withReaderT, ask)
 import           Control.Monad.Reader.Class (asks)
 import           Control.Lens hiding (Context)
 import           DA.Daml.LF.Ast as LF
-import           DA.Daml.LF.Ast.Alpha (alphaExpr', AlphaEnv(..), initialAlphaEnv, alphaType', alphaTypeCon)
+import qualified DA.Daml.LF.Ast.Alpha as Alpha
 import           DA.Daml.LF.TypeChecker.Check (expandTypeSynonyms)
 import           DA.Daml.LF.TypeChecker.Env
 import           DA.Daml.LF.TypeChecker.Error
@@ -27,7 +27,7 @@ import           Data.List (foldl', nub)
 import qualified Data.NameMap as NM
 import qualified Data.Text as T
 import           Development.IDE.Types.Diagnostics
-import Data.Maybe (catMaybes, mapMaybe)
+import Data.Maybe (catMaybes, mapMaybe, isNothing)
 import Safe (maximumByMay, minimumByMay)
 import Data.Function (on)
 import Module (UnitId)
@@ -36,7 +36,7 @@ import Module (UnitId)
 type TcUpgradeM = TcMF UpgradingEnv
 type TcPreUpgradeM = TcMF (Version, UpgradeInfo)
 
-type DepsMap = HMS.HashMap LF.PackageId (LF.PackageName, Maybe RawPackageVersion, Bool, Bool)
+type DepsMap = HMS.HashMap LF.PackageId UpgradingDep
 
 type UpgradeablePackage = (Maybe RawPackageVersion, LF.PackageId, LF.Package)
 type UpgradeablePackageMap = HMS.HashMap LF.PackageName [UpgradeablePackage]
@@ -207,9 +207,16 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
     upgradeablePackageMapToDeps :: UpgradeablePackageMap -> DepsMap
     upgradeablePackageMapToDeps upgradeablePackageMap =
       HMS.fromList
-        [ (pkgId, (pkgName, pkgVersion, pkgSupportsUpgrades pkg, isUtilityPackage pkg))
-        | (pkgName, versions) <- HMS.toList upgradeablePackageMap
-        , (pkgVersion, pkgId, pkg) <- versions
+        [ ( pkgId
+          , UpgradingDep
+              { udPkgName, udMbPackageVersion
+              , udIsUtilityPackage = isUtilityPackage pkg
+              , udVersionSupportsUpgrades = packageLfVersion pkg `supports` featurePackageUpgrades
+              , udPkgId = pkgId
+              }
+          )
+        | (udPkgName, versions) <- HMS.toList upgradeablePackageMap
+        , (udMbPackageVersion, pkgId, pkg) <- versions
         ]
 
     addDep
@@ -590,7 +597,7 @@ checkTemplate module_ template = do
                 (EUpgradeChoiceChangedReturnType (NM.name (_present choice)))
 
             whenDifferent "controllers" (extractFuncFromFuncThisArg . chcControllers) choice $
-                warnWithContextF present' $ WChoiceChangedControllers $ NM.name $ _present choice
+                \mismatches -> warnWithContextF present' (WChoiceChangedControllers (NM.name (_present choice)) mismatches)
 
             let observersErr = WChoiceChangedObservers $ NM.name $ _present choice
             case fmap (mapENilToNothing . chcObservers) choice of
@@ -599,9 +606,9 @@ checkTemplate module_ template = do
                Upgrading { _past = Just _past, _present = Just _present } -> do
                    whenDifferent "observers"
                        extractFuncFromFuncThisArg (Upgrading _past _present)
-                       (warnWithContextF present' observersErr)
+                       (\mismatches -> warnWithContextF present' (observersErr mismatches))
                _ -> do
-                   warnWithContextF present' observersErr
+                   warnWithContextF present' (observersErr [])
 
             let authorizersErr = WChoiceChangedAuthorizers $ NM.name $ _present choice
             case fmap (mapENilToNothing . chcAuthorizers) choice of
@@ -609,8 +616,8 @@ checkTemplate module_ template = do
                Upgrading { _past = Just _past, _present = Just _present } ->
                    whenDifferent "authorizers"
                        extractFuncFromFuncThisArg (Upgrading _past _present)
-                       (warnWithContextF present' authorizersErr)
-               _ -> warnWithContextF present' authorizersErr
+                       (\mismatches -> warnWithContextF present' (authorizersErr mismatches))
+               _ -> warnWithContextF present' (authorizersErr [])
         pure choice
 
     -- This check assumes that we encode signatories etc. on a template as
@@ -619,16 +626,16 @@ checkTemplate module_ template = do
     -- identical.
     withContextF present' (ContextTemplate (_present module_) (_present template) TPPrecondition) $
         whenDifferent "precondition" (extractFuncFromCaseFuncThis . tplPrecondition) template $
-            warnWithContextF present' $ WTemplateChangedPrecondition $ NM.name $ _present template
+            \mismatches -> warnWithContextF present' $ WTemplateChangedPrecondition (NM.name (_present template)) mismatches
     withContextF present' (ContextTemplate (_present module_) (_present template) TPSignatories) $
         whenDifferent "signatories" (extractFuncFromFuncThis . tplSignatories) template $
-            warnWithContextF present' $ WTemplateChangedSignatories $ NM.name $ _present template
+            \mismatches -> warnWithContextF present' $ WTemplateChangedSignatories (NM.name (_present template)) mismatches
     withContextF present' (ContextTemplate (_present module_) (_present template) TPObservers) $
         whenDifferent "observers" (extractFuncFromFuncThis . tplObservers) template $
-            warnWithContextF present' $ WTemplateChangedObservers $ NM.name $ _present template
+            \mismatches -> warnWithContextF present' $ WTemplateChangedObservers (NM.name (_present template)) mismatches
     withContextF present' (ContextTemplate (_present module_) (_present template) TPAgreement) $
         whenDifferent "agreement" (extractFuncFromFuncThis . tplAgreement) template $
-            warnWithContextF present' $ WTemplateChangedAgreement $ NM.name $ _present template
+            \mismatches -> warnWithContextF present' $ WTemplateChangedAgreement (NM.name (_present template)) mismatches
 
     withContextF present' (ContextTemplate (_present module_) (_present template) TPKey) $ do
         case fmap tplKey template of
@@ -645,10 +652,10 @@ checkTemplate module_ template = do
                -- But expression for computing it may
                whenDifferent "key expression"
                    (extractFuncFromFuncThis . tplKeyBody) tplKey
-                   (warnWithContextF present' $ WTemplateChangedKeyExpression $ NM.name $ _present template)
+                   (\mismatches -> warnWithContextF present' $ WTemplateChangedKeyExpression (NM.name (_present template)) mismatches)
                whenDifferent "key maintainers"
                    (extractFuncFromTyAppNil . tplKeyMaintainers) tplKey
-                   (warnWithContextF present' $ WTemplateChangedKeyMaintainers $ NM.name $ _present template)
+                   (\mismatches -> warnWithContextF present' $ WTemplateChangedKeyMaintainers (NM.name (_present template)) mismatches)
            Upgrading { _past = Just pastKey, _present = Nothing } ->
                throwWithContextF present' $ EUpgradeTemplateRemovedKey (NM.name (_present template)) pastKey
            Upgrading { _past = Nothing, _present = Just presentKey } ->
@@ -663,7 +670,7 @@ checkTemplate module_ template = do
 
         -- Given an extractor from the list below, whenDifferent runs an action
         -- when the relevant expressions differ.
-        whenDifferent :: Show a => String -> (a -> Module -> Either String Expr) -> Upgrading a -> TcUpgradeM () -> TcUpgradeM ()
+        whenDifferent :: Show a => String -> (a -> Module -> Either String Expr) -> Upgrading a -> ([Alpha.Mismatch UpgradeMismatchReason] -> TcUpgradeM ()) -> TcUpgradeM ()
         whenDifferent field extractor exprs act =
             let resolvedWithPossibleError = sequence $ extractor <$> exprs <*> module_
             in
@@ -672,8 +679,8 @@ checkTemplate module_ template = do
                     warnWithContextF present' (WCouldNotExtractForUpgradeChecking (T.pack field) (Just (T.pack err)))
                 Right resolvedExprs -> do
                     alphaEnv <- upgradingAlphaEnv
-                    let exprsMatch = foldU (alphaExpr' alphaEnv) $ fmap removeLocations resolvedExprs
-                    unless exprsMatch act
+                    let exprsMatchWarnings = foldU (Alpha.alphaExpr' alphaEnv) $ fmap removeLocations resolvedExprs
+                    unless (null exprsMatchWarnings) (act exprsMatchWarnings)
 
         -- Each extract function takes an expression, extracts a relevant
         -- ExprValName, and performs lookups necessary to get the actual
@@ -809,83 +816,76 @@ checkType type_ err = do
     sameType <- isUpgradedType type_
     unless sameType $ diagnosticWithContextF present' err
 
-checkQualVal :: DepsMap -> Upgrading (Qualified ExprValName) -> Bool
-checkQualVal depsMap name =
-    let namesAreSame = foldU (==) (fmap removePkgId name)
-        qualificationIsSame = foldU (==) (fmap qualPackage name)
-        qualificationIsUpgraded =
+checkQualName :: Alpha.IsSomeName a => DepsMap -> Upgrading (Qualified a) -> [Alpha.Mismatch UpgradeMismatchReason]
+checkQualName deps name =
+    let namesAreSame = foldU Alpha.alphaEq' (fmap removePkgId name)
+        qualificationIsSameOrUpgraded =
           case qualPackage <$> name of
             Upgrading { _past = PRImport pastPkgId, _present = PRImport presentPkgId } ->
-              pkgIdsAreUpgraded depsMap Upgrading { _past = pastPkgId, _present = presentPkgId }
-            _ -> False
+              if pastPkgId == presentPkgId
+              then []
+              else pkgIdsAreUpgraded deps Upgrading { _past = pastPkgId, _present = presentPkgId }
+            Upgrading PRSelf (PRImport pkgId) -> [nameMismatch' (OriginChangedFromSelfToImport (tryGetPkgId pkgId))]
+            Upgrading (PRImport pkgId) PRSelf -> [nameMismatch' (OriginChangedFromImportToSelf (tryGetPkgId pkgId))]
+            Upgrading PRSelf PRSelf -> []
+        prioritizeMismatches mismatches
+          | Alpha.StructuralMismatch `elem` mismatches = [Alpha.StructuralMismatch]
+          | otherwise = mismatches
     in
-    namesAreSame && (qualificationIsSame || qualificationIsUpgraded)
+    prioritizeMismatches (namesAreSame `Alpha.andMismatches` qualificationIsSameOrUpgraded)
   where
-    pkgIdsAreUpgraded :: DepsMap -> Upgrading PackageId -> Bool
-    pkgIdsAreUpgraded depsMap pkgId =
-      case HMS.lookup <$> pkgId <*> pure depsMap of
-        Upgrading { _past = Just (pastName, mbPastVersion, pastSupportsUpgrades, pastIsUtilityPkg), _present = Just (presentName, mbPresentVersion, presentSupportsUpgrades, presentIsUtilityPkg) } ->
-          pastName == presentName &&
-          case (pastSupportsUpgrades, presentSupportsUpgrades) of
-            (False, False) -> foldU (==) pkgId -- Both packages don't support upgrades (<= LF 1.15) so IDs should be identical
-            (True, True) ->
-              case (pastIsUtilityPkg, presentIsUtilityPkg) of
-                (True, True) ->
-                  case (mbPastVersion, mbPresentVersion) of
-                    (Just pastVersion, Just presentVersion) -> pastVersion < presentVersion
-                    _ -> False -- Not possible
-                (False, False) ->
-                  presentName `elem` [PackageName "daml-stdlib", PackageName "daml-prim"]
-                  || case (mbPastVersion, mbPresentVersion) of
-                      (Just pastVersion, Just presentVersion) -> pastVersion < presentVersion
-                      (Nothing, Nothing) -> True -- Only daml-prim has no version field
-                      _ -> False -- Not possible
-                _ -> False -- Shouldn't go from utility package to non-utility package
-            _ -> False -- Going from supports upgrades to not supports upgrades, or vice versa, could indicate a problem
-        _ ->
-          False -- Not possible
+    nameMismatch' reason = foldU Alpha.nameMismatch name (Just reason)
+    ifMismatch b reason = [nameMismatch' reason | not b]
+    tryGetPkgId :: LF.PackageId -> Either PackageId UpgradingDep
+    tryGetPkgId pkgId =
+      case HMS.lookup pkgId deps of
+        Nothing -> Left pkgId
+        Just dep -> Right dep
 
-checkQualType :: DepsMap -> Upgrading (Qualified TypeConName) -> Bool
-checkQualType depsMap name =
-    let namesAreSame = foldU (==) (fmap removePkgId name)
-        qualificationIsSame = foldU (==) (fmap qualPackage name)
-        qualificationIsUpgraded =
-          case qualPackage <$> name of
-            Upgrading { _past = PRImport pastPkgId, _present = PRImport presentPkgId } ->
-              pkgIdsAreUpgraded depsMap Upgrading { _past = pastPkgId, _present = presentPkgId }
-            _ -> False
-    in
-    namesAreSame && (qualificationIsSame || qualificationIsUpgraded)
-  where
-    pkgIdsAreUpgraded :: DepsMap -> Upgrading PackageId -> Bool
-    pkgIdsAreUpgraded depsMap pkgId =
-      case HMS.lookup <$> pkgId <*> pure depsMap of
-        Upgrading { _past = Just (pastName, mbPastVersion, pastSupportsUpgrades, pastIsUtilityPkg), _present = Just (presentName, mbPresentVersion, presentSupportsUpgrades, presentIsUtilityPkg) } ->
-          pastName == presentName &&
-          case (pastSupportsUpgrades, presentSupportsUpgrades) of
-            (False, False) -> foldU (==) pkgId -- Both packages don't support upgrades (<= LF 1.15) so IDs should be identical
-            (True, True) ->
-              case (pastIsUtilityPkg, presentIsUtilityPkg) of
-                (False, False) ->
-                  presentName `elem` [PackageName "daml-stdlib", PackageName "daml-prim"]
-                  || case (mbPastVersion, mbPresentVersion) of
-                      (Just pastVersion, Just presentVersion) -> pastVersion < presentVersion
-                      (Nothing, Nothing) -> True -- Only daml-prim has no version field
-                      _ -> False -- Not possible
-                _ -> False -- Not possible to have types from utility packages
-            _ -> False -- Shouldn't go from 1.15 (non-upgradeable) to 1.17 (upgradeable)
-        _ -> False -- Not possible
+    pkgIdsAreUpgraded :: DepsMap -> Upgrading PackageId -> [Alpha.Mismatch UpgradeMismatchReason]
+    pkgIdsAreUpgraded deps pkgId =
+      case flip HMS.lookup deps <$> pkgId of
+        Upgrading { _past = Just pastDep, _present = Just presentDep } ->
+          let upgradingDep = Upgrading { _past = pastDep, _present = presentDep }
+          in
+          ifMismatch (foldU (==) (fmap udPkgName upgradingDep)) (PackageNameChanged upgradingDep)
+          `Alpha.andMismatches`
+          case udVersionSupportsUpgrades <$> upgradingDep of
+            Upgrading False False -> ifMismatch (foldU (==) pkgId) (DifferentPackagesNeitherOfWhichSupportsUpgrades upgradingDep)
+            Upgrading True True ->
+              case udIsUtilityPackage <$> upgradingDep of
+                Upgrading True True ->
+                  if udPkgName (_present upgradingDep) `elem` [PackageName "daml-stdlib", PackageName "daml-prim"]
+                  then []
+                  else case udMbPackageVersion `traverse` upgradingDep of
+                    Just version -> ifMismatch (_past version > _present version) (PastPackageHasHigherVersion upgradingDep)
+                    _ -> [] -- This case should not be possible
+                Upgrading False False ->
+                  case udMbPackageVersion <$> upgradingDep of
+                      Upgrading (Just pastVersion) (Just presentVersion) -> ifMismatch (pastVersion < presentVersion) (PastPackageHasHigherVersion upgradingDep)
+                      Upgrading Nothing Nothing -> [] -- Only daml-prim has no version field
+                      _ -> [] -- This case should not be possible
+                Upgrading False True -> [nameMismatch' (PackageChangedFromSchemaToUtilityPackage upgradingDep)]
+                Upgrading True False -> [nameMismatch' (PackageChangedFromUtilityToSchemaPackage upgradingDep)]
+            Upgrading False True -> [nameMismatch' (PackageChangedFromDoesNotSupportUpgradesToSupportUpgrades upgradingDep)]
+            Upgrading True False -> [nameMismatch' (PackageChangedFromSupportUpgradesToDoesNotSupportUpgrades upgradingDep)]
+        Upgrading { _past = pastDepLookup, _present = presentDepLookup } ->
+          ifMismatch (isNothing pastDepLookup) (CouldNotFindPackageForPastIdentifier (Left (_past pkgId)))
+          `Alpha.andMismatches` ifMismatch (isNothing presentDepLookup) (CouldNotFindPackageForPastIdentifier (Left (_present pkgId)))
 
 isUpgradedType :: Upgrading Type -> TcUpgradeM Bool
 isUpgradedType type_ = do
     expandedTypes <- runGammaUnderUpgrades (expandTypeSynonyms <$> type_)
     alphaEnv <- upgradingAlphaEnv
-    pure $ foldU (alphaType' alphaEnv) expandedTypes
+    -- NOTE: The warning messages generated by alphaType' via checkQualName
+    -- below are only designed for the expression warnings and won't make sense
+    -- if used to describe issues with types.
+    pure $ null $ foldU (Alpha.alphaType' alphaEnv) expandedTypes
 
-upgradingAlphaEnv :: TcUpgradeM AlphaEnv
+upgradingAlphaEnv :: TcUpgradeM (Alpha.AlphaEnv UpgradeMismatchReason)
 upgradingAlphaEnv = do
     depsMap <- view depsMap
-    pure $ initialAlphaEnv { alphaTypeCon = unfoldU (checkQualType depsMap), alphaExprVal = unfoldU (checkQualVal depsMap) }
+    pure $ Alpha.initialAlphaEnv { Alpha.alphaTypeCon = unfoldU (checkQualName depsMap), Alpha.alphaExprVal = unfoldU (checkQualName depsMap) }
 
 removePkgId :: Qualified a -> Qualified a
 removePkgId a = a { qualPackage = PRSelf }

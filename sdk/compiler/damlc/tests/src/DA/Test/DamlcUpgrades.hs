@@ -44,21 +44,21 @@ tests damlc =
             concat [
                 [ test
                       "WarnsWhenTemplateChangesSignatories"
-                      (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template Main.A signatories:\n  The upgraded template A has changed the definition of its signatories.")
+                      (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template Main.A signatories:\n  The upgraded template A has changed the definition of its signatories..*Expression is structurally different")
                       versionDefault
                       NoDependencies
                       False
                       setUpgradeField
                 , test
                       "WarnsWhenTemplateChangesAgreement"
-                      (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template Main.A agreement:\n  The upgraded template A has changed the definition of agreement.")
+                      (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template Main.A agreement:\n  The upgraded template A has changed the definition of agreement..*Expression is structurally different")
                       versionDefault
                       NoDependencies
                       False
                       setUpgradeField
                 , test
                       "WarnsWhenTemplateChangesObservers"
-                      (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template Main.A observers:\n  The upgraded template A has changed the definition of its observers.")
+                      (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template Main.A observers:\n  The upgraded template A has changed the definition of its observers..*Expression is structurally different")
                       versionDefault
                       NoDependencies
                       False
@@ -72,14 +72,14 @@ tests damlc =
                       setUpgradeField
                 , test
                       "WarnsWhenTemplateChangesEnsure"
-                      (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template Main.A precondition:\n  The upgraded template A has changed the definition of its precondition.")
+                      (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template Main.A precondition:\n  The upgraded template A has changed the definition of its precondition..*Expression is structurally different")
                       versionDefault
                       NoDependencies
                       False
                       setUpgradeField
                 , test
                       "WarnsWhenTemplateChangesKeyExpression"
-                      (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template Main.A key:\n  The upgraded template A has changed the expression for computing its key.")
+                      (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template Main.A key:\n  The upgraded template A has changed the expression for computing its key..*Expression is structurally different")
                       versionDefault
                       NoDependencies
                       False
@@ -482,13 +482,40 @@ tests damlc =
                       setUpgradeField
                 , testWithAdditionalDars
                       "WarnsWhenExpressionChangesPackageId"
-                      (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template Main.T signatories:\n  The upgraded template T has changed the definition of its signatories.")
+                      (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template Main.T signatories:\n  The upgraded template T has changed the definition of its signatories..*Name came from package .* and now comes from differently-named package .*")
                       versionDefault
                       NoDependencies
                       False
                       setUpgradeField
                       ["upgrades-WarnsWhenExpressionChangesPackageId-dep-name1.dar"]
                       ["upgrades-WarnsWhenExpressionChangesPackageId-dep-name2.dar"]
+                , test
+                      "WarnsWhenExpressionChangesUtilityToSchemaPackage"
+                      (SucceedWithWarning ".*the previous package was a utility package and the current one is not.")
+                      versionDefault
+                      (SeparateDeps False)
+                      False
+                      setUpgradeField
+                , test
+                      "WarnsWhenExpressionDowngradesVersion"
+                      (SucceedWithWarning ".*Both packages support upgrades, but the previous package had a higher version than the current one.")
+                      versionDefault
+                      (SeparateDeps True)
+                      False
+                      setUpgradeField
+                -- TODO https://github.com/digital-asset/daml/issues/19980
+                -- Currently there is no good way to test BindingMismatch errors
+                -- in upgrades, because LF turns lambdas into their own
+                -- top-level definitions, which are not expanded by the
+                -- expression equality checker. We're disabling the following
+                -- test in the meantime.
+                --, test
+                --      "WarnsWhenExpressionChangesBindingOrder"
+                --      (SucceedWithWarning ".*refer to different bindings in the environment")
+                --      versionDefault
+                --      (SeparateDeps False)
+                --      False
+                --      setUpgradeField
                 ]
             | setUpgradeField <- [True, False]
             ] ++
@@ -592,7 +619,7 @@ tests damlc =
                   , readFile =<< testRunfile (location </> "v2" </> path)
                   )
 
-            let (oldLfVersion, newLfVersion) = versionPair lfVersion
+            let ((oldDepLfVersion, newDepLfVersion), (oldLfVersion, newLfVersion)) = versionPairs lfVersion
             (depV1Dar, depV2Dar) <- case sharedDep of
               SharedDep -> do
                 depFilePaths <- listDirectory =<< testRunfile (location </> "dep")
@@ -603,12 +630,12 @@ tests damlc =
 
                 let oldSharedDir = dir </> "oldShared"
                 let oldSharedDar = oldSharedDir </> "out.dar"
-                writeFiles oldSharedDir (projectFile "0.0.1" oldLfVersion ("upgrades-example-" <> location <> "-dep") Nothing Nothing [] : sharedDepFiles)
+                writeFiles oldSharedDir (projectFile "0.0.1" oldDepLfVersion ("upgrades-example-" <> location <> "-dep") Nothing Nothing [] : sharedDepFiles)
                 callProcessSilent damlc ["build", "--project-root", oldSharedDir, "-o", oldSharedDar]
 
                 let newSharedDir = dir </> "newShared"
                 let newSharedDar = newSharedDir </> "out.dar"
-                writeFiles newSharedDir (projectFile "0.0.1" newLfVersion ("upgrades-example-" <> location <> "-dep") Nothing Nothing [] : sharedDepFiles)
+                writeFiles newSharedDir (projectFile "0.0.1" newDepLfVersion ("upgrades-example-" <> location <> "-dep") Nothing Nothing [] : sharedDepFiles)
                 callProcessSilent damlc ["build", "--project-root", newSharedDir, "-o", newSharedDar]
 
                 pure (Just oldSharedDar, Just newSharedDar)
@@ -620,7 +647,7 @@ tests damlc =
                       )
                 let depV1Dir = dir </> "shared-v1"
                 let depV1Dar = depV1Dir </> "out.dar"
-                writeFiles depV1Dir (projectFile "0.0.1" (if shouldSwap then newLfVersion else oldLfVersion) ("upgrades-example-" <> location <> "-dep") Nothing Nothing [] : depV1Files)
+                writeFiles depV1Dir (projectFile "0.0.1" (if shouldSwap then newDepLfVersion else oldDepLfVersion) ("upgrades-example-" <> location <> "-dep") Nothing Nothing [] : depV1Files)
                 callProcessSilent damlc ["build", "--project-root", depV1Dir, "-o", depV1Dar]
 
                 depV2FilePaths <- listDirectory =<< testRunfile (location </> "dep-v2")
@@ -630,7 +657,7 @@ tests damlc =
                       )
                 let depV2Dir = dir </> "shared-v2"
                 let depV2Dar = depV2Dir </> "out.dar"
-                writeFiles depV2Dir (projectFile "0.0.2" (if shouldSwap then oldLfVersion else newLfVersion) ("upgrades-example-" <> location <> "-dep") Nothing Nothing [] : depV2Files)
+                writeFiles depV2Dir (projectFile "0.0.2" (if shouldSwap then oldDepLfVersion else newDepLfVersion) ("upgrades-example-" <> location <> "-dep") Nothing Nothing [] : depV2Files)
                 callProcessSilent damlc ["build", "--project-root", depV2Dir, "-o", depV2Dar]
 
                 if shouldSwap
@@ -726,10 +753,13 @@ data Dependency
   | SeparateDeps { shouldSwap :: Bool }
 
 class IsVersionPair a where
-  versionPair :: a -> (LF.Version, LF.Version)
+  versionPairs :: a -> ((LF.Version, LF.Version), (LF.Version, LF.Version))
 
 instance IsVersionPair LF.Version where
-  versionPair v = (v, v)
+  versionPairs v = ((v, v), (v, v))
 
 instance IsVersionPair (LF.Version, LF.Version) where
-  versionPair = id
+  versionPairs vs = (vs, vs)
+
+instance IsVersionPair ((LF.Version, LF.Version), (LF.Version, LF.Version)) where
+  versionPairs vs = vs
