@@ -2,11 +2,12 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 module Main where
-template A with
-    p : Party
-    q : Party
+
+import Dep
+
+template T with
+    p: Party
+    q: Party
   where
-    signatory p
-    key (p, "example2") : (Party, Text)
-    maintainer (fst key)
+    signatory (useParty p (\unused mainArg -> mainArg))
 

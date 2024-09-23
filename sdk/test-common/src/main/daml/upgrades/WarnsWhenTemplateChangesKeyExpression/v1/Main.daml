@@ -7,6 +7,6 @@ template A with
     q : Party
   where
     signatory p
-    key (p, "example") : (Party, Text)
+    key (p, "example1") : (Party, Text)
     maintainer (fst key)
 
