@@ -131,6 +131,9 @@ data Options = Options
   -- packages from remote ledgers.
   , optAllowLargeTuples :: AllowLargeTuples
   -- ^ Do not warn when tuples of size > 5 are used
+  , optHideUnitId :: Bool
+  -- ^ When running in IDE, some rules need access to the package name and version, but we don't want to use own
+  -- unit-id, as script + scenario service assume it will be "main"
   , optUpgradeInfo :: UpgradeInfo
   }
 
@@ -279,6 +282,7 @@ defaultOptions mbVersion =
         , optEnableOfInterestRule = False
         , optAccessTokenPath = Nothing
         , optAllowLargeTuples = AllowLargeTuples False
+        , optHideUnitId = False
         , optUpgradeInfo = defaultUpgradeInfo
         }
 
@@ -306,7 +310,7 @@ fullPkgName (LF.PackageName n) mbV (LF.PackageId h) =
         Just (LF.PackageVersion v) -> n <> "-" <> v <> "-" <> h
 
 optUnitId :: Options -> Maybe UnitId
-optUnitId Options{..} = fmap (\name -> pkgNameVersion name optMbPackageVersion) optMbPackageName
+optUnitId Options{..} = guard (not optHideUnitId) >> fmap (\name -> pkgNameVersion name optMbPackageVersion) optMbPackageName
 
 getLogger :: Options -> T.Text -> IO (Logger.Handle IO)
 getLogger Options {optLogLevel} name = Logger.IO.newStderrLogger optLogLevel name

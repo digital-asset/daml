@@ -136,12 +136,13 @@ import DA.Daml.Options.Types (EnableScenarioService(..),
                               optEnableOfInterestRule,
                               optEnableScenarios,
                               optHaddock,
+                              optHideUnitId,
                               optIfaceDir,
                               optImportPath,
                               optIncrementalBuild,
+                              optMbPackageConfigPath,
                               optMbPackageName,
                               optMbPackageVersion,
-                              optMbPackageConfigPath,
                               optPackageDbs,
                               optPackageImports,
                               optScenarioService,
@@ -829,6 +830,9 @@ execIde telemetry (Debug debug) enableScenarioService autorunAllScenarios option
               , optMbPackageName = pName <$> mPkgConfig
               , optMbPackageVersion = mPkgConfig >>= pVersion
               , optMbPackageConfigPath = Just pkgPath
+              -- Since the main package changes, we use GHC's default of `main` everywhere, since plumbing the actual unit id
+              -- is messy.
+              , optHideUnitId = True
               }
           installDepsAndInitPackageDb options (InitPkgDb True)
           scenarioServiceConfig <- readScenarioServiceConfig
