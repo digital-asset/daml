@@ -2184,12 +2184,12 @@ convertLet env binder bound mkBody = do
             pure $ ELet (Binding binder bound) body
 
 -- | Convert ghc package unit id's to LF package references.
-convertUnitId :: GHC.UnitId -> MS.Map GHC.UnitId DalfPackage -> UnitId -> ConvertM LF.PackageImportOrSelf
-convertUnitId thisUnitId _pkgMap unitId | unitId == thisUnitId = pure LF.PSelf
+convertUnitId :: GHC.UnitId -> MS.Map GHC.UnitId DalfPackage -> UnitId -> ConvertM LF.SelfOrImportedPackageId
+convertUnitId thisUnitId _pkgMap unitId | unitId == thisUnitId = pure LF.SelfPackageId
 convertUnitId _thisUnitId pkgMap unitId = case unitId of
   IndefiniteUnitId x -> unsupported "Indefinite unit id's." x
   DefiniteUnitId _ -> case MS.lookup unitId pkgMap of
-    Just DalfPackage{..} -> pure $ LF.PImport dalfPackageId
+    Just DalfPackage{..} -> pure $ LF.ImportedPackageId dalfPackageId
     Nothing -> unknown unitId pkgMap
 
 convertAlt :: SdkVersioned => Env -> LF.Type -> Alt Var -> ConvertM GeneralisedCaseAlternative
@@ -2423,7 +2423,7 @@ promotedTextTy env text = do
 
 qualifyLocally :: Env -> a -> Qualified a
 qualifyLocally env qualObject = Qualified
-  { qualPackage = PSelf
+  { qualPackage = SelfPackageId
   , qualModule = envLFModuleName env
   , qualObject
   }
@@ -2433,13 +2433,13 @@ qualifyLocally env qualObject = Qualified
 rewriteStableQualified :: Env -> Qualified a -> Qualified a
 rewriteStableQualified env q@(Qualified pkgRef modName obj) =
     let mbUnitId = case pkgRef of
-            PSelf -> Just (envModuleUnitId env)
-            PImport pkgId ->
+            SelfPackageId -> Just (envModuleUnitId env)
+            ImportedPackageId pkgId ->
                 -- TODO We probably want to replace this my a more efficient lookup at some point
                 fmap fst $ find (\(_, dalfPkg) -> dalfPackageId dalfPkg == pkgId) $ MS.toList $ envPkgMap env
     in case (\unitId -> MS.lookup (unitId, modName) (envStablePackages env)) =<< mbUnitId of
       Nothing -> q
-      Just pkgId -> Qualified (PImport pkgId) modName obj
+      Just pkgId -> Qualified (ImportedPackageId pkgId) modName obj
 
 convertQualifiedModuleName :: a -> Env -> GHC.Module -> ConvertM (Qualified a)
 convertQualifiedModuleName x env (GHC.Module unitId moduleName) = do
@@ -2460,19 +2460,19 @@ convertQualifiedTySyn = convertQualified (\n -> mkTypeSyn [getOccText n])
 convertQualifiedTyCon :: NamedThing a => Env -> a -> ConvertM (Qualified TypeConName)
 convertQualifiedTyCon = convertQualified (\n -> mkTypeCon [getOccText n])
 
-nameToPkgRef :: NamedThing a => Env -> a -> ConvertM LF.PackageImportOrSelf
+nameToPkgRef :: NamedThing a => Env -> a -> ConvertM LF.SelfOrImportedPackageId
 nameToPkgRef env x =
-  maybe (pure LF.PSelf) (unitIdToPkgRef env . moduleUnitId) $
+  maybe (pure LF.SelfPackageId) (unitIdToPkgRef env . moduleUnitId) $
     Name.nameModule_maybe $ getName x
 
-unitIdToPkgRef :: Env -> UnitId -> ConvertM LF.PackageImportOrSelf
+unitIdToPkgRef :: Env -> UnitId -> ConvertM LF.SelfOrImportedPackageId
 unitIdToPkgRef env unitId =
   convertUnitId thisUnitId pkgMap unitId
   where
     thisUnitId = envModuleUnitId env
     pkgMap = envPkgMap env
 
-packageNameToPkgRef :: Env -> UnitId -> ConvertM LF.PackageImportOrSelf
+packageNameToPkgRef :: Env -> UnitId -> ConvertM LF.SelfOrImportedPackageId
 packageNameToPkgRef env = convertUnitId (envModuleUnitId env) (envPkgMap env)
 
 convertTyCon :: Env -> TyCon -> ConvertM LF.Type

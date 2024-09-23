@@ -1463,7 +1463,7 @@ getDlintDiagnosticsRule =
 --
 scenariosInModule :: LF.Module -> [(LF.ValueRef, Maybe LF.SourceLoc)]
 scenariosInModule m =
-    [ (LF.Qualified LF.PSelf (LF.moduleName m) (LF.dvalName val), LF.dvalLocation val)
+    [ (LF.Qualified LF.SelfPackageId (LF.moduleName m) (LF.dvalName val), LF.dvalLocation val)
     | val <- NM.toList (LF.moduleValues m), LF.getIsTest (LF.dvalIsTest val)]
 
 isDamlScriptModule :: LF.ModuleName -> Bool
@@ -1473,7 +1473,7 @@ isDamlScriptModule _ = False
 
 scriptsInModule :: LF.Module -> [(LF.ValueRef, Maybe LF.SourceLoc)]
 scriptsInModule m =
-    [ (LF.Qualified LF.PSelf (LF.moduleName m) (LF.dvalName val), LF.dvalLocation val)
+    [ (LF.Qualified LF.SelfPackageId (LF.moduleName m) (LF.dvalName val), LF.dvalLocation val)
     | val <- NM.toList (LF.moduleValues m)
     , T.head (LF.unExprValName (LF.dvalName val)) /= '$'
     , LF.TConApp (LF.Qualified _ damlScriptModule (LF.TypeConName ["Script"])) _ <-  [LF.dvalType val]

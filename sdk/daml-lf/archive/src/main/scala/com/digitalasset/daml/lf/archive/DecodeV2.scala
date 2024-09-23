@@ -758,13 +758,13 @@ private[archive] class DecodeV2(minor: LV.Minor) {
 
     private[this] def decodeModuleRef(lfId: PLF.ModuleId): (PackageId, ModuleName) = {
       val modName = getInternedDottedName(lfId.getModuleNameInternedDname)
-      import PLF.PackageImportOrSelf.{SumCase => SC}
+      import PLF.SelfOrImportedPackageId.{SumCase => SC}
 
       val pkgId = lfId.getPackageId.getSumCase match {
-        case SC.SELF =>
+        case SC.SELF_PACKAGE_ID =>
           this.packageId
-        case SC.PACKAGE_IMPORT_INTERNED_STR =>
-          getInternedPackageId(lfId.getPackageId.getPackageImportInternedStr)
+        case SC.IMPORTED_PACKAGE_ID_INTERNED_STR =>
+          getInternedPackageId(lfId.getPackageId.getImportedPackageIdInternedStr)
         case SC.SUM_NOT_SET =>
           throw Error.Parsing("PackageId.SUM_NOT_SET")
       }

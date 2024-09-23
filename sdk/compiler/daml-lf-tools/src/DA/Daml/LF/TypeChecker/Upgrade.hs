@@ -393,7 +393,7 @@ checkNewInterfacesAreUnused hasModules =
         [ HMS.mapKeys qualify $ HMS.map (module_,) $ NM.toHashMap (moduleInterfaces module_)
         | module_ <- NM.elems (getModules hasModules)
         , let qualify :: LF.TypeConName -> LF.Qualified LF.TypeConName
-              qualify tcn = Qualified PSelf (NM.name module_) tcn
+              qualify tcn = Qualified SelfPackageId (NM.name module_) tcn
         ]
 
     definedAndInstantiated
@@ -410,7 +410,7 @@ checkUpgradedInterfacesAreUnused
 checkUpgradedInterfacesAreUnused upgradedPackageId module_ newInstances = do
     forM_ (HMS.toList newInstances) $ \((tplName, ifaceName), (tpl, implementation)) ->
         when (fromUpgradedPackage ifaceName) $
-            let qualifiedTplName = Qualified PSelf (moduleName module_) tplName
+            let qualifiedTplName = Qualified SelfPackageId (moduleName module_) tplName
                 ifaceInstanceHead = InterfaceInstanceHead ifaceName qualifiedTplName
             in
             withContextF present (ContextTemplate module_ tpl (TPInterfaceInstance ifaceInstanceHead Nothing)) $
@@ -419,7 +419,7 @@ checkUpgradedInterfacesAreUnused upgradedPackageId module_ newInstances = do
     fromUpgradedPackage :: forall a. LF.Qualified a -> Bool
     fromUpgradedPackage identifier =
         case qualPackage identifier of
-          PImport identifierOrigin -> unUpgradedPackageId upgradedPackageId == identifierOrigin
+          ImportedPackageId identifierOrigin -> unUpgradedPackageId upgradedPackageId == identifierOrigin
           _ -> False
 
 instantiatedIfaces :: NM.NameMap LF.Module -> HMS.HashMap (LF.Qualified LF.TypeConName) [(Module, Template, TemplateImplements)]
@@ -661,7 +661,7 @@ isSameType type_ = do
     pure (foldU alphaType strippedIdentifiers)
 
 unifyIdentifier :: Qualified a -> Qualified a
-unifyIdentifier q = q { qualPackage = PSelf }
+unifyIdentifier q = q { qualPackage = SelfPackageId }
 
 unifyTypes :: Type -> Type
 unifyTypes typ =

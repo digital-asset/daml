@@ -112,7 +112,7 @@ ghcPrim version = Package
   }
   where
     modName = mkModName ["GHC", "Prim"]
-    qual = Qualified PSelf modName
+    qual = Qualified SelfPackageId modName
     conName = mkVariantCon "Void#"
     dataVoid = DefDataType
       { dataLocation= Nothing
@@ -156,7 +156,7 @@ daTypes version = Package
     aTyVar = mkTypeVar "a"
     bTyVar = mkTypeVar "b"
     eitherTyVars = [(aTyVar, KStar), (bTyVar, KStar)]
-    eitherTyConApp = TypeConApp (Qualified PSelf modName (mkTypeCon ["Either"])) [TVar aTyVar, TVar bTyVar]
+    eitherTyConApp = TypeConApp (Qualified SelfPackageId modName (mkTypeCon ["Either"])) [TVar aTyVar, TVar bTyVar]
     eitherTy = typeConAppToType eitherTyConApp
     values = NM.fromList $ eitherWorkers ++ tupleWorkers
     eitherWorkers =
@@ -168,7 +168,7 @@ daTypes version = Package
     tupleTyVar i = mkTypeVar ("t" <> T.pack (show i))
     tupleTyVars n = [(tupleTyVar i, KStar) | i <- [1..n]]
     tupleTyName n = mkTypeCon ["Tuple" <> T.pack (show n)]
-    tupleTyConApp n = TypeConApp (Qualified PSelf modName (tupleTyName n)) (map (TVar . tupleTyVar) [1..n])
+    tupleTyConApp n = TypeConApp (Qualified SelfPackageId modName (tupleTyName n)) (map (TVar . tupleTyVar) [1..n])
     tupleTy = typeConAppToType . tupleTyConApp
     tupleTmVar i = mkVar $ "a" <> T.pack (show i)
     tupleWorker n = DefValue Nothing (mkWorkerName $ "Tuple" <> T.pack (show n), mkTForalls (tupleTyVars n) (mkTFuns (map (TVar . tupleTyVar) [1..n]) $ tupleTy n)) (IsTest False) $
@@ -241,9 +241,9 @@ daInternalAny version = Package
       , DefDataType Nothing (mkTypeCon ["TemplateTypeRep"]) (IsSerializable False) [] $
           DataRecord [(mkField "getTemplateTypeRep", TTypeRep)]
       , DefDataType Nothing (mkTypeCon ["AnyChoice"]) (IsSerializable False) [] $
-          DataRecord [(mkField "getAnyChoice", TAny), (mkField "getAnyChoiceTemplateTypeRep", TCon (Qualified PSelf modName (mkTypeCon ["TemplateTypeRep"])))]
+          DataRecord [(mkField "getAnyChoice", TAny), (mkField "getAnyChoiceTemplateTypeRep", TCon (Qualified SelfPackageId modName (mkTypeCon ["TemplateTypeRep"])))]
       , DefDataType Nothing (mkTypeCon ["AnyContractKey"]) (IsSerializable False) [] $
-          DataRecord [(mkField "getAnyContractKey", TAny), (mkField "getAnyContractKeyTemplateTypeRep", TCon (Qualified PSelf modName (mkTypeCon ["TemplateTypeRep"])))]
+          DataRecord [(mkField "getAnyContractKey", TAny), (mkField "getAnyContractKeyTemplateTypeRep", TCon (Qualified SelfPackageId modName (mkTypeCon ["TemplateTypeRep"])))]
       ]
 
 daInternalInterfaceAnyViewTypes :: Version -> Package
@@ -265,7 +265,7 @@ daInternalInterfaceAnyViewTypes version = Package
     anyViewTyCon = mkTypeCon ["AnyView"]
     getAnyViewField = mkField "getAnyView"
     getAnyViewInterfaceTypeRepField = mkField "getAnyViewInterfaceTypeRep"
-    interfaceTypeRepType = TCon (Qualified PSelf modName (mkTypeCon ["InterfaceTypeRep"]))
+    interfaceTypeRepType = TCon (Qualified SelfPackageId modName (mkTypeCon ["InterfaceTypeRep"]))
 
     interfaceTypeRepTyCon = mkTypeCon ["InterfaceTypeRep"]
     getInterfaceTypeRepField = mkField "getInterfaceTypeRep"
@@ -304,7 +304,7 @@ daActionStateType version daTypesPackageId = Package
     modName = mkModName ["DA", "Action", "State", "Type"]
 
     tuple2QualTyCon = Qualified
-      { qualPackage = PImport daTypesPackageId
+      { qualPackage = ImportedPackageId daTypesPackageId
       , qualModule = mkModName ["DA", "Types"]
       , qualObject = mkTypeCon ["Tuple2"]
       }
@@ -586,7 +586,7 @@ daValidationTypes version nonEmptyPkgId = Package
   }
   where
     nonEmptyModName = mkModName ["DA", "NonEmpty", "Types"]
-    nonEmptyTCon = Qualified (PImport nonEmptyPkgId) nonEmptyModName (mkTypeCon ["NonEmpty"])
+    nonEmptyTCon = Qualified (ImportedPackageId nonEmptyPkgId) nonEmptyModName (mkTypeCon ["NonEmpty"])
     modName = mkModName ["DA", "Validation", "Types"]
     validationTyCon = mkTypeCon ["Validation"]
     errors = mkVariantCon "Errors"
@@ -627,7 +627,7 @@ daLogicTypes version = Package
     disjunction = mkVariantCon "Disjunction"
     tyVar = mkTypeVar "a"
     tyVars = [(tyVar, KStar)]
-    formulaTy = TApp (TCon $ Qualified PSelf modName formulaTyCon) (TVar tyVar)
+    formulaTy = TApp (TCon $ Qualified SelfPackageId modName formulaTyCon) (TVar tyVar)
     types = NM.fromList
       [ DefDataType Nothing formulaTyCon (IsSerializable True) tyVars $ DataVariant
           [ (proposition, TVar tyVar)
@@ -790,7 +790,7 @@ builtinExceptionPackage version name = Package
     types = NM.singleton (DefDataType Nothing tyCon (IsSerializable True) tyVars (DataRecord fields))
     values = NM.singleton (mkWorkerDef modName tyCon tyVars fields)
     var = mkVar "x"
-    qualify = Qualified PSelf modName
+    qualify = Qualified SelfPackageId modName
     exceptions = NM.singleton DefException
         { exnLocation = Nothing
         , exnName = tyCon
@@ -804,21 +804,21 @@ mkSelectorDef :: ModuleName -> TypeConName -> [(TypeVarName, Kind)] -> FieldName
 mkSelectorDef modName tyCon tyVars fieldName fieldTy =
     DefValue Nothing (mkSelectorName (T.intercalate "." $ unTypeConName tyCon) (unFieldName fieldName), mkTForalls tyVars (ty :-> fieldTy)) (IsTest False) $
       mkETyLams tyVars $ mkETmLams [(mkVar "x", ty)] $ ERecProj tyConApp fieldName (EVar $ mkVar "x")
-  where tyConApp = TypeConApp (Qualified PSelf modName tyCon) (map (TVar . fst) tyVars)
+  where tyConApp = TypeConApp (Qualified SelfPackageId modName tyCon) (map (TVar . fst) tyVars)
         ty = typeConAppToType tyConApp
 
 mkWorkerDef :: ModuleName -> TypeConName -> [(TypeVarName, Kind)] -> [(FieldName, Type)] -> DefValue
 mkWorkerDef modName tyCon tyVars fields =
     DefValue Nothing (mkWorkerName (T.intercalate "." $ unTypeConName tyCon), mkTForalls tyVars $ mkTFuns (map snd fields) ty) (IsTest False) $
       mkETyLams tyVars $ mkETmLams (map (first (mkVar . unFieldName)) fields) $ ERecCon tyConApp (map (\(field, _) -> (field, EVar $ mkVar $ unFieldName field)) fields)
-  where tyConApp = TypeConApp (Qualified PSelf modName tyCon) (map (TVar . fst) tyVars)
+  where tyConApp = TypeConApp (Qualified SelfPackageId modName tyCon) (map (TVar . fst) tyVars)
         ty = typeConAppToType tyConApp
 
 mkVariantWorkerDef :: ModuleName -> TypeConName -> VariantConName -> [(TypeVarName, Kind)] -> Type -> DefValue
 mkVariantWorkerDef modName tyCon constr tyVars argTy =
     DefValue Nothing (mkWorkerName (unVariantConName constr), mkTForalls tyVars $ argTy :-> ty) (IsTest False) $
       mkETyLams tyVars $ mkETmLams [(mkVar "x", argTy)] $ EVariantCon tyConApp constr (EVar $ mkVar "x")
-  where tyConApp = TypeConApp (Qualified PSelf modName tyCon) (map (TVar . fst) tyVars)
+  where tyConApp = TypeConApp (Qualified SelfPackageId modName tyCon) (map (TVar . fst) tyVars)
         ty = typeConAppToType tyConApp
 
 emptyModule :: ModuleName -> Module

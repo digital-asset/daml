@@ -74,7 +74,7 @@ data Config = Config
     { configPackages :: MS.Map LF.PackageId LF.Package
      -- ^ All packages we know about, i.e., dependencies,
      -- data-dependencies and stable packages.
-    , configGetUnitId :: LF.PackageImportOrSelf -> UnitId
+    , configGetUnitId :: LF.SelfOrImportedPackageId -> UnitId
         -- ^ maps a package reference to a unit id
     , configSelfPkgId :: LF.PackageId
         -- ^ package id for this package, we need it to build a closed LF.World
@@ -156,7 +156,7 @@ buildDepClassMap deps world = DepClassMap $ MS.fromList
 
 buildDepInstances :: [LF.ExternalPackage] -> LF.World -> MS.Map LF.TypeSynName [LF.Qualified ExpandedType]
 buildDepInstances deps world = MS.fromListWith (<>)
-    [ (clsName, [LF.Qualified (LF.PImport packageId) moduleName ty])
+    [ (clsName, [LF.Qualified (LF.ImportedPackageId packageId) moduleName ty])
     | LF.ExternalPackage packageId LF.Package{..} <- deps
     , LF.Module{..} <- NM.toList packageModules
     , dval@LF.DefValue{..} <- NM.toList moduleValues
@@ -292,7 +292,7 @@ generateSrcFromLf env = noLoc mod
     config = envConfig env
     lfModName = LF.moduleName $ envMod env
     ghcModName = mkModuleName $ T.unpack $ LF.moduleNameString lfModName
-    unitId = configGetUnitId config LF.PSelf
+    unitId = configGetUnitId config LF.SelfPackageId
     thisModule = mkModule unitId ghcModName
     mod =
         HsModule
@@ -408,7 +408,7 @@ generateSrcFromLf env = noLoc mod
         guard (safeToReexport env synDef depDef)
         let occName = mkOccName clsName (T.unpack name)
         pure . (\x -> (synName,(pkgId, x, methods))) $ do
-            ghcMod <- genModule env (LF.PImport pkgId) (LF.moduleName (envMod env))
+            ghcMod <- genModule env (LF.ImportedPackageId pkgId) (LF.moduleName (envMod env))
             pure . noLoc . IEThingAll noExt
                 . noLoc . IEName . noLoc
                 $ mkOrig ghcMod occName
@@ -690,7 +690,7 @@ generateSrcFromLf env = noLoc mod
 
     qualify :: a -> LF.Qualified a
     qualify x = LF.Qualified
-        { qualPackage = LF.PImport (configSelfPkgId config)
+        { qualPackage = LF.ImportedPackageId (configSelfPkgId config)
         , qualModule = lfModName
         , qualObject = x
         }
@@ -907,18 +907,18 @@ isConstraint = \case
         ]
     _ -> False
 
-genModule :: Env -> LF.PackageImportOrSelf -> LF.ModuleName -> Gen Module
+genModule :: Env -> LF.SelfOrImportedPackageId -> LF.ModuleName -> Gen Module
 genModule env pkgRef modName = do
     let config = envConfig env
         origin = importOriginFromPackageRef config pkgRef
     genModuleAux config origin modName
 
-importOriginFromPackageRef :: Config -> LF.PackageImportOrSelf -> ImportOrigin
+importOriginFromPackageRef :: Config -> LF.SelfOrImportedPackageId -> ImportOrigin
 importOriginFromPackageRef Config {..} = \case
-    LF.PImport pkgId
+    LF.ImportedPackageId pkgId
         | Just unitId <- MS.lookup pkgId configStablePackages -> FromCurrentSdk unitId
         | otherwise -> FromPackage pkgId
-    LF.PSelf -> FromPackage configSelfPkgId
+    LF.SelfPackageId -> FromPackage configSelfPkgId
 
 genStableModule :: Env -> UnitId -> LF.ModuleName -> Gen Module
 genStableModule env currentSdkPkg = genModuleAux (envConfig env) (FromCurrentSdk currentSdkPkg)
@@ -935,7 +935,7 @@ genModuleAux conf origin moduleName = do
     let ghcModuleName = (unLoc . ideclName . unLoc . modRefImport conf) modRef
     let unitId = case origin of
             FromCurrentSdk unitId -> unitId
-            FromPackage pkgId -> configGetUnitId conf (LF.PImport pkgId)
+            FromPackage pkgId -> configGetUnitId conf (LF.ImportedPackageId pkgId)
     emitModRef modRef
     pure $ mkModule unitId ghcModuleName
 
@@ -947,10 +947,10 @@ rewriteClassReexport env reexported syn@LF.Qualified{..}
   | Just reexportPkgId <- MS.lookup qualObject reexported
   -- Only rewrite a reference to the current module
   , case qualPackage of
-        LF.PSelf -> True
-        LF.PImport synPkgId -> synPkgId == configSelfPkgId (envConfig env)
+        LF.SelfPackageId -> True
+        LF.ImportedPackageId synPkgId -> synPkgId == configSelfPkgId (envConfig env)
   , LF.moduleName (envMod env) == qualModule
-  = syn { LF.qualPackage = LF.PImport reexportPkgId }
+  = syn { LF.qualPackage = LF.ImportedPackageId reexportPkgId }
   | otherwise = syn
 
 
@@ -1304,7 +1304,7 @@ modRootRefs major pkgId mod = fold
     ]
   where
     qualify :: a -> LF.Qualified a
-    qualify = LF.Qualified (LF.PImport pkgId) (LF.moduleName mod)
+    qualify = LF.Qualified (LF.ImportedPackageId pkgId) (LF.moduleName mod)
 
 -- | Check that an expression matches the body of a dictionary function.
 isDFunBody :: LF.Expr -> Bool
@@ -1398,7 +1398,7 @@ data DFunSig = DFunSig
     { dfsBinders :: ![(LF.TypeVarName, LF.Kind)] -- ^ foralls
     , dfsContext :: ![LF.Type] -- ^ constraints
     , dfsHead :: !DFunHead
-    , dfsSuper :: ![(LF.PackageImportOrSelf, LF.ModuleName)]
+    , dfsSuper :: ![(LF.SelfOrImportedPackageId, LF.ModuleName)]
         -- ^ references from superclass dependencies
     }
 
@@ -1469,7 +1469,7 @@ getDFunSig major LF.DefValue {dvalBinder = (_, valType), ..} = do
         qualModule == LF.ModuleName ["GHC", "Classes"]
         && qualObject == LF.TypeSynName ["IP"]
 
-getSuperclassReferences :: LF.Expr -> [(LF.PackageImportOrSelf, LF.ModuleName)]
+getSuperclassReferences :: LF.Expr -> [(LF.SelfOrImportedPackageId, LF.ModuleName)]
 getSuperclassReferences body =
     [ (qualPackage, qualModule)
     | RValue LF.Qualified{..} <- DL.toList (refsFromDFunBody body)
@@ -1519,7 +1519,7 @@ stableTCon ::
     LF.MajorVersion -> [T.Text] -> T.Text -> LF.Qualified LF.TypeConName
 stableTCon major moduleName tconName =
     LF.Qualified
-        { qualPackage = LF.PImport (stablePackageIdByModuleNamePartial major qualModule)
+        { qualPackage = LF.ImportedPackageId (stablePackageIdByModuleNamePartial major qualModule)
         , qualModule = qualModule
         , qualObject = LF.TypeConName [tconName]
         }

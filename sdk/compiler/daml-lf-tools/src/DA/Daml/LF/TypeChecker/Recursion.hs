@@ -47,7 +47,7 @@ synRefs modName DefTypeSyn{synType} = do
   -- because mutually recusive modules are impossible.  Therefore,
   -- when checking for cycles within a given module, we stop following
   -- references to synonyns defined in another module.
-  [ syn | Qualified{qualPackage=PSelf,qualModule=m,qualObject=syn} <- HS.toList $ referencedSyns synType
+  [ syn | Qualified{qualPackage=SelfPackageId,qualModule=m,qualObject=syn} <- HS.toList $ referencedSyns synType
         , m == modName ]
 
 -- | Check that a module contains neither recursive data type definitions nor

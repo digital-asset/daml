@@ -194,7 +194,7 @@ installDependencies projRoot opts releaseVersion pDeps pDataDeps = do
                             markAsDataRec
                                 (packageRefs pkg `Set.union` rest)
                                 (Set.insert pkgId processed)
-    packageRefs pkg = Set.fromList [pid | LF.PImport pid <- toListOf LF.packageRefs pkg]
+    packageRefs pkg = Set.fromList [pid | LF.ImportedPackageId pid <- toListOf LF.packageRefs pkg]
     depsDir = dependenciesDir opts projRoot
 
 -- | Check that all dependencies match the main packages release (or sdk) version

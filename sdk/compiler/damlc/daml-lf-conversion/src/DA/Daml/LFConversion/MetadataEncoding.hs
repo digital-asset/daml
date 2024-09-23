@@ -202,10 +202,10 @@ encodeModuleImport q =
         , encodeModuleName (LF.qualModule q)
         ]
 
-encodePackageRef :: LF.PackageImportOrSelf -> LF.Type
+encodePackageRef :: LF.SelfOrImportedPackageId -> LF.Type
 encodePackageRef = \case
-  LF.PSelf -> LF.TUnit
-  LF.PImport (LF.PackageId packageId) -> TEncodedStr packageId
+  LF.SelfPackageId -> LF.TUnit
+  LF.ImportedPackageId (LF.PackageId packageId) -> TEncodedStr packageId
 
 encodeModuleName :: LF.ModuleName -> LF.Type
 encodeModuleName (LF.ModuleName components) =
@@ -221,10 +221,10 @@ decodeModuleImport x = do
     moduleName <- decodeModuleName m
     pure (LF.Qualified packageRef moduleName ())
 
-decodePackageRef :: LF.Type -> Maybe LF.PackageImportOrSelf
+decodePackageRef :: LF.Type -> Maybe LF.SelfOrImportedPackageId
 decodePackageRef = \case
-    LF.TUnit -> pure LF.PSelf
-    TEncodedStr packageId -> pure (LF.PImport (LF.PackageId packageId))
+    LF.TUnit -> pure LF.SelfPackageId
+    TEncodedStr packageId -> pure (LF.ImportedPackageId (LF.PackageId packageId))
     _ -> Nothing
 
 decodeModuleName :: LF.Type -> Maybe LF.ModuleName
@@ -454,7 +454,7 @@ unArtificialTypeVarName (LF.TypeVarName name) = do
 
 natSynTCon :: LF.Qualified LF.TypeConName
 natSynTCon = LF.Qualified
-    { qualPackage = LF.PImport (LF.PackageId packageId)
+    { qualPackage = LF.ImportedPackageId (LF.PackageId packageId)
     , qualModule = LF.ModuleName moduleName
     , qualObject = LF.TypeConName [tconName]
     }

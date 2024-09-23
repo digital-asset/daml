@@ -53,8 +53,8 @@ validateDar inFile = do
 validateWellTyped :: [LF.ExternalPackage] -> IO ()
 validateWellTyped extPackages = do
   forM_ extPackages $ \extPkg -> do
-    let rewriteToSelf (LF.PImport pkgId)
-          | pkgId == LF.extPackageId extPkg = LF.PSelf
+    let rewriteToSelf (LF.ImportedPackageId pkgId)
+          | pkgId == LF.extPackageId extPkg = LF.SelfPackageId
         rewriteToSelf ref = ref
     let self = over LF.packageRefs rewriteToSelf (LF.extPackagePkg extPkg)
     let world = initWorldSelf extPackages self

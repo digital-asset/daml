@@ -541,7 +541,7 @@ freshExprVarName = do
 selfQualify :: t -> Simplifier (Qualified t)
 selfQualify qualObject = do
     qualModule <- gets (moduleName . sModule)
-    let qualPackage = PSelf
+    let qualPackage = SelfPackageId
     pure Qualified {..}
 
 exprRefs :: Expr -> Set.Set (Qualified ExprValName)
@@ -552,7 +552,7 @@ exprRefs = cata $ \case
 topoSortDefValues :: Module -> [DefValue]
 topoSortDefValues m =
     let isLocal Qualified{..} = do
-            PSelf <- pure qualPackage
+            SelfPackageId <- pure qualPackage
             guard (moduleName m == qualModule)
             Just qualObject
         dvalDeps = mapMaybe isLocal . Set.toList . exprRefs . dvalBody

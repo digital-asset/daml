@@ -9,7 +9,7 @@ module DA.Daml.LF.Proto3.Decode
   ) where
 
 import Com.Digitalasset.Daml.Lf.Archive.DamlLf (ArchivePayload(..), ArchivePayloadSum(..))
-import DA.Daml.LF.Ast.Base ( Package, PackageId, PackageImportOrSelf )
+import DA.Daml.LF.Ast.Base ( Package, PackageId, SelfOrImportedPackageId )
 import DA.Daml.LF.Proto3.Error
 import qualified DA.Daml.LF.Proto3.DecodeV2 as DecodeV2
 import qualified DA.Daml.LF.Ast as LF
@@ -31,7 +31,7 @@ decodeLfVersion major pkgId minorText = do
       else unsupported
 
 decodePayload ::
-    PackageId -> PackageImportOrSelf -> ArchivePayload -> Either Error Package
+    PackageId -> SelfOrImportedPackageId -> ArchivePayload -> Either Error Package
 decodePayload pkgId selfPackageRef payload = case archivePayloadSum payload of
     Just (ArchivePayloadSumDamlLf1 _) -> do
          Left $  ParseError "Lf1 is not supported"

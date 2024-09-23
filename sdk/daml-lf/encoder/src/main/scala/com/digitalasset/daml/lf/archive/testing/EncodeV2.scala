@@ -113,14 +113,15 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
       */
     private val unit = PLF.Unit.newBuilder().build()
 
-    private val protoSelfPgkId = PLF.PackageImportOrSelf.newBuilder().setSelf(unit).build()
+    private val protoSelfPgkId =
+      PLF.SelfOrImportedPackageId.newBuilder().setSelfPackageId(unit).build()
 
-    private implicit def encodePackageId(pkgId: PackageId): PLF.PackageImportOrSelf =
+    private implicit def encodePackageId(pkgId: PackageId): PLF.SelfOrImportedPackageId =
       if (pkgId == selfPkgId)
         protoSelfPgkId
       else {
-        val builder = PLF.PackageImportOrSelf.newBuilder()
-        setString(pkgId, builder.setPackageImportInternedStr)
+        val builder = PLF.SelfOrImportedPackageId.newBuilder()
+        setString(pkgId, builder.setImportedPackageIdInternedStr)
         builder.build()
       }
 

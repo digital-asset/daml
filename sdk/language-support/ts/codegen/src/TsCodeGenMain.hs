@@ -212,7 +212,7 @@ genModule pkgMap (Scope scope) curPkgId curPkgNameVer mod
   | otherwise =
     let (decls, refs) = unzip (map (genDataDef curPkgId curPkgNameVer mod (interfaceChoices pkgMap curPkgId) tpls) serDefs)
         (ifaceDecls, ifaceRefs) = unzip (map (genIfaceDecl curPkgId mod) $ NM.toList ifaces)
-        imports = (PSelf, modName) `Set.delete` Set.unions (refs ++ ifaceRefs)
+        imports = (SelfPackageId, modName) `Set.delete` Set.unions (refs ++ ifaceRefs)
         (internalImports, externalImports) = splitImports imports
         rootPath = map (const "..") (unModuleName modName)
         makeMod jsSyntax body = T.unlines $ intercalate [""] $ filter (not . null) $
@@ -255,8 +255,8 @@ genModule pkgMap (Scope scope) curPkgId curPkgNameVer mod
     splitImports :: Set.Set ModuleRef -> ([ModuleName], Set.Set PackageId)
     splitImports imports =
       let classifyImport (pkgRef, modName) = case pkgRef of
-            PSelf -> Left modName
-            PImport pkgId -> Right pkgId
+            SelfPackageId -> Left modName
+            ImportedPackageId pkgId -> Right pkgId
       in
       second Set.fromList (partitionEithers (map classifyImport (Set.toList imports)))
 
@@ -265,7 +265,7 @@ genModule pkgMap (Scope scope) curPkgId curPkgNameVer mod
     internalImportDecl jsSyntax rootPath modName =
         importStmt
             jsSyntax
-            (genModuleRef (PSelf, modName))
+            (genModuleRef (SelfPackageId, modName))
             (modPath (rootPath ++ unModuleName modName ++ ["module"]))
 
     -- The choice names for an interface from a package map.
@@ -274,8 +274,8 @@ genModule pkgMap (Scope scope) curPkgId curPkgNameVer mod
     interfaceChoices pkgMap selfPkg = InterfaceChoices $ \name@Qualified{qualPackage, qualModule, qualObject} ->
       fromMaybe (error $ "reference interface missing: " <> show name) $ do
         pkg <- Map.lookup (case qualPackage of
-                                  PSelf -> selfPkg
-                                  PImport pkgId -> pkgId) pkgMap
+                                  SelfPackageId -> selfPkg
+                                  ImportedPackageId pkgId -> pkgId) pkgMap
         mod <- qualModule `NM.lookup` packageModules pkg
         int <- qualObject `NM.lookup` moduleInterfaces mod
         pure . Set.fromList . NM.names . intChoices $ int
@@ -333,7 +333,7 @@ genIfaceDecl pkgId mod DefInterface {intName, intChoices, intView} =
   , Set.unions $ viewRefs : choiceRefs)
   where
     -- interfaces are not declared in JS code, only in the TS type declarations.
-    (TsTypeConRef name, _) = genTypeCon (moduleName mod) (Qualified PSelf (moduleName mod) intName)
+    (TsTypeConRef name, _) = genTypeCon (moduleName mod) (Qualified SelfPackageId (moduleName mod) intName)
     (choices, choiceRefs) =
       unzip $
       [ (ChoiceDef (unChoiceName (chcName chc)) argTy rTy, Set.union argRefs retRefs)
@@ -964,11 +964,11 @@ genTypeCon curModName (Qualified pkgRef modName conParts) =
         [] -> error "IMPOSSIBLE: empty type constructor name"
         _: _: _: _ -> error "TODO(MH): multi-part type constructor names"
         [c1 ,c2]
-          | modRef == (PSelf, curModName) ->
+          | modRef == (SelfPackageId, curModName) ->
             (c1 <.> c2, "exports" <.> c1 <.> c2)
           | otherwise -> dupe $ genModuleRef modRef <> c1 <.> c2
         [conName]
-          | modRef == (PSelf, curModName) ->
+          | modRef == (SelfPackageId, curModName) ->
             (conName, "exports" <.> conName)
           | otherwise -> dupe $ genModuleRef modRef <.> conName
       modRef = (pkgRef, modName)
@@ -982,8 +982,8 @@ pkgVar pkgId = "pkg" <> unPackageId pkgId
 
 genModuleRef :: ModuleRef -> T.Text
 genModuleRef (pkgRef, modName) = case pkgRef of
-    PSelf -> T.intercalate "_" name
-    PImport pkgId -> T.intercalate "." (pkgVar pkgId : name)
+    SelfPackageId -> T.intercalate "_" name
+    ImportedPackageId pkgId -> T.intercalate "." (pkgVar pkgId : name)
   where
     name = unModuleName modName
 

@@ -30,24 +30,24 @@ option csharp_namespace = "Com.DigitalAsset.Daml.Lf.Archive.DamlLf2";
 message Unit {}
 
 // Package id
-message PackageImportOrSelf {
+message SelfOrImportedPackageId {
   oneof Sum {
 
     // Reference to the package of which the package this reference
     // belongs.
-    Unit self = 1;
+    Unit self_package_id = 1;
 
     // An index into `interned_package_ids` of the Package containing
     // this reference.
     // *Must be a valid interned package Id string*
-    int32 package_import_interned_str = 3;
+    int32 imported_package_id_interned_str = 3;
   }
 }
 
 // A fully qualified module reference
 message ModuleId {
   // package where the module is defined.
-  PackageImportOrSelf package_id = 1;
+  SelfOrImportedPackageId package_id = 1;
   int32 module_name_interned_dname = 2;
 }
 

@@ -157,11 +157,12 @@ encodeValueName valName = do
 
 -- | Encode a reference to a package. Package names are not mangled. Package
 -- names are interned.
-encodePackageId :: PackageImportOrSelf -> Encode (Just P.PackageImportOrSelf)
-encodePackageId = fmap (Just . P.PackageImportOrSelf . Just) . \case
-    PSelf -> pure $ P.PackageImportOrSelfSumSelf P.Unit
-    PImport (PackageId pkgId) -> do
-        P.PackageImportOrSelfSumPackageImportInternedStr <$> allocString pkgId
+encodePackageId :: SelfOrImportedPackageId -> Encode (Just P.SelfOrImportedPackageId)
+encodePackageId = fmap (Just . P.SelfOrImportedPackageId . Just) . \case
+    SelfPackageId -> 
+        pure $ P.SelfOrImportedPackageIdSumSelfPackageId P.Unit
+    ImportedPackageId (PackageId pkgId) -> 
+        P.SelfOrImportedPackageIdSumImportedPackageIdInternedStr <$> allocString pkgId
 
 -- | Interface method names are always interned, since interfaces were
 -- introduced after name interning.
@@ -212,7 +213,7 @@ encodeSourceLoc SourceLoc{..} = do
             (fromIntegral slocEndCol)
     pure P.Location{..}
 
-encodeModuleId :: PackageImportOrSelf -> ModuleName -> Encode (Just P.ModuleId)
+encodeModuleId :: SelfOrImportedPackageId -> ModuleName -> Encode (Just P.ModuleId)
 encodeModuleId pkgRef modName = do
     moduleIdPackageId <- encodePackageId pkgRef
     moduleIdModuleNameInternedDname <- encodeDottedName unModuleName modName
