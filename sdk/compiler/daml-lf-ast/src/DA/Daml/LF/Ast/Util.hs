@@ -34,8 +34,8 @@ chcArgType = snd . chcArgBinder
 topoSortPackage :: Package -> Either [ModuleName] Package
 topoSortPackage pkg@Package{packageModules = mods} = do
   let isLocal (pkgRef, modName) = case pkgRef of
-        PRSelf -> Just modName
-        PRImport{} -> Nothing
+        PSelf -> Just modName
+        PImport{} -> Nothing
   let modDeps = nubSort . mapMaybe isLocal . toListOf moduleModuleRef
   let modNode mod0 = (mod0, moduleName mod0, modDeps mod0)
   let sccs = G.stronglyConnComp (map modNode (NM.toList mods))
@@ -197,7 +197,7 @@ pattern Tuple2TCon :: Qualified TypeConName
 pattern Tuple2TCon = (Qualified
   -- We cannot look up these stable IDs using stablePackageByModuleName because
   -- it would introduce a cyclic dependency with StablePackages.
-    (PRImport (PackageId "5aee9b21b8e9a4c4975b5f4c4198e6e6e8469df49e2010820e792f393db870f4"))
+    (PImport (PackageId "5aee9b21b8e9a4c4975b5f4c4198e6e6e8469df49e2010820e792f393db870f4"))
     (ModuleName ["DA", "Types"])
     (TypeConName ["Tuple2"])
   )

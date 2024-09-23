@@ -125,16 +125,16 @@ newtype PackageVersion = PackageVersion{unPackageVersion :: T.Text}
     deriving newtype (Hashable, NFData, ToJSON, FromJSON)
 
 -- | Reference to a package.
-data PackageRef
-  = PRSelf
+data PackageImportOrSelf
+  = PSelf
     -- ^ Reference to the package being currently handled.
-  | PRImport !PackageId
+  | PImport !PackageId
     -- ^ Reference to the package with the given id.
   deriving (Eq, Data, Generic, NFData, Ord, Show)
 
 -- | Something qualified by a package and a module within that package.
 data Qualified a = Qualified
-  { qualPackage :: !PackageRef
+  { qualPackage :: !PackageImportOrSelf
   , qualModule  :: !ModuleName
   , qualObject  :: !a
   }
@@ -142,7 +142,7 @@ data Qualified a = Qualified
 
 -- | Source location annotation.
 data SourceLoc = SourceLoc
-  { slocModuleRef :: !(Maybe (PackageRef, ModuleName))
+  { slocModuleRef :: !(Maybe (PackageImportOrSelf, ModuleName))
     -- ^ Optional reference to another module. Used when
     -- an expression is inlined from another module.
   , slocStartLine :: !Int
@@ -1080,7 +1080,7 @@ deriving instance Foldable    Qualified
 deriving instance Functor     Qualified
 deriving instance Traversable Qualified
 
-instance Hashable PackageRef
+instance Hashable PackageImportOrSelf
 instance Hashable a => Hashable (Qualified a)
 
 instance NM.Named TemplateChoice where
@@ -1151,7 +1151,7 @@ fmap concat $ sequenceA $
   , makePrisms ''Update
   , makePrisms ''Scenario
   , makePrisms ''DataCons
-  , makePrisms ''PackageRef
+  , makePrisms ''PackageImportOrSelf
   , makeUnderscoreLenses ''DefValue
   , makeUnderscoreLenses ''Package
   ]

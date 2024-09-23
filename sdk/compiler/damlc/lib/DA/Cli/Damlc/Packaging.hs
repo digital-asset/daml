@@ -512,11 +512,11 @@ baseImports =
     ]
 
 -- | A helper to construct package ref to unit id maps.
-getUnitId :: UnitId -> MS.Map LF.PackageId UnitId -> LF.PackageRef -> UnitId
+getUnitId :: UnitId -> MS.Map LF.PackageId UnitId -> LF.PackageImportOrSelf -> UnitId
 getUnitId thisUnitId pkgMap =
     \case
-        LF.PRSelf -> thisUnitId
-        LF.PRImport pId ->
+        LF.PSelf -> thisUnitId
+        LF.PImport pId ->
             fromMaybe
                 (error $
                  "Unknown package id: " <> (T.unpack $ LF.unPackageId pId)) $
@@ -605,7 +605,7 @@ buildLfPackageGraph =
         pid = LF.dalfPackageId dalfPkg
       in
         [ pid'
-        | LF.PRImport pid' <-
+        | LF.PImport pid' <-
             toListOf packageRefs pkg
               <>
               [ qualPackage

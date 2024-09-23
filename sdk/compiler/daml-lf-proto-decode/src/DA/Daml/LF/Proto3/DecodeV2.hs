@@ -36,7 +36,7 @@ data DecodeEnv = DecodeEnv
     { internedStrings :: !(V.Vector (T.Text, Either String UnmangledIdentifier))
     , internedDottedNames :: !(V.Vector ([T.Text], Either String [UnmangledIdentifier]))
     , internedTypes :: !(V.Vector Type)
-    , selfPackageRef :: PackageRef
+    , selfPackageRef :: PackageImportOrSelf
     }
 
 newtype Decode a = Decode{unDecode :: ReaderT DecodeEnv (Except Error) a}
@@ -118,19 +118,19 @@ decodeValueName ident dnId = do
 
 -- | Decode a reference to a top-level value. The name is mangled and will be
 -- interned in Daml-LF 1.7 and onwards.
-decodeValId :: LF2.ValId -> Decode (Qualified ExprValName)
-decodeValId LF2.ValId{..} = do
-  (pref, mname) <- mayDecode "valIdModule" valIdModule decodeModuleId
-  name <- decodeValueName "valIdName" valIdNameInternedDname
+decodeValId :: LF2.ValueId -> Decode (Qualified ExprValName)
+decodeValId LF2.ValueId{..} = do
+  (pref, mname) <- mayDecode "valIdModule" valueIdModule decodeModuleId
+  name <- decodeValueName "valIdName" valueIdNameInternedDname
   pure $ Qualified pref mname name
 
 -- | Decode a reference to a package. Package names are not mangled. Package
 -- name are interned since Daml-LF 1.6.
-decodePackageId :: LF2.PackageId -> Decode PackageRef
-decodePackageId (LF2.PackageId pref) =
+decodePackageId :: LF2.PackageImportOrSelf -> Decode PackageImportOrSelf
+decodePackageId (LF2.PackageImportOrSelf pref) =
     mayDecode "packageRefSum" pref $ \case
-        LF2.PackageIdSumSelf _ -> asks selfPackageRef
-        LF2.PackageIdSumPackageIdInternedStr strId -> PRImport . PackageId . fst <$> lookupString strId
+        LF2.PackageImportOrSelfSumSelf _ -> asks selfPackageRef
+        LF2.PackageImportOrSelfSumPackageImportInternedStr strId -> PImport . PackageId . fst <$> lookupString strId
 
 ------------------------------------------------------------------------
 -- Decodings of everything else
@@ -141,7 +141,7 @@ decodeInternedDottedName (LF2.InternedDottedName ids) = do
     (mangled, unmangledOrErr) <- mapAndUnzipM lookupString (V.toList ids)
     pure (mangled, sequence unmangledOrErr)
 
-decodePackage :: LF.Version -> LF.PackageRef -> LF2.Package -> Either Error Package
+decodePackage :: LF.Version -> LF.PackageImportOrSelf -> LF2.Package -> Either Error Package
 decodePackage version selfPackageRef (LF2.Package mods internedStringsV internedDottedNamesV mMetadata internedTypesV)
   | Nothing <- mMetadata  =
       throwError (ParseError "missing package metadata")
@@ -171,7 +171,7 @@ decodePackageMetadata LF2.PackageMetadata{..} = do
 
 decodeScenarioModule :: LF.Version -> LF2.Package -> Either Error Module
 decodeScenarioModule version protoPkg = do
-    Package { packageModules = modules } <- decodePackage version PRSelf protoPkg
+    Package { packageModules = modules } <- decodePackage version PSelf protoPkg
     pure $ head $ NM.toList modules
 
 decodeModule :: LF2.Module -> Decode Module
@@ -847,7 +847,7 @@ decodeTypeConId LF2.TypeConId{..} = do
   con <- decodeDottedName TypeConName typeConIdNameInternedDname
   pure $ Qualified pref mname con
 
-decodeModuleId :: LF2.ModuleId -> Decode (PackageRef, ModuleName)
+decodeModuleId :: LF2.ModuleId -> Decode (PackageImportOrSelf, ModuleName)
 decodeModuleId LF2.ModuleId{..} =
   (,)
     <$> mayDecode "moduleIdPackageId" moduleIdPackageId decodePackageId

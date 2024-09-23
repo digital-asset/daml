@@ -113,19 +113,19 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
       */
     private val unit = PLF.Unit.newBuilder().build()
 
-    private val protoSelfPgkId = PLF.PackageId.newBuilder().setSelf(unit).build()
+    private val protoSelfPgkId = PLF.PackageImportOrSelf.newBuilder().setSelf(unit).build()
 
-    private implicit def encodePackageId(pkgId: PackageId): PLF.PackageId =
+    private implicit def encodePackageId(pkgId: PackageId): PLF.PackageImportOrSelf =
       if (pkgId == selfPkgId)
         protoSelfPgkId
       else {
-        val builder = PLF.PackageId.newBuilder()
-        setString(pkgId, builder.setPackageIdInternedStr)
+        val builder = PLF.PackageImportOrSelf.newBuilder()
+        setString(pkgId, builder.setPackageImportInternedStr)
         builder.build()
       }
 
-    private implicit def encodeModuleId(modRef: (PackageId, ModuleName)): PLF.ModuleId = {
-      val (pkgId, modName) = modRef
+    private implicit def encodeModuleId(modId: (PackageId, ModuleName)): PLF.ModuleId = {
+      val (pkgId, modName) = modId
       val builder = PLF.ModuleId.newBuilder()
       builder.setPackageId(pkgId)
       setDottedName_(modName, builder.setModuleNameInternedDname)
@@ -146,8 +146,8 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
       builder.build()
     }
 
-    private implicit def encodeValId(identifier: Identifier): PLF.ValId = {
-      val b = PLF.ValId.newBuilder()
+    private implicit def encodeValId(identifier: Identifier): PLF.ValueId = {
+      val b = PLF.ValueId.newBuilder()
       b.setModule(identifier.moduleRef)
       setDottedName(identifier.name, b.setNameInternedDname)
       b.build()

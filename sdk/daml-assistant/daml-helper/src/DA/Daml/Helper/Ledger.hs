@@ -332,7 +332,7 @@ downloadAllReachablePackages downloadPkg pids exclPids =
       where
         packageRefs pkg =
             Set.fromList
-                [pid | LF.PRImport pid <- toListOf LF.packageRefs pkg, not $ pid `Map.member` acc]
+                [pid | LF.PImport pid <- toListOf LF.packageRefs pkg, not $ pid `Map.member` acc]
 
 -- | Download the Package identified by a PackageId; fail if it doesn't exist or can't be decoded.
 downloadPackage :: LedgerArgs -> LF.PackageId -> IO LF.Package

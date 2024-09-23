@@ -915,7 +915,7 @@ checkIface m iface = do
         checkTemplateChoice tcon choice
 
   where
-    tcon = Qualified PRSelf (moduleName m) (intName iface)
+    tcon = Qualified PSelf (moduleName m) (intName iface)
     viewtype = intView iface
     withPart p = withContext (ContextDefInterface m iface p)
 
@@ -940,7 +940,7 @@ checkDefDataType m (DefDataType _loc name _serializable params dataCons) = do
         checkUnique EDuplicateConstructor names
       DataInterface -> do
         unless (null params) $ throwWithContext EInterfaceTypeWithParams
-        void $ inWorld $ lookupInterface (Qualified PRSelf (moduleName m) name)
+        void $ inWorld $ lookupInterface (Qualified PSelf (moduleName m) name)
 
 checkDefValue :: MonadGamma m => DefValue -> m ()
 checkDefValue (DefValue _loc (_, typ) (IsTest isTest) expr) = do
@@ -967,7 +967,7 @@ checkTemplateChoice tpl (TemplateChoice _loc _ _ controllers mbObservers mbAutho
 
 checkTemplate :: forall m. MonadGamma m => Module -> Template -> m ()
 checkTemplate m t@(Template _loc tpl param precond signatories observers choices mbKey implements) = do
-  let tcon = Qualified PRSelf (moduleName m) tpl
+  let tcon = Qualified PSelf (moduleName m) tpl
   DefDataType _loc _naem _serializable tparams dataCons <- inWorld (lookupDataType tcon)
   unless (null tparams) $ throwWithContext (EExpectedTemplatableType tpl)
   _ <- match _DataRecord (EExpectedTemplatableType tpl) dataCons
@@ -1061,7 +1061,7 @@ checkTemplateKey param tcon TemplateKey{..} = do
 checkDefException :: MonadGamma m => Module -> DefException -> m ()
 checkDefException m DefException{..} = do
     let modName = moduleName m
-        tcon = Qualified PRSelf modName exnName
+        tcon = Qualified PSelf modName exnName
     DefDataType _loc _name _serializable tyParams dataCons <- inWorld (lookupDataType tcon)
     unless (null tyParams) $ throwWithContext (EExpectedExceptionTypeHasNoParams modName exnName)
     checkExpr exnMessage (TCon tcon :-> TText)

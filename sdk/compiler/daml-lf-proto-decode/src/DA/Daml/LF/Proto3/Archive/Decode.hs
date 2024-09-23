@@ -31,12 +31,12 @@ data ArchiveError
   deriving (Eq, Show)
 
 -- | Mode in which to decode the DALF. Currently, this only decides whether
--- to rewrite occurrences of `PRSelf` with `PRImport packageId`.
+-- to rewrite occurrences of `PSelf` with `PImport packageId`.
 data DecodingMode
     = DecodeAsMain
-      -- ^ Keep occurrences of `PRSelf` as is.
+      -- ^ Keep occurrences of `PSelf` as is.
     | DecodeAsDependency
-      -- ^ Replace `PRSelf` with `PRImport packageId`, where `packageId` is
+      -- ^ Replace `PSelf` with `PImport packageId`, where `packageId` is
       -- the id of the package being decoded.
     deriving (Eq, Show)
 
@@ -52,8 +52,8 @@ decodeArchive mode bytes = do
 decodePackage :: DecodingMode -> LF.PackageId -> BS.ByteString -> Either ArchiveError LF.Package
 decodePackage mode packageId payloadBytes = do
     let selfPackageRef = case mode of
-            DecodeAsMain -> LF.PRSelf
-            DecodeAsDependency -> LF.PRImport packageId
+            DecodeAsMain -> LF.PSelf
+            DecodeAsDependency -> LF.PImport packageId
     payload <- over _Left (ProtobufError . show) $ Proto.fromByteString payloadBytes
     over _Left (ProtobufError. show) $ Decode.decodePayload packageId selfPackageRef payload
 

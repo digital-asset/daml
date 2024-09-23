@@ -157,11 +157,11 @@ encodeValueName valName = do
 
 -- | Encode a reference to a package. Package names are not mangled. Package
 -- names are interned.
-encodePackageId :: PackageRef -> Encode (Just P.PackageId)
-encodePackageId = fmap (Just . P.PackageId . Just) . \case
-    PRSelf -> pure $ P.PackageIdSumSelf P.Unit
-    PRImport (PackageId pkgId) -> do
-        P.PackageIdSumPackageIdInternedStr <$> allocString pkgId
+encodePackageId :: PackageImportOrSelf -> Encode (Just P.PackageImportOrSelf)
+encodePackageId = fmap (Just . P.PackageImportOrSelf . Just) . \case
+    PSelf -> pure $ P.PackageImportOrSelfSumSelf P.Unit
+    PImport (PackageId pkgId) -> do
+        P.PackageImportOrSelfSumPackageImportInternedStr <$> allocString pkgId
 
 -- | Interface method names are always interned, since interfaces were
 -- introduced after name interning.
@@ -212,7 +212,7 @@ encodeSourceLoc SourceLoc{..} = do
             (fromIntegral slocEndCol)
     pure P.Location{..}
 
-encodeModuleId :: PackageRef -> ModuleName -> Encode (Just P.ModuleId)
+encodeModuleId :: PackageImportOrSelf -> ModuleName -> Encode (Just P.ModuleId)
 encodeModuleId pkgRef modName = do
     moduleIdPackageId <- encodePackageId pkgRef
     moduleIdModuleNameInternedDname <- encodeDottedName unModuleName modName
@@ -465,9 +465,9 @@ encodeExpr' :: Expr -> Encode P.Expr
 encodeExpr' = \case
     EVar v -> expr . P.ExprSumVarInternedStr <$> encodeNameId unExprVarName v
     EVal (Qualified pkgRef modName val) -> do
-        valIdModule <- encodeModuleId pkgRef modName
-        valIdNameInternedDname <- encodeValueName val
-        pureExpr $ P.ExprSumVal P.ValId{..}
+        valueIdModule <- encodeModuleId pkgRef modName
+        valueIdNameInternedDname <- encodeValueName val
+        pureExpr $ P.ExprSumVal P.ValueId{..}
     EBuiltinFun bi -> expr <$> encodeBuiltinExpr bi
     ERecCon{..} -> do
         expr_RecConTycon <- encodeTypeConApp recTypeCon

@@ -154,14 +154,14 @@ checkDataType modName dataType =
     world0 <- getWorld
     case serializabilityConditionsDataType world0 Nothing dataType of
       Left reason -> do
-        let typ = TCon (Qualified PRSelf modName (dataTypeCon dataType))
+        let typ = TCon (Qualified PSelf modName (dataTypeCon dataType))
         throwWithContext (EExpectedSerializableType SRDataType typ reason)
       Right _ -> pure ()
 
 -- | Check whether a template satisfies all serializability constraints.
 checkTemplate :: MonadGamma m => Module -> Template -> m ()
 checkTemplate mod0 tpl = do
-  let tcon = Qualified PRSelf (moduleName mod0) (tplTypeCon tpl)
+  let tcon = Qualified PSelf (moduleName mod0) (tplTypeCon tpl)
   checkType SRTemplateArg (TCon tcon)
   for_ (tplChoices tpl) $ \ch -> withContext (ContextTemplate mod0 tpl $ TPChoice ch) $ do
     checkType SRChoiceArg (snd (chcArgBinder ch))
@@ -181,7 +181,7 @@ checkInterface mod0 iface = do
 -- | Check whether exception is serializable.
 checkException :: MonadGamma m => Module -> DefException -> m ()
 checkException mod0 exn = do
-    let tcon = Qualified PRSelf (moduleName mod0) (exnName exn)
+    let tcon = Qualified PSelf (moduleName mod0) (exnName exn)
     checkType SRExceptionArg (TCon tcon)
 
 -- | Check whether a module satisfies all serializability constraints.

@@ -394,7 +394,7 @@ typeSynTests =
   moduleName = ModuleName ["M"]
 
   q :: a -> Qualified a
-  q = Qualified PRSelf moduleName
+  q = Qualified PSelf moduleName
 
   missing = TypeSynName ["Missing"]
   myInt = TypeSynName ["MyInt"]

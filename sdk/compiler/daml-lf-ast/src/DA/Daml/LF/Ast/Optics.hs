@@ -53,8 +53,8 @@ unlocate p = prism inj proj
 -- | Prism that matches on a 'Qualified' whenever it references the given module
 -- in the same package.
 _PRSelfModule :: ModuleName -> Prism' (Qualified a) a
-_PRSelfModule modName = prism (Qualified PRSelf modName) $ \case
-  Qualified PRSelf modName' x | modName' == modName -> Right x
+_PRSelfModule modName = prism (Qualified PSelf modName) $ \case
+  Qualified PSelf modName' x | modName' == modName -> Right x
   q -> Left q
 
 templateChoiceExpr :: Traversal' TemplateChoice Expr
@@ -126,7 +126,7 @@ builtinType f =
         TStruct fs -> TStruct <$> (traverse . _2) (builtinType f) fs
         TNat n -> pure $ TNat n
 
-type ModuleRef = (PackageRef, ModuleName)
+type ModuleRef = (PackageImportOrSelf, ModuleName)
 
 -- | Traverse all the module references contained in 'Qualified's in a 'Package'.
 moduleModuleRef :: Traversal' Module ModuleRef
@@ -228,5 +228,5 @@ exprValueRef f = cata go
       EValF val -> EVal <$> f val
       e -> embed <$> sequenceA e
 
-packageRefs :: MonoTraversable ModuleRef a => Traversal' a PackageRef
+packageRefs :: MonoTraversable ModuleRef a => Traversal' a PackageImportOrSelf
 packageRefs = monoTraverse @ModuleRef . _1

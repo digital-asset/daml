@@ -41,7 +41,7 @@ main :: IO ()
 main = do
     Opts{..} <- execParser (info optsParser idm)
     let modName = ModuleName ["Module"]
-    let modRef = Qualified PRSelf modName
+    let modRef = Qualified PSelf modName
     let tplFields = map FieldName ["this", "arg"]
     let tplRec = DefDataType
             { dataLocation = Nothing

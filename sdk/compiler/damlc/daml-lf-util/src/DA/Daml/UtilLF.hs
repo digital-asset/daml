@@ -108,7 +108,7 @@ mkBuiltinGreater ty = EBuiltinFun BEGreater `ETyApp` TBuiltin ty
 
 preconditionFailedTypeCon :: MajorVersion -> Qualified TypeConName
 preconditionFailedTypeCon major = Qualified
-    { qualPackage = PRImport (PackageId $ packageId major)
+    { qualPackage = PImport (PackageId $ packageId major)
     , qualModule = ModuleName ["DA", "Exception", "PreconditionFailed"]
     , qualObject = TypeConName ["PreconditionFailed"]
     }

@@ -30,7 +30,7 @@ option csharp_namespace = "Com.DigitalAsset.Daml.Lf.Archive.DamlLf2";
 message Unit {}
 
 // Package id
-message PackageId {
+message PackageImportOrSelf {
   oneof Sum {
 
     // Reference to the package of which the package this reference
@@ -40,14 +40,14 @@ message PackageId {
     // An index into `interned_package_ids` of the Package containing
     // this reference.
     // *Must be a valid interned package Id string*
-    int32 package_id_interned_str = 3;
+    int32 package_import_interned_str = 3;
   }
 }
 
 // A fully qualified module reference
 message ModuleId {
   // package where the module is defined.
-  PackageId package_id = 1;
+  PackageImportOrSelf package_id = 1;
   int32 module_name_interned_dname = 2;
 }
 
@@ -68,7 +68,7 @@ message TypeSynId {
 }
 
 // A fully qualified reference to a value definition.
-message ValId {
+message ValueId {
   // Module where the value is defined
   ModuleId module = 1;
   // *Must be a valid interned name*
@@ -753,7 +753,7 @@ message Expr {
     int32 var_interned_str = 2;
 
     // Defined value ('ExpVal')
-    ValId val = 3;
+    ValueId val = 3;
 
     // Builtin function ('ExpBuiltin')
     BuiltinFunction builtin = 4;

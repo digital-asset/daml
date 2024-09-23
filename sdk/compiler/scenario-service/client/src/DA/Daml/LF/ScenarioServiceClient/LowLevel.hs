@@ -367,8 +367,8 @@ runScenario Handle{..} (ContextId ctxId) name = do
 toIdentifier :: LF.ValueRef -> SS.Identifier
 toIdentifier (LF.Qualified pkgId modName defn) =
   let ssPkgId = SS.PackageIdentifier $ Just $ case pkgId of
-        LF.PRSelf     -> SS.PackageIdentifierSumSelf SS.Empty
-        LF.PRImport x -> SS.PackageIdentifierSumPackageId (TL.fromStrict $ LF.unPackageId x)
+        LF.PSelf     -> SS.PackageIdentifierSumSelf SS.Empty
+        LF.PImport x -> SS.PackageIdentifierSumPackageId (TL.fromStrict $ LF.unPackageId x)
       mangledDefn =
           fromRight (error "Failed to mangle scenario name") $
           mangleIdentifier (LF.unExprValName defn)
