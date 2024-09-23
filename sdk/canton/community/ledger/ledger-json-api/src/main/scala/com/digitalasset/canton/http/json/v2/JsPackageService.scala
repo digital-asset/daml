@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.http.json.v2
 
-import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.ledger.client.services.admin.PackageManagementClient
 import com.digitalasset.canton.ledger.client.services.pkg.PackageClient
 import com.daml.ledger.api.v2.package_service

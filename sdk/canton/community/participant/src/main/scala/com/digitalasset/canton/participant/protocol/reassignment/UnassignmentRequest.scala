@@ -7,14 +7,16 @@ import cats.data.EitherT
 import com.digitalasset.canton.crypto.{HashOps, HmacOps, Salt, SaltSeed}
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.participant.protocol.CanSubmitReassignment
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.ReassignmentProcessorError
+import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessorError.UnassignmentSubmitterMustBeStakeholder
+import com.digitalasset.canton.participant.protocol.submission.UsableDomain
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.{MediatorGroupRecipient, TimeProof}
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{LfPartyId, ReassignmentCounter}
 
@@ -23,8 +25,7 @@ import scala.concurrent.ExecutionContext
 
 /** Request to reassign a contract away from a domain.
   *
-  * @param adminParties admin parties of participants that (a) host a stakeholder of the contract and
-  *                     (b) are connected to both source and target domain
+  * @param reassigningParticipants The list of reassigning participants
   * @param targetTimeProof a sequenced event that the submitter has recently observed on the target domain.
   *                        Determines the timestamp of the topology at the target domain.
   * @param reassignmentCounter The new reassignment counter (incremented value compared to the one in the ACS).
@@ -32,7 +33,7 @@ import scala.concurrent.ExecutionContext
 final case class UnassignmentRequest(
     submitterMetadata: ReassignmentSubmitterMetadata,
     stakeholders: Set[LfPartyId],
-    adminParties: Set[LfPartyId],
+    reassigningParticipants: Set[ParticipantId],
     creatingTransactionId: TransactionId,
     contract: SerializableContract,
     sourceDomain: SourceDomainId,
@@ -59,7 +60,7 @@ final case class UnassignmentRequest(
         sourceDomain,
         sourceMediator,
         stakeholders,
-        adminParties,
+        reassigningParticipants,
         uuid,
         submitterMetadata,
         sourceProtocolVersion,
@@ -98,7 +99,6 @@ object UnassignmentRequest {
       sourceTopology: TopologySnapshot,
       targetTopology: TopologySnapshot,
       reassignmentCounter: ReassignmentCounter,
-      logger: TracedLogger,
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
@@ -117,26 +117,42 @@ object UnassignmentRequest {
         submitterMetadata.submitter,
         participantId,
       )
+      _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
+        stakeholders.contains(submitterMetadata.submitter),
+        UnassignmentSubmitterMustBeStakeholder(
+          contractId,
+          submitterMetadata.submitter,
+          stakeholders,
+        ),
+      )
       adminPartiesAndRecipients <- AdminPartiesAndParticipants(
-        contractId,
-        submitterMetadata.submitter,
         stakeholders,
         sourceTopology,
         targetTopology,
-        logger,
       )
-      _ <- ReassignmentKnownAndVetted(
-        stakeholders,
-        targetTopology,
-        contractId,
-        templateId.packageId,
-        targetDomain,
-      )
+      reassigningParticipants <- ReassigningParticipants
+        .compute(
+          stakeholders,
+          sourceTopology,
+          targetTopology,
+        )
+        .mapK(FutureUnlessShutdown.outcomeK)
+      _ <- UsableDomain
+        .checkPackagesVetted(
+          targetDomain.unwrap,
+          targetTopology,
+          stakeholders.view.map(_ -> Set(templateId.packageId)).toMap,
+          targetTopology.referenceTime,
+        )
+        .leftMap[ReassignmentProcessorError](unknownPackage =>
+          UnassignmentProcessorError
+            .PackageIdUnknownOrUnvetted(contractId, unknownPackage.unknownTo)
+        )
     } yield {
       val unassignmentRequest = UnassignmentRequest(
         submitterMetadata,
         stakeholders,
-        adminPartiesAndRecipients.adminParties,
+        reassigningParticipants,
         creatingTransactionId,
         contract,
         sourceDomain,
@@ -148,7 +164,10 @@ object UnassignmentRequest {
         reassignmentCounter,
       )
 
-      UnassignmentRequestValidated(unassignmentRequest, adminPartiesAndRecipients.participants)
+      UnassignmentRequestValidated(
+        unassignmentRequest,
+        adminPartiesAndRecipients.unassigningParticipants,
+      )
     }
   }
 

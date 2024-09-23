@@ -429,6 +429,7 @@ object ReassignmentProcessingSteps {
       error: TransactionRejection,
   )
 
+  // TODO(#18531) Check whether all the errors are needed
   trait ReassignmentProcessorError
       extends WrapsProcessorError
       with Product
@@ -530,7 +531,7 @@ object ReassignmentProcessingSteps {
       s"Template ID mismatch for reassignment. Declared=$declaredTemplateId, expected=$expectedTemplateId`"
   }
 
-  final case class SubmittingPartyMustBeStakeholderIn(
+  final case class AssignmentSubmitterMustBeStakeholder(
       reassignmentId: ReassignmentId,
       submittingParty: LfPartyId,
       stakeholders: Set[LfPartyId],

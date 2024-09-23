@@ -1458,7 +1458,7 @@ class TopologyAdministrationGroup(
                    TimeQuery.Range(fromO, toO): Time-range of when the transaction was added to the store
         operation: Optionally, what type of operation the transaction should have.
         filterParty: Filter for parties starting with the given filter string.
-        filterParticipant: If non-empty, returns only parties that are hosted on this participants.
+        filterParticipant: If non-empty, returns only parties that are hosted on this participant.
         filterSigningKey: Filter for transactions that are authorized with a key that starts with the given filter string.
         protocolVersion: Export the topology transactions in the optional protocol version.
         |"""

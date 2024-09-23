@@ -26,7 +26,7 @@ message UnassignmentCommonData {
   com.digitalasset.canton.crypto.v30.Salt salt = 1;
   string source_domain = 2;
   repeated string stakeholders = 3;
-  repeated string admin_parties = 4;
+  repeated string reassigning_participant_uids = 4;
   string uuid = 5;
   int32 source_mediator_group = 6;
   ReassignmentSubmitterMetadata submitter_metadata = 7;
@@ -62,6 +62,7 @@ message AssignmentCommonData {
   string uuid = 4;
   int32 target_mediator_group = 6;
   ReassignmentSubmitterMetadata submitter_metadata = 7;
+  repeated string reassigning_participant_uids = 8;
 }
 
 message ReassignmentSubmitterMetadata {

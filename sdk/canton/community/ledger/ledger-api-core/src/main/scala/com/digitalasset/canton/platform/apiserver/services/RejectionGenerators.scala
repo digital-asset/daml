@@ -11,7 +11,7 @@ import com.digitalasset.canton.ledger.error.groups.{
   RequestValidationErrors,
 }
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
-import com.digitalasset.daml.lf.data.Time
+import com.digitalasset.daml.lf.data.{Ref, Time}
 import com.digitalasset.daml.lf.engine.Error.{Interpretation, Package, Preprocessing, Validation}
 import com.digitalasset.daml.lf.engine.Error as LfError
 import com.digitalasset.daml.lf.interpretation.Error as LfInterpretationError
@@ -41,7 +41,7 @@ object RejectionGenerators {
           .Reject(validationError.pretty)
       case Package.MissingPackage(packageId, context) =>
         RequestValidationErrors.NotFound.Package
-          .InterpretationReject(packageId, context)
+          .InterpretationReject(Ref.PackageRef.Id(packageId), context)
       case Package.AllowedLanguageVersion(packageId, languageVersion, allowedLanguageVersions) =>
         CommandExecutionErrors.Package.AllowedLanguageVersions.Error(
           packageId,
@@ -54,6 +54,9 @@ object RejectionGenerators {
 
     def processPreprocessingError(err: LfError.Preprocessing.Error): DamlError = err match {
       case e: Preprocessing.Internal => LedgerApiErrors.InternalError.Preprocessing(e)
+      case Preprocessing.UnresolvedPackageName(pkgName, context) =>
+        RequestValidationErrors.NotFound.Package
+          .InterpretationReject(Ref.PackageRef.Name(pkgName), context)
       case e => CommandExecutionErrors.Preprocessing.PreprocessingFailed.Reject(e)
     }
 

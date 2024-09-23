@@ -112,15 +112,12 @@ private[routing] class DomainRankComputation(
                 reader,
                 participantId,
               )
-              adminParties <- AdminPartiesAndParticipants(
-                contractId,
-                reader,
+              _adminParties <- AdminPartiesAndParticipants(
                 contractStakeholders,
                 sourceSnapshot,
                 targetSnapshot,
-                logger,
               )
-            } yield adminParties
+            } yield ()
           result
             .onShutdown(Left(UnassignmentProcessorError.AbortedDueToShutdownOut(contractId)))
             .biflatMap(

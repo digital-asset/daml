@@ -121,23 +121,6 @@ final class DomainCryptoPureApi(
 
   override def defaultHashAlgorithm: HashAlgorithm = pureCrypto.defaultHashAlgorithm
 
-  override protected[crypto] def hkdfExpandInternal(
-      keyMaterial: SecureRandomness,
-      outputBytes: Int,
-      info: HkdfInfo,
-      algorithm: HmacAlgorithm,
-  ): Either[HkdfError, SecureRandomness] =
-    pureCrypto.hkdfExpandInternal(keyMaterial, outputBytes, info, algorithm)
-
-  override protected[crypto] def computeHkdfInternal(
-      keyMaterial: ByteString,
-      outputBytes: Int,
-      info: HkdfInfo,
-      salt: ByteString,
-      algorithm: HmacAlgorithm,
-  ): Either[HkdfError, SecureRandomness] =
-    pureCrypto.computeHkdfInternal(keyMaterial, outputBytes, info, salt, algorithm)
-
   override protected[crypto] def defaultPbkdfScheme: PbkdfScheme = pureCrypto.defaultPbkdfScheme
 
   override def deriveSymmetricKey(

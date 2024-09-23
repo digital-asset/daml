@@ -23,7 +23,7 @@ import com.digitalasset.canton.sequencing.protocol.{
 }
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
 import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.version.*
@@ -148,6 +148,7 @@ final case class AssignmentCommonData private (
     stakeholders: Set[LfPartyId],
     uuid: UUID,
     submitterMetadata: ReassignmentSubmitterMetadata,
+    reassigningParticipants: Set[ParticipantId],
 )(
     hashOps: HashOps,
     val targetProtocolVersion: TargetProtocolVersion,
@@ -171,6 +172,7 @@ final case class AssignmentCommonData private (
       stakeholders = stakeholders.toSeq,
       uuid = ProtoConverter.UuidConverter.toProtoPrimitive(uuid),
       submitterMetadata = Some(submitterMetadata.toProtoV30),
+      reassigningParticipantUids = reassigningParticipants.map(_.uid.toProtoPrimitive).toSeq,
     )
 
   override protected[this] def toByteStringUnmemoized: ByteString =
@@ -213,6 +215,7 @@ object AssignmentCommonData
       uuid: UUID,
       submitterMetadata: ReassignmentSubmitterMetadata,
       targetProtocolVersion: TargetProtocolVersion,
+      reassigningParticipants: Set[ParticipantId],
   ): AssignmentCommonData = AssignmentCommonData(
     salt,
     targetDomain,
@@ -220,6 +223,7 @@ object AssignmentCommonData
     stakeholders,
     uuid,
     submitterMetadata,
+    reassigningParticipants,
   )(hashOps, targetProtocolVersion, None)
 
   private[this] def fromProtoV30(
@@ -236,6 +240,7 @@ object AssignmentCommonData
       uuidP,
       targetMediatorGroupP,
       submitterMetadataPO,
+      reassigningParticipantUidsP,
     ) = assignmentCommonDataP
 
     for {
@@ -251,6 +256,11 @@ object AssignmentCommonData
         .required("submitter_metadata", submitterMetadataPO)
         .flatMap(ReassignmentSubmitterMetadata.fromProtoV30)
 
+      reassigningParticipants <- reassigningParticipantUidsP.traverse(uid =>
+        UniqueIdentifier
+          .fromProtoPrimitive(uid, "reassigning_participant_uids")
+          .map(ParticipantId(_))
+      )
     } yield AssignmentCommonData(
       salt,
       targetDomain,
@@ -258,6 +268,7 @@ object AssignmentCommonData
       stakeholders.toSet,
       uuid,
       submitterMetadata,
+      reassigningParticipants.toSet,
     )(hashOps, targetProtocolVersion, Some(bytes))
   }
 }
@@ -469,8 +480,7 @@ final case class FullAssignmentTree(tree: AssignmentViewTree)
 
   override def rootHash: RootHash = tree.rootHash
 
-  override def isReassigningParticipant(participantId: ParticipantId): Boolean =
-    unassignmentResultEvent.unwrap.informees.contains(participantId.adminParty.toLf)
+  override def reassigningParticipants: Set[ParticipantId] = commonData.reassigningParticipants
 
   override def pretty: Pretty[FullAssignmentTree] = prettyOfClass(unnamedParam(_.tree))
 

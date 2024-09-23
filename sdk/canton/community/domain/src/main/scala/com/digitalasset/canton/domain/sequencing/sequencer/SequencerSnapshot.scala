@@ -7,7 +7,6 @@ import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.block.UninitializedBlockHeight
 import com.digitalasset.canton.domain.sequencing.admin.data.SequencerHealthStatus.implicitPrettyString
 import com.digitalasset.canton.domain.sequencing.sequencer.InFlightAggregation.AggregationBySender
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -66,7 +65,7 @@ final case class SequencerSnapshot(
       headMemberCounters =
         // TODO(#12075) sortBy is a poor man's approach to achieving deterministic serialization here
         //  Figure out whether we need this for sequencer snapshots
-        heads.toSeq.sortBy { case (member, _counter) => member }.map { case (member, counter) =>
+        heads.toSeq.sortBy { case (member, _) => member }.map { case (member, counter) =>
           v30.SequencerSnapshot.MemberCounter(member.toProtoPrimitive, counter.toProtoPrimitive)
         },
       status = Some(status.toProtoV30),
@@ -83,6 +82,7 @@ final case class SequencerSnapshot(
     */
   override def pretty: Pretty[SequencerSnapshot.this.type] = prettyOfClass(
     param("lastTs", _.lastTs),
+    param("latestBlockHeight", _.latestBlockHeight),
     param("heads", _.heads),
     param("status", _.status),
     param("inFlightAggregations", _.inFlightAggregations),
@@ -123,17 +123,6 @@ object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot
       trafficPurchased,
       trafficConsumed,
     )(protocolVersionRepresentativeFor(protocolVersion))
-
-  def unimplemented(protocolVersion: ProtocolVersion): SequencerSnapshot = SequencerSnapshot(
-    CantonTimestamp.MinValue,
-    UninitializedBlockHeight,
-    Map.empty,
-    SequencerPruningStatus.Unimplemented,
-    Map.empty,
-    None,
-    Seq.empty,
-    Seq.empty,
-  )(protocolVersionRepresentativeFor(protocolVersion))
 
   final case class ImplementationSpecificInfo(implementationName: String, info: ByteString)
       extends PrettyPrinting {

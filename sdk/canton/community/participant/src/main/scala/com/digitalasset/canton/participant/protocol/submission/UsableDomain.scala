@@ -36,7 +36,7 @@ object UsableDomain {
   ): EitherT[Future, DomainNotUsedReason, Unit] = {
 
     val packageVetted: EitherT[Future, UnknownPackage, Unit] =
-      resolveParticipantsAndCheckPackagesVetted(
+      checkPackagesVetted(
         domainId,
         snapshot,
         requiredPackagesByParty,
@@ -123,7 +123,7 @@ object UsableDomain {
     * The participant receives a projection for the parties it hosts. Hence, the packages
     * needed for these parties will be sufficient to re-interpret the whole projection.
     */
-  def resolveParticipantsAndCheckPackagesVetted(
+  def checkPackagesVetted(
       domainId: DomainId,
       snapshot: TopologySnapshot,
       requiredPackagesByParty: Map[LfPartyId, Set[LfPackageId]],

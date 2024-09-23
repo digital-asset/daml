@@ -195,7 +195,6 @@ final class GeneratorsMessages(
       signatureO <- Gen.option(Arbitrary.arbitrary[Signature])
       viewHash <- Arbitrary.arbitrary[ViewHash]
       encryptedViewBytestring <- byteStringArb.arbitrary
-      randomness = Encrypted.fromByteString[SecureRandomness](encryptedViewBytestring)
       sessionKey <- Generators.nonEmptyListGen[AsymmetricEncrypted[SecureRandomness]]
       viewType <- viewTypeArb.arbitrary
       encryptedView = EncryptedView(viewType)(Encrypted.fromByteString(encryptedViewBytestring))
@@ -204,8 +203,7 @@ final class GeneratorsMessages(
     } yield EncryptedViewMessage.apply(
       submittingParticipantSignature = signatureO,
       viewHash = viewHash,
-      randomness = randomness,
-      sessionKey = sessionKey,
+      sessionKeys = sessionKey,
       encryptedView = encryptedView,
       domainId = domainId,
       viewEncryptionScheme = viewEncryptionScheme,

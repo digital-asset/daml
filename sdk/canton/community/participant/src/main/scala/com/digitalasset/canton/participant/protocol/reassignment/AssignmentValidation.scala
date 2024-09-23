@@ -103,7 +103,7 @@ private[reassignment] class AssignmentValidation(
     def checkSubmitterIsStakeholder: Either[ReassignmentProcessorError, Unit] =
       condUnitE(
         assignmentRequest.stakeholders.contains(assignmentRequest.submitter),
-        SubmittingPartyMustBeStakeholderIn(
+        AssignmentSubmitterMustBeStakeholder(
           reassignmentId,
           assignmentRequest.submitter,
           assignmentRequest.stakeholders,
@@ -148,6 +148,15 @@ private[reassignment] class AssignmentValidation(
             ),
           )
 
+          _ <- condUnitET[Future](
+            reassignmentData.unassignmentRequest.reassigningParticipants == assignmentRequest.reassigningParticipants,
+            ReassigningParticipantsMismatch(
+              reassignmentId,
+              expected = reassignmentData.unassignmentRequest.reassigningParticipants,
+              declared = assignmentRequest.reassigningParticipants,
+            ),
+          )
+
           // TODO(i12926): Validate the shipped unassignment result w.r.t. stakeholders
           // TODO(i12926): Validate that the unassignment result received matches the unassignment result in reassignmentData
 
@@ -183,6 +192,7 @@ private[reassignment] class AssignmentValidation(
               timeout = exclusivityLimit,
             ),
           )
+
           _ <- condUnitET[Future](
             reassignmentData.creatingTransactionId == assignmentRequest.creatingTransactionId,
             CreatingTransactionIdMismatch(
@@ -213,7 +223,8 @@ private[reassignment] class AssignmentValidation(
             ): ReassignmentProcessorError,
           )
 
-        } yield Some(AssignmentValidationResult(confirmingParties.toSet))
+        } yield Some(AssignmentValidationResult(confirmingParties))
+
       case None =>
         for {
           _ <- EitherT.fromEither[Future](checkSubmitterIsStakeholder)
@@ -285,6 +296,15 @@ object AssignmentValidation {
   ) extends AssignmentValidationError {
     override def message: String =
       s"Cannot assign `$reassignmentId`: result time $timestamp exceeds decision time $decisionTime"
+  }
+
+  final case class ReassigningParticipantsMismatch(
+      reassignmentId: ReassignmentId,
+      expected: Set[ParticipantId],
+      declared: Set[ParticipantId],
+  ) extends UnassignmentProcessorError {
+    override def message: String =
+      s"Cannot assign `$reassignmentId`: reassigning participants mismatch"
   }
 
   final case class NonInitiatorSubmitsBeforeExclusivityTimeout(

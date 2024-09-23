@@ -18,7 +18,7 @@ import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, H
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.{MemoryStorage, Storage}
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.topology.{DomainId, Member, SequencerId}
+import com.digitalasset.canton.topology.{DomainId, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.version.ProtocolVersion
@@ -33,7 +33,7 @@ trait SequencerFactory extends FlagCloseable with HasCloseContext {
   def initialize(
       initialState: SequencerInitialState,
       sequencerId: SequencerId,
-  )(implicit ex: ExecutionContext, traceContext: TraceContext): EitherT[Future, String, Unit]
+  )(implicit ec: ExecutionContext, traceContext: TraceContext): EitherT[Future, String, Unit]
 
   def create(
       domainId: DomainId,
@@ -46,7 +46,6 @@ trait SequencerFactory extends FlagCloseable with HasCloseContext {
       runtimeReady: FutureUnlessShutdown[Unit],
       sequencerSnapshot: Option[SequencerSnapshot],
   )(implicit
-      ec: ExecutionContext,
       traceContext: TraceContext,
       tracer: Tracer,
       actorMaterializer: Materializer,
@@ -57,13 +56,31 @@ abstract class DatabaseSequencerFactory(
     storage: Storage,
     override val timeouts: ProcessingTimeout,
     protocolVersion: ProtocolVersion,
-) extends SequencerFactory
+    sequencerId: SequencerId,
+)(implicit ec: ExecutionContext)
+    extends SequencerFactory
     with NamedLogging {
+
+  val sequencerStore: SequencerStore =
+    SequencerStore(
+      storage,
+      protocolVersion,
+      DefaultMaxSqlInListSize,
+      timeouts,
+      loggerFactory,
+      sequencerId,
+      blockSequencerMode =
+        true, // // TODO(#18401): does not affect the usage below, but should be correctly set
+      // At the moment this store instance is only used for the sequencer initialization,
+      // if it is retrying a db operation and the factory is closed, the store will be closed as well;
+      // if request succeeds, the store will no be retrying and doesn't need to be closed
+      overrideCloseContext = Some(this.closeContext),
+    )
 
   override def initialize(
       initialState: SequencerInitialState,
       sequencerId: SequencerId,
-  )(implicit ex: ExecutionContext, traceContext: TraceContext): EitherT[Future, String, Unit] = {
+  )(implicit ec: ExecutionContext, traceContext: TraceContext): EitherT[Future, String, Unit] = {
 
     // TODO(#18401): Parameterize DatabaseSequencer with the SequencerStore;
     //  create it in this factory, and pass the same one to DBS and use here;
@@ -79,23 +96,7 @@ abstract class DatabaseSequencerFactory(
       case _ =>
     }
 
-    val generalStore: SequencerStore =
-      SequencerStore(
-        storage,
-        protocolVersion,
-        DefaultMaxSqlInListSize,
-        timeouts,
-        loggerFactory,
-        sequencerId,
-        blockSequencerMode =
-          true, // // TODO(#18401): does not affect the usage below, but should be correctly set
-        // At the moment this store instance is only used for the sequencer initialization,
-        // if it is retrying a db operation and the factory is closed, the store will be closed as well;
-        // if request succeeds, the store will no be retrying and doesn't need to be closed
-        overrideCloseContext = Some(this.closeContext),
-      )
-
-    generalStore.initializeFromSnapshot(initialState)
+    sequencerStore.initializeFromSnapshot(initialState)
   }
 }
 
@@ -104,13 +105,15 @@ class CommunityDatabaseSequencerFactory(
     metrics: SequencerMetrics,
     storage: Storage,
     sequencerProtocolVersion: ProtocolVersion,
-    topologyClientMember: Member,
+    sequencerId: SequencerId,
     nodeParameters: CantonNodeParameters,
     override val loggerFactory: NamedLoggerFactory,
-) extends DatabaseSequencerFactory(
+)(implicit ec: ExecutionContext)
+    extends DatabaseSequencerFactory(
       storage,
       nodeParameters.processingTimeouts,
       sequencerProtocolVersion,
+      sequencerId,
     ) {
 
   override def create(
@@ -124,7 +127,6 @@ class CommunityDatabaseSequencerFactory(
       runtimeReady: FutureUnlessShutdown[Unit],
       sequencerSnapshot: Option[SequencerSnapshot],
   )(implicit
-      ec: ExecutionContext,
       traceContext: TraceContext,
       tracer: Tracer,
       actorMaterializer: Materializer,
@@ -136,7 +138,7 @@ class CommunityDatabaseSequencerFactory(
       storage,
       clock,
       domainId,
-      topologyClientMember,
+      sequencerId,
       sequencerProtocolVersion,
       domainSyncCryptoApi,
       metrics,
@@ -166,7 +168,7 @@ trait MkSequencerFactory {
       loggerFactory: NamedLoggerFactory,
   )(
       sequencerConfig: SequencerConfig
-  )(implicit executionContext: ExecutionContext): SequencerFactory
+  )(implicit ececutionContext: ExecutionContext): SequencerFactory
 
 }
 
@@ -196,11 +198,16 @@ object CommunitySequencerFactory extends MkSequencerFactory {
         loggerFactory,
       )
 
-    case CommunitySequencerConfig.External(sequencerType, config, testingInterceptor) =>
+    case CommunitySequencerConfig.External(
+          sequencerType,
+          blockSequencerConfig,
+          config,
+        ) =>
       DriverBlockSequencerFactory(
         sequencerType,
         SequencerDriver.DriverApiVersion,
         config,
+        blockSequencerConfig,
         health,
         storage,
         protocolVersion,
@@ -208,7 +215,7 @@ object CommunitySequencerFactory extends MkSequencerFactory {
         nodeParameters,
         metrics,
         loggerFactory,
-        testingInterceptor,
+        blockSequencerConfig.testingInterceptor,
       )
 
     case config: SequencerConfig =>

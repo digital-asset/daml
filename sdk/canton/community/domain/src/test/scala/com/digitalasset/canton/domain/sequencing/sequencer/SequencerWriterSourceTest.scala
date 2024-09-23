@@ -91,10 +91,9 @@ class SequencerWriterSourceTest
     protected val logger: TracedLogger = SequencerWriterSourceTest.this.logger
     implicit val actorSystem: ActorSystem = ActorSystem()
     val instanceIndex: Int = 0
-    val testWriterConfig: SequencerWriterConfig.LowLatency =
+    val testWriterConfig: SequencerWriterConfig =
       SequencerWriterConfig
-        .LowLatency()
-        .copy(
+        .LowLatency(
           checkpointInterval = NonNegativeFiniteDuration.tryOfSeconds(1).toConfig
         )
     lazy val sequencerMember: Member = SequencerId(

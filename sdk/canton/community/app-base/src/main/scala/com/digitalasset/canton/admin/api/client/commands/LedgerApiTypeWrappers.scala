@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.admin.api.client.commands
 
+import cats.syntax.option.*
 import com.daml.ledger.api.v2.event.CreatedEvent
 import com.daml.ledger.api.v2.reassignment.{AssignedEvent, UnassignedEvent}
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse.ContractEntry
@@ -53,10 +54,18 @@ object LedgerApiTypeWrappers {
 
     def contractId: String = event.contractId
 
-    def domainId: Option[String] = entry match {
-      case ContractEntry.ActiveContract(value) => Some(value.domainId)
-      case _ => None
+    def domainId: Option[DomainId] = {
+      val domainStr = entry match {
+        case ContractEntry.Empty => None
+        case ContractEntry.ActiveContract(contract) => contract.domainId.some
+        case ContractEntry.IncompleteUnassigned(unassigned) =>
+          unassigned.unassignedEvent.map(_.source)
+        case ContractEntry.IncompleteAssigned(assigned) => assigned.assignedEvent.map(_.target)
+      }
+
+      domainStr.map(DomainId.tryFromString)
     }
+
     def templateId: TemplateId = TemplateId.fromIdentifier(
       event.templateId
         .getOrElse(throw new RuntimeException("Found empty template id"))

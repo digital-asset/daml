@@ -9,7 +9,6 @@ import cats.syntax.foldable.*
 import cats.syntax.functor.*
 import cats.syntax.option.*
 import cats.syntax.parallel.*
-import cats.syntax.traverse.*
 import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
@@ -79,6 +78,7 @@ import com.digitalasset.canton.protocol.WellFormedTransaction.{
   WithoutSuffixes,
 }
 import com.digitalasset.canton.protocol.*
+import com.digitalasset.canton.protocol.messages.EncryptedViewMessage.computeRandomnessLength
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.resource.DbStorage.PassiveInstanceException
 import com.digitalasset.canton.sequencing.client.SendAsyncClientError
@@ -404,7 +404,6 @@ class TransactionProcessingSteps(
               recentSnapshot,
               sessionKeyStore,
               lookupContractsWithDisclosed,
-              None,
               maxSequencingTime,
               protocolVersion,
             )
@@ -593,7 +592,7 @@ class TransactionProcessingSteps(
           bytes: ByteString
       ): Either[DefaultDeserializationError, LightTransactionViewTree] =
         LightTransactionViewTree
-          .fromByteString(pureCrypto, protocolVersion)(
+          .fromByteString((pureCrypto, computeRandomnessLength(pureCrypto)), protocolVersion)(
             bytes
           )
           .leftMap(err => DefaultDeserializationError(err.message))
@@ -616,7 +615,7 @@ class TransactionProcessingSteps(
       // To recover parallel processing to the largest possible extent, we'll associate a promise to each received
       // view. The promise gets fulfilled once the randomness for that view is computed - either directly by decryption,
       // because the participant is an informee of the view, or indirectly, because the participant is an informee on an
-      // ancestor view and it has derived the view randomness using the HKDF.
+      // ancestor view and so it contains that view's randomness.
 
       // TODO(i12911): a malicious submitter can send a bogus view whose randomness cannot be decrypted/derived,
       //  crashing the SyncDomain
@@ -676,39 +675,6 @@ class TransactionProcessingSteps(
         }
       }
 
-      def deriveRandomnessForSubviews(
-          viewMessage: TransactionViewMessage,
-          randomness: SecureRandomness,
-      )(
-          subviewHashAndIndex: (ViewHash, ViewPosition.MerklePathElement)
-      ): Either[EncryptedViewMessageError, Unit] = {
-        val (subviewHash, index) = subviewHashAndIndex
-        val info = HkdfInfo.subview(index)
-        for {
-          subviewRandomness <-
-            pureCrypto
-              .computeHkdf(
-                randomness.unwrap,
-                randomness.unwrap.size,
-                info,
-              )
-              .leftMap(error => EncryptedViewMessageError.HkdfExpansionError(error))
-        } yield {
-          randomnessMap.get(subviewHash) match {
-            case Some(promise) =>
-              promise.outcome(subviewRandomness)
-            case None =>
-              // TODO(i12911): make sure to not approve the request
-              SyncServiceAlarm
-                .Warn(
-                  s"View ${viewMessage.viewHash} lists a subview with hash $subviewHash, but I haven't received any views for this hash"
-                )
-                .report()
-          }
-          ()
-        }
-      }
-
       def decryptViewWithRandomness(
           viewMessage: TransactionViewMessage,
           randomness: SecureRandomness,
@@ -719,13 +685,21 @@ class TransactionProcessingSteps(
       ] =
         for {
           ltvt <- decryptTree(viewMessage, Some(randomness))
-          _ <- EitherT.fromEither[FutureUnlessShutdown](
-            ltvt.subviewHashes
-              .zip(TransactionSubviews.indices(ltvt.subviewHashes.length))
-              .traverse(
-                deriveRandomnessForSubviews(viewMessage, randomness)
-              )
-          )
+          _ = ltvt.subviewHashesAndKeys
+            .map { case ViewHashAndKey(subviewHash, subviewKey) =>
+              randomnessMap.get(subviewHash) match {
+                case Some(promise) =>
+                  promise.outcome(subviewKey)
+                case None =>
+                  // TODO(i12911): make sure to not approve the request
+                  SyncServiceAlarm
+                    .Warn(
+                      s"View ${viewMessage.viewHash} lists a subview with hash $subviewHash, but " +
+                        s"I haven't received any views for this hash"
+                    )
+                    .report()
+              }
+            }
         } yield (ltvt, viewMessage.submittingParticipantSignature)
 
       def decryptView(

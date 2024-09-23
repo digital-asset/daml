@@ -39,6 +39,7 @@ import com.digitalasset.canton.ledger.client.services.state.StateServiceClient
 import com.digitalasset.canton.ledger.client.services.updates.UpdateServiceClient
 import com.digitalasset.canton.ledger.service.Grpc.StatusEnvelope
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.protobuf
 import com.google.rpc.Code
@@ -102,7 +103,9 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends Name
     (jwt, filter, offset, terminates) => { implicit lc =>
       val endSource: Source[String, NotUsed] = terminates match {
         case Terminates.AtParticipantEnd =>
-          Source.future(client.stateService.getLedgerEnd()).map(_.offset)
+          Source
+            .future(client.stateService.getLedgerEnd())
+            .map(response => ApiOffset.fromLongO(response.offset))
         case Terminates.Never => Source.single("")
         case Terminates.AtAbsolute(off) => Source.single(off)
       }

@@ -6,7 +6,6 @@ package com.digitalasset.canton.domain.block.update
 import cats.syntax.functor.*
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.block.data.BlockUpdateEphemeralState
 import com.digitalasset.canton.domain.block.update.BlockUpdateGeneratorImpl.{
   SequencedSubmission,
   State,
@@ -59,7 +58,8 @@ private[update] final class SequencedSubmissionsValidator(
       submissionRequestsWithSnapshots: Seq[SequencedSubmission],
   )(implicit ec: ExecutionContext): FutureUnlessShutdown[SequencedSubmissionsValidationResult] =
     MonadUtil.foldLeftM(
-      initialState = SequencedSubmissionsValidationResult(ephemeralState = state.ephemeral),
+      initialState =
+        SequencedSubmissionsValidationResult(inFlightAggregations = state.inFlightAggregations),
       submissionRequestsWithSnapshots,
     )(validateSequencedSubmissionAndAddEvents(state.latestSequencerEventTimestamp, height))
 
@@ -76,8 +76,7 @@ private[update] final class SequencedSubmissionsValidator(
       sequencedSubmissionRequest: SequencedSubmission,
   )(implicit ec: ExecutionContext): FutureUnlessShutdown[SequencedSubmissionsValidationResult] = {
     val SequencedSubmissionsValidationResult(
-      stateFromPartialResult,
-      reversedEvents,
+      inFlightAggregations,
       inFlightAggregationUpdates,
       sequencerEventTimestampSoFar,
       reversedOutcomes,
@@ -100,23 +99,22 @@ private[update] final class SequencedSubmissionsValidator(
     for {
       newStateAndOutcome <-
         submissionRequestValidator.validateAndGenerateSequencedEvents(
-          stateFromPartialResult,
+          inFlightAggregations,
           sequencingTimestamp,
           signedOrderingRequest,
           topologyOrSequencingSnapshot,
           topologyTimestampError,
           latestSequencerEventTimestamp,
         )
-      SubmissionRequestValidationResult(newState, outcome, sequencerEventTimestamp) =
+      SubmissionRequestValidationResult(inFlightAggregations, outcome, sequencerEventTimestamp) =
         newStateAndOutcome
       result <-
         processSubmissionOutcome(
-          newState,
+          inFlightAggregations,
           outcome,
           resultIfNoDeliverEvents = partialResult,
           inFlightAggregationUpdates,
           sequencerEventTimestamp,
-          remainingReversedEvents = reversedEvents,
           remainingReversedOutcomes = reversedOutcomes,
         )
       _ = logger.debug(
@@ -131,12 +129,11 @@ private[update] final class SequencedSubmissionsValidator(
   }
 
   private def processSubmissionOutcome(
-      state: BlockUpdateEphemeralState,
+      inFlightAggregations: InFlightAggregations,
       outcome: SubmissionRequestOutcome,
       resultIfNoDeliverEvents: SequencedSubmissionsValidationResult,
       inFlightAggregationUpdates: InFlightAggregationUpdates,
       sequencerEventTimestamp: Option[CantonTimestamp],
-      remainingReversedEvents: Seq[UnsignedChunkEvents],
       remainingReversedOutcomes: Seq[SubmissionRequestOutcome],
   )(implicit
       traceContext: TraceContext
@@ -150,10 +147,10 @@ private[update] final class SequencedSubmissionsValidator(
     unifiedOutcome match {
       case _: DeliverableSubmissionOutcome =>
         val (newInFlightAggregations, newInFlightAggregationUpdates) =
-          newAggregationO.fold(state.inFlightAggregations -> inFlightAggregationUpdates) {
+          newAggregationO.fold(inFlightAggregations -> inFlightAggregationUpdates) {
             case (aggregationId, inFlightAggregationUpdate) =>
               InFlightAggregations.tryApplyUpdates(
-                state.inFlightAggregations,
+                inFlightAggregations,
                 Map(aggregationId -> inFlightAggregationUpdate),
                 ignoreInFlightAggregationErrors = false,
               ) ->
@@ -162,11 +159,9 @@ private[update] final class SequencedSubmissionsValidator(
                   Iterable(aggregationId -> inFlightAggregationUpdate),
                 )(_ tryMerge _)
           }
-        val newState = state.copy(inFlightAggregations = newInFlightAggregations)
         FutureUnlessShutdown.pure(
           SequencedSubmissionsValidationResult(
-            newState,
-            Seq.empty,
+            newInFlightAggregations,
             newInFlightAggregationUpdates,
             sequencerEventTimestamp,
             outcome +: remainingReversedOutcomes,
@@ -181,8 +176,7 @@ private[update] final class SequencedSubmissionsValidator(
 private[update] object SequencedSubmissionsValidator {
 
   final case class SequencedSubmissionsValidationResult(
-      ephemeralState: BlockUpdateEphemeralState,
-      reversedSignedEvents: Seq[UnsignedChunkEvents] = Seq.empty,
+      inFlightAggregations: InFlightAggregations,
       inFlightAggregationUpdates: InFlightAggregationUpdates = Map.empty,
       lastSequencerEventTimestamp: Option[CantonTimestamp] = None,
       reversedOutcomes: Seq[SubmissionRequestOutcome] = Seq.empty,

@@ -7,8 +7,8 @@ import cats.data.*
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.FullUnassignmentTree
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
+import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessorError.UnassignmentSubmitterMustBeStakeholder
 import com.digitalasset.canton.protocol.LfTemplateId
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -26,6 +26,7 @@ private[reassignment] final case class UnassignmentValidation(
     expectedTemplateId: LfTemplateId,
     sourceProtocolVersion: SourceProtocolVersion,
     sourceTopology: TopologySnapshot,
+    // Defined if and only if the participant is reassigning
     targetTopology: Option[TopologySnapshot],
     recipients: Recipients,
 ) {
@@ -43,7 +44,19 @@ private[reassignment] final case class UnassignmentValidation(
       ),
     )
 
-  private def checkParticipants(logger: TracedLogger)(implicit
+  private def checkSubmitterIsStakeholder(implicit
+      ec: ExecutionContext
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
+    condUnitET(
+      request.stakeholders.contains(request.submitter),
+      UnassignmentSubmitterMustBeStakeholder(
+        request.contractId,
+        request.submitter,
+        request.stakeholders,
+      ),
+    )
+
+  private def checkParticipants(implicit
       traceContext: TraceContext,
       executionContext: ExecutionContext,
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
@@ -57,13 +70,11 @@ private[reassignment] final case class UnassignmentValidation(
           sourceTopology,
           targetTopology,
           recipients,
-          logger,
         )
-      case None =>
-        UnassignmentValidationNonReassigningParticipant(request, sourceTopology, logger)
+      case None => EitherT.pure(())
     }
 
-  private def checkTemplateId()(implicit
+  private def checkTemplateId(implicit
       executionContext: ExecutionContext
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
     EitherT.cond[FutureUnlessShutdown](
@@ -77,8 +88,7 @@ private[reassignment] final case class UnassignmentValidation(
 }
 
 private[reassignment] object UnassignmentValidation {
-
-  def apply(
+  def perform(
       request: FullUnassignmentTree,
       expectedStakeholders: Set[LfPartyId],
       expectedTemplateId: LfTemplateId,
@@ -86,7 +96,6 @@ private[reassignment] object UnassignmentValidation {
       sourceTopology: TopologySnapshot,
       targetTopology: Option[TopologySnapshot],
       recipients: Recipients,
-      logger: TracedLogger,
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -104,8 +113,9 @@ private[reassignment] object UnassignmentValidation {
 
     for {
       _ <- validation.checkStakeholders
-      _ <- validation.checkParticipants(logger)
-      _ <- validation.checkTemplateId()
+      _ <- validation.checkSubmitterIsStakeholder
+      _ <- validation.checkParticipants
+      _ <- validation.checkTemplateId
     } yield ()
   }
 

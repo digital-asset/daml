@@ -285,41 +285,6 @@ class SymbolicPureCrypto extends CryptoPureApi {
 
     } yield message
 
-  override protected[crypto] def computeHkdfInternal(
-      keyMaterial: ByteString,
-      outputBytes: Int,
-      info: HkdfInfo,
-      salt: ByteString,
-      algorithm: HmacAlgorithm,
-  ): Either[HkdfError, SecureRandomness] =
-    NonNegativeInt.create(outputBytes) match {
-      case Left(_) => Left(HkdfError.HkdfOutputNegative(outputBytes))
-      case Right(size) =>
-        Right(
-          SecureRandomness(
-            ByteStringUtil
-              .padOrTruncate(keyMaterial.concat(salt).concat(info.bytes), size)
-          )
-        )
-    }
-
-  override protected[crypto] def hkdfExpandInternal(
-      keyMaterial: SecureRandomness,
-      outputBytes: Int,
-      info: HkdfInfo,
-      algorithm: HmacAlgorithm,
-  ): Either[HkdfError, SecureRandomness] =
-    Right(SecureRandomness(keyMaterial.unwrap.concat(info.bytes)))
-
-  override def computeHkdf(
-      keyMaterial: ByteString,
-      outputBytes: Int,
-      info: HkdfInfo,
-      salt: ByteString,
-      algorithm: HmacAlgorithm,
-  ): Either[HkdfError, SecureRandomness] =
-    computeHkdfInternal(keyMaterial, outputBytes, info, salt, algorithm)
-
   override protected[crypto] def generateRandomBytes(length: Int): Array[Byte] = {
     // Not really random
     val random =

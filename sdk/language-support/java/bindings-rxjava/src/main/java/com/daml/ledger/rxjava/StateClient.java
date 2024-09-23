@@ -6,6 +6,7 @@ package com.daml.ledger.rxjava;
 import com.daml.ledger.javaapi.data.*;
 import io.reactivex.Flowable;
 import io.reactivex.Single;
+import java.util.Optional;
 import java.util.Set;
 
 /** An RxJava version of {@link com.daml.ledger.api.v1.ActiveContractsServiceGrpc} */
@@ -44,7 +45,7 @@ public interface StateClient {
   <Ct> Flowable<ActiveContracts<Ct>> getActiveContracts(
       ContractFilter<Ct> contractFilter, Set<String> parties, boolean verbose, String accessToken);
 
-  Single<String> getLedgerEnd();
+  Single<Optional<Long>> getLedgerEnd();
 
-  Single<String> getLedgerEnd(String accessToken);
+  Single<Optional<Long>> getLedgerEnd(String accessToken);
 }

@@ -31,6 +31,10 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.{
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidation.*
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
+import com.digitalasset.canton.participant.protocol.submission.EncryptedViewMessageFactory.{
+  ViewHashAndRecipients,
+  ViewKeyData,
+}
 import com.digitalasset.canton.participant.protocol.submission.{
   EncryptedViewMessageFactory,
   SeedGenerator,
@@ -149,6 +153,7 @@ private[reassignment] class AssignmentProcessingSteps(
         .lookup(reassignmentId)
         .leftMap(err => NoReassignmentData(reassignmentId, err))
         .mapK(FutureUnlessShutdown.outcomeK)
+
       unassignmentResult <- EitherT.fromEither[FutureUnlessShutdown](
         reassignmentData.unassignmentResult.toRight(
           UnassignmentIncomplete(reassignmentId, participantId)
@@ -164,7 +169,7 @@ private[reassignment] class AssignmentProcessingSteps(
       stakeholders = reassignmentData.unassignmentRequest.stakeholders
       _ <- condUnitET[FutureUnlessShutdown](
         stakeholders.contains(submitter),
-        SubmittingPartyMustBeStakeholderIn(reassignmentId, submitter, stakeholders),
+        AssignmentSubmitterMustBeStakeholder(reassignmentId, submitter, stakeholders),
       )
 
       _ <- CanSubmitReassignment
@@ -189,6 +194,7 @@ private[reassignment] class AssignmentProcessingSteps(
           assignmentUuid,
           reassignmentData.sourceProtocolVersion,
           targetProtocolVersion,
+          reassignmentData.unassignmentRequest.reassigningParticipants,
         )
       )
 
@@ -205,11 +211,24 @@ private[reassignment] class AssignmentProcessingSteps(
           .ofSet(recipientsSet)
           .toRight(NoStakeholders.logAndCreate(reassignmentData.contract.contractId, logger))
       )
+      viewsToKeyMap <- EncryptedViewMessageFactory
+        .generateKeysFromRecipients(
+          Seq((ViewHashAndRecipients(fullTree.viewHash, recipients), fullTree.informees.toList)),
+          parallel = true,
+          pureCrypto,
+          recentSnapshot,
+          ephemeralState.sessionKeyStoreLookup,
+          targetProtocolVersion.v,
+        )
+        .leftMap[ReassignmentProcessorError](
+          EncryptionError(reassignmentData.contract.contractId, _)
+        )
+      ViewKeyData(_, viewKey, viewKeyMap) = viewsToKeyMap(fullTree.viewHash)
       viewMessage <- EncryptedViewMessageFactory
         .create(AssignmentViewType)(
           fullTree,
+          (viewKey, viewKeyMap),
           recentSnapshot,
-          ephemeralState.sessionKeyStoreLookup,
           targetProtocolVersion.v,
         )
         .leftMap[ReassignmentProcessorError](
@@ -729,6 +748,7 @@ object AssignmentProcessingSteps {
       assignmentUuid: UUID,
       sourceProtocolVersion: SourceProtocolVersion,
       targetProtocolVersion: TargetProtocolVersion,
+      reassigningParticipants: Set[ParticipantId],
   ): Either[ReassignmentProcessorError, FullAssignmentTree] = {
     val commonDataSalt = Salt.tryDeriveSalt(seed, 0, pureCrypto)
     val viewSalt = Salt.tryDeriveSalt(seed, 1, pureCrypto)
@@ -742,6 +762,7 @@ object AssignmentProcessingSteps {
         assignmentUuid,
         submitterMetadata,
         targetProtocolVersion,
+        reassigningParticipants,
       )
 
     for {

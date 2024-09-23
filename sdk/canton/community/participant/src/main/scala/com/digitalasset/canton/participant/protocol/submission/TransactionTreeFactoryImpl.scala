@@ -158,7 +158,7 @@ class TransactionTreeFactoryImpl(
       _ <-
         if (validatePackageVettings)
           UsableDomain
-            .resolveParticipantsAndCheckPackagesVetted(
+            .checkPackagesVetted(
               domainId = domainId,
               snapshot = topologySnapshot,
               requiredPackagesByParty = requiredPackagesByParty(rootViewDecompositions),

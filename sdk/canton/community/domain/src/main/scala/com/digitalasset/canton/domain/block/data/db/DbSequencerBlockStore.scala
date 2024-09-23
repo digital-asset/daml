@@ -4,57 +4,38 @@
 package com.digitalasset.canton.domain.block.data.db
 
 import cats.data.EitherT
-import cats.syntax.foldable.*
 import cats.syntax.functor.*
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.block.data.EphemeralState.counterToCheckpoint
 import com.digitalasset.canton.domain.block.data.{
   BlockEphemeralState,
   BlockInfo,
-  EphemeralState,
   SequencerBlockStore,
 }
 import com.digitalasset.canton.domain.sequencing.integrations.state.DbSequencerStateManagerStore
-import com.digitalasset.canton.domain.sequencing.integrations.state.statemanager.{
-  MemberCounters,
-  MemberSignedEvents,
-  MemberTimestamps,
-}
+import com.digitalasset.canton.domain.sequencing.integrations.state.statemanager.MemberCounters
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError.BlockNotFound
-import com.digitalasset.canton.domain.sequencing.sequencer.store.CounterCheckpoint
 import com.digitalasset.canton.domain.sequencing.sequencer.{
   InFlightAggregationUpdates,
-  InternalSequencerPruningStatus,
+  SequencerInitialState,
 }
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.DbStorage.Profile.{H2, Oracle, Postgres}
 import com.digitalasset.canton.resource.IdempotentInsert.insertVerifyingConflicts
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
-import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{SequencerCounter, resource}
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.Source
 
 import scala.concurrent.{ExecutionContext, Future}
 
-/** @param checkedInvariant Defines whether all methods should check the block invariant when they modify the state.
-  *                          Invariant checking is slow.
-  *                          It should only be enabled for testing and debugging.
-  *                          [[scala.Some$]] defines the member under whom the sequencer's topology client subscribes.
-  */
 class DbSequencerBlockStore(
     override protected val storage: DbStorage,
     protocolVersion: ProtocolVersion,
     override protected val timeouts: ProcessingTimeout,
-    enableAdditionalConsistencyChecks: Boolean,
-    private val checkedInvariant: Option[Member],
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit override protected val executionContext: ExecutionContext)
     extends SequencerBlockStore
@@ -76,37 +57,24 @@ class DbSequencerBlockStore(
   override def readHead(implicit traceContext: TraceContext): Future[BlockEphemeralState] =
     storage.query(
       for {
-        blockInfoO <- {
-          for {
-            watermark <- safeWaterMarkDBIO
-            blockInfoO <- watermark match {
-              case Some(watermark) =>
-                findBlockContainingTimestamp(watermark).flatMap {
-                  case Some(block) => DBIO.successful(Some(block))
-                  case None =>
-                    // WM is ahead of complete blocks, so we pick the latest complete block
-                    readLatestBlockInfo()
-                }
+        watermark <- safeWaterMarkDBIO
+        blockInfoO <- watermark match {
+          case Some(watermark) =>
+            findBlockContainingTimestamp(watermark).flatMap {
+              case Some(block) => DBIO.successful(Some(block))
               case None =>
-                // if there's no WM (blank sequencer), we start from the beginning below
-                DBIO.successful(
-                  None
-                )
+                // WM is ahead of complete blocks, so we pick the latest complete block
+                readLatestBlockInfo()
             }
-          } yield blockInfoO
+          case None =>
+            // if there's no WM (blank sequencer), we start from the beginning below
+            DBIO.successful(
+              None
+            )
         }
         state <- blockInfoO match {
           case None => DBIO.successful(BlockEphemeralState.empty)
-          case Some(blockInfo) =>
-            for {
-              initialCounters <- initialMemberCountersDBIO
-              headState <- sequencerStore.readAtBlockTimestampDBIO(blockInfo.lastTs)
-            } yield {
-              BlockEphemeralState(
-                blockInfo,
-                mergeWithInitialCounters(headState, initialCounters),
-              )
-            }
+          case Some(blockInfo) => readAtBlock(blockInfo)
         }
       } yield state,
       functionFullName,
@@ -150,124 +118,46 @@ class DbSequencerBlockStore(
   private def readAtBlock(
       block: BlockInfo
   ): DBIOAction[BlockEphemeralState, NoStream, Effect.Read with Effect.Transactional] =
-    for {
-      initialCounters <- initialMemberCountersDBIO
-      stateAtTimestamp <- sequencerStore.readAtBlockTimestampDBIO(block.lastTs)
-    } yield BlockEphemeralState(
-      block,
-      mergeWithInitialCounters(stateAtTimestamp, initialCounters),
-    )
-
-  private def mergeWithInitialCounters(
-      state: EphemeralState,
-      initialCounters: Vector[(Member, SequencerCounter)],
-  ): EphemeralState =
-    state.copy(
-      checkpoints = initialCounters.toMap
-        .fmap(counterToCheckpoint)
-        // only include counters for registered members
-        .filter(c => state.registeredMembers.contains(c._1)) ++ state.checkpoints
-    )
+    sequencerStore
+      .readInFlightAggregationsDBIO(
+        block.lastTs
+      )
+      .map(inFlightAggregations => BlockEphemeralState(block, inFlightAggregations))
 
   override def partialBlockUpdate(
-      newMembers: MemberTimestamps,
-      events: Seq[MemberSignedEvents],
-      acknowledgments: MemberTimestamps,
-      membersDisabled: Seq[Member],
-      inFlightAggregationUpdates: InFlightAggregationUpdates,
-  )(implicit traceContext: TraceContext): Future[Unit] = {
-    val addMember = sequencerStore.addMemberDBIO(_, _)
-    val addEvents = sequencerStore.addEventsDBIO(_)
-    val disableMember = sequencerStore.disableMemberDBIO _
-
-    val membersDbio = DBIO
-      .seq(
-        newMembers.toSeq.map(addMember.tupled) ++
-          membersDisabled.map(disableMember): _*
-      )
-      .transactionally
-
-    for {
-      _ <- storage.queryAndUpdate(membersDbio, functionFullName)
-      _ <- {
-        // as an optimization, we run the 3 below in parallel by starting at the same time
-        val acksF = storage.queryAndUpdate(
-          sequencerStore.bulkUpdateAcknowledgementsDBIO(acknowledgments),
-          functionFullName,
-        )
-        val inFlightF = storage.queryAndUpdate(
-          sequencerStore.addInFlightAggregationUpdatesDBIO(inFlightAggregationUpdates),
-          functionFullName,
-        )
-        val eventsF = storage.queryAndUpdate(
-          if (enableAdditionalConsistencyChecks) DBIO.seq(events.map(addEvents)*).transactionally
-          else sequencerStore.bulkInsertEventsDBIO(events),
-          functionFullName,
-        )
-        for {
-          _ <- acksF
-          _ <- inFlightF
-          _ <- eventsF
-        } yield ()
-      }
-    } yield ()
-  }
+      inFlightAggregationUpdates: InFlightAggregationUpdates
+  )(implicit traceContext: TraceContext): Future[Unit] =
+    storage.queryAndUpdate(
+      sequencerStore.addInFlightAggregationUpdatesDBIO(inFlightAggregationUpdates),
+      functionFullName,
+    )
 
   override def finalizeBlockUpdate(block: BlockInfo)(implicit
       traceContext: TraceContext
   ): Future[Unit] =
-    storage
-      .queryAndUpdate(updateBlockHeightDBIO(block), functionFullName)
-      .flatMap((_: Unit) => checkBlockInvariantIfEnabled(block.height))
-
-  override def readRange(
-      member: Member,
-      startInclusive: SequencerCounter,
-      endExclusive: SequencerCounter,
-  )(implicit traceContext: TraceContext): Source[OrdinarySerializedEvent, NotUsed] =
-    sequencerStore.readRange(member, startInclusive, endExclusive)
+    storage.queryAndUpdate(updateBlockHeightDBIO(block), functionFullName)
 
   override def setInitialState(
-      initial: BlockEphemeralState,
+      initial: SequencerInitialState,
       maybeOnboardingTopologyEffectiveTimestamp: Option[CantonTimestamp],
   )(implicit traceContext: TraceContext): Future[Unit] = {
-    val members = initial.state.status.members.toSeq
-    val updateBlockHeight = updateBlockHeightDBIO(initial.latestBlock)
-    val updateLowerBound =
-      sequencerStore.saveLowerBoundDBIO(
-        initial.state.status.lowerBound,
-        maybeOnboardingTopologyEffectiveTimestamp,
-      )
-    val writeInitialCounters = initial.state.checkpoints.toSeq.map {
-      case (member, CounterCheckpoint(counter, _, _)) =>
-        upsertMemberInitialState(member, counter)
+    val updateBlockHeight = updateBlockHeightDBIO(BlockInfo.fromSequencerInitialState(initial))
+    val writeInitialCounters = initial.snapshot.heads.toSeq.map { case (member, counter) =>
+      upsertMemberInitialState(member, counter)
     }
-    val addMembers =
-      members.map(member => sequencerStore.addMemberDBIO(member.member, member.registeredAt))
-    val addAcknowledgements =
-      members.map(m => (m.member, m.lastAcknowledged)).collect { case (member, Some(lastAck)) =>
-        sequencerStore.acknowledgeDBIO(member, lastAck)
-      }
-    val addDisableMembers =
-      members.filterNot(_.enabled).map(m => sequencerStore.disableMemberDBIO(m.member))
     val addInFlightAggregations =
       sequencerStore.addInFlightAggregationUpdatesDBIO(
-        initial.state.inFlightAggregations.fmap(_.asUpdate)
+        initial.snapshot.inFlightAggregations.fmap(_.asUpdate)
       )
 
     storage
       .queryAndUpdate(
         DBIO.seq(
-          updateBlockHeight +: updateLowerBound +: addInFlightAggregations +: (addMembers ++ addAcknowledgements ++ addDisableMembers ++ writeInitialCounters): _*
+          updateBlockHeight +: addInFlightAggregations +: writeInitialCounters: _*
         ),
         functionFullName,
       )
-      .flatMap((_: Unit) => checkBlockInvariantIfEnabled(initial.latestBlock.height))
   }
-
-  override def getInitialTopologySnapshotTimestamp(implicit
-      traceContext: TraceContext
-  ): Future[Option[CantonTimestamp]] = sequencerStore.getInitialTopologySnapshotTimestamp
 
   private def upsertMemberInitialState(
       member: Member,
@@ -299,31 +189,6 @@ class DbSequencerBlockStore(
                   """
     }).map(_ => ())
 
-  override def getInitialState(implicit traceContext: TraceContext): Future[BlockEphemeralState] = {
-    val query = readFirstBlockInfo().flatMap {
-      case None => DBIO.successful(BlockEphemeralState.empty)
-      case Some(firstBlock) =>
-        sequencerStore
-          .readAtBlockTimestampDBIO(firstBlock.lastTs)
-          .zip(initialMemberCountersDBIO)
-          .map { case (state, counters) =>
-            BlockEphemeralState(
-              firstBlock,
-              EphemeralState.fromHeads(
-                counters.toMap.filter { case (member, _) =>
-                  // the initial counters query will give us counters for all members, but we just want the ones
-                  // that have been registered at or before the timestamp used to compute the state
-                  state.registeredMembers.contains(member)
-                },
-                state.inFlightAggregations,
-                state.status,
-              ),
-            )
-          }
-    }
-    storage.query(query, functionFullName)
-  }
-
   override def initialMemberCounters(implicit traceContext: TraceContext): Future[MemberCounters] =
     storage.query(initialMemberCountersDBIO, functionFullName).map(_.toMap)
 
@@ -350,23 +215,6 @@ class DbSequencerBlockStore(
       },
     )
 
-  override def pruningStatus()(implicit
-      traceContext: TraceContext
-  ): Future[InternalSequencerPruningStatus] =
-    sequencerStore.status()
-
-  override def locatePruningTimestamp(skip: NonNegativeInt)(implicit
-      traceContext: TraceContext
-  ): Future[Option[CantonTimestamp]] = storage
-    .querySingle(
-      sql"""select ts from seq_state_manager_events order by ts #${storage.limit(
-          1,
-          skipItems = skip.value.toLong,
-        )}""".as[CantonTimestamp].headOption,
-      functionFullName,
-    )
-    .value
-
   override def prune(requestedTimestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): Future[String] = for {
@@ -376,23 +224,11 @@ class DbSequencerBlockStore(
         .head,
       functionFullName,
     )
-    // TODO(#12676) Pruning at the requested timestamp may leave a partial block in the store.
-    //  It would make more sense to prune all events up to the latest_event_ts of the previous block
-    //  and delete in-flight aggregations that have expired by latest_event_ts.
-    pruningResult <- sequencerStore.prune(requestedTimestamp)
-    writeInitialCounters = pruningResult.newMinimumCountersSupported.toSeq
-      .map { case (member, counter) =>
-        // the initial state holds the counters immediately before the ones sequencer actually supports from
-        upsertMemberInitialState(member, counter - 1)
-      }
     _ <- storage.queryAndUpdate(
-      DBIO.seq(
-        sqlu"delete from seq_block_height where height < $maxHeight" +: writeInitialCounters: _*
-      ),
+      sqlu"delete from seq_block_height where height < $maxHeight",
       functionFullName,
     )
     _ <- sequencerStore.pruneExpiredInFlightAggregations(requestedTimestamp)
-    _ <- checkBlockInvariantIfEnabled(maxHeight)
   } yield {
     // the first element (with lowest height) in the seq_block_height can either represent an actual existing block
     // in the database in the case where we've never pruned and also not started this sequencer from a snapshot.
@@ -400,9 +236,8 @@ class DbSequencerBlockStore(
     // The other case is when we've started from a snapshot or have pruned before, and the first element of this table
     // merely represents the initial state from where new timestamps can be computed subsequently.
     // In that case we don't want to count it as a removed block, since it did not actually represent a block with existing data.
-    val pruningFromBeginning = pruningResult.eventsPruned > 0 && (maxHeight - count) == -1
-    s"Removed ${pruningResult.eventsPruned} events and ${if (pruningFromBeginning) count
-      else Math.max(0, count - 1)} blocks"
+    val pruningFromBeginning = (maxHeight - count) == -1
+    s"Removed ${if (pruningFromBeginning) count else Math.max(0, count - 1)} blocks"
   }
 
   override def updateMemberCounterSupportedAfter(
@@ -414,59 +249,8 @@ class DbSequencerBlockStore(
       functionFullName,
     )
 
-  private[this] def checkBlockInvariantIfEnabled(
-      blockHeight: Long
-  )(implicit traceContext: TraceContext): Future[Unit] =
-    checkedInvariant.traverse_ { topologyClientMember =>
-      checkBlockInvariant(topologyClientMember, blockHeight)
-    }
-
-  private[this] def checkBlockInvariant(
-      topologyClientMember: Member,
-      blockHeight: Long,
-  )(implicit traceContext: TraceContext): Future[Unit] = {
-    val prevHeight = blockHeight - 1
-    storage
-      .query(readBlockInfo(prevHeight).zip(readBlockInfo(blockHeight)), functionFullName)
-      .flatMap {
-        case (prev, Some(block)) =>
-          val prevLastTs = prev.fold(CantonTimestamp.MinValue)(_.lastTs)
-          for {
-            eventsInBlock <- sequencerStore.readEventsInTimeRange(
-              prevLastTs,
-              block.lastTs,
-            )
-            newMembers <- sequencerStore.readRegistrationsInTimeRange(prevLastTs, block.lastTs)
-            inFlightAggregations <- storage.query(
-              sequencerStore.readAggregationsAtBlockTimestamp(block.lastTs),
-              "readAggregationsAtBlockTimestamp",
-            )
-          } yield blockInvariant(
-            topologyClientMember,
-            block,
-            prev,
-            eventsInBlock,
-            newMembers,
-            inFlightAggregations,
-          )
-        case _ => Future.unit
-      }
-  }
-
-  private[this] def readBlockInfo(
-      height: Long
-  ): DBIOAction[Option[BlockInfo], NoStream, Effect.Read] =
-    sql"select height, latest_event_ts, latest_sequencer_event_ts from seq_block_height where height = $height"
-      .as[BlockInfo]
-      .headOption
-
   private[this] def readLatestBlockInfo(): DBIOAction[Option[BlockInfo], NoStream, Effect.Read] =
     (sql"select height, latest_event_ts, latest_sequencer_event_ts from seq_block_height order by height desc " ++ topRow)
-      .as[BlockInfo]
-      .headOption
-
-  private[this] def readFirstBlockInfo(): DBIOAction[Option[BlockInfo], NoStream, Effect.Read] =
-    (sql"select height, latest_event_ts, latest_sequencer_event_ts from seq_block_height order by height asc " ++ topRow)
       .as[BlockInfo]
       .headOption
 

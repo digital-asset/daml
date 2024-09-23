@@ -4,12 +4,13 @@
 package com.digitalasset.canton.participant.protocol.reassignment
 
 import cats.data.EitherT
+import cats.syntax.bifunctor.*
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.FullUnassignmentTree
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.ReassignmentProcessorError
 import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessorError.*
+import com.digitalasset.canton.participant.protocol.submission.UsableDomain
 import com.digitalasset.canton.protocol.LfTemplateId
 import com.digitalasset.canton.sequencing.protocol.Recipients
 import com.digitalasset.canton.topology.ParticipantId
@@ -20,6 +21,7 @@ import com.digitalasset.canton.version.Reassignment.SourceProtocolVersion
 
 import scala.concurrent.ExecutionContext
 
+// Additional validations for reassigning participants
 private[reassignment] sealed abstract case class UnassignmentValidationReassigningParticipant(
     request: FullUnassignmentTree,
     expectedStakeholders: Set[LfPartyId],
@@ -28,27 +30,26 @@ private[reassignment] sealed abstract case class UnassignmentValidationReassigni
     targetTopology: TopologySnapshot,
     recipients: Recipients,
 ) {
-
-  private def checkAdminParties(
-      expectedAdminParties: Set[LfPartyId]
+  private def checkReassigningParticipants(
+      expectedReassigningParticipants: Set[ParticipantId]
   )(implicit
       ec: ExecutionContext
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
     condUnitET[FutureUnlessShutdown](
-      request.adminParties == expectedAdminParties,
-      AdminPartiesMismatch(
+      request.reassigningParticipants == expectedReassigningParticipants,
+      ReassigningParticipantsMismatch(
         contractId = request.contractId,
-        expected = expectedAdminParties,
-        declared = request.adminParties,
+        expected = expectedReassigningParticipants,
+        declared = request.reassigningParticipants,
       ),
     )
 
-  private def checkParticipants(
-      expectedParticipants: Set[ParticipantId]
+  private def checkRecipients(
+      expectedRecipients: Set[ParticipantId]
   )(implicit
       ec: ExecutionContext
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] = {
-    val expectedRecipientsTree = Recipients.ofSet(expectedParticipants)
+    val expectedRecipientsTree = Recipients.ofSet(expectedRecipients)
     condUnitET[FutureUnlessShutdown](
       expectedRecipientsTree.contains(recipients),
       RecipientsMismatch(
@@ -63,13 +64,18 @@ private[reassignment] sealed abstract case class UnassignmentValidationReassigni
       ec: ExecutionContext,
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
-    ReassignmentKnownAndVetted(
-      stakeholders,
-      targetTopology,
-      request.contractId,
-      templateId.packageId,
-      request.targetDomain,
-    )
+    UsableDomain
+      .checkPackagesVetted(
+        request.targetDomain.unwrap,
+        targetTopology,
+        stakeholders.view.map(_ -> Set(templateId.packageId)).toMap,
+        targetTopology.referenceTime,
+      )
+      .leftMap(unknownPackage =>
+        UnassignmentProcessorError
+          .PackageIdUnknownOrUnvetted(request.contractId, unknownPackage.unknownTo)
+      )
+      .leftWiden[ReassignmentProcessorError]
 }
 
 private[reassignment] object UnassignmentValidationReassigningParticipant {
@@ -82,7 +88,6 @@ private[reassignment] object UnassignmentValidationReassigningParticipant {
       sourceTopology: TopologySnapshot,
       targetTopology: TopologySnapshot,
       recipients: Recipients,
-      logger: TracedLogger,
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -95,17 +100,23 @@ private[reassignment] object UnassignmentValidationReassigningParticipant {
       targetTopology,
       recipients,
     ) {}
+
     for {
       adminPartiesAndParticipants <- AdminPartiesAndParticipants(
-        request.contractId,
-        request.submitter,
         expectedStakeholders,
         sourceTopology,
         targetTopology,
-        logger,
       )
-      _ <- validation.checkAdminParties(adminPartiesAndParticipants.adminParties)
-      _ <- validation.checkParticipants(adminPartiesAndParticipants.participants)
+
+      reassigningParticipants <- ReassigningParticipants
+        .compute(
+          expectedStakeholders,
+          sourceTopology,
+          targetTopology,
+        )
+        .mapK(FutureUnlessShutdown.outcomeK)
+      _ <- validation.checkRecipients(adminPartiesAndParticipants.unassigningParticipants)
+      _ <- validation.checkReassigningParticipants(reassigningParticipants)
       _ <- validation.checkVetted(expectedStakeholders, expectedTemplateId)
     } yield ()
   }

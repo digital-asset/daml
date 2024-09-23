@@ -373,7 +373,7 @@ class BftOrderingMetrics(
       0,
     )
 
-    val epochLength: Gauge[Int] = openTelemetryMetricsFactory.gauge(
+    val epochLength: Gauge[Long] = openTelemetryMetricsFactory.gauge(
       MetricInfo(
         prefix :+ "epoch-length",
         summary = "Epoch length",

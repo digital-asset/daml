@@ -90,8 +90,6 @@ trait MessageDispatcherTest {
   private val partyId = PartyId.tryFromProtoPrimitive("party::default")
   private val otherPartyId = PartyId.tryFromProtoPrimitive("party::other")
 
-  private val encryptedRandomnessTest =
-    Encrypted.fromByteString[SecureRandomness](ByteString.EMPTY)
   private val sessionKeyMapTest = NonEmpty(
     Seq,
     new AsymmetricEncrypted[SecureRandomness](
@@ -318,8 +316,7 @@ trait MessageDispatcherTest {
     EncryptedViewMessage(
       None,
       ViewHash(TestHash.digest(9000)),
-      randomness = encryptedRandomnessTest,
-      sessionKey = sessionKeyMapTest,
+      sessionKeys = sessionKeyMapTest,
       encryptedTestView,
       domainId,
       SymmetricKeyScheme.Aes128Gcm,
@@ -331,8 +328,7 @@ trait MessageDispatcherTest {
     EncryptedViewMessage(
       submittingParticipantSignature = None,
       viewHash = ViewHash(TestHash.digest(9001)),
-      randomness = encryptedRandomnessTest,
-      sessionKey = sessionKeyMapTest,
+      sessionKeys = sessionKeyMapTest,
       encryptedView = encryptedOtherTestView,
       domainId = domainId,
       viewEncryptionScheme = SymmetricKeyScheme.Aes128Gcm,
@@ -742,8 +738,7 @@ trait MessageDispatcherTest {
         EncryptedViewMessage(
           None,
           ViewHash(TestHash.digest(9002)),
-          randomness = encryptedRandomnessTest,
-          sessionKey = sessionKeyMapTest,
+          sessionKeys = sessionKeyMapTest,
           encryptedUnknownTestView,
           domainId,
           SymmetricKeyScheme.Aes128Gcm,

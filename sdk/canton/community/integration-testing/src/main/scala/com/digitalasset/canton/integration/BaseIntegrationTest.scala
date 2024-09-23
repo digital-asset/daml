@@ -133,7 +133,7 @@ private[integration] trait BaseIntegrationTest[E <: Environment, TCE <: TestCons
     }
   }
 
-  import com.daml.ledger.javaapi.data.{Command, CreateCommand, Identifier}
+  import com.daml.ledger.javaapi.data.{Command, CreateCommand, ExerciseCommand, Identifier}
   implicit class EnrichedCommands(commands: java.util.List[Command]) {
     def overridePackageId(packageIdOverride: String): java.util.List[Command] =
       commands.asScala
@@ -143,6 +143,13 @@ private[integration] trait BaseIntegrationTest[E <: Environment, TCE <: TestCons
               identifierWithPackageIdOverride(packageIdOverride, cmd.getTemplateId),
               cmd.getCreateArguments,
             ): Command
+          case cmd: ExerciseCommand =>
+            new ExerciseCommand(
+              identifierWithPackageIdOverride(packageIdOverride, cmd.getTemplateId),
+              cmd.getContractId,
+              cmd.getChoice,
+              cmd.getChoiceArgument,
+            )
           case other => fail(s"Unexpected command $other")
         }
         .toList

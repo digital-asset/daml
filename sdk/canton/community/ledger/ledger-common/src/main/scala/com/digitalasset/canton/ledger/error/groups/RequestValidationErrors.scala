@@ -20,8 +20,7 @@ import com.digitalasset.canton.ledger.error.LedgerApiErrors.{
 }
 import com.digitalasset.canton.ledger.error.ParticipantErrorGroup.LedgerApiErrorGroup.RequestValidationErrorGroup
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.language.{LookupError, Reference}
+import com.digitalasset.daml.lf.language.Reference
 
 import java.time.Duration
 
@@ -50,12 +49,14 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
       }
 
       final case class InterpretationReject(
-          packageId: PackageId,
+          pkgRef: Ref.PackageRef,
           reference: Reference,
       )(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends DamlErrorWithDefiniteAnswer(
-            cause = LookupError.MissingPackage.pretty(packageId, reference)
+            // TODO(i21337) Use LookupError.MissingPackage.pretty(packageRef, reference)
+            //              once it can accept a package reference
+            cause = s"Couldn't find package $pkgRef while looking for " + reference.pretty
           )
     }
 
@@ -329,6 +330,24 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
         val loggingContext: ContextualizedErrorLogger
     ) extends DamlError(
           cause = s"Offset in $fieldName not specified in hexadecimal: $offsetValue: $message"
+        )
+  }
+
+  @Explanation("""The supplied offset is not a positive integer.""")
+  @Resolution("Ensure the offset specified is a positive (non zero) integer.")
+  object NonPositiveOffset
+      extends ErrorCode(
+        id = "NON_POSITIVE_OFFSET",
+        ErrorCategory.InvalidIndependentOfSystemState,
+      ) {
+    final case class Error(
+        fieldName: String,
+        offsetValue: Long,
+        message: String,
+    )(implicit
+        val loggingContext: ContextualizedErrorLogger
+    ) extends DamlError(
+          cause = s"Offset $offsetValue in $fieldName is not a positive integer: $message"
         )
   }
 }

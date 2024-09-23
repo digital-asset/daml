@@ -70,15 +70,6 @@ message Informee {
 
 // EncryptedViewMessage
 
-message ParticipantRandomnessLookup {
-  // An encrypted random bytestring. After decryption, used in HKDF to derive the encryption keys for the view and
-  // its subviews
-  bytes randomness = 1;
-
-  // The fingerprint of the public key that was used to encrypt the randomness for the participant
-  string fingerprint = 2;
-}
-
 message ViewParticipantMessage {
   option deprecated = true;
 }
@@ -96,7 +87,13 @@ message LightTransactionViewTree {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
   GenTransactionTree tree = 1;
-  repeated bytes subview_hashes = 2;
+  repeated ViewHashAndKey subview_hashes_and_keys = 2;
+}
+
+message ViewHashAndKey {
+  bytes view_hash = 1;
+  // The randomness used to derive the encryption key for the view
+  bytes view_encryption_key_randomness = 2;
 }
 
 message FullInformeeTree {
@@ -143,9 +140,9 @@ message SubmitterMetadata {
 // Messages sent by a participant as part of the transaction protocol
 
 message SessionKeyLookup {
-  // An asymmetrically encrypted randomness to generate the session key. This session key decrypts the
-  // randomness field in `EncryptedViewMessage`
-  bytes session_key_randomness = 1;
+  // An asymmetrically encrypted randomness, used to generate the session key. This session key decrypts the
+  // underlying view.
+  bytes session_key_encrypted = 1;
 
   // The asymmetric encryption specification used to encrypt the session key randomness
   com.digitalasset.canton.crypto.v30.EncryptionAlgorithmSpec encryption_algorithm_spec = 2;
@@ -164,11 +161,9 @@ message EncryptedViewMessage {
 
   com.digitalasset.canton.crypto.v30.Signature submitting_participant_signature = 3; // optional
   bytes view_hash = 4;
-  // Randomness that is symmetrically encrypted with a session key. Used in the HKDF to derive the encryption keys for the view and its subviews
-  bytes randomness = 5;
-  repeated SessionKeyLookup session_key_randomness = 6;
-  string domain_id = 7;
-  v30.ViewType view_type = 8;
+  repeated SessionKeyLookup session_key_lookup = 5;
+  string domain_id = 6;
+  v30.ViewType view_type = 7;
 }
 
 message ActionDescription {

@@ -7,7 +7,6 @@ import cats.data.EitherT
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.block.data.BlockUpdateEphemeralState
 import com.digitalasset.canton.domain.block.update.SubmissionRequestValidator.{
   SequencedEventValidationF,
   SubmissionRequestValidationResult,
@@ -71,7 +70,6 @@ private[update] class TrafficControlValidator(
 
   def applyTrafficControl(
       submissionValidation: SequencedEventValidationF[SubmissionRequestValidationResult],
-      state: BlockUpdateEphemeralState,
       signedOrderingRequest: SignedOrderingRequest,
       sequencingTimestamp: CantonTimestamp,
       latestSequencerEventTimestamp: Option[CantonTimestamp],
@@ -99,8 +97,12 @@ private[update] class TrafficControlValidator(
             signedOrderingRequest,
             sequencingTimestamp,
             latestSequencerEventTimestamp,
-            warnIfApproximate =
-              state.headCounterAboveGenesis(signedOrderingRequest.submissionRequest.sender),
+            // TODO(#18401) set warnIfApproximate to true and check that we don't get warnings
+            // This used to be the following code:
+            // state.headCounterAboveGenesis(signedOrderingRequest.submissionRequest.sender)
+            // but since the state for block sequencer didn't actually contain any checkpoint data anymore,
+            // it always evaluated to false regardless.
+            warnIfApproximate = false,
           )
             .map { receipt =>
               // On successful consumption, updated the result with the receipt
