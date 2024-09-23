@@ -68,6 +68,7 @@ sealed abstract class SValue {
         case SUnit => V.ValueUnit
         case SDate(x) => V.ValueDate(x)
         case SRecord(id, names0, values0) =>
+          // we drop trailing None fields
           val n = values0.asScala.reverseIterator.dropWhile(_ == SValue.SValue.None).size
           val values = (names0.toSeq.view.take(n) zip values0.asScala)
             .map { case (name, sv) =>
