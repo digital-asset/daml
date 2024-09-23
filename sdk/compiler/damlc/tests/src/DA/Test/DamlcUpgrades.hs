@@ -721,7 +721,8 @@ tests damlc =
                 else when (matchTest compiledRegex stderr) $
                       assertFailure ("`daml build` succeeded, did not have `upgrade:` field set, should NOT give a warning matching '" <> show regexWithSeverity <> "':\n" <> show stderr)
       where
-        regexPrefix = maybe "" (\filePat -> "File: +" <> T.pack filePat <> ".+") expectedDiagFile
+        -- Note ".*" after "File:", as CI prefixes the path with `private/`, which we need to match
+        regexPrefix = maybe "" (\filePat -> "File:.*" <> T.pack filePat <> ".+") expectedDiagFile
 
     testMetadata :: String -> Expectation -> String -> String -> LF.Version -> String -> String -> LF.Version -> Bool -> TestTree
     testMetadata name expectation v1Name v1Version v1LfVersion v2Name v2Version v2LfVersion setUpgradeField =
