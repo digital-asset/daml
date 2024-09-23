@@ -35,8 +35,6 @@ import com.digitalasset.daml.lf.transaction.ContractKeyUniquenessMode
   *     A value of false is insecure and should be used for security testing only.
   * @param iterationsBetweenInterruptions bound the maximal number of interpreter
   *     steps needed to produce a Result.
-  * @param enableContractUpgrading If set this flag a choice that is executed against
-  *     a contract may exist in a package different from that of the package.
   */
 final case class EngineConfig(
     allowedLanguageVersions: VersionRange[language.LanguageVersion],
@@ -48,7 +46,6 @@ final case class EngineConfig(
     limits: interpretation.Limits = interpretation.Limits.Lenient,
     checkAuthorization: Boolean = true,
     iterationsBetweenInterruptions: Long = 10000,
-    enableContractUpgrading: Boolean = true, // Will be removed once removed from Canton
 ) {
   private[lf] def getCompilerConfig: speedy.Compiler.Config =
     speedy.Compiler.Config(

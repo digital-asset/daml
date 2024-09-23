@@ -34,7 +34,6 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
       ) => Either[String, TemplateChoiceSignature],
       translator: preprocessing.ValueTranslator,
       result: ScriptLedgerClient.ExerciseResult,
-      enableContractUpgrading: Boolean = false,
   ) = {
     for {
       choice <- Name.fromString(result.choice)
@@ -43,8 +42,6 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
         .translateValue(
           c.returnType,
           result.result,
-          if (enableContractUpgrading) preprocessing.ValueTranslator.Config.Upgradeable
-          else preprocessing.ValueTranslator.Config.Strict,
         )
         .left
         .map(err => s"Failed to translate exercise result: $err")
@@ -60,14 +57,13 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
       translator: preprocessing.ValueTranslator,
       scriptIds: ScriptIds,
       tree: ScriptLedgerClient.TransactionTree,
-      enableContractUpgrading: Boolean = false,
   ): Either[String, SValue] = {
     def damlTree(s: String) =
       scriptIds.damlScriptModule("Daml.Script.Internal.Questions.TransactionTree", s)
     def translateTreeEvent(ev: ScriptLedgerClient.TreeEvent): Either[String, SValue] = ev match {
       case ScriptLedgerClient.Created(tplId, contractId, argument, _) =>
         for {
-          anyTemplate <- fromAnyTemplate(translator, tplId, argument, enableContractUpgrading)
+          anyTemplate <- fromAnyTemplate(translator, tplId, argument)
         } yield SVariant(
           damlTree("TreeEvent"),
           Name.assertFromString("CreatedEvent"),
@@ -96,7 +92,6 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
             ifaceId,
             choiceName,
             arg,
-            enableContractUpgrading,
           )
         } yield SVariant(
           damlTree("TreeEvent"),
@@ -128,7 +123,6 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
       translator: preprocessing.ValueTranslator,
       scriptIds: ScriptIds,
       commandResult: ScriptLedgerClient.CommandResult,
-      enableContractUpgrading: Boolean = false,
   ): Either[String, SValue] = {
     def scriptCommands(s: String) =
       scriptIds.damlScriptModule("Daml.Script.Internal.Questions.Commands", s)
@@ -148,7 +142,6 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
             lookupChoice,
             translator,
             r,
-            enableContractUpgrading,
           )
         } yield SVariant(
           scriptCommands("CommandResult"),
@@ -169,13 +162,12 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
       translateError: T => SValue,
       scriptIds: ScriptIds,
       submitResult: Either[T, Seq[ScriptLedgerClient.CommandResult]],
-      enableContractUpgrading: Boolean = false,
   ): Either[String, SValue] = submitResult match {
     case Right(commandResults) =>
       commandResults
         .to(FrontStack)
         .traverse(
-          fromCommandResult(lookupChoice, translator, scriptIds, _, enableContractUpgrading)
+          fromCommandResult(lookupChoice, translator, scriptIds, _)
         )
         .map { rs =>
           SVariant(
@@ -206,7 +198,6 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
       translateError: T => SValue,
       scriptIds: ScriptIds,
       submitResultList: List[Either[T, Seq[ScriptLedgerClient.CommandResult]]],
-      enableContractUpgrading: Boolean = false,
   ): Either[String, SValue] =
     submitResultList
       .traverse(
@@ -216,7 +207,6 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
           translateError,
           scriptIds,
           _,
-          enableContractUpgrading,
         )
       )
       .map { xs => SList(xs.to(FrontStack)) }
@@ -226,14 +216,12 @@ object Converter extends script.ConverterMethods(StablePackagesV2) {
       translator: preprocessing.ValueTranslator,
       contract: ScriptLedgerClient.ActiveContract,
       targetTemplateId: Identifier,
-      enableContractUpgrading: Boolean = false,
   ): Either[String, SValue] = {
     for {
       anyTpl <- fromAnyTemplate(
         translator,
         targetTemplateId,
         contract.argument,
-        enableContractUpgrading,
       )
     } yield makeTuple(
       SContractId(contract.contractId),

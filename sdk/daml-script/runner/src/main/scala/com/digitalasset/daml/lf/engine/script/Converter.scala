@@ -134,15 +134,12 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
       translator: preprocessing.ValueTranslator,
       templateId: Identifier,
       argument: Value,
-      enableContractUpgrading: Boolean = false,
   ): Either[String, SValue] = {
     for {
       translated <- translator
         .translateValue(
           TTyCon(templateId),
           argument,
-          if (enableContractUpgrading) preprocessing.ValueTranslator.Config.Upgradeable
-          else preprocessing.ValueTranslator.Config.Strict,
         )
         .left
         .map(err => s"Failed to translate create argument: $err")
@@ -175,7 +172,6 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
       interfaceId: Option[Identifier],
       choiceName: ChoiceName,
       argument: Value,
-      enableContractUpgrading: Boolean = false,
   ): Either[String, SValue] = {
     for {
       choice <- lookupChoice(templateId, interfaceId, choiceName)
@@ -183,8 +179,6 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
         .translateValue(
           choice.argBinder._2,
           argument,
-          if (enableContractUpgrading) preprocessing.ValueTranslator.Config.Upgradeable
-          else preprocessing.ValueTranslator.Config.Strict,
         )
         .left
         .map(err => s"Failed to translate exercise argument: $err")
