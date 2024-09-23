@@ -53,14 +53,6 @@ main = tests
     ]
   , subtree "Changed key type"
     [ subtree "Unchanged key value (modulo trailing `None`s)"
-      -- The tests below should all fail or all pass. Currently, `fetch` and
-      -- `exerciseByKey` (within an `Update`) work thanks to
-      -- https://github.com/digital-asset/daml/pull/19668, but
-      -- for `queryContractKey` and `exerciseByKeyCmd` to work we would need to port
-      -- https://github.com/digital-asset/daml/pull/19780 &
-      -- https://github.com/digital-asset/daml/pull/19792,
-      -- however, the latter is considered a hack, see
-      -- https://github.com/digital-asset/daml/issues/19782
       [ ("queryContractKey, src=v1 tgt=v2", queryKeyUpgraded)
       , ("exerciseByKeyCmd, src=v1 tgt=v2", exerciseCmdKeyUpgraded)
       , ("fetch, src=v1 tgt=v2", fetchKeyUpgraded)
