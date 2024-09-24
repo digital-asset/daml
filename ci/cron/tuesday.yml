@@ -32,4 +32,4 @@ jobs:
 
       RELEASE_MANAGER=$(next_in_rotation_slack)
 
-      tell_slack "$(echo -e "Hi <@$RELEASE_MANAGER>! According to the <https://github.com/digital-asset/daml/blob/main/release/rotation|rotation>, you are in charge of the release tomorrow. Please make sure you plan accordingly, or find a replacement. See the <https://github.com/digital-asset/daml/blob/main/release/RELEASE.md|release instructions> for details.")"
+      tell_slack "$(echo -e "Hi <@$RELEASE_MANAGER>! According to the <https://github.com/digital-asset/daml/blob/main/sdk/release/rotation|rotation>, you are in charge of the release tomorrow. Please make sure you plan accordingly, or find a replacement. See the <https://github.com/digital-asset/daml/blob/main/sdk/release/RELEASE.md|release instructions> for details.")"
