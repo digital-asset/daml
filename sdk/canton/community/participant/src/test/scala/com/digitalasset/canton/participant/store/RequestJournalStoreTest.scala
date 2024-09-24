@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.store
 
 import cats.syntax.parallel.*
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.HasCloseContext
 import com.digitalasset.canton.participant.admin.repair.RepairContext
@@ -385,8 +386,8 @@ trait RequestJournalStoreTest extends CursorPreheadStoreTest {
         )
         totalDirtyRequests <- store.totalDirtyRequests()
       } yield {
-        initialDirtyRequests shouldBe 2
-        totalDirtyRequests shouldBe 1
+        initialDirtyRequests shouldBe NonNegativeInt.tryCreate(2)
+        totalDirtyRequests shouldBe NonNegativeInt.one
       }
     }
   }

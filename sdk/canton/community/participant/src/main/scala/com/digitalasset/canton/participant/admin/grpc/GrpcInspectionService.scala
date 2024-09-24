@@ -3,26 +3,28 @@
 
 package com.digitalasset.canton.participant.admin.grpc
 
+import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.LedgerTransactionId
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
+import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection.InFlightCount
 import com.digitalasset.canton.participant.admin.v0.InspectionServiceGrpc.InspectionService
-import com.digitalasset.canton.participant.admin.v0.{
-  LookupContractDomain,
-  LookupOffsetByIndex,
-  LookupOffsetByTime,
-  LookupTransactionDomain,
-}
+import com.digitalasset.canton.participant.admin.v0.*
+import com.digitalasset.canton.participant.domain.DomainAliasManager
 import com.digitalasset.canton.protocol.LfContractId
+import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.FutureInstances.*
 import io.grpc.{Status, StatusRuntimeException}
 
 import scala.concurrent.{ExecutionContext, Future}
 
-class GrpcInspectionService(syncStateInspection: SyncStateInspection)(implicit
+class GrpcInspectionService(
+    syncStateInspection: SyncStateInspection,
+    aliasManager: DomainAliasManager,
+)(implicit
     executionContext: ExecutionContext
 ) extends InspectionService {
 
@@ -110,5 +112,34 @@ class GrpcInspectionService(syncStateInspection: SyncStateInspection)(implicit
           )
         )
     }
+  }
+
+  override def countInFlight(
+      request: CountInFlight.Request
+  ): Future[CountInFlight.Response] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+
+    val inFlightCount: EitherT[Future, String, InFlightCount] = for {
+      domainId <- EitherT.fromEither[Future](DomainId.fromString(request.domainId))
+      domainAlias <- EitherT.fromEither[Future](
+        aliasManager
+          .aliasForDomainId(domainId)
+          .toRight(s"Not able to find domain alias for ${domainId.toString}")
+      )
+
+      count <- syncStateInspection.countInFlight(domainAlias)
+    } yield {
+      count
+    }
+
+    inFlightCount.fold(
+      err => throw new IllegalArgumentException(err),
+      count =>
+        CountInFlight.Response(
+          count.pendingSubmissions.unwrap,
+          count.pendingTransactions.unwrap,
+        ),
+    )
+
   }
 }
