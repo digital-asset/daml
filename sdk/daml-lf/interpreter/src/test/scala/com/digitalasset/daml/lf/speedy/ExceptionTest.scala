@@ -790,8 +790,8 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
               method myChoiceObservers : List Party;
 
               choice @nonConsuming MyChoice (self) (u: Unit): Text
-                  , controllers (Nil @Party)
-                  , observers (Nil @Party)
+                  , controllers (call_method @Mod:Iface myChoiceControllers this)
+                  , observers (call_method @Mod:Iface myChoiceObservers this)
                   to upure @Text "MyChoice was called";
             };
 
@@ -1146,6 +1146,53 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
                 ) =>
               msg shouldBe test.templateName
           }
+        }
+      }
+    }
+
+    for {
+      test <- List(
+        FailingChoiceControllers,
+        FailingChoiceObservers,
+      )
+    } {
+
+      s"exceptions thrown by ${test.templateName} cannot be caught when exercising a choice by interface" in {
+        val alice = Ref.Party.assertFromString("Alice")
+        val cid = Value.ContractId.V1(Hash.hashPrivateKey("abc"))
+
+        inside {
+          runUpdateApp(
+            compiledPackages,
+            packageResolution = Map(
+              templateDefsPkgName -> templateDefsV2PkgId
+            ),
+            e"Mod:exercise${test.templateName}ByInterfaceAndCatchError" (metadataTestsParserParams),
+            Array(SContractId(cid)),
+            getContract = Map(
+              cid -> Versioned(
+                version = TransactionVersion.StableVersions.max,
+                Value.ContractInstance(
+                  packageName = metadataTestsPkg.metadata.map(_.name),
+                  template = t"Mod:${test.templateName}" (templateDefsV1ParserParams)
+                    .asInstanceOf[Ast.TTyCon]
+                    .tycon,
+                  arg = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice))),
+                ),
+              )
+            ),
+            getKey = PartialFunction.empty,
+          )
+        } {
+          case Left(
+                SError.SErrorDamlException(
+                  IE.UnhandledException(
+                    _,
+                    Value.ValueRecord(_, ImmArray((_, Value.ValueText(msg)))),
+                  )
+                )
+              ) =>
+            msg shouldBe test.templateName
         }
       }
     }
