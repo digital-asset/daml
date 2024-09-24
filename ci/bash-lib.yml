@@ -100,6 +100,13 @@ steps:
         jq -n --arg message "$message" '{"text": $message}' \
          | curl -XPOST -i -H 'Content-Type: application/json' -d @- $channel
     }
+    tell_slack_blocks() {
+        local message channel
+        message="$1"
+        channel=${2:-$(Slack.team-daml)}
+        jq -n "{\"blocks\": $message}" \
+         | curl -XPOST -i -H 'Content-Type: application/json' -d @- $channel
+    }
     wrap_gcloud() (
         cred="$1"
         cmd="$2"
