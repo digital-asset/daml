@@ -255,6 +255,7 @@ object TransactionCoder {
     discard(builder.setContractId(node.coid.toBytes.toByteString))
     discard(builder.setPackageName(node.packageName))
     discard(builder.setTemplateId(ValueCoder.encodeIdentifier(node.templateId)))
+    node.interfaceId.foreach(iface => builder.setInterfaceId(ValueCoder.encodeIdentifier(iface)))
     non_maintainer_signatories.foreach(builder.addNonMaintainerSignatories)
     non_signatory_stakeholders.foreach(builder.addNonSignatoryStakeholders)
     node.actingParties.foreach(builder.addActors)
@@ -282,6 +283,7 @@ object TransactionCoder {
       coid = node.targetCoid,
       packageName = node.packageName,
       templateId = node.templateId,
+      interfaceId = node.interfaceId,
       actingParties = node.actingParties,
       signatories = node.signatories,
       stakeholders = node.stakeholders,
@@ -463,6 +465,12 @@ object TransactionCoder {
       cid <- decodeCoid(msg.getContractId)
       pkgName <- decodePackageName(msg.getPackageName)
       templateId <- ValueCoder.decodeIdentifier(msg.getTemplateId)
+      interfaceId <-
+        if (msg.hasInterfaceId) {
+          ValueCoder.decodeIdentifier(msg.getInterfaceId).map(Some(_))
+        } else {
+          Right(None)
+        }
       nonMaintainerSignatories <- toPartySet(msg.getNonMaintainerSignatoriesList)
       nonSignatoryStakeholdersList <- toPartySet(msg.getNonSignatoryStakeholdersList)
       actingParties <- toPartySet(msg.getActorsList)
@@ -498,6 +506,7 @@ object TransactionCoder {
       keyOpt = keyOpt,
       byKey = byKey,
       version = nodeVersion,
+      interfaceId = interfaceId,
     )
   }
 

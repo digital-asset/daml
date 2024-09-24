@@ -199,6 +199,7 @@ message ActionDescription {
     repeated string actors = 2;
     bool by_key = 3;
     string template_id = 4;
+    optional string interface_id = 5;
   }
 
   message LookupByKeyActionDescription {

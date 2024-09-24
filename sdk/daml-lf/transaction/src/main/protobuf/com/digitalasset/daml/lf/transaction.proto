@@ -55,6 +55,7 @@ message Node {
     bytes contract_id = 1;
     string package_name = 2;
     com.digitalasset.daml.lf.value.Identifier template_id = 3; // require
+    com.digitalasset.daml.lf.value.Identifier interface_id = 7; // optional *since dev*
     repeated string non_maintainer_signatories = 4;
     repeated string non_signatory_stakeholders = 5;
     repeated string actors = 6;

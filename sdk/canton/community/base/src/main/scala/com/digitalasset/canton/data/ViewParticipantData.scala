@@ -219,7 +219,7 @@ final case class ViewParticipantData private (
         }
         RootAction(cmd, actors, failed, packagePreference)
 
-      case FetchActionDescription(inputContractId, actors, byKey, templateId) =>
+      case FetchActionDescription(inputContractId, actors, byKey, templateId, interfaceId) =>
         val inputContract = coreInputs.getOrElse(
           inputContractId,
           throw InvalidViewParticipantData(
@@ -237,7 +237,7 @@ final case class ViewParticipantData private (
             )
           LfFetchByKeyCommand(templateId = templateId, key = key)
         } else {
-          LfFetchCommand(templateId = templateId, coid = inputContractId)
+          LfFetchCommand(templateId = templateId, interfaceId = interfaceId, coid = inputContractId)
         }
         RootAction(cmd, actors, failed = false, packageIdPreference = Set.empty)
 

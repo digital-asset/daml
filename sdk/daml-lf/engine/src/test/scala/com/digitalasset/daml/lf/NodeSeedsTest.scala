@@ -148,6 +148,7 @@ class NodeSeedsTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordS
       case fetch: Node.Fetch =>
         command.ReplayCommand.Fetch(
           fetch.templateId,
+          fetch.interfaceId,
           fetch.coid,
         )
       case lookup: Node.LookupByKey =>
