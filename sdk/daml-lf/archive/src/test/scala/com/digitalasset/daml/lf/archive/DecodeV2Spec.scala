@@ -258,11 +258,11 @@ class DecodeV2Spec
       val dottedNameTable = ImmArraySeq("Mod", "T", "S").map(Ref.DottedName.assertFromString)
 
       val unit = DamlLf2.Unit.newBuilder().build()
-      val pkgRef = DamlLf2.PackageRef.newBuilder().setSelf(unit).build
-      val modRef =
-        DamlLf2.ModuleRef.newBuilder().setPackageRef(pkgRef).setModuleNameInternedDname(0).build()
-      val tyConName = DamlLf2.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(1)
-      val tySynName = DamlLf2.TypeSynName.newBuilder().setModule(modRef).setNameInternedDname(2)
+      val pkgId = DamlLf2.SelfOrImportedPackageId.newBuilder().setSelfPackageId(unit).build
+      val modId =
+        DamlLf2.ModuleId.newBuilder().setPackageId(pkgId).setModuleNameInternedDname(0).build()
+      val tyConId = DamlLf2.TypeConId.newBuilder().setModule(modId).setNameInternedDname(1)
+      val tySynId = DamlLf2.TypeSynId.newBuilder().setModule(modId).setNameInternedDname(2)
 
       def newBuilder = DamlLf2.Type.newBuilder()
 
@@ -281,8 +281,8 @@ class DecodeV2Spec
         "type",
         typeVar,
         newBuilder.setNat(10).build(),
-        newBuilder.setSyn(DamlLf2.Type.Syn.newBuilder().setTysyn(tySynName)).build(),
-        newBuilder.setCon(DamlLf2.Type.Con.newBuilder().setTycon(tyConName)).build(),
+        newBuilder.setSyn(DamlLf2.Type.Syn.newBuilder().setTysyn(tySynId)).build(),
+        newBuilder.setCon(DamlLf2.Type.Con.newBuilder().setTycon(tyConId)).build(),
         typeBool,
         newBuilder
           .setForall(DamlLf2.Type.Forall.newBuilder().addVars(xWithStar).setBody(typeVar))
@@ -623,15 +623,15 @@ class DecodeV2Spec
       val testCases = {
 
         val unit = DamlLf2.Unit.newBuilder().build()
-        val pkgRef = DamlLf2.PackageRef.newBuilder().setSelf(unit).build
-        val modRef =
-          DamlLf2.ModuleRef.newBuilder().setPackageRef(pkgRef).setModuleNameInternedDname(0).build()
-        val templateTyConName =
-          DamlLf2.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(1)
-        val ifaceTyConName =
-          DamlLf2.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(2)
+        val pkgId = DamlLf2.SelfOrImportedPackageId.newBuilder().setSelfPackageId(unit).build
+        val modId =
+          DamlLf2.ModuleId.newBuilder().setPackageId(pkgId).setModuleNameInternedDname(0).build()
+        val templateTyConId =
+          DamlLf2.TypeConId.newBuilder().setModule(modId).setNameInternedDname(1)
+        val ifaceTyConId =
+          DamlLf2.TypeConId.newBuilder().setModule(modId).setNameInternedDname(2)
         val requiredIfaceTyConName =
-          DamlLf2.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(3)
+          DamlLf2.TypeConId.newBuilder().setModule(modId).setNameInternedDname(3)
         val scalaTemplateTyConName = Ref.TypeConName.assertFromString("noPkgId:Mod:T")
         val scalaIfaceTyConName = Ref.TypeConName.assertFromString("noPkgId:Mod:I")
         val scalaRequiredIfaceTyConName = Ref.TypeConName.assertFromString("noPkgId:Mod:J")
@@ -641,7 +641,7 @@ class DecodeV2Spec
           .setSignatoryInterface(
             DamlLf2.Expr.SignatoryInterface
               .newBuilder()
-              .setInterface(ifaceTyConName)
+              .setInterface(ifaceTyConId)
               .setExpr(unitExpr)
               .build()
           )
@@ -652,7 +652,7 @@ class DecodeV2Spec
           .setObserverInterface(
             DamlLf2.Expr.ObserverInterface
               .newBuilder()
-              .setInterface(ifaceTyConName)
+              .setInterface(ifaceTyConId)
               .setExpr(unitExpr)
               .build()
           )
@@ -663,8 +663,8 @@ class DecodeV2Spec
           .setToInterface(
             DamlLf2.Expr.ToInterface
               .newBuilder()
-              .setInterfaceType(ifaceTyConName)
-              .setTemplateType(templateTyConName)
+              .setInterfaceType(ifaceTyConId)
+              .setTemplateType(templateTyConId)
               .setTemplateExpr(unitExpr)
               .build()
           )
@@ -675,8 +675,8 @@ class DecodeV2Spec
           .setFromInterface(
             DamlLf2.Expr.FromInterface
               .newBuilder()
-              .setInterfaceType(ifaceTyConName)
-              .setTemplateType(templateTyConName)
+              .setInterfaceType(ifaceTyConId)
+              .setTemplateType(templateTyConId)
               .setInterfaceExpr(unitExpr)
               .build()
           )
@@ -687,7 +687,7 @@ class DecodeV2Spec
           .setInterfaceTemplateTypeRep(
             DamlLf2.Expr.InterfaceTemplateTypeRep
               .newBuilder()
-              .setInterface(ifaceTyConName)
+              .setInterface(ifaceTyConId)
               .setExpr(unitExpr)
               .build()
           )
@@ -698,8 +698,8 @@ class DecodeV2Spec
           .setUnsafeFromInterface(
             DamlLf2.Expr.UnsafeFromInterface
               .newBuilder()
-              .setInterfaceType(ifaceTyConName)
-              .setTemplateType(templateTyConName)
+              .setInterfaceType(ifaceTyConId)
+              .setTemplateType(templateTyConId)
               .setContractIdExpr(unitExpr)
               .setInterfaceExpr(falseExpr)
               .build()
@@ -712,7 +712,7 @@ class DecodeV2Spec
             DamlLf2.Expr.ToRequiredInterface
               .newBuilder()
               .setRequiredInterface(requiredIfaceTyConName)
-              .setRequiringInterface(ifaceTyConName)
+              .setRequiringInterface(ifaceTyConId)
               .setExpr(unitExpr)
               .build()
           )
@@ -723,7 +723,7 @@ class DecodeV2Spec
             DamlLf2.Expr.FromRequiredInterface
               .newBuilder()
               .setRequiredInterface(requiredIfaceTyConName)
-              .setRequiringInterface(ifaceTyConName)
+              .setRequiringInterface(ifaceTyConId)
               .setExpr(unitExpr)
               .build()
           )
@@ -734,7 +734,7 @@ class DecodeV2Spec
             DamlLf2.Expr.UnsafeFromRequiredInterface
               .newBuilder()
               .setRequiredInterface(requiredIfaceTyConName)
-              .setRequiringInterface(ifaceTyConName)
+              .setRequiringInterface(ifaceTyConId)
               .setContractIdExpr(unitExpr)
               .setInterfaceExpr(falseExpr)
               .build()
@@ -823,11 +823,11 @@ class DecodeV2Spec
       val testCases = {
 
         val unit = DamlLf2.Unit.newBuilder().build()
-        val pkgRef = DamlLf2.PackageRef.newBuilder().setSelf(unit).build
+        val pkgRef = DamlLf2.SelfOrImportedPackageId.newBuilder().setSelfPackageId(unit).build
         val modRef =
-          DamlLf2.ModuleRef.newBuilder().setPackageRef(pkgRef).setModuleNameInternedDname(0).build()
+          DamlLf2.ModuleId.newBuilder().setPackageId(pkgRef).setModuleNameInternedDname(0).build()
         val ifaceTyConName =
-          DamlLf2.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(2)
+          DamlLf2.TypeConId.newBuilder().setModule(modRef).setNameInternedDname(2)
 
         val exerciseInterfaceProto = {
           val exe = DamlLf2.Update.ExerciseInterface
@@ -882,11 +882,11 @@ class DecodeV2Spec
     s"translate interface exercise guard iff version >= ${LV.Features.extendedInterfaces}" in {
 
       val unit = DamlLf2.Unit.newBuilder().build()
-      val pkgRef = DamlLf2.PackageRef.newBuilder().setSelf(unit).build
+      val pkgRef = DamlLf2.SelfOrImportedPackageId.newBuilder().setSelfPackageId(unit).build
       val modRef =
-        DamlLf2.ModuleRef.newBuilder().setPackageRef(pkgRef).setModuleNameInternedDname(0).build()
+        DamlLf2.ModuleId.newBuilder().setPackageId(pkgRef).setModuleNameInternedDname(0).build()
       val ifaceTyConName =
-        DamlLf2.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(2)
+        DamlLf2.TypeConId.newBuilder().setModule(modRef).setNameInternedDname(2)
 
       val exerciseInterfaceProto = {
         val exe = DamlLf2.Update.ExerciseInterface
@@ -919,11 +919,11 @@ class DecodeV2Spec
     s"decode softFetch" in {
       val dottedNameTable = ImmArraySeq("Mod", "T").map(Ref.DottedName.assertFromString)
       val unit = DamlLf2.Unit.newBuilder().build()
-      val pkgRef = DamlLf2.PackageRef.newBuilder().setSelf(unit).build
+      val pkgRef = DamlLf2.SelfOrImportedPackageId.newBuilder().setSelfPackageId(unit).build
       val modRef =
-        DamlLf2.ModuleRef.newBuilder().setPackageRef(pkgRef).setModuleNameInternedDname(0).build()
+        DamlLf2.ModuleId.newBuilder().setPackageId(pkgRef).setModuleNameInternedDname(0).build()
       val templateTyConName =
-        DamlLf2.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(1)
+        DamlLf2.TypeConId.newBuilder().setModule(modRef).setNameInternedDname(1)
 
       val softFetchProto = {
         val exe = DamlLf2.Update.SoftFetch
@@ -1074,22 +1074,22 @@ class DecodeV2Spec
       val interfaceName = Ref.DottedName.assertFromString("I")
 
       val unit = DamlLf2.Unit.newBuilder()
-      val pkgRef = DamlLf2.PackageRef.newBuilder().setSelf(unit)
+      val pkgRef = DamlLf2.SelfOrImportedPackageId.newBuilder().setSelfPackageId(unit)
       val modRef =
-        DamlLf2.ModuleRef.newBuilder().setPackageRef(pkgRef).setModuleNameInternedDname(0)
+        DamlLf2.ModuleId.newBuilder().setPackageId(pkgRef).setModuleNameInternedDname(0)
 
       val requiresDefInterface = {
-        val typeConNameJ =
-          DamlLf2.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(3)
-        val typeConNameK =
-          DamlLf2.TypeConName.newBuilder().setModule(modRef).setNameInternedDname(4)
+        val TypeConIdJ =
+          DamlLf2.TypeConId.newBuilder().setModule(modRef).setNameInternedDname(3)
+        val TypeConIdK =
+          DamlLf2.TypeConId.newBuilder().setModule(modRef).setNameInternedDname(4)
 
         DamlLf2.DefInterface
           .newBuilder()
           .setTyconInternedDname(1)
           .setParamInternedStr(0)
-          .addRequires(typeConNameJ)
-          .addRequires(typeConNameK)
+          .addRequires(TypeConIdJ)
+          .addRequires(TypeConIdK)
           .setView(unitTypInterned)
           .build()
       }
@@ -1135,9 +1135,9 @@ class DecodeV2Spec
                 .asScala
                 .lastOption
                 .map(x => dalf1.getInternedStringsList.asScala(x)) contains "reverseCopy" =>
-            val pr = dv.getExpr.getVal.getModule.getPackageRef
-            pr.getSumCase shouldBe DamlLf2.PackageRef.SumCase.PACKAGE_ID_INTERNED_STR
-            pr.getPackageIdInternedStr
+            val pr = dv.getExpr.getVal.getModule.getPackageId
+            pr.getSumCase shouldBe DamlLf2.SelfOrImportedPackageId.SumCase.IMPORTED_PACKAGE_ID_INTERNED_STR
+            pr.getImportedPackageIdInternedStr
         }
         .value
       dalf1.getInternedStringsList.asScala.lift(iix.toInt).value

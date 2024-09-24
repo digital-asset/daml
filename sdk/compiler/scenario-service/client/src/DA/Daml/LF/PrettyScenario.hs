@@ -121,8 +121,8 @@ lookupModule :: LF.World -> Maybe PackageIdentifier -> LF.ModuleName -> Maybe LF
 lookupModule world mbPkgId modName = do
   let pkgRef = case mbPkgId of
        Just (PackageIdentifier (Just (PackageIdentifierSumPackageId pkgId))) ->
-         LF.PRImport $ LF.PackageId $ TL.toStrict pkgId
-       _ -> LF.PRSelf
+         LF.ImportedPackageId $ LF.PackageId $ TL.toStrict pkgId
+       _ -> LF.SelfPackageId
   eitherToMaybe (LF.lookupModule (LF.Qualified pkgRef modName ()) world)
 
 lookupLocationModule :: LF.World -> Location -> Maybe LF.Module

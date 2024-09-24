@@ -111,7 +111,7 @@ constantLiftingTests version = testGroup ("Constant Lifting " <> renderVersion v
 
     qualify :: t -> Qualified t
     qualify x = Qualified
-        { qualPackage = PRSelf
+        { qualPackage = SelfPackageId
         , qualModule = ModuleName ["M"]
         , qualObject = x
         }

@@ -64,8 +64,8 @@ getWorldSelfPkgModules = _worldSelfPkgModules
 getWorldImported :: World -> [ExternalPackage]
 getWorldImported world = map (uncurry ExternalPackage) $ HMS.toList (_worldImported world)
 
--- | A package where all references to `PRSelf` have been rewritten
--- to `PRImport`.
+-- | A package where all references to `SelfPackageId` have been rewritten
+-- to `ImportedPackageId`.
 data ExternalPackage = ExternalPackage
   { extPackageId :: PackageId
   , extPackagePkg :: Package
@@ -108,7 +108,7 @@ extendWorldSelf = over worldSelfPkgModules . NM.insert
 
 data LookupError
   = LEPackage !PackageId
-  | LEModule !PackageRef !ModuleName
+  | LEModule !SelfOrImportedPackageId !ModuleName
   | LETypeSyn !(Qualified TypeSynName)
   | LEDataType !(Qualified TypeConName)
   | LEValue !(Qualified ExprValName)
@@ -125,8 +125,8 @@ data LookupError
 lookupModule :: Qualified a -> World -> Either LookupError Module
 lookupModule (Qualified pkgRef modName _) (World importedPkgs _ selfPkgMods) = do
   mods <- case pkgRef of
-    PRSelf -> pure selfPkgMods
-    PRImport pkgId ->
+    SelfPackageId -> pure selfPkgMods
+    ImportedPackageId pkgId ->
       case HMS.lookup pkgId importedPkgs of
         Nothing -> Left (LEPackage pkgId)
         Just pkg -> pure (packageModules pkg)
@@ -207,8 +207,8 @@ lookupInterfaceInstance iiHead@InterfaceInstanceHead {..} world = do
 instance Pretty LookupError where
   pPrint = \case
     LEPackage pkgId -> "unknown package:" <-> pretty pkgId
-    LEModule PRSelf modName -> "unknown module:" <-> pretty modName
-    LEModule (PRImport pkgId) modName -> "unknown module:" <-> pretty pkgId <> ":" <> pretty modName
+    LEModule SelfPackageId modName -> "unknown module:" <-> pretty modName
+    LEModule (ImportedPackageId pkgId) modName -> "unknown module:" <-> pretty pkgId <> ":" <> pretty modName
     LETypeSyn synRef -> "unknown type synonym:" <-> pretty synRef
     LEDataType datRef -> "unknown data type:" <-> pretty datRef
     LEValue valRef-> "unknown value:" <-> pretty valRef

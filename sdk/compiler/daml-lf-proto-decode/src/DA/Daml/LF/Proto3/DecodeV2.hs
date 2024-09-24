@@ -36,7 +36,7 @@ data DecodeEnv = DecodeEnv
     { internedStrings :: !(V.Vector (T.Text, Either String UnmangledIdentifier))
     , internedDottedNames :: !(V.Vector ([T.Text], Either String [UnmangledIdentifier]))
     , internedTypes :: !(V.Vector Type)
-    , selfPackageRef :: PackageRef
+    , selfPackageRef :: SelfOrImportedPackageId
     }
 
 newtype Decode a = Decode{unDecode :: ReaderT DecodeEnv (Except Error) a}
@@ -118,19 +118,19 @@ decodeValueName ident dnId = do
 
 -- | Decode a reference to a top-level value. The name is mangled and will be
 -- interned in Daml-LF 1.7 and onwards.
-decodeValName :: LF2.ValName -> Decode (Qualified ExprValName)
-decodeValName LF2.ValName{..} = do
-  (pref, mname) <- mayDecode "valNameModule" valNameModule decodeModuleRef
-  name <- decodeValueName "valNameName" valNameNameInternedDname
+decodeValId :: LF2.ValueId -> Decode (Qualified ExprValName)
+decodeValId LF2.ValueId{..} = do
+  (pref, mname) <- mayDecode "valIdModule" valueIdModule decodeModuleId
+  name <- decodeValueName "valIdName" valueIdNameInternedDname
   pure $ Qualified pref mname name
 
 -- | Decode a reference to a package. Package names are not mangled. Package
 -- name are interned since Daml-LF 1.6.
-decodePackageRef :: LF2.PackageRef -> Decode PackageRef
-decodePackageRef (LF2.PackageRef pref) =
+decodePackageId :: LF2.SelfOrImportedPackageId -> Decode SelfOrImportedPackageId
+decodePackageId (LF2.SelfOrImportedPackageId pref) =
     mayDecode "packageRefSum" pref $ \case
-        LF2.PackageRefSumSelf _ -> asks selfPackageRef
-        LF2.PackageRefSumPackageIdInternedStr strId -> PRImport . PackageId . fst <$> lookupString strId
+        LF2.SelfOrImportedPackageIdSumSelfPackageId _ -> asks selfPackageRef
+        LF2.SelfOrImportedPackageIdSumImportedPackageIdInternedStr strId -> ImportedPackageId . PackageId . fst <$> lookupString strId
 
 ------------------------------------------------------------------------
 -- Decodings of everything else
@@ -141,7 +141,7 @@ decodeInternedDottedName (LF2.InternedDottedName ids) = do
     (mangled, unmangledOrErr) <- mapAndUnzipM lookupString (V.toList ids)
     pure (mangled, sequence unmangledOrErr)
 
-decodePackage :: LF.Version -> LF.PackageRef -> LF2.Package -> Either Error Package
+decodePackage :: LF.Version -> LF.SelfOrImportedPackageId -> LF2.Package -> Either Error Package
 decodePackage version selfPackageRef (LF2.Package mods internedStringsV internedDottedNamesV mMetadata internedTypesV)
   | Nothing <- mMetadata  =
       throwError (ParseError "missing package metadata")
@@ -171,7 +171,7 @@ decodePackageMetadata LF2.PackageMetadata{..} = do
 
 decodeScenarioModule :: LF.Version -> LF2.Package -> Either Error Module
 decodeScenarioModule version protoPkg = do
-    Package { packageModules = modules } <- decodePackage version PRSelf protoPkg
+    Package { packageModules = modules } <- decodePackage version SelfPackageId protoPkg
     pure $ head $ NM.toList modules
 
 decodeModule :: LF2.Module -> Decode Module
@@ -191,7 +191,7 @@ decodeDefInterface :: LF2.DefInterface -> Decode DefInterface
 decodeDefInterface LF2.DefInterface {..} = do
   intLocation <- traverse decodeLocation defInterfaceLocation
   intName <- decodeDottedNameId TypeConName defInterfaceTyconInternedDname
-  intRequires <- decodeSet DuplicateRequires decodeTypeConName defInterfaceRequires
+  intRequires <- decodeSet DuplicateRequires decodeTypeConId defInterfaceRequires
   intParam <- decodeNameId ExprVarName defInterfaceParamInternedStr
   intChoices <- decodeNM DuplicateChoice decodeChoice defInterfaceChoices
   intMethods <- decodeNM DuplicateMethod decodeInterfaceMethod defInterfaceMethods
@@ -278,7 +278,7 @@ decodeDefTemplate LF2.DefTemplate{..} = do
 
 decodeDefTemplateImplements :: LF2.DefTemplate_Implements -> Decode TemplateImplements
 decodeDefTemplateImplements LF2.DefTemplate_Implements{..} = TemplateImplements
-  <$> mayDecode "defTemplate_ImplementsInterface" defTemplate_ImplementsInterface decodeTypeConName
+  <$> mayDecode "defTemplate_ImplementsInterface" defTemplate_ImplementsInterface decodeTypeConId
   <*> mayDecode "defTemplate_ImplementsBody" defTemplate_ImplementsBody decodeInterfaceInstanceBody
   <*> traverse decodeLocation defTemplate_ImplementsLocation
 
@@ -401,7 +401,7 @@ decodeBuiltinFunction = \case
 
 decodeLocation :: LF2.Location -> Decode SourceLoc
 decodeLocation (LF2.Location mbModRef mbRange) = do
-  mbModRef' <- traverse decodeModuleRef mbModRef
+  mbModRef' <- traverse decodeModuleId mbModRef
   LF2.Location_Range sline scol eline ecol <- mayDecode "Location_Range" mbRange pure
   pure $ SourceLoc
     mbModRef'
@@ -416,7 +416,7 @@ decodeExpr (LF2.Expr mbLoc exprSum) = case mbLoc of
 decodeExprSum :: Maybe LF2.ExprSum -> Decode Expr
 decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
   LF2.ExprSumVarInternedStr strId -> EVar <$> decodeNameId ExprVarName strId
-  LF2.ExprSumVal val -> EVal <$> decodeValName val
+  LF2.ExprSumVal val -> EVal <$> decodeValId val
   LF2.ExprSumBuiltin (Proto.Enumerated (Right bi)) -> EBuiltinFun <$> decodeBuiltinFunction bi
   LF2.ExprSumBuiltin (Proto.Enumerated (Left num)) -> throwError (UnknownEnum "ExprSumBuiltin" num)
   LF2.ExprSumBuiltinCon (Proto.Enumerated (Right con)) -> pure $ EBuiltinFun $ case con of
@@ -449,7 +449,7 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
       <*> mayDecode "Expr_VariantConVariantArg" mbArg decodeExpr
   LF2.ExprSumEnumCon (LF2.Expr_EnumCon mbTypeCon dataCon) ->
     EEnumCon
-      <$> mayDecode "Expr_EnumConTycon" mbTypeCon decodeTypeConName
+      <$> mayDecode "Expr_EnumConTycon" mbTypeCon decodeTypeConId
       <*> decodeNameId VariantConName dataCon
   LF2.ExprSumStructCon (LF2.Expr_StructCon fields) ->
     EStructCon
@@ -520,54 +520,54 @@ decodeExprSum exprSum = mayDecode "exprSum" exprSum $ \case
     <*> mayDecode "expr_ThrowExceptionType" expr_ThrowExceptionType decodeType
     <*> mayDecode "expr_ThrowExceptionExpr" expr_ThrowExceptionExpr decodeExpr
   LF2.ExprSumToInterface LF2.Expr_ToInterface {..} -> EToInterface
-    <$> mayDecode "expr_ToInterfaceInterfaceType" expr_ToInterfaceInterfaceType decodeTypeConName
-    <*> mayDecode "expr_ToInterfaceTemplateType" expr_ToInterfaceTemplateType decodeTypeConName
+    <$> mayDecode "expr_ToInterfaceInterfaceType" expr_ToInterfaceInterfaceType decodeTypeConId
+    <*> mayDecode "expr_ToInterfaceTemplateType" expr_ToInterfaceTemplateType decodeTypeConId
     <*> mayDecode "expr_ToInterfaceTemplateExpr" expr_ToInterfaceTemplateExpr decodeExpr
   LF2.ExprSumFromInterface LF2.Expr_FromInterface {..} -> EFromInterface
-    <$> mayDecode "expr_FromInterfaceInterfaceType" expr_FromInterfaceInterfaceType decodeTypeConName
-    <*> mayDecode "expr_FromInterfaceTemplateType" expr_FromInterfaceTemplateType decodeTypeConName
+    <$> mayDecode "expr_FromInterfaceInterfaceType" expr_FromInterfaceInterfaceType decodeTypeConId
+    <*> mayDecode "expr_FromInterfaceTemplateType" expr_FromInterfaceTemplateType decodeTypeConId
     <*> mayDecode "expr_FromInterfaceInterfaceExpr" expr_FromInterfaceInterfaceExpr decodeExpr
   LF2.ExprSumUnsafeFromInterface LF2.Expr_UnsafeFromInterface {..} -> EUnsafeFromInterface
-    <$> mayDecode "expr_UnsafeFromInterfaceInterfaceType" expr_UnsafeFromInterfaceInterfaceType decodeTypeConName
-    <*> mayDecode "expr_UnsafeFromInterfaceTemplateType" expr_UnsafeFromInterfaceTemplateType decodeTypeConName
+    <$> mayDecode "expr_UnsafeFromInterfaceInterfaceType" expr_UnsafeFromInterfaceInterfaceType decodeTypeConId
+    <*> mayDecode "expr_UnsafeFromInterfaceTemplateType" expr_UnsafeFromInterfaceTemplateType decodeTypeConId
     <*> mayDecode "expr_UnsafeFromInterfaceContractIdExpr" expr_UnsafeFromInterfaceContractIdExpr decodeExpr
     <*> mayDecode "expr_UnsafeFromInterfaceInterfaceExpr" expr_UnsafeFromInterfaceInterfaceExpr decodeExpr
   LF2.ExprSumCallInterface LF2.Expr_CallInterface {..} -> ECallInterface
-    <$> mayDecode "expr_CallInterfaceInterfaceType" expr_CallInterfaceInterfaceType decodeTypeConName
+    <$> mayDecode "expr_CallInterfaceInterfaceType" expr_CallInterfaceInterfaceType decodeTypeConId
     <*> decodeMethodName expr_CallInterfaceMethodInternedName
     <*> mayDecode "expr_CallInterfaceInterfaceExpr" expr_CallInterfaceInterfaceExpr decodeExpr
   LF2.ExprSumToRequiredInterface LF2.Expr_ToRequiredInterface {..} -> EToRequiredInterface
-    <$> mayDecode "expr_ToRequiredInterfaceRequiredInterface" expr_ToRequiredInterfaceRequiredInterface decodeTypeConName
-    <*> mayDecode "expr_ToRequiredInterfaceRequiringInterface" expr_ToRequiredInterfaceRequiringInterface decodeTypeConName
+    <$> mayDecode "expr_ToRequiredInterfaceRequiredInterface" expr_ToRequiredInterfaceRequiredInterface decodeTypeConId
+    <*> mayDecode "expr_ToRequiredInterfaceRequiringInterface" expr_ToRequiredInterfaceRequiringInterface decodeTypeConId
     <*> mayDecode "expr_ToRequiredInterfaceExpr" expr_ToRequiredInterfaceExpr decodeExpr
   LF2.ExprSumFromRequiredInterface LF2.Expr_FromRequiredInterface {..} -> EFromRequiredInterface
-    <$> mayDecode "expr_FromRequiredInterfaceRequiredInterface" expr_FromRequiredInterfaceRequiredInterface decodeTypeConName
-    <*> mayDecode "expr_FromRequiredInterfaceRequiringInterface" expr_FromRequiredInterfaceRequiringInterface decodeTypeConName
+    <$> mayDecode "expr_FromRequiredInterfaceRequiredInterface" expr_FromRequiredInterfaceRequiredInterface decodeTypeConId
+    <*> mayDecode "expr_FromRequiredInterfaceRequiringInterface" expr_FromRequiredInterfaceRequiringInterface decodeTypeConId
     <*> mayDecode "expr_FromRequiredInterfaceExpr" expr_FromRequiredInterfaceExpr decodeExpr
   LF2.ExprSumUnsafeFromRequiredInterface LF2.Expr_UnsafeFromRequiredInterface {..} -> EUnsafeFromRequiredInterface
-    <$> mayDecode "expr_UnsafeFromRequiredInterfaceRequiredInterface" expr_UnsafeFromRequiredInterfaceRequiredInterface decodeTypeConName
-    <*> mayDecode "expr_UnsafeFromRequiredInterfaceRequiringInterface" expr_UnsafeFromRequiredInterfaceRequiringInterface decodeTypeConName
+    <$> mayDecode "expr_UnsafeFromRequiredInterfaceRequiredInterface" expr_UnsafeFromRequiredInterfaceRequiredInterface decodeTypeConId
+    <*> mayDecode "expr_UnsafeFromRequiredInterfaceRequiringInterface" expr_UnsafeFromRequiredInterfaceRequiringInterface decodeTypeConId
     <*> mayDecode "expr_UnsafeFromRequiredInterfaceContractIdExpr" expr_UnsafeFromRequiredInterfaceContractIdExpr decodeExpr
     <*> mayDecode "expr_UnsafeFromRequiredInterfaceInterfaceExpr" expr_UnsafeFromRequiredInterfaceInterfaceExpr decodeExpr
   LF2.ExprSumInterfaceTemplateTypeRep LF2.Expr_InterfaceTemplateTypeRep {..} -> EInterfaceTemplateTypeRep
-    <$> mayDecode "expr_InterfaceTemplateTypeRepInterface" expr_InterfaceTemplateTypeRepInterface decodeTypeConName
+    <$> mayDecode "expr_InterfaceTemplateTypeRepInterface" expr_InterfaceTemplateTypeRepInterface decodeTypeConId
     <*> mayDecode "expr_InterfaceTemplateTypeRepExpr" expr_InterfaceTemplateTypeRepExpr decodeExpr
   LF2.ExprSumSignatoryInterface LF2.Expr_SignatoryInterface {..} -> ESignatoryInterface
-    <$> mayDecode "expr_SignatoryInterfaceInterface" expr_SignatoryInterfaceInterface decodeTypeConName
+    <$> mayDecode "expr_SignatoryInterfaceInterface" expr_SignatoryInterfaceInterface decodeTypeConId
     <*> mayDecode "expr_SignatoryInterfaceExpr" expr_SignatoryInterfaceExpr decodeExpr
   LF2.ExprSumObserverInterface LF2.Expr_ObserverInterface {..} -> EObserverInterface
-    <$> mayDecode "expr_ObserverInterfaceInterface" expr_ObserverInterfaceInterface decodeTypeConName
+    <$> mayDecode "expr_ObserverInterfaceInterface" expr_ObserverInterfaceInterface decodeTypeConId
     <*> mayDecode "expr_ObserverInterfaceExpr" expr_ObserverInterfaceExpr decodeExpr
   LF2.ExprSumViewInterface LF2.Expr_ViewInterface {..} -> EViewInterface
-    <$> mayDecode "expr_ViewInterfaceInterface" expr_ViewInterfaceInterface decodeTypeConName
+    <$> mayDecode "expr_ViewInterfaceInterface" expr_ViewInterfaceInterface decodeTypeConId
     <*> mayDecode "expr_ViewInterfaceExpr" expr_ViewInterfaceExpr decodeExpr
   LF2.ExprSumChoiceController LF2.Expr_ChoiceController {..} -> EChoiceController
-    <$> mayDecode "expr_ChoiceControllerTemplate" expr_ChoiceControllerTemplate decodeTypeConName
+    <$> mayDecode "expr_ChoiceControllerTemplate" expr_ChoiceControllerTemplate decodeTypeConId
     <*> decodeNameId ChoiceName expr_ChoiceControllerChoiceInternedStr
     <*> mayDecode "expr_ChoiceControllerContractExpr" expr_ChoiceControllerContractExpr decodeExpr
     <*> mayDecode "expr_ChoiceControllerChoiceArgExpr" expr_ChoiceControllerChoiceArgExpr decodeExpr
   LF2.ExprSumChoiceObserver LF2.Expr_ChoiceObserver {..} -> EChoiceObserver
-    <$> mayDecode "expr_ChoiceObserverTemplate" expr_ChoiceObserverTemplate decodeTypeConName
+    <$> mayDecode "expr_ChoiceObserverTemplate" expr_ChoiceObserverTemplate decodeTypeConId
     <*> decodeNameId ChoiceName expr_ChoiceObserverChoiceInternedStr
     <*> mayDecode "expr_ChoiceObserverContractExpr" expr_ChoiceObserverContractExpr decodeExpr
     <*> mayDecode "expr_ChoiceObserverChoiceArgExpr" expr_ChoiceObserverChoiceArgExpr decodeExpr
@@ -586,15 +586,15 @@ decodeUpdate LF2.Update{..} = mayDecode "updateSum" updateSum $ \case
     foldr (\b e -> EUpdate $ UBind b e) body <$> mapM decodeBinding (V.toList binds)
   LF2.UpdateSumCreate (LF2.Update_Create mbTycon mbExpr) ->
     fmap EUpdate $ UCreate
-      <$> mayDecode "update_CreateTemplate" mbTycon decodeTypeConName
+      <$> mayDecode "update_CreateTemplate" mbTycon decodeTypeConId
       <*> mayDecode "update_CreateExpr" mbExpr decodeExpr
   LF2.UpdateSumCreateInterface (LF2.Update_CreateInterface mbTycon mbExpr) ->
     fmap EUpdate $ UCreateInterface
-      <$> mayDecode "update_CreateInterfaceInterface" mbTycon decodeTypeConName
+      <$> mayDecode "update_CreateInterfaceInterface" mbTycon decodeTypeConId
       <*> mayDecode "update_CreateInterfaceExpr" mbExpr decodeExpr
   LF2.UpdateSumExercise LF2.Update_Exercise{..} ->
     fmap EUpdate $ UExercise
-      <$> mayDecode "update_ExerciseTemplate" update_ExerciseTemplate decodeTypeConName
+      <$> mayDecode "update_ExerciseTemplate" update_ExerciseTemplate decodeTypeConId
       <*> decodeNameId ChoiceName update_ExerciseChoiceInternedStr
       <*> mayDecode "update_ExerciseCid" update_ExerciseCid decodeExpr
       <*> mayDecode "update_ExerciseArg" update_ExerciseArg decodeExpr
@@ -602,32 +602,32 @@ decodeUpdate LF2.Update{..} = mayDecode "updateSum" updateSum $ \case
     throwError (ParseError "Update.Sum.soft_exercise is no longer supported")
   LF2.UpdateSumDynamicExercise LF2.Update_DynamicExercise{..} ->
     fmap EUpdate $ UDynamicExercise
-      <$> mayDecode "update_DynamicExerciseTemplate" update_DynamicExerciseTemplate decodeTypeConName
+      <$> mayDecode "update_DynamicExerciseTemplate" update_DynamicExerciseTemplate decodeTypeConId
       <*> decodeNameId ChoiceName update_DynamicExerciseChoiceInternedStr
       <*> mayDecode "update_DynamicExerciseCid" update_DynamicExerciseCid decodeExpr
       <*> mayDecode "update_DynamicExerciseArg" update_DynamicExerciseArg decodeExpr
   LF2.UpdateSumExerciseInterface LF2.Update_ExerciseInterface{..} ->
     fmap EUpdate $ UExerciseInterface
-      <$> mayDecode "update_ExerciseInterfaceInterface" update_ExerciseInterfaceInterface decodeTypeConName
+      <$> mayDecode "update_ExerciseInterfaceInterface" update_ExerciseInterfaceInterface decodeTypeConId
       <*> decodeNameId ChoiceName update_ExerciseInterfaceChoiceInternedStr
       <*> mayDecode "update_ExerciseInterfaceCid" update_ExerciseInterfaceCid decodeExpr
       <*> mayDecode "update_ExerciseInterfaceArg" update_ExerciseInterfaceArg decodeExpr
       <*> traverse decodeExpr update_ExerciseInterfaceGuard
   LF2.UpdateSumExerciseByKey LF2.Update_ExerciseByKey{..} ->
     fmap EUpdate $ UExerciseByKey
-      <$> mayDecode "update_ExerciseByKeyTemplate" update_ExerciseByKeyTemplate decodeTypeConName
+      <$> mayDecode "update_ExerciseByKeyTemplate" update_ExerciseByKeyTemplate decodeTypeConId
       <*> decodeNameId ChoiceName update_ExerciseByKeyChoiceInternedStr
       <*> mayDecode "update_ExerciseByKeyKey" update_ExerciseByKeyKey decodeExpr
       <*> mayDecode "update_ExerciseByKeyArg" update_ExerciseByKeyArg decodeExpr
   LF2.UpdateSumFetch LF2.Update_Fetch{..} ->
     fmap EUpdate $ UFetch
-      <$> mayDecode "update_FetchTemplate" update_FetchTemplate decodeTypeConName
+      <$> mayDecode "update_FetchTemplate" update_FetchTemplate decodeTypeConId
       <*> mayDecode "update_FetchCid" update_FetchCid decodeExpr
   LF2.UpdateSumSoftFetch LF2.Update_SoftFetch{} ->
     throwError (ParseError "Update.Sum.soft_fetch is no longer supported")
   LF2.UpdateSumFetchInterface LF2.Update_FetchInterface{..} ->
     fmap EUpdate $ UFetchInterface
-      <$> mayDecode "update_FetchInterfaceInterface" update_FetchInterfaceInterface decodeTypeConName
+      <$> mayDecode "update_FetchInterfaceInterface" update_FetchInterfaceInterface decodeTypeConId
       <*> mayDecode "update_FetchInterfaceCid" update_FetchInterfaceCid decodeExpr
   LF2.UpdateSumGetTime LF2.Unit ->
     pure (EUpdate UGetTime)
@@ -648,7 +648,7 @@ decodeUpdate LF2.Update{..} = mayDecode "updateSum" updateSum $ \case
 
 decodeRetrieveByKey :: LF2.Update_RetrieveByKey -> Decode (Qualified TypeConName)
 decodeRetrieveByKey LF2.Update_RetrieveByKey{..} =
-  mayDecode "update_RetrieveByKeyTemplate" update_RetrieveByKeyTemplate decodeTypeConName
+  mayDecode "update_RetrieveByKeyTemplate" update_RetrieveByKeyTemplate decodeTypeConId
 
 decodeScenario :: LF2.Scenario -> Decode Expr
 decodeScenario LF2.Scenario{..} = mayDecode "scenarioSum" scenarioSum $ \case
@@ -686,12 +686,12 @@ decodeCaseAlt LF2.CaseAlt{..} = do
     LF2.CaseAltSumDefault LF2.Unit -> pure CPDefault
     LF2.CaseAltSumVariant LF2.CaseAlt_Variant{..} ->
       CPVariant
-        <$> mayDecode "caseAlt_VariantCon" caseAlt_VariantCon decodeTypeConName
+        <$> mayDecode "caseAlt_VariantCon" caseAlt_VariantCon decodeTypeConId
         <*> decodeNameId VariantConName caseAlt_VariantVariantInternedStr
         <*> decodeNameId ExprVarName caseAlt_VariantBinderInternedStr
     LF2.CaseAltSumEnum LF2.CaseAlt_Enum{..} ->
       CPEnum
-        <$> mayDecode "caseAlt_DataCon" caseAlt_EnumCon decodeTypeConName
+        <$> mayDecode "caseAlt_DataCon" caseAlt_EnumCon decodeTypeConId
         <*> decodeNameId VariantConName caseAlt_EnumConstructorInternedStr
     LF2.CaseAltSumBuiltinCon (Proto.Enumerated (Right pcon)) -> pure $ case pcon of
       LF2.BuiltinConCON_UNIT -> CPUnit
@@ -797,9 +797,9 @@ decodeType LF2.Type{..} = mayDecode "typeSum" typeSum $ \case
     decodeWithArgs args $ TVar <$> decodeNameId TypeVarName var
   LF2.TypeSumNat n -> TNat <$> decodeTypeLevelNat (fromIntegral n)
   LF2.TypeSumCon (LF2.Type_Con mbCon args) ->
-    decodeWithArgs args $ TCon <$> mayDecode "type_ConTycon" mbCon decodeTypeConName
+    decodeWithArgs args $ TCon <$> mayDecode "type_ConTycon" mbCon decodeTypeConId
   LF2.TypeSumSyn (LF2.Type_Syn mbSyn args) ->
-    TSynApp <$> mayDecode "type_SynTysyn" mbSyn decodeTypeSynName <*> traverse decodeType (V.toList args)
+    TSynApp <$> mayDecode "type_SynTysyn" mbSyn decodeTypeSynId <*> traverse decodeType (V.toList args)
   LF2.TypeSumBuiltin (LF2.Type_Builtin (Proto.Enumerated (Right prim)) args) -> do
     decodeWithArgs args $ TBuiltin <$> decodeBuiltin prim
   LF2.TypeSumBuiltin (LF2.Type_Builtin (Proto.Enumerated (Left idx)) _args) ->
@@ -832,26 +832,26 @@ decodeFieldWithExpr (LF2.FieldWithExpr name mbExpr) =
 decodeTypeConApp :: LF2.Type_Con -> Decode TypeConApp
 decodeTypeConApp LF2.Type_Con{..} =
   TypeConApp
-    <$> mayDecode "typeConAppTycon" type_ConTycon decodeTypeConName
+    <$> mayDecode "typeConAppTycon" type_ConTycon decodeTypeConId
     <*> mapM decodeType (V.toList type_ConArgs)
 
-decodeTypeSynName :: LF2.TypeSynName -> Decode (Qualified TypeSynName)
-decodeTypeSynName LF2.TypeSynName{..} = do
-  (pref, mname) <- mayDecode "typeSynNameModule" typeSynNameModule decodeModuleRef
-  syn <- decodeDottedName TypeSynName typeSynNameNameInternedDname
+decodeTypeSynId :: LF2.TypeSynId -> Decode (Qualified TypeSynName)
+decodeTypeSynId LF2.TypeSynId{..} = do
+  (pref, mname) <- mayDecode "typeSynIdModule" typeSynIdModule decodeModuleId
+  syn <- decodeDottedName TypeSynName typeSynIdNameInternedDname
   pure $ Qualified pref mname syn
 
-decodeTypeConName :: LF2.TypeConName -> Decode (Qualified TypeConName)
-decodeTypeConName LF2.TypeConName{..} = do
-  (pref, mname) <- mayDecode "typeConNameModule" typeConNameModule decodeModuleRef
-  con <- decodeDottedName TypeConName typeConNameNameInternedDname
+decodeTypeConId :: LF2.TypeConId -> Decode (Qualified TypeConName)
+decodeTypeConId LF2.TypeConId{..} = do
+  (pref, mname) <- mayDecode "typeConIdModule" typeConIdModule decodeModuleId
+  con <- decodeDottedName TypeConName typeConIdNameInternedDname
   pure $ Qualified pref mname con
 
-decodeModuleRef :: LF2.ModuleRef -> Decode (PackageRef, ModuleName)
-decodeModuleRef LF2.ModuleRef{..} =
+decodeModuleId :: LF2.ModuleId -> Decode (SelfOrImportedPackageId, ModuleName)
+decodeModuleId LF2.ModuleId{..} =
   (,)
-    <$> mayDecode "moduleRefPackageRef" moduleRefPackageRef decodePackageRef
-    <*> decodeDottedName ModuleName moduleRefModuleNameInternedDname
+    <$> mayDecode "moduleIdPackageId" moduleIdPackageId decodePackageId
+    <*> decodeDottedName ModuleName moduleIdModuleNameInternedDname
 
 ------------------------------------------------------------------------
 -- Helpers

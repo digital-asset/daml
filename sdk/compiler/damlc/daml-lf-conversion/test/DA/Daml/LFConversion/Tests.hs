@@ -138,7 +138,7 @@ metadataEncodingTests = testGroup "MetadataEncoding"
             )
           )
         , ( "type Num = Number"
-          , let numberClass = LF.Qualified LF.PRSelf (LF.ModuleName ["GHC", "Num"]) (LF.TypeSynName ["Number"])
+          , let numberClass = LF.Qualified LF.SelfPackageId (LF.ModuleName ["GHC", "Num"]) (LF.TypeSynName ["Number"])
             in
             ( LF.TypeSynName ["Num"]
             , True
@@ -150,7 +150,7 @@ metadataEncodingTests = testGroup "MetadataEncoding"
         , ( "type Display a = Show a"
           , let
               aVar = LF.TypeVarName "a"
-              showClass = LF.Qualified LF.PRSelf (LF.ModuleName ["GHC", "Show"]) (LF.TypeSynName ["Show"])
+              showClass = LF.Qualified LF.SelfPackageId (LF.ModuleName ["GHC", "Show"]) (LF.TypeSynName ["Show"])
             in
             ( LF.TypeSynName ["Display"]
             , True
@@ -161,7 +161,7 @@ metadataEncodingTests = testGroup "MetadataEncoding"
           )
         , ( "class C a b; type D = C"
           , let
-              cClass = LF.Qualified LF.PRSelf (LF.ModuleName ["Main"]) (LF.TypeSynName ["C"])
+              cClass = LF.Qualified LF.SelfPackageId (LF.ModuleName ["Main"]) (LF.TypeSynName ["C"])
             in
             ( LF.TypeSynName ["D"]
             , True
@@ -172,7 +172,7 @@ metadataEncodingTests = testGroup "MetadataEncoding"
           )
         , ( "class C a b; type E = C Int"
           , let
-              cClass = LF.Qualified LF.PRSelf (LF.ModuleName ["Main"]) (LF.TypeSynName ["C"])
+              cClass = LF.Qualified LF.SelfPackageId (LF.ModuleName ["Main"]) (LF.TypeSynName ["C"])
             in
             ( LF.TypeSynName ["E"]
             , True
@@ -184,7 +184,7 @@ metadataEncodingTests = testGroup "MetadataEncoding"
         , ( "class C a b; type F a = C a Int"
           , let
               aVar = LF.TypeVarName "a"
-              cClass = LF.Qualified LF.PRSelf (LF.ModuleName ["Main"]) (LF.TypeSynName ["C"])
+              cClass = LF.Qualified LF.SelfPackageId (LF.ModuleName ["Main"]) (LF.TypeSynName ["C"])
             in
             ( LF.TypeSynName ["F"]
             , True
@@ -239,7 +239,7 @@ metadataEncodingTests = testGroup "MetadataEncoding"
 mkImport :: Maybe T.Text -> [T.Text] -> LF.Qualified ()
 mkImport mPackage moduleComponents =
   LF.Qualified
-    { qualPackage = maybe LF.PRSelf (LF.PRImport . LF.PackageId) mPackage
+    { qualPackage = maybe LF.SelfPackageId (LF.ImportedPackageId . LF.PackageId) mPackage
     , qualModule = LF.ModuleName moduleComponents
     , qualObject = ()
     }

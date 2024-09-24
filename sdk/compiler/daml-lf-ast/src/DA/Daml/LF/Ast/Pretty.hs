@@ -91,12 +91,12 @@ instance Pretty ExprVarName where
 instance Pretty ExprValName where
     pPrint = text . unExprValName
 
-pPrintModuleRef :: PrettyLevel -> (PackageRef, ModuleName) -> Doc ann
+pPrintModuleRef :: PrettyLevel -> (SelfOrImportedPackageId, ModuleName) -> Doc ann
 pPrintModuleRef lvl (pkgRef, modName) = docPkgRef <> pPrint modName
   where
     docPkgRef = case pkgRef of
-      PRSelf -> empty
-      PRImport pkgId
+      SelfPackageId -> empty
+      ImportedPackageId pkgId
         | levelHasPackageIds lvl -> pPrint pkgId <> ":"
         | otherwise -> empty
 
@@ -605,7 +605,7 @@ pPrintTemplateChoice lvl modName tpl (TemplateChoice mbLoc name isConsuming cont
       [ keyword_ (if isConsuming then "consuming" else "non-consuming")
       , keyword_ "choice"
       , pPrint name
-      , pPrintAndType lvl precParam (selfBinder, TContractId (TCon (Qualified PRSelf modName tpl)))
+      , pPrintAndType lvl precParam (selfBinder, TContractId (TCon (Qualified SelfPackageId modName tpl)))
       , pPrintAndType lvl precParam argBinder
       , if levelHasTypes lvl then docHasType <-> pPrintPrec lvl 0 retType else empty
       ]
@@ -638,7 +638,7 @@ pPrintTemplate lvl modName (Template mbLoc tpl param precond signatories observe
         [ pPrintInterfaceInstance lvl (InterfaceInstanceHead interface qTpl) body loc
         | TemplateImplements interface body loc <- NM.toList implements
         ]
-      qTpl = Qualified PRSelf modName tpl
+      qTpl = Qualified SelfPackageId modName tpl
 
 pPrintInterfaceInstance :: PrettyLevel -> InterfaceInstanceHead -> InterfaceInstanceBody -> Maybe SourceLoc -> Doc ann
 pPrintInterfaceInstance lvl head body mLoc =

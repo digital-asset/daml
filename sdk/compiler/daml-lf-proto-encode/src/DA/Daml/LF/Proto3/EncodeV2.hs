@@ -157,11 +157,12 @@ encodeValueName valName = do
 
 -- | Encode a reference to a package. Package names are not mangled. Package
 -- names are interned.
-encodePackageRef :: PackageRef -> Encode (Just P.PackageRef)
-encodePackageRef = fmap (Just . P.PackageRef . Just) . \case
-    PRSelf -> pure $ P.PackageRefSumSelf P.Unit
-    PRImport (PackageId pkgId) -> do
-        P.PackageRefSumPackageIdInternedStr <$> allocString pkgId
+encodePackageId :: SelfOrImportedPackageId -> Encode (Just P.SelfOrImportedPackageId)
+encodePackageId = fmap (Just . P.SelfOrImportedPackageId . Just) . \case
+    SelfPackageId -> 
+        pure $ P.SelfOrImportedPackageIdSumSelfPackageId P.Unit
+    ImportedPackageId (PackageId pkgId) -> 
+        P.SelfOrImportedPackageIdSumImportedPackageIdInternedStr <$> allocString pkgId
 
 -- | Interface method names are always interned, since interfaces were
 -- introduced after name interning.
@@ -181,30 +182,30 @@ encodeNameMap encodeElem = fmap V.fromList . mapM encodeElem . NM.toList
 encodeSet :: (a -> Encode b) -> S.Set a -> Encode (V.Vector b)
 encodeSet encodeElem = fmap V.fromList . mapM encodeElem . S.toList
 
-encodeQualTypeSynName' :: Qualified TypeSynName -> Encode P.TypeSynName
-encodeQualTypeSynName' (Qualified pref mname syn) = do
-    typeSynNameModule <- encodeModuleRef pref mname
-    typeSynNameNameInternedDname <- encodeDottedName unTypeSynName syn
-    pure $ P.TypeSynName{..}
+encodeQualTypeSynId' :: Qualified TypeSynName -> Encode P.TypeSynId
+encodeQualTypeSynId' (Qualified pref mname syn) = do
+    typeSynIdModule <- encodeModuleId pref mname
+    typeSynIdNameInternedDname <- encodeDottedName unTypeSynName syn
+    pure $ P.TypeSynId{..}
 
-encodeQualTypeSynName :: Qualified TypeSynName -> Encode (Just P.TypeSynName)
-encodeQualTypeSynName tysyn = Just <$> encodeQualTypeSynName' tysyn
+encodeQualTypeSynId :: Qualified TypeSynName -> Encode (Just P.TypeSynId)
+encodeQualTypeSynId tysyn = Just <$> encodeQualTypeSynId' tysyn
 
-encodeQualTypeConName' :: Qualified TypeConName -> Encode P.TypeConName
-encodeQualTypeConName' (Qualified pref mname con) = do
-    typeConNameModule <- encodeModuleRef pref mname
-    typeConNameNameInternedDname <- encodeDottedName unTypeConName con
-    pure $ P.TypeConName{..}
+encodeQualTypeConId' :: Qualified TypeConName -> Encode P.TypeConId
+encodeQualTypeConId' (Qualified pref mname con) = do
+    typeConIdModule <- encodeModuleId pref mname
+    typeConIdNameInternedDname <- encodeDottedName unTypeConName con
+    pure $ P.TypeConId{..}
 
-encodeQualTypeConName :: Qualified TypeConName -> Encode (Just P.TypeConName)
-encodeQualTypeConName tycon = Just <$> encodeQualTypeConName' tycon
+encodeQualTypeConId :: Qualified TypeConName -> Encode (Just P.TypeConId)
+encodeQualTypeConId tycon = Just <$> encodeQualTypeConId' tycon
 
 
 encodeSourceLoc :: SourceLoc -> Encode P.Location
 encodeSourceLoc SourceLoc{..} = do
     locationModule <- case slocModuleRef of
         Nothing -> pure Nothing
-        Just (pkgRef, modName) -> encodeModuleRef pkgRef modName
+        Just (pkgRef, modName) -> encodeModuleId pkgRef modName
     let locationRange = Just $ P.Location_Range
             (fromIntegral slocStartLine)
             (fromIntegral slocStartCol)
@@ -212,11 +213,11 @@ encodeSourceLoc SourceLoc{..} = do
             (fromIntegral slocEndCol)
     pure P.Location{..}
 
-encodeModuleRef :: PackageRef -> ModuleName -> Encode (Just P.ModuleRef)
-encodeModuleRef pkgRef modName = do
-    moduleRefPackageRef <- encodePackageRef pkgRef
-    moduleRefModuleNameInternedDname <- encodeDottedName unModuleName modName
-    pure $ Just P.ModuleRef{..}
+encodeModuleId :: SelfOrImportedPackageId -> ModuleName -> Encode (Just P.ModuleId)
+encodeModuleId pkgRef modName = do
+    moduleIdPackageId <- encodePackageId pkgRef
+    moduleIdModuleNameInternedDname <- encodeDottedName unModuleName modName
+    pure $ Just P.ModuleId{..}
 
 encodeFieldsWithTypes :: (a -> T.Text) -> [(a, Type)] -> Encode (V.Vector P.FieldWithType)
 encodeFieldsWithTypes unwrapName =
@@ -286,11 +287,11 @@ encodeType' typ = do
         type_VarArgs <- encodeList encodeType' args
         pure $ P.TypeSumVar P.Type_Var{..}
     (TCon con, args) -> do
-        type_ConTycon <- encodeQualTypeConName con
+        type_ConTycon <- encodeQualTypeConId con
         type_ConArgs <- encodeList encodeType' args
         pure $ P.TypeSumCon P.Type_Con{..}
     (TSynApp syn args, []) -> do
-        type_SynTysyn <- encodeQualTypeSynName syn
+        type_SynTysyn <- encodeQualTypeSynId syn
         type_SynArgs <- encodeList encodeType' args
         pure $ P.TypeSumSyn P.Type_Syn{..}
     (TBuiltin bltn, args) -> do
@@ -341,7 +342,7 @@ allocType ptyp = fmap (P.Type . Just) $ do
 
 encodeTypeConApp :: TypeConApp -> Encode (Just P.Type_Con)
 encodeTypeConApp (TypeConApp tycon args) = do
-    type_ConTycon <- encodeQualTypeConName tycon
+    type_ConTycon <- encodeQualTypeConId tycon
     type_ConArgs <- encodeList encodeType' args
     pure $ Just P.Type_Con{..}
 
@@ -465,9 +466,9 @@ encodeExpr' :: Expr -> Encode P.Expr
 encodeExpr' = \case
     EVar v -> expr . P.ExprSumVarInternedStr <$> encodeNameId unExprVarName v
     EVal (Qualified pkgRef modName val) -> do
-        valNameModule <- encodeModuleRef pkgRef modName
-        valNameNameInternedDname <- encodeValueName val
-        pureExpr $ P.ExprSumVal P.ValName{..}
+        valueIdModule <- encodeModuleId pkgRef modName
+        valueIdNameInternedDname <- encodeValueName val
+        pureExpr $ P.ExprSumVal P.ValueId{..}
     EBuiltinFun bi -> expr <$> encodeBuiltinExpr bi
     ERecCon{..} -> do
         expr_RecConTycon <- encodeTypeConApp recTypeCon
@@ -490,7 +491,7 @@ encodeExpr' = \case
         expr_VariantConVariantArg <- encodeExpr varArg
         pureExpr $ P.ExprSumVariantCon P.Expr_VariantCon{..}
     EEnumCon{..} -> do
-        expr_EnumConTycon <- encodeQualTypeConName enumTypeCon
+        expr_EnumConTycon <- encodeQualTypeConId enumTypeCon
         expr_EnumConEnumConInternedStr <- encodeNameId unVariantConName enumDataCon
         pureExpr $ P.ExprSumEnumCon P.Expr_EnumCon{..}
     EStructCon{..} -> do
@@ -583,66 +584,66 @@ encodeExpr' = \case
         expr_ThrowExceptionExpr <- encodeExpr val
         pureExpr $ P.ExprSumThrow P.Expr_Throw{..}
     EToInterface ty1 ty2 val -> do
-        expr_ToInterfaceInterfaceType <- encodeQualTypeConName ty1
-        expr_ToInterfaceTemplateType <- encodeQualTypeConName ty2
+        expr_ToInterfaceInterfaceType <- encodeQualTypeConId ty1
+        expr_ToInterfaceTemplateType <- encodeQualTypeConId ty2
         expr_ToInterfaceTemplateExpr <- encodeExpr val
         pureExpr $ P.ExprSumToInterface P.Expr_ToInterface{..}
     EFromInterface ty1 ty2 val -> do
-        expr_FromInterfaceInterfaceType <- encodeQualTypeConName ty1
-        expr_FromInterfaceTemplateType <- encodeQualTypeConName ty2
+        expr_FromInterfaceInterfaceType <- encodeQualTypeConId ty1
+        expr_FromInterfaceTemplateType <- encodeQualTypeConId ty2
         expr_FromInterfaceInterfaceExpr <- encodeExpr val
         pureExpr $ P.ExprSumFromInterface P.Expr_FromInterface{..}
     EUnsafeFromInterface ty1 ty2 cid val -> do
-        expr_UnsafeFromInterfaceInterfaceType <- encodeQualTypeConName ty1
-        expr_UnsafeFromInterfaceTemplateType <- encodeQualTypeConName ty2
+        expr_UnsafeFromInterfaceInterfaceType <- encodeQualTypeConId ty1
+        expr_UnsafeFromInterfaceTemplateType <- encodeQualTypeConId ty2
         expr_UnsafeFromInterfaceContractIdExpr <- encodeExpr cid
         expr_UnsafeFromInterfaceInterfaceExpr <- encodeExpr val
         pureExpr $ P.ExprSumUnsafeFromInterface P.Expr_UnsafeFromInterface{..}
     ECallInterface ty mth val -> do
-        expr_CallInterfaceInterfaceType <- encodeQualTypeConName ty
+        expr_CallInterfaceInterfaceType <- encodeQualTypeConId ty
         expr_CallInterfaceMethodInternedName <- encodeMethodName mth
         expr_CallInterfaceInterfaceExpr <- encodeExpr val
         pureExpr $ P.ExprSumCallInterface P.Expr_CallInterface{..}
     EToRequiredInterface ty1 ty2 val -> do
-        expr_ToRequiredInterfaceRequiredInterface <- encodeQualTypeConName ty1
-        expr_ToRequiredInterfaceRequiringInterface <- encodeQualTypeConName ty2
+        expr_ToRequiredInterfaceRequiredInterface <- encodeQualTypeConId ty1
+        expr_ToRequiredInterfaceRequiringInterface <- encodeQualTypeConId ty2
         expr_ToRequiredInterfaceExpr <- encodeExpr val
         pureExpr $ P.ExprSumToRequiredInterface P.Expr_ToRequiredInterface{..}
     EFromRequiredInterface ty1 ty2 val -> do
-        expr_FromRequiredInterfaceRequiredInterface <- encodeQualTypeConName ty1
-        expr_FromRequiredInterfaceRequiringInterface <- encodeQualTypeConName ty2
+        expr_FromRequiredInterfaceRequiredInterface <- encodeQualTypeConId ty1
+        expr_FromRequiredInterfaceRequiringInterface <- encodeQualTypeConId ty2
         expr_FromRequiredInterfaceExpr <- encodeExpr val
         pureExpr $ P.ExprSumFromRequiredInterface P.Expr_FromRequiredInterface{..}
     EUnsafeFromRequiredInterface ty1 ty2 cid val -> do
-        expr_UnsafeFromRequiredInterfaceRequiredInterface <- encodeQualTypeConName ty1
-        expr_UnsafeFromRequiredInterfaceRequiringInterface <- encodeQualTypeConName ty2
+        expr_UnsafeFromRequiredInterfaceRequiredInterface <- encodeQualTypeConId ty1
+        expr_UnsafeFromRequiredInterfaceRequiringInterface <- encodeQualTypeConId ty2
         expr_UnsafeFromRequiredInterfaceContractIdExpr <- encodeExpr cid
         expr_UnsafeFromRequiredInterfaceInterfaceExpr <- encodeExpr val
         pureExpr $ P.ExprSumUnsafeFromRequiredInterface P.Expr_UnsafeFromRequiredInterface{..}
     EInterfaceTemplateTypeRep ty val -> do
-        expr_InterfaceTemplateTypeRepInterface <- encodeQualTypeConName ty
+        expr_InterfaceTemplateTypeRepInterface <- encodeQualTypeConId ty
         expr_InterfaceTemplateTypeRepExpr <- encodeExpr val
         pureExpr $ P.ExprSumInterfaceTemplateTypeRep P.Expr_InterfaceTemplateTypeRep{..}
     ESignatoryInterface ty val -> do
-        expr_SignatoryInterfaceInterface <- encodeQualTypeConName ty
+        expr_SignatoryInterfaceInterface <- encodeQualTypeConId ty
         expr_SignatoryInterfaceExpr <- encodeExpr val
         pureExpr $ P.ExprSumSignatoryInterface P.Expr_SignatoryInterface{..}
     EObserverInterface ty val -> do
-        expr_ObserverInterfaceInterface <- encodeQualTypeConName ty
+        expr_ObserverInterfaceInterface <- encodeQualTypeConId ty
         expr_ObserverInterfaceExpr <- encodeExpr val
         pureExpr $ P.ExprSumObserverInterface P.Expr_ObserverInterface{..}
     EViewInterface iface expr -> do
-        expr_ViewInterfaceInterface <- encodeQualTypeConName iface
+        expr_ViewInterfaceInterface <- encodeQualTypeConId iface
         expr_ViewInterfaceExpr <- encodeExpr expr
         pureExpr $ P.ExprSumViewInterface P.Expr_ViewInterface{..}
     EChoiceController tpl ch expr1 expr2 -> do
-        expr_ChoiceControllerTemplate <- encodeQualTypeConName tpl
+        expr_ChoiceControllerTemplate <- encodeQualTypeConId tpl
         expr_ChoiceControllerChoiceInternedStr <- encodeNameId unChoiceName ch
         expr_ChoiceControllerContractExpr <- encodeExpr expr1
         expr_ChoiceControllerChoiceArgExpr <- encodeExpr expr2
         pureExpr $ P.ExprSumChoiceController P.Expr_ChoiceController{..}
     EChoiceObserver tpl ch expr1 expr2 -> do
-        expr_ChoiceObserverTemplate <- encodeQualTypeConName tpl
+        expr_ChoiceObserverTemplate <- encodeQualTypeConId tpl
         expr_ChoiceObserverChoiceInternedStr <- encodeNameId unChoiceName ch
         expr_ChoiceObserverContractExpr <- encodeExpr expr1
         expr_ChoiceObserverChoiceArgExpr <- encodeExpr expr2
@@ -668,44 +669,44 @@ encodeUpdate = fmap (P.Update . Just) . \case
       let (bindings, body) = EUpdate e ^. rightSpine (_EUpdate . _UBind)
       P.UpdateSumBlock <$> encodeBlock bindings body
     UCreate{..} -> do
-        update_CreateTemplate <- encodeQualTypeConName creTemplate
+        update_CreateTemplate <- encodeQualTypeConId creTemplate
         update_CreateExpr <- encodeExpr creArg
         pure $ P.UpdateSumCreate P.Update_Create{..}
     UCreateInterface{..} -> do
-        update_CreateInterfaceInterface <- encodeQualTypeConName creInterface
+        update_CreateInterfaceInterface <- encodeQualTypeConId creInterface
         update_CreateInterfaceExpr <- encodeExpr creArg
         pure $ P.UpdateSumCreateInterface P.Update_CreateInterface{..}
     UExercise{..} -> do
-        update_ExerciseTemplate <- encodeQualTypeConName exeTemplate
+        update_ExerciseTemplate <- encodeQualTypeConId exeTemplate
         update_ExerciseChoiceInternedStr <- encodeNameId unChoiceName exeChoice
         update_ExerciseCid <- encodeExpr exeContractId
         update_ExerciseArg <- encodeExpr exeArg
         pure $ P.UpdateSumExercise P.Update_Exercise{..}
     UDynamicExercise{..} -> do
-        update_DynamicExerciseTemplate <- encodeQualTypeConName exeTemplate
+        update_DynamicExerciseTemplate <- encodeQualTypeConId exeTemplate
         update_DynamicExerciseChoiceInternedStr <- encodeNameId unChoiceName exeChoice
         update_DynamicExerciseCid <- encodeExpr exeContractId
         update_DynamicExerciseArg <- encodeExpr exeArg
         pure $ P.UpdateSumDynamicExercise P.Update_DynamicExercise{..}
     UExerciseInterface{..} -> do
-        update_ExerciseInterfaceInterface <- encodeQualTypeConName exeInterface
+        update_ExerciseInterfaceInterface <- encodeQualTypeConId exeInterface
         update_ExerciseInterfaceChoiceInternedStr <- encodeNameId unChoiceName exeChoice
         update_ExerciseInterfaceCid <- encodeExpr exeContractId
         update_ExerciseInterfaceArg <- encodeExpr exeArg
         update_ExerciseInterfaceGuard <- traverse encodeExpr' exeGuard
         pure $ P.UpdateSumExerciseInterface P.Update_ExerciseInterface{..}
     UExerciseByKey{..} -> do
-        update_ExerciseByKeyTemplate <- encodeQualTypeConName exeTemplate
+        update_ExerciseByKeyTemplate <- encodeQualTypeConId exeTemplate
         update_ExerciseByKeyChoiceInternedStr <- encodeNameId unChoiceName exeChoice
         update_ExerciseByKeyKey <- encodeExpr exeKey
         update_ExerciseByKeyArg <- encodeExpr exeArg
         pure $ P.UpdateSumExerciseByKey P.Update_ExerciseByKey{..}
     UFetch{..} -> do
-        update_FetchTemplate <- encodeQualTypeConName fetTemplate
+        update_FetchTemplate <- encodeQualTypeConId fetTemplate
         update_FetchCid <- encodeExpr fetContractId
         pure $ P.UpdateSumFetch P.Update_Fetch{..}
     UFetchInterface{..} -> do
-        update_FetchInterfaceInterface <- encodeQualTypeConName fetInterface
+        update_FetchInterfaceInterface <- encodeQualTypeConId fetInterface
         update_FetchInterfaceCid <- encodeExpr fetContractId
         pure $ P.UpdateSumFetchInterface P.Update_FetchInterface{..}
     UGetTime -> pure $ P.UpdateSumGetTime P.Unit
@@ -726,7 +727,7 @@ encodeUpdate = fmap (P.Update . Just) . \case
 
 encodeRetrieveByKey :: Qualified TypeConName -> Encode P.Update_RetrieveByKey
 encodeRetrieveByKey tmplId = do
-    update_RetrieveByKeyTemplate <- encodeQualTypeConName tmplId
+    update_RetrieveByKeyTemplate <- encodeQualTypeConId tmplId
     pure P.Update_RetrieveByKey{..}
 
 encodeScenario :: Scenario -> Encode P.Scenario
@@ -775,12 +776,12 @@ encodeCaseAlternative CaseAlternative{..} = do
     caseAltSum <- fmap Just $ case altPattern of
         CPDefault -> pure $ P.CaseAltSumDefault P.Unit
         CPVariant{..} -> do
-            caseAlt_VariantCon <- encodeQualTypeConName patTypeCon
+            caseAlt_VariantCon <- encodeQualTypeConId patTypeCon
             caseAlt_VariantVariantInternedStr <- encodeNameId unVariantConName patVariant
             caseAlt_VariantBinderInternedStr <- encodeNameId unExprVarName patBinder
             pure $ P.CaseAltSumVariant P.CaseAlt_Variant{..}
         CPEnum{..} -> do
-            caseAlt_EnumCon <- encodeQualTypeConName patTypeCon
+            caseAlt_EnumCon <- encodeQualTypeConId patTypeCon
             caseAlt_EnumConstructorInternedStr <- encodeNameId unVariantConName patDataCon
             pure $ P.CaseAltSumEnum P.CaseAlt_Enum{..}
         CPUnit -> pure $ P.CaseAltSumBuiltinCon $ P.Enumerated $ Right P.BuiltinConCON_UNIT
@@ -863,7 +864,7 @@ encodeTemplate Template{..} = do
 
 encodeTemplateImplements :: TemplateImplements -> Encode P.DefTemplate_Implements
 encodeTemplateImplements TemplateImplements{..} = do
-    defTemplate_ImplementsInterface <- encodeQualTypeConName tpiInterface
+    defTemplate_ImplementsInterface <- encodeQualTypeConId tpiInterface
     defTemplate_ImplementsBody <- encodeInterfaceInstanceBody tpiBody
     defTemplate_ImplementsLocation <- traverse encodeSourceLoc tpiLocation
     pure P.DefTemplate_Implements {..}
@@ -945,7 +946,7 @@ encodeDefInterface :: DefInterface -> Encode P.DefInterface
 encodeDefInterface DefInterface{..} = do
     defInterfaceLocation <- traverse encodeSourceLoc intLocation
     defInterfaceTyconInternedDname <- encodeDottedNameId unTypeConName intName
-    defInterfaceRequires <- encodeSet encodeQualTypeConName' intRequires
+    defInterfaceRequires <- encodeSet encodeQualTypeConId' intRequires
     defInterfaceMethods <- encodeNameMap encodeInterfaceMethod intMethods
     defInterfaceParamInternedStr <- encodeNameId unExprVarName intParam
     defInterfaceChoices <- encodeNameMap encodeTemplateChoice intChoices

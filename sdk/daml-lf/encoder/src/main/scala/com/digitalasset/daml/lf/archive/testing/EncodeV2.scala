@@ -113,41 +113,42 @@ private[daml] class EncodeV2(minorLanguageVersion: LV.Minor) {
       */
     private val unit = PLF.Unit.newBuilder().build()
 
-    private val protoSelfPgkId = PLF.PackageRef.newBuilder().setSelf(unit).build()
+    private val protoSelfPgkId =
+      PLF.SelfOrImportedPackageId.newBuilder().setSelfPackageId(unit).build()
 
-    private implicit def encodePackageId(pkgId: PackageId): PLF.PackageRef =
+    private implicit def encodePackageId(pkgId: PackageId): PLF.SelfOrImportedPackageId =
       if (pkgId == selfPkgId)
         protoSelfPgkId
       else {
-        val builder = PLF.PackageRef.newBuilder()
-        setString(pkgId, builder.setPackageIdInternedStr)
+        val builder = PLF.SelfOrImportedPackageId.newBuilder()
+        setString(pkgId, builder.setImportedPackageIdInternedStr)
         builder.build()
       }
 
-    private implicit def encodeModuleRef(modRef: (PackageId, ModuleName)): PLF.ModuleRef = {
-      val (pkgId, modName) = modRef
-      val builder = PLF.ModuleRef.newBuilder()
-      builder.setPackageRef(pkgId)
+    private implicit def encodeModuleId(modId: (PackageId, ModuleName)): PLF.ModuleId = {
+      val (pkgId, modName) = modId
+      val builder = PLF.ModuleId.newBuilder()
+      builder.setPackageId(pkgId)
       setDottedName_(modName, builder.setModuleNameInternedDname)
       builder.build()
     }
 
-    private implicit def encodeTypeConName(identifier: Identifier): PLF.TypeConName = {
-      val builder = PLF.TypeConName.newBuilder()
+    private implicit def encodeTypeConId(identifier: Identifier): PLF.TypeConId = {
+      val builder = PLF.TypeConId.newBuilder()
       builder.setModule(identifier.moduleRef)
       setDottedName_(identifier.name, builder.setNameInternedDname)
       builder.build()
     }
 
-    private implicit def encodeTypeSynName(identifier: Identifier): PLF.TypeSynName = {
-      val builder = PLF.TypeSynName.newBuilder()
+    private implicit def encodeTypeSynId(identifier: Identifier): PLF.TypeSynId = {
+      val builder = PLF.TypeSynId.newBuilder()
       builder.setModule(identifier.moduleRef)
       setDottedName_(identifier.name, builder.setNameInternedDname)
       builder.build()
     }
 
-    private implicit def encodeValName(identifier: Identifier): PLF.ValName = {
-      val b = PLF.ValName.newBuilder()
+    private implicit def encodeValId(identifier: Identifier): PLF.ValueId = {
+      val b = PLF.ValueId.newBuilder()
       b.setModule(identifier.moduleRef)
       setDottedName(identifier.name, b.setNameInternedDname)
       b.build()

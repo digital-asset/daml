@@ -512,7 +512,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       Work.bind(decodeInterfaceInstanceBody(lfImpl.getBody)) { body =>
         Ret(
           TemplateImplements.build(
-            interfaceId = decodeTypeConName(lfImpl.getInterface),
+            interfaceId = decodeTypeConId(lfImpl.getInterface),
             body,
           )
         )
@@ -611,7 +611,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
                   DefInterface.build(
                     requires =
                       if (lfInterface.getRequiresCount != 0) {
-                        lfInterface.getRequiresList.asScala.view.map(decodeTypeConName)
+                        lfInterface.getRequiresList.asScala.view.map(decodeTypeConId)
                       } else
                         List.empty,
                     param = getInternedName(lfInterface.getParamInternedStr),
@@ -703,12 +703,12 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         case PLF.Type.SumCase.CON =>
           val tcon = lfType.getCon
           Work.sequence(tcon.getArgsList.asScala.view.map(uncheckedDecodeType)) { types =>
-            Ret(types.foldLeft[Type](TTyCon(decodeTypeConName(tcon.getTycon)))(TApp))
+            Ret(types.foldLeft[Type](TTyCon(decodeTypeConId(tcon.getTycon)))(TApp))
           }
         case PLF.Type.SumCase.SYN =>
           val tsyn = lfType.getSyn
           Work.sequence(tsyn.getArgsList.asScala.view.map(uncheckedDecodeType)) { types =>
-            Ret(TSynApp(decodeTypeSynName(tsyn.getTysyn), types.to(ImmArray)))
+            Ret(TSynApp(decodeTypeSynId(tsyn.getTysyn), types.to(ImmArray)))
           }
         case PLF.Type.SumCase.BUILTIN =>
           val builtin = lfType.getBuiltin
@@ -756,35 +756,35 @@ private[archive] class DecodeV2(minor: LV.Minor) {
       }
     }
 
-    private[this] def decodeModuleRef(lfRef: PLF.ModuleRef): (PackageId, ModuleName) = {
-      val modName = getInternedDottedName(lfRef.getModuleNameInternedDname)
-      import PLF.PackageRef.{SumCase => SC}
+    private[this] def decodeModuleRef(lfId: PLF.ModuleId): (PackageId, ModuleName) = {
+      val modName = getInternedDottedName(lfId.getModuleNameInternedDname)
+      import PLF.SelfOrImportedPackageId.{SumCase => SC}
 
-      val pkgId = lfRef.getPackageRef.getSumCase match {
-        case SC.SELF =>
+      val pkgId = lfId.getPackageId.getSumCase match {
+        case SC.SELF_PACKAGE_ID =>
           this.packageId
-        case SC.PACKAGE_ID_INTERNED_STR =>
-          getInternedPackageId(lfRef.getPackageRef.getPackageIdInternedStr)
+        case SC.IMPORTED_PACKAGE_ID_INTERNED_STR =>
+          getInternedPackageId(lfId.getPackageId.getImportedPackageIdInternedStr)
         case SC.SUM_NOT_SET =>
-          throw Error.Parsing("PackageRef.SUM_NOT_SET")
+          throw Error.Parsing("PackageId.SUM_NOT_SET")
       }
       optDependencyTracker.foreach(_.markDependency(pkgId))
       (pkgId, modName)
     }
 
-    private[this] def decodeValName(lfVal: PLF.ValName): ValueRef = {
+    private[this] def decodeValId(lfVal: PLF.ValueId): ValueRef = {
       val (packageId, module) = decodeModuleRef(lfVal.getModule)
       val name = getInternedDottedName(lfVal.getNameInternedDname)
       ValueRef(packageId, QualifiedName(module, name))
     }
 
-    private[this] def decodeTypeConName(lfTyConName: PLF.TypeConName): TypeConName = {
+    private[this] def decodeTypeConId(lfTyConName: PLF.TypeConId): TypeConName = {
       val (packageId, module) = decodeModuleRef(lfTyConName.getModule)
       val name = getInternedDottedName(lfTyConName.getNameInternedDname)
       Identifier(packageId, QualifiedName(module, name))
     }
 
-    private[this] def decodeTypeSynName(lfTySynName: PLF.TypeSynName): TypeSynName = {
+    private[this] def decodeTypeSynId(lfTySynName: PLF.TypeSynId): TypeSynName = {
       val (packageId, module) = decodeModuleRef(lfTySynName.getModule)
       val name = getInternedDottedName(lfTySynName.getNameInternedDname)
       Identifier(packageId, QualifiedName(module, name))
@@ -792,7 +792,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
 
     private[this] def decodeTypeConApp(lfTyConApp: PLF.Type.Con): Work[TypeConApp] = {
       Work.sequence(lfTyConApp.getArgsList.asScala.view.map(decodeType(_)(Ret(_)))) { types =>
-        Ret(TypeConApp(decodeTypeConName(lfTyConApp.getTycon), types.to(ImmArray)))
+        Ret(TypeConApp(decodeTypeConId(lfTyConApp.getTycon), types.to(ImmArray)))
       }
     }
 
@@ -806,7 +806,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           Ret(EVar(getInternedName(lfExpr.getVarInternedStr)))
 
         case PLF.Expr.SumCase.VAL =>
-          Ret(EVal(decodeValName(lfExpr.getVal)))
+          Ret(EVal(decodeValId(lfExpr.getVal)))
 
         case PLF.Expr.SumCase.BUILTIN_LIT =>
           Ret(EBuiltinLit(decodeBuiltinLit(lfExpr.getBuiltinLit)))
@@ -869,7 +869,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           val enumCon = lfExpr.getEnumCon
           Ret(
             EEnumCon(
-              decodeTypeConName(enumCon.getTycon),
+              decodeTypeConId(enumCon.getTycon),
               internedName(enumCon.getEnumConInternedStr),
             )
           )
@@ -1054,23 +1054,23 @@ private[archive] class DecodeV2(minor: LV.Minor) {
 
         case PLF.Expr.SumCase.TO_INTERFACE =>
           val toInterface = lfExpr.getToInterface
-          val interfaceId = decodeTypeConName(toInterface.getInterfaceType)
-          val templateId = decodeTypeConName(toInterface.getTemplateType)
+          val interfaceId = decodeTypeConId(toInterface.getInterfaceType)
+          val templateId = decodeTypeConId(toInterface.getTemplateType)
           decodeExpr(toInterface.getTemplateExpr, definition) { value =>
             Ret(EToInterface(interfaceId, templateId, value))
           }
 
         case PLF.Expr.SumCase.FROM_INTERFACE =>
           val fromInterface = lfExpr.getFromInterface
-          val interfaceId = decodeTypeConName(fromInterface.getInterfaceType)
-          val templateId = decodeTypeConName(fromInterface.getTemplateType)
+          val interfaceId = decodeTypeConId(fromInterface.getInterfaceType)
+          val templateId = decodeTypeConId(fromInterface.getTemplateType)
           decodeExpr(fromInterface.getInterfaceExpr, definition) { value =>
             Ret(EFromInterface(interfaceId, templateId, value))
           }
 
         case PLF.Expr.SumCase.CALL_INTERFACE =>
           val callInterface = lfExpr.getCallInterface
-          val interfaceId = decodeTypeConName(callInterface.getInterfaceType)
+          val interfaceId = decodeTypeConId(callInterface.getInterfaceType)
           val methodName =
             getInternedName(callInterface.getMethodInternedName)
           decodeExpr(callInterface.getInterfaceExpr, definition) { value =>
@@ -1079,7 +1079,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
 
         case PLF.Expr.SumCase.SIGNATORY_INTERFACE =>
           val signatoryInterface = lfExpr.getSignatoryInterface
-          val ifaceId = decodeTypeConName(signatoryInterface.getInterface)
+          val ifaceId = decodeTypeConId(signatoryInterface.getInterface)
           decodeExpr(signatoryInterface.getExpr, definition) { body =>
             Ret(ESignatoryInterface(ifaceId, body))
           }
@@ -1088,14 +1088,14 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           val observerInterface = lfExpr.getObserverInterface
           decodeExpr(observerInterface.getExpr, definition) { body =>
             Ret(
-              EObserverInterface(ifaceId = decodeTypeConName(observerInterface.getInterface), body)
+              EObserverInterface(ifaceId = decodeTypeConId(observerInterface.getInterface), body)
             )
           }
 
         case PLF.Expr.SumCase.UNSAFE_FROM_INTERFACE =>
           val unsafeFromInterface = lfExpr.getUnsafeFromInterface
-          val interfaceId = decodeTypeConName(unsafeFromInterface.getInterfaceType)
-          val templateId = decodeTypeConName(unsafeFromInterface.getTemplateType)
+          val interfaceId = decodeTypeConId(unsafeFromInterface.getInterfaceType)
+          val templateId = decodeTypeConId(unsafeFromInterface.getTemplateType)
           decodeExpr(unsafeFromInterface.getContractIdExpr, definition) { contractIdExpr =>
             decodeExpr(unsafeFromInterface.getInterfaceExpr, definition) { ifaceExpr =>
               Ret(EUnsafeFromInterface(interfaceId, templateId, contractIdExpr, ifaceExpr))
@@ -1104,8 +1104,8 @@ private[archive] class DecodeV2(minor: LV.Minor) {
 
         case PLF.Expr.SumCase.TO_REQUIRED_INTERFACE =>
           val toRequiredInterface = lfExpr.getToRequiredInterface
-          val requiredIfaceId = decodeTypeConName(toRequiredInterface.getRequiredInterface)
-          val requiringIfaceId = decodeTypeConName(toRequiredInterface.getRequiringInterface)
+          val requiredIfaceId = decodeTypeConId(toRequiredInterface.getRequiredInterface)
+          val requiringIfaceId = decodeTypeConId(toRequiredInterface.getRequiringInterface)
           decodeExpr(toRequiredInterface.getExpr, definition) { body =>
             Ret(EToRequiredInterface(requiredIfaceId, requiringIfaceId, body))
           }
@@ -1115,8 +1115,8 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           decodeExpr(fromRequiredInterface.getExpr, definition) { body =>
             Ret(
               EFromRequiredInterface(
-                requiredIfaceId = decodeTypeConName(fromRequiredInterface.getRequiredInterface),
-                requiringIfaceId = decodeTypeConName(fromRequiredInterface.getRequiringInterface),
+                requiredIfaceId = decodeTypeConId(fromRequiredInterface.getRequiredInterface),
+                requiringIfaceId = decodeTypeConId(fromRequiredInterface.getRequiringInterface),
                 body,
               )
             )
@@ -1124,9 +1124,9 @@ private[archive] class DecodeV2(minor: LV.Minor) {
 
         case PLF.Expr.SumCase.UNSAFE_FROM_REQUIRED_INTERFACE =>
           val unsafeFromRequiredInterface = lfExpr.getUnsafeFromRequiredInterface
-          val requiredIfaceId = decodeTypeConName(unsafeFromRequiredInterface.getRequiredInterface)
+          val requiredIfaceId = decodeTypeConId(unsafeFromRequiredInterface.getRequiredInterface)
           val requiringIfaceId =
-            decodeTypeConName(unsafeFromRequiredInterface.getRequiringInterface)
+            decodeTypeConId(unsafeFromRequiredInterface.getRequiringInterface)
           decodeExpr(unsafeFromRequiredInterface.getContractIdExpr, definition) { contractIdExpr =>
             decodeExpr(unsafeFromRequiredInterface.getInterfaceExpr, definition) { ifaceExpr =>
               Ret(
@@ -1142,7 +1142,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
 
         case PLF.Expr.SumCase.INTERFACE_TEMPLATE_TYPE_REP =>
           val interfaceTemplateTypeRep = lfExpr.getInterfaceTemplateTypeRep
-          val ifaceId = decodeTypeConName(interfaceTemplateTypeRep.getInterface)
+          val ifaceId = decodeTypeConId(interfaceTemplateTypeRep.getInterface)
           decodeExpr(interfaceTemplateTypeRep.getExpr, definition) { body =>
             Ret(EInterfaceTemplateTypeRep(ifaceId, body))
           }
@@ -1152,7 +1152,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
 
         case PLF.Expr.SumCase.VIEW_INTERFACE =>
           val viewInterface = lfExpr.getViewInterface
-          val ifaceId = decodeTypeConName(viewInterface.getInterface)
+          val ifaceId = decodeTypeConId(viewInterface.getInterface)
           decodeExpr(viewInterface.getExpr, definition) { expr =>
             Ret(EViewInterface(ifaceId, expr))
           }
@@ -1160,7 +1160,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         case PLF.Expr.SumCase.CHOICE_CONTROLLER =>
           assertSince(LV.Features.choiceFuncs, "Expr.choice_controller")
           val choiceController = lfExpr.getChoiceController
-          val tplCon = decodeTypeConName(choiceController.getTemplate)
+          val tplCon = decodeTypeConId(choiceController.getTemplate)
           val choiceName = internedName(choiceController.getChoiceInternedStr)
           decodeExpr(choiceController.getContractExpr, definition) { contractExpr =>
             decodeExpr(choiceController.getChoiceArgExpr, definition) { choiceArgExpr =>
@@ -1171,7 +1171,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         case PLF.Expr.SumCase.CHOICE_OBSERVER =>
           assertSince(LV.Features.choiceFuncs, "Expr.choice_observer")
           val choiceObserver = lfExpr.getChoiceObserver
-          val tplCon = decodeTypeConName(choiceObserver.getTemplate)
+          val tplCon = decodeTypeConId(choiceObserver.getTemplate)
           val choiceName = internedName(choiceObserver.getChoiceInternedStr)
           decodeExpr(choiceObserver.getContractExpr, definition) { contractExpr =>
             decodeExpr(choiceObserver.getChoiceArgExpr, definition) { choiceArgExpr =>
@@ -1201,14 +1201,14 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         case PLF.CaseAlt.SumCase.VARIANT =>
           val variant = lfCaseAlt.getVariant
           CPVariant(
-            tycon = decodeTypeConName(variant.getCon),
+            tycon = decodeTypeConId(variant.getCon),
             variant = internedName(variant.getVariantInternedStr),
             binder = internedName(variant.getBinderInternedStr),
           )
         case PLF.CaseAlt.SumCase.ENUM =>
           val enumeration = lfCaseAlt.getEnum
           CPEnum(
-            tycon = decodeTypeConName(enumeration.getCon),
+            tycon = decodeTypeConId(enumeration.getCon),
             constructor = internedName(enumeration.getConstructorInternedStr),
           )
         case PLF.CaseAlt.SumCase.BUILTIN_CON =>
@@ -1241,7 +1241,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
 
     private[this] def decodeRetrieveByKey(value: PLF.Update.RetrieveByKey): Work[TypeConName] = {
       assertSince(LV.Features.contractKeys, "RetrieveByKey")
-      Ret(decodeTypeConName(value.getTemplate))
+      Ret(decodeTypeConId(value.getTemplate))
     }
 
     private[this] def decodeUpdate(lfUpdate: PLF.Update, definition: String): Work[Update] = {
@@ -1268,18 +1268,18 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         case PLF.Update.SumCase.CREATE =>
           val create = lfUpdate.getCreate
           decodeExpr(create.getExpr, definition) { arg =>
-            Ret(UpdateCreate(templateId = decodeTypeConName(create.getTemplate), arg))
+            Ret(UpdateCreate(templateId = decodeTypeConId(create.getTemplate), arg))
           }
 
         case PLF.Update.SumCase.CREATE_INTERFACE =>
           val create = lfUpdate.getCreateInterface
           decodeExpr(create.getExpr, definition) { arg =>
-            Ret(UpdateCreateInterface(interfaceId = decodeTypeConName(create.getInterface), arg))
+            Ret(UpdateCreateInterface(interfaceId = decodeTypeConId(create.getInterface), arg))
           }
 
         case PLF.Update.SumCase.EXERCISE =>
           val exercise = lfUpdate.getExercise
-          val templateId = decodeTypeConName(exercise.getTemplate)
+          val templateId = decodeTypeConId(exercise.getTemplate)
           val choice = internedName(exercise.getChoiceInternedStr)
           decodeExpr(exercise.getCid, definition) { cidE =>
             decodeExpr(exercise.getArg, definition) { argE =>
@@ -1289,7 +1289,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
 
         case PLF.Update.SumCase.SOFT_EXERCISE =>
           val exercise = lfUpdate.getSoftExercise
-          val templateId = decodeTypeConName(exercise.getTemplate)
+          val templateId = decodeTypeConId(exercise.getTemplate)
           val choice = internedName(exercise.getChoiceInternedStr)
           decodeExpr(exercise.getCid, definition) { cidE =>
             decodeExpr(exercise.getArg, definition) { argE =>
@@ -1301,7 +1301,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
 
         case PLF.Update.SumCase.DYNAMIC_EXERCISE =>
           val exercise = lfUpdate.getDynamicExercise
-          val templateId = decodeTypeConName(exercise.getTemplate)
+          val templateId = decodeTypeConId(exercise.getTemplate)
           val choice = internedName(exercise.getChoiceInternedStr)
           decodeExpr(exercise.getCid, definition) { cidE =>
             decodeExpr(exercise.getArg, definition) { argE =>
@@ -1322,7 +1322,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
                 } else
                   Ret(None)
               ) { guardE =>
-                val interfaceId = decodeTypeConName(exercise.getInterface)
+                val interfaceId = decodeTypeConId(exercise.getInterface)
                 val choice = internedName(exercise.getChoiceInternedStr)
                 Ret(UpdateExerciseInterface(interfaceId, choice, cidE, argE, guardE))
               }
@@ -1332,7 +1332,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         case PLF.Update.SumCase.EXERCISE_BY_KEY =>
           assertSince(LV.Features.contractKeys, "exercise_by_key")
           val exerciseByKey = lfUpdate.getExerciseByKey
-          val templateId = decodeTypeConName(exerciseByKey.getTemplate)
+          val templateId = decodeTypeConId(exerciseByKey.getTemplate)
           val choice = getInternedName(exerciseByKey.getChoiceInternedStr)
           decodeExpr(exerciseByKey.getKey, definition) { keyE =>
             decodeExpr(exerciseByKey.getArg, definition) { argE =>
@@ -1346,7 +1346,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
         case PLF.Update.SumCase.FETCH =>
           val fetch = lfUpdate.getFetch
           decodeExpr(fetch.getCid, definition) { contractId =>
-            Ret(UpdateFetchTemplate(templateId = decodeTypeConName(fetch.getTemplate), contractId))
+            Ret(UpdateFetchTemplate(templateId = decodeTypeConId(fetch.getTemplate), contractId))
           }
 
         case PLF.Update.SumCase.SOFT_FETCH =>
@@ -1354,7 +1354,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           decodeExpr(softFetch.getCid, definition) { contractId =>
             Ret(
               UpdateSoftFetchTemplate(
-                templateId = decodeTypeConName(softFetch.getTemplate),
+                templateId = decodeTypeConId(softFetch.getTemplate),
                 contractId,
               )
             )
@@ -1364,7 +1364,7 @@ private[archive] class DecodeV2(minor: LV.Minor) {
           val fetch = lfUpdate.getFetchInterface
           decodeExpr(fetch.getCid, definition) { contractId =>
             Ret(
-              UpdateFetchInterface(interfaceId = decodeTypeConName(fetch.getInterface), contractId)
+              UpdateFetchInterface(interfaceId = decodeTypeConId(fetch.getInterface), contractId)
             )
           }
 
