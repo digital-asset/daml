@@ -523,7 +523,7 @@ checkNewInterfacesAreUnused :: HasModules a => a -> TcM ()
 checkNewInterfacesAreUnused hasModules =
     forM_ (HMS.toList (instantiatedIfaces modules)) $ \(ifaceQualName, modTplImpls) ->
         case qualPackage ifaceQualName of
-          PRSelf -> do
+          SelfPackageId -> do
             defIface <- inWorld (lookupInterface ifaceQualName)
             forM_ modTplImpls $ \modTplImpl -> do
               let (instanceModule, instanceTpl, instanceTplName, instanceImpl) = modTplImpl
@@ -560,7 +560,7 @@ instantiatedIfaces modules = foldl' (HMS.unionWith (<>)) HMS.empty $ (map . fmap
     [ HMS.map (module_,template,qualifiedTemplateName,) $ NM.toHashMap $ tplImplements template
     | module_ <- NM.elems modules
     , template <- NM.elems (moduleTemplates module_)
-    , let qualifiedTemplateName = Qualified PRSelf (NM.name module_) (NM.name template)
+    , let qualifiedTemplateName = Qualified SelfPackageId (NM.name module_) (NM.name template)
     ]
 
 checkTemplate :: Upgrading Module -> Upgrading LF.Template -> TcUpgradeM ()
@@ -796,7 +796,7 @@ isUpgradedType type_ = do
     let checkSelf = alphaTypeCon
         checkImport pastT presentT =
           case (qualPackage pastT, qualPackage presentT) of
-            (PRImport pastPkgId, PRImport presentPkgId) ->
+            (ImportedPackageId pastPkgId, ImportedPackageId presentPkgId) ->
               pastPkgId == presentPkgId ||
               (case (pastPkgId `HMS.lookup` deps, presentPkgId `HMS.lookup` deps) of
                 (Just (pastName, pastVersion), Just (presentName, presentVersion)) -> pastName == presentName && pastVersion < presentVersion
@@ -807,4 +807,4 @@ isUpgradedType type_ = do
     pure $ foldU (alphaType' initialAlphaEnv { tconEquivalence = tconCheck }) expandedTypes
 
 removePkgId :: Qualified a -> Qualified a
-removePkgId a = a { qualPackage = PRSelf }
+removePkgId a = a { qualPackage = SelfPackageId }

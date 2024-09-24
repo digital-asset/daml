@@ -43,7 +43,7 @@ topoSortPackages pkgs =
   let toPkgNode x@(pkgId, _, pkg) =
         ( x
         , pkgId
-        , toListOf (packageRefs . _PRImport) pkg
+        , toListOf (packageRefs . _ImportedPackageId) pkg
         )
       fromPkgNode (x, _pkgId, _deps) = x
       sccs = G.stronglyConnCompR (map toPkgNode pkgs)
