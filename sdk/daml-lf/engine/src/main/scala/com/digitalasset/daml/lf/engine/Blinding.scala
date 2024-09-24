@@ -96,11 +96,11 @@ object Blinding {
   // These are the packages needed for model conformance
   private def contractPartyPackages(
       contractPackages: Map[ContractId, Ref.PackageId],
-      divulgence: Relation[ContractId, Party],
+      contractVisibility: Relation[ContractId, Party],
   ): Iterable[(Party, PackageId)] = {
     for {
       (contractId, packageId) <- contractPackages
-      party <- divulgence.getOrElse(contractId, Set.empty)
+      party <- contractVisibility.getOrElse(contractId, Set.empty)
     } yield party -> packageId
   }
 
@@ -122,7 +122,14 @@ object Blinding {
     }.toSeq
   }
 
-  /* Calculate the packages needed by a party to interpret the projection   */
+  /** Calculate the packages needed by each party in order to interpret the projection.
+    *
+    * This needs to include both packages needed by the engine at reinterpretation time
+    * and the originating contract package needed for contract model consistency checking.
+    *
+    * @param tx transaction whose packages are required
+    * @param contractPackages the contracts used by the transaction together with their creating packages
+    */
   def partyPackages(
       tx: VersionedTransaction,
       contractPackages: Map[ContractId, Ref.PackageId] = Map.empty,

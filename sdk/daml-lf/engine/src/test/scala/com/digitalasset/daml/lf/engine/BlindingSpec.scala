@@ -16,7 +16,7 @@ import com.daml.lf.transaction.test.{
   TreeTransactionBuilder,
 }
 import com.daml.lf.value.Value
-import com.daml.lf.value.Value.ValueRecord
+import com.daml.lf.value.Value.{ValueRecord, ValueTrue}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.freespec.AnyFreeSpec
 
@@ -325,9 +325,21 @@ class BlindingSpec extends AnyFreeSpec with Matchers {
       byKey = false,
     )
 
+    val create3 = builder.create(
+      id = builder.newCid,
+      templateId = "M:T",
+      argument = ValueRecord(None, ImmArray.empty),
+      signatories = Seq("S3", "M3"),
+      observers = Seq(),
+      key = CreateKey.KeyWithMaintainers(ValueTrue, Set("M3")),
+    )
+
+    val lbk = builder.lookupByKey(create3)
+
     val tx = TreeTransactionBuilder.toVersionedTransaction(
       exercise1.withChildren(
-        exercise2
+        exercise2,
+        lbk,
       )
     )
 
@@ -335,6 +347,7 @@ class BlindingSpec extends AnyFreeSpec with Matchers {
     visibility shouldBe Map(
       create1.coid -> Set("S1", "A1"),
       create2.coid -> Set("S1", "S2", "A1", "A2"),
+      create3.coid -> Set("S1", "A1", "M3"),
     )
   }
 }

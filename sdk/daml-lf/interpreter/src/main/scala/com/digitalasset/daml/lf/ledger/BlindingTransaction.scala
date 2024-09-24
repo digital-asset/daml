@@ -97,7 +97,15 @@ object BlindingTransaction {
           action match {
 
             case _: Node.Create => state
-            case _: Node.LookupByKey => state
+
+            case lbk: Node.LookupByKey =>
+              lbk.result.fold(state) { coid =>
+                state.divulgeCoidTo(
+                  Set.empty,
+                  witnesses,
+                  coid,
+                )
+              }
 
             // fetch & exercise nodes cause divulgence
 
