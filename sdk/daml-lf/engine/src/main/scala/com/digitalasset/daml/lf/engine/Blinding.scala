@@ -93,7 +93,7 @@ object Blinding {
     )
   }
 
-  // These are the packages needed for model conformance
+  // These are the packages needed for input contract validation
   private def contractPartyPackages(
       contractPackages: Map[ContractId, Ref.PackageId],
       contractVisibility: Relation[ContractId, Party],
@@ -112,20 +112,22 @@ object Blinding {
     disclosure.view.flatMap { case (nodeId, parties) =>
       def toEntries(tyCon: Ref.TypeConName) = parties.view.map(_ -> tyCon.packageId)
       tx.nodes(nodeId) match {
+        case fetch: Node.Fetch =>
+          toEntries(fetch.templateId) ++ fetch.interfaceId.flatMap(toEntries)
         case action: Node.LeafOnlyAction =>
           toEntries(action.templateId)
         case exe: Node.Exercise =>
-          toEntries(exe.templateId) ++ exe.interfaceId.toList.view.flatMap(toEntries)
+          toEntries(exe.templateId) ++ exe.interfaceId.flatMap(toEntries)
         case _: Node.Rollback =>
           Iterable.empty
       }
     }.toSeq
   }
 
-  /** Calculate the packages needed by each party in order to interpret the projection.
+  /** Calculate the packages needed by each party in order to reinterpret its projection.
     *
     * This needs to include both packages needed by the engine at reinterpretation time
-    * and the originating contract package needed for contract model consistency checking.
+    * and the originating contract package needed for contract model conformance checking.
     *
     * @param tx transaction whose packages are required
     * @param contractPackages the contracts used by the transaction together with their creating packages
@@ -134,9 +136,9 @@ object Blinding {
       tx: VersionedTransaction,
       contractPackages: Map[ContractId, Ref.PackageId] = Map.empty,
   ): Relation[Party, PackageId] = {
-    val (BlindingInfo(disclosure, _), visibility) =
+    val (BlindingInfo(disclosure, _), contractVisibility) =
       BlindingTransaction.calculateBlindingInfoWithContactVisibility(tx)
-    partyPackages(tx, disclosure, visibility, contractPackages)
+    partyPackages(tx, disclosure, contractVisibility, contractPackages)
   }
 
 }

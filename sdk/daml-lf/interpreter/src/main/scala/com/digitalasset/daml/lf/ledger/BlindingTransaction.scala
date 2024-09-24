@@ -22,7 +22,7 @@ object BlindingTransaction {
   private final case class BlindState(
       disclosures: Relation[NodeId, Party],
       divulgences: Relation[ContractId, Party],
-      visibility: Relation[ContractId, Party],
+      contractVisibility: Relation[ContractId, Party], // parties that witness the contract
   ) {
 
     def discloseNode(
@@ -50,8 +50,10 @@ object BlindingTransaction {
           if (divulgees.nonEmpty)
             divulgences.updated(acoid, divulgees union divulgences.getOrElse(acoid, Set.empty))
           else divulgences,
-        visibility =
-          visibility.updated(acoid, witnesses union visibility.getOrElse(acoid, Set.empty)),
+        contractVisibility = contractVisibility.updated(
+          acoid,
+          witnesses union contractVisibility.getOrElse(acoid, Set.empty),
+        ),
       )
     }
 
@@ -72,7 +74,7 @@ object BlindingTransaction {
         disclosure = state.disclosures,
         divulgence = state.divulgences,
       ),
-      state.visibility,
+      state.contractVisibility,
     )
   }
 
