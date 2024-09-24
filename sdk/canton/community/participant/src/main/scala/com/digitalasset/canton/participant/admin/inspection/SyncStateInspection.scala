@@ -11,6 +11,7 @@ import cats.syntax.traverse.*
 import com.daml.ledger.api.v1.ledger_offset.LedgerOffset
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.data.{
@@ -21,16 +22,11 @@ import com.digitalasset.canton.participant.admin.inspection.Error.{
   InvariantIssue,
   SerializationIssue,
 }
+import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection.InFlightCount
 import com.digitalasset.canton.participant.protocol.RequestJournal
 import com.digitalasset.canton.participant.store.ActiveContractStore.AcsError
 import com.digitalasset.canton.participant.store.*
-import com.digitalasset.canton.participant.sync.{
-  ConnectedDomainsLookup,
-  LedgerSyncEvent,
-  SyncDomainPersistentStateManager,
-  TimestampedEvent,
-  UpstreamOffsetConvert,
-}
+import com.digitalasset.canton.participant.sync.*
 import com.digitalasset.canton.protocol.messages.{
   AcsCommitment,
   CommitmentPeriod,
@@ -553,28 +549,26 @@ final class SyncStateInspection(
     (_eventLogId, _localOffset, publicationTimestamp) = res
   } yield publicationTimestamp
 
-  def hasInFlightSubmissions(
+  def countInFlight(
       domain: DomainAlias
-  )(implicit traceContext: TraceContext): EitherT[Future, String, Boolean] = for {
-    domainId <- EitherT.fromEither[Future](
-      getPersistentState(domain).toRight(s"Unknown domain $domain").map(_.domainId.domainId)
-    )
-    earliestInFlightO <-
-      EitherT.right[String](
-        participantNodePersistentState.value.inFlightSubmissionStore.lookupEarliest(domainId)
-      )
-  } yield earliestInFlightO.isDefined
-
-  def hasDirtyRequests(
-      domain: DomainAlias
-  )(implicit traceContext: TraceContext): EitherT[Future, String, Boolean] =
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, String, InFlightCount] =
     for {
       state <- EitherT.fromEither[Future](
         getPersistentState(domain)
           .toRight(s"Unknown domain $domain")
       )
-      count <- EitherT.right[String](state.requestJournalStore.totalDirtyRequests())
-    } yield count > 0
+      domainId = state.domainId.domainId
+      unsequencedSubmissions <- EitherT.right[String](
+        participantNodePersistentState.value.inFlightSubmissionStore
+          .lookupUnsequencedUptoUnordered(domainId, CantonTimestamp.now())
+      )
+      pendingSubmissions = NonNegativeInt.tryCreate(unsequencedSubmissions.size)
+      pendingTransactions <- EitherT.right[String](state.requestJournalStore.totalDirtyRequests())
+    } yield {
+      InFlightCount(pendingSubmissions, pendingTransactions)
+    }
 
 }
 
@@ -586,5 +580,12 @@ object SyncStateInspection {
 
   private def getOrFail[T](opt: Option[T], domain: DomainAlias): T =
     opt.getOrElse(throw new IllegalArgumentException(s"no such domain [$domain]"))
+
+  final case class InFlightCount(
+      pendingSubmissions: NonNegativeInt,
+      pendingTransactions: NonNegativeInt,
+  ) {
+    def exists: Boolean = pendingSubmissions.unwrap > 0 || pendingTransactions.unwrap > 0
+  }
 
 }

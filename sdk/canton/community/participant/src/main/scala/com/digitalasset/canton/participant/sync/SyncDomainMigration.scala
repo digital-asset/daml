@@ -185,20 +185,15 @@ class SyncDomainMigration(
       _ <- mustBeOffline(source, sourceDomainId)
       _ <- mustBeOffline(target.domain, targetDomainInfo.domainId)
 
-      hasInFlightSubmissions <- performUnlessClosingEitherU(functionFullName)(
+      inFlights <- performUnlessClosingEitherU(functionFullName)(
         inspection
-          .hasInFlightSubmissions(source)
-          .leftMap(_ => SyncServiceUnknownDomain.Error(source))
-      )
-      hasDirtyRequests <- performUnlessClosingEitherU(functionFullName)(
-        inspection
-          .hasDirtyRequests(source)
+          .countInFlight(source)
           .leftMap(_ => SyncServiceUnknownDomain.Error(source))
       )
 
       _ <-
         if (force) {
-          if (hasInFlightSubmissions || hasDirtyRequests) {
+          if (inFlights.exists) {
             logger.info(
               s"Ignoring existing in-flight transactions on domain with alias ${source.unwrap} because of forced migration. This may lead to a ledger fork."
             )
@@ -207,7 +202,7 @@ class SyncDomainMigration(
         } else
           EitherT
             .cond[FutureUnlessShutdown](
-              !hasInFlightSubmissions,
+              !inFlights.exists,
               (),
               SyncServiceError.SyncServiceDomainMustNotHaveInFlightTransactions.Error(source),
             )

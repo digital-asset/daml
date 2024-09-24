@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.store
 
 import cats.data.{EitherT, OptionT}
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -99,7 +100,7 @@ class PreHookRequestJournalStore(
       traceContext: TraceContext
   ): Future[Seq[RequestData]] = backing.repairRequests(fromInclusive)
 
-  override def totalDirtyRequests()(implicit traceContext: TraceContext): Future[Int] =
+  override def totalDirtyRequests()(implicit traceContext: TraceContext): Future[NonNegativeInt] =
     backing.totalDirtyRequests()
 }
 
