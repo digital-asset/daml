@@ -6,8 +6,9 @@ module DA.Daml.LF.Ast.Alpha
     ( alphaType
     , alphaExpr
     , alphaType'
+    , alphaExpr'
     , initialAlphaEnv
-    , alphaTypeCon
+    , alphaTypeConDefault
     , bindTypeVar
     , AlphaEnv(..)
     ) where
@@ -32,8 +33,12 @@ data AlphaEnv = AlphaEnv
   , boundExprVarsRhs :: !(Map.Map ExprVarName Int)
     -- ^ Maps bound expr variables from the right-hand-side to
     -- the depth of the binder which introduced them.
-  , tconEquivalence :: !(Qualified TypeConName -> Qualified TypeConName -> Bool)
+  , alphaTypeCon :: !(Qualified TypeConName -> Qualified TypeConName -> Bool)
     -- ^ Defines how names in typecons should be compared
+    -- Unlike above fields, this should not mutate over the course of the alpha
+    -- equivalence check
+  , alphaExprVal :: !(Qualified ExprValName -> Qualified ExprValName -> Bool)
+    -- ^ Defines how names in expressions should be compared
     -- Unlike above fields, this should not mutate over the course of the alpha
     -- equivalence check
   }
@@ -73,8 +78,12 @@ alphaExprVar AlphaEnv{..} x1 x2 =
         _ -> False
 
 -- | Strongly typed version of (==) for qualified type constructor names.
-alphaTypeCon :: Qualified TypeConName -> Qualified TypeConName -> Bool
-alphaTypeCon = (==)
+alphaTypeConDefault :: Qualified TypeConName -> Qualified TypeConName -> Bool
+alphaTypeConDefault = (==)
+
+-- | Strongly typed version of (==) for qualified expression value names.
+alphaExprValDefault :: Qualified ExprValName -> Qualified ExprValName -> Bool
+alphaExprValDefault = (==)
 
 -- | Strongly typed version of (==) for method names.
 alphaMethod :: MethodName -> MethodName -> Bool
@@ -86,7 +95,7 @@ alphaType' env = \case
         TVar x2 -> alphaTypeVar env x1 x2
         _ -> False
     TCon c1 -> \case
-        TCon c2 -> tconEquivalence env c1 c2
+        TCon c2 -> alphaTypeCon env c1 c2
         _ -> False
     TApp t1a t1b -> \case
         TApp t2a t2b -> alphaType' env t1a t2a && alphaType' env t1b t2b
@@ -111,7 +120,7 @@ alphaType' env = \case
 
 alphaTypeConApp :: AlphaEnv -> TypeConApp -> TypeConApp -> Bool
 alphaTypeConApp env (TypeConApp c1 ts1) (TypeConApp c2 ts2) =
-    c1 == c2 && onList (alphaType' env) ts1 ts2
+    alphaTypeCon env c1 c2 && onList (alphaType' env) ts1 ts2
 
 alphaExpr' :: AlphaEnv -> Expr -> Expr -> Bool
 alphaExpr' env = \case
@@ -119,7 +128,7 @@ alphaExpr' env = \case
         EVar x2 -> alphaExprVar env x1 x2
         _ -> False
     EVal v1 -> \case
-        EVal v2 -> v1 == v2
+        EVal v2 -> alphaExprVal env v1 v2
         _ -> False
     EBuiltinFun b1 -> \case
         EBuiltinFun b2 -> b1 == b2
@@ -145,7 +154,7 @@ alphaExpr' env = \case
             && alphaExpr' env e1 e2
         _ -> False
     EEnumCon t1 c1 -> \case
-        EEnumCon t2 c2 -> alphaTypeCon t1 t2 && c1 == c2
+        EEnumCon t2 c2 -> alphaTypeCon env t1 t2 && c1 == c2
         _ -> False
     EStructCon fs1 -> \case
         EStructCon fs2 -> onFieldList (alphaExpr' env) fs1 fs2
@@ -227,61 +236,61 @@ alphaExpr' env = \case
         _ -> False
     EToInterface t1a t1b e1 -> \case
         EToInterface t2a t2b e2
-            -> alphaTypeCon t1a t2a
-            && alphaTypeCon t1b t2b
+            -> alphaTypeCon env t1a t2a
+            && alphaTypeCon env t1b t2b
             && alphaExpr' env e1 e2
         _ -> False
     EFromInterface t1a t1b e1 -> \case
         EFromInterface t2a t2b e2
-            -> alphaTypeCon t1a t2a
-            && alphaTypeCon t1b t2b
+            -> alphaTypeCon env t1a t2a
+            && alphaTypeCon env t1b t2b
             && alphaExpr' env e1 e2
         _ -> False
     EUnsafeFromInterface t1a t1b e1a e1b -> \case
         EUnsafeFromInterface t2a t2b e2a e2b
-            -> alphaTypeCon t1a t2a
-            && alphaTypeCon t1b t2b
+            -> alphaTypeCon env t1a t2a
+            && alphaTypeCon env t1b t2b
             && alphaExpr' env e1a e2a
             && alphaExpr' env e1b e2b
         _ -> False
     ECallInterface t1 m1 e1 -> \case
         ECallInterface t2 m2 e2
-            -> alphaTypeCon t1 t2
+            -> alphaTypeCon env t1 t2
             && alphaMethod m1 m2
             && alphaExpr' env e1 e2
         _ -> False
     EToRequiredInterface t1a t1b e1 -> \case
         EToRequiredInterface t2a t2b e2
-            -> alphaTypeCon t1a t2a
-            && alphaTypeCon t1b t2b
+            -> alphaTypeCon env t1a t2a
+            && alphaTypeCon env t1b t2b
             && alphaExpr' env e1 e2
         _ -> False
     EFromRequiredInterface t1a t1b e1 -> \case
         EFromRequiredInterface t2a t2b e2
-            -> alphaTypeCon t1a t2a
-            && alphaTypeCon t1b t2b
+            -> alphaTypeCon env t1a t2a
+            && alphaTypeCon env t1b t2b
             && alphaExpr' env e1 e2
         _ -> False
     EUnsafeFromRequiredInterface t1a t1b e1a e1b -> \case
         EUnsafeFromRequiredInterface t2a t2b e2a e2b
-            -> alphaTypeCon t1a t2a
-            && alphaTypeCon t1b t2b
+            -> alphaTypeCon env t1a t2a
+            && alphaTypeCon env t1b t2b
             && alphaExpr' env e1a e2a
             && alphaExpr' env e1b e2b
         _ -> False
     EInterfaceTemplateTypeRep ty1 expr1 -> \case
         EInterfaceTemplateTypeRep ty2 expr2
-            -> alphaTypeCon ty1 ty2
+            -> alphaTypeCon env ty1 ty2
             && alphaExpr' env expr1 expr2
         _ -> False
     ESignatoryInterface ty1 expr1 -> \case
         ESignatoryInterface ty2 expr2
-            -> alphaTypeCon ty1 ty2
+            -> alphaTypeCon env ty1 ty2
             && alphaExpr' env expr1 expr2
         _ -> False
     EObserverInterface ty1 expr1 -> \case
         EObserverInterface ty2 expr2
-            -> alphaTypeCon ty1 ty2
+            -> alphaTypeCon env ty1 ty2
             && alphaExpr' env expr1 expr2
         _ -> False
     EUpdate u1 -> \case
@@ -295,19 +304,19 @@ alphaExpr' env = \case
         _ -> False
     EViewInterface iface1 expr1 -> \case
         EViewInterface iface2 expr2
-            -> alphaTypeCon iface1 iface2
+            -> alphaTypeCon env iface1 iface2
             && alphaExpr' env expr1 expr2
         _ -> False
     EChoiceController t1 ch1 e1a e1b -> \case
         EChoiceController t2 ch2 e2a e2b
-            -> alphaTypeCon t1 t2
+            -> alphaTypeCon env t1 t2
             && ch1 == ch2
             && alphaExpr' env e1a e2a
             && alphaExpr' env e1b e2b
         _ -> False
     EChoiceObserver t1 ch1 e1a e1b -> \case
         EChoiceObserver t2 ch2 e2a e2b
-            -> alphaTypeCon t1 t2
+            -> alphaTypeCon env t1 t2
             && ch1 == ch2
             && alphaExpr' env e1a e2a
             && alphaExpr' env e1b e2b
@@ -327,10 +336,10 @@ alphaCase env (CaseAlternative p1 e1) (CaseAlternative p2 e2) =
 alphaPattern :: AlphaEnv -> CasePattern -> CasePattern -> (AlphaEnv -> Bool) -> Bool
 alphaPattern env p1 p2 k = case p1 of
     CPVariant t1 c1 x1 -> case p2 of
-        CPVariant t2 c2 x2 -> alphaTypeCon t1 t2 && c1 == c2 && k (bindExprVar x1 x2 env)
+        CPVariant t2 c2 x2 -> alphaTypeCon env t1 t2 && c1 == c2 && k (bindExprVar x1 x2 env)
         _ -> False
     CPEnum t1 c1 -> case p2 of
-        CPEnum t2 c2 -> alphaTypeCon t1 t2 && c1 == c2 && k env
+        CPEnum t2 c2 -> alphaTypeCon env t1 t2 && c1 == c2 && k env
         _ -> False
     CPUnit -> case p2 of
         CPUnit -> k env
@@ -365,21 +374,21 @@ alphaUpdate env = \case
             alphaBinding env b1 b2 (\env' -> alphaExpr' env' e1 e2)
         _ -> False
     UCreate t1 e1 -> \case
-        UCreate t2 e2 -> alphaTypeCon t1 t2
+        UCreate t2 e2 -> alphaTypeCon env t1 t2
             && alphaExpr' env e1 e2
         _ -> False
     UCreateInterface t1 e1 -> \case
-        UCreateInterface t2 e2 -> alphaTypeCon t1 t2
+        UCreateInterface t2 e2 -> alphaTypeCon env t1 t2
             && alphaExpr' env e1 e2
         _ -> False
     UExercise t1 c1 e1a e1b -> \case
-        UExercise t2 c2 e2a e2b -> alphaTypeCon t1 t2
+        UExercise t2 c2 e2a e2b -> alphaTypeCon env t1 t2
             && c1 == c2
             && alphaExpr' env e1a e2a
             && alphaExpr' env e1b e2b
         _ -> False
     UDynamicExercise t1 c1 e1a e1b -> \case
-        UDynamicExercise t2 c2 e2a e2b -> alphaTypeCon t1 t2
+        UDynamicExercise t2 c2 e2a e2b -> alphaTypeCon env t1 t2
             && c1 == c2
             && alphaExpr' env e1a e2a
             && alphaExpr' env e1b e2b
@@ -390,24 +399,24 @@ alphaUpdate env = \case
                 eqMaybe1 _ Nothing Nothing = True
                 eqMaybe1 _ _ _ = False
             in
-            alphaTypeCon i1 i2
+            alphaTypeCon env i1 i2
             && c1 == c2
             && alphaExpr' env e1a e2a
             && alphaExpr' env e1b e2b
             && eqMaybe1 (alphaExpr' env) e1c e2c
         _ -> False
     UExerciseByKey t1 c1 e1a e1b -> \case
-        UExerciseByKey t2 c2 e2a e2b -> alphaTypeCon t1 t2
+        UExerciseByKey t2 c2 e2a e2b -> alphaTypeCon env t1 t2
             && c1 == c2
             && alphaExpr' env e1a e2a
             && alphaExpr' env e1b e2b
         _ -> False
     UFetch t1 e1 -> \case
-        UFetch t2 e2 -> alphaTypeCon t1 t2
+        UFetch t2 e2 -> alphaTypeCon env t1 t2
             && alphaExpr' env e1 e2
         _ -> False
     UFetchInterface i1 e1 -> \case
-        UFetchInterface i2 e2 -> alphaTypeCon i1 i2
+        UFetchInterface i2 e2 -> alphaTypeCon env i1 i2
             && alphaExpr' env e1 e2
         _ -> False
     UGetTime -> \case
@@ -418,10 +427,10 @@ alphaUpdate env = \case
             && alphaExpr' env e1 e2
         _ -> False
     ULookupByKey t1 -> \case
-        ULookupByKey t2 -> alphaTypeCon t1 t2
+        ULookupByKey t2 -> alphaTypeCon env t1 t2
         _ -> False
     UFetchByKey t1 -> \case
-        UFetchByKey t2 -> alphaTypeCon t1 t2
+        UFetchByKey t2 -> alphaTypeCon env t1 t2
         _ -> False
     UTryCatch t1 e1a x1 e1b -> \case
         UTryCatch t2 e2a x2 e2b -> alphaType' env t1 t2
@@ -470,7 +479,8 @@ initialAlphaEnv = AlphaEnv
     , boundTypeVarsRhs = Map.empty
     , boundExprVarsLhs = Map.empty
     , boundExprVarsRhs = Map.empty
-    , tconEquivalence = alphaTypeCon
+    , alphaTypeCon = alphaTypeConDefault
+    , alphaExprVal = alphaExprValDefault
     }
 
 alphaType :: Type -> Type -> Bool
