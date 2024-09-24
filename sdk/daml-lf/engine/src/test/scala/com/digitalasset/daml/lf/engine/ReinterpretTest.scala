@@ -173,7 +173,7 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
         "myChoice",
         ValueUnit,
       ) -> List(templatePkgId, interfacePkgId),
-      ReplayCommand.ExerciseByKey(templateId, ValueUnit, "MyChoide", ValueUnit) -> List(
+      ReplayCommand.ExerciseByKey(templateId, ValueUnit, "MyChoice", ValueUnit) -> List(
         templatePkgId
       ),
       ReplayCommand.Fetch(templateId, None, toContractId("cid")) -> List(templatePkgId),
@@ -185,7 +185,16 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
 
     forEvery(testCases) { (cmd, pkgIds) =>
       val emptyPackage =
-        Package(Map.empty, Set.empty, LanguageMajorVersion.V1.maxStableVersion, None)
+        Package(
+          Map.empty,
+          Set.empty,
+          LanguageMajorVersion.V2.maxStableVersion,
+          PackageMetadata(
+            PackageName.assertFromString("foo"),
+            PackageVersion.assertFromString("0.0.0"),
+            None,
+          ),
+        )
       var queriedPackageIds = Set.empty[Ref.PackageId]
       val trackPackageQueries: PartialFunction[Ref.PackageId, Package] = { pkgId =>
         queriedPackageIds = queriedPackageIds + pkgId
