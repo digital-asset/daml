@@ -312,7 +312,7 @@ generateDalfRule opts =
             Left err -> ([ideErrorPretty file err], Nothing)
             Right dalf ->
                 let lfDiags = LF.checkModule world lfVersion dalf
-                    upgradeDiags = Upgrade.checkModule world dalf (foldMap Map.elems mbDalfDependencies) lfVersion (optUpgradeInfo opts) upgradedPackage
+                    upgradeDiags = Upgrade.checkModule world dalf (foldMap Map.toList mbDalfDependencies) lfVersion (optUpgradeInfo opts) upgradedPackage
                 in second (dalf <$) (diagsToIdeResult file (lfDiags ++ upgradeDiags))
 
 -- TODO Share code with typecheckModule in ghcide. The environment needs to be setup
@@ -606,17 +606,23 @@ extractUpgradedPackageRule opts = do
       Just path -> Just <$> use_ ExtractUpgradedPackageFile (toNormalizedFilePath' path)
   define $ \ExtractUpgradedPackageFile file -> do
     ExtractedDar{edMain,edDalfs} <- liftIO $ extractDar (fromNormalizedFilePath file)
-    let bsMain = BSL.toStrict $ ZipArchive.fromEntry edMain
-        bsDeps = BSL.toStrict . ZipArchive.fromEntry <$> edDalfs
-        mainAndDeps :: Either Archive.ArchiveError ((LF.PackageId, LF.Package), [(LF.PackageId, LF.Package)])
+    let decodeEntryWithUnitId decodeAs entry = do
+          let bs = BSL.toStrict $ ZipArchive.fromEntry entry
+          (pkgId, pkg) <- Archive.decodeArchive decodeAs bs
+          let (pkgName, mbPkgVersion) = LF.packageMetadataFromFile (ZipArchive.eRelativePath entry) pkg pkgId
+          pure (pkgId, pkg, pkgName, mbPkgVersion)
+    let mainAndDeps ::
+          Either Archive.ArchiveError
+            ((LF.PackageId, LF.Package, LF.PackageName, Maybe LF.PackageVersion),
+             [(LF.PackageId, LF.Package, LF.PackageName, Maybe LF.PackageVersion)])
         mainAndDeps = do
-           main <- Archive.decodeArchive Archive.DecodeAsMain bsMain
-           deps <- Archive.decodeArchive Archive.DecodeAsDependency `traverse` bsDeps
+           main <- decodeEntryWithUnitId Archive.DecodeAsMain edMain
+           deps <- decodeEntryWithUnitId Archive.DecodeAsDependency `traverse` edDalfs
            pure (main, deps)
         packageConfigFilePath = maybe file (LSP.toNormalizedFilePath . (</> projectConfigName) . unwrapProjectPath) $ optMbPackageConfigPath opts
         diags = case mainAndDeps of
           Left _ -> [ideErrorPretty packageConfigFilePath ("Could not decode file as a DAR." :: T.Text)]
-          Right ((_, mainPkg), _) -> getUpgradedPackageErrs opts packageConfigFilePath mainPkg
+          Right ((_, mainPkg, _, _), _) -> getUpgradedPackageErrs opts packageConfigFilePath mainPkg
     extras <- getShakeExtras
     updateFileDiagnostics packageConfigFilePath ExtractUpgradedPackageFile extras $ map (\(_,y,z) -> (y,z)) diags
     pure ([], guard (null diags) >> rightToMaybe mainAndDeps)

@@ -84,8 +84,7 @@ isUtilityPackage pkg =
 
 pkgSupportsUpgrades :: Package -> Bool
 pkgSupportsUpgrades pkg =
-  not (isUtilityPackage pkg) &&
-    packageLfVersion pkg `supports` featurePackageUpgrades
+  packageLfVersion pkg `supports` featurePackageUpgrades
 
 data Arg
   = TmArg Expr
@@ -427,3 +426,21 @@ foldU f u = f (_past u) (_present u)
 
 unsafeZipUpgrading :: Upgrading [a] -> [Upgrading a]
 unsafeZipUpgrading = foldU (zipWith Upgrading)
+
+unfoldU :: (Upgrading a -> b) -> a -> a -> b
+unfoldU f past present = f Upgrading { _past = past, _present = present }
+
+data UpgradingDep = UpgradingDep
+  { udPkgName :: PackageName
+  , udMbPackageVersion :: Maybe RawPackageVersion
+  , udVersionSupportsUpgrades :: Bool
+  , udIsUtilityPackage :: Bool
+  , udPkgId :: PackageId
+  }
+  deriving (Eq)
+
+instance Show UpgradingDep where
+  show UpgradingDep {..} = T.unpack (unPackageName udPkgName) <> " (" <> T.unpack (unPackageId udPkgId) <> ")" <>
+    case udMbPackageVersion of
+      Just udPackageVersion -> " (v" <> show udPackageVersion <> ")"
+      Nothing -> mempty
