@@ -476,7 +476,7 @@ tests damlc =
                 , test
                       "SucceedsWhenUpgradingLFVersionWithoutExpressionWarning"
                       (SucceedWithoutWarning "\ESC\\[0;93mwarning while type checking data type Main.T:\n  The upgraded template T has changed the definition of its signatories.")
-                      (version1_16, versionDefault)
+                      (version1_17, versionDefault)
                       NoDependencies
                       False
                       setUpgradeField
