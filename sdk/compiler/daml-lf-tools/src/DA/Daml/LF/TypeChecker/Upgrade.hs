@@ -818,13 +818,13 @@ checkQualName deps name =
     let namesAreSame = foldU Alpha.alphaEq' (fmap removePkgId name)
         qualificationIsSameOrUpgraded =
           case qualPackage <$> name of
-            Upgrading { _past = PRImport pastPkgId, _present = PRImport presentPkgId } ->
+            Upgrading { _past = ImportedPackageId pastPkgId, _present = ImportedPackageId presentPkgId } ->
               if pastPkgId == presentPkgId
               then []
               else pkgIdsAreUpgraded deps Upgrading { _past = pastPkgId, _present = presentPkgId }
-            Upgrading PRSelf (PRImport pkgId) -> [nameMismatch' (OriginChangedFromSelfToImport (tryGetPkgId pkgId))]
-            Upgrading (PRImport pkgId) PRSelf -> [nameMismatch' (OriginChangedFromImportToSelf (tryGetPkgId pkgId))]
-            Upgrading PRSelf PRSelf -> []
+            Upgrading SelfPackageId (ImportedPackageId pkgId) -> [nameMismatch' (OriginChangedFromSelfToImport (tryGetPkgId pkgId))]
+            Upgrading (ImportedPackageId pkgId) SelfPackageId -> [nameMismatch' (OriginChangedFromImportToSelf (tryGetPkgId pkgId))]
+            Upgrading SelfPackageId SelfPackageId -> []
         prioritizeMismatches mismatches
           | Alpha.StructuralMismatch `elem` mismatches = [Alpha.StructuralMismatch]
           | otherwise = mismatches
