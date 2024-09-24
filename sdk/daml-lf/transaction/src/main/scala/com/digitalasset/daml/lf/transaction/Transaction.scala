@@ -681,7 +681,7 @@ object Transaction {
     *                         nodes its seeds.
     * @param globalKeyMapping : input key mapping inferred by interpretation
     * @param disclosedEvents  : disclosed create events that have been used in this transaction
-    * @param contractPackages : The originating package associated with each contract id
+    * @param contractPackages : The contracts used by the transaction together with their creating packages
     */
   final case class Metadata(
       submissionSeed: Option[crypto.Hash],

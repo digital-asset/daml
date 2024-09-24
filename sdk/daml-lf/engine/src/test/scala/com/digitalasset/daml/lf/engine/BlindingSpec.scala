@@ -4,10 +4,17 @@
 package com.daml.lf
 package engine
 
-import com.daml.lf.data.{Ref, ImmArray}
+import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.engine.BlindingSpec.TxBuilder
+import com.daml.lf.ledger.BlindingTransaction
+import com.daml.lf.transaction.test.TreeTransactionBuilder.NodeOps
 import com.daml.lf.transaction.{BlindingInfo, Node}
-import com.daml.lf.transaction.test.{NodeIdTransactionBuilder, TransactionBuilder, TestNodeBuilder}
+import com.daml.lf.transaction.test.{
+  NodeIdTransactionBuilder,
+  TestNodeBuilder,
+  TransactionBuilder,
+  TreeTransactionBuilder,
+}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ValueRecord
 import org.scalatest.matchers.should.Matchers
@@ -278,6 +285,56 @@ class BlindingSpec extends AnyFreeSpec with Matchers {
       divulgence = Map(
         cid2 -> Set("A", "B", "C")
       ),
+    )
+  }
+  "contract visibility" in {
+
+    val builder = new TxBuilder()
+
+    val create1 = builder.create(
+      id = builder.newCid,
+      templateId = "M:T",
+      argument = ValueRecord(None, ImmArray.empty),
+      signatories = Seq("S1"),
+      observers = Seq(),
+    )
+
+    val exercise1 = builder.exercise(
+      create1,
+      "C",
+      consuming = true,
+      actingParties = Set("A1"),
+      ValueRecord(None, ImmArray.empty),
+      byKey = false,
+    )
+
+    val create2 = builder.create(
+      id = builder.newCid,
+      templateId = "M:T",
+      argument = ValueRecord(None, ImmArray.empty),
+      signatories = Seq("S2"),
+      observers = Seq(),
+    )
+
+    val exercise2 = builder.exercise(
+      create2,
+      "C",
+      consuming = true,
+      actingParties = Set("A2"),
+      ValueRecord(None, ImmArray.empty),
+      byKey = false,
+    )
+
+    val tx = TreeTransactionBuilder.toVersionedTransaction(
+      exercise1.withChildren(
+        exercise2
+      )
+    )
+
+    val (_, visibility) = BlindingTransaction.calculateBlindingInfoWithContactVisibility(tx)
+    visibility shouldBe Map(
+      create1.coid -> Set("S1", "A1"),
+      create2.coid -> Set("S1", "S2", "A1", "A2"),
     )
   }
 }

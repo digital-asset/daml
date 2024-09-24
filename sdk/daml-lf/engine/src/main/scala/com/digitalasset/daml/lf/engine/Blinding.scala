@@ -83,17 +83,18 @@ object Blinding {
 
   private[engine] def partyPackages(
       tx: VersionedTransaction,
-      blindingInfo: BlindingInfo,
+      disclosure: Relation[NodeId, Party],
+      contractVisibility: Relation[ContractId, Party],
       contractPackages: Map[ContractId, Ref.PackageId],
   ): Relation[Party, Ref.PackageId] = {
     Relation.from(
-      disclosedPartyPackages(tx, blindingInfo.disclosure) ++
-        divulgedPartyPackages(contractPackages, blindingInfo.divulgence)
+      disclosedPartyPackages(tx, disclosure) ++
+        contractPartyPackages(contractPackages, contractVisibility)
     )
   }
 
   // These are the packages needed for model conformance
-  private def divulgedPartyPackages(
+  private def contractPartyPackages(
       contractPackages: Map[ContractId, Ref.PackageId],
       divulgence: Relation[ContractId, Party],
   ): Iterable[(Party, PackageId)] = {
@@ -125,7 +126,10 @@ object Blinding {
   def partyPackages(
       tx: VersionedTransaction,
       contractPackages: Map[ContractId, Ref.PackageId] = Map.empty,
-  ): Relation[Party, PackageId] =
-    partyPackages(tx, blind(tx), contractPackages)
+  ): Relation[Party, PackageId] = {
+    val (BlindingInfo(disclosure, _), visibility) =
+      BlindingTransaction.calculateBlindingInfoWithContactVisibility(tx)
+    partyPackages(tx, disclosure, visibility, contractPackages)
+  }
 
 }
