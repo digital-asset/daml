@@ -760,10 +760,10 @@ tests damlc =
             let regexWithSeverity = "Severity: DsWarning\nMessage: \n" <> regex
             let compiledRegex :: Regex
                 compiledRegex = makeRegexOpts defaultCompOpt { multiline = False } defaultExecOpt regexWithSeverity
-             when (matchTest compiledRegex stderr) $
-               if shouldRunChecks
-                 then assertFailure ("`daml build` succeeded, but should not give a warning matching '" <> show regexWithSeverity <> "':\n" <> show stderr)
-                 else assertFailure ("`daml build` succeeded, did not `upgrade:` field set, should not give a warning matching '" <> show regexWithSeverity <> "':\n" <> show stderr)
+            when (matchTest compiledRegex stderr) $
+              if shouldRunChecks
+                then assertFailure ("`daml build` succeeded, but should not give a warning matching '" <> show regexWithSeverity <> "':\n" <> show stderr)
+                else assertFailure ("`daml build` succeeded, did not `upgrade:` field set, should not give a warning matching '" <> show regexWithSeverity <> "':\n" <> show stderr)
         FailWithError _ | not shouldRunChecks ->
             callProcessSilent damlc ["build", "--project-root", dir, "-o", dar]
         FailWithError regex -> do
