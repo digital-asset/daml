@@ -989,8 +989,6 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
           }
     """ (metadataTestsParserParams)
 
-    print("here")
-
     val compiledPackages: PureCompiledPackages =
       PureCompiledPackages.assertBuild(
         Map(
@@ -1009,9 +1007,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
         FailingSignatories,
         FailingObservers,
         FailingAgreement,
-        // TODO: throwing keys expressions can currently be caught, fix and re-enable
         FailingKey,
-        // TODO: throwing maintainers expressions can currently be caught, fix and re-enable
         FailingMaintainers,
       )
     } {
