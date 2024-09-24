@@ -135,7 +135,7 @@ buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo = do
                  let pMeta = LF.PackageMetadata
                         { packageName = pName
                         , packageVersion = fromMaybe (LF.PackageVersion "0.0.0") pVersion
-                        , upgradedPackageId = LF.UpgradedPackageId . fst . fst <$> mbUpgradedPackage
+                        , upgradedPackageId = LF.UpgradedPackageId . (\(_1, _, _, _) -> _1) . fst <$> mbUpgradedPackage
                         }
                  pkg <- case optShakeFiles opts of
                      Nothing -> mergePkgs pMeta lfVersion . map fst <$> usesE GeneratePackage files
@@ -160,7 +160,7 @@ buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo = do
                  dalfDependencies0 <- getDalfDependencies files
                  MaybeT $
                      runDiagnosticCheck $ diagsToIdeResult (toNormalizedFilePath' pSrc) $
-                         Upgrade.checkPackage pkg (Map.elems dalfDependencies0) lfVersion upgradeInfo mbUpgradedPackage
+                         Upgrade.checkPackage pkg (Map.toList dalfDependencies0) lfVersion upgradeInfo mbUpgradedPackage
                  let dalfDependencies =
                          [ (T.pack $ unitIdString unitId, LF.dalfPackageBytes pkg, LF.dalfPackageId pkg)
                          | (unitId, pkg) <- Map.toList dalfDependencies0
