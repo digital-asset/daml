@@ -48,6 +48,7 @@ class DriverBlockSequencerFactory[C](
 )(implicit ec: ExecutionContext)
     extends BlockSequencerFactory(
       health: Option[SequencerHealthConfig],
+      blockSequencerConfig,
       storage,
       protocolVersion,
       sequencerId,
@@ -104,6 +105,7 @@ class DriverBlockSequencerFactory[C](
       sequencerId,
       stateManager,
       store,
+      sequencerStore,
       blockSequencerConfig,
       balanceStore,
       storage,

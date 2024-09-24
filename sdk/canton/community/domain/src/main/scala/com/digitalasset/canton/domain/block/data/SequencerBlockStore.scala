@@ -4,12 +4,10 @@
 package com.digitalasset.canton.domain.block.data
 
 import cats.data.EitherT
-import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block.data.db.DbSequencerBlockStore
 import com.digitalasset.canton.domain.block.data.memory.InMemorySequencerBlockStore
-import com.digitalasset.canton.domain.sequencing.integrations.state.statemanager.MemberCounters
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError
 import com.digitalasset.canton.domain.sequencing.sequencer.store.{
   DbSequencerStore,
@@ -22,7 +20,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
-import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
 
@@ -44,12 +41,6 @@ trait SequencerBlockStore extends AutoCloseable {
       traceContext: TraceContext
   ): Future[Unit]
 
-  /** Get initial member counters from which this sequencer node supports serving requests.
-    * If a member is not included in these counters, it means that this sequencer node supports serving requests
-    * from the [[com.digitalasset.canton.data.CounterCompanion.Genesis]] for that member.
-    */
-  def initialMemberCounters(implicit traceContext: TraceContext): Future[MemberCounters]
-
   /** The current state of the sequencer, which can be used when the node is restarted to deterministically
     * derive the following counters and timestamps.
     *
@@ -68,16 +59,6 @@ trait SequencerBlockStore extends AutoCloseable {
   def prune(requestedTimestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): Future[String]
-
-  /** Updates the last unsupported member sequencer counter, i.e. the one just before the
-    * first supported sequencer counter. Only ever increases counter.
-    */
-  def updateMemberCounterSupportedAfter(
-      member: Member,
-      counterLastUnsupported: SequencerCounter,
-  )(implicit
-      traceContext: TraceContext
-  ): Future[Unit]
 
   /** Stores some updates that happen in a single block.
     * May be called several times for the same block

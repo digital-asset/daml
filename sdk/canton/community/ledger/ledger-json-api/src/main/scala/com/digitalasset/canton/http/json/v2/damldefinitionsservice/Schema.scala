@@ -134,6 +134,8 @@ object Schema {
       definitions: Map[JsIdentifier, DataType],
   )
 
+  // See https://github.com/typelevel/doobie/issues/1513
+  @annotation.nowarn("cat=lint-byname-implicit")
   object Codecs {
     implicit val enumSigCodec: Codec[EnumSig] = deriveCodec
     implicit val variantSigCodec: Codec[VariantSig] = deriveCodec

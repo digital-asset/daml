@@ -45,6 +45,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 abstract class BlockSequencerFactory(
     health: Option[SequencerHealthConfig],
+    blockSequencerConfig: BlockSequencerConfig,
     storage: Storage,
     protocolVersion: ProtocolVersion,
     sequencerId: SequencerId,
@@ -54,10 +55,12 @@ abstract class BlockSequencerFactory(
     metrics: SequencerMetrics,
 )(implicit ec: ExecutionContext)
     extends DatabaseSequencerFactory(
+      blockSequencerConfig.toDatabaseSequencerConfig,
       storage,
       nodeParameters.processingTimeouts,
       protocolVersion,
       sequencerId,
+      blockSequencerMode = true,
     )
     with NamedLogging {
 
@@ -211,7 +214,7 @@ abstract class BlockSequencerFactory(
 
     val domainLoggerFactory = loggerFactory.append("domainId", domainId.toString)
 
-    val stateManagerF = BlockSequencerStateManager(
+    val stateManager = BlockSequencerStateManager(
       protocolVersion,
       domainId,
       sequencerId,
@@ -221,10 +224,7 @@ abstract class BlockSequencerFactory(
       domainLoggerFactory,
     )
 
-    for {
-      _ <- balanceManager.initialize
-      stateManager <- stateManagerF
-    } yield {
+    balanceManager.initialize.map { _ =>
       val sequencer = createBlockSequencer(
         name,
         domainId,

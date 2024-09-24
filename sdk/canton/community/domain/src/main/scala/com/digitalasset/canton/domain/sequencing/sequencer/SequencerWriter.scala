@@ -12,7 +12,7 @@ import cats.syntax.parallel.*
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveNumeric}
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.admin.data.SequencerHealthStatus
@@ -24,7 +24,6 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, Traced
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.sequencing.protocol.{SendAsyncError, SubmissionRequest}
 import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration, SimClock}
-import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.util.FutureInstances.*
@@ -131,32 +130,15 @@ class SequencerWriter(
         TraceContext,
     ) => RunningSequencerWriterFlow,
     storage: Storage,
+    val generalStore: SequencerStore,
     clock: Clock,
     expectedCommitMode: Option[CommitMode],
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
-    protocolVersion: ProtocolVersion,
-    maxSqlInListSize: PositiveNumeric[Int],
-    sequencerMember: Member,
-    blockSequencerMode: Boolean,
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging
     with FlagCloseableAsync
     with HasCloseContext {
-
-  val generalStore: SequencerStore =
-    SequencerStore(
-      storage,
-      protocolVersion,
-      maxSqlInListSize,
-      timeouts,
-      loggerFactory,
-      sequencerMember,
-      blockSequencerMode = blockSequencerMode,
-      // Overriding the store's close context with the writers, so that when the writer gets closed, the store
-      // stops retrying forever
-      overrideCloseContext = Some(this.closeContext),
-    )
 
   private case class RunningWriter(flow: RunningSequencerWriterFlow, store: SequencerWriterStore) {
 
@@ -497,11 +479,11 @@ object SequencerWriter {
       keepAliveInterval: Option[NonNegativeFiniteDuration],
       processingTimeout: ProcessingTimeout,
       storage: Storage,
+      sequencerStore: SequencerStore,
       clock: Clock,
       eventSignaller: EventSignaller,
       protocolVersion: ProtocolVersion,
       loggerFactory: NamedLoggerFactory,
-      sequencerMember: Member,
       blockSequencerMode: Boolean,
       metrics: SequencerMetrics,
   )(implicit materializer: Materializer, executionContext: ExecutionContext): SequencerWriter = {
@@ -533,14 +515,11 @@ object SequencerWriter {
       writerStorageFactory,
       createWriterFlow(_)(_),
       storage,
+      sequencerStore,
       clock,
       writerConfig.commitModeValidation,
       processingTimeout,
       loggerFactory,
-      protocolVersion,
-      writerConfig.maxSqlInListSize,
-      sequencerMember,
-      blockSequencerMode = blockSequencerMode,
     )
   }
 

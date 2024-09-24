@@ -13,7 +13,10 @@ import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentPro
   StakeholdersMismatch,
   TemplateIdMismatch,
 }
-import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessorError.ReassigningParticipantsMismatch
+import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessorError.{
+  ReassigningParticipantsMismatch,
+  UnassignmentSubmitterMustBeStakeholder,
+}
 import com.digitalasset.canton.participant.protocol.submission.SeedGenerator
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.{MediatorGroupRecipient, Recipients}
@@ -36,6 +39,7 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
   )
 
   private val submitterParty1: LfPartyId = LfPartyId.assertFromString("submitterParty::party")
+  private val nonStakeholder: LfPartyId = LfPartyId.assertFromString("nonStakeholder::party")
 
   private val receiverParty2: LfPartyId = PartyId(
     UniqueIdentifier.tryFromProtoPrimitive("receiverParty2::party")
@@ -145,6 +149,31 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
     )
   }
 
+  "detect non-stakeholder submitter" in {
+    def unassignmentValidation(submitter: LfPartyId) = {
+      val validation = mkUnassignmentValidation(
+        stakeholders,
+        sourcePV,
+        templateId,
+        initialReassignmentCounter,
+        submitter = submitter,
+      )
+
+      validation.futureValueUS
+    }
+
+    assert(!stakeholders.contains(nonStakeholder))
+
+    unassignmentValidation(submitterParty1).value shouldBe ()
+    unassignmentValidation(
+      nonStakeholder
+    ).left.value shouldBe UnassignmentSubmitterMustBeStakeholder(
+      contractId,
+      submittingParty = nonStakeholder,
+      stakeholders = stakeholders,
+    )
+  }
+
   "detect reassigning participant mismatch" in {
     def unassignmentValidation(reassigningParticipants: Set[ParticipantId]) =
       mkUnassignmentValidation(
@@ -181,9 +210,10 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
       expectedTemplateId: LfTemplateId,
       reassignmentCounter: ReassignmentCounter,
       reassigningParticipants: Set[ParticipantId] = Set(participant),
+      submitter: LfPartyId = submitterParty1,
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] = {
     val unassignmentRequest = UnassignmentRequest(
-      submitterInfo(submitterParty1),
+      submitterInfo(submitter),
       // receiverParty2 is not a stakeholder on a contract, but it is listed as stakeholder here
       newStakeholders,
       reassigningParticipants = reassigningParticipants,

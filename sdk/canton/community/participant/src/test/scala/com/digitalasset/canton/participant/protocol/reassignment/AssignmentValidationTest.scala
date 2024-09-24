@@ -12,7 +12,10 @@ import com.digitalasset.canton.data.{
   ReassignmentSubmitterMetadata,
 }
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidation.*
-import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.IncompatibleProtocolVersions
+import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.{
+  AssignmentSubmitterMustBeStakeholder,
+  IncompatibleProtocolVersions,
+}
 import com.digitalasset.canton.participant.protocol.submission.SeedGenerator
 import com.digitalasset.canton.participant.store.ReassignmentStoreTest.transactionId1
 import com.digitalasset.canton.protocol.*
@@ -46,6 +49,10 @@ class AssignmentValidationTest
 
   private val party1: LfPartyId = PartyId(
     UniqueIdentifier.tryFromProtoPrimitive("party1::party")
+  ).toLf
+
+  private val party2: LfPartyId = PartyId(
+    UniqueIdentifier.tryFromProtoPrimitive("party2::party")
   ).toLf
 
   private val submittingParticipant = ParticipantId(
@@ -259,6 +266,36 @@ class AssignmentValidationTest
         unassignmentResult.reassignmentId,
         expected = Set(submittingParticipant),
         declared = Set(),
+      )
+    }
+
+    "detect non-stakeholder submitter" in {
+      def validate(submitter: LfPartyId) = {
+        val assignmentRequest = makeFullAssignmentTree(
+          contract,
+          unassignmentResult,
+          submitter = submitter,
+        )
+
+        assignmentValidation
+          .validateAssignmentRequest(
+            CantonTimestamp.Epoch,
+            assignmentRequest,
+            Some(reassignmentData),
+            cryptoSnapshot,
+            isReassigningParticipant = false,
+          )
+          .value
+          .futureValue
+      }
+
+      // Happy path / control
+      validate(party1).value.value.confirmingParties shouldBe Set(party1)
+
+      validate(party2).left.value shouldBe AssignmentSubmitterMustBeStakeholder(
+        unassignmentResult.reassignmentId,
+        submittingParty = party2,
+        stakeholders = Set(party1),
       )
     }
 

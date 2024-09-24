@@ -8,6 +8,7 @@ import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
+import com.digitalasset.canton.domain.sequencing.sequencer.store.SequencerStore
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer as CantonSequencer
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.DynamicDomainParameters
@@ -39,11 +40,24 @@ class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
     ).forOwnerAndDomain(owner = mediatorId, domainId)
     val metrics = SequencerMetrics.noop("database-sequencer-test")
 
+    val dbConfig = TestDatabaseSequencerConfig()
+    val storage = new MemoryStorage(loggerFactory, timeouts)
+    val sequencerStore = SequencerStore(
+      storage,
+      testedProtocolVersion,
+      dbConfig.writer.maxSqlInListSize,
+      timeouts,
+      loggerFactory,
+      sequencerId,
+      blockSequencerMode = false,
+    )
+
     DatabaseSequencer.single(
-      TestDatabaseSequencerConfig(),
+      dbConfig,
       initialState,
       DefaultProcessingTimeouts.testing,
-      new MemoryStorage(loggerFactory, timeouts),
+      storage,
+      sequencerStore,
       clock,
       domainId,
       sequencerId,

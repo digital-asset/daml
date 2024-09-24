@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer
 
-import cats.data.EitherT
+import cats.data.{EitherT, OptionT}
 import cats.syntax.either.*
 import cats.syntax.option.*
 import com.daml.nameof.NameOf.functionFullName
@@ -35,14 +35,7 @@ import com.digitalasset.canton.metrics.MetricsHelper
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.scheduler.PruningScheduler
 import com.digitalasset.canton.sequencing.client.SequencerClientSend
-import com.digitalasset.canton.sequencing.protocol.{
-  AcknowledgeRequest,
-  MemberRecipient,
-  SendAsyncError,
-  SignedContent,
-  SubmissionRequest,
-  TrafficState,
-}
+import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficControlErrors
 import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.time.{Clock, DomainTimeTracker, NonNegativeFiniteDuration}
@@ -67,6 +60,7 @@ object DatabaseSequencer {
       initialState: Option[SequencerInitialState],
       timeouts: ProcessingTimeout,
       storage: Storage,
+      sequencerStore: SequencerStore,
       clock: Clock,
       domainId: DomainId,
       topologyClientMember: Member,
@@ -90,6 +84,7 @@ object DatabaseSequencer {
 
     new DatabaseSequencer(
       SequencerWriterStoreFactory.singleInstance,
+      sequencerStore,
       config,
       initialState,
       TotalNodeCountValues.SingleSequencerTotalNodeCount,
@@ -120,6 +115,7 @@ object DatabaseSequencer {
 
 class DatabaseSequencer(
     writerStorageFactory: SequencerWriterStoreFactory,
+    sequencerStore: SequencerStore,
     config: DatabaseSequencerConfig,
     initialState: Option[SequencerInitialState],
     totalNodeCount: PositiveInt,
@@ -156,11 +152,11 @@ class DatabaseSequencer(
     keepAliveInterval,
     timeouts,
     storage,
+    sequencerStore,
     clock,
     eventSignaller,
     protocolVersion,
     loggerFactory,
-    topologyClientMember,
     blockSequencerMode = blockSequencerMode,
     metrics = metrics,
   )
@@ -176,9 +172,7 @@ class DatabaseSequencer(
     storageForAdminChanges.isActive
   )
 
-  private[sequencer] val store = writer.generalStore
-
-  protected val memberValidator: SequencerMemberValidator = store
+  protected val memberValidator: SequencerMemberValidator = sequencerStore
 
   protected def resetWatermarkTo: ResetWatermark = SequencerWriter.ResetWatermarkToClockNow
 
@@ -212,7 +206,7 @@ class DatabaseSequencer(
       val cutoffTime = clock.now.minus(offlineCutoffDuration.unwrap)
       logger.trace(s"Marking sequencers with watermarks earlier than [$cutoffTime] as offline")
 
-      store.markLaggingSequencersOffline(cutoffTime)
+      sequencerStore.markLaggingSequencersOffline(cutoffTime)
     }
 
     def markOffline(): Unit = withNewTraceContext { implicit traceContext =>
@@ -240,7 +234,7 @@ class DatabaseSequencer(
     new SequencerReader(
       config.reader,
       domainId,
-      store,
+      sequencerStore,
       cryptoApi,
       eventSignaller,
       topologyClientMember,
@@ -252,10 +246,10 @@ class DatabaseSequencer(
     )
 
   override def isRegistered(member: Member)(implicit traceContext: TraceContext): Future[Boolean] =
-    store.lookupMember(member).map(_.isDefined)
+    sequencerStore.lookupMember(member).map(_.isDefined)
 
   override def isEnabled(member: Member)(implicit traceContext: TraceContext): Future[Boolean] =
-    store.lookupMember(member).map {
+    sequencerStore.lookupMember(member).map {
       case Some(registeredMember) => registeredMember.enabled
       case None =>
         logger.warn(
@@ -271,7 +265,7 @@ class DatabaseSequencer(
       traceContext: TraceContext
   ): EitherT[Future, RegisterError, Unit] =
     EitherT
-      .right[RegisterError](store.registerMember(member, timestamp))
+      .right[RegisterError](sequencerStore.registerMember(member, timestamp))
       .map(_ => ())
 
   override protected def sendAsyncInternal(submission: SubmissionRequest)(implicit
@@ -324,7 +318,7 @@ class DatabaseSequencer(
       timestamp: CantonTimestamp,
   )(implicit traceContext: TraceContext): Future[Unit] =
     withExpectedRegisteredMember(member, "Acknowledge") {
-      store.acknowledge(_, timestamp)
+      sequencerStore.acknowledge(_, timestamp)
     }
 
   override protected def acknowledgeSignedInternal(
@@ -340,7 +334,7 @@ class DatabaseSequencer(
 
   protected def disableMemberInternal(
       member: Member
-  )(implicit traceContext: TraceContext): Future[Unit] = store.disableMember(member)
+  )(implicit traceContext: TraceContext): Future[Unit] = sequencerStore.disableMember(member)
 
   // For the database sequencer, the SequencerId serves as the local sequencer identity/member
   // until the database and block sequencers are unified.
@@ -353,7 +347,7 @@ class DatabaseSequencer(
       fn: SequencerMemberId => Future[A]
   )(implicit traceContext: TraceContext): Future[A] =
     for {
-      memberIdO <- store.lookupMember(member).map(_.map(_.memberId))
+      memberIdO <- sequencerStore.lookupMember(member).map(_.map(_.memberId))
       memberId = memberIdO.getOrElse {
         logger.warn(s"$operationName attempted to use member [$member] but they are not registered")
         sys.error(s"Operation requires the member to have been registered with the sequencer")
@@ -362,7 +356,7 @@ class DatabaseSequencer(
     } yield result
 
   override def pruningStatus(implicit traceContext: TraceContext): Future[SequencerPruningStatus] =
-    store.status(clock.now)
+    sequencerStore.status(clock.now)
 
   override protected def healthInternal(implicit
       traceContext: TraceContext
@@ -377,7 +371,7 @@ class DatabaseSequencer(
       // Update the max-event-age metric after pruning. Use the actually pruned timestamp as
       // the database sequencer tends to prune fewer events than asked for e.g. not wanting to
       // prune sequencer-counter checkpoints partially.
-      report <- store
+      report <- sequencerStore
         .prune(requestedTimestamp, status, config.writer.payloadToEventMargin.toInternal)
         .map { case SequencerPruningResult(tsActuallyPrunedUpTo, report) =>
           MetricsHelper.updateAgeInHoursGauge(clock, metrics.maxEventAge, tsActuallyPrunedUpTo)
@@ -389,7 +383,7 @@ class DatabaseSequencer(
       traceContext: TraceContext
   ): EitherT[Future, PruningSupportError, Option[CantonTimestamp]] =
     EitherT.right[PruningSupportError](
-      store
+      sequencerStore
         .locatePruningTimestamp(NonNegativeInt.tryCreate(index.value - 1))
     )
 
@@ -404,7 +398,7 @@ class DatabaseSequencer(
       traceContext: TraceContext
   ): EitherT[Future, SequencerError, SequencerSnapshot] =
     for {
-      safeWatermarkO <- EitherT.right(store.safeWatermark)
+      safeWatermarkO <- EitherT.right(sequencerStore.safeWatermark)
       // we check if watermark is after the requested timestamp to avoid snapshotting the sequencer
       // at a timestamp that is not yet safe to read
       _ <- {
@@ -418,12 +412,22 @@ class DatabaseSequencer(
             EitherT.leftT[Future, Unit](SnapshotNotFound.MissingSafeWatermark(topologyClientMember))
         }
       }
-      snapshot <- EitherT.right[SequencerError](store.readStateAtTimestamp(timestamp))
+      snapshot <- EitherT.right[SequencerError](sequencerStore.readStateAtTimestamp(timestamp))
     } yield snapshot
 
-  override private[sequencing] def firstSequencerCounterServeableForSequencer: SequencerCounter =
-    // Database sequencers are never bootstrapped
-    SequencerCounter.Genesis
+  override private[sequencing] def firstSequencerCounterServeableForSequencer(implicit
+      traceContext: TraceContext
+  ): Future[SequencerCounter] =
+    if (blockSequencerMode) {
+      val result = for {
+        member <- OptionT(sequencerStore.lookupMember(topologyClientMember))
+        checkpoint <- OptionT(sequencerStore.fetchEarliestCheckpointForMember(member.memberId))
+      } yield checkpoint.counter + 1
+      result.getOrElse(SequencerCounter.Genesis)
+    } else {
+      // Database sequencers are never bootstrapped
+      Future.successful(SequencerCounter.Genesis)
+    }
 
   override def onClosed(): Unit = {
     super.onClosed()
@@ -433,7 +437,7 @@ class DatabaseSequencer(
       writer,
       reader,
       eventSignaller,
-      store,
+      sequencerStore,
     )(logger)
   }
 

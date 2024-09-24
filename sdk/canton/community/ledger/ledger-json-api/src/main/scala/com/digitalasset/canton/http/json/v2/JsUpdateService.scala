@@ -98,7 +98,6 @@ class JsUpdateService(
     Either[JsCantonError, JsGetTransactionTreeResponse]
   ] = { req =>
     implicit val token = caller.token()
-    implicit val tc = req.traceContext
     updateServiceClient(caller.token())(req.traceContext)
       .getTransactionTreeByEventId(
         update_service.GetTransactionByEventIdRequest(

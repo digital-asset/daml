@@ -40,9 +40,9 @@ import com.digitalasset.canton.participant.protocol.submission.{
   SeedGenerator,
 }
 import com.digitalasset.canton.participant.protocol.{
-  CanSubmitReassignment,
   EngineController,
   ProcessingSteps,
+  ReassignmentSubmissionValidation,
 }
 import com.digitalasset.canton.participant.store.ActiveContractStore.Archived
 import com.digitalasset.canton.participant.store.*
@@ -55,7 +55,6 @@ import com.digitalasset.canton.serialization.DefaultDeserializationError
 import com.digitalasset.canton.store.SessionKeyStore
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.util.EitherTUtil.condUnitET
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{
@@ -167,13 +166,8 @@ private[reassignment] class AssignmentProcessingSteps(
         )
 
       stakeholders = reassignmentData.unassignmentRequest.stakeholders
-      _ <- condUnitET[FutureUnlessShutdown](
-        stakeholders.contains(submitter),
-        AssignmentSubmitterMustBeStakeholder(reassignmentId, submitter, stakeholders),
-      )
-
-      _ <- CanSubmitReassignment
-        .assignment(reassignmentId, topologySnapshot, submitter, participantId)
+      _ <- ReassignmentSubmissionValidation
+        .assignment(reassignmentId, topologySnapshot, submitter, participantId, stakeholders)
         .mapK(FutureUnlessShutdown.outcomeK)
 
       assignmentUuid = seedGenerator.generateUuid()

@@ -5,7 +5,6 @@ package com.digitalasset.canton.domain.block.update
 
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block.data.BlockInfo
-import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencer.LocalEvent
 import com.digitalasset.canton.domain.sequencing.sequencer.{
   InFlightAggregationUpdates,
   InFlightAggregations,
@@ -58,6 +57,3 @@ final case class ChunkUpdate(
     inFlightAggregations: InFlightAggregations,
     submissionsOutcomes: Seq[SubmissionRequestOutcome] = Seq.empty,
 ) extends OrderedBlockUpdate
-
-/** Denotes an update to the persisted state that is caused by a local event that has not gone through ordering */
-final case class LocalBlockUpdate(local: LocalEvent) extends BlockUpdate

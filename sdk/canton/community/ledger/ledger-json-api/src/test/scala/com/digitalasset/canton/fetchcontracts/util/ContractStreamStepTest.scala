@@ -15,6 +15,9 @@ import scalaz.syntax.apply.*
 import scalaz.syntax.semigroup.*
 import scalaz.{@@, Equal, Tag}
 
+import scala.annotation.nowarn
+
+@nowarn("msg=match may not be exhaustive")
 class ContractStreamStepTest
     extends AnyFlatSpec
     with FlatSpecCheckLaws

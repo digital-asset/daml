@@ -38,14 +38,8 @@ import com.digitalasset.canton.domain.sequencing.service.{
 }
 import com.digitalasset.canton.domain.server.DynamicGrpcServer
 import com.digitalasset.canton.environment.*
+import com.digitalasset.canton.health.*
 import com.digitalasset.canton.health.admin.data.{WaitingForExternalInput, WaitingForInitialization}
-import com.digitalasset.canton.health.{
-  ComponentStatus,
-  DependenciesHealthService,
-  GrpcHealthReporter,
-  LivenessHealthService,
-  MutableHealthQuasiComponent,
-}
 import com.digitalasset.canton.lifecycle.{
   FutureUnlessShutdown,
   HasCloseContext,
@@ -616,6 +610,9 @@ class SequencerNodeBootstrap(
             timeouts,
             loggerFactory,
           )
+          firstSequencerCounterServeableForSequencer <-
+            EitherT.right[String](sequencer.firstSequencerCounterServeableForSequencer)
+
           _ = addCloseable(sequencedEventStore)
           sequencerClient = new SequencerClientImplPekko[
             DirectSequencerClientTransport.SubscriptionError
@@ -658,7 +655,7 @@ class SequencerNodeBootstrap(
             None,
             loggerFactory,
             futureSupervisor,
-            sequencer.firstSequencerCounterServeableForSequencer, // TODO(#18401): Review this value
+            firstSequencerCounterServeableForSequencer, // TODO(#18401): Review this value
           )
           timeTracker = DomainTimeTracker(
             config.timeTracker,

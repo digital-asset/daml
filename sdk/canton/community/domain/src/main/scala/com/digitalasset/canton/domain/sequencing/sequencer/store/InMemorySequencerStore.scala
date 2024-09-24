@@ -264,6 +264,18 @@ class InMemorySequencerStore(
         .map(entry => entry.getValue.toCheckpoint(entry.getKey))
     }
 
+  override def fetchEarliestCheckpointForMember(memberId: SequencerMemberId)(implicit
+      traceContext: TraceContext
+  ): Future[Option[CounterCheckpoint]] =
+    Future.successful {
+      checkpoints
+        .get(memberId)
+        .flatMap { memberCheckpoints =>
+          Option(memberCheckpoints.firstEntry())
+        }
+        .map(entry => entry.getValue.toCheckpoint(entry.getKey))
+    }
+
   override def acknowledge(
       member: SequencerMemberId,
       timestamp: CantonTimestamp,

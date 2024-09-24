@@ -402,11 +402,6 @@ create table seq_block_height (
     latest_sequencer_event_ts bigint
 );
 
-create table seq_initial_state (
-    member varchar(300) primary key,
-    counter bigint not null
-);
-
 create table mediator_deduplication_store (
     mediator_id varchar(300) not null,
     uuid varchar(36) not null,

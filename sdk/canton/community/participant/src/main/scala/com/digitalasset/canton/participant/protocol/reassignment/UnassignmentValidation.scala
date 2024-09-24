@@ -7,8 +7,8 @@ import cats.data.*
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.FullUnassignmentTree
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.participant.protocol.ReassignmentSubmissionValidation
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
-import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessorError.UnassignmentSubmitterMustBeStakeholder
 import com.digitalasset.canton.protocol.LfTemplateId
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -41,18 +41,6 @@ private[reassignment] final case class UnassignmentValidation(
         declaredViewStakeholders = request.stakeholders,
         declaredContractStakeholders = None,
         expectedStakeholders = Right(expectedStakeholders),
-      ),
-    )
-
-  private def checkSubmitterIsStakeholder(implicit
-      ec: ExecutionContext
-  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
-    condUnitET(
-      request.stakeholders.contains(request.submitter),
-      UnassignmentSubmitterMustBeStakeholder(
-        request.contractId,
-        request.submitter,
-        request.stakeholders,
       ),
     )
 
@@ -113,7 +101,13 @@ private[reassignment] object UnassignmentValidation {
 
     for {
       _ <- validation.checkStakeholders
-      _ <- validation.checkSubmitterIsStakeholder
+      _ <- ReassignmentSubmissionValidation.unassignment(
+        contractId = request.contractId,
+        topologySnapshot = sourceTopology,
+        submitter = request.submitter,
+        participantId = request.submitterMetadata.submittingParticipant,
+        stakeholders = expectedStakeholders,
+      )
       _ <- validation.checkParticipants
       _ <- validation.checkTemplateId
     } yield ()

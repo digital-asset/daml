@@ -9,7 +9,10 @@ import com.digitalasset.canton.config.{DefaultProcessingTimeouts, ProcessingTime
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
-import com.digitalasset.canton.domain.sequencing.sequencer.store.InMemorySequencerStore
+import com.digitalasset.canton.domain.sequencing.sequencer.store.{
+  InMemorySequencerStore,
+  SequencerStore,
+}
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.protocol.messages.{
@@ -94,12 +97,25 @@ class SequencerTest extends FixtureAsyncWordSpec with BaseTest with HasExecution
     )("building crypto")
     val metrics: SequencerMetrics = SequencerMetrics.noop("sequencer-test")
 
+    val dbConfig = CommunitySequencerConfig.Database()
+    val storage = new MemoryStorage(loggerFactory, timeouts)
+    val sequencerStore = SequencerStore(
+      storage,
+      testedProtocolVersion,
+      dbConfig.writer.maxSqlInListSize,
+      timeouts,
+      loggerFactory,
+      topologyClientMember,
+      blockSequencerMode = false,
+    )
+
     val sequencer: DatabaseSequencer =
       DatabaseSequencer.single(
-        CommunitySequencerConfig.Database(),
+        dbConfig,
         None,
         DefaultProcessingTimeouts.testing,
-        new MemoryStorage(loggerFactory, timeouts),
+        storage,
+        sequencerStore,
         clock,
         domainId,
         topologyClientMember,

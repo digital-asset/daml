@@ -8,41 +8,74 @@ import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.{
+  AssignmentSubmitterMustBeStakeholder,
   NoReassignmentSubmissionPermission,
   ReassignmentProcessorError,
 }
+import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessorError.UnassignmentSubmitterMustBeStakeholder
 import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId}
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.Submission
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.EitherTUtil
 
 import scala.concurrent.{ExecutionContext, Future}
 
-private[protocol] object CanSubmitReassignment {
+/*
+Validation around the submission
+
+- the submitter is a stakeholder
+- the submitter has enough permissions
+ */
+private[protocol] object ReassignmentSubmissionValidation {
 
   def unassignment(
       contractId: LfContractId,
       topologySnapshot: TopologySnapshot,
       submitter: LfPartyId,
       participantId: ParticipantId,
+      stakeholders: Set[LfPartyId],
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
-    check(s"Unassignment of $contractId", topologySnapshot, submitter, participantId)
-      .mapK(FutureUnlessShutdown.outcomeK)
+    for {
+      _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
+        stakeholders.contains(submitter),
+        UnassignmentSubmitterMustBeStakeholder(
+          contractId,
+          submitter,
+          stakeholders,
+        ),
+      )
+
+      _ <- check(s"Unassignment of $contractId", topologySnapshot, submitter, participantId)
+        .mapK(FutureUnlessShutdown.outcomeK)
+    } yield ()
 
   def assignment(
       reassignmentId: ReassignmentId,
       topologySnapshot: TopologySnapshot,
       submitter: LfPartyId,
       participantId: ParticipantId,
+      stakeholders: Set[LfPartyId],
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
   ): EitherT[Future, ReassignmentProcessorError, Unit] =
-    check(s"assignment `$reassignmentId`", topologySnapshot, submitter, participantId)
+    for {
+      _ <- EitherTUtil.condUnitET[Future](
+        stakeholders.contains(submitter),
+        AssignmentSubmitterMustBeStakeholder(
+          reassignmentId,
+          submitter,
+          stakeholders,
+        ),
+      )
+
+      _ <- check(s"assignment `$reassignmentId", topologySnapshot, submitter, participantId)
+    } yield ()
 
   private def check(
       kind: => String,

@@ -388,7 +388,12 @@ final class UnassignmentProcessingStepsTest
       val stakeholders = Set(submitter, party1)
       val result =
         mkUnassignmentResult(stakeholders, ipsConfirmationOnSource, ipsNoConfirmationOnTarget)
-      result.left.value shouldBe a[PermissionErrors]
+
+      val expectedError = StakeholderHostingErrors(
+        s"The following stakeholders are not hosted with confirmation rights on target domain: Set($party1)"
+      )
+
+      result.left.value shouldBe expectedError
     }
 
     "fail if a stakeholder is not hosted on the same participant on both domains" in {
@@ -402,20 +407,6 @@ final class UnassignmentProcessingStepsTest
 
       val stakeholders = Set(submitter, party1)
       val result = mkUnassignmentResult(stakeholders, testingTopology, ipsDifferentParticipant)
-      result.left.value shouldBe a[PermissionErrors]
-    }
-
-    "fail if participant cannot confirm for admin party" in {
-      val ipsAdminNoConfirmation = createTestingTopologySnapshot(
-        Map(
-          submittingParticipant -> Map(adminSubmitter -> Submission, submitter -> Submission),
-          participant1 -> Map(party1 -> Observation),
-        )
-      )
-      val result =
-        loggerFactory.suppressWarningsAndErrors(
-          mkUnassignmentResult(Set(submitter, party1), ipsAdminNoConfirmation, testingTopology)
-        )
       result.left.value shouldBe a[PermissionErrors]
     }
 
@@ -495,9 +486,8 @@ final class UnassignmentProcessingStepsTest
         )
       )
       val result =
-        loggerFactory.suppressWarningsAndErrors(
-          mkUnassignmentResult(Set(submitter, party1), ipsAdminNoConfirmation, testingTopology)
-        )
+        mkUnassignmentResult(Set(submitter, party1), ipsAdminNoConfirmation, testingTopology)
+
       result.value shouldEqual
         UnassignmentRequestValidated(
           UnassignmentRequest(

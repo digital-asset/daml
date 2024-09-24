@@ -13,7 +13,7 @@ import com.digitalasset.daml.lf.data.Ref
 import com.daml.ledger.api.v2 as lav2
 import org.scalacheck.Shrink
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
-import org.scalatest.Inside
+import org.scalatest.{Inside, OptionValues}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 
@@ -22,7 +22,8 @@ class PackageServiceTest
     extends AnyFreeSpec
     with Matchers
     with Inside
-    with ScalaCheckDrivenPropertyChecks {
+    with ScalaCheckDrivenPropertyChecks
+    with OptionValues {
 
   import Shrink.shrinkAny
   import domain.ContractTypeId.withPkgRef
@@ -62,7 +63,7 @@ class PackageServiceTest
       val map = PackageService.buildTemplateIdMap(noPackageNames, ids)
       ids.foreach { id =>
         val unresolvedId: domain.ContractTypeId.Template.RequiredPkg = withPkgRef(id)
-        val Some(resolved) = map resolve unresolvedId
+        val resolved = (map resolve unresolvedId).value
         resolved.original shouldBe withPkgRef(id)
         resolved.latestPkgId shouldBe id
         resolved.allPkgIds shouldBe Set(id)
@@ -78,7 +79,7 @@ class PackageServiceTest
       ids.foreach { id =>
         val pkgName = pkgRefName(pkgNameForPkgId(id.packageId))
         val unresolvedId: domain.ContractTypeId.Template.RequiredPkg = id.copy(packageId = pkgName)
-        val Some(resolved) = map resolve unresolvedId
+        val resolved = (map resolve unresolvedId).value
         resolved.original shouldBe id.copy(packageId = pkgName)
         resolved.latestPkgId shouldBe id
         resolved.allPkgIds shouldBe Set(id)
@@ -94,7 +95,7 @@ class PackageServiceTest
       ids.foreach { id =>
         val unresolvedId: domain.ContractTypeId.Template.RequiredPkg =
           id.copy(packageId = pkgRefName("foo"))
-        val Some(resolved) = map resolve unresolvedId
+        val resolved = (map resolve unresolvedId).value
         resolved.original shouldBe id.copy(packageId = pkgRefName("foo"))
         resolved.latestPkgId shouldBe idWithMaxVer
         resolved.allPkgIds shouldBe ids
