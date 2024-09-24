@@ -783,7 +783,17 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       p"""metadata ( '-common-defs-' : '1.0.0' )
           module Mod {
             record @serializable MyUnit = {};
-            interface (this : Iface) = { viewtype Mod:MyUnit; };
+            interface (this : Iface) = {
+              viewtype Mod:MyUnit;
+
+              method myChoiceControllers : List Party;
+              method myChoiceObservers : List Party;
+
+              choice @nonConsuming MyChoice (self) (u: Unit): Text
+                  , controllers (Nil @Party)
+                  , observers (Nil @Party)
+                  to upure @Text "MyChoice was called";
+            };
 
             record @serializable Key = { label: Text, maintainers: List Party };
 
@@ -813,6 +823,8 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
            |    label = "test-key",
            |    maintainers = (Cons @Party [Mod:${templateName} {p} this] (Nil @Party))
            |  }""".stripMargin
+      def choiceControllers = s"""Cons @Party [Mod:${templateName} {p} this] (Nil @Party)"""
+      def choiceObservers = """Nil @Party"""
 
       def maintainers =
         s"""\\(key: '$commonDefsPkgId':Mod:Key) -> ('$commonDefsPkgId':Mod:Key {maintainers} key)"""
@@ -831,7 +843,11 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
            |      , observers (Nil @Party)
            |      to upure @Text "SomeChoice was called";
            |
-           |    implements '$commonDefsPkgId':Mod:Iface { view = '$commonDefsPkgId':Mod:MyUnit {}; };
+           |    implements '$commonDefsPkgId':Mod:Iface {
+           |      view = '$commonDefsPkgId':Mod:MyUnit {};
+           |      method myChoiceControllers = $choiceControllers;
+           |      method myChoiceObservers = $choiceObservers;
+           |    };
            |
            |    key @'$commonDefsPkgId':Mod:Key ($key) ($maintainers);
            |  };""".stripMargin
@@ -864,6 +880,14 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       override def maintainers =
         s"""throw @('$commonDefsPkgId':Mod:Key -> List Party) @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "Maintainers"})"""
     }
+    case object FailingChoiceControllers extends TemplateGenerator("ChoiceControllers") {
+      override def choiceControllers =
+        s"""throw @(List Party) @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "ChoiceControllers"})"""
+    }
+    case object FailingChoiceObservers extends TemplateGenerator("ChoiceObservers") {
+      override def choiceObservers =
+        s"""throw @(List Party) @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "ChoiceObservers"})"""
+    }
 
     val templateDefsPkgName = Ref.PackageName.assertFromString("-template-defs-")
 
@@ -881,6 +905,8 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
             ${ValidMetadata("Agreement").templateDefinition}
             ${ValidMetadata("Key").templateDefinition}
             ${ValidMetadata("Maintainers").templateDefinition}
+            ${ValidMetadata("ChoiceControllers").templateDefinition}
+            ${ValidMetadata("ChoiceObservers").templateDefinition}
           }
       """ (templateDefsV1ParserParams)
 
@@ -900,6 +926,8 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
             ${FailingAgreement.templateDefinition}
             ${FailingKey.templateDefinition}
             ${FailingMaintainers.templateDefinition}
+            ${FailingChoiceControllers.templateDefinition}
+            ${FailingChoiceObservers.templateDefinition}
           }
       """ (templateDefsV2ParserParams)
 
@@ -975,6 +1003,19 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
          |""".stripMargin
     }
 
+    def dynamicChoiceTests(templateName: String): String = {
+      s"""
+         |  // Tries to catch the error thrown by the dynamic exercise of a $templateName choice when fetching it
+         |  // by interface, should fail to do so.
+         |  val exercise${templateName}ByInterfaceAndCatchError: (ContractId '$commonDefsPkgId':Mod:Iface) -> Update Text =
+         |    \\(cid: ContractId '$commonDefsPkgId':Mod:Iface) ->
+         |      try @Text
+         |        exercise_interface @'$commonDefsPkgId':Mod:Iface MyChoice cid ()
+         |      catch
+         |        e -> Some @(Update Text) (upure @Text "unexpected: some exception was caught");
+      """.stripMargin
+    }
+
     val metadataTestsPkgId = Ref.PackageId.assertFromString("-metadata-tests-id-")
     val metadataTestsParserParams = parserParameters.copy(defaultPackageId = metadataTestsPkgId)
     val metadataTestsPkg =
@@ -986,6 +1027,8 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
             ${tests(templateDefsV2PkgId, "Agreement")}
             ${tests(templateDefsV2PkgId, "Key")}
             ${tests(templateDefsV2PkgId, "Maintainers")}
+            ${dynamicChoiceTests("ChoiceControllers")}
+            ${dynamicChoiceTests("ChoiceObservers")}
           }
     """ (metadataTestsParserParams)
 
