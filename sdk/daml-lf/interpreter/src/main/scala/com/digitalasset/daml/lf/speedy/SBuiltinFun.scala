@@ -1282,6 +1282,9 @@ private[lf] object SBuiltinFun {
         val (tplIdPkgName, _) = machine.tmplId2PackageNameVersion(tplId)
         val (tyConPkgName, _) = machine.tmplId2PackageNameVersion(tyCon)
         if (tplIdPkgName == tyConPkgName) {
+          // This isn't ideal as its a large uncached computation in a non Update primative.
+          // Ideally this would run in Update, and not iterate the value twice
+          // i.e. using an upgrade transformation function directly on SValues
           importValue(machine, tplId, record.toUnnormalizedValue) { templateArg =>
             Control.Value(SOptional(Some(templateArg)))
           }

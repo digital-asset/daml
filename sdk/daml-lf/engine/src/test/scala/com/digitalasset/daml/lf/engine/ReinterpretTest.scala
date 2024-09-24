@@ -63,12 +63,14 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
         )
     )
 
-  private val engine = new Engine(
+  private def freshEngine = new Engine(
     EngineConfig(
       allowedLanguageVersions = language.LanguageVersion.AllVersions(majorLanguageVersion),
       requireSuffixedGlobalContractId = true,
     )
   )
+
+  private val engine = freshEngine
 
   def Top(xs: Shape*) = Shape.Top(xs.toList)
   def Exercise(xs: Shape*) = Shape.Exercise(xs.toList)
@@ -149,6 +151,56 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
       }
       val Left(err) = reinterpretCommand(theCommand)
       assert(err.message.contains("Error: functions are not comparable"))
+    }
+  }
+
+  "exercise by interface pull interfaceId package " in {
+    val templatePkgId = Ref.PackageId.assertFromString("-template-package-")
+    val templateId = Ref.Identifier(templatePkgId, "A:T")
+    val interfacePkgId = Ref.PackageId.assertFromString("-interface-package-")
+    val interfaceId = Ref.Identifier(interfacePkgId, "B:I")
+
+    val testCases = Table(
+      "cmd" -> "packgeIds",
+      ReplayCommand.Create(templateId, ValueUnit) -> List(templatePkgId),
+      ReplayCommand.Exercise(templateId, None, toContractId("cid"), "myChoice", ValueUnit) -> List(
+        templatePkgId
+      ),
+      ReplayCommand.Exercise(
+        templateId,
+        Some(interfaceId),
+        toContractId("cid"),
+        "myChoice",
+        ValueUnit,
+      ) -> List(templatePkgId, interfacePkgId),
+      ReplayCommand.ExerciseByKey(templateId, ValueUnit, "MyChoide", ValueUnit) -> List(
+        templatePkgId
+      ),
+      ReplayCommand.Fetch(templateId, None, toContractId("cid")) -> List(templatePkgId),
+      ReplayCommand.Fetch(templateId, Some(interfaceId), toContractId("cid")) ->
+        List(templatePkgId, interfacePkgId),
+      ReplayCommand.FetchByKey(templateId, ValueUnit) -> List(templatePkgId),
+      ReplayCommand.LookupByKey(templateId, ValueUnit) -> List(templatePkgId),
+    )
+
+    forEvery(testCases) { (cmd, pkgIds) =>
+      val emptyPackage =
+        Package(Map.empty, Set.empty, LanguageMajorVersion.V1.maxStableVersion, None)
+      var queriedPackageIds = Set.empty[Ref.PackageId]
+      val trackPackageQueries: PartialFunction[Ref.PackageId, Package] = { pkgId =>
+        queriedPackageIds = queriedPackageIds + pkgId
+        emptyPackage
+      }
+      freshEngine
+        .reinterpret(
+          submitters,
+          cmd,
+          Some(seed),
+          time,
+          time,
+        )
+        .consume(pkgs = trackPackageQueries)
+      pkgIds.toSet shouldBe queriedPackageIds
     }
   }
 }

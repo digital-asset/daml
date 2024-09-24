@@ -384,7 +384,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
     override def pretty: Pretty[ExerciseActionDescription] = prettyOfClass(
       param("input contract id", _.inputContractId),
       param("template id", _.templateId),
-      param("interface id", _.interfaceId),
+      paramIfDefined("interface id", _.interfaceId),
       param("choice", _.choice.unquoted),
       param("chosen value", _.chosenValue),
       param("actors", _.actors),
@@ -481,7 +481,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
       param("input contract id", _.inputContractId),
       param("actors", _.actors),
       paramIfTrue("by key", _.byKey),
-      param("interface id", _.interfaceId),
+      paramIfDefined("interface id", _.interfaceId),
     )
   }
 

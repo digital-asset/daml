@@ -225,10 +225,8 @@ private[engine] final class Preprocessor(
     def templateAndInterfaceIds =
       cmd match {
         case ReplayCommand.Create(templateId, _) => List(templateId)
-        // Exercise includes interface package in main-3.x, to fix a bug with retroactive instances
-        // These aren't supported in 3x. Unclear if Exeercise should include the id.
-        // TODO: Clarify
-        case ReplayCommand.Exercise(templateId, _, _, _, _) => List(templateId)
+        case ReplayCommand.Exercise(templateId, interfaceId, _, _, _) =>
+          templateId :: interfaceId.toList
         case ReplayCommand.ExerciseByKey(templateId, _, _, _) => List(templateId)
         case ReplayCommand.Fetch(templateId, interfaceId, _) =>
           templateId :: interfaceId.toList
