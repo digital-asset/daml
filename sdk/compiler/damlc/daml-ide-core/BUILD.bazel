@@ -38,7 +38,6 @@ da_haskell_library(
         "pretty",
         "safe",
         "shake",
-        "split",
         "stm",
         "temporary",
         "text",

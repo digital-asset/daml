@@ -830,8 +830,9 @@ execIde telemetry (Debug debug) enableScenarioService autorunAllScenarios option
               , optMbPackageName = pName <$> mPkgConfig
               , optMbPackageVersion = mPkgConfig >>= pVersion
               , optMbPackageConfigPath = Just pkgPath
-              -- Since the main package changes, we use GHC's default of `main` everywhere, since plumbing the actual unit id
-              -- is messy.
+              -- IDE was built around not passing the package name and version, assuming the unit-id is "main" everywhere
+              -- For upgrade metadata checking, the IDE now needs the package name and version
+              -- This flag allows us to still hide the unit-id from ghc, so our assumption that the unit-id is "main" holds.
               , optHideUnitId = True
               }
           installDepsAndInitPackageDb options (InitPkgDb True)

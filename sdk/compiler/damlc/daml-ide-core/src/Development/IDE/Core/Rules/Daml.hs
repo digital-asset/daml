@@ -55,7 +55,6 @@ import Data.Hashable (Hashable())
 import qualified Data.IntMap.Strict as IntMap
 import Data.List.Extra
 import qualified Data.List.NonEmpty as NonEmpty
-import Data.List.Split (splitWhen)
 import qualified Data.Map.Strict as Map
 import Data.Maybe
 import qualified Data.NameMap as NM
@@ -544,66 +543,83 @@ getUpgradedPackageErrs :: Options -> LSP.NormalizedFilePath -> LF.Package -> [Fi
 getUpgradedPackageErrs opts file mainPkg = catMaybes $
   [ justIf (not $ optDamlLfVersion opts `LF.supports` LF.featurePackageUpgrades) $
       ideErrorPretty file $ mconcat
-        [ "Main package LF Version ("
+        [ mainPackage <> " LF Version ("
         , T.pack $ LF.renderVersion $ optDamlLfVersion opts
         , ") does not support Smart Contract Upgrades"
         ]
   , justIf (not $ LF.packageLfVersion mainPkg `LF.supports` LF.featurePackageUpgrades) $
       ideErrorPretty file $ mconcat
-        [ "Upgraded package LF Version ("
+        [ upgradedPackage <> " LF Version ("
         , T.pack $ LF.renderVersion $ LF.packageLfVersion mainPkg
         , ") does not support Smart Contract Upgrades"
         ]
-  , justIf (optDamlLfVersion opts `lfVersionLt` LF.packageLfVersion mainPkg) $
-      ideErrorPretty file $ mconcat
-        [ "Upgraded package LF Version ("
-        , T.pack $ LF.renderVersion $ LF.packageLfVersion mainPkg
-        , ") cannot be higher than main package LF Version ("
-        , T.pack $ LF.renderVersion $ optDamlLfVersion opts
-        , ")"
-        ]
+  , if optDamlLfVersion opts `lfVersionMajorNe` LF.packageLfVersion mainPkg
+      then
+        Just $
+          ideErrorPretty file $ mconcat
+            [ mainPackage <> " LF Version ("
+            , T.pack $ LF.renderVersion $ LF.packageLfVersion mainPkg
+            , ") must have the same major LF version as " <> upgradedPackage <> " LF Version ("
+            , T.pack $ LF.renderVersion $ optDamlLfVersion opts
+            , ")"
+            ]
+      else
+        justIf (optDamlLfVersion opts `lfVersionMinorLt` LF.packageLfVersion mainPkg) $
+          ideErrorPretty file $ mconcat
+            [ mainPackage <> " LF Version ("
+            , T.pack $ LF.renderVersion $ optDamlLfVersion opts
+            , ") cannot be lower than the " <> upgradedPackage <> " LF Version ("
+            , T.pack $ LF.renderVersion $ LF.packageLfVersion mainPkg
+            , ")"
+            ]
   ] ++ case LF.packageMetadata mainPkg of
     Nothing -> [Just $ ideErrorPretty file ("Upgraded DAR does not contain metadata" :: T.Text)]
     Just meta ->
       [ justIf (optMbPackageName opts /= Just (LF.packageName meta)) $
-          ideErrorPretty file $ T.unlines
-            [ "Upgraded package must have the same package name as main package."
-            , "Expected " <> maybe "<unknown>" LF.unPackageName (optMbPackageName opts)
-            , "Got " <> LF.unPackageName (LF.packageName meta)
+          ideErrorPretty file $ mconcat
+            [ "Main package must have the same package name as upgraded package."
+            , "\n" <> mainPackage <> " name: "
+            , maybe "<unknown>" LF.unPackageName (optMbPackageName opts)
+
+            , "\n" <> upgradedPackage <> " name: "
+            , LF.unPackageName (LF.packageName meta)
             ]
       , justIf (optMbPackageVersion opts == Just (LF.packageVersion meta)) $
-          ideErrorPretty file $ mconcat
-            [ "Upgraded package cannot have the same package version as main package ("
-            , LF.unPackageVersion $ LF.packageVersion meta
-            , ")"
-            ]
+          ideErrorPretty file $
+            mainPackage <> " cannot have the same package version as " <> upgradedPackage
       , justIf (maybe False (`packageVersionLt` LF.packageVersion meta) $ optMbPackageVersion opts) $
-          ideErrorPretty file $ mconcat
-            [ "Upgraded package cannot have a higher package version ("
-            , LF.unPackageVersion $ LF.packageVersion meta
-            , ") than main package ("
-            , LF.unPackageVersion $ fromJust $ optMbPackageVersion opts
-            , ")"
-            ]
+          ideErrorPretty file $
+            upgradedPackage <> " cannot have a higher package version than " <> mainPackage
       ]
   where
     justIf :: Bool -> a -> Maybe a
     justIf cond val = guard cond >> Just val
 
+    -- package versions have been checked at this point
     packageVersionLt :: LF.PackageVersion -> LF.PackageVersion -> Bool
-    packageVersionLt = (<) `on` fmap (read @Int) . splitWhen (=='.') . T.unpack . LF.unPackageVersion
+    packageVersionLt = (<) `on` fromRight (error "Impossible invalid package version") . LF.splitPackageVersion id
+     
+    lfVersionMinorLt :: LF.Version -> LF.Version -> Bool
+    lfVersionMinorLt = (<) `on` LF.versionMinor
 
-    -- We assume major will always be 1 (or at least the same), since Version.supportedOutputVersions does not contain any 2. versions
-    -- TODO: Is this acceptable?
-    lfVersionLt :: LF.Version -> LF.Version -> Bool
-    lfVersionLt = (<) `on` LF.versionMinor
+    lfVersionMajorNe :: LF.Version -> LF.Version -> Bool
+    lfVersionMajorNe = (/=) `on` LF.versionMajor
+
+    -- Renders "v1.0.0" if the version exists, "no version" else
+    renderMPackageVersion :: Maybe LF.PackageVersion -> T.Text
+    renderMPackageVersion = maybe "no version" $ \v -> "v" <> LF.unPackageVersion v
+
+    mainPackage :: T.Text
+    mainPackage = "Main package (" <> renderMPackageVersion (optMbPackageVersion opts) <> ")"
+
+    upgradedPackage :: T.Text
+    upgradedPackage = "Upgraded package (" <> renderMPackageVersion (LF.packageVersion <$> LF.packageMetadata mainPkg) <> ")"
 
 extractUpgradedPackageRule :: Options -> Rules ()
 extractUpgradedPackageRule opts = do
   defineNoFile $ \ExtractUpgradedPackage ->
-    case uiUpgradedPackagePath (optUpgradeInfo opts) of
-      Nothing -> pure Nothing
-      Just path -> Just <$> use_ ExtractUpgradedPackageFile (toNormalizedFilePath' path)
+    forM (uiUpgradedPackagePath $ optUpgradeInfo opts) $
+      use_ ExtractUpgradedPackageFile . toNormalizedFilePath'
   define $ \ExtractUpgradedPackageFile file -> do
     ExtractedDar{edMain,edDalfs} <- liftIO $ extractDar (fromNormalizedFilePath file)
     let decodeEntryWithUnitId decodeAs entry = do
