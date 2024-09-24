@@ -15,12 +15,14 @@ import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, Te
 import com.daml.ledger.api.v2.transaction_filter.TemplateFilter
 import com.daml.ledger.api.v2.value.Identifier
 import com.daml.ledger.javaapi.data.TransactionFilter
+import com.digitalasset.canton.platform.ApiOffset
 import io.reactivex.Observable
 import org.scalacheck.Shrink
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.flatspec.AnyFlatSpec
 
+import java.util.Optional
 import scala.jdk.CollectionConverters._
 import scala.jdk.OptionConverters._
 
@@ -60,7 +62,7 @@ final class UpdateClientImplTest
 
   implicit def tupleNoShrink[A, B]: Shrink[(A, B)] = Shrink.shrinkAny
 
-  private val ledgerBegin = ""
+  private val ledgerBegin = Optional.empty[java.lang.Long]()
   private val emptyFilter =
     new TransactionFilter(Map.empty[String, data.Filter].asJava, None.toJava)
 
@@ -68,7 +70,9 @@ final class UpdateClientImplTest
 
   it should "return transactions from the ledger" in forAll(ledgerContentGen) {
     case (ledgerContent, expectedTransactions) =>
-      val ledgerEnd = expectedTransactions.lastOption.fold("")(_.getOffset)
+      val ledgerEnd = expectedTransactions.lastOption.fold(Optional.empty[java.lang.Long]())(tx =>
+        ApiOffset.assertFromStringToLongO(tx.getOffset).map(long2Long).toJava
+      )
       ledgerServices.withUpdateClient(Observable.fromIterable(ledgerContent.asJava)) {
         (transactionClient, _) =>
           {
@@ -91,8 +95,8 @@ final class UpdateClientImplTest
 
   it should "pass start offset, end offset, transaction filter and verbose flag with the request" in {
     ledgerServices.withUpdateClient(Observable.empty()) { (transactionClient, transactionService) =>
-      val begin = "1"
-      val end = "2"
+      val begin: Optional[java.lang.Long] = Optional.of(1L)
+      val end: Optional[java.lang.Long] = Optional.of(2L)
 
       val transactionFilter = new TransactionFilter(
         Map[String, data.Filter](
@@ -114,8 +118,8 @@ final class UpdateClientImplTest
         .blockingGet()
 
       val request = transactionService.lastUpdatesRequest.get()
-      request.beginExclusive shouldBe "1"
-      request.endInclusive shouldBe "2"
+      request.beginExclusive shouldBe Some(1L)
+      request.endInclusive shouldBe Some(2L)
       val filterByParty = request.filter.get.filtersByParty
       filterByParty.keySet shouldBe Set("Alice")
       filterByParty("Alice").cumulative
@@ -138,7 +142,10 @@ final class UpdateClientImplTest
 
   it should "return transaction trees from the ledger" ignore forAll(ledgerContentTreeGen) {
     case (ledgerContent, expectedTransactionsTrees) =>
-      val ledgerEnd = expectedTransactionsTrees.last.getOffset
+      val ledgerEnd = ApiOffset
+        .assertFromStringToLongO(expectedTransactionsTrees.last.getOffset)
+        .map(long2Long)
+        .toJava
       ledgerServices.withUpdateClient(Observable.fromIterable(ledgerContent.asJava)) {
         (transactionClient, _) =>
           transactionClient
@@ -153,8 +160,8 @@ final class UpdateClientImplTest
 
   it should "pass start offset, end offset, transaction filter and verbose flag with the request" in {
     ledgerServices.withUpdateClient(Observable.empty()) { (transactionClient, transactionService) =>
-      val begin = "1"
-      val end = "2"
+      val begin: Optional[java.lang.Long] = Optional.of(1L)
+      val end: Optional[java.lang.Long] = Optional.of(2L)
 
       val transactionFilter = new TransactionFilter(
         Map[String, data.Filter](
@@ -176,8 +183,8 @@ final class UpdateClientImplTest
         .blockingGet()
 
       val request = transactionService.lastUpdatesTreesRequest.get()
-      request.beginExclusive shouldBe "1"
-      request.endInclusive shouldBe "2"
+      request.beginExclusive shouldBe Some(1L)
+      request.endInclusive shouldBe Some(2L)
       val filterByParty = request.filter.get.filtersByParty
       filterByParty.keySet shouldBe Set("Alice")
       filterByParty("Alice").cumulative
@@ -270,7 +277,7 @@ final class UpdateClientImplTest
     withClue("getTransactions specifying end") {
       expectUnauthenticated {
         toAuthenticatedServer(
-          _.getTransactions(ledgerBegin, "1", filterFor(someParty), false)
+          _.getTransactions(ledgerBegin, Optional.of(1L), filterFor(someParty), false)
             .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
             .blockingIterable()
             .asScala
@@ -281,7 +288,7 @@ final class UpdateClientImplTest
     withClue("getTransactionsTree specifying end") {
       expectUnauthenticated {
         toAuthenticatedServer(
-          _.getTransactionsTrees(ledgerBegin, "1", filterFor(someParty), false)
+          _.getTransactionsTrees(ledgerBegin, Optional.of(1L), filterFor(someParty), false)
             .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
             .blockingIterable()
             .asScala
@@ -321,7 +328,7 @@ final class UpdateClientImplTest
         toAuthenticatedServer(
           _.getTransactions(
             ledgerBegin,
-            "1",
+            Optional.of(1L),
             filterFor(someParty),
             false,
             someOtherPartyReadWriteToken,
@@ -338,7 +345,7 @@ final class UpdateClientImplTest
         toAuthenticatedServer(
           _.getTransactionsTrees(
             ledgerBegin,
-            "1",
+            Optional.of(1L),
             filterFor(someParty),
             false,
             someOtherPartyReadWriteToken,
@@ -389,7 +396,7 @@ final class UpdateClientImplTest
       toAuthenticatedServer(
         _.getTransactions(
           ledgerBegin,
-          "1",
+          Optional.of(1L),
           filterFor(someParty),
           false,
           somePartyReadWriteToken,
@@ -404,7 +411,7 @@ final class UpdateClientImplTest
       toAuthenticatedServer(
         _.getTransactionsTrees(
           ledgerBegin,
-          "1",
+          Optional.of(1L),
           filterFor(someParty),
           false,
           somePartyReadWriteToken,

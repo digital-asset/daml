@@ -7,7 +7,7 @@ import com.daml.ledger.javaapi.data.*;
 import io.reactivex.Single;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
-/** An RxJava version of {@link com.daml.ledger.api.v1.admin.UserManagementServiceGrpc} */
+/** An RxJava version of {@link com.daml.ledger.api.v2.admin.UserManagementServiceGrpc} */
 public interface UserManagementClient {
 
   Single<CreateUserResponse> createUser(@NonNull CreateUserRequest request);

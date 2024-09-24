@@ -9,7 +9,7 @@ import io.reactivex.Single;
 import java.util.Optional;
 import java.util.Set;
 
-/** An RxJava version of {@link com.daml.ledger.api.v1.ActiveContractsServiceGrpc} */
+/** An RxJava version of {@link com.daml.ledger.api.v2.StateServiceGrpc} */
 public interface StateClient {
 
   Flowable<GetActiveContractsResponse> getActiveContracts(
