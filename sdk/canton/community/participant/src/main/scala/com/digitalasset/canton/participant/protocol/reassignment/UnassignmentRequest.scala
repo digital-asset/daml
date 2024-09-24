@@ -7,16 +7,15 @@ import cats.data.EitherT
 import com.digitalasset.canton.crypto.{HashOps, HmacOps, Salt, SaltSeed}
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.participant.protocol.CanSubmitReassignment
+import com.digitalasset.canton.participant.protocol.ReassignmentSubmissionValidation
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.ReassignmentProcessorError
-import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessorError.UnassignmentSubmitterMustBeStakeholder
+import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessorError.StakeholderHostingErrors
 import com.digitalasset.canton.participant.protocol.submission.UsableDomain
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.{MediatorGroupRecipient, TimeProof}
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{LfPartyId, ReassignmentCounter}
 
@@ -111,32 +110,27 @@ object UnassignmentRequest {
     val templateId = contract.contractInstance.unversioned.template
 
     for {
-      _ <- CanSubmitReassignment.unassignment(
+      _ <- ReassignmentSubmissionValidation.unassignment(
         contractId,
         sourceTopology,
         submitterMetadata.submitter,
         participantId,
+        stakeholders,
       )
-      _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
-        stakeholders.contains(submitterMetadata.submitter),
-        UnassignmentSubmitterMustBeStakeholder(
-          contractId,
-          submitterMetadata.submitter,
-          stakeholders,
-        ),
-      )
-      adminPartiesAndRecipients <- AdminPartiesAndParticipants(
+
+      unassignmentRequestRecipients <- sourceTopology
+        .activeParticipantsOfAll(stakeholders.toList)
+        .mapK(FutureUnlessShutdown.outcomeK)
+        .leftMap(inactiveParties =>
+          StakeholderHostingErrors(s"The following stakeholders are not active: $inactiveParties")
+        )
+
+      reassigningParticipants <- new ReassigningParticipants(
         stakeholders,
         sourceTopology,
         targetTopology,
-      )
-      reassigningParticipants <- ReassigningParticipants
-        .compute(
-          stakeholders,
-          sourceTopology,
-          targetTopology,
-        )
-        .mapK(FutureUnlessShutdown.outcomeK)
+      ).compute.mapK(FutureUnlessShutdown.outcomeK)
+
       _ <- UsableDomain
         .checkPackagesVetted(
           targetDomain.unwrap,
@@ -166,7 +160,7 @@ object UnassignmentRequest {
 
       UnassignmentRequestValidated(
         unassignmentRequest,
-        adminPartiesAndRecipients.unassigningParticipants,
+        unassignmentRequestRecipients,
       )
     }
   }

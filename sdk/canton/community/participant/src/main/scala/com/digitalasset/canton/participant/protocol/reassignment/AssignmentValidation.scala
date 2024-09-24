@@ -10,16 +10,18 @@ import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, SyncCryptoEr
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.EngineController.GetEngineAbortStatus
-import com.digitalasset.canton.participant.protocol.ProcessingSteps
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidation.*
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
+import com.digitalasset.canton.participant.protocol.{
+  ProcessingSteps,
+  ReassignmentSubmissionValidation,
+}
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
-import com.digitalasset.canton.util.EitherUtil.condUnitE
 import com.digitalasset.canton.{LfPartyId, ReassignmentCounter}
 import com.digitalasset.daml.lf.engine.Error as LfError
 import com.digitalasset.daml.lf.interpretation.Error as LfInterpretationError
@@ -99,17 +101,6 @@ private[reassignment] class AssignmentValidation(
     val unassignmentResultEvent = assignmentRequest.unassignmentResultEvent.result
 
     val reassignmentId = assignmentRequest.unassignmentResultEvent.reassignmentId
-
-    def checkSubmitterIsStakeholder: Either[ReassignmentProcessorError, Unit] =
-      condUnitE(
-        assignmentRequest.stakeholders.contains(assignmentRequest.submitter),
-        AssignmentSubmitterMustBeStakeholder(
-          reassignmentId,
-          assignmentRequest.submitter,
-          assignmentRequest.stakeholders,
-        ),
-      )
-
     val targetIps = targetCrypto.ipsSnapshot
 
     reassignmentDataO match {
@@ -164,7 +155,7 @@ private[reassignment] class AssignmentValidation(
             assignmentRequest.contract == reassignmentData.contract,
             ContractDataMismatch(reassignmentId),
           )
-          _ <- EitherT.fromEither[Future](checkSubmitterIsStakeholder)
+
           unassignmentSubmitter = reassignmentData.unassignmentRequest.submitter
           targetTimeProof = reassignmentData.unassignmentRequest.targetTimeProof.timestamp
 
@@ -175,6 +166,16 @@ private[reassignment] class AssignmentValidation(
               staticDomainParameters,
               targetTimeProof,
             )
+
+          // TODO(#12926): validate assignmentRequest.stakeholders
+
+          _ <- ReassignmentSubmissionValidation.assignment(
+            reassignmentId = reassignmentId,
+            topologySnapshot = cryptoSnapshot.ipsSnapshot,
+            submitter = assignmentRequest.submitter,
+            participantId = assignmentRequest.submitterMetadata.submittingParticipant,
+            stakeholders = assignmentRequest.stakeholders,
+          )
 
           exclusivityLimit <- ProcessingSteps
             .getAssignmentExclusivity(
@@ -227,7 +228,13 @@ private[reassignment] class AssignmentValidation(
 
       case None =>
         for {
-          _ <- EitherT.fromEither[Future](checkSubmitterIsStakeholder)
+          _ <- ReassignmentSubmissionValidation.assignment(
+            reassignmentId = reassignmentId,
+            topologySnapshot = targetCrypto.ipsSnapshot,
+            submitter = assignmentRequest.submitter,
+            participantId = assignmentRequest.submitterMetadata.submittingParticipant,
+            stakeholders = assignmentRequest.stakeholders,
+          )
           res <-
             if (isReassigningParticipant) {
               // This happens either in case of malicious assignments (incorrectly declared reassigning participants)

@@ -12,6 +12,7 @@ import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
 import com.digitalasset.canton.admin.api.client.commands.StatusAdminCommands.NodeStatusCommand
 import com.digitalasset.canton.admin.api.client.data.{
   DarMetadata,
+  InFlightCount,
   ListConnectedDomainsResult,
   NodeStatus,
   ParticipantPruningSchedule,
@@ -1461,6 +1462,37 @@ object ParticipantAdminCommands {
             asOf.toInstant,
           )
         }.sequence
+    }
+
+    final case class CountInFlight(domainId: DomainId)
+        extends Base[
+          v30.CountInFlight.Request,
+          v30.CountInFlight.Response,
+          InFlightCount,
+        ] {
+
+      override def createRequest(): Either[String, v30.CountInFlight.Request] =
+        Right(v30.CountInFlight.Request(domainId.toProtoPrimitive))
+
+      override def submitRequest(
+          service: InspectionServiceStub,
+          request: v30.CountInFlight.Request,
+      ): Future[v30.CountInFlight.Response] =
+        service.countInFlight(request)
+
+      override def handleResponse(
+          response: v30.CountInFlight.Response
+      ): Either[String, InFlightCount] =
+        for {
+          pendingSubmissions <- ProtoConverter
+            .parseNonNegativeInt("CountInFlight.pending_submissions", response.pendingSubmissions)
+            .leftMap(_.toString)
+          pendingTransactions <- ProtoConverter
+            .parseNonNegativeInt("CountInFlight.pending_transactions", response.pendingTransactions)
+            .leftMap(_.toString)
+        } yield {
+          InFlightCount(pendingSubmissions, pendingTransactions)
+        }
     }
 
   }

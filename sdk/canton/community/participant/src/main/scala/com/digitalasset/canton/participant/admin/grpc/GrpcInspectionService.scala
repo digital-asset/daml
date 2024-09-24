@@ -3,11 +3,13 @@
 
 package com.digitalasset.canton.participant.admin.grpc
 
+import cats.data.EitherT
 import cats.implicits.toTraverseOps
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.participant.v30.InspectionServiceGrpc.InspectionService
 import com.digitalasset.canton.admin.participant.v30.{
+  CountInFlight,
   DomainTimeRange,
   GetConfigForSlowCounterParticipants,
   GetIntervalsBehindForCounterParticipants,
@@ -22,6 +24,7 @@ import com.digitalasset.canton.admin.participant.v30.{
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
+import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection.InFlightCount
 import com.digitalasset.canton.participant.domain.DomainAliasManager
 import com.digitalasset.canton.protocol.messages.{
   CommitmentPeriodState,
@@ -283,4 +286,33 @@ class GrpcInspectionService(
       request: InspectCommitmentContracts.Request,
       responseObserver: StreamObserver[InspectCommitmentContracts.Response],
   ): Unit = ???
+
+  override def countInFlight(
+      request: CountInFlight.Request
+  ): Future[CountInFlight.Response] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+
+    val inFlightCount: EitherT[Future, String, InFlightCount] = for {
+      domainId <- EitherT.fromEither[Future](DomainId.fromString(request.domainId))
+      domainAlias <- EitherT.fromEither[Future](
+        domainAliasManager
+          .aliasForDomainId(domainId)
+          .toRight(s"Not able to find domain alias for ${domainId.toString}")
+      )
+
+      count <- syncStateInspection.countInFlight(domainAlias)
+    } yield {
+      count
+    }
+
+    inFlightCount.fold(
+      err => throw new IllegalArgumentException(err),
+      count =>
+        CountInFlight.Response(
+          count.pendingSubmissions.unwrap,
+          count.pendingTransactions.unwrap,
+        ),
+    )
+
+  }
 }

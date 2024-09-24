@@ -36,6 +36,7 @@ import com.digitalasset.canton.admin.api.client.commands.ParticipantAdminCommand
 import com.digitalasset.canton.admin.api.client.commands.*
 import com.digitalasset.canton.admin.api.client.data.{
   DarMetadata,
+  InFlightCount,
   ListConnectedDomainsResult,
   ParticipantPruningSchedule,
   ParticipantStatus,
@@ -1996,4 +1997,27 @@ class ParticipantHealthAdministration(
   override protected def nodeStatusCommand
       : StatusAdminCommands.NodeStatusCommand[ParticipantStatus, _, _] =
     ParticipantAdminCommands.Health.ParticipantStatusCommand()
+
+  @Help.Summary("Counts pending command submissions and transactions on a domain.")
+  @Help.Description(
+    """This command finds the current number of pending command submissions and transactions on a selected domain.
+      |
+      |There is no synchronization between pending command submissions and transactions. And the respective
+      |counts are an indication only!
+      |
+      |This command is in particular useful to re-assure oneself that there are currently no in-flight submissions
+      |or transactions present for the selected domain. Such re-assurance is then helpful to proceed with repair
+      |operations, for example."""
+  )
+  def count_in_flight(domainAlias: DomainAlias): InFlightCount = {
+    val domainId = consoleEnvironment.run {
+      runner.adminCommand(ParticipantAdminCommands.DomainConnectivity.GetDomainId(domainAlias))
+    }
+
+    consoleEnvironment.run {
+      runner.adminCommand(
+        ParticipantAdminCommands.Inspection.CountInFlight(domainId)
+      )
+    }
+  }
 }

@@ -5,7 +5,6 @@ package com.digitalasset.canton.domain.block
 
 import cats.data.{EitherT, Nested}
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -18,8 +17,6 @@ import com.digitalasset.canton.domain.block.data.{
 }
 import com.digitalasset.canton.domain.block.update.BlockUpdateGenerator.BlockChunk
 import com.digitalasset.canton.domain.block.update.*
-import com.digitalasset.canton.domain.sequencing.integrations.state.statemanager.MemberCounters
-import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencer
 import com.digitalasset.canton.domain.sequencing.sequencer.{
   InFlightAggregations,
   SequencerIntegration,
@@ -32,7 +29,6 @@ import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.canton.util.{ErrorUtil, LoggerUtil}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.google.common.annotations.VisibleForTesting
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Flow
 
@@ -52,8 +48,6 @@ class SequencerUnexpectedStateChange(message: String = "Sequencer state has unex
 /** State manager for operating a sequencer using Blockchain based infrastructure (such as fabric or ethereum) */
 trait BlockSequencerStateManagerBase extends FlagCloseable {
 
-  private[domain] def firstSequencerCounterServableForSequencer: SequencerCounter
-
   def getHeadState: HeadState
 
   /** Flow to turn [[com.digitalasset.canton.domain.block.BlockEvents]] of one block
@@ -71,9 +65,6 @@ trait BlockSequencerStateManagerBase extends FlagCloseable {
       dbSequencerIntegration: SequencerIntegration
   ): Flow[Traced[BlockUpdate], Traced[CantonTimestamp], NotUsed]
 
-  /** Wait for the sequencer pruning request to have been processed and get the returned message */
-  def waitForPruningToComplete(timestamp: CantonTimestamp): (Boolean, Future[Unit])
-
   /** Wait for the member's acknowledgement to have been processed */
   def waitForAcknowledgementToComplete(member: Member, timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
@@ -86,7 +77,6 @@ class BlockSequencerStateManager(
     sequencerId: SequencerId,
     val store: SequencerBlockStore,
     enableInvariantCheck: Boolean,
-    initialMemberCounters: MemberCounters,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -95,7 +85,6 @@ class BlockSequencerStateManager(
 
   import BlockSequencerStateManager.*
 
-  private val sequencerPruningPromises = TrieMap[CantonTimestamp, Promise[Unit]]()
   private val memberAcknowledgementPromises =
     TrieMap[Member, NonEmpty[SortedMap[CantonTimestamp, Traced[Promise[Unit]]]]]()
 
@@ -106,14 +95,6 @@ class BlockSequencerStateManager(
     logger.debug(s"Initialized the block sequencer with head block ${headBlock.latestBlock}")
     HeadState.fullyProcessed(headBlock)
   })
-
-  private val countersSupportedAfter = new AtomicReference[MemberCounters](initialMemberCounters)
-
-  override private[domain] def firstSequencerCounterServableForSequencer: SequencerCounter =
-    countersSupportedAfter
-      .get()
-      .get(sequencerId)
-      .fold(SequencerCounter.Genesis)(_ + 1)
 
   override def getHeadState: HeadState = headState.get()
 
@@ -200,8 +181,6 @@ class BlockSequencerStateManager(
       implicit val traceContext = update.traceContext
       val currentBlockNumber = priorHead.block.height + 1
       val fut = update.value match {
-        case LocalBlockUpdate(local) =>
-          handleLocalEvent(priorHead, local)(traceContext)
         case chunk: ChunkUpdate =>
           val chunkNumber = priorHead.chunk.chunkNumber + 1
           LoggerUtil.clueF(
@@ -218,35 +197,6 @@ class BlockSequencerStateManager(
       }
       fut.map(newHead => newHead -> Traced(newHead.block.lastTs))
     }
-  }
-
-  @VisibleForTesting
-  private[domain] def handleLocalEvent(
-      priorHead: HeadState,
-      event: BlockSequencer.LocalEvent,
-  )(implicit traceContext: TraceContext): Future[HeadState] = event match {
-    case BlockSequencer.UpdateInitialMemberCounters(timestamp) =>
-      updateInitialMemberCounters(timestamp).map { (_: Unit) =>
-        // Pruning does not change the head state
-        priorHead
-      }
-  }
-
-  private def updateInitialMemberCounters(
-      timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[Unit] = for {
-    initialCounters <- store.initialMemberCounters
-  } yield {
-    countersSupportedAfter.set(initialCounters)
-    resolveSequencerPruning(timestamp)
-  }
-
-  override def waitForPruningToComplete(timestamp: CantonTimestamp): (Boolean, Future[Unit]) = {
-    val newPromise = Promise[Unit]()
-    val (isNew, promise) = sequencerPruningPromises
-      .putIfAbsent(timestamp, newPromise)
-      .fold((true, newPromise))(oldPromise => (false, oldPromise))
-    (isNew, promise.future)
   }
 
   override def waitForAcknowledgementToComplete(member: Member, timestamp: CantonTimestamp)(implicit
@@ -364,9 +314,6 @@ class BlockSequencerStateManager(
       ErrorUtil.internalError(new SequencerUnexpectedStateChange)
     }
 
-  private def resolveSequencerPruning(timestamp: CantonTimestamp): Unit =
-    sequencerPruningPromises.remove(timestamp) foreach { promise => promise.success(()) }
-
   /** Resolves all outstanding acknowledgements up to the given timestamp.
     * Unlike for resolutions of other requests, we resolve also all earlier acknowledgements,
     * because this mimics the effect of the acknowledgement: all earlier acknowledgements are irrelevant now.
@@ -455,24 +402,16 @@ object BlockSequencerStateManager {
       enableInvariantCheck: Boolean,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
-  )(implicit
-      executionContext: ExecutionContext,
-      traceContext: TraceContext,
-  ): Future[BlockSequencerStateManager] =
-    for {
-      counters <- store.initialMemberCounters
-    } yield {
-      new BlockSequencerStateManager(
-        protocolVersion = protocolVersion,
-        domainId = domainId,
-        sequencerId = sequencerId,
-        store = store,
-        enableInvariantCheck = enableInvariantCheck,
-        initialMemberCounters = counters,
-        timeouts = timeouts,
-        loggerFactory = loggerFactory,
-      )
-    }
+  )(implicit executionContext: ExecutionContext): BlockSequencerStateManager =
+    new BlockSequencerStateManager(
+      protocolVersion = protocolVersion,
+      domainId = domainId,
+      sequencerId = sequencerId,
+      store = store,
+      enableInvariantCheck = enableInvariantCheck,
+      timeouts = timeouts,
+      loggerFactory = loggerFactory,
+    )
 
   /** Keeps track of the accumulated state changes by processing chunks of updates from a block
     *

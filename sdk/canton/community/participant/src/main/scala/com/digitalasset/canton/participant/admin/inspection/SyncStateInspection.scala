@@ -9,12 +9,16 @@ import cats.syntax.traverse.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.ledger.participant.state.{DomainIndex, RequestIndex}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.admin.data.ActiveContract
-import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection.SyncStateInspectionError
+import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection.{
+  InFlightCount,
+  SyncStateInspectionError,
+}
 import com.digitalasset.canton.participant.protocol.RequestJournal
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.{
@@ -539,28 +543,26 @@ final class SyncStateInspection(
     )
   } yield CantonTimestamp(domainOffset.publicationTime)
 
-  def hasInFlightSubmissions(
+  def countInFlight(
       domain: DomainAlias
-  )(implicit traceContext: TraceContext): EitherT[Future, String, Boolean] = for {
-    domainId <- EitherT.fromEither[Future](
-      getPersistentState(domain).toRight(s"Unknown domain $domain").map(_.domainId.domainId)
-    )
-    earliestInFlightO <-
-      EitherT.right[String](
-        participantNodePersistentState.value.inFlightSubmissionStore.lookupEarliest(domainId)
-      )
-  } yield earliestInFlightO.isDefined
-
-  def hasDirtyRequests(
-      domain: DomainAlias
-  )(implicit traceContext: TraceContext): EitherT[Future, String, Boolean] =
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[Future, String, InFlightCount] =
     for {
       state <- EitherT.fromEither[Future](
         getPersistentState(domain)
           .toRight(s"Unknown domain $domain")
       )
-      count <- EitherT.right[String](state.requestJournalStore.totalDirtyRequests())
-    } yield count > 0
+      domainId = state.domainId.domainId
+      unsequencedSubmissions <- EitherT.right[String](
+        participantNodePersistentState.value.inFlightSubmissionStore
+          .lookupUnsequencedUptoUnordered(domainId, CantonTimestamp.now())
+      )
+      pendingSubmissions = NonNegativeInt.tryCreate(unsequencedSubmissions.size)
+      pendingTransactions <- EitherT.right[String](state.requestJournalStore.totalDirtyRequests())
+    } yield {
+      InFlightCount(pendingSubmissions, pendingTransactions)
+    }
 
   def verifyLapiStoreIntegrity()(implicit traceContext: TraceContext): Unit =
     timeouts.inspection.await(functionFullName)(
@@ -608,5 +610,12 @@ object SyncStateInspection {
 
   private def getOrFail[T](opt: Option[T], domain: DomainAlias): T =
     opt.getOrElse(throw new IllegalArgumentException(s"no such domain [$domain]"))
+
+  final case class InFlightCount(
+      pendingSubmissions: NonNegativeInt,
+      pendingTransactions: NonNegativeInt,
+  ) {
+    def exists: Boolean = pendingSubmissions.unwrap > 0 || pendingTransactions.unwrap > 0
+  }
 
 }

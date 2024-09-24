@@ -565,13 +565,14 @@ object Generators {
   def getLatestPrunedOffsetsResponseGen
       : Gen[v2.StateServiceOuterClass.GetLatestPrunedOffsetsResponse] =
     for {
-      participantPruned <- Arbitrary.arbString.arbitrary
-      allDivulgedPruned <- Arbitrary.arbString.arbitrary
-    } yield v2.StateServiceOuterClass.GetLatestPrunedOffsetsResponse
-      .newBuilder()
-      .setParticipantPrunedUpToInclusive(participantPruned)
-      .setAllDivulgedContractsPrunedUpToInclusive(allDivulgedPruned)
-      .build()
+      participantPruned <- Gen.option(Arbitrary.arbLong.arbitrary)
+      allDivulgedPruned <- Gen.option(Arbitrary.arbLong.arbitrary)
+    } yield {
+      val builder = v2.StateServiceOuterClass.GetLatestPrunedOffsetsResponse.newBuilder()
+      participantPruned.foreach(builder.setParticipantPrunedUpToInclusive)
+      allDivulgedPruned.foreach(builder.setAllDivulgedContractsPrunedUpToInclusive)
+      builder.build()
+    }
 
   def createdGen: Gen[v2.EventQueryServiceOuterClass.Created] =
     for {

@@ -156,7 +156,9 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
     ): Future[SequencerHealthStatus] = Future.successful(SequencerHealthStatus(isActive = true))
 
     override def adminStatus: SequencerAdminStatus = ???
-    override private[sequencing] def firstSequencerCounterServeableForSequencer: SequencerCounter =
+    override private[sequencing] def firstSequencerCounterServeableForSequencer(implicit
+        traceContext: TraceContext
+    ): Future[SequencerCounter] =
       ???
     override def trafficStatus(members: Seq[Member], selector: TimestampSelector)(implicit
         traceContext: TraceContext

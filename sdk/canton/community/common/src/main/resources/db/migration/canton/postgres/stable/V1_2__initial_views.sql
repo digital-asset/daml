@@ -365,12 +365,6 @@ create or replace view debug.seq_block_height as
     debug.canton_timestamp(latest_sequencer_event_ts) as latest_sequencer_event_ts
   from seq_block_height;
 
-create or replace view debug.seq_initial_state as
-  select
-    member,
-    counter
-  from seq_initial_state;
-
 create or replace view debug.par_active_contract_pruning as
   select
     debug.resolve_common_static_string(domain_id) as domain_id,

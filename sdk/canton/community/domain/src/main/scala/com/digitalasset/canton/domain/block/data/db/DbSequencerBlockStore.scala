@@ -14,7 +14,6 @@ import com.digitalasset.canton.domain.block.data.{
   SequencerBlockStore,
 }
 import com.digitalasset.canton.domain.sequencing.integrations.state.DbSequencerStateManagerStore
-import com.digitalasset.canton.domain.sequencing.integrations.state.statemanager.MemberCounters
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError.BlockNotFound
 import com.digitalasset.canton.domain.sequencing.sequencer.{
@@ -25,10 +24,8 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.DbStorage.Profile.{H2, Oracle, Postgres}
 import com.digitalasset.canton.resource.IdempotentInsert.insertVerifyingConflicts
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
-import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{SequencerCounter, resource}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -42,7 +39,6 @@ class DbSequencerBlockStore(
     with DbStore {
 
   import DbStorage.Implicits.BuilderChain.*
-  import Member.DbStorageImplicits.*
   import storage.api.*
 
   private val topRow = storage.limitSql(1)
@@ -142,58 +138,19 @@ class DbSequencerBlockStore(
       maybeOnboardingTopologyEffectiveTimestamp: Option[CantonTimestamp],
   )(implicit traceContext: TraceContext): Future[Unit] = {
     val updateBlockHeight = updateBlockHeightDBIO(BlockInfo.fromSequencerInitialState(initial))
-    val writeInitialCounters = initial.snapshot.heads.toSeq.map { case (member, counter) =>
-      upsertMemberInitialState(member, counter)
-    }
     val addInFlightAggregations =
       sequencerStore.addInFlightAggregationUpdatesDBIO(
         initial.snapshot.inFlightAggregations.fmap(_.asUpdate)
       )
-
     storage
       .queryAndUpdate(
         DBIO.seq(
-          updateBlockHeight +: addInFlightAggregations +: writeInitialCounters: _*
+          updateBlockHeight,
+          addInFlightAggregations,
         ),
         functionFullName,
       )
   }
-
-  private def upsertMemberInitialState(
-      member: Member,
-      counter: SequencerCounter,
-  ): resource.DbStorage.DbAction.All[Unit] =
-    (storage.profile match {
-      case _: DbStorage.Profile.H2 =>
-        sqlu"""merge into seq_initial_state as sis using (values ($member, $counter))
-                 mis (member, counter)
-                   on sis.member = mis.member
-                   when matched and mis.counter > sis.counter then update set counter = mis.counter
-                   when not matched then insert values(mis.member, mis.counter);"""
-      case _: DbStorage.Profile.Postgres =>
-        sqlu"""insert into seq_initial_state as sis (member, counter) values ($member, $counter)
-                 on conflict (member) do update set counter = excluded.counter where sis.counter < excluded.counter"""
-      case _: DbStorage.Profile.Oracle =>
-        sqlu"""merge into seq_initial_state inits
-                 using (
-                  select
-                    $member member,
-                    $counter counter
-                    from dual
-                  ) parameters
-                 on (inits.member = parameters.member)
-                 when matched then
-                  update set inits.counter = parameters.counter where inits.counter < parameters.counter
-                 when not matched then
-                  insert (member, counter) values (parameters.member, parameters.counter)
-                  """
-    }).map(_ => ())
-
-  override def initialMemberCounters(implicit traceContext: TraceContext): Future[MemberCounters] =
-    storage.query(initialMemberCountersDBIO, functionFullName).map(_.toMap)
-
-  private def initialMemberCountersDBIO =
-    sql"select member, counter from seq_initial_state".as[(Member, SequencerCounter)]
 
   private def updateBlockHeightDBIO(block: BlockInfo)(implicit traceContext: TraceContext) =
     insertVerifyingConflicts(
@@ -239,15 +196,6 @@ class DbSequencerBlockStore(
     val pruningFromBeginning = (maxHeight - count) == -1
     s"Removed ${if (pruningFromBeginning) count else Math.max(0, count - 1)} blocks"
   }
-
-  override def updateMemberCounterSupportedAfter(
-      member: Member,
-      counterLastUnsupported: SequencerCounter,
-  )(implicit traceContext: TraceContext): Future[Unit] =
-    storage.queryAndUpdate(
-      upsertMemberInitialState(member, counterLastUnsupported),
-      functionFullName,
-    )
 
   private[this] def readLatestBlockInfo(): DBIOAction[Option[BlockInfo], NoStream, Effect.Read] =
     (sql"select height, latest_event_ts, latest_sequencer_event_ts from seq_block_height order by height desc " ++ topRow)

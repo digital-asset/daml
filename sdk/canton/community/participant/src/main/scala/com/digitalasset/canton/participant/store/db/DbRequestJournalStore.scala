@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.store.db
 import cats.data.{EitherT, OptionT}
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.RequireTypes.PositiveNumeric
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveNumeric}
 import com.digitalasset.canton.config.{BatchAggregatorConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{CloseContext, Lifecycle}
@@ -377,13 +377,13 @@ class DbRequestJournalStore(
     storage.query(statement, functionFullName)
   }
 
-  override def totalDirtyRequests()(implicit traceContext: TraceContext): Future[Int] = {
+  override def totalDirtyRequests()(implicit traceContext: TraceContext): Future[NonNegativeInt] = {
     val statement =
       sql"""
         select count(*)
         from par_journal_requests where domain_id = $domainId and commit_time is null
         """.as[Int].head
-    storage.query(statement, functionFullName)
+    storage.query(statement, functionFullName).map(NonNegativeInt.tryCreate)
   }
 
   override def onClosed(): Unit = Lifecycle.close(cleanPreheadStore)(logger)

@@ -42,6 +42,8 @@ service InspectionService {
   // Can be used to decide whether to ignore slow counter-participants w.r.t. pruning.
   // TODO(#10436) R7
   rpc GetIntervalsBehindForCounterParticipants(GetIntervalsBehindForCounterParticipants.Request) returns (GetIntervalsBehindForCounterParticipants.Response);
+  // Count in-flight submissions and transactions for a domain
+  rpc CountInFlight(CountInFlight.Request) returns (CountInFlight.Response);
 }
 
 message LookupOffsetByTime {
@@ -308,5 +310,17 @@ message GetIntervalsBehindForCounterParticipants {
 
   message Response {
     repeated CounterParticipantInfo intervals_behind = 1;
+  }
+}
+
+message CountInFlight {
+  message Request {
+    // the domain to query for pending submissions and in-flight transactions
+    string domain_id = 1;
+  }
+
+  message Response {
+    uint32 pending_submissions = 1;
+    uint32 pending_transactions = 2;
   }
 }

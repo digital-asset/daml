@@ -5,12 +5,15 @@ package com.digitalasset.canton.participant.protocol.submission.routing
 
 import cats.Order.*
 import cats.data.{Chain, EitherT}
+import cats.syntax.bifunctor.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.LfPartyId
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.protocol.CanSubmitReassignment
+import com.digitalasset.canton.participant.protocol.ReassignmentSubmissionValidation
+import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.ReassignmentProcessorError
 import com.digitalasset.canton.participant.protocol.reassignment.{
-  AdminPartiesAndParticipants,
+  ReassigningParticipants,
   UnassignmentProcessorError,
 }
 import com.digitalasset.canton.participant.sync.TransactionRoutingError
@@ -106,17 +109,18 @@ private[routing] class DomainRankComputation(
         case reader :: rest =>
           val result =
             for {
-              _ <- CanSubmitReassignment.unassignment(
+              _ <- ReassignmentSubmissionValidation.unassignment(
                 contractId,
                 sourceSnapshot,
                 reader,
                 participantId,
+                contractStakeholders,
               )
-              _adminParties <- AdminPartiesAndParticipants(
+              _ <- new ReassigningParticipants(
                 contractStakeholders,
                 sourceSnapshot,
                 targetSnapshot,
-              )
+              ).compute.mapK(FutureUnlessShutdown.outcomeK).leftWiden[ReassignmentProcessorError]
             } yield ()
           result
             .onShutdown(Left(UnassignmentProcessorError.AbortedDueToShutdownOut(contractId)))

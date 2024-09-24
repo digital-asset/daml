@@ -427,11 +427,6 @@ create table seq_block_height (
   latest_sequencer_event_ts bigint
 );
 
-create table seq_initial_state (
-  member varchar(300) collate "C" primary key,
-  counter bigint not null
-);
-
 -- Maintains the latest timestamp (by domain) for which ACS pruning has started or finished
 create table par_active_contract_pruning (
   domain_id integer not null,

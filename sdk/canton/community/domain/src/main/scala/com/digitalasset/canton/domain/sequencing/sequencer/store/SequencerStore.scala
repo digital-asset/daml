@@ -398,7 +398,7 @@ final case class RegisteredMember(
 
 /** Used for verifying what pruning is doing in tests */
 @VisibleForTesting
-private[store] final case class SequencerStoreRecordCounts(
+private[sequencer] final case class SequencerStoreRecordCounts(
     events: Long,
     payloads: Long,
     counterCheckpoints: Long,
@@ -583,6 +583,10 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
 
   /** Fetch a checkpoint with a counter value less than the provided counter. */
   def fetchClosestCheckpointBefore(memberId: SequencerMemberId, counter: SequencerCounter)(implicit
+      traceContext: TraceContext
+  ): Future[Option[CounterCheckpoint]]
+
+  def fetchEarliestCheckpointForMember(memberId: SequencerMemberId)(implicit
       traceContext: TraceContext
   ): Future[Option[CounterCheckpoint]]
 

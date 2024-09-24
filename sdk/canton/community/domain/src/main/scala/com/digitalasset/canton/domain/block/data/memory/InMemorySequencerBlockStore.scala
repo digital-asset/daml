@@ -5,8 +5,6 @@ package com.digitalasset.canton.domain.block.data.memory
 
 import cats.data.EitherT
 import cats.syntax.functor.*
-import cats.syntax.parallel.*
-import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -16,7 +14,6 @@ import com.digitalasset.canton.domain.block.data.{
   SequencerBlockStore,
 }
 import com.digitalasset.canton.domain.sequencing.integrations.state.InMemorySequencerStateManagerStore
-import com.digitalasset.canton.domain.sequencing.integrations.state.statemanager.MemberCounters
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError.BlockNotFound
 import com.digitalasset.canton.domain.sequencing.sequencer.store.InMemorySequencerStore
@@ -25,11 +22,8 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
   SequencerInitialState,
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.FutureInstances.*
 
-import java.util.concurrent.atomic.AtomicReference
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -48,7 +42,6 @@ class InMemorySequencerBlockStore(
     */
   private val blockToTimestampMap =
     new TrieMap[Long, (CantonTimestamp, Option[CantonTimestamp])]
-  private val memberInitialCounter = new AtomicReference[Map[Member, SequencerCounter]](Map.empty)
 
   override def setInitialState(
       initialSequencerState: SequencerInitialState,
@@ -57,9 +50,6 @@ class InMemorySequencerBlockStore(
     val initial = BlockEphemeralState.fromSequencerInitialState(initialSequencerState)
     updateBlockHeight(initial.latestBlock)
     for {
-      _ <- initialSequencerState.snapshot.heads.toSeq.parTraverse_ { case (member, counter) =>
-        updateMemberCounterSupportedAfter(member, counter)
-      }
       _ <- sequencerStore.addInFlightAggregationUpdates(
         initial.inFlightAggregations.fmap(_.asUpdate)
       )
@@ -67,9 +57,6 @@ class InMemorySequencerBlockStore(
       ()
     }
   }
-
-  override def initialMemberCounters(implicit traceContext: TraceContext): Future[MemberCounters] =
-    Future.successful(memberInitialCounter.get)
 
   override def partialBlockUpdate(
       inFlightAggregationUpdates: InFlightAggregationUpdates
@@ -156,20 +143,6 @@ class InMemorySequencerBlockStore(
       s"Removed ${blocksToBeRemoved.size} blocks"
     )
   }
-
-  override def updateMemberCounterSupportedAfter(
-      member: Member,
-      counterLastUnsupported: SequencerCounter,
-  )(implicit
-      traceContext: TraceContext
-  ): Future[Unit] =
-    Future.successful(memberInitialCounter.getAndUpdate { previousState =>
-      // Don't update member counter if specified counter is less than or equal that previous counter.
-      val prevCounter = previousState.get(member)
-      if (prevCounter.exists(_ >= counterLastUnsupported)) previousState
-      else
-        previousState.updated(member, counterLastUnsupported)
-    }.discard)
 
   override def close(): Unit = ()
 

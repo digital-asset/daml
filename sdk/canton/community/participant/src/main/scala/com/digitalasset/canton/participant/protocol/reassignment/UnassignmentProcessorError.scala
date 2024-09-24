@@ -3,8 +3,6 @@
 
 package com.digitalasset.canton.participant.protocol.reassignment
 
-import cats.data.NonEmptyChain
-import cats.implicits.catsSyntaxFoldableOps0
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.ReassignmentProcessorError
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.PackageUnknownTo
@@ -17,11 +15,6 @@ import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 trait UnassignmentProcessorError extends ReassignmentProcessorError
 
 object UnassignmentProcessorError {
-
-  def fromChain(constructor: String => UnassignmentProcessorError)(
-      errors: NonEmptyChain[String]
-  ): UnassignmentProcessorError =
-    constructor(errors.mkString_(", "))
 
   final case class UnassignmentSubmitterMustBeStakeholder(
       contractId: LfContractId,

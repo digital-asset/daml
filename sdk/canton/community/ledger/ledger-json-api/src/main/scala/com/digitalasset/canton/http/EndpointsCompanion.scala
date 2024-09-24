@@ -8,7 +8,13 @@ import org.apache.pekko.http.scaladsl.server.RouteResult.Complete
 import org.apache.pekko.http.scaladsl.server.{RequestContext, Route}
 import org.apache.pekko.util.ByteString
 import util.GrpcHttpErrorCodes.*
-import com.daml.jwt.{AuthServiceJWTCodec, AuthServiceJWTPayload, DecodedJwt, Jwt, StandardJWTPayload}
+import com.daml.jwt.{
+  AuthServiceJWTCodec,
+  AuthServiceJWTPayload,
+  DecodedJwt,
+  Jwt,
+  StandardJWTPayload,
+}
 import com.digitalasset.canton.ledger.api.domain.UserRight
 import UserRight.{CanActAs, CanReadAs}
 import com.daml.error.utils.ErrorDetails
@@ -144,7 +150,7 @@ object EndpointsCompanion extends NoTracing {
                 -\/ apply Unauthorized(
                   "ActAs list of user was empty, this is an invalid state for converting it to a JwtWritePayload"
                 )
-              else \/-(NonEmptyList(actAs.head: String, actAs.tail: _*))
+              else \/-(NonEmptyList(actAs.head: String, actAs.tail*))
           } yield JwtWritePayload(
             lar.ApplicationId(userId),
             lar.Party.subst(actAsNonEmpty),
@@ -229,12 +235,11 @@ object EndpointsCompanion extends NoTracing {
     }
   }
 
-  def httpResponse(status: StatusCode, data: JsValue): HttpResponse = {
+  def httpResponse(status: StatusCode, data: JsValue): HttpResponse =
     HttpResponse(
       status = status,
       entity = HttpEntity.Strict(ContentTypes.`application/json`, format(data)),
     )
-  }
 
   def format(a: JsValue): ByteString = ByteString(a.compactPrint)
 
@@ -258,7 +263,7 @@ object EndpointsCompanion extends NoTracing {
   )(implicit
       createFromUserToken: CreateFromUserToken[A],
       fm: Monad[Future],
-  ): EitherT[Future, Error, (Jwt, A)] = {
+  ): EitherT[Future, Error, (Jwt, A)] =
     for {
       token <- EitherT.either(decodeAndParseJwt(jwt, decodeJwt))
       p <- token match {
@@ -269,5 +274,4 @@ object EndpointsCompanion extends NoTracing {
           ).leftMap(identity[Error])
       }
     } yield (jwt, p: A)
-  }
 }

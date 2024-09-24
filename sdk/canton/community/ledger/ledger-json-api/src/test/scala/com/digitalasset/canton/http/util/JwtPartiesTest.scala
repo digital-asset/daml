@@ -12,6 +12,7 @@ import com.daml.nonempty.NonEmptyReturningOps.*
 import org.scalacheck.{Arbitrary, Gen}
 import Arbitrary.arbitrary
 import com.digitalasset.canton.http.domain
+import org.scalatest.OptionValues
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
@@ -25,7 +26,8 @@ class JwtPartiesTest
     extends AnyWordSpec
     with ScalaFutures
     with Matchers
-    with ScalaCheckDrivenPropertyChecks {
+    with ScalaCheckDrivenPropertyChecks
+    with OptionValues {
   import JwtPartiesTest.*
 
   "ensureReadAsAllowedByJwt" should {
@@ -36,7 +38,7 @@ class JwtPartiesTest
     }
 
     "allow any subset" in forAll { (jp: JwtPayload) =>
-      val NonEmpty(half) = jp.parties take (1 max (jp.parties.size / 2))
+      val half = NonEmpty.from(jp.parties take (1 max (jp.parties.size / 2))).value
       ensureReadAsAllowedByJwt(Some(half.toNEF.toNel), jp) should ===(\/-(()))
     }
 

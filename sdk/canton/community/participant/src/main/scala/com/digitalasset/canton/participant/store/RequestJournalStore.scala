@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.store
 
 import cats.data.{EitherT, OptionT}
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.participant.protocol.RequestJournal.{RequestData, RequestState}
@@ -97,7 +98,7 @@ trait RequestJournalStore { this: NamedLogging =>
 
   /** Returns the number of dirty requests.
     */
-  def totalDirtyRequests()(implicit traceContext: TraceContext): Future[Int]
+  def totalDirtyRequests()(implicit traceContext: TraceContext): Future[NonNegativeInt]
 }
 
 sealed trait RequestJournalStoreError extends Product with Serializable

@@ -145,6 +145,12 @@ class BlockSequencerTest
 
     val fakeBlockOrderer = new FakeBlockOrderer(N)
     private val fakeBlockSequencerStateManager = new FakeBlockSequencerStateManager
+    private val fakeDbSequencerStore = new InMemorySequencerStore(
+      testedProtocolVersion,
+      sequencer1,
+      blockSequencerMode = true,
+      loggerFactory,
+    )
     private val storage = new MemoryStorage(loggerFactory, timeouts)
     private val store =
       new InMemorySequencerBlockStore(
@@ -158,30 +164,31 @@ class BlockSequencerTest
       )
     private val blockSequencer =
       new BlockSequencer(
-        fakeBlockOrderer,
+        blockOrderer = fakeBlockOrderer,
         name = "test",
-        domainId,
-        cryptoApi,
+        domainId = domainId,
+        cryptoApi = cryptoApi,
         sequencerId = sequencer1,
         fakeBlockSequencerStateManager,
         store,
+        dbSequencerStore = fakeDbSequencerStore,
         BlockSequencerConfig(),
         balanceStore,
         storage,
         FutureSupervisor.Noop,
         health = None,
-        new SimClock(loggerFactory = loggerFactory),
-        testedProtocolVersion,
+        clock = new SimClock(loggerFactory = loggerFactory),
+        protocolVersion = testedProtocolVersion,
         blockRateLimitManager = defaultRateLimiter,
-        OrderingTimeFixMode.MakeStrictlyIncreasing,
+        orderingTimeFixMode = OrderingTimeFixMode.MakeStrictlyIncreasing,
         processingTimeouts = BlockSequencerTest.this.timeouts,
         logEventDetails = true,
         prettyPrinter = new CantonPrettyPrinter(
           ApiLoggingConfig.defaultMaxStringLength,
           ApiLoggingConfig.defaultMaxMessageLines,
         ),
-        SequencerMetrics.noop(this.getClass.getName),
-        loggerFactory,
+        metrics = SequencerMetrics.noop(this.getClass.getName),
+        loggerFactory = loggerFactory,
         exitOnFatalFailures = true,
         runtimeReady = FutureUnlessShutdown.unit,
       )
@@ -259,16 +266,11 @@ class BlockSequencerTest
     override protected def logger: TracedLogger = BlockSequencerTest.this.logger
 
     // No need to implement these methods for the test
-    override private[domain] def firstSequencerCounterServableForSequencer
-        : com.digitalasset.canton.SequencerCounter = ???
     override def waitForAcknowledgementToComplete(
         member: com.digitalasset.canton.topology.Member,
         timestamp: com.digitalasset.canton.data.CantonTimestamp,
     )(implicit
         traceContext: com.digitalasset.canton.tracing.TraceContext
     ): scala.concurrent.Future[Unit] = ???
-    override def waitForPruningToComplete(
-        timestamp: com.digitalasset.canton.data.CantonTimestamp
-    ): (Boolean, Future[Unit]) = ???
   }
 }

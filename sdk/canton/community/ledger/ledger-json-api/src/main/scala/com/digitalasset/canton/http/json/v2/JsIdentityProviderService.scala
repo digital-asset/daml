@@ -15,7 +15,6 @@ import sttp.tapir.*
 import sttp.tapir.generic.auto.*
 
 import scala.annotation.nowarn
-import scala.language.existentials
 import scala.concurrent.Future
 
 class JsIdentityProviderService(
