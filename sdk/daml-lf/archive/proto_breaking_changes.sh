@@ -21,4 +21,7 @@ find "${main_dir}/" -follow -name '*.proto' | wc -l | grep -x 3
 # sable/.../daml_lf.proto declare different proto packages. This is not too bad because
 # daml_lf.proto is mostly empty while daml_lf_2.proto contains most of the definitions, but it
 # is not ideal.
-"${buf_exe}" breaking --config "${config_file}" --against "${stable_dir}" "${main_dir}"
+# The following check is there to ignore the comparison until the we have 2.3 is introduced
+if [[ "$(find ${stable_dir}/ -name '*proto' | grep -v daml_lf_2_1)"  ]]; then
+  "${buf_exe}" breaking --config "${config_file}" --against "${stable_dir}" "${main_dir}"
+fi
