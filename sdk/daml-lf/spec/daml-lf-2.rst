@@ -697,6 +697,7 @@ Then we can define our kinds, types, and expressions::
        | 'to_interface' @τ₁ @τ₂ e                   -- ExpToInterface: Turn a template value into an interface value [Daml-LF ≥ 1.15]
        | 'from_interface' @τ₁ @τ₂ e                 -- ExpFromInterface: Turn an interface value back into a template value (returns optional) [Daml-LF ≥ 1.15]
        | 'unsafe_from_interface'  @τ₁ @τ₂ e₁ e₂     -- ExpUnsafeFromInterface: Turn an interface value back into a template value (throws fatal error) [Daml-LF ≥ 1.15]
+       | 'view_interface' @τ e                      -- ExpViewInterface: Computes the view of an interface value [Daml-LF ≥ 1.15]
        | 'call_interface' @τ f e                    -- ExpCallInterface: Call a method on an interface value [Daml-LF ≥ 1.15]
        | 'to_required_interface'  @τ₁ @τ₂ e         -- ExpToRequiredInterface: Upcast an interface value to an interface it requires [Daml-LF ≥ 1.15]
        | 'from_required_interface'  @τ₁ @τ₂ e       -- ExpFromRequiredInterface: Downcast an interface value to an interface that requires it (returns optional) [Daml-LF ≥ 1.15]
@@ -795,7 +796,8 @@ available for usage::
 
   Interface implementation definition
     ImplDef ::= 'implements' Mod:I                  -- ImplDef [Daml-LF ≥ 1.15]
-                    { 'methods { f₁ = e₁, …, fₙ = eₙ }
+                    { 'view' e
+                    , 'methods { f₁ = e₁, …, fₙ = eₙ }
                     , 'choices' { Ch₁, …, Chₘ }
                     }
 
@@ -821,6 +823,7 @@ available for usage::
        |  'exception' T ↦ { 'message' e }           -- DefException [Daml-LF ≥ 1.14]
        |  'interface' (x : I) ↦                     -- DefInterface [Daml-LF ≥ 1.15]
             { 'requires' { Mod₁:I₁, …, Modₖ:Iₖ }
+            , 'viewtype' τ
             , 'precondition' e
             , 'methods' { f₁ : τ₁, …, fₙ : τₙ }
             , 'choices' { ChDef₁, …, ChDefₘ }
@@ -1299,6 +1302,11 @@ Then we define *well-formed expressions*. ::
     ———————————————————————————————————————————————————————————————— ExpUnsafeFromInterface [Daml-LF ≥ 1.15]
       Γ  ⊢ 'unsafe_from_interface' @Mod:I @Mod':T e₁ e₂  :  Mod':T
 
+      'interface' (x : I) ↦ { …, 'viewtype' τ, … } ∈ 〚Ξ〛Mod
+      Γ  ⊢  e  :  Mod:I
+    ———————————————————————————————————————————————————————————————— ExpViewInterface [Daml-LF ≥ 1.15]
+      Γ  ⊢ 'view_interface' @Mod:I e : τ
+
       'interface' (x : I) ↦ { …, 'methods' { …, f: τ, … }, … } ∈ 〚Ξ〛Mod
       Γ  ⊢  e  :  Mod:I
     ———————————————————————————————————————————————————————————————— ExpCallInterface [Daml-LF ≥ 1.15]
@@ -1730,6 +1738,7 @@ for the ``DefTemplate`` rule). ::
       ⋮
     'interface' (xₖ : Iₖ) ↦ { 'requires' Rₖ , … }  ∈ 〚Ξ〛Modₖ      Rₖ ⊆ { Mod₁:I₁, …, Modₖ:Iₖ }
     x : Mod:I  ⊢  eₚ  :  'Bool'
+    τ   ↠  τ'     ⊢  τ' : ⋆
     τ₁  ↠  τ₁'    ⊢  τ₁' : ⋆
       ⋮
     τₙ  ↠  τₙ'    ⊢  τₙ' : ⋆
@@ -1737,6 +1746,7 @@ for the ``DefTemplate`` rule). ::
   ——————————————————————————————————————————————————————————————— DefInterface [Daml-LF ≥ 1.15]
     ⊢  'interface' (x : I) ↦
          { 'requires' { Mod₁:I₁, …, Modₖ:Iₖ }
+         , 'viewtype' τ
          , 'precondition' eₚ
          , 'methods' { f₁ : τ₁, …, fₙ : τₙ }
          , 'choices' { ChDef₁, …, ChDefₘ }
@@ -1759,18 +1769,21 @@ for the ``DefTemplate`` rule). ::
 
     'interface' (y : I) ↦
         { 'requires' R
+        , 'viewtype' τ
         , 'precondition' eₚ
         , 'methods' { f₁ : τ₁, …, fₘ = τₘ }
         , 'choices' { 'choice' ChKind₁ Ch₁ …, …, 'choice' ChKindₘ Chₘ … }
         }  ∈ 〚Ξ〛Mod'
     'tpl' (x : T) ↦ { …, 'implements' Mod₁:I₁ { … }, …, 'implements' Modₖ:Iₖ { … } }  ∈ 〚Ξ〛Mod
     R  ⊆  { Mod₁:I₁, …, Modₖ:Iₖ }
+    τ   ↠  τ'       x : Mod:T  ⊢  e  :  τ'
     τ₁  ↠  τ₁'      x : Mod:T  ⊢  e₁  :  τ₁'
       ⋮
     τₘ  ↠  τₘ'      x : Mod:T  ⊢  eₘ  :  τₘ'
   ——————————————————————————————————————————————————————————————— ImplDef
     x : Mod:T  ⊢  'implements' Mod':I
-                      { 'methods' { f₁ = e₁, …, fₙ = eₙ }
+                      { 'view' e
+                      , 'methods' { f₁ = e₁, …, fₙ = eₙ }
                       , 'choices' { Ch₁, …, Chₘ }
                       }
 
@@ -2337,6 +2350,7 @@ grammar below. ::
        | 'from_interface' @τ₁ @τ₂ E
        | 'unsafe_from_interface' @τ₁ @τ₂ E₁ e₂
        | 'unsafe_from_interface' @τ₁ @τ₂ v₁ E₂
+       | 'view_interface' @τ E
        | 'call_interface' @τ f E
        | 'to_required_interface' @τ₁ @τ₂ E
        | 'from_required_interface' @τ₁ @τ₂ E
@@ -2513,6 +2527,12 @@ exact output.
       'unsafe_from_interface' @Mod:I @Mod':T cid ('to_interface' @Mod:I @Mod':T v)
         →ᵦ
       Ok v
+
+      'tpl' (x : T) ↦ { 'view' e, … }  ∈ 〚Ξ〛Mod'
+    —————————————————————————————————————————————————————————————————————— EvExpViewInterface [Daml-LF ≥ 1.15]
+      'view_interface' @Mod:I ('to_interface' @Mod:I @Mod':T v)
+        →ᵦ
+      Ok e[x ↦ v]
 
       'tpl' (x : T) ↦ { …, 'implements' Mod:I { 'methods' { …, f = eₘ, … }, … }, … }  ∈ 〚Ξ〛Mod'
     —————————————————————————————————————————————————————————————————————— EvExpCallInterface [Daml-LF ≥ 1.15]
