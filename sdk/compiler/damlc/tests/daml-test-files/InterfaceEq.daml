@@ -3,6 +3,7 @@
 
 -- @ WARN warn-bad-interface-instances
 -- @ WARN warn-bad-interface-instances
+-- @ WARN warn-bad-interface-instances
 module InterfaceEq where
 
 import Daml.Script

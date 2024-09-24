@@ -78,17 +78,18 @@ optionsParserInfo = info (optionsParser <**> helper)
     <> progDesc "Generate TypeScript bindings from a DAR"
     )
 
--- Build a list of packages from a list of DAR file paths.
-readPackages :: [FilePath] -> IO [(PackageId, Package)]
+-- Build a list of packages from a list of DAR file paths. Also tags each Package with whether its a main package
+readPackages :: [FilePath] -> IO [(PackageId, Package, Bool)]
 readPackages dars = concatMapM darToPackages dars
   where
-    darToPackages :: FilePath -> IO [(PackageId, Package)]
+    darToPackages :: FilePath -> IO [(PackageId, Package, Bool)]
     darToPackages dar = do
       dar <- B.readFile dar
       let archive = Zip.toArchive $ BSL.fromStrict dar
       dalfs <- either fail pure $ DAR.readDalfs archive
-      forM (DAR.mainDalf dalfs : DAR.dalfs dalfs) $ \dalf ->
-        either (fail . show) pure $ Archive.decodeArchive Archive.DecodeAsMain (BSL.toStrict dalf)
+      forM ((DAR.mainDalf dalfs, True) : ((,False) <$> DAR.dalfs dalfs)) $ \(dalf, isMain) -> do
+        (pkgId, pkg) <- either (fail . show) pure $ Archive.decodeArchive Archive.DecodeAsMain (BSL.toStrict dalf)
+        pure (pkgId, pkg, isMain)
 
 newtype PackageNameVersion = PackageNameVersion (PackageName, PackageVersion)
   deriving (Eq, Ord)
@@ -104,12 +105,12 @@ pkgNameVerToPackageRef (PackageNameVersion (nm, _)) = "#" <> unPackageName nm
 
 -- Work out the set of packages we have to generate script for and by
 -- what names.
-mergePackageMap :: [(PackageId, Package)] ->
+mergePackageMap :: [(PackageId, Package, Bool)] ->
                    Either T.Text (Map.Map PackageId Package)
 mergePackageMap ps = foldM merge mempty ps
   where
-    merge :: Map.Map PackageId Package -> (PackageId, Package) -> Either T.Text (Map.Map PackageId Package)
-    merge pkgs (pkgId, pkg) = do
+    merge :: Map.Map PackageId Package -> (PackageId, Package, Bool) -> Either T.Text (Map.Map PackageId Package)
+    merge pkgs (pkgId, pkg, _isMain) = do
         let usedPkgNmVers = Set.fromList $ map pkgNameVerFromPackage (Map.elems pkgs)
             ownPkgNameVer = pkgNameVerFromPackage pkg
             toText = pkgNameVerToDir -- Convenient representation for error messages

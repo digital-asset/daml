@@ -88,11 +88,6 @@ da_scala_dar_resources_library(
 
 [
     [
-        filegroup(
-            name = "upgrades-{}-dep-files".format(identifier),
-            srcs = glob(["src/main/daml/upgrades/{}/*/*.daml".format(identifier)]),
-            visibility = ["//visibility:public"],
-        ),
         daml_compile(
             name = "upgrades-{}-dep".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/dep/*.daml".format(identifier)]),
@@ -110,6 +105,70 @@ da_scala_dar_resources_library(
         "FailsWhenAnInstanceIsDropped",
         "FailsWhenAnInstanceIsAddedSeparateDep",
         "SucceedsWhenAnInstanceIsAddedToNewTemplateSeparateDep",
+    ]
+]
+
+[
+    [
+        filegroup(
+            name = "upgrades-{}-files".format(identifier),
+            srcs = glob(["src/main/daml/upgrades/{}/*/*.daml".format(identifier)]),
+            visibility = ["//visibility:public"],
+        ),
+        daml_compile(
+            name = "upgrades-{}-dep-v1".format(identifier),
+            srcs = glob(["src/main/daml/upgrades/{}/dep-v1/*.daml".format(identifier)]),
+            dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
+            ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
+            project_name = "upgrades-example-{}-dep".format(identifier),
+            target = "2.dev",
+            version = "1.0.0",
+            visibility = ["//visibility:public"],
+        ),
+        daml_compile(
+            name = "upgrades-{}-dep-v2".format(identifier),
+            srcs = glob(["src/main/daml/upgrades/{}/dep-v2/*.daml".format(identifier)]),
+            dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
+            ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
+            project_name = "upgrades-example-{}-dep".format(identifier),
+            target = "2.dev",
+            # We want to check the validity of this upgrade on the ledger
+            # client, not during compilation
+            typecheck_upgrades = False,
+            upgrades = "//test-common:upgrades-{}-dep-v1.dar".format(identifier),
+            version = "2.0.0",
+            visibility = ["//visibility:public"],
+        ),
+        daml_compile(
+            name = "upgrades-{}-v1".format(identifier),
+            srcs = glob(["src/main/daml/upgrades/{}/v1/*.daml".format(identifier)]),
+            data_dependencies = ["//test-common:upgrades-{}-dep-v2.dar".format(identifier)],
+            dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
+            ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
+            project_name = "upgrades-example-{}".format(identifier),
+            target = "2.dev",
+            version = "1.0.0",
+            visibility = ["//visibility:public"],
+        ),
+        daml_compile(
+            name = "upgrades-{}-v2".format(identifier),
+            srcs = glob(["src/main/daml/upgrades/{}/v2/*.daml".format(identifier)]),
+            data_dependencies = ["//test-common:upgrades-{}-dep-v1.dar".format(identifier)],
+            dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
+            ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
+            project_name = "upgrades-example-{}".format(identifier),
+            target = "2.dev",
+            # We want to check the validity of this upgrade on the ledger
+            # client, not during compilation
+            typecheck_upgrades = False,
+            upgrades = "//test-common:upgrades-{}-v1.dar".format(identifier),
+            version = "2.0.0",
+            visibility = ["//visibility:public"],
+        ),
+    ]
+    for identifier in [
+        "FailsWhenDepsDowngradeVersionsWhileUsingDatatypes",
+        "SucceedsWhenDepsDowngradeVersionsWithoutUsingDatatypes",
     ]
 ]
 
@@ -170,6 +229,7 @@ da_scala_dar_resources_library(
         ("MissingChoice", {}, {}),
         ("RecordFieldsNewNonOptional", {}, {}),
         ("TemplateChangedKeyType", {}, {}),
+        ("TemplateChangedKeyType2", {}, {}),
         ("ValidUpgrade", {}, {}),
         ("ValidParameterizedTypesUpgrade", {}, {}),
         ("ValidKeyTypeEquality", {}, {}),
@@ -296,8 +356,8 @@ da_scala_dar_resources_library(
 ]
 
 # Two dars with an empty main module whose only point is to depend on the standard library.
-# They are compiled to to two different LF versions: 1.16 and 1.dev, which means they
-# embark two different versions of the standard library: 1.16 and 1.dev. The packages have
+# They are compiled to to two different LF versions: 2.1 and 2.dev, which means they
+# embark two different versions of the standard library: 2.1 and 2.dev. The packages have
 # different names on purpose: the goal is not to check that they are valid upgrades of each
 # other, but rather to check that the package upgrade map is not confused when trying to
 # compare the different versions of the standard library that they embark upon uploading.
@@ -318,6 +378,11 @@ da_scala_dar_resources_library(
 
 [
     [
+        filegroup(
+            name = "upgrades-{}-dep-files".format(identifier),
+            srcs = glob(["src/main/daml/upgrades/{}/*/*.daml".format(identifier)]),
+            visibility = ["//visibility:public"],
+        ),
         filegroup(
             name = "upgrades-{}-files".format(identifier),
             srcs = glob(["src/main/daml/upgrades/{}/*/*.daml".format(identifier)]),
@@ -395,6 +460,7 @@ da_scala_dar_resources_library(
         # More more more tests ported from DamlcUpgrades.hs
         "FailsWithSynonymReturnTypeChangeInSeparatePackage",
         "SucceedsWhenUpgradingADependency",
+        "FailsWhenDependencyIsNotAValidUpgrade",
     ]
 ]
 

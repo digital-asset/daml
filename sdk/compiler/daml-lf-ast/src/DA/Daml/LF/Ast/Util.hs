@@ -1,21 +1,27 @@
 -- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# LANGUAGE DeriveAnyClass #-}
 {-# LANGUAGE PatternSynonyms #-}
+{-# LANGUAGE TemplateHaskell #-}
 module DA.Daml.LF.Ast.Util(module DA.Daml.LF.Ast.Util) where
 
+import Control.DeepSeq
+import           Control.Lens
+import           Control.Lens.Ast
 import Control.Monad
 import Data.List
 import Data.Maybe
 import qualified Data.Text as T
-import           Control.Lens
-import           Control.Lens.Ast
+import           Data.Data
 import           Data.Functor.Foldable
 import qualified Data.Graph as G
 import Data.List.Extra (nubSort, stripInfixEnd)
 import qualified Data.NameMap as NM
+import           GHC.Generics (Generic)
 import Module (UnitId, unitIdString, stringToUnitId)
 import System.FilePath
+import Text.Read (readMaybe)
 
 import DA.Daml.LF.Ast.Base
 import DA.Daml.LF.Ast.TypeLevelNat
@@ -30,6 +36,25 @@ dvalType = snd . dvalBinder
 
 chcArgType :: TemplateChoice -> Type
 chcArgType = snd . chcArgBinder
+
+-- Return topologically sorted packages, with the top-level parent package first
+topoSortPackages :: [(PackageId, a, Package)] -> Either [(PackageId, a, Package)] [(PackageId, a, Package)]
+topoSortPackages pkgs =
+  let toPkgNode x@(pkgId, _, pkg) =
+        ( x
+        , pkgId
+        , toListOf (packageRefs . _ImportedPackageId) pkg
+        )
+      fromPkgNode (x, _pkgId, _deps) = x
+      sccs = G.stronglyConnCompR (map toPkgNode pkgs)
+      isAcyclic = \case
+        G.AcyclicSCC pkg -> Right pkg
+        -- A package referencing itself shouldn't happen, but is not an actually
+        -- problematic cycle and won't trip up the engine
+        G.CyclicSCC [pkg] -> Right pkg
+        G.CyclicSCC pkgCycle -> Left (map fromPkgNode pkgCycle)
+  in
+  map fromPkgNode <$> traverse isAcyclic sccs
 
 topoSortPackage :: Package -> Either [ModuleName] Package
 topoSortPackage pkg@Package{packageModules = mods} = do
@@ -46,6 +71,18 @@ topoSortPackage pkg@Package{packageModules = mods} = do
         G.CyclicSCC modCycle -> Left (map moduleName modCycle)
   mods <- traverse isAcyclic sccs
   pure pkg { packageModules = NM.fromList mods }
+
+isUtilityPackage :: Package -> Bool
+isUtilityPackage pkg =
+  all (\mod ->
+    null (moduleTemplates mod)
+      && null (moduleInterfaces mod)
+      && not (any (getIsSerializable . dataSerializable) $ moduleDataTypes mod)
+  ) $ packageModules pkg
+
+
+pkgSupportsUpgrades :: Package -> Bool
+pkgSupportsUpgrades pkg = not (isUtilityPackage pkg)
 
 data Arg
   = TmArg Expr
@@ -263,6 +300,7 @@ splitTApps = view _TApps
 typeConAppToType :: TypeConApp -> Type
 typeConAppToType (TypeConApp tcon targs) = TConApp tcon targs
 
+
 -- Compatibility type and functions
 
 data Definition
@@ -335,3 +373,62 @@ splitUnitId (unitIdString -> unitId) = fromMaybe (PackageName (T.pack unitId), N
     (name, ver) <- stripInfixEnd "-" unitId
     guard $ all (`elem` '.' : ['0' .. '9']) ver
     pure (PackageName (T.pack name), Just (PackageVersion (T.pack ver)))
+
+-- | Take a package version of regex "(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))*" into
+-- a list of integers [Integer]
+splitPackageVersion
+  :: (PackageVersion -> a) -> PackageVersion
+  -> Either a RawPackageVersion
+splitPackageVersion mkError version@(PackageVersion raw) =
+  let pieces = T.split (== '.') raw
+  in
+  case traverse (readMaybe . T.unpack) pieces of
+    Nothing -> Left (mkError version)
+    Just versions -> Right $ RawPackageVersion versions
+
+newtype RawPackageVersion = RawPackageVersion [Integer]
+
+padEquivalent :: RawPackageVersion -> RawPackageVersion -> ([Integer], [Integer])
+padEquivalent (RawPackageVersion v1Pieces) (RawPackageVersion v2Pieces) =
+  let pad xs target =
+        take
+          (length target `max` length xs)
+          (xs ++ repeat 0)
+  in
+  (pad v1Pieces v2Pieces, pad v2Pieces v1Pieces)
+
+instance Ord RawPackageVersion where
+  compare v1 v2 = uncurry compare $ padEquivalent v1 v2
+
+instance Eq RawPackageVersion where
+  (==) v1 v2 = uncurry (==) $ padEquivalent v1 v2
+
+instance Show RawPackageVersion where
+  show (RawPackageVersion pieces) = intercalate "." $ map show pieces
+
+data Upgrading a = Upgrading
+    { _past :: a
+    , _present :: a
+    }
+    deriving (Eq, Data, Generic, NFData, Show)
+
+makeLenses ''Upgrading
+
+instance Functor Upgrading where
+    fmap f Upgrading{..} = Upgrading (f _past) (f _present)
+
+instance Foldable Upgrading where
+    foldMap f Upgrading{..} = f _past <> f _present
+
+instance Traversable Upgrading where
+    traverse f Upgrading{..} = Upgrading <$> f _past <*> f _present
+
+instance Applicative Upgrading where
+    pure a = Upgrading a a
+    (<*>) f a = Upgrading { _past = _past f (_past a), _present = _present f (_present a) }
+
+foldU :: (a -> a -> b) -> Upgrading a -> b
+foldU f u = f (_past u) (_present u)
+
+unsafeZipUpgrading :: Upgrading [a] -> [Upgrading a]
+unsafeZipUpgrading = foldU (zipWith Upgrading)

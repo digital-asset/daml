@@ -3,6 +3,7 @@
 
 -- @ WARN warn-bad-interface-instances
 -- @ WARN warn-bad-interface-instances
+-- @ WARN warn-bad-interface-instances
 -- | Test interface conversion functions specifically.
 module InterfaceConversions where
 
@@ -132,9 +133,9 @@ templateInterfaceMatchingTest = exerciseTest TemplateInterfaceMatching
 -- for actions that make sense for the common interface Iface.
 -- See useActionFrom
 voidFromInterfaceTest = exerciseTest VoidFromInterface
--- @ERROR range=136:1-136:23; Attempt to fetch or exercise a wrongly typed contract.
+-- @ERROR range=137:1-137:23; Attempt to fetch or exercise a wrongly typed contract.
 fetchFromInterfaceTest = exerciseTest FetchFromInterface
--- @ERROR range=138:1-138:25; Attempt to fetch or exercise a wrongly typed contract.
+-- @ERROR range=139:1-139:25; Attempt to fetch or exercise a wrongly typed contract.
 archiveFromInterfaceTest = exerciseTest ArchiveFromInterface
 
 -- Test that using coerceInterfaceContractId incorrectly will result
@@ -142,9 +143,9 @@ archiveFromInterfaceTest = exerciseTest ArchiveFromInterface
 -- id as if it were a Iface2 contract id will always fail.
 -- See useActionCoerce
 voidCoerceInterfaceTest = exerciseTest VoidCoerceInterface
--- @ERROR range=146:1-146:28; Attempt to use a contract via an interface that the contract does not implement
+-- @ERROR range=147:1-147:28; Attempt to use a contract via an interface that the contract does not implement
 exerciseCoerceInterfaceTest = exerciseTest ExerciseCoerceInterface
--- @ERROR range=148:1-148:25; Attempt to use a contract via an interface that the contract does not implement
+-- @ERROR range=149:1-149:25; Attempt to use a contract via an interface that the contract does not implement
 fetchCoerceInterfaceTest = exerciseTest FetchCoerceInterface
--- @ERROR range=150:1-150:27; Attempt to use a contract via an interface that the contract does not implement
+-- @ERROR range=151:1-151:27; Attempt to use a contract via an interface that the contract does not implement
 archiveCoerceInterfaceTest = exerciseTest ArchiveCoerceInterface
