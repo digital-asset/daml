@@ -738,7 +738,12 @@ tests damlc =
             callProcessSilent damlc ["build", "--project-root", oldDir, "-o", oldDar]
             writeFiles newDir [makeProjectFile v2Name v2Version v2LfVersion (guard setUpgradeField >> Just oldDar) [] True False, ("daml/Main.daml", pure "module Main where")]
             -- Metadata errors are reported on the daml.yaml file
-            handleExpectation expectation newDir newDar setUpgradeField (Just $ newDir </> "daml.yaml")
+            handleExpectation expectation newDir newDar setUpgradeField (Just $ toUnixPath $ newDir </> "daml.yaml")
+
+    toUnixPath :: FilePath -> FilePath
+    toUnixPath = fmap $ \case
+      '\\' -> '/'
+      c -> c
 
     makeProjectFile :: String -> String -> LF.Version -> Maybe FilePath -> [FilePath] -> Bool -> Bool -> (FilePath, IO String)
     makeProjectFile name version lfVersion upgradedFile deps doTypecheck warnBadInterfaceInstances =
