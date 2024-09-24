@@ -11,7 +11,6 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdatesRequest,
 }
 import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.ParticipantOffset
 import com.digitalasset.canton.ledger.api.domain.types.ParticipantOffset
 import com.digitalasset.canton.ledger.api.messages.transaction
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
@@ -41,14 +40,9 @@ class UpdateServiceRequestValidator(partyValidator: PartyValidator) {
     for {
       filter <- requirePresence(req.filter, "filter")
       begin <- ParticipantOffsetValidator
-        .validate(req.beginExclusive)
-        .map(ParticipantOffset.fromString)
-      convertedEnd <- ParticipantOffsetValidator
-        .validate(req.endInclusive)
-        .map(str =>
-          if (str.isEmpty) None
-          else Some(ParticipantOffset.fromString(str))
-        )
+        .validateOptional(req.beginExclusive, "begin_exclusive")
+      convertedEnd <-
+        ParticipantOffsetValidator.validate(req.endInclusive, "end_inclusive")
       knownParties <- partyValidator.requireKnownParties(req.getFilter.filtersByParty.keySet)
     } yield PartialValidation(
       filter,

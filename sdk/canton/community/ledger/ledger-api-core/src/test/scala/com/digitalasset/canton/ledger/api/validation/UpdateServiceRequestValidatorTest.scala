@@ -20,6 +20,7 @@ import com.daml.ledger.api.v2.update_service.{
 }
 import com.daml.ledger.api.v2.value.Identifier
 import com.digitalasset.canton.ledger.api.domain
+import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.TypeConRef
 import io.grpc.Status.Code.*
@@ -35,8 +36,8 @@ class UpdateServiceRequestValidatorTest
   private val templateId = Identifier(packageId, includedModule, includedTemplate)
 
   private def txReqBuilder(templateIdsForParty: Seq[Identifier]) = GetUpdatesRequest(
-    beginExclusive = "",
-    endInclusive = offset,
+    beginExclusive = None,
+    endInclusive = offsetLong,
     filter = Some(
       TransactionFilter(
         Map(
@@ -76,8 +77,8 @@ class UpdateServiceRequestValidatorTest
   )
 
   private val txTreeReq = GetUpdatesRequest(
-    beginExclusive = "",
-    endInclusive = offset,
+    beginExclusive = None,
+    endInclusive = offsetLong,
     filter = Some(TransactionFilter(Map(party -> Filters.defaultInstance))),
     verbose = verbose,
   )
@@ -152,28 +153,17 @@ class UpdateServiceRequestValidatorTest
         )
       }
 
-      "return the correct error on unknown begin boundary" in {
-        requestMustFailWith(
-          request = validator.validate(
-            txReq.withBeginExclusive("123@"),
-            ledgerEnd,
-          ),
-          code = INVALID_ARGUMENT,
-          description =
-            "INVALID_ARGUMENT(8,0): The submitted request has invalid arguments: cannot parse HexString 123@",
-          metadata = Map.empty,
-        )
-      }
-
       "return the correct error when begin offset is after ledger end" in {
         requestMustFailWith(
           request = validator.validate(
-            txReq.withBeginExclusive((ledgerEnd.toInt + 1).toString),
+            txReq.withBeginExclusive(
+              ApiOffset.assertFromStringToLongO(ledgerEnd).getOrElse(0L) + 1L
+            ),
             ledgerEnd,
           ),
           code = OUT_OF_RANGE,
           description =
-            "OFFSET_AFTER_LEDGER_END(12,0): Begin offset (1001) is after ledger end (1000)",
+            "OFFSET_AFTER_LEDGER_END(12,0): Begin offset (000000000000001001) is after ledger end (000000000000001000)",
           metadata = Map.empty,
         )
       }
@@ -181,18 +171,74 @@ class UpdateServiceRequestValidatorTest
       "return the correct error when end offset is after ledger end" in {
         requestMustFailWith(
           request = validator.validate(
-            txReq.withEndInclusive((ledgerEnd.toInt + 1).toString),
+            txReq.withEndInclusive(ApiOffset.assertFromStringToLongO(ledgerEnd).getOrElse(0L) + 1),
             ledgerEnd,
           ),
           code = OUT_OF_RANGE,
           description =
-            "OFFSET_AFTER_LEDGER_END(12,0): End offset (1001) is after ledger end (1000)",
+            "OFFSET_AFTER_LEDGER_END(12,0): End offset (000000000000001001) is after ledger end (000000000000001000)",
+          metadata = Map.empty,
+        )
+      }
+
+      "return the correct error when begin offset is zero" in {
+        requestMustFailWith(
+          request = validator.validate(
+            txReq.withBeginExclusive(0L),
+            ledgerEnd,
+          ),
+          code = INVALID_ARGUMENT,
+          description =
+            "NON_POSITIVE_OFFSET(8,0): Offset 0 in begin_exclusive is not a positive integer: " +
+              "the offset in begin_exclusive field has to be a positive integer (>0)",
+          metadata = Map.empty,
+        )
+      }
+
+      "return the correct error when begin offset is negative" in {
+        requestMustFailWith(
+          request = validator.validate(
+            txReq.withBeginExclusive(-100L),
+            ledgerEnd,
+          ),
+          code = INVALID_ARGUMENT,
+          description =
+            "NON_POSITIVE_OFFSET(8,0): Offset -100 in begin_exclusive is not a positive integer: " +
+              "the offset in begin_exclusive field has to be a positive integer (>0)",
+          metadata = Map.empty,
+        )
+      }
+
+      "return the correct error when end offset is zero" in {
+        requestMustFailWith(
+          request = validator.validate(
+            txReq.withEndInclusive(0L),
+            ledgerEnd,
+          ),
+          code = INVALID_ARGUMENT,
+          description =
+            "NON_POSITIVE_OFFSET(8,0): Offset 0 in end_inclusive is not a positive integer: " +
+              "the offset in end_inclusive field has to be a positive integer (>0)",
+          metadata = Map.empty,
+        )
+      }
+
+      "return the correct error when end offset is negative" in {
+        requestMustFailWith(
+          request = validator.validate(
+            txReq.withEndInclusive(-100L),
+            ledgerEnd,
+          ),
+          code = INVALID_ARGUMENT,
+          description =
+            "NON_POSITIVE_OFFSET(8,0): Offset -100 in end_inclusive is not a positive integer: " +
+              "the offset in end_inclusive field has to be a positive integer (>0)",
           metadata = Map.empty,
         )
       }
 
       "tolerate missing end" in {
-        inside(validator.validate(txReq.update(_.endInclusive := ""), ledgerEnd)) {
+        inside(validator.validate(txReq.update(_.optionalEndInclusive := None), ledgerEnd)) {
           case Right(req) =>
             req.startExclusive shouldEqual domain.ParticipantOffset.ParticipantBegin
             req.endInclusive shouldEqual None
