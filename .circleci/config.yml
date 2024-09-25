@@ -4,14 +4,31 @@ version: 2.1
 
 # Define a job to be invoked later in a workflow.
 # See: https://circleci.com/docs/jobs-steps/#jobs-overview & https://circleci.com/docs/configuration-reference/#jobs
-jobs:
+
+commands:
+  setup-bazel:
+    description: |
+      Setup the Bazel build system used for building Android projects
+    steps:
+      - run:
+          name: Add Bazel Apt repository
+          command: |
+            sudo apt install curl gnupg
+            curl -fsSL https://bazel.build/bazel-release.pub.gpg | gpg --dearmor > bazel.gpg
+            sudo mv bazel.gpg /etc/apt/trusted.gpg.d/
+            echo "deb [arch=amd64] https://storage.googleapis.com/bazel-apt stable jdk1.8" | sudo tee /etc/apt/sources.list.d/bazel.list
+      - run:
+          name: Install Bazel from Apt
+          command: sudo apt update && sudo apt install bazel
+          
+jobs:      
   build:
     # Specify the execution environment. You can specify an image from Docker Hub or use one of our convenience images from CircleCI's Developer Hub.
     # See: https://circleci.com/docs/executor-intro/ & https://circleci.com/docs/configuration-reference/#executor-job
     docker:
       # Specify the version you desire here
       # See: https://circleci.com/developer/images/image/cimg/openjdk
-      - image: cimg/openjdk:8.0
+      - image: cimg/base:edge-20.04
 
       # Specify service dependencies here if necessary
       # CircleCI maintains a library of pre-built images
@@ -28,6 +45,7 @@ jobs:
     steps:
       # Checkout the code as the first step.
       - checkout
+      - setup-bazel
 
       # Download and cache dependencies
       - restore_cache:
