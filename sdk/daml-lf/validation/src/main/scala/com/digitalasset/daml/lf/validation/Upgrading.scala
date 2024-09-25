@@ -433,13 +433,14 @@ case class TypecheckUpgrades(
     Either[
       (Ref.DottedName, (Ast.DDataType, Ast.DefException)),
       (Ref.DottedName, Ast.DDataType),
-    ]
+    ],
   ] = {
     module.interfaces.get(tcon) match {
-      case None => Right(module.exceptions.get(tcon) match {
-        case None => Right((tcon, dt))
-        case Some(exception) => Left((tcon, (dt, exception)))
-      })
+      case None =>
+        Right(module.exceptions.get(tcon) match {
+          case None => Right((tcon, dt))
+          case Some(exception) => Left((tcon, (dt, exception)))
+        })
       case Some(iface) => Left((tcon, (dt, iface)))
     }
   }
