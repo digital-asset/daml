@@ -155,7 +155,7 @@ class Engine(val config: EngineConfig) {
     for {
       pkgResolution <- preprocessor.buildPackageResolution(packageMap, packagePreference)
       processedCmds <- preprocessor.preprocessApiCommands(pkgResolution, cmds.commands)
-      processedDiscs <- preprocessor.preprocessDisclosedContracts(disclosures)
+      processedDiscs <- preprocessor.preprocessInputContracts(disclosures)
       result <-
         interpretCommands(
           validating = false,
@@ -189,6 +189,7 @@ class Engine(val config: EngineConfig) {
   def reinterpret(
       submitters: Set[Party],
       command: ReplayCommand,
+      inputContracts: ImmArray[FatContractInstance] = ImmArray.empty,
       nodeSeed: Option[crypto.Hash],
       submissionTime: Time.Timestamp,
       ledgerEffectiveTime: Time.Timestamp,
@@ -197,12 +198,15 @@ class Engine(val config: EngineConfig) {
   )(implicit loggingContext: LoggingContext): Result[(SubmittedTransaction, Tx.Metadata)] =
     for {
       speedyCommand <- preprocessor.preprocessReplayCommand(command)
+      processedContracts <- preprocessor.preprocessInputContracts(inputContracts)
       sexpr <- runCompilerSafely(
         NameOf.qualifiedNameOfCurrentFunc,
-        compiledPackages.compiler.unsafeCompileForReinterpretation(speedyCommand),
+        compiledPackages.compiler.unsafeCompile(ImmArray(speedyCommand), processedContracts),
       )
       // reinterpret is never used for submission, only for validation.
       result <- interpretExpression(
+        // TODO https://github.com/digital-asset/daml/issues/19539
+        //  Once canton uses the input contracts prevent the machine to query contract/key when validation is on
         validating = true,
         submitters = submitters,
         readAs = Set.empty,
