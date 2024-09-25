@@ -277,7 +277,6 @@ da_scala_test_suite(
             "//test-common:upgrades-SucceedsWhenDepsDowngradeVersionsWithoutUsingDatatypes-dep-v2.dar",
             "//test-common:upgrades-SucceedsWhenDepsDowngradeVersionsWithoutUsingDatatypes-v1.dar",
             "//test-common:upgrades-SucceedsWhenDepsDowngradeVersionsWithoutUsingDatatypes-v2.dar",
-
             "//test-common:upgrades-SucceedsWhenAnExceptionIsOnlyDefinedInTheInitialPackage-v1.dar",
             "//test-common:upgrades-SucceedsWhenAnExceptionIsOnlyDefinedInTheInitialPackage-v2.dar",
             "//test-common:upgrades-FailsWhenAnExceptionIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v1.dar",
