@@ -299,17 +299,17 @@ private[lf] final class Compiler(
   private[this] def fun4(body: (Position, Position, Position, Position, Env) => s.SExpr): s.SExpr =
     s.SEAbs(4, body(Pos1, Pos2, Pos3, Pos4, Env4))
 
+  private[this] def unlabelledTopLevelFunction1(ref: t.SDefinitionRef)(
+      body: (Position, Env) => s.SExpr
+  ): (t.SDefinitionRef, SDefinition) =
+    ref -> SDefinition(pipeline(fun1(body)))
+
   private[this] def topLevelFunction1[SDefRef <: t.SDefinitionRef: LabelModule.Allowed](
       ref: SDefRef
   )(
       body: (Position, Env) => s.SExpr
   ): (SDefRef, SDefinition) =
     topLevelFunction(ref)(fun1(body))
-
-  private[this] def unlabelledTopLevelFunction2(ref: t.SDefinitionRef)(
-      body: (Position, Position, Env) => s.SExpr
-  ): (t.SDefinitionRef, SDefinition) =
-    ref -> SDefinition(pipeline(fun2(body)))
 
   private[this] def topLevelFunction2[SDefRef <: t.SDefinitionRef: LabelModule.Allowed](
       ref: SDefRef
@@ -529,8 +529,7 @@ private[lf] final class Compiler(
       SBCastAnyContract(tmplId)(
         env.toSEVar(cidPos),
         SBFetchAny(optTargetTemplateId)(
-          env.toSEVar(cidPos),
-          mbKey.fold(s.SEValue.None: s.SExpr)(pos => SBSome(env.toSEVar(pos))),
+          env.toSEVar(cidPos)
         ),
       ),
     ) { (tmplArgPos, _env) =>
@@ -760,10 +759,8 @@ private[lf] final class Compiler(
       byKey = mbKey.isDefined,
       interfaceId = None,
     )(
-      env.toSEVar(cidPos),
-      mbKey.fold(s.SEValue.None: s.SExpr)(pos => SBSome(env.toSEVar(pos))),
+      env.toSEVar(cidPos)
     )
-
   }
 
   private[this] def compileFetchTemplate(
@@ -789,7 +786,6 @@ private[lf] final class Compiler(
           SBResolveSBUInsertFetchNode(ifaceId)(
             env.toSEVar(payloadPos),
             env.toSEVar(cidPos),
-            s.SEValue.None,
           ),
         ) { (_, env) =>
           env.toSEVar(payloadPos)
@@ -827,7 +823,7 @@ private[lf] final class Compiler(
       tmplId: Identifier,
       tmpl: Template,
   ): (t.SDefinitionRef, SDefinition) =
-    unlabelledTopLevelFunction2(t.ToContractInfoDefRef(tmplId)) { (tmplArgPos, _, env) =>
+    unlabelledTopLevelFunction1(t.ToContractInfoDefRef(tmplId)) { (tmplArgPos, env) =>
       // We use a chain of let bindings to make the evaluation order of SBuildContractInfoStruct's arguments is
       // independent from the evaluation strategy imposed by the ANF transformation.
       checkPreCondition(env, tmplId, env.toSEVar(tmplArgPos)) { env =>
@@ -1134,7 +1130,7 @@ private[lf] final class Compiler(
           val expr1 =
             s.SEApp(
               s.SEVal(t.ToContractInfoDefRef(templateId)),
-              List(s.SEValue(argument), s.SEValue.None),
+              List(s.SEValue(argument)),
             )
           val contractPos = env.nextPosition
           env = env.pushVar
