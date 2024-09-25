@@ -65,7 +65,7 @@ cargo build --target wasm32-unknown-unknown --release
 cp ./target/wasm32-unknown-unknown/release/exercise_choice.wasm ../../resources/exercise-choice.rs.wasm
 ```
 
-# `data-interoperability` Project
+## `data-interoperability` Project
 
 In the Rust package directory `./data-interoperability` run:
 ```shell
@@ -80,3 +80,41 @@ In the Daml package directory `./data-interoperability` run:
 daml build
 cp ./.daml/dist/data-interoperability-0.1.0.dar ../../resources/data-interoperability.dar
 ```
+
+# Working with and Compiling a Python Project to a WASM Target
+
+The following example code assumes that the developer has access to the `py2wasm` docker image that will host our 
+development environment.
+
+## `surface-language` Project
+
+In the Python project directory `./surface-language` run:
+```shell
+pip install -r requirements.txt
+mkdir -p ./src/protobuf
+protoc --python_out ./src/protobuf --proto_path ../../../../../transaction/src/main/protobuf/com/digitalasset/daml/lf value.proto
+docker run --rm -it --platform linux/amd64 -v .:/home/py2wasm/workdir py2wasm
+cd workdir
+mkdir -p build
+py2wasm surface-language.py -o ./build/surface-language.py.wasm # FIXME:
+exit
+cp ./build/surface-language.py.wasm ../../resources/surface-language.py.wasm
+```
+
+Instead of running `py2wasm` (within the docker container shell), one can do the following instead:
+```shell
+INPUT=surface-language.py
+export CC=~/.local/lib/python3.11/site-packages/nuitka/wasi-sdk/21/sdk-Linux/bin/clang
+python -m nuitka $INPUT --standalone --static-libpython=yes --disable-ccache --lto=yes --output-dir=/home/py2wasm/.local/lib/python3.11/site-packages/nuitka/__py2wasm --output-filename=output.wasm --generate-c-only
+```
+
+This latter mode of compiling Python code to a WASM binary has the advantage that the generated Nuitka C source files (located in `/home/py2wasm/.local/lib/python3.11/site-packages/nuitka/__py2wasm/$(basename $INPUT .py).build/`) 
+may be modified and then recompiled using:
+```shell
+python -m nuitka $INPUT --standalone --static-libpython=yes --disable-ccache --lto=yes --output-dir=/home/py2wasm/.local/lib/python3.11/site-packages/nuitka/__py2wasm --output-filename=output.wasm --recompile-c-only
+cp /home/py2wasm/.local/lib/python3.11/site-packages/nuitka/__py2wasm/$(basename $INPUT .py).dist/output.wasm ../../resources/$(basename $INPUT).wasm
+```
+
+Notes:
+- import C function stubs need to be non-static and annotated with `__attribute__((import_module("env"), import_name("my_import_function_stub")))` - if import symbols are not used, they will be eliminated by the WASM compiler
+- export C function definitions need to be non-static and annotated with `__attribute__((export_name("my_export_function_definition")))`

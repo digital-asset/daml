@@ -25,10 +25,12 @@ import com.dylibso.chicory.runtime.{
   Instance => WasmInstance,
   Module => WasmModule,
 }
+import com.dylibso.chicory.wasm.types.{Value => WasmValue, ValueType => WasmValueType}
 import com.google.protobuf.ByteString
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
+import scala.jdk.CollectionConverters._
 
 /*
     Notes:
@@ -390,6 +392,105 @@ final class WasmRunner(
     finish
   }
 
+  private val wasiClockTimeGet: WasmHostFunction = new WasmHostFunction(
+    (_: WasmInstance, _: Array[WasmValue]) => {
+      logger.error("wasi host function can not be called: clock_time_get")
+      Array(WasmValue.i32(0))
+    },
+    "wasi_snapshot_preview1",
+    "clock_time_get",
+    List(WasmValueType.I32, WasmValueType.I64, WasmValueType.I32).asJava,
+    WasmValueResultType.toList.asJava,
+  )
+
+  private val wasiEnvironSizesGet: WasmHostFunction = new WasmHostFunction(
+    (_: WasmInstance, _: Array[WasmValue]) => {
+      logger.error("wasi host function can not be called: environ_sizes_get")
+      Array(WasmValue.i32(0))
+    },
+    "wasi_snapshot_preview1",
+    "environ_sizes_get",
+    List(WasmValueType.I32, WasmValueType.I32).asJava,
+    WasmValueResultType.toList.asJava,
+  )
+
+  private val wasiArgsSizesGet: WasmHostFunction = new WasmHostFunction(
+    (_: WasmInstance, _: Array[WasmValue]) => {
+      logger.error("wasi host function can not be called: args_sizes_get")
+      Array(WasmValue.i32(0))
+    },
+    "wasi_snapshot_preview1",
+    "args_sizes_get",
+    List(WasmValueType.I32, WasmValueType.I32).asJava,
+    WasmValueResultType.toList.asJava,
+  )
+
+  private val wasiArgsGet: WasmHostFunction = new WasmHostFunction(
+    (_: WasmInstance, _: Array[WasmValue]) => {
+      logger.error("wasi host function can not be called: args_get")
+      Array(WasmValue.i32(0))
+    },
+    "wasi_snapshot_preview1",
+    "args_get",
+    List(WasmValueType.I32, WasmValueType.I32).asJava,
+    WasmValueResultType.toList.asJava,
+  )
+
+  private val wasiRandomGet: WasmHostFunction = new WasmHostFunction(
+    (_: WasmInstance, _: Array[WasmValue]) => {
+      logger.error("wasi host function can not be called: random_get")
+      Array(WasmValue.i32(0))
+    },
+    "wasi_snapshot_preview1",
+    "random_get",
+    List(WasmValueType.I32, WasmValueType.I32).asJava,
+    WasmValueResultType.toList.asJava,
+  )
+
+  private val wasiFdPrestatGet: WasmHostFunction = new WasmHostFunction(
+    (_: WasmInstance, _: Array[WasmValue]) => {
+      logger.error("wasi host function can not be called: fd_prestat_get")
+      Array(WasmValue.i32(0))
+    },
+    "wasi_snapshot_preview1",
+    "fd_prestat_get",
+    List(WasmValueType.I32, WasmValueType.I32).asJava,
+    WasmValueResultType.toList.asJava,
+  )
+
+  private val wasiFdPrestatDirName: WasmHostFunction = new WasmHostFunction(
+    (instance: WasmInstance, _: Array[WasmValue]) => {
+      logger.error("wasi host function can not be called: fd_prestat_dir_name")
+      copyByteString(ByteString.copyFromUtf8("/"))(instance)
+    },
+    "wasi_snapshot_preview1",
+    "fd_prestat_dir_name",
+    List(WasmValueType.I32, WasmValueType.I32, WasmValueType.I32).asJava,
+    WasmValueResultType.toList.asJava,
+  )
+
+  private val wasiProcExit: WasmHostFunction = new WasmHostFunction(
+    (_: WasmInstance, _: Array[WasmValue]) => {
+      logger.error("wasi host function can not be called: proc_exit")
+      Array(WasmValue.i32(0))
+    },
+    "wasi_snapshot_preview1",
+    "proc_exit",
+    List(WasmValueType.I32).asJava,
+    List.empty.asJava,
+  )
+
+  private val wasiHostFunctions: Array[WasmHostFunction] = Array(
+    wasiClockTimeGet,
+    wasiEnvironSizesGet,
+    wasiArgsSizesGet,
+    wasiArgsGet,
+    wasiRandomGet,
+    wasiFdPrestatGet,
+    wasiFdPrestatDirName,
+    wasiProcExit,
+  )
+
   private def PureWasmInstance(): WasmInstance = {
     val imports = new WasmHostImports(
       Array[WasmHostFunction](
@@ -397,7 +498,7 @@ final class WasmRunner(
         PureWasmHostFunctions.createContractFunc,
         PureWasmHostFunctions.fetchContractArgFunc,
         PureWasmHostFunctions.exerciseChoiceFunc,
-      )
+      ) ++ wasiHostFunctions
     )
 
     WasmModule.builder(wasmExpr.module.toByteArray).withHostImports(imports).build().instantiate()
@@ -405,7 +506,12 @@ final class WasmRunner(
 
   private def UpdateWasmInstance(): WasmInstance = {
     val imports = new WasmHostImports(
-      Array[WasmHostFunction](logFunc, createContractFunc, fetchContractArgFunc, exerciseChoiceFunc)
+      Array[WasmHostFunction](
+        logFunc,
+        createContractFunc,
+        fetchContractArgFunc,
+        exerciseChoiceFunc,
+      ) ++ wasiHostFunctions
     )
 
     WasmModule.builder(wasmExpr.module.toByteArray).withHostImports(imports).build().instantiate()

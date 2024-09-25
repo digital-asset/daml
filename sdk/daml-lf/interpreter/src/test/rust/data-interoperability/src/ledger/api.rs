@@ -67,8 +67,13 @@ pub fn exerciseChoice(templateTyCon: lf::Identifier, contractId: lf::Value, choi
   }
 }
 
+// TODO: use an 'import global' to model package IDs (to be injected by host)?
+
 #[allow(unused, non_snake_case)]
 pub trait Choice {
+    // TODO: add property function to return choice name
+    // TODO: add property function to return choice argument type
+
     fn consuming(&self) -> lf::Value; // lf::value::Bool
 
     fn exercise(&self, contractArg: lf::Value, choiceArg: lf::Value) -> lf::Value; // lf::value::ContractId
@@ -104,6 +109,9 @@ pub trait Choice {
 
 #[allow(unused)]
 pub trait Template<T> {
+    // TODO: add property function to return template name
+    // TODO: add property function to return template argument type
+
     fn new(arg: lf::Value) -> T;
 
     #[allow(non_snake_case)]
@@ -112,10 +120,6 @@ pub trait Template<T> {
     fn choices() -> HashMap<String, Box<dyn Choice>> {
         return HashMap::new();
     }
-
-    // TODO: this method should be part of a rust/protobuf DSL?
-    #[allow(non_snake_case)]
-    fn toLfValue(&self) -> lf::Value;
 
     fn precond(arg: lf::Value) -> lf::Value {
         let mut result = lf::Value::new();
@@ -142,4 +146,8 @@ pub trait Template<T> {
 
         return result; // lf::value::List<lf::value::Party>
     }
+
+    // TODO: this method should be part of a rust/protobuf DSL?
+    #[allow(non_snake_case)]
+    fn toLfValue(&self) -> lf::Value;
 }
