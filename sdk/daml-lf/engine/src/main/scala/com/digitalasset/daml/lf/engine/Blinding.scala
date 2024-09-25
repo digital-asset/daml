@@ -113,11 +113,11 @@ object Blinding {
       def toEntries(tyCon: Ref.TypeConName) = parties.view.map(_ -> tyCon.packageId)
       tx.nodes(nodeId) match {
         case fetch: Node.Fetch =>
-          toEntries(fetch.templateId) ++ fetch.interfaceId.flatMap(toEntries)
+          toEntries(fetch.templateId) ++ fetch.interfaceId.toList.view.flatMap(toEntries)
         case action: Node.LeafOnlyAction =>
           toEntries(action.templateId)
         case exe: Node.Exercise =>
-          toEntries(exe.templateId) ++ exe.interfaceId.flatMap(toEntries)
+          toEntries(exe.templateId) ++ exe.interfaceId.toList.view.flatMap(toEntries)
         case _: Node.Rollback =>
           Iterable.empty
       }
