@@ -130,7 +130,7 @@ checkPackageSingle mbContext pkg =
   withReaderT (\(version, upgradeInfo) -> mkGamma version upgradeInfo presentWorld) $
     withMbContext $ do
       checkNewInterfacesAreUnused pkg
-      checkNewInterfacesHaveNoTemplates
+      checkInterfacesAndExceptionsHaveNoTemplates
 
 type UpgradedPkgWithNameAndVersion = (LF.PackageId, LF.Package, LF.PackageName, Maybe LF.PackageVersion)
 
@@ -145,7 +145,7 @@ checkModule world0 module_ deps version upgradeInfo mbUpgradedPkg =
       let world = extendWorldSelf module_ world0
       withReaderT (\(version, upgradeInfo) -> mkGamma version upgradeInfo world) $ do
         checkNewInterfacesAreUnused module_
-        checkNewInterfacesHaveNoTemplates
+        checkInterfacesAndExceptionsHaveNoTemplates
       case mbUpgradedPkg of
         Nothing -> pure ()
         Just (upgradedPkgWithId@(upgradedPkgIdRaw, upgradedPkg, _, _), upgradingDeps) -> do
@@ -410,42 +410,50 @@ checkModuleM upgradedPackageId module_ = do
 
     let ifaceDts :: Upgrading (HMS.HashMap LF.TypeConName (DefDataType, DefInterface))
         unownedDts :: Upgrading (HMS.HashMap LF.TypeConName DefDataType)
-        (ifaceDts, unownedDts) =
+        exceptionDts :: Upgrading (HMS.HashMap LF.TypeConName (DefDataType, DefException))
+        (ifaceDts, exceptionDts, unownedDts) =
             let Upgrading
-                    { _past = (pastIfaceDts, pastUnownedDts)
-                    , _present = (presentIfaceDts, presentUnownedDts)
+                    { _past = (pastIfaceDts, pastExceptionDts, pastUnownedDts)
+                    , _present = (presentIfaceDts, presentExceptionDts, presentUnownedDts)
                     } = fmap splitModuleDts module_
             in
             ( Upgrading pastIfaceDts presentIfaceDts
+            , Upgrading pastExceptionDts presentExceptionDts
             , Upgrading pastUnownedDts presentUnownedDts
             )
 
         splitModuleDts
             :: Module
             -> ( HMS.HashMap LF.TypeConName (DefDataType, DefInterface)
+               , HMS.HashMap LF.TypeConName (DefDataType, DefException)
                , HMS.HashMap LF.TypeConName DefDataType)
         splitModuleDts module_ =
-            let (ifaceDtsList, unownedDtsList) =
-                    partitionEithers
-                        $ map (\(tcon, def) -> lookupInterface module_ tcon def)
+            let (ifaceDtsList, (exceptionDtsList, unownedDtsList)) =
+                    fmap partitionEithers $ partitionEithers
+                        $ map (\(tcon, def) -> lookupInterfaceOrException module_ tcon def)
                         $ HMS.toList $ NM.toHashMap $ moduleDataTypes module_
             in
-            (HMS.fromList ifaceDtsList, HMS.fromList unownedDtsList)
+            (HMS.fromList ifaceDtsList, HMS.fromList exceptionDtsList, HMS.fromList unownedDtsList)
 
-        lookupInterface
+        lookupInterfaceOrException
             :: Module -> LF.TypeConName -> DefDataType
-            -> Either (LF.TypeConName, (DefDataType, DefInterface)) (LF.TypeConName, DefDataType)
-        lookupInterface module_ tcon datatype =
+            -> Either (LF.TypeConName, (DefDataType, DefInterface)) (Either (LF.TypeConName, (DefDataType, DefException)) (LF.TypeConName, DefDataType))
+        lookupInterfaceOrException module_ tcon datatype =
             case NM.name datatype `NM.lookup` moduleInterfaces module_ of
-              Nothing -> Right (tcon, datatype)
+              Nothing -> Right $
+                case NM.name datatype `NM.lookup` moduleExceptions module_ of
+                  Nothing -> Right (tcon, datatype)
+                  Just exception -> Left (tcon, (datatype, exception))
               Just iface -> Left (tcon, (datatype, iface))
 
     -- Check that no interfaces have been deleted, nor propagated
-    -- New interface checks are handled by `checkNewInterfacesHaveNoTemplates`,
+    -- New interface checks are handled by `checkInterfacesAndExceptionsHaveNoTemplates`,
     -- invoked in `singlePkgDiagnostics` above
     -- Interface deletion is the correct behaviour so we ignore that
     let (_ifaceDel, ifaceExisting, _ifaceNew) = extractDelExistNew ifaceDts
     checkContinuedIfaces module_ ifaceExisting
+    let (_exceptionDel, exceptionExisting, _exceptionNew) = extractDelExistNew exceptionDts
+    checkContinuedExceptions module_ exceptionExisting
 
     let flattenInstances
             :: Module
@@ -515,6 +523,17 @@ checkContinuedIfaces module_ ifaces =
         withContextF present' (ContextDefInterface (_present module_) iface IPWhole) $
             throwWithContextF present' $ EUpgradeTriedToUpgradeIface (NM.name iface)
 
+checkContinuedExceptions
+    :: Upgrading Module
+    -> HMS.HashMap LF.TypeConName (Upgrading (DefDataType, DefException))
+    -> TcUpgradeM ()
+checkContinuedExceptions module_ exceptions =
+    forM_ exceptions $ \upgradedDtException ->
+        let (_dt, exception) = _present upgradedDtException
+        in
+        withContextF present' (ContextDefException (_present module_) exception) $
+            throwWithContextF present' $ EUpgradeTriedToUpgradeException (NM.name exception)
+
 class HasModules a where
   getModules :: a -> NM.NameMap LF.Module
 
@@ -530,13 +549,16 @@ instance HasModules [LF.Module] where
 -- Check that a module or package does not define both interfaces and templates.
 -- This warning should trigger even when no previous version DAR is specified in
 -- the `upgrades:` field.
-checkNewInterfacesHaveNoTemplates :: TcM ()
-checkNewInterfacesHaveNoTemplates = do
+checkInterfacesAndExceptionsHaveNoTemplates :: TcM ()
+checkInterfacesAndExceptionsHaveNoTemplates = do
     modules <- NM.toList . packageModules . getWorldSelf <$> getWorld
     let templateDefined = filter (not . NM.null . moduleTemplates) modules
         interfaceDefined = filter (not . NM.null . moduleInterfaces) modules
+        exceptionDefined = filter (not . NM.null . moduleExceptions) modules
     when (not (null templateDefined) && not (null interfaceDefined)) $
         diagnosticWithContext WEUpgradeShouldDefineIfacesAndTemplatesSeparately
+    when (not (null templateDefined) && not (null exceptionDefined)) $
+        diagnosticWithContext WEUpgradeShouldDefineExceptionsAndTemplatesSeparately
 
 -- Check that any interfaces defined in this package or module do not also have
 -- an instance. Interfaces defined in other packages are allowed to have
