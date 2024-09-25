@@ -410,6 +410,7 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
     ~(optMbPackageName, optMbPackageVersion) <-
         fmap parseUnitId parsePkgName
 
+    let optMbPackageConfigPath = Nothing
     optImportPath <- optImportPath
     optPackageDbs <- optPackageDir
     optAccessTokenPath <- optAccessTokenPath
@@ -436,6 +437,7 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
     optEnableScenarios <- enableScenariosOpt
     optAllowLargeTuples <- allowLargeTuplesOpt
     optTestFilter <- compilePatternExpr <$> optTestPattern
+    let optHideUnitId = False
     optUpgradeInfo <- optUpgradeInfo
 
     return Options{..}
