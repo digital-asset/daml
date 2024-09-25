@@ -6,14 +6,17 @@ package engine
 
 import com.digitalasset.daml.lf.data.ImmArray
 import com.digitalasset.daml.lf.engine.BlindingSpec.TxBuilder
+import com.digitalasset.daml.lf.ledger.BlindingTransaction
+import com.digitalasset.daml.lf.transaction.test.TreeTransactionBuilder.NodeOps
 import com.digitalasset.daml.lf.transaction.{BlindingInfo, Node}
 import com.digitalasset.daml.lf.transaction.test.{
   NodeIdTransactionBuilder,
-  TransactionBuilder,
   TestNodeBuilder,
+  TransactionBuilder,
+  TreeTransactionBuilder,
 }
 import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.ValueRecord
+import com.digitalasset.daml.lf.value.Value.{ValueRecord, ValueTrue}
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.freespec.AnyFreeSpec
 
@@ -279,6 +282,69 @@ class BlindingSpec extends AnyFreeSpec with Matchers {
       divulgence = Map(
         cid2 -> Set("A", "B", "C")
       ),
+    )
+  }
+  "contract visibility" in {
+
+    val builder = new TxBuilder()
+
+    val create1 = builder.create(
+      id = builder.newCid,
+      templateId = "M:T",
+      argument = ValueRecord(None, ImmArray.empty),
+      signatories = Seq("S1"),
+      observers = Seq(),
+    )
+
+    val exercise1 = builder.exercise(
+      create1,
+      "C",
+      consuming = true,
+      actingParties = Set("A1"),
+      ValueRecord(None, ImmArray.empty),
+      byKey = false,
+    )
+
+    val create2 = builder.create(
+      id = builder.newCid,
+      templateId = "M:T",
+      argument = ValueRecord(None, ImmArray.empty),
+      signatories = Seq("S2"),
+      observers = Seq(),
+    )
+
+    val exercise2 = builder.exercise(
+      create2,
+      "C",
+      consuming = true,
+      actingParties = Set("A2"),
+      ValueRecord(None, ImmArray.empty),
+      byKey = false,
+    )
+
+    val create3 = builder.create(
+      id = builder.newCid,
+      templateId = "M:T",
+      argument = ValueRecord(None, ImmArray.empty),
+      signatories = Seq("S3", "M3"),
+      observers = Seq(),
+      key = CreateKey.KeyWithMaintainers(ValueTrue, Set("M3")),
+    )
+
+    val lbk = builder.lookupByKey(create3)
+
+    val tx = TreeTransactionBuilder.toVersionedTransaction(
+      exercise1.withChildren(
+        exercise2,
+        lbk,
+      )
+    )
+
+    val (_, visibility) = BlindingTransaction.calculateBlindingInfoWithContactVisibility(tx)
+    visibility shouldBe Map(
+      create1.coid -> Set("S1", "A1"),
+      create2.coid -> Set("S1", "S2", "A1", "A2"),
+      create3.coid -> Set("S1", "A1", "M3"),
     )
   }
 }

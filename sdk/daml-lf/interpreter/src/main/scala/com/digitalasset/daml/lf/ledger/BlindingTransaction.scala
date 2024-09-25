@@ -15,13 +15,14 @@ import com.daml.nameof.NameOf
 object BlindingTransaction {
 
   private object BlindState {
-    val Empty = BlindState(Relation.empty, Relation.empty)
+    val Empty = BlindState(Relation.empty, Relation.empty, Relation.empty)
   }
 
   /** State to use while computing blindingInfo. */
   private final case class BlindState(
       disclosures: Relation[NodeId, Party],
       divulgences: Relation[ContractId, Party],
+      contractVisibility: Relation[ContractId, Party], // parties that witness the contract
   ) {
 
     def discloseNode(
@@ -39,23 +40,47 @@ object BlindingTransaction {
       )
     }
 
-    def divulgeCoidTo(witnesses: Set[Party], acoid: ContractId): BlindState = {
-      if (witnesses.nonEmpty) {
-        copy(
-          divulgences = divulgences
-            .updated(acoid, witnesses union divulgences.getOrElse(acoid, Set.empty))
-        )
-      } else {
-        this
-      }
+    def divulgeCoidTo(
+        divulgees: Set[Party],
+        witnesses: Set[Party],
+        acoid: ContractId,
+    ): BlindState = {
+      copy(
+        divulgences =
+          if (divulgees.nonEmpty)
+            divulgences.updated(acoid, divulgees union divulgences.getOrElse(acoid, Set.empty))
+          else divulgences,
+        contractVisibility = contractVisibility.updated(
+          acoid,
+          witnesses union contractVisibility.getOrElse(acoid, Set.empty),
+        ),
+      )
     }
 
   }
 
   /** Calculate blinding information for a transaction. */
-  def calculateBlindingInfo(
+  def calculateBlindingInfo(tx: VersionedTransaction): BlindingInfo = {
+    val (info, _) = calculateBlindingInfoWithContactVisibility(tx)
+    info
+  }
+
+  def calculateBlindingInfoWithContactVisibility(
       tx: VersionedTransaction
-  ): BlindingInfo = {
+  ): (BlindingInfo, Relation[ContractId, Party]) = {
+    val state = calculateBlindState(tx)
+    (
+      BlindingInfo(
+        disclosure = state.disclosures,
+        divulgence = state.divulgences,
+      ),
+      state.contractVisibility,
+    )
+  }
+
+  private def calculateBlindState(
+      tx: VersionedTransaction
+  ): BlindState = {
 
     val initialParentExerciseWitnesses: Set[Party] = Set.empty
 
@@ -74,18 +99,30 @@ object BlindingTransaction {
           action match {
 
             case _: Node.Create => state
-            case _: Node.LookupByKey => state
+
+            case lbk: Node.LookupByKey =>
+              lbk.result.fold(state) { coid =>
+                state.divulgeCoidTo(
+                  Set.empty,
+                  witnesses,
+                  coid,
+                )
+              }
 
             // fetch & exercise nodes cause divulgence
 
             case fetch: Node.Fetch =>
-              state
-                .divulgeCoidTo(parentExerciseWitnesses -- fetch.stakeholders, fetch.coid)
+              state.divulgeCoidTo(
+                parentExerciseWitnesses -- fetch.stakeholders,
+                witnesses,
+                fetch.coid,
+              )
 
             case ex: Node.Exercise =>
               val state1 =
                 state.divulgeCoidTo(
                   (parentExerciseWitnesses union ex.choiceObservers) -- ex.stakeholders,
+                  witnesses,
                   ex.targetCoid,
                 )
 
@@ -120,10 +157,8 @@ object BlindingTransaction {
         processNode(s, initialParentExerciseWitnesses, nodeId)
       }
 
-    BlindingInfo(
-      disclosure = finalState.disclosures,
-      divulgence = finalState.divulgences,
-    )
+    finalState
+
   }
 
 }
