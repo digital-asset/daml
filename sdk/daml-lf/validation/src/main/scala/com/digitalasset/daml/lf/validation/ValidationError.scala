@@ -72,10 +72,10 @@ case object SRView extends SerializabilityRequirement {
   def pretty: String = "view"
 }
 case object SRKey extends SerializabilityRequirement {
-  def pretty: String = "serializable data type"
+  def pretty: String = "contract key"
 }
 case object SRDataType extends SerializabilityRequirement {
-  def pretty: String = "template key"
+  def pretty: String = "serializable data type"
 }
 
 // Reason why a type is not serializable.
