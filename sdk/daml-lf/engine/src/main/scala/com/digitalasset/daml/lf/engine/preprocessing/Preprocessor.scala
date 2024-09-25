@@ -211,7 +211,7 @@ private[engine] final class Preprocessor(
       commandPreprocessor.unsafePreprocessApiCommands(pkgResolution, cmds)
     }
 
-  def preprocessDisclosedContracts(
+  def preprocessInputContracts(
       discs: data.ImmArray[FatContractInstance]
   ): Result[ImmArray[speedy.DisclosedContract]] =
     safelyRun(pullPackage(discs.toSeq.view.map(_.templateId))) {

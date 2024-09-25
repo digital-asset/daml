@@ -170,7 +170,7 @@ class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
         val contract2 =
           buildDisclosedContract(contractId, templateId = withKeyTmplId, keyHash = Some(keyHash))
         val finalResult = preprocessor
-          .preprocessDisclosedContracts(ImmArray(contract1, contract2))
+          .preprocessInputContracts(ImmArray(contract1, contract2))
           .consume(pkgs = pkgs)
 
         inside(finalResult) {
