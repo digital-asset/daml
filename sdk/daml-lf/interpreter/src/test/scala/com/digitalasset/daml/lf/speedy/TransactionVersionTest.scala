@@ -4,15 +4,15 @@
 package com.digitalasset.daml.lf
 package speedy
 
-import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.digitalasset.daml.lf.data.Ref.{IdString, PackageId, Party, TypeConName}
+import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.digitalasset.daml.lf.language.LanguageMajorVersion.V2
 import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.digitalasset.daml.lf.speedy.SBuiltinFun.SBFetchTemplate
-import com.digitalasset.daml.lf.speedy.SExpr.{SEMakeClo, SEValue}
+import com.digitalasset.daml.lf.speedy.SExpr.SEMakeClo
 import com.digitalasset.daml.lf.testing.parser
-import com.digitalasset.daml.lf.transaction.{SubmittedTransaction, Versioned}
 import com.digitalasset.daml.lf.testing.parser.Implicits.SyntaxHelper
+import com.digitalasset.daml.lf.transaction.{SubmittedTransaction, Versioned}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
 import org.scalatest.Inside
@@ -258,7 +258,7 @@ private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMa
           Array(),
           1,
           SExpr.SELet1General(
-            SBFetchTemplate(templateId)(speedyContractId, SEValue.None),
+            SBFetchTemplate(templateId)(speedyContractId),
             SExpr.SEScopeExercise(
               SBuiltinFun.SBUBeginExercise(
                 templateId,
