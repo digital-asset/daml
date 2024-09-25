@@ -4,7 +4,6 @@
 package com.digitalasset.canton.topology
 
 import cats.data.EitherT
-import cats.syntax.either.*
 import cats.syntax.option.*
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.DomainAlias

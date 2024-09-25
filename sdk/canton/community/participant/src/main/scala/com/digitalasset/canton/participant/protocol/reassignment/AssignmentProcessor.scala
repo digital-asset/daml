@@ -8,6 +8,7 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.data.ViewType.AssignmentViewType
+import com.digitalasset.canton.lifecycle.PromiseUnlessShutdownFactory
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.protocol.ProtocolProcessor
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.ReassignmentProcessorError
@@ -40,6 +41,7 @@ class AssignmentProcessor(
     loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
     override val testingConfig: TestingConfigInternal,
+    promiseFactory: PromiseUnlessShutdownFactory,
 )(implicit ec: ExecutionContext)
     extends ProtocolProcessor[
       AssignmentProcessingSteps.SubmissionParam,
@@ -66,6 +68,7 @@ class AssignmentProcessor(
       targetProtocolVersion.v,
       loggerFactory,
       futureSupervisor,
+      promiseFactory,
     ) {
   override protected def metricsContextForSubmissionParam(
       submissionParam: AssignmentProcessingSteps.SubmissionParam

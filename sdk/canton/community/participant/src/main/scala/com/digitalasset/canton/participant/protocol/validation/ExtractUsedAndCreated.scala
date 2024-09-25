@@ -18,7 +18,6 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.transaction.Versioned
 
@@ -172,8 +171,10 @@ private[validation] class ExtractUsedAndCreated(
 
       usedB += contract.contractId -> contract
 
-      if (hostsAny(informeeStakeholders)) {
-        contractIdsOfHostedInformeeStakeholderB += contract.contractId
+      if (hostsAny(stakeholders)) {
+        if (hostsAny(informeeStakeholders)) {
+          contractIdsOfHostedInformeeStakeholderB += contract.contractId
+        }
         // We do not need to include in consumedInputsOfHostedStakeholders the contracts created in the core
         // because they are not inputs even if they are consumed.
         if (inputContractWithMetadata.consumed) {
@@ -183,16 +184,6 @@ private[validation] class ExtractUsedAndCreated(
               contract.contractId -> stakeholders
           }
         }
-      } else if (hostsAny(stakeholders.diff(informees))) {
-        // TODO(i12901) report view participant data as malformed
-        ErrorUtil.requireArgument(
-          !inputContractWithMetadata.consumed,
-          s"Participant hosts non-informee stakeholder(s) of consumed ${contract.contractId}; stakeholders: $stakeholders, informees: $informees",
-        )
-        // If the participant hosts a non-informee stakeholder of a used contract,
-        // it shouldn't check activeness, so we don't add it to checkActivenessOrRelative
-        // If another view adds the contract nevertheless to it, it will not matter since the participant
-        // will not send a confirmation for this view.
       } else {
         divulgedB += (contract.contractId -> contract)
       }

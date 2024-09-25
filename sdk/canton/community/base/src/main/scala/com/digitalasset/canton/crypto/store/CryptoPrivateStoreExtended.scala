@@ -243,10 +243,16 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
   /** Returns the wrapper key used to encrypt the private key
     * or None if private key is not encrypted.
     *
-    * @param keyId private key fingerprint
+    * @param keyId the private key fingerprint
     * @return the wrapper key used for encryption or None if key is not encrypted
     */
   private[crypto] def encrypted(keyId: Fingerprint)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Option[String300]]
+
+  override def queryKmsKeyId(keyId: Fingerprint)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Option[String300]] =
+    EitherT.rightT[FutureUnlessShutdown, CryptoPrivateStoreError](None)
+
 }

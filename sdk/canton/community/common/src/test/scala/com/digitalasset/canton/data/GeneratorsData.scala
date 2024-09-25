@@ -255,38 +255,90 @@ final class GeneratorsData(
 
   implicit val viewParticipantDataArb: Arbitrary[ViewParticipantData] = Arbitrary(
     for {
+      actionDescription <- actionDescriptionArb.arbitrary
 
-      coreInputs <- Gen
-        .listOf(
-          Gen.zip(
-            generatorsProtocol.serializableContractArb(canHaveEmptyKey = false).arbitrary,
-            Gen.oneOf(true, false),
-          )
-        )
-        .map(_.map(InputContract.apply tupled))
+      coreInputs <- actionDescription match {
+        case ex: ExerciseActionDescription =>
+          for {
+            c <- Gen
+              .zip(
+                generatorsProtocol
+                  .serializableContractArb(canHaveEmptyKey = false)
+                  .arbitrary
+                  .map(_.copy(contractId = ex.inputContractId)),
+                Gen.oneOf(true, false),
+              )
+              .map(InputContract.apply tupled)
 
-      createdCore <- Gen
-        .listOf(
-          Gen.zip(
-            generatorsProtocol.serializableContractArb(canHaveEmptyKey = false).arbitrary,
-            Gen.oneOf(true, false),
-            Gen.oneOf(true, false),
-          )
-        )
-        .map(_.map(CreatedContract.tryCreate tupled))
-        // Deduplicating on contract id
-        .map(
-          _.groupBy(_.contract.contractId).flatMap { case (_, contracts) => contracts.headOption }
-        )
+            others <- Gen
+              .listOf(
+                Gen.zip(
+                  generatorsProtocol.serializableContractArb(canHaveEmptyKey = false).arbitrary,
+                  Gen.oneOf(true, false),
+                )
+              )
+              .map(_.map(InputContract.apply tupled))
+          } yield (c +: others).groupBy(_.contractId).flatMap { case (_, contracts) =>
+            contracts.headOption
+          }
 
-      createdCoreIds = createdCore.map(_.contract.contractId).toSet
+        case fetch: FetchActionDescription =>
+          generatorsProtocol
+            .serializableContractArb(canHaveEmptyKey = false)
+            .arbitrary
+            .map(c =>
+              List(InputContract(c.copy(contractId = fetch.inputContractId), consumed = false))
+            )
+        case _: CreateActionDescription | _: LookupByKeyActionDescription => Gen.const(List.empty)
+      }
+
+      createdCore <- actionDescription match {
+        case created: CreateActionDescription =>
+          Gen
+            .zip(
+              generatorsProtocol
+                .serializableContractArb(canHaveEmptyKey = false)
+                .arbitrary,
+              Gen.oneOf(true, false),
+            )
+            .map { case (c, rolledBack) =>
+              List(
+                CreatedContract.tryCreate(
+                  c.copy(contractId = created.contractId),
+                  consumedInCore = false,
+                  rolledBack = rolledBack,
+                )
+              )
+            }
+
+        case _: ExerciseActionDescription =>
+          Gen
+            .listOf(
+              Gen.zip(
+                generatorsProtocol.serializableContractArb(canHaveEmptyKey = false).arbitrary,
+                Gen.oneOf(true, false),
+                Gen.oneOf(true, false),
+              )
+            )
+            .map(_.map(CreatedContract.tryCreate tupled))
+            // Deduplicating on contract id
+            .map(
+              _.groupBy(_.contract.contractId).flatMap { case (_, contracts) =>
+                contracts.headOption
+              }
+            )
+
+        case _: LookupByKeyActionDescription | _: FetchActionDescription => Gen.const(List.empty)
+      }
+
+      notTransient = (createdCore.map(_.contract.contractId) ++ coreInputs.map(_.contractId)).toSet
 
       createdInSubviewArchivedInCore <- Gen
         .containerOf[Set, LfContractId](
           Arbitrary.arbitrary[LfContractId]
         )
-        // createdInSubviewArchivedInCore and createdCore should be disjoint
-        .map(_.intersect(createdCoreIds))
+        // createdInSubviewArchivedInCore and notTransient should be disjoint
+        .map(_ -- notTransient)
 
       /*
         Resolved keys
@@ -303,13 +355,20 @@ final class GeneratorsData(
             .zip(key, AssignedKey(contract.contractId))
             .map { case (LfVersioned(v, k), r) => (k.globalKey, LfVersioned(v, r)) }
       })
-      freeResolvedKeys <- Gen.listOf(
-        Gen
-          .zip(Arbitrary.arbitrary[LfGlobalKey], Arbitrary.arbitrary[LfVersioned[FreeKey]])
-      )
+      freeResolvedKeys <- actionDescription match {
+        case _: CreateActionDescription | _: FetchActionDescription => Gen.const(List.empty)
+
+        case _: ExerciseActionDescription =>
+          Gen.listOf(
+            Gen
+              .zip(Arbitrary.arbitrary[LfGlobalKey], Arbitrary.arbitrary[LfVersioned[FreeKey]])
+          )
+
+        case LookupByKeyActionDescription(key) =>
+          Arbitrary.arbitrary[LfVersioned[FreeKey]].map(res => List(key.unversioned -> res))
+      }
 
       resolvedKeys = assignedResolvedKeys ++ freeResolvedKeys
-      actionDescription <- actionDescriptionArb.arbitrary
       rollbackContext <- Arbitrary.arbitrary[RollbackContext]
       salt <- Arbitrary.arbitrary[Salt]
 

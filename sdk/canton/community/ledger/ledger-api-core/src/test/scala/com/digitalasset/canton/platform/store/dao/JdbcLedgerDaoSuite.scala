@@ -276,7 +276,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       keyOpt = None,
       byKey = false,
       version = txVersion,
-      interfaceId = None,
     )
 
   // Ids of all contracts created in a transaction - both transient and non-transient
@@ -796,7 +795,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
         keyOpt = None,
         byKey = false,
         version = txVersion,
-        interfaceId = None,
       )
     )
     nextOffset() -> LedgerEntry.Transaction(

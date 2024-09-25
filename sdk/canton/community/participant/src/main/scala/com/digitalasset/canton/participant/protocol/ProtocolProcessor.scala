@@ -22,7 +22,11 @@ import com.digitalasset.canton.data.*
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.TransactionError
 import com.digitalasset.canton.ledger.participant.state.Update
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
+import com.digitalasset.canton.lifecycle.{
+  FutureUnlessShutdown,
+  PromiseUnlessShutdownFactory,
+  UnlessShutdown,
+}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
@@ -98,6 +102,7 @@ abstract class ProtocolProcessor[
     protocolVersion: ProtocolVersion,
     override protected val loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
+    promiseFactory: PromiseUnlessShutdownFactory,
 )(implicit
     ec: ExecutionContext
 ) extends AbstractMessageProcessor(
@@ -473,7 +478,11 @@ abstract class ProtocolProcessor[
       )
 
       // use the send callback and a promise to capture the eventual sequenced event read by the submitter
-      sendResultP = mkPromise[SendResult](
+      // We use a promise produced by the passed-in promise factory instead of `SendCallback.future` so that
+      // we stop waiting for the result as soon as the promise factory (typically the sync domain) is closed.
+      // This way, we can safely wrap the submission in a `performUnlessClosing*F` call without getting into
+      // tricky shutdown order dependencies.
+      sendResultP = promiseFactory.mkPromise[SendResult](
         "sequenced-event-send-result",
         futureSupervisor,
       )

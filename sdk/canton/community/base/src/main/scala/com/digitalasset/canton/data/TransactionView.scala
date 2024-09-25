@@ -257,11 +257,8 @@ final case class TransactionView private (
           (fromAcc, _) =>
             // By the contract ID allocation scheme, the contract IDs in the subviews are pairwise distinct
             // and distinct from `createdCore`
-            // TODO(i12901) Check this invariant somewhere
-            ErrorUtil.internalError(
-              new IllegalStateException(
-                s"Contract ${fromAcc.contract.contractId} is created multiple times in view $viewHash"
-              )
+            throw InvalidView(
+              s"Contract ${fromAcc.contract.contractId} is created multiple times in view $viewHash"
             )
         }
 

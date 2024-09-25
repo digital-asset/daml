@@ -150,7 +150,7 @@ final case class ViewParticipantData private (
     }
   }
 
-  def rootAction: RootAction =
+  val rootAction: RootAction =
     actionDescription match {
       case CreateActionDescription(contractId, _seed) =>
         val createdContract = createdCore.headOption.getOrElse(
@@ -219,7 +219,7 @@ final case class ViewParticipantData private (
         }
         RootAction(cmd, actors, failed, packagePreference)
 
-      case FetchActionDescription(inputContractId, actors, byKey, templateId, interfaceId) =>
+      case FetchActionDescription(inputContractId, actors, byKey, templateId) =>
         val inputContract = coreInputs.getOrElse(
           inputContractId,
           throw InvalidViewParticipantData(
@@ -237,7 +237,7 @@ final case class ViewParticipantData private (
             )
           LfFetchByKeyCommand(templateId = templateId, key = key)
         } else {
-          LfFetchCommand(templateId = templateId, interfaceId = interfaceId, coid = inputContractId)
+          LfFetchCommand(templateId = templateId, coid = inputContractId)
         }
         RootAction(cmd, actors, failed = false, packageIdPreference = Set.empty)
 
