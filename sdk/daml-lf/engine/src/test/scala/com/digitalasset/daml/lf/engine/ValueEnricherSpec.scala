@@ -52,7 +52,7 @@ class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
           record @serializable MyUnit = {};
           record @serializable Record = { field : Int64, optField: Option Int64 };
           variant @serializable Variant = variant1 : Text | variant2 : Int64 ;
-          enum Enum = value1 | value2;
+          enum @serializable Enum = value1 | value2;
 
           record @serializable Key = {
              party: Party,

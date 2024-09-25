@@ -106,7 +106,7 @@ final class TypeDestructor(pkgInterface: PackageInterface) {
   ): Either[TypeDestructor.Error, TypeF[Ast.Type]] = {
     def prettyType = args.foldLeft(typ0)(Ast.TApp).pretty
 
-    def unsupportedType = TypeDestructor.Error.TypeError(s"unsupported type $prettyType")
+    def unserializableType = TypeDestructor.Error.TypeError(s"unserializableType type $prettyType")
 
     def wrongType = TypeDestructor.Error.TypeError(s"wrong type $prettyType")
 
@@ -131,6 +131,7 @@ final class TypeDestructor(pkgInterface: PackageInterface) {
             .map(TypeDestructor.Error.LookupError)
           pkgName = pkg.metadata.name
           dataDef <- pkgInterface.lookupDataType(tycon).left.map(TypeDestructor.Error.LookupError)
+          _ <- Either.cond(dataDef.serializable, (), unserializableType)
           params = dataDef.params
           subst <- Either.cond(
             params.length == args.length,
@@ -169,7 +170,7 @@ final class TypeDestructor(pkgInterface: PackageInterface) {
                 )
               )
             case Ast.DataInterface =>
-              Left(unsupportedType)
+              Left(unserializableType)
           }
         } yield destructed
       case Ast.TBuiltin(bt) =>
@@ -223,12 +224,12 @@ final class TypeDestructor(pkgInterface: PackageInterface) {
               case _ => Left(wrongType)
             }
           case _ =>
-            Left(unsupportedType)
+            Left(unserializableType)
         }
       case Ast.TApp(tyfun, arg) =>
         go(tyfun, arg :: args)
       case _ =>
-        Left(unsupportedType)
+        Left(unserializableType)
     }
   }
 }
