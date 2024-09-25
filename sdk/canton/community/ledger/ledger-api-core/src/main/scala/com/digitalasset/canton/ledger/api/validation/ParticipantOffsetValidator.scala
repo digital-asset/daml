@@ -32,6 +32,15 @@ object ParticipantOffsetValidator {
   ): Either[StatusRuntimeException, ParticipantOffset] =
     Ref.HexString.fromString(ledgerOffset).left.map(invalidArgument)
 
+  // TODO(#18685) deduplicate with validateOptional
+  def validate(ledgerOffsetO: Option[Long], fieldName: String)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Option[ParticipantOffset]] =
+    ledgerOffsetO match {
+      case Some(off) => validatePositive(off, fieldName).map(Some(_))
+      case None => Right(None)
+    }
+
   def validatePositive(ledgerOffset: Long, fieldName: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, ParticipantOffset] =

@@ -101,13 +101,13 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends Name
       client: DamlLedgerClient
   )(implicit traceContext: TraceContext): GetCreatesAndArchivesSince =
     (jwt, filter, offset, terminates) => { implicit lc =>
-      val endSource: Source[String, NotUsed] = terminates match {
+      val endSource: Source[Option[Long], NotUsed] = terminates match {
         case Terminates.AtParticipantEnd =>
           Source
             .future(client.stateService.getLedgerEnd())
-            .map(response => ApiOffset.fromLongO(response.offset))
-        case Terminates.Never => Source.single("")
-        case Terminates.AtAbsolute(off) => Source.single(off)
+            .map(_.offset)
+        case Terminates.Never => Source.single(None)
+        case Terminates.AtAbsolute(off) => Source.single(ApiOffset.assertFromStringToLongO(off))
       }
       endSource.flatMapConcat { end =>
         if (skipRequest(offset, end))
@@ -167,11 +167,11 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends Name
   //      }
   //  }
 
-  private def skipRequest(start: String, end: String): Boolean =
-    (start, end) match {
-      case (_, "") => false
-      case ("", _) => false
-      case _ => start >= end
+  private def skipRequest(startO: Option[Long], endO: Option[Long]): Boolean =
+    (startO, endO) match {
+      case (_, None) => false
+      case (None, _) => false
+      case (Some(start), Some(end)) => start >= end
     }
 
   // TODO(#13303): Replace all occurrences of EC for logging purposes in this file
@@ -332,7 +332,7 @@ object LedgerClientJwt {
     (
         Jwt,
         TransactionFilter,
-        String,
+        Option[Long],
         Terminates,
     ) => LoggingContextOf[InstanceUUID] => Source[Transaction, NotUsed]
 

@@ -66,20 +66,16 @@ public class IouMain {
                   });
             });
 
-    String ledgerEnd =
-        client
-            .getStateClient()
-            .getLedgerEnd()
-            .blockingGet()
-            .map(num -> String.format("%018x", num))
-            .orElse("");
+    Optional<Long> ledgerEnd = client.getStateClient().getLedgerEnd().blockingGet();
 
     Disposable ignore =
         client
             .getTransactionsClient()
             .getTransactions(
                 Iou.contractFilter(),
-                acsOffset.get(),
+                acsOffset.get().isEmpty()
+                    ? Optional.empty()
+                    : Optional.of(Long.parseLong(acsOffset.get(), 16)),
                 ledgerEnd,
                 Collections.singleton(party),
                 true)

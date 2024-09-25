@@ -822,26 +822,23 @@ object Generators {
   def getUpdatesRequestGen: Gen[v2.UpdateServiceOuterClass.GetUpdatesRequest] = {
     import v2.UpdateServiceOuterClass.GetUpdatesRequest as Request
     for {
-      beginExclusive <- Arbitrary.arbString.arbitrary
-      endInclusiveO <- Gen.option(Arbitrary.arbString.arbitrary)
+      beginExclusiveO <- Gen.option(Arbitrary.arbLong.arbitrary)
+      endInclusiveO <- Gen.option(Arbitrary.arbLong.arbitrary)
       filter <- transactionFilterGen
       verbose <- Arbitrary.arbBool.arbitrary
     } yield {
-      val partialBuilder = Request
+      val baseBuilder = Request
         .newBuilder()
-        .setBeginExclusive(beginExclusive)
         .setFilter(filter)
         .setVerbose(verbose)
 
-      endInclusiveO match {
-        case Some(endInclusive) =>
-          partialBuilder
-            .setEndInclusive(endInclusive)
-            .build()
-        case None =>
-          partialBuilder
-            .build()
-      }
+      val partialBuilder =
+        beginExclusiveO.fold(baseBuilder)(baseBuilder.setBeginExclusive)
+
+      val builder =
+        endInclusiveO.fold(partialBuilder)(partialBuilder.setEndInclusive)
+
+      builder.build()
     }
   }
 
