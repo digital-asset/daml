@@ -978,6 +978,7 @@ object LedgerApiCommands {
     }
     sealed trait UpdateWrapper {
       def updateId: String
+      def isUnassignment: Boolean
       def createEvent: Option[CreatedEvent] =
         this match {
           case UpdateService.TransactionWrapper(t) => t.events.headOption.map(_.getCreated)
@@ -997,6 +998,8 @@ object LedgerApiCommands {
     }
     final case class TransactionWrapper(transaction: Transaction) extends UpdateWrapper {
       override def updateId: String = transaction.updateId
+      override def isUnassignment: Boolean = false
+
     }
     sealed trait ReassignmentWrapper extends UpdateTreeWrapper with UpdateWrapper {
       def reassignment: Reassignment
@@ -1021,10 +1024,12 @@ object LedgerApiCommands {
     final case class AssignedWrapper(reassignment: Reassignment, assignedEvent: AssignedEvent)
         extends ReassignmentWrapper {
       override def updateId: String = reassignment.updateId
+      override def isUnassignment: Boolean = false
     }
     final case class UnassignedWrapper(reassignment: Reassignment, unassignedEvent: UnassignedEvent)
         extends ReassignmentWrapper {
       override def updateId: String = reassignment.updateId
+      override def isUnassignment: Boolean = true
     }
 
     trait BaseCommand[Req, Resp, Res] extends GrpcAdminCommand[Req, Resp, Res] {

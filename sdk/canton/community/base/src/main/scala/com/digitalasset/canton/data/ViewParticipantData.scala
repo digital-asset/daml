@@ -150,7 +150,7 @@ final case class ViewParticipantData private (
     }
   }
 
-  def rootAction: RootAction =
+  val rootAction: RootAction =
     actionDescription match {
       case CreateActionDescription(contractId, _seed) =>
         val createdContract = createdCore.headOption.getOrElse(

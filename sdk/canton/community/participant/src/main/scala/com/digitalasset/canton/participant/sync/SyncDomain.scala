@@ -193,6 +193,7 @@ class SyncDomain(
     futureSupervisor,
     packageResolver = packageResolver,
     testingConfig = testingConfig,
+    this,
   )
 
   private val unassignmentProcessor: UnassignmentProcessor = new UnassignmentProcessor(
@@ -211,6 +212,7 @@ class SyncDomain(
     loggerFactory,
     futureSupervisor,
     testingConfig = testingConfig,
+    this,
   )
 
   private val assignmentProcessor: AssignmentProcessor = new AssignmentProcessor(
@@ -229,6 +231,7 @@ class SyncDomain(
     loggerFactory,
     futureSupervisor,
     testingConfig = testingConfig,
+    this,
   )
 
   private val sortedReconciliationIntervalsProvider = new SortedReconciliationIntervalsProvider(

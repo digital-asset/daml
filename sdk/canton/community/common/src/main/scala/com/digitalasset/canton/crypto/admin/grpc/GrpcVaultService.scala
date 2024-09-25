@@ -7,6 +7,7 @@ import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
+import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -71,18 +72,30 @@ class GrpcVaultService(
         )
       filteredPublicKeys = listPublicKeys(request.filters, publicKeys)
       keysMetadata <-
-        filteredPublicKeys.parTraverse { pk =>
-          (crypto.cryptoPrivateStore.toExtended match {
-            case Some(extended) =>
-              extended
-                .encrypted(pk.publicKey.id)
+        crypto.cryptoPrivateStore.toExtended match {
+          case Some(extended) =>
+            filteredPublicKeys.parTraverse { pk =>
+              for {
+                encrypted <- extended
+                  .encrypted(pk.publicKey.id)
+                  .leftMap[BaseCantonError] { err =>
+                    CryptoPrivateStoreError.ErrorCode.WrapStr(
+                      s"Failed to retrieve encrypted status for key ${pk.publicKey.id}: $err"
+                    )
+                  }
+              } yield PrivateKeyMetadata(pk, encrypted, None).toProtoV30
+            }
+          case None =>
+            filteredPublicKeys.parTraverse { pk =>
+              crypto.cryptoPrivateStore
+                .queryKmsKeyId(pk.id)
+                .map(PrivateKeyMetadata(pk, None, _).toProtoV30)
                 .leftMap[BaseCantonError] { err =>
                   CryptoPrivateStoreError.ErrorCode.WrapStr(
-                    s"Failed to retrieve encrypted status for key ${pk.publicKey.id}: $err"
+                    s"Failed to retrieve KMS key id for key ${pk.publicKey.id}: $err"
                   )
                 }
-            case None => EitherT.rightT[FutureUnlessShutdown, BaseCantonError](None)
-          }).map(encrypted => PrivateKeyMetadata(pk, encrypted).toProtoV30)
+            }
         }
     } yield v30.ListMyKeysResponse(keysMetadata)
 
@@ -444,7 +457,13 @@ object GrpcVaultService {
 final case class PrivateKeyMetadata(
     publicKeyWithName: PublicKeyWithName,
     wrapperKeyId: Option[String300],
+    kmsKeyId: Option[String300],
 ) {
+
+  require(
+    wrapperKeyId.forall(!_.unwrap.isBlank) || kmsKeyId.forall(!_.unwrap.isBlank),
+    "the wrapper key or KMS key ID cannot be an empty or blank string",
+  )
 
   def id: Fingerprint = publicKey.id
 
@@ -459,7 +478,8 @@ final case class PrivateKeyMetadata(
   def toProtoV30: v30.PrivateKeyMetadata =
     v30.PrivateKeyMetadata(
       publicKeyWithName = Some(publicKeyWithName.toProtoV30),
-      wrapperKeyId = OptionUtil.noneAsEmptyString(wrapperKeyId.map(_.toProtoPrimitive)),
+      wrapperKeyId = wrapperKeyId.map(_.toProtoPrimitive),
+      kmsKeyId = kmsKeyId.map(_.toProtoPrimitive),
     )
 }
 
@@ -472,11 +492,27 @@ object PrivateKeyMetadata {
         "public_key_with_name",
         key.publicKeyWithName,
       )
-      wrapperKeyId <- OptionUtil
-        .emptyStringAsNone(key.wrapperKeyId)
-        .traverse(keyId => String300.fromProtoPrimitive(keyId, "wrapper_key_id"))
+      wrapperKeyId <- key.wrapperKeyId
+        .traverse { keyId =>
+          if (keyId.isBlank)
+            Left(
+              ProtoDeserializationError
+                .InvariantViolation("wrapper_key_id", "empty or blank wrapper key ID")
+            )
+          else String300.fromProtoPrimitive(keyId, "wrapper_key_id")
+        }
+      kmsKeyId <- key.kmsKeyId
+        .traverse { keyId =>
+          if (keyId.isBlank)
+            Left(
+              ProtoDeserializationError
+                .InvariantViolation("kms_key_id", "empty or blank KMS key ID")
+            )
+          else String300.fromProtoPrimitive(keyId, "kms_key_id")
+        }
     } yield PrivateKeyMetadata(
       publicKeyWithName,
       wrapperKeyId,
+      kmsKeyId,
     )
 }
