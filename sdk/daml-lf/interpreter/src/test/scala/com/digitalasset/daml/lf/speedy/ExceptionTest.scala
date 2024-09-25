@@ -792,8 +792,8 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
               message \(e: Mod:Ex) -> Mod:Ex {message} e
             };
 
-          val mkParty : Text -> Party = \(t:Text) -> case TEXT_TO_PARTY t of None -> ERROR @Party "none" | Some x -> x;
-          val alice : Party = Mod:mkParty "alice";
+            val mkParty : Text -> Party = \(t:Text) -> case TEXT_TO_PARTY t of None -> ERROR @Party "none" | Some x -> x;
+            val alice : Party = Mod:mkParty "alice";
           }
       """ (parserParameters.copy(defaultPackageId = commonDefsPkgId))
 
