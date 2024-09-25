@@ -20,15 +20,19 @@ import com.digitalasset.daml.lf.speedy.wasm.exports.{
 import com.digitalasset.daml.lf.speedy.wasm.host.{PureWasmHostFunctions, UpdateWasmHostFunctions}
 import com.digitalasset.daml.lf.speedy.wasm.host.WasmHostFunctions
 import com.dylibso.chicory.runtime.{
+  TrapException,
   HostFunction => WasmHostFunction,
   HostImports => WasmHostImports,
   Instance => WasmInstance,
   Module => WasmModule,
 }
+import com.dylibso.chicory.wasm.exceptions.UninstantiableException
+import com.dylibso.chicory.wasm.types.{Value => WasmValue}
 import com.google.protobuf.ByteString
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
+import scala.jdk.CollectionConverters._
 
 /*
     Notes:
@@ -384,8 +388,22 @@ final class WasmRunner(
 
     val exprEvaluator = instance.export(wasmExpr.name)
 
-    // Calling imported host functions applies a series of (transactional) side effects to ptx
-    val _ = exprEvaluator.apply(wasmExpr.args.map(copyByteString).flatten: _*)
+    try {
+      // Calling imported host functions applies a series of (transactional) side effects to ptx
+      val _ = exprEvaluator.apply(wasmExpr.args.map(copyByteString).flatten: _*)
+    } catch {
+      case exn: UninstantiableException if exn.getCause.isInstanceOf[TrapException] =>
+        logger.error(
+          s"WASM Stack Trace: \n${exn.getCause.asInstanceOf[TrapException].callStack()}",
+          exn.getCause,
+        )
+
+      case exn: TrapException =>
+        logger.error(
+          s"WASM Stack Trace: \n${exn.getCause.asInstanceOf[TrapException].callStack()}",
+          exn,
+        )
+    }
 
     finish
   }
@@ -394,6 +412,7 @@ final class WasmRunner(
     val imports = new WasmHostImports(
       Array[WasmHostFunction](
         logFunc,
+        abortFunc,
         PureWasmHostFunctions.createContractFunc,
         PureWasmHostFunctions.fetchContractArgFunc,
         PureWasmHostFunctions.exerciseChoiceFunc,
@@ -405,7 +424,13 @@ final class WasmRunner(
 
   private def UpdateWasmInstance(): WasmInstance = {
     val imports = new WasmHostImports(
-      Array[WasmHostFunction](logFunc, createContractFunc, fetchContractArgFunc, exerciseChoiceFunc)
+      Array[WasmHostFunction](
+        logFunc,
+        abortFunc,
+        createContractFunc,
+        fetchContractArgFunc,
+        exerciseChoiceFunc,
+      )
     )
 
     WasmModule.builder(wasmExpr.module.toByteArray).withHostImports(imports).build().instantiate()
@@ -433,6 +458,18 @@ final class WasmRunner(
 
     ByteString.empty()
   }
+
+  private val abortFunc: WasmHostFunction = new WasmHostFunction(
+    (_: WasmInstance, args: Array[WasmValue]) => {
+      require(args.length == 4)
+
+      Array.empty
+    },
+    "env",
+    "abort",
+    (WasmValueParameterType ++ WasmValueParameterType ++ WasmValueParameterType ++ WasmValueParameterType).asJava,
+    List.empty.asJava,
+  )
 
   private def lookupPackageLanguageType(templateId: Ref.TypeConRef): PackageLanguageType = {
     // TODO: this is a hack

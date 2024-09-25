@@ -40,7 +40,7 @@ cp ./target/wasm32-unknown-unknown/release/hello_world.wasm ../../resources/hell
 In the Rust package directory `./create-contract` run:
 ```shell
 mkdir -p ./src/protobubf
-protoc --rust_out ./src/protobubf --proto_path ../../../../../transaction/src/main/protobuf/com/digitalasset/daml/lf value.proto
+protoc --rust_out ./src/protobuf --proto_path ../../../../../transaction/src/main/protobuf/com/digitalasset/daml/lf value.proto
 cargo build --target wasm32-unknown-unknown --release
 cp ./target/wasm32-unknown-unknown/release/create_contract.wasm ../../resources/create-contract.rs.wasm
 ```
@@ -50,7 +50,7 @@ cp ./target/wasm32-unknown-unknown/release/create_contract.wasm ../../resources/
 In the Rust package directory `./fetch-contract` run:
 ```shell
 mkdir -p ./src/protobubf
-protoc --rust_out ./src/protobubf --proto_path ../../../../../transaction/src/main/protobuf/com/digitalasset/daml/lf value.proto
+protoc --rust_out ./src/protobuf --proto_path ../../../../../transaction/src/main/protobuf/com/digitalasset/daml/lf value.proto
 cargo build --target wasm32-unknown-unknown --release
 cp ./target/wasm32-unknown-unknown/release/fetch_contract.wasm ../../resources/fetch-contract.rs.wasm
 ```
@@ -60,7 +60,7 @@ cp ./target/wasm32-unknown-unknown/release/fetch_contract.wasm ../../resources/f
 In the Rust package directory `./exercise-choice` run:
 ```shell
 mkdir -p ./src/protobubf
-protoc --rust_out ./src/protobubf --proto_path ../../../../../transaction/src/main/protobuf/com/digitalasset/daml/lf value.proto
+protoc --rust_out ./src/protobuf --proto_path ../../../../../transaction/src/main/protobuf/com/digitalasset/daml/lf value.proto
 cargo build --target wasm32-unknown-unknown --release
 cp ./target/wasm32-unknown-unknown/release/exercise_choice.wasm ../../resources/exercise-choice.rs.wasm
 ```
@@ -70,7 +70,7 @@ cp ./target/wasm32-unknown-unknown/release/exercise_choice.wasm ../../resources/
 In the Rust package directory `./data-interoperability` run:
 ```shell
 mkdir -p ./src/protobubf
-protoc --rust_out ./src/protobubf --proto_path ../../../../../transaction/src/main/protobuf/com/digitalasset/daml/lf value.proto
+protoc --rust_out ./src/protobuf --proto_path ../../../../../transaction/src/main/protobuf/com/digitalasset/daml/lf value.proto
 cargo build --target wasm32-unknown-unknown --release
 cp ./target/wasm32-unknown-unknown/release/data_interoperability.wasm ../../resources/data-interoperability.rs.wasm
 ```
