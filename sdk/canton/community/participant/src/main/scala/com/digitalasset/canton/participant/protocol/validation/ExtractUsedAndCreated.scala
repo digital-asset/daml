@@ -192,7 +192,6 @@ private[validation] class ExtractUsedAndCreated(
           }
         }
       } else if (hostsAny(stakeholders.diff(informees))) {
-        // TODO(i12901) report view participant data as malformed
         ErrorUtil.requireArgument(
           !inputContractWithMetadata.consumed,
           s"Participant hosts non-informee stakeholder(s) of consumed ${contract.contractId}; stakeholders: $stakeholders, informees: $informees",
