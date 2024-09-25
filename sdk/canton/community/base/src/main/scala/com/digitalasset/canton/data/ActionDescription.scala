@@ -161,6 +161,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
             _stakeholders,
             _key,
             byKey,
+            interfaceId,
             version,
           ) =>
         for {
@@ -174,7 +175,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
             actingParties,
             InvalidActionDescription("Fetch node without acting parties"),
           )
-        } yield FetchActionDescription(inputContract, actors, byKey, templateId)(
+        } yield FetchActionDescription(inputContract, actors, byKey, templateId, interfaceId)(
           protocolVersionRepresentativeFor(protocolVersion)
         )
 
@@ -280,12 +281,14 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
       actorsP,
       byKey,
       templateIdP,
+      interfaceIdP,
     ) = f
     for {
       inputContractId <- ProtoConverter.parseLfContractId(inputContractIdP)
       actors <- actorsP.traverse(ProtoConverter.parseLfPartyId).map(_.toSet)
       templateId <- RefIdentifierSyntax.fromProtoPrimitive(templateIdP)
-    } yield FetchActionDescription(inputContractId, actors, byKey, templateId)(pv)
+      interfaceId <- interfaceIdP.traverse(RefIdentifierSyntax.fromProtoPrimitive)
+    } yield FetchActionDescription(inputContractId, actors, byKey, templateId, interfaceId)(pv)
   }
 
   private[data] def fromProtoV30(
@@ -381,6 +384,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
     override def pretty: Pretty[ExerciseActionDescription] = prettyOfClass(
       param("input contract id", _.inputContractId),
       param("template id", _.templateId),
+      paramIfDefined("interface id", _.interfaceId),
       param("choice", _.choice.unquoted),
       param("chosen value", _.chosenValue),
       param("actors", _.actors),
@@ -452,6 +456,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
       actors: Set[LfPartyId],
       override val byKey: Boolean,
       templateId: LfTemplateId,
+      interfaceId: Option[LfTemplateId],
   )(
       override val representativeProtocolVersion: RepresentativeProtocolVersion[
         ActionDescription.type
@@ -468,6 +473,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
           actors = actors.toSeq,
           byKey = byKey,
           templateId = new RefIdentifierSyntax(templateId).toProtoPrimitive,
+          interfaceId = interfaceId.map(i => new RefIdentifierSyntax(i).toProtoPrimitive),
         )
       )
 
@@ -475,6 +481,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
       param("input contract id", _.inputContractId),
       param("actors", _.actors),
       paramIfTrue("by key", _.byKey),
+      paramIfDefined("interface id", _.interfaceId),
     )
   }
 
