@@ -1312,11 +1312,12 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
         val Right((reinterpreted, _)) =
           suffixLenientEngine
             .reinterpret(
-              n.requiredAuthorizers,
-              ReplayCommand.Fetch(n.templateId, n.coid),
-              txMeta.nodeSeeds.toSeq.collectFirst { case (`nid`, seed) => seed },
-              txMeta.submissionTime,
-              let,
+              submitters = n.requiredAuthorizers,
+              command = ReplayCommand.Fetch(n.templateId, n.coid),
+              inputContracts = ImmArray.empty,
+              nodeSeed = txMeta.nodeSeeds.toSeq.collectFirst { case (`nid`, seed) => seed },
+              submissionTime = txMeta.submissionTime,
+              ledgerEffectiveTime = let,
             )
             .consume(lookupContract, lookupPackage, lookupKey, grantUpgradeVerification = None)
         isReplayedBy(fetchTx, reinterpreted) shouldBe Right(())
@@ -1360,7 +1361,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     "succeed with a fresh engine, correctly compiling packages" in {
       val engine = newEngine()
 
-      val fetchNode = ReplayCommand.Fetch(
+      val fetchCmd = ReplayCommand.Fetch(
         templateId = fetchedTid,
         coid = fetchedCid,
       )
@@ -1371,7 +1372,14 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
 
       val reinterpreted =
         engine
-          .reinterpret(submitters, fetchNode, None, let, let)
+          .reinterpret(
+            submitters = submitters,
+            command = fetchCmd,
+            inputContracts = ImmArray.empty,
+            nodeSeed = None,
+            submissionTime = let,
+            ledgerEffectiveTime = let,
+          )
           .consume(lookupContract, lookupPackage, lookupKey, grantUpgradeVerification = None)
 
       reinterpreted shouldBe a[Right[_, _]]
@@ -1474,11 +1482,12 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       val Right((reinterpreted, _)) =
         newEngine()
           .reinterpret(
-            submitters,
-            ReplayCommand.LookupByKey(lookupNode.templateId, lookupNode.key.value),
-            nodeSeedMap.get(nid),
-            txMeta.submissionTime,
-            now,
+            submitters = submitters,
+            command = ReplayCommand.LookupByKey(lookupNode.templateId, lookupNode.key.value),
+            inputContracts = ImmArray.empty,
+            nodeSeed = nodeSeedMap.get(nid),
+            submissionTime = txMeta.submissionTime,
+            ledgerEffectiveTime = now,
           )
           .consume(lookupContract, lookupPackage, lookupKey, grantUpgradeVerification = None)
 
@@ -1514,11 +1523,12 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
       val Right((reinterpreted, _)) =
         newEngine()
           .reinterpret(
-            submitters,
-            ReplayCommand.LookupByKey(lookupNode.templateId, lookupNode.key.value),
-            nodeSeedMap.get(nid),
-            txMeta.submissionTime,
-            now,
+            submitters = submitters,
+            command = ReplayCommand.LookupByKey(lookupNode.templateId, lookupNode.key.value),
+            inputContracts = ImmArray.empty,
+            nodeSeed = nodeSeedMap.get(nid),
+            submissionTime = txMeta.submissionTime,
+            ledgerEffectiveTime = now,
           )
           .consume(lookupContract, lookupPackage, lookupKey)
 
@@ -2591,11 +2601,12 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
             }
             currentStep <- engine
               .reinterpret(
-                submitters,
-                cmd,
-                nodeSeedMap.get(nodeId),
-                txMeta.submissionTime,
-                ledgerEffectiveTime,
+                submitters = submitters,
+                command = cmd,
+                inputContracts = ImmArray.empty,
+                nodeSeed = nodeSeedMap.get(nodeId),
+                submissionTime = txMeta.submissionTime,
+                ledgerEffectiveTime = ledgerEffectiveTime,
               )
               .consume(
                 state.contracts,

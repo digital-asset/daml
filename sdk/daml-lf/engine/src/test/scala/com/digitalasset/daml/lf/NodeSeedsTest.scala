@@ -161,11 +161,12 @@ class NodeSeedsTest(majorLanguageVersion: LanguageMajorVersion) extends AnyWordS
     val Right((rTx, _)) =
       engine
         .reinterpret(
-          Set(operator),
-          cmd,
-          nodeSeeds.get(nodeId),
-          time,
-          time,
+          submitters = Set(operator),
+          command = cmd,
+          inputContracts = ImmArray.empty,
+          nodeSeed = nodeSeeds.get(nodeId),
+          submissionTime = time,
+          ledgerEffectiveTime = time,
         )(LoggingContext.empty)
         .consume(pcs = contracts, pkgs = packages, grantUpgradeVerification = None)
     rTx.nodes.values.collect { case create: Node.Create => create }.toSet

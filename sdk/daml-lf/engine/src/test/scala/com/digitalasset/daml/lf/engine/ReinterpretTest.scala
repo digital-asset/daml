@@ -82,11 +82,12 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
   private def reinterpretCommand(theCommand: ReplayCommand): Either[Error, SubmittedTransaction] = {
     val res = engine
       .reinterpret(
-        submitters,
-        theCommand,
-        Some(seed),
-        time,
-        time,
+        submitters = submitters,
+        command = theCommand,
+        inputContracts = ImmArray.empty,
+        nodeSeed = Some(seed),
+        submissionTime = time,
+        ledgerEffectiveTime = time,
       )
       .consume(pcs = defaultContracts, pkgs = allPackages, grantUpgradeVerification = None)
     res match {
