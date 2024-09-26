@@ -1,4 +1,4 @@
-sdk-version: 2.10.0-snapshot.20240923.12967.0.v5850adf6
+sdk-version: 2.10.0-snapshot.20240924.12969.0.v7c80e3c5
 build-options: 
 - --target=1.14
 name: AdminWorkflowsWithVacuuming
