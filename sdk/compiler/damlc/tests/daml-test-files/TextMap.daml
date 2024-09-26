@@ -80,3 +80,7 @@ testMerge = script do
   [("A", "bb"), ("C", "aa")] === toList (merge (\_ v -> if v <= "bb" then Some v else None) (\_ v -> Some v) (\_ _ _ -> None) m1 empty)
   [("A", "a"), ("C", "b")] === toList (merge (\_ v -> Some v) (\_ v -> if v <= "bb" then Some v else None) (\_ _ _ -> None) empty m2)
   [("A","bb"), ("B","dd"), ("C","aa")] === toList (merge (\_ _ -> None) (\_ _ -> None) (\_ v _ -> Some v) m1 m2)
+
+testInsertWith = script do
+  insertWith (-) "A" 2 (fromList []) === fromList [("A", 2)]
+  insertWith (-) "A" 2 (fromList [("A",1)]) === fromList [("A", 2-1)]

@@ -20,6 +20,7 @@ module DA.TextMap
   , filterWithKey
   , delete
   , insert
+  , insertWith
   , union
   , merge
   ) where
@@ -53,11 +54,7 @@ fromList list = foldl (\acc (key, value) -> insert key value acc) empty list
 fromListWithL : (a -> a -> a) -> [(Text, a)] -> TextMap a
 fromListWithL f = foldl g empty
   where
-    g acc (k, x) =
-      let z = case lookup k acc of
-            None -> x
-            Some y -> f x y
-      in insert k z acc
+    g acc (k, v) = insertWith f k v acc
 
 -- | Create a map from a list of key/value pairs like `fromListWithL`
 -- with the combining function flipped. Examples:
@@ -120,6 +117,15 @@ delete = primitive @"BETextMapDelete"
 -- supplied value.
 insert : Text -> a -> TextMap a -> TextMap a
 insert = primitive @"BETextMapInsert"
+
+-- | Insert a new key/value pair in the map. If the key is already
+-- present in the map, it is combined with the previous value using the given function
+-- `f new_value old_value`.
+insertWith : (v -> v -> v) -> Text -> v -> TextMap v -> TextMap v
+insertWith f k v m =
+  case lookup k m of
+    None -> insert k v m
+    Some v' -> insert k (f v v') m
 
 -- | The union of two maps, preferring the first map when equal
 -- keys are encountered.
