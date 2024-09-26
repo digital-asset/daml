@@ -87,11 +87,7 @@ fromList list = foldl (\acc (key, value) -> insert key value acc) empty list
 fromListWithL : Ord k => (v -> v -> v) -> [(k, v)] -> Map k v
 fromListWithL f = foldl g empty
   where
-    g acc (k, x) =
-      let z = case lookup k acc of
-            None -> x
-            Some y -> f x y
-      in insert k z acc
+    g acc (k, v) = insertWith f k v acc
 
 -- | Create a map from a list of key/value pairs like `fromListWithL`
 -- with the combining function flipped. Examples:
