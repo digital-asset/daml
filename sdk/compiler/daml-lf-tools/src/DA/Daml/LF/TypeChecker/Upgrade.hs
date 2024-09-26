@@ -10,6 +10,7 @@ module DA.Daml.LF.TypeChecker.Upgrade (
     ) where
 
 import           Control.Monad (unless, forM, forM_, when)
+import           Control.Monad.Extra (unlessM)
 import           Control.Monad.Reader (withReaderT, ask)
 import           Control.Monad.Reader.Class (asks)
 import           Control.Lens hiding (Context)
@@ -593,8 +594,8 @@ checkTemplate module_ template = do
     (existingChoices, _existingNew) <- checkDeleted (EUpgradeMissingChoice . NM.name) $ NM.toHashMap . tplChoices <$> template
     forM_ existingChoices $ \choice -> do
         withContextF present' (ContextTemplate (_present module_) (_present template) (TPChoice (_present choice))) $ do
-            checkType (fmap chcReturnType choice)
-                (EUpgradeChoiceChangedReturnType (NM.name (_present choice)))
+            unlessM (isUpgradedTypeNoTypeVars (fmap chcReturnType choice)) $
+                throwWithContextF present' (EUpgradeChoiceChangedReturnType (NM.name (_present choice)))
 
             whenDifferent "controllers" (extractFuncFromFuncThisArg . chcControllers) choice $
                 \mismatches -> warnWithContextF present' (WChoiceChangedControllers (NM.name (_present choice)) mismatches)
@@ -645,7 +646,7 @@ checkTemplate module_ template = do
                let tplKey = Upgrading pastKey presentKey
 
                -- Key type must be a valid upgrade
-               iset <- isUpgradedType (fmap tplKeyType tplKey)
+               iset <- isUpgradedTypeNoTypeVars (fmap tplKeyType tplKey)
                when (not iset) $
                    diagnosticWithContextF present' (EUpgradeTemplateChangedKeyType (NM.name (_present template)))
 
@@ -761,15 +762,21 @@ checkTemplate module_ template = do
 
 checkDefDataType :: UpgradedRecordOrigin -> Upgrading LF.DefDataType -> TcUpgradeM ()
 checkDefDataType origin datatype = do
+    let params = dataParams <$> datatype
+        paramsLengthMatch = foldU (==) (length <$> params)
+        allKindsMatch = foldU (==) (map snd <$> params)
+    when (not paramsLengthMatch) $ throwWithContextF present' $ EUpgradeDifferentParamsCount origin
+    when (not allKindsMatch) $ throwWithContextF present' $ EUpgradeDifferentParamsKinds origin
+    let paramNames = unsafeZipUpgrading (map fst <$> params)
     case fmap dataCons datatype of
       Upgrading { _past = DataRecord _past, _present = DataRecord _present } ->
-          checkFields origin (Upgrading {..})
+          checkFields origin paramNames (Upgrading {..})
       Upgrading { _past = DataVariant _past, _present = DataVariant _present } -> do
           let upgrade = Upgrading{..}
           (existing, _new) <- checkDeleted (\_ -> EUpgradeVariantRemovedVariant origin) (fmap HMS.fromList upgrade)
           when (not $ and $ foldU (zipWith (==)) $ fmap (map fst) upgrade) $
               throwWithContextF present' (EUpgradeVariantVariantsOrderChanged origin)
-          different <- filterHashMapM (fmap not . isUpgradedType) existing
+          different <- filterHashMapM (fmap not . isUpgradedType paramNames) existing
           when (not (null different)) $
               throwWithContextF present' $ EUpgradeVariantChangedVariantType origin
       Upgrading { _past = DataEnum _past, _present = DataEnum _present } -> do
@@ -789,11 +796,11 @@ filterHashMapM :: (Applicative m) => (a -> m Bool) -> HMS.HashMap k a -> m (HMS.
 filterHashMapM pred t =
     fmap fst . HMS.filter snd <$> traverse (\x -> (x,) <$> pred x) t
 
-checkFields :: UpgradedRecordOrigin -> Upgrading [(FieldName, Type)] -> TcUpgradeM ()
-checkFields origin fields = do
+checkFields :: UpgradedRecordOrigin -> [Upgrading TypeVarName] -> Upgrading [(FieldName, Type)] -> TcUpgradeM ()
+checkFields origin paramNames fields = do
     (existing, new) <- checkDeleted (\_ -> EUpgradeRecordFieldsMissing origin) (fmap HMS.fromList fields)
     -- If a field from the upgraded package has had its type changed
-    different <- filterHashMapM (fmap not . isUpgradedType) existing
+    different <- filterHashMapM (fmap not . isUpgradedType paramNames) existing
     when (not (HMS.null different)) $
         throwWithContextF present' (EUpgradeRecordFieldsExistingChanged origin)
     when (not (all newFieldOptionalType new)) $
@@ -809,12 +816,6 @@ checkFields origin fields = do
     where
         newFieldOptionalType (TOptional _) = True
         newFieldOptionalType _ = False
-
--- Check type upgradability
-checkType :: SomeErrorOrWarning e => Upgrading Type -> e -> TcUpgradeM ()
-checkType type_ err = do
-    sameType <- isUpgradedType type_
-    unless sameType $ diagnosticWithContextF present' err
 
 checkQualName :: Alpha.IsSomeName a => DepsMap -> Upgrading (Qualified a) -> [Alpha.Mismatch UpgradeMismatchReason]
 checkQualName deps name =
@@ -873,14 +874,18 @@ checkQualName deps name =
           ifMismatch (isNothing pastDepLookup) (CouldNotFindPackageForPastIdentifier (Left (_past pkgId)))
           `Alpha.andMismatches` ifMismatch (isNothing presentDepLookup) (CouldNotFindPackageForPastIdentifier (Left (_present pkgId)))
 
-isUpgradedType :: Upgrading Type -> TcUpgradeM Bool
-isUpgradedType type_ = do
+isUpgradedTypeNoTypeVars :: Upgrading Type -> TcUpgradeM Bool
+isUpgradedTypeNoTypeVars = isUpgradedType []
+
+isUpgradedType :: [Upgrading TypeVarName] -> Upgrading Type -> TcUpgradeM Bool
+isUpgradedType varNames type_ = do
     expandedTypes <- runGammaUnderUpgrades (expandTypeSynonyms <$> type_)
     alphaEnv <- upgradingAlphaEnv
+    let alphaEnvWithVars = foldl' (flip (foldU Alpha.bindTypeVar)) alphaEnv varNames
     -- NOTE: The warning messages generated by alphaType' via checkQualName
     -- below are only designed for the expression warnings and won't make sense
     -- if used to describe issues with types.
-    pure $ null $ foldU (Alpha.alphaType' alphaEnv) expandedTypes
+    pure $ null $ foldU (Alpha.alphaType' alphaEnvWithVars) expandedTypes
 
 upgradingAlphaEnv :: TcUpgradeM (Alpha.AlphaEnv UpgradeMismatchReason)
 upgradingAlphaEnv = do
