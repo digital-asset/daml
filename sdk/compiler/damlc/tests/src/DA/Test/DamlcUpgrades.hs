@@ -624,14 +624,14 @@ tests damlc =
                   versionDefault
                   NoDependencies
                   False
-                  setUpgradeField
+                  True
             , test
                   "FailsWhenAnExceptionIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage"
                   (FailWithError "\ESC\\[0;91merror type checking exception Main.E:\n  Tried to upgrade exception E, but exceptions cannot be upgraded. They should be removed in any upgrading package.")
                   versionDefault
                   NoDependencies
                   False
-                  setUpgradeField
+                  True
             ]
        )
   where
