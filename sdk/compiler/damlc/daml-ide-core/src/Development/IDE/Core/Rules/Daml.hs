@@ -280,7 +280,7 @@ generateRawDalfRule =
                             let world = LF.initWorldSelf pkgs pkg
                                 simplified = LF.simplifyModule world lfVersion v
                             pure $! case Serializability.inferModule world simplified of
-                              Left err -> (ideErrorPretty file err : conversionWarnings, Nothing)
+                              Left err -> ([ideErrorPretty file err], Nothing)
                               Right dalf -> (conversionWarnings, Just dalf)
 
 getExternalPackages :: NormalizedFilePath -> Action [LF.ExternalPackage]
