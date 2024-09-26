@@ -45,15 +45,17 @@ version_specific = {
 # This effectively means all io.grpc:*, io.netty:*, and `com.google.protobuf:protobuf-java
 # need to be updated with careful consideration.
 
-netty_tcnative_version = "2.0.61.Final"
-netty_version = "4.1.108.Final"
-grpc_version = "1.60.0"
-protobuf_version = "3.24.0"
-pekko_version = "1.0.1"
-pekko_http_version = "1.0.0"
+# Version of GRPC and netty should follow the "known to work version combinations" as
+# described in  https://github.com/grpc/grpc-java/blob/master/SECURITY.md#netty
+netty_tcnative_version = "2.0.66.Final"
+netty_version = "4.1.100.Final"
+grpc_version = "1.65.1"
+protobuf_version = "3.24.4"
+pekko_version = "1.0.3"
+pekko_http_version = "1.0.1"
 
 #gatling_version = "3.5.1"
-guava_version = "31.1-jre"
+guava_version = "33.3.0-jre"
 
 # observability libs
 # cannot update to 4.2.x because of https://github.com/dropwizard/metrics/issues/2920
@@ -248,10 +250,10 @@ def install_java_deps():
             "org.scalatestplus:testng-7-5_{}:3.2.11.0".format(scala_major_version),
             "org.scalaz:scalaz-core_{}:7.2.33".format(scala_major_version),
             "org.scalaz:scalaz-scalacheck-binding_{}:7.2.33-scalacheck-1.15".format(scala_major_version),
-            "org.slf4j:jul-to-slf4j:2.0.6",
-            "org.slf4j:jul-to-slf4j:2.0.6",
-            "org.slf4j:slf4j-api:2.0.6",
-            "org.slf4j:slf4j-simple:2.0.6",
+            "org.slf4j:jul-to-slf4j:2.0.16",
+            "org.slf4j:jul-to-slf4j:2.0.16",
+            "org.slf4j:slf4j-api:2.0.16",
+            "org.slf4j:slf4j-simple:2.0.16",
             "org.testcontainers:jdbc:1.15.1",
             "org.testcontainers:postgresql:1.15.1",
             "org.testcontainers:testcontainers:1.15.1",
