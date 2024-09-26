@@ -64,7 +64,7 @@ private[lf] final class ValueTranslator(
       ty: Type,
       value: Value,
   ): SValue = {
-    import TypeDestructor.TypeF._
+    import TypeDestructor.SerializableTypeF._
     val Destructor = TypeDestructor(pkgInterface)
 
     // TODO: https://github.com/digital-asset/daml/issues/17082
