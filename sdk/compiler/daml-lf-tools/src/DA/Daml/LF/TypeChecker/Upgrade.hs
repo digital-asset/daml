@@ -65,7 +65,7 @@ shouldTypecheckM = asks (uncurry shouldTypecheck)
 
 mkGamma :: Version -> UpgradeInfo -> World -> Gamma
 mkGamma version upgradeInfo world =
-    let addBadIfaceSwapIndicator :: Gamma -> Gamma
+    let addBadIfaceSwapIndicator, addBadExceptionSwapIndicator :: Gamma -> Gamma
         addBadIfaceSwapIndicator =
             if uiWarnBadInterfaceInstances upgradeInfo
             then
@@ -75,8 +75,15 @@ mkGamma version upgradeInfo world =
                     Left WEUpgradeShouldDefineIfacesAndTemplatesSeparately {} -> Just True
                     _ -> Nothing)
             else id
+        addBadExceptionSwapIndicator =
+            if uiWarnBadExceptions upgradeInfo
+            then
+                addDiagnosticSwapIndicator (\case
+                    Left WEUpgradeShouldDefineExceptionsAndTemplatesSeparately {} -> Just True
+                    _ -> Nothing)
+            else id
     in
-    addBadIfaceSwapIndicator $ emptyGamma world version
+    addBadExceptionSwapIndicator $ addBadIfaceSwapIndicator $ emptyGamma world version
 
 gammaM :: World -> TcPreUpgradeM Gamma
 gammaM world = asks (flip (uncurry mkGamma) world)

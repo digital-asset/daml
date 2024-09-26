@@ -263,7 +263,7 @@ instance Pretty WarnableError where
       vsep
         [ "This package defines both exceptions and templates. This may make this package and its dependents not upgradeable."
         , "It is recommended that exceptions are defined in their own package separate from their implementations."
-        --, "Ignore this error message with the --warn-bad-exceptions=yes flag."
+        , "Ignore this error message with the --warn-bad-exceptions=yes flag."
         ]
 
 data PackageUpgradeOrigin = UpgradingPackage | UpgradedPackage
