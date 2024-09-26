@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.platform.index
 
+import cats.data.NonEmptyVector
 import cats.syntax.bifunctor.toBifunctorOps
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
@@ -31,6 +32,7 @@ import com.digitalasset.canton.platform.store.cache.{
   OffsetCheckpoint,
   OffsetCheckpointCache,
 }
+import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate.CreatedEvent
 import com.digitalasset.canton.platform.store.interning.StringInterningView
@@ -53,13 +55,14 @@ import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
 import com.digitalasset.daml.lf.ledger.EventId
 import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.CreateTransactionVersion
 import com.digitalasset.daml.lf.transaction.test.{TestNodeBuilder, TransactionBuilder}
-import com.digitalasset.daml.lf.transaction.{CommittedTransaction, NodeId, TransactionVersion}
+import com.digitalasset.daml.lf.transaction.{CommittedTransaction, Node, NodeId, TransactionVersion}
 import com.digitalasset.daml.lf.value.Value
 import com.google.protobuf.ByteString
 import com.google.rpc.status.Status
 import org.apache.pekko.Done
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
+import org.mockito.matchers.DefaultValueProvider
 import org.mockito.{InOrder, MockitoSugar}
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.flatspec.AnyFlatSpec
@@ -165,14 +168,15 @@ class InMemoryStateUpdaterSpec
   "update" should "update the in-memory state" in new Scope {
     InMemoryStateUpdater.update(inMemoryState, logger)(prepareResult, false)
 
-    // TODO(i12283) LLP: Unit test contract state event conversion and cache updating
-
     inOrder
       .verify(inMemoryFanoutBuffer)
       .push(
         tx_accepted_withCompletionDetails_offset,
         tx_accepted_withCompletionDetails,
       )
+    inOrder
+      .verify(contractStateCaches)
+      .push(any[NonEmptyVector[ContractStateEvent]])(any[TraceContext])
     inOrder
       .verify(inMemoryFanoutBuffer)
       .push(tx_accepted_withoutCompletionDetails_offset, tx_accepted_withoutCompletionDetails)
@@ -198,14 +202,15 @@ class InMemoryStateUpdaterSpec
   "update" should "update the in-memory state, but not the ledger-end and the dispatcher in repair mode" in new Scope {
     InMemoryStateUpdater.update(inMemoryState, logger)(prepareResult, true)
 
-    // TODO(i12283) LLP: Unit test contract state event conversion and cache updating
-
     inOrder
       .verify(inMemoryFanoutBuffer)
       .push(
         tx_accepted_withCompletionDetails_offset,
         tx_accepted_withCompletionDetails,
       )
+    inOrder
+      .verify(contractStateCaches)
+      .push(any[NonEmptyVector[ContractStateEvent]])(any[TraceContext])
     inOrder
       .verify(inMemoryFanoutBuffer)
       .push(tx_accepted_withoutCompletionDetails_offset, tx_accepted_withoutCompletionDetails)
@@ -358,9 +363,9 @@ object InMemoryStateUpdaterSpec {
             eventId = EventId(txId3, NodeId(0)),
             contractId = someCreateNode.coid,
             ledgerEffectiveTime = Timestamp.assertFromLong(12222),
-            templateId = templateId,
-            packageName = packageName,
-            packageVersion = Some(packageVersion),
+            templateId = someCreateNode.templateId,
+            packageName = someCreateNode.packageName,
+            packageVersion = someCreateNode.packageVersion,
             commandId = "",
             workflowId = workflowId,
             contractKey = None,
@@ -492,7 +497,16 @@ object InMemoryStateUpdaterSpec {
           workflowId = "wAccepted",
           effectiveAt = Timestamp.assertFromLong(1L),
           offset = tx_accepted_withCompletionDetails_offset,
-          events = (1 to 3).map(_ => mock[TransactionLogUpdate.Event]).toVector,
+          events = (1 to 3)
+            .map(i =>
+              toCreatedEvent(
+                genCreateNode,
+                tx_accepted_withCompletionDetails_offset,
+                Ref.TransactionId.assertFromString(tx_accepted_transactionId),
+                NodeId(i),
+              )
+            )
+            .toVector,
           completionDetails = Some(tx_accepted_completionDetails),
           domainId = domainId1.toProtoPrimitive,
           recordTime = Timestamp(1),
@@ -550,9 +564,6 @@ object InMemoryStateUpdaterSpec {
         .futureValue
   }
 
-  private val participantId: Ref.ParticipantId =
-    Ref.ParticipantId.assertFromString("EndlessReadServiceParticipant")
-
   private val txId1 = Ref.TransactionId.assertFromString("tx1")
   private val txId2 = Ref.TransactionId.assertFromString("tx2")
   private val txId3 = Ref.TransactionId.assertFromString("tx3")
@@ -570,7 +581,7 @@ object InMemoryStateUpdaterSpec {
   private val packageName = Ref.PackageName.assertFromString("pkg-name")
   private val packageVersion = Ref.PackageVersion.assertFromString("1.2.3")
 
-  private val someCreateNode = {
+  private def genCreateNode = {
     val contractId = TransactionBuilder.newCid
     TestNodeBuilder
       .create(
@@ -584,11 +595,59 @@ object InMemoryStateUpdaterSpec {
         version = CreateTransactionVersion.Version(TransactionVersion.VDev),
       )
   }
+  private val someCreateNode = genCreateNode
+
+  private def toCreatedEvent(
+      createdNode: Node.Create,
+      txOffset: Offset,
+      transactionId: Ref.TransactionId,
+      nodeId: NodeId,
+  ) =
+    CreatedEvent(
+      eventOffset = txOffset,
+      transactionId = transactionId,
+      nodeIndex = nodeId.index,
+      eventSequentialId = 0,
+      eventId = EventId(transactionId, nodeId),
+      contractId = createdNode.coid,
+      ledgerEffectiveTime = Timestamp.assertFromLong(12222),
+      templateId = createdNode.templateId,
+      packageName = createdNode.packageName,
+      packageVersion = createdNode.packageVersion,
+      commandId = "",
+      workflowId = workflowId,
+      contractKey = None,
+      treeEventWitnesses = Set.empty,
+      flatEventWitnesses = createdNode.stakeholders,
+      submitters = Set.empty,
+      createArgument = com.digitalasset.daml.lf.transaction
+        .Versioned(createdNode.version, createdNode.arg),
+      createSignatories = createdNode.signatories,
+      createObservers = createdNode.stakeholders.diff(createdNode.signatories),
+      createKeyHash = createdNode.keyOpt.map(_.globalKey.hash),
+      createKey = createdNode.keyOpt.map(_.globalKey),
+      createKeyMaintainers = createdNode.keyOpt.map(_.maintainers),
+      driverMetadata = Some(someContractMetadataBytes),
+    )
+
+  implicit val defaultValueProviderCreatedEvent
+      : DefaultValueProvider[NonEmptyVector[ContractStateEvent]] =
+    new DefaultValueProvider[NonEmptyVector[ContractStateEvent]] {
+      override def default: NonEmptyVector[ContractStateEvent] =
+        NonEmptyVector.one(
+          InMemoryStateUpdater.convertLogToStateEvent(
+            toCreatedEvent(
+              genCreateNode,
+              Offset.firstOffset,
+              Ref.TransactionId.assertFromString("yolo"),
+              NodeId(0),
+            )
+          )
+        )
+    }
 
   private val someContractMetadataBytes = Bytes.assertFromString("00aabb")
 
-  private val someSubmissionId: Ref.SubmissionId =
-    Ref.SubmissionId.assertFromString("some submission id")
   private val workflowId: Ref.WorkflowId = Ref.WorkflowId.assertFromString("Workflow")
   private val someTransactionMeta: TransactionMeta = TransactionMeta(
     ledgerEffectiveTime = Timestamp.Epoch,
@@ -607,7 +666,6 @@ object InMemoryStateUpdaterSpec {
       transaction = CommittedTransaction(TransactionBuilder.Empty),
       transactionId = txId1,
       recordTime = Timestamp.Epoch,
-      blindingInfoO = None,
       hostedWitnesses = Nil,
       contractMetadata = Map.empty,
       domainId = domainId1,
@@ -629,7 +687,6 @@ object InMemoryStateUpdaterSpec {
       transaction = CommittedTransaction(TransactionBuilder.Empty),
       transactionId = txId2,
       recordTime = Timestamp.Epoch,
-      blindingInfoO = None,
       hostedWitnesses = Nil,
       contractMetadata = Map.empty,
       domainId = DomainId.tryFromString("da::default"),
@@ -791,7 +848,6 @@ object InMemoryStateUpdaterSpec {
                 transaction = CommittedTransaction(TransactionBuilder.Empty),
                 transactionId = txId1,
                 recordTime = Timestamp(t),
-                blindingInfoO = None,
                 hostedWitnesses = Nil,
                 contractMetadata = Map.empty,
                 domainId = domain,

@@ -13,7 +13,7 @@ final case class InFlightCount(
 ) extends PrettyPrinting {
   def exists: Boolean = pendingSubmissions.unwrap > 0 || pendingTransactions.unwrap > 0
 
-  override def pretty: Pretty[InFlightCount] = prettyOfClass(
+  override protected def pretty: Pretty[InFlightCount] = prettyOfClass(
     param("pending submissions", _.pendingSubmissions),
     param("pending transactions", _.pendingTransactions),
   )

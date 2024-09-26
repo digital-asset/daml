@@ -69,7 +69,7 @@ object ComponentStatus {
   * However ComponentHealth (below) does not enforce the use of this class and a custom State class can be used instead
   */
 sealed trait ComponentHealthState extends PrettyPrinting {
-  override def pretty: Pretty[ComponentHealthState] =
+  override protected def pretty: Pretty[ComponentHealthState] =
     ComponentHealthState.prettyComponentHealthState
 }
 

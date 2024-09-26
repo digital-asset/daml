@@ -115,7 +115,6 @@ class ContractStateCachesSpec
         ledgerEffectiveTime = Time.Timestamp(cId.toLong),
         stakeholders = Set(Ref.Party.assertFromString(s"party-$cId")),
         eventOffset = offset,
-        eventSequentialId = eventSequentialId,
         signatories = Set(Ref.Party.assertFromString(s"party-$cId")),
         keyMaintainers = None,
         driverMetadata = None,
@@ -132,7 +131,6 @@ class ContractStateCachesSpec
         globalKey = create.globalKey,
         stakeholders = create.stakeholders,
         eventOffset = offset,
-        eventSequentialId = eventSequentialId,
       )
   }
 

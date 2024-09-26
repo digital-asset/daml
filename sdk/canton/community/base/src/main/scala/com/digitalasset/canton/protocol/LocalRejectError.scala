@@ -74,7 +74,7 @@ sealed trait LocalRejectError
   override def context: Map[String, String] =
     _resourcesType.map(_.asString -> _resources.show).toList.toMap ++ super.context
 
-  override def pretty: Pretty[LocalRejectError] =
+  override protected def pretty: Pretty[LocalRejectError] =
     prettyOfClass(
       param("code", _.code.id.unquoted),
       param("cause", _.cause.doubleQuoted),

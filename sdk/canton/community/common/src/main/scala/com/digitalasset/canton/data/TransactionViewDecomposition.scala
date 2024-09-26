@@ -49,7 +49,7 @@ object TransactionViewDecomposition {
 
     def childViews: Seq[NewView] = tailNodes.collect { case v: NewView => v }
 
-    override def pretty: Pretty[NewView] = prettyOfClass(
+    override protected def pretty: Pretty[NewView] = prettyOfClass(
       param("root node template", _.rootNode.templateId),
       param("view confirmation parameters", _.viewConfirmationParameters),
       param("node ID", _.nodeId),
@@ -67,7 +67,7 @@ object TransactionViewDecomposition {
       override val rbContext: RollbackContext,
   ) extends TransactionViewDecomposition {
 
-    override def pretty: Pretty[SameView] = prettyOfClass(
+    override protected def pretty: Pretty[SameView] = prettyOfClass(
       param("lf node template", _.lfNode.templateId),
       param("node ID", _.nodeId),
       param("rollback context", _.rbContext),

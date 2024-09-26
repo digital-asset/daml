@@ -1135,7 +1135,7 @@ object LedgerApiCommands {
       ): Either[String, Option[TransactionTree]] =
         Right(response.transaction)
 
-      override def pretty: Pretty[GetTransactionById] =
+      override protected def pretty: Pretty[GetTransactionById] =
         prettyOfClass(
           param("id", _.id.unquoted),
           param("parties", _.parties),
@@ -1184,7 +1184,7 @@ object LedgerApiCommands {
       packageIdSelectionPreference = packageIdSelectionPreference.map(_.toString),
     )
 
-    override def pretty: Pretty[this.type] =
+    override protected def pretty: Pretty[this.type] =
       prettyOfClass(
         param("actAs", _.actAs),
         param("readAs", _.readAs),

@@ -44,7 +44,7 @@ final case class SubmitterMetadata private (
 
   override val hashPurpose: HashPurpose = HashPurpose.SubmitterMetadata
 
-  override def pretty: Pretty[SubmitterMetadata] = prettyOfClass(
+  override protected def pretty: Pretty[SubmitterMetadata] = prettyOfClass(
     param("act as", _.actAs),
     param("application id", _.applicationId),
     param("command id", _.commandId),

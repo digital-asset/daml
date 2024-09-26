@@ -10,7 +10,7 @@ import com.digitalasset.canton.store.db.DbDeserializationException
 import slick.jdbc.{GetResult, SetParameter}
 
 final case class ChangeIdHash(hash: LfHash) extends PrettyPrinting {
-  override def pretty: Pretty[ChangeIdHash] = prettyOfClass(
+  override protected def pretty: Pretty[ChangeIdHash] = prettyOfClass(
     unnamedParam(_.hash)
   )
 }

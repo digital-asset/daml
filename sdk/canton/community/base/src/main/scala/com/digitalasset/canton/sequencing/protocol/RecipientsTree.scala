@@ -23,7 +23,7 @@ final case class RecipientsTree(
     children: Seq[RecipientsTree],
 ) extends PrettyPrinting {
 
-  override def pretty: Pretty[RecipientsTree] =
+  override protected def pretty: Pretty[RecipientsTree] =
     prettyOfClass(
       param("recipient group", _.recipientGroup.toList),
       paramIfNonEmpty("children", _.children),

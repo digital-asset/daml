@@ -261,7 +261,7 @@ class TransactionConfirmationRequestFactory(
           parallel,
           pureCrypto,
           cryptoSnapshot,
-          sessionKeyStore,
+          sessionKeyStore.convertStore,
           protocolVersion,
         )
         .leftMap[TransactionConfirmationRequestCreationError](e =>
@@ -324,7 +324,7 @@ object TransactionConfirmationRequestFactory {
     */
   final case class ParticipantAuthorizationError(message: String)
       extends TransactionConfirmationRequestCreationError {
-    override def pretty: Pretty[ParticipantAuthorizationError] = prettyOfClass(
+    override protected def pretty: Pretty[ParticipantAuthorizationError] = prettyOfClass(
       unnamedParam(_.message.unquoted)
     )
   }
@@ -333,7 +333,7 @@ object TransactionConfirmationRequestFactory {
     */
   final case class MalformedLfTransaction(message: String)
       extends TransactionConfirmationRequestCreationError {
-    override def pretty: Pretty[MalformedLfTransaction] = prettyOfClass(
+    override protected def pretty: Pretty[MalformedLfTransaction] = prettyOfClass(
       unnamedParam(_.message.unquoted)
     )
   }
@@ -342,7 +342,7 @@ object TransactionConfirmationRequestFactory {
     */
   final case class MalformedSubmitter(message: String)
       extends TransactionConfirmationRequestCreationError {
-    override def pretty: Pretty[MalformedSubmitter] = prettyOfClass(
+    override protected def pretty: Pretty[MalformedSubmitter] = prettyOfClass(
       unnamedParam(_.message.unquoted)
     )
   }
@@ -351,14 +351,18 @@ object TransactionConfirmationRequestFactory {
     */
   final case class ContractConsistencyError(errors: Seq[ReferenceToFutureContractError])
       extends TransactionConfirmationRequestCreationError {
-    override def pretty: Pretty[ContractConsistencyError] = prettyOfClass(unnamedParam(_.errors))
+    override protected def pretty: Pretty[ContractConsistencyError] = prettyOfClass(
+      unnamedParam(_.errors)
+    )
   }
 
   /** Indicates that the encrypted view message could not be created. */
   final case class EncryptedViewMessageCreationError(
       error: EncryptedViewMessageFactory.EncryptedViewMessageCreationError
   ) extends TransactionConfirmationRequestCreationError {
-    override def pretty: Pretty[EncryptedViewMessageCreationError] = prettyOfParam(_.error)
+    override protected def pretty: Pretty[EncryptedViewMessageCreationError] = prettyOfParam(
+      _.error
+    )
   }
 
   /** Indicates that the transaction could not be converted to a transaction tree.
@@ -366,25 +370,27 @@ object TransactionConfirmationRequestFactory {
     */
   final case class TransactionTreeFactoryError(cause: TransactionTreeConversionError)
       extends TransactionConfirmationRequestCreationError {
-    override def pretty: Pretty[TransactionTreeFactoryError] = prettyOfParam(_.cause)
+    override protected def pretty: Pretty[TransactionTreeFactoryError] = prettyOfParam(_.cause)
   }
 
   final case class RecipientsCreationError(message: String)
       extends TransactionConfirmationRequestCreationError {
-    override def pretty: Pretty[RecipientsCreationError] = prettyOfClass(
+    override protected def pretty: Pretty[RecipientsCreationError] = prettyOfClass(
       unnamedParam(_.message.unquoted)
     )
   }
 
   final case class LightTransactionViewTreeCreationError(message: String)
       extends TransactionConfirmationRequestCreationError {
-    override def pretty: Pretty[LightTransactionViewTreeCreationError] = prettyOfClass(
+    override protected def pretty: Pretty[LightTransactionViewTreeCreationError] = prettyOfClass(
       unnamedParam(_.message.unquoted)
     )
   }
 
   final case class TransactionSigningError(cause: SyncCryptoError)
       extends TransactionConfirmationRequestCreationError {
-    override def pretty: Pretty[TransactionSigningError] = prettyOfClass(unnamedParam(_.cause))
+    override protected def pretty: Pretty[TransactionSigningError] = prettyOfClass(
+      unnamedParam(_.cause)
+    )
   }
 }

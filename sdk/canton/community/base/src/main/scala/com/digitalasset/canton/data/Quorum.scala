@@ -24,7 +24,7 @@ final case class Quorum(
     threshold: NonNegativeInt,
 ) extends PrettyPrinting {
 
-  override def pretty: Pretty[Quorum] = prettyOfClass(
+  override protected def pretty: Pretty[Quorum] = prettyOfClass(
     param("confirmers", _.confirmers),
     param("threshold", _.threshold),
   )

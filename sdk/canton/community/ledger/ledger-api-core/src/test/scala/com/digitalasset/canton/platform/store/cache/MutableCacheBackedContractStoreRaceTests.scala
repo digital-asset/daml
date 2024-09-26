@@ -340,7 +340,6 @@ private object MutableCacheBackedContractStoreRaceTests {
           ledgerEffectiveTime = Time.Timestamp.MinValue, // Not used
           stakeholders = stakeholders, // Not used
           eventOffset = offset,
-          eventSequentialId = 0L, // Not used
           signatories = stakeholders,
           keyMaintainers = None,
           driverMetadata = None,
@@ -351,7 +350,6 @@ private object MutableCacheBackedContractStoreRaceTests {
           globalKey = Some(key),
           stakeholders = stakeholders, // Not used
           eventOffset = offset,
-          eventSequentialId = 0L, // Not used
         )
   }
 

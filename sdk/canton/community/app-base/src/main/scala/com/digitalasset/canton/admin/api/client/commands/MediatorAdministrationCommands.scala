@@ -23,7 +23,7 @@ import io.grpc.ManagedChannel
 
 import scala.concurrent.Future
 
-object EnterpriseMediatorAdministrationCommands {
+object MediatorAdministrationCommands {
   abstract class BaseMediatorInitializationCommand[Req, Rep, Res]
       extends GrpcAdminCommand[Req, Rep, Res] {
     override type Svc = v30.MediatorInitializationServiceGrpc.MediatorInitializationServiceStub

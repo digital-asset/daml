@@ -83,7 +83,7 @@ object TrafficControlErrors extends TrafficControlErrorGroup {
     ) extends Alarm(cause)
         with TrafficControlError
         with PrettyPrinting {
-      override def pretty: Pretty[Error] = prettyOfClass(
+      override protected def pretty: Pretty[Error] = prettyOfClass(
         param("code", _.code.id.unquoted),
         param("cause", _.cause.unquoted),
       )

@@ -889,3 +889,10 @@ create table ord_metadata_output_blocks (
   -- enable idempotent writes: "on conflict, do nothing"
   constraint unique_output_block unique (epoch_number, block_number, bft_ts, last_topology_ts)
 );
+
+-- Stores P2P endpoints from the configuration or admin command
+create table ord_p2p_endpoints (
+  host varchar(300) collate "C" not null,
+  port smallint not null,
+  primary key (host, port)
+);

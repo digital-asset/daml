@@ -100,7 +100,7 @@ final case class DomainConnectionConfig(
   ): DomainConnectionConfig =
     copy(sequencerConnections = sequencerConnections.withCertificates(sequencerAlias, certificates))
 
-  override def pretty: Pretty[DomainConnectionConfig] =
+  override protected def pretty: Pretty[DomainConnectionConfig] =
     prettyOfClass(
       param("domain", _.domain),
       param("sequencerConnections", _.sequencerConnections),

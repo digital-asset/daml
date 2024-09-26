@@ -214,7 +214,7 @@ class DirectSequencerClientTransport(
 
 object DirectSequencerClientTransport {
   sealed trait SubscriptionError extends Product with Serializable with PrettyPrinting {
-    override def pretty: Pretty[SubscriptionError.this.type] = adHocPrettyInstance
+    override protected def pretty: Pretty[SubscriptionError.this.type] = adHocPrettyInstance
   }
   final case class SubscriptionCreationError(error: CreateSubscriptionError)
       extends SubscriptionError

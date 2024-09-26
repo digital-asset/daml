@@ -516,7 +516,7 @@ class ParticipantPruningAdministrationGroup(
       |Note that upon successful pruning, subsequent attempts to read transactions via ``ledger_api.transactions.flat`` or
       |``ledger_api.transactions.trees`` or command completions via ``ledger_api.completions.list`` by specifying a begin offset
       |lower than the returned pruning offset will result in a ``NOT_FOUND`` error.
-      |In the Enterprise Edition, ``prune`` performs a "full prune" freeing up significantly more space and also
+      |The ``prune`` operation performs a "full prune" freeing up significantly more space and also
       |performs additional safety checks returning a ``NOT_FOUND`` error if ``pruneUpTo`` is higher than the
       |offset returned by ``find_safe_offset`` on any domain with events preceding the pruning offset."""
   )
@@ -548,7 +548,7 @@ class ParticipantPruningAdministrationGroup(
     FeatureFlag.Preview,
   )
   @Help.Description(
-    """Special-purpose variant of the ``prune`` command only available in the Enterprise Edition that prunes only partial,
+    """Special-purpose variant of the ``prune`` command that prunes only partial,
       |internal participant ledger state freeing up space not needed for serving ``ledger_api.transactions``
       |and ``ledger_api.completions`` requests. In conjunction with ``prune``, ``prune_internally`` enables pruning
       |internal ledger state more aggressively than externally observable data via the ledger api. In most use cases
@@ -557,7 +557,6 @@ class ParticipantPruningAdministrationGroup(
       |performs additional safety checks returning a ``NOT_FOUND`` error if ``pruneUpTo`` is higher than the
       |offset returned by ``find_safe_offset`` on any domain with events preceding the pruning offset."""
   )
-  // Consider adding an "Enterprise" annotation if we end up having more enterprise-only commands than this lone enterprise command.
   def prune_internally(pruneUpTo: String): Unit =
     check(FeatureFlag.Preview) {
       consoleEnvironment.run(

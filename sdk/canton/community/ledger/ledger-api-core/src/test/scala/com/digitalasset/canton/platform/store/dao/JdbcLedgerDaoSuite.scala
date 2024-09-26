@@ -182,7 +182,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       completionInfo: Option[state.CompletionInfo],
       tx: LedgerEntry.Transaction,
       offset: Offset,
-      blindingInfo: Option[BlindingInfo],
   ): Future[(Offset, LedgerEntry.Transaction)] =
     for {
       _ <- ledgerDao.storeTransaction(
@@ -192,7 +191,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
         ledgerEffectiveTime = tx.ledgerEffectiveTime,
         offset = offset,
         transaction = tx.transaction,
-        blindingInfo = blindingInfo,
         hostedWitnesses = Nil,
         recordTime = tx.recordedAt,
       )
@@ -622,12 +620,11 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
   }
 
   protected final def store(
-      blindingInfo: Option[BlindingInfo],
-      offsetAndTx: (Offset, LedgerEntry.Transaction),
+      offsetAndTx: (Offset, LedgerEntry.Transaction)
   ): Future[(Offset, LedgerEntry.Transaction)] = {
     val (offset, entry) = offsetAndTx
     val info = completionInfoFrom(entry)
-    store(info, entry, offset, blindingInfo)
+    store(info, entry, offset)
   }
 
   protected def completionInfoFrom(entry: LedgerEntry.Transaction): Option[state.CompletionInfo] =
@@ -643,14 +640,6 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       None,
       Some(submissionId),
       None,
-    )
-
-  protected final def store(
-      offsetAndTx: (Offset, LedgerEntry.Transaction)
-  ): Future[(Offset, LedgerEntry.Transaction)] =
-    store(
-      blindingInfo = None,
-      offsetAndTx = offsetAndTx,
     )
 
   protected final def storeSync(

@@ -136,7 +136,7 @@ final case class StoredContract(
       } else this
     }
 
-  override def pretty: Pretty[StoredContract] = prettyOfClass(
+  override protected def pretty: Pretty[StoredContract] = prettyOfClass(
     param("contract", _.contract),
     param("request counter", _.requestCounter),
     paramIfDefined("creating transaction id", _.creatingTransactionIdO),
@@ -163,8 +163,10 @@ sealed trait ContractStoreError extends Product with Serializable with PrettyPri
 sealed trait ContractLookupError extends ContractStoreError
 
 final case class UnknownContract(contractId: LfContractId) extends ContractLookupError {
-  override def pretty: Pretty[UnknownContract] = prettyOfClass(unnamedParam(_.contractId))
+  override protected def pretty: Pretty[UnknownContract] = prettyOfClass(unnamedParam(_.contractId))
 }
 final case class UnknownContracts(contractIds: Set[LfContractId]) extends ContractLookupError {
-  override def pretty: Pretty[UnknownContracts] = prettyOfClass(unnamedParam(_.contractIds))
+  override protected def pretty: Pretty[UnknownContracts] = prettyOfClass(
+    unnamedParam(_.contractIds)
+  )
 }

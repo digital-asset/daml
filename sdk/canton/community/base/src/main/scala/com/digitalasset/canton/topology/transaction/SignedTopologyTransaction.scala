@@ -102,7 +102,7 @@ case class SignedTopologyTransaction[+Op <: TopologyChangeOp, +M <: TopologyMapp
       proposal = isProposal,
     )
 
-  override def pretty: Pretty[SignedTopologyTransaction.this.type] =
+  override protected def pretty: Pretty[SignedTopologyTransaction.this.type] =
     prettyOfClass(
       unnamedParam(_.transaction),
       param("signatures", _.signatures.map(_.signedBy)),

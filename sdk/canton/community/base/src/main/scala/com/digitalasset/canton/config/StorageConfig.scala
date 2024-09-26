@@ -47,7 +47,7 @@ final case class DbParametersConfig(
     unsafeBaselineOnMigrate: Boolean = false,
     migrateAndStart: Boolean = false,
 ) extends PrettyPrinting {
-  override def pretty: Pretty[DbParametersConfig] =
+  override protected def pretty: Pretty[DbParametersConfig] =
     prettyOfClass(
       paramIfDefined(
         "migrationsPaths",
@@ -96,7 +96,7 @@ final case class ConnectionAllocation(
     numWrites: Option[PositiveInt] = None,
     numLedgerApi: Option[PositiveInt] = None,
 ) extends PrettyPrinting {
-  override def pretty: Pretty[ConnectionAllocation] =
+  override protected def pretty: Pretty[ConnectionAllocation] =
     prettyOfClass(
       paramIfDefined("numReads", _.numReads),
       paramIfDefined("numWrites", _.numWrites),
@@ -251,7 +251,7 @@ trait DbConfig extends StorageConfig with PrettyPrinting {
   protected def devMigrationPath: String
   protected def stableMigrationPath: String
 
-  override def pretty: Pretty[DbConfig] =
+  override protected def pretty: Pretty[DbConfig] =
     prettyOfClass(
       param(
         "config",

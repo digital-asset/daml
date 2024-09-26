@@ -49,7 +49,7 @@ import com.digitalasset.canton.protocol.{
   v30,
 }
 import com.digitalasset.canton.sequencing.protocol.*
-import com.digitalasset.canton.store.SessionKeyStore
+import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.{DefaultTestIdentities, DomainId, Member, ParticipantId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -160,7 +160,7 @@ class TestProcessingSteps(
   override def decryptViews(
       batch: NonEmpty[Seq[OpenEnvelope[EncryptedViewMessage[TestViewType]]]],
       snapshot: DomainSnapshotSyncCryptoApi,
-      sessionKeyStore: SessionKeyStore,
+      sessionKeyStore: ConfirmationRequestSessionKeyStore,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TestProcessingError, DecryptedViews] = {
@@ -324,7 +324,7 @@ object TestProcessingSteps {
       with HasToByteString {
 
     def toBeSigned: Option[RootHash] = None
-    override def pretty: Pretty[TestViewTree] = adHocPrettyInstance
+    override protected def pretty: Pretty[TestViewTree] = adHocPrettyInstance
 
     override def toByteString: ByteString =
       throw new UnsupportedOperationException("TestViewTree cannot be serialized")

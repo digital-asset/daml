@@ -34,7 +34,7 @@ object MediatorError extends MediatorErrorGroup {
 
       override def isMalformed: Boolean = false
 
-      override def pretty: Pretty[Reject] = prettyOfClass(
+      override protected def pretty: Pretty[Reject] = prettyOfClass(
         param("code", _.code.id.unquoted),
         param("cause", _.cause.unquoted),
         param(
@@ -72,7 +72,7 @@ object MediatorError extends MediatorErrorGroup {
 
       override def isMalformed: Boolean = false
 
-      override def pretty: Pretty[Reject] = prettyOfClass(
+      override protected def pretty: Pretty[Reject] = prettyOfClass(
         param("code", _.code.id.unquoted),
         param("cause", _.cause.unquoted),
       )
@@ -95,7 +95,7 @@ object MediatorError extends MediatorErrorGroup {
 
       override def isMalformed: Boolean = true
 
-      override def pretty: Pretty[Reject] = prettyOfClass(
+      override protected def pretty: Pretty[Reject] = prettyOfClass(
         param("code", _.code.id.unquoted),
         param("cause", _.cause.unquoted),
       )

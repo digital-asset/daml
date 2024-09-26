@@ -3,12 +3,11 @@
 
 package com.digitalasset.canton.console.commands
 
-import com.digitalasset.canton.admin.api.client.commands.EnterpriseSequencerAdminCommands.{
+import com.digitalasset.canton.admin.api.client.commands.SequencerAdminCommands.{
   InitializeFromGenesisState,
   InitializeFromOnboardingState,
 }
 import com.digitalasset.canton.admin.api.client.commands.{
-  EnterpriseSequencerAdminCommands,
   SequencerAdminCommands,
   StatusAdminCommands,
 }
@@ -42,7 +41,7 @@ class SequencerAdministration(node: SequencerReference) extends ConsoleCommandGr
       |a new sequencer.""")
   def snapshot(timestamp: CantonTimestamp): SequencerSnapshot =
     consoleEnvironment.run {
-      runner.adminCommand(EnterpriseSequencerAdminCommands.Snapshot(timestamp))
+      runner.adminCommand(SequencerAdminCommands.Snapshot(timestamp))
     }
 
   @Help.Summary(
@@ -58,7 +57,7 @@ class SequencerAdministration(node: SequencerReference) extends ConsoleCommandGr
 
       def call =
         runner.adminCommand(
-          EnterpriseSequencerAdminCommands.OnboardingState(
+          SequencerAdminCommands.OnboardingState(
             observer = responseObserver,
             sequencerOrTimestamp = Right(timestamp),
           )
@@ -80,7 +79,7 @@ class SequencerAdministration(node: SequencerReference) extends ConsoleCommandGr
 
       def call =
         runner.adminCommand(
-          EnterpriseSequencerAdminCommands.OnboardingState(
+          SequencerAdminCommands.OnboardingState(
             observer = responseObserver,
             sequencerOrTimestamp = Left(sequencerId),
           )

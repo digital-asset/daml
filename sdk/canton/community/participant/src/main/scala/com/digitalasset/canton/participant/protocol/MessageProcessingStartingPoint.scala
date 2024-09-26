@@ -29,7 +29,7 @@ final case class MessageProcessingStartingPoint(
     nextSequencerCounter: SequencerCounter,
     prenextTimestamp: CantonTimestamp,
 ) extends PrettyPrinting {
-  override def pretty: Pretty[MessageProcessingStartingPoint] = prettyOfClass(
+  override protected def pretty: Pretty[MessageProcessingStartingPoint] = prettyOfClass(
     param("next request counter", _.nextRequestCounter),
     param("next sequencer counter", _.nextSequencerCounter),
     param("prenext timestamp", _.prenextTimestamp),
@@ -68,7 +68,7 @@ final case class MessageCleanReplayStartingPoint(
     prenextTimestamp: CantonTimestamp,
 ) extends PrettyPrinting {
 
-  override def pretty: Pretty[MessageCleanReplayStartingPoint] = prettyOfClass(
+  override protected def pretty: Pretty[MessageCleanReplayStartingPoint] = prettyOfClass(
     param("next request counter", _.nextRequestCounter),
     param("next sequencer counter", _.nextSequencerCounter),
     param("prenext timestamp", _.prenextTimestamp),
@@ -112,7 +112,7 @@ final case class ProcessingStartingPoints private (
       s"Clean replay next sequencer counter ${cleanReplay.nextSequencerCounter} is after processing next sequencer counter ${processing.nextSequencerCounter}"
     )
 
-  override def pretty: Pretty[ProcessingStartingPoints] = prettyOfClass(
+  override protected def pretty: Pretty[ProcessingStartingPoints] = prettyOfClass(
     param("clean replay", _.cleanReplay),
     param("processing", _.processing),
   )

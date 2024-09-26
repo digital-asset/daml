@@ -3,8 +3,17 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer
 
-import com.digitalasset.canton.config.{CommunityStorageConfig, NonNegativeFiniteDuration}
-import com.digitalasset.canton.domain.sequencing.sequencer.DatabaseSequencerConfig.TestingInterceptor
+import cats.syntax.option.*
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.{
+  CommunityStorageConfig,
+  NonNegativeFiniteDuration,
+  PositiveDurationSeconds,
+}
+import com.digitalasset.canton.domain.sequencing.sequencer.DatabaseSequencerConfig.{
+  SequencerPruningConfig,
+  TestingInterceptor,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.reference.{
   CommunityReferenceSequencerDriverFactory,
   ReferenceSequencerDriver,
@@ -25,6 +34,7 @@ trait DatabaseSequencerConfig {
   val writer: SequencerWriterConfig
   val reader: SequencerReaderConfig
   val testingInterceptor: Option[DatabaseSequencerConfig.TestingInterceptor]
+  val pruning: SequencerPruningConfig
   def highAvailabilityEnabled: Boolean
 
   override def supportsReplicas: Boolean = highAvailabilityEnabled
@@ -38,6 +48,22 @@ object DatabaseSequencerConfig {
     */
   type TestingInterceptor =
     Clock => Sequencer => ExecutionContext => Sequencer
+
+  /** Configuration for database sequencer pruning
+    *
+    * @param maxPruningBatchSize            Maximum number of events to prune from a sequencer at a time, used to break up batches internally
+    * @param pruningMetricUpdateInterval    How frequently to update the `max-event-age` pruning progress metric in the background.
+    *                                       A setting of None disables background metric updating.
+    * @param trafficPurchasedRetention      Retention duration on how long to retain traffic purchased entry updates for each member
+    */
+  final case class SequencerPruningConfig(
+      maxPruningBatchSize: PositiveInt =
+        PositiveInt.tryCreate(50000), // Large default for database-range-delete based pruning
+      pruningMetricUpdateInterval: Option[PositiveDurationSeconds] =
+        PositiveDurationSeconds.ofHours(1L).some,
+      trafficPurchasedRetention: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofHours(1),
+  )
+
 }
 
 final case class BlockSequencerConfig(
@@ -50,6 +76,8 @@ final case class BlockSequencerConfig(
     override val writer: SequencerWriterConfig = self.writer
     override val reader: SequencerReaderConfig = self.reader
     override val testingInterceptor: Option[TestingInterceptor] = self.testingInterceptor
+    // TODO(#15987): Take pruning config from BlockSequencerConfig once block sequencer supports pruning.
+    override val pruning: SequencerPruningConfig = SequencerPruningConfig()
 
     override def highAvailabilityEnabled: Boolean = false
   }
@@ -69,6 +97,7 @@ object CommunitySequencerConfig {
       writer: SequencerWriterConfig = SequencerWriterConfig.LowLatency(),
       reader: CommunitySequencerReaderConfig = CommunitySequencerReaderConfig(),
       testingInterceptor: Option[DatabaseSequencerConfig.TestingInterceptor] = None,
+      pruning: SequencerPruningConfig = SequencerPruningConfig(),
   ) extends CommunitySequencerConfig
       with DatabaseSequencerConfig {
     override def highAvailabilityEnabled: Boolean = false

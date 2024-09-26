@@ -67,7 +67,7 @@ object Verdict
     private[messages] override def toProtoV30: v30.Verdict =
       v30.Verdict(someVerdict = v30.Verdict.SomeVerdict.Approve(empty.Empty()))
 
-    override def pretty: Pretty[Verdict] = prettyOfString(_ => "Approve")
+    override protected def pretty: Pretty[Verdict] = prettyOfString(_ => "Approve")
   }
 
   object Approve {
@@ -91,7 +91,7 @@ object Verdict
     def toProtoMediatorRejectV30: v30.MediatorReject =
       v30.MediatorReject(reason = Some(reason), isMalformed = isMalformed)
 
-    override def pretty: Pretty[MediatorReject.this.type] = prettyOfClass(
+    override protected def pretty: Pretty[MediatorReject.this.type] = prettyOfClass(
       unnamedParam(_.reason),
       param("isMalformed", _.isMalformed),
     )
@@ -145,7 +145,7 @@ object Verdict
       v30.Verdict(someVerdict = v30.Verdict.SomeVerdict.ParticipantReject(reasonsP))
     }
 
-    override def pretty: Pretty[ParticipantReject] = {
+    override protected def pretty: Pretty[ParticipantReject] = {
       import Pretty.PrettyOps
 
       prettyOfClass(

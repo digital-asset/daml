@@ -154,20 +154,22 @@ object CantonLedgerApiServerWrapper extends NoTracing {
   }
 
   final case class FailedToStartLedgerApiServer(cause: Throwable) extends LedgerApiServerError {
-    override def pretty: Pretty[FailedToStartLedgerApiServer] = prettyOfClass(unnamedParam(_.cause))
+    override protected def pretty: Pretty[FailedToStartLedgerApiServer] = prettyOfClass(
+      unnamedParam(_.cause)
+    )
   }
 
   final case class FailedToStopLedgerApiServer(
       override protected val errorMessage: String,
       cause: Throwable,
   ) extends LedgerApiServerError {
-    override def pretty: Pretty[FailedToStopLedgerApiServer] =
+    override protected def pretty: Pretty[FailedToStopLedgerApiServer] =
       prettyOfClass(param("error", _.errorMessage.unquoted), param("cause", _.cause))
   }
 
   final case class FailedToConfigureLedgerApiStorage(override protected val errorMessage: String)
       extends LedgerApiServerErrorWithoutCause {
-    override def pretty: Pretty[FailedToConfigureLedgerApiStorage] =
+    override protected def pretty: Pretty[FailedToConfigureLedgerApiStorage] =
       prettyOfClass(unnamedParam(_.errorMessage.unquoted))
   }
 }

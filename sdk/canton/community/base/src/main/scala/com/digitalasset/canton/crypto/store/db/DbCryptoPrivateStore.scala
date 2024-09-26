@@ -5,7 +5,6 @@ package com.digitalasset.canton.crypto.store.db
 
 import cats.data.EitherT
 import cats.syntax.bifunctor.*
-import cats.syntax.either.*
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.ProcessingTimeout

@@ -317,21 +317,25 @@ object DbMigrations {
 
   sealed trait Error extends PrettyPrinting
   final case class FlywayError(err: FlywayException) extends Error {
-    override def pretty: Pretty[FlywayError] = prettyOfClass(unnamedParam(_.err))
+    override protected def pretty: Pretty[FlywayError] = prettyOfClass(unnamedParam(_.err))
   }
   final case class PendingMigrationError(msg: String) extends Error {
-    override def pretty: Pretty[PendingMigrationError] = prettyOfClass(unnamedParam(_.msg.unquoted))
+    override protected def pretty: Pretty[PendingMigrationError] = prettyOfClass(
+      unnamedParam(_.msg.unquoted)
+    )
   }
   final case class DatabaseError(error: String) extends Error {
-    override def pretty: Pretty[DatabaseError] = prettyOfClass(unnamedParam(_.error.unquoted))
+    override protected def pretty: Pretty[DatabaseError] = prettyOfClass(
+      unnamedParam(_.error.unquoted)
+    )
   }
   final case class DatabaseVersionError(error: String) extends Error {
-    override def pretty: Pretty[DatabaseVersionError] = prettyOfClass(
+    override protected def pretty: Pretty[DatabaseVersionError] = prettyOfClass(
       unnamedParam(_.error.unquoted)
     )
   }
   final case class DatabaseConfigError(error: String) extends Error {
-    override def pretty: Pretty[DatabaseConfigError] = prettyOfClass(
+    override protected def pretty: Pretty[DatabaseConfigError] = prettyOfClass(
       unnamedParam(_.error.unquoted)
     )
   }

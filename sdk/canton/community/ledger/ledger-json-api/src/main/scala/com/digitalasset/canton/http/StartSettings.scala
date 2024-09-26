@@ -15,13 +15,6 @@ trait StartSettings {
   val portFile: Option[Path]
   val httpsConfiguration:Option[TlsConfiguration]
   val wsConfig: Option[WebsocketConfig]
-  val staticContentConfig: Option[StaticContentConfig]
   val debugLoggingOfHttpBodies: Boolean
   val damlDefinitionsServiceEnabled: Boolean
-}
-
-object StartSettings {
-  trait Default extends StartSettings {
-    override val staticContentConfig: Option[StaticContentConfig] = None
-  }
 }

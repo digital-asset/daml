@@ -74,7 +74,7 @@ class CommunityMediatorReplicaManager(
 )(implicit executionContext: ExecutionContext)
     extends MediatorReplicaManager {
 
-  val enterpriseAdminService =
+  private val adminService =
     new GrpcDynamicService(
       MediatorAdministrationServiceGrpc.SERVICE,
       serviceUnavailableMessage,
@@ -97,14 +97,14 @@ class CommunityMediatorReplicaManager(
     adminServiceRegistry
       .addServiceU(domainTimeService.serviceDescriptor)
     adminServiceRegistry
-      .addServiceU(enterpriseAdminService.serviceDescriptor)
+      .addServiceU(adminService.serviceDescriptor)
 
     val result = for {
       mediatorRuntime <- factory()
     } yield {
       mediatorRuntimeRef.set(Some(mediatorRuntime))
       domainTimeService.setInstance(mediatorRuntime.timeService)
-      enterpriseAdminService.setInstance(mediatorRuntime.enterpriseAdministrationService)
+      adminService.setInstance(mediatorRuntime.administrationService)
     }
 
     EitherTUtil.toFutureUnlessShutdown(result.leftMap(new MediatorReplicaManagerException(_)))

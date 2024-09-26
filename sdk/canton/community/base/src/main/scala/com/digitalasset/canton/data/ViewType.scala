@@ -24,7 +24,7 @@ sealed trait ViewType extends Product with Serializable with PrettyPrinting {
 
   def toProtoEnum: v30.ViewType
 
-  override def pretty: Pretty[ViewType.this.type] = prettyOfObject[ViewType.this.type]
+  override protected def pretty: Pretty[ViewType.this.type] = prettyOfObject[ViewType.this.type]
 }
 
 // This trait is not sealed so that we can extend it for unit testing

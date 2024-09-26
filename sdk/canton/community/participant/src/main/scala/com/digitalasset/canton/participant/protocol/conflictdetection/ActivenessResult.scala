@@ -21,7 +21,7 @@ final case class ActivenessResult(
   def isSuccessful: Boolean =
     contracts.isSuccessful && inactiveReassignments.isEmpty
 
-  override def pretty: Pretty[ActivenessResult] =
+  override protected def pretty: Pretty[ActivenessResult] =
     prettyOfClass(
       param("contracts", _.contracts, !_.contracts.isEmpty),
       paramIfNonEmpty("inactiveReassignments", _.inactiveReassignments),
@@ -56,7 +56,7 @@ private[conflictdetection] final case class ActivenessCheckResult[Key, Status <:
   def isSuccessful: Boolean =
     alreadyLocked.isEmpty && notFresh.isEmpty && unknown.isEmpty && notFree.isEmpty && notActive.isEmpty
 
-  override def pretty: Pretty[ActivenessCheckResult.this.type] = prettyOfClass(
+  override protected def pretty: Pretty[ActivenessCheckResult.this.type] = prettyOfClass(
     paramIfNonEmpty("alreadyLocked", _.alreadyLocked),
     paramIfNonEmpty("notFresh", _.notFresh),
     paramIfNonEmpty("unknown", _.unknown),

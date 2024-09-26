@@ -46,7 +46,7 @@ final case class ContractStakeholdersAndReassignmentCounter(
     stakeholders: Set[LfPartyId],
     reassignmentCounter: ReassignmentCounter,
 ) extends PrettyPrinting {
-  override def pretty: Pretty[ContractStakeholdersAndReassignmentCounter] = prettyOfClass(
+  override protected def pretty: Pretty[ContractStakeholdersAndReassignmentCounter] = prettyOfClass(
     param("stakeholders", _.stakeholders),
     param("reassignment counter", _.reassignmentCounter),
   )

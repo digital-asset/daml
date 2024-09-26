@@ -138,26 +138,26 @@ sealed trait CommandResult extends PrettyPrinting with Product with Serializable
 
 object CommandResult {
   final case class Success(transactionId: String) extends CommandResult {
-    override def pretty: Pretty[Success.this.type] = prettyOfClass(
+    override protected def pretty: Pretty[Success.this.type] = prettyOfClass(
       param("transactionId", _.transactionId.doubleQuoted)
     )
   }
 
   final case class Failed(commandId: String, errorStatus: Status) extends CommandResult {
-    override def pretty: Pretty[Failed] = prettyOfClass(
+    override protected def pretty: Pretty[Failed] = prettyOfClass(
       param("commandId", _.commandId.doubleQuoted),
       param("errorStatus", _.errorStatus),
     )
   }
 
   final case object AbortedDueToShutdown extends CommandResult {
-    override def pretty: Pretty[AbortedDueToShutdown.this.type] =
+    override protected def pretty: Pretty[AbortedDueToShutdown.this.type] =
       prettyOfObject[AbortedDueToShutdown.this.type]
   }
 
   final case class TimeoutReached(commandId: String, lastErrorStatus: Status)
       extends CommandResult {
-    override def pretty: Pretty[TimeoutReached] = prettyOfClass(
+    override protected def pretty: Pretty[TimeoutReached] = prettyOfClass(
       param("commandId", _.commandId.doubleQuoted),
       param("lastError", _.lastErrorStatus),
     )

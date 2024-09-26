@@ -165,7 +165,7 @@ object TransactionProcessor {
   }
 
   trait TransactionSubmissionError extends TransactionProcessorError with TransactionError {
-    override def pretty: Pretty[TransactionSubmissionError] =
+    override protected def pretty: Pretty[TransactionSubmissionError] =
       this.prettyOfString(_ =>
         this.code.toMsg(
           cause,
@@ -415,7 +415,7 @@ object TransactionProcessor {
 
   final case class DomainParametersError(domainId: DomainId, context: String)
       extends TransactionProcessorError {
-    override def pretty: Pretty[DomainParametersError] = prettyOfClass(
+    override protected def pretty: Pretty[DomainParametersError] = prettyOfClass(
       param("domain", _.domainId),
       param("context", _.context.unquoted),
     )
@@ -424,7 +424,7 @@ object TransactionProcessor {
   final case class GenericStepsError(error: ProcessorError) extends TransactionProcessorError {
     override def underlyingProcessorError(): Option[ProcessorError] = Some(error)
 
-    override def pretty: Pretty[GenericStepsError] = prettyOfParam(_.error)
+    override protected def pretty: Pretty[GenericStepsError] = prettyOfParam(_.error)
   }
 
   final case class ViewParticipantDataError(
@@ -432,7 +432,7 @@ object TransactionProcessor {
       viewHash: ViewHash,
       error: String,
   ) extends TransactionProcessorError {
-    override def pretty: Pretty[ViewParticipantDataError] = prettyOfClass(
+    override protected def pretty: Pretty[ViewParticipantDataError] = prettyOfClass(
       param("transaction id", _.transactionId),
       param("view hash", _.viewHash),
       param("error", _.error.unquoted),
@@ -441,7 +441,7 @@ object TransactionProcessor {
 
   final case class FieldConversionError(field: String, error: String)
       extends TransactionProcessorError {
-    override def pretty: Pretty[FieldConversionError] = prettyOfClass(
+    override protected def pretty: Pretty[FieldConversionError] = prettyOfClass(
       param("field", _.field.unquoted),
       param("error", _.error.unquoted),
     )

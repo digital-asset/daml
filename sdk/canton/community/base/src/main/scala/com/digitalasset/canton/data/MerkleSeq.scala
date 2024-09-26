@@ -134,7 +134,7 @@ final case class MerkleSeq[+M <: VersionedMerkleTree[?]](
   def toProtoV30: v30.MerkleSeq =
     v30.MerkleSeq(rootOrEmpty = rootOrEmpty.map(MerkleTree.toBlindableNodeV30))
 
-  override def pretty: Pretty[MerkleSeq.this.type] = prettyOfClass(
+  override protected def pretty: Pretty[MerkleSeq.this.type] = prettyOfClass(
     param("root hash", _.rootHashO, _.rootOrEmpty.exists(!_.isBlinded)),
     unnamedParamIfDefined(_.rootOrEmpty),
   )
@@ -301,7 +301,7 @@ object MerkleSeq
         data = None,
       )
 
-    override def pretty: Pretty[Branch.this.type] = prettyOfClass(
+    override protected def pretty: Pretty[Branch.this.type] = prettyOfClass(
       param("first", _.first),
       param("second", _.second),
     )
@@ -381,7 +381,7 @@ object MerkleSeq
         data = Some(MerkleTree.toBlindableNodeV30(data)),
       )
 
-    override def pretty: Pretty[Singleton.this.type] = prettyOfClass(unnamedParam(_.data))
+    override protected def pretty: Pretty[Singleton.this.type] = prettyOfClass(unnamedParam(_.data))
 
     override def mapM[A <: VersionedMerkleTree[A]](
         f: M => A

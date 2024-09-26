@@ -186,7 +186,7 @@ object WatermarkTracker {
 
   /** The task's mark is lower than or equal to the high watermark */
   final case class MarkTooLow[A: Pretty](highWatermark: A) extends PrettyPrinting {
-    override def pretty: Pretty[MarkTooLow.this.type] = prettyOfClass(
+    override protected def pretty: Pretty[MarkTooLow.this.type] = prettyOfClass(
       param("high watermark", _.highWatermark)
     )
   }

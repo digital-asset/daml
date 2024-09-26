@@ -80,7 +80,7 @@ final case class SequencerSnapshot(
   /** Indicates how to pretty print this instance.
     * See `PrettyPrintingTest` for examples on how to implement this method.
     */
-  override def pretty: Pretty[SequencerSnapshot.this.type] = prettyOfClass(
+  override protected def pretty: Pretty[SequencerSnapshot.this.type] = prettyOfClass(
     param("lastTs", _.lastTs),
     param("latestBlockHeight", _.latestBlockHeight),
     param("heads", _.heads),
@@ -126,7 +126,7 @@ object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot
 
   final case class ImplementationSpecificInfo(implementationName: String, info: ByteString)
       extends PrettyPrinting {
-    override def pretty: Pretty[ImplementationSpecificInfo.this.type] = prettyOfClass(
+    override protected def pretty: Pretty[ImplementationSpecificInfo.this.type] = prettyOfClass(
       param("implementationName", _.implementationName),
       param("info", _.info),
     )

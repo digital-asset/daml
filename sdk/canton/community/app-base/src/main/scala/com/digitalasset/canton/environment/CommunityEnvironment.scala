@@ -4,7 +4,6 @@
 package com.digitalasset.canton.environment
 
 import cats.syntax.either.*
-import cats.syntax.option.*
 import com.digitalasset.canton.admin.api.client.data.CommunityCantonStatus
 import com.digitalasset.canton.config.{CantonCommunityConfig, TestingConfigInternal}
 import com.digitalasset.canton.console.{
@@ -32,14 +31,12 @@ import com.digitalasset.canton.domain.sequencing.SequencerNodeBootstrap
 import com.digitalasset.canton.domain.sequencing.config.CommunitySequencerNodeConfig
 import com.digitalasset.canton.domain.sequencing.sequencer.CommunitySequencerFactory
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.networking.grpc.StaticGrpcServices
 import com.digitalasset.canton.participant.ParticipantNodeBootstrap
 import com.digitalasset.canton.resource.{
   CommunityDbMigrationsFactory,
   CommunityStorageFactory,
   DbMigrationsFactory,
 }
-import com.digitalasset.canton.sequencer.admin.v30.SequencerPruningAdministrationServiceGrpc
 
 class CommunityEnvironment(
     override val config: CantonCommunityConfig,
@@ -98,14 +95,7 @@ class CommunityEnvironment(
         throw new RuntimeException(s"Failed to create sequencer node $name: $err")
       ) // TODO(i3168): Handle node startup errors gracefully
 
-    new SequencerNodeBootstrap(
-      bootstrapCommonArguments,
-      CommunitySequencerFactory,
-      (_, _) =>
-        StaticGrpcServices
-          .notSupportedByCommunity(SequencerPruningAdministrationServiceGrpc.SERVICE, logger)
-          .some,
-    )
+    new SequencerNodeBootstrap(bootstrapCommonArguments, CommunitySequencerFactory)
   }
 
   override protected def createMediator(
@@ -135,7 +125,6 @@ class CommunityEnvironment(
         config.parameters.timeouts.processing,
         loggerFactory,
       ),
-      CommunityMediatorRuntimeFactory,
     )
   }
 }

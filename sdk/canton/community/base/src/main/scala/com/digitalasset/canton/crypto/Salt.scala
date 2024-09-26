@@ -44,7 +44,7 @@ object SaltAlgorithm {
     override def toProtoOneOf: v30.Salt.Algorithm =
       v30.Salt.Algorithm.Hmac(hmacAlgorithm.toProtoEnum)
     override def length: Long = hmacAlgorithm.hashAlgorithm.length
-    override def pretty: Pretty[Hmac] = prettyOfClass(
+    override protected def pretty: Pretty[Hmac] = prettyOfClass(
       param("hmacAlgorithm", _.hmacAlgorithm.name.unquoted)
     )
   }
@@ -187,7 +187,7 @@ sealed trait SaltError extends Product with Serializable with PrettyPrinting
 object SaltError {
   final case class InvalidSaltCreation(bytes: ByteString, algorithm: SaltAlgorithm)
       extends SaltError {
-    override def pretty: Pretty[InvalidSaltCreation] =
+    override protected def pretty: Pretty[InvalidSaltCreation] =
       prettyOfClass(
         param("bytes", _.bytes),
         param("algorithm", _.algorithm),
@@ -195,7 +195,7 @@ object SaltError {
   }
 
   final case class HmacGenerationError(error: HmacError) extends SaltError {
-    override def pretty: Pretty[HmacGenerationError] = prettyOfClass(
+    override protected def pretty: Pretty[HmacGenerationError] = prettyOfClass(
       param("error", _.error)
     )
   }

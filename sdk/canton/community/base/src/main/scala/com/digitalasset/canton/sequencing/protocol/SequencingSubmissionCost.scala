@@ -28,7 +28,7 @@ final case class SequencingSubmissionCost(
     cost = cost.value
   )
 
-  override def pretty: Pretty[this.type] = prettyOfClass(
+  override protected def pretty: Pretty[this.type] = prettyOfClass(
     param("sequencing submission cost", _.cost)
   )
 

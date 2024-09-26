@@ -53,7 +53,7 @@ final case class SetTrafficPurchasedMessage private (
       getCryptographicEvidence
     )
 
-  override def pretty: Pretty[SetTrafficPurchasedMessage] = prettyOfClass(
+  override protected def pretty: Pretty[SetTrafficPurchasedMessage] = prettyOfClass(
     param("member", _.member),
     param("serial", _.serial),
     param("totalTrafficPurchased", _.totalTrafficPurchased),

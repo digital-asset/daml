@@ -80,7 +80,7 @@ final case class InFlightSubmission[+SequencingInfo <: SubmissionSequencingInfo]
       case SequencedSubmission(_sequencerCounter, sequencingTime) => sequencingTime
     }
 
-  override def pretty: Pretty[InFlightSubmission.this.type] = prettyOfClass(
+  override protected def pretty: Pretty[InFlightSubmission.this.type] = prettyOfClass(
     param("change ID hash", _.changeIdHash),
     paramIfDefined("submissionid", _.submissionId),
     param("submission domain", _.submissionDomain),
@@ -170,7 +170,7 @@ final case class UnsequencedSubmission(
   override def asUnsequenced: Some[UnsequencedSubmission] = Some(this)
   override def asSequenced: None.type = None
 
-  override def pretty: Pretty[UnsequencedSubmission] = prettyOfClass(
+  override protected def pretty: Pretty[UnsequencedSubmission] = prettyOfClass(
     param("timeout", _.timeout),
     param("tracking data", _.trackingData),
   )
@@ -200,7 +200,7 @@ final case class SequencedSubmission(
   override def asUnsequenced: None.type = None
   override def asSequenced: Some[SequencedSubmission] = Some(this)
 
-  override def pretty: Pretty[SequencedSubmission] = prettyOfClass(
+  override protected def pretty: Pretty[SequencedSubmission] = prettyOfClass(
     param("sequencer counter", _.sequencerCounter),
     param("sequencing time", _.sequencingTime),
   )

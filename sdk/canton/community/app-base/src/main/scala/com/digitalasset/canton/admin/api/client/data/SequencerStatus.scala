@@ -33,7 +33,7 @@ final case class SequencerStatus(
 
   override def active: Boolean = sequencer.isActive
 
-  override def pretty: Pretty[SequencerStatus] =
+  override protected def pretty: Pretty[SequencerStatus] =
     prettyOfString(_ =>
       Seq(
         s"Sequencer id: ${uid.toProtoPrimitive}",
@@ -117,7 +117,7 @@ object SequencerStatus {
   */
 final case class SequencerHealthStatus(isActive: Boolean, details: Option[String] = None)
     extends PrettyPrinting {
-  override def pretty: Pretty[SequencerHealthStatus] =
+  override protected def pretty: Pretty[SequencerHealthStatus] =
     SequencerHealthStatus.prettySequencerHealthStatus
 }
 
@@ -139,7 +139,7 @@ object SequencerHealthStatus extends PrettyUtil with ShowUtil {
   * @param acceptsAdminChanges indicates whether the sequencer node accepts administration commands
   */
 final case class SequencerAdminStatus(acceptsAdminChanges: Boolean) extends PrettyPrinting {
-  override def pretty: Pretty[SequencerAdminStatus] =
+  override protected def pretty: Pretty[SequencerAdminStatus] =
     SequencerAdminStatus.prettySequencerHealthStatus
 }
 

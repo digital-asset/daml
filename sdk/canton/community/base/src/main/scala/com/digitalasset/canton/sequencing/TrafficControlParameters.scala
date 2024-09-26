@@ -50,7 +50,7 @@ final case class TrafficControlParameters(
     enforceRateLimiting,
   )
 
-  override def pretty: Pretty[TrafficControlParameters] = prettyOfClass(
+  override protected def pretty: Pretty[TrafficControlParameters] = prettyOfClass(
     param("max base traffic amount", _.maxBaseTrafficAmount),
     param("read vs write scaling factor", _.readVsWriteScalingFactor),
     param("max base traffic accumulation duration", _.maxBaseTrafficAccumulationDuration),

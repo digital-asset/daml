@@ -56,7 +56,7 @@ import com.digitalasset.canton.protocol.messages.Verdict.MediatorReject
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.DefaultDeserializationError
-import com.digitalasset.canton.store.SessionKeyStore
+import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -215,7 +215,7 @@ class UnassignmentProcessingSteps(
           parallel = true,
           pureCrypto,
           sourceRecentSnapshot,
-          ephemeralState.sessionKeyStoreLookup,
+          ephemeralState.sessionKeyStoreLookup.convertStore,
           targetProtocolVersion.v,
         )
         .leftMap[ReassignmentProcessorError](EncryptionError(contractId, _))
@@ -292,7 +292,7 @@ class UnassignmentProcessingSteps(
 
   override protected def decryptTree(
       sourceSnapshot: DomainSnapshotSyncCryptoApi,
-      sessionKeyStore: SessionKeyStore,
+      sessionKeyStore: ConfirmationRequestSessionKeyStore,
   )(
       envelope: OpenEnvelope[EncryptedViewMessage[UnassignmentViewType]]
   )(implicit

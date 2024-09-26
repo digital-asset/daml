@@ -12,6 +12,7 @@ import com.digitalasset.canton.protocol.LfHash
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
+import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
 import com.digitalasset.daml.lf.value.Value
 import com.google.rpc.status.Status as RpcStatus
@@ -78,7 +79,7 @@ object Update {
   ) extends Update
       with WithoutDomainIndex {
 
-    override def pretty: Pretty[Init] =
+    override protected def pretty: Pretty[Init] =
       prettyOfClass(
         param("recordTime", _.recordTime),
         indicateOmittedFields,
@@ -118,7 +119,7 @@ object Update {
       persisted: Promise[Unit] = Promise(),
   ) extends Update
       with WithoutDomainIndex {
-    override def pretty: Pretty[PartyAddedToParticipant] =
+    override protected def pretty: Pretty[PartyAddedToParticipant] =
       prettyOfClass(
         param("recordTime", _.recordTime),
         param("party", _.party),
@@ -167,7 +168,7 @@ object Update {
       persisted: Promise[Unit] = Promise(),
   ) extends Update
       with WithoutDomainIndex {
-    override def pretty: Pretty[PartyAllocationRejected] =
+    override protected def pretty: Pretty[PartyAllocationRejected] =
       prettyOfClass(
         param("recordTime", _.recordTime),
         param("participantId", _.participantId),
@@ -228,7 +229,6 @@ object Update {
       transaction: CommittedTransaction,
       transactionId: Ref.TransactionId,
       recordTime: Timestamp,
-      blindingInfoO: Option[BlindingInfo],
       hostedWitnesses: List[Ref.Party],
       contractMetadata: Map[Value.ContractId, Bytes],
       domainId: DomainId,
@@ -240,8 +240,9 @@ object Update {
     // TODO(i20043) this will be simplified as Update refactoring is unconstrained by serialization
     assert(completionInfoO.forall(_.messageUuid.isEmpty))
     assert(domainIndex.exists(_.requestIndex.isDefined))
+    val blindingInfo: BlindingInfo = Blinding.blind(transaction)
 
-    override def pretty: Pretty[TransactionAccepted] =
+    override protected def pretty: Pretty[TransactionAccepted] =
       prettyOfClass(
         param("recordTime", _.recordTime),
         param("transactionId", _.transactionId),
@@ -269,7 +270,6 @@ object Update {
             _,
             transactionId,
             recordTime,
-            _,
             _,
             _,
             domainId,
@@ -316,7 +316,7 @@ object Update {
     assert(optCompletionInfo.forall(_.messageUuid.isEmpty))
     assert(domainIndex.exists(_.requestIndex.isDefined))
 
-    override def pretty: Pretty[ReassignmentAccepted] =
+    override protected def pretty: Pretty[ReassignmentAccepted] =
       prettyOfClass(
         param("recordTime", _.recordTime),
         param("updateId", _.updateId),
@@ -387,7 +387,7 @@ object Update {
         || (completionInfo.messageUuid.isDefined && domainIndex.isEmpty)
     )
 
-    override def pretty: Pretty[CommandRejected] =
+    override protected def pretty: Pretty[CommandRejected] =
       prettyOfClass(
         param("recordTime", _.recordTime),
         param("completion", _.completionInfo),
@@ -473,7 +473,7 @@ object Update {
       requestCounterO: Option[RequestCounter],
       persisted: Promise[Unit] = Promise(),
   ) extends Update {
-    override def pretty: Pretty[SequencerIndexMoved] =
+    override protected def pretty: Pretty[SequencerIndexMoved] =
       prettyOfClass(
         param("domainId", _.domainId.uid),
         param("sequencerCounter", _.sequencerIndex.counter),
@@ -516,7 +516,7 @@ object Update {
 
     override val domainIndexOpt: Option[(DomainId, DomainIndex)] = None
 
-    override def pretty: Pretty[CommitRepair] = prettyOfClass()
+    override protected def pretty: Pretty[CommitRepair] = prettyOfClass()
 
     override def withRecordTime(recordTime: Timestamp): Update = throw new IllegalStateException(
       "Record time is not supposed to be overridden for CommitRepair events"

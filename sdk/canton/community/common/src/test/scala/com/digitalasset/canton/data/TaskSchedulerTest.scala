@@ -419,7 +419,7 @@ object TaskSchedulerTest {
       }
     }
 
-    override def pretty: Pretty[this.type] = adHocPrettyInstance
+    override protected def pretty: Pretty[this.type] = adHocPrettyInstance
 
     override def close(): Unit = ()
   }

@@ -25,7 +25,7 @@ sealed trait CantonVersion extends Ordered[CantonVersion] with PrettyPrinting {
   def isStable: Boolean = optSuffix.isEmpty
   def fullVersion: String = s"$major.$minor.$patch${optSuffix.map("-" + _).getOrElse("")}"
 
-  override def pretty: Pretty[CantonVersion] = prettyOfString(_ => fullVersion)
+  override protected def pretty: Pretty[CantonVersion] = prettyOfString(_ => fullVersion)
   def toProtoPrimitive: String = fullVersion
 
   def raw: (Int, Int, Int, Option[String]) = (major, minor, patch, optSuffix)

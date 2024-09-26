@@ -646,7 +646,7 @@ private[conflictdetection] object LockableStates {
         .map(_.id)
         .toSet
 
-    override def pretty: Pretty[LockableStatesCheckHandle.this.type] = prettyOfClass(
+    override protected def pretty: Pretty[LockableStatesCheckHandle.this.type] = prettyOfClass(
       param("request counter", _.requestCounter)
     )
   }

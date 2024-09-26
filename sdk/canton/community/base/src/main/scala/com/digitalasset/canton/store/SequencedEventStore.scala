@@ -146,7 +146,7 @@ object SequencedEventStore {
       s"Lower bound timestamp $lowerInclusive is after upper bound $upperInclusive",
     )
 
-    override def pretty: Pretty[ByTimestampRange] = prettyOfClass(
+    override protected def pretty: Pretty[ByTimestampRange] = prettyOfClass(
       param("lower inclusive", _.lowerInclusive),
       param("upper inclusive", _.upperInclusive),
     )
@@ -215,7 +215,7 @@ object SequencedEventStore {
       case None => this
     }
 
-    override def pretty: Pretty[IgnoredSequencedEvent[Envelope[?]]] =
+    override protected def pretty: Pretty[IgnoredSequencedEvent[Envelope[?]]] =
       prettyOfClass(
         param("timestamp", _.timestamp),
         param("counter", _.counter),
@@ -269,7 +269,7 @@ object SequencedEventStore {
 
     override def asOrdinaryEvent: PossiblyIgnoredSequencedEvent[Env] = this
 
-    override def pretty: Pretty[OrdinarySequencedEvent[Envelope[_]]] = prettyOfClass(
+    override protected def pretty: Pretty[OrdinarySequencedEvent[Envelope[_]]] = prettyOfClass(
       param("signedEvent", _.signedEvent)
     )
   }
@@ -359,11 +359,12 @@ final case class SequencedEventRangeOverlapsWithPruning(
     foundEvents: Seq[PossiblyIgnoredSerializedEvent],
 ) extends SequencedEventStoreError
     with PrettyPrinting {
-  override def pretty: Pretty[SequencedEventRangeOverlapsWithPruning.this.type] = prettyOfClass(
-    param("criterion", _.criterion),
-    param("pruning status", _.pruningStatus),
-    param("found events", _.foundEvents),
-  )
+  override protected def pretty: Pretty[SequencedEventRangeOverlapsWithPruning.this.type] =
+    prettyOfClass(
+      param("criterion", _.criterion),
+      param("pruning status", _.pruningStatus),
+      param("found events", _.foundEvents),
+    )
 }
 
 final case class ChangeWouldResultInGap(from: SequencerCounter, to: SequencerCounter)

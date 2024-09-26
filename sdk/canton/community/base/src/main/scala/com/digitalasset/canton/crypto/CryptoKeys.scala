@@ -38,7 +38,7 @@ final case class Fingerprint private (protected val str: String68)
     with PrettyPrinting {
   def toLengthLimitedString: String68 = str
 
-  override def pretty: Pretty[Fingerprint] = prettyOfParam(_.unwrap.readableHash)
+  override protected def pretty: Pretty[Fingerprint] = prettyOfParam(_.unwrap.readableHash)
 }
 
 trait HasFingerprint {
@@ -198,7 +198,9 @@ final case class KeyName(protected val str: String300)
     extends LengthLimitedStringWrapper
     with PrettyPrinting {
   def emptyStringAsNone: Option[KeyName] = if (str.unwrap.isEmpty) None else Some(this)
-  override def pretty: Pretty[KeyName] = prettyOfClass(unnamedParam(_.str.unwrap.unquoted))
+  override protected def pretty: Pretty[KeyName] = prettyOfClass(
+    unnamedParam(_.str.unwrap.unquoted)
+  )
 }
 object KeyName extends LengthLimitedStringWrapperCompanion[String300, KeyName] {
   override def instanceName: String = "KeyName"
@@ -285,7 +287,7 @@ object PrivateKey {
 sealed trait CryptoKeyFormat extends Product with Serializable with PrettyPrinting {
   def name: String
   def toProtoEnum: v30.CryptoKeyFormat
-  override def pretty: Pretty[this.type] = prettyOfString(_.name)
+  override protected def pretty: Pretty[this.type] = prettyOfString(_.name)
 }
 
 object CryptoKeyFormat {
@@ -332,7 +334,7 @@ sealed trait KeyPurpose extends Product with Serializable with PrettyPrinting {
 
   def toProtoEnum: v30.KeyPurpose
 
-  override def pretty: Pretty[KeyPurpose.this.type] = prettyOfString(_.name)
+  override protected def pretty: Pretty[KeyPurpose.this.type] = prettyOfString(_.name)
 }
 
 object KeyPurpose {

@@ -73,7 +73,7 @@ final case class TransactionConfirmationRequest(
     }
   }
 
-  override def pretty: Pretty[TransactionConfirmationRequest] = prettyOfClass(
+  override protected def pretty: Pretty[TransactionConfirmationRequest] = prettyOfClass(
     param("informee message", _.informeeMessage),
     param("view envelopes", _.viewEnvelopes),
   )

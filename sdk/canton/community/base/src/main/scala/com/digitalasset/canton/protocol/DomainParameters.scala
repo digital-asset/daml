@@ -435,7 +435,7 @@ final case class DynamicDomainParameters private (
     acsCommitmentsCatchupConfig = acsCommitmentsCatchUpConfig.map(_.toProtoV30),
   )
 
-  override def pretty: Pretty[DynamicDomainParameters] =
+  override protected def pretty: Pretty[DynamicDomainParameters] =
     prettyOfClass(
       param("confirmation response timeout", _.confirmationResponseTimeout),
       param("mediator reaction timeout", _.mediatorReactionTimeout),
@@ -888,7 +888,7 @@ final case class AcsCommitmentsCatchUpConfig(
       s"(please use AcsCommitmentsCatchUpConfig.disabledCatchUp()) or did you intend a different config?",
   )
 
-  override def pretty: Pretty[AcsCommitmentsCatchUpConfig] = prettyOfClass(
+  override protected def pretty: Pretty[AcsCommitmentsCatchUpConfig] = prettyOfClass(
     param("catchUpIntervalSkip", _.catchUpIntervalSkip),
     param("nrIntervalsToTriggerCatchUp", _.nrIntervalsToTriggerCatchUp),
   )

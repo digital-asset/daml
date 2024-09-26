@@ -17,7 +17,7 @@ sealed trait PruningPhase extends Product with Serializable with PrettyPrinting 
     String100.tryCreate(kind)
   def index: Int
 
-  override def pretty: Pretty[PruningPhase] = prettyOfParam(_.kind.unquoted)
+  override protected def pretty: Pretty[PruningPhase] = prettyOfParam(_.kind.unquoted)
 }
 
 object PruningPhase {
@@ -50,7 +50,7 @@ final case class PruningStatus(
     timestamp: CantonTimestamp,
     lastSuccess: Option[CantonTimestamp],
 ) extends PrettyPrinting {
-  override def pretty: Pretty[PruningStatus] = prettyOfClass(
+  override protected def pretty: Pretty[PruningStatus] = prettyOfClass(
     param("phase", _.phase),
     param("timestamp", _.timestamp),
     param("lastSuccess", _.lastSuccess),

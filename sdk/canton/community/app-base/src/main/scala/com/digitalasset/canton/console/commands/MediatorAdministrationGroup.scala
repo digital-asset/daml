@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.console.commands
 
-import com.digitalasset.canton.admin.api.client.commands.EnterpriseMediatorAdministrationCommands.{
+import com.digitalasset.canton.admin.api.client.commands.MediatorAdministrationCommands.{
   Initialize,
   LocatePruningTimestampCommand,
   Prune,

@@ -38,7 +38,7 @@ sealed abstract class HashAlgorithm(val name: String, val index: Long, val lengt
     extends PrettyPrinting {
   def toProtoEnum: v30.HashAlgorithm
 
-  override def pretty: Pretty[HashAlgorithm] = prettyOfString(_.name)
+  override protected def pretty: Pretty[HashAlgorithm] = prettyOfString(_.name)
 }
 
 object HashAlgorithm {

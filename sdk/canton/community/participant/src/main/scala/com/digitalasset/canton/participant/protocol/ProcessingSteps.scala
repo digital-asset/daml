@@ -41,7 +41,7 @@ import com.digitalasset.canton.participant.store.{
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
-import com.digitalasset.canton.store.SessionKeyStore
+import com.digitalasset.canton.store.{ConfirmationRequestSessionKeyStore, SessionKeyStore}
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.{LedgerSubmissionId, RequestCounter, SequencerCounter}
@@ -325,7 +325,7 @@ trait ProcessingSteps[
   def decryptViews(
       batch: NonEmpty[Seq[OpenEnvelope[EncryptedViewMessage[RequestViewType]]]],
       snapshot: DomainSnapshotSyncCryptoApi,
-      sessionKeyStore: SessionKeyStore,
+      sessionKeyStore: ConfirmationRequestSessionKeyStore,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, RequestError, DecryptedViews]
@@ -569,7 +569,7 @@ object ProcessingSteps {
     case object Transaction extends Values {
       override type PendingRequestData = PendingTransaction
 
-      override def pretty: Pretty[Transaction] = prettyOfObject[Transaction]
+      override protected def pretty: Pretty[Transaction] = prettyOfObject[Transaction]
     }
     type Transaction = Transaction.type
 
@@ -578,7 +578,7 @@ object ProcessingSteps {
     case object Unassignment extends Reassignment {
       override type PendingRequestData = PendingUnassignment
 
-      override def pretty: Pretty[Unassignment] = prettyOfObject[Unassignment]
+      override protected def pretty: Pretty[Unassignment] = prettyOfObject[Unassignment]
     }
 
     type Unassignment = Unassignment.type
@@ -586,7 +586,7 @@ object ProcessingSteps {
     case object Assignment extends Reassignment {
       override type PendingRequestData = PendingAssignment
 
-      override def pretty: Pretty[Assignment] = prettyOfObject[Assignment]
+      override protected def pretty: Pretty[Assignment] = prettyOfObject[Assignment]
 
     }
     type Assignment = Assignment.type

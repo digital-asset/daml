@@ -38,7 +38,7 @@ trait RefinedNonNegativeDuration[D <: RefinedNonNegativeDuration[D]] extends Pre
 
   protected[this] def update(newDuration: Duration): D
 
-  override def pretty: Pretty[RefinedNonNegativeDuration[D]] = prettyOfParam(_.duration)
+  override protected def pretty: Pretty[RefinedNonNegativeDuration[D]] = prettyOfParam(_.duration)
 
   def duration: Duration
 

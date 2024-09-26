@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.console
 
-import com.digitalasset.canton.admin.api.client.commands.EnterpriseSequencerAdminCommands.LocatePruningTimestampCommand
+import com.digitalasset.canton.admin.api.client.commands.SequencerAdminCommands.LocatePruningTimestampCommand
 import com.digitalasset.canton.admin.api.client.commands.*
 import com.digitalasset.canton.admin.api.client.data.topology.ListParticipantDomainPermissionResult
 import com.digitalasset.canton.admin.api.client.data.{
@@ -82,7 +82,7 @@ trait InstanceReference
 
   protected[canton] def executionContext: ExecutionContext
 
-  override def pretty: Pretty[InstanceReference] =
+  override protected def pretty: Pretty[InstanceReference] =
     prettyOfString(inst => show"${inst.instanceType.unquoted} ${inst.name.singleQuoted}")
 
   val consoleEnvironment: ConsoleEnvironment
@@ -1063,7 +1063,7 @@ abstract class SequencerReference(
     )
     def prune_at(timestamp: CantonTimestamp): String =
       this.consoleEnvironment.run {
-        runner.adminCommand(EnterpriseSequencerAdminCommands.Prune(timestamp))
+        runner.adminCommand(SequencerAdminCommands.Prune(timestamp))
       }
 
     @Help.Summary(
@@ -1158,7 +1158,7 @@ abstract class SequencerReference(
         |To view members using the sequencer run `sequencer.status()`.""""
     )
     def disable_member(member: Member): Unit = consoleEnvironment.run {
-      runner.adminCommand(EnterpriseSequencerAdminCommands.DisableMember(member))
+      runner.adminCommand(SequencerAdminCommands.DisableMember(member))
     }
   }
 

@@ -241,7 +241,7 @@ final case class GenTransactionTree private (
   def mapUnblindedRootViews(f: TransactionView => TransactionView): GenTransactionTree =
     this.copy(rootViews = rootViews.mapM(f))
 
-  override def pretty: Pretty[GenTransactionTree] = prettyOfClass(
+  override protected def pretty: Pretty[GenTransactionTree] = prettyOfClass(
     param("submitter metadata", _.submitterMetadata),
     param("common metadata", _.commonMetadata),
     param("participant metadata", _.participantMetadata),

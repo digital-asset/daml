@@ -13,6 +13,7 @@ import com.digitalasset.canton.serialization.{DeserializationError, HasCryptogra
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.util.ByteStringUtil
 import com.digitalasset.canton.{LedgerTransactionId, ProtoDeserializationError}
+import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 import slick.jdbc.{GetResult, SetParameter}
 
@@ -45,7 +46,7 @@ case class RootHash(private val hash: Hash) extends PrettyPrinting with HasCrypt
   def asLedgerTransactionId: Either[String, LedgerTransactionId] =
     LedgerTransactionId.fromString(hash.toHexString)
 
-  override def pretty: Pretty[RootHash] = prettyOfParam(_.unwrap)
+  override protected def pretty: Pretty[RootHash] = prettyOfParam(_.unwrap)
 }
 
 object RootHash {
@@ -140,6 +141,7 @@ case class ViewHash(private val hash: Hash) extends PrettyPrinting {
 
   def toRootHash: RootHash = RootHash(hash)
 
+  @VisibleForTesting
   override def pretty: Pretty[ViewHash] = prettyOfClass(unnamedParam(_.hash))
 }
 
@@ -166,7 +168,7 @@ final case class RequestId(private val ts: CantonTimestamp) extends PrettyPrinti
 
   def toProtoPrimitive: Long = ts.toProtoPrimitive
 
-  override def pretty: Pretty[RequestId] = prettyOfClass(unnamedParam(_.ts))
+  override protected def pretty: Pretty[RequestId] = prettyOfClass(unnamedParam(_.ts))
 }
 
 object RequestId {
@@ -193,7 +195,7 @@ final case class ReassignmentId(sourceDomain: SourceDomainId, unassignmentTs: Ca
       timestamp = Some(unassignmentTs.toProtoTimestamp),
     )
 
-  override def pretty: Pretty[ReassignmentId] = prettyOfClass(
+  override protected def pretty: Pretty[ReassignmentId] = prettyOfClass(
     param("ts", _.unassignmentTs),
     param("source", _.sourceDomain),
   )

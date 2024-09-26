@@ -26,7 +26,7 @@ final case class StoredTopologyTransactions[+Op <: TopologyChangeOp, +M <: Topol
 
   override protected def companionObj = StoredTopologyTransactions
 
-  override def pretty: Pretty[StoredTopologyTransactions.this.type] = prettyOfParam(
+  override protected def pretty: Pretty[StoredTopologyTransactions.this.type] = prettyOfParam(
     _.result
   )
 
@@ -155,7 +155,7 @@ final case class SignedTopologyTransactions[+Op <: TopologyChangeOp, +M <: Topol
     result: Seq[SignedTopologyTransaction[Op, M]]
 ) extends PrettyPrinting {
 
-  override def pretty: Pretty[SignedTopologyTransactions.this.type] = prettyOfParam(
+  override protected def pretty: Pretty[SignedTopologyTransactions.this.type] = prettyOfParam(
     _.result
   )
 

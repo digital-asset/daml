@@ -83,7 +83,7 @@ object MetricValue {
   final case class LongPoint(value: Long, attributes: Map[String, String])
       extends MetricValue
       with Point[Long] {
-    override def pretty: Pretty[LongPoint] = prettyOfClass(
+    override protected def pretty: Pretty[LongPoint] = prettyOfClass(
       param("value", _.value),
       param(
         "attributes",
@@ -96,7 +96,7 @@ object MetricValue {
   final case class DoublePoint(value: Double, attributes: Map[String, String])
       extends MetricValue
       with Point[Double] {
-    override def pretty: Pretty[DoublePoint] = prettyOfClass(
+    override protected def pretty: Pretty[DoublePoint] = prettyOfClass(
       param("value", _.value.toString.unquoted),
       param(
         "attributes",
@@ -112,7 +112,7 @@ object MetricValue {
       quantiles: Seq[ValueAtQuantile],
       attributes: Map[String, String],
   ) extends MetricValue {
-    override def pretty: Pretty[Summary] = prettyOfClass(
+    override protected def pretty: Pretty[Summary] = prettyOfClass(
       param("sum", _.sum.toString.unquoted),
       param("count", _.count),
       param("quantiles", _.quantiles),
@@ -164,7 +164,7 @@ object MetricValue {
       go(counts.zipAll(boundaries, 0, Double.MaxValue), 0)
     }
 
-    override def pretty: Pretty[Histogram] = prettyOfClass(
+    override protected def pretty: Pretty[Histogram] = prettyOfClass(
       param("sum", _.sum.toString.unquoted),
       param("count", _.count),
       param("counts", _.counts),

@@ -76,7 +76,7 @@ final case class AssignmentViewTree(
   ): AssignmentMediatorMessage =
     AssignmentMediatorMessage(blindedTree, submittingParticipantSignature)
 
-  override def pretty: Pretty[AssignmentViewTree] = prettyOfClass(
+  override protected def pretty: Pretty[AssignmentViewTree] = prettyOfClass(
     param("common data", _.commonData),
     param("view", _.view),
   )
@@ -183,7 +183,7 @@ final case class AssignmentCommonData private (
   def confirmingParties: Map[LfPartyId, PositiveInt] =
     stakeholders.map(_ -> PositiveInt.one).toMap
 
-  override def pretty: Pretty[AssignmentCommonData] = prettyOfClass(
+  override protected def pretty: Pretty[AssignmentCommonData] = prettyOfClass(
     param("submitter metadata", _.submitterMetadata),
     param("target domain", _.targetDomain),
     param("target mediator group", _.targetMediatorGroup),
@@ -314,7 +314,7 @@ final case class AssignmentView private (
       reassignmentCounter = reassignmentCounter.toProtoPrimitive,
     )
 
-  override def pretty: Pretty[AssignmentView] = prettyOfClass(
+  override protected def pretty: Pretty[AssignmentView] = prettyOfClass(
     param("creating transaction id", _.creatingTransactionId),
     param("unassignment result event", _.unassignmentResultEvent),
     param("source protocol version", _.sourceProtocolVersion.v),
@@ -482,7 +482,7 @@ final case class FullAssignmentTree(tree: AssignmentViewTree)
 
   override def reassigningParticipants: Set[ParticipantId] = commonData.reassigningParticipants
 
-  override def pretty: Pretty[FullAssignmentTree] = prettyOfClass(unnamedParam(_.tree))
+  override protected def pretty: Pretty[FullAssignmentTree] = prettyOfClass(unnamedParam(_.tree))
 
   override def toByteString: ByteString = tree.toByteString
 }

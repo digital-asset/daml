@@ -37,7 +37,7 @@ import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.engine.Engine
-import com.digitalasset.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
+import com.digitalasset.daml.lf.transaction.CommittedTransaction
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
@@ -469,7 +469,6 @@ private class JdbcLedgerDao(
       ledgerEffectiveTime: Timestamp,
       offset: Offset,
       transaction: CommittedTransaction,
-      blindingInfoO: Option[BlindingInfo],
       hostedWitnesses: List[Party],
       recordTime: Timestamp,
   )(implicit
@@ -497,7 +496,6 @@ private class JdbcLedgerDao(
                 transaction = transaction,
                 transactionId = transactionId,
                 recordTime = recordTime,
-                blindingInfoO = blindingInfoO,
                 hostedWitnesses = hostedWitnesses,
                 contractMetadata = Map.empty,
                 domainId = DomainId.tryFromString("invalid::deadbeef"),

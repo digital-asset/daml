@@ -37,7 +37,7 @@ final case class SequencerNodeStatus(
 ) extends NodeStatus.Status {
   override def active: Boolean = sequencer.isActive
 
-  override def pretty: Pretty[SequencerNodeStatus] =
+  override protected def pretty: Pretty[SequencerNodeStatus] =
     prettyOfString(_ =>
       Seq(
         s"Sequencer id: ${uid.toProtoPrimitive}",
@@ -86,7 +86,7 @@ final case class SequencerHealthStatus(isActive: Boolean, details: Option[String
   else
     ComponentHealthState.Failed(UnhealthyState(details))
 
-  override def pretty: Pretty[SequencerHealthStatus] =
+  override protected def pretty: Pretty[SequencerHealthStatus] =
     SequencerHealthStatus.prettySequencerHealthStatus
 }
 
@@ -119,7 +119,7 @@ final case class SequencerAdminStatus(acceptsAdminChanges: Boolean)
   override def toComponentHealthState: ComponentHealthState =
     ComponentHealthState.Ok(Option.when(acceptsAdminChanges)("sequencer accepts admin commands"))
 
-  override def pretty: Pretty[SequencerAdminStatus] =
+  override protected def pretty: Pretty[SequencerAdminStatus] =
     SequencerAdminStatus.prettySequencerHealthStatus
 }
 

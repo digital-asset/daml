@@ -23,7 +23,7 @@ import com.digitalasset.canton.protocol.messages.ProtocolMessage.ProtocolMessage
 import com.digitalasset.canton.protocol.{v30, *}
 import com.digitalasset.canton.serialization.DeserializationError
 import com.digitalasset.canton.serialization.ProtoConverter.{ParsingResult, parseRequiredNonEmpty}
-import com.digitalasset.canton.store.SessionKeyStore
+import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.*
@@ -366,7 +366,7 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
   def decryptRandomness[VT <: ViewType](
       allowedEncryptionSpecs: RequiredEncryptionSpecs,
       snapshot: DomainSnapshotSyncCryptoApi,
-      sessionKeyStore: SessionKeyStore,
+      sessionKeyStore: ConfirmationRequestSessionKeyStore,
       encrypted: EncryptedViewMessage[VT],
       participantId: ParticipantId,
   )(implicit
@@ -426,7 +426,7 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
         // we try to search for the cached session key randomness. If it does not exist
         // (or is disabled) we decrypt and store it
         // the result in the cache. There is no need to sync on this read-write operation because
-        // there is not problem if the value gets re-written.
+        // there is no problem if the value gets re-written.
         sessionKeyStore
           .getSessionKeyRandomness(
             snapshot.crypto.privateCrypto,
@@ -498,7 +498,7 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
   def decryptFor[VT <: ViewType](
       staticDomainParameters: StaticDomainParameters,
       snapshot: DomainSnapshotSyncCryptoApi,
-      sessionKeyStore: SessionKeyStore,
+      sessionKeyStore: ConfirmationRequestSessionKeyStore,
       encrypted: EncryptedViewMessage[VT],
       participantId: ParticipantId,
       optViewRandomness: Option[SecureRandomness] = None,
@@ -549,7 +549,7 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
 
 sealed trait EncryptedViewMessageError extends Product with Serializable with PrettyPrinting {
 
-  override def pretty: Pretty[EncryptedViewMessageError.this.type] = adHocPrettyInstance
+  override protected def pretty: Pretty[EncryptedViewMessageError.this.type] = adHocPrettyInstance
 }
 
 object EncryptedViewMessageError {

@@ -141,7 +141,7 @@ class SimpleExecutionQueue(
     go(queueHead.get(), List.empty[String])
   }
 
-  override def pretty: Pretty[SimpleExecutionQueue] = prettyOfClass(
+  override protected def pretty: Pretty[SimpleExecutionQueue] = prettyOfClass(
     param("queued tasks", _.queued.map(_.unquoted))
   )
 

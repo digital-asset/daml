@@ -232,7 +232,7 @@ class DbInFlightSubmissionStore(
 
   case class SequencedRootHash(rootHash: RootHash, submission: SequencedSubmission)
       extends PrettyPrinting {
-    override def pretty: Pretty[SequencedRootHash] =
+    override protected def pretty: Pretty[SequencedRootHash] =
       prettyOfClass(
         param("rootHash", _.rootHash),
         param("submission", _.submission),

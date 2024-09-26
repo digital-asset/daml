@@ -235,7 +235,7 @@ object PingService {
       // most recently known location
       protected val currentDomain = new AtomicReference[(DomainId, Long)]((initialDomainId, 0))
 
-      override def pretty: Pretty[ContractWithExpiry] = prettyOfClass(
+      override protected def pretty: Pretty[ContractWithExpiry] = prettyOfClass(
         param("coid", x => x.contractId.contractId.readableHash),
         param("data", _.prettyData.singleQuoted),
         param(
@@ -682,7 +682,7 @@ object PingService {
           .remove(id)
           .foreach(_.promise.trySuccess(Failure(error)))
 
-      override def pretty: Pretty[PingRequest] = prettyOfClass(
+      override protected def pretty: Pretty[PingRequest] = prettyOfClass(
         param("id", _.id.singleQuoted),
         paramIfNonEmpty("domainId", _.domainId),
         paramIfNonEmpty("workflowId", _.workflowId.map(Tag.unwrap(_).singleQuoted)),

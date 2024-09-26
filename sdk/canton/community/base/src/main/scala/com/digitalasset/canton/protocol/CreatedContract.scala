@@ -34,7 +34,7 @@ final case class CreatedContract private (
       rolledBack = rolledBack,
     )
 
-  override def pretty: Pretty[CreatedContract] = prettyOfClass(
+  override protected def pretty: Pretty[CreatedContract] = prettyOfClass(
     unnamedParam(_.contract),
     paramIfTrue("consumed in core", _.consumedInCore),
     paramIfTrue("rolled back", _.rolledBack),

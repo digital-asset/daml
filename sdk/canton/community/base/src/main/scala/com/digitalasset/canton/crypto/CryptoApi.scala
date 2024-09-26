@@ -76,7 +76,7 @@ trait CryptoPureApi
 sealed trait CryptoPureApiError extends Product with Serializable with PrettyPrinting
 object CryptoPureApiError {
   final case class KeyParseAndValidateError(error: String) extends CryptoPureApiError {
-    override def pretty: Pretty[KeyParseAndValidateError] = prettyOfClass(
+    override protected def pretty: Pretty[KeyParseAndValidateError] = prettyOfClass(
       unnamedParam(_.error.unquoted)
     )
   }
@@ -98,7 +98,7 @@ object SyncCryptoError {
       timestamp: CantonTimestamp,
       candidates: Seq[Fingerprint],
   ) extends SyncCryptoError {
-    override def pretty: Pretty[KeyNotAvailable] = prettyOfClass(
+    override protected def pretty: Pretty[KeyNotAvailable] = prettyOfClass(
       param("owner", _.owner),
       param("key purpose", _.keyPurpose),
       param("timestamp", _.timestamp),
@@ -107,19 +107,19 @@ object SyncCryptoError {
   }
 
   final case class SyncCryptoSigningError(error: SigningError) extends SyncCryptoError {
-    override def pretty: Pretty[SyncCryptoSigningError] = prettyOfParam(_.error)
+    override protected def pretty: Pretty[SyncCryptoSigningError] = prettyOfParam(_.error)
   }
 
   final case class SyncCryptoDecryptionError(error: DecryptionError) extends SyncCryptoError {
-    override def pretty: Pretty[SyncCryptoDecryptionError] = prettyOfParam(_.error)
+    override protected def pretty: Pretty[SyncCryptoDecryptionError] = prettyOfParam(_.error)
   }
 
   final case class SyncCryptoEncryptionError(error: EncryptionError) extends SyncCryptoError {
-    override def pretty: Pretty[SyncCryptoEncryptionError] = prettyOfParam(_.error)
+    override protected def pretty: Pretty[SyncCryptoEncryptionError] = prettyOfParam(_.error)
   }
 
   final case class StoreError(error: CryptoPrivateStoreError) extends SyncCryptoError {
-    override def pretty: Pretty[StoreError] =
+    override protected def pretty: Pretty[StoreError] =
       prettyOfClass(unnamedParam(_.error))
   }
 }

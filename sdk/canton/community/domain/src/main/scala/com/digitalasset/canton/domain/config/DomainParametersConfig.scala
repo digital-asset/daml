@@ -45,7 +45,7 @@ final case class DomainParametersConfig(
 ) extends ProtocolConfig
     with PrettyPrinting {
 
-  override def pretty: Pretty[DomainParametersConfig] = prettyOfClass(
+  override protected def pretty: Pretty[DomainParametersConfig] = prettyOfClass(
     param("requiredSigningKeySchemes", _.requiredSigningKeySchemes),
     param("requiredEncryptionAlgorithmSpecs", _.requiredEncryptionAlgorithmSpecs),
     param("requiredEncryptionKeySpecs", _.requiredEncryptionKeySpecs),

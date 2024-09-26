@@ -13,10 +13,13 @@ message BftSequencerSnapshotAdditionalInfo {
   // Introducing another (wrapper) message as an alternative seems like overkill so far
   message FirstKnownAt {
     // Onboarding topology effective timestamp, useful for retrieving a crypto provider for onboarding
+    // (in microseconds of UTC time since Unix epoch)
     optional int64 timestamp = 1;
     // An epoch where the onboarding transaction became effective, used as state transfer start epoch
     optional int64 epoch_number = 2;
     // Needed to properly set the initial block in the Output module (due to transferring full epochs)
     optional int64 first_block_number_in_epoch = 3;
+    // BFT time of the last block in the previous epoch (in microseconds of UTC time since Unix epoch)
+    optional int64 previous_bft_time = 4;
   }
 }

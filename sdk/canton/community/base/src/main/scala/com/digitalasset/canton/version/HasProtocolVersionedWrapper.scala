@@ -56,7 +56,7 @@ sealed abstract case class RepresentativeProtocolVersion[ValueCompanion](
     */
   def representative: ProtocolVersion = v
 
-  override def pretty: Pretty[this.type] = prettyOfParam(_.v)
+  override protected def pretty: Pretty[this.type] = prettyOfParam(_.v)
 }
 
 object RepresentativeProtocolVersion {
@@ -391,7 +391,7 @@ trait HasSupportedProtoVersions[ValueClass] {
     override val isVersioned: Boolean = true
     override val isSupported: Boolean = true
 
-    override def pretty: Pretty[this.type] =
+    override protected def pretty: Pretty[this.type] =
       prettyOfClass(
         unnamedParam(_ => HasSupportedProtoVersions.this.getClass.getSimpleName.unquoted),
         param("fromInclusive", _.fromInclusive),
@@ -447,7 +447,7 @@ trait HasSupportedProtoVersions[ValueClass] {
     override def serializer: Serializer = throw new UnsupportedOperationException(
       s"Cannot serialize $valueClassName in protocol version equivalent to ${fromInclusive.representative}"
     )
-    override def pretty: Pretty[this.type] = prettyOfClass(
+    override protected def pretty: Pretty[this.type] = prettyOfClass(
       unnamedParam(_.valueClassName.unquoted),
       param("fromInclusive", _.fromInclusive),
     )

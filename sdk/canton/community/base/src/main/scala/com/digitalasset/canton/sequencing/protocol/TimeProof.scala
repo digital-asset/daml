@@ -46,7 +46,7 @@ final case class TimeProof private (
 
   def traceContext: TraceContext = event.traceContext
 
-  override def pretty: Pretty[TimeProof.this.type] = prettyOfClass(
+  override protected def pretty: Pretty[TimeProof.this.type] = prettyOfClass(
     unnamedParam(_.timestamp)
   )
 

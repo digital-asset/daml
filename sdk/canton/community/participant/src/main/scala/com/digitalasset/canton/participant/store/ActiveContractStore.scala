@@ -631,7 +631,7 @@ object ActiveContractStore {
   final case class Active(reassignmentCounter: ReassignmentCounter) extends Status {
     override def prunable: Boolean = false
 
-    override def pretty: Pretty[Active] = prettyOfClass(
+    override protected def pretty: Pretty[Active] = prettyOfClass(
       param("reassignment counter", _.reassignmentCounter)
     )
   }
@@ -639,13 +639,13 @@ object ActiveContractStore {
   /** The contract has been archived and it is not active. */
   case object Archived extends Status {
     override def prunable: Boolean = true
-    override def pretty: Pretty[Archived.type] = prettyOfObject[Archived.type]
+    override protected def pretty: Pretty[Archived.type] = prettyOfObject[Archived.type]
     // reassignment counter remains None, because we do not write it back to the ACS
   }
 
   case object Purged extends Status {
     override def prunable: Boolean = true
-    override def pretty: Pretty[Purged.type] = prettyOfObject[Purged.type]
+    override protected def pretty: Pretty[Purged.type] = prettyOfObject[Purged.type]
   }
 
   /** The contract has been unassigned to the given `targetDomain` after it had resided on this domain.
@@ -665,7 +665,9 @@ object ActiveContractStore {
       reassignmentCounter: ReassignmentCounter,
   ) extends Status {
     override def prunable: Boolean = true
-    override def pretty: Pretty[ReassignedAway] = prettyOfClass(unnamedParam(_.targetDomain))
+    override protected def pretty: Pretty[ReassignedAway] = prettyOfClass(
+      unnamedParam(_.targetDomain)
+    )
   }
 
   private[store] sealed trait ReassignmentType extends Product with Serializable {
@@ -870,7 +872,7 @@ object ActiveContractSnapshot {
 }
 
 sealed trait ContractChange extends Product with Serializable with PrettyPrinting {
-  override def pretty: Pretty[ContractChange.this.type] = prettyOfObject[this.type]
+  override protected def pretty: Pretty[ContractChange.this.type] = prettyOfObject[this.type]
 }
 object ContractChange {
   case object Created extends ContractChange
@@ -885,7 +887,7 @@ object ContractChange {
   */
 final case class StateChangeType(change: ContractChange, reassignmentCounter: ReassignmentCounter)
     extends PrettyPrinting {
-  override def pretty: Pretty[StateChangeType] =
+  override protected def pretty: Pretty[StateChangeType] =
     prettyOfClass(
       param("operation", _.change),
       param("reassignment counter", _.reassignmentCounter),

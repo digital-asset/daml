@@ -98,7 +98,7 @@ object CommandDeduplicationStore {
 
   final case class OffsetAndPublicationTime(offset: GlobalOffset, publicationTime: CantonTimestamp)
       extends PrettyPrinting {
-    override def pretty: Pretty[OffsetAndPublicationTime] = prettyOfClass(
+    override protected def pretty: Pretty[OffsetAndPublicationTime] = prettyOfClass(
       param("offset", _.offset),
       param("publication time", _.publicationTime),
     )
@@ -135,7 +135,7 @@ final case class CommandDeduplicationData private (
     }
   }
 
-  override def pretty: Pretty[CommandDeduplicationData] = prettyOfClass(
+  override protected def pretty: Pretty[CommandDeduplicationData] = prettyOfClass(
     param("change id", _.changeId),
     param("latest definite answer", _.latestDefiniteAnswer),
     paramIfDefined("latest acceptance", _.latestAcceptance),
@@ -198,7 +198,7 @@ final case class DefiniteAnswerEvent(
   def serializableSubmissionId: Option[SerializableSubmissionId] =
     submissionIdO.map(SerializableSubmissionId(_))
 
-  override def pretty: Pretty[DefiniteAnswerEvent] = prettyOfClass(
+  override protected def pretty: Pretty[DefiniteAnswerEvent] = prettyOfClass(
     param("offset", _.offset),
     param("publication time", _.publicationTime),
     paramIfNonEmpty("submission id", _.submissionIdO),

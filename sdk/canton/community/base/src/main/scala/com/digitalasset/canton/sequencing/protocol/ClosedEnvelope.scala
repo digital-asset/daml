@@ -81,7 +81,7 @@ final case class ClosedEnvelope private (
           }
     }
 
-  override def pretty: Pretty[ClosedEnvelope] = prettyOfClass(
+  override protected def pretty: Pretty[ClosedEnvelope] = prettyOfClass(
     param("recipients", _.recipients),
     paramIfNonEmpty("signatures", _.signatures),
   )

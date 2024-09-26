@@ -55,7 +55,7 @@ import com.digitalasset.canton.protocol.messages.Verdict.{
 }
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
-import com.digitalasset.canton.store.SessionKeyStore
+import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -167,7 +167,7 @@ trait ReassignmentProcessingSteps[
 
   protected def decryptTree(
       snapshot: DomainSnapshotSyncCryptoApi,
-      sessionKeyStore: SessionKeyStore,
+      sessionKeyStore: ConfirmationRequestSessionKeyStore,
   )(
       envelope: OpenEnvelope[EncryptedViewMessage[RequestViewType]]
   )(implicit
@@ -179,7 +179,7 @@ trait ReassignmentProcessingSteps[
   override def decryptViews(
       batch: NonEmpty[Seq[OpenEnvelope[EncryptedViewMessage[RequestViewType]]]],
       snapshot: DomainSnapshotSyncCryptoApi,
-      sessionKeyStore: SessionKeyStore,
+      sessionKeyStore: ConfirmationRequestSessionKeyStore,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, DecryptedViews] = {
@@ -437,7 +437,8 @@ object ReassignmentProcessingSteps {
       with PrettyPrinting {
     override def underlyingProcessorError(): Option[ProcessorError] = None
 
-    override def pretty: Pretty[ReassignmentProcessorError.this.type] = adHocPrettyInstance
+    override protected def pretty: Pretty[ReassignmentProcessorError.this.type] =
+      adHocPrettyInstance
 
     def message: String
   }
@@ -458,7 +459,8 @@ object ReassignmentProcessingSteps {
   }
 
   case object ApplicationShutdown extends ReassignmentProcessorError {
-    override def pretty: Pretty[ApplicationShutdown.type] = prettyOfObject[ApplicationShutdown.type]
+    override protected def pretty: Pretty[ApplicationShutdown.type] =
+      prettyOfObject[ApplicationShutdown.type]
     override def message: String = "Application is shutting down"
   }
 
@@ -596,7 +598,7 @@ object ReassignmentProcessingSteps {
     override def message: String =
       s"Cannot reassign `$reassignmentId`: invalid conversion for `$field`"
 
-    override def pretty: Pretty[FieldConversionError] = prettyOfClass(
+    override protected def pretty: Pretty[FieldConversionError] = prettyOfClass(
       param("field", _.field.unquoted),
       param("error", _.error.unquoted),
     )

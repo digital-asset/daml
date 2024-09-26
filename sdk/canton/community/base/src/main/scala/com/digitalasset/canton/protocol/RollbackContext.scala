@@ -53,7 +53,7 @@ final case class RollbackContext private (
       nextChild = nextChild.unwrap,
     )
 
-  override def pretty: Pretty[RollbackContext] = prettyOfClass(
+  override protected def pretty: Pretty[RollbackContext] = prettyOfClass(
     param("rollback scope", _.rollbackScope),
     param("next child", _.nextChild),
   )

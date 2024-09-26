@@ -41,7 +41,7 @@ final case class DomainTimeTrackerConfig(
     timeRequest.toProtoV30.some,
   )
 
-  override def pretty: Pretty[DomainTimeTrackerConfig] = prettyOfClass(
+  override protected def pretty: Pretty[DomainTimeTrackerConfig] = prettyOfClass(
     paramIfNotDefault(
       "observationLatency",
       _.observationLatency,

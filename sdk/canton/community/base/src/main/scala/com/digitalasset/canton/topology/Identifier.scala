@@ -50,7 +50,7 @@ final case class Namespace(fingerprint: Fingerprint) extends HasFingerprint with
   def toProtoPrimitive: String = fingerprint.toProtoPrimitive
   def toLengthLimitedString: String68 = fingerprint.toLengthLimitedString
   def filterString: String = fingerprint.unwrap
-  override def pretty: Pretty[Namespace] = prettyOfParam(_.fingerprint)
+  override protected def pretty: Pretty[Namespace] = prettyOfParam(_.fingerprint)
 }
 
 trait HasNamespace extends HasFingerprint {
@@ -88,7 +88,7 @@ final case class UniqueIdentifier private (identifier: String185, namespace: Nam
       nsPrefix
     )
 
-  override def pretty: Pretty[this.type] =
+  override protected def pretty: Pretty[this.type] =
     prettyOfString(uid => uid.identifier.str.show + UniqueIdentifier.delimiter + uid.namespace.show)
 
 }

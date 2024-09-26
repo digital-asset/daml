@@ -333,7 +333,7 @@ object RequestTracker {
       sequencerCounter: SequencerCounter,
       timestamp: CantonTimestamp,
   ) extends RequestTrackerError {
-    override def pretty: Pretty[RequestAlreadyExists] = prettyOfClass(
+    override protected def pretty: Pretty[RequestAlreadyExists] = prettyOfClass(
       param("request counter", _.requestCounter),
       param("sequencer counter", _.sequencerCounter),
       param("timestamp", _.timestamp),
@@ -347,14 +347,18 @@ object RequestTracker {
   final case class RequestNotFound(requestCounter: RequestCounter)
       extends ResultError
       with CommitSetError {
-    override def pretty: Pretty[RequestNotFound] = prettyOfClass(unnamedParam(_.requestCounter))
+    override protected def pretty: Pretty[RequestNotFound] = prettyOfClass(
+      unnamedParam(_.requestCounter)
+    )
   }
 
   /** Returned by [[RequestTracker!.addResult]] if the result has been signalled beforehand
     * with different parameters for the same request
     */
   final case class ResultAlreadyExists(requestCounter: RequestCounter) extends ResultError {
-    override def pretty: Pretty[ResultAlreadyExists] = prettyOfClass(unnamedParam(_.requestCounter))
+    override protected def pretty: Pretty[ResultAlreadyExists] = prettyOfClass(
+      unnamedParam(_.requestCounter)
+    )
   }
 
   /** Trait for errors that can occur when adding a commit set */
@@ -364,14 +368,16 @@ object RequestTracker {
     * request
     */
   final case class ResultNotFound(requestCounter: RequestCounter) extends CommitSetError {
-    override def pretty: Pretty[ResultNotFound] = prettyOfClass(unnamedParam(_.requestCounter))
+    override protected def pretty: Pretty[ResultNotFound] = prettyOfClass(
+      unnamedParam(_.requestCounter)
+    )
   }
 
   /** Returned by [[RequestTracker!.addCommitSet]] if a different commit set has already been supplied
     * for the given request counter.
     */
   final case class CommitSetAlreadyExists(requestCounter: RequestCounter) extends CommitSetError {
-    override def pretty: Pretty[CommitSetAlreadyExists] = prettyOfClass(
+    override protected def pretty: Pretty[CommitSetAlreadyExists] = prettyOfClass(
       unnamedParam(_.requestCounter)
     )
   }

@@ -38,7 +38,7 @@ final case class Recipients(trees: NonEmpty[Seq[RecipientsTree]]) extends Pretty
     new v30.Recipients(protoTrees.toList)
   }
 
-  override def pretty: Pretty[Recipients.this.type] =
+  override protected def pretty: Pretty[Recipients.this.type] =
     prettyOfClass(param("Recipient trees", _.trees.toList))
 
   def asSingleGroup: Option[NonEmpty[Set[Recipient]]] =

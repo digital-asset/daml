@@ -39,7 +39,7 @@ final case class ParticipantMetadata private (
 
   override val hashPurpose: HashPurpose = HashPurpose.ParticipantMetadata
 
-  override def pretty: Pretty[ParticipantMetadata] = prettyOfClass(
+  override protected def pretty: Pretty[ParticipantMetadata] = prettyOfClass(
     param("ledger time", _.ledgerTime),
     param("submission time", _.submissionTime),
     paramIfDefined("workflow id", _.workflowIdO),

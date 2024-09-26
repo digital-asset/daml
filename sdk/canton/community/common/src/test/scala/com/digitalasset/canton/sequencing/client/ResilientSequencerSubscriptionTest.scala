@@ -37,7 +37,7 @@ sealed trait TestSubscriptionError
     with Product
     with Serializable
     with PrettyPrinting {
-  override def pretty: Pretty[this.type] = prettyOfObject[this.type]
+  override protected def pretty: Pretty[this.type] = prettyOfObject[this.type]
 }
 object TestSubscriptionError {
   case object RetryableError extends TestSubscriptionError

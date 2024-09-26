@@ -41,7 +41,7 @@ sealed trait ComponentHealthState extends ToComponentHealthState with PrettyPrin
     case _ => false
   }
   override def toComponentHealthState: ComponentHealthState = this
-  override def pretty: Pretty[ComponentHealthState] =
+  override protected def pretty: Pretty[ComponentHealthState] =
     ComponentHealthState.prettyComponentHealthState
 
   def toComponentStatusV0: proto.ComponentStatus.Status = this match {

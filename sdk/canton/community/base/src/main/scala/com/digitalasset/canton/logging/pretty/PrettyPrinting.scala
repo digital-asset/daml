@@ -12,7 +12,10 @@ trait PrettyPrinting extends ShowUtil with PrettyUtil {
   /** Indicates how to pretty print this instance.
     * See `PrettyPrintingTest` for examples on how to implement this method.
     */
-  protected[pretty] def pretty: Pretty[this.type]
+  protected def pretty: Pretty[this.type]
+
+  @inline
+  private[pretty] final def prettyInternal: Pretty[this.type] = pretty
 
   /** Yields a readable string representation based on [[com.digitalasset.canton.logging.pretty.Pretty.DefaultPprinter]].
     * `Final` to avoid accidental overwriting.

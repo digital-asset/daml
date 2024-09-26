@@ -67,6 +67,11 @@ object PruningError {
     override def message: String =
       s"Could not prune at [$requestedTimestamp] as the earliest safe pruning point is [$safeTimestamp]"
   }
+
+  /* TODO(#15987): Block sequencer does not yet support scheduled pruning */
+  object ScheduledPruningNotSupported {
+    lazy val message: String = "This sequencer does not support scheduled pruning"
+  }
 }
 
 /** Interface for sequencer operations.

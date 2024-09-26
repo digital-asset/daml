@@ -29,7 +29,7 @@ final case class InputContract(contract: SerializableContract, consumed: Boolean
       consumed = consumed,
     )
 
-  override def pretty: Pretty[InputContract] = prettyOfClass(
+  override protected def pretty: Pretty[InputContract] = prettyOfClass(
     unnamedParam(_.contract),
     paramIfTrue("consumed", _.consumed),
   )

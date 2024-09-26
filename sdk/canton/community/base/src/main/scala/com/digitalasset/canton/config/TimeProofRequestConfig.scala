@@ -24,7 +24,7 @@ final case class TimeProofRequestConfig(
     maxRetryDelay.toProtoPrimitive.some,
     maxSequencingDelay.toProtoPrimitive.some,
   )
-  override def pretty: Pretty[TimeProofRequestConfig] = prettyOfClass(
+  override protected def pretty: Pretty[TimeProofRequestConfig] = prettyOfClass(
     paramIfNotDefault(
       "initialRetryDelay",
       _.initialRetryDelay,

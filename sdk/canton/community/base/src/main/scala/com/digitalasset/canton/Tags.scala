@@ -21,7 +21,7 @@ import slick.jdbc.{GetResult, SetParameter}
 final case class DomainAlias(protected val str: String255)
     extends LengthLimitedStringWrapper
     with PrettyPrinting {
-  override def pretty: Pretty[DomainAlias] =
+  override protected def pretty: Pretty[DomainAlias] =
     prettyOfString(inst => show"Domain ${inst.unwrap.singleQuoted}")
 }
 object DomainAlias extends LengthLimitedStringWrapperCompanion[String255, DomainAlias] {
@@ -48,7 +48,7 @@ final case class SequencerAlias private (protected val str: String255)
     with PrettyPrinting {
   require(str.nonEmpty, "Empty SequencerAlias is not supported")
 
-  override def pretty: Pretty[SequencerAlias] =
+  override protected def pretty: Pretty[SequencerAlias] =
     prettyOfString(inst => show"Sequencer ${inst.unwrap.singleQuoted}")
 
   override def toProtoPrimitive: String =
@@ -78,7 +78,7 @@ final case class CommandId(private val id: LfLedgerString) extends PrettyPrintin
   def toProtoPrimitive: String = unwrap
   def toLengthLimitedString: String255 =
     checked(String255.tryCreate(id)) // LfLedgerString is limited to 255 chars
-  override def pretty: Pretty[CommandId] = prettyOfParam(_.unwrap)
+  override protected def pretty: Pretty[CommandId] = prettyOfParam(_.unwrap)
 }
 
 object CommandId {
@@ -104,7 +104,7 @@ final case class ApplicationId(private val id: LedgerApplicationId) extends Pret
   def toProtoPrimitive: String = unwrap
   def toLengthLimitedString: String255 =
     checked(String255.tryCreate(id)) // LedgerApplicationId is limited to 255 chars
-  override def pretty: Pretty[ApplicationId] = prettyOfParam(_.unwrap)
+  override protected def pretty: Pretty[ApplicationId] = prettyOfParam(_.unwrap)
 }
 
 object ApplicationId {
@@ -129,7 +129,7 @@ object ApplicationId {
 final case class WorkflowId(private val id: LfWorkflowId) extends PrettyPrinting {
   def unwrap: LfWorkflowId = id
   def toProtoPrimitive: String = unwrap
-  override def pretty: Pretty[WorkflowId] = prettyOfParam(_.unwrap)
+  override protected def pretty: Pretty[WorkflowId] = prettyOfParam(_.unwrap)
 }
 
 object WorkflowId {

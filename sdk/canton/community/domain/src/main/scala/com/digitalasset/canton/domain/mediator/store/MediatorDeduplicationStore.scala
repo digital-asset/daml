@@ -202,7 +202,7 @@ private[mediator] object MediatorDeduplicationStore {
       requestTime: CantonTimestamp,
       expireAfter: CantonTimestamp,
   ) extends PrettyPrinting {
-    override def pretty: Pretty[DeduplicationData] =
+    override protected def pretty: Pretty[DeduplicationData] =
       prettyOfClass(
         param("uuid", _.uuid),
         param("requestTime", _.requestTime),

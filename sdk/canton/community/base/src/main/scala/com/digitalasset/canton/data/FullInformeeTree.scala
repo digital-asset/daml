@@ -60,7 +60,7 @@ final case class FullInformeeTree private (tree: GenTransactionTree)(
   def toProtoV30: v30.FullInformeeTree =
     v30.FullInformeeTree(tree = Some(tree.toProtoV30))
 
-  override def pretty: Pretty[FullInformeeTree] = prettyOfParam(_.tree)
+  override protected def pretty: Pretty[FullInformeeTree] = prettyOfParam(_.tree)
 }
 
 object FullInformeeTree

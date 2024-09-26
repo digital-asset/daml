@@ -68,7 +68,7 @@ class TopologyStateProcessor[+PureCrypto <: CryptoPureApi](
     def validatedTx: GenericValidatedTopologyTransaction =
       ValidatedTopologyTransaction(currentTx, rejection.get(), expireImmediately.get())
 
-    override def pretty: Pretty[MaybePending] =
+    override protected def pretty: Pretty[MaybePending] =
       prettyOfClass(
         param("original", _.originalTx),
         paramIfDefined("adjusted", _.adjusted.get()),

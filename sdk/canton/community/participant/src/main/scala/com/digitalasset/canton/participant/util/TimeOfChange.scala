@@ -17,7 +17,7 @@ import slick.jdbc.GetResult
 final case class TimeOfChange(rc: RequestCounter, timestamp: CantonTimestamp)
     extends PrettyPrinting {
 
-  override def pretty: Pretty[TimeOfChange] = prettyOfClass(
+  override protected def pretty: Pretty[TimeOfChange] = prettyOfClass(
     param("request", _.rc),
     param("timestamp", _.timestamp),
   )

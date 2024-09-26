@@ -10,7 +10,6 @@ final case class HttpApiConfig(
     server: HttpServerConfig = HttpServerConfig(),
     websocketConfig: Option[WebsocketConfig] = None,
     allowInsecureTokens: Boolean = false,
-    staticContent: Option[StaticContentConfig] = None,
     debugLoggingOfHttpBodies: Boolean = false,
     damlDefinitionsServiceEnabled: Boolean = false,
                               ) {
@@ -22,7 +21,6 @@ final case class HttpApiConfig(
       httpPort = server.port,
       httpsConfiguration = tls,
       portFile = server.portFile,
-      staticContentConfig = staticContent,
       allowNonHttps = allowInsecureTokens,
       wsConfig = websocketConfig,
       debugLoggingOfHttpBodies = debugLoggingOfHttpBodies,

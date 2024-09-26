@@ -231,7 +231,7 @@ sealed abstract case class DeliverError private[sequencing] (
       F: Applicative[F]
   ): F[SequencedEvent[Env]] = F.pure(this)
 
-  override def pretty: Pretty[DeliverError] = prettyOfClass(
+  override protected def pretty: Pretty[DeliverError] = prettyOfClass(
     param("counter", _.counter),
     param("timestamp", _.timestamp),
     param("domain id", _.domainId),
@@ -373,7 +373,7 @@ case class Deliver[+Env <: Envelope[_]] private[sequencing] (
       deserializedFromO,
     )
 
-  override def pretty: Pretty[this.type] =
+  override protected def pretty: Pretty[this.type] =
     prettyOfClass(
       param("counter", _.counter),
       param("timestamp", _.timestamp),

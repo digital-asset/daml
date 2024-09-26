@@ -73,7 +73,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
   final case class InvalidActionDescription(message: String)
       extends RuntimeException(message)
       with PrettyPrinting {
-    override def pretty: Pretty[InvalidActionDescription] = prettyOfClass(
+    override protected def pretty: Pretty[InvalidActionDescription] = prettyOfClass(
       unnamedParam(_.message.unquoted)
     )
   }
@@ -336,7 +336,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
         )
       )
 
-    override def pretty: Pretty[CreateActionDescription] = prettyOfClass(
+    override protected def pretty: Pretty[CreateActionDescription] = prettyOfClass(
       param("contract Id", _.contractId),
       param("seed", _.seed),
     )
@@ -381,7 +381,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
         )
       )
 
-    override def pretty: Pretty[ExerciseActionDescription] = prettyOfClass(
+    override protected def pretty: Pretty[ExerciseActionDescription] = prettyOfClass(
       param("input contract id", _.inputContractId),
       param("template id", _.templateId),
       paramIfDefined("interface id", _.interfaceId),
@@ -477,7 +477,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
         )
       )
 
-    override def pretty: Pretty[FetchActionDescription] = prettyOfClass(
+    override protected def pretty: Pretty[FetchActionDescription] = prettyOfClass(
       param("input contract id", _.inputContractId),
       param("actors", _.actors),
       paramIfTrue("by key", _.byKey),
@@ -509,7 +509,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
         )
       )
 
-    override def pretty: Pretty[LookupByKeyActionDescription] = prettyOfClass(
+    override protected def pretty: Pretty[LookupByKeyActionDescription] = prettyOfClass(
       param("key", _.key)
     )
   }

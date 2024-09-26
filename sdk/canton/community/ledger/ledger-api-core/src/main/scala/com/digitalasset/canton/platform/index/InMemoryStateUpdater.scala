@@ -26,7 +26,6 @@ import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate.Co
 import com.digitalasset.canton.platform.{Contract, InMemoryState, Key, Party}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.daml.lf.data.Ref.HexString
-import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.ledger.EventId
 import com.digitalasset.daml.lf.transaction.Node.{Create, Exercise}
 import com.digitalasset.daml.lf.transaction.NodeId
@@ -315,7 +314,6 @@ private[platform] object InMemoryStateUpdater {
       lastOffset: Offset,
   ): Unit = {
     updates.foreach { tracedTransaction =>
-      // TODO(i12283) LLP: Batch update caches
       tracedTransaction.withTraceContext(implicit traceContext =>
         transaction => {
           inMemoryState.inMemoryFanoutBuffer.push(transaction.offset, tracedTransaction)
@@ -346,47 +344,48 @@ private[platform] object InMemoryStateUpdater {
     logger.debug(s"Updated ledger end at offset $lastOffset - $lastEventSequentialId")
   }
 
+  private[index] def convertLogToStateEvent
+      : PartialFunction[TransactionLogUpdate.Event, ContractStateEvent] = {
+    case createdEvent: TransactionLogUpdate.CreatedEvent =>
+      ContractStateEvent.Created(
+        contractId = createdEvent.contractId,
+        contract = Contract(
+          packageName = createdEvent.packageName,
+          packageVersion = createdEvent.packageVersion,
+          template = createdEvent.templateId,
+          arg = createdEvent.createArgument,
+        ),
+        globalKey = createdEvent.contractKey.map(k =>
+          Key.assertBuild(createdEvent.templateId, k.unversioned, createdEvent.packageName)
+        ),
+        ledgerEffectiveTime = createdEvent.ledgerEffectiveTime,
+        stakeholders = createdEvent.flatEventWitnesses.map(Party.assertFromString),
+        eventOffset = createdEvent.eventOffset,
+        signatories = createdEvent.createSignatories,
+        keyMaintainers = createdEvent.createKeyMaintainers,
+        driverMetadata = createdEvent.driverMetadata.map(_.toByteArray),
+      )
+    case exercisedEvent: TransactionLogUpdate.ExercisedEvent if exercisedEvent.consuming =>
+      ContractStateEvent.Archived(
+        contractId = exercisedEvent.contractId,
+        globalKey = exercisedEvent.contractKey.map(k =>
+          Key.assertBuild(
+            exercisedEvent.templateId,
+            k.unversioned,
+            exercisedEvent.packageName,
+          )
+        ),
+        stakeholders = exercisedEvent.flatEventWitnesses.map(Party.assertFromString),
+        eventOffset = exercisedEvent.eventOffset,
+      )
+  }
+
   private def convertToContractStateEvents(
       tx: TransactionLogUpdate
   ): Vector[ContractStateEvent] =
     tx match {
       case tx: TransactionLogUpdate.TransactionAccepted =>
-        tx.events.iterator.collect {
-          case createdEvent: TransactionLogUpdate.CreatedEvent =>
-            ContractStateEvent.Created(
-              contractId = createdEvent.contractId,
-              contract = Contract(
-                packageName = createdEvent.packageName,
-                packageVersion = createdEvent.packageVersion,
-                template = createdEvent.templateId,
-                arg = createdEvent.createArgument,
-              ),
-              globalKey = createdEvent.contractKey.map(k =>
-                Key.assertBuild(createdEvent.templateId, k.unversioned, createdEvent.packageName)
-              ),
-              ledgerEffectiveTime = createdEvent.ledgerEffectiveTime,
-              stakeholders = createdEvent.flatEventWitnesses.map(Party.assertFromString),
-              eventOffset = createdEvent.eventOffset,
-              eventSequentialId = createdEvent.eventSequentialId,
-              signatories = createdEvent.createSignatories,
-              keyMaintainers = createdEvent.createKeyMaintainers,
-              driverMetadata = createdEvent.driverMetadata.map(_.toByteArray),
-            )
-          case exercisedEvent: TransactionLogUpdate.ExercisedEvent if exercisedEvent.consuming =>
-            ContractStateEvent.Archived(
-              contractId = exercisedEvent.contractId,
-              globalKey = exercisedEvent.contractKey.map(k =>
-                Key.assertBuild(
-                  exercisedEvent.templateId,
-                  k.unversioned,
-                  exercisedEvent.packageName,
-                )
-              ),
-              stakeholders = exercisedEvent.flatEventWitnesses.map(Party.assertFromString),
-              eventOffset = exercisedEvent.eventOffset,
-              eventSequentialId = exercisedEvent.eventSequentialId,
-            )
-        }.toVector
+        tx.events.iterator.collect(convertLogToStateEvent).toVector
       case _ => Vector.empty
     }
 
@@ -398,8 +397,7 @@ private[platform] object InMemoryStateUpdater {
     val rawEvents =
       TransactionTraversalUtils.preorderTraversalForIngestion(txAccepted.transaction.transaction)
 
-    // TODO(i12283) LLP: Deduplicate blinding info computation with the work done in [[UpdateToDbDto]]
-    val blinding = txAccepted.blindingInfoO.getOrElse(Blinding.blind(txAccepted.transaction))
+    val blinding = txAccepted.blindingInfo
 
     val events = rawEvents.collect {
       case (nodeId, create: Create) =>

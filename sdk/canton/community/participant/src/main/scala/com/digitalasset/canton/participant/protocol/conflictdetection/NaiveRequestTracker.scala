@@ -372,7 +372,7 @@ private[participant] class NaiveRequestTracker(
         }
       }.tapOnShutdown(activenessResult.shutdown())
 
-    override def pretty: Pretty[this.type] = prettyOfClass(
+    override protected def pretty: Pretty[this.type] = prettyOfClass(
       param("timestamp", _.timestamp),
       param("sequencerCounter", _.sequencerCounter),
       param("rc", _.rc),
@@ -424,7 +424,7 @@ private[participant] class NaiveRequestTracker(
         }
       } else { FutureUnlessShutdown.unit }
 
-    override def pretty: Pretty[this.type] =
+    override protected def pretty: Pretty[this.type] =
       prettyOfClass(
         param("timestamp", _.timestamp),
         param("sequencerCounter", _.sequencerCounter),
@@ -501,7 +501,7 @@ private[participant] class NaiveRequestTracker(
         }
       }
 
-    override def pretty: Pretty[this.type] =
+    override protected def pretty: Pretty[this.type] =
       prettyOfClass(
         param("timestamp", _.timestamp),
         param("sequencerCounter", _.sequencerCounter),

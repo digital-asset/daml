@@ -80,11 +80,11 @@ object DAMLe {
   sealed trait ReinterpretationError extends PrettyPrinting
 
   final case class EngineError(cause: Error) extends ReinterpretationError {
-    override def pretty: Pretty[EngineError] = adHocPrettyInstance
+    override protected def pretty: Pretty[EngineError] = adHocPrettyInstance
   }
 
   final case class EngineAborted(reason: String) extends ReinterpretationError {
-    override def pretty: Pretty[EngineAborted] = prettyOfClass(
+    override protected def pretty: Pretty[EngineAborted] = prettyOfClass(
       param("reason", _.reason.doubleQuoted)
     )
   }

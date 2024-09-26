@@ -12,7 +12,7 @@ import com.google.protobuf.ByteString
 import slick.jdbc.{GetResult, SetParameter}
 
 final case class AggregationId(id: Hash) extends PrettyPrinting {
-  override def pretty: Pretty[AggregationId] = prettyOfParam(_.id)
+  override protected def pretty: Pretty[AggregationId] = prettyOfParam(_.id)
 
   def toProtoPrimitive: ByteString = id.getCryptographicEvidence
 }

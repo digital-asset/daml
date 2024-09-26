@@ -1565,7 +1565,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
       delta: Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
       deleted: Set[SortedSet[LfPartyId]],
   ) extends PrettyPrinting {
-    override def pretty: Pretty[CommitmentSnapshot] = prettyOfClass(
+    override protected def pretty: Pretty[CommitmentSnapshot] = prettyOfClass(
       param("record time", _.recordTime),
       param("active", _.active),
       param("delta (parties)", _.delta.keySet),

@@ -170,7 +170,7 @@ trait PrettyUtil {
     // Need to restrict to Product subtypes as the Walker cannot faithfully deal with arbitrary types.
     new Walker {
       override def additionalHandlers: PartialFunction[Any, Tree] = {
-        case p: PrettyPrinting if !c.runtimeClass.isInstance(p) => p.pretty.treeOf(p)
+        case p: PrettyPrinting if !c.runtimeClass.isInstance(p) => p.prettyInternal.treeOf(p)
         case p: Product if p.productArity == 0 => treeOfString(p.productPrefix)
       }
     }.treeify(
@@ -195,8 +195,6 @@ object PrettyUtil extends PrettyUtil {
   private[pretty] val nullTree = Tree.Literal("null")
 }
 
-import scala.language.implicitConversions
-
 /** A trait for case classes that should be pretty-printed with their name only.
   */
 trait PrettyNameOnlyCase extends Product with PrettyPrinting {
@@ -204,5 +202,7 @@ trait PrettyNameOnlyCase extends Product with PrettyPrinting {
   override protected[pretty] def pretty: Pretty[this.type] = prettyOfObject
 }
 object PrettyNameOnlyCase {
+  import scala.language.implicitConversions
+
   implicit def toString(pt: PrettyNameOnlyCase): String = pt.toString
 }

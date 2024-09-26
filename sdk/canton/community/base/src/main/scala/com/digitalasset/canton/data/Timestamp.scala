@@ -51,5 +51,5 @@ trait Timestamp extends PrettyPrinting {
     nanos / 1000L
   }
 
-  override def pretty: Pretty[this.type] = prettyOfParam(_.underlying)
+  override protected def pretty: Pretty[this.type] = prettyOfParam(_.underlying)
 }

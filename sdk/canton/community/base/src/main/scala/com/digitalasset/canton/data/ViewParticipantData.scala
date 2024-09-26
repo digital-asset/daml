@@ -279,7 +279,7 @@ final case class ViewParticipantData private (
 
   override def hashPurpose: HashPurpose = HashPurpose.ViewParticipantData
 
-  override def pretty: Pretty[ViewParticipantData] = prettyOfClass(
+  override protected def pretty: Pretty[ViewParticipantData] = prettyOfClass(
     paramIfNonEmpty("core inputs", _.coreInputs),
     paramIfNonEmpty("created core", _.createdCore),
     paramIfNonEmpty("created in subview, archived in core", _.createdInSubviewArchivedInCore),

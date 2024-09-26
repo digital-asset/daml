@@ -48,7 +48,7 @@ final case class DeliveredUnassignmentResult(result: SignedContent[Deliver[Defau
   def reassignmentId: ReassignmentId =
     ReassignmentId(SourceDomainId(unwrap.domainId), unwrap.requestId.unwrap)
 
-  override def pretty: Pretty[DeliveredUnassignmentResult] = prettyOfParam(_.unwrap)
+  override protected def pretty: Pretty[DeliveredUnassignmentResult] = prettyOfParam(_.unwrap)
 }
 
 object DeliveredUnassignmentResult {

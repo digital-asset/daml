@@ -38,7 +38,7 @@ final case class CommitmentContractMetadata(
 
   @transient override protected lazy val companionObj: CommitmentContractMetadata.type =
     CommitmentContractMetadata
-  override def pretty: Pretty[CommitmentContractMetadata.this.type] =
+  override protected def pretty: Pretty[CommitmentContractMetadata.this.type] =
     prettyOfClass(
       param("contract id", _.cid),
       param("reassignment counter", _.reassignmentCounter.v),
@@ -89,7 +89,7 @@ final case class CommitmentInspectContract(
   @transient override protected lazy val companionObj: CommitmentInspectContract.type =
     CommitmentInspectContract
 
-  override def pretty: Pretty[CommitmentInspectContract.this.type] =
+  override protected def pretty: Pretty[CommitmentInspectContract.this.type] =
     prettyOfClass(
       param("contract", _.contract),
       param("creating tx id", _.creatingTxId),
@@ -134,7 +134,7 @@ final case class CommitmentMismatchInfo(
     counterParticipant: ParticipantId,
     mismatches: Seq[ContractMismatchInfo],
 ) extends PrettyPrinting {
-  override def pretty: Pretty[CommitmentMismatchInfo] = prettyOfClass(
+  override protected def pretty: Pretty[CommitmentMismatchInfo] = prettyOfClass(
     param("domain", _.domain),
     param("domain mismatch timestamp", _.timestamp),
     param("participant", _.participant),
@@ -147,7 +147,7 @@ final case class ContractMismatchInfo(
     contract: SerializableContract,
     reason: MismatchReason,
 ) extends PrettyPrinting {
-  override def pretty: Pretty[ContractMismatchInfo] = prettyOfClass(
+  override protected def pretty: Pretty[ContractMismatchInfo] = prettyOfClass(
     param("contract", _.contract),
     param("mismatch reason", _.reason),
   )
@@ -160,7 +160,7 @@ final case class InexistentContract(
     active: ContractActive,
     participantWithoutContract: ParticipantId,
 ) extends MismatchReason {
-  override def pretty: Pretty[InexistentContract] = prettyOfClass(
+  override protected def pretty: Pretty[InexistentContract] = prettyOfClass(
     param("Contract exists on participant", _.participantWithContract),
     param("activated by", _.active),
     param("but does not exist on participant", _.participantWithoutContract),
@@ -175,7 +175,7 @@ final case class DeactivatedContract(
     whereActive: Option[ContractActive],
 ) extends MismatchReason
     with PrettyPrinting {
-  override def pretty: Pretty[DeactivatedContract] = prettyOfClass(
+  override protected def pretty: Pretty[DeactivatedContract] = prettyOfClass(
     param("Contract exists on participant", _.participantWithContract),
     param("activated by", _.active),
     param("but on participant", _.participantWithoutContract),
@@ -189,7 +189,7 @@ sealed trait ContractInactive extends Product with Serializable with PrettyPrint
 
 final case class ContractCreated(domain: DomainId, creatingTxId: Option[TransactionId])
     extends ContractActive {
-  override def pretty: Pretty[ContractCreated] = prettyOfClass(
+  override protected def pretty: Pretty[ContractCreated] = prettyOfClass(
     param("domain", _.domain),
     paramIfDefined("activation tx id", _.creatingTxId),
   )
@@ -201,7 +201,7 @@ final case class ContractAssigned(
     reassignmentCounterTarget: ReassignmentCounter,
     reassignmentId: Option[ReassignmentId],
 ) extends ContractActive {
-  override def pretty: Pretty[ContractAssigned] = prettyOfClass(
+  override protected def pretty: Pretty[ContractAssigned] = prettyOfClass(
     param("source domain", _.srcDomain),
     param("target domain", _.targetDomain),
     param("reassignment counter on target", _.reassignmentCounterTarget),
@@ -215,7 +215,7 @@ final case class ContractUnassigned(
     reassignmentCounterSrc: ReassignmentCounter,
     reassignmentId: Option[ReassignmentId],
 ) extends ContractInactive {
-  override def pretty: Pretty[ContractUnassigned] = prettyOfClass(
+  override protected def pretty: Pretty[ContractUnassigned] = prettyOfClass(
     param("source domain", _.srcDomain),
     param("target domain", _.targetDomain),
     param("reassignment counter on source domain", _.reassignmentCounterSrc),
@@ -228,7 +228,7 @@ final case class ContractArchived(
     archivingTxId: Option[TransactionId],
     reassignmentCounter: ReassignmentCounter,
 ) extends ContractInactive {
-  override def pretty: Pretty[ContractArchived] = prettyOfClass(
+  override protected def pretty: Pretty[ContractArchived] = prettyOfClass(
     param("domain", _.domain),
     param("reassignment counter", _.reassignmentCounter),
     paramIfDefined("archiving tx id", _.archivingTxId),

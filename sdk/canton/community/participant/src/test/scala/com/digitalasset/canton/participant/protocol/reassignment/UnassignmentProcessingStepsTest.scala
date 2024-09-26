@@ -52,7 +52,11 @@ import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
-import com.digitalasset.canton.store.{IndexedDomain, SessionKeyStore}
+import com.digitalasset.canton.store.{
+  ConfirmationRequestSessionKeyStore,
+  IndexedDomain,
+  SessionKeyStoreWithInMemoryCache,
+}
 import com.digitalasset.canton.time.{DomainTimeTracker, TimeProofTestUtil, WallClock}
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
@@ -684,7 +688,8 @@ final class UnassignmentProcessingStepsTest
     val outTree = makeFullUnassignmentTree(outRequest)
 
     "succeed without errors" in {
-      val sessionKeyStore = SessionKeyStore(CachingConfigs.defaultSessionKeyCacheConfig)
+      val sessionKeyStore =
+        new SessionKeyStoreWithInMemoryCache(CachingConfigs.defaultSessionKeyCacheConfig)
       for {
         encryptedOutRequest <- encryptUnassignmentTree(
           outTree,
@@ -889,7 +894,7 @@ final class UnassignmentProcessingStepsTest
   def encryptUnassignmentTree(
       tree: FullUnassignmentTree,
       recipients: Recipients,
-      sessionKeyStore: SessionKeyStore,
+      sessionKeyStore: ConfirmationRequestSessionKeyStore,
   ): Future[EncryptedViewMessage[UnassignmentViewType]] =
     for {
       viewsToKeyMap <- EncryptedViewMessageFactory

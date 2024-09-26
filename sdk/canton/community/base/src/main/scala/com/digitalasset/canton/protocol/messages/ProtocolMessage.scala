@@ -11,6 +11,7 @@ import com.digitalasset.canton.version.{
   HasRepresentativeProtocolVersion,
   RepresentativeProtocolVersion,
 }
+import com.google.common.annotations.VisibleForTesting
 
 /** Parent trait of messages that are sent through the sequencer
   */
@@ -29,6 +30,7 @@ trait ProtocolMessage
   /** By default prints only the object name as a trade-off for shorter long lines and not leaking confidential data.
     * Sub-classes may override the pretty instance to print more information.
     */
+  @VisibleForTesting
   override def pretty: Pretty[this.type] = prettyOfObject[ProtocolMessage]
 }
 

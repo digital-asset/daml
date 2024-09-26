@@ -25,7 +25,7 @@ import com.digitalasset.canton.platform.store.entries.PartyLedgerEntry
 import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReader
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.transaction.{BlindingInfo, CommittedTransaction}
+import com.digitalasset.daml.lf.transaction.CommittedTransaction
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 
@@ -207,7 +207,6 @@ private[platform] trait LedgerWriteDao extends ReportsHealth {
       ledgerEffectiveTime: Timestamp,
       offset: Offset,
       transaction: CommittedTransaction,
-      blindingInfo: Option[BlindingInfo],
       hostedWitnesses: List[Party],
       recordTime: Timestamp,
   )(implicit

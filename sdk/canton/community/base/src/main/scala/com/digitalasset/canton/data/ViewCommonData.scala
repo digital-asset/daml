@@ -74,7 +74,7 @@ final case class ViewCommonData private (
 
   override val hashPurpose: HashPurpose = HashPurpose.ViewCommonData
 
-  override def pretty: Pretty[ViewCommonData] = prettyOfClass(
+  override protected def pretty: Pretty[ViewCommonData] = prettyOfClass(
     param("view confirmation parameters", _.viewConfirmationParameters),
     param("salt", _.salt),
   )
@@ -171,7 +171,7 @@ final case class ViewConfirmationParameters private (
 ) extends PrettyPrinting
     with NoCopy {
 
-  override def pretty: Pretty[ViewConfirmationParameters] = prettyOfClass(
+  override protected def pretty: Pretty[ViewConfirmationParameters] = prettyOfClass(
     param("informees", _.informees),
     param("quorums", _.quorums),
   )

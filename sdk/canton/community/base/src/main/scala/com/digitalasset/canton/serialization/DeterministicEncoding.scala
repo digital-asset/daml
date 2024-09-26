@@ -15,7 +15,7 @@ import scala.annotation.tailrec
 sealed trait DeserializationError extends PrettyPrinting {
   val message: String
 
-  override def pretty: Pretty[DeserializationError] =
+  override protected def pretty: Pretty[DeserializationError] =
     prettyOfClass(
       param("message", _.message.unquoted)
     )

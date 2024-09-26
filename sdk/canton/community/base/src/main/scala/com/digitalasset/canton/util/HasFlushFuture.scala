@@ -95,7 +95,7 @@ trait HasFlushFuture
 object HasFlushFuture {
   // Not a case class so that we get by-reference equality
   private class NamedTask(val name: String, val future: Future[_]) extends PrettyPrinting {
-    override def pretty: Pretty[NamedTask] =
+    override protected def pretty: Pretty[NamedTask] =
       prettyOfString(x => if (x.future.isCompleted) x.name + " (completed)" else x.name)
   }
 }

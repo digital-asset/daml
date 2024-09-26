@@ -42,7 +42,7 @@ final case class ParticipantStatus(
     case (domainId, submissionReady) if !submissionReady.unwrap => domainId
   }
 
-  override def pretty: Pretty[ParticipantStatus] =
+  override protected def pretty: Pretty[ParticipantStatus] =
     prettyOfString(_ =>
       (Seq(
         s"Participant id: ${id.toProtoPrimitive}",

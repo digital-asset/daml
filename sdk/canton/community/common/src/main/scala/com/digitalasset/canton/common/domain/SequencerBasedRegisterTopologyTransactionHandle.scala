@@ -74,7 +74,7 @@ class SequencerBasedRegisterTopologyTransactionHandle(
 
   override def onClosed(): Unit = service.close()
 
-  override def pretty: Pretty[SequencerBasedRegisterTopologyTransactionHandle.this.type] =
+  override protected def pretty: Pretty[SequencerBasedRegisterTopologyTransactionHandle.this.type] =
     prettyOfClass(
       param("domainId", _.domainId),
       param("member", _.member),
