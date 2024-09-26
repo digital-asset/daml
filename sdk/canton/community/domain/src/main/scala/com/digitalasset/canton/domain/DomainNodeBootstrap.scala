@@ -387,12 +387,6 @@ class DomainNodeBootstrap(
     * arrive. If they are not immediately available, we add an observer to the topology manager which will be triggered after
     * every change to the topology manager. If after one of these changes we find that the domain manager has the keys it
     * requires to be initialized we will then start the domain.
-    * TODO(i12893): if we defer startup of the domain the initialization check and eventual domain startup will
-    * occur within the topology manager transaction observer. currently exceptions will bubble
-    * up into the topology transaction processor however if a error is encountered it is just
-    * logged here leaving the domain in a dangling state. Ideally this would trigger a managed
-    * shutdown of some form allow allowing another startup attempt to be run if appropriate, however
-    * I don't believe we currently have a means of doing this.
     */
   private def startIfDomainManagerReadyOrDefer(
       manager: DomainTopologyManager,
