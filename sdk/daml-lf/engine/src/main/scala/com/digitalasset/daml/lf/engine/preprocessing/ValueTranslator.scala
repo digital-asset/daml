@@ -59,10 +59,12 @@ private[lf] final class ValueTranslator(
 
   // For efficient reason we do not produce here the monad Result[SValue] but rather throw
   // exception in case of error or package missing.
+  // if the strict flag is true, the function check the value is normalized
   @throws[Error.Preprocessing.Error]
   private[preprocessing] def unsafeTranslateValue(
       ty: Type,
       value: Value,
+      strict: Boolean,
   ): SValue = {
     import TypeDestructor.SerializableTypeF._
     val Destructor = TypeDestructor(pkgInterface)
@@ -76,6 +78,8 @@ private[lf] final class ValueTranslator(
         val newNesting = nesting + 1
         def typeError(msg: String = s"mismatching type: ${ty0.pretty} and value: $value0") =
           throw Error.Preprocessing.TypeMismatch(ty0, value0, msg)
+        def normalizationError(msg: String) =
+          throw Error.Preprocessing.NormalizationError(ty0, value0, "normalization error: " + msg)
         def destruct(typ: Type) =
           Destructor.destruct(typ) match {
             case Right(value) => value
@@ -85,12 +89,20 @@ private[lf] final class ValueTranslator(
               throw Error.Preprocessing.Lookup(err)
           }
 
-        def checkUserTypeId(targetType: Ref.TypeConName, mbSourceType: Option[Ref.TypeConName]) =
+        def checkUserTypeId(
+            typeDescription: => String,
+            targetType: => Ref.TypeConName,
+            mbSourceType: Option[Ref.TypeConName],
+        ) =
           mbSourceType.foreach(sourceType =>
+            if (strict)
+              normalizationError(
+                s"expect no typeConstructor in $typeDescription values but got ${sourceType}"
+              )
             // In case of upgrade we simply ignore the package ID.
-            if (targetType.qualifiedName != sourceType.qualifiedName)
+            else if (targetType.qualifiedName != sourceType.qualifiedName)
               typeError(
-                s"Mismatching variant id, the type tells us ${targetType.qualifiedName}, but the value tells us ${sourceType.qualifiedName}"
+                s"Mismatching $typeDescription id, the type tells us ${targetType.qualifiedName}, but the value tells us ${sourceType.qualifiedName}"
               )
           )
 
@@ -110,6 +122,12 @@ private[lf] final class ValueTranslator(
           case (PartyF, ValueParty(p)) =>
             SValue.SParty(p)
           case (NumericF(s), ValueNumeric(d)) =>
+            if (strict)
+              if (Numeric.scale(d) != s)
+                typeError(
+                  s"Non-normalized Numeric: the type tell us Numeric $s, but the value tell use Numeric ${Numeric
+                      .scale(d)}"
+                )
             Numeric.fromBigDecimal(s, d) match {
               case Right(value) => SValue.SNumeric(value)
               case Left(message) => typeError(message)
@@ -129,33 +147,31 @@ private[lf] final class ValueTranslator(
             } else {
               SValue.SList(ls.toImmArray.toSeq.map(go(a, _, newNesting)).toImmArray.toFrontStack)
             }
-          case (MapF(a, b), ValueGenMap(entries)) =>
-            if (entries.isEmpty) {
+          case (MapF(a, b), ValueGenMap(entries0)) =>
+            val entries = entries0.toSeq.view.map { case (k, v) =>
+              go(a, k, newNesting) -> go(b, v, newNesting)
+            }
+            if (entries.isEmpty)
               SValue.SValue.EmptyGenMap
-            } else {
-              SValue.SMap(
-                isTextMap = false,
-                entries = entries.toSeq.view.map { case (k, v) =>
-                  go(a, k, newNesting) -> go(b, v, newNesting)
-                },
-              )
+            else if (strict)
+              SValue.SMap.fromOrderedEntries(isTextMap = false, entries)
+            else
+              SValue.SMap(isTextMap = false, entries)
+          case (TextMapF(a), ValueTextMap(entries0)) =>
+            val entries = entries0.toImmArray.toSeq.view.map { case (k, v) =>
+              SValue.SText(k) -> go(a, v, newNesting)
             }
-          case (TextMapF(a), ValueTextMap(entries)) =>
-            if (entries.isEmpty) {
+            if (entries.isEmpty)
               SValue.SValue.EmptyTextMap
-            } else {
-              SValue.SMap(
-                isTextMap = true,
-                entries = entries.toImmArray.toSeq.view.map { case (k, v) =>
-                  SValue.SText(k) -> go(a, v, newNesting)
-                }.toList,
-              )
-            }
+            else if (strict)
+              SValue.SMap.fromOrderedEntries(isTextMap = true, entries)
+            else
+              SValue.SMap(isTextMap = true, entries)
           case (
                 vF @ VariantF(tyCon, _, _, consTyp),
                 ValueVariant(mbId, constructorName, val0),
               ) =>
-            checkUserTypeId(tyCon, mbId)
+            checkUserTypeId("variant", tyCon, mbId)
             val i = handleLookup(vF.consRank(constructorName))
             SValue.SVariant(
               tyCon,
@@ -168,7 +184,7 @@ private[lf] final class ValueTranslator(
                 RecordF(tyCon, _, fieldNames, filedTypes),
                 ValueRecord(mbId, sourceElements),
               ) =>
-            checkUserTypeId(tyCon, mbId)
+            checkUserTypeId("record", tyCon, mbId)
 
             def addMissingField(lbl: Ref.Name, ty: Type): (Option[Ref.Name], Value) =
               destruct(ty) match {
@@ -181,7 +197,13 @@ private[lf] final class ValueTranslator(
                   )
               }
 
-            val oLabeledFlds = labeledRecordToMap(sourceElements).fold(typeError, identity _)
+            val oLabeledFlds = if (strict) {
+              sourceElements.iterator.collectFirst { case (Some(label), _) =>
+                typeError(s"expect no label in record but find '$label'")
+              }
+            } else {
+              labeledRecordToMap(sourceElements).fold(typeError, identity _)
+            }
 
             // correctFields: (correct only by label/position) gives the value and type, length == targetFieldsAndTypes
             //   filled with Nones when type is Optional
@@ -193,7 +215,10 @@ private[lf] final class ValueTranslator(
               oLabeledFlds match {
                 // Not fully labelled (or reordering disabled), so order dependent
                 // Additional fields should downgrade, missing fields should upgrade
-                case None => {
+                case None =>
+                  if (strict && sourceElements.toSeq.lastOption.exists(_._2 == ValueNone))
+                    normalizationError(s"expect no trailing None")
+
                   val correctFields = (fieldNames.view zip filedTypes).zipWithIndex.map {
                     case ((lbl, ty), i) =>
                       val (mbLbl, v) =
@@ -216,7 +241,6 @@ private[lf] final class ValueTranslator(
                       List.empty
 
                   (correctFields, extraFields)
-                }
                 // Fully labelled and allowed to re-order
                 case Some(labeledFlds) =>
                   // new logic
@@ -255,7 +279,7 @@ private[lf] final class ValueTranslator(
               translatedCorrectFields.map(_._2).to(ArrayList),
             )
           case (eF @ EnumF(tyCon, _, _), ValueEnum(mbId, constructor)) =>
-            checkUserTypeId(tyCon, mbId)
+            checkUserTypeId("enum", tyCon, mbId)
             val rank = handleLookup(eF.consRank(constructor))
             SValue.SEnum(tyCon, constructor, rank)
           case _ =>
@@ -269,20 +293,12 @@ private[lf] final class ValueTranslator(
   // This does not try to pull missing packages, return an error instead.
   // TODO: https://github.com/digital-asset/daml/issues/17082
   //  This is used by script, this should problaby use ValueTranslator.Config.Strict
-  def strictTranslateValue(
-      ty: Type,
-      value: Value,
-  ): Either[Error.Preprocessing.Error, SValue] =
-    safelyRun(
-      unsafeTranslateValue(ty, value)
-    )
-
   def translateValue(
       ty: Type,
       value: Value,
   ): Either[Error.Preprocessing.Error, SValue] =
     safelyRun(
-      unsafeTranslateValue(ty, value)
+      unsafeTranslateValue(ty, value, strict = false)
     )
 
 }

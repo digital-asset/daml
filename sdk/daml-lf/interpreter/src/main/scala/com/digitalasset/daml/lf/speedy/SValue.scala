@@ -229,15 +229,15 @@ object SValue {
 
     /** Build an SMap from an indexed sequence of SValue key/value pairs.
       *
-      * SValue keys are assumed to be in ascending order - hence the SMap's TreeMap will be built in time O(n) using a
-      * sorted map specialisation.
+      * SValue keys are assumed to be in ascending order without repetition -
+      * hence the SMap's TreeMap will be built in time O(n) using a sorted map specialisation.
       */
     def fromOrderedEntries(
         isTextMap: Boolean,
         entries: Iterable[(SValue, SValue)],
     ): SMap = {
       entries.foreach { case (k, _) => comparable(k) }
-      SMap(isTextMap, data.TreeMap.fromOrderedEntries(entries))
+      SMap(isTextMap, data.TreeMap.fromStrictlyOrderedEntries(entries))
     }
 
     /** Build an SMap from an iterator over SValue key/value pairs.
