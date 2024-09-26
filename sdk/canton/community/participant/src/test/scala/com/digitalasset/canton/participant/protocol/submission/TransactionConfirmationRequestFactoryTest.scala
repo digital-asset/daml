@@ -9,7 +9,6 @@ import cats.syntax.functor.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
 import com.digitalasset.canton.config.{CachingConfigs, LoggingConfig}
-import com.digitalasset.canton.crypto.SymmetricKeyScheme.Aes128Gcm
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.{SymbolicCrypto, SymbolicPureCrypto}
 import com.digitalasset.canton.data.ViewType.TransactionViewType
@@ -40,9 +39,8 @@ import com.digitalasset.canton.sequencing.protocol.{
   Recipients,
   RecipientsTree,
 }
-import com.digitalasset.canton.serialization.DefaultDeserializationError
 import com.digitalasset.canton.store.SessionKeyStore.RecipientGroup
-import com.digitalasset.canton.store.SessionKeyStoreWithInMemoryCache
+import com.digitalasset.canton.store.{SessionKeyStoreDisabled, SessionKeyStoreWithInMemoryCache}
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -418,8 +416,7 @@ class TransactionConfirmationRequestFactoryTest
       "use the same session encryption key if view recipients tree is the same" in {
         val multipleRoots = transactionFactory.MultipleRoots
         val factory = confirmationRequestFactory(Right(multipleRoots.transactionTree))
-        val store =
-          new SessionKeyStoreWithInMemoryCache(CachingConfigs.defaultSessionKeyCacheConfig)
+        val store = SessionKeyStoreDisabled
 
         factory
           .createConfirmationRequest(
@@ -436,41 +433,11 @@ class TransactionConfirmationRequestFactoryTest
           )
           .failOnShutdown
           .map { tcr =>
-            // all views in this transaction share the same recipients tree
-            val sessionKeyRandomness = store
-              .getSessionKeyInfoIfPresent(defaultRecipientGroup)
-              .valueOrFail("session key not found")
-              .sessionKeyRandomness
+            tcr.viewEnvelopes.size shouldBe >(1)
+            tcr.viewEnvelopes.map(_.protocolMessage.sessionKeys).distinct.length shouldBe 1
 
-            val sessionKey = newCryptoSnapshot.pureCrypto
-              .createSymmetricKey(
-                sessionKeyRandomness,
-                Aes128Gcm,
-              )
-              .valueOrFail("failed to create session key")
-            tcr.viewEnvelopes
-              .map(_.protocolMessage.encryptedView)
-              .map { encryptedView =>
-                val attemptDecryptionOfTransactionView = for {
-                  _ <- EncryptedView
-                    .decrypt(
-                      pureCrypto,
-                      sessionKey,
-                      encryptedView,
-                    ) { bytes =>
-                      import cats.syntax.either.*
-                      LightTransactionViewTree
-                        .fromByteString(
-                          (pureCrypto, computeRandomnessLength(pureCrypto)),
-                          testedProtocolVersion,
-                        )(bytes)
-                        .leftMap(err => DefaultDeserializationError(err.message))
-                    }
-                    .toOption
-                } yield ()
-                attemptDecryptionOfTransactionView.isDefined
-              }
-              .forall(identity) shouldBe true
+            // cache is disable so session key is not persisted for multiple transactions
+            store.convertStore.getSessionKeyInfoIfPresent(defaultRecipientGroup) shouldBe None
           }
       }
 

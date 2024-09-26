@@ -728,9 +728,8 @@ abstract class ProtocolProcessor[
               )
             )
         ).mapK(FutureUnlessShutdown.outcomeK)
-
         decryptedViews <- steps
-          .decryptViews(viewMessages, snapshot, ephemeral.sessionKeyStore)
+          .decryptViews(viewMessages, snapshot, ephemeral.sessionKeyStore.convertStore)
       } yield (snapshot, decryptedViews, domainParameters)
 
       for {
@@ -1861,20 +1860,20 @@ object ProtocolProcessor {
   final case class SequencerRequestError(sendError: SendAsyncClientError)
       extends SubmissionProcessingError
       with RequestProcessingError {
-    override def pretty: Pretty[SequencerRequestError] = prettyOfParam(_.sendError)
+    override protected def pretty: Pretty[SequencerRequestError] = prettyOfParam(_.sendError)
   }
 
   /** The sequencer refused to sequence the batch for delivery */
   final case class SequencerDeliverError(deliverError: DeliverError)
       extends SubmissionProcessingError
       with RequestProcessingError {
-    override def pretty: Pretty[SequencerDeliverError] = prettyOfParam(_.deliverError)
+    override protected def pretty: Pretty[SequencerDeliverError] = prettyOfParam(_.deliverError)
   }
 
   /** The identity snapshot does not list a mediator, so we cannot pick one. */
   final case class NoMediatorError(topologySnapshotTimestamp: CantonTimestamp)
       extends SubmissionProcessingError {
-    override def pretty: Pretty[NoMediatorError] = prettyOfClass(
+    override protected def pretty: Pretty[NoMediatorError] = prettyOfClass(
       param("topology snapshot timestamp", _.topologySnapshotTimestamp)
     )
   }
@@ -1885,13 +1884,15 @@ object ProtocolProcessor {
   final case class SequencerTimeoutError(timestamp: CantonTimestamp)
       extends SubmissionProcessingError
       with RequestProcessingError {
-    override def pretty: Pretty[SequencerTimeoutError] = prettyOfClass(unnamedParam(_.timestamp))
+    override protected def pretty: Pretty[SequencerTimeoutError] = prettyOfClass(
+      unnamedParam(_.timestamp)
+    )
   }
 
   final case class UnableToGetDynamicDomainParameters(domainId: DomainId, ts: CantonTimestamp)
       extends RequestProcessingError
       with ResultProcessingError {
-    override def pretty: Pretty[UnableToGetDynamicDomainParameters] = prettyOfClass(
+    override protected def pretty: Pretty[UnableToGetDynamicDomainParameters] = prettyOfClass(
       param("domain id", _.domainId),
       param("timestamp", _.ts),
     )
@@ -1900,37 +1901,45 @@ object ProtocolProcessor {
   final case class RequestTrackerError(error: RequestTracker.RequestTrackerError)
       extends RequestProcessingError
       with ResultProcessingError {
-    override def pretty: Pretty[RequestTrackerError] = prettyOfParam(_.error)
+    override protected def pretty: Pretty[RequestTrackerError] = prettyOfParam(_.error)
   }
 
   final case class ContractStoreError(error: NonEmptyChain[store.ContractStoreError])
       extends ResultProcessingError {
-    override def pretty: Pretty[ContractStoreError] = prettyOfParam(_.error.toChain.toList)
+    override protected def pretty: Pretty[ContractStoreError] = prettyOfParam(
+      _.error.toChain.toList
+    )
   }
 
   final case class DecisionTimeElapsed(requestId: RequestId, timestamp: CantonTimestamp)
       extends ResultProcessingError {
-    override def pretty: Pretty[DecisionTimeElapsed] = prettyOfClass(
+    override protected def pretty: Pretty[DecisionTimeElapsed] = prettyOfClass(
       param("request id", _.requestId),
       param("timestamp", _.timestamp),
     )
   }
 
   final case class UnknownPendingRequest(requestId: RequestId) extends ResultProcessingError {
-    override def pretty: Pretty[UnknownPendingRequest] = prettyOfClass(unnamedParam(_.requestId))
+    override protected def pretty: Pretty[UnknownPendingRequest] = prettyOfClass(
+      unnamedParam(_.requestId)
+    )
   }
 
   final case class InvalidPendingRequest(requestId: RequestId) extends ResultProcessingError {
-    override def pretty: Pretty[InvalidPendingRequest] = prettyOfClass(unnamedParam(_.requestId))
+    override protected def pretty: Pretty[InvalidPendingRequest] = prettyOfClass(
+      unnamedParam(_.requestId)
+    )
   }
 
   final case class TimeoutResultTooEarly(requestId: RequestId) extends ResultProcessingError {
-    override def pretty: Pretty[TimeoutResultTooEarly] = prettyOfClass(unnamedParam(_.requestId))
+    override protected def pretty: Pretty[TimeoutResultTooEarly] = prettyOfClass(
+      unnamedParam(_.requestId)
+    )
   }
 
   final case class DomainParametersError(domainId: DomainId, context: String)
       extends ProcessorError {
-    override def pretty: Pretty[DomainParametersError] = prettyOfClass(
+    override protected def pretty: Pretty[DomainParametersError] = prettyOfClass(
       param("domain", _.domainId),
       param("context", _.context.unquoted),
     )
@@ -1941,12 +1950,12 @@ object ProtocolProcessor {
   final case class ViewMessageError[VT <: ViewType](
       error: EncryptedViewMessageError
   ) extends MalformedPayload {
-    override def pretty: Pretty[ViewMessageError.this.type] = prettyOfParam(_.error)
+    override protected def pretty: Pretty[ViewMessageError.this.type] = prettyOfParam(_.error)
   }
 
   final case class WrongRootHash(viewTree: ViewTree, expectedRootHash: RootHash)
       extends MalformedPayload {
-    override def pretty: Pretty[WrongRootHash] = prettyOfClass(
+    override protected def pretty: Pretty[WrongRootHash] = prettyOfClass(
       param("view tree", _.viewTree),
       param("expected root hash", _.expectedRootHash),
     )
@@ -1956,7 +1965,7 @@ object ProtocolProcessor {
 
   final case class WrongRecipients(viewTree: ViewTree) extends WrongRecipientsBase {
 
-    override def pretty: Pretty[WrongRecipients] =
+    override protected def pretty: Pretty[WrongRecipients] =
       prettyOfClass(
         param("viewHash", _.viewTree.viewHash),
         param("viewPosition", _.viewTree.viewPosition),
@@ -1969,7 +1978,7 @@ object ProtocolProcessor {
   final case class WrongRecipientsDueToTopologyChange(viewTree: ViewTree)
       extends WrongRecipientsBase {
 
-    override def pretty: Pretty[WrongRecipientsDueToTopologyChange] =
+    override protected def pretty: Pretty[WrongRecipientsDueToTopologyChange] =
       prettyOfClass(
         param("viewHash", _.viewTree.viewHash),
         param("viewPosition", _.viewTree.viewPosition),
@@ -1980,7 +1989,7 @@ object ProtocolProcessor {
       position: ViewPosition
   ) extends MalformedPayload {
 
-    override def pretty: Pretty[IncompleteLightViewTree] =
+    override protected def pretty: Pretty[IncompleteLightViewTree] =
       prettyOfClass(param("position", _.position))
   }
 
@@ -1988,7 +1997,7 @@ object ProtocolProcessor {
       position: ViewPosition
   ) extends MalformedPayload {
 
-    override def pretty: Pretty[DuplicateLightViewTree] =
+    override protected def pretty: Pretty[DuplicateLightViewTree] =
       prettyOfClass(param("position", _.position))
   }
 }

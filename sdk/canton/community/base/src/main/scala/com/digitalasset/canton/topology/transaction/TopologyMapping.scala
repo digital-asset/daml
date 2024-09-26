@@ -45,7 +45,7 @@ sealed trait TopologyMapping extends Product with Serializable with PrettyPrinti
 
   require(maybeUid.forall(_.namespace == namespace), "namespace is inconsistent")
 
-  override def pretty: Pretty[this.type] = adHocPrettyInstance
+  override protected def pretty: Pretty[this.type] = adHocPrettyInstance
 
   /** Returns the code used to store & index this mapping */
   def code: Code
@@ -184,7 +184,7 @@ object TopologyMapping {
     def isEmpty: Boolean =
       namespacesWithRoot.isEmpty && namespaces.isEmpty && uids.isEmpty && extraKeys.isEmpty
 
-    override def pretty: Pretty[ReferencedAuthorizations.this.type] = prettyOfClass(
+    override protected def pretty: Pretty[ReferencedAuthorizations.this.type] = prettyOfClass(
       paramIfNonEmpty("namespacesWithRoot", _.namespacesWithRoot),
       paramIfNonEmpty("namespaces", _.namespaces),
       paramIfNonEmpty("uids", _.uids),
@@ -239,7 +239,7 @@ object TopologyMapping {
 
       override def referenced: ReferencedAuthorizations = ReferencedAuthorizations()
 
-      override def pretty: Pretty[EmptyAuthorization.this.type] = adHocPrettyInstance
+      override protected def pretty: Pretty[EmptyAuthorization.this.type] = adHocPrettyInstance
     }
 
     final case class RequiredNamespaces(
@@ -266,7 +266,7 @@ object TopologyMapping {
         namespaces = if (requireRootDelegation) Set.empty else namespaces,
       )
 
-      override def pretty: Pretty[RequiredNamespaces.this.type] = prettyOfClass(
+      override protected def pretty: Pretty[RequiredNamespaces.this.type] = prettyOfClass(
         unnamedParam(_.namespaces),
         paramIfTrue("requireRootDelegation", _.requireRootDelegation),
       )
@@ -296,7 +296,7 @@ object TopologyMapping {
         extraKeys = extraKeys,
       )
 
-      override def pretty: Pretty[RequiredUids.this.type] = prettyOfClass(
+      override protected def pretty: Pretty[RequiredUids.this.type] = prettyOfClass(
         paramIfNonEmpty("uids", _.uids),
         paramIfNonEmpty("extraKeys", _.extraKeys),
       )
@@ -316,7 +316,7 @@ object TopologyMapping {
       override def referenced: ReferencedAuthorizations =
         ReferencedAuthorizations.monoid.combine(first.referenced, second.referenced)
 
-      override def pretty: Pretty[Or.this.type] =
+      override protected def pretty: Pretty[Or.this.type] =
         prettyOfClass(unnamedParam(_.first), unnamedParam(_.second))
     }
   }
@@ -927,7 +927,7 @@ final case class ParticipantDomainLimits(
     confirmationRequestsMaxRate: NonNegativeInt
 ) extends PrettyPrinting {
 
-  override def pretty: Pretty[ParticipantDomainLimits] =
+  override protected def pretty: Pretty[ParticipantDomainLimits] =
     prettyOfClass(
       param("confirmation requests max rate", _.confirmationRequestsMaxRate)
     )
@@ -1114,7 +1114,7 @@ final case class VettedPackage(
     validFrom = validFrom.map(_.toProtoTimestamp),
     validUntil = validUntil.map(_.toProtoTimestamp),
   )
-  override def pretty: Pretty[VettedPackage.this.type] = prettyOfClass(
+  override protected def pretty: Pretty[VettedPackage.this.type] = prettyOfClass(
     param("packageId", _.packageId),
     paramIfDefined("validFrom", _.validFrom),
     paramIfDefined("validUntil", _.validUntil),

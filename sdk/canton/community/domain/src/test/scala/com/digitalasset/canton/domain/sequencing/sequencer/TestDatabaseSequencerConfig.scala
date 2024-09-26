@@ -3,10 +3,13 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer
 
+import com.digitalasset.canton.domain.sequencing.sequencer.DatabaseSequencerConfig.SequencerPruningConfig
+
 final case class TestDatabaseSequencerConfig(
     writer: SequencerWriterConfig = SequencerWriterConfig.LowLatency(),
     reader: SequencerReaderConfig = CommunitySequencerReaderConfig(),
     testingInterceptor: Option[DatabaseSequencerConfig.TestingInterceptor] = None,
+    pruning: SequencerPruningConfig = SequencerPruningConfig(),
 ) extends SequencerConfig
     with DatabaseSequencerConfig {
 

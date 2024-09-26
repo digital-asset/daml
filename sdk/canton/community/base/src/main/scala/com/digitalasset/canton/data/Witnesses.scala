@@ -86,6 +86,8 @@ final case class Witnesses(unwrap: NonEmpty[Seq[Set[LfPartyId]]]) {
 
 case object Witnesses {
   final case class InvalidWitnesses(message: String) extends PrettyPrinting {
-    override def pretty: Pretty[InvalidWitnesses] = prettyOfClass(unnamedParam(_.message.unquoted))
+    override protected def pretty: Pretty[InvalidWitnesses] = prettyOfClass(
+      unnamedParam(_.message.unquoted)
+    )
   }
 }

@@ -82,7 +82,9 @@ class GrpcSequencerPruningAdministrationService(
   ): Future[PruningScheduler] = sequencer.pruningScheduler match {
     case None =>
       Future.failed(
-        Status.UNIMPLEMENTED.withDescription(PruningError.NotSupported.message).asException()
+        Status.UNIMPLEMENTED
+          .withDescription(PruningError.ScheduledPruningNotSupported.message)
+          .asException()
       )
     case Some(scheduler) => Future.successful(scheduler)
   }

@@ -697,7 +697,7 @@ private[conflictdetection] object ConflictDetector {
       contracts: Seq[LfContractId],
   ) extends PrettyPrinting {
 
-    override def pretty: Pretty[LockedStates] = prettyOfClass(
+    override protected def pretty: Pretty[LockedStates] = prettyOfClass(
       paramIfNonEmpty("reassignments", _.reassignments),
       paramIfNonEmpty("contracts", _.contracts),
     )

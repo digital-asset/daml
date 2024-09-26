@@ -205,7 +205,7 @@ object ResilientSequencerSubscriberPekko {
       health: ResilientSequencerSubscriptionHealth,
   )(val traceContext: TraceContext)
       extends PrettyPrinting {
-    override def pretty: Pretty[RestartSourceConfig.this.type] = prettyOfClass(
+    override protected def pretty: Pretty[RestartSourceConfig.this.type] = prettyOfClass(
       param("starting counter", _.startingCounter)
     )
 

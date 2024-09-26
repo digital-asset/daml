@@ -306,7 +306,6 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
       ),
       transactionId = Ref.TransactionId.assertFromString("TransactionId"),
       recordTime = someRecordTime,
-      blindingInfoO = None,
       hostedWitnesses = Nil,
       contractMetadata = Map.empty,
       domainId = DomainId.tryFromString("da::default"),

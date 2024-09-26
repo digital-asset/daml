@@ -52,6 +52,7 @@ class ActionDescriptionTest extends AnyWordSpec with BaseTest {
           actors = actingParties,
           byKey = false,
           templateId = targetTemplateId,
+          interfaceId = None,
         )(protocolVersionRepresentativeFor(testedProtocolVersion))
 
         ActionDescription.fromLfActionNode(

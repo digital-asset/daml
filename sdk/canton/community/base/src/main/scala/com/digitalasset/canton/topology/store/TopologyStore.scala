@@ -77,7 +77,7 @@ object TopologyStoreId {
           .tryCreate(discriminator + "::", discriminator.length + 2)
           .tryConcatenate(dbStringWithoutDiscriminator)
 
-    override def pretty: Pretty[this.type] =
+    override protected def pretty: Pretty[this.type] =
       if (discriminator.nonEmpty) {
         prettyOfString(storeId =>
           show"${storeId.discriminator}${UniqueIdentifier.delimiter}${storeId.domainId}"
@@ -110,7 +110,7 @@ object TopologyStoreId {
         .tryConcatenate(dbString)
     }
 
-    override def pretty: Pretty[AuthorizedStore.this.type] = prettyOfString(
+    override protected def pretty: Pretty[AuthorizedStore.this.type] = prettyOfString(
       _.dbString.unwrap
     )
 
@@ -142,7 +142,7 @@ final case class StoredTopologyTransaction[+Op <: TopologyChangeOp, +M <: Topolo
     with PrettyPrinting {
   override protected def transactionLikeDelegate: TopologyTransactionLike[Op, M] = transaction
 
-  override def pretty: Pretty[StoredTopologyTransaction.this.type] =
+  override protected def pretty: Pretty[StoredTopologyTransaction.this.type] =
     prettyOfClass(
       unnamedParam(_.transaction),
       param("sequenced", _.sequenced.value),
@@ -188,7 +188,7 @@ final case class ValidatedTopologyTransaction[+Op <: TopologyChangeOp, +M <: Top
       : Option[ValidatedTopologyTransaction[TargetO, TargetM]] =
     transaction.select[TargetO, TargetM].map(tx => copy[TargetO, TargetM](transaction = tx))
 
-  override def pretty: Pretty[ValidatedTopologyTransaction.this.type] =
+  override protected def pretty: Pretty[ValidatedTopologyTransaction.this.type] =
     prettyOfClass(
       unnamedParam(_.transaction),
       paramIfDefined("rejectionReason", _.rejectionReason),

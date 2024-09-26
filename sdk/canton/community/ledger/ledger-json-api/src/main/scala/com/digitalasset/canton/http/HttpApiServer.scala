@@ -46,7 +46,6 @@ object HttpApiServer extends NoTracing {
           s", configured httpPort=${config.httpPort.getOrElse(0)}" +
           s", assigned httpPort=${serverBinding.localAddress.getPort}" +
           s", portFile=${config.portFile: Option[Path]}" +
-          s", staticContentConfig=${config.staticContentConfig.shows}" +
           s", allowNonHttps=${config.allowNonHttps.shows}" +
           s", wsConfig=${config.wsConfig.shows}" +
           ")"

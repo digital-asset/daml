@@ -543,7 +543,7 @@ object CantonRequireTypes {
 
     def toProtoPrimitive: String = unwrap
 
-    override def pretty: Pretty[InstanceName] = prettyOfParam(_.unwrap.unquoted)
+    override protected def pretty: Pretty[InstanceName] = prettyOfParam(_.unwrap.unquoted)
   }
 
   object InstanceName {

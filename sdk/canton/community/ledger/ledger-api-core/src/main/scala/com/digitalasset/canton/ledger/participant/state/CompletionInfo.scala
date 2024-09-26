@@ -49,7 +49,7 @@ final case class CompletionInfo(
 ) extends PrettyPrinting {
   def changeId: ChangeId = ChangeId(applicationId, commandId, actAs.toSet)
 
-  override def pretty: Pretty[CompletionInfo.this.type] = prettyOfClass(
+  override protected def pretty: Pretty[CompletionInfo.this.type] = prettyOfClass(
     param("actAs", _.actAs.mkShow()),
     param("commandId", _.commandId),
     param("applicationId", _.applicationId),

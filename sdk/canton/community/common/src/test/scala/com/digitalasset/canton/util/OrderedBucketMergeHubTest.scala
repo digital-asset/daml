@@ -46,7 +46,7 @@ class OrderedBucketMergeHubTest extends StreamSpec with BaseTest {
   private type Offset = Int
   private type M = String
   private case class Bucket(offset: Int, discriminator: Int) extends PrettyPrinting {
-    override def pretty: Pretty[Bucket] = prettyOfClass(
+    override protected def pretty: Pretty[Bucket] = prettyOfClass(
       param("offset", _.offset),
       param("discriminator", _.discriminator),
     )

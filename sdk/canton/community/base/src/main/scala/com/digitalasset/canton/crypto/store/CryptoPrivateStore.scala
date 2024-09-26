@@ -141,30 +141,34 @@ object CryptoPrivateStoreError extends CantonErrorGroups.CommandErrorGroup {
   }
 
   final case class FailedToGetWrapperKeyId(reason: String) extends CryptoPrivateStoreError {
-    override def pretty: Pretty[FailedToGetWrapperKeyId] = prettyOfClass(
+    override protected def pretty: Pretty[FailedToGetWrapperKeyId] = prettyOfClass(
       unnamedParam(_.reason.unquoted)
     )
   }
 
   final case class FailedToReadKey(keyId: Fingerprint, reason: String)
       extends CryptoPrivateStoreError {
-    override def pretty: Pretty[FailedToReadKey] = prettyOfClass(unnamedParam(_.reason.unquoted))
+    override protected def pretty: Pretty[FailedToReadKey] = prettyOfClass(
+      unnamedParam(_.reason.unquoted)
+    )
   }
 
   final case class InvariantViolation(keyId: Fingerprint, reason: String)
       extends CryptoPrivateStoreError {
-    override def pretty: Pretty[InvariantViolation] = prettyOfClass(unnamedParam(_.reason.unquoted))
+    override protected def pretty: Pretty[InvariantViolation] = prettyOfClass(
+      unnamedParam(_.reason.unquoted)
+    )
   }
 
   final case class FailedToInsertKey(keyId: Fingerprint, reason: String)
       extends CryptoPrivateStoreError {
-    override def pretty: Pretty[FailedToInsertKey] =
+    override protected def pretty: Pretty[FailedToInsertKey] =
       prettyOfClass(param("keyId", _.keyId), param("reason", _.reason.unquoted))
   }
 
   final case class KeyAlreadyExists(keyId: Fingerprint, existingKeyName: Option[String])
       extends CryptoPrivateStoreError {
-    override def pretty: Pretty[KeyAlreadyExists] =
+    override protected def pretty: Pretty[KeyAlreadyExists] =
       prettyOfClass(
         param("keyId", _.keyId),
         param("existingKeyName", _.existingKeyName.getOrElse("").unquoted),
@@ -173,18 +177,18 @@ object CryptoPrivateStoreError extends CantonErrorGroups.CommandErrorGroup {
 
   final case class FailedToDeleteKey(keyId: Fingerprint, reason: String)
       extends CryptoPrivateStoreError {
-    override def pretty: Pretty[FailedToDeleteKey] =
+    override protected def pretty: Pretty[FailedToDeleteKey] =
       prettyOfClass(param("keyId", _.keyId), param("reason", _.reason.unquoted))
   }
 
   final case class EncryptedPrivateStoreError(reason: String) extends CryptoPrivateStoreError {
-    override def pretty: Pretty[EncryptedPrivateStoreError] = prettyOfClass(
+    override protected def pretty: Pretty[EncryptedPrivateStoreError] = prettyOfClass(
       unnamedParam(_.reason.unquoted)
     )
   }
 
   final case class WrapperKeyAlreadyInUse(reason: String) extends CryptoPrivateStoreError {
-    override def pretty: Pretty[WrapperKeyAlreadyInUse] = prettyOfClass(
+    override protected def pretty: Pretty[WrapperKeyAlreadyInUse] = prettyOfClass(
       unnamedParam(_.reason.unquoted)
     )
   }

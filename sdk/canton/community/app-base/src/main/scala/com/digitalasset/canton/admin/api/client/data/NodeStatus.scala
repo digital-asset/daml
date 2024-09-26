@@ -38,7 +38,7 @@ object NodeStatus {
 
   /** A failure to query the node's status */
   final case class Failure(msg: String) extends NodeStatus[Nothing] {
-    override def pretty: Pretty[Failure] = prettyOfString(_.msg)
+    override protected def pretty: Pretty[Failure] = prettyOfString(_.msg)
     override def trySuccess: Nothing =
       sys.error(s"Status did not complete successfully. Error: $msg")
     override def successOption: Option[Nothing] = None
@@ -53,7 +53,7 @@ object NodeStatus {
   /** A node is running but not yet initialized. */
   final case class NotInitialized(active: Boolean, waitingFor: Option[WaitingForExternalInput])
       extends NodeStatus[Nothing] {
-    override def pretty: Pretty[NotInitialized] =
+    override protected def pretty: Pretty[NotInitialized] =
       prettyOfClass(param("active", _.active), paramIfDefined("waitingFor", _.waitingFor))
     override def trySuccess: Nothing = sys.error(s"Node is not yet initialized.")
     override def successOption: Option[Nothing] = None
@@ -67,7 +67,7 @@ object NodeStatus {
 
   final case class Success[S <: Status](status: S) extends NodeStatus[S] {
     override def trySuccess: S = status
-    override def pretty: Pretty[Success.this.type] = prettyOfParam(_.status)
+    override protected def pretty: Pretty[Success.this.type] = prettyOfParam(_.status)
     override def successOption: Option[S] = status.some
 
     override def isActive: Option[Boolean] = Some(status.active)
@@ -97,16 +97,16 @@ object NodeStatus {
 sealed abstract class WaitingForExternalInput extends PrettyPrinting
 
 case object WaitingForId extends WaitingForExternalInput {
-  override def pretty: Pretty[WaitingForId.this.type] = prettyOfString(_ => "ID")
+  override protected def pretty: Pretty[WaitingForId.this.type] = prettyOfString(_ => "ID")
 }
 
 case object WaitingForNodeTopology extends WaitingForExternalInput {
-  override def pretty: Pretty[WaitingForNodeTopology.this.type] =
+  override protected def pretty: Pretty[WaitingForNodeTopology.this.type] =
     prettyOfString(_ => "Node Topology")
 }
 
 case object WaitingForInitialization extends WaitingForExternalInput {
-  override def pretty: Pretty[WaitingForInitialization.this.type] =
+  override protected def pretty: Pretty[WaitingForInitialization.this.type] =
     prettyOfString(_ => "Initialization")
 }
 
@@ -134,7 +134,7 @@ final case class SimpleStatus(
     components: Seq[ComponentStatus],
     version: ReleaseVersion,
 ) extends NodeStatus.Status {
-  override def pretty: Pretty[SimpleStatus] =
+  override protected def pretty: Pretty[SimpleStatus] =
     prettyOfString(_ =>
       Seq(
         s"Node uid: ${uid.toProtoPrimitive}",
@@ -191,7 +191,7 @@ final case class TopologyQueueStatus(manager: Int, dispatcher: Int, clients: Int
     extends PrettyPrinting {
   def isIdle: Boolean = Seq(manager, dispatcher, clients).forall(_ == 0)
 
-  override def pretty: Pretty[TopologyQueueStatus.this.type] = prettyOfClass(
+  override protected def pretty: Pretty[TopologyQueueStatus.this.type] = prettyOfClass(
     param("manager", _.manager),
     param("dispatcher", _.dispatcher),
     param("clients", _.clients),

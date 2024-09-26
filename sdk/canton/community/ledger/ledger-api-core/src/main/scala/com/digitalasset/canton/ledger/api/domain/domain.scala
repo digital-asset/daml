@@ -90,7 +90,7 @@ final case class Commands(
     packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)] = Map.empty,
 ) extends PrettyPrinting {
 
-  override def pretty: Pretty[Commands] = {
+  override protected def pretty: Pretty[Commands] = {
     import com.digitalasset.canton.logging.pretty.PrettyInstances.*
     prettyOfClass(
       param("commandId", _.commandId.unwrap),

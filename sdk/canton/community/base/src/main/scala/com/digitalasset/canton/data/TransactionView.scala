@@ -121,7 +121,7 @@ final case class TransactionView private (
     helper(this, rootPos)
   }
 
-  override def pretty: Pretty[TransactionView] = prettyOfClass(
+  override protected def pretty: Pretty[TransactionView] = prettyOfClass(
     param("root hash", _.rootHash),
     param("view common data", _.viewCommonData),
     param("view participant data", _.viewParticipantData),

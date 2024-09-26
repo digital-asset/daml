@@ -81,7 +81,7 @@ final case class GrpcSequencerConnection(
       sequencerAlias.toProtoPrimitive,
     )
 
-  override def pretty: Pretty[GrpcSequencerConnection] =
+  override protected def pretty: Pretty[GrpcSequencerConnection] =
     prettyOfClass(
       param("sequencerAlias", _.sequencerAlias),
       param("endpoints", _.endpoints.map(_.toURI(transportSecurity)).toList),

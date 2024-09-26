@@ -61,7 +61,7 @@ object EngineController {
   final case class EngineAbortStatus(reasonO: Option[String]) extends PrettyPrinting {
     def isAborted: Boolean = reasonO.nonEmpty
 
-    override def pretty: Pretty[EngineAbortStatus] = prettyOfClass(
+    override protected def pretty: Pretty[EngineAbortStatus] = prettyOfClass(
       paramIfTrue("not aborted", _.reasonO.isEmpty),
       paramIfDefined("aborted with reason", _.reasonO.map(_.unquoted)),
     )

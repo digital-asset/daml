@@ -21,7 +21,6 @@ import com.digitalasset.canton.platform.store.dao.JdbcLedgerDao
 import com.digitalasset.canton.platform.store.dao.events.*
 import com.digitalasset.canton.tracing.{SerializableTraceContext, Traced}
 import com.digitalasset.daml.lf.data.{Ref, Time}
-import com.digitalasset.daml.lf.engine.Blinding
 import com.digitalasset.daml.lf.ledger.EventId
 import io.grpc.Status
 
@@ -121,7 +120,7 @@ object UpdateToDbDto {
               IndexedUpdatesMetrics.Labels.status.accepted,
             )
           }
-          val blinding = u.blindingInfoO.getOrElse(Blinding.blind(u.transaction))
+          val blinding = u.blindingInfo
           val preorderTraversal =
             TransactionTraversalUtils.preorderTraversalForIngestion(u.transaction.transaction)
 

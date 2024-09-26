@@ -47,7 +47,7 @@ final case class AggregationRule(
     threshold = threshold.value,
   )
 
-  override def pretty: Pretty[this.type] = prettyOfClass(
+  override protected def pretty: Pretty[this.type] = prettyOfClass(
     param("threshold", _.threshold),
     param("eligible members", _.eligibleSenders),
   )

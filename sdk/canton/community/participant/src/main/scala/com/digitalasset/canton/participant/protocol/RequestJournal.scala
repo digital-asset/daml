@@ -234,7 +234,7 @@ object RequestJournal {
     def visitCursor[A](f: RequestStateWithCursor => Option[A]): Option[A] = None
 
     // All implementations of this trait are case objects, so prettyOfObject does the right thing.
-    override def pretty: Pretty[this.type] = prettyOfObject[this.type]
+    override protected def pretty: Pretty[this.type] = prettyOfObject[this.type]
   }
 
   /** State of a transaction confirmation request whose head value the request journal tracks with a cursor
@@ -296,7 +296,7 @@ object RequestJournal {
       s"Request $rc: The commit time $commitTime must be at least the request timestamp $requestTimestamp",
     )
 
-    override def pretty: Pretty[RequestData] = prettyOfClass(
+    override protected def pretty: Pretty[RequestData] = prettyOfClass(
       param("requestCounter", _.rc),
       param("state", _.state),
       param("requestTimestamp", _.requestTimestamp),

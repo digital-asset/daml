@@ -469,7 +469,7 @@ sealed trait SymmetricKeyScheme extends Product with Serializable with PrettyPri
   def name: String
   def toProtoEnum: v30.SymmetricKeyScheme
   def keySizeInBytes: Int
-  override def pretty: Pretty[this.type] = prettyOfString(_.name)
+  override protected def pretty: Pretty[this.type] = prettyOfString(_.name)
 }
 
 object SymmetricKeyScheme {
@@ -666,7 +666,7 @@ final case class EncryptionPublicKeyWithName(
 
   override val id: Fingerprint = publicKey.id
 
-  override def pretty: Pretty[EncryptionPublicKeyWithName] =
+  override protected def pretty: Pretty[EncryptionPublicKeyWithName] =
     prettyOfClass(param("publicKey", _.publicKey), param("name", _.name))
 }
 
@@ -740,25 +740,30 @@ object EncryptionError {
       algorithmSpec: EncryptionAlgorithmSpec,
       supportedAlgorithmSpec: Set[EncryptionAlgorithmSpec],
   ) extends EncryptionError {
-    override def pretty: Pretty[UnsupportedAlgorithmSpec] = prettyOfClass(
+    override protected def pretty: Pretty[UnsupportedAlgorithmSpec] = prettyOfClass(
       param("algorithmSpec", _.algorithmSpec),
       param("supportedAlgorithmSpec", _.supportedAlgorithmSpec),
     )
   }
   final case class UnsupportedSchemeForDeterministicEncryption(error: String)
       extends EncryptionError {
-    override def pretty: Pretty[UnsupportedSchemeForDeterministicEncryption] = prettyOfClass(
+    override protected def pretty: Pretty[UnsupportedSchemeForDeterministicEncryption] =
+      prettyOfClass(
+        unnamedParam(_.error.unquoted)
+      )
+  }
+  final case class FailedToEncrypt(error: String) extends EncryptionError {
+    override protected def pretty: Pretty[FailedToEncrypt] = prettyOfClass(
       unnamedParam(_.error.unquoted)
     )
   }
-  final case class FailedToEncrypt(error: String) extends EncryptionError {
-    override def pretty: Pretty[FailedToEncrypt] = prettyOfClass(unnamedParam(_.error.unquoted))
-  }
   final case class InvalidSymmetricKey(error: String) extends EncryptionError {
-    override def pretty: Pretty[InvalidSymmetricKey] = prettyOfClass(unnamedParam(_.error.unquoted))
+    override protected def pretty: Pretty[InvalidSymmetricKey] = prettyOfClass(
+      unnamedParam(_.error.unquoted)
+    )
   }
   final case class InvalidEncryptionKey(error: String) extends EncryptionError {
-    override def pretty: Pretty[InvalidEncryptionKey] = prettyOfClass(
+    override protected def pretty: Pretty[InvalidEncryptionKey] = prettyOfClass(
       unnamedParam(_.error.unquoted)
     )
   }
@@ -770,7 +775,7 @@ object DecryptionError {
       algorithmSpec: EncryptionAlgorithmSpec,
       supportedAlgorithmSpecs: Set[EncryptionAlgorithmSpec],
   ) extends DecryptionError {
-    override def pretty: Pretty[UnsupportedAlgorithmSpec] = prettyOfClass(
+    override protected def pretty: Pretty[UnsupportedAlgorithmSpec] = prettyOfClass(
       param("algorithmSpec", _.algorithmSpec),
       param("supportedAlgorithmSpecs", _.supportedAlgorithmSpecs),
     )
@@ -779,36 +784,48 @@ object DecryptionError {
       encryptionKeySpec: EncryptionKeySpec,
       supportedKeySpecs: Set[EncryptionKeySpec],
   ) extends DecryptionError {
-    override def pretty: Pretty[UnsupportedKeySpec] = prettyOfClass(
+    override protected def pretty: Pretty[UnsupportedKeySpec] = prettyOfClass(
       param("encryptionKeySpec", _.encryptionKeySpec),
       param("supportedKeySpecs", _.supportedKeySpecs),
     )
   }
   final case class FailedToDecrypt(error: String) extends DecryptionError {
-    override def pretty: Pretty[FailedToDecrypt] = prettyOfClass(unnamedParam(_.error.unquoted))
+    override protected def pretty: Pretty[FailedToDecrypt] = prettyOfClass(
+      unnamedParam(_.error.unquoted)
+    )
   }
   final case class InvalidSymmetricKey(error: String) extends DecryptionError {
-    override def pretty: Pretty[InvalidSymmetricKey] = prettyOfClass(unnamedParam(_.error.unquoted))
+    override protected def pretty: Pretty[InvalidSymmetricKey] = prettyOfClass(
+      unnamedParam(_.error.unquoted)
+    )
   }
   final case class InvariantViolation(error: String) extends DecryptionError {
-    override def pretty: Pretty[InvariantViolation] = prettyOfClass(unnamedParam(_.error.unquoted))
+    override protected def pretty: Pretty[InvariantViolation] = prettyOfClass(
+      unnamedParam(_.error.unquoted)
+    )
   }
   final case class InvalidEncryptionKey(error: String) extends DecryptionError {
-    override def pretty: Pretty[InvalidEncryptionKey] = prettyOfClass(
+    override protected def pretty: Pretty[InvalidEncryptionKey] = prettyOfClass(
       unnamedParam(_.error.unquoted)
     )
   }
   final case class UnknownEncryptionKey(keyId: Fingerprint) extends DecryptionError {
-    override def pretty: Pretty[UnknownEncryptionKey] = prettyOfClass(param("keyId", _.keyId))
+    override protected def pretty: Pretty[UnknownEncryptionKey] = prettyOfClass(
+      param("keyId", _.keyId)
+    )
   }
   final case class DecryptionKeyError(error: CryptoPrivateStoreError) extends DecryptionError {
-    override def pretty: Pretty[DecryptionKeyError] = prettyOfClass(unnamedParam(_.error))
+    override protected def pretty: Pretty[DecryptionKeyError] = prettyOfClass(unnamedParam(_.error))
   }
   final case class FailedToDeserialize(error: DeserializationError) extends DecryptionError {
-    override def pretty: Pretty[FailedToDeserialize] = prettyOfClass(unnamedParam(_.error))
+    override protected def pretty: Pretty[FailedToDeserialize] = prettyOfClass(
+      unnamedParam(_.error)
+    )
   }
   final case class KeyStoreError(error: String) extends DecryptionError {
-    override def pretty: Pretty[KeyStoreError] = prettyOfClass(unnamedParam(_.error.unquoted))
+    override protected def pretty: Pretty[KeyStoreError] = prettyOfClass(
+      unnamedParam(_.error.unquoted)
+    )
   }
 }
 
@@ -827,29 +844,39 @@ object EncryptionKeyGenerationError extends CantonErrorGroups.CommandErrorGroup 
   }
 
   final case class GeneralError(error: Exception) extends EncryptionKeyGenerationError {
-    override def pretty: Pretty[GeneralError] = prettyOfClass(unnamedParam(_.error))
+    override protected def pretty: Pretty[GeneralError] = prettyOfClass(unnamedParam(_.error))
   }
 
   final case class GeneralKmsError(error: String) extends EncryptionKeyGenerationError {
-    override def pretty: Pretty[GeneralKmsError] = prettyOfClass(unnamedParam(_.error.unquoted))
+    override protected def pretty: Pretty[GeneralKmsError] = prettyOfClass(
+      unnamedParam(_.error.unquoted)
+    )
   }
 
   final case class NameInvalidError(error: String) extends EncryptionKeyGenerationError {
-    override def pretty: Pretty[NameInvalidError] = prettyOfClass(unnamedParam(_.error.unquoted))
+    override protected def pretty: Pretty[NameInvalidError] = prettyOfClass(
+      unnamedParam(_.error.unquoted)
+    )
   }
 
   final case class FingerprintError(error: String) extends EncryptionKeyGenerationError {
-    override def pretty: Pretty[FingerprintError] = prettyOfClass(unnamedParam(_.error.unquoted))
+    override protected def pretty: Pretty[FingerprintError] = prettyOfClass(
+      unnamedParam(_.error.unquoted)
+    )
   }
 
   final case class EncryptionPrivateStoreError(error: CryptoPrivateStoreError)
       extends EncryptionKeyGenerationError {
-    override def pretty: Pretty[EncryptionPrivateStoreError] = prettyOfClass(unnamedParam(_.error))
+    override protected def pretty: Pretty[EncryptionPrivateStoreError] = prettyOfClass(
+      unnamedParam(_.error)
+    )
   }
 
   final case class EncryptionPublicStoreError(error: CryptoPublicStoreError)
       extends EncryptionKeyGenerationError {
-    override def pretty: Pretty[EncryptionPublicStoreError] = prettyOfClass(unnamedParam(_.error))
+    override protected def pretty: Pretty[EncryptionPublicStoreError] = prettyOfClass(
+      unnamedParam(_.error)
+    )
   }
 }
 
@@ -858,14 +885,14 @@ object EncryptionKeyCreationError {
 
   final case class InvalidRandomnessLength(randomnessLength: Int, expectedKeyLength: Int)
       extends EncryptionKeyCreationError {
-    override def pretty: Pretty[InvalidRandomnessLength] = prettyOfClass(
+    override protected def pretty: Pretty[InvalidRandomnessLength] = prettyOfClass(
       param("provided randomness length", _.randomnessLength),
       param("expected key length", _.expectedKeyLength),
     )
   }
 
   final case class NoRandomnessProvided(error: String) extends EncryptionKeyCreationError {
-    override def pretty: Pretty[NoRandomnessProvided] = prettyOfClass(
+    override protected def pretty: Pretty[NoRandomnessProvided] = prettyOfClass(
       unnamedParam(_.error.unquoted)
     )
   }

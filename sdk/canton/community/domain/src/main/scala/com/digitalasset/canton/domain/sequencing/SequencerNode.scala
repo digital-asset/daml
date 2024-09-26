@@ -121,10 +121,6 @@ class SequencerNodeBootstrap(
       SequencerMetrics,
     ],
     mkSequencerFactory: MkSequencerFactory,
-    createEnterpriseAdminService: (
-        Sequencer,
-        NamedLoggerFactory,
-    ) => Option[ServerServiceDefinition],
 )(implicit
     executionContext: ExecutionContextIdlenessExecutorService,
     scheduler: ScheduledExecutorService,
@@ -688,7 +684,6 @@ class SequencerNodeBootstrap(
               config.publicApi.nonceExpirationInterval,
               config.publicApi.maxTokenExpirationInterval,
             ),
-            createEnterpriseAdminService(_, domainLoggerFactory),
             Seq(sequencerId) ++ membersToRegister,
             futureSupervisor,
             memberAuthServiceFactory,

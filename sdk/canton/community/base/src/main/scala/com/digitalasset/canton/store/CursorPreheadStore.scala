@@ -55,7 +55,7 @@ trait CursorPreheadStore[Discr] extends AutoCloseable {
 final case class CursorPrehead[Discr](counter: Counter[Discr], timestamp: CantonTimestamp)
     extends PrettyPrinting {
 
-  override def pretty: Pretty[CursorPrehead.this.type] = prettyOfClass(
+  override protected def pretty: Pretty[CursorPrehead.this.type] = prettyOfClass(
     param("counter", _.counter),
     param("timestamp", _.timestamp),
   )

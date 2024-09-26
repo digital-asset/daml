@@ -1144,7 +1144,7 @@ trait SequencerApiTestUtils
         .forMember(member, groupAddresses)
         .map(recipients => TestingEnvelope(content, recipients))
 
-    override def pretty: Pretty[TestingEnvelope] = adHocPrettyInstance
+    override protected def pretty: Pretty[TestingEnvelope] = adHocPrettyInstance
   }
 
   /** Registers all the members present in the topology snapshot with the sequencer.

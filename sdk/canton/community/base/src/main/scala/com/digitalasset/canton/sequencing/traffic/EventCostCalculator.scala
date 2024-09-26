@@ -33,7 +33,7 @@ object EventCostCalculator {
       recipients: NonEmpty[Seq[Recipient]],
   ) extends PrettyPrinting {
 
-    override def pretty: Pretty[EnvelopeCostDetails] = prettyOfClass(
+    override protected def pretty: Pretty[EnvelopeCostDetails] = prettyOfClass(
       param("write cost", _.writeCost),
       param("read cost", _.readCost),
       param("final cost", _.finalCost),
@@ -54,7 +54,7 @@ object EventCostCalculator {
       eventCost: NonNegativeLong,
   ) extends PrettyPrinting {
 
-    override def pretty: Pretty[EventCostDetails] = prettyOfClass(
+    override protected def pretty: Pretty[EventCostDetails] = prettyOfClass(
       param("cost multiplier", _.costMultiplier),
       param("group to members size", _.groupToMembersSize),
       param("envelopes cost details", _.envelopes),

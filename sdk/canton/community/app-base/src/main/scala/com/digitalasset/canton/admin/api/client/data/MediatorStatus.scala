@@ -27,7 +27,7 @@ final case class MediatorStatus(
     protocolVersion: ProtocolVersion,
 ) extends NodeStatus.Status {
 
-  override def pretty: Pretty[MediatorStatus] =
+  override protected def pretty: Pretty[MediatorStatus] =
     prettyOfString(_ =>
       Seq(
         s"Node uid: ${uid.toProtoPrimitive}",

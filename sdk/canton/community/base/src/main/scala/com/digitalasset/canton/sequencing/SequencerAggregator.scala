@@ -237,7 +237,7 @@ object SequencerAggregator {
   object SequencerAggregatorError {
     final case class NotTheSameContentHash(hashes: NonEmpty[Set[Hash]])
         extends SequencerAggregatorError {
-      override def pretty: Pretty[NotTheSameContentHash] =
+      override protected def pretty: Pretty[NotTheSameContentHash] =
         prettyOfClass(param("hashes", _.hashes))
     }
   }

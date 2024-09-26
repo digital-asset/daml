@@ -125,7 +125,7 @@ final case class PositiveFiniteDuration private (duration: Duration)
     with PrettyPrinting {
   require(!duration.isNegative && !duration.isZero, s"Duration $duration must not be non-negative")
 
-  override def pretty: Pretty[PositiveFiniteDuration] = prettyOfParam(_.duration)
+  override protected def pretty: Pretty[PositiveFiniteDuration] = prettyOfParam(_.duration)
 
   /** Returns the duration in seconds truncated to the size of Int, returns as a maximum Int.MaxValue.
     *
@@ -174,7 +174,7 @@ final case class NonNegativeFiniteDuration private (duration: Duration)
     with PrettyPrinting {
   require(!duration.isNegative, s"Duration $duration must not be negative")
 
-  override def pretty: Pretty[NonNegativeFiniteDuration] = prettyOfParam(_.duration)
+  override protected def pretty: Pretty[NonNegativeFiniteDuration] = prettyOfParam(_.duration)
 
   def +(other: NonNegativeFiniteDuration): NonNegativeFiniteDuration = NonNegativeFiniteDuration(
     duration.plus(other.duration)
@@ -227,7 +227,7 @@ final case class NonNegativeSeconds private (duration: Duration)
   require(!duration.isNegative, s"Duration $duration must not be negative")
   require(duration.getNano == 0, s"Duration $duration must be rounded to the second")
 
-  override def pretty: Pretty[NonNegativeSeconds.this.type] = prettyOfParam(_.duration)
+  override protected def pretty: Pretty[NonNegativeSeconds.this.type] = prettyOfParam(_.duration)
 }
 
 object NonNegativeSeconds extends RefinedDurationCompanion[NonNegativeSeconds] {
@@ -247,7 +247,7 @@ final case class PositiveSeconds private (duration: Duration)
   require(!duration.isNegative && !duration.isZero, s"Duration $duration must be positive")
   require(duration.getNano == 0, s"Duration $duration must be rounded to the second")
 
-  override def pretty: Pretty[PositiveSeconds.this.type] = prettyOfParam(_.duration)
+  override protected def pretty: Pretty[PositiveSeconds.this.type] = prettyOfParam(_.duration)
 
   def toConfig: PositiveDurationSecondsConfig = checked(
     PositiveDurationSecondsConfig.tryFromJavaDuration(duration)

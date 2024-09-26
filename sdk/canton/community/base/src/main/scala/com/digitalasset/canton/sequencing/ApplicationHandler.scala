@@ -124,7 +124,7 @@ object SubscriptionStart {
     * The application handler has never been called with an event.
     */
   case object FreshSubscription extends SubscriptionStart {
-    override def pretty: Pretty[FreshSubscription] = prettyOfObject[FreshSubscription]
+    override protected def pretty: Pretty[FreshSubscription] = prettyOfObject[FreshSubscription]
   }
   type FreshSubscription = FreshSubscription.type
 
@@ -135,7 +135,7 @@ object SubscriptionStart {
   final case class CleanHeadResubscriptionStart(cleanPrehead: CantonTimestamp)
       extends ResubscriptionStart {
 
-    override def pretty: Pretty[CleanHeadResubscriptionStart] = prettyOfClass(
+    override protected def pretty: Pretty[CleanHeadResubscriptionStart] = prettyOfClass(
       param("clean prehead", _.cleanPrehead)
     )
   }
@@ -151,7 +151,7 @@ object SubscriptionStart {
       firstReplayed: CantonTimestamp,
       cleanPreheadO: Option[CantonTimestamp],
   ) extends ResubscriptionStart {
-    override def pretty: Pretty[ReplayResubscriptionStart] = prettyOfClass(
+    override protected def pretty: Pretty[ReplayResubscriptionStart] = prettyOfClass(
       param("first replayed", _.firstReplayed),
       paramIfDefined("clean prehead", _.cleanPreheadO),
     )

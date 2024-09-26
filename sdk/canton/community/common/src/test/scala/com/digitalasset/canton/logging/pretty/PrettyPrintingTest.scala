@@ -12,7 +12,8 @@ import org.scalatest.wordspec.AnyWordSpec
 class PrettyPrintingTest extends AnyWordSpec with BaseTest {
 
   private case object ExampleSingleton extends PrettyPrinting {
-    override def pretty: Pretty[ExampleSingleton.type] = prettyOfObject[ExampleSingleton.type]
+    override protected def pretty: Pretty[ExampleSingleton.type] =
+      prettyOfObject[ExampleSingleton.type]
   }
 
   private val singletonInst: ExampleSingleton.type = ExampleSingleton
@@ -44,7 +45,7 @@ class PrettyPrintingTest extends AnyWordSpec with BaseTest {
     */
   private case class ExampleCaseClass(alien: ExampleAlienClass, singleton: ExampleSingleton.type)
       extends PrettyPrinting {
-    override def pretty: Pretty[ExampleCaseClass] =
+    override protected def pretty: Pretty[ExampleCaseClass] =
       prettyOfClass(param("alien", _.alien), param("singleton", _.singleton))
   }
 
@@ -56,7 +57,7 @@ class PrettyPrintingTest extends AnyWordSpec with BaseTest {
     */
   private case class ExampleAdHocCaseClass(alien: ExampleAlienClass, caseClass: ExampleCaseClass)
       extends PrettyPrinting {
-    override def pretty: Pretty[ExampleAdHocCaseClass] = adHocPrettyInstance
+    override protected def pretty: Pretty[ExampleAdHocCaseClass] = adHocPrettyInstance
   }
 
   private val adHocCaseClassInst: ExampleAdHocCaseClass =
@@ -68,14 +69,14 @@ class PrettyPrintingTest extends AnyWordSpec with BaseTest {
        |)""".stripMargin
 
   private case object ExampleAdHocObject extends PrettyPrinting {
-    override def pretty: Pretty[this.type] = adHocPrettyInstance
+    override protected def pretty: Pretty[this.type] = adHocPrettyInstance
   }
 
   private val adHocObjectInst: ExampleAdHocObject.type = ExampleAdHocObject
   private val adHocObjectStr: String = "ExampleAdHocObject"
 
   private case class ExampleAbstractCaseClass(content: Int) extends PrettyPrinting {
-    override def pretty: Pretty[ExampleAbstractCaseClass] = prettyOfClass(
+    override protected def pretty: Pretty[ExampleAbstractCaseClass] = prettyOfClass(
       param("content", _.content)
     )
   }
@@ -84,7 +85,7 @@ class PrettyPrintingTest extends AnyWordSpec with BaseTest {
   private val abstractCaseClassStr: String = "ExampleAbstractCaseClass(content = 42)"
 
   private case class ExampleInfix(first: Int, second: Boolean) extends PrettyPrinting {
-    override def pretty: Pretty[ExampleInfix] = prettyInfix(_.first, "~>", _.second)
+    override protected def pretty: Pretty[ExampleInfix] = prettyInfix(_.first, "~>", _.second)
   }
   private val exampleInfix: ExampleInfix = ExampleInfix(1, true)
   private val exampleInfixStr: String = "1 ~> true"

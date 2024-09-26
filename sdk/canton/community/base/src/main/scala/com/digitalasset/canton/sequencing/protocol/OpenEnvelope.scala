@@ -28,7 +28,7 @@ final case class OpenEnvelope[+M <: ProtocolMessage](
       else this.copy(protocolMessage = newProtocolMessage)
     }
 
-  override def pretty: Pretty[DefaultOpenEnvelope] =
+  override protected def pretty: Pretty[DefaultOpenEnvelope] =
     prettyOfClass(unnamedParam(_.protocolMessage), param("recipients", _.recipients))
 
   override def forRecipient(

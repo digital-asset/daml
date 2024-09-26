@@ -23,8 +23,9 @@ object StaticGrpcServices {
     */
   def notSupportedByCommunity(
       descriptor: ServiceDescriptor,
-      logger: TracedLogger,
-  ): ServerServiceDefinition =
+      loggerFactory: NamedLoggerFactory,
+  ): ServerServiceDefinition = {
+    val logger = TracedLogger(loggerFactory.getLogger(StaticGrpcServices.getClass))
     forService(descriptor) { method =>
       implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
       // the service name typically includes the full package details, so ideally do away with this if it parses
@@ -36,13 +37,6 @@ object StaticGrpcServices {
 
       notSupportedByCommunityStatus
     }
-
-  def notSupportedByCommunity(
-      descriptor: ServiceDescriptor,
-      loggerFactory: NamedLoggerFactory,
-  ): ServerServiceDefinition = {
-    val logger = TracedLogger(loggerFactory.getLogger(StaticGrpcServices.getClass))
-    notSupportedByCommunity(descriptor, logger)
   }
 
   /** Stub all methods on the provided service descriptor using the given handler. */

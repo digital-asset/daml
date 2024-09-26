@@ -57,7 +57,11 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
-import com.digitalasset.canton.store.{IndexedDomain, SessionKeyStore}
+import com.digitalasset.canton.store.{
+  ConfirmationRequestSessionKeyStore,
+  IndexedDomain,
+  SessionKeyStoreWithInMemoryCache,
+}
 import com.digitalasset.canton.time.{DomainTimeTracker, TimeProofTestUtil, WallClock}
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
@@ -449,7 +453,8 @@ class AssignmentProcessingStepsTest
       )
 
     "succeed without errors" in {
-      val sessionKeyStore = SessionKeyStore(CachingConfigs.defaultSessionKeyCacheConfig)
+      val sessionKeyStore =
+        new SessionKeyStoreWithInMemoryCache(CachingConfigs.defaultSessionKeyCacheConfig)
       for {
         inRequest <- encryptFullAssignmentTree(inTree, RecipientsTest.testInstance, sessionKeyStore)
         envelopes = NonEmpty(
@@ -744,7 +749,7 @@ class AssignmentProcessingStepsTest
   private def encryptFullAssignmentTree(
       tree: FullAssignmentTree,
       recipients: Recipients,
-      sessionKeyStore: SessionKeyStore,
+      sessionKeyStore: ConfirmationRequestSessionKeyStore,
   ): Future[EncryptedViewMessage[AssignmentViewType]] =
     for {
       viewsToKeyMap <- EncryptedViewMessageFactory

@@ -86,6 +86,11 @@ class ConfirmationRequestAndResponseProcessorTest
   private lazy val mediatorGroupRecipient: MediatorGroupRecipient = MediatorGroupRecipient(
     mediatorGroup.index
   )
+  private def addRecipients(
+      request: MediatorConfirmationRequest,
+      recipients: Recipients = Recipients.cc(mediatorGroupRecipient),
+  ): OpenEnvelope[MediatorConfirmationRequest] =
+    OpenEnvelope(request, recipients)(testedProtocolVersion)
 
   protected lazy val factory: ExampleTransactionFactory =
     new ExampleTransactionFactory()(domainId = domainId, mediatorGroup = mediatorGroupRecipient)
@@ -346,7 +351,7 @@ class ConfirmationRequestAndResponseProcessorTest
               requestTimestamp.plusSeconds(60),
               requestTimestamp.plusSeconds(120),
               NonNegativeFiniteDuration.tryOfHours(1),
-              testMediatorRequest,
+              addRecipients(testMediatorRequest),
               rootHashMessages,
               batchAlsoContainsTopologyTransaction = false,
             )
@@ -378,7 +383,7 @@ class ConfirmationRequestAndResponseProcessorTest
               participantResponseDeadline,
               decisionTime,
               NonNegativeFiniteDuration.tryOfHours(1),
-              informeeMessage,
+              addRecipients(informeeMessage),
               rootHashMessages,
               batchAlsoContainsTopologyTransaction = false,
             )
@@ -417,7 +422,7 @@ class ConfirmationRequestAndResponseProcessorTest
             requestTimestamp.plusSeconds(60),
             requestTimestamp.plusSeconds(120),
             NonNegativeFiniteDuration.tryOfHours(1),
-            informeeMessage,
+            addRecipients(informeeMessage),
             rootHashMessages,
             batchAlsoContainsTopologyTransaction = false,
           )
@@ -545,7 +550,7 @@ class ConfirmationRequestAndResponseProcessorTest
               ts.plusSeconds(60),
               ts.plusSeconds(120),
               NonNegativeFiniteDuration.tryOfHours(1),
-              informeeMessage,
+              addRecipients(informeeMessage),
               rootHashMessages,
               batchAlsoContainsTopologyTransaction = false,
             )
@@ -713,7 +718,7 @@ class ConfirmationRequestAndResponseProcessorTest
                     ts.plusSeconds(60),
                     ts.plusSeconds(120),
                     NonNegativeFiniteDuration.tryOfHours(1),
-                    req,
+                    addRecipients(req),
                     rootHashMessages,
                     batchAlsoContainsTopologyTransaction = false,
                   )
@@ -780,7 +785,7 @@ class ConfirmationRequestAndResponseProcessorTest
               ts.plusSeconds(60),
               ts.plusSeconds(120),
               NonNegativeFiniteDuration.tryOfHours(1),
-              mediatorRequest,
+              addRecipients(mediatorRequest),
               List(
                 OpenEnvelope(
                   rootHashMessage,
@@ -802,6 +807,46 @@ class ConfirmationRequestAndResponseProcessorTest
           ),
         )
       } yield succeed
+    }
+
+    "reject when the recipients are wrong" in {
+      val sut = new Fixture()
+
+      val informeeMessage =
+        new InformeeMessage(fullInformeeTree, sign(fullInformeeTree))(testedProtocolVersion)
+      val wrongRecipients = Recipients.cc(MediatorGroupRecipient(MediatorGroupIndex.one))
+      val expectedRecipients = Recipients.cc(mediatorGroupRecipient)
+
+      for {
+        _ <- loggerFactory.assertLogs(
+          sut.processor
+            .processRequest(
+              requestId,
+              notSignificantCounter,
+              participantResponseDeadline,
+              decisionTime,
+              NonNegativeFiniteDuration.tryOfHours(1),
+              addRecipients(
+                informeeMessage,
+                wrongRecipients,
+              ),
+              rootHashMessages,
+              batchAlsoContainsTopologyTransaction = false,
+            )
+            .failOnShutdown,
+          _.shouldBeCantonError(
+            MediatorError.MalformedMessage,
+            _ shouldBe s"Rejecting mediator confirmation request with $requestId, mediator $mediatorGroupRecipient, topology at $requestIdTs due to wrong recipients (expected $expectedRecipients, actual $wrongRecipients)",
+          ),
+        )
+      } yield {
+        val sentResult = sut.verdictSender.sentResults.loneElement
+        inside(sentResult.verdict.value) { case MediatorReject(status, isMalformed) =>
+          status.code shouldBe Code.INVALID_ARGUMENT.value()
+          status.message shouldBe s"An error occurred. Please contact the operator and inquire about the request <no-correlation-id> with tid <no-tid>"
+          isMalformed shouldBe true
+        }
+      }
     }
 
     "correct series of mediator events" in {
@@ -838,7 +883,7 @@ class ConfirmationRequestAndResponseProcessorTest
             requestIdTs.plusSeconds(60),
             decisionTime,
             NonNegativeFiniteDuration.tryOfMinutes(5),
-            informeeMessage,
+            addRecipients(informeeMessage),
             List(
               OpenEnvelope(
                 rootHashMessage,
@@ -1124,7 +1169,7 @@ class ConfirmationRequestAndResponseProcessorTest
             requestIdTs.plusSeconds(60),
             requestIdTs.plusSeconds(120),
             NonNegativeFiniteDuration.tryOfHours(1),
-            informeeMessage,
+            addRecipients(informeeMessage),
             List(
               OpenEnvelope(
                 rootHashMessage,
@@ -1225,7 +1270,7 @@ class ConfirmationRequestAndResponseProcessorTest
             requestIdTs.plus(confirmationResponseTimeout.unwrap),
             requestIdTs.plusSeconds(120),
             NonNegativeFiniteDuration.tryOfHours(1),
-            informeeMessage,
+            addRecipients(informeeMessage),
             List(
               OpenEnvelope(
                 rootHashMessage,
@@ -1285,7 +1330,7 @@ class ConfirmationRequestAndResponseProcessorTest
               ts.plusSeconds(60),
               ts.plusSeconds(120),
               NonNegativeFiniteDuration.tryOfHours(1),
-              mediatorRequest,
+              addRecipients(mediatorRequest),
               List(
                 OpenEnvelope(
                   rootHashMessage,
@@ -1342,7 +1387,7 @@ class ConfirmationRequestAndResponseProcessorTest
               requestIdTs.plusSeconds(20),
               decisionTime,
               NonNegativeFiniteDuration.tryOfHours(1),
-              request,
+              addRecipients(request),
               rootHashMessages,
               batchAlsoContainsTopologyTransaction = false,
             )
@@ -1381,7 +1426,7 @@ class ConfirmationRequestAndResponseProcessorTest
             ts.plusSeconds(60),
             ts.plusSeconds(120),
             NonNegativeFiniteDuration.tryOfHours(1),
-            mediatorRequest,
+            addRecipients(mediatorRequest),
             List(
               OpenEnvelope(
                 rootHashMessage,

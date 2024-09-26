@@ -30,7 +30,7 @@ final case class DynamicSequencingParameters(payload: Option[ByteString])(
   @transient override protected lazy val companionObj: DynamicSequencingParameters.type =
     DynamicSequencingParameters
 
-  override def pretty: Pretty[DynamicSequencingParameters] =
+  override protected def pretty: Pretty[DynamicSequencingParameters] =
     prettyOfClass(
       paramWithoutValue("payload", _.payload.isDefined)
     )

@@ -20,7 +20,6 @@ final case class JsonApiConfig(
                                 httpPort: Option[Int] = None,
                                 portFile: Option[Path] = None,
                                 httpsConfiguration: Option[TlsConfiguration] = None,
-                                staticContentConfig: Option[StaticContentConfig] = None,
                                 allowNonHttps: Boolean = false,
                                 wsConfig: Option[WebsocketConfig] = None,
                                 debugLoggingOfHttpBodies: Boolean = false,
@@ -52,14 +51,4 @@ object WebsocketConfig {
   val DefaultMaxBurst: Int = 20
   val DefaultThrottleMode: ThrottleMode = ThrottleMode.Shaping
   val DefaultHeartbeatPeriod: FiniteDuration = 5.second
-}
-
-final case class StaticContentConfig(
-    prefix: String,
-    directory: File,
-)
-
-object StaticContentConfig {
-  implicit val showInstance: Show[StaticContentConfig] =
-    Show.shows(a => s"StaticContentConfig(prefix=${a.prefix}, directory=${a.directory})")
 }

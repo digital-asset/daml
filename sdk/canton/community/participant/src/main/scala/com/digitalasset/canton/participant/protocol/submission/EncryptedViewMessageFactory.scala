@@ -16,7 +16,7 @@ import com.digitalasset.canton.protocol.ViewHash
 import com.digitalasset.canton.protocol.messages.EncryptedViewMessage.computeRandomnessLength
 import com.digitalasset.canton.protocol.messages.{EncryptedView, EncryptedViewMessage}
 import com.digitalasset.canton.sequencing.protocol.Recipients
-import com.digitalasset.canton.store.SessionKeyStore
+import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
 import com.digitalasset.canton.store.SessionKeyStore.RecipientGroup
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -77,13 +77,12 @@ object EncryptedViewMessageFactory {
       protocolVersion,
     )
 
-  // TODO(#21392): Use the same session key within a transaction even if cache is disabled.
   def generateKeysFromRecipients(
       viewRecipients: Seq[(ViewHashAndRecipients, List[LfPartyId])],
       parallel: Boolean,
       pureCrypto: CryptoPureApi,
       cryptoSnapshot: DomainSnapshotSyncCryptoApi,
-      sessionKeyStore: SessionKeyStore,
+      sessionKeyStore: ConfirmationRequestSessionKeyStore,
       protocolVersion: ProtocolVersion,
   )(implicit
       ec: ExecutionContext,
@@ -255,7 +254,7 @@ object EncryptedViewMessageFactory {
     */
   final case class UnableToDetermineRecipients(cause: String)
       extends EncryptedViewMessageCreationError {
-    override def pretty: Pretty[UnableToDetermineRecipients] = prettyOfClass(
+    override protected def pretty: Pretty[UnableToDetermineRecipients] = prettyOfClass(
       param("cause", _.cause.unquoted)
     )
   }
@@ -264,7 +263,7 @@ object EncryptedViewMessageFactory {
     */
   final case class UnableToDetermineParticipant(party: Set[LfPartyId], domain: DomainId)
       extends EncryptedViewMessageCreationError {
-    override def pretty: Pretty[UnableToDetermineParticipant] =
+    override protected def pretty: Pretty[UnableToDetermineParticipant] =
       prettyOfClass(unnamedParam(_.party), unnamedParam(_.domain))
   }
 
@@ -275,7 +274,7 @@ object EncryptedViewMessageFactory {
       cause: SyncCryptoError,
       domain: DomainId,
   ) extends EncryptedViewMessageCreationError {
-    override def pretty: Pretty[UnableToDetermineKey] = prettyOfClass(
+    override protected def pretty: Pretty[UnableToDetermineKey] = prettyOfClass(
       param("participant", _.participant),
       param("cause", _.cause),
     )
@@ -283,26 +282,30 @@ object EncryptedViewMessageFactory {
 
   final case class FailedToCreateEncryptionKey(cause: EncryptionKeyCreationError)
       extends EncryptedViewMessageCreationError {
-    override def pretty: Pretty[FailedToCreateEncryptionKey] = prettyOfClass(
+    override protected def pretty: Pretty[FailedToCreateEncryptionKey] = prettyOfClass(
       unnamedParam(_.cause)
     )
   }
 
   final case class FailedToSignViewMessage(cause: SyncCryptoError)
       extends EncryptedViewMessageCreationError {
-    override def pretty: Pretty[FailedToSignViewMessage] = prettyOfClass(unnamedParam(_.cause))
+    override protected def pretty: Pretty[FailedToSignViewMessage] = prettyOfClass(
+      unnamedParam(_.cause)
+    )
   }
 
   final case class FailedToEncryptViewMessage(cause: EncryptionError)
       extends EncryptedViewMessageCreationError {
-    override def pretty: Pretty[FailedToEncryptViewMessage] = prettyOfClass(unnamedParam(_.cause))
+    override protected def pretty: Pretty[FailedToEncryptViewMessage] = prettyOfClass(
+      unnamedParam(_.cause)
+    )
   }
 
   /** Indicates that there is no encrypted session key randomness to be found
     */
   final case class UnableToDetermineSessionKeyRandomness(cause: String)
       extends EncryptedViewMessageCreationError {
-    override def pretty: Pretty[UnableToDetermineSessionKeyRandomness] = prettyOfClass(
+    override protected def pretty: Pretty[UnableToDetermineSessionKeyRandomness] = prettyOfClass(
       param("cause", _.cause.unquoted)
     )
   }

@@ -166,7 +166,8 @@ object RootHashMessage
 trait RootHashMessagePayload extends PrettyPrinting with HasCryptographicEvidence
 
 case object EmptyRootHashMessagePayload extends RootHashMessagePayload {
-  override def pretty: Pretty[EmptyRootHashMessagePayload.type] = prettyOfString(_ => "\"\"")
+  override protected def pretty: Pretty[EmptyRootHashMessagePayload.type] =
+    prettyOfString(_ => "\"\"")
   def fromByteString(
       bytes: ByteString
   ): ParsingResult[EmptyRootHashMessagePayload.type] =
@@ -188,7 +189,7 @@ case object EmptyRootHashMessagePayload extends RootHashMessagePayload {
 final case class SerializedRootHashMessagePayload(bytes: ByteString)
     extends RootHashMessagePayload {
 
-  override def pretty: Pretty[SerializedRootHashMessagePayload] = prettyOfClass(
+  override protected def pretty: Pretty[SerializedRootHashMessagePayload] = prettyOfClass(
     param("payload size", _.bytes.size)
   )
 

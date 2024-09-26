@@ -126,7 +126,6 @@ object ApiServiceOwner {
       telemetry = telemetry,
       loggerFactory = loggerFactory,
     )
-    // TODO(i12283) LLP: Consider fusing the index health check with the indexer health check
     val healthChecksWithIndexService = healthChecks + ("index" -> indexService)
 
     val identityProviderConfigLoader = new IdentityProviderConfigLoader {

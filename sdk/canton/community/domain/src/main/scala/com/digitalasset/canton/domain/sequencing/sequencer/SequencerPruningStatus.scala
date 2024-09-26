@@ -23,7 +23,7 @@ final case class InternalSequencerMemberStatus(
     override val lastAcknowledged: Option[CantonTimestamp],
 ) extends AbstractSequencerMemberStatus
     with PrettyPrinting {
-  override def pretty: Pretty[InternalSequencerMemberStatus] = prettyOfClass(
+  override protected def pretty: Pretty[InternalSequencerMemberStatus] = prettyOfClass(
     param("registered at", _.registeredAt),
     paramIfDefined("last acknowledged", _.lastAcknowledged),
   )
@@ -45,7 +45,7 @@ final case class SequencerMemberStatus(
       enabled,
     )
 
-  override def pretty: Pretty[SequencerMemberStatus] = prettyOfClass(
+  override protected def pretty: Pretty[SequencerMemberStatus] = prettyOfClass(
     param("member", _.member),
     param("registered at", _.registeredAt),
     paramIfDefined("last acknowledged", _.lastAcknowledged),
@@ -108,7 +108,7 @@ private[canton] final case class InternalSequencerPruningStatus(
   def toSequencerPruningStatus(now: CantonTimestamp): SequencerPruningStatus =
     SequencerPruningStatus(lowerBound, now, members)
 
-  override def pretty: Pretty[InternalSequencerPruningStatus] = prettyOfClass(
+  override protected def pretty: Pretty[InternalSequencerPruningStatus] = prettyOfClass(
     param("lower bound", _.lowerBound),
     param("members", _.membersMap),
     param("disabled", _.disabledMembers),
@@ -179,7 +179,7 @@ final case class SequencerPruningStatus(
       members = members.toSeq.map(_.toProtoV30),
     )
 
-  override def pretty: Pretty[SequencerPruningStatus] = prettyOfClass(
+  override protected def pretty: Pretty[SequencerPruningStatus] = prettyOfClass(
     param("lower bound", _.lowerBound),
     param("now", _.now),
     paramIfNonEmpty("members", _.members),

@@ -284,7 +284,7 @@ object SequencerAggregatorPekko {
       contentHash: Hash,
       representativeProtocolVersion: RepresentativeProtocolVersion[SignedContent.type],
   ) extends PrettyPrinting {
-    override def pretty: Pretty[Bucket] =
+    override protected def pretty: Pretty[Bucket] =
       prettyOfClass(
         param("sequencer counter", _.sequencerCounter),
         param("content hash", _.contentHash),
@@ -349,7 +349,7 @@ object SequencerAggregatorPekko {
           refreshFromDependencies()(TraceContext.empty)
       }
 
-    override def pretty: Pretty[SequencerAggregatorHealth] = prettyOfClass(
+    override protected def pretty: Pretty[SequencerAggregatorHealth] = prettyOfClass(
       param("domain id", _.domainId),
       param("state", _.getState),
     )

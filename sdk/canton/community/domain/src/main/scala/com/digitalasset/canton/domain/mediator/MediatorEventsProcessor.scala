@@ -141,7 +141,7 @@ private[mediator] class MediatorEventsProcessor(
             MediatorEvent.Request(
               counter,
               timestamp,
-              request.protocolMessage,
+              request,
               rootHashMessages.toList,
               batchAlsoContainsTopologyTransaction = containsTopologyTransactions,
             )

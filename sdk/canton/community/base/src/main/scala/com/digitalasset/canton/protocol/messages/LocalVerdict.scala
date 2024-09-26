@@ -91,7 +91,7 @@ final case class LocalApprove()(
       reason = Some(Status(code = 0)), // 0 means OK
     )
 
-  override def pretty: Pretty[this.type] = prettyOfClass()
+  override protected def pretty: Pretty[this.type] = prettyOfClass()
 }
 
 object LocalApprove {
@@ -121,7 +121,7 @@ final case class LocalReject(reason: com.google.rpc.status.Status, isMalformed: 
     v30.LocalVerdict(code = codeP, reason = Some(reason))
   }
 
-  override def pretty: Pretty[LocalReject] = prettyOfClass(
+  override protected def pretty: Pretty[LocalReject] = prettyOfClass(
     param("reason", _.reason),
     param("isMalformed", _.isMalformed),
   )

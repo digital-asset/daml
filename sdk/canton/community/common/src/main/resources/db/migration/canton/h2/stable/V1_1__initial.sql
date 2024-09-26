@@ -872,3 +872,10 @@ create table ord_metadata_output_blocks (
     last_topology_ts bigint not null,
     primary key (block_number)
 );
+
+-- Stores P2P endpoints from the configuration or admin command
+create table ord_p2p_endpoints (
+  host varchar(300) not null,
+  port smallint not null,
+  primary key (host, port)
+);

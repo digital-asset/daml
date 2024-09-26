@@ -33,7 +33,7 @@ trait CryptoProvider extends PrettyPrinting {
       protocolVersion: ProtocolVersion
   ): NonEmpty[Set[CryptoKeyFormat]]
 
-  override def pretty: Pretty[CryptoProvider.this.type] = prettyOfString(_.name)
+  override protected def pretty: Pretty[CryptoProvider.this.type] = prettyOfString(_.name)
 }
 
 object CryptoProvider {

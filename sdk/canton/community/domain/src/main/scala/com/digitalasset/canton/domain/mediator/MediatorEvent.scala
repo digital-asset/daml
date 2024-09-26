@@ -26,15 +26,17 @@ private[mediator] object MediatorEvent {
   final case class Request(
       counter: SequencerCounter,
       timestamp: CantonTimestamp,
-      request: MediatorConfirmationRequest,
+      requestEnvelope: OpenEnvelope[MediatorConfirmationRequest],
       rootHashMessages: List[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
       batchAlsoContainsTopologyTransaction: Boolean,
   ) extends MediatorEvent {
     override val requestId: RequestId = RequestId(timestamp)
 
-    override def pretty: Pretty[Request] = prettyOfClass(
+    def request: MediatorConfirmationRequest = requestEnvelope.protocolMessage
+
+    override protected def pretty: Pretty[Request] = prettyOfClass(
       param("timestamp", _.timestamp),
-      param("request", _.request),
+      param("requestEnvelope", _.requestEnvelope),
     )
   }
 
@@ -50,7 +52,7 @@ private[mediator] object MediatorEvent {
   ) extends MediatorEvent {
     override val requestId: RequestId = response.message.requestId
 
-    override def pretty: Pretty[Response] = prettyOfClass(
+    override protected def pretty: Pretty[Response] = prettyOfClass(
       param("timestamp", _.timestamp),
       param("response", _.response),
       param("recipient", _.recipients),

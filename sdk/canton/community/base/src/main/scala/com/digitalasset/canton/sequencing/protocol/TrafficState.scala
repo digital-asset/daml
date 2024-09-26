@@ -67,7 +67,7 @@ final case class TrafficState(
     )
   }
 
-  override def pretty: Pretty[TrafficState] = prettyOfClass(
+  override protected def pretty: Pretty[TrafficState] = prettyOfClass(
     param("extraTrafficLimit", _.extraTrafficPurchased),
     param("extraTrafficConsumed", _.extraTrafficConsumed),
     param("baseTrafficRemainder", _.baseTrafficRemainder),

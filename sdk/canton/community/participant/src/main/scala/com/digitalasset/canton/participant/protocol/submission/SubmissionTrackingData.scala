@@ -139,7 +139,7 @@ final case class TransactionSubmissionTrackingData(
     v30.SubmissionTrackingData(v30.SubmissionTrackingData.Tracking.Transaction(transactionTracking))
   }
 
-  override def pretty: Pretty[TransactionSubmissionTrackingData] = prettyOfClass(
+  override protected def pretty: Pretty[TransactionSubmissionTrackingData] = prettyOfClass(
     param("completion info", _.completionInfo),
     param("rejection cause", _.rejectionCause),
   )
@@ -217,7 +217,7 @@ object TransactionSubmissionTrackingData {
         cause = v30.TransactionSubmissionTrackingData.RejectionCause.Cause.Timeout(Empty())
       )
 
-    override def pretty: Pretty[TimeoutCause.type] = prettyOfObject[TimeoutCause.type]
+    override protected def pretty: Pretty[TimeoutCause.type] = prettyOfObject[TimeoutCause.type]
 
     def fromProtoV30(_empty: Empty): ParsingResult[TimeoutCause.type] = Right(
       this
@@ -237,7 +237,7 @@ object TransactionSubmissionTrackingData {
         )
       )
 
-    override def pretty: Pretty[CauseWithTemplate] = prettyOfClass(
+    override protected def pretty: Pretty[CauseWithTemplate] = prettyOfClass(
       unnamedParam(_.template.status)
     )
   }

@@ -37,7 +37,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class GrpcPruningService(
     sync: CantonSyncService,
-    scheduleAccessorBuilder: () => Option[ParticipantPruningScheduler],
+    pruningScheduler: ParticipantPruningScheduler,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit
     val ec: ExecutionContext
@@ -95,10 +95,6 @@ class GrpcPruningService(
         safeOffsetO <- sync.pruningProcessor
           .safeToPrune(beforeOrAt, ledgerEndOffset)
           .leftFlatMap[Option[GlobalOffset], StatusRuntimeException] {
-            case Pruning.LedgerPruningOnlySupportedInEnterpriseEdition =>
-              EitherT.leftT(
-                PruningServiceError.PruningNotSupportedInCommunityEdition.Error().asGrpcError
-              )
             case e @ Pruning.LedgerPruningNothingToPrune =>
               // Let the user know that no internal canton data exists prior to the specified
               // time and offset. Return this condition as an error instead of None, so that
@@ -166,19 +162,10 @@ class GrpcPruningService(
     GetSafePruningOffsetResponse(response)
   }
 
-  private lazy val maybeScheduleAccessor: Option[ParticipantPruningScheduler] =
-    scheduleAccessorBuilder()
-
   override protected def ensureScheduler(implicit
       traceContext: TraceContext
   ): Future[ParticipantPruningScheduler] =
-    maybeScheduleAccessor match {
-      case None =>
-        Future.failed(
-          PruningServiceError.PruningNotSupportedInCommunityEdition.Error().asGrpcError
-        )
-      case Some(scheduler) => Future.successful(scheduler)
-    }
+    Future.successful(pruningScheduler)
 
   /** TODO(#18453) R6
     * Enable or disable waiting for commitments from the given counter-participants
@@ -218,21 +205,6 @@ object PruningServiceError extends PruningServiceErrorGroup {
     final case class Error(reason: String)(implicit val loggingContext: ErrorLoggingContext)
         extends CantonError.Impl(
           cause = "Offset length does not match ledger standard of 9 bytes"
-        )
-        with PruningServiceError
-  }
-
-  @Explanation("""Pruning is not supported in the Community Edition.""")
-  @Resolution("Upgrade to the Enterprise Edition.")
-  object PruningNotSupportedInCommunityEdition
-      extends ErrorCode(
-        id = "PRUNING_NOT_SUPPORTED_IN_COMMUNITY_EDITION",
-        // TODO(#5990) According to the WriteParticipantPruningService, this should give the status code UNIMPLEMENTED. Introduce a new error category for that!
-        ErrorCategory.InvalidGivenCurrentSystemStateOther,
-      ) {
-    final case class Error()(implicit val loggingContext: ErrorLoggingContext)
-        extends CantonError.Impl(
-          cause = "Pruning is only supported in the Enterprise Edition"
         )
         with PruningServiceError
   }

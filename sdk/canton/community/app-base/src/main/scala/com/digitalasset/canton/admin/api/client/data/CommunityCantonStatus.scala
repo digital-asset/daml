@@ -93,7 +93,7 @@ final case class CommunityCantonStatus(
   def tupled: (Map[String, SequencerStatus], Map[String, ParticipantStatus]) =
     (sequencerStatus, participantStatus)
 
-  override def pretty: Pretty[CommunityCantonStatus] = prettyOfString { _ =>
+  override protected def pretty: Pretty[CommunityCantonStatus] = prettyOfString { _ =>
     val sequencers = descriptions(
       sequencerStatus,
       unreachableSequencers,

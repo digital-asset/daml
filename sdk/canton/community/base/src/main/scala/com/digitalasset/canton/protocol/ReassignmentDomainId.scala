@@ -21,7 +21,7 @@ sealed trait ReassignmentDomainId extends PrettyPrinting with Product with Seria
 
   def toViewType: ViewType
 
-  override def pretty: Pretty[this.type] = prettyOfParam(_.unwrap)
+  override protected def pretty: Pretty[this.type] = prettyOfParam(_.unwrap)
 }
 
 object ReassignmentDomainId {

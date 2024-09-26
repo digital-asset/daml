@@ -143,7 +143,7 @@ final case class Signature private[crypto] (
       signedBy = signedBy.toProtoPrimitive,
     )
 
-  override def pretty: Pretty[Signature] =
+  override protected def pretty: Pretty[Signature] =
     prettyOfClass(param("signature", _.signature), param("signedBy", _.signedBy))
 
   /** Access to the raw signature, must NOT be used for serialization */
@@ -339,7 +339,7 @@ final case class SigningPublicKey private[crypto] (
   override protected def toProtoPublicKeyKeyV30: v30.PublicKey.Key =
     v30.PublicKey.Key.SigningPublicKey(toProtoV30)
 
-  override def pretty: Pretty[SigningPublicKey] =
+  override protected def pretty: Pretty[SigningPublicKey] =
     prettyOfClass(param("id", _.id), param("format", _.format), param("scheme", _.scheme))
 
 }
@@ -394,7 +394,7 @@ final case class SigningPublicKeyWithName(
 
   override val id: Fingerprint = publicKey.id
 
-  override def pretty: Pretty[SigningPublicKeyWithName] =
+  override protected def pretty: Pretty[SigningPublicKeyWithName] =
     prettyOfClass(param("publicKey", _.publicKey), param("name", _.name))
 }
 
@@ -457,27 +457,37 @@ sealed trait SigningError extends Product with Serializable with PrettyPrinting
 object SigningError {
 
   final case class GeneralError(error: Exception) extends SigningError {
-    override def pretty: Pretty[GeneralError] = prettyOfClass(unnamedParam(_.error))
+    override protected def pretty: Pretty[GeneralError] = prettyOfClass(unnamedParam(_.error))
   }
 
   final case class InvariantViolation(error: String) extends SigningError {
-    override def pretty: Pretty[InvariantViolation] = prettyOfClass(unnamedParam(_.error.unquoted))
+    override protected def pretty: Pretty[InvariantViolation] = prettyOfClass(
+      unnamedParam(_.error.unquoted)
+    )
   }
 
   final case class InvalidSigningKey(error: String) extends SigningError {
-    override def pretty: Pretty[InvalidSigningKey] = prettyOfClass(unnamedParam(_.error.unquoted))
+    override protected def pretty: Pretty[InvalidSigningKey] = prettyOfClass(
+      unnamedParam(_.error.unquoted)
+    )
   }
 
   final case class UnknownSigningKey(keyId: Fingerprint) extends SigningError {
-    override def pretty: Pretty[UnknownSigningKey] = prettyOfClass(param("keyId", _.keyId))
+    override protected def pretty: Pretty[UnknownSigningKey] = prettyOfClass(
+      param("keyId", _.keyId)
+    )
   }
 
   final case class FailedToSign(error: String) extends SigningError {
-    override def pretty: Pretty[FailedToSign] = prettyOfClass(unnamedParam(_.error.unquoted))
+    override protected def pretty: Pretty[FailedToSign] = prettyOfClass(
+      unnamedParam(_.error.unquoted)
+    )
   }
 
   final case class KeyStoreError(error: String) extends SigningError {
-    override def pretty: Pretty[KeyStoreError] = prettyOfClass(unnamedParam(_.error.unquoted))
+    override protected def pretty: Pretty[KeyStoreError] = prettyOfClass(
+      unnamedParam(_.error.unquoted)
+    )
   }
 }
 
@@ -496,34 +506,46 @@ object SigningKeyGenerationError extends CantonErrorGroups.CommandErrorGroup {
   }
 
   final case class GeneralError(error: Exception) extends SigningKeyGenerationError {
-    override def pretty: Pretty[GeneralError] = prettyOfClass(unnamedParam(_.error))
+    override protected def pretty: Pretty[GeneralError] = prettyOfClass(unnamedParam(_.error))
   }
 
   final case class GeneralKmsError(error: String) extends SigningKeyGenerationError {
-    override def pretty: Pretty[GeneralKmsError] = prettyOfClass(unnamedParam(_.error.unquoted))
+    override protected def pretty: Pretty[GeneralKmsError] = prettyOfClass(
+      unnamedParam(_.error.unquoted)
+    )
   }
 
   final case class NameInvalidError(error: String) extends SigningKeyGenerationError {
-    override def pretty: Pretty[NameInvalidError] = prettyOfClass(unnamedParam(_.error.unquoted))
+    override protected def pretty: Pretty[NameInvalidError] = prettyOfClass(
+      unnamedParam(_.error.unquoted)
+    )
   }
 
   final case class FingerprintError(error: String) extends SigningKeyGenerationError {
-    override def pretty: Pretty[FingerprintError] = prettyOfClass(unnamedParam(_.error.unquoted))
+    override protected def pretty: Pretty[FingerprintError] = prettyOfClass(
+      unnamedParam(_.error.unquoted)
+    )
   }
 
   final case class UnsupportedKeyScheme(scheme: SigningKeyScheme)
       extends SigningKeyGenerationError {
-    override def pretty: Pretty[UnsupportedKeyScheme] = prettyOfClass(param("scheme", _.scheme))
+    override protected def pretty: Pretty[UnsupportedKeyScheme] = prettyOfClass(
+      param("scheme", _.scheme)
+    )
   }
 
   final case class SigningPrivateStoreError(error: CryptoPrivateStoreError)
       extends SigningKeyGenerationError {
-    override def pretty: Pretty[SigningPrivateStoreError] = prettyOfClass(unnamedParam(_.error))
+    override protected def pretty: Pretty[SigningPrivateStoreError] = prettyOfClass(
+      unnamedParam(_.error)
+    )
   }
 
   final case class SigningPublicStoreError(error: CryptoPublicStoreError)
       extends SigningKeyGenerationError {
-    override def pretty: Pretty[SigningPublicStoreError] = prettyOfClass(unnamedParam(_.error))
+    override protected def pretty: Pretty[SigningPublicStoreError] = prettyOfClass(
+      unnamedParam(_.error)
+    )
   }
 }
 
@@ -532,7 +554,7 @@ object SignatureCheckError {
 
   final case class MultipleErrors(errors: Seq[SignatureCheckError], message: Option[String] = None)
       extends SignatureCheckError {
-    override def pretty: Pretty[MultipleErrors] = prettyOfClass[MultipleErrors](
+    override protected def pretty: Pretty[MultipleErrors] = prettyOfClass[MultipleErrors](
       paramIfDefined("message", _.message.map(_.unquoted)),
       param("errors", _.errors),
     )
@@ -540,7 +562,7 @@ object SignatureCheckError {
 
   final case class InvalidSignature(signature: Signature, bytes: ByteString, error: String)
       extends SignatureCheckError {
-    override def pretty: Pretty[InvalidSignature] =
+    override protected def pretty: Pretty[InvalidSignature] =
       prettyOfClass(
         param("signature", _.signature),
         param("bytes", _.bytes),
@@ -548,30 +570,32 @@ object SignatureCheckError {
       )
   }
   final case class InvalidCryptoScheme(message: String) extends SignatureCheckError {
-    override def pretty: Pretty[InvalidCryptoScheme] = prettyOfClass(
+    override protected def pretty: Pretty[InvalidCryptoScheme] = prettyOfClass(
       unnamedParam(_.message.unquoted)
     )
   }
   final case class InvalidKeyError(message: String) extends SignatureCheckError {
-    override def pretty: Pretty[InvalidKeyError] = prettyOfClass(unnamedParam(_.message.unquoted))
+    override protected def pretty: Pretty[InvalidKeyError] = prettyOfClass(
+      unnamedParam(_.message.unquoted)
+    )
   }
 
   final case class MemberGroupDoesNotExist(message: String) extends SignatureCheckError {
-    override def pretty: Pretty[MemberGroupDoesNotExist] = prettyOfClass(
+    override protected def pretty: Pretty[MemberGroupDoesNotExist] = prettyOfClass(
       unnamedParam(_.message.unquoted)
     )
   }
 
   final case class GeneralError(error: Exception) extends SignatureCheckError {
-    override def pretty: Pretty[GeneralError] = prettyOfClass(unnamedParam(_.error))
+    override protected def pretty: Pretty[GeneralError] = prettyOfClass(unnamedParam(_.error))
   }
   final case class SignatureWithWrongKey(message: String) extends SignatureCheckError {
-    override def pretty: Pretty[SignatureWithWrongKey] = prettyOfClass(
+    override protected def pretty: Pretty[SignatureWithWrongKey] = prettyOfClass(
       unnamedParam(_.message.unquoted)
     )
   }
   final case class SignerHasNoValidKeys(message: String) extends SignatureCheckError {
-    override def pretty: Pretty[SignerHasNoValidKeys] = prettyOfClass(
+    override protected def pretty: Pretty[SignerHasNoValidKeys] = prettyOfClass(
       unnamedParam(_.message.unquoted)
     )
   }

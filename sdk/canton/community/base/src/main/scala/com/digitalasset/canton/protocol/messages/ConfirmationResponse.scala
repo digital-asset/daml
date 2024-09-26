@@ -126,7 +126,7 @@ case class ConfirmationResponse private (
       getCryptographicEvidence
     )
 
-  override def pretty: Pretty[this.type] =
+  override protected def pretty: Pretty[this.type] =
     prettyOfClass(
       param("sender", _.sender),
       param("localVerdict", _.localVerdict),

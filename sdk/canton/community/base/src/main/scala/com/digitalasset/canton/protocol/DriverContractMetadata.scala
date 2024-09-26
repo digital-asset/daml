@@ -22,7 +22,7 @@ final case class DriverContractMetadata(salt: Salt)
     with PrettyPrinting {
   override protected def companionObj = DriverContractMetadata
 
-  override def pretty: Pretty[DriverContractMetadata] = prettyOfClass(
+  override protected def pretty: Pretty[DriverContractMetadata] = prettyOfClass(
     param("contract salt", _.salt.forHashing)
   )
 

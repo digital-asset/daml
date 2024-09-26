@@ -52,7 +52,7 @@ object ParticipantPruningStore {
     def isInProgress: Boolean =
       startedO.exists(started => completedO.forall(completed => started > completed))
 
-    override def pretty: Pretty[ParticipantPruningStatus] =
+    override protected def pretty: Pretty[ParticipantPruningStatus] =
       prettyOfClass(
         paramIfDefined("started", _.startedO),
         paramIfDefined("completed", _.completedO),

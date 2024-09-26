@@ -23,7 +23,9 @@ final case class RepairContext(override protected val str: String255)
     with PrettyPrinting {
   def toLengthLimitedString: String255 = str
 
-  override def pretty: Pretty[RepairContext] = prettyOfClass(unnamedParam(_.str.unwrap.unquoted))
+  override protected def pretty: Pretty[RepairContext] = prettyOfClass(
+    unnamedParam(_.str.unwrap.unquoted)
+  )
 }
 
 object RepairContext extends LengthLimitedStringWrapperCompanion[String255, RepairContext] {

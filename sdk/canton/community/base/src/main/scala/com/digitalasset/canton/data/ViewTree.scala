@@ -36,7 +36,7 @@ trait ViewTree extends PrettyPrinting {
   /** The mediator group that is responsible for coordinating this request */
   def mediator: MediatorGroupRecipient
 
-  override def pretty: Pretty[this.type]
+  override protected def pretty: Pretty[this.type]
 }
 
 /** Supertype of [[FullUnassignmentTree]] and [[FullAssignmentTree]]

@@ -15,7 +15,7 @@ final case class ActivenessSet(
     reassignmentIds: Set[ReassignmentId],
 ) extends PrettyPrinting {
 
-  override def pretty: Pretty[ActivenessSet] = prettyOfClass(
+  override protected def pretty: Pretty[ActivenessSet] = prettyOfClass(
     param("contracts", _.contracts),
     paramIfNonEmpty("reassignmentIds", _.reassignmentIds),
   )
@@ -64,7 +64,7 @@ private[participant] final case class ActivenessCheck[Key] private (
 
   val lockOnly: Set[Key] = lock -- checkFresh -- checkFree -- checkActive
 
-  override def pretty: Pretty[ActivenessCheck.this.type] = prettyOfClass(
+  override protected def pretty: Pretty[ActivenessCheck.this.type] = prettyOfClass(
     paramIfNonEmpty("fresh", _.checkFresh),
     paramIfNonEmpty("free", _.checkFree),
     paramIfNonEmpty("active", _.checkActive),

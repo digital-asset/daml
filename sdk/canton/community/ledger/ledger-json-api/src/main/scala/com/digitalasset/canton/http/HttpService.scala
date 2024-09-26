@@ -209,10 +209,7 @@ class HttpService(
         )
 
       allEndpoints: Route = concat(
-        staticContentConfig.cata(
-          c => concat(StaticContentEndpoints.all(c, loggerFactory), defaultEndpoints),
-          defaultEndpoints,
-        ),
+        defaultEndpoints,
         EndpointsCompanion.notFound(logger),
       )
 

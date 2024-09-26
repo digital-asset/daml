@@ -63,7 +63,7 @@ final case class ContractMetadata private (
       maintainers = maintainers.toSeq,
     )
 
-  override def pretty: Pretty[ContractMetadata] = prettyOfClass(
+  override protected def pretty: Pretty[ContractMetadata] = prettyOfClass(
     param("signatories", _.signatories),
     param("stakeholders", _.stakeholders),
     paramIfDefined("key", _.maybeKey),

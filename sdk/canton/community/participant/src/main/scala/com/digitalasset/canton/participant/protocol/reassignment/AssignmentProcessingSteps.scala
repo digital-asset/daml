@@ -52,7 +52,7 @@ import com.digitalasset.canton.protocol.messages.ConfirmationResponse.InvalidCon
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.DefaultDeserializationError
-import com.digitalasset.canton.store.SessionKeyStore
+import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.ShowUtil.*
@@ -211,7 +211,7 @@ private[reassignment] class AssignmentProcessingSteps(
           parallel = true,
           pureCrypto,
           recentSnapshot,
-          ephemeralState.sessionKeyStoreLookup,
+          ephemeralState.sessionKeyStoreLookup.convertStore,
           targetProtocolVersion.v,
         )
         .leftMap[ReassignmentProcessorError](
@@ -278,7 +278,7 @@ private[reassignment] class AssignmentProcessingSteps(
 
   override protected def decryptTree(
       snapshot: DomainSnapshotSyncCryptoApi,
-      sessionKeyStore: SessionKeyStore,
+      sessionKeyStore: ConfirmationRequestSessionKeyStore,
   )(
       envelope: OpenEnvelope[EncryptedViewMessage[AssignmentViewType]]
   )(implicit

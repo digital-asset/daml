@@ -138,7 +138,7 @@ final case class MemberRecipient(member: Member) extends Recipient {
       executionContext: ExecutionContext,
   ): Future[Boolean] = snapshot.isMemberKnown(member)
 
-  override def pretty: Pretty[MemberRecipient] =
+  override protected def pretty: Pretty[MemberRecipient] =
     prettyOfClass(
       unnamedParam(_.member)
     )
@@ -153,7 +153,7 @@ final case class ParticipantsOfParty(party: PartyId) extends GroupRecipient {
       executionContext: ExecutionContext,
   ): Future[Boolean] = snapshot.activeParticipantsOf(party.toLf).map(_.nonEmpty)
 
-  override def pretty: Pretty[ParticipantsOfParty] =
+  override protected def pretty: Pretty[ParticipantsOfParty] =
     prettyOfClass(
       unnamedParam(_.party)
     )
@@ -176,7 +176,7 @@ case object SequencersOfDomain extends GroupRecipient {
   )(implicit traceContext: TraceContext, executionContext: ExecutionContext): Future[Boolean] =
     Future.successful(true)
 
-  override def pretty: Pretty[SequencersOfDomain.type] =
+  override protected def pretty: Pretty[SequencersOfDomain.type] =
     prettyOfObject[SequencersOfDomain.type]
 
   override def code: GroupRecipientCode = SequencersOfDomain.Code
@@ -195,7 +195,7 @@ final case class MediatorGroupRecipient(group: MediatorGroupIndex) extends Group
       executionContext: ExecutionContext,
   ): Future[Boolean] = snapshot.isMediatorActive(this)
 
-  override def pretty: Pretty[MediatorGroupRecipient] =
+  override protected def pretty: Pretty[MediatorGroupRecipient] =
     prettyOfClass(
       param("group", _.group)
     )
@@ -231,7 +231,7 @@ case object AllMembersOfDomain extends GroupRecipient {
       executionContext: ExecutionContext,
   ): Future[Boolean] = Future.successful(true)
 
-  override def pretty: Pretty[AllMembersOfDomain.type] =
+  override protected def pretty: Pretty[AllMembersOfDomain.type] =
     prettyOfString(_ => suffix)
 
   override def code: GroupRecipientCode = Code

@@ -22,7 +22,7 @@ import com.digitalasset.canton.participant.protocol.submission.{
   CommandDeduplicatorImpl,
   InFlightSubmissionTracker,
 }
-import com.digitalasset.canton.participant.pruning.NoOpPruningProcessor
+import com.digitalasset.canton.participant.pruning.PruningProcessor
 import com.digitalasset.canton.participant.store.InFlightSubmissionStore.InFlightReference
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.memory.InMemoryParticipantSettingsStore
@@ -72,7 +72,7 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
     val participantEventPublisher = mock[ParticipantEventPublisher]
     private val indexedStringStore = InMemoryIndexedStringStore()
     private val participantNodeEphemeralState = mock[ParticipantNodeEphemeralState]
-    private val pruningProcessor = NoOpPruningProcessor
+    private val pruningProcessor = mock[PruningProcessor]
     private val commandDeduplicationStore = mock[CommandDeduplicationStore]
     private val inFlightSubmissionStore = mock[InFlightSubmissionStore]
     private val sequencerInfoLoader = mock[SequencerInfoLoader]

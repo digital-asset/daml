@@ -239,7 +239,7 @@ object MerkleTreeTest {
 
     override val hashPurpose: HashPurpose = TestHash.testHashPurpose
 
-    override def pretty: Pretty[AbstractLeaf[A]] = prettyOfClass(unnamedParam(_.index))
+    override protected def pretty: Pretty[AbstractLeaf[A]] = prettyOfClass(unnamedParam(_.index))
   }
 
   def leafFromByteString[L <: AbstractLeaf[_]](
@@ -289,7 +289,7 @@ object MerkleTreeTest {
     ): MerkleTree[A] =
       create(subtrees.map(_.doBlind(blindingCommandPerNode)))
 
-    override def pretty: Pretty[AbstractInnerNode[A]] = prettyOfClass(
+    override protected def pretty: Pretty[AbstractInnerNode[A]] = prettyOfClass(
       param("subtrees", _.subtrees)
     )
   }

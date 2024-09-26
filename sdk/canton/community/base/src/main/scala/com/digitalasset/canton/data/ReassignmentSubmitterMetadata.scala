@@ -33,7 +33,7 @@ final case class ReassignmentSubmitterMetadata(
       workflowId = workflowId.getOrElse(""),
     )
 
-  override def pretty: Pretty[ReassignmentSubmitterMetadata] = prettyOfClass(
+  override protected def pretty: Pretty[ReassignmentSubmitterMetadata] = prettyOfClass(
     param("submitter", _.submitter),
     param("submitting participant", _.submittingParticipant),
     param("command id", _.commandId),

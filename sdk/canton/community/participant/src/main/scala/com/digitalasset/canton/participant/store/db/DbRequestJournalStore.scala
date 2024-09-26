@@ -412,7 +412,7 @@ object DbRequestJournalStore {
       commitTime: Option[CantonTimestamp],
   ) extends PrettyPrinting {
 
-    override def pretty: Pretty[ReplaceRequest] = prettyOfClass(
+    override protected def pretty: Pretty[ReplaceRequest] = prettyOfClass(
       param("rc", _.rc),
       param("new state", _.newState),
       param("request timestamp", _.requestTimestamp),

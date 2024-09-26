@@ -583,13 +583,13 @@ object DbStorage {
 
   object Profile {
     final case class H2(jdbc: H2Profile) extends Profile {
-      override def pretty: Pretty[H2] = prettyOfObject[H2]
+      override protected def pretty: Pretty[H2] = prettyOfObject[H2]
     }
     final case class Oracle(jdbc: OracleProfile) extends Profile with DbLockSupport {
-      override def pretty: Pretty[Oracle] = prettyOfObject[Oracle]
+      override protected def pretty: Pretty[Oracle] = prettyOfObject[Oracle]
     }
     final case class Postgres(jdbc: PostgresProfile) extends Profile with DbLockSupport {
-      override def pretty: Pretty[Postgres] = prettyOfObject[Postgres]
+      override protected def pretty: Pretty[Postgres] = prettyOfObject[Postgres]
     }
   }
 

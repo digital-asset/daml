@@ -77,7 +77,7 @@ object ViewPosition {
     override def encodeDeterministically: ByteString =
       DeterministicEncoding.encodeSeqWith(index)(_.encodeDeterministically)
 
-    override def pretty: Pretty[MerkleSeqIndex] =
+    override protected def pretty: Pretty[MerkleSeqIndex] =
       prettyOfString(_ => index.reverse.map(_.show).mkString(""))
 
     override lazy val reverse: MerkleSeqIndexFromRoot = MerkleSeqIndexFromRoot(index.reverse)
@@ -93,7 +93,7 @@ object ViewPosition {
         "MerkleSeqIndexFromRoot is for internal use only and should not be encoded"
       )
 
-    override def pretty: Pretty[MerkleSeqIndexFromRoot] =
+    override protected def pretty: Pretty[MerkleSeqIndexFromRoot] =
       prettyOfString(_ => index.map(_.show).mkString(""))
 
     override lazy val reverse: MerkleSeqIndex = MerkleSeqIndex(index.reverse)
@@ -130,13 +130,13 @@ object ViewPosition {
       case object Left extends Direction {
         override def encodeDeterministically: ByteString = DeterministicEncoding.encodeByte(0)
 
-        override def pretty: Pretty[Left.type] = prettyOfString(_ => "L")
+        override protected def pretty: Pretty[Left.type] = prettyOfString(_ => "L")
       }
 
       case object Right extends Direction {
         override def encodeDeterministically: ByteString = DeterministicEncoding.encodeByte(1)
 
-        override def pretty: Pretty[Right.type] = prettyOfString(_ => "R")
+        override protected def pretty: Pretty[Right.type] = prettyOfString(_ => "R")
       }
     }
 

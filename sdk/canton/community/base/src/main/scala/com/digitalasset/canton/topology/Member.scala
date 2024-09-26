@@ -28,7 +28,7 @@ sealed trait Identity
   /** returns the string representation used in console filters (maps to the uid) */
   def filterString: String = uid.toProtoPrimitive
 
-  override def pretty: Pretty[this.type] = prettyOfParam(_.uid)
+  override protected def pretty: Pretty[this.type] = prettyOfParam(_.uid)
 }
 
 sealed trait NodeIdentity extends Identity {
@@ -79,7 +79,7 @@ sealed trait Member extends Identity with Product with Serializable {
       s"${code.threeLetterId.unwrap}${UniqueIdentifier.delimiter}${uid.toProtoPrimitive}"
     )
 
-  override def pretty: Pretty[Member] =
+  override protected def pretty: Pretty[Member] =
     prettyOfString(inst =>
       inst.code.threeLetterId.unwrap + UniqueIdentifier.delimiter + inst.uid.show
     )

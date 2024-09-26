@@ -652,3 +652,9 @@ create or replace view debug.common_static_strings as
     string,
     source
   from common_static_strings;
+
+create or replace view debug.ord_p2p_endpoints as
+  select
+    host,
+    port
+  from ord_p2p_endpoints;

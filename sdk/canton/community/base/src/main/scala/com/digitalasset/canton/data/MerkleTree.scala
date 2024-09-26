@@ -207,7 +207,9 @@ final case class BlindedNode[+A](rootHash: RootHash) extends MerkleTree[A] {
 
   override def unwrap: Either[RootHash, A] = Left(rootHash)
 
-  override def pretty: Pretty[BlindedNode.this.type] = prettyOfClass(unnamedParam(_.rootHash))
+  override protected def pretty: Pretty[BlindedNode.this.type] = prettyOfClass(
+    unnamedParam(_.rootHash)
+  )
 }
 
 object MerkleTree {

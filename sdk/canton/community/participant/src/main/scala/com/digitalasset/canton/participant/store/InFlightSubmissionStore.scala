@@ -218,7 +218,7 @@ object InFlightSubmissionStore {
       extends InFlightReference {
     override def toEither: Either[InFlightByMessageId, InFlightBySequencingInfo] = Left(this)
 
-    override def pretty: Pretty[InFlightByMessageId] = prettyOfClass(
+    override protected def pretty: Pretty[InFlightByMessageId] = prettyOfClass(
       param("domain id", _.domainId),
       param("message id", _.messageId),
     )
@@ -233,7 +233,7 @@ object InFlightSubmissionStore {
   ) extends InFlightReference {
     override def toEither: Either[InFlightByMessageId, InFlightBySequencingInfo] = Right(this)
 
-    override def pretty: Pretty[InFlightBySequencingInfo] = prettyOfClass(
+    override protected def pretty: Pretty[InFlightBySequencingInfo] = prettyOfClass(
       param("domain id", _.domainId),
       param("sequenced", _.sequenced),
     )

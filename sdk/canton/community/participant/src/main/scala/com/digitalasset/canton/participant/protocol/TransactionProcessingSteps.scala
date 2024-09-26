@@ -84,7 +84,7 @@ import com.digitalasset.canton.resource.DbStorage.PassiveInstanceException
 import com.digitalasset.canton.sequencing.client.SendAsyncClientError
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.DefaultDeserializationError
-import com.digitalasset.canton.store.SessionKeyStore
+import com.digitalasset.canton.store.{ConfirmationRequestSessionKeyStore, SessionKeyStore}
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -578,7 +578,7 @@ class TransactionProcessingSteps(
   override def decryptViews(
       batch: NonEmpty[Seq[OpenEnvelope[EncryptedViewMessage[TransactionViewType]]]],
       snapshot: DomainSnapshotSyncCryptoApi,
-      sessionKeyStore: SessionKeyStore,
+      sessionKeyStore: ConfirmationRequestSessionKeyStore,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TransactionProcessorError, DecryptedViews] =
@@ -1294,7 +1294,6 @@ class TransactionProcessingSteps(
           transaction = LfCommittedTransaction(lfTx.unwrap),
           transactionId = lfTxId,
           recordTime = requestTime.toLf,
-          blindingInfoO = None,
           hostedWitnesses = hostedWitnesses.toList,
           contractMetadata = contractMetadata,
           domainId = domainId,

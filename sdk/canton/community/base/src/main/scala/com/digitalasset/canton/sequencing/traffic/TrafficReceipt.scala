@@ -21,7 +21,7 @@ final case class TrafficReceipt(
     baseTrafficRemainder: NonNegativeLong,
 ) extends PrettyPrinting {
 
-  override def pretty: Pretty[TrafficReceipt] =
+  override protected def pretty: Pretty[TrafficReceipt] =
     prettyOfClass(
       param("consumed cost", _.consumedCost),
       param("extra traffic consumed", _.extraTrafficConsumed),

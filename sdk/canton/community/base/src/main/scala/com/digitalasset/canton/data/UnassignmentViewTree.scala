@@ -67,7 +67,7 @@ final case class UnassignmentViewTree(
   ): UnassignmentMediatorMessage =
     UnassignmentMediatorMessage(blindedTree, submittingParticipantSignature)
 
-  override def pretty: Pretty[UnassignmentViewTree] = prettyOfClass(
+  override protected def pretty: Pretty[UnassignmentViewTree] = prettyOfClass(
     param("common data", _.commonData),
     param("view", _.view),
   )
@@ -177,7 +177,7 @@ final case class UnassignmentCommonData private (
   def confirmingParties: Map[LfPartyId, PositiveInt] =
     stakeholders.map(_ -> PositiveInt.one).toMap
 
-  override def pretty: Pretty[UnassignmentCommonData] = prettyOfClass(
+  override protected def pretty: Pretty[UnassignmentCommonData] = prettyOfClass(
     param("submitter metadata", _.submitterMetadata),
     param("source domain", _.sourceDomain),
     param("source mediator group", _.sourceMediatorGroup),
@@ -317,7 +317,7 @@ final case class UnassignmentView private (
       contract = Some(contract.toProtoV30),
     )
 
-  override def pretty: Pretty[UnassignmentView] = prettyOfClass(
+  override protected def pretty: Pretty[UnassignmentView] = prettyOfClass(
     param("creating transaction id", _.creatingTransactionId),
     param("template id", _.templateId),
     param("target domain", _.targetDomain),
@@ -456,7 +456,7 @@ final case class FullUnassignmentTree(tree: UnassignmentViewTree)
 
   override def rootHash: RootHash = tree.rootHash
 
-  override def pretty: Pretty[FullUnassignmentTree] = prettyOfClass(unnamedParam(_.tree))
+  override protected def pretty: Pretty[FullUnassignmentTree] = prettyOfClass(unnamedParam(_.tree))
 
   override def toByteString: ByteString = tree.toByteString
 }

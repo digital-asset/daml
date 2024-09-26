@@ -54,9 +54,8 @@ class MutableCacheBackedContractStoreSpec
         globalKey = None,
         stakeholders = Set.empty,
         eventOffset = Offset.beforeBegin,
-        eventSequentialId = 1L,
       )
-      val event2 = event1.copy(eventSequentialId = 2L)
+      val event2 = event1
       val updateBatch = NonEmptyVector.of(event1, event2)
 
       contractStore.contractStateCaches.push(updateBatch)

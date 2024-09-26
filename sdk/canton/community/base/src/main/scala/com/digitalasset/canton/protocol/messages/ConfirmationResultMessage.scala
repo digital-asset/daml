@@ -13,6 +13,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.version.*
+import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 
 /** Result message that the mediator sends to all informees of a request with its verdict.
@@ -81,6 +82,7 @@ case class ConfirmationResultMessage private (
       getCryptographicEvidence
     )
 
+  @VisibleForTesting
   override def pretty: Pretty[ConfirmationResultMessage] =
     prettyOfClass(
       param("domainId", _.domainId),

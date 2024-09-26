@@ -17,7 +17,7 @@ import java.util.UUID
 final case class MessageId(override protected val str: String73)
     extends LengthLimitedStringWrapper
     with PrettyPrinting {
-  override def pretty: Pretty[MessageId] = prettyOfString(_.unwrap)
+  override protected def pretty: Pretty[MessageId] = prettyOfString(_.unwrap)
 }
 
 object MessageId extends LengthLimitedStringWrapperCompanion[String73, MessageId] {

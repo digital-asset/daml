@@ -37,7 +37,7 @@ final case class CommonMetadata private (
 
   override val hashPurpose: HashPurpose = HashPurpose.CommonMetadata
 
-  override def pretty: Pretty[CommonMetadata] = prettyOfClass(
+  override protected def pretty: Pretty[CommonMetadata] = prettyOfClass(
     param("domain id", _.domainId),
     param("mediator", _.mediator),
     param("uuid", _.uuid),

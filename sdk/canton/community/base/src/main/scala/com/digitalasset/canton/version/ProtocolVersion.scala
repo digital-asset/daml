@@ -92,7 +92,7 @@ sealed case class ProtocolVersion private[version] (v: Int)
 
   def isSupported: Boolean = supported.contains(this)
 
-  override def pretty: Pretty[ProtocolVersion] =
+  override protected def pretty: Pretty[ProtocolVersion] =
     prettyOfString(_ => if (isDev) "dev" else v.toString)
 
   def toProtoPrimitive: Int = v

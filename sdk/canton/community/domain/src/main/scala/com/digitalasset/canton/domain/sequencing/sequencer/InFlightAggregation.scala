@@ -113,7 +113,7 @@ final case class InFlightAggregation private (
       _ <- Option.when(projectedSenders.nonEmpty)(())
     } yield new InFlightAggregation(projectedSenders, maxSequencingTimestamp, rule)
 
-  override def pretty: Pretty[this.type] = prettyOfClass(
+  override protected def pretty: Pretty[this.type] = prettyOfClass(
     param("aggregated senders", _.aggregatedSenders),
     param("max sequencing time", _.maxSequencingTimestamp),
     paramIfNonEmpty("sequencing timestamp", _.deliveredAt),
@@ -216,7 +216,7 @@ object InFlightAggregation {
       sequencingTimestamp: CantonTimestamp,
       signatures: Seq[Seq[Signature]],
   ) extends PrettyPrinting {
-    override def pretty: Pretty[this.type] = prettyOfClass(
+    override protected def pretty: Pretty[this.type] = prettyOfClass(
       param("sequencing timestamp", _.sequencingTimestamp),
       param("signatures", _.signatures),
     )

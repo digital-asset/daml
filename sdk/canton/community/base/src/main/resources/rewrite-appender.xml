@@ -107,28 +107,6 @@
             <testing>true</testing>
         </rewrite>
 
-        <!-- # TODO(#13519): Suppress error in JSON API integration tests and remove these two exceptions -->
-        <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.http.StaticContentRouter</logger>
-            <maxLevel>INFO</maxLevel>
-            <contains>StaticContentRouter configured: StaticContentConfig</contains>
-            <testing>true</testing>
-        </rewrite>
-        <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.http.StaticContentRouter</logger>
-            <maxLevel>INFO</maxLevel>
-            <contains>DO NOT USE StaticContentRouter IN PRODUCTION, CONSIDER SETTING UP REVERSE PROXY!!!</contains>
-            <testing>true</testing>
-        </rewrite>
-
-        <!-- # TODO(#13519): Suppress error in JSON API integration tests and remove this exception -->
-        <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.auth.AuthorizationInterceptor</logger>
-            <maxLevel>INFO</maxLevel>
-            <contains>Could not resolve is_deactivated status for user </contains>
-            <testing>true</testing>
-        </rewrite>
-
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
             <logger>com.digitalasset.canton.ledger.api.auth.interceptor.UserBasedAuthorizationInterceptor</logger>
             <maxLevel>INFO</maxLevel>
@@ -250,14 +228,6 @@
             <logger>daml.warnings</logger>
             <contains>Use of divulged contracts is deprecated and incompatible with pruning.</contains>
             <maxLevel>INFO</maxLevel>
-            <testing>true</testing>
-        </rewrite>
-
-        <!-- TODO(i10394) upstream sequencing actor does throw on shutdown -->
-        <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.daml.grpc.adapter.RunnableSequencingActor</logger>
-            <maxLevel>INFO</maxLevel>
-            <contains>Unexpected exception while executing</contains>
             <testing>true</testing>
         </rewrite>
 

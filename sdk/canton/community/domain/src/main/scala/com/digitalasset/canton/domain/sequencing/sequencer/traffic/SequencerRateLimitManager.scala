@@ -153,7 +153,7 @@ object SequencerRateLimitError extends SequencerErrorGroup {
       member: Member
   ) extends SequencerRateLimitError
       with PrettyPrinting {
-    override def pretty: Pretty[TrafficNotFound] = prettyOfClass(
+    override protected def pretty: Pretty[TrafficNotFound] = prettyOfClass(
       param("member", _.member)
     )
   }
@@ -170,7 +170,7 @@ object SequencerRateLimitError extends SequencerErrorGroup {
   ) extends SequencerRateLimitError
       with PrettyPrinting {
 
-    override def pretty: Pretty[AboveTrafficLimit] = prettyOfClass(
+    override protected def pretty: Pretty[AboveTrafficLimit] = prettyOfClass(
       param("member", _.member),
       param("trafficCost", _.trafficCost),
       param("trafficState", _.trafficState),
@@ -202,7 +202,7 @@ object SequencerRateLimitError extends SequencerErrorGroup {
         with SequencingCostValidationError
         with PrettyPrinting {
       override val correctEventCost: NonNegativeLong = correctCostDetails.eventCost
-      override def pretty: Pretty[Error] = prettyOfClassWithName("IncorrectEventCost")(
+      override protected def pretty: Pretty[Error] = prettyOfClassWithName("IncorrectEventCost")(
         param("member", _.member),
         param("submissionTimestamp", _.submissionTimestamp),
         paramIfDefined("submittedEventCost", _.submittedEventCost),

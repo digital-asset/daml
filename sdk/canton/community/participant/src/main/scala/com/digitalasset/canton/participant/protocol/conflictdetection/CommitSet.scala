@@ -43,7 +43,7 @@ final case class CommitSet(
   requireDisjoint(unassignments.keySet -> "unassignments", archivals.keySet -> "archivals")
   requireDisjoint(assignments.keySet -> "assignments", creations.keySet -> "creations")
 
-  override def pretty: Pretty[CommitSet] = prettyOfClass(
+  override protected def pretty: Pretty[CommitSet] = prettyOfClass(
     paramIfNonEmpty("archivals", _.archivals),
     paramIfNonEmpty("creations", _.creations),
     paramIfNonEmpty("unassignments", _.unassignments),
@@ -59,7 +59,7 @@ object CommitSet {
       contractMetadata: ContractMetadata,
       reassignmentCounter: ReassignmentCounter,
   ) extends PrettyPrinting {
-    override def pretty: Pretty[CreationCommit] = prettyOfClass(
+    override protected def pretty: Pretty[CreationCommit] = prettyOfClass(
       param("contractMetadata", _.contractMetadata),
       param("reassignmentCounter", _.reassignmentCounter),
     )
@@ -69,7 +69,7 @@ object CommitSet {
       stakeholders: Set[LfPartyId],
       reassignmentCounter: ReassignmentCounter,
   ) extends PrettyPrinting {
-    override def pretty: Pretty[UnassignmentCommit] = prettyOfClass(
+    override protected def pretty: Pretty[UnassignmentCommit] = prettyOfClass(
       param("targetDomainId", _.targetDomainId),
       paramIfNonEmpty("stakeholders", _.stakeholders),
       param("reassignmentCounter", _.reassignmentCounter),
@@ -80,7 +80,7 @@ object CommitSet {
       contractMetadata: ContractMetadata,
       reassignmentCounter: ReassignmentCounter,
   ) extends PrettyPrinting {
-    override def pretty: Pretty[AssignmentCommit] = prettyOfClass(
+    override protected def pretty: Pretty[AssignmentCommit] = prettyOfClass(
       param("reassignmentId", _.reassignmentId),
       param("contractMetadata", _.contractMetadata),
       param("reassignmentCounter", _.reassignmentCounter),
@@ -90,7 +90,7 @@ object CommitSet {
       stakeholders: Set[LfPartyId]
   ) extends PrettyPrinting {
 
-    override def pretty: Pretty[ArchivalCommit] = prettyOfClass(
+    override protected def pretty: Pretty[ArchivalCommit] = prettyOfClass(
       param("stakeholders", _.stakeholders)
     )
   }

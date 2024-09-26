@@ -46,7 +46,7 @@ object SerializableKeyResolution {
 }
 
 final case class AssignedKey(contractId: LfContractId) extends SerializableKeyResolution {
-  override def pretty: Pretty[AssignedKey] =
+  override protected def pretty: Pretty[AssignedKey] =
     prettyNode("Assigned", unnamedParam(_.contractId))
 
   override def resolution: Option[LfContractId] = Some(contractId)
@@ -58,7 +58,8 @@ final case class AssignedKey(contractId: LfContractId) extends SerializableKeyRe
 final case class FreeKey(override val maintainers: Set[LfPartyId])
     extends SerializableKeyResolution
     with KeyResolutionWithMaintainers {
-  override def pretty: Pretty[FreeKey] = prettyNode("Free", param("maintainers", _.maintainers))
+  override protected def pretty: Pretty[FreeKey] =
+    prettyNode("Free", param("maintainers", _.maintainers))
 
   override def resolution: Option[LfContractId] = None
 
@@ -76,7 +77,7 @@ final case class AssignedKeyWithMaintainers(
 ) extends KeyResolutionWithMaintainers {
   override def resolution: Option[LfContractId] = Some(contractId)
 
-  override def pretty: Pretty[AssignedKeyWithMaintainers] = prettyOfClass(
+  override protected def pretty: Pretty[AssignedKeyWithMaintainers] = prettyOfClass(
     unnamedParam(_.contractId),
     param("maintainers", _.maintainers),
   )

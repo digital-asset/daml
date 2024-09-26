@@ -297,7 +297,7 @@ final case class ResponseAggregation[VKEY](
       )
   }
 
-  override def pretty: Pretty[ResponseAggregation.this.type] = prettyOfClass(
+  override protected def pretty: Pretty[ResponseAggregation.this.type] = prettyOfClass(
     param("id", _.requestId),
     param("request", _.request),
     param("timeout", _.timeout),
@@ -325,7 +325,7 @@ object ResponseAggregation {
 
     def isRejected: Boolean = rejections.size >= threshold.value
 
-    override def pretty: Pretty[ConsortiumVotingState] =
+    override protected def pretty: Pretty[ConsortiumVotingState] =
       prettyOfClass(
         param("consortium-threshold", _.threshold, _.threshold.value > 1),
         paramIfNonEmpty("approved by participants", _.approvals),
@@ -342,7 +342,7 @@ object ResponseAggregation {
       rejections: List[(Set[LfPartyId], LocalReject)],
   ) extends PrettyPrinting {
 
-    override def pretty: Pretty[ViewState] =
+    override protected def pretty: Pretty[ViewState] =
       prettyOfClass(
         param("quorumsState", _.quorumsState),
         param("consortiumVoting", _.consortiumVoting),

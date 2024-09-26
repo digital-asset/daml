@@ -259,34 +259,34 @@ object InternalConsistencyChecker {
   }
 
   final case class ErrorWithInternalConsistencyCheck(error: Error) extends PrettyPrinting {
-    override def pretty: Pretty[ErrorWithInternalConsistencyCheck] =
+    override protected def pretty: Pretty[ErrorWithInternalConsistencyCheck] =
       prettyOfClass(
         unnamedParam(_.error)
       )
   }
 
   final case class IncorrectRollbackScopeOrder(error: String) extends Error {
-    override def pretty: Pretty[IncorrectRollbackScopeOrder] = prettyOfClass(
+    override protected def pretty: Pretty[IncorrectRollbackScopeOrder] = prettyOfClass(
       param("cause", _ => error.unquoted)
     )
   }
 
   final case class UsedBeforeCreation(contractIds: NonEmpty[Set[LfContractId]]) extends Error {
-    override def pretty: Pretty[UsedBeforeCreation] = prettyOfClass(
+    override protected def pretty: Pretty[UsedBeforeCreation] = prettyOfClass(
       param("cause", _ => "Contract id used before creation".unquoted),
       param("contractIds", _.contractIds),
     )
   }
 
   final case class UsedAfterArchive(keys: NonEmpty[Set[LfContractId]]) extends Error {
-    override def pretty: Pretty[UsedAfterArchive] = prettyOfClass(
+    override protected def pretty: Pretty[UsedAfterArchive] = prettyOfClass(
       param("cause", _ => "Contract id used after archive".unquoted),
       param("contractIds", _.keys),
     )
   }
 
   final case class InconsistentKeyUse(keys: NonEmpty[Set[LfGlobalKey]]) extends Error {
-    override def pretty: Pretty[InconsistentKeyUse] = prettyOfClass(
+    override protected def pretty: Pretty[InconsistentKeyUse] = prettyOfClass(
       param("cause", _ => "Inconsistent global key assumptions".unquoted),
       param("contractIds", _.keys),
     )

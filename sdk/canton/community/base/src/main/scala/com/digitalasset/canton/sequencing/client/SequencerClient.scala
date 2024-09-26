@@ -1784,11 +1784,12 @@ object SequencerClientImplPekko {
 
   private sealed trait BatchCounterRange extends Product with Serializable with PrettyPrinting
   private case object EmptyBatch extends BatchCounterRange {
-    override def pretty: Pretty[EmptyBatch.type] = prettyOfObject[EmptyBatch.type]
+    override protected def pretty: Pretty[EmptyBatch.type] = prettyOfObject[EmptyBatch.type]
   }
   private final case class NonEmptyBatchCounterRange(start: SequencerCounter, end: SequencerCounter)
       extends BatchCounterRange {
-    override def pretty: Pretty[NonEmptyBatchCounterRange] = prettyInfix(_.start, "->", _.end)
+    override protected def pretty: Pretty[NonEmptyBatchCounterRange] =
+      prettyInfix(_.start, "->", _.end)
   }
   private object BatchCounterRange {
     def apply(

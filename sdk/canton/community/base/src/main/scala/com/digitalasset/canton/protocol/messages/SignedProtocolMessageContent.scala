@@ -26,7 +26,7 @@ trait SignedProtocolMessageContent
     */
   def signingTimestamp: Option[CantonTimestamp]
 
-  override def pretty: Pretty[this.type] = prettyOfObject[SignedProtocolMessageContent]
+  override protected def pretty: Pretty[this.type] = prettyOfObject[SignedProtocolMessageContent]
 }
 
 object SignedProtocolMessageContent {

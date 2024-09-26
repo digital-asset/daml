@@ -41,7 +41,9 @@ final case class FullTransactionViewTree private (tree: GenTransactionTree)
   lazy val tryFlattenToParticipantViews: Seq[ParticipantTransactionView] =
     view.tryFlattenToParticipantViews
 
-  override def pretty: Pretty[FullTransactionViewTree] = prettyOfClass(unnamedParam(_.tree))
+  override protected def pretty: Pretty[FullTransactionViewTree] = prettyOfClass(
+    unnamedParam(_.tree)
+  )
 }
 
 object FullTransactionViewTree {

@@ -203,7 +203,7 @@ object CryptoPublicStoreError extends CantonErrorGroups.CommandErrorGroup {
 
   final case class FailedToInsertKey(keyId: Fingerprint, reason: String)
       extends CryptoPublicStoreError {
-    override def pretty: Pretty[FailedToInsertKey] =
+    override protected def pretty: Pretty[FailedToInsertKey] =
       prettyOfClass(param("keyId", _.keyId), param("reason", _.reason.unquoted))
   }
 
@@ -212,7 +212,7 @@ object CryptoPublicStoreError extends CantonErrorGroups.CommandErrorGroup {
       existingPublicKey: K,
       newPublicKey: K,
   ) extends CryptoPublicStoreError {
-    override def pretty: Pretty[KeyAlreadyExists[K]] =
+    override protected def pretty: Pretty[KeyAlreadyExists[K]] =
       prettyOfClass(
         param("keyId", _.keyId),
         param("existingPublicKey", _.existingPublicKey),

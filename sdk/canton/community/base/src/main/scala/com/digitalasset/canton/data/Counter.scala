@@ -33,7 +33,7 @@ final case class Counter[Discr](v: Long) extends Ordered[Counter[Discr]] with Pr
 
   override def compare(that: Counter[Discr]): Int = v.compare(that.v)
 
-  override def pretty: Pretty[Counter.this.type] = prettyOfString(_ => v.toString)
+  override protected def pretty: Pretty[Counter.this.type] = prettyOfString(_ => v.toString)
 }
 
 trait CounterCompanion[T] {

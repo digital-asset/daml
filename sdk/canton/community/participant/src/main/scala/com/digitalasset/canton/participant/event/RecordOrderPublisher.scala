@@ -270,7 +270,7 @@ class RecordOrderPublisher(
           }
       }
 
-    override def pretty: Pretty[this.type] = prettyOfClass(
+    override protected def pretty: Pretty[this.type] = prettyOfClass(
       param("timestamp", _.timestamp),
       param("sequencer counter", _.sequencerCounter),
     )
@@ -345,7 +345,7 @@ class RecordOrderPublisher(
       )
     }
 
-    override def pretty: Pretty[this.type] =
+    override protected def pretty: Pretty[this.type] =
       prettyOfClass(
         param("timestamp", _.timestamp),
         param("sequencerCounter", _.sequencerCounter),
@@ -412,7 +412,7 @@ class RecordOrderPublisher(
       FutureUnlessShutdown.outcomeF(acsChangePublish)
     }
 
-    override def pretty: Pretty[this.type] =
+    override protected def pretty: Pretty[this.type] =
       prettyOfClass(param("timestamp", _.timestamp), param("sequencerCounter", _.sequencerCounter))
 
     override def close(): Unit = ()

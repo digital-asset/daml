@@ -36,7 +36,7 @@ final case class CommitmentPeriod(
   def overlaps(other: CommitmentPeriod): Boolean =
     fromExclusive < other.toInclusive && toInclusive > other.fromExclusive
 
-  override def pretty: Pretty[CommitmentPeriod] =
+  override protected def pretty: Pretty[CommitmentPeriod] =
     prettyOfClass(
       param("fromExclusive", _.fromExclusive),
       param("toInclusive", _.toInclusive),

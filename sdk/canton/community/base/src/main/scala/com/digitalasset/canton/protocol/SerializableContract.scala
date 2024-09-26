@@ -78,7 +78,7 @@ case class SerializableContract(
     )
   }
 
-  override def pretty: Pretty[SerializableContract] = prettyOfClass(
+  override protected def pretty: Pretty[SerializableContract] = prettyOfClass(
     param("contractId", _.contractId),
     paramWithoutValue("instance"), // Do not leak confidential data (such as PII) to the log file!
     param("metadata", _.metadata),

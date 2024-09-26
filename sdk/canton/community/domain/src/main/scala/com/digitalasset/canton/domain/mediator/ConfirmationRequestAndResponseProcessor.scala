@@ -101,7 +101,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
           case MediatorEvent.Request(
                 counter,
                 _,
-                request,
+                requestEnvelope,
                 rootHashMessages,
                 batchAlsoContainsTopologyTransaction,
               ) =>
@@ -111,7 +111,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
               participantResponseDeadline,
               decisionTime,
               confirmationResponseTimeout,
-              request,
+              requestEnvelope,
               rootHashMessages,
               batchAlsoContainsTopologyTransaction,
             )(e.traceContext)
@@ -206,12 +206,13 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
       participantResponseDeadline: CantonTimestamp,
       decisionTime: CantonTimestamp,
       confirmationResponseTimeout: NonNegativeFiniteDuration,
-      request: MediatorConfirmationRequest,
+      requestEnvelope: OpenEnvelope[MediatorConfirmationRequest],
       rootHashMessages: Seq[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
       batchAlsoContainsTopologyTransaction: Boolean,
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     withSpan("ConfirmationRequestAndResponseProcessor.processRequest") {
       val timeout = requestId.unwrap.plus(confirmationResponseTimeout.unwrap)
+      val request = requestEnvelope.protocolMessage
       implicit traceContext =>
         span =>
           span.setAttribute("request_id", requestId.toString)
@@ -223,7 +224,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
             unitOrVerdictO <- FutureUnlessShutdown.outcomeF {
               validateRequest(
                 requestId,
-                request,
+                requestEnvelope,
                 rootHashMessages,
                 snapshot,
                 batchAlsoContainsTopologyTransaction,
@@ -287,7 +288,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
     */
   private def validateRequest(
       requestId: RequestId,
-      request: MediatorConfirmationRequest,
+      requestEnvelope: OpenEnvelope[MediatorConfirmationRequest],
       rootHashMessages: Seq[OpenEnvelope[RootHashMessage[SerializedRootHashMessagePayload]]],
       snapshot: DomainSnapshotSyncCryptoApi,
       batchAlsoContainsTopologyTransaction: Boolean,
@@ -295,6 +296,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
       traceContext: TraceContext
   ): Future[Either[Option[MediatorVerdict.MediatorReject], Unit]] = {
     val topologySnapshot = snapshot.ipsSnapshot
+    val request = requestEnvelope.protocolMessage
     (for {
       // Bail out, if this mediator or group is passive, except if the mediator itself is passive in an active group.
       isActive <- EitherT.right[Option[MediatorVerdict.MediatorReject]](
@@ -336,7 +338,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
         }
 
       // Validate declared mediator and the group being active
-      validMediator <- checkDeclaredMediator(requestId, request, topologySnapshot)
+      validMediator <- checkDeclaredMediator(requestId, requestEnvelope, topologySnapshot)
 
       // Validate root hash messages
       _ <- checkRootHashMessages(
@@ -376,11 +378,13 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
 
   private def checkDeclaredMediator(
       requestId: RequestId,
-      request: MediatorConfirmationRequest,
+      requestEnvelope: OpenEnvelope[MediatorConfirmationRequest],
       topologySnapshot: TopologySnapshot,
   )(implicit
       loggingContext: ErrorLoggingContext
   ): EitherT[Future, Option[MediatorVerdict.MediatorReject], MediatorGroupRecipient] = {
+
+    val request = requestEnvelope.protocolMessage
 
     def rejectWrongMediator(hint: => String): Option[MediatorVerdict.MediatorReject] =
       Some(
@@ -408,6 +412,13 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
       _ <- EitherTUtil.condUnitET[Future](
         mediatorGroup.active.contains(mediatorId) || mediatorGroup.passive.contains(mediatorId),
         rejectWrongMediator(show"this mediator not being part of the mediator group"),
+      )
+      expectedRecipients = Recipients.cc(request.mediator)
+      _ <- EitherTUtil.condUnitET[Future](
+        requestEnvelope.recipients == expectedRecipients,
+        rejectWrongMediator(
+          show"wrong recipients (expected $expectedRecipients, actual ${requestEnvelope.recipients})"
+        ),
       )
     } yield request.mediator
   }

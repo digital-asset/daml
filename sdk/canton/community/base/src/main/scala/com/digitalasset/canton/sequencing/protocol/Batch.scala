@@ -77,7 +77,9 @@ final case class Batch[+Env <: Envelope[?]] private (envelopes: List[Env])(
   ): F[Batch[Env2]] =
     F.map(envelopes.traverse(f))(Batch(_)(representativeProtocolVersion))
 
-  override def pretty: Pretty[Batch[Envelope[?]]] = prettyOfClass(unnamedParam(_.envelopes))
+  override protected def pretty: Pretty[Batch[Envelope[?]]] = prettyOfClass(
+    unnamedParam(_.envelopes)
+  )
 }
 
 object Batch extends HasProtocolVersionedCompanion2[Batch[Envelope[?]], Batch[ClosedEnvelope]] {
