@@ -340,6 +340,7 @@ cmdMultiIde _numProcessors =
   where
     cmd = fmap (Command MultiIde Nothing) $ runMultiIde
         <$> cliOptLogLevel
+        <*> optional (strOptionOnce $ long "ide-identifier" <> help "Identifier string for this IDE")
         <*> many (strArgument mempty)
 
 cmdIde :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command

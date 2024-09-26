@@ -32,7 +32,7 @@ import qualified Language.LSP.Types.Lens as LSP
 import qualified Language.LSP.Types.Capabilities as LSP
 import System.Directory (doesDirectoryExist, listDirectory, withCurrentDirectory, canonicalizePath)
 import qualified System.FilePath as NativeFilePath
-import System.FilePath.Posix (joinDrive, takeDirectory, takeExtension)
+import System.FilePath.Posix (joinDrive, takeDirectory, takeExtension, (</>))
 import System.IO (Handle, hClose, hFlush)
 import Text.Read (readMaybe)
 
@@ -57,8 +57,8 @@ modifyTMVarM var f = do
   putTMVar var x'
 
 -- Taken directly from the Initialize response
-initializeResult :: LSP.InitializeResult
-initializeResult = LSP.InitializeResult 
+initializeResult :: Maybe T.Text -> LSP.InitializeResult
+initializeResult mCommandPrefix = LSP.InitializeResult 
   { _capabilities = LSP.ServerCapabilities 
       { _textDocumentSync = Just $ LSP.InL $ LSP.TextDocumentSyncOptions 
           { _openClose = Just True
@@ -91,7 +91,11 @@ initializeResult = LSP.InitializeResult
       , _documentOnTypeFormattingProvider = Nothing
       , _renameProvider = false
       , _foldingRangeProvider = false
-      , _executeCommandProvider = Just (LSP.ExecuteCommandOptions {_workDoneProgress = Nothing, _commands = LSP.List ["typesignature.add"]})
+      , _executeCommandProvider = Just (LSP.ExecuteCommandOptions
+          { _workDoneProgress = Nothing
+          , _commands = LSP.List
+              [maybe "" (<> ".") mCommandPrefix <> "typesignature.add"]
+          })
       , _selectionRangeProvider = false
       , _callHierarchyProvider = false
       , _semanticTokensProvider = Just $ LSP.InR $ LSP.SemanticTokensRegistrationOptions
@@ -185,15 +189,15 @@ closeFileNotification path = LSP.FromClientMess LSP.STextDocumentDidClose LSP.No
   , _jsonrpc = "2.0"
   }
 
-registerFileWatchersMessage :: LSP.FromServerMessage
-registerFileWatchersMessage =
+registerFileWatchersMessage :: FilePath -> LSP.FromServerMessage
+registerFileWatchersMessage multiPackageHome =
   LSP.FromServerMess LSP.SClientRegisterCapability $
     LSP.RequestMessage "2.0" (LSP.IdString "MultiIdeWatchedFiles") LSP.SClientRegisterCapability $ LSP.RegistrationParams $ LSP.List
       [ LSP.SomeRegistration $ LSP.Registration "MultiIdeWatchedFiles" LSP.SWorkspaceDidChangeWatchedFiles $ LSP.DidChangeWatchedFilesRegistrationOptions $ LSP.List
-        [ LSP.FileSystemWatcher "**/multi-package.yaml" Nothing
-        , LSP.FileSystemWatcher "**/daml.yaml" Nothing
-        , LSP.FileSystemWatcher "**/*.dar" Nothing
-        , LSP.FileSystemWatcher "**/*.daml" Nothing
+        [ LSP.FileSystemWatcher (T.pack $ multiPackageHome </> "**/multi-package.yaml") Nothing
+        , LSP.FileSystemWatcher (T.pack $ multiPackageHome </> "**/daml.yaml") Nothing
+        , LSP.FileSystemWatcher (T.pack $ multiPackageHome </> "**/*.dar") Nothing
+        , LSP.FileSystemWatcher (T.pack $ multiPackageHome </> "**/*.daml") Nothing
         ]
       ]
 
