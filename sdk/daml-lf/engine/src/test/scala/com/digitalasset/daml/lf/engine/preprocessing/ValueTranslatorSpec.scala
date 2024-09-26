@@ -55,12 +55,10 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
           record @serializable Tuple (a: *) (b: *) = { x: a, y: b };
           record @serializable Record = { field : Int64 };
           variant @serializable Either (a: *) (b: *) = Left : a | Right : b;
-          enum Color = red | green | blue;
+          enum @serializable Color = red | green | blue;
 
-          record Tricky (b: * -> *) = { x : b Unit };
-
-          record MyCons = { head : Int64, tail: Mod:MyList };
-          variant MyList = MyNil : Unit | MyCons: Mod:MyCons ;
+          record @serializable MyCons = { head : Int64, tail: Mod:MyList };
+          variant @serializable  MyList = MyNil : Unit | MyCons: Mod:MyCons ;
 
           record @serializable Template = { field : Int64 };
           record @serializable TemplateRef = { owner: Party, cid: (ContractId Mod:Template) };
@@ -136,11 +134,6 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
         SVariant("Mod:Either", "Right", 1, SText("some test")),
       ),
       (Ast.TTyCon("Mod:Color"), ValueEnum("", "blue"), SEnum("Mod:Color", "blue", 2)),
-      (
-        Ast.TApp(Ast.TTyCon("Mod:Tricky"), Ast.TBuiltin(Ast.BTList)),
-        ValueRecord("", ImmArray("" -> ValueNil)),
-        SRecord("Mod:Tricky", ImmArray("x"), ArrayList(SValue.EmptyList)),
-      ),
     )
 
     val emptyTestCase = Table[Ast.Type, Value, speedy.SValue](

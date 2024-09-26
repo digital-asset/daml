@@ -1186,7 +1186,7 @@ private[lf] object Speedy {
     // Raises an exception if missing a package.
     private[speedy] final def importValue(typ0: Type, value0: V): Control.Value = {
 
-      import TypeDestructor.TypeF._
+      import TypeDestructor.SerializableTypeF._
       val Destructor = TypeDestructor(compiledPackages.pkgInterface)
 
       def assertRight[X](x: Either[LookupError, X]): X =

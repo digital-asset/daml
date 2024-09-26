@@ -11,49 +11,49 @@ import scala.collection.immutable.ArraySeq
 
 object TypeDestructor {
 
-  sealed abstract class TypeF[+Type] extends Product with Serializable
+  sealed abstract class SerializableTypeF[+Type] extends Product with Serializable
 
-  object TypeF {
+  object SerializableTypeF {
 
-    case object UnitF extends TypeF[Nothing]
+    case object UnitF extends SerializableTypeF[Nothing]
 
-    case object BoolF extends TypeF[Nothing]
+    case object BoolF extends SerializableTypeF[Nothing]
 
-    case object Int64F extends TypeF[Nothing]
+    case object Int64F extends SerializableTypeF[Nothing]
 
-    case object DateF extends TypeF[Nothing]
+    case object DateF extends SerializableTypeF[Nothing]
 
-    case object TimestampF extends TypeF[Nothing]
+    case object TimestampF extends SerializableTypeF[Nothing]
 
-    final case class NumericF(scale: Numeric.Scale) extends TypeF[Nothing]
+    final case class NumericF(scale: Numeric.Scale) extends SerializableTypeF[Nothing]
 
-    case object PartyF extends TypeF[Nothing]
+    case object PartyF extends SerializableTypeF[Nothing]
 
-    case object TextF extends TypeF[Nothing]
+    case object TextF extends SerializableTypeF[Nothing]
 
-    final case class ContractIdF[Type](a: Type) extends TypeF[Type]
+    final case class ContractIdF[Type](a: Type) extends SerializableTypeF[Type]
 
-    final case class OptionalF[Type](a: Type) extends TypeF[Type]
+    final case class OptionalF[Type](a: Type) extends SerializableTypeF[Type]
 
-    final case class ListF[Type](a: Type) extends TypeF[Type]
+    final case class ListF[Type](a: Type) extends SerializableTypeF[Type]
 
-    final case class MapF[Type](a: Type, b: Type) extends TypeF[Type]
+    final case class MapF[Type](a: Type, b: Type) extends SerializableTypeF[Type]
 
-    final case class TextMapF[Type](a: Type) extends TypeF[Type]
+    final case class TextMapF[Type](a: Type) extends SerializableTypeF[Type]
 
     final case class RecordF[Type](
         tyCon: Ref.TypeConName,
         pkgName: Ref.PackageName,
         fieldNames: ArraySeq[Ref.Name],
         fieldTypes: ArraySeq[Type],
-    ) extends TypeF[Type]
+    ) extends SerializableTypeF[Type]
 
     final case class VariantF[Type](
         tyCon: Ref.TypeConName,
         pkgName: Ref.PackageName,
         cons: ArraySeq[Ref.Name],
         consTypes: ArraySeq[Type],
-    ) extends TypeF[Type] {
+    ) extends SerializableTypeF[Type] {
       private[this] lazy val consRankMap = cons.view.zipWithIndex.toMap
 
       def consRank(cons: Ref.Name): Either[LookupError, Int] = {
@@ -67,7 +67,7 @@ object TypeDestructor {
         tyCon: Ref.TypeConName,
         pkgName: Ref.PackageName,
         cons: ArraySeq[Ref.Name],
-    ) extends TypeF[Nothing] {
+    ) extends SerializableTypeF[Nothing] {
       private[this] lazy val consRankMap = cons.view.zipWithIndex.toMap
 
       def consRank(cons: Ref.Name): Either[LookupError, Int] = {
@@ -94,19 +94,19 @@ object TypeDestructor {
 final class TypeDestructor(pkgInterface: PackageInterface) {
   self =>
 
-  import TypeDestructor.TypeF
-  import TypeF._
+  import TypeDestructor.SerializableTypeF
+  import SerializableTypeF._
 
-  def destruct(state: Ast.Type): Either[TypeDestructor.Error, TypeF[Ast.Type]] =
+  def destruct(state: Ast.Type): Either[TypeDestructor.Error, SerializableTypeF[Ast.Type]] =
     go(state, List.empty)
 
   private def go(
       typ0: Ast.Type,
       args: List[Ast.Type],
-  ): Either[TypeDestructor.Error, TypeF[Ast.Type]] = {
+  ): Either[TypeDestructor.Error, SerializableTypeF[Ast.Type]] = {
     def prettyType = args.foldLeft(typ0)(Ast.TApp).pretty
 
-    def unsupportedType = TypeDestructor.Error.TypeError(s"unsupported type $prettyType")
+    def unserializableType = TypeDestructor.Error.TypeError(s"unserializableType type $prettyType")
 
     def wrongType = TypeDestructor.Error.TypeError(s"wrong type $prettyType")
 
@@ -131,6 +131,7 @@ final class TypeDestructor(pkgInterface: PackageInterface) {
             .map(TypeDestructor.Error.LookupError)
           pkgName = pkg.metadata.name
           dataDef <- pkgInterface.lookupDataType(tycon).left.map(TypeDestructor.Error.LookupError)
+          _ <- Either.cond(dataDef.serializable, (), unserializableType)
           params = dataDef.params
           subst <- Either.cond(
             params.length == args.length,
@@ -169,7 +170,7 @@ final class TypeDestructor(pkgInterface: PackageInterface) {
                 )
               )
             case Ast.DataInterface =>
-              Left(unsupportedType)
+              Left(unserializableType)
           }
         } yield destructed
       case Ast.TBuiltin(bt) =>
@@ -223,12 +224,12 @@ final class TypeDestructor(pkgInterface: PackageInterface) {
               case _ => Left(wrongType)
             }
           case _ =>
-            Left(unsupportedType)
+            Left(unserializableType)
         }
       case Ast.TApp(tyfun, arg) =>
         go(tyfun, arg :: args)
       case _ =>
-        Left(unsupportedType)
+        Left(unserializableType)
     }
   }
 }
