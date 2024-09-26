@@ -43,6 +43,7 @@ module DA.Daml.Options.Types
 import Control.Monad.Reader
 import DA.Bazel.Runfiles
 import qualified DA.Daml.LF.Ast as LF
+import DA.Daml.Project.Types (ProjectPath)
 import DA.Pretty
 import qualified DA.Service.Logger as Logger
 import qualified DA.Service.Logger.Impl.IO as Logger.IO
@@ -72,6 +73,8 @@ data Options = Options
     -- ^ Name of the package (version not included, so this is not the unit id)
   , optMbPackageVersion :: Maybe LF.PackageVersion
     -- ^ Version of the package
+  , optMbPackageConfigPath :: Maybe ProjectPath
+    -- ^ Path to the daml.yaml
   , optIfaceDir :: Maybe FilePath
     -- ^ directory to write interface files to. If set to `Nothing` we default to <current working dir>.daml/interfaces.
   , optPackageImports :: [PackageFlag]
@@ -128,6 +131,9 @@ data Options = Options
   -- packages from remote ledgers.
   , optAllowLargeTuples :: AllowLargeTuples
   -- ^ Do not warn when tuples of size > 5 are used
+  , optHideUnitId :: Bool
+  -- ^ When running in IDE, some rules need access to the package name and version, but we don't want to use own
+  -- unit-id, as script + scenario service assume it will be "main"
   , optUpgradeInfo :: UpgradeInfo
   }
 
@@ -252,6 +258,7 @@ defaultOptions mbVersion =
         , optStablePackages = Nothing
         , optMbPackageName = Nothing
         , optMbPackageVersion = Nothing
+        , optMbPackageConfigPath = Nothing
         , optIfaceDir = Nothing
         , optPackageImports = []
         , optShakeProfiling = Nothing
@@ -275,6 +282,7 @@ defaultOptions mbVersion =
         , optEnableOfInterestRule = False
         , optAccessTokenPath = Nothing
         , optAllowLargeTuples = AllowLargeTuples False
+        , optHideUnitId = False
         , optUpgradeInfo = defaultUpgradeInfo
         }
 
@@ -302,7 +310,7 @@ fullPkgName (LF.PackageName n) mbV (LF.PackageId h) =
         Just (LF.PackageVersion v) -> n <> "-" <> v <> "-" <> h
 
 optUnitId :: Options -> Maybe UnitId
-optUnitId Options{..} = fmap (\name -> pkgNameVersion name optMbPackageVersion) optMbPackageName
+optUnitId Options{..} = guard (not optHideUnitId) >> fmap (\name -> pkgNameVersion name optMbPackageVersion) optMbPackageName
 
 getLogger :: Options -> T.Text -> IO (Logger.Handle IO)
 getLogger Options {optLogLevel} name = Logger.IO.newStderrLogger optLogLevel name

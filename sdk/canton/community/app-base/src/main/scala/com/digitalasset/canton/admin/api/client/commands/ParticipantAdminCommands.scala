@@ -14,6 +14,7 @@ import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
 import com.digitalasset.canton.admin.api.client.commands.StatusAdminCommands.NodeStatusCommand
 import com.digitalasset.canton.admin.api.client.data.{
   DarMetadata,
+  InFlightCount,
   ListConnectedDomainsResult,
   NodeStatus,
   ParticipantPruningSchedule,
@@ -43,6 +44,7 @@ import com.digitalasset.canton.participant.domain.DomainConnectionConfig as CDom
 import com.digitalasset.canton.participant.sync.UpstreamOffsetConvert
 import com.digitalasset.canton.protocol.{LfContractId, TransferId, v0 as v0proto}
 import com.digitalasset.canton.pruning.admin
+import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.InstantConverter
 import com.digitalasset.canton.topology.{DomainId, PartyId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -1259,6 +1261,37 @@ object ParticipantAdminCommands {
           response: v0.LookupOffsetByIndex.Response
       ): Either[String, String] =
         Right(response.offset)
+    }
+
+    final case class CountInFlight(domainId: DomainId)
+        extends Base[
+          v0.CountInFlight.Request,
+          v0.CountInFlight.Response,
+          InFlightCount,
+        ] {
+
+      override def createRequest(): Either[String, v0.CountInFlight.Request] =
+        Right(v0.CountInFlight.Request(domainId.toProtoPrimitive))
+
+      override def submitRequest(
+          service: InspectionServiceStub,
+          request: v0.CountInFlight.Request,
+      ): Future[v0.CountInFlight.Response] =
+        service.countInFlight(request)
+
+      override def handleResponse(
+          response: v0.CountInFlight.Response
+      ): Either[String, InFlightCount] =
+        for {
+          pendingSubmissions <- ProtoConverter
+            .parseNonNegativeInt(response.pendingSubmissions, "CountInFlight.pending_submissions")
+            .leftMap(_.toString)
+          pendingTransactions <- ProtoConverter
+            .parseNonNegativeInt(response.pendingTransactions, "CountInFlight.pending_transactions")
+            .leftMap(_.toString)
+        } yield {
+          InFlightCount(pendingSubmissions, pendingTransactions)
+        }
     }
 
   }

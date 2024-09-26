@@ -10,6 +10,7 @@ import DA.Daml.Assistant.Install
 import DA.Daml.Assistant.Cache (UseCache (DontUseCache))
 import DA.Daml.Assistant.Types
 import DA.Daml.Assistant.Util
+import DA.Daml.Assistant.Version as V hiding (UseCache(..))
 import DA.Daml.Project.Consts hiding (getDamlPath, getProjectPath)
 import DA.Daml.Project.Config
 import System.Directory
@@ -35,6 +36,7 @@ import Control.Monad
 import Conduit
 import qualified Data.Conduit.Zlib as Zlib
 import qualified Data.Conduit.Tar as Tar
+import qualified Data.SemVer as V
 
 -- unix specific
 import System.PosixCompat.Files (createSymbolicLink)
@@ -442,6 +444,60 @@ testInstall = Tasty.testGroup "DA.Daml.Assistant.Install"
     , if isWindows
         then testInstallWindows
         else testInstallUnix
+    , Tasty.testCase "generate correct download URLs for any os and architecture" $ do
+        let fromText v =
+              case V.fromText v of
+                Left err -> Tasty.assertFailure ("Could not parse '" <> T.unpack v <> "' as a version: " <> err)
+                Right v -> pure v
+            assertVersion os arch version expected =
+              Tasty.assertEqual
+                "download strings don't match"
+                (V.renderVersionLocationOverrideOsArch version "" os arch)
+                expected
+            assertSplitVersion os arch rawReleaseVersion rawInternalVersion expected = do
+              releaseVersion <- fromText rawReleaseVersion
+              internalVersion <- fromText rawInternalVersion
+              assertVersion os arch (SplitReleaseVersion releaseVersion internalVersion) expected
+            assertOldVersion os arch rawOldVersion expected = do
+              oldVersion <- fromText rawOldVersion
+              assertVersion os arch (OldReleaseVersion oldVersion) expected
+
+
+        -- Unix
+        assertSplitVersion "linux" "x86_64" "2.9.4" "2.9.4"
+          "/v2.9.4/daml-sdk-2.9.4-linux.tar.gz"
+        assertSplitVersion "linux" "x86_64" "2.10.0-snapshot.20240703.0" "2.9.0-snapshot.20240625.12857.0.v2aea6caf"
+          "/v2.10.0-snapshot.20240703.0/daml-sdk-2.9.0-snapshot.20240625.12857.0.v2aea6caf-linux.tar.gz"
+        assertOldVersion "linux" "x86_64" "2.6.5"
+          "/v2.6.5/daml-sdk-2.6.5-linux.tar.gz"
+        assertSplitVersion "linux" "aarch64" "3.2.0-snapshot.20240828.0" "3.2.0-snapshot.20240819.13232.0.vee0b4864"
+          "/v3.2.0-snapshot.20240828.0/daml-sdk-3.2.0-snapshot.20240819.13232.0.vee0b4864-linux-aarch64.tar.gz"
+        assertSplitVersion "linux" "x86_64" "3.2.0-snapshot.20240828.0" "3.2.0-snapshot.20240819.13232.0.vee0b4864"
+          "/v3.2.0-snapshot.20240828.0/daml-sdk-3.2.0-snapshot.20240819.13232.0.vee0b4864-linux-x86_64.tar.gz"
+
+        -- Windows
+        assertSplitVersion "mingw32" "x86_64" "2.9.4" "2.9.4"
+          "/v2.9.4/daml-sdk-2.9.4-windows.tar.gz"
+        assertSplitVersion "mingw32" "x86_64" "2.10.0-snapshot.20240703.0" "2.9.0-snapshot.20240625.12857.0.v2aea6caf"
+          "/v2.10.0-snapshot.20240703.0/daml-sdk-2.9.0-snapshot.20240625.12857.0.v2aea6caf-windows.tar.gz"
+        assertOldVersion "mingw32" "x86_64" "2.6.5"
+          "/v2.6.5/daml-sdk-2.6.5-windows.tar.gz"
+        assertSplitVersion "mingw32" "aarch64" "3.2.0-snapshot.20240828.0" "3.2.0-snapshot.20240819.13232.0.vee0b4864"
+          "/v3.2.0-snapshot.20240828.0/daml-sdk-3.2.0-snapshot.20240819.13232.0.vee0b4864-windows-aarch64.tar.gz"
+        assertSplitVersion "mingw32" "x86_64" "3.2.0-snapshot.20240828.0" "3.2.0-snapshot.20240819.13232.0.vee0b4864"
+          "/v3.2.0-snapshot.20240828.0/daml-sdk-3.2.0-snapshot.20240819.13232.0.vee0b4864-windows-x86_64.tar.gz"
+
+        -- MacOS
+        assertSplitVersion "darwin" "x86_64" "2.9.4" "2.9.4"
+          "/v2.9.4/daml-sdk-2.9.4-macos.tar.gz"
+        assertSplitVersion "darwin" "x86_64" "2.10.0-snapshot.20240703.0" "2.9.0-snapshot.20240625.12857.0.v2aea6caf"
+          "/v2.10.0-snapshot.20240703.0/daml-sdk-2.9.0-snapshot.20240625.12857.0.v2aea6caf-macos.tar.gz"
+        assertOldVersion "darwin" "x86_64" "2.6.5"
+          "/v2.6.5/daml-sdk-2.6.5-macos.tar.gz"
+        assertSplitVersion "darwin" "aarch64" "3.2.0-snapshot.20240828.0" "3.2.0-snapshot.20240819.13232.0.vee0b4864"
+          "/v3.2.0-snapshot.20240828.0/daml-sdk-3.2.0-snapshot.20240819.13232.0.vee0b4864-macos-aarch64.tar.gz"
+        assertSplitVersion "darwin" "x86_64" "3.2.0-snapshot.20240828.0" "3.2.0-snapshot.20240819.13232.0.vee0b4864"
+          "/v3.2.0-snapshot.20240828.0/daml-sdk-3.2.0-snapshot.20240819.13232.0.vee0b4864-macos-x86_64.tar.gz"
     ]
 
 testInstallUnix :: Tasty.TestTree

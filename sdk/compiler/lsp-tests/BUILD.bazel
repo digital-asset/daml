@@ -53,4 +53,5 @@ da_haskell_test(
 daml_compile(
     name = "my-package",
     srcs = ["version1/Main.daml"],
+    target = "1.dev",
 )

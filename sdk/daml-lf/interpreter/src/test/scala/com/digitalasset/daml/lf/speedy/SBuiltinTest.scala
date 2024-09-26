@@ -10,7 +10,7 @@ import com.daml.lf.data.Ref.Party
 import com.daml.lf.data._
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion, StablePackages}
+import com.daml.lf.language._
 import com.daml.lf.speedy.SBuiltin.{SBCacheDisclosedContract, SBCrash, SBuildContractInfoStruct}
 import com.daml.lf.speedy.SError.{SError, SErrorCrash}
 import com.daml.lf.speedy.SExpr._
@@ -21,15 +21,14 @@ import com.daml.lf.testing.parser.ParserParameters
 import com.daml.lf.transaction.{GlobalKey, GlobalKeyWithMaintainers, TransactionVersion, Versioned}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ValueArithmeticError
-import org.scalatest.prop.TableDrivenPropertyChecks
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.Inside
+import org.scalatest.freespec.AnyFreeSpec
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.prop.TableDrivenPropertyChecks
 
 import java.util
 import scala.language.implicitConversions
 import scala.util.{Failure, Try}
-import scala.Ordering.Implicits._
 
 class SBuiltinTestV1 extends SBuiltinTest(LanguageMajorVersion.V1)
 //class SBuiltinTestV2 extends SBuiltinTest(LanguageMajorVersion.V2)
@@ -1562,8 +1561,9 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
 
     "throw DamlArithmeticException with proper name and argument" in {
 
+      import Numeric.Scale.{MaxValue => MaxScale, MinValue => MinScale}
       import SBuiltin._
-      import Numeric.Scale.{MinValue => MinScale, MaxValue => MaxScale}
+
       import java.math.BigDecimal
 
       val MaxNumeric0 = SNumeric(Numeric.maxValue(MinScale))
@@ -1889,6 +1889,42 @@ class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
       }
     }
   }
+
+  "ensure clause exception" - {
+    "can be caught on when creating a contract" in {
+      evalUpdateOnLedger(e"Mod:createFailingPreconditionAndCatchError") shouldBe Right(SUnit)
+    }
+
+    "cannot be caught when exercising a choice" in {
+      inside {
+        val cid = Value.ContractId.V1(Hash.hashPrivateKey("abc"))
+        evalUpdateAppOnLedger(
+          e"Mod:exerciseFailingPreconditionAndCatchError",
+          Array(SContractId(cid)),
+          getContract = Map(
+            cid -> Versioned(
+              version = TransactionVersion.StableVersions.max,
+              Value.ContractInstance(
+                packageName = pkg.name,
+                template = t"Mod:FailingPrecondition".asInstanceOf[Ast.TTyCon].tycon,
+                arg = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice))),
+              ),
+            )
+          ),
+        )
+      } {
+        case Left(
+              SError.SErrorDamlException(
+                IE.UnhandledException(
+                  _,
+                  Value.ValueRecord(_, ImmArray((_, Value.ValueText(msg)))),
+                )
+              )
+            ) =>
+          msg shouldBe "failed precondition"
+      }
+    }
+  }
 }
 
 final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
@@ -1965,9 +2001,46 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
 
           val aliceOwesBob : Mod:Iou = Mod:Iou { i = Mod:alice, u = Mod:bob, name = "alice owes bob" };
           val aliceOwesBobIface : Mod:Iface = to_interface @Mod:Iface @Mod:Iou Mod:aliceOwesBob;
-        }
 
+          // a template whose precondition always evaluates to false
+          record @serializable FailingPrecondition = { p: Party };
+          template (this: FailingPrecondition) = {
+            // Damlc will trhow DA.Exception.PreconditionFailed:PreconditionFailed but the engine expects no particular
+            // exception type so we can throw Ex1 without modifying the outcome of the tests.
+            precondition throw @Bool @Mod:Ex1 (Mod:Ex1 {message = "failed precondition"});
+            signatories Cons @Party [Mod:FailingPrecondition {p} this] (Nil @Party);
+            observers Nil @Party;
+            agreement "Agreement";
+
+            choice @nonConsuming SomeChoice (self) (u: Unit): Text
+              , controllers (Nil @Party)
+              , observers (Nil @Party)
+              to upure @Text "SomeChoice was called";
+          };
+
+          // checks that the FailedPrecondition error thrown when creating a FailingPrecondition instance can be caught
+          val createFailingPreconditionAndCatchError: Update Unit =
+            try @Unit
+              ubind _:(ContractId Mod:FailingPrecondition) <-
+                  create @Mod:FailingPrecondition (Mod:FailingPrecondition { p = Mod:alice })
+              in upure @Unit ()
+            catch
+              e -> Some @(Update Unit) (upure @Unit ());
+
+          // Tries to catch the error throw by the ensure clause of FailingPrecondition when exercising a choice on it,
+          // should fail to do so.
+          val exerciseFailingPreconditionAndCatchError: (ContractId Mod:FailingPrecondition) -> Update Text =
+            \(cid: ContractId Mod:FailingPrecondition) ->
+              try @Text
+                exercise @Mod:FailingPrecondition SomeChoice cid ()
+              catch
+                e -> Some @(Update Text) (upure @Text "some exception was caught");
+        }
     """
+
+  print(
+    s"""precondition throw @Bool @${StablePackagesV1.DA_Exception_PreconditionFailed.packageId}:DA.Exception.PreconditionFailed:PreconditionFailed (${StablePackagesV1.DA_Exception_PreconditionFailed.packageId}:DA.Exception.PreconditionFailed:PreconditionFailed { message = "" });"""
+  )
 
   val txVersion = TransactionVersion.assignNodeVersion(pkg.languageVersion)
 
@@ -2017,12 +2090,38 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
         Map[Value.ContractId, ContractInfo],
         Map[GlobalKey, Value.ContractId],
     ),
+  ] = evalUpdateOnLedger(SELet1(sexpr, SEMakeClo(Array(SELocS(1)), 1, SELocF(0))), getContract)
+
+  def evalUpdateOnLedger(
+      e: Expr,
+      getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] = Map.empty,
+  ): Either[SError, SValue] =
+    evalUpdateOnLedger(compiledPackages.compiler.unsafeCompile(e), getContract).map(_._1)
+
+  def evalUpdateAppOnLedger(
+      e: Expr,
+      args: Array[SValue],
+      getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance] = Map.empty,
+  ): Either[SError, SValue] =
+    evalUpdateOnLedger(SEApp(compiledPackages.compiler.unsafeCompile(e), args), getContract)
+      .map(_._1)
+
+  def evalUpdateOnLedger(
+      sexpr: SExpr,
+      getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance],
+  ): Either[
+    SError,
+    (
+        SValue,
+        Map[Value.ContractId, ContractInfo],
+        Map[GlobalKey, Value.ContractId],
+    ),
   ] = {
     val machine =
       Speedy.Machine.fromUpdateSExpr(
         compiledPackages,
         transactionSeed = crypto.Hash.hashPrivateKey("SBuiltinTest"),
-        updateSE = SELet1(sexpr, SEMakeClo(Array(SELocS(1)), 1, SELocF(0))),
+        updateSE = sexpr,
         committers = committers,
       )
 

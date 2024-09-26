@@ -45,7 +45,7 @@ private[lf] class ExplicitDisclosureTest(majorLanguageVersion: LanguageMajorVers
 
       "ledger queried when contract ID is not disclosed" in {
         ledgerQueriedWhenContractNotDisclosed(
-          SBFetchAny(None)(SEValue(SContractId(contractId)), SEValue.None),
+          SBFetchAny(None)(SEValue(SContractId(contractId))),
           getContract = Map(contractId -> ledgerCaveContract),
         )(result =>
           inside(result) {
@@ -58,7 +58,7 @@ private[lf] class ExplicitDisclosureTest(majorLanguageVersion: LanguageMajorVers
       "disclosure table queried when contract ID is disclosed" - {
         "contract ID in disclosure table only" in {
           disclosureTableQueriedWhenContractDisclosed(
-            SBFetchAny(None)(SEValue(SContractId(contractId)), SEValue.None),
+            SBFetchAny(None)(SEValue(SContractId(contractId))),
             disclosedCaveContract,
             disclosures = List(disclosedCaveContract),
           )(result =>
@@ -71,7 +71,7 @@ private[lf] class ExplicitDisclosureTest(majorLanguageVersion: LanguageMajorVers
 
         "contract ID in ledger and disclosure table" in {
           disclosureTableQueriedWhenContractDisclosed(
-            SBFetchAny(None)(SEValue(SContractId(contractId)), SEValue.None),
+            SBFetchAny(None)(SEValue(SContractId(contractId))),
             disclosedCaveContract,
             getContract = Map(contractId -> ledgerCaveContract),
             disclosures = List(disclosedCaveContract),
@@ -87,7 +87,7 @@ private[lf] class ExplicitDisclosureTest(majorLanguageVersion: LanguageMajorVers
       "contract IDs that are inactive" - {
         "ledger query fails when contract ID is not disclosed" in {
           ledgerQueryFailsWhenContractNotDisclosed(
-            SBFetchAny(None)(SEValue(SContractId(contractId)), SEValue.None),
+            SBFetchAny(None)(SEValue(SContractId(contractId))),
             contractId,
             "TestMod:destroyCave",
             committers = Set(ledgerParty),
@@ -107,7 +107,7 @@ private[lf] class ExplicitDisclosureTest(majorLanguageVersion: LanguageMajorVers
         "disclosure table query fails when contract ID is disclosed" - {
           "contract ID in disclosure table only" in {
             disclosureTableQueryFailsWhenContractDisclosed(
-              SBFetchAny(None)(SEValue(SContractId(contractId)), SEValue.None),
+              SBFetchAny(None)(SEValue(SContractId(contractId))),
               disclosedCaveContract,
               contractId,
               "TestMod:destroyCave",
@@ -127,7 +127,7 @@ private[lf] class ExplicitDisclosureTest(majorLanguageVersion: LanguageMajorVers
 
           "contract ID in ledger and disclosure table" in {
             disclosureTableQueryFailsWhenContractDisclosed(
-              SBFetchAny(None)(SEValue(SContractId(contractId)), SEValue.None),
+              SBFetchAny(None)(SEValue(SContractId(contractId))),
               disclosedCaveContract,
               contractId,
               "TestMod:destroyCave",

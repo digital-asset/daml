@@ -111,11 +111,11 @@ mergePackageMap ps = fst <$> foldM merge mempty ps
             supportsUpgrades = pkgSupportsUpgrades pkg
             pkgRef =
               case packageMetadata pkg of
-                Just (PackageMetadata {..}) | supportsUpgrades ->
+                Just (PackageMetadata {..}) | supportsUpgrades && not pkgIsUtil ->
                   PkgNameVer (packageName, packageVersion)
                 _ ->
                   PkgId pkgId
-            mOwnUnitId = guard (supportsUpgrades || isMain) >> packageUnitId pkg
+            mOwnUnitId = guard (supportsUpgrades && not pkgIsUtil || isMain) >> packageUnitId pkg
             newUsedUnitIds = maybe usedUnitIds (`Set.insert` usedUnitIds) mOwnUnitId
             -- Do not include utility packages, as there is nothing to generate
             newPkgs = if pkgIsUtil then pkgs else Map.insert pkgId (pkgRef, pkg) pkgs
