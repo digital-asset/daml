@@ -279,7 +279,9 @@ generateRawDalfRule =
                             pkgs <- getExternalPackages file
                             let world = LF.initWorldSelf pkgs pkg
                                 simplified = LF.simplifyModule world lfVersion v
-                            return (conversionWarnings, Just simplified)
+                            pure $! case Serializability.inferModule world simplified of
+                              Left err -> (ideErrorPretty file err : conversionWarnings, Nothing)
+                              Right dalf -> (conversionWarnings, Just dalf)
 
 getExternalPackages :: NormalizedFilePath -> Action [LF.ExternalPackage]
 getExternalPackages file = do
@@ -302,12 +304,9 @@ generateDalfRule opts =
         rawDalf <- use_ GenerateRawDalf file
         upgradedPackage <- join <$> useNoFile ExtractUpgradedPackage
         setPriority priorityGenerateDalf
-        pure $! case Serializability.inferModule world rawDalf of
-            Left err -> ([ideErrorPretty file err], Nothing)
-            Right dalf ->
-                let lfDiags = LF.checkModule world lfVersion dalf
-                    upgradeDiags = Upgrade.checkModule world dalf (foldMap Map.toList mbDalfDependencies) lfVersion (optUpgradeInfo opts) upgradedPackage
-                in second (dalf <$) (diagsToIdeResult file (lfDiags ++ upgradeDiags))
+        let lfDiags = LF.checkModule world lfVersion rawDalf
+            upgradeDiags = Upgrade.checkModule world rawDalf (foldMap Map.toList mbDalfDependencies) lfVersion (optUpgradeInfo opts) upgradedPackage
+        pure $! second (rawDalf <$) (diagsToIdeResult file (lfDiags ++ upgradeDiags))
 
 -- TODO Share code with typecheckModule in ghcide. The environment needs to be setup
 -- slightly differently but we can probably factor out shared code here.
