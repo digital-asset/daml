@@ -3,6 +3,5 @@
 
 module Main where
 
-data MyStruct1 b = MyStruct1 { field1 : b }
-data MyStruct2 b a = MyStruct2 { field1 : b, field2 : Optional a, field3: Optional b }
+data MyStruct a b = MyStruct { field1 : a, field2 : Optional b }
 

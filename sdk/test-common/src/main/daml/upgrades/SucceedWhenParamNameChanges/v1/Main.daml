@@ -3,5 +3,5 @@
 
 module Main where
 
-data MyStruct a = MyStruct { field1 : a }
-
+data MyStruct1 a = MyStruct1 { field1 : a }
+data MyStruct2 a b = MyStruct2 { field1 : a }
