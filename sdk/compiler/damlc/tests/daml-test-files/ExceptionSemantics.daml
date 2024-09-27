@@ -6,6 +6,7 @@
 -- @ERROR range=116:1-116:25; Unhandled exception: DA.Exception.ArithmeticError:ArithmeticError with message = "ArithmeticError while evaluating (DIV_INT64 1 0)."
 -- @ERROR range=131:1-131:11; Attempt to fetch or exercise a contract not visible to the reading parties.
 -- @ERROR range=142:1-142:11; Attempt to exercise a consumed contract
+-- @WARN warn-bad-exceptions
 module ExceptionSemantics where
 
 import Daml.Script

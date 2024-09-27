@@ -427,6 +427,12 @@ tests damlc =
                   "my-package"
                   "0.0.2"
                   LF.version2_dev
+            , testUpgradeCheck
+                  "SucceedsWhenAnExceptionIsOnlyDefinedInTheInitialPackage"
+                  Succeed
+            , testUpgradeCheck
+                  "FailsWhenAnExceptionIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage"
+                  (FailWithError "error type checking exception Main.E:\n  Tried to upgrade exception E, but exceptions cannot be upgraded. They should be removed in any upgrading package.")
             ]
        )
   where
