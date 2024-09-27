@@ -251,6 +251,9 @@ class AcsInspection(
       allStakeholders <- EitherT.fromEither[Future](stakeholdersE)
     } yield allStakeholders
   }
+
+  def pruningStatus()(implicit traceContext: TraceContext): Future[Option[PruningStatus]] =
+    activeContractStore.pruningStatus
 }
 
 object AcsInspection {

@@ -52,7 +52,7 @@ private[participant] class JournalGarbageCollector(
       for {
         domainIndex <- domainIndexF(implicitly)
         safeToPruneTsO <-
-          AcsCommitmentProcessor.safeToPrune(
+          PruningProcessor.latestSafeToPruneTick(
             requestJournalStore,
             domainIndex,
             sortedReconciliationIntervalsProvider,

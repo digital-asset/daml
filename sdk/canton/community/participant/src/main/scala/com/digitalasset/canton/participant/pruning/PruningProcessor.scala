@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.pruning
 
 import cats.data.EitherT
 import cats.syntax.parallel.*
+import cats.syntax.traverse.*
 import cats.syntax.traverseFilter.*
 import cats.{Eval, Monad}
 import com.daml.nameof.NameOf.functionFullName
@@ -13,13 +14,19 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveLong}
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
+import com.digitalasset.canton.ledger.participant.state.DomainIndex
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
   HasCloseContext,
   Lifecycle,
 }
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{
+  HasLoggerName,
+  NamedLoggerFactory,
+  NamedLogging,
+  NamedLoggingContext,
+}
 import com.digitalasset.canton.participant.Pruning.{
   LedgerPruningCancelledDueToShutdown,
   LedgerPruningError,
@@ -28,9 +35,14 @@ import com.digitalasset.canton.participant.Pruning.{
   LedgerPruningNothingToPrune,
 }
 import com.digitalasset.canton.participant.metrics.PruningMetrics
+import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.CommitmentsPruningBound
 import com.digitalasset.canton.participant.store.{
+  AcsCommitmentStore,
   DomainConnectionConfigStore,
+  InFlightSubmissionStore,
   ParticipantNodePersistentState,
+  RequestJournalStore,
+  SyncDomainEphemeralStateFactory,
   SyncDomainPersistentState,
 }
 import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
@@ -40,10 +52,12 @@ import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{EitherTUtil, FutureUtil, SimpleExecutionQueue}
+import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, FutureUtil, SimpleExecutionQueue}
+import com.google.common.annotations.VisibleForTesting
 import org.slf4j.event.Level
 
 import scala.concurrent.{ExecutionContext, Future}
+import scala.math.Ordering.Implicits.*
 
 /** The pruning processor coordinates the pruning of all participant node stores
   *
@@ -208,7 +222,7 @@ class PruningProcessor(
 
         safeCommitmentTick <- EitherT
           .fromOptionF[Future, LedgerPruningError, CantonTimestampSecond](
-            AcsCommitmentProcessor.safeToPrune(
+            PruningProcessor.latestSafeToPruneTick(
               persistent.requestJournalStore,
               domainIndex,
               sortedReconciliationIntervalsProvider,
@@ -550,7 +564,127 @@ class PruningProcessor(
 
 }
 
-private[pruning] object PruningProcessor {
+private[pruning] object PruningProcessor extends HasLoggerName {
+
+  /* Extracted to be able to test more easily */
+  @VisibleForTesting
+  private[pruning] def safeToPrune_(
+      cleanReplayF: Future[CantonTimestamp],
+      commitmentsPruningBound: CommitmentsPruningBound,
+      earliestInFlightSubmissionF: Future[Option[CantonTimestamp]],
+      sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
+      domainId: DomainId,
+  )(implicit
+      ec: ExecutionContext,
+      loggingContext: NamedLoggingContext,
+  ): Future[Option[CantonTimestampSecond]] =
+    for {
+      // This logic progressively lowers the timestamp based on the following constraints:
+      // 1. Pruning must not delete data needed for recovery (after the clean replay timestamp)
+      cleanReplayTs <- cleanReplayF
+
+      // 2. Pruning must not delete events from the event log for which there are still in-flight submissions.
+      // We check here the domain related events only.
+      //
+      // Processing of sequenced events may concurrently move the earliest in-flight submission back in time
+      // (from timeout to sequencing timestamp), but this can only happen if the corresponding request is not yet clean,
+      // i.e., the sequencing timestamp is after `cleanReplayTs`. So this concurrent modification does not affect
+      // the calculation below.
+      inFlightSubmissionTs <- earliestInFlightSubmissionF
+
+      getTickBeforeOrAt = (ts: CantonTimestamp) =>
+        sortedReconciliationIntervalsProvider
+          .reconciliationIntervals(ts)(loggingContext.traceContext)
+          .map(_.tickBeforeOrAt(ts))
+          .flatMap {
+            case Some(tick) =>
+              loggingContext.debug(s"Tick before or at $ts yields $tick on domain $domainId")
+              Future.successful(tick)
+            case None =>
+              Future.failed(
+                new RuntimeException(
+                  s"Unable to compute tick before or at `$ts` for domain $domainId"
+                )
+              )
+          }
+
+      // Latest potential pruning point is the ACS commitment tick before or at the "clean replay" timestamp
+      // and strictly before the earliest timestamp associated with an in-flight submission.
+      latestTickBeforeOrAt <- getTickBeforeOrAt(
+        cleanReplayTs.min(
+          inFlightSubmissionTs.fold(CantonTimestamp.MaxValue)(_.immediatePredecessor)
+        )
+      )
+
+      // Only acs commitment ticks whose ACS commitment fully matches all counter participant ACS commitments are safe,
+      // so look for the most recent such tick before latestTickBeforeOrAt if any.
+      tsSafeToPruneUpTo <- commitmentsPruningBound match {
+        case CommitmentsPruningBound.Outstanding(noOutstandingCommitmentsF) =>
+          noOutstandingCommitmentsF(latestTickBeforeOrAt.forgetRefinement).flatMap(
+            _.traverse(getTickBeforeOrAt)
+          )
+        case CommitmentsPruningBound.LastComputedAndSent(lastComputedAndSentF) =>
+          for {
+            lastComputedAndSentO <- lastComputedAndSentF
+            tickBeforeLastComputedAndSentO <- lastComputedAndSentO.traverse(getTickBeforeOrAt)
+          } yield tickBeforeLastComputedAndSentO.map(_.min(latestTickBeforeOrAt))
+      }
+
+      _ = loggingContext.debug {
+        val timestamps = Map(
+          "cleanReplayTs" -> cleanReplayTs.toString,
+          "inFlightSubmissionTs" -> inFlightSubmissionTs.toString,
+          "latestTickBeforeOrAt" -> latestTickBeforeOrAt.toString,
+          "tsSafeToPruneUpTo" -> tsSafeToPruneUpTo.toString,
+        )
+
+        s"Getting safe to prune commitment tick with data $timestamps on domain $domainId"
+      }
+
+      // Sanity check that safe pruning timestamp has not "increased" (which would be a coding bug).
+      _ = tsSafeToPruneUpTo.foreach(ts =>
+        ErrorUtil.requireState(
+          ts <= latestTickBeforeOrAt,
+          s"limit $tsSafeToPruneUpTo after $latestTickBeforeOrAt on domain $domainId",
+        )
+      )
+    } yield tsSafeToPruneUpTo
+
+  /** The latest commitment tick before or at the given time at which it is safe to prune. */
+  def latestSafeToPruneTick(
+      requestJournalStore: RequestJournalStore,
+      domainIndex: DomainIndex,
+      sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
+      acsCommitmentStore: AcsCommitmentStore,
+      inFlightSubmissionStore: InFlightSubmissionStore,
+      domainId: DomainId,
+      checkForOutstandingCommitments: Boolean,
+  )(implicit
+      ec: ExecutionContext,
+      loggingContext: NamedLoggingContext,
+  ): Future[Option[CantonTimestampSecond]] = {
+    implicit val traceContext: TraceContext = loggingContext.traceContext
+    val cleanReplayF = SyncDomainEphemeralStateFactory
+      .crashRecoveryPruningBoundInclusive(requestJournalStore, domainIndex)
+
+    val commitmentsPruningBound =
+      if (checkForOutstandingCommitments)
+        CommitmentsPruningBound.Outstanding(acsCommitmentStore.noOutstandingCommitments(_))
+      else
+        CommitmentsPruningBound.LastComputedAndSent(
+          acsCommitmentStore.lastComputedAndSent.map(_.map(_.forgetRefinement))
+        )
+
+    val earliestInFlightF = inFlightSubmissionStore.lookupEarliest(domainId)
+
+    safeToPrune_(
+      cleanReplayF,
+      commitmentsPruningBound = commitmentsPruningBound,
+      earliestInFlightF,
+      sortedReconciliationIntervalsProvider,
+      domainId,
+    )
+  }
   private final case class UnsafeOffset(
       globalOffset: GlobalOffset,
       domainId: DomainId,

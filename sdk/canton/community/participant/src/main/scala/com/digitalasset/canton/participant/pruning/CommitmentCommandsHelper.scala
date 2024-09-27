@@ -75,6 +75,14 @@ object CommitmentContractMetadata
     )
 
   override def name: String = "commitment contract metadata"
+
+  def create(
+      cid: LfContractId,
+      reassignmentCounter: ReassignmentCounter,
+  )(protocolVersion: ProtocolVersion): CommitmentContractMetadata =
+    CommitmentContractMetadata(cid, reassignmentCounter)(
+      protocolVersionRepresentativeFor(protocolVersion)
+    )
 }
 
 final case class CommitmentInspectContract(

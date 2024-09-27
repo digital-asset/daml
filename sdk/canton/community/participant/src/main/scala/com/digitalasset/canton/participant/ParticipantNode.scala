@@ -763,8 +763,10 @@ class ParticipantNodeBootstrap(
             InspectionServiceGrpc.bindService(
               new GrpcInspectionService(
                 sync.stateInspection,
+                ips,
                 indexedStringStore,
                 domainAliasManager,
+                futureSupervisor,
                 loggerFactory,
               ),
               executionContext,
