@@ -618,6 +618,27 @@ tests damlc =
                   "my-package"
                   "0.0.2"
                   version1_dev
+            , test
+                  "FailWhenParamCountChanges"
+                  (FailWithError "\ESC\\[0;91merror type checking data type Main.MyStruct:\n  EUpgradeDifferentParamsCount")
+                  versionDefault
+                  NoDependencies
+                  False
+                  True
+            , test
+                  "FailWhenParamKindChanges"
+                  (FailWithError "\ESC\\[0;91merror type checking data type Main.MyStruct:\n  EUpgradeDifferentParamsKinds")
+                  versionDefault
+                  NoDependencies
+                  False
+                  True
+            , test
+                  "SucceedWhenParamNameChanges"
+                  Succeed
+                  versionDefault
+                  NoDependencies
+                  False
+                  True
             ]
        )
   where
