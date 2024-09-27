@@ -6,7 +6,7 @@
 -- @ERROR range=148:1-148:25; Unhandled exception: DA.Exception.ArithmeticError:ArithmeticError@XXXXXX with message = "ArithmeticError while evaluating (DIV_INT64 1 0)."
 -- @WARN range=182:3-182:12; Use of divulged contracts is deprecated
 -- @ERROR range=185:1-185:11; Attempt to exercise a consumed contract
--- @WARN warn-bad-exceptions
+-- @WARN since-lf=1.17 2.0; warn-bad-exceptions
 module ExceptionSemantics where
 
 import Daml.Script
