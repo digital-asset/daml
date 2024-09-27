@@ -696,8 +696,8 @@ instance Pretty UnwarnableError where
       pprintDep (pkgId, Just meta) = pPrint pkgId <> "(" <> pPrint (packageName meta) <> ", " <> pPrint (packageVersion meta) <> ")"
       pprintDep (pkgId, Nothing) = pPrint pkgId
     EUpgradeMultiplePackagesWithSameNameAndVersion name version ids -> "Multiple packages with name " <> pPrint name <> " and version " <> pPrint (show version) <> ": " <> hcat (L.intersperse ", " (map pPrint ids))
-    EUpgradeDifferentParamsCount origin -> "EUpgradeDifferentParamsCount " <> pPrint origin
-    EUpgradeDifferentParamsKinds origin -> "EUpgradeDifferentParamsKinds " <> pPrint origin
+    EUpgradeDifferentParamsCount origin -> "The upgraded " <> pPrint origin <> " has changed the number of type variables it has."
+    EUpgradeDifferentParamsKinds origin -> "The upgraded " <> pPrint origin <> " has changed the kind of one of its type variables."
 
 
 instance Pretty UpgradedRecordOrigin where
