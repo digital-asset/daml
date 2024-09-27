@@ -619,6 +619,20 @@ tests damlc =
                   "0.0.2"
                   version1_dev
             , test
+                  "SucceedsWhenAnExceptionIsOnlyDefinedInTheInitialPackage"
+                  Succeed
+                  versionDefault
+                  NoDependencies
+                  False
+                  True
+            , test
+                  "FailsWhenAnExceptionIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage"
+                  (FailWithError "\ESC\\[0;91merror type checking exception Main.E:\n  Tried to upgrade exception E, but exceptions cannot be upgraded. They should be removed in any upgrading package.")
+                  versionDefault
+                  NoDependencies
+                  False
+                  True
+            , test
                   "FailWhenParamCountChanges"
                   (FailWithError "\ESC\\[0;91merror type checking data type Main.MyStruct:\n  The upgraded data type MyStruct has changed the number of type variables it has.")
                   versionDefault

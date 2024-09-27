@@ -587,11 +587,20 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
         "Convert errors about bad, non-upgradeable interface instances into warnings."
         idm
 
+    optWarnBadExceptions :: Parser Bool
+    optWarnBadExceptions =
+      flagYesNoAuto
+        "warn-bad-exceptions"
+        defaultUiWarnBadExceptions
+        "Convert errors about bad, non-upgradeable exceptions into warnings."
+        idm
+
     optUpgradeInfo :: Parser UpgradeInfo
     optUpgradeInfo = do
       uiTypecheckUpgrades <- optTypecheckUpgrades
       uiUpgradedPackagePath <- optUpgradeDar
       uiWarnBadInterfaceInstances <- optWarnBadInterfaceInstances
+      uiWarnBadExceptions <- optWarnBadExceptions
       pure UpgradeInfo {..}
 
 optGhcCustomOptions :: Parser [String]

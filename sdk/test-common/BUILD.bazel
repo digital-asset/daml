@@ -451,6 +451,8 @@ da_scala_dar_resources_library(
         # More more more tests ported from DamlcUpgrades.hs
         ("FailsWhenAnInterfaceIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage", {}, {}),
         ("SucceedsWhenAnInterfaceIsOnlyDefinedInTheInitialPackage", {}, {}),
+        ("FailsWhenAnExceptionIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage", {}, {}),
+        ("SucceedsWhenAnExceptionIsOnlyDefinedInTheInitialPackage", {}, {}),
         (
             "FailsWhenAnInstanceIsAddedUpgradedPackage",
             {},

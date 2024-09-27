@@ -37,6 +37,7 @@ module DA.Daml.Options.Types
     , UpgradeInfo (..)
     , defaultUiTypecheckUpgrades
     , defaultUiWarnBadInterfaceInstances
+    , defaultUiWarnBadExceptions
     , defaultUpgradeInfo
     ) where
 
@@ -141,6 +142,7 @@ data UpgradeInfo = UpgradeInfo
     { uiUpgradedPackagePath :: Maybe FilePath
     , uiTypecheckUpgrades :: Bool
     , uiWarnBadInterfaceInstances :: Bool
+    , uiWarnBadExceptions :: Bool
     }
 
 newtype IncrementalBuild = IncrementalBuild { getIncrementalBuild :: Bool }
@@ -291,11 +293,13 @@ defaultUpgradeInfo = UpgradeInfo
     { uiUpgradedPackagePath = Nothing
     , uiTypecheckUpgrades = defaultUiTypecheckUpgrades
     , uiWarnBadInterfaceInstances = defaultUiWarnBadInterfaceInstances
+    , uiWarnBadExceptions = defaultUiWarnBadExceptions
     }
 
-defaultUiTypecheckUpgrades, defaultUiWarnBadInterfaceInstances :: Bool
+defaultUiTypecheckUpgrades, defaultUiWarnBadInterfaceInstances, defaultUiWarnBadExceptions :: Bool
 defaultUiTypecheckUpgrades = True
 defaultUiWarnBadInterfaceInstances = False
+defaultUiWarnBadExceptions = False
 
 pkgNameVersion :: LF.PackageName -> Maybe LF.PackageVersion -> UnitId
 pkgNameVersion (LF.PackageName n) mbV =

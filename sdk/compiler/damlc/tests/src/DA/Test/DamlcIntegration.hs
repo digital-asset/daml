@@ -329,7 +329,7 @@ getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlags) =
                     , dlintHintFiles = NoDlintHintFiles
                     }
                 , optPackageImports = packageFlags
-                , optUpgradeInfo = (optUpgradeInfo opts0) { uiWarnBadInterfaceInstances = True }
+                , optUpgradeInfo = (optUpgradeInfo opts0) { uiWarnBadInterfaceInstances = True, uiWarnBadExceptions = True }
                 }
 
               mkIde options = do
