@@ -366,6 +366,9 @@ da_scala_dar_resources_library(
             {"data_dependencies": ["//test-common:upgrades-WarnsWhenExpressionChangesPackageId-dep-name2.dar"]},
         ),
         ("SucceedsWhenUpgradingLFVersionWithoutExpressionWarning", {}, {}),
+        ("FailWhenParamCountChanges", {}, {}),
+        ("FailWhenParamKindChanges", {}, {}),
+        ("SucceedWhenParamNameChanges", {}, {}),
     ]
 ]
 

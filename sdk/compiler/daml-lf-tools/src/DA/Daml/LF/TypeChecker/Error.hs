@@ -219,6 +219,8 @@ data UnwarnableError
   | EForbiddenNewImplementation !TypeConName !TypeConName
   | EUpgradeDependenciesFormACycle ![(PackageId, PackageMetadata)]
   | EUpgradeMultiplePackagesWithSameNameAndVersion !PackageName !RawPackageVersion ![PackageId]
+  | EUpgradeDifferentParamsCount !UpgradedRecordOrigin
+  | EUpgradeDifferentParamsKinds !UpgradedRecordOrigin
   deriving (Show)
 
 data WarnableError
@@ -687,6 +689,8 @@ instance Pretty UnwarnableError where
       where
       pprintDep (pkgId, meta) = pPrint pkgId <> "(" <> pPrint (packageName meta) <> ", " <> pPrint (packageVersion meta) <> ")"
     EUpgradeMultiplePackagesWithSameNameAndVersion name version ids -> "Multiple packages with name " <> pPrint name <> " and version " <> pPrint (show version) <> ": " <> hcat (L.intersperse ", " (map pPrint ids))
+    EUpgradeDifferentParamsCount origin -> "EUpgradeDifferentParamsCount " <> pPrint origin
+    EUpgradeDifferentParamsKinds origin -> "EUpgradeDifferentParamsKinds " <> pPrint origin
 
 instance Pretty UpgradedRecordOrigin where
   pPrint = \case
