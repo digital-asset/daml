@@ -222,6 +222,8 @@ data UnwarnableError
   | EUpgradeDependenciesFormACycle ![(PackageId, Maybe PackageMetadata)]
   | EUpgradeMultiplePackagesWithSameNameAndVersion !PackageName !RawPackageVersion ![PackageId]
   | EUpgradeTriedToUpgradeException !TypeConName
+  | EUpgradeDifferentParamsCount !UpgradedRecordOrigin
+  | EUpgradeDifferentParamsKinds !UpgradedRecordOrigin
   deriving (Show)
 
 data WarnableError
@@ -704,6 +706,8 @@ instance Pretty UnwarnableError where
     EUpgradeMultiplePackagesWithSameNameAndVersion name version ids -> "Multiple packages with name " <> pPrint name <> " and version " <> pPrint (show version) <> ": " <> hcat (L.intersperse ", " (map pPrint ids))
     EUpgradeTriedToUpgradeException exception ->
       "Tried to upgrade exception " <> pPrint exception <> ", but exceptions cannot be upgraded. They should be removed in any upgrading package."
+    EUpgradeDifferentParamsCount origin -> "EUpgradeDifferentParamsCount " <> pPrint origin
+    EUpgradeDifferentParamsKinds origin -> "EUpgradeDifferentParamsKinds " <> pPrint origin
 
 
 instance Pretty UpgradedRecordOrigin where

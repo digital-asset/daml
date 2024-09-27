@@ -74,7 +74,6 @@ final case class NamespaceDelegation(
     isRootDelegation: Boolean,
 ) extends TopologyStateUpdateMapping {
   // architecture-handbook-entry-end: NamespaceDelegation
-  // TODO(i12892): Add a private constructor, private apply, and factory method to check constraint
   require(
     isRootDelegation || namespace.fingerprint != target.fingerprint,
     s"Root certificate for $namespace needs to be set as isRootDelegation = true",
