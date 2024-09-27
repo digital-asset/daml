@@ -6,6 +6,7 @@ package com.digitalasset.canton.protocol.messages
 import cats.syntax.alternative.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{HasLoggerName, NamedLoggingContext}
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -166,7 +167,7 @@ object RootHashMessageRecipients extends HasLoggerName {
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
-  ): Future[WrongMembers] = {
+  ): FutureUnlessShutdown[WrongMembers] = FutureUnlessShutdown.outcomeF {
     val informeesAddressedAsGroup = rootHashMessagesRecipients.collect {
       case ParticipantsOfParty(informee) =>
         informee.toLf

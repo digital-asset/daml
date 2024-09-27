@@ -4,8 +4,10 @@
 package com.digitalasset.canton.participant.admin.grpc
 
 import cats.data.EitherT
-import cats.implicits.toTraverseOps
+import cats.implicits.{toBifunctorOps, toTraverseOps}
 import cats.syntax.either.*
+import cats.syntax.parallel.*
+import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.participant.v30.InspectionServiceGrpc.InspectionService
 import com.digitalasset.canton.admin.participant.v30.{
@@ -21,29 +23,43 @@ import com.digitalasset.canton.admin.participant.v30.{
   SetConfigForSlowCounterParticipants,
   TimeRange,
 }
-import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.concurrent.FutureSupervisor
+import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
+import com.digitalasset.canton.error.CantonError
+import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.InspectionServiceErrorGroup
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection.InFlightCount
 import com.digitalasset.canton.participant.domain.DomainAliasManager
+import com.digitalasset.canton.participant.pruning.CommitmentContractMetadata
+import com.digitalasset.canton.protocol.DomainParametersLookup
 import com.digitalasset.canton.protocol.messages.{
   CommitmentPeriodState,
   DomainSearchCommitmentPeriod,
   ReceivedAcsCommitment,
   SentAcsCommitment,
 }
+import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore}
+import com.digitalasset.canton.topology.client.IdentityProvidingServiceClient
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
+import com.digitalasset.canton.util.FutureInstances.*
+import com.digitalasset.canton.util.{EitherTUtil, GrpcStreamingUtils}
 import io.grpc.stub.StreamObserver
 
+import java.io.OutputStream
 import scala.concurrent.{ExecutionContext, Future}
 
 class GrpcInspectionService(
     syncStateInspection: SyncStateInspection,
+    ips: IdentityProvidingServiceClient,
     indexedStringStore: IndexedStringStore,
     domainAliasManager: DomainAliasManager,
+    futureSupervisor: FutureSupervisor,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit
     executionContext: ExecutionContext
@@ -278,7 +294,167 @@ class GrpcInspectionService(
   override def openCommitment(
       request: OpenCommitment.Request,
       responseObserver: StreamObserver[OpenCommitment.Response],
-  ): Unit = ???
+  ): Unit =
+    GrpcStreamingUtils.streamToClient(
+      (out: OutputStream) => openCommitment(request, out),
+      responseObserver,
+      byteString => OpenCommitment.Response(byteString),
+    )
+
+  private def openCommitment(
+      request: OpenCommitment.Request,
+      out: OutputStream,
+  ): Future[Unit] = {
+    implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
+    val result =
+      for {
+        // 1. Check that the commitment to open matches a sent local commitment
+        domainId <- CantonGrpcUtil.wrapErrUS(
+          DomainId.fromProtoPrimitive(request.domainId, "domainId")
+        )
+
+        domainAlias <- EitherT
+          .fromOption[FutureUnlessShutdown](
+            domainAliasManager.aliasForDomainId(domainId),
+            InspectionServiceError.IllegalArgumentError
+              .Error(s"Unknown domain ID $domainId"),
+          )
+          .leftWiden[CantonError]
+
+        pv <- EitherTUtil
+          .fromFuture(
+            FutureUnlessShutdown.outcomeF(syncStateInspection.getProtocolVersion(domainAlias)),
+            err => InspectionServiceError.InternalServerError.Error(err.toString),
+          )
+          .leftWiden[CantonError]
+
+        cantonTickTs <- CantonGrpcUtil.wrapErrUS(
+          ProtoConverter.parseRequired(
+            CantonTimestamp.fromProtoTimestamp,
+            "periodEndTick",
+            request.periodEndTick,
+          )
+        )
+
+        counterParticipant <- CantonGrpcUtil.wrapErrUS(
+          ParticipantId
+            .fromProtoPrimitive(
+              request.computedForCounterParticipantUid,
+              s"computedForCounterParticipantUid",
+            )
+        )
+
+        computedCmts = syncStateInspection.findComputedCommitments(
+          domainAlias,
+          cantonTickTs,
+          cantonTickTs,
+          Some(counterParticipant),
+        )
+
+        // 2. Retrieve the contracts for the domain and the time of the commitment
+
+        topologySnapshot <- EitherT.fromOption[FutureUnlessShutdown](
+          ips.forDomain(domainId),
+          InspectionServiceError.InternalServerError.Error(
+            s"Failed to retrieve ips for domain: $domainId"
+          ),
+        )
+
+        snapshot <- EitherTUtil
+          .fromFuture(
+            topologySnapshot.awaitSnapshotUS(cantonTickTs),
+            err => InspectionServiceError.InternalServerError.Error(err.toString),
+          )
+          .leftWiden[CantonError]
+
+        // Check that the given timestamp is a valid tick. We cannot move this check up, because .get(cantonTickTs)
+        // would wait if the timestamp is in the future. Here, we already validated that the timestamp is in the past
+        // by checking it corresponds to an already computed commitment, and already obtained a snapshot at the
+        // given timestamp.
+        domainParamsF <- EitherTUtil
+          .fromFuture(
+            FutureUnlessShutdown.outcomeF(
+              DomainParametersLookup
+                .forAcsCommitmentDomainParameters(
+                  pv,
+                  topologySnapshot,
+                  futureSupervisor,
+                  loggerFactory,
+                )
+                .get(cantonTickTs, false)
+            ),
+            err => InspectionServiceError.InternalServerError.Error(err.toString),
+          )
+          .leftWiden[CantonError]
+
+        _ <- EitherT.fromEither[FutureUnlessShutdown](
+          CantonTimestampSecond
+            .fromCantonTimestamp(cantonTickTs)
+            .flatMap(ts =>
+              Either.cond(
+                ts.getEpochSecond % domainParamsF.reconciliationInterval.duration.getSeconds == 0,
+                (),
+                "",
+              )
+            )
+            .leftMap[CantonError](_ =>
+              InspectionServiceError.IllegalArgumentError.Error(
+                s"""The participant cannot open commitment ${request.commitment} for participant
+                   | ${request.computedForCounterParticipantUid} on domain ${request.domainId} because the given
+                   | period end tick ${request.periodEndTick} is not a valid reconciliation interval tick""".stripMargin
+              )
+            )
+        )
+
+        _ <- EitherT.cond[FutureUnlessShutdown](
+          computedCmts.exists { case (period, participant, cmt) =>
+            period.fromExclusive < cantonTickTs && period.toInclusive >= cantonTickTs && participant == counterParticipant && cmt == request.commitment
+          },
+          (),
+          InspectionServiceError.IllegalArgumentError.Error(
+            s"""The participant cannot open commitment ${request.commitment} for participant
+            ${request.computedForCounterParticipantUid} on domain ${request.domainId} and period end
+            ${request.periodEndTick} because the participant has not computed such a commitment at the given tick timestamp for the given counter participant""".stripMargin
+          ): CantonError,
+        )
+
+        counterParticipantParties <- EitherTUtil
+          .fromFuture(
+            FutureUnlessShutdown.outcomeF(
+              snapshot
+                .inspectKnownParties(
+                  filterParty = "",
+                  filterParticipant = counterParticipant.filterString,
+                )
+            ),
+            err => InspectionServiceError.InternalServerError.Error(err.toString),
+          )
+          .leftWiden[CantonError]
+
+        contractsAndTransferCounter <- EitherTUtil
+          .fromFuture(
+            FutureUnlessShutdown.outcomeF(
+              syncStateInspection.activeContractsStakeholdersFilter(
+                domainId,
+                cantonTickTs,
+                counterParticipantParties.map(_.toLf),
+              )
+            ),
+            err => InspectionServiceError.InternalServerError.Error(err.toString),
+          )
+          .leftWiden[CantonError]
+
+        commitmentContractsMetadata = contractsAndTransferCounter.map {
+          case (cid, transferCounter) =>
+            CommitmentContractMetadata.create(cid, transferCounter)(pv)
+        }
+
+      } yield {
+        commitmentContractsMetadata.foreach(c => c.writeDelimitedTo(out).foreach(_ => out.flush()))
+      }
+
+    CantonGrpcUtil.mapErrNewEUS(result)
+  }
 
   /** TODO(#9557) R2
     */
@@ -314,5 +490,39 @@ class GrpcInspectionService(
         ),
     )
 
+  }
+}
+
+object InspectionServiceError extends InspectionServiceErrorGroup {
+  sealed trait InspectionServiceError extends CantonError
+
+  @Explanation("""Inspection has failed because of an internal server error.""")
+  @Resolution("Identify the error in the server log.")
+  object InternalServerError
+      extends ErrorCode(
+        id = "INTERNAL_INSPECTION_ERROR",
+        ErrorCategory.SystemInternalAssumptionViolated,
+      ) {
+    final case class Error(reason: String)(implicit val loggingContext: ErrorLoggingContext)
+        extends CantonError.Impl(
+          cause = "An error occurred in the inspection service: " + reason
+        )
+        with InspectionServiceError
+  }
+
+  @Explanation("""Inspection has failed because of an illegal argument.""")
+  @Resolution(
+    "Identify the illegal argument in the error details of the gRPC status message that the call returned."
+  )
+  object IllegalArgumentError
+      extends ErrorCode(
+        id = "ILLEGAL_ARGUMENT_INSPECTION_ERROR",
+        ErrorCategory.InvalidIndependentOfSystemState,
+      ) {
+    final case class Error(reason: String)(implicit val loggingContext: ErrorLoggingContext)
+        extends CantonError.Impl(
+          cause = "The inspection service received an illegal argument: " + reason
+        )
+        with InspectionServiceError
   }
 }

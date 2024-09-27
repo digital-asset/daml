@@ -962,7 +962,7 @@ class AcsCommitmentProcessorTest
     "compute timestamp with no clean replay timestamp (no noOutstandingCommitment tick known)" in {
       val longInterval = PositiveSeconds.tryOfDays(100)
       for {
-        res <- AcsCommitmentProcessor.safeToPrune_(
+        res <- PruningProcessor.safeToPrune_(
           cleanReplayF = Future.successful(CantonTimestamp.MinValue),
           commitmentsPruningBound =
             CommitmentsPruningBound.Outstanding(_ => Future.successful(None)),
@@ -977,7 +977,7 @@ class AcsCommitmentProcessorTest
     "compute safeToPrune timestamp with no clean replay timestamp" in {
       val longInterval = PositiveSeconds.tryOfDays(100)
       for {
-        res <- AcsCommitmentProcessor.safeToPrune_(
+        res <- PruningProcessor.safeToPrune_(
           cleanReplayF = Future.successful(CantonTimestamp.MinValue),
           commitmentsPruningBound = CommitmentsPruningBound.Outstanding(_ =>
             Future.successful(Some(CantonTimestamp.MinValue))
@@ -1004,7 +1004,7 @@ class AcsCommitmentProcessorTest
           _ => Future.successful(Some(CantonTimestamp.MinValue))
         val lastComputedAndSentF = Future.successful(Some(now))
 
-        AcsCommitmentProcessor.safeToPrune_(
+        PruningProcessor.safeToPrune_(
           cleanReplayF = Future.successful(now),
           commitmentsPruningBound =
             if (checkForOutstandingCommitments)
@@ -1401,7 +1401,7 @@ class AcsCommitmentProcessorTest
         _ <- requestJournalStore.insert(
           RequestData.clean(RequestCounter(0), CantonTimestamp.Epoch, CantonTimestamp.Epoch, None)
         )
-        res <- AcsCommitmentProcessor.safeToPrune(
+        res <- PruningProcessor.latestSafeToPruneTick(
           requestJournalStore,
           DomainIndex.of(
             RequestIndex(
@@ -1431,7 +1431,7 @@ class AcsCommitmentProcessorTest
       val inFlightSubmissionStore = new InMemoryInFlightSubmissionStore(loggerFactory)
 
       for {
-        res <- AcsCommitmentProcessor.safeToPrune(
+        res <- PruningProcessor.latestSafeToPruneTick(
           requestJournalStore,
           DomainIndex.empty,
           constantSortedReconciliationIntervalsProvider(defaultReconciliationInterval),
@@ -1488,7 +1488,7 @@ class AcsCommitmentProcessorTest
         _ <- requestJournalStore.insert(
           RequestData(RequestCounter(3), RequestState.Pending, ts3, None)
         )
-        res1 <- AcsCommitmentProcessor.safeToPrune(
+        res1 <- PruningProcessor.latestSafeToPruneTick(
           requestJournalStore,
           DomainIndex(
             Some(
@@ -1517,7 +1517,7 @@ class AcsCommitmentProcessorTest
         _ <- requestJournalStore
           .replace(RequestCounter(3), ts3, RequestState.Clean, Some(ts3))
           .valueOrFail("advance RC 3 to clean")
-        res2 <- AcsCommitmentProcessor.safeToPrune(
+        res2 <- PruningProcessor.latestSafeToPruneTick(
           requestJournalStore,
           DomainIndex(
             Some(
@@ -1577,7 +1577,7 @@ class AcsCommitmentProcessorTest
           RequestData.clean(RequestCounter(2), tsCleanRequest, tsCleanRequest)
         )
         _ <- requestJournalStore.insert(RequestData(RequestCounter(3), RequestState.Pending, ts3))
-        res <- AcsCommitmentProcessor.safeToPrune(
+        res <- PruningProcessor.latestSafeToPruneTick(
           requestJournalStore,
           DomainIndex(
             Some(
@@ -1666,7 +1666,7 @@ class AcsCommitmentProcessorTest
           Map(submission2.messageId -> SequencedSubmission(SequencerCounter(2), tsCleanRequest)),
         )
         testeeSafeToPrune = () =>
-          AcsCommitmentProcessor.safeToPrune(
+          PruningProcessor.latestSafeToPruneTick(
             requestJournalStore,
             DomainIndex(
               Some(

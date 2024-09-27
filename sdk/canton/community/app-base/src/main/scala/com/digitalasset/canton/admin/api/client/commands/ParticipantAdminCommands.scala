@@ -1035,7 +1035,7 @@ object ParticipantAdminCommands {
           .Request(
             AcsCommitment.commitmentTypeToProto(commitment),
             domainId.toProtoPrimitive,
-            computedForCounterParticipant.uid.toProtoPrimitive,
+            computedForCounterParticipant.toProtoPrimitive,
             Some(toInclusive.toProtoTimestamp),
           )
       )
@@ -1091,7 +1091,6 @@ object ParticipantAdminCommands {
       override def timeoutType: TimeoutType = DefaultUnboundedTimeout
     }
 
-    // TODO(#18451) R5: The code below should be sufficient.
     final case class LookupReceivedAcsCommitments(
         domainTimeRanges: Seq[DomainTimeRange],
         counterParticipants: Seq[ParticipantId],
@@ -1216,7 +1215,6 @@ object ParticipantAdminCommands {
         state,
       )
 
-    // TODO(#18451) R5: The code below should be sufficient.
     final case class LookupSentAcsCommitments(
         domainTimeRanges: Seq[DomainTimeRange],
         counterParticipants: Seq[ParticipantId],

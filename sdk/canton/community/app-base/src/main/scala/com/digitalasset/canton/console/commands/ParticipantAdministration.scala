@@ -795,7 +795,7 @@ class CommitmentsAdministrationGroup(
     """ Returns the contract ids and the mismatch reason.
       | Returns an error if the participant cannot anymore retrieve the data for the given contracts.
       | The arguments are:
-      | - contracts: The contract ids and reassignment counters that we check against our ACS
+      | - counterParticipantContracts: The contract ids and reassignment counters that we check against our ACS
       | - expectedDomain: The domain that the counterParticipant believes the given contracts reside on
       | - timestamp: The timestamp when the given contracts are active on the counter-participant
       | - counterParticipant: The counter participant with whom the contracts should be shared
@@ -803,13 +803,15 @@ class CommitmentsAdministrationGroup(
       """.stripMargin
   )
   def active_contracts_mismatches(
-      contracts: Seq[CommitmentContractMetadata],
+      counterParticipantContracts: Seq[CommitmentContractMetadata],
       expectedDomain: DomainId,
       timestamp: CantonTimestamp,
       counterParticipant: ParticipantId,
       timeout: NonNegativeDuration = timeouts.unbounded,
   ): Map[LfContractId, MismatchReason] =
-    check(FeatureFlag.Preview)(Map.empty[LfContractId, MismatchReason])
+    check(FeatureFlag.Preview) {
+      Map.empty[LfContractId, MismatchReason]
+    }
 
   @Help.Summary(
     "Download the contract payloads from the counter participant necessary for reconciliation",
@@ -852,7 +854,6 @@ class CommitmentsAdministrationGroup(
     }
   }
 
-  // TODO(#18451) R5
   @Help.Summary(
     "List the counter-participants of a participant and the ACS commitments received from them together with" +
       "the commitment state."
@@ -896,7 +897,6 @@ class CommitmentsAdministrationGroup(
       )
     )
 
-  // TODO(#18451) R5
   @Help.Summary(
     "List the counter-participants of a participant and the ACS commitments that the participant computed and sent to" +
       "them, together with the commitment state."

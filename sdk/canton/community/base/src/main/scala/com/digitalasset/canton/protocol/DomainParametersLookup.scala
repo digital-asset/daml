@@ -8,6 +8,7 @@ import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
+import com.digitalasset.canton.time.PositiveSeconds
 import com.digitalasset.canton.topology.client.DomainTopologyClient
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ProtocolVersion
@@ -100,8 +101,31 @@ object DomainParametersLookup {
       loggerFactory,
     )
 
+  def forAcsCommitmentDomainParameters(
+      pv: ProtocolVersion,
+      topologyClient: DomainTopologyClient,
+      futureSupervisor: FutureSupervisor,
+      loggerFactory: NamedLoggerFactory,
+  )(implicit ec: ExecutionContext): DynamicDomainParametersLookup[AcsCommitmentDomainParameters] =
+    new DynamicDomainParametersLookup(
+      params =>
+        AcsCommitmentDomainParameters(
+          params.reconciliationInterval,
+          params.acsCommitmentsCatchUpConfig,
+        ),
+      topologyClient,
+      pv,
+      futureSupervisor,
+      loggerFactory,
+    )
+
   final case class SequencerDomainParameters(
       confirmationRequestsMaxRate: NonNegativeInt,
       maxRequestSize: MaxRequestSize,
+  )
+
+  final case class AcsCommitmentDomainParameters(
+      reconciliationInterval: PositiveSeconds,
+      acsCommitmentsCatchUpConfig: Option[AcsCommitmentsCatchUpConfig],
   )
 }

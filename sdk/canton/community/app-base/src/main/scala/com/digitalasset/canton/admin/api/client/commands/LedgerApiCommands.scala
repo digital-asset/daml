@@ -459,12 +459,16 @@ object LedgerApiCommands {
       def actAs: Set[LfPartyId]
       def readAs: Set[LfPartyId]
       def participantAdmin: Boolean
+      def identityProviderAdmin: Boolean
       def readAsAnyParty: Boolean
 
       protected def getRights: Seq[UserRight] =
         actAs.toSeq.map(x => UserRight().withCanActAs(UserRight.CanActAs(x))) ++
           readAs.toSeq.map(x => UserRight().withCanReadAs(UserRight.CanReadAs(x))) ++
           (if (participantAdmin) Seq(UserRight().withParticipantAdmin(UserRight.ParticipantAdmin()))
+           else Seq()) ++
+          (if (identityProviderAdmin)
+             Seq(UserRight().withIdentityProviderAdmin(UserRight.IdentityProviderAdmin()))
            else Seq()) ++
           (if (readAsAnyParty) Seq(UserRight().withCanReadAsAnyParty(UserRight.CanReadAsAnyParty()))
            else Seq())
@@ -476,6 +480,7 @@ object LedgerApiCommands {
         primaryParty: Option[LfPartyId],
         readAs: Set[LfPartyId],
         participantAdmin: Boolean,
+        identityProviderAdmin: Boolean,
         isDeactivated: Boolean,
         annotations: Map[String, String],
         identityProviderId: String,
@@ -670,6 +675,7 @@ object LedgerApiCommands {
           actAs: Set[LfPartyId],
           readAs: Set[LfPartyId],
           participantAdmin: Boolean,
+          identityProviderAdmin: Boolean,
           identityProviderId: String,
           readAsAnyParty: Boolean,
       ) extends BaseCommand[GrantUserRightsRequest, GrantUserRightsResponse, UserRights]
@@ -699,6 +705,7 @@ object LedgerApiCommands {
           actAs: Set[LfPartyId],
           readAs: Set[LfPartyId],
           participantAdmin: Boolean,
+          identityProviderAdmin: Boolean,
           identityProviderId: String,
           readAsAnyParty: Boolean,
       ) extends BaseCommand[RevokeUserRightsRequest, RevokeUserRightsResponse, UserRights]
