@@ -20,7 +20,7 @@ import com.digitalasset.canton.ledger.error.LedgerApiErrors.{
 }
 import com.digitalasset.canton.ledger.error.ParticipantErrorGroup.LedgerApiErrorGroup.RequestValidationErrorGroup
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.language.Reference
+import com.digitalasset.daml.lf.language.{LookupError, Reference}
 
 import java.time.Duration
 
@@ -49,14 +49,12 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
       }
 
       final case class InterpretationReject(
-          pkgRef: Ref.PackageRef,
+          packageRef: Ref.PackageRef,
           reference: Reference,
       )(implicit
           loggingContext: ContextualizedErrorLogger
       ) extends DamlErrorWithDefiniteAnswer(
-            // TODO(i21337) Use LookupError.MissingPackage.pretty(packageRef, reference)
-            //              once it can accept a package reference
-            cause = s"Couldn't find package $pkgRef while looking for " + reference.pretty
+            cause = LookupError.MissingPackage.pretty(packageRef, reference)
           )
     }
 

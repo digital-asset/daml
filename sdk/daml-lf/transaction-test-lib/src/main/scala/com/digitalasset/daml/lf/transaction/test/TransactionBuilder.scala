@@ -155,6 +155,9 @@ object TransactionBuilder {
     implicit def toPackageId(s: String): Ref.PackageId =
       Ref.PackageId.assertFromString(s)
 
+    implicit def toPackageRef(s: String): Ref.PackageRef =
+      Ref.PackageRef.assertFromString(s)
+
     implicit def toDottedName(s: String): Ref.DottedName =
       Ref.DottedName.assertFromString(s)
 

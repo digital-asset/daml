@@ -4,7 +4,7 @@
 package com.digitalasset.daml.lf
 package engine
 
-import com.digitalasset.daml.lf.data.Ref.{Identifier, Name, PackageId}
+import com.digitalasset.daml.lf.data.Ref.{Identifier, Name, PackageId, PackageRef}
 import com.digitalasset.daml.lf.language.{Ast, LookupError}
 import com.digitalasset.daml.lf.transaction.{
   GlobalKey,
@@ -86,7 +86,7 @@ final class ValueEnricher(
 
   private[this] def handleLookup[X](lookup: => Either[LookupError, X]) = lookup match {
     case Right(value) => ResultDone(value)
-    case Left(LookupError.MissingPackage(pkgId, context)) =>
+    case Left(LookupError.MissingPackage(PackageRef.Id(pkgId), context)) =>
       loadPackage(pkgId, context)
         .flatMap(_ =>
           lookup match {
