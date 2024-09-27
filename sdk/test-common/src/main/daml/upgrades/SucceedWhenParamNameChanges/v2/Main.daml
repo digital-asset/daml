@@ -1,0 +1,8 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Main where
+
+data MyStruct1 b = MyStruct1 { field1 : b }
+data MyStruct2 b a = MyStruct2 { field1 : b, field2 : Optional a, field3: Optional b }
+

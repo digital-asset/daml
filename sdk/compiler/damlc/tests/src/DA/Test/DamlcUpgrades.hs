@@ -593,6 +593,34 @@ tests damlc =
                   "my-package"
                   "0.0.2"
                   LF.version2_dev
+            , test
+                  "FailWhenParamCountChanges"
+                  (FailWithError "\ESC\\[0;91merror type checking data type Main.MyStruct:\n  The upgraded data type MyStruct has changed the number of type variables it has.")
+                  versionDefault
+                  NoDependencies
+                  False
+                  True
+            , test
+                  "FailWhenParamKindChanges"
+                  (FailWithError "\ESC\\[0;91merror type checking data type Main.MyStruct:\n  The upgraded data type MyStruct has changed the kind of one of its type variables.")
+                  versionDefault
+                  NoDependencies
+                  False
+                  True
+            , test
+                  "SucceedWhenParamNameChanges"
+                  Succeed
+                  versionDefault
+                  NoDependencies
+                  False
+                  True
+            , test
+                  "SucceedWhenPhantomParamBecomesUsed"
+                  Succeed
+                  versionDefault
+                  NoDependencies
+                  False
+                  True
             ]
        )
   where
