@@ -7,28 +7,18 @@ import org.apache.pekko.stream.ThrottleMode
 import com.digitalasset.canton.http.WebsocketConfig as WSC
 import scalaz.Show
 
-import java.io.File
-import java.nio.file.Path
-import com.daml.tls.TlsConfiguration
 import scala.concurrent.duration.*
 
 // The internal transient scopt structure *and* StartSettings; external `start`
 // users should extend StartSettings or DefaultStartSettings themselves
-// TODO(#13303): Move to LocalParticipantConfig
 final case class JsonApiConfig(
-                                address: String = com.digitalasset.canton.cliopts.Http.defaultAddress,
-                                httpPort: Option[Int] = None,
-                                portFile: Option[Path] = None,
-                                httpsConfiguration: Option[TlsConfiguration] = None,
-                                allowNonHttps: Boolean = false,
-                                wsConfig: Option[WebsocketConfig] = None,
-                                debugLoggingOfHttpBodies: Boolean = false,
-                                damlDefinitionsServiceEnabled: Boolean = false,
-                              ) extends StartSettings
+    server: HttpServerConfig,
+    allowInsecureTokens: Boolean = false,
+    websocketConfig: Option[WebsocketConfig] = None,
+    debugLoggingOfHttpBodies: Boolean = false,
+    damlDefinitionsServiceEnabled: Boolean = false,
+  ) extends StartSettings
 
-object JsonApiConfig {
-  val Empty = JsonApiConfig()
-}
 
 // It is public for Daml Hub
 final case class WebsocketConfig(

@@ -445,11 +445,9 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
 
     val rootHashMessagesRecipients = correctRecipients
       .flatMap(recipients =>
-        recipients
-          .collect {
-            case m @ MemberRecipient(_: ParticipantId) => m
-            case pop: ParticipantsOfParty => pop
-          }
+        recipients.collect { case m @ MemberRecipient(_: ParticipantId) =>
+          m
+        }
       )
     def repeatedMembers(recipients: Seq[Recipient]): Seq[Recipient] = {
       val repeatedRecipientsB = Seq.newBuilder[Recipient]
@@ -535,14 +533,7 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
         )
       )
 
-      val superfluousInformeesO = Option.when(wrongMembers.superfluousInformees.nonEmpty)(
-        WrongMemberError(
-          show"Superfluous root hash message for group addressed parties: ${wrongMembers.superfluousInformees}",
-          mayBeDueToTopologyChange = false,
-        )
-      )
-
-      missingInformeeParticipantsO.toList ++ superfluousMembersO ++ superfluousInformeesO
+      missingInformeeParticipantsO.toList ++ superfluousMembersO
     }
 
     // Retrieve the topology snapshot at submission time. Return `None` in case of error.

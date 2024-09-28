@@ -90,14 +90,11 @@ object RecipientsTree {
     RecipientsTree(group, Seq.empty)
 
   def fromProtoV30(
-      treeProto: v30.RecipientsTree,
-      supportGroupAddressing: Boolean,
+      treeProto: v30.RecipientsTree
   ): ParsingResult[RecipientsTree] =
     for {
       members <- treeProto.recipients.traverse(str =>
-        if (supportGroupAddressing)
-          Recipient.fromProtoPrimitive(str, "RecipientsTreeProto.recipients")
-        else Member.fromProtoPrimitive(str, "RecipientsTreeProto.recipients").map(MemberRecipient)
+        Recipient.fromProtoPrimitive(str, "RecipientsTreeProto.recipients")
       )
       recipientsNonEmpty <- NonEmpty
         .from(members)
@@ -108,7 +105,7 @@ object RecipientsTree {
           )
         )
       children = treeProto.children
-      childTrees <- children.toList.traverse(fromProtoV30(_, supportGroupAddressing))
+      childTrees <- children.toList.traverse(fromProtoV30)
     } yield RecipientsTree(
       recipientsNonEmpty.toSet,
       childTrees,

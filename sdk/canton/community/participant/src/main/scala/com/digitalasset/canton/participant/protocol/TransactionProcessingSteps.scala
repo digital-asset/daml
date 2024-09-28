@@ -657,22 +657,7 @@ class TransactionProcessingSteps(
         if (
           transactionViewEnvelope.recipients.leafRecipients.contains(MemberRecipient(participantId))
         ) Future.successful(completeRandomnessPromise())
-        else {
-          // check also if participant is addressed as part of a group address
-          val parties = transactionViewEnvelope.recipients.leafRecipients.collect {
-            case ParticipantsOfParty(party) => party
-          }
-          if (parties.nonEmpty) {
-            snapshot.ipsSnapshot
-              .activeParticipantsOfParties(
-                parties.toSeq.map(_.toLf)
-              )
-              .map { partiesToParticipants =>
-                val participants = partiesToParticipants.values.flatten.toSet
-                if (participants.contains(participantId)) completeRandomnessPromise() else ()
-              }
-          } else Future.unit
-        }
+        else Future.unit
       }
 
       def decryptViewWithRandomness(

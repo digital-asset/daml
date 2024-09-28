@@ -159,7 +159,6 @@ class ParticipantPartiesAdministrationGroup(
       // TODO(i10809) replace wait for domain for a clean topology synchronisation using the dispatcher info
       waitForDomain: DomainChoice = DomainChoice.Only(Seq()),
       synchronizeParticipants: Seq[ParticipantReference] = Seq(),
-      groupAddressing: Boolean = false,
       mustFullyAuthorize: Boolean = true,
   ): PartyId = {
 
@@ -244,7 +243,6 @@ class ParticipantPartiesAdministrationGroup(
             partyId,
             participants,
             threshold,
-            groupAddressing,
             mustFullyAuthorize,
           ).toEither
           _ <- validDisplayName match {
@@ -289,7 +287,6 @@ class ParticipantPartiesAdministrationGroup(
       partyId: PartyId,
       participants: Seq[ParticipantId],
       threshold: PositiveInt,
-      groupAddressing: Boolean,
       mustFullyAuthorize: Boolean,
   ): ConsoleCommandResult[SignedTopologyTransaction[TopologyChangeOp, PartyToParticipant]] = {
     // determine the next serial
@@ -311,7 +308,6 @@ class ParticipantPartiesAdministrationGroup(
                 else ParticipantPermission.Submission,
               )
             ),
-            groupAddressing,
           ),
           signedBy = Seq(this.participantId.fingerprint),
           serial = nextSerial,

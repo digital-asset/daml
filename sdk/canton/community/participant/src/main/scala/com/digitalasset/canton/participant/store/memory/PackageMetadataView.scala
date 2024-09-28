@@ -19,7 +19,6 @@ import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.Implic
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.archive.{DamlLf, Decode}
-import com.digitalasset.daml.lf.data.Ref.PackageRef
 import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.scaladsl.Source
 
@@ -130,7 +129,7 @@ class MutablePackageMetadataViewImpl(
       .flatMap {
         case Some(pkg) => Future.successful(pkg)
         case None =>
-          Future.failed(PackageServiceErrors.InternalError.Error(Set(PackageRef.Id(packageId))).asGrpcError)
+          Future.failed(PackageServiceErrors.InternalError.Error(Set(packageId)).asGrpcError)
       }
 }
 

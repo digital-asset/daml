@@ -4,12 +4,12 @@
 package com.digitalasset.canton.platform.store.backend
 
 import com.daml.metrics.api.testing.{InMemoryMetricsFactory, MetricValues}
-import com.daml.metrics.api.{MetricName, MetricsContext}
+import com.daml.metrics.api.{HistogramInventory, MetricName, MetricsContext}
 import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.{DomainIndex, RequestIndex, Update}
-import com.digitalasset.canton.metrics.IndexedUpdatesMetrics
+import com.digitalasset.canton.metrics.{IndexerHistograms, IndexerMetrics}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.daml.lf.crypto.Hash
@@ -34,7 +34,9 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
 
   import TraceContext.Implicits.Empty.*
 
-  private val IndexedUpdatesMetrics = newUpdateMetrics
+  implicit val inventory: HistogramInventory = new HistogramInventory()
+  private val indexerHistograms = new IndexerHistograms(MetricName("test"))
+  private val IndexedUpdatesMetrics = newUpdateMetrics(indexerHistograms)
 
   "UpdateMeteringToDbDto" should {
 
@@ -192,17 +194,17 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
     }
 
     "increment metered events counter" in {
-      val IndexedUpdatesMetrics = newUpdateMetrics
-      UpdateToMeteringDbDto(clock = () => timestamp, Set.empty, IndexedUpdatesMetrics)(
+      val indexerMetrics = newUpdateMetrics(indexerHistograms)
+      UpdateToMeteringDbDto(clock = () => timestamp, Set.empty, indexerMetrics)(
         MetricsContext.Empty
       )(
         List((Offset.fromHexString(offset), Traced[Update](someTransactionAccepted)))
       )
-      IndexedUpdatesMetrics.meteredEventsMeter.value shouldBe (statistics.committed.actions + statistics.rolledBack.actions)
+      indexerMetrics.meteredEventsMeter.value shouldBe (statistics.committed.actions + statistics.rolledBack.actions)
     }
   }
 
-  private def newUpdateMetrics =
-    new IndexedUpdatesMetrics(MetricName("test"), InMemoryMetricsFactory)
+  private def newUpdateMetrics(indexerHistograms: IndexerHistograms) =
+    new IndexerMetrics(indexerHistograms, InMemoryMetricsFactory)
 
 }

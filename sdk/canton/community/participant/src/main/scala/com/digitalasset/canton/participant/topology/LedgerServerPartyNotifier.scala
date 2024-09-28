@@ -130,7 +130,7 @@ class LedgerServerPartyNotifier(
       Seq.empty
     } else {
       transaction.mapping match {
-        case PartyToParticipant(partyId, _, participants, _) =>
+        case PartyToParticipant(partyId, _, participants) =>
           participants
             .map { hostingParticipant =>
               // Note/CN-5291: Only remove pending submission-id once update persisted.

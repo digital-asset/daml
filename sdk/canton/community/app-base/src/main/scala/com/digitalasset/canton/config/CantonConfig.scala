@@ -57,7 +57,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.sequencer.block.DriverBlockSequencerFactory
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerTrafficConfig
 import com.digitalasset.canton.environment.CantonNodeParameters
-import com.digitalasset.canton.http.{HttpApiConfig, WebsocketConfig}
+import com.digitalasset.canton.http.{HttpServerConfig, JsonApiConfig, WebsocketConfig}
 import com.digitalasset.canton.ledger.runner.common.PureConfigReaderWriter.Secure.{
   commandConfigurationConvert,
   dbConfigPostgresDataSourceConfigConvert,
@@ -85,7 +85,6 @@ import com.digitalasset.canton.platform.config.{
 }
 import com.digitalasset.canton.protocol.AcsCommitmentsCatchUpConfig
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
-import com.digitalasset.canton.pureconfigutils.HttpServerConfig
 import com.digitalasset.canton.pureconfigutils.SharedConfigReaders.catchConvertError
 import com.digitalasset.canton.sequencing.authentication.AuthenticationTokenManagerConfig
 import com.digitalasset.canton.sequencing.client.SequencerClientConfig
@@ -820,8 +819,8 @@ object CantonConfig {
 
     lazy implicit val httpServerConfigReader: ConfigReader[HttpServerConfig] =
       deriveReader[HttpServerConfig]
-    lazy implicit val httpApiServerConfigReader: ConfigReader[HttpApiConfig] =
-      deriveReader[HttpApiConfig]
+    lazy implicit val httpApiServerConfigReader: ConfigReader[JsonApiConfig] =
+      deriveReader[JsonApiConfig]
     lazy implicit val activeContractsServiceConfigReader
         : ConfigReader[ActiveContractsServiceStreamsConfig] =
       deriveReader[ActiveContractsServiceStreamsConfig]
@@ -1262,8 +1261,8 @@ object CantonConfig {
 
     lazy implicit val httpServerConfigWriter: ConfigWriter[HttpServerConfig] =
       deriveWriter[HttpServerConfig]
-    lazy implicit val httpApiServerConfigWriter: ConfigWriter[HttpApiConfig] =
-      deriveWriter[HttpApiConfig]
+    lazy implicit val httpApiServerConfigWriter: ConfigWriter[JsonApiConfig] =
+      deriveWriter[JsonApiConfig]
     lazy implicit val activeContractsServiceConfigWriter
         : ConfigWriter[ActiveContractsServiceStreamsConfig] =
       deriveWriter[ActiveContractsServiceStreamsConfig]

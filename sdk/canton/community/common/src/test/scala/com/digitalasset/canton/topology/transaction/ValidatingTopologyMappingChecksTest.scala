@@ -419,7 +419,6 @@ class ValidatingTopologyMappingChecksTest
               party1,
               PositiveInt.one,
               participants.map[HostingParticipant](_ -> Submission),
-              groupAddressing = false,
             )
           )
           checkTransaction(checks, ptp) shouldBe Left(
@@ -447,7 +446,6 @@ class ValidatingTopologyMappingChecksTest
               party1,
               PositiveInt.one,
               Seq(participant -> Submission),
-              groupAddressing = false,
             )
           )
           checkTransaction(checks, ptp) shouldBe Left(
@@ -462,14 +460,12 @@ class ValidatingTopologyMappingChecksTest
             partyId: PartyId = participant1.adminParty,
             participants: Seq[HostingParticipant] =
               Seq(HostingParticipant(participant1, Submission)),
-            groupdAddressing: Boolean = false,
         ) = factory.mkAdd(
           PartyToParticipant
             .create(
               partyId = partyId,
               threshold = PositiveInt.one,
               participants = participants,
-              groupAddressing = groupdAddressing,
             )
             .value
         )
@@ -496,15 +492,12 @@ class ValidatingTopologyMappingChecksTest
         val foreignParticipant =
           mkPTP(participants = Seq(HostingParticipant(participant2, Submission)))
 
-        val invalidGroupAddressing = mkPTP(groupdAddressing = true)
-
         // we don't need to explicitly check threshold > 1, because we already reject the PTP if participants.size > 1
         // and the threshold can never be higher than the number of participants
 
         val unhappyCases = invalidParticipantPermission ++ Seq(
           foreignParticipant,
           invalidNumberOfHostingParticipants,
-          invalidGroupAddressing,
         )
 
         forAll(unhappyCases)(ptp =>
@@ -536,7 +529,6 @@ class ValidatingTopologyMappingChecksTest
               party1,
               threshold,
               participants,
-              groupAddressing = false,
             )
           )
           checkTransaction(checks, ptp) shouldBe Right(())
@@ -553,7 +545,6 @@ class ValidatingTopologyMappingChecksTest
             party1,
             PositiveInt.one,
             Seq(participant1 -> Submission),
-            groupAddressing = false,
           )
         )
         addToStore(
@@ -577,7 +568,6 @@ class ValidatingTopologyMappingChecksTest
               partyId = participant1.adminParty,
               threshold = PositiveInt.one,
               participants = Seq(HostingParticipant(participant1, Submission)),
-              groupAddressing = false,
             )
             .value
         )
@@ -590,7 +580,6 @@ class ValidatingTopologyMappingChecksTest
               partyId = participant2.adminParty,
               threshold = PositiveInt.one,
               participants = Seq(HostingParticipant(participant1, Submission)),
-              groupAddressing = false,
             )
             .value
         )

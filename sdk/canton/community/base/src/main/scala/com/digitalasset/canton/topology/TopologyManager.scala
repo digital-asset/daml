@@ -580,7 +580,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
         forceChanges,
         transaction.mapping.code,
       )
-    case PartyToParticipant(partyId, _, participants, _) =>
+    case PartyToParticipant(partyId, _, participants) =>
       checkPartyToParticipantIsNotDangerous(
         partyId,
         participants,
@@ -726,7 +726,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
           )
           .map {
             _.collectOfMapping[PartyToParticipant].collectLatestByUniqueKey.toTopologyState
-              .collectFirst { case PartyToParticipant(_, _, currentHostingParticipants, _) =>
+              .collectFirst { case PartyToParticipant(_, _, currentHostingParticipants) =>
                 currentHostingParticipants.map(_.participantId.uid).toSet -- nextParticipants.map(
                   _.participantId.uid
                 )

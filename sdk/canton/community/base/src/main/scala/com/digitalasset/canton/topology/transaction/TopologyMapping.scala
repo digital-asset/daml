@@ -1277,7 +1277,6 @@ final case class PartyToParticipant private (
     partyId: PartyId,
     threshold: PositiveInt,
     participants: Seq[HostingParticipant],
-    groupAddressing: Boolean,
 ) extends TopologyMapping {
 
   def toProto: v30.PartyToParticipant =
@@ -1285,7 +1284,6 @@ final case class PartyToParticipant private (
       party = partyId.toProtoPrimitive,
       threshold = threshold.value,
       participants = participants.map(_.toProto),
-      groupAddressing = groupAddressing,
     )
 
   override def toProtoV30: v30.TopologyMapping =
@@ -1312,7 +1310,7 @@ final case class PartyToParticipant private (
         case TopologyTransaction(
               TopologyChangeOp.Replace,
               _,
-              PartyToParticipant(_, prevThreshold, prevParticipants, prevGroupAddressing),
+              PartyToParticipant(_, prevThreshold, prevParticipants),
             ) =>
           val current = this
           val currentParticipantIds = participants.map(_.participantId.uid).toSet
@@ -1320,12 +1318,11 @@ final case class PartyToParticipant private (
           val removedParticipants = prevParticipantIds -- currentParticipantIds
           val addedParticipants = currentParticipantIds -- prevParticipantIds
 
-          val contentHasChanged =
-            prevGroupAddressing != current.groupAddressing || prevThreshold != current.threshold
+          val contentHasChanged = prevThreshold != current.threshold
 
           // check whether a participant can unilaterally unhost a party
           if (
-            // no change in group addressing or threshold
+            // no change in threshold
             !contentHasChanged
             // no participant added
             && addedParticipants.isEmpty
@@ -1352,7 +1349,6 @@ object PartyToParticipant {
       partyId: PartyId,
       threshold: PositiveInt,
       participants: Seq[HostingParticipant],
-      groupAddressing: Boolean,
   ): Either[String, PartyToParticipant] = {
     val noDuplicatePParticipants = {
       val duplicatePermissions =
@@ -1375,7 +1371,7 @@ object PartyToParticipant {
           (),
           s"Party $partyId cannot meet threshold of $threshold confirming participants with participants $participants",
         )
-        .map(_ => PartyToParticipant(partyId, threshold, participants, groupAddressing))
+        .map(_ => PartyToParticipant(partyId, threshold, participants))
     }
 
     noDuplicatePParticipants.flatMap(_ => thresholdCanBeMet)
@@ -1385,11 +1381,8 @@ object PartyToParticipant {
       partyId: PartyId,
       threshold: PositiveInt,
       participants: Seq[HostingParticipant],
-      groupAddressing: Boolean,
   ): PartyToParticipant =
-    create(partyId, threshold, participants, groupAddressing).valueOr(err =>
-      throw new IllegalArgumentException(err)
-    )
+    create(partyId, threshold, participants).valueOr(err => throw new IllegalArgumentException(err))
 
   def uniqueKey(partyId: PartyId): MappingHash =
     TopologyMapping.buildUniqueKey(code)(_.add(partyId.toProtoPrimitive))
@@ -1403,8 +1396,7 @@ object PartyToParticipant {
       partyId <- PartyId.fromProtoPrimitive(value.party, "party")
       threshold <- ProtoConverter.parsePositiveInt("threshold", value.threshold)
       participants <- value.participants.traverse(HostingParticipant.fromProtoV30)
-      groupAddressing = value.groupAddressing
-    } yield PartyToParticipant(partyId, threshold, participants, groupAddressing)
+    } yield PartyToParticipant(partyId, threshold, participants)
 }
 
 /** Dynamic domain parameter settings for the domain

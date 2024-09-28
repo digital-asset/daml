@@ -5,6 +5,7 @@ package com.digitalasset.canton.platform.apiserver
 
 import com.daml.ledger.api.v2.commands.Commands
 import com.daml.tracing.{SpanAttribute, Telemetry, TelemetryContext}
+import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.tracing.TraceContext
 
 package object services {
@@ -22,6 +23,23 @@ package object services {
         .setAttribute(SpanAttribute.Submitter, commands.actAs.headOption.getOrElse(""))
         .setAttribute(SpanAttribute.WorkflowId, commands.workflowId)
     }
+    TraceContext.fromDamlTelemetryContext(telemetry.contextFromGrpcThreadLocalContext())
+  }
+
+  def getPrepareRequestTraceContext(
+      applicationId: String,
+      commandId: String,
+      actAs: Seq[String],
+      telemetry: Telemetry,
+  ): TraceContext = {
+    val telemetryContext: TelemetryContext =
+      telemetry.contextFromGrpcThreadLocalContext()
+    telemetryContext
+      .setAttribute(SpanAttribute.ApplicationId, applicationId)
+      .setAttribute(SpanAttribute.CommandId, commandId)
+      .setAttribute(SpanAttribute.Submitter, actAs.headOption.getOrElse(""))
+      .discard[TelemetryContext]
+
     TraceContext.fromDamlTelemetryContext(telemetry.contextFromGrpcThreadLocalContext())
   }
 

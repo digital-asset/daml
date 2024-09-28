@@ -58,13 +58,10 @@ final case class Recipients(trees: NonEmpty[Seq[RecipientsTree]]) extends Pretty
 object Recipients {
 
   def fromProtoV30(
-      proto: v30.Recipients,
-      supportGroupAddressing: Boolean,
+      proto: v30.Recipients
   ): ParsingResult[Recipients] =
     for {
-      trees <- proto.recipientsTree.traverse(t =>
-        RecipientsTree.fromProtoV30(t, supportGroupAddressing)
-      )
+      trees <- proto.recipientsTree.traverse(RecipientsTree.fromProtoV30)
       recipients <- NonEmpty
         .from(trees)
         .toRight(

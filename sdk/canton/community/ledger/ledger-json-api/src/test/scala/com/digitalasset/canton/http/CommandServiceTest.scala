@@ -44,9 +44,9 @@ class CommandServiceTest extends AsyncWordSpec with Matchers with Inside with No
       def create(meta: Option[domain.CommandMeta.NoDisclosed]) =
         domain.CreateCommand(tplId, lav2.value.Record(), meta)
       for {
-        normal <- cs.create(multiPartyJwt, multiPartyJwp, create(None))
+        normal <- cs.create(jwtForParties, multiPartyJwp, create(None))
         overridden <- cs.create(
-          multiPartyJwt,
+          jwtForParties,
           multiPartyJwp,
           create(
             Some(
@@ -82,10 +82,6 @@ object CommandServiceTest extends BaseTest {
     submitter = domain.Party subst NonEmptyList("foo", "bar"),
     readAs = domain.Party subst List("baz", "quux"),
   )
-  private lazy val multiPartyJwt = jwtForParties(
-    actAs = multiPartyJwp.submitter.toList,
-    readAs = multiPartyJwp.readAs,
-  )
   private val tplId =
     domain.ContractTypeId.Template(
       com.digitalasset.daml.lf.data.Ref.PackageRef.assertFromString("Foo"),
@@ -99,11 +95,7 @@ object CommandServiceTest extends BaseTest {
       : LoggingContextOf[HLogging.InstanceUUID with HLogging.RequestID] =
     newLoggingContext(label[HLogging.InstanceUUID with HLogging.RequestID])(identity)
 
-  // TODO(#13303): Deduplicate with original
-  def jwtForParties(
-      actAs: List[domain.Party],
-      readAs: List[domain.Party],
-  ): Jwt = {
+  lazy val jwtForParties: Jwt = {
     import AuthServiceJWTCodec.JsonImplicits.*
     val payload: JsValue = {
       val standardJwtPayload: AuthServiceJWTPayload =

@@ -61,13 +61,13 @@ object ParallelIndexerFactory {
       inputMapperExecutor <- asyncPool(
         inputMappingParallelism,
         "input-mapping-pool",
-        metrics.parallelIndexer.inputMapping.executor,
+        metrics.indexer.inputMapping.executor,
         loggerFactory,
       ).afterReleased(logger.debug("Input Mapping Threadpool released"))
       batcherExecutor <- asyncPool(
         batchingParallelism,
         "batching-pool",
-        metrics.parallelIndexer.batching.executor,
+        metrics.indexer.batching.executor,
         loggerFactory,
       ).afterReleased(logger.debug("Batching Threadpool released"))
       haCoordinator <-

@@ -156,6 +156,12 @@ object FieldValidator {
   ): Either[StatusRuntimeException, Ref.LedgerString] =
     Ref.LedgerString.fromString(s).left.map(invalidArgument)
 
+  def validateWorkflowId(s: String)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Option[domain.WorkflowId]] =
+    if (s.isEmpty) Right(None)
+    else requireLedgerString(s).map(x => Some(domain.WorkflowId(x)))
+
   def validateSubmissionId(s: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Option[domain.SubmissionId]] =

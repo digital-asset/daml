@@ -243,13 +243,6 @@ private[update] final class SubmissionRequestValidator(
       EitherT.rightT(Map.empty)
     else
       for {
-        participantsOfPartyToMembers <-
-          expandParticipantGroupRecipients(
-            submissionRequest,
-            sequencingTimestamp,
-            groupRecipients,
-            topologyOrSequencingSnapshot,
-          )
         mediatorGroupsToMembers <-
           expandMediatorGroupRecipients(
             submissionRequest,
@@ -269,7 +262,7 @@ private[update] final class SubmissionRequestValidator(
             topologyOrSequencingSnapshot,
             groupRecipients,
           )
-      } yield participantsOfPartyToMembers ++ mediatorGroupsToMembers ++ sequencersOfDomainToMembers ++ allMembersOfDomainToMembers
+      } yield mediatorGroupsToMembers ++ sequencersOfDomainToMembers ++ allMembersOfDomainToMembers
   }
 
   private def expandSequencersOfDomainGroupRecipients(
@@ -378,40 +371,6 @@ private[update] final class SubmissionRequestValidator(
           )
         }
       } yield GroupAddressResolver.asGroupRecipientsToMembers(groups)
-  }.mapK(FutureUnlessShutdown.outcomeK)
-
-  private def expandParticipantGroupRecipients(
-      submissionRequest: SubmissionRequest,
-      sequencingTimestamp: CantonTimestamp,
-      groupRecipients: Set[GroupRecipient],
-      topologyOrSequencingSnapshot: SyncCryptoApi,
-  )(implicit
-      executionContext: ExecutionContext,
-      traceContext: TraceContext,
-  ): EitherT[FutureUnlessShutdown, SubmissionRequestOutcome, Map[GroupRecipient, Set[Member]]] = {
-    val parties = groupRecipients.collect { case ParticipantsOfParty(party) =>
-      party.toLf
-    }
-    if (parties.isEmpty)
-      EitherT.rightT[Future, SubmissionRequestOutcome](Map.empty[GroupRecipient, Set[Member]])
-    else
-      for {
-        _ <- topologyOrSequencingSnapshot.ipsSnapshot
-          .allHaveActiveParticipants(parties)
-          .leftMap(parties =>
-            // TODO(#14322): review if still applicable and consider an error code (SequencerDeliverError)
-            invalidSubmissionRequest(
-              submissionRequest,
-              sequencingTimestamp,
-              SequencerErrors.SubmissionRequestRefused(
-                s"The following parties do not have active participants $parties"
-              ),
-            )
-          )
-        mapping <- EitherT.right[SubmissionRequestOutcome](
-          topologyOrSequencingSnapshot.ipsSnapshot.activeParticipantsOfParties(parties.toSeq)
-        )
-      } yield GroupAddressResolver.asGroupRecipientsToMembers(mapping)
   }.mapK(FutureUnlessShutdown.outcomeK)
 
   private def checkClosedEnvelopesSignatures(

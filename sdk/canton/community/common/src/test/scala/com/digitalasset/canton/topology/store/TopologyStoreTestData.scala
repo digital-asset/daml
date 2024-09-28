@@ -93,7 +93,6 @@ class TopologyStoreTestData(
       partyId = fredOfCanton,
       threshold = PositiveInt.one,
       participants = Seq(HostingParticipant(participantId1, ParticipantPermission.Submission)),
-      groupAddressing = true,
     ),
     isProposal = true,
   )
@@ -119,7 +118,6 @@ class TopologyStoreTestData(
       partyId = fredOfCanton,
       threshold = PositiveInt.one,
       participants = Seq(HostingParticipant(participantId1, ParticipantPermission.Submission)),
-      groupAddressing = true,
     )
   )
   val tx5_DTC = makeSignedTx(

@@ -168,9 +168,9 @@ object LedgerApiIndexer {
           uncommittedWarnTreshold =
             ledgerApiIndexerConfig.indexerConfig.queueUncommittedWarnThreshold,
           recoveringQueueMetrics = RecoveringQueueMetrics(
-            blockedMeter = metrics.parallelIndexer.indexerQueueBlocked,
-            bufferedMeter = metrics.parallelIndexer.indexerQueueBuffered,
-            uncommittedMeter = metrics.parallelIndexer.indexerQueueUncommitted,
+            blockedMeter = metrics.indexer.indexerQueueBlocked,
+            bufferedMeter = metrics.indexer.indexerQueueBuffered,
+            uncommittedMeter = metrics.indexer.indexerQueueUncommitted,
           ),
           consumerFactory = normalIndexerCreateFunction,
         )

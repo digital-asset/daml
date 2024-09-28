@@ -90,7 +90,6 @@ final class LedgerServerPartyNotifierTest extends AsyncWordSpec with BaseTest {
           partyId,
           PositiveInt.one,
           Seq(HostingParticipant(participantId, ParticipantPermission.Submission)),
-          groupAddressing = false,
         )
       )
 
@@ -144,7 +143,6 @@ final class LedgerServerPartyNotifierTest extends AsyncWordSpec with BaseTest {
             participant1.adminParty,
             PositiveInt.one,
             Seq(HostingParticipant(participant1, ParticipantPermission.Submission)),
-            groupAddressing = false,
           )
         )
       } yield fixture.expectLastObserved(

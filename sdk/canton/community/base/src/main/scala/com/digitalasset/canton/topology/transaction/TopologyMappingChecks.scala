@@ -770,7 +770,6 @@ class ValidatingTopologyMappingChecks(
   /** Checks whether the given PTP is considered an explicit admin party allocation. This is true if all following conditions are met:
     * <ul>
     *   <li>threshold == 1</li>
-    *   <li>groupAddressing == false</li>
     *   <li>there is only a single hosting participant<li>
     *     <ul>
     *       <li>with Submission permission</li>
@@ -794,14 +793,12 @@ class ValidatingTopologyMappingChecks(
           participant.permission == ParticipantPermission.Submission
       )
 
-    val noGroupAddressing = !ptp.groupAddressing
-
     // technically we don't need to check for threshold == 1, because we already require that there is only a single participant
     // and the threshold may not exceed the number of participants. this is checked in PartyToParticipant.create
     val threshold1 = ptp.threshold == PositiveInt.one
 
     EitherTUtil.condUnitET[Future](
-      singleHostingParticipant && partyIsAdminParty && noGroupAddressing && threshold1,
+      singleHostingParticipant && partyIsAdminParty && threshold1,
       rejection,
     )
   }

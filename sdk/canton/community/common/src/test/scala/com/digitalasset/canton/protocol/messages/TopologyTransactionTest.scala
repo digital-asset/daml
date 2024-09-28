@@ -94,7 +94,6 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
             PartyId(uid),
             PositiveInt.one,
             Seq(HostingParticipant(ParticipantId(uid2), ParticipantPermission.Observation)),
-            groupAddressing = false,
           )
         )
 
@@ -107,7 +106,6 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
               HostingParticipant(ParticipantId(uid2), ParticipantPermission.Confirmation),
               HostingParticipant(ParticipantId(uid), ParticipantPermission.Submission),
             ),
-            groupAddressing = true,
           )
         )
 

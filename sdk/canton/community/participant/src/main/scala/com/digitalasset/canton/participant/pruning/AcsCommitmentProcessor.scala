@@ -42,6 +42,7 @@ import com.digitalasset.canton.participant.event.{
 import com.digitalasset.canton.participant.metrics.CommitmentMetrics
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.Errors.DegradationError
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.Errors.MismatchError.AcsCommitmentAlarm
+import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.RunningCommitments
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
 import com.digitalasset.canton.protocol.messages.AcsCommitment.CommitmentType
@@ -166,9 +167,13 @@ import scala.math.Ordering.Implicits.*
   *                                  parameters there.
   *                                  If this is not specified, the maximum delay is testingConfig.maxCommitmentSendDelayMillis
   *                                  if specified, otherwise the maximum delay is 2/3 of the reconciliation interval.
+  *
+  *   The constructor of this class is private. Instances of this class can only be created using
+  *   [[AcsCommitmentProcessor.apply]], which in turn uses the Factory method in the companion object to ensure that
+  *   the class is properly initialized.
   */
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
-class AcsCommitmentProcessor(
+class AcsCommitmentProcessor private (
     domainId: DomainId,
     participantId: ParticipantId,
     sequencerClient: SequencerClientSend,
@@ -182,6 +187,9 @@ class AcsCommitmentProcessor(
     futureSupervisor: FutureSupervisor,
     activeContractStore: ActiveContractStore,
     contractStore: ContractStore,
+    /* An in-memory, mutable running ACS snapshot, updated on every call to [[publish]]  */
+    val runningCommitments: RunningCommitments,
+    endLastProcessedPeriod: Option[CantonTimestampSecond],
     enableAdditionalConsistencyChecks: Boolean,
     protected val loggerFactory: NamedLoggerFactory,
     testingConfig: TestingConfigInternal,
@@ -194,6 +202,7 @@ class AcsCommitmentProcessor(
     with NamedLogging {
 
   import AcsCommitmentProcessor.{errorLoggingContextFromNamedLoggingContext as _, *}
+
   private[canton] val healthComponent = new AcsCommitmentProcessorHealth(
     AcsCommitmentProcessor.healthName,
     this,
@@ -233,7 +242,8 @@ class AcsCommitmentProcessor(
 
   /* End of the last period until which we have processed, sent and persisted all local and remote commitments.
      It's accessed only through chained futures, such that all accesses are synchronized  */
-  @volatile private[this] var endOfLastProcessedPeriod: Option[CantonTimestampSecond] = None
+  @volatile private[this] var endOfLastProcessedPeriod: Option[CantonTimestampSecond] =
+    endLastProcessedPeriod
 
   /* In contrast to `endOfLastProcessedPeriod`, during catch-up, a period is considered processed when its commitment
      is computed, but not necessarily sent. Thus we use a new variable `endOfLastProcessedPeriodDuringCatchUp`.
@@ -241,11 +251,11 @@ class AcsCommitmentProcessor(
   @volatile private[this] var endOfLastProcessedPeriodDuringCatchUp: Option[CantonTimestampSecond] =
     None
 
-  /**  During a coarse-grained catch-up interval, [[runningCmtSnapshotsForCatchUp]] stores in memory the snapshots for the
-    *  fine grained reconciliation periods. In case of a commitment mismatch at the end of a catch-up interval, the
-    *  participant uses these snapshots in the function [[sendCommitmentMessagesInCatchUpInterval]] to compute fine
-    *  grained commitments and send them to the counter-participant, which enables more precise detection of the interval
-    *  when ACS divergence happened.
+  /** During a coarse-grained catch-up interval, [[runningCmtSnapshotsForCatchUp]] stores in memory the snapshots for the
+    * fine grained reconciliation periods. In case of a commitment mismatch at the end of a catch-up interval, the
+    * participant uses these snapshots in the function [[sendCommitmentMessagesInCatchUpInterval]] to compute fine
+    * grained commitments and send them to the counter-participant, which enables more precise detection of the interval
+    * when ACS divergence happened.
     */
   private val runningCmtSnapshotsForCatchUp =
     scala.collection.mutable.Map
@@ -256,9 +266,6 @@ class AcsCommitmentProcessor(
     */
   private var computingCatchUpTimestamp: Future[CantonTimestamp] =
     Future.successful(CantonTimestamp.MinValue)
-
-  /* An in-memory, mutable running ACS snapshot, updated on every call to [[publish]]  */
-  val runningCommitments: Future[RunningCommitments] = initRunningCommitments(store)
 
   private val cachedCommitments: Option[CachedCommitments] =
     if (testingConfig.doNotUseCommitmentCachingFor.contains(participantId.identifier.str))
@@ -292,43 +299,19 @@ class AcsCommitmentProcessor(
       crashOnFailure = exitOnFatalFailures,
     )
 
+  private def processBufferedAtInit(
+      timestamp: Option[CantonTimestampSecond]
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    dbQueue.execute(
+      timestamp.traverse_(ts => processBuffered(ts, endExclusive = false)),
+      "processBufferedAtInit",
+    )
+
   private def getReconciliationIntervals(validAt: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[SortedReconciliationIntervals] = performUnlessClosingF(functionFullName)(
     sortedReconciliationIntervalsProvider.reconciliationIntervals(validAt)
   )
-
-  // Ensure we queue the initialization as the first task in the queue. We don't care about initialization having
-  // completed by the time we return - only that no other task is queued before initialization.
-  private[this] val initFuture: FutureUnlessShutdown[Unit] = {
-    import TraceContext.Implicits.Empty.*
-    val executed = dbQueue.executeUS(
-      performUnlessClosingF("acs-commitment-processor-init") {
-        for {
-          lastComputed <- store.lastComputedAndSent
-          _ = lastComputed.foreach { ts =>
-            logger.info(s"Last computed and sent timestamp: $ts")
-            endOfLastProcessedPeriod = Some(ts)
-          }
-          snapshot <- runningCommitments
-          // we have no cached commitments for the first computation after recovery
-          _ = logger.info(
-            s"Initialized from stored snapshot at ${snapshot.watermark} (might be incomplete)"
-          )
-
-          _ <- lastComputed.fold(Future.unit)(ts => processBuffered(ts, endExclusive = false))
-
-          _ = logger.info("Initialized the ACS commitment processor queue")
-        } yield ()
-      },
-      "ACS commitment processor initialization",
-    )
-    FutureUtil.logOnFailureUnlessShutdown(
-      executed,
-      "Failed to initialize the ACS commitment processor.",
-      logPassiveInstanceAtInfo = true,
-    )
-  }
 
   @volatile private[this] var lastPublished: Option[RecordTime] = None
 
@@ -718,7 +701,7 @@ class AcsCommitmentProcessor(
             )
         }
 
-        _ <- FutureUnlessShutdown.outcomeF(updateSnapshot(toc, acsChange))
+        _ = updateRunningCommitments(toc, acsChange)
       } yield ()
 
     // On the `publishQueue`, obtain the running commitment, the reconciliation parameters, and topology snapshot,
@@ -732,7 +715,7 @@ class AcsCommitmentProcessor(
             // Shutdown should not be blocked by waiting for waitFor.
             if (isClosing) Future.unit else waitFor
           )
-          acsSnapshot <- performUnlessClosingF(functionFullName)(runningCommitments)
+          acsSnapshot = runningCommitments
           reconciliationIntervals <- getReconciliationIntervals(toc.timestamp)
           periodEndO = reconciliationIntervals
             .tickBefore(toc.timestamp)
@@ -807,7 +790,6 @@ class AcsCommitmentProcessor(
     }
 
     val future = for {
-      _ <- initFuture
       _ <- batch.parTraverse_ { envelope =>
         getReconciliationIntervals(
           envelope.protocolMessage.message.period.toInclusive.forgetRefinement
@@ -914,16 +896,13 @@ class AcsCommitmentProcessor(
       response
     }
 
-  private def updateSnapshot(rt: RecordTime, acsChange: AcsChange)(implicit
+  private def updateRunningCommitments(rt: RecordTime, acsChange: AcsChange)(implicit
       traceContext: TraceContext
-  ): Future[Unit] = {
+  ): Unit = {
     logger.debug(
       s"Applying ACS change at $rt: ${acsChange.activations.size} activated, ${acsChange.deactivations.size} archived"
     )
-    for {
-      snapshot <- runningCommitments
-      _ = snapshot.update(rt, acsChange)
-    } yield ()
+    runningCommitments.update(rt, acsChange)
   }
 
   private def indicateLocallyProcessed(
@@ -1551,6 +1530,111 @@ object AcsCommitmentProcessor extends HasLoggerName {
 
   val emptyCommitment: AcsCommitment.CommitmentType = LtHash16().getByteString()
 
+  def apply(
+      domainId: DomainId,
+      participantId: ParticipantId,
+      sequencerClient: SequencerClientSend,
+      domainCrypto: SyncCryptoClient[SyncCryptoApi],
+      sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
+      store: AcsCommitmentStore,
+      pruningObserver: TraceContext => Unit,
+      metrics: CommitmentMetrics,
+      protocolVersion: ProtocolVersion,
+      timeouts: ProcessingTimeout,
+      futureSupervisor: FutureSupervisor,
+      activeContractStore: ActiveContractStore,
+      contractStore: ContractStore,
+      enableAdditionalConsistencyChecks: Boolean,
+      loggerFactory: NamedLoggerFactory,
+      testingConfig: TestingConfigInternal,
+      clock: Clock,
+      exitOnFatalFailures: Boolean,
+      maxCommitmentSendDelayMillis: Option[NonNegativeInt] = None,
+  )(implicit
+      ec: ExecutionContext,
+      traceContext: TraceContext,
+  ) = {
+
+    implicit val loggingContext: NamedLoggingContext =
+      NamedLoggingContext(loggerFactory, traceContext)
+
+    def initCommitmentProcessor(store: AcsCommitmentStore)(implicit
+        ec: ExecutionContext,
+        traceContext: TraceContext,
+    ): FutureUnlessShutdown[(Option[CantonTimestampSecond], RunningCommitments)] = {
+
+      val executed = for {
+        lastComputed <- store.lastComputedAndSent
+        _ = lastComputed.foreach { ts =>
+          loggingContext.info(s"Last computed and sent timestamp: $ts")
+        }
+        runningCommitments <- initRunningCommitments(store)
+        // we have no cached commitments for the first computation after recovery
+        _ = loggingContext.info(
+          s"Initialized from stored snapshot at ${runningCommitments.watermark} (might be incomplete)."
+        )
+      } yield (lastComputed, runningCommitments)
+      FutureUtil.logOnFailureUnlessShutdown(
+        FutureUnlessShutdown.outcomeF(executed),
+        "Failed to initialize the ACS commitment processor.",
+        logPassiveInstanceAtInfo = true,
+      )
+    }
+    // Ensure that the initialization runs first. We don't care about initialization having
+    // completed by the time we return - only that it runs first.
+    for {
+      init <- initCommitmentProcessor(store)
+      (endOfLastProcessedPeriod, runningCommitments) = init
+      processor = new AcsCommitmentProcessor(
+        domainId,
+        participantId,
+        sequencerClient,
+        domainCrypto,
+        sortedReconciliationIntervalsProvider,
+        store,
+        pruningObserver,
+        metrics,
+        protocolVersion,
+        timeouts,
+        futureSupervisor,
+        activeContractStore,
+        contractStore,
+        runningCommitments,
+        endOfLastProcessedPeriod,
+        enableAdditionalConsistencyChecks,
+        loggerFactory,
+        testingConfig,
+        clock,
+        exitOnFatalFailures,
+        maxCommitmentSendDelayMillis,
+      )
+      // TODO(#21502) We trigger the processing of the buffered commitments, but we do not wait for it to complete here,
+      //  because, if processing buffered required topology updates that go through the same queue, we'd create a deadlock.
+      //  It should be that only in tests could we have the situation where we replay ACS changes while the ledger end
+      //  lags behind the replayed change timestamp. In normal processing, we publish ACS changes only after the ledger
+      //  end has moved, which should mean that all topology events for a given timestamp have been processed before
+      //  processing the ACS change for the same timestamp. We should validate this behavior.
+      _ = processor.processBufferedAtInit(endOfLastProcessedPeriod)
+      _ = loggingContext.info(
+        s"Initialized the ACS commitment processor DB queue and started processing buffered commitments until $endOfLastProcessedPeriod"
+      )
+    } yield processor
+  }
+
+  /* Extracted as a pure function for testing */
+  @VisibleForTesting
+  private[pruning] def initRunningCommitments(
+      store: AcsCommitmentStore
+  )(implicit ec: ExecutionContext): Future[RunningCommitments] =
+    store.runningCommitments.get()(TraceContext.empty).map { case (rt, snapshot) =>
+      new RunningCommitments(
+        rt,
+        TrieMap(snapshot.toSeq.map { case (parties, h) =>
+          parties -> LtHash16.tryCreate(h)
+        }*),
+      )
+    }
+
   /** A snapshot of ACS commitments per set of stakeholders
     *
     * @param recordTime The timestamp and tie-breaker of the snapshot
@@ -1894,20 +1978,6 @@ object AcsCommitmentProcessor extends HasLoggerName {
     commitments.foreach(h => sumHash.add(h.toByteArray))
     sumHash.getByteString()
   }
-
-  /* Extracted as a pure function for testing */
-  @VisibleForTesting
-  private[pruning] def initRunningCommitments(
-      store: AcsCommitmentStore
-  )(implicit ec: ExecutionContext): Future[RunningCommitments] =
-    store.runningCommitments.get()(TraceContext.empty).map { case (rt, snapshot) =>
-      new RunningCommitments(
-        rt,
-        TrieMap(snapshot.toSeq.map { case (parties, h) =>
-          parties -> LtHash16.tryCreate(h)
-        }*),
-      )
-    }
 
   /*
     Describe how ACS commitments are taken into account for the safeToPrune computation:

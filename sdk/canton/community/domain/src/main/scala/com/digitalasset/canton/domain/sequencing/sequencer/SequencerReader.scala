@@ -625,7 +625,7 @@ class SequencerReader(
                           protocolVersion,
                         )
                         .map(_.ipsSnapshot)
-                    )(x => Future.successful(x))
+                    )(Future.successful)
                     resolvedGroupAddresses <- GroupAddressResolver.resolveGroupsToMembers(
                       groupRecipients,
                       topologySnapshot,

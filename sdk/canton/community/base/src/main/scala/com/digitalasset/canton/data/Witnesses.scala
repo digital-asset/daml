@@ -10,11 +10,10 @@ import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.sequencing.protocol.{
   MemberRecipient,
-  ParticipantsOfParty,
+  Recipient,
   Recipients,
   RecipientsTree,
 }
-import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient
 import com.digitalasset.canton.tracing.TraceContext
 
@@ -46,10 +45,9 @@ final case class Witnesses(unwrap: NonEmpty[Seq[Set[LfPartyId]]]) {
               .right[InvalidWitnesses](topology.activeParticipantsOfParties(parties))
             _ <- {
               val informeesWithNoActiveParticipants =
-                informeeParticipants
-                  .collect {
-                    case (party, participants) if participants.isEmpty => party
-                  }
+                informeeParticipants.collect {
+                  case (party, participants) if participants.isEmpty => party
+                }
               EitherT.cond[Future](
                 informeesWithNoActiveParticipants.isEmpty,
                 (),
@@ -58,14 +56,8 @@ final case class Witnesses(unwrap: NonEmpty[Seq[Set[LfPartyId]]]) {
                 ),
               )
             }
-            partiesWithGroupAddressing <- EitherT.right(
-              topology.partiesWithGroupAddressing(parties)
-            )
-            recipients = informeeParticipants.toList.flatMap { case (party, participants) =>
-              if (partiesWithGroupAddressing.contains(party))
-                Seq(ParticipantsOfParty(PartyId.tryFromLfParty(party)))
-              else
-                participants.map(MemberRecipient)
+            recipients = informeeParticipants.toList.flatMap { case (_, participants) =>
+              participants.map[Recipient](MemberRecipient)
             }.toSet
 
             informeeRecipientSet <- EitherT.fromOption[Future](

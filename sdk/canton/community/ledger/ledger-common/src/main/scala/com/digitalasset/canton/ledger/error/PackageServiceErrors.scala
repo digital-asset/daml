@@ -129,7 +129,7 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
             "detailMsg" -> detailMsg,
           ),
         )
-    final case class Error(missing: Set[Ref.PackageRef])(implicit
+    final case class Error(missing: Set[PackageId])(implicit
         val loggingContext: ContextualizedErrorLogger
     ) extends DamlError(
           cause = "Failed to resolve package ids locally.",

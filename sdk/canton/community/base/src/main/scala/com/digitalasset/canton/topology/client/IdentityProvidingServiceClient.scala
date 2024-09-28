@@ -8,6 +8,7 @@ import cats.data.EitherT
 import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.HasFutureSupervision
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{EncryptionPublicKey, SigningPublicKey}
@@ -25,6 +26,7 @@ import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.time.DomainTimeTracker
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.client.PartyKeyTopologySnapshotClient.PartyAuthorizationInfo
 import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient.PartyInfo
 import com.digitalasset.canton.topology.processing.{
   EffectiveTime,
@@ -282,14 +284,6 @@ trait PartyTopologySnapshotClient {
       parties: List[LfPartyId]
   )(implicit traceContext: TraceContext): EitherT[Future, Set[LfPartyId], Set[ParticipantId]]
 
-  def partiesWithGroupAddressing(
-      parties: Seq[LfPartyId]
-  )(implicit traceContext: TraceContext): Future[Set[LfPartyId]]
-
-  def activeParticipantsOfPartiesWithGroupAddressing(
-      parties: Seq[LfPartyId]
-  )(implicit traceContext: TraceContext): Future[Map[LfPartyId, Set[ParticipantId]]]
-
   /** Returns a list of all known parties on this domain. */
   def inspectKnownParties(
       filterParty: String,
@@ -299,17 +293,41 @@ trait PartyTopologySnapshotClient {
 
 object PartyTopologySnapshotClient {
   final case class PartyInfo(
-      groupAddressing: Boolean,
       threshold: PositiveInt, // > 1 for consortium parties
       participants: Map[ParticipantId, ParticipantAttributes],
   )
 
   object PartyInfo {
     def nonConsortiumPartyInfo(participants: Map[ParticipantId, ParticipantAttributes]): PartyInfo =
-      PartyInfo(groupAddressing = false, threshold = PositiveInt.one, participants = participants)
+      PartyInfo(threshold = PositiveInt.one, participants = participants)
 
     lazy val EmptyPartyInfo: PartyInfo = nonConsortiumPartyInfo(Map.empty)
   }
+}
+
+/** The subset of the topology client, providing the party related key information */
+trait PartyKeyTopologySnapshotClient {
+
+  this: BaseTopologySnapshotClient =>
+
+  /** returns authorization information for the party, including signing keys and threshold */
+  def partyAuthorization(party: PartyId)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[PartyAuthorizationInfo]]
+
+}
+
+object PartyKeyTopologySnapshotClient {
+
+  /** party key information
+    *
+    * @param threshold how many signatures we require to have for the given party to authorize a transaction
+    * @param signingKeys the valid signing keys for the given party
+    */
+  final case class PartyAuthorizationInfo(
+      threshold: PositiveInt,
+      signingKeys: NonEmpty[Seq[SigningPublicKey]],
+  )
 }
 
 /** The subset of the topology client, providing signing and encryption key information */
@@ -559,7 +577,8 @@ trait TopologySnapshot
     with MediatorDomainStateClient
     with SequencerDomainStateClient
     with DomainGovernanceSnapshotClient
-    with MembersTopologySnapshotClient { this: BaseTopologySnapshotClient with NamedLogging => }
+    with MembersTopologySnapshotClient
+    with PartyKeyTopologySnapshotClient { this: BaseTopologySnapshotClient with NamedLogging => }
 
 // architecture-handbook-entry-end: IdentityProvidingServiceClient
 
@@ -852,16 +871,6 @@ private[client] trait PartyTopologySnapshotLoader
       parties: Seq[LfPartyId]
   )(implicit traceContext: TraceContext): Future[Map[LfPartyId, PartyInfo]] =
     loadAndMapPartyInfos(parties, identity)
-
-  final override def partiesWithGroupAddressing(parties: Seq[LfPartyId])(implicit
-      traceContext: TraceContext
-  ): Future[Set[LfPartyId]] =
-    loadAndMapPartyInfos(parties, identity, _.groupAddressing).map(_.keySet)
-
-  final override def activeParticipantsOfPartiesWithGroupAddressing(
-      parties: Seq[LfPartyId]
-  )(implicit traceContext: TraceContext): Future[Map[LfPartyId, Set[ParticipantId]]] =
-    loadAndMapPartyInfos(parties, _.participants.keySet, _.groupAddressing)
 
   final override def consortiumThresholds(
       parties: Set[LfPartyId]

@@ -16,12 +16,13 @@ import io.grpc.Channel
 import scalaz.std.anyVal.*
 import scalaz.std.option.*
 import scalaz.syntax.show.*
-
 import java.nio.file.Path
+
+import com.daml.tls.TlsConfiguration
 
 object HttpApiServer extends NoTracing {
 
-  def apply(config: JsonApiConfig, channel: Channel, writeService: WriteService, loggerFactory: NamedLoggerFactory)(implicit
+  def apply(config: JsonApiConfig, httpsConfiguration: Option[TlsConfiguration], channel: Channel, writeService: WriteService, loggerFactory: NamedLoggerFactory)(implicit
       jsonApiMetrics: HttpApiMetrics
   ): ResourceOwner[Unit] = {
     val logger = loggerFactory.getTracedLogger(getClass)
@@ -32,7 +33,7 @@ object HttpApiServer extends NoTracing {
         new PekkoExecutionSequencerPool("httpPool")(actorSystem)
       )
       serverBinding <- instanceUUIDLogCtx(implicit loggingContextOf =>
-        new HttpService(config, channel, writeService,loggerFactory)(
+        new HttpService(config, httpsConfiguration, channel, writeService,loggerFactory)(
           actorSystem,
           materializer,
           executionSequencerFactory,
@@ -42,12 +43,12 @@ object HttpApiServer extends NoTracing {
       )
     } yield {
       logger.info(
-        s"HTTP JSON API Server started with (address=${config.address: String}" +
-          s", configured httpPort=${config.httpPort.getOrElse(0)}" +
+        s"HTTP JSON API Server started with (address=${config.server.address: String}" +
+          s", configured httpPort=${config.server.port.getOrElse(0)}" +
           s", assigned httpPort=${serverBinding.localAddress.getPort}" +
-          s", portFile=${config.portFile: Option[Path]}" +
-          s", allowNonHttps=${config.allowNonHttps.shows}" +
-          s", wsConfig=${config.wsConfig.shows}" +
+          s", portFile=${config.server.portFile: Option[Path]}" +
+          s", allowNonHttps=${config.allowInsecureTokens.shows}" +
+          s", wsConfig=${config.websocketConfig.shows}" +
           ")"
       )
     }

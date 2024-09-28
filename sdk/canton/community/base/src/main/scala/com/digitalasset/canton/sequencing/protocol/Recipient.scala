@@ -14,7 +14,7 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.{Member, PartyId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{Member, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -67,11 +67,6 @@ object Recipient {
         )
         code <- codeE
         groupRecipient <- code match {
-          case ParticipantsOfParty.Code =>
-            UniqueIdentifier
-              .fromProtoPrimitive(rest, fieldName)
-              .map(PartyId(_))
-              .map(ParticipantsOfParty(_))
           case SequencersOfDomain.Code =>
             Right(SequencersOfDomain)
           case MediatorGroupRecipient.Code =>
@@ -103,7 +98,6 @@ sealed trait GroupRecipientCode {
 object GroupRecipientCode {
   def fromProtoPrimitive_(code: String): Either[String, GroupRecipientCode] =
     String3.create(code).flatMap {
-      case ParticipantsOfParty.Code.threeLetterId => Right(ParticipantsOfParty.Code)
       case SequencersOfDomain.Code.threeLetterId => Right(SequencersOfDomain.Code)
       case MediatorGroupRecipient.Code.threeLetterId => Right(MediatorGroupRecipient.Code)
       case AllMembersOfDomain.Code.threeLetterId => Right(AllMembersOfDomain.Code)
@@ -144,29 +138,6 @@ final case class MemberRecipient(member: Member) extends Recipient {
     )
 
   override def toLengthLimitedString: String300 = member.toLengthLimitedString
-}
-
-final case class ParticipantsOfParty(party: PartyId) extends GroupRecipient {
-
-  override def isAuthorized(snapshot: TopologySnapshot)(implicit
-      traceContext: TraceContext,
-      executionContext: ExecutionContext,
-  ): Future[Boolean] = snapshot.activeParticipantsOf(party.toLf).map(_.nonEmpty)
-
-  override protected def pretty: Pretty[ParticipantsOfParty] =
-    prettyOfClass(
-      unnamedParam(_.party)
-    )
-
-  override def code: GroupRecipientCode = ParticipantsOfParty.Code
-
-  override def suffix: String = party.toProtoPrimitive
-}
-
-object ParticipantsOfParty {
-  object Code extends GroupRecipientCode {
-    val threeLetterId: String3 = String3.tryCreate("POP")
-  }
 }
 
 case object SequencersOfDomain extends GroupRecipient {

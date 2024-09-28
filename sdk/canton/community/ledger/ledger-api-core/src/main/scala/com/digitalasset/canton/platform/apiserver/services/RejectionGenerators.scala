@@ -39,9 +39,9 @@ object RejectionGenerators {
       case Package.Validation(validationError) =>
         CommandExecutionErrors.Package.PackageValidationFailed
           .Reject(validationError.pretty)
-      case Package.MissingPackage(packageRef, context) =>
+      case Package.MissingPackage(packageId, context) =>
         RequestValidationErrors.NotFound.Package
-          .InterpretationReject(packageRef, context)
+          .InterpretationReject(Ref.PackageRef.Id(packageId), context)
       case Package.AllowedLanguageVersion(packageId, languageVersion, allowedLanguageVersions) =>
         CommandExecutionErrors.Package.AllowedLanguageVersions.Error(
           packageId,
