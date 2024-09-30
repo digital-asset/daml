@@ -20,6 +20,7 @@ import value.Value
 import scalautil.Statement.discard
 
 import scala.annotation.tailrec
+import scala.collection.immutable.VectorMap
 
 private[speedy] object SpeedyTestLib {
 
@@ -115,7 +116,8 @@ private[speedy] object SpeedyTestLib {
   ): Either[SError.SError, (SValue, List[AuthRequest], List[UpgradeVerificationRequest])] = {
 
     var authRequests: List[AuthRequest] = List.empty
-    var upgradeVerificationRequests: List[UpgradeVerificationRequest] = List.empty
+    var upgradeVerificationRequests =
+      VectorMap.empty[ContractId, UpgradeVerificationRequest]
 
     def onQuestion(question: Question.Update): Unit = question match {
       case Question.Update.NeedAuthority(holding @ _, requesting @ _, callback) =>
@@ -142,13 +144,18 @@ private[speedy] object SpeedyTestLib {
             keyOpt,
             callback,
           ) =>
-        upgradeVerificationRequests = UpgradeVerificationRequest(
-          coid,
-          signatories,
-          observers,
-          keyOpt,
-        ) :: upgradeVerificationRequests
-        callback(None)
+        val request = UpgradeVerificationRequest(coid, signatories, observers, keyOpt)
+        val differentField = upgradeVerificationRequests.get(coid) match {
+          case Some(previous) =>
+            Iterator.range(0, request.productArity).collectFirst {
+              case i if request.productElement(i) != previous.productElement(i) =>
+                request.productElementName(i)
+            }
+          case None =>
+            upgradeVerificationRequests = upgradeVerificationRequests.updated(coid, request)
+            None
+        }
+        callback(differentField)
 
       case Question.Update.NeedPackage(pkg, _, callback) =>
         getPkg.lift(pkg) match {
@@ -165,7 +172,7 @@ private[speedy] object SpeedyTestLib {
     }
     runTxQ(onQuestion, machine) match {
       case Left(e) => Left(e)
-      case Right(fv) => Right((fv, authRequests.reverse, upgradeVerificationRequests.reverse))
+      case Right(fv) => Right((fv, authRequests.reverse, upgradeVerificationRequests.values.toList))
     }
   }
 

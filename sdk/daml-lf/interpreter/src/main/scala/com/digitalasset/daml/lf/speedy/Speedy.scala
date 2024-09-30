@@ -150,6 +150,8 @@ private[lf] object Speedy {
     private[speedy] val any = SValue.SAnyContract(templateId, value)
     private[speedy] def arg = value.toNormalizedValue(version)
     private[speedy] def gkeyOpt: Option[GlobalKey] = keyOpt.map(_.globalKey)
+    private[speedy] def gkeyWithMaintainers: Option[GlobalKeyWithMaintainers] =
+      keyOpt.map(_.globalKeyWithMaintainers)
     private[speedy] def toCreateNode(coid: V.ContractId) =
       Node.Create(
         coid = coid,
