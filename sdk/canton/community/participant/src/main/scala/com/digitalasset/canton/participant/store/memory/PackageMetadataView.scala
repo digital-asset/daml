@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.store.memory
 import cats.implicits.catsSyntaxSemigroup
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.timer.FutureCheck.*
-import com.digitalasset.canton.LfPackageId
+import com.digitalasset.canton.{LfPackageId, LfPackageRef}
 import com.digitalasset.canton.config.{PackageMetadataViewConfig, ProcessingTimeout}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.error.{CommonErrors, PackageServiceErrors}
@@ -129,7 +129,7 @@ class MutablePackageMetadataViewImpl(
       .flatMap {
         case Some(pkg) => Future.successful(pkg)
         case None =>
-          Future.failed(PackageServiceErrors.InternalError.Error(Set(packageId)).asGrpcError)
+          Future.failed(PackageServiceErrors.InternalError.Error(Set(LfPackageRef.Id(packageId))).asGrpcError)
       }
 }
 
