@@ -155,11 +155,7 @@ object ClosedEnvelope extends HasProtocolVersionedCompanion[ClosedEnvelope] {
   private[protocol] def fromProtoV30(envelopeP: v30.Envelope): ParsingResult[ClosedEnvelope] = {
     val v30.Envelope(contentP, recipientsP, signaturesP) = envelopeP
     for {
-      recipients <- ProtoConverter.parseRequired(
-        Recipients.fromProtoV30(_, supportGroupAddressing = true),
-        "recipients",
-        recipientsP,
-      )
+      recipients <- ProtoConverter.parseRequired(Recipients.fromProtoV30, "recipients", recipientsP)
       signatures <- signaturesP.traverse(Signature.fromProtoV30)
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
       closedEnvelope = ClosedEnvelope

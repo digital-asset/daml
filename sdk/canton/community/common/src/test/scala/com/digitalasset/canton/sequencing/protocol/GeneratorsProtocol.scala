@@ -8,15 +8,15 @@ import com.digitalasset.canton.config.CantonRequireTypes.String73
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.{CantonTimestamp, GeneratorsData}
-import com.digitalasset.canton.protocol.TargetDomainId
 import com.digitalasset.canton.protocol.messages.{GeneratorsMessages, ProtocolMessage}
+import com.digitalasset.canton.protocol.{TargetDomainId, TransactionAuthorizationPartySignatures}
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.serialization.{
   BytestringWithCryptographicEvidence,
   HasCryptographicEvidence,
 }
 import com.digitalasset.canton.time.TimeProofTestUtil
-import com.digitalasset.canton.topology.{DomainId, Member}
+import com.digitalasset.canton.topology.{DomainId, Member, PartyId}
 import com.digitalasset.canton.version.{GeneratorsVersion, ProtocolVersion}
 import com.digitalasset.canton.{Generators, SequencerCounter}
 import com.google.protobuf.ByteString
@@ -111,6 +111,12 @@ final class GeneratorsProtocol(
         SubmissionRequest.protocolVersionRepresentativeFor(protocolVersion).representative,
       )
     )
+
+  implicit val partySignaturesArb: Arbitrary[TransactionAuthorizationPartySignatures] = Arbitrary(
+    for {
+      signatures <- Arbitrary.arbitrary[Map[PartyId, Seq[Signature]]]
+    } yield TransactionAuthorizationPartySignatures(signatures, protocolVersion)
+  )
 
   implicit val topologyStateForInitRequestArb: Arbitrary[TopologyStateForInitRequest] = Arbitrary(
     for {

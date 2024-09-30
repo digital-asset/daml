@@ -18,6 +18,7 @@ import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.ledger.participant.state.{DomainIndex, RequestIndex, SequencerIndex}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.participant.event.{
   AcsChange,
@@ -275,7 +276,7 @@ sealed trait AcsCommitmentProcessorBaseTest
         List.empty,
       reconciliationIntervalsUpdates: List[DynamicDomainParametersWithValidity] = List.empty,
   )(implicit ec: ExecutionContext): (
-      AcsCommitmentProcessor,
+      FutureUnlessShutdown[AcsCommitmentProcessor],
       AcsCommitmentStore,
       TestSequencerClientSend,
       List[(CantonTimestamp, RequestCounter, AcsChange)],
@@ -325,7 +326,7 @@ sealed trait AcsCommitmentProcessorBaseTest
 
     val indexedStringStore = new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 1)
 
-    val acsCommitmentProcessor = new AcsCommitmentProcessor(
+    val acsCommitmentProcessor = AcsCommitmentProcessor(
       domainId,
       localId,
       sequencerClient,
@@ -366,7 +367,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       ] = None,
   )(implicit
       ec: ExecutionContext
-  ): (AcsCommitmentProcessor, AcsCommitmentStore, TestSequencerClientSend) = {
+  ): (FutureUnlessShutdown[AcsCommitmentProcessor], AcsCommitmentStore, TestSequencerClientSend) = {
 
     val (acsCommitmentProcessor, store, sequencerClient, changes) =
       testSetupDontPublish(
@@ -377,10 +378,13 @@ sealed trait AcsCommitmentProcessorBaseTest
         overrideDefaultSortedReconciliationIntervalsProvider,
       )
 
-    changes.foreach { case (ts, rc, acsChange) =>
-      acsCommitmentProcessor.publish(RecordTime(ts, rc.v), acsChange, Future.unit)
-    }
-    (acsCommitmentProcessor, store, sequencerClient)
+    val proc = for {
+      processor <- acsCommitmentProcessor
+      _ = changes.foreach { case (ts, rc, acsChange) =>
+        processor.publish(RecordTime(ts, rc.v), acsChange, Future.unit)
+      }
+    } yield processor
+    (proc, store, sequencerClient)
   }
 
   protected def setupContractsAndAcsChanges(): (
@@ -1238,7 +1242,7 @@ class AcsCommitmentProcessorTest
         remoteId2 -> Set(carol),
       )
 
-      val (processor, store, sequencerClient, changes) =
+      val (proc, store, sequencerClient, changes) =
         testSetupDontPublish(timeProofs, contractSetup, topology)
 
       val remoteCommitments = List(
@@ -1247,6 +1251,7 @@ class AcsCommitmentProcessorTest
       )
 
       for {
+        processor <- proc.onShutdown(fail())
         remote <- remoteCommitments.parTraverse(commitmentMsg)
         delivered = remote.map(cmt =>
           (
@@ -1322,7 +1327,7 @@ class AcsCommitmentProcessorTest
         domainBootstrappingTime = CantonTimestamp.ofEpochSecond(6),
       )
 
-      val (processor, store, _) = testSetup(
+      val (proc, store, _) = testSetup(
         timeProofs,
         contractSetup,
         topology,
@@ -1334,6 +1339,7 @@ class AcsCommitmentProcessorTest
         List((remoteId1, Map((coid(0, 0), initialReassignmentCounter)), ts(5), ts(10), None))
 
       for {
+        processor <- proc.onShutdown(fail())
         remote <- remoteCommitments.parTraverse(commitmentMsg)
         delivered = remote.map(cmt =>
           (
@@ -2025,7 +2031,7 @@ class AcsCommitmentProcessorTest
           remoteId2 -> Set(carol),
         )
 
-        val (processor, store, sequencerClient, changes) =
+        val (proc, store, sequencerClient, changes) =
           testSetupDontPublish(
             timeProofs,
             contractSetup,
@@ -2048,6 +2054,7 @@ class AcsCommitmentProcessorTest
         )
 
         for {
+          processor <- proc.onShutdown(fail())
           _ <- checkCatchUpModeCfgCorrect(processor, timeProofs.head)
           remote <- remoteCommitments.parTraverse(commitmentMsg)
           delivered = remote.map(cmt =>
@@ -2151,7 +2158,7 @@ class AcsCommitmentProcessorTest
               ),
             )
 
-            val (processor, store, sequencerClient, changes) =
+            val (proc, store, sequencerClient, changes) =
               testSetupDontPublish(
                 testSequences,
                 contractSetup,
@@ -2166,6 +2173,7 @@ class AcsCommitmentProcessorTest
               )
 
             for {
+              processor <- proc.onShutdown(fail())
               _ <- checkCatchUpModeCfgCorrect(
                 processor,
                 testSequences.head,
@@ -2240,7 +2248,7 @@ class AcsCommitmentProcessorTest
             defaultParameters.tryUpdate(acsCommitmentsCatchUpConfigParameter = Some(startConfig)),
         )
 
-        val (processor, store, sequencerClient, changes) =
+        val (proc, store, sequencerClient, changes) =
           testSetupDontPublish(
             testSequences,
             contractSetup,
@@ -2250,6 +2258,7 @@ class AcsCommitmentProcessorTest
           )
 
         for {
+          processor <- proc.onShutdown(fail())
           _ <- checkCatchUpModeCfgCorrect(
             processor,
             testSequences.head,
@@ -2317,7 +2326,7 @@ class AcsCommitmentProcessorTest
             defaultParameters.tryUpdate(acsCommitmentsCatchUpConfigParameter = Some(startConfig)),
         )
 
-        val (processor, store, sequencerClient, changes) =
+        val (proc, store, sequencerClient, changes) =
           testSetupDontPublish(
             testSequences,
             contractSetup,
@@ -2327,6 +2336,7 @@ class AcsCommitmentProcessorTest
           )
 
         for {
+          processor <- proc.onShutdown(fail())
           _ <- checkCatchUpModeCfgCorrect(
             processor,
             testSequences.head,
@@ -2400,7 +2410,7 @@ class AcsCommitmentProcessorTest
           remoteId2 -> Set(carol),
         )
 
-        val (processor, store, sequencerClient, changes) =
+        val (proc, store, sequencerClient, changes) =
           testSetupDontPublish(
             timeProofs,
             contractSetup,
@@ -2422,6 +2432,7 @@ class AcsCommitmentProcessorTest
         )
 
         for {
+          processor <- proc.onShutdown(fail())
           _ <- checkCatchUpModeCfgCorrect(processor, timeProofs.head)
           remote <- remoteCommitments.parTraverse(commitmentMsg)
           delivered = remote.map(cmt =>
@@ -2502,7 +2513,7 @@ class AcsCommitmentProcessorTest
           remoteId2 -> Set(carol),
         )
 
-        val (processor, store, sequencerClient, changes) =
+        val (proc, store, sequencerClient, changes) =
           testSetupDontPublish(
             timeProofs,
             contractSetup,
@@ -2529,6 +2540,7 @@ class AcsCommitmentProcessorTest
         )
 
         for {
+          processor <- proc.onShutdown(fail())
           _ <- checkCatchUpModeCfgCorrect(processor, timeProofs.head)
           remote <- remoteCommitments.parTraverse(commitmentMsg)
           delivered = remote.map(cmt =>
@@ -2646,7 +2658,7 @@ class AcsCommitmentProcessorTest
             defaultParameters.tryUpdate(acsCommitmentsCatchUpConfigParameter = Some(disabledConfig)),
         )
 
-        val (processor, store, sequencerClient, changes) =
+        val (proc, store, sequencerClient, changes) =
           testSetupDontPublish(
             testSequences.flatten,
             contractSetup,
@@ -2656,6 +2668,7 @@ class AcsCommitmentProcessorTest
           )
 
         for {
+          processor <- proc.onShutdown(fail())
           _ <- checkCatchUpModeCfgCorrect(processor, testSequences.head.head)
           _ <- checkCatchUpModeCfgDisabled(processor, testSequences.apply(1).last)
           _ <- checkCatchUpModeCfgCorrect(
@@ -2747,7 +2760,7 @@ class AcsCommitmentProcessorTest
           validUntil = None,
           parameter = defaultParameters.tryUpdate(acsCommitmentsCatchUpConfigParameter = None),
         )
-        val (processor, store, sequencerClient, changes) =
+        val (proc, store, sequencerClient, changes) =
           testSetupDontPublish(
             testSequences,
             contractSetup,
@@ -2757,6 +2770,7 @@ class AcsCommitmentProcessorTest
           )
 
         for {
+          processor <- proc.onShutdown(fail())
           _ <- checkCatchUpModeCfgCorrect(
             processor,
             testSequences.head,
@@ -2833,7 +2847,7 @@ class AcsCommitmentProcessorTest
           parameter =
             defaultParameters.tryUpdate(acsCommitmentsCatchUpConfigParameter = Some(changeConfig)),
         )
-        val (processor, store, sequencerClient, changes) =
+        val (proc, store, sequencerClient, changes) =
           testSetupDontPublish(
             testSequences,
             contractSetup,
@@ -2843,6 +2857,7 @@ class AcsCommitmentProcessorTest
           )
 
         for {
+          processor <- proc.onShutdown(fail())
           _ <- checkCatchUpModeCfgCorrect(
             processor,
             testSequences.head,
@@ -2919,7 +2934,7 @@ class AcsCommitmentProcessorTest
           remoteId1 -> Set(bob),
         )
 
-        val (processor, store, sequencerClient, changes) =
+        val (proc, store, sequencerClient, changes) =
           testSetupDontPublish(
             timeProofs,
             contractSetup,
@@ -2928,6 +2943,7 @@ class AcsCommitmentProcessorTest
           )
 
         for {
+          processor <- proc.onShutdown(fail())
           // we apply any changes (contract deployment) that happens before our windows
           _ <- Future.successful(
             changes
@@ -3068,7 +3084,7 @@ class AcsCommitmentProcessorTest
           remoteId2 -> Set(carol),
         )
 
-        val (processor, store, sequencerClient, changes) =
+        val (proc, store, sequencerClient, changes) =
           testSetupDontPublish(
             timeProofs,
             contractSetup,
@@ -3096,6 +3112,7 @@ class AcsCommitmentProcessorTest
         )
 
         for {
+          processor <- proc.onShutdown(fail())
           _ <- checkCatchUpModeCfgCorrect(processor, timeProofs.head)
           remote <- remoteCommitments.parTraverse(commitmentMsg)
           delivered = remote.map(cmt =>
@@ -3188,7 +3205,7 @@ class AcsCommitmentProcessorTest
           remoteId2 -> Set(carol),
         )
 
-        val (processor, store, sequencerClient, changes) =
+        val (proc, store, sequencerClient, changes) =
           testSetupDontPublish(
             timeProofs,
             contractSetup,
@@ -3259,6 +3276,7 @@ class AcsCommitmentProcessorTest
         )
 
         for {
+          processor <- proc.onShutdown(fail())
           _ <- checkCatchUpModeCfgCorrect(processor, timeProofs.head)
           remoteFast <- remoteCommitmentsFast.parTraverse(commitmentMsg)
           deliveredFast = remoteFast.map(cmt =>
@@ -3356,7 +3374,7 @@ class AcsCommitmentProcessorTest
           remoteId2 -> Set(carol),
         )
 
-        val (processor, store, sequencerClient, changes) =
+        val (proc, store, sequencerClient, changes) =
           testSetupDontPublish(
             timeProofs,
             contractSetup,
@@ -3440,6 +3458,7 @@ class AcsCommitmentProcessorTest
 
         loggerFactory.assertLoggedWarningsAndErrorsSeq(
           for {
+            processor <- proc.onShutdown(fail())
             _ <- checkCatchUpModeCfgCorrect(processor, timeProofs.head)
             remoteFast <- remoteCommitmentsFast.parTraverse(commitmentMsg)
             deliveredFast = remoteFast.map(cmt =>
@@ -3904,7 +3923,7 @@ class AcsCommitmentProcessorSyncTest
           badStore.writeCounter.get() should be > 100
         }
         logger.info("Close the processor to stop retrying")
-        processor.close()
+        processor.map(_.close())
       },
       forAll(_) {
         _.warningMessage should (include(

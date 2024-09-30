@@ -221,9 +221,7 @@ message PartyToParticipant {
   // if threshold > 1, must be Confirmation or Observation
   repeated HostingParticipant participants = 3;
 
-  // if true, then the canton transaction is addressed to the party (group broadcast)
-  // and not to the individual participants for efficiency reasons
-  bool group_addressing = 4;
+  reserved 4; // was group_addressing = 4;
 
   reserved 5; // was domain = 5;
 }

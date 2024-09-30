@@ -55,7 +55,7 @@ private[platform] final case class InitializeParallelIngestion(
       ledgerEnd <- dbDispatcher.executeSql(metrics.index.db.getLedgerEnd)(
         parameterStorageBackend.ledgerEnd
       )
-      _ <- dbDispatcher.executeSql(metrics.parallelIndexer.initialization)(
+      _ <- dbDispatcher.executeSql(metrics.indexer.initialization)(
         ingestionStorageBackend.deletePartiallyIngestedData(ledgerEnd)
       )
       _ <- updatingStringInterningView.update(ledgerEnd.lastStringInterningId) {
@@ -82,7 +82,7 @@ private[platform] final case class InitializeParallelIngestion(
         )
       )
       _ <- postProcessor(potentiallyNonPostProcessedCompletions, loggingContext.traceContext)
-      _ <- dbDispatcher.executeSql(metrics.parallelIndexer.postProcessingEndIngestion)(
+      _ <- dbDispatcher.executeSql(metrics.indexer.postProcessingEndIngestion)(
         parameterStorageBackend.updatePostProcessingEnd(ledgerEnd.lastOffset)
       )
       _ = logger.info(s"Indexer initialized at $ledgerEnd")

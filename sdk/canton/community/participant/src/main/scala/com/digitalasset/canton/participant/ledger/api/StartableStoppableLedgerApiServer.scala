@@ -441,7 +441,14 @@ class StartableStoppableLedgerApiServer(
             .forReleasable(() =>
               ClientChannelBuilder.createChannelToTrustedServer(config.serverConfig.clientConfig)
             )(channel => Future(channel.shutdown().discard))
-          _ <- HttpApiServer(jsonApiConfig, channel, writeService, loggerFactory)(
+          _ <- HttpApiServer(
+            jsonApiConfig,
+            config.serverConfig.tls
+              .map(LedgerApiServerConfig.ledgerApiServerTlsConfigFromCantonServerConfig),
+            channel,
+            writeService,
+            loggerFactory,
+          )(
             config.jsonApiMetrics
           )
         } yield ()

@@ -232,23 +232,27 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
       // assume extra keys are not found
       referencedAuth.extraKeys.map(k => k -> (false, Set.empty[SigningPublicKey])).toMap ++
         // and replace with those that were actually found
-        // we have to dive into the owner to key mapping directly here, because we don't
-        // need to keep it around (like we do for namespace delegations) and the OTK is the
-        // only place that holds the SigningPublicKey.
-        toValidate
-          .select[TopologyChangeOp.Replace, OwnerToKeyMapping]
-          .toList
-          .flatMap { otk =>
-            otk.mapping.keys.collect {
-              case k: SigningPublicKey
-                  // only consider the public key as "found" if:
-                  // * it's required and
-                  // * actually used to sign the transaction
-                  if referencedAuth.extraKeys(k.fingerprint) && signingKeys(k.fingerprint) =>
-                k.fingerprint -> (true, Set(k))
-            }
-          }
-          .toMap
+        // we have to dive into owner to key mappings and paryt to key mappings directly here, because we don't
+        // need to keep them around (like we do for namespace delegations) and OTK / PTK are the
+        // only places that hold SigningPublicKeys.
+        {
+          val otk = toValidate
+            .select[TopologyChangeOp.Replace, OwnerToKeyMapping]
+            .toList
+            .flatMap(_.mapping.keys)
+          val ptk = toValidate
+            .select[TopologyChangeOp.Replace, PartyToKeyMapping]
+            .toList
+            .flatMap(_.mapping.signingKeys)
+          (otk ++ ptk).collect {
+            case k: SigningPublicKey
+                // only consider the public key as "found" if:
+                // * it's required and
+                // * actually used to sign the transaction
+                if referencedAuth.extraKeys(k.fingerprint) && signingKeys(k.fingerprint) =>
+              k.fingerprint -> (true, Set(k))
+          }.toMap
+        }
 
     val allKeysUsedForAuthorization =
       (namespaceWithRootAuthorizations.values ++

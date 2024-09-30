@@ -25,7 +25,7 @@ class IndexerBenchmarkResult(
 
   private val duration: Double =
     (stopTimeInNano - startTimeInNano).toDouble.nanos.toUnit(TimeUnit.SECONDS)
-  private val updates: Long = counterState(metrics.parallelIndexer.updates)
+  private val updates: Long = counterState(metrics.indexer.updates)
   private val updateRate: Double = updates / duration
 
   val (failure, minimumUpdateRateFailureInfo): (Boolean, String) =
@@ -65,25 +65,25 @@ class IndexerBenchmarkResult(
        |
        |Other metrics:
        |  inputMapping.batchSize:     ${histogramToString(
-        metrics.parallelIndexer.inputMapping.batchSize
+        metrics.indexer.inputMapping.batchSize
       )}
        |  seqMapping.duration: ${timerToString(
-        metrics.parallelIndexer.seqMapping.duration
+        metrics.indexer.seqMapping.duration
       )}|
        |  seqMapping.duration.rate: ${timerMeanRate(
-        metrics.parallelIndexer.seqMapping.duration
+        metrics.indexer.seqMapping.duration
       )}|
        |  ingestion.duration:         ${timerToString(
-        metrics.parallelIndexer.ingestion.executionTimer
+        metrics.indexer.ingestion.executionTimer
       )}
        |  ingestion.duration.rate:    ${timerMeanRate(
-        metrics.parallelIndexer.ingestion.executionTimer
+        metrics.indexer.ingestion.executionTimer
       )}
        |  tailIngestion.duration:         ${timerToString(
-        metrics.parallelIndexer.tailIngestion.executionTimer
+        metrics.indexer.tailIngestion.executionTimer
       )}
        |  tailIngestion.duration.rate:    ${timerMeanRate(
-        metrics.parallelIndexer.tailIngestion.executionTimer
+        metrics.indexer.tailIngestion.executionTimer
       )}
        |
        |Notes:

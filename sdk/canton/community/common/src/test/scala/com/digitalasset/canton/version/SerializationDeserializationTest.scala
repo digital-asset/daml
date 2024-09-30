@@ -147,6 +147,9 @@ class SerializationDeserializationTest
         )
         testVersioned(SequencerConnections)
         testProtocolVersioned(GetTrafficStateForMemberRequest, version)
+        // This fails, which is expected, because PartySignatures serialization is only defined on PV.dev
+        // We do this on purpose to make clear that this is a work in progress and should **NOT** be merged to 3.1
+        testProtocolVersioned(TransactionAuthorizationPartySignatures, version)
         testProtocolVersioned(GetTrafficStateForMemberResponse, version)
         testProtocolVersioned(TopologyStateForInitRequest, version)
         testProtocolVersioned(SubscriptionRequest, version)

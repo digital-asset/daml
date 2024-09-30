@@ -14,7 +14,7 @@ import com.digitalasset.canton.ledger.participant.state.{
   RequestIndex,
   Update,
 }
-import com.digitalasset.canton.metrics.{IndexedUpdatesMetrics, LedgerApiServerMetrics}
+import com.digitalasset.canton.metrics.{IndexerMetrics, LedgerApiServerMetrics}
 import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.indexer.TransactionTraversalUtils
 import com.digitalasset.canton.platform.store.dao.JdbcLedgerDao
@@ -39,16 +39,16 @@ object UpdateToDbDto {
       tracedUpdate.value match {
         case u: CommandRejected =>
           withExtraMetricLabels(
-            IndexedUpdatesMetrics.Labels.grpcCode -> Status
+            IndexerMetrics.Labels.grpcCode -> Status
               .fromCodeValue(u.reasonTemplate.code)
               .getCode
               .name(),
-            IndexedUpdatesMetrics.Labels.applicationId -> u.completionInfo.applicationId,
+            IndexerMetrics.Labels.applicationId -> u.completionInfo.applicationId,
           ) { implicit mc: MetricsContext =>
             incrementCounterForEvent(
-              metrics.indexerEvents,
-              IndexedUpdatesMetrics.Labels.eventType.transaction,
-              IndexedUpdatesMetrics.Labels.status.rejected,
+              metrics.indexer,
+              IndexerMetrics.Labels.eventType.transaction,
+              IndexerMetrics.Labels.status.rejected,
             )
           }
           Iterator(
@@ -74,9 +74,9 @@ object UpdateToDbDto {
 
         case u: PartyAddedToParticipant =>
           incrementCounterForEvent(
-            metrics.indexerEvents,
-            IndexedUpdatesMetrics.Labels.eventType.partyAllocation,
-            IndexedUpdatesMetrics.Labels.status.accepted,
+            metrics.indexer,
+            IndexerMetrics.Labels.eventType.partyAllocation,
+            IndexerMetrics.Labels.status.accepted,
           )
           Iterator(
             DbDto.PartyEntry(
@@ -93,9 +93,9 @@ object UpdateToDbDto {
 
         case u: PartyAllocationRejected =>
           incrementCounterForEvent(
-            metrics.indexerEvents,
-            IndexedUpdatesMetrics.Labels.eventType.partyAllocation,
-            IndexedUpdatesMetrics.Labels.status.rejected,
+            metrics.indexer,
+            IndexerMetrics.Labels.eventType.partyAllocation,
+            IndexerMetrics.Labels.status.rejected,
           )
           Iterator(
             DbDto.PartyEntry(
@@ -112,12 +112,12 @@ object UpdateToDbDto {
 
         case u: TransactionAccepted =>
           withOptionalMetricLabels(
-            IndexedUpdatesMetrics.Labels.applicationId -> u.completionInfoO.map(_.applicationId)
+            IndexerMetrics.Labels.applicationId -> u.completionInfoO.map(_.applicationId)
           ) { implicit mc: MetricsContext =>
             incrementCounterForEvent(
-              metrics.indexerEvents,
-              IndexedUpdatesMetrics.Labels.eventType.transaction,
-              IndexedUpdatesMetrics.Labels.status.accepted,
+              metrics.indexer,
+              IndexerMetrics.Labels.eventType.transaction,
+              IndexerMetrics.Labels.status.accepted,
             )
           }
           val blinding = u.blindingInfo
@@ -290,12 +290,12 @@ object UpdateToDbDto {
 
         case u: ReassignmentAccepted =>
           withOptionalMetricLabels(
-            IndexedUpdatesMetrics.Labels.applicationId -> u.optCompletionInfo.map(_.applicationId)
+            IndexerMetrics.Labels.applicationId -> u.optCompletionInfo.map(_.applicationId)
           ) { implicit mc: MetricsContext =>
             incrementCounterForEvent(
-              metrics.indexerEvents,
-              IndexedUpdatesMetrics.Labels.eventType.reassignment,
-              IndexedUpdatesMetrics.Labels.status.accepted,
+              metrics.indexer,
+              IndexerMetrics.Labels.eventType.reassignment,
+              IndexerMetrics.Labels.status.accepted,
             )
           }
           val events = u.reassignment match {
@@ -426,15 +426,15 @@ object UpdateToDbDto {
   }
 
   private def incrementCounterForEvent(
-      metrics: IndexedUpdatesMetrics,
+      metrics: IndexerMetrics,
       eventType: String,
       status: String,
   )(implicit
       mc: MetricsContext
   ): Unit =
     withExtraMetricLabels(
-      IndexedUpdatesMetrics.Labels.eventType.key -> eventType,
-      IndexedUpdatesMetrics.Labels.status.key -> status,
+      IndexerMetrics.Labels.eventType.key -> eventType,
+      IndexerMetrics.Labels.status.key -> status,
     ) { implicit mc =>
       metrics.eventsMeter.mark()
     }

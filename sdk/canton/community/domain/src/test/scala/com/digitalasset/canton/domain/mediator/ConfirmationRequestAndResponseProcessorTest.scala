@@ -522,20 +522,6 @@ class ConfirmationRequestAndResponseProcessorTest
           ),
           Recipients.cc(MemberRecipient(participant3), mediatorGroupRecipient),
         ),
-        "group addresses and member recipients" -> Seq(
-          Recipients.recipientGroups(
-            NonEmpty.mk(
-              Seq,
-              NonEmpty.mk(
-                Set,
-                ParticipantsOfParty(PartyId.tryFromLfParty(submitter)),
-                mediatorGroupRecipient,
-              ),
-              NonEmpty.mk(Set, MemberRecipient(participant2), mediatorGroupRecipient),
-              NonEmpty.mk(Set, MemberRecipient(participant3), mediatorGroupRecipient),
-            )
-          )
-        ),
       )
 
       sequentialTraverse_(tests.zipWithIndex) { case ((testName, recipients), i) =>

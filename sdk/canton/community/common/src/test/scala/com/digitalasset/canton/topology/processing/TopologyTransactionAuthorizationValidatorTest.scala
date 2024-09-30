@@ -612,7 +612,6 @@ class TopologyTransactionAuthorizationValidatorTest
               HostingParticipant(pid2, ParticipantPermission.Submission),
               HostingParticipant(participant6, ParticipantPermission.Submission),
             ),
-            groupAddressing = false,
           ),
           // both the party's owner and the participant sign
           NonEmpty(Set, SigningKeys.key1, SigningKeys.key2, SigningKeys.key6),
@@ -626,7 +625,6 @@ class TopologyTransactionAuthorizationValidatorTest
             HostingParticipant(participant1, ParticipantPermission.Submission),
             HostingParticipant(participant6, ParticipantPermission.Submission),
           ),
-          groupAddressing = false,
         )
         val unhostingMappingAndThresholdChange = PartyToParticipant.tryCreate(
           party1b,
@@ -635,7 +633,6 @@ class TopologyTransactionAuthorizationValidatorTest
             HostingParticipant(participant1, ParticipantPermission.Submission),
             HostingParticipant(participant6, ParticipantPermission.Submission),
           ),
-          groupAddressing = false,
         )
 
         val participant2RemovesItselfUnilaterally = mkAdd(

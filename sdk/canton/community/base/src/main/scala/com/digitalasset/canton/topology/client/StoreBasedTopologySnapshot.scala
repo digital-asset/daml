@@ -21,6 +21,7 @@ import com.digitalasset.canton.topology.store.*
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Replace
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.daml.lf.data.Ref.PackageId
 
@@ -232,7 +233,7 @@ class StoreBasedTopologySnapshot(
           storedTransactions,
           TopologyMapping.Code.PartyToParticipant,
         ).map { ptp =>
-          ptp.partyId -> (ptp.groupAddressing, ptp.threshold, ptp.participants.map {
+          ptp.partyId -> (ptp.threshold, ptp.participants.map {
             case HostingParticipant(participantId, partyPermission) =>
               participantId -> partyPermission
           }.toMap)
@@ -250,10 +251,9 @@ class StoreBasedTopologySnapshot(
       (partyToParticipantMap, adminPartyParticipants) = partyData
 
       // fetch all admin parties
-      participantIds = partyToParticipantMap.values
-        .map(_._3)
-        .flatMap(_.keys)
-        .toSeq ++ adminPartyParticipants
+      participantIds = partyToParticipantMap.values.flatMap { case (_, participants) =>
+        participants.keys
+      }.toSeq ++ adminPartyParticipants
 
       participantToAttributesMap <- loadParticipantStates(participantIds)
 
@@ -275,7 +275,7 @@ class StoreBasedTopologySnapshot(
       // this can only affect participants that have left the domain
       partiesToPartyInfos = {
         val p2pMappings = partyToParticipantMap.toSeq.mapFilter {
-          case (partyId, (groupAddressing, threshold, participantToPermissionsMap)) =>
+          case (partyId, (threshold, participantToPermissionsMap)) =>
             val participantIdToAttribs = participantToPermissionsMap.toSeq.mapFilter {
               case (participantId, partyPermission) =>
                 participantToAttributesMap
@@ -294,7 +294,7 @@ class StoreBasedTopologySnapshot(
                   }
             }.toMap
             if (participantIdToAttribs.isEmpty) None
-            else Some(partyId -> PartyInfo(groupAddressing, threshold, participantIdToAttribs))
+            else Some(partyId -> PartyInfo(threshold, participantIdToAttribs))
         }.toMap
         // In case of conflicting mappings, the admin party takes higher precedence
         // Note that conflicts are prevented in TopologyMappingChecks.
@@ -716,4 +716,32 @@ class StoreBasedTopologySnapshot(
     }
     result
   }
+
+  /** returns party authorization info for a party */
+  override def partyAuthorization(party: PartyId)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[PartyKeyTopologySnapshotClient.PartyAuthorizationInfo]] =
+    FutureUnlessShutdown.outcomeF(
+      findTransactions(
+        types = Seq(TopologyMapping.Code.PartyToKeyMapping),
+        filterUid = Some(Seq(party.uid)),
+        filterNamespace = None,
+      ).map { transactions =>
+        val keys = transactions
+          .collectOfMapping[PartyToKeyMapping]
+        keys.result.toList match {
+          case head :: Nil =>
+            val mapping = head.transaction.transaction.mapping
+            Some(
+              PartyKeyTopologySnapshotClient.PartyAuthorizationInfo(
+                threshold = mapping.threshold,
+                signingKeys = mapping.signingKeys,
+              )
+            )
+          case Nil => None
+          case _ => ErrorUtil.invalidState(s"Too many PartyToKeyMappings for $party: $keys")
+        }
+      }
+    )
+
 }

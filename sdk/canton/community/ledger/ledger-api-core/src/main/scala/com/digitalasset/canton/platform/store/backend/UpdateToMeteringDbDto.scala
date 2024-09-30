@@ -8,7 +8,7 @@ import com.daml.metrics.api.MetricsContext.withExtraMetricLabels
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.Update
 import com.digitalasset.canton.ledger.participant.state.Update.TransactionAccepted
-import com.digitalasset.canton.metrics.IndexedUpdatesMetrics
+import com.digitalasset.canton.metrics.IndexerMetrics
 import com.digitalasset.canton.tracing.Traced
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -19,7 +19,7 @@ object UpdateToMeteringDbDto {
   def apply(
       clock: () => Long = () => Timestamp.now().micros,
       excludedPackageIds: Set[Ref.PackageId],
-      metrics: IndexedUpdatesMetrics,
+      metrics: IndexerMetrics,
   )(implicit
       mc: MetricsContext
   ): Iterable[(Offset, Traced[Update])] => Vector[DbDto.TransactionMetering] = input => {
@@ -43,7 +43,7 @@ object UpdateToMeteringDbDto {
         .filter(_._2 != 0)
         .sortBy(_._1)
         .map { case (applicationId, count) =>
-          withExtraMetricLabels(IndexedUpdatesMetrics.Labels.applicationId -> applicationId) {
+          withExtraMetricLabels(IndexerMetrics.Labels.applicationId -> applicationId) {
             implicit mc =>
               metrics.meteredEventsMeter.mark(count.toLong)
           }

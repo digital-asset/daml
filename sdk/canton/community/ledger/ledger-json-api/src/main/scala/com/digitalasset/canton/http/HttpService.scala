@@ -54,6 +54,7 @@ import scala.util.Using
 
 class HttpService(
     startSettings: StartSettings,
+    httpsConfiguration: Option[TlsConfiguration],
     channel: Channel,
     writeService: WriteService,
     val loggerFactory: NamedLoggerFactory,
@@ -169,7 +170,7 @@ class HttpService(
       )
 
       jsonEndpoints = new Endpoints(
-        startSettings.httpsConfiguration.isEmpty,
+        httpsConfiguration.isEmpty,
         HttpService.decodeJwt,
         commandService,
         contractsService,
@@ -189,7 +190,7 @@ class HttpService(
         contractsService,
         packageService.resolveContractTypeId,
         decoder,
-        wsConfig,
+        websocketConfig,
         loggerFactory,
       )
 
@@ -215,7 +216,7 @@ class HttpService(
 
       binding <- liftET[HttpService.Error] {
         val serverBuilder = Http()
-          .newServerAt(address, httpPort.getOrElse(0))
+          .newServerAt(server.address, server.port.getOrElse(0))
           .withSettings(settings)
 
         httpsConfiguration
@@ -226,7 +227,7 @@ class HttpService(
           .bind(allEndpoints)
       }
 
-      _ <- either(portFile.cata(f => HttpService.createPortFile(f, binding), \/-(()))): ET[Unit]
+      _ <- either(server.portFile.cata(f => HttpService.createPortFile(f, binding), \/-(()))): ET[Unit]
 
     } yield binding
 

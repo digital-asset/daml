@@ -21,8 +21,13 @@ class ValidateDisclosedContracts {
   def apply(commands: ProtoCommands)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, ImmArray[FatContractInstance]] =
+    fromDisclosedContracts(commands.disclosedContracts)
+
+  def fromDisclosedContracts(disclosedContracts: Seq[ProtoDisclosedContract])(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, ImmArray[FatContractInstance]] =
     for {
-      validatedDisclosedContracts <- validateDisclosedContracts(commands.disclosedContracts)
+      validatedDisclosedContracts <- validateDisclosedContracts(disclosedContracts)
     } yield validatedDisclosedContracts
 
   private def validateDisclosedContracts(

@@ -132,7 +132,7 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
                 )
               ),
               UpdateToMeteringDbDto(
-                metrics = metrics.indexerEvents,
+                metrics = metrics.indexer,
                 excludedPackageIds = excludedPackageIds,
               ),
               logger,
@@ -209,7 +209,7 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
         _.map(batch => (batch.offsetsUpdates, batch.lastSeqEventId, batch.publicationTime))
       )
       .buffered(
-        counter = metrics.parallelIndexer.outputBatchedBufferLength,
+        counter = metrics.indexer.outputBatchedBufferLength,
         size = maxOutputBatchedBufferSize,
       )
       .via(inMemoryStateUpdaterFlow(repairMode))
@@ -295,7 +295,7 @@ object ParallelIndexerSubscription {
       toMeteringDbDto: Iterable[(Offset, Traced[Update])] => Vector[DbDto.TransactionMetering],
       logger: TracedLogger,
   ): Iterable[(Offset, Traced[Update])] => Batch[Vector[DbDto]] = { input =>
-    metrics.parallelIndexer.inputMapping.batchSize.update(input.size)(MetricsContext.Empty)
+    metrics.indexer.inputMapping.batchSize.update(input.size)(MetricsContext.Empty)
 
     val mainBatch = input.iterator.flatMap { case (offset, update) =>
       val prefix = update.value match {
@@ -358,7 +358,7 @@ object ParallelIndexerSubscription {
       current: Batch[Vector[DbDto]],
   ): Batch[Vector[DbDto]] =
     Timed.value(
-      metrics.parallelIndexer.seqMapping.duration, {
+      metrics.indexer.seqMapping.duration, {
         discard(
           current.offsetsUpdates.foldLeft(previous.lastOffset) { case (prev, (curr, _)) =>
             assert(prev < curr, s"Monotonic Offset violation detected from $prev to $curr")
@@ -487,8 +487,8 @@ object ParallelIndexerSubscription {
             logger,
           )(batchTraceContext)
           .flatMap(_ =>
-            dbDispatcher.executeSql(metrics.parallelIndexer.ingestion) { connection =>
-              metrics.parallelIndexer.updates.inc(batch.batchSize.toLong)(MetricsContext.Empty)
+            dbDispatcher.executeSql(metrics.indexer.ingestion) { connection =>
+              metrics.indexer.updates.inc(batch.batchSize.toLong)(MetricsContext.Empty)
               ingestFunction(connection, batch.batch)
               cleanUnusedBatch(zeroDbBatch)(batch)
             }
@@ -553,7 +553,7 @@ object ParallelIndexerSubscription {
             }
             .mkString("domain-indexes: [", ", ", "]")
 
-          dbDispatcher.executeSql(metrics.parallelIndexer.tailIngestion) { connection =>
+          dbDispatcher.executeSql(metrics.indexer.tailIngestion) { connection =>
             storeTailFunction(ledgerEnd, ledgerEndDomainIndexes)(connection)
             metrics.indexer.ledgerEndSequentialId
               .updateValue(ledgerEnd.lastEventSeqId)
@@ -624,7 +624,7 @@ object ParallelIndexerSubscription {
   )(implicit traceContext: TraceContext): Offset => Future[Unit] = offset =>
     LoggingContextWithTrace.withNewLoggingContext("updateOffset" -> offset) {
       implicit loggingContext =>
-        dbDispatcher.executeSql(metrics.parallelIndexer.postProcessingEndIngestion) { connection =>
+        dbDispatcher.executeSql(metrics.indexer.postProcessingEndIngestion) { connection =>
           storePostProcessEndFunction(offset)(connection)
           logger.debug(
             s"Post Processing end updated in IndexDB, ${loggingContext.serializeFiltered("updateOffset")}."

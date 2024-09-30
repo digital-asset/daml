@@ -12,15 +12,10 @@ import com.digitalasset.canton.data.MerkleTree.{BlindSubtree, RevealIfNeedBe, Re
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.EncryptedViewMessage
 import com.digitalasset.canton.protocol.messages.EncryptedViewMessage.computeRandomnessLength
-import com.digitalasset.canton.sequencing.protocol.{
-  MemberRecipient,
-  ParticipantsOfParty,
-  Recipients,
-  RecipientsTree,
-}
+import com.digitalasset.canton.sequencing.protocol.{MemberRecipient, Recipients, RecipientsTree}
+import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.PartyTopologySnapshotClient
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
-import com.digitalasset.canton.topology.{ParticipantId, PartyId}
 import com.digitalasset.canton.{
   BaseTestWordSpec,
   HasExecutionContext,
@@ -621,9 +616,6 @@ class GenTransactionTreeTest
             case (party, map) if parties.contains(party) => (party, map.keySet)
           })
         }
-      when(topology.partiesWithGroupAddressing(any[Seq[LfPartyId]])(anyTraceContext))
-        // parties 3 and 6 will use group addressing
-        .thenReturn(Future.successful(Set(party(3), party(6))))
 
       val witnesses = mkWitnesses(
         NonEmpty(Seq, Set(1, 2), Set(1, 3), Set(2, 4), Set(1, 2, 5), Set(6))
@@ -636,7 +628,7 @@ class GenTransactionTreeTest
         NonEmpty(
           Seq,
           RecipientsTree.ofRecipients(
-            NonEmpty.mk(Set, ParticipantsOfParty(PartyId.tryFromLfParty(party(6)))),
+            NonEmpty.mk(Set, MemberRecipient(participant(16))),
             Seq(
               RecipientsTree.ofMembers(
                 NonEmpty(Set, 11, 12, 13, 15).map(participant),
@@ -648,7 +640,7 @@ class GenTransactionTreeTest
                         NonEmpty.mk(
                           Set,
                           MemberRecipient(participant(11)),
-                          ParticipantsOfParty(PartyId.tryFromLfParty(party(3))),
+                          MemberRecipient(participant(13)),
                         ),
                         Seq(
                           RecipientsTree.leaf(NonEmpty.mk(Set, participant(11), participant(12)))

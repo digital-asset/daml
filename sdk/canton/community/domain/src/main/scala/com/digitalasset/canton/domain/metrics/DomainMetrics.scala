@@ -27,7 +27,6 @@ import com.digitalasset.canton.sequencing.protocol.{
   AllMembersOfDomain,
   MediatorGroupRecipient,
   MemberRecipient,
-  ParticipantsOfParty,
   Recipient,
   SequencersOfDomain,
 }
@@ -288,7 +287,7 @@ object SequencerMetrics {
   )(implicit traceContext: TraceContext): MetricsContext =
     allRecipients
       .foldLeft(RecipientStats()) {
-        case (acc, MemberRecipient(ParticipantId(_)) | ParticipantsOfParty(_)) =>
+        case (acc, MemberRecipient(ParticipantId(_))) =>
           acc.copy(participants = true)
         case (acc, MemberRecipient(MediatorId(_)) | MediatorGroupRecipient(_)) =>
           acc.copy(mediators = true)

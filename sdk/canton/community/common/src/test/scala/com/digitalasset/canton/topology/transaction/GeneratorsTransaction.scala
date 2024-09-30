@@ -128,9 +128,8 @@ final class GeneratorsTransaction(
       threshold <- Gen
         .choose(1, participants.count(_.permission >= ParticipantPermission.Confirmation).max(1))
         .map(PositiveInt.tryCreate)
-      groupAddressing <- Arbitrary.arbitrary[Boolean]
     } yield PartyToParticipant
-      .create(partyId, threshold, participants, groupAddressing)
+      .create(partyId, threshold, participants)
       .value
   )
 

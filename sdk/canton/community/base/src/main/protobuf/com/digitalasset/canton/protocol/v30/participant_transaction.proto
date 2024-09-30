@@ -236,3 +236,20 @@ message ViewParticipantData {
     int32 next_child = 2;
   }
 }
+
+// Additional signatures provided by a single party
+// The purpose of these signatures is to allow parties to authorize transactions
+// by signing it with a private key not known to the network.
+message TransactionAuthorizationSinglePartySignatures {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+  string party = 1; // Submitting party
+  repeated com.digitalasset.canton.crypto.v30.Signature signatures = 2; // Signatures
+}
+
+// Additional signatures provided by the submitting parties - for multi party submissions
+message TransactionAuthorizationPartySignatures {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
+
+  // Additional signatures provided by all individual parties
+  repeated TransactionAuthorizationSinglePartySignatures signatures = 1;
+}

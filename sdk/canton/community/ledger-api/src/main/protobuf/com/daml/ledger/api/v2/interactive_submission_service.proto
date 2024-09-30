@@ -6,6 +6,8 @@ syntax = "proto3";
 package com.daml.ledger.api.v2;
 
 import "com/daml/ledger/api/v2/commands.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
 
 option csharp_namespace = "Com.Daml.Ledger.Api.V2";
 option java_outer_classname = "InteractiveSubmissionServiceOuterClass";
@@ -17,10 +19,75 @@ option java_package = "com.daml.ledger.api.v2";
 service InteractiveSubmissionService {
   // Requires `readAs` scope for the submitting party when LAPI User authorization is enabled
   rpc PrepareSubmission(PrepareSubmissionRequest) returns (PrepareSubmissionResponse);
+  rpc ExecuteSubmission(ExecuteSubmissionRequest) returns (ExecuteSubmissionResponse);
 }
 
 message PrepareSubmissionRequest {
-  Commands commands = 1; // Commands for which to prepare a transaction
+  // Uniquely identifies the application or participant user that prepares the transaction.
+  // Must be a valid ApplicationIdString (as described in ``value.proto``).
+  // Required unless authentication is used with a user token or a custom token specifying an application-id.
+  // In that case, the token's user-id, respectively application-id, will be used for the request's application_id.
+  string application_id = 1;
+
+  // Uniquely identifies the command.
+  // The triple (application_id, act_as, command_id) constitutes the change ID for the intended ledger change,
+  // where act_as is interpreted as a set of party names.
+  // The change ID can be used for matching the intended ledger changes with all their completions.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Required
+  string command_id = 2;
+
+  // Individual elements of this atomic command. Must be non-empty.
+  // Required
+  repeated Command commands = 3;
+
+  // Lower bound for the ledger time assigned to the resulting transaction.
+  // The ledger time of a transaction is assigned as part of command interpretation.
+  // Important note: for interactive submissions, if the transaction depends on time, it **must** be signed
+  // and submitted within a time window around the ledger time assigned to the transaction during the prepare method.
+  // The time delta around that ledger time is a configuration of the ledger, usually short, around 1 minute.
+  // If however the transaction does not depend on time, the available time window to sign and submit the transaction is bound
+  // by the submission timestamp, which is also assigned in the "prepare" step (this request),
+  // but can be configured with a much larger skew, allowing for more time to sign the request (in the order of hours).
+  // Must not be set at the same time as min_ledger_time_rel.
+  // Optional
+  google.protobuf.Timestamp min_ledger_time_abs = 4;
+
+  // Same as min_ledger_time_abs, but specified as a duration, starting from the time this request is received by the server.
+  // Must not be set at the same time as min_ledger_time_abs.
+  // Optional
+  google.protobuf.Duration min_ledger_time_rel = 5;
+
+  // Set of parties on whose behalf the command should be executed, if submitted.
+  // If ledger API authorization is enabled, then the authorization metadata must authorize the sender of the request
+  // to **read** (not act) on behalf of each of the given parties. This is because this RPC merely prepares a transaction
+  // and does not execute it. Therefore read authorization is sufficient even for actAs parties.
+  // Note: This may change, and more specific authorization scope may be introduced in the future.
+  // Each element must be a valid PartyIdString (as described in ``value.proto``).
+  // Required, must be non-empty.
+  repeated string act_as = 6;
+
+  // Set of parties on whose behalf (in addition to all parties listed in ``act_as``) contracts can be retrieved.
+  // This affects Daml operations such as ``fetch``, ``fetchByKey``, ``lookupByKey``, ``exercise``, and ``exerciseByKey``.
+  // Note: A command can only use contracts that are visible to at least
+  // one of the parties in ``act_as`` or ``read_as``. This visibility check is independent from the Daml authorization
+  // rules for fetch operations.
+  // If ledger API authorization is enabled, then the authorization metadata must authorize the sender of the request
+  // to read contract data on behalf of each of the given parties.
+  // Optional
+  repeated string read_as = 7;
+
+  // Additional contracts used to resolve contract & contract key lookups.
+  // Optional
+  repeated DisclosedContract disclosed_contracts = 8;
+
+  // Must be a valid domain ID
+  // Required
+  string domain_id = 9;
+
+  // The package-id selection preference of the client for resolving
+  // package names and interface instances in command submission and interpretation
+  repeated string package_id_selection_preference = 10;
 }
 
 message PrepareSubmissionResponse {
@@ -48,3 +115,62 @@ enum SignatureFormat {
   // Signature scheme specific signature format
   SIGNATURE_FORMAT_RAW = 1;
 }
+
+// Signatures provided by a single party
+message SinglePartySignatures {
+  string party = 1; // Submitting party
+  repeated Signature signatures = 2; // Signatures
+}
+
+// Additional signatures provided by the submitting parties
+message PartySignatures {
+  // Additional signatures provided by all individual parties
+  repeated SinglePartySignatures signatures = 1;
+}
+
+message ExecuteSubmissionRequest {
+  // the prepared transaction
+  // Typically this is the value of the `prepared_transaction` field in `PrepareSubmissionResponse`
+  // obtained from calling `prepareSubmission`.
+  bytes prepared_transaction = 1;
+
+  // The party(ies) signatures that authorize the prepared submission to be executed by this node.
+  // Each party can provide one or more signatures..
+  // and one or more parties can sign.
+  // Note that currently, only single party submissions are supported.
+  PartySignatures parties_signatures = 2;
+
+  // Identifier of the on-ledger workflow that this command is a part of.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  // Optional
+  string workflow_id = 3;
+
+  // Specifies the deduplication period for the change ID (See PrepareSubmissionRequest).
+  // If omitted, the participant will assume the configured maximum deduplication time (see
+  // ``ledger_configuration_service.proto``).
+  oneof deduplication_period {
+    // Specifies the length of the deduplication period.
+    // It is interpreted relative to the local clock at some point during the submission's processing.
+    // Must be non-negative. Must not exceed the maximum deduplication time (see
+    // ``ledger_configuration_service.proto``).
+    google.protobuf.Duration deduplication_duration = 4;
+
+    // Specifies the start of the deduplication period by a completion stream offset (exclusive).
+    // Must be a valid hexadecimal string.
+    string deduplication_offset = 5;
+  }
+
+  // A unique identifier to distinguish completions for different submissions with the same change ID.
+  // Typically a random UUID. Applications are expected to use a different UUID for each retry of a submission
+  // with the same change ID.
+  // Must be a valid LedgerString (as described in ``value.proto``).
+  //
+  // If omitted, the participant or the committer may set a value of their choice.
+  // Optional
+  string submission_id = 6;
+
+  // See [PrepareSubmissionRequest.application_id]
+  string application_id = 7;
+}
+
+message ExecuteSubmissionResponse {}

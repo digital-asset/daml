@@ -109,7 +109,6 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
         party1b,
         threshold = PositiveInt.one,
         Seq(HostingParticipant(participant1, ParticipantPermission.Submission)),
-        groupAddressing = false,
       ),
       key2,
     )
@@ -119,7 +118,6 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
         party1b,
         threshold = PositiveInt.one,
         Seq(HostingParticipant(participant6, ParticipantPermission.Submission)),
-        groupAddressing = false,
       ),
       key2,
       isProposal = true,
@@ -130,7 +128,6 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
         party1b,
         threshold = PositiveInt.one,
         Seq(HostingParticipant(participant6, ParticipantPermission.Submission)),
-        groupAddressing = false,
       ),
       NonEmpty(Set, key1, key6),
       isProposal = true,
@@ -141,7 +138,6 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
         party1b,
         threshold = PositiveInt.one,
         Seq(HostingParticipant(participant6, ParticipantPermission.Submission)),
-        groupAddressing = false,
       ),
       NonEmpty(Set, key2, key6),
     )
@@ -152,7 +148,6 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
         party1b,
         threshold = PositiveInt.one,
         Seq(HostingParticipant(participant6, ParticipantPermission.Submission)),
-        groupAddressing = false,
       ),
       key3,
     )

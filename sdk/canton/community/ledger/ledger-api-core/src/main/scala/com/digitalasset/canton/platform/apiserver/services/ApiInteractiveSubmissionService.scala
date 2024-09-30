@@ -4,9 +4,10 @@
 package com.digitalasset.canton.platform.apiserver.services
 
 import com.daml.error.ContextualizedErrorLogger
-import com.daml.ledger.api.v2.command_submission_service.SubmitRequest as SubmiteRequestP
 import com.daml.ledger.api.v2.interactive_submission_service.InteractiveSubmissionServiceGrpc.InteractiveSubmissionService as InteractiveSubmissionServiceGrpc
 import com.daml.ledger.api.v2.interactive_submission_service.{
+  ExecuteSubmissionRequest,
+  ExecuteSubmissionResponse,
   PrepareSubmissionRequest as PrepareRequestP,
   PrepareSubmissionResponse as PrepareResponseP,
 }
@@ -25,7 +26,7 @@ import com.digitalasset.canton.logging.{
   NamedLogging,
 }
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
-import com.digitalasset.canton.tracing.Traced
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.OptionUtil
 import io.grpc.ServerServiceDefinition
 
@@ -50,7 +51,12 @@ class ApiInteractiveSubmissionService(
   private val validator = new SubmitRequestValidator(commandsValidator)
 
   override def prepareSubmission(request: PrepareRequestP): Future[PrepareResponseP] = {
-    implicit val traceContext = getAnnotedCommandTraceContext(request.commands, telemetry)
+    implicit val traceContext = getPrepareRequestTraceContext(
+      request.applicationId,
+      request.commandId,
+      request.actAs,
+      telemetry,
+    )
     prepareWithTraceContext(Traced(request))
   }
 
@@ -59,12 +65,11 @@ class ApiInteractiveSubmissionService(
   ): Future[PrepareResponseP] = {
     implicit val loggingContextWithTrace: LoggingContextWithTrace =
       LoggingContextWithTrace(loggerFactory)(request.traceContext)
-    val requestWithSubmissionId = generateSubmissionIdIfEmpty(request.value)
     val errorLogger: ContextualizedErrorLogger =
       ErrorLoggingContext.fromOption(
         logger,
         loggingContextWithTrace,
-        requestWithSubmissionId.commands.map(_.submissionId),
+        None,
       )
 
     Timed.timedAndTrackedFuture(
@@ -73,34 +78,50 @@ class ApiInteractiveSubmissionService(
       Timed
         .value(
           metrics.commands.validation,
-          validator.validate(
-            req = requestWithSubmissionId,
+          validator.validatePrepare(
+            req = request.value,
             currentLedgerTime = currentLedgerTime(),
             currentUtcTime = currentUtcTime(),
             maxDeduplicationDuration = maxDeduplicationDuration,
-            domainIdString = requestWithSubmissionId.commands.flatMap(commands =>
-              OptionUtil.emptyStringAsNone(commands.domainId)
-            ),
+            domainIdString = OptionUtil.emptyStringAsNone(request.value.domainId),
           )(errorLogger),
         )
         .map { case SubmitRequest(commands) =>
           PrepareRequest(commands)
         }
         .fold(
-          t =>
-            Future.failed(ValidationLogger.logFailureWithTrace(logger, requestWithSubmissionId, t)),
+          t => Future.failed(ValidationLogger.logFailureWithTrace(logger, request, t)),
           interactiveSubmissionService.prepare(_),
         ),
     )
   }
 
-  private def generateSubmissionIdIfEmpty(request: PrepareRequestP): SubmiteRequestP =
-    if (request.commands.exists(_.submissionId.isEmpty))
-      SubmiteRequestP(
-        request.update(_.commands.submissionId := submissionIdGenerator.generate()).commands
+  override def executeSubmission(
+      request: ExecuteSubmissionRequest
+  ): Future[ExecuteSubmissionResponse] = {
+    // TODO(i20660) Extract command id and actAs from serialized transaction once serialization is in place
+    // and get a better trace context
+    val traceContext =
+      TraceContext.fromDamlTelemetryContext(telemetry.contextFromGrpcThreadLocalContext())
+    implicit val loggingContextWithTrace: LoggingContextWithTrace =
+      LoggingContextWithTrace(loggerFactory)(traceContext)
+    val errorLogger: ContextualizedErrorLogger =
+      ErrorLoggingContext.fromOption(
+        logger,
+        loggingContextWithTrace,
+        OptionUtil.emptyStringAsNone(request.submissionId),
       )
-    else
-      SubmiteRequestP(request.commands)
+    validator
+      .validateExecute(
+        request,
+        submissionIdGenerator,
+        maxDeduplicationDuration,
+      )(errorLogger)
+      .fold(
+        t => Future.failed(ValidationLogger.logFailureWithTrace(logger, request, t)),
+        interactiveSubmissionService.execute(_),
+      )
+  }
 
   override def close(): Unit = {}
 

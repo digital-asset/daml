@@ -1318,7 +1318,8 @@ class CantonSyncService(
         _ = syncDomainHealth.set(syncDomain)
         _ = ephemeralHealth.set(syncDomain.ephemeral)
         _ = sequencerClientHealth.set(syncDomain.sequencerClient.healthComponent)
-        _ = acsCommitmentProcessorHealth.set(syncDomain.acsCommitmentProcessor.healthComponent)
+        acp <- EitherT.right[SyncServiceError](syncDomain.acsCommitmentProcessor)
+        _ = acsCommitmentProcessorHealth.set(acp.healthComponent)
         _ = syncDomain.resolveUnhealthy()
 
         _ = connectedDomainsMap += (domainId -> syncDomain)

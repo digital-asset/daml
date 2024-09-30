@@ -333,6 +333,11 @@ private class ForwardingTopologySnapshotClient(
       loadParticipantStates: Seq[ParticipantId] => Future[Map[ParticipantId, ParticipantAttributes]],
   )(implicit traceContext: TraceContext) =
     parent.loadBatchActiveParticipantsOf(parties, loadParticipantStates)
+
+  override def partyAuthorization(party: PartyId)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[PartyKeyTopologySnapshotClient.PartyAuthorizationInfo]] =
+    parent.partyAuthorization(party)
 }
 
 class CachingTopologySnapshot(
@@ -430,6 +435,15 @@ class CachingTopologySnapshot(
     new AtomicReference[
       Option[Future[Seq[DynamicDomainParametersWithValidity]]]
     ](None)
+
+  private val partyAuthorizationsCache =
+    TracedScaffeine
+      .buildTracedAsyncFutureUS[PartyId, Option[
+        PartyKeyTopologySnapshotClient.PartyAuthorizationInfo
+      ]](
+        cache = cachingConfigs.partyCache.buildScaffeine(),
+        loader = traceContext => party => parent.partyAuthorization(party)(traceContext),
+      )(logger)
 
   override def allKeys(owner: Member)(implicit traceContext: TraceContext): Future[KeyCollection] =
     keyCache.get(owner)
@@ -554,4 +568,9 @@ class CachingTopologySnapshot(
       traceContext: TraceContext
   ): Future[Seq[DynamicDomainParametersWithValidity]] =
     getAndCache(domainParametersChangesCache, parent.listDynamicDomainParametersChanges())
+
+  override def partyAuthorization(party: PartyId)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[PartyKeyTopologySnapshotClient.PartyAuthorizationInfo]] =
+    partyAuthorizationsCache.getUS(party)
 }
