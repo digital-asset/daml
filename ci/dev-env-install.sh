@@ -46,7 +46,7 @@ for i in `seq 10`; do
     nix-build --no-out-link nix -A tools -A ci-cached 2>&1 | tee nix_log || NIX_FAILED=1
     # It should be in the last line but let’s use the last 3 and wildcards
     # to be robust against slight changes.
-    tail -50 nix_log
+    tail -n 50 nix_log
     if [[ $NIX_FAILED -ne 0 ]] &&
        ([[ $(tail -n 3 nix_log) == *"unexpected end-of-file"* ]] ||
         [[ $(tail -n 3 nix_log) == *"decompressing xz file"* ]]); then
@@ -59,6 +59,6 @@ if [[ $NIX_FAILED -ne 0 ]]; then
     exit 1
 fi
 
-ls -lrt /nix/store/ak2*
+ls -lrt /nix/store/* || true
 
 
