@@ -59,6 +59,8 @@ if [[ $NIX_FAILED -ne 0 ]]; then
     exit 1
 fi
 
+tail -n 500 nix_log
+nix-build --no-out-link nix -A tools -A ci-cached 2>&1
 ls -lrt /nix/store/* || true
 
 
