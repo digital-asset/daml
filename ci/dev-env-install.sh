@@ -47,6 +47,7 @@ for i in `seq 10`; do
     # It should be in the last line but let’s use the last 3 and wildcards
     # to be robust against slight changes.
     tail -n 50 nix_log
+    step "$i"
     if [[ $NIX_FAILED -ne 0 ]] &&
        ([[ $(tail -n 3 nix_log) == *"unexpected end-of-file"* ]] ||
         [[ $(tail -n 3 nix_log) == *"decompressing xz file"* ]]); then
@@ -59,8 +60,14 @@ if [[ $NIX_FAILED -ne 0 ]]; then
     exit 1
 fi
 
+step "Checking for existence of Bazel"
+
+ls -l *
+
 tail -n 500 nix_log
+
 nix-build --no-out-link nix -A tools -A ci-cached 2>&1
+
 ls -lrt /nix/store/* || true
 
 
