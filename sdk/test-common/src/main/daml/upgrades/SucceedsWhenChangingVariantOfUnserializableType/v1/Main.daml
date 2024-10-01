@@ -1,0 +1,10 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module Main where
+
+data SchemaPackage = SchemaPackage { field1: Text }
+
+data Unserializable2 = Unserializable2
+  { field1 : Int -> Int
+  }

@@ -20,7 +20,6 @@ import           DA.Daml.LF.TypeChecker.Check (expandTypeSynonyms)
 import           DA.Daml.LF.TypeChecker.Env
 import           DA.Daml.LF.TypeChecker.Error
 import           DA.Daml.Options.Types (UpgradeInfo (..))
-import           Data.Bifunctor (first)
 import           Data.Either (partitionEithers)
 import           Data.Hashable
 import qualified Data.HashMap.Strict as HMS
@@ -173,8 +172,6 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
           withPkgAsGamma pkg $
             case mbPkgVersion of
               Nothing -> do
-                when (PackageName "daml-prim" /= pkgName) $
-                  diagnosticWithContext $ WErrorToWarning $ WEDependencyHasNoMetadataDespiteUpgradeability pkgId UpgradedPackage
                 pure $ Just (pkgName, [(Nothing, pkgId, pkg)])
               Just packageVersion -> do
                 case splitPackageVersion id packageVersion of
@@ -252,8 +249,6 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
       withPkgAsGamma presentPkg $
         case mbPkgVersion of
             Nothing -> do
-              when (PackageName "daml-prim" /= packageName) $
-                diagnosticWithContext $ WErrorToWarning $ WEDependencyHasNoMetadataDespiteUpgradeability presentPkgId UpgradedPackage
               pure $ Just (packageName, (Nothing, presentPkgId, presentPkg))
             Just packageVersion ->
               case splitPackageVersion id packageVersion of
@@ -329,24 +324,26 @@ checkDeleted
     -> Upgrading (HMS.HashMap k a)
     -> TcUpgradeM (HMS.HashMap k (Upgrading a), HMS.HashMap k a)
 checkDeleted handleError upgrade =
-    checkDeletedG ((Nothing,) . handleError) upgrade
+    checkDeletedFilter handleError upgrade (\_ _ -> True)
 
-checkDeletedWithContext
+checkDeletedFilter
     :: (Eq k, Hashable k, SomeErrorOrWarning e)
-    => (a -> (Context, e))
+    => (a -> e)
     -> Upgrading (HMS.HashMap k a)
+    -> (k -> a -> Bool)
     -> TcUpgradeM (HMS.HashMap k (Upgrading a), HMS.HashMap k a)
-checkDeletedWithContext handleError upgrade =
-    checkDeletedG (first Just . handleError) upgrade
+checkDeletedFilter handleError upgrade predicate =
+    checkDeletedG ((Nothing,) . handleError) upgrade predicate
 
 checkDeletedG
     :: (Eq k, Hashable k, SomeErrorOrWarning e)
     => (a -> (Maybe Context, e))
     -> Upgrading (HMS.HashMap k a)
+    -> (k -> a -> Bool)
     -> TcUpgradeM (HMS.HashMap k (Upgrading a), HMS.HashMap k a)
-checkDeletedG handleError upgrade = do
+checkDeletedG handleError upgrade predicate = do
     let (deleted, existing, new) = extractDelExistNew upgrade
-    throwIfNonEmpty handleError deleted
+    throwIfNonEmpty handleError $ HMS.filterWithKey predicate deleted
     pure (existing, new)
 
 throwIfNonEmpty
@@ -464,7 +461,11 @@ checkModuleM upgradedPackageId module_ = do
     checkUpgradedInterfacesAreUnused upgradedPackageId (_present module_) instanceNew
 
     -- checkDeleted should only trigger on datatypes not belonging to templates or choices or interfaces, which we checked above
-    (dtExisting, _dtNew) <- checkDeleted (EUpgradeMissingDataCon . NM.name) unownedDts
+    (dtExisting, _dtNew) <-
+        checkDeletedFilter
+            (EUpgradeMissingDataCon . NM.name)
+            unownedDts
+            (\_ v -> getIsSerializable (dataSerializable v))
 
     forM_ dtExisting $ \dt ->
         -- Get origin/context for each datatype in both _past and _present
@@ -759,35 +760,44 @@ checkTemplate module_ template = do
 
 checkDefDataType :: UpgradedRecordOrigin -> Upgrading LF.DefDataType -> TcUpgradeM ()
 checkDefDataType origin datatype = do
-    let params = dataParams <$> datatype
-        paramsLengthMatch = foldU (==) (length <$> params)
-        allKindsMatch = foldU (==) (map snd <$> params)
-    when (not paramsLengthMatch) $ throwWithContextF present' $ EUpgradeDifferentParamsCount origin
-    when (not allKindsMatch) $ throwWithContextF present' $ EUpgradeDifferentParamsKinds origin
-    let paramNames = unsafeZipUpgrading (map fst <$> params)
-    case fmap dataCons datatype of
-      Upgrading { _past = DataRecord _past, _present = DataRecord _present } ->
-          checkFields origin paramNames (Upgrading {..})
-      Upgrading { _past = DataVariant _past, _present = DataVariant _present } -> do
-          let upgrade = Upgrading{..}
-          (existing, _new) <- checkDeleted (\_ -> EUpgradeVariantRemovedVariant origin) (fmap HMS.fromList upgrade)
-          when (not $ and $ foldU (zipWith (==)) $ fmap (map fst) upgrade) $
-              throwWithContextF present' (EUpgradeVariantVariantsOrderChanged origin)
-          different <- filterHashMapM (fmap not . isUpgradedType paramNames) existing
-          when (not (null different)) $
-              throwWithContextF present' $ EUpgradeVariantChangedVariantType origin
-      Upgrading { _past = DataEnum _past, _present = DataEnum _present } -> do
-          let upgrade = Upgrading{..}
-          (_, _new) <-
-              checkDeleted
-                (\_ -> EUpgradeEnumRemovedVariant origin)
-                (fmap (HMS.fromList . map (,())) upgrade)
-          when (not $ and $ foldU (zipWith (==)) upgrade) $
-              throwWithContextF present' (EUpgradeEnumVariantsOrderChanged origin)
-      Upgrading { _past = DataInterface {}, _present = DataInterface {} } ->
-          pure ()
-      _ ->
-          throwWithContextF present' (EUpgradeMismatchDataConsVariety (dataTypeCon (_past datatype)) (dataCons (_past datatype)) (dataCons (_present datatype)))
+    let bothSerializable = getIsSerializable . dataSerializable <$> datatype
+    case bothSerializable of
+      Upgrading { _past = True, _present = False } ->
+        throwWithContextF present' (EUpgradeDatatypeBecameUnserializable origin)
+      Upgrading { _past = False, _present = True } ->
+        pure ()
+      Upgrading { _past = False, _present = False } ->
+        pure ()
+      _ -> do
+        let params = dataParams <$> datatype
+            paramsLengthMatch = foldU (==) (length <$> params)
+            allKindsMatch = foldU (==) (map snd <$> params)
+        when (not paramsLengthMatch) $ throwWithContextF present' $ EUpgradeDifferentParamsCount origin
+        when (not allKindsMatch) $ throwWithContextF present' $ EUpgradeDifferentParamsKinds origin
+        let paramNames = unsafeZipUpgrading (map fst <$> params)
+        case fmap dataCons datatype of
+          Upgrading { _past = DataRecord _past, _present = DataRecord _present } ->
+              checkFields origin paramNames (Upgrading {..})
+          Upgrading { _past = DataVariant _past, _present = DataVariant _present } -> do
+              let upgrade = Upgrading{..}
+              (existing, _new) <- checkDeleted (\_ -> EUpgradeVariantRemovedVariant origin) (fmap HMS.fromList upgrade)
+              when (not $ and $ foldU (zipWith (==)) $ fmap (map fst) upgrade) $
+                  throwWithContextF present' (EUpgradeVariantVariantsOrderChanged origin)
+              different <- filterHashMapM (fmap not . isUpgradedType paramNames) existing
+              when (not (null different)) $
+                  throwWithContextF present' $ EUpgradeVariantChangedVariantType origin
+          Upgrading { _past = DataEnum _past, _present = DataEnum _present } -> do
+              let upgrade = Upgrading{..}
+              (_, _new) <-
+                  checkDeleted
+                    (\_ -> EUpgradeEnumRemovedVariant origin)
+                    (fmap (HMS.fromList . map (,())) upgrade)
+              when (not $ and $ foldU (zipWith (==)) upgrade) $
+                  throwWithContextF present' (EUpgradeEnumVariantsOrderChanged origin)
+          Upgrading { _past = DataInterface {}, _present = DataInterface {} } ->
+              pure ()
+          _ ->
+              throwWithContextF present' (EUpgradeMismatchDataConsVariety (dataTypeCon (_past datatype)) (dataCons (_past datatype)) (dataCons (_present datatype)))
 
 filterHashMapM :: (Applicative m) => (a -> m Bool) -> HMS.HashMap k a -> m (HMS.HashMap k a)
 filterHashMapM pred t =

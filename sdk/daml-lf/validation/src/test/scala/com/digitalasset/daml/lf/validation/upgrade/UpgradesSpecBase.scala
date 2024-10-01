@@ -534,6 +534,46 @@ trait LongTests { this: UpgradesSpec =>
       )
     }
 
+    "SucceedsWhenAddingNonOptionalFieldsToUnserializableTypes" in {
+      testPackagePair(
+        "test-common/upgrades-SucceedsWhenAddingNonOptionalFieldsToUnserializableTypes-v1.dar",
+        "test-common/upgrades-SucceedsWhenAddingNonOptionalFieldsToUnserializableTypes-v2.dar",
+        assertPackageUpgradeCheck(
+          None
+        ),
+      )
+    }
+
+    "SucceedsWhenChangingVariantOfUnserializableType" in {
+      testPackagePair(
+        "test-common/upgrades-SucceedsWhenChangingVariantOfUnserializableType-v1.dar",
+        "test-common/upgrades-SucceedsWhenChangingVariantOfUnserializableType-v2.dar",
+        assertPackageUpgradeCheck(
+          None
+        ),
+      )
+    }
+
+    "SucceedsWhenDeletingUnserializableType" in {
+      testPackagePair(
+        "test-common/upgrades-SucceedsWhenDeletingUnserializableType-v1.dar",
+        "test-common/upgrades-SucceedsWhenDeletingUnserializableType-v2.dar",
+        assertPackageUpgradeCheck(
+          None
+        ),
+      )
+    }
+
+    "SucceedsWhenMakingTypeUnserializable" in {
+      testPackagePair(
+        "test-common/upgrades-SucceedsWhenMakingTypeUnserializable-v1.dar",
+        "test-common/upgrades-SucceedsWhenMakingTypeUnserializable-v2.dar",
+        assertPackageUpgradeCheck(
+          Some("The upgraded data type MyData was serializable and is now unserializable. Datatypes cannot change their serializability via upgrades.")
+        ),
+      )
+    }
+
     // Copied interface tests
     "Succeeds when an interface is only defined in the initial package." in {
       testPackagePair(
