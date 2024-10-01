@@ -206,6 +206,16 @@ object UpgradeError {
     override def message: String =
       s"The upgraded $origin was serializable and is now unserializable. Datatypes cannot change their serializability via upgrades."
   }
+
+  final case class DifferentParamsCount(origin: UpgradedRecordOrigin) extends Error {
+    override def message: String =
+      s"The upgraded $origin has changed the number of type variables it has."
+  }
+
+  final case class DifferentParamsKinds(origin: UpgradedRecordOrigin) extends Error {
+    override def message: String =
+      s"The upgraded $origin has changed the kind of one of its type variables."
+  }
 }
 
 sealed abstract class UpgradedRecordOrigin
@@ -795,67 +805,76 @@ case class TypecheckUpgrades(
           fail(UpgradeError.RecordChangedOrigin(name, origin))
         } else {
           val env = datatype.map(dt => Env().extend(dt.params.map(_._1)))
-          datatype.map(_.cons) match {
-            case Upgrading(past: Ast.DataRecord, present: Ast.DataRecord) =>
-              checkFields(
-                origin.present,
-                Upgrading(Closure(env.past, past), Closure(env.present, present)),
-              )
-            case Upgrading(past: Ast.DataVariant, present: Ast.DataVariant) =>
-              val upgrade = Upgrading(past, present)
-              val variants: Upgrading[Map[Ast.VariantConName, Ast.Type]] =
-                upgrade.map(variant => Map.from(variant.variants.iterator))
-              for {
-                (existing, new_) <- checkDeleted(
-                  variants,
-                  (_: Ast.VariantConName, _: Ast.Type) =>
-                    UpgradeError.VariantRemovedVariant(origin.present),
-                )
 
-                changedTypes = existing.filter { case (field @ _, typ) =>
-                  !checkType(env.zip(typ, Closure.apply _))
-                }
-                _ <-
-                  if (changedTypes.nonEmpty)
-                    fail(UpgradeError.VariantChangedVariantType(origin.present))
-                  else Success(())
+          val paramsLengthMatch = datatype.map(_.params.length).fold(_ == _)
+          val allKindsMatch = datatype.map(_.params.map(_._2)).fold(_ == _)
 
-                changedVariantNames: ImmArray[(Ast.VariantConName, Ast.VariantConName)] = {
-                  val variantNames: Upgrading[ImmArray[Ast.VariantConName]] =
-                    upgrade.map(_.variants.map(_._1))
-                  variantNames.past.zip(variantNames.present).filter { case (past, present) =>
-                    past != present
+          for {
+            _ <- failIf(!paramsLengthMatch, UpgradeError.DifferentParamsCount(origin.present))
+            _ <- failIf(!allKindsMatch, UpgradeError.DifferentParamsKinds(origin.present))
+
+            _ <- datatype.map(_.cons) match {
+              case Upgrading(past: Ast.DataRecord, present: Ast.DataRecord) =>
+                checkFields(
+                  origin.present,
+                  Upgrading(Closure(env.past, past), Closure(env.present, present)),
+                )
+              case Upgrading(past: Ast.DataVariant, present: Ast.DataVariant) =>
+                val upgrade = Upgrading(past, present)
+                val variants: Upgrading[Map[Ast.VariantConName, Ast.Type]] =
+                  upgrade.map(variant => Map.from(variant.variants.iterator))
+                for {
+                  (existing, new_) <- checkDeleted(
+                    variants,
+                    (_: Ast.VariantConName, _: Ast.Type) =>
+                      UpgradeError.VariantRemovedVariant(origin.present),
+                  )
+
+                  changedTypes = existing.filter { case (field @ _, typ) =>
+                    !checkType(env.zip(typ, Closure.apply _))
                   }
-                }
-                _ <- failIf(
-                  changedVariantNames.nonEmpty,
-                  UpgradeError.VariantVariantsOrderChanged(origin.present),
-                )
-              } yield ()
-            case Upgrading(past: Ast.DataEnum, present: Ast.DataEnum) =>
-              val upgrade = Upgrading(past, present)
-              val enums: Upgrading[Map[Ast.EnumConName, Unit]] =
-                upgrade.map(enums => Map.from(enums.constructors.iterator.map(enum => (enum, ()))))
-              for {
-                (_, new_) <- checkDeleted(
-                  enums,
-                  (_: Ast.EnumConName, _: Unit) => UpgradeError.EnumRemovedVariant(origin.present),
-                )
-                changedVariantNames: ImmArray[(Ast.EnumConName, Ast.EnumConName)] = {
-                  val variantNames: Upgrading[ImmArray[Ast.EnumConName]] =
-                    upgrade.map(_.constructors)
-                  variantNames.past.zip(variantNames.present).filter { case (past, present) =>
-                    past != present
+                  _ <-
+                    if (changedTypes.nonEmpty)
+                      fail(UpgradeError.VariantChangedVariantType(origin.present))
+                    else Success(())
+
+                  changedVariantNames: ImmArray[(Ast.VariantConName, Ast.VariantConName)] = {
+                    val variantNames: Upgrading[ImmArray[Ast.VariantConName]] =
+                      upgrade.map(_.variants.map(_._1))
+                    variantNames.past.zip(variantNames.present).filter { case (past, present) =>
+                      past != present
+                    }
                   }
-                }
-                _ <- failIf(
-                  changedVariantNames.nonEmpty,
-                  UpgradeError.EnumVariantsOrderChanged(origin.present),
-                )
-              } yield ()
-            case Upgrading(Ast.DataInterface, Ast.DataInterface) => Try(())
-            case other => fail(UpgradeError.MismatchDataConsVariety(name, other))
-          }
+                  _ <- failIf(
+                    changedVariantNames.nonEmpty,
+                    UpgradeError.VariantVariantsOrderChanged(origin.present),
+                  )
+                } yield ()
+              case Upgrading(past: Ast.DataEnum, present: Ast.DataEnum) =>
+                val upgrade = Upgrading(past, present)
+                val enums: Upgrading[Map[Ast.EnumConName, Unit]] =
+                  upgrade.map(enums => Map.from(enums.constructors.iterator.map(enum => (enum, ()))))
+                for {
+                  (_, new_) <- checkDeleted(
+                    enums,
+                    (_: Ast.EnumConName, _: Unit) => UpgradeError.EnumRemovedVariant(origin.present),
+                  )
+                  changedVariantNames: ImmArray[(Ast.EnumConName, Ast.EnumConName)] = {
+                    val variantNames: Upgrading[ImmArray[Ast.EnumConName]] =
+                      upgrade.map(_.constructors)
+                    variantNames.past.zip(variantNames.present).filter { case (past, present) =>
+                      past != present
+                    }
+                  }
+                  _ <- failIf(
+                    changedVariantNames.nonEmpty,
+                    UpgradeError.EnumVariantsOrderChanged(origin.present),
+                  )
+                } yield ()
+              case Upgrading(Ast.DataInterface, Ast.DataInterface) => Try(())
+              case other => fail(UpgradeError.MismatchDataConsVariety(name, other))
+            }
+          } yield ()
         }
     }
   }
