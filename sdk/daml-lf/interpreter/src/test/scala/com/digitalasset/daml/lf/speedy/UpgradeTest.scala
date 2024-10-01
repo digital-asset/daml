@@ -89,6 +89,16 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         key @Party (M:T {sig} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
       };
 
+      val mkParty : Text -> Party =
+        \(t:Text) ->
+          case TEXT_TO_PARTY t of
+            None -> ERROR @Party "none"
+          | Some x -> x;
+
+      val do_create: Text -> Text -> Int64 -> Update (ContractId M:T) =
+        \(sig: Text) -> \(obs: Text) -> \(n: Int64) ->
+          create @M:T M:T { sig = M:mkParty sig, obs = M:mkParty obs, aNumber = n };
+
       val do_fetch: ContractId M:T -> Update M:T =
         \(cId: ContractId M:T) ->
           fetch_template @M:T cId;
@@ -202,6 +212,28 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
   val theCid = ContractId.V1(crypto.Hash.hashPrivateKey(s"theCid"))
 
   type Success = (Value, List[UpgradeVerificationRequest])
+
+  def go(e: Expr): Either[SError, Success] = {
+    goFinish(e).map(_._1)
+  }
+
+  private def goFinish(
+      e: Expr
+  ): Either[SError, (Success, UpdateMachine.Result)] = {
+
+    val sexprToEval: SExpr = pkgs.compiler.unsafeCompile(e)
+
+    implicit def logContext: LoggingContext = LoggingContext.ForTesting
+    val seed = crypto.Hash.hashPrivateKey("seed")
+    val machine = Speedy.Machine.fromUpdateSExpr(pkgs, seed, sexprToEval, Set(alice, bob))
+
+    SpeedyTestLib
+      .runCollectRequests(machine)
+      .map { case (sv, _, uvs) => // ignoring any AuthRequest
+        val v = sv.toNormalizedValue(V17)
+        ((v, uvs), data.assertRight(machine.finish.left.map(_.toString)))
+      }
+  }
 
   // The given contractValue is wrapped as a contract available for ledger-fetch
   def go(e: Expr, contract: ContractInstance): Either[SError, Success] = {
@@ -446,6 +478,19 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       )
       inside(res) { case Right((_, result)) =>
         result.contractPackages shouldBe Map(theCid -> instance.template.packageId)
+      }
+    }
+
+    "be able to fetch a locally created contract using different versions" in {
+      val res = go(
+        e"""ubind
+              cid: ContractId '-pkg1-':M:T <- '-pkg1-':M:do_create "alice" "bob" 100;
+              _: '-pkg2-':M:T <- '-pkg2-':M:do_fetch cid
+            in upure @Unit ()
+          """
+      )
+      inside(res) { case Right((_, result)) =>
+        result shouldBe empty
       }
     }
 
