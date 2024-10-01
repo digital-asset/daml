@@ -853,7 +853,9 @@ case class TypecheckUpgrades(
               case Upgrading(past: Ast.DataEnum, present: Ast.DataEnum) =>
                 val upgrade = Upgrading(past, present)
                 val enums: Upgrading[Map[Ast.EnumConName, Unit]] =
-                  upgrade.map(enums => Map.from(enums.constructors.iterator.map(enum => (enum, ()))))
+                  upgrade.map(enums =>
+                    Map.from(enums.constructors.iterator.map(enum => (enum, ())))
+                  )
                 for {
                   (_, new_) <- checkDeleted(
                     enums,
