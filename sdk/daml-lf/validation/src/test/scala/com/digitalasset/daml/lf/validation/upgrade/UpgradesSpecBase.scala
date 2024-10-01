@@ -718,10 +718,10 @@ trait LongTests { this: UpgradesSpec =>
       )
     }
 
-    "Succeeds when making type unserializable" in {
+    "Fails when making type unserializable" in {
       testPackagePair(
-        "test-common/upgrades-SucceedsWhenMakingTypeUnserializable-v1.dar",
-        "test-common/upgrades-SucceedsWhenMakingTypeUnserializable-v2.dar",
+        "test-common/upgrades-FailsWhenMakingTypeUnserializable-v1.dar",
+        "test-common/upgrades-FailsWhenMakingTypeUnserializable-v2.dar",
         assertPackageUpgradeCheck(
           Some(
             "The upgraded data type MyData was serializable and is now unserializable. Datatypes cannot change their serializability via upgrades."
