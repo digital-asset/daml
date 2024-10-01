@@ -640,13 +640,6 @@ tests damlc =
                   False
                   True
             , test
-                  "FailWhenParamKindChanges"
-                  (FailWithError "\ESC\\[0;91merror type checking data type Main.MyStruct:\n  The upgraded data type MyStruct has changed the kind of one of its type variables.")
-                  versionDefault
-                  NoDependencies
-                  False
-                  True
-            , test
                   "SucceedWhenParamNameChanges"
                   Succeed
                   versionDefault
@@ -656,6 +649,41 @@ tests damlc =
             , test
                   "SucceedWhenPhantomParamBecomesUsed"
                   Succeed
+                  versionDefault
+                  NoDependencies
+                  False
+                  True
+            , test
+                  "SucceedsWhenNonSerializableTypesAreIncompatible"
+                  Succeed
+                  versionDefault
+                  NoDependencies
+                  False
+                  True
+            , test
+                  "SucceedsWhenAddingNonOptionalFieldsToUnserializableTypes"
+                  Succeed
+                  versionDefault
+                  NoDependencies
+                  False
+                  True
+            , test
+                  "SucceedsWhenChangingVariantOfUnserializableType"
+                  Succeed
+                  versionDefault
+                  NoDependencies
+                  False
+                  True
+            , test
+                  "SucceedsWhenDeletingUnserializableType"
+                  Succeed
+                  versionDefault
+                  NoDependencies
+                  False
+                  True
+            , test
+                  "FailsWhenMakingTypeUnserializable"
+                  (FailWithError "\ESC\\[0;91merror type checking data type Main.MyData:\n  The upgraded data type MyData was serializable and is now unserializable. Datatypes cannot change their serializability via upgrades.")
                   versionDefault
                   NoDependencies
                   False
