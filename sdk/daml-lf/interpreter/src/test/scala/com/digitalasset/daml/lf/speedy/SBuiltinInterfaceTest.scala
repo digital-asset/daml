@@ -42,15 +42,18 @@ class SBuiltinInterfaceUpgradeTest extends AnyFreeSpec with Matchers with Inside
 
   import EvalHelpers._
 
+  // TODO: revert to the default version and compiler config once they support upgrades
+  val languageVersion = LanguageVersion.Features.packageUpgrades
+  val compilerConfig = Compiler.Config.Dev(LanguageMajorVersion.V2)
+
   val alice = Ref.Party.assertFromString("Alice")
 
   // The following code defines a package -iface-pkg- that defines a single interface Iface.
   val ifacePkgName = Ref.PackageName.assertFromString("-iface-pkg-")
-  val ifacePkgId = Ref.PackageId.assertFromString("-iface-package-id-")
+  val ifacePkgId = Ref.PackageId.assertFromString("-iface-pkg-id-")
   val ifaceParserParams = ParserParameters(
     defaultPackageId = ifacePkgId,
-    // TODO: revert to the default version once it supports upgrades
-    languageVersion = LanguageVersion.Features.packageUpgrades,
+    languageVersion = languageVersion,
   )
   val ifacePkg =
     p"""metadata ( '$ifacePkgName' : '1.0.0' )
@@ -79,8 +82,7 @@ class SBuiltinInterfaceUpgradeTest extends AnyFreeSpec with Matchers with Inside
     Ref.PackageId.assertFromString(s"-implem-pkg-id-$pkgVersion-")
   def implemParserParams(pkgVersion: Int) = ParserParameters(
     defaultPackageId = implemPkgId(pkgVersion),
-    // TODO: revert to the default version once it supports upgrades
-    languageVersion = LanguageVersion.Features.packageUpgrades,
+    languageVersion = languageVersion,
   )
   def implemPkg(pkgVersion: Int) =
     p"""metadata ( '$implemPkgName' : '${implemPkgVersion(pkgVersion)}' )
@@ -102,8 +104,7 @@ class SBuiltinInterfaceUpgradeTest extends AnyFreeSpec with Matchers with Inside
       implemPkgId(1) -> implemPkg(1),
       implemPkgId(2) -> implemPkg(2),
     ),
-    // TODO: revert to the default compiler config once it supports upgrades
-    Compiler.Config.Dev(LanguageMajorVersion.V2),
+    compilerConfig,
   )
 
   // But we prefer version 2 of -implem-pkg-, which will force an upgrade of any version 1 contract when
