@@ -534,7 +534,7 @@ trait LongTests { this: UpgradesSpec =>
       )
     }
 
-    "SucceedsWhenAddingNonOptionalFieldsToUnserializableTypes" in {
+    "Succeeds when adding non-optional fields to unserializable types" in {
       testPackagePair(
         "test-common/upgrades-SucceedsWhenAddingNonOptionalFieldsToUnserializableTypes-v1.dar",
         "test-common/upgrades-SucceedsWhenAddingNonOptionalFieldsToUnserializableTypes-v2.dar",
@@ -544,7 +544,7 @@ trait LongTests { this: UpgradesSpec =>
       )
     }
 
-    "SucceedsWhenChangingVariantOfUnserializableType" in {
+    "Succeeds when changing variant of unserializable type" in {
       testPackagePair(
         "test-common/upgrades-SucceedsWhenChangingVariantOfUnserializableType-v1.dar",
         "test-common/upgrades-SucceedsWhenChangingVariantOfUnserializableType-v2.dar",
@@ -554,7 +554,7 @@ trait LongTests { this: UpgradesSpec =>
       )
     }
 
-    "SucceedsWhenDeletingUnserializableType" in {
+    "Succeeds when deleting unserializable type" in {
       testPackagePair(
         "test-common/upgrades-SucceedsWhenDeletingUnserializableType-v1.dar",
         "test-common/upgrades-SucceedsWhenDeletingUnserializableType-v2.dar",
@@ -564,7 +564,7 @@ trait LongTests { this: UpgradesSpec =>
       )
     }
 
-    "SucceedsWhenMakingTypeUnserializable" in {
+    "Succeeds when making type unserializable" in {
       testPackagePair(
         "test-common/upgrades-SucceedsWhenMakingTypeUnserializable-v1.dar",
         "test-common/upgrades-SucceedsWhenMakingTypeUnserializable-v2.dar",
