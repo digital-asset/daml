@@ -125,7 +125,7 @@ private[lf] final class ValueTranslator(
             if (strict)
               if (Numeric.scale(d) != s)
                 typeError(
-                  s"Non-normalized Numeric: the type tell us Numeric $s, but the value tell use Numeric ${Numeric
+                  s"Non-normalized Numeric: the type tells us Numeric $s, but the value tell use Numeric ${Numeric
                       .scale(d)}"
                 )
             Numeric.fromBigDecimal(s, d) match {
@@ -199,7 +199,7 @@ private[lf] final class ValueTranslator(
 
             val oLabeledFlds = if (strict) {
               sourceElements.iterator.collectFirst { case (Some(label), _) =>
-                typeError(s"expect no label in record but find '$label'")
+                typeError(s"expected no label in record but found '$label'")
               }
             } else {
               labeledRecordToMap(sourceElements).fold(typeError, identity _)
