@@ -789,11 +789,11 @@ case class TypecheckUpgrades(
     val (name, datatype: Upgrading[Ast.DDataType]) = nameAndDatatype
     val origin = moduleWithMetadata.map(_.dataTypeOrigin(name))
     datatype.map(_.serializable) match {
-      case Upgrading(true /* past */, false /* present */) =>
+      case Upgrading(true /* past */, false /* present */ ) =>
         fail(UpgradeError.DatatypeBecameUnserializable(origin.present))
-      case Upgrading(false /* past */, true /* present */) =>
+      case Upgrading(false /* past */, true /* present */ ) =>
         Success(())
-      case Upgrading(false /* past */, false /* present */) =>
+      case Upgrading(false /* past */, false /* present */ ) =>
         Success(())
       case Upgrading(true, true) =>
         if (unifyUpgradedRecordOrigin(origin.present) != unifyUpgradedRecordOrigin(origin.past)) {
@@ -847,7 +847,8 @@ case class TypecheckUpgrades(
                   (_: Ast.EnumConName, _: Unit) => UpgradeError.EnumRemovedVariant(origin.present),
                 )
                 changedVariantNames: ImmArray[(Ast.EnumConName, Ast.EnumConName)] = {
-                  val variantNames: Upgrading[ImmArray[Ast.EnumConName]] = upgrade.map(_.constructors)
+                  val variantNames: Upgrading[ImmArray[Ast.EnumConName]] =
+                    upgrade.map(_.constructors)
                   variantNames.past.zip(variantNames.present).filter { case (past, present) =>
                     past != present
                   }
