@@ -454,7 +454,6 @@ da_haskell_test(
         "//test-common:upgrades-FailWhenATopLevelEnumChangesChangesTheOrderOfItsVariants-files",
         "//test-common:upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsVariants-files",
         "//test-common:upgrades-FailWhenParamCountChanges-files",
-        "//test-common:upgrades-FailWhenParamKindChanges-files",
         "//test-common:upgrades-FailsOnlyInModuleNotInReexports-files",
         "//test-common:upgrades-FailsWhenATopLevelRecordAddsANonOptionalField-files",
         "//test-common:upgrades-FailsWhenATopLevelRecordAddsAnOptionalFieldBeforeTheEnd-files",

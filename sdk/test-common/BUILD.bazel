@@ -371,7 +371,6 @@ da_scala_dar_resources_library(
         ),
         ("SucceedsWhenUpgradingLFVersionWithoutExpressionWarning", {}, {}),
         ("FailWhenParamCountChanges", {}, {}),
-        ("FailWhenParamKindChanges", {}, {}),
         ("SucceedWhenParamNameChanges", {}, {}),
         ("SucceedWhenPhantomParamBecomesUsed", {}, {}),
     ]

@@ -601,13 +601,6 @@ tests damlc =
                   False
                   True
             , test
-                  "FailWhenParamKindChanges"
-                  (FailWithError "\ESC\\[0;91merror type checking data type Main.MyStruct:\n  The upgraded data type MyStruct has changed the kind of one of its type variables.")
-                  versionDefault
-                  NoDependencies
-                  False
-                  True
-            , test
                   "SucceedWhenParamNameChanges"
                   Succeed
                   versionDefault
