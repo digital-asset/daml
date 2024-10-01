@@ -8,9 +8,9 @@ import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
-import com.digitalasset.daml.lf.speedy.SResult.{SResultError, SResultFinal}
 import com.digitalasset.daml.lf.speedy.SError.{SError, SErrorDamlException}
 import com.digitalasset.daml.lf.speedy.SExpr._
+import com.digitalasset.daml.lf.speedy.SResult.{SResultError, SResultFinal}
 import com.digitalasset.daml.lf.speedy.SValue.{SParty, SUnit}
 import com.digitalasset.daml.lf.speedy.SpeedyTestLib.typeAndCompile
 import com.digitalasset.daml.lf.stablepackages.StablePackages
@@ -20,8 +20,8 @@ import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import com.digitalasset.daml.lf.value.Value.{ValueRecord, ValueText}
 import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
-import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.prop.TableDrivenPropertyChecks
 
 class ExceptionTestV2 extends ExceptionTest(LanguageMajorVersion.V2)
 
@@ -515,7 +515,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
   "uncatchable exceptions" - {
     "not be caught" in {
 
-      val pkgs: PureCompiledPackages = typeAndCompile(p"""
+      val pkg: Package = p"""
    metadata ( 'pkg' : '1.0.0' )
 
    module M {
@@ -572,7 +572,8 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
        };
      };
    }
-  """)
+  """
+      val pkgs: PureCompiledPackages = typeAndCompile(pkg)
 
       val transactionSeed: crypto.Hash = crypto.Hash.hashPrivateKey("transactionSeed")
 
@@ -637,7 +638,13 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
           """
 
         val res = Speedy.Machine
-          .fromUpdateSExpr(pkgs, transactionSeed, applyToParty(pkgs, expr, party), Set(party))
+          .fromUpdateSExpr(
+            pkgs,
+            transactionSeed,
+            applyToParty(pkgs, expr, party),
+            Set(party),
+            packageResolution = Map(pkg.pkgName -> defaultParserParameters.defaultPackageId),
+          )
           .run()
         if (description.contains("can be caught"))
           inside(res) { case SResultFinal(SUnit) =>

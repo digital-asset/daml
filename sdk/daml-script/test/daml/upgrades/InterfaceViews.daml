@@ -1,0 +1,148 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+{-# LANGUAGE ApplicativeDo #-}
+
+module InterfaceViews (main) where
+
+import UpgradeTestLib
+import FixedInterface
+import FixedInterfaceCaller
+import qualified V1.Interfaces as V1
+import qualified V2.Interfaces as V2
+import PackageIds
+import DA.Foldable
+import DA.Optional
+import DA.Text
+
+-- Fixed package containing only the interface
+{- PACKAGE
+name: fixed-interface-view
+versions: 1
+-}
+
+{- MODULE
+package: fixed-interface-view
+contents: |
+  module FixedInterface where
+
+  data IV = IV with
+    owner : Party
+    payload : Int
+
+  interface I where
+    viewtype IV
+
+    getVersion : Text
+    nonconsuming choice GetVersion : Text
+      controller (view this).owner
+      do
+        pure $ getVersion this
+-}
+
+-- Another fixed package containing a helper template for exercising the interface in a choice
+{- PACKAGE
+name: fixed-interface-view-caller
+versions: 1
+depends: fixed-interface-view-1.0.0
+-}
+
+{- MODULE
+package: fixed-interface-view-caller
+contents: |
+  module FixedInterfaceCaller where
+
+  import FixedInterface
+
+  template Caller with
+      party : Party
+    where
+    signatory party
+
+    choice CallInterface : Text with
+        icid : ContractId I
+      controller party
+      do
+        exercise icid GetVersion
+-}
+
+-- The versioned/upgraded package
+{- PACKAGE
+name: interface-views
+versions: 2
+depends: fixed-interface-view-1.0.0
+-}
+
+{- MODULE
+package: interface-views
+contents: |
+  module Interfaces where
+
+  import FixedInterface
+  import DA.Optional
+
+  template FITemplate with
+      party : Party
+    where
+    signatory party
+
+    interface instance I for FITemplate where
+      view = IV party 0   -- @V 1
+      view = IV party 1   -- @V  2
+      getVersion = "V1"   -- @V 1
+      getVersion = "V2"   -- @V  2
+
+    -- Following two choices exist here for convenience. They could be in a separate package which depends on this,
+    -- but additional unnecessary packages simply wastes time.
+    choice FetchFromInterface : Int with
+        icid : ContractId I
+      controller party
+      do
+        (_, res) <- fromSomeNote "Failed to fetch contract" <$> fetchFromInterface @FITemplate icid
+        let v = view $ toInterface @I res
+        pure v.payload
+
+    choice FetchInterface : () with
+        icid : ContractId I
+      controller party
+      do
+        fetch icid
+        pure ()
+-}
+
+main : TestTree
+main = tests
+  [ ("Calling an interface choice at command level fails as intended when the view is modified", exerciseCommandShouldFail)
+  , ("Calling an interface choice in choice body fails as intended when the view is modified", exerciseInChoiceBodyShouldFail)
+  , ("fetchFromInterface fails as intended when the view is modified", fetchFromInterfaceShouldFail)
+  ]
+
+setupAliceAndInterface : Script (Party, ContractId I)
+setupAliceAndInterface = do
+  alice <- allocateParty "alice"
+  cid <- alice `submit` createExactCmd V1.FITemplate with party = alice
+  pure (alice, toInterfaceContractId @I cid)
+
+exerciseCommandShouldFail : Test
+exerciseCommandShouldFail = test $ do
+  (alice, icid) <- setupAliceAndInterface
+  res <- alice `trySubmit` exerciseCmd icid GetVersion
+  case res of
+      Left (DevError Upgrade msg) | "View mismatch" `isInfixOf` msg -> pure ()
+      _ -> assertFail ("Expected fetchFromInterface to fail, got " <> show res)
+
+exerciseInChoiceBodyShouldFail : Test
+exerciseInChoiceBodyShouldFail = test $ do
+  (alice, icid) <- setupAliceAndInterface
+  res <- alice `trySubmit` createAndExerciseCmd (Caller with party = alice) (CallInterface with icid = icid)
+  case res of
+    Left (DevError Upgrade msg) | "View mismatch" `isInfixOf` msg -> pure ()
+    _ -> assertFail ("Expected fetchFromInterface to fail, got " <> show res)
+
+fetchFromInterfaceShouldFail : Test
+fetchFromInterfaceShouldFail = test $ do
+  (alice, icid) <- setupAliceAndInterface
+  res <- alice `trySubmit` createAndExerciseExactCmd (V2.FITemplate with party = alice) (V2.FetchFromInterface with icid = icid)
+  case res of
+    Left (DevError Upgrade msg) | "View mismatch" `isInfixOf` msg -> pure ()
+    _ -> assertFail ("Expected fetchFromInterface to fail, got " <> show res)

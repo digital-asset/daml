@@ -177,6 +177,14 @@ object Error {
       final case class DowngradeDropDefinedField(expectedType: Ast.Type, actualValue: Value)
           extends Error
 
+      final case class ViewMismatch(
+          coid: ContractId,
+          iterfaceId: TypeConName,
+          srcTemplateId: TypeConName,
+          dstTemplateId: TypeConName,
+          srcView: Value,
+          dstView: Value,
+      ) extends Error
     }
 
     /** A choice guard returned false, invalidating some expectation. */

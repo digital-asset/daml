@@ -555,66 +555,51 @@ private[lf] final class Compiler(
       cidPos: Position,
       choiceArgPos: Position,
       tokenPos: Position,
-  ): s.SExpr =
-    let(
-      env,
-      SBSoftFetchInterface(
-        env.toSEVar(cidPos),
-        s.SEValue.None,
-      ),
-    ) { (payloadPos, env) =>
-      let(
-        env,
-        SBCastAnyInterface(ifaceId)(
-          env.toSEVar(cidPos),
+  ): s.SExpr = {
+    let(env, SBFetchInterface(ifaceId)(env.toSEVar(cidPos))) { (payloadPos, _env) =>
+      val env =
+        _env.bindExprVar(param, payloadPos).bindExprVar(choice.argBinder._1, choiceArgPos)
+      let(env, SBExtractSAnyValue(env.toSEVar(payloadPos))) { (castPos, env) =>
+        // We use a chain of let bindings to make the evaluation order of SBResolveSBUBeginExercise's arguments
+        // is independent from the evaluation strategy imposed by the ANF transformation.
+        val applyChoiceGuardExpr = SBApplyChoiceGuard(choice.name, Some(ifaceId))(
+          env.toSEVar(guardPos),
           env.toSEVar(payloadPos),
-        ),
-      ) { (castPos, env) =>
-        let(
-          env,
-          s.SEPreventCatch(SBViewInterface(ifaceId)(env.toSEVar(payloadPos))),
-        ) { (_, _env) =>
-          val env =
-            _env.bindExprVar(param, payloadPos).bindExprVar(choice.argBinder._1, choiceArgPos)
-          // We use a chain of let bindings to make the evaluation order of SBResolveSBUBeginExercise's arguments
-          // is independent from the evaluation strategy imposed by the ANF transformation.
-          val applyChoiceGuardExpr = SBApplyChoiceGuard(choice.name, Some(ifaceId))(
-            env.toSEVar(guardPos),
-            env.toSEVar(payloadPos),
-            env.toSEVar(cidPos),
-          )
-          let(env, applyChoiceGuardExpr) { (_, env) =>
-            val controllersExpr = s.SEPreventCatch(translateExp(env, choice.controllers))
-            let(env, controllersExpr) { (controllersPos, env) =>
-              val observersExpr = choice.choiceObservers match {
-                case Some(observers) => s.SEPreventCatch(translateExp(env, observers))
+          env.toSEVar(cidPos),
+        )
+        let(env, applyChoiceGuardExpr) { (_, env) =>
+          val controllersExpr = s.SEPreventCatch(translateExp(env, choice.controllers))
+          let(env, controllersExpr) { (controllersPos, env) =>
+            val observersExpr = choice.choiceObservers match {
+              case Some(observers) => s.SEPreventCatch(translateExp(env, observers))
+              case None => s.SEValue.EmptyList
+            }
+            let(env, observersExpr) { (observersPos, env) =>
+              val authorizersExpr = choice.choiceAuthorizers match {
+                case Some(authorizers) => s.SEPreventCatch(translateExp(env, authorizers))
                 case None => s.SEValue.EmptyList
               }
-              let(env, observersExpr) { (observersPos, env) =>
-                val authorizersExpr = choice.choiceAuthorizers match {
-                  case Some(authorizers) => s.SEPreventCatch(translateExp(env, authorizers))
-                  case None => s.SEValue.EmptyList
-                }
-                let(env, authorizersExpr) { (authorizersPos, env) =>
-                  val exerciseExpr = SBResolveSBUBeginExercise(
-                    interfaceId = ifaceId,
-                    choiceName = choice.name,
-                    consuming = choice.consuming,
-                    byKey = false,
-                    explicitChoiceAuthority = choice.choiceAuthorizers.isDefined,
-                  )(
-                    env.toSEVar(payloadPos),
-                    env.toSEVar(choiceArgPos),
-                    env.toSEVar(cidPos),
-                    env.toSEVar(controllersPos),
-                    env.toSEVar(observersPos),
-                    env.toSEVar(authorizersPos),
-                    env.toSEVar(castPos),
+              let(env, authorizersExpr) { (authorizersPos, env) =>
+                val exerciseExpr = SBResolveSBUBeginExercise(
+                  interfaceId = ifaceId,
+                  choiceName = choice.name,
+                  consuming = choice.consuming,
+                  byKey = false,
+                  explicitChoiceAuthority = choice.choiceAuthorizers.isDefined,
+                )(
+                  env.toSEVar(payloadPos),
+                  env.toSEVar(choiceArgPos),
+                  env.toSEVar(cidPos),
+                  env.toSEVar(controllersPos),
+                  env.toSEVar(observersPos),
+                  env.toSEVar(authorizersPos),
+                  env.toSEVar(castPos),
+                )
+                let(env, exerciseExpr) { (_, _env) =>
+                  val env = _env.bindExprVar(choice.selfBinder, cidPos)
+                  s.SEScopeExercise(
+                    app(translateExp(env, choice.update), env.toSEVar(tokenPos))
                   )
-                  let(env, exerciseExpr) { (_, _env) =>
-                    val env = _env.bindExprVar(choice.selfBinder, cidPos)
-                    s.SEScopeExercise(app(translateExp(env, choice.update), env.toSEVar(tokenPos)))
-                  }
                 }
               }
             }
@@ -622,6 +607,7 @@ private[lf] final class Compiler(
         }
       }
     }
+  }
 
   private[this] def compileInterfaceChoice(
       ifaceId: TypeConName,
@@ -756,35 +742,16 @@ private[lf] final class Compiler(
       ifaceId: Identifier
   ): (t.SDefinitionRef, SDefinition) =
     topLevelFunction2(t.FetchInterfaceDefRef(ifaceId)) { (cidPos, _, env) =>
-      let(
-        env,
-        SBSoftFetchInterface(
-          env.toSEVar(cidPos),
-          s.SEValue.None,
-        ),
-      ) { (payloadPos, env) =>
+      let(env, SBFetchInterface(ifaceId)(env.toSEVar(cidPos))) { (payloadPos, env) =>
         let(
           env,
-          SBCastAnyInterface(ifaceId)(
-            env.toSEVar(cidPos),
+          SBResolveSBUInsertFetchNode(ifaceId)(
             env.toSEVar(payloadPos),
+            env.toSEVar(cidPos),
+            s.SEValue.None,
           ),
         ) { (_, env) =>
-          let(
-            env,
-            s.SEPreventCatch(SBViewInterface(ifaceId)(env.toSEVar(payloadPos))),
-          ) { (_, env) =>
-            let(
-              env,
-              SBResolveSBUInsertFetchNode(ifaceId)(
-                env.toSEVar(payloadPos),
-                env.toSEVar(cidPos),
-                s.SEValue.None,
-              ),
-            ) { (_, env) =>
-              env.toSEVar(payloadPos)
-            }
-          }
+          env.toSEVar(payloadPos)
         }
       }
     }
