@@ -486,11 +486,13 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         e"""ubind
               cid: ContractId '-pkg1-':M:T <- '-pkg1-':M:do_create "alice" "bob" 100;
               _: '-pkg2-':M:T <- '-pkg2-':M:do_fetch cid
-            in upure @Unit ()
+            in upure @(ContractId '-pkg1-':M:T) cid
           """
       )
-      inside(res) { case Right((_, result)) =>
-        result shouldBe empty
+      inside(res) { case Right((ValueContractId(cid), verificationRequests)) =>
+        verificationRequests shouldBe List(
+          UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v1_key))
+        )
       }
     }
 
