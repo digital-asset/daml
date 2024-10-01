@@ -829,7 +829,9 @@ class IdeLedgerClient(
       esf: ExecutionSequencerFactory,
       mat: Materializer,
   ): Future[List[User]] =
-    userManagementStore.listAllUsers()
+    userManagementStore
+      .listUsers(None, Int.MaxValue, IdentityProviderId.Default)(LoggingContextWithTrace.empty)
+      .map(_.toOption.toList.flatMap(_.users))
 
   override def grantUserRights(
       id: UserId,

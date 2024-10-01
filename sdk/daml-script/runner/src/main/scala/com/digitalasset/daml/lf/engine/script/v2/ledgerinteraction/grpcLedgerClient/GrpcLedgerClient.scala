@@ -26,7 +26,6 @@ import com.daml.ledger.api.v2.transaction_filter.{
 }
 import com.daml.ledger.api.v2.{value => api}
 import com.digitalasset.daml.lf.CompiledPackages
-import com.digitalasset.canton.ledger.api.validation.NoLoggingValueValidator
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.daml.lf.command
 import com.digitalasset.daml.lf.data.Ref._
