@@ -179,6 +179,8 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
           withPkgAsGamma pkg $
             case mbPkgVersion of
               Nothing -> do
+                when (pkgSupportsUpgrades pkg && PackageName "daml-prim" /= pkgName) $
+                  diagnosticWithContext $ WErrorToWarning $ WEDependencyHasNoMetadataDespiteUpgradeability pkgId UpgradedPackage
                 pure $ Just (pkgName, [(Nothing, pkgId, pkg)])
               Just packageVersion -> do
                 case splitPackageVersion id packageVersion of
@@ -256,6 +258,8 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
       withPkgAsGamma presentPkg $
         case mbPkgVersion of
             Nothing -> do
+              when (pkgSupportsUpgrades presentPkg && PackageName "daml-prim" /= packageName) $
+                diagnosticWithContext $ WErrorToWarning $ WEDependencyHasNoMetadataDespiteUpgradeability presentPkgId UpgradedPackage
               pure $ Just (packageName, (Nothing, presentPkgId, presentPkg))
             Just packageVersion ->
               case splitPackageVersion id packageVersion of
