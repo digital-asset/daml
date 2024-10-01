@@ -228,13 +228,15 @@ object LedgerClientJwt {
       import com.daml.http.util.LedgerOffsetUtil.AbsoluteOffsetOrdering.gt
       (offset.value, terminates.toOffset.map(_.value)) match {
         case (start: LedgerOffset.Value.Absolute, Some(end: LedgerOffset.Value.Absolute))
-            if gt(start, end) => // Something fishy.
-          logger.warn(
+            if gt(start, end) => {
+          logger.debug(
             s"""When looking up $filter, the lastOffset in the cache was $start which was greater than the ledger end of $end.
                |This can occur due to concurrent queries updating the cache (which is harmless), or may indicate that the server
                |is using a cache which was populated against an entirely different ledger.
                |In the latter case, please restart with a start-mode of 'create-and-start'.""".stripMargin
           )
+          Source.empty[Transaction]
+        }
         case (start, Some(end)) if start == end => // Noop, we're already up-to-date
           Source.empty[Transaction]
         case _ => // Normal case, fetch the changes
