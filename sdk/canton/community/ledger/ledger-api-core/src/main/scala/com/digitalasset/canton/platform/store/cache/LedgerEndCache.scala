@@ -40,11 +40,3 @@ object MutableLedgerEndCache {
         }
     }
 }
-
-object ImmutableLedgerEndCache {
-  def apply(ledgerEnd: (Offset, Long, CantonTimestamp)): LedgerEndCache = new LedgerEndCache {
-    override def apply(): (Offset, Long) = ledgerEnd._1 -> ledgerEnd._2
-
-    override def publicationTime: CantonTimestamp = ledgerEnd._3
-  }
-}

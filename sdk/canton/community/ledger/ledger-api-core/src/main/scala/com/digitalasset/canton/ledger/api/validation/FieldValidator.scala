@@ -7,7 +7,6 @@ import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2.value.Identifier
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, JwksUrl}
-import com.digitalasset.canton.ledger.api.util.TimestampConversion
 import com.digitalasset.canton.ledger.api.validation.ResourceAnnotationValidator.{
   AnnotationsSizeExceededError,
   EmptyAnnotationsValueError,
@@ -16,10 +15,9 @@ import com.digitalasset.canton.ledger.api.validation.ResourceAnnotationValidator
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.*
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{Party, TypeConRef}
-import com.digitalasset.daml.lf.data.{Ref, Time}
 import com.digitalasset.daml.lf.value.Value.ContractId
-import com.google.protobuf.timestamp.Timestamp
 import io.grpc.StatusRuntimeException
 
 import scala.util.{Failure, Success, Try}
@@ -119,16 +117,6 @@ object FieldValidator {
         // Do not mention event sequential id as this should be opaque externally
         Left(invalidField(fieldName = fieldName, message))
     }
-
-  def optionalEventSequentialId(
-      s: String,
-      fieldName: String,
-      message: String,
-  )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Option[Long]] = optionalString(s) { s =>
-    eventSequentialId(s, fieldName, message)
-  }
 
   def requireIdentityProviderId(
       s: String,
@@ -266,22 +254,6 @@ object FieldValidator {
       case Left(e: EmptyAnnotationsValueError) => Left(invalidArgument(e.reason))
       case Right(_) => Right(annotations)
     }
-
-  def validateTimestamp(timestamp: Timestamp, fieldName: String)(implicit
-      errorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, Time.Timestamp] =
-    Try(
-      TimestampConversion
-        .toLf(
-          protoTimestamp = timestamp,
-          mode = TimestampConversion.ConversionMode.Exact,
-        )
-    ).toEither.left
-      .map(errMsg =>
-        invalidArgument(
-          s"Can not represent $fieldName ($timestamp) as a Daml timestamp: ${errMsg.getMessage}"
-        )
-      )
 
   def validateOptional[T, U](t: Option[T])(
       validation: T => Either[StatusRuntimeException, U]

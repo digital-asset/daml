@@ -33,7 +33,6 @@ import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext.Implicits.Empty.emptyTraceContext
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext, Traced}
 import com.digitalasset.canton.{RequestCounter, SequencerCounter}
-import com.digitalasset.daml.lf.archive.DamlLf
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
 import com.digitalasset.daml.lf.ledger.EventId
@@ -45,7 +44,6 @@ import com.digitalasset.daml.lf.transaction.test.{
   TransactionBuilder,
 }
 import com.digitalasset.daml.lf.value.Value
-import com.google.protobuf.ByteString
 import com.google.rpc.status.Status as StatusProto
 import io.grpc.Status
 import org.scalatest.matchers.should.Matchers
@@ -1854,16 +1852,6 @@ object UpdateToDbDtoSpec {
   private val someParty = Ref.Party.assertFromString("UpdateToDbDtoSpecParty")
   private val someHash =
     crypto.Hash.assertFromString("01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086")
-  private val someArchive1 = DamlLf.Archive.newBuilder
-    .setHash("00001")
-    .setHashFunction(DamlLf.HashFunction.SHA256)
-    .setPayload(ByteString.copyFromUtf8("payload 1"))
-    .build
-  private val someArchive2 = DamlLf.Archive.newBuilder
-    .setHash("00002")
-    .setHashFunction(DamlLf.HashFunction.SHA256)
-    .setPayload(ByteString.copyFromUtf8("payload 2 (longer than the other payload)"))
-    .build
   private val someCompletionInfo = state.CompletionInfo(
     actAs = List(someParty),
     applicationId = someApplicationId,

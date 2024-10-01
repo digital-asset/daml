@@ -218,7 +218,6 @@ class PackageMetadataSpec extends AnyWordSpec with Matchers {
 
     val pkg1Version1 = Ref.PackageVersion.assertFromString("1.1")
     val pkg1Version2 = Ref.PackageVersion.assertFromString("1.2")
-    val pkg1Version3 = Ref.PackageVersion.assertFromString("1.3")
 
     val pkgId1 = Ref.PackageId.assertFromString("PkgId1")
     val pkgId2 = Ref.PackageId.assertFromString("PkgId2")

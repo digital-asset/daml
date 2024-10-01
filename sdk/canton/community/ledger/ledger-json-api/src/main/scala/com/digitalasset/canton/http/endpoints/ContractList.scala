@@ -48,14 +48,16 @@ private[http] final class ContractList(
       lc: LoggingContextOf[InstanceUUID with RequestID],
       ec: ExecutionContext,
       metrics: HttpApiMetrics,
-  ): ET[domain.SyncResponse[JsValue]] = {
+  ): ET[domain.SyncResponse[JsValue]] =
     for {
       parseAndDecodeTimer <- getParseAndDecodeTimerCtx()
       input <- inputJsValAndJwtPayload(req): ET[(Jwt, JwtPayload, JsValue)]
 
       (jwt, jwtPayload, reqBody) = input
 
-      jsVal <- withJwtPayloadLoggingContext(jwtPayload) { _ => { implicit lc =>
+      jsVal <- withJwtPayloadLoggingContext(jwtPayload) {
+        _ =>
+          implicit lc =>
             logger.debug(s"/v1/fetch reqBody: $reqBody, ${lc.makeString}")
             for {
               fr <-
@@ -81,10 +83,8 @@ private[http] final class ContractList(
                 ac.cata(x => toJsValue(x), \/-(JsNull))
               ): ET[JsValue]
             } yield jsVal
-          }
       }
     } yield domain.OkResponse(jsVal)
-  }
 
   def retrieveAll(req: HttpRequest)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID],
@@ -98,7 +98,7 @@ private[http] final class ContractList(
         parseAndDecodeTimer.stop()
         withJwtPayloadLoggingContext(jwtPayload) {
           _ =>
-            { implicit lc =>
+            implicit lc =>
               val result: SearchResult[
                 ContractsService.Error \/ domain.ActiveContract.ResolvedCtTyId[LfValue]
               ] =
@@ -109,7 +109,6 @@ private[http] final class ContractList(
                   .via(handleSourceFailure)
                   .map(_.flatMap(lfAcToJsValue)): Source[Error \/ JsValue, NotUsed]
               }
-            }
         }
       }
     }
@@ -124,7 +123,7 @@ private[http] final class ContractList(
       (jwt, jwtPayload, reqBody) = it
       res <- withJwtPayloadLoggingContext(jwtPayload) {
         tc =>
-          { implicit lc =>
+          implicit lc =>
             val res = for {
               cmd <- SprayJson
                 .decode[domain.GetActiveContractsRequest](reqBody)
@@ -145,7 +144,6 @@ private[http] final class ContractList(
                 )
             }
             eitherT(res.sequence)
-          }
       }
     } yield res
   }.run
@@ -165,14 +163,12 @@ private[endpoints] object ContractList {
   private def lfValueToJsValue(a: LfValue): Error \/ JsValue =
     \/.attempt(LfValueCodec.apiValueToJsValue(a))(identity).liftErr(ServerError.fromMsg)
 
-  private def lfAcToJsValue(a: domain.ActiveContract.ResolvedCtTyId[LfValue]): Error \/ JsValue = {
+  private def lfAcToJsValue(a: domain.ActiveContract.ResolvedCtTyId[LfValue]): Error \/ JsValue =
     for {
       b <- a.traverse(lfValueToJsValue): Error \/ domain.ActiveContract.ResolvedCtTyId[JsValue]
       c <- toJsValue(b)
     } yield c
-  }
 
-  private def toJsValue[A: JsonWriter](a: A): Error \/ JsValue = {
+  private def toJsValue[A: JsonWriter](a: A): Error \/ JsValue =
     SprayJson.encode(a).liftErr(ServerError.fromMsg)
-  }
 }

@@ -47,8 +47,6 @@ class PackageService(
       packageStore: PackageStore,
   ) {
 
-    val packageNameMap: PackageNameMap = PackageService.buildPackageNameMap(packageStore)
-
     def append(diff: PackageStore): State = {
       val newPackageStore = this.packageStore ++ resolveChoicesIn(diff)
 
@@ -412,7 +410,7 @@ object PackageService {
     val empty = PackageNameMap(MapView.empty)
   }
 
-  private def buildPackageNameMap(packageStore: PackageStore): PackageNameMap = {
+  private def buildPackageNameMap(packageStore: PackageStore): PackageNameMap =
     PackageNameMap(
       packageStore.view
         .flatMap { case ((pkgId, p)) =>
@@ -429,7 +427,6 @@ object PackageService {
         .toMap[Ref.PackageRef, (Ref.PackageName, Ref.PackageVersion)]
         .view
     )
-  }
 
   private def getTemplateIdInterfaceMaps(
       packageStore: PackageStore

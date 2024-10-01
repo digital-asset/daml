@@ -174,9 +174,6 @@ private[backend] object AppendOnlySchema {
         "package_name" -> fieldStrategy.int(stringInterning =>
           dbDto => stringInterning.packageName.unsafe.internalize(dbDto.package_name)
         ),
-        "flat_event_witnesses" -> fieldStrategy.intArray(stringInterning =>
-          _.flat_event_witnesses.map(stringInterning.party.unsafe.internalize)
-        ),
         "tree_event_witnesses" -> fieldStrategy.intArray(stringInterning =>
           _.tree_event_witnesses.map(stringInterning.party.unsafe.internalize)
         ),
@@ -196,6 +193,19 @@ private[backend] object AppendOnlySchema {
         "trace_context" -> fieldStrategy.bytea(_ => _.trace_context),
         "record_time" -> fieldStrategy.bigint(_ => _.record_time),
       )
+
+    val consumingExerciseFields: Vector[(String, Field[DbDto.EventExercise, _, _])] =
+      exerciseFields ++ Vector[(String, Field[DbDto.EventExercise, _, _])](
+        "flat_event_witnesses" -> fieldStrategy.intArray(stringInterning =>
+          _.flat_event_witnesses.map(stringInterning.party.unsafe.internalize)
+        )
+      )
+
+    val eventsConsumingExercise: Table[DbDto.EventExercise] =
+      fieldStrategy.insert("lapi_events_consuming_exercise")(consumingExerciseFields*)
+
+    val eventsNonConsumingExercise: Table[DbDto.EventExercise] =
+      fieldStrategy.insert("lapi_events_non_consuming_exercise")(exerciseFields*)
 
     val eventsUnassign: Table[DbDto.EventUnassign] =
       fieldStrategy.insert("lapi_events_unassign")(
@@ -284,12 +294,6 @@ private[backend] object AppendOnlySchema {
         "trace_context" -> fieldStrategy.bytea(_ => _.trace_context),
         "record_time" -> fieldStrategy.bigint(_ => _.record_time),
       )
-
-    val eventsConsumingExercise: Table[DbDto.EventExercise] =
-      fieldStrategy.insert("lapi_events_consuming_exercise")(exerciseFields*)
-
-    val eventsNonConsumingExercise: Table[DbDto.EventExercise] =
-      fieldStrategy.insert("lapi_events_non_consuming_exercise")(exerciseFields*)
 
     val partyEntries: Table[DbDto.PartyEntry] =
       fieldStrategy.insert("lapi_party_entries")(

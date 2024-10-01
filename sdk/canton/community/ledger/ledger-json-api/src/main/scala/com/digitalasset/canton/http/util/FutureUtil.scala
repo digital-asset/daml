@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.http.util
 
-import scalaz.syntax.show._
+import scalaz.syntax.show.*
 import scalaz.{Applicative, EitherT, Functor, Show, \/}
 
 import scala.concurrent.Future

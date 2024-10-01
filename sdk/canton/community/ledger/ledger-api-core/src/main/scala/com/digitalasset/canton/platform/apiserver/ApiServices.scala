@@ -339,14 +339,12 @@ object ApiServices {
       val commandSubmissionService =
         CommandSubmissionServiceImpl.createApiService(
           writeService,
-          commandsValidator,
           timeProvider,
           timeProviderType,
           seedService,
           commandExecutor,
           checkOverloaded,
           metrics,
-          telemetry,
           loggerFactory,
         )
 

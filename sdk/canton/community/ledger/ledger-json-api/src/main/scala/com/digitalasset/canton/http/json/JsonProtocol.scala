@@ -91,7 +91,7 @@ object JsonProtocol extends JsonProtocolLow {
             case e: IllegalArgumentException => Left(e.getMessage)
           }
       } yield ByteString copyFrom arr
-    } { bytes => bytesToStrTotal(bytes.toByteArray) }
+    }(bytes => bytesToStrTotal(bytes.toByteArray))
 
   implicit val Base64Format: JsonFormat[domain.Base64] = {
     import java.util.Base64.{getDecoder, getEncoder}
@@ -207,30 +207,12 @@ object JsonProtocol extends JsonProtocolLow {
         encodeInt64AsString = true,
       )
 
-  // DB *must not* use stringly ints or decimals; see ValuePredicate Range comments
-  object LfValueDatabaseCodec
-      extends ApiCodecCompressed(
-        encodeDecimalAsString = false,
-        encodeInt64AsString = false,
-      ) {
-    def asLfValueCodec(jv: JsValue): JsValue = jv match {
-      case JsObject(fields) => JsObject(fields transform ((_, v) => asLfValueCodec(v)))
-      case JsArray(elements) => JsArray(elements map asLfValueCodec)
-      case JsNull | _: JsString | _: JsBoolean => jv
-      case JsNumber(value) =>
-        // diverges slightly from ApiCodecCompressed: integers of numeric type
-        // will not have a ".0" included in their string representation.  We can't
-        // tell the difference here between an int64 and a numeric
-        JsString(value.bigDecimal.stripTrailingZeros.toPlainString)
-    }
-  }
-
   implicit def TemplateIdRequiredPkgIdFormat[CtId[T] <: domain.ContractTypeId[T]](implicit
       CtId: domain.ContractTypeId.Like[CtId]
   ): RootJsonFormat[CtId[Ref.PackageId]] = new TemplateIdFormat(CtId, Ref.PackageId.fromString)
 
   implicit def TemplateIdRequiredPkgFormat[CtId[T] <: domain.ContractTypeId[T]](implicit
-     CtId: domain.ContractTypeId.Like[CtId]
+      CtId: domain.ContractTypeId.Like[CtId]
   ): RootJsonFormat[CtId[Ref.PackageRef]] = new TemplateIdFormat(CtId, Ref.PackageRef.fromString)
 
   class TemplateIdFormat[P, CtId[T] <: domain.ContractTypeId[T]](
@@ -251,7 +233,7 @@ object JsonProtocol extends JsonProtocolLow {
           case _ => error(json, "did not have two ':' chars")
         }
       case _ => error(json, "not JsString")
-     }
+    }
 
     private def error(json: JsValue, reason: String): Nothing =
       deserializationError(s"Expected JsString(<packageId>:<module>:<entity>), got: $json. $reason")
@@ -424,9 +406,8 @@ object JsonProtocol extends JsonProtocolLow {
     }
   }
 
-  implicit val GetActiveContractsRequestFormat: RootJsonReader[domain.GetActiveContractsRequest] = {
+  implicit val GetActiveContractsRequestFormat: RootJsonReader[domain.GetActiveContractsRequest] =
     requestJsonReaderPlusOne(ReadersKey)(domain.GetActiveContractsRequest)
-  }
 
   implicit val SearchForeverQueryFormat: RootJsonReader[domain.SearchForeverQuery] = {
     val OffsetKey = "offset"

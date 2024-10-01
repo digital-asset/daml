@@ -31,12 +31,10 @@ import java.sql.Connection
 import java.util.UUID
 
 class CompletionStorageBackendTemplate(
-    queryStrategy: QueryStrategy,
     stringInterning: StringInterning,
     val loggerFactory: NamedLoggerFactory,
 ) extends CompletionStorageBackend
     with NamedLogging {
-  import com.digitalasset.canton.platform.store.backend.Conversions.ArrayColumnToIntArray.*
 
   override def commandCompletions(
       startExclusive: Offset,
@@ -74,7 +72,7 @@ class CompletionStorageBackendTemplate(
         FROM
           lapi_command_completions
         WHERE
-          ${queryStrategy.offsetIsBetween(
+          ${QueryStrategy.offsetIsBetween(
           nonNullableColumn = "completion_offset",
           startExclusive = startExclusive,
           endInclusive = endInclusive,
@@ -283,7 +281,7 @@ class CompletionStorageBackendTemplate(
       FROM
         lapi_command_completions
       WHERE
-        ${queryStrategy.offsetIsBetween(
+        ${QueryStrategy.offsetIsBetween(
         nonNullableColumn = "completion_offset",
         startExclusive = startExclusive,
         endInclusive = endInclusive,

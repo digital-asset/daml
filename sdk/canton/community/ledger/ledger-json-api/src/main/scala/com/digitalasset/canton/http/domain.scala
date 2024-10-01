@@ -131,7 +131,7 @@ package domain {
         applicationId: ApplicationId,
         readAs: List[Party],
         actAs: List[Party],
-    ): Option[JwtPayload] = {
+    ): Option[JwtPayload] =
       (readAs ++ actAs) match {
         case NonEmpty(ps) =>
           Some(
@@ -139,7 +139,6 @@ package domain {
           )
         case _ => None
       }
-    }
   }
 
   case class Contract[LfV](value: ArchivedContract \/ ActiveContract.ResolvedCtTyId[LfV])
@@ -274,11 +273,6 @@ package domain {
   object DeduplicationPeriod {
     final case class Duration(durationInMillis: Long) extends domain.DeduplicationPeriod
     final case class Offset(offset: HexString) extends domain.DeduplicationPeriod
-  }
-
-  final case class PbAny(typeUrl: String, value: Base64) {
-    import com.google.protobuf.any
-    def toLedgerApi: any.Any = any.Any(typeUrl, Base64 unwrap value)
   }
 
   final case class DisclosedContract[+TmplId](
@@ -527,7 +521,7 @@ package domain {
 
       override def traverseImpl[G[_]: Applicative, A, B](
           fa: ContractLocator[A]
-      )(f: A => G[B]): G[ContractLocator[B]] = {
+      )(f: A => G[B]): G[ContractLocator[B]] =
         fa match {
           case ka: EnrichedContractKey[A] =>
             f(ka.key).map(b => EnrichedContractKey(ka.templateId, b))
@@ -535,7 +529,6 @@ package domain {
             val G: Applicative[G] = implicitly
             G.point(c)
         }
-      }
     }
 
     val structure: ContractLocator <~> InputContractRef =
@@ -554,9 +547,8 @@ package domain {
     implicit val covariant: Traverse[EnrichedContractKey] = new Traverse[EnrichedContractKey] {
       override def traverseImpl[G[_]: Applicative, A, B](
           fa: EnrichedContractKey[A]
-      )(f: A => G[B]): G[EnrichedContractKey[B]] = {
+      )(f: A => G[B]): G[EnrichedContractKey[B]] =
         f(fa.key).map(b => EnrichedContractKey(fa.templateId, b))
-      }
     }
 
     implicit val hasTemplateId: HasTemplateId.Compat[EnrichedContractKey] =
@@ -573,7 +565,7 @@ package domain {
             f: PackageService.ResolveTemplateRecordType,
             g: PackageService.ResolveChoiceArgType,
             h: PackageService.ResolveKeyType,
-        ): Error \/ LfType = {
+        ): Error \/ LfType =
           templateId match {
             case tid @ ContractTypeId.Template(_, _, _) =>
               h(tid: ContractTypeId.Template.ResolvedPkgId)
@@ -582,7 +574,6 @@ package domain {
               val errorMsg = s"Expect contract type Id to be template Id, got otherwise: $other"
               -\/(Error(Symbol("EnrichedContractKey_hasTemplateId_lfType"), errorMsg))
           }
-        }
       }
   }
 
@@ -647,9 +638,8 @@ package domain {
     implicit val bitraverseInstance: Bitraverse[CreateCommand] = new Bitraverse[CreateCommand] {
       override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
           fab: CreateCommand[A, B]
-      )(f: A => G[C], g: B => G[D]): G[CreateCommand[C, D]] = {
+      )(f: A => G[C], g: B => G[D]): G[CreateCommand[C, D]] =
         ^(f(fab.payload), g(fab.templateId))((c, d) => fab.copy(payload = c, templateId = d))
-      }
     }
   }
 
@@ -660,14 +650,13 @@ package domain {
       new Bitraverse[ExerciseCommand[PkgId, *, *]] {
         override def bitraverseImpl[G[_]: Applicative, A, B, C, D](
             fab: ExerciseCommand[PkgId, A, B]
-        )(f: A => G[C], g: B => G[D]): G[ExerciseCommand[PkgId, C, D]] = {
+        )(f: A => G[C], g: B => G[D]): G[ExerciseCommand[PkgId, C, D]] =
           ^(f(fab.argument), g(fab.reference))((argument, reference) =>
             fab.copy(
               argument = argument,
               reference = reference,
             )
           )
-        }
       }
 
     implicit val leftTraverseInstance: Traverse[RequiredPkg[+*, Nothing]] =
@@ -724,7 +713,7 @@ package domain {
           f: P => G[P2],
           g: Ar => G[Ar2],
       ): G[CreateAndExerciseCommand[P2, Ar2, T, I]] =
-        ^(f(self.payload), g(self.argument)) { (p, a) => self.copy(payload = p, argument = a) }
+        ^(f(self.payload), g(self.argument))((p, a) => self.copy(payload = p, argument = a))
     }
 
     implicit def covariant[P, Ar]: Bitraverse[CreateAndExerciseCommand[P, Ar, *, *]] =
@@ -1101,7 +1090,11 @@ package domain {
     // treat the companion like a typeclass instance
     implicit def `ContractTypeIdLike companion`: this.type = this
 
-    def apply[PkgId](packageId: PkgId, moduleName: String, entityName: String): CtId[PkgId] with ContractTypeId.Ops[CtId, PkgId]
+    def apply[PkgId](
+        packageId: PkgId,
+        moduleName: String,
+        entityName: String,
+    ): CtId[PkgId] with ContractTypeId.Ops[CtId, PkgId]
 
     final def fromLedgerApi(in: lav2.value.Identifier): RequiredPkgId =
       apply(Ref.PackageId.assertFromString(in.packageId), in.moduleName, in.entityName)
@@ -1111,11 +1104,6 @@ package domain {
         Ref.DottedName.assertFromString(a.moduleName),
         Ref.DottedName.assertFromString(a.entityName),
       )
-
-    final def toLedgerApiValue(a: RequiredPkgId): Ref.Identifier = {
-      val qfName = qualifiedName(a)
-      Ref.Identifier(a.packageId, qfName)
-    }
   }
 
   // Represents information about a contract type id that may use a name as the package reference.

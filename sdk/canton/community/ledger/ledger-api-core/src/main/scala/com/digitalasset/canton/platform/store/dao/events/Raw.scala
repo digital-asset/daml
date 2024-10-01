@@ -201,8 +201,6 @@ object Raw {
       ): Future[PbFlatEvent] =
         Future.successful(PbFlatEvent(PbFlatEvent.Event.Archived(raw)))
 
-      def deserializedArchivedEvent(): PbArchivedEvent = raw
-
       override def witnesses: Seq[String] = raw.witnessParties
     }
 

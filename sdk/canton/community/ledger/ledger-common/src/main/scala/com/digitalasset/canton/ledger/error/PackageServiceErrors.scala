@@ -7,7 +7,6 @@ import com.daml.error.*
 import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors
 import com.digitalasset.daml.lf.archive.Error as LfArchiveError
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.engine.Error
 import com.digitalasset.daml.lf.validation.UpgradeError
 import com.digitalasset.daml.lf.{VersionRange, language, validation}
@@ -186,8 +185,8 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
         PackageServiceErrors.InternalError.Validation(nameOfFunc, msg)
       case Error.Package.Validation(validationError) =>
         ValidationError.Error(validationError)
-      case Error.Package.MissingPackage(packageId, _) =>
-        PackageServiceErrors.InternalError.Error(Set(packageId))
+      case Error.Package.MissingPackage(packageRef, _) =>
+        PackageServiceErrors.InternalError.Error(Set(packageRef))
       case Error.Package
             .AllowedLanguageVersion(packageId, languageVersion, allowedLanguageVersions) =>
         AllowedLanguageMismatchError(

@@ -36,8 +36,6 @@ import scala.collection.immutable.ArraySeq
 import scala.util.Using
 
 object EventStorageBackendTemplate {
-  import com.digitalasset.canton.platform.store.backend.Conversions.ArrayColumnToIntArray.*
-  import com.digitalasset.canton.platform.store.backend.Conversions.ArrayColumnToStringArray.*
 
   private val MaxBatchSizeOfIncompleteReassignmentOffsetTempTablePopulation: Int = 500
 
@@ -848,7 +846,6 @@ abstract class EventStorageBackendTemplate(
 
   override def transactionPointwiseQueries: TransactionPointwiseQueries =
     new TransactionPointwiseQueries(
-      queryStrategy = queryStrategy,
       ledgerEndCache = ledgerEndCache,
       stringInterning = stringInterning,
     )
@@ -860,10 +857,7 @@ abstract class EventStorageBackendTemplate(
     )
 
   override def eventReaderQueries: EventReaderQueries =
-    new EventReaderQueries(
-      queryStrategy = queryStrategy,
-      stringInterning = stringInterning,
-    )
+    new EventReaderQueries(stringInterning)
 
   // Improvement idea: Implement pruning queries in terms of event sequential id in order to be able to drop offset based indices.
   /** Deletes a subset of the indexed data (up to the pruning offset) in the following order and in the manner specified:
@@ -939,8 +933,6 @@ abstract class EventStorageBackendTemplate(
 
     if (pruneAllDivulgedContracts) {
       val pruneAfterClause =
-        // We need to distinguish between the two cases since lexicographical comparison
-        // in Oracle doesn't work with '' (empty strings are treated as NULLs) as one of the operands
         participantAllDivulgedContractsPrunedUpToInclusive(connection) match {
           case Some(pruneAfter) => cSQL"and event_offset > $pruneAfter"
           case None => cSQL""
@@ -957,7 +949,7 @@ abstract class EventStorageBackendTemplate(
               from lapi_party_entries p
               where p.typ = 'accept'
               and p.ledger_offset <= c.event_offset
-              and #${queryStrategy.isTrue("p.is_local")}
+              and p.is_local
               and #${queryStrategy.arrayContains("c.flat_event_witnesses", "p.party_id")}
             )
             $pruneAfterClause
@@ -1250,7 +1242,7 @@ abstract class EventStorageBackendTemplate(
      FROM
         lapi_transaction_meta
      WHERE
-        ${queryStrategy.offsetIsGreater("event_offset", untilInclusiveOffset)}
+        ${QueryStrategy.offsetIsGreater("event_offset", untilInclusiveOffset)}
         AND event_offset <= ${ledgerEnd._1}
      ORDER BY
         event_offset
@@ -1525,7 +1517,7 @@ abstract class EventStorageBackendTemplate(
           FROM lapi_command_completions
           WHERE
             $domainIdFilter
-            ${queryStrategy.offsetIsSmallerOrEqual("completion_offset", safeBeforeOrAtOffset)}
+            ${QueryStrategy.offsetIsSmallerOrEqual("completion_offset", safeBeforeOrAtOffset)}
           ORDER BY $domainIdOrdering completion_offset DESC
           ${QueryStrategy.limitClause(Some(1))}
           """.asSingleOpt(completionDomainOffsetParser(stringInterning))(connection),
@@ -1534,7 +1526,7 @@ abstract class EventStorageBackendTemplate(
           FROM lapi_transaction_meta
           WHERE
             $domainIdFilter
-            ${queryStrategy.offsetIsSmallerOrEqual("event_offset", safeBeforeOrAtOffset)}
+            ${QueryStrategy.offsetIsSmallerOrEqual("event_offset", safeBeforeOrAtOffset)}
           ORDER BY $domainIdOrdering event_offset DESC
           ${QueryStrategy.limitClause(Some(1))}
           """.asSingleOpt(metaDomainOffsetParser(stringInterning))(connection),

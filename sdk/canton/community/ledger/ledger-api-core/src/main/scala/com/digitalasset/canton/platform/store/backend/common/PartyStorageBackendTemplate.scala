@@ -23,10 +23,7 @@ import com.digitalasset.canton.platform.store.entries.PartyLedgerEntry
 
 import java.sql.Connection
 
-class PartyStorageBackendTemplate(
-    queryStrategy: QueryStrategy,
-    ledgerEndCache: LedgerEndCache,
-) extends PartyStorageBackend {
+class PartyStorageBackendTemplate(ledgerEndCache: LedgerEndCache) extends PartyStorageBackend {
 
   private val partyEntryParser: RowParser[(Offset, PartyLedgerEntry)] = {
     import com.digitalasset.canton.platform.store.backend.Conversions.bigDecimalColumnToBoolean
@@ -83,7 +80,7 @@ class PartyStorageBackendTemplate(
       queryOffset: Long,
   )(connection: Connection): Vector[(Offset, PartyLedgerEntry)] =
     SQL"""select * from lapi_party_entries
-      where ${queryStrategy.offsetIsBetween(
+      where ${QueryStrategy.offsetIsBetween(
         nonNullableColumn = "ledger_offset",
         startExclusive = startExclusive,
         endInclusive = endInclusive,
@@ -117,11 +114,11 @@ class PartyStorageBackendTemplate(
     SQL"""
         SELECT
           party,
-          #${queryStrategy.lastByProxyAggregateFuction(
+          #${QueryStrategy.lastByProxyAggregateFuction(
         "display_name",
         "ledger_offset",
       )} display_name,
-          #${queryStrategy.booleanOrAggregationFunction}(is_local) is_local
+          #${QueryStrategy.booleanOrAggregationFunction}(is_local) is_local
         FROM lapi_party_entries
         WHERE
           ledger_offset <= $ledgerEndOffset AND

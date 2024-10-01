@@ -160,10 +160,6 @@ class InMemoryUserManagementStore(
       Right(UsersPage(users = users))
     }
 
-  def listAllUsers(): Future[List[User]] = withState(
-    state.valuesIterator.map(info => toDomainUser(info.user)).toList
-  )
-
   override def updateUserIdp(
       id: Ref.UserId,
       sourceIdp: IdentityProviderId,

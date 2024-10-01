@@ -26,9 +26,6 @@ private[backend] trait StorageBackendTestsEvents
   import StorageBackendTestValues.*
   import DbDtoEq.*
 
-  private val emptyTraceContext =
-    SerializableTraceContext(TraceContext.empty).toDamlProto.toByteArray
-
   it should "find contracts by party" in {
     val partySignatory = Ref.Party.assertFromString("signatory")
     val partyObserver1 = Ref.Party.assertFromString("observer1")

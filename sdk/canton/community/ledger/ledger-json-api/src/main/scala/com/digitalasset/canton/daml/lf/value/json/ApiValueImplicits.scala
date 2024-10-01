@@ -30,8 +30,6 @@ object ApiValueImplicits {
     def fromIso8601(t: String): V.ValueTimestamp = fromInstant(Instant.parse(t))
     def fromInstant(t: Instant): V.ValueTimestamp =
       V.ValueTimestamp(Time.Timestamp.assertFromInstant(t))
-    def fromMillis(t: Long): V.ValueTimestamp =
-      V.ValueTimestamp(Time.Timestamp.assertFromLong(micros = t * 1000L))
   }
 
   implicit final class `ApiDate.type additions`(private val it: V.ValueDate.type) extends AnyVal {

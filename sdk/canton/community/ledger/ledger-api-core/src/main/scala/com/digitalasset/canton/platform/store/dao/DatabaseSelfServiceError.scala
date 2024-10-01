@@ -10,7 +10,6 @@ import org.h2.jdbc.JdbcSQLIntegrityConstraintViolationException
 import org.postgresql.util.PSQLException
 
 import java.sql.*
-import scala.annotation.tailrec
 
 /** Wraps SQLExceptions into transient and non-transient errors.
   * Transience classification is done as follows:
@@ -22,7 +21,6 @@ import scala.annotation.tailrec
   * database transaction or a unique constraint violation.
   */
 object DatabaseSelfServiceError {
-  @tailrec
   def apply(
       exception: Throwable
   )(implicit contextualizedErrorLogger: ContextualizedErrorLogger): Throwable = exception match {
@@ -35,9 +33,8 @@ object DatabaseSelfServiceError {
     case ex: SQLTransientException => retryable(ex)
     case ex: SQLNonTransientException => nonRetryable(ex)
     case ex: PSQLException => if (isRetryablePsqlException(ex)) retryable(ex) else nonRetryable(ex)
-    // Oracle uses java.sql.SqlException and java.sql.BatchUpdateException
     case ex: BatchUpdateException if ex.getCause != null => DatabaseSelfServiceError(ex.getCause)
-    case ex: SQLException => if (isRetryableOracleException(ex)) retryable(ex) else nonRetryable(ex)
+    case ex: SQLException => nonRetryable(ex)
     // Don't handle other exceptions that can be thrown from non-client interactions (e.g. index initialization)
     case ex => ex
   }
@@ -66,41 +63,4 @@ object DatabaseSelfServiceError {
       case state if state.startsWith("57P") && state != "57014" && state != "57P04" => true
       case _ => false
     }
-
-  // Oracle exceptions are handled based on the error codes
-  // https://docs.oracle.com/en/database/oracle/oracle-database/19/errmg/ORA-00000.html#GUID-27437B7F-F0C3-4F1F-9C6E-6780706FB0F6
-  private def isRetryableOracleException(ex: SQLException): Boolean =
-    ex.getErrorCode match {
-      // Unique constraint violated exception
-      case 1 => false
-      // Timeout occurred while waiting to lock object
-      case 54 => true
-      // Oracle failure in a batch operation
-      case 604 if oracleMessageRetryable(ex) => true
-      // consistent read failure; rollback data not available
-      case 4021 => true
-      // Timeout occurred while waiting to lock object or because NOWAIT has been set
-      case 8176 => true
-      // Can't serialize access for this transaction
-      case 8177 => true
-      // Often observed for orderly Oracle shutdowns
-      case 1088 | 1089 | 1090 | 1092 => true
-      // No more data to read from socket, can be caused by network problems
-      case 17002 => true
-      // This has been observed as either IO Error: Connection reset by peer or IO Error: Broken pipe
-      // when straight-up killing Oracle database server
-      case 17410 => true
-      case _ if ex.getMessage == "Connection is closed" => true
-      case _ => false
-    }
-
-  /** For Oracle, the `cause` isn't set properly for exceptions. This is a problem for batched queries.
-    * So, look through an exception's `message` to see if it contains a retryable problem.
-    */
-  private def oracleMessageRetryable(ex: SQLException): Boolean = {
-    val consistentReadFailure = "ORA-08176"
-    val cantSerializeAccess = "ORA-08177"
-    val message = ex.getMessage
-    List(consistentReadFailure, cantSerializeAccess).exists(message.contains)
-  }
 }

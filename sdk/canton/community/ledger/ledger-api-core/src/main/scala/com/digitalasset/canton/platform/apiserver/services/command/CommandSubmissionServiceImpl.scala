@@ -7,12 +7,10 @@ import com.daml.error.ContextualizedErrorLogger
 import com.daml.error.ErrorCode.LoggedApiException
 import com.daml.scalautil.future.FutureConversion.CompletionStageConversionOps
 import com.daml.timer.Delayed
-import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.domain.{Commands as ApiCommands, SubmissionId}
 import com.digitalasset.canton.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.canton.ledger.api.services.CommandSubmissionService
 import com.digitalasset.canton.ledger.api.util.TimeProvider
-import com.digitalasset.canton.ledger.api.validation.CommandsValidator
 import com.digitalasset.canton.ledger.configuration.LedgerTimeModel
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.logging.LoggingContextWithTrace.{
@@ -52,14 +50,12 @@ private[apiserver] object CommandSubmissionServiceImpl {
 
   def createApiService(
       writeService: state.WriteService,
-      commandsValidator: CommandsValidator,
       timeProvider: TimeProvider,
       timeProviderType: TimeProviderType,
       seedService: SeedService,
       commandExecutor: CommandExecutor,
       checkOverloaded: TraceContext => Option[state.SubmissionResult],
       metrics: LedgerApiServerMetrics,
-      telemetry: Telemetry,
       loggerFactory: NamedLoggerFactory,
   )(implicit
       executionContext: ExecutionContext,
