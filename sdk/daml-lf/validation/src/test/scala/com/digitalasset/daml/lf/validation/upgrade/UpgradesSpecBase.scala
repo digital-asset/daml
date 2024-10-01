@@ -845,7 +845,7 @@ trait LongTests { this: UpgradesSpec =>
           Some(
             "The upgraded data type MyStruct has changed the number of type variables it has."
           )
-        )
+        ),
       )
     }
 
@@ -853,7 +853,7 @@ trait LongTests { this: UpgradesSpec =>
       testPackagePair(
         "test-common/upgrades-SucceedWhenParamNameChanges-v1.dar",
         "test-common/upgrades-SucceedWhenParamNameChanges-v2.dar",
-        assertPackageUpgradeCheck(None)
+        assertPackageUpgradeCheck(None),
       )
     }
 
@@ -861,7 +861,7 @@ trait LongTests { this: UpgradesSpec =>
       testPackagePair(
         "test-common/upgrades-SucceedWhenPhantomParamBecomesUsed-v1.dar",
         "test-common/upgrades-SucceedWhenPhantomParamBecomesUsed-v2.dar",
-        assertPackageUpgradeCheck(None)
+        assertPackageUpgradeCheck(None),
       )
     }
   }
