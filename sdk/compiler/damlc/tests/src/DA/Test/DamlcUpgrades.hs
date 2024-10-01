@@ -357,41 +357,6 @@ tests damlc =
                       NoDependencies
                       False
                       setUpgradeField
-                , test
-                      "SucceedsWhenNonSerializableTypesAreIncompatible"
-                      Succeed
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
-                      "SucceedsWhenAddingNonOptionalFieldsToUnserializableTypes"
-                      Succeed
-                      LF.versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
-                      "SucceedsWhenChangingVariantOfUnserializableType"
-                      Succeed
-                      LF.versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
-                      "SucceedsWhenDeletingUnserializableType"
-                      Succeed
-                      LF.versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
-                      "FailsWhenMakingTypeUnserializable"
-                      (FailWithError "\ESC\\[0;91merror type checking data type Main.MyData:\n  The upgraded data type MyData was serializable and is now unserializable. Datatypes cannot change their serializability via upgrades.")
-                      LF.versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
                 ]
             | setUpgradeField <- [True, False]
             ] ++
@@ -652,6 +617,41 @@ tests damlc =
             , test
                   "SucceedWhenPhantomParamBecomesUsed"
                   Succeed
+                  versionDefault
+                  NoDependencies
+                  False
+                  True
+            , test
+                  "SucceedsWhenNonSerializableTypesAreIncompatible"
+                  Succeed
+                  versionDefault
+                  NoDependencies
+                  False
+                  True
+            , test
+                  "SucceedsWhenAddingNonOptionalFieldsToUnserializableTypes"
+                  Succeed
+                  versionDefault
+                  NoDependencies
+                  False
+                  True
+            , test
+                  "SucceedsWhenChangingVariantOfUnserializableType"
+                  Succeed
+                  versionDefault
+                  NoDependencies
+                  False
+                  True
+            , test
+                  "SucceedsWhenDeletingUnserializableType"
+                  Succeed
+                  versionDefault
+                  NoDependencies
+                  False
+                  True
+            , test
+                  "FailsWhenMakingTypeUnserializable"
+                  (FailWithError "\ESC\\[0;91merror type checking data type Main.MyData:\n  The upgraded data type MyData was serializable and is now unserializable. Datatypes cannot change their serializability via upgrades.")
                   versionDefault
                   NoDependencies
                   False
