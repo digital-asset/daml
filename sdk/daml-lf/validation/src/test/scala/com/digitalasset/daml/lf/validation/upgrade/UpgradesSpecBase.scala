@@ -836,6 +836,34 @@ trait LongTests { this: UpgradesSpec =>
         ),
       )
     }
+
+    "FailWhenParamCountChanges" in {
+      testPackagePair(
+        "test-common/upgrades-FailWhenParamCountChanges-v1.dar",
+        "test-common/upgrades-FailWhenParamCountChanges-v2.dar",
+        assertPackageUpgradeCheck(
+          Some(
+            "The upgraded data type MyStruct has changed the number of type variables it has."
+          )
+        )
+      )
+    }
+
+    "SucceedWhenParamNameChanges" in {
+      testPackagePair(
+        "test-common/upgrades-SucceedWhenParamNameChanges-v1.dar",
+        "test-common/upgrades-SucceedWhenParamNameChanges-v2.dar",
+        assertPackageUpgradeCheck(None)
+      )
+    }
+
+    "SucceedWhenPhantomParamBecomesUsed" in {
+      testPackagePair(
+        "test-common/upgrades-SucceedWhenPhantomParamBecomesUsed-v1.dar",
+        "test-common/upgrades-SucceedWhenPhantomParamBecomesUsed-v2.dar",
+        assertPackageUpgradeCheck(None)
+      )
+    }
   }
 }
 
