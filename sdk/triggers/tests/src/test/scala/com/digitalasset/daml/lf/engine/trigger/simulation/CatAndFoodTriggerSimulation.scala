@@ -19,7 +19,6 @@ import scala.concurrent.Await
 import scala.concurrent.duration._
 
 class CatAndFoodTriggerSimulationV1 extends CatAndFoodTriggerSimulation(LanguageMajorVersion.V1)
-//class CatAndFoodTriggerSimulationV2 extends CatAndFoodTriggerSimulation(LanguageMajorVersion.V2)
 
 class CatAndFoodTriggerSimulation(override val majorLanguageVersion: LanguageMajorVersion)
     extends TriggerMultiProcessSimulation
