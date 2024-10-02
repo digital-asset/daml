@@ -207,11 +207,6 @@ object UpgradeError {
       s"Tried to upgrade exception $exception, but exceptions cannot be upgraded. They should be removed in any upgrading package."
   }
 
-  final case class DatatypeBecameSerializable(origin: UpgradedRecordOrigin) extends Error {
-    override def message: String =
-      s"The upgraded $origin was unserializable and is now serializable. Datatypes cannot change their serializability via upgrades."
-  }
-
   final case class DatatypeBecameUnserializable(origin: UpgradedRecordOrigin) extends Error {
     override def message: String =
       s"The upgraded $origin was serializable and is now unserializable. Datatypes cannot change their serializability via upgrades."
@@ -349,10 +344,10 @@ object TypecheckUpgrades {
   private def checkDeleted[K, V](
       arg: Upgrading[Map[K, V]],
       handler: (K, V) => UpgradeError.Error,
-      ignore: (K, V) => Boolean = (_: K, _: V) => true,
+      filter: (K, V) => Boolean = (_: K, _: V) => true,
   ): Try[(Map[K, Upgrading[V]], Map[K, V])] = {
     val (deletedV, existingV, newV) = extractDelExistNew(arg)
-    deletedV.filter((kv: (K, V)) => ignore(kv._1, kv._2)).headOption match {
+    deletedV.view.filter((kv: (K, V)) => filter(kv._1, kv._2)).headOption match {
       case Some((k, v)) => fail(handler(k, v))
       case _ => Success((existingV, newV))
     }
@@ -497,7 +492,7 @@ case class TypecheckUpgrades(
       (existingDatatypes, _new) <- checkDeleted(
         unownedDts,
         (name: Ref.DottedName, _: Ast.DDataType) => UpgradeError.MissingDataCon(name),
-        (_: Ref.DottedName, dt: Ast.DDataType) => dt.serializable,
+        filter = (_: Ref.DottedName, dt: Ast.DDataType) => dt.serializable,
       )
       _ <- tryAll(existingDatatypes, checkDatatype(moduleWithMetadata, _))
     } yield ()
