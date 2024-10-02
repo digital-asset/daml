@@ -688,6 +688,48 @@ trait LongTests { this: UpgradesSpec =>
       )
     }
 
+    "Succeeds when adding non-optional fields to unserializable types" in {
+      testPackagePair(
+        "test-common/upgrades-SucceedsWhenAddingNonOptionalFieldsToUnserializableTypes-v1.dar",
+        "test-common/upgrades-SucceedsWhenAddingNonOptionalFieldsToUnserializableTypes-v2.dar",
+        assertPackageUpgradeCheck(
+          None
+        ),
+      )
+    }
+
+    "Succeeds when changing variant of unserializable type" in {
+      testPackagePair(
+        "test-common/upgrades-SucceedsWhenChangingVariantOfUnserializableType-v1.dar",
+        "test-common/upgrades-SucceedsWhenChangingVariantOfUnserializableType-v2.dar",
+        assertPackageUpgradeCheck(
+          None
+        ),
+      )
+    }
+
+    "Succeeds when deleting unserializable type" in {
+      testPackagePair(
+        "test-common/upgrades-SucceedsWhenDeletingUnserializableType-v1.dar",
+        "test-common/upgrades-SucceedsWhenDeletingUnserializableType-v2.dar",
+        assertPackageUpgradeCheck(
+          None
+        ),
+      )
+    }
+
+    "Fails when making type unserializable" in {
+      testPackagePair(
+        "test-common/upgrades-FailsWhenMakingTypeUnserializable-v1.dar",
+        "test-common/upgrades-FailsWhenMakingTypeUnserializable-v2.dar",
+        assertPackageUpgradeCheck(
+          Some(
+            "The upgraded data type MyData was serializable and is now unserializable. Datatypes cannot change their serializability via upgrades."
+          )
+        ),
+      )
+    }
+
     // Copied interface tests
     "Succeeds when an interface is only defined in the initial package." in {
       testPackagePair(

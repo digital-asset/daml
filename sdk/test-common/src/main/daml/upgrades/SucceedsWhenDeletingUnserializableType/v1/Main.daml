@@ -3,5 +3,9 @@
 
 module Main where
 
-data MyStruct a f = MyStruct { field1 : a }
+data SchemaPackage = SchemaPackage { field1: Text }
+
+data Unserializable3 = Unserializable3
+  { field1 : Int -> Int
+  }
 

@@ -483,6 +483,10 @@ da_scala_dar_resources_library(
             {"data_dependencies": ["//test-common:upgrades-FailsWhenAnInstanceIsAddedSeparateDep-dep.dar"]},
         ),
         ("FailsOnlyInModuleNotInReexports", {}, {}),
+        ("SucceedsWhenAddingNonOptionalFieldsToUnserializableTypes", {}, {}),
+        ("SucceedsWhenDeletingUnserializableType", {}, {}),
+        ("SucceedsWhenChangingVariantOfUnserializableType", {}, {}),
+        ("FailsWhenMakingTypeUnserializable", {}, {}),
         ("FailsWithSynonymReturnTypeChange", {}, {}),
         ("SucceedWhenATopLevelEnumAddsAField", {}, {}),
         ("SucceedsWhenATopLevelEnumChanges", {}, {}),
@@ -506,7 +510,6 @@ da_scala_dar_resources_library(
         ),
         ("SucceedsWhenUpgradingLFVersionWithoutExpressionWarning", {}, {}),
         ("FailWhenParamCountChanges", {}, {}),
-        ("FailWhenParamKindChanges", {}, {}),
         ("SucceedWhenParamNameChanges", {}, {}),
         ("SucceedWhenPhantomParamBecomesUsed", {}, {}),
     ]

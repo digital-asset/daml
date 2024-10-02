@@ -224,6 +224,7 @@ data UnwarnableError
   | EUpgradeTriedToUpgradeException !TypeConName
   | EUpgradeDifferentParamsCount !UpgradedRecordOrigin
   | EUpgradeDifferentParamsKinds !UpgradedRecordOrigin
+  | EUpgradeDatatypeBecameUnserializable !UpgradedRecordOrigin
   deriving (Show)
 
 data WarnableError
@@ -708,6 +709,7 @@ instance Pretty UnwarnableError where
       "Tried to upgrade exception " <> pPrint exception <> ", but exceptions cannot be upgraded. They should be removed in any upgrading package."
     EUpgradeDifferentParamsCount origin -> "The upgraded " <> pPrint origin <> " has changed the number of type variables it has."
     EUpgradeDifferentParamsKinds origin -> "The upgraded " <> pPrint origin <> " has changed the kind of one of its type variables."
+    EUpgradeDatatypeBecameUnserializable origin -> "The upgraded " <> pPrint origin <> " was serializable and is now unserializable. Datatypes cannot change their serializability via upgrades."
 
 
 instance Pretty UpgradedRecordOrigin where
