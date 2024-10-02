@@ -58,7 +58,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
           enum @serializable Color = red | green | blue;
 
           record @serializable MyCons = { head : Int64, tail: Mod:MyList };
-          variant @serializable  MyList = MyNil : Unit | MyCons: Mod:MyCons ;
+          variant @serializable MyList = MyNil : Unit | MyCons: Mod:MyCons ;
 
           record @serializable Template = { field : Int64 };
           record @serializable TemplateRef = { owner: Party, cid: (ContractId Mod:Template) };
@@ -72,126 +72,188 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
   )
   assert(compiledPackage.addPackage(defaultPackageId, pkg) == ResultDone.Unit)
 
-  "translateValue" should {
+  val valueTranslator = new ValueTranslator(
+    compiledPackage.pkgInterface,
+    requireV1ContractIdSuffix = false,
+  )
+  import valueTranslator.unsafeTranslateValue
 
-    val valueTranslator = new ValueTranslator(
-      compiledPackage.pkgInterface,
-      requireV1ContractIdSuffix = false,
-    )
-    import valueTranslator.unsafeTranslateValue
-
-    val testCases = Table[Ast.Type, Value, speedy.SValue](
-      ("type", "value", "svalue"),
-      (TUnit, ValueUnit, SValue.Unit),
-      (TBool, ValueTrue, SValue.True),
-      (TInt64, ValueInt64(42), SInt64(42)),
-      (
-        TTimestamp,
-        ValueTimestamp(Time.Timestamp.assertFromString("1969-07-20T20:17:00Z")),
-        STimestamp(Time.Timestamp.assertFromString("1969-07-20T20:17:00Z")),
-      ),
-      (
-        TDate,
-        ValueDate(Time.Date.assertFromString("1879-03-14")),
-        SDate(Time.Date.assertFromString("1879-03-14")),
-      ),
-      (TText, ValueText("daml"), SText("daml")),
-      (
-        TNumeric(Ast.TNat(Numeric.Scale.assertFromInt(10))),
+  val nonEmptyTestCases = Table[Ast.Type, Value, List[Value], speedy.SValue](
+    ("type", "normalized value", "non normalized value", "svalue"),
+    (
+      TUnit,
+      ValueUnit,
+      List.empty,
+      SValue.Unit,
+    ),
+    (
+      TBool,
+      ValueTrue,
+      List.empty,
+      SValue.True,
+    ),
+    (
+      TInt64,
+      ValueInt64(42),
+      List.empty,
+      SInt64(42),
+    ),
+    (
+      TTimestamp,
+      ValueTimestamp(Time.Timestamp.assertFromString("1969-07-20T20:17:00Z")),
+      List.empty,
+      STimestamp(Time.Timestamp.assertFromString("1969-07-20T20:17:00Z")),
+    ),
+    (
+      TDate,
+      ValueDate(Time.Date.assertFromString("1879-03-14")),
+      List.empty,
+      SDate(Time.Date.assertFromString("1879-03-14")),
+    ),
+    (
+      TText,
+      ValueText("daml"),
+      List.empty,
+      SText("daml"),
+    ),
+    (
+      TNumeric(Ast.TNat(Numeric.Scale.assertFromInt(10))),
+      ValueNumeric(Numeric.assertFromString("10.0000000000")),
+      List(
         ValueNumeric(Numeric.assertFromString("10.")),
-        SNumeric(Numeric.assertFromString("10.0000000000")),
+        ValueNumeric(Numeric.assertFromString("10.0")),
+        ValueNumeric(Numeric.assertFromString("10.00000000000000000000")),
       ),
-      (TParty, ValueParty("Alice"), SParty("Alice")),
-      (
-        TContractId(t"Mod:Template"),
-        ValueContractId(aCid),
-        SContractId(aCid),
+      SNumeric(Numeric.assertFromString("10.0000000000")),
+    ),
+    (
+      TParty,
+      ValueParty("Alice"),
+      List.empty,
+      SParty("Alice"),
+    ),
+    (
+      TContractId(t"Mod:Template"),
+      ValueContractId(aCid),
+      List.empty,
+      SContractId(aCid),
+    ),
+    (
+      TList(TText),
+      ValueList(FrontStack(ValueText("a"), ValueText("b"))),
+      List.empty,
+      SList(FrontStack(SText("a"), SText("b"))),
+    ),
+    (
+      TTextMap(TBool),
+      ValueTextMap(SortedLookupList(Map("0" -> ValueTrue, "1" -> ValueFalse))),
+      List.empty,
+      SMap(true, SText("0") -> SValue.True, SText("1") -> SValue.False),
+    ),
+    (
+      TGenMap(TInt64, TText),
+      ValueGenMap(ImmArray(ValueInt64(1) -> ValueText("1"), ValueInt64(42) -> ValueText("42"))),
+      List(
+        ValueGenMap(ImmArray(ValueInt64(42) -> ValueText("42"), ValueInt64(1) -> ValueText("1"))),
+        ValueGenMap(
+          ImmArray(
+            ValueInt64(1) -> ValueText("0"),
+            ValueInt64(42) -> ValueText("42"),
+            ValueInt64(1) -> ValueText("1"),
+          )
+        ),
       ),
-      (
-        TList(TText),
-        ValueList(FrontStack(ValueText("a"), ValueText("b"))),
-        SList(FrontStack(SText("a"), SText("b"))),
-      ),
-      (
-        TTextMap(TBool),
-        ValueTextMap(SortedLookupList(Map("0" -> ValueTrue, "1" -> ValueFalse))),
-        SMap(true, SText("0") -> SValue.True, SText("1") -> SValue.False),
-      ),
-      (
-        TGenMap(TInt64, TText),
-        ValueGenMap(ImmArray(ValueInt64(1) -> ValueText("1"), ValueInt64(42) -> ValueText("42"))),
-        SMap(false, SInt64(1) -> SText("1"), SInt64(42) -> SText("42")),
-      ),
-      (TOptional(TText), ValueOptional(Some(ValueText("text"))), SOptional(Some(SText("text")))),
-      (
-        t"Mod:Tuple Int64 Text",
+      SMap(false, SInt64(1) -> SText("1"), SInt64(42) -> SText("42")),
+    ),
+    (
+      TOptional(TText),
+      ValueOptional(Some(ValueText("text"))),
+      List.empty,
+      SOptional(Some(SText("text"))),
+    ),
+    (
+      t"Mod:Tuple Int64 Text",
+      ValueRecord("", ImmArray("" -> ValueInt64(33), "" -> ValueText("a"))),
+      List(
+        ValueRecord("Mod:Tuple", ImmArray("x" -> ValueInt64(33), "y" -> ValueText("a"))),
+        ValueRecord("Mod:Tuple", ImmArray("y" -> ValueText("a"), "x" -> ValueInt64(33))),
         ValueRecord("", ImmArray("x" -> ValueInt64(33), "y" -> ValueText("a"))),
-        SRecord("Mod:Tuple", ImmArray("x", "y"), ArrayList(SInt64(33), SText("a"))),
+        ValueRecord("Mod:Tuple", ImmArray("" -> ValueInt64(33), "y" -> ValueText("a"))),
+        ValueRecord("", ImmArray("y" -> ValueText("a"), "x" -> ValueInt64(33))),
+        ValueRecord("", ImmArray("" -> ValueInt64(33), "" -> ValueText("a"), "" -> ValueNone)),
       ),
-      (
-        t"Mod:Either Int64 Text",
-        ValueVariant("", "Right", ValueText("some test")),
-        SVariant("Mod:Either", "Right", 1, SText("some test")),
+      SRecord("Mod:Tuple", ImmArray("x", "y"), ArrayList(SInt64(33), SText("a"))),
+    ),
+    (
+      t"Mod:Either Int64 Text",
+      ValueVariant("", "Right", ValueText("some test")),
+      List(
+        ValueVariant("Mod:Either", "Right", ValueText("some test"))
       ),
-      (Ast.TTyCon("Mod:Color"), ValueEnum("", "blue"), SEnum("Mod:Color", "blue", 2)),
-    )
+      SVariant("Mod:Either", "Right", 1, SText("some test")),
+    ),
+    (
+      Ast.TTyCon("Mod:Color"),
+      ValueEnum("", "blue"),
+      List(
+        ValueEnum("Mod:Color", "blue")
+      ),
+      SEnum("Mod:Color", "blue", 2),
+    ),
+  )
 
-    val emptyTestCase = Table[Ast.Type, Value, speedy.SValue](
-      ("type", "value", "svalue"),
-      (TList(TText), ValueList(FrontStack.empty), SList(FrontStack.empty)),
-      (
-        TOptional(TText),
-        ValueOptional(None),
-        SOptional(None),
-      ),
-      (
-        TTextMap(TText),
-        ValueTextMap(SortedLookupList.Empty),
-        SMap(true),
-      ),
-      (
-        TGenMap(TInt64, TText),
-        ValueGenMap(ImmArray.empty),
-        SMap(false),
-      ),
-    )
+  val emptyTestCase = Table[Ast.Type, Value, List[Nothing], speedy.SValue](
+    ("type", "normalized value", "non normalized value", "svalue"),
+    (
+      TList(TText),
+      ValueList(FrontStack.empty),
+      List.empty,
+      SList(FrontStack.empty),
+    ),
+    (
+      TOptional(TText),
+      ValueOptional(None),
+      List.empty,
+      SOptional(None),
+    ),
+    (
+      TTextMap(TText),
+      ValueTextMap(SortedLookupList.Empty),
+      List.empty,
+      SMap(true),
+    ),
+    (
+      TGenMap(TInt64, TText),
+      ValueGenMap(ImmArray.empty),
+      List.empty,
+      SMap(false),
+    ),
+  )
 
-    "succeeds on well type values" in {
-      forAll(testCases ++ emptyTestCase) { (typ, value, svalue) =>
-        Try(unsafeTranslateValue(typ, value)) shouldBe Success(svalue)
+  "strict translateValue" should {
+    "succeeds on normalized well-typed values" in {
+      forEvery(nonEmptyTestCases ++ emptyTestCase) { (typ, v, _, svalue) =>
+        Try(unsafeTranslateValue(typ, v, strict = true)) shouldBe Success(svalue)
       }
     }
 
-    "handle different representation of the same record" in {
-      val typ = t"Mod:Tuple Int64 Text"
-      val testCases = Table(
-        "record",
-        ValueRecord("Mod:Tuple", ImmArray("x" -> ValueInt64(33), "y" -> ValueText("a"))),
-        ValueRecord("Mod:Tuple", ImmArray("y" -> ValueText("a"), "x" -> ValueInt64(33))),
-        ValueRecord("", ImmArray("x" -> ValueInt64(33), "y" -> ValueText("a"))),
-        ValueRecord("", ImmArray("" -> ValueInt64(33), "" -> ValueText("a"))),
-      )
-      val svalue = SRecord("Mod:Tuple", ImmArray("x", "y"), ArrayList(SInt64(33), SText("a")))
-
-      forEvery(testCases)(testCase =>
-        Try(unsafeTranslateValue(typ, testCase)) shouldBe Success(svalue)
-      )
+    "failed on non-normalized " in {
+      forEvery(nonEmptyTestCases ++ emptyTestCase) { (typ, _, nonNormal, _) =>
+        nonNormal.foreach { v =>
+          Try(unsafeTranslateValue(typ, v, strict = true)) shouldBe a[Failure[_]]
+        }
+      }
     }
+  }
 
-    "handle different representation of the same static record with upgrades enabled" in {
-      val typ = t"Mod:Tuple Int64 Text"
-      val testCases = Table(
-        "record",
-        ValueRecord("Mod:Tuple", ImmArray("x" -> ValueInt64(33), "y" -> ValueText("a"))),
-        ValueRecord("Mod:Tuple", ImmArray("y" -> ValueText("a"), "x" -> ValueInt64(33))),
-        ValueRecord("", ImmArray("x" -> ValueInt64(33), "y" -> ValueText("a"))),
-        ValueRecord("", ImmArray("" -> ValueInt64(33), "" -> ValueText("a"))),
-      )
-      val svalue = SRecord("Mod:Tuple", ImmArray("x", "y"), ArrayList(SInt64(33), SText("a")))
+  "lenient translateValue" should {
 
-      forEvery(testCases)(testCase =>
-        Try(unsafeTranslateValue(typ, testCase)) shouldBe Success(svalue)
-      )
+    "succeeds on any well-typed values" in {
+      forEvery(nonEmptyTestCases ++ emptyTestCase) { (typ, normal, nonNormal, svalue) =>
+        (normal +: nonNormal).foreach { v =>
+          Try(unsafeTranslateValue(typ, v, strict = false)) shouldBe Success(svalue)
+        }
+      }
     }
 
     "handle different representation of the same upgraded/downgraded record" in {
@@ -322,26 +384,9 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
         ),
       )
 
-      forEvery(testCases)((result, value) => Try(unsafeTranslateValue(typ, value)) shouldBe result)
-    }
-
-    "handle different representation of the same variant" in {
-      val typ = t"Mod:Either Text Int64"
-      val testCases = Table(
-        "variant",
-        ValueVariant("Mod:Either", "Left", ValueText("some test")),
-        ValueVariant("", "Left", ValueText("some test")),
+      forEvery(testCases)((result, value) =>
+        Try(unsafeTranslateValue(typ, value, strict = false)) shouldBe result
       )
-      val svalue = SVariant("Mod:Either", "Left", 0, SText("some test"))
-
-      forEvery(testCases)(value => Try(unsafeTranslateValue(typ, value)) shouldBe Success(svalue))
-    }
-
-    "handle different representation of the same enum" in {
-      val typ = t"Mod:Color"
-      val testCases = Table("enum", ValueEnum("Mod:Color", "green"), ValueEnum("", "green"))
-      val svalue = SEnum("Mod:Color", "green", 1)
-      forEvery(testCases)(value => Try(unsafeTranslateValue(typ, value)) shouldBe Success(svalue))
     }
 
     "return proper mismatch error" in {
@@ -355,6 +400,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
               "y" -> ValueParty("Alice"), // Here the field has type Party instead of Text
             ),
           ),
+          strict = false,
         )
       )
       inside(res) { case Failure(Error.Preprocessing.TypeMismatch(typ, value, _)) =>
@@ -364,11 +410,11 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
     }
 
     "fails on non-well type values" in {
-      forAll(testCases) { (typ1, value1, _) =>
-        forAll(testCases) { (_, value2, _) =>
+      forAll(nonEmptyTestCases) { (typ1, value1, _, _) =>
+        forAll(nonEmptyTestCases) { (_, value2, _, _) =>
           if (value1 != value2) {
             a[Error.Preprocessing.Error] shouldBe thrownBy(
-              unsafeTranslateValue(typ1, value2)
+              unsafeTranslateValue(typ1, value2, strict = false)
             )
           }
         }
@@ -389,8 +435,8 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
       val tooBig = mkMyList(50)
       val failure = Failure(Error.Preprocessing.ValueNesting(tooBig))
 
-      Try(unsafeTranslateValue(t"Mod:MyList", notTooBig)) shouldBe a[Success[_]]
-      Try(unsafeTranslateValue(t"Mod:MyList", tooBig)) shouldBe failure
+      Try(unsafeTranslateValue(t"Mod:MyList", notTooBig, strict = true)) shouldBe a[Success[_]]
+      Try(unsafeTranslateValue(t"Mod:MyList", tooBig, strict = true)) shouldBe failure
     }
 
     def testCasesForCid(culprit: ContractId) = {
@@ -433,7 +479,9 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
 
       cids.foreach(cid =>
         forEvery(testCasesForCid(cid))((typ, value) =>
-          Try(valueTranslator.unsafeTranslateValue(typ, value)) shouldBe a[Success[_]]
+          Try(valueTranslator.unsafeTranslateValue(typ, value, strict = true)) shouldBe a[Success[
+            _
+          ]]
         )
       )
     }
@@ -454,10 +502,10 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
       val failure = Failure(Error.Preprocessing.IllegalContractId.NonSuffixV1ContractId(illegalCid))
 
       forEvery(testCasesForCid(legalCid))((typ, value) =>
-        Try(valueTranslator.unsafeTranslateValue(typ, value)) shouldBe a[Success[_]]
+        Try(valueTranslator.unsafeTranslateValue(typ, value, strict = true)) shouldBe a[Success[_]]
       )
       forEvery(testCasesForCid(illegalCid))((typ, value) =>
-        Try(valueTranslator.unsafeTranslateValue(typ, value)) shouldBe failure
+        Try(valueTranslator.unsafeTranslateValue(typ, value, strict = true)) shouldBe failure
       )
     }
 

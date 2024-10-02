@@ -93,7 +93,7 @@ object ScriptF {
       }
 
     def translateValue(ty: Ast.Type, value: Value): Either[String, SValue] =
-      valueTranslator.strictTranslateValue(ty, value).left.map(_.toString)
+      valueTranslator.translateValue(ty, value).left.map(_.toString)
 
     def lookupLanguageVersion(packageId: PackageId): Either[String, LanguageVersion] = {
       compiledPackages.pkgInterface.lookupPackageLanguageVersion(packageId) match {
