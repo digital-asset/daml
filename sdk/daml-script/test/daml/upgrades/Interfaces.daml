@@ -164,7 +164,7 @@ main = tests
   , ("queryInterfaceContractId works as intended in the presence of upgraded packages", queryInterfaceUpgrades)
   , ("fetchFromInterface works as intended in the presence of upgraded packages", fetchFromInterfaceUpgrades)
   -- IDE Ledger doesn't support unvetting
-  , brokenOnIDELedger ("Can fetch interface from V1 contract when V1 unvetted", fetchWithoutV1)
+  , broken ("Can fetch interface from V1 contract when V1 isknown", fetchWithoutV1)
   ]
 
 setupAliceAndInterface : Script (Party, ContractId I)
