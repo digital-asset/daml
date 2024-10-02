@@ -30,7 +30,6 @@ private[backend] trait StorageBackendTestsInitializeIngestion
     )
 
   private val signatory = Ref.Party.assertFromString("signatory")
-  private val readers = Set(signatory)
 
   {
     val dtos = Vector(

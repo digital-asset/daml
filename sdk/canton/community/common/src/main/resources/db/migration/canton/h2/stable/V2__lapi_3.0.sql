@@ -258,7 +258,6 @@ CREATE TABLE lapi_events_non_consuming_exercise (
     contract_id VARCHAR(4000) NOT NULL,
     template_id INTEGER NOT NULL,
     package_name INTEGER NOT NULL,
-    flat_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- stakeholders
     tree_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- informees
 
     -- * information about the corresponding create event

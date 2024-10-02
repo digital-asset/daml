@@ -266,7 +266,6 @@ create or replace view debug.lapi_events_non_consuming_exercise as
     contract_id,
     debug.resolve_lapi_interned_string(template_id) as template_id,
     debug.resolve_lapi_interned_string(package_name) as package_name,
-    debug.resolve_lapi_interned_strings(flat_event_witnesses) as flat_event_witnesses,
     debug.resolve_lapi_interned_strings(tree_event_witnesses) as tree_event_witnesses,
     create_key_value,
     exercise_choice,

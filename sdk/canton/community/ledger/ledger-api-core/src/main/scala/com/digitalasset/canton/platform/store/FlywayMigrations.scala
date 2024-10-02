@@ -78,7 +78,6 @@ private[platform] object FlywayMigrations {
   private[platform] def minimumSchemaVersion(dbType: DbType) =
     dbType match {
       case DbType.Postgres => "0"
-      case DbType.Oracle => "0"
       case DbType.H2Database => "0"
     }
 

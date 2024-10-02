@@ -4,29 +4,21 @@
 package com.digitalasset.canton.http.json
 
 import org.apache.pekko.NotUsed
-import org.apache.pekko.http.scaladsl.model._
+import org.apache.pekko.http.scaladsl.model.*
 import org.apache.pekko.stream.scaladsl.*
 import org.apache.pekko.stream.{FanOutShape2, SourceShape, UniformFanInShape}
 import org.apache.pekko.util.ByteString
 import com.digitalasset.canton.fetchcontracts.util.PekkoStreamsUtils
-import scalaz.syntax.show._
+import scalaz.syntax.show.*
 import scalaz.{Show, \/}
-import spray.json.DefaultJsonProtocol._
-import spray.json._
+import spray.json.*
 
- object ResponseFormats {
-  def errorsJsObject(status: StatusCode, es: String*): JsObject = {
-    val errors = es.toJson
-    JsObject(statusField(status), ("errors", errors))
-  }
-
-  def resultJsObject[A: JsonWriter](a: A): JsObject = {
+object ResponseFormats {
+  def resultJsObject[A: JsonWriter](a: A): JsObject =
     resultJsObject(a.toJson)
-  }
 
-  def resultJsObject(a: JsValue): JsObject = {
+  def resultJsObject(a: JsValue): JsObject =
     JsObject(statusField(StatusCodes.OK), ("result", a))
-  }
 
   def resultJsObject[E: Show](
       jsVals: Source[E \/ JsValue, NotUsed],
@@ -34,7 +26,7 @@ import spray.json._
   ): Source[ByteString, NotUsed] = {
 
     val graph = GraphDSL.create() { implicit b =>
-      import GraphDSL.Implicits._
+      import GraphDSL.Implicits.*
 
       val partition: FanOutShape2[E \/ JsValue, E, JsValue] = b add PekkoStreamsUtils.partition
       val concat: UniformFanInShape[ByteString, ByteString] = b add Concat(3)
@@ -67,10 +59,9 @@ import spray.json._
     Source.fromGraph(graph)
   }
 
-  private def formatOneElement(a: JsValue, index: Long): ByteString = {
+  private def formatOneElement(a: JsValue, index: Long): ByteString =
     if (index == 0L) ByteString(a.compactPrint)
     else ByteString("," + a.compactPrint)
-  }
 
   def statusField(status: StatusCode): (String, JsNumber) =
     ("status", JsNumber(status.intValue()))

@@ -18,12 +18,7 @@ import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.*
 import com.digitalasset.daml.lf.transaction.test.{NodeIdTransactionBuilder, TransactionBuilder}
-import com.digitalasset.daml.lf.value.Value.{
-  ContractId,
-  ContractInstance,
-  ValueText,
-  VersionedContractInstance,
-}
+import com.digitalasset.daml.lf.value.Value.{ContractId, ContractInstance, ValueText}
 import com.digitalasset.daml.lf.value.Value as LfValue
 import org.apache.pekko.stream.scaladsl.Sink
 import org.scalatest.{AsyncTestSuite, OptionValues}
@@ -828,12 +823,5 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       .map(_._2.completionResponse.completion.toList.head)
       .map(c => c.commandId -> c.status.value.code)
       .runWith(Sink.seq)
-
-}
-
-object JdbcLedgerDaoSuite {
-
-  private type DivulgedContracts =
-    Map[(ContractId, VersionedContractInstance), Set[Party]]
 
 }

@@ -4,7 +4,7 @@
 package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.error.ContextualizedErrorLogger
-import com.daml.ledger.api.v2.transaction_filter.{Filters, TransactionFilter}
+import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
 import com.daml.ledger.api.v2.update_service.{
   GetTransactionByEventIdRequest,
   GetTransactionByIdRequest,
@@ -26,7 +26,6 @@ class UpdateServiceRequestValidator(partyValidator: PartyValidator) {
 
   import FieldValidator.*
   import UpdateServiceRequestValidator.Result
-  import ValidationErrors.invalidArgument
 
   case class PartialValidation(
       transactionFilter: TransactionFilter,
@@ -117,18 +116,4 @@ class UpdateServiceRequestValidator(partyValidator: PartyValidator) {
         parties,
       )
     }
-
-  // Allow using deprecated Protobuf fields for backwards compatibility
-  private def transactionFilterToPartySet(
-      transactionFilter: TransactionFilter
-  )(implicit contextualizedErrorLogger: ContextualizedErrorLogger) =
-    transactionFilter.filtersByParty
-      .collectFirst {
-        case (party, Filters(cumulative)) if cumulative.nonEmpty =>
-          invalidArgument(
-            s"$party attempted subscription for templates. Template filtration is not supported on GetTransactionTrees RPC. To get filtered data, use the GetTransactions RPC."
-          )
-      }
-      .fold(partyValidator.requireKnownParties(transactionFilter.filtersByParty.keys))(Left(_))
-
 }

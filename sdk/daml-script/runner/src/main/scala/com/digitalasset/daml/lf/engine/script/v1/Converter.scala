@@ -8,7 +8,6 @@ package v1
 
 import com.daml.ledger.api.v2.transaction.TreeEvent
 import com.daml.ledger.api.v2.transaction.TransactionTree
-import com.digitalasset.canton.ledger.api.validation.NoLoggingValueValidator
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.engine.script.v1.ledgerinteraction.ScriptLedgerClient

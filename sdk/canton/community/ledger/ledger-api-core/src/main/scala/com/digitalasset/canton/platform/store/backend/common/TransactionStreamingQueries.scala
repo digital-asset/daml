@@ -146,7 +146,7 @@ class TransactionStreamingQueries(
         fetchTreeEvents(
           tableName = "lapi_events_consuming_exercise",
           selectColumns =
-            s"$selectColumnsForTransactionTreeExercise, ${queryStrategy.constBooleanSelect(true)} as exercise_consuming",
+            s"$selectColumnsForTransactionTreeExercise, ${QueryStrategy.constBooleanSelect(true)} as exercise_consuming",
           eventSequentialIds = eventSequentialIds,
           allFilterParties = allFilterParties,
         )(connection)
@@ -154,7 +154,7 @@ class TransactionStreamingQueries(
         fetchTreeEvents(
           tableName = "lapi_events_create",
           selectColumns =
-            s"$selectColumnsForTransactionTreeCreate, ${queryStrategy.constBooleanSelect(false)} as exercise_consuming",
+            s"$selectColumnsForTransactionTreeCreate, ${QueryStrategy.constBooleanSelect(false)} as exercise_consuming",
           eventSequentialIds = eventSequentialIds,
           allFilterParties = allFilterParties,
         )(connection)
@@ -162,7 +162,7 @@ class TransactionStreamingQueries(
         fetchTreeEvents(
           tableName = "lapi_events_non_consuming_exercise",
           selectColumns =
-            s"$selectColumnsForTransactionTreeExercise, ${queryStrategy.constBooleanSelect(false)} as exercise_consuming",
+            s"$selectColumnsForTransactionTreeExercise, ${QueryStrategy.constBooleanSelect(false)} as exercise_consuming",
           eventSequentialIds = eventSequentialIds,
           allFilterParties = allFilterParties,
         )(connection)

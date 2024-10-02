@@ -22,7 +22,7 @@ object H2DataSourceStorageBackend extends DataSourceStorageBackend {
     val h2DataSource = new org.h2.jdbcx.JdbcDataSource()
 
     // H2 (org.h2.jdbcx.JdbcDataSource) does not support setting the user/password within the jdbcUrl, so remove
-    // those properties from the url if present and set them separately. Note that Postgres and Oracle support
+    // those properties from the url if present and set them separately. Note that Postgres supports
     // user/password in the URLs, so we don't bother exposing user/password configs separately from the url just for h2
     // which is anyway not supported for production. (This also helps run canton h2 participants that set user and
     // password.)

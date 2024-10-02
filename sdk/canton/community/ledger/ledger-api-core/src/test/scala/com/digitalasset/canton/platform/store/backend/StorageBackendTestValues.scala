@@ -64,10 +64,7 @@ private[store] object StorageBackendTestValues {
     .setPayload(ByteString.copyFromUtf8("payload 1"))
     .build
 
-  // This is not a valid serialization of a Daml-Lf value. This is ok.
-  // The tests never deserialize Daml-Lf values, we the just need some non-empty array
-  // because Oracle converts empty arrays to NULL, which then breaks non-null constraints.
-  val someSerializedDamlLfValue: Array[Byte] = Array.fill[Byte](8)(15)
+  val someSerializedDamlLfValue: Array[Byte] = Array.empty[Byte]
   val someDomainId: DomainId = DomainId.tryFromString("x::somedomain")
   val someDomainId2: DomainId = DomainId.tryFromString("x::somedomain2")
 

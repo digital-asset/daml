@@ -47,7 +47,6 @@ import com.digitalasset.canton.{
   SequencerCounter,
   TestEssentials,
 }
-import com.digitalasset.daml.lf.archive.DamlLf
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.Ref.Identifier
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -57,7 +56,6 @@ import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.CreateTransacti
 import com.digitalasset.daml.lf.transaction.test.{TestNodeBuilder, TransactionBuilder}
 import com.digitalasset.daml.lf.transaction.{CommittedTransaction, Node, NodeId, TransactionVersion}
 import com.digitalasset.daml.lf.value.Value
-import com.google.protobuf.ByteString
 import com.google.rpc.status.Status
 import org.apache.pekko.Done
 import org.apache.pekko.stream.Materializer
@@ -551,7 +549,7 @@ object InMemoryStateUpdaterSpec {
         Vector.empty,
         offset(1L),
         lastEventSequentialId,
-        lastPublicationTime,
+        publicationTime,
         emptyTraceContext,
       )
 
@@ -717,18 +715,6 @@ object InMemoryStateUpdaterSpec {
       ),
     )
   )
-  private val archive = DamlLf.Archive.newBuilder
-    .setHash("00001")
-    .setHashFunction(DamlLf.HashFunction.SHA256)
-    .setPayload(ByteString.copyFromUtf8("payload 1"))
-    .build
-
-  private val archive2 = DamlLf.Archive.newBuilder
-    .setHash("00002")
-    .setHashFunction(DamlLf.HashFunction.SHA256)
-    .setPayload(ByteString.copyFromUtf8("payload 2"))
-    .build
-
   private val update7 = offset(7L) -> Traced[Update](
     Update.ReassignmentAccepted(
       optCompletionInfo = None,

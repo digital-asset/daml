@@ -254,10 +254,6 @@ object ValidateDisclosedContractsTest {
     private val packageName: Ref.PackageName = Ref.PackageName.assertFromString(api.packageName)
     private val packageVersion: Ref.PackageVersion =
       Ref.PackageVersion.assertFromString(api.packageVersion)
-    private val createArg: ValueRecord = ValueRecord(
-      tycon = Some(templateId),
-      fields = ImmArray(Some(Ref.Name.assertFromString("something")) -> Lf.ValueTrue),
-    )
     private val createArgWithoutLabels: ValueRecord = ValueRecord(
       tycon = None,
       fields = ImmArray(None -> Lf.ValueTrue),

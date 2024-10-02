@@ -110,9 +110,6 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
     .newBuilder()
     // Max duration to keep the prepared transaction in memory after it's been prepared
     .expireAfterWrite(Duration.ofHours(1))
-    // We only read from it when the transaction is submitted, after which we don't need to keep it around
-    // so expire it almost immediately after access
-    .expireAfterAccess(Duration.ofSeconds(1))
     .build[ByteString, PendingRequest]()
 
   override def prepare(

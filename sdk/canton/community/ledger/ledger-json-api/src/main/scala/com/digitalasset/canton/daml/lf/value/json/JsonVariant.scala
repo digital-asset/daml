@@ -10,9 +10,6 @@ object JsonVariant {
   def apply(tag: String, body: JsValue): JsObject =
     JsObject(tagKey -> JsString(tag), valueKey -> body)
 
-  def withoutValue(tag: String): JsObject =
-    JsObject(tagKey -> JsString(tag))
-
   val tagKey = "tag"
   val valueKey: Ref.Name = Ref.Name assertFromString "value"
 

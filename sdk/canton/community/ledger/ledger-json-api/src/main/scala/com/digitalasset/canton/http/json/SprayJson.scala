@@ -3,17 +3,16 @@
 
 package com.digitalasset.canton.http.json
 
-import com.daml.scalautil.ExceptionOps._
-import scalaz.syntax.bitraverse._
-import scalaz.syntax.traverse._
-import scalaz.{-\/, Bitraverse, Show, Traverse, \/, \/-}
+import com.daml.scalautil.ExceptionOps.*
+import scalaz.syntax.traverse.*
+import scalaz.{-\/, Show, Traverse, \/, \/-}
 import spray.json.{
   JsValue,
   JsObject,
   JsonParser,
   JsonReader,
   JsonWriter,
-  enrichAny => `sj enrichAny`,
+  enrichAny as `sj enrichAny`,
 }
 
 object SprayJson {
@@ -69,25 +68,6 @@ object SprayJson {
       fa <- fj.traverse(decode[A](_))
     } yield fa
 
-  def decode2[F[_, _], A, B](str: String)(implicit
-      ev1: JsonReader[F[JsValue, JsValue]],
-      ev2: Bitraverse[F],
-      ev3: JsonReader[A],
-      ev4: JsonReader[B],
-  ): JsonReaderError \/ F[A, B] =
-    parse(str).flatMap(decode2[F, A, B])
-
-  def decode2[F[_, _], A, B](a: JsValue)(implicit
-      ev1: JsonReader[F[JsValue, JsValue]],
-      ev2: Bitraverse[F],
-      ev3: JsonReader[A],
-      ev4: JsonReader[B],
-  ): JsonReaderError \/ F[A, B] =
-    for {
-      fjj <- decode[F[JsValue, JsValue]](a)
-      fab <- fjj.bitraverse(decode[A](_), decode[B](_))
-    } yield fab
-
   def encode[A: JsonWriter](a: A): JsonWriterError \/ JsValue =
     \/.attempt(a.toJson)(e => JsonWriterError(a, e.description))
 
@@ -104,24 +84,8 @@ object SprayJson {
       jsVal <- encode[F[JsValue]](fj)
     } yield jsVal
 
-  def encode2[F[_, _], A, B](fab: F[A, B])(implicit
-      ev1: JsonWriter[F[JsValue, JsValue]],
-      ev2: Bitraverse[F],
-      ev3: JsonWriter[A],
-      ev4: JsonWriter[B],
-  ): JsonWriterError \/ JsValue =
-    for {
-      fjj <- fab.bitraverse(encode[A](_), encode[B](_))
-      jsVal <- encode[F[JsValue, JsValue]](fjj)
-    } yield jsVal
-
   def mustBeJsObject(a: JsValue): JsonError \/ JsObject = a match {
     case b: JsObject => \/-(b)
     case _ => -\/(JsonError(s"Expected JsObject, got: ${a: JsValue}"))
-  }
-
-  def objectField(o: JsValue, f: String): Option[JsValue] = o match {
-    case JsObject(fields) => fields.get(f)
-    case _ => None
   }
 }

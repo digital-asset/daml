@@ -176,6 +176,9 @@ sealed trait EnvironmentSetup[E <: Environment, TCE <: TestConsoleEnvironment[E]
 
 /** Starts an environment in a beforeAll test and uses it for all tests.
   * Destroys it in an afterAll hook.
+  *
+  * As a result, the environment state at the beginning of a test case
+  * equals the state at the end of the previous test case.
   */
 trait SharedEnvironment[E <: Environment, TCE <: TestConsoleEnvironment[E]]
     extends EnvironmentSetup[E, TCE]
@@ -201,7 +204,11 @@ trait SharedEnvironment[E <: Environment, TCE <: TestConsoleEnvironment[E]]
     )
 }
 
-/** Creates an environment for each test. */
+/** Creates an environment for each test.
+  * As a result, every test case starts with a fresh environment.
+  *
+  * Try to use SharedEnvironment instead to avoid the cost of frequently creating environments in CI.
+  */
 trait IsolatedEnvironments[E <: Environment, TCE <: TestConsoleEnvironment[E]]
     extends EnvironmentSetup[E, TCE] {
   this: Suite with HasEnvironmentDefinition[E, TCE] with NamedLogging =>

@@ -66,17 +66,6 @@ class IndexerMetrics(
     )
   )
 
-  val inputBufferLength: Counter =
-    factory.counter(
-      MetricInfo(
-        prefix :+ "input_buffer_length",
-        summary = "The number of elements in the queue in front of the indexer.",
-        description = """The indexer has a queue in order to absorb the back pressure and facilitate
-            |batch formation during the database ingestion.""",
-        qualification = MetricQualification.Saturation,
-      )
-    )
-
   val outputBatchedBufferLength: Counter =
     factory.counter(
       MetricInfo(
@@ -163,20 +152,6 @@ class IndexerMetrics(
       qualification = MetricQualification.Debug,
     )
   )
-
-  val lastReceivedRecordTime: Gauge[Long] =
-    factory.gauge(
-      MetricInfo(
-        prefix :+ "last_received_record_time",
-        summary =
-          "The time of the last event ingested by the index db (in milliseconds since EPOCH).",
-        description = """The last received record time is a monotonically increasing integer
-                      |value that represents the record time of the last event ingested by the index
-                      |db. It is measured in milliseconds since the EPOCH time.""",
-        qualification = MetricQualification.Debug,
-      ),
-      0L,
-    )
 
   val ledgerEndSequentialId: Gauge[Long] =
     factory.gauge(

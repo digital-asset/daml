@@ -21,7 +21,6 @@ import com.digitalasset.canton.platform.store.interfaces.LedgerDaoContractsReade
 import com.digitalasset.daml.lf.transaction.GlobalKey
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.control.NoStackTrace
 
 private[platform] class MutableCacheBackedContractStore(
     metrics: LedgerApiServerMetrics,
@@ -140,9 +139,4 @@ private[platform] class MutableCacheBackedContractStore(
 
 private[platform] object MutableCacheBackedContractStore {
   type EventSequentialId = Long
-
-  final case class ContractReadThroughNotFound(contractId: ContractId) extends NoStackTrace {
-    override def getMessage: String =
-      s"Contract not found for contract id ${contractId.coid}. Hint: this could be due racing with a concurrent archival."
-  }
 }

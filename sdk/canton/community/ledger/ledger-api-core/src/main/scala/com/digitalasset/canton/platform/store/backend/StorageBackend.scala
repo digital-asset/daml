@@ -181,10 +181,8 @@ object ParameterStorageBackend {
       lastEventSeqId: Long,
       lastStringInterningId: Int,
       lastPublicationTime: CantonTimestamp,
-  ) {
-    def lastOffsetOption: Option[Offset] =
-      if (lastOffset == Offset.beforeBegin) None else Some(lastOffset)
-  }
+  )
+
   object LedgerEnd {
     val beforeBegin: ParameterStorageBackend.LedgerEnd =
       ParameterStorageBackend.LedgerEnd(
