@@ -658,6 +658,70 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
     } yield succeed
   }
 
+  "should recognise an archive against a newer version of the same contract" ignore withHttpService {
+    fixture =>
+      import AbstractHttpServiceIntegrationTestFuns.{fooV1Dar, fooV2Dar}
+
+      for {
+        _ <- uploadPackage(fixture)(fooV1Dar)
+
+        (alice, hdrs) <- fixture.getUniquePartyAndAuthHeaders("Alice")
+
+        // Create using package package name. The created event will contain the package id from v1.
+        createdCid <- postCreate(
+          fixture,
+          jsObject(s"""{"templateId": "#foo:Foo:Bar", "payload": {"owner": "$alice"}}"""),
+          hdrs,
+        )
+
+        // Query using package name
+        _ <- searchExpectOk(
+          Nil,
+          jsObject(s"""{"templateIds": ["#foo:Foo:Bar"]}"""),
+          fixture,
+          hdrs,
+        ) map { results =>
+          results.map(_.contractId) shouldBe List(createdCid)
+        }
+
+        // Upload v2 of the same package.
+        _ <- uploadPackage(fixture)(fooV2Dar)
+
+        // Archive using package name but the exercise event will contain the package id from v2.
+        _ <- fixture
+          .postJsonRequest(
+            Uri.Path("/v1/exercise"),
+            jsObject(s"""{
+            "templateId": "#foo:Foo:Bar",
+            "contractId": "$createdCid",
+            "choice": "Archive",
+            "argument": {}
+          }"""),
+            hdrs,
+          )
+          .parseResponse[domain.ExerciseResponse[JsValue]]
+          .flatMap(inside(_) {
+            case domain.OkResponse(
+                  domain.ExerciseResponse(_, List(domain.Contract(-\/(archived))), _),
+                  _,
+                  StatusCodes.OK,
+                ) =>
+              archived.contractId shouldBe createdCid
+          })
+
+        // The query should no longer serve the contract, as it is no longer in the ACS.
+        _ <- searchExpectOk(
+          Nil,
+          jsObject(s"""{"templateIds": ["#foo:Foo:Bar"]}"""),
+          fixture,
+          hdrs,
+        ) map { results =>
+          results.map(_.contractId) shouldBe List.empty
+        }
+
+      } yield succeed
+  }
+
   "should not identify templates from old packages (<=LF 1.15) using a package name" in withHttpService {
     fixture =>
       import AbstractHttpServiceIntegrationTestFuns.{
