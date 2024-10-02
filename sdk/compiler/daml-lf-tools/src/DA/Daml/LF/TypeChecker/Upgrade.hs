@@ -172,6 +172,9 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
           withPkgAsGamma pkg $
             case mbPkgVersion of
               Nothing -> do
+                -- TODO: https://github.com/digital-asset/daml/issues/20046
+                -- Add back check for WEDependencyHasNoMetadataDespiteUpgradeability (removed in 20038) when we figure
+                -- out why the warning triggers a lot for 3.x and not 2.x
                 pure $ Just (pkgName, [(Nothing, pkgId, pkg)])
               Just packageVersion -> do
                 case splitPackageVersion id packageVersion of
@@ -249,6 +252,9 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
       withPkgAsGamma presentPkg $
         case mbPkgVersion of
             Nothing -> do
+              -- TODO: https://github.com/digital-asset/daml/issues/20046
+              -- Add back check for WEDependencyHasNoMetadataDespiteUpgradeability (removed in 20038) when we figure
+              -- out why the warning triggers a lot for 3.x and not 2.x
               pure $ Just (packageName, (Nothing, presentPkgId, presentPkg))
             Just packageVersion ->
               case splitPackageVersion id packageVersion of

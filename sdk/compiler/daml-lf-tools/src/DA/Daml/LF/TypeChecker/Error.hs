@@ -221,7 +221,6 @@ data UnwarnableError
   | EUpgradeMultiplePackagesWithSameNameAndVersion !PackageName !RawPackageVersion ![PackageId]
   | EUpgradeDifferentParamsCount !UpgradedRecordOrigin
   | EUpgradeDifferentParamsKinds !UpgradedRecordOrigin
-  | EUpgradeDatatypeBecameSerializable !UpgradedRecordOrigin
   | EUpgradeDatatypeBecameUnserializable !UpgradedRecordOrigin
   deriving (Show)
 
@@ -693,7 +692,6 @@ instance Pretty UnwarnableError where
     EUpgradeMultiplePackagesWithSameNameAndVersion name version ids -> "Multiple packages with name " <> pPrint name <> " and version " <> pPrint (show version) <> ": " <> hcat (L.intersperse ", " (map pPrint ids))
     EUpgradeDifferentParamsCount origin -> "The upgraded " <> pPrint origin <> " has changed the number of type variables it has."
     EUpgradeDifferentParamsKinds origin -> "The upgraded " <> pPrint origin <> " has changed the kind of one of its type variables."
-    EUpgradeDatatypeBecameSerializable origin -> "The upgraded " <> pPrint origin <> " was unserializable and is now serializable. Datatypes cannot change their serializability via upgrades."
     EUpgradeDatatypeBecameUnserializable origin -> "The upgraded " <> pPrint origin <> " was serializable and is now unserializable. Datatypes cannot change their serializability via upgrades."
 
 instance Pretty UpgradedRecordOrigin where
