@@ -501,13 +501,30 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       val res = go(
         e"""ubind
               cid: ContractId '-pkg1-':M:T <- '-pkg1-':M:do_create "alice" "bob" 100;
-              _: '-pkg2-':M:T <- '-pkg2-':M:do_fetch cid
+              _: '-pkg2-':M:T <- fetch_template @'-pkg2-':M:T cid
             in upure @(ContractId '-pkg1-':M:T) cid
           """
       )
       inside(res) { case Right((ValueContractId(cid), verificationRequests)) =>
         verificationRequests shouldBe List(
           UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v1_key))
+        )
+      }
+    }
+
+    "be able to fetch by key a locally created contract using different versions" in {
+      val res = go(
+        e"""let alice : Party = '-pkg1-':M:mkParty "alice"
+            in ubind
+              cid: ContractId '-pkg1-':M:T <- '-pkg1-':M:do_create "alice" "bob" 100;
+              _: '-pkg2-':M:T <- fetch_by_key @'-pkg2-':M:T alice
+            in upure @(ContractId '-pkg1-':M:T) cid
+          """
+      )
+      inside(res) { case Right((ValueContractId(cid), verificationRequests)) =>
+        verificationRequests shouldBe List(
+          UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v2_key)),
+          UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v2_key)),
         )
       }
     }
