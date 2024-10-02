@@ -275,6 +275,12 @@ da_scala_test_suite(
             "//test-common:upgrades-SucceedsWhenDeletingUnserializableType-v2.dar",
             "//test-common:upgrades-FailsWhenMakingTypeUnserializable-v1.dar",
             "//test-common:upgrades-FailsWhenMakingTypeUnserializable-v2.dar",
+            "//test-common:upgrades-FailWhenParamCountChanges-v1.dar",
+            "//test-common:upgrades-FailWhenParamCountChanges-v2.dar",
+            "//test-common:upgrades-SucceedWhenParamNameChanges-v1.dar",
+            "//test-common:upgrades-SucceedWhenParamNameChanges-v2.dar",
+            "//test-common:upgrades-SucceedWhenPhantomParamBecomesUsed-v1.dar",
+            "//test-common:upgrades-SucceedWhenPhantomParamBecomesUsed-v2.dar",
 
             # Test for dependency upgrades
             "//test-common:upgrades-FailsWhenDepsDowngradeVersionsWhileUsingDatatypes-dep-v1.dar",
