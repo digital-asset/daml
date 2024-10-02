@@ -21,7 +21,7 @@ import scala.jdk.CollectionConverters.*
   * @param connectionAllocation Overrides for the sizes of the connection pools managed by a canton node.
   * @param failFastOnStartup If true, the node will fail-fast when the database cannot be connected to
   *                    If false, the node will wait indefinitely for the database to come up
-  * @param migrationsPaths Where should database migrations be read from. Enables specialized DDL for different database servers (e.g. Postgres, Oracle).
+  * @param migrationsPaths Where should database migrations be read from. Enables specialized DDL for different database servers (e.g. Postgres).
   * @param connectionTimeout How long to wait for acquiring a database connection
   * @param warnOnSlowQuery Optional time when we start logging a query as slow.
   * @param warnOnSlowQueryInterval How often to repeat the logging statement for slow queries.
@@ -65,7 +65,7 @@ final case class DbParametersConfig(
 
 /** Various settings to control batching behaviour related to db queries
   *
-  * @param maxItemsInSqlClause    maximum number of items to place in sql "in clauses"
+  * @param maxItemsInBatch    maximum number of items in a batch
   * @param maxPruningBatchSize    maximum number of events to prune from a participant at a time, used to break up canton participant-internal batches
   * @param ledgerApiPruningBatchSize  Number of events to prune from the ledger api server index-database at a time during automatic background pruning.
   *                                   Canton-internal store pruning happens at the smaller batch size of "maxPruningBatchSize" to minimize memory usage
@@ -75,7 +75,7 @@ final case class DbParametersConfig(
   * @param aggregator             batching configuration for DB queries
   */
 final case class BatchingConfig(
-    maxItemsInSqlClause: PositiveNumeric[Int] = BatchingConfig.defaultMaxItemsInSqlClause,
+    maxItemsInBatch: PositiveNumeric[Int] = BatchingConfig.defaultMaxItemsBatch,
     maxPruningBatchSize: PositiveNumeric[Int] = BatchingConfig.defaultMaxPruningBatchSize,
     ledgerApiPruningBatchSize: PositiveNumeric[Int] =
       BatchingConfig.defaultLedgerApiPruningBatchSize,
@@ -84,7 +84,7 @@ final case class BatchingConfig(
 )
 
 object BatchingConfig {
-  private val defaultMaxItemsInSqlClause: PositiveInt = PositiveNumeric.tryCreate(100)
+  private val defaultMaxItemsBatch: PositiveInt = PositiveNumeric.tryCreate(100)
   private val defaultBatchingParallelism: PositiveInt = PositiveNumeric.tryCreate(8)
   private val defaultMaxPruningBatchSize: PositiveInt = PositiveNumeric.tryCreate(1000)
   private val defaultLedgerApiPruningBatchSize: PositiveInt = PositiveNumeric.tryCreate(50000)
@@ -309,31 +309,16 @@ object DbConfig extends NoTracing {
   private val devDir = "dev"
   private val basePostgresMigrationsPath: String = "classpath:db/migration/canton/postgres/"
   private val baseH2MigrationsPath: String = "classpath:db/migration/canton/h2/"
-  private val baseOracleMigrationPath: String = "classpath:db/migration/canton/oracle/"
   val postgresMigrationsPathStable: String = basePostgresMigrationsPath + stableDir
   val h2MigrationsPathStable: String = baseH2MigrationsPath + stableDir
-  val oracleMigrationPathStable: String = baseOracleMigrationPath + stableDir
   val postgresMigrationsPathDev: String = basePostgresMigrationsPath + devDir
   val h2MigrationsPathDev: String = baseH2MigrationsPath + devDir
-  val oracleMigrationPathDev: String = baseOracleMigrationPath + devDir
 
   def postgresUrl(host: String, port: Int, dbName: String): String =
     s"jdbc:postgresql://$host:$port/$dbName"
 
   def h2Url(dbName: String): String =
     s"jdbc:h2:mem:$dbName;MODE=PostgreSQL;LOCK_TIMEOUT=10000;DB_CLOSE_DELAY=-1"
-
-  def oracleUrl(host: String, port: Int, dbName: String): String =
-    s"jdbc:oracle:thin:@$host:$port/$dbName"
-
-  def oracleUrl(
-      host: String,
-      port: Int,
-      dbName: String,
-      username: String,
-      password: String,
-  ): String =
-    s"jdbc:oracle:thin:$username/$password@$host:$port/$dbName"
 
   def toConfig(map: Map[String, Any]): Config = ConfigFactory.parseMap(map.asJava)
 
@@ -390,7 +375,6 @@ object DbConfig extends NoTracing {
           enforcePgMode(enforceSingleConnection(writeH2UrlIfNotSet(h2.config)))
         ).withFallback(h2.defaultConfig)
       case postgres: PostgresDbConfig => postgres.config
-      // TODO(i11009): this other is a workaround for supporting oracle without referencing the oracle config
       case other => other.config
     }).withFallback(commonDefaults)
   }

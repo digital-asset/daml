@@ -68,9 +68,6 @@ package object logging {
   private[services] def commandId(id: String): LoggingEntry =
     "commandId" -> id
 
-  private[services] def eventSequentialId(seqId: Option[Long]): LoggingEntry =
-    "eventSequentialId" -> OfString(seqId.map(_.toString).getOrElse("<empty-sequential-id>"))
-
   private[services] def eventId(id: EventId): LoggingEntry =
     "eventId" -> OfString(id.unwrap)
 

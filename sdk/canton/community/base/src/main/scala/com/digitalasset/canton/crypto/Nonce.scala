@@ -23,8 +23,6 @@ final case class Nonce private (private val bytes: ByteString) extends HasCrypto
 object Nonce {
 
   /** As of now, the database schemas can only handle nonces up to a length of 150 bytes. Thus the length of a [[Nonce]] should never exceed that.
-    * If we ever want to create a [[Nonce]] larger than that, we can increase it up to 500 bytes after which we are limited by Oracle length limits.
-    * See the documentation at [[com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString]] for more details.
     */
   val length: Int = 20
 
@@ -33,7 +31,7 @@ object Nonce {
 
   implicit val getNonceResult: GetResult[Nonce] = GetResult { r =>
     val hexString = r.nextString()
-    if (hexString.length > String300.maxLength)
+    if (hexString.length > String300.maxLength.unwrap)
       throw new DbDeserializationException(
         s"Base16-encoded authentication token of length ${hexString.length} exceeds allowed limit of ${String300.maxLength}."
       )

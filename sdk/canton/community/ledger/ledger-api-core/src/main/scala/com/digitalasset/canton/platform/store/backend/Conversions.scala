@@ -6,21 +6,14 @@ package com.digitalasset.canton.platform.store.backend
 import anorm.Column.nonNull
 import anorm.*
 import com.digitalasset.canton.data.Offset
-import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
-import com.digitalasset.daml.lf.ledger.EventId
 import com.digitalasset.daml.lf.value.Value
 import com.typesafe.scalalogging.Logger
-import spray.json.DefaultJsonProtocol.*
-import spray.json.*
 
-import java.io.BufferedReader
-import java.sql.{PreparedStatement, SQLNonTransientException}
-import java.util.stream.Collectors
-import scala.util.Try
+import java.sql.PreparedStatement
 
 private[backend] object Conversions {
 
@@ -42,108 +35,12 @@ private[backend] object Conversions {
   def party(columnName: String): RowParser[Ref.Party] =
     SqlParser.get[Ref.Party](columnName)(columnToParty)
 
-  // booleans are stored as BigDecimal 0/1 in oracle, need to do implicit conversion when reading from db
   implicit val bigDecimalColumnToBoolean: Column[Boolean] = nonNull { (value, meta) =>
     val MetaDataItem(qualified, _, _) = meta
     value match {
       case bd: java.math.BigDecimal => Right(bd.equals(new java.math.BigDecimal(1)))
       case bool: Boolean => Right(bool)
       case _ => Left(TypeDoesNotMatch(s"Cannot convert $value: to Boolean for column $qualified"))
-    }
-  }
-
-  object DefaultImplicitArrayColumn {
-    val defaultString: Column[Array[String]] = Column.of[Array[String]]
-    val defaultInt: Column[Array[Int]] = Column.of[Array[Int]]
-  }
-
-  object ArrayColumnToIntArray {
-    @SuppressWarnings(Array("org.wartremover.warts.Null"))
-    implicit val arrayColumnToIntArray: Column[Array[Int]] = nonNull { (value, meta) =>
-      DefaultImplicitArrayColumn.defaultInt(value, meta) match {
-        case Right(value) => Right(value)
-        case Left(_) =>
-          val MetaDataItem(qualified, _, _) = meta
-          value match {
-            case someArray: Array[_] =>
-              Try(
-                someArray.view.map {
-                  case i: Int => i
-                  case null =>
-                    throw new SQLNonTransientException(
-                      s"Cannot convert object array element null to Int"
-                    )
-                  case invalid =>
-                    throw new SQLNonTransientException(
-                      s"Cannot convert object array element (of type ${invalid.getClass.getName}) to Int"
-                    )
-                }.toArray
-              ).toEither.left.map(t => TypeDoesNotMatch(t.getMessage))
-
-            case jsonArrayString: String =>
-              Right(jsonArrayString.parseJson.convertTo[Array[Int]])
-
-            case clob: java.sql.Clob =>
-              try {
-                val reader = clob.getCharacterStream
-                val br = new BufferedReader(reader)
-                val jsonArrayString = br.lines.collect(Collectors.joining)
-                reader.close
-                Right(jsonArrayString.parseJson.convertTo[Array[Int]])
-              } catch {
-                case e: Throwable =>
-                  Left(
-                    TypeDoesNotMatch(
-                      s"Cannot convert $value: received CLOB but failed to deserialize to " +
-                        s"string array for column $qualified. Error message: ${e.getMessage}"
-                    )
-                  )
-              }
-            case _ =>
-              Left(
-                TypeDoesNotMatch(s"Cannot convert $value: to string array for column $qualified")
-              )
-          }
-      }
-    }
-  }
-
-  object ArrayColumnToStringArray {
-    // This is used to allow us to convert oracle CLOB fields storing JSON text into Array[String].
-    // We first summon the default Anorm column for an Array[String], and run that - this preserves
-    // the behavior PostgreSQL is expecting. If that fails, we then try our Oracle specific deserialization
-    // strategies
-
-    implicit val arrayColumnToStringArray: Column[Array[String]] = nonNull { (value, meta) =>
-      DefaultImplicitArrayColumn.defaultString(value, meta) match {
-        case Right(value) => Right(value)
-        case Left(_) =>
-          val MetaDataItem(qualified, _, _) = meta
-          value match {
-            case jsonArrayString: String =>
-              Right(jsonArrayString.parseJson.convertTo[Array[String]])
-            case clob: java.sql.Clob =>
-              try {
-                val reader = clob.getCharacterStream
-                val br = new BufferedReader(reader)
-                val jsonArrayString = br.lines.collect(Collectors.joining)
-                reader.close
-                Right(jsonArrayString.parseJson.convertTo[Array[String]])
-              } catch {
-                case e: Throwable =>
-                  Left(
-                    TypeDoesNotMatch(
-                      s"Cannot convert $value: received CLOB but failed to deserialize to " +
-                        s"string array for column $qualified. Error message: ${e.getMessage}"
-                    )
-                  )
-              }
-            case _ =>
-              Left(
-                TypeDoesNotMatch(s"Cannot convert $value: to string array for column $qualified")
-              )
-          }
-      }
     }
   }
 
@@ -173,14 +70,6 @@ private[backend] object Conversions {
 
   def applicationId(columnName: String): RowParser[Ref.ApplicationId] =
     SqlParser.get[Ref.ApplicationId](columnName)(columnToApplicationId)
-
-  // EventId
-
-  private implicit val columnToEventId: Column[EventId] =
-    stringColumnToX(EventId.fromString)
-
-  def eventId(columnName: String): RowParser[EventId] =
-    SqlParser.get[EventId](columnName)(columnToEventId)
 
   // ParticipantId
 
@@ -242,9 +131,6 @@ private[backend] object Conversions {
 
   def hashFromHexString(name: String): RowParser[Hash] =
     SqlParser.get[String](name).map(Hash.assertFromString)
-
-  def domainId(name: String): RowParser[DomainId] =
-    SqlParser.get[String](name).map(DomainId.tryFromString)
 
   def traceContextOption(name: String)(implicit logger: Logger): RowParser[TraceContext] = {
     import com.daml.ledger.api.v2.trace_context.TraceContext as ProtoTraceContext

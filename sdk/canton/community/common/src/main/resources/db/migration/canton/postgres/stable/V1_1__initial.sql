@@ -47,7 +47,7 @@ create table common_crypto_private_keys (
 );
 
 -- Store metadata information about KMS keys
-CREATE TABLE common_kms_metadata_store (
+create table common_kms_metadata_store (
   fingerprint varchar(300) collate "C" not null,
   kms_key_id varchar(300) collate "C" not null,
   purpose smallint not null,
@@ -68,8 +68,8 @@ create table common_crypto_public_keys (
 
 -- Stores the immutable contracts, however a creation of a contract can be rolled back.
 create table par_contracts (
-  -- As a participant can be connected to multiple domains, the transactions are stored under a domain id.
-  domain_id integer not null,
+  -- As a participant can be connected to multiple domains, the transactions are stored under a domain.
+  domain_idx integer not null,
   contract_id varchar(300) collate "C" not null,
   -- The contract is serialized using the LF contract proto serializer.
   instance bytea not null,
@@ -86,17 +86,17 @@ create table par_contracts (
   package_id varchar(300) collate "C" not null,
   template_id varchar collate "C" not null,
   contract_salt bytea,
-  primary key (domain_id, contract_id)
+  primary key (domain_idx, contract_id)
 );
 
 -- Index to speedup ContractStore.find
--- domain_id comes first, because there is always a constraint on it.
+-- domain_idx comes first, because there is always a constraint on it.
 -- package_id comes before template_id, because queries with package_id and without template_id make more sense than vice versa.
--- contract_id is left out, because a query with domain_id and contract_id can be served with the primary key.
-create index idx_par_contracts_find on par_contracts(domain_id, package_id, template_id);
+-- contract_id is left out, because a query with domain_idx and contract_id can be served with the primary key.
+create index idx_par_contracts_find on par_contracts(domain_idx, package_id, template_id);
 
 -- Partial index for pruning
-create index idx_par_contracts_request_counter on par_contracts(domain_id, request_counter) where creating_transaction_id is null;
+create index idx_par_contracts_request_counter on par_contracts(domain_idx, request_counter) where creating_transaction_id is null;
 
 -- provides a serial enumeration of static strings so we don't store the same string over and over in the db
 -- currently only storing uids
@@ -106,7 +106,7 @@ create table common_static_strings (
   -- the expression
   string varchar(300) collate "C" not null,
   -- the source (what kind of string are we storing here)
-  source int NOT NULL,
+  source integer not null,
   unique(string, source)
 );
 
@@ -155,7 +155,7 @@ create type operation_type as enum ('create', 'add', 'assign', 'archive', 'purge
 -- Maintains the status of contracts
 create table par_active_contracts (
   -- As a participant can be connected to multiple domains, the active contracts are stored under a domain id.
-  domain_id int not null,
+  domain_idx integer not null,
   contract_id varchar(300) collate "C" not null,
   change change_type not null,
   operation operation_type not null,
@@ -164,34 +164,34 @@ create table par_active_contracts (
   -- Request counter of the time of change
   request_counter bigint not null,
   -- optional remote domain index in case of reassignments
-  remote_domain_idx int,
+  remote_domain_idx integer,
   reassignment_counter bigint default null,
-  primary key (domain_id, contract_id, ts, request_counter, change)
+  primary key (domain_idx, contract_id, ts, request_counter, change)
 );
 
-CREATE index idx_par_active_contracts_dirty_request_reset ON par_active_contracts (domain_id, request_counter);
-CREATE index idx_par_active_contracts_contract_id ON par_active_contracts (contract_id);
-CREATE index idx_par_active_contracts_ts_domain_id ON par_active_contracts (ts, domain_id);
-CREATE INDEX idx_par_active_contracts_pruning on par_active_contracts (domain_id, ts) WHERE change = 'deactivation';
+create index idx_par_active_contracts_dirty_request_reset on par_active_contracts (domain_idx, request_counter);
+create index idx_par_active_contracts_contract_id on par_active_contracts (contract_id);
+create index idx_par_active_contracts_ts_domain_idx on par_active_contracts (ts, domain_idx);
+create index idx_par_active_contracts_pruning on par_active_contracts (domain_idx, ts) where change = 'deactivation';
 
 -- Tables for new submission tracker
-CREATE TABLE par_fresh_submitted_transaction (
-  domain_id integer not null,
+create table par_fresh_submitted_transaction (
+  domain_idx integer not null,
   root_hash_hex varchar(300) collate "C" not null,
   request_id bigint not null,
   max_sequencing_time bigint not null,
-  primary key (domain_id, root_hash_hex)
+  primary key (domain_idx, root_hash_hex)
 );
 
 create type pruning_phase as enum ('started', 'completed');
 
-CREATE TABLE par_fresh_submitted_transaction_pruning (
-  domain_id integer not null,
+create table par_fresh_submitted_transaction_pruning (
+  domain_idx integer not null,
   phase pruning_phase not null,
   -- UTC timestamp in microseconds relative to EPOCH
   ts bigint not null,
   succeeded bigint null,
-  primary key (domain_id)
+  primary key (domain_idx)
 );
 
 create table med_response_aggregations (
@@ -207,11 +207,11 @@ create table med_response_aggregations (
 -- Stores the received sequencer messages
 create table common_sequenced_events (
   -- discriminate between different users of the sequenced events tables
-  domain_id integer not null,
+  domain_idx integer not null,
   -- Proto serialized signed message
   sequenced_event bytea not null,
   -- Explicit fields to query the messages, which are stored as blobs
-  type varchar(3) collate "C" not null check(type IN ('del', 'err', 'ign')),
+  type varchar(3) collate "C" not null check(type in ('del', 'err', 'ign')),
   -- Timestamp of the time of change in microsecond precision relative to EPOCH
   ts bigint not null,
   -- Sequencer counter of the time of change
@@ -221,22 +221,22 @@ create table common_sequenced_events (
   -- flag to skip problematic events
   ignore boolean not null,
   -- The sequencer ensures that the timestamp is unique
-  primary key (domain_id, ts)
+  primary key (domain_idx, ts)
 );
 
-create unique index idx_common_sequenced_events_sequencer_counter on common_sequenced_events(domain_id, sequencer_counter);
+create unique index idx_common_sequenced_events_sequencer_counter on common_sequenced_events(domain_idx, sequencer_counter);
 
 -- Track what send requests we've made but have yet to observe being sequenced.
 -- If events are not observed by the max sequencing time we know that the send will never be processed.
 create table sequencer_client_pending_sends (
-  -- domain id for distinguishing between different sequencer clients in the same node
-  domain_id integer not null,
+  -- domain (index) for distinguishing between different sequencer clients in the same node
+  domain_idx integer not null,
 
   -- the message id of the send being tracked (expected to be unique for the sequencer client while the send is in-flight)
   message_id varchar(300) collate "C" not null,
 
   -- the message id should be unique for the sequencer client
-  primary key (domain_id, message_id),
+  primary key (domain_idx, message_id),
 
   -- the max sequencing time of the send request (UTC timestamp in microseconds relative to EPOCH)
   max_sequencing_time bigint not null
@@ -245,7 +245,7 @@ create table sequencer_client_pending_sends (
 create table par_domain_connection_configs(
   domain_alias varchar(300) collate "C" not null primary key,
   config bytea, -- the protobuf-serialized versioned domain connection config
-  status CHAR(1) DEFAULT 'A' NOT NULL
+  status char(1) default 'A' not null
 );
 
 -- used to register all domains that a participant connects to
@@ -256,7 +256,7 @@ create table par_domains(
   alias varchar(300) collate "C" not null unique,
   -- domain node id
   domain_id varchar(300) collate "C" not null unique,
-  status CHAR(1) DEFAULT 'A' NOT NULL,
+  status char(1) default 'A' not null,
   unique (alias, domain_id)
 );
 
@@ -285,12 +285,12 @@ create table par_reassignments (
   time_of_completion_request_counter bigint,
   -- UTC timestamp in microseconds relative to EPOCH
   time_of_completion_timestamp bigint,
-  source_protocol_version integer NOT NULL
+  source_protocol_version integer not null
 );
 
 -- stores all requests for the request journal
 create table par_journal_requests (
-  domain_id integer not null,
+  domain_idx integer not null,
   request_counter bigint not null,
   request_state_index smallint not null,
   -- UTC timestamp in microseconds relative to EPOCH
@@ -299,14 +299,14 @@ create table par_journal_requests (
   -- is set only if the request is clean
   commit_time bigint,
   repair_context varchar(300) collate "C", -- only set on manual repair requests outside of sync protocol
-  primary key (domain_id, request_counter)
+  primary key (domain_idx, request_counter)
 );
-create index idx_journal_request_timestamp on par_journal_requests (domain_id, request_timestamp);
-create index idx_journal_request_commit_time on par_journal_requests (domain_id, commit_time);
+create index idx_journal_request_timestamp on par_journal_requests (domain_idx, request_timestamp);
+create index idx_journal_request_commit_time on par_journal_requests (domain_idx, commit_time);
 
 -- locally computed ACS commitments to a specific period, counter-participant and domain
 create table par_computed_acs_commitments (
-  domain_id int not null,
+  domain_idx integer not null,
   counter_participant varchar(300) collate "C" not null,
   -- UTC timestamp in microseconds relative to EPOCH
   from_exclusive bigint not null,
@@ -314,13 +314,13 @@ create table par_computed_acs_commitments (
   to_inclusive bigint not null,
   -- the "raw" cryptographic commitment (AcsCommitment.CommitmentType) in its serialized format
   commitment bytea not null,
-  primary key (domain_id, counter_participant, from_exclusive, to_inclusive),
+  primary key (domain_idx, counter_participant, from_exclusive, to_inclusive),
   constraint check_nonempty_interval_computed check(to_inclusive > from_exclusive)
 );
 
 -- ACS commitments received from counter-participants
 create table par_received_acs_commitments (
-  domain_id int not null,
+  domain_idx integer not null,
   -- the counter-participant who sent the commitment
   sender varchar(300) collate "C" not null,
   -- UTC timestamp in microseconds relative to EPOCH
@@ -332,11 +332,11 @@ create table par_received_acs_commitments (
   constraint check_to_after_from check(to_inclusive > from_exclusive)
 );
 
-create index idx_par_full_commitment on par_received_acs_commitments (domain_id, sender, from_exclusive, to_inclusive);
+create index idx_par_full_commitment on par_received_acs_commitments (domain_idx, sender, from_exclusive, to_inclusive);
 
 -- the participants whose remote commitments are outstanding
 create table par_outstanding_acs_commitments (
-  domain_id int not null,
+  domain_idx integer not null,
   -- UTC timestamp in microseconds relative to EPOCH
   from_exclusive bigint not null,
   -- UTC timestamp in microseconds relative to EPOCH
@@ -346,40 +346,40 @@ create table par_outstanding_acs_commitments (
   constraint check_nonempty_interval_outstanding check(to_inclusive > from_exclusive)
 );
 
-create unique index idx_par_acs_unique_interval on par_outstanding_acs_commitments(domain_id, counter_participant, from_exclusive, to_inclusive);
+create unique index idx_par_acs_unique_interval on par_outstanding_acs_commitments(domain_idx, counter_participant, from_exclusive, to_inclusive);
 
-create index idx_par_outstanding_acs_commitments_by_time on par_outstanding_acs_commitments (domain_id, from_exclusive);
+create index idx_par_outstanding_acs_commitments_by_time on par_outstanding_acs_commitments (domain_idx, from_exclusive);
 
 -- the last timestamp for which the commitments have been computed, stored and sent
 create table par_last_computed_acs_commitments (
-  domain_id int primary key,
+  domain_idx integer primary key,
   -- UTC timestamp in microseconds relative to EPOCH
   ts bigint not null
 );
 
 -- Stores the snapshot ACS commitments (per stakeholder set)
 create table par_commitment_snapshot (
-  domain_id int not null,
+  domain_idx integer not null,
   -- A stable reference to a stakeholder set, that doesn't rely on the Protobuf encoding being deterministic
   -- a hex-encoded hash (not binary so that hash can be indexed in all db server types)
   stakeholders_hash varchar(300) collate "C" not null,
   stakeholders bytea not null,
   commitment bytea not null,
-  primary key (domain_id, stakeholders_hash)
+  primary key (domain_idx, stakeholders_hash)
 );
 
 -- Stores the time (along with a tie-breaker) of the ACS commitment snapshot
 create table par_commitment_snapshot_time (
-  domain_id int not null,
+  domain_idx integer not null,
   -- UTC timestamp in microseconds relative to EPOCH
   ts bigint not null,
   tie_breaker bigint not null,
-  primary key (domain_id)
+  primary key (domain_idx)
 );
 
 -- Remote commitments that were received but could not yet be checked because the local participant is lagging behind
 create table par_commitment_queue (
-  domain_id int not null,
+  domain_idx integer not null,
   sender varchar(300) collate "C" not null,
   counter_participant varchar(300) collate "C" not null,
   -- UTC timestamp in microseconds relative to EPOCH
@@ -389,10 +389,10 @@ create table par_commitment_queue (
   commitment bytea not null,
   commitment_hash varchar(300) collate "C" not null, -- A shorter hash (SHA-256) of the commitment for the primary key instead of the bytea
   constraint check_nonempty_interval_queue check(to_inclusive > from_exclusive),
-  primary key (domain_id, sender, counter_participant, from_exclusive, to_inclusive, commitment_hash)
+  primary key (domain_idx, sender, counter_participant, from_exclusive, to_inclusive, commitment_hash)
 );
 
-create index idx_par_commitment_queue_by_time on par_commitment_queue (domain_id, to_inclusive);
+create index idx_par_commitment_queue_by_time on par_commitment_queue (domain_idx, to_inclusive);
 
 -- the (current) domain parameters for the given domain
 create table par_static_domain_parameters (
@@ -429,42 +429,42 @@ create table seq_block_height (
 
 -- Maintains the latest timestamp (by domain) for which ACS pruning has started or finished
 create table par_active_contract_pruning (
-  domain_id integer not null,
+  domain_idx integer not null,
   phase pruning_phase not null,
   -- UTC timestamp in microseconds relative to EPOCH
   ts bigint not null,
   succeeded bigint null,
-  primary key (domain_id)
+  primary key (domain_idx)
 );
 
 -- Maintains the latest timestamp (by domain) for which ACS commitment pruning has started or finished
 create table par_commitment_pruning (
-  domain_id integer not null,
+  domain_idx integer not null,
   phase pruning_phase not null,
   -- UTC timestamp in microseconds relative to EPOCH
   ts bigint not null,
   succeeded bigint null,
-  primary key (domain_id)
+  primary key (domain_idx)
 );
 
 -- Maintains the latest timestamp (by domain) for which contract key journal pruning has started or finished
 create table par_contract_key_pruning (
-  domain_id integer not null,
+  domain_idx integer not null,
   phase pruning_phase not null,
   -- UTC timestamp in microseconds relative to EPOCH
   ts bigint not null,
   succeeded bigint null,
-  primary key (domain_id)
+  primary key (domain_idx)
 );
 
 -- Maintains the latest timestamp (by sequencer client) for which the sequenced event store pruning has started or finished
 create table common_sequenced_event_store_pruning (
-  domain_id integer not null,
+  domain_idx integer not null,
   phase pruning_phase not null,
   -- UTC timestamp in microseconds relative to EPOCH
   ts bigint not null,
   succeeded bigint null,
-  primary key (domain_id)
+  primary key (domain_idx)
 );
 
 -- table to contain the values provided by the domain to the mediator node for initialization.
@@ -481,7 +481,7 @@ create table mediator_domain_configuration (
 -- the last recorded head clean sequencer counter for each domain
 create table common_head_sequencer_counters (
   -- discriminate between different users of the sequencer counter tracker tables
-  domain_id integer not null primary key,
+  domain_idx integer not null primary key,
   prehead_counter bigint not null, -- sequencer counter before the first unclean sequenced event
   -- UTC timestamp in microseconds relative to EPOCH
   ts bigint not null
@@ -556,7 +556,7 @@ create table sequencer_events (
   node_index smallint not null,
   -- single char to indicate the event type: D for deliver event, E for deliver error, R for deliver receipt
   event_type char(1) not null
-      constraint event_type_enum check (event_type IN ('D', 'E', 'R')),
+      constraint event_type_enum check (event_type in ('D', 'E', 'R')),
   message_id varchar(300) collate "C" null,
   sender integer null,
   -- null if event goes to everyone, otherwise specify member ids of recipients
@@ -575,13 +575,13 @@ create table sequencer_events (
 create sequence participant_event_publisher_local_offsets minvalue 0 start with 0;
 
 -- pruning_schedules with pruning flag specific to participant pruning
-CREATE TABLE par_pruning_schedules (
+create table par_pruning_schedules (
   -- this lock column ensures that there can only ever be a single row: https://stackoverflow.com/questions/3967372/sql-server-how-to-constrain-a-table-to-contain-a-single-row
   lock char(1) not null default 'X' primary key check (lock = 'X'),
   cron varchar(300) collate "C" not null,
   max_duration bigint not null, -- positive number of seconds
   retention bigint not null, -- positive number of seconds
-  prune_internally_only boolean NOT NULL DEFAULT false -- whether to prune only canton-internal stores not visible to ledger api
+  prune_internally_only boolean not null default false -- whether to prune only canton-internal stores not visible to ledger api
 );
 
 -- store in-flight submissions
@@ -591,7 +591,7 @@ create table par_in_flight_submission (
 
   submission_id varchar(300) collate "C" null,
 
-  submission_domain varchar(300) collate "C" not null,
+  submission_domain_id varchar(300) collate "C" not null,
   message_id varchar(300) collate "C" not null,
 
   -- Sequencer timestamp after which this submission will not be sequenced any more, in microsecond precision relative to EPOCH
@@ -610,15 +610,15 @@ create table par_in_flight_submission (
   tracking_data bytea,
 
   -- Add root hash to in-flight submission tracker store
-  root_hash_hex varchar(300) collate "C" DEFAULT NULL,
+  root_hash_hex varchar(300) collate "C" default null,
 
   trace_context bytea not null
 );
 
-create index idx_par_in_flight_submission_root_hash ON par_in_flight_submission (root_hash_hex);
-create index idx_par_in_flight_submission_timeout on par_in_flight_submission (submission_domain, sequencing_timeout);
-create index idx_par_in_flight_submission_sequencing on par_in_flight_submission (submission_domain, sequencing_time);
-create index idx_par_in_flight_submission_message_id on par_in_flight_submission (submission_domain, message_id);
+create index idx_par_in_flight_submission_root_hash on par_in_flight_submission (root_hash_hex);
+create index idx_par_in_flight_submission_timeout on par_in_flight_submission (submission_domain_id, sequencing_timeout);
+create index idx_par_in_flight_submission_sequencing on par_in_flight_submission (submission_domain_id, sequencing_time);
+create index idx_par_in_flight_submission_message_id on par_in_flight_submission (submission_domain_id, message_id);
 
 create table par_settings(
   client integer primary key, -- dummy field to enforce at most one row
@@ -684,7 +684,7 @@ create table mediator_deduplication_store (
 );
 create index idx_mediator_deduplication_store_expire_after on mediator_deduplication_store(expire_after, mediator_id);
 
-CREATE TABLE common_pruning_schedules(
+create table common_pruning_schedules(
   -- node_type is one of "MED", or "SEQ"
   -- since mediator and sequencer sometimes share the same db
   node_type varchar(3) collate "C" not null primary key,
@@ -693,7 +693,7 @@ CREATE TABLE common_pruning_schedules(
   retention bigint not null -- positive number of seconds
 );
 
-CREATE TABLE seq_in_flight_aggregation(
+create table seq_in_flight_aggregation(
   aggregation_id varchar(300) collate "C" not null primary key,
   -- UTC timestamp in microseconds relative to EPOCH
   max_sequencing_time bigint not null,
@@ -701,9 +701,9 @@ CREATE TABLE seq_in_flight_aggregation(
   aggregation_rule bytea not null
 );
 
-CREATE INDEX idx_seq_in_flight_aggregation_max_sequencing_time on seq_in_flight_aggregation(max_sequencing_time);
+create index idx_seq_in_flight_aggregation_max_sequencing_time on seq_in_flight_aggregation(max_sequencing_time);
 
-CREATE TABLE seq_in_flight_aggregated_sender(
+create table seq_in_flight_aggregated_sender(
   aggregation_id varchar(300) collate "C" not null,
   sender varchar(300) collate "C" not null,
   -- UTC timestamp in microseconds relative to EPOCH
@@ -714,7 +714,7 @@ CREATE TABLE seq_in_flight_aggregated_sender(
 );
 
 -- stores the topology-x state transactions
-CREATE TABLE common_topology_transactions (
+create table common_topology_transactions (
   -- serial identifier used to preserve insertion order
   id bigserial not null primary key,
   -- the id of the store
@@ -723,7 +723,7 @@ CREATE TABLE common_topology_transactions (
   -- UTC timestamp in microseconds relative to EPOCH
   sequenced bigint not null,
   -- type of transaction (refer to TopologyMapping.Code)
-  transaction_type int not null,
+  transaction_type integer not null,
   -- the namespace this transaction is operating on
   namespace varchar(300) collate "C" not null,
   -- the optional identifier this transaction is operating on (yields a uid together with namespace)
@@ -735,7 +735,7 @@ CREATE TABLE common_topology_transactions (
   mapping_key_hash varchar(300) collate "C" not null,
   -- the serial_counter describes the change order within transactions of the same mapping_key_hash
   -- (redundant also embedded in instance)
-  serial_counter int not null,
+  serial_counter integer not null,
   -- validity window, UTC timestamp in microseconds relative to EPOCH
   -- so `TopologyChangeOp.Replace` transactions have an effect for valid_from < t <= valid_until
   -- a `TopologyChangeOp.Remove` will have valid_from = valid_until
@@ -744,7 +744,7 @@ CREATE TABLE common_topology_transactions (
   -- operation
   -- 1: Remove
   -- 2: Replace (upsert/merge semantics)
-  operation int not null,
+  operation integer not null,
   -- The raw transaction, serialized using the proto serializer.
   instance bytea not null,
   -- The transaction hash, to uniquify and aid efficient lookups.
@@ -764,7 +764,7 @@ CREATE TABLE common_topology_transactions (
   -- index used for idempotency during crash recovery
   unique (store_id, mapping_key_hash, serial_counter, valid_from, operation, representative_protocol_version, hash_of_signatures, tx_hash)
 );
-CREATE INDEX idx_common_topology_transactions ON common_topology_transactions (store_id, transaction_type, namespace, identifier, valid_until, valid_from);
+create index idx_common_topology_transactions on common_topology_transactions (store_id, transaction_type, namespace, identifier, valid_until, valid_from);
 
 -- Stores the traffic purchased entry updates
 create table seq_traffic_control_balance_updates (

@@ -102,7 +102,6 @@ class SequencerTest extends FixtureAsyncWordSpec with BaseTest with HasExecution
     val sequencerStore = SequencerStore(
       storage,
       testedProtocolVersion,
-      dbConfig.writer.maxSqlInListSize,
       timeouts,
       loggerFactory,
       topologyClientMember,

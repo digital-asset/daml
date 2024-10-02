@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.ledger.api.validation
 
-import com.daml.error.{ContextualizedErrorLogger, NoLogging}
+import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2.value.Value.Sum
 import com.daml.ledger.api.v2.value as api
 import com.digitalasset.canton.ledger.api.domain
@@ -238,14 +238,4 @@ object ValueValidator extends ValueValidator {
 object StricterValueValidator extends ValueValidator {
   protected override def validateNumeric(s: String): Option[Numeric] =
     Numeric.fromString(s).toOption
-}
-
-object NoLoggingValueValidator {
-
-  def validateRecord(rec: api.Record): Either[StatusRuntimeException, Lf.ValueRecord] =
-    ValueValidator.validateRecord(rec)(NoLogging)
-
-  def validateValue(v0: api.Value): Either[StatusRuntimeException, Lf] =
-    ValueValidator.validateValue(v0)(NoLogging)
-
 }

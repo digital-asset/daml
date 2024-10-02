@@ -164,7 +164,6 @@ class PostgresCISetup(
     5432,
   )
 
-  @SuppressWarnings(Array("com.digitalasset.canton.SlickString"))
   override protected def prepareDatabase(): Unit =
     if (useDb != envDb) { // for provided db name or dev migrations
       val envDbConfig =
@@ -360,14 +359,5 @@ object DbStorageSetup {
     )
 
     def toH2DbConfig: H2 = H2(toH2Config)
-
-    def toOracleConfig: Config = configOfMap(
-      Map(
-        "driver" -> "oracle.jdbc.OracleDriver",
-        "url" -> DbConfig.oracleUrl(host, port, dbName),
-        "user" -> username,
-        "password" -> password,
-      )
-    )
   }
 }

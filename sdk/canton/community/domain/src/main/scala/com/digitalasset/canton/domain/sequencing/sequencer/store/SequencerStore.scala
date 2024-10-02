@@ -11,7 +11,7 @@ import cats.syntax.parallel.*
 import cats.{Functor, Show}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveNumeric}
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.PruningError.UnsafePruningPoint
 import com.digitalasset.canton.domain.sequencing.sequencer.*
@@ -814,7 +814,6 @@ object SequencerStore {
   def apply(
       storage: Storage,
       protocolVersion: ProtocolVersion,
-      maxInClauseSize: PositiveNumeric[Int],
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
       sequencerMember: Member,
@@ -833,7 +832,6 @@ object SequencerStore {
         new DbSequencerStore(
           dbStorage,
           protocolVersion,
-          maxInClauseSize,
           timeouts,
           loggerFactory,
           sequencerMember,

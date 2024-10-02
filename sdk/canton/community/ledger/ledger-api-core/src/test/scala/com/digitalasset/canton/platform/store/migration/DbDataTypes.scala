@@ -42,7 +42,6 @@ class DbDataTypes(dbType: DbType) {
         }
       dbType match {
         case DbType.Postgres => hexes.mkString("E'\\\\x", "", "'")
-        case DbType.Oracle => hexes.mkString("hextoraw('", "", "')")
         case other => sys.error(s"Unsupported db type: $other")
       }
     }
@@ -60,7 +59,6 @@ class DbDataTypes(dbType: DbType) {
       val array = value.asInstanceOf[Vector[String]]
       dbType match {
         case DbType.Postgres => array.map(x => s"'$x'").mkString("ARRAY[", ", ", "]::TEXT[]")
-        case DbType.Oracle => array.map(x => s"\"$x\"").mkString("'[", ", ", "]'")
         case other => sys.error(s"Unsupported db type: $other")
       }
     }
@@ -81,7 +79,6 @@ class DbDataTypes(dbType: DbType) {
         .map(_.toString)
       dbType match {
         case DbType.Postgres => array.mkString("ARRAY[", ", ", "]::INTEGER[]")
-        case DbType.Oracle => array.mkString("'[", ", ", "]'")
         case other => sys.error(s"Unsupported db type: $other")
       }
     }

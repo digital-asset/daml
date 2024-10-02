@@ -97,18 +97,11 @@ class DbDomainConnectionConfigStore private[store] (
 
     val domainAlias = config.domain
 
-    val insertAction: DbAction.WriteOnly[Int] = storage.profile match {
-      case _: DbStorage.Profile.Oracle =>
-        sqlu"""insert
-               /*+ IGNORE_ROW_ON_DUPKEY_INDEX ( PAR_DOMAIN_CONNECTION_CONFIGS ( domain_alias ) ) */
-               into par_domain_connection_configs(domain_alias, config, status)
-               values ($domainAlias, $config, $status)"""
-      case _ =>
-        sqlu"""insert
-               into par_domain_connection_configs(domain_alias, config, status)
-               values ($domainAlias, $config, $status)
-               on conflict do nothing"""
-    }
+    val insertAction: DbAction.WriteOnly[Int] =
+      sqlu"""insert
+             into par_domain_connection_configs(domain_alias, config, status)
+             values ($domainAlias, $config, $status)
+             on conflict do nothing"""
 
     for {
       nrRows <- EitherT.right(storage.update(insertAction, functionFullName))

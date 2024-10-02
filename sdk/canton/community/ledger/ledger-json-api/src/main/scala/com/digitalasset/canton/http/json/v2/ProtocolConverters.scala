@@ -18,7 +18,6 @@ import com.digitalasset.canton.http.json.v2.JsSchema.{
   JsTreeEvent,
 }
 import com.google.rpc.status.Status
-import io.circe.Json
 import ujson.StringRenderer
 import ujson.circe.CirceJson
 
@@ -92,11 +91,6 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
   }
 
   object Commands extends ProtocolConverter[lapi.commands.Commands, JsCommands] {
-
-    private def optionToJson(v: Option[ujson.Value]): Json = {
-      val opt: ujson.Value = v.getOrElse(ujson.Null)
-      opt
-    }
 
     def fromJson(jsCommands: JsCommands)(implicit
         token: Option[String],
@@ -942,7 +936,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     def toJson(
         value: lapi.update_service.GetUpdateTreesResponse
     )(implicit
-        token: Option[String],
+        token: Option[String]
     ): Future[JsGetUpdateTreesResponse] =
       (value.update match {
         case lapi.update_service.GetUpdateTreesResponse.Update.Empty => jsFail("Invalid value")
@@ -963,7 +957,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     def toJson(
         obj: lapi.update_service.GetTransactionTreeResponse
     )(implicit
-        token: Option[String],
+        token: Option[String]
     ): Future[JsGetTransactionTreeResponse] =
       TransactionTree.toJson(obj.getTransaction).map(JsGetTransactionTreeResponse)
   }

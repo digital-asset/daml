@@ -127,9 +127,17 @@ private[update] class TrafficControlValidator(
               // we replace it with the failed outcome from traffic validation
               val updated = result.outcome.outcome match {
                 case _: DeliverableSubmissionOutcome =>
-                  result.copy(outcome = trafficConsumptionErrorOutcome)
+                  result.copy(
+                    outcome = trafficConsumptionErrorOutcome,
+                    latestSequencerEventTimestamp = None,
+                  )
                 // Otherwise we keep the existing outcome
-                case SubmissionOutcome.Discard => result
+                case SubmissionOutcome.Discard => result.copy(latestSequencerEventTimestamp = None)
+              }
+              if (result.latestSequencerEventTimestamp.isDefined) {
+                logger.debug(
+                  s"An event addressed to the sequencer (likely a topology event) was rejected due to a traffic control error. For that reason the lastSequencerEventTimestamp was not updated, as the event will not be delivered to the sequencer. ${trafficConsumptionErrorOutcome.outcome}"
+                )
               }
               recordSequencingWasted(
                 signedOrderingRequest,
@@ -195,7 +203,7 @@ private[update] class TrafficControlValidator(
         case error: SequencerRateLimitError.OutdatedEventCost =>
           logger.info(
             s"Event cost for event at $sequencingTimestamp from sender ${request.content.sender} sent" +
-              s" to sequencer ${orderingRequest.signature.signedBy} was outdated: $error."
+              s" to sequencer ${orderingRequest.content.sequencerId} was outdated: $error."
           )
           invalidSubmissionRequest(
             request.content,

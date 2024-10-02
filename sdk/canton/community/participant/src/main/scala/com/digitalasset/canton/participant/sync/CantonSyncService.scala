@@ -19,6 +19,7 @@ import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.{CryptoPureApi, SyncCryptoApiProvider}
 import com.digitalasset.canton.data.{
   CantonTimestamp,
+  Offset,
   ProcessedDisclosedContract,
   ReassignmentSubmitterMetadata,
 }
@@ -426,7 +427,7 @@ class CantonSyncService(
   )
 
   override def prune(
-      pruneUpToInclusive: LedgerSyncOffset,
+      pruneUpToInclusive: Offset,
       submissionId: LedgerSubmissionId,
       _pruneAllDivulgedContracts: Boolean, // Canton always prunes divulged contracts ignoring this flag
   ): CompletionStage[PruningResult] =
@@ -443,7 +444,7 @@ class CantonSyncService(
     }).asJava
 
   def pruneInternally(
-      pruneUpToInclusive: LedgerSyncOffset
+      pruneUpToInclusive: Offset
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, CantonError, Unit] =
     (for {
       pruneUpToMultiDomainGlobalOffset <- EitherT
@@ -626,7 +627,7 @@ class CantonSyncService(
   override def validateDar(dar: ByteString, darName: String)(implicit
       traceContext: TraceContext
   ): Future[SubmissionResult] =
-    withSpan("CantonSyncService.validateDar") { implicit traceContext => span =>
+    withSpan("CantonSyncService.validateDar") { implicit traceContext => _span =>
       if (!isActive()) {
         logger.debug(s"Rejecting DAR validation request on passive replica.")
         Future.successful(SyncServiceError.Synchronous.PassiveNode)
@@ -1740,9 +1741,9 @@ class CantonSyncService(
       .map(_.flatten)
 
   override def incompleteReassignmentOffsets(
-      validAt: LedgerSyncOffset,
+      validAt: Offset,
       stakeholders: Set[LfPartyId],
-  )(implicit traceContext: TraceContext): Future[Vector[LedgerSyncOffset]] =
+  )(implicit traceContext: TraceContext): Future[Vector[Offset]] =
     UpstreamOffsetConvert
       .toGlobalOffset(validAt)
       .fold(

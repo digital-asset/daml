@@ -188,7 +188,6 @@ class ServicesMetrics(
 
     val listLfPackages: Timer = openTelemetryMetricsFactory.timer(inventory.listLfPackages.info)
     val getLfArchive: Timer = openTelemetryMetricsFactory.timer(inventory.getLfArchive.info)
-    val packageEntries: Timer = openTelemetryMetricsFactory.timer(inventory.packageEntries.info)
     val currentLedgerEnd: Timer = openTelemetryMetricsFactory.timer(inventory.currentLedgerEnd.info)
     val latestPrunedOffsets: Timer =
       openTelemetryMetricsFactory.timer(inventory.latestPrunedOffsets.info)

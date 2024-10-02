@@ -3,9 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2.event.Event
-import com.daml.ledger.api.v2.state_service.{ActiveContract, GetActiveContractsResponse}
 import com.daml.ledger.api.v2.trace_context.TraceContext as DamlTraceContext
 import com.daml.ledger.api.v2.transaction.{
   Transaction as ApiTransaction,
@@ -19,11 +17,10 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdatesResponse,
 }
 import com.digitalasset.canton.ledger.api.util.TimestampConversion
-import com.digitalasset.canton.ledger.error.IndexErrors
 import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.platform.store.ScalaPbStreamingOptimizations.*
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.Entry
-import com.digitalasset.canton.platform.store.utils.EventOps.{EventOps, TreeEventOps}
+import com.digitalasset.canton.platform.store.utils.EventOps.TreeEventOps
 
 object EventsTable {
 
@@ -74,32 +71,6 @@ object EventsTable {
         events: Vector[Entry[Event]]
     ): Option[GetTransactionResponse] =
       flatTransaction(events).map(tx => GetTransactionResponse(Some(tx)))
-
-    def toGetActiveContractsResponse(
-        events: Vector[Entry[Event]]
-    )(implicit
-        contextualizedErrorLogger: ContextualizedErrorLogger
-    ): Vector[GetActiveContractsResponse] =
-      events.map {
-        case entry if entry.event.isCreated =>
-          GetActiveContractsResponse(
-            offset = "", // only the last response will have an offset.
-            workflowId = entry.workflowId,
-            contractEntry = GetActiveContractsResponse.ContractEntry.ActiveContract(
-              ActiveContract(
-                createdEvent = Some(entry.event.getCreated),
-                domainId = "", // not used for V1
-                reassignmentCounter = 0L, // not used for V1
-              )
-            ),
-          ).withPrecomputedSerializedSize()
-        case entry =>
-          throw IndexErrors.DatabaseErrors.ResultSetError
-            .Reject(
-              s"Non-create event ${entry.event.eventId} fetched as part of the active contracts"
-            )
-            .asGrpcError
-      }
 
     private def treeOf(
         events: Vector[Entry[TreeEvent]]

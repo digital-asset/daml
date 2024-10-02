@@ -581,7 +581,7 @@ trait MessageDispatcher { this: NamedLogging =>
       events: Seq[RawProtocolEvent]
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[ProcessingResult] = {
     val receipts = events.mapFilter {
-      case Deliver(counter, timestamp, _domainId, messageIdO, batch, _, _) =>
+      case Deliver(counter, timestamp, _domainId, messageIdO, _batch, _, _) =>
         // The event was submitted by the current participant iff the message ID is set.
         messageIdO.map(_ -> SequencedSubmission(counter, timestamp))
       case DeliverError(

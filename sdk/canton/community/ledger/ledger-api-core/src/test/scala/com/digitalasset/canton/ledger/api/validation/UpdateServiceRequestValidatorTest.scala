@@ -4,7 +4,6 @@
 package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
-import com.daml.ledger.api.v2.state_service.GetLedgerEndRequest
 import com.daml.ledger.api.v2.transaction_filter.CumulativeFilter.IdentifierFilter
 import com.daml.ledger.api.v2.transaction_filter.{
   CumulativeFilter,
@@ -74,15 +73,6 @@ class UpdateServiceRequestValidatorTest
   private val txReqWithPackageNameScoping = txReqBuilder(
     Seq(templateId.copy(packageId = Ref.PackageRef.Name(packageName).toString))
   )
-
-  private val txTreeReq = GetUpdatesRequest(
-    beginExclusive = "",
-    endInclusive = offset,
-    filter = Some(TransactionFilter(Map(party -> Filters.defaultInstance))),
-    verbose = verbose,
-  )
-
-  private val endReq = GetLedgerEndRequest()
 
   private val txByEvIdReq =
     GetTransactionByEventIdRequest(eventId, Seq(party))

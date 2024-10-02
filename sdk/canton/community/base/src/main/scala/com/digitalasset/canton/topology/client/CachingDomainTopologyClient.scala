@@ -466,7 +466,7 @@ class CachingTopologySnapshot(
     // split up the request into separate chunks so that we don't block the cache for too long
     // when loading very large batches
     MonadUtil
-      .batchedSequentialTraverse(batchingConfig.parallelism, batchingConfig.maxItemsInSqlClause)(
+      .batchedSequentialTraverse(batchingConfig.parallelism, batchingConfig.maxItemsInBatch)(
         parties
       )(parties => partyCache.getAll(parties)(traceContext).map(_.toSeq))
       .map(_.toMap)

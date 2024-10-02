@@ -8,7 +8,6 @@ import cats.syntax.contravariantSemigroupal.*
 import cats.syntax.foldable.*
 import cats.syntax.functor.*
 import cats.syntax.parallel.*
-import cats.syntax.traverse.*
 import cats.syntax.validated.*
 import com.daml.error.*
 import com.daml.metrics.api.MetricsContext
@@ -234,11 +233,12 @@ class AcsCommitmentProcessor private (
   /* The sequencer timestamp for which we are ready to process remote commitments.
      Continuously updated as new local commitments are computed.
      All received remote commitments with the timestamp lower than this one will either have been processed or queued.
-     Note that since access to this variable isn't synchronized, we don't guarantee that every remote commitment will
-     be processed once this moves. However, such commitments will not be lost, as they will be put in the persistent
-     buffer and get picked up by `processBuffered` eventually.
+     Note that we don't guarantee that every remote commitment will be processed once this moves. However, such
+     commitments will not be lost, as they will be put in the persistent buffer and get picked up by `processBuffered`
+     eventually.
    */
-  @volatile private var readyForRemote: Option[CantonTimestampSecond] = None
+  private val readyForRemote: AtomicReference[Option[CantonTimestampSecond]] =
+    new AtomicReference[Option[CantonTimestampSecond]](None)
 
   /* End of the last period until which we have processed, sent and persisted all local and remote commitments.
      It's accessed only through chained futures, such that all accesses are synchronized  */
@@ -725,10 +725,15 @@ class AcsCommitmentProcessor private (
             // This is a replay of an already processed ACS change, ignore
             FutureUnlessShutdown.unit
           } else {
-            // Serialize the access to the DB only after having obtained the reconciliation intervals and topology snapshot.
-            // During crash recovery, the topology client may only be able to serve the intervals and snapshots
-            // for re-published ACS changes after some messages have been processed,
-            // which may include ACS commitments that go through the same queue.
+            // During crash recovery, it should be that only in tests could we have the situation where we replay
+            // ACS changes while the ledger end lags behind the replayed change timestamp. In normal processing,
+            // we publish ACS changes only after the ledger end has moved, which should mean that all topology events
+            // for a given timestamp have been processed before processing the ACS change for the same timestamp.
+            //
+            // In that former case, when the ledger end lags behind, the topology client may only be able to serve
+            // the intervals and snapshots for re-published ACS changes after some messages have been processed,
+            // which may include ACS commitments that go through the same queue. Therefore, we serialize the access to
+            // the DB only after having obtained the reconciliation intervals and topology snapshot.
             dbQueue.executeUS(
               Policy.noisyInfiniteRetryUS(
                 performPublish(acsSnapshot, reconciliationIntervals, periodEndO),
@@ -974,10 +979,9 @@ class AcsCommitmentProcessor private (
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     dbQueue
       .execute(
-        // Make sure that the ready-for-remote check is atomic with buffering the commitment
         {
-          val readyToCheck = readyForRemote.exists(_ >= commitment.period.toInclusive)
-
+          // Make sure that the ready-for-remote check is atomic with buffering the commitment
+          val readyToCheck = readyForRemote.get().exists(_ >= commitment.period.toInclusive)
           if (readyToCheck) {
             // Do not sequentialize the checking
             Future.successful(checkMatchAndMarkSafe(List(commitment)))
@@ -990,14 +994,24 @@ class AcsCommitmentProcessor private (
       )
       .flatMap(FutureUnlessShutdown.outcomeF)
 
-  private def indicateReadyForRemote(timestamp: CantonTimestampSecond): Unit = {
-    readyForRemote.foreach(oldTs =>
-      assert(
-        oldTs <= timestamp,
-        s"out of order timestamps in the commitment processor: $oldTs and $timestamp",
+  private def indicateReadyForRemote(timestamp: CantonTimestampSecond)(implicit
+      traceContext: TraceContext
+  ): Unit = {
+    val updated = readyForRemote.updateAndGet { oldTs =>
+      oldTs.fold(Some(timestamp))(oldReadyForRemote =>
+        if (oldReadyForRemote > timestamp) Some(oldReadyForRemote) else Some(timestamp)
       )
-    )
-    readyForRemote = Some(timestamp)
+    }
+
+    updated match {
+      case Some(newTimestamp) =>
+        if (newTimestamp != timestamp) {
+          logger.debug(
+            s"out of order timestamps when updating ready for remote in the commitment processor: $newTimestamp and $timestamp. Ready-for-remote remains at $newTimestamp"
+          )
+        }
+      case None =>
+    }
   }
 
   private def processBuffered(
@@ -1340,7 +1354,7 @@ class AcsCommitmentProcessor private (
       })(_.value))(_.value)
     val delayMillis = if (maxDelayMillis > 0) rand.nextInt(maxDelayMillis) else 0
 
-    def sendUnlessClosing()(ts: CantonTimestamp) = {
+    def sendUnlessClosing() = {
       implicit val metricsContext: MetricsContext = MetricsContext("type" -> "send-commitment")
       performUnlessClosingUSF(functionFullName) {
         def message = s"Failed to send commitment message batch for period $period"
@@ -1381,7 +1395,7 @@ class AcsCommitmentProcessor private (
         .logOnFailureUnlessShutdown(
           clock
             .scheduleAfter(
-              sendUnlessClosing(),
+              _ => sendUnlessClosing(),
               java.time.Duration.ofMillis(delayMillis.toLong),
             ),
           s"Failed to schedule sending commitment message batch for period $period at time ${clock.now
@@ -1608,12 +1622,12 @@ object AcsCommitmentProcessor extends HasLoggerName {
         exitOnFatalFailures,
         maxCommitmentSendDelayMillis,
       )
-      // TODO(#21502) We trigger the processing of the buffered commitments, but we do not wait for it to complete here,
-      //  because, if processing buffered required topology updates that go through the same queue, we'd create a deadlock.
-      //  It should be that only in tests could we have the situation where we replay ACS changes while the ledger end
-      //  lags behind the replayed change timestamp. In normal processing, we publish ACS changes only after the ledger
-      //  end has moved, which should mean that all topology events for a given timestamp have been processed before
-      //  processing the ACS change for the same timestamp. We should validate this behavior.
+      // We trigger the processing of the buffered commitments, but we do not wait for it to complete here,
+      // because, if processing buffered required topology updates that go through the same queue, we'd create a deadlock.
+      // It should be that only in tests could we have the situation where we replay ACS changes while the ledger end
+      // lags behind the replayed change timestamp. In normal processing, we publish ACS changes only after the ledger
+      // end has moved, which should mean that all topology events for a given timestamp have been processed before
+      // processing the ACS change for the same timestamp
       _ = processor.processBufferedAtInit(endOfLastProcessedPeriod)
       _ = loggingContext.info(
         s"Initialized the ACS commitment processor DB queue and started processing buffered commitments until $endOfLastProcessedPeriod"

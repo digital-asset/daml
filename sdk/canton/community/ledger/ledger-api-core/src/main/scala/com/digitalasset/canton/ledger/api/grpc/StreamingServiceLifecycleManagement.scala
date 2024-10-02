@@ -6,38 +6,57 @@ package com.digitalasset.canton.ledger.api.grpc
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.server.pekko.ServerAdapter
+import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.StatusRuntimeException
 import io.grpc.stub.StreamObserver
-import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.{Keep, Source}
 import org.apache.pekko.stream.{KillSwitch, KillSwitches, Materializer}
+import org.apache.pekko.{Done, NotUsed}
 
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.blocking
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, Future, blocking}
+import scala.util.Success
 
 trait StreamingServiceLifecycleManagement extends AutoCloseable with NamedLogging {
 
   private val directEc = DirectExecutionContext(noTracingLogger)
+  private val StreamAbortTimeout = Duration(10, "seconds")
 
   @volatile private var _closed = false
-  private val _killSwitches = TrieMap.empty[KillSwitch, TraceContext]
+  private val _killSwitches = TrieMap.empty[KillSwitch, (TraceContext, Future[Done])]
 
-  def close(): Unit = blocking {
-    synchronized {
+  def close(): Unit = {
+    implicit val ec = directEc
+    val completions = blocking(synchronized {
       if (!_closed) {
         _closed = true
-        _killSwitches.foreach { case (killSwitch, traceContext) =>
+        val completionFs = _killSwitches.map { case (killSwitch, (traceContext, completeF)) =>
           killSwitch.abort(
             closingError(errorLoggingContext(traceContext))
           )
+          completeF
         }
         _killSwitches.clear()
-      }
-    }
+        completionFs
+      } else Nil
+    })
+    // waiting for all the pekko-streams to finish
+    discard(
+      Await.result(
+        awaitable = Future.sequence(
+          completions.map(
+            // we don't care about failures after abort
+            _.transform(_ => Success(()))
+          )
+        ),
+        atMost = StreamAbortTimeout,
+      )
+    )
   }
 
   private def errorHandler(throwable: Throwable): StatusRuntimeException =
@@ -74,7 +93,7 @@ trait StreamingServiceLifecycleManagement extends AutoCloseable with NamedLoggin
 
             logger.debug(s"Streaming to gRPC client started")
 
-            _killSwitches += killSwitch -> traceContext
+            _killSwitches += killSwitch -> (traceContext -> doneF)
 
             // This can complete outside the synchronized block
             // maintaining the need of using a concurrent collection for _killSwitches

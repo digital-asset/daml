@@ -68,7 +68,6 @@ class DbSyncDomainPersistentState(
       storage,
       domainId,
       staticDomainParameters.protocolVersion,
-      batching.maxItemsInSqlClause,
       caching.contractStore,
       dbQueryBatcherConfig = batching.aggregator,
       insertBatchAggregatorConfig = batching.aggregator,
@@ -90,10 +89,8 @@ class DbSyncDomainPersistentState(
       storage,
       domainId,
       enableAdditionalConsistencyChecks,
-      batching.maxItemsInSqlClause,
       parameters.stores.journalPruning.toInternal,
       indexedStringStore,
-      staticDomainParameters.protocolVersion,
       timeouts,
       loggerFactory,
     )
@@ -107,7 +104,6 @@ class DbSyncDomainPersistentState(
   val requestJournalStore: DbRequestJournalStore = new DbRequestJournalStore(
     domainId,
     storage,
-    batching.maxItemsInSqlClause,
     insertBatchAggregatorConfig = batching.aggregator,
     replaceBatchAggregatorConfig = batching.aggregator,
     timeouts,

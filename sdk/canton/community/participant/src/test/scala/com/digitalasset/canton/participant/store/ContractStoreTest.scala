@@ -92,7 +92,7 @@ trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
       }
     }
 
-    "update a created contract with instance size > 32kB (oracle related, see DbContractStore)" in {
+    "update a created contract with instance size > 32kB" in {
       val store = mk()
 
       val manySignatories = 1

@@ -16,10 +16,7 @@ import com.digitalasset.daml.lf.value.Value.ContractId
 import java.sql.Connection
 import scala.annotation.tailrec
 
-class EventReaderQueries(
-    queryStrategy: QueryStrategy,
-    stringInterning: StringInterning,
-) {
+class EventReaderQueries(stringInterning: StringInterning) {
   import EventStorageBackendTemplate.*
 
   type EventSequentialId = Long
@@ -40,12 +37,12 @@ class EventReaderQueries(
       SelectTable(
         tableName = "lapi_events_create",
         selectColumns =
-          s"$selectColumnsForFlatTransactionsCreate, ${queryStrategy.constBooleanSelect(false)} as exercise_consuming",
+          s"$selectColumnsForFlatTransactionsCreate, ${QueryStrategy.constBooleanSelect(false)} as exercise_consuming",
       ),
       SelectTable(
         tableName = "lapi_events_consuming_exercise",
         selectColumns =
-          s"$selectColumnsForFlatTransactionsExercise, ${queryStrategy.constBooleanSelect(true)} as exercise_consuming",
+          s"$selectColumnsForFlatTransactionsExercise, ${QueryStrategy.constBooleanSelect(true)} as exercise_consuming",
       ),
     )
 
@@ -107,7 +104,7 @@ class EventReaderQueries(
             WHERE c.create_key_hash = $keyHash
             AND c.event_sequential_id < $endExclusiveSeqId)
         SELECT  #$selectColumnsForFlatTransactionsCreate,
-                #${queryStrategy.constBooleanSelect(false)} exercise_consuming,
+                #${QueryStrategy.constBooleanSelect(false)} exercise_consuming,
                 flat_event_witnesses event_witnesses,
                 command_id
         FROM max_event
@@ -132,7 +129,7 @@ class EventReaderQueries(
     val query =
       SQL"""
           SELECT  #$selectColumnsForFlatTransactionsExercise,
-                  #${queryStrategy.constBooleanSelect(true)} exercise_consuming,
+                  #${QueryStrategy.constBooleanSelect(true)} exercise_consuming,
                   flat_event_witnesses event_witnesses,
                   command_id
           FROM lapi_events_consuming_exercise

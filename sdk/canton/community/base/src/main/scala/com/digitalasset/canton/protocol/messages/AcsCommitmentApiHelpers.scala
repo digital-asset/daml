@@ -14,13 +14,13 @@ import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import slick.jdbc.{GetResult, SetParameter}
 
 final case class DomainSearchCommitmentPeriod(
-    domain: IndexedDomain,
+    indexedDomain: IndexedDomain,
     fromExclusive: CantonTimestamp,
     toInclusive: CantonTimestamp,
 ) extends PrettyPrinting {
   override protected def pretty: Pretty[DomainSearchCommitmentPeriod] =
     prettyOfClass(
-      param("domainId", _.domain.domainId),
+      param("domainId", _.indexedDomain.domainId),
       param("fromExclusive", _.fromExclusive),
       param("toInclusive", _.toInclusive),
     )

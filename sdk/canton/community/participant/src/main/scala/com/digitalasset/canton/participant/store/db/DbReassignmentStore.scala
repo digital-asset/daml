@@ -27,23 +27,16 @@ import com.digitalasset.canton.participant.store.ReassignmentStore
 import com.digitalasset.canton.participant.store.ReassignmentStore.*
 import com.digitalasset.canton.participant.store.db.DbReassignmentStore.RawDeliveredUnassignmentResult
 import com.digitalasset.canton.participant.util.TimeOfChange
+import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
-import com.digitalasset.canton.protocol.{
-  ReassignmentDomainId,
-  ReassignmentId,
-  SerializableContract,
-  SourceDomainId,
-  TargetDomainId,
-  TransactionId,
-}
-import com.digitalasset.canton.resource.DbStorage.{DbAction, Profile}
+import com.digitalasset.canton.resource.DbStorage.DbAction
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.sequencing.protocol.{NoOpeningErrors, SequencedEvent, SignedContent}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{Checked, CheckedT, ErrorUtil, MonadUtil, SimpleExecutionQueue}
+import com.digitalasset.canton.util.*
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{LfPartyId, RequestCounter}
@@ -488,12 +481,7 @@ class DbReassignmentStore(
 
         val timestampFilter =
           requestAfter.fold(sql"") { case (requestTimestamp, sourceDomain) =>
-            storage.profile match {
-              case Profile.Oracle(_) =>
-                sql" and (unassignment_timestamp > $requestTimestamp or (unassignment_timestamp = $requestTimestamp and origin_domain > $sourceDomain))"
-              case _ =>
-                sql" and (unassignment_timestamp, origin_domain) > ($requestTimestamp, $sourceDomain) "
-            }
+            sql" and (unassignment_timestamp, origin_domain) > ($requestTimestamp, $sourceDomain) "
           }
         val order = sql" order by unassignment_timestamp, origin_domain "
         val limitSql = storage.limitSql(limit)

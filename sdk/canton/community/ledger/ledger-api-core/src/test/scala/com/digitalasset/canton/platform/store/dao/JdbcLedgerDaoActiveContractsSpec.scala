@@ -601,8 +601,8 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
 
   it should "not set the offset" in {
     for {
-      (_, t1) <- store(singleCreate)
-      (_, t2) <- store(singleCreate)
+      _ <- store(singleCreate)
+      _ <- store(singleCreate)
       end <- ledgerDao.lookupLedgerEnd()
       activeContracts <- ledgerDao.transactionsReader
         .getActiveContracts(

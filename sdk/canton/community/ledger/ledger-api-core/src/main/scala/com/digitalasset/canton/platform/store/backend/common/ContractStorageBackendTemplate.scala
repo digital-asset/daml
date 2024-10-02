@@ -29,7 +29,6 @@ class ContractStorageBackendTemplate(
     ledgerEndCache: LedgerEndCache,
     stringInterning: StringInterning,
 ) extends ContractStorageBackend {
-  import com.digitalasset.canton.platform.store.backend.Conversions.ArrayColumnToIntArray.*
 
   override def keyState(key: Key, validAt: Offset)(connection: Connection): KeyState = {
     val resultParser =

@@ -45,7 +45,6 @@ class DatabaseSequencerSnapshottingTest extends SequencerApiTest {
     val sequencerStore = SequencerStore(
       storage,
       testedProtocolVersion,
-      dbConfig.writer.maxSqlInListSize,
       timeouts,
       loggerFactory,
       sequencerId,

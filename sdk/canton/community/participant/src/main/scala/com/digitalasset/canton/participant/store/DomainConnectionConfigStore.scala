@@ -78,7 +78,6 @@ object DomainConnectionConfigStore {
     def isActive: Boolean
   }
 
-  @SuppressWarnings(Array("com.digitalasset.canton.SlickString"))
   implicit val setParameterStatus: SetParameter[Status] = (f, pp) => pp >> f.dbType.toString
 
   implicit val getResultStatus: GetResult[Status] = GetResult { r =>

@@ -111,22 +111,10 @@ class DbSequencerStateManagerStore(
     // First add all aggregation ids with their expiry timestamp and rules,
     // then add the information about the aggregated senders.
 
-    val addAggregationIdsQ = storage.profile match {
-      case _: DbStorage.Profile.H2 | _: DbStorage.Profile.Postgres =>
-        """insert into seq_in_flight_aggregation(aggregation_id, max_sequencing_time, aggregation_rule)
-           values (?, ?, ?)
-           on conflict do nothing
-           """
-      case _: DbStorage.Profile.Oracle =>
-        """merge /*+ INDEX ( seq_in_flight_aggregation ( aggregation_id ) ) */
-          into seq_in_flight_aggregation ifa
-          using (select ? aggregation_id, ? max_sequencing_time, ? aggregation_rule from dual) input
-          on (ifa.aggregation_id = input.aggregation_id)
-          when not matched then
-            insert (aggregation_id, max_sequencing_time, aggregation_rule)
-            values (input.aggregation_id, input.max_sequencing_time, input.aggregation_rule)
-          """
-    }
+    val addAggregationIdsQ =
+      """insert into seq_in_flight_aggregation(aggregation_id, max_sequencing_time, aggregation_rule)
+         values (?, ?, ?)
+         on conflict do nothing"""
     implicit val setParameterAggregationRule: SetParameter[AggregationRule] =
       AggregationRule.getVersionedSetParameter
     val freshAggregations = updates
@@ -143,21 +131,10 @@ class DbSequencerStateManagerStore(
           pp.>>(rule)
       }
 
-    val addSendersQ = storage.profile match {
-      case _: DbStorage.Profile.H2 | _: DbStorage.Profile.Postgres =>
-        """insert into seq_in_flight_aggregated_sender(aggregation_id, sender, sequencing_timestamp, signatures)
-           values (?, ?, ?, ?)
-           on conflict do nothing"""
-      case _: DbStorage.Profile.Oracle =>
-        """merge /*+ INDEX ( seq_in_flight_aggregated_sender ( aggregation_id, sender ) ) */
-           into seq_in_flight_aggregated_sender ifas
-           using (select ? aggregation_id, ? sender, ? sequencing_timestamp, ? signatures from dual) input
-           on (ifas.aggregation_id = input.aggregation_id and ifas.sender = input.sender)
-           when not matched then
-             insert (aggregation_id, sender, sequencing_timestamp, signatures)
-             values (input.aggregation_id, input.sender, input.sequencing_timestamp, input.signatures)
-       """
-    }
+    val addSendersQ =
+      """insert into seq_in_flight_aggregated_sender(aggregation_id, sender, sequencing_timestamp, signatures)
+         values (?, ?, ?, ?)
+         on conflict do nothing"""
     implicit val setParameterAggregatedSignaturesOfSender
         : SetParameter[AggregatedSignaturesOfSender] =
       AggregatedSignaturesOfSender.getVersionedSetParameter
