@@ -106,6 +106,7 @@ class LedgerTimeAwareCommandExecutorSpec
       5L,
       Map.empty,
       processedDisclosedContracts,
+      Map.empty,
     )
 
     val mockExecutor = mock[CommandExecutor]
@@ -177,6 +178,7 @@ class LedgerTimeAwareCommandExecutorSpec
           5L,
           Map.empty,
           processedDisclosedContracts,
+          Map.empty,
         )
       )
 

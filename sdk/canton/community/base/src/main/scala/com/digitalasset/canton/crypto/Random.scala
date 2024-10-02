@@ -64,4 +64,6 @@ object PseudoRandom {
 
   def randomUnsigned(maxValue: Int): Int = rand.between(0, maxValue)
 
+  def randomLong(n: Long): Long = rand.nextLong(n)
+
 }

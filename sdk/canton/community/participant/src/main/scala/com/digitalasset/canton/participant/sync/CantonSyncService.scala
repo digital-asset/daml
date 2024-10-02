@@ -404,6 +404,7 @@ class CantonSyncService(
       _estimatedInterpretationCost: Long,
       keyResolver: LfKeyResolver,
       disclosedContracts: ImmArray[ProcessedDisclosedContract],
+      contractPackages: Map[LfContractId, LfPackageId],
   )(implicit
       traceContext: TraceContext
   ): CompletionStage[SubmissionResult] = {
@@ -418,6 +419,7 @@ class CantonSyncService(
         transaction,
         keyResolver,
         disclosedContracts,
+        contractPackages,
       )
     }.map(result =>
       result.map { _asyncResult =>
@@ -528,6 +530,7 @@ class CantonSyncService(
       transaction: LfSubmittedTransaction,
       keyResolver: LfKeyResolver,
       explicitlyDisclosedContracts: ImmArray[ProcessedDisclosedContract],
+      contractPackages: Map[LfContractId, LfPackageId],
   )(implicit
       traceContext: TraceContext
   ): Future[Either[SubmissionResult, FutureUnlessShutdown[_]]] = {
@@ -564,6 +567,7 @@ class CantonSyncService(
         keyResolver,
         transaction,
         explicitlyDisclosedContracts,
+        contractPackages,
       )
       // TODO(i2794) retry command if token expired
       submittedFF.value.transform { result =>
