@@ -67,14 +67,30 @@ export async function activate(context: vscode.ExtensionContext) {
   let d1 = vscode.commands.registerCommand(
     "daml.showResource",
     (title, uri) => {
-      let path = getVRFilePath(uri);
-      if (!path) return;
+      let vrPath = getVRFilePath(uri);
+      if (!vrPath) return;
+
+      // Need to normalize paths so that prefix comparison works on Windows,
+      // where path separators can differ.
+      vrPath = path.normalize(vrPath);
+      let isPrefixOfVrPath = candidate => vrPath.startsWith(path.normalize(candidate) + path.sep);
+
+      // Try to find a client for the virtual resource- if we can't, log to DevTools
+      let foundAClient = false;
       for (let projectPath in damlLanguageClients) {
-        if (path.startsWith(projectPath))
+        if (vrPath.startsWith(projectPath)) {
+          foundAClient = true;
           damlLanguageClients[projectPath].virtualResourceManager.createOrShow(
             title,
             uri,
           );
+          break;
+        }
+      }
+
+      if (!foundAClient) {
+        console.log(`daml.showResource: Could not find a language client for ${vrPath}`);
+        vscode.window.showWarningMessage(`Could not show script results - could not find a language client for ${vrPath}`);
       }
     },
   );
