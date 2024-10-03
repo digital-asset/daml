@@ -73,7 +73,8 @@ export async function activate(context: vscode.ExtensionContext) {
       // Need to normalize paths so that prefix comparison works on Windows,
       // where path separators can differ.
       vrPath = path.normalize(vrPath);
-      let isPrefixOfVrPath = candidate => vrPath.startsWith(path.normalize(candidate) + path.sep);
+      let isPrefixOfVrPath = candidate =>
+        vrPath.startsWith(path.normalize(candidate) + path.sep);
 
       // Try to find a client for the virtual resource- if we can't, log to DevTools
       let foundAClient = false;
@@ -89,8 +90,12 @@ export async function activate(context: vscode.ExtensionContext) {
       }
 
       if (!foundAClient) {
-        console.log(`daml.showResource: Could not find a language client for ${vrPath}`);
-        vscode.window.showWarningMessage(`Could not show script results - could not find a language client for ${vrPath}`);
+        console.log(
+          `daml.showResource: Could not find a language client for ${vrPath}`,
+        );
+        vscode.window.showWarningMessage(
+          `Could not show script results - could not find a language client for ${vrPath}`,
+        );
       }
     },
   );
