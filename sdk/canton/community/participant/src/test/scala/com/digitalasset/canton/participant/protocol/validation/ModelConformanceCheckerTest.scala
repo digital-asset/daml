@@ -176,9 +176,9 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
 
   val preReinterpretationPackageIds: PackageIdsOfView =
     if (testedProtocolVersion >= ProtocolVersion.v7)
-      packageIdsOfActionDescription
+      viewPackageIds
     else
-      legacyPackageIdsOfView
+      viewContractPackagesIds
 
   def buildUnderTest(reinterpretCommand: HasReinterpret): ModelConformanceChecker =
     new ModelConformanceChecker(
@@ -388,7 +388,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
     "a package (referenced by create) is not vetted by some participant" must {
       "yield an error" in {
         import ExampleTransactionFactory.*
-        testVettingError(
+        testPreVettingError(
           NonEmpty.from(factory.SingleCreate(lfHash(0)).rootTransactionViewTrees).value,
           // The package is not vetted for signatoryParticipant
           vettings = Seq(VettedPackages(submitterParticipant, Seq(packageId))),
@@ -415,7 +415,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
         )
         val viewTree = factory.rootTransactionViewTree(view)
 
-        testVettingError(
+        testPreVettingError(
           NonEmpty(Seq, viewTree),
           // The package is not vetted for submitterParticipant
           vettings = Seq.empty,
@@ -429,7 +429,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
       }
     }
 
-    def testVettingError(
+    def testPreVettingError(
         rootViewTrees: NonEmpty[Seq[FullTransactionViewTree]],
         vettings: Seq[VettedPackages],
         packageDependenciesLookup: PackageDependencyResolverUS,
@@ -461,7 +461,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
     "a package is not found in the package store" must {
       "yield an error" in {
         import ExampleTransactionFactory.*
-        testVettingError(
+        testPreVettingError(
           NonEmpty.from(factory.SingleCreate(lfHash(0)).rootTransactionViewTrees).value,
           vettings = Seq(
             VettedPackages(submitterParticipant, Seq(packageId)),
@@ -495,7 +495,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
       val (p2, c2) = mkPackageContractInstance(2)
       val (p3, c3) = mkPackageContractInstance(3)
       val (p4, c4) = mkPackageContractInstance(4)
-      val (_, c5) = mkPackageContractInstance(5)
+      val (p5, c5) = mkPackageContractInstance(5)
       val (p6, _) = mkPackageContractInstance(6)
 
       def keyOf(c: SerializableContract): LfGlobalKey = LfGlobalKey.assertBuild(
@@ -531,7 +531,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
           coreInputs = Seq(c3),
           resolvedKeys = Map(keyOf(c4) -> FreeKey(Set(submitter))(c4.contractInstance.version)),
         )
-        val actual = legacyPackageIdsOfView(view, implicitly[NamedLoggingContext])
+        val actual = viewContractPackagesIds(view, implicitly[NamedLoggingContext])
         actual shouldBe Set(p2, p3, p4)
       }
 
@@ -540,7 +540,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
           node = createNode(c1.contractId, c1.contractInstance, signatories = Set(submitter)),
           created = Seq(c1),
         )
-        val actual = packageIdsOfActionDescription(view, implicitly[NamedLoggingContext])
+        val actual = viewPackageIds(view, implicitly[NamedLoggingContext])
         actual shouldBe Set(p1)
       }
 
@@ -556,15 +556,15 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
           resolvedKeys = Map(keyOf(c5) -> FreeKey(Set(submitter))(LfTransactionVersion.maxVersion)),
           packagePreference = Set(p6),
         )
-        val actual = packageIdsOfActionDescription(view, implicitly[NamedLoggingContext])
-        actual shouldBe Set(p2, p6)
+        val actual = viewPackageIds(view, implicitly[NamedLoggingContext])
+        actual shouldBe Set(p2, p3, p4, p5, p6)
       }
 
       "support upgraded lookupByKey" in {
         val node =
           lookupByKeyNode(keyOf(c2), maintainers = Set(submitter), resolution = Some(c1.contractId))
         val view = mkView(node, seedO = None)
-        val actual = packageIdsOfActionDescription(view, implicitly[NamedLoggingContext])
+        val actual = viewPackageIds(view, implicitly[NamedLoggingContext])
         actual shouldBe Set(p2)
       }
 
@@ -576,10 +576,11 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
             signatories = Set(submitter),
             actingParties = Set(signatory),
             templateId = c2.contractInstance.unversioned.template,
+            interfaceId = Some(c3.contractInstance.unversioned.template),
           )
           val view = mkView(node, coreInputs = Seq(c1), seedO = None)
-          val actual = packageIdsOfActionDescription(view, implicitly[NamedLoggingContext])
-          actual shouldBe Set(p2)
+          val actual = viewPackageIds(view, implicitly[NamedLoggingContext])
+          actual shouldBe Set(p1, p2, p3)
         }
       }
 
@@ -589,7 +590,7 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
 
       "post-reinterpretation used package vetting" must {
 
-        "fail conformance if an un-vetted package is used" in {
+        "fail if an un-vetted package is used" in {
           val unexpectedPackageId = PackageId.assertFromString("unexpected-pkg")
           val example = factory.SingleCreate(seed = factory.deriveNodeSeed(0))
           val sut =
@@ -613,6 +614,38 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
             actual <- check(sut, viewsWithNoInputKeys(example.rootTransactionViewTrees)).value
           } yield {
             actual shouldBe expected
+          }
+        }
+
+        "fail if an un-vetted contract package is referenced" in {
+
+          val example: factory.UpgradedSingleExercise = factory.UpgradedSingleExercise(lfHash(0))
+
+          val sut = buildUnderTest(reinterpretExample(example))
+
+          val contractPackageId = example.contractInstance.unversioned.template.packageId
+
+          val snapshot: TopologySnapshot = TestingIdentityFactory(
+            TestingTopology()
+              .withTopology(Map(submitter -> submitterParticipant))
+              .withPackages(Seq(VettedPackages(submitterParticipant, Seq(upgradePackageId)))),
+            loggerFactory,
+            TestDomainParameters.defaultDynamic,
+          ).topologySnapshot()
+
+          check(sut, viewsWithNoInputKeys(example.rootTransactionViewTrees), snapshot).value map {
+            result =>
+              result shouldBe
+                Left(
+                  ErrorWithSubTransaction(
+                    NonEmpty(
+                      Seq,
+                      UnvettedPackages(Map(submitterParticipant -> Set(contractPackageId))),
+                    ),
+                    None,
+                    Seq.empty,
+                  )
+                )
           }
         }
       }

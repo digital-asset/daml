@@ -45,7 +45,7 @@ import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.{DomainAlias, LfKeyResolver, LfPartyId}
+import com.digitalasset.canton.{DomainAlias, LfKeyResolver, LfPackageId, LfPartyId}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -86,6 +86,7 @@ class DomainRouter(
       keyResolver: LfKeyResolver,
       transaction: LfSubmittedTransaction,
       explicitlyDisclosedContracts: ImmArray[ProcessedDisclosedContract],
+      contractPackages: Map[LfContractId, LfPackageId],
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransactionRoutingError, FutureUnlessShutdown[TransactionSubmitted]] =
@@ -137,6 +138,7 @@ class DomainRouter(
         domainIdResolver,
         contractRoutingParties,
         transactionMeta.optDomainId,
+        contractPackages,
       )
 
       domainSelector <- domainSelectorFactory.create(transactionData)

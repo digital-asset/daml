@@ -12,9 +12,23 @@
  */ -}}
 
 {{/* ---------------------------------------------------------
+  Nested template for method details
+  */ -}}
+{{define "TMethod"}}{{$method := . -}}
+
+{{$method.Description}}
+
+* Request: :ref:`{{$method.RequestLongType}} <{{$method.RequestFullType}}>`
+* Response: :ref:`{{$method.ResponseLongType}} <{{$method.ResponseFullType}}>`
+
+{{end}}{{/* end of TMethod */ -}}
+
+{{/* ---------------------------------------------------------
   Nested template for message details
   */ -}}
 {{define "TMessage"}}{{$message := . -}}
+
+{{$message.Description}}
 
 {{if not $message.HasFields -}}
 Message has no fields.
@@ -22,8 +36,10 @@ Message has no fields.
 {{else -}}
 {{range $message.Fields}}{{$field := . -}}
 
+.. _{{$message.FullName}}.{{$field.Name}}:
+
 ``{{if $field.IsOneof -}}oneof {{$field.OneofDecl}}.{{end -}}
-{{$field.Name}}`` : :ref:`{{$field.Type}} <{{$field.FullType}}>`
+{{$field.Name}}`` : :ref:`{{$field.LongType}} <{{$field.FullType}}>`
 {{- if len $field.Label}} ({{$field.Label}}){{end}}
 
 {{$field.Description}} {{if .DefaultValue}} Default: {{.DefaultValue}}{{end}}
@@ -36,6 +52,8 @@ Message has no fields.
   Nested template for enum details
   */ -}}
 {{define "TEnum"}}{{$enum:= .}}
+
+{{$enum.Description}}
 
 .. list-table::
    :header-rows: 0
@@ -67,6 +85,8 @@ for interacting with the gRPC-based Ledger API.
 
 ----
 
+.. _{{$file.Name}}:
+
 ``{{$file.Name}}``
 
 {{/*--------------------------------------
@@ -75,11 +95,11 @@ for interacting with the gRPC-based Ledger API.
 
 .. _{{$service.FullName}}:
 
---------------------------------------------------------------------------------------------
-{{$service.LongName}}
---------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+{{$service.LongName}}, |version {{$file.Package}}|
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-Service, |version {{$file.Package}}|: {{$service.Description}}
+{{$service.Description}}
 
 {{/*--------------------------------------
     Loop over all the methods in a service */ -}}
@@ -87,13 +107,10 @@ Service, |version {{$file.Package}}|: {{$service.Description}}
 
 .. _{{$service.FullName}}.{{$method.Name}}:
 
-{{$method.Name}}
-============================================================================================
+{{$method.Name}} method, |version {{$file.Package}}|
+========================================================================================================================================================================================================
 
-Method, |version {{$file.Package}}|: {{$method.Description}}
-
-* Request: :ref:`{{$method.RequestType}} <{{$method.RequestFullType}}>`
-* Response: :ref:`{{$method.ResponseType}} <{{$method.ResponseFullType}}>`
+{{template "TMethod" $method}}
 
 {{end}}{{/* end of $service.Methods */ -}}
 {{end}}{{/* end of $file.Services */ -}}
@@ -104,10 +121,8 @@ Method, |version {{$file.Package}}|: {{$method.Description}}
 
 .. _{{$message.FullName}}:
 
-{{$message.LongName}}
-============================================================================================
-
-Message, |version {{$file.Package}}|: {{$message.Description}}
+{{$message.LongName}} message, |version {{$file.Package}}|
+========================================================================================================================================================================================================
 
 {{template "TMessage" $message -}}
 
@@ -119,10 +134,8 @@ Message, |version {{$file.Package}}|: {{$message.Description}}
 
 .. _{{$enum.FullName}}:
 
-{{$enum.LongName}}
-============================================================================================
-
-Enum, |version {{$file.Package}}|: {{$enum.Description}}
+{{$enum.LongName}} enum, |version {{$file.Package}}|
+========================================================================================================================================================================================================
 
 {{template "TEnum" $enum}}
 
@@ -136,9 +149,9 @@ Enum, |version {{$file.Package}}|: {{$enum.Description}}
 
 .. _scalarvaluetypes:
 
---------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Scalar Value Types
---------------------------------------------------------------------------------------------
+--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 {{range .Scalars}}{{$scalar := .}}
 
@@ -168,6 +181,8 @@ Scalar Value Types
 {{/*--------------------------------------
     Display (v1) or (v2) with the Service names */}}
 .. |version com.daml.ledger.api.v1| replace:: v1
+.. |version com.daml.ledger.api.v1.testing| replace:: v1/testing
 .. |version com.daml.ledger.api.v1.admin| replace:: v1/admin
 .. |version com.daml.ledger.api.v2| replace:: v2
+.. |version com.daml.ledger.api.v2.testing| replace:: v2/testing
 .. |version com.daml.ledger.api.v2.admin| replace:: v2/admin
