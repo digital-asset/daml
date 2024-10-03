@@ -67,13 +67,13 @@ export async function activate(context: vscode.ExtensionContext) {
   let d1 = vscode.commands.registerCommand(
     "daml.showResource",
     (title, uri) => {
-      let vrPath = getVRFilePath(uri);
-      if (!vrPath) return;
+      let vrPathMb = getVRFilePath(uri);
+      if (!vrPathMb) return;
 
       // Need to normalize paths so that prefix comparison works on Windows,
       // where path separators can differ.
-      vrPath = path.normalize(vrPath);
-      let isPrefixOfVrPath = candidate =>
+      let vrPath: string = path.normalize(vrPathMb);
+      let isPrefixOfVrPath = (candidate: string) =>
         vrPath.startsWith(path.normalize(candidate) + path.sep);
 
       // Try to find a client for the virtual resource- if we can't, log to DevTools
