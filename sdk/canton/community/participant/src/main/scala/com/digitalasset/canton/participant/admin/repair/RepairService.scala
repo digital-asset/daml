@@ -40,14 +40,14 @@ import com.digitalasset.canton.logging.{
 }
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.PackageDependencyResolver
-import com.digitalasset.canton.participant.admin.repair.RepairService.ContractToAdd
+import com.digitalasset.canton.participant.admin.repair.RepairService.{ContractToAdd, DomainLookup}
 import com.digitalasset.canton.participant.domain.DomainAliasManager
 import com.digitalasset.canton.participant.event.RecordTime
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.participant.protocol.EngineController.EngineAbortStatus
 import com.digitalasset.canton.participant.protocol.RequestJournal.RequestState
 import com.digitalasset.canton.participant.store.*
-import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
+import com.digitalasset.canton.participant.topology.TopologyComponentFactory
 import com.digitalasset.canton.participant.util.DAMLe.ContractWithMetadata
 import com.digitalasset.canton.participant.util.{DAMLe, TimeOfChange}
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
@@ -96,13 +96,10 @@ final class RepairService(
     packageDependencyResolver: PackageDependencyResolver,
     damle: DAMLe,
     ledgerApiIndexer: Eval[LedgerApiIndexer],
-    val syncDomainPersistentStateManager: SyncDomainPersistentStateManager,
     aliasManager: DomainAliasManager,
     parameters: ParticipantNodeParameters,
     threadsAvailableForWriting: PositiveInt,
-    // TODO(i18695): attempt to unify these two for simplicity
-    isConnected: DomainId => Boolean,
-    isConnectedToAnyDomain: () => Boolean,
+    val domainLookup: DomainLookup,
     @VisibleForTesting
     private[canton] val executionQueue: SimpleExecutionQueue,
     protected val loggerFactory: NamedLoggerFactory,
@@ -124,7 +121,7 @@ final class RepairService(
     )
 
   private def domainNotConnected(domainId: DomainId): EitherT[Future, String, Unit] = EitherT.cond(
-    !isConnected(domainId),
+    !domainLookup.isConnected(domainId),
     (),
     s"Participant is still connected to domain $domainId",
   )
@@ -278,7 +275,7 @@ final class RepairService(
         )
       )
 
-      topologyFactory <- syncDomainPersistentStateManager
+      topologyFactory <- domainLookup
         .topologyFactoryFor(domainId)
         .toRight(s"No topology factory for domain $domainAlias")
         .toEitherT[Future]
@@ -1324,8 +1321,8 @@ final class RepairService(
       traceContext: TraceContext
   ): Either[String, SyncDomainPersistentState] =
     for {
-      dp <- syncDomainPersistentStateManager
-        .get(domainId)
+      dp <- domainLookup
+        .persistentStateFor(domainId)
         .toRight(log(s"Could not find $domainDescription"))
       _ <- Either.cond(
         !dp.isMemory,
@@ -1411,7 +1408,7 @@ final class RepairService(
   private def withRepairIndexer(code: FutureQueue[Traced[Update]] => EitherT[Future, String, Unit])(
       implicit traceContext: TraceContext
   ): EitherT[Future, String, Unit] =
-    if (isConnectedToAnyDomain()) {
+    if (domainLookup.isConnectedToAnyDomain) {
       EitherT.leftT[Future, Unit](
         "There are still domains connected. Please disconnect all domains."
       )
@@ -1527,5 +1524,15 @@ object RepairService {
       contract.contractSalt
         .map(DriverContractMetadata(_).toLfBytes(protocolVersion))
         .getOrElse(Bytes.Empty)
+  }
+
+  trait DomainLookup {
+    def isConnected(domainId: DomainId): Boolean
+
+    def isConnectedToAnyDomain: Boolean
+
+    def persistentStateFor(domainId: DomainId): Option[SyncDomainPersistentState]
+
+    def topologyFactoryFor(domainId: DomainId): Option[TopologyComponentFactory]
   }
 }

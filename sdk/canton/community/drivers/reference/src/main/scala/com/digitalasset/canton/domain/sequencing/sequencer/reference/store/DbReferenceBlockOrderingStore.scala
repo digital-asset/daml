@@ -13,7 +13,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.DbRef
 import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.ReferenceBlockOrderingStore.TimestampedBlock
 import com.digitalasset.canton.domain.sequencing.sequencer.reference.store.v1 as proto
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
-import com.digitalasset.canton.resource.DbStorage.Profile.{H2, Oracle, Postgres}
+import com.digitalasset.canton.resource.DbStorage.Profile.{H2, Postgres}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.store.db.DbDeserializationException
@@ -86,8 +86,6 @@ class DbReferenceBlockOrderingStore(
           sqlu"""merge into blocks (id, request, uuid)
                     values ($blockHeight, $tracedRequest, $uuid)
                       """
-        case _: Oracle =>
-          sys.error("reference sequencer does not support oracle database")
       },
       s"insert block with height $blockHeight",
     )
@@ -118,8 +116,6 @@ class DbReferenceBlockOrderingStore(
                               insert (id, request, uuid)
                               values (vals.new_id, $tracedRequest, $uuid)
                           """
-          case _: Oracle =>
-            sys.error("reference sequencer does not support oracle database")
         }).transactionally
           // serializable isolation level will avoid too much retrying due to key collisions
           .withTransactionIsolation(TransactionIsolation.Serializable),

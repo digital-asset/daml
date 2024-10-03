@@ -29,7 +29,7 @@ trait SyncDomainPersistentState extends NamedLogging with AutoCloseable {
 
   /** The crypto operations used on the domain */
   def pureCryptoApi: CryptoPureApi
-  def domainId: IndexedDomain
+  def indexedDomain: IndexedDomain
   def staticDomainParameters: StaticDomainParameters
   def enableAdditionalConsistencyChecks: Boolean
   def contractStore: ContractStore

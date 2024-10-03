@@ -27,7 +27,7 @@ class ActiveContractStoreTestInMemory
   "InMemoryActiveContractStore" should {
     behave like activeContractStore(
       ec =>
-        new InMemoryActiveContractStore(indexedStringStore, testedProtocolVersion, loggerFactory)(
+        new InMemoryActiveContractStore(indexedStringStore, loggerFactory)(
           ec
         ),
       ec => new InMemoryContractStore(loggerFactory)(ec),

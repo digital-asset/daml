@@ -15,7 +15,7 @@ import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
 import com.digitalasset.canton.participant.store.{AcsInspection, SyncDomainPersistentState}
 import com.digitalasset.canton.participant.topology.ParticipantTopologyValidation
-import com.digitalasset.canton.protocol.{StaticDomainParameters, TargetDomainId}
+import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.DbSequencedEventStore
 import com.digitalasset.canton.store.memory.InMemorySendTrackerStore
@@ -38,7 +38,7 @@ import scala.concurrent.ExecutionContext
 
 class DbSyncDomainPersistentState(
     participantId: ParticipantId,
-    override val domainId: IndexedDomain,
+    override val indexedDomain: IndexedDomain,
     val staticDomainParameters: StaticDomainParameters,
     clock: Clock,
     storage: DbStorage,
@@ -66,9 +66,8 @@ class DbSyncDomainPersistentState(
   val contractStore: DbContractStore =
     new DbContractStore(
       storage,
-      domainId,
+      indexedDomain,
       staticDomainParameters.protocolVersion,
-      batching.maxItemsInSqlClause,
       caching.contractStore,
       dbQueryBatcherConfig = batching.aggregator,
       insertBatchAggregatorConfig = batching.aggregator,
@@ -77,7 +76,8 @@ class DbSyncDomainPersistentState(
     )
   val reassignmentStore: DbReassignmentStore = new DbReassignmentStore(
     storage,
-    TargetDomainId(domainId.item),
+    indexedDomain,
+    indexedStringStore,
     TargetProtocolVersion(staticDomainParameters.protocolVersion),
     pureCryptoApi,
     futureSupervisor,
@@ -88,26 +88,23 @@ class DbSyncDomainPersistentState(
   val activeContractStore: DbActiveContractStore =
     new DbActiveContractStore(
       storage,
-      domainId,
+      indexedDomain,
       enableAdditionalConsistencyChecks,
-      batching.maxItemsInSqlClause,
       parameters.stores.journalPruning.toInternal,
       indexedStringStore,
-      staticDomainParameters.protocolVersion,
       timeouts,
       loggerFactory,
     )
   val sequencedEventStore = new DbSequencedEventStore(
     storage,
-    domainId,
+    indexedDomain,
     staticDomainParameters.protocolVersion,
     timeouts,
     loggerFactory,
   )
   val requestJournalStore: DbRequestJournalStore = new DbRequestJournalStore(
-    domainId,
+    indexedDomain,
     storage,
-    batching.maxItemsInSqlClause,
     insertBatchAggregatorConfig = batching.aggregator,
     replaceBatchAggregatorConfig = batching.aggregator,
     timeouts,
@@ -115,7 +112,7 @@ class DbSyncDomainPersistentState(
   )
   val acsCommitmentStore = new DbAcsCommitmentStore(
     storage,
-    domainId,
+    indexedDomain,
     staticDomainParameters.protocolVersion,
     timeouts,
     futureSupervisor,
@@ -124,14 +121,14 @@ class DbSyncDomainPersistentState(
   )
 
   val parameterStore: DbDomainParameterStore =
-    new DbDomainParameterStore(domainId.item, storage, timeouts, loggerFactory)
+    new DbDomainParameterStore(indexedDomain.domainId, storage, timeouts, loggerFactory)
   // TODO(i5660): Use the db-based send tracker store
   val sendTrackerStore = new InMemorySendTrackerStore()
 
   val submissionTrackerStore =
     new DbSubmissionTrackerStore(
       storage,
-      domainId,
+      indexedDomain,
       parameters.stores.journalPruning.toInternal,
       timeouts,
       loggerFactory,
@@ -140,7 +137,7 @@ class DbSyncDomainPersistentState(
   override val topologyStore =
     new DbTopologyStore(
       storage,
-      DomainStore(domainId.item),
+      DomainStore(indexedDomain.domainId),
       timeouts,
       loggerFactory,
     )
@@ -171,7 +168,7 @@ class DbSyncDomainPersistentState(
         currentlyVettedPackages,
         nextPackageIds,
         packageDependencyResolver,
-        acsInspections = () => Map(domainId.domainId -> acsInspection),
+        acsInspections = () => Map(indexedDomain.domainId -> acsInspection),
         forceFlags,
       )
 
@@ -184,7 +181,7 @@ class DbSyncDomainPersistentState(
       checkCannotDisablePartyWithActiveContracts(
         partyId,
         forceFlags,
-        acsInspections = () => Map(domainId.domainId -> acsInspection),
+        acsInspections = () => Map(indexedDomain.domainId -> acsInspection),
       )
   }
 
@@ -206,5 +203,5 @@ class DbSyncDomainPersistentState(
   override def isMemory: Boolean = false
 
   override def acsInspection: AcsInspection =
-    new AcsInspection(domainId.domainId, activeContractStore, contractStore, ledgerApiStore)
+    new AcsInspection(indexedDomain.domainId, activeContractStore, contractStore, ledgerApiStore)
 }

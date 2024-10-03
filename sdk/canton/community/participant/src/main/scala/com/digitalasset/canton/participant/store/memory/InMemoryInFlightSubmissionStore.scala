@@ -205,7 +205,7 @@ class InMemoryInFlightSubmissionStore(override protected val loggerFactory: Name
   ): Future[Option[InFlightSubmission[SubmissionSequencingInfo]]] =
     Future.successful {
       inFlight.collectFirst {
-        case (changeIdHash, inFlight)
+        case (_changeIdHash, inFlight)
             if inFlight.submissionDomain == domainId && inFlight.messageId == messageId =>
           inFlight
       }

@@ -284,7 +284,6 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
     queryForTransactions(mappingProposalsAndPreviousFilter, "inspect")
   }
 
-  @SuppressWarnings(Array("com.digitalasset.canton.SlickString"))
   override def inspectKnownParties(
       asOfExclusive: CantonTimestamp,
       filterParty: String,
@@ -618,28 +617,18 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       val representativeProtocolVersion = signedTx.transaction.representativeProtocolVersion
       val hashOfSignatures = signedTx.hashOfSignatures.toLengthLimitedHexString
 
-      storage.profile match {
-        case _: DbStorage.Profile.Postgres | _: DbStorage.Profile.H2 =>
-          sql"""($transactionStoreIdName, $sequencedTs, $validFrom, $validUntil, $transactionType, $namespace,
-           $identifier, $mappingHash, $serial, $operation, $signedTx, $txHash, $isProposal, $reason, $representativeProtocolVersion, $hashOfSignatures)"""
-        case _: DbStorage.Profile.Oracle =>
-          throw new IllegalStateException("Oracle not supported by daml 3.0 yet")
-      }
+      sql"""($transactionStoreIdName, $sequencedTs, $validFrom, $validUntil, $transactionType, $namespace,
+            $identifier, $mappingHash, $serial, $operation, $signedTx, $txHash, $isProposal, $reason, $representativeProtocolVersion, $hashOfSignatures)"""
     }
 
-    storage.profile match {
-      case _: DbStorage.Profile.Postgres | _: DbStorage.Profile.H2 =>
-        (sql"""INSERT INTO common_topology_transactions (store_id, sequenced, valid_from, valid_until, transaction_type, namespace,
+    (sql"""INSERT INTO common_topology_transactions (store_id, sequenced, valid_from, valid_until, transaction_type, namespace,
                   identifier, mapping_key_hash, serial_counter, operation, instance, tx_hash, is_proposal, rejection_reason, representative_protocol_version, hash_of_signatures) VALUES""" ++
-          transactions
-            .map(sqlTransactionParameters)
-            .toList
-            .intercalate(sql", ")
-          ++ sql" ON CONFLICT DO NOTHING" // idempotency-"conflict" based on common_topology_transactions unique constraint
-        ).asUpdate
-      case _: DbStorage.Profile.Oracle =>
-        throw new IllegalStateException("Oracle not supported by daml 3.0 yet")
-    }
+      transactions
+        .map(sqlTransactionParameters)
+        .toList
+        .intercalate(sql", ")
+      ++ sql" ON CONFLICT DO NOTHING" // idempotency-"conflict" based on common_topology_transactions unique constraint
+    ).asUpdate
   }
 
   // Helper to break up large uid-filters into batches to limit the size of sql "in-clauses".
@@ -832,7 +821,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
                   set
                     watermark_ts = $timestamp
                  """
-      case _: DbStorage.Profile.H2 | _: DbStorage.Profile.Oracle =>
+      case _: DbStorage.Profile.H2 =>
         sqlu"""merge into common_topology_dispatching
                   using dual
                   on (store_id = $transactionStoreIdName)
@@ -861,7 +850,6 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
     case None => sql" AND valid_until is NULL"
   }
 
-  @SuppressWarnings(Array("com.digitalasset.canton.SlickString"))
   private def getIdFilter(
       idFilter: Option[String]
   ): SQLActionBuilderChain =
@@ -870,7 +858,6 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       case _ => sql""
     }
 
-  @SuppressWarnings(Array("com.digitalasset.canton.SlickString"))
   private def getNamespaceFilter(namespaceFilter: Option[String]): SQLActionBuilderChain =
     namespaceFilter match {
       case Some(value) if value.nonEmpty => sql" AND namespace LIKE ${value + "%"}"

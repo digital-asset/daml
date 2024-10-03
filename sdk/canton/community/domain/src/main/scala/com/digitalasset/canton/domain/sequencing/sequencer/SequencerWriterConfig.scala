@@ -7,7 +7,6 @@ import cats.syntax.option.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
-import com.digitalasset.canton.config.RequireTypes.PositiveNumeric
 
 sealed trait CommitMode {
   private[sequencer] val postgresSettings: NonEmpty[Seq[String]]
@@ -41,7 +40,6 @@ object CommitMode {
   * @param eventWriteBatchMaxSize max event batch size to flush to the database.
   * @param eventWriteBatchMaxDuration max duration to collect events for a batch before triggering a write.
   * @param commitMode optional commit mode that if set will be validated to ensure that the connection/db settings have been configured. Defaults to [[CommitMode.Synchronous]].
-  * @param maxSqlInListSize will limit the number of items in a SQL in clause. useful for databases where this may have a low limit (e.g. Oracle).
   * @param checkpointInterval an interval at which to generate sequencer counter checkpoints for all members.
   */
 sealed trait SequencerWriterConfig {
@@ -55,7 +53,6 @@ sealed trait SequencerWriterConfig {
         eventWriteBatchMaxSize: Int,
         eventWriteBatchMaxDuration: NonNegativeFiniteDuration,
         commitModeValidation: Option[CommitMode],
-        maxSqlInListSize: PositiveNumeric[Int],
         checkpointInterval: NonNegativeFiniteDuration,
     ): SequencerWriterConfig
   } =>
@@ -68,7 +65,6 @@ sealed trait SequencerWriterConfig {
   val eventWriteBatchMaxSize: Int
   val eventWriteBatchMaxDuration: NonNegativeFiniteDuration
   val commitModeValidation: Option[CommitMode]
-  val maxSqlInListSize: PositiveNumeric[Int]
 
   /** how frequently to generate counter checkpoints for all members */
   val checkpointInterval: NonNegativeFiniteDuration
@@ -82,7 +78,6 @@ sealed trait SequencerWriterConfig {
       eventWriteBatchMaxSize: Int = this.eventWriteBatchMaxSize,
       eventWriteBatchMaxDuration: NonNegativeFiniteDuration = this.eventWriteBatchMaxDuration,
       commitModeValidation: Option[CommitMode] = this.commitModeValidation,
-      maxSqlInListSize: PositiveNumeric[Int] = this.maxSqlInListSize,
       checkpointInterval: NonNegativeFiniteDuration = this.checkpointInterval,
   ): SequencerWriterConfig =
     copy(
@@ -94,7 +89,6 @@ sealed trait SequencerWriterConfig {
       eventWriteBatchMaxSize,
       eventWriteBatchMaxDuration,
       commitModeValidation,
-      maxSqlInListSize,
       checkpointInterval,
     )
 }
@@ -106,9 +100,6 @@ sealed trait SequencerWriterConfig {
 object SequencerWriterConfig {
   val DefaultPayloadTimestampMargin: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.ofSeconds(60L)
-  // the Oracle limit is likely 1000 however this is currently only used for payload lookups on conflicts (savePayloads)
-  // so just set a bit above the default max payload batch size (50)
-  val DefaultMaxSqlInListSize: PositiveNumeric[Int] = PositiveNumeric.tryCreate(250)
 
   val DefaultCheckpointInterval: config.NonNegativeFiniteDuration =
     config.NonNegativeFiniteDuration.ofSeconds(30)
@@ -127,7 +118,6 @@ object SequencerWriterConfig {
       override val eventWriteBatchMaxDuration: NonNegativeFiniteDuration =
         NonNegativeFiniteDuration.ofMillis(20),
       override val commitModeValidation: Option[CommitMode] = CommitMode.Default.some,
-      override val maxSqlInListSize: PositiveNumeric[Int] = DefaultMaxSqlInListSize,
       override val checkpointInterval: NonNegativeFiniteDuration = DefaultCheckpointInterval,
   ) extends SequencerWriterConfig
 
@@ -146,7 +136,6 @@ object SequencerWriterConfig {
       override val eventWriteBatchMaxDuration: NonNegativeFiniteDuration =
         NonNegativeFiniteDuration.ofMillis(5),
       override val commitModeValidation: Option[CommitMode] = CommitMode.Default.some,
-      override val maxSqlInListSize: PositiveNumeric[Int] = DefaultMaxSqlInListSize,
       override val checkpointInterval: NonNegativeFiniteDuration = DefaultCheckpointInterval,
   ) extends SequencerWriterConfig
 }

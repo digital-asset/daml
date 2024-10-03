@@ -202,13 +202,6 @@ final case class ReassignmentId(sourceDomain: SourceDomainId, unassignmentTs: Ca
 }
 
 object ReassignmentId {
-  implicit val reassignmentIdGetResult: GetResult[ReassignmentId] = GetResult { r =>
-    ReassignmentId(
-      SourceDomainId(GetResult[DomainId].apply(r)),
-      GetResult[CantonTimestamp].apply(r),
-    )
-  }
-
   def fromProtoV30(reassignmentIdP: v30.ReassignmentId): ParsingResult[ReassignmentId] =
     reassignmentIdP match {
       case v30.ReassignmentId(originDomainP, requestTimestampP) =>

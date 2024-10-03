@@ -93,7 +93,7 @@ trait ReassignmentStore extends ReassignmentLookup {
     *
     * @param timeOfCompletion Provides the request counter and activeness time of the committed assignment request.
     */
-  def completeReasignment(reassignmentId: ReassignmentId, timeOfCompletion: TimeOfChange)(implicit
+  def completeReassignment(reassignmentId: ReassignmentId, timeOfCompletion: TimeOfChange)(implicit
       traceContext: TraceContext
   ): CheckedT[Future, Nothing, ReassignmentStoreError, Unit]
 
@@ -105,10 +105,10 @@ trait ReassignmentStore extends ReassignmentLookup {
   ): Future[Unit]
 
   /** Removes all completions of reassignments that have been triggered by requests with at least the given counter.
-    * This method must not be called concurrently with [[completeReasignment]], but may be called concurrently with
+    * This method must not be called concurrently with [[completeReassignment]], but may be called concurrently with
     * [[addReassignment]] and [[addUnassignmentResult]].
     *
-    * Therefore, this method need not be linearizable w.r.t. [[completeReasignment]].
+    * Therefore, this method need not be linearizable w.r.t. [[completeReassignment]].
     * For example, if two requests `rc1` complete two reassignments while [[deleteCompletionsSince]] is running for
     * some `rc <= rc1, rc2`, then there are no guarantees which of the completions of `rc1` and `rc2` remain.
     */

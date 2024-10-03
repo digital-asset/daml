@@ -6,10 +6,7 @@ package com.digitalasset.canton.participant.protocol.submission
 import cats.Functor
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.participant.store.InFlightSubmissionStore.{
-  InFlightByMessageId,
-  InFlightBySequencingInfo,
-}
+import com.digitalasset.canton.participant.store.InFlightSubmissionStore.InFlightByMessageId
 import com.digitalasset.canton.protocol.RootHash
 import com.digitalasset.canton.sequencing.protocol.MessageId
 import com.digitalasset.canton.store.db.DbSerializationException
@@ -57,11 +54,6 @@ final case class InFlightSubmission[+SequencingInfo <: SubmissionSequencingInfo]
   /** Whether the submission's sequencing has been observed */
   def isSequenced: Boolean = sequencingInfo.isSequenced
 
-  def mapSequencingInfo[B <: SubmissionSequencingInfo](
-      f: SequencingInfo => B
-  ): InFlightSubmission[B] =
-    setSequencingInfo(f(sequencingInfo))
-
   def traverseSequencingInfo[F[_], B <: SubmissionSequencingInfo](f: SequencingInfo => F[B])(
       implicit F: Functor[F]
   ): F[InFlightSubmission[B]] =
@@ -91,12 +83,8 @@ final case class InFlightSubmission[+SequencingInfo <: SubmissionSequencingInfo]
   )
 
   def referenceByMessageId: InFlightByMessageId = InFlightByMessageId(submissionDomain, messageId)
-
-  def referenceBySequencingInfo(implicit
-      ev: SequencingInfo <:< SequencedSubmission
-  ): InFlightBySequencingInfo =
-    InFlightBySequencingInfo(submissionDomain, ev(sequencingInfo))
 }
+
 object InFlightSubmission {
   implicit def getResultInFlightSubmission[SequencingInfo <: SubmissionSequencingInfo: GetResult](
       implicit getResultTraceContext: GetResult[SerializableTraceContext]

@@ -28,7 +28,6 @@ object LedgerApiJdbcUrl {
   private val userKey = "user"
   private val passwordKey = "password"
   private val databaseNameKey = "databaseName"
-  private val currentSchema = "currentSchema"
 
   private val nonParametersProperties = Set(
     serverNameKey,
@@ -173,10 +172,6 @@ object LedgerApiJdbcUrl {
     // these options are case in-sensitive
     def isDefined(key: String): Boolean =
       options.keySet.find(_.equalsIgnoreCase(key)).fold(false)(_ => true)
-
-    def replace(key: String, value: String): UrlBuilder =
-      // remove any existing values with this key and add the provided
-      copy(options = options.filterNot(_._1.equalsIgnoreCase(key)) + (key -> value))
 
     def addIfMissing(key: String, defaultValue: => Option[String]): UrlBuilder =
       if (isDefined(key)) this

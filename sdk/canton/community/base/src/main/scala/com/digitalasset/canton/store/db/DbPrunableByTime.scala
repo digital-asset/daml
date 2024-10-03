@@ -13,7 +13,7 @@ import slick.jdbc.SetParameter
 
 import scala.concurrent.{ExecutionContext, Future}
 
-/** Mixin for an db store that stores the latest point in time when
+/** Mixin for a db store that stores the latest point in time when
   * pruning has started or finished.
   *
   * The pruning method of the store must use [[advancePruningTimestamp]] to signal the start end completion
@@ -35,7 +35,7 @@ trait DbPrunableByTime extends PrunableByTime {
     */
   protected[this] def pruning_status_table: String
 
-  protected[this] def partitionColumn: String = "domain_id"
+  protected[this] def partitionColumn: String = "domain_idx"
 
   protected[this] def partitionKey: IndexedDomain
 
@@ -85,24 +85,6 @@ trait DbPrunableByTime extends PrunableByTime {
             update set phase = CAST($phase as pruning_phase), ts = $timestamp
             where pruning_status.ts < $timestamp
           """
-      case (_: DbStorage.Profile.Oracle, PruningPhase.Started) =>
-        sqlu"""
-          merge into #$pruning_status_table pruning_status
-          using (
-            select
-              $partitionKey partitionKey,
-              $phase phase,
-              $timestamp timestamp
-              from
-                dual
-          ) val
-          on (pruning_status.#$partitionColumn = val.partitionKey)
-            when matched then
-                update set pruning_status.phase = val.phase, pruning_status.ts = val.timestamp
-                where pruning_status.ts < val.timestamp
-            when not matched then
-              insert (#$partitionColumn, phase, ts) values (val.partitionKey, val.phase, val.timestamp)
-          """
     }
 
     logger.debug(
@@ -129,12 +111,12 @@ trait DbPrunableByTime extends PrunableByTime {
   }
 }
 
-/** Specialized [[DbPrunableByTime]] that uses the [[com.digitalasset.canton.topology.DomainId]] as discriminator */
+/** Specialized [[DbPrunableByTime]] that uses the domain as discriminator */
 trait DbPrunableByTimeDomain extends DbPrunableByTime {
   this: DbStore =>
 
-  protected[this] def domainId: IndexedDomain
+  protected[this] def indexedDomain: IndexedDomain
 
-  override protected[this] def partitionKey: IndexedDomain = domainId
+  override protected[this] def partitionKey: IndexedDomain = indexedDomain
 
 }

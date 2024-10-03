@@ -19,7 +19,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class DbSubmissionTrackerStore(
     override protected val storage: DbStorage,
-    override val domainId: IndexedDomain,
+    override val indexedDomain: IndexedDomain,
     batchingParametersConfig: PrunableByTimeParameters,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
@@ -43,47 +43,19 @@ class DbSubmissionTrackerStore(
 
     val dbRequestId = requestId.unwrap
 
-    val insertQuery = storage.profile match {
-      case _: DbStorage.Profile.H2 | _: DbStorage.Profile.Postgres =>
-        sqlu"""insert into par_fresh_submitted_transaction(
-                 domain_id,
+    val insertQuery =
+      sqlu"""insert into par_fresh_submitted_transaction(
+                 domain_idx,
                  root_hash_hex,
                  request_id,
                  max_sequencing_time)
-               values ($domainId, $rootHash, $dbRequestId, $maxSequencingTime)
-               on conflict do nothing"""
-
-      case _: DbStorage.Profile.Oracle =>
-        sqlu"""merge into par_fresh_submitted_transaction
-                 using (
-                   select
-                     $domainId domain_id,
-                     $rootHash root_hash_hex,
-                     $dbRequestId request_id,
-                     $maxSequencingTime max_sequencing_time
-                   from dual
-                 ) to_insert
-                 on (fresh_submitted_transaction.domain_id = to_insert.domain_id
-                     and par_fresh_submitted_transaction.root_hash_hex = to_insert.root_hash_hex)
-                 when not matched then
-                   insert (
-                     domain_id,
-                     root_hash_hex,
-                     request_id,
-                     max_sequencing_time
-                   ) values (
-                     to_insert.domain_id,
-                     to_insert.root_hash_hex,
-                     to_insert.request_id,
-                     to_insert.max_sequencing_time
-                   )
-          """
-    }
+             values ($indexedDomain, $rootHash, $dbRequestId, $maxSequencingTime)
+             on conflict do nothing"""
 
     val selectQuery =
       sql"""select count(*)
               from par_fresh_submitted_transaction
-              where domain_id=$domainId and root_hash_hex=$rootHash and request_id=$dbRequestId"""
+              where domain_idx=$indexedDomain and root_hash_hex=$rootHash and request_id=$dbRequestId"""
         .as[Int]
         .headOption
 
@@ -104,7 +76,7 @@ class DbSubmissionTrackerStore(
   )(implicit traceContext: TraceContext): Future[Int] = {
     val deleteQuery =
       sqlu"""delete from par_fresh_submitted_transaction
-           where domain_id = $domainId and max_sequencing_time <= $beforeAndIncluding"""
+           where domain_idx = $indexedDomain and max_sequencing_time <= $beforeAndIncluding"""
 
     storage.queryAndUpdate(deleteQuery, "prune par_fresh_submitted_transaction")
   }
@@ -130,7 +102,7 @@ class DbSubmissionTrackerStore(
   )(implicit traceContext: TraceContext): Future[Unit] = {
     val deleteQuery =
       sqlu"""delete from par_fresh_submitted_transaction
-         where domain_id = $domainId and request_id >= $including"""
+         where domain_idx = $indexedDomain and request_id >= $including"""
 
     storage.update_(deleteQuery, "cleanup par_fresh_submitted_transaction")
   }

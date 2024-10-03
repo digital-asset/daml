@@ -30,12 +30,7 @@ import com.digitalasset.canton.protocol.{DynamicDomainParametersWithValidity, Re
 import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.client.RichSequencerClient
 import com.digitalasset.canton.sequencing.handlers.DiscardIgnoredEvents
-import com.digitalasset.canton.sequencing.protocol.{
-  ClosedEnvelope,
-  Envelope,
-  OpenEnvelope,
-  SequencedEvent,
-}
+import com.digitalasset.canton.sequencing.protocol.{ClosedEnvelope, OpenEnvelope, SequencedEvent}
 import com.digitalasset.canton.store.CursorPrehead.SequencerCounterCursorPrehead
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.store.{SequencedEventStore, SequencerCounterTrackerStore}
@@ -243,12 +238,9 @@ private[mediator] class Mediator(
     } yield ()
   }
 
-  private def handler: ApplicationHandler[Lambda[
-    `+X <: Envelope[_]` => Traced[Seq[OrdinarySequencedEvent[X]]]
-  ], ClosedEnvelope] =
-    new ApplicationHandler[Lambda[
-      `+X <: Envelope[_]` => Traced[Seq[OrdinarySequencedEvent[X]]]
-    ], ClosedEnvelope] {
+  private def handler: ApplicationHandler[OrdinaryEnvelopeBox, ClosedEnvelope] =
+    new ApplicationHandler[OrdinaryEnvelopeBox, ClosedEnvelope] {
+
       override def name: String = s"mediator-$mediatorId"
 
       override def subscriptionStartsAt(

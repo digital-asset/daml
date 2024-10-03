@@ -193,7 +193,6 @@ class BftOrderingMetrics(
     object labels {
       val Tag: String = "tag"
       val Sender: String = "sender"
-      val ForSequencer: String = "for-sequencer"
 
       object outcome {
         val Key: String = "outcome"

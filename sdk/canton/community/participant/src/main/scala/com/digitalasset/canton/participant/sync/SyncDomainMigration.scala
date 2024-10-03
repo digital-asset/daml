@@ -277,8 +277,8 @@ class SyncDomainMigration(
         s"About to prune deactivated sync domain $domainId sequenced event store'"
       )
 
-      repair.syncDomainPersistentStateManager
-        .get(domainId)
+      repair.domainLookup
+        .persistentStateFor(domainId)
         .fold(Future.unit)(_.sequencedEventStore.delete(SequencerCounter.Genesis))
     }
 

@@ -104,10 +104,7 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
           EitherTUtil.unit.mapK(FutureUnlessShutdown.outcomeK)
         } else {
           topologyDispatcher
-            .trustDomain(
-              domainId,
-              sequencerAggregatedInfo.staticDomainParameters,
-            )
+            .trustDomain(domainId)
             .leftMap(
               DomainRegistryError.ConfigurationErrors.CanNotIssueDomainTrustCertificate.Error(_)
             )

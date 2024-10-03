@@ -10,7 +10,7 @@ import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.store.ParticipantPruningStore
 import com.digitalasset.canton.participant.store.ParticipantPruningStore.ParticipantPruningStatus
-import com.digitalasset.canton.resource.DbStorage.Profile.{H2, Oracle, Postgres}
+import com.digitalasset.canton.resource.DbStorage.Profile.{H2, Postgres}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.tracing.TraceContext
 import slick.jdbc.GetResult
@@ -42,14 +42,6 @@ class DbParticipantPruningStore(
         sqlu"""merge into par_pruning_operation using dual on (name = $name)
                  when matched and (started_up_to_inclusive is null or started_up_to_inclusive < $upToInclusive) then
                    update set started_up_to_inclusive = $upToInclusive
-                 when not matched then
-                   insert (name, started_up_to_inclusive, completed_up_to_inclusive)
-                   values ($name, $upToInclusive, null)"""
-      case _: Oracle =>
-        sqlu"""merge into par_pruning_operation using dual on (name = $name)
-                 when matched then
-                   update set started_up_to_inclusive = $upToInclusive
-                   where started_up_to_inclusive is null or started_up_to_inclusive < $upToInclusive
                  when not matched then
                    insert (name, started_up_to_inclusive, completed_up_to_inclusive)
                    values ($name, $upToInclusive, null)"""

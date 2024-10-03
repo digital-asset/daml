@@ -9,6 +9,7 @@ import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.participant.store.ReassignmentStoreTest
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
+import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
 import com.digitalasset.canton.version.Reassignment.TargetProtocolVersion
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -23,10 +24,14 @@ trait DbReassignmentStoreTest extends AsyncWordSpec with BaseTest with Reassignm
   }
 
   "DbReassignmentStore" should {
+
+    val indexStore = new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 100)
+
     behave like reassignmentStore(domainId =>
       new DbReassignmentStore(
         storage,
         domainId,
+        indexStore,
         TargetProtocolVersion(testedProtocolVersion),
         new SymbolicPureCrypto,
         futureSupervisor,

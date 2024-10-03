@@ -23,7 +23,6 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.domain.DomainRegistryError
 import com.digitalasset.canton.participant.store.SyncDomainPersistentState
 import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
-import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
@@ -147,7 +146,7 @@ class ParticipantTopologyDispatcher(
     }
   })
 
-  def trustDomain(domainId: DomainId, parameters: StaticDomainParameters)(implicit
+  def trustDomain(domainId: DomainId)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] = {
     def alreadyTrustedInStore(

@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.store
 
 import cats.data.{EitherT, OptionT}
-import com.digitalasset.canton.config.RequireTypes.PositiveNumeric
 import com.digitalasset.canton.config.{BatchAggregatorConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -187,7 +186,6 @@ trait InFlightSubmissionStore extends AutoCloseable {
 object InFlightSubmissionStore {
   def apply(
       storage: Storage,
-      maxItemsInSqlInClause: PositiveNumeric[Int],
       registerBatchAggregatorConfig: BatchAggregatorConfig,
       releaseProtocolVersion: ReleaseProtocolVersion,
       timeouts: ProcessingTimeout,
@@ -199,7 +197,6 @@ object InFlightSubmissionStore {
     case jdbc: DbStorage =>
       new DbInFlightSubmissionStore(
         jdbc,
-        maxItemsInSqlInClause,
         registerBatchAggregatorConfig,
         releaseProtocolVersion,
         timeouts,

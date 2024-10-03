@@ -208,22 +208,12 @@ private[mediator] class DbFinalizedResponseStore(
       traceContext: TraceContext,
       callerCloseContext: CloseContext,
   ): FutureUnlessShutdown[Unit] = {
-    val insert = storage.profile match {
-      case _: DbStorage.Profile.Oracle =>
-        sqlu"""insert
-                     /*+  IGNORE_ROW_ON_DUPKEY_INDEX ( med_response_aggregations ( request_id ) ) */
-                     into med_response_aggregations(request_id, mediator_confirmation_request, version, verdict, request_trace_context)
-                     values (
-                       ${finalizedResponse.requestId},${finalizedResponse.request},${finalizedResponse.version},${finalizedResponse.verdict},
-                       ${SerializableTraceContext(finalizedResponse.requestTraceContext)}
-                     )"""
-      case _ =>
-        sqlu"""insert into med_response_aggregations(request_id, mediator_confirmation_request, version, verdict, request_trace_context)
-                     values (
-                       ${finalizedResponse.requestId},${finalizedResponse.request},${finalizedResponse.version},${finalizedResponse.verdict},
-                       ${SerializableTraceContext(finalizedResponse.requestTraceContext)}
-                     ) on conflict do nothing"""
-    }
+    val insert =
+      sqlu"""insert into med_response_aggregations(request_id, mediator_confirmation_request, version, verdict, request_trace_context)
+             values (
+               ${finalizedResponse.requestId},${finalizedResponse.request},${finalizedResponse.version},${finalizedResponse.verdict},
+               ${SerializableTraceContext(finalizedResponse.requestTraceContext)}
+             ) on conflict do nothing"""
 
     CloseContext.withCombinedContext(callerCloseContext, closeContext, timeouts, logger) {
       closeContext =>

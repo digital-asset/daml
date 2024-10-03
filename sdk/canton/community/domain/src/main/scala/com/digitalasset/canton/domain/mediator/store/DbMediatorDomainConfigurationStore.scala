@@ -79,26 +79,6 @@ class DbMediatorDomainConfigurationStore(
                 domain_id = excluded.domain_id,
                 static_domain_parameters = excluded.static_domain_parameters,
                 sequencer_connection = excluded.sequencer_connection"""
-          case _: DbStorage.Profile.Oracle =>
-            sqlu"""merge into mediator_domain_configuration mdc
-                      using (
-                        select
-                          $domainId domain_id,
-                          $domainParameters static_domain_parameters,
-                          $sequencerConnection sequencer_connection
-                          from dual
-                          ) excluded
-                      on (mdc."LOCK" = 'X')
-                       when matched then
-                        update set
-                          mdc.domain_id = excluded.domain_id,
-                          mdc.static_domain_parameters = excluded.static_domain_parameters,
-                          mdc.sequencer_connection = excluded.sequencer_connection
-                       when not matched then
-                        insert (domain_id, static_domain_parameters, sequencer_connection)
-                        values (excluded.domain_id, excluded.static_domain_parameters, excluded.sequencer_connection)
-                     """
-
         },
         "save-configuration",
       )

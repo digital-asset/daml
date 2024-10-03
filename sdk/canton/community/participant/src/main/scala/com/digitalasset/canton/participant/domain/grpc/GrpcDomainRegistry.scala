@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.domain.grpc
 
-import cats.Eval
 import cats.instances.future.*
 import cats.syntax.either.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
@@ -17,10 +16,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.domain.*
 import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
-import com.digitalasset.canton.participant.store.{
-  ParticipantSettingsLookup,
-  SyncDomainPersistentState,
-}
+import com.digitalasset.canton.participant.store.SyncDomainPersistentState
 import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
 import com.digitalasset.canton.participant.topology.{
   LedgerServerPartyNotifier,
@@ -56,7 +52,6 @@ import scala.concurrent.ExecutionContextExecutor
 class GrpcDomainRegistry(
     val participantId: ParticipantId,
     syncDomainPersistentStateManager: SyncDomainPersistentStateManager,
-    participantSettings: Eval[ParticipantSettingsLookup],
     topologyDispatcher: ParticipantTopologyDispatcher,
     cryptoApiProvider: SyncCryptoApiProvider,
     cryptoConfig: CryptoConfig,

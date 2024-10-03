@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.pruning
 
-import com.digitalasset.canton.config.CantonRequireTypes.String100
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.store.db.DbSerializationException
@@ -11,10 +10,6 @@ import slick.jdbc.{GetResult, SetParameter}
 
 sealed trait PruningPhase extends Product with Serializable with PrettyPrinting {
   def kind: String
-  // lazy val so that `kind` is initialized first in the subclasses
-  final lazy val toDbPrimitive: String100 =
-    // The Oracle DB schemas set a limit of 100 characters, Postgres and H2 map it to an enum
-    String100.tryCreate(kind)
   def index: Int
 
   override protected def pretty: Pretty[PruningPhase] = prettyOfParam(_.kind.unquoted)
@@ -41,8 +36,7 @@ object PruningPhase {
 
   implicit val getResultPruningPhase: GetResult[PruningPhase] =
     GetResult(r => PruningPhase.tryFromDbPrimitive(r.nextString()))
-  implicit val setParameterPruningPhase: SetParameter[PruningPhase] = (d, pp) =>
-    pp >> d.toDbPrimitive
+  implicit val setParameterPruningPhase: SetParameter[PruningPhase] = (d, pp) => pp >> d.kind
 }
 
 final case class PruningStatus(

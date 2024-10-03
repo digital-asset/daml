@@ -90,7 +90,7 @@ class DbPartyMetadataStore(
                     effective_at = $effectiveTimestamp,
                     notified = false
                  """
-      case _: DbStorage.Profile.H2 | _: DbStorage.Profile.Oracle =>
+      case _: DbStorage.Profile.H2 =>
         sqlu"""merge into common_party_metadata
                   using dual
                   on (party_id = $partyId)

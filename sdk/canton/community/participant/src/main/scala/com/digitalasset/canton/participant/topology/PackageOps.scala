@@ -91,7 +91,7 @@ class PackageOpsImpl(
             .packageUsage(packageId, state.contractStore)
             .map(opt =>
               opt.fold[Either[PackageInUse, Unit]](Right(()))(contractId =>
-                Left(new PackageInUse(packageId, contractId, state.domainId.domainId))
+                Left(new PackageInUse(packageId, contractId, state.indexedDomain.domainId))
               )
             )
         )

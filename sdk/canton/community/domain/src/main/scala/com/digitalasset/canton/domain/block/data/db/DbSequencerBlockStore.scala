@@ -21,7 +21,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
   SequencerInitialState,
 }
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.resource.DbStorage.Profile.{H2, Oracle, Postgres}
 import com.digitalasset.canton.resource.IdempotentInsert.insertVerifyingConflicts
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.tracing.TraceContext
@@ -77,13 +76,9 @@ class DbSequencerBlockStore(
     )
 
   private def safeWaterMarkDBIO: DBIOAction[Option[CantonTimestamp], NoStream, Effect.Read] = {
-    val query = storage.profile match {
-      case _: H2 | _: Postgres =>
-        // TODO(#18401): Below only works for a single instance database sequencer
-        sql"select min(watermark_ts) from sequencer_watermarks"
-      case _: Oracle =>
-        sql"select min(watermark_ts) from sequencer_watermarks"
-    }
+    val query =
+      // TODO(#18401): Below only works for a single instance database sequencer
+      sql"select min(watermark_ts) from sequencer_watermarks"
     // `min` may return null that is wrapped into None
     query.as[Option[CantonTimestamp]].headOption.map(_.flatten)
   }
@@ -154,10 +149,9 @@ class DbSequencerBlockStore(
 
   private def updateBlockHeightDBIO(block: BlockInfo)(implicit traceContext: TraceContext) =
     insertVerifyingConflicts(
-      storage,
-      "seq_block_height ( height )",
-      sql"""seq_block_height (height, latest_event_ts, latest_sequencer_event_ts)
-            values (${block.height}, ${block.lastTs}, ${block.latestSequencerEventTimestamp})""",
+      sql"""insert into seq_block_height (height, latest_event_ts, latest_sequencer_event_ts)
+            values (${block.height}, ${block.lastTs}, ${block.latestSequencerEventTimestamp})
+            on conflict do nothing""".asUpdate,
       sql"select latest_event_ts, latest_sequencer_event_ts from seq_block_height where height = ${block.height}"
         .as[(CantonTimestamp, Option[CantonTimestamp])]
         .head,

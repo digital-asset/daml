@@ -35,17 +35,10 @@ class DbDomainParameterStore(
   )(implicit traceContext: TraceContext): Future[Unit] = {
     // We do not check equality of the parameters on the serialized format in the DB query because serialization may
     // be different even though the parameters are the same
-    val query = storage.profile match {
-      case _: DbStorage.Profile.Oracle =>
-        sqlu"""insert
-                 /*+  IGNORE_ROW_ON_DUPKEY_INDEX ( par_static_domain_parameters ( domain_id ) ) */
-                 into par_static_domain_parameters(domain_id, params)
-               values ($domainId, $newParameters)"""
-      case _ =>
-        sqlu"""insert into par_static_domain_parameters(domain_id, params)
-               values ($domainId, $newParameters)
-               on conflict do nothing"""
-    }
+    val query =
+      sqlu"""insert into par_static_domain_parameters(domain_id, params)
+             values ($domainId, $newParameters)
+             on conflict do nothing"""
 
     storage.update(query, functionFullName).flatMap { rowCount =>
       if (rowCount == 1) Future.unit

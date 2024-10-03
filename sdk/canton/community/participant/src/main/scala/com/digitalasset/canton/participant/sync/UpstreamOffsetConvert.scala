@@ -4,7 +4,8 @@
 package com.digitalasset.canton.participant.sync
 
 import cats.syntax.either.*
-import com.digitalasset.canton.participant.{GlobalOffset, LedgerSyncOffset}
+import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.daml.lf.data.{Bytes as LfBytes, Ref}
 import com.google.protobuf.ByteString
 
@@ -18,10 +19,10 @@ object UpstreamOffsetConvert {
   private val versionUpstreamOffsetsAsLong: Byte = 0
   private val longBasedByteLength: Int = 9 // One byte for the version plus 8 bytes for Long
 
-  def fromGlobalOffset(offset: GlobalOffset): LedgerSyncOffset =
+  def fromGlobalOffset(offset: GlobalOffset): Offset =
     fromGlobalOffset(offset.toLong)
 
-  def fromGlobalOffset(i: Long) = LedgerSyncOffset(
+  def fromGlobalOffset(i: Long) = Offset(
     LfBytes.fromByteString(
       ByteString.copyFrom(
         ByteBuffer
@@ -33,10 +34,10 @@ object UpstreamOffsetConvert {
     )
   )
 
-  def toGlobalOffset(offset: LedgerSyncOffset): Either[String, GlobalOffset] = {
+  def toGlobalOffset(offset: Offset): Either[String, GlobalOffset] = {
     val bytes = offset.bytes.toByteArray
     if (bytes.lengthCompare(longBasedByteLength) != 0) {
-      if (offset == LedgerSyncOffset.beforeBegin) {
+      if (offset == Offset.beforeBegin) {
         Left(s"Invalid canton offset: before ledger begin is not allowed")
       } else {
         Left(s"Invalid canton offset length: expected $longBasedByteLength, actual ${bytes.length}")
@@ -55,9 +56,9 @@ object UpstreamOffsetConvert {
   def toStringOffset(offset: GlobalOffset): String =
     fromGlobalOffset(offset).toHexString
 
-  def tryToLedgerSyncOffset(offset: String): LedgerSyncOffset =
+  def tryToLedgerSyncOffset(offset: String): Offset =
     toLedgerSyncOffset(offset).valueOr(err => throw new IllegalArgumentException(err))
 
-  def toLedgerSyncOffset(offset: String): Either[String, LedgerSyncOffset] =
-    Ref.HexString.fromString(offset).map(LedgerSyncOffset.fromHexString)
+  def toLedgerSyncOffset(offset: String): Either[String, Offset] =
+    Ref.HexString.fromString(offset).map(Offset.fromHexString)
 }

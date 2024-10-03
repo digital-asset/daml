@@ -79,18 +79,10 @@ class DbParticipantSettingsStore(
               maxSubmissionRate,
               maxSubmissionBurstFactor,
             ) = ResourceLimits.default
-            val query = storage.profile match {
-              case _: DbStorage.Profile.Postgres | _: DbStorage.Profile.H2 =>
-                sqlu"""insert into par_settings(client, max_infight_validation_requests, max_submission_rate, max_submission_burst_factor)
-                           values($client, $maxInflightValidationRequests, $maxSubmissionRate, $maxSubmissionBurstFactor)
-                           on conflict do nothing"""
-
-              case _: DbStorage.Profile.Oracle =>
-                sqlu"""merge into par_settings using dual on (1 = 1)
-                           when not matched then
-                             insert(client, max_infight_validation_requests, max_submission_rate, max_submission_burst_factor)
-                             values($client, $maxInflightValidationRequests, $maxSubmissionRate, $maxSubmissionBurstFactor)"""
-            }
+            val query =
+              sqlu"""insert into par_settings(client, max_infight_validation_requests, max_submission_rate, max_submission_burst_factor)
+                     values($client, $maxInflightValidationRequests, $maxSubmissionRate, $maxSubmissionBurstFactor)
+                     on conflict do nothing"""
             storage.update_(query, functionFullName)
 
           case _ => Future.unit
@@ -114,7 +106,7 @@ class DbParticipantSettingsStore(
         sqlu"""insert into par_settings(max_infight_validation_requests, max_submission_rate, max_submission_burst_factor, client) values($maxInflightValidationRequests, $maxSubmissionRate, $maxSubmissionBurstFactor, $client)
                    on conflict(client) do update set max_infight_validation_requests = $maxInflightValidationRequests, max_submission_rate = $maxSubmissionRate, max_submission_burst_factor = $maxSubmissionBurstFactor"""
 
-      case _: DbStorage.Profile.Oracle | _: DbStorage.Profile.H2 =>
+      case _: DbStorage.Profile.H2 =>
         sqlu"""merge into par_settings using dual on (1 = 1)
                  when matched then
                    update set max_infight_validation_requests = $maxInflightValidationRequests, max_submission_rate = $maxSubmissionRate, max_submission_burst_factor = $maxSubmissionBurstFactor
@@ -142,12 +134,6 @@ class DbParticipantSettingsStore(
         sqlu"""merge into par_settings using dual on (1 = 1)
                when matched and #$columnName is null then
                  update set #$columnName = $newValue
-               when not matched then
-                 insert (#$columnName, client) values ($newValue, $client)"""
-      case _: DbStorage.Profile.Oracle =>
-        sqlu"""merge into par_settings using dual on (1 = 1)
-               when matched then
-                 update set #$columnName = $newValue where #$columnName is null
                when not matched then
                  insert (#$columnName, client) values ($newValue, $client)"""
     }

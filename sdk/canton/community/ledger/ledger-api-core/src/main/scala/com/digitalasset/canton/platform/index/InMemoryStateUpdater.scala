@@ -148,7 +148,7 @@ private[platform] object InMemoryStateUpdaterFlow {
                     }
                   case Update.CommandRejected(recordTime, _, _, domainId, _, _) =>
                     Some((domainId, recordTime))
-                  case _: Update.SequencerIndexMoved => None
+                  case sim: Update.SequencerIndexMoved => Some((sim.domainId, sim.recordTime))
                   case _: Update.CommitRepair => None
                 }
 

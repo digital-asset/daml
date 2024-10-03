@@ -7,9 +7,10 @@ import cats.Eval
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.LedgerSubmissionId
-import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
+import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod, Offset}
 import com.digitalasset.canton.ledger.participant.state.ChangeId
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.protocol.submission.CommandDeduplicator.{
   AlreadyExists,
   DeduplicationFailed,
@@ -19,7 +20,6 @@ import com.digitalasset.canton.participant.protocol.submission.CommandDeduplicat
 import com.digitalasset.canton.participant.store.CommandDeduplicationStore.OffsetAndPublicationTime
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.sync.UpstreamOffsetConvert
-import com.digitalasset.canton.participant.{GlobalOffset, LedgerSyncOffset}
 import com.digitalasset.canton.platform.indexer.parallel.PostPublishData
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
@@ -199,13 +199,13 @@ class CommandDeduplicatorImpl(
     }
 
     def dedupOffset(
-        offset: LedgerSyncOffset
+        offset: Offset
     ): EitherT[Future, DeduplicationFailed, GlobalOffset] = {
       def checkAgainstPruning(
           dedupOffset: GlobalOffset
       ): EitherT[Future, DeduplicationFailed, GlobalOffset] =
         EitherTUtil.leftSubflatMap(store.value.latestPruning().toLeft(unprunedDedupOffset)) {
-          case OffsetAndPublicationTime(prunedOffset, prunedPublicationTime) =>
+          case OffsetAndPublicationTime(prunedOffset, _prunedPublicationTime) =>
             Either.cond(
               prunedOffset <= dedupOffset,
               prunedOffset,

@@ -95,7 +95,7 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
         when(activeContractStore.packageUsage(eqTo(pkgId1), eqTo(contractStore))(anyTraceContext))
           .thenReturn(Future.successful(Some(contractId)))
         val indexedDomain = IndexedDomain.tryCreate(domainId1, 1)
-        when(syncDomainPersistentState.domainId).thenReturn(indexedDomain)
+        when(syncDomainPersistentState.indexedDomain).thenReturn(indexedDomain)
 
         packageOps.checkPackageUnused(pkgId1).leftOrFail("active contract with package id").map {
           err =>

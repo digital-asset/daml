@@ -567,7 +567,6 @@ class ParticipantNodeBootstrap(
         domainRegistry = new GrpcDomainRegistry(
           participantId,
           syncDomainPersistentStateManager,
-          persistentState.map(_.settingsStore),
           topologyDispatcher,
           syncCrypto,
           config.crypto,
@@ -986,7 +985,7 @@ object ParticipantNodeBootstrap {
 
     private def createReplicationServiceFactory(
         arguments: Arguments
-    )(storage: Storage): ServerServiceDefinition =
+    ): ServerServiceDefinition =
       StaticGrpcServices
         .notSupportedByCommunity(
           EnterpriseParticipantReplicationServiceGrpc.SERVICE,
@@ -1057,7 +1056,7 @@ object ParticipantNodeBootstrap {
         createEngine(arguments),
         CantonSyncService.DefaultFactory,
         createResourceService(arguments),
-        createReplicationServiceFactory(arguments),
+        _ => createReplicationServiceFactory(arguments),
         ledgerApiServerFactory = ledgerApiServerFactory,
         setInitialized = _ => (),
       )

@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.store.db
 
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.config.RequireTypes.PositiveNumeric
 import com.digitalasset.canton.participant.store.DamlPackageStoreTest
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
@@ -29,7 +28,6 @@ trait DbDamlPackageStoreTest extends DamlPackageStoreTest {
   "DbDamlPackagesDarsStore" should {
     behave like damlPackageStore(() =>
       new DbDamlPackageStore(
-        PositiveNumeric.tryCreate(2),
         storage,
         timeouts,
         futureSupervisor,

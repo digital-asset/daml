@@ -28,7 +28,6 @@ object ChangeIdHash {
     )
   }
 
-  @SuppressWarnings(Array("com.digitalasset.canton.SlickString")) // LfHash is at most 64 chars
   implicit val setParameterChangeId: SetParameter[ChangeIdHash] = (changeIdHash, pp) =>
     pp.setString(changeIdHash.hash.toHexString)
 }

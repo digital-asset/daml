@@ -57,8 +57,6 @@
   <!-- janino can be too verbose in tests -->
   <logger name="org.codehaus.janino" level="WARN"/>
 
-  <logger name="com.digitalasset.canton.resource.DbLockOracle:DbLockTestOracle" level="TRACE" />
-
   <!-- Enable for database-relevant debug logs -->
 <!--  <logger name="slick" level="DEBUG"/>-->
 <!--  <logger name="com.zaxxer.hikari" level="DEBUG"/>-->

@@ -42,7 +42,7 @@ class TimelyRejectNotifierTest extends AnyWordSpec with BaseTest with HasExecuti
             traceContext: TraceContext
         ): FutureUnlessShutdown[Unit] = ???
       }
-      val notifier = new TimelyRejectNotifier(rejecter, None, loggerFactory)
+      val notifier = new TimelyRejectNotifier(rejecter, CantonTimestamp.MinValue, loggerFactory)
       cell.putIfAbsent(notifier)
       notifier.notifyAsync(Traced(CursorPrehead(SequencerCounter.MinValue, CantonTimestamp.Epoch)))
       eventually() {
@@ -82,7 +82,7 @@ class TimelyRejectNotifierTest extends AnyWordSpec with BaseTest with HasExecuti
             traceContext: TraceContext
         ): FutureUnlessShutdown[Unit] = ???
       }
-      val notifier = new TimelyRejectNotifier(rejecter, None, loggerFactory)
+      val notifier = new TimelyRejectNotifier(rejecter, CantonTimestamp.MinValue, loggerFactory)
       cell.putIfAbsent(notifier)
       notifier.notifyAsync(Traced(CursorPrehead(SequencerCounter.MinValue, CantonTimestamp.Epoch)))
       eventually() {
@@ -97,9 +97,13 @@ class TimelyRejectNotifierTest extends AnyWordSpec with BaseTest with HasExecuti
 
     "notify only if the timestamp is in the correct relation with the current bound" in {
       val rejecter = new MockTimelyRejecter(abort = false)
-      val notifier = new TimelyRejectNotifier(rejecter, None, loggerFactory)
+      val notifier = new TimelyRejectNotifier(
+        rejecter,
+        CantonTimestamp.MinValue,
+        loggerFactory,
+      )
 
-      notifier.notifyIfInPastAsync(CantonTimestamp.MinValue) shouldBe false
+      notifier.notifyIfInPastAsync(CantonTimestamp.MinValue.immediateSuccessor) shouldBe false
       always(timeout) {
         rejecter.invocations shouldBe Seq.empty
       }
@@ -171,7 +175,7 @@ class TimelyRejectNotifierTest extends AnyWordSpec with BaseTest with HasExecuti
           FutureUnlessShutdown.unit
         }
       }
-      val notifier = new TimelyRejectNotifier(rejecter, None, loggerFactory)
+      val notifier = new TimelyRejectNotifier(rejecter, CantonTimestamp.MinValue, loggerFactory)
       cell.putIfAbsent(notifier)
 
       notifier.notifyAsync(Traced(CursorPrehead(SequencerCounter.MinValue, CantonTimestamp.Epoch)))
@@ -187,7 +191,7 @@ class TimelyRejectNotifierTest extends AnyWordSpec with BaseTest with HasExecuti
 
     "stop upon AbortedDueToShutdown" in {
       val rejecter = new MockTimelyRejecter(abort = true)
-      val notifier = new TimelyRejectNotifier(rejecter, None, loggerFactory)
+      val notifier = new TimelyRejectNotifier(rejecter, CantonTimestamp.MinValue, loggerFactory)
 
       notifier.notifyAsync(Traced(CursorPrehead(SequencerCounter.Genesis, CantonTimestamp.Epoch)))
       eventually(timeout) {
@@ -210,7 +214,7 @@ class TimelyRejectNotifierTest extends AnyWordSpec with BaseTest with HasExecuti
 
     "deal with a lot of concurrent aborts" in {
       val rejecter = new MockTimelyRejecter(abort = true)
-      val notifier = new TimelyRejectNotifier(rejecter, None, loggerFactory)
+      val notifier = new TimelyRejectNotifier(rejecter, CantonTimestamp.MinValue, loggerFactory)
 
       for (i <- 1 to 100) {
         notifier.notifyAsync(
@@ -228,7 +232,7 @@ class TimelyRejectNotifierTest extends AnyWordSpec with BaseTest with HasExecuti
     "take initial bound into account" in {
       val rejecter = new MockTimelyRejecter(abort = false)
       val notifier =
-        new TimelyRejectNotifier(rejecter, Some(CantonTimestamp.ofEpochSecond(1)), loggerFactory)
+        new TimelyRejectNotifier(rejecter, CantonTimestamp.ofEpochSecond(1), loggerFactory)
 
       notifier.notifyAsync(Traced(CursorPrehead(SequencerCounter.Genesis, CantonTimestamp.Epoch)))
       always(timeout) {

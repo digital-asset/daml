@@ -135,11 +135,11 @@ class SyncDomainPersistentStateManager(
   }
 
   private def createPersistentState(
-      domainId: IndexedDomain,
+      indexedDomain: IndexedDomain,
       staticDomainParameters: StaticDomainParameters,
   ): SyncDomainPersistentState =
-    get(domainId.item)
-      .getOrElse(mkPersistentState(domainId, staticDomainParameters))
+    get(indexedDomain.domainId)
+      .getOrElse(mkPersistentState(indexedDomain, staticDomainParameters))
 
   private def checkAndUpdateDomainParameters(
       alias: DomainAlias,
@@ -170,14 +170,14 @@ class SyncDomainPersistentStateManager(
     TrieMap[DomainId, SyncDomainPersistentState]()
 
   private def put(state: SyncDomainPersistentState): Unit = {
-    val domainId = state.domainId
-    val previous = domainStates.putIfAbsent(domainId.item, state)
+    val domainId = state.indexedDomain.domainId
+    val previous = domainStates.putIfAbsent(domainId, state)
     if (previous.isDefined)
       throw new IllegalArgumentException(s"domain state already exists for $domainId")
   }
 
   private def putIfAbsent(state: SyncDomainPersistentState): Unit =
-    domainStates.putIfAbsent(state.domainId.item, state).discard
+    domainStates.putIfAbsent(state.indexedDomain.domainId, state).discard
 
   def get(domainId: DomainId): Option[SyncDomainPersistentState] =
     domainStates.get(domainId)
