@@ -569,7 +569,7 @@ object ReassignmentProcessingSteps {
       submitterLf: LfPartyId,
       hash: RootHash,
   ) extends ReassignmentProcessorError {
-    private def kind = reassignmentId.map(id => "assign").getOrElse("unassign")
+    private def kind = reassignmentId.map(_id => "assign").getOrElse("unassign")
 
     override def message: String = s"Cannot $kind $reassignmentId: duplicatehash"
   }

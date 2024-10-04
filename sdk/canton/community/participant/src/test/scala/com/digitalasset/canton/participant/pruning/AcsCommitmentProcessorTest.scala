@@ -136,7 +136,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       contracts: Map[LfContractId, NonEmpty[Seq[Lifespan]]]
   )(implicit ec: ExecutionContext, traceContext: TraceContext): Future[ActiveContractSnapshot] = {
     val acs =
-      new InMemoryActiveContractStore(indexedStringStore, testedProtocolVersion, loggerFactory)
+      new InMemoryActiveContractStore(indexedStringStore, loggerFactory)
     contracts.toList
       .flatMap { case (cid, seq) => seq.forgetNE.map(lifespan => (cid, lifespan)) }
       .parTraverse_ { case (cid, lifespan) =>
@@ -339,7 +339,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       DefaultProcessingTimeouts.testing
         .copy(storageMaxRetryInterval = NonNegativeDuration.tryFromDuration(1.millisecond)),
       futureSupervisor,
-      new InMemoryActiveContractStore(indexedStringStore, testedProtocolVersion, loggerFactory),
+      new InMemoryActiveContractStore(indexedStringStore, loggerFactory),
       new InMemoryContractStore(loggerFactory),
       // no additional consistency checks; if enabled, one needs to populate the above ACS and contract stores
       // correctly, otherwise the test will fail

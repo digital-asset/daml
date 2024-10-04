@@ -31,7 +31,10 @@ class NaiveRequestTrackerTest
   ): NaiveRequestTracker = {
     val reassignmentCache =
       new ReassignmentCache(
-        new InMemoryReassignmentStore(ReassignmentStoreTest.targetDomain, loggerFactory),
+        new InMemoryReassignmentStore(
+          ReassignmentStoreTest.targetDomainId,
+          loggerFactory,
+        ),
         loggerFactory,
       )
 

@@ -11,9 +11,14 @@ object BlockFormat {
 
   val DefaultFirstBlockHeight: Long = 0
 
+  /** @param tickTopology Whether the block should tick the sequencer's topology processor, so that it can return
+    *                     an up-to-date topology. Set to `true` by block orderers whenever they assess they may need
+    *                     to retrieve an up-to-date topology.
+    */
   final case class Block(
       blockHeight: Long,
       requests: Seq[Traced[OrderedRequest]],
+      tickTopology: Boolean,
   )
 
   final case class OrderedRequest(
@@ -26,7 +31,7 @@ object BlockFormat {
       logger: TracedLogger
   )(block: Block): RawLedgerBlock =
     block match {
-      case Block(blockHeight, requests) =>
+      case Block(blockHeight, requests, tickTopology) =>
         RawLedgerBlock(
           blockHeight,
           requests.map { case event @ Traced(OrderedRequest(orderingTime, tag, body)) =>
@@ -43,6 +48,7 @@ object BlockFormat {
                 sys.exit(1)
             }
           },
+          tickTopology,
         )
     }
 

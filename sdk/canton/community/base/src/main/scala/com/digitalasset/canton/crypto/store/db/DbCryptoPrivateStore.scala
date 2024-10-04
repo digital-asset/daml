@@ -86,17 +86,9 @@ class DbCryptoPrivateStore(
   private def insertKeyUpdate(
       key: StoredPrivateKey
   ): DbAction.WriteOnly[Int] =
-    storage.profile match {
-      case _: DbStorage.Profile.Oracle =>
-        sqlu"""insert
-               /*+  IGNORE_ROW_ON_DUPKEY_INDEX ( CRYPTO_PRIVATE_KEYS ( key_id ) ) */
-               into common_crypto_private_keys (key_id, purpose, data, name, wrapper_key_id)
-           values (${key.id}, ${key.purpose}, ${key.data}, ${key.name}, ${key.wrapperKeyId})"""
-      case _ =>
-        sqlu"""insert into common_crypto_private_keys (key_id, purpose, data, name, wrapper_key_id)
+    sqlu"""insert into common_crypto_private_keys (key_id, purpose, data, name, wrapper_key_id)
            values (${key.id}, ${key.purpose}, ${key.data}, ${key.name}, ${key.wrapperKeyId})
            on conflict do nothing"""
-    }
 
   private def insertKey(key: StoredPrivateKey)(implicit
       traceContext: TraceContext

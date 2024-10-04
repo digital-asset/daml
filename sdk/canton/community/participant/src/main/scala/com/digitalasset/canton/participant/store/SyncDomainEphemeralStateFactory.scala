@@ -62,13 +62,15 @@ class SyncDomainEphemeralStateFactoryImpl(
       closeContext: CloseContext,
   ): Future[SyncDomainEphemeralState] =
     for {
-      _ <- ledgerApiIndexer.value.ensureNoProcessingForDomain(persistentState.domainId.domainId)
+      _ <- ledgerApiIndexer.value.ensureNoProcessingForDomain(
+        persistentState.indexedDomain.domainId
+      )
       startingPoints <- SyncDomainEphemeralStateFactory.startingPoints(
         persistentState.requestJournalStore,
         persistentState.sequencedEventStore,
         tc =>
           ledgerApiIndexer.value.ledgerApiStore.value
-            .domainIndex(persistentState.domainId.domainId)(tc),
+            .domainIndex(persistentState.indexedDomain.domainId)(tc),
       )
       _ <- SyncDomainEphemeralStateFactory.cleanupPersistentState(persistentState, startingPoints)
     } yield {

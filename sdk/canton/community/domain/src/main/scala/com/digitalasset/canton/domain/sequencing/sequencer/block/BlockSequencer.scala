@@ -286,7 +286,7 @@ class BlockSequencer(
           SendAsyncError.TrafficControlError(
             TrafficControlErrorReason.Error(
               TrafficControlErrorReason.Error.Reason.OutdatedTrafficCost(
-                s"Submission was refused because traffic cost was outdated. Re-submit after the having observed the validation timestamp and processed its topology state: $outdated"
+                s"Submission was refused because traffic cost was outdated. Re-submit after having observed the validation timestamp and processed its topology state: $outdated"
               )
             )
           ): SendAsyncError

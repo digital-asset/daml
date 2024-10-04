@@ -9,7 +9,6 @@ import com.daml.tls.{TlsConfiguration, TlsVersion}
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.*
 import com.digitalasset.canton.config.*
-import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.http.JsonApiConfig
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.participant.admin.AdminWorkflowConfig
@@ -237,55 +236,6 @@ object LedgerApiServerConfig {
       maxUsedHeapSpacePercentage = 100,
       minFreeHeapSpaceBytes = 0,
     )
-
-  /** the following case class match will help us detect any additional configuration options added.
-    * If the below match fails because there are more config options, add them to our "LedgerApiServerConfig".
-    */
-  private def _completenessCheck(
-      managementServiceTimeout: config.NonNegativeFiniteDuration,
-      tlsConfiguration: Option[TlsConfiguration],
-  ): Unit = {
-
-    def fromClientAuth(clientAuth: ClientAuth): ServerAuthRequirementConfig = {
-      import ServerAuthRequirementConfig.*
-      clientAuth match {
-        case ClientAuth.REQUIRE =>
-          None // not passing "require" as we need adminClientCerts in this case which are not available here
-        case ClientAuth.OPTIONAL => Optional
-        case ClientAuth.NONE => None
-      }
-    }
-
-    val tlsConfig = tlsConfiguration match {
-      case Some(
-            TlsConfiguration(
-              true,
-              Some(keyCertChainFile),
-              Some(keyFile),
-              trustCertCollectionFile,
-              authRequirement,
-              enableCertRevocationChecking,
-              optTlsVersion,
-            )
-          ) =>
-        Some(
-          TlsServerConfig(
-            certChainFile = ExistingFile.tryCreate(keyCertChainFile),
-            privateKeyFile = ExistingFile.tryCreate(keyFile),
-            trustCollectionFile = trustCertCollectionFile.map(x => ExistingFile.tryCreate(x)),
-            clientAuth = fromClientAuth(authRequirement),
-            minimumServerProtocolVersion = optTlsVersion.map(_.version),
-            enableCertRevocationChecking = enableCertRevocationChecking,
-          )
-        )
-      case _ => None
-    }
-
-    LedgerApiServerConfig(
-      tls = tlsConfig,
-      managementServiceTimeout = managementServiceTimeout,
-    ).discard
-  }
 
   def ledgerApiServerTlsConfigFromCantonServerConfig(
       tlsCantonConfig: TlsServerConfig

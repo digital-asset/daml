@@ -293,7 +293,10 @@ class TestingIdentityFactory(
         override def trySnapshot(timestamp: CantonTimestamp)(implicit
             traceContext: TraceContext
         ): TopologySnapshot = {
-          require(timestamp <= upToInclusive, "Topology information not yet available")
+          require(
+            timestamp <= upToInclusive,
+            s"Topology information not yet available for $timestamp",
+          )
           topologySnapshot(domainId, timestampForDomainParameters = timestamp)
         }
 

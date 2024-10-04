@@ -19,6 +19,7 @@ import com.digitalasset.canton.config.{ProcessingTimeout, TestingConfigInternal}
 import com.digitalasset.canton.crypto.{CryptoPureApi, SyncCryptoApiProvider}
 import com.digitalasset.canton.data.{
   CantonTimestamp,
+  Offset,
   ProcessedDisclosedContract,
   ReassignmentSubmitterMetadata,
 }
@@ -43,6 +44,7 @@ import com.digitalasset.canton.participant.admin.inspection.{
   SyncStateInspection,
 }
 import com.digitalasset.canton.participant.admin.repair.RepairService
+import com.digitalasset.canton.participant.admin.repair.RepairService.DomainLookup
 import com.digitalasset.canton.participant.domain.*
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
@@ -326,12 +328,22 @@ class CantonSyncService(
     packageService.value.packageDependencyResolver,
     repairServiceDAMLe,
     ledgerApiIndexer.asEval(TraceContext.empty),
-    syncDomainPersistentStateManager,
     aliasManager,
     parameters,
     Storage.threadsAvailableForWriting(storage),
-    connectedDomainsLookup.isConnected,
-    () => connectedDomainsMap.nonEmpty,
+    new DomainLookup {
+      override def isConnected(domainId: DomainId): Boolean =
+        connectedDomainsLookup.isConnected(domainId)
+
+      override def isConnectedToAnyDomain: Boolean =
+        connectedDomainsMap.nonEmpty
+
+      override def persistentStateFor(domainId: DomainId): Option[SyncDomainPersistentState] =
+        syncDomainPersistentStateManager.get(domainId)
+
+      override def topologyFactoryFor(domainId: DomainId): Option[TopologyComponentFactory] =
+        syncDomainPersistentStateManager.topologyFactoryFor(domainId)
+    },
     // Share the sync service queue with the repair service, so that repair operations cannot run concurrently with
     // domain connections.
     connectQueue,
@@ -426,7 +438,7 @@ class CantonSyncService(
   )
 
   override def prune(
-      pruneUpToInclusive: LedgerSyncOffset,
+      pruneUpToInclusive: Offset,
       submissionId: LedgerSubmissionId,
       _pruneAllDivulgedContracts: Boolean, // Canton always prunes divulged contracts ignoring this flag
   ): CompletionStage[PruningResult] =
@@ -443,7 +455,7 @@ class CantonSyncService(
     }).asJava
 
   def pruneInternally(
-      pruneUpToInclusive: LedgerSyncOffset
+      pruneUpToInclusive: Offset
   )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, CantonError, Unit] =
     (for {
       pruneUpToMultiDomainGlobalOffset <- EitherT
@@ -626,7 +638,7 @@ class CantonSyncService(
   override def validateDar(dar: ByteString, darName: String)(implicit
       traceContext: TraceContext
   ): Future[SubmissionResult] =
-    withSpan("CantonSyncService.validateDar") { implicit traceContext => span =>
+    withSpan("CantonSyncService.validateDar") { implicit traceContext => _span =>
       if (!isActive()) {
         logger.debug(s"Rejecting DAR validation request on passive replica.")
         Future.successful(SyncServiceError.Synchronous.PassiveNode)
@@ -1740,9 +1752,9 @@ class CantonSyncService(
       .map(_.flatten)
 
   override def incompleteReassignmentOffsets(
-      validAt: LedgerSyncOffset,
+      validAt: Offset,
       stakeholders: Set[LfPartyId],
-  )(implicit traceContext: TraceContext): Future[Vector[LedgerSyncOffset]] =
+  )(implicit traceContext: TraceContext): Future[Vector[Offset]] =
     UpstreamOffsetConvert
       .toGlobalOffset(validAt)
       .fold(

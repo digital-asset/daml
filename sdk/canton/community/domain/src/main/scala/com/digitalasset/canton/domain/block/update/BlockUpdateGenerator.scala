@@ -84,6 +84,7 @@ object BlockUpdateGenerator {
       chunkIndex: Int,
       events: NonEmpty[Seq[Traced[LedgerBlockEvent]]],
   ) extends BlockChunk
+  case object TopologyTickChunk extends BlockChunk
   final case class EndOfBlock(blockHeight: Long) extends BlockChunk
 }
 
@@ -136,23 +137,34 @@ class BlockUpdateGeneratorImpl(
           Some(Traced(value))
       }
     }
-    BlockEvents(block.blockHeight, ledgerBlockEvents)
+
+    BlockEvents(
+      block.blockHeight,
+      ledgerBlockEvents,
+      block.tickTopology,
+    )
   }
 
   override def chunkBlock(
-      block: BlockEvents
+      blockEvents: BlockEvents
   )(implicit traceContext: TraceContext): immutable.Iterable[BlockChunk] = {
-    val blockHeight = block.height
+    val blockHeight = blockEvents.height
     metrics.block.height.updateValue(blockHeight)
 
-    // We must start a new chunk whenever the chunk processing advances lastSequencerEventTimestamp
-    // Otherwise the logic for retrieving a topology snapshot or traffic state could deadlock
+    val tickChunk =
+      Option.when(blockEvents.tickTopology) {
+        Some(TopologyTickChunk)
+      }
+
+    // We must start a new chunk whenever the chunk processing advances lastSequencerEventTimestamp,
+    //  otherwise the logic for retrieving a topology snapshot or traffic state could deadlock.
+
     IterableUtil
-      .splitAfter(block.events)(event => isAddressingSequencers(event.value))
+      .splitAfter(blockEvents.events)(event => isAddressingSequencers(event.value))
       .zipWithIndex
       .map { case (events, index) =>
         NextChunk(blockHeight, index, events)
-      } ++ Seq(EndOfBlock(blockHeight))
+      } ++ tickChunk.flatten ++ Seq(EndOfBlock(blockHeight))
   }
 
   private def isAddressingSequencers(event: LedgerBlockEvent): Boolean =
@@ -177,7 +189,9 @@ class BlockUpdateGeneratorImpl(
         )
         FutureUnlessShutdown.pure(newState -> update)
       case NextChunk(height, index, chunksEvents) =>
-        blockChunkProcessor.processChunk(state, height, index, chunksEvents)
+        blockChunkProcessor.processDataChunk(state, height, index, chunksEvents)
+      case TopologyTickChunk =>
+        blockChunkProcessor.emitTick(state)
     }
 }
 

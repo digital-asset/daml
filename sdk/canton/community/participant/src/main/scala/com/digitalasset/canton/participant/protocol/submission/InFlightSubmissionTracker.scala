@@ -281,7 +281,7 @@ class InFlightSubmissionTracker(
       timelyRejects <- FutureUnlessShutdown
         .outcomeF(store.value.lookupUnsequencedUptoUnordered(domainId, upToInclusive))
       events = timelyRejects.map(timelyRejectionEventFor)
-      skippedE <- participantEventPublisher.publishDomainRelatedEvents(events)
+      _skippedE <- participantEventPublisher.publishDomainRelatedEvents(events)
     } yield ()
 
   private[this] def timelyRejectionEventFor(

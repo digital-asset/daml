@@ -39,7 +39,7 @@ final class DbPruningSchedulerStore(
                      on conflict (node_type) do
                        update set cron = ${schedule.cron}, max_duration = ${schedule.maxDuration}, retention = ${schedule.retention}
                   """
-        case _: Profile.Oracle | _: Profile.H2 =>
+        case _: Profile.H2 =>
           sqlu"""merge into common_pruning_schedules using dual
                      on (node_type = $nodeCode)
                      when matched then

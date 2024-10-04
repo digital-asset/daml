@@ -49,7 +49,7 @@ private[protocol] trait ConflictDetectionHelpers {
   private lazy val indexedStringStore = new InMemoryIndexedStringStore(minIndex = 1, maxIndex = 2)
 
   def mkEmptyAcs(): ActiveContractStore =
-    new InMemoryActiveContractStore(indexedStringStore, testedProtocolVersion, loggerFactory)(
+    new InMemoryActiveContractStore(indexedStringStore, loggerFactory)(
       parallelExecutionContext
     )
 
@@ -62,8 +62,10 @@ private[protocol] trait ConflictDetectionHelpers {
 
   def mkReassignmentCache(
       loggerFactory: NamedLoggerFactory,
-      store: ReassignmentStore =
-        new InMemoryReassignmentStore(ReassignmentStoreTest.targetDomain, loggerFactory),
+      store: ReassignmentStore = new InMemoryReassignmentStore(
+        ReassignmentStoreTest.targetDomainId,
+        loggerFactory,
+      ),
   )(
       entries: (ReassignmentId, MediatorGroupRecipient)*
   )(implicit traceContext: TraceContext): Future[ReassignmentCache] =
@@ -73,7 +75,7 @@ private[protocol] trait ConflictDetectionHelpers {
           reassignmentData <- ReassignmentStoreTest.mkReassignmentDataForDomain(
             reassignmentId,
             sourceMediator,
-            targetDomainId = ReassignmentStoreTest.targetDomain,
+            targetDomainId = ReassignmentStoreTest.targetDomainId,
           )
           result <- store
             .addReassignment(reassignmentData)

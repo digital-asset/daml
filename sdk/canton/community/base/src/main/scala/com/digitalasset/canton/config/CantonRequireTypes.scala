@@ -11,7 +11,7 @@ import com.digitalasset.canton.ProtoDeserializationError.InvariantViolation as P
 import com.digitalasset.canton.checked
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName.InvalidInstanceName
 import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.InvalidLengthString
-import com.digitalasset.canton.config.RequireTypes.InvariantViolation
+import com.digitalasset.canton.config.RequireTypes.{InvariantViolation, NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbDeserializationException
@@ -71,7 +71,7 @@ object CantonRequireTypes {
       *
       * Must not be confused with storage space, which can be up to 4*[[maxLength]] in a UTF8 encoding
       */
-    def maxLength: Int
+    def maxLength: PositiveInt
     // optionally give a name for the type of String you are attempting to validate for nicer error messages
     protected def name: Option[String] = None
 
@@ -91,7 +91,7 @@ object CantonRequireTypes {
     override def hashCode(): Int = str.hashCode()
 
     require(
-      str.length <= maxLength,
+      str.length <= maxLength.unwrap,
       s"The given ${name.getOrElse("string")} has a maximum length of $maxLength but a ${name
           .getOrElse("string")} of length ${str.length} ('$str') was given",
     )
@@ -108,43 +108,27 @@ object CantonRequireTypes {
     * Classes implementing this trait expose `create` and `tryCreate` methods to safely (and non-safely) construct
     * such a String.
     *
-    * The canonical use case for [[LengthLimitedString]]s is ensuring that we don't write too long strings into the database:
-    * Oracle has a length-limit of 1000 Unicode characters for the ordinary String type `NVARCHAR2` and we are trying to avoid
-    * the use of CLOB (as it has pitfalls regarding implicits).
+    * The canonical use case for [[LengthLimitedString]]s is ensuring that we don't write too long strings into the database.
     * This validation generally occurs on the server side and not on the client side. Concretely, this means that the
     * Admin API and Ledger API gRPC services is the point where we validate that the received Protobuf Strings are not too long
     * (and convert them into [[LengthLimitedString]]s). On the client side, e.g. at the console, we generally take normal String types.
     * The console command `set_display_name` and service [[com.digitalasset.canton.participant.admin.grpc.GrpcPartyNameManagementService]]
     * validating `request.displayName` illustrate this.
     *
-    * As a rule of thumb: whenever you want to create a column that uses a NVARCHAR2 in Oracle, the value you write to
-    * it should use a LengthLimitedString.
-    *
-    * Some more background on the Oracle issues:
-    * NVARCHAR and NVARCHAR2 have both by default a 4000 byte limit, but unicode uses 4-bytes per character (and nvarchar2 uses unicode)
-    * Therefore, NVARCHAR has a limit of 4000 and NVARCHAR2 has a limit of 1000 characters
-    * If need be, we can extend this to 32 KB by setting the Oracle database string size to 'extended mode' (ALTER SYSTEM SET MAX_STRING_SIZE=EXTENDED)
-    *
     * For longer strings, directly inherit from [[AbstractLengthLimitedString]].
     */
   sealed trait LengthLimitedString extends AbstractLengthLimitedString {
-    require(
-      maxLength > 0 && maxLength <= LengthLimitedString.maxOracleStringLength,
-      s"MaxLength needs to be positive and smaller equal than ${LengthLimitedString.maxOracleStringLength} but was $maxLength",
-    )
-
     def tryConcatenate(that: LengthLimitedString): LengthLimitedStringVar =
       new LengthLimitedStringVar(this.unwrap + that.unwrap, this.maxLength + that.maxLength)()
 
     def tryConcatenate(that: String): LengthLimitedStringVar =
-      new LengthLimitedStringVar(this.unwrap + that, this.maxLength + that.length)()
+      new LengthLimitedStringVar(
+        this.unwrap + that,
+        this.maxLength + NonNegativeInt.tryCreate(that.length),
+      )()
   }
 
   object LengthLimitedString {
-    // Max length of unicode strings we can save as String types in Oracle columns - this can be increased to
-    // 1000 for NVARCHAR2 but we set it to 300 for now since we don't need a higher limit and rather want to stay on the
-    // conservative side
-    val maxOracleStringLength = 300
     // In general, if you would create a case class that would simply wrap a `LengthLimitedString`, use a type alias instead
     // Some very frequently-used classes (like `Identifier` or `DomainAlias`) are however given their 'own' case class
     // despite essentially being a wrapper around `LengthLimitedString255` (because the documentation UX is nicer this way,
@@ -153,31 +137,34 @@ object CantonRequireTypes {
     type TopologyRequestId = String255
     type DarName = String255
 
-    def errorMsg(tooLongStr: String, maxLength: Int, name: Option[String] = None): String =
+    def errorMsg(tooLongStr: String, maxLength: PositiveInt, name: Option[String] = None): String =
       s"The given ${name.getOrElse("string")} has a maximum length of $maxLength but a ${name
-          .getOrElse("string")} of length ${tooLongStr.length} ('${tooLongStr.limit(maxLength + 50)}.') was given"
+          .getOrElse("string")} of length ${tooLongStr.length} ('${tooLongStr.limit(maxLength.unwrap + 50)}.') was given"
 
-    val defaultMaxLength = 255
+    val defaultMaxLength: PositiveInt = PositiveInt.tryCreate(255)
 
-    def tryCreate(str: String, maxLength: Int, name: Option[String] = None): LengthLimitedString =
+    def tryCreate(
+        str: String,
+        maxLength: PositiveInt,
+        name: Option[String] = None,
+    ): LengthLimitedString =
       new LengthLimitedStringVar(str, maxLength)(name)
 
     def getUuid: String36 = String36.tryCreate(UUID.randomUUID().toString)
 
     def create(
         str: String,
-        maxLength: Int,
+        maxLength: PositiveInt,
         name: Option[String] = None,
     ): Either[String, LengthLimitedString] =
       Either.cond(
-        str.length <= maxLength,
+        str.length <= maxLength.unwrap,
         new LengthLimitedStringVar(str, maxLength)(name),
         errorMsg(str, maxLength, name),
       )
 
     // Should be used rarely - most of the time SetParameter[String255] etc.
     // (defined through LengthLimitedStringCompanion) should be used
-    @SuppressWarnings(Array("com.digitalasset.canton.SlickString"))
     implicit val setParameterLengthLimitedString: SetParameter[LengthLimitedString] = (v, pp) =>
       pp.setString(v.unwrap)
     // Commented out so this function never accidentally throws
@@ -201,12 +188,12 @@ object CantonRequireTypes {
 
   final case class String1(str: String)(override val name: Option[String] = None)
       extends LengthLimitedString {
-    override def maxLength: Int = String1.maxLength
+    override def maxLength: PositiveInt = String1.maxLength
   }
   object String1 extends LengthLimitedStringCompanion[String1] {
     def fromChar(c: Char): String1 = checked(new String1(c.toString)(None))
 
-    override def maxLength: Int = 1
+    override def maxLength: PositiveInt = PositiveInt.one
 
     override protected def factoryMethod(str: String)(name: Option[String]): String1 =
       new String1(str)(name)
@@ -215,11 +202,11 @@ object CantonRequireTypes {
   /** Limit used for enum names. */
   final case class String3(str: String)(override val name: Option[String] = None)
       extends LengthLimitedString {
-    override def maxLength: Int = String3.maxLength
+    override def maxLength: PositiveInt = String3.maxLength
   }
 
   object String3 extends LengthLimitedStringCompanion[String3] {
-    override def maxLength: Int = 3
+    override def maxLength: PositiveInt = PositiveInt.tryCreate(3)
 
     override protected def factoryMethod(str: String)(name: Option[String]): String3 =
       new String3(str)(name)
@@ -228,13 +215,13 @@ object CantonRequireTypes {
   /** Limit used by a UUID. */
   final case class String36(str: String)(override val name: Option[String] = None)
       extends LengthLimitedString {
-    override def maxLength: Int = String36.maxLength
+    override def maxLength: PositiveInt = String36.maxLength
 
     def asString255: String255 = String255.tryCreate(str, name)
   }
 
   object String36 extends LengthLimitedStringCompanion[String36] {
-    override def maxLength: Int = 36
+    override def maxLength: PositiveInt = PositiveInt.tryCreate(36)
 
     override protected def factoryMethod(str: String)(name: Option[String]): String36 =
       new String36(str)(name)
@@ -246,11 +233,11 @@ object CantonRequireTypes {
     */
   final case class String68(str: String)(override val name: Option[String] = None)
       extends LengthLimitedString {
-    override def maxLength: Int = String68.maxLength
+    override def maxLength: PositiveInt = String68.maxLength
   }
 
   object String68 extends LengthLimitedStringCompanion[String68] {
-    override def maxLength: Int = 68
+    override def maxLength: PositiveInt = PositiveInt.tryCreate(68)
 
     override def factoryMethod(str: String)(name: Option[String]): String68 =
       new String68(str)(name)
@@ -259,11 +246,11 @@ object CantonRequireTypes {
   /** Limit used by a [[com.digitalasset.canton.sequencing.protocol.MessageId]]. */
   final case class String73(str: String)(override val name: Option[String] = None)
       extends LengthLimitedString {
-    override def maxLength: Int = String73.maxLength
+    override def maxLength: PositiveInt = String73.maxLength
   }
 
   object String73 extends LengthLimitedStringCompanion[String73] {
-    override def maxLength: Int = 73
+    override def maxLength: PositiveInt = PositiveInt.tryCreate(73)
 
     override protected def factoryMethod(str: String)(name: Option[String]): String73 =
       new String73(str)(name)
@@ -271,10 +258,10 @@ object CantonRequireTypes {
 
   final case class String100(str: String)(override val name: Option[String] = None)
       extends LengthLimitedString {
-    override def maxLength: Int = String100.maxLength
+    override def maxLength: PositiveInt = String100.maxLength
   }
   object String100 extends LengthLimitedStringCompanion[String100] {
-    override def maxLength: Int = 100
+    override def maxLength: PositiveInt = PositiveInt.tryCreate(100)
     override protected def factoryMethod(str: String)(name: Option[String]): String100 =
       new String100(str)(name)
   }
@@ -285,11 +272,11 @@ object CantonRequireTypes {
     */
   final case class String185(str: String)(override protected val name: Option[String] = None)
       extends LengthLimitedString {
-    override def maxLength: Int = String185.maxLength
+    override def maxLength: PositiveInt = String185.maxLength
   }
 
   object String185 extends LengthLimitedStringCompanion[String185] {
-    override def maxLength: Int = 185
+    override def maxLength: PositiveInt = PositiveInt.tryCreate(185)
 
     override def factoryMethod(str: String)(name: Option[String]): String185 =
       new String185(str)(name)
@@ -302,14 +289,14 @@ object CantonRequireTypes {
     */
   final case class String255(str: String)(override val name: Option[String] = None)
       extends LengthLimitedString {
-    override def maxLength: Int = String255.maxLength
+    override def maxLength: PositiveInt = String255.maxLength
 
     def asString300: String300 = new String300(str)(name)
     def asString1GB: String256M = new String256M(str)(name)
   }
 
   object String255 extends LengthLimitedStringCompanion[String255] {
-    override def maxLength = 255
+    override def maxLength = PositiveInt.tryCreate(255)
 
     override def factoryMethod(str: String)(name: Option[String]): String255 =
       new String255(str)(name)
@@ -324,11 +311,11 @@ object CantonRequireTypes {
     */
   final case class String300(str: String)(override val name: Option[String] = None)
       extends LengthLimitedString {
-    override def maxLength: Int = String300.maxLength
+    override def maxLength: PositiveInt = String300.maxLength
   }
 
   object String300 extends LengthLimitedStringCompanion[String300] {
-    override def maxLength = 300
+    override def maxLength = PositiveInt.tryCreate(300)
 
     override def factoryMethod(str: String)(name: Option[String]): String300 =
       new String300(str)(name)
@@ -342,43 +329,38 @@ object CantonRequireTypes {
     * - Two separating dots
     * Each [[com.digitalasset.daml.lf.data.Ref.DottedName]] can have 1000 chars ([[com.digitalasset.daml.lf.data.Ref.DottedName.maxLength]]).
     * So a [[com.digitalasset.canton.protocol.LfTemplateId]] serializes to 1000 + 1000 + 64 + 2 = 2066 chars.
-    *
-    * 2066 is beyond the string size for Oracle's `NVARCHAR2` column type unless `max_string_size` is set to `extended`.
-    * Such strings may therefore be written into `VARCHAR2` columns using an encoding that does not exceed the 4000 bytes limit.
-    * UTF8 is such an encoding for ASCII-only strings, but we do not yet test that `str` really contains only ASCII characters.
     */
   final case class String2066(str: String)(override val name: Option[String] = None)
       extends AbstractLengthLimitedString {
-    override def maxLength: Int = String2066.maxLength
+    override def maxLength: PositiveInt = String2066.maxLength
   }
   object String2066 extends LengthLimitedStringCompanion[String2066] {
-    override def maxLength: Int = 4000
+    override def maxLength: PositiveInt = PositiveInt.tryCreate(2066)
 
     override protected def factoryMethod(str: String)(name: Option[String]): String2066 =
       new String2066(str)(name)
   }
 
-  /** Length limitation of a `TEXT` or unbounded `VARCHAR` field in postgres or `CLOB` in Oracle.
+  /** Length limitation of a `TEXT` or unbounded `VARCHAR` field in postgres.
     * - Postgres `TEXT` or `VARCHAR` support up to 1GB storage. That is at least `2 ^ 28` characters
     *   in UTF8 encoding as each character needs at most 4 bytes.
-    * - Oracle `CLOB` supports up to 4GB storage, i.e., at least `2 ^ 30` UTF8 characters
     *
-    * `TEXT`/`VARCHAR`/`CLOB` are only used for the following values (none are indices):
+    * `TEXT`/`VARCHAR` are only used for the following values (none are indices):
     * - daml_packages.source_description
     * - topology_transactions.ignore_reason
     */
   final case class String256M(str: String)(override val name: Option[String] = None)
       extends AbstractLengthLimitedString {
-    override def maxLength: Int = String256M.maxLength
+    override def maxLength: PositiveInt = String256M.maxLength
   }
   object String256M extends LengthLimitedStringCompanion[String256M] {
-    override def maxLength: Int = 0x10000000
+    override def maxLength: PositiveInt = PositiveInt.tryCreate(0x10000000)
 
     override protected def factoryMethod(str: String)(name: Option[String]): String256M =
       new String256M(str)(name)
   }
 
-  final case class LengthLimitedStringVar(override val str: String, maxLength: Int)(
+  final case class LengthLimitedStringVar(override val str: String, maxLength: PositiveInt)(
       override val name: Option[String] = None
   ) extends LengthLimitedString
   object LengthLimitedStringVar {
@@ -392,7 +374,7 @@ object CantonRequireTypes {
     val empty: A = checked(factoryMethod("")(None))
 
     /** The maximum string length. Should not be overwritten with `val` to avoid initialization issues. */
-    def maxLength: Int
+    def maxLength: PositiveInt
 
     /** Factory method for creating a string.
       * @throws java.lang.IllegalArgumentException if `str` is longer than [[maxLength]]
@@ -401,7 +383,7 @@ object CantonRequireTypes {
 
     def create(str: String, name: Option[String] = None): Either[String, A] =
       Either.cond(
-        str.length <= maxLength,
+        str.length <= maxLength.unwrap,
         factoryMethod(str)(name),
         LengthLimitedString.errorMsg(str, maxLength, name),
       )
@@ -421,13 +403,11 @@ object CantonRequireTypes {
     implicit val encodeLengthLimitedString: Encoder[A] =
       Encoder.encodeString.contramap[A](_.unwrap)
 
-    @SuppressWarnings(Array("com.digitalasset.canton.SlickString"))
     implicit val setParameterLengthLimitedString: SetParameter[A] = (v, pp) =>
       pp.setString(v.unwrap)
     implicit val getResultLengthLimitedString: GetResult[A] =
       GetResult(r => tryCreate(r.nextString()))
 
-    @SuppressWarnings(Array("com.digitalasset.canton.SlickString"))
     implicit val setParameterOptLengthLimitedString: SetParameter[Option[A]] = (v, pp) =>
       pp.setStringOption(v.map(_.unwrap))
     implicit val getResultOptLengthLimitedString: GetResult[Option[A]] =
@@ -436,7 +416,7 @@ object CantonRequireTypes {
     implicit val lengthLimitedStringReader: ConfigReader[A] =
       ConfigReader.fromString[A] { str =>
         Either.cond(
-          str.nonEmpty && str.length <= maxLength,
+          str.nonEmpty && str.length <= maxLength.unwrap,
           factoryMethod(str)(None),
           InvalidLengthString(str),
         )
@@ -500,7 +480,6 @@ object CantonRequireTypes {
       Encoder.encodeString.contramap[Wrapper](_.unwrap)
 
     // Instances for slick (db) queries
-    @SuppressWarnings(Array("com.digitalasset.canton.SlickString"))
     implicit val setParameterWrapper: SetParameter[Wrapper] = (v, pp) =>
       pp.setString(v.toProtoPrimitive)
     implicit val getResultWrapper: GetResult[Wrapper] = GetResult(r =>
@@ -509,7 +488,6 @@ object CantonRequireTypes {
       )
     )
 
-    @SuppressWarnings(Array("com.digitalasset.canton.SlickString"))
     implicit val setParameterOptionWrapper: SetParameter[Option[Wrapper]] = (v, pp) =>
       pp.setStringOption(v.map(_.toProtoPrimitive))
     implicit val getResultOptionWrapper: GetResult[Option[Wrapper]] = GetResult { r =>

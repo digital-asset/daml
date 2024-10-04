@@ -116,8 +116,6 @@ private[conflictdetection] object LockableState {
 
   type PendingWriteCounter = counters.PendingWriteCounter
   val PendingWriteCounter: counters.PendingWriteCounter.type = counters.PendingWriteCounter
-
-  private[this] def uintToString(i: Int): String = (i.toLong & 0xffffffffL).toString
 }
 
 private[conflictdetection] final case class ImmutableLockableState[Status <: PrettyPrinting](

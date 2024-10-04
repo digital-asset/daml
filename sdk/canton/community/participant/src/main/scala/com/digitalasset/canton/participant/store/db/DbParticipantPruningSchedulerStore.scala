@@ -50,23 +50,6 @@ final class DbParticipantPruningSchedulerStore(
           sqlu"""merge into par_pruning_schedules (lock, cron, max_duration, retention, prune_internally_only)
                      values ($singleRowLockValue, ${schedule.cron}, ${schedule.maxDuration}, ${schedule.retention}, ${participantSchedule.pruneInternallyOnly})
                   """
-        case _: Profile.Oracle =>
-          sqlu"""merge into par_pruning_schedules pps
-                       using (
-                         select ${schedule.cron} cron,
-                                ${schedule.maxDuration} max_duration,
-                                ${schedule.retention} retention,
-                                ${participantSchedule.pruneInternallyOnly} prune_internally_only
-                         from dual
-                       ) excluded
-                     on (pps."LOCK" = 'X')
-                     when matched then
-                       update set pps.cron = excluded.cron, max_duration = excluded.max_duration,
-                                  retention = excluded.retention, prune_internally_only = excluded.prune_internally_only
-                     when not matched then
-                       insert (cron, max_duration, retention, prune_internally_only)
-                       values (excluded.cron, excluded.max_duration, excluded.retention, excluded.prune_internally_only)
-                  """
       },
       functionFullName,
     )

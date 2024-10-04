@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.store
 
 import cats.syntax.foldable.*
 import cats.syntax.parallel.*
-import com.digitalasset.canton.config.CantonRequireTypes.{LengthLimitedString, String100, String36}
+import com.digitalasset.canton.config.CantonRequireTypes.{LengthLimitedString, String36}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -330,25 +330,13 @@ object ActiveContractStore {
   type ContractState = StateChange[Status]
   val ContractState: StateChange.type = StateChange
 
-  sealed trait ChangeType {
-    def name: String
-
-    // lazy val so that `kind` is initialized first in the subclasses
-    final lazy val toDbPrimitive: String100 =
-      // The Oracle DB schema allows up to 100 chars; Postgres, H2 map this to an enum
-      String100.tryCreate(name)
-  }
+  sealed abstract class ChangeType(val name: String)
 
   object ChangeType {
-    case object Activation extends ChangeType {
-      override val name = "activation"
-    }
+    case object Activation extends ChangeType("activation")
+    case object Deactivation extends ChangeType("deactivation")
 
-    case object Deactivation extends ChangeType {
-      override val name = "deactivation"
-    }
-
-    implicit val setParameterChangeType: SetParameter[ChangeType] = (v, pp) => pp >> v.toDbPrimitive
+    implicit val setParameterChangeType: SetParameter[ChangeType] = (v, pp) => pp >> v.name
     implicit val getResultChangeType: GetResult[ChangeType] = GetResult(r =>
       r.nextString() match {
         case ChangeType.Activation.name => ChangeType.Activation

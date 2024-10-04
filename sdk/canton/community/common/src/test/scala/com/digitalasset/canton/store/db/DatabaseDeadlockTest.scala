@@ -154,8 +154,6 @@ trait DatabaseDeadlockTest
 
   def assertSQLException(body: => Try[_]): Assertion =
     forAtLeast(1, 0 until roundsNegative) { _ =>
-      // Note that we can also hit spurious constraint violation errors here, as the query may be MERGE (see UpsertTestOracle).
-      // This is no problem as long as there is at least one deadlock.
       inside(body) { case Failure(e: SQLException) =>
         assertDeadlock(e)
       }

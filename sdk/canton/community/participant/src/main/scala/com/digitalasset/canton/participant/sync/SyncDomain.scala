@@ -793,14 +793,14 @@ class SyncDomain(
       // Wait to see a timestamp >= now from the domain -- when we see such a timestamp, it means that the participant
       // has "caught up" on messages from the domain (and so should have seen all the assignments)
       // TODO(i9009): This assumes the participant and domain clocks are synchronized, which may not be the case
-      waitForReplay <- FutureUnlessShutdown.outcomeF(
+      _waitForReplay <- FutureUnlessShutdown.outcomeF(
         timeTracker
           .awaitTick(clock.now)
           .map(_.void)
           .getOrElse(Future.unit)
       )
 
-      params <- performUnlessClosingF(functionFullName)(
+      _params <- performUnlessClosingF(functionFullName)(
         topologyClient.currentSnapshotApproximation.findDynamicDomainParametersOrDefault(
           staticDomainParameters.protocolVersion
         )

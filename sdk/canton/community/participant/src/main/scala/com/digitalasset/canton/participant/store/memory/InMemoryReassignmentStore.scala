@@ -110,7 +110,7 @@ class InMemoryReassignmentStore(
       editReassignmentEntry(reassignmentId, _.addUnassignmentGlobalOffset(newGlobalOffset))
     }
 
-  override def completeReasignment(reassignmentId: ReassignmentId, timeOfCompletion: TimeOfChange)(
+  override def completeReassignment(reassignmentId: ReassignmentId, timeOfCompletion: TimeOfChange)(
       implicit traceContext: TraceContext
   ): CheckedT[Future, Nothing, ReassignmentStoreError, Unit] =
     CheckedT(Future.successful {

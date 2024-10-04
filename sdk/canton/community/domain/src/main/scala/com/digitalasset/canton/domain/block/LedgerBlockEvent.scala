@@ -24,9 +24,7 @@ import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LfTimestamp, ProtoDeserializationError}
 import com.google.protobuf.ByteString
 
-/** Trait that generalizes over the kind of events that could be observed in a blockchain integration.
-  *
-  * Used by Ethereum and Fabric.
+/** Trait that generalizes over the kind of events that could be observed from a [[com.digitalasset.canton.domain.sequencing.sequencer.block.BlockOrderer]].
   */
 sealed trait LedgerBlockEvent extends Product with Serializable
 
@@ -38,7 +36,8 @@ object LedgerBlockEvent extends HasLoggerName {
       originalPayloadSize: Int =
         0, // default is 0 for testing as this value is only used for metrics
   ) extends LedgerBlockEvent {
-    lazy val signedSubmissionRequest = signedOrderingRequest.signedSubmissionRequest
+    lazy val signedSubmissionRequest: SignedContent[SubmissionRequest] =
+      signedOrderingRequest.signedSubmissionRequest
   }
   final case class Acknowledgment(request: SignedContent[AcknowledgeRequest])
       extends LedgerBlockEvent
@@ -105,4 +104,8 @@ object LedgerBlockEvent extends HasLoggerName {
       )
 }
 
-final case class BlockEvents(height: Long, events: Seq[Traced[LedgerBlockEvent]])
+final case class BlockEvents(
+    height: Long,
+    events: Seq[Traced[LedgerBlockEvent]],
+    tickTopology: Boolean,
+)

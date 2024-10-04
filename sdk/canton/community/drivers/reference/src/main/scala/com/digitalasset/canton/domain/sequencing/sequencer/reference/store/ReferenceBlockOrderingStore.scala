@@ -149,7 +149,7 @@ class InMemoryReferenceSequencerDriverStore extends ReferenceBlockOrderingStore 
           requestsWithTimestampsAndLastTopologyTimestamps.zip(LazyList.from(initial.toInt)).map {
             case ((blockTimestamp, tracedRequests, lastTopologyTimestamp), blockHeight) =>
               TimestampedBlock(
-                BlockFormat.Block(blockHeight.toLong, tracedRequests),
+                BlockFormat.Block(blockHeight.toLong, tracedRequests, tickTopology = false),
                 CantonTimestamp.ofEpochMicro(blockTimestamp),
                 lastTopologyTimestamp,
               )
