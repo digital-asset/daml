@@ -65,7 +65,7 @@ import scala.math.Ordered.orderingToOrdered
   * @param hasReinterpret reinterprets the lf command to a transaction.
   * @param transactionTreeFactory reconstructs a transaction view from the reinterpreted action description.
   * @param getReferencedPackageIds extracts from view package ids to be vetted pre-reinterpretation
-  * @param checkUsedPackages if this flag is set the used package ids reported by the engine will also be vetted post-reinterpretation
+  * @param checkUsedPackages if this flag is set the used package ids reported by the engine and input contract package ids will also be vetted post-reinterpretation
   */
 class ModelConformanceChecker(
     val hasReinterpret: HasReinterpret,
@@ -392,10 +392,14 @@ class ModelConformanceChecker(
       view: TransactionView,
       snapshot: TopologySnapshot,
       usedPackageIds: Set[PackageId],
+  )(implicit
+      traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, Error, Unit] =
-    if (checkUsedPackages)
-      checkPackageVetting(view, snapshot, usedPackageIds)
-    else
+    if (checkUsedPackages) {
+      val usedAndInputPackages =
+        usedPackageIds ++ viewContractPackagesIds(view, implicitly[NamedLoggingContext])
+      checkPackageVetting(view, snapshot, usedAndInputPackages)
+    } else
       EitherT.pure(())
 
 }
@@ -419,21 +423,21 @@ object ModelConformanceChecker {
         noSerializedContractValidation
 
     val preReinterpretationPackageIds: PackageIdsOfView =
-      if (protocolVersion >= ProtocolVersion.v6)
-        packageIdsOfActionDescription
+      if (protocolVersion >= ProtocolVersion.v7)
+        viewPackageIds
       else
-        legacyPackageIdsOfView
+        viewContractPackagesIds
 
     new ModelConformanceChecker(
-      damlE,
-      validateContract,
-      transactionTreeFactory,
-      participantId,
-      serializableContractAuthenticator,
-      packageResolver,
-      preReinterpretationPackageIds,
-      checkUsedPackages = protocolVersion >= ProtocolVersion.v6,
-      loggerFactory,
+      hasReinterpret = damlE,
+      validateContract = validateContract,
+      transactionTreeFactory = transactionTreeFactory,
+      participantId = participantId,
+      serializableContractAuthenticator = serializableContractAuthenticator,
+      packageResolver = packageResolver,
+      getReferencedPackageIds = preReinterpretationPackageIds,
+      checkUsedPackages = protocolVersion >= ProtocolVersion.v7,
+      loggerFactory = loggerFactory,
     )
   }
 
@@ -621,7 +625,7 @@ object ModelConformanceChecker {
 
   type PackageIdsOfView = (TransactionView, NamedLoggingContext) => Set[PackageId]
 
-  private[validation] def legacyPackageIdsOfView(
+  private[validation] def viewContractPackagesIds(
       view: TransactionView,
       context: NamedLoggingContext,
   ): Set[PackageId] = {
@@ -639,7 +643,13 @@ object ModelConformanceChecker {
     packageIdsOfContracts ++ packageIdsOfKeys
   }
 
-  private[validation] def packageIdsOfActionDescription(
+  private[validation] def viewPackageIds(
+      view: TransactionView,
+      context: NamedLoggingContext,
+  ): Set[PackageId] =
+    packageIdsOfActionDescription(view, context) ++ viewContractPackagesIds(view, context)
+
+  private def packageIdsOfActionDescription(
       view: TransactionView,
       context: NamedLoggingContext,
   ): Set[PackageId] = {
@@ -656,7 +666,7 @@ object ModelConformanceChecker {
       case ad: LookupByKeyActionDescription =>
         Set(ad.key.templateId.packageId)
       case ad: FetchActionDescription =>
-        ad.templateId.map(_.packageId)
+        Set(ad.templateId, ad.interfaceId).flatten.map(_.packageId)
     }
 
     actionPackageIds.iterator.toSet

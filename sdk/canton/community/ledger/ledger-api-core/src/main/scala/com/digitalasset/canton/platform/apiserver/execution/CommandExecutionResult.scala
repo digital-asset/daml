@@ -4,8 +4,10 @@
 package com.digitalasset.canton.platform.apiserver.execution
 
 import com.daml.lf.data.ImmArray
+import com.daml.lf.data.Ref.PackageId
 import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction}
 import com.daml.lf.value.Value
+import com.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.data.ProcessedDisclosedContract
 import com.digitalasset.canton.ledger.participant.state.v2 as state
 
@@ -28,6 +30,7 @@ import com.digitalasset.canton.ledger.participant.state.v2 as state
   *                                 Note that this may be a subset of the `disclosed_contracts`
   *                                 provided as part of the command submission by the client,
   *                                 as superfluously-provided contracts are discarded by the Daml engine.
+  * @param contractPackages         The input contracts used by the transaction together with their creating packages
   */
 private[apiserver] final case class CommandExecutionResult(
     submitterInfo: state.SubmitterInfo,
@@ -37,4 +40,5 @@ private[apiserver] final case class CommandExecutionResult(
     interpretationTimeNanos: Long,
     globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
     processedDisclosedContracts: ImmArray[ProcessedDisclosedContract],
+    contractPackages: Map[ContractId, PackageId],
 )

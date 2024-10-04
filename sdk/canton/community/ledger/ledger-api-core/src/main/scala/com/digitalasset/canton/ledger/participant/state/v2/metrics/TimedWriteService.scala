@@ -7,12 +7,14 @@ import com.daml.lf.data.{ImmArray, Ref, Time}
 import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction}
 import com.daml.lf.value.Value
 import com.daml.metrics.Timed
+import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.data.ProcessedDisclosedContract
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.configuration.Configuration
 import com.digitalasset.canton.ledger.offset.Offset
 import com.digitalasset.canton.ledger.participant.state.v2.*
 import com.digitalasset.canton.metrics.Metrics
+import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.protobuf.ByteString
 
@@ -27,6 +29,7 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
       estimatedInterpretationCost: Long,
       globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
       processedDisclosedContracts: ImmArray[ProcessedDisclosedContract],
+      contractPackages: Map[LfContractId, LfPackageId],
   )(implicit
       traceContext: TraceContext
   ): CompletionStage[SubmissionResult] =
@@ -40,6 +43,7 @@ final class TimedWriteService(delegate: WriteService, metrics: Metrics) extends 
         estimatedInterpretationCost,
         globalKeyMapping,
         processedDisclosedContracts,
+        contractPackages,
       ),
     )
 

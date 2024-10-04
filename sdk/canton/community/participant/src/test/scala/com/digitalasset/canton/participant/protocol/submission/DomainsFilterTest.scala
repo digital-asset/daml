@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.protocol.submission
 
+import com.daml.lf.engine.Blinding
 import com.daml.lf.transaction.TransactionVersion
 import com.daml.lf.transaction.test.TransactionBuilder.Implicits.*
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -163,12 +164,7 @@ private[submission] object DomainsFilterTest {
           SimpleTopology.defaultTestingIdentityFactory(topology, packages),
         )
       )
-
-      DomainsFilter(
-        submittedTransaction = tx,
-        domains = domains,
-        loggerFactory = loggerFactory,
-      ).split
+      DomainsFilter.split(Blinding.partyPackages(tx), domains, tx.version)
     }
   }
 }

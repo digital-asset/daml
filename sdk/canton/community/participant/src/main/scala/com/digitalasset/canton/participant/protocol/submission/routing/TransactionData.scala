@@ -50,6 +50,7 @@ private[routing] object TransactionData {
       domainIdResolver: DomainAlias => Option[DomainId],
       contractRoutingParties: Map[LfContractId, Set[Party]],
       submitterDomainId: Option[DomainId],
+      contractPackages: Map[LfContractId, LfPackageId],
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -65,7 +66,7 @@ private[routing] object TransactionData {
       )
     } yield TransactionData(
       transaction = transaction,
-      requiredPackagesPerParty = Blinding.partyPackages(transaction),
+      requiredPackagesPerParty = Blinding.partyPackages(transaction, contractPackages),
       submitters = submitters,
       inputContractsDomainData = contractsDomainData,
       prescribedDomainO = prescribedDomainO,
@@ -79,6 +80,7 @@ private[routing] object TransactionData {
       domainIdResolver: DomainAlias => Option[DomainId],
       contractRoutingParties: Map[LfContractId, Set[Party]],
       submitterDomainId: Option[DomainId],
+      contractPackages: Map[LfContractId, LfPackageId],
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
@@ -102,6 +104,7 @@ private[routing] object TransactionData {
         domainIdResolver,
         contractRoutingParties,
         submitterDomainId,
+        contractPackages,
       )
     } yield transactionData
 

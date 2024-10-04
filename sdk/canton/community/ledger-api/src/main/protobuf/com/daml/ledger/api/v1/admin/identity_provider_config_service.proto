@@ -26,8 +26,9 @@ option csharp_namespace = "Com.Daml.Ledger.Api.V1.Admin";
 // the default IDP is assumed.
 //
 // The fields of request messages (and sub-messages) are marked either as ``Optional`` or ``Required``:
-// (1) ``Optional`` denoting the client may leave the field unset when sending a request.
-// (2) ``Required`` denoting the client must set the field to a non-default value when sending a request.
+//
+// 1. ``Optional`` denoting the client may leave the field unset when sending a request.
+// 2. ``Required`` denoting the client must set the field to a non-default value when sending a request.
 //
 // An identity provider config resource is described by the ``IdentityProviderConfig`` message,
 // An identity provider config resource, once it has been created, can be modified.
@@ -125,8 +126,10 @@ message UpdateIdentityProviderConfigRequest {
   // An update mask consists of a set of update paths.
   // A valid update path points to a field or a subfield relative to the ``IdentityProviderConfig`` message.
   // A valid update mask must:
-  // (1) contain at least one update path,
-  // (2) contain only valid update paths.
+  //
+  // 1. contain at least one update path,
+  // 2. contain only valid update paths.
+  //
   // Fields that can be updated are marked as ``Modifiable``.
   // For additional information see the documentation for standard protobuf3's ``google.protobuf.FieldMask``.
   // Required
