@@ -225,7 +225,7 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar {
     when(state.contractStore).thenAnswer(cs)
     when(state.activeContractStore).thenAnswer(acs)
     when(state.requestJournalStore).thenAnswer(rjs)
-    when(state.domainId).thenAnswer(IndexedDomain.tryCreate(FakeDomainId, 1))
+    when(state.indexedDomain).thenAnswer(IndexedDomain.tryCreate(FakeDomainId, 1))
     when(state.acsInspection).thenAnswer(acsInspection)
 
     state

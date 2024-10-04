@@ -98,11 +98,10 @@ object CommunityConfigValidations
           server <- getPropStr("serverName")
           port <- getPropInt("portNumber")
           dbName <- getPropStr("databaseName")
-          url = dbConfig match {
-            case _: H2DbConfig => DbConfig.h2Url(dbName)
-            case _: PostgresDbConfig => DbConfig.postgresUrl(server, port, dbName)
-            // Assume Oracle
-            case _ => DbConfig.oracleUrl(server, port, dbName)
+          url <- dbConfig match {
+            case _: H2DbConfig => Some(DbConfig.h2Url(dbName))
+            case _: PostgresDbConfig => Some(DbConfig.postgresUrl(server, port, dbName))
+            case other => throw new IllegalArgumentException(s"Unsupported DbConfig: $other")
           }
         } yield url
 

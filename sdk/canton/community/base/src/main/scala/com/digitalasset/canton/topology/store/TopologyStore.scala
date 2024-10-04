@@ -10,7 +10,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.CantonRequireTypes.{LengthLimitedString, String255}
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -74,7 +74,10 @@ object TopologyStoreId {
       if (discriminator.isEmpty) dbStringWithoutDiscriminator
       else
         LengthLimitedString
-          .tryCreate(discriminator + "::", discriminator.length + 2)
+          .tryCreate(
+            discriminator + "::",
+            PositiveInt.two + NonNegativeInt.tryCreate(discriminator.length),
+          )
           .tryConcatenate(dbStringWithoutDiscriminator)
 
     override protected def pretty: Pretty[this.type] =
@@ -91,7 +94,10 @@ object TopologyStoreId {
     override def dbStringWithDaml2xUniquifier(uniquifier: String): LengthLimitedString = {
       require(uniquifier.nonEmpty)
       LengthLimitedString
-        .tryCreate(discriminator + uniquifier + "::", discriminator.length + uniquifier.length + 2)
+        .tryCreate(
+          discriminator + uniquifier + "::",
+          PositiveInt.two + NonNegativeInt.tryCreate(discriminator.length + uniquifier.length),
+        )
         .tryConcatenate(dbStringWithoutDiscriminator)
     }
 
@@ -106,7 +112,7 @@ object TopologyStoreId {
     override def dbStringWithDaml2xUniquifier(uniquifier: String): LengthLimitedString = {
       require(uniquifier.nonEmpty)
       LengthLimitedString
-        .tryCreate(uniquifier + "::", uniquifier.length + 2)
+        .tryCreate(uniquifier + "::", PositiveInt.two + NonNegativeInt.tryCreate(uniquifier.length))
         .tryConcatenate(dbString)
     }
 

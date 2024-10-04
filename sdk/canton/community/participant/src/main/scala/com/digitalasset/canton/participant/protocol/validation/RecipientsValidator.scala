@@ -406,7 +406,7 @@ class RecipientsValidator[I](
             informeeParticipantsOfPositionAndParty(viewPosition)
 
           val informeeRecipients = informeeParticipantsOfParty.toList
-            .flatMap { case (party, participants) =>
+            .flatMap { case (_party, participants) =>
               participants.map(MemberRecipient)
             }
             .toSet[Recipient]

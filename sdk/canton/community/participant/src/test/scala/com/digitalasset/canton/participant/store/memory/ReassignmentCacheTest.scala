@@ -37,12 +37,15 @@ class ReassignmentCacheTest extends AsyncWordSpec with BaseTest with HasExecutor
     mkReassignmentDataForDomain(
       reassignment10,
       mediator1,
-      targetDomainId = ReassignmentStoreTest.targetDomain,
+      targetDomainId = targetDomainId,
     )
   val toc = TimeOfChange(RequestCounter(0), CantonTimestamp.Epoch)
 
+  def createStore: InMemoryReassignmentStore =
+    new InMemoryReassignmentStore(targetDomainId, loggerFactory)
+
   "find reassignments in the backing store" in {
-    val store = new InMemoryReassignmentStore(targetDomain, loggerFactory)
+    val store = createStore
     val cache = new ReassignmentCache(store, loggerFactory)
 
     for {
@@ -60,7 +63,7 @@ class ReassignmentCacheTest extends AsyncWordSpec with BaseTest with HasExecutor
 
   "completeReassignment" should {
     "immediately report the reassignment as completed" in {
-      val backingStore = new InMemoryReassignmentStore(targetDomain, loggerFactory)
+      val backingStore = createStore
       val store = new HookReassignmentStore(backingStore)
       val cache = new ReassignmentCache(store, loggerFactory)
       for {
@@ -84,7 +87,7 @@ class ReassignmentCacheTest extends AsyncWordSpec with BaseTest with HasExecutor
     }
 
     "report missing reassignments" in {
-      val store = new InMemoryReassignmentStore(targetDomain, loggerFactory)
+      val store = createStore
       val cache = new ReassignmentCache(store, loggerFactory)
 
       for {
@@ -95,7 +98,7 @@ class ReassignmentCacheTest extends AsyncWordSpec with BaseTest with HasExecutor
     }
 
     "report mismatches" in {
-      val backingStore = new InMemoryReassignmentStore(targetDomain, loggerFactory)
+      val backingStore = createStore
       val store = new HookReassignmentStore(backingStore)
       val cache = new ReassignmentCache(store, loggerFactory)
       val toc2 = TimeOfChange(RequestCounter(0), CantonTimestamp.ofEpochSecond(1))
@@ -127,7 +130,7 @@ class ReassignmentCacheTest extends AsyncWordSpec with BaseTest with HasExecutor
     }
 
     "report mismatches coming from the store" in {
-      val backingStore = new InMemoryReassignmentStore(targetDomain, loggerFactory)
+      val backingStore = createStore
       val store = new HookReassignmentStore(backingStore)
       val cache = new ReassignmentCache(store, loggerFactory)
       val toc2 = TimeOfChange(RequestCounter(0), CantonTimestamp.ofEpochSecond(1))
@@ -137,7 +140,9 @@ class ReassignmentCacheTest extends AsyncWordSpec with BaseTest with HasExecutor
       for {
         reassignmentData <- reassignmentDataF
         _ <- valueOrFail(store.addReassignment(reassignmentData).failOnShutdown)("add failed")
-        _ <- valueOrFail(store.completeReasignment(reassignment10, toc2))("first completion failed")
+        _ <- valueOrFail(store.completeReassignment(reassignment10, toc2))(
+          "first completion failed"
+        )
         _ = store.preComplete { (reassignmentId, _) =>
           assert(reassignmentId == reassignment10)
           promise.completeWith(cache.completeReassignment(reassignment10, toc).value)
@@ -154,7 +159,7 @@ class ReassignmentCacheTest extends AsyncWordSpec with BaseTest with HasExecutor
     }
 
     "complete only after having persisted the completion" in {
-      val backingStore = new InMemoryReassignmentStore(targetDomain, loggerFactory)
+      val backingStore = createStore
       val store = new HookReassignmentStore(backingStore)
       val cache = new ReassignmentCache(store, loggerFactory)
 
@@ -186,7 +191,7 @@ class ReassignmentCacheTest extends AsyncWordSpec with BaseTest with HasExecutor
       TimeOfChange(RequestCounter(2), CantonTimestamp.ofEpochSecond(2))
 
     "store the first completing request" in {
-      val store = new InMemoryReassignmentStore(targetDomain, loggerFactory)
+      val store = createStore
       val cache = new ReassignmentCache(store, loggerFactory)
 
       for {
@@ -209,7 +214,7 @@ class ReassignmentCacheTest extends AsyncWordSpec with BaseTest with HasExecutor
       import cats.implicits.*
       implicit val ec: ExecutionContextIdlenessExecutorService = executorService
 
-      val store = new InMemoryReassignmentStore(targetDomain, loggerFactory)
+      val store = createStore
       val cache = new ReassignmentCache(store, loggerFactory)(executorService)
 
       val timestamps = (1L to 100L).toList.map { ts =>
@@ -287,7 +292,7 @@ object ReassignmentCacheTest {
     ): EitherT[FutureUnlessShutdown, ReassignmentStoreError, Unit] =
       baseStore.addReassignmentsOffsets(offsets)
 
-    override def completeReasignment(
+    override def completeReassignment(
         reassignmentId: ReassignmentId,
         timeOfCompletion: TimeOfChange,
     )(implicit
@@ -295,7 +300,7 @@ object ReassignmentCacheTest {
     ): CheckedT[Future, Nothing, ReassignmentStoreError, Unit] = {
       val hook = preCompleteHook.getAndSet(HookReassignmentStore.preCompleteNoHook)
       hook(reassignmentId, timeOfCompletion).flatMap[Nothing, ReassignmentStoreError, Unit](_ =>
-        baseStore.completeReasignment(reassignmentId, timeOfCompletion)
+        baseStore.completeReassignment(reassignmentId, timeOfCompletion)
       )
     }
 

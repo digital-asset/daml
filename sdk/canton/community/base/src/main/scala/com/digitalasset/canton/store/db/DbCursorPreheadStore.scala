@@ -20,7 +20,7 @@ import scala.concurrent.{ExecutionContext, Future}
   * @param cursorTable The table name to store the cursor prehead.
   *                    The table must define the following columns:
   *                    <ul>
-  *                      <li>domain_id integer not null primary key</li>
+  *                    <li>domain_idx integer not null primary key</li>
   *                      <li>prehead_counter bigint not null</li>
   *                      <li>ts bigint not null</li>
   *                    </ul>
@@ -42,7 +42,7 @@ class DbCursorPreheadStore[Discr](
       traceContext: TraceContext
   ): Future[Option[CursorPrehead[Discr]]] = {
     val preheadQuery =
-      sql"""select prehead_counter, ts from #$cursorTable where domain_id = $indexedDomain order by prehead_counter desc #${storage
+      sql"""select prehead_counter, ts from #$cursorTable where domain_idx = $indexedDomain order by prehead_counter desc #${storage
           .limit(2)}"""
         .as[(Counter[Discr], CantonTimestamp)]
     storage.query(preheadQuery, functionFullName).map {
@@ -66,24 +66,10 @@ class DbCursorPreheadStore[Discr](
       case Some(CursorPrehead(counter, timestamp)) =>
         val query = storage.profile match {
           case _: DbStorage.Profile.H2 =>
-            sqlu"merge into #$cursorTable (domain_id, prehead_counter, ts) values ($indexedDomain, $counter, $timestamp)"
+            sqlu"merge into #$cursorTable (domain_idx, prehead_counter, ts) values ($indexedDomain, $counter, $timestamp)"
           case _: DbStorage.Profile.Postgres =>
-            sqlu"""insert into #$cursorTable (domain_id, prehead_counter, ts) values ($indexedDomain, $counter, $timestamp)
-                     on conflict (domain_id) do update set prehead_counter = $counter, ts = $timestamp"""
-          case _: DbStorage.Profile.Oracle =>
-            sqlu"""merge into #$cursorTable ct
-                   using (
-                    select
-                      $indexedDomain domain_id,
-                      $counter counter,
-                      $timestamp ts
-                    from dual
-                   ) val
-                   on (val.domain_id = ct.domain_id)
-                   when matched then
-                    update set ct.prehead_counter = val.counter, ct.ts = val.ts
-                   when not matched then
-                    insert (domain_id, prehead_counter, ts) values (val.domain_id, val.counter, val.ts)"""
+            sqlu"""insert into #$cursorTable (domain_idx, prehead_counter, ts) values ($indexedDomain, $counter, $timestamp)
+                     on conflict (domain_idx) do update set prehead_counter = $counter, ts = $timestamp"""
         }
         storage.update_(query, functionFullName)
     }
@@ -99,33 +85,18 @@ class DbCursorPreheadStore[Discr](
         sqlu"""
           merge into #$cursorTable as cursor_table
           using dual
-          on cursor_table.domain_id = $indexedDomain
+          on cursor_table.domain_idx = $indexedDomain
             when matched and cursor_table.prehead_counter < $counter
               then update set cursor_table.prehead_counter = $counter, cursor_table.ts = $timestamp
-            when not matched then insert (domain_id, prehead_counter, ts) values ($indexedDomain, $counter, $timestamp)
+            when not matched then insert (domain_idx, prehead_counter, ts) values ($indexedDomain, $counter, $timestamp)
           """
       case _: DbStorage.Profile.Postgres =>
         sqlu"""
-          insert into #$cursorTable as cursor_table (domain_id, prehead_counter, ts)
+          insert into #$cursorTable as cursor_table (domain_idx, prehead_counter, ts)
           values ($indexedDomain, $counter, $timestamp)
-          on conflict (domain_id) do
+          on conflict (domain_idx) do
             update set prehead_counter = $counter, ts = $timestamp
             where cursor_table.prehead_counter < $counter
-          """
-      case _: DbStorage.Profile.Oracle =>
-        sqlu"""
-          merge into #$cursorTable cursor_table
-          using (
-            select
-              $indexedDomain domain_id
-            from dual
-           ) val
-            on (cursor_table.domain_id = val.domain_id)
-            when matched then
-              update set cursor_table.prehead_counter = $counter, cursor_table.ts = $timestamp
-              where cursor_table.prehead_counter < $counter
-            when not matched then
-              insert (domain_id, prehead_counter, ts) values (val.domain_id, $counter, $timestamp)
           """
     }
     new TransactionalStoreUpdate.DbTransactionalStoreUpdate(
@@ -146,14 +117,14 @@ class DbCursorPreheadStore[Discr](
           sqlu"""
             update #$cursorTable
             set prehead_counter = $counter, ts = $timestamp
-            where domain_id = $indexedDomain and prehead_counter > $counter"""
+            where domain_idx = $indexedDomain and prehead_counter > $counter"""
         storage.update_(query, "rewind prehead")
     }
   }
 
   private[this] def delete()(implicit traceContext: TraceContext): Future[Unit] =
     storage.update_(
-      sqlu"""delete from #$cursorTable where domain_id = $indexedDomain""",
+      sqlu"""delete from #$cursorTable where domain_idx = $indexedDomain""",
       functionFullName,
     )
 }

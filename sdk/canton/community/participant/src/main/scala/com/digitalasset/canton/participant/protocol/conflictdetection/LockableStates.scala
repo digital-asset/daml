@@ -560,7 +560,7 @@ private[conflictdetection] class LockableStates[
     }
 
     def assertVersionedStateIsLatestIfNoPendingWrites(): Unit = {
-      val withoutPendingWrites = states.filterNot { case (id, state) => state.hasPendingWrites }
+      val withoutPendingWrites = states.filterNot { case (_id, state) => state.hasPendingWrites }
       // Await on the store Futures to make sure that there's no context switch in the conflict detection thread
       // This ensures that invariant checking runs atomically.
       val storeSnapshot =

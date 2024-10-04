@@ -178,16 +178,13 @@ object EndpointsCompanion extends NoTracing {
   def notFound(
       logger: TracedLogger
   )(implicit lc: LoggingContextOf[InstanceUUID]): Route = (ctx: RequestContext) =>
-    ctx.request match {
-      case HttpRequest(method, uri, _, _, _) =>
-        extendWithRequestIdLogCtx(implicit lc =>
-          Future.successful(
-            Complete(
-              httpResponseError(NotFound(s"${method: HttpMethod}, uri: ${uri: Uri}"), logger)
-            )
-          )
+    extendWithRequestIdLogCtx(implicit lc =>
+      Future.successful(
+        Complete(
+          httpResponseError(NotFound(s"${ctx.request.method}, uri: ${ctx.request.uri}"), logger)
         )
-    }
+      )
+    )
 
   def httpResponseError(
       error: Error,

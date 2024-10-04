@@ -564,7 +564,7 @@ trait MessageDispatcherTest {
           sut.recordOrderPublisher.scheduleEmptyAcsChangePublication(
             any[SequencerCounter],
             any[CantonTimestamp],
-          )
+          )(any[TraceContext])
         )
           .thenAnswer {
             checkTickTopologyProcessor(sut, sc, ts).discard
@@ -575,7 +575,9 @@ trait MessageDispatcherTest {
           }
 
         handle(sut, deliver) {
-          verify(sut.recordOrderPublisher).scheduleEmptyAcsChangePublication(isEq(sc), isEq(ts))
+          verify(sut.recordOrderPublisher).scheduleEmptyAcsChangePublication(isEq(sc), isEq(ts))(
+            any[TraceContext]
+          )
           checkTicks(sut, sc, ts)
         }.futureValue
       }

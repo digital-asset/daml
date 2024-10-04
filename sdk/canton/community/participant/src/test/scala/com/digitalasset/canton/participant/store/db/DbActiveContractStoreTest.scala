@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant.store.db
 
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.config.RequireTypes.PositiveNumeric
 import com.digitalasset.canton.participant.store.ActiveContractStoreTest
 import com.digitalasset.canton.participant.store.db.DbActiveContractStoreTest.maxDomainIndex
 import com.digitalasset.canton.participant.store.db.DbContractStoreTest.createDbContractStoreForTesting
@@ -28,7 +27,7 @@ trait DbActiveContractStoreTest extends AsyncWordSpec with BaseTest with ActiveC
       DBIO.seq(
         sqlu"truncate table par_active_contracts",
         sqlu"truncate table par_active_contract_pruning",
-        sqlu"delete from par_contracts where domain_id >= $domainIndex and domain_id <= $maxDomainIndex",
+        sqlu"delete from par_contracts where domain_idx >= $domainIndex and domain_idx <= $maxDomainIndex",
       ),
       functionFullName,
     )
@@ -49,10 +48,8 @@ trait DbActiveContractStoreTest extends AsyncWordSpec with BaseTest with ActiveC
           storage,
           domainId,
           enableAdditionalConsistencyChecks = true,
-          maxContractIdSqlInListSize = PositiveNumeric.tryCreate(10),
           PrunableByTimeParameters.testingParams,
           indexStore,
-          testedProtocolVersion,
           timeouts,
           loggerFactory,
         )(ec)

@@ -29,7 +29,7 @@ object DbExceptionRetryPolicy extends ExceptionRetryPolicy {
     * Main use case is a transient unique constraint violation due to racy merge statements.
     * Should go away after a very limited amount of retries.
     *
-    * Value determined empirically in UpsertTestOracle.
+    * Value determined empirically in the now removed UpsertTestOracle.
     * For single row inserts, 1 is sufficient.
     * For batched inserts, 3 was more than sufficient in the test.
     */
@@ -87,9 +87,8 @@ object DbExceptionRetryPolicy extends ExceptionRetryPolicy {
       }
 
     case _: SQLIntegrityConstraintViolationException =>
-      // Both H2 and Oracle may fail with spurious constraint violations, due to racy implementation of the MERGE statements.
+      // H2 may fail with spurious constraint violations, due to racy implementation of the MERGE statements.
       // In H2, this may also occur because it does not properly implement the serializable isolation level.
-      // See UpsertTestOracle
       // See https://github.com/h2database/h2database/issues/2167
       TransientErrorKind(spuriousTransientErrorMaxRetries)
 
@@ -100,50 +99,8 @@ object DbExceptionRetryPolicy extends ExceptionRetryPolicy {
     // Handle SQLException and all classes that derive from it (e.g. java.sql.BatchUpdateException)
     // Note that if the exception is not known but has a cause, we'll base the retry on the cause
     case ex: SQLException =>
-      val code = ex.getErrorCode
-      if (ex.getErrorCode == 1) {
-        // Retry on ORA-00001: unique constraint violated exception
-        TransientErrorKind(spuriousTransientErrorMaxRetries)
-      } else if (ex.getMessage == "Connection is closed") {
+      if (ex.getMessage == "Connection is closed") {
         // May fail with a "Connection is closed" message if the db has gone down
-        TransientErrorKind()
-      } else if (ex.getErrorCode == 4021) {
-        // ORA timeout occurred while waiting to lock object
-        TransientErrorKind()
-      } else if (ex.getErrorCode == 54) {
-        // ORA timeout occurred while waiting to lock object or because NOWAIT has been set
-        // e.g. as part of truncate table
-        TransientErrorKind()
-      } else if (ex.getErrorCode == 60) {
-        // Deadlock
-        // See DatabaseDeadlockTestOracle
-        TransientErrorKind()
-      } else if (
-        ex.getErrorCode == 604 &&
-        List("ORA-08176", "ORA-08177").exists(ex.getMessage.contains)
-      ) {
-        // Oracle failure in a batch operation
-        // For Oracle, the `cause` is not always set properly for exceptions. This is a problem for batched queries.
-        // So, look through an exception's `message` to see if it contains a retryable problem.
-        TransientErrorKind()
-      } else if (ex.getErrorCode == 8176) {
-        // consistent read failure; rollback data not available
-        // Cause:  Encountered data changed by an operation that does not generate rollback data
-        // Action: In read/write transactions, retry the intended operation.
-        TransientErrorKind()
-      } else if (ex.getErrorCode == 8177) {
-        // failure to serialize transaction with serializable isolation level
-        TransientErrorKind()
-      } else if (ex.getErrorCode == 17410) {
-        // No more data to read from socket, can be caused by network problems
-        TransientErrorKind(spuriousTransientErrorMaxRetries)
-      } else if (code == 17002) {
-        // This has been observed as either IO Error: Connection reset by peer or IO Error: Broken pipe
-        // when straight-up killing an Oracle database server (`kill -9 <oracle-pid>`)
-        TransientErrorKind()
-      } else if (code == 1088 || code == 1089 || code == 1090 || code == 1092) {
-        // Often observed for orderly Oracle shutdowns
-        // https://docs.oracle.com/en/database/oracle/oracle-database/19/errmg/ORA-00910.html#GUID-D9EBDFFA-88C6-4185-BD2C-E1B959A97274
         TransientErrorKind()
       } else if (ex.getCause != null) {
         logger.info("Unable to retry on exception, checking cause.")

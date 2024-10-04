@@ -43,5 +43,4 @@ object TestSemaphoreUtil {
   // pre-defined semaphore keys here
   val SEQUENCER_DB_H2 = Some("sequencer-db-h2")
   val SEQUENCER_DB_PG = Some("sequencer-db-pg")
-  val SEQUENCER_DB_ORACLE = Some("sequencer-db-oracle")
 }

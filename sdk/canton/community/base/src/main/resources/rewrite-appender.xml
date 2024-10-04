@@ -122,14 +122,6 @@
             <testing>true</testing>
         </rewrite>
 
-        <!-- Emitted when trying to connect to the database and Oracle is not ready yet -->
-        <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.zaxxer.hikari.pool.HikariPool</logger>
-            <maxLevel>INFO</maxLevel>
-            <contains>Exception during pool initialization</contains>
-            <testing>true</testing>
-        </rewrite>
-
         <!-- Expected warnings that are emitted by grpc itself; used for GrpcConnectionErrorsIntegrationTest -->
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
             <logger>
@@ -167,27 +159,6 @@
             <testing>true</testing>
         </rewrite>
 
-        <!-- Parallel indexer on Oracle-based conformance tests runs into Oracle-upsert race.
-             The problem should only occur when storing packages.
-             However, we can't restrict the rule to the packages table, because the error message does not mention the affected table.
-
-             Since the rules are rather broad, it is applied during testing only.
-
-             The rules should be removed once https://digitalasset.atlassian.net/browse/DPP-562 is done.
-        -->
-        <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.platform.indexer.RecoveringIndexer</logger>
-            <contains>Error while running indexer, restart scheduled</contains>
-            <maxLevel>INFO</maxLevel>
-            <testing>true</testing>
-        </rewrite>
-        <rewrite class="com.digitalasset.canton.logging.Rewrite"> <!-- version for Oracle -->
-            <logger>com.digitalasset.canton.platform.store.appendonlydao.DbDispatcher</logger>
-            <contains>Processing the request failed due to a non-transient database error: ORA-00001: unique constraint</contains>
-            <exceptionMessage>ORA-00001: unique constraint</exceptionMessage>
-            <maxLevel>INFO</maxLevel>
-            <testing>true</testing>
-        </rewrite>
         <rewrite class="com.digitalasset.canton.logging.Rewrite"> <!-- version for H2 -->
             <logger>com.digitalasset.canton.platform.store.appendonlydao.DbDispatcher</logger>
             <contains>Processing the request failed due to a non-transient database error: Unique index or primary key violation</contains>

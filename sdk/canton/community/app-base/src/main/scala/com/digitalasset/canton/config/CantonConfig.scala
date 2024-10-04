@@ -561,7 +561,7 @@ object CantonConfig {
     lazy implicit val lengthLimitedStringReader: ConfigReader[LengthLimitedString] =
       ConfigReader.fromString[LengthLimitedString] { str =>
         Either.cond(
-          str.nonEmpty && str.length <= defaultMaxLength,
+          str.nonEmpty && str.length <= defaultMaxLength.unwrap,
           new LengthLimitedStringVar(str, defaultMaxLength)(),
           InvalidLengthString(str),
         )

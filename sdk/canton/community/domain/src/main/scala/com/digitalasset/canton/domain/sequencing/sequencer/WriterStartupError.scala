@@ -27,7 +27,7 @@ object WriterStartupError {
       false // likely set at the database or user level, so retrying won't make a difference
   }
 
-  /** We only support running some features with certain types of databases (locking for HA requires postgres or oracle),
+  /** We only support running some features with certain types of databases (locking for HA requires postgres),
     * an enterprise config validation should prevent starting a node with a bad configuration however if we reach creating
     * a Writer with this config this error will be returned.
     */

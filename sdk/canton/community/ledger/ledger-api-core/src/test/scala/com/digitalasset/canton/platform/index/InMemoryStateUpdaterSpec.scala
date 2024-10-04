@@ -16,6 +16,7 @@ import com.digitalasset.canton.ledger.participant.state.{
   Reassignment,
   ReassignmentInfo,
   RequestIndex,
+  SequencerIndex,
   TransactionMeta,
   Update,
 }
@@ -68,8 +69,8 @@ import org.scalatest.matchers.should.Matchers
 
 import java.util.concurrent.ConcurrentLinkedQueue
 import scala.collection.mutable.ArrayBuffer
-import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.{ExecutionContext, Future}
 import scala.util.chaining.*
 
 class InMemoryStateUpdaterSpec
@@ -283,6 +284,62 @@ class InMemoryStateUpdaterSpec
 
     output shouldBe expectedOutput
     checkpoints shouldBe findCheckpointOffsets(input)
+    checkpoints shouldBe offsetCheckpointsExpected
+
+  }
+
+  "updateOffsetCheckpointCacheFlowWithTickingSource" should "update the domain time for all the Update types that contain one" in new Scope {
+    implicit val ec: ExecutionContext = executorService
+
+    private val updatesSeq: Seq[Update] = Seq(
+      transactionAccepted(1, domainId1),
+      assignmentAccepted(2, source = domainId2, target = domainId1),
+      unassignmentAccepted(3, source = domainId1, target = domainId2),
+      commandRejected(4, domainId1),
+      sequencerIndexMoved(5, domainId1),
+    )
+
+    private val offsets = (1L to updatesSeq.length.toLong).map(Offset.fromLong)
+    private val updatesWithOffsets = offsets.zip(updatesSeq.map(Traced.empty))
+
+    // tick after each update to have one checkpoint after every update
+    // the None values denote the ticks arrived that are used to update the offset checkpoint cache
+    private val input =
+      updatesWithOffsets.flatMap(elem => Seq(Some(elem), None))
+
+    private val (expectedOutput, output, checkpoints) =
+      runUpdateOffsetCheckpointCacheFlow(
+        input
+      ).futureValue
+
+    private val offsetCheckpointsExpected =
+      Seq(
+        // offset -> Map[domain, time]
+        1 -> Map(
+          domainId1 -> 1
+        ),
+        2 -> Map(
+          domainId1 -> 2
+        ),
+        3 -> Map(
+          domainId1 -> 3
+        ),
+        4 -> Map(
+          domainId1 -> 4
+        ),
+        5 -> Map(
+          domainId1 -> 5
+        ),
+      ).map { case (offset, domainTimesRaw) =>
+        OffsetCheckpoint(
+          offset = Offset.fromLong(offset.toLong),
+          domainTimes = domainTimesRaw.map { case (d, t) =>
+            d -> Timestamp(t.toLong)
+          },
+        )
+      }
+
+    output shouldBe expectedOutput
     checkpoints shouldBe offsetCheckpointsExpected
 
   }
@@ -658,21 +715,7 @@ object InMemoryStateUpdaterSpec {
   )
 
   private val update1 = offset(1L) -> Traced(
-    Update.TransactionAccepted(
-      completionInfoO = None,
-      transactionMeta = someTransactionMeta,
-      transaction = CommittedTransaction(TransactionBuilder.Empty),
-      transactionId = txId1,
-      recordTime = Timestamp.Epoch,
-      hostedWitnesses = Nil,
-      contractMetadata = Map.empty,
-      domainId = domainId1,
-      Some(
-        DomainIndex.of(
-          RequestIndex(RequestCounter(1), Some(SequencerCounter(1)), CantonTimestamp.MinValue)
-        )
-      ),
-    )
+    transactionAccepted(t = 0L, domainId = domainId1)
   )
   private val rawMetadataChangedUpdate = offset(2L) -> Update.Init(
     Timestamp.Epoch
@@ -696,81 +739,14 @@ object InMemoryStateUpdaterSpec {
     )
   )
   private val update4 = offset(4L) -> Traced[Update](
-    Update.CommandRejected(
-      recordTime = Time.Timestamp.assertFromLong(1337L),
-      completionInfo = CompletionInfo(
-        actAs = List.empty,
-        applicationId = Ref.ApplicationId.assertFromString("some-app-id"),
-        commandId = Ref.CommandId.assertFromString("cmdId"),
-        optDeduplicationPeriod = None,
-        submissionId = None,
-        None,
-      ),
-      reasonTemplate = FinalReason(new Status()),
-      domainId = DomainId.tryFromString("da::default"),
-      Some(
-        DomainIndex.of(
-          RequestIndex(RequestCounter(1), Some(SequencerCounter(1)), CantonTimestamp.MinValue)
-        )
-      ),
-    )
+    commandRejected(t = 1337L, domainId = DomainId.tryFromString("da::default"))
   )
   private val update7 = offset(7L) -> Traced[Update](
-    Update.ReassignmentAccepted(
-      optCompletionInfo = None,
-      workflowId = Some(workflowId),
-      updateId = txId3,
-      recordTime = Timestamp.Epoch,
-      reassignmentInfo = ReassignmentInfo(
-        sourceDomain = SourceDomainId(domainId1),
-        targetDomain = TargetDomainId(domainId2),
-        submitter = Option(party1),
-        reassignmentCounter = 15L,
-        hostedStakeholders = party2 :: Nil,
-        unassignId = CantonTimestamp.assertFromLong(155555L),
-        isReassigningParticipant = true,
-      ),
-      reassignment = Reassignment.Assign(
-        ledgerEffectiveTime = Timestamp.assertFromLong(12222),
-        createNode = someCreateNode,
-        contractMetadata = someContractMetadataBytes,
-      ),
-      Some(
-        DomainIndex.of(
-          RequestIndex(RequestCounter(1), Some(SequencerCounter(1)), CantonTimestamp.MinValue)
-        )
-      ),
-    )
+    assignmentAccepted(t = 0, source = domainId1, target = domainId2)
   )
 
   private val update8 = offset(8L) -> Traced[Update](
-    Update.ReassignmentAccepted(
-      optCompletionInfo = None,
-      workflowId = Some(workflowId),
-      updateId = txId4,
-      recordTime = Timestamp.Epoch,
-      reassignmentInfo = ReassignmentInfo(
-        sourceDomain = SourceDomainId(domainId2),
-        targetDomain = TargetDomainId(domainId1),
-        submitter = Option(party2),
-        reassignmentCounter = 15L,
-        hostedStakeholders = party1 :: Nil,
-        unassignId = CantonTimestamp.assertFromLong(1555551L),
-        isReassigningParticipant = true,
-      ),
-      reassignment = Reassignment.Unassign(
-        contractId = someCreateNode.coid,
-        templateId = templateId2,
-        packageName = packageName,
-        stakeholders = List(party2),
-        assignmentExclusivity = Some(Timestamp.assertFromLong(123456L)),
-      ),
-      Some(
-        DomainIndex.of(
-          RequestIndex(RequestCounter(1), Some(SequencerCounter(1)), CantonTimestamp.MinValue)
-        )
-      ),
-    )
+    unassignmentAccepted(t = 0, source = domainId2, target = domainId1)
   )
 
   private val anotherMetadataChangedUpdate =
@@ -823,55 +799,46 @@ object InMemoryStateUpdaterSpec {
 
     val updatesSeq: Seq[Option[Traced[Update.TransactionAccepted]]] =
       recordTimesAndTicks.zip(domainIds).map {
-        case (None, _) => None
-        case (_, None) => None
         case (Some(t), Some(domain)) =>
           Some(
-            Traced.empty(
-              Update.TransactionAccepted(
-                completionInfoO = None,
-                transactionMeta = someTransactionMeta,
-                transaction = CommittedTransaction(TransactionBuilder.Empty),
-                transactionId = txId1,
-                recordTime = Timestamp(t),
-                hostedWitnesses = Nil,
-                contractMetadata = Map.empty,
-                domainId = domain,
-                domainIndex = Some(
-                  DomainIndex.of(
-                    RequestIndex(
-                      RequestCounter(1),
-                      Some(SequencerCounter(1)),
-                      CantonTimestamp.MinValue,
-                    )
-                  )
-                ),
-              )
-            )
+            Traced.empty(transactionAccepted(t, domain))
           )
+        case _ => None
       }
 
     offsets.zip(updatesSeq).map {
-      case (None, _) => None
-      case (_, None) => None
       case (Some(offset), Some(tracedUpdate)) => Some((offset, tracedUpdate))
+      case _ => None
     }
 
   }
 
+  // this function gets a sequence of offset, update pairs as Some values
+  // and ticks as Nones
+  // runs the updateOffsetCheckpointCacheFlowWithTickingSource
+  // and provides as output:
+  //  - 1. the expected output
+  //  - 2. the actual output
+  //  - 3. the checkpoints updates in the offset checkpoint cache
   def runUpdateOffsetCheckpointCacheFlow(
-      inputSeq: Seq[Option[(Offset, Traced[Update.TransactionAccepted])]]
-  )(implicit materializer: Materializer, ec: ExecutionContext) = {
+      inputSeq: Seq[Option[(Offset, Traced[Update])]]
+  )(implicit materializer: Materializer, ec: ExecutionContext): Future[
+    (
+        Seq[Vector[(Offset, Traced[Update])]],
+        Seq[Vector[(Offset, Traced[Update])]],
+        Seq[OffsetCheckpoint],
+    )
+  ] = {
     val elementsQueue =
-      new ConcurrentLinkedQueue[Option[(Offset, Traced[Update.TransactionAccepted])]]
+      new ConcurrentLinkedQueue[Option[(Offset, Traced[Update])]]
     inputSeq.foreach(elementsQueue.add)
 
-    val flattenedSeq: Seq[(Vector[(Offset, Traced[Update])], Long, CantonTimestamp)] =
-      inputSeq.flatten.map(Vector(_)).map((_, 1L, CantonTimestamp.MinValue))
+    val flattenedSeq: Seq[Vector[(Offset, Traced[Update])]] =
+      inputSeq.flatten.map(Vector(_))
 
     val bufferSize = 100
     val (sourceQueueSomes, sourceSomes) = Source
-      .queue[(Vector[(Offset, Traced[Update])], Long, CantonTimestamp)](bufferSize)
+      .queue[Vector[(Offset, Traced[Update])]](bufferSize)
       .preMaterialize()
     val (sourceQueueNones, sourceNones) = Source
       .queue[Option[Nothing]](bufferSize)
@@ -881,7 +848,7 @@ object InMemoryStateUpdaterSpec {
       Option(elementsQueue.poll()) match {
         // send element
         case Some(Some(pair)) =>
-          sourceQueueSomes.offer((Vector(pair), 1L, CantonTimestamp.MinValue))
+          sourceQueueSomes.offer(Vector(pair))
         // send tick
         case Some(None) =>
           sourceQueueNones.offer(None)
@@ -894,6 +861,7 @@ object InMemoryStateUpdaterSpec {
     var checkpoints: Seq[OffsetCheckpoint] = Seq.empty
 
     val output = sourceSomes
+      .map((_, 1L, CantonTimestamp.MinValue))
       .via(
         InMemoryStateUpdaterFlow
           .updateOffsetCheckpointCacheFlowWithTickingSource(
@@ -904,10 +872,126 @@ object InMemoryStateUpdaterSpec {
             tick = sourceNones,
           )
       )
+      .map(_._1)
       .alsoTo(Sink.foreach(_ => offerNext()))
       .runWith(Sink.seq)
 
     output.map(o => (flattenedSeq, o, checkpoints))
 
   }
+
+  private def transactionAccepted(t: Long, domainId: DomainId): Update.TransactionAccepted =
+    Update.TransactionAccepted(
+      completionInfoO = None,
+      transactionMeta = someTransactionMeta,
+      transaction = CommittedTransaction(TransactionBuilder.Empty),
+      transactionId = txId1,
+      recordTime = Timestamp(t),
+      hostedWitnesses = Nil,
+      contractMetadata = Map.empty,
+      domainId = domainId,
+      domainIndex = Some(
+        DomainIndex.of(
+          RequestIndex(
+            RequestCounter(1),
+            Some(SequencerCounter(1)),
+            CantonTimestamp.MinValue,
+          )
+        )
+      ),
+    )
+
+  private def assignmentAccepted(
+      t: Long,
+      source: DomainId,
+      target: DomainId,
+  ): Update.ReassignmentAccepted =
+    Update.ReassignmentAccepted(
+      optCompletionInfo = None,
+      workflowId = Some(workflowId),
+      updateId = txId3,
+      recordTime = Timestamp(t),
+      reassignmentInfo = ReassignmentInfo(
+        sourceDomain = SourceDomainId(source),
+        targetDomain = TargetDomainId(target),
+        submitter = Option(party1),
+        reassignmentCounter = 15L,
+        hostedStakeholders = party2 :: Nil,
+        unassignId = CantonTimestamp.assertFromLong(155555L),
+        isReassigningParticipant = true,
+      ),
+      reassignment = Reassignment.Assign(
+        ledgerEffectiveTime = Timestamp.assertFromLong(12222),
+        createNode = someCreateNode,
+        contractMetadata = someContractMetadataBytes,
+      ),
+      Some(
+        DomainIndex.of(
+          RequestIndex(RequestCounter(1), Some(SequencerCounter(1)), CantonTimestamp.MinValue)
+        )
+      ),
+    )
+
+  private def unassignmentAccepted(
+      t: Long,
+      source: DomainId,
+      target: DomainId,
+  ): Update.ReassignmentAccepted =
+    Update.ReassignmentAccepted(
+      optCompletionInfo = None,
+      workflowId = Some(workflowId),
+      updateId = txId4,
+      recordTime = Timestamp(t),
+      reassignmentInfo = ReassignmentInfo(
+        sourceDomain = SourceDomainId(source),
+        targetDomain = TargetDomainId(target),
+        submitter = Option(party2),
+        reassignmentCounter = 15L,
+        hostedStakeholders = party1 :: Nil,
+        unassignId = CantonTimestamp.assertFromLong(1555551L),
+        isReassigningParticipant = true,
+      ),
+      reassignment = Reassignment.Unassign(
+        contractId = someCreateNode.coid,
+        templateId = templateId2,
+        packageName = packageName,
+        stakeholders = List(party2),
+        assignmentExclusivity = Some(Timestamp.assertFromLong(123456L)),
+      ),
+      Some(
+        DomainIndex.of(
+          RequestIndex(RequestCounter(1), Some(SequencerCounter(1)), CantonTimestamp.MinValue)
+        )
+      ),
+    )
+
+  private def commandRejected(t: Long, domainId: DomainId): Update.CommandRejected =
+    Update.CommandRejected(
+      recordTime = Time.Timestamp.assertFromLong(t),
+      completionInfo = CompletionInfo(
+        actAs = List.empty,
+        applicationId = Ref.ApplicationId.assertFromString("some-app-id"),
+        commandId = Ref.CommandId.assertFromString("cmdId"),
+        optDeduplicationPeriod = None,
+        submissionId = None,
+        None,
+      ),
+      reasonTemplate = FinalReason(new Status()),
+      domainId = domainId,
+      Some(
+        DomainIndex.of(
+          RequestIndex(RequestCounter(1), Some(SequencerCounter(1)), CantonTimestamp.MinValue)
+        )
+      ),
+    )
+
+  private def sequencerIndexMoved(t: Long, domainId: DomainId): Update.SequencerIndexMoved =
+    Update.SequencerIndexMoved(
+      domainId = domainId,
+      sequencerIndex = SequencerIndex(
+        counter = SequencerCounter(1),
+        timestamp = CantonTimestamp.assertFromLong(t),
+      ),
+      requestCounterO = None,
+    )
 }

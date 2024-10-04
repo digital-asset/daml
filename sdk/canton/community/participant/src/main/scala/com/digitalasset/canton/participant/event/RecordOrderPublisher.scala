@@ -189,30 +189,27 @@ class RecordOrderPublisher(
       Future.unit
     }
 
-  // TODO(i18695) this new tracecontext is disturbing as completely disjoint from the event-processing it relates to
   def scheduleAcsChangePublication(
       recordSequencerCounter: SequencerCounter,
       timestamp: CantonTimestamp,
       requestCounter: RequestCounter,
       commitSet: CommitSet,
-  ): Unit = TraceContext.withNewTraceContext { implicit traceContext =>
+  )(implicit traceContext: TraceContext): Unit =
     taskScheduler.scheduleTask(
       AcsChangePublicationTask(recordSequencerCounter, timestamp)(Some((requestCounter, commitSet)))
     )
-  }
 
   /** Schedules an empty acs change publication task to be published to the `acsChangeListener`.
     */
   def scheduleEmptyAcsChangePublication(
       sequencerCounter: SequencerCounter,
       timestamp: CantonTimestamp,
-  ): Unit = TraceContext.withNewTraceContext { implicit traceContext =>
+  )(implicit traceContext: TraceContext): Unit =
     if (sequencerCounter >= initSc) {
       taskScheduler.scheduleTask(
         AcsChangePublicationTask(sequencerCounter, timestamp)(None)
       )
     }
-  }
 
   private sealed trait PublicationTask extends TaskScheduler.TimedTask
 
@@ -407,7 +404,13 @@ class RecordOrderPublisher(
               requestCounterCommitSetPairO.map(_._1.unwrap).getOrElse(RecordTime.lowestTiebreaker),
             )
           val waitForLastEventPersisted = lastPublishedPersisted(sequencerCounter, timestamp)
-          acsChangeListener.get.foreach(_.publish(recordTime, acsChange, waitForLastEventPersisted))
+          // The trace context is deliberately generated here instead of continuing the previous one
+          // to unlink the asynchronous acs commitment processing from message processing trace.
+          TraceContext.withNewTraceContext { implicit traceContext =>
+            acsChangeListener.get.foreach(
+              _.publish(recordTime, acsChange, waitForLastEventPersisted)
+            )
+          }
         }
       FutureUnlessShutdown.outcomeF(acsChangePublish)
     }

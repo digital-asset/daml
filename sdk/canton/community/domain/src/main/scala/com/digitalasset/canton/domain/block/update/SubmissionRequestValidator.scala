@@ -55,7 +55,7 @@ private[update] final class SubmissionRequestValidator(
 )(implicit closeContext: CloseContext)
     extends NamedLogging {
 
-  val trafficControlValidator = new TrafficControlValidator(
+  private val trafficControlValidator = new TrafficControlValidator(
     domainId,
     protocolVersion,
     rateLimitManager,

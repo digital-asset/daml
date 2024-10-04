@@ -178,10 +178,13 @@ object SequencerDriver {
   *
   * @param blockHeight The height of the block. Block heights must be consecutive.
   * @param events The events in the given block.
+  * @param tickTopology Whether the sequencer's topology processor should be ticked after processing this block, so
+  *                     that it can return an up-to-date topology.
   */
 final case class RawLedgerBlock(
     blockHeight: Long,
     events: Seq[Traced[RawLedgerBlock.RawBlockEvent]],
+    tickTopology: Boolean,
 )
 
 object RawLedgerBlock {

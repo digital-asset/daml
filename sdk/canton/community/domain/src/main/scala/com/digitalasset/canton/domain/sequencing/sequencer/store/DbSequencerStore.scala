@@ -15,7 +15,7 @@ import com.daml.nonempty.catsinstances.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveNumeric}
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block.UninitializedBlockHeight
 import com.digitalasset.canton.domain.sequencing.sequencer.{
@@ -29,7 +29,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.resource.DbStorage.DbAction.ReadOnly
 import com.digitalasset.canton.resource.DbStorage.Implicits.BuilderChain.*
-import com.digitalasset.canton.resource.DbStorage.Profile.{H2, Oracle, Postgres}
+import com.digitalasset.canton.resource.DbStorage.Profile.{H2, Postgres}
 import com.digitalasset.canton.resource.DbStorage.*
 import com.digitalasset.canton.sequencing.protocol.MessageId
 import com.digitalasset.canton.store.db.DbDeserializationException
@@ -40,13 +40,11 @@ import com.digitalasset.canton.util.{EitherTUtil, retry}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
-import com.zaxxer.hikari.pool.HikariProxyConnection
-import oracle.jdbc.{OracleArray, OracleConnection}
 import org.h2.api.ErrorCode as H2ErrorCode
 import org.postgresql.util.PSQLState
 import slick.jdbc.*
 
-import java.sql.{Connection, JDBCType, SQLException, SQLNonTransientException}
+import java.sql.{JDBCType, SQLException, SQLNonTransientException}
 import java.util.UUID
 import scala.annotation.tailrec
 import scala.collection.immutable.SortedSet
@@ -59,7 +57,6 @@ import scala.util.{Failure, Success}
 class DbSequencerStore(
     storage: DbStorage,
     protocolVersion: ProtocolVersion,
-    maxInClauseSize: PositiveNumeric[Int],
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
     sequencerMember: Member,
@@ -82,46 +79,11 @@ class DbSequencerStore(
 
   private implicit val setRecipientsArrayOParameter
       : SetParameter[Option[NonEmpty[SortedSet[SequencerMemberId]]]] = (v, pp) => {
-    storage.profile match {
-      case _: Oracle =>
-        val OracleIntegerArray = "INTEGER_ARRAY"
+    val jdbcArray = v
+      .map(_.toArray.map(id => Int.box(id.unwrap): AnyRef))
+      .map(pp.ps.getConnection.createArrayOf("integer", _))
 
-        val maybeArray: Option[Array[Int]] = v.map(_.toArray.map(_.unwrap))
-
-        // make sure we do the right thing whether we are using a connection pooled connection or not
-        val jdbcArray = maybeArray.map {
-          pp.ps.getConnection match {
-            case hikari: HikariProxyConnection =>
-              hikari.unwrap(classOf[OracleConnection]).createARRAY(OracleIntegerArray, _)
-            case oracle: OracleConnection =>
-              oracle.createARRAY(OracleIntegerArray, _)
-            case c: Connection =>
-              sys.error(
-                s"Unsupported connection type for creating Oracle integer array: ${c.getClass.getSimpleName}"
-              )
-          }
-        }
-
-        // we need to bypass the slick wrapper because we need to call the setNull method below tailored for
-        // user defined types since we are using a custom oracle array
-        def setOracleArrayOption(value: Option[AnyRef], sqlType: Int): Unit = {
-          val npos = pp.pos + 1
-          value match {
-            case Some(v) => pp.ps.setObject(npos, v, sqlType)
-            case None => pp.ps.setNull(npos, sqlType, OracleIntegerArray)
-          }
-          pp.pos = npos
-        }
-        setOracleArrayOption(jdbcArray, JDBCType.ARRAY.getVendorTypeNumber)
-
-      case _ =>
-        val jdbcArray = v
-          .map(_.toArray.map(id => Int.box(id.unwrap): AnyRef))
-          .map(pp.ps.getConnection.createArrayOf("integer", _))
-
-        pp.setObjectOption(jdbcArray, JDBCType.ARRAY.getVendorTypeNumber)
-
-    }
+    pp.setObjectOption(jdbcArray, JDBCType.ARRAY.getVendorTypeNumber)
   }
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf", "org.wartremover.warts.Null"))
@@ -139,11 +101,6 @@ class DbSequencerStore(
     }
 
     storage.profile match {
-      case _: Oracle =>
-        GetResult(r => Option(r.rs.getArray(r.skip.currentPos)))
-          .andThen(_.map(_.asInstanceOf[OracleArray].getIntArray))
-          .andThen(_.map(_.map(SequencerMemberId(_))))
-          .andThen(_.map(arr => NonEmptyUtil.fromUnsafe(SortedSet(arr.toSeq*))))
       case _: H2 =>
         GetResult(r => Option(r.rs.getArray(r.skip.currentPos)))
           .andThen(_.map(_.getArray.asInstanceOf[Array[AnyRef]].map(toInt)))
@@ -175,7 +132,6 @@ class DbSequencerStore(
       all.find(_.value == value).toRight(s"Event type discriminator for value [$value] not found")
   }
 
-  @SuppressWarnings(Array("com.digitalasset.canton.SlickString"))
   private implicit val setEventTypeDiscriminatorParameter: SetParameter[EventTypeDiscriminator] =
     (etd, pp) => pp >> etd.value.toString
 
@@ -361,7 +317,6 @@ class DbSequencerStore(
       ("", " = any(events.recipients)")
     case _: H2 =>
       ("array_contains(events.recipients, ", ")")
-    case _: Oracle => sys.error("Oracle no longer supported")
   }
 
   override def registerMember(member: Member, timestamp: CantonTimestamp)(implicit
@@ -380,11 +335,6 @@ class DbSequencerStore(
             sqlu"""insert into sequencer_members (member, registered_ts)
                   values ($member, $timestamp)
                   on conflict (member) do nothing
-             """
-          case _: Oracle =>
-            sqlu"""insert /*+  IGNORE_ROW_ON_DUPKEY_INDEX ( sequencer_members ( member ) ) */
-                   into sequencer_members (member, registered_ts)
-                   values ($member, $timestamp)
              """
         }
         id <- sql"select id from sequencer_members where member = $member"
@@ -473,10 +423,6 @@ class DbSequencerStore(
     def insert(payloadsToInsert: NonEmpty[Seq[Payload]]): Future[Boolean] = {
       def isConstraintViolation(batchUpdateException: SQLException): Boolean = profile match {
         case Postgres(_) => batchUpdateException.getSQLState == PSQLState.UNIQUE_VIOLATION.getState
-        case Oracle(_) =>
-          // error code for a unique constraint violation
-          // see: https://docs.oracle.com/en/database/oracle/oracle-database/19/errmg/ORA-00000.html#GUID-27437B7F-F0C3-4F1F-9C6E-6780706FB0F6
-          batchUpdateException.getMessage.contains("ORA-00001")
         case H2(_) => batchUpdateException.getSQLState == H2ErrorCode.DUPLICATE_KEY_1.toString
       }
 
@@ -527,19 +473,14 @@ class DbSequencerStore(
     // has inserted a conflicting value.
     def listMissing(): EitherT[Future, SavePayloadsError, Seq[Payload]] = {
       val payloadIds = payloads.map(_.id)
-      // the max default config for number of payloads is around 50 and the max number of clauses that oracle supports is around 1000
-      // so we're really unlikely to need to this IN clause splitting, but lets support it just in case as Matthias has
-      // already done the heavy lifting :)
-      val queries = DbStorage
-        .toInClauses_("id", payloadIds, maxInClauseSize)
-        .map { in =>
-          (sql"select id, instance_discriminator from sequencer_payloads where " ++ in)
-            .as[(PayloadId, UUID)]
-        }
+      val query =
+        (sql"select id, instance_discriminator from sequencer_payloads where " ++ DbStorage
+          .toInClause("id", payloadIds))
+          .as[(PayloadId, UUID)]
 
       for {
         inserted <- EitherT.right {
-          storage.sequentialQueryAndCombine(queries, functionFullName)
+          storage.query(query, functionFullName)
         } map (_.toMap)
         // take all payloads we were expecting and then look up from inserted whether they are present and if they have
         // a matching instance discriminator (meaning we put them there)
@@ -596,24 +537,13 @@ class DbSequencerStore(
   override def saveEvents(instanceIndex: Int, events: NonEmpty[Seq[Sequenced[PayloadId]]])(implicit
       traceContext: TraceContext
   ): Future[Unit] = {
-    val saveSql = storage.profile match {
-      case _: H2 | _: Postgres =>
-        """insert into sequencer_events (
-                                    |  ts, node_index, event_type, message_id, sender, recipients,
-                                    |  payload_id, topology_timestamp, trace_context, error
-                                    |)
-                                    |  values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                                    |  on conflict do nothing""".stripMargin
-      case _: Oracle =>
-        """merge /*+ INDEX ( sequencer_events ( ts ) ) */
-          |into sequencer_events
-          |using (select ? ts from dual) input
-          |on (sequencer_events.ts = input.ts)
-          |when not matched then
-          |  insert (ts, node_index, event_type, message_id, sender, recipients, payload_id,
-          |  topology_timestamp, trace_context, error)
-          |  values (input.ts, ?, ?, ?, ?, ?, ?, ?, ?, ?)""".stripMargin
-    }
+    val saveSql =
+      """insert into sequencer_events (
+        |  ts, node_index, event_type, message_id, sender, recipients,
+        |  payload_id, topology_timestamp, trace_context, error
+        |)
+        |  values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        |  on conflict do nothing""".stripMargin
 
     storage.queryAndUpdate(
       DbStorage.bulkOperation_(saveSql, events, storage.profile) { pp => event =>
@@ -667,14 +597,6 @@ class DbSequencerStore(
                   when not matched then
                     insert (node_index, watermark_ts, sequencer_online) values ($instanceIndex, $ts, ${false})
                 """
-        case _: Oracle =>
-          sqlu"""merge into sequencer_watermarks using dual
-                  on (node_index = $instanceIndex)
-                  when matched and watermark_ts >= $ts then
-                    update set watermark_ts = $ts, sequencer_online = ${false}
-                  when not matched then
-                    insert (node_index, watermark_ts, sequencer_online) values ($instanceIndex, $ts, ${false})
-                """
       }
 
     for {
@@ -717,14 +639,6 @@ class DbSequencerStore(
                   when not matched then
                     insert (node_index, watermark_ts, sequencer_online) values ($instanceIndex, $ts, ${true})
                 """
-        case _: Oracle =>
-          sqlu"""merge into sequencer_watermarks using dual
-                  on (node_index = $instanceIndex)
-                  when matched then
-                    update set watermark_ts = $ts where sequencer_online = ${true}
-                  when not matched then
-                    insert (node_index, watermark_ts, sequencer_online) values ($instanceIndex, $ts, ${true})
-                """
       }
 
     for {
@@ -764,18 +678,7 @@ class DbSequencerStore(
                     from sequencer_watermarks
                     where node_index = $instanceIndex"""
           def watermark(row: (CantonTimestamp, Boolean)) = Watermark(row._1, row._2)
-
-          profile match {
-            case _: H2 | _: Postgres =>
-              query.as[(CantonTimestamp, Boolean)].headOption.map(_.map(watermark))
-            case _: Oracle =>
-              query
-                .as[(CantonTimestamp, Int)]
-                .headOption
-                .map(_.map { case (ts, onlineN) =>
-                  watermark((ts, onlineN != 0))
-                })
-          }
+          query.as[(CantonTimestamp, Boolean)].headOption.map(_.map(watermark))
         },
         functionFullName,
         maxRetries,
@@ -784,12 +687,7 @@ class DbSequencerStore(
 
   override def goOffline(instanceIndex: Int)(implicit traceContext: TraceContext): Future[Unit] =
     storage.update_(
-      profile match {
-        case _: H2 | _: Postgres =>
-          sqlu"update sequencer_watermarks set sequencer_online = false where node_index = $instanceIndex"
-        case _: Oracle =>
-          sqlu"update sequencer_watermarks set sequencer_online = 0 where node_index = $instanceIndex"
-      },
+      sqlu"update sequencer_watermarks set sequencer_online = false where node_index = $instanceIndex",
       functionFullName,
     )
 
@@ -810,7 +708,7 @@ class DbSequencerStore(
                on conflict (node_index) do
                  update set watermark_ts = $watermark, sequencer_online = true
                """
-            case _: H2 | _: Oracle =>
+            case _: H2 =>
               sqlu"""merge into sequencer_watermarks using dual
                   on (node_index = $instanceIndex)
                   when matched then
@@ -885,29 +783,6 @@ class DbSequencerStore(
 
         case _: H2 =>
           h2PostgresQueryEvents("array_contains(events.recipients, ", ")", safeWatermark)
-
-        case _: Oracle =>
-          sql"""
-          select events.ts, events.node_index, events.event_type, events.message_id, events.sender,
-            events.recipients, payloads.id, payloads.content, events.topology_timestamp,
-            events.trace_context, events.error
-          from sequencer_events events
-          left join sequencer_payloads payloads
-            on events.payload_id = payloads.id
-          inner join sequencer_watermarks watermarks
-            on events.node_index = watermarks.node_index
-          where
-            ((events.recipients is null) or $memberId IN (SELECT * FROM TABLE(events.recipients)))
-            and (
-              -- inclusive timestamp bound that defaults to MinValue if unset
-              events.ts >= $inclusiveFromTimestamp
-                -- only consider events within the safe watermark
-                and events.ts <= $safeWatermark
-                -- if the sequencer that produced the event is offline, only consider up until its offline watermark
-                and (watermarks.sequencer_online <> 0 or events.ts <= watermarks.watermark_ts)
-              )
-          order by events.ts asc
-          fetch next $limit rows only""".stripMargin
       }
 
       query.as[Sequenced[Payload]]
@@ -930,8 +805,6 @@ class DbSequencerStore(
     val query = profile match {
       case _: H2 | _: Postgres =>
         sql"select min(watermark_ts) from sequencer_watermarks where sequencer_online = true"
-      case _: Oracle =>
-        sql"select min(watermark_ts) from sequencer_watermarks where sequencer_online <> 0"
     }
     // `min` may return null that is wrapped into None
     query.as[Option[CantonTimestamp]].headOption.map(_.flatten)
@@ -1261,15 +1134,6 @@ class DbSequencerStore(
                     when matched and ts <= $ts then
                       update set ts = $ts, latest_sequencer_event_ts = $latestSequencerEventTimestamp
                   """
-        case _: Oracle =>
-          sqlu"""merge into sequencer_counter_checkpoints using dual
-                on (member = $memberId and counter = $counter)
-                when matched and ts <= $ts then
-                  update set ts = $ts, latest_sequencer_event_ts = $latestSequencerEventTimestamp
-                when not matched then
-                  insert (member, counter, ts, latest_sequencer_event_ts)
-                  values ($memberId, $counter, $ts, $latestSequencerEventTimestamp)
-              """
       }
     }
 
@@ -1356,14 +1220,6 @@ class DbSequencerStore(
                     update set ts = $timestamp
                   when not matched then
                     insert values ($member, $timestamp)
-                """
-        case _: Oracle =>
-          sqlu"""merge into sequencer_acknowledgements using dual
-                  on (member = $member)
-                  when matched then
-                    update set ts = $timestamp where $timestamp > ts
-                  when not matched then
-                    insert (member, ts) values ($member, $timestamp)
                 """
       },
       functionFullName,
@@ -1541,9 +1397,6 @@ class DbSequencerStore(
     storage.profile match {
       case H2(_) =>
         // we don't worry about replicas or commit modes in h2
-        EitherTUtil.unit
-      case Oracle(_) =>
-        // TODO(#6942): unknown how to query the current commit mode for oracle
         EitherTUtil.unit
       case Postgres(_) =>
         for {

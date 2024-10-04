@@ -85,7 +85,6 @@ object ParticipantNodePersistentState extends HasLoggerName {
     )
     val inFlightSubmissionStore = InFlightSubmissionStore(
       storage,
-      batching.maxItemsInSqlClause,
       batching.aggregator,
       releaseProtocolVersion,
       timeouts,

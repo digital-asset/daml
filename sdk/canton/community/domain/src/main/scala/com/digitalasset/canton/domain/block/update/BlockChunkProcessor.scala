@@ -34,6 +34,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRate
 import com.digitalasset.canton.error.BaseAlarm
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.sequencing.GroupAddressResolver
 import com.digitalasset.canton.sequencing.client.SequencedEventValidator
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.topology.*
@@ -56,6 +57,7 @@ private[update] final class BlockChunkProcessor(
     override val loggerFactory: NamedLoggerFactory,
     metrics: SequencerMetrics,
     memberValidator: SequencerMemberValidator,
+    createTopologyTickMessageId: () => MessageId = () => MessageId.randomMessageId(), // For testing
 )(implicit closeContext: CloseContext)
     extends NamedLogging {
 
@@ -71,7 +73,7 @@ private[update] final class BlockChunkProcessor(
       memberValidator = memberValidator,
     )
 
-  def processChunk(
+  def processDataChunk(
       state: BlockUpdateGeneratorImpl.State,
       height: Long,
       index: Int,
@@ -85,7 +87,7 @@ private[update] final class BlockChunkProcessor(
     // TODO(i18438): verify the signature of the sequencer on the SendEvent
     val orderingRequests =
       fixedTsChanges.collect { case (ts, ev @ Traced(sendEvent: Send)) =>
-        // Discard the timestamp of the `Send` event as this one is obsolete
+        // Discard the timestamp of the `Send` event as we're using the adjusted timestamp
         (ts, ev.map(_ => sendEvent.signedOrderingRequest))
       }
 
@@ -153,6 +155,84 @@ private[update] final class BlockChunkProcessor(
         )
     } yield (newState, chunkUpdate)
   }
+
+  def emitTick(
+      state: BlockUpdateGeneratorImpl.State
+  )(implicit ec: ExecutionContext, tc: TraceContext): FutureUnlessShutdown[(State, ChunkUpdate)] =
+    // The block orderer marks a block to request a topology tick only when it assesses that it may need to retrieve an
+    //  up-to-date topology; this will result in a single `TopologyTick` ledger block event in the chunk events of the
+    //  last chunk (associated with the last part of the block).
+    if (state.latestSequencerEventTimestamp.contains(state.lastChunkTs)) {
+      // If the latest sequencer event timestamp is the same as the last chunk's final timestamp
+      //  then the last chunk's event was sequencer-addressed, and it passed validation,
+      //  so it's safe for the block orderer to query the topology snapshot on its sequencing timestamp,
+      //  and we don't need to add a `Deliver` for the tick.
+      FutureUnlessShutdown.pure(
+        (
+          state,
+          ChunkUpdate(
+            acknowledgements = Map.empty,
+            invalidAcknowledgements = Seq.empty,
+            inFlightAggregationUpdates = Map.empty,
+            lastSequencerEventTimestamp = Some(state.lastChunkTs),
+            inFlightAggregations = state.inFlightAggregations,
+            submissionsOutcomes = Seq.empty,
+          ),
+        )
+      )
+    } else {
+      // TODO(#19118) Adjust BFT time to avoid collisions (or let it assign one and propagate it)
+      val tickSequencingTimestamp = state.lastChunkTs.immediateSuccessor
+      for {
+        snapshot <- SyncCryptoClient.getSnapshotForTimestampUS(
+          domainSyncCryptoApi,
+          tickSequencingTimestamp,
+          state.latestSequencerEventTimestamp,
+          protocolVersion,
+          warnIfApproximate = false,
+        )
+        sequencerRecipients <- FutureUnlessShutdown.outcomeF(
+          GroupAddressResolver.resolveGroupsToMembers(
+            Set(SequencersOfDomain),
+            snapshot.ipsSnapshot,
+          )
+        )
+
+        tickSubmissionOutcome = SubmissionRequestOutcome(
+          Map.empty, // Sequenced events are legacy and will be removed, so no need to generate them
+          None,
+          outcome = SubmissionOutcome.Deliver(
+            SubmissionRequest.tryCreate(
+              sender = sequencerId,
+              messageId = createTopologyTickMessageId(),
+              batch = Batch.empty(protocolVersion),
+              maxSequencingTime = tickSequencingTimestamp,
+              topologyTimestamp = None,
+              aggregationRule = None,
+              submissionCost = None,
+              protocolVersion = protocolVersion,
+            ),
+            sequencingTime = tickSequencingTimestamp,
+            deliverToMembers = sequencerRecipients(SequencersOfDomain),
+            batch = Batch.empty(protocolVersion),
+            submissionTraceContext = TraceContext.createNew(),
+          ),
+        )
+      } yield (
+        state.copy(
+          lastChunkTs = tickSequencingTimestamp,
+          latestSequencerEventTimestamp = Some(tickSequencingTimestamp),
+        ),
+        ChunkUpdate(
+          acknowledgements = Map.empty,
+          invalidAcknowledgements = Seq.empty,
+          inFlightAggregationUpdates = Map.empty,
+          lastSequencerEventTimestamp = Some(tickSequencingTimestamp),
+          inFlightAggregations = state.inFlightAggregations,
+          submissionsOutcomes = Seq(tickSubmissionOutcome),
+        ),
+      )
+    }
 
   private def fixTimestamps(
       height: Long,
@@ -343,6 +423,7 @@ private[update] final class BlockChunkProcessor(
             )
             metrics.block.blockEvents.mark()(mc)
             metrics.block.blockEventBytes.mark(payloadSize.longValue)(mc)
+
           case LedgerBlockEvent.Acknowledgment(request) =>
             // record the event
             metrics.block.blockEvents

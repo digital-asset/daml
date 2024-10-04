@@ -6,7 +6,6 @@ package com.digitalasset.canton.participant.store.db
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.BatchAggregatorConfig
-import com.digitalasset.canton.config.RequireTypes.PositiveNumeric
 import com.digitalasset.canton.participant.store.RequestJournalStoreTest
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.IndexedDomain
@@ -34,7 +33,6 @@ trait DbRequestJournalStoreTest extends AsyncWordSpec with BaseTest with Request
       new DbRequestJournalStore(
         IndexedDomain.tryCreate(domainId, 1),
         storage,
-        PositiveNumeric.tryCreate(2),
         BatchAggregatorConfig.defaultsForTesting,
         BatchAggregatorConfig.defaultsForTesting,
         timeouts,

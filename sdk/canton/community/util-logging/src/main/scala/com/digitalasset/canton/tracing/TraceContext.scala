@@ -101,6 +101,8 @@ object TraceContext {
     result
   }
 
+  def createNew(): TraceContext = withNewTraceContext(identity)
+
   def wrapWithNewTraceContext[A](item: A): Traced[A] =
     withNewTraceContext(implicit traceContext => Traced(item))
 

@@ -73,23 +73,6 @@ class DbSequencerDomainConfigurationStore(
               values ($domainId, $domainParameters)
               on conflict (lock) do update set domain_id = excluded.domain_id,
                 static_domain_parameters = excluded.static_domain_parameters"""
-            case _: DbStorage.Profile.Oracle =>
-              sqlu"""merge into sequencer_domain_configuration mdc
-                      using (
-                        select
-                          $domainId domain_id,
-                          $domainParameters static_domain_parameters
-                          from dual
-                          ) excluded
-                      on (mdc."LOCK" = 'X')
-                       when matched then
-                        update set mdc.domain_id = excluded.domain_id,
-                          mdc.static_domain_parameters = excluded.static_domain_parameters
-                       when not matched then
-                        insert (domain_id, static_domain_parameters)
-                        values (excluded.domain_id, excluded.static_domain_parameters)
-                     """
-
           },
           "save-configuration",
         )

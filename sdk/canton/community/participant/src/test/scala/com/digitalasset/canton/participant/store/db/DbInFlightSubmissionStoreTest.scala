@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant.store.db
 
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.BatchAggregatorConfig
-import com.digitalasset.canton.config.RequireTypes.PositiveNumeric
 import com.digitalasset.canton.participant.store.InFlightSubmissionStoreTest
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
@@ -31,7 +30,6 @@ trait DbInFlightSubmissionStoreTest
     behave like inFlightSubmissionStore { () =>
       new DbInFlightSubmissionStore(
         storage,
-        PositiveNumeric.tryCreate(2),
         BatchAggregatorConfig.defaultsForTesting,
         testedReleaseProtocolVersion,
         timeouts,

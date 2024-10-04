@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.sync
 
 import cats.Monad
-import cats.syntax.either.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
@@ -24,7 +23,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 class TimelyRejectNotifier(
     rejecter: TimelyRejectNotifier.TimelyRejecter,
-    initialUpperBound: Option[CantonTimestamp],
+    initialUpperBound: CantonTimestamp,
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends NamedLogging {
@@ -34,9 +33,8 @@ class TimelyRejectNotifier(
   /** A non-strict upper bound on the timestamps with which the `rejecter` has been notified.
     * Also stores the internal state of the notification state machine so that they can be updated atomically.
     */
-  private val upperBoundOnNotification
-      : AtomicReference[(Option[CantonTimestamp], UnlessShutdown[State])] =
-    new AtomicReference[(Option[CantonTimestamp], UnlessShutdown[State])](
+  private val upperBoundOnNotification: AtomicReference[(CantonTimestamp, UnlessShutdown[State])] =
+    new AtomicReference[(CantonTimestamp, UnlessShutdown[State])](
       (initialUpperBound, Outcome(Idle))
     )
 
@@ -82,19 +80,19 @@ class TimelyRejectNotifier(
   ): Boolean = {
     // First advance the upper bound, then notify, to make sure that the upper bound really is an upper bound.
     val (oldBound, oldState) = upperBoundOnNotification.getAndUpdate { case (oldBound, oldState) =>
-      val newBound = if (increaseBound) Some(oldBound.fold(bound)(_ max bound)) else oldBound
-      val shouldNotify = oldBound.forall(_ < bound) == increaseBound
+      val newBound = if (increaseBound) oldBound max bound else oldBound
+      val shouldNotify = (oldBound < bound) == increaseBound
       val newState = oldState.map {
         case Idle => if (shouldNotify) Running else Idle
         case Running => if (shouldNotify) Pending(traceContext) else Running
         case pending @ Pending(_) =>
           // Update the trace context only if we increase the bound
-          if (increaseBound && oldBound.forall(_ < bound)) Pending(traceContext)
+          if (increaseBound && oldBound < bound) Pending(traceContext)
           else pending
       }
       newBound -> newState
     }
-    val shouldNotify = oldBound.forall(_ < bound) == increaseBound
+    val shouldNotify = (oldBound < bound) == increaseBound
     oldState match {
       case Outcome(Idle) if shouldNotify =>
         val notifiedF =
@@ -151,9 +149,9 @@ class TimelyRejectNotifier(
           case Outcome(Running) => Right(())
           case Outcome(Pending(newTraceContext)) =>
             if (notificationOutcome.isOutcome) {
-              bound.toLeft(()).leftMap { newBound =>
-                val boundIncreased = newBound > theBound
-                LoopState(newBound, boundIncreased, newTraceContext)
+              Left {
+                val boundIncreased = bound > theBound
+                LoopState(bound, boundIncreased, newTraceContext)
               }
             } else Right(())
           case _ =>
@@ -168,7 +166,7 @@ object TimelyRejectNotifier {
   def apply(
       participantNodeEphemeralState: ParticipantNodeEphemeralState,
       domainId: DomainId,
-      initialUpperBound: Option[CantonTimestamp],
+      initialUpperBound: CantonTimestamp,
       loggerFactory: NamedLoggerFactory,
   )(implicit ec: ExecutionContext): TimelyRejectNotifier = {
     class InFlightSubmissionTimelyRejecter extends TimelyRejecter {

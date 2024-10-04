@@ -65,7 +65,6 @@ abstract class DatabaseSequencerFactory(
     SequencerStore(
       storage,
       protocolVersion,
-      config.writer.maxSqlInListSize,
       timeouts,
       loggerFactory,
       sequencerId,

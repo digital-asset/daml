@@ -510,7 +510,7 @@ class PruningProcessor(
     val PruningCutoffs.DomainOffset(state, lastTimestamp, lastRequestCounter) = domainOffset
 
     logger.info(
-      show"Pruning ${state.domainId.item} up to $lastTimestamp and request counter $lastRequestCounter"
+      show"Pruning ${state.indexedDomain.domainId} up to $lastTimestamp and request counter $lastRequestCounter"
     )
     logger.debug("Pruning contract store...")
 

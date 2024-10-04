@@ -617,7 +617,7 @@ abstract class ProtocolProcessor[
       sc: SequencerCounter,
       batch: steps.RequestBatch,
   )(implicit traceContext: TraceContext): HandlerResult = {
-    val RequestAndRootHashMessage(viewMessages, rootHashMessage, mediatorId, _isReceipt) = batch
+    val RequestAndRootHashMessage(_viewMessages, _rootHashMessage, _mediatorId, _isReceipt) = batch
     val requestId = RequestId(ts)
 
     if (precedesCleanReplay(requestId)) {
@@ -1651,7 +1651,7 @@ abstract class ProtocolProcessor[
               show"${steps.requestKind.unquoted} request at $requestId: Received event at $resultTimestamp for request that is invalid"
             )
             Right(default)
-          case err => Left(processorError)
+          case _err => Left(processorError)
         }
       }
 

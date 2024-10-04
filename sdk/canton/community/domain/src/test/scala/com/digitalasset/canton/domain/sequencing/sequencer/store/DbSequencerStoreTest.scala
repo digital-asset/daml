@@ -4,8 +4,6 @@
 package com.digitalasset.canton.domain.sequencing.sequencer.store
 
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.config.RequireTypes.PositiveNumeric
-import com.digitalasset.canton.domain.sequencing.sequencer.store.DbSequencerStoreTest.MaxInClauseSize
 import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
@@ -24,7 +22,6 @@ trait DbSequencerStoreTest extends SequencerStoreTest with MultiTenantedSequence
       new DbSequencerStore(
         storage,
         testedProtocolVersion,
-        MaxInClauseSize,
         timeouts,
         loggerFactory,
         sequencerMember,
@@ -35,7 +32,6 @@ trait DbSequencerStoreTest extends SequencerStoreTest with MultiTenantedSequence
       new DbSequencerStore(
         storage,
         testedProtocolVersion,
-        MaxInClauseSize,
         timeouts,
         loggerFactory,
         sequencerMember,
@@ -46,8 +42,6 @@ trait DbSequencerStoreTest extends SequencerStoreTest with MultiTenantedSequence
 }
 
 object DbSequencerStoreTest {
-  // intentionally low to expose any problems with usage of IN builder
-  val MaxInClauseSize = PositiveNumeric.tryCreate(2)
 
   def cleanSequencerTables(
       storage: DbStorage

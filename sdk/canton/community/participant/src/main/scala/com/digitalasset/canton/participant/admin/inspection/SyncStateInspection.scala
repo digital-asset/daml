@@ -5,8 +5,6 @@ package com.digitalasset.canton.participant.admin.inspection
 
 import cats.Eval
 import cats.data.EitherT
-import cats.syntax.foldable.*
-import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
@@ -431,8 +429,8 @@ final class SyncStateInspection(
       val searchResult = domainPeriods.map { dp =>
         for {
           domain <- syncDomainPersistentStateManager
-            .aliasForDomainId(dp.domain.domainId)
-            .toRight(s"No domain alias found for ${dp.domain.domainId}")
+            .aliasForDomainId(dp.indexedDomain.domainId)
+            .toRight(s"No domain alias found for ${dp.indexedDomain.domainId}")
           persistentState = getPersistentState(domain)
 
           result = for {
@@ -463,7 +461,7 @@ final class SyncStateInspection(
                   }
               }
           } yield SentAcsCommitment
-            .compare(dp.domain.domainId, computed, received, outstanding, verbose)
+            .compare(dp.indexedDomain.domainId, computed, received, outstanding, verbose)
             .filter(cmt => states.isEmpty || states.contains(cmt.state))
         } yield result
       }
@@ -487,8 +485,8 @@ final class SyncStateInspection(
       val searchResult = domainPeriods.map { dp =>
         for {
           domain <- syncDomainPersistentStateManager
-            .aliasForDomainId(dp.domain.domainId)
-            .toRight(s"No domain alias found for ${dp.domain.domainId}")
+            .aliasForDomainId(dp.indexedDomain.domainId)
+            .toRight(s"No domain alias found for ${dp.indexedDomain.domainId}")
           persistentState = getPersistentState(domain)
 
           result = for {
@@ -511,13 +509,13 @@ final class SyncStateInspection(
               .peekThrough(dp.toInclusive) // peekThrough takes an upper bound parameter
               .collect(iter =>
                 iter.filter(cmt =>
-                  cmt.period.fromExclusive >= dp.fromExclusive && cmt.domainId == dp.domain.domainId && (counterParticipants.isEmpty ||
+                  cmt.period.fromExclusive >= dp.fromExclusive && cmt.domainId == dp.indexedDomain.domainId && (counterParticipants.isEmpty ||
                     counterParticipants
                       .contains(cmt.sender))
                 )
               )
           } yield ReceivedAcsCommitment
-            .compare(dp.domain.domainId, received, computed, buffered, outstanding, verbose)
+            .compare(dp.indexedDomain.domainId, received, computed, buffered, outstanding, verbose)
             .filter(cmt => states.isEmpty || states.contains(cmt.state))
         } yield result
       }
@@ -581,7 +579,7 @@ final class SyncStateInspection(
     getPersistentState(domain)
       .map(state =>
         participantNodePersistentState.value.ledgerApiStore
-          .domainIndex(state.domainId.domainId)
+          .domainIndex(state.indexedDomain.domainId)
       )
       .toRight(s"Not connected to $domain")
 
@@ -627,7 +625,7 @@ final class SyncStateInspection(
         getPersistentState(domain)
           .toRight(s"Unknown domain $domain")
       )
-      domainId = state.domainId.domainId
+      domainId = state.indexedDomain.domainId
       unsequencedSubmissions <- EitherT.right[String](
         participantNodePersistentState.value.inFlightSubmissionStore
           .lookupUnsequencedUptoUnordered(domainId, CantonTimestamp.now())
@@ -649,7 +647,7 @@ final class SyncStateInspection(
         timeouts.inspection.await(functionFullName)(
           participantNodePersistentState.value.ledgerApiStore
             .onlyForTestingNumberOfAcceptedTransactionsFor(
-              domainPersistentState.domainId.domainId
+              domainPersistentState.indexedDomain.domainId
             )
         )
       )

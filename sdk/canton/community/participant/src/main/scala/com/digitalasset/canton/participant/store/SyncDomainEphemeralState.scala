@@ -120,14 +120,14 @@ class SyncDomainEphemeralState(
 
   val timelyRejectNotifier: TimelyRejectNotifier = TimelyRejectNotifier(
     participantNodeEphemeralState,
-    persistentState.domainId.item,
-    Some(startingPoints.processing.prenextTimestamp),
+    persistentState.indexedDomain.domainId,
+    startingPoints.processing.prenextTimestamp,
     loggerFactory,
   )
 
   val recordOrderPublisher: RecordOrderPublisher =
     new RecordOrderPublisher(
-      persistentState.domainId.item,
+      persistentState.indexedDomain.domainId,
       startingPoints.processing.nextSequencerCounter,
       startingPoints.processing.prenextTimestamp,
       ledgerApiIndexer,

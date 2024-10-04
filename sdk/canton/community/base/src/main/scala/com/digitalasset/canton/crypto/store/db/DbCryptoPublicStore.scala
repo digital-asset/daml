@@ -64,9 +64,9 @@ class DbCryptoPublicStore(
   ): FutureUnlessShutdown[Unit] =
     storage.queryAndUpdateUnlessShutdown(
       IdempotentInsert.insertVerifyingConflicts(
-        storage,
-        "common_crypto_public_keys ( key_id )",
-        sql"common_crypto_public_keys (key_id, purpose, data, name) values (${key.id}, ${key.purpose}, $key, $name)",
+        sql"""insert into common_crypto_public_keys (key_id, purpose, data, name)
+              values (${key.id}, ${key.purpose}, $key, $name)
+              on conflict do nothing""".asUpdate,
         queryKey(key.id, key.purpose),
       )(
         existingKey => existingKey.publicKey == key && existingKey.name == name,

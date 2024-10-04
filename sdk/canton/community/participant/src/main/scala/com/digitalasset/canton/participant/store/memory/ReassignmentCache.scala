@@ -65,7 +65,7 @@ class ReassignmentCache(
       PendingReassignmentCompletion(timeOfCompletion)(),
     ) match {
       case None =>
-        reassignmentStore.completeReasignment(reassignmentId, timeOfCompletion).value.map {
+        reassignmentStore.completeReassignment(reassignmentId, timeOfCompletion).value.map {
           result =>
             logger
               .trace(
@@ -114,7 +114,7 @@ class ReassignmentCache(
             _ = logger.trace(
               s"Request ${timeOfCompletion.rc}: Overwriting the reassignment completion of the later request ${previousTimeOfCompletion.rc}"
             )
-            result <- reassignmentStore.completeReasignment(reassignmentId, timeOfCompletion).value
+            result <- reassignmentStore.completeReassignment(reassignmentId, timeOfCompletion).value
           } yield result
         }
     }

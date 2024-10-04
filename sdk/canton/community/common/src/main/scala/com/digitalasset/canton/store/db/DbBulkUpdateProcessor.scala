@@ -124,17 +124,16 @@ trait DbBulkUpdateProcessor[A, B] extends BatchAggregator.Processor[A, Try[B]] {
       case None => Future.unit
       case Some(toCheckNE) =>
         val ids = toCheckNE.map(x => itemIdentifier(x.target.value))
-        val lookupQueries = checkQuery(ids)
-        storage.sequentialQueryAndCombine(lookupQueries, s"$queryBaseName lookup").map {
-          foundDatas =>
-            val foundData = foundDatas.map(data => dataIdentifier(data) -> data).toMap
-            toCheck.foreach { case BulkUpdatePendingCheck(item, cell) =>
-              val response =
-                analyzeFoundData(item.value, foundData.get(itemIdentifier(item.value)))(
-                  item.traceContext
-                )
-              cell.putIfAbsent(response).discard[Option[Try[B]]]
-            }
+        val lookupQuery = checkQuery(ids)
+        storage.query(lookupQuery, s"$queryBaseName lookup").map { foundDatas =>
+          val foundData = foundDatas.map(data => dataIdentifier(data) -> data).toMap
+          toCheck.foreach { case BulkUpdatePendingCheck(item, cell) =>
+            val response =
+              analyzeFoundData(item.value, foundData.get(itemIdentifier(item.value)))(
+                item.traceContext
+              )
+            cell.putIfAbsent(response).discard[Option[Try[B]]]
+          }
         }
     }
 
@@ -153,7 +152,7 @@ trait DbBulkUpdateProcessor[A, B] extends BatchAggregator.Processor[A, Try[B]] {
   /** A list of queries for the items that we want to check for */
   protected def checkQuery(itemsToCheck: NonEmpty[Seq[ItemIdentifier]])(implicit
       batchTraceContext: TraceContext
-  ): immutable.Iterable[DbAction.ReadOnly[immutable.Iterable[CheckData]]]
+  ): DbAction.ReadOnly[immutable.Iterable[CheckData]]
 
   /** Compare the item against the data that was found in the store and produce a result.
     * It is called for each item that the update command returned an update counter not equal to 1.
