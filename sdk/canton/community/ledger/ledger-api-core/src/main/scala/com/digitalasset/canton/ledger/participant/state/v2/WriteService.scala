@@ -6,8 +6,10 @@ package com.digitalasset.canton.ledger.participant.state.v2
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.transaction.{GlobalKey, SubmittedTransaction}
 import com.daml.lf.value.Value
+import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.data.ProcessedDisclosedContract
 import com.digitalasset.canton.ledger.api.health.ReportsHealth
+import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.tracing.TraceContext
 
 import java.util.concurrent.CompletionStage
@@ -101,6 +103,7 @@ trait WriteService
     *                                    The map should contain all contract keys that were used during interpretation.
     *                                    A value of None means no contract was found with this contract key.
     * @param processedDisclosedContracts      Explicitly disclosed contracts used during interpretation.
+    * @param contractPackages            The input contracts used by the transaction together with their creating packages.
     */
   def submitTransaction(
       submitterInfo: SubmitterInfo,
@@ -109,6 +112,7 @@ trait WriteService
       estimatedInterpretationCost: Long,
       globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
       processedDisclosedContracts: ImmArray[ProcessedDisclosedContract],
+      contractPackages: Map[LfContractId, LfPackageId],
   )(implicit
       traceContext: TraceContext
   ): CompletionStage[SubmissionResult]

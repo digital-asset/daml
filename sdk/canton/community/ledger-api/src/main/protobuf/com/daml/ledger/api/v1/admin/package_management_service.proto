@@ -29,6 +29,7 @@ service PackageManagementService {
   // ledger implementations. Canton could be an example, where uploading a DAR
   // is not sufficient to render it usable, it must be activated first.
   // This call may:
+  //
   // - Succeed, if the package was successfully uploaded, or if the same package
   //   was already uploaded before.
   // - Respond with a gRPC error
