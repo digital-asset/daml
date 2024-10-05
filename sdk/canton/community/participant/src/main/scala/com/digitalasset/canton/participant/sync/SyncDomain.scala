@@ -82,6 +82,7 @@ import com.digitalasset.canton.topology.processing.{
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.FutureInstances.*
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{EitherUtil, ErrorUtil, FutureUtil, MonadUtil}
 import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
@@ -197,10 +198,10 @@ class SyncDomain(
   )
 
   private val unassignmentProcessor: UnassignmentProcessor = new UnassignmentProcessor(
-    SourceDomainId(domainId),
+    Source(domainId),
     participantId,
     damle,
-    staticDomainParameters,
+    Source(staticDomainParameters),
     reassignmentCoordination,
     inFlightSubmissionTracker,
     ephemeral,
@@ -216,10 +217,10 @@ class SyncDomain(
   )
 
   private val assignmentProcessor: AssignmentProcessor = new AssignmentProcessor(
-    TargetDomainId(domainId),
+    Target(domainId),
     participantId,
     damle,
-    staticDomainParameters,
+    Target(staticDomainParameters),
     reassignmentCoordination,
     inFlightSubmissionTracker,
     ephemeral,
@@ -736,8 +737,8 @@ class SyncDomain(
     val fetchLimit = 1000
 
     def completeReassignments(
-        previous: Option[(CantonTimestamp, SourceDomainId)]
-    ): FutureUnlessShutdown[Either[Option[(CantonTimestamp, SourceDomainId)], Unit]] = {
+        previous: Option[(CantonTimestamp, Source[DomainId])]
+    ): FutureUnlessShutdown[Either[Option[(CantonTimestamp, Source[DomainId])], Unit]] = {
       logger.debug(s"Fetch $fetchLimit pending reassignments")
       val resF = for {
         pendingReassignments <- performUnlessClosingF(functionFullName)(
@@ -755,8 +756,8 @@ class SyncDomain(
               performUnlessClosingEitherU[ReassignmentProcessorError, Unit](functionFullName)(
                 AutomaticAssignment.perform(
                   data.reassignmentId,
-                  TargetDomainId(domainId),
-                  staticDomainParameters,
+                  Target(domainId),
+                  Target(staticDomainParameters),
                   reassignmentCoordination,
                   data.contract.metadata.stakeholders,
                   data.unassignmentRequest.submitterMetadata,
@@ -807,7 +808,7 @@ class SyncDomain(
       )
 
       _bool <- Monad[FutureUnlessShutdown].tailRecM(
-        None: Option[(CantonTimestamp, SourceDomainId)]
+        None: Option[(CantonTimestamp, Source[DomainId])]
       )(ts => completeReassignments(ts))
     } yield {
       logger.debug(s"Assignment completion has finished")
@@ -848,7 +849,7 @@ class SyncDomain(
   override def submitUnassignment(
       submitterMetadata: ReassignmentSubmitterMetadata,
       contractId: LfContractId,
-      targetDomain: TargetDomainId,
+      targetDomain: Target[DomainId],
       targetProtocolVersion: TargetProtocolVersion,
   )(implicit
       traceContext: TraceContext

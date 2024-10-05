@@ -38,9 +38,9 @@ import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate.CreatedEvent
 import com.digitalasset.canton.platform.store.interning.StringInterningView
 import com.digitalasset.canton.platform.{DispatcherState, InMemoryState}
-import com.digitalasset.canton.protocol.{SourceDomainId, TargetDomainId}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.util.ReassignmentTag
 import com.digitalasset.canton.{
   BaseTest,
   HasExecutorServiceGeneric,
@@ -401,8 +401,8 @@ object InMemoryStateUpdaterSpec {
         recordTime = Timestamp.Epoch,
         completionDetails = None,
         reassignmentInfo = ReassignmentInfo(
-          sourceDomain = SourceDomainId(domainId1),
-          targetDomain = TargetDomainId(domainId2),
+          sourceDomain = ReassignmentTag.Source(domainId1),
+          targetDomain = ReassignmentTag.Target(domainId2),
           submitter = Option(party1),
           reassignmentCounter = 15L,
           hostedStakeholders = party2 :: Nil,
@@ -449,8 +449,8 @@ object InMemoryStateUpdaterSpec {
         recordTime = Timestamp.Epoch,
         completionDetails = None,
         reassignmentInfo = ReassignmentInfo(
-          sourceDomain = SourceDomainId(domainId2),
-          targetDomain = TargetDomainId(domainId1),
+          sourceDomain = ReassignmentTag.Source(domainId2),
+          targetDomain = ReassignmentTag.Target(domainId1),
           submitter = Option(party2),
           reassignmentCounter = 15L,
           hostedStakeholders = party1 :: Nil,
@@ -738,9 +738,11 @@ object InMemoryStateUpdaterSpec {
       ),
     )
   )
+
   private val update4 = offset(4L) -> Traced[Update](
     commandRejected(t = 1337L, domainId = DomainId.tryFromString("da::default"))
   )
+
   private val update7 = offset(7L) -> Traced[Update](
     assignmentAccepted(t = 0, source = domainId1, target = domainId2)
   )
@@ -748,7 +750,6 @@ object InMemoryStateUpdaterSpec {
   private val update8 = offset(8L) -> Traced[Update](
     unassignmentAccepted(t = 0, source = domainId2, target = domainId1)
   )
-
   private val anotherMetadataChangedUpdate =
     rawMetadataChangedUpdate
       .bimap(
@@ -912,8 +913,8 @@ object InMemoryStateUpdaterSpec {
       updateId = txId3,
       recordTime = Timestamp(t),
       reassignmentInfo = ReassignmentInfo(
-        sourceDomain = SourceDomainId(source),
-        targetDomain = TargetDomainId(target),
+        sourceDomain = ReassignmentTag.Source(source),
+        targetDomain = ReassignmentTag.Target(target),
         submitter = Option(party1),
         reassignmentCounter = 15L,
         hostedStakeholders = party2 :: Nil,
@@ -943,8 +944,8 @@ object InMemoryStateUpdaterSpec {
       updateId = txId4,
       recordTime = Timestamp(t),
       reassignmentInfo = ReassignmentInfo(
-        sourceDomain = SourceDomainId(source),
-        targetDomain = TargetDomainId(target),
+        sourceDomain = ReassignmentTag.Source(source),
+        targetDomain = ReassignmentTag.Target(target),
         submitter = Option(party2),
         reassignmentCounter = 15L,
         hostedStakeholders = party1 :: Nil,

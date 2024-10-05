@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant.protocol.reassignment
 
 import cats.data.EitherT
 import cats.syntax.bifunctor.*
-import cats.syntax.traverse.*
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, SyncCryptoError}
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -22,6 +21,7 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
+import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.{LfPartyId, ReassignmentCounter}
 import com.digitalasset.daml.lf.engine.Error as LfError
 import com.digitalasset.daml.lf.interpretation.Error as LfInterpretationError
@@ -30,8 +30,8 @@ import com.google.common.annotations.VisibleForTesting
 import scala.concurrent.{ExecutionContext, Future}
 
 private[reassignment] class AssignmentValidation(
-    domainId: TargetDomainId,
-    staticDomainParameters: StaticDomainParameters,
+    domainId: Target[DomainId],
+    staticDomainParameters: Target[StaticDomainParameters],
     participantId: ParticipantId,
     engine: DAMLe,
     reassignmentCoordination: ReassignmentCoordination,
@@ -108,24 +108,22 @@ private[reassignment] class AssignmentValidation(
         val sourceDomain = reassignmentData.unassignmentRequest.sourceDomain
         val unassignmentTs = reassignmentData.unassignmentTs
         for {
+          sourceStaticDomainParam <- reassignmentCoordination.getStaticDomainParameter(sourceDomain)
           _ready <- {
             logger.info(
               s"Waiting for topology state at $unassignmentTs on unassignment domain $sourceDomain ..."
             )
-            EitherT(
-              reassignmentCoordination
-                .awaitUnassignmentTimestamp(
-                  sourceDomain,
-                  staticDomainParameters,
-                  unassignmentTs,
-                )
-                .sequence
-            )
+            reassignmentCoordination
+              .awaitUnassignmentTimestamp(
+                sourceDomain,
+                sourceStaticDomainParam,
+                unassignmentTs,
+              )
           }
 
           sourceCrypto <- reassignmentCoordination.cryptoSnapshot(
-            sourceDomain.unwrap,
-            staticDomainParameters,
+            sourceDomain,
+            sourceStaticDomainParam,
             unassignmentTs,
           )
           // TODO(i12926): Check the signatures of the mediator and the sequencer
@@ -162,7 +160,7 @@ private[reassignment] class AssignmentValidation(
           // TODO(i12926): Check that reassignmentData.unassignmentRequest.targetTimeProof.timestamp is in the past
           cryptoSnapshot <- reassignmentCoordination
             .cryptoSnapshot(
-              reassignmentData.targetDomain.unwrap,
+              reassignmentData.targetDomain,
               staticDomainParameters,
               targetTimeProof,
             )

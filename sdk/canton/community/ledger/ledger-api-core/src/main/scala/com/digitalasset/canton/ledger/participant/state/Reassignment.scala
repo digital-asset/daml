@@ -4,7 +4,8 @@
 package com.digitalasset.canton.ledger.participant.state
 
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.protocol.{SourceDomainId, TargetDomainId}
+import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.digitalasset.daml.lf.transaction.Node
@@ -66,8 +67,8 @@ object Reassignment {
   *                                command.
   */
 final case class ReassignmentInfo(
-    sourceDomain: SourceDomainId,
-    targetDomain: TargetDomainId,
+    sourceDomain: Source[DomainId],
+    targetDomain: Target[DomainId],
     submitter: Option[Ref.Party],
     reassignmentCounter: Long,
     hostedStakeholders: List[Ref.Party],

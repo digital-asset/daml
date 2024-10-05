@@ -7,8 +7,8 @@ import cats.syntax.either.*
 import cats.syntax.functorFilter.*
 import com.digitalasset.canton.data.ViewType
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
+import com.digitalasset.canton.protocol.ReassignmentId
 import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult.InvalidUnassignmentResult
-import com.digitalasset.canton.protocol.{ReassignmentId, SourceDomainId}
 import com.digitalasset.canton.sequencing.RawProtocolEvent
 import com.digitalasset.canton.sequencing.protocol.{
   Batch,
@@ -16,6 +16,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   SignedContent,
   WithOpeningErrors,
 }
+import com.digitalasset.canton.util.ReassignmentTag.Source
 
 final case class DeliveredUnassignmentResult(result: SignedContent[Deliver[DefaultOpenEnvelope]])
     extends PrettyPrinting {
@@ -46,7 +47,7 @@ final case class DeliveredUnassignmentResult(result: SignedContent[Deliver[Defau
   }
 
   def reassignmentId: ReassignmentId =
-    ReassignmentId(SourceDomainId(unwrap.domainId), unwrap.requestId.unwrap)
+    ReassignmentId(Source(unwrap.domainId), unwrap.requestId.unwrap)
 
   override protected def pretty: Pretty[DeliveredUnassignmentResult] = prettyOfParam(_.unwrap)
 }

@@ -15,6 +15,7 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 
 import scala.concurrent.duration.*
 import scala.concurrent.{Await, ExecutionContext}
@@ -22,7 +23,7 @@ import scala.concurrent.{Await, ExecutionContext}
 object ReassignmentResultHelpers {
 
   def unassignmentResult(
-      sourceDomain: SourceDomainId,
+      sourceDomain: Source[DomainId],
       cryptoSnapshot: SyncCryptoApi,
       participantId: ParticipantId,
   )(implicit traceContext: TraceContext): DeliveredUnassignmentResult = {
@@ -34,7 +35,7 @@ object ReassignmentResultHelpers {
 
     val result =
       ConfirmationResultMessage.create(
-        sourceDomain.id,
+        sourceDomain.unwrap,
         ViewType.UnassignmentViewType,
         RequestId(CantonTimestamp.Epoch),
         TestHash.dummyRootHash,
@@ -77,9 +78,9 @@ object ReassignmentResultHelpers {
     DeliveredUnassignmentResult(signedContent)
   }
 
-  def assignmentResult(targetDomain: TargetDomainId): ConfirmationResultMessage =
+  def assignmentResult(targetDomain: Target[DomainId]): ConfirmationResultMessage =
     ConfirmationResultMessage.create(
-      targetDomain.id,
+      targetDomain.unwrap,
       ViewType.AssignmentViewType,
       RequestId(CantonTimestamp.Epoch),
       TestHash.dummyRootHash,

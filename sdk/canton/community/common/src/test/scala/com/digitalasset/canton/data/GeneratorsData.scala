@@ -23,6 +23,7 @@ import com.digitalasset.canton.protocol.messages.{
 }
 import com.digitalasset.canton.sequencing.protocol.{Batch, MediatorGroupRecipient, SignedContent}
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.SeqUtil
 import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.version.{ProtocolVersion, RepresentativeProtocolVersion}
@@ -515,7 +516,7 @@ final class GeneratorsData(
   implicit val assignmentCommonDataArb: Arbitrary[AssignmentCommonData] = Arbitrary(
     for {
       salt <- Arbitrary.arbitrary[Salt]
-      targetDomain <- Arbitrary.arbitrary[TargetDomainId]
+      targetDomain <- Arbitrary.arbitrary[Target[DomainId]]
 
       targetMediator <- Arbitrary.arbitrary[MediatorGroupRecipient]
 
@@ -545,7 +546,7 @@ final class GeneratorsData(
   implicit val unassignmentCommonData: Arbitrary[UnassignmentCommonData] = Arbitrary(
     for {
       salt <- Arbitrary.arbitrary[Salt]
-      sourceDomain <- Arbitrary.arbitrary[SourceDomainId]
+      sourceDomain <- Arbitrary.arbitrary[Source[DomainId]]
 
       sourceMediator <- Arbitrary.arbitrary[MediatorGroupRecipient]
 
@@ -577,14 +578,14 @@ final class GeneratorsData(
       sourceProtocolVersion: SourceProtocolVersion,
   ): Gen[DeliveredUnassignmentResult] =
     for {
-      sourceDomain <- Arbitrary.arbitrary[SourceDomainId]
+      sourceDomain <- Arbitrary.arbitrary[Source[DomainId]]
       requestId <- Arbitrary.arbitrary[RequestId]
       rootHash <- Arbitrary.arbitrary[RootHash]
       protocolVersion = sourceProtocolVersion.v
       verdict = Verdict.Approve(protocolVersion)
 
       result = ConfirmationResultMessage.create(
-        sourceDomain.id,
+        sourceDomain.unwrap,
         ViewType.UnassignmentViewType,
         requestId,
         rootHash,
@@ -648,7 +649,7 @@ final class GeneratorsData(
       creatingTransactionId <- Arbitrary.arbitrary[TransactionId]
       contract <- serializableContractArb(canHaveEmptyKey = true).arbitrary
 
-      targetDomain <- Arbitrary.arbitrary[TargetDomainId]
+      targetDomain <- Arbitrary.arbitrary[Target[DomainId]]
       timeProof <- timeProofArb(protocolVersion).arbitrary
       reassignmentCounter <- reassignmentCounterGen
 

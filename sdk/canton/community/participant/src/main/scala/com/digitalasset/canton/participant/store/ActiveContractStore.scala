@@ -11,12 +11,13 @@ import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveContractIdsChange
 import com.digitalasset.canton.participant.util.{StateChange, TimeOfChange}
-import com.digitalasset.canton.protocol.{LfContractId, SourceDomainId, TargetDomainId}
+import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{Checked, CheckedT}
 import com.digitalasset.canton.{ReassignmentCounter, RequestCounter}
 import com.digitalasset.daml.lf.data.Ref.PackageId
@@ -223,13 +224,13 @@ trait ActiveContractStore
     *         </ul>
     */
   def assignContracts(
-      assignments: Seq[(LfContractId, SourceDomainId, ReassignmentCounter, TimeOfChange)]
+      assignments: Seq[(LfContractId, Source[DomainId], ReassignmentCounter, TimeOfChange)]
   )(implicit traceContext: TraceContext): CheckedT[Future, AcsError, AcsWarning, Unit]
 
   def assignContract(
       contractId: LfContractId,
       toc: TimeOfChange,
-      sourceDomain: SourceDomainId,
+      sourceDomain: Source[DomainId],
       reassignmentCounter: ReassignmentCounter,
   )(implicit
       traceContext: TraceContext
@@ -250,13 +251,13 @@ trait ActiveContractStore
     *         </ul>
     */
   def unassignContracts(
-      unassignments: Seq[(LfContractId, TargetDomainId, ReassignmentCounter, TimeOfChange)]
+      unassignments: Seq[(LfContractId, Target[DomainId], ReassignmentCounter, TimeOfChange)]
   )(implicit traceContext: TraceContext): CheckedT[Future, AcsError, AcsWarning, Unit]
 
   def unassignContracts(
       contractId: LfContractId,
       toc: TimeOfChange,
-      targetDomain: TargetDomainId,
+      targetDomain: Target[DomainId],
       reassignmentCounter: ReassignmentCounter,
   )(implicit
       traceContext: TraceContext
@@ -649,7 +650,7 @@ object ActiveContractStore {
     * @param reassignmentCounter The reassignment counter of the unassignment request that reassigned the contract away.
     */
   final case class ReassignedAway(
-      targetDomain: TargetDomainId,
+      targetDomain: Target[DomainId],
       reassignmentCounter: ReassignmentCounter,
   ) extends Status {
     override def prunable: Boolean = true

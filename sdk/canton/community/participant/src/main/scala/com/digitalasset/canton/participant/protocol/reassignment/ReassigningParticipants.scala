@@ -19,14 +19,15 @@ import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.{ParticipantAttributes, ParticipantPermission}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{EitherTUtil, EitherUtil}
 
 import scala.concurrent.{ExecutionContext, Future}
 
 private[protocol] class ReassigningParticipants(
     stakeholders: Set[LfPartyId],
-    sourceTopology: TopologySnapshot,
-    targetTopology: TopologySnapshot,
+    sourceTopology: Source[TopologySnapshot],
+    targetTopology: Target[TopologySnapshot],
 )(implicit
     traceContext: TraceContext,
     ec: ExecutionContext,
@@ -39,8 +40,8 @@ private[protocol] class ReassigningParticipants(
     */
   def compute: EitherT[Future, UnassignmentProcessorError, Set[ParticipantId]] =
     for {
-      permissionsSource <- getStakeholdersPermissions(sourceTopology, "source")
-      permissionsTarget <- getStakeholdersPermissions(targetTopology, "target")
+      permissionsSource <- getStakeholdersPermissions(sourceTopology.unwrap, "source")
+      permissionsTarget <- getStakeholdersPermissions(targetTopology.unwrap, "target")
 
       _ <- EitherT
         .fromEither[Future](partySubmissionCheck(permissionsSource, permissionsTarget))

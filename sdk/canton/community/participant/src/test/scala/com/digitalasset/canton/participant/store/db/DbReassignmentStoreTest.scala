@@ -10,6 +10,7 @@ import com.digitalasset.canton.participant.store.ReassignmentStoreTest
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
+import com.digitalasset.canton.util.ReassignmentTag
 import com.digitalasset.canton.version.Reassignment.TargetProtocolVersion
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -30,7 +31,7 @@ trait DbReassignmentStoreTest extends AsyncWordSpec with BaseTest with Reassignm
     behave like reassignmentStore(domainId =>
       new DbReassignmentStore(
         storage,
-        domainId,
+        ReassignmentTag.Target(domainId),
         indexStore,
         TargetProtocolVersion(testedProtocolVersion),
         new SymbolicPureCrypto,

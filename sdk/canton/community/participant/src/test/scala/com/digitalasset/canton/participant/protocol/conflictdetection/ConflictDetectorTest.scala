@@ -46,13 +46,9 @@ import com.digitalasset.canton.participant.store.memory.{
   ReassignmentCacheTest,
 }
 import com.digitalasset.canton.participant.util.{StateChange, TimeOfChange}
-import com.digitalasset.canton.protocol.{
-  ExampleTransactionFactory,
-  LfContractId,
-  ReassignmentId,
-  TargetDomainId,
-}
+import com.digitalasset.canton.protocol.{ExampleTransactionFactory, LfContractId, ReassignmentId}
 import com.digitalasset.canton.util.FutureInstances.*
+import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.util.{Checked, CheckedT}
 import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.canton.{BaseTest, HasExecutorService, ReassignmentCounter, RequestCounter}
@@ -1633,7 +1629,7 @@ class ConflictDetectorTest
     "detect conflicts between racing assignments" in {
       val reassignmentStore =
         new InMemoryReassignmentStore(
-          TargetDomainId(ReassignmentStoreTest.indexedTargetDomain.domainId),
+          Target(ReassignmentStoreTest.indexedTargetDomain.domainId),
           loggerFactory,
         )
       val hookedStore = new ReassignmentCacheTest.HookReassignmentStore(reassignmentStore)

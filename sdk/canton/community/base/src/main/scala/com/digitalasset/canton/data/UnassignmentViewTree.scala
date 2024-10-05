@@ -16,6 +16,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
 import com.digitalasset.canton.util.EitherUtil
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.version.*
 import com.digitalasset.canton.{LfPartyId, LfWorkflowId, ReassignmentCounter}
@@ -137,7 +138,7 @@ object UnassignmentViewTree
   */
 final case class UnassignmentCommonData private (
     override val salt: Salt,
-    sourceDomain: SourceDomainId,
+    sourceDomain: Source[DomainId],
     sourceMediatorGroup: MediatorGroupRecipient,
     stakeholders: Set[LfPartyId],
     reassigningParticipants: Set[ParticipantId],
@@ -161,7 +162,7 @@ final case class UnassignmentCommonData private (
   protected def toProtoV30: v30.UnassignmentCommonData =
     v30.UnassignmentCommonData(
       salt = Some(salt.toProtoV30),
-      sourceDomain = sourceDomain.toProtoPrimitive,
+      sourceDomain = sourceDomain.unwrap.toProtoPrimitive,
       sourceMediatorGroup = sourceMediatorGroup.group.value,
       stakeholders = stakeholders.toSeq,
       uuid = ProtoConverter.UuidConverter.toProtoPrimitive(uuid),
@@ -204,7 +205,7 @@ object UnassignmentCommonData
 
   def create(hashOps: HashOps)(
       salt: Salt,
-      sourceDomain: SourceDomainId,
+      sourceDomain: Source[DomainId],
       sourceMediator: MediatorGroupRecipient,
       stakeholders: Set[LfPartyId],
       reassigningParticipants: Set[ParticipantId],
@@ -240,7 +241,7 @@ object UnassignmentCommonData
 
     for {
       salt <- ProtoConverter.parseRequired(Salt.fromProtoV30, "salt", saltP)
-      sourceDomain <- SourceDomainId.fromProtoPrimitive(sourceDomainP, "source_domain")
+      sourceDomain <- DomainId.fromProtoPrimitive(sourceDomainP, "source_domain").map(Source(_))
       sourceMediatorGroup <- ProtoConverter.parseNonNegativeInt(
         "source_mediator_group",
         sourceMediatorGroupP,
@@ -282,7 +283,7 @@ final case class UnassignmentView private (
     override val salt: Salt,
     contract: SerializableContract,
     creatingTransactionId: TransactionId,
-    targetDomain: TargetDomainId,
+    targetDomain: Target[DomainId],
     targetTimeProof: TimeProof,
     targetProtocolVersion: TargetProtocolVersion,
     reassignmentCounter: ReassignmentCounter,
@@ -309,7 +310,7 @@ final case class UnassignmentView private (
   protected def toProtoV30: v30.UnassignmentView =
     v30.UnassignmentView(
       salt = Some(salt.toProtoV30),
-      targetDomain = targetDomain.toProtoPrimitive,
+      targetDomain = targetDomain.unwrap.toProtoPrimitive,
       targetTimeProof = Some(targetTimeProof.toProtoV30),
       targetProtocolVersion = targetProtocolVersion.v.toProtoPrimitive,
       reassignmentCounter = reassignmentCounter.toProtoPrimitive,
@@ -347,7 +348,7 @@ object UnassignmentView
       salt: Salt,
       contract: SerializableContract,
       creatingTransactionId: TransactionId,
-      targetDomain: TargetDomainId,
+      targetDomain: Target[DomainId],
       targetTimeProof: TimeProof,
       sourceProtocolVersion: SourceProtocolVersion,
       targetProtocolVersion: TargetProtocolVersion,
@@ -392,7 +393,7 @@ object UnassignmentView
       salt,
       contract,
       creatingTransactionId,
-      TargetDomainId(targetDomain),
+      Target(targetDomain),
       targetTimeProof,
       TargetProtocolVersion(targetProtocolVersion),
       ReassignmentCounter(reassignmentCounterP),
@@ -434,9 +435,9 @@ final case class FullUnassignmentTree(tree: UnassignmentViewTree)
 
   def reassignmentCounter: ReassignmentCounter = view.reassignmentCounter
 
-  def sourceDomain: SourceDomainId = commonData.sourceDomain
+  def sourceDomain: Source[DomainId] = commonData.sourceDomain
 
-  def targetDomain: TargetDomainId = view.targetDomain
+  def targetDomain: Target[DomainId] = view.targetDomain
 
   def targetTimeProof: TimeProof = view.targetTimeProof
 

@@ -68,6 +68,7 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
   Submission,
 }
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{
@@ -99,11 +100,11 @@ final class UnassignmentProcessingStepsTest
 
   private val testTopologyTimestamp = CantonTimestamp.Epoch
 
-  private lazy val sourceDomain = SourceDomainId(
+  private lazy val sourceDomain = Source(
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("source::domain"))
   )
   private lazy val sourceMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(100))
-  private lazy val targetDomain = TargetDomainId(
+  private lazy val targetDomain = Target(
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("target::domain"))
   )
 
@@ -232,7 +233,7 @@ final class UnassignmentProcessingStepsTest
       cryptoSnapshot: DomainSnapshotSyncCryptoApi = cryptoSnapshot
   ) =
     TestReassignmentCoordination(
-      Set(TargetDomainId(sourceDomain.unwrap), targetDomain),
+      Set(Target(sourceDomain.unwrap), targetDomain),
       CantonTimestamp.Epoch,
       Some(cryptoSnapshot),
       Some(None),
@@ -252,7 +253,7 @@ final class UnassignmentProcessingStepsTest
       damle,
       reassignmentCoordination,
       seedGenerator,
-      defaultStaticDomainParameters,
+      Source(defaultStaticDomainParameters),
       SourceProtocolVersion(testedProtocolVersion),
       loggerFactory,
     )(executorService)
@@ -339,8 +340,8 @@ final class UnassignmentProcessingStepsTest
           sourceMediator,
           targetDomain,
           TargetProtocolVersion(testedProtocolVersion),
-          sourceTopologySnapshot,
-          targetTopologySnapshot,
+          Source(sourceTopologySnapshot),
+          Target(targetTopologySnapshot),
           initialReassignmentCounter,
         )
         .value
@@ -646,7 +647,7 @@ final class UnassignmentProcessingStepsTest
       val submissionParam = UnassignmentProcessingSteps.SubmissionParam(
         submitterMetadata = submitterMetadata(party1),
         contractId,
-        TargetDomainId(sourceDomain.unwrap),
+        Target(sourceDomain.unwrap),
         TargetProtocolVersion(testedProtocolVersion),
       )
 
@@ -799,7 +800,7 @@ final class UnassignmentProcessingStepsTest
       val rootHash = TestHash.dummyRootHash
       val reassignmentResult =
         ConfirmationResultMessage.create(
-          sourceDomain.id,
+          sourceDomain.unwrap,
           UnassignmentViewType,
           RequestId(CantonTimestamp.Epoch),
           rootHash,

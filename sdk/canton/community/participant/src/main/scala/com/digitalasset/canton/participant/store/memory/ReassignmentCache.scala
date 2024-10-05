@@ -22,8 +22,10 @@ import com.digitalasset.canton.participant.store.ReassignmentStore.{
 import com.digitalasset.canton.participant.store.memory.ReassignmentCache.PendingReassignmentCompletion
 import com.digitalasset.canton.participant.store.{ReassignmentLookup, ReassignmentStore}
 import com.digitalasset.canton.participant.util.TimeOfChange
-import com.digitalasset.canton.protocol.{ReassignmentId, SourceDomainId, TargetDomainId}
+import com.digitalasset.canton.protocol.ReassignmentId
+import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{Checked, CheckedT}
 import com.google.common.annotations.VisibleForTesting
 
@@ -129,7 +131,7 @@ class ReassignmentCache(
     }
 
   override def find(
-      filterSource: Option[SourceDomainId],
+      filterSource: Option[Source[DomainId]],
       filterRequestTimestamp: Option[CantonTimestamp],
       filterSubmitter: Option[LfPartyId],
       limit: Int,
@@ -140,7 +142,7 @@ class ReassignmentCache(
         _.filter(reassignmentData => !pendingCompletions.contains(reassignmentData.reassignmentId))
       )
 
-  override def findAfter(requestAfter: Option[(CantonTimestamp, SourceDomainId)], limit: Int)(
+  override def findAfter(requestAfter: Option[(CantonTimestamp, Source[DomainId])], limit: Int)(
       implicit traceContext: TraceContext
   ): Future[Seq[ReassignmentData]] = reassignmentStore
     .findAfter(requestAfter, limit)
@@ -155,7 +157,7 @@ class ReassignmentCache(
     * Hence, we don't need additional synchronization here and we can directly query the store.
     */
   override def findIncomplete(
-      sourceDomain: Option[SourceDomainId],
+      sourceDomain: Option[Source[DomainId]],
       validAt: GlobalOffset,
       stakeholders: Option[NonEmpty[Set[LfPartyId]]],
       limit: NonNegativeInt,
@@ -164,7 +166,7 @@ class ReassignmentCache(
 
   def findEarliestIncomplete()(implicit
       traceContext: TraceContext
-  ): Future[Option[(GlobalOffset, ReassignmentId, TargetDomainId)]] =
+  ): Future[Option[(GlobalOffset, ReassignmentId, Target[DomainId])]] =
     reassignmentStore.findEarliestIncomplete()
 }
 

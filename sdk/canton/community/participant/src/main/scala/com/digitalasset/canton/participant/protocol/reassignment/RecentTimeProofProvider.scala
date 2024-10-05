@@ -13,11 +13,12 @@ import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentPro
   NoTimeProofFromDomain,
   ReassignmentProcessorError,
 }
-import com.digitalasset.canton.protocol.{StaticDomainParameters, TargetDomainId}
+import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.sequencing.protocol.TimeProof
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ReassignmentTag.Target
 
 import scala.concurrent.ExecutionContext
 
@@ -38,8 +39,8 @@ private[reassignment] class RecentTimeProofProvider(
     else
       exclusivityTimeout / reassignmentTimeProofFreshnessProportion
 
-  def get(targetDomainId: TargetDomainId, staticDomainParameters: StaticDomainParameters)(implicit
-      traceContext: TraceContext
+  def get(targetDomainId: Target[DomainId], staticDomainParameters: Target[StaticDomainParameters])(
+      implicit traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, TimeProof] = {
     val domain = targetDomainId.unwrap
 
@@ -50,7 +51,7 @@ private[reassignment] class RecentTimeProofProvider(
 
       crypto <- EitherT.fromEither[FutureUnlessShutdown](
         syncCryptoApi
-          .forDomain(domain, staticDomainParameters)
+          .forDomain(domain, staticDomainParameters.value)
           .toRight(NoTimeProofFromDomain(domain, "getting the crypto client"))
       )
 

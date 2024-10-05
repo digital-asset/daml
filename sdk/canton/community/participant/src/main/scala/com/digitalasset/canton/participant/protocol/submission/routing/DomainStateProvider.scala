@@ -10,6 +10,7 @@ import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -23,10 +24,16 @@ trait DomainStateProvider {
   def getTopologySnapshotAndPVFor(domainId: DomainId)(implicit
       traceContext: TraceContext
   ): Either[UnableToQueryTopologySnapshot.Failed, (TopologySnapshot, ProtocolVersion)]
+
   def getTopologySnapshotFor(domainId: DomainId)(implicit
       traceContext: TraceContext
   ): Either[UnableToQueryTopologySnapshot.Failed, TopologySnapshot] =
     getTopologySnapshotAndPVFor(domainId).map(_._1)
+
+  def getTopologySnapshotFor(domainId: Target[DomainId])(implicit
+      traceContext: TraceContext
+  ): Either[UnableToQueryTopologySnapshot.Failed, Target[TopologySnapshot]] =
+    getTopologySnapshotAndPVFor(domainId.unwrap).map(_._1).map(Target(_))
 
   def getDomainsOfContracts(
       coids: Seq[LfContractId]

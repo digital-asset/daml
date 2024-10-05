@@ -13,7 +13,7 @@ import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentPro
 }
 import com.digitalasset.canton.participant.store.memory.InMemoryReassignmentStore
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.*
-import com.digitalasset.canton.protocol.{SourceDomainId, StaticDomainParameters, TargetDomainId}
+import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.time.TimeProofTestUtil
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
   Confirmation,
@@ -22,6 +22,8 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
 }
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, TestingTopology}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.util.ReassignmentTag
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.{BaseTest, LfPackageId}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.when
@@ -31,7 +33,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 private[reassignment] object TestReassignmentCoordination {
   def apply(
-      domains: Set[TargetDomainId],
+      domains: Set[Target[DomainId]],
       timeProofTimestamp: CantonTimestamp,
       snapshotOverride: Option[DomainSnapshotSyncCryptoApi] = None,
       awaitTimestampOverride: Option[Option[Future[Unit]]] = None,
@@ -41,7 +43,7 @@ private[reassignment] object TestReassignmentCoordination {
 
     val recentTimeProofProvider = mock[RecentTimeProofProvider]
     when(
-      recentTimeProofProvider.get(any[TargetDomainId], any[StaticDomainParameters])(
+      recentTimeProofProvider.get(any[Target[DomainId]], any[Target[StaticDomainParameters]])(
         any[TraceContext]
       )
     )
@@ -50,34 +52,34 @@ private[reassignment] object TestReassignmentCoordination {
     val reassignmentStores =
       domains.map(domain => domain -> new InMemoryReassignmentStore(domain, loggerFactory)).toMap
     val assignmentBySubmission = { (_: DomainId) => None }
-    val protocolVersionGetter = (_: Traced[DomainId]) => Some(BaseTest.testedProtocolVersion)
+    val protocolVersionGetter = (_: Traced[DomainId]) => Some(BaseTest.testedStaticDomainParameters)
 
     new ReassignmentCoordination(
       reassignmentStoreFor = id =>
         reassignmentStores.get(id).toRight(UnknownDomain(id.unwrap, "not found")),
       recentTimeProofFor = recentTimeProofProvider,
       inSubmissionById = assignmentBySubmission,
-      protocolVersionFor = protocolVersionGetter,
+      staticDomainParameterFor = protocolVersionGetter,
       syncCryptoApi = defaultSyncCryptoApi(domains.toSeq.map(_.unwrap), packages, loggerFactory),
       loggerFactory,
     ) {
 
       override def awaitUnassignmentTimestamp(
-          sourceDomain: SourceDomainId,
-          staticDomainParameters: StaticDomainParameters,
+          sourceDomain: Source[DomainId],
+          staticDomainParameters: Source[StaticDomainParameters],
           timestamp: CantonTimestamp,
       )(implicit
           traceContext: TraceContext
-      ): Either[ReassignmentProcessingSteps.UnknownDomain, Future[Unit]] =
+      ): EitherT[Future, UnknownDomain, Unit] =
         awaitTimestampOverride match {
           case None =>
             super.awaitUnassignmentTimestamp(sourceDomain, staticDomainParameters, timestamp)
-          case Some(overridden) => Right(overridden.getOrElse(Future.unit))
+          case Some(overridden) => EitherT.right(overridden.getOrElse(Future.unit))
         }
 
-      override def awaitTimestamp(
-          domainId: DomainId,
-          staticDomainParameters: StaticDomainParameters,
+      override def awaitTimestamp[T[X] <: ReassignmentTag[X]](
+          domainId: T[DomainId],
+          staticDomainParameters: T[StaticDomainParameters],
           timestamp: CantonTimestamp,
       )(implicit
           traceContext: TraceContext
@@ -88,15 +90,15 @@ private[reassignment] object TestReassignmentCoordination {
           case Some(overridden) => Right(overridden)
         }
 
-      override def cryptoSnapshot(
-          domain: DomainId,
-          staticDomainParameters: StaticDomainParameters,
+      override def cryptoSnapshot[T[X] <: ReassignmentTag[X]](
+          domainId: T[DomainId],
+          staticDomainParameters: T[StaticDomainParameters],
           timestamp: CantonTimestamp,
       )(implicit
           traceContext: TraceContext
       ): EitherT[Future, ReassignmentProcessorError, DomainSnapshotSyncCryptoApi] =
         snapshotOverride match {
-          case None => super.cryptoSnapshot(domain, staticDomainParameters, timestamp)
+          case None => super.cryptoSnapshot(domainId, staticDomainParameters, timestamp)
           case Some(cs) => EitherT.pure[Future, ReassignmentProcessorError](cs)
         }
     }

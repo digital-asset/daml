@@ -18,9 +18,11 @@ import com.digitalasset.canton.participant.store.ReassignmentStore.*
 import com.digitalasset.canton.participant.store.memory.ReassignmentCacheTest.HookReassignmentStore
 import com.digitalasset.canton.participant.store.{ReassignmentStore, ReassignmentStoreTest}
 import com.digitalasset.canton.participant.util.TimeOfChange
+import com.digitalasset.canton.protocol.ReassignmentId
 import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
-import com.digitalasset.canton.protocol.{ReassignmentId, SourceDomainId, TargetDomainId}
+import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{Checked, CheckedT}
 import com.digitalasset.canton.{BaseTest, HasExecutorService, LfPartyId, RequestCounter}
 import org.scalatest.Assertion
@@ -315,19 +317,19 @@ object ReassignmentCacheTest {
       baseStore.deleteCompletionsSince(criterionInclusive)
 
     override def find(
-        filterSource: Option[SourceDomainId],
+        filterSource: Option[Source[DomainId]],
         filterTimestamp: Option[CantonTimestamp],
         filterSubmitter: Option[LfPartyId],
         limit: Int,
     )(implicit traceContext: TraceContext): Future[Seq[ReassignmentData]] =
       baseStore.find(filterSource, filterTimestamp, filterSubmitter, limit)
 
-    override def findAfter(requestAfter: Option[(CantonTimestamp, SourceDomainId)], limit: Int)(
+    override def findAfter(requestAfter: Option[(CantonTimestamp, Source[DomainId])], limit: Int)(
         implicit traceContext: TraceContext
     ): Future[Seq[ReassignmentData]] = baseStore.findAfter(requestAfter, limit)
 
     override def findIncomplete(
-        sourceDomain: Option[SourceDomainId],
+        sourceDomain: Option[Source[DomainId]],
         validAt: GlobalOffset,
         stakeholders: Option[NonEmpty[Set[LfPartyId]]],
         limit: NonNegativeInt,
@@ -336,7 +338,7 @@ object ReassignmentCacheTest {
 
     override def findEarliestIncomplete()(implicit
         traceContext: TraceContext
-    ): Future[Option[(GlobalOffset, ReassignmentId, TargetDomainId)]] =
+    ): Future[Option[(GlobalOffset, ReassignmentId, Target[DomainId])]] =
       baseStore.findEarliestIncomplete()
 
     override def lookup(reassignmentId: ReassignmentId)(implicit

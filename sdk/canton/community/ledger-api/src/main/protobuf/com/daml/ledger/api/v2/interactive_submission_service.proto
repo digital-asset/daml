@@ -6,6 +6,7 @@ syntax = "proto3";
 package com.daml.ledger.api.v2;
 
 import "com/daml/ledger/api/v2/commands.proto";
+import "com/daml/ledger/api/v2/interactive_submission_data.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 
@@ -92,8 +93,7 @@ message PrepareSubmissionRequest {
 
 message PrepareSubmissionResponse {
   // the interpreted transaction, it represents the ledger changes necessary to execute the commands specified in the request
-  // TODO(i20660): Document serialization
-  bytes prepared_transaction = 1;
+  PreparedTransaction prepared_transaction = 1;
   // hash of the transaction, this is what needs to be signed by the party to authorize the transaction
   // TODO(i20660): Document hashing algorithm
   bytes prepared_transaction_hash = 2;
@@ -132,7 +132,7 @@ message ExecuteSubmissionRequest {
   // the prepared transaction
   // Typically this is the value of the `prepared_transaction` field in `PrepareSubmissionResponse`
   // obtained from calling `prepareSubmission`.
-  bytes prepared_transaction = 1;
+  PreparedTransaction prepared_transaction = 1;
 
   // The party(ies) signatures that authorize the prepared submission to be executed by this node.
   // Each party can provide one or more signatures..

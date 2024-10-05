@@ -23,6 +23,7 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -38,7 +39,7 @@ private[routing] class DomainRankComputation(
   // Includes check that submitting party has a participant with submission rights on source and target domain
   def compute(
       contracts: Seq[ContractData],
-      targetDomain: DomainId,
+      targetDomain: Target[DomainId],
       readers: Set[LfPartyId],
   )(implicit
       traceContext: TraceContext,
@@ -54,17 +55,18 @@ private[routing] class DomainRankComputation(
       Chain.fromSeq(contracts).parFlatTraverse { c =>
         val contractDomain = c.domain
 
-        if (contractDomain == targetDomain) EitherT.pure(Chain.empty)
+        if (contractDomain == targetDomain.unwrap) EitherT.pure(Chain.empty)
         else {
           for {
             sourceSnapshot <- EitherT
               .fromEither[Future](snapshotProvider.getTopologySnapshotFor(contractDomain))
+              .map(Source(_))
             targetSnapshot <- targetSnapshotET
             submitter <- findReaderThatCanReassignContract(
               sourceSnapshot = sourceSnapshot,
-              sourceDomainId = SourceDomainId(contractDomain),
+              sourceDomainId = Source(contractDomain),
               targetSnapshot = targetSnapshot,
-              targetDomainId = TargetDomainId(targetDomain),
+              targetDomainId = targetDomain,
               contractId = c.id,
               contractStakeholders = c.stakeholders,
               readers = readers,
@@ -76,17 +78,17 @@ private[routing] class DomainRankComputation(
     reassignmentsET.map(reassignments =>
       DomainRank(
         reassignments.toList.toMap,
-        priorityOfDomain(targetDomain),
-        targetDomain,
+        priorityOfDomain(targetDomain.unwrap),
+        targetDomain.unwrap,
       )
     )
   }
 
   private def findReaderThatCanReassignContract(
-      sourceSnapshot: TopologySnapshot,
-      sourceDomainId: SourceDomainId,
-      targetSnapshot: TopologySnapshot,
-      targetDomainId: TargetDomainId,
+      sourceSnapshot: Source[TopologySnapshot],
+      sourceDomainId: Source[DomainId],
+      targetSnapshot: Target[TopologySnapshot],
+      targetDomainId: Target[DomainId],
       contractId: LfContractId,
       contractStakeholders: Set[LfPartyId],
       readers: Set[LfPartyId],

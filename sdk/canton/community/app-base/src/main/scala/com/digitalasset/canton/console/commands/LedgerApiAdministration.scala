@@ -14,6 +14,7 @@ import com.daml.ledger.api.v2.commands.{Command, DisclosedContract}
 import com.daml.ledger.api.v2.completion.Completion
 import com.daml.ledger.api.v2.event.CreatedEvent
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
+import com.daml.ledger.api.v2.interactive_submission_data.PreparedTransaction
 import com.daml.ledger.api.v2.interactive_submission_service.{
   ExecuteSubmissionResponse as ExecuteResponseProto,
   PrepareSubmissionResponse as PrepareResponseProto,
@@ -87,7 +88,6 @@ import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.ResourceUtil
 import com.digitalasset.canton.{LfPackageId, LfPartyId, config}
 import com.digitalasset.daml.lf.data.Ref
-import com.google.protobuf.ByteString
 import com.google.protobuf.field_mask.FieldMask
 import io.grpc.StatusRuntimeException
 import io.grpc.stub.StreamObserver
@@ -412,7 +412,10 @@ trait BaseLedgerApiAdministration extends NoTracing {
     object interactive_submission extends Helpful {
 
       @Help.Summary(
-        "Prepare a transaction for interactive submission"
+        """Prepare a transaction for interactive submission
+           Note that the hash in the response is provided for convenience. Callers should re-compute the hash
+           of the transactions (and possibly compare it to the provided one) before signing it.
+          """
       )
       @Help.Description(
         """Prepare a transaction for interactive submission.
@@ -456,10 +459,12 @@ trait BaseLedgerApiAdministration extends NoTracing {
         """
           preparedTransaction: the prepared transaction bytestring, typically obtained from the preparedTransaction field of the [[prepare]] response.
           transactionSignatures: the signatures of the hash of the transaction. The hash is typically obtained from the preparedTransactionHash field of the [[prepare]] response.
+            Note however that the caller should re-compute the hash and ensure it matches the one provided in [[prepare]], to be certain they're signing a hash that correctly represents
+            the transaction they want to submit.
           """
       )
       def execute(
-          preparedTransaction: ByteString,
+          preparedTransaction: PreparedTransaction,
           transactionSignatures: Map[PartyId, Seq[Signature]],
           submissionId: String,
           applicationId: String = applicationId,

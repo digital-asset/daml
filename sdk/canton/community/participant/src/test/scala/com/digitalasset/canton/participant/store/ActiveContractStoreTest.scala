@@ -23,16 +23,12 @@ import com.digitalasset.canton.protocol.ExampleTransactionFactory.{
   contractInstance,
   transactionId,
 }
-import com.digitalasset.canton.protocol.{
-  ExampleTransactionFactory,
-  LfContractId,
-  SourceDomainId,
-  TargetDomainId,
-}
+import com.digitalasset.canton.protocol.{ExampleTransactionFactory, LfContractId}
 import com.digitalasset.canton.pruning.{PruningPhase, PruningStatus}
 import com.digitalasset.canton.store.PrunableByTimeTest
 import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
 import com.digitalasset.canton.util.FutureInstances.*
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{Checked, CheckedT, MonadUtil}
 import com.digitalasset.canton.{BaseTest, LfPackageId, ReassignmentCounter, RequestCounter}
 import com.digitalasset.daml.lf.data.Ref
@@ -96,13 +92,13 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
 
     // Domain with index 2
     val domain1Idx = 2
-    val sourceDomain1 = SourceDomainId(DomainId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1")))
-    val targetDomain1 = TargetDomainId(DomainId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1")))
+    val sourceDomain1 = Source(DomainId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1")))
+    val targetDomain1 = Target(DomainId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1")))
 
     // Domain with index 3
     val domain2Idx = 3
-    val sourceDomain2 = SourceDomainId(DomainId(UniqueIdentifier.tryCreate("domain2", "DOMAIN2")))
-    val targetDomain2 = TargetDomainId(DomainId(UniqueIdentifier.tryCreate("domain2", "DOMAIN2")))
+    val sourceDomain2 = Source(DomainId(UniqueIdentifier.tryCreate("domain2", "DOMAIN2")))
+    val targetDomain2 = Target(DomainId(UniqueIdentifier.tryCreate("domain2", "DOMAIN2")))
 
     behave like prunableByTime(mkAcs)
 
@@ -1977,7 +1973,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
             acs.assignContract(
               coid00,
               toc1,
-              SourceDomainId(acsDomainId),
+              Source(acsDomainId),
               initialReassignmentCounter,
             )
           })
@@ -2046,7 +2042,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
             acs.assignContract(
               coid00,
               toc3,
-              SourceDomainId(acsDomainId),
+              Source(acsDomainId),
               reassignmentCounter2,
             )
           )(

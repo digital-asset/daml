@@ -63,6 +63,7 @@ import com.digitalasset.canton.platform.store.dao.events.{ContractLoader, LfValu
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{FutureUtil, SimpleExecutionQueue}
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.engine.Engine
 import io.grpc.{BindableService, ServerInterceptor, ServerServiceDefinition}
 import io.opentelemetry.api.trace.Tracer
 import io.opentelemetry.instrumentation.grpc.v1_6.GrpcTelemetry
@@ -272,6 +273,19 @@ class StartableStoppableLedgerApiServer(
       authenticateContract: AuthenticateContract = c =>
         serializableContractAuthenticator.authenticate(c)
 
+      // TODO(i21582) The prepare endpoint of the interactive submission service does not suffix
+      // contract IDs of the transaction yet. This means enrichment of the transaction may fail
+      // when processing unsuffixed contract IDs. For that reason we disable this requirement via the flag below.
+      // When CIDs are suffixed, we can re-use the LfValueTranslation from the index service created above
+      lfValueTranslationForInteractiveSubmission = new LfValueTranslation(
+        metrics = config.metrics,
+        engineO =
+          Some(new Engine(config.engine.config.copy(requireSuffixedGlobalContractId = false))),
+        loadPackage = (packageId, loggingContext) =>
+          timedWriteService.getLfArchive(packageId)(loggingContext.traceContext),
+        loggerFactory = loggerFactory,
+      )
+
       _ <- ApiServiceOwner(
         indexService = indexService,
         submissionTracker = inMemoryState.submissionTracker,
@@ -322,6 +336,7 @@ class StartableStoppableLedgerApiServer(
         authenticateContract = authenticateContract,
         dynParamGetter = config.syncService.dynamicDomainParameterGetter,
         interactiveSubmissionServiceConfig = config.serverConfig.interactiveSubmissionService,
+        lfValueTranslation = lfValueTranslationForInteractiveSubmission,
       )
       _ <- startHttpApiIfEnabled(timedWriteService)
       _ <- config.serverConfig.userManagementService.additionalAdminUserId

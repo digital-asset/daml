@@ -64,6 +64,7 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.HasTestCloseContext
 import com.digitalasset.daml.lf.data.Ref
 import org.scalatest.Assertion
@@ -154,7 +155,7 @@ sealed trait AcsCommitmentProcessorBaseTest
                 .assignContract(
                   cid,
                   TimeOfChange(RequestCounter(0), lifespan.activatedTs),
-                  SourceDomainId(domainId),
+                  Source(domainId),
                   lifespan.reassignmentCounterAtActivation,
                 )
                 .value
@@ -177,7 +178,7 @@ sealed trait AcsCommitmentProcessorBaseTest
                 .unassignContracts(
                   cid,
                   TimeOfChange(RequestCounter(0), lifespan.deactivatedTs),
-                  TargetDomainId(domainId),
+                  Target(domainId),
                   reassignmentCounterAtUnassignment,
                 )
                 .value
@@ -497,7 +498,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       ),
       unassignments = Map[LfContractId, UnassignmentCommit](
         coid(1, 0) -> UnassignmentCommit(
-          TargetDomainId(domainId),
+          Target(domainId),
           Set(alice, bob),
           reassignmentCounter2,
         )
@@ -521,7 +522,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       unassignments = Map.empty[LfContractId, UnassignmentCommit],
       assignments = Map[LfContractId, AssignmentCommit](
         coid(1, 0) -> AssignmentCommit(
-          ReassignmentId(SourceDomainId(domainId), ts(4).forgetRefinement),
+          ReassignmentId(Source(domainId), ts(4).forgetRefinement),
           ContractMetadata.tryCreate(Set.empty, Set(alice, bob), None),
           reassignmentCounter2,
         )
@@ -542,7 +543,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       ),
       unassignments = Map[LfContractId, UnassignmentCommit](
         coid(2, 0) -> UnassignmentCommit(
-          TargetDomainId(domainId),
+          Target(domainId),
           Set(alice, bob, carol),
           reassignmentCounter2,
         )
@@ -583,7 +584,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       unassignments = Map.empty[LfContractId, UnassignmentCommit],
       assignments = Map[LfContractId, AssignmentCommit](
         coid(2, 0) -> AssignmentCommit(
-          ReassignmentId(SourceDomainId(domainId), ts(8).forgetRefinement),
+          ReassignmentId(Source(domainId), ts(8).forgetRefinement),
           ContractMetadata.tryCreate(Set.empty, Set(alice, bob, carol), None),
           reassignmentCounter2,
         )
@@ -600,7 +601,7 @@ sealed trait AcsCommitmentProcessorBaseTest
       archivals = Map.empty[LfContractId, ArchivalCommit],
       unassignments = Map[LfContractId, UnassignmentCommit](
         coid(2, 0) -> UnassignmentCommit(
-          TargetDomainId(domainId),
+          Target(domainId),
           Set(alice, bob, carol),
           reassignmentCounter3,
         )
@@ -1823,11 +1824,11 @@ class AcsCommitmentProcessorTest
         ),
         unassignments = Map[LfContractId, UnassignmentCommit](
           cid2.leftSide -> CommitSet
-            .UnassignmentCommit(TargetDomainId(domainId), Set(alice), reassignmentCounter2)
+            .UnassignmentCommit(Target(domainId), Set(alice), reassignmentCounter2)
         ),
         assignments = Map[LfContractId, AssignmentCommit](
           cid3.leftSide -> CommitSet.AssignmentCommit(
-            ReassignmentId(SourceDomainId(domainId), CantonTimestamp.Epoch),
+            ReassignmentId(Source(domainId), CantonTimestamp.Epoch),
             ContractMetadata.tryCreate(Set.empty, Set(bob), None),
             reassignmentCounter1,
           )
