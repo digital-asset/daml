@@ -32,6 +32,7 @@ import com.digitalasset.canton.topology.{
   TopologyManagerError,
 }
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
+import com.digitalasset.canton.util.ReassignmentTag
 import com.digitalasset.canton.version.Reassignment.TargetProtocolVersion
 
 import scala.concurrent.ExecutionContext
@@ -76,7 +77,7 @@ class DbSyncDomainPersistentState(
     )
   val reassignmentStore: DbReassignmentStore = new DbReassignmentStore(
     storage,
-    indexedDomain,
+    ReassignmentTag.Target(indexedDomain),
     indexedStringStore,
     TargetProtocolVersion(staticDomainParameters.protocolVersion),
     pureCryptoApi,

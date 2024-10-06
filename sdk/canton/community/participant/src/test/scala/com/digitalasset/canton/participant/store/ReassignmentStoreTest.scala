@@ -36,8 +36,6 @@ import com.digitalasset.canton.protocol.{
   ReassignmentId,
   RequestId,
   SerializableContract,
-  SourceDomainId,
-  TargetDomainId,
   TransactionId,
 }
 import com.digitalasset.canton.sequencing.protocol.*
@@ -48,6 +46,7 @@ import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.FutureInstances.*
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{Checked, MonadUtil}
 import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{
@@ -1138,7 +1137,7 @@ trait ReassignmentStoreTest {
         val store = mk(IndexedDomain.tryCreate(sourceDomain1.unwrap, 2))
         loggerFactory.assertInternalError[IllegalArgumentException](
           store.addReassignment(reassignmentData),
-          _.getMessage shouldBe "Domain domain1::DOMAIN1: Reassignment store cannot store reassignment for domain target::DOMAIN",
+          _.getMessage shouldBe s"Domain ${Target(sourceDomain1.unwrap)}: Reassignment store cannot store reassignment for domain $targetDomainId",
         )
       }
     }
@@ -1434,18 +1433,19 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
   val transactionId1 = transactionId(1)
 
   val domain1 = DomainId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1"))
-  val sourceDomain1 = SourceDomainId(DomainId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1")))
-  val targetDomain1 = TargetDomainId(DomainId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1")))
+  val sourceDomain1 = Source(DomainId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1")))
+  val targetDomain1 = Target(DomainId(UniqueIdentifier.tryCreate("domain1", "DOMAIN1")))
   val mediator1 = MediatorGroupRecipient(MediatorGroupIndex.zero)
 
   val domain2 = DomainId(UniqueIdentifier.tryCreate("domain2", "DOMAIN2"))
-  val sourceDomain2 = SourceDomainId(DomainId(UniqueIdentifier.tryCreate("domain2", "DOMAIN2")))
-  val targetDomain2 = TargetDomainId(DomainId(UniqueIdentifier.tryCreate("domain2", "DOMAIN2")))
+  val sourceDomain2 = Source(DomainId(UniqueIdentifier.tryCreate("domain2", "DOMAIN2")))
+  val targetDomain2 = Target(DomainId(UniqueIdentifier.tryCreate("domain2", "DOMAIN2")))
   val mediator2 = MediatorGroupRecipient(MediatorGroupIndex.one)
 
   val indexedTargetDomain =
     IndexedDomain.tryCreate(DomainId(UniqueIdentifier.tryCreate("target", "DOMAIN")), 1)
-  val targetDomainId = TargetDomainId(indexedTargetDomain.domainId)
+  val targetDomainId = Target(indexedTargetDomain.domainId)
+  val targetDomain = Target(DomainId(UniqueIdentifier.tryCreate("target", "DOMAIN")))
 
   val reassignment10 = ReassignmentId(sourceDomain1, CantonTimestamp.Epoch)
   val reassignment11 = ReassignmentId(sourceDomain1, CantonTimestamp.ofEpochMilli(1))
@@ -1501,7 +1501,7 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
       reassignmentId: ReassignmentId,
       sourceMediator: MediatorGroupRecipient,
       submittingParty: LfPartyId = LfPartyId.assertFromString("submitter"),
-      targetDomainId: TargetDomainId,
+      targetDomainId: Target[DomainId],
       creatingTransactionId: TransactionId = ExampleTransactionFactory.transactionId(0),
       contract: SerializableContract = contract,
       unassignmentGlobalOffset: Option[GlobalOffset] = None,

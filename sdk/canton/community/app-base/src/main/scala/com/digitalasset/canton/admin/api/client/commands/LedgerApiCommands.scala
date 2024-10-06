@@ -81,6 +81,7 @@ import com.daml.ledger.api.v2.event_query_service.{
   GetEventsByContractIdRequest,
   GetEventsByContractIdResponse,
 }
+import com.daml.ledger.api.v2.interactive_submission_data.PreparedTransaction
 import com.daml.ledger.api.v2.interactive_submission_service.InteractiveSubmissionServiceGrpc.InteractiveSubmissionServiceStub
 import com.daml.ledger.api.v2.interactive_submission_service.{
   ExecuteSubmissionRequest,
@@ -159,7 +160,6 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.{DomainId, PartyId}
 import com.digitalasset.canton.util.BinaryFileUtil
 import com.digitalasset.canton.{LfPackageId, LfPartyId}
-import com.google.protobuf.ByteString
 import com.google.protobuf.empty.Empty
 import com.google.protobuf.field_mask.FieldMask
 import io.grpc.*
@@ -1383,7 +1383,7 @@ object LedgerApiCommands {
     }
 
     final case class ExecuteCommand(
-        interpretedTransaction: ByteString,
+        preparedTransaction: PreparedTransaction,
         transactionSignatures: Map[PartyId, Seq[Signature]],
         submissionId: String,
         applicationId: String,
@@ -1426,7 +1426,7 @@ object LedgerApiCommands {
       override def createRequest(): Either[String, ExecuteSubmissionRequest] =
         Right(
           ExecuteSubmissionRequest(
-            preparedTransaction = interpretedTransaction,
+            preparedTransaction = Some(preparedTransaction),
             submissionId = submissionId,
             partiesSignatures = Some(makePartySignatures),
             applicationId = applicationId,

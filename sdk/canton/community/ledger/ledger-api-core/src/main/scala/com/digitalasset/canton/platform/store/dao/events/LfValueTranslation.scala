@@ -199,6 +199,12 @@ final class LfValueTranslation(
         Future.failed(new RuntimeException(s"Unexpected ValueEnricher result: $result"))
     }
 
+  def enrichVersionedTransaction(versionedTransaction: VersionedTransaction)(implicit
+      ec: ExecutionContext,
+      loggingContext: LoggingContextWithTrace,
+  ): Future[VersionedTransaction] =
+    consumeEnricherResult(enricher.enrichVersionedTransaction(versionedTransaction))
+
   def toApiValue(
       value: LfValue,
       verbose: Boolean,

@@ -12,6 +12,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{DeserializationError, HasCryptographicEvidence}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.util.ByteStringUtil
+import com.digitalasset.canton.util.ReassignmentTag.Source
 import com.digitalasset.canton.{LedgerTransactionId, ProtoDeserializationError}
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
@@ -181,17 +182,17 @@ object RequestId {
 }
 
 /** A reassignment is identified by the source domain and the sequencer timestamp on the unassignment request. */
-final case class ReassignmentId(sourceDomain: SourceDomainId, unassignmentTs: CantonTimestamp)
+final case class ReassignmentId(sourceDomain: Source[DomainId], unassignmentTs: CantonTimestamp)
     extends PrettyPrinting {
   def toProtoV30: v30.ReassignmentId =
     v30.ReassignmentId(
-      sourceDomain = sourceDomain.toProtoPrimitive,
+      sourceDomain = sourceDomain.unwrap.toProtoPrimitive,
       timestamp = unassignmentTs.toProtoPrimitive,
     )
 
   def toAdminProto: com.digitalasset.canton.admin.participant.v30.ReassignmentId =
     com.digitalasset.canton.admin.participant.v30.ReassignmentId(
-      sourceDomain = sourceDomain.toProtoPrimitive,
+      sourceDomain = sourceDomain.unwrap.toProtoPrimitive,
       timestamp = Some(unassignmentTs.toProtoTimestamp),
     )
 
@@ -208,6 +209,6 @@ object ReassignmentId {
         for {
           sourceDomain <- DomainId.fromProtoPrimitive(originDomainP, "ReassignmentId.origin_domain")
           requestTimestamp <- CantonTimestamp.fromProtoPrimitive(requestTimestampP)
-        } yield ReassignmentId(SourceDomainId(sourceDomain), requestTimestamp)
+        } yield ReassignmentId(Source(sourceDomain), requestTimestamp)
     }
 }

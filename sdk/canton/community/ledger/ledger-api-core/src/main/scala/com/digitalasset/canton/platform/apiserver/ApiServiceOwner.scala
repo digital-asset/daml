@@ -42,6 +42,7 @@ import com.digitalasset.canton.platform.config.{
   PartyManagementServiceConfig,
   UserManagementServiceConfig,
 }
+import com.digitalasset.canton.platform.store.dao.events.LfValueTranslation
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.Engine
@@ -102,6 +103,7 @@ object ApiServiceOwner {
       authenticateContract: AuthenticateContract,
       dynParamGetter: DynamicDomainParameterGetter,
       interactiveSubmissionServiceConfig: InteractiveSubmissionServiceConfig,
+      lfValueTranslation: LfValueTranslation,
   )(implicit
       actorSystem: ActorSystem,
       materializer: Materializer,
@@ -176,6 +178,7 @@ object ApiServiceOwner {
         authenticateContract = authenticateContract,
         dynParamGetter = dynParamGetter,
         interactiveSubmissionServiceConfig = interactiveSubmissionServiceConfig,
+        lfValueTranslation = lfValueTranslation,
       )(materializer, executionSequencerFactory, tracer)
         .map(_.withServices(otherServices))
       apiService <- new LedgerApiService(

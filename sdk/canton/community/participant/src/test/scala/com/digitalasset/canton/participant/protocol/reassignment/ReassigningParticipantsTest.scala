@@ -11,6 +11,7 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.Submission
 import com.digitalasset.canton.topology.{ParticipantId, PartyId, TestingTopology, UniqueIdentifier}
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, LfPartyId}
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -56,8 +57,8 @@ class ReassigningParticipantsTest extends AnyWordSpec with BaseTest with HasExec
 
       new ReassigningParticipants(
         stakeholders = Set(alice, bob),
-        sourceTopology = snapshot,
-        targetTopology = snapshot,
+        sourceTopology = Source(snapshot),
+        targetTopology = Target(snapshot),
       ).compute.futureValue shouldBe Set(p1, p2)
     }
 
@@ -79,14 +80,14 @@ class ReassigningParticipantsTest extends AnyWordSpec with BaseTest with HasExec
 
       new ReassigningParticipants(
         stakeholders = Set(alice, bob),
-        sourceTopology = source,
-        targetTopology = target, // p3 missing
+        sourceTopology = Source(source),
+        targetTopology = Target(target), // p3 missing
       ).compute.futureValue shouldBe Set(p1, p2)
 
       new ReassigningParticipants(
         stakeholders = Set(alice, bob),
-        sourceTopology = source,
-        targetTopology = source, // p3 is there as well
+        sourceTopology = Source(source),
+        targetTopology = Target(source), // p3 is there as well
       ).compute.futureValue shouldBe Set(p1, p2, p3)
     }
 
@@ -106,24 +107,24 @@ class ReassigningParticipantsTest extends AnyWordSpec with BaseTest with HasExec
 
       new ReassigningParticipants(
         stakeholders = Set(alice, bob),
-        sourceTopology = incomplete,
-        targetTopology = complete,
+        sourceTopology = Source(incomplete),
+        targetTopology = Target(complete),
       ).compute.value.futureValue.left.value shouldBe StakeholderHostingErrors(
         s"The following parties are not active on the source domain: Set($bob)"
       )
 
       new ReassigningParticipants(
         stakeholders = Set(alice, bob),
-        sourceTopology = complete,
-        targetTopology = incomplete,
+        sourceTopology = Source(complete),
+        targetTopology = Target(incomplete),
       ).compute.value.futureValue.left.value shouldBe StakeholderHostingErrors(
         s"The following parties are not active on the target domain: Set($bob)"
       )
 
       new ReassigningParticipants(
         stakeholders = Set(alice, bob),
-        sourceTopology = complete,
-        targetTopology = complete,
+        sourceTopology = Source(complete),
+        targetTopology = Target(complete),
       ).compute.futureValue shouldBe Set(p1, p2)
     }
 
@@ -137,8 +138,8 @@ class ReassigningParticipantsTest extends AnyWordSpec with BaseTest with HasExec
 
       new ReassigningParticipants(
         stakeholders = Set(alice),
-        sourceTopology = topology,
-        targetTopology = topology,
+        sourceTopology = Source(topology),
+        targetTopology = Target(topology),
       ).compute.futureValue shouldBe Set(p1, p2)
     }
 
@@ -152,8 +153,8 @@ class ReassigningParticipantsTest extends AnyWordSpec with BaseTest with HasExec
 
       new ReassigningParticipants(
         stakeholders = Set(alice),
-        sourceTopology = topology,
-        targetTopology = topology,
+        sourceTopology = Source(topology),
+        targetTopology = Target(topology),
       ).compute.futureValue shouldBe Set(p1)
     }
 
@@ -172,8 +173,8 @@ class ReassigningParticipantsTest extends AnyWordSpec with BaseTest with HasExec
 
       new ReassigningParticipants(
         stakeholders = Set(alice),
-        sourceTopology = source,
-        targetTopology = target,
+        sourceTopology = Source(source),
+        targetTopology = Target(target),
       ).compute.value.futureValue.left.value shouldBe StakeholderHostingErrors(
         s"The following stakeholders are not hosted with confirmation rights on target domain: Set($alice)"
       )
@@ -210,22 +211,22 @@ class ReassigningParticipantsTest extends AnyWordSpec with BaseTest with HasExec
 
       new ReassigningParticipants(
         stakeholders = Set(alice),
-        sourceTopology = source,
-        targetTopology = targetCorrect,
+        sourceTopology = Source(source),
+        targetTopology = Target(targetCorrect),
       ).compute.futureValue shouldBe Set(p1)
 
       new ReassigningParticipants(
         stakeholders = Set(alice),
-        sourceTopology = source,
-        targetTopology = targetIncorrect1,
+        sourceTopology = Source(source),
+        targetTopology = Target(targetIncorrect1),
       ).compute.value.futureValue.left.value shouldBe PermissionErrors(
         s"For party $alice, no participant with submission permission on source domain has submission permission on target domain."
       )
 
       new ReassigningParticipants(
         stakeholders = Set(alice),
-        sourceTopology = source,
-        targetTopology = targetIncorrect2,
+        sourceTopology = Source(source),
+        targetTopology = Target(targetIncorrect2),
       ).compute.value.futureValue.left.value shouldBe PermissionErrors(
         s"For party $alice, no participant with submission permission on source domain has submission permission on target domain."
       )

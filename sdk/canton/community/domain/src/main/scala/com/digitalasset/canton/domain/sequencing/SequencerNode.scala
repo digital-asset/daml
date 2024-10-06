@@ -703,7 +703,6 @@ class SequencerNodeBootstrap(
             preinitializedServer,
             healthReporter,
             adminServerRegistry,
-            adminToken,
           )
         } yield {
           // if close handle hasn't been registered yet, register it now
@@ -795,7 +794,6 @@ class SequencerNodeBootstrap(
       server: Option[DynamicGrpcServer],
       healthReporter: GrpcHealthReporter,
       adminServerRegistry: CantonMutableHandlerRegistry,
-      adminToken: CantonAdminToken,
   ): EitherT[Future, String, DynamicGrpcServer] = {
     runtime.registerAdminGrpcServices(service => adminServerRegistry.addServiceU(service))
     for {
@@ -839,16 +837,13 @@ class SequencerNode(
     val activeMembers = sequencer.fetchActiveMembers()
 
     val ports = Map("public" -> config.publicApi.port, "admin" -> config.adminApi.port)
-    val participants = activeMembers.collect { case participant: ParticipantId =>
-      participant
-    }
 
     SequencerNodeStatus(
       sequencer.domainId.unwrap,
       sequencer.domainId,
       uptime(),
       ports,
-      participants,
+      activeMembers,
       healthStatus,
       topologyQueue = sequencer.topologyQueue,
       admin = sequencer.adminStatus,

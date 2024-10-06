@@ -3,10 +3,11 @@
 
 package com.digitalasset.canton.participant.store.db
 
-import cats.Monad
 import cats.data.EitherT
 import cats.syntax.either.*
+import cats.syntax.functor.*
 import cats.syntax.traverse.*
+import cats.{Monad, Traverse}
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.ProtoDeserializationError.OtherError
@@ -31,14 +32,7 @@ import com.digitalasset.canton.participant.store.db.DbReassignmentStore.{
 }
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.messages.*
-import com.digitalasset.canton.protocol.{
-  ReassignmentDomainId,
-  ReassignmentId,
-  SerializableContract,
-  SourceDomainId,
-  TargetDomainId,
-  TransactionId,
-}
+import com.digitalasset.canton.protocol.{ReassignmentId, SerializableContract, TransactionId}
 import com.digitalasset.canton.resource.DbStorage.DbAction
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.sequencing.protocol.{NoOpeningErrors, SequencedEvent, SignedContent}
@@ -47,7 +41,15 @@ import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{Checked, CheckedT, ErrorUtil, MonadUtil, SimpleExecutionQueue}
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
+import com.digitalasset.canton.util.{
+  Checked,
+  CheckedT,
+  ErrorUtil,
+  MonadUtil,
+  ReassignmentTag,
+  SimpleExecutionQueue,
+}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{LfPartyId, RequestCounter}
@@ -58,12 +60,11 @@ import slick.jdbc.canton.SQLActionBuilder
 import slick.jdbc.{GetResult, PositionedParameters, SetParameter}
 
 import scala.concurrent.{ExecutionContext, Future}
-import scala.language.implicitConversions
 import scala.util.control.NonFatal
 
 class DbReassignmentStore(
     override protected val storage: DbStorage,
-    indexedTargetDomain: IndexedDomain, // TODO(#21325) - Use target wrapper to enforce an indexed target domain
+    indexedTargetDomain: Target[IndexedDomain],
     indexedStringStore: IndexedStringStore,
     targetDomainProtocolVersion: TargetProtocolVersion,
     cryptoApi: CryptoPureApi,
@@ -79,19 +80,23 @@ class DbReassignmentStore(
   import storage.api.*
   import storage.converters.*
 
-  private implicit def forgetRefinement(id: ReassignmentDomainId): DomainId = id.unwrap
+  private val targetDomainId: Target[DomainId] =
+    indexedTargetDomain.map(_.domainId)
 
-  private def indexedDomainF(domainId: DomainId): Future[IndexedDomain] =
-    IndexedDomain.indexed(indexedStringStore)(domainId)
+  @SuppressWarnings(Array("com.digitalasset.canton.FutureTraverse"))
+  private def indexedDomainF[T[_]: Traverse](domainId: T[DomainId]): Future[T[IndexedDomain]] =
+    domainId.traverse(IndexedDomain.indexed(indexedStringStore))
 
-  private def indexedDomainET[E](domainId: DomainId): EitherT[Future, E, IndexedDomain] =
+  private def indexedDomainET[E, T[_]: Traverse](
+      domainId: T[DomainId]
+  ): EitherT[Future, E, T[IndexedDomain]] =
     EitherT.right[E](indexedDomainF(domainId))
 
-  private def indexedDomainETUS(
-      domainId: DomainId
+  private def indexedDomainETUS[T[_]: Traverse](
+      domainId: T[DomainId]
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, ReassignmentStoreError, IndexedDomain] =
+  ): EitherT[FutureUnlessShutdown, ReassignmentStoreError, T[IndexedDomain]] =
     EitherT.right[ReassignmentStoreError](
       performUnlessClosingF("index-for-source-domain")(
         indexedDomainF(domainId)
@@ -139,6 +144,14 @@ class DbReassignmentStore(
 
   private implicit val setParameterSerializableContract: SetParameter[SerializableContract] =
     SerializableContract.getVersionedSetParameter(targetDomainProtocolVersion.v)
+
+  implicit val setParameterReassignmentTagDomainId: SetParameter[DomainId] =
+    (d: DomainId, pp: PositionedParameters) => pp >> d.toLengthLimitedString
+
+  implicit val setParameterReassignmentTagDomainIdO
+      : SetParameter[Option[ReassignmentTag[DomainId]]] =
+    (d: Option[ReassignmentTag[DomainId]], pp: PositionedParameters) =>
+      pp >> d.map(_.unwrap.toLengthLimitedString)
 
   private implicit val getResultOptionRawDeliveredUnassignmentResult
       : GetResult[Option[RawDeliveredUnassignmentResult]] = GetResult { r =>
@@ -214,8 +227,8 @@ class DbReassignmentStore(
   ): EitherT[FutureUnlessShutdown, ReassignmentStoreError, Unit] = {
 
     ErrorUtil.requireArgument(
-      reassignmentData.targetDomain == TargetDomainId(indexedTargetDomain.domainId),
-      s"Domain ${indexedTargetDomain.domainId}: Reassignment store cannot store reassignment for domain ${reassignmentData.targetDomain.unwrap}",
+      reassignmentData.targetDomain == targetDomainId,
+      s"Domain $targetDomainId: Reassignment store cannot store reassignment for domain ${reassignmentData.targetDomain}",
     )
     def insert(dbReassignmentId: DbReassignmentId): DBIO[Int] =
       sqlu"""
@@ -339,7 +352,9 @@ class DbReassignmentStore(
         )
 
     for {
-      indexedSourceDomain <- indexedDomainETUS(unassignmentResult.reassignmentId.sourceDomain)
+      indexedSourceDomain <- indexedDomainETUS(
+        unassignmentResult.reassignmentId.sourceDomain
+      )
       dbReassignmentId = DbReassignmentId(
         indexedSourceDomain,
         unassignmentResult.reassignmentId.unassignmentTs,
@@ -405,13 +420,13 @@ class DbReassignmentStore(
     """
 
     val deduplicatedSourceDomains = offsets.map(_._1.sourceDomain).toSet
-    val sourceDomainToIndexBiMap: HashBiMap[SourceDomainId, Int] =
-      HashBiMap.create[SourceDomainId, Int]()
+    val sourceDomainToIndexBiMap: HashBiMap[Source[DomainId], Int] =
+      HashBiMap.create[Source[DomainId], Int]()
 
     lazy val task = for {
       _ <- MonadUtil.sequentialTraverse(deduplicatedSourceDomains.forgetNE.toSeq)(sd =>
         indexedDomainET(sd).map { indexedDomain =>
-          sourceDomainToIndexBiMap.put(sd, indexedDomain.index)
+          sourceDomainToIndexBiMap.put(sd, indexedDomain.unwrap.index)
         }
       )
       selectData = offsets.map { case (reassignmentId, _) =>
@@ -470,7 +485,7 @@ class DbReassignmentStore(
   override def completeReassignment(reassignmentId: ReassignmentId, timeOfCompletion: TimeOfChange)(
       implicit traceContext: TraceContext
   ): CheckedT[Future, Nothing, ReassignmentStoreError, Unit] = {
-    def updateSameOrUnset(indexedSourceDomain: IndexedDomain) =
+    def updateSameOrUnset(indexedSourceDomain: Source[IndexedDomain]) =
       sqlu"""
         update par_reassignments
           set time_of_completion_request_counter=${timeOfCompletion.rc}, time_of_completion_timestamp=${timeOfCompletion.timestamp}
@@ -550,7 +565,7 @@ class DbReassignmentStore(
   }
 
   override def find(
-      filterSource: Option[SourceDomainId],
+      filterSource: Option[Source[DomainId]],
       filterTimestamp: Option[CantonTimestamp],
       filterSubmitter: Option[LfPartyId],
       limit: Int,
@@ -563,9 +578,9 @@ class DbReassignmentStore(
       filterSubmitter.fold(sql"")(submitter => sql" and submitter_lf=$submitter")
     val limitSql = storage.limitSql(limit)
     for {
-      indexedSourceDomainO <- filterSource.fold(Future.successful(None: Option[IndexedDomain]))(
-        sd => indexedDomainF(sd).map(Some(_))
-      )
+      indexedSourceDomainO <- filterSource.fold(
+        Future.successful(Option.empty[Source[IndexedDomain]])
+      )(sd => indexedDomainF(sd).map(Some(_)))
       sourceFilter =
         indexedSourceDomainO.fold(sql"")(indexedSourceDomain =>
           sql" and source_domain_idx=$indexedSourceDomain"
@@ -581,11 +596,11 @@ class DbReassignmentStore(
   }
 
   override def findAfter(
-      requestAfter: Option[(CantonTimestamp, SourceDomainId)],
+      requestAfter: Option[(CantonTimestamp, Source[DomainId])],
       limit: Int,
   )(implicit traceContext: TraceContext): Future[Seq[ReassignmentData]] = for {
     queryData <- requestAfter.fold(
-      Future.successful(None: Option[(CantonTimestamp, IndexedDomain)])
+      Future.successful(Option.empty[(CantonTimestamp, Source[IndexedDomain])])
     ) { case (ts, sd) =>
       indexedDomainF(sd).map(indexedDomain => Some((ts, indexedDomain)))
     }
@@ -608,13 +623,13 @@ class DbReassignmentStore(
   } yield res
 
   private def findIncomplete(
-      sourceDomain: Option[SourceDomainId],
+      sourceDomain: Option[Source[DomainId]],
       validAt: GlobalOffset,
       start: Long,
   )(implicit traceContext: TraceContext): Future[Seq[ReassignmentData]] = for {
-    indexedSourceDomainO <- sourceDomain.fold(Future.successful(None: Option[IndexedDomain]))(sd =>
-      indexedDomainF(sd).map(Some(_))
-    )
+    indexedSourceDomainO <- sourceDomain.fold(
+      Future.successful(Option.empty[Source[IndexedDomain]])
+    )(sd => indexedDomainF(sd).map(Some(_)))
     res <- storage
       .query(
         {
@@ -677,7 +692,7 @@ class DbReassignmentStore(
   }
 
   override def findIncomplete(
-      sourceDomain: Option[SourceDomainId],
+      sourceDomain: Option[Source[DomainId]],
       validAt: GlobalOffset,
       stakeholders: Option[NonEmpty[Set[LfPartyId]]],
       limit: NonNegativeInt,
@@ -702,7 +717,7 @@ class DbReassignmentStore(
 
   override def findEarliestIncomplete()(implicit
       traceContext: TraceContext
-  ): Future[Option[(GlobalOffset, ReassignmentId, TargetDomainId)]] =
+  ): Future[Option[(GlobalOffset, ReassignmentId, Target[DomainId])]] =
     for {
       queryResult <- storage
         .query(
@@ -728,7 +743,7 @@ class DbReassignmentStore(
               (
                 assignmentOffset,
                 unassignmentOffset,
-                SourceDomainId(indexedDomain.domainId),
+                Source(indexedDomain.domainId),
                 unassignmentTs,
               )
             )
@@ -745,7 +760,7 @@ class DbReassignmentStore(
           (
             GlobalOffset.MaxValue,
             ReassignmentId(
-              SourceDomainId(indexedTargetDomain.domainId),
+              Source(targetDomainId.unwrap),
               CantonTimestamp.MaxValue,
             ),
           )
@@ -757,7 +772,7 @@ class DbReassignmentStore(
         ) match {
         case (offset, reassignmentId) =>
           if (offset == GlobalOffset.MaxValue) None
-          else Some((offset, reassignmentId, TargetDomainId(indexedTargetDomain.domainId)))
+          else Some((offset, reassignmentId, targetDomainId))
       }
     } yield res
 
@@ -812,7 +827,7 @@ class DbReassignmentStore(
 object DbReassignmentStore {
 
   private final case class DbReassignmentId(
-      indexedSourceDomain: IndexedDomain,
+      indexedSourceDomain: Source[IndexedDomain],
       unassignmentTs: CantonTimestamp,
   )
 

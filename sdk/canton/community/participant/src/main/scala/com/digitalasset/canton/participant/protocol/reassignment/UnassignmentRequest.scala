@@ -13,9 +13,10 @@ import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentPro
 import com.digitalasset.canton.participant.protocol.submission.UsableDomain
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.{MediatorGroupRecipient, TimeProof}
-import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
+import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{LfPartyId, ReassignmentCounter}
 
@@ -35,10 +36,10 @@ final case class UnassignmentRequest(
     reassigningParticipants: Set[ParticipantId],
     creatingTransactionId: TransactionId,
     contract: SerializableContract,
-    sourceDomain: SourceDomainId,
+    sourceDomain: Source[DomainId],
     sourceProtocolVersion: SourceProtocolVersion,
     sourceMediator: MediatorGroupRecipient,
-    targetDomain: TargetDomainId,
+    targetDomain: Target[DomainId],
     targetProtocolVersion: TargetProtocolVersion,
     targetTimeProof: TimeProof,
     reassignmentCounter: ReassignmentCounter,
@@ -90,13 +91,13 @@ object UnassignmentRequest {
       contract: SerializableContract,
       submitterMetadata: ReassignmentSubmitterMetadata,
       stakeholders: Set[LfPartyId],
-      sourceDomain: SourceDomainId,
+      sourceDomain: Source[DomainId],
       sourceProtocolVersion: SourceProtocolVersion,
       sourceMediator: MediatorGroupRecipient,
-      targetDomain: TargetDomainId,
+      targetDomain: Target[DomainId],
       targetProtocolVersion: TargetProtocolVersion,
-      sourceTopology: TopologySnapshot,
-      targetTopology: TopologySnapshot,
+      sourceTopology: Source[TopologySnapshot],
+      targetTopology: Target[TopologySnapshot],
       reassignmentCounter: ReassignmentCounter,
   )(implicit
       traceContext: TraceContext,
@@ -118,7 +119,7 @@ object UnassignmentRequest {
         stakeholders,
       )
 
-      unassignmentRequestRecipients <- sourceTopology
+      unassignmentRequestRecipients <- sourceTopology.unwrap
         .activeParticipantsOfAll(stakeholders.toList)
         .mapK(FutureUnlessShutdown.outcomeK)
         .leftMap(inactiveParties =>
@@ -134,9 +135,9 @@ object UnassignmentRequest {
       _ <- UsableDomain
         .checkPackagesVetted(
           targetDomain.unwrap,
-          targetTopology,
+          targetTopology.unwrap,
           stakeholders.view.map(_ -> Set(templateId.packageId)).toMap,
-          targetTopology.referenceTime,
+          targetTopology.unwrap.referenceTime,
         )
         .leftMap[ReassignmentProcessorError](unknownPackage =>
           UnassignmentProcessorError

@@ -18,11 +18,8 @@ import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.protocol.v30.TransactionAuthorizationPartySignatures as ProtoSignatures
-import com.digitalasset.canton.protocol.{
-  SourceDomainId,
-  TargetDomainId,
-  TransactionAuthorizationPartySignatures as ProtocolSignatures,
-}
+import com.digitalasset.canton.protocol.TransactionAuthorizationPartySignatures as ProtocolSignatures
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.daml.lf.data.Time
 import io.grpc.StatusRuntimeException
 import io.scalaland.chimney.dsl.*
@@ -110,13 +107,18 @@ class SubmitRequestValidator(
               .Reject(s"Invalid signature argument: $err")
               .asGrpcError
           )
+      preparedTransaction <- req.preparedTransaction.toRight(
+        RequestValidationErrors.MissingField
+          .Reject("prepared_transaction")
+          .asGrpcError
+      )
     } yield {
       ExecuteRequest(
         submissionId,
         workflowId,
         deduplicationPeriod,
         partySignatures,
-        req.preparedTransaction,
+        preparedTransaction,
       )
     }
 
@@ -150,8 +152,8 @@ class SubmitRequestValidator(
               .map(_ => ValidationErrors.invalidField("unassign_id", "Invalid unassign ID"))
           } yield Left(
             submission.AssignCommand(
-              sourceDomainId = SourceDomainId(sourceDomainId),
-              targetDomainId = TargetDomainId(targetDomainId),
+              sourceDomainId = Source(sourceDomainId),
+              targetDomainId = Target(targetDomainId),
               unassignId = timestampUnassignId,
             )
           )
@@ -162,8 +164,8 @@ class SubmitRequestValidator(
             cid <- requireContractId(unassignCommand.value.contractId, "contract_id")
           } yield Right(
             submission.UnassignCommand(
-              sourceDomainId = SourceDomainId(sourceDomainId),
-              targetDomainId = TargetDomainId(targetDomainId),
+              sourceDomainId = Source(sourceDomainId),
+              targetDomainId = Target(targetDomainId),
               contractId = cid,
             )
           )

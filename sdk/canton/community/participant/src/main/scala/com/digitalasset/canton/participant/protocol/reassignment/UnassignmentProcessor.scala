@@ -18,18 +18,19 @@ import com.digitalasset.canton.participant.protocol.submission.{
 }
 import com.digitalasset.canton.participant.store.SyncDomainEphemeralState
 import com.digitalasset.canton.participant.util.DAMLe
-import com.digitalasset.canton.protocol.{SourceDomainId, StaticDomainParameters}
+import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.sequencing.client.SequencerClient
-import com.digitalasset.canton.topology.ParticipantId
+import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.util.ReassignmentTag.Source
 import com.digitalasset.canton.version.Reassignment.SourceProtocolVersion
 
 import scala.concurrent.ExecutionContext
 
 class UnassignmentProcessor(
-    domainId: SourceDomainId,
+    domainId: Source[DomainId],
     override val participantId: ParticipantId,
     damle: DAMLe,
-    staticDomainParameters: StaticDomainParameters,
+    staticDomainParameters: Source[StaticDomainParameters],
     reassignmentCoordination: ReassignmentCoordination,
     inFlightSubmissionTracker: InFlightSubmissionTracker,
     ephemeral: SyncDomainEphemeralState,
@@ -64,7 +65,7 @@ class UnassignmentProcessor(
       domainCrypto,
       sequencerClient,
       domainId.unwrap,
-      staticDomainParameters,
+      staticDomainParameters.value,
       sourceProtocolVersion.v,
       loggerFactory,
       futureSupervisor,

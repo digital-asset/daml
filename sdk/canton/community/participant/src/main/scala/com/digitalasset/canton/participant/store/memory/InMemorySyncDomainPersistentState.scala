@@ -15,7 +15,7 @@ import com.digitalasset.canton.participant.admin.PackageDependencyResolver
 import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
 import com.digitalasset.canton.participant.store.{AcsInspection, SyncDomainPersistentState}
 import com.digitalasset.canton.participant.topology.ParticipantTopologyValidation
-import com.digitalasset.canton.protocol.{StaticDomainParameters, TargetDomainId}
+import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.store.memory.{InMemorySendTrackerStore, InMemorySequencedEventStore}
 import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore}
 import com.digitalasset.canton.time.Clock
@@ -30,6 +30,7 @@ import com.digitalasset.canton.topology.{
   TopologyManagerError,
 }
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ReassignmentTag.Target
 
 import scala.concurrent.ExecutionContext
 
@@ -59,7 +60,7 @@ class InMemorySyncDomainPersistentState(
       loggerFactory,
     )
   val reassignmentStore =
-    new InMemoryReassignmentStore(TargetDomainId(indexedDomain.domainId), loggerFactory)
+    new InMemoryReassignmentStore(Target(indexedDomain.item), loggerFactory)
   val sequencedEventStore = new InMemorySequencedEventStore(loggerFactory)
   val requestJournalStore = new InMemoryRequestJournalStore(loggerFactory)
   val acsCommitmentStore =

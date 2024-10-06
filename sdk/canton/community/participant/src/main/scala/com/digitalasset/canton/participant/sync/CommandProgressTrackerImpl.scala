@@ -248,6 +248,7 @@ class CommandProgressTrackerImpl(
       started = clock.now,
       completed = None,
       completion = CompletionFromTransaction.toApiCompletion(
+        submitters = Set.empty,
         commandId = commandId,
         transactionId = "",
         applicationId = applicationId,

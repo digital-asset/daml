@@ -47,7 +47,6 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission.Submis
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.version.ProtocolVersion
-import com.google.protobuf.ByteString
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -182,18 +181,10 @@ class TransactionConfirmationRequestFactory(
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ParticipantAuthorizationError, Set[LfPartyId]] =
-    submitterInfo.partySignatures match {
+    submitterInfo.externallySignedTransaction match {
       case None => EitherT.rightT[FutureUnlessShutdown, ParticipantAuthorizationError](Set.empty)
-      case Some(partySignatures) =>
+      case Some(ExternallySignedTransaction(hash, partySignatures)) =>
         for {
-          hash <- EitherT.pure[FutureUnlessShutdown, ParticipantAuthorizationError](
-            Hash
-              .digest(
-                HashPurpose.PreparedSubmission,
-                ByteString.copyFromUtf8(submitterInfo.commandId),
-                HashAlgorithm.Sha256,
-              )
-          )
           parties <- partySignatures
             .verifySignatures(hash, cryptoSnapshot)
             .leftMap(ParticipantAuthorizationError)

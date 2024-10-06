@@ -980,7 +980,7 @@ private[backend] trait StorageBackendTestsPruning
     val someParty = Ref.Party.assertFromString("party")
     val completion = dtoCompletion(
       offset = offset(1),
-      submitter = someParty,
+      submitters = Set(someParty),
     )
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     // Ingest a completion

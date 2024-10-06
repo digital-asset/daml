@@ -25,6 +25,7 @@ import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.PekkoUtil.FutureQueue
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.*
 import com.digitalasset.daml.lf.data.Bytes
@@ -41,8 +42,8 @@ private final class ChangeAssignation(
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging {
 
-  private val sourceDomainId = SourceDomainId(repairSource.domain.id)
-  private val targetDomainId = TargetDomainId(repairTarget.domain.id)
+  private val sourceDomainId = Source(repairSource.domain.id)
+  private val targetDomainId = Target(repairTarget.domain.id)
   private val reassignmentId = ReassignmentId(sourceDomainId, repairSource.timestamp)
 
   /** Completes the processing of unassigned contract. Insert the contract in the target domain

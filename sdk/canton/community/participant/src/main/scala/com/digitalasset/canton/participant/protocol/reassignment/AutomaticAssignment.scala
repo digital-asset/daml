@@ -19,6 +19,7 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.util.{EitherTUtil, MonadUtil}
 import org.slf4j.event.Level
 
@@ -27,8 +28,8 @@ import scala.concurrent.{ExecutionContext, Future}
 private[participant] object AutomaticAssignment {
   def perform(
       id: ReassignmentId,
-      targetDomain: TargetDomainId,
-      staticDomainParameters: StaticDomainParameters,
+      targetDomain: Target[DomainId],
+      targetStaticDomainParameters: Target[StaticDomainParameters],
       reassignmentCoordination: ReassignmentCoordination,
       stakeholders: Set[LfPartyId],
       unassignmentSubmitterMetadata: ReassignmentSubmitterMetadata,
@@ -56,7 +57,7 @@ private[participant] object AutomaticAssignment {
         : EitherT[Future, ReassignmentProcessorError, com.google.rpc.status.Status] =
       for {
         targetIps <- reassignmentCoordination
-          .getTimeProofAndSnapshot(targetDomain, staticDomainParameters)
+          .getTimeProofAndSnapshot(targetDomain, targetStaticDomainParameters)
           .map(_._2)
           .onShutdown(Left(DomainNotReady(targetDomain.unwrap, "Shutdown of time tracker")))
         possibleSubmittingParties <- EitherT.right(hostedStakeholders(targetIps.ipsSnapshot))
@@ -124,10 +125,10 @@ private[participant] object AutomaticAssignment {
               s"Registering automatic submission of assignment with ID $id at time $exclusivityLimit, where base timestamp is $t0"
             )
             for {
-              _ <- reassignmentCoordination.awaitDomainTime(targetDomain.unwrap, exclusivityLimit)
+              _ <- reassignmentCoordination.awaitDomainTime(targetDomain, exclusivityLimit)
               _ <- reassignmentCoordination.awaitTimestamp(
-                targetDomain.unwrap,
-                staticDomainParameters,
+                targetDomain,
+                targetStaticDomainParameters,
                 exclusivityLimit,
                 Future.successful(logger.debug(s"Automatic assignment triggered immediately")),
               )
@@ -153,8 +154,8 @@ private[participant] object AutomaticAssignment {
 
     for {
       targetIps <- reassignmentCoordination.cryptoSnapshot(
-        targetDomain.unwrap,
-        staticDomainParameters,
+        targetDomain,
+        targetStaticDomainParameters,
         t0,
       )
       targetSnapshot = targetIps.ipsSnapshot

@@ -32,11 +32,11 @@ import com.digitalasset.canton.platform.apiserver.execution.*
 import com.digitalasset.canton.platform.apiserver.meteringreport.MeteringReportKey
 import com.digitalasset.canton.platform.apiserver.services.*
 import com.digitalasset.canton.platform.apiserver.services.admin.*
+import com.digitalasset.canton.platform.apiserver.services.command.interactive.InteractiveSubmissionServiceImpl
 import com.digitalasset.canton.platform.apiserver.services.command.{
   CommandInspectionServiceImpl,
   CommandServiceImpl,
   CommandSubmissionServiceImpl,
-  InteractiveSubmissionServiceImpl,
 }
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
 import com.digitalasset.canton.platform.config.{
@@ -45,6 +45,7 @@ import com.digitalasset.canton.platform.config.{
   PartyManagementServiceConfig,
   UserManagementServiceConfig,
 }
+import com.digitalasset.canton.platform.store.dao.events.LfValueTranslation
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.*
@@ -107,6 +108,7 @@ object ApiServices {
       val loggerFactory: NamedLoggerFactory,
       dynParamGetter: DynamicDomainParameterGetter,
       interactiveSubmissionServiceConfig: InteractiveSubmissionServiceConfig,
+      lfValueTranslation: LfValueTranslation,
   )(implicit
       materializer: Materializer,
       esf: ExecutionSequencerFactory,
@@ -417,6 +419,7 @@ object ApiServices {
                 metrics,
                 checkOverloaded,
                 interactiveSubmissionServiceConfig,
+                lfValueTranslation,
                 loggerFactory,
               )
 

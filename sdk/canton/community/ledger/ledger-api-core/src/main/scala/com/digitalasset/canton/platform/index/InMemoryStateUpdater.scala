@@ -142,9 +142,9 @@ private[platform] object InMemoryStateUpdaterFlow {
                   case reassignment: Update.ReassignmentAccepted =>
                     reassignment.reassignment match {
                       case _: Reassignment.Unassign =>
-                        Some((reassignment.reassignmentInfo.sourceDomain.id, update.recordTime))
+                        Some((reassignment.reassignmentInfo.sourceDomain.unwrap, update.recordTime))
                       case _: Reassignment.Assign =>
-                        Some((reassignment.reassignmentInfo.targetDomain.id, update.recordTime))
+                        Some((reassignment.reassignmentInfo.targetDomain.unwrap, update.recordTime))
                     }
                   case Update.CommandRejected(recordTime, _, _, domainId, _, _) =>
                     Some((domainId, recordTime))
@@ -471,6 +471,7 @@ private[platform] object InMemoryStateUpdater {
 
         CompletionDetails(
           CompletionFromTransaction.acceptedCompletion(
+            submitters = completionInfo.actAs.map(_.toString).toSet,
             recordTime = txAccepted.recordTime,
             offset = offset,
             commandId = completionInfo.commandId,
@@ -512,6 +513,7 @@ private[platform] object InMemoryStateUpdater {
       offset = offset,
       completionDetails = CompletionDetails(
         CompletionFromTransaction.rejectedCompletion(
+          submitters = u.completionInfo.actAs.map(_.toString).toSet,
           recordTime = u.recordTime,
           offset = offset,
           commandId = u.completionInfo.commandId,
@@ -541,6 +543,7 @@ private[platform] object InMemoryStateUpdater {
 
         CompletionDetails(
           CompletionFromTransaction.acceptedCompletion(
+            submitters = completionInfo.actAs.map(_.toString).toSet,
             recordTime = u.recordTime,
             offset = offset,
             commandId = completionInfo.commandId,

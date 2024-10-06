@@ -14,8 +14,9 @@ import com.digitalasset.canton.protocol.{
   ReassignmentId,
   RequestId,
   SerializableContract,
-  TargetDomainId,
 }
+import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.util.SetsUtil.requireDisjoint
 import com.digitalasset.canton.{LfPartyId, ReassignmentCounter}
 
@@ -65,7 +66,7 @@ object CommitSet {
     )
   }
   final case class UnassignmentCommit(
-      targetDomainId: TargetDomainId,
+      targetDomainId: Target[DomainId],
       stakeholders: Set[LfPartyId],
       reassignmentCounter: ReassignmentCounter,
   ) extends PrettyPrinting {

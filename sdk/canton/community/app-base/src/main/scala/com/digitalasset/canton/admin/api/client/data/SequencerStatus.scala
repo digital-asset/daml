@@ -11,7 +11,7 @@ import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyInstances, PrettyPrinting, PrettyUtil}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
+import com.digitalasset.canton.topology.{DomainId, MediatorId, ParticipantId, UniqueIdentifier}
 import com.digitalasset.canton.util.ShowUtil
 import com.digitalasset.canton.version.{ProtocolVersion, ReleaseVersion}
 
@@ -23,6 +23,7 @@ final case class SequencerStatus(
     uptime: Duration,
     ports: Map[String, Port],
     connectedParticipants: Seq[ParticipantId],
+    connectedMediators: Seq[MediatorId],
     sequencer: SequencerHealthStatus,
     topologyQueue: TopologyQueueStatus,
     admin: SequencerAdminStatus,
@@ -40,7 +41,8 @@ final case class SequencerStatus(
         s"Domain id: ${domainId.toProtoPrimitive}",
         show"Uptime: $uptime",
         s"Ports: ${portsString(ports)}",
-        s"Connected Participants: ${multiline(connectedParticipants.map(_.toString))}",
+        s"Connected participants: ${multiline(connectedParticipants.map(_.toString))}",
+        s"Connected mediators: ${multiline(connectedMediators.map(_.toString))}",
         show"Sequencer: $sequencer",
         s"details-extra: ${sequencer.details}",
         s"Components: ${multiline(components.map(_.toString))}",
@@ -52,6 +54,13 @@ final case class SequencerStatus(
 }
 
 object SequencerStatus {
+  private def fromProtoV30(
+      proto: domainV30.SequencerStatusResponse.ConnectedMediator
+  ): ParsingResult[MediatorId] =
+    UniqueIdentifier
+      .fromProtoPrimitive(proto.uid, "uid")
+      .map(MediatorId(_))
+
   private def fromProtoV30(
       proto: domainV30.SequencerStatusResponse.ConnectedParticipant
   ): ParsingResult[ParticipantId] =
@@ -74,6 +83,8 @@ object SequencerStatus {
           status <- SimpleStatus.fromProtoV30(statusP)
 
           participants <- sequencerStatusP.connectedParticipants.traverse(fromProtoV30)
+          mediators <- sequencerStatusP.connectedMediators.traverse(fromProtoV30)
+
           sequencer <- ProtoConverter.parseRequired(
             SequencerHealthStatus.fromProtoV30,
             "SequencerStatusResponse.SequencerHealthStatus.sequencer",
@@ -95,6 +106,7 @@ object SequencerStatus {
             uptime = status.uptime,
             ports = status.ports,
             connectedParticipants = participants,
+            connectedMediators = mediators,
             topologyQueue = status.topologyQueue,
             components = status.components,
             version = status.version,

@@ -5,7 +5,10 @@ package com.digitalasset.canton.ledger.participant.state
 
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 import com.digitalasset.canton.data.DeduplicationPeriod
-import com.digitalasset.canton.protocol.TransactionAuthorizationPartySignatures
+import com.digitalasset.canton.protocol.{
+  ExternallySignedTransaction,
+  TransactionAuthorizationPartySignatures,
+}
 import com.digitalasset.daml.lf.data.Ref
 
 /** Collects context information for a submission.
@@ -34,7 +37,7 @@ final case class SubmitterInfo(
     commandId: Ref.CommandId,
     deduplicationPeriod: DeduplicationPeriod,
     submissionId: Option[Ref.SubmissionId],
-    partySignatures: Option[TransactionAuthorizationPartySignatures],
+    externallySignedTransaction: Option[ExternallySignedTransaction],
 ) {
 
   /** The ID for the ledger change */
@@ -67,7 +70,7 @@ object SubmitterInfo {
           commandId,
           deduplicationPeriod,
           submissionId,
-          partySignatures,
+          externallySignedTransaction,
         ) =>
       LoggingValue.Nested.fromEntries(
         "actAs " -> actAs,
@@ -76,7 +79,7 @@ object SubmitterInfo {
         "commandId " -> commandId,
         "deduplicationPeriod " -> deduplicationPeriod,
         "submissionId" -> submissionId,
-        "partySignatures" -> partySignatures,
+        "partySignatures" -> externallySignedTransaction.map(_.signatures),
       )
   }
 }

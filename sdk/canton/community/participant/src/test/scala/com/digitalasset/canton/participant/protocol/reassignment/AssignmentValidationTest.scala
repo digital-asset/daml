@@ -25,6 +25,7 @@ import com.digitalasset.canton.time.TimeProofTestUtil
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
 import org.scalatest.wordspec.AsyncWordSpec
@@ -38,11 +39,11 @@ class AssignmentValidationTest
     with ProtocolVersionChecksAsyncWordSpec
     with HasActorSystem
     with HasExecutionContext {
-  private val sourceDomain = SourceDomainId(
+  private val sourceDomain = Source(
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::source"))
   )
   private val sourceMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(100))
-  private val targetDomain = TargetDomainId(
+  private val targetDomain = Target(
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::target"))
   )
   private val targetMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(200))
@@ -330,7 +331,7 @@ class AssignmentValidationTest
   }
 
   private def testInstance(
-      domainId: TargetDomainId,
+      domainId: Target[DomainId],
       signatories: Set[LfPartyId],
       stakeholders: Set[LfPartyId],
       snapshotOverride: DomainSnapshotSyncCryptoApi,
@@ -340,7 +341,7 @@ class AssignmentValidationTest
 
     new AssignmentValidation(
       domainId,
-      defaultStaticDomainParameters,
+      Target(defaultStaticDomainParameters),
       submittingParticipant,
       damle,
       TestReassignmentCoordination.apply(
@@ -361,7 +362,7 @@ class AssignmentValidationTest
       stakeholders: Set[LfPartyId] = Set(party1),
       creatingTransactionId: TransactionId = transactionId1,
       uuid: UUID = new UUID(4L, 5L),
-      targetDomain: TargetDomainId = targetDomain,
+      targetDomain: Target[DomainId] = targetDomain,
       targetMediator: MediatorGroupRecipient = targetMediator,
       reassignmentCounter: ReassignmentCounter = initialReassignmentCounter,
       reassigningParticipants: Set[ParticipantId] = Set(submittingParticipant),

@@ -6,12 +6,12 @@ package com.digitalasset.canton.time
 import cats.syntax.option.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.protocol.TargetDomainId
 import com.digitalasset.canton.sequencing.protocol.{Batch, Deliver, SignedContent, TimeProof}
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
-import com.digitalasset.canton.topology.DefaultTestIdentities
+import com.digitalasset.canton.topology.{DefaultTestIdentities, DomainId}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, SequencerCounter}
 
@@ -19,7 +19,7 @@ object TimeProofTestUtil {
   def mkTimeProof(
       timestamp: CantonTimestamp,
       counter: Long = 0L,
-      targetDomain: TargetDomainId = TargetDomainId(DefaultTestIdentities.domainId),
+      targetDomain: Target[DomainId] = Target(DefaultTestIdentities.domainId),
       protocolVersion: ProtocolVersion = BaseTest.testedProtocolVersion,
   ): TimeProof = {
     val deliver = Deliver.create(

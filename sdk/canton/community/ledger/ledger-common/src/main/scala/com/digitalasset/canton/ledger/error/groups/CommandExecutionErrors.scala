@@ -51,6 +51,24 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
     )
 
   @Explanation(
+    """This error occurs if the participant fails to serialize a prepared a transaction via the interactive submission service.
+      |"""
+  )
+  @Resolution("Inspect error details and report the error.")
+  object SubmissionPreparationSerializationError
+      extends ErrorCode(
+        id = "FAILED_TO_SERIALIZE_PREPARED_TRANSACTION",
+        ErrorCategory.InvalidIndependentOfSystemState,
+      ) {
+
+    final case class Reject(reason: String)(implicit
+        loggingContext: ContextualizedErrorLogger
+    ) extends DamlErrorWithDefiniteAnswer(
+          cause = s"The participant failed to serialize the prepared transaction: $reason"
+        )
+  }
+
+  @Explanation(
     """This error occurs if the participant fails to determine the max ledger time of the used
       |contracts. Most likely, this means that one of the contracts is not active anymore which can
       |happen under contention. It can also happen with contract keys.
