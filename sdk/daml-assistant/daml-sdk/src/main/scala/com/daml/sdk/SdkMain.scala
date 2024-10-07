@@ -5,6 +5,7 @@ package com.daml.sdk
 
 import com.daml.codegen.{CodegenMain => Codegen}
 import com.digitalasset.daml.lf.engine.script.{ScriptMain => Script}
+import com.digitalasset.daml.lf.validation.{UpgradeCheckMain => UpgradeCheck}
 
 object SdkMain {
   def main(args: Array[String]): Unit = {
@@ -13,6 +14,7 @@ object SdkMain {
     command match {
       case "script" => Script.main(rest)
       case "codegen" => Codegen.main(rest)
+      case "upgrade-check" => UpgradeCheck.main(rest)
       case _ => sys.exit(1)
     }
   }
