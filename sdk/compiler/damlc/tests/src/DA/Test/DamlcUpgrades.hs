@@ -107,7 +107,7 @@ tests damlc =
                       setUpgradeField
                 , test
                       "FailsWhenNewFieldIsAddedToTemplateWithoutOptionalType"
-                      (FailWithError "\ESC\\[0;91merror type checking template Main.A :\n  The upgraded template A has added new fields, but those fields are not Optional.")
+                      (FailWithError "\ESC\\[0;91merror type checking template Main.A :\n  The upgraded template A has added new fields, but the following new fields are not Optional:\n    Field 'new' with type Int64")
                       versionDefault
                       NoDependencies
                       False
@@ -135,7 +135,7 @@ tests damlc =
                       setUpgradeField
                 , test
                       "FailsWhenNewFieldIsAddedToTemplateChoiceWithoutOptionalType"
-                      (FailWithError "\ESC\\[0;91merror type checking template Main.A choice C:\n  The upgraded input type of choice C on template A has added new fields, but those fields are not Optional.")
+                      (FailWithError "\ESC\\[0;91merror type checking template Main.A choice C:\n  The upgraded input type of choice C on template A has added new fields, but the following new fields are not Optional:\n    Field 'new' with type Int64")
                       versionDefault
                       NoDependencies
                       False
@@ -198,7 +198,7 @@ tests damlc =
                       setUpgradeField
                 , test
                       "FailsWhenATopLevelRecordAddsANonOptionalField"
-                      (FailWithError "\ESC\\[0;91merror type checking data type Main.A:\n  The upgraded data type A has added new fields, but those fields are not Optional.")
+                      (FailWithError "\ESC\\[0;91merror type checking data type Main.A:\n  The upgraded data type A has added new fields, but the following new fields are not Optional:\n    Field 'y' with type Text")
                       versionDefault
                       NoDependencies
                       False
@@ -212,7 +212,7 @@ tests damlc =
                       setUpgradeField
                 , test
                       "FailsWhenATopLevelRecordAddsAnOptionalFieldBeforeTheEnd"
-                      (FailWithError "\ESC\\[0;91merror type checking data type Main.A:\n  The upgraded data type A has changed the order of its fields - any new fields must be added at the end of the record.")
+                      (FailWithError "\ESC\\[0;91merror type checking data type Main.A:\n  The upgraded data type A has added new fields, but the following fields need to be moved to the end: 'y'. All new fields in upgrades must be added to the end of the definition.")
                       versionDefault
                       NoDependencies
                       False
@@ -240,7 +240,7 @@ tests damlc =
                       setUpgradeField
                 , test
                       "FailsWhenATopLevelVariantAddsAFieldToAVariantsType"
-                      (FailWithError "\ESC\\[0;91merror type checking data type Main.A:\n  The upgraded variant constructor Y from variant A has added a field.")
+                      (FailWithError "\ESC\\[0;91merror type checking data type Main.A:\n  The upgraded variant constructor Y from variant A has added new fields, but the following new fields are not Optional:\n    Field 'y2' with type Int64")
                       versionDefault
                       NoDependencies
                       False
@@ -317,7 +317,7 @@ tests damlc =
                       setUpgradeField
                 , test
                       "RecordFieldsNewNonOptional"
-                      (FailWithError "\ESC\\[0;91merror type checking data type Main.Struct:\n  The upgraded data type Struct has added new fields, but those fields are not Optional.")
+                      (FailWithError "\ESC\\[0;91merror type checking data type Main.Struct:\n  The upgraded data type Struct has added new fields, but the following new fields are not Optional:\n    Field 'field2' with type Text")
                       versionDefault
                       NoDependencies
                       False
@@ -345,7 +345,7 @@ tests damlc =
                       setUpgradeField
                 , test
                       "FailsOnlyInModuleNotInReexports"
-                      (FailWithError "\ESC\\[0;91merror type checking data type Other.A:\n  The upgraded data type A has added new fields, but those fields are not Optional.")
+                      (FailWithError "\ESC\\[0;91merror type checking data type Other.A:\n  The upgraded data type A has added new fields, but the following new fields are not Optional:\n    Field 'field2' with type Text")
                       versionDefault
                       NoDependencies
                       False
@@ -422,7 +422,7 @@ tests damlc =
                   True
             , test
                   "FailsWhenAnInterfaceIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage"
-                  (FailWithError "\ESC\\[0;91merror type checking interface Main.I :\n  Tried to upgrade interface I, but interfaces cannot be upgraded. They should be removed in any upgrading package.")
+                  (FailWithError "\ESC\\[0;91merror type checking interface Main.I :\n  Tried to upgrade interface I, but interfaces cannot be upgraded. They should be removed whenever a package is being upgraded.")
                   versionDefault
                   NoDependencies
                   False
@@ -478,7 +478,7 @@ tests damlc =
                   True
             , test
                   "FailsWhenDependencyIsNotAValidUpgrade"
-                  (FailWithError "\ESC\\[0;91merror while validating that dependency upgrades-example-FailsWhenDependencyIsNotAValidUpgrade-dep version 0.0.2 is a valid upgrade of version 0.0.1\n  error type checking data type Dep.Dep:\n    The upgraded data type Dep has added new fields, but those fields are not Optional.")
+                  (FailWithError "\ESC\\[0;91merror while validating that dependency upgrades-example-FailsWhenDependencyIsNotAValidUpgrade-dep version 0.0.2 is a valid upgrade of version 0.0.1\n  error type checking data type Dep.Dep:\n    The upgraded data type Dep has added new fields, but the following new fields are not Optional:\n      Field 'nonOptionalField' with type Text")
                   versionDefault
                   (SeparateDeps False)
                   False
