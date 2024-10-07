@@ -710,21 +710,20 @@ proto_gen(
     ],
 )
 
-
 # In order to build "community_ledger_ledger-api-core", "@maven//:io_scalaland_chimney_macro_commons_2_13"
 # requires scala.collection.compat, however the rule unused dependency checker improperly infers it is unused.
 # So we create a fake dependency.
 genrule(
     name = "community_ledger_ledger_api_core_dummy_dep",
-    outs = ["__community_ledger_ledger_api_core_dummy_dep.scala"],
     srcs = [],
+    outs = ["__community_ledger_ledger_api_core_dummy_dep.scala"],
     cmd = """
 cat << EOF > $@
 object __community_ledger_ledger_api_core_dummy_dep {
     private val notUsed = scala.collection.compat.immutable.ArraySeq
 }
 EOF
-    """
+    """,
 )
 
 scala_library(
@@ -732,9 +731,10 @@ scala_library(
     srcs = glob([
         "community/ledger/ledger-api-core/src/main/scala/**/*.scala",
         "community/ledger/ledger-api-core/src/main/scala/**/*.java",
-    ]) + [":community_ledger_ledger-api-core_proto_scala",
-          ":community_ledger_ledger_api_core_dummy_dep"
-          ],
+    ]) + [
+        ":community_ledger_ledger-api-core_proto_scala",
+        ":community_ledger_ledger_api_core_dummy_dep",
+    ],
     resource_strip_prefix = "canton/community/ledger/ledger-api-core/src/main/resources",
     resources = glob(["community/ledger/ledger-api-core/src/main/resources/**"]),
     scalacopts = [
