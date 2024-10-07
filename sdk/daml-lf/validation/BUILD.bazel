@@ -35,6 +35,22 @@ da_scala_library(
 )
 
 da_scala_library(
+    name = "upgrade-check-main",
+    srcs = glob(["src/main/**/upgrade/UpgradeCheckMain.scala"]),
+    scala_deps = [
+        "@maven//:org_scalaz_scalaz_core",
+    ],
+    scalacopts = lf_scalacopts_stricter,
+    visibility = ["//visibility:public"],
+    deps = [
+        "//daml-lf/data",
+        "//daml-lf/language",
+        "//libs-scala/scala-utils",
+        ":validation",
+    ],
+)
+
+da_scala_library(
     name = "validation-test-lib",
     srcs = glob(["src/test/**/SpecUtil.scala"]),
     scala_deps = [
