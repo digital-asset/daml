@@ -662,7 +662,7 @@ instance Pretty UnwarnableError where
         printCons DataVariant {} = "variant"
         printCons DataEnum {} = "enum"
         printCons DataInterface {} = "interface"
-    EUpgradeRecordFieldsMissing origin fields -> "The upgraded " <> pPrint origin <> " is missing some of its original fields: " <> fcommasep (map pPrint fields)
+    EUpgradeRecordFieldsMissing origin fields -> "The upgraded " <> pPrint origin <> " is missing some of its original fields: " <> fcommasep (map pPrintWithQuotes fields)
     EUpgradeRecordFieldsExistingChanged origin fields ->
       vcat
         [ "The upgraded " <> pPrint origin <> " has changed the types of some of its original fields:"
@@ -670,22 +670,22 @@ instance Pretty UnwarnableError where
         ]
       where
         pPrintChangedType (fieldName, Upgrading { _past = pastType, _present = presentType }) =
-          "Field '" <> pPrint fieldName <> "' changed type from " <> pPrint pastType <> " to " <> pPrint presentType
-    EUpgradeRecordNewFieldsNotAtEnd origin fields -> "The upgraded " <> pPrint origin <> " has added new fields, but the following fields need to be moved to the end: " <> fcommasep (map pPrint fields) <> ". All new fields in upgrades must be added to the end of the definition."
+          "Field " <> pPrintWithQuotes fieldName <> " changed type from " <> pPrint pastType <> " to " <> pPrint presentType
+    EUpgradeRecordNewFieldsNotAtEnd origin fields -> "The upgraded " <> pPrint origin <> " has added new fields, but the following fields need to be moved to the end: " <> fcommasep (map pPrintWithQuotes fields) <> ". All new fields in upgrades must be added to the end of the definition."
     EUpgradeRecordFieldsNewNonOptional origin fields ->
       vcat
         [ "The upgraded " <> pPrint origin <> " has added new fields, but the following new fields are not Optional:"
         , nest 2 $ vcat (map pPrintFieldType fields)
         ]
       where
-        pPrintFieldType (fieldName, type_) = "Field '" <> pPrint fieldName <> "' with type " <> pPrint type_
+        pPrintFieldType (fieldName, type_) = "Field " <> pPrintWithQuotes fieldName <> " with type " <> pPrint type_
     EUpgradeRecordFieldsOrderChanged origin -> "The upgraded " <> pPrint origin <> " has changed the order of its fields - any new fields must be added at the end of the record."
     EUpgradeVariantRemovedVariant origin variants -> "The upgraded " <> pPrint origin <> " is missing some of its original variants: " <> fcommasep (map pPrint variants)
     EUpgradeVariantChangedVariantType origin variants -> "The upgraded " <> pPrint origin <> " has changed the type of some of its original variants: " <> fcommasep (map pPrint variants)
-    EUpgradeVariantNewVariantsNotAtEnd origin fields -> "The upgraded " <> pPrint origin <> " has added new variants, but the following variants need to be moved to the end: " <> fcommasep (map pPrint fields) <> ". All new variants in upgrades must be added to the end of the definition."
+    EUpgradeVariantNewVariantsNotAtEnd origin fields -> "The upgraded " <> pPrint origin <> " has added new variants, but the following variants need to be moved to the end: " <> fcommasep (map pPrintWithQuotes fields) <> ". All new variants in upgrades must be added to the end of the definition."
     EUpgradeVariantVariantsOrderChanged origin -> "The upgraded " <> pPrint origin <> " has changed the order of its variants - any new variant must be added at the end of the variant."
     EUpgradeEnumRemovedVariant origin variants -> "The upgraded " <> pPrint origin <> " is missing some of its original variants: " <> fcommasep (map pPrint variants)
-    EUpgradeEnumNewVariantsNotAtEnd origin fields -> "The upgraded " <> pPrint origin <> " has added new variants, but the following variants need to be moved to the end: " <> fcommasep (map pPrint fields) <> ". All new variants in upgrades must be added to the end of the definition."
+    EUpgradeEnumNewVariantsNotAtEnd origin fields -> "The upgraded " <> pPrint origin <> " has added new variants, but the following variants need to be moved to the end: " <> fcommasep (map pPrintWithQuotes fields) <> ". All new variants in upgrades must be added to the end of the definition."
     EUpgradeEnumVariantsOrderChanged origin -> "The upgraded " <> pPrint origin <> " has changed the order of its variants - any new variant must be added at the end of the enum."
     EUpgradeRecordChangedOrigin dataConName past present -> "The record " <> pPrint dataConName <> " has changed origin from " <> pPrint past <> " to " <> pPrint present
     EUpgradeChoiceChangedReturnType choice -> "The upgraded choice " <> pPrint choice <> " cannot change its return type."
@@ -706,6 +706,9 @@ instance Pretty UnwarnableError where
     EUpgradeDifferentParamsCount origin -> "The upgraded " <> pPrint origin <> " has changed the number of type variables it has."
     EUpgradeDifferentParamsKinds origin -> "The upgraded " <> pPrint origin <> " has changed the kind of one of its type variables."
     EUpgradeDatatypeBecameUnserializable origin -> "The upgraded " <> pPrint origin <> " was serializable and is now unserializable. Datatypes cannot change their serializability via upgrades."
+
+pPrintWithQuotes :: Pretty a => a -> Doc ann
+pPrintWithQuotes a = "'" <> pPrint a <> "'"
 
 instance Pretty UpgradedRecordOrigin where
   pPrint = \case
