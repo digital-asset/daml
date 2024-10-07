@@ -672,9 +672,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
               filterNamespace = None,
             )
         )
-        .mapK(
-          FutureUnlessShutdown.outcomeK
-        )
+        .mapK(FutureUnlessShutdown.outcomeK)
         .map {
           _.collectOfMapping[VettedPackages].collectLatestByUniqueKey.toTopologyState
             .collectFirst { case VettedPackages(_, existingPackageIds) =>

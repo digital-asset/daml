@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.store.memory
 
 import cats.data.EitherT
 import cats.implicits.catsSyntaxPartialOrder
+import cats.instances.order.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
@@ -21,9 +22,11 @@ import com.digitalasset.canton.participant.protocol.reassignment.{
 }
 import com.digitalasset.canton.participant.store.ReassignmentStore
 import com.digitalasset.canton.participant.util.TimeOfChange
+import com.digitalasset.canton.protocol.ReassignmentId
 import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
-import com.digitalasset.canton.protocol.{ReassignmentId, SourceDomainId, TargetDomainId}
+import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{Checked, CheckedT, ErrorUtil, MapsUtil}
 import com.digitalasset.canton.{LfPartyId, RequestCounter}
 
@@ -33,7 +36,7 @@ import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
 
 class InMemoryReassignmentStore(
-    domain: TargetDomainId,
+    domain: Target[DomainId],
     override protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends ReassignmentStore
@@ -51,7 +54,7 @@ class InMemoryReassignmentStore(
   ): EitherT[FutureUnlessShutdown, ReassignmentStoreError, Unit] = {
     ErrorUtil.requireArgument(
       reassignmentData.targetDomain == domain,
-      s"Domain ${domain.unwrap.unwrap}: Reassignment store cannot store reassignment for domain ${reassignmentData.targetDomain.unwrap.unwrap}",
+      s"Domain $domain: Reassignment store cannot store reassignment for domain ${reassignmentData.targetDomain}",
     )
 
     val reassignmentId = reassignmentData.reassignmentId
@@ -179,7 +182,7 @@ class InMemoryReassignmentStore(
     })
 
   override def find(
-      filterSource: Option[SourceDomainId],
+      filterSource: Option[Source[DomainId]],
       filterTimestamp: Option[CantonTimestamp],
       filterSubmitter: Option[LfPartyId],
       limit: Int,
@@ -205,7 +208,7 @@ class InMemoryReassignmentStore(
     Future.unit
   }
 
-  override def findAfter(requestAfter: Option[(CantonTimestamp, SourceDomainId)], limit: Int)(
+  override def findAfter(requestAfter: Option[(CantonTimestamp, Source[DomainId])], limit: Int)(
       implicit traceContext: TraceContext
   ): Future[Seq[ReassignmentData]] = Future.successful {
     def filter(entry: ReassignmentEntry): Boolean =
@@ -221,19 +224,19 @@ class InMemoryReassignmentStore(
       .to(LazyList)
       .filter(filter)
       .map(_.reassignmentData)
-      .sortBy(t => (t.reassignmentId.unassignmentTs, t.reassignmentId.sourceDomain))(
+      .sortBy(t => (t.reassignmentId.unassignmentTs, t.reassignmentId.sourceDomain.unwrap))(
         // Explicitly use the standard ordering on two-tuples here
         // As Scala does not seem to infer the right implicits to use here
         Ordering.Tuple2(
           CantonTimestamp.orderCantonTimestamp.toOrdering,
-          SourceDomainId.orderSourceDomainId.toOrdering,
+          DomainId.orderDomainId.toOrdering,
         )
       )
       .take(limit)
   }
 
   override def findIncomplete(
-      sourceDomain: Option[SourceDomainId],
+      sourceDomain: Option[Source[DomainId]],
       validAt: GlobalOffset,
       stakeholders: Option[NonEmpty[Set[LfPartyId]]],
       limit: NonNegativeInt,
@@ -268,7 +271,7 @@ class InMemoryReassignmentStore(
 
   override def findEarliestIncomplete()(implicit
       traceContext: TraceContext
-  ): Future[Option[(GlobalOffset, ReassignmentId, TargetDomainId)]] =
+  ): Future[Option[(GlobalOffset, ReassignmentId, Target[DomainId])]] =
     // empty table: there are no reassignments
     if (reassignmentDataMap.isEmpty) Future.successful(None)
     else {
@@ -298,7 +301,7 @@ class InMemoryReassignmentStore(
         else {
           val default = (
             GlobalOffset.MaxValue,
-            ReassignmentId(SourceDomainId(domain.unwrap), CantonTimestamp.MaxValue),
+            ReassignmentId(Source(domain.unwrap), CantonTimestamp.MaxValue),
           )
           val minIncompleteTransferOffset =
             incompleteReassignmentOffsets.minByOption(_._1).getOrElse(default)

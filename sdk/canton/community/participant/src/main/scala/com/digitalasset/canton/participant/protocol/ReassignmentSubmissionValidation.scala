@@ -19,6 +19,7 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.Submission
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
+import com.digitalasset.canton.util.ReassignmentTag.Source
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -32,7 +33,7 @@ private[protocol] object ReassignmentSubmissionValidation {
 
   def unassignment(
       contractId: LfContractId,
-      topologySnapshot: TopologySnapshot,
+      topologySnapshot: Source[TopologySnapshot],
       submitter: LfPartyId,
       participantId: ParticipantId,
       stakeholders: Set[LfPartyId],
@@ -50,7 +51,7 @@ private[protocol] object ReassignmentSubmissionValidation {
         ),
       )
 
-      _ <- check(s"Unassignment of $contractId", topologySnapshot, submitter, participantId)
+      _ <- check(s"Unassignment of $contractId", topologySnapshot.unwrap, submitter, participantId)
         .mapK(FutureUnlessShutdown.outcomeK)
     } yield ()
 

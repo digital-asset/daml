@@ -22,6 +22,7 @@ object CompletionFromTransaction {
   private val RejectionTransactionId = ""
 
   def acceptedCompletion(
+      submitters: Set[String],
       recordTime: Timestamp,
       offset: Offset,
       commandId: String,
@@ -37,6 +38,7 @@ object CompletionFromTransaction {
     CompletionStreamResponse.of(
       completionResponse = CompletionResponse.Completion(
         toApiCompletion(
+          submitters = submitters,
           commandId = commandId,
           transactionId = transactionId,
           applicationId = applicationId,
@@ -53,6 +55,7 @@ object CompletionFromTransaction {
     )
 
   def rejectedCompletion(
+      submitters: Set[String],
       recordTime: Timestamp,
       offset: Offset,
       commandId: String,
@@ -68,6 +71,7 @@ object CompletionFromTransaction {
     CompletionStreamResponse.of(
       completionResponse = CompletionResponse.Completion(
         toApiCompletion(
+          submitters = submitters,
           commandId = commandId,
           transactionId = RejectionTransactionId,
           applicationId = applicationId,
@@ -90,6 +94,7 @@ object CompletionFromTransaction {
     )
 
   def toApiCompletion(
+      submitters: Set[String],
       commandId: String,
       transactionId: String,
       applicationId: String,
@@ -103,6 +108,7 @@ object CompletionFromTransaction {
       domainTime: Option[DomainTime],
   ): Completion = {
     val completionWithMandatoryFields = Completion(
+      actAs = submitters.toSeq,
       commandId = commandId,
       status = optStatus,
       updateId = transactionId,

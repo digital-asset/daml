@@ -33,16 +33,13 @@ import com.digitalasset.canton.participant.store.{
 }
 import com.digitalasset.canton.participant.util.{StateChange, TimeOfChange}
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
-import com.digitalasset.canton.protocol.{
-  LfContractId,
-  ReassignmentDomainId,
-  SourceDomainId,
-  TargetDomainId,
-}
+import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.store.IndexedStringStore
 import com.digitalasset.canton.store.memory.InMemoryPrunableByTime
+import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.{ReassignmentCounter, RequestCounter}
 import com.digitalasset.daml.lf.data.Ref.PackageId
@@ -143,7 +140,7 @@ class InMemoryActiveContractStore(
           Future.successful(Active(assignment.reassignmentCounter))
         case unassignment: ActivenessChangeDetail.Unassignment =>
           domainIdFromIdx(unassignment.remoteDomainIdx).map(domainId =>
-            ReassignedAway(TargetDomainId(domainId), unassignment.reassignmentCounter)
+            ReassignedAway(Target(domainId), unassignment.reassignmentCounter)
           )
 
         case ActivenessChangeDetail.Purge => Future.successful(Purged)
@@ -231,7 +228,9 @@ class InMemoryActiveContractStore(
   }
 
   private def prepareReassignments(
-      reassignments: Seq[(LfContractId, ReassignmentDomainId, ReassignmentCounter, TimeOfChange)]
+      reassignments: Seq[
+        (LfContractId, ReassignmentTag[DomainId], ReassignmentCounter, TimeOfChange)
+      ]
   ): CheckedT[Future, AcsError, AcsWarning, Seq[
     (LfContractId, Int, ReassignmentCounter, TimeOfChange)
   ]] = {
@@ -262,7 +261,7 @@ class InMemoryActiveContractStore(
   }
 
   override def assignContracts(
-      assignments: Seq[(LfContractId, SourceDomainId, ReassignmentCounter, TimeOfChange)]
+      assignments: Seq[(LfContractId, Source[DomainId], ReassignmentCounter, TimeOfChange)]
   )(implicit
       traceContext: TraceContext
   ): CheckedT[Future, AcsError, AcsWarning, Unit] = {
@@ -281,7 +280,7 @@ class InMemoryActiveContractStore(
   }
 
   override def unassignContracts(
-      unassignments: Seq[(LfContractId, TargetDomainId, ReassignmentCounter, TimeOfChange)]
+      unassignments: Seq[(LfContractId, Target[DomainId], ReassignmentCounter, TimeOfChange)]
   )(implicit
       traceContext: TraceContext
   ): CheckedT[Future, AcsError, AcsWarning, Unit] = {

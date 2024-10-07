@@ -23,19 +23,24 @@ message SequencerStatusResponse {
     string uid = 1;
   }
 
+  message ConnectedMediator {
+    string uid = 1;
+  }
+
   message SequencerStatusResponseStatus {
     com.digitalasset.canton.admin.health.v30.Status common_status = 1;
 
     repeated ConnectedParticipant connected_participants = 2;
+    repeated ConnectedMediator connected_mediators = 3;
 
     // required - status of the sequencer component it is running
-    SequencerHealthStatus sequencer = 3;
+    SequencerHealthStatus sequencer = 4;
 
-    string domain_id = 4;
+    string domain_id = 5;
 
-    SequencerAdminStatus admin = 5;
+    SequencerAdminStatus admin = 6;
 
-    int32 protocol_version = 6;
+    int32 protocol_version = 7;
   }
 }
 

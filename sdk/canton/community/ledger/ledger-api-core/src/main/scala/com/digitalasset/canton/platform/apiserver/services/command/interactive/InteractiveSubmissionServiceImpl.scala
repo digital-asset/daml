@@ -1,13 +1,14 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.canton.platform.apiserver.services.command
+package com.digitalasset.canton.platform.apiserver.services.command.interactive
 
 import com.daml.error.ContextualizedErrorLogger
+import com.daml.ledger.api.v2.interactive_submission_data.PreparedTransaction
 import com.daml.ledger.api.v2.interactive_submission_service.*
 import com.daml.scalautil.future.FutureConversion.*
 import com.daml.timer.Delayed
-import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
+import com.digitalasset.canton.crypto.{Hash as CantonHash, HashAlgorithm, HashPurpose}
 import com.digitalasset.canton.ledger.api.domain.{Commands as ApiCommands, SubmissionId}
 import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService
 import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.{
@@ -16,6 +17,7 @@ import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.
 }
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.configuration.LedgerTimeModel
+import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.SubmissionResult
 import com.digitalasset.canton.logging.LoggingContextWithTrace.*
@@ -31,7 +33,7 @@ import com.digitalasset.canton.platform.apiserver.execution.{
   CommandExecutionResult,
   CommandExecutor,
 }
-import com.digitalasset.canton.platform.apiserver.services.command.InteractiveSubmissionServiceImpl.PendingRequest
+import com.digitalasset.canton.platform.apiserver.services.command.interactive.InteractiveSubmissionServiceImpl.PendingRequest
 import com.digitalasset.canton.platform.apiserver.services.{
   ErrorCause,
   RejectionGenerators,
@@ -39,6 +41,8 @@ import com.digitalasset.canton.platform.apiserver.services.{
   logging,
 }
 import com.digitalasset.canton.platform.config.InteractiveSubmissionServiceConfig
+import com.digitalasset.canton.platform.store.dao.events.LfValueTranslation
+import com.digitalasset.canton.protocol.ExternallySignedTransaction
 import com.digitalasset.canton.tracing.{Spanning, TraceContext}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.daml.lf.command.ApiCommand
@@ -47,13 +51,13 @@ import com.github.benmanes.caffeine.cache
 import com.github.benmanes.caffeine.cache.Caffeine
 import com.google.protobuf.ByteString
 import io.opentelemetry.api.trace.Tracer
+import io.scalaland.chimney.dsl.*
 import monocle.macros.syntax.lens.*
 
 import java.time.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
 private[apiserver] object InteractiveSubmissionServiceImpl {
-
   private final case class PendingRequest(
       executionResult: CommandExecutionResult,
       commands: ApiCommands,
@@ -68,6 +72,7 @@ private[apiserver] object InteractiveSubmissionServiceImpl {
       metrics: LedgerApiServerMetrics,
       checkOverloaded: TraceContext => Option[state.SubmissionResult],
       interactiveSubmissionServiceConfig: InteractiveSubmissionServiceConfig,
+      lfValueTranslation: LfValueTranslation,
       loggerFactory: NamedLoggerFactory,
   )(implicit
       executionContext: ExecutionContext,
@@ -81,6 +86,7 @@ private[apiserver] object InteractiveSubmissionServiceImpl {
     metrics,
     checkOverloaded,
     interactiveSubmissionServiceConfig,
+    lfValueTranslation,
     loggerFactory,
   )
 
@@ -95,6 +101,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
     metrics: LedgerApiServerMetrics,
     checkOverloaded: TraceContext => Option[state.SubmissionResult],
     interactiveSubmissionServiceConfig: InteractiveSubmissionServiceConfig,
+    lfValueTranslation: LfValueTranslation,
     val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext, tracer: Tracer)
     extends InteractiveSubmissionService
@@ -111,6 +118,8 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
     // Max duration to keep the prepared transaction in memory after it's been prepared
     .expireAfterWrite(Duration.ofHours(1))
     .build[ByteString, PendingRequest]()
+
+  private val transactionEncoder = new PreparedTransactionEncoder(loggerFactory, lfValueTranslation)
 
   override def prepare(
       request: PrepareRequestInternal
@@ -161,15 +170,24 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
       Future.successful,
     )
 
-  // TODO(i20660): Until serialization and hashing are figured out, use the command Id as transaction and hash
-  private def computeTransactionHash(transaction: ByteString) =
-    Hash
+  // TODO(i20660): We hash the command ID only for now while the
+  // proper hashing algorithm is being designed
+  private def computeTransactionHash(preparedTransaction: PreparedTransaction)(implicit
+      errorLoggingContext: ContextualizedErrorLogger
+  ) =
+    for {
+      metadata <- preparedTransaction.metadata.toRight(
+        RequestValidationErrors.MissingField.Reject("metadata").asGrpcError
+      )
+      submitterInfo <- metadata.submitterInfo.toRight(
+        RequestValidationErrors.MissingField.Reject("submitter_info").asGrpcError
+      )
+    } yield CantonHash
       .digest(
         HashPurpose.PreparedSubmission,
-        transaction,
+        ByteString.copyFromUtf8(submitterInfo.commandId),
         HashAlgorithm.Sha256,
       )
-      .getCryptographicEvidence
 
   private def evaluateAndHash(
       submissionSeed: crypto.Hash,
@@ -179,21 +197,20 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
       errorLoggingContext: ContextualizedErrorLogger,
   ): Future[PrepareSubmissionResponse] =
     for {
-      result <- withSpan("ApiSubmissionService.evaluate") { _ => _ =>
+      result <- withSpan("InteractiveSubmissionService.evaluate") { _ => _ =>
         commandExecutor.execute(commands, submissionSeed)
       }
       transactionInfo <- handleCommandExecutionResult(result)
-      // TODO(i20660): Until serialization and hashing are figured out, use the command Id as transaction and hash
-      transactionByteString = ByteString.copyFromUtf8(commands.commandId.toString)
-      transactionHash = computeTransactionHash(transactionByteString)
+      preparedTransaction <- transactionEncoder.serializeCommandExecutionResult(transactionInfo)
+      transactionHash <- Future.fromTry(computeTransactionHash(preparedTransaction).toTry)
       // Caffeine doesn't have putIfAbsent. Use `get` with a function to insert the value in the cache to obtain the same result
       _ = pendingPrepareRequests.get(
-        transactionHash,
+        transactionHash.getCryptographicEvidence,
         _ => PendingRequest(transactionInfo, commands),
       )
     } yield PrepareSubmissionResponse(
-      preparedTransaction = transactionByteString,
-      preparedTransactionHash = transactionHash,
+      preparedTransaction = Some(preparedTransaction),
+      preparedTransactionHash = transactionHash.getCryptographicEvidence,
     )
 
   private def failedOnCommandExecution(
@@ -276,8 +293,9 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
         s"Requesting execution of daml transaction with submission ID ${request.submissionId}"
       )
       for {
+        hash <- Future.fromTry(computeTransactionHash(request.preparedTransaction).toTry)
         pending <- Option(
-          pendingPrepareRequests.getIfPresent(computeTransactionHash(request.preparedTransaction))
+          pendingPrepareRequests.getIfPresent(hash.getCryptographicEvidence)
         )
           .map(Future.successful)
           .getOrElse(
@@ -298,8 +316,8 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
             .replace(request.workflowId)
             .focus(_.executionResult.submitterInfo.deduplicationPeriod)
             .replace(request.deduplicationPeriod)
-            .focus(_.executionResult.submitterInfo.partySignatures)
-            .replace(Some(request.partiesSignatures))
+            .focus(_.executionResult.submitterInfo.externallySignedTransaction)
+            .replace(Some(ExternallySignedTransaction(hash, request.partiesSignatures)))
         _ <- submitIfNotOverloaded(updatedPending.executionResult)
       } yield ExecuteSubmissionResponse()
     }

@@ -463,6 +463,9 @@ object BaseTest {
   lazy val testedProtocolVersion: ProtocolVersion =
     tryGetProtocolVersionFromEnv.getOrElse(ProtocolVersion.latest)
 
+  lazy val testedStaticDomainParameters: StaticDomainParameters =
+    defaultStaticDomainParametersWith(testedProtocolVersion)
+
   lazy val testedProtocolVersionValidation: ProtocolVersionValidation =
     ProtocolVersionValidation(testedProtocolVersion)
 

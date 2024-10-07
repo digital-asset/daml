@@ -4,24 +4,25 @@
 package com.digitalasset.canton.ledger.participant.state
 
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.protocol.{SourceDomainId, TargetDomainId}
+import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.daml.lf.value.Value
 
 sealed trait ReassignmentCommand {
-  def sourceDomain: SourceDomainId
-  def targetDomain: TargetDomainId
+  def sourceDomain: Source[DomainId]
+  def targetDomain: Target[DomainId]
 }
 
 object ReassignmentCommand {
   final case class Unassign(
-      sourceDomain: SourceDomainId,
-      targetDomain: TargetDomainId,
+      sourceDomain: Source[DomainId],
+      targetDomain: Target[DomainId],
       contractId: Value.ContractId,
   ) extends ReassignmentCommand
 
   final case class Assign(
-      sourceDomain: SourceDomainId,
-      targetDomain: TargetDomainId,
+      sourceDomain: Source[DomainId],
+      targetDomain: Target[DomainId],
       unassignId: CantonTimestamp,
   ) extends ReassignmentCommand
 }

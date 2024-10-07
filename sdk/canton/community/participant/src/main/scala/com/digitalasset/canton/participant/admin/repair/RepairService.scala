@@ -57,6 +57,7 @@ import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.PekkoUtil.FutureQueue
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.retry.AllExceptionRetryPolicy
@@ -109,7 +110,8 @@ final class RepairService(
     with HasCloseContext {
 
   private type MissingContract = (WithTransactionId[SerializableContract], RequestCounter)
-  private type MissingAssignment = (LfContractId, SourceDomainId, ReassignmentCounter, TimeOfChange)
+  private type MissingAssignment =
+    (LfContractId, Source[DomainId], ReassignmentCounter, TimeOfChange)
   private type MissingAdd = (LfContractId, ReassignmentCounter, TimeOfChange)
   private type MissingPurge = (LfContractId, TimeOfChange)
 
@@ -135,7 +137,7 @@ final class RepairService(
     val contractId = repairContract.contract.contractId
 
     def addContract(
-        reassigningFrom: Option[SourceDomainId]
+        reassigningFrom: Option[Source[DomainId]]
     ): EitherT[Future, String, Option[ContractToAdd]] = Right(
       Option(
         ContractToAdd(
@@ -189,7 +191,7 @@ final class RepairService(
           repairContract.reassignmentCounter > reassignmentCounter
 
         if (isReassignmentCounterIncreasing) {
-          addContract(reassigningFrom = Option(SourceDomainId(targetDomain.unwrap)))
+          addContract(reassigningFrom = Option(Source(targetDomain.unwrap)))
         } else {
           EitherT.leftT(
             log(
@@ -644,14 +646,14 @@ final class RepairService(
     */
   def rollbackUnassignment(
       reassignmentId: ReassignmentId,
-      target: TargetDomainId,
+      target: Target[DomainId],
   )(implicit context: TraceContext): EitherT[Future, String, Unit] =
     withRepairIndexer { repairIndexer =>
       for {
         sourceRepairRequest <- initRepairRequestAndVerifyPreconditions(
-          reassignmentId.sourceDomain.id
+          reassignmentId.sourceDomain.unwrap
         )
-        targetRepairRequest <- initRepairRequestAndVerifyPreconditions(target.id)
+        targetRepairRequest <- initRepairRequestAndVerifyPreconditions(target.unwrap)
         reassignmentData <-
           targetRepairRequest.domain.persistentState.reassignmentStore
             .lookup(reassignmentId)
@@ -978,7 +980,7 @@ final class RepairService(
             Seq[MissingAssignment](
               (
                 cid,
-                SourceDomainId(targetDomain.unwrap),
+                Source(targetDomain.unwrap),
                 newReassignmentCounter,
                 toc,
               )
@@ -1515,7 +1517,7 @@ object RepairService {
       contract: SerializableContract,
       witnesses: Set[LfPartyId],
       reassignmentCounter: ReassignmentCounter,
-      reassigningFrom: Option[SourceDomainId],
+      reassigningFrom: Option[Source[DomainId]],
   ) {
     def cid: LfContractId = contract.contractId
 

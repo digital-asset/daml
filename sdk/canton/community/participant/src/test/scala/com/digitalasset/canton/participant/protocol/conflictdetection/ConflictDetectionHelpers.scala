@@ -28,6 +28,7 @@ import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.{
   BaseTest,
   HasExecutorService,
@@ -205,7 +206,7 @@ private[protocol] object ConflictDetectionHelpers extends ScalaFuturesWithPatien
         .toMap,
       unassignments = unassign.fmap { case (id, reassignmentCounter) =>
         CommitSet.UnassignmentCommit(
-          TargetDomainId(id),
+          Target(id),
           Set.empty,
           reassignmentCounter,
         )

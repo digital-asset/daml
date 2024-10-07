@@ -4,8 +4,8 @@
 package com.digitalasset.canton.participant.store.memory
 
 import com.digitalasset.canton.participant.store.ReassignmentStoreTest
-import com.digitalasset.canton.protocol.TargetDomainId
 import com.digitalasset.canton.store.IndexedDomain
+import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -16,7 +16,7 @@ class ReassignmentStoreTestInMemory
     with ReassignmentStoreTest {
 
   private def mk(domain: IndexedDomain): InMemoryReassignmentStore =
-    new InMemoryReassignmentStore(TargetDomainId(domain.domainId), loggerFactory)
+    new InMemoryReassignmentStore(Target(domain.domainId), loggerFactory)
 
   "ReassignmentStoreTestInMemory" should {
     behave like reassignmentStore(mk)

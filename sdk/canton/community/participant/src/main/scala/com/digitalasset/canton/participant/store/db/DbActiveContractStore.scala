@@ -23,12 +23,7 @@ import com.digitalasset.canton.participant.store.data.ActiveContractsData
 import com.digitalasset.canton.participant.store.db.DbActiveContractStore.*
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
-import com.digitalasset.canton.protocol.{
-  LfContractId,
-  ReassignmentDomainId,
-  SourceDomainId,
-  TargetDomainId,
-}
+import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.resource.DbStorage.Implicits.BuilderChain.{
   fromSQLActionBuilderChain,
   toSQLActionBuilderChain,
@@ -37,9 +32,18 @@ import com.digitalasset.canton.resource.DbStorage.*
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.store.db.DbPrunableByTimeDomain
 import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore, PrunableByTimeParameters}
+import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.util.*
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
+import com.digitalasset.canton.util.{
+  Checked,
+  CheckedT,
+  ErrorUtil,
+  IterableUtil,
+  MonadUtil,
+  ReassignmentTag,
+}
 import com.digitalasset.canton.{ReassignmentCounter, RequestCounter}
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import slick.jdbc.*
@@ -109,7 +113,7 @@ class DbActiveContractStore(
         case in: Assignment => Future.successful(Active(in.reassignmentCounter))
         case out: Unassignment =>
           domainIdFromIdx(out.remoteDomainIdx).map(id =>
-            ReassignedAway(TargetDomainId(id), out.reassignmentCounter)
+            ReassignedAway(Target(id), out.reassignmentCounter)
           )
       }
 
@@ -204,7 +208,9 @@ class DbActiveContractStore(
   }
 
   private def reassignContracts(
-      reassignments: Seq[(LfContractId, ReassignmentDomainId, ReassignmentCounter, TimeOfChange)],
+      reassignments: Seq[
+        (LfContractId, ReassignmentTag[DomainId], ReassignmentCounter, TimeOfChange)
+      ],
       builder: (ReassignmentCounter, Int) => ReassignmentChangeDetail,
       change: ChangeType,
       operationName: LengthLimitedString,
@@ -247,7 +253,7 @@ class DbActiveContractStore(
   }
 
   override def assignContracts(
-      assignments: Seq[(LfContractId, SourceDomainId, ReassignmentCounter, TimeOfChange)]
+      assignments: Seq[(LfContractId, Source[DomainId], ReassignmentCounter, TimeOfChange)]
   )(implicit
       traceContext: TraceContext
   ): CheckedT[Future, AcsError, AcsWarning, Unit] =
@@ -259,7 +265,7 @@ class DbActiveContractStore(
     )
 
   override def unassignContracts(
-      unassignments: Seq[(LfContractId, TargetDomainId, ReassignmentCounter, TimeOfChange)]
+      unassignments: Seq[(LfContractId, Target[DomainId], ReassignmentCounter, TimeOfChange)]
   )(implicit
       traceContext: TraceContext
   ): CheckedT[Future, AcsError, AcsWarning, Unit] = reassignContracts(

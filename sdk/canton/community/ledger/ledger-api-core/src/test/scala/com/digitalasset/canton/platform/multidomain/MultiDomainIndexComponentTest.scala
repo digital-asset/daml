@@ -13,9 +13,9 @@ import com.digitalasset.canton.ledger.participant.state.{
   Update,
 }
 import com.digitalasset.canton.platform.IndexComponentTest
-import com.digitalasset.canton.protocol.{SourceDomainId, TargetDomainId}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.Traced
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
 import com.digitalasset.daml.lf.value.Value
 import org.scalatest.flatspec.AsyncFlatSpec
@@ -47,8 +47,8 @@ class MultiDomainIndexComponentTest extends AsyncFlatSpec with IndexComponentTes
           updateId = updateId,
           recordTime = recordTime,
           reassignmentInfo = ReassignmentInfo(
-            sourceDomain = SourceDomainId(domain1),
-            targetDomain = TargetDomainId(domain2),
+            sourceDomain = Source(domain1),
+            targetDomain = Target(domain2),
             submitter = Option(party),
             reassignmentCounter = 15L,
             hostedStakeholders = List(party),

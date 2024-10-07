@@ -588,6 +588,7 @@ scala_library(
         "@maven//:io_opentelemetry_opentelemetry_context",
         "@maven//:io_opentelemetry_opentelemetry_sdk_metrics",
         "@maven//:io_scalaland_chimney_2_13",
+        "@maven//:io_scalaland_chimney_macro_commons_2_13",
         "@maven//:io_spray_spray_json_2_13",
         "@maven//:junit_junit",
         "@maven//:org_apache_pekko_pekko_actor_2_13",
@@ -709,12 +710,31 @@ proto_gen(
     ],
 )
 
+# In order to build "community_ledger_ledger-api-core", "@maven//:io_scalaland_chimney_macro_commons_2_13"
+# requires scala.collection.compat, however the rule unused dependency checker improperly infers it is unused.
+# So we create a fake dependency.
+genrule(
+    name = "community_ledger_ledger_api_core_dummy_dep",
+    srcs = [],
+    outs = ["__community_ledger_ledger_api_core_dummy_dep.scala"],
+    cmd = """
+cat << EOF > $@
+object __community_ledger_ledger_api_core_dummy_dep {
+    private val notUsed = scala.collection.compat.immutable.ArraySeq
+}
+EOF
+    """,
+)
+
 scala_library(
     name = "community_ledger_ledger-api-core",
     srcs = glob([
         "community/ledger/ledger-api-core/src/main/scala/**/*.scala",
         "community/ledger/ledger-api-core/src/main/scala/**/*.java",
-    ]) + [":community_ledger_ledger-api-core_proto_scala"],
+    ]) + [
+        ":community_ledger_ledger-api-core_proto_scala",
+        ":community_ledger_ledger_api_core_dummy_dep",
+    ],
     resource_strip_prefix = "canton/community/ledger/ledger-api-core/src/main/resources",
     resources = glob(["community/ledger/ledger-api-core/src/main/resources/**"]),
     scalacopts = [
@@ -796,6 +816,7 @@ scala_library(
         "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:io_opentelemetry_opentelemetry_context",
         "@maven//:io_scalaland_chimney_2_13",
+        "@maven//:io_scalaland_chimney_macro_commons_2_13",
         "@maven//:io_spray_spray_json_2_13",
         "@maven//:junit_junit",
         "@maven//:org_apache_pekko_pekko_actor_2_13",
@@ -803,6 +824,7 @@ scala_library(
         "@maven//:org_playframework_anorm_anorm_tokenizer_2_13",
         "@maven//:org_postgresql_postgresql",
         "@maven//:org_reflections_reflections",
+        "@maven//:org_scala_lang_modules_scala_collection_compat_2_13",
         "@maven//:org_scalaz_scalaz_core_2_13",
         "@maven//:org_slf4j_slf4j_api",
         "@maven//:org_typelevel_cats_core_2_13",
@@ -1170,6 +1192,7 @@ scala_library(
         "@maven//:io_opentelemetry_instrumentation_opentelemetry_grpc_1_6",
         "@maven//:io_opentelemetry_opentelemetry_api",
         "@maven//:io_scalaland_chimney_2_13",
+        "@maven//:io_scalaland_chimney_macro_commons_2_13",
         "@maven//:junit_junit",
         "@maven//:org_apache_pekko_pekko_actor_2_13",
         "@maven//:org_scala_lang_modules_scala_collection_compat_2_13",
@@ -1358,6 +1381,7 @@ scala_library(
         "@maven//:io_opentelemetry_opentelemetry_sdk_common",
         "@maven//:io_opentelemetry_opentelemetry_sdk_metrics",
         "@maven//:io_scalaland_chimney_2_13",
+        "@maven//:io_scalaland_chimney_macro_commons_2_13",
         "@maven//:io_spray_spray_json_2_13",
         "@maven//:junit_junit",
         "@maven//:org_apache_pekko_pekko_actor_2_13",
@@ -1697,6 +1721,8 @@ filegroup(
             "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/command_completion_service.proto",
             "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/command_service.proto",
             "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/completion.proto",
+            "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/interactive_submission_data.proto",
+            "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/interactive_submission_service.proto",
             "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/reassignment.proto",
             "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/state_service.proto",
             "community/ledger-api/src/main/protobuf/com/daml/ledger/api/v2/trace_context.proto",

@@ -28,10 +28,10 @@ import com.digitalasset.canton.platform.store.dao.events.{
 }
 import com.digitalasset.canton.platform.store.dao.{EventProjectionProperties, JdbcLedgerDao}
 import com.digitalasset.canton.platform.{ContractId, Create, Exercise}
-import com.digitalasset.canton.protocol.{SourceDomainId, TargetDomainId}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext.Implicits.Empty.emptyTraceContext
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext, Traced}
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
@@ -1545,8 +1545,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         updateId = transactionId,
         recordTime = someRecordTime,
         reassignmentInfo = ReassignmentInfo(
-          sourceDomain = SourceDomainId(DomainId.tryFromString("x::domain1")),
-          targetDomain = TargetDomainId(DomainId.tryFromString("x::domain2")),
+          sourceDomain = Source(DomainId.tryFromString("x::domain1")),
+          targetDomain = Target(DomainId.tryFromString("x::domain2")),
           submitter = Option(someParty),
           reassignmentCounter = 1500L,
           hostedStakeholders = Nil,
@@ -1650,8 +1650,8 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         updateId = transactionId,
         recordTime = someRecordTime,
         reassignmentInfo = ReassignmentInfo(
-          sourceDomain = SourceDomainId(DomainId.tryFromString("x::domain1")),
-          targetDomain = TargetDomainId(DomainId.tryFromString("x::domain2")),
+          sourceDomain = Source(DomainId.tryFromString("x::domain1")),
+          targetDomain = Target(DomainId.tryFromString("x::domain2")),
           submitter = Option(someParty),
           reassignmentCounter = 1500L,
           hostedStakeholders = Nil,

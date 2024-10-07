@@ -80,7 +80,7 @@ class CompletionStorageBackendTemplate(
           application_id = $applicationId
         ORDER BY completion_offset ASC
         ${QueryStrategy.limitClause(Some(limit))}"""
-        .asVectorOf(completionParser)(connection)
+        .asVectorOf(completionParser(internedParties))(connection)
       rows.collect {
         case (submitters, response) if submitters.exists(internedParties) => response
       }
@@ -113,7 +113,9 @@ class CompletionStorageBackendTemplate(
   private val deduplicationStartColumn: RowParser[Option[Timestamp]] =
     timestampFromMicros("deduplication_start").?
 
-  private val acceptedCommandParser: RowParser[(Array[Int], CompletionStreamResponse)] =
+  private def acceptedCommandParser(
+      internedParties: Set[Int]
+  ): RowParser[(Array[Int], CompletionStreamResponse)] =
     acceptedCommandSharedColumns ~
       deduplicationOffsetColumn ~
       deduplicationDurationSecondsColumn ~ deduplicationDurationNanosColumn ~
@@ -121,6 +123,10 @@ class CompletionStorageBackendTemplate(
         case submitters ~ offset ~ recordTime ~ commandId ~ applicationId ~ submissionId ~ internedDomainId ~ traceContext ~ transactionId ~
             deduplicationOffset ~ deduplicationDurationSeconds ~ deduplicationDurationNanos ~ _ =>
           submitters -> CompletionFromTransaction.acceptedCompletion(
+            submitters = submitters.iterator
+              .filter(internedParties)
+              .map(stringInterning.party.unsafe.externalize)
+              .toSet,
             recordTime = recordTime,
             offset = offset,
             commandId = commandId,
@@ -140,7 +146,9 @@ class CompletionStorageBackendTemplate(
   private val rejectionStatusDetailsColumn: RowParser[Option[Array[Byte]]] =
     byteArray("rejection_status_details").?
 
-  private val rejectedCommandParser: RowParser[(Array[Int], CompletionStreamResponse)] =
+  private def rejectedCommandParser(
+      internedParties: Set[Int]
+  ): RowParser[(Array[Int], CompletionStreamResponse)] =
     sharedColumns ~
       deduplicationOffsetColumn ~
       deduplicationDurationSecondsColumn ~ deduplicationDurationNanosColumn ~
@@ -154,6 +162,10 @@ class CompletionStorageBackendTemplate(
           val status =
             buildStatusProto(rejectionStatusCode, rejectionStatusMessage, rejectionStatusDetails)
           submitters -> CompletionFromTransaction.rejectedCompletion(
+            submitters = submitters.iterator
+              .filter(internedParties)
+              .map(stringInterning.party.unsafe.externalize)
+              .toSet,
             recordTime = recordTime,
             offset = offset,
             commandId = commandId,
@@ -168,8 +180,10 @@ class CompletionStorageBackendTemplate(
           )
       }
 
-  private val completionParser: RowParser[(Array[Int], CompletionStreamResponse)] =
-    acceptedCommandParser | rejectedCommandParser
+  private def completionParser(
+      internedParties: Set[Int]
+  ): RowParser[(Array[Int], CompletionStreamResponse)] =
+    acceptedCommandParser(internedParties) | rejectedCommandParser(internedParties)
 
   private val postPublishDataParser: RowParser[Option[PostPublishData]] =
     int("domain_id") ~

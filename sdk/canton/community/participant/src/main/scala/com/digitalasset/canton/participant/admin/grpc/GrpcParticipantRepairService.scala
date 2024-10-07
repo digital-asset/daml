@@ -20,9 +20,10 @@ import com.digitalasset.canton.participant.admin.repair.RepairServiceError.Impor
 import com.digitalasset.canton.participant.admin.repair.{EnsureValidContractIds, RepairServiceError}
 import com.digitalasset.canton.participant.domain.DomainConnectionConfig
 import com.digitalasset.canton.participant.sync.CantonSyncService
-import com.digitalasset.canton.protocol.{LfContractId, SourceDomainId, TargetDomainId}
+import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.{DomainId, PartyId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{EitherTUtil, EitherUtil, GrpcStreamingUtils, ResourceUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{DomainAlias, LfPartyId, SequencerCounter, protocol}
@@ -371,13 +372,15 @@ final class GrpcParticipantRepairService(
             .leftMap(_.message)
         )
         sourceDomainId <- EitherT.fromEither[Future](
-          SourceDomainId
+          DomainId
             .fromProtoPrimitive(request.source, "source")
+            .map(Source(_))
             .leftMap(_.message)
         )
         targetDomainId <- EitherT.fromEither[Future](
-          TargetDomainId
+          DomainId
             .fromProtoPrimitive(request.target, "target")
+            .map(Target(_))
             .leftMap(_.message)
         )
         reassignmentId = protocol.ReassignmentId(sourceDomainId, unassignId)

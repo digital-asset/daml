@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.protocol.reassignment
 
 import cats.data.*
+import cats.implicits.toFunctorOps
 import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
@@ -61,6 +62,7 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.EitherTUtil.{condUnitET, ifThenET}
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{
   LfPackageName,
@@ -74,12 +76,12 @@ import com.digitalasset.canton.{
 import scala.concurrent.{ExecutionContext, Future}
 
 class UnassignmentProcessingSteps(
-    val domainId: SourceDomainId,
+    val domainId: Source[DomainId],
     val participantId: ParticipantId,
     val engine: DAMLe,
     reassignmentCoordination: ReassignmentCoordination,
     seedGenerator: SeedGenerator,
-    staticDomainParameters: StaticDomainParameters,
+    staticDomainParameters: Source[StaticDomainParameters],
     val sourceDomainProtocolVersion: SourceProtocolVersion,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
@@ -107,7 +109,7 @@ class UnassignmentProcessingSteps(
   override def submissionIdOfPendingRequest(pendingData: PendingUnassignment): RootHash =
     pendingData.rootHash
 
-  private def targetIsNotSource(contractId: LfContractId, target: TargetDomainId)(implicit
+  private def targetIsNotSource(contractId: LfContractId, target: Target[DomainId])(implicit
       ec: ExecutionContext
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
     condUnitET[FutureUnlessShutdown](
@@ -137,11 +139,13 @@ class UnassignmentProcessingSteps(
       _ <- targetIsNotSource(contractId, targetDomain)
       storedContract <- getStoredContract(ephemeralState.contractLookup, contractId)
       stakeholders = storedContract.contract.metadata.stakeholders
+      targetStaticDomainParameters <- reassignmentCoordination
+        .getStaticDomainParameter(targetDomain)
+        .mapK(FutureUnlessShutdown.outcomeK)
 
-      // TODO(#21325) This should be the static domain parameters of the target domain
       timeProofAndSnapshot <- reassignmentCoordination.getTimeProofAndSnapshot(
         targetDomain,
-        staticDomainParameters,
+        targetStaticDomainParameters,
       )
       (timeProof, targetCrypto) = timeProofAndSnapshot
       _ = logger.debug(withDetails(s"Picked time proof ${timeProof.timestamp}"))
@@ -184,8 +188,8 @@ class UnassignmentProcessingSteps(
         mediator,
         targetDomain,
         targetProtocolVersion,
-        sourceRecentSnapshot.ipsSnapshot,
-        targetCrypto.ipsSnapshot,
+        Source(sourceRecentSnapshot.ipsSnapshot),
+        Target(targetCrypto.ipsSnapshot),
         newReassignmentCounter,
       )
 
@@ -302,7 +306,7 @@ class UnassignmentProcessingSteps(
   ]] =
     EncryptedViewMessage
       .decryptFor(
-        staticDomainParameters,
+        staticDomainParameters.unwrap,
         sourceSnapshot,
         sessionKeyStore,
         envelope.protocolMessage,
@@ -367,19 +371,23 @@ class UnassignmentProcessingSteps(
     */
   // TODO(i12926): Prevent deadlocks. Detect non-sensible timestamps. Verify sequencer signature on time proof.
   private def getTopologySnapshotAtTimestamp(
-      domainId: TargetDomainId,
+      domainId: Target[DomainId],
       timestamp: CantonTimestamp,
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, TopologySnapshot] =
-    reassignmentCoordination
-      .awaitTimestampAndGetCryptoSnapshot(
-        domainId.unwrap,
-        staticDomainParameters,
-        timestamp,
-      )
-      .map(_.ipsSnapshot)
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Target[TopologySnapshot]] =
+    for {
+      targetStaticDomainParameters <- reassignmentCoordination
+        .getStaticDomainParameter(domainId)
+        .mapK(FutureUnlessShutdown.outcomeK)
+      snapshot <- reassignmentCoordination
+        .awaitTimestampAndGetTaggedCryptoSnapshot(
+          domainId,
+          targetStaticDomainParameters,
+          timestamp,
+        )
+    } yield snapshot.map(_.ipsSnapshot)
 
   override def constructPendingDataAndResponse(
       parsedRequestType: ParsedReassignmentRequest[FullUnassignmentTree],
@@ -438,7 +446,7 @@ class UnassignmentProcessingSteps(
         contract.metadata.stakeholders,
         contract.rawContractInstance.contractInstance.unversioned.template,
         sourceDomainProtocolVersion,
-        sourceSnapshot.ipsSnapshot,
+        Source(sourceSnapshot.ipsSnapshot),
         targetTopology,
         recipients,
       )
@@ -539,18 +547,18 @@ class UnassignmentProcessingSteps(
   }
 
   private[this] def getAssignmentExclusivity(
-      targetTopology: Option[TopologySnapshot],
+      targetTopology: Option[Target[TopologySnapshot]],
       timestamp: CantonTimestamp,
-      domainId: TargetDomainId,
+      domainId: Target[DomainId],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Option[CantonTimestamp]] =
-    targetTopology.traverse(
+    targetTopology.traverse { targetTopology =>
       ProcessingSteps
-        .getAssignmentExclusivity(_, timestamp)
+        .getAssignmentExclusivity(targetTopology.unwrap, timestamp)
         .mapK(FutureUnlessShutdown.outcomeK)
         .leftMap(ReassignmentParametersError(domainId.unwrap, _))
-    )
+    }
 
   override def getCommitSetAndContractsToBeStoredAndEvent(
       event: WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]],
@@ -664,7 +672,7 @@ class UnassignmentProcessingSteps(
       contractStakeholders: Set[LfPartyId],
       submitterMetadata: ReassignmentSubmitterMetadata,
       reassignmentId: ReassignmentId,
-      targetDomain: TargetDomainId,
+      targetDomain: Target[DomainId],
       rootHash: RootHash,
       assignmentExclusivity: Option[CantonTimestamp],
       isReassigningParticipant: Boolean,
@@ -732,20 +740,27 @@ class UnassignmentProcessingSteps(
     val targetDomain = pendingRequestData.targetDomain
     val t0 = pendingRequestData.targetTimeProof.timestamp
 
-    AutomaticAssignment.perform(
-      pendingRequestData.reassignmentId,
-      targetDomain,
-      staticDomainParameters,
-      reassignmentCoordination,
-      pendingRequestData.stakeholders,
-      pendingRequestData.submitterMetadata,
-      participantId,
-      t0,
-    )
-  }.mapK(FutureUnlessShutdown.outcomeK)
+    (for {
+      targetStaticDomainParameters <- reassignmentCoordination
+        .getStaticDomainParameter(targetDomain)
+
+      automaticAssignment <- AutomaticAssignment
+        .perform(
+          pendingRequestData.reassignmentId,
+          targetDomain,
+          targetStaticDomainParameters,
+          reassignmentCoordination,
+          pendingRequestData.stakeholders,
+          pendingRequestData.submitterMetadata,
+          participantId,
+          t0,
+        )
+
+    } yield automaticAssignment).mapK(FutureUnlessShutdown.outcomeK)
+  }
 
   private[this] def deleteReassignment(
-      targetDomain: TargetDomainId,
+      targetDomain: Target[DomainId],
       unassignmentRequestId: RequestId,
   )(implicit
       traceContext: TraceContext
@@ -802,7 +817,7 @@ object UnassignmentProcessingSteps {
   final case class SubmissionParam(
       submitterMetadata: ReassignmentSubmitterMetadata,
       contractId: LfContractId,
-      targetDomain: TargetDomainId,
+      targetDomain: Target[DomainId],
       targetProtocolVersion: TargetProtocolVersion,
   ) {
     val submittingParty: LfPartyId = submitterMetadata.submitter
@@ -825,7 +840,7 @@ object UnassignmentProcessingSteps {
       isReassigningParticipant: Boolean,
       submitterMetadata: ReassignmentSubmitterMetadata,
       reassignmentId: ReassignmentId,
-      targetDomain: TargetDomainId,
+      targetDomain: Target[DomainId],
       stakeholders: Set[LfPartyId],
       hostedStakeholders: Set[LfPartyId],
       targetTimeProof: TimeProof,

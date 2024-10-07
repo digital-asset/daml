@@ -55,6 +55,7 @@ import com.digitalasset.canton.serialization.DefaultDeserializationError
 import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{
@@ -70,12 +71,12 @@ import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
 private[reassignment] class AssignmentProcessingSteps(
-    val domainId: TargetDomainId,
+    val domainId: Target[DomainId],
     val participantId: ParticipantId,
     val engine: DAMLe,
     reassignmentCoordination: ReassignmentCoordination,
     seedGenerator: SeedGenerator,
-    staticDomainParameters: StaticDomainParameters,
+    staticDomainParameters: Target[StaticDomainParameters],
     targetProtocolVersion: TargetProtocolVersion,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
@@ -288,7 +289,7 @@ private[reassignment] class AssignmentProcessingSteps(
   ]] =
     EncryptedViewMessage
       .decryptFor(
-        staticDomainParameters,
+        staticDomainParameters.unwrap,
         snapshot,
         sessionKeyStore,
         envelope.protocolMessage,
@@ -524,7 +525,7 @@ private[reassignment] class AssignmentProcessingSteps(
             localVerdict,
             assignmentRequest.rootHash,
             validationResult.confirmingParties,
-            domainId.id,
+            domainId.unwrap,
             targetProtocolVersion.v,
           )
           .map(reassignmentResponse => Seq(reassignmentResponse))
@@ -736,7 +737,7 @@ object AssignmentProcessingSteps {
       contract: SerializableContract,
       reassignmentCounter: ReassignmentCounter,
       creatingTransactionId: TransactionId,
-      targetDomain: TargetDomainId,
+      targetDomain: Target[DomainId],
       targetMediator: MediatorGroupRecipient,
       unassignmentResult: DeliveredUnassignmentResult,
       assignmentUuid: UUID,

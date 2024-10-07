@@ -163,8 +163,11 @@ class SyncDomainPersistentStateManager(
       }
     } yield ()
 
+  def staticDomainParameters(domainId: DomainId): Option[StaticDomainParameters] =
+    get(domainId).map(_.staticDomainParameters)
+
   def protocolVersionFor(domainId: DomainId): Option[ProtocolVersion] =
-    get(domainId).map(_.staticDomainParameters.protocolVersion)
+    staticDomainParameters(domainId).map(_.protocolVersion)
 
   private val domainStates: concurrent.Map[DomainId, SyncDomainPersistentState] =
     TrieMap[DomainId, SyncDomainPersistentState]()

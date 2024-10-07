@@ -226,14 +226,19 @@ class CantonSyncService(
                     .onShutdown(false),
                   timeouts.network.duration,
                 )
+                // turn AbortedDuToShutdown into a verdict, as we don't want to turn
+                // the overall result into AbortedDueToShutdown, just because one of
+                // the domains disconnected in the meantime.
+                .onShutdown(false)
                 .map(domainId -> _)
             }
           )
+          .mapK(FutureUnlessShutdown.outcomeK)
           .map { result =>
             result.foreach { case (domainId, successful) =>
               if (!successful)
-                logger.warn(
-                  s"Waiting for vetting of packages $packages on domain $domainId timed out."
+                logger.info(
+                  s"Waiting for vetting of packages $packages on domain $domainId either timed out or the domain got disconnected."
                 )
             }
             result

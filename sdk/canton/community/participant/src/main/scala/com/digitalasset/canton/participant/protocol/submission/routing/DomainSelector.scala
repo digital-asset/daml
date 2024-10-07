@@ -17,6 +17,7 @@ import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.FutureInstances.*
+import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.daml.lf.transaction.TransactionVersion
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -86,7 +87,7 @@ private[routing] class DomainSelector(
           _ <- validatePrescribedDomain(prescribedDomain, transactionData.version)
           domainRank <- domainRankComputation.compute(
             contracts,
-            prescribedDomain,
+            Target(prescribedDomain),
             transactionData.readers,
           )
         } yield domainRank
@@ -266,7 +267,7 @@ private[routing] class DomainSelector(
           domainRankComputation
             .compute(
               contracts,
-              targetDomain,
+              Target(targetDomain),
               transactionData.readers,
             )
             .toOption

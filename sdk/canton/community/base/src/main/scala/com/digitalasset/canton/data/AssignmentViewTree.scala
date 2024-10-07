@@ -25,6 +25,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
 import com.digitalasset.canton.util.EitherUtil
+import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.version.*
 import com.digitalasset.canton.{LfPartyId, LfWorkflowId, ReassignmentCounter}
@@ -143,7 +144,7 @@ object AssignmentViewTree
   */
 final case class AssignmentCommonData private (
     override val salt: Salt,
-    targetDomain: TargetDomainId,
+    targetDomain: Target[DomainId],
     targetMediatorGroup: MediatorGroupRecipient,
     stakeholders: Set[LfPartyId],
     uuid: UUID,
@@ -167,7 +168,7 @@ final case class AssignmentCommonData private (
   protected def toProtoV30: v30.AssignmentCommonData =
     v30.AssignmentCommonData(
       salt = Some(salt.toProtoV30),
-      targetDomain = targetDomain.toProtoPrimitive,
+      targetDomain = targetDomain.unwrap.toProtoPrimitive,
       targetMediatorGroup = targetMediatorGroup.group.value,
       stakeholders = stakeholders.toSeq,
       uuid = ProtoConverter.UuidConverter.toProtoPrimitive(uuid),
@@ -209,7 +210,7 @@ object AssignmentCommonData
 
   def create(hashOps: HashOps)(
       salt: Salt,
-      targetDomain: TargetDomainId,
+      targetDomain: Target[DomainId],
       targetMediator: MediatorGroupRecipient,
       stakeholders: Set[LfPartyId],
       uuid: UUID,
@@ -245,7 +246,7 @@ object AssignmentCommonData
 
     for {
       salt <- ProtoConverter.parseRequired(Salt.fromProtoV30, "salt", saltP)
-      targetDomain <- TargetDomainId.fromProtoPrimitive(targetDomainP, "target_domain")
+      targetDomain <- DomainId.fromProtoPrimitive(targetDomainP, "target_domain").map(Target(_))
       targetMediatorGroup <- ProtoConverter.parseNonNegativeInt(
         "target_mediator_group",
         targetMediatorGroupP,
@@ -466,7 +467,7 @@ final case class FullAssignmentTree(tree: AssignmentViewTree)
       submittingParticipantSignature: Signature
   ): AssignmentMediatorMessage = tree.mediatorMessage(submittingParticipantSignature)
 
-  def targetDomain: TargetDomainId = commonData.targetDomain
+  def targetDomain: Target[DomainId] = commonData.targetDomain
 
   override def domainId: DomainId = commonData.targetDomain.unwrap
 

@@ -278,7 +278,7 @@ private[store] object StorageBackendTestValues {
 
   def dtoCompletion(
       offset: Offset,
-      submitter: String = "signatory",
+      submitters: Set[String] = Set("signatory"),
       commandId: String = UUID.randomUUID().toString,
       applicationId: String = someApplicationId,
       submissionId: Option[String] = Some(UUID.randomUUID().toString),
@@ -300,7 +300,7 @@ private[store] object StorageBackendTestValues {
       record_time = recordTime.micros,
       publication_time = publicationTime.micros,
       application_id = applicationId,
-      submitters = Set(submitter),
+      submitters = submitters,
       command_id = commandId,
       transaction_id = transactionId.filter(_ == "").map(_ => transactionIdFromOffset(offset)),
       rejection_status_code = None,
