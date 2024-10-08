@@ -33,19 +33,19 @@ object SequencerConnectionTest {
 
   val grpc1 = GrpcSequencerConnection(
     NonEmpty(Seq, endpoint(1), endpoint(2)),
-    false,
+    transportSecurity = false,
     Some(ByteString.copyFromUtf8("certificates")),
     SequencerAlias.Default,
   )
   val grpc2 = GrpcSequencerConnection(
     NonEmpty(Seq, endpoint(3), endpoint(4)),
-    false,
+    transportSecurity = false,
     None,
     SequencerAlias.Default,
   )
   val grpcMerged = GrpcSequencerConnection(
     NonEmpty(Seq, endpoint(1), endpoint(2), endpoint(3), endpoint(4)),
-    false,
+    transportSecurity = false,
     Some(ByteString.copyFromUtf8("certificates")),
     SequencerAlias.Default,
   )

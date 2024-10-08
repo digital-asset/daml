@@ -92,7 +92,7 @@ private[routing] final class AdmissibleDomains(
       ensureAllKnown(
         required = submitters,
         known = knownParties,
-        ifUnknown = TopologyErrors.UnknownSubmitters.Error,
+        ifUnknown = TopologyErrors.UnknownSubmitters.Error.apply,
       )
 
     def ensureAllInformeesAreKnown(
@@ -101,7 +101,7 @@ private[routing] final class AdmissibleDomains(
       ensureAllKnown(
         required = informees,
         known = knownParties,
-        ifUnknown = TopologyErrors.UnknownInformees.Error,
+        ifUnknown = TopologyErrors.UnknownInformees.Error.apply,
       )
 
     def ensureNonEmpty[I[_] <: collection.immutable.Iterable[?], A, E](

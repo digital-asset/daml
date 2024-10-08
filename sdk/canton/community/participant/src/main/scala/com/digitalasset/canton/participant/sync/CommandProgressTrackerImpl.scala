@@ -305,41 +305,32 @@ class CommandProgressTrackerImpl(
 
   override def processLedgerUpdate(update: Traced[TransactionLogUpdate]): Unit =
     update.value match {
-      case TransactionLogUpdate.TransactionRejected(_offset, completionDetails) =>
-        completionDetails.completionStreamResponse.completionResponse.completion.foreach {
-          completionInfo =>
-            val key = (
-              completionInfo.commandId,
-              completionInfo.applicationId,
-              completionDetails.submitters,
-              Option.when(completionInfo.submissionId.nonEmpty)(completionInfo.submissionId),
-            )
-            // remove from pending
-            lock.synchronized(pending.remove(key)).foreach { cur =>
-              if (config.maxFailed.value > 0) {
-                cur.failedAsync(completionInfo.status)
-                addToCollection(cur.ref.get(), failed, config.maxFailed.value)
-              }
+      case rejected: TransactionLogUpdate.TransactionRejected =>
+        rejected.completionStreamResponse.completionResponse.completion.foreach { completionInfo =>
+          val key = (
+            completionInfo.commandId,
+            completionInfo.applicationId,
+            completionInfo.actAs.toSet,
+            Option.when(completionInfo.submissionId.nonEmpty)(completionInfo.submissionId),
+          )
+          // remove from pending
+          lock.synchronized(pending.remove(key)).foreach { cur =>
+            if (config.maxFailed.value > 0) {
+              cur.failedAsync(completionInfo.status)
+              addToCollection(cur.ref.get(), failed, config.maxFailed.value)
             }
+          }
         }
-      case TransactionLogUpdate.TransactionAccepted(
-            _transactionId,
-            commandId,
-            _workflowId,
-            _effectiveAt,
-            _offset,
-            _events,
-            Some(completionDetails),
-            _domainId,
-            _recordTime,
-          ) =>
-        completionDetails.completionStreamResponse.completionResponse.completion.foreach {
-          completionInfo =>
+
+      case accepted: TransactionLogUpdate.TransactionAccepted =>
+        accepted.completionStreamResponse
+          .flatMap(_.completionResponse.completion)
+          .foreach { completion =>
             val key = (
-              commandId,
-              completionInfo.applicationId,
-              completionDetails.submitters,
-              Option.when(completionInfo.submissionId.nonEmpty)(completionInfo.submissionId),
+              completion.commandId,
+              completion.applicationId,
+              completion.actAs.toSet,
+              Option.when(completion.submissionId.nonEmpty)(completion.submissionId),
             )
             // remove from pending
             lock.synchronized(pending.remove(key)).foreach { cur =>
@@ -347,7 +338,8 @@ class CommandProgressTrackerImpl(
               cur.succeeded()
               addToCollection(cur.ref.get(), succeeded, config.maxSucceeded.value)
             }
-        }
+          }
+
       case _ =>
     }
 

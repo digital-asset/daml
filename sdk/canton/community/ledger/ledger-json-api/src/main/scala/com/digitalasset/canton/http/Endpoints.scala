@@ -104,7 +104,7 @@ class Endpoints(
   import json.JsonProtocol.*
   import util.ErrorOps.*
 
-  private def responseToRoute(res: Future[HttpResponse]): Route = _ => res map Complete
+  private def responseToRoute(res: Future[HttpResponse]): Route = _ => res map Complete.apply
   private def toRoute[T: MkHttpResponse](res: => T)(implicit
       lc: LoggingContextOf[InstanceUUID with RequestID]
   ): Route =
@@ -120,7 +120,7 @@ class Endpoints(
     val res = for {
       t <- routeSetup.inputJsVal(httpRequest): ET[(Jwt, JsValue)]
       (jwt, reqBody) = t
-      req <- either(SprayJson.decode[Req](reqBody).liftErr(InvalidUserInput)): ET[Req]
+      req <- either(SprayJson.decode[Req](reqBody).liftErr(InvalidUserInput.apply)): ET[Req]
       res <- eitherT(RouteSetup.handleFutureEitherFailure(fn(jwt, req).run)): ET[
         domain.SyncResponse[Res]
       ]

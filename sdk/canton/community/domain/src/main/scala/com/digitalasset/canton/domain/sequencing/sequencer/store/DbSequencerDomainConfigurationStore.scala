@@ -50,7 +50,7 @@ class DbSequencerDomainConfigurationStore(
       config <- EitherT
         .fromEither[Future](rowO.traverse(deserialize))
         .leftMap[SequencerDomainConfigurationStoreError](
-          SequencerDomainConfigurationStoreError.DeserializationError
+          SequencerDomainConfigurationStoreError.DeserializationError.apply
         )
     } yield config
 

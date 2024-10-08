@@ -84,7 +84,8 @@ object BlockUpdateGenerator {
       chunkIndex: Int,
       events: NonEmpty[Seq[Traced[LedgerBlockEvent]]],
   ) extends BlockChunk
-  case object TopologyTickChunk extends BlockChunk
+  final case class TopologyTickChunk(blockHeight: Long, tickAtLeastAt: CantonTimestamp)
+      extends BlockChunk
   final case class EndOfBlock(blockHeight: Long) extends BlockChunk
 }
 
@@ -141,7 +142,8 @@ class BlockUpdateGeneratorImpl(
     BlockEvents(
       block.blockHeight,
       ledgerBlockEvents,
-      block.tickTopology,
+      tickTopologyAtLeastAt =
+        block.tickTopologyAtMicrosFromEpoch.map(CantonTimestamp.assertFromLong),
     )
   }
 
@@ -152,9 +154,7 @@ class BlockUpdateGeneratorImpl(
     metrics.block.height.updateValue(blockHeight)
 
     val tickChunk =
-      Option.when(blockEvents.tickTopology) {
-        Some(TopologyTickChunk)
-      }
+      blockEvents.tickTopologyAtLeastAt.map(TopologyTickChunk(blockHeight, _))
 
     // We must start a new chunk whenever the chunk processing advances lastSequencerEventTimestamp,
     //  otherwise the logic for retrieving a topology snapshot or traffic state could deadlock.
@@ -164,7 +164,7 @@ class BlockUpdateGeneratorImpl(
       .zipWithIndex
       .map { case (events, index) =>
         NextChunk(blockHeight, index, events)
-      } ++ tickChunk.flatten ++ Seq(EndOfBlock(blockHeight))
+      } ++ tickChunk ++ Seq(EndOfBlock(blockHeight))
   }
 
   private def isAddressingSequencers(event: LedgerBlockEvent): Boolean =
@@ -190,8 +190,8 @@ class BlockUpdateGeneratorImpl(
         FutureUnlessShutdown.pure(newState -> update)
       case NextChunk(height, index, chunksEvents) =>
         blockChunkProcessor.processDataChunk(state, height, index, chunksEvents)
-      case TopologyTickChunk =>
-        blockChunkProcessor.emitTick(state)
+      case TopologyTickChunk(blockHeight, tickAtLeastAt) =>
+        blockChunkProcessor.emitTick(state, blockHeight, tickAtLeastAt)
     }
 }
 

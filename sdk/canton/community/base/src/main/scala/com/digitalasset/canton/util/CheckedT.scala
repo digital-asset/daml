@@ -239,7 +239,7 @@ trait CheckedTInstances extends CheckedTInstances1 {
       F0: Monad[F]
   ): MonadError[CheckedT[F, A, N, *], A] =
     new CheckedTMonadError[F, A, N] {
-      implicit val F = F0
+      implicit val F: Monad[F] = F0
     }
 
   implicit def cantonUtilParallelForCheckedT[M[_], A, N](implicit
@@ -279,7 +279,7 @@ trait CheckedTInstances1 extends CheckedTInstances2 {
       F0: Applicative[F]
   ): Applicative[CheckedT[F, A, N, *]] =
     new CheckedTApplicative[F, A, N] {
-      implicit val F = F0
+      implicit val F: Applicative[F] = F0
     }
 }
 
@@ -288,7 +288,7 @@ trait CheckedTInstances2 {
       F0: Functor[F]
   ): Functor[CheckedT[F, A, N, *]] =
     new CheckedTFunctor[F, A, N] {
-      implicit val F = F0
+      implicit val F: Functor[F] = F0
     }
 }
 

@@ -46,7 +46,7 @@ object JceJavaKeyConverter {
           .catchOnly[NoSuchAlgorithmException](
             KeyFactory.getInstance(keyInstance, JceSecurityProvider.bouncyCastleProvider)
           )
-          .leftMap(JceJavaKeyConversionError.GeneralError)
+          .leftMap(JceJavaKeyConversionError.GeneralError.apply)
         javaPublicKey <- Either
           .catchOnly[InvalidKeySpecException](keyFactory.generatePublic(x509KeySpec))
           .leftMap(err => JceJavaKeyConversionError.InvalidKey(show"$err"))
@@ -84,7 +84,7 @@ object JceJavaKeyConverter {
       for {
         keyFactory <- Either
           .catchOnly[NoSuchAlgorithmException](KeyFactory.getInstance(keyInstance, "BC"))
-          .leftMap(JceJavaKeyConversionError.GeneralError)
+          .leftMap(JceJavaKeyConversionError.GeneralError.apply)
         javaPrivateKey <- Either
           .catchOnly[InvalidKeySpecException](keyFactory.generatePrivate(pkcs8KeySpec))
           .leftMap(err => JceJavaKeyConversionError.InvalidKey(show"$err"))

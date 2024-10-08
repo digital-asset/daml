@@ -193,8 +193,7 @@ abstract class CantonAppDriver[E <: Environment] extends App with NamedLogging w
   }
 
   private lazy val bootstrapScript: Option[CantonScript] =
-    cliOptions.bootstrapScriptPath
-      .map(CantonScriptFromFile)
+    cliOptions.bootstrapScriptPath.map(CantonScriptFromFile.apply)
 
   val runner: Runner[E] = cliOptions.command match {
     case Some(Command.Daemon) => new ServerRunner(bootstrapScript, loggerFactory)

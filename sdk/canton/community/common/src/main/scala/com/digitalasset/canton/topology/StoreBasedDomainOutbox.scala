@@ -141,7 +141,7 @@ class StoreBasedDomainOutbox(
     new AtomicReference[Watermarks](
       Watermarks(
         0,
-        false,
+        running = false,
         CantonTimestamp.MinValue,
         CantonTimestamp.MinValue,
       )

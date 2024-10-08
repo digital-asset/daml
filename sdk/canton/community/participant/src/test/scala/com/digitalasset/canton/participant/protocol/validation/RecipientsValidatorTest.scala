@@ -67,11 +67,11 @@ class RecipientsValidatorTest extends BaseTestWordSpec with HasExecutionContext 
   ): Recipients = (groupsViewToRoot: @unchecked) match {
     case Seq() => Recipients(NonEmpty.from(acc).value)
     case Seq(head, tail*) =>
-      mkRecipients(tail, Seq(RecipientsTree(head.map(MemberRecipient), acc)))
+      mkRecipients(tail, Seq(RecipientsTree(head.map(MemberRecipient.apply), acc)))
   }
 
   def mkGroup(member: Member, members: Member*): NonEmpty[Set[Recipient]] =
-    NonEmpty(Set, member, members*).map(MemberRecipient)
+    NonEmpty(Set, member, members*).map(MemberRecipient.apply)
 
   def mkInput1(
       informees: Seq[LfPartyId],

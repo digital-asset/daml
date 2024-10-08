@@ -5,7 +5,7 @@ package com.digitalasset.canton
 
 import com.digitalasset.canton.SerializationDeserializationTestHelpers.DefaultValueUntilExclusive
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
 import org.reflections.Reflections
@@ -103,7 +103,7 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
         Context,
       ],
       context: Context,
-      protocolVersion: TargetProtocolVersion,
+      protocolVersion: Target[ProtocolVersion],
   )(implicit arb: Arbitrary[T]): Assertion =
     testProtocolVersionedCommon(
       companion,
@@ -121,7 +121,7 @@ trait SerializationDeserializationTestHelpers extends BaseTest with ScalaCheckPr
         Context,
       ],
       context: Context,
-      protocolVersion: SourceProtocolVersion,
+      protocolVersion: Source[ProtocolVersion],
   )(implicit arb: Arbitrary[T]): Assertion =
     testProtocolVersionedCommon(
       companion,

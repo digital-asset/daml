@@ -105,10 +105,10 @@ class DomainRouter(
             inputDisclosedContracts <-
               explicitlyDisclosedContracts.toList
                 .parTraverse(SerializableContract.fromDisclosedContract)
-                .leftMap(MalformedInputErrors.InvalidDisclosedContract.Error)
+                .leftMap(MalformedInputErrors.InvalidDisclosedContract.Error.apply)
             _ <- inputDisclosedContracts
               .traverse_(serializableContractAuthenticator.authenticate)
-              .leftMap(MalformedInputErrors.DisclosedContractAuthenticationFailed.Error)
+              .leftMap(MalformedInputErrors.DisclosedContractAuthenticationFailed.Error.apply)
           } yield inputDisclosedContracts
         )
 
@@ -120,12 +120,12 @@ class DomainRouter(
             metaOptNodeSeeds = transactionMeta.optNodeSeeds,
           )
         )
-        .leftMap(RoutingInternalError.IllformedTransaction)
+        .leftMap(RoutingInternalError.IllformedTransaction.apply)
 
       wfTransaction <- EitherT.fromEither[Future](
         WellFormedTransaction
           .normalizeAndCheck(transaction, metadata, WithoutSuffixes)
-          .leftMap(RoutingInternalError.IllformedTransaction)
+          .leftMap(RoutingInternalError.IllformedTransaction.apply)
       )
 
       contractsStakeholders = inputContractsStakeholders(wfTransaction.unwrap)

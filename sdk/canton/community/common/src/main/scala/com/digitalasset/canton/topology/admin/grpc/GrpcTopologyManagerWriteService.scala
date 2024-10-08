@@ -53,7 +53,7 @@ class GrpcTopologyManagerWriteService[PureCrypto <: CryptoPureApi](
       case Type.TransactionHash(value) =>
         for {
           txHash <- EitherT
-            .fromEither[FutureUnlessShutdown](Hash.fromHexString(value).map(TxHash))
+            .fromEither[FutureUnlessShutdown](Hash.fromHexString(value).map(TxHash.apply))
             .leftMap(err => ProtoDeserializationFailure.Wrap(err.toProtoDeserializationError))
           manager <- targetManagerET(request.store)
           signingKeys <-

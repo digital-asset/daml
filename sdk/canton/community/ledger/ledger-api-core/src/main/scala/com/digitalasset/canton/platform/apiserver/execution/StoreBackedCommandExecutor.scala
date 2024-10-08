@@ -432,7 +432,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
         }
       } yield contract
 
-      EitherT.fromEither[Future](result).fold(UpgradeFailure, _ => Valid)
+      EitherT.fromEither[Future](result).fold(UpgradeFailure.apply, _ => Valid)
     }
 
     def lookupActiveContractVerificationData(): Result =

@@ -168,12 +168,11 @@ class PackageUpgradeValidator(
       loggingContext: LoggingContextWithTrace
   ): Future[Option[(Ref.PackageId, Ast.Package)]] = {
     val pkgName = pkg.metadata.name
-    val pkgVersion = pkg.metadata.version
     packageMap
       .collect { case (pkgId, (`pkgName`, pkgVersion)) =>
         (pkgId, pkgVersion)
       }
-      .filter { case (_, version) => pkgVersion < version }
+      .filter { case (_, version) => pkg.metadata.version < version }
       .minByOption { case (_, version) => version }
       .traverse { case (pId, _) =>
         lookupDar(pId, upgradingPackagesMap).map(
@@ -194,12 +193,11 @@ class PackageUpgradeValidator(
       loggingContext: LoggingContextWithTrace
   ): Future[Option[(Ref.PackageId, Ast.Package)]] = {
     val pkgName = pkg.metadata.name
-    val pkgVersion = pkg.metadata.version
     packageMap
       .collect { case (pkgId, (`pkgName`, pkgVersion)) =>
         (pkgId, pkgVersion)
       }
-      .filter { case (_, version) => pkgVersion > version }
+      .filter { case (_, version) => pkg.metadata.version > version }
       .maxByOption { case (_, version) => version }
       .traverse { case (pId, _) =>
         lookupDar(pId, upgradingPackagesMap)(loggingContext).map(

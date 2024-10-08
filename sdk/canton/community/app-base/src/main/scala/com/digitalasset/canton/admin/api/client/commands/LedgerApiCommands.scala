@@ -1093,7 +1093,7 @@ object LedgerApiCommands {
           response: GetUpdateTreesResponse
       ): IterableOnce[UpdateTreeWrapper] =
         response.update.transactionTree
-          .map[UpdateTreeWrapper](TransactionTreeWrapper)
+          .map[UpdateTreeWrapper](TransactionTreeWrapper.apply)
           .orElse(response.update.reassignment.map(ReassignmentWrapper(_)))
     }
 
@@ -1114,7 +1114,7 @@ object LedgerApiCommands {
 
       override def extractResults(response: GetUpdatesResponse): IterableOnce[UpdateWrapper] =
         response.update.transaction
-          .map[UpdateWrapper](TransactionWrapper)
+          .map[UpdateWrapper](TransactionWrapper.apply)
           .orElse(response.update.reassignment.map(ReassignmentWrapper(_)))
     }
 

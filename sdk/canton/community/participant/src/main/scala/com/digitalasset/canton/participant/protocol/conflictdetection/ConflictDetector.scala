@@ -514,11 +514,11 @@ private[participant] class ConflictDetector(
           logger.debug(withRC(rc, "Wait for conflict detection store updates to complete"))
           List(
             acsFuture.toEitherTWithNonaborts
-              .leftMap(_.map(RequestTracker.AcsError))
+              .leftMap(_.map(RequestTracker.AcsError.apply))
               .value
               .map(_.toValidated),
             reassignmentCompletions.toEitherTWithNonaborts
-              .leftMap(_.map(ReassignmentsStoreError))
+              .leftMap(_.map(ReassignmentsStoreError.apply))
               .value
               .map(_.toValidated),
           ).sequence

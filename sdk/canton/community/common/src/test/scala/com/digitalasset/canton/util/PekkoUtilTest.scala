@@ -777,7 +777,7 @@ class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
           evaluated.set(true)
           "sentinel"
         })
-        .recover { case NonFatal(ex) => ex.getMessage }
+        .recover { case NonFatal(e) => e.getMessage }
         .toMat(TestSink.probe)(Keep.both)
         .run()
       sink.request(5)

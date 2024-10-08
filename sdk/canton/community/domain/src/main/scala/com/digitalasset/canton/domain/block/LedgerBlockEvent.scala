@@ -55,7 +55,7 @@ object LedgerBlockEvent extends HasLoggerName {
         } yield LedgerBlockEvent.Send(CantonTimestamp(timestamp), deserializedRequest, request.size)
       case RawBlockEvent.Acknowledgment(acknowledgement) =>
         deserializeSignedAcknowledgeRequest(protocolVersion)(acknowledgement).map(
-          LedgerBlockEvent.Acknowledgment
+          LedgerBlockEvent.Acknowledgment.apply
         )
     }
 
@@ -104,8 +104,10 @@ object LedgerBlockEvent extends HasLoggerName {
       )
 }
 
+/** @param tickTopologyAtLeastAt See [[RawLedgerBlock.tickTopologyAtMicrosFromEpoch]]
+  */
 final case class BlockEvents(
     height: Long,
     events: Seq[Traced[LedgerBlockEvent]],
-    tickTopology: Boolean,
+    tickTopologyAtLeastAt: Option[CantonTimestamp] = None,
 )

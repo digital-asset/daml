@@ -43,7 +43,7 @@ object ConsoleCommandResult {
           a: A
       )(f: A => ConsoleCommandResult[Either[A, B]]): ConsoleCommandResult[B] = {
         def go(ccr: ConsoleCommandResult[Either[A, B]]): ConsoleCommandResult[B] = ccr match {
-          case CommandSuccessful(Left(a)) => go(f(a))
+          case CommandSuccessful(Left(aa)) => go(f(aa))
           case CommandSuccessful(Right(b)) => CommandSuccessful(b)
           case err: CommandError => err
         }

@@ -639,9 +639,9 @@ private[events] object TransactionLogUpdatesConversions {
     }).map(event =>
       ApiReassignment(
         updateId = reassignmentAccepted.updateId,
-        commandId = reassignmentAccepted.completionDetails
-          .filter(details => stringRequestingParties.fold(true)(details.submitters.exists))
-          .flatMap(_.completionStreamResponse.completionResponse.completion)
+        commandId = reassignmentAccepted.completionStreamResponse
+          .flatMap(_.completionResponse.completion)
+          .filter(completion => stringRequestingParties.fold(true)(completion.actAs.exists))
           .map(_.commandId)
           .getOrElse(""),
         workflowId = reassignmentAccepted.workflowId,

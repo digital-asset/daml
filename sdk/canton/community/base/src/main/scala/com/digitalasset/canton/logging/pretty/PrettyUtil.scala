@@ -90,7 +90,7 @@ trait PrettyUtil {
         None
       }
 
-  def prettyInfix[T] = new PrettyUtil.PrettyInfixPartiallyApplied[T](false)
+  def prettyInfix[T] = new PrettyUtil.PrettyInfixPartiallyApplied[T](dummy = false)
 
   private def mkNameValue(name: String, valueTree: Tree): Tree =
     Tree.Infix(treeOfString(name), "=", valueTree)

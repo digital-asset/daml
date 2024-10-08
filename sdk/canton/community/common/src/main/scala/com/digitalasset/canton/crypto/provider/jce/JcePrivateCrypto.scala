@@ -63,7 +63,7 @@ class JcePrivateCrypto(
     for {
       javaKeyPair <- Either
         .catchOnly[GeneralSecurityException](EllipticCurves.generateKeyPair(curveType))
-        .leftMap[SigningKeyGenerationError](SigningKeyGenerationError.GeneralError)
+        .leftMap[SigningKeyGenerationError](SigningKeyGenerationError.GeneralError.apply)
     } yield fromJavaSigningKeyPair(javaKeyPair, scheme)
 
   override protected[crypto] def generateEncryptionKeypair(keySpec: EncryptionKeySpec)(implicit
@@ -93,7 +93,7 @@ class JcePrivateCrypto(
                 kpGen.generateKeyPair()
               }
             )
-            .leftMap[EncryptionKeyGenerationError](EncryptionKeyGenerationError.GeneralError)
+            .leftMap[EncryptionKeyGenerationError](EncryptionKeyGenerationError.GeneralError.apply)
         case EncryptionKeySpec.Rsa2048 =>
           Either
             .catchOnly[GeneralSecurityException](
@@ -103,7 +103,7 @@ class JcePrivateCrypto(
                 kpGen.generateKeyPair()
               }
             )
-            .leftMap[EncryptionKeyGenerationError](EncryptionKeyGenerationError.GeneralError)
+            .leftMap[EncryptionKeyGenerationError](EncryptionKeyGenerationError.GeneralError.apply)
       }).map(convertJavaKeyPair)
     }
   }
@@ -115,7 +115,7 @@ class JcePrivateCrypto(
       for {
         rawKeyPair <- Either
           .catchOnly[GeneralSecurityException](Ed25519Sign.KeyPair.newKeyPair())
-          .leftMap[SigningKeyGenerationError](SigningKeyGenerationError.GeneralError)
+          .leftMap[SigningKeyGenerationError](SigningKeyGenerationError.GeneralError.apply)
           .toEitherT[FutureUnlessShutdown]
         publicKey = ByteString.copyFrom(rawKeyPair.getPublicKey)
         privateKey = ByteString.copyFrom(rawKeyPair.getPrivateKey)

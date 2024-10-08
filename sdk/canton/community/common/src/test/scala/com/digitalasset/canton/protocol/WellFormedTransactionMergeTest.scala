@@ -334,7 +334,7 @@ class WellFormedTransactionMergeTest
             args(
               LfValue.ValueNumeric(com.digitalasset.daml.lf.data.Numeric.assertFromString("0.0"))
             ),
-            valueList(lfObservers.map(LfValue.ValueParty)),
+            valueList(lfObservers.map(LfValue.ValueParty.apply)),
           )
         case _ => arg
       },

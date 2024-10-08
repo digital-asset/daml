@@ -22,7 +22,7 @@ import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.util.ReassignmentTag.Source
-import com.digitalasset.canton.version.Reassignment.SourceProtocolVersion
+import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.ExecutionContext
 
@@ -38,7 +38,7 @@ class UnassignmentProcessor(
     seedGenerator: SeedGenerator,
     sequencerClient: SequencerClient,
     override protected val timeouts: ProcessingTimeout,
-    sourceProtocolVersion: SourceProtocolVersion,
+    sourceProtocolVersion: Source[ProtocolVersion],
     loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
     override val testingConfig: TestingConfigInternal,
@@ -65,8 +65,8 @@ class UnassignmentProcessor(
       domainCrypto,
       sequencerClient,
       domainId.unwrap,
-      staticDomainParameters.value,
-      sourceProtocolVersion.v,
+      staticDomainParameters.unwrap,
+      sourceProtocolVersion.unwrap,
       loggerFactory,
       futureSupervisor,
       promiseFactory,

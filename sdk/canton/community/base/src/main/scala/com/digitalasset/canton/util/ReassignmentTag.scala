@@ -5,7 +5,7 @@ package com.digitalasset.canton.util
 
 import cats.{Applicative, Eval, Monad, Traverse}
 import com.digitalasset.canton.logging.pretty.Pretty
-import slick.jdbc.{PositionedParameters, SetParameter}
+import slick.jdbc.{GetResult, PositionedParameters, SetParameter}
 
 /** In reassignment transactions, we deal with two domains: the source domain and the target domain.
   * The `Source` and `Target` wrappers help differentiate between these two domains, allowing us to manage
@@ -15,6 +15,7 @@ sealed trait ReassignmentTag[T] extends Product with Serializable {
   def unwrap: T
 }
 
+// Define instances for Traverse and Monad
 object ReassignmentTag {
 
   final case class Source[T](value: T) extends ReassignmentTag[T] {
@@ -29,6 +30,8 @@ object ReassignmentTag {
 
     implicit def setParameter[T](implicit s: SetParameter[T]): SetParameter[Source[T]] =
       (d: Source[T], pp: PositionedParameters) => pp >> d.unwrap
+
+    implicit def getResult[T: GetResult]: GetResult[Source[T]] = GetResult[T].andThen(Source(_))
 
     implicit val sourceMonadInstance: Monad[Source] & Traverse[Source] = new Monad[Source]
       with Traverse[Source] {
@@ -69,6 +72,8 @@ object ReassignmentTag {
 
     implicit def setParameter[T](implicit s: SetParameter[T]): SetParameter[Target[T]] =
       (d: Target[T], pp: PositionedParameters) => pp >> d.unwrap
+
+    implicit def getResult[T: GetResult]: GetResult[Target[T]] = GetResult[T].andThen(Target(_))
 
     implicit val targetMonadInstance: Monad[Target] & Traverse[Target] = new Monad[Target]
       with Traverse[Target] {

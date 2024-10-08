@@ -228,7 +228,7 @@ object SequencerWriterSource {
     val deliverEventSource = Source
       .queue[Presequenced[StoreEvent[Payload]]](writerConfig.payloadQueueSize)
       .via(WritePayloadsFlow(writerConfig, store, instanceDiscriminator, loggerFactory))
-      .map(Write.Event)
+      .map(Write.Event.apply)
 
     // push keep alive writes at the specified interval, or never if not set
     val keepAliveSource = keepAliveInterval
@@ -513,7 +513,7 @@ object SequenceWritesFlow {
           }
 
           sequenceEvent(sequencingTimestamp, event)
-            .map(SequencedWrite.Event)
+            .map(SequencedWrite.Event.apply)
             .getOrElse[SequencedWrite](SequencedWrite.KeepAlive(sequencingTimestamp))
       }
     }

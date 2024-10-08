@@ -33,7 +33,7 @@ trait MediatorDomainConfigurationStoreTest {
       val store = mkStore
       val connection = GrpcSequencerConnection(
         NonEmpty(Seq, Endpoint("sequencer", Port.tryCreate(100))),
-        true,
+        transportSecurity = true,
         None,
         SequencerAlias.Default,
       )
@@ -58,7 +58,7 @@ trait MediatorDomainConfigurationStoreTest {
           Endpoint("sequencer", Port.tryCreate(200)),
           Endpoint("sequencer", Port.tryCreate(300)),
         ),
-        true,
+        transportSecurity = true,
         None,
         SequencerAlias.Default,
       )

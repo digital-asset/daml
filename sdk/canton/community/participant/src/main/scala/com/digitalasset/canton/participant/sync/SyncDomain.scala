@@ -85,7 +85,7 @@ import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{EitherUtil, ErrorUtil, FutureUtil, MonadUtil}
-import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
+import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.engine.Engine
 import io.grpc.Status
 import io.opentelemetry.api.trace.Tracer
@@ -209,7 +209,7 @@ class SyncDomain(
     seedGenerator,
     sequencerClient,
     timeouts,
-    SourceProtocolVersion(staticDomainParameters.protocolVersion),
+    Source(staticDomainParameters.protocolVersion),
     loggerFactory,
     futureSupervisor,
     testingConfig = testingConfig,
@@ -228,7 +228,7 @@ class SyncDomain(
     seedGenerator,
     sequencerClient,
     timeouts,
-    TargetProtocolVersion(staticDomainParameters.protocolVersion),
+    Target(staticDomainParameters.protocolVersion),
     loggerFactory,
     futureSupervisor,
     testingConfig = testingConfig,
@@ -718,7 +718,7 @@ class SyncDomain(
       _ <-
         registerIdentityTransactionHandle
           .domainConnected()(initializationTraceContext)
-          .leftMap[SyncDomainInitializationError](ParticipantTopologyHandshakeError)
+          .leftMap[SyncDomainInitializationError](ParticipantTopologyHandshakeError.apply)
     } yield {
       logger.debug(s"Started sync domain for $domainId")(initializationTraceContext)
       ephemeral.markAsRecovered()
@@ -850,7 +850,7 @@ class SyncDomain(
       submitterMetadata: ReassignmentSubmitterMetadata,
       contractId: LfContractId,
       targetDomain: Target[DomainId],
-      targetProtocolVersion: TargetProtocolVersion,
+      targetProtocolVersion: Target[ProtocolVersion],
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, ReassignmentProcessorError, FutureUnlessShutdown[

@@ -24,7 +24,7 @@ final case class StoredTopologyTransactions[+Op <: TopologyChangeOp, +M <: Topol
 ) extends HasVersionedWrapper[StoredTopologyTransactions[TopologyChangeOp, TopologyMapping]]
     with PrettyPrinting {
 
-  override protected def companionObj = StoredTopologyTransactions
+  override protected def companionObj: StoredTopologyTransactions.type = StoredTopologyTransactions
 
   override protected def pretty: Pretty[StoredTopologyTransactions.this.type] = prettyOfParam(
     _.result

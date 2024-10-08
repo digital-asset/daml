@@ -24,7 +24,7 @@ object HandshakeResponse {
       case v30.SequencerConnect.HandshakeResponse.Value.Empty =>
         Left(ProtoDeserializationError.FieldNotSet("HandshakeResponse.value"))
       case v30.SequencerConnect.HandshakeResponse.Value.Success(_success) =>
-        ProtocolVersion.fromProtoPrimitive(responseP.serverProtocolVersion).map(Success)
+        ProtocolVersion.fromProtoPrimitive(responseP.serverProtocolVersion).map(Success.apply)
       case v30.SequencerConnect.HandshakeResponse.Value.Failure(failure) =>
         ProtocolVersion
           .fromProtoPrimitive(responseP.serverProtocolVersion)

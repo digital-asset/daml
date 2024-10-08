@@ -33,7 +33,7 @@ object TransactionLogUpdate {
     * @param effectiveAt The transaction ledger time.
     * @param offset The transaction's offset in the ledger.
     * @param events The transaction events, in execution order.
-    * @param completionDetails The successful submission's completion details.
+    * @param completionStreamResponse The successful submission's completion details.
     * @param recordTime The time at which the transaction was recorded.
     */
   final case class TransactionAccepted(
@@ -43,7 +43,7 @@ object TransactionLogUpdate {
       effectiveAt: Timestamp,
       offset: Offset,
       events: Vector[Event],
-      completionDetails: Option[CompletionDetails],
+      completionStreamResponse: Option[CompletionStreamResponse],
       domainId: String,
       recordTime: Timestamp,
   ) extends TransactionLogUpdate
@@ -51,11 +51,11 @@ object TransactionLogUpdate {
   /** A rejected submission.
     *
     * @param offset The offset at which the rejection has been enqueued in the ledger.
-    * @param completionDetails The rejected submission's completion details.
+    * @param completionStreamResponse The rejected submission's completion details.
     */
   final case class TransactionRejected(
       offset: Offset,
-      completionDetails: CompletionDetails,
+      completionStreamResponse: CompletionStreamResponse,
   ) extends TransactionLogUpdate
 
   final case class ReassignmentAccepted(
@@ -64,7 +64,7 @@ object TransactionLogUpdate {
       workflowId: String,
       offset: Offset,
       recordTime: Timestamp,
-      completionDetails: Option[CompletionDetails],
+      completionStreamResponse: Option[CompletionStreamResponse],
       reassignmentInfo: ReassignmentInfo,
       reassignment: ReassignmentAccepted.Reassignment,
   ) extends TransactionLogUpdate
@@ -76,16 +76,6 @@ object TransactionLogUpdate {
         unassign: com.digitalasset.canton.ledger.participant.state.Reassignment.Unassign
     ) extends Reassignment
   }
-
-  /** The transaction's completion details.
-    *
-    * @param completionStreamResponse The completion details
-    * @param submitters The original command submitters
-    */
-  final case class CompletionDetails(
-      completionStreamResponse: CompletionStreamResponse,
-      submitters: Set[String],
-  )
 
   /* Models all but divulgence events */
   sealed trait Event extends Product with Serializable {

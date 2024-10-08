@@ -44,5 +44,5 @@ object MaximumLedgerTime {
   final case class Archived(contracts: Set[ContractId]) extends MaximumLedgerTime
 
   def from(optionalMaximumLedgerTime: Option[Timestamp]): MaximumLedgerTime =
-    optionalMaximumLedgerTime.fold[MaximumLedgerTime](NotAvailable)(Max)
+    optionalMaximumLedgerTime.fold[MaximumLedgerTime](NotAvailable)(Max.apply)
 }

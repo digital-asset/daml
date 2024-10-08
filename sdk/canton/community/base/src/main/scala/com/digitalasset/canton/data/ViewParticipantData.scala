@@ -471,7 +471,7 @@ object ViewParticipantData
           rollbackContext = rollbackContext,
           salt = salt,
         )(hashOps, rpv, Some(bytes))
-      ).leftMap(ProtoDeserializationError.OtherError)
+      ).leftMap(ProtoDeserializationError.OtherError.apply)
     } yield viewParticipantData
   }
 

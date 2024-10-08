@@ -33,7 +33,7 @@ object HmacSha256 {
     private[this] val base = implicitly[JsonFormat[String]]
     override def write(obj: Bytes): JsValue = base.write(obj.toBase64)
     override def read(json: JsValue): Bytes = fromBase64(base.read(json))
-      .map(Bytes)
+      .map(Bytes.apply)
       .fold(deserializationError(s"Failed to deserialize $json", _), identity)
   }
 

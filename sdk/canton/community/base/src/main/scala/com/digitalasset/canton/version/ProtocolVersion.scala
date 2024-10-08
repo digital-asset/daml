@@ -131,7 +131,7 @@ object ProtocolVersion {
 
   lazy implicit val protocolVersionReader: ConfigReader[ProtocolVersion] =
     ConfigReader.fromString[ProtocolVersion] { str =>
-      ProtocolVersion.create(str).leftMap[FailureReason](InvalidProtocolVersion)
+      ProtocolVersion.create(str).leftMap[FailureReason](InvalidProtocolVersion.apply)
     }
 
   implicit val getResultProtocolVersion: GetResult[ProtocolVersion] =
@@ -279,30 +279,6 @@ final case class ReleaseProtocolVersion(v: ProtocolVersion) extends AnyVal
 
 object ReleaseProtocolVersion {
   val latest: ReleaseProtocolVersion = ReleaseProtocolVersion(ProtocolVersion.latest)
-}
-
-object Reassignment {
-
-  /** When dealing with reassignments, allow to be more precise with respect to the domain */
-  final case class SourceProtocolVersion(v: ProtocolVersion) extends AnyVal
-
-  object SourceProtocolVersion {
-    implicit val getResultSourceProtocolVersion: GetResult[SourceProtocolVersion] =
-      GetResult[ProtocolVersion].andThen(SourceProtocolVersion(_))
-
-    implicit val setParameterSourceProtocolVersion: SetParameter[SourceProtocolVersion] =
-      (pv: SourceProtocolVersion, pp: PositionedParameters) => pp >> pv.v
-  }
-
-  final case class TargetProtocolVersion(v: ProtocolVersion) extends AnyVal
-
-  object TargetProtocolVersion {
-    implicit val getResultTargetProtocolVersion: GetResult[TargetProtocolVersion] =
-      GetResult[ProtocolVersion].andThen(TargetProtocolVersion(_))
-
-    implicit val setParameterTargetProtocolVersion: SetParameter[TargetProtocolVersion] =
-      (pv: TargetProtocolVersion, pp: PositionedParameters) => pp >> pv.v
-  }
 }
 
 final case class ProtoVersion(v: Int) extends AnyVal

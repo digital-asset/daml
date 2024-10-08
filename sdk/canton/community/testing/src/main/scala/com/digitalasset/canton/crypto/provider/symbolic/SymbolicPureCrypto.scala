@@ -209,7 +209,7 @@ class SymbolicPureCrypto extends CryptoPureApi {
         (),
         DecryptionError.FailedToDecrypt(s"Payload contains more than key id and ciphertext"),
       )
-      message <- deserialize(plaintext).leftMap(DecryptionError.FailedToDeserialize)
+      message <- deserialize(plaintext).leftMap(DecryptionError.FailedToDeserialize.apply)
 
     } yield message
 
@@ -281,7 +281,7 @@ class SymbolicPureCrypto extends CryptoPureApi {
         (),
         DecryptionError.FailedToDecrypt(s"Payload contains more than key and ciphertext"),
       )
-      message <- deserialize(plaintext).leftMap(DecryptionError.FailedToDeserialize)
+      message <- deserialize(plaintext).leftMap(DecryptionError.FailedToDeserialize.apply)
 
     } yield message
 

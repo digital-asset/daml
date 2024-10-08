@@ -20,7 +20,7 @@ class DbSequencerCounterTrackerStore(
 )(implicit ec: ExecutionContext)
     extends SequencerCounterTrackerStore
     with NamedLogging {
-  override protected[store] val cursorStore =
+  override protected[store] val cursorStore: DbCursorPreheadStore[SequencerCounterDiscriminator] =
     new DbCursorPreheadStore[SequencerCounterDiscriminator](
       indexedDomain,
       storage,

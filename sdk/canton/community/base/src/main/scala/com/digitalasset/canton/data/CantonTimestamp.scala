@@ -7,6 +7,7 @@ import cats.Order
 import cats.syntax.either.*
 import com.digitalasset.canton.LfTimestamp
 import com.digitalasset.canton.ProtoDeserializationError.TimestampConversionError
+import com.digitalasset.canton.data.CantonTimestamp.TimeGranularity
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.RefinedDuration
@@ -16,6 +17,8 @@ import slick.jdbc.{GetResult, SetParameter}
 
 import java.time.{Duration, Instant}
 import java.util.Date
+import scala.concurrent.duration.*
+import scala.jdk.DurationConverters.ScalaDurationOps
 
 /** A timestamp implementation for canton, which currently uses a [[LfTimestamp]].
   * @param underlying A [[LfTimestamp]], holding the value of this [[CantonTimestamp]].
@@ -46,9 +49,9 @@ final case class CantonTimestamp(underlying: LfTimestamp)
   def minusMillis(millis: Long): CantonTimestamp =
     new CantonTimestamp(underlying.add(Duration.ZERO.minus(Duration.ofMillis(millis))))
 
-  def immediatePredecessor: CantonTimestamp = new CantonTimestamp(underlying.addMicros(-1L))
+  def immediatePredecessor: CantonTimestamp = minus(TimeGranularity.toJava)
 
-  def immediateSuccessor: CantonTimestamp = new CantonTimestamp(underlying.addMicros(1L))
+  def immediateSuccessor: CantonTimestamp = add(TimeGranularity.toJava)
 
   override def compare(that: CantonTimestamp): Int = underlying.compare(that.underlying)
 
@@ -73,6 +76,8 @@ final case class CantonTimestamp(underlying: LfTimestamp)
 
 object CantonTimestamp {
 
+  val TimeGranularity: FiniteDuration = 1.microsecond
+
   def Epoch: CantonTimestamp = new CantonTimestamp(LfTimestamp.Epoch)
 
   def MinValue: CantonTimestamp = new CantonTimestamp(LfTimestamp.MinValue)
@@ -86,7 +91,7 @@ object CantonTimestamp {
     } yield new CantonTimestamp(ts)
 
   def fromProtoPrimitive(ts: Long): ParsingResult[CantonTimestamp] =
-    LfTimestamp.fromLong(ts).bimap(TimestampConversionError, new CantonTimestamp(_))
+    LfTimestamp.fromLong(ts).bimap(TimestampConversionError.apply, new CantonTimestamp(_))
 
   def ofEpochSecond(seconds: Long): CantonTimestamp = {
     // Explicitly check the bounds here to avoid overflows due to the scaling by 1M

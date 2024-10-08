@@ -65,7 +65,7 @@ object JcsSigner {
     val result: Either[VerificationStatus, VerificationStatus] = for {
       actual <- report.check.toRight(MissingCheckSection)
       key <- keyLookup(actual.scheme).toRight(UnknownScheme(actual.scheme))
-      expected <- generateCheck(report, key).left.map(CheckGeneration)
+      expected <- generateCheck(report, key).left.map(CheckGeneration.apply)
     } yield {
       if (actual == expected) Ok else DigestMismatch(expected.digest)
     }

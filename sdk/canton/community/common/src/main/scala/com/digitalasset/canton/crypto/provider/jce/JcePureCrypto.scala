@@ -225,7 +225,7 @@ class JcePureCrypto(
       ecPrivateKey <- parseAndGetPrivateKey(
         signingKey,
         { case k: ECPrivateKey => Right(k) },
-        SigningError.InvalidSigningKey,
+        SigningError.InvalidSigningKey.apply,
       )
       signer <- Either
         .catchOnly[GeneralSecurityException](
@@ -239,7 +239,7 @@ class JcePureCrypto(
       hashType: HashType,
   ): Either[SignatureCheckError, PublicKeyVerify] =
     for {
-      javaPublicKey <- parseAndGetPublicKey(publicKey, SignatureCheckError.InvalidKeyError)
+      javaPublicKey <- parseAndGetPublicKey(publicKey, SignatureCheckError.InvalidKeyError.apply)
       ecPublicKey <- javaPublicKey match {
         case k: ECPublicKey => Right(k)
         case _ =>
@@ -304,7 +304,7 @@ class JcePureCrypto(
           _ <- CryptoKeyValidation.ensureFormat(
             signingKey.format,
             Set(CryptoKeyFormat.Raw),
-            SigningError.InvalidSigningKey,
+            SigningError.InvalidSigningKey.apply,
           )
           signer <- Either
             .catchOnly[GeneralSecurityException](new Ed25519Sign(signingKey.key.toByteArray))
@@ -351,7 +351,7 @@ class JcePureCrypto(
           for {
             javaPublicKey <- parseAndGetPublicKey(
               publicKey,
-              SignatureCheckError.InvalidKeyError,
+              SignatureCheckError.InvalidKeyError.apply,
             )
             ed25519PublicKey <- javaPublicKey match {
               case k: BCEdDSAPublicKey =>
@@ -443,7 +443,7 @@ class JcePureCrypto(
       random: SecureRandom,
   ): Either[EncryptionError, AsymmetricEncrypted[M]] =
     for {
-      javaPublicKey <- parseAndGetPublicKey(publicKey, EncryptionError.InvalidEncryptionKey)
+      javaPublicKey <- parseAndGetPublicKey(publicKey, EncryptionError.InvalidEncryptionKey.apply)
       ecPublicKey <- javaPublicKey match {
         case k: ECPublicKey =>
           checkEcKeyInCurve(k, publicKey.id).leftMap(err =>
@@ -493,7 +493,7 @@ class JcePureCrypto(
       random: SecureRandom,
   ): Either[EncryptionError, AsymmetricEncrypted[M]] =
     for {
-      javaPublicKey <- parseAndGetPublicKey(publicKey, EncryptionError.InvalidEncryptionKey)
+      javaPublicKey <- parseAndGetPublicKey(publicKey, EncryptionError.InvalidEncryptionKey.apply)
       rsaPublicKey <- javaPublicKey match {
         case k: RSAPublicKey =>
           for {
@@ -723,7 +723,7 @@ class JcePureCrypto(
                 )
                 .leftMap(err => DecryptionError.FailedToDecrypt(err.toString))
               message <- deserialize(ByteString.copyFrom(plaintext))
-                .leftMap(DecryptionError.FailedToDeserialize)
+                .leftMap(DecryptionError.FailedToDeserialize.apply)
             } yield message
           case EncryptionAlgorithmSpec.RsaOaepSha256 =>
             for {
@@ -789,7 +789,7 @@ class JcePureCrypto(
           _ <- CryptoKeyValidation.ensureFormat(
             symmetricKey.format,
             Set(CryptoKeyFormat.Raw),
-            EncryptionError.InvalidSymmetricKey,
+            EncryptionError.InvalidSymmetricKey.apply,
           )
           encryptedBytes <- encryptAes128Gcm(bytes, symmetricKey.key)
           encrypted = new Encrypted[M](encryptedBytes)
@@ -818,10 +818,10 @@ class JcePureCrypto(
           _ <- CryptoKeyValidation.ensureFormat(
             symmetricKey.format,
             Set(CryptoKeyFormat.Raw),
-            DecryptionError.InvalidSymmetricKey,
+            DecryptionError.InvalidSymmetricKey.apply,
           )
           plaintext <- decryptAes128Gcm(encrypted.ciphertext, symmetricKey.key)
-          message <- deserialize(plaintext).leftMap(DecryptionError.FailedToDeserialize)
+          message <- deserialize(plaintext).leftMap(DecryptionError.FailedToDeserialize.apply)
         } yield message
     }
 

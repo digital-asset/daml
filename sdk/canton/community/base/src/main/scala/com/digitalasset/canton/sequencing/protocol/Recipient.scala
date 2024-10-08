@@ -46,7 +46,7 @@ object Recipient {
     lazy val codeE = GroupRecipientCode.fromProtoPrimitive(typ, fieldName)
 
     if (codeE.isLeft)
-      Member.fromProtoPrimitive(recipient, fieldName).map(MemberRecipient)
+      Member.fromProtoPrimitive(recipient, fieldName).map(MemberRecipient.apply)
     else
       for {
         _ <- Either.cond(

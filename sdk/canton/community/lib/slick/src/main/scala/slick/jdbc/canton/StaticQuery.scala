@@ -1,17 +1,11 @@
 package slick.jdbc.canton
 
 import slick.dbio.{Effect, NoStream}
-import slick.jdbc.{
-  GetResult,
-  PositionedParameters,
-  PositionedResult,
-  SetParameter,
-  StatementInvoker,
-  StreamingInvokerAction
-}
+import slick.jdbc.{GetResult, PositionedParameters, PositionedResult, SetParameter, StatementInvoker, StreamingInvokerAction}
 import slick.sql.{SqlAction, SqlStreamingAction}
 
 import java.sql.PreparedStatement
+import scala.collection.mutable
 import scala.language.experimental.macros
 import scala.language.implicitConversions
 import scala.reflect.macros.blackbox
@@ -54,13 +48,13 @@ final case class SQLActionBuilder(queryParts: Seq[Any], unitPConv: SetParameter[
       if (queryParts.length == 1 && queryParts(0).isInstanceOf[String]) queryParts(0).asInstanceOf[String]
       else queryParts.iterator.map(String.valueOf).mkString
     new StreamingInvokerAction[Vector[R], R, E] {
-      def statements = List(query)
-      protected[this] def createInvoker(statements: Iterable[String]) = new StatementInvoker[R] {
+      def statements: Iterable[String] = List(query)
+      protected[this] def createInvoker(statements: Iterable[String]): StatementInvoker[R] = new StatementInvoker[R] {
         val getStatement                                    = statements.head
         protected def setParam(st: PreparedStatement)       = unitPConv((), new PositionedParameters(st))
         protected def extractValue(rs: PositionedResult): R = rconv(rs)
       }
-      protected[this] def createBuilder = Vector.newBuilder[R]
+      protected[this] def createBuilder: mutable.ReusableBuilder[R, Vector[R]] = Vector.newBuilder[R]
     }
   }
 

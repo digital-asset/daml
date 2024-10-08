@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.util
 
-import cats.syntax.functor.*
 import com.daml.nameof.NameOf.qualifiedNameOfCurrentFunc
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.DirectExecutionContext

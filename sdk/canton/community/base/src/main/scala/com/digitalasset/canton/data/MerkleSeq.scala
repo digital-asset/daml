@@ -608,7 +608,7 @@ object MerkleSeq
 
     if (size == 0) Seq.empty[MerkleSeqIndex]
     else {
-      val tree = mkTree[Node](Iterator.fill[Node](size)(Leaf), size)(Inner)
+      val tree = mkTree[Node](Iterator.fill[Node](size)(Leaf), size)(Inner.apply)
       // enumerate all paths in the tree from left to right
       tree.addTo(emptyPath, List.empty[MerkleSeqIndex])
     }

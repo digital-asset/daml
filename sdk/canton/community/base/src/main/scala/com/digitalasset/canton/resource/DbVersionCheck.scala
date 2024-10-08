@@ -72,7 +72,7 @@ object DbVersionCheck extends HasLoggerName {
               )
           }
         } yield ()
-        either.leftMap(DbMigrations.DatabaseVersionError)
+        either.leftMap(DbMigrations.DatabaseVersionError.apply)
 
       case Profile.H2(_) =>
         // We don't perform version checks for H2

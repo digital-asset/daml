@@ -481,7 +481,7 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
       decrypted <- eitherT(
         EncryptedView
           .decrypt(pureCrypto, viewKey, encrypted.encryptedView)(deserialize)
-          .leftMap(EncryptedViewMessageError.SymmetricDecryptError)
+          .leftMap(EncryptedViewMessageError.SymmetricDecryptError.apply)
       )
       _ <- eitherT(
         EitherUtil.condUnitE(

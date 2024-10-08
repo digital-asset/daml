@@ -200,9 +200,9 @@ object AuthServiceJWTCodec {
 
   private def readPayload(value: JsValue): AuthServiceJWTPayload = value match {
     case JsObject(fields) =>
-      val scope = fields.get(propScope)
+      val scopeO = fields.get(propScope)
       // Support scope that spells 'daml_ledger_api'
-      val scopes = scope.toList.collect { case JsString(scope) => scope.split(" ") }.flatten
+      val scopes = scopeO.toList.collect { case JsString(scope) => scope.split(" ") }.flatten
       // We're using this rather restrictive test to ensure we continue parsing all legacy sandbox tokens that
       // are in use before the 2.0 release; and thereby maintain full backwards compatibility.
       val audienceValue = readOptionalStringOrArray(propAud, fields)

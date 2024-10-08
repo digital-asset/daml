@@ -589,7 +589,7 @@ final class LfValueTranslation(
 
           case LfEngine.ResultError(err) =>
             err
-              .pipe(ErrorCause.DamlLf)
+              .pipe(ErrorCause.DamlLf.apply)
               .pipe(RejectionGenerators.commandExecutorError)
               .pipe(_.asGrpcStatus)
               .pipe(Left.apply)

@@ -168,7 +168,8 @@ trait SequencerDriver extends AutoCloseable {
 }
 
 object SequencerDriver {
-  val DefaultInitialBlockHeight = -1L
+
+  val DefaultInitialBlockHeight: Long = -1L
 
   // domain bootstrap will load this version of driver; bump for incompatible change
   val DriverApiVersion = 1
@@ -178,13 +179,21 @@ object SequencerDriver {
   *
   * @param blockHeight The height of the block. Block heights must be consecutive.
   * @param events The events in the given block.
-  * @param tickTopology Whether the sequencer's topology processor should be ticked after processing this block, so
-  *                     that it can return an up-to-date topology.
+  * @param tickTopologyAtMicrosFromEpoch Set by the block orderer whenever it assesses that it may need to retrieve
+  *                                       an up-to-date topology; it is set to the sequencing instant being used
+  *                                       to query the topology snapshot.
+  *                                       A non-byzantine block orderer will set it to a sequencing time less than
+  *                                       the one of all future ordered requests, else the sequencer could
+  *                                       skip topology updates and fork.
+  *                                       The block orderer needs to communicate this timestamp to the sequencer
+  *                                       because the sequencer cannot possibly guess it, as some requests
+  *                                       in ordered blocks may fail to be validated and be dropped
+  *                                       by the sequencer after the blocks are ordered.
   */
 final case class RawLedgerBlock(
     blockHeight: Long,
     events: Seq[Traced[RawLedgerBlock.RawBlockEvent]],
-    tickTopology: Boolean,
+    tickTopologyAtMicrosFromEpoch: Option[Long] = None,
 )
 
 object RawLedgerBlock {

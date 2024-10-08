@@ -207,7 +207,7 @@ private[mediator] class DefaultVerdictSender(
           if (request.informeesArePublic) request.allInformees else Set.empty,
           protocolVersion,
         )
-        val recipientSeq = informeesMap.keys.toSeq.map(MemberRecipient)
+        val recipientSeq = informeesMap.keys.toSeq.map(MemberRecipient.apply)
         val recipients =
           NonEmpty
             .from(recipientSeq.map((r: Recipient) => NonEmpty(Set, r).toSet))

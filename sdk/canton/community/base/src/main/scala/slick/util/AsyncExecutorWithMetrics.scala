@@ -67,7 +67,7 @@ class AsyncExecutorWithMetrics(
     )
   }
 
-  lazy val executionContext = {
+  lazy val executionContext: ExecutionContextExecutor = {
     if (!state.compareAndSet(0, 1))
       throw new IllegalStateException(
         "Cannot initialize ExecutionContext; AsyncExecutor already shut down"

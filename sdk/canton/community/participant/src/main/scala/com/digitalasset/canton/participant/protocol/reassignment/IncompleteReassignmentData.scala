@@ -12,7 +12,7 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.canton.version.Reassignment.SourceProtocolVersion
+import com.digitalasset.canton.version.ProtocolVersion
 import io.scalaland.chimney.dsl.*
 
 /** Stores the data for a reassignment that is incomplete, i.e., for which only the assignment or the unassignment was
@@ -24,7 +24,7 @@ import io.scalaland.chimney.dsl.*
   * The same holds symmetrically for a [[IncompleteReassignmentData.AssignmentEventGlobalOffset]].
   */
 final case class IncompleteReassignmentData private (
-    sourceProtocolVersion: SourceProtocolVersion,
+    sourceProtocolVersion: Source[ProtocolVersion],
     unassignmentTs: CantonTimestamp,
     unassignmentRequestCounter: RequestCounter,
     unassignmentRequest: FullUnassignmentTree,

@@ -113,7 +113,7 @@ object EndpointsCompanion extends NoTracing {
       UserId
         .fromString(jwt.userId)
         .disjunction
-        .leftMap(Unauthorized)
+        .leftMap(Unauthorized.apply)
 
     private def transformUserTokenTo[B](
         jwt: StandardJWTPayload,

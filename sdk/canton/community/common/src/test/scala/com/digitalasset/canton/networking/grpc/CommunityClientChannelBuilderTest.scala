@@ -22,7 +22,7 @@ class CommunityClientChannelBuilderTest extends BaseTestWordSpec {
             Endpoint("localhost", Port.tryCreate(3000)),
             Endpoint("localhost", Port.tryCreate(3001)),
           ),
-          false,
+          useTls = false,
           mock[Executor],
         ),
         _.warningMessage should (

@@ -68,7 +68,7 @@ object GeneratorsLf {
   private val lfVersionedGlobalKeyGen: Gen[Versioned[LfGlobalKey]] = for {
     templateId <- Arbitrary.arbitrary[LfTemplateId]
     // We consider only this specific value because the goal is not exhaustive testing of LF (de)serialization
-    value <- Gen.long.map(ValueInt64)
+    value <- Gen.long.map(ValueInt64.apply)
   } yield ExampleTransactionFactory.globalKey(templateId, value)
 
   implicit val lfGlobalKeyArb: Arbitrary[LfGlobalKey] = Arbitrary(

@@ -350,8 +350,8 @@ class ParticipantTab(
               case Success(prunedOffset) =>
                 logger.info(s"Resubscribing from offset $prunedOffset instead")
                 reStart(Some(prunedOffset))
-              case Failure(t) =>
-                logger.error("Out-of-range error does not match pruning error", t)
+              case Failure(throwable) =>
+                logger.error("Out-of-range error does not match pruning error", throwable)
 
             }
           case _ =>

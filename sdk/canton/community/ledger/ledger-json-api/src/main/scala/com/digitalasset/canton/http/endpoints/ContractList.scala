@@ -64,13 +64,13 @@ private[http] final class ContractList(
                 either(
                   SprayJson
                     .decode[domain.FetchRequest[JsValue]](reqBody)
-                    .liftErr[Error](InvalidUserInput)
+                    .liftErr[Error](InvalidUserInput.apply)
                 )
                   .flatMap(
                     _.traverseLocator(
                       decoder
                         .decodeContractLocatorKey(_, jwt)
-                        .liftErr(InvalidUserInput)
+                        .liftErr(InvalidUserInput.apply)
                     )
                   ): ET[domain.FetchRequest[LfValue]]
               _ <- EitherT.pure(parseAndDecodeTimer.stop())
@@ -127,7 +127,7 @@ private[http] final class ContractList(
             val res = for {
               cmd <- SprayJson
                 .decode[domain.GetActiveContractsRequest](reqBody)
-                .liftErr[Error](InvalidUserInput)
+                .liftErr[Error](InvalidUserInput.apply)
               _ <- ensureReadAsAllowedByJwt(cmd.readAs, jwtPayload)
             } yield withEnrichedLoggingContext(
               LoggingContextOf.label[domain.GetActiveContractsRequest],

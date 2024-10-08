@@ -57,7 +57,7 @@ final case class Witnesses(unwrap: NonEmpty[Seq[Set[LfPartyId]]]) {
               )
             }
             recipients = informeeParticipants.toList.flatMap { case (_, participants) =>
-              participants.map[Recipient](MemberRecipient)
+              participants.map[Recipient](MemberRecipient.apply)
             }.toSet
 
             informeeRecipientSet <- EitherT.fromOption[Future](

@@ -124,10 +124,10 @@ class UseCommunityReferenceBlockSequencer[S <: CommunityStorageConfig](
     def mapSequencerConfigs(
         kv: (InstanceName, CommunitySequencerNodeConfig)
     ): (InstanceName, CommunitySequencerNodeConfig) = kv match {
-      case (name, config) =>
+      case (name, cfg) =>
         (
           name,
-          config.focus(_.sequencer).replace(sequencersToConfig(name)),
+          cfg.focus(_.sequencer).replace(sequencersToConfig(name)),
         )
     }
 

@@ -75,7 +75,7 @@ trait DbMigrations { this: NamedLogging =>
         forMigration = true,
         retryConfig = retryConfig,
       )(loggerFactory)
-      .leftMap(DbMigrations.DatabaseError)
+      .leftMap(DbMigrations.DatabaseError.apply)
       .flatMap(db => ResourceUtil.withResource(db)(fn))
 
   /** Obtain access to the database to run the migration operation. */
@@ -93,7 +93,7 @@ trait DbMigrations { this: NamedLogging =>
       Either
         .catchOnly[FlywayException](flyway.migrate())
         .map(r => logger.info(s"Applied ${r.migrationsExecuted} migrations successfully"))
-        .leftMap(DbMigrations.FlywayError)
+        .leftMap(DbMigrations.FlywayError.apply)
     }
 
   protected def repairFlywayMigrationInternal(
@@ -106,7 +106,7 @@ trait DbMigrations { this: NamedLogging =>
           s"The repair of the Flyway database migration succeeded. This is the Flyway repair report: $r"
         )
       )
-      .leftMap[DbMigrations.Error](DbMigrations.FlywayError)
+      .leftMap[DbMigrations.Error](DbMigrations.FlywayError.apply)
       .toEitherT[UnlessShutdown]
 
   protected def dbConfig: DbConfig
@@ -254,7 +254,7 @@ trait DbMigrations { this: NamedLogging =>
     for {
       info <- Either
         .catchOnly[FlywayException](flyway.info())
-        .leftMap(DbMigrations.FlywayError)
+        .leftMap(DbMigrations.FlywayError.apply)
       pendingMigrations = info.pending()
       _ <-
         if (pendingMigrations.isEmpty) Right(())

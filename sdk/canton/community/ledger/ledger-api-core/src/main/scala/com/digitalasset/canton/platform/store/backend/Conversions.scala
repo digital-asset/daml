@@ -19,7 +19,7 @@ private[backend] object Conversions {
 
   private def stringColumnToX[X](f: String => Either[String, X]): Column[X] =
     Column.nonNull((value: Any, meta) =>
-      Column.columnToString(value, meta).flatMap(x => f(x).left.map(SqlMappingError))
+      Column.columnToString(value, meta).flatMap(x => f(x).left.map(SqlMappingError.apply))
     )
 
   private final class SubTypeOfStringToStatement[S <: String] extends ToStatement[S] {

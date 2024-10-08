@@ -43,7 +43,7 @@ final case class ContractMetadata private (
       )
   }
 
-  override protected def companionObj = ContractMetadata
+  override protected def companionObj: ContractMetadata.type = ContractMetadata
 
   def maybeKeyWithMaintainers: Option[LfGlobalKeyWithMaintainers] =
     maybeKeyWithMaintainersVersioned.map(_.unversioned)

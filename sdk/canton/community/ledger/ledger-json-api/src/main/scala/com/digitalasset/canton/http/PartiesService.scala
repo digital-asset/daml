@@ -58,21 +58,23 @@ class PartiesService(
       mat: Materializer,
   ): Future[AllPartiesRet] = {
     import scalaz.std.option.*
-    Source.unfoldAsync(some("")) {
-      _ traverse { pageToken =>
-        listAllParties(jwt, pageToken, 0)(lc)
-          .map {
-            case -\/(e) => (None, -\/(handleGrpcError(e)))
-            case \/-((parties, "")) => (None, \/-(parties))
-            case \/-((parties, pageToken)) => (Some(pageToken), \/-(parties))
-          }
-          // if the listAllParties call fails, stop the stream and emit the error as a "warning"
-          .recover(Error.fromThrowable andThen (e => (None, -\/(e))))
+    Source
+      .unfoldAsync(some("")) {
+        _ traverse { pageToken =>
+          listAllParties(jwt, pageToken, 0)(lc)
+            .map {
+              case -\/(e) => (None, -\/(handleGrpcError(e)))
+              case \/-((parties, "")) => (None, \/-(parties))
+              case \/-((parties, pageToken)) => (Some(pageToken), \/-(parties))
+            }
+            // if the listAllParties call fails, stop the stream and emit the error as a "warning"
+            .recover(Error.fromThrowable andThen (e => (None, -\/(e))))
+        }
       }
-    }.toMat(Sink.fold(\/-(List.empty):AllPartiesRet){
-        case (-\/(e),_) => -\/(e)
-        case (_,-\/(e)) => -\/(e)
-        case (\/-(acc),\/-(more)) => \/-(acc ++ more.map(domain.PartyDetails.fromLedgerApi))
+      .toMat(Sink.fold(\/-(List.empty): AllPartiesRet) {
+        case (-\/(e), _) => -\/(e)
+        case (_, -\/(e)) => -\/(e)
+        case (\/-(acc), \/-(more)) => \/-(acc ++ more.map(domain.PartyDetails.fromLedgerApi))
       })(Keep.right)
       .run()
   }
@@ -114,13 +116,13 @@ object PartiesService {
   def toLedgerApiPartySet(
       ps: domain.PartySet
   ): InvalidUserInput \/ OneAnd[Set, Ref.Party] = {
-    import scalaz.std.list._
+    import scalaz.std.list.*
     val enel: InvalidUserInput \/ NonEmptyF[List, Ref.Party] = ps.toList.toNEF traverse toLedgerApi
     enel.map { case x +-: xs => OneAnd(x, xs.toSet) }
   }
 
   def toLedgerApi(p: domain.Party): InvalidUserInput \/ Ref.Party =
     \/.fromEither(Ref.Party.fromString(domain.Party.unwrap(p)))
-      .liftErrS("PartiesService.toLedgerApi")(InvalidUserInput)
+      .liftErrS("PartiesService.toLedgerApi")(InvalidUserInput.apply)
 
 }

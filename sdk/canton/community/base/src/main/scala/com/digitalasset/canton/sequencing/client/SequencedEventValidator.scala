@@ -359,7 +359,9 @@ object SequencedEventValidator extends HasLoggerName {
       getDynamicDomainParameters(snapshot.ipsSnapshot, traceContext)
         .map { dynamicDomainParametersE =>
           for {
-            dynamicDomainParameters <- dynamicDomainParametersE.leftMap(NoDynamicDomainParameters)
+            dynamicDomainParameters <- dynamicDomainParametersE.leftMap(
+              NoDynamicDomainParameters.apply
+            )
             tolerance = getTolerance(dynamicDomainParameters)
             withinSigningTolerance = {
               import scala.Ordered.orderingToOrdered

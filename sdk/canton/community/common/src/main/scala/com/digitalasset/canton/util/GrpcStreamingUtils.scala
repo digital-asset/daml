@@ -186,7 +186,7 @@ object GrpcStreamingUtils {
       inputStream: InputStream,
       chunkSize: Int,
       fromByteString: FromByteString[T],
-  ) =
+  ): Unit =
     inputStream.autoClosed { s =>
       Iterator
         .continually(s.readNBytes(chunkSize))

@@ -44,43 +44,54 @@ class SubmissionTrackerSpec
       trackedSubmissionF = submissionTracker.track(submissionKey, `1 day timeout`, submitSucceeds)
 
       // Completion with mismatching submissionId
-      completionWithMismatchingSubmissionId = completionOk.copy(submissionId = "wrongSubmissionId")
+      completionWithMismatchingSubmissionId = completionOk.copy(
+        submissionId = "wrongSubmissionId",
+        actAs = submitters.toSeq,
+      )
       _ = submissionTracker.onCompletion(
         CompletionStreamResponse(completionResponse =
           CompletionStreamResponse.CompletionResponse.Completion(
             completionWithMismatchingSubmissionId
           )
-        ) -> submitters
+        )
       )
 
       // Completion with mismatching commandId
-      completionWithMismatchingCommandId = completionOk.copy(commandId = "wrongCommandId")
+      completionWithMismatchingCommandId = completionOk.copy(
+        commandId = "wrongCommandId",
+        actAs = submitters.toSeq,
+      )
       _ = submissionTracker.onCompletion(
         CompletionStreamResponse(completionResponse =
           CompletionStreamResponse.CompletionResponse.Completion(completionWithMismatchingCommandId)
-        ) -> submitters
+        )
       )
 
       // Completion with mismatching applicationId
-      completionWithMismatchingAppId = completionOk.copy(applicationId = "wrongAppId")
+      completionWithMismatchingAppId = completionOk.copy(
+        applicationId = "wrongAppId",
+        actAs = submitters.toSeq,
+      )
       _ = submissionTracker.onCompletion(
         CompletionStreamResponse(completionResponse =
           CompletionStreamResponse.CompletionResponse.Completion(completionWithMismatchingAppId)
-        ) -> submitters
+        )
       )
 
       // Completion with mismatching actAs
       _ = submissionTracker.onCompletion(
         CompletionStreamResponse(completionResponse =
-          CompletionStreamResponse.CompletionResponse.Completion(completionOk)
-        ) -> (submitters + "another_party")
+          CompletionStreamResponse.CompletionResponse.Completion(
+            completionOk.copy(actAs = submitters.toSeq :+ "another_party")
+          )
+        )
       )
 
       // Matching completion
       _ = submissionTracker.onCompletion(
         CompletionStreamResponse(completionResponse =
           CompletionStreamResponse.CompletionResponse.Completion(completionOk)
-        ) -> submitters
+        )
       )
 
       trackedSubmission <- trackedSubmissionF
@@ -111,9 +122,10 @@ class SubmissionTrackerSpec
       // Complete the submission with a failed completion
       _ = submissionTracker.onCompletion(
         CompletionStreamResponse(
-          completionResponse =
-            CompletionStreamResponse.CompletionResponse.Completion(completionFailed)
-        ) -> submitters
+          completionResponse = CompletionStreamResponse.CompletionResponse.Completion(
+            completionFailed.copy(actAs = submitters.toSeq)
+          )
+        )
       )
 
       failure <- trackedSubmissionF.failed
@@ -163,8 +175,10 @@ class SubmissionTrackerSpec
       // Complete the first submission to ensure clean pending map at the end
       _ = submissionTracker.onCompletion(
         CompletionStreamResponse(completionResponse =
-          CompletionStreamResponse.CompletionResponse.Completion(completionOk)
-        ) -> submitters
+          CompletionStreamResponse.CompletionResponse.Completion(
+            completionOk.copy(actAs = submitters.toSeq)
+          )
+        )
       )
       _ <- firstSubmissionF
     } yield inside(actualException) { case actualStatusRuntimeException: StatusRuntimeException =>
@@ -282,9 +296,12 @@ class SubmissionTrackerSpec
         _ = submissionTracker.onCompletion(
           CompletionStreamResponse(
             completionResponse = CompletionStreamResponse.CompletionResponse.Completion(
-              completionOk.copy(status = None)
+              completionOk.copy(
+                status = None,
+                actAs = submitters.toSeq,
+              )
             )
-          ) -> submitters
+          )
         )
 
         failure <- trackedSubmissionF.failed
@@ -353,9 +370,12 @@ class SubmissionTrackerSpec
             submissionTracker.onCompletion(
               CompletionStreamResponse(completionResponse =
                 CompletionStreamResponse.CompletionResponse.Completion(
-                  completionOk.copy(commandId = key.commandId)
+                  completionOk.copy(
+                    commandId = key.commandId,
+                    actAs = submitters.toSeq,
+                  )
                 )
-              ) -> submitters
+              )
             )
           }
       }
@@ -425,6 +445,7 @@ class SubmissionTrackerSpec
       commandId = commandId,
       status = Some(Status(code = io.grpc.Status.Code.OK.value())),
       applicationId = applicationId,
+      actAs = submitters.toSeq,
     )
 
     val errorLogger: ContextualizedErrorLogger =

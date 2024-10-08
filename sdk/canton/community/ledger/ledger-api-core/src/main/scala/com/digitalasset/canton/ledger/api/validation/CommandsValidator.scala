@@ -313,7 +313,7 @@ final class CommandsValidator(
         val deduplicationDuration = DurationConversion.fromProto(duration)
         DeduplicationPeriodValidator
           .validateNonNegativeDuration(deduplicationDuration)
-          .map(DeduplicationPeriod.DeduplicationDuration)
+          .map(DeduplicationPeriod.DeduplicationDuration.apply)
       case Commands.DeduplicationPeriod.DeduplicationOffset(offset) =>
         Ref.HexString
           .fromString(offset)

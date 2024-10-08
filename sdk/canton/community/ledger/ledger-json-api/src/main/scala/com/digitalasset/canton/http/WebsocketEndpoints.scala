@@ -156,7 +156,7 @@ class WebsocketEndpoints(
       .andThen { case (lcFhr, req) =>
         extendWithRequestIdLogCtx(implicit lc => {
           logger.trace(s"Incoming request on ${req.uri}, ${lc.makeString}")
-          lcFhr(lc) map Complete
+          lcFhr(lc) map Complete.apply
         })
       }
       .applyOrElse[HttpRequest, Future[RouteResult]](

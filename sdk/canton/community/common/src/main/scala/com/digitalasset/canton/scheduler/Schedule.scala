@@ -83,7 +83,7 @@ class Cron(val unwrap: CronExpression) {
         .toRight(NoNextValidTimeAfter(baselineTimestamp))
       nextCantonTimestamp <- CantonTimestamp
         .fromDate(nextJDate)
-        .leftMap[CronNextTimeAfterError](DateConversionError)
+        .leftMap[CronNextTimeAfterError](DateConversionError.apply)
     } yield nextCantonTimestamp
 }
 

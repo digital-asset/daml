@@ -81,10 +81,10 @@ object RecipientsTree {
   def ofMembers(
       recipientGroup: NonEmpty[Set[Member]],
       children: Seq[RecipientsTree],
-  ): RecipientsTree = RecipientsTree(recipientGroup.map(MemberRecipient), children)
+  ): RecipientsTree = RecipientsTree(recipientGroup.map(MemberRecipient.apply), children)
 
   def leaf(group: NonEmpty[Set[Member]]): RecipientsTree =
-    RecipientsTree(group.map(MemberRecipient), Seq.empty)
+    RecipientsTree(group.map(MemberRecipient.apply), Seq.empty)
 
   def recipientsLeaf(group: NonEmpty[Set[Recipient]]): RecipientsTree =
     RecipientsTree(group, Seq.empty)

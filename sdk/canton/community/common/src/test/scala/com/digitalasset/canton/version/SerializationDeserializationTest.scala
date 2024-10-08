@@ -30,7 +30,7 @@ import com.digitalasset.canton.topology.transaction.{
   SignedTopologyTransaction,
   TopologyTransaction,
 }
-import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.{BaseTest, SerializationDeserializationTestHelpers}
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AnyWordSpec
@@ -115,12 +115,12 @@ class SerializationDeserializationTest
         testMemoizedProtocolVersionedWithCtx(SubmitterMetadata, TestHash)
         testMemoizedProtocolVersionedWithCtx(
           AssignmentCommonData,
-          (TestHash, TargetProtocolVersion(version)),
+          (TestHash, Target(version)),
         )
         testMemoizedProtocolVersionedWithCtx(AssignmentView, TestHash)
         testMemoizedProtocolVersionedWithCtx(
           UnassignmentCommonData,
-          (TestHash, SourceProtocolVersion(version)),
+          (TestHash, Source(version)),
         )
         testMemoizedProtocolVersionedWithCtx(UnassignmentView, TestHash)
 
@@ -191,12 +191,12 @@ class SerializationDeserializationTest
         testProtocolVersionedWithCtxAndValidationWithTargetProtocolVersion(
           AssignmentViewTree,
           TestHash,
-          TargetProtocolVersion(version),
+          Target(version),
         )
         testProtocolVersionedWithCtxAndValidationWithSourceProtocolVersion(
           UnassignmentViewTree,
           TestHash,
-          SourceProtocolVersion(version),
+          Source(version),
         )
       }
     }

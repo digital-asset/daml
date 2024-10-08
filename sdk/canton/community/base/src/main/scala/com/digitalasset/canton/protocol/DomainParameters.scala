@@ -711,7 +711,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
 
       maxRequestSize <- NonNegativeInt
         .create(maxRequestSizeP)
-        .map(MaxRequestSize)
+        .map(MaxRequestSize.apply)
         .leftMap(InvariantViolation.toProtoDeserializationError("max_request_size", _))
 
       sequencerAggregateSubmissionTimeout <- NonNegativeFiniteDuration.fromProtoPrimitiveO(

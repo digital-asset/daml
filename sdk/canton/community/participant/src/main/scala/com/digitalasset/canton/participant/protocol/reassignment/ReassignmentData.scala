@@ -12,12 +12,12 @@ import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.util.OptionUtil
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.canton.version.Reassignment.SourceProtocolVersion
+import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{ReassignmentCounter, RequestCounter}
 
 /** Stores the data for a reassignment that needs to be passed from the source domain to the target domain. */
 final case class ReassignmentData(
-    sourceProtocolVersion: SourceProtocolVersion,
+    sourceProtocolVersion: Source[ProtocolVersion],
     unassignmentTs: CantonTimestamp,
     unassignmentRequestCounter: RequestCounter,
     unassignmentRequest: FullUnassignmentTree,

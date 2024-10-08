@@ -33,7 +33,6 @@ import com.digitalasset.canton.topology.{
 }
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.canton.util.ReassignmentTag
-import com.digitalasset.canton.version.Reassignment.TargetProtocolVersion
 
 import scala.concurrent.ExecutionContext
 
@@ -79,7 +78,7 @@ class DbSyncDomainPersistentState(
     storage,
     ReassignmentTag.Target(indexedDomain),
     indexedStringStore,
-    TargetProtocolVersion(staticDomainParameters.protocolVersion),
+    ReassignmentTag.Target(staticDomainParameters.protocolVersion),
     pureCryptoApi,
     futureSupervisor,
     exitOnFatalFailures = parameters.exitOnFatalFailures,

@@ -85,7 +85,7 @@ object CreatedContract {
         contract = contract,
         consumedInCore = consumedInCore,
         rolledBack = rolledBack,
-      ).leftMap(OtherError)
+      ).leftMap(OtherError.apply)
     } yield createdContract
   }
 

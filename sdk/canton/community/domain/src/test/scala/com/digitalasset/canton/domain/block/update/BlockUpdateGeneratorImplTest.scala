@@ -66,12 +66,16 @@ class BlockUpdateGeneratorImplTest
           )
 
         blockUpdateGenerator.extractBlockEvents(
-          RawLedgerBlock(1L, Seq.empty, tickTopology = true)
-        ) shouldBe BlockEvents(1L, Seq.empty, tickTopology = true)
+          RawLedgerBlock(
+            1L,
+            Seq.empty,
+            tickTopologyAtMicrosFromEpoch = Some(aTimestamp.toMicros),
+          )
+        ) shouldBe BlockEvents(1L, Seq.empty, Some(aTimestamp))
 
         blockUpdateGenerator.extractBlockEvents(
-          RawLedgerBlock(1L, Seq.empty, tickTopology = false)
-        ) shouldBe BlockEvents(1L, Seq.empty, tickTopology = false)
+          RawLedgerBlock(1L, Seq.empty, None)
+        ) shouldBe BlockEvents(1L, Seq.empty, None)
       }
     }
   }
@@ -118,14 +122,14 @@ class BlockUpdateGeneratorImplTest
                   LedgerBlockEvent.Send(sequencerAddressedEventTimestamp, signedSubmissionRequest)
                 )(TraceContext.empty)
               ),
-              tickTopology = true,
+              tickTopologyAtLeastAt = Some(topologyTickEventTimestamp),
             )
           )
         } yield {
           chunks match {
             case Seq(
                   NextChunk(1L, 0, chunkEvents),
-                  TopologyTickChunk,
+                  TopologyTickChunk(1L, `topologyTickEventTimestamp`),
                   EndOfBlock(1L),
                 ) =>
               chunkEvents.forgetNE should matchPattern {

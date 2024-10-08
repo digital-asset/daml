@@ -18,7 +18,7 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.canton.version.Reassignment.SourceProtocolVersion
+import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.ExecutionContext
 
@@ -26,7 +26,7 @@ import scala.concurrent.ExecutionContext
 private[reassignment] sealed abstract case class UnassignmentValidationReassigningParticipant(
     request: FullUnassignmentTree,
     expectedStakeholders: Set[LfPartyId],
-    sourceProtocolVersion: SourceProtocolVersion,
+    sourceProtocolVersion: Source[ProtocolVersion],
     sourceTopology: Source[TopologySnapshot],
     targetTopology: Target[TopologySnapshot],
     recipients: Recipients,
@@ -85,7 +85,7 @@ private[reassignment] object UnassignmentValidationReassigningParticipant {
       request: FullUnassignmentTree,
       expectedStakeholders: Set[LfPartyId],
       expectedTemplateId: LfTemplateId,
-      sourceProtocolVersion: SourceProtocolVersion,
+      sourceProtocolVersion: Source[ProtocolVersion],
       sourceTopology: Source[TopologySnapshot],
       targetTopology: Target[TopologySnapshot],
       recipients: Recipients,

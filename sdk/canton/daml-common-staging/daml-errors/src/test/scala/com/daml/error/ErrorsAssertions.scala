@@ -119,7 +119,7 @@ trait ErrorsAssertions extends Matchers with OptionValues with AppendedClues {
       expectedStatusCode,
       expectedMessage(tid),
       expectedDetails(tid)(submissionId),
-      false,
+      verifyEmptyStackTrace = false,
     )
 
   }

@@ -157,7 +157,8 @@ object MetricValue {
       def go(remaining: List[(Long, Double)], aggregatedCount: Long): Double =
         remaining match {
           case Nil => Double.MaxValue
-          case (count, boundary) :: tail =>
+          case head :: tail =>
+            val (count, boundary) = head
             val newCount = aggregatedCount + count
             if (newCount >= percentile * count) boundary else go(tail, newCount)
         }

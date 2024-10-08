@@ -63,7 +63,7 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest {
         Future.successful(participantIsActive)
     }
 
-  private def getMemberAuthentication(member: Member) =
+  private def getMemberAuthentication(member: Member): MemberAuthentication =
     MemberAuthentication(member).getOrElse(fail("unsupported"))
 
   "MemberAuthenticationService" should {
@@ -117,7 +117,7 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest {
     }
 
     "fail every method if participant is not active" in {
-      val sut = service(false)
+      val sut = service(participantIsActive = false)
       for {
         generateNonceError <- leftOrFail(sut.generateNonce(p1))("generating nonce")
         validateSignatureError <- leftOrFail(
@@ -136,7 +136,7 @@ class MemberAuthenticationServiceTest extends AsyncWordSpec with BaseTest {
     }
 
     "check whether the intended domain is the one the participant is connecting to" in {
-      val sut = service(false)
+      val sut = service(participantIsActive = false)
       val wrongDomainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("wrong::domain"))
 
       val error = leftOrFail(sut.validateToken(wrongDomainId, p1, null))("should fail domain check")

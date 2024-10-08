@@ -894,7 +894,7 @@ class RichSequencerClientImpl(
         )
         subscriptionStartsAt = replayEvents.headOption.fold(
           cleanPreheadTsO.fold(SubscriptionStart.FreshSubscription: SubscriptionStart)(
-            SubscriptionStart.CleanHeadResubscriptionStart
+            SubscriptionStart.CleanHeadResubscriptionStart.apply
           )
         )(replayEv =>
           SubscriptionStart.ReplayResubscriptionStart(replayEv.timestamp, cleanPreheadTsO)
@@ -1084,7 +1084,7 @@ class RichSequencerClientImpl(
           )
           eventValidator
             .validateOnReconnect(priorEvent.get(), serializedEvent, sequencerId)
-            .leftMap[SequencerClientSubscriptionError](EventValidationError)
+            .leftMap[SequencerClientSubscriptionError](EventValidationError.apply)
             .value
         } else {
           logger.debug(
@@ -1097,7 +1097,7 @@ class RichSequencerClientImpl(
             _ = logger.debug(s"Processing delay $processingDelay completed successfully")
             _ <- eventValidator
               .validate(priorEvent.get(), serializedEvent, sequencerId)
-              .leftMap[SequencerClientSubscriptionError](EventValidationError)
+              .leftMap[SequencerClientSubscriptionError](EventValidationError.apply)
             _ = logger.debug("Event validation completed successfully")
             _ = priorEvent.set(Some(serializedEvent))
             _ = delayLogger.checkForDelay(serializedEvent)
@@ -1109,7 +1109,7 @@ class RichSequencerClientImpl(
                   serializedEvent,
                 )
             )
-              .leftMap[SequencerClientSubscriptionError](EventAggregationError)
+              .leftMap[SequencerClientSubscriptionError](EventAggregationError.apply)
             _ = logger.debug("Event combined and merged successfully by the sequencer aggregator")
           } yield
             if (toSignalHandler) {
@@ -1518,7 +1518,7 @@ class SequencerClientImplPekko[E: Pretty](
         )
         subscriptionStartsAt = replayEvents.headOption.fold(
           cleanPreheadTsO.fold(SubscriptionStart.FreshSubscription: SubscriptionStart)(
-            SubscriptionStart.CleanHeadResubscriptionStart
+            SubscriptionStart.CleanHeadResubscriptionStart.apply
           )
         )(replayEv =>
           SubscriptionStart.ReplayResubscriptionStart(replayEv.timestamp, cleanPreheadTsO)

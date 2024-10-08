@@ -13,7 +13,8 @@ class InMemorySequencerCounterTrackerStore(
     override val timeouts: ProcessingTimeout,
 ) extends SequencerCounterTrackerStore
     with NamedLogging {
-  override protected[store] val cursorStore =
+  override protected[store] val cursorStore
+      : InMemoryCursorPreheadStore[com.digitalasset.canton.SequencerCounterDiscriminator] =
     new InMemoryCursorPreheadStore[SequencerCounterDiscriminator](loggerFactory)
 
   override def onClosed(): Unit = ()

@@ -220,7 +220,9 @@ class TransactionViewDecompositionTest
         TransactionMetadata(
           CantonTimestamp.Epoch,
           CantonTimestamp.Epoch,
-          tx.nodes.collect { case (nid, n) if LfTransactionUtil.nodeHasSeed(n) => nid -> hasher() },
+          tx.nodes.collect {
+            case (nid, node) if LfTransactionUtil.nodeHasSeed(node) => nid -> hasher()
+          },
         ),
         WithoutSuffixes,
       )

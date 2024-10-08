@@ -63,7 +63,7 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.EitherTUtil.{condUnitET, ifThenET}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
+import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{
   LfPackageName,
   LfPartyId,
@@ -82,7 +82,7 @@ class UnassignmentProcessingSteps(
     reassignmentCoordination: ReassignmentCoordination,
     seedGenerator: SeedGenerator,
     staticDomainParameters: Source[StaticDomainParameters],
-    val sourceDomainProtocolVersion: SourceProtocolVersion,
+    val sourceDomainProtocolVersion: Source[ProtocolVersion],
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
     extends ReassignmentProcessingSteps[
@@ -205,7 +205,7 @@ class UnassignmentProcessingSteps(
       rootHash = fullTree.rootHash
       submittingParticipantSignature <- sourceRecentSnapshot
         .sign(rootHash.unwrap)
-        .leftMap(ReassignmentSigningError)
+        .leftMap(ReassignmentSigningError.apply)
       mediatorMessage = fullTree.mediatorMessage(submittingParticipantSignature)
       maybeRecipients = Recipients.ofSet(validated.recipients)
       recipientsT <- EitherT
@@ -215,12 +215,14 @@ class UnassignmentProcessingSteps(
         )
       viewsToKeyMap <- EncryptedViewMessageFactory
         .generateKeysFromRecipients(
-          Seq((ViewHashAndRecipients(fullTree.viewHash, recipientsT), fullTree.informees.toList)),
+          Seq(
+            (ViewHashAndRecipients(fullTree.viewHash, recipientsT), None, fullTree.informees.toList)
+          ),
           parallel = true,
           pureCrypto,
           sourceRecentSnapshot,
           ephemeralState.sessionKeyStoreLookup.convertStore,
-          targetProtocolVersion.v,
+          targetProtocolVersion.unwrap,
         )
         .leftMap[ReassignmentProcessorError](EncryptionError(contractId, _))
       ViewKeyData(_, viewKey, viewKeyMap) = viewsToKeyMap(fullTree.viewHash)
@@ -229,7 +231,7 @@ class UnassignmentProcessingSteps(
           fullTree,
           (viewKey, viewKeyMap),
           sourceRecentSnapshot,
-          sourceDomainProtocolVersion.v,
+          sourceDomainProtocolVersion.unwrap,
         )
         .leftMap[ReassignmentProcessorError](EncryptionError(contractId, _))
     } yield {
@@ -237,7 +239,7 @@ class UnassignmentProcessingSteps(
         RootHashMessage(
           rootHash,
           domainId.unwrap,
-          sourceDomainProtocolVersion.v,
+          sourceDomainProtocolVersion.unwrap,
           ViewType.UnassignmentViewType,
           sourceRecentSnapshot.ipsSnapshot.timestamp,
           EmptyRootHashMessagePayload,
@@ -258,7 +260,7 @@ class UnassignmentProcessingSteps(
         viewMessage -> recipientsT,
         rootHashMessage -> rootHashRecipients,
       )
-      ReassignmentsSubmission(Batch.of(sourceDomainProtocolVersion.v, messages*), rootHash)
+      ReassignmentsSubmission(Batch.of(sourceDomainProtocolVersion.unwrap, messages*), rootHash)
     }
   }
 
@@ -540,7 +542,7 @@ class UnassignmentProcessingSteps(
           entry,
           LocalRejectError.TimeRejects.LocalTimeout
             .Reject()
-            .toLocalReject(sourceDomainProtocolVersion.v),
+            .toLocalReject(sourceDomainProtocolVersion.unwrap),
         ),
       )
     }
@@ -790,11 +792,11 @@ class UnassignmentProcessingSteps(
     // send a response only if the participant is a reassigning participant or the activeness check has failed
     if (isReassigningParticipant || !successful) {
       val localVerdict =
-        if (successful) LocalApprove(sourceDomainProtocolVersion.v)
+        if (successful) LocalApprove(sourceDomainProtocolVersion.unwrap)
         else
           LocalRejectError.UnassignmentRejects.ActivenessCheckFailed
             .Reject(s"$activenessResult")
-            .toLocalReject(sourceDomainProtocolVersion.v)
+            .toLocalReject(sourceDomainProtocolVersion.unwrap)
       val response = checked(
         ConfirmationResponse.tryCreate(
           requestId,
@@ -804,7 +806,7 @@ class UnassignmentProcessingSteps(
           rootHash,
           confirmingStakeholders,
           domainId.unwrap,
-          sourceDomainProtocolVersion.v,
+          sourceDomainProtocolVersion.unwrap,
         )
       )
       Some(response)
@@ -818,7 +820,7 @@ object UnassignmentProcessingSteps {
       submitterMetadata: ReassignmentSubmitterMetadata,
       contractId: LfContractId,
       targetDomain: Target[DomainId],
-      targetProtocolVersion: TargetProtocolVersion,
+      targetProtocolVersion: Target[ProtocolVersion],
   ) {
     val submittingParty: LfPartyId = submitterMetadata.submitter
   }

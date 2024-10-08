@@ -6,6 +6,7 @@ package com.digitalasset.canton.data
 import cats.data.EitherT
 import cats.syntax.either.*
 import cats.syntax.parallel.*
+import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError.InvariantViolation
 import com.digitalasset.canton.*
@@ -221,11 +222,18 @@ final case class GenTransactionTree private (
     for {
       allViewsWithMetadata <- allTransactionViewTrees.parTraverse { tvt =>
         val viewWitnesses = witnessMap(tvt.viewPosition)
+        val parentPosition = ViewPosition(tvt.viewPosition.position.drop(1))
+        val parentWitnessesO = witnessMap.get(parentPosition)
+
         // We return the witnesses for testing purposes. We will use the recipients to derive our view encryption key.
-        viewWitnesses
-          .toRecipients(topologySnapshot)
-          .map(viewRecipients => ViewWithWitnessesAndRecipients(tvt, viewWitnesses, viewRecipients))
-          .mapK(FutureUnlessShutdown.outcomeK)
+        for {
+          viewRecipients <- viewWitnesses
+            .toRecipients(topologySnapshot)
+            .mapK(FutureUnlessShutdown.outcomeK)
+          parentRecipients <- parentWitnessesO
+            .traverse(_.toRecipients(topologySnapshot))
+            .mapK(FutureUnlessShutdown.outcomeK)
+        } yield ViewWithWitnessesAndRecipients(tvt, viewWitnesses, viewRecipients, parentRecipients)
       }
     } yield allViewsWithMetadata
   }
@@ -355,5 +363,6 @@ object GenTransactionTree {
       view: FullTransactionViewTree,
       witnesses: Witnesses,
       recipients: Recipients,
+      parentRecipients: Option[Recipients],
   )
 }

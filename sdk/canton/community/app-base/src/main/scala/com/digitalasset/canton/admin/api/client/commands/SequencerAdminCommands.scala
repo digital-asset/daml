@@ -104,7 +104,7 @@ object SequencerAdminCommands {
           ).tupled
         }
         .map(_.toMap)
-        .map(SequencerTrafficStatus)
+        .map(SequencerTrafficStatus.apply)
   }
 
   final case class SetTrafficPurchased(

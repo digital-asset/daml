@@ -56,7 +56,7 @@ import scala.concurrent.{ExecutionContext, Future}
         )
       } yield (username, primaryParty, rights)
     for {
-      info <- EitherT.either(input.leftMap(InvalidUserInput)): ET[
+      info <- EitherT.either(input.leftMap(InvalidUserInput.apply)): ET[
         (UserId, Option[Ref.Party], List[UserRight])
       ]
       (username, primaryParty, initialRights) = info
@@ -103,7 +103,7 @@ import scala.concurrent.{ExecutionContext, Future}
       userId <- parseUserId(grantUserRightsRequest.userId)
       rights <- either(
         domain.UserRights.toLedgerUserRights(grantUserRightsRequest.rights)
-      ).leftMap(InvalidUserInput): ET[List[UserRight]]
+      ).leftMap(InvalidUserInput.apply): ET[List[UserRight]]
       grantedUserRights <- EitherT.rightT(
         userManagementClient.grantUserRights(
           userId = userId,
@@ -124,7 +124,7 @@ import scala.concurrent.{ExecutionContext, Future}
       userId <- parseUserId(revokeUserRightsRequest.userId)
       rights <- either(
         domain.UserRights.toLedgerUserRights(revokeUserRightsRequest.rights)
-      ).leftMap(InvalidUserInput): ET[List[UserRight]]
+      ).leftMap(InvalidUserInput.apply): ET[List[UserRight]]
       revokedUserRights <- EitherT.rightT(
         userManagementClient.revokeUserRights(
           userId = userId,
@@ -195,7 +195,7 @@ import scala.concurrent.{ExecutionContext, Future}
   ): ET[UserId] = {
     import scalaz.syntax.std.either._
     either(
-      UserId.fromString(rawUserId).disjunction.leftMap(InvalidUserInput)
+      UserId.fromString(rawUserId).disjunction.leftMap(InvalidUserInput.apply)
     )
   }
 

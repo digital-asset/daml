@@ -351,7 +351,7 @@ class DbSequencerStore(
       sql"""select id, registered_ts, enabled from sequencer_members where member = $member"""
         .as[(SequencerMemberId, CantonTimestamp, Boolean)]
         .headOption
-        .map(_.map(RegisteredMember.tupled)),
+        .map(_.map((RegisteredMember.apply _).tupled)),
       functionFullName,
     )
 

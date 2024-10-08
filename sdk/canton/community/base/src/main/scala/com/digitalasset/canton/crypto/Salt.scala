@@ -56,7 +56,7 @@ object SaltAlgorithm {
     saltAlgorithmP match {
       case v30.Salt.Algorithm.Empty => Left(ProtoDeserializationError.FieldNotSet(field))
       case v30.Salt.Algorithm.Hmac(hmacAlgorithmP) =>
-        HmacAlgorithm.fromProtoEnum("hmac", hmacAlgorithmP).map(Hmac)
+        HmacAlgorithm.fromProtoEnum("hmac", hmacAlgorithmP).map(Hmac.apply)
     }
 }
 
@@ -104,11 +104,11 @@ object Salt {
     for {
       pseudoSecret <- HmacSecret
         .create(seed)
-        .leftMap(SaltError.HmacGenerationError)
+        .leftMap(SaltError.HmacGenerationError.apply)
       saltAlgorithm = SaltAlgorithm.Hmac(hmacOps.defaultHmacAlgorithm)
       hmac <- hmacOps
         .hmacWithSecret(pseudoSecret, bytes, saltAlgorithm.hmacAlgorithm)
-        .leftMap(SaltError.HmacGenerationError)
+        .leftMap(SaltError.HmacGenerationError.apply)
       salt <- create(hmac.unwrap, saltAlgorithm)
     } yield salt
 

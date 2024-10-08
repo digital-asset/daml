@@ -108,7 +108,7 @@ object TopologyStoreId {
   // authorized transactions (the topology managers store)
   type AuthorizedStore = AuthorizedStore.type
   object AuthorizedStore extends TopologyStoreId {
-    val dbString = String255.tryCreate("Authorized")
+    val dbString: String255 = String255.tryCreate("Authorized")
     override def dbStringWithDaml2xUniquifier(uniquifier: String): LengthLimitedString = {
       require(uniquifier.nonEmpty)
       LengthLimitedString
@@ -655,7 +655,7 @@ object TimeQuery {
       case topoV30.BaseQuery.TimeQuery.Empty =>
         Left(ProtoDeserializationError.FieldNotSet(fieldName))
       case topoV30.BaseQuery.TimeQuery.Snapshot(value) =>
-        CantonTimestamp.fromProtoTimestamp(value).map(Snapshot)
+        CantonTimestamp.fromProtoTimestamp(value).map(Snapshot.apply)
       case topoV30.BaseQuery.TimeQuery.HeadState(_) => Right(HeadState)
       case topoV30.BaseQuery.TimeQuery.Range(value) =>
         for {

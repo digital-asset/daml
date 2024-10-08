@@ -55,7 +55,7 @@ object ConcurrentHMap {
   def empty[R[_, _]]: ConcurrentHMap[R] = new ConcurrentHMap[R]()
 
   def apply[R[_, _]]: ConcurrentHMapPartiallyApplied[R] =
-    new ConcurrentHMapPartiallyApplied[R](false)
+    new ConcurrentHMapPartiallyApplied[R](dummy = false)
 
   private[data] class ConcurrentHMapPartiallyApplied[R[_, _]](private val dummy: Boolean)
       extends AnyVal {

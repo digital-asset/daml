@@ -53,7 +53,7 @@ private[http] final class CreateAndExercise(
           cmd <-
             decoder
               .decodeCreateCommand(reqBody, jwt)
-              .liftErr(InvalidUserInput): ET[
+              .liftErr(InvalidUserInput.apply): ET[
               CreateCommand[ApiRecord, Template.RequiredPkg]
             ]
           _ <- EitherT.pure(parseAndDecodeTimer.stop())
@@ -77,7 +77,7 @@ private[http] final class CreateAndExercise(
         cmd <-
           decoder
             .decodeExerciseCommand(reqBody, jwt)
-            .liftErr(InvalidUserInput): ET[
+            .liftErr(InvalidUserInput.apply): ET[
             domain.ExerciseCommand.RequiredPkg[LfValue, domain.ContractLocator[LfValue]]
           ]
         _ <- EitherT.pure(parseAndDecodeTimer.stop())
@@ -108,7 +108,7 @@ private[http] final class CreateAndExercise(
         cmd <-
           decoder
             .decodeCreateAndExerciseCommand(reqBody, jwt)
-            .liftErr(InvalidUserInput): ET[
+            .liftErr(InvalidUserInput.apply): ET[
             domain.CreateAndExerciseCommand.LAVResolved
           ]
         _ <- EitherT.pure(parseAndDecodeTimer.stop())

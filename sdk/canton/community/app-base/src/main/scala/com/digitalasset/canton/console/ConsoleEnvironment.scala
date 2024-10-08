@@ -42,11 +42,12 @@ import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.{DomainAlias, LfPartyId}
 import com.typesafe.scalalogging.Logger
 import io.opentelemetry.api.trace.Tracer
+import org.tpolecat.typename.TypeName
 
 import java.time.{Duration as JDuration, Instant}
 import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.duration.Duration as SDuration
-import scala.reflect.runtime.universe as ru
+import scala.reflect.runtime.universe
 import scala.util.control.NonFatal
 
 final case class NodeReferences[A, R <: A, L <: A](
@@ -170,16 +171,19 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
 
   /** Holder for top level values including their name, their value, and a description to display when `help` is printed.
     */
-  protected case class TopLevelValue[T](
+  protected case class TopLevelValue[T: universe.TypeTag](
       nameUnsafe: String,
       summary: String,
       value: T,
       topic: Seq[String] = Seq(),
-  )(implicit tag: ru.TypeTag[T]) {
-
+  ) {
     // Surround with back-ticks to handle the case that name is a reserved keyword in scala.
     lazy val asBind: Either[InstanceName.InvalidInstanceName, Bind[T]] =
-      InstanceName.create(nameUnsafe).map(name => Bind(s"`${name.unwrap}`", value))
+      InstanceName.create(nameUnsafe).map { name =>
+        val typeTag: universe.TypeTag[T] = scala.reflect.runtime.universe.typeTag[T]
+        val typeName = TypeName[T](typeTag.tpe.toString)
+        Bind(s"`${name.unwrap}`", value)(typeName)
+      }
 
     lazy val asHelpItem: Help.Item =
       Help.Item(nameUnsafe, None, Help.Summary(summary), Help.Description(""), Help.Topic(topic))
@@ -192,7 +196,7 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
       * use as scala's runtime reflection can't easily take advantage of the type members we have available here.
       */
     case class Partial(name: String, summary: String, topics: Seq[String] = Seq.empty) {
-      def apply[T](value: T)(implicit t: ru.TypeTag[T]): TopLevelValue[T] =
+      def apply[T: universe.TypeTag](value: T): TopLevelValue[T] =
         TopLevelValue(name, summary, value, topics)
     }
   }

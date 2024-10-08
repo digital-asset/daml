@@ -16,17 +16,20 @@ class TrieMapUtilTest extends AnyWordSpec with BaseTest {
 
     "insert if absent" in {
       val map = TrieMap(1 -> "Foo", 2 -> "Bar")
-      TrieMapUtil.insertIfAbsent(map, 3, "test", Error) shouldBe Right(())
+      TrieMapUtil.insertIfAbsent(map, 3, "test", Error.apply _) shouldBe Right(())
     }
 
     "insert if idempotent" in {
       val map = TrieMap(1 -> "Foo", 2 -> "Bar")
-      TrieMapUtil.insertIfAbsent(map, 2, "Bar", Error) shouldBe Right(())
+      TrieMapUtil.insertIfAbsent(map, 2, "Bar", Error.apply _) shouldBe Right(())
     }
 
     "fail insert on different values " in {
       val map = TrieMap(1 -> "Foo", 2 -> "Bar")
-      TrieMapUtil.insertIfAbsent(map, 2, "Something else", Error).left.value shouldBe an[Error]
+      TrieMapUtil
+        .insertIfAbsent(map, 2, "Something else", Error.apply _)
+        .left
+        .value shouldBe an[Error]
     }
   }
 }

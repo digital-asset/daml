@@ -95,9 +95,9 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
           unknownTemplatesOrInterfaces: Seq[Either[Ref.Identifier, Ref.Identifier]]
       ): String = {
         val unknownTemplateIds =
-          unknownTemplatesOrInterfaces.collect { case Left(id) => id.toString }
+          unknownTemplatesOrInterfaces.collect { case Left(identifier) => identifier.toString }
         val unknownInterfaceIds =
-          unknownTemplatesOrInterfaces.collect { case Right(id) => id.toString }
+          unknownTemplatesOrInterfaces.collect { case Right(identifier) => identifier.toString }
 
         val templatesMessage = if (unknownTemplateIds.nonEmpty) {
           s"Templates do not exist: [${unknownTemplateIds.mkString(", ")}]. "

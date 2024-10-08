@@ -125,7 +125,7 @@ class TopologyStateProcessor[+PureCrypto <: CryptoPureApi](
       duplicates <- EitherT.right[Lft](duplicatesF)
       // compute / collapse updates
       (removesF, pendingWrites) = {
-        val pendingWrites = transactions.map(MaybePending)
+        val pendingWrites = transactions.map(MaybePending.apply)
         val removes = pendingWrites
           .zip(duplicates)
           .foldLeftM((Map.empty[MappingHash, PositiveInt], Set.empty[TxHash])) {

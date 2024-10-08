@@ -51,7 +51,6 @@ import com.github.benmanes.caffeine.cache
 import com.github.benmanes.caffeine.cache.Caffeine
 import com.google.protobuf.ByteString
 import io.opentelemetry.api.trace.Tracer
-import io.scalaland.chimney.dsl.*
 import monocle.macros.syntax.lens.*
 
 import java.time.Duration

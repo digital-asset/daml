@@ -11,6 +11,7 @@ import com.digitalasset.canton.sequencing.protocol.Recipients
 import com.digitalasset.canton.store.SessionKeyStore.RecipientGroup
 import com.digitalasset.canton.tracing.TraceContext
 import com.github.blemale.scaffeine.{Cache, Scaffeine}
+import com.google.common.annotations.VisibleForTesting
 
 import scala.concurrent.ExecutionContext
 
@@ -41,16 +42,21 @@ sealed trait ConfirmationRequestSessionKeyStore {
     SecureRandomness
   ], SecureRandomness]
 
+  protected[canton] def getSessionKeysInfoIfPresent(
+      recipients: Seq[RecipientGroup]
+  ): Map[RecipientGroup, SessionKeyInfo] =
+    sessionKeysCacheSender.getAllPresent(recipients)
+
+  @VisibleForTesting
   protected[canton] def getSessionKeyInfoIfPresent(
       recipients: RecipientGroup
   ): Option[SessionKeyInfo] =
     sessionKeysCacheSender.getIfPresent(recipients)
 
-  protected[canton] def saveSessionKeyInfo(
-      recipients: RecipientGroup,
-      sessionKeyInfo: SessionKeyInfo,
+  protected[canton] def saveSessionKeysInfo(
+      toSave: Map[RecipientGroup, SessionKeyInfo]
   ): Unit =
-    sessionKeysCacheSender.put(recipients, sessionKeyInfo)
+    sessionKeysCacheSender.putAll(toSave)
 
   protected[canton] def getSessionKeyRandomnessIfPresent(
       encryptedRandomness: AsymmetricEncrypted[SecureRandomness]

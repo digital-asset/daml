@@ -469,7 +469,6 @@ abstract class CantonNodeBootstrapImpl[
             adminServerRegistry.addServiceU(
               StatusServiceGrpc.bindService(
                 new GrpcStatusService(
-                  getNodeStatus,
                   arguments.writeHealthDumpToFile,
                   parameterConfig.processingTimeouts,
                   bootstrapStageCallback.loggerFactory,
