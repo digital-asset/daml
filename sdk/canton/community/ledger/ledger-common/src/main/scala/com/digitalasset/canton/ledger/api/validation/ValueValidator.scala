@@ -65,20 +65,20 @@ abstract class ValueValidator {
         .fromString(party)
         .left
         .map(invalidArgument)
-        .map(Lf.ValueParty)
+        .map(Lf.ValueParty.apply)
     case Sum.Bool(b) => Right(Lf.ValueBool(b))
     case Sum.Timestamp(micros) =>
       Time.Timestamp
         .fromLong(micros)
         .left
         .map(invalidArgument)
-        .map(Lf.ValueTimestamp)
+        .map(Lf.ValueTimestamp.apply)
     case Sum.Date(days) =>
       Time.Date
         .fromDaysSinceEpoch(days)
         .left
         .map(invalidArgument)
-        .map(Lf.ValueDate)
+        .map(Lf.ValueDate.apply)
     case Sum.Text(text) => Right(Lf.ValueText(text))
     case Sum.Int64(value) => Right(Lf.ValueInt64(value))
     case Sum.Record(rec) =>

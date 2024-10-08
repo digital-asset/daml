@@ -595,7 +595,7 @@ object SequencerInfoLoader {
               sequencerTrustThreshold,
               submissionRequestAmplification,
             )
-            .leftMap(SequencerInfoLoaderError.FailedToConnectToSequencers)
+            .leftMap(SequencerInfoLoaderError.FailedToConnectToSequencers.apply)
             .map(connections =>
               SequencerAggregatedInfo(
                 domainId = validSequencerConnectionsNE.head1.domainClientBootstrapInfo.domainId,

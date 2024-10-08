@@ -20,7 +20,7 @@ import scala.util.chaining.*
 final case class DriverContractMetadata(salt: Salt)
     extends HasVersionedWrapper[DriverContractMetadata]
     with PrettyPrinting {
-  override protected def companionObj = DriverContractMetadata
+  override protected def companionObj: DriverContractMetadata.type = DriverContractMetadata
 
   override protected def pretty: Pretty[DriverContractMetadata] = prettyOfClass(
     param("contract salt", _.salt.forHashing)

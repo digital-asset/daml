@@ -35,7 +35,7 @@ class BlockChunkProcessorTest extends AsyncWordSpec with BaseTest {
   "BlockChunkProcessor.processBlockChunk" should {
 
     "create the correct chunked update for the tick" when {
-      "processing a tick chunk and the last validated event was addressed to the sequencer" in {
+      "processing a tick chunk" in {
         val tickSequencingTimestamp = aTimestamp.immediateSuccessor
         val syncCryptoApiFake =
           TestingIdentityFactory(loggerFactory).forOwnerAndDomain(
@@ -67,7 +67,9 @@ class BlockChunkProcessorTest extends AsyncWordSpec with BaseTest {
               lastChunkTs = aTimestamp,
               latestSequencerEventTimestamp = None,
               inFlightAggregations = Map.empty,
-            )
+            ),
+            height = 0,
+            tickAtLeastAt = tickSequencingTimestamp,
           )
           .map { case (state, update) =>
             state.lastChunkTs shouldBe tickSequencingTimestamp
@@ -100,50 +102,6 @@ class BlockChunkProcessorTest extends AsyncWordSpec with BaseTest {
           }
           .failOnShutdown
       }
-    }
-  }
-
-  "create an empty update" when {
-    "processing a tick chunk but the last validated event was addressed to the sequencer" in {
-      val tickSequencingTimestamp = aTimestamp.immediateSuccessor
-      val syncCryptoApiFake =
-        TestingIdentityFactory(loggerFactory).forOwnerAndDomain(
-          sequencerId,
-          domainId,
-          tickSequencingTimestamp,
-        )
-      val rateLimitManagerMock = mock[SequencerRateLimitManager]
-      val memberValidatorMock = mock[SequencerMemberValidator]
-
-      val blockChunkProcessor =
-        new BlockChunkProcessor(
-          domainId,
-          testedProtocolVersion,
-          syncCryptoApiFake,
-          sequencerId,
-          rateLimitManagerMock,
-          OrderingTimeFixMode.ValidateOnly,
-          loggerFactory,
-          SequencerTestMetrics,
-          memberValidatorMock,
-          () => aMessageId,
-        )
-
-      blockChunkProcessor
-        .emitTick(
-          state = BlockUpdateGeneratorImpl.State(
-            lastBlockTs = aTimestamp,
-            lastChunkTs = aTimestamp,
-            latestSequencerEventTimestamp = Some(aTimestamp),
-            inFlightAggregations = Map.empty,
-          )
-        )
-        .map { case (state, update) =>
-          state.lastChunkTs shouldBe aTimestamp
-          state.latestSequencerEventTimestamp shouldBe Some(aTimestamp)
-          update.submissionsOutcomes shouldBe empty
-        }
-        .failOnShutdown
     }
   }
 }

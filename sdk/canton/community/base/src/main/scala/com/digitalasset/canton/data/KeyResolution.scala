@@ -34,7 +34,7 @@ object SerializableKeyResolution {
       case v30.ViewParticipantData.ResolvedKey.Resolution.ContractId(contractIdP) =>
         ProtoConverter
           .parseLfContractId(contractIdP)
-          .map(AssignedKey)
+          .map(AssignedKey.apply)
       case v30.ViewParticipantData.ResolvedKey.Resolution
             .Free(v30.ViewParticipantData.FreeKey(maintainersP)) =>
         maintainersP

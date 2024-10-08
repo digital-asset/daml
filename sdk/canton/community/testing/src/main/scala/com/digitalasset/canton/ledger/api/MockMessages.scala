@@ -58,7 +58,7 @@ object MockMessages {
     choice,
     None,
     List(party),
-    true,
+    consuming = true,
     Nil, // No witnesses
     List(createdEvent.eventId),
   )

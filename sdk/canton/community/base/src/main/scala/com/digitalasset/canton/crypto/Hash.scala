@@ -159,10 +159,10 @@ object Hash {
     build(purpose, algorithm).addWithoutLengthPrefix(bytes).finish()
 
   def fromProtoPrimitive(bytes: ByteString): ParsingResult[Hash] =
-    fromByteString(bytes).leftMap(CryptoDeserializationError)
+    fromByteString(bytes).leftMap(CryptoDeserializationError.apply)
 
   def fromProtoPrimitiveOption(bytes: ByteString): ParsingResult[Option[Hash]] =
-    fromByteStringOption(bytes).leftMap(CryptoDeserializationError)
+    fromByteStringOption(bytes).leftMap(CryptoDeserializationError.apply)
 
   /** Decode a serialized [[Hash]] from a multi-hash format. */
   def fromByteString(bytes: ByteString): Either[DeserializationError, Hash] =

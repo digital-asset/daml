@@ -104,7 +104,7 @@ class BufferedTransactionByIdReaderSpec extends AsyncFlatSpec with MockitoSugar 
       effectiveAt = Timestamp.Epoch,
       offset = Offset.beforeBegin,
       events = Vector(null),
-      completionDetails = None,
+      completionStreamResponse = None,
       domainId = someDomainId.toProtoPrimitive,
       recordTime = Timestamp.Epoch,
     )

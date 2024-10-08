@@ -78,11 +78,11 @@ abstract class ErrorCode(val id: String, val category: ErrorCategory)(implicit
   def errorConveyanceDocString: Option[String] = {
     val loggedAs = s"This error is logged with log-level $logLevel on the server side"
     val apiLevel = (category.grpcCode, exposedViaApi) match {
-      case (Some(code), true) =>
+      case (Some(grpcCode), true) =>
         if (category.securitySensitive)
-          s". It is exposed on the API with grpc-status $code without any details for security reasons."
+          s". It is exposed on the API with grpc-status $grpcCode without any details for security reasons."
         else
-          s" and exposed on the API with grpc-status $code including a detailed error message."
+          s" and exposed on the API with grpc-status $grpcCode including a detailed error message."
       case _ => "."
     }
     Some(loggedAs ++ apiLevel)

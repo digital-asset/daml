@@ -121,7 +121,7 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
         .leftMap[SendAsyncClientResponseError](err =>
           SendAsyncClientError.RequestFailed(s"Failed to deserialize response: $err")
         )
-      _ <- response.error.toLeft(()).leftMap(SendAsyncClientError.RequestRefused)
+      _ <- response.error.toLeft(()).leftMap(SendAsyncClientError.RequestRefused.apply)
     } yield ()
 
   private def fromGrpcError(error: GrpcError, messageId: MessageId)(implicit

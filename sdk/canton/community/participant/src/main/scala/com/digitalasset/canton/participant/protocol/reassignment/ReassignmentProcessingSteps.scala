@@ -59,8 +59,9 @@ import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{ErrorUtil, ReassignmentTag}
-import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
+import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LfPartyId, RequestCounter, SequencerCounter}
 import com.digitalasset.daml.lf.engine
 
@@ -583,8 +584,8 @@ object ReassignmentProcessingSteps {
 
   final case class IncompatibleProtocolVersions(
       contractId: LfContractId,
-      source: SourceProtocolVersion,
-      target: TargetProtocolVersion,
+      source: Source[ProtocolVersion],
+      target: Target[ProtocolVersion],
   ) extends ReassignmentProcessorError {
     override def message: String =
       s"Cannot reassign contract `$contractId`: invalid reassignment from domain with protocol version $source to domain with protocol version $target"

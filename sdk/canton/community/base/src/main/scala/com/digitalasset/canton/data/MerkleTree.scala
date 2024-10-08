@@ -188,7 +188,7 @@ abstract class MerkleTreeLeaf[+A <: HasCryptographicEvidence](val hashOps: HashO
     RootHash(hash)
   }
 
-  override def unwrap = Right(this)
+  override def unwrap: Right[RootHash, MerkleTreeLeaf[A] & A] = Right(this)
 
   override private[data] def withBlindedSubtrees(
       optimizedBlindingPolicy: PartialFunction[RootHash, BlindingCommand]

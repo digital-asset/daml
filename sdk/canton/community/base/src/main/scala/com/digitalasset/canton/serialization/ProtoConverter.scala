@@ -69,11 +69,13 @@ object ProtoConverter {
     bytes =>
       Either
         .catchOnly[InvalidProtocolBufferException](parseFrom(bytes.newCodedInput))
-        .leftMap(BufferException)
+        .leftMap(BufferException.apply)
 
   def protoParserArray[A](parseFrom: Array[Byte] => A): Array[Byte] => Either[BufferException, A] =
     bytes =>
-      Either.catchOnly[InvalidProtocolBufferException](parseFrom(bytes)).leftMap(BufferException)
+      Either
+        .catchOnly[InvalidProtocolBufferException](parseFrom(bytes))
+        .leftMap(BufferException.apply)
 
   /** Helper for extracting an optional field where the value is required
     * @param field the field name
@@ -181,7 +183,7 @@ object ProtoConverter {
     parseString(packageName)(LfPackageName.fromString)
 
   private def parseString[T](from: String)(to: String => Either[String, T]): ParsingResult[T] =
-    to(from).leftMap(StringConversionError)
+    to(from).leftMap(StringConversionError.apply)
   object InstantConverter extends ProtoConverter[Instant, Timestamp, ProtoDeserializationError] {
     override def toProtoPrimitive(value: Instant): Timestamp =
       Timestamp(value.getEpochSecond, value.getNano)

@@ -25,7 +25,6 @@ import com.digitalasset.canton.sequencing.protocol.{Batch, MediatorGroupRecipien
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.SeqUtil
-import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.version.{ProtocolVersion, RepresentativeProtocolVersion}
 import com.digitalasset.canton.{LfInterfaceId, LfPackageId, LfPartyId, LfVersioned}
 import com.digitalasset.daml.lf.value.Value.ValueInt64
@@ -190,7 +189,7 @@ final class GeneratorsData(
       packagePreference <- Gen.containerOf[Set, LfPackageId](Arbitrary.arbitrary[LfPackageId])
 
       // We consider only this specific value because the goal is not exhaustive testing of LF (de)serialization
-      chosenValue <- Gen.long.map(ValueInt64)
+      chosenValue <- Gen.long.map(ValueInt64.apply)
       version <- Arbitrary.arbitrary[LfTransactionVersion]
 
       actors <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
@@ -490,8 +489,8 @@ final class GeneratorsData(
    */
   private implicit val ec: ExecutionContext = ExecutionContext.global
 
-  private val sourceProtocolVersion = SourceProtocolVersion(protocolVersion)
-  private val targetProtocolVersion = TargetProtocolVersion(protocolVersion)
+  private val sourceProtocolVersion = Source(protocolVersion)
+  private val targetProtocolVersion = Target(protocolVersion)
 
   implicit val reassignmentSubmitterMetadataArb: Arbitrary[ReassignmentSubmitterMetadata] =
     Arbitrary(
@@ -575,13 +574,13 @@ final class GeneratorsData(
 
   private def deliveryUnassignmentResultGen(
       contract: SerializableContract,
-      sourceProtocolVersion: SourceProtocolVersion,
+      sourceProtocolVersion: Source[ProtocolVersion],
   ): Gen[DeliveredUnassignmentResult] =
     for {
       sourceDomain <- Arbitrary.arbitrary[Source[DomainId]]
       requestId <- Arbitrary.arbitrary[RequestId]
       rootHash <- Arbitrary.arbitrary[RootHash]
-      protocolVersion = sourceProtocolVersion.v
+      protocolVersion = sourceProtocolVersion.unwrap
       verdict = Verdict.Approve(protocolVersion)
 
       result = ConfirmationResultMessage.create(
@@ -676,7 +675,7 @@ final class GeneratorsData(
     } yield AssignmentViewTree(
       commonData,
       assignmentView.blindFully,
-      TargetProtocolVersion(protocolVersion),
+      Target(protocolVersion),
       hash,
     )
   )
@@ -689,7 +688,7 @@ final class GeneratorsData(
     } yield UnassignmentViewTree(
       commonData,
       unassignmentView.blindFully,
-      SourceProtocolVersion(protocolVersion),
+      Source(protocolVersion),
       hash,
     )
   )

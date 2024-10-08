@@ -93,7 +93,7 @@ object DomainParametersLookup {
       params =>
         SequencerDomainParameters(
           params.confirmationRequestsMaxRate,
-          overrideMaxRequestSize.map(MaxRequestSize).getOrElse(params.maxRequestSize),
+          overrideMaxRequestSize.map(MaxRequestSize.apply).getOrElse(params.maxRequestSize),
         ),
       topologyClient,
       staticDomainParameters.protocolVersion,

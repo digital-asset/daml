@@ -11,7 +11,7 @@ import java.nio.file.Path
 
 class MessageRecorderTest extends BaseTestWordSpec with HasTempDirectory {
 
-  val testData: Seq[Data] = (0 until 3) map Data
+  val testData: Seq[Data] = (0 until 3) map Data.apply
 
   val recordFile: Path = tempDirectory.resolve("recorded-test-data")
 

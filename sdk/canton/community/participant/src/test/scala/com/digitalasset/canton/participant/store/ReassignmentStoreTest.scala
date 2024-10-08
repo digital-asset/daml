@@ -48,7 +48,6 @@ import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{Checked, MonadUtil}
-import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{
   BaseTest,
   LedgerApplicationId,
@@ -1514,10 +1513,10 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
       creatingTransactionId,
       contract,
       reassignmentId.sourceDomain,
-      SourceProtocolVersion(BaseTest.testedProtocolVersion),
+      Source(BaseTest.testedProtocolVersion),
       sourceMediator,
       targetDomainId,
-      TargetProtocolVersion(BaseTest.testedProtocolVersion),
+      Target(BaseTest.testedProtocolVersion),
       TimeProofTestUtil.mkTimeProof(
         timestamp = CantonTimestamp.Epoch,
         targetDomain = targetDomainId,
@@ -1535,7 +1534,7 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
       )
     Future.successful(
       ReassignmentData(
-        sourceProtocolVersion = SourceProtocolVersion(BaseTest.testedProtocolVersion),
+        sourceProtocolVersion = Source(BaseTest.testedProtocolVersion),
         unassignmentTs = reassignmentId.unassignmentTs,
         unassignmentRequestCounter = RequestCounter(0),
         unassignmentRequest = fullUnassignmentViewTree,

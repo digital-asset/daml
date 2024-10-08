@@ -122,7 +122,7 @@ object TopologyStore {
       case adminProto.Store.Store.Empty => Left(ProtoDeserializationError.FieldNotSet(fieldName))
       case adminProto.Store.Store.Authorized(_) => Right(TopologyStore.Authorized)
       case adminProto.Store.Store.Domain(domain) =>
-        DomainId.fromProtoPrimitive(domain.id, fieldName).map(TopologyStore.Domain)
+        DomainId.fromProtoPrimitive(domain.id, fieldName).map(TopologyStore.Domain.apply)
     }
 
   final case class Domain(id: DomainId) extends TopologyStore {

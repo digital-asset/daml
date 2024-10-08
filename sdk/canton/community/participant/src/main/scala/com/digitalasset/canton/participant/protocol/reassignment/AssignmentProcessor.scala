@@ -22,7 +22,7 @@ import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.sequencing.client.SequencerClient
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.util.ReassignmentTag.Target
-import com.digitalasset.canton.version.Reassignment.TargetProtocolVersion
+import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.ExecutionContext
 
@@ -38,7 +38,7 @@ class AssignmentProcessor(
     seedGenerator: SeedGenerator,
     sequencerClient: SequencerClient,
     override protected val timeouts: ProcessingTimeout,
-    targetProtocolVersion: TargetProtocolVersion,
+    targetProtocolVersion: Target[ProtocolVersion],
     loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
     override val testingConfig: TestingConfigInternal,
@@ -66,7 +66,7 @@ class AssignmentProcessor(
       sequencerClient,
       domainId.unwrap,
       staticDomainParameters.unwrap,
-      targetProtocolVersion.v,
+      targetProtocolVersion.unwrap,
       loggerFactory,
       futureSupervisor,
       promiseFactory,

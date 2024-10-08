@@ -118,7 +118,7 @@ class TransactionConfirmationRequestFactory(
           maxSequencingTime,
           validatePackageVettings = true,
         )
-        .leftMap(TransactionTreeFactoryError)
+        .leftMap(TransactionTreeFactoryError.apply)
 
       rootViews = transactionTree.rootViews.unblindedElements.toList
       inputContracts = ExtractUsedContractsFromRootViews(rootViews)
@@ -158,7 +158,7 @@ class TransactionConfirmationRequestFactory(
       )
       submittingParticipantSignature <- cryptoSnapshot
         .sign(transactionTree.rootHash.unwrap)
-        .leftMap[TransactionConfirmationRequestCreationError](TransactionSigningError)
+        .leftMap[TransactionConfirmationRequestCreationError](TransactionSigningError.apply)
     } yield {
       if (loggingConfig.eventDetails) {
         logger.debug(
@@ -275,7 +275,9 @@ class TransactionConfirmationRequestFactory(
             cryptoSnapshot,
             protocolVersion,
           )
-          .leftMap[TransactionConfirmationRequestCreationError](EncryptedViewMessageCreationError)
+          .leftMap[TransactionConfirmationRequestCreationError](
+            EncryptedViewMessageCreationError.apply
+          )
           .map(viewMessage => OpenEnvelope(viewMessage, recipients)(protocolVersion))
       } yield envelope
     }
@@ -288,8 +290,13 @@ class TransactionConfirmationRequestFactory(
         )
       viewsToKeyMap <- EncryptedViewMessageFactory
         .generateKeysFromRecipients(
-          lightTreesWithMetadata.map { case ViewWithWitnessesAndRecipients(tvt, _, recipients) =>
-            (ViewHashAndRecipients(tvt.viewHash, recipients), tvt.informees.toList)
+          lightTreesWithMetadata.map {
+            case ViewWithWitnessesAndRecipients(tvt, _, recipients, parentRecipients) =>
+              (
+                ViewHashAndRecipients(tvt.viewHash, recipients),
+                parentRecipients,
+                tvt.informees.toList,
+              )
           },
           parallel,
           pureCrypto,
@@ -303,7 +310,7 @@ class TransactionConfirmationRequestFactory(
       res <-
         if (parallel) {
           lightTreesWithMetadata.toList.parTraverse {
-            case ViewWithWitnessesAndRecipients(tvt, _, recipients) =>
+            case ViewWithWitnessesAndRecipients(tvt, _, recipients, _) =>
               createOpenEnvelopeWithTransaction(
                 tvt,
                 viewsToKeyMap,
@@ -312,7 +319,7 @@ class TransactionConfirmationRequestFactory(
           }
         } else
           MonadUtil.sequentialTraverse(lightTreesWithMetadata) {
-            case ViewWithWitnessesAndRecipients(tvt, _, recipients) =>
+            case ViewWithWitnessesAndRecipients(tvt, _, recipients, _) =>
               createOpenEnvelopeWithTransaction(
                 tvt,
                 viewsToKeyMap,

@@ -87,7 +87,7 @@ class PrettyPrintingTest extends AnyWordSpec with BaseTest {
   private case class ExampleInfix(first: Int, second: Boolean) extends PrettyPrinting {
     override protected def pretty: Pretty[ExampleInfix] = prettyInfix(_.first, "~>", _.second)
   }
-  private val exampleInfix: ExampleInfix = ExampleInfix(1, true)
+  private val exampleInfix: ExampleInfix = ExampleInfix(1, second = true)
   private val exampleInfixStr: String = "1 ~> true"
 
   "show is pretty" in {

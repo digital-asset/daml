@@ -206,9 +206,9 @@ package domain {
         case ParticipantAdmin => \/.right(LedgerUserRight.ParticipantAdmin)
         case IdentityProviderAdmin => \/.right(LedgerUserRight.IdentityProviderAdmin)
         case CanActAs(party) =>
-          Ref.Party.fromString(party.unwrap).map(LedgerUserRight.CanActAs).disjunction
+          Ref.Party.fromString(party.unwrap).map(LedgerUserRight.CanActAs.apply).disjunction
         case CanReadAs(party) =>
-          Ref.Party.fromString(party.unwrap).map(LedgerUserRight.CanReadAs).disjunction
+          Ref.Party.fromString(party.unwrap).map(LedgerUserRight.CanReadAs.apply).disjunction
         case CanReadAsAnyParty => \/.right(LedgerUserRight.CanReadAsAnyParty)
       }
 
@@ -534,7 +534,7 @@ package domain {
     val structure: ContractLocator <~> InputContractRef =
       new IsoFunctorTemplate[ContractLocator, InputContractRef] {
         override def from[A](ga: InputContractRef[A]) =
-          ga.fold((EnrichedContractKey[A] _).tupled, EnrichedContractId.tupled)
+          ga.fold((EnrichedContractKey[A] _).tupled, (EnrichedContractId.apply _).tupled)
 
         override def to[A](fa: ContractLocator[A]) = fa match {
           case EnrichedContractId(otid, cid) => \/-((otid, cid))

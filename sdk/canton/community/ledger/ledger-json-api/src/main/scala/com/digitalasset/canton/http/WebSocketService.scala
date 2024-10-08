@@ -152,7 +152,7 @@ object WebSocketService extends NoTracing {
           else
             SprayJson
               .decode[domain.Offset](offJv)
-              .liftErr[Error](InvalidUserInput)
+              .liftErr[Error](InvalidUserInput.apply)
               .map(offset => domain.StartingOffset(offset))
         }
       case _ => None
@@ -266,7 +266,7 @@ object WebSocketService extends NoTracing {
         Future.successful(
           SprayJson
             .decode[SearchForeverRequest](jv)
-            .liftErr[Error](InvalidUserInput)
+            .liftErr[Error](InvalidUserInput.apply)
             .map(QueryRequest(_, this))
         )
       }
@@ -362,7 +362,6 @@ object WebSocketService extends NoTracing {
           lc: LoggingContextOf[InstanceUUID]
       ): Future[StreamPredicate[Positive]] = {
 
-        import scalaz.syntax.foldable.*
         import util.Collections.*
 
         val indexedOffsets: Vector[Option[domain.Offset]] =
@@ -493,7 +492,7 @@ object WebSocketService extends NoTracing {
             as <- either[Future, Error, NelCKRH[Hint, JsValue]](
               SprayJson
                 .decode[NelCKRH[Hint, JsValue]](jv)
-                .liftErr[Error](InvalidUserInput)
+                .liftErr[Error](InvalidUserInput.apply)
             )
             bs <- rightT {
               as.map(a => decodeWithFallback(decoder, a, jwt)).sequence
@@ -761,7 +760,7 @@ class WebSocketService(
   private def parseJson(x: Message): Future[InvalidUserInput \/ JsValue] = x match {
     case msg: TextMessage =>
       msg.toStrict(config.maxDuration).map { m =>
-        SprayJson.parse(m.text).liftErr(InvalidUserInput)
+        SprayJson.parse(m.text).liftErr(InvalidUserInput.apply)
       }
     case bm: BinaryMessage =>
       // ignore binary messages but drain content to avoid the stream being clogged

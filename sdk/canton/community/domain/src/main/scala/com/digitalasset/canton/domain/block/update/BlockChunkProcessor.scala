@@ -157,48 +157,49 @@ private[update] final class BlockChunkProcessor(
   }
 
   def emitTick(
-      state: BlockUpdateGeneratorImpl.State
-  )(implicit ec: ExecutionContext, tc: TraceContext): FutureUnlessShutdown[(State, ChunkUpdate)] =
+      state: BlockUpdateGeneratorImpl.State,
+      height: Long,
+      tickAtLeastAt: CantonTimestamp,
+  )(implicit ec: ExecutionContext, tc: TraceContext): FutureUnlessShutdown[(State, ChunkUpdate)] = {
     // The block orderer marks a block to request a topology tick only when it assesses that it may need to retrieve an
     //  up-to-date topology; this will result in a single `TopologyTick` ledger block event in the chunk events of the
     //  last chunk (associated with the last part of the block).
-    if (state.latestSequencerEventTimestamp.contains(state.lastChunkTs)) {
-      // If the latest sequencer event timestamp is the same as the last chunk's final timestamp
-      //  then the last chunk's event was sequencer-addressed, and it passed validation,
-      //  so it's safe for the block orderer to query the topology snapshot on its sequencing timestamp,
-      //  and we don't need to add a `Deliver` for the tick.
-      FutureUnlessShutdown.pure(
-        (
-          state,
-          ChunkUpdate(
-            acknowledgements = Map.empty,
-            invalidAcknowledgements = Seq.empty,
-            inFlightAggregationUpdates = Map.empty,
-            lastSequencerEventTimestamp = Some(state.lastChunkTs),
-            inFlightAggregations = state.inFlightAggregations,
-            submissionsOutcomes = Seq.empty,
-          ),
-        )
-      )
-    } else {
-      // TODO(#19118) Adjust BFT time to avoid collisions (or let it assign one and propagate it)
-      val tickSequencingTimestamp = state.lastChunkTs.immediateSuccessor
-      for {
-        snapshot <- SyncCryptoClient.getSnapshotForTimestampUS(
+
+    // TODO(#21662) Optimization: if the latest sequencer event timestamp is the same as the last chunk's final
+    //  timestamp, then the last chunk's event was sequencer-addressed (and it passed validation),
+    //  so it's safe for the block orderer to query the topology snapshot on its sequencing timestamp,
+    //  and we don't need to add a `Deliver` for the tick.
+
+    val tickSequencingTimestamp = state.lastChunkTs.immediateSuccessor.max(tickAtLeastAt)
+    logger.debug(
+      s"Block $height: emitting a topology tick at least at $tickAtLeastAt (actually at $tickSequencingTimestamp) " +
+        s"as requested by the block orderer"
+    )
+    // We bypass validation here to make sure that the topology tick is always received by the sequencer runtime.
+    for {
+      snapshot <-
+        SyncCryptoClient.getSnapshotForTimestampUS(
           domainSyncCryptoApi,
           tickSequencingTimestamp,
           state.latestSequencerEventTimestamp,
           protocolVersion,
           warnIfApproximate = false,
         )
-        sequencerRecipients <- FutureUnlessShutdown.outcomeF(
+      sequencerRecipients <-
+        FutureUnlessShutdown.outcomeF(
           GroupAddressResolver.resolveGroupsToMembers(
             Set(SequencersOfDomain),
             snapshot.ipsSnapshot,
           )
         )
-
-        tickSubmissionOutcome = SubmissionRequestOutcome(
+    } yield {
+      val newState =
+        state.copy(
+          lastChunkTs = tickSequencingTimestamp,
+          latestSequencerEventTimestamp = Some(tickSequencingTimestamp),
+        )
+      val tickSubmissionOutcome =
+        SubmissionRequestOutcome(
           Map.empty, // Sequenced events are legacy and will be removed, so no need to generate them
           None,
           outcome = SubmissionOutcome.Deliver(
@@ -218,21 +219,18 @@ private[update] final class BlockChunkProcessor(
             submissionTraceContext = TraceContext.createNew(),
           ),
         )
-      } yield (
-        state.copy(
-          lastChunkTs = tickSequencingTimestamp,
-          latestSequencerEventTimestamp = Some(tickSequencingTimestamp),
-        ),
-        ChunkUpdate(
-          acknowledgements = Map.empty,
-          invalidAcknowledgements = Seq.empty,
-          inFlightAggregationUpdates = Map.empty,
-          lastSequencerEventTimestamp = Some(tickSequencingTimestamp),
-          inFlightAggregations = state.inFlightAggregations,
-          submissionsOutcomes = Seq(tickSubmissionOutcome),
-        ),
+      val chunkUpdate = ChunkUpdate(
+        acknowledgements = Map.empty,
+        invalidAcknowledgements = Seq.empty,
+        inFlightAggregationUpdates = Map.empty,
+        lastSequencerEventTimestamp = Some(tickSequencingTimestamp),
+        inFlightAggregations = state.inFlightAggregations,
+        submissionsOutcomes = Seq(tickSubmissionOutcome),
       )
+
+      (newState, chunkUpdate)
     }
+  }
 
   private def fixTimestamps(
       height: Long,

@@ -16,7 +16,6 @@ import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.canton.version.Reassignment.TargetProtocolVersion
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -76,7 +75,7 @@ private[routing] class ContractsReassigner(
           submitterMetadata,
           contractId,
           targetDomain,
-          TargetProtocolVersion(targetSyncDomain.staticDomainParameters.protocolVersion),
+          Target(targetSyncDomain.staticDomainParameters.protocolVersion),
         )
         .mapK(FutureUnlessShutdown.outcomeK)
         .semiflatMap(Predef.identity)

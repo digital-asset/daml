@@ -547,7 +547,7 @@ object DecentralizedNamespaceDefinition {
           )
         )
       item <- create(decentralizedNamespace, threshold, ownersNE.map(Namespace(_)))
-        .leftMap(ProtoDeserializationError.OtherError)
+        .leftMap(ProtoDeserializationError.OtherError.apply)
     } yield item
   }
 
@@ -1606,7 +1606,7 @@ object MediatorDomainState {
         UniqueIdentifier.fromProtoPrimitive(_, "observers").map(MediatorId(_))
       )
       result <- create(domainId, group, threshold, active, observers).leftMap(
-        ProtoDeserializationError.OtherError
+        ProtoDeserializationError.OtherError.apply
       )
     } yield result
   }
@@ -1703,7 +1703,7 @@ object SequencerDomainState {
         UniqueIdentifier.fromProtoPrimitive(_, "observers").map(SequencerId(_))
       )
       result <- create(domainId, threshold, active, observers).leftMap(
-        ProtoDeserializationError.OtherError
+        ProtoDeserializationError.OtherError.apply
       )
     } yield result
   }
@@ -1767,7 +1767,7 @@ object PurgeTopologyTransaction {
       domainId <- DomainId.fromProtoPrimitive(domainIdP, "domain")
       mappings <- mappingsP.traverse(TopologyMapping.fromProtoV30)
       result <- create(domainId, mappings).leftMap(
-        ProtoDeserializationError.OtherError
+        ProtoDeserializationError.OtherError.apply
       )
     } yield result
   }

@@ -70,7 +70,7 @@ object Fingerprint {
   def fromProtoPrimitive(str: String): ParsingResult[Fingerprint] =
     UniqueIdentifier
       .verifyValidString(str) // verify that we can represent the string as part of the UID.
-      .leftMap(ProtoDeserializationError.StringConversionError)
+      .leftMap(ProtoDeserializationError.StringConversionError.apply)
       .flatMap(String68.fromProtoPrimitive(_, "Fingerprint"))
       .map(Fingerprint(_))
 
@@ -110,7 +110,7 @@ trait CryptoKeyPair[+PK <: PublicKey, +SK <: PrivateKey]
     "Public and private key of the same key pair must have the same ids.",
   )
 
-  override protected def companionObj = CryptoKeyPair
+  override protected def companionObj: CryptoKeyPair.type = CryptoKeyPair
 
   def publicKey: PK
   def privateKey: SK
@@ -218,7 +218,8 @@ trait PublicKeyWithName
 
   def id: Fingerprint
 
-  override protected def companionObj = PublicKeyWithName
+  override protected def companionObj: PublicKeyWithName.type =
+    PublicKeyWithName
 
   def toProtoV30: v30.PublicKeyWithName =
     v30.PublicKeyWithName(
@@ -378,10 +379,24 @@ object KeyPurpose {
 
 /** Information that is cached for each view and is to be re-used if another view has
   * the same recipients and transparency can be respected.
-  * @param sessionKeyRandomness the randomness to create the session key that is then used to encrypt the randomness of the view.
+  *
+  * @param sessionKeyAndReference the randomness, the corresponding symmetric key used to
+  *                               encrypt the view, and a symbolic reference to use in the 'encryptedBy' field.
+  * @param encryptedBy an optional symbolic reference for the parent session key (if it exists) that encrypts a view
+  *                    containing this session key’s randomness. This cache entry must be revoked if the
+  *                    reference no longer matches.
   * @param encryptedSessionKeys the randomness of the session key encrypted for each recipient.
   */
 final case class SessionKeyInfo(
-    sessionKeyRandomness: SecureRandomness,
+    sessionKeyAndReference: SessionKeyAndReference,
+    encryptedBy: Option[Object],
     encryptedSessionKeys: Seq[AsymmetricEncrypted[SecureRandomness]],
+)
+
+/** The randomness and corresponding session key, as well as a temporary reference to it that lives as long as the cache lives.
+  */
+final case class SessionKeyAndReference(
+    randomness: SecureRandomness,
+    key: SymmetricKey,
+    reference: Object,
 )

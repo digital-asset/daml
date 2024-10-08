@@ -77,7 +77,7 @@ class DirectSequencerClientTransport(
   ): EitherT[FutureUnlessShutdown, SendAsyncClientResponseError, Unit] =
     sequencer
       .sendAsyncSigned(request)
-      .leftMap(SendAsyncClientError.RequestRefused)
+      .leftMap(SendAsyncClientError.RequestRefused.apply)
 
   override def acknowledgeSigned(request: SignedContent[AcknowledgeRequest])(implicit
       traceContext: TraceContext
@@ -177,7 +177,7 @@ class DirectSequencerClientTransport(
             .mapMaterializedValue((_: NotUsed) =>
               (PekkoUtil.noOpKillSwitch, Future.successful(Done))
             )
-        case Right(source) => source.map(_.leftMap(SequencedEventError))
+        case Right(source) => source.map(_.leftMap(SequencedEventError.apply))
       }
     val health = new DirectSequencerClientTransportHealth(logger)
     val source = Source

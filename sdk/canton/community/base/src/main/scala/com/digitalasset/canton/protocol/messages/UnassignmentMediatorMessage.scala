@@ -19,7 +19,7 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.util.EitherUtil
-import com.digitalasset.canton.version.Reassignment.SourceProtocolVersion
+import com.digitalasset.canton.util.ReassignmentTag.Source
 import com.digitalasset.canton.version.{
   HasProtocolVersionedWithContextCompanion,
   ProtoVersion,
@@ -46,11 +46,11 @@ final case class UnassignmentMediatorMessage(
 
   override def submittingParticipant: ParticipantId = tree.submittingParticipant
 
-  val protocolVersion: SourceProtocolVersion = commonData.sourceProtocolVersion
+  val protocolVersion: Source[ProtocolVersion] = commonData.sourceProtocolVersion
 
   override val representativeProtocolVersion
       : RepresentativeProtocolVersion[UnassignmentMediatorMessage.type] =
-    UnassignmentMediatorMessage.protocolVersionRepresentativeFor(protocolVersion.v)
+    UnassignmentMediatorMessage.protocolVersionRepresentativeFor(protocolVersion.unwrap)
 
   override def domainId: DomainId = commonData.sourceDomain.unwrap
 
@@ -94,7 +94,7 @@ final case class UnassignmentMediatorMessage(
 object UnassignmentMediatorMessage
     extends HasProtocolVersionedWithContextCompanion[
       UnassignmentMediatorMessage,
-      (HashOps, SourceProtocolVersion),
+      (HashOps, Source[ProtocolVersion]),
     ] {
 
   val supportedProtoVersions = SupportedProtoVersions(
@@ -106,7 +106,7 @@ object UnassignmentMediatorMessage
     )
   )
 
-  def fromProtoV30(context: (HashOps, SourceProtocolVersion))(
+  def fromProtoV30(context: (HashOps, Source[ProtocolVersion]))(
       unassignmentMediatorMessageP: v30.UnassignmentMediatorMessage
   ): ParsingResult[UnassignmentMediatorMessage] = {
     val v30.UnassignmentMediatorMessage(treePO, submittingParticipantSignaturePO) =

@@ -146,7 +146,7 @@ class RewritingAppender()
     // optionally strip the context information when trying to match the logger
     val tmp = rules.get()
     (List(loggerName) ++ stripAfter(':') ++ stripAfter('/')).map(tmp.get).collectFirst {
-      case Some(rules) => rules
+      case Some(myRule) => myRule
     }
   }
 

@@ -69,7 +69,7 @@ class DbDomainConnectionConfigStore private[store] (
           sql"""select config, status from par_domain_connection_configs where domain_alias = $domainAlias"""
             .as[(DomainConnectionConfig, DomainConnectionConfigStore.Status)]
             .headOption
-            .map(_.map(StoredDomainConnectionConfig.tupled)),
+            .map(_.map((StoredDomainConnectionConfig.apply _).tupled)),
           functionFullName,
         )
         .map(_.toRight(MissingConfigForAlias(domainAlias)))
@@ -81,7 +81,7 @@ class DbDomainConnectionConfigStore private[store] (
     storage.query(
       sql"""select config, status from par_domain_connection_configs"""
         .as[(DomainConnectionConfig, DomainConnectionConfigStore.Status)]
-        .map(_.map(StoredDomainConnectionConfig.tupled)),
+        .map(_.map((StoredDomainConnectionConfig.apply _).tupled)),
       functionFullName,
     )
 

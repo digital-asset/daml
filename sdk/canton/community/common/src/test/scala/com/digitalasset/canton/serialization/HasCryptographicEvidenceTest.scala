@@ -184,6 +184,6 @@ object MemoizedEvidenceWithFailureSUT {
     if (bytes.size() != 2)
       throw new IllegalArgumentException(s"Only two bytes expected, got: ${bytes.toString}")
 
-    new MemoizedEvidenceWithFailureSUT(bytes.byteAt(1))(false, Some(bytes))
+    new MemoizedEvidenceWithFailureSUT(bytes.byteAt(1))(fail = false, Some(bytes))
   }
 }

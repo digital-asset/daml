@@ -143,7 +143,7 @@ private[http] final class RouteSetup(
   ): ET[(Jwt, JsValue)] =
     for {
       t2 <- eitherT(input(req)): ET[(Jwt, String)]
-      jsVal <- either(SprayJson.parse(t2._2).liftErr(InvalidUserInput)): ET[JsValue]
+      jsVal <- either(SprayJson.parse(t2._2).liftErr(InvalidUserInput.apply)): ET[JsValue]
     } yield (t2._1, jsVal)
 
   def findJwt(req: HttpRequest)(implicit

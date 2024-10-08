@@ -70,7 +70,7 @@ final case class InFlightAggregation private (
       s"Cannot aggregate submission by $sender with sequencing timestamp $timestamp after the max sequencing time at $maxSequencingTimestamp",
     )
     for {
-      _ <- deliveredAt.toLeft(()).leftMap(AlreadyDelivered)
+      _ <- deliveredAt.toLeft(()).leftMap(AlreadyDelivered.apply)
       _ <- aggregatedSenders
         .get(sender)
         .toLeft(())

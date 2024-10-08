@@ -17,7 +17,7 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
+import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LfPartyId, ReassignmentCounter}
 
 import java.util.UUID
@@ -37,10 +37,10 @@ final case class UnassignmentRequest(
     creatingTransactionId: TransactionId,
     contract: SerializableContract,
     sourceDomain: Source[DomainId],
-    sourceProtocolVersion: SourceProtocolVersion,
+    sourceProtocolVersion: Source[ProtocolVersion],
     sourceMediator: MediatorGroupRecipient,
     targetDomain: Target[DomainId],
-    targetProtocolVersion: TargetProtocolVersion,
+    targetProtocolVersion: Target[ProtocolVersion],
     targetTimeProof: TimeProof,
     reassignmentCounter: ReassignmentCounter,
 ) {
@@ -92,10 +92,10 @@ object UnassignmentRequest {
       submitterMetadata: ReassignmentSubmitterMetadata,
       stakeholders: Set[LfPartyId],
       sourceDomain: Source[DomainId],
-      sourceProtocolVersion: SourceProtocolVersion,
+      sourceProtocolVersion: Source[ProtocolVersion],
       sourceMediator: MediatorGroupRecipient,
       targetDomain: Target[DomainId],
-      targetProtocolVersion: TargetProtocolVersion,
+      targetProtocolVersion: Target[ProtocolVersion],
       sourceTopology: Source[TopologySnapshot],
       targetTopology: Target[TopologySnapshot],
       reassignmentCounter: ReassignmentCounter,

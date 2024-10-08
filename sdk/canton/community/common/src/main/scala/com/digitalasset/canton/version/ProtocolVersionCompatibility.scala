@@ -189,7 +189,7 @@ object DomainProtocolVersion {
       for {
         version <- ProtocolVersion
           .parseUncheckedS(str)
-          .leftMap[FailureReason](InvalidProtocolVersion)
+          .leftMap[FailureReason](InvalidProtocolVersion.apply)
         _ <- Either.cond(
           // we support development versions when parsing, but catch dev versions without
           // the safety flag during config validation
@@ -230,7 +230,7 @@ object ParticipantProtocolVersion {
       for {
         version <- ProtocolVersion
           .parseUncheckedS(str)
-          .leftMap[FailureReason](InvalidProtocolVersion)
+          .leftMap[FailureReason](InvalidProtocolVersion.apply)
         _ <- Either.cond(
           // same as domain: support parsing of dev
           ProtocolVersionCompatibility

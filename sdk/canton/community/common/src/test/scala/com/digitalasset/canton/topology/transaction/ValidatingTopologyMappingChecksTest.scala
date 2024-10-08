@@ -555,7 +555,6 @@ class ValidatingTopologyMappingChecksTest
 
         val dtc =
           factory.mkRemove(DomainTrustCertificate(participant1, domainId))
-
         checkTransaction(checks, dtc, Some(prior)) shouldBe Left(
           TopologyTransactionRejection.ParticipantStillHostsParties(participant1, Seq(party1))
         )

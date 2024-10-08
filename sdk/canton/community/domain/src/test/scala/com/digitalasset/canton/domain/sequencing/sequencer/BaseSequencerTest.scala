@@ -214,18 +214,18 @@ class BaseSequencerTest extends AsyncWordSpec with BaseTest {
   "health" should {
     "onHealthChange should register listener and immediately call it with current status" in {
       val sequencer = new StubSequencer(Set())
-      var status = SequencerHealthStatus(false)
+      var status = SequencerHealthStatus(isActive = false)
       sequencer.registerOnHealthChange(HealthListener("") { status = sequencer.getState })
 
-      status shouldBe SequencerHealthStatus(true)
+      status shouldBe SequencerHealthStatus(isActive = true)
     }
 
     "health status change should trigger registered health listener" in {
       val sequencer = new StubSequencer(Set())
-      var status = SequencerHealthStatus(true)
+      var status = SequencerHealthStatus(isActive = true)
       sequencer.registerOnHealthChange(HealthListener("") { status = sequencer.getState })
 
-      val badHealth = SequencerHealthStatus(false, Some("something bad happened"))
+      val badHealth = SequencerHealthStatus(isActive = false, Some("something bad happened"))
       sequencer.reportHealthState(badHealth)
 
       status shouldBe badHealth

@@ -70,7 +70,6 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.HasTestCloseContext
-import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{
   BaseTest,
   HasExecutorService,
@@ -254,7 +253,7 @@ final class UnassignmentProcessingStepsTest
       reassignmentCoordination,
       seedGenerator,
       Source(defaultStaticDomainParameters),
-      SourceProtocolVersion(testedProtocolVersion),
+      Source(testedProtocolVersion),
       loggerFactory,
     )(executorService)
 
@@ -336,10 +335,10 @@ final class UnassignmentProcessingStepsTest
           submitterMetadata(submitter),
           stakeholders,
           sourceDomain,
-          SourceProtocolVersion(testedProtocolVersion),
+          Source(testedProtocolVersion),
           sourceMediator,
           targetDomain,
-          TargetProtocolVersion(testedProtocolVersion),
+          Target(testedProtocolVersion),
           Source(sourceTopologySnapshot),
           Target(targetTopologySnapshot),
           initialReassignmentCounter,
@@ -502,10 +501,10 @@ final class UnassignmentProcessingStepsTest
             creatingTransactionId = creatingTransactionId,
             contract = contract,
             sourceDomain = sourceDomain,
-            sourceProtocolVersion = SourceProtocolVersion(testedProtocolVersion),
+            sourceProtocolVersion = Source(testedProtocolVersion),
             sourceMediator = sourceMediator,
             targetDomain = targetDomain,
-            targetProtocolVersion = TargetProtocolVersion(testedProtocolVersion),
+            targetProtocolVersion = Target(testedProtocolVersion),
             targetTimeProof = timeEvent,
             reassignmentCounter = initialReassignmentCounter,
           ),
@@ -555,10 +554,10 @@ final class UnassignmentProcessingStepsTest
             creatingTransactionId = creatingTransactionId,
             contract = contract,
             sourceDomain = sourceDomain,
-            sourceProtocolVersion = SourceProtocolVersion(testedProtocolVersion),
+            sourceProtocolVersion = Source(testedProtocolVersion),
             sourceMediator = sourceMediator,
             targetDomain = targetDomain,
-            targetProtocolVersion = TargetProtocolVersion(testedProtocolVersion),
+            targetProtocolVersion = Target(testedProtocolVersion),
             targetTimeProof = timeEvent,
             reassignmentCounter = initialReassignmentCounter,
           ),
@@ -579,10 +578,10 @@ final class UnassignmentProcessingStepsTest
             creatingTransactionId = creatingTransactionId,
             contract = contract,
             sourceDomain = sourceDomain,
-            sourceProtocolVersion = SourceProtocolVersion(testedProtocolVersion),
+            sourceProtocolVersion = Source(testedProtocolVersion),
             sourceMediator = sourceMediator,
             targetDomain = targetDomain,
-            targetProtocolVersion = TargetProtocolVersion(testedProtocolVersion),
+            targetProtocolVersion = Target(testedProtocolVersion),
             targetTimeProof = timeEvent,
             reassignmentCounter = initialReassignmentCounter,
           ),
@@ -610,7 +609,7 @@ final class UnassignmentProcessingStepsTest
           submitterMetadata = submitterMetadata(party1),
           contractId,
           targetDomain,
-          TargetProtocolVersion(testedProtocolVersion),
+          Target(testedProtocolVersion),
         )
 
       for {
@@ -648,7 +647,7 @@ final class UnassignmentProcessingStepsTest
         submitterMetadata = submitterMetadata(party1),
         contractId,
         Target(sourceDomain.unwrap),
-        TargetProtocolVersion(testedProtocolVersion),
+        Target(testedProtocolVersion),
       )
 
       for {
@@ -679,10 +678,10 @@ final class UnassignmentProcessingStepsTest
       creatingTransactionId,
       contract,
       sourceDomain,
-      SourceProtocolVersion(testedProtocolVersion),
+      Source(testedProtocolVersion),
       sourceMediator,
       targetDomain,
-      TargetProtocolVersion(testedProtocolVersion),
+      Target(testedProtocolVersion),
       timeEvent,
       reassignmentCounter = initialReassignmentCounter,
     )
@@ -741,10 +740,10 @@ final class UnassignmentProcessingStepsTest
         creatingTransactionId,
         contract,
         sourceDomain,
-        SourceProtocolVersion(testedProtocolVersion),
+        Source(testedProtocolVersion),
         sourceMediator,
         targetDomain,
-        TargetProtocolVersion(testedProtocolVersion),
+        Target(testedProtocolVersion),
         timeEvent,
         reassignmentCounter = initialReassignmentCounter,
       )
@@ -900,7 +899,7 @@ final class UnassignmentProcessingStepsTest
     for {
       viewsToKeyMap <- EncryptedViewMessageFactory
         .generateKeysFromRecipients(
-          Seq((ViewHashAndRecipients(tree.viewHash, recipients), tree.informees.toList)),
+          Seq((ViewHashAndRecipients(tree.viewHash, recipients), None, tree.informees.toList)),
           parallel = true,
           crypto.pureCrypto,
           cryptoSnapshot,

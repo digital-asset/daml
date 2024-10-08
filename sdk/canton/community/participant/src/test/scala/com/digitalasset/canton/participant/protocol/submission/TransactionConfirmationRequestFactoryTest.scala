@@ -275,6 +275,7 @@ class TransactionConfirmationRequestFactoryTest
           computeRandomnessLength(cryptoPureApi)
         ),
       )
+
       tree.viewHash -> (recipients, sessionKeyRandomness)
     }.toMap
 

@@ -192,7 +192,7 @@ trait EncryptionPrivateStoreOps extends EncryptionPrivateOps {
       _ <- store
         .storeDecryptionKey(keypair.privateKey, name)
         .leftMap[EncryptionKeyGenerationError](
-          EncryptionKeyGenerationError.EncryptionPrivateStoreError
+          EncryptionKeyGenerationError.EncryptionPrivateStoreError.apply
         )
     } yield keypair.publicKey
 
@@ -506,7 +506,7 @@ final case class SymmetricKey(
 ) extends CryptoKey
     with HasVersionedWrapper[SymmetricKey]
     with NoCopy {
-  override protected def companionObj = SymmetricKey
+  override protected def companionObj: SymmetricKey.type = SymmetricKey
 
   protected def toProtoV30: v30.SymmetricKey =
     v30.SymmetricKey(format = format.toProtoEnum, key = key, scheme = scheme.toProtoEnum)
@@ -688,7 +688,7 @@ final case class EncryptionPrivateKey private[crypto] (
     with HasVersionedWrapper[EncryptionPrivateKey]
     with NoCopy {
 
-  override protected def companionObj = EncryptionPrivateKey
+  override protected def companionObj: EncryptionPrivateKey.type = EncryptionPrivateKey
 
   override def purpose: KeyPurpose = KeyPurpose.Encryption
 

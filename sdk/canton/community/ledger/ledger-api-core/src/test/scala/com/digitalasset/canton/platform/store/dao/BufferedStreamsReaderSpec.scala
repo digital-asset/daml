@@ -242,7 +242,6 @@ class BufferedStreamsReaderSpec
   }
 }
 
-@nowarn("msg=match may not be exhaustive")
 object BufferedStreamsReaderSpec {
 
   trait TestFixtures
@@ -256,7 +255,8 @@ object BufferedStreamsReaderSpec {
     implicit val ec: ExecutionContext = executorService
 
     val metrics = LedgerApiServerMetrics.ForTesting
-    val Seq(offset0, offset1, offset2, offset3) = (0 to 3) map { idx => offset(idx.toLong) }
+    val Seq(offset0, offset1, offset2, offset3) =
+      (0 to 3) map { idx => offset(idx.toLong) }: @nowarn("msg=match may not be exhaustive")
     val offsetUpdates: Seq[(Offset, Traced[TransactionLogUpdate.TransactionAccepted])] =
       Seq(offset1, offset2, offset3).zip((1 to 3).map(idx => Traced(transaction(s"tx-$idx"))))
 
@@ -265,7 +265,7 @@ object BufferedStreamsReaderSpec {
       tracedUpdate =>
         tracedUpdate.value match {
           case update: TransactionLogUpdate.TransactionAccepted => Some(update)
-          case _: TransactionLogUpdate.TransactionRejected => None
+          case _ => None
         }
 
     val inMemoryFanoutBuffer: InMemoryFanoutBuffer = new InMemoryFanoutBuffer(
@@ -475,7 +475,7 @@ object BufferedStreamsReaderSpec {
       effectiveAt = Timestamp.Epoch,
       offset = Offset.beforeBegin,
       events = Vector(null),
-      completionDetails = None,
+      completionStreamResponse = None,
       domainId = someDomainId.toProtoPrimitive,
       recordTime = Timestamp.Epoch,
     )

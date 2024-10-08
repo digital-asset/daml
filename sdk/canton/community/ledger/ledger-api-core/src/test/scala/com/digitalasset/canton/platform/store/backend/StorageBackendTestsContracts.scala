@@ -103,7 +103,7 @@ private[backend] trait StorageBackendTestsContracts
       DbDto.IdFilterCreateStakeholder(1L, someTemplateId.toString, signatory),
       dtoCompletion(offset(1)),
       // 2: transaction that archives the contract
-      dtoExercise(offset(2), 2L, true, contractId),
+      dtoExercise(offset(2), 2L, consuming = true, contractId),
       dtoCompletion(offset(2)),
     )
 

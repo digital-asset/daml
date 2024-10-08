@@ -55,9 +55,9 @@ import com.digitalasset.canton.serialization.DefaultDeserializationError
 import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.util.ReassignmentTag.Target
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
+import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{
   LfPartyId,
   ReassignmentCounter,
@@ -77,7 +77,7 @@ private[reassignment] class AssignmentProcessingSteps(
     reassignmentCoordination: ReassignmentCoordination,
     seedGenerator: SeedGenerator,
     staticDomainParameters: Target[StaticDomainParameters],
-    targetProtocolVersion: TargetProtocolVersion,
+    targetProtocolVersion: Target[ProtocolVersion],
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
     extends ReassignmentProcessingSteps[
@@ -196,7 +196,7 @@ private[reassignment] class AssignmentProcessingSteps(
       rootHash = fullTree.rootHash
       submittingParticipantSignature <- recentSnapshot
         .sign(rootHash.unwrap)
-        .leftMap(ReassignmentSigningError)
+        .leftMap(ReassignmentSigningError.apply)
       mediatorMessage = fullTree.mediatorMessage(submittingParticipantSignature)
       recipientsSet <- activeParticipantsOfParty(stakeholders.toSeq).mapK(
         FutureUnlessShutdown.outcomeK
@@ -208,12 +208,14 @@ private[reassignment] class AssignmentProcessingSteps(
       )
       viewsToKeyMap <- EncryptedViewMessageFactory
         .generateKeysFromRecipients(
-          Seq((ViewHashAndRecipients(fullTree.viewHash, recipients), fullTree.informees.toList)),
+          Seq(
+            (ViewHashAndRecipients(fullTree.viewHash, recipients), None, fullTree.informees.toList)
+          ),
           parallel = true,
           pureCrypto,
           recentSnapshot,
           ephemeralState.sessionKeyStoreLookup.convertStore,
-          targetProtocolVersion.v,
+          targetProtocolVersion.unwrap,
         )
         .leftMap[ReassignmentProcessorError](
           EncryptionError(reassignmentData.contract.contractId, _)
@@ -224,7 +226,7 @@ private[reassignment] class AssignmentProcessingSteps(
           fullTree,
           (viewKey, viewKeyMap),
           recentSnapshot,
-          targetProtocolVersion.v,
+          targetProtocolVersion.unwrap,
         )
         .leftMap[ReassignmentProcessorError](
           EncryptionError(reassignmentData.contract.contractId, _)
@@ -234,7 +236,7 @@ private[reassignment] class AssignmentProcessingSteps(
         RootHashMessage(
           rootHash,
           domainId.unwrap,
-          targetProtocolVersion.v,
+          targetProtocolVersion.unwrap,
           ViewType.AssignmentViewType,
           recentSnapshot.ipsSnapshot.timestamp,
           EmptyRootHashMessagePayload,
@@ -255,7 +257,7 @@ private[reassignment] class AssignmentProcessingSteps(
         viewMessage -> recipients,
         rootHashMessage -> rootHashRecipients,
       )
-      ReassignmentsSubmission(Batch.of(targetProtocolVersion.v, messages*), rootHash)
+      ReassignmentsSubmission(Batch.of(targetProtocolVersion.unwrap, messages*), rootHash)
     }
   }
 
@@ -456,7 +458,9 @@ private[reassignment] class AssignmentProcessingSteps(
         responsesET,
         RejectionArgs(
           entry,
-          LocalRejectError.TimeRejects.LocalTimeout.Reject().toLocalReject(targetProtocolVersion.v),
+          LocalRejectError.TimeRejects.LocalTimeout
+            .Reject()
+            .toLocalReject(targetProtocolVersion.unwrap),
         ),
       )
     }
@@ -512,9 +516,9 @@ private[reassignment] class AssignmentProcessingSteps(
             )
 
         val localVerdict =
-          localRejectErrorO.fold[LocalVerdict](LocalApprove(targetProtocolVersion.v)) { err =>
+          localRejectErrorO.fold[LocalVerdict](LocalApprove(targetProtocolVersion.unwrap)) { err =>
             err.logWithContext()
-            err.toLocalReject(targetProtocolVersion.v)
+            err.toLocalReject(targetProtocolVersion.unwrap)
           }
 
         ConfirmationResponse
@@ -526,7 +530,7 @@ private[reassignment] class AssignmentProcessingSteps(
             assignmentRequest.rootHash,
             validationResult.confirmingParties,
             domainId.unwrap,
-            targetProtocolVersion.v,
+            targetProtocolVersion.unwrap,
           )
           .map(reassignmentResponse => Seq(reassignmentResponse))
 
@@ -644,7 +648,7 @@ private[reassignment] class AssignmentProcessingSteps(
       )
     val driverContractMetadata = contract.contractSalt
       .map { salt =>
-        DriverContractMetadata(salt).toLfBytes(targetProtocolVersion.v)
+        DriverContractMetadata(salt).toLfBytes(targetProtocolVersion.unwrap)
       }
       .getOrElse(Bytes.Empty)
 
@@ -741,8 +745,8 @@ object AssignmentProcessingSteps {
       targetMediator: MediatorGroupRecipient,
       unassignmentResult: DeliveredUnassignmentResult,
       assignmentUuid: UUID,
-      sourceProtocolVersion: SourceProtocolVersion,
-      targetProtocolVersion: TargetProtocolVersion,
+      sourceProtocolVersion: Source[ProtocolVersion],
+      targetProtocolVersion: Target[ProtocolVersion],
       reassigningParticipants: Set[ParticipantId],
   ): Either[ReassignmentProcessorError, FullAssignmentTree] = {
     val commonDataSalt = Salt.tryDeriveSalt(seed, 0, pureCrypto)

@@ -51,7 +51,6 @@ import com.digitalasset.canton.util.{
   SimpleExecutionQueue,
 }
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
 import com.digitalasset.canton.{LfPartyId, RequestCounter}
 import com.google.common.collect.HashBiMap
 import com.google.protobuf.ByteString
@@ -66,7 +65,7 @@ class DbReassignmentStore(
     override protected val storage: DbStorage,
     indexedTargetDomain: Target[IndexedDomain],
     indexedStringStore: IndexedStringStore,
-    targetDomainProtocolVersion: TargetProtocolVersion,
+    targetDomainProtocolVersion: Target[ProtocolVersion],
     cryptoApi: CryptoPureApi,
     futureSupervisor: FutureSupervisor,
     exitOnFatalFailures: Boolean,
@@ -123,7 +122,7 @@ class DbReassignmentStore(
       }
 
   private def getResultFullUnassignmentTree(
-      sourceDomainProtocolVersion: SourceProtocolVersion
+      sourceDomainProtocolVersion: Source[ProtocolVersion]
   ): GetResult[FullUnassignmentTree] =
     GetResult(r =>
       FullUnassignmentTree
@@ -143,7 +142,7 @@ class DbReassignmentStore(
     (r: FullUnassignmentTree, pp: PositionedParameters) => pp >> r.toByteString.toByteArray
 
   private implicit val setParameterSerializableContract: SetParameter[SerializableContract] =
-    SerializableContract.getVersionedSetParameter(targetDomainProtocolVersion.v)
+    SerializableContract.getVersionedSetParameter(targetDomainProtocolVersion.unwrap)
 
   implicit val setParameterReassignmentTagDomainId: SetParameter[DomainId] =
     (d: DomainId, pp: PositionedParameters) => pp >> d.toLengthLimitedString
@@ -161,7 +160,7 @@ class DbReassignmentStore(
   }
 
   private def getResultDeliveredUnassignmentResult(
-      sourceProtocolVersion: SourceProtocolVersion
+      sourceProtocolVersion: Source[ProtocolVersion]
   ): GetResult[Option[DeliveredUnassignmentResult]] =
     GetResult(r =>
       r.nextBytesOption().map { bytes =>
@@ -180,7 +179,7 @@ class DbReassignmentStore(
       pp >> r.map(_.result.toByteArray)
 
   private implicit val getResultReassignmentData: GetResult[ReassignmentData] = GetResult { r =>
-    val sourceProtocolVersion = SourceProtocolVersion(GetResult[ProtocolVersion].apply(r))
+    val sourceProtocolVersion = Source(GetResult[ProtocolVersion].apply(r))
 
     ReassignmentData(
       sourceProtocolVersion = sourceProtocolVersion,
@@ -847,20 +846,20 @@ object DbReassignmentStore {
     ): DeliveredUnassignmentResult =
       tryCreateDeliveredUnassignmentResult(cryptoApi)(
         bytes = result,
-        sourceProtocolVersion = SourceProtocolVersion(sourceProtocolVersion),
+        sourceProtocolVersion = Source(sourceProtocolVersion),
       )
   }
 
   private def tryCreateDeliveredUnassignmentResult(cryptoApi: CryptoPureApi)(
       bytes: Array[Byte],
-      sourceProtocolVersion: SourceProtocolVersion,
+      sourceProtocolVersion: Source[ProtocolVersion],
   ) = {
     val res: ParsingResult[DeliveredUnassignmentResult] = for {
       signedContent <- SignedContent
         .fromTrustedByteArray(bytes)
         .flatMap(
           _.deserializeContent(
-            SequencedEvent.fromByteStringOpen(cryptoApi, sourceProtocolVersion.v)
+            SequencedEvent.fromByteStringOpen(cryptoApi, sourceProtocolVersion.unwrap)
           )
         )
       result <- DeliveredUnassignmentResult

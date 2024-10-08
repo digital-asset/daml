@@ -27,7 +27,6 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.util.UUID
@@ -135,10 +134,10 @@ class AssignmentValidationTest
       ExampleTransactionFactory.transactionId(0),
       contract,
       reassignmentId.sourceDomain,
-      SourceProtocolVersion(testedProtocolVersion),
+      Source(testedProtocolVersion),
       sourceMediator,
       targetDomain,
-      TargetProtocolVersion(testedProtocolVersion),
+      Target(testedProtocolVersion),
       TimeProofTestUtil.mkTimeProof(timestamp = CantonTimestamp.Epoch, targetDomain = targetDomain),
       initialReassignmentCounter,
     )
@@ -153,7 +152,7 @@ class AssignmentValidationTest
       )
     val reassignmentData =
       ReassignmentData(
-        SourceProtocolVersion(testedProtocolVersion),
+        Source(testedProtocolVersion),
         CantonTimestamp.Epoch,
         RequestCounter(1),
         fullUnassignmentTree,
@@ -302,7 +301,7 @@ class AssignmentValidationTest
 
     "disallow reassignments from source domain supporting reassignment counter to destination domain not supporting them" in {
       val reassignmentDataSourceDomainPVCNTestNet =
-        reassignmentData.copy(sourceProtocolVersion = SourceProtocolVersion(ProtocolVersion.v32))
+        reassignmentData.copy(sourceProtocolVersion = Source(ProtocolVersion.v32))
       for {
         result <-
           assignmentValidation
@@ -315,7 +314,7 @@ class AssignmentValidationTest
             )
             .value
       } yield {
-        if (unassignmentRequest.targetProtocolVersion.v >= ProtocolVersion.v32) {
+        if (unassignmentRequest.targetProtocolVersion.unwrap >= ProtocolVersion.v32) {
           result shouldBe Right(Some(AssignmentValidationResult(Set(party1))))
         } else {
           result shouldBe Left(
@@ -381,8 +380,8 @@ class AssignmentValidationTest
         targetMediator,
         unassignmentResult,
         uuid,
-        SourceProtocolVersion(testedProtocolVersion),
-        TargetProtocolVersion(testedProtocolVersion),
+        Source(testedProtocolVersion),
+        Target(testedProtocolVersion),
         reassigningParticipants = reassigningParticipants,
       )
     )("Failed to create FullAssignmentTree")

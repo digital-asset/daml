@@ -51,7 +51,7 @@ class SequencerAuthenticationServerInterceptor(
               member <- Member
                 .fromProtoPrimitive(memberId, "memberId")
                 .leftMap(err => s"Failed to deserialize member id: $err")
-                .leftMap(VerifyTokenError.GeneralError)
+                .leftMap(VerifyTokenError.GeneralError.apply)
               intendedDomainId <- UniqueIdentifier
                 .fromProtoPrimitive_(intendedDomain)
                 .map(DomainId(_))
@@ -111,7 +111,7 @@ class SequencerAuthenticationServerInterceptor(
   ): Either[VerifyTokenError, StoredAuthenticationToken] =
     tokenValidator
       .validateToken(intendedDomain, member, token)
-      .leftMap[VerifyTokenError](VerifyTokenError.AuthError)
+      .leftMap[VerifyTokenError](VerifyTokenError.AuthError.apply)
 
   private def failVerification[ReqT, RespT](
       msg: String,

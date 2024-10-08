@@ -33,7 +33,7 @@ package object console {
     */
   implicit class StringErrorEitherToCommandResultExtensions[A](either: Either[String, A]) {
     def toResult: ConsoleCommandResult[A] =
-      either.fold[ConsoleCommandResult[A]](GenericCommandError, CommandSuccessful[A])
+      either.fold[ConsoleCommandResult[A]](GenericCommandError.apply, CommandSuccessful[A])
   }
 
   /** Strip the Object suffix from the name of the provided class

@@ -229,7 +229,7 @@ class DAMLe(
     for {
       txWithMetadata <- EitherT(handleResult(contracts, result, getEngineAbortStatus))
       (tx, metadata) = txWithMetadata
-      peeledTxE = peelAwayRootLevelRollbackNode(tx).leftMap(EngineError)
+      peeledTxE = peelAwayRootLevelRollbackNode(tx).leftMap(EngineError.apply)
       txNoRootRollback <- EitherT.fromEither[Future](
         peeledTxE: Either[ReinterpretationError, LfVersionedTransaction]
       )

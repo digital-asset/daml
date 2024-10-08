@@ -285,7 +285,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
             store.find(ByTimestamp(CantonTimestamp.ofEpochMilli(i))).value
           }
       } yield {
-        assert(found.collect { case Right(event) => event } == events)
+        assert(found.collect { case Right(ev) => ev } == events)
         assert(
           found.collect { case Left(error) => error } == (1L to 100L).map(i =>
             SequencedEventNotFoundError(ByTimestamp(CantonTimestamp.ofEpochMilli(2 * i - 1)))

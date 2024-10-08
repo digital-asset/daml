@@ -53,7 +53,7 @@ protobuf_version = "3.24.0"
 pekko_version = "1.0.1"
 pekko_http_version = "1.0.0"
 tapir_version = "1.8.5"
-ujson_version = "2.0.0"
+ujson_version = "4.0.2"
 
 guava_version = "31.1-jre"
 
@@ -77,7 +77,7 @@ def install_java_deps():
             "com.fasterxml.jackson.core:jackson-databind:2.14.3",
             "com.github.ben-manes.caffeine:caffeine:3.1.2",
             "com.github.blemale:scaffeine_{}:5.2.1".format(scala_major_version),
-            "com.github.pathikrit:better-files_{}:3.9.1".format(scala_major_version),
+            "com.github.pathikrit:better-files_{}:3.9.2".format(scala_major_version),
             "com.github.pureconfig:pureconfig-cats_{}:0.14.0".format(scala_major_version),
             "com.github.pureconfig:pureconfig-core_{}:0.14.0".format(scala_major_version),
             "com.github.pureconfig:pureconfig-generic_{}:0.14.0".format(scala_major_version),
@@ -91,17 +91,17 @@ def install_java_deps():
             "com.google.protobuf:protobuf-java-util:{}".format(protobuf_version),
             "com.google.protobuf:protobuf-java:{}".format(protobuf_version),
             "com.h2database:h2:2.1.210",
-            "com.lihaoyi:ammonite-compiler_{}:2.5.9".format(scala_version),
-            "com.lihaoyi:ammonite-compiler-interface_{}:2.5.9".format(scala_version),
-            "com.lihaoyi:ammonite-interp-api_{}:2.5.9".format(scala_version),
-            "com.lihaoyi:ammonite-interp_{}:2.5.9".format(scala_version),
-            "com.lihaoyi:ammonite-repl_{}:2.5.9".format(scala_version),
-            "com.lihaoyi:ammonite-runtime_{}:2.5.9".format(scala_version),
-            "com.lihaoyi:ammonite-util_{}:2.5.9".format(scala_major_version),
-            "com.lihaoyi:ammonite_{}:2.5.9".format(scala_version),
+            "com.lihaoyi:ammonite-compiler_{}:3.0.0".format(scala_version),
+            "com.lihaoyi:ammonite-compiler-interface_{}:3.0.0".format(scala_version),
+            "com.lihaoyi:ammonite-interp-api_{}:3.0.0".format(scala_version),
+            "com.lihaoyi:ammonite-interp_{}:3.0.0".format(scala_version),
+            "com.lihaoyi:ammonite-repl_{}:3.0.0".format(scala_version),
+            "com.lihaoyi:ammonite-runtime_{}:3.0.0".format(scala_version),
+            "com.lihaoyi:ammonite-util_{}:3.0.0".format(scala_major_version),
+            "com.lihaoyi:ammonite_{}:3.0.0".format(scala_version),
             "com.lihaoyi:fansi_{}:0.4.0".format(scala_major_version),
             "com.lihaoyi:geny_{}:1.1.1".format(scala_major_version),
-            "com.lihaoyi:os-lib_{}:0.8.0".format(scala_major_version),
+            "com.lihaoyi:os-lib_{}:0.10.7".format(scala_major_version),
             "com.lihaoyi:pprint_{}:0.8.1".format(scala_major_version),
             "com.lihaoyi:sourcecode_{}:0.3.0".format(scala_major_version),
             "com.lihaoyi:ujson_{}:{}".format(scala_major_version, ujson_version),
@@ -264,6 +264,7 @@ def install_java_deps():
             "org.tpolecat:doobie-core_{}:0.13.4".format(scala_major_version),
             "org.tpolecat:doobie-hikari_{}:0.13.4".format(scala_major_version),
             "org.tpolecat:doobie-postgres_{}:0.13.4".format(scala_major_version),
+            "org.tpolecat:typename_{}:1.1.0".format(scala_major_version),
             "org.typelevel:cats-core_{}:2.9.0".format(scala_major_version),
             "org.typelevel:cats-free_{}:2.9.0".format(scala_major_version),
             "org.typelevel:cats-kernel_{}:2.9.0".format(scala_major_version),

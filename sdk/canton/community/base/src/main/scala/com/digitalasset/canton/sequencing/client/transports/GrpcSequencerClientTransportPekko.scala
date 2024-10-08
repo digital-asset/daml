@@ -108,7 +108,7 @@ class GrpcSequencerClientTransportPekko(
         .map(
           _.map(
             _.flatMap(
-              deserializeSubscriptionResponse(_)(parseResponse).leftMap(ResponseParseError)
+              deserializeSubscriptionResponse(_)(parseResponse).leftMap(ResponseParseError.apply)
             )
           )
         )

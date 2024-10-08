@@ -270,12 +270,12 @@ class SequencerWriter(
                       )(snapshot =>
                         generalStore
                           .initializeFromSnapshot(snapshot)
-                          .leftMap(FailedToInitializeFromSnapshot)
+                          .leftMap(FailedToInitializeFromSnapshot.apply)
                       )
                       // validate that the datastore has an appropriate commit mode set in order to run the writer
                       _ <- expectedCommitMode
                         .fold(EitherTUtil.unit[String])(writerStore.validateCommitMode)
-                        .leftMap(WriterStartupError.BadCommitMode)
+                        .leftMap(WriterStartupError.BadCommitMode.apply)
                       resetWatermarkToValue = resetWatermarkTo
                       _ <- {
                         (resetWatermarkToValue match {
@@ -287,7 +287,7 @@ class SequencerWriter(
                               s"Resetting the watermark to the externally passed timestamp of $timestamp"
                             )
                             writerStore.resetWatermark(timestamp).leftMap(_.toString)
-                        }).leftMap(WriterStartupError.WatermarkResetError)
+                        }).leftMap(WriterStartupError.WatermarkResetError.apply)
                       }
                       onlineTimestamp <- EitherT.right[WriterStartupError](
                         runRecovery(writerStore, resetWatermarkToValue)

@@ -29,7 +29,7 @@ import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.ReassignmentTag
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.canton.version.Reassignment.TargetProtocolVersion
+import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -348,7 +348,7 @@ trait ReassignmentSubmissionHandle {
       submitterMetadata: ReassignmentSubmitterMetadata,
       contractId: LfContractId,
       targetDomain: Target[DomainId],
-      targetProtocolVersion: TargetProtocolVersion,
+      targetProtocolVersion: Target[ProtocolVersion],
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, ReassignmentProcessorError, FutureUnlessShutdown[

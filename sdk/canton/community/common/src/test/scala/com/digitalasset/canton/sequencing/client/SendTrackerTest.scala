@@ -40,14 +40,14 @@ import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.{ExecutionContext, Future, Promise}
 
 class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
-  val metrics = CommonMockMetrics.sequencerClient
-  val msgId1 = MessageId.tryCreate("msgId1")
-  val msgId2 = MessageId.tryCreate("msgId2")
+  private lazy val metrics = CommonMockMetrics.sequencerClient
+  private lazy val msgId1 = MessageId.tryCreate("msgId1")
+  private lazy val msgId2 = MessageId.tryCreate("msgId2")
 
-  def sign(event: RawProtocolEvent): SignedContent[RawProtocolEvent] =
+  private def sign(event: RawProtocolEvent): SignedContent[RawProtocolEvent] =
     SignedContent(event, SymbolicCrypto.emptySignature, None, testedProtocolVersion)
 
-  def deliverDefault(timestamp: CantonTimestamp): OrdinaryProtocolEvent =
+  private def deliverDefault(timestamp: CantonTimestamp): OrdinaryProtocolEvent =
     OrdinarySequencedEvent(
       sign(
         SequencerTestUtils.mockDeliver(
@@ -59,7 +59,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
       traceContext
     )
 
-  def deliver(
+  private def deliver(
       msgId: MessageId,
       timestamp: CantonTimestamp,
       trafficReceipt: Option[TrafficReceipt] = None,
@@ -79,7 +79,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
       )
     )(traceContext)
 
-  def deliverError(
+  private def deliverError(
       msgId: MessageId,
       timestamp: CantonTimestamp,
       trafficReceipt: Option[TrafficReceipt] = None,
@@ -98,9 +98,9 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
       )
     )(traceContext)
 
-  case class Env(tracker: MySendTracker, store: InMemorySendTrackerStore)
+  private case class Env(tracker: MySendTracker, store: InMemorySendTrackerStore)
 
-  class MySendTracker(
+  private class MySendTracker(
       initialPendingSends: Map[MessageId, CantonTimestamp],
       store: SendTrackerStore,
       metrics: SequencerClientMetrics,
@@ -137,7 +137,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
   }
 
   private val initialTrafficState = TrafficState.empty
-  def mkSendTracker(timeoutHandler: MessageId => Future[Unit] = _ => Future.unit): Env = {
+  private def mkSendTracker(timeoutHandler: MessageId => Future[Unit] = _ => Future.unit): Env = {
     val store = new InMemorySendTrackerStore()
     val topologyClient =
       TestingTopology(Set(DefaultTestIdentities.domainId))
@@ -456,7 +456,7 @@ class SendTrackerTest extends AsyncWordSpec with BaseTest with MetricsUtils {
             .valueOrFailShutdown("track msgId1")
           _ <- tracker.update(Seq(deliverDefault(deliverEventTime)))
           calledWith <- sendResultHandler.result.failOnShutdown
-        } yield calledWith should matchPattern { case SendResult.Timeout(deliverEventTime) =>
+        } yield calledWith should matchPattern { case SendResult.Timeout(`deliverEventTime`) =>
         }
       }
     }

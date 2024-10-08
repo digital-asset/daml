@@ -10,7 +10,7 @@ import com.digitalasset.canton.crypto.HashOps
 import com.digitalasset.canton.protocol.messages.ProtocolMessage.ProtocolMessageContentCast
 import com.digitalasset.canton.protocol.v30
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.*
 import com.google.protobuf.ByteString
 
@@ -69,11 +69,11 @@ object EnvelopeContent
           EncryptedViewMessage.fromProto(messageP)
         case Content.UnassignmentMediatorMessage(messageP) =>
           UnassignmentMediatorMessage.fromProtoV30(
-            (hashOps, SourceProtocolVersion(expectedProtocolVersion))
+            (hashOps, Source(expectedProtocolVersion))
           )(messageP)
         case Content.AssignmentMediatorMessage(messageP) =>
           AssignmentMediatorMessage.fromProtoV30(
-            (hashOps, TargetProtocolVersion(expectedProtocolVersion))
+            (hashOps, Target(expectedProtocolVersion))
           )(messageP)
         case Content.RootHashMessage(messageP) =>
           RootHashMessage.fromProtoV30(SerializedRootHashMessagePayload.fromByteString)(messageP)

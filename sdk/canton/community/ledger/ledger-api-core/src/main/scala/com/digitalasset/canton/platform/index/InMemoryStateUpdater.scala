@@ -22,7 +22,6 @@ import com.digitalasset.canton.platform.store.CompletionFromTransaction
 import com.digitalasset.canton.platform.store.cache.OffsetCheckpoint
 import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
-import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate.CompletionDetails
 import com.digitalasset.canton.platform.{Contract, InMemoryState, Key, Party}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.daml.lf.data.Ref.HexString
@@ -283,23 +282,13 @@ private[platform] object InMemoryStateUpdater {
   ): Unit =
     updates.view
       .collect {
-        case Traced(
-              TransactionLogUpdate.TransactionAccepted(
-                _,
-                _,
-                _,
-                _,
-                _,
-                _,
-                Some(completionDetails),
-                _,
-                _,
-              )
-            ) =>
-          completionDetails.completionStreamResponse -> completionDetails.submitters
-        case Traced(TransactionLogUpdate.TransactionRejected(_, completionDetails)) =>
-          completionDetails.completionStreamResponse -> completionDetails.submitters
+        case Traced(txAccepted: TransactionLogUpdate.TransactionAccepted) =>
+          txAccepted.completionStreamResponse
+
+        case Traced(txRejected: TransactionLogUpdate.TransactionRejected) =>
+          Some(txRejected.completionStreamResponse)
       }
+      .flatten
       .foreach(submissionTracker.onCompletion)
 
   private def trackCommandProgress(
@@ -464,27 +453,24 @@ private[platform] object InMemoryStateUpdater {
         )
     }
 
-    val completionDetails = txAccepted.completionInfoO
+    val completionStreamResponse = txAccepted.completionInfoO
       .map { completionInfo =>
         val (deduplicationOffset, deduplicationDurationSeconds, deduplicationDurationNanos) =
           deduplicationInfo(completionInfo)
 
-        CompletionDetails(
-          CompletionFromTransaction.acceptedCompletion(
-            submitters = completionInfo.actAs.map(_.toString).toSet,
-            recordTime = txAccepted.recordTime,
-            offset = offset,
-            commandId = completionInfo.commandId,
-            transactionId = txAccepted.transactionId,
-            applicationId = completionInfo.applicationId,
-            optSubmissionId = completionInfo.submissionId,
-            optDeduplicationOffset = deduplicationOffset,
-            optDeduplicationDurationSeconds = deduplicationDurationSeconds,
-            optDeduplicationDurationNanos = deduplicationDurationNanos,
-            domainId = txAccepted.domainId.toProtoPrimitive,
-            traceContext = traceContext,
-          ),
-          submitters = completionInfo.actAs.toSet,
+        CompletionFromTransaction.acceptedCompletion(
+          submitters = completionInfo.actAs.map(_.toString).toSet,
+          recordTime = txAccepted.recordTime,
+          offset = offset,
+          commandId = completionInfo.commandId,
+          transactionId = txAccepted.transactionId,
+          applicationId = completionInfo.applicationId,
+          optSubmissionId = completionInfo.submissionId,
+          optDeduplicationOffset = deduplicationOffset,
+          optDeduplicationDurationSeconds = deduplicationDurationSeconds,
+          optDeduplicationDurationNanos = deduplicationDurationNanos,
+          domainId = txAccepted.domainId.toProtoPrimitive,
+          traceContext = traceContext,
         )
       }
 
@@ -495,7 +481,7 @@ private[platform] object InMemoryStateUpdater {
       effectiveAt = txAccepted.transactionMeta.ledgerEffectiveTime,
       offset = offset,
       events = events.toVector,
-      completionDetails = completionDetails,
+      completionStreamResponse = completionStreamResponse,
       domainId = txAccepted.domainId.toProtoPrimitive,
       recordTime = txAccepted.recordTime,
     )
@@ -511,22 +497,19 @@ private[platform] object InMemoryStateUpdater {
 
     TransactionLogUpdate.TransactionRejected(
       offset = offset,
-      completionDetails = CompletionDetails(
-        CompletionFromTransaction.rejectedCompletion(
-          submitters = u.completionInfo.actAs.map(_.toString).toSet,
-          recordTime = u.recordTime,
-          offset = offset,
-          commandId = u.completionInfo.commandId,
-          status = u.reasonTemplate.status,
-          applicationId = u.completionInfo.applicationId,
-          optSubmissionId = u.completionInfo.submissionId,
-          optDeduplicationOffset = deduplicationOffset,
-          optDeduplicationDurationSeconds = deduplicationDurationSeconds,
-          optDeduplicationDurationNanos = deduplicationDurationNanos,
-          domainId = u.domainId.toProtoPrimitive,
-          traceContext = traceContext,
-        ),
-        submitters = u.completionInfo.actAs.toSet,
+      completionStreamResponse = CompletionFromTransaction.rejectedCompletion(
+        submitters = u.completionInfo.actAs.map(_.toString).toSet,
+        recordTime = u.recordTime,
+        offset = offset,
+        commandId = u.completionInfo.commandId,
+        status = u.reasonTemplate.status,
+        applicationId = u.completionInfo.applicationId,
+        optSubmissionId = u.completionInfo.submissionId,
+        optDeduplicationOffset = deduplicationOffset,
+        optDeduplicationDurationSeconds = deduplicationDurationSeconds,
+        optDeduplicationDurationNanos = deduplicationDurationNanos,
+        domainId = u.domainId.toProtoPrimitive,
+        traceContext = traceContext,
       ),
     )
   }
@@ -536,31 +519,28 @@ private[platform] object InMemoryStateUpdater {
       u: Update.ReassignmentAccepted,
       traceContext: TraceContext,
   ): TransactionLogUpdate.ReassignmentAccepted = {
-    val completionDetails = u.optCompletionInfo
+    val completionStreamResponse = u.optCompletionInfo
       .map { completionInfo =>
         val (deduplicationOffset, deduplicationDurationSeconds, deduplicationDurationNanos) =
           deduplicationInfo(completionInfo)
 
-        CompletionDetails(
-          CompletionFromTransaction.acceptedCompletion(
-            submitters = completionInfo.actAs.map(_.toString).toSet,
-            recordTime = u.recordTime,
-            offset = offset,
-            commandId = completionInfo.commandId,
-            transactionId = u.updateId,
-            applicationId = completionInfo.applicationId,
-            optSubmissionId = completionInfo.submissionId,
-            optDeduplicationOffset = deduplicationOffset,
-            optDeduplicationDurationSeconds = deduplicationDurationSeconds,
-            optDeduplicationDurationNanos = deduplicationDurationNanos,
-            domainId = u.reassignment match {
-              case _: Reassignment.Assign => u.reassignmentInfo.targetDomain.unwrap.toProtoPrimitive
-              case _: Reassignment.Unassign =>
-                u.reassignmentInfo.sourceDomain.unwrap.toProtoPrimitive
-            },
-            traceContext = traceContext,
-          ),
-          submitters = completionInfo.actAs.toSet,
+        CompletionFromTransaction.acceptedCompletion(
+          submitters = completionInfo.actAs.map(_.toString).toSet,
+          recordTime = u.recordTime,
+          offset = offset,
+          commandId = completionInfo.commandId,
+          transactionId = u.updateId,
+          applicationId = completionInfo.applicationId,
+          optSubmissionId = completionInfo.submissionId,
+          optDeduplicationOffset = deduplicationOffset,
+          optDeduplicationDurationSeconds = deduplicationDurationSeconds,
+          optDeduplicationDurationNanos = deduplicationDurationNanos,
+          domainId = u.reassignment match {
+            case _: Reassignment.Assign => u.reassignmentInfo.targetDomain.unwrap.toProtoPrimitive
+            case _: Reassignment.Unassign =>
+              u.reassignmentInfo.sourceDomain.unwrap.toProtoPrimitive
+          },
+          traceContext = traceContext,
         )
       }
 
@@ -570,7 +550,7 @@ private[platform] object InMemoryStateUpdater {
       workflowId = u.workflowId.getOrElse(""),
       offset = offset,
       recordTime = u.recordTime,
-      completionDetails = completionDetails,
+      completionStreamResponse = completionStreamResponse,
       reassignmentInfo = u.reassignmentInfo,
       reassignment = u.reassignment match {
         case assign: Reassignment.Assign =>

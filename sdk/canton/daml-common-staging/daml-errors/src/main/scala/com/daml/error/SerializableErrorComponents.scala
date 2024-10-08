@@ -122,7 +122,7 @@ private[error] final case class SecuritySensitiveErrorCodeComponents(
       .addAllDetails(
         correlationId
           .orElse(traceId)
-          .map(ErrorDetails.RequestInfoDetail)
+          .map(ErrorDetails.RequestInfoDetail.apply)
           .toList
           .map(_.toRpcAny)
           .asJava
@@ -187,7 +187,10 @@ private[error] final case class NonSecuritySensitiveErrorCodeComponents(
     )
 
     val resourceInfos =
-      truncatedErrorResources.view.map(_.swap).map(ErrorDetails.ResourceInfoDetail.tupled).toList
+      truncatedErrorResources.view
+        .map(_.swap)
+        .map((ErrorDetails.ResourceInfoDetail.apply _).tupled)
+        .toList
 
     val allDetails =
       Seq(errorInfoDetail.toRpcAny) ++ retryInfoRpc.toList ++ requestInfoRpc.toList ++ resourceInfos

@@ -5,10 +5,8 @@ package com.digitalasset.canton.health
 
 import cats.implicits.showInterpolator
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.health.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
-import com.digitalasset.canton.util.ShowUtil.showPretty
 import io.grpc.health.v1.HealthCheckResponse.ServingStatus
 import io.grpc.protobuf.services.HealthStatusManager
 

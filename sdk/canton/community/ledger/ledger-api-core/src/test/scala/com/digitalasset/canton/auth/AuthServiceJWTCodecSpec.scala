@@ -63,14 +63,13 @@ class AuthServiceJWTCodecSpec
   // participantId is mandatory for the format `StandardJWTTokenFormat.Audience`
   private val StandardJWTPayloadGen =
     Gen
-      .resultOf(StandardJWTPayload)
+      .resultOf((StandardJWTPayload.apply _).tupled)
       .filterNot { payload =>
         payload.participantId
           .forall(_.isEmpty) && payload.format == StandardJWTTokenFormat.Audience
       }
       .filterNot { payload =>
         payload.scope.forall(_.isEmpty) && payload.format == StandardJWTTokenFormat.Scope
-
       }
       // we do not fill audiences for Scope or Audience based tokens
       .map(payload => payload.copy(audiences = List.empty))
@@ -83,7 +82,7 @@ class AuthServiceJWTCodecSpec
     import AuthServiceJWTCodec.AudienceBasedTokenJsonImplicits.*
 
     val PayloadGen = Gen
-      .resultOf(StandardJWTPayload)
+      .resultOf((StandardJWTPayload.apply _).tupled)
       .map(payload => payload.copy(participantId = None, format = StandardJWTTokenFormat.Audience))
 
     "serializing and parsing a value" should {
@@ -123,7 +122,7 @@ class AuthServiceJWTCodecSpec
     import AuthServiceJWTCodec.ScopeBasedTokenJsonImplicits.*
 
     val PayloadGen = Gen
-      .resultOf(StandardJWTPayload)
+      .resultOf((StandardJWTPayload.apply _).tupled)
       .map(payload => payload.copy(participantId = None, format = StandardJWTTokenFormat.Scope))
 
     "serializing and parsing a value" should {

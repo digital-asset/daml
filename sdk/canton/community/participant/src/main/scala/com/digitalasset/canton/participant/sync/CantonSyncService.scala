@@ -90,9 +90,9 @@ import com.digitalasset.canton.topology.client.{DomainTopologyClientWithInit, To
 import com.digitalasset.canton.tracing.{Spanning, TraceContext, Traced}
 import com.digitalasset.canton.util.FutureInstances.parallelFuture
 import com.digitalasset.canton.util.OptionUtils.OptionExtension
+import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.version.Reassignment.TargetProtocolVersion
 import com.digitalasset.daml.lf.archive.DamlLf
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, SubmissionId}
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
@@ -1659,10 +1659,7 @@ class CantonSyncService(
       reassignmentCommand match {
         case unassign: ReassignmentCommand.Unassign =>
           for {
-            targetProtocolVersion <- getProtocolVersion(unassign.targetDomain.unwrap).map(
-              TargetProtocolVersion(_)
-            )
-
+            targetProtocolVersion <- getProtocolVersion(unassign.targetDomain.unwrap).map(Target(_))
             submissionResult <- doReassignment(
               domain = unassign.sourceDomain.unwrap,
               remoteDomain = unassign.targetDomain.unwrap,

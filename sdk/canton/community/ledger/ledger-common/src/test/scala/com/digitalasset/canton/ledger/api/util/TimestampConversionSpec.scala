@@ -113,13 +113,13 @@ object TimestampConversionSpec {
   import org.scalacheck.{Arbitrary, Shrink}
   import Arbitrary.arbitrary
 
-  val timestampGen: Gen[VSum.Timestamp] = arbitrary[Long] map VSum.Timestamp
+  val timestampGen: Gen[VSum.Timestamp] = arbitrary[Long] map VSum.Timestamp.apply
   implicit val timestampArb: Arbitrary[VSum.Timestamp] = Arbitrary(timestampGen)
   implicit val timestampShrink: Shrink[VSum.Timestamp] =
-    Shrink(ts => Shrink.shrink(ts.value) map VSum.Timestamp)
+    Shrink(ts => Shrink.shrink(ts.value) map VSum.Timestamp.apply)
 
   val timestampInRangeGen: Gen[VSum.Timestamp] =
-    Gen.choose(instantToMicros(MIN).value, instantToMicros(MAX).value) map VSum.Timestamp
+    Gen.choose(instantToMicros(MIN).value, instantToMicros(MAX).value) map VSum.Timestamp.apply
 
   def timeGen(min: Instant, max: Instant, microsOnly: Boolean): Gen[Instant] =
     Gen

@@ -98,7 +98,7 @@ trait PasswordBasedEncryptionOps { this: EncryptionOps =>
   ): Either[PasswordBasedEncryptionError, PasswordBasedEncrypted] = for {
     pbkey <- deriveSymmetricKey(password, symmetricKeyScheme, pbkdfScheme, saltO = None)
     encrypted <- encryptWith(message, pbkey.key, protocolVersion).leftMap(
-      PasswordBasedEncryptionError.EncryptError
+      PasswordBasedEncryptionError.EncryptError.apply
     )
   } yield PasswordBasedEncrypted(encrypted.ciphertext, symmetricKeyScheme, pbkdfScheme, pbkey.salt)
 
@@ -114,7 +114,7 @@ trait PasswordBasedEncryptionOps { this: EncryptionOps =>
     message <- decryptWith(Encrypted.fromByteString[M](pbencrypted.ciphertext), pbkey.key)(
       deserialize
     )
-      .leftMap(PasswordBasedEncryptionError.DecryptError)
+      .leftMap(PasswordBasedEncryptionError.DecryptError.apply)
   } yield message
 
 }

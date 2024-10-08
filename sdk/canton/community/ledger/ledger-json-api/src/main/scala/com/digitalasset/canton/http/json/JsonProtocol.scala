@@ -181,25 +181,25 @@ object JsonProtocol extends JsonProtocolLow {
     jsonFormat3(domain.PartyDetails.apply)
 
   implicit val CreateUserRequest: JsonFormat[domain.CreateUserRequest] =
-    jsonFormat3(domain.CreateUserRequest)
+    jsonFormat3(domain.CreateUserRequest.apply)
 
   implicit val ListUserRightsRequest: JsonFormat[domain.ListUserRightsRequest] =
-    jsonFormat1(domain.ListUserRightsRequest)
+    jsonFormat1(domain.ListUserRightsRequest.apply)
 
   implicit val GrantUserRightsRequest: JsonFormat[domain.GrantUserRightsRequest] =
-    jsonFormat2(domain.GrantUserRightsRequest)
+    jsonFormat2(domain.GrantUserRightsRequest.apply)
 
   implicit val RevokeUserRightsRequest: JsonFormat[domain.RevokeUserRightsRequest] =
-    jsonFormat2(domain.RevokeUserRightsRequest)
+    jsonFormat2(domain.RevokeUserRightsRequest.apply)
 
   implicit val GetUserRequest: JsonFormat[domain.GetUserRequest] =
-    jsonFormat1(domain.GetUserRequest)
+    jsonFormat1(domain.GetUserRequest.apply)
 
   implicit val DeleteUserRequest: JsonFormat[domain.DeleteUserRequest] =
-    jsonFormat1(domain.DeleteUserRequest)
+    jsonFormat1(domain.DeleteUserRequest.apply)
 
   implicit val AllocatePartyRequest: JsonFormat[domain.AllocatePartyRequest] =
-    jsonFormat2(domain.AllocatePartyRequest)
+    jsonFormat2(domain.AllocatePartyRequest.apply)
 
   object LfValueCodec
       extends ApiCodecCompressed(
@@ -260,7 +260,7 @@ object JsonProtocol extends JsonProtocolLow {
     jsonFormat2(domain.EnrichedContractKey.apply[JsValue])
 
   implicit val EnrichedContractIdFormat: RootJsonFormat[domain.EnrichedContractId] =
-    jsonFormat2(domain.EnrichedContractId)
+    jsonFormat2(domain.EnrichedContractId.apply)
 
   private[this] val contractIdAtOffsetKey = "contractIdAtOffset"
 
@@ -407,11 +407,11 @@ object JsonProtocol extends JsonProtocolLow {
   }
 
   implicit val GetActiveContractsRequestFormat: RootJsonReader[domain.GetActiveContractsRequest] =
-    requestJsonReaderPlusOne(ReadersKey)(domain.GetActiveContractsRequest)
+    requestJsonReaderPlusOne(ReadersKey)(domain.GetActiveContractsRequest.apply)
 
   implicit val SearchForeverQueryFormat: RootJsonReader[domain.SearchForeverQuery] = {
     val OffsetKey = "offset"
-    requestJsonReaderPlusOne(OffsetKey)(domain.SearchForeverQuery)
+    requestJsonReaderPlusOne(OffsetKey)(domain.SearchForeverQuery.apply)
   }
 
   implicit val SearchForeverRequestFormat: RootJsonReader[domain.SearchForeverRequest] = {
@@ -603,24 +603,24 @@ object JsonProtocol extends JsonProtocolLow {
     }
 
   implicit val AsyncWarningsWrapperFormat: RootJsonFormat[domain.AsyncWarningsWrapper] =
-    jsonFormat1(domain.AsyncWarningsWrapper)
+    jsonFormat1(domain.AsyncWarningsWrapper.apply)
 
   implicit val UnknownTemplateIdsFormat: RootJsonFormat[domain.UnknownTemplateIds] = jsonFormat1(
-    domain.UnknownTemplateIds
+    domain.UnknownTemplateIds.apply
   )
 
   implicit val UnknownPartiesFormat: RootJsonFormat[domain.UnknownParties] = jsonFormat1(
-    domain.UnknownParties
+    domain.UnknownParties.apply
   )
 
   implicit def OkResponseFormat[R: JsonFormat]: RootJsonFormat[domain.OkResponse[R]] =
     jsonFormat3(domain.OkResponse[R])
 
   implicit val ResourceInfoDetailFormat: RootJsonFormat[domain.ResourceInfoDetail] = jsonFormat2(
-    domain.ResourceInfoDetail
+    domain.ResourceInfoDetail.apply
   )
   implicit val ErrorInfoDetailFormat: RootJsonFormat[domain.ErrorInfoDetail] = jsonFormat2(
-    domain.ErrorInfoDetail
+    domain.ErrorInfoDetail.apply
   )
 
   implicit val durationFormat: JsonFormat[domain.RetryInfoDetailDuration] =
@@ -636,10 +636,10 @@ object JsonProtocol extends JsonProtocolLow {
     )
 
   implicit val RetryInfoDetailFormat: RootJsonFormat[domain.RetryInfoDetail] =
-    jsonFormat1(domain.RetryInfoDetail)
+    jsonFormat1(domain.RetryInfoDetail.apply)
 
   implicit val RequestInfoDetailFormat: RootJsonFormat[domain.RequestInfoDetail] = jsonFormat1(
-    domain.RequestInfoDetail
+    domain.RequestInfoDetail.apply
   )
 
   implicit val ErrorDetailsFormat: JsonFormat[domain.ErrorDetail] = {
@@ -668,10 +668,10 @@ object JsonProtocol extends JsonProtocolLow {
   }
 
   implicit val LedgerApiErrorFormat: RootJsonFormat[domain.LedgerApiError] =
-    jsonFormat3(domain.LedgerApiError)
+    jsonFormat3(domain.LedgerApiError.apply)
 
   implicit val ErrorResponseFormat: RootJsonFormat[domain.ErrorResponse] =
-    jsonFormat4(domain.ErrorResponse)
+    jsonFormat4(domain.ErrorResponse.apply)
 
   implicit val StructFormat: RootJsonFormat[Struct] = StructJsonFormat
 

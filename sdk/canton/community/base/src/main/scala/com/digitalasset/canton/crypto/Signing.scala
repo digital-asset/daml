@@ -121,7 +121,9 @@ trait SigningPrivateStoreOps extends SigningPrivateOps {
       keypair <- generateSigningKeypair(scheme)
       _ <- store
         .storeSigningKey(keypair.privateKey, name)
-        .leftMap[SigningKeyGenerationError](SigningKeyGenerationError.SigningPrivateStoreError)
+        .leftMap[SigningKeyGenerationError](
+          SigningKeyGenerationError.SigningPrivateStoreError.apply
+        )
     } yield keypair.publicKey
 
 }
@@ -134,7 +136,7 @@ final case class Signature private[crypto] (
     with PrettyPrinting
     with NoCopy {
 
-  override protected def companionObj = Signature
+  override protected def companionObj: Signature.type = Signature
 
   def toProtoV30: v30.Signature =
     v30.Signature(
@@ -159,7 +161,7 @@ object Signature
       ByteString.EMPTY,
       Fingerprint.tryCreate("no-fingerprint"),
     )
-  val noSignatures = NonEmpty(Set, noSignature)
+  val noSignatures: NonEmpty[Set[Signature]] = NonEmpty(Set, noSignature)
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> ProtoCodec(
@@ -415,7 +417,7 @@ final case class SigningPrivateKey private[crypto] (
     with HasVersionedWrapper[SigningPrivateKey]
     with NoCopy {
 
-  override protected def companionObj = SigningPrivateKey
+  override protected def companionObj: SigningPrivateKey.type = SigningPrivateKey
 
   def toProtoV30: v30.SigningPrivateKey =
     v30.SigningPrivateKey(

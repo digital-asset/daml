@@ -5,6 +5,7 @@ package com.digitalasset.canton.platform.store.cache
 
 import cats.syntax.bifunctor.toBifunctorOps
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
+import com.daml.ledger.api.v2.completion.Completion
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
@@ -14,7 +15,6 @@ import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer.{
   UnorderedException,
 }
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
-import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate.CompletionDetails
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.Traced
 import com.digitalasset.daml.lf.data.Time
@@ -499,7 +499,7 @@ class InMemoryFanoutBufferSpec
       effectiveAt = Time.Timestamp.Epoch,
       offset = offset,
       events = Vector.empty,
-      completionDetails = None,
+      completionStreamResponse = None,
       commandId = "",
       domainId = someDomainId.toProtoPrimitive,
       recordTime = Time.Timestamp.Epoch,
@@ -508,9 +508,10 @@ class InMemoryFanoutBufferSpec
   private def txRejected(idx: Long, offset: Offset) =
     TransactionLogUpdate.TransactionRejected(
       offset = offset,
-      completionDetails = CompletionDetails(
-        completionStreamResponse = CompletionStreamResponse(),
-        submitters = Set(s"submitter-$idx"),
+      completionStreamResponse = CompletionStreamResponse.defaultInstance.withCompletion(
+        Completion(
+          actAs = Seq(s"submitter-$idx")
+        )
       ),
     )
 

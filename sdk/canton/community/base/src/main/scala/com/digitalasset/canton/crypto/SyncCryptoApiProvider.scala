@@ -402,7 +402,7 @@ class DomainSyncCryptoClient(
       signingKeys <- EitherT.right(snapshot.signingKeys(member)).mapK(FutureUnlessShutdown.outcomeK)
       existingKeys <- signingKeys.toList
         .parFilterA(pk => crypto.cryptoPrivateStore.existsSigningKey(pk.fingerprint))
-        .leftMap[SyncCryptoError](SyncCryptoError.StoreError)
+        .leftMap[SyncCryptoError](SyncCryptoError.StoreError.apply)
       kk <- existingKeys.lastOption
         .toRight[SyncCryptoError](
           SyncCryptoError
@@ -515,7 +515,7 @@ class DomainSnapshotSyncCryptoApi(
       fingerprint <- fetchSigningKey(traceContext)(ipsSnapshot.referenceTime)
       signature <- crypto.privateCrypto
         .sign(hash, fingerprint)
-        .leftMap[SyncCryptoError](SyncCryptoError.SyncCryptoSigningError)
+        .leftMap[SyncCryptoError](SyncCryptoError.SyncCryptoSigningError.apply)
     } yield signature
 
   private def verifySignature(

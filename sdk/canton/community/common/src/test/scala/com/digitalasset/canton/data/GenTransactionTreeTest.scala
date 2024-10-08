@@ -166,7 +166,7 @@ class GenTransactionTreeTest
           .allTransactionViewTreesWithRecipients(topology)
           .valueOrFail("fail set up recipients for transaction view tree")
           .futureValueUS
-          .map { case ViewWithWitnessesAndRecipients(tvt, witnesses, _) =>
+          .map { case ViewWithWitnessesAndRecipients(tvt, witnesses, _, _) =>
             lightTransactionViewTreeWithRandomKeys(tvt, pureCrypto)
               .valueOrFail("fail to create light transaction trees") -> witnesses
           }

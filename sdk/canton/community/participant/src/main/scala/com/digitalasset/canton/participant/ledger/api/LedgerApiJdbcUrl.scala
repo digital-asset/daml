@@ -43,7 +43,7 @@ object LedgerApiJdbcUrl {
     case h2: H2DbConfig => reuseH2(h2.config)
     case postgres: PostgresDbConfig => reusePostgres(postgres.config)
     case _: DbConfig => Left("Unknown db-config type")
-  }).leftMap(FailedToConfigureLedgerApiStorage)
+  }).leftMap(FailedToConfigureLedgerApiStorage.apply)
 
   /** Extensions to [[com.typesafe.config.Config]] to make config extraction more concise for our purposes. */
   private implicit class ConfigExtensions(config: Config) {

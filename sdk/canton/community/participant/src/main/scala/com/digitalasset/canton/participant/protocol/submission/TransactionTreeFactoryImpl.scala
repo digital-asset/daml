@@ -140,7 +140,7 @@ class TransactionTreeFactoryImpl(
           maxSequencingTime,
           protocolVersion = protocolVersion,
         )
-        .leftMap(SubmitterMetadataError)
+        .leftMap(SubmitterMetadataError.apply)
         .toEitherT[FutureUnlessShutdown]
 
       rootViewDecompositions <- EitherT
@@ -747,7 +747,7 @@ class TransactionTreeFactoryImpl(
             protocolVersion = protocolVersion,
           )
         )
-        .leftMap[TransactionTreeConversionError](ViewParticipantDataError)
+        .leftMap[TransactionTreeConversionError](ViewParticipantDataError.apply)
     } yield viewParticipantData
   }
 

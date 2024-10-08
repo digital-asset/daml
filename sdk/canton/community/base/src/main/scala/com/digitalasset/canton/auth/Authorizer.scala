@@ -65,7 +65,11 @@ final class Authorizer(
       identityProviderIdL: Lens[Req, String],
       call: Req => Future[Res],
   ): Req => Future[Res] =
-    requireIdpAdminClaimsAndMatchingRequestIdpId(identityProviderIdL, false, call)
+    requireIdpAdminClaimsAndMatchingRequestIdpId(
+      identityProviderIdL,
+      mustBeParticipantAdmin = false,
+      call,
+    )
 
   def requireIdpAdminClaimsAndMatchingRequestIdpId[Req, Res](
       identityProviderIdL: Lens[Req, String],

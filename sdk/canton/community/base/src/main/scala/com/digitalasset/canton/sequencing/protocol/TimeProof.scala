@@ -82,7 +82,7 @@ object TimeProof {
         case _: IgnoredSequencedEvent[_] =>
           Left(ProtoDeserializationError.OtherError("Event is ignored, but must be ordinary."))
       }
-      timeProof <- fromEvent(event).leftMap(ProtoDeserializationError.OtherError)
+      timeProof <- fromEvent(event).leftMap(ProtoDeserializationError.OtherError.apply)
     } yield timeProof
   }
 

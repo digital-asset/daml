@@ -99,7 +99,7 @@ object TransactionId {
   def fromProtoPrimitive(bytes: ByteString): ParsingResult[TransactionId] =
     Hash
       .fromByteString(bytes)
-      .bimap(ProtoDeserializationError.CryptoDeserializationError, TransactionId(_))
+      .bimap(ProtoDeserializationError.CryptoDeserializationError.apply, TransactionId(_))
 
   def fromRootHash(rootHash: RootHash): TransactionId = TransactionId(rootHash.unwrap)
 

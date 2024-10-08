@@ -25,8 +25,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
 import com.digitalasset.canton.util.EitherUtil
-import com.digitalasset.canton.util.ReassignmentTag.Target
-import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.*
 import com.digitalasset.canton.{LfPartyId, LfWorkflowId, ReassignmentCounter}
 import com.google.protobuf.ByteString
@@ -104,25 +103,25 @@ object AssignmentViewTree
   def apply(
       commonData: MerkleTreeLeaf[AssignmentCommonData],
       view: MerkleTree[AssignmentView],
-      targetProtocolVersion: TargetProtocolVersion,
+      targetProtocolVersion: Target[ProtocolVersion],
       hashOps: HashOps,
   ): AssignmentViewTree =
     AssignmentViewTree(commonData, view)(
-      AssignmentViewTree.protocolVersionRepresentativeFor(targetProtocolVersion.v),
+      AssignmentViewTree.protocolVersionRepresentativeFor(targetProtocolVersion.unwrap),
       hashOps,
     )
 
-  def fromProtoV30(context: (HashOps, TargetProtocolVersion))(
+  def fromProtoV30(context: (HashOps, Target[ProtocolVersion]))(
       assignmentViewTreeP: v30.ReassignmentViewTree
   ): ParsingResult[AssignmentViewTree] = {
     val (hashOps, expectedProtocolVersion) = context
     for {
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
       res <- GenReassignmentViewTree.fromProtoV30(
-        AssignmentCommonData.fromByteString(expectedProtocolVersion.v)(
+        AssignmentCommonData.fromByteString(expectedProtocolVersion.unwrap)(
           (hashOps, expectedProtocolVersion)
         ),
-        AssignmentView.fromByteString(expectedProtocolVersion.v)(hashOps),
+        AssignmentView.fromByteString(expectedProtocolVersion.unwrap)(hashOps),
       )((commonData, view) =>
         AssignmentViewTree(commonData, view)(
           rpv,
@@ -152,7 +151,7 @@ final case class AssignmentCommonData private (
     reassigningParticipants: Set[ParticipantId],
 )(
     hashOps: HashOps,
-    val targetProtocolVersion: TargetProtocolVersion,
+    val targetProtocolVersion: Target[ProtocolVersion],
     override val deserializedFrom: Option[ByteString],
 ) extends MerkleTreeLeaf[AssignmentCommonData](hashOps)
     with HasProtocolVersionedWrapper[AssignmentCommonData]
@@ -163,7 +162,7 @@ final case class AssignmentCommonData private (
 
   override val representativeProtocolVersion
       : RepresentativeProtocolVersion[AssignmentCommonData.type] =
-    AssignmentCommonData.protocolVersionRepresentativeFor(targetProtocolVersion.v)
+    AssignmentCommonData.protocolVersionRepresentativeFor(targetProtocolVersion.unwrap)
 
   protected def toProtoV30: v30.AssignmentCommonData =
     v30.AssignmentCommonData(
@@ -197,7 +196,7 @@ final case class AssignmentCommonData private (
 object AssignmentCommonData
     extends HasMemoizedProtocolVersionedWithContextCompanion[
       AssignmentCommonData,
-      (HashOps, TargetProtocolVersion),
+      (HashOps, Target[ProtocolVersion]),
     ] {
   override val name: String = "AssignmentCommonData"
 
@@ -215,7 +214,7 @@ object AssignmentCommonData
       stakeholders: Set[LfPartyId],
       uuid: UUID,
       submitterMetadata: ReassignmentSubmitterMetadata,
-      targetProtocolVersion: TargetProtocolVersion,
+      targetProtocolVersion: Target[ProtocolVersion],
       reassigningParticipants: Set[ParticipantId],
   ): AssignmentCommonData = AssignmentCommonData(
     salt,
@@ -228,7 +227,7 @@ object AssignmentCommonData
   )(hashOps, targetProtocolVersion, None)
 
   private[this] def fromProtoV30(
-      context: (HashOps, TargetProtocolVersion),
+      context: (HashOps, Target[ProtocolVersion]),
       assignmentCommonDataP: v30.AssignmentCommonData,
   )(
       bytes: ByteString
@@ -288,7 +287,7 @@ final case class AssignmentView private (
     contract: SerializableContract,
     creatingTransactionId: TransactionId,
     unassignmentResultEvent: DeliveredUnassignmentResult,
-    sourceProtocolVersion: SourceProtocolVersion,
+    sourceProtocolVersion: Source[ProtocolVersion],
     reassignmentCounter: ReassignmentCounter,
 )(
     hashOps: HashOps,
@@ -311,14 +310,14 @@ final case class AssignmentView private (
       contract = Some(contract.toProtoV30),
       creatingTransactionId = creatingTransactionId.toProtoPrimitive,
       unassignmentResultEvent = unassignmentResultEvent.result.toByteString,
-      sourceProtocolVersion = sourceProtocolVersion.v.toProtoPrimitive,
+      sourceProtocolVersion = sourceProtocolVersion.unwrap.toProtoPrimitive,
       reassignmentCounter = reassignmentCounter.toProtoPrimitive,
     )
 
   override protected def pretty: Pretty[AssignmentView] = prettyOfClass(
     param("creating transaction id", _.creatingTransactionId),
     param("unassignment result event", _.unassignmentResultEvent),
-    param("source protocol version", _.sourceProtocolVersion.v),
+    param("source protocol version", _.sourceProtocolVersion),
     param("reassignment counter", _.reassignmentCounter),
     param(
       "contract id",
@@ -344,8 +343,8 @@ object AssignmentView
       contract: SerializableContract,
       creatingTransactionId: TransactionId,
       unassignmentResultEvent: DeliveredUnassignmentResult,
-      sourceProtocolVersion: SourceProtocolVersion,
-      targetProtocolVersion: TargetProtocolVersion,
+      sourceProtocolVersion: Source[ProtocolVersion],
+      targetProtocolVersion: Target[ProtocolVersion],
       reassignmentCounter: ReassignmentCounter,
   ): Either[String, AssignmentView] = Either
     .catchOnly[IllegalArgumentException](
@@ -356,7 +355,7 @@ object AssignmentView
         unassignmentResultEvent,
         sourceProtocolVersion,
         reassignmentCounter,
-      )(hashOps, protocolVersionRepresentativeFor(targetProtocolVersion.v), None)
+      )(hashOps, protocolVersionRepresentativeFor(targetProtocolVersion.unwrap), None)
     )
     .leftMap(_.getMessage)
 
@@ -374,7 +373,7 @@ object AssignmentView
       assignmentViewP
     for {
       protocolVersion <- ProtocolVersion.fromProtoPrimitive(sourceProtocolVersionP)
-      sourceProtocolVersion = SourceProtocolVersion(protocolVersion)
+      sourceProtocolVersion = Source(protocolVersion)
       commonData <- CommonData.fromProto(
         hashOps,
         saltP,
@@ -400,7 +399,7 @@ object AssignmentView
       salt: Salt,
       creatingTransactionId: TransactionId,
       unassignmentResultEvent: DeliveredUnassignmentResult,
-      sourceProtocolVersion: SourceProtocolVersion,
+      sourceProtocolVersion: Source[ProtocolVersion],
   )
 
   private[AssignmentView] object CommonData {
@@ -409,16 +408,16 @@ object AssignmentView
         saltP: Option[com.digitalasset.canton.crypto.v30.Salt],
         unassignmentResultEventP: ByteString,
         creatingTransactionIdP: ByteString,
-        sourceProtocolVersion: SourceProtocolVersion,
+        sourceProtocolVersion: Source[ProtocolVersion],
     ): ParsingResult[CommonData] =
       for {
         salt <- ProtoConverter.parseRequired(Salt.fromProtoV30, "salt", saltP)
         // UnassignmentResultEvent deserialization
         unassignmentResultEventMC <- SignedContent
-          .fromByteString(sourceProtocolVersion.v)(unassignmentResultEventP)
+          .fromByteString(sourceProtocolVersion.unwrap)(unassignmentResultEventP)
           .flatMap(
             _.deserializeContent(
-              SequencedEvent.fromByteStringOpen(hashOps, sourceProtocolVersion.v)
+              SequencedEvent.fromByteStringOpen(hashOps, sourceProtocolVersion.unwrap)
             )
           )
         unassignmentResultEvent <- DeliveredUnassignmentResult
@@ -491,7 +490,7 @@ final case class FullAssignmentTree(tree: AssignmentViewTree)
 object FullAssignmentTree {
   def fromByteString(
       crypto: CryptoPureApi,
-      targetProtocolVersion: TargetProtocolVersion,
+      targetProtocolVersion: Target[ProtocolVersion],
   )(bytes: ByteString): ParsingResult[FullAssignmentTree] =
     for {
       tree <- AssignmentViewTree.fromByteString(crypto, targetProtocolVersion)(bytes)

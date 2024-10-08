@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.sequencing
 
-import cats.syntax.foldable.*
 import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty

@@ -128,7 +128,7 @@ final case class LogEntry(
   override protected def pretty: Pretty[LogEntry] = prettyOfString {
     case entry @ LogEntry(level, _, message, maybeThrowable, mdc) =>
       val throwableStr = maybeThrowable match {
-        case Some(throwable) => "\n" + ErrorUtil.messageWithStacktrace(throwable)
+        case Some(t) => "\n" + ErrorUtil.messageWithStacktrace(t)
         case None => ""
       }
 

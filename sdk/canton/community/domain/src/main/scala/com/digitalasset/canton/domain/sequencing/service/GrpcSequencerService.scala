@@ -474,7 +474,7 @@ class GrpcSequencerService(
     val acknowledgeRequestE = SignedContent
       .fromByteString(protocolVersion)(request.signedAcknowledgeRequest)
       .flatMap(_.deserializeContent(AcknowledgeRequest.fromByteString(protocolVersion)))
-    performAcknowledge(acknowledgeRequestE.map(SignedAcknowledgeRequest))
+    performAcknowledge(acknowledgeRequestE.map(SignedAcknowledgeRequest.apply))
   }
 
   private def performAcknowledge(

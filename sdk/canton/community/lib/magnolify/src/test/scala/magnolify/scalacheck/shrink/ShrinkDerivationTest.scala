@@ -22,7 +22,7 @@ class ShrinkDerivationTest extends AnyWordSpec with Matchers {
       val expected = Shrink
         .shrinkTuple2[Int, Int](Shrink.shrinkIntegral[Int], Shrink.shrinkIntegral[Int])
         .shrink((4, -2))
-        .map(Foo.tupled)
+        .map((Foo.apply _).tupled)
 
       shrunkFoos shouldBe expected
     }

@@ -218,7 +218,7 @@ class BlockSequencerTest
             .map { i =>
               if (n == i + 1)
                 completed.success(())
-              RawLedgerBlock(i.toLong, Seq.empty, tickTopology = false)
+              RawLedgerBlock(i.toLong, Seq.empty)
             }
             .iterator
         }

@@ -69,7 +69,6 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.Confirmation
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.HasTestCloseContext
-import com.digitalasset.canton.version.Reassignment.{SourceProtocolVersion, TargetProtocolVersion}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.util.UUID
@@ -270,10 +269,10 @@ class AssignmentProcessingStepsTest
         ReassignmentStoreTest.transactionId1,
         ReassignmentStoreTest.contract,
         reassignmentId.sourceDomain,
-        SourceProtocolVersion(testedProtocolVersion),
+        Source(testedProtocolVersion),
         sourceMediator,
         targetDomain,
-        TargetProtocolVersion(testedProtocolVersion),
+        Target(testedProtocolVersion),
         TimeProofTestUtil.mkTimeProof(
           timestamp = CantonTimestamp.Epoch,
           targetDomain = targetDomain,
@@ -291,7 +290,7 @@ class AssignmentProcessingStepsTest
             uuid,
           )
         ReassignmentData(
-          SourceProtocolVersion(testedProtocolVersion),
+          Source(testedProtocolVersion),
           reassignmentId.unassignmentTs,
           RequestCounter(0),
           fullUnassignmentTree,
@@ -710,7 +709,7 @@ class AssignmentProcessingStepsTest
       ),
       seedGenerator,
       Target(defaultStaticDomainParameters),
-      TargetProtocolVersion(testedProtocolVersion),
+      Target(testedProtocolVersion),
       loggerFactory = loggerFactory,
     )
   }
@@ -740,8 +739,8 @@ class AssignmentProcessingStepsTest
         targetMediator,
         unassignmentResult,
         uuid,
-        SourceProtocolVersion(testedProtocolVersion),
-        TargetProtocolVersion(testedProtocolVersion),
+        Source(testedProtocolVersion),
+        Target(testedProtocolVersion),
         reassigningParticipants = Set.empty,
       )
     )("Failed to create FullAssignmentTree")
@@ -755,7 +754,7 @@ class AssignmentProcessingStepsTest
     for {
       viewsToKeyMap <- EncryptedViewMessageFactory
         .generateKeysFromRecipients(
-          Seq((ViewHashAndRecipients(tree.viewHash, recipients), tree.informees.toList)),
+          Seq((ViewHashAndRecipients(tree.viewHash, recipients), None, tree.informees.toList)),
           parallel = true,
           crypto.pureCrypto,
           cryptoSnapshot,

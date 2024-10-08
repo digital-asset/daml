@@ -298,13 +298,13 @@ class LedgerServerPartyNotifier(
       metadata: PartyMetadata
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     metadata.participantId match {
-      case Some(participantId) =>
-        logger.debug(show"Pushing ${metadata.partyId} on $participantId to ledger server")
+      case Some(hostingParticipant) =>
+        logger.debug(show"Pushing ${metadata.partyId} on $hostingParticipant to ledger server")
         eventPublisher.publishEventDelayableByRepairOperation(
           Update.PartyAddedToParticipant(
             metadata.partyId.toLf,
             metadata.displayName.map(_.unwrap).getOrElse(""),
-            participantId.toLf,
+            hostingParticipant.toLf,
             ParticipantEventPublisher.now.toLf,
             LedgerSubmissionId.fromString(metadata.submissionId.unwrap).toOption,
           )

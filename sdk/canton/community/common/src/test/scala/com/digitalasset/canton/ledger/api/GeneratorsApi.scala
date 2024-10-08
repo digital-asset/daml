@@ -14,7 +14,7 @@ object GeneratorsApi {
   import com.digitalasset.canton.ledger.offset.GeneratorsOffset.*
 
   implicit val deduplicationDurationArb: Arbitrary[DeduplicationDuration] = Arbitrary(
-    Gen.posNum[Long].map(Duration.ofMillis).map(DeduplicationDuration)
+    Gen.posNum[Long].map(Duration.ofMillis).map(DeduplicationDuration.apply)
   )
   implicit val deduplicationPeriodArb: Arbitrary[DeduplicationPeriod] = genArbitrary
 }
