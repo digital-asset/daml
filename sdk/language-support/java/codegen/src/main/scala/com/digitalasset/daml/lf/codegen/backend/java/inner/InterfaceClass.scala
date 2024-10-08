@@ -126,10 +126,13 @@ object InterfaceClass extends StrictLogging {
           .constructorBuilder()
           // intentionally package-private
           .addStatement(
-            "super(new $T($N, $N, $N),$>$Z$S, $T.$N, $T::new, $T.$L(),$W$T::fromJson,$T.of($L))$<$Z",
+            "super(new $T($T.$N, $T.$N, $T.$N),$>$Z$S, $T.$N, $T::new, $T.$L(),$W$T::fromJson,$T.of($L))$<$Z",
             nestedClassName(ClassName.get(classOf[ContractTypeCompanion[_, _, _, _]]), "Package"),
+            interfaceName,
             ClassGenUtils.packageIdFieldName,
+            interfaceName,
             ClassGenUtils.packageNameFieldName,
+            interfaceName,
             ClassGenUtils.packageVersionFieldName,
             interfaceName,
             interfaceName,
