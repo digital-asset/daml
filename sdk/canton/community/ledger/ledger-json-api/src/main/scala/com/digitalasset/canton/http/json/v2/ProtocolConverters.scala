@@ -17,6 +17,7 @@ import com.digitalasset.canton.http.json.v2.JsSchema.{
   JsTransactionTree,
   JsTreeEvent,
 }
+import com.digitalasset.canton.platform.ApiOffset
 import com.google.rpc.status.Status
 import ujson.StringRenderer
 import ujson.circe.CirceJson
@@ -650,7 +651,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     ): JsSubmitAndWaitForUpdateIdResponse =
       JsSubmitAndWaitForUpdateIdResponse(
         update_id = response.updateId,
-        completion_offset = response.completionOffset,
+        completion_offset = ApiOffset.fromLong(response.completionOffset),
       )
 
     def fromJson(
@@ -658,7 +659,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     ): lapi.command_service.SubmitAndWaitForUpdateIdResponse =
       lapi.command_service.SubmitAndWaitForUpdateIdResponse(
         updateId = response.update_id,
-        completionOffset = response.completion_offset,
+        completionOffset = ApiOffset.assertFromStringToLong(response.completion_offset),
       )
   }
 
