@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 package com.digitalasset.daml.lf.validation
+
 import com.digitalasset.canton.ledger.error.PackageServiceErrors.Validation
 import java.io.File
 import com.digitalasset.daml.lf.archive.DarDecoder
@@ -19,14 +20,16 @@ final case class CouldNotReadDar(path: String, err: ArchiveError) {
   val message: String = s"Error reading DAR from ${path}: ${err.msg}"
 }
 
-case class UpgradeCheckMain () {}
+case class UpgradeCheckMain() {}
 object UpgradeCheckMain {
   implicit val ec: ExecutionContext = ExecutionContext.global
   implicit val loggingContext: LoggingContextWithTrace = LoggingContextWithTrace.empty
   val loggerFactory = NamedLoggerFactory.root
   def logger = loggerFactory.getLogger(classOf[UpgradeCheckMain])
 
-  private def decodeDar(path: String): Either[CouldNotReadDar, Dar[(Ref.PackageId, Ast.Package)]] = {
+  private def decodeDar(
+      path: String
+  ): Either[CouldNotReadDar, Dar[(Ref.PackageId, Ast.Package)]] = {
     logger.debug(s"Decoding DAR from ${path}")
     val result = DarDecoder.readArchiveFromFile(new File(path))
     result.left.map(CouldNotReadDar(path, _))
@@ -35,7 +38,7 @@ object UpgradeCheckMain {
   val validator = new PackageUpgradeValidator(
     getPackageMap = _ => Map.empty,
     getLfArchive = _ => _ => Future(None),
-    loggerFactory = loggerFactory
+    loggerFactory = loggerFactory,
   )
 
   def main(args: Array[String]): Unit = {
@@ -52,7 +55,8 @@ object UpgradeCheckMain {
 
       val validation = validator.validateUpgrade(archives.toList)
       Await.result(validation.value, Duration.Inf) match {
-        case Left(err: Validation.Upgradeability.Error) => println(s"Error while checking two DARs:\n${err.upgradeError.prettyInternal}")
+        case Left(err: Validation.Upgradeability.Error) =>
+          println(s"Error while checking two DARs:\n${err.upgradeError.prettyInternal}")
         case Left(err) => println(s"Error while checking two DARs:\n${err.cause}")
         case Right(()) => ()
       }
