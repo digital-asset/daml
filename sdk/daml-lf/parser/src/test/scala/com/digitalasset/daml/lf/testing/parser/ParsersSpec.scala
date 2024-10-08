@@ -564,7 +564,7 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
         """
           module Mod {
 
-            variant Tree (a : * ) = Leaf : Unit | Node : Mod:Tree.Node a ;
+            variant Tree (a : * ) = Node : Mod:Tree.Node a | Leaf : Unit | Undefined : Unit ;
             record Tree.Node (a: *) = { value: a, left : Mod:Tree a, right : Mod:Tree a };
             enum Color = Red | Green | Blue;
 
@@ -574,7 +574,9 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
       val varDef = DDataType(
         false,
         ImmArray(n"a" -> KStar),
-        DataVariant(ImmArray(n"Leaf" -> t"Unit", n"Node" -> t"Mod:Tree.Node a")),
+        DataVariant(
+          ImmArray(n"Node" -> t"Mod:Tree.Node a", n"Leaf" -> t"Unit", n"Undefined" -> t"Unit")
+        ),
       )
       val recDef = DDataType(
         false,
