@@ -1226,7 +1226,10 @@ object Ast {
       upgradedPackageId: Option[PackageId],
   )
 
-  final case class PkgIdWithMeta(pkgId: Ref.PackageId, metadata: Option[(PackageName, PackageVersion)]) {
+  final case class PkgIdWithMeta(
+      pkgId: Ref.PackageId,
+      metadata: Option[(PackageName, PackageVersion)],
+  ) {
     override def toString: String =
       metadata match {
         case None => s"${pkgId}"
@@ -1235,11 +1238,15 @@ object Ast {
   }
 
   object PkgIdWithMeta {
-    def metaToNameVersion(meta: Ast.PackageMetadata): (PackageName, PackageVersion) = (meta.name, meta.version)
+    def metaToNameVersion(meta: Ast.PackageMetadata): (PackageName, PackageVersion) =
+      (meta.name, meta.version)
 
-    def mk(idWithPkg: (Ref.PackageId, Ast.Package)): PkgIdWithMeta = PkgIdWithMeta(idWithPkg._1, Some(metaToNameVersion(idWithPkg._2.metadata)))
-    def mk(id: Ref.PackageId, pkg: Ast.Package): PkgIdWithMeta = PkgIdWithMeta(id, Some(metaToNameVersion(pkg.metadata)))
-    def mk(id: Ref.PackageId, pkg: Option[Ast.Package]): PkgIdWithMeta = PkgIdWithMeta(id, pkg.map((p: Ast.Package) => metaToNameVersion(p.metadata)))
+    def mk(idWithPkg: (Ref.PackageId, Ast.Package)): PkgIdWithMeta =
+      PkgIdWithMeta(idWithPkg._1, Some(metaToNameVersion(idWithPkg._2.metadata)))
+    def mk(id: Ref.PackageId, pkg: Ast.Package): PkgIdWithMeta =
+      PkgIdWithMeta(id, Some(metaToNameVersion(pkg.metadata)))
+    def mk(id: Ref.PackageId, pkg: Option[Ast.Package]): PkgIdWithMeta =
+      PkgIdWithMeta(id, pkg.map((p: Ast.Package) => metaToNameVersion(p.metadata)))
   }
 
   /** @param directDeps will contain all packages that are referenced in [[modules]]
