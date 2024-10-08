@@ -77,6 +77,7 @@ private[parser] object Lexer extends RegexParsers {
       "]" ^^^ `]` |
       "*" ^^^ `*` |
       "=" ^^^ `=` |
+      "||" ^^^ `||` |
       "|" ^^^ `|` |
       """[a-zA-Z_\$][\w\$]*""".r ^^ (s => keywords.getOrElse(s, Id(s))) |
       """#\w+""".r ^^ ContractId |

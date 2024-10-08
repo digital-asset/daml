@@ -121,6 +121,7 @@ class ParsersSpec(majorLanguageVersion: LanguageMajorVersion)
         "forall (a: *). Mod:T a" -> TForall((α.name, KStar), TApp(T, α)),
         "<f1: a, f2: Bool, f3:Mod:T>" ->
           TStruct(Struct.assertFromSeq(List(n"f1" -> α, n"f2" -> TBuiltin(BTBool), n"f3" -> T))),
+        "||Mod:T a||" -> TSynApp(T.tycon, ImmArray(α)),
       )
 
       forEvery(testCases)((stringToParse, expectedType) =>

@@ -31,6 +31,7 @@ private[parser] object Token {
   case object `/\\` extends Token
   case object `_` extends Token
   case object `|` extends Token
+  case object `||` extends Token
   case object `cons` extends Token
   case object `nil` extends Token
   case object `some` extends Token
