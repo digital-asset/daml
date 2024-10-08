@@ -133,16 +133,10 @@ class Converter(majorLanguageVersion: LanguageMajorVersion) {
       translator: preprocessing.ValueTranslator,
       templateId: Identifier,
       argument: Value,
-      enableContractUpgrading: Boolean = false,
   ): Either[String, SValue] = {
     for {
       translated <- translator
-        .translateValue(
-          TTyCon(templateId),
-          argument,
-          if (enableContractUpgrading) preprocessing.ValueTranslator.Config.Upgradeable
-          else preprocessing.ValueTranslator.Config.Strict,
-        )
+        .translateValue(TTyCon(templateId), argument)
         .left
         .map(err => s"Failed to translate create argument: $err")
     } yield record(
@@ -174,17 +168,11 @@ class Converter(majorLanguageVersion: LanguageMajorVersion) {
       interfaceId: Option[Identifier],
       choiceName: ChoiceName,
       argument: Value,
-      enableContractUpgrading: Boolean = false,
   ): Either[String, SValue] = {
     for {
       choice <- lookupChoice(templateId, interfaceId, choiceName)
       translated <- translator
-        .translateValue(
-          choice.argBinder._2,
-          argument,
-          if (enableContractUpgrading) preprocessing.ValueTranslator.Config.Upgradeable
-          else preprocessing.ValueTranslator.Config.Strict,
-        )
+        .translateValue(choice.argBinder._2, argument)
         .left
         .map(err => s"Failed to translate exercise argument: $err")
     } yield record(
@@ -387,7 +375,7 @@ class Converter(majorLanguageVersion: LanguageMajorVersion) {
   ): Either[String, SValue] = {
     for {
       translated <- translator
-        .strictTranslateValue(viewType, value)
+        .translateValue(viewType, value)
         .left
         .map(err => s"Failed to translate value of interface view: $err")
     } yield translated
@@ -526,7 +514,7 @@ class Converter(majorLanguageVersion: LanguageMajorVersion) {
           requireV1ContractIdSuffix = false,
         )
       sValue <- valueTranslator
-        .strictTranslateValue(ty, lfValue)
+        .translateValue(ty, lfValue)
         .left
         .map(_.message)
     } yield sValue

@@ -7,11 +7,9 @@ package preprocessing
 
 import com.daml.lf.data.Ref.PackageRef
 import com.daml.lf.data._
-import com.daml.lf.language.{Ast, LanguageVersion}
+import com.daml.lf.language.Ast
 import com.daml.lf.value.Value
 import com.daml.scalautil.Statement.discard
-
-import scala.math.Ordered.orderingToOrdered
 
 private[lf] final class CommandPreprocessor(
     pkgInterface: language.PackageInterface,
@@ -28,30 +26,15 @@ private[lf] final class CommandPreprocessor(
 
   import valueTranslator.validateCid
 
-  private[this] def valueTranslatorConfig(
-      strict: Boolean,
-      enableUpgrading: Boolean,
-  ): ValueTranslator.Config =
-    if (strict || !enableUpgrading) ValueTranslator.Config.Strict
-    else ValueTranslator.Config.Upgradeable
-
   private[this] def translateArg(
       typ: Ast.Type,
       value: Value,
-      strict: Boolean,
-      enableUpgrading: Boolean,
   ) =
-    valueTranslator.unsafeTranslateValue(
-      ty = typ,
-      value = value,
-      config = valueTranslatorConfig(strict, enableUpgrading),
-    )
+    valueTranslator.unsafeTranslateValue(ty = typ, value = value)
 
-  // This is used by value enricher,
-  // TODO: https://github.com/digital-asset/daml/issues/17082
-  //  This should problaby use ValueTranslator.Config.Strict
-  def unsafeStrictTranslateValue(typ: Ast.Type, value: Value) =
-    valueTranslator.unsafeTranslateValue(typ, value, ValueTranslator.Config.Strict)
+  // This is used by value enricher
+  def unsafeTranslateValue(typ: Ast.Type, value: Value) =
+    valueTranslator.unsafeTranslateValue(typ, value)
 
   @throws[Error.Preprocessing.Error]
   def unsafePreprocessDisclosedContract(
@@ -74,12 +57,7 @@ private[lf] final class CommandPreprocessor(
     }
     // TODO: https://github.com/digital-asset/daml/issues/17082
     //  for now we need the package of the disclosed contract
-    val arg = translateArg(
-      Ast.TTyCon(disc.templateId),
-      disc.argument,
-      strict = true,
-      isUpgradable(disc.templateId.packageId),
-    )
+    val arg = translateArg(Ast.TTyCon(disc.templateId), disc.argument)
     validateCid(disc.contractId)
     speedy.DisclosedContract(
       templateId = disc.templateId,
@@ -90,18 +68,9 @@ private[lf] final class CommandPreprocessor(
   }
 
   @throws[Error.Preprocessing.Error]
-  def unsafePreprocessCreate(
-      templateId: Ref.Identifier,
-      argument: Value,
-      strict: Boolean,
-  ): speedy.Command.Create = {
+  def unsafePreprocessCreate(templateId: Ref.Identifier, argument: Value): speedy.Command.Create = {
     discard(handleLookup(pkgInterface.lookupTemplate(templateId)))
-    val arg = translateArg(
-      Ast.TTyCon(templateId),
-      argument,
-      strict = strict,
-      isUpgradable(templateId.packageId),
-    )
+    val arg = translateArg(Ast.TTyCon(templateId), argument)
     speedy.Command.Create(templateId, arg)
   }
 
@@ -110,13 +79,12 @@ private[lf] final class CommandPreprocessor(
       contractId: Value.ContractId,
       choiceId: Ref.ChoiceName,
       argument: Value,
-      strict: Boolean,
   ): speedy.Command =
     handleLookup(pkgInterface.lookupTemplateOrInterface(typeId)) match {
       case TemplateOrInterface.Template(_) =>
-        unsafePreprocessExerciseTemplate(typeId, contractId, choiceId, argument, strict)
+        unsafePreprocessExerciseTemplate(typeId, contractId, choiceId, argument)
       case TemplateOrInterface.Interface(_) =>
-        unsafePreprocessExerciseInterface(typeId, contractId, choiceId, argument, strict)
+        unsafePreprocessExerciseInterface(typeId, contractId, choiceId, argument)
     }
 
   def unsafePreprocessExerciseTemplate(
@@ -124,19 +92,13 @@ private[lf] final class CommandPreprocessor(
       contractId: Value.ContractId,
       choiceId: Ref.ChoiceName,
       argument: Value,
-      strict: Boolean,
   ): speedy.Command = {
     val choice = handleLookup(pkgInterface.lookupTemplateChoice(templateId, choiceId))
     speedy.Command.ExerciseTemplate(
       templateId = templateId,
       contractId = valueTranslator.unsafeTranslateCid(contractId),
       choiceId = choiceId,
-      argument = translateArg(
-        choice.argBinder._2,
-        argument,
-        strict = strict,
-        isUpgradable(templateId.packageId),
-      ),
+      argument = translateArg(choice.argBinder._2, argument),
     )
   }
 
@@ -145,19 +107,13 @@ private[lf] final class CommandPreprocessor(
       contractId: Value.ContractId,
       choiceId: Ref.ChoiceName,
       argument: Value,
-      strict: Boolean,
   ): speedy.Command = {
     val choice = handleLookup(pkgInterface.lookupInterfaceChoice(ifaceId, choiceId))
     speedy.Command.ExerciseInterface(
       interfaceId = ifaceId,
       contractId = valueTranslator.unsafeTranslateCid(contractId),
       choiceId = choiceId,
-      argument = translateArg(
-        choice.argBinder._2,
-        argument,
-        strict = strict,
-        isUpgradable(ifaceId.packageId),
-      ),
+      argument = translateArg(choice.argBinder._2, argument),
     )
   }
 
@@ -167,25 +123,13 @@ private[lf] final class CommandPreprocessor(
       contractKey: Value,
       choiceId: Ref.ChoiceName,
       argument: Value,
-      strictArgument: Boolean,
-      strictKey: Boolean,
   ): speedy.Command.ExerciseByKey = {
     val choiceArgType = handleLookup(
       pkgInterface.lookupTemplateChoice(templateId, choiceId)
     ).argBinder._2
     val ckTtype = handleLookup(pkgInterface.lookupTemplateKey(templateId)).typ
-    val arg = translateArg(
-      choiceArgType,
-      argument,
-      strict = strictArgument,
-      isUpgradable(templateId.packageId),
-    )
-    val key = translateArg(
-      ckTtype,
-      contractKey,
-      strict = strictKey,
-      isUpgradable(templateId.packageId),
-    )
+    val arg = translateArg(choiceArgType, argument)
+    val key = translateArg(ckTtype, contractKey)
     speedy.Command.ExerciseByKey(templateId, key, choiceId, arg)
   }
 
@@ -195,45 +139,22 @@ private[lf] final class CommandPreprocessor(
       createArgument: Value,
       choiceId: Ref.ChoiceName,
       choiceArgument: Value,
-      strict: Boolean,
   ): speedy.Command.CreateAndExercise = {
-    val createArg = translateArg(
-      Ast.TTyCon(templateId),
-      createArgument,
-      strict = strict,
-      isUpgradable(templateId.packageId),
-    )
+    val createArg = translateArg(Ast.TTyCon(templateId), createArgument)
     val choiceArgType = handleLookup(
       pkgInterface.lookupTemplateChoice(templateId, choiceId)
     ).argBinder._2
-    val choiceArg = translateArg(
-      choiceArgType,
-      choiceArgument,
-      strict = strict,
-      isUpgradable(templateId.packageId),
-    )
-    speedy.Command
-      .CreateAndExercise(
-        templateId,
-        createArg,
-        choiceId,
-        choiceArg,
-      )
+    val choiceArg = translateArg(choiceArgType, choiceArgument)
+    speedy.Command.CreateAndExercise(templateId, createArg, choiceId, choiceArg)
   }
 
   @throws[Error.Preprocessing.Error]
   private[preprocessing] def unsafePreprocessLookupByKey(
       templateId: Ref.ValueRef,
       contractKey: Value,
-      strict: Boolean,
   ): speedy.Command.LookupByKey = {
     val ckTtype = handleLookup(pkgInterface.lookupTemplateKey(templateId)).typ
-    val key = translateArg(
-      ckTtype,
-      contractKey,
-      strict = strict,
-      enableUpgrading = isUpgradable(templateId.packageId),
-    )
+    val key = translateArg(ckTtype, contractKey)
     speedy.Command.LookupByKey(templateId, key)
   }
 
@@ -267,14 +188,14 @@ private[lf] final class CommandPreprocessor(
             templateRef,
             language.Reference.Template(templateRef),
           )
-        unsafePreprocessCreate(templateId, argument, strict = false)
+        unsafePreprocessCreate(templateId, argument)
       case command.ApiCommand.Exercise(typeRef, contractId, choiceId, argument) =>
         val typeId = unsafeResolveTyConName(
           pkgResolution,
           typeRef,
           language.Reference.TemplateOrInterface(typeRef),
         )
-        unsafePreprocessExercise(typeId, contractId, choiceId, argument, strict = false)
+        unsafePreprocessExercise(typeId, contractId, choiceId, argument)
       case command.ApiCommand.ExerciseByKey(templateRef, contractKey, choiceId, argument) =>
         val templateId =
           unsafeResolveTyConName(
@@ -287,8 +208,6 @@ private[lf] final class CommandPreprocessor(
           contractKey,
           choiceId,
           argument,
-          strictArgument = false,
-          strictKey = false,
         )
       case command.ApiCommand.CreateAndExercise(
             templateRef,
@@ -307,7 +226,6 @@ private[lf] final class CommandPreprocessor(
           createArgument,
           choiceId,
           choiceArgument,
-          strict = false,
         )
     }
 
@@ -318,13 +236,13 @@ private[lf] final class CommandPreprocessor(
   ): speedy.Command =
     cmd match {
       case command.ReplayCommand.Create(templateId, argument) =>
-        unsafePreprocessCreate(templateId, argument, strict = true)
+        unsafePreprocessCreate(templateId, argument)
       case command.ReplayCommand.Exercise(templateId, mbIfaceId, coid, choiceId, argument) =>
         mbIfaceId match {
           case Some(ifaceId) =>
-            unsafePreprocessExerciseInterface(ifaceId, coid, choiceId, argument, strict = true)
+            unsafePreprocessExerciseInterface(ifaceId, coid, choiceId, argument)
           case None =>
-            unsafePreprocessExerciseTemplate(templateId, coid, choiceId, argument, strict = true)
+            unsafePreprocessExerciseTemplate(templateId, coid, choiceId, argument)
         }
       case command.ReplayCommand.ExerciseByKey(
             templateId,
@@ -337,13 +255,6 @@ private[lf] final class CommandPreprocessor(
           contractKey,
           choiceId,
           argument,
-          strictArgument = true,
-          // When reconstructing an exercise-by-key node from a view, we pull the key from the corresponding input
-          // contract. That input contract may use a different package version for the type of its input key than
-          // the version that was used for constructing the node in the submitting participant, which needs to be the
-          // same when re-interpreting the node. Therefore, we need to allow upgrading keys when re-interpreting
-          // exercise-by-key nodes.
-          strictKey = false,
         )
       case command.ReplayCommand.Fetch(typeId, ifaceIdOpt, coid) =>
         val cid = valueTranslator.unsafeTranslateCid(coid)
@@ -364,21 +275,11 @@ private[lf] final class CommandPreprocessor(
         }
       case command.ReplayCommand.FetchByKey(templateId, key) =>
         val ckTtype = handleLookup(pkgInterface.lookupTemplateKey(templateId)).typ
-        val sKey = translateArg(
-          ckTtype,
-          key,
-          strict = true,
-          enableUpgrading = isUpgradable(templateId.packageId),
-        )
+        val sKey = translateArg(ckTtype, key)
         speedy.Command.FetchByKey(templateId, sKey)
       case command.ReplayCommand.LookupByKey(templateId, key) =>
         val ckTtype = handleLookup(pkgInterface.lookupTemplateKey(templateId)).typ
-        val sKey = translateArg(
-          ckTtype,
-          key,
-          strict = true,
-          enableUpgrading = isUpgradable(templateId.packageId),
-        )
+        val sKey = translateArg(ckTtype, key)
         speedy.Command.LookupByKey(templateId, sKey)
     }
 
@@ -419,18 +320,9 @@ private[lf] final class CommandPreprocessor(
     discard(handleLookup(pkgInterface.lookupInterface(interfaceId)))
     discard(handleLookup(pkgInterface.lookupInterfaceInstance(interfaceId, templateId)))
 
-    val arg = translateArg(
-      Ast.TTyCon(templateId),
-      argument,
-      strict = true,
-      isUpgradable(templateId.packageId),
-    )
+    val arg = translateArg(Ast.TTyCon(templateId), argument)
 
     speedy.InterfaceView(templateId, arg, interfaceId)
   }
 
-  private def isUpgradable(packageId: Ref.PackageId): Boolean = {
-    discard(handleLookup(pkgInterface.lookupPackage(packageId)))
-    pkgInterface.packageLanguageVersion(packageId) >= LanguageVersion.Features.packageUpgrades
-  }
 }

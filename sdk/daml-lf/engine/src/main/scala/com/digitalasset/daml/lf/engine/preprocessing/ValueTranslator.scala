@@ -19,7 +19,6 @@ private[lf] final class ValueTranslator(
     requireV1ContractIdSuffix: Boolean,
 ) {
 
-  import ValueTranslator._
   import Preprocessor._
 
   @throws[Error.Preprocessing.Error]
@@ -58,17 +57,20 @@ private[lf] final class ValueTranslator(
     SValue.SContractId(cid)
   }
 
+  private[this] def pkgName(tmplId: Ref.TypeConName) =
+    handleLookup(pkgInterface.lookupPackage(tmplId.packageId)).name
+
+  private[this] def upgradable(tmplId: Ref.TypeConName) = pkgName(tmplId).isDefined
+
   // For efficient reason we do not produce here the monad Result[SValue] but rather throw
   // exception in case of error or package missing.
   @throws[Error.Preprocessing.Error]
   private[preprocessing] def unsafeTranslateValue(
       ty: Type,
       value: Value,
-      config: Config,
   ): SValue = {
     // TODO: https://github.com/digital-asset/daml/issues/17082
     //   Should we consider factorizing this code with Seedy.Machine#importValues
-
     def go(ty0: Type, value0: Value, nesting: Int = 0): SValue =
       if (nesting > Value.MAXIMUM_NESTING) {
         throw Error.Preprocessing.ValueNesting(value)
@@ -78,20 +80,25 @@ private[lf] final class ValueTranslator(
           throw Error.Preprocessing.TypeMismatch(ty0, value0, msg)
         def checkUserTypeId(targetType: Ref.TypeConName, mbSourceType: Option[Ref.TypeConName]) =
           mbSourceType.foreach(sourceType =>
-            if (config.ignorePackageId) {
-              // In case of upgrade we simply ignore the package ID.
-              if (targetType.qualifiedName != sourceType.qualifiedName)
-                typeError(
-                  s"Mismatching variant id, the type tells us ${targetType.qualifiedName}, but the value tells us ${sourceType.qualifiedName}"
-                )
-            } else {
-              if (targetType != sourceType)
-                typeError(
-                  s"Mismatching variant id, the type tells us $targetType, but the value tells us $sourceType"
-                )
+            (pkgName(targetType), pkgName(sourceType)) match {
+              case (Some(targetPkgName), Some(sourcePkgName)) =>
+                // Two upgradable packages, we check equality of type using packageName
+                val targetTypeRef =
+                  Ref.TypeConRef(Ref.PackageRef.Name(targetPkgName), targetType.qualifiedName)
+                val sourceTypeRef =
+                  Ref.TypeConRef(Ref.PackageRef.Name(sourcePkgName), sourceType.qualifiedName)
+                if (targetTypeRef != sourceTypeRef)
+                  typeError(
+                    s"Mismatching variant id, the type tells us ${targetTypeRef}, but the value tells us ${sourceTypeRef}"
+                  )
+              case _ =>
+                // At least one of the packages is not upgradable, we check equality of type using packageId
+                if (targetType != sourceType)
+                  typeError(
+                    s"Mismatching variant id, the type tells us $targetType, but the value tells us $sourceType"
+                  )
             }
           )
-
         val (ty1, tyArgs) = AstUtil.destructApp(ty0)
         ty1 match {
           case TBuiltin(bt) =>
@@ -209,7 +216,7 @@ private[lf] final class ValueTranslator(
                       )
                   }
 
-                if (config.enableUpgrade) {
+                if (upgradable(tyCon)) {
                   val oLabeledFlds =
                     labeledRecordToMap(sourceElements)
                       .fold(typeError, identity _)
@@ -359,43 +366,9 @@ private[lf] final class ValueTranslator(
     go(ty, value)
   }
 
-  // This does not try to pull missing packages, return an error instead.
-  // TODO: https://github.com/digital-asset/daml/issues/17082
-  //  This is used by script and trigger, this should problaby use ValueTranslator.Config.Strict
-  def strictTranslateValue(
-      ty: Type,
-      value: Value,
-  ): Either[Error.Preprocessing.Error, SValue] =
+  def translateValue(ty: Type, value: Value): Either[Error.Preprocessing.Error, SValue] =
     safelyRun(
-      unsafeTranslateValue(ty, value, Config.Strict)
+      unsafeTranslateValue(ty, value)
     )
-
-  def translateValue(
-      ty: Type,
-      value: Value,
-      config: Config,
-  ): Either[Error.Preprocessing.Error, SValue] =
-    safelyRun(
-      unsafeTranslateValue(ty, value, config)
-    )
-
-}
-
-object ValueTranslator {
-
-  case class Config(
-      ignorePackageId: Boolean,
-      enableUpgrade: Boolean,
-  )
-  object Config {
-    val Strict =
-      Config(ignorePackageId = false, enableUpgrade = false)
-
-    val Coerceable =
-      Config(ignorePackageId = true, enableUpgrade = false)
-
-    val Upgradeable =
-      Config(ignorePackageId = true, enableUpgrade = true)
-  }
 
 }

@@ -83,7 +83,7 @@ object ScriptF {
       }
 
     def translateValue(ty: Ast.Type, value: Value): Either[String, SValue] =
-      valueTranslator.strictTranslateValue(ty, value).left.map(_.toString)
+      valueTranslator.translateValue(ty, value).left.map(_.toString)
 
   }
   final case class Submit(data: SubmitData) extends Cmd {
@@ -346,7 +346,7 @@ object ScriptF {
     )(id: Identifier, v: Value): Either[String, SValue] =
       for {
         keyTy <- env.lookupKeyTy(id)
-        translated <- env.valueTranslator.strictTranslateValue(keyTy, v).left.map(_.message)
+        translated <- env.valueTranslator.translateValue(keyTy, v).left.map(_.message)
       } yield translated
 
     override def execute(env: Env)(implicit

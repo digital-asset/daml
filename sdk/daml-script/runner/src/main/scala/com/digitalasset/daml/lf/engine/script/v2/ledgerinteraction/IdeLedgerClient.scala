@@ -44,7 +44,6 @@ class IdeLedgerClient(
     traceLog: TraceLog,
     warningLog: WarningLog,
     canceled: () => Boolean,
-    override val enableContractUpgrading: Boolean,
 ) extends ScriptLedgerClient {
   val submitErrors = new SubmitErrors(
     originalCompiledPackages.compilerConfig.allowedLanguageVersions.majorVersion
@@ -197,7 +196,7 @@ class IdeLedgerClient(
       requireV1ContractIdSuffix = false,
     )
 
-    valueTranslator.strictTranslateValue(TTyCon(templateId), arg) match {
+    valueTranslator.translateValue(TTyCon(templateId), arg) match {
       case Left(_) =>
         sys.error("computeView: translateValue failed")
 
