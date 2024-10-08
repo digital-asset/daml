@@ -66,6 +66,7 @@ class DomainRouter(
         WellFormedTransaction[WithoutSuffixes],
         TraceContext,
         Map[LfContractId, SerializableContract],
+        Map[LfContractId, LfPackageId],
     ) => EitherT[Future, TransactionRoutingError, FutureUnlessShutdown[TransactionSubmitted]],
     contractsTransferer: ContractsTransfer,
     snapshotProvider: DomainStateProvider,
@@ -177,6 +178,7 @@ class DomainRouter(
         wfTransaction,
         traceContext,
         inputDisclosedContracts.view.map(sc => sc.contractId -> sc).toMap,
+        contractPackages,
       )
     } yield transactionSubmittedF
 
@@ -359,6 +361,7 @@ object DomainRouter {
       tx: WellFormedTransaction[WithoutSuffixes],
       traceContext: TraceContext,
       disclosedContracts: Map[LfContractId, SerializableContract],
+      contractPackages: Map[LfContractId, LfPackageId],
   )(implicit
       ec: ExecutionContext
   ): EitherT[Future, TransactionRoutingError, FutureUnlessShutdown[TransactionSubmitted]] =
@@ -376,6 +379,7 @@ object DomainRouter {
           keyResolver,
           tx,
           disclosedContracts,
+          contractPackages,
         )(traceContext)
       )
     } yield result

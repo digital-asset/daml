@@ -93,6 +93,7 @@ abstract class TransactionTreeFactoryImpl(
       contractOfId: SerializableContractOfId,
       keyResolver: LfKeyResolver,
       maxSequencingTime: CantonTimestamp,
+      contractPackages: Map[LfContractId, LfPackageId],
       validatePackageVettings: Boolean,
   )(implicit
       traceContext: TraceContext
@@ -173,7 +174,8 @@ abstract class TransactionTreeFactoryImpl(
             .resolveParticipantsAndCheckPackagesVetted(
               domainId = domainId,
               snapshot = topologySnapshot,
-              requiredPackagesByParty = requiredPackagesByParty(rootViewDecompositions),
+              requiredPackagesByParty =
+                requiredPackagesByParty(rootViewDecompositions, contractPackages),
             )
             .leftMap(_.transformInto[UnknownPackageError])
         else EitherT.rightT[FutureUnlessShutdown, TransactionTreeConversionError](())
@@ -301,7 +303,8 @@ abstract class TransactionTreeFactoryImpl(
 
   /** compute set of required packages for each party */
   private def requiredPackagesByParty(
-      rootViewDecompositions: Seq[TransactionViewDecomposition.NewView]
+      rootViewDecompositions: Seq[TransactionViewDecomposition.NewView],
+      contractPackages: Map[LfContractId, LfPackageId],
   ): Map[LfPartyId, Set[PackageId]] = {
     def requiredPackagesByParty(
         rootViewDecomposition: TransactionViewDecomposition.NewView,
@@ -315,12 +318,16 @@ abstract class TransactionTreeFactoryImpl(
             MapsUtil.mergeMapsOfSets(acc, requiredPackagesByParty(newView, allInformees))
           case (acc, _) => acc
         }
-      val rootPackages = rootViewDecomposition.allNodes
-        .collect { case sameView: TransactionViewDecomposition.SameView =>
-          LfTransactionUtil.nodeTemplates(sameView.lfNode).map(_.packageId).toSet
+
+      val (vettedPackages, inputContractPackages) = rootViewDecomposition.allNodes
+        .collect { case sv: TransactionViewDecomposition.SameView => sv.lfNode }
+        .foldLeft((Set.empty[PackageId], Set.empty[PackageId])) { case ((vp, kp), node) =>
+          (
+            vp ++ node.packageIds,
+            kp ++ node.cids.flatMap(contractPackages.get),
+          )
         }
-        .flatten
-        .toSet
+      val rootPackages = vettedPackages ++ inputContractPackages
 
       allInformees.foldLeft(childRequirements) { case (acc, party) =>
         acc.updated(party, acc.getOrElse(party, Set()).union(rootPackages))

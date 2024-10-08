@@ -785,6 +785,7 @@ class SyncDomain(
       keyResolver: LfKeyResolver,
       transaction: WellFormedTransaction[WithoutSuffixes],
       disclosedContracts: Map[LfContractId, SerializableContract],
+      contractPackages: Map[LfContractId, LfPackageId],
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransactionSubmissionError, FutureUnlessShutdown[
@@ -798,7 +799,14 @@ class SyncDomain(
     ) {
       ErrorUtil.requireState(ready, "Cannot submit transaction before recovery")
       transactionProcessor
-        .submit(submitterInfo, transactionMeta, keyResolver, transaction, disclosedContracts)
+        .submit(
+          submitterInfo,
+          transactionMeta,
+          keyResolver,
+          transaction,
+          disclosedContracts,
+          contractPackages,
+        )
         .onShutdown(Left(SubmissionDuringShutdown.Rejection()))
     }
 
