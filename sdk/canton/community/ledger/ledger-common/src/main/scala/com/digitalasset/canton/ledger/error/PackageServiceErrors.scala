@@ -7,6 +7,7 @@ import com.daml.error.*
 import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors
 import com.digitalasset.daml.lf.archive.Error as LfArchiveError
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.engine.Error
 import com.digitalasset.daml.lf.validation.UpgradeError
 import com.digitalasset.daml.lf.{VersionRange, language, validation}
@@ -266,14 +267,14 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
           ErrorCategory.InvalidIndependentOfSystemState,
         ) {
       final case class Error(
-          upgradingPackage: Ref.PackageId,
-          upgradedPackage: Ref.PackageId,
+          previousPackage: Ast.PkgIdWithMeta,
+          newPackage: Ast.PkgIdWithMeta,
           upgradeError: UpgradeError,
       )(implicit
           val loggingContext: ContextualizedErrorLogger
       ) extends DamlError(
             cause =
-              s"The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade. Upgrading package: $upgradingPackage; Upgraded package: $upgradedPackage; Reason: ${upgradeError.prettyInternal}"
+              s"The DAR contains a package $newPackage which should be an upgrade of package $oldPackage, but upgrade checks indicate the new package is not a valid upgrade. Reason: ${upgradeError.prettyInternal}"
           )
     }
 
@@ -287,15 +288,15 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
           ErrorCategory.InvalidIndependentOfSystemState,
         ) {
       final case class Error(
-          uploadedPackageId: Ref.PackageId,
+          uploadedPackage: Ast.PkgIdWithMeta,
           existingPackage: Ref.PackageId,
           packageVersion: Ref.PackageVersion,
       )(implicit
           val loggingContext: ContextualizedErrorLogger
       ) extends DamlError(
-            cause = "A DAR with the same version number has previously been uploaded.",
+            cause = s"Tried to upload package $uploadedPackage, but a different DAR $existingPackage with the same name and version has previously been uploaded.",
             extraContext = Map(
-              "uploadedPackageId" -> uploadedPackageId,
+              "uploadedPackageId" -> uploadedPackage,
               "existingPackage" -> existingPackage,
               "packageVersion" -> packageVersion.toString,
             ),
