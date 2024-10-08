@@ -110,6 +110,7 @@ class ContractStateMachineSpec extends AnyWordSpec with Matchers with TableDrive
     Node.Exercise(
       targetCoid = contractId,
       packageName = pkgName,
+      creationPackageId = pkgName.map(_ => templateId.packageId),
       templateId = templateId,
       interfaceId = None,
       choiceId = choiceId,

@@ -1048,10 +1048,15 @@ class TransactionCoderSpec
 
   private[this] def normalizeExe(exe: Node.Exercise) = {
     val node = exe.packageName match {
-      case Some(_) if exe.version < TransactionVersion.minUpgrade => exe.copy(packageName = None)
+      case Some(_) if exe.version < TransactionVersion.minUpgrade =>
+        exe.copy(packageName = None, creationPackageId = None)
       case None if exe.version >= TransactionVersion.minUpgrade =>
-        exe.copy(packageName = dummyPackageName)
-      case _ => exe
+        exe.copy(
+          packageName = exe.packageName.orElse(dummyPackageName),
+          creationPackageId = exe.creationPackageId.orElse(Some(exe.templateId.packageId)),
+        )
+      case _ =>
+        exe
     }
     node.copy(
       interfaceId =
