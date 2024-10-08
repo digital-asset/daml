@@ -14,7 +14,6 @@ import com.digitalasset.canton.platform.apiserver.services.admin.PackageUpgradeV
 import scala.concurrent.{ExecutionContext, Future, Await}
 import scala.concurrent.duration._
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
-import com.daml.error.DamlError
 
 final case class CouldNotReadDar(path: String, err: ArchiveError) {
   val message: String = s"Error reading DAR from ${path}: ${err.msg}"
