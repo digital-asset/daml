@@ -202,13 +202,13 @@ data UnwarnableError
   | EUpgradeRecordFieldsNewNonOptional !UpgradedRecordOrigin ![(FieldName, Type)]
   | EUpgradeRecordNewFieldsNotAtEnd !UpgradedRecordOrigin ![FieldName]
   | EUpgradeRecordFieldsOrderChanged !UpgradedRecordOrigin
-  | EUpgradeVariantRemovedVariant !UpgradedRecordOrigin ![VariantConName]
-  | EUpgradeVariantChangedVariantType !UpgradedRecordOrigin ![VariantConName]
-  | EUpgradeVariantNewVariantsNotAtEnd !UpgradedRecordOrigin ![VariantConName]
-  | EUpgradeVariantVariantsOrderChanged !UpgradedRecordOrigin
-  | EUpgradeEnumRemovedVariant !UpgradedRecordOrigin ![VariantConName]
-  | EUpgradeEnumNewVariantsNotAtEnd !UpgradedRecordOrigin ![VariantConName]
-  | EUpgradeEnumVariantsOrderChanged !UpgradedRecordOrigin
+  | EUpgradeVariantRemovedConstructor !UpgradedRecordOrigin ![VariantConName]
+  | EUpgradeVariantChangedConstructorType !UpgradedRecordOrigin ![VariantConName]
+  | EUpgradeVariantNewConstructorsNotAtEnd !UpgradedRecordOrigin ![VariantConName]
+  | EUpgradeVariantConstructorsOrderChanged !UpgradedRecordOrigin
+  | EUpgradeEnumRemovedConstructor !UpgradedRecordOrigin ![VariantConName]
+  | EUpgradeEnumNewConstructorsNotAtEnd !UpgradedRecordOrigin ![VariantConName]
+  | EUpgradeEnumConstructorsOrderChanged !UpgradedRecordOrigin
   | EUpgradeRecordChangedOrigin !TypeConName !UpgradedRecordOrigin !UpgradedRecordOrigin
   | EUpgradeTemplateChangedKeyType !TypeConName
   | EUpgradeChoiceChangedReturnType !ChoiceName
@@ -680,13 +680,13 @@ instance Pretty UnwarnableError where
       where
         pPrintFieldType (fieldName, type_) = "Field " <> pPrintWithQuotes fieldName <> " with type " <> pPrint type_
     EUpgradeRecordFieldsOrderChanged origin -> "The upgraded " <> pPrint origin <> " has changed the order of its fields - any new fields must be added at the end of the record."
-    EUpgradeVariantRemovedVariant origin variants -> "The upgraded " <> pPrint origin <> " is missing some of its original variants: " <> fcommasep (map pPrint variants)
-    EUpgradeVariantChangedVariantType origin variants -> "The upgraded " <> pPrint origin <> " has changed the type of some of its original variants: " <> fcommasep (map pPrint variants)
-    EUpgradeVariantNewVariantsNotAtEnd origin fields -> "The upgraded " <> pPrint origin <> " has added new variants, but the following variants need to be moved to the end: " <> fcommasep (map pPrintWithQuotes fields) <> ". All new variants in upgrades must be added to the end of the definition."
-    EUpgradeVariantVariantsOrderChanged origin -> "The upgraded " <> pPrint origin <> " has changed the order of its variants - any new variant must be added at the end of the variant."
-    EUpgradeEnumRemovedVariant origin variants -> "The upgraded " <> pPrint origin <> " is missing some of its original variants: " <> fcommasep (map pPrint variants)
-    EUpgradeEnumNewVariantsNotAtEnd origin fields -> "The upgraded " <> pPrint origin <> " has added new variants, but the following variants need to be moved to the end: " <> fcommasep (map pPrintWithQuotes fields) <> ". All new variants in upgrades must be added to the end of the definition."
-    EUpgradeEnumVariantsOrderChanged origin -> "The upgraded " <> pPrint origin <> " has changed the order of its variants - any new variant must be added at the end of the enum."
+    EUpgradeVariantRemovedConstructor origin constructors -> "The upgraded " <> pPrint origin <> " is missing some of its original constructors: " <> fcommasep (map pPrint constructors)
+    EUpgradeVariantChangedConstructorType origin constructors -> "The upgraded " <> pPrint origin <> " has changed the type of some of its original constructors: " <> fcommasep (map pPrint constructors)
+    EUpgradeVariantNewConstructorsNotAtEnd origin constructors -> "The upgraded " <> pPrint origin <> " has added new constructors, but the following constructors need to be moved to the end: " <> fcommasep (map pPrintWithQuotes constructors) <> ". All new constructors in upgrades must be added to the end of the definition."
+    EUpgradeVariantConstructorsOrderChanged origin -> "The upgraded " <> pPrint origin <> " has changed the order of its constructors - any new constructor must be added at the end of the variant."
+    EUpgradeEnumRemovedConstructor origin constructors -> "The upgraded " <> pPrint origin <> " is missing some of its original constructors: " <> fcommasep (map pPrint constructors)
+    EUpgradeEnumNewConstructorsNotAtEnd origin constructors -> "The upgraded " <> pPrint origin <> " has added new constructors, but the following constructors need to be moved to the end: " <> fcommasep (map pPrintWithQuotes constructors) <> ". All new variant constructors in upgrades must be added to the end of the definition."
+    EUpgradeEnumConstructorsOrderChanged origin -> "The upgraded " <> pPrint origin <> " has changed the order of its constructors - any new enum constructor must be added at the end of the enum."
     EUpgradeRecordChangedOrigin dataConName past present -> "The record " <> pPrint dataConName <> " has changed origin from " <> pPrint past <> " to " <> pPrint present
     EUpgradeChoiceChangedReturnType choice -> "The upgraded choice " <> pPrint choice <> " cannot change its return type."
     EUpgradeTemplateChangedKeyType templateName -> "The upgraded template " <> pPrint templateName <> " cannot change its key type."
@@ -714,7 +714,7 @@ instance Pretty UpgradedRecordOrigin where
   pPrint = \case
     TemplateBody tpl -> "template " <> pPrint tpl
     TemplateChoiceInput tpl chcName -> "input type of choice " <> pPrint chcName <> " on template " <> pPrint tpl
-    VariantConstructor variantName variantConName -> "variant constructor " <> pPrint variantConName <> " from variant " <> pPrint variantName
+    VariantConstructor variantName variantConName -> "constructor " <> pPrint variantConName <> " from variant " <> pPrint variantName
     InterfaceBody iface -> "interface " <> pPrint iface
     TopLevel datatype -> "data type " <> pPrint datatype
 

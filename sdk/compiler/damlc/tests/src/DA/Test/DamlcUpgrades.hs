@@ -218,35 +218,35 @@ tests damlc =
                       False
                       setUpgradeField
                 , test
-                      "SucceedsWhenATopLevelVariantAddsAVariant"
+                      "SucceedsWhenATopLevelVariantAddsAConstructor"
                       Succeed
                       versionDefault
                       NoDependencies
                       False
                       setUpgradeField
                 , test
-                      "FailsWhenATopLevelVariantRemovesAVariant"
+                      "FailsWhenATopLevelVariantRemovesAConstructor"
                       (FailWithError "\ESC\\[0;91merror type checking <none>:\n  Data type A.Z appears in package that is being upgraded, but does not appear in this package.")
                       versionDefault
                       NoDependencies
                       False
                       setUpgradeField
                 , test
-                      "FailWhenATopLevelVariantChangesChangesTheOrderOfItsVariants"
-                      (FailWithError "\ESC\\[0;91merror type checking data type Main.A:\n  The upgraded data type A has changed the order of its variants - any new variant must be added at the end of the variant.")
+                      "FailWhenATopLevelVariantChangesChangesTheOrderOfItsConstructors"
+                      (FailWithError "\ESC\\[0;91merror type checking data type Main.A:\n  The upgraded data type A has changed the order of its constructors - any new constructor must be added at the end of the variant.")
                       versionDefault
                       NoDependencies
                       False
                       setUpgradeField
                 , test
-                      "FailsWhenATopLevelVariantAddsAFieldToAVariantsType"
-                      (FailWithError "\ESC\\[0;91merror type checking data type Main.A:\n  The upgraded variant constructor Y from variant A has added new fields, but the following new fields are not Optional:\n    Field 'y2' with type Int64")
+                      "FailsWhenATopLevelVariantAddsAFieldToAConstructorsType"
+                      (FailWithError "\ESC\\[0;91merror type checking data type Main.A:\n  The upgraded constructor Y from variant A has added new fields, but the following new fields are not Optional:\n    Field 'y2' with type Int64")
                       versionDefault
                       NoDependencies
                       False
                       setUpgradeField
                 , test
-                      "SucceedsWhenATopLevelVariantAddsAnOptionalFieldToAVariantsType"
+                      "SucceedsWhenATopLevelVariantAddsAnOptionalFieldToAConstructorsType"
                       Succeed
                       versionDefault
                       NoDependencies
@@ -260,8 +260,8 @@ tests damlc =
                       False
                       setUpgradeField
                 , test
-                      "FailWhenATopLevelEnumChangesChangesTheOrderOfItsVariants"
-                      (FailWithError "\ESC\\[0;91merror type checking data type Main.A:\n  The upgraded data type A has changed the order of its variants - any new variant must be added at the end of the enum.")
+                      "FailWhenATopLevelEnumChangesChangesTheOrderOfItsConstructors"
+                      (FailWithError "\ESC\\[0;91merror type checking data type Main.A:\n  The upgraded data type A has changed the order of its constructors - any new constructor must be added at the end of the enum.")
                       versionDefault
                       NoDependencies
                       False

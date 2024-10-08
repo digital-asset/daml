@@ -787,25 +787,25 @@ checkDefDataType origin datatype = do
               let upgrade = Upgrading{..}
               let (del, existing, _new) = extractDelExistNew (fmap HMS.fromList upgrade)
               when (not (HMS.null del)) $
-                  throwWithContextF present' $ EUpgradeVariantRemovedVariant origin (HMS.keys del)
+                  throwWithContextF present' $ EUpgradeVariantRemovedConstructor origin (HMS.keys del)
               when (not $ and $ foldU (zipWith (==)) $ fmap (map fst) upgrade) $
-                  throwWithContextF present' (EUpgradeVariantVariantsOrderChanged origin)
-              let newVariantsNotAtEnd = diffNotAtEnd (map fst <$> upgrade)
-              when (not (null newVariantsNotAtEnd)) $
-                  throwWithContextF present' (EUpgradeVariantNewVariantsNotAtEnd origin newVariantsNotAtEnd)
+                  throwWithContextF present' (EUpgradeVariantConstructorsOrderChanged origin)
+              let newConstructorsNotAtEnd = diffNotAtEnd (map fst <$> upgrade)
+              when (not (null newConstructorsNotAtEnd)) $
+                  throwWithContextF present' (EUpgradeVariantNewConstructorsNotAtEnd origin newConstructorsNotAtEnd)
               different <- filterHashMapM (fmap not . isUpgradedType paramNames) existing
               when (not (null different)) $
-                  throwWithContextF present' $ EUpgradeVariantChangedVariantType origin (HMS.keys different)
+                  throwWithContextF present' $ EUpgradeVariantChangedConstructorType origin (HMS.keys different)
           Upgrading { _past = DataEnum _past, _present = DataEnum _present } -> do
               let upgrade = Upgrading{..}
               let (del, _existing, _new) = extractDelExistNew (fmap (HMS.fromList . map (,())) upgrade)
               when (not (HMS.null del)) $
-                  throwWithContextF present' $ EUpgradeEnumRemovedVariant origin (HMS.keys del)
-              let newVariantsNotAtEnd = diffNotAtEnd upgrade
-              when (not (null newVariantsNotAtEnd)) $
-                  throwWithContextF present' (EUpgradeEnumNewVariantsNotAtEnd origin newVariantsNotAtEnd)
+                  throwWithContextF present' $ EUpgradeEnumRemovedConstructor origin (HMS.keys del)
+              let newConstructorsNotAtEnd = diffNotAtEnd upgrade
+              when (not (null newConstructorsNotAtEnd)) $
+                  throwWithContextF present' (EUpgradeEnumNewConstructorsNotAtEnd origin newConstructorsNotAtEnd)
               when (not $ and $ foldU (zipWith (==)) upgrade) $
-                  throwWithContextF present' $ EUpgradeEnumVariantsOrderChanged origin
+                  throwWithContextF present' $ EUpgradeEnumConstructorsOrderChanged origin
           Upgrading { _past = DataInterface {}, _present = DataInterface {} } ->
               pure ()
           _ ->
