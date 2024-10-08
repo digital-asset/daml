@@ -76,6 +76,7 @@ class ConfirmationRequestFactory(
       optKeySeed: Option[SecureRandomness],
       maxSequencingTime: CantonTimestamp,
       protocolVersion: ProtocolVersion,
+      contractPackages: Map[LfContractId, LfPackageId],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ConfirmationRequestCreationError, ConfirmationRequest] = {
@@ -106,7 +107,7 @@ class ConfirmationRequestFactory(
           contractInstanceOfId,
           keyResolver,
           maxSequencingTime,
-          validatePackageVettings = true,
+          contractPackages,
         )
         .leftMap(TransactionTreeFactoryError)
 
