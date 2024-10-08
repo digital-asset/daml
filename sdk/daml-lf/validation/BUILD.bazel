@@ -5,6 +5,7 @@ load("@os_info//:os_info.bzl", "is_intel", "is_windows")
 load(
     "//bazel_tools:scala.bzl",
     "da_scala_benchmark_jmh",
+    "da_scala_binary",
     "da_scala_library",
     "da_scala_test",
     "da_scala_test_suite",
@@ -15,17 +16,18 @@ load(
 
 da_scala_library(
     name = "validation",
-    srcs = glob(["src/main/**/*.scala"]),
+    srcs = glob(["src/main/**/*.scala"], exclude=["src/main/**/validation/UpgradeCheckMain.scala"]),
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
     ],
     scalacopts = lf_scalacopts_stricter,
     tags = ["maven_coordinates=com.daml:daml-lf-validation:__VERSION__"],
     visibility = [
-        "//canton:__subpackages__",
-        "//canton-3x:__subpackages__",
-        "//compiler/scenario-service:__subpackages__",
-        "//daml-lf:__subpackages__",
+        # "//canton:__subpackages__",
+        # "//canton-3x:__subpackages__",
+        # "//compiler/scenario-service:__subpackages__",
+        # "//daml-lf:__subpackages__",
+        "//visibility:public",
     ],
     deps = [
         "//daml-lf/data",
@@ -36,18 +38,29 @@ da_scala_library(
 
 da_scala_library(
     name = "upgrade-check-main",
-    srcs = glob(["src/main/**/upgrade/UpgradeCheckMain.scala"]),
+    srcs = glob(["src/main/**/validation/UpgradeCheckMain.scala"]),
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_typelevel_cats_core",
+        "@maven//:org_typelevel_cats_kernel",
     ],
     scalacopts = lf_scalacopts_stricter,
     visibility = ["//visibility:public"],
     deps = [
         "//daml-lf/data",
         "//daml-lf/language",
-        "//libs-scala/scala-utils",
-        ":validation",
+        #"//daml-lf/validation",
+        #"//libs-scala/scala-utils",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//canton:community_util-logging",
+        "//libs-scala/contextualized-logging",
+        "//daml-lf/archive:daml_lf_archive_proto_java",
+        "//canton:community_ledger_ledger-api-core",
+        "//canton:daml-common-staging_daml-errors",
+        "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
+        "@maven//:org_slf4j_slf4j_api",
     ],
+    unused_dependency_checker_mode = "off",
 )
 
 da_scala_library(
