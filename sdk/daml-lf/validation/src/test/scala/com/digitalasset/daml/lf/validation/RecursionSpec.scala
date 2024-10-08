@@ -90,7 +90,7 @@ class RecursionSpec(majorLanguageVersion: LanguageMajorVersion)
          metadata ( 'pkg' : '1.0.0' )
          module Mod {
            synonym SynInt = Int64 ;
-           synonym SynSynInt = |Mod:SynInt| ;
+           synonym SynSynInt = ||Mod:SynInt|| ;
          }
        """
 
@@ -99,7 +99,7 @@ class RecursionSpec(majorLanguageVersion: LanguageMajorVersion)
       p"""
          metadata ( 'pkg' : '1.0.0' )
          module Mod {
-           synonym SynCycle = |Mod:SynCycle| ;
+           synonym SynCycle = ||Mod:SynCycle|| ;
          }
        """
 
@@ -109,8 +109,8 @@ class RecursionSpec(majorLanguageVersion: LanguageMajorVersion)
          metadata ( 'pkg' : '1.0.0' )
          module Mod {
            synonym SynInt = Int64 ;
-           synonym SynBad1 = |Mod:SynBad2| ;
-           synonym SynBad2 = List |Mod:SynBad1| ;
+           synonym SynBad1 = ||Mod:SynBad2|| ;
+           synonym SynBad2 = List ||Mod:SynBad1|| ;
          }
        """
 

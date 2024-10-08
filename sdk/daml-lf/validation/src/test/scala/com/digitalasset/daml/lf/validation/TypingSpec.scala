@@ -649,7 +649,7 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
           { case _: EExpectedAnyType => },
         E"Λ (τ :⋆). λ (t: List (Option (∀ (α: ⋆). Int64))) → ⸨ to_any @(List (Option (∀ (α: ⋆). Int64))) t ⸩" -> //
           { case _: EExpectedAnyType => },
-        E"λ (e: |Mod:S|) → ⸨ to_any @|Mod:S| e ⸩" -> //
+        E"λ (e: ||Mod:S||) → ⸨ to_any @||Mod:S|| e ⸩" -> //
           { case _: EExpectedAnyType => },
         E"⸨ to_any @Int64 (Nil @Int64) ⸩" -> //
           { case _: ETypeMismatch => },
@@ -666,7 +666,7 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
           { case _: EExpectedAnyType => },
         E"Λ (τ :⋆). λ (t: Any) → ⸨ from_any @(List (Option (∀ (α: ⋆). Int64))) t ⸩" -> //
           { case _: EExpectedAnyType => },
-        E"λ (e: Any) → ⸨ from_any @|Mod:S| e ⸩" -> //
+        E"λ (e: Any) → ⸨ from_any @||Mod:S|| e ⸩" -> //
           { case _: EExpectedAnyType => },
         // ExpTypeRep
         E"⸨ type_rep @Mod:R ⸩" -> //
@@ -677,7 +677,7 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
           { case _: EExpectedAnyType => },
         E"⸨ type_rep @(∀(τ :⋆) . Int64) ⸩" -> //
           { case _: EExpectedAnyType => },
-        E"⸨ type_rep @|Mod:S| ⸩" -> //
+        E"⸨ type_rep @||Mod:S|| ⸩" -> //
           { case _: EExpectedAnyType => },
         // ExpToAnyException
         E"λ (r: Mod:T) → ⸨ to_any_exception @(Mod:T) r ⸩" -> //
@@ -691,7 +691,7 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
           { case _: EExpectedExceptionType => },
         E"Λ (τ :⋆). λ (t: ∀ (α : ⋆). Int64) → ⸨ to_any_exception @(∀ (α : ⋆). Int64) t ⸩" -> //
           { case _: EExpectedExceptionType => },
-        E"λ (e: |Mod:S|) → ⸨ to_any_exception  @|Mod:S| e ⸩" -> //
+        E"λ (e: ||Mod:S||) → ⸨ to_any_exception  @||Mod:S|| e ⸩" -> //
           { case _: EExpectedExceptionType => },
         E"λ (e: Mod:T) → ⸨ to_any_exception @(Mod:E) e ⸩" -> //
           { case _: ETypeMismatch => },
@@ -707,7 +707,7 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
           { case _: EExpectedExceptionType => },
         E"λ (t: ∀ (α : ⋆). Int64) → ⸨ from_any_exception @(∀ (α : ⋆). Int64) t ⸩" -> //
           { case _: EExpectedExceptionType => },
-        E"λ (e: Any) → ⸨ from_any_exception  @|Mod:S| e ⸩" -> //
+        E"λ (e: Any) → ⸨ from_any_exception  @||Mod:S|| e ⸩" -> //
           { case _: EExpectedExceptionType => },
         // ExpThrow
         E"⸨ throw @Mod:R @Mod:E nothing ⸩" -> //
@@ -730,7 +730,7 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
           { case _: EExpectedExceptionType => },
         E"Λ (τ :⋆). λ (e: ∀ (α : ⋆). Int64) →  ⸨ throw @τ @(∀ (α : ⋆). Int64) e ⸩" -> //
           { case _: EExpectedExceptionType => },
-        E"Λ (τ :⋆). λ (e: |Mod:S|) →  ⸨ throw @τ @(∀ (α : ⋆). Int64) e ⸩" -> //
+        E"Λ (τ :⋆). λ (e: ||Mod:S||) →  ⸨ throw @τ @(∀ (α : ⋆). Int64) e ⸩" -> //
           { case _: EExpectedExceptionType => },
         E"Λ (τ: ⋆) (σ: ⋆). λ (e: σ) →  ⸨ throw @τ @Mod:E e ⸩" -> //
           { case _: ETypeMismatch => },
@@ -1732,31 +1732,31 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
       val testCases = Table(
         "expression" ->
           "expected type",
-        E"(( λ (e : |Mod:SynInt|) → () )) " ->
+        E"(( λ (e : ||Mod:SynInt||) → () )) " ->
           T"(( Int64 → Unit ))",
-        E"(( λ (e : |Mod:SynSynInt|) → () )) " ->
+        E"(( λ (e : ||Mod:SynSynInt||) → () )) " ->
           T"(( Int64 → Unit ))",
-        E"(( λ (e : |Mod:SynIdentity Int64|) → () )) " ->
+        E"(( λ (e : ||Mod:SynIdentity Int64||) → () )) " ->
           T"(( Int64 → Unit ))",
-        E"(( λ (e : |Mod:SynIdentity |Mod:SynIdentity Int64||) → () )) " ->
+        E"(( λ (e : ||Mod:SynIdentity ||Mod:SynIdentity Int64|| ||) → () )) " ->
           T"(( Int64 → Unit ))",
-        E"(( λ (e : |Mod:SynList Date|) → () )) " ->
+        E"(( λ (e : ||Mod:SynList Date||) → () )) " ->
           T"(( List Date → Unit ))",
-        E"(( λ (e : |Mod:SynSelfFunc Text|) → () )) " ->
+        E"(( λ (e : ||Mod:SynSelfFunc Text||) → () )) " ->
           T"(( (Text → Text) → Unit ))",
-        E"(( λ (e : |Mod:SynFunc Text Date|) → () )) " ->
+        E"(( λ (e : ||Mod:SynFunc Text Date||) → () )) " ->
           T"(( (Text → Date) → Unit ))",
-        E"(( λ (e : |Mod:SynPair Text Date|) → () )) " ->
+        E"(( λ (e : ||Mod:SynPair Text Date||) → () )) " ->
           T"(( <one:Text, two: Date> → Unit ))",
         E"(( λ (e : forall (a:*) . a) → () )) " ->
           T"(( (forall (a:*) . a) → Unit ))",
-        E"(( λ (e : |Mod:SynIdentity (forall (a:*) . a)|) → () )) " ->
+        E"(( λ (e : ||Mod:SynIdentity (forall (a:*) . a)||) → () )) " ->
           T"(( (forall (a:*) . a) → Unit ))",
-        E"(( λ (e : forall (a:*) . |Mod:SynIdentity a|) → () )) " ->
+        E"(( λ (e : forall (a:*) . ||Mod:SynIdentity a||) → () )) " ->
           T"(( (forall (a:*) . a) → Unit ))",
-        E"(( λ (e : |Mod:SynHigh List|) → () )) " ->
+        E"(( λ (e : ||Mod:SynHigh List||) → () )) " ->
           T"(( List Int64 → Unit ))",
-        E"(( λ (e : |Mod:SynHigh2 GenMap Party|) → () )) " ->
+        E"(( λ (e : ||Mod:SynHigh2 GenMap Party||) → () )) " ->
           T"(( (GenMap Party Party) → Unit ))",
       )
 
@@ -1769,16 +1769,16 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
     "reject ill formed type synonym application" in {
       val testCases = Table(
         "badly formed type synonym application",
-        E"(( λ (e : |Mod:MissingSyn|) → () )) ",
-        E"(( λ (e : |Mod:SynInt Text|) → () )) ",
-        E"(( λ (e : |Mod:SynIdentity|) → () )) ",
-        E"(( λ (e : |Mod:SynIdentity Text Text|) → () )) ",
-        E"(( λ (e : |Mod:SynPair Text|) → () )) ",
-        E"(( λ (e : |Mod:SynPair Text Text Text|) → () )) ",
-        E"(( λ (e : |Mod:SynIdentity List|) → () )) ",
-        E"(( λ (e : |Mod:SynHigh Text|) → () )) ",
-        E"(( λ (e : |Mod:SynHigh GenMap|) → () )) ",
-        E"(( λ (e : |Mod:SynHigh2 List Party|) → () )) ",
+        E"(( λ (e : ||Mod:MissingSyn||) → () )) ",
+        E"(( λ (e : ||Mod:SynInt Text||) → () )) ",
+        E"(( λ (e : ||Mod:SynIdentity||) → () )) ",
+        E"(( λ (e : ||Mod:SynIdentity Text Text||) → () )) ",
+        E"(( λ (e : ||Mod:SynPair Text||) → () )) ",
+        E"(( λ (e : ||Mod:SynPair Text Text Text||) → () )) ",
+        E"(( λ (e : ||Mod:SynIdentity List||) → () )) ",
+        E"(( λ (e : ||Mod:SynHigh Text||) → () )) ",
+        E"(( λ (e : ||Mod:SynHigh GenMap||) → () )) ",
+        E"(( λ (e : ||Mod:SynHigh2 List Party||) → () )) ",
       )
 
       forEvery(testCases) { exp =>
@@ -1895,7 +1895,7 @@ abstract class TypingSpec(majorLanguageVersion: LanguageMajorVersion)
          enum Color = Red | Green | Blue ;
 
          synonym SynInt = Int64 ;
-         synonym SynSynInt = |Mod:SynInt| ;
+         synonym SynSynInt = ||Mod:SynInt|| ;
          synonym SynIdentity (a: *) = a ;
          synonym SynList (a: *) = List a ;
          synonym SynSelfFunc (a: *) = a -> a ;
