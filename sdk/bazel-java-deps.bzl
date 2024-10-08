@@ -53,7 +53,7 @@ protobuf_version = "3.24.0"
 pekko_version = "1.0.1"
 pekko_http_version = "1.0.0"
 tapir_version = "1.8.5"
-ujson_version = "2.0.0"
+ujson_version = "4.0.2"
 
 guava_version = "31.1-jre"
 
@@ -77,7 +77,7 @@ def install_java_deps():
             "com.fasterxml.jackson.core:jackson-databind:2.14.3",
             "com.github.ben-manes.caffeine:caffeine:3.1.2",
             "com.github.blemale:scaffeine_{}:5.2.1".format(scala_major_version),
-            "com.github.pathikrit:better-files_{}:3.9.1".format(scala_major_version),
+            "com.github.pathikrit:better-files_{}:3.9.2".format(scala_major_version),
             "com.github.pureconfig:pureconfig-cats_{}:0.14.0".format(scala_major_version),
             "com.github.pureconfig:pureconfig-core_{}:0.14.0".format(scala_major_version),
             "com.github.pureconfig:pureconfig-generic_{}:0.14.0".format(scala_major_version),
