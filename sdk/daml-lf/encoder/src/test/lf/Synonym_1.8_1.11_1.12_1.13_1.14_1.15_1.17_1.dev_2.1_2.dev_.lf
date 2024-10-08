@@ -5,6 +5,6 @@ module SynonymMod {
 
   synonym Functor (f: * -> *) = <fmap: forall a b . (a -> b) -> f a -> f b> ;
 
-  val optionFunctorDict : |SynonymMod:Functor Option| = <fmap = ERROR @(forall a b. (a -> b) -> Option a -> Option b) "not implemented" > ;
+  val optionFunctorDict : ||SynonymMod:Functor Option|| = <fmap = ERROR @(forall a b. (a -> b) -> Option a -> Option b) "not implemented" > ;
 
 }
