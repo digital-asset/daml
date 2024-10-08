@@ -78,6 +78,7 @@ da_scala_library(
     visibility = [
         "//daml-script:__subpackages__",
         "//test-common/canton:__subpackages__",
+        "//daml-lf/validation:__subpackages__",
     ],
     deps = [
         ":ledger_api_proto_scala",
