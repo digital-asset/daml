@@ -101,7 +101,7 @@ def install_java_deps():
             "com.lihaoyi:ammonite_{}:3.0.0".format(scala_version),
             "com.lihaoyi:fansi_{}:0.4.0".format(scala_major_version),
             "com.lihaoyi:geny_{}:1.1.1".format(scala_major_version),
-            "com.lihaoyi:os-lib_{}:0.8.0".format(scala_major_version),
+            "com.lihaoyi:os-lib_{}:0.10.7".format(scala_major_version),
             "com.lihaoyi:pprint_{}:0.8.1".format(scala_major_version),
             "com.lihaoyi:sourcecode_{}:0.3.0".format(scala_major_version),
             "com.lihaoyi:ujson_{}:{}".format(scala_major_version, ujson_version),
