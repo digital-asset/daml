@@ -50,7 +50,9 @@ import spray.json._
       jsVals ~> partition.in
 
       // second consume all successes
-      partition.out1.zipWithIndex.map(a => formatOneElement(a._1, a._2)) ~> concat.in(1)
+      partition.out1
+        .zip(Source.fromIterator(() => Iterator.iterate(0L)(_ + 1)))
+        .map(a => formatOneElement(a._1, a._2)) ~> concat.in(1)
 
       // then consume all failures and produce the status and optional errors
       partition.out0.fold(Vector.empty[E])((b, a) => b :+ a).map {
