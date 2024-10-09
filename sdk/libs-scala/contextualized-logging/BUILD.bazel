@@ -15,7 +15,7 @@ da_scala_library(
         "@maven//:org_apache_pekko_pekko_stream",
         "@maven//:io_spray_spray_json",
     ],
-    scalacopts = ["-Xsource:2.13"],
+    scalacopts = ["-Xsource:3"],
     tags = ["maven_coordinates=com.daml:contextualized-logging:__VERSION__"],
     visibility = [
         "//visibility:public",

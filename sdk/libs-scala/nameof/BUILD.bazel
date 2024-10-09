@@ -10,7 +10,7 @@ load(
 da_scala_macro_library(
     name = "nameof",
     srcs = glob(["src/main/scala/**/*.scala"]),
-    scalacopts = ["-Xsource:2.13"],
+    scalacopts = ["-Xsource:3"],
     tags = ["maven_coordinates=com.daml:nameof:__VERSION__"],
     visibility = [
         "//visibility:public",

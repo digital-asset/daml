@@ -13,7 +13,7 @@ da_scala_library(
     scala_deps = [
         "@maven//:io_spray_spray_json",
     ],
-    scalacopts = ["-Xsource:2.13"],
+    scalacopts = ["-Xsource:3"],
     tags = ["maven_coordinates=com.daml:logging-entries:__VERSION__"],
     visibility = [
         "//visibility:public",
