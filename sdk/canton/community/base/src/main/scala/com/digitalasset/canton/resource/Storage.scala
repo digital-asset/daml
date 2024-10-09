@@ -63,7 +63,6 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.{ScheduledExecutorService, TimeUnit}
 import javax.sql.rowset.serial.SerialBlob
-import scala.annotation.nowarn
 import scala.collection.immutable
 import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
@@ -708,9 +707,9 @@ object DbStorage {
     def toActionBuilder: SQLActionBuilder = {
       val lst = builders.toList
       SQLActionBuilder(
-        builders.flatMap(x => Chain.fromSeq(x.queryParts)).toList,
+        builders.flatMap(x => Chain.one(x.sql)).foldLeft("")((acc, v) => acc.concat(v)),
         (p: Unit, pp: PositionedParameters) => {
-          lst.foreach(_.unitPConv.apply(p, pp))
+          lst.foreach(_.setParameter.apply(p, pp))
         },
       )
     }
@@ -970,7 +969,6 @@ object DbStorage {
     *
     * @return An iterable of the grouped values and the in clause for the grouped values
     */
-  @nowarn("cat=unused") // somehow, f is wrongly reported as unused by the compiler
   def toInClause[T](
       field: String,
       values: NonEmpty[Seq[T]],

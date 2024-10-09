@@ -11,7 +11,7 @@ import com.digitalasset.daml.lf.language.Ast.PackageSignature
 import scala.annotation.tailrec
 import scala.collection.mutable
 
-// TODO(#19671): Move to com.digitalasset.canton.http.json2.damldefinitionsservice once PackageInterface is public
+// TODO(#21695): Move to com.digitalasset.canton.http.json2.damldefinitionsservice once PackageInterface is public
 object DamlDefinitionsBuilders {
   def buildTypeSig(
       pkgId: Ref.PackageId,
@@ -26,7 +26,7 @@ object DamlDefinitionsBuilders {
   ): Option[TemplateDefinition] = {
     val packageInterface = new PackageInterface(allPackages)
 
-    // TODO(#19671): Do not rebuild globalTypeSig on each query
+    // TODO(#21695): Do not rebuild globalTypeSig on each query
     val globalTypeSig = allPackages.foldLeft(Empty) { case (acc, (pkgId, pkg)) =>
       acc.merge(toTypeSig(pkgId, pkg, packageInterface))
     }
@@ -38,7 +38,7 @@ object DamlDefinitionsBuilders {
       definitionsBuilder ++= dependencyDefs
       TemplateDefinition(
         arguments = {
-          // TODO(#19671): Use internal error
+          // TODO(#21695): Use internal error
           val argRecordDef = globalTypeSig.recordDefs(templateId.toString())
           argRecordDef.fields.view
             .flatMap { case (_fieldName, serializableType) =>
@@ -56,7 +56,7 @@ object DamlDefinitionsBuilders {
         key = templateSig.key,
         choices = choices,
         implements = templateSig.implements.view.map { interfaceId =>
-          // TODO(#19671): Use internal error
+          // TODO(#21695): Use internal error
           val interfaceSig = globalTypeSig.interfaceDefs(interfaceId)
           interfaceId -> InterfaceDefinition(
             choices = {
@@ -87,7 +87,7 @@ object DamlDefinitionsBuilders {
       pkg: PackageSignature,
       packageInterface: PackageInterface,
   ) = {
-    // TODO(#19671): Convert to tailrec
+    // TODO(#21695): Convert to tailrec
     def toSerializableType(typ: Ast.Type, args: List[Ast.Type]): SerializableType = {
       def nonSerializable = nonSerializableType(args.foldLeft(typ)(Ast.TApp))
 

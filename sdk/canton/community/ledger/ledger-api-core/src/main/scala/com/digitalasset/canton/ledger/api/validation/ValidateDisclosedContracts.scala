@@ -8,11 +8,16 @@ import com.daml.ledger.api.v2.commands.{
   Commands as ProtoCommands,
   DisclosedContract as ProtoDisclosedContract,
 }
-import com.digitalasset.canton.ledger.api.validation.FieldValidator.requireContractId
+import com.digitalasset.canton.ledger.api.domain.DisclosedContract
+import com.digitalasset.canton.ledger.api.validation.FieldValidator.{
+  requireContractId,
+  requireDomainId,
+}
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidArgument
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
+import com.digitalasset.canton.util.OptionUtil
 import com.digitalasset.daml.lf.data.ImmArray
-import com.digitalasset.daml.lf.transaction.{FatContractInstance, TransactionCoder}
+import com.digitalasset.daml.lf.transaction.TransactionCoder
 import io.grpc.StatusRuntimeException
 
 import scala.collection.mutable
@@ -20,12 +25,12 @@ import scala.collection.mutable
 class ValidateDisclosedContracts {
   def apply(commands: ProtoCommands)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, ImmArray[FatContractInstance]] =
+  ): Either[StatusRuntimeException, ImmArray[DisclosedContract]] =
     fromDisclosedContracts(commands.disclosedContracts)
 
   def fromDisclosedContracts(disclosedContracts: Seq[ProtoDisclosedContract])(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, ImmArray[FatContractInstance]] =
+  ): Either[StatusRuntimeException, ImmArray[DisclosedContract]] =
     for {
       validatedDisclosedContracts <- validateDisclosedContracts(disclosedContracts)
     } yield validatedDisclosedContracts
@@ -34,11 +39,11 @@ class ValidateDisclosedContracts {
       disclosedContracts: Seq[ProtoDisclosedContract]
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, ImmArray[FatContractInstance]] = {
+  ): Either[StatusRuntimeException, ImmArray[DisclosedContract]] = {
     type ZeroType =
       Either[
         StatusRuntimeException,
-        mutable.Builder[FatContractInstance, ImmArray[FatContractInstance]],
+        mutable.Builder[DisclosedContract, ImmArray[DisclosedContract]],
       ]
 
     disclosedContracts
@@ -55,7 +60,7 @@ class ValidateDisclosedContracts {
       disclosedContract: ProtoDisclosedContract
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, FatContractInstance] =
+  ): Either[StatusRuntimeException, DisclosedContract] =
     if (disclosedContract.createdEventBlob.isEmpty)
       Left(ValidationErrors.missingField("DisclosedContract.createdEventBlob"))
     else
@@ -69,6 +74,10 @@ class ValidateDisclosedContracts {
           disclosedContract.contractId,
           "DisclosedContract.contract_id",
         )
+        domainIdO <- OptionUtil
+          .emptyStringAsNone(disclosedContract.domainId)
+          .map(requireDomainId(_, "DisclosedContract.domain_id").map(Some(_)))
+          .getOrElse(Right(None))
         fatContractInstance <- TransactionCoder
           .decodeFatContractInstance(disclosedContract.createdEventBlob)
           .left
@@ -89,5 +98,8 @@ class ValidateDisclosedContracts {
             s"Mismatch between DisclosedContract.template_id ($validatedTemplateId) and template_id from decoded DisclosedContract.created_event_blob (${fatContractInstance.templateId})"
           ),
         )
-      } yield fatContractInstance
+      } yield DisclosedContract(
+        fatContractInstance = fatContractInstance,
+        domainIdO = domainIdO,
+      )
 }

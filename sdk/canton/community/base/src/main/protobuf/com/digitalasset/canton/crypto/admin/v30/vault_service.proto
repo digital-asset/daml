@@ -181,6 +181,9 @@ message GenerateSigningKeyRequest {
 
   // optional descriptive name for the key
   string name = 2;
+
+  // key can only be used for the specified usage
+  repeated com.digitalasset.canton.crypto.v30.SigningKeyUsage usage = 3;
 }
 
 message GenerateSigningKeyResponse {
@@ -203,6 +206,9 @@ message RegisterKmsSigningKeyRequest {
 
   // optional descriptive name for the key
   string name = 2;
+
+  // key can only be used for the specified usage
+  repeated com.digitalasset.canton.crypto.v30.SigningKeyUsage usage = 3;
 }
 
 message RegisterKmsSigningKeyResponse {

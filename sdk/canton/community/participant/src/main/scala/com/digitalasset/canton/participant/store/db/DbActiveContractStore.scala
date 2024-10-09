@@ -49,7 +49,6 @@ import com.digitalasset.daml.lf.data.Ref.PackageId
 import slick.jdbc.*
 
 import scala.Ordered.orderingToOrdered
-import scala.annotation.nowarn
 import scala.collection.View
 import scala.collection.immutable.SortedMap
 import scala.concurrent.{ExecutionContext, Future}
@@ -461,8 +460,7 @@ class DbActiveContractStore(
 
     implicit val getResultT: GetResult[T] = p.getResult
 
-    // somehow, the compiler complains if it is not defined but indicates it as being unused
-    @nowarn("cat=unused") implicit val setParameterT: SetParameter[T] = p.setParameter
+    implicit val setParameterT: SetParameter[T] = p.setParameter
 
     val ordering = sql" order by #${p.attribute} asc"
 

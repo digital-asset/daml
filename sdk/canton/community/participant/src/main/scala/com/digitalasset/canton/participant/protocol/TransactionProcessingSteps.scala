@@ -104,9 +104,11 @@ import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 import monocle.PLens
 
+import java.util.concurrent.ConcurrentHashMap
 import scala.annotation.nowarn
 import scala.collection.immutable.SortedMap
 import scala.concurrent.{ExecutionContext, Future}
+import scala.jdk.CollectionConverters.*
 import scala.util.{Failure, Success}
 
 /** The transaction processor that coordinates the Canton transaction protocol.
@@ -628,10 +630,40 @@ class TransactionProcessingSteps(
             ))
         }
 
+      // We keep track of all randomnesses used for the views, both the one used to
+      // encrypt the view and the one that is sent as part of the ancestor view, and check for mismatches at the end.
+      val allRandomnessMap = new ConcurrentHashMap[ViewHash, Seq[SecureRandomness]]()
+
+      def addRandomnessToMap(viewHash: ViewHash, toAdd: SecureRandomness): SecureRandomness = {
+        allRandomnessMap.compute(
+          viewHash,
+          (_, existing) => {
+            val updatedList =
+              if (existing == null || existing.isEmpty) Seq(toAdd)
+              else existing :+ toAdd
+            updatedList
+          },
+        )
+        toAdd
+      }
+
+      def checkRandomnessMap(): Unit =
+        allRandomnessMap.asScala.find { case (_, listRandomness) =>
+          listRandomness.distinct.size >= 2
+        } match {
+          case Some((viewHash, _)) =>
+            ErrorUtil.internalError(
+              new IllegalArgumentException(
+                s"View $viewHash has different encryption keys associated with it."
+              )
+            )
+          case None => ()
+        }
+
       def extractRandomnessFromView(
           transactionViewEnvelope: OpenEnvelope[TransactionViewMessage]
-      ): Future[Unit] = {
-        def completeRandomnessPromise(): Unit = {
+      ) = {
+        def completeRandomnessPromise(): FutureUnlessShutdown[SecureRandomness] = {
           val message = transactionViewEnvelope.protocolMessage
           val randomnessF = EncryptedViewMessage
             .decryptRandomness(
@@ -641,6 +673,7 @@ class TransactionProcessingSteps(
               message,
               participantId,
             )
+            .map(addRandomnessToMap(message.viewHash, _))
             .valueOr { e =>
               ErrorUtil.internalError(
                 new IllegalArgumentException(
@@ -652,12 +685,13 @@ class TransactionProcessingSteps(
           checked(randomnessMap(transactionViewEnvelope.protocolMessage.viewHash))
             .completeWith(randomnessF)
             .discard
+          randomnessF
         }
 
         if (
           transactionViewEnvelope.recipients.leafRecipients.contains(MemberRecipient(participantId))
-        ) Future.successful(completeRandomnessPromise())
-        else Future.unit
+        ) completeRandomnessPromise().map(_ => ())
+        else FutureUnlessShutdown.unit
       }
 
       def decryptViewWithRandomness(
@@ -674,7 +708,7 @@ class TransactionProcessingSteps(
             .map { case ViewHashAndKey(subviewHash, subviewKey) =>
               randomnessMap.get(subviewHash) match {
                 case Some(promise) =>
-                  promise.outcome(subviewKey)
+                  promise.outcome(addRandomnessToMap(subviewHash, subviewKey))
                 case None =>
                   // TODO(i12911): make sure to not approve the request
                   SyncServiceAlarm
@@ -692,21 +726,24 @@ class TransactionProcessingSteps(
       ): FutureUnlessShutdown[Either[
         EncryptedViewMessageError,
         (WithRecipients[DecryptedView], Option[Signature]),
-      ]] =
+      ]] = {
+        val extractRandomnessFromViewF = extractRandomnessFromView(transactionViewEnvelope)
         for {
-          _ <- FutureUnlessShutdown.outcomeF(extractRandomnessFromView(transactionViewEnvelope))
           randomness <- randomnessMap(transactionViewEnvelope.protocolMessage.viewHash).futureUS
           lightViewTreeE <- decryptViewWithRandomness(
             transactionViewEnvelope.protocolMessage,
             randomness,
           ).value
+          _ <- extractRandomnessFromViewF
         } yield lightViewTreeE.map { case (view, signature) =>
           (WithRecipients(view, transactionViewEnvelope.recipients), signature)
         }
+      }
 
       EitherT.right {
         for {
           decryptionResult <- batch.toNEF.parTraverse(decryptView)
+          _ = checkRandomnessMap()
         } yield DecryptedViews(decryptionResult)
       }
     }

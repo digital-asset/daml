@@ -109,6 +109,10 @@ message DisclosedContract {
   // to reconstruct a contract not known to the receiving participant.
   // Required
   bytes created_event_blob = 3;
+
+  // The ID of the domain where the contract is currently assigned
+  // Optional
+  string domain_id = 4;
 }
 
 // A composite command that groups multiple commands together.

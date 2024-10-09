@@ -92,7 +92,9 @@ private[apiserver] final class StoreBackedCommandExecutor(
         commands.actAs,
         commands.readAs,
         submissionResult,
-        commands.disclosedContracts.toList.map(c => c.contractId -> c).toMap,
+        commands.disclosedContracts.iterator
+          .map(c => c.fatContractInstance.contractId -> c.fatContractInstance)
+          .toMap,
         interpretationTimeNanos,
         commands.commands.ledgerEffectiveTime,
         ledgerTimeRecordTimeToleranceO,
@@ -120,7 +122,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
       interpretationTimeNanos: Long,
   ) = {
     val disclosedContractsMap =
-      commands.disclosedContracts.toSeq.view.map(d => d.contractId -> d).toMap
+      commands.disclosedContracts.toSeq.view.map(d => d.fatContractInstance.contractId -> d).toMap
     CommandExecutionResult(
       submitterInfo = state.SubmitterInfo(
         commands.actAs.toList,
@@ -152,9 +154,10 @@ private[apiserver] final class StoreBackedCommandExecutor(
       processedDisclosedContracts = meta.disclosedEvents.map { event =>
         val input = disclosedContractsMap(event.coid)
         ProcessedDisclosedContract(
-          event,
-          input.createdAt,
-          input.cantonData,
+          create = event,
+          createdAt = input.fatContractInstance.createdAt,
+          driverMetadata = input.fatContractInstance.cantonData,
+          domainIdO = input.domainIdO,
         )
       },
     )
@@ -183,7 +186,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
           submitters = commitAuthorizers,
           readAs = commands.readAs,
           cmds = commands.commands,
-          disclosures = commands.disclosedContracts,
+          disclosures = commands.disclosedContracts.map(_.fatContractInstance),
           participantId = participant,
           submissionSeed = submissionSeed,
           config.toEngineLogger(loggerFactory.append("phase", "submission")),

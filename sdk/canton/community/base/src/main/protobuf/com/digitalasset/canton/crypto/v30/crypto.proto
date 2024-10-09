@@ -82,6 +82,18 @@ enum KeyPurpose {
   KEY_PURPOSE_ENCRYPTION = 2;
 }
 
+enum SigningKeyUsage {
+  SIGNING_KEY_USAGE_UNSPECIFIED = 0;
+  // the root namespace key that defines a node's identity and signs topology requests
+  SIGNING_KEY_USAGE_NAMESPACE = 1;
+  // keys that act has delegation keys for the root namespace and that can also be used to sign topology requests
+  SIGNING_KEY_USAGE_IDENTITY_DELEGATION = 2;
+  // keys that authenticate members of the network towards a sequencer
+  SIGNING_KEY_USAGE_SEQUENCER_AUTHENTICATION = 3;
+  // keys that deal with all the signing that happens as part of the protocol
+  SIGNING_KEY_USAGE_PROTOCOL = 4;
+}
+
 message SigningPublicKey {
   // Previously public key id / fingerprint
   reserved 1;
@@ -93,6 +105,9 @@ message SigningPublicKey {
 
   // Explicit state the key scheme of the serialized public key
   SigningKeyScheme scheme = 4;
+
+  // Explicitly state the key's intended use
+  repeated SigningKeyUsage usage = 5;
 }
 
 message SigningPrivateKey {
@@ -105,6 +120,9 @@ message SigningPrivateKey {
 
   // Explicit state the key scheme of the serialized private key
   SigningKeyScheme scheme = 4;
+
+  // Explicitly state the key's intended use
+  repeated SigningKeyUsage usage = 5;
 }
 
 message SigningKeyPair {

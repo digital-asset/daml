@@ -145,7 +145,7 @@ object Schema {
     implicit val templateSigCodec: Codec[TemplateSig] = deriveCodec
     implicit val interfaceSigCodec: Codec[InterfaceSig] = deriveCodec
 
-    // TODO(#19671): For readability, represent Scala objects as simple JSON strings instead of nested JSON objects with empty body
+    // TODO(#21695): For readability, represent Scala objects as simple JSON strings instead of nested JSON objects with empty body
     implicit val templateOrInterfaceCodec: Codec[TemplateOrInterface] = deriveCodec
     implicit val serializableTypeCodec: Codec[SerializableType] = deriveCodec
     implicit val enumCodec: Codec[Enum] = deriveCodec

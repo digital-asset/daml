@@ -5,6 +5,7 @@ package com.digitalasset.canton.crypto.provider.jce
 
 import cats.data.EitherT
 import cats.syntax.either.*
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreExtended
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -108,7 +109,10 @@ class JcePrivateCrypto(
     }
   }
 
-  override protected[crypto] def generateSigningKeypair(scheme: SigningKeyScheme)(implicit
+  override protected[crypto] def generateSigningKeypair(
+      scheme: SigningKeyScheme,
+      usage: NonEmpty[Set[SigningKeyUsage]],
+  )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SigningKeyGenerationError, SigningKeyPair] = scheme match {
     case SigningKeyScheme.Ed25519 =>

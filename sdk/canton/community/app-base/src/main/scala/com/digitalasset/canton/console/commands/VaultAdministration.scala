@@ -5,6 +5,7 @@ package com.digitalasset.canton.console.commands
 
 import cats.data.EitherT
 import cats.syntax.either.*
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.api.client.commands.{TopologyAdminCommands, VaultAdminCommands}
 import com.digitalasset.canton.admin.api.client.data.ListKeyOwnersResult
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
@@ -51,8 +52,9 @@ class SecretKeyAdministration(
         )
       case signKey: SigningPublicKey =>
         instance.keys.secret.generate_signing_key(
-          scheme = Some(signKey.scheme),
           name = OptionUtil.noneAsEmptyString(name),
+          usage = signKey.usage,
+          scheme = Some(signKey.scheme),
         )
       case unknown => throw new IllegalArgumentException(s"Invalid public key type: $unknown")
     }
@@ -73,14 +75,24 @@ class SecretKeyAdministration(
   @Help.Description(
     """
       |The optional name argument allows you to store an associated string for your convenience.
+      |The usage specifies the intended use for the signing key that can be:
+      | - Namespace: for the root namespace key that defines a node's identity and signs topology requests;
+      | - IdentityDelegation: for a signing key that acts as a delegation key for the root namespace and that can also be used to sign topology requests;
+      | - SequencerAuthentication: for a signing key that authenticates members of the network towards a sequencer;
+      | - Protocol: for a signing key that deals with all the signing that happens as part of the protocol.
       |The scheme can be used to select a key scheme and the default scheme is used if left unspecified."""
   )
   def generate_signing_key(
       name: String = "",
+      usage: Set[SigningKeyUsage] = SigningKeyUsage.All,
       scheme: Option[SigningKeyScheme] = None,
   ): SigningPublicKey =
-    consoleEnvironment.run {
-      adminCommand(VaultAdminCommands.GenerateSigningKey(name, scheme))
+    NonEmpty.from(usage) match {
+      case Some(usageNE) =>
+        consoleEnvironment.run {
+          adminCommand(VaultAdminCommands.GenerateSigningKey(name, usageNE, scheme))
+        }
+      case None => throw new IllegalArgumentException("no signing key usage specified")
     }
 
   @Help.Summary("Generate new public/private key pair for encryption and store it in the vault")
@@ -103,14 +115,24 @@ class SecretKeyAdministration(
   @Help.Description(
     """
       |The id for the KMS signing key.
+      |The usage specifies the intended use for the signing key that can be:
+      | - Namespace: for the root namespace key that defines a node's identity and signs topology requests;
+      | - IdentityDelegation: for a signing key that acts as a delegation key for the root namespace and that can also be used to sign topology requests;
+      | - SequencerAuthentication: for a signing key that authenticates members of the network towards a sequencer;
+      | - Protocol: for a signing key that deals with all the signing that happens as part of the protocol.
       |The optional name argument allows you to store an associated string for your convenience."""
   )
   def register_kms_signing_key(
       kmsKeyId: String,
+      usage: Set[SigningKeyUsage] = SigningKeyUsage.All,
       name: String = "",
   ): SigningPublicKey =
-    consoleEnvironment.run {
-      adminCommand(VaultAdminCommands.RegisterKmsSigningKey(kmsKeyId, name))
+    NonEmpty.from(usage) match {
+      case Some(usageNE) =>
+        consoleEnvironment.run {
+          adminCommand(VaultAdminCommands.RegisterKmsSigningKey(kmsKeyId, usageNE, name))
+        }
+      case None => throw new IllegalArgumentException("no signing key usage specified")
     }
 
   @Help.Summary(
@@ -145,7 +167,7 @@ class SecretKeyAdministration(
   @Help.Summary("Rotate a given node's keypair with a new pre-generated KMS keypair")
   @Help.Description(
     """Rotates an existing encryption or signing key stored externally in a KMS with a pre-generated
-      key.
+      key. NOTE: A namespace root signing key CANNOT be rotated by this command.
       |The fingerprint of the key we want to rotate.
       |The id of the new KMS key (e.g. Resource Name)."""
   )
@@ -154,9 +176,11 @@ class SecretKeyAdministration(
     val owner = instance.id.member
 
     val currentKey = findPublicKey(fingerprint, instance.topology, owner)
-    val newKey = currentKey.purpose match {
-      case KeyPurpose.Signing => instance.keys.secret.register_kms_signing_key(newKmsKeyId)
-      case KeyPurpose.Encryption => instance.keys.secret.register_kms_encryption_key(newKmsKeyId)
+    val newKey = currentKey match {
+      case SigningPublicKey(_, _, _, usage) =>
+        instance.keys.secret.register_kms_signing_key(newKmsKeyId, usage)
+      case _: EncryptionPublicKey => instance.keys.secret.register_kms_encryption_key(newKmsKeyId)
+      case _ => throw new IllegalStateException("Unsupported key type")
     }
 
     // Rotate the key for the node in the topology management

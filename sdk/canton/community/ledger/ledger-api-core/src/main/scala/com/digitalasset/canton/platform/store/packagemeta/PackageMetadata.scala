@@ -21,7 +21,7 @@ final case class PackageMetadata(
     interfacesImplementedBy: InterfacesImplementedBy = Map.empty,
     packageNameMap: Map[Ref.PackageName, PackageResolution] = Map.empty,
     packageIdVersionMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)] = Map.empty,
-    // TODO(#19671): Use [[com.digitalasset.daml.lf.language.PackageInterface]] once public
+    // TODO(#21695): Use [[com.digitalasset.daml.lf.language.PackageInterface]] once public
     packages: Map[Ref.PackageId, Ast.PackageSignature] = Map.empty,
 ) {
 
@@ -89,7 +89,7 @@ object PackageMetadata {
       templates = packageInfo.definedTemplates,
       interfacesImplementedBy = packageInfo.interfaceInstances,
       packageIdVersionMap = Map(packageId -> (packageName, packageVersion)),
-      // TODO(#19671): Consider a size-bounded cache in case of memory pressure issues
+      // TODO(#21695): Consider a size-bounded cache in case of memory pressure issues
       //               Consider unifying with the other package caches in the participant
       //               (e.g. [[com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader]])
       packages = Map(packageId -> LfUtil.toSignature(packageAst)),

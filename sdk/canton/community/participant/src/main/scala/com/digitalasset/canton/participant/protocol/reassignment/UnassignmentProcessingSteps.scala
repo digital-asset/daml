@@ -4,8 +4,8 @@
 package com.digitalasset.canton.participant.protocol.reassignment
 
 import cats.data.*
-import cats.implicits.toFunctorOps
 import cats.syntax.either.*
+import cats.syntax.functor.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, HashOps}
@@ -189,7 +189,7 @@ class UnassignmentProcessingSteps(
         targetDomain,
         targetProtocolVersion,
         Source(sourceRecentSnapshot.ipsSnapshot),
-        Target(targetCrypto.ipsSnapshot),
+        targetCrypto.map(_.ipsSnapshot),
         newReassignmentCounter,
       )
 
@@ -554,10 +554,10 @@ class UnassignmentProcessingSteps(
       domainId: Target[DomainId],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Option[CantonTimestamp]] =
+  ): EitherT[FutureUnlessShutdown, ReassignmentParametersError, Option[Target[CantonTimestamp]]] =
     targetTopology.traverse { targetTopology =>
       ProcessingSteps
-        .getAssignmentExclusivity(targetTopology.unwrap, timestamp)
+        .getAssignmentExclusivity(targetTopology, timestamp)
         .mapK(FutureUnlessShutdown.outcomeK)
         .leftMap(ReassignmentParametersError(domainId.unwrap, _))
     }
@@ -676,7 +676,7 @@ class UnassignmentProcessingSteps(
       reassignmentId: ReassignmentId,
       targetDomain: Target[DomainId],
       rootHash: RootHash,
-      assignmentExclusivity: Option[CantonTimestamp],
+      assignmentExclusivity: Option[Target[CantonTimestamp]],
       isReassigningParticipant: Boolean,
       reassignmentCounter: ReassignmentCounter,
       hostedStakeholders: List[LfPartyId],
@@ -720,7 +720,7 @@ class UnassignmentProcessingSteps(
         templateId = templateId,
         packageName = packageName,
         stakeholders = contractStakeholders.toList,
-        assignmentExclusivity = assignmentExclusivity.map(_.toLf),
+        assignmentExclusivity = assignmentExclusivity.map(_.unwrap.toLf),
       ),
       domainIndex = Some(
         DomainIndex.of(
@@ -846,7 +846,7 @@ object UnassignmentProcessingSteps {
       stakeholders: Set[LfPartyId],
       hostedStakeholders: Set[LfPartyId],
       targetTimeProof: TimeProof,
-      assignmentExclusivity: Option[CantonTimestamp],
+      assignmentExclusivity: Option[Target[CantonTimestamp]],
       mediator: MediatorGroupRecipient,
       override val locallyRejectedF: FutureUnlessShutdown[Boolean],
       override val abortEngine: String => Unit,

@@ -58,6 +58,9 @@ object ReassignmentTag {
       ): Eval[B] =
         f(fa.value, lb)
     }
+
+    implicit def sourceReassignmentType: SameReassignmentType[Source] =
+      new SameReassignmentType[Source] {}
   }
 
   final case class Target[T](value: T) extends ReassignmentTag[T] {
@@ -99,6 +102,20 @@ object ReassignmentTag {
           f: (A, Eval[B]) => Eval[B]
       ): Eval[B] = f(fa.value, lb)
     }
+    implicit def sourceReassignmentType: SameReassignmentType[Target] =
+      new SameReassignmentType[Target] {}
   }
-
 }
+
+/** A type class that ensures the reassignment type remains consistent across multiple parameters of a method.
+  * This is useful when dealing with types that represent different reassignment contexts (e.g., `Source` and `Target`),
+  * and we want to enforce that all parameters share the same reassignment context.
+  *
+  * Example:
+  *
+  * def f[F[_] <: ReassignmentTag[_]: SameReassignmentType](i: F[Int], s: F[String]) = ???
+  *
+  * // f(Source(1), Target("One"))  // This will not compile, as `Source` and `Target` are different reassignment types.
+  * // f(Source(1), Source("One"))  // This will compile, as both parameters are of the same reassignment type `Source`.
+  */
+trait SameReassignmentType[T[_]] {}

@@ -15,7 +15,7 @@ class DamlDefinitionsView(
 
   def packageSignature(pkgId: String): Option[TypeSig] = {
     val validatedPackageId = Ref.PackageId.fromString(pkgId).getOrElse {
-      throw new IllegalArgumentException(s"TODO(#19671): Invalid package ID: $pkgId")
+      throw new IllegalArgumentException(s"TODO(#21695): Invalid package ID: $pkgId")
     }
     val packageSignatures = getPackageMetadataSnapshot(NoLogging).packages
     packageSignatures.get(validatedPackageId).map { astPkg =>
@@ -25,7 +25,7 @@ class DamlDefinitionsView(
 
   def templateDefinition(templateId: String): Option[TemplateDefinition] = {
     val validatedTemplateId = Ref.Identifier.fromString(templateId).getOrElse {
-      throw new IllegalArgumentException(s"TODO(#19671): Invalid template ID: $templateId")
+      throw new IllegalArgumentException(s"TODO(#21695): Invalid template ID: $templateId")
     }
 
     val packageSignatures = getPackageMetadataSnapshot(NoLogging).packages
@@ -34,7 +34,7 @@ class DamlDefinitionsView(
 
   def allTemplates(): AllTemplatesResponse =
     AllTemplatesResponse(
-      // TODO(#19671): Extract and use a ContextualizedErrorLogger
+      // TODO(#21695): Extract and use a ContextualizedErrorLogger
       getPackageMetadataSnapshot(NoLogging).templates.map(_.toString())
     )
 }

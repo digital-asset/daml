@@ -1,14 +1,21 @@
 package slick.jdbc.canton
 
 import slick.dbio.{Effect, NoStream}
-import slick.jdbc.{GetResult, PositionedParameters, PositionedResult, SetParameter, StatementInvoker, StreamingInvokerAction}
-import slick.sql.{SqlAction, SqlStreamingAction}
+import slick.jdbc.{
+  GetResult,
+  Invoker,
+  PositionedParameters,
+  PositionedResult,
+  SetParameter,
+  StatementInvoker,
+  StreamingInvokerAction,
+}
+import slick.sql.SqlStreamingAction
 
 import java.sql.PreparedStatement
 import scala.collection.mutable
-import scala.language.experimental.macros
+import scala.collection.mutable.ArrayBuffer
 import scala.language.implicitConversions
-import scala.reflect.macros.blackbox
 
 /** Fork of slick's sql interpolation.
   *
@@ -17,12 +24,15 @@ import scala.reflect.macros.blackbox
   * `asUpdate` in one with a write effect.
   */
 class ActionBasedSQLInterpolation(val s: StringContext) extends AnyVal {
-  import slick.jdbc.ActionBasedSQLInterpolation.sqluImpl
-  import ActionBasedSQLInterpolation.sqlImpl
 
-  def sql(param: Any*): SQLActionBuilder = macro sqlImpl
+  /** Build a SQLActionBuilder via string interpolation */
+  def sql(params: TypedParameter[?]*): SQLActionBuilder = SQLActionBuilder.parse(s.parts, params)
 
-  def sqlu(param: Any*): SqlAction[Int, NoStream, Effect.Write] = macro sqluImpl
+  /** Build an Action for an UPDATE statement via string interpolation */
+  def sqlu(
+            params: TypedParameter[?]*
+          ): SqlStreamingAction[Vector[Int], Int, Effect.Write]#ResultAction[Int, NoStream, Effect.Write] =
+    sql(params: _*).asUpdate
 }
 
 object ActionBasedSQLInterpolation {
@@ -31,38 +41,88 @@ object ActionBasedSQLInterpolation {
     implicit def actionBasedSQLInterpolationCanton(s: StringContext): ActionBasedSQLInterpolation =
       new ActionBasedSQLInterpolation(s)
   }
-
-  def sqlImpl(ctxt: blackbox.Context)(param: ctxt.Expr[Any]*): ctxt.Expr[SQLActionBuilder] = {
-    import ctxt.universe._
-    reify {
-      val builder = slick.jdbc.ActionBasedSQLInterpolation.sqlImpl(ctxt)(param.toList: _*).splice
-      SQLActionBuilder(builder.queryParts, builder.unitPConv)
-    }
-  }
-
 }
 
-final case class SQLActionBuilder(queryParts: Seq[Any], unitPConv: SetParameter[Unit]) {
-  private def asInternal[R, E <: Effect](implicit rconv: GetResult[R]): SqlStreamingAction[Vector[R], R, E] = {
-    val query =
-      if (queryParts.length == 1 && queryParts(0).isInstanceOf[String]) queryParts(0).asInstanceOf[String]
-      else queryParts.iterator.map(String.valueOf).mkString
-    new StreamingInvokerAction[Vector[R], R, E] {
-      def statements: Iterable[String] = List(query)
-      protected[this] def createInvoker(statements: Iterable[String]): StatementInvoker[R] = new StatementInvoker[R] {
-        val getStatement                                    = statements.head
-        protected def setParam(st: PreparedStatement)       = unitPConv((), new PositionedParameters(st))
-        protected def extractValue(rs: PositionedResult): R = rconv(rs)
-      }
-      protected[this] def createBuilder: mutable.ReusableBuilder[R, Vector[R]] = Vector.newBuilder[R]
-    }
-  }
+class TypedParameter[T](val param: T, val setParameter: SetParameter[T]) {
+  def applied: SetParameter[Unit] = setParameter.applied(param)
+}
 
-  def as[R](implicit rconv: GetResult[R]): SqlStreamingAction[Vector[R], R, Effect.Read] = asInternal[R, Effect.Read]
-  def asUpdate: SqlStreamingAction[Vector[Int], Int, Effect.Write]#ResultAction[Int, NoStream, Effect.Write] =
+object TypedParameter {
+  implicit def typedParameter[T](param: T)(implicit
+      setParameter: SetParameter[T]
+  ): TypedParameter[T] =
+    new TypedParameter[T](param, setParameter)
+}
+
+object SQLActionBuilder {
+  def parse(strings: Seq[String], typedParams: Seq[TypedParameter[?]]): SQLActionBuilder =
+    if (strings.sizeIs == 1)
+      SQLActionBuilder(strings.head, SetParameter.SetUnit)
+    else {
+      val b = new mutable.StringBuilder
+      val remaining = new ArrayBuffer[SetParameter[Unit]]
+      typedParams.zip(strings.iterator.to(Iterable)).foreach { zipped =>
+        val p = zipped._1.param
+        var literal = false
+
+        def decode(s: String): String =
+          if (s.endsWith("##")) decode(s.substring(0, s.length - 2)) + "#"
+          else if (s.endsWith("#")) {
+            literal = true
+            s.substring(0, s.length - 1)
+          } else
+            s
+
+        b.append(decode(zipped._2))
+        if (literal) b.append(p.toString)
+        else {
+          b.append('?')
+          remaining += zipped._1.applied
+        }
+      }
+      b.append(strings.last)
+      SQLActionBuilder(b.toString, (u, pp) => remaining.foreach(_(u, pp)))
+    }
+}
+
+case class SQLActionBuilder(sql: String, setParameter: SetParameter[Unit]) {
+
+  private def asInternal[R, E <: Effect](implicit
+      getResult: GetResult[R]
+  ): SqlStreamingAction[Vector[R], R, E] =
+    new StreamingInvokerAction[Vector[R], R, Effect] {
+      def statements: Iterable[String] = List(sql)
+
+      protected[this] def createInvoker(statements: Iterable[String]): Invoker[R] =
+        new StatementInvoker[R] {
+          val getStatement = statements.head
+
+          protected def setParam(st: PreparedStatement): Unit =
+            setParameter((), new PositionedParameters(st))
+
+          protected def extractValue(rs: PositionedResult): R = getResult(rs)
+        }
+
+      protected[this] def createBuilder: collection.mutable.Builder[R, Vector[R]] =
+        Vector.newBuilder[R]
+    }
+
+  def as[R](implicit getResult: GetResult[R]): SqlStreamingAction[Vector[R], R, Effect.Read] =
+    asInternal[R, Effect.Read]
+
+  def asUpdate: SqlStreamingAction[Vector[Int], Int, Effect.Write]#ResultAction[
+    Int,
+    NoStream,
+    Effect.Write,
+  ] =
     asInternal[Int, Effect.Write](GetResult.GetUpdateValue).head
 
-  def stripMargin(marginChar: Char): SQLActionBuilder =
-    copy(queryParts.map(_.asInstanceOf[String].stripMargin(marginChar)))
-  def stripMargin: SQLActionBuilder = copy(queryParts.map(_.asInstanceOf[String].stripMargin))
+  def concat(b: SQLActionBuilder): SQLActionBuilder =
+    SQLActionBuilder(
+      sql + b.sql,
+      (p, pp) => {
+        setParameter(p, pp)
+        b.setParameter(p, pp)
+      },
+    )
 }

@@ -3,7 +3,9 @@
 
 package com.digitalasset.canton.participant.protocol.reassignment
 
+import cats.Traverse
 import cats.data.EitherT
+import cats.syntax.functor.*
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, SyncCryptoApiProvider}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
@@ -22,8 +24,8 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
 }
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, TestingTopology}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.util.ReassignmentTag
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
+import com.digitalasset.canton.util.{ReassignmentTag, SameReassignmentType}
 import com.digitalasset.canton.{BaseTest, LfPackageId}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.when
@@ -77,7 +79,7 @@ private[reassignment] object TestReassignmentCoordination {
           case Some(overridden) => EitherT.right(overridden.getOrElse(Future.unit))
         }
 
-      override def awaitTimestamp[T[X] <: ReassignmentTag[X]](
+      override def awaitTimestamp[T[X] <: ReassignmentTag[X]: SameReassignmentType](
           domainId: T[DomainId],
           staticDomainParameters: T[StaticDomainParameters],
           timestamp: CantonTimestamp,
@@ -90,16 +92,16 @@ private[reassignment] object TestReassignmentCoordination {
           case Some(overridden) => Right(overridden)
         }
 
-      override def cryptoSnapshot[T[X] <: ReassignmentTag[X]](
+      override def cryptoSnapshot[T[X] <: ReassignmentTag[X]: SameReassignmentType: Traverse](
           domainId: T[DomainId],
           staticDomainParameters: T[StaticDomainParameters],
           timestamp: CantonTimestamp,
       )(implicit
           traceContext: TraceContext
-      ): EitherT[Future, ReassignmentProcessorError, DomainSnapshotSyncCryptoApi] =
+      ): EitherT[Future, ReassignmentProcessorError, T[DomainSnapshotSyncCryptoApi]] =
         snapshotOverride match {
           case None => super.cryptoSnapshot(domainId, staticDomainParameters, timestamp)
-          case Some(cs) => EitherT.pure[Future, ReassignmentProcessorError](cs)
+          case Some(cs) => EitherT.pure[Future, ReassignmentProcessorError](domainId.map(_ => cs))
         }
     }
   }

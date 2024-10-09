@@ -96,7 +96,7 @@ class ExecutionHistograms(val prefix: MetricName)(implicit
   private[metrics] val registerKeyStateCacheUpdate: Item = Item(
     cachePrefix :+ "key_state" :+ "register_update",
     summary = "The time spent to update the key state cache.",
-    description = """The total time spent in sequential update steps of the contract state caches
+    description = """The total time spent in sequential update steps of the key state caches
                 |updating logic. This metric is created with debugging purposes in mind.""",
     qualification = MetricQualification.Debug,
   )

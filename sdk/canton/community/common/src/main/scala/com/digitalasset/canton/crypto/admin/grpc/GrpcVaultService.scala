@@ -138,6 +138,9 @@ class GrpcVaultService(
       .failOnShutdownTo(AbortedDueToShutdown.Error().asGrpcError)
   }
 
+  /** Generates a new signing key. If there is an empty usage in the request (i.e. and old key request),
+    * it defaults to all.
+    */
   override def generateSigningKey(
       request: v30.GenerateSigningKeyRequest
   ): Future[v30.GenerateSigningKeyResponse] = {
@@ -152,6 +155,12 @@ class GrpcVaultService(
               .fromProtoEnum("key_scheme", request.keyScheme)
               .valueOr(err => throw ProtoDeserializationFailure.WrapNoLogging(err).asGrpcError)
           )
+      usage <- Future(
+        // for commands, we should not default to All; instead, the request should fail because usage is now a mandatory parameter.
+        SigningKeyUsage
+          .fromProtoListWithoutDefault(request.usage)
+          .valueOr(err => throw ProtoDeserializationFailure.WrapNoLogging(err).asGrpcError)
+      )
       name <- Future(
         KeyName
           .fromProtoPrimitive(request.name)
@@ -159,7 +168,7 @@ class GrpcVaultService(
       )
       key <- CantonGrpcUtil.mapErrNewEUS(
         crypto
-          .generateSigningKey(scheme, name.emptyStringAsNone)
+          .generateSigningKey(scheme, usage, name.emptyStringAsNone)
           .leftMap(err => SigningKeyGenerationError.ErrorCode.Wrap(err))
       )
     } yield v30.GenerateSigningKeyResponse(publicKey = Some(key.toProtoV30))

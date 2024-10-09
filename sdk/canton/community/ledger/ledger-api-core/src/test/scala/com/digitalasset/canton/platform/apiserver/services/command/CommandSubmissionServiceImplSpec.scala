@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.apiserver.services.command
 
 import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.data.DeduplicationPeriod.DeduplicationDuration
-import com.digitalasset.canton.ledger.api.domain.{CommandId, Commands}
+import com.digitalasset.canton.ledger.api.domain.{CommandId, Commands, DisclosedContract}
 import com.digitalasset.canton.ledger.api.messages.command.submission.SubmitRequest
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.participant.state
@@ -22,6 +22,7 @@ import com.digitalasset.canton.platform.apiserver.execution.{
   CommandExecutor,
 }
 import com.digitalasset.canton.platform.apiserver.services.{ErrorCause, TimeProviderType}
+import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import com.digitalasset.daml.lf
@@ -211,7 +212,8 @@ class CommandSubmissionServiceImplSpec
     val commandExecutor = mock[CommandExecutor]
     val metrics = LedgerApiServerMetrics.ForTesting
 
-    val disclosedContract =
+    val domainId: DomainId = DomainId.tryFromString("x::domainId")
+    val disclosedContract = DisclosedContract(
       FatContractInstance.fromCreateNode(
         LfNode.Create(
           coid = TransactionBuilder.newCid,
@@ -226,7 +228,9 @@ class CommandSubmissionServiceImplSpec
         ),
         createTime = Timestamp.Epoch,
         cantonData = Bytes.Empty,
-      )
+      ),
+      domainIdO = Some(domainId),
+    )
 
     val processedDisclosedContract = com.digitalasset.canton.data.ProcessedDisclosedContract(
       templateId = Identifier.assertFromString("some:pkg:identifier"),
@@ -241,6 +245,7 @@ class CommandSubmissionServiceImplSpec
       keyOpt = None,
       // TODO(#19494): Change to minVersion once 2.2 is released and 2.1 is removed
       version = TransactionVersion.maxVersion,
+      domainIdO = Some(domainId),
     )
     val commands = Commands(
       workflowId = None,

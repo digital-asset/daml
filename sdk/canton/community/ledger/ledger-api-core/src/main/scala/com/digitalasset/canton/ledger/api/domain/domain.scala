@@ -83,7 +83,7 @@ final case class Commands(
     submittedAt: Timestamp,
     deduplicationPeriod: DeduplicationPeriod,
     commands: LfCommands,
-    disclosedContracts: ImmArray[FatContractInstance],
+    disclosedContracts: ImmArray[DisclosedContract],
     domainId: Option[DomainId] = None,
     packagePreferenceSet: Set[Ref.PackageId] = Set.empty,
     // Used to indicate the package map against which package resolution was performed.
@@ -125,6 +125,21 @@ object Commands {
       "readAs" -> commands.readAs,
       "submittedAt" -> commands.submittedAt,
       "deduplicationPeriod" -> commands.deduplicationPeriod,
+    )
+  }
+}
+
+final case class DisclosedContract(
+    fatContractInstance: FatContractInstance,
+    domainIdO: Option[DomainId],
+) extends PrettyPrinting {
+  override protected def pretty: Pretty[DisclosedContract] = {
+    import com.digitalasset.canton.logging.pretty.PrettyInstances.*
+    prettyOfClass(
+      param("contractId", _.fatContractInstance.contractId),
+      param("templateId", _.fatContractInstance.templateId),
+      paramIfDefined("domainId", _.domainIdO),
+      indicateOmittedFields,
     )
   }
 }

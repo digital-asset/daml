@@ -82,6 +82,7 @@ class DbReassignmentStore(
   private val targetDomainId: Target[DomainId] =
     indexedTargetDomain.map(_.domainId)
 
+  // TODO(i21680): remove this supresswarnings
   @SuppressWarnings(Array("com.digitalasset.canton.FutureTraverse"))
   private def indexedDomainF[T[_]: Traverse](domainId: T[DomainId]): Future[T[IndexedDomain]] =
     domainId.traverse(IndexedDomain.indexed(indexedStringStore))

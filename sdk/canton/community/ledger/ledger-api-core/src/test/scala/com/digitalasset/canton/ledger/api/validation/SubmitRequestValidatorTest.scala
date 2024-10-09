@@ -21,9 +21,10 @@ import com.digitalasset.canton.ledger.api.DomainMocks.{
   submissionId,
   workflowId,
 }
-import com.digitalasset.canton.ledger.api.domain.Commands as ApiCommands
+import com.digitalasset.canton.ledger.api.domain.{Commands as ApiCommands, DisclosedContract}
 import com.digitalasset.canton.ledger.api.util.{DurationConversion, TimestampConversion}
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
+import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.daml.lf.command.{ApiCommand as LfCommand, ApiCommands as LfCommands}
 import com.digitalasset.daml.lf.data.Ref.TypeConRef
 import com.digitalasset.daml.lf.data.*
@@ -114,24 +115,27 @@ class SubmitRequestValidatorTest
       ),
     )
 
-    val disclosedContracts: ImmArray[FatContractInstance] = ImmArray(
-      FatContractInstance.fromCreateNode(
-        create = LfNode.Create(
-          coid = Lf.ContractId.V1.assertFromString("00" + "00" * 32),
-          packageName = Ref.PackageName.assertFromString("package"),
-          packageVersion = Some(Ref.PackageVersion.assertFromString("1.0.0")),
-          templateId = templateId,
-          arg = ValueRecord(
-            Some(templateId),
-            ImmArray.empty,
+    val disclosedContracts: ImmArray[DisclosedContract] = ImmArray(
+      DisclosedContract(
+        fatContractInstance = FatContractInstance.fromCreateNode(
+          create = LfNode.Create(
+            coid = Lf.ContractId.V1.assertFromString("00" + "00" * 32),
+            packageName = Ref.PackageName.assertFromString("package"),
+            packageVersion = Some(Ref.PackageVersion.assertFromString("1.0.0")),
+            templateId = templateId,
+            arg = ValueRecord(
+              Some(templateId),
+              ImmArray.empty,
+            ),
+            signatories = Set(Ref.Party.assertFromString("party")),
+            stakeholders = Set(Ref.Party.assertFromString("party")),
+            keyOpt = None,
+            version = TransactionVersion.maxVersion,
           ),
-          signatories = Set(Ref.Party.assertFromString("party")),
-          stakeholders = Set(Ref.Party.assertFromString("party")),
-          keyOpt = None,
-          version = TransactionVersion.maxVersion,
+          createTime = Time.Timestamp.now(),
+          cantonData = Bytes.Empty,
         ),
-        createTime = Time.Timestamp.now(),
-        cantonData = Bytes.Empty,
+        domainIdO = Some(DomainId.tryFromString("x::domainId")),
       )
     )
 
