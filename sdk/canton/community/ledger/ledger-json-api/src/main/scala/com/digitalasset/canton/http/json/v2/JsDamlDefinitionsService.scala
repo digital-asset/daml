@@ -22,7 +22,7 @@ class JsDamlDefinitionsService(
   private val packageSignatureSelectorPath = "package-signature"
   private val templateSelectorPath = "template-id"
 
-  // TODO(#19671): Enrich endpoints with more dimensions on which we can query the definitions
+  // TODO(#21695): Enrich endpoints with more dimensions on which we can query the definitions
   //               e.g. all templates by package-id; interface definitions; etc.
   def endpoints() =
     List(
@@ -45,7 +45,7 @@ class JsDamlDefinitionsService(
       ),
     )
 
-  // TODO(#19671): Propagate TraceContext
+  // TODO(#21695): Propagate TraceContext
   private def getPackageSignature(_callerContext: CallerContext)(
       req: TracedInput[String]
   ): Future[Either[JsSchema.JsCantonError, Option[TypeSig]]] =

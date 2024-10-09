@@ -30,7 +30,6 @@ import scala.collection.mutable
   */
 sealed abstract case class LightTransactionViewTree private[data] (
     tree: GenTransactionTree,
-    // TODO(#21389): Confirm that the keys specified here are correct during model conformance checks
     subviewHashesAndKeys: Seq[ViewHashAndKey],
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[

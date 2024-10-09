@@ -512,5 +512,19 @@
             <maxLevel>INFO</maxLevel>
             <testing>true</testing>
         </rewrite>
+        <!-- At shutdown of the HikariPool warnings are going to be logged when ThreadPoolExecutor#awaitTermination
+         time out or get interrupted.
+
+         This library behavior has been changed in:
+         https://github.com/brettwooldridge/HikariCP/commit/1991355e6b20be04be2b2d9ff816c32c38937fd2#diff-980e81eb213376eb8e36ab6b3e3e1ff2f04c963b9b79264130f5f5dbbf03be83L233-R219
+
+         `Timed-out waiting for add connection executor to shutdown` gets logged by `HikariJdbcConnectionProviderSpec`.
+        -->
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.zaxxer.hikari.pool.HikariPool</logger>
+            <contains>Timed-out waiting for add connection executor to shutdown</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
    </appender>
 </included>

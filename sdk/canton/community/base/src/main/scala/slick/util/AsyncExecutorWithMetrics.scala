@@ -10,7 +10,7 @@ import com.digitalasset.canton.metrics.DbQueueMetrics
 import com.digitalasset.canton.time.PositiveFiniteDuration
 import com.digitalasset.canton.util.{LoggerUtil, MonadUtil}
 import com.typesafe.scalalogging.Logger
-import slick.util.AsyncExecutor.{PrioritizedRunnable, Priority, WithConnection}
+import slick.util.AsyncExecutor.{PrioritizedRunnable, WithConnection}
 
 import java.lang.management.ManagementFactory
 import java.util
@@ -28,7 +28,6 @@ import scala.util.control.NonFatal
     "org.wartremover.warts.Null",
     "org.wartremover.warts.IsInstanceOf",
     "org.wartremover.warts.AsInstanceOf",
-    "org.wartremover.warts.StringPlusAny",
     "org.wartremover.warts.Var",
   )
 )
@@ -121,7 +120,7 @@ class AsyncExecutorWithMetrics(
         //
         // We have maxThreads == minThreads == maxConnections as the only working configuration
 
-        new ManagedArrayBlockingQueue(maxConnections, n).asInstanceOf[BlockingQueue[Runnable]]
+        (new ManagedArrayBlockingQueue(maxConnections, n)).asInstanceOf[BlockingQueue[Runnable]]
     }
 
     // canton change begin
@@ -294,9 +293,11 @@ class AsyncExecutorWithMetrics(
         */
       override def beforeExecute(t: Thread, r: Runnable): Unit = {
         (r, queue) match {
-          case (pr: PrioritizedRunnable, q: ManagedArrayBlockingQueue[Runnable])
-              if pr.priority != WithConnection =>
-            q.increaseInUseCount(pr)
+          case (pr: PrioritizedRunnable, q: BlockingQueue[Runnable])
+              if pr.priority() != WithConnection =>
+            if (q.isInstanceOf[ManagedArrayBlockingQueue]) {
+              q.asInstanceOf[ManagedArrayBlockingQueue].attemptPrepare(pr).discard
+            }
           case _ =>
         }
         // canton change begin
@@ -359,9 +360,10 @@ class AsyncExecutorWithMetrics(
         try {
           super.afterExecute(r, t)
           (r, queue) match {
-            case (pr: PrioritizedRunnable, q: ManagedArrayBlockingQueue[Runnable])
-                if pr.connectionReleased =>
-              q.decreaseInUseCount()
+            case (pr: PrioritizedRunnable, q: BlockingQueue[Runnable]) if pr.connectionReleased =>
+              if (q.isInstanceOf[ManagedArrayBlockingQueue]) {
+                q.asInstanceOf[ManagedArrayBlockingQueue].attemptCleanUp(pr).discard
+              }
             case _ =>
           }
           // canton change begin
@@ -412,10 +414,9 @@ class AsyncExecutorWithMetrics(
         if (command.isInstanceOf[PrioritizedRunnable]) {
           executor.execute(command)
         } else {
-          executor.execute(new PrioritizedRunnable {
-            override val priority: Priority = WithConnection
-            override def run(): Unit = command.run()
-          })
+          executor.execute(
+            PrioritizedRunnable(priority = WithConnection, command => command.apply())
+          )
         }
     }
   }

@@ -285,6 +285,7 @@ private[routing] class DomainSelector(
 
     EitherT(rankedDomainOpt)
   }
+
   private def chooseDomainOfInputContracts
       : EitherT[Future, TransactionRoutingError, Option[DomainId]] = {
     val inputContractsDomainData = transactionData.inputContractsDomainData

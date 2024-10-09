@@ -27,8 +27,8 @@ import com.digitalasset.canton.sequencing.protocol.TimeProof
 import com.digitalasset.canton.time.DomainTimeTracker
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.util.ReassignmentTag
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
+import com.digitalasset.canton.util.{ReassignmentTag, SameReassignmentType}
 import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -85,7 +85,7 @@ class ReassignmentCoordination(
     * [[scala.None$]] indicates that this point has already been reached before the call.
     * [[scala.Left$]] if the `domain` is unknown or the participant is not connected to the domain.
     */
-  private[reassignment] def awaitTimestamp[T[X] <: ReassignmentTag[X]](
+  private[reassignment] def awaitTimestamp[T[X] <: ReassignmentTag[X]: SameReassignmentType](
       domain: T[DomainId],
       staticDomainParameters: T[StaticDomainParameters],
       timestamp: CantonTimestamp,
@@ -104,7 +104,7 @@ class ReassignmentCoordination(
     *
     * @param onImmediate A callback that will be invoked if no wait was actually needed
     */
-  private[reassignment] def awaitTimestamp[T[X] <: ReassignmentTag[X]](
+  private[reassignment] def awaitTimestamp[T[X] <: ReassignmentTag[X]: SameReassignmentType](
       domain: T[DomainId],
       staticDomainParameters: T[StaticDomainParameters],
       timestamp: CantonTimestamp,
@@ -117,21 +117,6 @@ class ReassignmentCoordination(
         awaitTimestamp(domain, staticDomainParameters, timestamp)
       )
       _ <- EitherT.right[ReassignmentProcessorError](timeout.getOrElse(onImmediate))
-    } yield ()
-
-  private[reassignment] def awaitTimestampUS[T[X] <: ReassignmentTag[X]](
-      domain: T[DomainId],
-      staticDomainParameters: T[StaticDomainParameters],
-      timestamp: CantonTimestamp,
-      onImmediate: => Future[Unit],
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
-    for {
-      wait <- EitherT.fromEither[FutureUnlessShutdown](
-        awaitTimestamp(domain, staticDomainParameters, timestamp)
-      )
-      _ <- EitherT.right(FutureUnlessShutdown.outcomeF(wait.getOrElse(onImmediate)))
     } yield ()
 
   /** Submits an assignment. Used by the [[UnassignmentProcessingSteps]] to automatically trigger the submission of
@@ -163,6 +148,7 @@ class ReassignmentCoordination(
     } yield submissionResult
   }
 
+  // TODO(i21680): remove this supresswarnings
   @SuppressWarnings(Array("com.digitalasset.canton.FutureTraverse"))
   private[reassignment] def getStaticDomainParameter[T[_]: Traverse](domainId: T[DomainId])(implicit
       traceContext: TraceContext
@@ -178,35 +164,28 @@ class ReassignmentCoordination(
     * The returned future fails with [[java.lang.IllegalArgumentException]] if the `domain` has not progressed far enough
     * such that it can compute the snapshot. Use [[awaitTimestamp]] to ensure progression to `timestamp`.
     */
-  private[reassignment] def cryptoSnapshot[T[X] <: ReassignmentTag[X]](
+  // TODO(i21680): remove this supresswarnings
+  @SuppressWarnings(Array("com.digitalasset.canton.FutureTraverse"))
+  private[reassignment] def cryptoSnapshot[T[X] <: ReassignmentTag[
+    X
+  ]: SameReassignmentType: Traverse](
       domainId: T[DomainId],
       staticDomainParameters: T[StaticDomainParameters],
       timestamp: CantonTimestamp,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, ReassignmentProcessorError, DomainSnapshotSyncCryptoApi] =
+  ): EitherT[Future, ReassignmentProcessorError, T[DomainSnapshotSyncCryptoApi]] =
     EitherT
       .fromEither[Future](
-        syncCryptoApi
-          .forDomain(domainId.unwrap, staticDomainParameters.unwrap)
-          .toRight(
-            UnknownDomain(
-              domainId.unwrap,
-              "When getting crypto snapshot",
-            ): ReassignmentProcessorError
-          )
+        domainId.traverse { domainId =>
+          syncCryptoApi
+            .forDomain(domainId, staticDomainParameters.unwrap)
+            .toRight(
+              UnknownDomain(domainId, "When getting crypto snapshot"): ReassignmentProcessorError
+            )
+        }
       )
-      .semiflatMap(_.snapshot(timestamp))
-
-  private[reassignment] def awaitTimestampAndGetTaggedCryptoSnapshot(
-      domain: Source[DomainId],
-      staticDomainParameters: Source[StaticDomainParameters],
-      timestamp: CantonTimestamp,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Source[
-    DomainSnapshotSyncCryptoApi
-  ]] = awaitTimestampAndGetCryptoSnapshot(domain, staticDomainParameters, timestamp).map(Source(_))
+      .semiflatMap(_.traverse(_.snapshot(timestamp)))
 
   private[reassignment] def awaitTimestampAndGetTaggedCryptoSnapshot(
       domain: Target[DomainId],
@@ -216,21 +195,15 @@ class ReassignmentCoordination(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Target[
     DomainSnapshotSyncCryptoApi
-  ]] = awaitTimestampAndGetCryptoSnapshot(domain, staticDomainParameters, timestamp).map(Target(_))
-
-  private def awaitTimestampAndGetCryptoSnapshot(
-      domain: ReassignmentTag[DomainId],
-      staticDomainParameters: ReassignmentTag[StaticDomainParameters],
-      timestamp: CantonTimestamp,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, DomainSnapshotSyncCryptoApi] =
+  ]] =
     for {
-      _ <- awaitTimestampUS(
+      _ <- awaitTimestamp(
         domain,
         staticDomainParameters,
         timestamp,
         Future.unit,
+      ).mapK(
+        FutureUnlessShutdown.outcomeK
       )
       snapshot <- cryptoSnapshot(domain, staticDomainParameters, timestamp).mapK(
         FutureUnlessShutdown.outcomeK
@@ -245,12 +218,12 @@ class ReassignmentCoordination(
   ): EitherT[
     FutureUnlessShutdown,
     ReassignmentProcessorError,
-    (TimeProof, DomainSnapshotSyncCryptoApi),
+    (TimeProof, Target[DomainSnapshotSyncCryptoApi]),
   ] =
     for {
       timeProof <- recentTimeProofFor.get(targetDomain, staticDomainParameters)
       // Since events are stored before they are processed, we wait just to be sure.
-      targetCrypto <- awaitTimestampAndGetCryptoSnapshot(
+      targetCrypto <- awaitTimestampAndGetTaggedCryptoSnapshot(
         targetDomain,
         staticDomainParameters,
         timeProof.timestamp,
@@ -303,6 +276,7 @@ class ReassignmentCoordination(
         reassignmentStore.deleteReassignment(reassignmentId)
       )
     } yield ()
+
 }
 
 object ReassignmentCoordination {

@@ -7,8 +7,8 @@ import com.daml.logging.LoggingContext
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.crypto.{CryptoPureApi, Salt, SaltSeed}
-import com.digitalasset.canton.data.DeduplicationPeriod
-import com.digitalasset.canton.ledger.api.domain.{CommandId, Commands}
+import com.digitalasset.canton.data.{DeduplicationPeriod, ProcessedDisclosedContract}
+import com.digitalasset.canton.ledger.api.domain.{CommandId, Commands, DisclosedContract}
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.participant.state.WriteService
 import com.digitalasset.canton.ledger.participant.state.index.{ContractState, ContractStore}
@@ -19,6 +19,7 @@ import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingCon
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause.InterpretationTimeExceeded
 import com.digitalasset.canton.protocol.{DriverContractMetadata, LfContractId, LfTransactionVersion}
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
+import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{BaseTest, LfValue}
 import com.digitalasset.daml.lf.command.ApiCommands as LfCommands
@@ -59,7 +60,48 @@ class StoreBackedCommandExecutorSpec
   val identifier: Identifier =
     Ref.Identifier(Ref.PackageId.assertFromString("p"), Ref.QualifiedName.assertFromString("m:n"))
   val packageName: PackageName = PackageName.assertFromString("pkg-name")
-  private val processedDisclosedContracts = ImmArray()
+  private val disclosedContractId: LfContractId =
+    LfContractId.assertFromString("00" + "00" * 32 + "02")
+  private val disclosedCreateNode = LfNode.Create(
+    coid = disclosedContractId,
+    packageName = packageName,
+    packageVersion = None,
+    templateId = identifier,
+    arg = ValueTrue,
+    signatories = Set(Ref.Party.assertFromString("unexpectedSig")),
+    stakeholders = Set(
+      Ref.Party.assertFromString("unexpectedSig"),
+      Ref.Party.assertFromString("unexpectedObs"),
+    ),
+    keyOpt = Some(
+      GlobalKeyWithMaintainers.assertBuild(
+        templateId = identifier,
+        LfValue.ValueTrue,
+        Set(Ref.Party.assertFromString("unexpectedSig")),
+        packageName,
+      )
+    ),
+    version = LfTransactionVersion.StableVersions.max,
+  )
+  private val disclosedContractDomainId: DomainId = DomainId.tryFromString("x::domainId")
+  private val disclosedContractCreateTime = Time.Timestamp.now()
+  private val disclosedContract = DisclosedContract(
+    fatContractInstance = FatContractInstance.fromCreateNode(
+      disclosedCreateNode,
+      createTime = disclosedContractCreateTime,
+      cantonData = salt,
+    ),
+    domainIdO = Some(disclosedContractDomainId),
+  )
+
+  private val processedDisclosedContracts = ImmArray(
+    ProcessedDisclosedContract(
+      create = disclosedCreateNode,
+      createdAt = disclosedContractCreateTime,
+      driverMetadata = salt,
+      domainIdO = Some(disclosedContractDomainId),
+    )
+  )
 
   private val emptyTransactionMetadata = Transaction.Metadata(
     submissionSeed = None,
@@ -68,7 +110,7 @@ class StoreBackedCommandExecutorSpec
     dependsOnTime = false,
     nodeSeeds = ImmArray.Empty,
     globalKeyMapping = Map.empty,
-    disclosedEvents = processedDisclosedContracts,
+    disclosedEvents = ImmArray(disclosedCreateNode),
   )
 
   private val resultDone: ResultDone[(SubmittedTransaction, Transaction.Metadata)] =
@@ -109,7 +151,7 @@ class StoreBackedCommandExecutorSpec
         ledgerEffectiveTime = ledgerEffectiveTime,
         commandsReference = "",
       ),
-      disclosedContracts = ImmArray.empty,
+      disclosedContracts = ImmArray(disclosedContract),
     )
 
   private val submissionSeed = Hash.hashPrivateKey("a key")
@@ -218,34 +260,6 @@ class StoreBackedCommandExecutorSpec
     val divulgedContractId: LfContractId = LfContractId.assertFromString("00" + "00" * 32 + "00")
 
     val archivedContractId: LfContractId = LfContractId.assertFromString("00" + "00" * 32 + "01")
-
-    val disclosedContractId: LfContractId = LfContractId.assertFromString("00" + "00" * 32 + "02")
-
-    val disclosedContract: FatContractInstance = FatContractInstance.fromCreateNode(
-      LfNode.Create(
-        coid = disclosedContractId,
-        packageName = packageName,
-        packageVersion = None,
-        templateId = identifier,
-        arg = ValueTrue,
-        signatories = Set(Ref.Party.assertFromString("unexpectedSig")),
-        stakeholders = Set(
-          Ref.Party.assertFromString("unexpectedSig"),
-          Ref.Party.assertFromString("unexpectedObs"),
-        ),
-        keyOpt = Some(
-          GlobalKeyWithMaintainers.assertBuild(
-            templateId = identifier,
-            LfValue.ValueTrue,
-            Set(Ref.Party.assertFromString("unexpectedSig")),
-            packageName,
-          )
-        ),
-        version = LfTransactionVersion.StableVersions.max,
-      ),
-      createTime = mock[Timestamp],
-      cantonData = salt,
-    )
 
     def doTest(
         contractId: Option[LfContractId],

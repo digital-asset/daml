@@ -12,6 +12,7 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause.LedgerTime
+import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.daml.lf.command.ApiCommands as LfCommands
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageName, PackageVersion}
@@ -72,6 +73,7 @@ class LedgerTimeAwareCommandExecutorSpec
       keyOpt = None,
       // TODO(#19494): Change to minVersion once 2.2 is released and 2.1 is removed
       version = TransactionVersion.maxVersion,
+      domainIdO = Some(DomainId.tryFromString("x::domainId")),
     )
   )
 

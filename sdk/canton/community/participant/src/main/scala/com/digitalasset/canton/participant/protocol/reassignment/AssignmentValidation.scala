@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.protocol.reassignment
 
 import cats.data.EitherT
+import cats.implicits.toFunctorOps
 import cats.syntax.bifunctor.*
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, SyncCryptoError}
 import com.digitalasset.canton.data.*
@@ -93,7 +94,7 @@ private[reassignment] class AssignmentValidation(
       assignmentRequestTs: CantonTimestamp,
       assignmentRequest: FullAssignmentTree,
       reassignmentDataO: Option[ReassignmentData],
-      targetCrypto: DomainSnapshotSyncCryptoApi,
+      targetCrypto: Target[DomainSnapshotSyncCryptoApi],
       isReassigningParticipant: Boolean,
   )(implicit
       traceContext: TraceContext
@@ -101,7 +102,7 @@ private[reassignment] class AssignmentValidation(
     val unassignmentResultEvent = assignmentRequest.unassignmentResultEvent.result
 
     val reassignmentId = assignmentRequest.unassignmentResultEvent.reassignmentId
-    val targetIps = targetCrypto.ipsSnapshot
+    val targetIps = targetCrypto.map(_.ipsSnapshot)
 
     reassignmentDataO match {
       case Some(reassignmentData) =>
@@ -169,7 +170,7 @@ private[reassignment] class AssignmentValidation(
 
           _ <- ReassignmentSubmissionValidation.assignment(
             reassignmentId = reassignmentId,
-            topologySnapshot = cryptoSnapshot.ipsSnapshot,
+            topologySnapshot = cryptoSnapshot.map(_.ipsSnapshot),
             submitter = assignmentRequest.submitter,
             participantId = assignmentRequest.submitterMetadata.submittingParticipant,
             stakeholders = assignmentRequest.stakeholders,
@@ -177,13 +178,13 @@ private[reassignment] class AssignmentValidation(
 
           exclusivityLimit <- ProcessingSteps
             .getAssignmentExclusivity(
-              cryptoSnapshot.ipsSnapshot,
+              cryptoSnapshot.map(_.ipsSnapshot),
               targetTimeProof,
             )
             .leftMap[ReassignmentProcessorError](ReassignmentParametersError(domainId.unwrap, _))
 
           _ <- condUnitET[Future](
-            assignmentRequestTs >= exclusivityLimit || unassignmentSubmitter == assignmentRequest.submitter,
+            assignmentRequestTs >= exclusivityLimit.unwrap || unassignmentSubmitter == assignmentRequest.submitter,
             NonInitiatorSubmitsBeforeExclusivityTimeout(
               reassignmentId,
               assignmentRequest.submitter,
@@ -200,14 +201,14 @@ private[reassignment] class AssignmentValidation(
               reassignmentData.creatingTransactionId,
             ),
           )
-          sourceIps = sourceCrypto.ipsSnapshot
+          sourceIps = sourceCrypto.map(_.ipsSnapshot)
 
           stakeholders = assignmentRequest.stakeholders
           sourceConfirmingParties <- EitherT.right(
-            sourceIps.canConfirm(participantId, stakeholders)
+            sourceIps.unwrap.canConfirm(participantId, stakeholders)
           )
           targetConfirmingParties <- EitherT.right(
-            targetIps.canConfirm(participantId, stakeholders)
+            targetIps.unwrap.canConfirm(participantId, stakeholders)
           )
           confirmingParties = sourceConfirmingParties.intersect(targetConfirmingParties)
 
@@ -228,7 +229,7 @@ private[reassignment] class AssignmentValidation(
         for {
           _ <- ReassignmentSubmissionValidation.assignment(
             reassignmentId = reassignmentId,
-            topologySnapshot = targetCrypto.ipsSnapshot,
+            topologySnapshot = targetIps,
             submitter = assignmentRequest.submitter,
             participantId = assignmentRequest.submitterMetadata.submittingParticipant,
             stakeholders = assignmentRequest.stakeholders,
@@ -240,8 +241,7 @@ private[reassignment] class AssignmentValidation(
               // The assignment should be rejected due to other validations (e.g. conflict detection), but
               // we could code this more defensively at some point
 
-              val targetIps = targetCrypto.ipsSnapshot
-              val confirmingPartiesF = targetIps
+              val confirmingPartiesF = targetIps.unwrap
                 .canConfirm(
                   participantId,
                   assignmentRequest.stakeholders,
@@ -316,7 +316,7 @@ object AssignmentValidation {
       reassignmentId: ReassignmentId,
       submitter: LfPartyId,
       currentTimestamp: CantonTimestamp,
-      timeout: CantonTimestamp,
+      timeout: Target[CantonTimestamp],
   ) extends AssignmentValidationError {
     override def message: String =
       s"Cannot assign `$reassignmentId`: only submitter can initiate before exclusivity timeout $timeout"

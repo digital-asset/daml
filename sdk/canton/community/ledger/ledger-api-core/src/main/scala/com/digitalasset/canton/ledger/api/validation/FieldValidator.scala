@@ -188,10 +188,8 @@ object FieldValidator {
   def requireDomainId(s: String, fieldName: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, DomainId] =
-    DomainId
-      .fromString(s)
-      .left
-      .map(invalidField(fieldName, _))
+    if (s.isEmpty) Left(missingField(fieldName))
+    else DomainId.fromString(s).left.map(invalidField(fieldName, _))
 
   def requireContractId(
       s: String,

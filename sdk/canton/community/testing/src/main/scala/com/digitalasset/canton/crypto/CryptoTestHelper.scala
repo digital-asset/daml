@@ -17,7 +17,7 @@ trait CryptoTestHelper extends BaseTest with HasExecutionContext {
     *
     * @param crypto determines the algorithms used for signing, hashing, and encryption, used
     *               on the client side for serialization.
-    * @param scheme the encryption scheme for the new key.
+    * @param encryptionKeySpec the encryption scheme for the new key.
     * @return an encryption public key
     */
   protected def getEncryptionPublicKey(

@@ -128,23 +128,24 @@ private[reassignment] class AssignmentProcessingSteps(
       submitterMetadata,
       reassignmentId,
     ) = submissionParam
-    val topologySnapshot = recentSnapshot.ipsSnapshot
+    val topologySnapshot = Target(recentSnapshot.ipsSnapshot)
     val pureCrypto = recentSnapshot.pureCrypto
     val submitter = submitterMetadata.submitter
 
     def activeParticipantsOfParty(
         parties: Seq[LfPartyId]
     ): EitherT[Future, ReassignmentProcessorError, Set[ParticipantId]] = EitherT(
-      topologySnapshot.activeParticipantsOfParties(parties).map { partyToParticipantAttributes =>
-        partyToParticipantAttributes.toSeq
-          .traverse { case (party, participants) =>
-            Either.cond(
-              participants.nonEmpty,
-              participants,
-              NoParticipantForReceivingParty(reassignmentId, party),
-            )
-          }
-          .map(_.toSet.flatten)
+      topologySnapshot.unwrap.activeParticipantsOfParties(parties).map {
+        partyToParticipantAttributes =>
+          partyToParticipantAttributes.toSeq
+            .traverse { case (party, participants) =>
+              Either.cond(
+                participants.nonEmpty,
+                participants,
+                NoParticipantForReceivingParty(reassignmentId, party): ReassignmentProcessorError,
+              )
+            }
+            .map(_.toSet.flatten)
       }
     )
 
@@ -168,7 +169,13 @@ private[reassignment] class AssignmentProcessingSteps(
 
       stakeholders = reassignmentData.unassignmentRequest.stakeholders
       _ <- ReassignmentSubmissionValidation
-        .assignment(reassignmentId, topologySnapshot, submitter, participantId, stakeholders)
+        .assignment(
+          reassignmentId,
+          topologySnapshot,
+          submitter,
+          participantId,
+          stakeholders,
+        )
         .mapK(FutureUnlessShutdown.outcomeK)
 
       assignmentUuid = seedGenerator.generateUuid()
@@ -397,7 +404,7 @@ private[reassignment] class AssignmentProcessingSteps(
           ts,
           fullViewTree,
           reassignmentDataO,
-          targetCrypto,
+          Target(targetCrypto),
           isReassigningParticipant,
         )
         .mapK(FutureUnlessShutdown.outcomeK)

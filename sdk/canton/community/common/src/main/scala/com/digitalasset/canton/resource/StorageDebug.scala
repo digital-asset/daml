@@ -28,7 +28,7 @@ object StorageDebug {
   def extractArguments(builder: SQLActionBuilder): Seq[Argument] = {
     val ex = new ExtractArguments()
     val pp = new PositionedParameters(ex)
-    builder.unitPConv((), pp)
+    builder.setParameter((), pp)
     ex.result.get()
   }
 

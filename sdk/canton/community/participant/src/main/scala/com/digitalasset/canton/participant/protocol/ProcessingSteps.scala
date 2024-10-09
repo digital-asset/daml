@@ -44,6 +44,7 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.{ConfirmationRequestSessionKeyStore, SessionKeyStore}
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.{LedgerSubmissionId, RequestCounter, SequencerCounter}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -533,18 +534,18 @@ trait ProcessingSteps[
 
 object ProcessingSteps {
   def getAssignmentExclusivity(
-      topologySnapshot: TopologySnapshot,
+      topologySnapshot: Target[TopologySnapshot],
       ts: CantonTimestamp,
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, String, CantonTimestamp] =
+  ): EitherT[Future, String, Target[CantonTimestamp]] =
     for {
-      domainParameters <- EitherT(topologySnapshot.findDynamicDomainParameters())
+      domainParameters <- EitherT(topologySnapshot.unwrap.findDynamicDomainParameters())
 
       assignmentExclusivity <- EitherT
         .fromEither[Future](domainParameters.assignmentExclusivityLimitFor(ts))
-    } yield assignmentExclusivity
+    } yield Target(assignmentExclusivity)
 
   def getDecisionTime(
       topologySnapshot: TopologySnapshot,

@@ -73,7 +73,7 @@ class SymbolicCrypto(
   ): SigningPublicKey =
     processE("generate symbolic signing key") { implicit traceContext =>
       // We don't care about the signing key scheme in symbolic crypto
-      generateSigningKey(SigningKeyScheme.Ed25519, name.map(KeyName.tryCreate))
+      generateSigningKey(SigningKeyScheme.Ed25519, name = name.map(KeyName.tryCreate))
     }
 
   /** Generates a new symbolic signing keypair but does not store it in the public store */

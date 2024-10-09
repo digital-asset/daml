@@ -120,7 +120,7 @@ class AssignmentValidationTest
           CantonTimestamp.Epoch,
           assignmentRequest,
           None,
-          cryptoSnapshot,
+          Target(cryptoSnapshot),
           isReassigningParticipant = false,
         )
         .futureValue shouldBe None
@@ -169,7 +169,7 @@ class AssignmentValidationTest
           CantonTimestamp.Epoch,
           assignmentRequest,
           Some(reassignmentData),
-          cryptoSnapshot,
+          Target(cryptoSnapshot),
           isReassigningParticipant = false,
         )
         .futureValue
@@ -193,7 +193,7 @@ class AssignmentValidationTest
           CantonTimestamp.Epoch,
           assignmentRequest,
           Some(reassignmentData),
-          cryptoSnapshot,
+          Target(cryptoSnapshot),
           isReassigningParticipant = false,
         )
         .value
@@ -220,7 +220,7 @@ class AssignmentValidationTest
           CantonTimestamp.Epoch,
           inRequestWithWrongCounter,
           Some(reassignmentData),
-          cryptoSnapshot,
+          Target(cryptoSnapshot),
           isReassigningParticipant = true,
         )
         .value
@@ -246,7 +246,7 @@ class AssignmentValidationTest
             CantonTimestamp.Epoch,
             assignmentRequest,
             Some(reassignmentData),
-            cryptoSnapshot,
+            Target(cryptoSnapshot),
             isReassigningParticipant = false,
           )
           .value
@@ -282,7 +282,7 @@ class AssignmentValidationTest
             CantonTimestamp.Epoch,
             assignmentRequest,
             Some(reassignmentData),
-            cryptoSnapshot,
+            Target(cryptoSnapshot),
             isReassigningParticipant = false,
           )
           .value
@@ -309,7 +309,7 @@ class AssignmentValidationTest
               CantonTimestamp.Epoch,
               assignmentRequest,
               Some(reassignmentDataSourceDomainPVCNTestNet),
-              cryptoSnapshot,
+              Target(cryptoSnapshot),
               isReassigningParticipant = true,
             )
             .value

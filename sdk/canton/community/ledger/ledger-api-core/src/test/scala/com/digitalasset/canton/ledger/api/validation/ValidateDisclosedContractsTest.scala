@@ -10,11 +10,13 @@ import com.daml.ledger.api.v2.commands.{
 }
 import com.daml.ledger.api.v2.value.Identifier as ProtoIdentifier
 import com.digitalasset.canton.LfValue
+import com.digitalasset.canton.ledger.api.domain.DisclosedContract
 import com.digitalasset.canton.ledger.api.validation.ValidateDisclosedContractsTest.{
   api,
   lf,
   validateDisclosedContracts,
 }
+import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.transaction.{Node as LfNode, *}
 import com.digitalasset.daml.lf.value.Value.{ContractId, ValueRecord}
@@ -35,7 +37,15 @@ class ValidateDisclosedContractsTest
   behavior of classOf[ValidateDisclosedContracts].getSimpleName
 
   it should "validate the disclosed contracts when enabled" in {
-    validateDisclosedContracts(api.protoCommands) shouldBe Right(ImmArray(lf.fatContractInstance))
+    validateDisclosedContracts(api.protoCommands) shouldBe Right(
+      ImmArray(DisclosedContract(lf.fatContractInstance, Some(lf.domainId)))
+    )
+  }
+
+  it should "allow a non-populated domain-id" in {
+    validateDisclosedContracts(api.protoCommands) shouldBe Right(
+      ImmArray(DisclosedContract(lf.fatContractInstance, Some(lf.domainId)))
+    )
   }
 
   it should "fail validation on missing created event blob" in {
@@ -205,6 +215,20 @@ class ValidateDisclosedContractsTest
       metadata = Map.empty,
     )
   }
+
+  it should "fail validation on invalid domain_d" in {
+    requestMustFailWith(
+      request = validateDisclosedContracts(
+        ProtoCommands(disclosedContracts =
+          scala.Seq(api.protoDisclosedContract.copy(domainId = "cantBe!"))
+        )
+      ),
+      code = Status.Code.INVALID_ARGUMENT,
+      description =
+        "INVALID_FIELD(8,0): The submitted command has a field with invalid value: Invalid field DisclosedContract.domain_id: Invalid unique identifier `cantBe!` with missing namespace.",
+      metadata = Map.empty,
+    )
+  }
 }
 
 object ValidateDisclosedContractsTest {
@@ -227,6 +251,7 @@ object ValidateDisclosedContractsTest {
     val keyMaintainers: Set[Ref.Party] = Set(bob)
     val createdAtSeconds = 1337L
     val someDriverMetadataStr = "SomeDriverMetadata"
+    val domainId = "x::domainId"
     val protoDisclosedContract: ProtoDisclosedContract = ProtoDisclosedContract(
       templateId = Some(templateId),
       contractId = contractId,
@@ -237,6 +262,7 @@ object ValidateDisclosedContractsTest {
             throw new RuntimeException(s"Cannot serialize createdEventBlob: ${err.errorMessage}"),
           identity,
         ),
+      domainId = domainId,
     )
 
     val protoCommands: ProtoCommands =
@@ -259,7 +285,7 @@ object ValidateDisclosedContractsTest {
       fields = ImmArray(None -> Lf.ValueTrue),
     )
     val lfContractId: ContractId.V1 = Lf.ContractId.V1.assertFromString(api.contractId)
-
+    val domainId = DomainId.tryFromString(api.domainId)
     private val driverMetadataBytes: Bytes =
       Bytes.fromByteString(ByteString.copyFromUtf8(api.someDriverMetadataStr))
     private val keyWithMaintainers: GlobalKeyWithMaintainers = GlobalKeyWithMaintainers.assertBuild(

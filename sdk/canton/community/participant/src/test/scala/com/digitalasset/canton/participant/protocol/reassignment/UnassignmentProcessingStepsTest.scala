@@ -862,7 +862,7 @@ final class UnassignmentProcessingStepsTest
           Set(party1),
           Set(party1),
           timeEvent,
-          Some(assignmentExclusivity),
+          Some(Target(assignmentExclusivity)),
           MediatorGroupRecipient(MediatorGroupIndex.one),
           locallyRejectedF = FutureUnlessShutdown.pure(false),
           abortEngine = _ => (),

@@ -40,12 +40,13 @@ class Crypto(
   /** Helper method to generate a new signing key pair and store the public key in the public store as well. */
   def generateSigningKey(
       scheme: SigningKeyScheme = privateCrypto.defaultSigningKeyScheme,
+      usage: NonEmpty[Set[SigningKeyUsage]] = SigningKeyUsage.All,
       name: Option[KeyName] = None,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SigningKeyGenerationError, SigningPublicKey] =
     for {
-      publicKey <- privateCrypto.generateSigningKey(scheme, name)
+      publicKey <- privateCrypto.generateSigningKey(scheme, usage, name)
       _ <- EitherT.right(cryptoPublicStore.storeSigningKey(publicKey, name))
     } yield publicKey
 
