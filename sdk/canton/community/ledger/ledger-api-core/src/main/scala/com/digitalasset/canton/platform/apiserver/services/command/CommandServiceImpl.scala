@@ -26,6 +26,7 @@ import com.digitalasset.canton.logging.{
   NamedLoggerFactory,
   NamedLogging,
 }
+import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.platform.apiserver.services.command.CommandServiceImpl.*
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker.SubmissionKey
 import com.digitalasset.canton.platform.apiserver.services.tracking.{
@@ -80,7 +81,7 @@ private[apiserver] final class CommandServiceImpl private[services] (
       submitAndWaitInternal(request)(errorLogger, traceContext).map { response =>
         SubmitAndWaitForUpdateIdResponse.of(
           updateId = response.completion.updateId,
-          completionOffset = response.completion.offset,
+          completionOffset = ApiOffset.assertFromStringToLong(response.completion.offset),
         )
       }
     }
