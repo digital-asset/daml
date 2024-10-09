@@ -594,7 +594,6 @@ scala_library(
         "@maven//:org_apache_pekko_pekko_actor_2_13",
         "@maven//:org_bouncycastle_bcprov_jdk15on",
         "@maven//:org_postgresql_postgresql",
-        "@maven//:org_scala_lang_modules_scala_collection_compat_2_13",
         "@maven//:org_scala_lang_modules_scala_collection_contrib_2_13",
         "@maven//:org_scalaz_scalaz_core_2_13",
         "@maven//:org_slf4j_slf4j_api",
