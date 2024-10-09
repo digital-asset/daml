@@ -207,7 +207,10 @@ java_library(
 scala_macro_library(
     name = "community_lib_slick_slick-fork",
     srcs = glob(["community/lib/slick/src/main/**/*.scala"]),
-    scalacopts = ["-Wconf:cat=unused-imports:s"],
+    scalacopts = [
+        "-Xsource:3",
+        "-Wconf:cat=unused-imports:s"
+    ],
     deps = [
         "@maven//:com_typesafe_slick_slick_2_13",
         "@maven//:org_reactivestreams_reactive_streams",
