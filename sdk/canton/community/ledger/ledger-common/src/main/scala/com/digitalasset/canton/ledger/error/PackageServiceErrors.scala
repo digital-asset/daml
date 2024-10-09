@@ -9,7 +9,7 @@ import com.digitalasset.daml.lf.archive.Error as LfArchiveError
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.engine.Error
-import com.digitalasset.daml.lf.validation.UpgradeError
+import com.digitalasset.daml.lf.validation.{UpgradeError, TypecheckUpgrades}
 import com.digitalasset.daml.lf.{VersionRange, language, validation}
 
 import ParticipantErrorGroup.LedgerApiErrorGroup.PackageServiceErrorGroup
@@ -267,15 +267,18 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
           ErrorCategory.InvalidIndependentOfSystemState,
         ) {
       final case class Error(
-          previousPackage: Ast.PkgIdWithMeta,
+          oldPackage: Ast.PkgIdWithMeta,
           newPackage: Ast.PkgIdWithMeta,
           upgradeError: UpgradeError,
+          phase: TypecheckUpgrades.UploadPhaseCheck
       )(implicit
           val loggingContext: ContextualizedErrorLogger
       ) extends DamlError(
-            cause =
-              s"The DAR contains a package $newPackage which should be an upgrade of package $oldPackage, but upgrade checks indicate the new package is not a valid upgrade. Reason: ${upgradeError.prettyInternal}"
-          )
+          cause =
+              phase match {
+                case TypecheckUpgrades.MaximalDarCheck => s"The uploaded DAR contains a package $newPackage, but upgrade checks indicate that new package $newPackage cannot be an upgrade of existing package $oldPackage. Reason: ${upgradeError.prettyInternal}"
+                case TypecheckUpgrades.MinimalDarCheck => s"The uploaded DAR contains a package $oldPackage, but upgrade checks indicate that existing package $newPackage cannot be an upgrade of new package $oldPackage. Reason: ${upgradeError.prettyInternal}"
+              })
     }
 
     @Explanation(
@@ -294,7 +297,7 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
       )(implicit
           val loggingContext: ContextualizedErrorLogger
       ) extends DamlError(
-            cause = s"Tried to upload package $uploadedPackage, but a different DAR $existingPackage with the same name and version has previously been uploaded.",
+            cause = s"Tried to upload package $uploadedPackage, but a different package $existingPackage with the same name and version has previously been uploaded.",
             extraContext = Map(
               "uploadedPackageId" -> uploadedPackage,
               "existingPackage" -> existingPackage,

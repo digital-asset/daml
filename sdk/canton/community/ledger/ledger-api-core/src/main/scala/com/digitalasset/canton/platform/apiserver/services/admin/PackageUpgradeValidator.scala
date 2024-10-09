@@ -241,9 +241,10 @@ class PackageUpgradeValidator(
               ).leftMap[DamlError] {
                 case err: UpgradeError =>
                   Validation.Upgradeability.Error(
-                    upgradingPackage = newPkgId1WithMeta,
-                    upgradedPackage = oldPkgId2WithMeta,
+                    newPackage = newPkgId1WithMeta,
+                    oldPackage = oldPkgId2WithMeta,
                     upgradeError = err,
+                    phase = phase,
                   )
                 case unhandledErr =>
                   InternalError.Unhandled(

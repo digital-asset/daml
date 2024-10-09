@@ -116,7 +116,6 @@ trait LongTests { this: UpgradesSpec =>
         "test-common/upgrades-CommonVersionFailure-v1a.dar",
         "test-common/upgrades-CommonVersionFailure-v1b.dar",
         assertPackageUploadVersionFailure(
-          "A DAR with the same version number has previously been uploaded.",
           "1.0.0",
         ),
       )
@@ -385,9 +384,9 @@ trait LongTests { this: UpgradesSpec =>
       } yield forEvery(
         List(
           assertPackageUpgradeCheck(None)(v1Upload, v3Upload)(rawCantonLog),
-          assertPackageUpgradeCheck(
+          assertPackageUpgradeCheckSecondOnly(
             Some("The upgraded template T is missing some of its original fields.")
-          )(v1Upload, v2Upload)(rawCantonLog),
+          )(v3Upload, v2Upload)(rawCantonLog),
         )
       )(Predef.identity)
     }
@@ -865,47 +864,47 @@ abstract class UpgradesSpec(val suffix: String)
   def assertPackageUpgradeCheckSecondOnly(
       failureMessage: Option[String]
   )(
-      v1: (PackageId, Option[Throwable]),
-      v2: (PackageId, Option[Throwable]),
+      uploadedFirst: (PackageId, Option[Throwable]),
+      uploadedSecond: (PackageId, Option[Throwable]),
   )(cantonLogSrc: String): Assertion =
-    assertPackageUpgradeCheckGeneral(failureMessage)(v1, v2, false)(cantonLogSrc)
+    assertPackageUpgradeCheckGeneral(failureMessage)(uploadedFirst, uploadedSecond, false)(cantonLogSrc)
 
   def assertPackageUpgradeCheck(failureMessage: Option[String])(
-      v1: (PackageId, Option[Throwable]),
-      v2: (PackageId, Option[Throwable]),
+      uploadedFirst: (PackageId, Option[Throwable]),
+      uploadedSecond: (PackageId, Option[Throwable]),
   )(cantonLogSrc: String): Assertion =
-    assertPackageUpgradeCheckGeneral(failureMessage)(v1, v2, true)(cantonLogSrc)
+    assertPackageUpgradeCheckGeneral(failureMessage)(uploadedFirst, uploadedSecond, true)(cantonLogSrc)
 
   def assertPackageUpgradeCheckGeneral(
       failureMessage: Option[String]
   )(
-      v1: (PackageId, Option[Throwable]),
-      v2: (PackageId, Option[Throwable]),
-      validateV1Checked: Boolean = true,
+      uploadedFirst: (PackageId, Option[Throwable]),
+      uploadedSecond: (PackageId, Option[Throwable]),
+      validateFirstChecked: Boolean = true,
   )(cantonLogSrc: String): Assertion = {
-    val (testPackageV1Id, uploadV1Result) = v1
-    val (testPackageV2Id, uploadV2Result) = v2
+    val (testPackageFirstId, uploadFirstResult) = uploadedFirst
+    val (testPackageSecondId, uploadSecondResult) = uploadedSecond
     if (disableUpgradeValidation) {
-      filterLog(cantonLogSrc, testPackageV1Id) should include regex (
-        s"Skipping upgrade validation for packages .*$testPackageV1Id".r
+      filterLog(cantonLogSrc, testPackageFirstId) should include regex (
+        s"Skipping upgrade validation for packages .*$testPackageFirstId".r
       )
-      filterLog(cantonLogSrc, testPackageV2Id) should include regex (
-        s"Skipping upgrade validation for packages .*$testPackageV2Id".r
+      filterLog(cantonLogSrc, testPackageSecondId) should include regex (
+        s"Skipping upgrade validation for packages .*$testPackageSecondId".r
       )
-      filterLog(cantonLogSrc, testPackageV2Id) should not include regex(
-        s"The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade."
+      filterLog(cantonLogSrc, testPackageSecondId) should not include regex(
+        s"The uploaded DAR contains a package $testPackageSecondId \\(.*\\), but upgrade checks indicate that (existing package $testPackageFirstId|new package $testPackageSecondId) \\(.*\\) cannot be an upgrade of (existing package $testPackageFirstId|new package $testPackageSecondId)"
       )
-      cantonLogSrc should not include (s"Typechecking upgrades for $testPackageV2Id succeeded.")
+      cantonLogSrc should not include regex(s"Typechecking upgrades for $testPackageSecondId \\(.*\\) succeeded.")
     } else {
-      uploadV1Result match {
-        case Some(err) if validateV1Checked =>
-          fail(s"Uploading first package $testPackageV1Id failed with message: $err");
+      uploadFirstResult match {
+        case Some(err) if validateFirstChecked =>
+          fail(s"Uploading first package $testPackageFirstId failed with message: $err");
         case _ => {}
       }
 
-      if (validateV1Checked) {
-        cantonLogSrc should include(
-          s"Package $testPackageV2Id claims to upgrade package id $testPackageV1Id"
+      if (validateFirstChecked) {
+        cantonLogSrc should include regex(
+          s"Package $testPackageSecondId \\(.*\\) claims to upgrade package id $testPackageFirstId \\(.*\\)"
         )
       }
 
@@ -913,33 +912,33 @@ abstract class UpgradesSpec(val suffix: String)
         // If a failure message is expected, look for it in the canton logs
         case Some(additionalInfo) =>
           if (
-            s"The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade.+Reason: $additionalInfo".r
+            s"The uploaded DAR contains a package $testPackageSecondId \\(.*\\), but upgrade checks indicate that (existing package $testPackageFirstId|new package $testPackageSecondId) \\(.*\\) cannot be an upgrade of (existing package $testPackageFirstId|new package $testPackageSecondId)".r
               .findFirstIn(cantonLogSrc)
               .isEmpty
-          ) fail("did not find upgrade failure in canton log")
+          ) fail("did not find upgrade failure in canton log:\n")
 
-          uploadV2Result match {
+          uploadSecondResult match {
             case None =>
-              fail(s"Uploading second package $testPackageV2Id should fail but didn't.");
+              fail(s"Uploading second package $testPackageSecondId should fail but didn't.");
             case Some(err) => {
               val msg = err.toString
               msg should include("INVALID_ARGUMENT: DAR_NOT_VALID_UPGRADE")
               msg should include regex (
-                s"The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade..*Reason: $additionalInfo"
+                s"The uploaded DAR contains a package $testPackageSecondId \\(.*\\), but upgrade checks indicate that (existing package $testPackageFirstId|new package $testPackageSecondId) \\(.*\\) cannot be an upgrade of (existing package $testPackageFirstId|new package $testPackageSecondId).*Reason: $additionalInfo"
               )
             }
           }
 
         // If a failure is not expected, look for a success message
         case None =>
-          filterLog(cantonLogSrc, testPackageV2Id) should include(
-            s"Typechecking upgrades for $testPackageV2Id succeeded."
+          filterLog(cantonLogSrc, testPackageSecondId) should include regex(
+            s"Typechecking upgrades for $testPackageSecondId \\(.*\\) succeeded."
           )
-          uploadV2Result match {
+          uploadSecondResult match {
             case None => succeed;
             case Some(err) =>
               fail(
-                s"Uploading second package $testPackageV2Id shouldn't fail but did, with message: $err"
+                s"Uploading second package $testPackageSecondId shouldn't fail but did, with message: $err"
               );
           }
       }
@@ -954,8 +953,8 @@ abstract class UpgradesSpec(val suffix: String)
     val (testPackageV1Id, uploadV1Result) = v1
     val (testPackageV2Id, uploadV2Result) = v2
     uploadV1Result should be(empty)
-    filterLog(cantonLogSrc, testPackageV2Id) should include(
-      s"Ignoring upload of package $testPackageV2Id as it has been previously uploaded"
+    filterLog(cantonLogSrc, testPackageV2Id) should include regex (
+      s"Ignoring upload of package $testPackageV2Id \\(.*\\) as it has been previously uploaded"
     )
     uploadV2Result should be(empty)
     uploadV2Result should be(empty)
@@ -966,7 +965,7 @@ abstract class UpgradesSpec(val suffix: String)
       @annotation.unused v2: (PackageId, Option[Throwable]),
   )(@annotation.unused cantonLogSrc: String): Assertion = succeed
 
-  def assertPackageUploadVersionFailure(failureMessage: String, packageVersion: String)(
+  def assertPackageUploadVersionFailure(packageVersion: String)(
       v1: (PackageId, Option[Throwable]),
       v2: (PackageId, Option[Throwable]),
   )(cantonLogSrc: String): Assertion = {
@@ -978,7 +977,7 @@ abstract class UpgradesSpec(val suffix: String)
       case _ => {}
     }
     cantonLogSrc should include regex (
-      s"KNOWN_DAR_VERSION\\(.+,.+\\): A DAR with the same version number has previously been uploaded. err-context:\\{existingPackage=$testPackageV1Id, location=.+, packageVersion=$packageVersion, uploadedPackageId=$testPackageV2Id\\}"
+      s"KNOWN_DAR_VERSION\\(.+,.+\\): Tried to upload package $testPackageV2Id \\(.*\\), but a different package $testPackageV1Id with the same name and version has previously been uploaded. err-context:\\{existingPackage=$testPackageV1Id, location=.+, packageVersion=$packageVersion, uploadedPackageId=$testPackageV2Id \\(.*\\)\\}"
     )
     uploadV2Result match {
       case None =>
@@ -986,7 +985,7 @@ abstract class UpgradesSpec(val suffix: String)
       case Some(err) => {
         val msg = err.toString
         msg should include("INVALID_ARGUMENT: KNOWN_DAR_VERSION")
-        msg should include(failureMessage)
+        msg should include regex (s"KNOWN_DAR_VERSION\\(.+,.+\\): Tried to upload package $testPackageV2Id \\(.*\\), but a different package $testPackageV1Id with the same name and version has previously been uploaded.")
       }
     }
   }
