@@ -116,7 +116,7 @@ trait LongTests { this: UpgradesSpec =>
         "test-common/upgrades-CommonVersionFailure-v1a.dar",
         "test-common/upgrades-CommonVersionFailure-v1b.dar",
         assertPackageUploadVersionFailure(
-          "1.0.0",
+          "1.0.0"
         ),
       )
     }
@@ -867,13 +867,17 @@ abstract class UpgradesSpec(val suffix: String)
       uploadedFirst: (PackageId, Option[Throwable]),
       uploadedSecond: (PackageId, Option[Throwable]),
   )(cantonLogSrc: String): Assertion =
-    assertPackageUpgradeCheckGeneral(failureMessage)(uploadedFirst, uploadedSecond, false)(cantonLogSrc)
+    assertPackageUpgradeCheckGeneral(failureMessage)(uploadedFirst, uploadedSecond, false)(
+      cantonLogSrc
+    )
 
   def assertPackageUpgradeCheck(failureMessage: Option[String])(
       uploadedFirst: (PackageId, Option[Throwable]),
       uploadedSecond: (PackageId, Option[Throwable]),
   )(cantonLogSrc: String): Assertion =
-    assertPackageUpgradeCheckGeneral(failureMessage)(uploadedFirst, uploadedSecond, true)(cantonLogSrc)
+    assertPackageUpgradeCheckGeneral(failureMessage)(uploadedFirst, uploadedSecond, true)(
+      cantonLogSrc
+    )
 
   def assertPackageUpgradeCheckGeneral(
       failureMessage: Option[String]
@@ -894,7 +898,9 @@ abstract class UpgradesSpec(val suffix: String)
       filterLog(cantonLogSrc, testPackageSecondId) should not include regex(
         s"The uploaded DAR contains a package $testPackageSecondId \\(.*\\), but upgrade checks indicate that (existing package $testPackageFirstId|new package $testPackageSecondId) \\(.*\\) cannot be an upgrade of (existing package $testPackageFirstId|new package $testPackageSecondId)"
       )
-      cantonLogSrc should not include regex(s"Typechecking upgrades for $testPackageSecondId \\(.*\\) succeeded.")
+      cantonLogSrc should not include regex(
+        s"Typechecking upgrades for $testPackageSecondId \\(.*\\) succeeded."
+      )
     } else {
       uploadFirstResult match {
         case Some(err) if validateFirstChecked =>
@@ -903,7 +909,7 @@ abstract class UpgradesSpec(val suffix: String)
       }
 
       if (validateFirstChecked) {
-        cantonLogSrc should include regex(
+        cantonLogSrc should include regex (
           s"Package $testPackageSecondId \\(.*\\) claims to upgrade package id $testPackageFirstId \\(.*\\)"
         )
       }
@@ -931,7 +937,7 @@ abstract class UpgradesSpec(val suffix: String)
 
         // If a failure is not expected, look for a success message
         case None =>
-          filterLog(cantonLogSrc, testPackageSecondId) should include regex(
+          filterLog(cantonLogSrc, testPackageSecondId) should include regex (
             s"Typechecking upgrades for $testPackageSecondId \\(.*\\) succeeded."
           )
           uploadSecondResult match {
