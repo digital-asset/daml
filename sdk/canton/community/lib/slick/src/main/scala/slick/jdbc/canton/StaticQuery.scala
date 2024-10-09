@@ -32,7 +32,7 @@ class ActionBasedSQLInterpolation(val s: StringContext) extends AnyVal {
   def sqlu(
             params: TypedParameter[?]*
           ): SqlStreamingAction[Vector[Int], Int, Effect.Write]#ResultAction[Int, NoStream, Effect.Write] =
-    sql(params *).asUpdate
+    sql(params: _*).asUpdate
 }
 
 object ActionBasedSQLInterpolation {
