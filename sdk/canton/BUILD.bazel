@@ -209,7 +209,7 @@ scala_macro_library(
     srcs = glob(["community/lib/slick/src/main/**/*.scala"]),
     scalacopts = [
         "-Xsource:3",
-        "-Wconf:cat=unused-imports:s"
+        "-Wconf:cat=unused-imports:s",
     ],
     deps = [
         "@maven//:com_typesafe_slick_slick_2_13",
