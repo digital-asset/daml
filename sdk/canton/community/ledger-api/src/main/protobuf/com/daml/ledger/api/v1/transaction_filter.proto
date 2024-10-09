@@ -76,6 +76,8 @@ message InterfaceFilter {
   // The interface that a matching contract must implement.
   // The ``interface_id`` needs to be valid: corresponding interface should be defined in
   // one of the available packages at the time of the query.
+  // Both package-name and package-id reference formats for the identifier are supported.
+  //
   // Required
   Identifier interface_id = 1;
 
@@ -99,6 +101,8 @@ message TemplateFilter {
   // A template for which the payload should be included in the response.
   // The ``template_id`` needs to be valid: corresponding template should be defined in
   // one of the available packages at the time of the query.
+  // Both package-name and package-id reference formats for the identifier are supported.
+  //
   // Required
   Identifier template_id = 1;
 
