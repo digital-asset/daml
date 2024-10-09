@@ -116,10 +116,20 @@ message RecordField {
 }
 
 // Unique identifier of an entity.
+// Throughout this API, the following terminology is being used:
+//   - if a Daml package-id is encoded in the package_id field, it is referred to as using a "package-id reference format"
+//   - if a Daml package-name is encoded in the package_id field, it is referred to as using a "package-name reference format"
 message Identifier {
 
-  // The identifier of the Daml package that contains the entity.
-  // Must be a valid PackageIdString.
+  // Generally, the identifier of the Daml package that contains the entity.
+  // When encoding a package-id, it must be a valid PackageIdString.
+  //
+  // The field is overloaded to also be able to contain the package-name of the Daml package.
+  // This is supported if the entity referenced is either an interface or template.
+  // When representing the Daml package-name, the encoding is of form `#<package-name>`
+  // where `#` (not a valid package-id character)
+  // is used as a discriminator for signalling a package-name encoding.
+  //
   // Required
   string package_id = 1;
 

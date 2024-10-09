@@ -48,6 +48,8 @@ message CreatedEvent {
   string contract_id = 2;
 
   // The template of the created contract.
+  // The identifier uses the package-id reference format.
+  //
   // Required
   Identifier template_id = 3;
 
@@ -135,6 +137,8 @@ message CreatedEvent {
 message InterfaceView {
 
   // The interface implemented by the matched event.
+  // The identifier uses the package-id reference format.
+  //
   // Required
   Identifier interface_id = 1;
 
@@ -166,6 +170,8 @@ message ArchivedEvent {
   string contract_id = 2;
 
   // The template of the archived contract.
+  // The identifier uses the package-id reference format.
+  //
   // Required
   Identifier template_id = 3;
 
@@ -194,6 +200,8 @@ message ExercisedEvent {
   string contract_id = 2;
 
   // The template of the target contract.
+  // The identifier uses the package-id reference format.
+  //
   // Required
   Identifier template_id = 3;
 
@@ -202,6 +210,8 @@ message ExercisedEvent {
   google.protobuf.StringValue package_name = 14;
 
   // The interface where the choice is defined, if inherited.
+  // If defined, the identifier uses the package-id reference format.
+  //
   // Optional
   Identifier interface_id = 13;
 
