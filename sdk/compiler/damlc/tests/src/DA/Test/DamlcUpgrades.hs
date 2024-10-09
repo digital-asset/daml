@@ -261,7 +261,7 @@ tests damlc =
                       setUpgradeField
                 , test
                       "FailWhenATopLevelEnumChangesChangesTheOrderOfItsConstructors"
-                      (FailWithError "\ESC\\[0;91merror type checking data type Main.A:\n  The upgraded data type A has changed the order of its constructors - any new constructor must be added at the end of the enum.")
+                      (FailWithError "\ESC\\[0;91merror type checking data type Main.A:\n  The upgraded data type A has changed the order of its constructors - any new enum constructor must be added at the end of the enum.")
                       versionDefault
                       NoDependencies
                       False
@@ -629,7 +629,7 @@ tests damlc =
                   False
                   True
             , test
-                  "SucceedsWhenChangingVariantOfUnserializableType"
+                  "SucceedsWhenChangingConstructorOfUnserializableType"
                   Succeed
                   versionDefault
                   NoDependencies

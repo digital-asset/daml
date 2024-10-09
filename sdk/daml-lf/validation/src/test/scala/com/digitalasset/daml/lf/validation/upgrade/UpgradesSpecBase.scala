@@ -426,16 +426,16 @@ trait LongTests { this: UpgradesSpec =>
 
     "Succeeds when a top-level variant adds a variant" in {
       testPackagePair(
-        "test-common/upgrades-SucceedsWhenATopLevelVariantAddsAVariant-v1.dar",
-        "test-common/upgrades-SucceedsWhenATopLevelVariantAddsAVariant-v2.dar",
+        "test-common/upgrades-SucceedsWhenATopLevelVariantAddsAConstructor-v1.dar",
+        "test-common/upgrades-SucceedsWhenATopLevelVariantAddsAConstructor-v2.dar",
         assertPackageUpgradeCheck(None),
       )
     }
 
     "Fails when a top-level variant removes a variant" in {
       testPackagePair(
-        "test-common/upgrades-FailsWhenATopLevelVariantRemovesAVariant-v1.dar",
-        "test-common/upgrades-FailsWhenATopLevelVariantRemovesAVariant-v2.dar",
+        "test-common/upgrades-FailsWhenATopLevelVariantRemovesAConstructor-v1.dar",
+        "test-common/upgrades-FailsWhenATopLevelVariantRemovesAConstructor-v2.dar",
         assertPackageUpgradeCheck(
           Some(
             "Data type A.Z appears in package that is being upgraded, but does not appear in the upgrading package."
@@ -446,8 +446,8 @@ trait LongTests { this: UpgradesSpec =>
 
     "Fail when a top-level variant changes changes the order of its variants" in {
       testPackagePair(
-        "test-common/upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsVariants-v1.dar",
-        "test-common/upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsVariants-v2.dar",
+        "test-common/upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsConstructors-v1.dar",
+        "test-common/upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsConstructors-v2.dar",
         assertPackageUpgradeCheck(
           Some(
             "The upgraded data type A has changed the order of its variants - any new variant must be added at the end of the variant."
@@ -458,8 +458,8 @@ trait LongTests { this: UpgradesSpec =>
 
     "Fails when a top-level variant adds a field to a variant's type" in {
       testPackagePair(
-        "test-common/upgrades-FailsWhenATopLevelVariantAddsAFieldToAVariantsType-v1.dar",
-        "test-common/upgrades-FailsWhenATopLevelVariantAddsAFieldToAVariantsType-v2.dar",
+        "test-common/upgrades-FailsWhenATopLevelVariantAddsAFieldToAConstructorsType-v1.dar",
+        "test-common/upgrades-FailsWhenATopLevelVariantAddsAFieldToAConstructorsType-v2.dar",
         assertPackageUpgradeCheck(
           Some("The upgraded variant constructor A.Y from variant A has added a field.")
         ),
@@ -468,8 +468,8 @@ trait LongTests { this: UpgradesSpec =>
 
     "Succeeds when a top-level variant adds an optional field to a variant's type" in {
       testPackagePair(
-        "test-common/upgrades-SucceedsWhenATopLevelVariantAddsAnOptionalFieldToAVariantsType-v1.dar",
-        "test-common/upgrades-SucceedsWhenATopLevelVariantAddsAnOptionalFieldToAVariantsType-v2.dar",
+        "test-common/upgrades-SucceedsWhenATopLevelVariantAddsAnOptionalFieldToAConstructorsType-v1.dar",
+        "test-common/upgrades-SucceedsWhenATopLevelVariantAddsAnOptionalFieldToAConstructorsType-v2.dar",
         assertPackageUpgradeCheck(None),
       )
     }
@@ -484,8 +484,8 @@ trait LongTests { this: UpgradesSpec =>
 
     "Fail when a top-level enum changes changes the order of its variants" in {
       testPackagePair(
-        "test-common/upgrades-FailWhenATopLevelEnumChangesChangesTheOrderOfItsVariants-v1.dar",
-        "test-common/upgrades-FailWhenATopLevelEnumChangesChangesTheOrderOfItsVariants-v2.dar",
+        "test-common/upgrades-FailWhenATopLevelEnumChangesChangesTheOrderOfItsConstructors-v1.dar",
+        "test-common/upgrades-FailWhenATopLevelEnumChangesChangesTheOrderOfItsConstructors-v2.dar",
         assertPackageUpgradeCheck(
           Some(
             "The upgraded data type A has changed the order of its variants - any new variant must be added at the end of the enum."
@@ -546,8 +546,8 @@ trait LongTests { this: UpgradesSpec =>
 
     "Succeeds when changing variant of unserializable type" in {
       testPackagePair(
-        "test-common/upgrades-SucceedsWhenChangingVariantOfUnserializableType-v1.dar",
-        "test-common/upgrades-SucceedsWhenChangingVariantOfUnserializableType-v2.dar",
+        "test-common/upgrades-SucceedsWhenChangingConstructorOfUnserializableType-v1.dar",
+        "test-common/upgrades-SucceedsWhenChangingConstructorOfUnserializableType-v2.dar",
         assertPackageUpgradeCheck(
           None
         ),

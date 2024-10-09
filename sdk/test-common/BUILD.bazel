@@ -301,23 +301,23 @@ da_scala_dar_resources_library(
         ("SucceedsWhenATopLevelEnumChanges", {}, {}),
         ("FailsWhenATopLevelRecordAddsANonOptionalField", {}, {}),
         ("FailsWhenATopLevelRecordAddsAnOptionalFieldBeforeTheEnd", {}, {}),
-        ("FailsWhenATopLevelVariantAddsAFieldToAVariantsType", {}, {}),
-        ("FailsWhenATopLevelVariantAddsAVariant", {}, {}),
-        ("FailsWhenATopLevelVariantRemovesAVariant", {}, {}),
+        ("FailsWhenATopLevelVariantAddsAFieldToAConstructorsType", {}, {}),
+        ("FailsWhenATopLevelVariantAddsAConstructor", {}, {}),
+        ("FailsWhenATopLevelVariantRemovesAConstructor", {}, {}),
         ("FailsWhenTwoDeeplyNestedTypeSynonymsResolveToDifferentDatatypes", {}, {}),
         ("SucceedsWhenATopLevelRecordAddsAnOptionalFieldAtTheEnd", {}, {}),
         ("SucceedsWhenATopLevelTypeSynonymChanges", {}, {}),
         ("SucceedsWhenTwoDeeplyNestedTypeSynonymsResolveToTheSameDatatypes", {}, {}),
 
         # More more tests ported from DamlcUpgrades.hs
-        ("FailWhenATopLevelEnumChangesChangesTheOrderOfItsVariants", {}, {}),
-        ("FailWhenATopLevelVariantChangesChangesTheOrderOfItsVariants", {}, {}),
+        ("FailWhenATopLevelEnumChangesChangesTheOrderOfItsConstructors", {}, {}),
+        ("FailWhenATopLevelVariantChangesChangesTheOrderOfItsConstructors", {}, {}),
 
         # More more more tests ported from DamlcUpgrades.hs
         ("FailsWhenAnInterfaceIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage", {}, {}),
         ("SucceedsWhenAnInterfaceIsOnlyDefinedInTheInitialPackage", {}, {}),
         ("SucceedWhenATopLevelEnumAddsAField", {}, {}),
-        ("SucceedsWhenATopLevelVariantAddsAnOptionalFieldToAVariantsType", {}, {}),
+        ("SucceedsWhenATopLevelVariantAddsAnOptionalFieldToAConstructorsType", {}, {}),
         ("WarnsWhenAnInterfaceAndATemplateAreDefinedInTheSamePackage", {}, {}),
         ("WarnsWhenAnInterfaceIsUsedInThePackageThatItsDefinedIn", {}, {}),
         ("WarnsWhenControllersOfTemplateChoiceAreChanged", {}, {}),
@@ -329,7 +329,7 @@ da_scala_dar_resources_library(
         ("FailsOnlyInModuleNotInReexports", {}, {}),
         ("SucceedsWhenAddingNonOptionalFieldsToUnserializableTypes", {}, {}),
         ("SucceedsWhenDeletingUnserializableType", {}, {}),
-        ("SucceedsWhenChangingVariantOfUnserializableType", {}, {}),
+        ("SucceedsWhenChangingConstructorOfUnserializableType", {}, {}),
         ("FailsWhenMakingTypeUnserializable", {}, {}),
         ("FailsWhenDatatypeChangesVariety", {}, {}),
         (
@@ -362,7 +362,7 @@ da_scala_dar_resources_library(
             {"data_dependencies": ["//test-common:upgrades-FailsWhenAnInstanceIsAddedSeparateDep-dep.dar"]},
         ),
         ("FailsWithSynonymReturnTypeChange", {}, {}),
-        ("SucceedsWhenATopLevelVariantAddsAVariant", {}, {}),
+        ("SucceedsWhenATopLevelVariantAddsAConstructor", {}, {}),
         ("WarnsWhenTemplateChangesEnsure", {}, {}),
         (
             "WarnsWhenExpressionChangesPackageId",
