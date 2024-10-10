@@ -23,7 +23,6 @@ final case class ReassignmentData(
     unassignmentRequest: FullUnassignmentTree,
     unassignmentDecisionTime: CantonTimestamp,
     contract: SerializableContract,
-    creatingTransactionId: TransactionId,
     unassignmentResult: Option[DeliveredUnassignmentResult],
     reassignmentGlobalOffset: Option[ReassignmentGlobalOffset],
 ) {
@@ -51,6 +50,9 @@ final case class ReassignmentData(
   def addUnassignmentResult(result: DeliveredUnassignmentResult): Option[ReassignmentData] =
     mergeUnassignmentResult(Some(result))
 
+  def creatingTransactionId: TransactionId =
+    unassignmentRequest.tree.view.tryUnwrap.creatingTransactionId
+
   def mergeWith(other: ReassignmentData): Option[ReassignmentData] =
     if (this eq other) Some(this)
     else
@@ -62,7 +64,6 @@ final case class ReassignmentData(
               `unassignmentRequest`,
               `unassignmentDecisionTime`,
               `contract`,
-              `creatingTransactionId`,
               otherResult,
               otherReassignmentGlobalOffset,
             ) =>

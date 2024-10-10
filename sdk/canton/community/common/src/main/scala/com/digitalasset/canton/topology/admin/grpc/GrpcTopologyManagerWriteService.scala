@@ -25,9 +25,9 @@ import com.digitalasset.canton.topology.admin.v30.{
   ImportTopologySnapshotRequest,
 }
 import com.digitalasset.canton.topology.store.{StoredTopologyTransactions, TopologyStoreId}
+import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyTransaction.TxHash
-import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.version.ProtocolVersionValidation
 

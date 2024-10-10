@@ -23,6 +23,7 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.{Assertion, Succeeded}
 
 import java.util.Timer
+import scala.annotation.nowarn
 import scala.concurrent.{Future, Promise}
 import scala.util.Try
 
@@ -351,6 +352,13 @@ class SubmissionTrackerSpec
     private def concurrentSubmissionKeys =
       (1 to noConcurrentSubmissions).map(id => submissionKey.copy(commandId = s"cmd-$id"))
 
+    /*
+    Nested inside lead to
+    Name defaultCase$ is already introduced in an enclosing scope as value defaultCase$
+     */
+    @nowarn(
+      "msg=Name defaultCase\\$ is already introduced in an enclosing scope as value defaultCase\\$.*"
+    )
     override def run: Future[Assertion] = for {
       _ <- Future.unit
       submissionTracker = new SubmissionTrackerImpl(

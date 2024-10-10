@@ -49,9 +49,11 @@ class GrpcVaultService(
     pool
       .filter(entry =>
         filters.forall { filter =>
-          entry.publicKey.fingerprint.unwrap.startsWith(filter.fingerprint)
-          && entry.name.map(_.unwrap).getOrElse("").contains(filter.name)
-          && filter.purpose.forall(_ == entry.publicKey.purpose.toProtoEnum)
+          entry.publicKey.fingerprint.unwrap.startsWith(filter.fingerprint) && entry.name
+            .map(_.unwrap)
+            .getOrElse("")
+            .contains(filter.name) && filter.purpose
+            .forall(_ == entry.publicKey.purpose.toProtoEnum)
         }
       )
       .toSeq

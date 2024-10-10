@@ -4,8 +4,8 @@
 package com.digitalasset.canton.domain.config
 
 import com.daml.jwt.JwtTimestampLeeway
-import com.digitalasset.canton.config.RequireTypes.{ExistingFile, NonNegativeInt, Port}
 import com.digitalasset.canton.config.*
+import com.digitalasset.canton.config.RequireTypes.{ExistingFile, NonNegativeInt, Port}
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import io.netty.handler.ssl.SslContext
 

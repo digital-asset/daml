@@ -6,8 +6,8 @@ package com.digitalasset.canton.console
 import ammonite.Main
 import ammonite.interp.Interpreter
 import ammonite.runtime.Frame
-import ammonite.util.Res.{Exception, Failing, Failure, Success}
 import ammonite.util.*
+import ammonite.util.Res.{Exception, Failing, Failure, Success}
 import cats.syntax.either.*
 import com.digitalasset.canton.console.HeadlessConsole.{
   HeadlessConsoleError,

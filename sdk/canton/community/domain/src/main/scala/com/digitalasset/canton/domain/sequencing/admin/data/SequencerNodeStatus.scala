@@ -7,8 +7,8 @@ import cats.syntax.option.*
 import com.digitalasset.canton.admin.domain.v30 as domainV30
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.health.ComponentHealthState.UnhealthyState
-import com.digitalasset.canton.health.admin.data.NodeStatus.{multiline, portsString}
 import com.digitalasset.canton.health.admin.data.*
+import com.digitalasset.canton.health.admin.data.NodeStatus.{multiline, portsString}
 import com.digitalasset.canton.health.{
   ComponentHealthState,
   ComponentStatus,

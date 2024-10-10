@@ -23,8 +23,8 @@ import com.digitalasset.canton.participant.protocol.submission.{
   InFlightSubmissionTracker,
 }
 import com.digitalasset.canton.participant.pruning.PruningProcessor
-import com.digitalasset.canton.participant.store.InFlightSubmissionStore.InFlightReference
 import com.digitalasset.canton.participant.store.*
+import com.digitalasset.canton.participant.store.InFlightSubmissionStore.InFlightReference
 import com.digitalasset.canton.participant.store.memory.InMemoryParticipantSettingsStore
 import com.digitalasset.canton.participant.topology.{
   LedgerServerPartyNotifier,

@@ -11,7 +11,6 @@ import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state.DomainIndex
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
-import com.digitalasset.canton.platform.ResourceCloseable
 import com.digitalasset.canton.platform.config.ServerRole
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.DomainOffset
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
@@ -19,6 +18,7 @@ import com.digitalasset.canton.platform.store.backend.postgresql.PostgresDataSou
 import com.digitalasset.canton.platform.store.cache.MutableLedgerEndCache
 import com.digitalasset.canton.platform.store.interning.StringInterningView
 import com.digitalasset.canton.platform.store.{DbSupport, FlywayMigrations}
+import com.digitalasset.canton.platform.{ResourceCloseable, ResourceOwnerFlagCloseableOps}
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
@@ -213,7 +213,7 @@ object LedgerApiStore {
           ).migrate()
         case _ => Future.unit
       }
-      ledgerApiStore <- DbSupport
+      dbSupport = DbSupport
         .owner(
           serverRole = ServerRole.ApiServer,
           metrics = metrics,
@@ -231,7 +231,10 @@ object LedgerApiStore {
             timeouts = timeouts,
           )
         )
-        .acquireFlagCloseable("Ledger API DB Support")
+
+      ledgerApiStore <- new ResourceOwnerFlagCloseableOps(dbSupport).acquireFlagCloseable(
+        "Ledger API DB Support"
+      )
       _ <-
         if (onlyForTesting_DoNotInitializeInMemoryState) Future.unit
         else ledgerApiStore.initializeInMemoryState

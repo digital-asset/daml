@@ -31,11 +31,11 @@ import scalafx.collections.ObservableBuffer
 import scalafx.concurrent.{ScheduledService, Task}
 import scalafx.geometry.{Insets, Pos}
 import scalafx.scene.Scene
-import scalafx.scene.control.Alert.AlertType
 import scalafx.scene.control.*
+import scalafx.scene.control.Alert.AlertType
 import scalafx.scene.image.{Image, ImageView}
-import scalafx.scene.layout.Priority.Always
 import scalafx.scene.layout.*
+import scalafx.scene.layout.Priority.Always
 import scalafx.scene.text.Font
 import scalafx.util.Duration as FXDuration
 

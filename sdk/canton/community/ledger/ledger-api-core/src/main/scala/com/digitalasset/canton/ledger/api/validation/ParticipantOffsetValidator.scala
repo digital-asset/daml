@@ -10,8 +10,6 @@ import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.daml.lf.data.Ref
 import io.grpc.StatusRuntimeException
 
-import scala.math.Ordered.*
-
 object ParticipantOffsetValidator {
 
   import ValidationErrors.invalidArgument

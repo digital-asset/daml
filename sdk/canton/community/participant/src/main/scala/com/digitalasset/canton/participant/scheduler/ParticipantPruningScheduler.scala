@@ -30,8 +30,8 @@ import com.digitalasset.canton.participant.store.{
 }
 import com.digitalasset.canton.participant.sync.UpstreamOffsetConvert
 import com.digitalasset.canton.resource.Storage
-import com.digitalasset.canton.scheduler.JobScheduler.*
 import com.digitalasset.canton.scheduler.*
+import com.digitalasset.canton.scheduler.JobScheduler.*
 import com.digitalasset.canton.time.{Clock, PositiveSeconds}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil

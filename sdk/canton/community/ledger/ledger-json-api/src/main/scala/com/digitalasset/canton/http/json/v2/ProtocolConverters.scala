@@ -920,9 +920,9 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
       (obj.update match {
         case lapi.update_service.GetUpdatesResponse.Update.Empty => jsFail("Invalid value")
         case lapi.update_service.GetUpdatesResponse.Update.Transaction(value) =>
-          Transaction.toJson(value).map(JsUpdate.Transaction)
+          Transaction.toJson(value).map(JsUpdate.Transaction.apply)
         case lapi.update_service.GetUpdatesResponse.Update.Reassignment(value) =>
-          Reassignment.toJson(value).map(JsUpdate.Reassignment)
+          Reassignment.toJson(value).map(JsUpdate.Reassignment.apply)
         case lapi.update_service.GetUpdatesResponse.Update.OffsetCheckpoint(value) =>
           Future(JsUpdate.OffsetCheckpoint(value))
       }).map(update => JsGetUpdatesResponse(update))
@@ -943,9 +943,9 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
         case lapi.update_service.GetUpdateTreesResponse.Update.OffsetCheckpoint(value) =>
           Future(JsUpdateTree.OffsetCheckpoint(value))
         case lapi.update_service.GetUpdateTreesResponse.Update.TransactionTree(value) =>
-          TransactionTree.toJson(value).map(JsUpdateTree.TransactionTree)
+          TransactionTree.toJson(value).map(JsUpdateTree.TransactionTree.apply)
         case lapi.update_service.GetUpdateTreesResponse.Update.Reassignment(value) =>
-          Reassignment.toJson(value).map(JsUpdateTree.Reassignment)
+          Reassignment.toJson(value).map(JsUpdateTree.Reassignment.apply)
       }).map(update => JsGetUpdateTreesResponse(update))
   }
 
@@ -959,7 +959,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     )(implicit
         token: Option[String]
     ): Future[JsGetTransactionTreeResponse] =
-      TransactionTree.toJson(obj.getTransaction).map(JsGetTransactionTreeResponse)
+      TransactionTree.toJson(obj.getTransaction).map(JsGetTransactionTreeResponse.apply)
   }
 
   object GetTransactionResponse
@@ -970,7 +970,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     def toJson(obj: lapi.update_service.GetTransactionResponse)(implicit
         token: Option[String]
     ): Future[JsGetTransactionResponse] =
-      Transaction.toJson(obj.getTransaction).map(JsGetTransactionResponse)
+      Transaction.toJson(obj.getTransaction).map(JsGetTransactionResponse.apply)
   }
 }
 

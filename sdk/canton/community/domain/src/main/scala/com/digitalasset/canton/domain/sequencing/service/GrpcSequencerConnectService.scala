@@ -8,6 +8,7 @@ import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
+import com.digitalasset.canton.domain.api.v30 as proto
 import com.digitalasset.canton.domain.api.v30.SequencerConnect
 import com.digitalasset.canton.domain.api.v30.SequencerConnect.GetDomainParametersResponse.Parameters
 import com.digitalasset.canton.domain.api.v30.SequencerConnect.{
@@ -21,7 +22,6 @@ import com.digitalasset.canton.domain.api.v30.SequencerConnect.{
   VerifyActiveRequest,
   VerifyActiveResponse,
 }
-import com.digitalasset.canton.domain.api.v30 as proto
 import com.digitalasset.canton.domain.sequencing.authentication.grpc.IdentityContextHelper
 import com.digitalasset.canton.domain.service.HandshakeValidator
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}

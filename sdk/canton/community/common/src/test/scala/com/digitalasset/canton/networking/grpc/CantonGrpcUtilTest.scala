@@ -12,9 +12,9 @@ import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.networking.grpc.GrpcError.*
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
+import io.grpc.*
 import io.grpc.ServerInterceptors.intercept
 import io.grpc.Status.Code.*
-import io.grpc.*
 import io.grpc.inprocess.{InProcessChannelBuilder, InProcessServerBuilder}
 import io.grpc.util.MutableHandlerRegistry
 import org.scalatest.Outcome

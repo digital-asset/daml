@@ -42,7 +42,7 @@ sealed trait LocalRejectError
   def toLocalReject(protocolVersion: ProtocolVersion): LocalReject =
     LocalReject.create(reason(), isMalformed = false, protocolVersion)
 
-  /** The first part of the cause. Typically the same for all instances of the particular type.
+  /** The first part of the cause. Typically, the same for all instances of the particular type.
     */
   // The leading underscore will exclude the field from the error context, so that it doesn't get logged twice.
   def _causePrefix: String

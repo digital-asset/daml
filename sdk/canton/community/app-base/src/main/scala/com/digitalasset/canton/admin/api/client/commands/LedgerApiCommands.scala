@@ -12,8 +12,8 @@ import com.daml.ledger.api.v2.admin.command_inspection_service.{
   GetCommandStatusRequest,
   GetCommandStatusResponse,
 }
-import com.daml.ledger.api.v2.admin.identity_provider_config_service.IdentityProviderConfigServiceGrpc.IdentityProviderConfigServiceStub
 import com.daml.ledger.api.v2.admin.identity_provider_config_service.*
+import com.daml.ledger.api.v2.admin.identity_provider_config_service.IdentityProviderConfigServiceGrpc.IdentityProviderConfigServiceStub
 import com.daml.ledger.api.v2.admin.metering_report_service.MeteringReportServiceGrpc.MeteringReportServiceStub
 import com.daml.ledger.api.v2.admin.metering_report_service.{
   GetMeteringReportRequest,
@@ -21,12 +21,12 @@ import com.daml.ledger.api.v2.admin.metering_report_service.{
   MeteringReportServiceGrpc,
 }
 import com.daml.ledger.api.v2.admin.object_meta.ObjectMeta
-import com.daml.ledger.api.v2.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementServiceStub
 import com.daml.ledger.api.v2.admin.package_management_service.*
-import com.daml.ledger.api.v2.admin.participant_pruning_service.ParticipantPruningServiceGrpc.ParticipantPruningServiceStub
+import com.daml.ledger.api.v2.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementServiceStub
 import com.daml.ledger.api.v2.admin.participant_pruning_service.*
-import com.daml.ledger.api.v2.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementServiceStub
+import com.daml.ledger.api.v2.admin.participant_pruning_service.ParticipantPruningServiceGrpc.ParticipantPruningServiceStub
 import com.daml.ledger.api.v2.admin.party_management_service.*
+import com.daml.ledger.api.v2.admin.party_management_service.PartyManagementServiceGrpc.PartyManagementServiceStub
 import com.daml.ledger.api.v2.admin.user_management_service.UserManagementServiceGrpc.UserManagementServiceStub
 import com.daml.ledger.api.v2.admin.user_management_service.{
   CreateUserRequest,

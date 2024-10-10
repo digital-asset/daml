@@ -9,8 +9,8 @@ import cats.syntax.functor.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.crypto.{DecryptionError as _, EncryptionError as _, *}
-import com.digitalasset.canton.data.ViewType.AssignmentViewType
 import com.digitalasset.canton.data.*
+import com.digitalasset.canton.data.ViewType.AssignmentViewType
 import com.digitalasset.canton.ledger.participant.state.{
   CompletionInfo,
   DomainIndex,
@@ -44,12 +44,12 @@ import com.digitalasset.canton.participant.protocol.{
   ProcessingSteps,
   ReassignmentSubmissionValidation,
 }
-import com.digitalasset.canton.participant.store.ActiveContractStore.Archived
 import com.digitalasset.canton.participant.store.*
+import com.digitalasset.canton.participant.store.ActiveContractStore.Archived
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.protocol.messages.ConfirmationResponse.InvalidConfirmationResponse
 import com.digitalasset.canton.protocol.messages.*
+import com.digitalasset.canton.protocol.messages.ConfirmationResponse.InvalidConfirmationResponse
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.DefaultDeserializationError
 import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore

@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.domain.mediator.service
 
-import com.digitalasset.canton.admin.domain.v30.MediatorStatusRequest
 import com.digitalasset.canton.admin.domain.v30 as domainV30
+import com.digitalasset.canton.admin.domain.v30.MediatorStatusRequest
 import com.digitalasset.canton.domain.mediator.admin.data.MediatorNodeStatus
 import com.digitalasset.canton.health.admin.data.NodeStatus
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}

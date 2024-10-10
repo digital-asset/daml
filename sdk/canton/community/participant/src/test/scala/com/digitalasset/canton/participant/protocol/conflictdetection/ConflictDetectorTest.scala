@@ -24,6 +24,7 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.RequestTra
   InvalidCommitSet,
   ReassignmentsStoreError,
 }
+import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.ActiveContractStore.{
   Active,
   Archived,
@@ -39,7 +40,6 @@ import com.digitalasset.canton.participant.store.ReassignmentStore.{
   ReassignmentCompleted,
   UnknownReassignmentId,
 }
-import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.memory.{
   InMemoryReassignmentStore,
   ReassignmentCache,

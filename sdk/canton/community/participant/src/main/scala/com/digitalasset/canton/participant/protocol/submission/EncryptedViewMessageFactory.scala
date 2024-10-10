@@ -51,7 +51,7 @@ object EncryptedViewMessageFactory {
     for {
       signature <- viewTree.toBeSigned
         .parTraverse(rootHash =>
-          cryptoSnapshot.sign(rootHash.unwrap).leftMap(FailedToSignViewMessage)
+          cryptoSnapshot.sign(rootHash.unwrap).leftMap(FailedToSignViewMessage.apply)
         )
       (sessionKey, sessionKeyRandomnessMap) = viewKeyData
       sessionKeyRandomnessMapNE <- EitherT.fromEither[FutureUnlessShutdown](
@@ -66,7 +66,7 @@ object EncryptedViewMessageFactory {
       encryptedView <- EitherT.fromEither[FutureUnlessShutdown](
         EncryptedView
           .compressed[VT](cryptoSnapshot.pureCrypto, sessionKey, viewType)(viewTree)
-          .leftMap[EncryptedViewMessageCreationError](FailedToEncryptViewMessage)
+          .leftMap[EncryptedViewMessageCreationError](FailedToEncryptViewMessage.apply)
       )
     } yield EncryptedViewMessage[VT](
       signature,
@@ -240,7 +240,7 @@ object EncryptedViewMessageFactory {
         sessionKey <- eitherTUS(
           pureCrypto
             .createSymmetricKey(sessionKeyRandomness, viewEncryptionScheme)
-            .leftMap(FailedToCreateEncryptionKey)
+            .leftMap(FailedToCreateEncryptionKey.apply)
         )
         // generates the session key map, which contains the session key randomness encrypted for all informee participants
         sessionKeyMap <- createDataMap(

@@ -15,7 +15,6 @@ import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.InvalidArgument
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import sttp.tapir.{path, query}
-import scala.annotation.nowarn
 
 class JsPartyManagementService(
     partyManagementClient: PartyManagementClient,
@@ -26,7 +25,7 @@ class JsPartyManagementService(
     with NamedLogging {
   import JsPartyManagementCodecs.*
 
-  private val parties = v2Endpoint.in("parties")
+  private val parties = v2Endpoint.in(sttp.tapir.stringToPath("parties"))
   private val partyPath = "party"
 
   def endpoints() =
@@ -43,7 +42,7 @@ class JsPartyManagementService(
       ),
       json(
         parties.get
-          .in("participant-id")
+          .in(sttp.tapir.stringToPath("participant-id"))
           .description("Get participant id"),
         getParticipantId,
       ),
@@ -130,7 +129,6 @@ class JsPartyManagementService(
           )
         }
 }
-@nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
 object JsPartyManagementCodecs {
 
   implicit val partyDetails: Codec[party_management_service.PartyDetails] = deriveCodec

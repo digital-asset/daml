@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.store.memory
 
 import cats.data.EitherT
-import cats.implicits.catsSyntaxPartialOrder
 import cats.instances.order.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*

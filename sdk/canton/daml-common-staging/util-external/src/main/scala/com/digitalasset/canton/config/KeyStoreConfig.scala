@@ -7,12 +7,10 @@ import pureconfig.generic.semiauto.{deriveReader, deriveWriter}
 import pureconfig.{ConfigReader, ConfigWriter}
 
 import java.io.File
-import scala.annotation.nowarn
 
 /** Configuration for Java keystore with optional password protection. */
 final case class KeyStoreConfig(path: File, password: Password)
 
-@nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
 class KeyStoreConfigWriters(confidential: Boolean) {
   val confidentialWriter = new ConfidentialConfigWriter(confidential)
 
@@ -21,7 +19,6 @@ class KeyStoreConfigWriters(confidential: Boolean) {
   implicit val keyStoreConfigWriter: ConfigWriter[KeyStoreConfig] = deriveWriter[KeyStoreConfig]
 }
 
-@nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
 object KeyStoreConfig {
   implicit val keyStoreConfigReader: ConfigReader[KeyStoreConfig] = deriveReader[KeyStoreConfig]
 }
@@ -38,7 +35,6 @@ final case class Password(pw: String) extends AnyVal {
   override def toString: String = s"Password(****)"
 }
 
-@nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
 object Password {
   implicit val passwordReader: ConfigReader[Password] = deriveReader[Password]
 

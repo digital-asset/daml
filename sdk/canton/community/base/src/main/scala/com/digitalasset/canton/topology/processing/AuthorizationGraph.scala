@@ -13,8 +13,8 @@ import com.digitalasset.canton.topology.processing.AuthorizedTopologyTransaction
   AuthorizedNamespaceDelegation,
   isRootDelegation,
 }
-import com.digitalasset.canton.topology.transaction.TopologyChangeOp.{Remove, Replace}
 import com.digitalasset.canton.topology.transaction.*
+import com.digitalasset.canton.topology.transaction.TopologyChangeOp.{Remove, Replace}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 import com.digitalasset.canton.util.ShowUtil.*

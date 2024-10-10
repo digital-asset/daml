@@ -143,7 +143,7 @@ object LightTransactionViewTree
             key <- SecureRandomness
               .fromByteString(expectedLength)(keyT)
               .leftMap[ProtoDeserializationError](
-                ProtoDeserializationError.CryptoDeserializationError
+                ProtoDeserializationError.CryptoDeserializationError.apply
               )
           } yield ViewHashAndKey(viewHash, key)
       }

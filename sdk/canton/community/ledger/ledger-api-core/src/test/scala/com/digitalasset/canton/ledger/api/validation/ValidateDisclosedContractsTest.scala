@@ -19,8 +19,8 @@ import com.digitalasset.canton.ledger.api.validation.ValidateDisclosedContractsT
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.transaction.{Node as LfNode, *}
-import com.digitalasset.daml.lf.value.Value.{ContractId, ValueRecord}
 import com.digitalasset.daml.lf.value.Value as Lf
+import com.digitalasset.daml.lf.value.Value.{ContractId, ValueRecord}
 import com.google.protobuf.ByteString
 import io.grpc.Status
 import org.scalatest.EitherValues

@@ -36,20 +36,20 @@ object CantonNodeParameters {
   }
   object General {
     final case class Impl(
-        tracing: TracingConfig,
-        delayLoggingThreshold: NonNegativeFiniteDuration,
-        logQueryCost: Option[QueryCostMonitoringConfig],
-        loggingConfig: LoggingConfig,
-        enableAdditionalConsistencyChecks: Boolean,
-        enablePreviewFeatures: Boolean,
-        processingTimeouts: ProcessingTimeout,
-        sequencerClient: SequencerClientConfig,
-        cachingConfigs: CachingConfigs,
-        batchingConfig: BatchingConfig,
-        nonStandardConfig: Boolean,
-        dbMigrateAndStart: Boolean,
-        exitOnFatalFailures: Boolean,
-        watchdog: Option[WatchdogConfig],
+        override val tracing: TracingConfig,
+        override val delayLoggingThreshold: NonNegativeFiniteDuration,
+        override val logQueryCost: Option[QueryCostMonitoringConfig],
+        override val loggingConfig: LoggingConfig,
+        override val enableAdditionalConsistencyChecks: Boolean,
+        override val enablePreviewFeatures: Boolean,
+        override val processingTimeouts: ProcessingTimeout,
+        override val sequencerClient: SequencerClientConfig,
+        override val cachingConfigs: CachingConfigs,
+        override val batchingConfig: BatchingConfig,
+        override val nonStandardConfig: Boolean,
+        override val dbMigrateAndStart: Boolean,
+        override val exitOnFatalFailures: Boolean,
+        override val watchdog: Option[WatchdogConfig],
     ) extends CantonNodeParameters.General
   }
   trait Protocol {

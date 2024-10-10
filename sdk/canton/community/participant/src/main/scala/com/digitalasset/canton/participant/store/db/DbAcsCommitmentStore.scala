@@ -331,12 +331,9 @@ class DbAcsCommitmentStore(
             val leftOverlap = CommitmentPeriod.create(from, period.fromExclusive)
             val rightOverlap = CommitmentPeriod.create(period.toInclusive, to)
             val inbetween = CommitmentPeriod.create(period.fromExclusive, period.toInclusive)
-            leftOverlap.toSeq
-              .map((_, oldState))
-              ++ rightOverlap.toSeq
-                .map((_, oldState))
-              ++ inbetween.toSeq
-                .map((_, matchingState))
+            leftOverlap.toSeq.map((_, oldState)) ++ rightOverlap.toSeq.map(
+              (_, oldState)
+            ) ++ inbetween.toSeq.map((_, matchingState))
           }
           .toList
           .distinct
@@ -452,8 +449,7 @@ class DbAcsCommitmentStore(
     val query =
       sql"""select from_exclusive, to_inclusive, counter_participant, commitment
             from par_computed_acs_commitments
-            where domain_idx = $indexedDomain and to_inclusive >= $start and from_exclusive < $end"""
-        ++ participantFilter
+            where domain_idx = $indexedDomain and to_inclusive >= $start and from_exclusive < $end""" ++ participantFilter
 
     storage.query(
       query.as[(CommitmentPeriod, ParticipantId, AcsCommitment.CommitmentType)],

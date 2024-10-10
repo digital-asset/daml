@@ -5,6 +5,7 @@ package com.digitalasset.canton.domain.config
 
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.{CommunityCryptoConfig, CryptoConfig, ProtocolConfig}
+import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.CryptoFactory.{
   selectAllowedEncryptionAlgorithmSpecs,
   selectAllowedEncryptionKeySpecs,
@@ -12,7 +13,6 @@ import com.digitalasset.canton.crypto.CryptoFactory.{
   selectAllowedSigningKeyScheme,
   selectAllowedSymmetricKeySchemes,
 }
-import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.version.ProtocolVersion

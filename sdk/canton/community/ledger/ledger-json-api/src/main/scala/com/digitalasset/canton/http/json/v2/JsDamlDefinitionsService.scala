@@ -16,9 +16,9 @@ class JsDamlDefinitionsService(
     damlDefinitionsView: DamlDefinitionsView,
     val loggerFactory: NamedLoggerFactory,
 ) extends Endpoints {
-  private val definitions = v2Endpoint.in("definitions")
-  private val packageDefinitions = definitions.in("packages")
-  private val templateDefinitions = definitions.in("templates")
+  private val definitions = v2Endpoint.in(sttp.tapir.stringToPath("definitions"))
+  private val packageDefinitions = definitions.in(sttp.tapir.stringToPath("packages"))
+  private val templateDefinitions = definitions.in(sttp.tapir.stringToPath("templates"))
   private val packageSignatureSelectorPath = "package-signature"
   private val templateSelectorPath = "template-id"
 

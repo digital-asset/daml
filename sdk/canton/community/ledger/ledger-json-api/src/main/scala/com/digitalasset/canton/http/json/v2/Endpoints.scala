@@ -41,7 +41,7 @@ trait Endpoints extends NamedLogging {
     .securityIn(
       auth
         .bearer[Option[String]]()
-        .map(bearer => bearer.map(Jwt))(
+        .map(bearer => bearer.map(Jwt.apply))(
           _.map(_.token)
         )
         .description("Ledger API standard JWT token")
@@ -49,7 +49,7 @@ trait Endpoints extends NamedLogging {
           auth
             .apiKey(header[Option[String]]("Sec-WebSocket-Protocol"))
             .map { bearer =>
-              bearer.map(Jwt)
+              bearer.map(Jwt.apply)
             }(_.map(_.token))
             .description("Ledger API standard JWT token (websocket)")
         )

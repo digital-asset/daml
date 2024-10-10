@@ -22,8 +22,8 @@ import com.digitalasset.canton.topology.store.{
   TopologyStore,
   TopologyStoreId,
 }
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.*
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.tracing.{TraceContext, TracedScaffeine}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{ErrorUtil, MonadUtil}
@@ -99,11 +99,11 @@ final class CachingDomainTopologyClient(
       if (cur.headOption.exists(_.timestamp > timestamp))
         cur
       else
-        item :: (cur.filter(
+        item :: cur.filter(
           _.timestamp.plusMillis(
             cachingConfigs.topologySnapshot.expireAfterAccess.duration.toMillis
           ) > timestamp
-        ))
+        )
     }
   }
 
@@ -226,7 +226,7 @@ object CachingDomainTopologyClient {
         loggerFactory,
       )
     store.maxTimestamp(CantonTimestamp.MaxValue, includeRejected = true).map { x =>
-      x.foreach { case (sequenced, effective) =>
+      x.foreach { case (_sequenced, effective) =>
         caching
           .updateHead(effective, effective.toApproximate, potentialTopologyChange = true)
       }

@@ -3,8 +3,8 @@
 
 package com.daml.grpc
 
-import com.google.protobuf.any.Any as AnyProto
 import com.google.protobuf.Any as AnyJavaProto
+import com.google.protobuf.any.Any as AnyProto
 import com.google.rpc.status.Status as StatusProto
 import com.google.rpc.{ErrorInfo, Status as StatusJavaProto}
 import io.grpc.Status.Code

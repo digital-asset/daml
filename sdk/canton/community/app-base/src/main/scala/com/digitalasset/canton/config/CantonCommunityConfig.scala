@@ -60,7 +60,6 @@ final case class CantonCommunityConfig(
       .modify(_.fmap(_.withDefaults(ports)))
 }
 
-@nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
 object CantonCommunityConfig {
 
   private val logger: Logger = LoggerFactory.getLogger(classOf[CantonCommunityConfig])
@@ -88,7 +87,6 @@ object CantonCommunityConfig {
     deriveReader[CantonCommunityConfig]
   }
 
-  @nowarn("cat=unused")
   private lazy implicit val cantonCommunityConfigWriter: ConfigWriter[CantonCommunityConfig] = {
     val writers = new CantonConfig.ConfigWriters(confidential = true)
     import writers.*

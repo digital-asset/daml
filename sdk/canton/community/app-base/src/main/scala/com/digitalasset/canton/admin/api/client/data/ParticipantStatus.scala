@@ -7,8 +7,8 @@ import cats.syntax.traverse.*
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.admin.api.client.data.NodeStatus.*
 import com.digitalasset.canton.admin.api.client.data.ParticipantStatus.SubmissionReady
-import com.digitalasset.canton.admin.participant.v30.ConnectedDomain.Health
 import com.digitalasset.canton.admin.participant.v30 as participantV30
+import com.digitalasset.canton.admin.participant.v30.ConnectedDomain.Health
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.health.admin.data.NodeStatus.multiline
 import com.digitalasset.canton.logging.pretty.Pretty

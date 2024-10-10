@@ -4,8 +4,8 @@
 package com.digitalasset.canton.ledger.api
 
 import com.daml.error.NoLogging
-import com.daml.ledger.api.v2.value.Value.Sum
 import com.daml.ledger.api.v2.value as api
+import com.daml.ledger.api.v2.value.Value.Sum
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi
 import com.digitalasset.canton.ledger.api.validation.{ValidatorTestUtils, ValueValidator}
 import com.digitalasset.daml.lf.crypto.Hash

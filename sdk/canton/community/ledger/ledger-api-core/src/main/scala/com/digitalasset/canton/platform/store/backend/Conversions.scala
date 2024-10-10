@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.platform.store.backend
 
-import anorm.Column.nonNull
 import anorm.*
+import anorm.Column.nonNull
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.daml.lf.crypto.Hash

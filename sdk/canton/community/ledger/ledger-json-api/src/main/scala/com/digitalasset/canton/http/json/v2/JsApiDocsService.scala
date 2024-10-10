@@ -23,7 +23,7 @@ class JsApiDocsService(
     executionContext: ExecutionContext
 ) extends Endpoints {
 
-  private lazy val docs: Endpoint[CallerContext, Unit, Unit, Unit, Any] = baseEndpoint.in("docs")
+  private lazy val docs: Endpoint[CallerContext, Unit, Unit, Unit, Any] = baseEndpoint.in(sttp.tapir.stringToPath("docs"))
 
   // The cache is shared for all tokens - assumption is that api documentation is public
   private val apiDocsCache = new AtomicReference[Option[ApiDocs]](None)
@@ -31,7 +31,7 @@ class JsApiDocsService(
   def endpoints() = List(
     withTraceHeaders(
       docs.get
-        .in("openapi")
+        .in(sttp.tapir.stringToPath("openapi"))
         .description("OpenAPI documentation")
     )
       .out(stringBody)
@@ -41,7 +41,7 @@ class JsApiDocsService(
       ),
     withTraceHeaders(
       docs.get
-        .in("asyncapi")
+        .in(sttp.tapir.stringToPath("asyncapi"))
         .description("AsyncAPI documentation")
     )
       .out(stringBody)

@@ -16,19 +16,19 @@ import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveContractIdsChange
 import com.digitalasset.canton.participant.store.ActiveContractStore.ActivenessChangeDetail.*
-import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.data.ActiveContractsData
 import com.digitalasset.canton.participant.store.db.DbActiveContractStore.*
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
 import com.digitalasset.canton.protocol.LfContractId
+import com.digitalasset.canton.resource.DbStorage.*
 import com.digitalasset.canton.resource.DbStorage.Implicits.BuilderChain.{
   fromSQLActionBuilderChain,
   toSQLActionBuilderChain,
 }
-import com.digitalasset.canton.resource.DbStorage.*
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.store.db.DbPrunableByTimeDomain
 import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore, PrunableByTimeParameters}
@@ -528,8 +528,7 @@ class DbActiveContractStore(
                   if (acsEntriesToPrune.isEmpty) Future.successful(0)
                   else {
                     val deleteStatement =
-                      s"delete from par_active_contracts where domain_idx = ? and contract_id = ? and ts = ?"
-                        + " and request_counter = ? and change = CAST(? as change_type);"
+                      s"delete from par_active_contracts where domain_idx = ? and contract_id = ? and ts = ?" + " and request_counter = ? and change = CAST(? as change_type);"
                     storage.queryAndUpdate(
                       DbStorage
                         .bulkOperation(deleteStatement, acsEntriesToPrune, storage.profile) { pp =>

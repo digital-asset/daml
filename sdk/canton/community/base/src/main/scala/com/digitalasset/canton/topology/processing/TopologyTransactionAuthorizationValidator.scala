@@ -15,12 +15,12 @@ import com.digitalasset.canton.topology.processing.AuthorizedTopologyTransaction
   AuthorizedIdentifierDelegation,
   AuthorizedNamespaceDelegation,
 }
-import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
 import com.digitalasset.canton.topology.store.*
+import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
+import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyChangeOp.Replace
 import com.digitalasset.canton.topology.transaction.TopologyMapping.ReferencedAuthorizations
-import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -308,7 +308,7 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
                   key,
                   sig,
                 )
-                .leftMap(TopologyTransactionRejection.SignatureCheckFailed)
+                .leftMap(TopologyTransactionRejection.SignatureCheckFailed.apply)
             )
         )
     } yield {
@@ -423,7 +423,7 @@ class TopologyTransactionAuthorizationValidator[+PureCrypto <: CryptoPureApi](
               )
           )
           .bimap(
-            TopologyTransactionRejection.SignatureCheckFailed,
+            TopologyTransactionRejection.SignatureCheckFailed.apply,
             _ => (toValidate, ReferencedAuthorizations.empty /* no missing authorizers */ ),
           )
         result

@@ -176,9 +176,12 @@ final case class MemoizedEvidenceWithFailureSUT private (b: Byte)(
     }
 }
 
-object MemoizedEvidenceWithFailureSUT {
+private object MemoizedEvidenceWithFailureSUT {
   def apply(b: Byte)(fail: Boolean): MemoizedEvidenceWithFailureSUT =
     new MemoizedEvidenceWithFailureSUT(b)(fail, None)
+
+  def apply(i: Int)(fail: Boolean): MemoizedEvidenceWithFailureSUT =
+    new MemoizedEvidenceWithFailureSUT(i.toByte)(fail, None)
 
   def fromByteString(bytes: ByteString): MemoizedEvidenceWithFailureSUT = {
     if (bytes.size() != 2)

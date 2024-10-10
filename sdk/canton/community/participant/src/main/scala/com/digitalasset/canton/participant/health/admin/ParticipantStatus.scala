@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.participant.health.admin
 
-import com.digitalasset.canton.admin.participant.v30.ConnectedDomain
 import com.digitalasset.canton.admin.participant.v30 as participantV30
+import com.digitalasset.canton.admin.participant.v30.ConnectedDomain
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.health.ComponentStatus
 import com.digitalasset.canton.health.admin.data.NodeStatus.{

@@ -37,18 +37,19 @@ class InMemoryInFlightSubmissionStore(override protected val loggerFactory: Name
   /** Invariant: The [[com.digitalasset.canton.participant.protocol.submission.ChangeId]] of
     * a value is the key.
     */
-  private val inFlight: concurrent.Map[ChangeIdHash, InFlightSubmission[SubmissionSequencingInfo]] =
+  private val inFlights
+      : concurrent.Map[ChangeIdHash, InFlightSubmission[SubmissionSequencingInfo]] =
     new TrieMap[ChangeIdHash, InFlightSubmission[SubmissionSequencingInfo]]
 
   override def lookup(changeIdHash: ChangeIdHash)(implicit
       traceContext: TraceContext
   ): OptionT[Future, InFlightSubmission[SubmissionSequencingInfo]] =
-    OptionT(Future.successful(inFlight.get(changeIdHash)))
+    OptionT(Future.successful(inFlights.get(changeIdHash)))
 
   override def lookupEarliest(
       domainId: DomainId
   )(implicit traceContext: TraceContext): Future[Option[CantonTimestamp]] = Future.successful {
-    inFlight.valuesIterator.foldLeft(Option.empty[CantonTimestamp]) { (previousO, entry) =>
+    inFlights.valuesIterator.foldLeft(Option.empty[CantonTimestamp]) { (previousO, entry) =>
       if (entry.submissionDomain == domainId) {
         val next = previousO.fold(entry.associatedTimestamp) { previous =>
           Ordering[CantonTimestamp].min(previous, entry.associatedTimestamp)
@@ -61,7 +62,7 @@ class InMemoryInFlightSubmissionStore(override protected val loggerFactory: Name
   override def register(
       submission: InFlightSubmission[UnsequencedSubmission]
   ): EitherT[FutureUnlessShutdown, InFlightSubmission[SubmissionSequencingInfo], Unit] =
-    inFlight
+    inFlights
       .putIfAbsent(submission.changeIdHash, submission)
       .fold(Either.right[InFlightSubmission[SubmissionSequencingInfo], Unit](())) { old =>
         Either.cond(old == submission, (), old)
@@ -72,7 +73,7 @@ class InMemoryInFlightSubmissionStore(override protected val loggerFactory: Name
       submission: InFlightSubmission[UnsequencedSubmission],
       rootHash: RootHash,
   )(implicit traceContext: TraceContext): Future[Unit] = {
-    inFlight.mapValuesInPlace { (_changeId, info) =>
+    inFlights.mapValuesInPlace { (_changeId, info) =>
       if (
         !info.isSequenced && info.submissionDomain == submission.submissionDomain
         && info.changeIdHash == submission.changeIdHash && info.rootHashO.isEmpty
@@ -87,7 +88,7 @@ class InMemoryInFlightSubmissionStore(override protected val loggerFactory: Name
       domainId: DomainId,
       submissions: Map[MessageId, SequencedSubmission],
   )(implicit traceContext: TraceContext): Future[Unit] = {
-    inFlight.mapValuesInPlace { (_changeId, info) =>
+    inFlights.mapValuesInPlace { (_changeId, info) =>
       if (!info.isSequenced && info.submissionDomain == domainId) {
         submissions.get(info.messageId).fold(info) { sequencedInfo =>
           info.copy(sequencingInfo = sequencedInfo)
@@ -103,7 +104,7 @@ class InMemoryInFlightSubmissionStore(override protected val loggerFactory: Name
   )(implicit
       traceContext: TraceContext
   ): Future[Unit] = {
-    inFlight.mapValuesInPlace { (_changeId, info) =>
+    inFlights.mapValuesInPlace { (_changeId, info) =>
       val shouldUpdate = info.rootHashO.contains(rootHash) && (info.sequencingInfo match {
         case UnsequencedSubmission(_, _) => true
         case SequencedSubmission(_sc, ts) => submission.sequencingTime < ts
@@ -120,7 +121,7 @@ class InMemoryInFlightSubmissionStore(override protected val loggerFactory: Name
   )(implicit traceContext: TraceContext): Future[Unit] =
     Future.successful {
       val (byId, bySequencingInfo) = submissions.toList.map(_.toEither).separate
-      inFlight.filterInPlace { case (_changeIdHash, inFlightSubmission) =>
+      inFlights.filterInPlace { case (_changeIdHash, inFlightSubmission) =>
         !(inFlightSubmission.sequencingInfo.asSequenced.exists { sequenced =>
           bySequencingInfo.contains(
             InFlightBySequencingInfo(inFlightSubmission.submissionDomain, sequenced)
@@ -136,7 +137,7 @@ class InMemoryInFlightSubmissionStore(override protected val loggerFactory: Name
       newSequencingInfo: UnsequencedSubmission,
   )(implicit traceContext: TraceContext): Future[Unit] = {
     MapsUtil
-      .updateWithConcurrently(inFlight, changeIdHash) { submission =>
+      .updateWithConcurrently(inFlights, changeIdHash) { submission =>
         submission.sequencingInfo.asUnsequenced match {
           case Some(unsequenced) =>
             if (
@@ -168,7 +169,7 @@ class InMemoryInFlightSubmissionStore(override protected val loggerFactory: Name
   )(implicit traceContext: TraceContext): Future[Seq[InFlightSubmission[UnsequencedSubmission]]] =
     Future.successful {
       val unsequenced = Seq.newBuilder[InFlightSubmission[UnsequencedSubmission]]
-      inFlight.values.foreach { submission =>
+      inFlights.values.foreach { submission =>
         if (submission.submissionDomain == domainId) {
           submission
             .traverseSequencingInfo(_.asUnsequenced.filter(_.timeout <= observedSequencingTime))
@@ -186,7 +187,7 @@ class InMemoryInFlightSubmissionStore(override protected val loggerFactory: Name
   )(implicit traceContext: TraceContext): Future[Seq[InFlightSubmission[SequencedSubmission]]] =
     Future.successful {
       val sequenced = Seq.newBuilder[InFlightSubmission[SequencedSubmission]]
-      inFlight.values.foreach { submission =>
+      inFlights.values.foreach { submission =>
         if (submission.submissionDomain == domainId) {
           submission
             .traverseSequencingInfo(
@@ -204,7 +205,7 @@ class InMemoryInFlightSubmissionStore(override protected val loggerFactory: Name
       traceContext: TraceContext
   ): Future[Option[InFlightSubmission[SubmissionSequencingInfo]]] =
     Future.successful {
-      inFlight.collectFirst {
+      inFlights.collectFirst {
         case (_changeIdHash, inFlight)
             if inFlight.submissionDomain == domainId && inFlight.messageId == messageId =>
           inFlight

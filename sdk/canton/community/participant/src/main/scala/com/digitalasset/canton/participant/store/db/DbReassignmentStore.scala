@@ -32,7 +32,7 @@ import com.digitalasset.canton.participant.store.db.DbReassignmentStore.{
 }
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.messages.*
-import com.digitalasset.canton.protocol.{ReassignmentId, SerializableContract, TransactionId}
+import com.digitalasset.canton.protocol.{ReassignmentId, SerializableContract}
 import com.digitalasset.canton.resource.DbStorage.DbAction
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.sequencing.protocol.{NoOpeningErrors, SequencedEvent, SignedContent}
@@ -189,7 +189,6 @@ class DbReassignmentStore(
       unassignmentRequest = getResultFullUnassignmentTree(sourceProtocolVersion).apply(r),
       unassignmentDecisionTime = GetResult[CantonTimestamp].apply(r),
       contract = GetResult[SerializableContract].apply(r),
-      creatingTransactionId = GetResult[TransactionId].apply(r),
       unassignmentResult = getResultDeliveredUnassignmentResult(sourceProtocolVersion).apply(r),
       reassignmentGlobalOffset = ReassignmentGlobalOffset
         .create(
@@ -233,7 +232,7 @@ class DbReassignmentStore(
     def insert(dbReassignmentId: DbReassignmentId): DBIO[Int] =
       sqlu"""
         insert into par_reassignments(target_domain_idx, source_domain_idx, unassignment_timestamp, unassignment_request_counter,
-        unassignment_request, unassignment_decision_time, contract, creating_transaction_id, unassignment_result,
+        unassignment_request, unassignment_decision_time, contract, unassignment_result,
         submitter_lf, source_protocol_version, unassignment_global_offset, assignment_global_offset)
         values (
           $indexedTargetDomain,
@@ -243,7 +242,6 @@ class DbReassignmentStore(
           ${reassignmentData.unassignmentRequest},
           ${reassignmentData.unassignmentDecisionTime},
           ${reassignmentData.contract},
-          ${reassignmentData.creatingTransactionId},
           ${reassignmentData.unassignmentResult},
           ${reassignmentData.unassignmentRequest.submitter},
           ${reassignmentData.sourceProtocolVersion},
@@ -262,7 +260,7 @@ class DbReassignmentStore(
           update par_reassignments
           set unassignment_request_counter=${data.unassignmentRequestCounter},
             unassignment_request=${data.unassignmentRequest}, unassignment_decision_time=${data.unassignmentDecisionTime},
-            contract=${data.contract}, creating_transaction_id=${data.creatingTransactionId},
+            contract=${data.contract},
             unassignment_result=${data.unassignmentResult}, submitter_lf=${data.unassignmentRequest.submitter},
             source_protocol_version=${data.sourceProtocolVersion},
             unassignment_global_offset=${data.unassignmentGlobalOffset}, assignment_global_offset=${data.assignmentGlobalOffset}
@@ -310,7 +308,7 @@ class DbReassignmentStore(
   private def entryExists(id: DbReassignmentId): DbAction.ReadOnly[Option[ReassignmentEntry]] =
     sql"""
      select source_protocol_version, unassignment_timestamp, unassignment_request_counter, unassignment_request, unassignment_decision_time,
-     contract, creating_transaction_id, unassignment_result, unassignment_global_offset, assignment_global_offset,
+     contract, unassignment_result, unassignment_global_offset, assignment_global_offset,
      time_of_completion_request_counter, time_of_completion_timestamp
      from par_reassignments where target_domain_idx=$indexedTargetDomain and source_domain_idx=${id.indexedSourceDomain} and unassignment_timestamp=${id.unassignmentTs}
     """.as[ReassignmentEntry].headOption
@@ -556,7 +554,7 @@ class DbReassignmentStore(
 
     val base: SQLActionBuilder = sql"""
      select source_protocol_version, unassignment_timestamp, unassignment_request_counter, unassignment_request, unassignment_decision_time,
-     contract, creating_transaction_id, unassignment_result, unassignment_global_offset, assignment_global_offset
+     contract, unassignment_result, unassignment_global_offset, assignment_global_offset
      from par_reassignments
      where
    """

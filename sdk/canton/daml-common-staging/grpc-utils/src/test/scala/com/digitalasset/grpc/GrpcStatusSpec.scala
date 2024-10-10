@@ -4,8 +4,8 @@
 package com.digitalasset.grpc
 
 import com.daml.grpc.GrpcStatus
-import com.google.protobuf.any.Any as AnyProto
 import com.google.protobuf.Any as AnyJavaProto
+import com.google.protobuf.any.Any as AnyProto
 import com.google.rpc.error_details.ErrorInfo
 import com.google.rpc.status.Status as StatusProto
 import com.google.rpc.{ErrorInfo as JavaErrorInfo, Status as StatusJavaProto}

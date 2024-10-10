@@ -14,8 +14,8 @@ package com.digitalasset.transcode.codec.proto
 import com.daml.ledger.api.v2.value
 import com.daml.ledger.api.v2.value.Value.Sum
 import com.digitalasset.transcode.Codec
-import com.digitalasset.transcode.schema.DynamicValue.*
 import com.digitalasset.transcode.schema.*
+import com.digitalasset.transcode.schema.DynamicValue.*
 import com.google.protobuf.empty.Empty
 
 /** This codec converts Ledger API GRPC values. */

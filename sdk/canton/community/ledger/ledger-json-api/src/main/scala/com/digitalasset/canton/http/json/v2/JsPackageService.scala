@@ -21,8 +21,6 @@ import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
 import sttp.tapir.generic.auto.*
 
-import scala.annotation.nowarn
-
 class JsPackageService(
     packageClient: PackageClient,
     packageManagementClient: PackageManagementClient,
@@ -30,7 +28,7 @@ class JsPackageService(
 )(implicit val executionContext: ExecutionContext, materializer: Materializer)
     extends Endpoints {
 
-  private val packages = v2Endpoint.in("packages")
+  private val packages = v2Endpoint.in(sttp.tapir.stringToPath("packages"))
   private val packageIdPath = "package-id"
   def endpoints() =
     List(
@@ -53,7 +51,7 @@ class JsPackageService(
       json(
         packages.get
           .in(path[String](packageIdPath))
-          .in("status")
+          .in(sttp.tapir.stringToPath("status"))
           .description("Get package status"),
         status,
       ),
@@ -93,7 +91,6 @@ class JsPackageService(
       )
   }
 }
-@nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
 object JsPackageCodecs {
   implicit val listPackagesResponse: Codec[package_service.ListPackagesResponse] = deriveCodec
   implicit val getPackageStatusResponse: Codec[package_service.GetPackageStatusResponse] =

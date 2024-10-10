@@ -32,10 +32,8 @@ import pureconfig.error.ConfigReaderFailures
 import pureconfig.{ConfigConvert, ConfigReader, ConfigSource, ConfigWriter}
 
 import java.time.Duration
-import scala.annotation.nowarn
 import scala.reflect.{ClassTag, classTag}
 
-@nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
 class PureConfigReaderWriterSpec
     extends AnyFlatSpec
     with Matchers

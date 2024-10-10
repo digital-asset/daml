@@ -19,10 +19,10 @@ import com.digitalasset.canton.domain.sequencing.admin.data.{
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.RegisterError
 import com.digitalasset.canton.domain.sequencing.sequencer.SequencerWriter.ResetWatermark
-import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError.SnapshotNotFound
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.*
-import com.digitalasset.canton.domain.sequencing.sequencer.store.SequencerStore.SequencerPruningResult
+import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError.SnapshotNotFound
 import com.digitalasset.canton.domain.sequencing.sequencer.store.*
+import com.digitalasset.canton.domain.sequencing.sequencer.store.SequencerStore.SequencerPruningResult
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.TimestampSelector.TimestampSelector
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
   SequencerRateLimitError,

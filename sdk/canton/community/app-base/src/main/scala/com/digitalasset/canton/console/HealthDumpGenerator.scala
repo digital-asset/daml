@@ -14,8 +14,6 @@ import com.digitalasset.canton.version.ReleaseVersion
 import io.circe.Encoder
 import io.circe.syntax.*
 
-import scala.annotation.nowarn
-
 /** Generates a health dump zip file containing information about the current Canton process
   * This is the core of the implementation of the HealthDump gRPC endpoint.
   */
@@ -50,7 +48,6 @@ trait HealthDumpGenerator[Status <: CantonStatus] {
       nodeName -> (() => getStatusForNode[S](nodeName, nodeConfig, nodeStatusCommand))
     }
 
-  @nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
   def generateHealthDump(
       outputFile: File,
       extraFilesToZip: Seq[File] = Seq.empty,

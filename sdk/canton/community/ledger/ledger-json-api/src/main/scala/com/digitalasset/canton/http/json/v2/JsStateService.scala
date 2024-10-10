@@ -26,7 +26,6 @@ import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Flow
 import sttp.tapir.query
 
-import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 class JsStateService(
@@ -41,7 +40,7 @@ class JsStateService(
 
   import JsStateServiceCodecs.*
 
-  private lazy val state = v2Endpoint.in("state")
+  private lazy val state = v2Endpoint.in(sttp.tapir.stringToPath("state"))
 //  private lazy val wsState = wsEndpoint.in("state")
 
   private def stateServiceClient(token: Option[String] = None)(implicit
@@ -52,26 +51,26 @@ class JsStateService(
   def endpoints() = List(
     websocket(
       state.get
-        .in("active-contracts")
+        .in(sttp.tapir.stringToPath("active-contracts"))
         .description("Get active contracts stream"),
       getActiveContractsStream,
     ),
     json(
       state.get
-        .in("connected-domains")
+        .in(sttp.tapir.stringToPath("connected-domains"))
         .in(query[String]("party"))
         .description("Get connected domains"),
       getConnectedDomains,
     ),
     json(
       state.get
-        .in("ledger-end")
+        .in(sttp.tapir.stringToPath("ledger-end"))
         .description("Get ledger end"),
       getLedgerEnd,
     ),
     json(
       state.get
-        .in("latest-pruned-offsets")
+        .in(sttp.tapir.stringToPath("latest-pruned-offsets"))
         .description("Get latest pruned offsets"),
       getLatestPrunedOffsets,
     ),
@@ -106,7 +105,11 @@ class JsStateService(
 
   private def getActiveContractsStream(
       caller: CallerContext
-  ): TracedInput[Unit] => Flow[state_service.GetActiveContractsRequest, JsGetActiveContractsResponse, NotUsed] =
+  ): TracedInput[Unit] => Flow[
+    state_service.GetActiveContractsRequest,
+    JsGetActiveContractsResponse,
+    NotUsed,
+  ] =
     _ => {
       Flow[state_service.GetActiveContractsRequest]
         .flatMapConcat { req =>
@@ -167,7 +170,6 @@ final case class JsGetActiveContractsResponse(
     contract_entry: JsContractEntry,
 )
 
-@nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
 object JsStateServiceCodecs {
 
   implicit val filtersRW: Codec[transaction_filter.Filters] = deriveCodec

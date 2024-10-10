@@ -34,8 +34,8 @@ import com.digitalasset.canton.lifecycle.{
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.{DynamicDomainParameters, StaticDomainParameters}
 import com.digitalasset.canton.serialization.DeserializationError
-import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.{
   DomainTopologyClient,
   IdentityProvidingServiceClient,
@@ -635,7 +635,7 @@ class DomainSnapshotSyncCryptoApi(
             )
           )
           .fold(
-            _.invalid[MediatorId],
+            _.invalid,
             _ => keyMember(signature.signedBy).valid[SignatureCheckError],
           )
       })
@@ -684,6 +684,30 @@ class DomainSnapshotSyncCryptoApi(
         signatures,
       )
     } yield ()
+
+  override def unsafePartialVerifySequencerSignatures(
+      hash: Hash,
+      signatures: NonEmpty[Seq[Signature]],
+  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit] = for {
+    sequencerGroup <- EitherT(
+      ipsSnapshot
+        .sequencerGroup()
+        .map(
+          _.toRight(
+            SignatureCheckError.MemberGroupDoesNotExist(
+              "Sequencer group not found"
+            )
+          )
+        )
+    )
+    _ <- verifyGroupSignatures(
+      hash,
+      sequencerGroup.active,
+      threshold = PositiveInt.one,
+      sequencerGroup.toString,
+      signatures,
+    )
+  } yield ()
 
   override def decrypt[M](encryptedMessage: AsymmetricEncrypted[M])(
       deserialize: ByteString => Either[DeserializationError, M]

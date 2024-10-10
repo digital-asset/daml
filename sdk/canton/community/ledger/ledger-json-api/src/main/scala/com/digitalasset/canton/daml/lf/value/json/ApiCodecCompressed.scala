@@ -22,8 +22,7 @@ import com.digitalasset.canton.daml.lf.value.json.NavigatorModelAliases as Model
 import spray.json.*
 
 import scala.util.Try
-import scalaz.{@@, Equal, Order, Tag}
-import scalaz.syntax.equal.*
+import scalaz.{@@, Tag}
 import scalaz.syntax.std.string.*
 
 import java.time.Instant
@@ -190,8 +189,6 @@ class ApiCodecCompressed(val encodeDecimalAsString: Boolean, val encodeInt64AsSt
         val Seq(kType, vType) = prim.typArgs: @nowarn("msg=match may not be exhaustive")
 
         { case JsArray(entries) =>
-          implicit val keySort: Order[V @@ defs.type] = decodedOrder(defs)
-          implicit val keySSort: math.Ordering[V @@ defs.type] = keySort.toScalaOrdering
           type OK[K] = Vector[(K, V)]
           val decEntries: Vector[(V @@ defs.type, V)] = Tag
             .subst[V, OK, defs.type](entries.map {
@@ -201,8 +198,6 @@ class ApiCodecCompressed(val encodeDecimalAsString: Boolean, val encodeInt64AsSt
               case _ =>
                 deserializationError(s"Can't read ${value.prettyPrint} as key+value of $prim")
             })
-            .sortBy(_._1)
-          checkDups(decEntries)
           V.ValueGenMap(Tag.unsubst[V, OK, defs.type](decEntries).to(ImmArray))
         }
 
@@ -212,26 +207,6 @@ class ApiCodecCompressed(val encodeDecimalAsString: Boolean, val encodeInt64AsSt
     prim match {
       case typesig.TypePrim(_, Seq(typesig.TypePrim(typesig.PrimType.Optional, _))) => true
       case _ => false
-    }
-
-  private[this] def decodedOrder(defs: Model.DamlLfTypeLookup): Order[V @@ defs.type] = {
-    val scope: V.LookupVariantEnum = defs andThen (_ flatMap (_.dataType match {
-      case typesig.Variant(fields) => Some(fields.toImmArray map (_._1))
-      case typesig.Enum(ctors) => Some(ctors.toImmArray)
-      case typesig.Record(_) => None
-    }))
-    Tag subst (Tag unsubst V.orderInstance(scope))
-  }
-
-  @throws[DeserializationException]
-  private[this] def checkDups[K: Equal](decEntries: Seq[(K, _)]): Unit =
-    decEntries match {
-      case (h, _) +: t =>
-        val _ = t.foldLeft(h)((p, n) =>
-          if (p /== n._1) n._1 else deserializationError(s"duplicate key: $p")
-        )
-        ()
-      case _ => ()
     }
 
   private[this] def jsValueToApiDataType(

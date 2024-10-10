@@ -23,7 +23,6 @@ import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Flow
 import sttp.tapir.{path, query}
 
-import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 class JsUpdateService(
@@ -38,7 +37,7 @@ class JsUpdateService(
 
   import JsUpdateServiceCodecs.*
 
-  private lazy val updates = v2Endpoint.in("updates")
+  private lazy val updates = v2Endpoint.in(sttp.tapir.stringToPath("updates"))
 
   private def updateServiceClient(token: Option[String] = None)(implicit
       traceContext: TraceContext
@@ -48,19 +47,19 @@ class JsUpdateService(
   def endpoints() = List(
     websocket(
       updates.get
-        .in("flats")
+        .in(sttp.tapir.stringToPath("flats"))
         .description("Get flat transactions update stream"),
       getFlats,
     ),
     websocket(
       updates.get
-        .in("trees")
+        .in(sttp.tapir.stringToPath("trees"))
         .description("Get update transactions tree stream"),
       getTrees,
     ),
     json(
       updates.get
-        .in("transaction-tree-by-event-id")
+        .in(sttp.tapir.stringToPath("transaction-tree-by-event-id"))
         .in(path[String]("event-id"))
         .in(query[List[String]]("parties"))
         .description("Get transaction tree by event id"),
@@ -68,7 +67,7 @@ class JsUpdateService(
     ),
     json(
       updates.get
-        .in("transaction-by-event-id")
+        .in(sttp.tapir.stringToPath("transaction-by-event-id"))
         .in(path[String]("event-id"))
         .in(query[List[String]]("parties"))
         .description("Get transaction by event id"),
@@ -76,7 +75,7 @@ class JsUpdateService(
     ),
     json(
       updates.get
-        .in("transaction-by-id")
+        .in(sttp.tapir.stringToPath("transaction-by-id"))
         .in(path[String]("update-id"))
         .in(query[List[String]]("parties"))
         .description("Get transaction by id"),
@@ -84,7 +83,7 @@ class JsUpdateService(
     ),
     json(
       updates.get
-        .in("transaction-tree-by-id")
+        .in(sttp.tapir.stringToPath("transaction-tree-by-id"))
         .in(path[String]("update-id"))
         .in(query[List[String]]("parties"))
         .description("Get transaction tree by  id"),
@@ -249,7 +248,6 @@ case class JsGetUpdateTreesResponse(
     update: JsUpdateTree.Update
 )
 
-@nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
 object JsUpdateServiceCodecs {
   import JsCommandServiceCodecs.*
   import JsStateServiceCodecs.*

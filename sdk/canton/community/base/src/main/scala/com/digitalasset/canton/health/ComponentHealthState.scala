@@ -12,8 +12,6 @@ import com.digitalasset.canton.util.ShowUtil
 import io.circe.Encoder
 import io.circe.generic.semiauto.deriveEncoder
 
-import scala.annotation.nowarn
-
 /** Generic State implementation of a component
   * This can be used as a base health state for most component.
   * However ComponentHealth (below) does not enforce the use of this class and a custom State class can be used instead
@@ -67,7 +65,6 @@ object ComponentHealthState extends ShowUtil {
 
   // Json encoder implicits
 
-  @nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
   implicit val componentHealthStateEncoder: Encoder[ComponentHealthState] =
     deriveEncoder[ComponentHealthState]
 
@@ -103,7 +100,6 @@ object ComponentHealthState extends ShowUtil {
       with HasUnhealthyState
 
   object Degraded {
-    @nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
     implicit val degradedEncoder: Encoder[Degraded] = deriveEncoder[Degraded]
   }
 
@@ -116,7 +112,6 @@ object ComponentHealthState extends ShowUtil {
       with HasUnhealthyState
 
   object Failed {
-    @nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
     implicit val failedEncoder: Encoder[Failed] = deriveEncoder[Failed]
   }
 

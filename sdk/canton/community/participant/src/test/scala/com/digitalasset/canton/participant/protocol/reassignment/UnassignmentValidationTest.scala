@@ -6,7 +6,6 @@ package com.digitalasset.canton.participant.protocol.reassignment
 import cats.data.EitherT
 import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
-import com.digitalasset.canton.data.{CantonTimestamp, ReassignmentSubmitterMetadata}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.{
   ReassignmentProcessorError,
@@ -20,9 +19,8 @@ import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentPro
 import com.digitalasset.canton.participant.protocol.submission.SeedGenerator
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.{MediatorGroupRecipient, Recipients}
-import com.digitalasset.canton.time.TimeProofTestUtil
-import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -47,21 +45,8 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
   private val participant = ParticipantId.tryFromProtoPrimitive("PAR::bothdomains::participant")
   private val otherParticipant = ParticipantId.tryFromProtoPrimitive("PAR::domain::participant")
 
-  private val initialReassignmentCounter: ReassignmentCounter = ReassignmentCounter.Genesis
-
-  private def submitterInfo(submitter: LfPartyId): ReassignmentSubmitterMetadata =
-    ReassignmentSubmitterMetadata(
-      submitter,
-      participant,
-      DefaultDamlValues.lfCommandId(),
-      submissionId = None,
-      DefaultDamlValues.lfApplicationId(),
-      workflowId = None,
-    )
-
   private val contractId = ExampleTransactionFactory.suffixedId(10, 0)
 
-  private val reassignmentId = ReassignmentId(sourceDomain, CantonTimestamp.Epoch)
   private val uuid = new UUID(3L, 4L)
   private val pureCrypto = new SymbolicPureCrypto
   private val seedGenerator = new SeedGenerator(pureCrypto)
@@ -101,7 +86,6 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
 
   private val stakeholders = Set(submitterParty1)
   private val sourcePV = Source(testedProtocolVersion)
-  private val targetPV = Target(testedProtocolVersion)
 
   "unassignment validation" should {
     "succeed without errors" in {
@@ -109,7 +93,6 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
         stakeholders,
         sourcePV,
         templateId,
-        initialReassignmentCounter,
       )
 
       validation.valueOrFailShutdown("validation failed").futureValue shouldBe ()
@@ -122,7 +105,6 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
       stakeholders.union(Set(receiverParty2)),
       sourcePV,
       templateId,
-      initialReassignmentCounter,
     )
 
     validation.futureValueUS.left.value shouldBe StakeholdersMismatch(
@@ -139,7 +121,6 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
       stakeholders,
       sourcePV,
       wrongTemplateId,
-      initialReassignmentCounter,
     )
 
     validation.futureValueUS.left.value shouldBe TemplateIdMismatch(
@@ -154,7 +135,6 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
         stakeholders,
         sourcePV,
         templateId,
-        initialReassignmentCounter,
         submitter = submitter,
       )
 
@@ -179,7 +159,6 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
         stakeholders,
         sourcePV,
         templateId,
-        initialReassignmentCounter,
         reassigningParticipants = reassigningParticipants,
       ).futureValueUS
 
@@ -207,25 +186,18 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
       newStakeholders: Set[LfPartyId],
       sourceProtocolVersion: Source[ProtocolVersion],
       expectedTemplateId: LfTemplateId,
-      reassignmentCounter: ReassignmentCounter,
       reassigningParticipants: Set[ParticipantId] = Set(participant),
       submitter: LfPartyId = submitterParty1,
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] = {
-    val unassignmentRequest = UnassignmentRequest(
-      submitterInfo(submitter),
-      // receiverParty2 is not a stakeholder on a contract, but it is listed as stakeholder here
-      newStakeholders,
-      reassigningParticipants = reassigningParticipants,
-      ExampleTransactionFactory.transactionId(0),
-      contract,
-      reassignmentId.sourceDomain,
-      sourceProtocolVersion,
-      sourceMediator,
-      targetDomain,
-      targetPV,
-      TimeProofTestUtil.mkTimeProof(timestamp = CantonTimestamp.Epoch, targetDomain = targetDomain),
-      reassignmentCounter,
-    )
+
+    val unassignmentRequest =
+      new ReassignmentDataHelpers(contract, sourceDomain, targetDomain, identityFactory)
+        .unassignmentRequest(
+          submitter,
+          submittingParticipant = participant,
+          sourceMediator = sourceMediator,
+        )(newStakeholders, reassigningParticipants)
+
     val fullUnassignmentTree = unassignmentRequest
       .toFullUnassignmentTree(
         pureCrypto,

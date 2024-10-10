@@ -13,7 +13,6 @@ import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
-import scala.math.Ordered.orderingToOrdered
 import scala.util.control.NoStackTrace
 
 /** Wait for ledger to have an offset that is not before the ledger begin.

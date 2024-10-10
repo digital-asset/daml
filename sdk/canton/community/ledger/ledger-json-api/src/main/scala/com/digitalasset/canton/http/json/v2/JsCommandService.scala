@@ -21,7 +21,6 @@ import com.digitalasset.canton.tracing.TraceContext
 import io.circe.*
 import io.circe.generic.semiauto.deriveCodec
 
-import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 class JsCommandService(
@@ -35,7 +34,7 @@ class JsCommandService(
 
   import JsCommandServiceCodecs.*
 
-  private lazy val commands = v2Endpoint.in("commands")
+  private lazy val commands = v2Endpoint.in(sttp.tapir.stringToPath("commands"))
 
   private def commandServiceClient(token: Option[String] = None)(implicit
       traceContext: TraceContext
@@ -50,33 +49,33 @@ class JsCommandService(
   def endpoints() = List(
     jsonWithBody(
       commands.post
-        .in("submit-and-wait-for-update-id")
+        .in(sttp.tapir.stringToPath("submit-and-wait-for-update-id"))
         .description("Submit a batch of commands and wait for the update id"),
       submitAndWaitForUpdateId,
     ),
     jsonWithBody(
       commands.post
-        .in("submit-and-wait-for-transaction")
+        .in(sttp.tapir.stringToPath("submit-and-wait-for-transaction"))
         .description("Submit a batch of commands and wait for the flat transactions response"),
       submitAndWaitForTransaction,
     ),
     jsonWithBody(
       commands.post
-        .in("submit-and-wait-for-transaction-tree")
+        .in(sttp.tapir.stringToPath("submit-and-wait-for-transaction-tree"))
         .description("Submit a batch of commands and wait for the transaction trees response"),
       submitAndWaitForTransactionTree,
     ),
     jsonWithBody(
       commands.post
-        .in("async")
-        .in("submit")
+        .in(sttp.tapir.stringToPath("async"))
+        .in(sttp.tapir.stringToPath("submit"))
         .description("Submit a command asynchronously"),
       submitAsync,
     ),
     jsonWithBody(
       commands.post
-        .in("async")
-        .in("submit-reassignment")
+        .in(sttp.tapir.stringToPath("async"))
+        .in(sttp.tapir.stringToPath("submit-reassignment"))
         .description("Submit reassignment command asynchronously"),
       submitReassignmentAsync,
     ),
@@ -269,7 +268,6 @@ final case class JsDisclosedContract(
     created_event_blob: com.google.protobuf.ByteString,
 )
 
-@nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
 object JsCommandServiceCodecs {
 
   implicit val deduplicationPeriodRW: Codec[DeduplicationPeriod] = deriveCodec

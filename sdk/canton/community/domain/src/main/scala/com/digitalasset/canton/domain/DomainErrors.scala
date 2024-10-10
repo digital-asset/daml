@@ -7,8 +7,8 @@ import com.daml.error.*
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.sequencing.client.{grpc as _, *}
-import com.digitalasset.canton.topology.TopologyManagerError.DomainErrorGroup
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.TopologyManagerError.DomainErrorGroup
 import com.google.common.annotations.VisibleForTesting
 
 import java.util.concurrent.atomic.AtomicReference

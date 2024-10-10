@@ -46,11 +46,12 @@ create table common_crypto_private_keys (
     wrapper_key_id varchar(300)
 );
 
--- Store metadata information about KMS keys
+-- Store metadata information about KMS keys (differs from postgres in the key_usage array definition)
 create table common_kms_metadata_store (
     fingerprint varchar(300) not null,
     kms_key_id varchar(300) not null,
     purpose smallint not null,
+    key_usage varchar array null,
     primary key (fingerprint)
 );
 
@@ -257,7 +258,6 @@ create table par_reassignments (
     -- UTC timestamp in microseconds relative to EPOCH
     unassignment_decision_time bigint not null,
     contract binary large object not null,
-    creating_transaction_id binary large object not null,
     unassignment_result binary large object,
     submitter_lf varchar(300) not null,
 

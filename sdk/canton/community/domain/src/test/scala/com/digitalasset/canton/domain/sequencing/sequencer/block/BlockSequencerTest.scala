@@ -13,8 +13,8 @@ import com.digitalasset.canton.config.{
 }
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.block.BlockSequencerStateManager.ChunkState
 import com.digitalasset.canton.domain.block.*
+import com.digitalasset.canton.domain.block.BlockSequencerStateManager.ChunkState
 import com.digitalasset.canton.domain.block.data.memory.InMemorySequencerBlockStore
 import com.digitalasset.canton.domain.block.data.{BlockEphemeralState, BlockInfo}
 import com.digitalasset.canton.domain.block.update.{

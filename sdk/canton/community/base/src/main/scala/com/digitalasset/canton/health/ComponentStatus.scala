@@ -12,8 +12,6 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import io.circe.Encoder
 import io.circe.generic.semiauto.deriveEncoder
 
-import scala.annotation.nowarn
-
 /** Simple representation of the health state of a component, easily (de)serializable (from)to protobuf or JSON
   */
 final case class ComponentStatus(name: String, state: ComponentHealthState) extends PrettyPrinting {
@@ -51,7 +49,6 @@ object ComponentStatus {
         ProtoDeserializationError.UnrecognizedField("Unknown state").asLeft
     }
 
-  @nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
   implicit val componentStatusEncoder: Encoder[ComponentStatus] = deriveEncoder[ComponentStatus]
 
   implicit val componentStatusPretty: Pretty[ComponentStatus] = {

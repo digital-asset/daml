@@ -81,8 +81,8 @@ private[protocol] class ReassigningParticipants(
         permissions: Map[ParticipantId, ParticipantAttributes]
     ): Set[ParticipantId] =
       permissions.toSeq.collect {
-        case (participant, permissions)
-            if permissions.permission == ParticipantPermission.Submission =>
+        case (participant, participantPermissions)
+            if participantPermissions.permission == ParticipantPermission.Submission =>
           participant
       }.toSet
 

@@ -12,11 +12,11 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.{DynamicDomainParameters, OnboardingRestriction}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.processing.EffectiveTime
+import com.digitalasset.canton.topology.store.*
 import com.digitalasset.canton.topology.store.TopologyTransactionRejection.{
   InvalidTopologyMapping,
   NamespaceAlreadyInUse,
 }
-import com.digitalasset.canton.topology.store.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.TopologyMapping.{Code, MappingHash}
 import com.digitalasset.canton.topology.transaction.TopologyMappingChecks.PendingChangesLookup

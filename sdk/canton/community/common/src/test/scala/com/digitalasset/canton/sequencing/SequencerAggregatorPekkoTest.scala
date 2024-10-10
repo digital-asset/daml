@@ -13,13 +13,13 @@ import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, OnShutdownRunner
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.sequencing.SequencerAggregatorPekko.HasSequencerSubscriptionFactoryPekko
 import com.digitalasset.canton.sequencing.SequencerAggregatorPekkoTest.Config
+import com.digitalasset.canton.sequencing.client.*
 import com.digitalasset.canton.sequencing.client.TestSequencerSubscriptionFactoryPekko.{
   Error,
   Event,
   Failure,
 }
 import com.digitalasset.canton.sequencing.client.TestSubscriptionError.UnretryableError
-import com.digitalasset.canton.sequencing.client.*
 import com.digitalasset.canton.topology.{DefaultTestIdentities, SequencerId}
 import com.digitalasset.canton.util.OrderedBucketMergeHub.{
   ActiveSourceTerminated,

@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.domain.metrics
 
-import com.daml.metrics.api.MetricHandle.Gauge
 import com.daml.metrics.api.*
+import com.daml.metrics.api.MetricHandle.Gauge
 
 class DatabaseSequencerMetrics(
     parent: MetricName,

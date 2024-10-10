@@ -32,17 +32,17 @@ import com.digitalasset.canton.participant.event.{
   RecordTime,
 }
 import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
+import com.digitalasset.canton.participant.protocol.*
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.SubmissionErrors.SubmissionDuringShutdown
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.{
   TransactionSubmissionError,
   TransactionSubmissionResult,
 }
-import com.digitalasset.canton.participant.protocol.*
+import com.digitalasset.canton.participant.protocol.reassignment.*
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.{
   DomainNotReady,
   ReassignmentProcessorError,
 }
-import com.digitalasset.canton.participant.protocol.reassignment.*
 import com.digitalasset.canton.participant.protocol.submission.{
   InFlightSubmissionTracker,
   SeedGenerator,
@@ -53,8 +53,8 @@ import com.digitalasset.canton.participant.pruning.{
   JournalGarbageCollector,
   SortedReconciliationIntervalsProvider,
 }
-import com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveContractIdsChange
 import com.digitalasset.canton.participant.store.*
+import com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveContractIdsChange
 import com.digitalasset.canton.participant.sync.SyncDomain.SubmissionReady
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.participant.topology.ParticipantTopologyDispatcher
@@ -63,8 +63,8 @@ import com.digitalasset.canton.participant.traffic.ParticipantTrafficControlSubs
 import com.digitalasset.canton.participant.util.DAMLe.PackageResolver
 import com.digitalasset.canton.participant.util.{DAMLe, TimeOfChange}
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
-import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
 import com.digitalasset.canton.protocol.*
+import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
 import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.client.RichSequencerClient
 import com.digitalasset.canton.sequencing.client.channel.SequencerChannelClient

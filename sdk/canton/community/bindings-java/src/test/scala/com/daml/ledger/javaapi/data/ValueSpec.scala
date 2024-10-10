@@ -12,8 +12,8 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
 import java.time.Instant
-import java.util.concurrent.TimeUnit
 import java.util.Optional as JOptional
+import java.util.concurrent.TimeUnit
 
 @SuppressWarnings(Array("org.wartremover.warts.OptionPartial"))
 class ValueSpec

@@ -17,8 +17,8 @@ import com.digitalasset.canton.participant.protocol.submission.CommandDeduplicat
   DeduplicationPeriodTooEarly,
   MalformedOffset,
 }
-import com.digitalasset.canton.participant.store.CommandDeduplicationStore.OffsetAndPublicationTime
 import com.digitalasset.canton.participant.store.*
+import com.digitalasset.canton.participant.store.CommandDeduplicationStore.OffsetAndPublicationTime
 import com.digitalasset.canton.participant.sync.UpstreamOffsetConvert
 import com.digitalasset.canton.platform.indexer.parallel.PostPublishData
 import com.digitalasset.canton.time.Clock

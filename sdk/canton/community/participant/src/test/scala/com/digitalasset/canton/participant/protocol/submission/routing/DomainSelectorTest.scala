@@ -7,11 +7,11 @@ import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, SuppressingLogger}
+import com.digitalasset.canton.participant.protocol.submission.DomainSelectionFixture.*
 import com.digitalasset.canton.participant.protocol.submission.DomainSelectionFixture.Transactions.{
   ExerciseByInterface,
   ThreeExercises,
 }
-import com.digitalasset.canton.participant.protocol.submission.DomainSelectionFixture.*
 import com.digitalasset.canton.participant.protocol.submission.UsableDomain.{
   UnknownPackage,
   UnsupportedMinimumProtocolVersion,

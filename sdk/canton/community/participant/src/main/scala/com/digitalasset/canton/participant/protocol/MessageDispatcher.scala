@@ -31,8 +31,8 @@ import com.digitalasset.canton.participant.protocol.submission.{
 }
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
-import com.digitalasset.canton.protocol.messages.ProtocolMessage.select
 import com.digitalasset.canton.protocol.messages.*
+import com.digitalasset.canton.protocol.messages.ProtocolMessage.select
 import com.digitalasset.canton.protocol.{
   LocalRejectError,
   RequestAndRootHashMessage,

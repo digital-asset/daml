@@ -14,7 +14,6 @@ import io.circe.generic.semiauto.deriveCodec
 import sttp.tapir.*
 import sttp.tapir.generic.auto.*
 
-import scala.annotation.nowarn
 import scala.concurrent.Future
 
 class JsIdentityProviderService(
@@ -138,7 +137,6 @@ class JsIdentityProviderService(
         .resultToRight
 
 }
-@nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
 object JsIdentityProviderCodecs {
   implicit val identityProviderConfig
       : Codec[identity_provider_config_service.IdentityProviderConfig] =

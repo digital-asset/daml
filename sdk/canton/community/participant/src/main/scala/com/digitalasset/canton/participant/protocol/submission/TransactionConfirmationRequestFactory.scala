@@ -11,9 +11,9 @@ import cats.syntax.traverse.*
 import com.digitalasset.canton.*
 import com.digitalasset.canton.config.LoggingConfig
 import com.digitalasset.canton.crypto.*
+import com.digitalasset.canton.data.*
 import com.digitalasset.canton.data.GenTransactionTree.ViewWithWitnessesAndRecipients
 import com.digitalasset.canton.data.ViewType.TransactionViewType
-import com.digitalasset.canton.data.*
 import com.digitalasset.canton.ledger.participant.state.SubmitterInfo
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -32,8 +32,8 @@ import com.digitalasset.canton.participant.protocol.validation.{
   ContractConsistencyChecker,
   ExtractUsedContractsFromRootViews,
 }
-import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
 import com.digitalasset.canton.protocol.*
+import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.{
   MediatorGroupRecipient,
@@ -187,7 +187,7 @@ class TransactionConfirmationRequestFactory(
         for {
           parties <- partySignatures
             .verifySignatures(hash, cryptoSnapshot)
-            .leftMap(ParticipantAuthorizationError)
+            .leftMap(ParticipantAuthorizationError.apply)
         } yield parties
     }
 
@@ -264,7 +264,7 @@ class TransactionConfirmationRequestFactory(
         lvt <- LightTransactionViewTree
           .fromTransactionViewTree(vt, subviewsKeys, protocolVersion)
           .leftMap[TransactionConfirmationRequestCreationError](
-            LightTransactionViewTreeCreationError
+            LightTransactionViewTreeCreationError.apply
           )
           .toEitherT[FutureUnlessShutdown]
         ViewKeyData(_, viewKey, viewKeyMap) = viewsToKeyMap(vt.viewHash)

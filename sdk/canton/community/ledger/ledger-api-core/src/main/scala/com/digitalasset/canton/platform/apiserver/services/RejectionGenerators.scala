@@ -12,8 +12,8 @@ import com.digitalasset.canton.ledger.error.groups.{
 }
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.daml.lf.data.{Ref, Time}
-import com.digitalasset.daml.lf.engine.Error.{Interpretation, Package, Preprocessing, Validation}
 import com.digitalasset.daml.lf.engine.Error as LfError
+import com.digitalasset.daml.lf.engine.Error.{Interpretation, Package, Preprocessing, Validation}
 import com.digitalasset.daml.lf.interpretation.Error as LfInterpretationError
 
 sealed abstract class ErrorCause extends Product with Serializable

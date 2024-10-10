@@ -18,11 +18,11 @@ import com.daml.metrics.{HistogramDefinition, MetricsFilterConfig}
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.auth.AccessLevel
+import com.digitalasset.canton.config.CantonRequireTypes.*
 import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.{
   InvalidLengthString,
   defaultMaxLength,
 }
-import com.digitalasset.canton.config.CantonRequireTypes.*
 import com.digitalasset.canton.config.ConfigErrors.{
   CannotParseFilesError,
   CannotReadFilesError,
@@ -71,8 +71,8 @@ import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.metrics.{MetricsConfig, MetricsReporterConfig}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.participant.admin.AdminWorkflowConfig
-import com.digitalasset.canton.participant.config.ParticipantInitConfig.ParticipantLedgerApiInitConfig
 import com.digitalasset.canton.participant.config.*
+import com.digitalasset.canton.participant.config.ParticipantInitConfig.ParticipantLedgerApiInitConfig
 import com.digitalasset.canton.participant.sync.CommandProgressTrackerConfig
 import com.digitalasset.canton.platform.apiserver.SeedService.Seeding
 import com.digitalasset.canton.platform.apiserver.configuration.{
@@ -109,7 +109,6 @@ import pureconfig.generic.{FieldCoproductHint, ProductHint}
 
 import java.io.File
 import java.nio.file.{Path, Paths}
-import scala.annotation.nowarn
 import scala.concurrent.duration.*
 import scala.reflect.ClassTag
 import scala.util.Try
@@ -536,7 +535,6 @@ private[canton] object CantonNodeParameterConverter {
 
 }
 
-@nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
 object CantonConfig {
 
   implicit def preventAllUnknownKeys[T]: ProductHint[T] = ProductHint[T](allowUnknownKeys = false)
@@ -972,8 +970,7 @@ object CantonConfig {
     lazy implicit val timeoutSettingsReader: ConfigReader[TimeoutSettings] =
       deriveReader[TimeoutSettings]
 
-    @nowarn("cat=unused") lazy implicit val partyNotificationConfigReader
-        : ConfigReader[PartyNotificationConfig] = {
+    lazy implicit val partyNotificationConfigReader: ConfigReader[PartyNotificationConfig] = {
       implicit val partyNotificationConfigViaDomainReader
           : ConfigReader[PartyNotificationConfig.ViaDomain.type] =
         deriveReader[PartyNotificationConfig.ViaDomain.type]
@@ -1006,7 +1003,7 @@ object CantonConfig {
       deriveReader[EngineLoggingConfig]
     lazy implicit val cantonEngineConfigReader: ConfigReader[CantonEngineConfig] =
       deriveReader[CantonEngineConfig]
-    @nowarn("cat=unused") lazy implicit val participantNodeParameterConfigReader
+    lazy implicit val participantNodeParameterConfigReader
         : ConfigReader[ParticipantNodeParameterConfig] = {
       implicit val commandProgressTrackerConfigReader: ConfigReader[CommandProgressTrackerConfig] =
         deriveReader[CommandProgressTrackerConfig]
@@ -1024,8 +1021,7 @@ object CantonConfig {
       deriveReader[RetentionPeriodDefaults]
     lazy implicit val inMemoryDbCacheSettingsReader: ConfigReader[DbCacheConfig] =
       deriveReader[DbCacheConfig]
-    @nowarn("cat=unused") lazy implicit val batchAggregatorConfigReader
-        : ConfigReader[BatchAggregatorConfig] = {
+    lazy implicit val batchAggregatorConfigReader: ConfigReader[BatchAggregatorConfig] = {
       implicit val batching = deriveReader[BatchAggregatorConfig.Batching]
       implicit val noBatching = deriveReader[BatchAggregatorConfig.NoBatching.type]
 
@@ -1442,7 +1438,7 @@ object CantonConfig {
       deriveWriter[EngineLoggingConfig]
     lazy implicit val cantonEngineConfigWriter: ConfigWriter[CantonEngineConfig] =
       deriveWriter[CantonEngineConfig]
-    @nowarn("cat=unused") lazy implicit val participantNodeParameterConfigWriter
+    lazy implicit val participantNodeParameterConfigWriter
         : ConfigWriter[ParticipantNodeParameterConfig] = {
       implicit val commandProgressTrackerConfigWriter: ConfigWriter[CommandProgressTrackerConfig] =
         deriveWriter[CommandProgressTrackerConfig]
@@ -1461,10 +1457,9 @@ object CantonConfig {
     lazy implicit val inMemoryDbCacheSettingsWriter: ConfigWriter[DbCacheConfig] =
       deriveWriter[DbCacheConfig]
     lazy implicit val batchAggregatorConfigWriter: ConfigWriter[BatchAggregatorConfig] = {
-      @nowarn("cat=unused") implicit val batching: ConfigWriter[BatchAggregatorConfig.Batching] =
+      implicit val batching: ConfigWriter[BatchAggregatorConfig.Batching] =
         deriveWriter[BatchAggregatorConfig.Batching]
-      @nowarn("cat=unused") implicit val noBatching
-          : ConfigWriter[BatchAggregatorConfig.NoBatching.type] =
+      implicit val noBatching: ConfigWriter[BatchAggregatorConfig.NoBatching.type] =
         deriveWriter[BatchAggregatorConfig.NoBatching.type]
 
       deriveWriter[BatchAggregatorConfig]

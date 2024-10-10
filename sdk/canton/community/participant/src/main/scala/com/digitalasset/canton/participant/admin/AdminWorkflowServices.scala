@@ -147,12 +147,11 @@ class AdminWorkflowServices(
         SyncCloseable(s"$name-service", Lifecycle.close(service)(logger)),
       )
 
-    adminServiceCloseables("ping", pingSubscription, ping)
-      ++ partyManagementO
-        .fold(Seq.empty[AsyncOrSyncCloseable]) {
-          case (partyManagementSubscription, partyManagement) =>
-            adminServiceCloseables("party-management", partyManagementSubscription, partyManagement)
-        }
+    adminServiceCloseables("ping", pingSubscription, ping) ++ partyManagementO
+      .fold(Seq.empty[AsyncOrSyncCloseable]) {
+        case (partyManagementSubscription, partyManagement) =>
+          adminServiceCloseables("party-management", partyManagementSubscription, partyManagement)
+      }
   }
 
   private def checkPackagesStatus(

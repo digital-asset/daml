@@ -12,9 +12,6 @@ import org.slf4j.event.Level.INFO
 import pureconfig.ConfigReader
 import pureconfig.generic.semiauto.*
 
-import scala.annotation.nowarn
-
-@nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
 class DeprecatedConfigUtilsTest extends AnyWordSpec with BaseTest {
   case class TestConfig(s: Option[String], i: Option[Int], nested: NestedTestConfig)
   case class NestedTestConfig(newS: String = "bye", newI: Int = 31, newJ: Int = 34)

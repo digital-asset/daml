@@ -35,13 +35,13 @@ import scala.util.Try
 class ReassignmentCacheTest extends AsyncWordSpec with BaseTest with HasExecutorService {
   import ReassignmentStoreTest.*
 
-  val reassignmentDataF =
+  private val reassignmentData =
     mkReassignmentDataForDomain(
       reassignment10,
       mediator1,
       targetDomainId = targetDomainId,
     )
-  val toc = TimeOfChange(RequestCounter(0), CantonTimestamp.Epoch)
+  private val toc = TimeOfChange(RequestCounter(0), CantonTimestamp.Epoch)
 
   def createStore: InMemoryReassignmentStore =
     new InMemoryReassignmentStore(targetDomainId, loggerFactory)
@@ -51,7 +51,6 @@ class ReassignmentCacheTest extends AsyncWordSpec with BaseTest with HasExecutor
     val cache = new ReassignmentCache(store, loggerFactory)
 
     for {
-      reassignmentData <- reassignmentDataF
       _ <- valueOrFail(store.addReassignment(reassignmentData).failOnShutdown)("add failed")
       _ <- valueOrFail(store.lookup(reassignment10))("lookup did not find reassignment")
       lookup11 <- cache.lookup(reassignment11).value
@@ -69,7 +68,6 @@ class ReassignmentCacheTest extends AsyncWordSpec with BaseTest with HasExecutor
       val store = new HookReassignmentStore(backingStore)
       val cache = new ReassignmentCache(store, loggerFactory)
       for {
-        reassignmentData <- reassignmentDataF
         _ <- valueOrFail(store.addReassignment(reassignmentData).failOnShutdown)("add failed")
         _ = store.preComplete { (reassignmentId, _) =>
           assert(reassignmentId == reassignment10)
@@ -109,7 +107,6 @@ class ReassignmentCacheTest extends AsyncWordSpec with BaseTest with HasExecutor
       val promise = Promise[Checked[Nothing, ReassignmentStoreError, Unit]]()
 
       for {
-        reassignmentData <- reassignmentDataF
         _ <- valueOrFail(store.addReassignment(reassignmentData).failOnShutdown)("add failed")
         _ = store.preComplete { (reassignmentId, _) =>
           assert(reassignmentId == reassignment10)
@@ -140,7 +137,6 @@ class ReassignmentCacheTest extends AsyncWordSpec with BaseTest with HasExecutor
       val promise = Promise[Checked[Nothing, ReassignmentStoreError, Unit]]()
 
       for {
-        reassignmentData <- reassignmentDataF
         _ <- valueOrFail(store.addReassignment(reassignmentData).failOnShutdown)("add failed")
         _ <- valueOrFail(store.completeReassignment(reassignment10, toc2))(
           "first completion failed"
@@ -168,7 +164,6 @@ class ReassignmentCacheTest extends AsyncWordSpec with BaseTest with HasExecutor
       val promise = Promise[Assertion]()
 
       for {
-        reassignmentData <- reassignmentDataF
         _ <- valueOrFail(store.addReassignment(reassignmentData).failOnShutdown)("add failed")
         _ = store.preComplete { (reassignmentId, _) =>
           assert(reassignmentId == reassignment10)
@@ -197,7 +192,6 @@ class ReassignmentCacheTest extends AsyncWordSpec with BaseTest with HasExecutor
       val cache = new ReassignmentCache(store, loggerFactory)
 
       for {
-        reassignmentData <- reassignmentDataF
         _ <- valueOrFail(store.addReassignment(reassignmentData).failOnShutdown)("add failed")
         _ <- valueOrFail(cache.completeReassignment(reassignment10, laterTimestampedCompletion))(
           "first completion fails"
@@ -237,7 +231,6 @@ class ReassignmentCacheTest extends AsyncWordSpec with BaseTest with HasExecutor
         }
 
       for {
-        reassignmentData <- reassignmentDataF
         _ <- valueOrFail(store.addReassignment(reassignmentData).failOnShutdown)("add failed")
 
         resultFutures = (timestamps).map { time =>
