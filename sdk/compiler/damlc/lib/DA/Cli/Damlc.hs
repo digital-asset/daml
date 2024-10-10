@@ -63,6 +63,7 @@ import DA.Cli.Options (Debug(..),
                        telemetryOpt)
 import DA.Cli.Damlc.BuildInfo (buildInfo)
 import DA.Cli.Damlc.Command.MultiIde (runMultiIde)
+import DA.Cli.Damlc.Command.CheckUpgrades (runCheckUpgrades)
 import qualified DA.Daml.Dar.Reader as InspectDar
 import qualified DA.Cli.Damlc.Command.Damldoc as Damldoc
 import DA.Cli.Damlc.Packaging (createProjectPackageDb, mbErr)
@@ -310,6 +311,7 @@ data CommandName =
   | Test
   | GenerateMultiPackageManifest
   | MultiIde
+  | CheckUpgrades
   deriving (Ord, Show, Eq)
 data Command = Command CommandName (Maybe ProjectOpts) (IO ())
 
@@ -325,6 +327,17 @@ cmdMultiIde _numProcessors =
         <$> cliOptLogLevel
         <*> optional (strOptionOnce $ long "ide-identifier" <> help "Identifier string for this IDE")
         <*> many (strArgument mempty)
+
+cmdCheckUpgrades :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
+cmdCheckUpgrades _numProcessors =
+    command "upgrade-check-compiler" $ info (helper <*> cmd) $
+       progDesc
+        "Check upgrades for multiple DARs"
+    <> fullDesc
+    <> forwardOptions
+  where
+    cmd = fmap (Command CheckUpgrades Nothing) $ runCheckUpgrades
+        <$> many (strArgument $ help "Path to DAR")
 
 cmdIde :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
 cmdIde numProcessors =
@@ -1652,6 +1665,7 @@ options numProcessors =
     subparser
       (  cmdIde numProcessors
       <> cmdMultiIde numProcessors
+      <> cmdCheckUpgrades numProcessors
       <> cmdLicense
       -- cmdPackage can go away once we kill the old assistant.
       <> cmdPackage numProcessors
@@ -1844,6 +1858,7 @@ cmdUseDamlYamlArgs = \case
   Test -> True
   GenerateMultiPackageManifest -> False -- Just reads config files
   MultiIde -> False
+  CheckUpgrades -> True -- will also read the multi-package manifest if available
 
 withProjectRoot' :: ProjectOpts -> ((FilePath -> IO FilePath) -> IO a) -> IO a
 withProjectRoot' ProjectOpts{..} act =

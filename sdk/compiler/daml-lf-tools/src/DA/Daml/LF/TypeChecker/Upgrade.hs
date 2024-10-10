@@ -88,9 +88,17 @@ extractDiagnostics version upgradeInfo action =
     Left err -> [toDiagnostic err]
     Right ((), warnings) -> map toDiagnostic (nub warnings)
 
+unitIdDalfPackageToUpgradedPkg :: (UnitId, LF.DalfPackage) -> UpgradedPkgWithNameAndVersion
+unitIdDalfPackageToUpgradedPkg (unitId, dalfPkg) = 
+  let (packageName, mbPkgVersion) = LF.splitUnitId unitId
+      LF.DalfPackage{dalfPackagePkg,dalfPackageId=presentPkgId} = dalfPkg
+      presentPkg = extPackagePkg dalfPackagePkg
+  in
+  (presentPkgId, presentPkg, packageName, mbPkgVersion)
+
 checkPackage
   :: LF.Package
-  -> [(UnitId, LF.DalfPackage)] -> Version -> UpgradeInfo
+  -> [UpgradedPkgWithNameAndVersion] -> Version -> UpgradeInfo
   -> Maybe (UpgradedPkgWithNameAndVersion, [UpgradedPkgWithNameAndVersion])
   -> [Diagnostic]
 checkPackage pkg deps version upgradeInfo mbUpgradedPkg =
@@ -136,7 +144,7 @@ type UpgradedPkgWithNameAndVersion = (LF.PackageId, LF.Package, LF.PackageName, 
 
 checkModule
   :: LF.World -> LF.Module
-  -> [(UnitId, LF.DalfPackage)] -> Version -> UpgradeInfo
+  -> [UpgradedPkgWithNameAndVersion] -> Version -> UpgradeInfo
   -> Maybe (UpgradedPkgWithNameAndVersion, [UpgradedPkgWithNameAndVersion])
   -> [Diagnostic]
 checkModule world0 module_ deps version upgradeInfo mbUpgradedPkg =
@@ -160,9 +168,8 @@ checkModule world0 module_ deps version upgradeInfo mbUpgradedPkg =
                   let upgradingModule = Upgrading { _past = pastModule, _present = module_ }
                   checkModuleM upgradedPkgId upgradingModule
 
-
 checkUpgradeDependenciesM
-    :: [(UnitId, LF.DalfPackage)]
+    :: [UpgradedPkgWithNameAndVersion]
     -> [UpgradedPkgWithNameAndVersion]
     -> TcPreUpgradeM DepsMap
 checkUpgradeDependenciesM presentDeps pastDeps = do
@@ -184,9 +191,9 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
                   Right rawVersion ->
                     pure $ Just (pkgName, [(Just rawVersion, pkgId, pkg)])
 
-    let withIdAndPkg :: (UnitId, LF.DalfPackage) -> (LF.PackageId, (UnitId, LF.DalfPackage), LF.Package)
-        withIdAndPkg x@(_, dalfPkg) = (dalfPackageId dalfPkg, x, extPackagePkg (dalfPackagePkg dalfPkg))
-        withoutIdAndPkg :: (LF.PackageId, (UnitId, LF.DalfPackage), LF.Package) -> (UnitId, LF.DalfPackage)
+    let withIdAndPkg :: UpgradedPkgWithNameAndVersion -> (LF.PackageId, UpgradedPkgWithNameAndVersion, LF.Package)
+        withIdAndPkg x@(pkgId, pkg, _, _) = (pkgId, x, pkg)
+        withoutIdAndPkg :: (LF.PackageId, UpgradedPkgWithNameAndVersion, LF.Package) -> UpgradedPkgWithNameAndVersion
         withoutIdAndPkg (_, x, _) = x
 
     -- TODO: https://github.com/digital-asset/daml/issues/19859
@@ -229,7 +236,7 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
 
     checkAllDeps
       :: UpgradeablePackageMap
-      -> [(UnitId, LF.DalfPackage)]
+      -> [UpgradedPkgWithNameAndVersion]
       -> TcPreUpgradeM UpgradeablePackageMap
     checkAllDeps upgradeablePackageMap [] = pure upgradeablePackageMap
     checkAllDeps upgradeablePackageMap (pkg:rest) = do
@@ -242,12 +249,9 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
 
     checkOneDep
       :: UpgradeablePackageMap
-      -> (UnitId, LF.DalfPackage)
+      -> UpgradedPkgWithNameAndVersion
       -> TcPreUpgradeM (Maybe (LF.PackageName, UpgradeablePackage))
-    checkOneDep upgradeablePackageMap (unitId, dalfPkg) = do
-      let (packageName, mbPkgVersion) = LF.splitUnitId unitId
-          LF.DalfPackage{dalfPackagePkg,dalfPackageId=presentPkgId} = dalfPkg
-          presentPkg = extPackagePkg dalfPackagePkg
+    checkOneDep upgradeablePackageMap (presentPkgId, presentPkg, packageName, mbPkgVersion) = do
       versionAndInfo <- ask
       withPkgAsGamma presentPkg $
         case mbPkgVersion of
