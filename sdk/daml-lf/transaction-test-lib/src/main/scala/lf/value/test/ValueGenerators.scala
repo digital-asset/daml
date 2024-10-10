@@ -411,6 +411,7 @@ object ValueGenerators {
     } yield Node.Exercise(
       targetCoid = targetCoid,
       packageName = pkgName,
+      creationPackageId = pkgName.map(_ => templateId.packageId),
       templateId = templateId,
       interfaceId = interfaceId,
       choiceId = choiceId,

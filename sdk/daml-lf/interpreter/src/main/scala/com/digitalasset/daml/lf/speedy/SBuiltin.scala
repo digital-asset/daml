@@ -1029,6 +1029,12 @@ private[lf] object SBuiltin {
       ) { contract =>
         val templateVersion = machine.tmplId2TxVersion(templateId)
         val pkgName = machine.tmplId2PackageName(templateId, templateVersion)
+        val creationPackageId = pkgName.map(_ =>
+          machine.getCreationTemplateId(coid) match {
+            case Some(tmplId) => tmplId.packageId
+            case None => crash(s"unexpected missing contract $coid")
+          }
+        )
         val interfaceVersion = interfaceId.map(machine.tmplId2TxVersion)
         val exerciseVersion = interfaceVersion.fold(templateVersion)(_.max(templateVersion))
         val chosenValue = args.get(0).toNormalizedValue(exerciseVersion)
@@ -1055,6 +1061,7 @@ private[lf] object SBuiltin {
           machine.ptx
             .beginExercises(
               packageName = pkgName,
+              creationPackageId = creationPackageId,
               templateId = templateId,
               targetId = coid,
               contract = contract,
@@ -2397,7 +2404,7 @@ private[lf] object SBuiltin {
       optTargetTemplateId: Option[TypeConName],
       coid: V.ContractId,
   )(f: (Option[Ref.PackageName], SValue) => Control[Question.Update]): Control[Question.Update] = {
-    machine.getIfLocalContract(coid) match {
+    machine.getLocalContract(coid) match {
       case Some((templateId, templateArg)) =>
         ensureContractActive(machine, coid, templateId) {
           getContractInfo(
@@ -2411,57 +2418,58 @@ private[lf] object SBuiltin {
           }
         }
       case None =>
-        machine.lookupContract(coid) { case coinst @ V.ContractInstance(_, srcTmplId, coinstArg) =>
-          val (upgradingIsEnabled, dstTmplId) = optTargetTemplateId match {
-            case Some(tycon) if coinst.upgradable =>
-              (true, tycon)
-            case _ =>
-              (false, srcTmplId) // upgrading not enabled; import at source type
-          }
-          if (srcTmplId.qualifiedName != dstTmplId.qualifiedName) {
-            Control.Error(
-              IE.WronglyTypedContract(coid, dstTmplId, srcTmplId)
-            )
-          } else
-            machine.ensurePackageIsLoaded(
-              dstTmplId.packageId,
-              language.Reference.Template(dstTmplId),
-            ) { () =>
-              importValue(machine, dstTmplId, coinstArg) { templateArg =>
-                getContractInfo(
-                  machine,
-                  coid,
-                  dstTmplId,
-                  templateArg,
-                  allowCatchingContractInfoErrors = false,
-                ) { contract =>
-                  ensureContractActive(machine, coid, contract.templateId) {
+        machine.lookupGlobalContract(coid) {
+          case coinst @ V.ContractInstance(_, srcTmplId, coinstArg) =>
+            val (upgradingIsEnabled, dstTmplId) = optTargetTemplateId match {
+              case Some(tycon) if coinst.upgradable =>
+                (true, tycon)
+              case _ =>
+                (false, srcTmplId) // upgrading not enabled; import at source type
+            }
+            if (srcTmplId.qualifiedName != dstTmplId.qualifiedName) {
+              Control.Error(
+                IE.WronglyTypedContract(coid, dstTmplId, srcTmplId)
+              )
+            } else
+              machine.ensurePackageIsLoaded(
+                dstTmplId.packageId,
+                language.Reference.Template(dstTmplId),
+              ) { () =>
+                importValue(machine, dstTmplId, coinstArg) { templateArg =>
+                  getContractInfo(
+                    machine,
+                    coid,
+                    dstTmplId,
+                    templateArg,
+                    allowCatchingContractInfoErrors = false,
+                  ) { contract =>
+                    ensureContractActive(machine, coid, contract.templateId) {
 
-                    machine.checkContractVisibility(coid, contract)
-                    machine.enforceLimitAddInputContract()
-                    machine.enforceLimitSignatoriesAndObservers(coid, contract)
+                      machine.checkContractVisibility(coid, contract)
+                      machine.enforceLimitAddInputContract()
+                      machine.enforceLimitSignatoriesAndObservers(coid, contract)
 
-                    // In Validation mode, we always call validateContractInfo
-                    // In Submission mode, we only call validateContractInfo when src != dest
-                    val needValidationCall: Boolean =
-                      if (machine.validating) {
-                        upgradingIsEnabled
+                      // In Validation mode, we always call validateContractInfo
+                      // In Submission mode, we only call validateContractInfo when src != dest
+                      val needValidationCall: Boolean =
+                        if (machine.validating) {
+                          upgradingIsEnabled
+                        } else {
+                          // we already check qualified names match
+                          upgradingIsEnabled && (srcTmplId.packageId != dstTmplId.packageId)
+                        }
+                      if (needValidationCall) {
+
+                        validateContractInfo(machine, coid, srcTmplId, contract) { () =>
+                          f(contract.packageName, contract.any)
+                        }
                       } else {
-                        // we already check qualified names match
-                        upgradingIsEnabled && (srcTmplId.packageId != dstTmplId.packageId)
-                      }
-                    if (needValidationCall) {
-
-                      validateContractInfo(machine, coid, srcTmplId, contract) { () =>
                         f(contract.packageName, contract.any)
                       }
-                    } else {
-                      f(contract.packageName, contract.any)
                     }
                   }
                 }
               }
-            }
         }
     }
   }

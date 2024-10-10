@@ -89,7 +89,8 @@ message NodeFetch {
 
 message NodeExercise {
     reserved 1; // was contract_id
-    string package_name = 21; // required *since dev*
+    string package_name = 21; // required *since 17*
+    string creationPackageId = 22; // required *since 17*
     com.daml.lf.value.Identifier template_id = 2;
     com.daml.lf.value.Identifier interface_id = 19; // optional *since version 15*
     repeated string actors = 3;
