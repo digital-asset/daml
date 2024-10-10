@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant.config
 
 import cats.syntax.option.*
 import com.daml.jwt.JwtTimestampLeeway
-import com.daml.tls.{TlsConfiguration, TlsVersion}
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.RequireTypes.*
 import com.digitalasset.canton.config.*
@@ -31,7 +30,7 @@ import com.digitalasset.canton.sequencing.client.SequencerClientConfig
 import com.digitalasset.canton.store.PrunableByTimeParameters
 import com.digitalasset.canton.time.EnrichedDurations.RichNonNegativeFiniteDurationConfig
 import com.digitalasset.canton.version.{ParticipantProtocolVersion, ProtocolVersion}
-import io.netty.handler.ssl.{ClientAuth, SslContext}
+import io.netty.handler.ssl.SslContext
 import monocle.macros.syntax.lens.*
 
 /** Base for all participant configs - both local and remote */
@@ -212,7 +211,7 @@ final case class LedgerApiServerConfig(
     ClientConfig(address, port, tls.map(_.clientConfig))
 
   override def sslContext: Option[SslContext] =
-    tls.map(CantonServerBuilder.sslContext)
+    tls.map(CantonServerBuilder.sslContext(_))
 
   override def serverCertChainFile: Option[ExistingFile] =
     tls.map(_.certChainFile)
@@ -235,29 +234,6 @@ object LedgerApiServerConfig {
       // The two options below are to turn off memory based rate limiting by default
       maxUsedHeapSpacePercentage = 100,
       minFreeHeapSpaceBytes = 0,
-    )
-
-  def ledgerApiServerTlsConfigFromCantonServerConfig(
-      tlsCantonConfig: TlsServerConfig
-  ): TlsConfiguration =
-    TlsConfiguration(
-      enabled = true,
-      certChainFile = Some(tlsCantonConfig.certChainFile.unwrap),
-      privateKeyFile = Some(tlsCantonConfig.privateKeyFile.unwrap),
-      trustCollectionFile = tlsCantonConfig.trustCollectionFile.map(_.unwrap),
-      clientAuth = tlsCantonConfig.clientAuth match {
-        case ServerAuthRequirementConfig.Require(_cert) => ClientAuth.REQUIRE
-        case ServerAuthRequirementConfig.Optional => ClientAuth.OPTIONAL
-        case ServerAuthRequirementConfig.None => ClientAuth.NONE
-      },
-      enableCertRevocationChecking = tlsCantonConfig.enableCertRevocationChecking,
-      minimumServerProtocolVersion = tlsCantonConfig.minimumServerProtocolVersion.map { v =>
-        Seq[TlsVersion.TlsVersion](TlsVersion.V1, TlsVersion.V1_1, TlsVersion.V1_2, TlsVersion.V1_3)
-          .find(_.version == v)
-          .getOrElse(
-            throw new IllegalArgumentException(s"Unknown TLS protocol version $v")
-          )
-      },
     )
 
 }

@@ -5,7 +5,7 @@ package com.digitalasset.canton.config
 
 import com.daml.jwt.JwtTimestampLeeway
 import com.daml.metrics.grpc.GrpcServerMetrics
-import com.daml.tls.TlsVersion
+import com.daml.tls.{OcspProperties, ProtocolDisabler, TlsInfo, TlsVersion}
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.config.AdminServerConfig.defaultAddress
@@ -141,7 +141,7 @@ trait AdminServerConfig extends ServerConfig {
       keepAliveClient = keepAliveServer.map(_.clientConfigFor),
     )
 
-  override def sslContext: Option[SslContext] = tls.map(CantonServerBuilder.sslContext)
+  override def sslContext: Option[SslContext] = tls.map(CantonServerBuilder.sslContext(_))
 
   override def serverCertChainFile: Option[ExistingFile] = tls.map(_.certChainFile)
 }
@@ -247,7 +247,7 @@ sealed trait BaseTlsArguments {
   *                            optional or unsupported.
   *                            If client authentication is enabled and this parameter is absent,
   *                            the certificates in the JVM trust store will be used instead.
-  * @param clientAuth indicates whether server requires, requests, does does not request auth from clients.
+  * @param clientAuth indicates whether server requires, requests, or does not request auth from clients.
   *                   Normally the ledger api server requires client auth under TLS, but using this setting this
   *                   requirement can be loosened.
   *                   See https://github.com/digital-asset/daml/commit/edd73384c427d9afe63bae9d03baa2a26f7b7f54
@@ -277,6 +277,27 @@ final case class TlsServerConfig(
     }
     TlsClientConfig(trustCollectionFile = Some(certChainFile), clientCert = clientCert)
   }
+
+  /** This is a side-effecting method. It modifies JVM TLS properties according to the TLS configuration. */
+  def setJvmTlsProperties(): Unit = {
+    if (enableCertRevocationChecking) OcspProperties.enableOcsp()
+    ProtocolDisabler.disableSSLv2Hello()
+  }
+
+  override def protocols: Option[Seq[String]] = {
+    val disallowedTlsVersions =
+      Seq(
+        TlsVersion.V1.version,
+        TlsVersion.V1_1.version,
+      )
+    minimumServerProtocolVersion match {
+      case Some(minVersion) if disallowedTlsVersions.contains(minVersion) =>
+        throw new IllegalArgumentException(s"Unsupported TLS version: $minVersion")
+      case _ =>
+        super.protocols
+    }
+  }
+
 }
 
 object TlsServerConfig {
@@ -326,6 +347,45 @@ object TlsServerConfig {
   }
 
   val defaultMinimumServerProtocol = "TLSv1.2"
+
+  /** Netty incorrectly hardcodes the report that the SSLv2Hello protocol is enabled. There is no way
+    * to stop it from doing it, so we just filter the netty's erroneous claim. We also make sure that
+    * the SSLv2Hello protocol is knocked out completely at the JSSE level through the ProtocolDisabler
+    */
+  private def filterSSLv2Hello(protocols: Seq[String]): Seq[String] =
+    protocols.filter(_ != ProtocolDisabler.sslV2Protocol)
+
+  def logTlsProtocolsAndCipherSuites(
+      sslContext: SslContext,
+      isServer: Boolean,
+  ): Unit = {
+    val (who, provider, logger) =
+      if (isServer)
+        (
+          "Server",
+          SslContext.defaultServerProvider(),
+          LoggerFactory.getLogger(TlsServerConfig.getClass),
+        )
+      else
+        (
+          "Client",
+          SslContext.defaultClientProvider(),
+          LoggerFactory.getLogger(TlsClientConfig.getClass),
+        )
+
+    val tlsInfo = TlsInfo.fromSslContext(sslContext)
+    logger.info(s"$who TLS - enabled via $provider")
+    logger.debug(
+      s"$who TLS - supported protocols: ${filterSSLv2Hello(tlsInfo.supportedProtocols).mkString(", ")}."
+    )
+    logger.info(
+      s"$who TLS - enabled protocols: ${filterSSLv2Hello(tlsInfo.enabledProtocols).mkString(", ")}."
+    )
+    logger.debug(
+      s"$who TLS $who - supported cipher suites: ${tlsInfo.supportedCipherSuites.mkString(", ")}."
+    )
+    logger.info(s"$who TLS - enabled cipher suites: ${tlsInfo.enabledCipherSuites.mkString(", ")}.")
+  }
 
 }
 

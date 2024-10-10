@@ -46,7 +46,6 @@ import com.digitalasset.canton.networking.grpc.{
   ClientChannelBuilder,
 }
 import com.digitalasset.canton.participant.ParticipantNodeParameters
-import com.digitalasset.canton.participant.config.LedgerApiServerConfig
 import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
 import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandExecutor.AuthenticateContract
@@ -303,8 +302,7 @@ class StartableStoppableLedgerApiServer(
         managementServiceTimeout = config.serverConfig.managementServiceTimeout,
         userManagement = config.serverConfig.userManagementService,
         partyManagementServiceConfig = config.serverConfig.partyManagementService,
-        tls = config.serverConfig.tls
-          .map(LedgerApiServerConfig.ledgerApiServerTlsConfigFromCantonServerConfig),
+        tls = config.serverConfig.tls,
         address = Some(config.serverConfig.address),
         maxInboundMessageSize = config.serverConfig.maxInboundMessageSize.unwrap,
         port = config.serverConfig.port,
@@ -458,8 +456,7 @@ class StartableStoppableLedgerApiServer(
             )(channel => Future(channel.shutdown().discard))
           _ <- HttpApiServer(
             jsonApiConfig,
-            config.serverConfig.tls
-              .map(LedgerApiServerConfig.ledgerApiServerTlsConfigFromCantonServerConfig),
+            config.serverConfig.tls,
             channel,
             writeService,
             loggerFactory,

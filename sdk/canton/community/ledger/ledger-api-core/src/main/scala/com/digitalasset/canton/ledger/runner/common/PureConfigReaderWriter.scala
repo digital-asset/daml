@@ -5,8 +5,6 @@ package com.digitalasset.canton.ledger.runner.common
 
 import com.daml.jwt.JwtTimestampLeeway
 import com.daml.ports.Port
-import com.daml.tls.TlsVersion.TlsVersion
-import com.daml.tls.{TlsConfiguration, TlsVersion}
 import com.digitalasset.canton.ledger.runner.common.OptConfigValue.{
   optConvertEnabled,
   optProductHint,
@@ -33,7 +31,6 @@ import com.digitalasset.canton.platform.store.DbSupport.{
 import com.digitalasset.canton.platform.store.backend.postgresql.PostgresDataSourceConfig
 import com.digitalasset.canton.platform.store.backend.postgresql.PostgresDataSourceConfig.SynchronousCommitValue
 import com.digitalasset.daml.lf.data.Ref
-import io.netty.handler.ssl.ClientAuth
 import pureconfig.configurable.{genericMapReader, genericMapWriter}
 import pureconfig.error.CannotConvert
 import pureconfig.generic.ProductHint
@@ -43,7 +40,6 @@ import pureconfig.{ConfigConvert, ConfigReader, ConfigWriter}
 import scala.annotation.nowarn
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.jdk.DurationConverters.{JavaDurationOps, ScalaDurationOps}
-import scala.util.Try
 
 @nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
 class PureConfigReaderWriter(secure: Boolean = true) {
@@ -62,29 +58,6 @@ class PureConfigReaderWriter(secure: Boolean = true) {
         .map(_.toJava)
         .toRight(CannotConvert(str, Duration.getClass.getName, s"Could not convert $str"))
     }
-
-  implicit val clientAuthReader: ConfigReader[ClientAuth] =
-    ConfigReader.fromStringTry[ClientAuth](value => Try(ClientAuth.valueOf(value.toUpperCase)))
-  implicit val clientAuthWriter: ConfigWriter[ClientAuth] =
-    ConfigWriter.toString(_.name().toLowerCase)
-
-  implicit val tlsVersionReader: ConfigReader[TlsVersion] =
-    ConfigReader.fromString[TlsVersion] { tlsVersion =>
-      TlsVersion.allVersions
-        .find(_.version == tlsVersion)
-        .toRight(
-          CannotConvert(tlsVersion, TlsVersion.getClass.getName, s"$tlsVersion is not recognized.")
-        )
-    }
-
-  implicit val tlsVersionWriter: ConfigWriter[TlsVersion] =
-    ConfigWriter.toString(tlsVersion => tlsVersion.version)
-
-  implicit val tlsConfigurationHint: ProductHint[TlsConfiguration] =
-    ProductHint[TlsConfiguration](allowUnknownKeys = false)
-
-  implicit val tlsConfigurationConvert: ConfigConvert[TlsConfiguration] =
-    deriveConvert[TlsConfiguration]
 
   implicit val portReader: ConfigReader[Port] = ConfigReader.intConfigReader.map(Port.apply)
   implicit val portWriter: ConfigWriter[Port] = ConfigWriter.intConfigWriter.contramap[Port] {

@@ -8,6 +8,7 @@ import com.daml.tracing.Telemetry
 import com.digitalasset.canton.auth.CantonAdminToken
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.*
+import com.digitalasset.canton.config.TlsServerConfig.logTlsProtocolsAndCipherSuites
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.tracing.TracingConfig
@@ -184,13 +185,19 @@ object CantonServerBuilder {
 
   def baseSslContext(config: TlsBaseServerConfig): SslContext = baseSslBuilder(config).build()
 
-  def sslContext(config: TlsServerConfig): SslContext = {
+  def sslContext(
+      config: TlsServerConfig,
+      logTlsProtocolAndCipherSuites: Boolean = false,
+  ): SslContext = {
     val s1 = baseSslBuilder(config)
     val s2 = config.trustCollectionFile.fold(s1)(trustCollection =>
       s1.trustManager(trustCollection.unwrap)
     )
     val s3 = s2.clientAuth(config.clientAuth.clientAuth)
-    s3.build()
+    val sslContext = s3.build()
+    if (logTlsProtocolAndCipherSuites)
+      logTlsProtocolsAndCipherSuites(sslContext, isServer = true)
+    sslContext
   }
 
   /** We know this operation is safe due to the definition of [[io.grpc.ServerBuilder]].
