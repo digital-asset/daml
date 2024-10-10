@@ -88,7 +88,7 @@ object TransactionCoder {
       Either.cond(
         pkgVer.isEmpty,
         List.empty,
-        EncodeError(s"packageVersion is not supported by transaction version ${txVer.protoValue}"),
+        EncodeError(s"packageVersion is not supported by LF ${txVer.pretty}"),
       )
     else
       pkgVer match {
@@ -98,7 +98,7 @@ object TransactionCoder {
           // TODO: enable once canton persist package version
           // Left(
           //   EncodeError(
-          //     s"packageVersion must not be empty by transaction version ${txVer.protoValue}"
+          //     s"packageVersion must not be empty by LF ${txVer.pretty}"
           //   )
           // )
           Right(List.empty)
@@ -112,11 +112,11 @@ object TransactionCoder {
       Either.cond(
         pkgVer.isEmpty,
         None,
-        DecodeError(s"packageVersion is not supported by transaction version ${txVer.protoValue}"),
+        DecodeError(s"packageVersion is not supported by LF ${txVer.pretty}"),
       )
     else if (pkgVer.isEmpty)
       // TODO: enable once canton persist package version
-      // DecodeError(s"packageVersion must not be empty by transaction version ${txVer.protoValue}")
+      // DecodeError(s"packageVersion must not be empty by LF ${txVer.pretty}")
       Right(None)
     else
       Ref.PackageVersion
@@ -152,7 +152,7 @@ object TransactionCoder {
         .encodeValue(valueVersion = version, v0 = key.value)
         .map(builder.setKey(_).build())
     } else
-      Left(EncodeError(s"Contract key are not supported by ${version.protoValue}"))
+      Left(EncodeError(s"Contract key are not supported by LF ${version.pretty}"))
 
   private[this] def encodeOptKeyWithMaintainers(
       version: TransactionVersion,
@@ -202,11 +202,11 @@ object TransactionCoder {
         if (enclosingVersion < nodeVersion)
           Left(
             EncodeError(
-              s"A transaction of version ${enclosingVersion.protoValue} cannot contain nodes of newer version ($nodeVersion)"
+              s"A transaction of version ${enclosingVersion.pretty} cannot contain nodes of newer version ($nodeVersion)"
             )
           )
         else {
-          discard(nodeBuilder.setVersion(nodeVersion.protoValue))
+          discard(nodeBuilder.setVersion(TransactionVersion.toProtoValue(nodeVersion)))
 
           node match {
             case nc: Node.Create =>
@@ -268,7 +268,7 @@ object TransactionCoder {
           Either.cond(
             version >= TransactionVersion.minContractKeys,
             discard(builder.setByKey(true)),
-            EncodeError(s"Node field byKey is not supported by ${version.protoValue}"),
+            EncodeError(s"Node field byKey is not supported by LF ${version.pretty}"),
           )
         else
           Right(())
@@ -307,7 +307,7 @@ object TransactionCoder {
         case Some(authorizers) =>
           if (node.version < TransactionVersion.minChoiceAuthorizers)
             Left(
-              EncodeError(s"choice authorizers are not supported by ${node.version.protoValue}")
+              EncodeError(s"choice authorizers are not supported by LF ${node.version.pretty}")
             )
           else
             Either.cond(
@@ -328,7 +328,7 @@ object TransactionCoder {
       _ <- Either.cond(
         node.version >= TransactionVersion.minContractKeys,
         (),
-        EncodeError(s"Contract keys not supported by ${node.version.protoValue}"),
+        EncodeError(s"Contract keys not supported by LF ${node.version.pretty}"),
       )
       builder = TransactionOuterClass.Node.LookupByKey.newBuilder()
       _ = discard(builder.setPackageName(node.packageName))
@@ -492,7 +492,7 @@ object TransactionCoder {
           Either.cond(
             nodeVersion >= TransactionVersion.minContractKeys,
             true,
-            DecodeError(s"transaction key is not supported by ${nodeVersion.protoValue}"),
+            DecodeError(s"transaction key is not supported by LF ${nodeVersion.pretty}"),
           )
         else
           Right(false)
@@ -534,7 +534,7 @@ object TransactionCoder {
         if (msg.getAuthorizersCount == 0)
           Right(None)
         else if (nodeVersion < TransactionVersion.minChoiceAuthorizers)
-          Left(DecodeError(s"Exercise Authorizer not supported by ${nodeVersion.protoValue}"))
+          Left(DecodeError(s"Exercise Authorizer not supported by LF ${nodeVersion.pretty}"))
         else
           toPartySet(msg.getAuthorizersList).map(Some(_))
     } yield Node.Exercise(
@@ -569,7 +569,7 @@ object TransactionCoder {
       _ <- Either.cond(
         txVersion >= TransactionVersion.minContractKeys,
         (),
-        DecodeError(s"Contract ket not supported by ${nodeVersion.protoValue}"),
+        DecodeError(s"Contract ket not supported by ${nodeVersion.pretty}"),
       )
       pkgName <- decodePackageName(msg.getPackageName)
       templateId <- ValueCoder.decodeIdentifier(msg.getTemplateId)
@@ -620,7 +620,7 @@ object TransactionCoder {
   ): Either[EncodeError, TransactionOuterClass.Transaction] = {
     val builder = TransactionOuterClass.Transaction
       .newBuilder()
-      .setVersion(transaction.version.protoValue)
+      .setVersion(TransactionVersion.toProtoValue(transaction.version))
     transaction.roots.foreach(nid => discard(builder.addRoots(encodeNodeId(nid))))
 
     transaction
@@ -649,7 +649,7 @@ object TransactionCoder {
         nodeVersion <= txVersion,
         (),
         DecodeError(
-          s"A transaction of version ${txVersion.protoValue} cannot contain node of newer version (${nodeVersion.protoValue})"
+          s"A transaction of version ${txVersion.pretty} cannot contain node of newer version (${nodeVersion.pretty})"
         ),
       )
     } yield nodeVersion
@@ -749,7 +749,7 @@ object TransactionCoder {
       payload: ByteString,
   ): ByteString = {
     val builder = TransactionOuterClass.Versioned.newBuilder()
-    discard(builder.setVersion(version.protoValue))
+    discard(builder.setVersion(TransactionVersion.toProtoValue(version)))
     discard(builder.setPayload(payload))
     builder.build().toByteString
   }

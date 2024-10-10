@@ -18,7 +18,6 @@ import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
   GlobalKeyWithMaintainers,
   Node,
-  TransactionVersion,
   Versioned,
 }
 import com.digitalasset.daml.lf.value.Value
@@ -67,7 +66,7 @@ class CompilerTest(majorLanguageVersion: LanguageMajorVersion)
   }
 
   "compileWithContractDisclosures" should {
-    val version = TransactionVersion.assignNodeVersion(pkg.languageVersion)
+    val version = pkg.languageVersion
     val cid1 = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-contract-id-1"))
     val cid2 = Value.ContractId.V1(crypto.Hash.hashPrivateKey("test-contract-id-2"))
     val disclosedCid1 =
@@ -606,7 +605,7 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
           SValue.SParty(maintainer),
         ),
       )
-    val version = TransactionVersion.assignNodeVersion(pkg.languageVersion)
+    val txVersion = pkg.languageVersion
     val disclosedContract = DisclosedContract(
       FatContractInstance.fromCreateNode(
         Node.Create(
@@ -614,7 +613,7 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
           packageName = pkg.pkgName,
           packageVersion = pkg.pkgVersion,
           templateId = templateId,
-          arg = payload.toNormalizedValue(version),
+          arg = payload.toNormalizedValue(txVersion),
           signatories = Set(maintainer),
           stakeholders = Set(maintainer),
           keyOpt =
@@ -622,14 +621,14 @@ final class CompilerTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
               Some(
                 GlobalKeyWithMaintainers.assertBuild(
                   templateId,
-                  payload.toNormalizedValue(version),
+                  payload.toNormalizedValue(txVersion),
                   Set(maintainer),
                   pkg.pkgName,
                 )
               )
             else
               None,
-          version = version,
+          version = txVersion,
         ),
         Time.Timestamp.now(),
         Bytes.Empty,

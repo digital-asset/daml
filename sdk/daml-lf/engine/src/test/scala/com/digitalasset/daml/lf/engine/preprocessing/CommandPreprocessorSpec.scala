@@ -457,7 +457,7 @@ class ReplayCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
       Some(GlobalKeyWithMaintainers.assertBuild(TId, record, parties, pkg.pkgName))
 
     val validDisclosure = FatContractInstanceImpl(
-      version = TransactionVersion.assignNodeVersion(pkg.languageVersion),
+      version = pkg.languageVersion,
       contractId = suffixedCid,
       packageName = pkg.pkgName,
       packageVersion = pkg.pkgVersion,

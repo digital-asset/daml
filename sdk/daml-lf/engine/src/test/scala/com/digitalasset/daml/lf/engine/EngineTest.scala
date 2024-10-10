@@ -723,7 +723,7 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
 
     "unused disclosed contracts not saved to ledger" in {
       val templateId = Identifier(basicTestsPkgId, "BasicTests:WithKey")
-      val txVersion = TxVersions.assignNodeVersion(basicTestsPkg.languageVersion)
+      val txVersion = basicTestsPkg.languageVersion
       val usedContractSKey = SValue.SRecord(
         templateId,
         ImmArray("_1", "_2").map(Ref.Name.assertFromString),
@@ -2744,7 +2744,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
       arg: SValue,
       keyOpt: Option[Value] = None,
   ) = {
-    val version = TxVersions.assignNodeVersion(pkg.languageVersion)
+    val version = pkg.languageVersion
     DisclosedContract(
       FatContractInstance.fromCreateNode(
         Node.Create(

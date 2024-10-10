@@ -350,7 +350,7 @@ private[lf] object Pretty {
           intercalate(line + line, rtx.transaction.roots.toList.map(prettyEventInfo(l, txId)))
         text("TX") & char('#') + str(txId.id) & str(rtx.effectiveAt) & prettyLoc(optLoc) & text(
           "version:"
-        ) & str(rtx.transaction.version.protoValue) /
+        ) & str(rtx.transaction.version.pretty) /
           children
       case ScenarioLedger.PassTime(dt) =>
         "pass" &: str(dt)
@@ -461,7 +461,7 @@ private[lf] object Pretty {
   def prettyOptVersion(opt: Option[TxVersion]) = {
     opt match {
       case Some(v) =>
-        text("version:") & str(v.protoValue)
+        text("version:") & str(v.pretty)
       case None =>
         text("no-version")
     }

@@ -878,9 +878,7 @@ private[lf] object Speedy {
     }
 
     final def tmplId2TxVersion(tmplId: TypeConName): TxVersion =
-      TxVersion.assignNodeVersion(
-        compiledPackages.pkgInterface.packageLanguageVersion(tmplId.packageId)
-      )
+      compiledPackages.pkgInterface.packageLanguageVersion(tmplId.packageId)
 
     final def tmplId2PackageNameVersion(
         tmplId: TypeConName
