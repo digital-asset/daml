@@ -446,6 +446,7 @@ private[speedy] case class PartialTransaction(
     */
   def beginExercises(
       packageName: Option[PackageName],
+      creationPackageId: Option[PackageId],
       templateId: TypeConName,
       targetId: Value.ContractId,
       contract: ContractInfo,
@@ -467,7 +468,7 @@ private[speedy] case class PartialTransaction(
         ExercisesContextInfo(
           targetId = targetId,
           packageName = packageName,
-          creationPackageId = packageName.map(_ => contract.templateId.packageId),
+          creationPackageId = creationPackageId,
           templateId = templateId, // may differ from contract.templateId during soft-exercise
           interfaceId = interfaceId,
           contractKey =

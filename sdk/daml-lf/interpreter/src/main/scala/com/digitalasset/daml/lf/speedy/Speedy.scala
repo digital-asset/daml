@@ -355,36 +355,48 @@ private[lf] object Speedy {
         )
       )
 
-    private[speedy] def lookupContract(coid: V.ContractId)(
-        f: V.ContractInstance => Control[Question.Update]
-    ): Control[Question.Update] = {
+    private[speedy] def getCreationTemplateId(coid: V.ContractId): Option[Ref.TypeConName] =
+      getLocalContract(coid) match {
+        case Some((tmplId, _)) =>
+          Some(tmplId)
+        case None =>
+          getGlobalContract(coid) match {
+            case Some(contract) =>
+              Some(contract.template)
+            case None =>
+              None
+          }
+      }
 
+    private[speedy] def getGlobalContract(coid: V.ContractId): Option[V.ContractInstance] =
       disclosedContracts.get(coid) match {
         case Some(contractInfo) =>
           markDisclosedcontractAsUsed(coid)
-          f(
+          Some(
             V.ContractInstance(
               contractInfo.packageName,
               contractInfo.templateId,
               contractInfo.value.toUnnormalizedValue,
             )
           )
-
         case None =>
-          contractsCache.get(coid) match {
-            case Some(res) =>
-              f(res)
-            case None =>
-              needContract(
-                NameOf.qualifiedNameOfCurrentFunc,
-                coid,
-                { res =>
-                  contractsCache = contractsCache.updated(coid, res)
-                  f(res)
-                },
-              )
-          }
+          contractsCache.get(coid)
       }
+
+    private[speedy] def lookupGlobalContract(coid: V.ContractId)(
+        f: V.ContractInstance => Control[Question.Update]
+    ): Control[Question.Update] = getGlobalContract(coid) match {
+      case Some(res) =>
+        f(res)
+      case None =>
+        needContract(
+          NameOf.qualifiedNameOfCurrentFunc,
+          coid,
+          { res =>
+            contractsCache = contractsCache.updated(coid, res)
+            f(res)
+          },
+        )
     }
 
     private[speedy] override def asUpdateMachine(location: String)(
@@ -486,7 +498,7 @@ private[lf] object Speedy {
       *      - Updated   (storeLocalContract) by SBUCreate.
       */
     private[speedy] var localContractStore: Map[V.ContractId, (TypeConName, SValue)] = Map.empty
-    private[speedy] def getIfLocalContract(coid: V.ContractId): Option[(TypeConName, SValue)] = {
+    private[speedy] def getLocalContract(coid: V.ContractId): Option[(TypeConName, SValue)] = {
       localContractStore.get(coid)
     }
     private[speedy] def storeLocalContract(
