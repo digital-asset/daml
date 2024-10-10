@@ -52,19 +52,23 @@ class ViewPositionTest extends BaseTestWordSpec {
 
     MerkleSeqIndex(List.empty) should be < (MerkleSeqIndex(List(Left)): MerklePathElement)
     MerkleSeqIndex(List(Left)) should be < (MerkleSeqIndex(List(Left, Left)): MerklePathElement)
-    MerkleSeqIndex(List(Left, Left)) should be
-      < (MerkleSeqIndex(List(Right, Left)): MerklePathElement)
-    MerkleSeqIndex(List(Right, Left)) should be
-      < (MerkleSeqIndex(List(Left, Right)): MerklePathElement)
-    MerkleSeqIndex(List(Left, Right)) should be
-      < (MerkleSeqIndex(List(Right, Right)): MerklePathElement)
+    MerkleSeqIndex(List(Left, Left)) should be < (MerkleSeqIndex(
+      List(Right, Left)
+    ): MerklePathElement)
+    MerkleSeqIndex(List(Right, Left)) should be < (MerkleSeqIndex(
+      List(Left, Right)
+    ): MerklePathElement)
+    MerkleSeqIndex(List(Left, Right)) should be < (MerkleSeqIndex(
+      List(Right, Right)
+    ): MerklePathElement)
 
     MerklePathElement.orderMerklePathElement.compare(
       MerkleSeqIndexFromRoot(List(Left, Right)),
       MerkleSeqIndex(List(Right, Left)),
     ) shouldBe 0
 
-    ViewPosition(List(MerkleSeqIndex(List(Right)), MerkleSeqIndex(List(Left)))) should be
-      < ViewPosition(List(MerkleSeqIndex(List(Left)), MerkleSeqIndex(List(Left, Left))))
+    ViewPosition(
+      List(MerkleSeqIndex(List(Right)), MerkleSeqIndex(List(Left)))
+    ) should be < ViewPosition(List(MerkleSeqIndex(List(Left)), MerkleSeqIndex(List(Left, Left))))
   }
 }

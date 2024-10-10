@@ -78,8 +78,8 @@ import com.digitalasset.canton.resource.*
 import com.digitalasset.canton.scheduler.{Schedulers, SchedulersImpl}
 import com.digitalasset.canton.sequencing.client.{RecordingConfig, ReplayConfig, SequencerClient}
 import com.digitalasset.canton.store.IndexedStringStore
-import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.time.*
+import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.time.admin.v30.DomainTimeServiceGrpc
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.{

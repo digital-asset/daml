@@ -13,8 +13,8 @@ import com.digitalasset.canton.domain.block.update.BlockUpdateGeneratorImpl.{
 import com.digitalasset.canton.domain.block.update.SequencedSubmissionsValidator.SequencedSubmissionsValidationResult
 import com.digitalasset.canton.domain.block.update.SubmissionRequestValidator.SubmissionRequestValidationResult
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
-import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.SignedOrderingRequestOps
 import com.digitalasset.canton.domain.sequencing.sequencer.*
+import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.SignedOrderingRequestOps
 import com.digitalasset.canton.domain.sequencing.sequencer.store.SequencerMemberValidator
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitManager
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}

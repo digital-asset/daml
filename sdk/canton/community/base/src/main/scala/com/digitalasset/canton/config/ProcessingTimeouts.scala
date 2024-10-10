@@ -28,6 +28,8 @@ import scala.concurrent.duration.*
   * @param topologyChangeWarnDelay maximum delay between the timestamp of the topology snapshot used during
   *                                submission and the sequencing timestamp, after which we log inconsistency
   *                                errors as warnings
+  * @param sequencedEventProcessingBound Maximum time we allow for locally processing a sequenced event.
+  *                                      If local processing takes longer, the node will emit an error or crash.
   */
 final case class ProcessingTimeout(
     unbounded: NonNegativeDuration = DefaultProcessingTimeouts.unbounded,
@@ -45,7 +47,10 @@ final case class ProcessingTimeout(
     slowFutureWarn: NonNegativeDuration = DefaultProcessingTimeouts.slowFutureWarn,
     activeInitRetryDelay: NonNegativeDuration = DefaultProcessingTimeouts.activeInitRetryDelay,
     sequencerInfo: NonNegativeDuration = DefaultProcessingTimeouts.sequencerInfo,
-    topologyChangeWarnDelay: NonNegativeDuration = DefaultProcessingTimeouts.topologyChangeWarnDelay,
+    topologyChangeWarnDelay: NonNegativeDuration =
+      DefaultProcessingTimeouts.topologyChangeWarnDelay,
+    sequencedEventProcessingBound: NonNegativeDuration =
+      DefaultProcessingTimeouts.sequencedEventProcessingBound,
 )
 
 /** Reasonable default timeouts */
@@ -83,6 +88,9 @@ object DefaultProcessingTimeouts {
   val sequencerInfo: NonNegativeDuration = NonNegativeDuration.tryFromDuration(30.seconds)
 
   val topologyChangeWarnDelay: NonNegativeDuration = NonNegativeDuration.tryFromDuration(2.minutes)
+
+  val sequencedEventProcessingBound: NonNegativeDuration =
+    NonNegativeDuration.tryFromDuration(1.day)
 
   @VisibleForTesting
   lazy val testing: ProcessingTimeout = ProcessingTimeout()

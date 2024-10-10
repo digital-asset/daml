@@ -7,8 +7,8 @@ import com.daml.error.{BaseError, NoLogging}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.error.LedgerApiErrors
 import com.digitalasset.canton.logging.*
-import io.grpc.ForwardingServerCall.SimpleForwardingServerCall
 import io.grpc.*
+import io.grpc.ForwardingServerCall.SimpleForwardingServerCall
 
 import scala.util.control.NonFatal
 

@@ -17,8 +17,8 @@ import com.digitalasset.canton.ledger.api.messages.command.submission
 import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.ExecuteRequest
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
-import com.digitalasset.canton.protocol.v30.TransactionAuthorizationPartySignatures as ProtoSignatures
 import com.digitalasset.canton.protocol.TransactionAuthorizationPartySignatures as ProtocolSignatures
+import com.digitalasset.canton.protocol.v30.TransactionAuthorizationPartySignatures as ProtoSignatures
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.daml.lf.data.Time
 import io.grpc.StatusRuntimeException

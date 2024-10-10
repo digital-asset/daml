@@ -18,12 +18,12 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.admin.grpc.BaseQuery
 import com.digitalasset.canton.topology.admin.grpc.TopologyStore.Domain
 import com.digitalasset.canton.topology.admin.v30
+import com.digitalasset.canton.topology.admin.v30.*
 import com.digitalasset.canton.topology.admin.v30.AuthorizeRequest.Type.{Proposal, TransactionHash}
 import com.digitalasset.canton.topology.admin.v30.IdentityInitializationServiceGrpc.IdentityInitializationServiceStub
 import com.digitalasset.canton.topology.admin.v30.TopologyAggregationServiceGrpc.TopologyAggregationServiceStub
 import com.digitalasset.canton.topology.admin.v30.TopologyManagerReadServiceGrpc.TopologyManagerReadServiceStub
 import com.digitalasset.canton.topology.admin.v30.TopologyManagerWriteServiceGrpc.TopologyManagerWriteServiceStub
-import com.digitalasset.canton.topology.admin.v30.*
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
@@ -583,7 +583,7 @@ object TopologyAdminCommands {
         domainStore.flatMap(domainId =>
           Right(
             v30.GenesisStateRequest(
-              domainId.map(Domain).map(_.toProto),
+              domainId.map(Domain.apply).map(_.toProto),
               timestamp.map(_.toProtoTimestamp),
             )
           )

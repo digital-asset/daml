@@ -218,7 +218,7 @@ class PruningProcessor(
             domainId,
             domainIndex.sequencerIndex.map(_.timestamp).getOrElse(CantonTimestamp.MinValue),
           )
-          .leftMap(LedgerPruningInternalError)
+          .leftMap(LedgerPruningInternalError.apply)
 
         safeCommitmentTick <- EitherT
           .fromOptionF[Future, LedgerPruningError, CantonTimestampSecond](

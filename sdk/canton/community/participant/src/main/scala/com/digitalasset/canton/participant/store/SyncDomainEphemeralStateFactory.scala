@@ -13,8 +13,8 @@ import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory,
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.participant.metrics.SyncDomainMetrics
 import com.digitalasset.canton.participant.protocol.*
-import com.digitalasset.canton.store.SequencedEventStore.ByTimestamp
 import com.digitalasset.canton.store.*
+import com.digitalasset.canton.store.SequencedEventStore.ByTimestamp
 import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.tracing.TraceContext

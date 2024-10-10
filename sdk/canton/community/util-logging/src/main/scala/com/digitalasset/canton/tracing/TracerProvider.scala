@@ -14,8 +14,8 @@ import io.opentelemetry.sdk.OpenTelemetrySdk
 import io.opentelemetry.sdk.common.CompletableResultCode
 import io.opentelemetry.sdk.resources.Resource
 import io.opentelemetry.sdk.trace.SdkTracerProvider
-import io.opentelemetry.sdk.trace.data.SpanData
 import io.opentelemetry.sdk.trace.export.{SimpleSpanProcessor, SpanExporter}
+import io.opentelemetry.sdk.trace.data.SpanData
 
 import java.util
 

@@ -10,12 +10,12 @@ import com.digitalasset.canton.error.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerError.IdentityManagerParentError
+import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.TopologyManagerError.{
   InconsistentTopologySnapshot,
   InvalidTopologyMapping,
   ParticipantErrorGroup,
 }
-import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.transaction.{
   HostingParticipant,
   ParticipantPermission,

@@ -94,7 +94,7 @@ private[routing] object TransactionData {
   ): EitherT[Future, TransactionRoutingError, TransactionData] = {
     def parseReader(party: Ref.Party) = LfPartyId
       .fromString(party)
-      .leftMap[TransactionRoutingError](MalformedInputErrors.InvalidReader.Error)
+      .leftMap[TransactionRoutingError](MalformedInputErrors.InvalidReader.Error.apply)
 
     for {
       actAs <- EitherT.fromEither[Future](submitterInfo.actAs.traverse(parseReader).map(_.toSet))

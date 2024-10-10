@@ -4,8 +4,8 @@
 package com.digitalasset.canton.sequencing.protocol
 
 import cats.Applicative
-import com.digitalasset.canton.ProtoDeserializationError.OtherError
 import com.digitalasset.canton.*
+import com.digitalasset.canton.ProtoDeserializationError.OtherError
 import com.digitalasset.canton.crypto.HashOps
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}

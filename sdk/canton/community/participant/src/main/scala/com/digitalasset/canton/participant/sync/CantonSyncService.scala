@@ -30,13 +30,13 @@ import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.participant.state
-import com.digitalasset.canton.ledger.participant.state.WriteService.ConnectedDomainResponse
 import com.digitalasset.canton.ledger.participant.state.*
+import com.digitalasset.canton.ledger.participant.state.WriteService.ConnectedDomainResponse
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
-import com.digitalasset.canton.participant.Pruning.*
 import com.digitalasset.canton.participant.*
+import com.digitalasset.canton.participant.Pruning.*
 import com.digitalasset.canton.participant.admin.*
 import com.digitalasset.canton.participant.admin.grpc.PruningServiceError
 import com.digitalasset.canton.participant.admin.inspection.{
@@ -61,8 +61,8 @@ import com.digitalasset.canton.participant.protocol.reassignment.{
 }
 import com.digitalasset.canton.participant.protocol.submission.routing.DomainRouter
 import com.digitalasset.canton.participant.pruning.{AcsCommitmentProcessor, PruningProcessor}
-import com.digitalasset.canton.participant.store.DomainConnectionConfigStore.MissingConfigForAlias
 import com.digitalasset.canton.participant.store.*
+import com.digitalasset.canton.participant.store.DomainConnectionConfigStore.MissingConfigForAlias
 import com.digitalasset.canton.participant.sync.CantonSyncService.ConnectDomain
 import com.digitalasset.canton.participant.sync.SyncDomain.SubmissionReady
 import com.digitalasset.canton.participant.sync.SyncServiceError.{
@@ -88,10 +88,10 @@ import com.digitalasset.canton.time.{Clock, DomainTimeTracker, NonNegativeFinite
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.{DomainTopologyClientWithInit, TopologySnapshot}
 import com.digitalasset.canton.tracing.{Spanning, TraceContext, Traced}
+import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.FutureInstances.parallelFuture
 import com.digitalasset.canton.util.OptionUtils.OptionExtension
 import com.digitalasset.canton.util.ReassignmentTag.Target
-import com.digitalasset.canton.util.*
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.archive.DamlLf
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, SubmissionId}

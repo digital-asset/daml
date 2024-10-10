@@ -24,8 +24,8 @@ import com.digitalasset.canton.sequencing.{
 }
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.store.SequencedEventStore.PossiblyIgnoredSequencedEvent.dbTypeOfEvent
 import com.digitalasset.canton.store.SequencedEventStore.*
+import com.digitalasset.canton.store.SequencedEventStore.PossiblyIgnoredSequencedEvent.dbTypeOfEvent
 import com.digitalasset.canton.store.db.DbSequencedEventStore
 import com.digitalasset.canton.store.db.DbSequencedEventStore.SequencedEventDbType
 import com.digitalasset.canton.store.memory.InMemorySequencedEventStore

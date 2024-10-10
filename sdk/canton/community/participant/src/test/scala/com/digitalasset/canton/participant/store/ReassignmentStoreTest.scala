@@ -10,14 +10,14 @@ import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
-import com.digitalasset.canton.data.{CantonTimestamp, ReassignmentSubmitterMetadata, ViewType}
+import com.digitalasset.canton.data.{CantonTimestamp, ViewType}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentData.*
 import com.digitalasset.canton.participant.protocol.reassignment.{
   IncompleteReassignmentData,
   ReassignmentData,
-  UnassignmentRequest,
+  ReassignmentDataHelpers,
 }
 import com.digitalasset.canton.participant.protocol.submission.SeedGenerator
 import com.digitalasset.canton.participant.store.ReassignmentStore.*
@@ -31,38 +31,25 @@ import com.digitalasset.canton.protocol.ExampleTransactionFactory.{
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.{
   ContractMetadata,
-  ExampleTransactionFactory,
   LfContractId,
   ReassignmentId,
   RequestId,
   SerializableContract,
-  TransactionId,
 }
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.store.IndexedDomain
-import com.digitalasset.canton.time.TimeProofTestUtil
-import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.tracing.NoTracing
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{Checked, MonadUtil}
-import com.digitalasset.canton.{
-  BaseTest,
-  LedgerApplicationId,
-  LedgerCommandId,
-  LfPartyId,
-  ReassignmentCounter,
-  RequestCounter,
-  SequencerCounter,
-  config,
-}
+import com.digitalasset.canton.{BaseTest, LfPartyId, RequestCounter, SequencerCounter}
+import monocle.macros.syntax.lens.*
 import org.scalatest.wordspec.AsyncWordSpec
 import org.scalatest.{Assertion, EitherValues}
 
-import java.util.UUID
-import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
 import scala.language.implicitConversions
 
@@ -75,36 +62,20 @@ trait ReassignmentStoreTest {
   private implicit def toGlobalOffset(i: Long): GlobalOffset = GlobalOffset.tryFromLong(i)
 
   protected def reassignmentStore(mk: IndexedDomain => ReassignmentStore): Unit = {
-    val reassignmentData =
-      config
-        .NonNegativeFiniteDuration(10.seconds)
-        .await("make reassignment data")(mkReassignmentData(reassignment10, mediator1))
-
-    val reassignmentData2 =
-      config
-        .NonNegativeFiniteDuration(10.seconds)
-        .await("make reassignment data")(mkReassignmentData(reassignment11, mediator1))
-
-    val reassignmentData3 =
-      config
-        .NonNegativeFiniteDuration(10.seconds)
-        .await("make reassignment data")(mkReassignmentData(reassignment20, mediator1))
+    val reassignmentData = mkReassignmentData(reassignment10, mediator1)
+    val reassignmentData2 = mkReassignmentData(reassignment11, mediator1)
+    val reassignmentData3 = mkReassignmentData(reassignment20, mediator1)
 
     def reassignmentDataFor(
         reassignmentId: ReassignmentId,
         contract: SerializableContract,
         unassignmentGlobalOffset: Option[GlobalOffset] = None,
-    ): ReassignmentData =
-      config
-        .NonNegativeFiniteDuration(10.seconds)
-        .await("make reassignment data")(
-          mkReassignmentData(
-            reassignmentId,
-            mediator1,
-            contract = contract,
-            unassignmentGlobalOffset = unassignmentGlobalOffset,
-          )
-        )
+    ): ReassignmentData = mkReassignmentData(
+      reassignmentId,
+      mediator1,
+      contract = contract,
+      unassignmentGlobalOffset = unassignmentGlobalOffset,
+    )
 
     val unassignmentResult = mkUnassignmentResult(reassignmentData)
     val withUnassignmentResult =
@@ -137,22 +108,24 @@ trait ReassignmentStoreTest {
     "find" should {
       "filter by party" in {
         val store = mk(indexedTargetDomain)
+
+        val aliceReassignment = mkReassignmentData(
+          reassignment10,
+          mediator1,
+          LfPartyId.assertFromString("alice"),
+        )
+        val bobReassignment = mkReassignmentData(
+          reassignment11,
+          mediator1,
+          LfPartyId.assertFromString("bob"),
+        )
+        val eveReassignment = mkReassignmentData(
+          reassignment20,
+          mediator2,
+          LfPartyId.assertFromString("eve"),
+        )
+
         for {
-          aliceReassignment <- mkReassignmentData(
-            reassignment10,
-            mediator1,
-            LfPartyId.assertFromString("alice"),
-          )
-          bobReassignment <- mkReassignmentData(
-            reassignment11,
-            mediator1,
-            LfPartyId.assertFromString("bob"),
-          )
-          eveReassignment <- mkReassignmentData(
-            reassignment20,
-            mediator2,
-            LfPartyId.assertFromString("eve"),
-          )
           _ <- valueOrFail(store.addReassignment(aliceReassignment).failOnShutdown)(
             "add alice failed"
           )
@@ -167,19 +140,21 @@ trait ReassignmentStoreTest {
       "filter by timestamp" in {
         val store = mk(indexedTargetDomain)
 
+        val reassignment1 = mkReassignmentData(
+          ReassignmentId(sourceDomain1, CantonTimestamp.ofEpochMilli(100L)),
+          mediator1,
+        )
+        val reassignment2 = mkReassignmentData(
+          ReassignmentId(sourceDomain1, CantonTimestamp.ofEpochMilli(200L)),
+          mediator1,
+        )
+        val reassignment3 = mkReassignmentData(
+          ReassignmentId(sourceDomain1, CantonTimestamp.ofEpochMilli(300L)),
+          mediator1,
+        )
+
         for {
-          reassignment1 <- mkReassignmentData(
-            ReassignmentId(sourceDomain1, CantonTimestamp.ofEpochMilli(100L)),
-            mediator1,
-          )
-          reassignment2 <- mkReassignmentData(
-            ReassignmentId(sourceDomain1, CantonTimestamp.ofEpochMilli(200L)),
-            mediator1,
-          )
-          reassignment3 <- mkReassignmentData(
-            ReassignmentId(sourceDomain1, CantonTimestamp.ofEpochMilli(300L)),
-            mediator1,
-          )
+
           _ <- valueOrFail(store.addReassignment(reassignment1).failOnShutdown)("add1 failed")
           _ <- valueOrFail(store.addReassignment(reassignment2).failOnShutdown)("add2 failed")
           _ <- valueOrFail(store.addReassignment(reassignment3).failOnShutdown)("add3 failed")
@@ -190,15 +165,17 @@ trait ReassignmentStoreTest {
       }
       "filter by domain" in {
         val store = mk(indexedTargetDomain)
+
+        val reassignment1 = mkReassignmentData(
+          ReassignmentId(sourceDomain1, CantonTimestamp.ofEpochMilli(100L)),
+          mediator1,
+        )
+        val reassignment2 = mkReassignmentData(
+          ReassignmentId(sourceDomain2, CantonTimestamp.ofEpochMilli(200L)),
+          mediator2,
+        )
+
         for {
-          reassignment1 <- mkReassignmentData(
-            ReassignmentId(sourceDomain1, CantonTimestamp.ofEpochMilli(100L)),
-            mediator1,
-          )
-          reassignment2 <- mkReassignmentData(
-            ReassignmentId(sourceDomain2, CantonTimestamp.ofEpochMilli(200L)),
-            mediator2,
-          )
           _ <- valueOrFail(store.addReassignment(reassignment1).failOnShutdown)("add1 failed")
           _ <- valueOrFail(store.addReassignment(reassignment2).failOnShutdown)("add2 failed")
           lookup <- store.find(Some(sourceDomain2), None, None, 10)
@@ -208,10 +185,13 @@ trait ReassignmentStoreTest {
       }
       "limit the number of results" in {
         val store = mk(indexedTargetDomain)
+
+        val reassignmentData10 = mkReassignmentData(reassignment10, mediator1)
+        val reassignmentData11 = mkReassignmentData(reassignment11, mediator1)
+        val reassignmentData20 = mkReassignmentData(reassignment20, mediator2)
+
         for {
-          reassignmentData10 <- mkReassignmentData(reassignment10, mediator1)
-          reassignmentData11 <- mkReassignmentData(reassignment11, mediator1)
-          reassignmentData20 <- mkReassignmentData(reassignment20, mediator2)
+
           _ <- valueOrFail(store.addReassignment(reassignmentData10).failOnShutdown)(
             "first add failed"
           )
@@ -229,31 +209,33 @@ trait ReassignmentStoreTest {
       "apply filters conjunctively" in {
         val store = mk(indexedTargetDomain)
 
+        // Correct timestamp
+        val reassignment1 = mkReassignmentData(
+          ReassignmentId(sourceDomain1, CantonTimestamp.Epoch.plusMillis(200L)),
+          mediator1,
+          LfPartyId.assertFromString("party1"),
+        )
+        // Correct submitter
+        val reassignment2 = mkReassignmentData(
+          ReassignmentId(sourceDomain1, CantonTimestamp.Epoch.plusMillis(100L)),
+          mediator1,
+          LfPartyId.assertFromString("party2"),
+        )
+        // Correct domain
+        val reassignment3 = mkReassignmentData(
+          ReassignmentId(sourceDomain2, CantonTimestamp.Epoch.plusMillis(100L)),
+          mediator2,
+          LfPartyId.assertFromString("party2"),
+        )
+        // Correct reassignment
+        val reassignment4 = mkReassignmentData(
+          ReassignmentId(sourceDomain2, CantonTimestamp.Epoch.plusMillis(200L)),
+          mediator2,
+          LfPartyId.assertFromString("party2"),
+        )
+
         for {
-          // Correct timestamp
-          reassignment1 <- mkReassignmentData(
-            ReassignmentId(sourceDomain1, CantonTimestamp.Epoch.plusMillis(200L)),
-            mediator1,
-            LfPartyId.assertFromString("party1"),
-          )
-          // Correct submitter
-          reassignment2 <- mkReassignmentData(
-            ReassignmentId(sourceDomain1, CantonTimestamp.Epoch.plusMillis(100L)),
-            mediator1,
-            LfPartyId.assertFromString("party2"),
-          )
-          // Correct domain
-          reassignment3 <- mkReassignmentData(
-            ReassignmentId(sourceDomain2, CantonTimestamp.Epoch.plusMillis(100L)),
-            mediator2,
-            LfPartyId.assertFromString("party2"),
-          )
-          // Correct reassignment
-          reassignment4 <- mkReassignmentData(
-            ReassignmentId(sourceDomain2, CantonTimestamp.Epoch.plusMillis(200L)),
-            mediator2,
-            LfPartyId.assertFromString("party2"),
-          )
+
           _ <- valueOrFail(store.addReassignment(reassignment1).failOnShutdown)("first add failed")
           _ <- valueOrFail(store.addReassignment(reassignment2).failOnShutdown)("second add failed")
           _ <- valueOrFail(store.addReassignment(reassignment3).failOnShutdown)("third add failed")
@@ -273,32 +255,35 @@ trait ReassignmentStoreTest {
 
     "findAfter" should {
 
-      def populate(store: ReassignmentStore): Future[List[ReassignmentData]] = for {
-        reassignment1 <- mkReassignmentData(
+      def populate(store: ReassignmentStore): Future[List[ReassignmentData]] = {
+        val reassignment1 = mkReassignmentData(
           ReassignmentId(sourceDomain1, CantonTimestamp.Epoch.plusMillis(200L)),
           mediator1,
           LfPartyId.assertFromString("party1"),
         )
-        reassignment2 <- mkReassignmentData(
+        val reassignment2 = mkReassignmentData(
           ReassignmentId(sourceDomain1, CantonTimestamp.Epoch.plusMillis(100L)),
           mediator1,
           LfPartyId.assertFromString("party2"),
         )
-        reassignment3 <- mkReassignmentData(
+        val reassignment3 = mkReassignmentData(
           ReassignmentId(sourceDomain2, CantonTimestamp.Epoch.plusMillis(100L)),
           mediator2,
           LfPartyId.assertFromString("party2"),
         )
-        reassignment4 <- mkReassignmentData(
+        val reassignment4 = mkReassignmentData(
           ReassignmentId(sourceDomain2, CantonTimestamp.Epoch.plusMillis(200L)),
           mediator2,
           LfPartyId.assertFromString("party2"),
         )
-        _ <- valueOrFail(store.addReassignment(reassignment1).failOnShutdown)("first add failed")
-        _ <- valueOrFail(store.addReassignment(reassignment2).failOnShutdown)("second add failed")
-        _ <- valueOrFail(store.addReassignment(reassignment3).failOnShutdown)("third add failed")
-        _ <- valueOrFail(store.addReassignment(reassignment4).failOnShutdown)("fourth add failed")
-      } yield (List(reassignment1, reassignment2, reassignment3, reassignment4))
+
+        for {
+          _ <- valueOrFail(store.addReassignment(reassignment1).failOnShutdown)("first add failed")
+          _ <- valueOrFail(store.addReassignment(reassignment2).failOnShutdown)("second add failed")
+          _ <- valueOrFail(store.addReassignment(reassignment3).failOnShutdown)("third add failed")
+          _ <- valueOrFail(store.addReassignment(reassignment4).failOnShutdown)("fourth add failed")
+        } yield (List(reassignment1, reassignment2, reassignment3, reassignment4))
+      }
 
       "order pending reassignments" in {
         val store = mk(indexedTargetDomain)
@@ -1109,10 +1094,13 @@ trait ReassignmentStoreTest {
 
       "add several reassignments" in {
         val store = mk(indexedTargetDomain)
+
+        val reassignmentData10 = mkReassignmentData(reassignment10, mediator1)
+        val reassignmentData11 = mkReassignmentData(reassignment11, mediator1)
+        val reassignmentData20 = mkReassignmentData(reassignment20, mediator2)
+
         for {
-          reassignmentData10 <- mkReassignmentData(reassignment10, mediator1)
-          reassignmentData11 <- mkReassignmentData(reassignment11, mediator1)
-          reassignmentData20 <- mkReassignmentData(reassignment20, mediator2)
+
           _ <- valueOrFail(store.addReassignment(reassignmentData10).failOnShutdown)(
             "first add failed"
           )
@@ -1166,12 +1154,14 @@ trait ReassignmentStoreTest {
 
       "report mismatching results" in {
         val store = mk(indexedTargetDomain)
-        val modifiedUnassignmentResult = unassignmentResult.copy(
-          result = unassignmentResult.result.copy(
-            content =
-              unassignmentResult.result.content.copy(timestamp = CantonTimestamp.ofEpochSecond(2))
-          )
-        )
+        val modifiedUnassignmentResult = {
+          val updatedContent = unassignmentResult.result
+            .focus(_.content.timestamp)
+            .replace(CantonTimestamp.ofEpochSecond(2))
+
+          DeliveredUnassignmentResult.create(updatedContent).value
+        }
+
         for {
           _ <- valueOrFail(store.addReassignment(reassignmentData).failOnShutdown)("add failed")
           _ <- valueOrFail(store.addUnassignmentResult(unassignmentResult).failOnShutdown)(
@@ -1253,11 +1243,12 @@ trait ReassignmentStoreTest {
         val toc2 = TimeOfChange(RequestCounter(0), CantonTimestamp.ofEpochSecond(4))
         val modifiedReassignmentData =
           reassignmentData.copy(unassignmentRequestCounter = RequestCounter(100))
-        val modifiedUnassignmentResult = unassignmentResult.copy(
-          result = unassignmentResult.result.copy(content =
-            unassignmentResult.result.content.copy(counter = SequencerCounter(120))
-          )
-        )
+        val modifiedUnassignmentResult = {
+          val updatedContent =
+            unassignmentResult.result.focus(_.content.counter).replace(SequencerCounter(120))
+
+          DeliveredUnassignmentResult.create(updatedContent).value
+        }
 
         for {
           _ <- valueOrFail(store.addReassignment(reassignmentData).failOnShutdown)("add failed")
@@ -1362,19 +1353,20 @@ trait ReassignmentStoreTest {
         val toc1 = TimeOfChange(RequestCounter(1), CantonTimestamp.ofEpochSecond(5))
         val toc2 = TimeOfChange(RequestCounter(2), CantonTimestamp.ofEpochSecond(7))
 
+        val aliceReassignment =
+          mkReassignmentData(reassignment10, mediator1, LfPartyId.assertFromString("alice"))
+        val bobReassignment = mkReassignmentData(
+          reassignment11,
+          mediator1,
+          LfPartyId.assertFromString("bob"),
+        )
+        val eveReassignment = mkReassignmentData(
+          reassignment20,
+          mediator2,
+          LfPartyId.assertFromString("eve"),
+        )
+
         for {
-          aliceReassignment <-
-            mkReassignmentData(reassignment10, mediator1, LfPartyId.assertFromString("alice"))
-          bobReassignment <- mkReassignmentData(
-            reassignment11,
-            mediator1,
-            LfPartyId.assertFromString("bob"),
-          )
-          eveReassignment <- mkReassignmentData(
-            reassignment20,
-            mediator2,
-            LfPartyId.assertFromString("eve"),
-          )
           _ <- valueOrFail(store.addReassignment(aliceReassignment).failOnShutdown)(
             "add alice failed"
           )
@@ -1472,137 +1464,92 @@ object ReassignmentStoreTest extends EitherValues with NoTracing {
     crypto.sign(hash, sequencerKey.id)
   }
 
-  private val initialReassignmentCounter: ReassignmentCounter = ReassignmentCounter.Genesis
-
   val seedGenerator = new SeedGenerator(crypto.pureCrypto)
-
-  private def submitterMetadata(submitter: LfPartyId): ReassignmentSubmitterMetadata = {
-
-    val submittingParticipant: ParticipantId = DefaultTestIdentities.participant1
-
-    val applicationId: LedgerApplicationId =
-      LedgerApplicationId.assertFromString("application-tests")
-
-    val commandId: LedgerCommandId =
-      LedgerCommandId.assertFromString("reassignment-store-command-id")
-
-    ReassignmentSubmitterMetadata(
-      submitter,
-      submittingParticipant,
-      commandId,
-      submissionId = None,
-      applicationId,
-      workflowId = None,
-    )
-  }
 
   def mkReassignmentDataForDomain(
       reassignmentId: ReassignmentId,
       sourceMediator: MediatorGroupRecipient,
       submittingParty: LfPartyId = LfPartyId.assertFromString("submitter"),
       targetDomainId: Target[DomainId],
-      creatingTransactionId: TransactionId = ExampleTransactionFactory.transactionId(0),
       contract: SerializableContract = contract,
       unassignmentGlobalOffset: Option[GlobalOffset] = None,
-  ): Future[ReassignmentData] = {
+  ): ReassignmentData = {
 
-    val unassignmentRequest = UnassignmentRequest(
-      submitterMetadata(submittingParty),
-      Set(submittingParty),
-      reassigningParticipants = Set(DefaultTestIdentities.participant1),
-      creatingTransactionId,
+    val identityFactory = TestingTopology()
+      .withDomains(reassignmentId.sourceDomain.unwrap)
+      .build(loggerFactoryNotUsed)
+
+    val helpers = new ReassignmentDataHelpers(
       contract,
       reassignmentId.sourceDomain,
-      Source(BaseTest.testedProtocolVersion),
-      sourceMediator,
       targetDomainId,
-      Target(BaseTest.testedProtocolVersion),
-      TimeProofTestUtil.mkTimeProof(
-        timestamp = CantonTimestamp.Epoch,
-        targetDomain = targetDomainId,
-      ),
-      initialReassignmentCounter,
+      identityFactory,
     )
-    val uuid = new UUID(10L, 0L)
-    val seed = seedGenerator.generateSaltSeed()
-    val fullUnassignmentViewTree = unassignmentRequest
-      .toFullUnassignmentTree(
-        crypto.pureCrypto,
-        crypto.pureCrypto,
-        seed,
-        uuid,
-      )
-    Future.successful(
-      ReassignmentData(
-        sourceProtocolVersion = Source(BaseTest.testedProtocolVersion),
-        unassignmentTs = reassignmentId.unassignmentTs,
-        unassignmentRequestCounter = RequestCounter(0),
-        unassignmentRequest = fullUnassignmentViewTree,
-        unassignmentDecisionTime = CantonTimestamp.ofEpochSecond(10),
-        contract = contract,
-        creatingTransactionId = transactionId1,
-        unassignmentResult = None,
-        reassignmentGlobalOffset = unassignmentGlobalOffset.map(UnassignmentGlobalOffset),
-      )
-    )
+
+    val unassignmentRequest = helpers.unassignmentRequest(
+      submittingParty,
+      DefaultTestIdentities.participant1,
+      sourceMediator,
+    )()
+
+    helpers.reassignmentData(reassignmentId, unassignmentRequest)(unassignmentGlobalOffset)
   }
 
   private def mkReassignmentData(
       reassignmentId: ReassignmentId,
       sourceMediator: MediatorGroupRecipient,
       submitter: LfPartyId = LfPartyId.assertFromString("submitter"),
-      creatingTransactionId: TransactionId = transactionId1,
       contract: SerializableContract = contract,
       unassignmentGlobalOffset: Option[GlobalOffset] = None,
-  ): Future[ReassignmentData] =
+  ): ReassignmentData =
     mkReassignmentDataForDomain(
       reassignmentId,
       sourceMediator,
       submitter,
       targetDomainId,
-      creatingTransactionId,
       contract,
       unassignmentGlobalOffset,
     )
 
-  def mkUnassignmentResult(reassignmentData: ReassignmentData): DeliveredUnassignmentResult =
-    DeliveredUnassignmentResult {
-      val requestId = RequestId(reassignmentData.unassignmentTs)
+  def mkUnassignmentResult(reassignmentData: ReassignmentData): DeliveredUnassignmentResult = {
+    val requestId = RequestId(reassignmentData.unassignmentTs)
 
-      val mediatorMessage =
-        reassignmentData.unassignmentRequest.tree.mediatorMessage(Signature.noSignature)
-      val result = ConfirmationResultMessage.create(
-        mediatorMessage.domainId,
-        ViewType.UnassignmentViewType,
-        requestId,
-        mediatorMessage.rootHash,
-        Verdict.Approve(BaseTest.testedProtocolVersion),
-        mediatorMessage.allInformees,
+    val mediatorMessage =
+      reassignmentData.unassignmentRequest.tree.mediatorMessage(Signature.noSignature)
+    val result = ConfirmationResultMessage.create(
+      mediatorMessage.domainId,
+      ViewType.UnassignmentViewType,
+      requestId,
+      mediatorMessage.rootHash,
+      Verdict.Approve(BaseTest.testedProtocolVersion),
+      mediatorMessage.allInformees,
+      BaseTest.testedProtocolVersion,
+    )
+    val signedResult =
+      SignedProtocolMessage.from(
+        result,
         BaseTest.testedProtocolVersion,
+        sign("UnassignmentResult-mediator"),
       )
-      val signedResult =
-        SignedProtocolMessage.from(
-          result,
-          BaseTest.testedProtocolVersion,
-          sign("UnassignmentResult-mediator"),
-        )
-      val batch =
-        Batch.of(BaseTest.testedProtocolVersion, signedResult -> RecipientsTest.testInstance)
-      val deliver = Deliver.create(
-        SequencerCounter(1),
-        CantonTimestamp.ofEpochMilli(10),
-        reassignmentData.sourceDomain.unwrap,
-        Some(MessageId.tryCreate("1")),
-        batch,
-        Some(reassignmentData.unassignmentTs),
-        BaseTest.testedProtocolVersion,
-        Option.empty[TrafficReceipt],
-      )
-      SignedContent(
-        deliver,
-        sign("UnassignmentResult-sequencer"),
-        None,
-        BaseTest.testedProtocolVersion,
-      )
-    }
+    val batch =
+      Batch.of(BaseTest.testedProtocolVersion, signedResult -> RecipientsTest.testInstance)
+    val deliver = Deliver.create(
+      SequencerCounter(1),
+      CantonTimestamp.ofEpochMilli(10),
+      reassignmentData.sourceDomain.unwrap,
+      Some(MessageId.tryCreate("1")),
+      batch,
+      Some(reassignmentData.unassignmentTs),
+      BaseTest.testedProtocolVersion,
+      Option.empty[TrafficReceipt],
+    )
+    val content = SignedContent(
+      deliver,
+      sign("UnassignmentResult-sequencer"),
+      None,
+      BaseTest.testedProtocolVersion,
+    )
+
+    DeliveredUnassignmentResult.create(content).value
+  }
 }

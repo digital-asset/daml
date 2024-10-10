@@ -180,6 +180,18 @@ trait SyncCryptoApi {
       signatures: NonEmpty[Seq[Signature]],
   )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit]
 
+  /** This verifies that at least one of the signature is a valid sequencer signature.
+    * In particular, it does not respect the participant trust threshold.
+    * This should be used only in the context of reassignment where the concept of cross-domain
+    * proof of sequencing is not fully fleshed out.
+    *
+    * TODO(#12410) Remove this method and respect trust threshold
+    */
+  def unsafePartialVerifySequencerSignatures(
+      hash: Hash,
+      signatures: NonEmpty[Seq[Signature]],
+  )(implicit traceContext: TraceContext): EitherT[Future, SignatureCheckError, Unit]
+
   /** Encrypts a message for the given members
     *
     * Utility method to lookup a key on an IPS snapshot and then encrypt the given message with the

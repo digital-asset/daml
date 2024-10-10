@@ -4,8 +4,8 @@
 package com.digitalasset.canton.platform.apiserver.services.admin
 
 import com.daml.error.DamlError
-import com.daml.ledger.api.v2.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.daml.ledger.api.v2.admin.package_management_service.*
+import com.daml.ledger.api.v2.admin.package_management_service.PackageManagementServiceGrpc.PackageManagementService
 import com.daml.logging.LoggingContext
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService

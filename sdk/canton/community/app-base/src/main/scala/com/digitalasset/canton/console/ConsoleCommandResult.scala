@@ -7,8 +7,8 @@ import cats.Monad
 import cats.syntax.alternative.*
 import com.daml.error.{ErrorCategory, ErrorCode}
 import com.digitalasset.canton.console.CommandErrors.{CommandError, GenericCommandError}
-import com.digitalasset.canton.error.CantonErrorGroups.CommandErrorGroup
 import com.digitalasset.canton.error.*
+import com.digitalasset.canton.error.CantonErrorGroups.CommandErrorGroup
 import com.digitalasset.canton.util.ErrorUtil
 import org.slf4j.event.Level
 

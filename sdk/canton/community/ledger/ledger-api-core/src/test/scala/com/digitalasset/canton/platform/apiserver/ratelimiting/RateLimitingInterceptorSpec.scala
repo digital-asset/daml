@@ -22,8 +22,8 @@ import com.digitalasset.canton.platform.apiserver.ActiveStreamMetricsInterceptor
 import com.digitalasset.canton.platform.apiserver.configuration.RateLimitingConfig
 import com.digitalasset.canton.platform.apiserver.ratelimiting.LimitResult.LimitResultCheck
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
-import io.grpc.Status.Code
 import io.grpc.*
+import io.grpc.Status.Code
 import io.grpc.health.v1.health.{HealthCheckRequest, HealthCheckResponse, HealthGrpc}
 import io.grpc.netty.NettyServerBuilder
 import io.grpc.protobuf.services.ProtoReflectionService

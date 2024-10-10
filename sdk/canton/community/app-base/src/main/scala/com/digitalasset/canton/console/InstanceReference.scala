@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.console
 
-import com.digitalasset.canton.admin.api.client.commands.SequencerAdminCommands.LocatePruningTimestampCommand
 import com.digitalasset.canton.admin.api.client.commands.*
+import com.digitalasset.canton.admin.api.client.commands.SequencerAdminCommands.LocatePruningTimestampCommand
 import com.digitalasset.canton.admin.api.client.data.topology.ListParticipantDomainPermissionResult
 import com.digitalasset.canton.admin.api.client.data.{
   MediatorStatus,
@@ -13,8 +13,8 @@ import com.digitalasset.canton.admin.api.client.data.{
   SequencerStatus,
   StaticDomainParameters as ConsoleStaticDomainParameters,
 }
-import com.digitalasset.canton.config.RequireTypes.{ExistingFile, NonNegativeInt, Port, PositiveInt}
 import com.digitalasset.canton.config.*
+import com.digitalasset.canton.config.RequireTypes.{ExistingFile, NonNegativeInt, Port, PositiveInt}
 import com.digitalasset.canton.console.CommandErrors.NodeNotStarted
 import com.digitalasset.canton.console.commands.*
 import com.digitalasset.canton.crypto.Crypto

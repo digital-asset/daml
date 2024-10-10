@@ -21,7 +21,6 @@ import sttp.tapir.{DecodeResult, Schema, SchemaType}
 
 import java.time.Instant
 import java.util.Base64
-import scala.annotation.nowarn
 import scala.concurrent.duration.Duration
 import scala.util.Try
 
@@ -138,7 +137,6 @@ object JsSchema {
       grpcCodeValue: Option[Int],
   )
 
-  @nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
   object JsCantonError {
     implicit val rw: Codec[JsCantonError] = deriveCodec
 
@@ -195,7 +193,6 @@ object JsSchema {
         resources = jsCantonError.resources.map { case (k, v) => (ErrorResource(k), v) },
       )
   }
-  @nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
   object DirectScalaPbRwImplicits {
 
     implicit val om: Codec[ObjectMeta] = deriveCodec

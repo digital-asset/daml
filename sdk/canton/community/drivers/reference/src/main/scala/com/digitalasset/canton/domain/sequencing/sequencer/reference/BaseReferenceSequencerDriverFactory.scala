@@ -27,11 +27,8 @@ import com.digitalasset.canton.tracing.TraceContext
 import org.apache.pekko.stream.Materializer
 import pureconfig.{ConfigReader, ConfigWriter}
 
-import scala.annotation.nowarn
 import scala.concurrent.ExecutionContext
 
-@nowarn("cat=unused") // Work-around for IntelliJ Idea wrongly reporting unused implicits
-@nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
 private[reference] abstract class BaseReferenceSequencerDriverFactory
     extends SequencerDriverFactory {
 

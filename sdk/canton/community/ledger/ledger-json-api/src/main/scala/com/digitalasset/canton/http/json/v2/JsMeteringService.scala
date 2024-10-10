@@ -14,7 +14,6 @@ import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.jsonBody
 import com.google.protobuf
 
-import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 class JsMeteringService(meteringReportClient: MeteringReportClient, val loggerFactory: NamedLoggerFactory) extends Endpoints {
@@ -56,7 +55,6 @@ class JsMeteringService(meteringReportClient: MeteringReportClient, val loggerFa
   )
 
 }
-@nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
 object JsMeteringServiceCodecs {
   implicit val getMeteringReportRequest: Codec[metering_report_service.GetMeteringReportRequest] =
     deriveCodec

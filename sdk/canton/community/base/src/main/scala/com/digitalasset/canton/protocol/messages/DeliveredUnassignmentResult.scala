@@ -8,7 +8,7 @@ import cats.syntax.functorFilter.*
 import com.digitalasset.canton.data.ViewType
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.ReassignmentId
-import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult.InvalidUnassignmentResult
+import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult.extractConfirmationResultMessage
 import com.digitalasset.canton.sequencing.RawProtocolEvent
 import com.digitalasset.canton.sequencing.protocol.{
   Batch,
@@ -16,35 +16,22 @@ import com.digitalasset.canton.sequencing.protocol.{
   SignedContent,
   WithOpeningErrors,
 }
+import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.util.ReassignmentTag.Source
 
-final case class DeliveredUnassignmentResult(result: SignedContent[Deliver[DefaultOpenEnvelope]])
-    extends PrettyPrinting {
+/** Invariants:
+  * - Deliver event contains exactly one protocol message with viewType == UnassignmentViewType
+  * - Verdict of this event is Approve
+  */
+final case class DeliveredUnassignmentResult private (
+    result: SignedContent[Deliver[DefaultOpenEnvelope]]
+) extends PrettyPrinting {
 
-  val unwrap: ConfirmationResultMessage = result.content match {
-    case Deliver(_, _, _, _, Batch(envelopes), _, _) =>
-      val unassignmentResults =
-        envelopes
-          .mapFilter(env =>
-            ProtocolMessage.select[SignedProtocolMessage[ConfirmationResultMessage]](env)
-          )
-          .filter { env =>
-            env.protocolMessage.message.viewType == ViewType.UnassignmentViewType
-          }
-      val size = unassignmentResults.size
-      if (size != 1)
-        throw InvalidUnassignmentResult(
-          result.content,
-          s"The deliver event must contain exactly one unassignment result, but found $size.",
-        )
-      unassignmentResults(0).protocolMessage.message
-  }
+  // Safe by the factory method
+  val signedConfirmationResult: SignedProtocolMessage[ConfirmationResultMessage] =
+    extractConfirmationResultMessage(result.content).valueOr(throw _)
 
-  unwrap.verdict match {
-    case _: Verdict.Approve => ()
-    case _: Verdict.MediatorReject | _: Verdict.ParticipantReject =>
-      throw InvalidUnassignmentResult(result.content, "The unassignment result must be approving.")
-  }
+  val unwrap: ConfirmationResultMessage = signedConfirmationResult.message
 
   def reassignmentId: ReassignmentId =
     ReassignmentId(Source(unwrap.domainId), unwrap.requestId.unwrap)
@@ -58,6 +45,62 @@ object DeliveredUnassignmentResult {
       unassignmentResult: RawProtocolEvent,
       message: String,
   ) extends RuntimeException(s"$message: $unassignmentResult")
+
+  private def extractConfirmationResultMessage(
+      content: Deliver[DefaultOpenEnvelope]
+  ): Either[InvalidUnassignmentResult, SignedProtocolMessage[ConfirmationResultMessage]] =
+    content match {
+      case Deliver(_, _, _, _, Batch(envelopes), _, _) =>
+        val unassignmentResults =
+          envelopes
+            .mapFilter(env =>
+              ProtocolMessage.select[SignedProtocolMessage[ConfirmationResultMessage]](env)
+            )
+            .filter { env =>
+              env.protocolMessage.message.viewType == ViewType.UnassignmentViewType
+            }
+        val unassignmentResultsCount = unassignmentResults.size
+        val envelopesCount = envelopes.size
+
+        for {
+          _ <- EitherUtil.condUnitE(
+            unassignmentResultsCount == 1,
+            InvalidUnassignmentResult(
+              content,
+              s"The deliver event must contain exactly one unassignment result, but found $unassignmentResultsCount.",
+            ),
+          )
+          _ <- EitherUtil.condUnitE(
+            envelopesCount == 1,
+            InvalidUnassignmentResult(
+              content,
+              s"The deliver event must contain exactly one envelope, but found $envelopesCount.",
+            ),
+          )
+        } yield unassignmentResults(0).protocolMessage
+    }
+
+  /** - Deliver event contains exactly one protocol message with viewType == UnassignmentViewType
+    * - Verdict of this event is Approve
+    */
+  private def checkInvariants(
+      result: SignedContent[Deliver[DefaultOpenEnvelope]]
+  ): Either[InvalidUnassignmentResult, Unit] = for {
+    confirmationResultMessage <- extractConfirmationResultMessage(result.content)
+    verdict = confirmationResultMessage.message.verdict
+    _ <- EitherUtil.condUnitE(
+      verdict.isApprove,
+      InvalidUnassignmentResult(
+        result.content,
+        s"The unassignment result must be approving; found: $verdict",
+      ),
+    )
+  } yield ()
+
+  def create(
+      result: SignedContent[Deliver[DefaultOpenEnvelope]]
+  ): Either[InvalidUnassignmentResult, DeliveredUnassignmentResult] =
+    checkInvariants(result).map(_ => DeliveredUnassignmentResult(result))
 
   def create(
       resultE: WithOpeningErrors[SignedContent[RawProtocolEvent]]
@@ -82,6 +125,9 @@ object DeliveredUnassignmentResult {
             "Only a Deliver event contains an unassignment result.",
           )
         )
+
+      _ <- checkInvariants(castToDeliver)
+
       deliveredUnassignmentResult <- Either.catchOnly[InvalidUnassignmentResult] {
         DeliveredUnassignmentResult(castToDeliver)
       }

@@ -26,15 +26,15 @@ import com.digitalasset.canton.ledger.api.util.{DurationConversion, TimestampCon
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.daml.lf.command.{ApiCommand as LfCommand, ApiCommands as LfCommands}
-import com.digitalasset.daml.lf.data.Ref.TypeConRef
 import com.digitalasset.daml.lf.data.*
+import com.digitalasset.daml.lf.data.Ref.TypeConRef
 import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
   Node as LfNode,
   TransactionVersion,
 }
-import com.digitalasset.daml.lf.value.Value.ValueRecord
 import com.digitalasset.daml.lf.value.Value as Lf
+import com.digitalasset.daml.lf.value.Value.ValueRecord
 import com.google.protobuf.duration.Duration
 import com.google.protobuf.empty.Empty
 import io.grpc.Status.Code.INVALID_ARGUMENT

@@ -33,6 +33,7 @@ import com.daml.ledger.api.v2.transaction_filter.{
   Filters,
   TransactionFilter as TransactionFilterProto,
 }
+import com.daml.ledger.javaapi as javab
 import com.daml.ledger.javaapi.data.{
   GetUpdateTreesResponse,
   GetUpdatesResponse,
@@ -41,7 +42,6 @@ import com.daml.ledger.javaapi.data.{
   TransactionFilter,
   TransactionTree,
 }
-import com.daml.ledger.javaapi as javab
 import com.daml.metrics.api.MetricsContext
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.admin.api.client.commands.LedgerApiCommands

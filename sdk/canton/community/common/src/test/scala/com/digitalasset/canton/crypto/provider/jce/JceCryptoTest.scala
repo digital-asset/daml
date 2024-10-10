@@ -5,8 +5,8 @@ package com.digitalasset.canton.crypto.provider.jce
 
 import com.digitalasset.canton.config.CommunityCryptoConfig
 import com.digitalasset.canton.config.CommunityCryptoProvider.Jce
-import com.digitalasset.canton.crypto.CryptoTestHelper.TestMessage
 import com.digitalasset.canton.crypto.*
+import com.digitalasset.canton.crypto.CryptoTestHelper.TestMessage
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore.CommunityCryptoPrivateStoreFactory
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.resource.MemoryStorage

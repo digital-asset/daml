@@ -16,9 +16,9 @@ import com.digitalasset.canton.domain.block.data.SequencerBlockStore
 import com.digitalasset.canton.domain.block.update.BlockUpdateGeneratorImpl
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.admin.data.SequencerHealthStatus
+import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.sequencer.PruningError.UnsafePruningPoint
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.SignedOrderingRequest
-import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.sequencer.block.BlockSequencerFactory.OrderingTimeFixMode
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError
 import com.digitalasset.canton.domain.sequencing.sequencer.store.SequencerStore

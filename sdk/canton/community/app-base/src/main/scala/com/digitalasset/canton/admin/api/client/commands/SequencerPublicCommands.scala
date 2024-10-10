@@ -5,9 +5,9 @@ package com.digitalasset.canton.admin.api.client.commands
 
 import cats.syntax.either.*
 import com.digitalasset.canton.admin.api.client.data.StaticDomainParameters as ConsoleStaticDomainParameters
+import com.digitalasset.canton.domain.api.v30 as proto
 import com.digitalasset.canton.domain.api.v30.SequencerConnect.GetDomainParametersResponse.Parameters
 import com.digitalasset.canton.domain.api.v30.SequencerConnectServiceGrpc.SequencerConnectServiceStub
-import com.digitalasset.canton.domain.api.v30 as proto
 import com.digitalasset.canton.topology.DomainId
 import com.google.protobuf.empty.Empty
 import io.grpc.ManagedChannel

@@ -41,8 +41,8 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, NodeLo
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection
 import com.digitalasset.canton.participant.admin.repair.RepairService
 import com.digitalasset.canton.participant.config.BaseParticipantConfig
-import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.*
+import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.sequencing.{
   SequencerConnectionValidation,
   SequencerConnections,
@@ -55,11 +55,11 @@ import com.digitalasset.canton.topology.store.{
   StoredTopologyTransaction,
   StoredTopologyTransactions,
 }
+import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.{
   GenericSignedTopologyTransaction,
   PositiveSignedTopologyTransaction,
 }
-import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.canton.util.{BinaryFileUtil, EitherUtil}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -73,7 +73,6 @@ import io.circe.syntax.*
 
 import java.io.File as JFile
 import java.time.Instant
-import scala.annotation.nowarn
 import scala.collection.mutable
 import scala.concurrent.duration.*
 
@@ -150,7 +149,6 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
         env.nodes.all.forall(_.topology.synchronisation.is_idle())
       }
 
-    @nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
     private object GenerateDamlScriptParticipantsConf {
 
       private val filename = "participant-config.json"

@@ -114,13 +114,12 @@ object AcsChange extends HasLoggerName {
         data.contractMetadata.stakeholders,
         data.reassignmentCounter,
       )
+    } ++ commitSet.assignments.map { case (contractId, data) =>
+      contractId -> ContractStakeholdersAndReassignmentCounter(
+        data.contractMetadata.stakeholders,
+        data.reassignmentCounter,
+      )
     }
-      ++ commitSet.assignments.map { case (contractId, data) =>
-        contractId -> ContractStakeholdersAndReassignmentCounter(
-          data.contractMetadata.stakeholders,
-          data.reassignmentCounter,
-        )
-      }
 
     /*
     Subtracting the reassignment counter of unassignments to correctly match deactivated contracts as explained above

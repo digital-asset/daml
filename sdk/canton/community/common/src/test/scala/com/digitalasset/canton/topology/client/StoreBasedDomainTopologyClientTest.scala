@@ -19,8 +19,8 @@ import com.digitalasset.canton.topology.store.{
   TopologyStoreId,
   ValidatedTopologyTransaction,
 }
-import com.digitalasset.canton.topology.transaction.ParticipantPermission.*
 import com.digitalasset.canton.topology.transaction.*
+import com.digitalasset.canton.topology.transaction.ParticipantPermission.*
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, SequencerCounter}
 import org.scalatest.wordspec.AsyncWordSpec
 

@@ -26,11 +26,11 @@ import com.digitalasset.canton.domain.sequencing.sequencer.{
 }
 import com.digitalasset.canton.lifecycle.{CloseContext, FlagCloseable}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.resource.DbStorage
+import com.digitalasset.canton.resource.DbStorage.*
 import com.digitalasset.canton.resource.DbStorage.DbAction.ReadOnly
 import com.digitalasset.canton.resource.DbStorage.Implicits.BuilderChain.*
 import com.digitalasset.canton.resource.DbStorage.Profile.{H2, Postgres}
-import com.digitalasset.canton.resource.DbStorage.*
+import com.digitalasset.canton.resource.{DbParameterUtils, DbStorage}
 import com.digitalasset.canton.sequencing.protocol.MessageId
 import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.topology.Member
@@ -44,7 +44,7 @@ import org.h2.api.ErrorCode as H2ErrorCode
 import org.postgresql.util.PSQLState
 import slick.jdbc.*
 
-import java.sql.{JDBCType, SQLException, SQLNonTransientException}
+import java.sql.SQLException
 import java.util.UUID
 import scala.annotation.tailrec
 import scala.collection.immutable.SortedSet
@@ -78,41 +78,18 @@ class DbSequencerStore(
       .getOrElse(CloseContext(this))
 
   private implicit val setRecipientsArrayOParameter
-      : SetParameter[Option[NonEmpty[SortedSet[SequencerMemberId]]]] = (v, pp) => {
-    val jdbcArray = v
-      .map(_.toArray.map(id => Int.box(id.unwrap): AnyRef))
-      .map(pp.ps.getConnection.createArrayOf("integer", _))
-
-    pp.setObjectOption(jdbcArray, JDBCType.ARRAY.getVendorTypeNumber)
-  }
+      : SetParameter[Option[NonEmpty[SortedSet[SequencerMemberId]]]] =
+    (v, pp) => DbParameterUtils.setArrayIntOParameterDb(v.map(_.toArray.map(_.unwrap)), pp)
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf", "org.wartremover.warts.Null"))
   private implicit val getRecipientsArrayOResults
-      : GetResult[Option[NonEmpty[SortedSet[SequencerMemberId]]]] = {
-
-    def toInt(a: AnyRef) = a match {
-      case s: String => s.toInt
-      case null =>
-        throw new SQLNonTransientException(s"Cannot convert object array element null to Int")
-      case invalid =>
-        throw new SQLNonTransientException(
-          s"Cannot convert object array element (of type ${invalid.getClass.getName}) to Int"
-        )
-    }
-
-    storage.profile match {
-      case _: H2 =>
-        GetResult(r => Option(r.rs.getArray(r.skip.currentPos)))
-          .andThen(_.map(_.getArray.asInstanceOf[Array[AnyRef]].map(toInt)))
-          .andThen(_.map(_.map(SequencerMemberId(_))))
-          .andThen(_.map(arr => NonEmptyUtil.fromUnsafe(SortedSet(arr.toSeq*))))
-      case _: Postgres =>
-        GetResult(r => Option(r.rs.getArray(r.skip.currentPos)))
-          .andThen(_.map(_.getArray.asInstanceOf[Array[AnyRef]].map(Int.unbox)))
-          .andThen(_.map(_.map(SequencerMemberId(_))))
-          .andThen(_.map(arr => NonEmptyUtil.fromUnsafe(SortedSet(arr.toSeq*))))
-    }
-  }
+      : GetResult[Option[NonEmpty[SortedSet[SequencerMemberId]]]] =
+    DbParameterUtils
+      .getDataArrayOResultsDb[SequencerMemberId](
+        storage.profile,
+        deserialize = v => SequencerMemberId(v),
+      )
+      .andThen(_.map(arr => NonEmptyUtil.fromUnsafe(SortedSet(arr.toSeq*))))
 
   private implicit val setParameterTraceContext: SetParameter[SerializableTraceContext] =
     SerializableTraceContext.getVersionedSetParameter(protocolVersion)

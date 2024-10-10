@@ -5,8 +5,8 @@ package com.digitalasset.canton.metrics
 
 import io.opentelemetry.sdk.common.CompletableResultCode
 import io.opentelemetry.sdk.metrics.InstrumentType
-import io.opentelemetry.sdk.metrics.data.{AggregationTemporality, MetricData}
 import io.opentelemetry.sdk.metrics.export.{CollectionRegistration, MetricReader}
+import io.opentelemetry.sdk.metrics.data.{AggregationTemporality, MetricData}
 import org.slf4j.LoggerFactory
 
 import java.util.concurrent.atomic.AtomicReference

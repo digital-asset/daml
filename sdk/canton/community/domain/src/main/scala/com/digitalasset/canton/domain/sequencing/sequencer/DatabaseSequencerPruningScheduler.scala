@@ -8,8 +8,8 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.resource.Storage
-import com.digitalasset.canton.scheduler.JobScheduler.*
 import com.digitalasset.canton.scheduler.*
+import com.digitalasset.canton.scheduler.JobScheduler.*
 import com.digitalasset.canton.store.PruningSchedulerStore
 import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration, PositiveSeconds}
 import com.digitalasset.canton.topology.SequencerId

@@ -610,6 +610,7 @@ class MediatorNodeBootstrap(
           Domain.replaySequencerConfig.get().lift(member).map(Domain.defaultReplayPath(member)),
         arguments.metrics.sequencerClient,
         parameters.loggingConfig,
+        parameters.exitOnFatalFailures,
         domainLoggerFactory,
         ProtocolVersionCompatibility.supportedProtocols(parameters),
         None,

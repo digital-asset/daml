@@ -6,8 +6,8 @@ package com.digitalasset.canton.version
 import com.digitalasset.canton.crypto.TestHash
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.protocol.messages.EncryptedViewMessage.computeRandomnessLength
 import com.digitalasset.canton.protocol.messages.*
+import com.digitalasset.canton.protocol.messages.EncryptedViewMessage.computeRandomnessLength
 import com.digitalasset.canton.sequencing.SequencerConnections
 import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,

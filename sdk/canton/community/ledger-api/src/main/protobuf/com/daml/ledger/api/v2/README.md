@@ -46,7 +46,7 @@ Affected V1 messages:
   - transaction/Transaction
   - transaction/TransactionTree
   - update_service/GetTransactionByIdRequest
-  
+
 The point-wise lookup queries for transactions are renamed to follow naming convention wih streams:
 GetTransaction* to GetTransactionTree* and GetFlatTransaction* to GetTransaction*.
 
@@ -56,9 +56,9 @@ All ledger state related endpoints moved to StateService:
 - ActiveContractsService.GetActiveContracts
 - CommandCompletionService.CompletionEnd
 - TransactionService.GetLedgerEnd
-- TransactionService.GetLatestPrunedOffsets 
+- TransactionService.GetLatestPrunedOffsets
 
-GetActiveContracts service is enhanced to provide a snapshot for the virtual shared ledger (see more in 
+GetActiveContracts service is enhanced to provide a snapshot for the virtual shared ledger (see more in
 state_service.proto):
 - Contract activeness is defined per domain.
 - State stream includes IncompleteAssigned, IncompleteUnassigned to bootstrap applications
@@ -161,9 +161,9 @@ in database with a trade-off on future upgrading.
 StateService.GetConnectedDomains. For complex topologies and multi-hosted parties proper offset based snapshot
 endpoint is needed alongside with adding topology events to the update streams.
 7. **Introduction of reassigning parties**: With complex topologies the information of which querying users can
-conduct assignments for an IncompleteUnassigned entry might be needed for bootstrapping proper reassignement
+conduct assignments for an IncompleteUnassigned entry might be needed for bootstrapping proper reassignment
 operations.
-8. **Deduplication for reassignments**: Adding this feature might include enriching reassingment commands (and events)
+8. **Deduplication for reassignments**: Adding this feature might include enriching reassignment commands (and events)
 with more deduplication related fields.
 9. **Completing the API for reassignments**: Currently the CommandService offers submit-and-wait endpoints for
 transactions and Update service offers point-wise lookup endpoints for transactions only. This is about to

@@ -6,8 +6,8 @@ package com.digitalasset.canton.participant.protocol.submission
 import com.digitalasset.canton.protocol.{LfContractId, LfVersionedTransaction}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.topology.transaction.ParticipantPermission.Submission
 import com.digitalasset.canton.topology.transaction.*
+import com.digitalasset.canton.topology.transaction.ParticipantPermission.Submission
 import com.digitalasset.canton.version.DamlLfVersionToProtocolVersions
 import com.digitalasset.canton.{BaseTest, LfPackageId, LfPartyId, LfValue}
 import com.digitalasset.daml.lf.data.Ref.QualifiedName

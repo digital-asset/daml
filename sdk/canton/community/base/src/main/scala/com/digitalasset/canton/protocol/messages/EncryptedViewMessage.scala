@@ -9,9 +9,9 @@ import cats.syntax.bifunctor.*
 import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.DecryptionError.InvariantViolation
 import com.digitalasset.canton.crypto.SyncCryptoError.SyncCryptoDecryptionError
-import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.store.CryptoPrivateStoreError.FailedToReadKey
 import com.digitalasset.canton.crypto.store.{CryptoPrivateStoreError, CryptoPublicStore}
 import com.digitalasset.canton.data.ViewType

@@ -7,8 +7,8 @@ import cats.implicits.{toBifunctorOps, toFunctorFilterOps}
 import com.daml.error.utils.DecodedCantonError
 import com.daml.ledger.api.v2.commands.Commands
 import com.daml.ledger.api.v2.commands.Commands.DeduplicationPeriod.DeduplicationDuration
-import com.daml.ledger.api.v2.event.Event.Event
 import com.daml.ledger.api.v2.event.CreatedEvent as ScalaCreatedEvent
+import com.daml.ledger.api.v2.event.Event.Event
 import com.daml.ledger.api.v2.reassignment.Reassignment
 import com.daml.ledger.api.v2.state_service.ActiveContract
 import com.daml.ledger.api.v2.transaction.Transaction

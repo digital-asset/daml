@@ -36,17 +36,12 @@ class V2Routes(
 )(implicit ec: ExecutionContext)
     extends Endpoints
     with NamedLogging {
-  private val serverEndpoints = commandService.endpoints()
-    ++ eventService.endpoints()
-    ++ versionService.endpoints()
-    ++ packageService.endpoints()
-    ++ partyManagementService.endpoints()
-    ++ stateService.endpoints()
-    ++ updateService.endpoints()
-    ++ userManagementService.endpoints()
-    ++ identityProviderService.endpoints()
-    ++ meteringService.endpoints()
-    ++ metadataServiceIfEnabled.toList.flatMap(_.endpoints())
+  private val serverEndpoints =
+    commandService.endpoints() ++ eventService.endpoints() ++ versionService
+      .endpoints() ++ packageService.endpoints() ++ partyManagementService
+      .endpoints() ++ stateService.endpoints() ++ updateService.endpoints() ++ userManagementService
+      .endpoints() ++ identityProviderService.endpoints() ++ meteringService
+      .endpoints() ++ metadataServiceIfEnabled.toList.flatMap(_.endpoints())
 
   private val docs =
     new JsApiDocsService(versionClient, serverEndpoints.map(_.endpoint), loggerFactory)

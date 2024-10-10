@@ -6,8 +6,8 @@ package com.digitalasset.canton.tracing
 import com.daml.tracing.SpanAttribute
 import io.opentelemetry.api.trace.{Span, Tracer}
 import io.opentelemetry.sdk.common.CompletableResultCode
-import io.opentelemetry.sdk.trace.data.{EventData, SpanData}
 import io.opentelemetry.sdk.trace.`export`.SpanExporter
+import io.opentelemetry.sdk.trace.data.{EventData, SpanData}
 
 import java.util
 import java.util.concurrent.LinkedBlockingQueue

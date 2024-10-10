@@ -18,9 +18,9 @@ import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.{DomainId, Member}
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
+import io.grpc.*
 import io.grpc.ForwardingClientCall.SimpleForwardingClientCall
 import io.grpc.ForwardingClientCallListener.SimpleForwardingClientCallListener
-import io.grpc.*
 import io.grpc.internal.GrpcAttributes
 import io.grpc.stub.AbstractStub
 

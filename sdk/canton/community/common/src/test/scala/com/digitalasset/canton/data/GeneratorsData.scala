@@ -609,14 +609,16 @@ final class GeneratorsData(
       deliver <- deliverGen(sourceDomain.unwrap, batch, protocolVersion)
 
       unassignmentTs <- Arbitrary.arbitrary[CantonTimestamp]
-    } yield DeliveredUnassignmentResult {
-      SignedContent(
-        deliver,
-        sign("UnassignmentResult-sequencer", TestHash.testHashPurpose),
-        Some(unassignmentTs),
-        protocolVersion,
+    } yield DeliveredUnassignmentResult
+      .create(
+        SignedContent(
+          deliver,
+          sign("UnassignmentResult-sequencer", TestHash.testHashPurpose),
+          Some(unassignmentTs),
+          protocolVersion,
+        )
       )
-    }
+      .value
 
   implicit val assignmentViewArb: Arbitrary[AssignmentView] = Arbitrary(
     for {

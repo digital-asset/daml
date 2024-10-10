@@ -46,7 +46,7 @@ class TopologyTimestampPlusEpsilonTracker(
   private case class State(topologyChangeDelay: NonNegativeFiniteDuration, validFrom: EffectiveTime)
 
   /** The currently active as well as all future states, sorted by `State.validFrom` in descending order */
-  private val state = new AtomicReference[List[State]](List.empty)
+  private val states = new AtomicReference[List[State]](List.empty)
 
   /** The maximum effective time assigned to a topology transaction.
     * Used to enforce that the effective time is strictly monotonically increasing.
@@ -144,7 +144,7 @@ class TopologyTimestampPlusEpsilonTracker(
       case Change.TopologyDelay(_, validFrom, _, changeDelay) => State(changeDelay, validFrom)
     }
     logger.info(s"Initialising with $initialStates...")
-    state.set(initialStates)
+    states.set(initialStates)
 
     // Initialize maximumEffectiveTime based on the maximum effective time in the store.
     // This will cover all adjustments made within trackAndComputeEffectiveTime.
@@ -169,7 +169,7 @@ class TopologyTimestampPlusEpsilonTracker(
   private def rawEffectiveTimeOf(
       sequencingTime: SequencedTime
   )(implicit traceContext: TraceContext): EffectiveTime = {
-    val topologyChangeDelay = state
+    val topologyChangeDelay = states
       .get()
       .collectFirst {
         case state if sequencingTime.value > state.validFrom.value =>
@@ -178,7 +178,7 @@ class TopologyTimestampPlusEpsilonTracker(
       .getOrElse(
         ErrorUtil.internalError(
           new IllegalArgumentException(
-            s"Unable to determine effective time for $sequencingTime. State: ${state.get()}"
+            s"Unable to determine effective time for $sequencingTime. State: ${states.get()}"
           )
         )
       )
@@ -190,7 +190,7 @@ class TopologyTimestampPlusEpsilonTracker(
     * Bump maximumEffectiveTime to topologyChangeDelay + validUntil(topologyChangeDelay), if topologyChangeDelay has expired.
     */
   private def cleanup(sequencedTime: SequencedTime): Unit = {
-    val oldStates = state
+    val oldStates = states
       .getAndUpdate { oldStates =>
         val (futureStates, pastStates) = oldStates.span(_.validFrom.value >= sequencedTime.value)
 
@@ -219,7 +219,7 @@ class TopologyTimestampPlusEpsilonTracker(
       effectiveTime: EffectiveTime,
       newTopologyChangeDelay: NonNegativeFiniteDuration,
   )(implicit traceContext: TraceContext): Unit =
-    state
+    states
       .getAndUpdate { oldStates =>
         val oldHeadState = oldStates.headOption
         val newHeadState = State(newTopologyChangeDelay, effectiveTime)

@@ -94,7 +94,7 @@ class ContractsService(
                 domain.ActiveContract.ResolvedCtTyId[JsValue]
               ]
           }
-          .map(a => \/-(a.templateId.map(lf.data.Ref.PackageRef.Id) -> a.contractId))
+          .map(a => \/-(a.templateId.map(lf.data.Ref.PackageRef.Id.apply) -> a.contractId))
     }
   }
 

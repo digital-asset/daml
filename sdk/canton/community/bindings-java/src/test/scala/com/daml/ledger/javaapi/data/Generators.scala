@@ -367,16 +367,14 @@ object Generators {
                 .build
             )
             .build()
-        )
-      ++
-      interfaceFilters
-        .map(interfaceFilter =>
-          v2.TransactionFilterOuterClass.CumulativeFilter
-            .newBuilder()
-            .setInterfaceFilter(interfaceFilter)
-            .build()
-        )
-        ++ (wildcardFilterO match {
+        ) ++
+        interfaceFilters
+          .map(interfaceFilter =>
+            v2.TransactionFilterOuterClass.CumulativeFilter
+              .newBuilder()
+              .setInterfaceFilter(interfaceFilter)
+              .build()
+          ) ++ (wildcardFilterO match {
           case Some(wildcardFilter) =>
             Seq(
               v2.TransactionFilterOuterClass.CumulativeFilter

@@ -53,7 +53,9 @@ object Generators {
 
   final case class PackageIdGen[A](gen: Gen[A])
 
-  implicit val RequiredPackageIdGen: PackageIdGen[Ref.PackageId] = PackageIdGen(genPkgIdentifier.map(Ref.PackageId.assertFromString))
+  implicit val RequiredPackageIdGen: PackageIdGen[Ref.PackageId] = PackageIdGen(
+    genPkgIdentifier.map(Ref.PackageId.assertFromString)
+  )
   implicit val RequiredPackageRefGen: PackageIdGen[Ref.PackageRef] = PackageIdGen(
     Gen.oneOf(
       genPkgIdentifier.map(s => Ref.PackageRef.Id(Ref.PackageId.assertFromString(s))),
@@ -165,14 +167,14 @@ object Generators {
   def genUnknownTemplateIds: Gen[domain.UnknownTemplateIds] =
     Gen
       .listOf(genDomainTemplateIdO: Gen[domain.ContractTypeId.RequiredPkg])
-      .map(domain.UnknownTemplateIds)
+      .map(domain.UnknownTemplateIds.apply)
 
   def genUnknownParties: Gen[domain.UnknownParties] =
-    Gen.listOf(partyGen).map(domain.UnknownParties)
+    Gen.listOf(partyGen).map(domain.UnknownParties.apply)
 
   def genServiceWarning: Gen[domain.ServiceWarning] =
     Gen.oneOf(genUnknownTemplateIds, genUnknownParties)
 
   def genWarningsWrapper: Gen[domain.AsyncWarningsWrapper] =
-    genServiceWarning.map(domain.AsyncWarningsWrapper)
+    genServiceWarning.map(domain.AsyncWarningsWrapper.apply)
 }

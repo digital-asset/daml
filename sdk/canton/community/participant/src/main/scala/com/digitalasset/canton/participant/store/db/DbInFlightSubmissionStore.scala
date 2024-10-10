@@ -30,9 +30,9 @@ import com.digitalasset.canton.store.db.DbBulkUpdateProcessor.BulkUpdatePendingC
 import com.digitalasset.canton.store.db.{DbBulkUpdateProcessor, DbSerializationException}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext, Traced}
+import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.TryUtil.ForFailedOps
-import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.retry.NoExceptionRetryPolicy
 import com.digitalasset.canton.version.ReleaseProtocolVersion
 import slick.jdbc.{PositionedParameters, SetParameter}

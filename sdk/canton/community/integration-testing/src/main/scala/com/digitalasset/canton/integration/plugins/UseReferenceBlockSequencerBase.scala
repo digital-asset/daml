@@ -4,8 +4,8 @@
 package com.digitalasset.canton.integration.plugins
 
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.*
+import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.domain.sequencing.sequencer.SequencerConfig
 import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.integration.plugins.UseReferenceBlockSequencerBase.{

@@ -6,11 +6,22 @@ package com.digitalasset.canton.participant.protocol.reassignment
 import cats.data.EitherT
 import cats.implicits.toFunctorOps
 import cats.syntax.bifunctor.*
+import com.daml.error.{Explanation, Resolution}
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, SyncCryptoError}
 import com.digitalasset.canton.data.*
+import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.TransactionErrorGroup.LocalRejectionGroup
+import com.digitalasset.canton.error.{Alarm, AlarmErrorCode}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.EngineController.GetEngineAbortStatus
-import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidation.*
+import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidation.InvalidUnassignmentResult.DeliveredUnassignmentResultError
+import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidation.{
+  AssignmentValidationResult,
+  ContractDataMismatch,
+  CreatingTransactionIdMismatch,
+  InconsistentReassignmentCounter,
+  NonInitiatorSubmitsBeforeExclusivityTimeout,
+  ReassigningParticipantsMismatch,
+}
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
 import com.digitalasset.canton.participant.protocol.{
   ProcessingSteps,
@@ -99,10 +110,8 @@ private[reassignment] class AssignmentValidation(
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, ReassignmentProcessorError, Option[AssignmentValidationResult]] = {
-    val unassignmentResultEvent = assignmentRequest.unassignmentResultEvent.result
-
     val reassignmentId = assignmentRequest.unassignmentResultEvent.reassignmentId
-    val targetIps = targetCrypto.map(_.ipsSnapshot)
+    val targetSnapshot = targetCrypto.map(_.ipsSnapshot)
 
     reassignmentDataO match {
       case Some(reassignmentData) =>
@@ -127,16 +136,6 @@ private[reassignment] class AssignmentValidation(
             sourceStaticDomainParam,
             unassignmentTs,
           )
-          // TODO(i12926): Check the signatures of the mediator and the sequencer
-
-          _ <- condUnitET[Future](
-            unassignmentResultEvent.content.timestamp <= reassignmentData.unassignmentDecisionTime,
-            ResultTimestampExceedsDecisionTime(
-              reassignmentId,
-              timestamp = unassignmentResultEvent.content.timestamp,
-              decisionTime = reassignmentData.unassignmentDecisionTime,
-            ),
-          )
 
           _ <- condUnitET[Future](
             reassignmentData.unassignmentRequest.reassigningParticipants == assignmentRequest.reassigningParticipants,
@@ -159,18 +158,27 @@ private[reassignment] class AssignmentValidation(
           targetTimeProof = reassignmentData.unassignmentRequest.targetTimeProof.timestamp
 
           // TODO(i12926): Check that reassignmentData.unassignmentRequest.targetTimeProof.timestamp is in the past
-          cryptoSnapshot <- reassignmentCoordination
+          cryptoSnapshotAtTimeProof <- reassignmentCoordination
             .cryptoSnapshot(
               reassignmentData.targetDomain,
               staticDomainParameters,
               targetTimeProof,
             )
 
+          _ <- DeliveredUnassignmentResultValidation(
+            unassignmentRequest = reassignmentData.unassignmentRequest,
+            unassignmentRequestTs = reassignmentData.unassignmentTs,
+            unassignmentDecisionTime = reassignmentData.unassignmentDecisionTime,
+            sourceTopology = sourceCrypto,
+            targetTopology = targetSnapshot,
+          )(assignmentRequest.unassignmentResultEvent).validate
+            .leftMap(err => DeliveredUnassignmentResultError(reassignmentId, err.error).reported())
+
           // TODO(#12926): validate assignmentRequest.stakeholders
 
           _ <- ReassignmentSubmissionValidation.assignment(
             reassignmentId = reassignmentId,
-            topologySnapshot = cryptoSnapshot.map(_.ipsSnapshot),
+            topologySnapshot = targetSnapshot,
             submitter = assignmentRequest.submitter,
             participantId = assignmentRequest.submitterMetadata.submittingParticipant,
             stakeholders = assignmentRequest.stakeholders,
@@ -178,7 +186,7 @@ private[reassignment] class AssignmentValidation(
 
           exclusivityLimit <- ProcessingSteps
             .getAssignmentExclusivity(
-              cryptoSnapshot.map(_.ipsSnapshot),
+              cryptoSnapshotAtTimeProof.map(_.ipsSnapshot),
               targetTimeProof,
             )
             .leftMap[ReassignmentProcessorError](ReassignmentParametersError(domainId.unwrap, _))
@@ -208,7 +216,7 @@ private[reassignment] class AssignmentValidation(
             sourceIps.unwrap.canConfirm(participantId, stakeholders)
           )
           targetConfirmingParties <- EitherT.right(
-            targetIps.unwrap.canConfirm(participantId, stakeholders)
+            targetSnapshot.unwrap.canConfirm(participantId, stakeholders)
           )
           confirmingParties = sourceConfirmingParties.intersect(targetConfirmingParties)
 
@@ -226,10 +234,11 @@ private[reassignment] class AssignmentValidation(
         } yield Some(AssignmentValidationResult(confirmingParties))
 
       case None =>
+        // TODO(#12926) Check what validations can be done here
         for {
           _ <- ReassignmentSubmissionValidation.assignment(
             reassignmentId = reassignmentId,
-            topologySnapshot = targetIps,
+            topologySnapshot = targetSnapshot,
             submitter = assignmentRequest.submitter,
             participantId = assignmentRequest.submitterMetadata.submittingParticipant,
             stakeholders = assignmentRequest.stakeholders,
@@ -241,7 +250,7 @@ private[reassignment] class AssignmentValidation(
               // The assignment should be rejected due to other validations (e.g. conflict detection), but
               // we could code this more defensively at some point
 
-              val confirmingPartiesF = targetIps.unwrap
+              val confirmingPartiesF = targetSnapshot.unwrap
                 .canConfirm(
                   participantId,
                   assignmentRequest.stakeholders,
@@ -258,7 +267,29 @@ private[reassignment] class AssignmentValidation(
   }
 }
 
-object AssignmentValidation {
+object AssignmentValidation extends LocalRejectionGroup {
+  @Explanation(
+    """The mediator has received an invalid delivered unassignment result.
+      |This may occur due to a bug at the sender of the message."""
+  )
+  @Resolution("Contact support.")
+  object InvalidUnassignmentResult
+      extends AlarmErrorCode("PARTICIPANT_RECEIVED_INVALID_DELIVERED_UNASSIGNMENT_RESULT") {
+    final case class DeliveredUnassignmentResultError(
+        override val cause: String
+    ) extends Alarm(cause)
+        with AssignmentValidationError {
+      override def message: String = cause
+    }
+
+    object DeliveredUnassignmentResultError {
+      def apply(reassignmentId: ReassignmentId, error: String): DeliveredUnassignmentResultError =
+        DeliveredUnassignmentResultError(
+          s"Cannot assign `$reassignmentId`: validation of DeliveredUnassignmentResult failed with error: $error"
+        )
+    }
+  }
+
   final case class AssignmentValidationResult(confirmingParties: Set[LfPartyId])
 
   private[reassignment] sealed trait AssignmentValidationError extends ReassignmentProcessorError
@@ -292,15 +323,6 @@ object AssignmentValidation {
   ) extends AssignmentValidationError {
     override def message: String =
       s"Cannot assign `$reassignmentId`: expecting domain `$targetDomain` but received on `$receivedOn`"
-  }
-
-  final case class ResultTimestampExceedsDecisionTime(
-      reassignmentId: ReassignmentId,
-      timestamp: CantonTimestamp,
-      decisionTime: CantonTimestamp,
-  ) extends AssignmentValidationError {
-    override def message: String =
-      s"Cannot assign `$reassignmentId`: result time $timestamp exceeds decision time $decisionTime"
   }
 
   final case class ReassigningParticipantsMismatch(

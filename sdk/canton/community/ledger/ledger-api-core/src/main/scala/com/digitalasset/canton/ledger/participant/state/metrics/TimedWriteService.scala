@@ -8,11 +8,11 @@ import com.daml.metrics.Timed
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.{Offset, ProcessedDisclosedContract}
 import com.digitalasset.canton.ledger.api.health.HealthStatus
+import com.digitalasset.canton.ledger.participant.state.*
 import com.digitalasset.canton.ledger.participant.state.WriteService.{
   ConnectedDomainRequest,
   ConnectedDomainResponse,
 }
-import com.digitalasset.canton.ledger.participant.state.*
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.protocol.PackageDescription

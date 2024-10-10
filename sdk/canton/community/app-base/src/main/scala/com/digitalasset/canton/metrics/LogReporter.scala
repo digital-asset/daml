@@ -7,8 +7,8 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.NoTracing
 import io.opentelemetry.sdk.common.CompletableResultCode
 import io.opentelemetry.sdk.metrics.InstrumentType
-import io.opentelemetry.sdk.metrics.data.{AggregationTemporality, MetricData}
 import io.opentelemetry.sdk.metrics.`export`.MetricExporter
+import io.opentelemetry.sdk.metrics.data.{AggregationTemporality, MetricData}
 
 import java.util
 import scala.jdk.CollectionConverters.*

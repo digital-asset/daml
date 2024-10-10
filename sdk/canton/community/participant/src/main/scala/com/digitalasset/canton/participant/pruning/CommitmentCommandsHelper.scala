@@ -68,7 +68,7 @@ object CommitmentContractMetadata
     for {
       cid <- LfContractId
         .fromBytes(Bytes.fromByteString(contract.cid))
-        .leftMap(ProtoDeserializationError.StringConversionError)
+        .leftMap(ProtoDeserializationError.StringConversionError.apply)
       reprProtocolVersion <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield CommitmentContractMetadata(cid, ReassignmentCounter(contract.reassignmentCounter))(
       reprProtocolVersion

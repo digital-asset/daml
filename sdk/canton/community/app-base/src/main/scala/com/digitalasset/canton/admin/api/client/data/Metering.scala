@@ -9,9 +9,9 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.google.protobuf.struct
 import com.google.protobuf.struct.Value.Kind
 import com.google.protobuf.struct.{ListValue, Struct}
+import io.circe.*
 import io.circe.Decoder.Result
 import io.circe.Json.*
-import io.circe.*
 
 object LedgerMeteringReport {
 

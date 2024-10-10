@@ -6,8 +6,8 @@ package com.digitalasset.canton.tracing
 import com.daml.scalautil.Statement.discard
 import io.grpc.Metadata
 import io.opentelemetry.api.trace.propagation.W3CTraceContextPropagator
-import io.opentelemetry.context.propagation.{TextMapGetter, TextMapSetter}
 import io.opentelemetry.context.Context as OpenTelemetryContext
+import io.opentelemetry.context.propagation.{TextMapGetter, TextMapSetter}
 import org.apache.pekko.NotUsed
 
 import java.lang

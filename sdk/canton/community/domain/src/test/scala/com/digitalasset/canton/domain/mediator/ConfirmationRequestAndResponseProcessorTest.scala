@@ -9,8 +9,8 @@ import com.digitalasset.canton.config.CachingConfigs
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
-import com.digitalasset.canton.data.ViewType.{AssignmentViewType, TransactionViewType}
 import com.digitalasset.canton.data.*
+import com.digitalasset.canton.data.ViewType.{AssignmentViewType, TransactionViewType}
 import com.digitalasset.canton.domain.mediator.ResponseAggregation.ConsortiumVotingState
 import com.digitalasset.canton.domain.mediator.store.{
   InMemoryFinalizedResponseStore,
@@ -21,13 +21,13 @@ import com.digitalasset.canton.domain.metrics.MediatorTestMetrics
 import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.logging.LogEntry
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.protocol.messages.Verdict.{Approve, MediatorReject}
 import com.digitalasset.canton.protocol.messages.*
+import com.digitalasset.canton.protocol.messages.Verdict.{Approve, MediatorReject}
 import com.digitalasset.canton.sequencing.client.TestSequencerClientSend
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.time.{Clock, DomainTimeTracker, NonNegativeFiniteDuration}
-import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.util.MonadUtil.{sequentialTraverse, sequentialTraverse_}

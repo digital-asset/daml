@@ -7,8 +7,8 @@ import cats.syntax.option.*
 import com.daml.jwt.JwtTimestampLeeway
 import com.daml.tls.{TlsConfiguration, TlsVersion}
 import com.digitalasset.canton.config
-import com.digitalasset.canton.config.RequireTypes.*
 import com.digitalasset.canton.config.*
+import com.digitalasset.canton.config.RequireTypes.*
 import com.digitalasset.canton.http.JsonApiConfig
 import com.digitalasset.canton.networking.grpc.CantonServerBuilder
 import com.digitalasset.canton.participant.admin.AdminWorkflowConfig

@@ -6,8 +6,8 @@ package com.digitalasset.canton.crypto.provider.jce
 import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CommunityCryptoProvider.Jce
-import com.digitalasset.canton.crypto.CryptoPureApiError.KeyParseAndValidateError
 import com.digitalasset.canton.crypto.*
+import com.digitalasset.canton.crypto.CryptoPureApiError.KeyParseAndValidateError
 import com.digitalasset.canton.crypto.deterministic.encryption.DeterministicRandom
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.serialization.{
@@ -19,9 +19,9 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ErrorUtil, ShowUtil}
 import com.digitalasset.canton.version.{HasToByteString, HasVersionedToByteString, ProtocolVersion}
 import com.google.crypto.tink.hybrid.subtle.AeadOrDaead
+import com.google.crypto.tink.subtle.*
 import com.google.crypto.tink.subtle.EllipticCurves.EcdsaEncoding
 import com.google.crypto.tink.subtle.Enums.HashType
-import com.google.crypto.tink.subtle.*
 import com.google.crypto.tink.{Aead, PublicKeySign, PublicKeyVerify}
 import com.google.protobuf.ByteString
 import org.bouncycastle.crypto.DataLengthException
@@ -402,7 +402,7 @@ class JcePureCrypto(
     for {
       javaPublicKey <- parseAndGetPublicKey(
         publicKey,
-        EncryptionError.InvalidEncryptionKey,
+        EncryptionError.InvalidEncryptionKey.apply,
       )
       ecPublicKey <- javaPublicKey match {
         case k: ECPublicKey =>
@@ -659,7 +659,7 @@ class JcePureCrypto(
                   checkEcKeyInCurve(k, privateKey.id)
                     .leftMap(err => DecryptionError.InvalidEncryptionKey(err))
                 },
-                DecryptionError.InvalidEncryptionKey,
+                DecryptionError.InvalidEncryptionKey.apply,
               )
               decrypter <- Either
                 .catchOnly[GeneralSecurityException](
@@ -678,7 +678,7 @@ class JcePureCrypto(
                 )
                 .leftMap(err => DecryptionError.FailedToDecrypt(err.toString))
               message <- deserialize(ByteString.copyFrom(plaintext))
-                .leftMap(DecryptionError.FailedToDeserialize)
+                .leftMap(DecryptionError.FailedToDeserialize.apply)
             } yield message
           case EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Cbc =>
             for {
@@ -688,7 +688,7 @@ class JcePureCrypto(
                   checkEcKeyInCurve(k, privateKey.id)
                     .leftMap(err => DecryptionError.InvalidEncryptionKey(err))
                 },
-                DecryptionError.InvalidEncryptionKey,
+                DecryptionError.InvalidEncryptionKey.apply,
               )
               /* we split at 'ivSizeForAesCbc' (=16) because that is the size of our iv (for AES-128-CBC)
                * that gets  pre-appended to the ciphertext.
@@ -745,7 +745,7 @@ class JcePureCrypto(
                       .leftMap(err => DecryptionError.InvalidEncryptionKey(err))
                   } yield key
                 },
-                DecryptionError.InvalidEncryptionKey,
+                DecryptionError.InvalidEncryptionKey.apply,
               )
               decrypter <- Either
                 .catchOnly[GeneralSecurityException] {
@@ -773,7 +773,7 @@ class JcePureCrypto(
                   DecryptionError.FailedToDecrypt(ErrorUtil.messageWithStacktrace(err))
               }
               message <- deserialize(ByteString.copyFrom(plaintext))
-                .leftMap(DecryptionError.FailedToDeserialize)
+                .leftMap(DecryptionError.FailedToDeserialize.apply)
             } yield message
         }
       }

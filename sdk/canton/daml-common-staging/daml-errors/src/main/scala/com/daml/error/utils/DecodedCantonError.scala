@@ -5,9 +5,9 @@ package com.daml.error.utils
 
 import cats.implicits.toTraverseOps
 import cats.syntax.either.*
+import com.daml.error.*
 import com.daml.error.BaseError.SecuritySensitiveMessage
 import com.daml.error.ErrorCategory.GenericErrorCategory
-import com.daml.error.*
 import com.google.protobuf.any
 import com.google.rpc.error_details.{ErrorInfo, RequestInfo, ResourceInfo, RetryInfo}
 import com.google.rpc.status.Status as RpcStatus

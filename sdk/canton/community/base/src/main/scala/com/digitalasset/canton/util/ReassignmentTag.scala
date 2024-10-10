@@ -11,14 +11,14 @@ import slick.jdbc.{GetResult, PositionedParameters, SetParameter}
   * The `Source` and `Target` wrappers help differentiate between these two domains, allowing us to manage
   * their specific characteristics, such as protocol versions, static domain parameters, and other domain-specific details.
   */
-sealed trait ReassignmentTag[T] extends Product with Serializable {
+sealed trait ReassignmentTag[+T] extends Product with Serializable {
   def unwrap: T
 }
 
 // Define instances for Traverse and Monad
 object ReassignmentTag {
 
-  final case class Source[T](value: T) extends ReassignmentTag[T] {
+  final case class Source[+T](value: T) extends ReassignmentTag[T] {
     override def unwrap: T = value
   }
 
@@ -63,7 +63,7 @@ object ReassignmentTag {
       new SameReassignmentType[Source] {}
   }
 
-  final case class Target[T](value: T) extends ReassignmentTag[T] {
+  final case class Target[+T](value: T) extends ReassignmentTag[T] {
     override def unwrap: T = value
   }
 

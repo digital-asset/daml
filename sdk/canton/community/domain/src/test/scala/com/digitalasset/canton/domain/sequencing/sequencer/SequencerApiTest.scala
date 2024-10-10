@@ -11,15 +11,15 @@ import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, HashPurpose, Signature}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer as CantonSequencer
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.CreateSubscriptionError
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError.ExceededMaxSequencingTime
-import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer as CantonSequencer
 import com.digitalasset.canton.lifecycle.Lifecycle
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
 import com.digitalasset.canton.sequencing.OrdinarySerializedEvent
-import com.digitalasset.canton.sequencing.protocol.SendAsyncError.RequestInvalid
 import com.digitalasset.canton.sequencing.protocol.*
+import com.digitalasset.canton.sequencing.protocol.SendAsyncError.RequestInvalid
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.time.{Clock, SimClock}
 import com.digitalasset.canton.topology.*

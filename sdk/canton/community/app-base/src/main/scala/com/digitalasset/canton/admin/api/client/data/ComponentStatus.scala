@@ -20,8 +20,6 @@ import com.digitalasset.canton.util.ShowUtil
 import io.circe.Encoder
 import io.circe.generic.semiauto.deriveEncoder
 
-import scala.annotation.nowarn
-
 final case class ComponentStatus(name: String, state: ComponentHealthState) extends PrettyPrinting {
   override val pretty: Pretty[ComponentStatus] = ComponentStatus.componentStatusPretty
 }
@@ -55,7 +53,6 @@ object ComponentStatus {
         ).asRight
     }
 
-  @nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
   implicit val componentStatusEncoder: Encoder[ComponentStatus] = deriveEncoder[ComponentStatus]
 
   implicit val componentStatusPretty: Pretty[ComponentStatus] = {
@@ -79,7 +76,6 @@ object ComponentHealthState extends ShowUtil {
   private val NotInitializedState: ComponentHealthState =
     ComponentHealthState.failed("Not Initialized")
 
-  @nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
   implicit val componentHealthStateEncoder: Encoder[ComponentHealthState] =
     deriveEncoder[ComponentHealthState]
 
@@ -109,7 +105,6 @@ object ComponentHealthState extends ShowUtil {
       with HasUnhealthyState {}
 
   object Degraded {
-    @nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
     implicit val degradedEncoder: Encoder[Degraded] = deriveEncoder[Degraded]
   }
 
@@ -122,7 +117,6 @@ object ComponentHealthState extends ShowUtil {
       with HasUnhealthyState {}
 
   object Failed {
-    @nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
     implicit val failedEncoder: Encoder[Failed] = deriveEncoder[Failed]
   }
 

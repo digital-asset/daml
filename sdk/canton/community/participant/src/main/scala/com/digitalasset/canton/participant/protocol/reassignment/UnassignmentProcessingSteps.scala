@@ -9,8 +9,8 @@ import cats.syntax.functor.*
 import cats.syntax.traverse.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, HashOps}
-import com.digitalasset.canton.data.ViewType.UnassignmentViewType
 import com.digitalasset.canton.data.*
+import com.digitalasset.canton.data.ViewType.UnassignmentViewType
 import com.digitalasset.canton.ledger.participant.state.{
   CompletionInfo,
   DomainIndex,
@@ -44,17 +44,17 @@ import com.digitalasset.canton.participant.protocol.submission.{
   SeedGenerator,
 }
 import com.digitalasset.canton.participant.protocol.{EngineController, ProcessingSteps}
+import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.ActiveContractStore.{
   Active,
   Archived,
   Purged,
   ReassignedAway,
 }
-import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.protocol.*
-import com.digitalasset.canton.protocol.messages.Verdict.MediatorReject
 import com.digitalasset.canton.protocol.messages.*
+import com.digitalasset.canton.protocol.messages.Verdict.MediatorReject
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.DefaultDeserializationError
 import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
@@ -422,18 +422,14 @@ class UnassignmentProcessingSteps(
 
     val reassignmentId: ReassignmentId = ReassignmentId(fullTree.sourceDomain, ts)
     val view = fullTree.tree.view.tryUnwrap
+    val contract = view.contract
+    val isReassigningParticipant = fullTree.isReassigningParticipant(participantId)
+
     for {
       // Since the unassignment request should be sent only to participants that host a stakeholder of the contract,
       // we can expect to find the contract in the contract store.
-      contractWithTransactionId <-
-        // TODO(i15090): Validate contract data against contract id and contract metadata against contract data
-        EitherT.rightT[FutureUnlessShutdown, ReassignmentProcessorError](
-          WithTransactionId(view.contract, view.creatingTransactionId)
-        )
 
-      WithTransactionId(contract, creatingTransactionId) = contractWithTransactionId
-
-      isReassigningParticipant = fullTree.isReassigningParticipant(participantId)
+      // TODO(i15090): Validate contract data against contract id and contract metadata against contract data
 
       targetTopology <-
         if (isReassigningParticipant)
@@ -480,7 +476,6 @@ class UnassignmentProcessingSteps(
         unassignmentRequest = fullTree,
         unassignmentDecisionTime = unassignmentDecisionTime,
         contract = contract,
-        creatingTransactionId = creatingTransactionId,
         unassignmentResult = None,
         reassignmentGlobalOffset = None,
       )

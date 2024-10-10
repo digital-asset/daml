@@ -19,8 +19,8 @@ import com.digitalasset.canton.time.{Clock, PositiveFiniteDuration}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.processing.*
 import com.digitalasset.canton.topology.store.{PartyMetadata, PartyMetadataStore}
-import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.topology.transaction.*
+import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{FutureUtil, SimpleExecutionQueue}

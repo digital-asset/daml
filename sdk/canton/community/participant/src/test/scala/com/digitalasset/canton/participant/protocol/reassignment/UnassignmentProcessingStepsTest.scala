@@ -58,8 +58,8 @@ import com.digitalasset.canton.store.{
   SessionKeyStoreWithInMemoryCache,
 }
 import com.digitalasset.canton.time.{DomainTimeTracker, TimeProofTestUtil, WallClock}
-import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
@@ -273,7 +273,7 @@ final class UnassignmentProcessingStepsTest
       participant -> admin
     }
 
-  private lazy val timeEvent =
+  private lazy val timeProof =
     TimeProofTestUtil.mkTimeProof(timestamp = CantonTimestamp.Epoch, targetDomain = targetDomain)
 
   private lazy val contractId = ExampleTransactionFactory.suffixedId(10, 0)
@@ -329,7 +329,7 @@ final class UnassignmentProcessingStepsTest
       UnassignmentRequest
         .validated(
           submittingParticipant,
-          timeEvent,
+          timeProof,
           creatingTransactionId,
           contract,
           submitterMetadata(submitter),
@@ -505,7 +505,7 @@ final class UnassignmentProcessingStepsTest
             sourceMediator = sourceMediator,
             targetDomain = targetDomain,
             targetProtocolVersion = Target(testedProtocolVersion),
-            targetTimeProof = timeEvent,
+            targetTimeProof = timeProof,
             reassignmentCounter = initialReassignmentCounter,
           ),
           Set(submittingParticipant, participant1, participant2),
@@ -558,7 +558,7 @@ final class UnassignmentProcessingStepsTest
             sourceMediator = sourceMediator,
             targetDomain = targetDomain,
             targetProtocolVersion = Target(testedProtocolVersion),
-            targetTimeProof = timeEvent,
+            targetTimeProof = timeProof,
             reassignmentCounter = initialReassignmentCounter,
           ),
           Set(submittingParticipant, participant1, participant2, participant3, participant4),
@@ -582,7 +582,7 @@ final class UnassignmentProcessingStepsTest
             sourceMediator = sourceMediator,
             targetDomain = targetDomain,
             targetProtocolVersion = Target(testedProtocolVersion),
-            targetTimeProof = timeEvent,
+            targetTimeProof = timeProof,
             reassignmentCounter = initialReassignmentCounter,
           ),
           Set(submittingParticipant, participant1),
@@ -621,7 +621,7 @@ final class UnassignmentProcessingStepsTest
         _ <- persistentState.activeContractStore
           .markContractsCreated(
             Seq(contractId -> initialReassignmentCounter),
-            TimeOfChange(RequestCounter(1), timeEvent.timestamp),
+            TimeOfChange(RequestCounter(1), timeProof.timestamp),
           )
           .value
         _ <-
@@ -671,7 +671,7 @@ final class UnassignmentProcessingStepsTest
   }
 
   "receive request" should {
-    val outRequest = UnassignmentRequest(
+    val unassignmentRequest = UnassignmentRequest(
       submitterMetadata = submitterMetadata(party1),
       Set(party1),
       reassigningParticipants = Set(submittingParticipant),
@@ -682,17 +682,17 @@ final class UnassignmentProcessingStepsTest
       sourceMediator,
       targetDomain,
       Target(testedProtocolVersion),
-      timeEvent,
+      timeProof,
       reassignmentCounter = initialReassignmentCounter,
     )
-    val outTree = makeFullUnassignmentTree(outRequest)
+    val unassignmentTree = makeFullUnassignmentTree(unassignmentRequest)
 
     "succeed without errors" in {
       val sessionKeyStore =
         new SessionKeyStoreWithInMemoryCache(CachingConfigs.defaultSessionKeyCacheConfig)
       for {
         encryptedOutRequest <- encryptUnassignmentTree(
-          outTree,
+          unassignmentTree,
           RecipientsTest.testInstance,
           sessionKeyStore,
         )
@@ -710,7 +710,7 @@ final class UnassignmentProcessingStepsTest
         activenessSet =
           unassignmentProcessingSteps
             .computeActivenessSet(
-              mkParsedRequest(outTree, RecipientsTest.testInstance, None)
+              mkParsedRequest(unassignmentTree, RecipientsTest.testInstance, None)
             )
             .value
       } yield {
@@ -733,7 +733,7 @@ final class UnassignmentProcessingStepsTest
         metadata = metadata,
       )
       val transactionId = ExampleTransactionFactory.transactionId(1)
-      val outRequest = UnassignmentRequest(
+      val unassignmentRequest = UnassignmentRequest(
         submitterMetadata = submitterMetadata(party1),
         Set(party1),
         reassigningParticipants = Set(submittingParticipant),
@@ -744,10 +744,10 @@ final class UnassignmentProcessingStepsTest
         sourceMediator,
         targetDomain,
         Target(testedProtocolVersion),
-        timeEvent,
+        timeProof,
         reassignmentCounter = initialReassignmentCounter,
       )
-      val fullUnassignmentTree = makeFullUnassignmentTree(outRequest)
+      val fullUnassignmentTree = makeFullUnassignmentTree(unassignmentRequest)
 
       state.contractStore
         .storeCreatedContract(
@@ -844,7 +844,7 @@ final class UnassignmentProcessingStepsTest
           testedProtocolVersion,
         )
         assignmentExclusivity = domainParameters
-          .assignmentExclusivityLimitFor(timeEvent.timestamp)
+          .assignmentExclusivityLimitFor(timeProof.timestamp)
           .value
         pendingOut = PendingUnassignment(
           RequestId(CantonTimestamp.Epoch),
@@ -861,7 +861,7 @@ final class UnassignmentProcessingStepsTest
           targetDomain,
           Set(party1),
           Set(party1),
-          timeEvent,
+          timeProof,
           Some(Target(assignmentExclusivity)),
           MediatorGroupRecipient(MediatorGroupIndex.one),
           locallyRejectedF = FutureUnlessShutdown.pure(false),

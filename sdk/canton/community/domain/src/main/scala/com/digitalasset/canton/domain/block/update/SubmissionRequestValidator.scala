@@ -16,12 +16,12 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.block.update.SubmissionRequestValidator.*
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
+import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.sequencer.InFlightAggregation.AggregationBySender
 import com.digitalasset.canton.domain.sequencing.sequencer.Sequencer.{
   SignedOrderingRequest,
   SignedOrderingRequestOps,
 }
-import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.sequencer.errors.SequencerError
 import com.digitalasset.canton.domain.sequencing.sequencer.store.SequencerMemberValidator
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitManager

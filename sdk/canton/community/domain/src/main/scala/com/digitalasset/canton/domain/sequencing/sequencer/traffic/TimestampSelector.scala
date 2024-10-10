@@ -41,7 +41,7 @@ object TimestampSelector {
       // Empty defaults to LatestSafe
       case TimestampSelectorP.Empty => Right(LatestSafe)
       case TimestampSelectorP.ExactTimestamp(value) =>
-        CantonTimestamp.fromProtoPrimitive(value).map(ExactTimestamp)
+        CantonTimestamp.fromProtoPrimitive(value).map(ExactTimestamp.apply)
       case TimestampSelectorP.RelativeTimestamp(
             v30.TrafficControlStateRequest.RelativeTimestamp.RELATIVE_TIMESTAMP_LATEST_SAFE_UNSPECIFIED
           ) =>

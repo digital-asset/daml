@@ -40,12 +40,10 @@ import pureconfig.generic.ProductHint
 import pureconfig.generic.semiauto.*
 import pureconfig.{ConfigConvert, ConfigReader, ConfigWriter}
 
-import scala.annotation.nowarn
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.jdk.DurationConverters.{JavaDurationOps, ScalaDurationOps}
 import scala.util.Try
 
-@nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
 class PureConfigReaderWriter(secure: Boolean = true) {
 
   private val ReplaceSecretWithString = "<REDACTED>"

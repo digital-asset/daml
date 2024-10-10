@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
+import com.daml.ledger.api.v2.event as apiEvent
 import com.daml.ledger.api.v2.reassignment.{
   AssignedEvent as ApiAssignedEvent,
   Reassignment as ApiReassignment,
@@ -19,7 +20,6 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdateTreesResponse,
   GetUpdatesResponse,
 }
-import com.daml.ledger.api.v2.event as apiEvent
 import com.digitalasset.canton.ledger.api.util.{LfEngineToApi, TimestampConversion}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.platform.store.ScalaPbStreamingOptimizations.*

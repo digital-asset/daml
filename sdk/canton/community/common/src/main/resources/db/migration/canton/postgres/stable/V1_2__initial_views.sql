@@ -71,6 +71,31 @@ $$
   immutable
   returns null on null input;
 
+-- convert the integer representation to the name of the signing key usage
+create or replace function debug.key_usage(integer) returns varchar(300) as
+$$
+select
+case
+  when $1 = 0 then 'Namespace'
+  when $1 = 1 then 'IdentityDelegation'
+  when $1 = 2 then 'SequencerAuthentication'
+  when $1 = 3 then 'Protocol'
+  else $1::text
+end;
+$$
+  language sql
+  immutable
+  returns null on null input;
+
+-- convert the integer representation to the name of the signing key usage
+create or replace function debug.key_usages(integer[]) returns varchar(300)[] as
+$$
+select array_agg(debug.key_usage(m)) from unnest($1) as m;
+$$
+  language sql
+  stable
+  returns null on null input;
+
 -- resolve an interned string to the text representation
 create or replace function debug.resolve_common_static_string(integer) returns varchar(300) as
 $$
@@ -141,7 +166,8 @@ create or replace view debug.common_kms_metadata_store as
   select
     fingerprint,
     kms_key_id,
-    debug.key_purpose(purpose) as purpose
+    debug.key_purpose(purpose) as purpose,
+    debug.key_usages(key_usage) as key_usage
   from common_kms_metadata_store;
 
 create or replace view debug.common_crypto_public_keys as
@@ -268,7 +294,6 @@ create or replace view debug.par_reassignments as
     unassignment_request,
     debug.canton_timestamp(unassignment_decision_time) as unassignment_decision_time,
     contract,
-    creating_transaction_id,
     unassignment_result,
     submitter_lf,
     debug.canton_timestamp(time_of_completion_request_counter) as time_of_completion_request_counter,

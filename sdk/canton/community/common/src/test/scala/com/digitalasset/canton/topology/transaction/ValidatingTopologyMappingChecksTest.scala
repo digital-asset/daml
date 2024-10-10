@@ -9,12 +9,12 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.{Fingerprint, SigningPublicKey}
 import com.digitalasset.canton.protocol.{DynamicDomainParameters, OnboardingRestriction}
 import com.digitalasset.canton.time.PositiveSeconds
-import com.digitalasset.canton.topology.DefaultTestIdentities.{mediatorId, sequencerId}
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.DefaultTestIdentities.{mediatorId, sequencerId}
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
+import com.digitalasset.canton.topology.store.*
 import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
 import com.digitalasset.canton.topology.store.TopologyTransactionRejection.InvalidTopologyMapping
-import com.digitalasset.canton.topology.store.*
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
   Confirmation,

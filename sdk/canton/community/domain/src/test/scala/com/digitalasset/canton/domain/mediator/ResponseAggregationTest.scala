@@ -7,9 +7,9 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
+import com.digitalasset.canton.data.*
 import com.digitalasset.canton.data.ViewPosition.MerkleSeqIndex
 import com.digitalasset.canton.data.ViewPosition.MerkleSeqIndex.Direction
-import com.digitalasset.canton.data.*
 import com.digitalasset.canton.domain.mediator.MediatorVerdict.MediatorApprove
 import com.digitalasset.canton.domain.mediator.ResponseAggregation.{
   ConsortiumVotingState,
@@ -19,8 +19,8 @@ import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
-import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*

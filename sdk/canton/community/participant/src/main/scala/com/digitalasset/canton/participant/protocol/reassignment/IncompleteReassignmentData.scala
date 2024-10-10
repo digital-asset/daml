@@ -30,7 +30,6 @@ final case class IncompleteReassignmentData private (
     unassignmentRequest: FullUnassignmentTree,
     unassignmentDecisionTime: CantonTimestamp,
     contract: SerializableContract,
-    creatingTransactionId: TransactionId,
     unassignmentResult: Option[DeliveredUnassignmentResult],
     reassignmentEventGlobalOffset: ReassignmentEventGlobalOffset,
     queryOffset: GlobalOffset,

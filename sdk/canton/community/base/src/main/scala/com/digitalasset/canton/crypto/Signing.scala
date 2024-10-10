@@ -19,6 +19,7 @@ import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{DefaultDeserializationError, ProtoConverter}
+import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.NoCopy
@@ -225,6 +226,10 @@ sealed trait SigningKeyUsage extends Product with Serializable with PrettyPrinti
   // name to identify existing keys on bootstrap.
   def identifier: String
 
+  // A unique byte representation for a key usage that is stored in the DB
+  // NOTE: If you add a new dbType, add them also to `function debug.key_usage` in sql for debugging
+  def dbType: Byte
+
   def toProtoEnum: v30.SigningKeyUsage
 
   override def pretty: Pretty[SigningKeyUsage.this.type] = prettyOfString(_.identifier)
@@ -241,19 +246,27 @@ object SigningKeyUsage {
     NonEmpty.mk(Set, SequencerAuthentication)
   val ProtocolOnly: NonEmpty[Set[SigningKeyUsage]] = NonEmpty.mk(Set, Protocol)
 
+  def fromDbTypeToSigningKeyUsage(dbTypeInt: Int): SigningKeyUsage =
+    All
+      .find(sku => sku.dbType == dbTypeInt.toByte)
+      .getOrElse(throw new DbDeserializationException(s"Unknown key usage id: $dbTypeInt"))
+
   case object Namespace extends SigningKeyUsage {
     override val identifier: String = "namespace"
+    override val dbType: Byte = 0
     override def toProtoEnum: v30.SigningKeyUsage = v30.SigningKeyUsage.SIGNING_KEY_USAGE_NAMESPACE
   }
 
   case object IdentityDelegation extends SigningKeyUsage {
     override val identifier: String = "identity-delegation"
+    override val dbType: Byte = 1
     override def toProtoEnum: v30.SigningKeyUsage =
       v30.SigningKeyUsage.SIGNING_KEY_USAGE_IDENTITY_DELEGATION
   }
 
   case object SequencerAuthentication extends SigningKeyUsage {
     override val identifier: String = "sequencer-auth"
+    override val dbType: Byte = 2
     override def toProtoEnum: v30.SigningKeyUsage =
       v30.SigningKeyUsage.SIGNING_KEY_USAGE_SEQUENCER_AUTHENTICATION
   }
@@ -262,6 +275,7 @@ object SigningKeyUsage {
     // In this case, the identifier does not match the class name because it needs to match the identifier tag
     // that we use to search for keys during node bootstrap.
     override val identifier: String = "signing"
+    override val dbType: Byte = 3
     override def toProtoEnum: v30.SigningKeyUsage =
       v30.SigningKeyUsage.SIGNING_KEY_USAGE_PROTOCOL
   }

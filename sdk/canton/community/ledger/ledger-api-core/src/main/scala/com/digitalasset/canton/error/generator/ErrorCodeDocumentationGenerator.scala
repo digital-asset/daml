@@ -7,8 +7,8 @@ import com.daml.error.*
 import org.reflections.Reflections
 
 import scala.jdk.CollectionConverters.*
-import scala.reflect.runtime.universe.*
 import scala.reflect.runtime.universe as ru
+import scala.reflect.runtime.universe.*
 
 /** Utility that indexes all error code implementations.
   */

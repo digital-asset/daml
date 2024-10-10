@@ -21,9 +21,8 @@ import com.digitalasset.canton.participant.store.ReassignmentStoreTest.transacti
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
-import com.digitalasset.canton.time.TimeProofTestUtil
-import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -41,11 +40,11 @@ class AssignmentValidationTest
   private val sourceDomain = Source(
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::source"))
   )
-  private val sourceMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(100))
+  private val sourceMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(0))
   private val targetDomain = Target(
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::target"))
   )
-  private val targetMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(200))
+  private val targetMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(0))
 
   private val party1: LfPartyId = PartyId(
     UniqueIdentifier.tryFromProtoPrimitive("party1::party")
@@ -103,72 +102,50 @@ class AssignmentValidationTest
       contractId,
       contractInstance = ExampleTransactionFactory.contractInstance(),
     )
-    val unassignmentResult =
-      ReassignmentResultHelpers.unassignmentResult(
-        sourceDomain,
-        cryptoSnapshot,
-        submittingParticipant,
-      )
+
+    val reassignmentId = ReassignmentId(sourceDomain, CantonTimestamp.Epoch)
+
+    val reassignmentDataHelpers = new ReassignmentDataHelpers(
+      contract,
+      reassignmentId.sourceDomain,
+      targetDomain,
+      identityFactory,
+    )
+
+    val unassignmentRequest =
+      reassignmentDataHelpers.unassignmentRequest(party1, submittingParticipant, sourceMediator)()
+
+    val reassignmentData =
+      reassignmentDataHelpers.reassignmentData(reassignmentId, unassignmentRequest)()
+
+    val unassignmentResult = reassignmentDataHelpers
+      .unassignmentResult(reassignmentData)
+      .futureValue
+
     val assignmentRequest = makeFullAssignmentTree(
       contract,
       unassignmentResult,
+      creatingTransactionId = ExampleTransactionFactory.transactionId(0),
     )
 
-    "succeed without errors in the basic case" in {
+    "succeed without errors in the basic case (no reassignment data)" in {
       assignmentValidation
         .validateAssignmentRequest(
           CantonTimestamp.Epoch,
           assignmentRequest,
-          None,
+          reassignmentDataO = None,
           Target(cryptoSnapshot),
           isReassigningParticipant = false,
         )
         .futureValue shouldBe None
     }
 
-    val reassignmentId = ReassignmentId(sourceDomain, CantonTimestamp.Epoch)
-    val unassignmentRequest = UnassignmentRequest(
-      submitterInfo(party1),
-      stakeholders = Set.empty,
-      reassigningParticipants = Set(submittingParticipant),
-      ExampleTransactionFactory.transactionId(0),
-      contract,
-      reassignmentId.sourceDomain,
-      Source(testedProtocolVersion),
-      sourceMediator,
-      targetDomain,
-      Target(testedProtocolVersion),
-      TimeProofTestUtil.mkTimeProof(timestamp = CantonTimestamp.Epoch, targetDomain = targetDomain),
-      initialReassignmentCounter,
-    )
-    val uuid = new UUID(3L, 4L)
-    val seed = seedGenerator.generateSaltSeed()
-    val fullUnassignmentTree = unassignmentRequest
-      .toFullUnassignmentTree(
-        pureCrypto,
-        pureCrypto,
-        seed,
-        uuid,
-      )
-    val reassignmentData =
-      ReassignmentData(
-        Source(testedProtocolVersion),
-        CantonTimestamp.Epoch,
-        RequestCounter(1),
-        fullUnassignmentTree,
-        CantonTimestamp.Epoch,
-        contract,
-        transactionId1,
-        Some(unassignmentResult),
-        None,
-      )
-
     "succeed without errors when reassignment data is valid" in {
       assignmentValidation
         .validateAssignmentRequest(
           CantonTimestamp.Epoch,
           assignmentRequest,
-          Some(reassignmentData),
+          reassignmentDataO = Some(reassignmentData),
           Target(cryptoSnapshot),
           isReassigningParticipant = false,
         )
@@ -209,16 +186,17 @@ class AssignmentValidationTest
     }
 
     "complain about inconsistent reassignment counters" in {
-      val inRequestWithWrongCounter = makeFullAssignmentTree(
+      val assignmentTreeWrongCounter = makeFullAssignmentTree(
         contract,
         unassignmentResult,
         reassignmentCounter = reassignmentData.reassignmentCounter + 1,
+        creatingTransactionId = ExampleTransactionFactory.transactionId(0),
       )
 
       assignmentValidation
         .validateAssignmentRequest(
           CantonTimestamp.Epoch,
-          inRequestWithWrongCounter,
+          assignmentTreeWrongCounter,
           Some(reassignmentData),
           Target(cryptoSnapshot),
           isReassigningParticipant = true,
@@ -228,23 +206,24 @@ class AssignmentValidationTest
         .left
         .value shouldBe InconsistentReassignmentCounter(
         reassignmentId,
-        inRequestWithWrongCounter.reassignmentCounter,
+        assignmentTreeWrongCounter.reassignmentCounter,
         reassignmentData.reassignmentCounter,
       )
     }
 
     "detect reassigning participant mismatch" in {
       def validate(reassigningParticipants: Set[ParticipantId]) = {
-        val assignmentRequest = makeFullAssignmentTree(
+        val assignmentTree = makeFullAssignmentTree(
           contract,
           unassignmentResult,
           reassigningParticipants = reassigningParticipants,
+          creatingTransactionId = ExampleTransactionFactory.transactionId(0),
         )
 
         assignmentValidation
           .validateAssignmentRequest(
             CantonTimestamp.Epoch,
-            assignmentRequest,
+            assignmentTree,
             Some(reassignmentData),
             Target(cryptoSnapshot),
             isReassigningParticipant = false,
@@ -275,6 +254,7 @@ class AssignmentValidationTest
           contract,
           unassignmentResult,
           submitter = submitter,
+          creatingTransactionId = ExampleTransactionFactory.transactionId(0),
         )
 
         assignmentValidation

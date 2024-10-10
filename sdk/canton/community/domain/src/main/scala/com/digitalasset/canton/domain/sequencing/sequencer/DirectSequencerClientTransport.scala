@@ -16,8 +16,8 @@ import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, OnShutdownRunner
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.sequencing.SerializedEventHandler
-import com.digitalasset.canton.sequencing.client.SendAsyncClientError.SendAsyncClientResponseError
 import com.digitalasset.canton.sequencing.client.*
+import com.digitalasset.canton.sequencing.client.SendAsyncClientError.SendAsyncClientResponseError
 import com.digitalasset.canton.sequencing.client.transports.{
   SequencerClientTransport,
   SequencerClientTransportPekko,

@@ -15,7 +15,6 @@ import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
 import sttp.tapir.{path, query}
 
-import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 class JsEventService(
@@ -29,7 +28,7 @@ class JsEventService(
 
   import JsEventServiceCodecs.*
 
-  private lazy val events = v2Endpoint.in("events")
+  private lazy val events = v2Endpoint.in(sttp.tapir.stringToPath("events"))
 
   private def eventServiceClient(token: Option[String] = None)(implicit
       traceContext: TraceContext
@@ -39,7 +38,7 @@ class JsEventService(
   def endpoints() = List(
     json(
       events.get
-        .in("events-by-contract-id")
+        .in(sttp.tapir.stringToPath("events-by-contract-id"))
         .in(path[String]("contract-id"))
         .in(query[List[String]]("parties"))
         .description("Get events by contract Id"),
@@ -80,7 +79,6 @@ case class JsGetEventsByContractIdResponse(
     archived: Option[JsArchived],
 )
 
-@nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
 object JsEventServiceCodecs {
   implicit val jsCreatedRW: Codec[JsCreated] = deriveCodec
   implicit val jsArchivedRW: Codec[JsArchived] = deriveCodec

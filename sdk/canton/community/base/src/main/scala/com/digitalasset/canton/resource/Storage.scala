@@ -9,9 +9,9 @@ import cats.syntax.functor.*
 import cats.{Eval, Functor, Monad}
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.config.*
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.*
 import com.digitalasset.canton.crypto.Salt
 import com.digitalasset.canton.health.{
   AtomicHealthComponent,
@@ -37,8 +37,8 @@ import com.digitalasset.canton.store.db.{DbDeserializationException, DbSerializa
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.time.EnrichedDurations.*
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.*
+import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.retry.RetryEither
 import com.digitalasset.canton.{LfPackageId, LfPartyId}
 import com.google.protobuf.ByteString
@@ -51,8 +51,8 @@ import org.slf4j.event.Level
 import slick.SlickException
 import slick.dbio.*
 import slick.jdbc.JdbcBackend.Database
-import slick.jdbc.canton.ActionBasedSQLInterpolation.Implicits.actionBasedSQLInterpolationCanton
 import slick.jdbc.canton.*
+import slick.jdbc.canton.ActionBasedSQLInterpolation.Implicits.actionBasedSQLInterpolationCanton
 import slick.jdbc.hikaricp.HikariCPJdbcDataSource
 import slick.jdbc.{ActionBasedSQLInterpolation as _, SQLActionBuilder as _, *}
 import slick.lifted.Aliases

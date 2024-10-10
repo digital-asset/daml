@@ -4,9 +4,9 @@
 package com.digitalasset.canton.metrics
 
 import cats.Eval
+import com.daml.metrics.api.*
 import com.daml.metrics.api.MetricHandle.{Counter, Gauge, LabeledMetricsFactory}
 import com.daml.metrics.api.MetricQualification.Traffic
-import com.daml.metrics.api.*
 import com.daml.metrics.api.noop.NoOpMetricsFactory
 
 import scala.collection.concurrent.TrieMap

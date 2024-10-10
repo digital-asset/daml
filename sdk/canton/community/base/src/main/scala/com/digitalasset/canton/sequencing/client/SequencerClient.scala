@@ -17,8 +17,8 @@ import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.catsinstances.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.*
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.{HashPurpose, SyncCryptoApi, SyncCryptoClient}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -28,9 +28,9 @@ import com.digitalasset.canton.health.{
   DelegatingMutableHealthComponent,
   HealthComponent,
 }
+import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.lifecycle.Lifecycle.toCloseableOption
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
-import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.pretty.{CantonPrettyPrinter, Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.SequencerClientMetrics
@@ -39,12 +39,12 @@ import com.digitalasset.canton.protocol.DomainParametersLookup.SequencerDomainPa
 import com.digitalasset.canton.protocol.DynamicDomainParametersLookup
 import com.digitalasset.canton.protocol.messages.DefaultOpenEnvelope
 import com.digitalasset.canton.resource.DbStorage.PassiveInstanceException
+import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.SequencerAggregator.MessageAggregationConfig
 import com.digitalasset.canton.sequencing.SequencerAggregatorPekko.{
   HasSequencerSubscriptionFactoryPekko,
   SubscriptionControl,
 }
-import com.digitalasset.canton.sequencing.*
 import com.digitalasset.canton.sequencing.client.PeriodicAcknowledgements.FetchCleanTimestamp
 import com.digitalasset.canton.sequencing.client.SendAsyncClientError.SendAsyncClientResponseError
 import com.digitalasset.canton.sequencing.client.SendCallback.CallbackFuture
@@ -59,23 +59,24 @@ import com.digitalasset.canton.sequencing.handlers.{
   CleanSequencerCounterTracker,
   StoreSequencedEvent,
   ThrottlingApplicationEventHandler,
+  TimeLimitingApplicationEventHandler,
 }
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.{TrafficReceipt, TrafficStateController}
+import com.digitalasset.canton.store.*
 import com.digitalasset.canton.store.CursorPrehead.SequencerCounterCursorPrehead
 import com.digitalasset.canton.store.SequencedEventStore.PossiblyIgnoredSequencedEvent
-import com.digitalasset.canton.store.*
 import com.digitalasset.canton.time.{Clock, DomainTimeTracker}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.GenericStoredTopologyTransactions
 import com.digitalasset.canton.tracing.{HasTraceContext, Spanning, TraceContext, Traced}
+import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.FutureUtil.defaultStackTraceFilter
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.canton.util.PekkoUtil.{CombinedKillSwitch, WithKillSwitch}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.TryUtil.*
-import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.retry.AllExceptionRetryPolicy
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{SequencerAlias, SequencerCounter, time}
@@ -207,6 +208,7 @@ abstract class SequencerClientImpl(
     replayEnabled: Boolean,
     syncCryptoClient: SyncCryptoClient[SyncCryptoApi],
     loggingConfig: LoggingConfig,
+    exitOnTimeout: Boolean,
     val loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
     override protected val initialCounterLowerBound: SequencerCounter,
@@ -681,14 +683,22 @@ abstract class SequencerClientImpl(
       eventHandler: PossiblyIgnoredApplicationHandler[ClosedEnvelope],
       timeTracker: DomainTimeTracker,
       fetchCleanTimestamp: PeriodicAcknowledgements.FetchCleanTimestamp,
-  )(implicit traceContext: TraceContext): Future[Unit] =
+  )(implicit traceContext: TraceContext): Future[Unit] = {
+    val timeLimittedEventHandler = new TimeLimitingApplicationEventHandler(
+      timeouts.sequencedEventProcessingBound,
+      clock,
+      exitOnTimeout,
+      loggerFactory,
+    ).timeLimit(eventHandler)
+
     subscribeAfterInternal(
       priorTimestamp,
       cleanPreheadTsO,
-      eventHandler,
+      timeLimittedEventHandler,
       timeTracker,
       fetchCleanTimestamp,
     )
+  }
 
   protected def subscribeAfterInternal(
       priorTimestamp: CantonTimestamp,
@@ -761,6 +771,7 @@ class RichSequencerClientImpl(
     syncCryptoClient: SyncCryptoClient[SyncCryptoApi],
     loggingConfig: LoggingConfig,
     override val trafficStateController: Option[TrafficStateController],
+    exitOnTimeout: Boolean,
     loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
     initialCounterLowerBound: SequencerCounter,
@@ -783,6 +794,7 @@ class RichSequencerClientImpl(
       replayEnabled,
       syncCryptoClient,
       loggingConfig,
+      exitOnTimeout,
       loggerFactory,
       futureSupervisor,
       initialCounterLowerBound,
@@ -1431,6 +1443,7 @@ class SequencerClientImplPekko[E: Pretty](
     syncCryptoClient: SyncCryptoClient[SyncCryptoApi],
     loggingConfig: LoggingConfig,
     override val trafficStateController: Option[TrafficStateController],
+    exitOnTimeout: Boolean,
     loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
     initialCounterLowerBound: SequencerCounter,
@@ -1453,6 +1466,7 @@ class SequencerClientImplPekko[E: Pretty](
       replayEnabled,
       syncCryptoClient,
       loggingConfig,
+      exitOnTimeout,
       loggerFactory,
       futureSupervisor,
       initialCounterLowerBound,

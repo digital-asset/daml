@@ -118,7 +118,7 @@ class SequencerRuntime(
     timeTracker: DomainTimeTracker,
     val metrics: SequencerMetrics,
     indexedDomain: IndexedDomain,
-    syncCrypto: DomainSyncCryptoClient,
+    val syncCrypto: DomainSyncCryptoClient,
     domainTopologyManager: DomainTopologyManager,
     topologyStore: TopologyStore[DomainStore],
     topologyClient: DomainTopologyClientWithInit,

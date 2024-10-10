@@ -51,6 +51,7 @@ create table common_kms_metadata_store (
   fingerprint varchar(300) collate "C" not null,
   kms_key_id varchar(300) collate "C" not null,
   purpose smallint not null,
+  key_usage integer array null,
   primary key (fingerprint)
 );
 
@@ -277,7 +278,6 @@ create table par_reassignments (
   -- UTC timestamp in microseconds relative to EPOCH
   unassignment_decision_time bigint not null,
   contract bytea not null,
-  creating_transaction_id bytea not null,
   unassignment_result bytea,
   submitter_lf varchar(300) not null,
 

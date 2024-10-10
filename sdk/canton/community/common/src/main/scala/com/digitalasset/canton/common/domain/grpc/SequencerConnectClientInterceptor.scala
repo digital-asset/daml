@@ -6,9 +6,9 @@ package com.digitalasset.canton.common.domain.grpc
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.authentication.grpc.Constant
 import com.digitalasset.canton.topology.Member
+import io.grpc.*
 import io.grpc.ClientCall.Listener
 import io.grpc.ForwardingClientCall.SimpleForwardingClientCall
-import io.grpc.*
 
 class SequencerConnectClientInterceptor(
     member: Member,

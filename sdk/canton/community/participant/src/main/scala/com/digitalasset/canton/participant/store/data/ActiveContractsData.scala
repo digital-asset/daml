@@ -63,7 +63,7 @@ object ActiveContractsData {
   def create(
       contracts: Seq[(LfContractId, ReassignmentCounter, TimeOfChange)]
   ): Either[String, ActiveContractsData] = {
-    val activeContractsData = contracts.map(ActiveContractData.tupled)
+    val activeContractsData = contracts.map((ActiveContractData.apply _).tupled)
     checkCidTocUniqueness(activeContractsData).map(_ => ActiveContractsData(activeContractsData))
   }
 }

@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.domain.sequencing.config
 
-import com.digitalasset.canton.config.RequireTypes.PositiveDouble
 import com.digitalasset.canton.config.*
+import com.digitalasset.canton.config.RequireTypes.PositiveDouble
 
 /** Various parameters for non-standard sequencer settings
   *

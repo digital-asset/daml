@@ -72,12 +72,13 @@ private[protocol] trait ConflictDetectionHelpers {
   )(implicit traceContext: TraceContext): Future[ReassignmentCache] =
     Future
       .traverse(entries) { case (reassignmentId, sourceMediator) =>
+        val reassignmentData = ReassignmentStoreTest.mkReassignmentDataForDomain(
+          reassignmentId,
+          sourceMediator,
+          targetDomainId = ReassignmentStoreTest.targetDomainId,
+        )
+
         for {
-          reassignmentData <- ReassignmentStoreTest.mkReassignmentDataForDomain(
-            reassignmentId,
-            sourceMediator,
-            targetDomainId = ReassignmentStoreTest.targetDomainId,
-          )
           result <- store
             .addReassignment(reassignmentData)
             .value

@@ -27,7 +27,12 @@ import com.digitalasset.canton.platform.indexer.{
   JdbcIndexer,
 }
 import com.digitalasset.canton.platform.store.DbSupport
-import com.digitalasset.canton.platform.{InMemoryState, LedgerApiServer, ResourceCloseable}
+import com.digitalasset.canton.platform.{
+  InMemoryState,
+  LedgerApiServer,
+  ResourceCloseable,
+  ResourceOwnerFlagCloseableOps,
+}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -94,7 +99,7 @@ object LedgerApiIndexer {
     val initializationLogger = loggerFactory.getTracedLogger(LedgerApiIndexer.getClass)
     val numIndexer = ledgerApiIndexerConfig.indexerConfig.ingestionParallelism.unwrap
     initializationLogger.info(s"Creating Ledger API Indexer storage, num-indexer: $numIndexer")
-    (for {
+    val res = (for {
       (inMemoryState, inMemoryStateUpdaterFlow) <-
         LedgerApiServer.createInMemoryStateAndUpdater(
           commandProgressTracker,
@@ -195,6 +200,8 @@ object LedgerApiIndexer {
         timeouts = ledgerApiIndexerConfig.processingTimeout,
         indexerState = indexerState,
       )
-    }).acquireFlagCloseable("Ledger API Indexer")
+    })
+
+    new ResourceOwnerFlagCloseableOps(res).acquireFlagCloseable("Ledger API Indexer")
   }
 }

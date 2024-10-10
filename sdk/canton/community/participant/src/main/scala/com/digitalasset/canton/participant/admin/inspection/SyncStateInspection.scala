@@ -27,8 +27,8 @@ import com.digitalasset.canton.participant.sync.{
   UpstreamOffsetConvert,
 }
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.DomainOffset
-import com.digitalasset.canton.protocol.messages.CommitmentPeriodState.fromIntValidSentPeriodState
 import com.digitalasset.canton.protocol.messages.*
+import com.digitalasset.canton.protocol.messages.CommitmentPeriodState.fromIntValidSentPeriodState
 import com.digitalasset.canton.protocol.{LfContractId, SerializableContract}
 import com.digitalasset.canton.pruning.PruningStatus
 import com.digitalasset.canton.sequencing.PossiblyIgnoredProtocolEvent

@@ -43,7 +43,7 @@ import com.digitalasset.canton.participant.protocol.submission.{
   SeedGenerator,
 }
 import com.digitalasset.canton.participant.protocol.{EngineController, ProcessingStartingPoints}
-import com.digitalasset.canton.participant.store.ReassignmentStoreTest.{contract, transactionId1}
+import com.digitalasset.canton.participant.store.ReassignmentStoreTest.contract
 import com.digitalasset.canton.participant.store.memory.*
 import com.digitalasset.canton.participant.store.{
   ParticipantNodeEphemeralState,
@@ -52,8 +52,8 @@ import com.digitalasset.canton.participant.store.{
   SyncDomainPersistentState,
 }
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
-import com.digitalasset.canton.protocol.ExampleTransactionFactory.submitter
 import com.digitalasset.canton.protocol.*
+import com.digitalasset.canton.protocol.ExampleTransactionFactory.submitter
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.memory.InMemoryIndexedStringStore
@@ -62,9 +62,9 @@ import com.digitalasset.canton.store.{
   IndexedDomain,
   SessionKeyStoreWithInMemoryCache,
 }
-import com.digitalasset.canton.time.{DomainTimeTracker, TimeProofTestUtil, WallClock}
-import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
+import com.digitalasset.canton.time.{DomainTimeTracker, WallClock}
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.Confirmation
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
@@ -82,15 +82,15 @@ class AssignmentProcessingStepsTest
   private lazy val sourceDomain = Source(
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::source"))
   )
-  private lazy val sourceMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(100))
+  private lazy val sourceMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(0))
   private lazy val targetDomain = Target(
     DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::target"))
   )
-  private lazy val targetMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(200))
+  private lazy val targetMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(0))
   private lazy val anotherDomain = DomainId(
     UniqueIdentifier.tryFromProtoPrimitive("domain::another")
   )
-  private lazy val anotherMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(300))
+  private lazy val anotherMediator = MediatorGroupRecipient(MediatorGroupIndex.tryCreate(1))
   private lazy val party1: LfPartyId = PartyId(
     UniqueIdentifier.tryFromProtoPrimitive("party1::party")
   ).toLf
@@ -165,6 +165,7 @@ class AssignmentProcessingStepsTest
         timeouts = timeouts,
         futureSupervisor = futureSupervisor,
       )
+
     for {
       _ <- persistentState.parameterStore.setParameters(defaultStaticDomainParameters)
     } yield {
@@ -186,6 +187,27 @@ class AssignmentProcessingStepsTest
       (persistentState, state)
     }
   }
+
+  private lazy val reassignmentId = ReassignmentId(sourceDomain, CantonTimestamp.Epoch)
+
+  private lazy val reassignmentDataHelpers = new ReassignmentDataHelpers(
+    contract,
+    reassignmentId.sourceDomain,
+    targetDomain,
+    identityFactory,
+  )
+
+  private lazy val unassignmentRequest = reassignmentDataHelpers.unassignmentRequest(
+    party1,
+    DefaultTestIdentities.participant1,
+    sourceMediator,
+  )()
+
+  private lazy val reassignmentData =
+    reassignmentDataHelpers.reassignmentData(reassignmentId, unassignmentRequest)(None)
+
+  private lazy val unassignmentResult =
+    reassignmentDataHelpers.unassignmentResult(reassignmentData).futureValue
 
   def mkParsedRequest(
       view: FullAssignmentTree,
@@ -224,28 +246,13 @@ class AssignmentProcessingStepsTest
         )
       } yield ()
 
-    val reassignmentId = ReassignmentId(sourceDomain, CantonTimestamp.Epoch)
-    val reassignmentDataF =
-      ReassignmentStoreTest.mkReassignmentDataForDomain(
-        reassignmentId,
-        sourceMediator,
-        party1,
-        targetDomain,
-      )
     val submissionParam = SubmissionParam(
       submitterInfo(party1),
       reassignmentId,
     )
-    val unassignmentResult =
-      ReassignmentResultHelpers.unassignmentResult(
-        sourceDomain,
-        cryptoSnapshot,
-        participant,
-      )
 
     "succeed without errors" in {
       for {
-        reassignmentData <- reassignmentDataF
         deps <- statefulDependencies
         (persistentState, state) = deps
         _ <- setUpOrFail(reassignmentData, unassignmentResult, persistentState).failOnShutdown
@@ -262,45 +269,19 @@ class AssignmentProcessingStepsTest
     }
 
     "fail when a receiving party has no participant on the domain" in {
-      val unassignmentRequest = UnassignmentRequest(
-        submitterInfo(party1),
-        Set(party1, party3), // party3 is a stakeholder and therefore a receiving party
-        Set.empty,
-        ReassignmentStoreTest.transactionId1,
-        ReassignmentStoreTest.contract,
-        reassignmentId.sourceDomain,
-        Source(testedProtocolVersion),
+
+      val unassignmentRequest = reassignmentDataHelpers.unassignmentRequest(
+        party1,
+        DefaultTestIdentities.participant1,
         sourceMediator,
-        targetDomain,
-        Target(testedProtocolVersion),
-        TimeProofTestUtil.mkTimeProof(
-          timestamp = CantonTimestamp.Epoch,
-          targetDomain = targetDomain,
-        ),
-        initialReassignmentCounter,
+      )(
+        // party3 is a stakeholder and therefore a receiving party
+        stakeholders = Set(party1, party3)
       )
-      val uuid = new UUID(1L, 2L)
-      val seed = seedGenerator.generateSaltSeed()
-      val reassignmentData2 = {
-        val fullUnassignmentTree = unassignmentRequest
-          .toFullUnassignmentTree(
-            crypto.pureCrypto,
-            crypto.pureCrypto,
-            seed,
-            uuid,
-          )
-        ReassignmentData(
-          Source(testedProtocolVersion),
-          reassignmentId.unassignmentTs,
-          RequestCounter(0),
-          fullUnassignmentTree,
-          CantonTimestamp.ofEpochSecond(10),
-          contract,
-          transactionId1,
-          None,
-          None,
-        )
-      }
+
+      val reassignmentData2 =
+        reassignmentDataHelpers.reassignmentData(reassignmentId, unassignmentRequest)()
+
       for {
         deps <- statefulDependencies
         (persistentState, state) = deps
@@ -322,7 +303,6 @@ class AssignmentProcessingStepsTest
 
     "fail when unassignment processing is not yet complete" in {
       for {
-        reassignmentData <- reassignmentDataF
         deps <- statefulDependencies
         (persistentState, state) = deps
         _ <- valueOrFail(persistentState.reassignmentStore.addReassignment(reassignmentData))(
@@ -349,7 +329,6 @@ class AssignmentProcessingStepsTest
       )
 
       for {
-        reassignmentData <- reassignmentDataF
         deps <- statefulDependencies
         (persistentState, state) = deps
         _ <- setUpOrFail(reassignmentData, unassignmentResult, persistentState).failOnShutdown
@@ -380,7 +359,6 @@ class AssignmentProcessingStepsTest
         .currentSnapshotApproximation
 
       for {
-        reassignmentData <- reassignmentDataF
         deps <- statefulDependencies
         (persistentState, state) = deps
         _ <- setUpOrFail(reassignmentData, unassignmentResult, persistentState).failOnShutdown
@@ -403,13 +381,16 @@ class AssignmentProcessingStepsTest
         submitterInfo(party2),
         reassignmentId,
       )
+
+      val reassignmentData2 = ReassignmentStoreTest.mkReassignmentDataForDomain(
+        reassignmentId,
+        sourceMediator,
+        party2,
+        targetDomain,
+      )
+
       for {
-        reassignmentData2 <- ReassignmentStoreTest.mkReassignmentDataForDomain(
-          reassignmentId,
-          sourceMediator,
-          party2,
-          targetDomain,
-        )
+
         deps <- statefulDependencies
         (persistentState, ephemeralState) = deps
         _ <- setUpOrFail(reassignmentData2, unassignmentResult, persistentState).failOnShutdown
@@ -435,18 +416,12 @@ class AssignmentProcessingStepsTest
       contractInstance = ExampleTransactionFactory.contractInstance(),
     )
 
-    val unassignmentResult =
-      ReassignmentResultHelpers.unassignmentResult(
-        sourceDomain,
-        cryptoSnapshot,
-        participant,
-      )
     val inTree =
       makeFullAssignmentTree(
         party1,
         Set(party1),
         contract,
-        transactionId1,
+        ExampleTransactionFactory.transactionId(0),
         targetDomain,
         targetMediator,
         unassignmentResult,
@@ -489,7 +464,7 @@ class AssignmentProcessingStepsTest
         party1,
         Set(party1),
         contract,
-        transactionId1,
+        ExampleTransactionFactory.transactionId(0),
         Target(anotherDomain),
         anotherMediator,
         unassignmentResult,
@@ -548,12 +523,6 @@ class AssignmentProcessingStepsTest
         contractInstance = ExampleTransactionFactory.contractInstance(),
         metadata = ContractMetadata.tryCreate(Set.empty, Set(party1), None),
       )
-    val unassignmentResult =
-      ReassignmentResultHelpers.unassignmentResult(
-        sourceDomain,
-        cryptoSnapshot,
-        participant,
-      )
 
     "fail when wrong stakeholders given" in {
       for {
@@ -565,7 +534,7 @@ class AssignmentProcessingStepsTest
           party1,
           stakeholders = Set(party1, party2),
           contract,
-          transactionId1,
+          ExampleTransactionFactory.transactionId(0),
           targetDomain,
           targetMediator,
           unassignmentResult,
@@ -603,7 +572,7 @@ class AssignmentProcessingStepsTest
           party1,
           Set(party1),
           contract,
-          transactionId1,
+          ExampleTransactionFactory.transactionId(0),
           targetDomain,
           targetMediator,
           unassignmentResult,
@@ -628,7 +597,7 @@ class AssignmentProcessingStepsTest
   "get commit set and contracts to be stored and event" should {
     "succeed without errors" in {
 
-      val inRes = ReassignmentResultHelpers.assignmentResult(targetDomain)
+      val assignmentResult = reassignmentDataHelpers.assignmentResult()
 
       val contractId = ExampleTransactionFactory.suffixedId(10, 0)
       val contract =
@@ -648,7 +617,7 @@ class AssignmentProcessingStepsTest
         contract,
         initialReassignmentCounter,
         submitterInfo(submitter),
-        transactionId1,
+        ExampleTransactionFactory.transactionId(0),
         isReassigningParticipant = false,
         reassignmentId,
         contract.metadata.stakeholders,
@@ -673,7 +642,7 @@ class AssignmentProcessingStepsTest
                   testedProtocolVersion,
                 )
               ),
-              inRes.verdict,
+              assignmentResult.verdict,
               pendingRequestData,
               state.pendingAssignmentSubmissions,
               crypto.pureCrypto,

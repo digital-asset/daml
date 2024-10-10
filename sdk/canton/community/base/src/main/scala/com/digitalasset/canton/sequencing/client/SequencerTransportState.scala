@@ -5,7 +5,6 @@ package com.digitalasset.canton.sequencing.client
 
 import cats.data.EitherT
 import cats.syntax.flatMap.*
-import cats.syntax.functor.*
 import cats.syntax.parallel.*
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout

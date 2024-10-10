@@ -13,9 +13,6 @@ import com.digitalasset.canton.environment.CommunityEnvironment
 import io.circe.Encoder
 import io.circe.generic.semiauto.deriveEncoder
 
-import scala.annotation.nowarn
-
-@nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
 class CommunityHealthDumpGenerator(
     override val environment: CommunityEnvironment,
     override val grpcAdminCommandRunner: GrpcAdminCommandRunner,

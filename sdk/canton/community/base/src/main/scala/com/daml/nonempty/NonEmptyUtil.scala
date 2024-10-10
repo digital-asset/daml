@@ -4,6 +4,8 @@
 package com.daml.nonempty
 
 import com.digitalasset.canton.logging.pretty.Pretty
+import io.scalaland.chimney.Transformer
+import io.scalaland.chimney.dsl.TransformerOps
 import pureconfig.{ConfigReader, ConfigWriter}
 
 import scala.collection.immutable
@@ -38,6 +40,14 @@ object NonEmptyUtil {
         writer: ConfigWriter[C]
     ): ConfigWriter[NonEmpty[C]] =
       writer.contramap(_.forgetNE)
+
+    implicit def nonEmptySetTransformer[From, To](implicit
+        transformer: Transformer[From, To]
+    ): Transformer[NonEmpty[Set[From]], NonEmpty[Set[To]]] = _.map(_.transformInto[To])
+
+    implicit def nonEmptySetAutoTransformer[From, To](implicit
+        transformer: Transformer.AutoDerived[From, To]
+    ): Transformer[NonEmpty[Set[From]], NonEmpty[Set[To]]] = _.map(_.transformInto[To])
   }
 
   /** A failure representing an unexpected empty collection

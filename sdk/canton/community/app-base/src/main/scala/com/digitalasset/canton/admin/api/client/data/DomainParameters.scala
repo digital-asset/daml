@@ -4,23 +4,21 @@
 package com.digitalasset.canton.admin.api.client.data
 
 import cats.syntax.either.*
-import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
-import com.digitalasset.canton.ProtoDeserializationError.FieldNotSet
+import com.daml.nonempty.NonEmpty
+import com.daml.nonempty.NonEmptyUtil.instances.*
+import com.digitalasset.canton.admin.api.client.data.crypto.{
+  CryptoKeyFormat,
+  HashAlgorithm,
+  RequiredEncryptionSpecs,
+  SigningKeyScheme,
+  SymmetricKeyScheme,
+}
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.{
   CommunityCryptoConfig,
   CryptoConfig,
   NonNegativeFiniteDuration,
   PositiveDurationSeconds,
-}
-import com.digitalasset.canton.crypto.{
-  CryptoKeyFormat,
-  EncryptionAlgorithmSpec,
-  EncryptionKeySpec,
-  HashAlgorithm,
-  RequiredEncryptionSpecs,
-  SigningKeyScheme,
-  SymmetricKeyScheme,
 }
 import com.digitalasset.canton.domain.config.DomainParametersConfig
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
@@ -41,40 +39,25 @@ import com.digitalasset.canton.time.{
 }
 import com.digitalasset.canton.util.BinaryFileUtil
 import com.digitalasset.canton.version.{ProtoVersion, ProtocolVersion}
-import com.digitalasset.canton.{config, crypto as DomainCrypto}
+import com.digitalasset.canton.{ProtoDeserializationError, config, crypto as DomainCrypto}
 import com.google.common.annotations.VisibleForTesting
 import io.scalaland.chimney.dsl.*
 
 import scala.Ordering.Implicits.*
 
 final case class StaticDomainParameters(
-    requiredSigningKeySchemes: Set[SigningKeyScheme],
+    requiredSigningKeySchemes: NonEmpty[Set[SigningKeyScheme]],
     requiredEncryptionSpecs: RequiredEncryptionSpecs,
-    requiredSymmetricKeySchemes: Set[SymmetricKeyScheme],
-    requiredHashAlgorithms: Set[HashAlgorithm],
-    requiredCryptoKeyFormats: Set[CryptoKeyFormat],
+    requiredSymmetricKeySchemes: NonEmpty[Set[SymmetricKeyScheme]],
+    requiredHashAlgorithms: NonEmpty[Set[HashAlgorithm]],
+    requiredCryptoKeyFormats: NonEmpty[Set[CryptoKeyFormat]],
     protocolVersion: ProtocolVersion,
 ) {
   def writeToFile(outputFile: String): Unit =
     BinaryFileUtil.writeByteStringToFile(outputFile, toInternal.toByteString)
 
   private[canton] def toInternal: StaticDomainParametersInternal =
-    StaticDomainParametersInternal(
-      requiredSigningKeySchemes = NonEmptyUtil.fromUnsafe(
-        requiredSigningKeySchemes.map(_.transformInto[DomainCrypto.SigningKeyScheme])
-      ),
-      requiredEncryptionSpecs = requiredEncryptionSpecs,
-      requiredSymmetricKeySchemes = NonEmptyUtil.fromUnsafe(
-        requiredSymmetricKeySchemes.map(_.transformInto[DomainCrypto.SymmetricKeyScheme])
-      ),
-      requiredHashAlgorithms = NonEmptyUtil.fromUnsafe(
-        requiredHashAlgorithms.map(_.transformInto[DomainCrypto.HashAlgorithm])
-      ),
-      requiredCryptoKeyFormats = NonEmptyUtil.fromUnsafe(
-        requiredCryptoKeyFormats.map(_.transformInto[DomainCrypto.CryptoKeyFormat])
-      ),
-      protocolVersion = protocolVersion,
-    )
+    this.transformInto[StaticDomainParametersInternal]
 }
 
 object StaticDomainParameters {
@@ -114,18 +97,7 @@ object StaticDomainParameters {
   def apply(
       domain: StaticDomainParametersInternal
   ): StaticDomainParameters =
-    StaticDomainParameters(
-      requiredSigningKeySchemes =
-        domain.requiredSigningKeySchemes.forgetNE.map(_.transformInto[SigningKeyScheme]),
-      requiredEncryptionSpecs = domain.requiredEncryptionSpecs,
-      requiredSymmetricKeySchemes =
-        domain.requiredSymmetricKeySchemes.forgetNE.map(_.transformInto[SymmetricKeyScheme]),
-      requiredHashAlgorithms =
-        domain.requiredHashAlgorithms.forgetNE.map(_.transformInto[HashAlgorithm]),
-      requiredCryptoKeyFormats =
-        domain.requiredCryptoKeyFormats.forgetNE.map(_.transformInto[CryptoKeyFormat]),
-      protocolVersion = domain.protocolVersion,
-    )
+    domain.transformInto[StaticDomainParameters]
 
   def tryReadFromFile(inputFile: String): StaticDomainParameters = {
     val staticDomainParametersInternal = StaticDomainParametersInternal
@@ -151,7 +123,7 @@ object StaticDomainParameters {
   ): ParsingResult[StaticDomainParameters] = {
     val v30.StaticDomainParameters(
       requiredSigningKeySchemesP,
-      requiredEncryptionSpecsP,
+      requiredEncryptionSpecsOP,
       requiredSymmetricKeySchemesP,
       requiredHashAlgorithmsP,
       requiredCryptoKeyFormatsP,
@@ -162,45 +134,50 @@ object StaticDomainParameters {
       requiredSigningKeySchemes <- requiredKeySchemes(
         "requiredSigningKeySchemes",
         requiredSigningKeySchemesP,
-        SigningKeyScheme.fromProtoEnum,
+        DomainCrypto.SigningKeyScheme.fromProtoEnum,
       )
-      requiredEncryptionSpecsP <- requiredEncryptionSpecsP.toRight(
-        FieldNotSet("requiredEncryptionSpecs")
+      requiredEncryptionSpecsP <- requiredEncryptionSpecsOP.toRight(
+        ProtoDeserializationError.FieldNotSet(
+          "required_encryption_specs"
+        )
       )
       requiredEncryptionAlgorithmSpecs <- requiredKeySchemes(
         "requiredEncryptionAlgorithmSpecs",
         requiredEncryptionSpecsP.algorithms,
-        EncryptionAlgorithmSpec.fromProtoEnum,
+        DomainCrypto.EncryptionAlgorithmSpec.fromProtoEnum,
       )
       requiredEncryptionKeySpecs <- requiredKeySchemes(
         "requiredEncryptionKeySpecs",
         requiredEncryptionSpecsP.keys,
-        EncryptionKeySpec.fromProtoEnum,
+        DomainCrypto.EncryptionKeySpec.fromProtoEnum,
       )
       requiredSymmetricKeySchemes <- requiredKeySchemes(
         "requiredSymmetricKeySchemes",
         requiredSymmetricKeySchemesP,
-        SymmetricKeyScheme.fromProtoEnum,
+        DomainCrypto.SymmetricKeyScheme.fromProtoEnum,
       )
       requiredHashAlgorithms <- requiredKeySchemes(
         "requiredHashAlgorithms",
         requiredHashAlgorithmsP,
-        HashAlgorithm.fromProtoEnum,
+        DomainCrypto.HashAlgorithm.fromProtoEnum,
       )
       requiredCryptoKeyFormats <- requiredKeySchemes(
         "requiredCryptoKeyFormats",
         requiredCryptoKeyFormatsP,
-        CryptoKeyFormat.fromProtoEnum,
+        DomainCrypto.CryptoKeyFormat.fromProtoEnum,
       )
       // Data in the console is not really validated, so we allow for deleted
       protocolVersion <- ProtocolVersion.fromProtoPrimitive(protocolVersionP, allowDeleted = true)
     } yield StaticDomainParameters(
-      requiredSigningKeySchemes,
-      RequiredEncryptionSpecs(requiredEncryptionAlgorithmSpecs, requiredEncryptionKeySpecs),
-      requiredSymmetricKeySchemes,
-      requiredHashAlgorithms,
-      requiredCryptoKeyFormats,
-      protocolVersion,
+      StaticDomainParametersInternal(
+        requiredSigningKeySchemes,
+        DomainCrypto
+          .RequiredEncryptionSpecs(requiredEncryptionAlgorithmSpecs, requiredEncryptionKeySpecs),
+        requiredSymmetricKeySchemes,
+        requiredHashAlgorithms,
+        requiredCryptoKeyFormats,
+        protocolVersion,
+      )
     )
   }
 }

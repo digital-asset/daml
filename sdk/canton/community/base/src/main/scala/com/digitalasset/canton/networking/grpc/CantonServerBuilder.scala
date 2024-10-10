@@ -6,8 +6,8 @@ package com.digitalasset.canton.networking.grpc
 import com.daml.metrics.grpc.GrpcServerMetrics
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.auth.CantonAdminToken
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.config.*
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.tracing.TracingConfig

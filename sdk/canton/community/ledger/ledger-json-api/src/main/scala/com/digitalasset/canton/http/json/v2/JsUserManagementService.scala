@@ -17,7 +17,6 @@ import sttp.model.QueryParams
 import sttp.tapir.generic.auto.*
 import sttp.tapir.*
 
-import scala.annotation.nowarn
 import scala.concurrent.Future
 
 class JsUserManagementService(
@@ -224,7 +223,6 @@ class JsUserManagementService(
     )
 }
 
-@nowarn("cat=lint-byname-implicit") // https://github.com/scala/bug/issues/12072
 object JsUserManagementCodecs {
 
   implicit val user: Codec[user_management_service.User] = deriveCodec

@@ -47,13 +47,13 @@ import com.digitalasset.canton.participant.store.ReassignmentStore.ReassignmentS
 import com.digitalasset.canton.participant.sync.SyncServiceError.SyncServiceAlarm
 import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.protocol.*
+import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.messages.ConfirmationResponse.InvalidConfirmationResponse
 import com.digitalasset.canton.protocol.messages.Verdict.{
   Approve,
   MediatorReject,
   ParticipantReject,
 }
-import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
 import com.digitalasset.canton.topology.client.TopologySnapshot

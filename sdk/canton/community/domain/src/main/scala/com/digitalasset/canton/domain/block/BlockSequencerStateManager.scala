@@ -15,8 +15,8 @@ import com.digitalasset.canton.domain.block.data.{
   BlockInfo,
   SequencerBlockStore,
 }
-import com.digitalasset.canton.domain.block.update.BlockUpdateGenerator.BlockChunk
 import com.digitalasset.canton.domain.block.update.*
+import com.digitalasset.canton.domain.block.update.BlockUpdateGenerator.BlockChunk
 import com.digitalasset.canton.domain.sequencing.sequencer.{
   InFlightAggregations,
   SequencerIntegration,

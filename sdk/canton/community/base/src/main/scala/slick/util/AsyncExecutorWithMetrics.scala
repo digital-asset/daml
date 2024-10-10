@@ -414,8 +414,22 @@ class AsyncExecutorWithMetrics(
         if (command.isInstanceOf[PrioritizedRunnable]) {
           executor.execute(command)
         } else {
+          /*
+            Slick 3.5.2 implements this else-branch as:
+            ```
+              executor.execute(new PrioritizedRunnable {
+                override def priority(): Priority = WithConnection
+                override def run(): Unit = command.run()
+              })
+            ```
+            Because `PrioritizedRunnable` is a sealed trait in the library, we
+            use the `apply` method of its companion object instead.
+           */
           executor.execute(
-            PrioritizedRunnable(priority = WithConnection, command => command.apply())
+            PrioritizedRunnable(
+              priority = WithConnection,
+              _ => command.run(),
+            )
           )
         }
     }

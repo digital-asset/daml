@@ -5,9 +5,9 @@ package com.digitalasset.canton.data
 
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.data.TransactionViewDecomposition.*
+import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.RollbackContext.{RollbackScope, RollbackSibling}
 import com.digitalasset.canton.protocol.WellFormedTransaction.WithoutSuffixes
-import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.util.LfTransactionUtil
 import com.digitalasset.canton.{
   BaseTest,

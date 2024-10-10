@@ -145,23 +145,23 @@ final class PreparedTransactionEncoder(
       case create: lf.transaction.Node.Create =>
         create
           .transformIntoPartial[isd.Create]
-          .map(isd.Node.NodeType.Create)
+          .map(isd.Node.NodeType.Create.apply)
       case exercise: lf.transaction.Node.Exercise =>
         exercise
           .transformIntoPartial[isd.Node.Exercise]
-          .map(isd.Node.NodeType.Exercise)
+          .map(isd.Node.NodeType.Exercise.apply)
       case fetch: lf.transaction.Node.Fetch =>
         fetch
           .transformIntoPartial[isd.Node.Fetch]
-          .map(isd.Node.NodeType.Fetch)
+          .map(isd.Node.NodeType.Fetch.apply)
       case lookupByKey: lf.transaction.Node.LookupByKey =>
         lookupByKey
           .transformIntoPartial[isd.Node.LookupByKey]
-          .map(isd.Node.NodeType.LookupByKey)
+          .map(isd.Node.NodeType.LookupByKey.apply)
       case rollback: lf.transaction.Node.Rollback =>
         rollback
           .transformIntoPartial[isd.Node.Rollback]
-          .map(isd.Node.NodeType.Rollback)
+          .map(isd.Node.NodeType.Rollback.apply)
     }
 
   private def nodeTransformer(
@@ -197,7 +197,7 @@ final class PreparedTransactionEncoder(
         for {
           convertedKey <- key.transformIntoPartial[isd.GlobalKey]
           convertedValue <- maybeContractId
-            .map[lf.value.Value](lf.value.Value.ValueContractId)
+            .map[lf.value.Value](lf.value.Value.ValueContractId.apply)
             .traverse(_.transformIntoPartial[lapiValue.Value])
         } yield isd.PreparedTransaction.Metadata.GlobalKeyMappingEntry(
           key = Some(convertedKey),

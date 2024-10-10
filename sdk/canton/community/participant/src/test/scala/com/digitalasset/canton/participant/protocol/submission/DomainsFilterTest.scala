@@ -5,8 +5,8 @@ package com.digitalasset.canton.participant.protocol.submission
 
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.participant.protocol.submission.DomainSelectionFixture.Transactions.ExerciseByInterface
 import com.digitalasset.canton.participant.protocol.submission.DomainSelectionFixture.*
+import com.digitalasset.canton.participant.protocol.submission.DomainSelectionFixture.Transactions.ExerciseByInterface
 import com.digitalasset.canton.participant.protocol.submission.DomainsFilterTest.*
 import com.digitalasset.canton.protocol.{LfTransactionVersion, LfVersionedTransaction}
 import com.digitalasset.canton.topology.*

@@ -22,7 +22,11 @@ trait SigningTest extends AsyncWordSpec with BaseTest with CryptoTestHelper {
         "serialize and deserialize a signing public key via protobuf" in {
           for {
             crypto <- newCrypto
-            publicKey <- getSigningPublicKey(crypto, signingKeyScheme)
+            publicKey <- getSigningPublicKey(
+              crypto,
+              SigningKeyUsage.ProtocolOnly,
+              signingKeyScheme,
+            )
             publicKeyP = publicKey.toProtoVersioned(testedProtocolVersion)
             publicKey2 = SigningPublicKey
               .fromProtoVersioned(publicKeyP)
@@ -33,7 +37,11 @@ trait SigningTest extends AsyncWordSpec with BaseTest with CryptoTestHelper {
         "serialize and deserialize a signature via protobuf" in {
           for {
             crypto <- newCrypto
-            publicKey <- getSigningPublicKey(crypto, signingKeyScheme)
+            publicKey <- getSigningPublicKey(
+              crypto,
+              SigningKeyUsage.ProtocolOnly,
+              signingKeyScheme,
+            )
             hash = TestHash.digest("foobar")
             sig <- crypto.privateCrypto.sign(hash, publicKey.id).valueOrFail("sign")
             sigP = sig.toProtoVersioned(testedProtocolVersion)
@@ -44,7 +52,11 @@ trait SigningTest extends AsyncWordSpec with BaseTest with CryptoTestHelper {
         "sign and verify" in {
           for {
             crypto <- newCrypto
-            publicKey <- getSigningPublicKey(crypto, signingKeyScheme)
+            publicKey <- getSigningPublicKey(
+              crypto,
+              SigningKeyUsage.ProtocolOnly,
+              signingKeyScheme,
+            )
             hash = TestHash.digest("foobar")
             sig <- crypto.privateCrypto.sign(hash, publicKey.id).valueOrFail("sign")
             res = crypto.pureCrypto.verifySignature(hash, publicKey, sig)
@@ -63,7 +75,11 @@ trait SigningTest extends AsyncWordSpec with BaseTest with CryptoTestHelper {
         "fail to verify if signature is invalid" in {
           for {
             crypto <- newCrypto
-            publicKey <- getSigningPublicKey(crypto, signingKeyScheme)
+            publicKey <- getSigningPublicKey(
+              crypto,
+              SigningKeyUsage.ProtocolOnly,
+              signingKeyScheme,
+            )
             hash = TestHash.digest("foobar")
             realSig <- crypto.privateCrypto
               .sign(hash, publicKey.id)
@@ -77,7 +93,11 @@ trait SigningTest extends AsyncWordSpec with BaseTest with CryptoTestHelper {
         "fail to verify with a different public key" in {
           for {
             crypto <- newCrypto
-            publicKeys <- getTwoSigningPublicKeys(crypto, signingKeyScheme)
+            publicKeys <- getTwoSigningPublicKeys(
+              crypto,
+              SigningKeyUsage.ProtocolOnly,
+              signingKeyScheme,
+            )
             (publicKey, publicKey2) = publicKeys
             _ = assert(publicKey != publicKey2)
             hash = TestHash.digest("foobar")

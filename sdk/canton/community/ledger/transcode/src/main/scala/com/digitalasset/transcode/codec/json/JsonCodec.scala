@@ -3,8 +3,8 @@
 
 package com.digitalasset.transcode.codec.json
 
-import com.digitalasset.transcode.schema.DynamicValue.*
 import com.digitalasset.transcode.schema.*
+import com.digitalasset.transcode.schema.DynamicValue.*
 import com.digitalasset.transcode.{Codec, MissingFieldException, UnexpectedFieldsException}
 import ujson.*
 
@@ -130,13 +130,13 @@ class JsonCodec(
       dv.optional.fold(Arr())(v => Arr(fromDynamicValueNext(elem)(v)))
 
     private def toDynamicValueNext(e: Type) = e match {
-      case elem: OptionalProcessor => elem.toDynamicValueNested
-      case elem => elem.toDynamicValue
+      case processor: OptionalProcessor => processor.toDynamicValueNested
+      case otherElem => otherElem.toDynamicValue
     }
 
     private def fromDynamicValueNext(e: Type) = e match {
-      case elem: OptionalProcessor => elem.fromDynamicValueNested
-      case elem => elem.fromDynamicValue
+      case processor: OptionalProcessor => processor.fromDynamicValueNested
+      case otherElem => otherElem.fromDynamicValue
     }
   }
 
