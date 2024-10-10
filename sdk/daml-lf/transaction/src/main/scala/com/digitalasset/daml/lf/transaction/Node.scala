@@ -184,6 +184,7 @@ object Node {
   final case class Exercise(
       targetCoid: ContractId,
       override val packageName: PackageName,
+      creationPackageId: Option[PackageId],
       override val templateId: TypeConName,
       interfaceId: Option[TypeConName],
       choiceId: ChoiceName,

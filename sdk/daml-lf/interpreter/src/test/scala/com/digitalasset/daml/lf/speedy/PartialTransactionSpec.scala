@@ -68,6 +68,7 @@ class PartialTransactionSpec extends AnyWordSpec with Matchers with Inside {
       ptx
         .beginExercises(
           packageName = pkgName,
+          creationPackageId = pkgName.map(_ => contract.templateId.packageId),
           templateId = contract.templateId,
           targetId = cid,
           contract = contract,

@@ -105,6 +105,7 @@ trait TestNodeBuilder {
       choiceAuthorizers = None,
       targetCoid = contract.coid,
       packageName = contract.packageName,
+      creationPackageId = contract.packageName.map(_ => contract.templateId.packageId),
       templateId = contract.templateId,
       interfaceId = interfaceId,
       choiceId = choice,

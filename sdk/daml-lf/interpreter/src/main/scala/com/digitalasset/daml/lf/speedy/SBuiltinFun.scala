@@ -1131,6 +1131,12 @@ private[lf] object SBuiltinFun {
       ) { contract =>
         val templateVersion = machine.tmplId2TxVersion(templateId)
         val (pkgName, _) = machine.tmplId2PackageNameVersion(templateId)
+        val creationPackageId = pkgName.map(_ =>
+          machine.getCreationTemplateId(coid) match {
+            case Some(tmplId) => tmplId.packageId
+            case None => crash(s"unexpected missing contract $coid")
+          }
+        )
         val interfaceVersion = interfaceId.map(machine.tmplId2TxVersion)
         val exerciseVersion = interfaceVersion.fold(templateVersion)(_.max(templateVersion))
         val chosenValue = args.get(0).toNormalizedValue(exerciseVersion)
@@ -1163,6 +1169,7 @@ private[lf] object SBuiltinFun {
         machine.ptx
           .beginExercises(
             packageName = pkgName,
+            creationPackageId = creationPackageId,
             templateId = templateId,
             targetId = coid,
             contract = contract,
@@ -2359,7 +2366,7 @@ private[lf] object SBuiltinFun {
         }
     }
 
-    machine.getIfLocalContract(coid) match {
+    machine.getLocalContract(coid) match {
       case Some((srcTmplId, templateArg)) =>
         ensureContractActive(machine, coid, srcTmplId) {
           getContractInfo(

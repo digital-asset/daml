@@ -7,14 +7,14 @@ package speedy
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.interpretation.{Error => IE}
 import com.digitalasset.daml.lf.language.Ast._
-import com.digitalasset.daml.lf.language.LanguageMajorVersion
+import com.digitalasset.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.digitalasset.daml.lf.speedy.SError.SError
 import com.digitalasset.daml.lf.speedy.SExpr.{SEApp, SExpr}
 import com.digitalasset.daml.lf.speedy.SValue.SContractId
 import com.digitalasset.daml.lf.testing.parser.Implicits._
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import com.digitalasset.daml.lf.transaction.TransactionVersion.VDev
-import com.digitalasset.daml.lf.transaction.{GlobalKeyWithMaintainers, Versioned}
+import com.digitalasset.daml.lf.transaction.{GlobalKeyWithMaintainers, Node, Versioned}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value._
 import com.daml.logging.LoggingContext
@@ -184,6 +184,9 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       val do_fetch: ContractId M:T -> Update M:T =
         \(cId: ContractId M:T) ->
           fetch_template @M:T cId;
+
+      val do_exercise: ContractId M:T -> Update Unit  =
+        \(cId: ContractId M:T) -> exercise @M:T NoOp cId ();
       }
     """
   }
@@ -615,7 +618,10 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       )
 
     inside(
-      go(e"'-pkg3-':M:do_fetch", ContractInstance(pkgName, pkg3Ver, i"'-pgk3-':M:T", v_alice_none))
+      go(
+        e"'-pkg3-':M:do_fetch",
+        ContractInstance(pkgName, pkg3Ver, i"'-misspelled-pkg3-':M:T", v_alice_none),
+      )
     ) { case Right((v, List(uv))) =>
       v shouldBe v_alice_none
       uv.coid shouldBe theCid
@@ -625,7 +631,10 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     }
 
     inside(
-      go(e"'-pkg3-':M:do_fetch", ContractInstance(pkgName, pkg3Ver, i"'-pgk3-':M:T", v_alice_some))
+      go(
+        e"'-pkg3-':M:do_fetch",
+        ContractInstance(pkgName, pkg3Ver, i"'-misspelled-pkg3-':M:T", v_alice_some),
+      )
     ) { case Right((v, List(uv))) =>
       v shouldBe v_alice_some
       uv.coid shouldBe theCid
@@ -649,11 +658,13 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           n"obs",
           n"aNumber",
         )
+
         def values: util.ArrayList[SValue] = ArrayList(
           SValue.SParty(alice), // And it needs to be a party
           SValue.SParty(bob),
           SValue.SInt64(100),
         )
+
         SValue.SRecord(i"'-pkg1-':M:T", fields, values)
       }
       inside(goDisclosed(e"'-pkg1-':M:do_fetch", sv1_base)) { case Right((v, _)) =>
@@ -670,19 +681,54 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           n"aNumber",
           n"extraField",
         )
+
         def values: util.ArrayList[SValue] = ArrayList(
           SValue.SParty(alice),
           SValue.SParty(bob),
           SValue.SInt64(100),
           SValue.SOptional(None),
         )
+
         SValue.SRecord(i"'-unknown-':M:T", fields, values)
       }
       inside(goDisclosed(e"'-pkg1-':M:do_fetch", sv1_base)) { case Right((v, _)) =>
         v shouldBe v1_base
       }
     }
-
   }
 
+  "Exercise Node" - {
+
+    "is populated with contract ID " in {
+      val v_alice_none =
+        makeRecord(
+          ValueParty(alice),
+          ValueParty(bob),
+          ValueInt64(100),
+          ValueOptional(None),
+        )
+
+      val se: SExpr = pkgs.compiler.unsafeCompile(e"'-pkg4-':M:do_exercise")
+      val args: Array[SValue] = Array(SContractId(theCid))
+      val sexprToEval: SExpr = SEApp(se, args)
+
+      implicit def logContext: LoggingContext = LoggingContext.ForTesting
+
+      val seed = crypto.Hash.hashPrivateKey("seed")
+      val machine = Speedy.Machine.fromUpdateSExpr(pkgs, seed, sexprToEval, Set(alice, bob))
+
+      val res =
+        SpeedyTestLib.buildTransactionCollectRequests(
+          machine,
+          getContract =
+            Map(theCid -> Versioned(V17, ContractInstance(pkgName, i"'-pkg3-':M:T", v_alice_none))),
+        )
+
+      inside(res.map(_._1.nodes.values.toList)) { case Right(List(exe: Node.Exercise)) =>
+        exe.packageName shouldBe Some("-upgrade-test-")
+        exe.creationPackageId shouldBe Some("-pkg3-")
+        exe.templateId.packageId shouldBe "-pkg4-"
+      }
+    }
+  }
 }

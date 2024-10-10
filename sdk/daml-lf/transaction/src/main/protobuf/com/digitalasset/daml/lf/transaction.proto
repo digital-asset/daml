@@ -101,6 +101,7 @@ message FatContractInstance {
   bytes contract_id = 1;
   string package_name = 2;
   repeated int32 package_version = 9; // required *since dev(
+  string creationPackageId = 10; // required *since dev*
   com.digitalasset.daml.lf.value.Identifier template_id = 3;
   bytes create_arg = 4;
   repeated string non_maintainer_signatories = 5;

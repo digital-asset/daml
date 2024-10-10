@@ -119,38 +119,21 @@ object ActionDescription extends VersioningCompanion[ActionDescription] {
           protocolVersionRepresentativeFor(protocolVersion)
         )
 
-      case LfNodeExercises(
-            inputContract,
-            _packageName,
-            templateId,
-            interfaceId,
-            choice,
-            _consuming,
-            actors,
-            chosenValue,
-            _stakeholders,
-            _signatories,
-            _choiceObservers,
-            _choiceAuthorizers,
-            _children,
-            exerciseResult,
-            _key,
-            byKey,
-            version,
-          ) =>
+      case exe: LfNodeExercises =>
         for {
           seed <- seedO.toRight(InvalidActionDescription("No seed for an Exercise node given"))
           actionDescription <- ExerciseActionDescription.create(
-            inputContract,
-            templateId,
-            choice,
-            interfaceId,
+            exe.targetCoid,
+            exe.templateId,
+            exe.choiceId,
+            exe.interfaceId,
             packagePreference,
-            LfVersioned(version, chosenValue),
-            actors,
-            byKey,
+            exe.chosenValue,
+            exe.actingParties,
+            exe.byKey,
             seed,
-            failed = exerciseResult.isEmpty, // absence of exercise result indicates failure
+            exe.version,
+            failed = exe.exerciseResult.isEmpty, // absence of exercise result indicates failure
             protocolVersionRepresentativeFor(protocolVersion),
           )
         } yield actionDescription

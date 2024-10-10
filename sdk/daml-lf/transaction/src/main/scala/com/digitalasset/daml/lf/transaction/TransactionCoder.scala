@@ -125,6 +125,47 @@ object TransactionCoder {
         .map(DecodeError)
         .map(Some(_))
 
+  def decodeCreationPackageId(
+      s: String,
+      version: TransactionVersion,
+  ): Either[DecodeError, Option[Ref.PackageId]] =
+    if (version < TransactionVersion.minUpgrade)
+      Either.cond(
+        s.isEmpty,
+        None,
+        DecodeError(
+          s"creationPackageId is not supported by transaction version ${version.protoValue}"
+        ),
+      )
+    else if (s.nonEmpty)
+      Ref.PackageId
+        .fromString(s)
+        .fold(
+          err => Left(DecodeError(s"Invalid package name '$s': $err")),
+          pkgId => Right(Some(pkgId)),
+        )
+    else
+      Left(
+        DecodeError(s"creationPackageId is required for transaction version  ${version.protoValue}")
+      )
+
+  def encodeCreationPackageId(
+      creationPackageId: Option[Ref.PackageId],
+      version: TransactionVersion,
+  ): Either[EncodeError, String] =
+    if (version < TransactionVersion.minUpgrade)
+      Either.cond(
+        creationPackageId.isEmpty,
+        "",
+        EncodeError(
+          s"creationPackageId is not supported by transaction version ${version.protoValue}"
+        ),
+      )
+    else
+      creationPackageId.toRight(
+        EncodeError(s"creationPackageId is required for transaction version  ${version.protoValue}")
+      )
+
   /** Decode a contract instance from wire format
     *
     * @param protoCoinst protocol buffer encoded contract instance
@@ -296,6 +337,11 @@ object TransactionCoder {
     for {
       protoFetch <- encodeFetch(fetch)
       _ = builder.setFetch(protoFetch)
+      encodedCreationPackageId <- encodeCreationPackageId(
+        ne.creationPackageId,
+        nodeVersion,
+      )
+      _ = builder.setCreationPackageId(encodedCreationPackageId)
       _ = node.interfaceId.foreach(id => builder.setInterfaceId(ValueCoder.encodeIdentifier(id)))
       _ = builder.setChoice(node.choiceId)
       protoArg <- encodeValue(node.version, node.chosenValue)
@@ -521,6 +567,7 @@ object TransactionCoder {
       _ <- ensureNoUnknownFields(msg)
       fetch <- decodeFetch(txVersion, nodeVersionStr, msg.getFetch)
       nodeVersion = fetch.version
+      creationPackageId <- decodeCreationPackageId(msg.getCreationPackageId, nodeVersion)
       interfaceId <-
         if (msg.hasInterfaceId) {
           ValueCoder.decodeIdentifier(msg.getInterfaceId).map(Some(_))
@@ -542,6 +589,7 @@ object TransactionCoder {
     } yield Node.Exercise(
       targetCoid = fetch.coid,
       packageName = fetch.packageName,
+      creationPackageId = creationPackageId,
       templateId = fetch.templateId,
       interfaceId = interfaceId,
       choiceId = choiceName,

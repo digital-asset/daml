@@ -783,6 +783,7 @@ class TransactionCoderSpec
       signatories = signatories,
       stakeholders = stakeholders,
       interfaceId = exe.interfaceId,
+      creationPackageId = exe.creationPackageId.orElse(Some(exe.templateId.packageId)),
       chosenValue = normalize(exe.chosenValue, exe.version),
       exerciseResult = exe.exerciseResult.map(normalize(_, exe.version)),
       choiceObservers = exe.choiceObservers,

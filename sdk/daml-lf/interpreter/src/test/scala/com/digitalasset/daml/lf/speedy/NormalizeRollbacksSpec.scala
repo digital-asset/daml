@@ -311,6 +311,7 @@ object NormalizeRollbackSpec {
     Node.Exercise(
       targetCoid = toCid("dummyTargetCoid"),
       packageName = Ref.PackageName.assertFromString("-pkgName-"),
+      creationPackageId = None,
       templateId = Ref.Identifier(
         Ref.PackageId.assertFromString("-dummyPkg-"),
         Ref.QualifiedName.assertFromString("DummyModule:dummyName"),

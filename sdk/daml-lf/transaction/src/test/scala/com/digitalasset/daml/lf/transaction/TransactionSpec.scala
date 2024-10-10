@@ -1092,6 +1092,7 @@ object TransactionSpec {
     Node.Exercise(
       targetCoid = cid,
       packageName = Ref.PackageName.assertFromString("PkgName"),
+      creationPackageId = None,
       templateId = "DummyModule:dummyName",
       interfaceId = None,
       choiceId = "dummyChoice",
