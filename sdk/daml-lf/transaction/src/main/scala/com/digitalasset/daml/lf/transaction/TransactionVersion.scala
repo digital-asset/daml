@@ -33,7 +33,7 @@ object TransactionVersion {
   private[lf] def fromInt(i: Int): Either[String, TransactionVersion] =
     fromIntMapping.get(i).toRight(s"Unsupported transaction version '$i'")
 
-  private[lf] def toProtoValue(ver: LanguageVersion): String =
+  private[digitalasset] def toProtoValue(ver: LanguageVersion): String =
     toStringMapping
       .get(ver)
       .getOrElse(
