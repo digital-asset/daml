@@ -340,7 +340,7 @@ class Server(
                             errorResponse(StatusCodes.InternalServerError, exception.description)
                           )
                         case Success(Left(err)) =>
-                          complete(errorResponse(StatusCodes.UnprocessableEntity, err))
+                          complete(errorResponse(StatusCodes.UnprocessableContent, err))
                         case Success(triggerInstance) =>
                           complete(successResponse(triggerInstance))
                       }
@@ -420,12 +420,12 @@ class Server(
                 DarReader
                   .readArchive("package-upload", new ZipInputStream(inputStream)) match {
                   case Left(err) =>
-                    complete(errorResponse(StatusCodes.UnprocessableEntity, err.toString))
+                    complete(errorResponse(StatusCodes.UnprocessableContent, err.toString))
                   case Right(dar) =>
                     extractExecutionContext { implicit ec =>
                       onComplete(addDar(dar.map(p => p.pkgId -> p.proto))) {
                         case Failure(err: archive.Error) =>
-                          complete(errorResponse(StatusCodes.UnprocessableEntity, err.description))
+                          complete(errorResponse(StatusCodes.UnprocessableContent, err.description))
                         case Failure(exception) =>
                           complete(
                             errorResponse(StatusCodes.InternalServerError, exception.description)
