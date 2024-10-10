@@ -31,6 +31,8 @@ load("//rules_daml:daml.bzl", "daml_compile")
 
 ### build-info ###
 
+canton_scalacopts = ["-Xsource:3"]
+
 # TODO(https://github.com/DACH-NY/canton/issues/15106): read 'version' from the canton repository
 #  once it is exposed in some file.
 genrule(
@@ -70,10 +72,7 @@ scala_library(
 da_scala_library(
     name = "daml-common-staging_daml-errors",
     srcs = glob(["daml-common-staging/daml-errors/src/main/**/*.scala"]),
-    override_scalacopts = [
-        "-Xsource:3",
-        "-language:postfixOps",
-    ],
+    override_scalacopts = canton_scalacopts + ["-language:postfixOps"],
     tags = ["maven_coordinates=com.daml:daml-common-staging-daml-errors:__VERSION__"],
     unused_dependency_checker_mode = "error",
     visibility = [
@@ -93,10 +92,7 @@ da_scala_library(
 da_scala_library(
     name = "daml-common-staging_daml-jwt",
     srcs = glob(["daml-common-staging/daml-jwt/src/main/scala/**/*.scala"]),
-    override_scalacopts = [
-        "-Xsource:3",
-        "-language:postfixOps",
-    ],
+    override_scalacopts = canton_scalacopts + ["-language:postfixOps"],
     scala_deps = [
         "@maven//:org_scalaz_scalaz_core",
     ],
@@ -117,10 +113,7 @@ da_scala_library(
 da_scala_library(
     name = "daml-common-staging_daml-jwt-tests-lib",
     srcs = glob(["daml-common-staging/daml-jwt/src/test/scala/**/*.scala"]),
-    override_scalacopts = [
-        "-Xsource:3",
-        "-language:postfixOps",
-    ],
+    override_scalacopts = canton_scalacopts + ["-language:postfixOps"],
     resources = glob(["daml-common-staging/daml-jwt/src/test/resources/**/*"]),
     scala_deps = [
         "@maven//:org_scalatest_scalatest_core",
@@ -147,10 +140,7 @@ da_scala_test(
     name = "daml-common-staging_daml-jwt-tests",
     size = "medium",
     srcs = glob(["daml-common-staging/daml-jwt/src/test/scala/**/*.scala"]),
-    override_scalacopts = [
-        "-Xsource:3",
-        "-language:postfixOps",
-    ],
+    override_scalacopts = canton_scalacopts + ["-language:postfixOps"],
     resources = glob(["daml-common-staging/daml-jwt/src/test/resources/**/*"]),
     scala_deps = [
         "@maven//:org_scalatest_scalatest_core",
@@ -175,10 +165,7 @@ da_scala_test(
 scala_library(
     name = "pekko-stream-patch",
     srcs = glob(["community/lib/pekko/src/main/**/*.scala"]),
-    scalacopts = [
-        "-Xsource:3",
-        "-language:postfixOps",
-    ],
+    scalacopts = canton_scalacopts + ["-language:postfixOps"],
     unused_dependency_checker_mode = "error",
     deps = [
         "@maven//:org_apache_pekko_pekko_actor_2_13",
@@ -207,7 +194,7 @@ java_library(
 scala_macro_library(
     name = "community_lib_slick_slick-fork",
     srcs = glob(["community/lib/slick/src/main/**/*.scala"]),
-    scalacopts = ["-Wconf:cat=unused-imports:s"],
+    scalacopts = canton_scalacopts + ["-Wconf:cat=unused-imports:s"],
     deps = [
         "@maven//:com_typesafe_slick_slick_2_13",
         "@maven//:org_reactivestreams_reactive_streams",
@@ -220,10 +207,7 @@ scala_macro_library(
 scala_macro_library(
     name = "community_lib_wartremover",
     srcs = glob(["community/lib/wartremover/src/main/**/*.scala"]),
-    scalacopts = [
-        "-Wconf:cat=unused-pat-vars:s",
-        "-Xsource:3",
-    ],
+    scalacopts = canton_scalacopts + ["-Wconf:cat=unused-pat-vars:s"],
     unused_dependency_checker_mode = "error",
     deps = [
         "@maven//:org_typelevel_cats_core_2_13",
@@ -237,10 +221,7 @@ scala_macro_library(
 da_scala_library(
     name = "community_util-logging",
     srcs = glob(["community/util-logging/src/main/**/*.scala"]),
-    override_scalacopts = [
-        "-Xsource:3",
-        "-language:postfixOps",
-    ],
+    override_scalacopts = canton_scalacopts + ["-language:postfixOps"],
     tags = ["maven_coordinates=com.daml:canton-community-util-logging:__VERSION__"],
     unused_dependency_checker_mode = "error",
     visibility = [
@@ -287,8 +268,7 @@ da_scala_library(
         "daml-common-staging/grpc-utils/src/main/scala/**/*.scala",
         "daml-common-staging/grpc-utils/src/main/scala/**/*.java",
     ]),
-    scalacopts = [
-        "-Xsource:3",
+    scalacopts = canton_scalacopts + [
         "-language:postfixOps",
         # Disable unused variable in RequireTypes.scala, SubSource.scala, and KeyStoreConfig.scala
         "-Wconf:cat=unused-params:s,cat=unused-privates:s,cat=unused-nowarn:s",
@@ -323,8 +303,7 @@ da_scala_library(
 da_scala_library(
     name = "daml-common-staging_util-external",
     srcs = glob(["daml-common-staging/util-external/src/main/scala/**/*.scala"]),
-    scalacopts = [
-        "-Xsource:3",
+    scalacopts = canton_scalacopts + [
         "-language:postfixOps",
         # Disable unused variable in RequireTypes.scala, SubSource.scala, and KeyStoreConfig.scala
         "-Wconf:cat=unused-params:s,cat=unused-privates:s,cat=unused-nowarn:s",
@@ -352,10 +331,7 @@ da_scala_library(
 da_scala_library(
     name = "daml-common-staging_daml-tls",
     srcs = glob(["daml-common-staging/daml-tls/src/main/scala/**/*.scala"]),
-    scalacopts = [
-        "-Xsource:3",
-        "-language:postfixOps",
-    ],
+    scalacopts = canton_scalacopts + ["-language:postfixOps"],
     tags = ["maven_coordinates=com.daml:daml-common-staging-daml-tls:__VERSION__"],
     unused_dependency_checker_mode = "error",
     visibility = [
@@ -379,10 +355,7 @@ da_scala_library(
         "community/ledger/ledger-common/src/main/scala/**/*.scala",
         "community/ledger/ledger-common/src/main/scala/**/*.java",
     ]),
-    override_scalacopts = [
-        "-Xsource:3",
-        "-language:postfixOps",
-    ],
+    override_scalacopts = canton_scalacopts + ["-language:postfixOps"],
     resource_strip_prefix = "canton/community/ledger/ledger-common/src/resources",
     resources = glob(["community/ledger/ledger-common/src/resources/**"]),
     tags = ["maven_coordinates=com.daml:canton-community-ledger-ledger-common:__VERSION__"],
@@ -471,10 +444,7 @@ filegroup(
 scala_library(
     name = "community_admin-api",
     srcs = [":community_admin-api-src"],
-    scalacopts = [
-        "-Xsource:3",
-        "-language:postfixOps",
-    ],
+    scalacopts = canton_scalacopts + ["-language:postfixOps"],
     visibility = ["//daml-lf/validation:__subpackages__"],
 )
 
@@ -511,10 +481,7 @@ scala_library(
     plugins = [kind_projector_plugin],
     resource_strip_prefix = "canton/community/base/src/main/resources",
     resources = glob(["community/base/src/main/resources/**"]),
-    scalacopts = [
-        "-Xsource:3",
-        "-language:postfixOps",
-    ],
+    scalacopts = canton_scalacopts + ["-language:postfixOps"],
     unused_dependency_checker_mode = "error",
     visibility = [
         "//daml-script:__subpackages__",
@@ -610,10 +577,7 @@ scala_library(
     plugins = [kind_projector_plugin],
     resource_strip_prefix = "canton/community/common/src/main/resources",
     resources = glob(["community/common/src/main/resources/**"]),
-    scalacopts = [
-        "-Xsource:3",
-        "-language:postfixOps",
-    ],
+    scalacopts = canton_scalacopts + ["-language:postfixOps"],
     unused_dependency_checker_mode = "error",
     runtime_deps = [
         #  not used at compile time, but required by com.digitalasset.canton.util.PekkoUtil.createActorSystem
@@ -736,10 +700,7 @@ scala_library(
     ],
     resource_strip_prefix = "canton/community/ledger/ledger-api-core/src/main/resources",
     resources = glob(["community/ledger/ledger-api-core/src/main/resources/**"]),
-    scalacopts = [
-        "-Xsource:3",
-        "-language:postfixOps",
-    ],
+    scalacopts = canton_scalacopts + ["-language:postfixOps"],
     unused_dependency_checker_mode = "error",
     visibility = [
         "//daml-lf:__subpackages__",
@@ -839,10 +800,7 @@ scala_library(
     plugins = [kind_projector_plugin],
     resource_strip_prefix = "canton/community/ledger/ledger-json-api/src/main/resources",
     resources = glob(["community/ledger/ledger-json-api/src/main/resources/**"]),
-    scalacopts = [
-        "-Xsource:3",
-        "-language:postfixOps",
-    ],
+    scalacopts = canton_scalacopts + ["-language:postfixOps"],
     unused_dependency_checker_mode = "error",
     deps = [
         ":bindings-java",
@@ -933,10 +891,7 @@ scala_library(
     plugins = [kind_projector_plugin],
     resource_strip_prefix = "canton/community/ledger/transcode/src/main/resources",
     resources = glob(["community/ledger/transcode/src/main/resources/**"]),
-    scalacopts = [
-        "-Xsource:3",
-        "-language:postfixOps",
-    ],
+    scalacopts = canton_scalacopts + ["-language:postfixOps"],
     unused_dependency_checker_mode = "error",
     deps = [
         ":bindings-java",
@@ -986,10 +941,7 @@ scala_library(
     name = "community_domain",
     srcs = glob(["community/domain/src/main/scala/**/*.scala"]) + [":community_domain_proto_scala"],
     plugins = [kind_projector_plugin],
-    scalacopts = [
-        "-Xsource:3",
-        "-language:postfixOps",
-    ],
+    scalacopts = canton_scalacopts + ["-language:postfixOps"],
     unused_dependency_checker_mode = "error",
     deps = [
         ":community_admin-api",
@@ -1121,10 +1073,7 @@ scala_library(
         ":community_participant_admin-workflows_dar",
         ":ledger-api-version-file",
     ],
-    scalacopts = [
-        "-Xsource:3",
-        "-language:postfixOps",
-    ],
+    scalacopts = canton_scalacopts + ["-language:postfixOps"],
     unused_dependency_checker_mode = "error",
     exports = [
         "@maven//:io_netty_netty_handler",
@@ -1209,10 +1158,7 @@ scala_library(
     srcs = glob(["community/drivers/reference/src/main/scala/**/*.scala"]) + [":community_reference-driver_proto_scala"],
     resource_strip_prefix = "/canton/community/drivers/reference/src/main/resources",
     resources = glob(["community/drivers/reference/src/main/resources/**"]),
-    scalacopts = [
-        "-Xsource:3",
-        "-language:postfixOps",
-    ],
+    scalacopts = canton_scalacopts + ["-language:postfixOps"],
     unused_dependency_checker_mode = "error",
     deps = [
         ":community_base",
@@ -1279,10 +1225,7 @@ scala_library(
     srcs = glob(["community/sequencer-driver/src/main/scala/**/*.scala"]),
     resource_strip_prefix = "/canton/community/sequencer-driver/src/main/resources",
     resources = glob(["community/sequencer-driver/src/main/resources/**"]),
-    scalacopts = [
-        "-Xsource:3",
-        "-language:postfixOps",
-    ],
+    scalacopts = canton_scalacopts + ["-language:postfixOps"],
     unused_dependency_checker_mode = "error",
     deps = [
         ":community_util-logging",
@@ -1304,10 +1247,7 @@ scala_library(
     srcs = glob(["community/app-base/src/main/scala/**/*.scala"]),
     resource_strip_prefix = "/canton/community/app-base/src/main/resources",
     resources = glob(["community/app-base/src/main/resources/**"]),
-    scalacopts = [
-        "-Xsource:3",
-        "-language:postfixOps",
-    ],
+    scalacopts = canton_scalacopts + ["-language:postfixOps"],
     unused_dependency_checker_mode = "error",
     runtime_deps = [":community_reference-driver"],
     deps = [
@@ -1399,10 +1339,7 @@ scala_library(
     srcs = glob(["community/app/src/main/scala/**/*.scala"]),
     resource_strip_prefix = "/canton/community/app/src/main/resources",
     resources = glob(["community/app/src/main/resources/**"]),
-    scalacopts = [
-        "-Xsource:3",
-        "-language:postfixOps",
-    ],
+    scalacopts = canton_scalacopts + ["-language:postfixOps"],
     unused_dependency_checker_mode = "error",
     visibility = ["//visibility:public"],
     runtime_deps = [
@@ -1574,10 +1511,7 @@ da_scala_library(
     scala_deps = [
         "@maven//:org_scalacheck_scalacheck",
     ],
-    scalacopts = [
-        "-Xsource:3",
-        "-language:postfixOps",
-    ],
+    scalacopts = canton_scalacopts + ["-language:postfixOps"],
     deps = [
         ":bindings-java",
         "@maven//:com_google_api_grpc_proto_google_common_protos",
@@ -1598,10 +1532,7 @@ da_scala_test_suite(
         "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalatestplus_scalacheck_1_15",
     ],
-    scalacopts = [
-        "-Xsource:3",
-        "-language:postfixOps",
-    ],
+    scalacopts = canton_scalacopts + ["-language:postfixOps"],
     deps = [
         ":bindings-java",
         ":bindings-java-tests-lib",
