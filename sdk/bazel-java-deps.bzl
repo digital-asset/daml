@@ -46,16 +46,16 @@ version_specific = {
 # need to be updated with careful consideration.
 
 apispec_version = "0.7.1"
-netty_tcnative_version = "2.0.61.Final"
-netty_version = "4.1.108.Final"
-grpc_version = "1.60.0"
-protobuf_version = "3.24.0"
-pekko_version = "1.0.1"
-pekko_http_version = "1.0.0"
+netty_tcnative_version = "2.0.66.Final"
+netty_version = "4.1.110.Final"
+grpc_version = "1.65.1"
+protobuf_version = "3.24.4"
+pekko_version = "1.0.3"
+pekko_http_version = "1.0.1"
 tapir_version = "1.8.5"
 ujson_version = "4.0.2"
-
-guava_version = "31.1-jre"
+slf4j_version = "2.0.16"
+guava_version = "33.3.0-jre"
 
 # Updated 2024-03-15
 opentelemetry_version = "1.36.0"
@@ -254,10 +254,10 @@ def install_java_deps():
             "org.scalatestplus:testng-7-5_{}:3.2.11.0".format(scala_major_version),
             "org.scalaz:scalaz-core_{}:7.2.33".format(scala_major_version),
             "org.scalaz:scalaz-scalacheck-binding_{}:7.2.33-scalacheck-1.15".format(scala_major_version),
-            "org.slf4j:jul-to-slf4j:2.0.6",
-            "org.slf4j:jul-to-slf4j:2.0.6",
-            "org.slf4j:slf4j-api:2.0.6",
-            "org.slf4j:slf4j-simple:2.0.6",
+            "org.slf4j:jul-to-slf4j:{}".format(slf4j_version),
+            "org.slf4j:jul-to-slf4j:{}".format(slf4j_version),
+            "org.slf4j:slf4j-api:{}".format(slf4j_version),
+            "org.slf4j:slf4j-simple:{}".format(slf4j_version),
             "org.testcontainers:jdbc:1.19.7",
             "org.testcontainers:postgresql:1.19.7",
             "org.testcontainers:testcontainers:1.19.7",
