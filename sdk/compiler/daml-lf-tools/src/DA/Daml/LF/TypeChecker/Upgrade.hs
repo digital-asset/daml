@@ -666,7 +666,6 @@ checkTemplate module_ template = do
            Upgrading { _past = Nothing, _present = Just presentKey } ->
                throwWithContextF present' $ EUpgradeTemplateAddedKey (NM.name (_present template)) presentKey
 
-    -- TODO: Check that return type of a choice is compatible
     pure ()
     where
         mapENilToNothing :: Maybe Expr -> Maybe Expr
@@ -786,20 +785,27 @@ checkDefDataType origin datatype = do
               checkFields origin paramNames (Upgrading {..})
           Upgrading { _past = DataVariant _past, _present = DataVariant _present } -> do
               let upgrade = Upgrading{..}
-              (existing, _new) <- checkDeleted (\_ -> EUpgradeVariantRemovedVariant origin) (fmap HMS.fromList upgrade)
+              let (del, existing, _new) = extractDelExistNew (fmap HMS.fromList upgrade)
+              when (not (HMS.null del)) $
+                  throwWithContextF present' $ EUpgradeVariantRemovedConstructor origin (HMS.keys del)
               when (not $ and $ foldU (zipWith (==)) $ fmap (map fst) upgrade) $
-                  throwWithContextF present' (EUpgradeVariantVariantsOrderChanged origin)
+                  throwWithContextF present' (EUpgradeVariantConstructorsOrderChanged origin)
+              let newConstructorsNotAtEnd = diffNotAtEnd (map fst <$> upgrade)
+              when (not (null newConstructorsNotAtEnd)) $
+                  throwWithContextF present' (EUpgradeVariantNewConstructorsNotAtEnd origin newConstructorsNotAtEnd)
               different <- filterHashMapM (fmap not . isUpgradedType paramNames) existing
               when (not (null different)) $
-                  throwWithContextF present' $ EUpgradeVariantChangedVariantType origin
+                  throwWithContextF present' $ EUpgradeVariantChangedConstructorType origin (HMS.keys different)
           Upgrading { _past = DataEnum _past, _present = DataEnum _present } -> do
               let upgrade = Upgrading{..}
-              (_, _new) <-
-                  checkDeleted
-                    (\_ -> EUpgradeEnumRemovedVariant origin)
-                    (fmap (HMS.fromList . map (,())) upgrade)
+              let (del, _existing, _new) = extractDelExistNew (fmap (HMS.fromList . map (,())) upgrade)
+              when (not (HMS.null del)) $
+                  throwWithContextF present' $ EUpgradeEnumRemovedConstructor origin (HMS.keys del)
+              let newConstructorsNotAtEnd = diffNotAtEnd upgrade
+              when (not (null newConstructorsNotAtEnd)) $
+                  throwWithContextF present' (EUpgradeEnumNewConstructorsNotAtEnd origin newConstructorsNotAtEnd)
               when (not $ and $ foldU (zipWith (==)) upgrade) $
-                  throwWithContextF present' (EUpgradeEnumVariantsOrderChanged origin)
+                  throwWithContextF present' $ EUpgradeEnumConstructorsOrderChanged origin
           Upgrading { _past = DataInterface {}, _present = DataInterface {} } ->
               pure ()
           _ ->
@@ -811,24 +817,38 @@ filterHashMapM pred t =
 
 checkFields :: UpgradedRecordOrigin -> [Upgrading TypeVarName] -> Upgrading [(FieldName, Type)] -> TcUpgradeM ()
 checkFields origin paramNames fields = do
-    (existing, new) <- checkDeleted (\_ -> EUpgradeRecordFieldsMissing origin) (fmap HMS.fromList fields)
+    let (del, existing, new) = extractDelExistNew (fmap HMS.fromList fields)
+    when (not (HMS.null del)) $
+        diagnosticWithContextF present' (EUpgradeRecordFieldsMissing origin (HMS.keys del))
+
     -- If a field from the upgraded package has had its type changed
     different <- filterHashMapM (fmap not . isUpgradedType paramNames) existing
     when (not (HMS.null different)) $
-        throwWithContextF present' (EUpgradeRecordFieldsExistingChanged origin)
-    when (not (all newFieldOptionalType new)) $
-        case origin of
-          VariantConstructor{} ->
-            throwWithContextF present' (EUpgradeVariantAddedVariantField origin)
-          _ ->
-            throwWithContextF present' (EUpgradeRecordFieldsNewNonOptional origin)
-        -- If a new field has a non-optional type
+        diagnosticWithContextF present' (EUpgradeRecordFieldsExistingChanged origin (HMS.toList different))
+
+    let nonOptionalNewFields = HMS.filter (not . newFieldOptionalType) new
+    when (not (HMS.null nonOptionalNewFields)) $
+        throwWithContextF present' (EUpgradeRecordFieldsNewNonOptional origin (HMS.toList nonOptionalNewFields))
+
+    let newFieldsNotAtEnd = diffNotAtEnd (map fst <$> fields)
+    when (not (null newFieldsNotAtEnd)) $
+        throwWithContextF present' (EUpgradeRecordNewFieldsNotAtEnd origin newFieldsNotAtEnd)
+
     -- If the order of fields changed
     when (not $ and $ foldU (zipWith (==)) $ fmap (map fst) fields) $
         throwWithContextF present' (EUpgradeRecordFieldsOrderChanged origin)
     where
         newFieldOptionalType (TOptional _) = True
         newFieldOptionalType _ = False
+
+diffNotAtEnd :: (Eq a, Hashable a) => Upgrading [a] -> [a]
+diffNotAtEnd xs =
+    let (_del, _existing, new) = extractDelExistNew $ fmap (\xs -> HMS.fromList (zip xs (repeat ()))) xs
+        presentIndices = zip (_present xs) [0..]
+        newXesIndices = filter (flip HMS.member new . fst) presentIndices
+        newIndicesNotAtEnd = map fst $ filter ((< length (_past xs)) . snd) newXesIndices
+    in
+    newIndicesNotAtEnd
 
 checkQualName :: Alpha.IsSomeName a => DepsMap -> Upgrading (Qualified a) -> [Alpha.Mismatch UpgradeMismatchReason]
 checkQualName deps name =
