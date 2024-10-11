@@ -335,7 +335,7 @@ object Util {
   final case class PkgIdWithNameAndVersion(
       pkgId: Ref.PackageId,
       name: Ref.PackageName,
-      version: Ref.PackageVersion
+      version: Ref.PackageVersion,
   ) {
     override def toString: String =
       s"${pkgId} (${name} v${version})"
@@ -343,6 +343,10 @@ object Util {
 
   object PkgIdWithNameAndVersion {
     def apply(idWithPkg: (Ref.PackageId, Ast.Package)): PkgIdWithNameAndVersion =
-      PkgIdWithNameAndVersion(idWithPkg._1, idWithPkg._2.metadata.name, idWithPkg._2.metadata.version)
+      PkgIdWithNameAndVersion(
+        idWithPkg._1,
+        idWithPkg._2.metadata.name,
+        idWithPkg._2.metadata.version,
+      )
   }
 }
