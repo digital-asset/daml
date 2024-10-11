@@ -213,8 +213,8 @@ class InMemoryAcsCommitmentStore(protected val loggerFactory: NamedLoggerFactory
       sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
       matchingState: CommitmentPeriodState,
   )(implicit traceContext: TraceContext): Future[Unit] =
-    sortedReconciliationIntervalsProvider.approximateReconciliationIntervals.map {
-      sortedReconciliationIntervals =>
+    sortedReconciliationIntervalsProvider.approximateReconciliationIntervals
+      .map { sortedReconciliationIntervals =>
         _outstanding.updateAndGet(currentOutstanding =>
           computeOutstanding(
             counterParticipant,
@@ -225,7 +225,12 @@ class InMemoryAcsCommitmentStore(protected val loggerFactory: NamedLoggerFactory
           )
         )
         ()
-    }
+      }
+      .onShutdown(
+        logger.debug(
+          s"Aborted marking period safe (${period.fromExclusive}, ${period.toInclusive}] due to shutdown"
+        )
+      )
 
   override def noOutstandingCommitments(
       beforeOrAt: CantonTimestamp

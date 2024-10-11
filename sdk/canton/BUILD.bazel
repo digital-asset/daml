@@ -812,7 +812,7 @@ scala_library(
         ":community_util-logging",
         ":daml-common-staging_daml-errors",
         ":daml-common-staging_daml-jwt",
-        ":daml-common-staging_daml-tls",
+        ":daml-common-staging_util-external",
         ":ledger_api_proto_scala",
         ":pekko-stream-minus-patched-classes",
         "//daml-lf/api-type-signature",

@@ -129,30 +129,37 @@ class PruningProcessor(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, LedgerPruningError, Unit] = {
 
-    def go(lastUpTo: Option[GlobalOffset]): Future[
+    def go(lastUpTo: Option[GlobalOffset]): FutureUnlessShutdown[
       Either[Option[GlobalOffset], Either[LedgerPruningError, Unit]]
     ] = {
       val pruneUpToNext = increaseByBatchSize(lastUpTo)
       val offset = pruneUpToNext.min(pruneUpToInclusive)
       val done = offset == pruneUpToInclusive
-      pruneLedgerEventBatch(lastUpTo, offset).transform {
-        case Left(e) => Right(Left(e))
-        case Right(_) if done => Right(Right(()))
-        case Right(_) => Left(Some(offset))
-      }.value
+      pruneLedgerEventBatch(lastUpTo, offset)
+        .transform {
+          case Left(e) => Right(Left(e))
+          case Right(_) if done => Right(Right(()))
+          case Right(_) => Left(Some(offset))
+        }
+        .mapK(FutureUnlessShutdown.outcomeK)
+        .value
     }
 
-    def doPrune(): EitherT[Future, LedgerPruningError, Unit] =
+    def doPrune(): EitherT[FutureUnlessShutdown, LedgerPruningError, Unit] =
       EitherTUtil.timed(metrics.overall)(
         for {
-          pruningStatus <- EitherT.right(
-            participantNodePersistentState.value.pruningStore.pruningStatus()
-          )
+          pruningStatus <- EitherT
+            .right(
+              participantNodePersistentState.value.pruningStore.pruningStatus()
+            )
+            .mapK(FutureUnlessShutdown.outcomeK)
           _ensuredSafeToPrune <- ensurePruningOffsetIsSafe(pruneUpToInclusive)
-          _prunedAllEventBatches <- EitherT(Monad[Future].tailRecM(pruningStatus.completedO)(go))
+          _prunedAllEventBatches <- EitherT(
+            Monad[FutureUnlessShutdown].tailRecM(pruningStatus.completedO)(go)
+          )
         } yield ()
       )
-    executionQueue.executeE(doPrune(), s"prune ledger events upto $pruneUpToInclusive")
+    executionQueue.executeEUS(doPrune(), s"prune ledger events upto $pruneUpToInclusive")
   }
 
   /** Returns an offset of at most `boundInclusive` that is safe to prune and whose timestamp is before or at `beforeOrAt`.
@@ -162,9 +169,12 @@ class PruningProcessor(
     */
   def safeToPrune(beforeOrAt: CantonTimestamp, boundInclusive: GlobalOffset)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, LedgerPruningError, Option[GlobalOffset]] = EitherT(
-    participantNodePersistentState.value.ledgerApiStore
-      .lastDomainOffsetBeforeOrAtPublicationTime(beforeOrAt)
+  ): EitherT[FutureUnlessShutdown, LedgerPruningError, Option[GlobalOffset]] = EitherT(
+    FutureUnlessShutdown
+      .outcomeF(
+        participantNodePersistentState.value.ledgerApiStore
+          .lastDomainOffsetBeforeOrAtPublicationTime(beforeOrAt)
+      )
       .map(_.map(_.offset))
       .flatMap {
         case Some(beforeOrAtOffset) =>
@@ -183,7 +193,7 @@ class PruningProcessor(
           ).value
 
         case None =>
-          Future.successful(
+          FutureUnlessShutdown.pure(
             Left(LedgerPruningNothingToPrune)
           ) // nothing to prune, beforeOrAt is too low
       }
@@ -202,26 +212,29 @@ class PruningProcessor(
       pruneUptoInclusive: GlobalOffset,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, LedgerPruningError, Option[UnsafeOffset]] = {
+  ): EitherT[FutureUnlessShutdown, LedgerPruningError, Option[UnsafeOffset]] = {
 
     def firstUnsafeEventFor(
         domainId: DomainId,
         persistent: SyncDomainPersistentState,
-    ): EitherT[Future, LedgerPruningError, Option[UnsafeOffset]] =
+    ): EitherT[FutureUnlessShutdown, LedgerPruningError, Option[UnsafeOffset]] =
       for {
-        domainIndex <- EitherT.right(
-          participantNodePersistentState.value.ledgerApiStore
-            .domainIndex(domainId)
-        )
+        domainIndex <- EitherT
+          .right(
+            participantNodePersistentState.value.ledgerApiStore
+              .domainIndex(domainId)
+          )
+          .mapK(FutureUnlessShutdown.outcomeK)
         sortedReconciliationIntervalsProvider <- sortedReconciliationIntervalsProviderFactory
           .get(
             domainId,
             domainIndex.sequencerIndex.map(_.timestamp).getOrElse(CantonTimestamp.MinValue),
           )
           .leftMap(LedgerPruningInternalError.apply)
+          .mapK(FutureUnlessShutdown.outcomeK)
 
         safeCommitmentTick <- EitherT
-          .fromOptionF[Future, LedgerPruningError, CantonTimestampSecond](
+          .fromOptionF[FutureUnlessShutdown, LedgerPruningError, CantonTimestampSecond](
             PruningProcessor.latestSafeToPruneTick(
               persistent.requestJournalStore,
               domainIndex,
@@ -235,12 +248,14 @@ class PruningProcessor(
           )
         _ = logger.debug(s"Safe commitment tick for domain $domainId at $safeCommitmentTick")
 
-        firstUnsafeOffsetO <- EitherT.right(
-          participantNodePersistentState.value.ledgerApiStore.firstDomainOffsetAfterOrAt(
-            domainId,
-            safeCommitmentTick.forgetRefinement,
+        firstUnsafeOffsetO <- EitherT
+          .right(
+            participantNodePersistentState.value.ledgerApiStore.firstDomainOffsetAfterOrAt(
+              domainId,
+              safeCommitmentTick.forgetRefinement,
+            )
           )
-        )
+          .mapK(FutureUnlessShutdown.outcomeK)
       } yield {
         logger.debug(s"First unsafe pruning offset for domain $domainId at $firstUnsafeOffsetO")
         firstUnsafeOffsetO.map(domainOffset =>
@@ -256,14 +271,16 @@ class PruningProcessor(
     def firstUnsafeReassignmentEventFor(
         domainId: DomainId,
         persistent: SyncDomainPersistentState,
-    ): EitherT[Future, LedgerPruningError, Option[UnsafeOffset]] =
+    ): EitherT[FutureUnlessShutdown, LedgerPruningError, Option[UnsafeOffset]] =
       for {
-        earliestIncompleteReassignmentO <- EitherT.right(
-          persistent.reassignmentStore.findEarliestIncomplete()
-        )
+        earliestIncompleteReassignmentO <- EitherT
+          .right(
+            persistent.reassignmentStore.findEarliestIncomplete()
+          )
+          .mapK(FutureUnlessShutdown.outcomeK)
 
         unsafeOffset <- earliestIncompleteReassignmentO.fold(
-          EitherT.rightT[Future, LedgerPruningError](None: Option[UnsafeOffset])
+          EitherT.rightT[FutureUnlessShutdown, LedgerPruningError](None: Option[UnsafeOffset])
         ) { earliestIncompleteReassignment =>
           val (
             earliestIncompleteReassignmentGlobalOffset,
@@ -281,7 +298,7 @@ class PruningProcessor(
                     ): LedgerPruningError
                   )
                 )
-            )
+            ).mapK(FutureUnlessShutdown.outcomeK)
             unsafeOffsetEarliestIncompleteReassignmentO = Option(
               UnsafeOffset(
                 GlobalOffset.tryFromLedgerOffset(unsafeOffsetForReassignments.offset),
@@ -351,7 +368,7 @@ class PruningProcessor(
       }
     }
     for {
-      _ <- EitherT.cond[Future](
+      _ <- EitherT.cond[FutureUnlessShutdown](
         participantNodePersistentState.value.ledgerApiStore
           .ledgerEndCache()
           ._1
@@ -359,14 +376,15 @@ class PruningProcessor(
         (),
         Pruning.LedgerPruningOffsetAfterLedgerEnd: LedgerPruningError,
       )
-      allActiveDomains <- EitherT.fromEither[Future](allActiveDomainsE)
-      affectedDomainsOffsets <- EitherT.right[LedgerPruningError](allActiveDomains.parFilterA {
-        case (domainId, _persistent) =>
+      allActiveDomains <- EitherT.fromEither[FutureUnlessShutdown](allActiveDomainsE)
+      affectedDomainsOffsets <- EitherT
+        .right[LedgerPruningError](allActiveDomains.parFilterA { case (domainId, _persistent) =>
           participantNodePersistentState.value.ledgerApiStore
             .lastDomainOffsetBeforeOrAt(domainId, pruneUptoInclusive.toLedgerOffset)
             .map(_.isDefined)
-      })
-      _ <- EitherT.cond[Future](
+        })
+        .mapK(FutureUnlessShutdown.outcomeK)
+      _ <- EitherT.cond[FutureUnlessShutdown](
         affectedDomainsOffsets.nonEmpty,
         (),
         LedgerPruningNothingToPrune: LedgerPruningError,
@@ -379,7 +397,9 @@ class PruningProcessor(
         case (domainId, persistent) =>
           firstUnsafeReassignmentEventFor(domainId, persistent)
       }
-      unsafeDedupOffset <- EitherT.right(firstUnsafeOffsetPublicationTime)
+      unsafeDedupOffset <- EitherT
+        .right(firstUnsafeOffsetPublicationTime)
+        .mapK(FutureUnlessShutdown.outcomeK)
     } yield (unsafeDedupOffset.toList ++ unsafeDomainOffsets ++ unsafeIncompleteReassignmentOffsets)
       .minByOption(_.globalOffset)
   }
@@ -458,7 +478,9 @@ class PruningProcessor(
 
   private def ensurePruningOffsetIsSafe(
       globalOffset: GlobalOffset
-  )(implicit traceContext: TraceContext): EitherT[Future, LedgerPruningError, Unit] = {
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, LedgerPruningError, Unit] = {
 
     val domains = syncDomainPersistentStateManager.getAll.toList
     for {
@@ -466,12 +488,12 @@ class PruningProcessor(
         // if nothing to prune we go on with this iteration regardless to ensure that iterative and scheduled pruning is not stuck in a window where nothing to prune
         .recover { case LedgerPruningNothingToPrune => None }
       _ <- firstUnsafeOffsetO match {
-        case None => EitherT.pure[Future, LedgerPruningError](())
+        case None => EitherT.pure[FutureUnlessShutdown, LedgerPruningError](())
         case Some(unsafe) if unsafe.globalOffset > globalOffset =>
-          EitherT.pure[Future, LedgerPruningError](())
+          EitherT.pure[FutureUnlessShutdown, LedgerPruningError](())
         case Some(unsafe) =>
           EitherT
-            .leftT[Future, Unit]
+            .leftT[FutureUnlessShutdown, Unit]
             .apply[LedgerPruningError](
               Pruning.LedgerPruningOffsetUnsafeToPrune(
                 globalOffset,
@@ -577,11 +599,11 @@ private[pruning] object PruningProcessor extends HasLoggerName {
   )(implicit
       ec: ExecutionContext,
       loggingContext: NamedLoggingContext,
-  ): Future[Option[CantonTimestampSecond]] =
+  ): FutureUnlessShutdown[Option[CantonTimestampSecond]] =
     for {
       // This logic progressively lowers the timestamp based on the following constraints:
       // 1. Pruning must not delete data needed for recovery (after the clean replay timestamp)
-      cleanReplayTs <- cleanReplayF
+      cleanReplayTs <- FutureUnlessShutdown.outcomeF(cleanReplayF)
 
       // 2. Pruning must not delete events from the event log for which there are still in-flight submissions.
       // We check here the domain related events only.
@@ -590,7 +612,7 @@ private[pruning] object PruningProcessor extends HasLoggerName {
       // (from timeout to sequencing timestamp), but this can only happen if the corresponding request is not yet clean,
       // i.e., the sequencing timestamp is after `cleanReplayTs`. So this concurrent modification does not affect
       // the calculation below.
-      inFlightSubmissionTs <- earliestInFlightSubmissionF
+      inFlightSubmissionTs <- FutureUnlessShutdown.outcomeF(earliestInFlightSubmissionF)
 
       getTickBeforeOrAt = (ts: CantonTimestamp) =>
         sortedReconciliationIntervalsProvider
@@ -599,9 +621,9 @@ private[pruning] object PruningProcessor extends HasLoggerName {
           .flatMap {
             case Some(tick) =>
               loggingContext.debug(s"Tick before or at $ts yields $tick on domain $domainId")
-              Future.successful(tick)
+              FutureUnlessShutdown.pure(tick)
             case None =>
-              Future.failed(
+              FutureUnlessShutdown.failed(
                 new RuntimeException(
                   s"Unable to compute tick before or at `$ts` for domain $domainId"
                 )
@@ -620,12 +642,14 @@ private[pruning] object PruningProcessor extends HasLoggerName {
       // so look for the most recent such tick before latestTickBeforeOrAt if any.
       tsSafeToPruneUpTo <- commitmentsPruningBound match {
         case CommitmentsPruningBound.Outstanding(noOutstandingCommitmentsF) =>
-          noOutstandingCommitmentsF(latestTickBeforeOrAt.forgetRefinement).flatMap(
-            _.traverse(getTickBeforeOrAt)
-          )
+          FutureUnlessShutdown
+            .outcomeF(noOutstandingCommitmentsF(latestTickBeforeOrAt.forgetRefinement))
+            .flatMap(
+              _.traverse(getTickBeforeOrAt)
+            )
         case CommitmentsPruningBound.LastComputedAndSent(lastComputedAndSentF) =>
           for {
-            lastComputedAndSentO <- lastComputedAndSentF
+            lastComputedAndSentO <- FutureUnlessShutdown.outcomeF(lastComputedAndSentF)
             tickBeforeLastComputedAndSentO <- lastComputedAndSentO.traverse(getTickBeforeOrAt)
           } yield tickBeforeLastComputedAndSentO.map(_.min(latestTickBeforeOrAt))
       }
@@ -662,7 +686,7 @@ private[pruning] object PruningProcessor extends HasLoggerName {
   )(implicit
       ec: ExecutionContext,
       loggingContext: NamedLoggingContext,
-  ): Future[Option[CantonTimestampSecond]] = {
+  ): FutureUnlessShutdown[Option[CantonTimestampSecond]] = {
     implicit val traceContext: TraceContext = loggingContext.traceContext
     val cleanReplayF = SyncDomainEphemeralStateFactory
       .crashRecoveryPruningBoundInclusive(requestJournalStore, domainIndex)

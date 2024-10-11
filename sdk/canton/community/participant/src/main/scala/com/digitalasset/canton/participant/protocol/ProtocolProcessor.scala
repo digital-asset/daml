@@ -1390,10 +1390,12 @@ abstract class ProtocolProcessor[
 
     def filterInvalidSignature(
         pendingRequestData: PendingRequestData
-    ): Future[Boolean] =
+    ): FutureUnlessShutdown[Boolean] =
       for {
-        snapshot <- crypto.awaitSnapshot(requestId.unwrap)
-        res <- result.verifyMediatorSignatures(snapshot, pendingRequestData.mediator.group).value
+        snapshot <- crypto.awaitSnapshotUS(requestId.unwrap)
+        res <- FutureUnlessShutdown.outcomeF(
+          result.verifyMediatorSignatures(snapshot, pendingRequestData.mediator.group).value
+        )
       } yield {
         res match {
           case Left(err) =>
@@ -1411,7 +1413,7 @@ abstract class ProtocolProcessor[
 
     def filterInvalidRootHash(
         pendingRequestDataOrReplayData: PendingRequestData
-    ): Future[Boolean] = Future.successful {
+    ): FutureUnlessShutdown[Boolean] = FutureUnlessShutdown.pure {
       pendingRequestDataOrReplayData.rootHashO.forall { txRootHash =>
         val resultRootHash = unsignedResult.rootHash
         val rootHashMatches = resultRootHash == txRootHash
@@ -1431,7 +1433,7 @@ abstract class ProtocolProcessor[
       (prd: PendingRequestData) =>
         MonadUtil
           .foldLeftM(true, Seq(filterInvalidSignature _, filterInvalidRootHash _))((acc, x) =>
-            if (acc) x(prd) else Future.successful(acc)
+            if (acc) x(prd) else FutureUnlessShutdown.pure(acc)
           )
 
     // Wait until we have processed the corresponding request

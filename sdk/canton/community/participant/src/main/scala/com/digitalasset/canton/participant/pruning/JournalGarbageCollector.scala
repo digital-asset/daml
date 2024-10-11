@@ -48,9 +48,9 @@ private[participant] class JournalGarbageCollector(
   ): Unit = flush(traceContext)
 
   override protected def run()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    performUnlessClosingF(functionFullName) {
+    performUnlessClosingUSF(functionFullName) {
       for {
-        domainIndex <- domainIndexF(implicitly)
+        domainIndex <- FutureUnlessShutdown.outcomeF(domainIndexF(implicitly))
         safeToPruneTsO <-
           PruningProcessor.latestSafeToPruneTick(
             requestJournalStore,
@@ -61,12 +61,12 @@ private[participant] class JournalGarbageCollector(
             domainId,
             checkForOutstandingCommitments = false,
           )
-        _ <- safeToPruneTsO.fold(Future.unit) { ts =>
+        _ <- safeToPruneTsO.fold(FutureUnlessShutdown.unit) { ts =>
           val maxDelay = (ts - CantonTimestampSecond.MinValue).toSeconds
           val cappedJournalGarbageCollectionDelay =
             journalGarbageCollectionDelay.duration.toSeconds.min(maxDelay)
 
-          prune(ts.minusSeconds(cappedJournalGarbageCollectionDelay))
+          FutureUnlessShutdown.outcomeF(prune(ts.minusSeconds(cappedJournalGarbageCollectionDelay)))
         }
       } yield ()
     }

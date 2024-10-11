@@ -19,8 +19,10 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.PruningServiceErrorGroup
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.NonHexOffset
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcETFUSExtended
 import com.digitalasset.canton.participant.scheduler.{
   ParticipantPruningSchedule,
   ParticipantPruningScheduler,
@@ -82,7 +84,7 @@ class GrpcPruningService(
       } yield (beforeOrAt, ledgerEndOffset)
 
       val res = for {
-        validatedRequest <- EitherT.fromEither[Future](
+        validatedRequest <- EitherT.fromEither[FutureUnlessShutdown](
           validatedRequestE.leftMap(err =>
             Status.INVALID_ARGUMENT
               .withDescription(s"Invalid GetSafePruningOffsetRequest: $err")
@@ -117,7 +119,7 @@ class GrpcPruningService(
 
       } yield toProtoResponse(safeOffsetO)
 
-      EitherTUtil.toFuture(res)
+      res.asGrpcResponse
   }
 
   override def setParticipantSchedule(

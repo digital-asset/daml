@@ -315,6 +315,7 @@ class StoreBasedDomainOutbox(
           dispatched = newWatermark,
         )
       }.discard
+      logger.debug(s"Updating dispatching watermark to $newWatermark")
       performUnlessClosingF(functionFullName)(targetStore.updateDispatchingWatermark(newWatermark))
     } else {
       FutureUnlessShutdown.unit

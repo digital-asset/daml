@@ -52,11 +52,13 @@ message CreatedEvent {
 
   // The arguments that have been used to create the contract.
   // Set either:
+  //
   //   - if there was a party, which is in the ``witness_parties`` of this event,
   //     and for which a ``CumulativeFilter`` exists with the ``template_id`` of this event
   //     among the ``template_filters``,
   //   - or if there was a party, which is in the ``witness_parties`` of this event,
   //     and for which a wildcard filter exists (``Filters`` with a ``CumulativeFilter`` of ``WildcardFilter``).
+  //
   // Optional
   Record create_arguments = 5;
 
@@ -68,9 +70,11 @@ message CreatedEvent {
 
   // Interface views specified in the transaction filter.
   // Includes an ``InterfaceView`` for each interface for which there is a ``InterfaceFilter`` with
+  //
   //   - its party in the ``witness_parties`` of this event,
   //   - and which is implemented by the template of this event,
   //   - and which has ``include_interface_view`` set.
+  //
   // Optional
   repeated InterfaceView interface_views = 7;
 
@@ -80,11 +84,13 @@ message CreatedEvent {
   // of the event. If served as part of a flat transaction those will
   // be limited to all parties specified in the ``TransactionFilter`` that
   // are stakeholders of the contract (i.e. either signatories or observers).
-  // In case of v2 API:
-  //   If the ``CreatedEvent`` is returned as part of an AssignedEvent,
-  //   ActiveContract or IncompleteUnassigned (so the event is related to
-  //   an assignment or unassignment): this will include all parties of the
-  //   ``TransactionFilter`` that are stakeholders of the contract.
+  //
+  // In case of v2 API,
+  // if the ``CreatedEvent`` is returned as part of an AssignedEvent,
+  // ActiveContract or IncompleteUnassigned (so the event is related to
+  // an assignment or unassignment): this will include all parties of the
+  // ``TransactionFilter`` that are stakeholders of the contract.
+  //
   // Required
   repeated string witness_parties = 8;
 

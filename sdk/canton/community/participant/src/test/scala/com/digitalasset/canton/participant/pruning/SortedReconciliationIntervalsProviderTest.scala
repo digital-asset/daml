@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.pruning
 
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.messages.CommitmentPeriod
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, PositiveSeconds, SimClock}
 import com.digitalasset.canton.topology.client.{DomainTopologyClient, TopologySnapshot}
@@ -41,8 +42,8 @@ class SortedReconciliationIntervalsProviderTest
       val topologyClient = mock[DomainTopologyClient]
 
       when(topologyClient.approximateTimestamp).thenAnswer(clock.now)
-      when(topologyClient.awaitSnapshot(any[CantonTimestamp])(any[TraceContext])).thenReturn {
-        Future.successful(topologySnapshot)
+      when(topologyClient.awaitSnapshotUS(any[CantonTimestamp])(any[TraceContext])).thenReturn {
+        FutureUnlessShutdown.pure(topologySnapshot)
       }
 
       val provider = new SortedReconciliationIntervalsProvider(
@@ -54,7 +55,7 @@ class SortedReconciliationIntervalsProviderTest
       provider.getApproximateLatestReconciliationInterval shouldBe None
 
       def query(secondsFromEpoch: Long) =
-        provider.reconciliationIntervals(fromEpoch(secondsFromEpoch)).futureValue
+        provider.reconciliationIntervals(fromEpoch(secondsFromEpoch)).futureValueUS
 
       clock.advanceTo(fromEpoch(1))
       query(1) shouldBe SortedReconciliationIntervals
@@ -78,8 +79,8 @@ class SortedReconciliationIntervalsProviderTest
 
       val topologyClient = mock[DomainTopologyClient]
       when(topologyClient.approximateTimestamp).thenReturn(topologyKnownAt)
-      when(topologyClient.awaitSnapshot(any[CantonTimestamp])(any[TraceContext])).thenReturn {
-        Future.successful(topologySnapshot)
+      when(topologyClient.awaitSnapshotUS(any[CantonTimestamp])(any[TraceContext])).thenReturn {
+        FutureUnlessShutdown.pure(topologySnapshot)
       }
 
       val provider = new SortedReconciliationIntervalsProvider(
@@ -93,13 +94,13 @@ class SortedReconciliationIntervalsProviderTest
 
       provider
         .reconciliationIntervals(validQueryTime)
-        .futureValue shouldBe SortedReconciliationIntervals.create(Nil, validQueryTime).value
+        .futureValueUS shouldBe SortedReconciliationIntervals.create(Nil, validQueryTime).value
 
       val error =
         s"Unable to query domain parameters at $invalidQueryTime ; latest possible is $topologyKnownAt"
 
       loggerFactory.assertThrowsAndLogsAsync[RuntimeException](
-        provider.reconciliationIntervals(invalidQueryTime),
+        provider.reconciliationIntervals(invalidQueryTime).failOnShutdown,
         _ shouldBe (new RuntimeException(error)),
         _.warningMessage shouldBe error,
       )
@@ -121,8 +122,8 @@ class SortedReconciliationIntervalsProviderTest
       val topologyClient = mock[DomainTopologyClient]
 
       when(topologyClient.approximateTimestamp).thenAnswer(clock.now)
-      when(topologyClient.awaitSnapshot(any[CantonTimestamp])(any[TraceContext])).thenReturn {
-        Future.successful(topologySnapshot)
+      when(topologyClient.awaitSnapshotUS(any[CantonTimestamp])(any[TraceContext])).thenReturn {
+        FutureUnlessShutdown.pure(topologySnapshot)
       }
 
       val provider = new SortedReconciliationIntervalsProvider(

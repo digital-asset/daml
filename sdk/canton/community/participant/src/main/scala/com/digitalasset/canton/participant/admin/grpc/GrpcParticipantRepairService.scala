@@ -95,7 +95,7 @@ final class GrpcParticipantRepairService(
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     val gzipOut = new GZIPOutputStream(out)
     val res = for {
-      validRequest <- EitherT.fromEither[Future](
+      validRequest <- EitherT.fromEither[FutureUnlessShutdown](
         ValidExportAcsRequest(request, sync.stateInspection.allProtocolVersions)
       )
       timestampAsString = validRequest.timestamp.fold("head")(ts => s"at $ts")
@@ -103,7 +103,7 @@ final class GrpcParticipantRepairService(
         s"Exporting active contract set ($timestampAsString) for parties ${validRequest.parties}"
       )
       _ <- ResourceUtil
-        .withResourceEitherT(gzipOut)(
+        .withResourceM(gzipOut)(
           sync.stateInspection
             .exportAcsDumpActiveContracts(
               _,
@@ -118,7 +118,7 @@ final class GrpcParticipantRepairService(
         .leftMap(RepairServiceError.fromAcsInspectionError(_, logger))
     } yield ()
 
-    mapErrNew(res)
+    mapErrNewEUS(res)
   }
 
   /** New endpoint to upload contracts for a party which uses the versioned ActiveContract

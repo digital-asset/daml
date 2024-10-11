@@ -3,7 +3,9 @@
 
 package com.digitalasset.canton.participant.admin.repair
 
+import cats.Functor
 import cats.data.EitherT
+import cats.syntax.functor.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.*
@@ -17,6 +19,7 @@ import com.digitalasset.canton.ledger.participant.state.{
 }
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.admin.repair.ChangeAssignation.Changed
+import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentData
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.ActiveContractStore.ContractState
 import com.digitalasset.canton.participant.util.TimeOfChange
@@ -50,11 +53,11 @@ private final class ChangeAssignation(
     * and publish the assignment event.
     */
   def completeUnassigned(
-      unassignedData: ChangeAssignation.Data[(LfContractId, ReassignmentCounter)]
+      reassignmentData: ChangeAssignation.Data[ReassignmentData]
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, String, Unit] = {
-    val contractId = unassignedData.payload._1
+    val contractId = reassignmentData.payload.contract.contractId
     for {
       contractStatusAtSource <- EitherT.right(
         repairSource.domain.persistentState.activeContractStore
@@ -63,14 +66,21 @@ private final class ChangeAssignation(
       _ <- EitherT.cond[Future](
         contractStatusAtSource.get(contractId).exists(_.status.isReassignedAway),
         (),
-        s"Contract $contractId is not unassigned in source domain ${repairSource.domain.alias}" +
-          s"Current status: ${contractStatusAtSource.get(contractId).map(_.status)}.",
+        s"Contract $contractId is not unassigned in source domain ${repairSource.domain.alias}. " +
+          s"Current status: ${contractStatusAtSource.get(contractId).map(_.status.toString).getOrElse("NOT_FOUND")}.",
       )
 
-      unassignedContract <- readContract(unassignedData)
+      unassignedContract <- readContract(
+        reassignmentData.map(data => (contractId, data.reassignmentCounter))
+      )
       transactionId = randomTransactionId(syncCrypto)
-
       _ <- persistContractsAtTarget(transactionId, List(unassignedContract))
+      _ <- repairTarget.domain.persistentState.reassignmentStore
+        .completeReassignment(
+          reassignmentData.payload.reassignmentId,
+          reassignmentData.targetTimeOfChange,
+        )
+        .toEitherT
       _ <- persistAssignments(List(unassignedContract)).toEitherT
       _ <- EitherT.right(publishAssignmentEvents(List(unassignedContract)))
     } yield ()
@@ -293,6 +303,14 @@ private final class ChangeAssignation(
       }
     } yield ()
 
+  private def completeReassignmentInReassignmentStore(
+      reassignmentIdData: ChangeAssignation.Data[ReassignmentId]
+  )(implicit
+      traceContext: TraceContext
+  ): CheckedT[Future, Nothing, ReassignmentStore.ReassignmentStoreError, Unit] =
+    repairTarget.domain.persistentState.reassignmentStore
+      .completeReassignment(reassignmentIdData.payload, reassignmentIdData.targetTimeOfChange)
+
   private def persistAssignments(contracts: List[ChangeAssignation.Data[Changed]])(implicit
       traceContext: TraceContext
   ): CheckedT[Future, String, ActiveContractStore.AcsWarning, Unit] =
@@ -472,6 +490,13 @@ private[repair] object ChangeAssignation {
   }
 
   object Data {
+
+    implicit val dataFunctorInstance: Functor[Data] = new Functor[Data] {
+      // Define the map function for Data
+      override def map[A, B](fa: Data[A])(f: A => B): Data[B] =
+        Data(f(fa.payload), fa.sourceTimeOfChange, fa.targetTimeOfChange)
+    }
+
     def from[Payload](
         payloads: Seq[Payload],
         changeAssignation: ChangeAssignation,

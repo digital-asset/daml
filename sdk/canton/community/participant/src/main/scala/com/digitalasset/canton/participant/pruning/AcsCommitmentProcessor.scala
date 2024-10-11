@@ -24,6 +24,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.AcsCommitmentErrorGroup
 import com.digitalasset.canton.error.{Alarm, AlarmErrorCode, CantonError}
 import com.digitalasset.canton.health.{AtomicHealthComponent, ComponentHealthState}
+import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
@@ -264,8 +265,8 @@ class AcsCommitmentProcessor private (
   /** A future checking whether the node should enter catch-up mode by computing the catch-up timestamp.
     * At most one future runs computing this
     */
-  private var computingCatchUpTimestamp: Future[CantonTimestamp] =
-    Future.successful(CantonTimestamp.MinValue)
+  private var computingCatchUpTimestamp: FutureUnlessShutdown[CantonTimestamp] =
+    FutureUnlessShutdown.pure(CantonTimestamp.MinValue)
 
   private val cachedCommitments: Option[CachedCommitments] =
     if (testingConfig.doNotUseCommitmentCachingFor.contains(participantId.identifier.str))
@@ -309,9 +310,10 @@ class AcsCommitmentProcessor private (
 
   private def getReconciliationIntervals(validAt: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): FutureUnlessShutdown[SortedReconciliationIntervals] = performUnlessClosingF(functionFullName)(
-    sortedReconciliationIntervalsProvider.reconciliationIntervals(validAt)
-  )
+  ): FutureUnlessShutdown[SortedReconciliationIntervals] =
+    performUnlessClosingUSF(functionFullName)(
+      sortedReconciliationIntervalsProvider.reconciliationIntervals(validAt)
+    )
 
   @volatile private[this] var lastPublished: Option[RecordTime] = None
 
@@ -322,12 +324,14 @@ class AcsCommitmentProcessor private (
       cantonTimestamp: CantonTimestamp
   )(implicit
       traceContext: TraceContext
-  ): Future[Option[AcsCommitmentsCatchUpConfig]] =
+  ): FutureUnlessShutdown[Option[AcsCommitmentsCatchUpConfig]] =
     for {
       snapshot <- domainCrypto.ipsSnapshot(cantonTimestamp)
-      config <- snapshot.findDynamicDomainParametersOrDefault(
-        protocolVersion,
-        warnOnUsingDefault = false,
+      config <- FutureUnlessShutdown.outcomeF(
+        snapshot.findDynamicDomainParametersOrDefault(
+          protocolVersion,
+          warnOnUsingDefault = false,
+        )
       )
     } yield { config.acsCommitmentsCatchUpConfig }
 
@@ -336,14 +340,14 @@ class AcsCommitmentProcessor private (
 
   private def catchUpInProgress(crtTimestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Boolean] =
+  ): FutureUnlessShutdown[Boolean] =
     for {
       config <- catchUpConfig(crtTimestamp)
     } yield catchUpEnabled(config) && catchUpToTimestamp >= crtTimestamp
 
   private def caughtUpToBoundary(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Boolean] =
+  ): FutureUnlessShutdown[Boolean] =
     for {
       config <- catchUpConfig(timestamp)
       sortedReconciliationIntervals <- sortedReconciliationIntervalsProvider
@@ -370,7 +374,7 @@ class AcsCommitmentProcessor private (
   private def computeCatchUpTimestamp(
       completedPeriodTimestamp: CantonTimestamp,
       config: Option[AcsCommitmentsCatchUpConfig],
-  )(implicit traceContext: TraceContext): Future[CantonTimestamp] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[CantonTimestamp] =
     for {
       catchUpBoundaryTimestamp <- laggingTooFarBehind(completedPeriodTimestamp, config)
     } yield {
@@ -502,15 +506,17 @@ class AcsCommitmentProcessor private (
         // sequentially on the `dbQueue`. Moreover, the outer `performPublish` queue inserts `processCompletedPeriod`
         // sequentially in the order of the timestamps, which is the key to ensuring that it
         // grows monotonically and that catch-ups are towards the future.
-        config <- FutureUnlessShutdown.outcomeF(
-          catchUpConfig(completedPeriod.toInclusive.forgetRefinement)
-        )
+        config <- catchUpConfig(completedPeriod.toInclusive.forgetRefinement)
 
         _ = if (config.exists(_.isCatchUpEnabled()) && computingCatchUpTimestamp.isCompleted) {
-          computingCatchUpTimestamp.value.foreach { v =>
+          computingCatchUpTimestamp.unwrap.value.foreach { v =>
             v.fold(
               exc => logger.error(s"Error when computing the catch up timestamp", exc),
-              res => catchUpToTimestamp = res,
+              {
+                case Outcome(res) => catchUpToTimestamp = res
+                case AbortedDueToShutdown =>
+                  logger.debug("Could not compute catch up timestamp because shutting down")
+              },
             )
           }
           computingCatchUpTimestamp = computeCatchUpTimestamp(
@@ -520,13 +526,9 @@ class AcsCommitmentProcessor private (
         }
 
         // Evaluate in the beginning the catch-up conditions for simplicity
-        catchingUpInProgress <- FutureUnlessShutdown.outcomeF(
-          catchUpInProgress(completedPeriod.toInclusive.forgetRefinement)
-        )
-        hasCaughtUpToBoundaryRes <- FutureUnlessShutdown.outcomeF(
-          caughtUpToBoundary(
-            completedPeriod.toInclusive.forgetRefinement
-          )
+        catchingUpInProgress <- catchUpInProgress(completedPeriod.toInclusive.forgetRefinement)
+        hasCaughtUpToBoundaryRes <- caughtUpToBoundary(
+          completedPeriod.toInclusive.forgetRefinement
         )
 
         _ = if (catchingUpInProgress && healthComponent.isOk) {
@@ -665,10 +667,8 @@ class AcsCommitmentProcessor private (
     ): FutureUnlessShutdown[Unit] =
       // Check whether this change pushes us to a new commitment period; if so, the previous one is completed
       for {
-        catchingUp <- FutureUnlessShutdown.outcomeF(
-          catchUpInProgress(
-            endOfLastProcessedPeriod.fold(CantonTimestamp.MinValue)(res => res.forgetRefinement)
-          )
+        catchingUp <- catchUpInProgress(
+          endOfLastProcessedPeriod.fold(CantonTimestamp.MinValue)(res => res.forgetRefinement)
         )
         completedPeriodAndCryptoO = for {
           periodEnd <- periodEndO
@@ -1143,11 +1143,9 @@ class AcsCommitmentProcessor private (
         )
       )
 
-      intervals <- FutureUnlessShutdown.outcomeF(
-        sortedReconciliationIntervalsProvider.computeReconciliationIntervalsCovering(
-          completedPeriod.fromExclusive.forgetRefinement,
-          completedPeriod.toInclusive.forgetRefinement,
-        )
+      intervals <- sortedReconciliationIntervalsProvider.computeReconciliationIntervalsCovering(
+        completedPeriod.fromExclusive.forgetRefinement,
+        completedPeriod.toInclusive.forgetRefinement,
       )
 
       _ <- MonadUtil.parTraverseWithLimit_(threadCount.value)(computed.toList) {
@@ -1259,7 +1257,7 @@ class AcsCommitmentProcessor private (
       s"Computing commitments for $period, number of stakeholder sets: ${commitmentSnapshot.keySet.size}"
     )
     for {
-      cmts <- FutureUnlessShutdown.outcomeF(
+      cmts <-
         commitments(
           participantId,
           commitmentSnapshot,
@@ -1269,7 +1267,6 @@ class AcsCommitmentProcessor private (
           threadCount,
           cachedCommitments.getOrElse(new CachedCommitments()),
         )
-      )
 
     } yield cmts.collect {
       case (counterParticipant, cmt) if LtHash16.isNonEmptyCommitment(cmt) =>
@@ -1288,7 +1285,7 @@ class AcsCommitmentProcessor private (
   private def laggingTooFarBehind(
       completedPeriodTimestamp: CantonTimestamp,
       config: Option[AcsCommitmentsCatchUpConfig],
-  )(implicit traceContext: TraceContext): Future[CantonTimestamp] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[CantonTimestamp] =
     config match {
       case Some(cfg) =>
         for {
@@ -1318,12 +1315,12 @@ class AcsCommitmentProcessor private (
               }
             case None => completedPeriodTimestamp
           }
-          comm <- store.queue.peekThroughAtOrAfter(catchUpTimestamp)
+          comm <- FutureUnlessShutdown.outcomeF(store.queue.peekThroughAtOrAfter(catchUpTimestamp))
         } yield {
           if (comm.nonEmpty) catchUpTimestamp
           else completedPeriodTimestamp
         }
-      case None => Future.successful(completedPeriodTimestamp)
+      case None => FutureUnlessShutdown.pure(completedPeriodTimestamp)
     }
 
   /** Store the computed commitments of the commitment messages */
@@ -1480,7 +1477,7 @@ class AcsCommitmentProcessor private (
           )
 
         for {
-          cmts <- FutureUnlessShutdown.outcomeF(
+          cmts <-
             commitments(
               participantId,
               snapshot,
@@ -1492,7 +1489,6 @@ class AcsCommitmentProcessor private (
               filterInParticipantId,
               filterOutParticipantId,
             )
-          )
 
           _ = logger.debug(
             s"Due to mismatch, sending commitment for period $period to counterP ${cmts.keySet}"
@@ -1877,7 +1873,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): Future[Map[ParticipantId, AcsCommitment.CommitmentType]] = {
+  ): FutureUnlessShutdown[Map[ParticipantId, AcsCommitment.CommitmentType]] = {
     val commitmentTimer = pruningMetrics.map(_.compute.startAsync())
 
     for {
@@ -1921,45 +1917,55 @@ object AcsCommitmentProcessor extends HasLoggerName {
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): Future[Map[ParticipantId, Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType]]] =
+  ): FutureUnlessShutdown[
+    Map[ParticipantId, Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType]]
+  ] =
     for {
-      ipsSnapshot <- domainCrypto.awaitIpsSnapshot(timestamp.forgetRefinement)
+      ipsSnapshot <- domainCrypto.awaitIpsSnapshot("acs-stakeholder-commitments")(
+        timestamp.forgetRefinement
+      )
       // Important: use the keys of the timestamp
-      isActiveParticipant <- ipsSnapshot.isParticipantActive(participantId)
+      isActiveParticipant <- FutureUnlessShutdown.outcomeF(
+        ipsSnapshot.isParticipantActive(participantId)
+      )
 
       byParticipant <-
         if (isActiveParticipant) {
           val allParties = runningCommitments.keySet.flatten
-          ipsSnapshot
-            .activeParticipantsOfParties(allParties.toSeq)
-            .flatMap { participantsOf =>
-              IterableUtil
-                .mapReducePar[(SortedSet[LfPartyId], AcsCommitment.CommitmentType), Map[
-                  ParticipantId,
-                  Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
-                ]](parallelism, runningCommitments.toSeq) { case (parties, commitment) =>
-                  val participants = parties.flatMap(participantsOf.getOrElse(_, Set.empty))
-                  // Check that we're hosting at least one stakeholder; it can happen that the stakeholder used to be
-                  // hosted on this participant, but is now disabled
-                  val pSet =
-                    if (participants.contains(participantId)) participants - participantId
-                    else Set.empty
-                  val commitmentS =
-                    if (participants.contains(participantId)) Map(parties -> commitment)
-                    // Signal with an empty commitment that our participant does no longer host any
-                    // party in the stakeholder group
-                    else Map(parties -> emptyCommitment)
-                  pSet.map(_ -> commitmentS).toMap
-                }(MapsUtil.mergeWith(_, _)(_ ++ _))
-                .map(
-                  _.getOrElse(
-                    Map
-                      .empty[ParticipantId, Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType]]
+          FutureUnlessShutdown.outcomeF(
+            ipsSnapshot
+              .activeParticipantsOfParties(allParties.toSeq)
+              .flatMap { participantsOf =>
+                IterableUtil
+                  .mapReducePar[(SortedSet[LfPartyId], AcsCommitment.CommitmentType), Map[
+                    ParticipantId,
+                    Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType],
+                  ]](parallelism, runningCommitments.toSeq) { case (parties, commitment) =>
+                    val participants = parties.flatMap(participantsOf.getOrElse(_, Set.empty))
+                    // Check that we're hosting at least one stakeholder; it can happen that the stakeholder used to be
+                    // hosted on this participant, but is now disabled
+                    val pSet =
+                      if (participants.contains(participantId)) participants - participantId
+                      else Set.empty
+                    val commitmentS =
+                      if (participants.contains(participantId)) Map(parties -> commitment)
+                      // Signal with an empty commitment that our participant does no longer host any
+                      // party in the stakeholder group
+                      else Map(parties -> emptyCommitment)
+                    pSet.map(_ -> commitmentS).toMap
+                  }(MapsUtil.mergeWith(_, _)(_ ++ _))
+                  .map(
+                    _.getOrElse(
+                      Map
+                        .empty[ParticipantId, Map[SortedSet[
+                          LfPartyId
+                        ], AcsCommitment.CommitmentType]]
+                    )
                   )
-                )
-            }
+              }
+          )
         } else
-          Future.successful(
+          FutureUnlessShutdown.pure(
             Map.empty[ParticipantId, Map[SortedSet[LfPartyId], AcsCommitment.CommitmentType]]
           )
     } yield {

@@ -10,6 +10,7 @@ import cats.{Eval, Foldable}
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.RequestIndex
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
 import com.digitalasset.canton.participant.store.AcsInspection.*
 import com.digitalasset.canton.protocol.ContractIdSyntax.orderingLfContractId
@@ -164,21 +165,23 @@ class AcsInspection(
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, AcsInspectionError, Unit] =
+  ): EitherT[FutureUnlessShutdown, AcsInspectionError, Unit] =
     for {
       topologySnapshot <- EitherT.right[AcsInspectionError](
-        topologyClient.awaitSnapshot(snapshotTs)
+        topologyClient.awaitSnapshotUS(snapshotTs)
       )
       hostedStakeholders <-
-        EitherT.right[AcsInspectionError](
-          topologySnapshot
-            .hostedOn(allStakeholders, participantId)
-            .map(_.keysIterator.toSeq)
-        )
+        EitherT
+          .right[AcsInspectionError](
+            topologySnapshot
+              .hostedOn(allStakeholders, participantId)
+              .map(_.keysIterator.toSeq)
+          )
+          .mapK(FutureUnlessShutdown.outcomeK)
 
       remainingHostedStakeholders = hostedStakeholders.diff(offboardedParties.toSeq)
 
-      _ <- EitherT.cond[Future](
+      _ <- EitherT.cond[FutureUnlessShutdown](
         remainingHostedStakeholders.isEmpty,
         (),
         AcsInspectionError.OffboardingParty(

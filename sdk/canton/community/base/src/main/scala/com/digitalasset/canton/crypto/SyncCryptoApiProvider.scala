@@ -121,28 +121,16 @@ trait SyncCryptoClient[+T <: SyncCryptoApi] extends TopologyClientApi[T] {
     */
   def ipsSnapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[TopologySnapshot]
+  ): FutureUnlessShutdown[TopologySnapshot]
 
-  /** Returns a snapshot of the current member topology for the given domain
-    *
-    * The future will wait for the data if the data is not there yet.
-    *
-    * The snapshot returned by this method should be used for validating transaction and transfer requests (Phase 2 - 7).
-    * Use the request timestamp as parameter for this method.
-    * Do not use a response or result timestamp, because all validation steps must use the same topology snapshot.
-    */
-  def awaitIpsSnapshot(timestamp: CantonTimestamp)(implicit
-      traceContext: TraceContext
-  ): Future[TopologySnapshot]
-
-  def awaitIpsSnapshotUS(timestamp: CantonTimestamp)(implicit
+  protected def awaitIpsSnapshotInternal(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[TopologySnapshot]
 
-  def awaitIpsSnapshotUSSupervised(description: => String, warnAfter: Duration = 10.seconds)(
+  def awaitIpsSnapshot(description: => String, warnAfter: Duration = 10.seconds)(
       timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[TopologySnapshot] =
-    supervisedUS(description, warnAfter)(awaitIpsSnapshotUS(timestamp))
+    supervisedUS(description, warnAfter)(awaitIpsSnapshotInternal(timestamp))
 
 }
 
@@ -398,7 +386,7 @@ class DomainSyncCryptoClient(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncCryptoError, Fingerprint] =
     for {
-      snapshot <- EitherT.right(ipsSnapshot(referenceTime)).mapK(FutureUnlessShutdown.outcomeK)
+      snapshot <- EitherT.right(ipsSnapshot(referenceTime))
       signingKeys <- EitherT.right(snapshot.signingKeys(member)).mapK(FutureUnlessShutdown.outcomeK)
       existingKeys <- signingKeys.toList
         .parFilterA(pk => crypto.cryptoPrivateStore.existsSigningKey(pk.fingerprint))
@@ -418,15 +406,10 @@ class DomainSyncCryptoClient(
 
   override def ipsSnapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[TopologySnapshot] =
-    ips.snapshot(timestamp)
+  ): FutureUnlessShutdown[TopologySnapshot] =
+    ips.snapshotUS(timestamp)
 
-  override def awaitIpsSnapshot(timestamp: CantonTimestamp)(implicit
-      traceContext: TraceContext
-  ): Future[TopologySnapshot] =
-    ips.awaitSnapshot(timestamp)
-
-  override def awaitIpsSnapshotUS(timestamp: CantonTimestamp)(implicit
+  override protected def awaitIpsSnapshotInternal(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[TopologySnapshot] =
     ips.awaitSnapshotUS(timestamp)

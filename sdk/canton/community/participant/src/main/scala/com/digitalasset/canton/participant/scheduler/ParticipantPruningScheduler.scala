@@ -118,6 +118,7 @@ final class ParticipantPruningScheduler(
                 safeOffset.map(offset.min)
               },
             )
+            .onShutdown(Left(Error("Not pruning because of shutdown")))
       }
       offsetByBatch <- pruningProcessor.locatePruningOffsetForOneIteration.leftMap(pruningError =>
         Error(s"Error while locating pruning offset for one iteration: ${pruningError.message}")

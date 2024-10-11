@@ -56,12 +56,6 @@ final case class TrafficConsumed(
     )
 
   /** Compute the base traffic at a given timestamp according to the provided parameters.
-    * Generally this method should be called with a timestamp that is more recent than sequencingTimestamp.
-    * However when calculating the available traffic at submission time, we use the timestamp of the last known
-    * sequenced event as the most recent domain time we know about. It is possible though that by the time
-    * we reach this method, the traffic consumed was updated concurrently by a new block being read and
-    * which consumed traffic for this member. We use the parameter allowOldTimestamp in such cases
-    * to avoid throwing an error.
     */
   private def computeBaseTrafficAt(
       timestamp: CantonTimestamp,
@@ -70,7 +64,7 @@ final case class TrafficConsumed(
   )(implicit traceContext: TraceContext): NonNegativeLong = {
     implicit val elc: ErrorLoggingContext = ErrorLoggingContext.fromTracedLogger(logger)
     val deltaMicros = NonNegativeNumeric
-      .create(timestamp.toMicros.toDouble - this.sequencingTimestamp.toMicros.toDouble)
+      .create(timestamp.toMicros - this.sequencingTimestamp.toMicros)
       .valueOr { _ =>
         ErrorUtil.invalidState(
           s"Failed to compute base traffic at $timestamp for member $member." +
@@ -80,8 +74,8 @@ final case class TrafficConsumed(
       }
 
     val trafficAllowedSinceLastTimestamp: NonNegativeLong = (
-      trafficControlConfig.baseRate.map(_.toDouble) * deltaMicros / NonNegativeNumeric
-        .tryCreate[Double](1e6d)
+      // Base rate is in bytes / microsecond already
+      trafficControlConfig.baseRate * deltaMicros.map(_.toDouble)
     ).map(_.toLong)
 
     implicitly[Ordering[NonNegativeLong]].min(

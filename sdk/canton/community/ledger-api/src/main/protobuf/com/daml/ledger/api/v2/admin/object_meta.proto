@@ -31,12 +31,16 @@ message ObjectMeta {
 
   // A set of modifiable key-value pairs that can be used to represent arbitrary, client-specific metadata.
   // Constraints:
+  //
   // 1. The total size over all keys and values cannot exceed 256kb in UTF-8 encoding.
   // 2. Keys are composed of an optional prefix segment and a required name segment such that:
+  //
   //    - key prefix, when present, must be a valid DNS subdomain with at most 253 characters, followed by a '/' (forward slash) character,
   //    - name segment must have at most 63 characters that are either alphanumeric ([a-z0-9A-Z]), or a '.' (dot), '-' (dash) or '_' (underscore);
   //      and it must start and end with an alphanumeric character.
-  // 2. Values can be any non-empty strings.
+  //
+  // 3. Values can be any non-empty strings.
+  //
   // Keys with empty prefix are reserved for end-users.
   // Properties set by external tools or internally by the participant server must use non-empty key prefixes.
   // Duplicate keys are disallowed by the semantics of the protobuf3 maps.

@@ -1505,9 +1505,8 @@ class TransactionProcessingSteps(
     for {
       topologySnapshot <- EitherT
         .right[TransactionProcessorError](
-          crypto.ips.awaitSnapshot(pendingRequestData.requestTime)
+          crypto.ips.awaitSnapshotUS(pendingRequestData.requestTime)
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       maxDecisionTime <- ProcessingSteps
         .getDecisionTime(topologySnapshot, pendingRequestData.requestTime)

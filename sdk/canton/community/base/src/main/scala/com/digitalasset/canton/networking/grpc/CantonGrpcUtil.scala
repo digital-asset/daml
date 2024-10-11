@@ -256,6 +256,13 @@ object CantonGrpcUtil {
       f.failOnShutdownTo(GrpcErrors.AbortedDueToShutdown.Error().asGrpcError)
   }
 
+  implicit class GrpcETFUSExtended[A](
+      val et: EitherT[FutureUnlessShutdown, StatusRuntimeException, A]
+  ) extends AnyVal {
+    def asGrpcResponse(implicit ec: ExecutionContext, elc: ErrorLoggingContext): Future[A] =
+      EitherTUtil.toFutureUnlessShutdown(et).asGrpcResponse
+  }
+
   def checkCantonApiInfo(
       serverName: String,
       expectedName: String,

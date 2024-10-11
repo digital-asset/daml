@@ -6,6 +6,7 @@ package com.digitalasset.canton.protocol
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.DomainParameters.MaxRequestSize
 import com.digitalasset.canton.time.PositiveSeconds
@@ -34,11 +35,13 @@ class DynamicDomainParametersLookup[P](
     */
   def get(validAt: CantonTimestamp, warnOnUsingDefaults: Boolean = true)(implicit
       traceContext: TraceContext
-  ): Future[P] = futureSupervisor
-    .supervised(s"Querying for domain parameters valid at $validAt") {
-      topologyClient.awaitSnapshot(validAt)
-    }
-    .flatMap(_.findDynamicDomainParametersOrDefault(protocolVersion, warnOnUsingDefaults))
+  ): FutureUnlessShutdown[P] = topologyClient
+    .awaitSnapshotUSSupervised(s"Querying for domain parameters valid at $validAt")(validAt)
+    .flatMap(snapshot =>
+      FutureUnlessShutdown.outcomeF(
+        snapshot.findDynamicDomainParametersOrDefault(protocolVersion, warnOnUsingDefaults)
+      )
+    )
     .map(projector)
 
   /** Return the value of the topology snapshot approximation
@@ -57,23 +60,6 @@ class DynamicDomainParametersLookup[P](
     topologyClient.currentSnapshotApproximation
       .findDynamicDomainParameters()
       .map(_.map(p => projector(p.parameters)).toOption)
-
-  /** Return a list of parameters, together with their validity interval,
-    *
-    * @param warnOnUsingDefaults Log a warning if dynamic domain parameters are not set
-    *                            and default value is used.
-    */
-  def getAll(validAt: CantonTimestamp)(implicit
-      traceContext: TraceContext
-  ): Future[Seq[DomainParameters.WithValidity[P]]] =
-    futureSupervisor
-      .supervised(s"Querying for list of domain parameters changes valid at $validAt") {
-        topologyClient.awaitSnapshot(validAt)
-      }
-      .flatMap(_.listDynamicDomainParametersChanges())
-      .map { domainParametersChanges =>
-        domainParametersChanges.map(_.map(projector))
-      }
 
   /** Return the approximate latest validity/freshness.
     * Returned value is the approximate timestamp of the `TopologyClient`.

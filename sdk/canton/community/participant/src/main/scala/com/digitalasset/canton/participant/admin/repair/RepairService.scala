@@ -667,10 +667,7 @@ final class RepairService(
           repairIndexer,
           loggerFactory,
         )
-        unassignmentData = ChangeAssignation.Data.from(
-          (reassignmentData.contract.contractId, reassignmentData.reassignmentCounter),
-          changeAssignation,
-        )
+        unassignmentData = ChangeAssignation.Data.from(reassignmentData, changeAssignation)
         _ <- changeAssignation.completeUnassigned(unassignmentData)
 
         changeAssignationBack = new ChangeAssignation(

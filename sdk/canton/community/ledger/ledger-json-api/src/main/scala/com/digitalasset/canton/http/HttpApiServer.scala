@@ -16,13 +16,19 @@ import io.grpc.Channel
 import scalaz.std.anyVal.*
 import scalaz.std.option.*
 import scalaz.syntax.show.*
-import java.nio.file.Path
 
-import com.daml.tls.TlsConfiguration
+import java.nio.file.Path
+import com.digitalasset.canton.config.TlsServerConfig
 
 object HttpApiServer extends NoTracing {
 
-  def apply(config: JsonApiConfig, httpsConfiguration: Option[TlsConfiguration], channel: Channel, writeService: WriteService, loggerFactory: NamedLoggerFactory)(implicit
+  def apply(
+      config: JsonApiConfig,
+      httpsConfiguration: Option[TlsServerConfig],
+      channel: Channel,
+      writeService: WriteService,
+      loggerFactory: NamedLoggerFactory,
+  )(implicit
       jsonApiMetrics: HttpApiMetrics
   ): ResourceOwner[Unit] = {
     val logger = loggerFactory.getTracedLogger(getClass)
@@ -33,7 +39,13 @@ object HttpApiServer extends NoTracing {
         new PekkoExecutionSequencerPool("httpPool")(actorSystem)
       )
       serverBinding <- instanceUUIDLogCtx(implicit loggingContextOf =>
-        new HttpService(config, httpsConfiguration, channel, writeService,loggerFactory)(
+        new HttpService(
+          config,
+          httpsConfiguration,
+          channel,
+          writeService,
+          loggerFactory,
+        )(
           actorSystem,
           materializer,
           executionSequencerFactory,
