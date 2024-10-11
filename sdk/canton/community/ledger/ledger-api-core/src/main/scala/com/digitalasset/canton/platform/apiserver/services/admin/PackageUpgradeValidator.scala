@@ -15,7 +15,7 @@ import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.daml.lf.archive.DamlLf.Archive
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.language.Util.dependenciesInTopologicalOrder
+import com.digitalasset.daml.lf.language.Util.{dependenciesInTopologicalOrder, PkgIdWithNameAndVersion}
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
 import com.digitalasset.daml.lf.validation.{TypecheckUpgrades, UpgradeError}
 import scalaz.std.either.*
@@ -80,7 +80,7 @@ class PackageUpgradeValidator(
   ): EitherT[Future, DamlError, Unit] = {
     val (uploadedPackageId, uploadedPackageAst) = uploadedPackage
     val optUpgradingDar = Some(uploadedPackage)
-    val uploadedPackageIdWithMeta: Ast.PkgIdWithMeta = Ast.PkgIdWithMeta.mk(uploadedPackage)
+    val uploadedPackageIdWithMeta: PkgIdWithNameAndVersion = PkgIdWithNameAndVersion(uploadedPackage)
     logger.info(
       s"Uploading DAR file for ${uploadedPackageIdWithMeta} in submission ID ${loggingContext.serializeFiltered("submissionId")}."
     )
@@ -126,7 +126,7 @@ class PackageUpgradeValidator(
             optMinimalDar,
             optUpgradingDar,
           )
-          _ = logger.info(s"Typechecking upgrades for ${Ast.PkgIdWithMeta.mk(uploadedPackage)} succeeded.")
+          _ = logger.info(s"Typechecking upgrades for ${PkgIdWithNameAndVersion(uploadedPackage)} succeeded.")
         } yield ()
     }
   }
@@ -216,45 +216,40 @@ class PackageUpgradeValidator(
   private def strictTypecheckUpgrades(
       phase: TypecheckUpgrades.UploadPhaseCheck,
       packageMap: PackageMap,
-      optNewDar1: Option[(Ref.PackageId, Ast.Package)],
-      oldPkgId2: Ref.PackageId,
-      optOldPkg2: Option[Ast.Package],
+      newDar1: (Ref.PackageId, Ast.Package),
+      oldDar2: (Ref.PackageId, Ast.Package),
   )(implicit
       loggingContext: LoggingContextWithTrace
-  ): EitherT[Future, DamlError, Unit] = {
-    val oldPkgId2WithMeta: Ast.PkgIdWithMeta = Ast.PkgIdWithMeta.mk(oldPkgId2, optOldPkg2)
+  ): EitherT[Future, DamlError, Unit] =
     LoggingContextWithTrace
       .withEnrichedLoggingContext("upgradeTypecheckPhase" -> OfString(phase.toString)) {
         implicit loggingContext =>
-          optNewDar1 match {
-            case None => EitherT.rightT(())
-
-            case Some((newPkgId1, newPkg1)) =>
-              val newPkgId1WithMeta: Ast.PkgIdWithMeta = Ast.PkgIdWithMeta.mk(newPkgId1, newPkg1)
-              logger.info(s"Package ${newPkgId1WithMeta} claims to upgrade package id ${oldPkgId2WithMeta}")
-              EitherT(
-                Future(
-                  TypecheckUpgrades
-                    .typecheckUpgrades(packageMap, (newPkgId1, newPkg1), oldPkgId2, optOldPkg2)
-                    .toEither
-                )
-              ).leftMap[DamlError] {
-                case err: UpgradeError =>
-                  Validation.Upgradeability.Error(
-                    newPackage = newPkgId1WithMeta,
-                    oldPackage = oldPkgId2WithMeta,
-                    upgradeError = err,
-                    phase = phase,
-                  )
-                case unhandledErr =>
-                  InternalError.Unhandled(
-                    unhandledErr,
-                    Some(s"Typechecking upgrades for ${oldPkgId2WithMeta} failed with unknown error."),
-                  )
-              }
+          val (newPkgId1, newPkg1) = newDar1
+          val newPkgId1WithMeta: PkgIdWithNameAndVersion = PkgIdWithNameAndVersion(newDar1)
+          val (oldPkgId2, oldPkg2) = oldDar2
+          val oldPkgId2WithMeta: PkgIdWithNameAndVersion = PkgIdWithNameAndVersion(oldDar2)
+          logger.info(s"Package ${newPkgId1WithMeta} claims to upgrade package id ${oldPkgId2WithMeta}")
+          EitherT(
+            Future(
+              TypecheckUpgrades
+                .typecheckUpgrades(packageMap, (newPkgId1, newPkg1), oldPkgId2, Some(oldPkg2))
+                .toEither
+            )
+          ).leftMap[DamlError] {
+            case err: UpgradeError =>
+              Validation.Upgradeability.Error(
+                newPackage = newPkgId1WithMeta,
+                oldPackage = oldPkgId2WithMeta,
+                upgradeError = err,
+                phase = phase,
+              )
+            case unhandledErr =>
+              InternalError.Unhandled(
+                unhandledErr,
+                Some(s"Typechecking upgrades for ${oldPkgId2WithMeta} failed with unknown error."),
+              )
           }
       }
-  }
 
   private def typecheckUpgrades(
       typecheckPhase: TypecheckUpgrades.UploadPhaseCheck,
@@ -272,9 +267,8 @@ class PackageUpgradeValidator(
         strictTypecheckUpgrades(
           typecheckPhase,
           packageMap,
-          Some((newPkgId1, newPkg1)),
-          oldPkgId2,
-          Some(oldPkg2),
+          (newPkgId1, newPkg1),
+          (oldPkgId2, oldPkg2),
         )
     }
 }

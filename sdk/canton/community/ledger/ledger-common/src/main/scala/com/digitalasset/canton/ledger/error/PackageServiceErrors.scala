@@ -8,6 +8,7 @@ import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors
 import com.digitalasset.daml.lf.archive.Error as LfArchiveError
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.language.Ast
+import com.digitalasset.daml.lf.language.Util
 import com.digitalasset.daml.lf.engine.Error
 import com.digitalasset.daml.lf.validation.{UpgradeError, TypecheckUpgrades}
 import com.digitalasset.daml.lf.{VersionRange, language, validation}
@@ -267,8 +268,8 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
           ErrorCategory.InvalidIndependentOfSystemState,
         ) {
       final case class Error(
-          oldPackage: Ast.PkgIdWithMeta,
-          newPackage: Ast.PkgIdWithMeta,
+          oldPackage: Util.PkgIdWithNameAndVersion,
+          newPackage: Util.PkgIdWithNameAndVersion,
           upgradeError: UpgradeError,
           phase: TypecheckUpgrades.UploadPhaseCheck
       )(implicit
@@ -291,7 +292,7 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
           ErrorCategory.InvalidIndependentOfSystemState,
         ) {
       final case class Error(
-          uploadedPackage: Ast.PkgIdWithMeta,
+          uploadedPackage: Util.PkgIdWithNameAndVersion,
           existingPackage: Ref.PackageId,
           packageVersion: Ref.PackageVersion,
       )(implicit

@@ -1226,29 +1226,6 @@ object Ast {
       upgradedPackageId: Option[PackageId],
   )
 
-  final case class PkgIdWithMeta(
-      pkgId: Ref.PackageId,
-      metadata: Option[(PackageName, PackageVersion)],
-  ) {
-    override def toString: String =
-      metadata match {
-        case None => s"${pkgId}"
-        case Some(metadata) => s"${pkgId} (${metadata._1} v${metadata._2})"
-      }
-  }
-
-  object PkgIdWithMeta {
-    def metaToNameVersion(meta: Ast.PackageMetadata): (PackageName, PackageVersion) =
-      (meta.name, meta.version)
-
-    def mk(idWithPkg: (Ref.PackageId, Ast.Package)): PkgIdWithMeta =
-      PkgIdWithMeta(idWithPkg._1, Some(metaToNameVersion(idWithPkg._2.metadata)))
-    def mk(id: Ref.PackageId, pkg: Ast.Package): PkgIdWithMeta =
-      PkgIdWithMeta(id, Some(metaToNameVersion(pkg.metadata)))
-    def mk(id: Ref.PackageId, pkg: Option[Ast.Package]): PkgIdWithMeta =
-      PkgIdWithMeta(id, pkg.map((p: Ast.Package) => metaToNameVersion(p.metadata)))
-  }
-
   /** @param directDeps will contain all packages that are referenced in [[modules]]
     */
   final case class GenPackage[E](
