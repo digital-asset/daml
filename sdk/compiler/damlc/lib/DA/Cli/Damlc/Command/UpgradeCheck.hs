@@ -3,11 +3,9 @@
 
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE ApplicativeDo #-}
-{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RankNTypes #-}
 module DA.Cli.Damlc.Command.UpgradeCheck (runUpgradeCheck) where
 
-import Control.Lens
 import DA.Pretty
 import DA.Daml.Options.Types
 import Control.Monad (guard, when)
@@ -28,15 +26,14 @@ import Data.Function (on)
 import Development.IDE.Types.Diagnostics (Diagnostic, showDiagnostics, ShowDiagnostic(..))
 import Control.Monad.Trans.Except
 
-type Archive = (NormalizedFilePath, UpgradedPkgWithNameAndVersion, [UpgradedPkgWithNameAndVersion])
+-- Monad in which all checking operations run
+-- Occasionally we change to CollectErrs
 type CheckM = ExceptT [CheckingError] IO
 
-newtype CheckingErrors = CheckingErrors [CheckingError]
-  deriving (Show, Eq)
+fromEither :: (e -> CheckingError) -> Either e a -> CheckM a
+fromEither mkErr act = withExceptT (pure . mkErr) $ ExceptT $ pure act
 
-instance Pretty CheckingErrors where
-  pPrint (CheckingErrors errs) = vcat $ map pPrint errs
-
+-- All possible errors that can occur while checking upgrades
 data CheckingError
   = CECantReadDar NormalizedFilePath String
   | CECantReadDalf NormalizedFilePath FilePath Archive.ArchiveError
@@ -69,6 +66,15 @@ instance Pretty CheckingError where
       , text (showDiagnostics (map (path, ShowDiag,) errs))
       ]
 
+newtype CheckingErrors = CheckingErrors [CheckingError]
+  deriving (Show, Eq)
+
+instance Pretty CheckingErrors where
+  pPrint (CheckingErrors errs) = vcat $ map pPrint errs
+
+-- Run as many applicative actions as possible, collecting errors as we go along
+-- Used to collect errors for a list of monadic actions without aborting on the
+-- first error.
 newtype CollectErrs m e a = CollectErrs { runCollectErrs :: m (Either e a) }
 
 instance (Functor m) => Functor (CollectErrs m e) where
@@ -93,15 +99,9 @@ fromCollect = ExceptT . runCollectErrs
 toCollect :: CheckM a -> CollectErrs IO [CheckingError] a
 toCollect = CollectErrs . runExceptT
 
-decodeEntryWithUnitId
-  :: NormalizedFilePath -> Archive.DecodingMode -> ZipArchive.Entry
-  -> CheckM UpgradedPkgWithNameAndVersion
-decodeEntryWithUnitId darPath decodeAs entry =
-  fromEither (CECantReadDalf darPath (ZipArchive.eRelativePath entry)) $ do
-      let bs = BSL.toStrict $ ZipArchive.fromEntry entry
-      (pkgId, pkg) <- Archive.decodeArchive decodeAs bs
-      let (pkgName, mbPkgVersion) = LF.safePackageMetadata pkg
-      pure (pkgId, pkg, pkgName, mbPkgVersion)
+-- Read main & deps from a DAR path, annotate with name and version so that
+-- upgrades knows which types to check against which
+type Archive = (NormalizedFilePath, UpgradedPkgWithNameAndVersion, [UpgradedPkgWithNameAndVersion])
 
 readPathToArchive
   :: NormalizedFilePath
@@ -111,16 +111,24 @@ readPathToArchive path = do
     catchIOException
       (CECantReadDar path . displayException)
       (extractDar (fromNormalizedFilePath path))
-  let errMain = decodeEntryWithUnitId path Archive.DecodeAsMain edMain
-      errDalfs = map (decodeEntryWithUnitId path Archive.DecodeAsDependency) edDalfs
-  (main, dalfs) <- fromCollect $ beside id traverse toCollect (errMain, errDalfs)
-  pure (path, main, dalfs)
+  (main, deps) <- fromCollect $ do
+      main <- toCollect $ decodeEntryWithUnitId path Archive.DecodeAsMain edMain
+      deps <- traverse (toCollect . decodeEntryWithUnitId path Archive.DecodeAsDependency) edDalfs
+      pure (main, deps)
+  pure (path, main, deps)
     where
       catchIOException :: (IOException -> CheckingError) -> IO a -> CheckM a
       catchIOException mkErr io = withExceptT (pure . mkErr) $ ExceptT $ try io
 
-fromEither :: (e -> CheckingError) -> Either e a -> CheckM a
-fromEither mkErr act = withExceptT (pure . mkErr) $ ExceptT $ pure act
+      decodeEntryWithUnitId
+        :: NormalizedFilePath -> Archive.DecodingMode -> ZipArchive.Entry
+        -> CheckM UpgradedPkgWithNameAndVersion
+      decodeEntryWithUnitId darPath decodeAs entry =
+        fromEither (CECantReadDalf darPath (ZipArchive.eRelativePath entry)) $ do
+            let bs = BSL.toStrict $ ZipArchive.fromEntry entry
+            (pkgId, pkg) <- Archive.decodeArchive decodeAs bs
+            let (pkgName, mbPkgVersion) = LF.safePackageMetadata pkg
+            pure (pkgId, pkg, pkgName, mbPkgVersion)
 
 topoSortPackagesM :: [Archive] -> CheckM [Archive]
 topoSortPackagesM packages =
