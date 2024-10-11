@@ -41,8 +41,7 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
     * Note that when resuming from a [[Result]] the continuation will modify the
     * [[ConcurrentCompiledPackages]] that originated it.
     */
-  override def addPackage(pkgId: PackageId, pkg: Package): Result[Unit] = {
-    assert(!packageIds.contains(pkgId))
+  override def addPackage(pkgId: PackageId, pkg: Package): Result[Unit] =
     addPackageInternal(
       AddPackageState(
         packages = Map(pkgId -> pkg),
@@ -50,7 +49,6 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
         toCompile = List(pkgId),
       )
     )
-  }
 
   // TODO SC remove 'return', notwithstanding a love of unhandled exceptions
   @SuppressWarnings(Array("org.wartremover.warts.Return"))

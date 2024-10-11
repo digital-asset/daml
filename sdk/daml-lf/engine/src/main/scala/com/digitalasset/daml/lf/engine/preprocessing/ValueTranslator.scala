@@ -16,7 +16,8 @@ import scala.annotation.tailrec
 
 private[lf] final class ValueTranslator(
     pkgInterface: language.PackageInterface,
-    requireV1ContractIdSuffix: Boolean,
+    checkV1ContractIdSuffixes: Boolean,
+    checkTypeAnnotations: Boolean,
 ) {
 
   import Preprocessor._
@@ -45,7 +46,7 @@ private[lf] final class ValueTranslator(
   }
 
   val validateCid: ContractId => Unit =
-    if (requireV1ContractIdSuffix) { case cid: ContractId.V1 =>
+    if (checkV1ContractIdSuffixes) { case cid: ContractId.V1 =>
       if (cid.suffix.isEmpty)
         throw Error.Preprocessing.IllegalContractId.NonSuffixV1ContractId(cid)
     }
@@ -79,26 +80,27 @@ private[lf] final class ValueTranslator(
         def typeError(msg: String = s"mismatching type: ${ty0.pretty} and value: $value0") =
           throw Error.Preprocessing.TypeMismatch(ty0, value0, msg)
         def checkUserTypeId(targetType: Ref.TypeConName, mbSourceType: Option[Ref.TypeConName]) =
-          mbSourceType.foreach(sourceType =>
-            (pkgName(targetType), pkgName(sourceType)) match {
-              case (Some(targetPkgName), Some(sourcePkgName)) =>
-                // Two upgradable packages, we check equality of type using packageName
-                val targetTypeRef =
-                  Ref.TypeConRef(Ref.PackageRef.Name(targetPkgName), targetType.qualifiedName)
-                val sourceTypeRef =
-                  Ref.TypeConRef(Ref.PackageRef.Name(sourcePkgName), sourceType.qualifiedName)
-                if (targetTypeRef != sourceTypeRef)
-                  typeError(
-                    s"Mismatching variant id, the type tells us ${targetTypeRef}, but the value tells us ${sourceTypeRef}"
-                  )
-              case _ =>
-                // At least one of the packages is not upgradable, we check equality of type using packageId
-                if (targetType != sourceType)
-                  typeError(
-                    s"Mismatching variant id, the type tells us $targetType, but the value tells us $sourceType"
-                  )
-            }
-          )
+          if (checkTypeAnnotations)
+            mbSourceType.foreach(sourceType =>
+              (pkgName(targetType), pkgName(sourceType)) match {
+                case (Some(targetPkgName), Some(sourcePkgName)) =>
+                  // Two upgradable packages, we check equality of type using packageName
+                  val targetTypeRef =
+                    Ref.TypeConRef(Ref.PackageRef.Name(targetPkgName), targetType.qualifiedName)
+                  val sourceTypeRef =
+                    Ref.TypeConRef(Ref.PackageRef.Name(sourcePkgName), sourceType.qualifiedName)
+                  if (targetTypeRef != sourceTypeRef)
+                    typeError(
+                      s"Mismatching variant id, the type tells us ${targetTypeRef}, but the value tells us ${sourceTypeRef}"
+                    )
+                case _ =>
+                  // At least one of the packages is not upgradable, we check equality of type using packageId
+                  if (targetType != sourceType)
+                    typeError(
+                      s"Mismatching variant id, the type tells us $targetType, but the value tells us $sourceType"
+                    )
+              }
+            )
         val (ty1, tyArgs) = AstUtil.destructApp(ty0)
         ty1 match {
           case TBuiltin(bt) =>

@@ -10,4 +10,12 @@ sealed abstract class TemplateOrInterface[+T, +I] extends Product with Serializa
 object TemplateOrInterface {
   final case class Template[+T](value: T) extends TemplateOrInterface[T, Nothing]
   final case class Interface[+I](value: I) extends TemplateOrInterface[Nothing, I]
+
+  implicit final class MergeOps[T](private val x: TemplateOrInterface[T, T]) extends AnyVal {
+    def merge: T = x match {
+      case Template(value) => value
+      case Interface(value) => value
+    }
+  }
+
 }

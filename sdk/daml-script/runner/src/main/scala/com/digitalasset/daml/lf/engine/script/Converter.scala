@@ -134,6 +134,9 @@ class Converter(majorLanguageVersion: LanguageMajorVersion) {
       templateId: Identifier,
       argument: Value,
   ): Either[String, SValue] = {
+    remy.stackTrace(5)
+    remy.log(templateId)
+    remy.log(argument)
     for {
       translated <- translator
         .translateValue(TTyCon(templateId), argument)
@@ -511,7 +514,8 @@ class Converter(majorLanguageVersion: LanguageMajorVersion) {
       valueTranslator =
         new preprocessing.ValueTranslator(
           compiledPackages.pkgInterface,
-          requireV1ContractIdSuffix = false,
+          checkV1ContractIdSuffixes = true,
+          checkTypeAnnotations = false,
         )
       sValue <- valueTranslator
         .translateValue(ty, lfValue)

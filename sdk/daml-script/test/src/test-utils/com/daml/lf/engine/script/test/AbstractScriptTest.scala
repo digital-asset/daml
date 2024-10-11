@@ -52,7 +52,11 @@ trait AbstractScriptTest extends CantonFixture with PekkoBeforeAndAfterAll {
   )(implicit ec: ExecutionContext): Future[SValue] = {
     val scriptId = Ref.Identifier(dar.mainPkg, name)
     def converter(input: Value, typ: Ast.Type) =
-      new com.daml.lf.engine.preprocessing.ValueTranslator(dar.compiledPackages.pkgInterface, false)
+      new com.daml.lf.engine.preprocessing.ValueTranslator(
+        dar.compiledPackages.pkgInterface,
+        checkV1ContractIdSuffixes = true,
+        checkTypeAnnotations = false,
+      )
         .translateValue(typ, input)
         .left
         .map(_.message)

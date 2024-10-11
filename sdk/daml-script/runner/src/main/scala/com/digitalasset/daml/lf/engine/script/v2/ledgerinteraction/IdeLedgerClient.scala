@@ -69,7 +69,7 @@ class IdeLedgerClient(
   private[this] def makePreprocessor =
     new preprocessing.CommandPreprocessor(
       compiledPackages.pkgInterface,
-      requireV1ContractIdSuffix = false,
+      checkV1ContractIdSuffix = false,
     )
 
   private[this] def partialFunctionFilterNot[A](f: A => Boolean): PartialFunction[A, A] = {
@@ -193,7 +193,8 @@ class IdeLedgerClient(
 
     val valueTranslator = new ValueTranslator(
       pkgInterface = compiledPackages.pkgInterface,
-      requireV1ContractIdSuffix = false,
+      checkV1ContractIdSuffixes = true,
+      checkTypeAnnotations = false,
     )
 
     valueTranslator.translateValue(TTyCon(templateId), arg) match {
@@ -438,22 +439,28 @@ class IdeLedgerClient(
         throw new IllegalArgumentException("package name not supported")
     }
 
-  private def getReferencePackageId(ref: Reference): PackageId =
+  private def getReferencePackageId(ref: Reference): PackageId = {
+    def fromRef(ref: PackageRef) = ref match {
+      case PackageRef.Id(id) =>
+        id
+      case PackageRef.Name(_) =>
+        throw new IllegalArgumentException("package name not supported")
+    }
     ref match {
       // TODO: https://github.com/digital-asset/daml/issues/17995
       //  add support for package name
-      case Reference.PackageWithName(_) =>
-        throw new IllegalArgumentException("package name not supported")
+      case Reference.PackageWithName(name) =>
+        fromRef(PackageRef.Name(name))
       case Reference.Package(packageId) => packageId
       case Reference.Module(packageId, _) => packageId
       case Reference.Definition(name) => name.packageId
       case Reference.TypeSyn(name) => name.packageId
       case Reference.DataType(name) => name.packageId
-      case Reference.DataRecord(name) => name.packageId
+      case Reference.DataRecord(ref) => fromRef(ref.pkgRef)
       case Reference.DataRecordField(name, _) => name.packageId
-      case Reference.DataVariant(name) => name.packageId
+      case Reference.DataVariant(ref) => fromRef(ref.pkgRef)
       case Reference.DataVariantConstructor(name, _) => name.packageId
-      case Reference.DataEnum(name) => name.packageId
+      case Reference.DataEnum(ref) => fromRef(ref.pkgRef)
       case Reference.DataEnumConstructor(name, _) => name.packageId
       case Reference.Value(name) => name.packageId
       case Reference.Template(tyCon) => tyConRefToPkgId(tyCon)
@@ -469,6 +476,7 @@ class IdeLedgerClient(
       case Reference.Method(name, _) => name.packageId
       case Reference.Exception(name) => name.packageId
     }
+  }
 
   private def getLookupErrorPackageId(err: LookupError): PackageId =
     err match {

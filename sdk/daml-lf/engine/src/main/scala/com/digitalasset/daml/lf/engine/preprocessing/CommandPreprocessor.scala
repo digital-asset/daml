@@ -13,7 +13,7 @@ import com.daml.scalautil.Statement.discard
 
 private[lf] final class CommandPreprocessor(
     pkgInterface: language.PackageInterface,
-    requireV1ContractIdSuffix: Boolean,
+    checkV1ContractIdSuffix: Boolean,
 ) {
 
   import Preprocessor._
@@ -21,7 +21,8 @@ private[lf] final class CommandPreprocessor(
   private val valueTranslator =
     new ValueTranslator(
       pkgInterface = pkgInterface,
-      requireV1ContractIdSuffix = requireV1ContractIdSuffix,
+      checkV1ContractIdSuffixes = checkV1ContractIdSuffix,
+      checkTypeAnnotations = true,
     )
 
   import valueTranslator.validateCid
