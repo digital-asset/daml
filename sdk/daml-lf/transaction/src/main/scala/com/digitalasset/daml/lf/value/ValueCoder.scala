@@ -32,7 +32,7 @@ object ValueCoder {
 
   object DecodeError extends (String => DecodeError) {
     private[lf] def apply(version: TransactionVersion, isTooOldFor: String): DecodeError =
-      DecodeError(s"transaction version ${version.protoValue} is too old to support $isTooOldFor")
+      DecodeError(s"transaction version ${version.pretty} is too old to support $isTooOldFor")
   }
 
   /** Error type for signalling errors occurring during encoding values
@@ -42,7 +42,7 @@ object ValueCoder {
 
   object EncodeError extends (String => EncodeError) {
     private[lf] def apply(version: TransactionVersion, isTooOldFor: String): EncodeError =
-      EncodeError(s"transaction version ${version.protoValue} is too old to support $isTooOldFor")
+      EncodeError(s"transaction version ${version.pretty} is too old to support $isTooOldFor")
   }
 
   private[lf] def ensureNoUnknownFields(
@@ -114,9 +114,6 @@ object ValueCoder {
         .map(err => DecodeError(s"Invalid name segments $nameSegments: $err"))
 
     } yield Identifier(pkgId, QualifiedName(module, name))
-
-  private[lf] def encodeValueVersion(version: TransactionVersion): String =
-    version.protoValue
 
   private[this] def decodeValueVersion(vs: String): Either[DecodeError, TransactionVersion] =
     TransactionVersion.fromString(vs).left.map(DecodeError)
@@ -327,7 +324,7 @@ object ValueCoder {
       bytes <- encodeValue(version, value)
     } yield {
       val builder = proto.VersionedValue.newBuilder()
-      builder.setVersion(encodeValueVersion(version)).setValue(bytes).build()
+      builder.setVersion(TransactionVersion.toProtoValue(version)).setValue(bytes).build()
     }
 
   /** Serialize a Value to protobuf

@@ -296,7 +296,7 @@ object ValueGenerators {
     * 2. key's maintainers may not be a subset of signatories
     */
   def malformedCreateNodeGen(
-      minVersion: TransactionVersion = TransactionVersion.V31
+      minVersion: TransactionVersion = TransactionVersion.minVersion
   ): Gen[Node.Create] = {
     for {
       version <- transactionVersionGen(minVersion)

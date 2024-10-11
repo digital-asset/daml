@@ -27,7 +27,6 @@ import com.digitalasset.daml.lf.transaction.{
   GlobalKey,
   GlobalKeyWithMaintainers,
   Node,
-  TransactionVersion,
   Versioned,
 }
 import com.digitalasset.daml.lf.value.Value
@@ -1813,7 +1812,7 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
 
     """
 
-  val txVersion = TransactionVersion.assignNodeVersion(pkg.languageVersion)
+  val txVersion = pkg.languageVersion
   val pkgName = Ref.PackageName.assertFromString("-sbuiltin-test-")
 
   val compiledPackages: PureCompiledPackages =
@@ -1942,12 +1941,12 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
       fields.map(Ref.Name.assertFromString),
       svalues,
     )
-    val version = TransactionVersion.assignNodeVersion(pkg.languageVersion)
+    val txVersion = pkg.languageVersion
     val keyOpt =
       if (withKey)
         Some(
           GlobalKeyWithMaintainers
-            .assertBuild(templateId, key.toNormalizedValue(version), Set(maintainer), pkgName)
+            .assertBuild(templateId, key.toNormalizedValue(txVersion), Set(maintainer), pkgName)
         )
       else
         None
@@ -1958,11 +1957,11 @@ final class SBuiltinTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
           packageName = pkg.pkgName,
           packageVersion = pkg.pkgVersion,
           templateId = templateId,
-          arg = sarg.toNormalizedValue(version),
+          arg = sarg.toNormalizedValue(txVersion),
           signatories = Set(maintainer),
           stakeholders = Set(maintainer),
           keyOpt = keyOpt,
-          version = version,
+          version = txVersion,
         ),
         createTime = Time.Timestamp.now(),
         cantonData = Bytes.Empty,

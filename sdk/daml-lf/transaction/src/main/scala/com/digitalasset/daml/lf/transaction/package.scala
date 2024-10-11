@@ -7,6 +7,8 @@ import scala.collection.BuildFrom
 
 package object transaction {
 
+  type TransactionVersion = language.LanguageVersion
+
   /** This traversal fails the identity law so is unsuitable for [[scalaz.Traverse]].
     * It is, nevertheless, what is meant sometimes.
     */
