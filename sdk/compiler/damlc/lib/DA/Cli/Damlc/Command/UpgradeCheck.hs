@@ -1,13 +1,16 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
 {-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE RankNTypes #-}
-module DA.Cli.Damlc.Command.CheckUpgrades where
+module DA.Cli.Damlc.Command.UpgradeCheck (runUpgradeCheck) where
 
 import Control.Lens
 import DA.Pretty
 import DA.Daml.Options.Types
-import Control.Monad (forM_, guard, when)
+import Control.Monad (guard, when)
 import Development.IDE.Types.Location (NormalizedFilePath, fromNormalizedFilePath, toNormalizedFilePath')
 import DA.Daml.Compiler.ExtractDar (extractDar,ExtractedDar(..))
 import qualified Data.ByteString.Lazy as BSL
@@ -159,15 +162,11 @@ checkPackageAgainstPastPackages ((path, main, deps), pastPackages) = do
                     (Just pkg)
             in
             when (not (null errs)) (throwE [CEDiagnostic path errs])
-      case pastPackageWithLowerVersion of
-        Just lower -> checkAgainst lower
-        Nothing -> pure ()
-      case pastPackageWithHigherVersion of
-        Just higher -> checkAgainst higher
-        Nothing -> pure ()
+      mapM_ checkAgainst pastPackageWithLowerVersion
+      mapM_ checkAgainst pastPackageWithHigherVersion
 
-runCheckUpgrades :: [String] -> IO ()
-runCheckUpgrades rawPaths = do
+runUpgradeCheck :: [String] -> IO ()
+runUpgradeCheck rawPaths = do
   let paths = map toNormalizedFilePath' rawPaths
   errsOrUnit <- runExceptT $ do
     packages <- fromCollect $ traverse (toCollect . readPathToArchive) paths
@@ -176,9 +175,9 @@ runCheckUpgrades rawPaths = do
           where
           go [] = Nothing
           go (x:xs) = Just (x, xs)
-    forM_ sortedPackagesWithPastPackages checkPackageAgainstPastPackages
-    pure ()
+    mapM_ checkPackageAgainstPastPackages sortedPackagesWithPastPackages
   case errsOrUnit of
     Left errs -> putStrLn (renderPretty (CheckingErrors errs))
     Right () -> pure ()
+
 
