@@ -126,7 +126,7 @@ class PackageUpgradeValidator(
             optMinimalDar,
             optUpgradingDar,
           )
-          _ = logger.info(s"Typechecking upgrades for ${PkgIdWithNameAndVersion(uploadedPackage)} succeeded.")
+          _ = logger.info(s"Typechecking upgrades for ${uploadedPackageIdWithMeta} succeeded.")
         } yield ()
     }
   }
