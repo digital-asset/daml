@@ -330,7 +330,7 @@ cmdMultiIde _numProcessors =
 
 cmdCheckUpgrades :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
 cmdCheckUpgrades _numProcessors =
-    command "upgrade-check-compiler" $ info (helper <*> cmd) $
+    command "upgrade-check" $ info (helper <*> cmd) $
        progDesc
         "Check upgrades for multiple DARs"
     <> fullDesc

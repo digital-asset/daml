@@ -537,4 +537,4 @@ runCommand = \case
         when (upgradeCheckTool `elem` [UCTParticipant, UCTBoth]) $
           runJar "daml-sdk/daml-sdk.jar" (Just "daml-sdk/script-logback.xml") ("upgrade-check": darPaths)
         when (upgradeCheckTool `elem` [UCTCompiler, UCTBoth]) $
-          runDamlc ("upgrade-check-compiler" : darPaths)
+          runDamlc ("upgrade-check" : darPaths)
