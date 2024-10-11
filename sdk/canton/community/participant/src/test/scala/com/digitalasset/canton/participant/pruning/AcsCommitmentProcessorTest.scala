@@ -917,15 +917,17 @@ class AcsCommitmentProcessorTest
             })
           }
         }
-      res <- AcsCommitmentProcessor.commitments(
-        localId,
-        byStkhSet,
-        crypto,
-        at,
-        None,
-        parallelism,
-        new CachedCommitments(),
-      )
+      res <- AcsCommitmentProcessor
+        .commitments(
+          localId,
+          byStkhSet,
+          crypto,
+          at,
+          None,
+          parallelism,
+          new CachedCommitments(),
+        )
+        .failOnShutdown
     } yield res
   }
 
@@ -967,31 +969,35 @@ class AcsCommitmentProcessorTest
     "compute timestamp with no clean replay timestamp (no noOutstandingCommitment tick known)" in {
       val longInterval = PositiveSeconds.tryOfDays(100)
       for {
-        res <- PruningProcessor.safeToPrune_(
-          cleanReplayF = Future.successful(CantonTimestamp.MinValue),
-          commitmentsPruningBound =
-            CommitmentsPruningBound.Outstanding(_ => Future.successful(None)),
-          earliestInFlightSubmissionF = Future.successful(None),
-          sortedReconciliationIntervalsProvider =
-            constantSortedReconciliationIntervalsProvider(longInterval),
-          domainId,
-        )
+        res <- PruningProcessor
+          .safeToPrune_(
+            cleanReplayF = Future.successful(CantonTimestamp.MinValue),
+            commitmentsPruningBound =
+              CommitmentsPruningBound.Outstanding(_ => Future.successful(None)),
+            earliestInFlightSubmissionF = Future.successful(None),
+            sortedReconciliationIntervalsProvider =
+              constantSortedReconciliationIntervalsProvider(longInterval),
+            domainId,
+          )
+          .failOnShutdown
       } yield res shouldBe None
     }
 
     "compute safeToPrune timestamp with no clean replay timestamp" in {
       val longInterval = PositiveSeconds.tryOfDays(100)
       for {
-        res <- PruningProcessor.safeToPrune_(
-          cleanReplayF = Future.successful(CantonTimestamp.MinValue),
-          commitmentsPruningBound = CommitmentsPruningBound.Outstanding(_ =>
-            Future.successful(Some(CantonTimestamp.MinValue))
-          ),
-          earliestInFlightSubmissionF = Future.successful(None),
-          sortedReconciliationIntervalsProvider =
-            constantSortedReconciliationIntervalsProvider(longInterval),
-          domainId,
-        )
+        res <- PruningProcessor
+          .safeToPrune_(
+            cleanReplayF = Future.successful(CantonTimestamp.MinValue),
+            commitmentsPruningBound = CommitmentsPruningBound.Outstanding(_ =>
+              Future.successful(Some(CantonTimestamp.MinValue))
+            ),
+            earliestInFlightSubmissionF = Future.successful(None),
+            sortedReconciliationIntervalsProvider =
+              constantSortedReconciliationIntervalsProvider(longInterval),
+            domainId,
+          )
+          .failOnShutdown
       } yield res shouldBe Some(CantonTimestampSecond.MinValue)
     }
 
@@ -1009,17 +1015,19 @@ class AcsCommitmentProcessorTest
           _ => Future.successful(Some(CantonTimestamp.MinValue))
         val lastComputedAndSentF = Future.successful(Some(now))
 
-        PruningProcessor.safeToPrune_(
-          cleanReplayF = Future.successful(now),
-          commitmentsPruningBound =
-            if (checkForOutstandingCommitments)
-              CommitmentsPruningBound.Outstanding(noOutstandingCommitmentsF)
-            else CommitmentsPruningBound.LastComputedAndSent(lastComputedAndSentF),
-          earliestInFlightSubmissionF = Future.successful(None),
-          sortedReconciliationIntervalsProvider =
-            constantSortedReconciliationIntervalsProvider(longInterval),
-          domainId,
-        )
+        PruningProcessor
+          .safeToPrune_(
+            cleanReplayF = Future.successful(now),
+            commitmentsPruningBound =
+              if (checkForOutstandingCommitments)
+                CommitmentsPruningBound.Outstanding(noOutstandingCommitmentsF)
+              else CommitmentsPruningBound.LastComputedAndSent(lastComputedAndSentF),
+            earliestInFlightSubmissionF = Future.successful(None),
+            sortedReconciliationIntervalsProvider =
+              constantSortedReconciliationIntervalsProvider(longInterval),
+            domainId,
+          )
+          .failOnShutdown
       }
 
       for {
@@ -1027,6 +1035,7 @@ class AcsCommitmentProcessorTest
         res2 <- safeToPrune(false)
         sortedReconciliationIntervals <- sortedReconciliationIntervalsProvider
           .reconciliationIntervals(now)
+          .failOnShutdown
         tick = sortedReconciliationIntervals.tickBeforeOrAt(now).value
       } yield {
         res1 shouldBe Some(CantonTimestampSecond.MinValue)
@@ -1172,33 +1181,39 @@ class AcsCommitmentProcessorTest
       val crypto = cryptoSetup(localId, topology)
 
       for {
-        res1 <- AcsCommitmentProcessor.commitments(
-          localId,
-          snapshot1,
-          crypto,
-          ts(0),
-          None,
-          parallelism,
-          new CachedCommitments(),
-        )
-        res2 <- AcsCommitmentProcessor.commitments(
-          localId,
-          snapshot2,
-          crypto,
-          ts(0),
-          None,
-          parallelism,
-          new CachedCommitments(),
-        )
-        res3 <- AcsCommitmentProcessor.commitments(
-          localId,
-          snapshot3,
-          crypto,
-          ts(0),
-          None,
-          parallelism,
-          new CachedCommitments(),
-        )
+        res1 <- AcsCommitmentProcessor
+          .commitments(
+            localId,
+            snapshot1,
+            crypto,
+            ts(0),
+            None,
+            parallelism,
+            new CachedCommitments(),
+          )
+          .failOnShutdown
+        res2 <- AcsCommitmentProcessor
+          .commitments(
+            localId,
+            snapshot2,
+            crypto,
+            ts(0),
+            None,
+            parallelism,
+            new CachedCommitments(),
+          )
+          .failOnShutdown
+        res3 <- AcsCommitmentProcessor
+          .commitments(
+            localId,
+            snapshot3,
+            crypto,
+            ts(0),
+            None,
+            parallelism,
+            new CachedCommitments(),
+          )
+          .failOnShutdown
       } yield {
         res1 shouldBe Map.empty
         res2.keySet shouldBe Set(remoteId1)
@@ -1408,21 +1423,23 @@ class AcsCommitmentProcessorTest
         _ <- requestJournalStore.insert(
           RequestData.clean(RequestCounter(0), CantonTimestamp.Epoch, CantonTimestamp.Epoch, None)
         )
-        res <- PruningProcessor.latestSafeToPruneTick(
-          requestJournalStore,
-          DomainIndex.of(
-            RequestIndex(
-              counter = RequestCounter(0L),
-              sequencerCounter = Some(SequencerCounter(0L)),
-              timestamp = CantonTimestamp.Epoch,
-            )
-          ),
-          constantSortedReconciliationIntervalsProvider(defaultReconciliationInterval),
-          acsCommitmentStore,
-          inFlightSubmissionStore,
-          domainId,
-          checkForOutstandingCommitments = true,
-        )
+        res <- PruningProcessor
+          .latestSafeToPruneTick(
+            requestJournalStore,
+            DomainIndex.of(
+              RequestIndex(
+                counter = RequestCounter(0L),
+                sequencerCounter = Some(SequencerCounter(0L)),
+                timestamp = CantonTimestamp.Epoch,
+              )
+            ),
+            constantSortedReconciliationIntervalsProvider(defaultReconciliationInterval),
+            acsCommitmentStore,
+            inFlightSubmissionStore,
+            domainId,
+            checkForOutstandingCommitments = true,
+          )
+          .failOnShutdown
       } yield {
         res shouldEqual None
       }
@@ -1438,15 +1455,17 @@ class AcsCommitmentProcessorTest
       val inFlightSubmissionStore = new InMemoryInFlightSubmissionStore(loggerFactory)
 
       for {
-        res <- PruningProcessor.latestSafeToPruneTick(
-          requestJournalStore,
-          DomainIndex.empty,
-          constantSortedReconciliationIntervalsProvider(defaultReconciliationInterval),
-          acsCommitmentStore,
-          inFlightSubmissionStore,
-          domainId,
-          checkForOutstandingCommitments = true,
-        )
+        res <- PruningProcessor
+          .latestSafeToPruneTick(
+            requestJournalStore,
+            DomainIndex.empty,
+            constantSortedReconciliationIntervalsProvider(defaultReconciliationInterval),
+            acsCommitmentStore,
+            inFlightSubmissionStore,
+            domainId,
+            checkForOutstandingCommitments = true,
+          )
+          .failOnShutdown
       } yield {
         res shouldEqual Some(CantonTimestampSecond.MinValue)
       }
@@ -1495,58 +1514,62 @@ class AcsCommitmentProcessorTest
         _ <- requestJournalStore.insert(
           RequestData(RequestCounter(3), RequestState.Pending, ts3, None)
         )
-        res1 <- PruningProcessor.latestSafeToPruneTick(
-          requestJournalStore,
-          DomainIndex(
-            Some(
-              RequestIndex(
-                counter = RequestCounter(2L),
-                sequencerCounter = None,
-                timestamp = ts2,
-              )
+        res1 <- PruningProcessor
+          .latestSafeToPruneTick(
+            requestJournalStore,
+            DomainIndex(
+              Some(
+                RequestIndex(
+                  counter = RequestCounter(2L),
+                  sequencerCounter = None,
+                  timestamp = ts2,
+                )
+              ),
+              Some(
+                SequencerIndex(
+                  counter = SequencerCounter(3L),
+                  timestamp = ts3,
+                )
+              ),
             ),
-            Some(
-              SequencerIndex(
-                counter = SequencerCounter(3L),
-                timestamp = ts3,
-              )
-            ),
-          ),
-          sortedReconciliationIntervalsProvider,
-          acsCommitmentStore,
-          inFlightSubmissionStore,
-          domainId,
-          checkForOutstandingCommitments = true,
-        )
+            sortedReconciliationIntervalsProvider,
+            acsCommitmentStore,
+            inFlightSubmissionStore,
+            domainId,
+            checkForOutstandingCommitments = true,
+          )
+          .failOnShutdown
         _ <- requestJournalStore.insert(
           RequestData(RequestCounter(4), RequestState.Pending, ts4, None)
         ) // Replay starts at ts4
         _ <- requestJournalStore
           .replace(RequestCounter(3), ts3, RequestState.Clean, Some(ts3))
           .valueOrFail("advance RC 3 to clean")
-        res2 <- PruningProcessor.latestSafeToPruneTick(
-          requestJournalStore,
-          DomainIndex(
-            Some(
-              RequestIndex(
-                counter = RequestCounter(3L),
-                sequencerCounter = None,
-                timestamp = ts3,
-              )
+        res2 <- PruningProcessor
+          .latestSafeToPruneTick(
+            requestJournalStore,
+            DomainIndex(
+              Some(
+                RequestIndex(
+                  counter = RequestCounter(3L),
+                  sequencerCounter = None,
+                  timestamp = ts3,
+                )
+              ),
+              Some(
+                SequencerIndex(
+                  counter = SequencerCounter(4L),
+                  timestamp = ts4,
+                )
+              ),
             ),
-            Some(
-              SequencerIndex(
-                counter = SequencerCounter(4L),
-                timestamp = ts4,
-              )
-            ),
-          ),
-          sortedReconciliationIntervalsProvider,
-          acsCommitmentStore,
-          inFlightSubmissionStore,
-          domainId,
-          checkForOutstandingCommitments = true,
-        )
+            sortedReconciliationIntervalsProvider,
+            acsCommitmentStore,
+            inFlightSubmissionStore,
+            domainId,
+            checkForOutstandingCommitments = true,
+          )
+          .failOnShutdown
       } yield {
         withClue("request 1:") {
           assertInIntervalBefore(ts1, reconciliationInterval)(res1)
@@ -1584,29 +1607,31 @@ class AcsCommitmentProcessorTest
           RequestData.clean(RequestCounter(2), tsCleanRequest, tsCleanRequest)
         )
         _ <- requestJournalStore.insert(RequestData(RequestCounter(3), RequestState.Pending, ts3))
-        res <- PruningProcessor.latestSafeToPruneTick(
-          requestJournalStore,
-          DomainIndex(
-            Some(
-              RequestIndex(
-                counter = RequestCounter(2L),
-                sequencerCounter = None,
-                timestamp = tsCleanRequest,
-              )
+        res <- PruningProcessor
+          .latestSafeToPruneTick(
+            requestJournalStore,
+            DomainIndex(
+              Some(
+                RequestIndex(
+                  counter = RequestCounter(2L),
+                  sequencerCounter = None,
+                  timestamp = tsCleanRequest,
+                )
+              ),
+              Some(
+                SequencerIndex(
+                  counter = SequencerCounter(4L),
+                  timestamp = ts3,
+                )
+              ),
             ),
-            Some(
-              SequencerIndex(
-                counter = SequencerCounter(4L),
-                timestamp = ts3,
-              )
-            ),
-          ),
-          sortedReconciliationIntervalsProvider,
-          acsCommitmentStore,
-          inFlightSubmissionStore,
-          domainId,
-          checkForOutstandingCommitments = true,
-        )
+            sortedReconciliationIntervalsProvider,
+            acsCommitmentStore,
+            inFlightSubmissionStore,
+            domainId,
+            checkForOutstandingCommitments = true,
+          )
+          .failOnShutdown
       } yield assertInIntervalBefore(tsCleanRequest, reconciliationInterval)(res)
     }
 
@@ -1673,29 +1698,31 @@ class AcsCommitmentProcessorTest
           Map(submission2.messageId -> SequencedSubmission(SequencerCounter(2), tsCleanRequest)),
         )
         testeeSafeToPrune = () =>
-          PruningProcessor.latestSafeToPruneTick(
-            requestJournalStore,
-            DomainIndex(
-              Some(
-                RequestIndex(
-                  counter = RequestCounter(3L),
-                  sequencerCounter = None,
-                  timestamp = tsCleanRequest2,
-                )
+          PruningProcessor
+            .latestSafeToPruneTick(
+              requestJournalStore,
+              DomainIndex(
+                Some(
+                  RequestIndex(
+                    counter = RequestCounter(3L),
+                    sequencerCounter = None,
+                    timestamp = tsCleanRequest2,
+                  )
+                ),
+                Some(
+                  SequencerIndex(
+                    counter = SequencerCounter(1L),
+                    timestamp = tsCleanRequest2,
+                  )
+                ),
               ),
-              Some(
-                SequencerIndex(
-                  counter = SequencerCounter(1L),
-                  timestamp = tsCleanRequest2,
-                )
-              ),
-            ),
-            sortedReconciliationIntervalsProvider,
-            acsCommitmentStore,
-            inFlightSubmissionStore,
-            domainId,
-            checkForOutstandingCommitments = true,
-          )
+              sortedReconciliationIntervalsProvider,
+              acsCommitmentStore,
+              inFlightSubmissionStore,
+              domainId,
+              checkForOutstandingCommitments = true,
+            )
+            .failOnShutdown
         res1 <- testeeSafeToPrune()
         // Now remove the timed-out submission 1 and compute the pruning point again
         () <- inFlightSubmissionStore.delete(Seq(submission1.referenceByMessageId))
@@ -1960,7 +1987,7 @@ class AcsCommitmentProcessorTest
           catchUpIntervalSkip: PositiveInt = PositiveInt.tryCreate(2),
       ): Future[Assertion] =
         for {
-          config <- processor.catchUpConfig(cantonTimestamp)
+          config <- processor.catchUpConfig(cantonTimestamp).failOnShutdown
         } yield {
           config match {
             case Some(cfg) =>
@@ -1975,7 +2002,7 @@ class AcsCommitmentProcessorTest
           cantonTimestamp: CantonTimestamp,
       ): Future[Assertion] =
         for {
-          config <- processor.catchUpConfig(cantonTimestamp)
+          config <- processor.catchUpConfig(cantonTimestamp).failOnShutdown
         } yield {
           config match {
             case Some(cfg)
@@ -3579,7 +3606,7 @@ class AcsCommitmentProcessorTest
         processor.flush()
       }
       for {
-        config <- processor.catchUpConfig(changes.head._1)
+        config <- processor.catchUpConfig(changes.head._1).failOnShutdown
         remote <- store.searchReceivedBetween(changes.head._1, changes.last._1)
         _ <- config match {
           case _ if (remote.isEmpty || noLogSuppression) => fut
@@ -3617,13 +3644,15 @@ class AcsCommitmentProcessorTest
           // init phase
           rc <- runningCommitments
           _ = rc.update(rt(2, 0), acsChanges(ts(2)))
-          byParticipant2 <- AcsCommitmentProcessor.stakeholderCommitmentsPerParticipant(
-            localId,
-            rc.snapshot().active,
-            crypto,
-            ts(2),
-            parallelism,
-          )
+          byParticipant2 <- AcsCommitmentProcessor
+            .stakeholderCommitmentsPerParticipant(
+              localId,
+              rc.snapshot().active,
+              crypto,
+              ts(2),
+              parallelism,
+            )
+            .failOnShutdown
           normalCommitments2 = computeCommitmentsPerParticipant(byParticipant2, cachedCommitments)
           _ = cachedCommitments.setCachedCommitments(
             normalCommitments2,
@@ -3639,13 +3668,15 @@ class AcsCommitmentProcessorTest
           // with participant "remoteId2"
           _ = rc.update(rt(4, 0), acsChanges(ts(4)))
 
-          byParticipant <- AcsCommitmentProcessor.stakeholderCommitmentsPerParticipant(
-            localId,
-            rc.snapshot().active,
-            crypto,
-            ts(4),
-            parallelism,
-          )
+          byParticipant <- AcsCommitmentProcessor
+            .stakeholderCommitmentsPerParticipant(
+              localId,
+              rc.snapshot().active,
+              crypto,
+              ts(4),
+              parallelism,
+            )
+            .failOnShutdown
 
           computeFromCachedRemoteId1 = cachedCommitments.computeCmtFromCached(
             remoteId1,
@@ -3688,46 +3719,54 @@ class AcsCommitmentProcessorTest
           rc <- runningCommitments
 
           _ = rc.update(rt(2, 0), acsChanges(ts(2)))
-          normalCommitments2 <- AcsCommitmentProcessor.commitments(
-            localId,
-            rc.snapshot().active,
-            crypto,
-            ts(2),
-            None,
-            parallelism,
-            // behaves as if we don't use caching, because we don't reuse this object for further computation
-            new CachedCommitments(),
-          )
-          cachedCommitments2 <- AcsCommitmentProcessor.commitments(
-            localId,
-            rc.snapshot().active,
-            crypto,
-            ts(2),
-            None,
-            parallelism,
-            cachedCommitments,
-          )
+          normalCommitments2 <- AcsCommitmentProcessor
+            .commitments(
+              localId,
+              rc.snapshot().active,
+              crypto,
+              ts(2),
+              None,
+              parallelism,
+              // behaves as if we don't use caching, because we don't reuse this object for further computation
+              new CachedCommitments(),
+            )
+            .failOnShutdown
+          cachedCommitments2 <- AcsCommitmentProcessor
+            .commitments(
+              localId,
+              rc.snapshot().active,
+              crypto,
+              ts(2),
+              None,
+              parallelism,
+              cachedCommitments,
+            )
+            .failOnShutdown
 
           _ = rc.update(rt(4, 0), acsChanges(ts(4)))
-          normalCommitments4 <- AcsCommitmentProcessor.commitments(
-            localId,
-            rc.snapshot().active,
-            crypto,
-            ts(4),
-            None,
-            parallelism,
-            // behaves as if we don't use caching, because we don't reuse this object for further computation
-            new CachedCommitments(),
-          )
-          cachedCommitments4 <- AcsCommitmentProcessor.commitments(
-            localId,
-            rc.snapshot().active,
-            crypto,
-            ts(4),
-            None,
-            parallelism,
-            cachedCommitments,
-          )
+          normalCommitments4 <- AcsCommitmentProcessor
+            .commitments(
+              localId,
+              rc.snapshot().active,
+              crypto,
+              ts(4),
+              None,
+              parallelism,
+              // behaves as if we don't use caching, because we don't reuse this object for further computation
+              new CachedCommitments(),
+            )
+            .failOnShutdown
+          cachedCommitments4 <- AcsCommitmentProcessor
+            .commitments(
+              localId,
+              rc.snapshot().active,
+              crypto,
+              ts(4),
+              None,
+              parallelism,
+              cachedCommitments,
+            )
+            .failOnShutdown
 
         } yield {
           assert(normalCommitments2 equals cachedCommitments2)
@@ -3751,13 +3790,15 @@ class AcsCommitmentProcessorTest
           // (alice, danna) with one contract, and (alice, ed) with one contract
           rc <- runningCommitments
           _ = rc.update(rt(2, 0), acsChanges(ts(2)))
-          byParticipant2 <- AcsCommitmentProcessor.stakeholderCommitmentsPerParticipant(
-            remoteId2,
-            rc.snapshot().active,
-            crypto,
-            ts(2),
-            parallelism,
-          )
+          byParticipant2 <- AcsCommitmentProcessor
+            .stakeholderCommitmentsPerParticipant(
+              remoteId2,
+              rc.snapshot().active,
+              crypto,
+              ts(2),
+              parallelism,
+            )
+            .failOnShutdown
           normalCommitments2 = computeCommitmentsPerParticipant(byParticipant2, cachedCommitments)
           _ = cachedCommitments.setCachedCommitments(
             normalCommitments2,
@@ -3767,13 +3808,15 @@ class AcsCommitmentProcessorTest
             },
           )
 
-          byParticipant <- AcsCommitmentProcessor.stakeholderCommitmentsPerParticipant(
-            remoteId2,
-            rc.snapshot().active,
-            crypto,
-            ts(2),
-            parallelism,
-          )
+          byParticipant <- AcsCommitmentProcessor
+            .stakeholderCommitmentsPerParticipant(
+              remoteId2,
+              rc.snapshot().active,
+              crypto,
+              ts(2),
+              parallelism,
+            )
+            .failOnShutdown
 
           // simulate offboarding party ed from remoteId2 by replacing the commitment for (alice,ed) with an empty commitment
           byParticipantWithOffboard = byParticipant.updatedWith(localId) {
@@ -3815,13 +3858,15 @@ class AcsCommitmentProcessorTest
           // (alice, danna) with one contract, and (alice, ed) with one contract
           rc <- runningCommitments
           _ = rc.update(rt(2, 0), acsChanges(ts(2)))
-          byParticipant2 <- AcsCommitmentProcessor.stakeholderCommitmentsPerParticipant(
-            remoteId2,
-            rc.snapshot().active,
-            crypto,
-            ts(2),
-            parallelism,
-          )
+          byParticipant2 <- AcsCommitmentProcessor
+            .stakeholderCommitmentsPerParticipant(
+              remoteId2,
+              rc.snapshot().active,
+              crypto,
+              ts(2),
+              parallelism,
+            )
+            .failOnShutdown
           normalCommitments2 = computeCommitmentsPerParticipant(byParticipant2, cachedCommitments)
           _ = cachedCommitments.setCachedCommitments(
             normalCommitments2,
@@ -3831,13 +3876,15 @@ class AcsCommitmentProcessorTest
             },
           )
 
-          byParticipant <- AcsCommitmentProcessor.stakeholderCommitmentsPerParticipant(
-            remoteId2,
-            rc.snapshot().active,
-            crypto,
-            ts(2),
-            parallelism,
-          )
+          byParticipant <- AcsCommitmentProcessor
+            .stakeholderCommitmentsPerParticipant(
+              remoteId2,
+              rc.snapshot().active,
+              crypto,
+              ts(2),
+              parallelism,
+            )
+            .failOnShutdown
 
           // simulate onboarding party ed to remoteId1 by adding remoteId1 as a participant for group (alice, ed)
           // the commitment for (alice,ed) existed previously, but was not used for remoteId1's commitment

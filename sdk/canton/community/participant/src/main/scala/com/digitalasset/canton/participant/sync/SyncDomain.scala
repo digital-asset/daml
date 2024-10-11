@@ -491,7 +491,7 @@ class SyncDomain(
         changes
       })
 
-    def initializeClientAtCleanHead(): Future[Unit] = {
+    def initializeClientAtCleanHead(): FutureUnlessShutdown[Unit] = {
       // generally, the topology client will be initialised by the topology processor. however,
       // if there is nothing to be replayed, then the topology processor will only be initialised
       // once the first event is dispatched.
@@ -507,11 +507,13 @@ class SyncDomain(
       )
       // now, compute epsilon at resubscriptionTs
       topologyClient
-        .awaitSnapshot(resubscriptionTs)
-        .flatMap(
-          _.findDynamicDomainParametersOrDefault(
-            staticDomainParameters.protocolVersion,
-            warnOnUsingDefault = false,
+        .awaitSnapshotUS(resubscriptionTs)
+        .flatMap(snapshot =>
+          FutureUnlessShutdown.outcomeF(
+            snapshot.findDynamicDomainParametersOrDefault(
+              staticDomainParameters.protocolVersion,
+              warnOnUsingDefault = false,
+            )
           )
         )
         .map(_.topologyChangeDelay)
@@ -534,7 +536,7 @@ class SyncDomain(
       _ <- EitherT.right(missingKeysAlerter.init()).mapK(FutureUnlessShutdown.outcomeK)
 
       // Phase 0: Initialise topology client at current clean head
-      _ <- EitherT.right(initializeClientAtCleanHead()).mapK(FutureUnlessShutdown.outcomeK)
+      _ <- EitherT.right(initializeClientAtCleanHead())
 
       // Phase 1: remove in-flight submissions that have been sequenced and published,
       // but not yet removed from the in-flight submission store

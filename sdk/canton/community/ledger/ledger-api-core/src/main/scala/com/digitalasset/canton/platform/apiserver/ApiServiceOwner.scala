@@ -5,11 +5,14 @@ package com.digitalasset.canton.platform.apiserver
 
 import com.daml.jwt.JwtTimestampLeeway
 import com.daml.ledger.resources.ResourceOwner
-import com.daml.tls.TlsConfiguration
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.auth.{AuthService, Authorizer}
 import com.digitalasset.canton.config.RequireTypes.Port
-import com.digitalasset.canton.config.{NonNegativeDuration, NonNegativeFiniteDuration}
+import com.digitalasset.canton.config.{
+  NonNegativeDuration,
+  NonNegativeFiniteDuration,
+  TlsServerConfig,
+}
 import com.digitalasset.canton.ledger.api.auth.*
 import com.digitalasset.canton.ledger.api.auth.interceptor.UserBasedAuthorizationInterceptor
 import com.digitalasset.canton.ledger.api.domain
@@ -62,7 +65,7 @@ object ApiServiceOwner {
       address: Option[String] = DefaultAddress, // This defaults to "localhost" when set to `None`.
       maxInboundMessageSize: Int = DefaultMaxInboundMessageSize,
       port: Port = DefaultPort,
-      tls: Option[TlsConfiguration] = DefaultTls,
+      tls: Option[TlsServerConfig] = DefaultTls,
       seeding: Seeding = DefaultSeeding,
       initSyncTimeout: NonNegativeFiniteDuration = ApiServiceOwner.DefaultInitSyncTimeout,
       managementServiceTimeout: NonNegativeFiniteDuration =
@@ -216,7 +219,7 @@ object ApiServiceOwner {
 
   val DefaultPort: Port = Port.tryCreate(6865)
   val DefaultAddress: Option[String] = None
-  val DefaultTls: Option[TlsConfiguration] = None
+  val DefaultTls: Option[TlsServerConfig] = None
   val DefaultMaxInboundMessageSize: Int = 64 * 1024 * 1024
   val DefaultInitSyncTimeout: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.ofSeconds(10)

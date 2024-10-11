@@ -4,7 +4,6 @@
 package com.digitalasset.canton.ledger.runner.common
 
 import com.daml.jwt.JwtTimestampLeeway
-import com.daml.tls.{TlsConfiguration, TlsVersion}
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, Port}
 import com.digitalasset.canton.platform.apiserver.configuration.RateLimitingConfig
@@ -21,7 +20,6 @@ import com.digitalasset.daml.lf.transaction.ContractKeyUniquenessMode
 import io.netty.handler.ssl.ClientAuth
 import org.scalacheck.Gen
 
-import java.io.File
 import java.net.InetSocketAddress
 import java.time.Duration
 import java.time.temporal.ChronoUnit
@@ -77,26 +75,6 @@ object ArbitraryConfig {
   } yield new InetSocketAddress(host, port)
 
   val clientAuth = Gen.oneOf(ClientAuth.values().toList)
-
-  val tlsVersion = Gen.oneOf(TlsVersion.allVersions)
-
-  val tlsConfiguration = for {
-    enabled <- Gen.oneOf(true, false)
-    keyCertChainFile <- Gen.option(Gen.alphaStr)
-    keyFile <- Gen.option(Gen.alphaStr)
-    trustCertCollectionFile <- Gen.option(Gen.alphaStr)
-    clientAuth <- clientAuth
-    enableCertRevocationChecking <- Gen.oneOf(true, false)
-    minimumServerProtocolVersion <- Gen.option(tlsVersion)
-  } yield TlsConfiguration(
-    enabled,
-    keyCertChainFile.map(fileName => new File(fileName)),
-    keyFile.map(fileName => new File(fileName)),
-    trustCertCollectionFile.map(fileName => new File(fileName)),
-    clientAuth,
-    enableCertRevocationChecking,
-    minimumServerProtocolVersion,
-  )
 
   val port = Gen.choose(0, 65535).map(p => Port.tryCreate(p))
 

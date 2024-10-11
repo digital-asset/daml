@@ -4,7 +4,6 @@
 package com.digitalasset.canton.ledger.runner.common
 
 import com.daml.jwt.JwtTimestampLeeway
-import com.daml.tls.{TlsConfiguration, TlsVersion}
 import com.digitalasset.canton.ledger.runner.common.OptConfigValue.{
   optReaderEnabled,
   optWriterEnabled,
@@ -69,10 +68,7 @@ class PureConfigReaderWriterSpec
     val readerWriter = new PureConfigReaderWriter(secure)
     import readerWriter.*
     testReaderWriterIsomorphism(secure, ArbitraryConfig.duration)
-    testReaderWriterIsomorphism(secure, Gen.oneOf(TlsVersion.allVersions))
-    testReaderWriterIsomorphism(secure, ArbitraryConfig.tlsConfiguration)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.port)
-    testReaderWriterIsomorphism(secure, ArbitraryConfig.clientAuth)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.userManagementServiceConfig)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.identityProviderManagementConfig)
     testReaderWriterIsomorphism(secure, ArbitraryConfig.connectionPoolConfig)
@@ -172,28 +168,6 @@ class PureConfigReaderWriterSpec
     convert(
       jwtTimestampLeewayConfigConvert,
       "unknown-key=yes\n" + validJwtTimestampLeewayValue,
-    ).left.value
-      .prettyPrint(0) should include("Unknown key")
-  }
-
-  behavior of "TlsConfiguration"
-
-  val validTlsConfigurationValue =
-    """enabled=false
-      |client-auth=require
-      |enable-cert-revocation-checking=false""".stripMargin
-
-  it should "read/write against predefined values" in {
-    convert(
-      tlsConfigurationConvert,
-      validTlsConfigurationValue,
-    ).value shouldBe TlsConfiguration(enabled = false)
-  }
-
-  it should "not support invalid unknown keys" in {
-    convert(
-      tlsConfigurationConvert,
-      "unknown-key=yes\n" + validTlsConfigurationValue,
     ).left.value
       .prettyPrint(0) should include("Unknown key")
   }

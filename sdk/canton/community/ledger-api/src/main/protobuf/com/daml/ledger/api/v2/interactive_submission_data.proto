@@ -16,46 +16,46 @@ option java_package = "com.daml.ledger.api.v2";
  * The hash to be signed can and must be computed only using the data in this message.
  */
 message PreparedTransaction {
-  message Metadata {
-    message SubmitterInfo {
-      repeated string act_as = 1;
-      repeated string read_as = 2;
-      string command_id = 3;
-    }
-
-    message NodeSeed {
-      int32 node_id = 1;
-      bytes seed = 2;
-    }
-
-    message GlobalKeyMappingEntry {
-      GlobalKey key = 1;
-      optional Value value = 2;
-    }
-
-    message ProcessedDisclosedContract {
-      Create contract = 1;
-      uint64 created_at = 2;
-      bytes driver_metadata = 3;
-    }
-
-    SubmitterInfo submitter_info = 1;
-    bytes submission_seed = 2;
-    uint64 submission_time = 3;
-    repeated string used_packages = 4;
-    repeated NodeSeed node_seeds = 5;
-    repeated GlobalKeyMappingEntry global_key_mapping = 6;
-    repeated ProcessedDisclosedContract disclosed_events = 7;
-    optional uint64 ledger_effective_time = 8;
-    optional string workflow_id = 9;
-    uint64 interpretation_time_nanos = 10;
-    string domain_id = 11;
-    uint32 mediator_group = 12;
-    string transaction_id = 13;
-  }
-
   DamlTransaction transaction = 1;
   Metadata metadata = 2;
+}
+
+message Metadata {
+  message SubmitterInfo {
+    repeated string act_as = 1;
+    repeated string read_as = 2;
+    string command_id = 3;
+  }
+
+  message NodeSeed {
+    int32 node_id = 1;
+    bytes seed = 2;
+  }
+
+  message GlobalKeyMappingEntry {
+    GlobalKey key = 1;
+    optional Value value = 2;
+  }
+
+  message ProcessedDisclosedContract {
+    Create contract = 1;
+    uint64 created_at = 2;
+    bytes driver_metadata = 3;
+  }
+
+  SubmitterInfo submitter_info = 1;
+  bytes submission_seed = 2;
+  uint64 submission_time = 3;
+  repeated string used_packages = 4;
+  repeated NodeSeed node_seeds = 5;
+  repeated GlobalKeyMappingEntry global_key_mapping = 6;
+  repeated ProcessedDisclosedContract disclosed_events = 7;
+  optional uint64 ledger_effective_time = 8;
+  optional string workflow_id = 9;
+  uint64 interpretation_time_nanos = 10;
+  string domain_id = 11;
+  uint32 mediator_group = 12;
+  string transaction_id = 13;
 }
 
 /*

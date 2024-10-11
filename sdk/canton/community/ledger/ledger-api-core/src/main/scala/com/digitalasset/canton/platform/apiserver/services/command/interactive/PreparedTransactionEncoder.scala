@@ -5,8 +5,7 @@ package com.digitalasset.canton.platform.apiserver.services.command.interactive
 
 import cats.syntax.traverse.*
 import com.daml.error.ContextualizedErrorLogger
-import com.daml.ledger.api.v2.interactive_submission_data.DamlTransaction
-import com.daml.ledger.api.v2.interactive_submission_data.PreparedTransaction.Metadata
+import com.daml.ledger.api.v2.interactive_submission_data.{DamlTransaction, Metadata}
 import com.daml.ledger.api.v2.{interactive_submission_data as isd, value as lapiValue}
 import com.digitalasset.canton.data.ProcessedDisclosedContract
 import com.digitalasset.canton.ledger.api.util.LfEngineToApi
@@ -91,9 +90,9 @@ final class PreparedTransactionEncoder(
 
   private implicit val nodeIdHashTransformer: Transformer[
     (lf.transaction.NodeId, lf.crypto.Hash),
-    isd.PreparedTransaction.Metadata.NodeSeed,
+    isd.Metadata.NodeSeed,
   ] = { case (nodeId, hash) =>
-    isd.PreparedTransaction.Metadata.NodeSeed(nodeId.index, hash.transformInto[ByteString])
+    isd.Metadata.NodeSeed(nodeId.index, hash.transformInto[ByteString])
   }
 
   private implicit val globalKeyTransformer
@@ -191,7 +190,7 @@ final class PreparedTransactionEncoder(
         Metadata.GlobalKeyMappingEntry
       ]] =
     PartialTransformer[Map[GlobalKey, Option[Value.ContractId]], Seq[
-      isd.PreparedTransaction.Metadata.GlobalKeyMappingEntry
+      isd.Metadata.GlobalKeyMappingEntry
     ]] {
       _.toList.traverse { case (key, maybeContractId) =>
         for {
@@ -199,7 +198,7 @@ final class PreparedTransactionEncoder(
           convertedValue <- maybeContractId
             .map[lf.value.Value](lf.value.Value.ValueContractId.apply)
             .traverse(_.transformIntoPartial[lapiValue.Value])
-        } yield isd.PreparedTransaction.Metadata.GlobalKeyMappingEntry(
+        } yield isd.Metadata.GlobalKeyMappingEntry(
           key = Some(convertedKey),
           value = convertedValue,
         )
@@ -214,9 +213,9 @@ final class PreparedTransactionEncoder(
       .buildTransformer
 
   private implicit val resultToMetadataTransformer
-      : PartialTransformer[CommandExecutionResult, isd.PreparedTransaction.Metadata] =
+      : PartialTransformer[CommandExecutionResult, isd.Metadata] =
     Transformer
-      .definePartial[CommandExecutionResult, isd.PreparedTransaction.Metadata]
+      .definePartial[CommandExecutionResult, isd.Metadata]
       .withFieldComputed(
         _.submissionSeed,
         _.transactionMeta.submissionSeed.transformInto[ByteString],
@@ -228,7 +227,7 @@ final class PreparedTransactionEncoder(
       )
       .withFieldComputed(
         _.nodeSeeds,
-        _.transactionMeta.optNodeSeeds.transformInto[Seq[isd.PreparedTransaction.Metadata.NodeSeed]],
+        _.transactionMeta.optNodeSeeds.transformInto[Seq[isd.Metadata.NodeSeed]],
       )
       .withFieldComputed(_.workflowId, _.transactionMeta.workflowId)
       .withFieldComputed(
@@ -241,7 +240,7 @@ final class PreparedTransactionEncoder(
       .withFieldComputedPartial(
         _.disclosedEvents,
         _.processedDisclosedContracts.toList.traverse(
-          _.transformIntoPartial[isd.PreparedTransaction.Metadata.ProcessedDisclosedContract]
+          _.transformIntoPartial[isd.Metadata.ProcessedDisclosedContract]
         ),
       )
       // TODO(i20688) The 3 fields below should be picked by running through domain router
@@ -291,7 +290,7 @@ final class PreparedTransactionEncoder(
     for {
       serializedTransaction <- serializeTransaction(versionedTransaction)
       metadata <- result
-        .transformIntoPartial[isd.PreparedTransaction.Metadata]
+        .transformIntoPartial[isd.Metadata]
         .toFutureWithLoggedFailures("metadata", logger)
     } yield {
       isd.PreparedTransaction(

@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.pruning
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.messages.CommitmentPeriod
 import com.digitalasset.canton.protocol.{
   DomainParameters,
@@ -125,8 +126,8 @@ trait SortedReconciliationIntervalsHelpers {
     val topologySnapshot = mock[TopologySnapshot]
 
     when(topologyClient.approximateTimestamp).thenReturn(CantonTimestamp.MaxValue)
-    when(topologyClient.awaitSnapshot(any[CantonTimestamp])(any[TraceContext])).thenReturn(
-      Future.successful(topologySnapshot)
+    when(topologyClient.awaitSnapshotUS(any[CantonTimestamp])(any[TraceContext])).thenReturn(
+      FutureUnlessShutdown.pure(topologySnapshot)
     )
 
     when(topologySnapshot.listDynamicDomainParametersChanges()).thenReturn {

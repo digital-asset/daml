@@ -179,9 +179,12 @@ private[mediator] class Mediator(
 
       domainParametersChanges <- EitherT
         .right(
-          topologyClient.awaitSnapshot(timestamp).flatMap(_.listDynamicDomainParametersChanges())
+          topologyClient
+            .awaitSnapshotUS(timestamp)
+            .flatMap(snapshot =>
+              FutureUnlessShutdown.outcomeF(snapshot.listDynamicDomainParametersChanges())
+            )
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       _ <- NonEmptySeq.fromSeq(domainParametersChanges) match {
         case Some(domainParametersChangesNes) =>

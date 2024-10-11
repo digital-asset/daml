@@ -359,16 +359,14 @@ class GrpcInspectionService(
         // given timestamp.
         domainParamsF <- EitherTUtil
           .fromFuture(
-            FutureUnlessShutdown.outcomeF(
-              DomainParametersLookup
-                .forAcsCommitmentDomainParameters(
-                  pv,
-                  topologySnapshot,
-                  futureSupervisor,
-                  loggerFactory,
-                )
-                .get(cantonTickTs, false)
-            ),
+            DomainParametersLookup
+              .forAcsCommitmentDomainParameters(
+                pv,
+                topologySnapshot,
+                futureSupervisor,
+                loggerFactory,
+              )
+              .get(cantonTickTs, false),
             err => InspectionServiceError.InternalServerError.Error(err.toString),
           )
           .leftWiden[CantonError]

@@ -12,6 +12,7 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.ledger.participant.state.{DomainIndex, RequestIndex}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.admin.data.ActiveContract
@@ -161,80 +162,84 @@ final class SyncStateInspection(
       partiesOffboarding: Boolean,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, AcsInspectionError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, AcsInspectionError, Unit] = {
     val allDomains = syncDomainPersistentStateManager.getAll
 
     // disable journal cleaning for the duration of the dump
-    disableJournalCleaningForFilter(allDomains, filterDomain).flatMap { _ =>
-      MonadUtil.sequentialTraverse_(allDomains) {
-        case (domainId, state) if filterDomain(domainId) =>
-          val (domainIdForExport, protocolVersion) =
-            contractDomainRenames.getOrElse(
-              domainId,
-              (domainId, state.staticDomainParameters.protocolVersion),
-            )
-          val acsInspection = state.acsInspection
+    disableJournalCleaningForFilter(allDomains, filterDomain)
+      .mapK(FutureUnlessShutdown.outcomeK)
+      .flatMap { _ =>
+        MonadUtil.sequentialTraverse_(allDomains) {
+          case (domainId, state) if filterDomain(domainId) =>
+            val (domainIdForExport, protocolVersion) =
+              contractDomainRenames.getOrElse(
+                domainId,
+                (domainId, state.staticDomainParameters.protocolVersion),
+              )
+            val acsInspection = state.acsInspection
 
-          val ret = for {
-            result <- acsInspection.forEachVisibleActiveContract(
-              domainId,
-              parties,
-              timestamp,
-              skipCleanTimestampCheck = skipCleanTimestampCheck,
-            ) { case (contract, reassignmentCounter) =>
-              val activeContract =
-                ActiveContract.create(domainIdForExport, contract, reassignmentCounter)(
-                  protocolVersion
-                )
-
-              activeContract.writeDelimitedTo(outputStream) match {
-                case Left(errorMessage) =>
-                  Left(
-                    AcsInspectionError.SerializationIssue(
-                      domainId,
-                      contract.contractId,
-                      errorMessage,
+            val ret = for {
+              result <- acsInspection
+                .forEachVisibleActiveContract(
+                  domainId,
+                  parties,
+                  timestamp,
+                  skipCleanTimestampCheck = skipCleanTimestampCheck,
+                ) { case (contract, reassignmentCounter) =>
+                  val activeContract =
+                    ActiveContract.create(domainIdForExport, contract, reassignmentCounter)(
+                      protocolVersion
                     )
-                  )
-                case Right(_) =>
-                  outputStream.flush()
-                  Right(())
+
+                  activeContract.writeDelimitedTo(outputStream) match {
+                    case Left(errorMessage) =>
+                      Left(
+                        AcsInspectionError.SerializationIssue(
+                          domainId,
+                          contract.contractId,
+                          errorMessage,
+                        )
+                      )
+                    case Right(_) =>
+                      outputStream.flush()
+                      Right(())
+                  }
+                }
+                .mapK(FutureUnlessShutdown.outcomeK)
+
+              _ <- result match {
+                case Some((allStakeholders, snapshotTs)) if partiesOffboarding =>
+                  for {
+                    syncDomain <- EitherT.fromOption[FutureUnlessShutdown](
+                      connectedDomainsLookup.get(domainId),
+                      AcsInspectionError.OffboardingParty(
+                        domainId,
+                        s"Unable to get topology client for domain $domainId; check domain connectivity.",
+                      ),
+                    )
+
+                    _ <- acsInspection.checkOffboardingSnapshot(
+                      participantId,
+                      offboardedParties = parties,
+                      allStakeholders = allStakeholders,
+                      snapshotTs = snapshotTs,
+                      topologyClient = syncDomain.topologyClient,
+                    )
+                  } yield ()
+
+                // Snapshot is empty or partiesOffboarding is false
+                case _ => EitherTUtil.unitUS[AcsInspectionError]
               }
+
+            } yield ()
+            // re-enable journal cleaning after the dump
+            ret.thereafter { _ =>
+              journalCleaningControl.enable(domainId)
             }
-
-            _ <- result match {
-              case Some((allStakeholders, snapshotTs)) if partiesOffboarding =>
-                for {
-                  syncDomain <- EitherT.fromOption[Future](
-                    connectedDomainsLookup.get(domainId),
-                    AcsInspectionError.OffboardingParty(
-                      domainId,
-                      s"Unable to get topology client for domain $domainId; check domain connectivity.",
-                    ),
-                  )
-
-                  _ <- acsInspection.checkOffboardingSnapshot(
-                    participantId,
-                    offboardedParties = parties,
-                    allStakeholders = allStakeholders,
-                    snapshotTs = snapshotTs,
-                    topologyClient = syncDomain.topologyClient,
-                  )
-                } yield ()
-
-              // Snapshot is empty or partiesOffboarding is false
-              case _ => EitherTUtil.unit[AcsInspectionError]
-            }
-
-          } yield ()
-          // re-enable journal cleaning after the dump
-          ret.thereafter { _ =>
-            journalCleaningControl.enable(domainId)
-          }
-        case _ =>
-          EitherTUtil.unit
+          case _ =>
+            EitherTUtil.unitUS
+        }
       }
-    }
   }
 
   def contractCount(domain: DomainAlias)(implicit traceContext: TraceContext): Future[Int] = {

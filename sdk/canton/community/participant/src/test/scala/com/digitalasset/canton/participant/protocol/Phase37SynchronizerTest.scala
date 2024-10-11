@@ -174,17 +174,17 @@ class Phase37SynchronizerTest extends AnyWordSpec with BaseTest with HasExecutio
     val f1 =
       p37s.awaitConfirmed(requestType)(
         requestId1,
-        _ => Future.successful(false),
+        _ => FutureUnlessShutdown.pure(false),
       )
     val f2 =
       p37s.awaitConfirmed(requestType)(
         requestId1,
-        _ => Future.successful(false),
+        _ => FutureUnlessShutdown.pure(false),
       )
     val f3 =
       p37s.awaitConfirmed(requestType)(
         requestId1,
-        _ => Future.successful(false),
+        _ => FutureUnlessShutdown.pure(false),
       )
 
     assert(!f1.isCompleted)
@@ -205,17 +205,17 @@ class Phase37SynchronizerTest extends AnyWordSpec with BaseTest with HasExecutio
     val f1 =
       p37s.awaitConfirmed(requestType)(
         requestId1,
-        _ => Future.successful(true),
+        _ => FutureUnlessShutdown.pure(true),
       )
     val f2 =
       p37s.awaitConfirmed(requestType)(
         requestId1,
-        _ => Future.successful(false),
+        _ => FutureUnlessShutdown.pure(false),
       )
     val f3 =
       p37s.awaitConfirmed(requestType)(
         requestId1,
-        _ => Future.successful(true),
+        _ => FutureUnlessShutdown.pure(true),
       )
 
     assert(!f1.isCompleted)
@@ -227,7 +227,7 @@ class Phase37SynchronizerTest extends AnyWordSpec with BaseTest with HasExecutio
     val f4 = p37s
       .awaitConfirmed(requestType)(
         requestId1,
-        _ => Future.successful(true),
+        _ => FutureUnlessShutdown.pure(true),
       )
 
     f1.failOnShutdown.futureValue shouldBe RequestOutcome.Success(pendingRequestData)
@@ -248,13 +248,13 @@ class Phase37SynchronizerTest extends AnyWordSpec with BaseTest with HasExecutio
       )
 
     val f1 = p37s
-      .awaitConfirmed(requestType)(requestId1, _ => Future.successful(true))
+      .awaitConfirmed(requestType)(requestId1, _ => FutureUnlessShutdown.pure(true))
       .failOnShutdown
     val f2 = p37s
-      .awaitConfirmed(requestType)(requestId1, _ => Future.successful(false))
+      .awaitConfirmed(requestType)(requestId1, _ => FutureUnlessShutdown.pure(false))
       .failOnShutdown
     val f3 = p37s
-      .awaitConfirmed(requestType)(requestId1, _ => Future.successful(true))
+      .awaitConfirmed(requestType)(requestId1, _ => FutureUnlessShutdown.pure(true))
       .failOnShutdown
 
     f1.futureValue shouldBe RequestOutcome.Success(pendingRequestData0)
@@ -266,13 +266,13 @@ class Phase37SynchronizerTest extends AnyWordSpec with BaseTest with HasExecutio
         Some(pendingRequestData1)
       )
     val f4 = p37s
-      .awaitConfirmed(requestType)(requestId2, _ => Future.successful(false))
+      .awaitConfirmed(requestType)(requestId2, _ => FutureUnlessShutdown.pure(false))
       .failOnShutdown
     val f5 = p37s
-      .awaitConfirmed(requestType)(requestId2, _ => Future.successful(true))
+      .awaitConfirmed(requestType)(requestId2, _ => FutureUnlessShutdown.pure(true))
       .failOnShutdown
     val f6 = p37s
-      .awaitConfirmed(requestType)(requestId2, _ => Future.successful(false))
+      .awaitConfirmed(requestType)(requestId2, _ => FutureUnlessShutdown.pure(false))
       .failOnShutdown
 
     f4.futureValue shouldBe RequestOutcome.Invalid
@@ -322,34 +322,40 @@ class Phase37SynchronizerTest extends AnyWordSpec with BaseTest with HasExecutio
       .awaitConfirmed(requestType)(
         requestId1,
         _ => {
-          Future({
-            f1 = p37s
-              .awaitConfirmed(requestType)(
-                requestId1,
-                _ => {
-                  Future({
-                    f2 = p37s
-                      .awaitConfirmed(requestType)(
-                        requestId1,
-                        _ =>
-                          Future {
-                            f4 = p37s
-                              .awaitConfirmed(requestType)(
-                                requestId1,
-                                _ => Future.successful(true),
-                              )
-                              .failOnShutdown
-                            true
-                          },
-                      )
-                      .failOnShutdown
-                    false
-                  })
-                },
-              )
-              .failOnShutdown
-            false
-          })
+          FutureUnlessShutdown.outcomeF(
+            Future({
+              f1 = p37s
+                .awaitConfirmed(requestType)(
+                  requestId1,
+                  _ => {
+                    FutureUnlessShutdown.outcomeF(
+                      Future({
+                        f2 = p37s
+                          .awaitConfirmed(requestType)(
+                            requestId1,
+                            _ =>
+                              FutureUnlessShutdown.outcomeF(
+                                Future {
+                                  f4 = p37s
+                                    .awaitConfirmed(requestType)(
+                                      requestId1,
+                                      _ => FutureUnlessShutdown.pure(true),
+                                    )
+                                    .failOnShutdown
+                                  true
+                                }
+                              ),
+                          )
+                          .failOnShutdown
+                        false
+                      })
+                    )
+                  },
+                )
+                .failOnShutdown
+              false
+            })
+          )
         },
       )
       .failOnShutdown

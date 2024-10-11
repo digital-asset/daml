@@ -13,7 +13,7 @@ import com.digitalasset.canton.config.CantonRequireTypes.String68
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
-import com.digitalasset.canton.lifecycle.Lifecycle
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, Lifecycle}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.event.RecordTime
 import com.digitalasset.canton.participant.pruning.{
@@ -352,7 +352,7 @@ class DbAcsCommitmentStore(
     }
 
     markSafeQueue
-      .execute(
+      .executeUS(
         for {
           /*
           That could be wrong if a period is marked as outstanding between the point where we
@@ -363,12 +363,14 @@ class DbAcsCommitmentStore(
            */
           sortedReconciliationIntervals <-
             sortedReconciliationIntervalsProvider.approximateReconciliationIntervals
-          _ <- storage.queryAndUpdate(
-            dbQueries(sortedReconciliationIntervals).transactionally.withTransactionIsolation(
-              TransactionIsolation.Serializable
-            ),
-            operationName =
-              s"commitments: mark period safe (${period.fromExclusive}, ${period.toInclusive}]",
+          _ <- FutureUnlessShutdown.outcomeF(
+            storage.queryAndUpdate(
+              dbQueries(sortedReconciliationIntervals).transactionally.withTransactionIsolation(
+                TransactionIsolation.Serializable
+              ),
+              operationName =
+                s"commitments: mark period safe (${period.fromExclusive}, ${period.toInclusive}]",
+            )
           )
         } yield (),
         "Run mark period safe DB query",

@@ -17,15 +17,18 @@ option java_package = "com.daml.ledger.api.v2.admin";
 //
 // The authorization rules for its RPCs are specified on the ``<RpcName>Request``
 // messages as boolean expressions over these facts:
-// (1) ``HasRight(r)`` denoting whether the authenticated user has right ``r`` and
-// (2) ``IsAuthenticatedIdentityProviderAdmin(idp)`` denoting whether ``idp`` is equal to the ``identity_provider_id``
-// of the authenticated user and the user has an IdentityProviderAdmin right.
+//
+// 1. ``HasRight(r)`` denoting whether the authenticated user has right ``r`` and
+// 2. ``IsAuthenticatedIdentityProviderAdmin(idp)`` denoting whether ``idp`` is equal to the ``identity_provider_id``
+//    of the authenticated user and the user has an IdentityProviderAdmin right.
+//
 // If `identity_provider_id` is set to an empty string, then it's effectively set to the value of access token's 'iss' field if that is provided.
 // If `identity_provider_id` remains an empty string, the default identity provider will be assumed.
 //
 // The fields of request messages (and sub-messages) are marked either as ``Optional`` or ``Required``:
-// (1) ``Optional`` denoting the client may leave the field unset when sending a request.
-// (2) ``Required`` denoting the client must set the field to a non-default value when sending a request.
+//
+// 1. ``Optional`` denoting the client may leave the field unset when sending a request.
+// 2. ``Required`` denoting the client must set the field to a non-default value when sending a request.
 //
 // A party details resource is described by the ``PartyDetails`` message,
 // A party details resource, once it has been created, can be modified using the ``UpdatePartyDetails`` RPC.
@@ -51,9 +54,11 @@ service PartyManagementService {
   // allocated might be different and is implementation specific.
   // Caller can specify party metadata that is stored locally on the participant.
   // This call may:
+  //
   // - Succeed, in which case the actual allocated identifier is visible in
   //   the response.
   // - Respond with a gRPC error
+  //
   // daml-on-kv-ledger: suggestion's uniqueness is checked by the validators in
   // the consensus layer and call rejected if the identifier is already present.
   // canton: completely different globally unique identifier is allocated.
@@ -169,13 +174,17 @@ message UpdatePartyDetailsRequest {
   // An update mask consists of a set of update paths.
   // A valid update path points to a field or a subfield relative to the ``PartyDetails`` message.
   // A valid update mask must:
-  // (1) contain at least one update path,
-  // (2) contain only valid update paths.
+  //
+  // 1. contain at least one update path,
+  // 2. contain only valid update paths.
+  //
   // Fields that can be updated are marked as ``Modifiable``.
   // An update path can also point to non-``Modifiable`` fields such as 'party' and 'local_metadata.resource_version'
   // because they are used:
-  // (1) to identify the party details resource subject to the update,
-  // (2) for concurrent change control.
+  //
+  // 1. to identify the party details resource subject to the update,
+  // 2. for concurrent change control.
+  //
   // An update path can also point to non-``Modifiable`` fields such as 'is_local' and 'display_name'
   // as long as the values provided in the update request match the server values.
   // Examples of update paths: 'local_metadata.annotations', 'local_metadata'.
@@ -213,9 +222,10 @@ message PartyDetails {
 
   // The id of the ``Identity Provider``
   // Optional, if not set, there could be 3 options:
-  // 1) the party is managed by the default identity provider.
-  // 2) party is not hosted by the participant.
-  // 3) party is hosted by the participant, but is outside of the user's identity provider.
+  //
+  // 1. the party is managed by the default identity provider.
+  // 2. party is not hosted by the participant.
+  // 3. party is hosted by the participant, but is outside of the user's identity provider.
   string identity_provider_id = 5;
 }
 

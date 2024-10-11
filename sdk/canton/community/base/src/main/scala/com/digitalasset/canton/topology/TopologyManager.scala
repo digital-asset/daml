@@ -29,6 +29,7 @@ import com.digitalasset.canton.topology.processing.{
   TopologyManagerSigningKeyDetection,
 }
 import com.digitalasset.canton.topology.store.TopologyStoreId.{AuthorizedStore, DomainStore}
+import com.digitalasset.canton.topology.store.ValidatedTopologyTransaction.GenericValidatedTopologyTransaction
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
@@ -87,6 +88,23 @@ class DomainTopologyManager(
   // the head state. We need to take all previously sequenced transactions into account, because
   // we don't know when the submitted transaction actually gets sequenced.
   override def timestampForValidation(): CantonTimestamp = CantonTimestamp.MaxValue
+
+  override protected def validateTransactions(
+      transactions: Seq[GenericSignedTopologyTransaction],
+      expectFullAuthorization: Boolean,
+  )(implicit
+      traceContext: TraceContext
+  ): Future[Seq[(Seq[GenericValidatedTopologyTransaction], CantonTimestamp)]] = {
+    val ts = timestampForValidation()
+    processor
+      .validateAndApplyAuthorization(
+        SequencedTime(ts),
+        EffectiveTime(ts),
+        transactions,
+        expectFullAuthorization,
+      )
+      .map(txs => Seq(txs -> ts))
+  }
 }
 
 class AuthorizedTopologyManager(
@@ -122,6 +140,27 @@ class AuthorizedTopologyManager(
   // for the authorized store, we take the next unique timestamp, because transactions
   // are directly persisted into the store.
   override def timestampForValidation(): CantonTimestamp = clock.uniqueTime()
+
+  // In the authorized store, we validate transactions individually to allow them to be dispatched correctly regardless
+  // of the batch size configured in the outbox
+  override protected def validateTransactions(
+      transactions: Seq[GenericSignedTopologyTransaction],
+      expectFullAuthorization: Boolean,
+  )(implicit
+      traceContext: TraceContext
+  ): Future[Seq[(Seq[GenericValidatedTopologyTransaction], CantonTimestamp)]] =
+    MonadUtil
+      .sequentialTraverse(transactions) { transaction =>
+        val ts = timestampForValidation()
+        processor
+          .validateAndApplyAuthorization(
+            SequencedTime(ts),
+            EffectiveTime(ts),
+            Seq(transaction),
+            expectFullAuthorization,
+          )
+          .map(_ -> ts)
+      }
 }
 
 abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: CryptoPureApi](
@@ -480,6 +519,13 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
         )
     } yield result
 
+  protected def validateTransactions(
+      transactions: Seq[GenericSignedTopologyTransaction],
+      expectFullAuthorization: Boolean,
+  )(implicit
+      traceContext: TraceContext
+  ): Future[Seq[(Seq[GenericValidatedTopologyTransaction], CantonTimestamp)]]
+
   /** sequential(!) adding of topology transactions
     *
     * @param forceChanges force a dangerous change (such as revoking the last key)
@@ -492,76 +538,74 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] =
     sequentialQueue.executeEUS(
-      {
-        val ts = timestampForValidation()
-        for {
-          _ <- MonadUtil.sequentialTraverse_(transactions)(
-            transactionIsNotDangerous(_, forceChanges)
-          )
+      for {
+        _ <- MonadUtil.sequentialTraverse_(transactions)(
+          transactionIsNotDangerous(_, forceChanges)
+        )
 
-          transactionsInStore <- EitherT
-            .liftF(
-              store.findTransactionsAndProposalsByTxHash(
-                EffectiveTime.MaxValue,
-                transactions.map(_.hash).toSet,
-              )
+        transactionsInStore <- EitherT
+          .liftF(
+            store.findTransactionsAndProposalsByTxHash(
+              EffectiveTime.MaxValue,
+              transactions.map(_.hash).toSet,
             )
-            .mapK(FutureUnlessShutdown.outcomeK)
-          existingHashes = transactionsInStore
-            .map(tx => tx.hash -> tx.hashOfSignatures)
-            .toMap
-          (existingTransactions, newTransactionsOrAdditionalSignatures) = transactions.partition(
-            tx => existingHashes.get(tx.hash).contains(tx.hashOfSignatures)
           )
-          _ = logger.debug(
-            s"Processing ${newTransactionsOrAdditionalSignatures.size}/${transactions.size} non-duplicate transactions"
+          .mapK(FutureUnlessShutdown.outcomeK)
+        existingHashes = transactionsInStore
+          .map(tx => tx.hash -> tx.hashOfSignatures)
+          .toMap
+        (existingTransactions, newTransactionsOrAdditionalSignatures) = transactions.partition(tx =>
+          existingHashes.get(tx.hash).contains(tx.hashOfSignatures)
+        )
+        _ = logger.debug(
+          s"Processing ${newTransactionsOrAdditionalSignatures.size}/${transactions.size} non-duplicate transactions"
+        )
+        _ = if (existingTransactions.nonEmpty) {
+          logger.debug(
+            s"Ignoring existing transactions: $existingTransactions"
           )
-          _ = if (existingTransactions.nonEmpty) {
-            logger.debug(
-              s"Ignoring existing transactions: $existingTransactions"
-            )
-          }
+        }
 
-          _ <-
-            if (newTransactionsOrAdditionalSignatures.isEmpty)
-              EitherT.pure[FutureUnlessShutdown, TopologyManagerError](())
-            else {
-              // validate incrementally and apply to in-memory state
-              EitherT
-                .right[TopologyManagerError](
-                  processor
-                    .validateAndApplyAuthorization(
-                      SequencedTime(ts),
-                      EffectiveTime(ts),
-                      newTransactionsOrAdditionalSignatures,
-                      expectFullAuthorization,
-                    )
+        _ <-
+          if (newTransactionsOrAdditionalSignatures.isEmpty)
+            EitherT.pure[FutureUnlessShutdown, TopologyManagerError](())
+          else {
+            // validate incrementally and apply to in-memory state
+            EitherT
+              .right[TopologyManagerError](
+                validateTransactions(
+                  newTransactionsOrAdditionalSignatures,
+                  expectFullAuthorization,
                 )
-                .flatMap { validatedTransactions =>
-                  // a "duplicate rejection" is not a reason to report an error as it's just a no-op
-                  val nonDuplicateRejectionReasons =
-                    validatedTransactions.flatMap(_.nonDuplicateRejectionReason)
-                  val firstError =
-                    nonDuplicateRejectionReasons.headOption.map(_.toTopologyManagerError)
-                  EitherT(
-                    // if the only rejections where duplicates (i.e. headOption returns None),
-                    // we filter them out and proceed with all other validated transactions, because the
-                    // TopologyStateProcessor will have treated them as such as well.
-                    // this is similar to how duplicate transactions are not considered failures in processor.validateAndApplyAuthorization
-                    firstError
-                      .toLeft(validatedTransactions.filter(tx => tx.rejectionReason.isEmpty))
-                      .traverse { transactionsWithoutErrors =>
-                        // notify observers about the transactions
-                        notifyObservers(ts, transactionsWithoutErrors.map(_.transaction))
-                      }
-                  )
-                }
-                .mapK(FutureUnlessShutdown.outcomeK)
-            }
-        } yield ()
-      },
+              )
+              .flatMap(filterDuplicatesAndNotify)
+              .mapK(FutureUnlessShutdown.outcomeK)
+          }
+      } yield (),
       "add-topology-transaction",
     )
+
+  private def filterDuplicatesAndNotify(
+      validatedTxWithTimestamps: Seq[(Seq[GenericValidatedTopologyTransaction], CantonTimestamp)]
+  )(implicit traceContext: TraceContext) = {
+    val nonDuplicateRejectionReasons =
+      validatedTxWithTimestamps.flatMap(_._1.flatMap(_.nonDuplicateRejectionReason))
+    val firstError = nonDuplicateRejectionReasons.headOption.map(_.toTopologyManagerError)
+    EitherT(
+      // if the only rejections where duplicates (i.e. headOption returns None),
+      // we filter them out and proceed with all other validated transactions, because the
+      // TopologyStateProcessor will have treated them as such as well.
+      // this is similar to how duplicate transactions are not considered failures in processor.validateAndApplyAuthorization
+      firstError
+        .toLeft(validatedTxWithTimestamps)
+        .traverse { transactionsList =>
+          // notify observers about the transactions
+          MonadUtil.sequentialTraverse(transactionsList) { case (transactions, ts) =>
+            notifyObservers(ts, transactions.filter(_.rejectionReason.isEmpty).map(_.transaction))
+          }
+        }
+    )
+  }
 
   private def transactionIsNotDangerous(
       transaction: SignedTopologyTransaction[TopologyChangeOp, TopologyMapping],

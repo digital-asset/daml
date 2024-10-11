@@ -4,7 +4,9 @@
 package com.digitalasset.canton.networking.grpc
 
 import com.daml.nonempty.NonEmpty
+import com.daml.tls.TlsVersion.TlsVersion
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.config.TlsServerConfig.logTlsProtocolsAndCipherSuites
 import com.digitalasset.canton.config.{ClientConfig, KeepAliveClientConfig, TlsClientConfig}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -15,10 +17,11 @@ import com.digitalasset.canton.util.ResourceUtil.withResource
 import com.google.protobuf.ByteString
 import io.grpc.ManagedChannel
 import io.grpc.netty.{GrpcSslContexts, NettyChannelBuilder}
-import io.netty.handler.ssl.SslContext
+import io.netty.handler.ssl.{SslContext, SslContextBuilder}
 
 import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.{Executor, TimeUnit}
+import scala.jdk.CollectionConverters.*
 
 /** Construct a GRPC channel to be used by a client within canton. */
 trait ClientChannelBuilder {
@@ -114,7 +117,7 @@ object ClientChannelBuilder {
   private[canton] def setFactory(factory: ClientChannelBuilderFactory): Unit =
     factoryRef.set(factory)
 
-  def sslContext(tls: TlsClientConfig): SslContext = {
+  private def sslContextBuilder(tls: TlsClientConfig): SslContextBuilder = {
     val builder = GrpcSslContexts
       .forClient()
     val trustBuilder = tls.trustCollectionFile.fold(builder)(trustCollection =>
@@ -122,8 +125,25 @@ object ClientChannelBuilder {
     )
     tls.clientCert
       .fold(trustBuilder)(cc => trustBuilder.keyManager(cc.certChainFile, cc.privateKeyFile))
-      .build()
   }
+
+  def sslContext(
+      tls: TlsClientConfig,
+      logTlsProtocolAndCipherSuites: Boolean = false,
+  ): SslContext = {
+    val sslContext = sslContextBuilder(tls).build()
+    if (logTlsProtocolAndCipherSuites)
+      logTlsProtocolsAndCipherSuites(sslContext, isServer = false)
+    sslContext
+  }
+
+  def sslContext(
+      tls: TlsClientConfig,
+      enabledProtocols: Seq[TlsVersion],
+  ): SslContext =
+    sslContextBuilder(tls)
+      .protocols(enabledProtocols.map(_.version).asJava)
+      .build()
 
   def configureKeepAlive(
       keepAlive: Option[KeepAliveClientConfig],
