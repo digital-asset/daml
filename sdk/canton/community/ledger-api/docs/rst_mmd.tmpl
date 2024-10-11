@@ -36,7 +36,11 @@ Message has no fields.
 {{else -}}
 {{range $message.Fields}}{{$field := . -}}
 
+{{if $field.IsOneof -}}
+.. _{{$message.FullName}}.{{$field.OneofDecl}}.{{$field.Name}}:
+{{- else -}}
 .. _{{$message.FullName}}.{{$field.Name}}:
+{{- end}}
 
 ``{{if $field.IsOneof -}}oneof {{$field.OneofDecl}}.{{end -}}
 {{$field.Name}}`` : :ref:`{{$field.LongType}} <{{$field.FullType}}>`

@@ -164,21 +164,39 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
           protocolVersionRepresentativeFor(protocolVersion)
         )
 
-      case exe: LfNodeExercises =>
+      case LfNodeExercises(
+            inputContract,
+            _packageName,
+            templateId,
+            interfaceId,
+            choice,
+            _consuming,
+            actors,
+            chosenValue,
+            _stakeholders,
+            _signatories,
+            _choiceObservers,
+            _choiceAuthorizers,
+            _children,
+            exerciseResult,
+            _key,
+            byKey,
+            version,
+          ) =>
         for {
           seed <- seedO.toRight(InvalidActionDescription("No seed for an Exercise node given"))
           actionDescription <- ExerciseActionDescription.create(
-            exe.targetCoid,
-            Option.when(protocolVersion >= ProtocolVersion.v5)(exe.templateId),
-            exe.choiceId,
-            exe.interfaceId,
+            inputContract,
+            Option.when(protocolVersion >= ProtocolVersion.v5)(templateId),
+            choice,
+            interfaceId,
             packagePreference,
-            exe.chosenValue,
-            exe.actingParties,
-            exe.byKey,
+            chosenValue,
+            actors,
+            byKey,
             seed,
-            exe.version,
-            failed = exe.exerciseResult.isEmpty, // absence of exercise result indicates failure
+            version,
+            failed = exerciseResult.isEmpty, // absence of exercise result indicates failure
             protocolVersionRepresentativeFor(protocolVersion),
           )
         } yield actionDescription
