@@ -18,6 +18,7 @@ module DA.Daml.Helper.Util
   , damlSdkJarFolder
   , withJar
   , runJar
+  , runDamlc
   , runCantonSandbox
   , withCantonSandbox
   , withCantonPortFile
@@ -169,6 +170,12 @@ runJar :: FilePath -> Maybe FilePath -> [String] -> IO ()
 runJar jarPath mbLogbackPath remainingArgs = do
     mbLogbackArg <- traverse getLogbackArg mbLogbackPath
     withJar jarPath (toList mbLogbackArg) remainingArgs (const $ pure ())
+
+runDamlc :: [String] -> IO ()
+runDamlc args = do
+    sdkPath <- getSdkPath
+    let absDamlcPath = sdkPath </> "damlc/damlc"
+    withProcessWait_' (proc absDamlcPath args) (const $ pure ())
 
 getLogbackArg :: FilePath -> IO String
 getLogbackArg relPath = do
