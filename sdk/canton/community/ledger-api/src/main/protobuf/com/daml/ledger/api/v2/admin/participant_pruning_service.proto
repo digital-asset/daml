@@ -26,12 +26,12 @@ service ParticipantPruningService {
 }
 
 message PruneRequest {
-  // Inclusive offset up to which the ledger is to be pruned.
+  // Inclusive valid absolute offset (positive integer) up to which the ledger is to be pruned.
   // By default the following data is pruned:
   //   1. All normal and divulged contracts that have been archived before
   //   `prune_up_to`.
   //   2. All transaction events and completions before `prune_up_to`
-  string prune_up_to = 1;
+  int64 prune_up_to = 1;
 
   // Unique submission identifier.
   // Optional, defaults to a random identifier, used for logging.

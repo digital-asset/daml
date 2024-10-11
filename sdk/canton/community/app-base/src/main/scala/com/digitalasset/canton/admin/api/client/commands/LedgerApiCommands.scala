@@ -437,7 +437,7 @@ object LedgerApiCommands {
       override def createRequest(): Either[String, PruneRequest] =
         Right(
           PruneRequest(
-            pruneUpTo,
+            ApiOffset.assertFromString(pruneUpTo).toLong,
             // canton always prunes divulged contracts both in the ledger api index-db and in canton stores
             pruneAllDivulgedContracts = true,
           )
