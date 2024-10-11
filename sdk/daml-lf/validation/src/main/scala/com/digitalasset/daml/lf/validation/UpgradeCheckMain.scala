@@ -46,7 +46,7 @@ object UpgradeCheckMain {
 
     val (failures, dars) = args.partitionMap(decodeDar(_))
     if (failures.nonEmpty) {
-      failures.foreach((e: CouldNotReadDar) => println(e.message))
+      failures.foreach((e: CouldNotReadDar) => logger.error(e.message))
       sys.exit(1)
     } else {
       val archives = for { dar <- dars; archive <- dar.all.toSeq } yield {
@@ -57,10 +57,10 @@ object UpgradeCheckMain {
       val validation = validator.validateUpgrade(archives.toList)
       Await.result(validation.value, Duration.Inf) match {
         case Left(err: Validation.Upgradeability.Error) =>
-          println(s"Error while checking two DARs:\n${err.upgradeError.prettyInternal}")
+          logger.error(s"Error while checking two DARs:\n${err.upgradeError.prettyInternal}")
           sys.exit(1)
         case Left(err) =>
-          println(s"Error while checking two DARs:\n${err.cause}")
+          logger.error(s"Error while checking two DARs:\n${err.cause}")
           sys.exit(1)
         case Right(()) => ()
       }
