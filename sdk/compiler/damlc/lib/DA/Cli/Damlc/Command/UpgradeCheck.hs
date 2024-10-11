@@ -6,6 +6,7 @@
 {-# LANGUAGE RankNTypes #-}
 module DA.Cli.Damlc.Command.UpgradeCheck (runUpgradeCheck) where
 
+import System.Exit
 import DA.Pretty
 import DA.Daml.Options.Types
 import Control.Monad (guard, when)
@@ -185,7 +186,9 @@ runUpgradeCheck rawPaths = do
           go (x:xs) = Just (x, xs)
     mapM_ checkPackageAgainstPastPackages sortedPackagesWithPastPackages
   case errsOrUnit of
-    Left errs -> putStrLn (renderPretty (CheckingErrors errs))
+    Left errs -> do
+      putStrLn (renderPretty (CheckingErrors errs))
+      exitFailure
     Right () -> pure ()
 
 
