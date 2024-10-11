@@ -1,8 +1,13 @@
+{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE RankNTypes #-}
 module DA.Cli.Damlc.Command.CheckUpgrades where
 
+import Control.Lens
 import DA.Pretty
 import DA.Daml.Options.Types
-import Control.Monad (forM_, guard)
+import Control.Monad (forM_, guard, when)
 import Development.IDE.Types.Location (NormalizedFilePath, fromNormalizedFilePath, toNormalizedFilePath')
 import DA.Daml.Compiler.ExtractDar (extractDar,ExtractedDar(..))
 import qualified Data.ByteString.Lazy as BSL
@@ -10,7 +15,6 @@ import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import qualified DA.Daml.LF.Proto3.Archive as Archive
 import qualified DA.Daml.LF.Ast as LF
 import Control.Exception
-import Data.Either.Extra (mapLeft, fromRight', lefts, rights)
 import DA.Daml.LF.Ast.Util
 import DA.Daml.LF.Ast.Version as LFV
 import DA.Daml.LF.TypeChecker.Upgrade as Upgrade
@@ -19,26 +23,31 @@ import Data.Maybe (mapMaybe)
 import Safe (maximumByMay, minimumByMay)
 import Data.Function (on)
 import Development.IDE.Types.Diagnostics (Diagnostic, showDiagnostics, ShowDiagnostic(..))
+import Control.Monad.Trans.Except
 
-data DecodingError
-  = DECantReadDar NormalizedFilePath String
-  | DECantReadDalf NormalizedFilePath FilePath Archive.ArchiveError
+type Archive = (NormalizedFilePath, UpgradedPkgWithNameAndVersion, [UpgradedPkgWithNameAndVersion])
+type CheckM = ExceptT [CheckingError] IO
+
+newtype CheckingErrors = CheckingErrors [CheckingError]
   deriving (Show, Eq)
 
-instance Pretty DecodingError where
-  pPrint (DECantReadDar darPath err) = "Error reading DAR at path " <> string (fromNormalizedFilePath darPath) <> ": " <> string err
-  pPrint (DECantReadDalf darPath dalfPath err) =
-    vcat
-      [ "Error reading DALF " <> string dalfPath <> " inside DAR " <> string (fromNormalizedFilePath darPath) <> ":"
-      , pPrint err
-      ]
+instance Pretty CheckingErrors where
+  pPrint (CheckingErrors errs) = vcat $ map pPrint errs
 
 data CheckingError
-  = CEDependencyCycle [(LF.PackageId, LF.PackageName, Maybe LF.PackageVersion)]
+  = CECantReadDar NormalizedFilePath String
+  | CECantReadDalf NormalizedFilePath FilePath Archive.ArchiveError
+  | CEDependencyCycle [(LF.PackageId, LF.PackageName, Maybe LF.PackageVersion)]
   | CEDiagnostic NormalizedFilePath [Diagnostic]
   deriving (Show, Eq)
 
 instance Pretty CheckingError where
+  pPrint (CECantReadDar darPath err) = "Error reading DAR at path " <> string (fromNormalizedFilePath darPath) <> ": " <> string err
+  pPrint (CECantReadDalf darPath dalfPath err) =
+    vcat
+      [ "Error reading DALF " <> string dalfPath <> " inside DAR " <> string (fromNormalizedFilePath darPath) <> ":"
+      , pPrint err
+      ]
   pPrint (CEDependencyCycle deps) =
     vcat
       [ "Supplied packages form a dependency cycle:"
@@ -57,75 +66,119 @@ instance Pretty CheckingError where
       , text (showDiagnostics (map (path, ShowDiag,) errs))
       ]
 
-printErr :: Pretty a => a -> IO ()
-printErr = putStrLn . renderPretty
+newtype CollectErrs m e a = CollectErrs { runCollectErrs :: m (Either e a) }
+
+instance (Functor m) => Functor (CollectErrs m e) where
+  fmap f (CollectErrs mea) = CollectErrs ((fmap . fmap) f mea)
+
+instance (Applicative m, Monoid e) => Applicative (CollectErrs m e) where
+  pure = CollectErrs . pure . Right
+  (<*>) :: forall m e a b. (Applicative m, Monoid e) => CollectErrs m e (a -> b) -> CollectErrs m e a -> CollectErrs m e b
+  (<*>) (CollectErrs mf) (CollectErrs ma) = CollectErrs (go <$> mf <*> ma)
+    where
+      go :: Either e (a -> b) -> Either e a -> Either e b
+      go f a =
+        case (f, a) of
+          (Left fErrs, Left aErrs) -> Left (fErrs <> aErrs)
+          (Left fErrs, _) -> Left fErrs
+          (_, Left aErrs) -> Left aErrs
+          (Right f, Right a) -> Right (f a)
+
+fromCollect :: CollectErrs IO [CheckingError] a -> CheckM a
+fromCollect = ExceptT . runCollectErrs
+
+toCollect :: CheckM a -> CollectErrs IO [CheckingError] a
+toCollect = CollectErrs . runExceptT
+
+decodeEntryWithUnitId
+  :: NormalizedFilePath -> Archive.DecodingMode -> ZipArchive.Entry
+  -> CheckM UpgradedPkgWithNameAndVersion
+decodeEntryWithUnitId darPath decodeAs entry =
+  fromEither (CECantReadDalf darPath (ZipArchive.eRelativePath entry)) $ do
+      let bs = BSL.toStrict $ ZipArchive.fromEntry entry
+      (pkgId, pkg) <- Archive.decodeArchive decodeAs bs
+      let (pkgName, mbPkgVersion) = LF.safePackageMetadata pkg
+      pure (pkgId, pkg, pkgName, mbPkgVersion)
+
+readPathToArchive
+  :: NormalizedFilePath
+  -> CheckM Archive
+readPathToArchive path = do
+  ExtractedDar{edMain,edDalfs} <-
+    catchIOException
+      (CECantReadDar path . displayException)
+      (extractDar (fromNormalizedFilePath path))
+  let errMain = decodeEntryWithUnitId path Archive.DecodeAsMain edMain
+      errDalfs = map (decodeEntryWithUnitId path Archive.DecodeAsDependency) edDalfs
+  (main, dalfs) <- fromCollect $ beside id traverse toCollect (errMain, errDalfs)
+  pure (path, main, dalfs)
+    where
+      catchIOException :: (IOException -> CheckingError) -> IO a -> CheckM a
+      catchIOException mkErr io = withExceptT (pure . mkErr) $ ExceptT $ try io
+
+fromEither :: (e -> CheckingError) -> Either e a -> CheckM a
+fromEither mkErr act = withExceptT (pure . mkErr) $ ExceptT $ pure act
+
+topoSortPackagesM :: [Archive] -> CheckM [Archive]
+topoSortPackagesM packages =
+  fmap (map withoutIdAndPkg) $ fromEither mkErr $ topoSortPackages (map withIdAndPkg packages)
+    where
+      cyclePkgToDep (_, (pkgId, _, name, mbVersion), _) = (pkgId, name, mbVersion)
+      mkErr cyclePkgs =
+        CEDependencyCycle (map (cyclePkgToDep . withoutIdAndPkg) cyclePkgs)
+      withIdAndPkg x@(_path, (pkgId, pkg, _name, _version), _deps) = (pkgId, x, pkg)
+      withoutIdAndPkg (_pkgId, x, _pkg) = x
+
+checkPackageAgainstPastPackages :: (Archive, [Archive]) -> CheckM ()
+checkPackageAgainstPastPackages ((path, main, deps), pastPackages) = do
+  let (_mainId, mainPkg, mainName, mbVersion) = main
+  case splitPackageVersion id <$> mbVersion of
+    Nothing -> pure ()
+    Just (Left _) -> pure ()
+    Just (Right rawVersion) -> do
+      let pastPackageFilterVersion pred = flip mapMaybe pastPackages $ \case
+            (_, x@(_, pastPackage, name, mbVersion), y) -> do
+              guard (not (isUtilityPackage pastPackage))
+              guard (name == mainName)
+              case splitPackageVersion id <$> mbVersion of
+                Just (Right rawVersion) -> do
+                  guard (pred rawVersion)
+                  pure (rawVersion, (x, y))
+                _ -> Nothing
+      let ordFst = compare `on` fst
+      let pastPackageWithLowerVersion =
+            fmap snd $ maximumByMay ordFst $ pastPackageFilterVersion (\v -> v < rawVersion)
+      let pastPackageWithHigherVersion =
+            fmap snd $ minimumByMay ordFst $ pastPackageFilterVersion (\v -> v > rawVersion)
+      let checkAgainst pkg =
+            let errs =
+                  Upgrade.checkPackage
+                    mainPkg deps
+                    LFV.version2_dev
+                    (UpgradeInfo (Just (fromNormalizedFilePath path)) True True)
+                    (Just pkg)
+            in
+            when (not (null errs)) (throwE [CEDiagnostic path errs])
+      case pastPackageWithLowerVersion of
+        Just lower -> checkAgainst lower
+        Nothing -> pure ()
+      case pastPackageWithHigherVersion of
+        Just higher -> checkAgainst higher
+        Nothing -> pure ()
 
 runCheckUpgrades :: [String] -> IO ()
 runCheckUpgrades rawPaths = do
   let paths = map toNormalizedFilePath' rawPaths
-  let decodeEntryWithUnitId darPath decodeAs entry =
-        mapLeft (DECantReadDalf darPath (ZipArchive.eRelativePath entry)) $ do
-            let bs = BSL.toStrict $ ZipArchive.fromEntry entry
-            (pkgId, pkg) <- Archive.decodeArchive decodeAs bs
-            let (pkgName, mbPkgVersion) = LF.safePackageMetadata pkg
-            pure (pkgId, pkg, pkgName, mbPkgVersion)
-  let readPathToArchive :: NormalizedFilePath -> IO (Either [DecodingError]
-            (NormalizedFilePath, (LF.PackageId, LF.Package, LF.PackageName, Maybe LF.PackageVersion),
-             [(LF.PackageId, LF.Package, LF.PackageName, Maybe LF.PackageVersion)]))
-      readPathToArchive path = do
-        errExtractedDar <- try @IOException $ extractDar (fromNormalizedFilePath path)
-        pure $ case errExtractedDar of
-          Right (ExtractedDar{edMain,edDalfs}) ->
-            let errMain = decodeEntryWithUnitId path Archive.DecodeAsMain edMain
-                errDalfs = map (decodeEntryWithUnitId path Archive.DecodeAsDependency) edDalfs
-                errs = lefts (errMain : errDalfs)
-            in
-            if not (null errs)
-            then Left errs
-            else Right (path, fromRight' errMain, map fromRight' errDalfs)
-          Left err -> Left [DECantReadDar path (displayException err)]
-  errDars <- traverse readPathToArchive paths
-  let errDarsErrs = lefts errDars
-  if not (null errDarsErrs)
-    then mapM_ printErr errDarsErrs
-    else do
-      let packages = rights errDars
-      let withIdAndPkg x@(_path, (pkgId, pkg, _name, _version), _deps) = (pkgId, x, pkg)
-          withoutIdAndPkg (_pkgId, x, _pkg) = x
-      case topoSortPackages (map withIdAndPkg packages) of
-        Left cyclePkgs -> do
-          let cyclePkgToDep (_, (pkgId, _, name, mbVersion), _) = (pkgId, name, mbVersion)
-          printErr (CEDependencyCycle (map (cyclePkgToDep . withoutIdAndPkg) cyclePkgs))
-        Right sortedWithPkgIdAndPkg -> do
-          let sortedPackages = map withoutIdAndPkg sortedWithPkgIdAndPkg
-          let sortedPackagesWithPastPackages = mapMaybe go (reverse (tails (reverse sortedPackages)))
-                where
-                go [] = Nothing
-                go (x:xs) = Just (x, xs)
-          forM_ sortedPackagesWithPastPackages $ \((path, main, deps), pastPackages) -> do
-            let (_mainId, mainPkg, mainName, mbVersion) = main
-            case splitPackageVersion id <$> mbVersion of
-              Nothing -> pure ()
-              Just (Left _) -> pure ()
-              Just (Right rawVersion) -> do
-                let pastPackageFilterVersion pred = flip mapMaybe pastPackages $ \case
-                      (_, x@(_, pastPackage, name, mbVersion), y) -> do
-                        guard (not (isUtilityPackage pastPackage))
-                        guard (name == mainName)
-                        case splitPackageVersion id <$> mbVersion of
-                          Just (Right rawVersion) -> do
-                            guard (pred rawVersion)
-                            pure (rawVersion, (x, y))
-                          _ -> Nothing
-                let ordFst = compare `on` fst
-                let pastPackageWithLowerVersion = fmap snd $ maximumByMay ordFst $ pastPackageFilterVersion (\v -> v < rawVersion)
-                let pastPackageWithHigherVersion = fmap snd $ minimumByMay ordFst $ pastPackageFilterVersion (\v -> v > rawVersion)
-                case pastPackageWithLowerVersion of
-                  Just past ->
-                    printErr $ CEDiagnostic path $ Upgrade.checkPackage mainPkg deps LFV.version2_dev (UpgradeInfo (Just (fromNormalizedFilePath path)) True True) (Just past)
-                  Nothing -> pure ()
-                case pastPackageWithHigherVersion of
-                  Just past ->
-                    printErr $ CEDiagnostic path $ Upgrade.checkPackage mainPkg deps LFV.version2_dev (UpgradeInfo (Just (fromNormalizedFilePath path)) True True) (Just past)
-                  Nothing -> pure ()
-          pure ()
+  errsOrUnit <- runExceptT $ do
+    packages <- fromCollect $ traverse (toCollect . readPathToArchive) paths
+    sortedPackages <- topoSortPackagesM packages
+    let sortedPackagesWithPastPackages = mapMaybe go (reverse (tails (reverse sortedPackages)))
+          where
+          go [] = Nothing
+          go (x:xs) = Just (x, xs)
+    forM_ sortedPackagesWithPastPackages checkPackageAgainstPastPackages
+    pure ()
+  case errsOrUnit of
+    Left errs -> putStrLn (renderPretty (CheckingErrors errs))
+    Right () -> pure ()
+
