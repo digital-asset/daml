@@ -7,7 +7,6 @@ import com.digitalasset.canton.http.json.v2.damldefinitionsservice.DamlDefinitio
 import com.digitalasset.canton.http.json.v2.damldefinitionsservice.Schema.{AllTemplatesResponse, TemplateDefinition, TypeSig}
 import com.digitalasset.canton.http.json.v2.damldefinitionsservice.Schema.Codecs.*
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import sttp.tapir.generic.auto.*
 import sttp.tapir.path
 
 import scala.concurrent.Future

@@ -14,7 +14,7 @@ object DbDto {
 
   final case class EventCreate(
       event_offset: String,
-      transaction_id: String,
+      update_id: String,
       ledger_effective_time: Long,
       command_id: Option[String],
       workflow_id: Option[String],
@@ -210,7 +210,7 @@ object DbDto {
   ) extends DbDto
 
   final case class TransactionMeta(
-      transaction_id: String,
+      update_id: String,
       event_offset: String,
       publication_time: Long,
       record_time: Long,

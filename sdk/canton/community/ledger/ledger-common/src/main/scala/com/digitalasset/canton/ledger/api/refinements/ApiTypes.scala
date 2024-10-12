@@ -8,9 +8,9 @@ import scalaz.{@@, Tag}
 
 object ApiTypes {
 
-  sealed trait TransactionIdTag
-  type TransactionId = String @@ TransactionIdTag
-  val TransactionId = Tag.of[TransactionIdTag]
+  sealed trait UpdateIdTag
+  type UpdateId = String @@ UpdateIdTag
+  val UpdateId = Tag.of[UpdateIdTag]
 
   sealed trait CommandIdTag
   type CommandId = String @@ CommandIdTag

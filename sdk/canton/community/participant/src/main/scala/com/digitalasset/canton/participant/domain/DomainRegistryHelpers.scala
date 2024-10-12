@@ -5,7 +5,6 @@ package com.digitalasset.canton.participant.domain
 
 import cats.data.EitherT
 import cats.instances.future.*
-import cats.syntax.bifunctor.*
 import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
@@ -219,12 +218,12 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
           logger.debug(
             s"Participant is not yet active on domain $domainId. Initialising topology"
           )
+          val client = sequencerConnectClient(config.domain, sequencerAggregatedInfo)
           for {
-            sequencerConnectClient <- sequencerConnectClient(config.domain, sequencerAggregatedInfo)
             success <- topologyDispatcher.onboardToDomain(
               domainId,
               config.domain,
-              sequencerConnectClient,
+              client,
               sequencerAggregatedInfo.staticDomainParameters.protocolVersion,
             )
             _ <- EitherT.cond[FutureUnlessShutdown](
@@ -359,57 +358,42 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
   private def sequencerConnectClient(
       domainAlias: DomainAlias,
       sequencerAggregatedInfo: SequencerAggregatedInfo,
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, DomainRegistryError, SequencerConnectClient] = {
+  ): SequencerConnectClient = {
     // TODO(i12076): Currently it takes the first available connection
     //  here which is already checked for healthiness, but it should maybe check all of them - if they're healthy
     val sequencerConnection = sequencerAggregatedInfo.sequencerConnections.default
     sequencerConnectClientBuilder(domainAlias, sequencerConnection)
-      .leftMap(err =>
-        DomainRegistryError.ConnectionErrors.FailedToConnectToSequencer.Error(err.message)
-      )
-      .mapK(
-        FutureUnlessShutdown.outcomeK
-      )
-      .leftWiden[DomainRegistryError]
   }
 
   private def isActive(domainAlias: DomainAlias, sequencerAggregatedInfo: SequencerAggregatedInfo)(
       implicit traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, DomainRegistryError, Boolean] =
-    sequencerConnectClient(domainAlias, sequencerAggregatedInfo)
-      .flatMap(client =>
-        isActive(domainAlias, client, false)
-          .thereafter { _ =>
-            client.close()
-          }
-      )
+  ): EitherT[FutureUnlessShutdown, DomainRegistryError, Boolean] = {
+    val client = sequencerConnectClient(domainAlias, sequencerAggregatedInfo)
+    isActive(domainAlias, client, false).thereafter { _ =>
+      client.close()
+    }
+  }
 
   private def waitForActive(
       domainAlias: DomainAlias,
       sequencerAggregatedInfo: SequencerAggregatedInfo,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, DomainRegistryError, Unit] =
-    sequencerConnectClient(domainAlias, sequencerAggregatedInfo)
-      .flatMap(client =>
-        isActive(domainAlias, client, true)
-          .flatMap { isActive =>
-            EitherT
-              .cond[Future](
-                isActive,
-                (),
-                DomainRegistryError.ConnectionErrors.ParticipantIsNotActive
-                  .Error(s"Participant $participantId is not active"),
-              )
-              .leftWiden[DomainRegistryError]
-              .mapK(FutureUnlessShutdown.outcomeK)
-          }
-          .thereafter { _ =>
-            client.close()
-          }
+  ): EitherT[FutureUnlessShutdown, DomainRegistryError, Unit] = {
+    val client = sequencerConnectClient(domainAlias, sequencerAggregatedInfo)
+    isActive(domainAlias, client, true)
+      .subflatMap(isActive =>
+        Either.cond(
+          isActive,
+          (),
+          DomainRegistryError.ConnectionErrors.ParticipantIsNotActive
+            .Error(s"Participant $participantId is not active"): DomainRegistryError,
+        )
       )
+      .thereafter { _ =>
+        client.close()
+      }
+  }
 
   private def isActive(
       domainAlias: DomainAlias,
@@ -421,7 +405,6 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
     client
       .isActive(participantId, domainAlias, waitForActive = waitForActive)
       .leftMap(DomainRegistryHelpers.toDomainRegistryError(domainAlias))
-      .mapK(FutureUnlessShutdown.outcomeK)
 
   private def sequencerConnectClientBuilder: SequencerConnectClient.Builder = {
     (domainAlias: DomainAlias, config: SequencerConnection) =>

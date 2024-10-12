@@ -4,11 +4,14 @@
 package com.digitalasset.daml.lf
 package language
 
+import com.digitalasset.canton.http.json.v2.damldefinitionsservice.Schema
 import com.digitalasset.canton.http.json.v2.damldefinitionsservice.Schema.*
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.language.Ast.PackageSignature
+import com.digitalasset.daml.lf.language.TypeSig.*
 
 import scala.annotation.tailrec
+import scala.collection.immutable.VectorMap
 import scala.collection.mutable
 
 // TODO(#21695): Move to com.digitalasset.canton.http.json2.damldefinitionsservice once PackageInterface is public
@@ -27,19 +30,19 @@ object DamlDefinitionsBuilders {
     val packageInterface = new PackageInterface(allPackages)
 
     // TODO(#21695): Do not rebuild globalTypeSig on each query
-    val globalTypeSig = allPackages.foldLeft(Empty) { case (acc, (pkgId, pkg)) =>
+    val globalTypeSig = allPackages.foldLeft(Schema.Empty) { case (acc, (pkgId, pkg)) =>
       acc.merge(toTypeSig(pkgId, pkg, packageInterface))
     }
 
-    globalTypeSig.templateDefs.get(templateId.toString()).map { templateSig =>
+    globalTypeSig.templateDefs.get(templateId).map { templateSig =>
       val (choices, dependencyDefs) = choicesDefinitions(templateSig.choices, globalTypeSig)
 
-      val definitionsBuilder = Map.newBuilder[JsIdentifier, DataType]
+      val definitionsBuilder = Map.newBuilder[Ref.TypeConName, DataTypeSig]
       definitionsBuilder ++= dependencyDefs
       TemplateDefinition(
         arguments = {
           // TODO(#21695): Use internal error
-          val argRecordDef = globalTypeSig.recordDefs(templateId.toString())
+          val argRecordDef = globalTypeSig.recordDefs(templateId)
           argRecordDef.fields.view
             .flatMap { case (_fieldName, serializableType) =>
               extractFirstLevelTypeCons(serializableType).toList
@@ -98,16 +101,16 @@ object DamlDefinitionsBuilders {
           dataType.cons match {
             case Ast.DataRecord(_) =>
               SerializableType.Record(
-                tycon.toString(),
+                tycon,
                 args.map(toSerializableType(_, List.empty)),
               )
             case Ast.DataVariant(_) =>
               SerializableType.Variant(
-                tycon.toString(),
+                tycon,
                 args.map(toSerializableType(_, List.empty)),
               )
             case Ast.DataEnum(_) =>
-              SerializableType.Enum(tycon.toString())
+              SerializableType.Enum(tycon)
             case Ast.DataInterface =>
               nonSerializable
           }
@@ -140,9 +143,9 @@ object DamlDefinitionsBuilders {
                     case Ast.TTyCon(tycon) =>
                       packageInterface.lookupTemplateOrInterface(tycon) match {
                         case Right(data.TemplateOrInterface.Template(_)) =>
-                          Some(TemplateOrInterface.Template(tycon.toString()))
+                          Some(TemplateOrInterface.Template(tycon))
                         case Right(data.TemplateOrInterface.Interface(_)) =>
-                          Some(TemplateOrInterface.Interface(tycon.toString()))
+                          Some(TemplateOrInterface.Interface(tycon))
                         case Left(_) =>
                           None
                       }
@@ -176,34 +179,34 @@ object DamlDefinitionsBuilders {
         returnType = toSerializableType(choiceDef.returnType, List.empty),
       )
 
-    pkg.modules.iterator.foldLeft(Empty) { case (acc0, (modName, mod)) =>
+    pkg.modules.iterator.foldLeft(Schema.Empty) { case (acc0, (modName, mod)) =>
       val acc1 = mod.definitions.foldLeft(acc0) { case (acc, (name, defn)) =>
         defn match {
           case Ast.DDataType(true, params, cons) =>
             cons match {
               case Ast.DataRecord(fields) =>
                 acc.addRecordDefs(
-                  Ref.Identifier(pkgId, Ref.QualifiedName(modName, name)).toString(),
+                  Ref.Identifier(pkgId, Ref.QualifiedName(modName, name)),
                   RecordSig(
                     params.iterator.map(_._1).toSeq,
-                    fields.iterator.map { case (name, typ) =>
+                    VectorMap.from(fields.iterator.map { case (name, typ) =>
                       name -> toSerializableType(typ, List.empty)
-                    }.toMap,
+                    }),
                   ),
                 )
               case Ast.DataVariant(variants) =>
                 acc.addVariantDefs(
-                  Ref.Identifier(pkgId, Ref.QualifiedName(modName, name)).toString(),
+                  Ref.Identifier(pkgId, Ref.QualifiedName(modName, name)),
                   VariantSig(
                     params.iterator.map(_._1).toSeq,
-                    variants.iterator.map { case (name, typ) =>
+                    VectorMap.from(variants.iterator.map { case (name, typ) =>
                       name -> toSerializableType(typ, List.empty)
-                    }.toMap,
+                    }),
                   ),
                 )
               case Ast.DataEnum(constructors) =>
                 acc.addEnumDefs(
-                  Ref.Identifier(pkgId, Ref.QualifiedName(modName, name)).toString(),
+                  Ref.Identifier(pkgId, Ref.QualifiedName(modName, name)),
                   EnumSig(constructors.toSeq),
                 )
               case Ast.DataInterface =>
@@ -216,18 +219,18 @@ object DamlDefinitionsBuilders {
       val acc2 = mod.templates.foldLeft(acc1) {
         case (acc, (name, Ast.GenTemplate(_, _, _, choices, _, key, implements))) =>
           acc.addTemplateDefs(
-            Ref.Identifier(pkgId, Ref.QualifiedName(modName, name)).toString(),
+            Ref.Identifier(pkgId, Ref.QualifiedName(modName, name)),
             TemplateSig(
               key.map(defn => toSerializableType(defn.typ, List.empty)),
               choices.view.mapValues(toChoiceSig).toMap,
-              implements.keySet.map(_.toString()),
+              implements.keySet,
             ),
           )
       }
       mod.interfaces.foldLeft(acc2) {
         case (acc, (name, Ast.GenDefInterface(_, _, choices, _, _, viewType))) =>
           acc.addInterfaceDefs(
-            Ref.Identifier(pkgId, Ref.QualifiedName(modName, name)).toString(),
+            Ref.Identifier(pkgId, Ref.QualifiedName(modName, name)),
             InterfaceSig(
               choices.view.mapValues(toChoiceSig).toMap,
               toSerializableType(viewType, List.empty),
@@ -248,10 +251,10 @@ object DamlDefinitionsBuilders {
     throw new Error(s"unexpected non serializable type ${typ.pretty}")
 
   private def choicesDefinitions(
-      choiceSigs: Map[String, ChoiceSig],
+      choiceSigs: Map[Ref.Name, ChoiceSig],
       globalTypeSig: TypeSig,
-  ): (Map[JsIdentifier, ChoiceDefinition], Map[JsIdentifier, DataType]) = {
-    val definitionsMapBuilder = Map.newBuilder[JsIdentifier, DataType]
+  ): (Map[Ref.Name, ChoiceDefinition], Map[Ref.TypeConName, DataTypeSig]) = {
+    val definitionsMapBuilder = Map.newBuilder[Ref.TypeConName, DataTypeSig]
     val choices = choiceSigs.map { case (choiceName, choiceSig) =>
       choiceName -> ChoiceDefinition(
         consuming = choiceSig.consuming,
@@ -282,7 +285,9 @@ object DamlDefinitionsBuilders {
     choices -> definitionsMapBuilder.result()
   }
 
-  private def extractFirstLevelTypeCons(serializableType: SerializableType): Option[JsIdentifier] =
+  private def extractFirstLevelTypeCons(
+      serializableType: SerializableType
+  ): Option[Ref.TypeConName] =
     serializableType match {
       case SerializableType.Enum(tycon) => Some(tycon)
       case SerializableType.Record(tyCon, _) => Some(tyCon)
@@ -301,10 +306,10 @@ object DamlDefinitionsBuilders {
 
   @tailrec
   private def gatherTypeDefs(
-      typeCons: mutable.Queue[JsIdentifier],
-      acc: Map[JsIdentifier, DataType],
+      typeCons: mutable.Queue[Ref.TypeConName],
+      acc: Map[Ref.TypeConName, DataTypeSig],
       globalTypeSig: TypeSig,
-  ): Map[JsIdentifier, DataType] =
+  ): Map[Ref.TypeConName, DataTypeSig] =
     if (typeCons.isEmpty) acc
     else {
       val typeCon = typeCons.dequeue()

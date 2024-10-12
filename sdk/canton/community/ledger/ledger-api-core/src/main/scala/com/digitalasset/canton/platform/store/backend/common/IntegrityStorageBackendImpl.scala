@@ -248,12 +248,12 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
           str("message_uuid").? ~
           long("request_sequencer_counter").? ~
           long("domain_id") map {
-            case offset ~ applicationId ~ submitters ~ commandId ~ transactionId ~ submissionId ~ messageUuid ~ requestSequencerCounter ~ domainId =>
+            case offset ~ applicationId ~ submitters ~ commandId ~ updateId ~ submissionId ~ messageUuid ~ requestSequencerCounter ~ domainId =>
               (
                 applicationId,
                 submitters.toList,
                 commandId,
-                transactionId,
+                updateId,
                 submissionId,
                 messageUuid,
                 requestSequencerCounter,

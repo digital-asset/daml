@@ -14,7 +14,6 @@ import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
 import sttp.tapir.generic.auto.*
 
-import scala.annotation.nowarn
 import scala.concurrent.{ExecutionContext, Future}
 
 class JsVersionService(versionClient: VersionClient, val loggerFactory: NamedLoggerFactory)(implicit

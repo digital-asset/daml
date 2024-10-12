@@ -65,7 +65,6 @@ class UnassignmentProcessor(
       domainCrypto,
       sequencerClient,
       domainId.unwrap,
-      staticDomainParameters.unwrap,
       sourceProtocolVersion.unwrap,
       loggerFactory,
       futureSupervisor,

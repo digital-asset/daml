@@ -466,7 +466,9 @@ final case class FullAssignmentTree(tree: AssignmentViewTree)
       submittingParticipantSignature: Signature
   ): AssignmentMediatorMessage = tree.mediatorMessage(submittingParticipantSignature)
 
-  def targetDomain: Target[DomainId] = commonData.targetDomain
+  override def sourceDomain: Source[DomainId] =
+    view.unassignmentResultEvent.reassignmentId.sourceDomain
+  override def targetDomain: Target[DomainId] = commonData.targetDomain
 
   override def domainId: DomainId = commonData.targetDomain.unwrap
 

@@ -18,6 +18,7 @@ import com.digitalasset.canton.ledger.api.ValidationLogger
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.*
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
+import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.InvalidField
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.WriteService
 import com.digitalasset.canton.ledger.participant.state.index.{
@@ -134,9 +135,9 @@ final class ApiParticipantPruningService private (
       errorLoggingContext: ContextualizedErrorLogger,
   ): Future[Offset] =
     (for {
-      pruneUpToString <- checkOffsetIsSpecified(request.pruneUpTo)
-      pruneUpTo <- checkOffsetIsHexadecimal(pruneUpToString)
-    } yield (pruneUpTo, pruneUpToString))
+      pruneUpToLong <- checkOffsetIsSpecified(request.pruneUpTo)
+      pruneUpTo <- checkOffsetIsPositive(request.pruneUpTo)
+    } yield (pruneUpTo, pruneUpToLong))
       .fold(
         t => Future.failed(ValidationLogger.logFailureWithTrace(logger, request, t)),
         o => checkOffsetIsBeforeLedgerEnd(o._1, o._2),
@@ -178,43 +179,47 @@ final class ApiParticipantPruningService private (
   }
 
   private def checkOffsetIsSpecified(
-      offset: String
-  )(implicit errorLogger: ContextualizedErrorLogger): Either[StatusRuntimeException, String] =
+      offset: Long
+  )(implicit errorLogger: ContextualizedErrorLogger): Either[StatusRuntimeException, Long] =
     Either.cond(
-      offset.nonEmpty,
+      offset != 0,
       offset,
-      invalidArgument("prune_up_to not specified"),
+      invalidArgument("prune_up_to not specified or zero"),
     )
 
-  private def checkOffsetIsHexadecimal(
-      pruneUpToString: String
+  private def checkOffsetIsPositive(
+      pruneUpTo: Long
   )(implicit errorLogger: ContextualizedErrorLogger): Either[StatusRuntimeException, Offset] =
-    ApiOffset
-      .tryFromString(pruneUpToString)
-      .toEither
-      .left
-      .map(t =>
-        RequestValidationErrors.NonHexOffset
+    if (pruneUpTo <= 0)
+      Left(
+        RequestValidationErrors.NonPositiveOffset
           .Error(
             fieldName = "prune_up_to",
-            offsetValue = pruneUpToString,
-            message =
-              s"prune_up_to needs to be a hexadecimal string and not $pruneUpToString: ${t.getMessage}",
+            offsetValue = pruneUpTo,
+            message = s"prune_up_to needs to be a positive integer and not $pruneUpTo",
           )
           .asGrpcError
       )
+    else {
+      try {
+        Right(Offset.fromLong(pruneUpTo))
+      } catch {
+        case err: Throwable =>
+          Left(InvalidField.Reject(fieldName = "prune_up_to", err.getMessage).asGrpcError)
+      }
+    }
 
   private def checkOffsetIsBeforeLedgerEnd(
       pruneUpToProto: Offset,
-      pruneUpToString: String,
+      pruneUpToLong: Long,
   )(implicit
       errorLogger: ContextualizedErrorLogger
   ): Future[Offset] =
     for {
       ledgerEnd <- readBackend.currentLedgerEnd()
       _ <-
-        // NOTE: This constraint should be relaxed to (pruneUpToString <= ledgerEnd.value)
-        if (pruneUpToString < ledgerEnd) Future.successful(())
+        // NOTE: This constraint should be relaxed to (pruneUpToString <= ledgerEnd.value) TODO(#18685) clarify this
+        if (pruneUpToLong < ApiOffset.assertFromStringToLong(ledgerEnd)) Future.successful(())
         else
           Future.failed(
             RequestValidationErrors.OffsetOutOfRange

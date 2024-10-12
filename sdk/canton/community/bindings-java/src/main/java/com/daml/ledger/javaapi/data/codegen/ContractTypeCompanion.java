@@ -38,9 +38,14 @@ public abstract class ContractTypeCompanion<Ct, Id, ContractType, Data> {
   }
 
   public final Package PACKAGE;
+  public final String PACKAGE_ID;
+  public final String PACKAGE_NAME;
+  public final PackageVersion PACKAGE_VERSION;
 
   /** The full template ID of the template or interface that defined this companion. */
   public final Identifier TEMPLATE_ID;
+
+  public final Identifier TEMPLATE_ID_WITH_PACKAGE_ID;
 
   final String TEMPLATE_CLASS_NAME;
 
@@ -73,8 +78,12 @@ public abstract class ContractTypeCompanion<Ct, Id, ContractType, Data> {
       Function<String, Id> newContractId,
       List<Choice<ContractType, ?, ?>> choices) {
     PACKAGE = packageInfo;
+    PACKAGE_ID = packageInfo.id;
+    PACKAGE_NAME = packageInfo.name;
+    PACKAGE_VERSION = packageInfo.version;
     TEMPLATE_ID = templateId;
     TEMPLATE_CLASS_NAME = templateClassName;
+    TEMPLATE_ID_WITH_PACKAGE_ID = getTemplateIdWithPackageId();
     this.newContractId = newContractId;
     this.choices =
         choices.stream().collect(Collectors.toMap(choice -> choice.name, Function.identity()));

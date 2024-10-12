@@ -5,11 +5,11 @@ package com.digitalasset.canton.ledger.participant.state
 
 import com.daml.error.GrpcStatuses
 import com.daml.logging.entries.{LoggingEntry, LoggingValue, ToLoggingValue}
-import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.LfHash
 import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.{RequestCounter, data}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.digitalasset.daml.lf.engine.Blinding
@@ -227,7 +227,7 @@ object Update {
       completionInfoO: Option[CompletionInfo],
       transactionMeta: TransactionMeta,
       transaction: CommittedTransaction,
-      transactionId: Ref.TransactionId,
+      updateId: data.UpdateId,
       recordTime: Timestamp,
       hostedWitnesses: List[Ref.Party],
       contractMetadata: Map[Value.ContractId, Bytes],
@@ -245,7 +245,7 @@ object Update {
     override protected def pretty: Pretty[TransactionAccepted] =
       prettyOfClass(
         param("recordTime", _.recordTime),
-        param("transactionId", _.transactionId),
+        param("updateId", _.updateId),
         param("transactionMeta", _.transactionMeta),
         paramIfDefined("completion", _.completionInfoO),
         param("nodes", _.transaction.nodes.size),
@@ -268,7 +268,7 @@ object Update {
             completionInfoO,
             transactionMeta,
             _,
-            transactionId,
+            updateId,
             recordTime,
             _,
             _,
@@ -279,7 +279,7 @@ object Update {
         LoggingValue.Nested.fromEntries(
           Logging.recordTime(recordTime),
           Logging.completionInfo(completionInfoO),
-          Logging.transactionId(transactionId),
+          Logging.updateId(updateId),
           Logging.ledgerTime(transactionMeta.ledgerEffectiveTime),
           Logging.workflowIdOpt(transactionMeta.workflowId),
           Logging.submissionTime(transactionMeta.submissionTime),
@@ -303,7 +303,7 @@ object Update {
   final case class ReassignmentAccepted(
       optCompletionInfo: Option[CompletionInfo],
       workflowId: Option[Ref.WorkflowId],
-      updateId: Ref.TransactionId,
+      updateId: data.UpdateId,
       recordTime: Timestamp,
       reassignmentInfo: ReassignmentInfo,
       reassignment: Reassignment,
@@ -356,7 +356,7 @@ object Update {
         LoggingValue.Nested.fromEntries(
           Logging.recordTime(recordTime),
           Logging.completionInfo(optCompletionInfo),
-          Logging.transactionId(updateId),
+          Logging.updateId(updateId),
           Logging.workflowIdOpt(workflowId),
         )
     }
@@ -563,8 +563,8 @@ object Update {
     def party(party: Ref.Party): LoggingEntry =
       "party" -> party
 
-    def transactionId(id: Ref.TransactionId): LoggingEntry =
-      "transactionId" -> id
+    def updateId(id: data.UpdateId): LoggingEntry =
+      "updateId" -> id
 
     def applicationId(id: Ref.ApplicationId): LoggingEntry =
       "applicationId" -> id

@@ -126,14 +126,8 @@ class GrpcDomainRegistry(
           config.domainId,
           sequencerConnections,
           SequencerConnectionValidation.Active, // only validate active sequencers (not all endpoints)
-        )(
-          traceContext,
-          CloseContext(this),
-        )
+        )(traceContext, CloseContext(this))
         .leftMap(DomainRegistryError.fromSequencerInfoLoaderError)
-        .mapK(
-          FutureUnlessShutdown.outcomeK
-        )
 
       _ <- CryptoHandshakeValidator
         .validate(info.staticDomainParameters, cryptoConfig)

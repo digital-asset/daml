@@ -4,7 +4,6 @@
 package com.digitalasset.canton.common.domain.grpc
 
 import cats.data.EitherT
-import cats.instances.future.*
 import cats.syntax.either.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
@@ -19,7 +18,8 @@ import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader.{
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.lifecycle.CloseContext
+import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
+import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.sequencing.protocol.{HandshakeRequest, HandshakeResponse}
@@ -44,8 +44,7 @@ import org.slf4j.event.Level
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.annotation.{nowarn, tailrec}
-import scala.concurrent.{ExecutionContextExecutor, Future, Promise}
-import scala.util.{Failure, Success}
+import scala.concurrent.{ExecutionContextExecutor, Promise}
 
 class SequencerInfoLoader(
     timeouts: ProcessingTimeout,
@@ -79,7 +78,7 @@ class SequencerInfoLoader(
   )(implicit
       traceContext: TraceContext
   ): EitherT[
-    Future,
+    FutureUnlessShutdown,
     SequencerInfoLoaderError,
     (DomainClientBootstrapInfo, StaticDomainParameters),
   ] =
@@ -103,7 +102,7 @@ class SequencerInfoLoader(
       traceContext: TraceContext,
       closeContext: CloseContext,
   ): EitherT[
-    Future,
+    FutureUnlessShutdown,
     SequencerInfoLoaderError,
     (DomainClientBootstrapInfo, StaticDomainParameters),
   ] = {
@@ -118,7 +117,7 @@ class SequencerInfoLoader(
           operationName =
             s"${domainAlias.toProtoPrimitive}/${sequencerAlias.toProtoPrimitive}: $functionFullName",
         )
-        .apply(
+        .unlessShutdown(
           getBootstrapInfoDomainParameters(domainAlias, sequencerAlias, client).value,
           NoExceptionRetryPolicy,
         )
@@ -131,28 +130,23 @@ class SequencerInfoLoader(
       traceContext: TraceContext,
       closeContext: CloseContext,
   ): EitherT[
-    Future,
+    FutureUnlessShutdown,
     SequencerInfoLoaderError,
     (DomainClientBootstrapInfo, StaticDomainParameters),
   ] =
     connection match {
       case grpc: GrpcSequencerConnection =>
-        for {
-          client <- sequencerConnectClientBuilder(domainAlias, grpc).leftMap(
-            SequencerInfoLoader.fromSequencerConnectClientError(domainAlias)
-          )
-          // retry the bootstrapping info parameters. we want to maximise the number of
-          // sequencers (and work around a bootstrapping issue with active-active sequencers)
-          // where k8 health end-points don't distinguish between admin / public api
-          // and might route our requests to an active instance that is still waiting for
-          // the node-id to be written to the database
-          bootstrapInfoDomainParameters <- getBootstrapInfoDomainParametersWithRetry(
-            domainAlias,
-            grpc.sequencerAlias,
-            client,
-          )
-            .thereafter(_ => client.close())
-        } yield bootstrapInfoDomainParameters
+        val client = sequencerConnectClientBuilder(domainAlias, grpc)
+        // retry the bootstrapping info parameters. we want to maximise the number of
+        // sequencers (and work around a bootstrapping issue with active-active sequencers)
+        // where k8 health end-points don't distinguish between admin / public api
+        // and might route our requests to an active instance that is still waiting for
+        // the node-id to be written to the database
+        getBootstrapInfoDomainParametersWithRetry(
+          domainAlias,
+          grpc.sequencerAlias,
+          client,
+        ).thereafter(_ => client.close())
     }
 
   private def performHandshake(
@@ -161,7 +155,7 @@ class SequencerInfoLoader(
       sequencerAlias: SequencerAlias,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SequencerInfoLoaderError, Unit] =
+  ): EitherT[FutureUnlessShutdown, SequencerInfoLoaderError, Unit] =
     for {
       success <- sequencerConnectClient
         .handshake(
@@ -193,7 +187,7 @@ class SequencerInfoLoader(
   )(implicit
       traceContext: TraceContext,
       closeContext: CloseContext,
-  ): EitherT[Future, SequencerInfoLoaderError, SequencerAggregatedInfo] = EitherT(
+  ): EitherT[FutureUnlessShutdown, SequencerInfoLoaderError, SequencerAggregatedInfo] = EitherT(
     loadSequencerEndpoints(
       domainAlias,
       sequencerConnections,
@@ -217,7 +211,7 @@ class SequencerInfoLoader(
   )(implicit
       traceContext: TraceContext,
       closeContext: CloseContext,
-  ): EitherT[Future, Seq[LoadSequencerEndpointInformationResult.NotValid], Unit] =
+  ): EitherT[FutureUnlessShutdown, Seq[LoadSequencerEndpointInformationResult.NotValid], Unit] =
     sequencerConnectionValidation match {
       case SequencerConnectionValidation.Disabled => EitherT.rightT(())
       case SequencerConnectionValidation.All | SequencerConnectionValidation.Active =>
@@ -244,7 +238,7 @@ class SequencerInfoLoader(
   )(implicit
       traceContext: TraceContext,
       closeContext: CloseContext,
-  ): Future[Seq[LoadSequencerEndpointInformationResult]] = {
+  ): FutureUnlessShutdown[Seq[LoadSequencerEndpointInformationResult]] = {
     // if we want to validate all endpoints, we can expand the list of connections on a per-endpoint basis
     // during aggregation, we'll boil this down again
     val connections = if (loadAllEndpoints) {
@@ -291,8 +285,10 @@ class SequencerInfoLoader(
       parallelism: NonNegativeInt,
       maybeThreshold: Option[PositiveInt],
   )(
-      getInfo: SequencerConnection => Future[LoadSequencerEndpointInformationResult]
-  )(implicit traceContext: TraceContext): Future[Seq[LoadSequencerEndpointInformationResult]] = {
+      getInfo: SequencerConnection => FutureUnlessShutdown[LoadSequencerEndpointInformationResult]
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Seq[LoadSequencerEndpointInformationResult]] = {
     if (logger.underlying.isDebugEnabled()) {
       val grpcConnections = connections.collect { case grpc: GrpcSequencerConnection => grpc }
       logger.debug(
@@ -301,7 +297,7 @@ class SequencerInfoLoader(
             .mkString(";")}), parallelism ${parallelism.unwrap}, threshold $maybeThreshold, domain ${domainAlias.unwrap}"
       )
     }
-    val promise = Promise[Seq[LoadSequencerEndpointInformationResult]]()
+    val promise = Promise[UnlessShutdown[Seq[LoadSequencerEndpointInformationResult]]]()
     val connectionsSize = connections.size
     val (initialConnections, remainingConnections) = connections.splitAt(parallelism.unwrap)
     val remainingAndDone =
@@ -322,43 +318,50 @@ class SequencerInfoLoader(
       )
       // Note that we tested using HasFlushFuture.addToFlush, but the complexity and risk of delaying shutdown
       // wasn't worth the questionable benefit of tracking "dangling threads" without ownership of the netty channel.
-      FutureUtil.doNotAwait(
-        getInfo(connection).transform {
-          case Success(res) =>
-            // Update atomic state using non-side-effecting code
-            remainingAndDone.updateAndGet {
-              case (Nil, resultsSoFar, _) => (Nil, res +: resultsSoFar, None)
-              case (next +: rest, resultsSoFar, _) =>
-                (rest, res +: resultsSoFar, Some(next))
-            } match {
-              // Perform accounting to decide how to proceed.
-              case (_, resultsSoFar, maybeNext) =>
-                logger.debug(
-                  s"Loaded sequencer ${connection.sequencerAlias} info in domain $domainAlias"
-                )
-                if (!promise.isCompleted) {
-                  if (
-                    // done if all the results are in
-                    resultsSoFar.sizeCompare(connectionsSize) >= 0 ||
-                    // or if the threshold is reached with valid results
-                    maybeThreshold.exists(threshold =>
-                      resultsSoFar
-                        .collect { case _: LoadSequencerEndpointInformationResult.Valid => () }
-                        .sizeCompare(threshold.unwrap) >= 0
-                    )
-                  ) {
-                    logger.debug(
-                      s"Loaded sufficiently many sequencer info entries (${resultsSoFar.size}) in domain $domainAlias"
-                    )
-                    promise.trySuccess(resultsSoFar.reverse).discard
-                  } else {
-                    // otherwise load the next sequencer info if available
-                    maybeNext.foreach(loadSequencerInfoAsync)
+      FutureUtil.doNotAwaitUnlessShutdown(
+        getInfo(connection).transform(
+          {
+            case Outcome(res) =>
+              // Update atomic state using non-side-effecting code
+              remainingAndDone.updateAndGet {
+                case (Nil, resultsSoFar, _) => (Nil, res +: resultsSoFar, None)
+                case (next +: rest, resultsSoFar, _) =>
+                  (rest, res +: resultsSoFar, Some(next))
+              } match {
+                // Perform accounting to decide how to proceed.
+                case (_, resultsSoFar, maybeNext) =>
+                  logger.debug(
+                    s"Loaded sequencer ${connection.sequencerAlias} info in domain $domainAlias"
+                  )
+                  if (!promise.isCompleted) {
+                    if (
+                      // done if all the results are in
+                      resultsSoFar.sizeCompare(connectionsSize) >= 0 ||
+                      // or if the threshold is reached with valid results
+                      maybeThreshold.exists(threshold =>
+                        resultsSoFar
+                          .count {
+                            case _: LoadSequencerEndpointInformationResult.Valid => true
+                            case _: LoadSequencerEndpointInformationResult.NotValid => false
+                          } >= threshold.unwrap
+                      )
+                    ) {
+                      logger.debug(
+                        s"Loaded sufficiently many sequencer info entries (${resultsSoFar.size}) in domain $domainAlias"
+                      )
+                      promise.trySuccess(Outcome(resultsSoFar.reverse)).discard
+                    } else {
+                      // otherwise load the next sequencer info if available
+                      maybeNext.foreach(loadSequencerInfoAsync)
+                    }
                   }
-                }
-            }
-            Success(())
-          case Failure(t) =>
+                  Outcome(())
+              }
+            case AbortedDueToShutdown =>
+              promise.trySuccess(AbortedDueToShutdown).discard
+              AbortedDueToShutdown
+          },
+          { t =>
             if (!promise.isCompleted) {
               LoggerUtil.logThrowableAtLevel(
                 Level.ERROR,
@@ -372,8 +375,9 @@ class SequencerInfoLoader(
                 s"Ignoring exception loading sequencer ${connection.sequencerAlias} info in domain $domainAlias after promise completion ${t.getMessage}"
               )
             }
-            Failure(t)
-        },
+            t
+          },
+        ),
         failureMessage =
           s"error on load sequencer ${connection.sequencerAlias} info in domain $domainAlias",
         level = if (promise.isCompleted) Level.INFO else Level.ERROR,
@@ -382,7 +386,7 @@ class SequencerInfoLoader(
 
     initialConnections.foreach(loadSequencerInfoAsync)
 
-    promise.future
+    FutureUnlessShutdown(promise.future)
   }
 }
 

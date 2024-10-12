@@ -138,9 +138,9 @@ class InMemoryFanoutBufferSpec
 
           // Assert that the buffer does not include the rejected transaction
           buffer._lookupMap should contain theSameElementsAs Map(
-            txAccepted2.value.transactionId -> txAccepted2,
-            txAccepted3.value.transactionId -> txAccepted3,
-            txAccepted4.value.transactionId -> txAccepted4,
+            txAccepted2.value.updateId -> txAccepted2,
+            txAccepted3.value.updateId -> txAccepted3,
+            txAccepted4.value.updateId -> txAccepted4,
           )
         }
       }
@@ -494,7 +494,7 @@ class InMemoryFanoutBufferSpec
 
   private def txAccepted(idx: Long, offset: Offset) =
     TransactionLogUpdate.TransactionAccepted(
-      transactionId = s"tx-$idx",
+      updateId = s"tx-$idx",
       workflowId = s"workflow-$idx",
       effectiveAt = Time.Timestamp.Epoch,
       offset = offset,
@@ -521,7 +521,7 @@ class InMemoryFanoutBufferSpec
   ): Assertion =
     txs.foldLeft(succeed) {
       case (Succeeded, tx) =>
-        buffer.lookup(tx.value.transactionId) shouldBe Some(tx)
+        buffer.lookup(tx.value.updateId) shouldBe Some(tx)
       case (failed, _) => failed
     }
 
@@ -531,7 +531,7 @@ class InMemoryFanoutBufferSpec
   ): Assertion =
     txs.foldLeft(succeed) {
       case (Succeeded, Traced(tx)) =>
-        buffer.lookup(tx.transactionId) shouldBe None
+        buffer.lookup(tx.updateId) shouldBe None
       case (failed, _) => failed
     }
 

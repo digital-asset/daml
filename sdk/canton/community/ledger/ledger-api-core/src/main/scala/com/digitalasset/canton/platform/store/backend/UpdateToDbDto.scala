@@ -6,6 +6,7 @@ package com.digitalasset.canton.platform.store.backend
 import com.daml.metrics.api.MetricsContext
 import com.daml.metrics.api.MetricsContext.{withExtraMetricLabels, withOptionalMetricLabels}
 import com.daml.platform.v1.index.StatusDetails
+import com.digitalasset.canton.data
 import com.digitalasset.canton.data.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.{
@@ -114,7 +115,7 @@ object UpdateToDbDto {
       commandCompletion(
         offset = offset,
         recordTime = commandRejected.recordTime,
-        transactionId = None,
+        updateId = None,
         completionInfo = commandRejected.completionInfo,
         domainId = commandRejected.domainId.toProtoPrimitive,
         requestIndex = commandRejected.domainIndex.flatMap(_.requestIndex),
@@ -200,7 +201,7 @@ object UpdateToDbDto {
     }
 
     val transactionMeta = DbDto.TransactionMeta(
-      transaction_id = transactionAccepted.transactionId,
+      update_id = transactionAccepted.updateId,
       event_offset = offset.toHexString,
       publication_time = 0, // this is filled later
       record_time = transactionAccepted.recordTime.micros,
@@ -246,7 +247,7 @@ object UpdateToDbDto {
         commandCompletion(
           offset = offset,
           recordTime = transactionAccepted.recordTime,
-          transactionId = Some(transactionAccepted.transactionId),
+          updateId = Some(transactionAccepted.updateId),
           completionInfo = completionInfo,
           domainId = transactionAccepted.domainId.toProtoPrimitive,
           requestIndex = transactionAccepted.domainIndex.flatMap(_.requestIndex),
@@ -271,7 +272,7 @@ object UpdateToDbDto {
       nodeId: NodeId,
       create: Create,
   ): Iterator[DbDto] = {
-    val eventId = EventId(transactionAccepted.transactionId, nodeId)
+    val eventId = EventId(transactionAccepted.updateId, nodeId)
     val templateId = create.templateId.toString
     val stakeholders = create.stakeholders.map(_.toString)
     val (createArgument, createKeyValue) = translation.serialize(create)
@@ -281,7 +282,7 @@ object UpdateToDbDto {
     Iterator(
       DbDto.EventCreate(
         event_offset = offset.toHexString,
-        transaction_id = transactionAccepted.transactionId,
+        update_id = transactionAccepted.updateId,
         ledger_effective_time = transactionAccepted.transactionMeta.ledgerEffectiveTime.micros,
         command_id = transactionAccepted.completionInfoO.map(_.commandId),
         workflow_id = transactionAccepted.transactionMeta.workflowId,
@@ -337,7 +338,7 @@ object UpdateToDbDto {
       nodeId: NodeId,
       exercise: Exercise,
   ): Iterator[DbDto] = {
-    val eventId = EventId(transactionAccepted.transactionId, nodeId)
+    val eventId = EventId(transactionAccepted.updateId, nodeId)
     val (exerciseArgument, exerciseResult, createKeyValue) =
       translation.serialize(eventId, exercise)
     val stakeholders = exercise.stakeholders.map(_.toString)
@@ -350,14 +351,14 @@ object UpdateToDbDto {
       DbDto.EventExercise(
         consuming = exercise.consuming,
         event_offset = offset.toHexString,
-        transaction_id = transactionAccepted.transactionId,
+        transaction_id = transactionAccepted.updateId,
         ledger_effective_time = transactionAccepted.transactionMeta.ledgerEffectiveTime.micros,
         command_id = transactionAccepted.completionInfoO.map(_.commandId),
         workflow_id = transactionAccepted.transactionMeta.workflowId,
         application_id = transactionAccepted.completionInfoO.map(_.applicationId),
         submitters = transactionAccepted.completionInfoO.map(_.actAs.toSet),
         node_index = nodeId.index,
-        event_id = EventId(transactionAccepted.transactionId, nodeId).toLedgerString,
+        event_id = EventId(transactionAccepted.updateId, nodeId).toLedgerString,
         contract_id = exercise.targetCoid.coid,
         template_id = templateId,
         package_name = exercise.packageName,
@@ -372,7 +373,7 @@ object UpdateToDbDto {
           .map(compressionStrategy.exerciseResultCompression.compress),
         exercise_actors = exercise.actingParties.map(_.toString),
         exercise_child_event_ids = exercise.children.iterator
-          .map(EventId(transactionAccepted.transactionId, _).toLedgerString.toString)
+          .map(EventId(transactionAccepted.updateId, _).toLedgerString.toString)
           .toVector,
         create_key_value_compression = compressionStrategy.createKeyValueCompression.id,
         exercise_argument_compression = compressionStrategy.exerciseArgumentCompression.id,
@@ -457,7 +458,7 @@ object UpdateToDbDto {
       commandCompletion(
         offset = offset,
         recordTime = reassignmentAccepted.recordTime,
-        transactionId = Some(reassignmentAccepted.updateId),
+        updateId = Some(reassignmentAccepted.updateId),
         _,
         domainId = domainId,
         requestIndex = reassignmentAccepted.domainIndex.flatMap(_.requestIndex),
@@ -467,7 +468,7 @@ object UpdateToDbDto {
     )
 
     val transactionMeta = DbDto.TransactionMeta(
-      transaction_id = reassignmentAccepted.updateId,
+      update_id = reassignmentAccepted.updateId,
       event_offset = offset.toHexString,
       publication_time = 0, // this is filled later
       record_time = reassignmentAccepted.recordTime.micros,
@@ -596,7 +597,7 @@ object UpdateToDbDto {
   private def commandCompletion(
       offset: Offset,
       recordTime: Time.Timestamp,
-      transactionId: Option[Ref.TransactionId],
+      updateId: Option[data.UpdateId],
       completionInfo: CompletionInfo,
       domainId: String,
       requestIndex: Option[RequestIndex],
@@ -620,7 +621,7 @@ object UpdateToDbDto {
       application_id = completionInfo.applicationId,
       submitters = completionInfo.actAs.toSet,
       command_id = completionInfo.commandId,
-      transaction_id = transactionId,
+      transaction_id = updateId,
       rejection_status_code = None,
       rejection_status_message = None,
       rejection_status_details = None,

@@ -28,7 +28,6 @@ import com.digitalasset.canton.participant.store.{
   ParticipantNodePersistentState,
   ParticipantPruningSchedulerStore,
 }
-import com.digitalasset.canton.participant.sync.UpstreamOffsetConvert
 import com.digitalasset.canton.resource.Storage
 import com.digitalasset.canton.scheduler.*
 import com.digitalasset.canton.scheduler.JobScheduler.*
@@ -134,7 +133,7 @@ final class ParticipantPruningScheduler(
           )
           EitherT.pure[Future, ScheduledRunResult](Done: ScheduledRunResult)
         } { offsetToPruneUpTo =>
-          val pruneUpTo = UpstreamOffsetConvert.toStringOffset(offsetToPruneUpTo)
+          val pruneUpTo = offsetToPruneUpTo.toLong
           val submissionId = UUID.randomUUID().toString
           val internally = if (pruneInternallyOnly) "internally" else ""
           logger.info(

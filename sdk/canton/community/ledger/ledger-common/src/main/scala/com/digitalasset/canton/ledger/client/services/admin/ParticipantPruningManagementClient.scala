@@ -12,7 +12,7 @@ import scala.concurrent.Future
 
 object ParticipantPruningManagementClient {
 
-  private def pruneRequest(pruneUpTo: String, submissionId: Option[String]) =
+  private def pruneRequest(pruneUpTo: Long, submissionId: Option[String]) =
     PruneRequest(pruneUpTo = pruneUpTo, submissionId = submissionId.getOrElse(""))
 
 }
@@ -20,7 +20,7 @@ object ParticipantPruningManagementClient {
 final class ParticipantPruningManagementClient(service: ParticipantPruningServiceStub) {
 
   def prune(
-      pruneUpTo: String,
+      pruneUpTo: Long,
       token: Option[String] = None,
       submissionId: Option[String] = None,
   )(implicit traceContext: TraceContext): Future[PruneResponse] =

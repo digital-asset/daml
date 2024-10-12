@@ -8,6 +8,7 @@ import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
 import com.digitalasset.canton.domain.api.v0.HelloServiceGrpc.{HelloService, HelloServiceStub}
 import com.digitalasset.canton.domain.api.v0.{Hello, HelloServiceGrpc}
+import com.digitalasset.canton.lifecycle.OnShutdownRunner.PureOnShutdownRunner
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.networking.grpc.GrpcError.*
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
@@ -55,15 +56,23 @@ object CantonGrpcUtilTest {
       .build()
     val client: HelloServiceGrpc.HelloServiceStub = HelloServiceGrpc.stub(channel)
 
+    val onShutdownRunner = new PureOnShutdownRunner(logger)
+
     def sendRequest(
         timeoutMs: Long = 2000
-    )(implicit traceContext: TraceContext): EitherT[Future, GrpcError, Hello.Response] =
-      CantonGrpcUtil.sendGrpcRequest(client, "serverName")(
-        _.hello(request),
-        "command",
-        Duration(timeoutMs, TimeUnit.MILLISECONDS),
-        logger,
-      )
+    )(implicit
+        traceContext: TraceContext,
+        ec: ExecutionContext,
+    ): EitherT[Future, GrpcError, Hello.Response] =
+      CantonGrpcUtil
+        .sendGrpcRequest(client, "serverName")(
+          _.hello(request),
+          "command",
+          Duration(timeoutMs, TimeUnit.MILLISECONDS),
+          logger,
+          onShutdownRunner,
+        )
+        .onShutdown(throw new IllegalStateException("Unexpected shutdown"))
 
     def close(): Unit = {
       channel.shutdown()
@@ -74,7 +83,9 @@ object CantonGrpcUtilTest {
       server.awaitTermination()
     }
   }
+
 }
+
 @SuppressWarnings(Array("org.wartremover.warts.Null"))
 class CantonGrpcUtilTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContext {
   import CantonGrpcUtilTest.*
@@ -380,8 +391,10 @@ class CantonGrpcUtilTest extends FixtureAnyWordSpec with BaseTest with HasExecut
               "command",
               Duration(2000, TimeUnit.MILLISECONDS),
               logger,
+              onShutdownRunner,
             )
-            .value,
+            .value
+            .failOnShutdown,
           logEntry => {
             logEntry.errorMessage shouldBe
               """Request failed for serverName.
@@ -407,14 +420,17 @@ class CantonGrpcUtilTest extends FixtureAnyWordSpec with BaseTest with HasExecut
         import env.*
 
         server.start()
-        val resultET = CantonGrpcUtil.checkCantonApiInfo(
-          "server-name",
-          "correct-api",
-          channel,
-          logger,
-          timeouts.network,
-          None,
-        )
+        val resultET = CantonGrpcUtil
+          .checkCantonApiInfo(
+            "server-name",
+            "correct-api",
+            channel,
+            logger,
+            timeouts.network,
+            onShutdownRunner,
+            None,
+          )
+          .failOnShutdown
         resultET.futureValue shouldBe ()
       }
 
@@ -422,14 +438,17 @@ class CantonGrpcUtilTest extends FixtureAnyWordSpec with BaseTest with HasExecut
         import env.*
 
         server.start()
-        val requestET = CantonGrpcUtil.checkCantonApiInfo(
-          "server-name",
-          "other-api",
-          channel,
-          logger,
-          timeouts.network,
-          None,
-        )
+        val requestET = CantonGrpcUtil
+          .checkCantonApiInfo(
+            "server-name",
+            "other-api",
+            channel,
+            logger,
+            timeouts.network,
+            onShutdownRunner,
+            None,
+          )
+          .failOnShutdown
 
         val resultE = requestET.value.futureValue
         inside(resultE) { case Left(message) =>

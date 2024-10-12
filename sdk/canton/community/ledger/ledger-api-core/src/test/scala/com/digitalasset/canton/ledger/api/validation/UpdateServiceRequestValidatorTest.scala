@@ -78,7 +78,7 @@ class UpdateServiceRequestValidatorTest
     GetTransactionByEventIdRequest(eventId, Seq(party))
 
   private val txByIdReq =
-    GetTransactionByIdRequest(transactionId, Seq(party))
+    GetTransactionByIdRequest(updateId, Seq(party))
 
   private val validator = new UpdateServiceRequestValidator(
     new PartyValidator(PartyNameChecker.AllowAllParties)

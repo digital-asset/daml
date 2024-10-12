@@ -161,16 +161,30 @@ private[update] final class BlockChunkProcessor(
       height: Long,
       tickAtLeastAt: CantonTimestamp,
   )(implicit ec: ExecutionContext, tc: TraceContext): FutureUnlessShutdown[(State, ChunkUpdate)] = {
-    // The block orderer marks a block to request a topology tick only when it assesses that it may need to retrieve an
-    //  up-to-date topology; this will result in a single `TopologyTick` ledger block event in the chunk events of the
-    //  last chunk (associated with the last part of the block).
+    // The block orderer requests a topology tick to advance the topology processor's time knowledge
+    //  whenever it assesses that it may need to retrieve an up-to-date topology snapshot at a certain
+    //  sequencing timestamp, and it does so by setting it as in a `RawLedgerBlock`, promising that
+    //  all requests at up to (and possibly including) that sequencing timestamp have been already
+    //  ordered and included in a block.
+    //  That timestamp is `tickAtLeastAt`, which is the earliest timestamp at which the tick
+    //  should be sequenced, so that the block orderer's topology snapshot query succeeds.
+    //  The last sequenced timestamp before that, i.e. `state.lastChunkTs`, could be either earlier than
+    //  or equal to `tickAtLeastAt`: it will be earlier if some requests failed validation and were dropped,
+    //  else it may be equal to it, as `tickAtLeastAt` may be, at earliest, exactly the sequencing time of the
+    //  last ordered request.
+    //  In the latter case, the topology tick should be sequenced at the immediate successor of
+    //  `state.lastChunkTs = tickAtLeastAt` because there is already a request sequenced at that
+    //  timestamp and sequencing time must be strictly monotonically increasing.
+    //  We choose thus the latest between `state.lastChunkTs.immediateSuccessor` and `tickAtLeastAt`.
+    //  We also require that the block orderer will not order any other request at `tickSequencingTimestamp`
+    //  (see `RawLedgerBlock` for more information).
+    val tickSequencingTimestamp = state.lastChunkTs.immediateSuccessor.max(tickAtLeastAt)
 
     // TODO(#21662) Optimization: if the latest sequencer event timestamp is the same as the last chunk's final
     //  timestamp, then the last chunk's event was sequencer-addressed (and it passed validation),
     //  so it's safe for the block orderer to query the topology snapshot on its sequencing timestamp,
     //  and we don't need to add a `Deliver` for the tick.
 
-    val tickSequencingTimestamp = state.lastChunkTs.immediateSuccessor.max(tickAtLeastAt)
     logger.debug(
       s"Block $height: emitting a topology tick at least at $tickAtLeastAt (actually at $tickSequencingTimestamp) " +
         s"as requested by the block orderer"

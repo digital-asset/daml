@@ -4,6 +4,7 @@
 package com.digitalasset.canton.util
 
 import cats.{Applicative, Eval, Monad, Traverse}
+import com.digitalasset.canton.AllowTraverseSingleContainer
 import com.digitalasset.canton.logging.pretty.Pretty
 import slick.jdbc.{GetResult, PositionedParameters, SetParameter}
 
@@ -15,9 +16,7 @@ sealed trait ReassignmentTag[+T] extends Product with Serializable {
   def unwrap: T
 }
 
-// Define instances for Traverse and Monad
 object ReassignmentTag {
-
   final case class Source[+T](value: T) extends ReassignmentTag[T] {
     override def unwrap: T = value
   }
@@ -33,12 +32,11 @@ object ReassignmentTag {
 
     implicit def getResult[T: GetResult]: GetResult[Source[T]] = GetResult[T].andThen(Source(_))
 
-    implicit val sourceMonadInstance: Monad[Source] & Traverse[Source] = new Monad[Source]
+    @AllowTraverseSingleContainer
+    implicit def sourceMonadInstance: Monad[Source] & Traverse[Source] = new Monad[Source]
       with Traverse[Source] {
       override def pure[A](x: A): Source[A] = Source(x)
-
       override def flatMap[A, B](fa: Source[A])(f: A => Source[B]): Source[B] = f(fa.value)
-
       override def tailRecM[A, B](a: A)(f: A => Source[Either[A, B]]): Source[B] = {
         @annotation.tailrec
         def loop(a: A): Source[B] = f(a) match {
@@ -47,12 +45,9 @@ object ReassignmentTag {
         }
         loop(a)
       }
-
       override def traverse[G[_]: Applicative, A, B](fa: Source[A])(f: A => G[B]): G[Source[B]] =
         Applicative[G].map(f(fa.value))(Source(_))
-
       override def foldLeft[A, B](fa: Source[A], b: B)(f: (B, A) => B): B = f(b, fa.value)
-
       override def foldRight[A, B](fa: Source[A], lb: Eval[B])(
           f: (A, Eval[B]) => Eval[B]
       ): Eval[B] =
@@ -78,12 +73,11 @@ object ReassignmentTag {
 
     implicit def getResult[T: GetResult]: GetResult[Target[T]] = GetResult[T].andThen(Target(_))
 
-    implicit val targetMonadInstance: Monad[Target] & Traverse[Target] = new Monad[Target]
+    @AllowTraverseSingleContainer
+    implicit def targetMonadInstance: Monad[Target] & Traverse[Target] = new Monad[Target]
       with Traverse[Target] {
       override def pure[A](x: A): Target[A] = Target(x)
-
       override def flatMap[A, B](fa: Target[A])(f: A => Target[B]): Target[B] = f(fa.value)
-
       override def tailRecM[A, B](a: A)(f: A => Target[Either[A, B]]): Target[B] = {
         @annotation.tailrec
         def loop(a: A): Target[B] = f(a) match {
@@ -92,17 +86,15 @@ object ReassignmentTag {
         }
         loop(a)
       }
-
       override def traverse[G[_]: Applicative, A, B](fa: Target[A])(f: A => G[B]): G[Target[B]] =
         Applicative[G].map(f(fa.value))(Target(_))
-
       override def foldLeft[A, B](fa: Target[A], b: B)(f: (B, A) => B): B = f(b, fa.value)
-
       override def foldRight[A, B](fa: Target[A], lb: Eval[B])(
           f: (A, Eval[B]) => Eval[B]
       ): Eval[B] = f(fa.value, lb)
     }
-    implicit def sourceReassignmentType: SameReassignmentType[Target] =
+
+    implicit val targetReassignmentType: SameReassignmentType[Target] =
       new SameReassignmentType[Target] {}
   }
 }

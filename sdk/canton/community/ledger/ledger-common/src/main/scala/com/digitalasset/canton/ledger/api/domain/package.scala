@@ -21,8 +21,8 @@ package object domain {
   type CommandId = Ref.CommandId @@ CommandIdTag
   val CommandId: Tag.TagOf[CommandIdTag] = Tag.of[CommandIdTag]
 
-  type TransactionId = Ref.TransactionId @@ TransactionIdTag
-  val TransactionId: Tag.TagOf[TransactionIdTag] = Tag.of[TransactionIdTag]
+  type UpdateId = Ref.TransactionId @@ UpdateIdTag
+  val UpdateId: Tag.TagOf[UpdateIdTag] = Tag.of[UpdateIdTag]
 
   type EventId = Ref.LedgerString @@ EventIdTag
   val EventId: Tag.TagOf[EventIdTag] = Tag.of[EventIdTag]
@@ -39,7 +39,7 @@ package object domain {
 package domain {
   sealed trait WorkflowIdTag
   sealed trait CommandIdTag
-  sealed trait TransactionIdTag
+  sealed trait UpdateIdTag
   sealed trait EventIdTag
   sealed trait ParticipantIdTag
   sealed trait SubmissionIdTag

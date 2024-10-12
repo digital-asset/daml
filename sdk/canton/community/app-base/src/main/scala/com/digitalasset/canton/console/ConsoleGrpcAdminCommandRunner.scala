@@ -17,6 +17,7 @@ import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.config.{ClientConfig, ConsoleCommandTimeout, NonNegativeDuration}
 import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.lifecycle.Lifecycle.CloseableChannel
+import com.digitalasset.canton.lifecycle.OnShutdownRunner
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, ClientChannelBuilder}
 import com.digitalasset.canton.tracing.{Spanning, TraceContext}
@@ -38,6 +39,7 @@ class GrpcAdminCommandRunner(
 )(implicit tracer: Tracer)
     extends NamedLogging
     with AutoCloseable
+    with OnShutdownRunner
     with Spanning {
 
   private implicit val executionContext: ExecutionContextExecutor =
@@ -47,6 +49,7 @@ class GrpcAdminCommandRunner(
   private val grpcRunner = new GrpcCtlRunner(
     environment.config.monitoring.logging.api.maxMessageLines,
     environment.config.monitoring.logging.api.maxStringLength,
+    onShutdownRunner = this,
     loggerFactory,
   )
   private val channels = TrieMap[(String, String, Port), CloseableChannel]()
@@ -81,15 +84,17 @@ class GrpcAdminCommandRunner(
             logger.debug(
               s"Checking the endpoint at $clientConfig for $instanceName to provide the API '$apiName'"
             )
-            CantonGrpcUtil
-              .checkCantonApiInfo(
+            CantonGrpcUtil.shutdownAsGrpcErrorE(
+              CantonGrpcUtil.checkCantonApiInfo(
                 serverName = instanceName,
                 expectedName = apiName,
                 channel = ClientChannelBuilder.createChannelToTrustedServer(clientConfig),
                 logger = logger,
                 timeout = commandTimeouts.bounded,
-                token,
+                onShutdownRunner = this,
+                token = token,
               )
+            )
         }
       }
       closeableChannel = getOrCreateChannel(instanceName, clientConfig, callTimeout)
@@ -144,7 +149,8 @@ class GrpcAdminCommandRunner(
       )
     })
 
-  override def close(): Unit =
+  override def close(): Unit = super.close()
+  override def onFirstClose(): Unit =
     closeChannels()
 
   def closeChannels(): Unit = {

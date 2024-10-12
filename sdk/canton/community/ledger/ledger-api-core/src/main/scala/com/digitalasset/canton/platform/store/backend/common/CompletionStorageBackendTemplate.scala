@@ -120,7 +120,7 @@ class CompletionStorageBackendTemplate(
       deduplicationOffsetColumn ~
       deduplicationDurationSecondsColumn ~ deduplicationDurationNanosColumn ~
       deduplicationStartColumn map {
-        case submitters ~ offset ~ recordTime ~ commandId ~ applicationId ~ submissionId ~ internedDomainId ~ traceContext ~ transactionId ~
+        case submitters ~ offset ~ recordTime ~ commandId ~ applicationId ~ submissionId ~ internedDomainId ~ traceContext ~ updateId ~
             deduplicationOffset ~ deduplicationDurationSeconds ~ deduplicationDurationNanos ~ _ =>
           submitters -> CompletionFromTransaction.acceptedCompletion(
             submitters = submitters.iterator
@@ -130,7 +130,7 @@ class CompletionStorageBackendTemplate(
             recordTime = recordTime,
             offset = offset,
             commandId = commandId,
-            transactionId = transactionId,
+            updateId = updateId,
             applicationId = applicationId,
             optSubmissionId = submissionId,
             optDeduplicationOffset = deduplicationOffset,

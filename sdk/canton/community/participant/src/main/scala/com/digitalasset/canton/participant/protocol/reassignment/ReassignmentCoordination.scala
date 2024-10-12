@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.protocol.reassignment
 
-import cats.Traverse
 import cats.data.EitherT
 import cats.instances.future.catsStdInstancesForFuture
 import cats.syntax.functor.*
@@ -28,7 +27,8 @@ import com.digitalasset.canton.time.DomainTimeTracker
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.canton.util.{ReassignmentTag, SameReassignmentType}
+import com.digitalasset.canton.util.SingletonTraverse.syntax.*
+import com.digitalasset.canton.util.{ReassignmentTag, SameReassignmentType, SingletonTraverse}
 import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -148,12 +148,12 @@ class ReassignmentCoordination(
     } yield submissionResult
   }
 
-  // TODO(i21680): remove this supresswarnings
-  @SuppressWarnings(Array("com.digitalasset.canton.FutureTraverse"))
-  private[reassignment] def getStaticDomainParameter[T[_]: Traverse](domainId: T[DomainId])(implicit
+  private[reassignment] def getStaticDomainParameter[T[_]: SingletonTraverse](
+      domainId: T[DomainId]
+  )(implicit
       traceContext: TraceContext
   ): EitherT[Future, UnknownDomain, T[StaticDomainParameters]] =
-    domainId.traverse { domainId =>
+    domainId.traverseSingleton { (_, domainId) =>
       EitherT.fromOption[Future](
         staticDomainParameterFor(Traced(domainId)),
         UnknownDomain(domainId, "getting static domain parameters"),
@@ -164,11 +164,9 @@ class ReassignmentCoordination(
     * The returned future fails with [[java.lang.IllegalArgumentException]] if the `domain` has not progressed far enough
     * such that it can compute the snapshot. Use [[awaitTimestamp]] to ensure progression to `timestamp`.
     */
-  // TODO(i21680): remove this supresswarnings
-  @SuppressWarnings(Array("com.digitalasset.canton.FutureTraverse"))
   private[reassignment] def cryptoSnapshot[T[X] <: ReassignmentTag[
     X
-  ]: SameReassignmentType: Traverse](
+  ]: SameReassignmentType: SingletonTraverse](
       domainId: T[DomainId],
       staticDomainParameters: T[StaticDomainParameters],
       timestamp: CantonTimestamp,
@@ -177,7 +175,8 @@ class ReassignmentCoordination(
   ): EitherT[Future, ReassignmentProcessorError, T[DomainSnapshotSyncCryptoApi]] =
     EitherT
       .fromEither[Future](
-        domainId.traverse { domainId =>
+        // we use traverseSingleton to avoid wartremover warning about FutureTraverse
+        domainId.traverseSingleton { (_, domainId) =>
           syncCryptoApi
             .forDomain(domainId, staticDomainParameters.unwrap)
             .toRight(
@@ -185,7 +184,7 @@ class ReassignmentCoordination(
             )
         }
       )
-      .semiflatMap(_.traverse(_.snapshot(timestamp)))
+      .semiflatMap(_.traverseSingleton((_, syncCrypto) => syncCrypto.snapshot(timestamp)))
 
   private[reassignment] def awaitTimestampAndGetTaggedCryptoSnapshot(
       domain: Target[DomainId],

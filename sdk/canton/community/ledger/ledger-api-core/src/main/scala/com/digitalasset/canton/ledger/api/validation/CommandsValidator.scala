@@ -25,6 +25,7 @@ import com.digitalasset.canton.ledger.api.validation.CommandsValidator.{
   effectiveSubmitters,
 }
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
+import com.digitalasset.canton.util.OptionUtil
 import com.digitalasset.daml.lf.command.*
 import com.digitalasset.daml.lf.data.*
 import com.digitalasset.daml.lf.value.Value as Lf
@@ -61,6 +62,9 @@ final class CommandsValidator(
         domain.CommandId(_)
       )
       submitters <- validateSubmitters(effectiveSubmitters(prepareRequest))
+      domainId <- validateOptional(OptionUtil.emptyStringAsNone(prepareRequest.domainId))(
+        requireDomainId(_, "domain_id")
+      )
       commandz <- requireNonEmpty(prepareRequest.commands, "commands")
       validatedCommands <- validateInnerCommands(commandz)
       ledgerEffectiveTime <- validateLedgerTime(
@@ -100,6 +104,7 @@ final class CommandsValidator(
         commandsReference = "",
       ),
       disclosedContracts = validatedDisclosedContracts,
+      domainId = domainId,
       packageMap = packageResolutions.packageMap,
       packagePreferenceSet = packageResolutions.packagePreferenceSet,
     )
@@ -118,6 +123,9 @@ final class CommandsValidator(
       commandId <- requireLedgerString(commands.commandId, "command_id").map(domain.CommandId(_))
       submissionId <- validateSubmissionId(commands.submissionId)
       submitters <- validateSubmitters(effectiveSubmitters(commands))
+      domainId <- validateOptional(OptionUtil.emptyStringAsNone(commands.domainId))(
+        requireDomainId(_, "domain_id")
+      )
       commandz <- requireNonEmpty(commands.commands, "commands")
       validatedCommands <- validateInnerCommands(commandz)
       ledgerEffectiveTime <- validateLedgerTime(
@@ -156,6 +164,7 @@ final class CommandsValidator(
         commandsReference = workflowId.fold("")(_.unwrap),
       ),
       disclosedContracts = validatedDisclosedContracts,
+      domainId = domainId,
       packageMap = packageResolutions.packageMap,
       packagePreferenceSet = packageResolutions.packagePreferenceSet,
     )

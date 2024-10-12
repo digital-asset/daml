@@ -28,8 +28,6 @@ import org.slf4j.event.Level
 import scala.concurrent.{ExecutionContext, Future}
 
 private[participant] object AutomaticAssignment {
-  // TODO(i21680): remove this supresswarnings
-  @SuppressWarnings(Array("com.digitalasset.canton.FutureTraverse"))
   def perform(
       id: ReassignmentId,
       targetDomain: Target[DomainId],

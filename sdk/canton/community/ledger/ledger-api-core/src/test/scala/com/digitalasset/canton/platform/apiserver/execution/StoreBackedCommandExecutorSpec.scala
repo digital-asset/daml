@@ -152,6 +152,7 @@ class StoreBackedCommandExecutorSpec
         commandsReference = "",
       ),
       disclosedContracts = ImmArray(disclosedContract),
+      domainId = None,
     )
 
   private val submissionSeed = Hash.hashPrivateKey("a key")
@@ -324,6 +325,7 @@ class StoreBackedCommandExecutorSpec
           commandsReference = "",
         ),
         disclosedContracts = ImmArray.from(Seq(disclosedContract)),
+        domainId = None,
       )
       val submissionSeed = Hash.hashPrivateKey("a key")
 

@@ -32,6 +32,9 @@ object ApiOffset {
     Option.unless(s.isEmpty)(assertFromString(s).toLong)
 
   // TODO(#21363) remove converter as it should be unused
+  def assertFromStringToLong(s: String): Long = assertFromString(s).toLong
+
+  // TODO(#21363) remove converter as it should be unused
   def fromLongO(longO: Option[Long]): String =
     longO.map(fromLong).getOrElse("")
 

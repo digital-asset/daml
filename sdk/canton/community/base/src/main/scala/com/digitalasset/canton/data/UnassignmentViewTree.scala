@@ -434,9 +434,8 @@ final case class FullUnassignmentTree(tree: UnassignmentViewTree)
 
   def reassignmentCounter: ReassignmentCounter = view.reassignmentCounter
 
-  def sourceDomain: Source[DomainId] = commonData.sourceDomain
-
-  def targetDomain: Target[DomainId] = view.targetDomain
+  override def sourceDomain: Source[DomainId] = commonData.sourceDomain
+  override def targetDomain: Target[DomainId] = view.targetDomain
 
   def targetTimeProof: TimeProof = view.targetTimeProof
 

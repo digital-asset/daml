@@ -530,6 +530,11 @@ trait ProcessingSteps[
       traceContext: TraceContext
   ): Unit
 
+  /** Processor specific handling of the timeout
+    */
+  def handleTimeout(parsedRequest: ParsedRequestType)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, ResultError, Unit]
 }
 
 object ProcessingSteps {

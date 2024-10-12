@@ -98,7 +98,6 @@ abstract class ProtocolProcessor[
     crypto: DomainSyncCryptoClient,
     sequencerClient: SequencerClientSend,
     domainId: DomainId,
-    staticDomainParameters: StaticDomainParameters,
     protocolVersion: ProtocolVersion,
     override protected val loggerFactory: NamedLoggerFactory,
     futureSupervisor: FutureSupervisor,
@@ -109,7 +108,6 @@ abstract class ProtocolProcessor[
       ephemeral,
       crypto,
       sequencerClient,
-      staticDomainParameters,
       protocolVersion,
     )
     with RequestProcessor[RequestViewType] {
@@ -993,8 +991,7 @@ abstract class ProtocolProcessor[
         if (mediatorIsActive)
           for {
             activenessSet <- EitherT.fromEither[FutureUnlessShutdown](
-              steps
-                .computeActivenessSet(parsedRequest)
+              steps.computeActivenessSet(parsedRequest)
             )
             _ <- trackAndSendResponsesWellformed(
               parsedRequest,
@@ -1108,10 +1105,7 @@ abstract class ProtocolProcessor[
               _,
               _locallyRejected,
             ) = pendingData
-            _ = if (
-              pendingRequestCounter != rc
-              || pendingSequencerCounter != sc
-            )
+            _ = if (pendingRequestCounter != rc || pendingSequencerCounter != sc)
               throw new RuntimeException("Pending result data inconsistent with request")
 
           } yield (
@@ -1139,8 +1133,7 @@ abstract class ProtocolProcessor[
         .right(requestFutures.timeoutResult)
         .flatMap(
           handleTimeout(
-            requestId,
-            rc,
+            parsedRequest,
             sc,
             decisionTime,
             timeoutEvent(),
@@ -1735,8 +1728,7 @@ abstract class ProtocolProcessor[
   }
 
   private def handleTimeout(
-      requestId: RequestId,
-      requestCounter: RequestCounter,
+      parsedRequest: steps.ParsedRequestType,
       sequencerCounter: SequencerCounter,
       decisionTime: CantonTimestamp,
       timeoutEvent: => Either[steps.ResultError, Option[Traced[Update]]],
@@ -1746,6 +1738,9 @@ abstract class ProtocolProcessor[
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, steps.ResultError, Unit] =
     if (result.timedOut) {
+      val requestId = parsedRequest.requestId
+      val requestCounter = parsedRequest.rc
+
       logger.info(
         show"${steps.requestKind.unquoted} request at $requestId timed out without a transaction result message."
       )
@@ -1784,6 +1779,8 @@ abstract class ProtocolProcessor[
 
         // No need to clean up the pending submissions because this is handled (concurrently) by schedulePendingSubmissionRemoval
         cleanReplay = isCleanReplay(requestCounter, pendingRequestDataOrReplayData)
+
+        _ <- steps.handleTimeout(parsedRequest)
 
         _ <- ifThenET(!cleanReplay)(publishEvent()).mapK(FutureUnlessShutdown.outcomeK)
       } yield ()

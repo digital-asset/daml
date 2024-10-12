@@ -45,7 +45,7 @@ object EventsTable {
         if (flatEvents.nonEmpty || first.commandId.nonEmpty)
           Some(
             ApiTransaction(
-              updateId = first.transactionId,
+              updateId = first.updateId,
               commandId = first.commandId,
               effectiveAt = Some(TimestampConversion.fromLf(first.ledgerEffectiveTime)),
               workflowId = first.workflowId,
@@ -106,7 +106,7 @@ object EventsTable {
       events.headOption.map { first =>
         val (eventsById, rootEventIds, traceContext) = treeOf(events)
         ApiTransactionTree(
-          updateId = first.transactionId,
+          updateId = first.updateId,
           commandId = first.commandId,
           workflowId = first.workflowId,
           effectiveAt = Some(TimestampConversion.fromLf(first.ledgerEffectiveTime)),

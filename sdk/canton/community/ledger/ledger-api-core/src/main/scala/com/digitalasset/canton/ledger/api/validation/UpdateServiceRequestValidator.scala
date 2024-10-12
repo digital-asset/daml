@@ -96,7 +96,7 @@ class UpdateServiceRequestValidator(partyValidator: PartyValidator) {
       parties <- partyValidator.requireKnownParties(req.requestingParties)
     } yield {
       transaction.GetTransactionByIdRequest(
-        domain.TransactionId(trId),
+        domain.UpdateId(trId),
         parties,
       )
     }

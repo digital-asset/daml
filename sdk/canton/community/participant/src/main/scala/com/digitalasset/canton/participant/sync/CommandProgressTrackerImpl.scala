@@ -250,7 +250,7 @@ class CommandProgressTrackerImpl(
       completion = CompletionFromTransaction.toApiCompletion(
         submitters = Set.empty,
         commandId = commandId,
-        transactionId = "",
+        updateId = "",
         applicationId = applicationId,
         traceContext = traceContext,
         optStatus = None,

@@ -167,14 +167,14 @@ object EventStorageBackendTemplate {
       stringInterning: StringInterning,
   ): RowParser[EventStorageBackend.Entry[Raw.FlatEvent.Created]] =
     createdEventRow map {
-      case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~
+      case eventOffset ~ updateId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~
           templateId ~ packageName ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ internedDomainId ~ traceContext ~ recordTime ~ createArgument ~ createArgumentCompression ~
           createSignatories ~ createObservers ~ createKeyValue ~ createKeyHash ~ createKeyValueCompression ~ createKeyMaintainers ~ driverMetadata ~ packageVersion =>
         // ArraySeq.unsafeWrapArray is safe here
         // since we get the Array from parsing and don't let it escape anywhere.
         EventStorageBackend.Entry(
           eventOffset = eventOffset,
-          transactionId = transactionId,
+          updateId = updateId,
           nodeIndex = nodeIndex,
           eventSequentialId = eventSequentialId,
           ledgerEffectiveTime = ledgerEffectiveTime,
@@ -226,13 +226,13 @@ object EventStorageBackendTemplate {
       stringInterning: StringInterning,
   ): RowParser[EventStorageBackend.Entry[Raw.FlatEvent.Archived]] =
     archivedEventRow map {
-      case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~
+      case eventOffset ~ updateId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~
           templateId ~ packageName ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ internedDomainId ~ traceContext ~ recordTime =>
         // ArraySeq.unsafeWrapArray is safe here
         // since we get the Array from parsing and don't let it escape anywhere.
         EventStorageBackend.Entry(
           eventOffset = eventOffset,
-          transactionId = transactionId,
+          updateId = updateId,
           nodeIndex = nodeIndex,
           eventSequentialId = eventSequentialId,
           ledgerEffectiveTime = ledgerEffectiveTime,
@@ -276,7 +276,7 @@ object EventStorageBackendTemplate {
       stringInterning: StringInterning,
   ): RowParser[EventStorageBackend.Entry[Raw.TreeEvent.Created]] =
     createdEventRow map {
-      case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~
+      case eventOffset ~ updateId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~
           templateId ~ packageName ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ internedDomainId ~ traceContext ~ recordTime ~
           createArgument ~ createArgumentCompression ~ createSignatories ~ createObservers ~
           createKeyValue ~ createKeyHash ~ createKeyValueCompression ~ createKeyMaintainers ~ driverMetadata ~ packageVersion =>
@@ -284,7 +284,7 @@ object EventStorageBackendTemplate {
         // since we get the Array from parsing and don't let it escape anywhere.
         EventStorageBackend.Entry(
           eventOffset = eventOffset,
-          transactionId = transactionId,
+          updateId = updateId,
           nodeIndex = nodeIndex,
           eventSequentialId = eventSequentialId,
           ledgerEffectiveTime = ledgerEffectiveTime,
@@ -336,14 +336,14 @@ object EventStorageBackendTemplate {
       stringInterning: StringInterning,
   ): RowParser[EventStorageBackend.Entry[Raw.TreeEvent.Exercised]] =
     exercisedEventRow map {
-      case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ packageName ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ internedDomainId ~ traceContext ~ recordTime ~ exerciseConsuming ~ qualifiedChoiceName ~ exerciseArgument ~ exerciseArgumentCompression ~ exerciseResult ~ exerciseResultCompression ~ exerciseActors ~ exerciseChildEventIds =>
+      case eventOffset ~ updateId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ packageName ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ internedDomainId ~ traceContext ~ recordTime ~ exerciseConsuming ~ qualifiedChoiceName ~ exerciseArgument ~ exerciseArgumentCompression ~ exerciseResult ~ exerciseResultCompression ~ exerciseActors ~ exerciseChildEventIds =>
         val Ref.QualifiedChoiceName(interfaceId, choiceName) =
           Ref.QualifiedChoiceName.assertFromString(qualifiedChoiceName)
         // ArraySeq.unsafeWrapArray is safe here
         // since we get the Array from parsing and don't let it escape anywhere.
         EventStorageBackend.Entry(
           eventOffset = eventOffset,
-          transactionId = transactionId,
+          updateId = updateId,
           nodeIndex = nodeIndex,
           eventSequentialId = eventSequentialId,
           ledgerEffectiveTime = ledgerEffectiveTime,
@@ -733,7 +733,7 @@ object EventStorageBackendTemplate {
     createActiveContractRow map {
       case workflowId ~
           targetDomainId ~
-          transactionId ~
+          updateId ~
           contractId ~
           templateId ~
           packageName ~
@@ -755,7 +755,7 @@ object EventStorageBackendTemplate {
           domainId = stringInterning.domainId.unsafe.externalize(targetDomainId),
           reassignmentCounter = 0L, // zero for create
           rawCreatedEvent = EventStorageBackend.RawCreatedEvent(
-            updateId = transactionId,
+            updateId = updateId,
             contractId = contractId,
             templateId = stringInterning.templateId.externalize(templateId),
             packageName = stringInterning.packageName.externalize(packageName),

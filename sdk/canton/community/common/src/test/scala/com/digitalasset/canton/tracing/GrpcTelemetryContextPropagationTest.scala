@@ -81,7 +81,7 @@ class GrpcTelemetryContextPropagationTest
       val sut = new Outer()
       grpc.server.start()
 
-      sut.foo(grpc.sendRequest()(_).value).futureValue shouldBe Right(response)
+      sut.foo(grpc.sendRequest()(_, implicitly).value).futureValue shouldBe Right(response)
 
       eventually(telemetry.reportedSpans() should have size (2))
 

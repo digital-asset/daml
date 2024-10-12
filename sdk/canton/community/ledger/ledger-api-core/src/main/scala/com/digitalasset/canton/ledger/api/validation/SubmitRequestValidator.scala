@@ -11,7 +11,6 @@ import com.daml.ledger.api.v2.interactive_submission_service.{
   PrepareSubmissionRequest,
 }
 import com.daml.ledger.api.v2.reassignment_command.ReassignmentCommand
-import com.digitalasset.canton.crypto.LedgerApiCryptoConversions.*
 import com.digitalasset.canton.ledger.api.SubmissionIdGenerator
 import com.digitalasset.canton.ledger.api.messages.command.submission
 import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.ExecuteRequest
@@ -37,7 +36,6 @@ class SubmitRequestValidator(
       currentLedgerTime: Instant,
       currentUtcTime: Instant,
       maxDeduplicationDuration: Duration,
-      domainIdString: Option[String],
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, submission.SubmitRequest] =
@@ -49,17 +47,13 @@ class SubmitRequestValidator(
         currentUtcTime,
         maxDeduplicationDuration,
       )
-      domainId <- validateOptional(domainIdString)(
-        requireDomainId(_, "domain_id")
-      )
-    } yield submission.SubmitRequest(validatedCommands.copy(domainId = domainId))
+    } yield submission.SubmitRequest(validatedCommands)
 
   def validatePrepare(
       req: PrepareSubmissionRequest,
       currentLedgerTime: Instant,
       currentUtcTime: Instant,
       maxDeduplicationDuration: Duration,
-      domainIdString: Option[String],
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, submission.SubmitRequest] =
@@ -70,10 +64,7 @@ class SubmitRequestValidator(
         currentUtcTime,
         maxDeduplicationDuration,
       )
-      domainId <- validateOptional(domainIdString)(
-        requireDomainId(_, "domain_id")
-      )
-    } yield submission.SubmitRequest(validatedCommands.copy(domainId = domainId))
+    } yield submission.SubmitRequest(validatedCommands)
 
   def validateExecute(
       req: ExecuteSubmissionRequest,

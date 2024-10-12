@@ -32,7 +32,7 @@ private[dao] trait JdbcLedgerDaoEventsSpec extends LoneElement with Inside with 
     for {
       (_, tx) <- store(singleCreate(cId => create(cId)))
       flatTx <- ledgerDao.transactionsReader.lookupFlatTransactionById(
-        tx.transactionId,
+        tx.updateId,
         tx.actAs.toSet,
       )
       result <- eventsReader.getEventsByContractId(
@@ -52,7 +52,7 @@ private[dao] trait JdbcLedgerDaoEventsSpec extends LoneElement with Inside with 
       contractId = nonTransient(tx1).loneElement
       (_, tx2) <- store(singleExercise(contractId))
       flatTx <- ledgerDao.transactionsReader.lookupFlatTransactionById(
-        tx2.transactionId,
+        tx2.updateId,
         tx2.actAs.toSet,
       )
       expected = flatTx.value.transaction.value.events.loneElement.event.archived.value
@@ -70,7 +70,7 @@ private[dao] trait JdbcLedgerDaoEventsSpec extends LoneElement with Inside with 
         singleCreate(cId => create(cId, signatories = Set(alice), observers = Set(charlie)))
       )
       _ <- ledgerDao.transactionsReader.lookupTransactionTreeById(
-        tx.transactionId,
+        tx.updateId,
         tx.actAs.toSet,
       )
       cId = nonTransient(tx).loneElement

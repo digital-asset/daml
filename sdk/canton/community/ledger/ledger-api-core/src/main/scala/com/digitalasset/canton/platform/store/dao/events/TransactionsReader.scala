@@ -12,6 +12,7 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdateTreesResponse,
   GetUpdatesResponse,
 }
+import com.digitalasset.canton.data
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.util.{LfEngineToApi, TimestampConversion}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
@@ -88,11 +89,11 @@ private[dao] final class TransactionsReader(
   }
 
   override def lookupFlatTransactionById(
-      transactionId: Ref.TransactionId,
+      updateId: data.UpdateId,
       requestingParties: Set[Party],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]] =
     flatTransactionPointwiseReader.lookupTransactionById(
-      transactionId = transactionId,
+      updateId = updateId,
       requestingParties = requestingParties,
       eventProjectionProperties = EventProjectionProperties(
         verbose = true,
@@ -101,13 +102,13 @@ private[dao] final class TransactionsReader(
     )
 
   override def lookupTransactionTreeById(
-      transactionId: Ref.TransactionId,
+      updateId: data.UpdateId,
       requestingParties: Set[Party],
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Option[GetTransactionTreeResponse]] =
     treeTransactionPointwiseReader.lookupTransactionById(
-      transactionId = transactionId,
+      updateId = updateId,
       requestingParties = requestingParties,
       eventProjectionProperties = EventProjectionProperties(
         verbose = true,

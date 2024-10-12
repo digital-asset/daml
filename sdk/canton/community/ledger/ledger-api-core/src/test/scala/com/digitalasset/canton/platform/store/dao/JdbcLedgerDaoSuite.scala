@@ -182,7 +182,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       _ <- ledgerDao.storeTransaction(
         completionInfo = completionInfo,
         workflowId = tx.workflowId,
-        transactionId = tx.transactionId,
+        updateId = tx.updateId,
         ledgerEffectiveTime = tx.ledgerEffectiveTime,
         offset = offset,
         transaction = tx.transaction,
@@ -311,7 +311,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     val let = Timestamp.now()
     offset -> LedgerEntry.Transaction(
       commandId = Some(s"commandId$id"),
-      transactionId = s"trId$id",
+      updateId = s"trId$id",
       applicationId = Some("appID1"),
       submissionId = Some(s"submissionId$id"),
       actAs = actAs,
@@ -337,7 +337,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     val let = Timestamp.now()
     offset -> LedgerEntry.Transaction(
       commandId = Some(s"commandId$id"),
-      transactionId = s"trId$id",
+      updateId = s"trId$id",
       applicationId = Some("appID1"),
       submissionId = Some(s"submissionId$id"),
       actAs = actAs,
@@ -389,7 +389,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     val let = Timestamp.now()
     offset -> LedgerEntry.Transaction(
       commandId = Some(s"commandId$id"),
-      transactionId = s"trId$id",
+      updateId = s"trId$id",
       applicationId = Some("appID1"),
       submissionId = Some(s"submissionId$id"),
       actAs = List("Alice"),
@@ -411,7 +411,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     val let = Timestamp.now()
     offset -> LedgerEntry.Transaction(
       commandId = Some(s"commandId$id"),
-      transactionId = s"trId$id",
+      updateId = s"trId$id",
       applicationId = Some("appID1"),
       submissionId = Some(s"submissionId$id"),
       actAs = List(alice, bob, charlie),
@@ -433,7 +433,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     val let = Timestamp.now()
     offset -> LedgerEntry.Transaction(
       commandId = Some(s"commandId$id"),
-      transactionId = s"trId$id",
+      updateId = s"trId$id",
       applicationId = Some("appID1"),
       submissionId = Some(s"submissionId$id"),
       actAs = List("Alice"),
@@ -458,7 +458,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     val let = Timestamp.now()
     offset -> LedgerEntry.Transaction(
       commandId = Some(s"commandId$id"),
-      transactionId = txId,
+      updateId = txId,
       applicationId = Some("appID1"),
       submissionId = Some(s"submissionId$id"),
       actAs = List("Alice"),
@@ -480,7 +480,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     val let = Timestamp.now()
     nextOffset() -> LedgerEntry.Transaction(
       commandId = Some(UUID.randomUUID().toString),
-      transactionId = UUID.randomUUID().toString,
+      updateId = UUID.randomUUID().toString,
       applicationId = Some("appID1"),
       submissionId = Some(UUID.randomUUID.toString),
       actAs = List(alice),
@@ -508,7 +508,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     val let = Timestamp.now()
     nextOffset() -> LedgerEntry.Transaction(
       commandId = Some(UUID.randomUUID.toString),
-      transactionId = UUID.randomUUID().toString,
+      updateId = UUID.randomUUID().toString,
       applicationId = Some("appID1"),
       submissionId = Some(UUID.randomUUID.toString),
       actAs = List(alice),
@@ -563,7 +563,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     val let = Timestamp.now()
     nextOffset() -> LedgerEntry.Transaction(
       commandId = Some(UUID.randomUUID().toString),
-      transactionId = UUID.randomUUID().toString,
+      updateId = UUID.randomUUID().toString,
       applicationId = Some("appID1"),
       submissionId = Some(UUID.randomUUID().toString),
       actAs = List(charlie),
@@ -602,7 +602,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     } yield nodeId -> parties
     nextOffset() -> LedgerEntry.Transaction(
       commandId = Some(UUID.randomUUID().toString),
-      transactionId = UUID.randomUUID.toString,
+      updateId = UUID.randomUUID.toString,
       applicationId = Some("appID1"),
       submissionId = Some(UUID.randomUUID.toString),
       actAs = List(operator),
@@ -676,7 +676,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     nextOffset() ->
       LedgerEntry.Transaction(
         commandId = Some(UUID.randomUUID().toString),
-        transactionId = txUuid.getOrElse(UUID.randomUUID.toString),
+        updateId = txUuid.getOrElse(UUID.randomUUID.toString),
         applicationId = Some(defaultAppId),
         submissionId = Some(UUID.randomUUID().toString),
         actAs = List(party),
@@ -721,7 +721,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     )
     nextOffset() -> LedgerEntry.Transaction(
       commandId = Some(UUID.randomUUID().toString),
-      transactionId = UUID.randomUUID.toString,
+      updateId = UUID.randomUUID.toString,
       applicationId = Some(defaultAppId),
       submissionId = Some(UUID.randomUUID().toString),
       actAs = List(party),
@@ -752,7 +752,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     )
     nextOffset() -> LedgerEntry.Transaction(
       commandId = Some(UUID.randomUUID().toString),
-      transactionId = UUID.randomUUID.toString,
+      updateId = UUID.randomUUID.toString,
       applicationId = Some(defaultAppId),
       submissionId = Some(UUID.randomUUID().toString),
       actAs = List(party),
@@ -785,7 +785,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
     )
     nextOffset() -> LedgerEntry.Transaction(
       commandId = Some(UUID.randomUUID().toString),
-      transactionId = UUID.randomUUID.toString,
+      updateId = UUID.randomUUID.toString,
       applicationId = Some(defaultAppId),
       submissionId = Some(UUID.randomUUID().toString),
       actAs = List(party),
@@ -800,7 +800,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
   protected final def emptyTransaction(party: Party): (Offset, LedgerEntry.Transaction) =
     nextOffset() -> LedgerEntry.Transaction(
       commandId = Some(UUID.randomUUID().toString),
-      transactionId = UUID.randomUUID.toString,
+      updateId = UUID.randomUUID.toString,
       applicationId = Some(defaultAppId),
       submissionId = Some(UUID.randomUUID().toString),
       actAs = List(party),

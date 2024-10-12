@@ -65,7 +65,6 @@ class AssignmentProcessor(
       domainCrypto,
       sequencerClient,
       domainId.unwrap,
-      staticDomainParameters.unwrap,
       targetProtocolVersion.unwrap,
       loggerFactory,
       futureSupervisor,

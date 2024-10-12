@@ -662,6 +662,12 @@ class UnassignmentProcessingSteps(
     }
   }
 
+  override def handleTimeout(parsedRequest: ParsedReassignmentRequest[FullView])(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
+    deleteReassignment(parsedRequest.fullViewTree.targetDomain, parsedRequest.requestId)
+      .mapK(FutureUnlessShutdown.outcomeK)
+
   private def createReassignmentAccepted(
       contractId: LfContractId,
       templateId: LfTemplateId,

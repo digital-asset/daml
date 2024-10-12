@@ -10,6 +10,7 @@ import com.digitalasset.canton.crypto.{
   DomainCryptoPureApi,
   DomainSnapshotSyncCryptoApi,
   HashPurpose,
+  Signature,
   TestHash,
 }
 import com.digitalasset.canton.data.{CantonTimestamp, ReassignmentSubmitterMetadata, ViewType}
@@ -31,6 +32,7 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.ProtocolVersion
+import monocle.macros.syntax.lens.*
 
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
@@ -210,6 +212,7 @@ object ReassignmentDataHelpers {
   )(
       domainId: DomainId = result.domainId,
       additionalEnvelopes: List[(ProtocolMessage, Recipients)] = Nil,
+      additionalMediatorSignatures: Seq[Signature] = Nil,
   )(implicit executionContext: ExecutionContext, traceContext: TraceContext): EitherT[
     Future,
     DeliveredUnassignmentResult.InvalidUnassignmentResult,
@@ -222,7 +225,9 @@ object ReassignmentDataHelpers {
         .onShutdown(sys.error("aborted due to shutdown"))
 
     for {
-      signedResult <- EitherT.liftF(signedResultF)
+      signedResult <- EitherT
+        .liftF(signedResultF)
+        .map(_.focus(_.signatures).modify(_ ++ additionalMediatorSignatures))
 
       deliveredUnassignmentResult <- addSequencerSignature(
         signedResult,
