@@ -154,6 +154,7 @@ da_scala_test_suite(
             "//test-common:upgrades-MissingModule-v2.dar",
             "//test-common:upgrades-MissingTemplate-v1.dar",
             "//test-common:upgrades-MissingTemplate-v2.dar",
+            "//test-common:upgrades-MissingTemplateDifferentPackageName.dar",
             "//test-common:upgrades-RecordFieldsNewNonOptional-v1.dar",
             "//test-common:upgrades-RecordFieldsNewNonOptional-v2.dar",
             "//test-common:upgrades-TemplateChangedKeyType-v1.dar",
