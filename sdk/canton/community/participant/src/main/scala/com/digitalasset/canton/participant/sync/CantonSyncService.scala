@@ -736,12 +736,13 @@ class CantonSyncService(
   def addDomain(
       config: DomainConnectionConfig,
       sequencerConnectionValidation: SequencerConnectionValidation,
-  )(implicit traceContext: TraceContext): EitherT[Future, SyncServiceError, Unit] =
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] =
     for {
       _ <- validateSequencerConnection(config, sequencerConnectionValidation)
       _ <- domainConnectionConfigStore
         .put(config, DomainConnectionConfigStore.Active)
         .leftMap(e => SyncServiceError.SyncServiceAlreadyAdded.Error(e.alias): SyncServiceError)
+        .mapK(FutureUnlessShutdown.outcomeK)
     } yield ()
 
   private def validateSequencerConnection(
@@ -749,7 +750,7 @@ class CantonSyncService(
       sequencerConnectionValidation: SequencerConnectionValidation,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SyncServiceError, Unit] =
+  ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] =
     sequencerInfoLoader
       .validateSequencerConnection(
         config.domain,
@@ -766,12 +767,13 @@ class CantonSyncService(
   def modifyDomain(
       config: DomainConnectionConfig,
       sequencerConnectionValidation: SequencerConnectionValidation,
-  )(implicit traceContext: TraceContext): EitherT[Future, SyncServiceError, Unit] =
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] =
     for {
       _ <- validateSequencerConnection(config, sequencerConnectionValidation)
       _ <- domainConnectionConfigStore
         .replace(config)
         .leftMap(e => SyncServiceError.SyncServiceUnknownDomain.Error(e.alias): SyncServiceError)
+        .mapK(FutureUnlessShutdown.outcomeK)
     } yield ()
 
   /** Migrates contracts from a source domain to target domain by re-associating them in the participant's persistent store.

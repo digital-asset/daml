@@ -64,6 +64,7 @@ class SubmitRequestValidatorTest
     val constructor = "constructor"
     val submitter = "party"
     val deduplicationDuration = new Duration().withSeconds(10)
+    val domainId = "x::domainId"
 
     private def commandDef(createPackageId: String, moduleName: String = moduleName) =
       Command.of(
@@ -94,6 +95,7 @@ class SubmitRequestValidatorTest
       minLedgerTimeAbs = None,
       minLedgerTimeRel = None,
       packageIdSelectionPreference = Seq.empty,
+      domainId = domainId,
     )
   }
 
@@ -135,7 +137,7 @@ class SubmitRequestValidatorTest
           createTime = Time.Timestamp.now(),
           cantonData = Bytes.Empty,
         ),
-        domainIdO = Some(DomainId.tryFromString("x::domainId")),
+        domainIdO = Some(DomainId.tryFromString(api.domainId)),
       )
     )
 
@@ -170,6 +172,7 @@ class SubmitRequestValidatorTest
       ),
       disclosedContracts,
       packagePreferenceSet = packagePreferenceSet,
+      domainId = Some(DomainId.tryFromString(api.domainId)),
       packageMap = packageMap,
     )
   }
@@ -243,6 +246,17 @@ class SubmitRequestValidatorTest
             workflowId = None,
             commands = internal.emptyCommands.commands.copy(commandsReference = ""),
           )
+        )
+      }
+
+      "tolerate a missing domainId" in {
+        testedCommandValidator.validateCommands(
+          api.commands.withDomainId(""),
+          internal.ledgerTime,
+          internal.submittedAt,
+          internal.maxDeduplicationDuration,
+        ) shouldEqual Right(
+          internal.emptyCommands.copy(domainId = None)
         )
       }
 

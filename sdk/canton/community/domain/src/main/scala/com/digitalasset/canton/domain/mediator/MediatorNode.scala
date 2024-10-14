@@ -345,7 +345,6 @@ class MediatorNodeBootstrap(
                 request.sequencerConnections,
                 request.sequencerConnectionValidation,
               )
-              .mapK(FutureUnlessShutdown.outcomeK)
               .leftMap(error => s"Error loading sequencer endpoint information: $error")
 
             _ <- CryptoHandshakeValidator
@@ -424,27 +423,17 @@ class MediatorNodeBootstrap(
 
       }
 
-      val fetchConfig: () => Future[Option[MediatorDomainConfiguration]] = () =>
+      val fetchConfig: () => FutureUnlessShutdown[Option[MediatorDomainConfiguration]] = () =>
         domainConfigurationStore.fetchConfiguration
-          .onShutdown(throw new RuntimeException("Aborted due to shutdown during startup"))
 
-      val saveConfig: MediatorDomainConfiguration => Future[Unit] =
-        domainConfigurationStore
-          .saveConfiguration(_)
-          .onShutdown(throw new RuntimeException("Aborted due to shutdown during startup"))
+      val saveConfig: MediatorDomainConfiguration => FutureUnlessShutdown[Unit] =
+        domainConfigurationStore.saveConfiguration
 
       performUnlessClosingEitherUSF("starting up mediator node") {
         for {
-          domainConfig <- EitherT
-            .right(fetchConfig())
-            .flatMap { mediatorDomainConfigurationO =>
-              EitherT.fromEither(
-                mediatorDomainConfigurationO.toRight(
-                  s"Mediator domain config has not been set. Must first be initialized by the domain in order to start."
-                )
-              )
-            }
-            .mapK(FutureUnlessShutdown.outcomeK)
+          domainConfig <- OptionT(fetchConfig()).toRight(
+            s"Mediator domain config has not been set. Must first be initialized by the domain in order to start."
+          )
 
           domainTopologyManager <- EitherT.fromEither[FutureUnlessShutdown](
             createDomainTopologyManager()
@@ -525,8 +514,8 @@ class MediatorNodeBootstrap(
       mediatorId: MediatorId,
       domainConfig: MediatorDomainConfiguration,
       indexedStringStore: IndexedStringStore,
-      fetchConfig: () => Future[Option[MediatorDomainConfiguration]],
-      saveConfig: MediatorDomainConfiguration => Future[Unit],
+      fetchConfig: () => FutureUnlessShutdown[Option[MediatorDomainConfiguration]],
+      saveConfig: MediatorDomainConfiguration => FutureUnlessShutdown[Unit],
       storage: Storage,
       crypto: Crypto,
       adminServerRegistry: CantonMutableHandlerRegistry,
@@ -540,8 +529,8 @@ class MediatorNodeBootstrap(
     val domainLoggerFactory = loggerFactory.append("domainId", domainId.toString)
     val domainAlias = DomainAlias(domainConfig.domainId.uid.toLengthLimitedString)
     val sequencerInfoLoader = createSequencerInfoLoader()
-    def getSequencerConnectionFromStore = fetchConfig()
-      .map(_.map(_.sequencerConnections))
+    def getSequencerConnectionFromStore: FutureUnlessShutdown[Option[SequencerConnections]] =
+      fetchConfig().map(_.map(_.sequencerConnections))
 
     for {
       indexedDomainId <- EitherT
@@ -618,14 +607,12 @@ class MediatorNodeBootstrap(
 
       // we wait here until the sequencer becomes active. this allows to reconfigure the
       // sequencer client address
-      info <- GrpcSequencerConnectionService
-        .waitUntilSequencerConnectionIsValid(
-          sequencerInfoLoader,
-          this,
-          futureSupervisor,
-          getSequencerConnectionFromStore,
-        )
-        .mapK(FutureUnlessShutdown.outcomeK)
+      info <- GrpcSequencerConnectionService.waitUntilSequencerConnectionIsValid(
+        sequencerInfoLoader,
+        this,
+        futureSupervisor,
+        getSequencerConnectionFromStore,
+      )
 
       sequencerClient <- sequencerClientFactory
         .create(

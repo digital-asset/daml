@@ -1032,7 +1032,7 @@ final class RepairService(
           roots = ImmArray.from(nodeIds.take(txNodes.size)),
         )
       ),
-      transactionId = repair.transactionId.tryAsLedgerTransactionId,
+      updateId = repair.transactionId.tryAsLedgerTransactionId,
       recordTime = repair.timestamp.toLf,
       hostedWitnesses = hostedWitnesses.toList,
       contractMetadata = Map.empty,
@@ -1082,7 +1082,7 @@ final class RepairService(
             roots = ImmArray.from(nodeIds.take(txNodes.size)),
           )
         ),
-        transactionId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId,
+        updateId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId,
         recordTime = repair.timestamp.toLf,
         hostedWitnesses = contractsAdded.flatMap(_.witnesses.intersect(hostedParties)).toList,
         contractMetadata = contractMetadata,

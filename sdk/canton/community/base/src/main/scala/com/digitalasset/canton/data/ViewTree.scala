@@ -8,6 +8,7 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.{RootHash, ViewHash}
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 
 /** Common supertype of all view trees that are sent as [[com.digitalasset.canton.protocol.messages.EncryptedViewMessage]]s */
 trait ViewTree extends PrettyPrinting {
@@ -51,4 +52,7 @@ trait ReassignmentViewTree extends ViewTree {
 
   val viewPosition: ViewPosition =
     ViewPosition.root // Use a dummy value, as there is only one view.
+
+  def sourceDomain: Source[DomainId]
+  def targetDomain: Target[DomainId]
 }

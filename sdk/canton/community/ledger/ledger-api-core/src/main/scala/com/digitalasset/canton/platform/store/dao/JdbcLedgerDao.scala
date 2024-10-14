@@ -465,7 +465,7 @@ private class JdbcLedgerDao(
   override def storeTransaction(
       completionInfo: Option[state.CompletionInfo],
       workflowId: Option[WorkflowId],
-      transactionId: TransactionId,
+      updateId: UpdateId,
       ledgerEffectiveTime: Timestamp,
       offset: Offset,
       transaction: CommittedTransaction,
@@ -494,7 +494,7 @@ private class JdbcLedgerDao(
                   optByKeyNodes = None, // not used for DbDto generation
                 ),
                 transaction = transaction,
-                transactionId = transactionId,
+                updateId = updateId,
                 recordTime = recordTime,
                 hostedWitnesses = hostedWitnesses,
                 contractMetadata = Map.empty,
@@ -533,8 +533,8 @@ private[platform] object JdbcLedgerDao {
     def submissionId(id: String): LoggingEntry =
       "submissionId" -> id
 
-    def transactionId(id: TransactionId): LoggingEntry =
-      "transactionId" -> id
+    def updateId(id: UpdateId): LoggingEntry =
+      "updateId" -> id
   }
 
   def read(

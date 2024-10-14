@@ -6,6 +6,7 @@ package com.digitalasset.canton.admin.api.client
 import cats.data.EitherT
 import com.daml.grpc.AuthCallCredentials
 import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand
+import com.digitalasset.canton.lifecycle.OnShutdownRunner
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
@@ -21,6 +22,7 @@ import scala.concurrent.{ExecutionContext, Future}
 class GrpcCtlRunner(
     maxRequestDebugLines: Int,
     maxRequestDebugStringLength: Int,
+    onShutdownRunner: OnShutdownRunner,
     val loggerFactory: NamedLoggerFactory,
 ) extends NamedLogging {
 
@@ -53,7 +55,7 @@ class GrpcCtlRunner(
   )(instanceName: String, service: command.Svc, request: Req, timeout: Duration)(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, String, Res] =
+  ): EitherT[Future, String, Res] = CantonGrpcUtil.shutdownAsGrpcErrorE(
     CantonGrpcUtil
       .sendGrpcRequest(service, instanceName)(
         command.submitRequest(_, request),
@@ -62,8 +64,10 @@ class GrpcCtlRunner(
         ),
         timeout,
         logger,
+        onShutdownRunner,
         CantonGrpcUtil.silentLogPolicy, // silent log policy, as the ConsoleEnvironment will log the result
         _ => false, // no retry to optimize for low latency
       )
       .leftMap(_.toString)
+  )
 }

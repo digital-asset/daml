@@ -182,9 +182,15 @@ object SequencerDriver {
   * @param tickTopologyAtMicrosFromEpoch Set by the block orderer whenever it assesses that it may need to retrieve
   *                                       an up-to-date topology; it is set to the sequencing instant being used
   *                                       to query the topology snapshot.
-  *                                       A non-byzantine block orderer will set it to a sequencing time less than
-  *                                       the one of all future ordered requests, else the sequencer could
-  *                                       skip topology updates and fork.
+  *                                       A non-byzantine block orderer will set it to a sequencing time later than
+  *                                       or equal to all already ordered requests and earlier than 1 time tick
+  *                                       before all future ordered requests.
+  *                                       It will also set it as sporadically as possible to reduce sequencer
+  *                                       storage consumption.
+  *                                       The extra time tick reserved between blocks is for the sequencer to use,
+  *                                       typically to inject an event that will update the topology processor's
+  *                                       latest known time, so that the block orderer can successfully retrieve
+  *                                       an up-to-date topology at [[tickTopologyAtMicrosFromEpoch]].
   *                                       The block orderer needs to communicate this timestamp to the sequencer
   *                                       because the sequencer cannot possibly guess it, as some requests
   *                                       in ordered blocks may fail to be validated and be dropped

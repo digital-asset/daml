@@ -41,18 +41,16 @@ final class SequencerChannelClientTransport(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] = {
     val sendAtMostOnce = retryPolicy(retryOnUnavailable = false)
-    val response =
-      CantonGrpcUtil.sendGrpcRequest(grpcStub, "sequencer-channel")(
-        stub => stub.ping(v30.PingRequest()),
-        requestDescription = "ping",
-        timeout = timeouts.network.duration,
-        logger = logger,
-        logPolicy = noLoggingShutdownErrorsLogPolicy,
-        retryPolicy = sendAtMostOnce,
-      )
-    response
-      .bimap(_.toString, _ => ())
-      .mapK(FutureUnlessShutdown.outcomeK)
+    val response = CantonGrpcUtil.sendGrpcRequest(grpcStub, "sequencer-channel")(
+      stub => stub.ping(v30.PingRequest()),
+      requestDescription = "ping",
+      timeout = timeouts.network.duration,
+      logger = logger,
+      logPolicy = noLoggingShutdownErrorsLogPolicy,
+      onShutdownRunner = this,
+      retryPolicy = sendAtMostOnce,
+    )
+    response.bimap(_.toString, _ => ())
 
   }
 

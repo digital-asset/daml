@@ -1065,7 +1065,7 @@ object Generators {
     import v2.CommandServiceOuterClass.SubmitAndWaitForUpdateIdResponse as Response
     for {
       updateId <- Arbitrary.arbString.arbitrary
-      completionOffset <- Arbitrary.arbString.arbitrary
+      completionOffset <- Arbitrary.arbLong.arbitrary
     } yield Response
       .newBuilder()
       .setUpdateId(updateId)

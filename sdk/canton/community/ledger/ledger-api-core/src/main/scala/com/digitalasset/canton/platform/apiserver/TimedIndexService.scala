@@ -15,7 +15,7 @@ import com.daml.ledger.api.v2.update_service.{
 import com.daml.metrics.Timed
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain
-import com.digitalasset.canton.ledger.api.domain.TransactionId
+import com.digitalasset.canton.ledger.api.domain.UpdateId
 import com.digitalasset.canton.ledger.api.domain.types.ParticipantOffset
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.participant.state.index.*
@@ -72,21 +72,21 @@ final class TimedIndexService(delegate: IndexService, metrics: LedgerApiServerMe
     )
 
   override def getTransactionById(
-      transactionId: TransactionId,
+      updateId: UpdateId,
       requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]] =
     Timed.future(
       metrics.services.index.getTransactionById,
-      delegate.getTransactionById(transactionId, requestingParties),
+      delegate.getTransactionById(updateId, requestingParties),
     )
 
   override def getTransactionTreeById(
-      transactionId: TransactionId,
+      updateId: UpdateId,
       requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionTreeResponse]] =
     Timed.future(
       metrics.services.index.getTransactionTreeById,
-      delegate.getTransactionTreeById(transactionId, requestingParties),
+      delegate.getTransactionTreeById(updateId, requestingParties),
     )
 
   override def getActiveContracts(

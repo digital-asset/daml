@@ -55,6 +55,8 @@ package domain {
 
     def unwrap(x: Offset): String = tag.unwrap(x)
 
+    def tryToLong(x: Offset): Long = java.lang.Long.parseUnsignedLong(unwrap(x), 16)
+
     def fromLedgerApi(tx: lav2.transaction.Transaction): Offset = Offset(tx.offset)
 
     implicit val semigroup: Semigroup[Offset] = Tag.unsubst(Semigroup[Offset @@ Tags.LastVal])

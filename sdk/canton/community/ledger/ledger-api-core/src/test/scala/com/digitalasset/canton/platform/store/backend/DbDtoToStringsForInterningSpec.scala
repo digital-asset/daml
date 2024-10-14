@@ -102,7 +102,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
     ),
     DbDto.EventCreate(
       event_offset = "15",
-      transaction_id = "16",
+      update_id = "16",
       ledger_effective_time = 1,
       command_id = Some("17"),
       workflow_id = Some("18"),

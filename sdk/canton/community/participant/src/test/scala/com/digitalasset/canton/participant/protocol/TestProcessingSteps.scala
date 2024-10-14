@@ -309,6 +309,10 @@ class TestProcessingSteps(
       traceContext: TraceContext
   ): EitherT[Future, TestProcessingError, Unit] =
     EitherT.rightT(())
+
+  override def handleTimeout(parsedRequest: TestParsedRequest)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, TestProcessingError, Unit] = EitherT.pure(())
 }
 
 object TestProcessingSteps {

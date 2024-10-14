@@ -35,7 +35,7 @@ package index {
   /** Meta-data of a transaction visible to all parties that can see a part of
     * the transaction.
     *
-    * @param transactionId: identifier of the transaction for looking it up
+    * @param updateId: identifier of the transaction for looking it up
     *   over the Daml Ledger API.
     *
     *   Implementors are free to make it equal to the 'offset' of this event.
@@ -57,7 +57,7 @@ package index {
     *   fashion by all parties participating in the workflow.
     */
   final case class TransactionMeta(
-      transactionId: TransactionId,
+      updateId: UpdateId,
       offset: ParticipantOffset,
       ledgerEffectiveTime: Timestamp,
       recordTime: Timestamp,

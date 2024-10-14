@@ -248,8 +248,19 @@ trait BaseLedgerApiAdministration extends NoTracing {
           verbose: Boolean = true,
           timeout: config.NonNegativeDuration = timeouts.ledgerCommand,
           resultFilter: UpdateWrapper => Boolean = _ => true,
+          domainFilter: Option[DomainId] = None,
       ): Seq[UpdateWrapper] = check(FeatureFlag.Testing)({
-        val observer = new RecordingStreamObserver[UpdateWrapper](completeAfter, resultFilter)
+
+        val resultFilterWithDomain = domainFilter match {
+          case Some(domainId) =>
+            (update: UpdateWrapper) =>
+              resultFilter(update) && update.domainId == domainId.toProtoPrimitive
+          case None => resultFilter
+        }
+
+        val observer =
+          new RecordingStreamObserver[UpdateWrapper](completeAfter, resultFilterWithDomain)
+
         val filter = TransactionFilterProto(partyIds.map(_.toLf -> Filters()).toMap)
         mkResult(
           subscribe_flat(observer, filter, beginOffsetExclusive, endOffsetInclusive, verbose),

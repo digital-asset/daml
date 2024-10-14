@@ -9,7 +9,6 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.client.pekko.ClientAdapter
 import com.digitalasset.canton.ProtoDeserializationError.ProtoDeserializationFailure
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.domain.api.v30.SequencerServiceGrpc.SequencerServiceStub
 import com.digitalasset.canton.lifecycle.Lifecycle.CloseableChannel
@@ -95,21 +94,19 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
   ): EitherT[FutureUnlessShutdown, SendAsyncClientResponseError, Unit] = {
     // sends are at-most-once so we cannot retry when unavailable as we don't know if the request has been accepted
     val sendAtMostOnce = retryPolicy(retryOnUnavailable = false)
-    val response =
-      CantonGrpcUtil.sendGrpcRequest(sequencerServiceClient, "sequencer")(
-        stub => send(stub),
-        requestDescription = s"$endpoint/$messageId",
-        timeout = timeout,
-        logger = logger,
-        logPolicy = noLoggingShutdownErrorsLogPolicy,
-        retryPolicy = sendAtMostOnce,
-      )
-    response
-      .biflatMap(
-        fromGrpcError(_, messageId).toEitherT,
-        fromResponse(_, fromResponseProto).toEitherT,
-      )
-      .mapK(FutureUnlessShutdown.outcomeK)
+    val response = CantonGrpcUtil.sendGrpcRequest(sequencerServiceClient, "sequencer")(
+      stub => send(stub),
+      requestDescription = s"$endpoint/$messageId",
+      timeout = timeout,
+      logger = logger,
+      logPolicy = noLoggingShutdownErrorsLogPolicy,
+      onShutdownRunner = this,
+      retryPolicy = sendAtMostOnce,
+    )
+    response.biflatMap(
+      fromGrpcError(_, messageId).toEitherT,
+      fromResponse(_, fromResponseProto).toEitherT,
+    )
   }
 
   private def fromResponse[Proto](
@@ -171,6 +168,7 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
         timeout = timeouts.network.duration,
         logger = logger,
         logPolicy = noLoggingShutdownErrorsLogPolicy,
+        onShutdownRunner = this,
         retryPolicy = retryPolicy(retryOnUnavailable = true),
       )
       .map { res =>
@@ -178,12 +176,9 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
         res
       }
       .leftMap(_.toString)
-      .flatMap(protoRes =>
-        EitherT
-          .fromEither[Future](GetTrafficStateForMemberResponse.fromProtoV30(protoRes))
-          .leftMap(_.toString)
+      .subflatMap(protoRes =>
+        GetTrafficStateForMemberResponse.fromProtoV30(protoRes).leftMap(_.toString)
       )
-      .mapK(FutureUnlessShutdown.outcomeK)
   }
 
   override def acknowledgeSigned(signedRequest: SignedContent[AcknowledgeRequest])(implicit
@@ -199,6 +194,7 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
         timeout = timeouts.network.duration,
         logger = logger,
         logPolicy = noLoggingShutdownErrorsLogPolicy,
+        onShutdownRunner = this,
         retryPolicy = retryPolicy(retryOnUnavailable = false),
       )
       .map { _ =>
@@ -210,7 +206,6 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
         case x if x.status == io.grpc.Status.UNAVAILABLE => false
       }
       .leftMap(_.toString)
-      .mapK(FutureUnlessShutdown.outcomeK)
   }
 
   override def downloadTopologyStateForInit(request: TopologyStateForInitRequest)(implicit
@@ -253,14 +248,12 @@ trait GrpcClientTransportHelpers {
       : GrpcError => TracedLogger => TraceContext => Unit =
     err =>
       logger =>
-        traceContext =>
+        implicit traceContext =>
           err match {
             case _: GrpcClientGaveUp | _: GrpcServerError | _: GrpcServiceUnavailable =>
               // avoid logging client errors that typically happen during shutdown (such as grpc context cancelled)
-              performUnlessClosing("grpc-client-transport-log")(err.log(logger)(traceContext))(
-                traceContext
-              ).discard
-            case _ => err.log(logger)(traceContext)
+              if (!isClosing) err.log(logger)
+            case _ => err.log(logger)
           }
 
   /** Retry policy to retry once for authentication failures to allow re-authentication and optionally retry when unavailable. */

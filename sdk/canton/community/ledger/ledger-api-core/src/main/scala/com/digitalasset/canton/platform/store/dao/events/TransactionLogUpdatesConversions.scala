@@ -177,7 +177,7 @@ private[events] object TransactionLogUpdatesConversions {
           )
           .map(flatEvents =>
             FlatTransaction(
-              updateId = transactionAccepted.transactionId,
+              updateId = transactionAccepted.updateId,
               commandId = transactionAccepted.commandId,
               workflowId = transactionAccepted.workflowId,
               effectiveAt = Some(TimestampConversion.fromLf(transactionAccepted.effectiveAt)),
@@ -381,7 +381,7 @@ private[events] object TransactionLogUpdatesConversions {
             val rootEventIds = visible.filterNot(children)
 
             TransactionTree(
-              updateId = transactionAccepted.transactionId,
+              updateId = transactionAccepted.updateId,
               commandId = getCommandId(transactionAccepted.events, requestingParties),
               workflowId = transactionAccepted.workflowId,
               effectiveAt = Some(TimestampConversion.fromLf(transactionAccepted.effectiveAt)),

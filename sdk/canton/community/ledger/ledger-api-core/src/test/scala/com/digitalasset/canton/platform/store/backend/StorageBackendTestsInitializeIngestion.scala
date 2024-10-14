@@ -243,7 +243,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
             _.coid
           ) // not constrained by ledger end
           fetchIdsFromTransactionMeta(allDtos.collect { case meta: DbDto.TransactionMeta =>
-            meta.transaction_id
+            meta.update_id
           }) shouldBe Set((1, 1), (2, 4))
           fetchIdsCreateStakeholder() shouldBe List(
             1L,
@@ -291,7 +291,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
             _.coid
           ) // not constrained by ledger end
           fetchIdsFromTransactionMeta(allDtos.collect { case meta: DbDto.TransactionMeta =>
-            meta.transaction_id
+            meta.update_id
           }) shouldBe Set((1, 1), (2, 4))
           fetchIdsCreateStakeholder() shouldBe List(1L)
           fetchIdsCreateNonStakeholder() shouldBe List(1L)
@@ -334,7 +334,7 @@ private[backend] trait StorageBackendTestsInitializeIngestion
           assignedEvents shouldBe empty
           unassignedEvents shouldBe empty
           fetchIdsFromTransactionMeta(dtos.collect { case meta: DbDto.TransactionMeta =>
-            meta.transaction_id
+            meta.update_id
           }) shouldBe empty
           fetchIdsCreateStakeholder() shouldBe empty
           fetchIdsCreateNonStakeholder() shouldBe empty
@@ -421,12 +421,12 @@ private[backend] trait StorageBackendTestsInitializeIngestion
       )
     )
 
-  private def fetchIdsFromTransactionMeta(transactionIds: Seq[String]): Set[(Long, Long)] = {
+  private def fetchIdsFromTransactionMeta(udpateIds: Seq[String]): Set[(Long, Long)] = {
     val txPointwiseQueries = backend.event.transactionPointwiseQueries
-    transactionIds
+    udpateIds
       .map(Ref.TransactionId.assertFromString)
-      .map { transactionId =>
-        executeSql(txPointwiseQueries.fetchIdsFromTransactionMeta(transactionId))
+      .map { updateId =>
+        executeSql(txPointwiseQueries.fetchIdsFromTransactionMeta(updateId))
       }
       .flatMap(_.toList)
       .toSet

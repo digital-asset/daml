@@ -20,11 +20,7 @@ import com.digitalasset.canton.config
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain.types.ParticipantOffset
-import com.digitalasset.canton.ledger.api.domain.{
-  CumulativeFilter,
-  TransactionFilter,
-  TransactionId,
-}
+import com.digitalasset.canton.ledger.api.domain.{CumulativeFilter, TransactionFilter, UpdateId}
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.api.{TraceIdentifiers, domain}
 import com.digitalasset.canton.ledger.error.CommonErrors
@@ -354,18 +350,18 @@ private[index] class IndexServiceImpl(
     contractStore.lookupActiveContract(forParties, contractId)
 
   override def getTransactionById(
-      transactionId: TransactionId,
+      updateId: UpdateId,
       requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionResponse]] =
     transactionsReader
-      .lookupFlatTransactionById(transactionId.unwrap, requestingParties)
+      .lookupFlatTransactionById(updateId.unwrap, requestingParties)
 
   override def getTransactionTreeById(
-      transactionId: TransactionId,
+      updateId: UpdateId,
       requestingParties: Set[Ref.Party],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Option[GetTransactionTreeResponse]] =
     transactionsReader
-      .lookupTransactionTreeById(transactionId.unwrap, requestingParties)
+      .lookupTransactionTreeById(updateId.unwrap, requestingParties)
 
   override def getEventsByContractId(
       contractId: ContractId,

@@ -706,6 +706,10 @@ private[reassignment] class AssignmentProcessingSteps(
       ),
     )
   }
+
+  override def handleTimeout(parsedRequest: ParsedReassignmentRequest[FullView])(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] = EitherT.pure(())
 }
 
 object AssignmentProcessingSteps {

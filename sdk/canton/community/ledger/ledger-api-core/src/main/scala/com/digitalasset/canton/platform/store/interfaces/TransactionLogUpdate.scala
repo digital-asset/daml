@@ -28,7 +28,7 @@ object TransactionLogUpdate {
 
   /** Complete view of a ledger transaction.
     *
-    * @param transactionId The transaction it.
+    * @param updateId The transaction it.
     * @param workflowId The workflow id.
     * @param effectiveAt The transaction ledger time.
     * @param offset The transaction's offset in the ledger.
@@ -37,7 +37,7 @@ object TransactionLogUpdate {
     * @param recordTime The time at which the transaction was recorded.
     */
   final case class TransactionAccepted(
-      transactionId: String,
+      updateId: String,
       commandId: String,
       workflowId: String,
       effectiveAt: Timestamp,
@@ -81,7 +81,7 @@ object TransactionLogUpdate {
   sealed trait Event extends Product with Serializable {
     def eventOffset: Offset
     def eventSequentialId: EventSequentialId
-    def transactionId: String
+    def updateId: String
     def eventId: EventId
     def commandId: String
     def workflowId: String
@@ -95,7 +95,7 @@ object TransactionLogUpdate {
 
   final case class CreatedEvent(
       eventOffset: Offset,
-      transactionId: String,
+      updateId: String,
       nodeIndex: Int,
       eventSequentialId: Long,
       eventId: EventId,
@@ -121,7 +121,7 @@ object TransactionLogUpdate {
 
   final case class ExercisedEvent(
       eventOffset: Offset,
-      transactionId: String,
+      updateId: String,
       nodeIndex: Int,
       eventSequentialId: Long,
       eventId: EventId,

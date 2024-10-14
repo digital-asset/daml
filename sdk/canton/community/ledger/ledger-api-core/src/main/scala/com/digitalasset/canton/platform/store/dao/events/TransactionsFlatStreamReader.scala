@@ -236,7 +236,7 @@ class TransactionsFlatStreamReader(
       )
     val allSortedPayloads = payloadsConsuming.mergeSorted(payloadsCreate)(orderBySequentialEventId)
     val sourceOfTransactions = TransactionsReader
-      .groupContiguous(allSortedPayloads)(by = _.transactionId)
+      .groupContiguous(allSortedPayloads)(by = _.updateId)
       .mapAsync(transactionsProcessingParallelism)(rawEvents =>
         deserializationQueriesLimiter.execute(
           deserializeLfValues(rawEvents, eventProjectionProperties)

@@ -12,10 +12,10 @@ public final class SubmitAndWaitForUpdateIdResponse {
 
   @NonNull private final String updateId;
 
-  @NonNull private final String completionOffset;
+  @NonNull private final Long completionOffset;
 
   private SubmitAndWaitForUpdateIdResponse(
-      @NonNull String updateId, @NonNull String completionOffset) {
+      @NonNull String updateId, @NonNull Long completionOffset) {
     this.updateId = updateId;
     this.completionOffset = completionOffset;
   }
@@ -26,7 +26,7 @@ public final class SubmitAndWaitForUpdateIdResponse {
   }
 
   @NonNull
-  public String getCompletionOffset() {
+  public Long getCompletionOffset() {
     return completionOffset;
   }
 

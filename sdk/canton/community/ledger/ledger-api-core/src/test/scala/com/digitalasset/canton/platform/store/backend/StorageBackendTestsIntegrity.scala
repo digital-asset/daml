@@ -428,25 +428,25 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
         offset(1),
         1L,
         4L,
-        transactionId = Some(transactionIdFromOffset(offset(1))),
+        udpateId = Some(updateIdFromOffset(offset(1))),
       ),
       dtoTransactionMeta(
         offset(2),
         1L,
         4L,
-        transactionId = Some(transactionIdFromOffset(offset(2))),
+        udpateId = Some(updateIdFromOffset(offset(2))),
       ),
       dtoTransactionMeta(
         offset(3),
         1L,
         4L,
-        transactionId = Some(transactionIdFromOffset(offset(2))),
+        udpateId = Some(updateIdFromOffset(offset(2))),
       ),
       dtoTransactionMeta(
         offset(4),
         1L,
         4L,
-        transactionId = Some(transactionIdFromOffset(offset(4))),
+        udpateId = Some(updateIdFromOffset(offset(4))),
       ),
     )
 
@@ -492,13 +492,13 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
         offset(2),
         commandId = "commandid",
         submissionId = Some("submissionid"),
-        transactionId = Some(transactionIdFromOffset(offset(2))),
+        updateId = Some(updateIdFromOffset(offset(2))),
       ),
       dtoCompletion(
         offset(3),
         commandId = "commandid",
         submissionId = Some("submissionid"),
-        transactionId = Some(transactionIdFromOffset(offset(2))),
+        updateId = Some(updateIdFromOffset(offset(2))),
       ),
     )
 
@@ -521,13 +521,13 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
         offset(2),
         commandId = "commandid",
         submissionId = Some("submissionid"),
-        transactionId = Some(transactionIdFromOffset(offset(2))),
+        updateId = Some(updateIdFromOffset(offset(2))),
       ),
       dtoCompletion(
         offset(3),
         commandId = "commandid",
         submissionId = Some("submissionid"),
-        transactionId = Some(transactionIdFromOffset(offset(2))),
+        updateId = Some(updateIdFromOffset(offset(2))),
         domainId = "x::otherdomainid",
       ),
     )

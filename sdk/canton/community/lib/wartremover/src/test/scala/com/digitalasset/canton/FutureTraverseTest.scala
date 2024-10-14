@@ -11,7 +11,7 @@ import cats.syntax.traverse.*
 import cats.syntax.traverseFilter.*
 import cats.{Applicative, Foldable, Traverse, TraverseFilter}
 import com.digitalasset.canton.DiscardedFutureTest.{Transformer0, Transformer1}
-import com.digitalasset.canton.FutureTraverseTest.WannabeFuture
+import com.digitalasset.canton.FutureTraverseTest.{SourceTest, WannabeFuture}
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
@@ -185,6 +185,14 @@ class FutureTraverseTest extends AnyWordSpec with Matchers {
       }
       result.errors shouldBe empty
     }
+
+    "allow traverse singleton container annotated with with AllowTraverseSingleContainer" in {
+      val result = WartTestTraverser(FutureTraverse) {
+        (??? : SourceTest[Int]).traverse(x => Future.successful(x))
+        Traverse[SourceTest].traverse(SourceTest[Int](1))(x => Future.successful(x))
+      }
+      result.errors shouldBe empty
+    }
   }
 }
 
@@ -193,5 +201,11 @@ object FutureTraverseTest {
 
   object WannabeFuture {
     implicit def wannabeFutureApplicative: Applicative[WannabeFuture] = ???
+  }
+
+  final case class SourceTest[T](value: T)
+  object SourceTest {
+    @AllowTraverseSingleContainer
+    implicit def sourceMonadInstance: Traverse[SourceTest] = ???
   }
 }

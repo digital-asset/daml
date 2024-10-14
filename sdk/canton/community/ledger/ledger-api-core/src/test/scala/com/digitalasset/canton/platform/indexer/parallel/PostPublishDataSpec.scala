@@ -40,7 +40,7 @@ class PostPublishDataSpec extends AnyFlatSpec with Matchers with NamedLogging {
   private val commandId = Ref.CommandId.assertFromString(UUID.randomUUID().toString)
   private val offset = Offset.fromLong(15)
   private val submissionId = Some(Ref.SubmissionId.assertFromString(UUID.randomUUID().toString))
-  private val transactionId = Ref.TransactionId.fromLong(15000)
+  private val updateId = Ref.TransactionId.fromLong(15000)
   private val someHash =
     crypto.Hash.assertFromString("01cf85cfeb36d628ca2e6f583fa2331be029b6b28e877e1008fb3f862306c086")
   private val transactionMeta = TransactionMeta(
@@ -74,7 +74,7 @@ class PostPublishDataSpec extends AnyFlatSpec with Matchers with NamedLogging {
           ),
           transactionMeta = transactionMeta,
           transaction = CommittedTransaction(TransactionBuilder.Empty),
-          transactionId = transactionId,
+          updateId = updateId,
           recordTime = cantonTime2.underlying,
           hostedWitnesses = Nil,
           contractMetadata = Map.empty,
@@ -118,7 +118,7 @@ class PostPublishDataSpec extends AnyFlatSpec with Matchers with NamedLogging {
           completionInfoO = None,
           transactionMeta = transactionMeta,
           transaction = CommittedTransaction(TransactionBuilder.Empty),
-          transactionId = transactionId,
+          updateId = updateId,
           recordTime = cantonTime2.underlying,
           hostedWitnesses = Nil,
           contractMetadata = Map.empty,
@@ -156,7 +156,7 @@ class PostPublishDataSpec extends AnyFlatSpec with Matchers with NamedLogging {
             ),
             transactionMeta = transactionMeta,
             transaction = CommittedTransaction(TransactionBuilder.Empty),
-            transactionId = transactionId,
+            updateId = updateId,
             recordTime = cantonTime2.underlying,
             hostedWitnesses = Nil,
             contractMetadata = Map.empty,

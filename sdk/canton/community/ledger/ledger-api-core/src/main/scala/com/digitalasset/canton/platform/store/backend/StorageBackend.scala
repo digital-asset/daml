@@ -373,7 +373,7 @@ trait EventStorageBackend {
 object EventStorageBackend {
   final case class Entry[+E](
       eventOffset: Offset,
-      transactionId: String,
+      updateId: String,
       nodeIndex: Int,
       eventSequentialId: Long,
       ledgerEffectiveTime: Timestamp,

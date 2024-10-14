@@ -261,9 +261,8 @@ class CommandSubmissionServiceImplSpec
         ledgerEffectiveTime = Timestamp.Epoch,
         commandsReference = "",
       ),
-      disclosedContracts = ImmArray(
-        disclosedContract
-      ),
+      disclosedContracts = ImmArray(disclosedContract),
+      domainId = None,
     )
 
     val submitterInfo = SubmitterInfo(

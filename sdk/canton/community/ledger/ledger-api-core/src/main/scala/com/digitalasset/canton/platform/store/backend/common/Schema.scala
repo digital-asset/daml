@@ -93,7 +93,7 @@ private[backend] object AppendOnlySchema {
     val eventsCreate: Table[DbDto.EventCreate] =
       fieldStrategy.insert("lapi_events_create")(
         "event_offset" -> fieldStrategy.string(_ => _.event_offset),
-        "transaction_id" -> fieldStrategy.string(_ => _.transaction_id),
+        "transaction_id" -> fieldStrategy.string(_ => _.update_id),
         "ledger_effective_time" -> fieldStrategy.bigint(_ => _.ledger_effective_time),
         "command_id" -> fieldStrategy.stringOptional(_ => _.command_id),
         "workflow_id" -> fieldStrategy.stringOptional(_ => _.workflow_id),
@@ -422,7 +422,7 @@ private[backend] object AppendOnlySchema {
 
     val transactionMeta: Table[DbDto.TransactionMeta] =
       fieldStrategy.insert("lapi_transaction_meta")(
-        "transaction_id" -> fieldStrategy.string(_ => _.transaction_id),
+        "transaction_id" -> fieldStrategy.string(_ => _.update_id),
         "event_offset" -> fieldStrategy.string(_ => _.event_offset),
         "publication_time" -> fieldStrategy.bigint(_ => _.publication_time),
         "record_time" -> fieldStrategy.bigint(_ => _.record_time),

@@ -228,7 +228,7 @@ object SequentialWriteDaoSpec {
 
   private val someEventCreated = DbDto.EventCreate(
     event_offset = "",
-    transaction_id = "",
+    update_id = "",
     ledger_effective_time = 3,
     command_id = None,
     workflow_id = None,

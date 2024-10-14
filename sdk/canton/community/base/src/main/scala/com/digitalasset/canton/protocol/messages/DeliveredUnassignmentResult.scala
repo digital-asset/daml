@@ -53,8 +53,8 @@ object DeliveredUnassignmentResult {
       case Deliver(_, _, _, _, Batch(envelopes), _, _) =>
         val unassignmentResults =
           envelopes
-            .mapFilter(env =>
-              ProtocolMessage.select[SignedProtocolMessage[ConfirmationResultMessage]](env)
+            .mapFilter(
+              ProtocolMessage.select[SignedProtocolMessage[ConfirmationResultMessage]]
             )
             .filter { env =>
               env.protocolMessage.message.viewType == ViewType.UnassignmentViewType

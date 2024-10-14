@@ -89,7 +89,7 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.ShowUtil.*
-import com.digitalasset.canton.util.{ErrorUtil, LfTransactionUtil}
+import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, LfTransactionUtil}
 import com.digitalasset.canton.{
   LedgerSubmissionId,
   LfKeyResolver,
@@ -1314,7 +1314,7 @@ class TransactionProcessingSteps(
             optByKeyNodes = None, // optByKeyNodes is unused by the indexer
           ),
           transaction = LfCommittedTransaction(lfTx.unwrap),
-          transactionId = lfTxId,
+          updateId = lfTxId,
           recordTime = requestTime.toLf,
           hostedWitnesses = hostedWitnesses.toList,
           contractMetadata = contractMetadata,
@@ -1561,6 +1561,10 @@ class TransactionProcessingSteps(
       err: ProtocolProcessor.ResultProcessingError
   ): TransactionProcessorError =
     GenericStepsError(err)
+
+  override def handleTimeout(parsedRequest: ParsedTransactionRequest)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, TransactionProcessorError, Unit] = EitherTUtil.unitUS
 }
 
 object TransactionProcessingSteps {

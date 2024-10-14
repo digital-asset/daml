@@ -35,6 +35,6 @@ class DamlDefinitionsView(
   def allTemplates(): AllTemplatesResponse =
     AllTemplatesResponse(
       // TODO(#21695): Extract and use a ContextualizedErrorLogger
-      getPackageMetadataSnapshot(NoLogging).templates.map(_.toString())
+      getPackageMetadataSnapshot(NoLogging).templates
     )
 }

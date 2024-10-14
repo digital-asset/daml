@@ -3,7 +3,7 @@
     "fields": {
       "someOptionalRecField": {
         "Optional": {
-          "typeParam": {
+          "typ": {
             "Variant": {
               "params": [{
                 "Text": {

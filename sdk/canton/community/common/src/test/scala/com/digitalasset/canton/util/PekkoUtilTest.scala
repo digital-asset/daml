@@ -1236,6 +1236,14 @@ class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
       recoveringQueue.firstSuccessfulConsumerInitialization.isCompleted shouldBe false
       shutdownPromise.isCompleted shouldBe false
       recoveringQueue.shutdown()
+      // subsequent shutdown has no effect
+      loggerFactory.assertLogs(
+        SuppressionRule.LoggerNameContains("RecoveringFutureQueueImpl") &&
+          SuppressionRule.Level(org.slf4j.event.Level.DEBUG)
+      )(
+        recoveringQueue.shutdown(),
+        logEntry => logEntry.debugMessage should include("Already shutting down, nothing to do"),
+      )
       recoveringQueue.firstSuccessfulConsumerInitialization.isCompleted shouldBe false
       recoveringQueue.done.isCompleted shouldBe false
       shutdownPromise.isCompleted shouldBe false
@@ -1253,6 +1261,58 @@ class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
       donePromise.trySuccess(())
       recoveringQueue.firstSuccessfulConsumerInitialization.failed.futureValue
       recoveringQueue.done.futureValue
+    }
+
+    "interrupt retry-wait if shutting down" in assertAllStagesStopped {
+      val firstConsumerInitializationFailedPromise = Promise[Unit]()
+      val recoveringQueue = new RecoveringFutureQueueImpl[Int](
+        maxBlockedOffer = 2,
+        bufferSize = 2,
+        loggerFactory = loggerFactory,
+        retryStategy = PekkoUtil.exponentialRetryWithCap(
+          minWait = 5000,
+          multiplier = 2,
+          cap = 5000,
+        ),
+        retryAttemptWarnThreshold = 100,
+        retryAttemptErrorThreshold = 200,
+        uncommittedWarnTreshold = 100,
+        recoveringQueueMetrics = RecoveringQueueMetrics.NoOp,
+        consumerFactory = commit => {
+          firstConsumerInitializationFailedPromise.trySuccess(())
+          Future.failed(new Exception("boom"))
+        },
+      )
+      firstConsumerInitializationFailedPromise.future.futureValue
+      Threading.sleep(10)
+      // at this point we should be waiting
+      val beforeShutdown = System.nanoTime()
+      // shutdown should be interrupting the waiting for retry
+      loggerFactory.assertLogs(
+        SuppressionRule.LoggerNameContains("RecoveringFutureQueueImpl") &&
+          SuppressionRule.Level(org.slf4j.event.Level.DEBUG)
+      )(
+        recoveringQueue.shutdown(),
+        logEntry =>
+          logEntry.debugMessage should include(
+            "Interrupting wait for initialization retry, shutdown complete"
+          ),
+      )
+      // subsequent shutdown has no effect
+      loggerFactory.assertLogs(
+        SuppressionRule.LoggerNameContains("RecoveringFutureQueueImpl") &&
+          SuppressionRule.Level(org.slf4j.event.Level.DEBUG)
+      )(
+        recoveringQueue.shutdown(),
+        logEntry => logEntry.debugMessage should include("Already shutting down, nothing to do"),
+      )
+      val afterShutdown = System.nanoTime()
+      val shutdownCallTookSeconds = (afterShutdown - beforeShutdown) / 1000L / 1000L / 1000L
+      shutdownCallTookSeconds should be < (3L) // shutdown call should not blocked for the waiting
+      recoveringQueue.done.futureValue
+      val afterDone = System.nanoTime()
+      val shutdownCompletionTookSeconds = (afterDone - beforeShutdown) / 1000L / 1000L / 1000L
+      shutdownCompletionTookSeconds should be < (3L) // shutdown completion should not blocked for the waiting
     }
 
     "log warn/error if consumer initialization respective warn/error threshold is breached" in assertAllStagesStopped {

@@ -19,14 +19,14 @@ import io.grpc.Status
 // Turn a stream of transactions into a stream of completions for a given application and set of parties
 object CompletionFromTransaction {
   val OkStatus = StatusProto.of(Status.Code.OK.value(), "", Seq.empty)
-  private val RejectionTransactionId = ""
+  private val RejectionUpdateId = ""
 
   def acceptedCompletion(
       submitters: Set[String],
       recordTime: Timestamp,
       offset: Offset,
       commandId: String,
-      transactionId: String,
+      updateId: String,
       applicationId: String,
       domainId: String,
       traceContext: TraceContext,
@@ -40,7 +40,7 @@ object CompletionFromTransaction {
         toApiCompletion(
           submitters = submitters,
           commandId = commandId,
-          transactionId = transactionId,
+          updateId = updateId,
           applicationId = applicationId,
           traceContext = traceContext,
           optStatus = Some(OkStatus),
@@ -73,7 +73,7 @@ object CompletionFromTransaction {
         toApiCompletion(
           submitters = submitters,
           commandId = commandId,
-          transactionId = RejectionTransactionId,
+          updateId = RejectionUpdateId,
           applicationId = applicationId,
           traceContext = traceContext,
           optStatus = Some(status),
@@ -96,7 +96,7 @@ object CompletionFromTransaction {
   def toApiCompletion(
       submitters: Set[String],
       commandId: String,
-      transactionId: String,
+      updateId: String,
       applicationId: String,
       traceContext: TraceContext,
       optStatus: Option[StatusProto],
@@ -111,7 +111,7 @@ object CompletionFromTransaction {
       actAs = submitters.toSeq,
       commandId = commandId,
       status = optStatus,
-      updateId = transactionId,
+      updateId = updateId,
       applicationId = applicationId,
       traceContext = SerializableTraceContext(traceContext).toDamlProtoOpt,
       offset = offset,

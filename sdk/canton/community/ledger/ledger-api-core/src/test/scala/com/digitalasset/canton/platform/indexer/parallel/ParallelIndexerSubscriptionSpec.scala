@@ -85,7 +85,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
 
   private val someEventCreated = DbDto.EventCreate(
     event_offset = "",
-    transaction_id = "",
+    update_id = "",
     ledger_effective_time = 15,
     command_id = None,
     workflow_id = None,
@@ -304,7 +304,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
       transaction = CommittedTransaction(
         VersionedTransaction(TransactionVersion.VDev, Map.empty, ImmArray.empty)
       ),
-      transactionId = Ref.TransactionId.assertFromString("TransactionId"),
+      updateId = Ref.TransactionId.assertFromString("UpdateId"),
       recordTime = someRecordTime,
       hostedWitnesses = Nil,
       contractMetadata = Map.empty,

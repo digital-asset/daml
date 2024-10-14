@@ -61,6 +61,7 @@ import org.apache.pekko.stream.{
 import org.apache.pekko.{Done, NotUsed}
 
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
+import java.util.{Timer, TimerTask}
 import scala.collection.concurrent.TrieMap
 import scala.collection.{immutable, mutable}
 import scala.concurrent.duration.FiniteDuration
@@ -252,7 +253,6 @@ object PekkoUtil extends HasLoggerName {
     statefulMapAsync(graph, initial = Option(initial)) {
       case (oldState @ Some(s), next) =>
         // Since the context contains at most one element, it is fine to use traverse with futures here
-        @SuppressWarnings(Array("com.digitalasset.canton.FutureTraverse"))
         val resultF = next.traverseSingleton(f(s, _, _).unwrap)
         resultF.map { contextualizedStateAndResult =>
           // Since the type class ensures that the context `next` contains at most one element,
@@ -1077,7 +1077,7 @@ object PekkoUtil extends HasLoggerName {
     private val logger = loggerFactory.getLogger(this.getClass)
     private implicit val directEC: ExecutionContext = DirectExecutionContext(logger)
 
-    private var consumer: Option[FutureQueuePullProxy[T]] = None
+    private var consumer: Consumer[T] = Consumer.InitializationInProgress
 
     private val recoveringQueue: RecoveringQueue[T] = new RecoveringQueue(
       maxBlocked = maxBlockedOffer,
@@ -1087,7 +1087,9 @@ object PekkoUtil extends HasLoggerName {
       metrics = recoveringQueueMetrics,
     )
 
+    private val timer: Timer = new Timer()
     private var shuttingDown: Boolean = false
+    private var shuttingDownTimerCancelled: Boolean = false
     private val donePromise: Promise[Done] = Promise()
     private val firstSuccessfulConsumerInitializationPromise: Promise[Unit] = Promise()
     donePromise.future.onComplete(_ =>
@@ -1108,35 +1110,57 @@ object PekkoUtil extends HasLoggerName {
         )
       } else {
         val result = recoveringQueue.enqueue(elem)
-        consumer.foreach(_.push())
+        consumer.ifInitialized(_.push())
         result
       }
     }
 
     override def shutdown(): Unit = blockingSynchronized {
-      if (shuttingDown) {
+      if (shuttingDown || shuttingDownTimerCancelled) {
         logger.debug("Already shutting down, nothing to do")
       } else {
-        logger.info("Shutdown initiated")
-        shuttingDown = true
-        recoveringQueue.shutdown()
-        consumer match {
-          case Some(c) =>
-            logger.info("Consumer shutdown initiated")
-            c.shutdown()
-
-          case None =>
-            logger.debug("Consumer initialization is in progress, delaying shutdown...")
-        }
+        shuttingDownTimerCancelled = true
+        logger.info("Before shutting down, preventing further initialization retries...")
+        // It is guaranteed that Timer won't start scheduled tasks after the cancellation task.
+        timer.schedule(
+          new TimerTask {
+            override def run(): Unit =
+              try {
+                timer.cancel()
+              } finally {
+                shutdownStepTwo()
+              }
+          },
+          0L,
+        )
       }
     }
 
     override def done: Future[Done] = donePromise.future
 
-    private def initializeConsumer(): Unit = blockingSynchronized {
+    private def shutdownStepTwo(): Unit = blockingSynchronized {
+      logger.info("Shutdown initiated")
+      shuttingDown = true
+      recoveringQueue.shutdown()
+      consumer match {
+        case Consumer.Initialized(c) =>
+          logger.info("Consumer shutdown initiated")
+          c.shutdown()
+
+        case Consumer.InitializationInProgress =>
+          logger.debug("Consumer initialization is in progress, delaying shutdown...")
+
+        case Consumer.WaitingForRetry =>
+          logger.debug("Interrupting wait for initialization retry, shutdown complete")
+          discard(donePromise.trySuccess(Done))
+      }
+    }
+
+    private def initializeConsumer(attempt: Int = 1): Unit = blockingSynchronized {
       logger.info("Initializing consumer...")
+      consumer = Consumer.InitializationInProgress
       consumerFactory(recoveringQueue.commit)
-        .onComplete(consumerInitialized(_, 1))(directEC)
+        .onComplete(consumerInitialized(_, attempt))(directEC)
     }
 
     private def consumerInitialized(
@@ -1161,7 +1185,7 @@ object PekkoUtil extends HasLoggerName {
           } else {
             firstSuccessfulConsumerInitializationPromise.trySuccess(()).discard
             logger.info("Consumer initialized")
-            consumer = Some(
+            consumer = Consumer.Initialized(
               new FutureQueuePullProxy(
                 initialEndIndex = queueConsumer.fromExclusive,
                 pull = recoveringQueue.dequeue,
@@ -1169,7 +1193,7 @@ object PekkoUtil extends HasLoggerName {
                 loggerFactory = loggerFactory,
               )
             )
-            consumer.foreach(
+            consumer.ifInitialized(
               _.done.onComplete(consumerTerminated)(directEC)
             )
           }
@@ -1180,7 +1204,7 @@ object PekkoUtil extends HasLoggerName {
               "Consumer initialization failed, but not retrying anymore since already shutting down",
               failure,
             )
-            logger.info("Terminated (interrupt consumer initialization retries)")
+            logger.info("Terminated (interrupt consumer initialization retries), shutdown complete")
             discard(donePromise.trySuccess(Done))
           } else {
             val waitMillis = retryStategy(attempt)
@@ -1189,16 +1213,20 @@ object PekkoUtil extends HasLoggerName {
             if (attempt > retryAttemptErrorThreshold) logger.error(logMessage, failure)
             else if (attempt > retryAttemptWarnThreshold) logger.warn(logMessage, failure)
             else logger.info(logMessage, failure)
-            Threading.sleep(waitMillis)
-            consumerFactory(recoveringQueue.commit).onComplete(consumerInitialized(_, attempt + 1))(
-              directEC
-            )
+            consumer = Consumer.WaitingForRetry
+            if (!shuttingDownTimerCancelled) {
+              timer.schedule(
+                new TimerTask {
+                  override def run(): Unit = initializeConsumer(attempt + 1)
+                },
+                waitMillis,
+              )
+            }
           }
       }
     }
 
     private def consumerTerminated(result: Try[Done]): Unit = blockingSynchronized {
-      consumer = None
       result match {
         case Success(_) =>
           logger.info("Consumer successfully terminated")
@@ -1206,7 +1234,7 @@ object PekkoUtil extends HasLoggerName {
           logger.info("Consumer terminated with a failure", failure)
       }
       if (shuttingDown) {
-        logger.info("Terminated (consumer terminated)")
+        logger.info("Terminated (consumer terminated), shutdown complete")
         discard(donePromise.trySuccess(Done))
       } else {
         initializeConsumer()
@@ -1223,8 +1251,24 @@ object PekkoUtil extends HasLoggerName {
     initializeConsumer()
   }
 
+  sealed trait Consumer[+T] {
+    def ifInitialized(f: FutureQueuePullProxy[T] => Unit): Unit =
+      this match {
+        case Consumer.Initialized(consumer) => f(consumer)
+        case _ => ()
+      }
+  }
+
+  private object Consumer {
+    case object InitializationInProgress extends Consumer[Nothing]
+
+    case object WaitingForRetry extends Consumer[Nothing]
+
+    final case class Initialized[+T](consumer: FutureQueuePullProxy[T]) extends Consumer[T]
+  }
+
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
-  class FutureQueuePullProxy[T](
+  class FutureQueuePullProxy[+T](
       initialEndIndex: Long,
       pull: Long => Option[T],
       delegate: FutureQueue[(Long, T)],

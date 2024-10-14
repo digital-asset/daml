@@ -41,7 +41,6 @@ class BadRootHashMessagesRequestProcessor(
       ephemeral,
       crypto,
       sequencerClient,
-      staticDomainParameters,
       protocolVersion,
     ) {
 

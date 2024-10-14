@@ -141,24 +141,19 @@ class SyncDomainMigration(
     SequencerInfoLoader.SequencerAggregatedInfo,
   ] =
     for {
-      targetDomainInfo <- performUnlessClosingEitherU(functionFullName)(
+      targetDomainInfo <- performUnlessClosingEitherUSF(functionFullName)(
         sequencerInfoLoader
           .loadAndAggregateSequencerEndpoints(
             target.domain,
             target.domainId,
             target.sequencerConnections,
             SequencerConnectionValidation.Active,
-          )(
-            traceContext,
-            CloseContext(this),
-          )
-          .leftMap(DomainRegistryError.fromSequencerInfoLoaderError)
-          .leftMap[SyncServiceError](err =>
-            SyncServiceError.SyncServiceFailedDomainConnection(
-              target.domain,
-              DomainRegistryError.ConnectionErrors.FailedToConnectToSequencer.Error(err.cause),
-            )
-          )
+          )(traceContext, CloseContext(this))
+          .leftMap[SyncServiceError] { err =>
+            val error = DomainRegistryError.ConnectionErrors.FailedToConnectToSequencer
+              .Error(DomainRegistryError.fromSequencerInfoLoaderError(err).cause)
+            SyncServiceError.SyncServiceFailedDomainConnection(target.domain, error)
+          }
       )
       _ <- performUnlessClosingEitherU(functionFullName)(
         aliasManager

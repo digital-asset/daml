@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.admin.api.client
 
-import cats.implicits.*
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand
+import com.digitalasset.canton.lifecycle.OnShutdownRunner.PureOnShutdownRunner
 import io.grpc.stub.AbstractStub
 import io.grpc.{CallOptions, Channel, ManagedChannel}
 import org.scalatest.wordspec.AsyncWordSpec
@@ -20,7 +20,8 @@ class GrpcCtlRunnerTest extends AsyncWordSpec with BaseTest {
       val (channel, command) = defaultMocks()
 
       "run successfully" in {
-        new GrpcCtlRunner(1000, 1000, loggerFactory).run(
+        val onShutdownRunner = new PureOnShutdownRunner(logger)
+        new GrpcCtlRunner(1000, 1000, onShutdownRunner, loggerFactory).run(
           "participant1",
           command,
           channel,

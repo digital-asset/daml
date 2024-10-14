@@ -23,7 +23,7 @@
       },
       "someList": {
         "List": {
-          "typeParam": {
+          "typ": {
             "Record": {
               "params": [],
               "tyCon": "cfa55b172b71b5bbb95d4d2a4d67f00e64a03ef0b00d2684f416a6983d79e33d:ExternalDep:AnotherRecord"

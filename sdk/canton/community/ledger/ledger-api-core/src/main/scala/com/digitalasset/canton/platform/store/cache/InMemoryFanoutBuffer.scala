@@ -38,7 +38,7 @@ class InMemoryFanoutBuffer(
   @volatile private[cache] var _bufferLog =
     Vector.empty[(Offset, Traced[TransactionLogUpdate])]
   @volatile private[cache] var _lookupMap =
-    Map.empty[TransactionId, Traced[TransactionLogUpdate.TransactionAccepted]]
+    Map.empty[UpdateId, Traced[TransactionLogUpdate.TransactionAccepted]]
 
   private val bufferMetrics = metrics.services.index.InMemoryFanoutBuffer
   private val pushTimer = bufferMetrics.push
@@ -117,9 +117,9 @@ class InMemoryFanoutBuffer(
 
   /** Lookup the accepted transaction update by transaction id. */
   def lookup(
-      transactionId: TransactionId
+      updateId: UpdateId
   ): Option[Traced[TransactionLogUpdate.TransactionAccepted]] =
-    _lookupMap.get(transactionId)
+    _lookupMap.get(updateId)
 
   /** Removes entries starting from the buffer head up until `endInclusive`.
     *
@@ -170,7 +170,7 @@ class InMemoryFanoutBuffer(
   private def dropOldest(dropCount: Int): Unit = blocking(synchronized {
     val (evicted, remainingBufferLog) = _bufferLog.splitAt(dropCount)
     val lookupKeysToEvict =
-      evicted.view.map(_._2).flatMap(extractEntryFromMap).map(_._2.value.transactionId)
+      evicted.view.map(_._2).flatMap(extractEntryFromMap).map(_._2.value.updateId)
 
     _bufferLog = remainingBufferLog
     _lookupMap = _lookupMap -- lookupKeysToEvict
@@ -178,16 +178,16 @@ class InMemoryFanoutBuffer(
 
   private def extractEntryFromMap(
       transactionLogUpdate: Traced[TransactionLogUpdate]
-  ): Option[(TransactionId, Traced[TransactionLogUpdate.TransactionAccepted])] =
+  ): Option[(UpdateId, Traced[TransactionLogUpdate.TransactionAccepted])] =
     transactionLogUpdate.withTraceContext(implicit traceContext => {
       case txAccepted: TransactionLogUpdate.TransactionAccepted =>
-        Some(txAccepted.transactionId -> Traced(txAccepted))
+        Some(txAccepted.updateId -> Traced(txAccepted))
       case _ => None
     })
 }
 
 private[platform] object InMemoryFanoutBuffer {
-  type TransactionId = String
+  type UpdateId = String
 
   /** Specialized slice representation of a Vector */
   private[platform] sealed trait BufferSlice[+ELEM] extends Product with Serializable {

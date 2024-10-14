@@ -83,7 +83,6 @@ class ApiInteractiveSubmissionService(
             currentLedgerTime = currentLedgerTime(),
             currentUtcTime = currentUtcTime(),
             maxDeduplicationDuration = maxDeduplicationDuration,
-            domainIdString = OptionUtil.emptyStringAsNone(request.value.domainId),
           )(errorLogger),
         )
         .map { case SubmitRequest(commands) =>

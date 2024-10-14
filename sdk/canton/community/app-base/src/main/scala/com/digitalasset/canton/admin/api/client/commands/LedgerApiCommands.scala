@@ -437,7 +437,7 @@ object LedgerApiCommands {
       override def createRequest(): Either[String, PruneRequest] =
         Right(
           PruneRequest(
-            pruneUpTo,
+            ApiOffset.assertFromStringToLong(pruneUpTo),
             // canton always prunes divulged contracts both in the ledger api index-db and in canton stores
             pruneAllDivulgedContracts = true,
           )
@@ -998,6 +998,8 @@ object LedgerApiCommands {
           case u: UpdateService.AssignedWrapper => u.assignedEvent.createdEvent
           case _: UpdateService.UnassignedWrapper => None
         }
+
+      def domainId: String
     }
     object UpdateWrapper {
       def isUnassignedWrapper(wrapper: UpdateWrapper): Boolean = wrapper match {
@@ -1013,6 +1015,7 @@ object LedgerApiCommands {
       override def updateId: String = transaction.updateId
       override def isUnassignment: Boolean = false
 
+      override def domainId: String = transaction.domainId
     }
     sealed trait ReassignmentWrapper extends UpdateTreeWrapper with UpdateWrapper {
       def reassignment: Reassignment
@@ -1038,11 +1041,16 @@ object LedgerApiCommands {
         extends ReassignmentWrapper {
       override def updateId: String = reassignment.updateId
       override def isUnassignment: Boolean = false
+
+      override def domainId: String = assignedEvent.target
     }
     final case class UnassignedWrapper(reassignment: Reassignment, unassignedEvent: UnassignedEvent)
         extends ReassignmentWrapper {
       override def updateId: String = reassignment.updateId
       override def isUnassignment: Boolean = true
+
+      override def domainId: String = unassignedEvent.source
+
     }
 
     trait BaseCommand[Req, Resp, Res] extends GrpcAdminCommand[Req, Resp, Res] {

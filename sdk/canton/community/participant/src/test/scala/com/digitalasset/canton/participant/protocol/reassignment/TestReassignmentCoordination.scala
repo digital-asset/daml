@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.participant.protocol.reassignment
 
-import cats.Traverse
 import cats.data.EitherT
 import cats.syntax.functor.*
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, SyncCryptoApiProvider}
@@ -25,7 +24,7 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission.{
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, TestingTopology}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.canton.util.{ReassignmentTag, SameReassignmentType}
+import com.digitalasset.canton.util.{ReassignmentTag, SameReassignmentType, SingletonTraverse}
 import com.digitalasset.canton.{BaseTest, LfPackageId}
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.when
@@ -92,7 +91,9 @@ private[reassignment] object TestReassignmentCoordination {
           case Some(overridden) => Right(overridden)
         }
 
-      override def cryptoSnapshot[T[X] <: ReassignmentTag[X]: SameReassignmentType: Traverse](
+      override def cryptoSnapshot[T[X] <: ReassignmentTag[
+        X
+      ]: SameReassignmentType: SingletonTraverse](
           domainId: T[DomainId],
           staticDomainParameters: T[StaticDomainParameters],
           timestamp: CantonTimestamp,

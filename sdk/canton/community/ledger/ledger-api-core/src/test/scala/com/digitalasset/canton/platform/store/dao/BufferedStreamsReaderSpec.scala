@@ -42,7 +42,7 @@ class BufferedStreamsReaderSpec
           transactionsBuffer = inMemoryFanoutBuffer,
           startExclusive = offset1,
           endInclusive = offset3,
-          bufferSliceFilter = noFilterBufferSlice(_).filterNot(_.transactionId == "tx-3"),
+          bufferSliceFilter = noFilterBufferSlice(_).filterNot(_.updateId == "tx-3"),
         )
         streamElements should contain theSameElementsInOrderAs Seq(
           offset2 -> "tx-2"
@@ -128,7 +128,7 @@ class BufferedStreamsReaderSpec
           endInclusive = offset3,
           fetchFromPersistence = fetchFromPersistence,
           persistenceFetchArgs = filterMock,
-          bufferSliceFilter = noFilterBufferSlice(_).filterNot(_.transactionId == "tx-3"),
+          bufferSliceFilter = noFilterBufferSlice(_).filterNot(_.updateId == "tx-3"),
         )
 
         streamElements should contain theSameElementsInOrderAs Seq(
@@ -326,7 +326,7 @@ object BufferedStreamsReaderSpec {
             endInclusive = endInclusive,
             persistenceFetchArgs = persistenceFetchArgs,
             bufferFilter = bufferSliceFilter,
-            toApiResponse = tx => Future.successful(tx.transactionId),
+            toApiResponse = tx => Future.successful(tx.updateId),
           )
           .runWith(Sink.foreach(streamElements.addOne))
           .futureValue
@@ -375,7 +375,7 @@ object BufferedStreamsReaderSpec {
             persistenceStore
               .dropWhile(_._1 <= startExclusive)
               .takeWhile(_._1 <= endInclusive)
-              .map { case (o, tx) => o -> tx.transactionId }
+              .map { case (o, tx) => o -> tx.updateId }
               .pipe(Source(_))
       }
 
@@ -430,7 +430,7 @@ object BufferedStreamsReaderSpec {
             endInclusive = offset(endInclusiveIdx.toLong),
             persistenceFetchArgs = new Object, // Not used
             bufferFilter = noFilterBufferSlice, // Do not filter
-            toApiResponse = tx => Future.successful(tx.transactionId),
+            toApiResponse = tx => Future.successful(tx.updateId),
           )
           .async
           .mapAsync(1) { idx =>
@@ -469,7 +469,7 @@ object BufferedStreamsReaderSpec {
 
   private def transaction(discriminator: String) =
     TransactionLogUpdate.TransactionAccepted(
-      transactionId = discriminator,
+      updateId = discriminator,
       commandId = "",
       workflowId = "",
       effectiveAt = Timestamp.Epoch,

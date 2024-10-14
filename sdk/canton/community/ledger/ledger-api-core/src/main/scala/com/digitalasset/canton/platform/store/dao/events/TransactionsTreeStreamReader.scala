@@ -290,7 +290,7 @@ class TransactionsTreeStreamReader(
       .mergeSorted(payloadsCreate)(orderBySequentialEventId)
       .mergeSorted(payloadsNonConsuming)(orderBySequentialEventId)
     val sourceOfTreeTransactions = TransactionsReader
-      .groupContiguous(allSortedPayloads)(by = _.transactionId)
+      .groupContiguous(allSortedPayloads)(by = _.updateId)
       .mapAsync(transactionsProcessingParallelism)(rawEvents =>
         deserializationQueriesLimiter.execute(
           deserializeLfValues(rawEvents, eventProjectionProperties)

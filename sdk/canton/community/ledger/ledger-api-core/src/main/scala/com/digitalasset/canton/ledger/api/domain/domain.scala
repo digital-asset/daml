@@ -84,7 +84,7 @@ final case class Commands(
     deduplicationPeriod: DeduplicationPeriod,
     commands: LfCommands,
     disclosedContracts: ImmArray[DisclosedContract],
-    domainId: Option[DomainId] = None,
+    domainId: Option[DomainId],
     packagePreferenceSet: Set[Ref.PackageId] = Set.empty,
     // Used to indicate the package map against which package resolution was performed.
     packageMap: Map[Ref.PackageId, (Ref.PackageName, Ref.PackageVersion)] = Map.empty,

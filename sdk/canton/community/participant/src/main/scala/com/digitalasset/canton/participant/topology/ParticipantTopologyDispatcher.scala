@@ -37,7 +37,7 @@ import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.*
-import scala.concurrent.{ExecutionContext, ExecutionContextExecutor, Future}
+import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 
 trait ParticipantTopologyDispatcherHandle {
 
@@ -353,7 +353,6 @@ private class DomainOnboardingOutbox(
       s"Sending ${initialTransactions.size} onboarding transactions to $domain"
     )
     _result <- dispatch(initialTransactions)
-      .mapK(FutureUnlessShutdown.outcomeK)
       .leftMap(err =>
         DomainRegistryError.InitialOnboardingError.Error(err.toString): DomainRegistryError
       )
@@ -384,9 +383,9 @@ private class DomainOnboardingOutbox(
       }
     } yield convertedTxs
 
-  private def dispatch(
-      transactions: Seq[GenericSignedTopologyTransaction]
-  )(implicit traceContext: TraceContext): EitherT[Future, SequencerConnectClient.Error, Unit] =
+  private def dispatch(transactions: Seq[GenericSignedTopologyTransaction])(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, SequencerConnectClient.Error, Unit] =
     sequencerConnectClient.registerOnboardingTopologyTransactions(
       domain,
       participantId,

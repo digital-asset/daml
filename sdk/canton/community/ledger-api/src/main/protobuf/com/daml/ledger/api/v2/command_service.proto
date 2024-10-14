@@ -50,8 +50,8 @@ message SubmitAndWaitForUpdateIdResponse {
   string update_id = 1;
 
   // The details of the offset field are described in ``offset_checkpoint.proto``.
-  // Optional
-  string completion_offset = 2;
+  // Required
+  int64 completion_offset = 2;
 }
 
 message SubmitAndWaitForTransactionResponse {

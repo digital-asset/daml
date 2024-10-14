@@ -13,7 +13,7 @@ import com.digitalasset.canton.ledger.api.domain.{
   EventId,
   TemplateWildcardFilter,
   TransactionFilter,
-  TransactionId,
+  UpdateId,
 }
 import com.digitalasset.daml.lf.data.Ref.{Identifier, Party}
 import com.digitalasset.daml.lf.data.logging.*
@@ -111,11 +111,11 @@ package object logging {
   private[services] def submissionId(id: String): LoggingEntry =
     "submissionId" -> id
 
-  private[services] def transactionId(id: String): LoggingEntry =
-    "transactionId" -> id
+  private[services] def updateId(id: String): LoggingEntry =
+    "updateId" -> id
 
-  private[services] def transactionId(id: TransactionId): LoggingEntry =
-    "transactionId" -> id.unwrap
+  private[services] def updateId(id: UpdateId): LoggingEntry =
+    "updateId" -> id.unwrap
 
   private[services] def workflowId(id: String): LoggingEntry =
     "workflowId" -> id

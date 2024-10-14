@@ -11,7 +11,7 @@ import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.connection.v30.{ApiInfoServiceGrpc, GetApiInfoRequest}
 import com.digitalasset.canton.error.CantonErrorGroups.GrpcErrorGroup
 import com.digitalasset.canton.error.{BaseCantonError, CantonError}
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, Lifecycle}
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, Lifecycle, OnShutdownRunner}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, TracedLogger}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -65,6 +65,17 @@ object CantonGrpcUtil {
   ): EitherT[Future, StatusRuntimeException, C] =
     value.onShutdown(Left(AbortedDueToShutdown.Error())).leftMap(_.asGrpcError)
 
+  def shutdownAsGrpcError[C](
+      value: FutureUnlessShutdown[C]
+  )(implicit ec: ExecutionContext, errorLoggingContext: ErrorLoggingContext): Future[C] =
+    value.onShutdown(throw AbortedDueToShutdown.Error().asGrpcError)
+
+  def shutdownAsGrpcErrorE[A, B](value: EitherT[FutureUnlessShutdown, A, B])(implicit
+      ec: ExecutionContext,
+      errorLoggingContext: ErrorLoggingContext,
+  ): EitherT[Future, A, B] =
+    value.onShutdown(throw AbortedDueToShutdown.Error().asGrpcError)
+
   def mapErrNew[T <: BaseCantonError, C](value: EitherT[Future, T, C])(implicit
       executionContext: ExecutionContext,
       errorLoggingContext: ErrorLoggingContext,
@@ -104,10 +115,11 @@ object CantonGrpcUtil {
       requestDescription: String,
       timeout: Duration,
       logger: TracedLogger,
+      onShutdownRunner: OnShutdownRunner,
       logPolicy: GrpcError => TracedLogger => TraceContext => Unit = err =>
         logger => traceContext => err.log(logger)(traceContext),
       retryPolicy: GrpcError => Boolean = _.retry,
-  )(implicit traceContext: TraceContext): EitherT[Future, GrpcError, Res] = {
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, GrpcError, Res] = {
     implicit val ec: ExecutionContext = DirectExecutionContext(logger)
 
     // depending on the desired timeout, use a deadline or not
@@ -120,55 +132,63 @@ object CantonGrpcUtil {
         val retryDeadline = requestDeadline.offset(-finite.toMillis * 3 / 10, TimeUnit.MILLISECONDS)
         (
           client.withDeadline(requestDeadline),
-          (
-              backoffMs => Math.min(backoffMs, retryDeadline.timeRemaining(TimeUnit.MILLISECONDS))
-          ): Long => Long,
+          (backoffMs: Long) =>
+            Math.min(backoffMs, retryDeadline.timeRemaining(TimeUnit.MILLISECONDS)),
         )
       case Duration.Inf =>
-        (client, (x => x): Long => Long)
+        (client, Predef.identity[Long])
       case _ =>
         logger.error(s"Ignoring unexpected timeout $timeout value.")
-        (client, (x => x): Long => Long)
+        (client, Predef.identity[Long])
     }
 
-    def go(backoffMs: Long): Future[Either[GrpcError, Res]] = {
-      logger.debug(s"Sending request $requestDescription to $serverName.")
-      TraceContextGrpc.withGrpcContext(traceContext)(send(clientWithDeadline)).transformWith {
-        case Success(value) =>
-          logger.debug(s"Request $requestDescription has succeeded for $serverName.")
-          Future.successful(Right(value))
-        case Failure(e: StatusRuntimeException) =>
-          val error = GrpcError(requestDescription, serverName, e)
-          logPolicy(error)(logger)(traceContext)
-          if (retryPolicy(error)) {
-            val effectiveBackoff = calcEffectiveBackoff(backoffMs)
-            if (effectiveBackoff > 0) {
-              logger.info(s"Waiting for ${effectiveBackoff}ms before retrying...")
-              DelayUtil
-                .delay(FiniteDuration.apply(effectiveBackoff, TimeUnit.MILLISECONDS))
-                .flatMap { _ =>
-                  logger.info(s"Retrying request $requestDescription for $serverName...")
-                  go(backoffMs * 2)
-                }
+    def go(backoffMs: Long): FutureUnlessShutdown[Either[GrpcError, Res]] =
+      if (onShutdownRunner.isClosing) FutureUnlessShutdown.abortedDueToShutdown
+      else {
+        logger.debug(s"Sending request $requestDescription to $serverName.")
+        val sendF = TraceContextGrpc.withGrpcContext(traceContext)(send(clientWithDeadline))
+        val withRetries = sendF.transformWith {
+          case Success(value) =>
+            logger.debug(s"Request $requestDescription has succeeded for $serverName.")
+            FutureUnlessShutdown.pure(Right(value)).unwrap
+          case Failure(e: StatusRuntimeException) =>
+            val error = GrpcError(requestDescription, serverName, e)
+            logPolicy(error)(logger)(traceContext)
+            if (retryPolicy(error)) {
+              val effectiveBackoff = calcEffectiveBackoff(backoffMs)
+              if (effectiveBackoff > 0) {
+                logger.info(s"Waiting for ${effectiveBackoff}ms before retrying...")
+                DelayUtil
+                  .delayIfNotClosing(
+                    s"Delay retrying request $requestDescription for $serverName",
+                    FiniteDuration.apply(effectiveBackoff, TimeUnit.MILLISECONDS),
+                    onShutdownRunner,
+                  )
+                  .flatMap { _ =>
+                    logger.info(s"Retrying request $requestDescription for $serverName...")
+                    go(backoffMs * 2)
+                  }
+                  .unwrap
+              } else {
+                logger.warn("Retry timeout has elapsed, giving up.")
+                FutureUnlessShutdown.pure(Left(error)).unwrap
+              }
             } else {
-              logger.warn("Retry timeout has elapsed, giving up.")
-              Future.successful(Left(error))
+              logger.debug(
+                s"Retry has not been configured for ${error.getClass.getSimpleName}, giving up."
+              )
+              FutureUnlessShutdown.pure(Left(error)).unwrap
             }
-          } else {
-            logger.debug(
-              s"Retry has not been configured for ${error.getClass.getSimpleName}, giving up."
-            )
-            Future.successful(Left(error))
-          }
-        case Failure(e) =>
-          logger
-            .error(
+          case Failure(e) =>
+            logger.error(
               s"An unexpected exception has occurred while sending request $requestDescription to $serverName.",
               e,
             )
-          Future.failed(e)
+            Future.failed(e)
+        }
+        FutureUnlessShutdown(withRetries)
       }
-    }
+
     EitherT(go(1))
   }
 
@@ -185,11 +205,12 @@ object CantonGrpcUtil {
       logger: TracedLogger,
       logPolicy: GrpcError => TracedLogger => TraceContext => Unit = err =>
         logger => traceContext => err.log(logger)(traceContext),
+      onShutdownRunner: OnShutdownRunner,
       retryPolicy: GrpcError => Boolean,
       token: Option[String],
   )(
       send: Svc => Future[Res]
-  )(implicit traceContext: TraceContext): EitherT[Future, GrpcError, Res] = {
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, GrpcError, Res] = {
 
     val closeableChannel = Lifecycle.toCloseableChannel(channel, logger, "sendSingleGrpcRequest")
     val stub = token.foldLeft(stubFactory(closeableChannel.channel))((stub, token) =>
@@ -201,11 +222,12 @@ object CantonGrpcUtil {
       requestDescription,
       timeout,
       logger,
+      onShutdownRunner,
       logPolicy,
       retryPolicy,
     )
 
-    implicit val ec = DirectExecutionContext(logger)
+    implicit val ec: ExecutionContext = DirectExecutionContext(logger)
     res.thereafter { _ =>
       closeableChannel.close()
     }
@@ -216,9 +238,6 @@ object CantonGrpcUtil {
     Option(error.status.getCause).foreach { cause =>
       logger.info(error.toString, cause)(traceContext)
     }
-
-  def retryUnlessClosing(closing: () => Boolean)(error: GrpcError): Boolean =
-    !closing() && error.retry
 
   object RetryPolicy {
     lazy val noRetry: GrpcError => Boolean = _ => false
@@ -269,40 +288,44 @@ object CantonGrpcUtil {
       channel: ManagedChannel,
       logger: TracedLogger,
       timeout: config.NonNegativeDuration,
+      onShutdownRunner: OnShutdownRunner,
       token: Option[String],
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, String, Unit] =
+  ): EitherT[FutureUnlessShutdown, String, Unit] =
     for {
-      apiInfo <- CantonGrpcUtil
-        .sendSingleGrpcRequest(
-          serverName = s"$serverName/$expectedName",
-          requestDescription = "GetApiInfo",
-          channel = channel,
-          stubFactory = ApiInfoServiceGrpc.stub,
-          timeout = timeout.unwrap,
-          logger = logger,
-          logPolicy = CantonGrpcUtil.silentLogPolicy,
-          retryPolicy = CantonGrpcUtil.RetryPolicy.noRetry,
-          token = token,
-        )(_.getApiInfo(GetApiInfoRequest()))
-        .map(_.name)
-        // TODO(i16458): Remove this special case once we have a stable release
-        .leftFlatMap {
+      apiInfo <- EitherTUtil
+        .leftSubflatMap(
+          CantonGrpcUtil
+            .sendSingleGrpcRequest(
+              serverName = s"$serverName/$expectedName",
+              requestDescription = "GetApiInfo",
+              channel = channel,
+              stubFactory = ApiInfoServiceGrpc.stub,
+              timeout = timeout.unwrap,
+              logger = logger,
+              logPolicy = CantonGrpcUtil.silentLogPolicy,
+              onShutdownRunner = onShutdownRunner,
+              retryPolicy = CantonGrpcUtil.RetryPolicy.noRetry,
+              token = token,
+            )(_.getApiInfo(GetApiInfoRequest()))
+            .map(_.name)
+        ) {
+          // TODO(i16458): Remove this special case once we have a stable release
           case _: GrpcError.GrpcServiceUnavailable =>
             logger.debug(
               s"Endpoint '$channel' is not providing an API info service, " +
                 s"will skip the check for '$serverName/$expectedName' " +
                 "and assume it is running an older version of Canton."
             )
-            EitherT.right[String](Future.successful(expectedName))
+            Right(expectedName)
           case error =>
-            EitherT.leftT[Future, String](error.toString)
+            Left(error.toString)
         }
       errorMessage = apiInfoErrorMessage(channel, apiInfo, expectedName, serverName)
       _ <-
-        EitherTUtil.condUnitET[Future](apiInfo == expectedName, errorMessage)
+        EitherTUtil.condUnitET[FutureUnlessShutdown](apiInfo == expectedName, errorMessage)
     } yield ()
 
   private[grpc] def apiInfoErrorMessage(

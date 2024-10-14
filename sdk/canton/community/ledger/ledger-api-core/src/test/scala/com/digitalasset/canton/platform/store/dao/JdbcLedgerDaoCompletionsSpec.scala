@@ -43,7 +43,7 @@ private[dao] trait JdbcLedgerDaoCompletionsSpec extends OptionValues with LoneEl
 
       val completion = response.completionResponse.completion.toList.head
 
-      completion.updateId shouldBe tx.transactionId
+      completion.updateId shouldBe tx.updateId
       completion.commandId shouldBe tx.commandId.value
       completion.status.value.code shouldBe io.grpc.Status.Code.OK.value()
     }

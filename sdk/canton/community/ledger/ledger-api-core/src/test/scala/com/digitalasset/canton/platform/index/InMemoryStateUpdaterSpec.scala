@@ -47,6 +47,7 @@ import com.digitalasset.canton.{
   RequestCounter,
   SequencerCounter,
   TestEssentials,
+  data,
 }
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.Ref.Identifier
@@ -378,7 +379,7 @@ object InMemoryStateUpdaterSpec {
 
     val txLogUpdate1 = Traced(
       TransactionLogUpdate.TransactionAccepted(
-        transactionId = "tx1",
+        updateId = "tx1",
         commandId = "",
         workflowId = workflowId,
         effectiveAt = Timestamp.Epoch,
@@ -410,7 +411,7 @@ object InMemoryStateUpdaterSpec {
         reassignment = TransactionLogUpdate.ReassignmentAccepted.Assigned(
           CreatedEvent(
             eventOffset = offset(7L),
-            transactionId = "tx3",
+            updateId = "tx3",
             nodeIndex = 0,
             eventSequentialId = 0,
             eventId = EventId(txId3, NodeId(0)),
@@ -502,22 +503,22 @@ object InMemoryStateUpdaterSpec {
     )(executorService)
 
     val tx_accepted_commandId = "cAccepted"
-    val tx_accepted_transactionId = "tAccepted"
+    val tx_accepted_updateId = "tAccepted"
     val tx_accepted_submitters: Set[String] = Set("p1", "p2")
 
-    val tx_rejected_transactionId = "tRejected"
+    val tx_rejected_updateId = "tRejected"
     val tx_rejected_submitters: Set[String] = Set("p3", "p4")
 
     val tx_accepted_completion: Completion = Completion(
       commandId = tx_accepted_commandId,
       applicationId = "appId",
-      updateId = tx_accepted_transactionId,
+      updateId = tx_accepted_updateId,
       submissionId = "submissionId",
       actAs = tx_accepted_submitters.toSeq,
     )
     val tx_rejected_completion: Completion =
       tx_accepted_completion.copy(
-        updateId = tx_rejected_transactionId,
+        updateId = tx_rejected_updateId,
         actAs = tx_rejected_submitters.toSeq,
       )
     val tx_accepted_completionStreamResponse: CompletionStreamResponse =
@@ -546,7 +547,7 @@ object InMemoryStateUpdaterSpec {
     val tx_accepted_withCompletionStreamResponse: Traced[TransactionLogUpdate.TransactionAccepted] =
       Traced(
         TransactionLogUpdate.TransactionAccepted(
-          transactionId = tx_accepted_transactionId,
+          updateId = tx_accepted_updateId,
           commandId = tx_accepted_commandId,
           workflowId = "wAccepted",
           effectiveAt = Timestamp.assertFromLong(1L),
@@ -556,7 +557,7 @@ object InMemoryStateUpdaterSpec {
               toCreatedEvent(
                 genCreateNode,
                 tx_accepted_withCompletionStreamResponse_offset,
-                Ref.TransactionId.assertFromString(tx_accepted_transactionId),
+                Ref.TransactionId.assertFromString(tx_accepted_updateId),
                 NodeId(i),
               )
             )
@@ -655,15 +656,15 @@ object InMemoryStateUpdaterSpec {
   private def toCreatedEvent(
       createdNode: Node.Create,
       txOffset: Offset,
-      transactionId: Ref.TransactionId,
+      updateId: data.UpdateId,
       nodeId: NodeId,
   ) =
     CreatedEvent(
       eventOffset = txOffset,
-      transactionId = transactionId,
+      updateId = updateId,
       nodeIndex = nodeId.index,
       eventSequentialId = 0,
-      eventId = EventId(transactionId, nodeId),
+      eventId = EventId(updateId, nodeId),
       contractId = createdNode.coid,
       ledgerEffectiveTime = Timestamp.assertFromLong(12222),
       templateId = createdNode.templateId,
@@ -726,7 +727,7 @@ object InMemoryStateUpdaterSpec {
       completionInfoO = None,
       transactionMeta = someTransactionMeta,
       transaction = CommittedTransaction(TransactionBuilder.Empty),
-      transactionId = txId2,
+      updateId = txId2,
       recordTime = Timestamp.Epoch,
       hostedWitnesses = Nil,
       contractMetadata = Map.empty,
@@ -886,7 +887,7 @@ object InMemoryStateUpdaterSpec {
       completionInfoO = None,
       transactionMeta = someTransactionMeta,
       transaction = CommittedTransaction(TransactionBuilder.Empty),
-      transactionId = txId1,
+      updateId = txId1,
       recordTime = Timestamp(t),
       hostedWitnesses = Nil,
       contractMetadata = Map.empty,
