@@ -525,7 +525,7 @@ da_scala_dar_resources_library(
         target = "1.dev",
         version = "1.1.0",
         visibility = ["//visibility:public"],
-    )
+    ),
 ]
 
 [
