@@ -15,6 +15,7 @@ import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, Te
 import com.daml.ledger.api.v2.transaction_filter.TemplateFilter
 import com.daml.ledger.api.v2.value.Identifier
 import com.daml.ledger.javaapi.data.TransactionFilter
+import com.digitalasset.canton.platform.ApiOffset
 import io.reactivex.Observable
 import org.scalacheck.Shrink
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
@@ -37,7 +38,7 @@ final class UpdateClientImplTest
       workflowId: String,
       effectiveAt: Instant,
       events: List[Event],
-      offset: String,
+      offset: Long,
       domainId: String,
       traceContext: TraceContext,
   )
@@ -68,7 +69,7 @@ final class UpdateClientImplTest
 
   it should "return transactions from the ledger" in forAll(ledgerContentGen) {
     case (ledgerContent, expectedTransactions) =>
-      val ledgerEnd = expectedTransactions.lastOption.fold("")(_.getOffset)
+      val ledgerEnd = ApiOffset.fromLong(expectedTransactions.lastOption.fold(0L)(_.getOffset))
       ledgerServices.withUpdateClient(Observable.fromIterable(ledgerContent.asJava)) {
         (transactionClient, _) =>
           {
@@ -138,7 +139,7 @@ final class UpdateClientImplTest
 
   it should "return transaction trees from the ledger" ignore forAll(ledgerContentTreeGen) {
     case (ledgerContent, expectedTransactionsTrees) =>
-      val ledgerEnd = expectedTransactionsTrees.last.getOffset
+      val ledgerEnd = ApiOffset.fromLong(expectedTransactionsTrees.last.getOffset)
       ledgerServices.withUpdateClient(Observable.fromIterable(ledgerContent.asJava)) {
         (transactionClient, _) =>
           transactionClient

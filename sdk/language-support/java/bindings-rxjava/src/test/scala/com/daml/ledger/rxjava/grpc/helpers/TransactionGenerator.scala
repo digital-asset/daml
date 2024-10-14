@@ -23,7 +23,6 @@ import java.util
 import java.util.Collections
 
 import com.daml.ledger.javaapi.data.{Transaction, TransactionTree, Utils}
-import com.digitalasset.canton.platform.ApiOffset
 
 import scala.jdk.CollectionConverters._
 import scala.jdk.OptionConverters._
@@ -340,7 +339,7 @@ object TransactionGenerator {
     workflowId <- nonEmptyId
     (scalaTimestamp, javaTimestamp) <- timestampGen
     (scalaEvents, javaEvents) <- eventsGen
-    offset <- Gen.posNum[Long].map(Some(_))
+    offset <- Gen.posNum[Long]
     domainId <- Gen.alphaNumStr
     traceContext <- Gen.const(Utils.newProtoTraceContext("parent", "state"))
   } yield (
@@ -360,7 +359,7 @@ object TransactionGenerator {
       workflowId,
       javaTimestamp,
       javaEvents,
-      ApiOffset.fromLongO(offset),
+      offset,
       domainId,
       traceContext,
       zeroTime,
@@ -373,7 +372,7 @@ object TransactionGenerator {
     workflowId <- nonEmptyId
     (scalaTimestamp, javaTimestamp) <- timestampGen
     (scalaEvents, javaEvents) <- eventsGen
-    offset <- Gen.posNum[Long].map(Some(_))
+    offset <- Gen.posNum[Long]
     domainId <- Gen.alphaNumStr
     traceContext <- Gen.const(Utils.newProtoTraceContext("parent", "state"))
   } yield (
@@ -392,7 +391,7 @@ object TransactionGenerator {
       commandId,
       workflowId,
       javaTimestamp,
-      ApiOffset.fromLongO(offset),
+      offset,
       Collections.emptyMap(),
       Collections.emptyList(),
       domainId,
