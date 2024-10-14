@@ -238,7 +238,14 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
   private lazy val pkgs =
     PureCompiledPackages.assertBuild(
-      Map(ifacePkgId -> ifacePkg, pkgId0 -> pkg0, pkgId1 -> pkg1, pkgId2 -> pkg2, pkgId3 -> pkg3, pkgId4 -> pkg4),
+      Map(
+        ifacePkgId -> ifacePkg,
+        pkgId0 -> pkg0,
+        pkgId1 -> pkg1,
+        pkgId2 -> pkg2,
+        pkgId3 -> pkg3,
+        pkgId4 -> pkg4,
+      ),
       Compiler.Config.Dev(majorLanguageVersion),
     )
 
@@ -249,20 +256,29 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
   type Success = (Value, List[UpgradeVerificationRequest])
 
-  def go(e: Expr, packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty): Either[SError, Success] = {
+  def go(
+      e: Expr,
+      packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
+  ): Either[SError, Success] = {
     goFinish(e, packageResolution).map(_._1)
   }
 
   private def goFinish(
-      e: Expr
-    , packageResolution: Map[Ref.PackageName, Ref.PackageId]
+      e: Expr,
+      packageResolution: Map[Ref.PackageName, Ref.PackageId],
   ): Either[SError, (Success, UpdateMachine.Result)] = {
 
     val sexprToEval: SExpr = pkgs.compiler.unsafeCompile(e)
 
     implicit def logContext: LoggingContext = LoggingContext.ForTesting
     val seed = crypto.Hash.hashPrivateKey("seed")
-    val machine = Speedy.Machine.fromUpdateSExpr(pkgs, seed, sexprToEval, Set(alice, bob), packageResolution = packageResolution)
+    val machine = Speedy.Machine.fromUpdateSExpr(
+      pkgs,
+      seed,
+      sexprToEval,
+      Set(alice, bob),
+      packageResolution = packageResolution,
+    )
 
     SpeedyTestLib
       .runCollectRequests(machine)
@@ -599,15 +615,13 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
                                 MyChoice
                                 (COERCE_CONTRACT_ID @'-pkg1-':M:T @'-iface-':M:Iface cid)
                                 alice
-               //in upure @(ContractId '-pkg1-':M:T) cid
-               in upure @Text res
-          """
-        , packageResolution = Map(Ref.PackageName.assertFromString("-upgrade-test-") -> pkgId2)
+               in upure @(ContractId '-pkg1-':M:T) cid
+          """,
+        packageResolution = Map(Ref.PackageName.assertFromString("-upgrade-test-") -> pkgId2),
       )
       inside(res) { case Right((ValueContractId(cid), verificationRequests)) =>
         verificationRequests shouldBe List(
-          UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v2_key)),
-          UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v2_key)),
+          UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v2_key))
         )
       }
     }
