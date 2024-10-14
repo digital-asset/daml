@@ -133,6 +133,7 @@ da_scala_test_suite(
         "//daml-lf/transaction-test-lib",
         "//libs-scala/contextualized-logging",
         "//libs-scala/logging-entries",
+        "//libs-scala/nameof",
         "//libs-scala/test-evidence/scalatest:test-evidence-scalatest",
         "//libs-scala/test-evidence/tag:test-evidence-tag",
         "@maven//:com_google_protobuf_protobuf_java",
