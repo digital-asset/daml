@@ -331,4 +331,22 @@ object Util {
     TypeIterable(mod).flatMap(identifiersInTypes) ++
       ExprIterable(mod).flatMap(identifiersInExpr)
   }
+
+  final case class PkgIdWithNameAndVersion(
+      pkgId: Ref.PackageId,
+      name: Ref.PackageName,
+      version: Ref.PackageVersion,
+  ) {
+    override def toString: String =
+      s"${pkgId} (${name} v${version})"
+  }
+
+  object PkgIdWithNameAndVersion {
+    def apply(idWithPkg: (Ref.PackageId, Ast.Package)): PkgIdWithNameAndVersion =
+      PkgIdWithNameAndVersion(
+        idWithPkg._1,
+        idWithPkg._2.metadata.name,
+        idWithPkg._2.metadata.version,
+      )
+  }
 }
