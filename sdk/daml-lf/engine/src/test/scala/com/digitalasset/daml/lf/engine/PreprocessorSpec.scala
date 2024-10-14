@@ -157,7 +157,8 @@ class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
     def testBuildPackageResolution(
         packageMap: Seq[(String, String, String)],
         packagePreferenceSet: Seq[String],
-    )(expected: Result[Map[String, String]]): Assertion = {
+        expected: Result[Map[String, String]],
+    ): Assertion = {
       val preprocessor =
         new preprocessing.Preprocessor(ConcurrentCompiledPackages(compilerConfig))
 
@@ -184,7 +185,8 @@ class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
             ("pkgId3", "pkgName2", "1.0.0"),
           ),
           packagePreferenceSet = Seq("pkgId2", "pkgId3"),
-        )(expected = ResultDone(Map("pkgName1" -> "pkgId2", "pkgName2" -> "pkgId3")))
+          expected = ResultDone(Map("pkgName1" -> "pkgId2", "pkgName2" -> "pkgId3")),
+        )
       }
     }
 
@@ -193,23 +195,21 @@ class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
         testBuildPackageResolution(
           packageMap = Seq(),
           packagePreferenceSet = Seq("pkgId"),
-        )(
           expected = ResultError(
             Error.Preprocessing.Lookup(
               LookupError.MissingPackage(Ref.PackageId.assertFromString("pkgId"))
             )
-          )
+          ),
         )
 
         testBuildPackageResolution(
           packageMap = Seq(("otherPkgId", "pkgName1", "1.0.0")),
           packagePreferenceSet = Seq("pkgId"),
-        )(
           expected = ResultError(
             Error.Preprocessing.Lookup(
               LookupError.MissingPackage(Ref.PackageId.assertFromString("pkgId"))
             )
-          )
+          ),
         )
       }
 
@@ -221,14 +221,13 @@ class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
             ("pkgId3", "pkgName2", "1.0.0"),
           ),
           packagePreferenceSet = Seq("pkgId1", "pkgId2", "pkgId3"),
-        )(
           expected = ResultError(
             Error.Preprocessing.Internal(
               qualifiedNameOfMember[preprocessing.Preprocessor](_.buildPackageResolution()),
               "package pkgId1 and pkgId2 have the same name pkgName1",
               None,
             )
-          )
+          ),
         )
       }
     }
