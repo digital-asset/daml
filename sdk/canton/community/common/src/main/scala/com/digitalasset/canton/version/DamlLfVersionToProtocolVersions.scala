@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.version
 
-import com.digitalasset.daml.lf.transaction.TransactionVersion
-import com.digitalasset.daml.lf.transaction.TransactionVersion.*
+import com.digitalasset.canton.protocol.LfTransactionVersion
+import com.digitalasset.daml.lf.language.LanguageVersion
 
 import scala.collection.immutable.SortedMap
 import scala.math.Ordered.orderingToOrdered
@@ -12,18 +12,18 @@ import scala.math.Ordered.orderingToOrdered
 object DamlLfVersionToProtocolVersions {
 
   /** This Map links the Daml Lf-version to the minimum protocol version that supports it. */
-  val damlLfVersionToMinimumProtocolVersions: SortedMap[TransactionVersion, ProtocolVersion] =
+  val damlLfVersionToMinimumProtocolVersions: SortedMap[LfTransactionVersion, ProtocolVersion] =
     SortedMap(
-      TransactionVersion.V31 -> ProtocolVersion.v32,
-      TransactionVersion.VDev -> ProtocolVersion.dev,
+      LanguageVersion.v2_1 -> ProtocolVersion.v32,
+      LanguageVersion.v2_dev -> ProtocolVersion.dev,
     )
 
   def getMinimumSupportedProtocolVersion(
-      transactionVersion: TransactionVersion
+      transactionVersion: LfTransactionVersion
   ): ProtocolVersion = {
     assert(
-      transactionVersion >= TransactionVersion.V31,
-      s"Canton only supports transaction versions more recent or equal to ${TransactionVersion.V31}",
+      transactionVersion >= LanguageVersion.v2_1,
+    s"Canton only supports transaction versions more recent or equal to ${LanguageVersion.v2_1 }",
     )
     damlLfVersionToMinimumProtocolVersions(transactionVersion)
   }
