@@ -947,8 +947,10 @@ final class RepairService(
     targetCoid = c.contractId,
     templateId = c.rawContractInstance.contractInstance.unversioned.template,
     packageName = c.rawContractInstance.contractInstance.unversioned.packageName,
-    creationPackageId = c.rawContractInstance.contractInstance.unversioned.packageName.map(_ => c.rawContractInstance.contractInstance.unversioned.template.packageId),
     interfaceId = None,
+    creationPackageId = c.rawContractInstance.contractInstance.unversioned.packageName.map(_ =>
+      c.rawContractInstance.contractInstance.unversioned.template.packageId
+    ),
     choiceId = LfChoiceName.assertFromString("Archive"),
     consuming = true,
     actingParties = c.metadata.signatories,

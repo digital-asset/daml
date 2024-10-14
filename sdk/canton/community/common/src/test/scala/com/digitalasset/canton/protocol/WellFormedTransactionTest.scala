@@ -232,6 +232,7 @@ class WellFormedTransactionTest extends AnyWordSpec with BaseTest with HasExecut
             targetCoid = suffixedId(2, -1),
             templateId = templateId,
             packageName = None,
+            creationPackageId = None,
             interfaceId = None,
             choiceId = LfChoiceName.assertFromString("choice"),
             consuming = false,

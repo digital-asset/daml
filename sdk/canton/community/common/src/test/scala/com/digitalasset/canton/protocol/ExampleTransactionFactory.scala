@@ -190,6 +190,7 @@ object ExampleTransactionFactory {
       targetCoid = targetCoid,
       templateId = templateId,
       packageName = None,
+      creationPackageId = None,
       interfaceId = None,
       choiceId = LfChoiceName.assertFromString("choice"),
       consuming = consuming,
