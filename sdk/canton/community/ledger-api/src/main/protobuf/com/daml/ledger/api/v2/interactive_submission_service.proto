@@ -156,8 +156,8 @@ message ExecuteSubmissionRequest {
     google.protobuf.Duration deduplication_duration = 4;
 
     // Specifies the start of the deduplication period by a completion stream offset (exclusive).
-    // Must be a valid hexadecimal string.
-    string deduplication_offset = 5;
+    // Must be a valid absolute offset (positive integer).
+    int64 deduplication_offset = 5;
   }
 
   // A unique identifier to distinguish completions for different submissions with the same change ID.

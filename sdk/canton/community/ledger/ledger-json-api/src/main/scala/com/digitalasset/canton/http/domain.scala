@@ -86,6 +86,7 @@ package domain {
   import com.daml.ledger.api.v2.commands.Commands
   import com.digitalasset.daml.lf.data.Ref.{HexString, PackageId, PackageRef}
   import com.digitalasset.canton.fetchcontracts.domain.`fc domain ErrorOps`
+  import com.digitalasset.canton.platform.ApiOffset
   import com.digitalasset.canton.topology.DomainId
 
   sealed trait SubmissionIdTag
@@ -266,7 +267,7 @@ package domain {
           )
         case DeduplicationPeriod.Offset(offset) =>
           Commands.DeduplicationPeriod
-            .DeduplicationOffset(offset)
+            .DeduplicationOffset(ApiOffset.assertFromStringToLong(offset))
       }
   }
 

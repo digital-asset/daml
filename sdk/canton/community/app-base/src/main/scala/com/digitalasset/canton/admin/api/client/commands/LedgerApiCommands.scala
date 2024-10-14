@@ -1195,7 +1195,7 @@ object LedgerApiCommands {
           )
         case DeduplicationPeriod.DeduplicationOffset(offset) =>
           Commands.DeduplicationPeriod.DeduplicationOffset(
-            offset.toHexString
+            offset.toLong
           )
       },
       minLedgerTimeAbs = minLedgerTimeAbs.map(ProtoConverter.InstantConverter.toProtoPrimitive),
@@ -1240,9 +1240,13 @@ object LedgerApiCommands {
         override val packageIdSelectionPreference: Seq[LfPackageId],
     ) extends SubmitCommand
         with BaseCommand[SubmitRequest, SubmitResponse, Unit] {
-      override def createRequest(): Either[String, SubmitRequest] = Right(
-        SubmitRequest(commands = Some(mkCommand))
-      )
+      override def createRequest(): Either[String, SubmitRequest] =
+        try {
+          Right(SubmitRequest(commands = Some(mkCommand)))
+        } catch {
+          case t: Throwable =>
+            Left(t.getMessage)
+        }
 
       override def submitRequest(
           service: CommandSubmissionServiceStub,
@@ -1427,7 +1431,7 @@ object LedgerApiCommands {
           )
         case DeduplicationPeriod.DeduplicationOffset(offset) =>
           ExecuteSubmissionRequest.DeduplicationPeriod.DeduplicationOffset(
-            offset.toHexString
+            offset.toLong
           )
       }
 
@@ -1487,7 +1491,12 @@ object LedgerApiCommands {
         ] {
 
       override def createRequest(): Either[String, SubmitAndWaitRequest] =
-        Right(SubmitAndWaitRequest(commands = Some(mkCommand)))
+        try {
+          Right(SubmitAndWaitRequest(commands = Some(mkCommand)))
+        } catch {
+          case t: Throwable =>
+            Left(t.getMessage)
+        }
 
       override def submitRequest(
           service: CommandServiceStub,
@@ -1521,7 +1530,12 @@ object LedgerApiCommands {
         with BaseCommand[SubmitAndWaitRequest, SubmitAndWaitForTransactionResponse, Transaction] {
 
       override def createRequest(): Either[String, SubmitAndWaitRequest] =
-        Right(SubmitAndWaitRequest(commands = Some(mkCommand)))
+        try {
+          Right(SubmitAndWaitRequest(commands = Some(mkCommand)))
+        } catch {
+          case t: Throwable =>
+            Left(t.getMessage)
+        }
 
       override def submitRequest(
           service: CommandServiceStub,
