@@ -26,8 +26,8 @@ class CommandCompletionClientImplTest
     with DataLayerHelpers {
 
   val ledgerServices = new LedgerServices("command-completion-service-ledger")
-  private val offset1 = "1"
-  private val offset2 = "2"
+  private val offset1 = 1L
+  private val offset2 = 2L
 
   behavior of "[4.3] CommandCompletionClientImpl.completionStream"
 
