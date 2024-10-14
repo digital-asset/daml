@@ -44,6 +44,26 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
   ): ParserParameters[this.type] =
     ParserParameters(pkgId, languageVersion = majorLanguageVersion.maxStableVersion)
 
+  val ifacePkgId = Ref.PackageId.assertFromString("-iface-")
+  private lazy val ifacePkg = {
+    implicit def pkgId: Ref.PackageId = ifacePkgId
+    p""" metadata ( '-iface-' : '1.0.0' )
+    module M {
+
+      record @serializable MyUnit = {};
+      interface (this : Iface) = {
+        viewtype M:MyUnit;
+        method myChoice : Text;
+
+        choice @nonConsuming MyChoice (self) (ctl: Party): Text
+          , controllers (Cons @Party [ctl] Nil @Party)
+          , observers (Nil @Party)
+          to upure @Text (call_method @M:Iface myChoice this);
+      };
+    }
+    """
+  }
+
   lazy val pkgId0 = Ref.PackageId.assertFromString("-pkg0-")
   private lazy val pkg0 = {
     implicit def parserParameters: ParserParameters[this.type] =
@@ -86,6 +106,10 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         signatories M:mkList (M:T {sig} this) (None @Party);
         observers M:mkList (M:T {obs} this) (None @Party);
         agreement "Agreement";
+        implements '-iface-':M:Iface {
+          view = '-iface-':M:MyUnit {};
+          method myChoice = "myChoice v1";
+        };
         key @Party (M:T {sig} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
       };
 
@@ -131,6 +155,10 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           controllers Cons @Party [M:T {sig} this] Nil @Party,
           observers Nil @Party
           to upure @Unit ();
+        implements '-iface-':M:Iface {
+          view = '-iface-':M:MyUnit {};
+          method myChoice = "myChoice v2";
+        };
         key @Party (M:T {sig} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
       };
 
@@ -210,7 +238,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
   private lazy val pkgs =
     PureCompiledPackages.assertBuild(
-      Map(pkgId0 -> pkg0, pkgId1 -> pkg1, pkgId2 -> pkg2, pkgId3 -> pkg3, pkgId4 -> pkg4),
+      Map(ifacePkgId -> ifacePkg, pkgId0 -> pkg0, pkgId1 -> pkg1, pkgId2 -> pkg2, pkgId3 -> pkg3, pkgId4 -> pkg4),
       Compiler.Config.Dev(majorLanguageVersion),
     )
 
@@ -221,19 +249,20 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
   type Success = (Value, List[UpgradeVerificationRequest])
 
-  def go(e: Expr): Either[SError, Success] = {
-    goFinish(e).map(_._1)
+  def go(e: Expr, packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty): Either[SError, Success] = {
+    goFinish(e, packageResolution).map(_._1)
   }
 
   private def goFinish(
       e: Expr
+    , packageResolution: Map[Ref.PackageName, Ref.PackageId]
   ): Either[SError, (Success, UpdateMachine.Result)] = {
 
     val sexprToEval: SExpr = pkgs.compiler.unsafeCompile(e)
 
     implicit def logContext: LoggingContext = LoggingContext.ForTesting
     val seed = crypto.Hash.hashPrivateKey("seed")
-    val machine = Speedy.Machine.fromUpdateSExpr(pkgs, seed, sexprToEval, Set(alice, bob))
+    val machine = Speedy.Machine.fromUpdateSExpr(pkgs, seed, sexprToEval, Set(alice, bob), packageResolution = packageResolution)
 
     SpeedyTestLib
       .runCollectRequests(machine)
@@ -552,6 +581,28 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
                  _: Unit <- exercise_by_key @'-pkg2-':M:T NoOp alice ()
                in upure @(ContractId '-pkg1-':M:T) cid
           """
+      )
+      inside(res) { case Right((ValueContractId(cid), verificationRequests)) =>
+        verificationRequests shouldBe List(
+          UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v2_key)),
+          UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v2_key)),
+        )
+      }
+    }
+
+    "be able to exercise by interface locally created contract using different versions" in {
+      val res = go(
+        e"""let alice : Party = '-pkg1-':M:mkParty "alice"
+            in ubind
+                 cid: ContractId '-pkg1-':M:T <- '-pkg1-':M:do_create "alice" "bob" 100;
+                 res: Text <- exercise_interface @'-iface-':M:Iface
+                                MyChoice
+                                (COERCE_CONTRACT_ID @'-pkg1-':M:T @'-iface-':M:Iface cid)
+                                alice
+               //in upure @(ContractId '-pkg1-':M:T) cid
+               in upure @Text res
+          """
+        , packageResolution = Map(Ref.PackageName.assertFromString("-upgrade-test-") -> pkgId2)
       )
       inside(res) { case Right((ValueContractId(cid), verificationRequests)) =>
         verificationRequests shouldBe List(
