@@ -4,11 +4,12 @@
 package com.digitalasset.daml.lf
 package engine
 
+import com.daml.nameof.NameOf.qualifiedNameOfMember
 import com.digitalasset.daml.lf.crypto.Hash
-import com.digitalasset.daml.lf.data.Ref.{PackageRef, Party}
+import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName, PackageRef, PackageVersion, Party}
 import com.digitalasset.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref}
 import com.digitalasset.daml.lf.command.ApiCommand
-import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
+import com.digitalasset.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion, LookupError}
 import com.digitalasset.daml.lf.speedy.{ArrayList, Command, DisclosedContract, SValue}
 import com.digitalasset.daml.lf.value.Value.{
   ContractId,
@@ -159,6 +160,85 @@ class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
           )
         )
       )
+    }
+
+    def testBuildPackageResolution(
+        packageMap: Seq[(String, String, String)],
+        packagePreferenceSet: Seq[String],
+    )(expected: Result[Map[String, String]]): Assertion = {
+      val preprocessor =
+        new preprocessing.Preprocessor(ConcurrentCompiledPackages(compilerConfig))
+
+      val result: Result[Map[PackageName, PackageId]] = preprocessor.buildPackageResolution(
+        packageMap = packageMap.map { case (pkgId, pkgName, pkgVersion) =>
+          PackageId.assertFromString(pkgId) -> (PackageName.assertFromString(
+            pkgName
+          ) -> PackageVersion.assertFromString(pkgVersion))
+        }.toMap,
+        packagePreference = packagePreferenceSet.map(Ref.PackageId.assertFromString).toSet,
+      )
+
+      result shouldBe expected.map(_.map { case (rawPkgName, rawPkgId) =>
+        PackageName.assertFromString(rawPkgName) -> PackageId.assertFromString(rawPkgId)
+      })
+    }
+
+    "build package resolution map" when {
+      "provided with consistent package-map and preference set inputs" in {
+        testBuildPackageResolution(
+          packageMap = Seq(
+            ("pkgId1", "pkgName1", "1.0.0"),
+            ("pkgId2", "pkgName1", "1.1.0"),
+            ("pkgId3", "pkgName2", "1.0.0"),
+          ),
+          packagePreferenceSet = Seq("pkgId2", "pkgId3"),
+        )(expected = ResultDone(Map("pkgName1" -> "pkgId2", "pkgName2" -> "pkgId3")))
+      }
+    }
+
+    "return correct error message" when {
+      "provided with a package-id that does not have a package-name counterpart in the package map" in {
+        testBuildPackageResolution(
+          packageMap = Seq(),
+          packagePreferenceSet = Seq("pkgId"),
+        )(
+          expected = ResultError(
+            Error.Preprocessing.Lookup(
+              LookupError.MissingPackage(Ref.PackageId.assertFromString("pkgId"))
+            )
+          )
+        )
+
+        testBuildPackageResolution(
+          packageMap = Seq(("otherPkgId", "pkgName1", "1.0.0")),
+          packagePreferenceSet = Seq("pkgId"),
+        )(
+          expected = ResultError(
+            Error.Preprocessing.Lookup(
+              LookupError.MissingPackage(Ref.PackageId.assertFromString("pkgId"))
+            )
+          )
+        )
+      }
+
+      "provided with multiple package-ids referencing the same package-name" in {
+        testBuildPackageResolution(
+          packageMap = Seq(
+            ("pkgId1", "pkgName1", "1.0.0"),
+            ("pkgId2", "pkgName1", "1.1.0"),
+            ("pkgId3", "pkgName2", "1.0.0"),
+          ),
+          packagePreferenceSet = Seq("pkgId1", "pkgId2", "pkgId3"),
+        )(
+          expected = ResultError(
+            Error.Preprocessing.Internal(
+              qualifiedNameOfMember[preprocessing.Preprocessor](_.buildPackageResolution()),
+              "package pkgId1 and pkgId2 have the same name pkgName1",
+              None,
+            )
+          )
+        )
+      }
     }
 
     "preprocessDisclosedContracts" should {
