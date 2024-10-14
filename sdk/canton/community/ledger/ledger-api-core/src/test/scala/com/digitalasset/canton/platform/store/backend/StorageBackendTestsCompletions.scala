@@ -5,6 +5,7 @@ package com.digitalasset.canton.platform.store.backend
 
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.platform.indexer.parallel.{PostPublishData, PublishSource}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
@@ -134,7 +135,8 @@ private[backend] trait StorageBackendTestsCompletions
 
   it should "correctly persist and retrieve command deduplication offsets" in {
     val party = someParty
-    val anOffsetHex = Offset.beforeBegin.toHexString
+    val anOffset = Offset.beforeBegin.toLong
+    val anOffsetHex = ApiOffset.fromLong(anOffset)
 
     val dtos = Vector(
       dtoCompletion(
@@ -165,7 +167,7 @@ private[backend] trait StorageBackendTestsCompletions
       case List(completionWithDeduplicationOffset, completionWithoutDeduplicationOffset) =>
         completionWithDeduplicationOffset.completionResponse.completion should not be empty
         completionWithDeduplicationOffset.completionResponse.completion.toList.head.deduplicationPeriod.deduplicationOffset should be(
-          Some(anOffsetHex)
+          Some(anOffset)
         )
         completionWithoutDeduplicationOffset.completionResponse.completion should not be empty
         completionWithoutDeduplicationOffset.completionResponse.completion.toList.head.deduplicationPeriod.deduplicationOffset should not be defined

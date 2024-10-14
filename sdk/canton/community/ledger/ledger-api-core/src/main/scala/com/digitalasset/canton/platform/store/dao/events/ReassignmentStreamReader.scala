@@ -182,7 +182,7 @@ class ReassignmentStreamReader(
 
     payloadsAssign
       .mergeSorted(payloadsUnassign)(Ordering.by(_.offset))
-      .map(response => ApiOffset.assertFromString(response.offset) -> response)
+      .map(response => Offset.fromLong(response.offset) -> response)
   }
 
   private def toApiUnassigned(rawUnassignEvent: RawUnassignEvent): Future[Reassignment] =
@@ -192,7 +192,7 @@ class ReassignmentStreamReader(
           updateId = rawUnassignEvent.updateId,
           commandId = rawUnassignEvent.commandId.getOrElse(""),
           workflowId = rawUnassignEvent.workflowId.getOrElse(""),
-          offset = rawUnassignEvent.offset,
+          offset = ApiOffset.assertFromStringToLong(rawUnassignEvent.offset),
           event = Reassignment.Event.UnassignedEvent(
             TransactionsReader.toUnassignedEvent(rawUnassignEvent)
           ),
@@ -216,7 +216,7 @@ class ReassignmentStreamReader(
               updateId = rawAssignEvent.rawCreatedEvent.updateId,
               commandId = rawAssignEvent.commandId.getOrElse(""),
               workflowId = rawAssignEvent.workflowId.getOrElse(""),
-              offset = rawAssignEvent.offset,
+              offset = ApiOffset.assertFromStringToLong(rawAssignEvent.offset),
               event = Reassignment.Event.AssignedEvent(
                 TransactionsReader.toAssignedEvent(
                   rawAssignEvent,

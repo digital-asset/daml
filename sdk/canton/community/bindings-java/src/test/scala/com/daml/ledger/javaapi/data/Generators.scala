@@ -632,7 +632,7 @@ object Generators {
       actAs <- Gen.listOf(Arbitrary.arbString.arbitrary)
       submissionId <- Arbitrary.arbString.arbitrary
       deduplication <- Gen.oneOf(
-        Arbitrary.arbString.arbitrary.map(offset =>
+        Arbitrary.arbLong.arbitrary.map(offset =>
           (b: Completion.Builder) => b.setDeduplicationOffset(offset)
         ),
         Arbitrary.arbLong.arbitrary.map(seconds =>
@@ -641,7 +641,7 @@ object Generators {
         ),
       )
       traceContext <- Gen.const(Utils.newProtoTraceContext("parent", "state"))
-      offset <- Arbitrary.arbString.arbitrary
+      offset <- Arbitrary.arbLong.arbitrary
       domainTime <- domainTimeGen
     } yield Completion
       .newBuilder()
@@ -694,7 +694,7 @@ object Generators {
       workflowId <- Arbitrary.arbString.arbitrary
       effectiveAt <- instantGen
       events <- Gen.listOf(eventGen)
-      offset <- Arbitrary.arbString.arbitrary
+      offset <- Arbitrary.arbLong.arbitrary
       domainId <- Arbitrary.arbString.arbitrary
       traceContext <- Gen.const(Utils.newProtoTraceContext("parent", "state"))
       recordTime <- instantGen
@@ -730,7 +730,7 @@ object Generators {
       effectiveAt <- instantGen
       eventsById <- Gen.mapOfN(10, idTreeEventPairGen)
       rootEventIds = eventsById.headOption.map(_._1).toList
-      offset <- Arbitrary.arbString.arbitrary
+      offset <- Arbitrary.arbLong.arbitrary
       domainId <- Arbitrary.arbString.arbitrary
       traceContext <- Gen.const(Utils.newProtoTraceContext("parent", "state"))
       recordTime <- instantGen
@@ -755,7 +755,7 @@ object Generators {
       updateId <- Arbitrary.arbString.arbitrary
       commandId <- Arbitrary.arbString.arbitrary
       workflowId <- Arbitrary.arbString.arbitrary
-      offset <- Arbitrary.arbString.arbitrary
+      offset <- Arbitrary.arbLong.arbitrary
       event <- Gen.oneOf(
         unassignedEventGen.map(unassigned =>
           (b: Reassignment.Builder) => b.setUnassignedEvent(unassigned)

@@ -16,9 +16,11 @@ object TraceIdentifiers {
   def fromTransaction(transaction: Transaction): Map[SpanAttribute, String] = {
     val attributes = Map.newBuilder[SpanAttribute, String]
     def setIfNotEmpty(attribute: SpanAttribute, value: String): Unit =
-      if (!value.isEmpty) attributes += attribute -> value
+      if (value.nonEmpty) attributes += attribute -> value
+    def setIfNotZero(attribute: SpanAttribute, value: Long): Unit =
+      if (value != 0) attributes += attribute -> value.toString
 
-    setIfNotEmpty(SpanAttribute.Offset, transaction.offset)
+    setIfNotZero(SpanAttribute.Offset, transaction.offset)
     setIfNotEmpty(SpanAttribute.CommandId, transaction.commandId)
     setIfNotEmpty(SpanAttribute.TransactionId, transaction.updateId)
     setIfNotEmpty(SpanAttribute.WorkflowId, transaction.workflowId)
@@ -31,9 +33,11 @@ object TraceIdentifiers {
   def fromTransactionTree(transactionTree: TransactionTree): Map[SpanAttribute, String] = {
     val attributes = Map.newBuilder[SpanAttribute, String]
     def setIfNotEmpty(attribute: SpanAttribute, value: String): Unit =
-      if (!value.isEmpty) attributes += attribute -> value
+      if (value.nonEmpty) attributes += attribute -> value
+    def setIfNotZero(attribute: SpanAttribute, value: Long): Unit =
+      if (value != 0) attributes += attribute -> value.toString
 
-    setIfNotEmpty(SpanAttribute.Offset, transactionTree.offset)
+    setIfNotZero(SpanAttribute.Offset, transactionTree.offset)
     setIfNotEmpty(SpanAttribute.CommandId, transactionTree.commandId)
     setIfNotEmpty(SpanAttribute.TransactionId, transactionTree.updateId)
     setIfNotEmpty(SpanAttribute.WorkflowId, transactionTree.workflowId)
@@ -47,9 +51,11 @@ object TraceIdentifiers {
     val attributes = Map.newBuilder[SpanAttribute, String]
 
     def setIfNotEmpty(attribute: SpanAttribute, value: String): Unit =
-      if (!value.isEmpty) attributes += attribute -> value
+      if (value.nonEmpty) attributes += attribute -> value
+    def setIfNotZero(attribute: SpanAttribute, value: Long): Unit =
+      if (value != 0) attributes += attribute -> value.toString
 
-    setIfNotEmpty(SpanAttribute.Offset, reassignment.offset)
+    setIfNotZero(SpanAttribute.Offset, reassignment.offset)
     setIfNotEmpty(SpanAttribute.CommandId, reassignment.commandId)
     setIfNotEmpty(SpanAttribute.TransactionId, reassignment.updateId)
     setIfNotEmpty(SpanAttribute.WorkflowId, reassignment.workflowId)

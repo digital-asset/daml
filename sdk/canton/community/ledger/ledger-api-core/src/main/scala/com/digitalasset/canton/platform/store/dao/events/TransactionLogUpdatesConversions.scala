@@ -30,7 +30,7 @@ import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate.{
   ExercisedEvent,
 }
 import com.digitalasset.canton.platform.store.utils.EventOps.TreeEventOps
-import com.digitalasset.canton.platform.{ApiOffset, TemplatePartiesFilter, Value}
+import com.digitalasset.canton.platform.{TemplatePartiesFilter, Value}
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext, Traced}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{Identifier, Party}
@@ -182,7 +182,7 @@ private[events] object TransactionLogUpdatesConversions {
               workflowId = transactionAccepted.workflowId,
               effectiveAt = Some(TimestampConversion.fromLf(transactionAccepted.effectiveAt)),
               events = flatEvents,
-              offset = ApiOffset.toApiString(transactionAccepted.offset),
+              offset = transactionAccepted.offset.toLong,
               domainId = transactionAccepted.domainId,
               traceContext = SerializableTraceContext(traceContext).toDamlProtoOpt,
               recordTime = Some(TimestampConversion.fromLf(transactionAccepted.recordTime)),
@@ -385,7 +385,7 @@ private[events] object TransactionLogUpdatesConversions {
               commandId = getCommandId(transactionAccepted.events, requestingParties),
               workflowId = transactionAccepted.workflowId,
               effectiveAt = Some(TimestampConversion.fromLf(transactionAccepted.effectiveAt)),
-              offset = ApiOffset.toApiString(transactionAccepted.offset),
+              offset = transactionAccepted.offset.toLong,
               eventsById = eventsById,
               rootEventIds = rootEventIds,
               domainId = transactionAccepted.domainId,
@@ -645,7 +645,7 @@ private[events] object TransactionLogUpdatesConversions {
           .map(_.commandId)
           .getOrElse(""),
         workflowId = reassignmentAccepted.workflowId,
-        offset = ApiOffset.toApiString(reassignmentAccepted.offset),
+        offset = reassignmentAccepted.offset.toLong,
         event = event,
         traceContext = SerializableTraceContext(traceContext).toDamlProtoOpt,
         recordTime = Some(TimestampConversion.fromLf(reassignmentAccepted.recordTime)),

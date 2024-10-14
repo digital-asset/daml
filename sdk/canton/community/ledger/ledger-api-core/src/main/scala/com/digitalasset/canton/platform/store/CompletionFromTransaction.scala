@@ -9,7 +9,6 @@ import com.daml.ledger.api.v2.completion.Completion
 import com.daml.ledger.api.v2.offset_checkpoint.DomainTime
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.util.TimestampConversion.fromInstant
-import com.digitalasset.canton.platform.ApiOffset.ApiOffsetConverter
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.google.protobuf.duration.Duration
@@ -31,7 +30,7 @@ object CompletionFromTransaction {
       domainId: String,
       traceContext: TraceContext,
       optSubmissionId: Option[String] = None,
-      optDeduplicationOffset: Option[String] = None,
+      optDeduplicationOffset: Option[Long] = None,
       optDeduplicationDurationSeconds: Option[Long] = None,
       optDeduplicationDurationNanos: Option[Int] = None,
   ): CompletionStreamResponse =
@@ -48,7 +47,7 @@ object CompletionFromTransaction {
           optDeduplicationOffset = optDeduplicationOffset,
           optDeduplicationDurationSeconds = optDeduplicationDurationSeconds,
           optDeduplicationDurationNanos = optDeduplicationDurationNanos,
-          offset = offset.toApiString,
+          offset = offset.toLong,
           domainTime = Some(toApiDomainTime(domainId, recordTime)),
         )
       )
@@ -64,7 +63,7 @@ object CompletionFromTransaction {
       domainId: String,
       traceContext: TraceContext,
       optSubmissionId: Option[String] = None,
-      optDeduplicationOffset: Option[String] = None,
+      optDeduplicationOffset: Option[Long] = None,
       optDeduplicationDurationSeconds: Option[Long] = None,
       optDeduplicationDurationNanos: Option[Int] = None,
   ): CompletionStreamResponse =
@@ -81,7 +80,7 @@ object CompletionFromTransaction {
           optDeduplicationOffset = optDeduplicationOffset,
           optDeduplicationDurationSeconds = optDeduplicationDurationSeconds,
           optDeduplicationDurationNanos = optDeduplicationDurationNanos,
-          offset = offset.toApiString,
+          offset = offset.toLong,
           domainTime = Some(toApiDomainTime(domainId, recordTime)),
         )
       )
@@ -101,10 +100,10 @@ object CompletionFromTransaction {
       traceContext: TraceContext,
       optStatus: Option[StatusProto],
       optSubmissionId: Option[String],
-      optDeduplicationOffset: Option[String],
+      optDeduplicationOffset: Option[Long],
       optDeduplicationDurationSeconds: Option[Long],
       optDeduplicationDurationNanos: Option[Int],
-      offset: String,
+      offset: Long,
       domainTime: Option[DomainTime],
   ): Completion = {
     val completionWithMandatoryFields = Completion(
@@ -142,7 +141,7 @@ object CompletionFromTransaction {
   }
 
   private def toApiDeduplicationPeriod(
-      optDeduplicationOffset: Option[String],
+      optDeduplicationOffset: Option[Long],
       optDeduplicationDurationSeconds: Option[Long],
       optDeduplicationDurationNanos: Option[Int],
   ): Option[Completion.DeduplicationPeriod] =
@@ -154,7 +153,9 @@ object CompletionFromTransaction {
     ) match {
       case (None, (None, None)) => None
       case (Some(offset), _) =>
-        Some(Completion.DeduplicationPeriod.DeduplicationOffset(offset))
+        Some(
+          Completion.DeduplicationPeriod.DeduplicationOffset(offset)
+        )
       case (_, (Some(deduplicationDurationSeconds), Some(deduplicationDurationNanos))) =>
         Some(
           Completion.DeduplicationPeriod.DeduplicationDuration(

@@ -17,7 +17,7 @@ import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray}
-import com.digitalasset.daml.lf.transaction.{GlobalKey, TransactionVersion}
+import com.digitalasset.daml.lf.transaction.GlobalKey
 import com.digitalasset.daml.lf.value.Value
 import com.google.protobuf.ByteString
 import io.scalaland.chimney.dsl.*
@@ -60,7 +60,7 @@ final class PreparedTransactionEncoder(
 
   private implicit val transactionVersionTransformer
       : Transformer[lf.transaction.TransactionVersion, String] =
-    TransactionVersion.toProtoValue(_)
+    _.protoValue
 
   private implicit def immArrayToSeqTransformer[A, B](implicit
       aToB: Transformer[A, B]
@@ -175,7 +175,7 @@ final class PreparedTransactionEncoder(
   private implicit val transactionTransformer
       : PartialTransformer[lf.transaction.VersionedTransaction, isd.DamlTransaction] = Transformer
     .definePartial[lf.transaction.VersionedTransaction, isd.DamlTransaction]
-    .withFieldComputed(_.version, x => TransactionVersion.toProtoValue(x.version))
+    .withFieldComputed(_.version, _.version.protoValue)
     .withFieldComputed(_.roots, _.roots.map(_.transformInto[String]).toSeq)
     .withFieldComputedPartial(
       _.nodes,

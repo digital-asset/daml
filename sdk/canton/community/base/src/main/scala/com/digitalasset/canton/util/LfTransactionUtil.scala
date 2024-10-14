@@ -18,7 +18,7 @@ import scala.annotation.nowarn
 object LfTransactionUtil {
 
   implicit val orderTransactionVersion: Order[TransactionVersion] =
-    Order.fromOrdering
+    Order.by[TransactionVersion, String](_.protoValue)(Order.fromOrdering)
 
   def consumedContractId(node: LfActionNode): Option[LfContractId] = node match {
     case _: LfNodeCreate => None

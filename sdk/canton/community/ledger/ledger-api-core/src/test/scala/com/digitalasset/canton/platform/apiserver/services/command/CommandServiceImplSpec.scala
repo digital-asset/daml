@@ -17,7 +17,6 @@ import com.digitalasset.canton.ledger.api.validation.{
   ValidateUpgradingPackageResolutions,
 }
 import com.digitalasset.canton.logging.{ErrorLoggingContext, LoggingContextWithTrace}
-import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.platform.apiserver.services.command.CommandServiceImplSpec.*
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker.SubmissionKey
 import com.digitalasset.canton.platform.apiserver.services.tracking.{
@@ -310,7 +309,7 @@ object CommandServiceImplSpec {
     commandId = "command ID",
     status = Some(OkStatus),
     updateId = "transaction ID",
-    offset = ApiOffset.fromLong(offset),
+    offset = offset,
   )
 
   val expectedSubmissionKey = SubmissionKey(

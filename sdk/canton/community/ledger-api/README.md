@@ -39,3 +39,29 @@ The definitions in this package depend on Protobuf's ["well known types"](https:
 - https://raw.githubusercontent.com/grpc/grpc/v1.18.0/src/proto/grpc/health/v1/health.proto
 
 The [Metering Report Json Schema](docs/metering-report-schema.json) is also included.
+
+# Terminology
+
+## The participant's offset
+
+Describes a specific point in the stream of updates observed by this participant.
+A participant offset is meaningful only in the context of its participant. Different
+participants may associate different offsets to the same change synchronized over a domain,
+and conversely, the same literal participant offset may refer to different changes on
+different participants.
+
+This is also a unique index of the changes which happened on the virtual shared ledger.
+The order of participant offsets is reflected in the order the updates that are
+visible when subscribing to the `UpdateService`. This ordering is also a fully causal
+ordering for any specific domain: for two updates synchronized by the same domain, the
+one with a bigger participant offset happened after than the one with a smaller participant
+offset. Please note this is not true for updates synchronized by different domains.
+Accordingly, the participant offset order may deviate from the order of the changes
+on the virtual shared ledger.
+
+The Ledger API endpoints that take offsets allow to specify portions
+of the participant data that is relevant for the client to read.
+
+Offsets returned by the Ledger API can be used as-is (e.g.
+to keep track of processed transactions and provide a restart
+point to use in case of failure).

@@ -109,9 +109,7 @@ package object protocol {
   type RequestProcessor[VT <: ViewType] =
     Phase37Processor[RequestAndRootHashMessage[OpenEnvelope[EncryptedViewMessage[VT]]]]
 
-  def maxTransactionVersion(versions: NonEmpty[Seq[LfTransactionVersion]]): LfTransactionVersion = {
-    import Ordering.Implicits._
-    versions.reduceLeft[LfTransactionVersion](_ max _)
-  }
+  def maxTransactionVersion(versions: NonEmpty[Seq[LfTransactionVersion]]): LfTransactionVersion =
+    versions.reduceLeft[LfTransactionVersion](LfTransactionVersion.Ordering.max)
 
 }
