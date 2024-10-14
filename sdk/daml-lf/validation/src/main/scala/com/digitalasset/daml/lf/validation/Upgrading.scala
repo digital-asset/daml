@@ -320,13 +320,10 @@ private case class Closure[A](env: Env, value: A)
 object TypecheckUpgrades {
 
   sealed abstract class UploadPhaseCheck
-  object DarCheck extends UploadPhaseCheck {
-    override def toString: String = "dar-check"
-  }
-  object MinimalDarCheck extends UploadPhaseCheck {
+  case object MinimalDarCheck extends UploadPhaseCheck {
     override def toString: String = "minimal-dar-check"
   }
-  object MaximalDarCheck extends UploadPhaseCheck {
+  case object MaximalDarCheck extends UploadPhaseCheck {
     override def toString: String = "maximal-dar-check"
   }
 
