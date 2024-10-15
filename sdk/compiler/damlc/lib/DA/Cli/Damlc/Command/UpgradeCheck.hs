@@ -178,26 +178,26 @@ checkPackageAgainstPastPackages ((path, main, deps), pastPackages) = do
       let ordFst = compare `on` fst
       case maximumByMay ordFst $ pastPackageFilterVersion (\v -> v < rawVersion) of
         Nothing -> pure ()
-        Just (_, (lowerPkg, lowerPkgDeps)) -> do
-          let lowerVersionErrs =
+        Just (_, (closestPastPackageWithLowerVersion, closestPastPackageWithLowerVersionDeps)) -> do
+          let errs =
                 Upgrade.checkPackageToDepth
                   Upgrade.CheckAll
                   mainPkg deps
                   LFV.version2_dev
                   (UpgradeInfo (Just (fromNormalizedFilePath path)) True True)
-                  (Just (lowerPkg, lowerPkgDeps))
-          when (not (null lowerVersionErrs)) (throwE [CEDiagnostic path lowerVersionErrs])
+                  (Just (closestPastPackageWithLowerVersion, closestPastPackageWithLowerVersionDeps))
+          when (not (null errs)) (throwE [CEDiagnostic path errs])
       case minimumByMay ordFst $ pastPackageFilterVersion (\v -> v > rawVersion) of
         Nothing -> pure ()
-        Just (_, ((_, higherPkg, _, _), higherPkgDeps)) -> do
-          let higherVersionErrs =
+        Just (_, ((_, closestPastPackageWithHigherVersion, _, _), closestPastPackageWithHigherVersionDeps)) -> do
+          let errs =
                 Upgrade.checkPackageToDepth
                   Upgrade.CheckAll
-                  higherPkg higherPkgDeps
+                  closestPastPackageWithHigherVersion closestPastPackageWithHigherVersionDeps
                   LFV.version2_dev
                   (UpgradeInfo (Just (fromNormalizedFilePath path)) True True)
                   (Just (main, deps))
-          when (not (null higherVersionErrs)) (throwE [CEDiagnostic path higherVersionErrs])
+          when (not (null errs)) (throwE [CEDiagnostic path errs])
 
 runUpgradeCheck :: [String] -> IO ()
 runUpgradeCheck rawPaths = do
