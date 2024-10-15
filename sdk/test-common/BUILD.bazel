@@ -523,7 +523,7 @@ da_scala_dar_resources_library(
         name = "upgrades-MissingTemplateDifferentPackageName",
         srcs = glob(["src/main/daml/upgrades/MissingTemplateDifferentPackageName/*.daml"]),
         project_name = "upgrades-MissingTemplateDifferentPackageName",
-        target = "1.dev",
+        target = "2.dev",
         version = "1.1.0",
         visibility = ["//visibility:public"],
     ),
