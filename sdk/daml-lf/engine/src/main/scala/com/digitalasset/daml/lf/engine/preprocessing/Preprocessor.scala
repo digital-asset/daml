@@ -216,8 +216,6 @@ private[engine] final class Preprocessor(
       pkgResolution: Map[Ref.PackageName, Ref.PackageId],
       refs: Set[language.Reference],
   ): Result[Unit] = {
-    remy.log("")
-    refs.foreach(remy.log)
     val unknownPkgIds = for {
       ref <- refs.iterator
       pkgRef <- ref.pkgRefs

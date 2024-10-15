@@ -60,7 +60,6 @@ object Converter extends script.Converter(LanguageMajorVersion.V1) {
   ): Either[String, SValue] = {
     def translateTreeEvent(ev: ScriptLedgerClient.TreeEvent): Either[String, SValue] = ev match {
       case ScriptLedgerClient.Created(tplId, contractId, argument, _) =>
-        remy.log(" HERE ")
         for {
           anyTemplate <- fromAnyTemplate(translator, tplId, argument)
         } yield SVariant(

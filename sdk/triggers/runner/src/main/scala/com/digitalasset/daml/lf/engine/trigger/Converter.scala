@@ -54,6 +54,7 @@ final class Converter(
   private[this] val valueTranslator = new preprocessing.ValueTranslator(
     compiledPackages.pkgInterface,
     checkV1ContractIdSuffixes = false,
+    checkTypeAnnotations = true,
   )
 
   private[this] def validateRecord(r: value.Record): Either[String, Value.ValueRecord] =

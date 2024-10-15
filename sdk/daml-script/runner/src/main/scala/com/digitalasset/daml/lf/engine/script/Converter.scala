@@ -133,10 +133,7 @@ class Converter(majorLanguageVersion: LanguageMajorVersion) {
       translator: preprocessing.ValueTranslator,
       templateId: Identifier,
       argument: Value,
-  ): Either[String, SValue] = {
-    remy.stackTrace(5)
-    remy.log(templateId)
-    remy.log(argument)
+  ): Either[String, SValue] =
     for {
       translated <- translator
         .translateValue(TTyCon(templateId), argument)
@@ -146,7 +143,6 @@ class Converter(majorLanguageVersion: LanguageMajorVersion) {
       stablePackages.AnyTemplate,
       ("getAnyTemplate", SAny(TTyCon(templateId), translated)),
     )
-  }
 
   def toAnyTemplate(v: SValue): Either[String, AnyTemplate] = {
     v match {
