@@ -205,6 +205,7 @@ runUpgradeCheck rawPaths = do
   errsOrUnit <- runExceptT $ do
     packages <- fromCollect $ traverse (toCollect . readPathToArchive) paths
     sortedPackages <- topoSortPackagesM packages
+    -- Given sorted packages p1, p2, p3, ... this gives you (p1, []), (p2,[p1]), (p3,[p2,p1]), ...
     let sortedPackagesWithPastPackages = mapMaybe go (reverse (tails (reverse sortedPackages)))
           where
           go [] = Nothing
