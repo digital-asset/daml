@@ -167,13 +167,13 @@ checkPackageAgainstPastPackages ((path, main, deps), pastPackages) = do
     Just (Left _) -> pure ()
     Just (Right rawVersion) -> do
       let pastPackageFilterVersion pred = flip mapMaybe pastPackages $ \case
-            (_, x@(_, pastPackage, name, mbVersion), y) -> do
+            (_, pkg@(_, pastPackage, name, mbVersion), pkgDeps) -> do
               guard (not (isUtilityPackage pastPackage))
               guard (name == mainName)
               case splitPackageVersion id <$> mbVersion of
                 Just (Right rawVersion) -> do
                   guard (pred rawVersion)
-                  pure (rawVersion, (x, y))
+                  pure (rawVersion, (pkg, pkgDeps))
                 _ -> Nothing
       let ordFst = compare `on` fst
       case maximumByMay ordFst $ pastPackageFilterVersion (\v -> v < rawVersion) of
