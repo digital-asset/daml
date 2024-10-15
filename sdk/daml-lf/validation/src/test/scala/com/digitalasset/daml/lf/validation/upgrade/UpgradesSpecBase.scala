@@ -164,6 +164,13 @@ trait LongTests { this: UpgradesSpec =>
         ),
       )
     }
+    s"allow uploading a package with a missing template but for a different package-name ($suffix)" in {
+      testPackagePair(
+        "test-common/upgrades-MissingTemplate-v1.dar",
+        "test-common/upgrades-MissingTemplateDifferentPackageName.dar",
+        assertPackageUpgradeCheckSecondOnly(None),
+      )
+    }
     s"report error when datatype is missing in upgrading package ($suffix)" in {
       testPackagePair(
         "test-common/upgrades-MissingDataCon-v1.dar",
