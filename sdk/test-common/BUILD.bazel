@@ -173,7 +173,6 @@ da_scala_dar_resources_library(
     for identifier in [
         "FailsWhenDepsDowngradeVersionsWhileUsingDatatypes",
         "SucceedsWhenDepsDowngradeVersionsWithoutUsingDatatypes",
-        "WarnsWhenExpressionChangesUtilityToSchemaPackage",
         "WarnsWhenExpressionChangesFromNonUpgradeablePackages",
         "WarnsWhenExpressionDowngradesVersion",
         "WarnsWhenExpressionChangesBindingOrder",
@@ -482,6 +481,7 @@ da_scala_dar_resources_library(
         "FailsWithSynonymReturnTypeChangeInSeparatePackage",
         "SucceedsWhenUpgradingADependency",
         "FailsWhenDependencyIsNotAValidUpgrade",
+        "WarnsWhenExpressionChangesUtilityToSchemaPackage",
     ]
 ]
 
