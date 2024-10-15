@@ -6,7 +6,8 @@
 {-# LANGUAGE RankNTypes #-}
 module DA.Cli.Damlc.Command.UpgradeCheck (runUpgradeCheck) where
 
-import System.Exit
+import System.Exit (exitWith, ExitCode(..))
+import System.IO
 import DA.Pretty
 import DA.Daml.Options.Types
 import Control.Monad (guard, when)
@@ -24,7 +25,7 @@ import Data.List (tails)
 import Data.Maybe (mapMaybe)
 import Safe (maximumByMay, minimumByMay)
 import Data.Function (on)
-import Development.IDE.Types.Diagnostics (Diagnostic, showDiagnostics, ShowDiagnostic(..))
+import Development.IDE.Types.Diagnostics (Diagnostic(..), showDiagnostics, ShowDiagnostic(..), DiagnosticSeverity(..))
 import Control.Monad.Trans.Except
 
 -- Monad in which all checking operations run
@@ -41,6 +42,23 @@ data CheckingError
   | CEDependencyCycle [(LF.PackageId, LF.PackageName, Maybe LF.PackageVersion)]
   | CEDiagnostic NormalizedFilePath [Diagnostic]
   deriving (Show, Eq)
+
+exitCode :: [CheckingError] -> ExitCode
+exitCode errs
+  | any isCECantReadDar errs = ExitFailure 4
+  | any isCECantReadDalf errs = ExitFailure 3
+  | any isCEDependencyCycle errs = ExitFailure 2
+  | any isCEDiagnosticError errs = ExitFailure 1
+  | otherwise = ExitSuccess
+  where
+  isCECantReadDar (CECantReadDar {}) = True
+  isCECantReadDar _ = False
+  isCECantReadDalf (CECantReadDalf {}) = True
+  isCECantReadDalf _ = False
+  isCEDependencyCycle (CEDependencyCycle {}) = True
+  isCEDependencyCycle _ = False
+  isCEDiagnosticError (CEDiagnostic _ errs) = Just DsError `elem` map _severity errs
+  isCEDiagnosticError _ = False
 
 instance Pretty CheckingError where
   pPrint (CECantReadDar darPath err) = "Error reading DAR at path " <> string (fromNormalizedFilePath darPath) <> ": " <> string err
@@ -187,8 +205,7 @@ runUpgradeCheck rawPaths = do
     mapM_ checkPackageAgainstPastPackages sortedPackagesWithPastPackages
   case errsOrUnit of
     Left errs -> do
-      putStrLn (renderPretty (CheckingErrors errs))
-      exitFailure
+      hPutStrLn stderr (renderPretty (CheckingErrors errs))
+      exitWith (exitCode errs)
     Right () -> pure ()
-
 
