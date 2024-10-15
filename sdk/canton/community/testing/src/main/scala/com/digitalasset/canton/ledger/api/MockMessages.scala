@@ -42,7 +42,7 @@ object MockMessages {
   val templateName = "templateName"
   val choice = "choice"
   val templateId: Identifier = Identifier(packageId, moduleName, templateName)
-  val offset = "offset"
+  val offset = 12345678L
 
   val transactionFilter: TransactionFilter =
     TransactionFilter(Map(party -> Filters()))
@@ -85,7 +85,7 @@ object MockMessages {
     offset,
   )
 
-  private val NO_OF_TRANSACTIONS = 1000
+  private val NO_OF_TRANSACTIONS = 1000L
 
   private def randomId(name: String) = s"$name-${Random.nextInt(10000)}"
 
@@ -102,14 +102,14 @@ object MockMessages {
   )
 
   def generateMockTransactions(): List[TransactionTree] =
-    (1 to NO_OF_TRANSACTIONS).map { i =>
+    (1L to NO_OF_TRANSACTIONS).map { i =>
       val event = generateEvent()
       TransactionTree(
         randomId("transaction"),
         randomId("command"),
         randomId("workflow"),
         Some(ledgerEffectiveTime),
-        i.toString,
+        i,
         Map(event.eventId -> TreeEvent(TreeEvent.Kind.Exercised(event))),
         List(event.eventId),
       )

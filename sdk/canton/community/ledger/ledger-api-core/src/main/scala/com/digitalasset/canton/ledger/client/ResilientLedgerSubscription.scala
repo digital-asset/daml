@@ -11,6 +11,7 @@ import com.digitalasset.canton.ledger.error.LedgerApiErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.tracing.{NoTracing, Spanning}
 import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
 import com.digitalasset.canton.util.TryUtil.ForFailedOps
@@ -181,9 +182,9 @@ object ResilientLedgerSubscription {
   def extractOffsetFromGetUpdateResponse(response: GetUpdatesResponse): Option[String] =
     response.update match {
       case Update.Transaction(value) =>
-        Some(value.offset)
+        Some(ApiOffset.fromLong(value.offset))
       case Update.Reassignment(value) =>
-        Some(value.offset)
+        Some(ApiOffset.fromLong(value.offset))
       case Update.OffsetCheckpoint(_) => None
       case Update.Empty => None
     }

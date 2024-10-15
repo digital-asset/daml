@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.participant.protocol.submission
 
-import com.digitalasset.canton.protocol.{LfContractId, LfVersionedTransaction}
+import com.digitalasset.canton.protocol.{LfContractId, LfLanguageVersion, LfVersionedTransaction}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.*
@@ -12,7 +12,7 @@ import com.digitalasset.canton.version.DamlLfVersionToProtocolVersions
 import com.digitalasset.canton.{BaseTest, LfPackageId, LfPartyId, LfValue}
 import com.digitalasset.daml.lf.data.Ref.QualifiedName
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
-import com.digitalasset.daml.lf.language.LanguageVersion
+import com.digitalasset.daml.lf.transaction.Node
 import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.{
   CreateKey,
   CreateTransactionVersion,
@@ -24,7 +24,6 @@ import com.digitalasset.daml.lf.transaction.test.{
   TestNodeBuilder,
   TreeTransactionBuilder,
 }
-import com.digitalasset.daml.lf.transaction.{Node, TransactionVersion}
 import com.digitalasset.daml.lf.value.Value.ValueRecord
 
 private[submission] object DomainSelectionFixture extends TestIdFactory {
@@ -40,17 +39,11 @@ private[submission] object DomainSelectionFixture extends TestIdFactory {
    with a low protocol version, then some filter will reject the transaction (because high transaction
    version needs high protocol version).
    */
-  lazy val fixtureTransactionVersion: TransactionVersion =
+  lazy val fixtureTransactionVersion: LfLanguageVersion =
     DamlLfVersionToProtocolVersions.damlLfVersionToMinimumProtocolVersions.collect {
       case (txVersion, protocolVersion) if protocolVersion <= BaseTest.testedProtocolVersion =>
         txVersion
     }.last
-
-  lazy val fixtureLanguageVersion: LanguageVersion = fixtureTransactionVersion match {
-    case TransactionVersion.V31 => LanguageVersion.v2_1
-    case TransactionVersion.VDev => LanguageVersion.v2_dev
-    case version => throw new RuntimeException(s"Unknown transaction version $version")
-  }
 
   /*
   Simple topology, with two parties (signatory, observer) each connected to one
@@ -89,8 +82,11 @@ private[submission] object DomainSelectionFixture extends TestIdFactory {
 
   object Transactions {
 
+    private[this] val DefaultLfVersion =
+      LfLanguageVersion.StableVersions(LfLanguageVersion.Major.V2).max
+
     def buildExerciseNode(
-        version: TransactionVersion,
+        version: LfLanguageVersion,
         inputContractId: LfContractId,
         signatory: LfPartyId,
         observer: LfPartyId,
@@ -124,7 +120,7 @@ private[submission] object DomainSelectionFixture extends TestIdFactory {
       val correctPackages: Seq[VettedPackage] = VettedPackage.unbounded(Seq(defaultPackageId))
 
       def tx(
-          version: TransactionVersion = TransactionVersion.StableVersions.max
+          version: LfLanguageVersion = DefaultLfVersion
       ): LfVersionedTransaction = {
         import SimpleTopology.*
         TreeTransactionBuilder.toVersionedTransaction(
@@ -142,7 +138,7 @@ private[submission] object DomainSelectionFixture extends TestIdFactory {
     }
 
     final case class ThreeExercises(
-        version: TransactionVersion = TransactionVersion.StableVersions.max
+        version: LfLanguageVersion = DefaultLfVersion
     ) {
 
       import SimpleTopology.*
@@ -170,7 +166,7 @@ private[submission] object DomainSelectionFixture extends TestIdFactory {
     }
 
     final case class ExerciseByInterface(
-        version: TransactionVersion = TransactionVersion.StableVersions.max
+        version: LfLanguageVersion = DefaultLfVersion
     ) {
       import ExerciseByInterface.*
       import SimpleTopology.*

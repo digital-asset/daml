@@ -58,7 +58,7 @@ class SerializableContractTest extends AnyWordSpec with BaseTest {
   }
 
   "SerializableContract.fromDisclosedContract" when {
-    val transactionVersion = LfTransactionVersion.maxVersion
+    val transactionVersion = LfLanguageVersion.v2_dev
 
     val createdAt = LfTimestamp.Epoch
     val contractSalt = TestSalt.generateSalt(0)

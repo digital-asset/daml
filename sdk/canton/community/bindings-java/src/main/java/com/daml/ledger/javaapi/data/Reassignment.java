@@ -19,7 +19,7 @@ public final class Reassignment implements WorkflowEvent {
 
   @NonNull private final String workflowId;
 
-  @NonNull private final String offset;
+  @NonNull private final Long offset;
 
   @NonNull private final Optional<UnassignedEvent> unassignedEvent;
 
@@ -33,7 +33,7 @@ public final class Reassignment implements WorkflowEvent {
       @NonNull String updateId,
       @NonNull String commandId,
       @NonNull String workflowId,
-      @NonNull String offset,
+      @NonNull Long offset,
       @NonNull Optional<UnassignedEvent> unassignedEvent,
       @NonNull Optional<AssignedEvent> assignedEvent,
       TraceContextOuterClass.@NonNull TraceContext traceContext,
@@ -52,7 +52,7 @@ public final class Reassignment implements WorkflowEvent {
       @NonNull String updateId,
       @NonNull String commandId,
       @NonNull String workflowId,
-      @NonNull String offset,
+      @NonNull Long offset,
       @NonNull UnassignedEvent unassignedEvent,
       TraceContextOuterClass.@NonNull TraceContext traceContext,
       @NonNull Instant recordTime) {
@@ -71,7 +71,7 @@ public final class Reassignment implements WorkflowEvent {
       @NonNull String updateId,
       @NonNull String commandId,
       @NonNull String workflowId,
-      @NonNull String offset,
+      @NonNull Long offset,
       @NonNull AssignedEvent assignedEvent,
       TraceContextOuterClass.@NonNull TraceContext traceContext,
       @NonNull Instant recordTime) {
@@ -102,7 +102,7 @@ public final class Reassignment implements WorkflowEvent {
   }
 
   @NonNull
-  public String getOffset() {
+  public Long getOffset() {
     return offset;
   }
 

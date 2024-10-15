@@ -144,7 +144,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       ),
     )
 
-  private[this] val txVersion = TransactionVersion.StableVersions.min
+  private[this] val txVersion = LanguageVersion.StableVersions(LanguageVersion.Major.V2).min
   private[this] def newBuilder(): NodeIdTransactionBuilder = new NodeIdTransactionBuilder
 
   protected final val someContractInstance =
@@ -217,7 +217,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       contractArgument: LfValue = someContractArgument,
       // PackageVersion is populated only for LF version > 2.1
       packageVersion: Option[Ref.PackageVersion] = None,
-      transactionVersion: TransactionVersion = TransactionVersion.V31,
+      transactionVersion: LanguageVersion = LanguageVersion.v2_1,
   ): Node.Create =
     Node.Create(
       coid = absCid,
@@ -670,7 +670,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
             .assertBuild(someTemplateId, someContractKey(party, key), Set(party), somePackageName)
         ),
         version = txVersion,
-        packageVersion = Option.when(txVersion > TransactionVersion.V31)(somePackageVersion),
+        packageVersion = Option.when(txVersion > LanguageVersion.v2_1)(somePackageVersion),
       )
     )
     nextOffset() ->

@@ -7,7 +7,6 @@ import cats.{Monad, Order}
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.daml.lf.data.*
-import com.digitalasset.daml.lf.transaction.TransactionVersion
 import com.digitalasset.daml.lf.value.Value
 
 import scala.annotation.nowarn
@@ -17,7 +16,7 @@ import scala.annotation.nowarn
   */
 object LfTransactionUtil {
 
-  implicit val orderTransactionVersion: Order[TransactionVersion] =
+  implicit val orderTransactionVersion: Order[LfLanguageVersion] =
     Order.fromOrdering
 
   def consumedContractId(node: LfActionNode): Option[LfContractId] = node match {

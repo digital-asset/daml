@@ -130,7 +130,7 @@ abstract class BlockSequencerFactory(
       _ <- EitherT.right(
         snapshot.snapshot.trafficPurchased.parTraverse_(trafficPurchasedStore.store)
       )
-      _ <- EitherT.right(snapshot.snapshot.trafficConsumed.parTraverse_(trafficConsumedStore.store))
+      _ <- EitherT.right(trafficConsumedStore.store(snapshot.snapshot.trafficConsumed))
       _ = logger.debug(
         s"from snapshot: ticking traffic purchased entry manager with ${snapshot.latestSequencerEventTimestamp}"
       )
@@ -219,6 +219,7 @@ abstract class BlockSequencerFactory(
       domainId,
       sequencerId,
       store,
+      trafficConsumedStore,
       nodeParameters.enableAdditionalConsistencyChecks,
       nodeParameters.processingTimeouts,
       domainLoggerFactory,

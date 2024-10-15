@@ -22,7 +22,7 @@ object LfTransactionBuilder {
 
   // Helper methods for Daml-LF types
   val defaultLanguageVersion: LanguageVersion = LanguageVersion.default
-  val defaultTransactionVersion: LfTransactionVersion = LfTransactionVersion.minVersion
+  val defaultTransactionVersion: LfLanguageVersion = LfLanguageVersion.AllV2.min
 
   val defaultPackageId: LfPackageId = LfPackageId.assertFromString("pkg")
   val defaultTemplateId: Ref.Identifier =

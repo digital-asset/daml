@@ -4,7 +4,7 @@
 package com.digitalasset.canton.version
 
 import com.digitalasset.canton.BaseTest
-import com.digitalasset.daml.lf.transaction.TransactionVersion
+import com.digitalasset.canton.protocol.LfLanguageVersion
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.math.Ordered.orderingToOrdered
@@ -12,7 +12,7 @@ import scala.util.Try
 
 class DamlLfVersionToProtocolVersionsTest extends AnyWordSpec with BaseTest {
 
-  val supportedTransactionVersions = TransactionVersion.All.filter(_ >= TransactionVersion.V31)
+  val supportedTransactionVersions = LfLanguageVersion.AllV2.filter(_ >= LfLanguageVersion.v2_1)
 
   "DamlLFVersionToProtocolVersions" should {
     supportedTransactionVersions.foreach { version =>

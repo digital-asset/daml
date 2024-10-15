@@ -18,9 +18,12 @@ import com.digitalasset.canton.domain.block.data.{
 import com.digitalasset.canton.domain.block.update.*
 import com.digitalasset.canton.domain.block.update.BlockUpdateGenerator.BlockChunk
 import com.digitalasset.canton.domain.sequencing.sequencer.{
+  DeliverableSubmissionOutcome,
   InFlightAggregations,
   SequencerIntegration,
+  SubmissionRequestOutcome,
 }
+import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficConsumedStore
 import com.digitalasset.canton.error.BaseAlarm
 import com.digitalasset.canton.lifecycle.FlagCloseable
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
@@ -76,6 +79,7 @@ class BlockSequencerStateManager(
     domainId: DomainId,
     sequencerId: SequencerId,
     val store: SequencerBlockStore,
+    val trafficConsumedStore: TrafficConsumedStore,
     enableInvariantCheck: Boolean,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
@@ -247,7 +251,24 @@ class BlockSequencerStateManager(
       update.lastSequencerEventTimestamp.orElse(priorState.latestSequencerEventTimestamp),
     )
 
+    val trafficConsumedUpdates = update.submissionsOutcomes.flatMap {
+      case SubmissionRequestOutcome(_, _, outcome: DeliverableSubmissionOutcome) =>
+        outcome.trafficReceiptO match {
+          case Some(trafficReceipt) =>
+            Some(
+              trafficReceipt.toTrafficConsumed(outcome.submission.sender, outcome.sequencingTime)
+            )
+          case None => None
+        }
+      case _ => None
+    }
+
     (for {
+      _ <- EitherT.right[String](
+        performUnlessClosingF("trafficConsumedStore.store")(
+          trafficConsumedStore.store(trafficConsumedUpdates)
+        )
+      )
       _ <- dbSequencerIntegration.blockSequencerWrites(update.submissionsOutcomes.map(_.outcome))
       _ <- EitherT.right[String](
         dbSequencerIntegration.blockSequencerAcknowledge(update.acknowledgements)
@@ -399,6 +420,7 @@ object BlockSequencerStateManager {
       domainId: DomainId,
       sequencerId: SequencerId,
       store: SequencerBlockStore,
+      trafficConsumedStore: TrafficConsumedStore,
       enableInvariantCheck: Boolean,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
@@ -408,6 +430,7 @@ object BlockSequencerStateManager {
       domainId = domainId,
       sequencerId = sequencerId,
       store = store,
+      trafficConsumedStore = trafficConsumedStore,
       enableInvariantCheck = enableInvariantCheck,
       timeouts = timeouts,
       loggerFactory = loggerFactory,

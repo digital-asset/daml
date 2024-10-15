@@ -4,7 +4,6 @@
 package com.digitalasset.canton.sequencing.authentication
 
 import cats.data.EitherT
-import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -47,8 +46,13 @@ object MemberAuthentication extends MemberAuthentication {
   }
 
   sealed abstract class AuthenticationError(val reason: String, val code: String)
-  final case class NoKeysRegistered(member: Member)
-      extends AuthenticationError(s"Member $member has no keys registered", "NoKeysRegistered")
+  final case class NoKeysWithCorrectUsageRegistered(
+      member: Member,
+      usage: NonEmpty[Set[SigningKeyUsage]],
+  ) extends AuthenticationError(
+        s"Member $member has no keys registered with usage $usage",
+        "NoKeysWithCorrectUsageRegistered",
+      )
   final case class FailedToSign(member: Member, error: SigningError)
       extends AuthenticationError("Failed to sign nonce", "FailedToSign")
   final case class MissingNonce(member: Member)
@@ -115,12 +119,22 @@ object MemberAuthentication extends MemberAuthentication {
     val hash = hashDomainNonce(nonce, domainId, crypto.pureCrypto)
 
     for {
-      // see if we have any of the possible keys that could be used to sign
-      availableSigningKey <- possibleSigningKeys.forgetNE
-        .parFilterA(key => crypto.cryptoPrivateStore.existsSigningKey(key))
-        .map(_.headOption) // the first we find is as good as any
-        .leftMap(_ => NoKeysRegistered(member))
-        .subflatMap(_.toRight[AuthenticationError](NoKeysRegistered(member)))
+      // see if we have any of the possible keys with the correct usage that could be used to sign
+      availableSigningKey <-
+        crypto.cryptoPrivateStore
+          .filterSigningKeys(
+            possibleSigningKeys.forgetNE,
+            SigningKeyUsage.SequencerAuthenticationOnly,
+          )
+          .map(_.headOption) // the first we find is as good as any
+          .leftMap(_ =>
+            NoKeysWithCorrectUsageRegistered(member, SigningKeyUsage.SequencerAuthenticationOnly)
+          )
+          .subflatMap(
+            _.toRight[AuthenticationError](
+              NoKeysWithCorrectUsageRegistered(member, SigningKeyUsage.SequencerAuthenticationOnly)
+            )
+          )
       sig <- crypto.privateCrypto
         .sign(hash, availableSigningKey)
         .leftMap[AuthenticationError](FailedToSign(member, _))

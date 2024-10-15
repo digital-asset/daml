@@ -11,8 +11,8 @@ import com.digitalasset.canton.protocol.{
   LfContractId,
   LfGlobalKey,
   LfHash,
+  LfLanguageVersion,
   LfTemplateId,
-  LfTransactionVersion,
   Unicum,
 }
 import com.digitalasset.canton.topology.PartyId
@@ -79,7 +79,7 @@ object GeneratorsLf {
     lfVersionedGlobalKeyGen
   )
 
-  implicit val lfTransactionVersionArb: Arbitrary[LfTransactionVersion] =
-    Arbitrary(Gen.oneOf(LfTransactionVersion.All))
+  implicit val LfLanguageVersionArb: Arbitrary[LfLanguageVersion] =
+    Arbitrary(Gen.oneOf(LfLanguageVersion.AllV2))
 
 }

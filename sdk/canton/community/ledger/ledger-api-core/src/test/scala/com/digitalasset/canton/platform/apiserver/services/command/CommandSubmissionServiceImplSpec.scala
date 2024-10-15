@@ -33,7 +33,7 @@ import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.Error as LfError
 import com.digitalasset.daml.lf.interpretation.Error as LfInterpretationError
-import com.digitalasset.daml.lf.language.{LookupError, Reference}
+import com.digitalasset.daml.lf.language.{LanguageVersion, LookupError, Reference}
 import com.digitalasset.daml.lf.transaction.test.TreeTransactionBuilder.*
 import com.digitalasset.daml.lf.transaction.test.{
   TestNodeBuilder,
@@ -224,7 +224,7 @@ class CommandSubmissionServiceImplSpec
           signatories = Set(Ref.Party.assertFromString("alice")),
           stakeholders = Set(Ref.Party.assertFromString("alice")),
           keyOpt = None,
-          version = TransactionVersion.maxVersion,
+          version = LanguageVersion.v2_dev,
         ),
         createTime = Timestamp.Epoch,
         cantonData = Bytes.Empty,
@@ -244,7 +244,7 @@ class CommandSubmissionServiceImplSpec
       stakeholders = Set.empty,
       keyOpt = None,
       // TODO(#19494): Change to minVersion once 2.2 is released and 2.1 is removed
-      version = TransactionVersion.maxVersion,
+      version = LanguageVersion.v2_dev,
       domainIdO = Some(domainId),
     )
     val commands = Commands(

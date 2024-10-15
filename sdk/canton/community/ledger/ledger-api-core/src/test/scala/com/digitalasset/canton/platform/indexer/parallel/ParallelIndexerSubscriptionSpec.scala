@@ -34,11 +34,8 @@ import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.transaction.{
-  CommittedTransaction,
-  TransactionVersion,
-  VersionedTransaction,
-}
+import com.digitalasset.daml.lf.language.LanguageVersion
+import com.digitalasset.daml.lf.transaction.{CommittedTransaction, VersionedTransaction}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.SpanSugar.convertIntToGrainOfTime
@@ -302,7 +299,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
       completionInfoO = Some(someCompletionInfo),
       transactionMeta = someTransactionMeta,
       transaction = CommittedTransaction(
-        VersionedTransaction(TransactionVersion.VDev, Map.empty, ImmArray.empty)
+        VersionedTransaction(LanguageVersion.v2_dev, Map.empty, ImmArray.empty)
       ),
       updateId = Ref.TransactionId.assertFromString("UpdateId"),
       recordTime = someRecordTime,

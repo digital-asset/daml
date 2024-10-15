@@ -28,7 +28,7 @@ import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.{
   ContractMetadata,
   LfContractId,
-  LfTransactionVersion,
+  LfLanguageVersion,
   SerializableContract,
   SerializableRawContractInstance,
 }
@@ -162,7 +162,7 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar {
     SerializableRawContractInstance
       .create(
         LfVersioned(
-          LfTransactionVersion.VDev,
+          LfLanguageVersion.v2_dev,
           LfValue.ContractInstance(
             packageName = Ref.PackageName.assertFromString("pkg-name"),
             template = Ref.Identifier.assertFromString("pkg:Mod:Template"),

@@ -9,7 +9,7 @@ import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFact
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.backend.CompletionStorageBackend
 import com.digitalasset.canton.platform.store.dao.events.QueryValidRange
-import com.digitalasset.canton.platform.{ApiOffset, ApplicationId, Party}
+import com.digitalasset.canton.platform.{ApplicationId, Party}
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 
@@ -32,9 +32,7 @@ private[dao] final class CommandCompletionsReader(
   @SuppressWarnings(Array("org.wartremover.warts.OptionPartial"))
   private def offsetFor(response: CompletionStreamResponse): Offset =
     // It would be nice to obtain the offset such that it's obvious that it always exists (rather then relaying on calling .get)
-    ApiOffset.assertFromString(
-      response.completionResponse.completion.get.offset
-    )
+    Offset.fromLong(response.completionResponse.completion.get.offset)
 
   override def getCommandCompletions(
       startExclusive: Offset,

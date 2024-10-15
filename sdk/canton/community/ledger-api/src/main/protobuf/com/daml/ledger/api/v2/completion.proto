@@ -59,8 +59,8 @@ message Completion {
   oneof deduplication_period {
     // Specifies the start of the deduplication period by a completion stream offset (exclusive).
     //
-    // Must be a valid LedgerString (as described in ``value.proto``).
-    string deduplication_offset = 7;
+    // Must be a valid absolute offset (positive integer).
+    int64 deduplication_offset = 7;
 
     // Specifies the length of the deduplication period.
     // It is measured in record time of completions.
@@ -81,8 +81,8 @@ message Completion {
   TraceContext trace_context = 9;
 
   // May be used in a subsequent CompletionStreamRequest to resume the consumption of this stream at a later time.
-  // Required
-  string offset = 10;
+  // Required, must be a valid absolute offset (positive integer).
+  int64 offset = 10;
 
   // The sequencing domain along with its record time.
   // The domain-id provided, in case of

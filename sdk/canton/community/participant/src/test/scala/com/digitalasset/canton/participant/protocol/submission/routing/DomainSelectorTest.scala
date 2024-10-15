@@ -21,7 +21,7 @@ import com.digitalasset.canton.participant.sync.TransactionRoutingError.Configur
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.RoutingInternalError.InputContractsOnDifferentDomains
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.TopologyErrors.NoDomainForSubmission
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.UnableToQueryTopologySnapshot
-import com.digitalasset.canton.protocol.{LfContractId, LfTransactionVersion, LfVersionedTransaction}
+import com.digitalasset.canton.protocol.{LfContractId, LfLanguageVersion, LfVersionedTransaction}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.VettedPackage
@@ -29,7 +29,6 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{DamlLfVersionToProtocolVersions, ProtocolVersion}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, LfPartyId}
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.transaction.TransactionVersion
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.Implicits.*
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -134,13 +133,13 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
     "take minimum protocol version into account" ignore {
       val oldPV = ProtocolVersion.v32
 
-      val transactionVersion = LfTransactionVersion.VDev
+      val transactionVersion = LfLanguageVersion.v2_dev
       val newPV = DamlLfVersionToProtocolVersions.damlLfVersionToMinimumProtocolVersions
         .get(transactionVersion)
         .value
 
       val selectorOldPV = selectorForExerciseByInterface(
-        transactionVersion = TransactionVersion.VDev, // requires protocol version dev
+        transactionVersion = transactionVersion, // requires protocol version dev
         domainProtocolVersion = _ => oldPV,
       )
 
@@ -163,7 +162,7 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
 
       // Happy path
       val selectorNewPV = selectorForExerciseByInterface(
-        transactionVersion = TransactionVersion.VDev, // requires protocol version dev
+        transactionVersion = LfLanguageVersion.v2_dev, // requires protocol version dev
         domainProtocolVersion = _ => newPV,
       )
 
@@ -419,7 +418,7 @@ private[routing] object DomainSelectorTest {
         admissibleDomains: NonEmpty[Set[DomainId]] = defaultAdmissibleDomains,
         prescribedDomainId: Option[DomainId] = defaultPrescribedDomainId,
         domainProtocolVersion: DomainId => ProtocolVersion = defaultDomainProtocolVersion,
-        transactionVersion: TransactionVersion = fixtureTransactionVersion,
+        transactionVersion: LfLanguageVersion = fixtureTransactionVersion,
         vettedPackages: Seq[VettedPackage] = ExerciseByInterface.correctPackages,
         ledgerTime: CantonTimestamp = CantonTimestamp.now(),
     )(implicit

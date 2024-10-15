@@ -38,7 +38,7 @@ trait TrafficConsumedStore extends AutoCloseable {
     * Updates for which there is already a traffic consumed for that member with the same sequencing timestamp are ignored.
     */
   def store(
-      trafficConsumed: TrafficConsumed
+      trafficUpdates: Seq[TrafficConsumed]
   )(implicit
       traceContext: TraceContext
   ): Future[Unit]

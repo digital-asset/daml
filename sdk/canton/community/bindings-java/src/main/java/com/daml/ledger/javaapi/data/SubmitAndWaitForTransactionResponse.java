@@ -22,7 +22,7 @@ public final class SubmitAndWaitForTransactionResponse {
   }
 
   @NonNull
-  public String getCompletionOffset() {
+  public Long getCompletionOffset() {
     return transaction.getOffset();
   }
 

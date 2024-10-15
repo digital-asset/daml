@@ -6,6 +6,7 @@ package com.digitalasset.canton.protocol.messages
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
+import com.digitalasset.canton.crypto.SigningKeyUsage
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.TestDomainParameters
 import com.digitalasset.canton.serialization.HasCryptographicEvidenceTest
@@ -31,9 +32,11 @@ class TopologyTransactionTest extends AnyWordSpec with BaseTest with HasCryptogr
     ).build(loggerFactory).forOwnerAndDomain(sequencerId, domainId)
   private val publicKey =
     crypto.currentSnapshotApproximation.ipsSnapshot
-      .signingKey(sequencerId)
+      .signingKeys(sequencerId, SigningKeyUsage.All)
       .futureValue
-      .getOrElse(sys.error("no key"))
+      // for this test it does not really matter what public signing key we use
+      .lastOption
+      .getOrElse(sys.error("no keys"))
   private val defaultDynamicDomainParameters = TestDomainParameters.defaultDynamic
 
   private def mk[T <: TopologyMapping](

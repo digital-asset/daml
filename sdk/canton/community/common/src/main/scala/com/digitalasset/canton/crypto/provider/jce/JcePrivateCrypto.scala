@@ -47,6 +47,7 @@ class JcePrivateCrypto(
   private def fromJavaSigningKeyPair(
       javaKeyPair: JKeyPair,
       scheme: SigningKeyScheme,
+      usage: NonEmpty[Set[SigningKeyUsage]],
   ): SigningKeyPair = {
     val rawKeyPair = fromJavaKeyPair(javaKeyPair)
     SigningKeyPair.create(
@@ -54,18 +55,20 @@ class JcePrivateCrypto(
       publicKeyBytes = rawKeyPair.publicKey,
       privateKeyBytes = rawKeyPair.privateKey,
       scheme = scheme,
+      usage = usage,
     )
   }
 
   private def generateEcDsaSigningKeyPair(
       curveType: CurveType,
       scheme: SigningKeyScheme,
+      usage: NonEmpty[Set[SigningKeyUsage]],
   ): Either[SigningKeyGenerationError, SigningKeyPair] =
     for {
       javaKeyPair <- Either
         .catchOnly[GeneralSecurityException](EllipticCurves.generateKeyPair(curveType))
         .leftMap[SigningKeyGenerationError](SigningKeyGenerationError.GeneralError.apply)
-    } yield fromJavaSigningKeyPair(javaKeyPair, scheme)
+    } yield fromJavaSigningKeyPair(javaKeyPair, scheme, usage)
 
   override protected[crypto] def generateEncryptionKeypair(keySpec: EncryptionKeySpec)(implicit
       traceContext: TraceContext
@@ -129,14 +132,15 @@ class JcePrivateCrypto(
             publicKeyBytes = publicKey,
             privateKeyBytes = privateKey,
             scheme = scheme,
+            usage = usage,
           )
       } yield keyPair
 
     case SigningKeyScheme.EcDsaP256 =>
-      generateEcDsaSigningKeyPair(EllipticCurves.CurveType.NIST_P256, scheme).toEitherT
+      generateEcDsaSigningKeyPair(EllipticCurves.CurveType.NIST_P256, scheme, usage).toEitherT
 
     case SigningKeyScheme.EcDsaP384 =>
-      generateEcDsaSigningKeyPair(EllipticCurves.CurveType.NIST_P384, scheme).toEitherT
+      generateEcDsaSigningKeyPair(EllipticCurves.CurveType.NIST_P384, scheme, usage).toEitherT
 
     case unsupported =>
       EitherT.leftT(SigningKeyGenerationError.UnsupportedKeyScheme(unsupported))

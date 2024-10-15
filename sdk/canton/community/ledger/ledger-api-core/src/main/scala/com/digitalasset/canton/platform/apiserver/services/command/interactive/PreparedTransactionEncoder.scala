@@ -59,7 +59,7 @@ final class PreparedTransactionEncoder(
     Transformer.derive
 
   private implicit val transactionVersionTransformer
-      : Transformer[lf.transaction.TransactionVersion, String] =
+      : Transformer[lf.language.LanguageVersion, String] =
     TransactionVersion.toProtoValue(_)
 
   private implicit def immArrayToSeqTransformer[A, B](implicit

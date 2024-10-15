@@ -582,7 +582,9 @@ abstract class CantonNodeBootstrapImpl[
         : EitherT[FutureUnlessShutdown, String, Option[UniqueIdentifier]] =
       for {
         // create namespace key
-        namespaceKey <- CantonNodeBootstrapImpl.getOrCreateSigningKey(crypto)(s"$name-namespace")
+        namespaceKey <- CantonNodeBootstrapImpl.getOrCreateSigningKey(crypto)(
+          s"$name-${SigningKeyUsage.Namespace.identifier}"
+        )
         // create id
         identifierName =
           arguments.config.init.identity
@@ -764,10 +766,16 @@ abstract class CantonNodeBootstrapImpl[
             isRootDelegation = true,
           )
         )
-        _ <- authorizeStateUpdate(Seq(namespaceKey.fingerprint), nsd, ProtocolVersion.latest)
+        _ <- authorizeStateUpdate(
+          Seq(namespaceKey.fingerprint),
+          nsd,
+          ProtocolVersion.latest,
+        )
         // all nodes need a signing key
         signingKey <- CantonNodeBootstrapImpl
-          .getOrCreateSigningKey(crypto)(s"$name-signing")
+          .getOrCreateSigningKey(crypto)(
+            s"$name-${SigningKeyUsage.Protocol.identifier}"
+          )
         // key owner id depends on the type of node
         ownerId = member(nodeId)
         // participants need also an encryption key
@@ -780,11 +788,16 @@ abstract class CantonNodeBootstrapImpl[
                 )
             } yield NonEmpty.mk(Seq, signingKey, encryptionKey)
           } else {
-            EitherT.rightT[FutureUnlessShutdown, String](NonEmpty.mk(Seq, signingKey))
+            EitherT.rightT[FutureUnlessShutdown, String](
+              NonEmpty.mk(Seq, signingKey)
+            )
           }
         // register the keys
         _ <- authorizeStateUpdate(
-          Seq(namespaceKey.fingerprint, signingKey.fingerprint),
+          Seq(
+            namespaceKey.fingerprint,
+            signingKey.fingerprint,
+          ),
           OwnerToKeyMapping(ownerId, keys),
           ProtocolVersion.latest,
         )
@@ -824,7 +837,8 @@ abstract class CantonNodeBootstrapImpl[
 object CantonNodeBootstrapImpl {
 
   def getOrCreateSigningKey(crypto: Crypto)(
-      name: String
+      name: String,
+      usage: NonEmpty[Set[SigningKeyUsage]] = SigningKeyUsage.All,
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
@@ -834,14 +848,15 @@ object CantonNodeBootstrapImpl {
       crypto.cryptoPublicStore.findSigningKeyIdByName,
       name =>
         crypto
-          .generateSigningKey(name = name)
+          .generateSigningKey(usage = usage, name = name)
           .leftMap(_.toString),
       crypto.cryptoPrivateStore.existsSigningKey,
       name,
     )
 
   def getOrCreateSigningKeyByFingerprint(crypto: Crypto)(
-      fingerprint: Fingerprint
+      fingerprint: Fingerprint,
+      usage: SigningKeyUsage,
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,

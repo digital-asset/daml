@@ -33,7 +33,7 @@ import com.digitalasset.canton.platform.store.utils.{
   QueueBasedConcurrencyLimiter,
   Telemetry,
 }
-import com.digitalasset.canton.platform.{ApiOffset, Party, TemplatePartiesFilter}
+import com.digitalasset.canton.platform.{Party, TemplatePartiesFilter}
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.NotUsed
@@ -298,7 +298,7 @@ class TransactionsTreeStreamReader(
       )
       .mapConcat { events =>
         val responses = TransactionConversions.toGetTransactionTreesResponse(events)
-        responses.map { case (offset, response) => ApiOffset.assertFromString(offset) -> response }
+        responses.map { case (offset, response) => Offset.fromLong(offset) -> response }
       }
 
     reassignmentStreamReader

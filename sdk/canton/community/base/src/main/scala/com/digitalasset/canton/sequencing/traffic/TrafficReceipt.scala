@@ -4,10 +4,12 @@
 package com.digitalasset.canton.sequencing.traffic
 
 import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.v30.TrafficReceipt as TrafficReceiptP
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.topology.Member
 
 /** Traffic receipt sent with the deliver / deliver error receipt to the sender.
   * Contains updated traffic information after the event has been sequenced.
@@ -33,6 +35,15 @@ final case class TrafficReceipt(
       consumedCost = consumedCost.value,
       extraTrafficConsumed = extraTrafficConsumed.value,
       baseTrafficRemainder = baseTrafficRemainder.value,
+    )
+
+  def toTrafficConsumed(member: Member, sequencingTimestamp: CantonTimestamp): TrafficConsumed =
+    TrafficConsumed(
+      member,
+      sequencingTimestamp,
+      extraTrafficConsumed = extraTrafficConsumed,
+      baseTrafficRemainder = baseTrafficRemainder,
+      lastConsumedCost = consumedCost,
     )
 }
 

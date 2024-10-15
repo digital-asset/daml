@@ -9,7 +9,7 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.connection.GrpcApiInfoService
 import com.digitalasset.canton.connection.v30.ApiInfoServiceGrpc
-import com.digitalasset.canton.crypto.DomainSyncCryptoClient
+import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, SigningKeyUsage}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.domain.config.PublicServerConfig
@@ -153,9 +153,9 @@ class SequencerRuntime(
           .currentSnapshotApproximation(TraceContext.empty)
           .ipsSnapshot
         snapshot
-          .signingKey(sequencerId)
-          .map { keyO =>
-            Either.cond(keyO.nonEmpty, (), s"Missing sequencer keys at ${snapshot.referenceTime}.")
+          .signingKeys(sequencerId, SigningKeyUsage.All)
+          .map { keys =>
+            Either.cond(keys.nonEmpty, (), s"Missing sequencer keys at ${snapshot.referenceTime}.")
           }
       }
 
@@ -255,7 +255,7 @@ class SequencerRuntime(
       syncCrypto,
       new MemberAuthenticationStore(),
       // closing the subscription when the token expires will force the client to try to reconnect
-      // immediately and notice it is unauthenticated, which will cause it to also start reauthenticating
+      // immediately and notice it is unauthenticated, which will cause it to also start re-authenticating
       // it's important to disconnect the member AFTER we expired the token, as otherwise, the member
       // can still re-subscribe with the token just before we removed it
       Traced.lift { case (member, tc) =>
@@ -366,7 +366,7 @@ class SequencerRuntime(
   }
 
   @VisibleForTesting
-  protected[canton] val topologyManagerSequencerCounterTrackerStore =
+  protected[canton] val topologyManagerSequencerCounterTrackerStore: SequencerCounterTrackerStore =
     SequencerCounterTrackerStore(
       storage,
       indexedDomain,

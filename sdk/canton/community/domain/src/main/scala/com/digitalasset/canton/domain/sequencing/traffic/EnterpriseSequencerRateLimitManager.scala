@@ -9,8 +9,6 @@ import cats.syntax.bifunctor.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import com.daml.metrics.api.MetricsContext
-import com.digitalasset.canton.caching.CaffeineCache
-import com.digitalasset.canton.caching.CaffeineCache.FutureAsyncCacheLoader
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeLong
 import com.digitalasset.canton.crypto.{
@@ -29,7 +27,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
 }
 import com.digitalasset.canton.domain.sequencing.traffic.EnterpriseSequencerRateLimitManager.*
 import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficConsumedStore
-import com.digitalasset.canton.lifecycle.UnlessShutdown.Outcome
 import com.digitalasset.canton.lifecycle.{
   CloseContext,
   FlagCloseable,
@@ -48,14 +45,11 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{MediatorId, Member, ParticipantId, SequencerId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.version.ProtocolVersion
-import com.github.benmanes.caffeine.cache as caffeine
 import com.google.common.annotations.VisibleForTesting
 
+import scala.collection.concurrent.TrieMap
 import scala.concurrent.{ExecutionContext, Future}
-import scala.jdk.CollectionConverters.CollectionHasAsScala
-import scala.util.Success
 
 class EnterpriseSequencerRateLimitManager(
     @VisibleForTesting
@@ -75,37 +69,32 @@ class EnterpriseSequencerRateLimitManager(
     with NamedLogging
     with FlagCloseable {
 
+  // We keep traffic consumed records per member to avoid unnecessary db lookups and enable async db writes.
+  // We don't use a cache here, as it is not safe to retrieve invalidated member records from the database,
+  // as it is only written to the database at the end of the chunk processing together with events
+  // to enable high throughput.
   private val trafficConsumedPerMember
-      : CaffeineCache.AsyncLoadingCaffeineCache[Member, TrafficConsumedManager] = {
-    import TraceContext.Implicits.Empty.emptyTraceContext
-    new CaffeineCache.AsyncLoadingCaffeineCache(
-      caffeine.Caffeine
-        .newBuilder()
-        // Automatically cleans up inactive members from the cache
-        .expireAfterAccess(trafficConfig.trafficConsumedCacheTTL.asJava)
-        .maximumSize(trafficConfig.maximumTrafficConsumedCacheSize.value.toLong)
-        .buildAsync(
-          new FutureAsyncCacheLoader[Member, TrafficConsumedManager](member =>
-            trafficConsumedStore
-              .lookupLast(member)
-              .map(lastConsumed =>
-                sequencerMemberRateLimiterFactory.create(
-                  member,
-                  lastConsumed.getOrElse(TrafficConsumed.init(member)),
-                  loggerFactory,
-                  metrics.trafficControl.trafficConsumption,
-                )
-              )
-          )
-        ),
-      metrics.trafficControl.consumedCache,
-    )
-  }
+      : TrieMap[Member, FutureUnlessShutdown[TrafficConsumedManager]] = TrieMap.empty
 
   private def getOrCreateTrafficConsumedManager(
       member: Member
-  ): FutureUnlessShutdown[TrafficConsumedManager] = FutureUnlessShutdown.outcomeF {
-    trafficConsumedPerMember.get(member)
+  ): FutureUnlessShutdown[TrafficConsumedManager] = {
+    import TraceContext.Implicits.Empty.emptyTraceContext
+    trafficConsumedPerMember.getOrElseUpdate(
+      member,
+      performUnlessClosingF("getOrCreateTrafficConsumedManager") {
+        trafficConsumedStore
+          .lookupLast(member)
+          .map(lastConsumed =>
+            sequencerMemberRateLimiterFactory.create(
+              member,
+              lastConsumed.getOrElse(TrafficConsumed.init(member)),
+              loggerFactory,
+              metrics.trafficControl.trafficConsumption,
+            )
+          )
+      },
+    )
   }
 
   // Only participants and mediators are rate limited
@@ -123,10 +112,12 @@ class EnterpriseSequencerRateLimitManager(
       tc: TraceContext
   ): FutureUnlessShutdown[Unit] = FutureUnlessShutdown.outcomeF {
     trafficConsumedStore.store(
-      TrafficConsumed.empty(
-        member,
-        timestamp,
-        trafficControlParameters.maxBaseTrafficAmount,
+      Seq(
+        TrafficConsumed.empty(
+          member,
+          timestamp,
+          trafficControlParameters.maxBaseTrafficAmount,
+        )
       )
     )
   }
@@ -608,22 +599,14 @@ class EnterpriseSequencerRateLimitManager(
               .leftMap(notEnoughTraffic =>
                 SequencerRateLimitError.AboveTrafficLimit(notEnoughTraffic)
               )
-              // Regardless of the outcome, record it into the store
-              .thereafterF {
-                case Success(Outcome(Right(consumed))) =>
-                  trafficConsumedStore.store(consumed)
-                case Success(Outcome(Left(aboveTrafficLimit))) =>
-                  // Even if above traffic limit, record the current traffic consumed state
-                  // (extra traffic consumed won't have changed but the base traffic remainder may have since time advanced)
-                  trafficConsumedStore.store(
-                    aboveTrafficLimit.trafficState.toTrafficConsumed(sender)
-                  )
-                // Other failures (shutdown or failed future) are not recoverable so we don't have anything to store
-                case _ => Future.unit
-              }
               .leftWiden[SequencerRateLimitError]
           } else {
             // If not, we will NOT consume, because we assume the event has already been consumed
+            // We then fetch the traffic consumed state at the sequencing time from the store
+            // This should not really happen, as messages are processed in order
+            logger.debug(
+              s"Tried to consume traffic at $sequencingTime for $sender, but the traffic consumed state is already at $currentTrafficConsumedTs"
+            )
             EitherT
               .fromOptionF[Future, SequencerRateLimitError, TrafficConsumed](
                 trafficConsumedStore
@@ -804,10 +787,10 @@ class EnterpriseSequencerRateLimitManager(
       executionContext: ExecutionContext,
       traceContext: TraceContext,
   ): FutureUnlessShutdown[Map[Member, Either[String, TrafficState]]] = {
-    // If the requested set is empty, get all members from the cache
+    // If the requested set is empty, get all members from the in-memory state
     val membersToGetTrafficFor = {
       if (requestedMembers.isEmpty) {
-        trafficConsumedPerMember.underlying.asMap().keySet().asScala
+        trafficConsumedPerMember.keySet
       } else requestedMembers
     }.toSeq
       .filter(isRateLimited)

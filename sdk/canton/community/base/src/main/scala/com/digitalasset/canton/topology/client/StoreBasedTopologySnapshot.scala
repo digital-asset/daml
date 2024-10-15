@@ -621,8 +621,8 @@ class StoreBasedTopologySnapshot(
       members: Set[Member]
   )(implicit traceContext: TraceContext): Future[Set[Member]] = {
     val participants = members.collect { case ParticipantId(uid) => uid }
-    val mediators = members.collect { case MediatorId(uid) => uid }.toSet
-    val sequencers = members.collect { case SequencerId(uid) => uid }.toSet
+    val mediators = members.collect { case MediatorId(uid) => uid }
+    val sequencers = members.collect { case SequencerId(uid) => uid }
 
     val knownParticipantsF = if (participants.nonEmpty) {
       findTransactions(

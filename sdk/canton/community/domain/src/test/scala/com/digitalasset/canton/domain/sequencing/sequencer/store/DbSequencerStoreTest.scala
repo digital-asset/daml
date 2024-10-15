@@ -51,15 +51,16 @@ object DbSequencerStoreTest {
     storage.update(
       DBIO.seq(
         Seq(
-          "members",
-          "counter_checkpoints",
-          "payloads",
-          "watermarks",
-          "events",
-          "acknowledgements",
-          "lower_bound",
+          "sequencer_members",
+          "sequencer_counter_checkpoints",
+          "sequencer_payloads",
+          "sequencer_watermarks",
+          "sequencer_events",
+          "sequencer_acknowledgements",
+          "sequencer_lower_bound",
+          "seq_traffic_control_consumed_journal",
         )
-          .map(name => sqlu"truncate table sequencer_#$name")*
+          .map(name => sqlu"truncate table #$name")*
       ),
       functionFullName,
     )

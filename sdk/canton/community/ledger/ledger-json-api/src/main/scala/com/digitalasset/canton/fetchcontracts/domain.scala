@@ -36,6 +36,7 @@ package object domain {
 package domain {
 
   import com.digitalasset.canton.http.domain.{ContractTypeId, ResolvedQuery}
+  import com.digitalasset.canton.platform.ApiOffset
   import scalaz.-\/
 
   final case class Error(id: Symbol, message: String)
@@ -52,6 +53,7 @@ package domain {
     val tag = Tag.of[OffsetTag]
 
     def apply(s: String): Offset = tag(s)
+    def apply(l: Long): Offset = tag(ApiOffset.fromLong(l))
 
     def unwrap(x: Offset): String = tag.unwrap(x)
 

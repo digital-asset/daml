@@ -17,7 +17,6 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdatesResponse,
 }
 import com.digitalasset.canton.ledger.api.util.TimestampConversion
-import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.platform.store.ScalaPbStreamingOptimizations.*
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.Entry
 import com.digitalasset.canton.platform.store.utils.EventOps.TreeEventOps
@@ -49,7 +48,7 @@ object EventsTable {
               commandId = first.commandId,
               effectiveAt = Some(TimestampConversion.fromLf(first.ledgerEffectiveTime)),
               workflowId = first.workflowId,
-              offset = ApiOffset.toApiString(first.eventOffset),
+              offset = first.eventOffset.toLong,
               events = flatEvents,
               domainId = first.domainId,
               traceContext = extractTraceContext(events),
@@ -61,7 +60,7 @@ object EventsTable {
 
     def toGetTransactionsResponse(
         events: Vector[Entry[Event]]
-    ): List[(String, GetUpdatesResponse)] =
+    ): List[(Long, GetUpdatesResponse)] =
       flatTransaction(events).toList.map(tx =>
         tx.offset -> GetUpdatesResponse(GetUpdatesResponse.Update.Transaction(tx))
           .withPrecomputedSerializedSize()
@@ -110,7 +109,7 @@ object EventsTable {
           commandId = first.commandId,
           workflowId = first.workflowId,
           effectiveAt = Some(TimestampConversion.fromLf(first.ledgerEffectiveTime)),
-          offset = ApiOffset.toApiString(first.eventOffset),
+          offset = first.eventOffset.toLong,
           eventsById = eventsById,
           rootEventIds = rootEventIds,
           domainId = first.domainId,
@@ -121,7 +120,7 @@ object EventsTable {
 
     def toGetTransactionTreesResponse(
         events: Vector[Entry[TreeEvent]]
-    ): List[(String, GetUpdateTreesResponse)] =
+    ): List[(Long, GetUpdateTreesResponse)] =
       transactionTree(events).toList.map(tx =>
         tx.offset -> GetUpdateTreesResponse(GetUpdateTreesResponse.Update.TransactionTree(tx))
           .withPrecomputedSerializedSize()

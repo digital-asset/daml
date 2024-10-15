@@ -93,6 +93,7 @@ class BlockChunkProcessorTest extends AsyncWordSpec with BaseTest {
                         deliverToMembers,
                         batch,
                         _,
+                        _,
                       ),
                     )
                   )

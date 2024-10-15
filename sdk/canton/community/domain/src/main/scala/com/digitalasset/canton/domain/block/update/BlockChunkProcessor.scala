@@ -231,6 +231,7 @@ private[update] final class BlockChunkProcessor(
             deliverToMembers = sequencerRecipients(SequencersOfDomain),
             batch = Batch.empty(protocolVersion),
             submissionTraceContext = TraceContext.createNew(),
+            trafficReceiptO = None,
           ),
         )
       val chunkUpdate = ChunkUpdate(

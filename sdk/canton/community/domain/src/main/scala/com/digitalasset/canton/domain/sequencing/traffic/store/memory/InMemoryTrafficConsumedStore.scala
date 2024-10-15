@@ -28,16 +28,18 @@ class InMemoryTrafficConsumedStore(override protected val loggerFactory: NamedLo
   private val initTimestamp: AtomicReference[Option[CantonTimestamp]] = new AtomicReference(None)
   // Clearing the table can prevent memory leaks
   override def close(): Unit = trafficConsumedMap.clear()
-  override def store(trafficConsumed: TrafficConsumed)(implicit
+  override def store(trafficUpdates: Seq[TrafficConsumed])(implicit
       traceContext: TraceContext
   ): Future[Unit] = Future.successful {
-    logger.debug(s"Storing traffic balance $trafficConsumed")
-    this.trafficConsumedMap
-      .updateWith(trafficConsumed.member) {
-        case Some(old) => Some(old.incl(trafficConsumed))
-        case None => Some(NonEmpty.mk(SortedSet, trafficConsumed))
-      }
-      .discard
+    trafficUpdates.foreach { trafficConsumed =>
+      logger.debug(s"Storing traffic balance $trafficConsumed")
+      this.trafficConsumedMap
+        .updateWith(trafficConsumed.member) {
+          case Some(old) => Some(old.incl(trafficConsumed))
+          case None => Some(NonEmpty.mk(SortedSet, trafficConsumed))
+        }
+        .discard
+    }
   }
 
   override def lookup(

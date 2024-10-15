@@ -3,14 +3,20 @@
 
 package com.digitalasset.canton.domain.sequencing.traffic
 
+import cats.implicits.catsSyntaxParallelTraverse_
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitError.AboveTrafficLimit
+import com.digitalasset.canton.domain.sequencing.sequencer.traffic.SequencerRateLimitError.{
+  AboveTrafficLimit,
+  IncorrectEventCost,
+  OutdatedEventCost,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.traffic.{
   SequencerRateLimitError,
   SequencerRateLimitManager,
 }
+import com.digitalasset.canton.domain.sequencing.traffic.store.TrafficConsumedStore
 import com.digitalasset.canton.domain.sequencing.traffic.store.memory.{
   InMemoryTrafficConsumedStore,
   InMemoryTrafficPurchasedStore,
@@ -28,6 +34,7 @@ import com.digitalasset.canton.time.PositiveFiniteDuration
 import com.digitalasset.canton.topology.DefaultTestIdentities.*
 import com.digitalasset.canton.topology.{DefaultTestIdentities, Member, TestingTopology}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.FutureInstances.parallelFuture
 import com.digitalasset.canton.version.{HasTestCloseContext, ProtocolVersion}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import com.google.protobuf.ByteString
@@ -35,6 +42,7 @@ import org.scalatest.FutureOutcome
 import org.scalatest.wordspec.FixtureAsyncWordSpec
 
 import java.util.UUID
+import scala.concurrent.Future
 
 class EnterpriseSequencerRateLimitManagerTest
     extends FixtureAsyncWordSpec
@@ -126,6 +134,7 @@ class EnterpriseSequencerRateLimitManagerTest
       eventCostCalculator: EventCostCalculator,
       rlm: SequencerRateLimitManager,
       balanceManager: TrafficPurchasedManager,
+      trafficConsumedStore: TrafficConsumedStore,
   )
 
   override type FixtureParam = Env
@@ -240,6 +249,31 @@ class EnterpriseSequencerRateLimitManagerTest
         sequencerSignature = Signature.noSignature,
       )
       .value
+      .map { errorOrReceiptO =>
+        // simulate storing the consumed traffic, which has now moved
+        // into the BlockSequencerStateManager from the EnterpriseSequencerRateLimitManager
+        def storeTrafficConsumed(trafficReceiptO: Option[TrafficReceipt]) =
+          trafficReceiptO.toList.parTraverse_ { trafficReceipt =>
+            f.trafficConsumedStore.store(
+              Seq(trafficReceipt.toTrafficConsumed(sender, sequencingTimestamp))
+            )
+          }
+
+        val storeF = errorOrReceiptO match {
+          case Right(Some(trafficReceipt)) =>
+            storeTrafficConsumed(Some(trafficReceipt))
+          case Left(err: IncorrectEventCost.Error) =>
+            storeTrafficConsumed(err.trafficReceipt)
+          case Left(err: AboveTrafficLimit) =>
+            storeTrafficConsumed(Some(err.trafficState.toTrafficReceipt))
+          case Left(err: OutdatedEventCost) =>
+            storeTrafficConsumed(err.trafficReceipt)
+          case _ => Future.unit
+        }
+        storeF.futureValue
+
+        errorOrReceiptO
+      }
       .failOnShutdown
   }
 
@@ -886,6 +920,7 @@ class EnterpriseSequencerRateLimitManagerTest
       eventCostCalculator,
       rateLimiter,
       manager,
+      consumedStore,
     )
 
     withFixture(test.toNoArgAsyncTest(env))

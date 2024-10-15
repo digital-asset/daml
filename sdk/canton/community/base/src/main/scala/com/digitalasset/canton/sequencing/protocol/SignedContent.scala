@@ -210,7 +210,14 @@ object SignedContent
       traceContext: TraceContext,
       ec: ExecutionContext,
   ): FutureUnlessShutdown[SignedContent[A]] =
-    create(cryptoApi, cryptoPrivateApi, content, timestampOfSigningKey, purpose, protocolVersion)
+    create(
+      cryptoApi,
+      cryptoPrivateApi,
+      content,
+      timestampOfSigningKey,
+      purpose,
+      protocolVersion,
+    )
       .valueOr(err => throw new IllegalStateException(s"Failed to create signed content: $err"))
 
   def fromProtoV30(

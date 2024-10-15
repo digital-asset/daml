@@ -17,7 +17,7 @@ import com.digitalasset.daml.lf.command.ApiCommands as LfCommands
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageName, PackageVersion}
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
-import com.digitalasset.daml.lf.transaction.TransactionVersion
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.test.{TestNodeBuilder, TransactionBuilder}
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
@@ -72,7 +72,7 @@ class LedgerTimeAwareCommandExecutorSpec
       stakeholders = Set.empty,
       keyOpt = None,
       // TODO(#19494): Change to minVersion once 2.2 is released and 2.1 is removed
-      version = TransactionVersion.maxVersion,
+      version = LanguageVersion.v2_dev,
       domainIdO = Some(DomainId.tryFromString("x::domainId")),
     )
   )

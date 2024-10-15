@@ -5,8 +5,11 @@ package com.digitalasset.canton.crypto.store
 
 import cats.data.EitherT
 import cats.syntax.functor.*
+import cats.syntax.parallel.*
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.crypto.KeyPurpose.{Encryption, Signing}
+import com.digitalasset.canton.crypto.SigningKeyUsage.nonEmptyIntersection
 import com.digitalasset.canton.crypto.store.db.StoredPrivateKey
 import com.digitalasset.canton.crypto.{
   EncryptionPrivateKey,
@@ -14,6 +17,7 @@ import com.digitalasset.canton.crypto.{
   KeyName,
   KeyPurpose,
   PrivateKey,
+  SigningKeyUsage,
   SigningPrivateKey,
 }
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -42,7 +46,7 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
 
   // Cached values for keys and secret
   protected val signingKeyMap: TrieMap[Fingerprint, SigningPrivateKeyWithName] = TrieMap.empty
-  protected val decryptionKeyMap: TrieMap[Fingerprint, EncryptionPrivateKeyWithName] = TrieMap.empty
+  private val decryptionKeyMap: TrieMap[Fingerprint, EncryptionPrivateKeyWithName] = TrieMap.empty
 
   // Write methods that the underlying store has to implement.
   private[crypto] def writePrivateKey(
@@ -182,6 +186,17 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
           signingKeyMap.put(key.id, SigningPrivateKeyWithName(key, name)).discard
         }
     } yield ()
+
+  def filterSigningKeys(
+      signingKeyIds: Seq[Fingerprint],
+      filterUsage: NonEmpty[Set[SigningKeyUsage]],
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Seq[Fingerprint]] =
+    for {
+      signingKeys <- signingKeyIds.parTraverse(signingKey(_)).map(_.flatten)
+      filteredSigningKeys = signingKeys.filter(key => nonEmptyIntersection(key.usage, filterUsage))
+    } yield filteredSigningKeys.map(_.id)
 
   def existsSigningKey(signingKeyId: Fingerprint)(implicit
       traceContext: TraceContext

@@ -10,6 +10,7 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.client.ResilientLedgerSubscriptionTest.SubscriptionState
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.ParticipantPrunedDataAccessed
 import com.digitalasset.canton.logging.LogEntry
+import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import io.grpc.{Status, StatusRuntimeException}
 import org.apache.pekko.NotUsed
@@ -115,8 +116,8 @@ class ResilientLedgerSubscriptionTest extends AnyWordSpec with BaseTest with Has
     val sender = new Party("alice")
 
     val initialOffset: String = "00"
-    val reSubscriptionOffset = "07"
-    val tx = Transaction(offset = "07")
+    val reSubscriptionOffset = ApiOffset.fromLong(7)
+    val tx = Transaction(offset = 7L)
 
     private[client] val subscriber = new AtomicReference[Option[SubscriptionState]](
       None
@@ -165,7 +166,7 @@ class ResilientLedgerSubscriptionTest extends AnyWordSpec with BaseTest with Has
             },
             subscriptionName = subscriptionName,
             startOffset = initialOffset,
-            extractOffset = tx => Some(tx.offset),
+            extractOffset = tx => Some(ApiOffset.fromLong(tx.offset)),
             timeouts = timeouts,
             loggerFactory = loggerFactory,
             resubscribeIfPruned = true,

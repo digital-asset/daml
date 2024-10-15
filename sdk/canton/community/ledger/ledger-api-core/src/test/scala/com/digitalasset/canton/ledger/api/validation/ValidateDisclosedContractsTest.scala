@@ -18,6 +18,7 @@ import com.digitalasset.canton.ledger.api.validation.ValidateDisclosedContractsT
 }
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.{Node as LfNode, *}
 import com.digitalasset.daml.lf.value.Value as Lf
 import com.digitalasset.daml.lf.value.Value.{ContractId, ValueRecord}
@@ -233,7 +234,7 @@ class ValidateDisclosedContractsTest
 
 object ValidateDisclosedContractsTest {
   // TODO(#19494): Change to minVersion once 2.2 is released and 2.1 is removed
-  private val testTxVersion = TransactionVersion.maxVersion
+  private val testTxVersion = LanguageVersion.v2_dev
 
   private val validateDisclosedContracts = new ValidateDisclosedContracts
 
