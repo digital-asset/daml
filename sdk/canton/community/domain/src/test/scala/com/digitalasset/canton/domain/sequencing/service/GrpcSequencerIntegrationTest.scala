@@ -17,7 +17,7 @@ import com.digitalasset.canton.config.{
   TestingConfigInternal,
 }
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
-import com.digitalasset.canton.crypto.{HashPurpose, Nonce, SyncCryptoApi}
+import com.digitalasset.canton.crypto.{HashPurpose, Nonce, SigningKeyUsage, SyncCryptoApi}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.api.v30
@@ -195,7 +195,7 @@ final case class Env(loggerFactory: NamedLoggerFactory)(implicit
     ): Future[v30.SequencerAuthentication.ChallengeResponse] =
       for {
         fingerprints <- cryptoApi.ips.currentSnapshotApproximation
-          .signingKeys(participant)
+          .signingKeys(participant, SigningKeyUsage.All)
           .map(_.map(_.fingerprint).toList)
       } yield v30.SequencerAuthentication.ChallengeResponse(
         v30.SequencerAuthentication.ChallengeResponse.Value

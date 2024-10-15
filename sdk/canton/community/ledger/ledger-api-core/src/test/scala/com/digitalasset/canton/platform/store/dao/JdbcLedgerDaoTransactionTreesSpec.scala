@@ -7,7 +7,6 @@ import com.daml.ledger.api.v2.transaction.TransactionTree
 import com.daml.ledger.api.v2.update_service.GetUpdateTreesResponse
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.util.TimestampConversion
-import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.platform.store.entries.LedgerEntry
 import com.digitalasset.canton.platform.store.utils.EventOps.TreeEventOps
 import com.digitalasset.daml.lf.data.Ref
@@ -58,7 +57,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
       inside(result.value.transaction) { case Some(transaction) =>
         inside(tx.transaction.nodes.headOption) { case Some((nodeId, createNode: Node.Create)) =>
           transaction.commandId shouldBe tx.commandId.value
-          transaction.offset shouldBe ApiOffset.toApiString(offset)
+          transaction.offset shouldBe offset.toLong
           TimestampConversion.toLf(
             transaction.effectiveAt.value,
             TimestampConversion.ConversionMode.Exact,
@@ -92,7 +91,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
         inside(exercise.transaction.nodes.headOption) {
           case Some((nodeId, exerciseNode: Node.Exercise)) =>
             transaction.commandId shouldBe exercise.commandId.value
-            transaction.offset shouldBe ApiOffset.toApiString(offset)
+            transaction.offset shouldBe offset.toLong
             TimestampConversion.toLf(
               transaction.effectiveAt.value,
               TimestampConversion.ConversionMode.Exact,
@@ -133,7 +132,7 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
           }.value
 
         transaction.commandId shouldBe tx.commandId.value
-        transaction.offset shouldBe ApiOffset.toApiString(offset)
+        transaction.offset shouldBe offset.toLong
         transaction.updateId shouldBe tx.updateId
         transaction.workflowId shouldBe tx.workflowId.getOrElse("")
         TimestampConversion.toLf(

@@ -7,7 +7,6 @@ import java.util.concurrent.TimeUnit
 import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.TransactionGenerator.nonEmptyLedgerContent
 import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
-import com.digitalasset.canton.platform.ApiOffset
 import io.reactivex.Observable
 import org.scalacheck.Shrink.shrinkAny // disable shrinking for Gen.nonEmptyListOf (see https://github.com/typelevel/scalacheck/issues/129)
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
@@ -117,7 +116,7 @@ class StateClientImplTest
         Observable.fromIterable(ledgerContent.asJava),
       ) { (stateClient, _) =>
         println(transactions.last.getOffset)
-        val expectedOffset = ApiOffset.assertFromStringToLongO(transactions.last.getOffset)
+        val expectedOffset = Some(transactions.last.getOffset)
         stateClient.getLedgerEnd.blockingGet() shouldBe expectedOffset.toJava
       }
   }

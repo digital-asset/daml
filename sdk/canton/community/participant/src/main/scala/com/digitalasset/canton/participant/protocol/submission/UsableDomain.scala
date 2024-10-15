@@ -11,6 +11,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdownImpl.AbortedDueToShutdownException
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.PackageUnknownTo
+import com.digitalasset.canton.protocol.LfLanguageVersion
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
@@ -28,7 +29,7 @@ object UsableDomain {
       protocolVersion: ProtocolVersion,
       snapshot: TopologySnapshot,
       requiredPackagesByParty: Map[LfPartyId, Set[LfPackageId]],
-      transactionVersion: TransactionVersion,
+      transactionVersion: LfLanguageVersion,
       ledgerTime: CantonTimestamp,
   )(implicit
       ec: ExecutionContext,
@@ -198,7 +199,7 @@ object UsableDomain {
       domainId: DomainId,
       currentPV: ProtocolVersion,
       requiredPV: ProtocolVersion,
-      lfVersion: TransactionVersion,
+      lfVersion: LfLanguageVersion,
   ) extends DomainNotUsedReason {
 
     override def toString: String =

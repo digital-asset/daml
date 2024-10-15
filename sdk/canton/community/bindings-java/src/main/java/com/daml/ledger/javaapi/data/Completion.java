@@ -27,14 +27,14 @@ public final class Completion {
 
   private final @NonNull String submissionId;
 
-  private final @NonNull Optional<String> deduplicationOffset;
+  private final @NonNull Optional<Long> deduplicationOffset;
 
   private final @NonNull Optional<Duration> deduplicationDuration;
 
   // model trace-context with its own class
   private final TraceContextOuterClass.@NonNull TraceContext traceContext;
 
-  private final @NonNull String offset;
+  private final @NonNull Long offset;
 
   private final @NonNull DomainTime domainTime;
 
@@ -45,10 +45,10 @@ public final class Completion {
       @NonNull String applicationId,
       @NonNull List<@NonNull String> actAs,
       @NonNull String submissionId,
-      @NonNull Optional<String> deduplicationOffset,
+      @NonNull Optional<Long> deduplicationOffset,
       @NonNull Optional<Duration> deduplicationDuration,
       TraceContextOuterClass.@NonNull TraceContext traceContext,
-      @NonNull String offset,
+      @NonNull Long offset,
       @NonNull DomainTime domainTime) {
     this.commandId = commandId;
     this.status = status;
@@ -70,9 +70,9 @@ public final class Completion {
       @NonNull String applicationId,
       @NonNull List<@NonNull String> actAs,
       @NonNull String submissionId,
-      @NonNull String deduplicationOffset,
+      @NonNull Long deduplicationOffset,
       TraceContextOuterClass.TraceContext traceContext,
-      @NonNull String offset,
+      @NonNull Long offset,
       @NonNull DomainTime domainTime) {
     this(
         commandId,
@@ -97,7 +97,7 @@ public final class Completion {
       @NonNull String submissionId,
       @NonNull Duration deduplicationDuration,
       TraceContextOuterClass.TraceContext traceContext,
-      @NonNull String offset,
+      @NonNull Long offset,
       @NonNull DomainTime domainTime) {
     this(
         commandId,
@@ -144,7 +144,7 @@ public final class Completion {
   }
 
   @NonNull
-  public Optional<String> getDeduplicationOffset() {
+  public Optional<Long> getDeduplicationOffset() {
     return deduplicationOffset;
   }
 
@@ -158,7 +158,7 @@ public final class Completion {
   }
 
   @NonNull
-  public String getOffset() {
+  public Long getOffset() {
     return offset;
   }
 

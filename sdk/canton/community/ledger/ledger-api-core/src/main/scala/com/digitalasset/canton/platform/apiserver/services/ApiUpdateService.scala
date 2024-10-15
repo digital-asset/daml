@@ -390,7 +390,7 @@ final class ApiUpdateService(
       commandId: String,
       updateId: String,
       workflowId: String,
-      offset: String,
+      offset: Long,
   ): LoggingEntries =
     LoggingEntries(
       logging.commandId(commandId),

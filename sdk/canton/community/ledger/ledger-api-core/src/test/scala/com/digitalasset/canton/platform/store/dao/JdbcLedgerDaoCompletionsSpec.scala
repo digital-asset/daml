@@ -6,7 +6,6 @@ package com.digitalasset.canton.platform.store.dao
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state
-import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.platform.store.dao.JdbcLedgerDaoCompletionsSpec.*
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -287,7 +286,7 @@ private[dao] object JdbcLedgerDaoCompletionsSpec {
 
   @SuppressWarnings(Array("org.wartremover.warts.OptionPartial"))
   private def offsetOf(response: CompletionStreamResponse): Offset =
-    ApiOffset.assertFromString(
+    Offset.fromLong(
       response.completionResponse.completion.get.offset
     )
 

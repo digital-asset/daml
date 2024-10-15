@@ -367,30 +367,40 @@ class DomainSyncCryptoClient(
       staticDomainParameters,
       snapshot,
       crypto,
-      implicit tc => ts => EitherT(FutureUnlessShutdown(mySigningKeyCache.get(ts))),
+      implicit tc =>
+        (ts, usage) => EitherT(FutureUnlessShutdown(mySigningKeyCache.get((ts, usage)))),
       cacheConfigs.keyCache,
       loggerFactory,
     )
 
   private val mySigningKeyCache =
-    TracedScaffeine.buildTracedAsyncFuture[CantonTimestamp, UnlessShutdown[
-      Either[SyncCryptoError, Fingerprint]
-    ]](
-      cache = cacheConfigs.mySigningKeyCache.buildScaffeine(),
-      loader = traceContext => timestamp => findSigningKey(timestamp)(traceContext).value.unwrap,
-    )(logger)
+    TracedScaffeine
+      .buildTracedAsyncFuture[(CantonTimestamp, NonEmpty[Set[SigningKeyUsage]]), UnlessShutdown[
+        Either[SyncCryptoError, Fingerprint]
+      ]](
+        cache = cacheConfigs.mySigningKeyCache.buildScaffeine(),
+        loader = traceContext =>
+          key => {
+            val (timestamp, usage) = key
+            findSigningKey(timestamp, usage)(traceContext).value.unwrap
+          },
+      )(logger)
 
   private def findSigningKey(
-      referenceTime: CantonTimestamp
+      referenceTime: CantonTimestamp,
+      usage: NonEmpty[Set[SigningKeyUsage]],
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncCryptoError, Fingerprint] =
     for {
       snapshot <- EitherT.right(ipsSnapshot(referenceTime))
-      signingKeys <- EitherT.right(snapshot.signingKeys(member)).mapK(FutureUnlessShutdown.outcomeK)
+      signingKeys <- EitherT
+        .right(snapshot.signingKeys(member, usage))
+        .mapK(FutureUnlessShutdown.outcomeK)
       existingKeys <- signingKeys.toList
         .parFilterA(pk => crypto.cryptoPrivateStore.existsSigningKey(pk.fingerprint))
         .leftMap[SyncCryptoError](SyncCryptoError.StoreError.apply)
+      // use lastOption to retrieve latest key (newer keys are at the end)
       kk <- existingKeys.lastOption
         .toRight[SyncCryptoError](
           SyncCryptoError
@@ -446,7 +456,7 @@ class DomainSnapshotSyncCryptoApi(
     staticDomainParameters: StaticDomainParameters,
     override val ipsSnapshot: TopologySnapshot,
     val crypto: Crypto,
-    fetchSigningKey: TraceContext => CantonTimestamp => EitherT[
+    fetchSigningKey: TraceContext => (CantonTimestamp, NonEmpty[Set[SigningKeyUsage]]) => EitherT[
       FutureUnlessShutdown,
       SyncCryptoError,
       Fingerprint,
@@ -474,6 +484,7 @@ class DomainSnapshotSyncCryptoApi(
   private def loadSigningKeysForMembers(
       members: Seq[Member]
   )(implicit traceContext: TraceContext): Future[Map[Member, Map[Fingerprint, SigningPublicKey]]] =
+    // we fetch ALL signing keys for all members
     ipsSnapshot
       .signingKeys(members)
       .map(membersToKeys =>
@@ -495,7 +506,7 @@ class DomainSnapshotSyncCryptoApi(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, SyncCryptoError, Signature] =
     for {
-      fingerprint <- fetchSigningKey(traceContext)(ipsSnapshot.referenceTime)
+      fingerprint <- fetchSigningKey(traceContext)(ipsSnapshot.referenceTime, SigningKeyUsage.All)
       signature <- crypto.privateCrypto
         .sign(hash, fingerprint)
         .leftMap[SyncCryptoError](SyncCryptoError.SyncCryptoSigningError.apply)

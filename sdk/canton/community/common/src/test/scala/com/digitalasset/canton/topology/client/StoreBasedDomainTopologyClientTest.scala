@@ -6,7 +6,7 @@ package com.digitalasset.canton.topology.client
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.DefaultProcessingTimeouts
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.crypto.SigningPublicKey
+import com.digitalasset.canton.crypto.{SigningKeyUsage, SigningPublicKey}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.time.Clock
@@ -60,8 +60,8 @@ trait StoreBasedTopologySnapshotTest extends AsyncWordSpec with BaseTest with Ha
       )
     )
 
-    class Fixture() {
-      val store = mk()
+    class Fixture {
+      val store: TopologyStore[TopologyStoreId] = mk()
       val client =
         new StoreBasedDomainTopologyClient(
           mock[Clock],
@@ -148,7 +148,7 @@ trait StoreBasedTopologySnapshotTest extends AsyncWordSpec with BaseTest with Ha
       val sp = client.trySnapshot(mrt)
       for {
         parties <- sp.activeParticipantsOf(party1.toLf)
-        keys <- sp.signingKeys(participant1)
+        keys <- sp.signingKeys(participant1, SigningKeyUsage.All)
       } yield {
         parties shouldBe empty
         keys shouldBe empty
@@ -188,7 +188,7 @@ trait StoreBasedTopologySnapshotTest extends AsyncWordSpec with BaseTest with Ha
         recent = fixture.client.currentSnapshotApproximation
         party1Mappings <- recent.activeParticipantsOf(party1.toLf)
         party2Mappings <- recent.activeParticipantsOf(party2.toLf)
-        keys <- recent.signingKeys(participant1)
+        keys <- recent.signingKeys(participant1, SigningKeyUsage.All)
       } yield {
         party1Mappings.keySet shouldBe Set(participant1)
         party1Mappings.get(participant1).map(_.permission) shouldBe Some(
@@ -260,10 +260,10 @@ trait StoreBasedTopologySnapshotTest extends AsyncWordSpec with BaseTest with Ha
         party2Ma <- snapshotA.activeParticipantsOf(party2.toLf)
         party2Mb <- snapshotB.activeParticipantsOf(party2.toLf)
         party2Mc <- snapshotC.activeParticipantsOf(party2.toLf)
-        keysMa <- snapshotA.signingKeys(mediatorId)
-        keysMb <- snapshotB.signingKeys(mediatorId)
-        keysSa <- snapshotA.signingKeys(sequencerId)
-        keysSb <- snapshotB.signingKeys(sequencerId)
+        keysMa <- snapshotA.signingKeys(mediatorId, SigningKeyUsage.All)
+        keysMb <- snapshotB.signingKeys(mediatorId, SigningKeyUsage.All)
+        keysSa <- snapshotA.signingKeys(sequencerId, SigningKeyUsage.All)
+        keysSb <- snapshotB.signingKeys(sequencerId, SigningKeyUsage.All)
         partPermA <- snapshotA.findParticipantState(participant1)
         partPermB <- snapshotB.findParticipantState(participant1)
         partPermC <- snapshotC.findParticipantState(participant1)

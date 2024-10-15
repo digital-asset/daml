@@ -9,7 +9,6 @@ import com.daml.ledger.api.v2.trace_context.TraceContext
 import com.daml.ledger.rxjava.grpc.helpers.UpdateServiceImpl.LedgerItem
 import com.digitalasset.canton.auth.Authorizer
 import com.digitalasset.canton.ledger.api.auth.services.UpdateServiceAuthorization
-import com.digitalasset.canton.platform.ApiOffset
 import com.daml.ledger.api.v2.event.Event
 import com.daml.ledger.api.v2.event.Event.Event.{Archived, Created, Empty}
 import com.daml.ledger.api.v2.transaction.Transaction
@@ -113,7 +112,7 @@ object UpdateServiceImpl {
       workflowId: String,
       effectiveAt: Timestamp,
       events: Seq[Event],
-      offset: Option[Long],
+      offset: Long,
       domainId: String,
       traceContext: TraceContext,
   ) {
@@ -125,7 +124,7 @@ object UpdateServiceImpl {
         workflowId,
         Some(effectiveAt),
         events,
-        ApiOffset.fromLongO(offset),
+        offset,
         domainId,
         Some(traceContext),
       )

@@ -11,7 +11,8 @@ import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.HasFutureSupervision
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.crypto.{EncryptionPublicKey, SigningPublicKey}
+import com.digitalasset.canton.crypto.SigningKeyUsage.nonEmptyIntersection
+import com.digitalasset.canton.crypto.{EncryptionPublicKey, SigningKeyUsage, SigningPublicKey}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -235,7 +236,7 @@ trait PartyTopologySnapshotClient {
   /** Returns Right if all parties have at least an active participant passing the check. Otherwise, all parties not passing are passed as Left */
   def allHaveActiveParticipants(
       parties: Set[LfPartyId],
-      check: (ParticipantPermission => Boolean) = _ => true,
+      check: ParticipantPermission => Boolean = _ => true,
   )(implicit traceContext: TraceContext): EitherT[Future, Set[LfPartyId], Unit]
 
   /** Returns the consortium thresholds (how many votes from different participants that host the consortium party
@@ -335,15 +336,21 @@ trait KeyTopologySnapshotClient {
 
   this: BaseTopologySnapshotClient =>
 
-  /** returns newest signing public key */
-  def signingKey(owner: Member)(implicit
-      traceContext: TraceContext
-  ): Future[Option[SigningPublicKey]]
+  /** Retrieves the signing keys for a given owner, filtering them based on the provided usage set.
+    *
+    * @param owner The owner whose signing keys are being queried.
+    * @param filterUsage A non-empty set of usages to filter the signing keys by.
+    *              At least one usage from this set must match with the key's usage.
+    */
+  def signingKeys(
+      owner: Member,
+      filterUsage: NonEmpty[Set[SigningKeyUsage]],
+  )(implicit traceContext: TraceContext): Future[Seq[SigningPublicKey]]
 
-  /** returns all signing keys */
-  def signingKeys(owner: Member)(implicit traceContext: TraceContext): Future[Seq[SigningPublicKey]]
-
-  def signingKeys(members: Seq[Member])(implicit
+  def signingKeys(
+      members: Seq[Member],
+      filterUsage: NonEmpty[Set[SigningKeyUsage]] = SigningKeyUsage.All,
+  )(implicit
       traceContext: TraceContext
   ): Future[Map[Member, Seq[SigningPublicKey]]]
 
@@ -684,20 +691,25 @@ private[client] trait KeyTopologySnapshotClientLoader extends KeyTopologySnapsho
       traceContext: TraceContext
   ): Future[Map[Member, KeyCollection]]
 
-  override def signingKey(owner: Member)(implicit
-      traceContext: TraceContext
-  ): Future[Option[SigningPublicKey]] =
-    allKeys(owner).map(_.signingKeys.lastOption)
-
-  override def signingKeys(members: Seq[Member])(implicit
-      traceContext: TraceContext
-  ): Future[Map[Member, Seq[SigningPublicKey]]] =
-    allKeys(members).map(_.view.mapValues(_.signingKeys).toMap)
-
-  override def signingKeys(owner: Member)(implicit
+  override def signingKeys(
+      owner: Member,
+      filterUsage: NonEmpty[Set[SigningKeyUsage]],
+  )(implicit
       traceContext: TraceContext
   ): Future[Seq[SigningPublicKey]] =
-    allKeys(owner).map(_.signingKeys)
+    allKeys(owner).map(keys =>
+      keys.signingKeys.filter(key => nonEmptyIntersection(key.usage, filterUsage))
+    )
+
+  override def signingKeys(
+      members: Seq[Member],
+      filterUsage: NonEmpty[Set[SigningKeyUsage]] = SigningKeyUsage.All,
+  )(implicit
+      traceContext: TraceContext
+  ): Future[Map[Member, Seq[SigningPublicKey]]] =
+    allKeys(members).map(_.view.mapValues(_.signingKeys).toMap.map { case (member, keys) =>
+      member -> keys.filter(key => nonEmptyIntersection(key.usage, filterUsage))
+    })
 
   override def encryptionKey(owner: Member)(implicit
       traceContext: TraceContext
@@ -760,7 +772,7 @@ private[client] trait PartyTopologySnapshotBaseClient {
 
   override def allHaveActiveParticipants(
       parties: Set[LfPartyId],
-      check: (ParticipantPermission => Boolean) = _ => true,
+      check: ParticipantPermission => Boolean = _ => true,
   )(implicit traceContext: TraceContext): EitherT[Future, Set[LfPartyId], Unit] = {
     val fetchedF = activeParticipantsOfPartiesWithInfo(parties.toSeq)
     EitherT(
@@ -819,7 +831,7 @@ private[client] trait PartyTopologySnapshotBaseClient {
   )(implicit traceContext: TraceContext): Future[Set[LfPartyId]] =
     hostedOn(parties, participant)
       .map(partiesWithAttributes =>
-        parties.toSeq.mapFilter { case party =>
+        parties.toSeq.mapFilter { party =>
           partiesWithAttributes
             .get(party)
             .filter(_.permission.canConfirm)

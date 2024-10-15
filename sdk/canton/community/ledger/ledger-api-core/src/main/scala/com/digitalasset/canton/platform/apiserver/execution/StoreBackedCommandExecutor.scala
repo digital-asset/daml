@@ -30,6 +30,7 @@ import com.digitalasset.canton.util.Checked
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.engine.*
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.*
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{ContractId, ContractInstance}
@@ -59,7 +60,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
     with NamedLogging {
   private[this] val packageLoader = new DeduplicatingPackageLoader()
   // By unused here we mean that the TX version is not used by the verification
-  private val unusedTxVersion = TransactionVersion.StableVersions.max
+  private val unusedTxVersion = LanguageVersion.StableVersions(LanguageVersion.Major.V2).max
 
   override def execute(
       commands: ApiCommands,

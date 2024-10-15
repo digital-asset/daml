@@ -9,6 +9,7 @@ import com.digitalasset.canton.protocol.messages.EncryptedViewMessage
 import com.digitalasset.canton.sequencing.protocol.OpenEnvelope
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.*
 import com.digitalasset.daml.lf.value.Value
 
@@ -41,10 +42,12 @@ package object protocol {
   type LfSubmittedTransaction = SubmittedTransaction
   val LfSubmittedTransaction: SubmittedTransaction.type = SubmittedTransaction
 
-  type LfTransactionVersion = TransactionVersion
+  type LfLanguageVersion = LanguageVersion
+  val LfLanguageVersion: LanguageVersion.type = LanguageVersion
+
   val LfTransactionVersion: TransactionVersion.type = TransactionVersion
 
-  val DummyTransactionVersion: LfTransactionVersion = TransactionVersion.maxVersion
+  val DummyTransactionVersion: LfLanguageVersion = LanguageVersion.v2_dev
 
   // Ledger transaction statistics based on lf transaction nodes
   type LedgerTransactionNodeStatistics = TransactionNodeStatistics
@@ -109,9 +112,9 @@ package object protocol {
   type RequestProcessor[VT <: ViewType] =
     Phase37Processor[RequestAndRootHashMessage[OpenEnvelope[EncryptedViewMessage[VT]]]]
 
-  def maxTransactionVersion(versions: NonEmpty[Seq[LfTransactionVersion]]): LfTransactionVersion = {
-    import Ordering.Implicits._
-    versions.reduceLeft[LfTransactionVersion](_ max _)
+  def maxTransactionVersion(versions: NonEmpty[Seq[LfLanguageVersion]]): LfLanguageVersion = {
+    import Ordering.Implicits.*
+    versions.reduceLeft[LfLanguageVersion](_ max _)
   }
 
 }

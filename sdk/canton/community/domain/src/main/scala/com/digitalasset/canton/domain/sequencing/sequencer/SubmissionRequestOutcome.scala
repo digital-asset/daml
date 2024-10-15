@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer
 
+import com.digitalasset.canton.domain.sequencing.sequencer.SubmissionOutcome.Discard
 import com.digitalasset.canton.sequencing.protocol.{
   AggregationId,
   ClosedEnvelope,
@@ -45,7 +46,13 @@ final case class SubmissionRequestOutcome(
       .map(updatedReceipt => eventsByMember + updatedReceipt)
       .getOrElse(eventsByMember)
 
-    this.copy(eventsByMember = updatedMap)
+    val outcomeWithTrafficReceipt = outcome match {
+      case deliverableOutcome: DeliverableSubmissionOutcome =>
+        deliverableOutcome.updateTrafficReceipt(trafficReceipt)
+      case Discard => outcome
+    }
+
+    this.copy(eventsByMember = updatedMap, outcome = outcomeWithTrafficReceipt)
   }
 }
 
@@ -71,6 +78,7 @@ object SubmissionRequestOutcome {
         rejection.timestamp,
         rejection.reason,
         submissionTraceContext,
+        trafficReceiptO = None, // traffic receipt is updated at the end of processing
       ),
     )
 }

@@ -53,10 +53,11 @@ import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.Ref.Identifier
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.ledger.EventId
 import com.digitalasset.daml.lf.transaction.test.TestNodeBuilder.CreateTransactionVersion
 import com.digitalasset.daml.lf.transaction.test.{TestNodeBuilder, TransactionBuilder}
-import com.digitalasset.daml.lf.transaction.{CommittedTransaction, Node, NodeId, TransactionVersion}
+import com.digitalasset.daml.lf.transaction.{CommittedTransaction, Node, NodeId}
 import com.digitalasset.daml.lf.value.Value
 import com.google.rpc.status.Status
 import org.apache.pekko.Done
@@ -648,7 +649,7 @@ object InMemoryStateUpdaterSpec {
         argument = Value.ValueUnit,
         signatories = Set(party1),
         observers = Set(party2),
-        version = CreateTransactionVersion.Version(TransactionVersion.VDev),
+        version = CreateTransactionVersion.Version(LanguageVersion.v2_dev),
       )
   }
   private val someCreateNode = genCreateNode

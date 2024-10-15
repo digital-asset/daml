@@ -139,7 +139,7 @@ object ExampleTransactionFactory {
       observers: Set[LfPartyId] = Set.empty,
       key: Option[LfGlobalKeyWithMaintainers] = None,
       byKey: Boolean = false,
-      version: LfTransactionVersion = transactionVersion,
+      version: LfLanguageVersion = transactionVersion,
       templateId: LfTemplateId = templateId,
       interfaceId: Option[LfTemplateId] = None,
   ): LfNodeFetch =
@@ -477,7 +477,7 @@ class ExampleTransactionFactory(
         capturedContractIds = Seq(suffixedId(-1, 0), suffixedId(-1, 1)),
         unsuffixedCapturedContractIds = Seq(suffixedId(-1, 0), suffixedId(-1, 1)),
       ),
-      SingleFetch(version = LfTransactionVersion.V31),
+      SingleFetch(version = LfLanguageVersion.v2_dev),
       SingleExercise(seed = deriveNodeSeed(0)),
       SingleExerciseWithNonstakeholderActor(seed = deriveNodeSeed(0)),
       MultipleRoots,
@@ -1102,7 +1102,7 @@ class ExampleTransactionFactory(
       lfContractId: LfContractId = suffixedId(-1, 0),
       contractId: LfContractId = suffixedId(-1, 0),
       fetchedContractInstance: LfContractInst = contractInstance(),
-      version: LfTransactionVersion = transactionVersion,
+      version: LfLanguageVersion = transactionVersion,
       salt: Salt = TestSalt.generateSalt(random.nextInt()),
   ) extends SingleNode(None) {
     override def created: Seq[SerializableContract] = Seq.empty
@@ -1283,7 +1283,7 @@ class ExampleTransactionFactory(
         contractId = create0.contractId,
         fetchedContractInstance = create0.contractInstance,
         version =
-          LfTransactionVersion.V31, // ensure we test merging transactions with different versions
+          LfLanguageVersion.v2_dev, // ensure we test merging transactions with different versions
         salt = create0.salt,
       )
     private val exercise4: SingleExercise =

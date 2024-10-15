@@ -317,6 +317,12 @@ object SigningKeyUsage {
         NonEmpty.from(listUsages.toSet).toRight(ProtoDeserializationError.FieldNotSet("usage"))
       )
 
+  def nonEmptyIntersection(
+      usage: NonEmpty[Set[SigningKeyUsage]],
+      filterUsage: NonEmpty[Set[SigningKeyUsage]],
+  ): Boolean =
+    usage.intersect(filterUsage).nonEmpty
+
 }
 
 sealed trait SigningKeyScheme extends Product with Serializable with PrettyPrinting {
@@ -400,7 +406,7 @@ object SigningKeyPair {
       publicKeyBytes: ByteString,
       privateKeyBytes: ByteString,
       scheme: SigningKeyScheme,
-      usage: NonEmpty[Set[SigningKeyUsage]] = SigningKeyUsage.All,
+      usage: NonEmpty[Set[SigningKeyUsage]],
   ): SigningKeyPair = {
     val publicKey = new SigningPublicKey(format, publicKeyBytes, scheme, usage)
     val privateKey =

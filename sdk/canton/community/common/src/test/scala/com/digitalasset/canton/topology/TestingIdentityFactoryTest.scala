@@ -90,9 +90,9 @@ class TestingIdentityFactoryTest extends AnyWordSpec with BaseTest with HasExecu
       "party1 is active" in {
         p1.currentSnapshotApproximation.ipsSnapshot
           .activeParticipantsOf(party1.toLf)
-          .futureValue shouldBe (Map(
+          .futureValue shouldBe Map(
           participant1 -> ParticipantAttributes(ParticipantPermission.Confirmation)
-        ))
+        )
       }
       "participant2 can't sign messages without appropriate keys" in {
         Await
@@ -113,7 +113,7 @@ class TestingIdentityFactoryTest extends AnyWordSpec with BaseTest with HasExecu
           .futureValue
         allMembers
           .flatMap(membersToKeys.get(_))
-          .foreach(_ should have length (expectedLength.toLong))
+          .foreach(_ should have length expectedLength.toLong)
       }
 
       "domain entities have keys" in {

@@ -258,7 +258,7 @@ class CommandProgressTrackerImpl(
         optDeduplicationOffset = None,
         optDeduplicationDurationSeconds = None,
         optDeduplicationDurationNanos = None,
-        offset = "",
+        offset = 0L,
         domainTime = None,
       ),
       state = CommandState.COMMAND_STATE_PENDING,

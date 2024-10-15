@@ -37,7 +37,14 @@ class CompletionFromTransactionSpec
         ),
         (Some("submissionId"), None, None, None, "submissionId", DeduplicationPeriod.Empty),
         (None, None, None, None, "", DeduplicationPeriod.Empty),
-        (None, Some("offset"), None, None, "", DeduplicationPeriod.DeduplicationOffset("offset")),
+        (
+          None,
+          Some(12345678L),
+          None,
+          None,
+          "",
+          DeduplicationPeriod.DeduplicationOffset(12345678L),
+        ),
         (
           None,
           None,
@@ -78,7 +85,7 @@ class CompletionFromTransactionSpec
 
           val completion = completionStream.completionResponse.completion.value
           completion.domainTime.value.recordTime shouldBe Some(Timestamp(Instant.EPOCH))
-          completion.offset shouldBe ""
+          completion.offset shouldBe 0L
 
           completion.commandId shouldBe "commandId"
           completion.updateId shouldBe "transactionId"
@@ -132,7 +139,7 @@ class CompletionFromTransactionSpec
 
       val completion = completionStream.completionResponse.completion.value
       completion.domainTime.value.recordTime shouldBe Some(Timestamp(Instant.EPOCH))
-      completion.offset shouldBe Offset.fromLong(2L).toHexString
+      completion.offset shouldBe 2L
 
       completion.commandId shouldBe "commandId"
       completion.applicationId shouldBe "applicationId"

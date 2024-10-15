@@ -792,7 +792,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
   }
 
   /** notify observers about new transactions about to be stored */
-  protected def notifyObservers(
+  private def notifyObservers(
       timestamp: CantonTimestamp,
       transactions: Seq[GenericSignedTopologyTransaction],
   )(implicit traceContext: TraceContext): Future[Unit] = Future

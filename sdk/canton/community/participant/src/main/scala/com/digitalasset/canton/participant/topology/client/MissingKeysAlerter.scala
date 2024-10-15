@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.topology.client
 
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.crypto.store.CryptoPrivateStore
-import com.digitalasset.canton.crypto.{Fingerprint, KeyPurpose}
+import com.digitalasset.canton.crypto.{Fingerprint, KeyPurpose, SigningKeyUsage}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
@@ -33,7 +33,10 @@ class MissingKeysAlerter(
   def init()(implicit traceContext: TraceContext): Future[Unit] =
     for {
       encryptionKeys <- client.currentSnapshotApproximation.encryptionKeys(participantId)
-      signingKeys <- client.currentSnapshotApproximation.signingKeys(participantId)
+      signingKeys <- client.currentSnapshotApproximation.signingKeys(
+        participantId,
+        SigningKeyUsage.All,
+      )
     } yield {
       encryptionKeys.foreach(key => alertOnMissingKey(key.fingerprint, KeyPurpose.Encryption))
       signingKeys.foreach(key => alertOnMissingKey(key.fingerprint, KeyPurpose.Signing))

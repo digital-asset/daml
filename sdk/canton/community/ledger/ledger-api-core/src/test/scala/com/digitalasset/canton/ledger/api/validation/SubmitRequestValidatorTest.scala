@@ -28,11 +28,8 @@ import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.daml.lf.command.{ApiCommand as LfCommand, ApiCommands as LfCommands}
 import com.digitalasset.daml.lf.data.*
 import com.digitalasset.daml.lf.data.Ref.TypeConRef
-import com.digitalasset.daml.lf.transaction.{
-  FatContractInstance,
-  Node as LfNode,
-  TransactionVersion,
-}
+import com.digitalasset.daml.lf.language.LanguageVersion
+import com.digitalasset.daml.lf.transaction.{FatContractInstance, Node as LfNode}
 import com.digitalasset.daml.lf.value.Value as Lf
 import com.digitalasset.daml.lf.value.Value.ValueRecord
 import com.google.protobuf.duration.Duration
@@ -132,7 +129,7 @@ class SubmitRequestValidatorTest
             signatories = Set(Ref.Party.assertFromString("party")),
             stakeholders = Set(Ref.Party.assertFromString("party")),
             keyOpt = None,
-            version = TransactionVersion.maxVersion,
+            version = LanguageVersion.v2_dev,
           ),
           createTime = Time.Timestamp.now(),
           cantonData = Bytes.Empty,

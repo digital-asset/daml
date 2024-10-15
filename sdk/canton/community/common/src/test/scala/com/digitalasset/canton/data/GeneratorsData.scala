@@ -190,7 +190,7 @@ final class GeneratorsData(
 
       // We consider only this specific value because the goal is not exhaustive testing of LF (de)serialization
       chosenValue <- Gen.long.map(ValueInt64.apply)
-      version <- Arbitrary.arbitrary[LfTransactionVersion]
+      version <- Arbitrary.arbitrary[LfLanguageVersion]
 
       actors <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
       seed <- Arbitrary.arbitrary[LfHash]

@@ -5,6 +5,7 @@ package com.digitalasset.canton.crypto.store
 
 import cats.data.EitherT
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.*
@@ -60,6 +61,20 @@ trait CryptoPrivateStore extends AutoCloseable {
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Boolean]
 
+  /** Filter signing keys by checking if their usage intersects with the provided 'filterUsage' set.
+    * This ensures that only keys with one or more matching usages are retained.
+    *
+    * @param signingKeyIds the fingerprint of the keys to filter
+    * @param filterUsage the key usages to filter for
+    * @return
+    */
+  def filterSigningKeys(
+      signingKeyIds: Seq[Fingerprint],
+      filterUsage: NonEmpty[Set[SigningKeyUsage]],
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Seq[Fingerprint]]
+
   def existsSigningKey(signingKeyId: Fingerprint)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Boolean]
@@ -86,6 +101,7 @@ trait CryptoPrivateStore extends AutoCloseable {
 }
 
 object CryptoPrivateStore {
+
   trait CryptoPrivateStoreFactory {
     def create(
         storage: Storage,

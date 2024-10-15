@@ -14,13 +14,13 @@ import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.TransactionNodeStatistics.EmptyActions
 import com.digitalasset.daml.lf.transaction.test.{TestNodeBuilder, TransactionBuilder}
 import com.digitalasset.daml.lf.transaction.{
   CommittedTransaction,
   NodeId,
   TransactionNodeStatistics,
-  TransactionVersion,
   VersionedTransaction,
 }
 import com.digitalasset.daml.lf.value.Value
@@ -179,7 +179,7 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
 
       val txWithNoActionCount = someTransactionAccepted.copy(
         transaction = CommittedTransaction(
-          VersionedTransaction(TransactionVersion.VDev, Map.empty, ImmArray.empty)
+          VersionedTransaction(LanguageVersion.v2_dev, Map.empty, ImmArray.empty)
         )
       )
 

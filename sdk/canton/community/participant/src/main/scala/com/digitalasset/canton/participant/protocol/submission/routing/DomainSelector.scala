@@ -13,12 +13,12 @@ import com.digitalasset.canton.participant.protocol.submission.{DomainsFilter, U
 import com.digitalasset.canton.participant.sync.TransactionRoutingError
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.RoutingInternalError
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.TopologyErrors.NoDomainForSubmission
+import com.digitalasset.canton.protocol.LfLanguageVersion
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ReassignmentTag.Target
-import com.digitalasset.daml.lf.transaction.TransactionVersion
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -186,7 +186,7 @@ private[routing] class DomainSelector(
 
   private def singleDomainValidatePrescribedDomain(
       domainId: DomainId,
-      transactionVersion: TransactionVersion,
+      transactionVersion: LfLanguageVersion,
       inputContractsDomainIdO: Option[DomainId],
   )(implicit traceContext: TraceContext): EitherT[Future, TransactionRoutingError, Unit] = {
     /*
@@ -219,7 +219,7 @@ private[routing] class DomainSelector(
     *
     * - List `domainsOfSubmittersAndInformees` contains `domainId`
     */
-  private def validatePrescribedDomain(domainId: DomainId, transactionVersion: TransactionVersion)(
+  private def validatePrescribedDomain(domainId: DomainId, transactionVersion: LfLanguageVersion)(
       implicit traceContext: TraceContext
   ): EitherT[Future, TransactionRoutingError, Unit] =
     for {

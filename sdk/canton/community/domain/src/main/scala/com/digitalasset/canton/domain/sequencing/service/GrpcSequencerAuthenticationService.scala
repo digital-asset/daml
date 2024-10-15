@@ -172,7 +172,7 @@ class GrpcSequencerAuthenticationService(
         Status.PERMISSION_DENIED.withDescription(err.reason)
       case MemberAuthentication.NonMatchingDomainId(_, _) =>
         Status.FAILED_PRECONDITION.withDescription(err.reason)
-      case MemberAuthentication.NoKeysRegistered(_) => maliciousOrFaulty()
+      case MemberAuthentication.NoKeysWithCorrectUsageRegistered(_, _) => maliciousOrFaulty()
       case MemberAuthentication.FailedToSign(_, _) => maliciousOrFaulty()
       case MemberAuthentication.MissingNonce(_) => maliciousOrFaulty()
       case MemberAuthentication.InvalidSignature(_) => maliciousOrFaulty()

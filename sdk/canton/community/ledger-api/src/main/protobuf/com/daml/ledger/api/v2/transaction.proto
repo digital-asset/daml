@@ -48,12 +48,12 @@ message TransactionTree {
   // Required
   google.protobuf.Timestamp effective_at = 4;
 
-  // The absolute offset. The details of this field are described in ``offset_checkpoint.proto``.
-  // Required
-  string offset = 5;
+  // The absolute offset. The details of this field are described in ``community/ledger-api/README.md``.
+  // Required, it is a valid absolute offset (positive integer).
+  int64 offset = 5;
 
   // Changes to the ledger that were caused by this transaction. Nodes of the transaction tree.
-  // Each key be a valid LedgerString (as describe in ``value.proto``).
+  // Each key must be a valid LedgerString (as describe in ``value.proto``).
   // Required
   map<string, TreeEvent> events_by_id = 6;
 
@@ -113,9 +113,9 @@ message Transaction {
   // Required
   repeated Event events = 5;
 
-  // The absolute offset. The details of this field are described in ``offset_checkpoint.proto``.
-  // Required
-  string offset = 6;
+  // The absolute offset. The details of this field are described in ``community/ledger-api/README.md``.
+  // Required, it is a valid absolute offset (positive integer).
+  int64 offset = 6;
 
   // A valid domain ID.
   // Identifies the domain that synchronized the transaction.

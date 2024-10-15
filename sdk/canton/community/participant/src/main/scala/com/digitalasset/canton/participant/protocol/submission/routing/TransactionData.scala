@@ -10,14 +10,13 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.SubmitterInfo
 import com.digitalasset.canton.participant.sync.TransactionRoutingError
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.MalformedInputErrors
-import com.digitalasset.canton.protocol.{LfContractId, LfVersionedTransaction}
+import com.digitalasset.canton.protocol.{LfContractId, LfLanguageVersion, LfVersionedTransaction}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{LfPackageId, LfPartyId}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.engine.Blinding
-import com.digitalasset.daml.lf.transaction.TransactionVersion
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -40,7 +39,7 @@ private[routing] final case class TransactionData private (
     prescribedDomainO: Option[DomainId],
 ) {
   val informees: Set[LfPartyId] = requiredPackagesPerParty.keySet
-  val version: TransactionVersion = transaction.version
+  val version: LfLanguageVersion = transaction.version
   val readers: Set[LfPartyId] = actAs.union(readAs)
 }
 

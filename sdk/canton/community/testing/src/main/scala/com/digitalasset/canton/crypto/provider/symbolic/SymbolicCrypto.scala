@@ -4,6 +4,7 @@
 package com.digitalasset.canton.crypto.provider.symbolic
 
 import cats.data.{EitherT, OptionT}
+import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.*
@@ -55,11 +56,14 @@ class SymbolicCrypto(
       }
     }
 
-  def getOrGenerateSymbolicSigningKey(name: String): SigningPublicKey =
+  def getOrGenerateSymbolicSigningKey(
+      name: String,
+      usage: NonEmpty[Set[SigningKeyUsage]] = SigningKeyUsage.All,
+  ): SigningPublicKey =
     processO("get or generate symbolic signing key") { implicit traceContext =>
       cryptoPublicStore
         .findSigningKeyIdByName(KeyName.tryCreate(name))
-    }.getOrElse(generateSymbolicSigningKey(Some(name)))
+    }.getOrElse(generateSymbolicSigningKey(Some(name), usage))
 
   def getOrGenerateSymbolicEncryptionKey(name: String): EncryptionPublicKey =
     processO("get or generate symbolic encryption key") { implicit traceContext =>
@@ -69,19 +73,22 @@ class SymbolicCrypto(
 
   /** Generates a new symbolic signing keypair and stores the public key in the public store */
   def generateSymbolicSigningKey(
-      name: Option[String] = None
+      name: Option[String] = None,
+      usage: NonEmpty[Set[SigningKeyUsage]] = SigningKeyUsage.All,
   ): SigningPublicKey =
     processE("generate symbolic signing key") { implicit traceContext =>
       // We don't care about the signing key scheme in symbolic crypto
-      generateSigningKey(SigningKeyScheme.Ed25519, name = name.map(KeyName.tryCreate))
+      generateSigningKey(SigningKeyScheme.Ed25519, usage, name.map(KeyName.tryCreate))
     }
 
   /** Generates a new symbolic signing keypair but does not store it in the public store */
-  def newSymbolicSigningKeyPair(): SigningKeyPair =
+  def newSymbolicSigningKeyPair(
+      usage: NonEmpty[Set[SigningKeyUsage]] = SigningKeyUsage.All
+  ): SigningKeyPair =
     processE("generate symbolic signing keypair") { implicit traceContext =>
       // We don't care about the signing key scheme in symbolic crypto
       privateCrypto
-        .generateSigningKeypair(SigningKeyScheme.Ed25519)
+        .generateSigningKeypair(SigningKeyScheme.Ed25519, usage)
     }
 
   def generateSymbolicEncryptionKey(

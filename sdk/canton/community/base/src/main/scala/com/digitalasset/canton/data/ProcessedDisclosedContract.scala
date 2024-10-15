@@ -5,7 +5,8 @@ package com.digitalasset.canton.data
 
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
-import com.digitalasset.daml.lf.transaction.{GlobalKeyWithMaintainers, Node, TransactionVersion}
+import com.digitalasset.daml.lf.language.LanguageVersion
+import com.digitalasset.daml.lf.transaction.{GlobalKeyWithMaintainers, Node}
 import com.digitalasset.daml.lf.value.Value
 
 /** An explicitly-disclosed contract that has been used during command interpretation
@@ -40,7 +41,7 @@ object ProcessedDisclosedContract {
       signatories: Set[Ref.Party],
       stakeholders: Set[Ref.Party],
       keyOpt: Option[GlobalKeyWithMaintainers],
-      version: TransactionVersion,
+      version: LanguageVersion,
       domainIdO: Option[DomainId],
   ): ProcessedDisclosedContract =
     ProcessedDisclosedContract(

@@ -24,7 +24,6 @@ import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.platform.{Contract, InMemoryState, Key, Party}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.daml.lf.data.Ref.HexString
 import com.digitalasset.daml.lf.ledger.EventId
 import com.digitalasset.daml.lf.transaction.Node.{Create, Exercise}
 import com.digitalasset.daml.lf.transaction.NodeId
@@ -595,11 +594,11 @@ private[platform] object InMemoryStateUpdater {
 
   private def deduplicationInfo(
       completionInfo: CompletionInfo
-  ): (Option[HexString], Option[Long], Option[Int]) =
+  ): (Option[Long], Option[Long], Option[Int]) =
     completionInfo.optDeduplicationPeriod
       .map {
         case DeduplicationOffset(offset) =>
-          (Some(offset.toHexString), None, None)
+          (Some(offset.toLong), None, None)
         case DeduplicationDuration(duration) =>
           (None, Some(duration.getSeconds), Some(duration.getNano))
       }

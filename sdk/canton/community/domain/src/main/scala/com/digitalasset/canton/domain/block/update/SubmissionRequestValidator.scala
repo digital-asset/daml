@@ -620,6 +620,7 @@ private[update] final class SubmissionRequestValidator(
           members,
           aggregatedBatch,
           traceContext,
+          trafficReceiptO = None, // traffic receipt is updated at the end of the processing
         ),
       ),
       sequencerEventTimestamp,
@@ -710,8 +711,12 @@ private[update] final class SubmissionRequestValidator(
           SubmissionRequestOutcome(
             Map(submissionRequest.sender -> deliverReceiptEvent),
             Some(aggregationId -> fullInFlightAggregationUpdate),
-            outcome =
-              SubmissionOutcome.DeliverReceipt(submissionRequest, sequencingTimestamp, traceContext),
+            outcome = SubmissionOutcome.DeliverReceipt(
+              submissionRequest,
+              sequencingTimestamp,
+              traceContext,
+              trafficReceiptO = None, // traffic receipt is updated at the end of the processing
+            ),
           )
         },
       )
