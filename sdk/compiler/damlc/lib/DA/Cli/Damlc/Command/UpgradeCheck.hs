@@ -176,21 +176,28 @@ checkPackageAgainstPastPackages ((path, main, deps), pastPackages) = do
                   pure (rawVersion, (x, y))
                 _ -> Nothing
       let ordFst = compare `on` fst
-      let pastPackageWithLowerVersion =
-            fmap snd $ maximumByMay ordFst $ pastPackageFilterVersion (\v -> v < rawVersion)
-      let pastPackageWithHigherVersion =
-            fmap snd $ minimumByMay ordFst $ pastPackageFilterVersion (\v -> v > rawVersion)
-      let checkAgainst pkg =
-            let errs =
-                  Upgrade.checkPackage
-                    mainPkg deps
-                    LFV.version2_dev
-                    (UpgradeInfo (Just (fromNormalizedFilePath path)) True True)
-                    (Just pkg)
-            in
-            when (not (null errs)) (throwE [CEDiagnostic path errs])
-      mapM_ checkAgainst pastPackageWithLowerVersion
-      mapM_ checkAgainst pastPackageWithHigherVersion
+      case maximumByMay ordFst $ pastPackageFilterVersion (\v -> v < rawVersion) of
+        Nothing -> pure ()
+        Just (_, (lowerPkg, lowerPkgDeps)) -> do
+          let lowerVersionErrs =
+                Upgrade.checkPackageToDepth
+                  Upgrade.CheckAll
+                  mainPkg deps
+                  LFV.version2_dev
+                  (UpgradeInfo (Just (fromNormalizedFilePath path)) True True)
+                  (Just (lowerPkg, lowerPkgDeps))
+          when (not (null lowerVersionErrs)) (throwE [CEDiagnostic path lowerVersionErrs])
+      case minimumByMay ordFst $ pastPackageFilterVersion (\v -> v > rawVersion) of
+        Nothing -> pure ()
+        Just (_, ((_, higherPkg, _, _), higherPkgDeps)) -> do
+          let higherVersionErrs =
+                Upgrade.checkPackageToDepth
+                  Upgrade.CheckAll
+                  higherPkg higherPkgDeps
+                  LFV.version2_dev
+                  (UpgradeInfo (Just (fromNormalizedFilePath path)) True True)
+                  (Just (main, deps))
+          when (not (null higherVersionErrs)) (throwE [CEDiagnostic path higherVersionErrs])
 
 runUpgradeCheck :: [String] -> IO ()
 runUpgradeCheck rawPaths = do

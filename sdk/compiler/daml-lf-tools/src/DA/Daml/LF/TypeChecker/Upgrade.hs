@@ -101,7 +101,14 @@ checkPackage
   -> [UpgradedPkgWithNameAndVersion] -> Version -> UpgradeInfo
   -> Maybe (UpgradedPkgWithNameAndVersion, [UpgradedPkgWithNameAndVersion])
   -> [Diagnostic]
-checkPackage pkg deps version upgradeInfo mbUpgradedPkg =
+checkPackage = checkPackageToDepth CheckOnlyMissingModules
+
+checkPackageToDepth
+  :: CheckDepth -> LF.Package
+  -> [UpgradedPkgWithNameAndVersion] -> Version -> UpgradeInfo
+  -> Maybe (UpgradedPkgWithNameAndVersion, [UpgradedPkgWithNameAndVersion])
+  -> [Diagnostic]
+checkPackageToDepth checkDepth pkg deps version upgradeInfo mbUpgradedPkg =
   extractDiagnostics version upgradeInfo $ do
     shouldTypecheck <- shouldTypecheckM
     when shouldTypecheck $ do
@@ -109,7 +116,7 @@ checkPackage pkg deps version upgradeInfo mbUpgradedPkg =
         Nothing -> pure ()
         Just (upgradedPkg@(upgradedPkgId, upgradedPkgPkg, _, _), upgradingDeps) -> do
             depsMap <- checkUpgradeDependenciesM deps (upgradedPkg : upgradingDeps)
-            checkPackageBoth CheckOnlyMissingModules Nothing pkg ((upgradedPkgId, upgradedPkgPkg), depsMap)
+            checkPackageBoth checkDepth Nothing pkg ((upgradedPkgId, upgradedPkgPkg), depsMap)
 
 checkPackageBoth :: CheckDepth -> Maybe Context -> LF.Package -> ((LF.PackageId, LF.Package), DepsMap) -> TcPreUpgradeM ()
 checkPackageBoth checkDepth mbContext pkg ((upgradedPkgId, upgradedPkg), depsMap) =
