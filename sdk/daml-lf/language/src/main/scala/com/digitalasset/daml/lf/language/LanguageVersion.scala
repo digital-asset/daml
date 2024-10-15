@@ -27,15 +27,17 @@ object LanguageVersion {
 
   def assertFromString(s: String): LanguageVersion = data.assertRight(fromString(s))
 
+  // TODO https://github.com/digital-asset/daml/issues/20101
+  //   Drop the ordering
   implicit val Ordering: scala.Ordering[LanguageVersion] = {
     case (LanguageVersion(Major.V1, leftMinor), LanguageVersion(Major.V1, rightMinor)) =>
       Major.V1.minorVersionOrdering.compare(leftMinor, rightMinor)
+    case (LanguageVersion(Major.V1, _), LanguageVersion(Major.V2, _)) =>
+      -1
+    case (LanguageVersion(Major.V2, _), LanguageVersion(Major.V1, _)) =>
+      1
     case (LanguageVersion(Major.V2, leftMinor), LanguageVersion(Major.V2, rightMinor)) =>
       Major.V2.minorVersionOrdering.compare(leftMinor, rightMinor)
-    case (v1, v2) =>
-      throw new IllegalArgumentException(
-        s"cannot compare version ${v1.pretty} with version ${v2.pretty}"
-      )
   }
 
   val AllV1 = Major.V1.supportedMinorVersions.map(LanguageVersion(Major.V1, _))
