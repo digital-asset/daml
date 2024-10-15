@@ -370,13 +370,6 @@ splitUnitId (unitIdString -> unitId) = fromMaybe (PackageName (T.pack unitId), N
     guard $ all (`elem` '.' : ['0' .. '9']) ver
     pure (PackageName (T.pack name), Just (PackageVersion (T.pack ver)))
 
-joinUnitId :: (PackageName, Maybe PackageVersion) -> UnitId
-joinUnitId (name, mbVer) = stringToUnitId $ T.unpack $ unPackageName name <> suffix
-  where
-  suffix = case mbVer of
-    Nothing -> ""
-    Just ver -> "-" <> unPackageVersion ver
-
 -- | Take a package version of regex "(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*))*" into
 -- a list of integers [Integer]
 splitPackageVersion
