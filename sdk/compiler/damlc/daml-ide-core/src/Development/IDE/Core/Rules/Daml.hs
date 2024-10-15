@@ -31,7 +31,7 @@ import Control.Exception
 import Control.Monad.Except
 import Control.Monad.Extra
 import Control.Monad.Trans.Maybe
-import DA.Daml.Compiler.ExtractDar (extractDar,ExtractedDar(..))
+import DA.Daml.Compiler.ExtractDar (extractDar, ExtractedDar(..), edDeps)
 import DA.Daml.LF.Ast (renderMajorVersion, Version (versionMajor))
 import DA.Daml.Options
 import DA.Daml.Options.Packaging.Metadata
@@ -600,7 +600,7 @@ extractUpgradedPackageRule opts = do
     forM (uiUpgradedPackagePath $ optUpgradeInfo opts) $
       use_ ExtractUpgradedPackageFile . toNormalizedFilePath'
   define $ \ExtractUpgradedPackageFile file -> do
-    ExtractedDar{edMain,edDalfs} <- liftIO $ extractDar (fromNormalizedFilePath file)
+    extractedDar <- liftIO $ extractDar (fromNormalizedFilePath file)
     let decodeEntryWithUnitId decodeAs entry = do
           let bs = BSL.toStrict $ ZipArchive.fromEntry entry
           (pkgId, pkg) <- Archive.decodeArchive decodeAs bs
@@ -611,8 +611,8 @@ extractUpgradedPackageRule opts = do
             ((LF.PackageId, LF.Package, LF.PackageName, Maybe LF.PackageVersion),
              [(LF.PackageId, LF.Package, LF.PackageName, Maybe LF.PackageVersion)])
         mainAndDeps = do
-           main <- decodeEntryWithUnitId Archive.DecodeAsMain edMain
-           deps <- decodeEntryWithUnitId Archive.DecodeAsDependency `traverse` edDalfs
+           main <- decodeEntryWithUnitId Archive.DecodeAsMain (edMain extractedDar)
+           deps <- decodeEntryWithUnitId Archive.DecodeAsDependency `traverse` edDeps extractedDar
            pure (main, deps)
         packageConfigFilePath = maybe file (LSP.toNormalizedFilePath . (</> projectConfigName) . unwrapProjectPath) $ optMbPackageConfigPath opts
         diags = case mainAndDeps of

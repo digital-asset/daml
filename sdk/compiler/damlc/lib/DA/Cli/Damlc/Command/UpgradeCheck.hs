@@ -11,7 +11,7 @@ import DA.Pretty
 import DA.Daml.Options.Types
 import Control.Monad (guard, when)
 import Development.IDE.Types.Location (NormalizedFilePath, fromNormalizedFilePath, toNormalizedFilePath')
-import DA.Daml.Compiler.ExtractDar (extractDar,ExtractedDar(..))
+import DA.Daml.Compiler.ExtractDar (extractDar, ExtractedDar(..), edDeps)
 import qualified Data.ByteString.Lazy as BSL
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
 import qualified DA.Daml.LF.Proto3.Archive as Archive
@@ -108,13 +108,13 @@ readPathToArchive
   :: NormalizedFilePath
   -> CheckM Archive
 readPathToArchive path = do
-  ExtractedDar{edMain,edDalfs} <-
+  extractedDar <-
     catchIOException
       (CECantReadDar path . displayException)
       (extractDar (fromNormalizedFilePath path))
   (main, deps) <- fromCollect $ do
-      main <- toCollect $ decodeEntryWithUnitId path Archive.DecodeAsMain edMain
-      deps <- traverse (toCollect . decodeEntryWithUnitId path Archive.DecodeAsDependency) edDalfs
+      main <- toCollect $ decodeEntryWithUnitId path Archive.DecodeAsMain (edMain extractedDar)
+      deps <- traverse (toCollect . decodeEntryWithUnitId path Archive.DecodeAsDependency) (edDeps extractedDar)
       pure (main, deps)
   pure (path, main, deps)
     where
