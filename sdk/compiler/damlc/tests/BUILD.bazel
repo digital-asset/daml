@@ -451,6 +451,8 @@ da_haskell_test(
         "//compiler/damlc",
         "//daml-script/daml:daml-script.dar",
         "//daml-script/runner:daml-script-binary",
+
+        # Files for damlc tests
         "//test-common:upgrades-CannotUpgradeView-files",
         "//test-common:upgrades-ValidUpgrade-files",
         "//test-common:upgrades-MissingModule-files",
@@ -471,6 +473,7 @@ da_haskell_test(
         "//test-common:upgrades-WarnsWhenExpressionChangesPackageId-dep-name1.dar",
         "//test-common:upgrades-WarnsWhenExpressionChangesPackageId-dep-name2.dar",
 
+        # Dars for upgrade-check tests
         "//test-common:upgrades-FailWhenATopLevelEnumChangesChangesTheOrderOfItsConstructors-v1.dar",
         "//test-common:upgrades-FailWhenATopLevelEnumChangesChangesTheOrderOfItsConstructors-v2.dar",
         "//test-common:upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsConstructors-v1.dar",
