@@ -95,10 +95,8 @@ class Server(
     }
 
     pkgMap foreach { case (pkgId, pkg) =>
-      if (compiledPackages.packageIds.contains(pkgId)) {
-        logger.info(s"uploading package $pkgId")
-        complete(compiledPackages.addPackage(pkgId, pkg))
-      }
+      logger.info(s"uploading package $pkgId")
+      complete(compiledPackages.addPackage(pkgId, pkg))
     }
   }
 
