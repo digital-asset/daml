@@ -324,23 +324,19 @@ final class CommandsValidator(
           .validateNonNegativeDuration(deduplicationDuration)
           .map(DeduplicationPeriod.DeduplicationDuration.apply)
       case Commands.DeduplicationPeriod.DeduplicationOffset(offset) =>
-        Ref.HexString
-          .fromString(offset)
-          .fold(
-            _ =>
-              Left(
-                RequestValidationErrors.NonHexOffset
-                  .Error(
-                    fieldName = "deduplication_period",
-                    offsetValue = offset,
-                    message =
-                      s"the deduplication offset has to be a hexadecimal string and not $offset",
-                  )
-                  .asGrpcError
-              ),
-            hexOffset =>
-              Right(DeduplicationPeriod.DeduplicationOffset(Offset.fromHexString(hexOffset))),
+        // TODO(#21634) allow zero when participant begin is valid
+        if (offset <= 0L)
+          Left(
+            RequestValidationErrors.NonPositiveOffset
+              .Error(
+                fieldName = "deduplication_period",
+                offsetValue = offset,
+                message = s"the deduplication offset has to be a positive integer and not $offset",
+              )
+              .asGrpcError
           )
+        else
+          Right(DeduplicationPeriod.DeduplicationOffset(Offset.fromLong(offset)))
     }
 }
 

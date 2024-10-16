@@ -80,7 +80,7 @@ class InMemorySequencerBlockStore(
       watermarkO <- inMemorySequencerStore.safeWatermark
       blockInfoO = watermarkO match {
         case Some(watermark) =>
-          findBlockContainingTimestamp(watermark).orElse(readLatestBlockInfo())
+          findBlockForCrashRecoveryForWatermark(watermark).orElse(None)
         case None =>
           None
       }
@@ -93,6 +93,17 @@ class InMemorySequencerBlockStore(
       }
 
     } yield state
+
+  private def findBlockForCrashRecoveryForWatermark(
+      beforeInclusive: CantonTimestamp
+  ): Option[BlockInfo] = blockToTimestampMap
+    .readOnlySnapshot()
+    .toSeq
+    .collect {
+      case (height, (latestEventTs, latestSequencerEventTsO)) if latestEventTs <= beforeInclusive =>
+        BlockInfo(height, latestEventTs, latestSequencerEventTsO)
+    }
+    .maxByOption(_.height)
 
   private def findBlockContainingTimestamp(watermark: CantonTimestamp) =
     blockToTimestampMap

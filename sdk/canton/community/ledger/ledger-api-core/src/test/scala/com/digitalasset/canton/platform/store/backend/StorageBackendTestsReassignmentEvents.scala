@@ -3,8 +3,9 @@
 
 package com.digitalasset.canton.platform.store.backend
 
-import com.digitalasset.canton.platform.store.backend.EventStorageBackend.RawCreatedEvent
+import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{Entry, RawCreatedEvent}
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
+import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Ref, Time}
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
@@ -281,74 +282,91 @@ private[backend] trait StorageBackendTestsReassignmentEvents
     result
       .map(original =>
         original.copy(
-          rawCreatedEvent = rawCreatedEventHasExpectedCreateAgumentAndDriverMetadata(
-            original.rawCreatedEvent,
-            someSerializedDamlLfValue,
-            someDriverMetadataBytes,
+          event = original.event.copy(
+            rawCreatedEvent = rawCreatedEventHasExpectedCreateAgumentAndDriverMetadata(
+              original.event.rawCreatedEvent,
+              someSerializedDamlLfValue,
+              someDriverMetadataBytes,
+            )
           ),
           traceContext = hasSameTraceContext(original.traceContext, Some(emptyTraceContext)),
+          eventSequentialId = 0L,
         )
       ) shouldBe (
       Vector(
-        EventStorageBackend.RawAssignEvent(
+        Entry(
           commandId = Some("command id 1"),
           workflowId = Some("workflow_id"),
           offset = offset(1).toHexString,
-          sourceDomainId = "x::sourcedomain",
-          targetDomainId = "x::targetdomain",
-          unassignId = "123456789",
-          submitter = Option(someParty),
-          reassignmentCounter = 1000L,
-          rawCreatedEvent = RawCreatedEvent(
-            updateId = offset(1).toHexString,
-            contractId = hashCid("#1").coid,
-            templateId = someTemplateId,
-            packageName = somePackageName,
-            packageVersion = Some(somePackageVersion),
-            witnessParties = Set("signatory"),
-            signatories = Set("signatory"),
-            observers = Set("observer"),
-            createArgument = someSerializedDamlLfValue,
-            createArgumentCompression = Some(123),
-            createKeyValue = None,
-            createKeyMaintainers = Set.empty,
-            createKeyValueCompression = Some(456),
-            ledgerEffectiveTime = someTime,
-            createKeyHash = None,
-            driverMetadata = someDriverMetadataBytes,
-          ),
           traceContext = Some(emptyTraceContext),
           recordTime = someTime,
+          updateId = offset(1).toHexString,
+          eventSequentialId = 0L,
+          ledgerEffectiveTime = Timestamp.MinValue,
+          domainId = "x::targetdomain",
+          event = EventStorageBackend.RawAssignEvent(
+            sourceDomainId = "x::sourcedomain",
+            targetDomainId = "x::targetdomain",
+            unassignId = "123456789",
+            submitter = Option(someParty),
+            reassignmentCounter = 1000L,
+            rawCreatedEvent = RawCreatedEvent(
+              updateId = offset(1).toHexString,
+              nodeIndex = 0,
+              contractId = hashCid("#1").coid,
+              templateId = someTemplateId,
+              packageName = somePackageName,
+              packageVersion = Some(somePackageVersion),
+              witnessParties = Set("signatory"),
+              signatories = Set("signatory"),
+              observers = Set("observer"),
+              createArgument = someSerializedDamlLfValue,
+              createArgumentCompression = Some(123),
+              createKeyValue = None,
+              createKeyMaintainers = Set.empty,
+              createKeyValueCompression = Some(456),
+              ledgerEffectiveTime = someTime,
+              createKeyHash = None,
+              driverMetadata = someDriverMetadataBytes,
+            ),
+          ),
         ),
-        EventStorageBackend.RawAssignEvent(
+        Entry(
           commandId = Some("command id 2"),
           workflowId = Some("workflow_id"),
           offset = offset(2).toHexString,
-          sourceDomainId = "x::sourcedomain",
-          targetDomainId = "x::targetdomain",
-          unassignId = "123456789",
-          submitter = Option(someParty),
-          reassignmentCounter = 1000L,
-          rawCreatedEvent = RawCreatedEvent(
-            updateId = offset(2).toHexString,
-            contractId = hashCid("#2").coid,
-            templateId = someTemplateId,
-            packageName = somePackageName,
-            packageVersion = Some(somePackageVersion),
-            witnessParties = Set("signatory"),
-            signatories = Set("signatory"),
-            observers = Set("observer"),
-            createArgument = someSerializedDamlLfValue,
-            createArgumentCompression = Some(123),
-            createKeyValue = None,
-            createKeyMaintainers = Set.empty,
-            createKeyValueCompression = Some(456),
-            ledgerEffectiveTime = someTime,
-            createKeyHash = None,
-            driverMetadata = someDriverMetadataBytes,
-          ),
           traceContext = Some(emptyTraceContext),
           recordTime = someTime,
+          updateId = offset(2).toHexString,
+          eventSequentialId = 0L,
+          ledgerEffectiveTime = Timestamp.MinValue,
+          domainId = "x::targetdomain",
+          event = EventStorageBackend.RawAssignEvent(
+            sourceDomainId = "x::sourcedomain",
+            targetDomainId = "x::targetdomain",
+            unassignId = "123456789",
+            submitter = Option(someParty),
+            reassignmentCounter = 1000L,
+            rawCreatedEvent = RawCreatedEvent(
+              updateId = offset(2).toHexString,
+              nodeIndex = 0,
+              contractId = hashCid("#2").coid,
+              templateId = someTemplateId,
+              packageName = somePackageName,
+              packageVersion = Some(somePackageVersion),
+              witnessParties = Set("signatory"),
+              signatories = Set("signatory"),
+              observers = Set("observer"),
+              createArgument = someSerializedDamlLfValue,
+              createArgumentCompression = Some(123),
+              createKeyValue = None,
+              createKeyMaintainers = Set.empty,
+              createKeyValueCompression = Some(456),
+              ledgerEffectiveTime = someTime,
+              createKeyHash = None,
+              driverMetadata = someDriverMetadataBytes,
+            ),
+          ),
         ),
       )
     )
@@ -380,45 +398,56 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         allFilterParties = Some(Set(Ref.Party.assertFromString("signatory"), someParty)),
       )
     ).map(original =>
-      original.copy(traceContext =
-        hasSameTraceContext(original.traceContext, Some(emptyTraceContext))
+      original.copy(
+        traceContext = hasSameTraceContext(original.traceContext, Some(emptyTraceContext)),
+        eventSequentialId = 0L,
       )
     ) shouldBe Vector(
-      EventStorageBackend.RawUnassignEvent(
+      Entry(
         commandId = Some("command id 1"),
         workflowId = Some("workflow_id"),
         offset = offset(1).toHexString,
-        sourceDomainId = "x::sourcedomain",
-        targetDomainId = "x::targetdomain",
-        unassignId = "123456789",
-        submitter = Option(someParty),
-        reassignmentCounter = 1000L,
-        contractId = hashCid("#1").coid,
-        templateId = someTemplateId,
-        packageName = somePackageName,
-        updateId = offset(1).toHexString,
-        witnessParties = Set("signatory"),
-        assignmentExclusivity = Some(Time.Timestamp.assertFromLong(11111)),
         traceContext = Some(emptyTraceContext),
         recordTime = someTime,
+        updateId = offset(1).toHexString,
+        eventSequentialId = 0L,
+        ledgerEffectiveTime = Timestamp.MinValue,
+        domainId = "x::targetdomain",
+        event = EventStorageBackend.RawUnassignEvent(
+          sourceDomainId = "x::sourcedomain",
+          targetDomainId = "x::targetdomain",
+          unassignId = "123456789",
+          submitter = Option(someParty),
+          reassignmentCounter = 1000L,
+          contractId = hashCid("#1").coid,
+          templateId = someTemplateId,
+          packageName = somePackageName,
+          witnessParties = Set("signatory"),
+          assignmentExclusivity = Some(Time.Timestamp.assertFromLong(11111)),
+        ),
       ),
-      EventStorageBackend.RawUnassignEvent(
+      Entry(
         commandId = Some("command id 2"),
         workflowId = Some("workflow_id"),
         offset = offset(2).toHexString,
-        sourceDomainId = "x::sourcedomain",
-        targetDomainId = "x::targetdomain",
-        unassignId = "123456789",
-        submitter = Option(someParty),
-        reassignmentCounter = 1000L,
-        contractId = hashCid("#2").coid,
-        templateId = someTemplateId,
-        packageName = somePackageName,
-        updateId = offset(2).toHexString,
-        witnessParties = Set("signatory"),
-        assignmentExclusivity = Some(Time.Timestamp.assertFromLong(11111)),
         traceContext = Some(emptyTraceContext),
         recordTime = someTime,
+        updateId = offset(2).toHexString,
+        eventSequentialId = 0L,
+        ledgerEffectiveTime = Timestamp.MinValue,
+        domainId = "x::targetdomain",
+        event = EventStorageBackend.RawUnassignEvent(
+          sourceDomainId = "x::sourcedomain",
+          targetDomainId = "x::targetdomain",
+          unassignId = "123456789",
+          submitter = Option(someParty),
+          reassignmentCounter = 1000L,
+          contractId = hashCid("#2").coid,
+          templateId = someTemplateId,
+          packageName = somePackageName,
+          witnessParties = Set("signatory"),
+          assignmentExclusivity = Some(Time.Timestamp.assertFromLong(11111)),
+        ),
       ),
     )
   }
@@ -566,6 +595,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         reassignmentCounter = 0L,
         rawCreatedEvent = RawCreatedEvent(
           updateId = offset(1).toHexString,
+          nodeIndex = 0,
           contractId = hashCid("#1").coid,
           templateId = someTemplateId,
           packageName = somePackageName,
@@ -590,6 +620,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         reassignmentCounter = 0L,
         rawCreatedEvent = RawCreatedEvent(
           updateId = offset(2).toHexString,
+          nodeIndex = 0,
           contractId = hashCid("#2").coid,
           templateId = someTemplateId,
           packageName = somePackageName,
@@ -713,6 +744,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         reassignmentCounter = 1000L,
         rawCreatedEvent = RawCreatedEvent(
           updateId = offset(2).toHexString,
+          nodeIndex = 0,
           contractId = hashCid("#1").coid,
           templateId = someTemplateId,
           packageName = somePackageName,
@@ -737,6 +769,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         reassignmentCounter = 1000L,
         rawCreatedEvent = RawCreatedEvent(
           updateId = offset(3).toHexString,
+          nodeIndex = 0,
           contractId = hashCid("#2").coid,
           templateId = someTemplateId,
           packageName = somePackageName,

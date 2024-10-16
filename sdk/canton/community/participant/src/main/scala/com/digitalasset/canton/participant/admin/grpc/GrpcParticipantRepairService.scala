@@ -11,6 +11,7 @@ import com.digitalasset.canton.admin.participant.v30.*
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp.fromProtoPrimitive
 import com.digitalasset.canton.data.{CantonTimestamp, RepairContract}
+import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.*
@@ -295,8 +296,6 @@ final class GrpcParticipantRepairService(
         )
     }
 
-  /* Purge specified deactivated sync-domain and selectively prune domain stores.
-   */
   override def purgeDeactivatedDomain(
       request: PurgeDeactivatedDomainRequest
   ): Future[PurgeDeactivatedDomainResponse] = TraceContext.withNewTraceContext {
@@ -308,8 +307,7 @@ final class GrpcParticipantRepairService(
             .leftMap(_.toString)
             .leftMap(RepairServiceError.InvalidArgument.Error(_))
         )
-        _ <- sync.purgeDeactivatedDomain(domainAlias)
-
+        _ <- sync.purgeDeactivatedDomain(domainAlias).leftWiden[CantonError]
       } yield ()
 
       EitherTUtil

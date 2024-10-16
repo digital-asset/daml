@@ -572,6 +572,12 @@ class DbActiveContractStore(
         }
     } yield nrPruned).onShutdown(0)
 
+  override def purge()(implicit traceContext: TraceContext): Future[Unit] =
+    storage.update_(
+      sqlu"delete from par_active_contracts where domain_idx = $indexedDomain",
+      functionFullName,
+    )
+
   /* Computes the maximum reassignment counter for each contract in the `res` vector.
      The computation for max_reassignmentCounter(`rc`, `cid`) reuses the result of max_reassignmentCounter(`rc-1`, `cid`).
 

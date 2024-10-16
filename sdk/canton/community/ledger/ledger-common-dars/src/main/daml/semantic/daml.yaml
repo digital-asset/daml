@@ -1,4 +1,4 @@
-sdk-version: 3.2.0-snapshot.20241011.13348.0.v5251db3e
+sdk-version: 3.2.0-snapshot.20241014.13351.0.ve5b28791
 build-options: 
 - --enable-interfaces=yes
 name: semantic-tests

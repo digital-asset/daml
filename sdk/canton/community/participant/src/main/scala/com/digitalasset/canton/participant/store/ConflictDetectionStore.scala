@@ -5,13 +5,13 @@ package com.digitalasset.canton.participant.store
 
 import com.digitalasset.canton.logging.pretty.PrettyPrinting
 import com.digitalasset.canton.participant.util.StateChange
-import com.digitalasset.canton.store.PrunableByTime
+import com.digitalasset.canton.store.{PrunableByTime, Purgeable}
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.Future
 
 /** Common interface for stores used by conflict detection */
-trait ConflictDetectionStore[K, A <: PrettyPrinting] extends PrunableByTime {
+trait ConflictDetectionStore[K, A <: PrettyPrinting] extends PrunableByTime with Purgeable {
 
   /** Short-hand for [[fetchStates]] for a single identifier */
   def fetchState(id: K)(implicit traceContext: TraceContext): Future[Option[StateChange[A]]] =

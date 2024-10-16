@@ -5,11 +5,11 @@ package com.digitalasset.canton.participant.sync
 
 import cats.Eval
 import cats.data.EitherT
+import cats.syntax.either.*
 import cats.syntax.functor.*
 import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
 import com.daml.error.*
-import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.*
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader
@@ -70,6 +70,7 @@ import com.digitalasset.canton.participant.sync.SyncServiceError.{
   SyncServiceDomainDisabledUs,
   SyncServiceDomainDisconnect,
   SyncServiceFailedDomainConnection,
+  SyncServicePurgeDomainError,
 }
 import com.digitalasset.canton.participant.topology.*
 import com.digitalasset.canton.participant.topology.client.MissingKeysAlerter
@@ -475,7 +476,7 @@ class CantonSyncService(
 
   private def pruningErrorToCantonError(pruningResult: Either[LedgerPruningError, Unit])(implicit
       traceContext: TraceContext
-  ): Either[CantonError, Unit] = pruningResult match {
+  ): Either[PruningServiceError, Unit] = pruningResult match {
     case Left(err @ LedgerPruningNothingToPrune) =>
       logger.info(
         s"Could not locate pruning point: ${err.message}. Considering success for idempotency"
@@ -828,50 +829,32 @@ class CantonSyncService(
           "migrate domain",
         )
 
-      sourceDomainId <- EitherT.fromEither[FutureUnlessShutdown](
-        aliasManager
-          .domainIdForAlias(source)
-          .toRight(
-            SyncServiceError.SyncServiceUnknownDomain.Error(source): SyncServiceError
-          )
-      )
-
-      _ = logger.info(
-        s"Purging deactivated domain with alias $source with domain id $sourceDomainId"
-      )
-      _ <- EitherT.right(
-        migrationService.pruneSelectedDeactivatedDomainStores(sourceDomainId)
-      )
+      _ <- purgeDeactivatedDomain(source)
     } yield ()
   }
 
-  /* Verify that specified domain has inactive status and selectively prune sync domain stores.
+  /* Verify that specified domain has inactive status and prune sync domain stores.
    */
   def purgeDeactivatedDomain(domain: DomainAlias)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, CantonError, Unit] =
+  ): EitherT[FutureUnlessShutdown, SyncServiceError, Unit] =
     for {
       domainId <- EitherT.fromEither[FutureUnlessShutdown](
         aliasManager
           .domainIdForAlias(domain)
           .toRight(SyncServiceError.SyncServiceUnknownDomain.Error(domain))
       )
-      domainConfig <- performUnlessClosingEitherU(functionFullName)(
-        domainConnectionConfigByAlias(domain).leftMap(_ =>
-          SyncServiceError.SyncServiceUnknownDomain.Error(domain)
-        )
-      )
-      _ <- EitherT.cond[FutureUnlessShutdown](
-        domainConfig.status == DomainConnectionConfigStore.Inactive,
-        (),
-        SyncServiceError.SyncServiceDomainStatusMustBeInactive.Error(domain, domainConfig.status),
-      )
       _ = logger.info(
         s"Purging deactivated domain with alias $domain with domain id $domainId"
       )
-      _ <- EitherT.right(
-        migrationService.pruneSelectedDeactivatedDomainStores(domainId)
-      )
+      _ <-
+        pruningProcessor
+          .purgeInactiveDomain(domainId)
+          .transform(
+            pruningErrorToCantonError(_).leftMap(
+              SyncServicePurgeDomainError(domain, _): SyncServiceError
+            )
+          )
     } yield ()
 
   /** Reconnect to all configured domains that have autoStart = true */

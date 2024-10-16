@@ -19,7 +19,8 @@ import scala.concurrent.Future
   * The pruning method of the store must use [[advancePruningTimestamp]] to signal the start end completion
   * of each pruning.
   */
-trait InMemoryPrunableByTime extends PrunableByTime { this: NamedLogging =>
+trait InMemoryPrunableByTime extends PrunableByTime {
+  this: NamedLogging =>
 
   protected[this] val pruningStatusF: AtomicReference[Option[PruningStatus]] =
     new AtomicReference[Option[PruningStatus]](None)

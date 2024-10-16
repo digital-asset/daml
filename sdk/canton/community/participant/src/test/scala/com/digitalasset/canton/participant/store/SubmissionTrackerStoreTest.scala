@@ -82,10 +82,14 @@ trait SubmissionTrackerStoreTest extends AsyncWordSpec with BaseTest with Prunab
 
         _ <- store.prune(pruningTs)
         countAfterPrune <- store.size.unwrap
+
+        _ <- store.purge()
+        countAfterPurge <- store.size.unwrap
       } yield {
         initialCount shouldBe Outcome(0)
         finalCount shouldBe Outcome(rootHashes.size)
         countAfterPrune shouldBe Outcome(expectedCountAfterPrune)
+        countAfterPurge shouldBe Outcome(0)
       }
     }
 

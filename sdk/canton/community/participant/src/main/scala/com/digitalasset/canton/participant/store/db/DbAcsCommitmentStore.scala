@@ -361,8 +361,20 @@ class DbAcsCommitmentStore(
           Such a period would be kept as outstanding even if it contains no tick. On the other
           hand, only commitment periods around restarts could be "empty" (not contain any tick).
            */
+          approxInterval <- sortedReconciliationIntervalsProvider.approximateReconciliationIntervals
+
           sortedReconciliationIntervals <-
-            sortedReconciliationIntervalsProvider.approximateReconciliationIntervals
+            // the domain parameters at the approximate topology timestamp is recent enough for the period
+            if (approxInterval.validUntil >= period.toInclusive.forgetRefinement)
+              FutureUnlessShutdown.pure(approxInterval)
+            else {
+              // it is safe to wait for the topology timestamp period.toInclusive.forgetRefinement because we validate
+              // that it is before the sequencing timestamp when we process incoming commitments
+              sortedReconciliationIntervalsProvider.reconciliationIntervals(
+                period.toInclusive.forgetRefinement
+              )
+            }
+
           _ <- FutureUnlessShutdown.outcomeF(
             storage.queryAndUpdate(
               dbQueries(sortedReconciliationIntervals).transactionally.withTransactionIsolation(

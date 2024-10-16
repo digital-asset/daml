@@ -4,10 +4,13 @@
 package com.digitalasset.canton.platform.store.backend.common
 
 import anorm.SqlParser.long
-import com.digitalasset.canton.platform.store.backend.EventStorageBackend
+import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
+  Entry,
+  RawFlatEvent,
+  RawTreeEvent,
+}
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.digitalasset.canton.platform.store.backend.common.SimpleSqlExtensions.*
-import com.digitalasset.canton.platform.store.dao.events.Raw
 import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.canton.platform.{Identifier, Party}
 import com.digitalasset.daml.lf.data.Ref
@@ -119,7 +122,7 @@ class TransactionStreamingQueries(
   def fetchEventPayloadsFlat(target: EventPayloadSourceForFlatTx)(
       eventSequentialIds: Iterable[Long],
       allFilterParties: Option[Set[Ref.Party]],
-  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]] =
+  )(connection: Connection): Vector[Entry[RawFlatEvent]] =
     target match {
       case EventPayloadSourceForFlatTx.Consuming =>
         fetchFlatEvents(
@@ -140,7 +143,7 @@ class TransactionStreamingQueries(
   def fetchEventPayloadsTree(target: EventPayloadSourceForTreeTx)(
       eventSequentialIds: Iterable[Long],
       allFilterParties: Option[Set[Ref.Party]],
-  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]] =
+  )(connection: Connection): Vector[Entry[RawTreeEvent]] =
     target match {
       case EventPayloadSourceForTreeTx.Consuming =>
         fetchTreeEvents(
@@ -207,7 +210,7 @@ class TransactionStreamingQueries(
       selectColumns: String,
       eventSequentialIds: Iterable[Long],
       allFilterParties: Option[Set[Ref.Party]],
-  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.FlatEvent]] = {
+  )(connection: Connection): Vector[Entry[RawFlatEvent]] = {
     val internedAllParties: Option[Set[Int]] = allFilterParties
       .map(
         _.iterator
@@ -236,7 +239,7 @@ class TransactionStreamingQueries(
       selectColumns: String,
       eventSequentialIds: Iterable[Long],
       allFilterParties: Option[Set[Ref.Party]],
-  )(connection: Connection): Vector[EventStorageBackend.Entry[Raw.TreeEvent]] = {
+  )(connection: Connection): Vector[Entry[RawTreeEvent]] = {
     val internedAllParties: Option[Set[Int]] = allFilterParties
       .map(
         _.iterator

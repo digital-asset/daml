@@ -13,6 +13,7 @@ import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
+import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality
 import com.digitalasset.canton.logging.SuppressionRule
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.canton.util.PekkoUtil.{
@@ -1401,11 +1402,20 @@ class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
         logEntry =>
           logEntry.errorMessage should include("Consumer initialization failed (attempt #8)"),
       )
-      // error 3, but as shutting down, no more errors reported
-      initializationStartedPromise.get().future.futureValue
-      recoveringQueue.shutdown()
-      initializationContinuePromise.get().trySuccess(())
-      recoveringQueue.done.futureValue
+      // error 3, but as shutting down, maximum one more error might be reported
+      // (in case shutting down timer finishes later than initialization failure)
+      loggerFactory.assertLogsUnorderedOptional(
+        {
+          // error 3
+          initializationStartedPromise.get().future.futureValue
+          recoveringQueue.shutdown()
+          initializationContinuePromise.get().trySuccess(())
+          recoveringQueue.done.futureValue
+        },
+        LogEntryOptionality.Optional -> { logEntry =>
+          logEntry.errorMessage should include("Consumer initialization failed (attempt #9)")
+        },
+      )
       recoveringQueue.firstSuccessfulConsumerInitialization.failed.futureValue
     }
 

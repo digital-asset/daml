@@ -321,8 +321,16 @@ class DbRequestJournalStore(
   )(implicit traceContext: TraceContext): Future[Unit] =
     storage.update_(
       sqlu"""
-    delete from par_journal_requests where request_timestamp <= $beforeInclusive and domain_idx = $indexedDomain
-  """,
+        delete from par_journal_requests where request_timestamp <= $beforeInclusive and domain_idx = $indexedDomain
+      """,
+      functionFullName,
+    )
+
+  override def purge()(implicit traceContext: TraceContext): Future[Unit] =
+    storage.update_(
+      sqlu"""
+        delete from par_journal_requests where domain_idx = $indexedDomain
+      """,
       functionFullName,
     )
 

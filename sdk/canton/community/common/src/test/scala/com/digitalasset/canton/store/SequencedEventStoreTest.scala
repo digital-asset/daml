@@ -25,34 +25,36 @@ import scala.concurrent.ExecutionContext
 trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
   this: AsyncWordSpec with BaseTest =>
 
-  lazy val crypto: SymbolicCrypto =
+  private lazy val crypto: SymbolicCrypto =
     SymbolicCrypto.create(
       testedReleaseProtocolVersion,
       timeouts,
       loggerFactory,
     )
 
-  lazy val sequencerKey: SigningPublicKey = crypto.generateSymbolicSigningKey()
+  private lazy val sequencerKey: SigningPublicKey = crypto.generateSymbolicSigningKey()
 
-  def sign(str: String): Signature =
+  private def sign(str: String): Signature =
     crypto.sign(TestHash.digest(str), sequencerKey.id)
 
-  lazy val domainId: DomainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("da::default"))
+  private lazy val domainId: DomainId = DomainId(
+    UniqueIdentifier.tryFromProtoPrimitive("da::default")
+  )
 
-  def mkBatch(envelopes: ClosedEnvelope*): Batch[ClosedEnvelope] =
+  private def mkBatch(envelopes: ClosedEnvelope*): Batch[ClosedEnvelope] =
     Batch(envelopes.toList, testedProtocolVersion)
 
-  def signDeliver(event: Deliver[ClosedEnvelope]): SignedContent[Deliver[ClosedEnvelope]] =
+  private def signDeliver(event: Deliver[ClosedEnvelope]): SignedContent[Deliver[ClosedEnvelope]] =
     SignedContent(event, sign(s"deliver signature ${event.counter}"), None, testedProtocolVersion)
 
-  lazy val closedEnvelope = ClosedEnvelope.create(
+  private lazy val closedEnvelope = ClosedEnvelope.create(
     ByteString.copyFromUtf8("message"),
     RecipientsTest.testInstance,
     Seq.empty,
     testedProtocolVersion,
   )
 
-  def mkDeliver(counter: Long, ts: CantonTimestamp): OrdinarySerializedEvent =
+  private def mkDeliver(counter: Long, ts: CantonTimestamp): OrdinarySerializedEvent =
     mkOrdinaryEvent(
       SignedContent(
         Deliver.create(
@@ -72,10 +74,10 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
       nonEmptyTraceContext2,
     )
 
-  lazy val singleDeliver: OrdinarySerializedEvent =
+  private lazy val singleDeliver: OrdinarySerializedEvent =
     mkDeliver(99, CantonTimestamp.ofEpochMilli(-1))
 
-  lazy val singleMaxDeliverPositive: OrdinarySerializedEvent =
+  private lazy val singleMaxDeliverPositive: OrdinarySerializedEvent =
     mkOrdinaryEvent(
       SignedContent(
         Deliver.create(
@@ -95,7 +97,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
       nonEmptyTraceContext2,
     )
 
-  val singleMinDeliver: OrdinarySerializedEvent =
+  private val singleMinDeliver: OrdinarySerializedEvent =
     mkOrdinaryEvent(
       SignedContent(
         Deliver.create(
@@ -115,7 +117,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
       nonEmptyTraceContext2,
     )
 
-  val modifiedSingleDeliver: OrdinarySerializedEvent =
+  private val modifiedSingleDeliver: OrdinarySerializedEvent =
     mkOrdinaryEvent(
       SignedContent(
         Deliver.create(
@@ -135,7 +137,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
       nonEmptyTraceContext2,
     )
 
-  def mkDeliverEventTc1(sc: Long, ts: CantonTimestamp): OrdinarySerializedEvent =
+  private def mkDeliverEventTc1(sc: Long, ts: CantonTimestamp): OrdinarySerializedEvent =
     mkOrdinaryEvent(
       SignedContent(
         SequencerTestUtils.mockDeliver(sc, ts, domainId),
@@ -146,9 +148,9 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
       nonEmptyTraceContext1,
     )
 
-  val event: OrdinarySerializedEvent = mkDeliverEventTc1(100, CantonTimestamp.Epoch)
+  private val event: OrdinarySerializedEvent = mkDeliverEventTc1(100, CantonTimestamp.Epoch)
 
-  val emptyDeliver: OrdinarySerializedEvent =
+  private val emptyDeliver: OrdinarySerializedEvent =
     mkOrdinaryEvent(
       SignedContent(
         Deliver.create(
@@ -167,7 +169,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
       )
     )
 
-  def mkDeliverError(sc: Long, ts: CantonTimestamp): OrdinarySerializedEvent =
+  private def mkDeliverError(sc: Long, ts: CantonTimestamp): OrdinarySerializedEvent =
     mkOrdinaryEvent(
       SignedContent(
         DeliverError.create(
@@ -185,15 +187,15 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
       )
     )
 
-  def ts(counter: Long): CantonTimestamp = CantonTimestamp.Epoch.addMicros(counter)
+  private def ts(counter: Long): CantonTimestamp = CantonTimestamp.Epoch.addMicros(counter)
 
-  def mkOrdinaryEvent(
+  private def mkOrdinaryEvent(
       event: SignedContent[SequencedEvent[ClosedEnvelope]],
       traceContext: TraceContext = TraceContext.empty,
   ): OrdinarySerializedEvent =
     OrdinarySequencedEvent(event)(traceContext)
 
-  def mkEmptyIgnoredEvent(
+  private def mkEmptyIgnoredEvent(
       counter: Long,
       microsSinceMin: Long = -1,
   ): IgnoredSequencedEvent[Nothing] = {
@@ -203,7 +205,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
     IgnoredSequencedEvent(t, SequencerCounter(counter), None)(traceContext)
   }
 
-  def sequencedEventStore(mkSes: ExecutionContext => SequencedEventStore): Unit = {
+  protected def sequencedEventStore(mkSes: ExecutionContext => SequencedEventStore): Unit = {
     def mk(): SequencedEventStore = mkSes(executionContext)
 
     behave like prunableByTime(mkSes)
@@ -623,12 +625,68 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
       for {
         _ <- store.store(Seq(firstDeliver, secondDeliver, deliver1, thirdDeliver, deliver2))
         _ <- store.prune(ts2)
-        eventsAfterPruning <- store.sequencedEvents()
+        eventsAfterPruningOrPurging <- store.sequencedEvents()
       } yield {
         assert(
-          eventsAfterPruning.toSet === Set(thirdDeliver, deliver2),
-          "only events with a later timestamp left",
+          eventsAfterPruningOrPurging.toSet === Set(thirdDeliver, deliver2),
+          "only events with a later timestamp left after pruning",
         )
+      }
+    }
+
+    "delete all sequenced events when purged" in {
+      val store = mk()
+
+      val ts0 = CantonTimestamp.Epoch
+      val ts1 = ts0.plusSeconds(1)
+      val ts2 = ts0.plusSeconds(2)
+      val ts3 = ts0.plusSeconds(10)
+      val ts4 = ts0.plusSeconds(20)
+
+      val firstDeliver =
+        mkOrdinaryEvent(signDeliver(SequencerTestUtils.mockDeliver(100, ts0, domainId)))
+      val secondDeliver =
+        mkOrdinaryEvent(signDeliver(SequencerTestUtils.mockDeliver(101, ts1, domainId)))
+      val thirdDeliver =
+        mkOrdinaryEvent(signDeliver(SequencerTestUtils.mockDeliver(103, ts3, domainId)))
+      val emptyBatch = mkBatch()
+      val deliver1 =
+        mkOrdinaryEvent(
+          signDeliver(
+            Deliver.create(
+              SequencerCounter(102),
+              ts2,
+              domainId,
+              Some(MessageId.tryCreate("deliver1")),
+              emptyBatch,
+              None,
+              testedProtocolVersion,
+              Option.empty[TrafficReceipt],
+            )
+          )
+        )
+      val deliver2 =
+        mkOrdinaryEvent(
+          signDeliver(
+            Deliver.create(
+              SequencerCounter(104),
+              ts4,
+              domainId,
+              Some(MessageId.tryCreate("deliver2")),
+              emptyBatch,
+              None,
+              testedProtocolVersion,
+              Option.empty[TrafficReceipt],
+            )
+          )
+        )
+
+      for {
+        _ <- store.store(Seq(firstDeliver, secondDeliver, deliver1, thirdDeliver, deliver2))
+        _ <- store.purge()
+        eventsAfterPruningOrPurging <- store.sequencedEvents()
+      } yield {
+        assert(eventsAfterPruningOrPurging.isEmpty, "no events with left after purging")
       }
     }
 

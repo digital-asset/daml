@@ -16,6 +16,7 @@ import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFact
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.config.TransactionTreeStreamsConfig
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
+import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{Entry, RawTreeEvent}
 import com.digitalasset.canton.platform.store.backend.common.{
   EventIdSourceForInformees,
   EventPayloadSourceForTreeTx,
@@ -63,7 +64,7 @@ class TransactionsTreeStreamReader(
   private val dbMetrics = metrics.index.db
 
   private val orderBySequentialEventId =
-    Ordering.by[EventStorageBackend.Entry[Raw.TreeEvent], Long](_.eventSequentialId)
+    Ordering.by[Entry[RawTreeEvent], Long](_.eventSequentialId)
 
   private val paginatingAsyncStream = new PaginatingAsyncStream(loggerFactory)
 
@@ -180,7 +181,7 @@ class TransactionsTreeStreamReader(
         target: EventPayloadSourceForTreeTx,
         maxParallelPayloadQueries: Int,
         metric: DatabaseMetrics,
-    ): Source[EventStorageBackend.Entry[Raw.TreeEvent], NotUsed] = {
+    ): Source[Entry[RawTreeEvent], NotUsed] = {
       // Pekko requires for this buffer's size to be a power of two.
       val inputBufferSize = Utils.largestSmallerOrEqualPowerOfTwo(maxParallelPayloadQueries)
       ids.async
@@ -345,12 +346,13 @@ class TransactionsTreeStreamReader(
       )
 
   private def deserializeLfValues(
-      rawEvents: Vector[EventStorageBackend.Entry[Raw.TreeEvent]],
+      rawEvents: Vector[Entry[RawTreeEvent]],
       eventProjectionProperties: EventProjectionProperties,
-  )(implicit lc: LoggingContextWithTrace): Future[Vector[EventStorageBackend.Entry[TreeEvent]]] =
+  )(implicit lc: LoggingContextWithTrace): Future[Vector[Entry[TreeEvent]]] =
     Timed.future(
-      future =
-        Future.traverse(rawEvents)(deserializeEntry(eventProjectionProperties, lfValueTranslation)),
+      future = Future.traverse(rawEvents)(
+        TransactionsReader.deserializeTreeEvent(eventProjectionProperties, lfValueTranslation)
+      ),
       timer = dbMetrics.treeTxStream.translationTimer,
     )
 

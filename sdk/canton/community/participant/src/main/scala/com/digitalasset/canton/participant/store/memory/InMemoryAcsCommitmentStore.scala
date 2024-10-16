@@ -212,8 +212,23 @@ class InMemoryAcsCommitmentStore(protected val loggerFactory: NamedLoggerFactory
       period: CommitmentPeriod,
       sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
       matchingState: CommitmentPeriodState,
-  )(implicit traceContext: TraceContext): Future[Unit] =
-    sortedReconciliationIntervalsProvider.approximateReconciliationIntervals
+  )(implicit traceContext: TraceContext): Future[Unit] = {
+    val approxInterval = sortedReconciliationIntervalsProvider.approximateReconciliationIntervals
+
+    val intervals = approxInterval
+      .flatMap(
+        // the domain parameters at the approximate topology timestamp is recent enough for the period
+        interval =>
+          if (interval.validUntil >= period.toInclusive.forgetRefinement) approxInterval
+          else
+            // it is safe to wait for the topology timestamp period.toInclusive.forgetRefinement because we validate
+            // that it is before the sequencing timestamp when we process incoming commitments
+            sortedReconciliationIntervalsProvider.reconciliationIntervals(
+              period.toInclusive.forgetRefinement
+            )
+      )
+
+    intervals
       .map { sortedReconciliationIntervals =>
         _outstanding.updateAndGet(currentOutstanding =>
           computeOutstanding(
@@ -231,6 +246,7 @@ class InMemoryAcsCommitmentStore(protected val loggerFactory: NamedLoggerFactory
           s"Aborted marking period safe (${period.fromExclusive}, ${period.toInclusive}] due to shutdown"
         )
       )
+  }
 
   override def noOutstandingCommitments(
       beforeOrAt: CantonTimestamp

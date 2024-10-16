@@ -3,11 +3,13 @@
 
 package com.digitalasset.canton.platform.store.backend
 
-import com.daml.ledger.api.v2.event.Event
-import com.daml.ledger.api.v2.transaction.TreeEvent
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
-import com.digitalasset.canton.platform.store.backend.EventStorageBackend.DomainOffset
-import com.digitalasset.canton.platform.store.dao.events.Raw
+import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
+  DomainOffset,
+  RawCreatedEvent,
+  RawFlatEvent,
+  RawTreeEvent,
+}
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -509,13 +511,13 @@ private[backend] trait StorageBackendTestsEvents
     )
 
     def checkKeyAndMaintainersInTrees(
-        event: Raw.TreeEvent,
+        event: RawTreeEvent,
         createKey: Option[Array[Byte]],
         createKeyMaintainers: Array[String],
     ) = event match {
-      case created: Raw.Created[TreeEvent] =>
+      case created: RawCreatedEvent =>
         created.createKeyValue should equal(createKey)
-        created.createKeyMaintainers should equal(createKeyMaintainers)
+        created.createKeyMaintainers should equal(createKeyMaintainers.toSet)
       case _ => fail()
     }
 
@@ -527,13 +529,13 @@ private[backend] trait StorageBackendTestsEvents
     )
 
     def checkKeyAndMaintainersInFlats(
-        event: Raw.FlatEvent,
+        event: RawFlatEvent,
         createKey: Option[Array[Byte]],
         createKeyMaintainers: Array[String],
     ) = event match {
-      case created: Raw.Created[Event] =>
+      case created: RawCreatedEvent =>
         created.createKeyValue should equal(createKey)
-        created.createKeyMaintainers should equal(createKeyMaintainers)
+        created.createKeyMaintainers should equal(createKeyMaintainers.toSet)
       case _ => fail()
     }
 

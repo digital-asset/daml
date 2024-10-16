@@ -143,7 +143,7 @@ class PrunableByTimeLogicTest
     // variable used to record which pruning intervals where invoked
     val pruningRequests =
       new AtomicReference[Seq[(CantonTimestamp, Option[CantonTimestamp])]](Seq.empty)
-    // variable used to signal how many rows were pruning
+    // variable used to signal how many rows we're pruning
     // depending on the return value, the intervals will be either shortened or extended
     val returnValues = new AtomicReference[Seq[Int]](Seq.empty)
 

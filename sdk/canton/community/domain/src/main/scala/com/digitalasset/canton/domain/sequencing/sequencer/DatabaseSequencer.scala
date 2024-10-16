@@ -429,9 +429,9 @@ class DatabaseSequencer(
       Future.successful(SequencerCounter.Genesis)
     }
 
-  override def onClosed(): Unit = {
-    super.onClosed()
+  override def onClosed(): Unit =
     Lifecycle.close(
+      () => super.onClosed(),
       () => pruningScheduler foreach (Lifecycle.close(_)(logger)),
       () => exclusiveStorage foreach (Lifecycle.close(_)(logger)),
       writer,
@@ -439,7 +439,6 @@ class DatabaseSequencer(
       eventSignaller,
       sequencerStore,
     )(logger)
-  }
 
   override def trafficStatus(members: Seq[Member], selector: TimestampSelector)(implicit
       traceContext: TraceContext

@@ -17,6 +17,7 @@ import com.daml.ledger.api.v2.update_service.{
   GetUpdatesResponse,
 }
 import com.digitalasset.canton.ledger.api.util.TimestampConversion
+import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.platform.store.ScalaPbStreamingOptimizations.*
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.Entry
 import com.digitalasset.canton.platform.store.utils.EventOps.TreeEventOps
@@ -45,10 +46,10 @@ object EventsTable {
           Some(
             ApiTransaction(
               updateId = first.updateId,
-              commandId = first.commandId,
+              commandId = first.commandId.getOrElse(""),
               effectiveAt = Some(TimestampConversion.fromLf(first.ledgerEffectiveTime)),
-              workflowId = first.workflowId,
-              offset = first.eventOffset.toLong,
+              workflowId = first.workflowId.getOrElse(""),
+              offset = ApiOffset.assertFromStringToLong(first.offset),
               events = flatEvents,
               domainId = first.domainId,
               traceContext = extractTraceContext(events),
@@ -106,10 +107,10 @@ object EventsTable {
         val (eventsById, rootEventIds, traceContext) = treeOf(events)
         ApiTransactionTree(
           updateId = first.updateId,
-          commandId = first.commandId,
-          workflowId = first.workflowId,
+          commandId = first.commandId.getOrElse(""),
+          workflowId = first.workflowId.getOrElse(""),
           effectiveAt = Some(TimestampConversion.fromLf(first.ledgerEffectiveTime)),
-          offset = first.eventOffset.toLong,
+          offset = ApiOffset.assertFromStringToLong(first.offset),
           eventsById = eventsById,
           rootEventIds = rootEventIds,
           domainId = first.domainId,
