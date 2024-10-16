@@ -510,7 +510,7 @@ class Converter(majorLanguageVersion: LanguageMajorVersion) {
       valueTranslator =
         new preprocessing.ValueTranslator(
           compiledPackages.pkgInterface,
-          checkV1ContractIdSuffixes = true,
+          checkV1ContractIdSuffixes = false,
           checkTypeAnnotations = false,
         )
       sValue <- valueTranslator

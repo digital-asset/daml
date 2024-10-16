@@ -145,7 +145,7 @@ class IdeLedgerClient(
 
     val valueTranslator = new ValueTranslator(
       pkgInterface = compiledPackages.pkgInterface,
-      checkV1ContractIdSuffixes = true,
+      checkV1ContractIdSuffixes = false,
       checkTypeAnnotations = false,
     )
 

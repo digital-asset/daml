@@ -53,7 +53,7 @@ final class Converter(
 
   private[this] val valueTranslator = new preprocessing.ValueTranslator(
     compiledPackages.pkgInterface,
-    checkV1ContractIdSuffixes = false,
+    checkV1ContractIdSuffixes = true,
     checkTypeAnnotations = true,
   )
 
