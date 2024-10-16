@@ -147,33 +147,32 @@ readPathToArchive path = do
             let bs = BSL.toStrict $ ZipArchive.fromEntry entry
             (pkgId, pkg) <- Archive.decodeArchive decodeAs bs
             let (pkgName, mbPkgVersion) = LF.safePackageMetadata pkg
-            pure (pkgId, pkg, pkgName, mbPkgVersion)
+            pure $ UpgradedPkgWithNameAndVersion pkgId pkg pkgName mbPkgVersion
 
 topoSortPackagesM :: [Archive] -> CheckM [Archive]
 topoSortPackagesM packages =
   fmap (map withoutIdAndPkg) $ fromEither mkErr $ topoSortPackages (map withIdAndPkg packages)
     where
-      cyclePkgToDep (_, (pkgId, _, name, mbVersion), _) = (pkgId, name, mbVersion)
+      cyclePkgToDep (_, UpgradedPkgWithNameAndVersion {upwnavPkgId, upwnavName, upwnavVersion}, _) = (upwnavPkgId, upwnavName, upwnavVersion)
       mkErr cyclePkgs =
         CEDependencyCycle (map (cyclePkgToDep . withoutIdAndPkg) cyclePkgs)
-      withIdAndPkg x@(_path, (pkgId, pkg, _name, _version), _deps) = (pkgId, x, pkg)
+      withIdAndPkg x@(_path, upgradedPkg, _deps) = (upwnavPkgId upgradedPkg, x, upwnavPkg upgradedPkg)
       withoutIdAndPkg (_pkgId, x, _pkg) = x
 
 checkPackageAgainstPastPackages :: (Archive, [Archive]) -> CheckM ()
 checkPackageAgainstPastPackages ((path, main, deps), pastPackages) = do
-  let (_mainId, mainPkg, mainName, mbVersion) = main
-  case splitPackageVersion id <$> mbVersion of
+  case splitPackageVersion id <$> upwnavVersion main of
     Nothing -> pure ()
     Just (Left _) -> pure ()
     Just (Right rawVersion) -> do
       let pastPackageFilterVersion pred = flip mapMaybe pastPackages $ \case
-            (_, pkg@(_, pastPackage, name, mbVersion), pkgDeps) -> do
-              guard (not (isUtilityPackage pastPackage))
-              guard (name == mainName)
-              case splitPackageVersion id <$> mbVersion of
+            (_, pastPkg, pkgDeps) -> do
+              guard (not (isUtilityPackage (upwnavPkg pastPkg)))
+              guard (upwnavName pastPkg == upwnavName main)
+              case splitPackageVersion id <$> upwnavVersion pastPkg of
                 Just (Right rawVersion) -> do
                   guard (pred rawVersion)
-                  pure (rawVersion, (pkg, pkgDeps))
+                  pure (rawVersion, (pastPkg, pkgDeps))
                 _ -> Nothing
       let ordFst = compare `on` fst
       case maximumByMay ordFst $ pastPackageFilterVersion (\v -> v < rawVersion) of
@@ -182,18 +181,18 @@ checkPackageAgainstPastPackages ((path, main, deps), pastPackages) = do
           let errs =
                 Upgrade.checkPackageToDepth
                   Upgrade.CheckAll
-                  mainPkg deps
+                  (upwnavPkg main) deps
                   LFV.version2_dev
                   (UpgradeInfo (Just (fromNormalizedFilePath path)) True True)
                   (Just (closestPastPackageWithLowerVersion, closestPastPackageWithLowerVersionDeps))
           when (not (null errs)) (throwE [CEDiagnostic path errs])
       case minimumByMay ordFst $ pastPackageFilterVersion (\v -> v > rawVersion) of
         Nothing -> pure ()
-        Just (_, ((_, closestPastPackageWithHigherVersion, _, _), closestPastPackageWithHigherVersionDeps)) -> do
+        Just (_, (closestPastPackageWithHigherVersion, closestPastPackageWithHigherVersionDeps)) -> do
           let errs =
                 Upgrade.checkPackageToDepth
                   Upgrade.CheckAll
-                  closestPastPackageWithHigherVersion closestPastPackageWithHigherVersionDeps
+                  (upwnavPkg closestPastPackageWithHigherVersion) closestPastPackageWithHigherVersionDeps
                   LFV.version2_dev
                   (UpgradeInfo (Just (fromNormalizedFilePath path)) True True)
                   (Just (main, deps))

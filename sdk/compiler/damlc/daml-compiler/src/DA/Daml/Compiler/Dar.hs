@@ -135,7 +135,7 @@ buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo = do
                  let pMeta = LF.PackageMetadata
                         { packageName = pName
                         , packageVersion = fromMaybe (LF.PackageVersion "0.0.0") pVersion
-                        , upgradedPackageId = LF.UpgradedPackageId . (\(_1, _, _, _) -> _1) . fst <$> mbUpgradedPackage
+                        , upgradedPackageId = LF.UpgradedPackageId . upwnavPkgId . fst <$> mbUpgradedPackage
                         }
                  pkg <- case optShakeFiles opts of
                      Nothing -> mergePkgs pMeta lfVersion . map fst <$> usesE GeneratePackage files

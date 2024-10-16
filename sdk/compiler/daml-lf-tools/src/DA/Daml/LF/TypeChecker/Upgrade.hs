@@ -31,6 +31,8 @@ import Data.Maybe (catMaybes, mapMaybe, isNothing)
 import Safe (maximumByMay, minimumByMay)
 import Data.Function (on)
 import Module (UnitId)
+import GHC.Generics (Generic)
+import Control.DeepSeq (NFData)
 
 -- Allows us to split the world into upgraded and non-upgraded
 type TcUpgradeM = TcMF UpgradingEnv
@@ -45,6 +47,15 @@ data UpgradingEnv = UpgradingEnv
   { _upgradingGamma :: Upgrading Gamma
   , _depsMap :: DepsMap
   }
+
+data UpgradedPkgWithNameAndVersion = UpgradedPkgWithNameAndVersion
+  { upwnavPkgId :: LF.PackageId
+  , upwnavPkg :: LF.Package
+  , upwnavName :: LF.PackageName
+  , upwnavVersion :: Maybe LF.PackageVersion
+  }
+  deriving (Show, Eq, Generic)
+instance NFData UpgradedPkgWithNameAndVersion
 
 makeLenses ''UpgradingEnv
 
@@ -94,7 +105,7 @@ unitIdDalfPackageToUpgradedPkg (unitId, dalfPkg) =
       LF.DalfPackage{dalfPackagePkg,dalfPackageId=presentPkgId} = dalfPkg
       presentPkg = extPackagePkg dalfPackagePkg
   in
-  (presentPkgId, presentPkg, packageName, mbPkgVersion)
+  UpgradedPkgWithNameAndVersion presentPkgId presentPkg packageName mbPkgVersion
 
 checkPackage
   :: LF.Package
@@ -114,9 +125,9 @@ checkPackageToDepth checkDepth pkg deps version upgradeInfo mbUpgradedPkg =
     when shouldTypecheck $ do
       case mbUpgradedPkg of
         Nothing -> pure ()
-        Just (upgradedPkg@(upgradedPkgId, upgradedPkgPkg, _, _), upgradingDeps) -> do
+        Just (upgradedPkg, upgradingDeps) -> do
             depsMap <- checkUpgradeDependenciesM deps (upgradedPkg : upgradingDeps)
-            checkPackageBoth checkDepth Nothing pkg ((upgradedPkgId, upgradedPkgPkg), depsMap)
+            checkPackageBoth checkDepth Nothing pkg ((upwnavPkgId upgradedPkg, upwnavPkg upgradedPkg), depsMap)
 
 checkPackageBoth :: CheckDepth -> Maybe Context -> LF.Package -> ((LF.PackageId, LF.Package), DepsMap) -> TcPreUpgradeM ()
 checkPackageBoth checkDepth mbContext pkg ((upgradedPkgId, upgradedPkg), depsMap) =
@@ -147,8 +158,6 @@ checkPackageSingle mbContext pkg =
       checkNewInterfacesAreUnused pkg
       checkNewInterfacesHaveNoTemplates
 
-type UpgradedPkgWithNameAndVersion = (LF.PackageId, LF.Package, LF.PackageName, Maybe LF.PackageVersion)
-
 checkModule
   :: LF.World -> LF.Module
   -> [UpgradedPkgWithNameAndVersion] -> Version -> UpgradeInfo
@@ -163,13 +172,13 @@ checkModule world0 module_ deps version upgradeInfo mbUpgradedPkg =
         checkNewInterfacesHaveNoTemplates
       case mbUpgradedPkg of
         Nothing -> pure ()
-        Just (upgradedPkgWithId@(upgradedPkgIdRaw, upgradedPkg, _, _), upgradingDeps) -> do
-            let upgradedPkgId = UpgradedPackageId upgradedPkgIdRaw
+        Just (upgradedPkgWithId, upgradingDeps) -> do
+            let upgradedPkgId = UpgradedPackageId (upwnavPkgId upgradedPkgWithId)
             -- TODO: https://github.com/digital-asset/daml/issues/19859
             depsMap <- checkUpgradeDependenciesM deps (upgradedPkgWithId : upgradingDeps)
-            let upgradingWorld = Upgrading { _past = initWorldSelf [] upgradedPkg, _present = world }
+            let upgradingWorld = Upgrading { _past = initWorldSelf [] (upwnavPkg upgradedPkgWithId), _present = world }
             withReaderT (\(version, upgradeInfo) -> UpgradingEnv (mkGamma version upgradeInfo <$> upgradingWorld) depsMap) $
-              case NM.lookup (NM.name module_) (LF.packageModules upgradedPkg) of
+              case NM.lookup (NM.name module_) (LF.packageModules (upwnavPkg upgradedPkgWithId)) of
                 Nothing -> pure ()
                 Just pastModule -> do
                   let upgradingModule = Upgrading { _past = pastModule, _present = module_ }
@@ -181,27 +190,26 @@ checkUpgradeDependenciesM
     -> TcPreUpgradeM DepsMap
 checkUpgradeDependenciesM presentDeps pastDeps = do
     initialUpgradeablePackageMap <-
-      fmap (HMS.fromListWith (<>) . catMaybes) $ forM pastDeps $ \pastDep -> do
-          let (pkgId, pkg, pkgName, mbPkgVersion) = pastDep
-          withPkgAsGamma pkg $
-            case mbPkgVersion of
+      fmap (HMS.fromListWith (<>) . catMaybes) $ forM pastDeps $ \UpgradedPkgWithNameAndVersion{..} ->
+          withPkgAsGamma upwnavPkg $
+            case upwnavVersion of
               Nothing -> do
                 -- TODO: https://github.com/digital-asset/daml/issues/20046
                 -- Add back check for WEDependencyHasNoMetadataDespiteUpgradeability (removed in 20038) when we figure
                 -- out why the warning triggers a lot for 3.x and not 2.x
-                pure $ Just (pkgName, [(Nothing, pkgId, pkg)])
+                pure $ Just (upwnavName, [(Nothing, upwnavPkgId, upwnavPkg)])
               Just packageVersion -> do
                 case splitPackageVersion id packageVersion of
                   Left version -> do
-                    diagnosticWithContext $ WErrorToWarning $ WEDependencyHasUnparseableVersion pkgName version UpgradedPackage
+                    diagnosticWithContext $ WErrorToWarning $ WEDependencyHasUnparseableVersion upwnavName version UpgradedPackage
                     pure Nothing
                   Right rawVersion ->
-                    pure $ Just (pkgName, [(Just rawVersion, pkgId, pkg)])
+                    pure $ Just (upwnavName, [(Just rawVersion, upwnavPkgId, upwnavPkg)])
 
     let withIdAndPkg :: UpgradedPkgWithNameAndVersion -> (LF.PackageId, UpgradedPkgWithNameAndVersion, LF.Package)
-        withIdAndPkg x@(pkgId, pkg, _, _) = (pkgId, x, pkg)
+        withIdAndPkg pkg@UpgradedPkgWithNameAndVersion{upwnavPkg, upwnavPkgId} = (upwnavPkgId, pkg, upwnavPkg)
         withoutIdAndPkg :: (LF.PackageId, UpgradedPkgWithNameAndVersion, LF.Package) -> UpgradedPkgWithNameAndVersion
-        withoutIdAndPkg (_, x, _) = x
+        withoutIdAndPkg (_, pkg, _) = pkg
 
     -- TODO: https://github.com/digital-asset/daml/issues/19859
     case topoSortPackages (map withIdAndPkg presentDeps) of
@@ -258,7 +266,13 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
       :: UpgradeablePackageMap
       -> UpgradedPkgWithNameAndVersion
       -> TcPreUpgradeM (Maybe (LF.PackageName, UpgradeablePackage))
-    checkOneDep upgradeablePackageMap (presentPkgId, presentPkg, packageName, mbPkgVersion) = do
+    checkOneDep upgradeablePackageMap presentPkgWithNameAndVersion = do
+      let UpgradedPkgWithNameAndVersion
+            { upwnavPkgId = presentPkgId
+            , upwnavPkg = presentPkg
+            , upwnavName = packageName
+            , upwnavVersion = mbPkgVersion
+            } = presentPkgWithNameAndVersion
       versionAndInfo <- ask
       withPkgAsGamma presentPkg $
         case mbPkgVersion of

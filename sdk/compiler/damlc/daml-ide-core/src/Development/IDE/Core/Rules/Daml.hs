@@ -605,11 +605,11 @@ extractUpgradedPackageRule opts = do
           let bs = BSL.toStrict $ ZipArchive.fromEntry entry
           (pkgId, pkg) <- Archive.decodeArchive decodeAs bs
           let (pkgName, mbPkgVersion) = LF.safePackageMetadata pkg
-          pure (pkgId, pkg, pkgName, mbPkgVersion)
+          pure $ Upgrade.UpgradedPkgWithNameAndVersion pkgId pkg pkgName mbPkgVersion
     let mainAndDeps ::
           Either Archive.ArchiveError
-            ((LF.PackageId, LF.Package, LF.PackageName, Maybe LF.PackageVersion),
-             [(LF.PackageId, LF.Package, LF.PackageName, Maybe LF.PackageVersion)])
+            (Upgrade.UpgradedPkgWithNameAndVersion,
+             [Upgrade.UpgradedPkgWithNameAndVersion])
         mainAndDeps = do
            main <- decodeEntryWithUnitId Archive.DecodeAsMain (edMain extractedDar)
            deps <- decodeEntryWithUnitId Archive.DecodeAsDependency `traverse` edDeps extractedDar
@@ -617,7 +617,7 @@ extractUpgradedPackageRule opts = do
         packageConfigFilePath = maybe file (LSP.toNormalizedFilePath . (</> projectConfigName) . unwrapProjectPath) $ optMbPackageConfigPath opts
         diags = case mainAndDeps of
           Left _ -> [ideErrorPretty packageConfigFilePath ("Could not decode file as a DAR." :: T.Text)]
-          Right ((_, mainPkg, _, _), _) -> getUpgradedPackageErrs opts packageConfigFilePath mainPkg
+          Right (mainPkg, _) -> getUpgradedPackageErrs opts packageConfigFilePath (Upgrade.upwnavPkg mainPkg)
     extras <- getShakeExtras
     updateFileDiagnostics packageConfigFilePath ExtractUpgradedPackageFile extras $ map (\(_,y,z) -> (y,z)) diags
     pure ([], guard (null diags) >> rightToMaybe mainAndDeps)
