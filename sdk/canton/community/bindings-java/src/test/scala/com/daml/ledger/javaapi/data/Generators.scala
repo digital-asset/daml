@@ -975,7 +975,7 @@ object Generators {
           (b: Commands.Builder) =>
             b.setDeduplicationDuration(Utils.durationToProto(Duration.ofSeconds(duration)))
         ),
-        Arbitrary.arbString.arbitrary.map(offset =>
+        Arbitrary.arbLong.arbitrary.map(offset =>
           (b: Commands.Builder) => b.setDeduplicationOffset(offset)
         ),
       )

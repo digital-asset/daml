@@ -21,6 +21,7 @@ import com.digitalasset.canton.platform.TemplatePartiesFilter
 import com.digitalasset.canton.platform.config.ActiveContractsServiceStreamsConfig
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
+  Entry,
   RawActiveContract,
   RawAssignEvent,
   RawCreatedEvent,
@@ -28,10 +29,7 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
 }
 import com.digitalasset.canton.platform.store.backend.common.EventPayloadSourceForFlatTx
 import com.digitalasset.canton.platform.store.dao.PaginatingAsyncStream.IdPaginationState
-import com.digitalasset.canton.platform.store.dao.events.TransactionsReader.{
-  deserializeEntry,
-  endSpanOnTermination,
-}
+import com.digitalasset.canton.platform.store.dao.events.TransactionsReader.endSpanOnTermination
 import com.digitalasset.canton.platform.store.dao.{
   DbDispatcher,
   EventProjectionProperties,
@@ -46,8 +44,6 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.Identifier
-import com.digitalasset.daml.lf.ledger.EventId
-import com.digitalasset.daml.lf.transaction.NodeId
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.Attributes
@@ -217,7 +213,7 @@ class ACSReader(
 
     def fetchActiveCreatePayloads(
         ids: Iterable[Long]
-    ): Future[Vector[EventStorageBackend.RawActiveContract]] =
+    ): Future[Vector[RawActiveContract]] =
       localPayloadQueriesLimiter.execute(
         globalPayloadQueriesLimiter.execute(
           dispatcher.executeSql(metrics.index.db.getActiveContractBatchForCreated) {
@@ -241,7 +237,7 @@ class ACSReader(
 
     def fetchActiveAssignPayloads(
         ids: Iterable[Long]
-    ): Future[Vector[EventStorageBackend.RawActiveContract]] =
+    ): Future[Vector[RawActiveContract]] =
       localPayloadQueriesLimiter.execute(
         globalPayloadQueriesLimiter.execute(
           dispatcher.executeSql(metrics.index.db.getActiveContractBatchForAssigned) {
@@ -299,7 +295,7 @@ class ACSReader(
 
     def fetchAssignPayloads(
         ids: Iterable[Long]
-    ): Future[Vector[EventStorageBackend.RawAssignEvent]] =
+    ): Future[Vector[Entry[RawAssignEvent]]] =
       if (ids.isEmpty) Future.successful(Vector.empty)
       else
         localPayloadQueriesLimiter.execute(
@@ -325,7 +321,7 @@ class ACSReader(
 
     def fetchUnassignPayloads(
         ids: Iterable[Long]
-    ): Future[Vector[EventStorageBackend.RawUnassignEvent]] =
+    ): Future[Vector[Entry[RawUnassignEvent]]] =
       localPayloadQueriesLimiter.execute(
         globalPayloadQueriesLimiter.execute(
           dispatcher.executeSql(
@@ -383,7 +379,7 @@ class ACSReader(
 
     def fetchCreatePayloads(
         ids: Iterable[Long]
-    ): Future[Vector[EventStorageBackend.Entry[Raw.FlatEvent]]] =
+    ): Future[Vector[RawCreatedEvent]] =
       if (ids.isEmpty) Future.successful(Vector.empty)
       else
         globalPayloadQueriesLimiter.execute(
@@ -402,54 +398,53 @@ class ACSReader(
                       .map(last => s"until $last")
                       .getOrElse("")}"
                 )
-                result
+                result.view
+                  .map(_.event)
+                  .collect { case created: RawCreatedEvent =>
+                    created
+                  }
+                  .toVector
             }
         )
 
-    def fetchCreatedEventsForUnassignedBatch(batch: Seq[RawUnassignEvent]): Future[
-      Seq[(RawUnassignEvent, Either[RawCreatedEvent, EventStorageBackend.Entry[Raw.FlatEvent]])]
+    def fetchCreatedEventsForUnassignedBatch(batch: Seq[Entry[RawUnassignEvent]]): Future[
+      Seq[(Entry[RawUnassignEvent], RawCreatedEvent)]
     ] =
       for {
-        createdIds <- fetchCreateIdsForContractIds(batch.map(_.contractId).distinct)
+        createdIds <- fetchCreateIdsForContractIds(batch.map(_.event.contractId).distinct)
         createdPayloads <- fetchCreatePayloads(createdIds)
-        createdPayloadResults = createdPayloads.iterator
-          .flatMap(entry =>
-            entry.event match {
-              case created: Raw.FlatEvent.Created => Iterator(created.partial.contractId -> entry)
-              case _ => Iterator.empty
-            }
-          )
+        rawCreatedFromCreatedResults = createdPayloads.iterator
+          .map(event => event.contractId -> event)
           .toMap
         missingContractIds = batch
-          .map(_.contractId)
-          .filterNot(createdPayloadResults.contains)
+          .map(_.event.contractId)
+          .filterNot(rawCreatedFromCreatedResults.contains)
           .distinct
         assignedIds <- fetchAssignIdsForContractIds(missingContractIds)
         assignedPayloads <- fetchAssignPayloads(assignedIds)
-        rawCreatedResults = assignedPayloads.iterator
-          .map(rawAssignEvent =>
-            rawAssignEvent.rawCreatedEvent.contractId -> rawAssignEvent.rawCreatedEvent
-          )
+        rawCreatedFromAssignedResults = assignedPayloads.iterator
+          .map(_.event.rawCreatedEvent)
+          .map(rawCreatedEvent => rawCreatedEvent.contractId -> rawCreatedEvent)
           .toMap
-      } yield batch.flatMap(rawUnassignEvent =>
-        createdPayloadResults
-          .get(rawUnassignEvent.contractId)
-          .map(Right(_))
+      } yield batch.flatMap { rawUnassignEntry =>
+        val contractId = rawUnassignEntry.event.contractId
+        rawCreatedFromCreatedResults
+          .get(contractId)
           .orElse {
             logger.debug(
-              s"For an IncompleteUnassigned event (offset:${rawUnassignEvent.offset} workflow-id:${rawUnassignEvent.workflowId} contract-id:${rawUnassignEvent.contractId} template-id:${rawUnassignEvent.templateId} reassignment-counter:${rawUnassignEvent.reassignmentCounter}) there is no CreatedEvent available."
+              s"For an IncompleteUnassigned event (offset:${rawUnassignEntry.offset} workflow-id:${rawUnassignEntry.workflowId} contract-id:${rawUnassignEntry.event.contractId} template-id:${rawUnassignEntry.event.templateId} reassignment-counter:${rawUnassignEntry.event.reassignmentCounter}) there is no CreatedEvent available."
             )
-            rawCreatedResults.get(rawUnassignEvent.contractId).map(Left(_))
+            rawCreatedFromAssignedResults.get(contractId)
           }
           .orElse {
             logger.warn(
-              s"For an IncompleteUnassigned event (offset:${rawUnassignEvent.offset} workflow-id:${rawUnassignEvent.workflowId} contract-id:${rawUnassignEvent.contractId} template-id:${rawUnassignEvent.templateId} reassignment-counter:${rawUnassignEvent.reassignmentCounter}) there is no CreatedEvent or AssignedEvent available. This entry will be dropped from the result."
+              s"For an IncompleteUnassigned event (offset:${rawUnassignEntry.offset} workflow-id:${rawUnassignEntry.workflowId} contract-id:${rawUnassignEntry.event.contractId} template-id:${rawUnassignEntry.event.templateId} reassignment-counter:${rawUnassignEntry.event.reassignmentCounter}) there is no CreatedEvent or AssignedEvent available. This entry will be dropped from the result."
             )
             None
           }
           .toList
-          .map(rawUnassignEvent -> _)
-      )
+          .map(rawUnassignEntry -> _)
+      }
 
     val stringWildcardParties = filter.templateWildcardParties.map(_.map(_.toString))
     val stringTemplateFilters = filter.relation.map { case (key, value) =>
@@ -465,15 +460,15 @@ class ACSReader(
         }
       )
 
-    def unassignMeetsConstraints(rawUnassignEvent: RawUnassignEvent): Boolean =
+    def unassignMeetsConstraints(rawUnassignEntry: Entry[RawUnassignEvent]): Boolean =
       eventMeetsConstraints(
-        rawUnassignEvent.templateId,
-        rawUnassignEvent.witnessParties,
+        rawUnassignEntry.event.templateId,
+        rawUnassignEntry.event.witnessParties,
       )
-    def assignMeetsConstraints(rawAssignEvent: RawAssignEvent): Boolean =
+    def assignMeetsConstraints(rawAssignEntry: Entry[RawAssignEvent]): Boolean =
       eventMeetsConstraints(
-        rawAssignEvent.rawCreatedEvent.templateId,
-        rawAssignEvent.rawCreatedEvent.witnessParties,
+        rawAssignEntry.event.rawCreatedEvent.templateId,
+        rawAssignEntry.event.rawCreatedEvent.witnessParties,
       )
 
     // Pekko requires for this buffer's size to be a power of two.
@@ -571,8 +566,8 @@ class ACSReader(
   )(implicit lc: LoggingContextWithTrace): Future[GetActiveContractsResponse] =
     Timed.future(
       future = Future.delegate(
-        TransactionsReader
-          .deserializeRawCreatedEvent(lfValueTranslation, eventProjectionProperties)(
+        lfValueTranslation
+          .deserializeRaw(eventProjectionProperties)(
             rawActiveContract.rawCreatedEvent
           )
           .map(createdEvent =>
@@ -593,21 +588,21 @@ class ACSReader(
     )
 
   private def toApiResponseIncompleteAssigned(eventProjectionProperties: EventProjectionProperties)(
-      rawAssignEvent: RawAssignEvent
+      rawAssignEntry: Entry[RawAssignEvent]
   )(implicit lc: LoggingContextWithTrace): Future[(String, GetActiveContractsResponse)] =
     Timed.future(
       future = Future.delegate(
-        TransactionsReader
-          .deserializeRawCreatedEvent(lfValueTranslation, eventProjectionProperties)(
-            rawAssignEvent.rawCreatedEvent
+        lfValueTranslation
+          .deserializeRaw(eventProjectionProperties)(
+            rawAssignEntry.event.rawCreatedEvent
           )
           .map(createdEvent =>
-            rawAssignEvent.offset -> GetActiveContractsResponse(
+            rawAssignEntry.offset -> GetActiveContractsResponse(
               offset = "", // empty for all data entries
-              workflowId = rawAssignEvent.workflowId.getOrElse(""),
+              workflowId = rawAssignEntry.workflowId.getOrElse(""),
               contractEntry = GetActiveContractsResponse.ContractEntry.IncompleteAssigned(
                 IncompleteAssigned(
-                  Some(TransactionsReader.toAssignedEvent(rawAssignEvent, createdEvent))
+                  Some(TransactionsReader.toAssignedEvent(rawAssignEntry.event, createdEvent))
                 )
               ),
             )
@@ -619,46 +614,24 @@ class ACSReader(
   private def toApiResponseIncompleteUnassigned(
       eventProjectionProperties: EventProjectionProperties
   )(
-      rawUnassignEventWithCreate: (
-          RawUnassignEvent,
-          Either[RawCreatedEvent, EventStorageBackend.Entry[Raw.FlatEvent]],
-      )
+      rawUnassignEntryWithCreate: (Entry[RawUnassignEvent], RawCreatedEvent)
   )(implicit lc: LoggingContextWithTrace): Future[(String, GetActiveContractsResponse)] = {
-    val (rawUnassignEvent, createEither) = rawUnassignEventWithCreate
+    val (rawUnassignEntry, rawCreate) = rawUnassignEntryWithCreate
     Timed.future(
-      future = Future.delegate {
-        createEither.left
-          .map(
-            TransactionsReader
-              .deserializeRawCreatedEvent(lfValueTranslation, eventProjectionProperties)
+      future = lfValueTranslation
+        .deserializeRaw(eventProjectionProperties)(rawCreate)
+        .map(createdEvent =>
+          rawUnassignEntry.offset -> GetActiveContractsResponse(
+            offset = "",
+            workflowId = rawUnassignEntry.workflowId.getOrElse(""),
+            contractEntry = GetActiveContractsResponse.ContractEntry.IncompleteUnassigned(
+              IncompleteUnassigned(
+                createdEvent = Some(createdEvent),
+                unassignedEvent = Some(TransactionsReader.toUnassignedEvent(rawUnassignEntry.event)),
+              )
+            ),
           )
-          .map(entry =>
-            deserializeEntry(eventProjectionProperties, lfValueTranslation)(entry)
-              .map(_.event.getCreated)
-          )
-          .merge
-          .map(createdEvent =>
-            rawUnassignEvent.offset -> GetActiveContractsResponse(
-              offset = "",
-              workflowId = rawUnassignEvent.workflowId.getOrElse(""),
-              contractEntry = GetActiveContractsResponse.ContractEntry.IncompleteUnassigned(
-                IncompleteUnassigned(
-                  createdEvent = Some(
-                    createdEvent.copy(
-                      eventId = EventId(
-                        transactionId =
-                          Ref.LedgerString.assertFromString(rawUnassignEvent.updateId),
-                        nodeId = NodeId(0), // all create Node ID is set synthetically to 0
-                      ).toLedgerString,
-                      witnessParties = rawUnassignEvent.witnessParties.toSeq,
-                    )
-                  ),
-                  unassignedEvent = Some(TransactionsReader.toUnassignedEvent(rawUnassignEvent)),
-                )
-              ),
-            )
-          )
-      },
+        ),
       timer = dbMetrics.getActiveContracts.translationTimer,
     )
   }

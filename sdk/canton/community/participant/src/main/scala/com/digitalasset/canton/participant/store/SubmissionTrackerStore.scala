@@ -6,12 +6,12 @@ package com.digitalasset.canton.participant.store
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.{RequestId, RootHash}
-import com.digitalasset.canton.store.PrunableByTime
+import com.digitalasset.canton.store.{PrunableByTime, Purgeable}
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.Future
 
-trait SubmissionTrackerStore extends PrunableByTime with AutoCloseable {
+trait SubmissionTrackerStore extends PrunableByTime with Purgeable with AutoCloseable {
 
   override protected def kind: String = "tracked submissions"
 

@@ -571,5 +571,7 @@ object LockableStatesTest {
     )(implicit
         traceContext: TraceContext
     ): Future[Int] = Future.successful(0)
+
+    override def purge()(implicit traceContext: TraceContext): Future[Unit] = Future.unit
   }
 }

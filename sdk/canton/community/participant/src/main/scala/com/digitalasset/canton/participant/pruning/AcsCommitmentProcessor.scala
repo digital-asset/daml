@@ -239,7 +239,7 @@ class AcsCommitmentProcessor private (
      eventually.
    */
   private val readyForRemote: AtomicReference[Option[CantonTimestampSecond]] =
-    new AtomicReference[Option[CantonTimestampSecond]](None)
+    new AtomicReference[Option[CantonTimestampSecond]](endLastProcessedPeriod)
 
   /* End of the last period until which we have processed, sent and persisted all local and remote commitments.
      It's accessed only through chained futures, such that all accesses are synchronized  */

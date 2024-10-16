@@ -229,9 +229,9 @@ class InMemorySequencedEventStore(protected val loggerFactory: NamedLoggerFactor
   }
 
   private[canton] override def delete(
-      from: SequencerCounter
+      fromInclusive: SequencerCounter
   )(implicit traceContext: TraceContext): Future[Unit] = {
-    timestampOfCounter.rangeFrom(from).foreach { case (sc, ts) =>
+    timestampOfCounter.rangeFrom(fromInclusive).foreach { case (sc, ts) =>
       timestampOfCounter.remove(sc).discard
       eventByTimestamp.remove(ts).discard
     }

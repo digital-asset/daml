@@ -54,18 +54,8 @@ class DbSequencerBlockStore(
       for {
         watermark <- safeWaterMarkDBIO
         blockInfoO <- watermark match {
-          case Some(watermark) =>
-            findBlockContainingTimestamp(watermark).flatMap {
-              case Some(block) => DBIO.successful(Some(block))
-              case None =>
-                // WM is ahead of complete blocks, so we pick the latest complete block
-                readLatestBlockInfo()
-            }
-          case None =>
-            // if there's no WM (blank sequencer), we start from the beginning below
-            DBIO.successful(
-              None
-            )
+          case Some(watermark) => findBlockForCrashRecoveryForWatermark(watermark)
+          case None => DBIO.successful(None)
         }
         state <- blockInfoO match {
           case None => DBIO.successful(BlockEphemeralState.empty)
@@ -82,6 +72,21 @@ class DbSequencerBlockStore(
     // `min` may return null that is wrapped into None
     query.as[Option[CantonTimestamp]].headOption.map(_.flatten)
   }
+
+  /** Find a completed earlier block that must be used for crash recovery.
+    * Since `readAtBlockTimestampDBIO` returns the state after the block (by BlockInfo.lastTs),
+    * and that's used to initialize the sequencer on the startup,
+    * we select the block that has its latest event timestamp less than or equal to the watermark.
+    * In the less than case it select the previous block.
+    * In the equal case it means that all of the events of the block have been written and watermarked,
+    * so we can start the sequencer from the following block.
+    */
+  private def findBlockForCrashRecoveryForWatermark(
+      beforeInclusive: CantonTimestamp
+  ): DBIOAction[Option[BlockInfo], NoStream, Effect.Read] =
+    (sql"""select height, latest_event_ts, latest_sequencer_event_ts from seq_block_height where latest_event_ts <= $beforeInclusive order by height desc """ ++ topRow)
+      .as[BlockInfo]
+      .headOption
 
   private def findBlockContainingTimestamp(
       timestamp: CantonTimestamp

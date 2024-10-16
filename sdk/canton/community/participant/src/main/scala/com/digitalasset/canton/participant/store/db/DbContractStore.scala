@@ -439,6 +439,16 @@ class DbContractStore(
   }
     .thereafter(_ => cache.synchronous().invalidateAll())
 
+  override def purge()(implicit
+      traceContext: TraceContext
+  ): Future[Unit] =
+    storage
+      .update_(
+        sqlu"""delete from par_contracts where domain_idx = $indexedDomain""",
+        functionFullName,
+      )
+      .thereafter(_ => cache.synchronous().invalidateAll())
+
   override def lookupStakeholders(ids: Set[LfContractId])(implicit
       traceContext: TraceContext
   ): EitherT[Future, UnknownContracts, Map[LfContractId, Set[LfPartyId]]] =

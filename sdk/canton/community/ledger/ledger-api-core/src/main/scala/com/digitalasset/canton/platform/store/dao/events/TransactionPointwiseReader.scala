@@ -12,9 +12,13 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.Party
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
-import com.digitalasset.canton.platform.store.backend.EventStorageBackend.Entry
+import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
+  Entry,
+  RawEvent,
+  RawFlatEvent,
+  RawTreeEvent,
+}
 import com.digitalasset.canton.platform.store.dao.events.EventsTable.TransactionConversions
-import com.digitalasset.canton.platform.store.dao.events.TransactionsReader.deserializeEntry
 import com.digitalasset.canton.platform.store.dao.{DbDispatcher, EventProjectionProperties}
 
 import java.sql.Connection
@@ -22,7 +26,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 sealed trait TransactionPointwiseReader {
   type EventT
-  type RawEventT <: Raw[EventT]
+  type RawEventT <: RawEvent
   type RespT
 
   def dbDispatcher: DbDispatcher
@@ -40,6 +44,16 @@ sealed trait TransactionPointwiseReader {
       requestingParties: Set[Party],
       eventProjectionProperties: EventProjectionProperties,
   )(connection: Connection): Vector[EventStorageBackend.Entry[RawEventT]]
+
+  protected def deserializeEntry(
+      eventProjectionProperties: EventProjectionProperties,
+      lfValueTranslation: LfValueTranslation,
+  )(
+      entry: Entry[RawEventT]
+  )(implicit
+      loggingContext: LoggingContextWithTrace,
+      ec: ExecutionContext,
+  ): Future[Entry[EventT]]
 
   protected def toTransactionResponse(
       events: Vector[Entry[EventT]]
@@ -72,7 +86,7 @@ sealed trait TransactionPointwiseReader {
             )
             // Filtering by requesting parties
             filteredRawEvents = rawEvents.filter(
-              _.event.witnesses.exists(requestingPartiesStrings)
+              _.event.witnessParties.exists(requestingPartiesStrings)
             )
             // Deserialization of lf values
             deserialized <- Timed.value(
@@ -100,7 +114,7 @@ final class TransactionTreePointwiseReader(
     extends TransactionPointwiseReader {
 
   override type EventT = TreeEvent
-  override type RawEventT = Raw.TreeEvent
+  override type RawEventT = RawTreeEvent
   override type RespT = GetTransactionTreeResponse
 
   override val dbMetric: DatabaseMetrics = dbMetrics.lookupTransactionTreeById
@@ -119,6 +133,15 @@ final class TransactionTreePointwiseReader(
 
   override protected def toTransactionResponse(events: Vector[Entry[EventT]]): Option[RespT] =
     TransactionConversions.toGetTransactionResponse(events)
+
+  override protected def deserializeEntry(
+      eventProjectionProperties: EventProjectionProperties,
+      lfValueTranslation: LfValueTranslation,
+  )(entry: Entry[RawTreeEvent])(implicit
+      loggingContext: LoggingContextWithTrace,
+      ec: ExecutionContext,
+  ): Future[Entry[TreeEvent]] =
+    TransactionsReader.deserializeTreeEvent(eventProjectionProperties, lfValueTranslation)(entry)
 }
 
 final class TransactionFlatPointwiseReader(
@@ -130,7 +153,7 @@ final class TransactionFlatPointwiseReader(
     extends TransactionPointwiseReader {
 
   override type EventT = Event
-  override type RawEventT = Raw.FlatEvent
+  override type RawEventT = RawFlatEvent
   override type RespT = GetTransactionResponse
 
   override val dbMetric: DatabaseMetrics = dbMetrics.lookupFlatTransactionById
@@ -149,4 +172,13 @@ final class TransactionFlatPointwiseReader(
 
   override protected def toTransactionResponse(events: Vector[Entry[EventT]]): Option[RespT] =
     TransactionConversions.toGetFlatTransactionResponse(events)
+
+  override protected def deserializeEntry(
+      eventProjectionProperties: EventProjectionProperties,
+      lfValueTranslation: LfValueTranslation,
+  )(entry: Entry[RawFlatEvent])(implicit
+      loggingContext: LoggingContextWithTrace,
+      ec: ExecutionContext,
+  ): Future[Entry[Event]] =
+    TransactionsReader.deserializeFlatEvent(eventProjectionProperties, lfValueTranslation)(entry)
 }

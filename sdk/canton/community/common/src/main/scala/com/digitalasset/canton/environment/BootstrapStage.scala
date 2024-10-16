@@ -162,10 +162,10 @@ abstract class BootstrapStage[T <: CantonNode, StageResult <: BootstrapStageOrLe
     super.onClosed()
     // first close subsequent stage and then close this stage
     // synchronisation with attemptAndStore happens through performUnlessClosing
-    stageResult.getAndSet(None).foreach { res =>
-      Lifecycle.close(res)(logger)
-    }
-    Lifecycle.close(closeables.getAndSet(Seq.empty).reverse*)(logger)
+    val stageResultCloseables = stageResult.getAndSet(None).toList
+    val thisStageCloseables = closeables.getAndSet(Seq.empty).reverse
+    val allCloseables = stageResultCloseables ++ thisStageCloseables
+    Lifecycle.close(allCloseables*)(logger)
   }
 
 }

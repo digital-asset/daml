@@ -27,13 +27,7 @@ import com.digitalasset.canton.logging.{
   NamedLogging,
   NamedLoggingContext,
 }
-import com.digitalasset.canton.participant.Pruning.{
-  LedgerPruningCancelledDueToShutdown,
-  LedgerPruningError,
-  LedgerPruningInternalError,
-  LedgerPruningNotPossibleDuringHardMigration,
-  LedgerPruningNothingToPrune,
-}
+import com.digitalasset.canton.participant.Pruning.*
 import com.digitalasset.canton.participant.metrics.PruningMetrics
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.CommitmentsPruningBound
 import com.digitalasset.canton.participant.store.{
@@ -198,6 +192,29 @@ class PruningProcessor(
           ) // nothing to prune, beforeOrAt is too low
       }
   )
+
+  /** Purge all data of the specified domain that must be inactive.
+    */
+  def purgeInactiveDomain(domainId: DomainId)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, LedgerPruningError, Unit] = for {
+    persistenceState <- EitherT.fromEither[FutureUnlessShutdown](
+      syncDomainPersistentStateManager.get(domainId).toRight(PurgingUnknownDomain(domainId))
+    )
+    domainStatus <- EitherT.fromEither[FutureUnlessShutdown](
+      domainConnectionStatus(domainId).toRight(PurgingUnknownDomain(domainId))
+    )
+    _ <- EitherT.cond[FutureUnlessShutdown](
+      domainStatus == DomainConnectionConfigStore.Inactive,
+      (),
+      PurgingOnlyAllowedOnInactiveDomain(domainId, domainStatus),
+    )
+    _ = logger.info(s"Purging inactive domain $domainId")
+
+    _ <- EitherT.right(
+      performUnlessClosingF("Purge inactive domain")(purgeDomain(persistenceState))
+    )
+  } yield ()
 
   private def firstOffsetBefore(globalOffset: GlobalOffset): Option[GlobalOffset] =
     PositiveLong
@@ -543,8 +560,8 @@ class PruningProcessor(
 
       _ <- lastRequestCounter.fold(Future.unit)(state.contractStore.deleteDivulged)
 
+      // we don't prune stores that are pruned by the JournalGarbageCollector regularly anyway
       _ = logger.debug("Pruning sequenced event store...")
-      // we don't prune stores that are pruned by the PruneObserver regularly anyway
       _ <- state.sequencedEventStore.prune(lastTimestamp)
 
       _ = logger.debug("Pruning request journal store...")
@@ -554,6 +571,37 @@ class PruningProcessor(
       _ <- state.acsCommitmentStore.prune(lastTimestamp)
       // TODO(#2600) Prune the reassignment store
     } yield ()
+  }
+
+  private def purgeDomain(state: SyncDomainPersistentState)(implicit
+      traceContext: TraceContext
+  ): Future[Unit] = {
+    logger.info(s"Purging domain ${state.indexedDomain.domainId}")
+
+    logger.debug("Purging contract store...")
+    for {
+      _ <- state.contractStore.purge()
+
+      // Also purge stores that are pruned by the SyncDomain's JournalGarbageCollector as the SyncDomain
+      // is never active anymore.
+      _ = logger.debug("Purging active contract store...")
+      _ <- state.activeContractStore.purge()
+
+      _ = logger.debug("Purging sequenced event store...")
+      _ <- state.sequencedEventStore.purge()
+
+      _ = logger.debug("Purging request journal store...")
+      _ <- state.requestJournalStore.purge()
+
+      // We don't purge the ACS commitment store, as the data might still serve as audit evidence.
+
+      _ = logger.debug("Purging submission tracker store...")
+      _ <- state.submissionTrackerStore.purge()
+
+      // TODO(#2600) Purge the reassignment store when implementing pruning
+    } yield {
+      logger.info(s"Purging domain ${state.indexedDomain.domainId} has been completed")
+    }
   }
 
   private def pruneDeduplicationStore(

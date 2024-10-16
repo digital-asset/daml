@@ -242,6 +242,19 @@ trait RequestJournalStoreTest {
       }
     }
 
+    "purge entire request journal" in {
+      val store = mk()
+      for {
+        _ <- setupPruning(store)
+        journalSizeBeforePurge <- store.size()
+        _ <- store.purge()
+        journalSizeAfterPurge <- store.size()
+      } yield {
+        journalSizeBeforePurge shouldBe 4
+        journalSizeAfterPurge shouldBe 0
+      }
+    }
+
     "deleteSince" should {
       "remove all requests from the given counter on" in {
         val store = mk()

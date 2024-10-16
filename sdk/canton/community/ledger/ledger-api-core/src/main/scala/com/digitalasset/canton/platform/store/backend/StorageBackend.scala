@@ -18,6 +18,7 @@ import com.digitalasset.canton.platform.indexer.parallel.PostPublishData
 import com.digitalasset.canton.platform.store.EventSequentialId
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
   DomainOffset,
+  Entry,
   RawActiveContract,
   RawAssignEvent,
   RawUnassignEvent,
@@ -318,12 +319,12 @@ trait EventStorageBackend {
   def assignEventBatch(
       eventSequentialIds: Iterable[Long],
       allFilterParties: Option[Set[Party]],
-  )(connection: Connection): Vector[RawAssignEvent]
+  )(connection: Connection): Vector[Entry[RawAssignEvent]]
 
   def unassignEventBatch(
       eventSequentialIds: Iterable[Long],
       allFilterParties: Option[Set[Party]],
-  )(connection: Connection): Vector[RawUnassignEvent]
+  )(connection: Connection): Vector[Entry[RawUnassignEvent]]
 
   def lookupAssignSequentialIdByOffset(
       offsets: Iterable[String]
@@ -372,21 +373,27 @@ trait EventStorageBackend {
 
 object EventStorageBackend {
   final case class Entry[+E](
-      eventOffset: Offset,
+      offset: String,
       updateId: String,
-      nodeIndex: Int,
       eventSequentialId: Long,
       ledgerEffectiveTime: Timestamp,
-      commandId: String,
-      workflowId: String,
+      commandId: Option[String],
+      workflowId: Option[String],
       domainId: String,
       traceContext: Option[Array[Byte]],
       recordTime: Timestamp,
       event: E,
   )
 
+  sealed trait RawEvent {
+    def witnessParties: Set[String]
+  }
+  sealed trait RawFlatEvent extends RawEvent
+  sealed trait RawTreeEvent extends RawEvent
+
   final case class RawCreatedEvent(
       updateId: String,
+      nodeIndex: Int,
       contractId: String,
       templateId: Identifier,
       packageName: PackageName,
@@ -402,7 +409,34 @@ object EventStorageBackend {
       ledgerEffectiveTime: Timestamp,
       createKeyHash: Option[Hash],
       driverMetadata: Array[Byte],
-  )
+  ) extends RawFlatEvent
+      with RawTreeEvent
+
+  final case class RawArchivedEvent(
+      updateId: String,
+      nodeIndex: Int,
+      contractId: String,
+      templateId: Identifier,
+      packageName: PackageName,
+      witnessParties: Set[String],
+  ) extends RawFlatEvent
+
+  final case class RawExercisedEvent(
+      updateId: String,
+      nodeIndex: Int,
+      contractId: String,
+      templateId: Identifier,
+      packageName: PackageName,
+      exerciseConsuming: Boolean,
+      exerciseChoice: String,
+      exerciseArgument: Array[Byte],
+      exerciseArgumentCompression: Option[Int],
+      exerciseResult: Option[Array[Byte]],
+      exerciseResultCompression: Option[Int],
+      exerciseActors: Seq[String],
+      exerciseChildEventIds: Seq[String],
+      witnessParties: Set[String],
+  ) extends RawTreeEvent
 
   final case class RawActiveContract(
       workflowId: Option[String],
@@ -413,10 +447,6 @@ object EventStorageBackend {
   )
 
   final case class RawUnassignEvent(
-      updateId: String,
-      commandId: Option[String],
-      workflowId: Option[String],
-      offset: String,
       sourceDomainId: String,
       targetDomainId: String,
       unassignId: String,
@@ -427,22 +457,15 @@ object EventStorageBackend {
       packageName: PackageName,
       witnessParties: Set[String],
       assignmentExclusivity: Option[Timestamp],
-      traceContext: Option[Array[Byte]],
-      recordTime: Timestamp,
   )
 
   final case class RawAssignEvent(
-      commandId: Option[String],
-      workflowId: Option[String],
-      offset: String,
       sourceDomainId: String,
       targetDomainId: String,
       unassignId: String,
       submitter: Option[String],
       reassignmentCounter: Long,
       rawCreatedEvent: RawCreatedEvent,
-      traceContext: Option[Array[Byte]],
-      recordTime: Timestamp,
   )
 
   final case class DomainOffset(

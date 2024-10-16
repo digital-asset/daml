@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.platform.store.backend
 
-import com.daml.ledger.api.v2.event.{CreatedEvent, ExercisedEvent}
 import com.daml.metrics.api.MetricsContext
 import com.daml.platform.v1.index.StatusDetails
 import com.digitalasset.canton.data.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
@@ -17,16 +16,13 @@ import com.digitalasset.canton.ledger.participant.state.{
   SequencerIndex,
   Update,
 }
-import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
-import com.digitalasset.canton.platform.store.dao.events.Raw.TreeEvent
+import com.digitalasset.canton.platform.store.dao.JdbcLedgerDao
 import com.digitalasset.canton.platform.store.dao.events.{
   CompressionStrategy,
   FieldCompressionStrategy,
   LfValueSerialization,
-  Raw,
 }
-import com.digitalasset.canton.platform.store.dao.{EventProjectionProperties, JdbcLedgerDao}
 import com.digitalasset.canton.platform.{ContractId, Create, Exercise}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext.Implicits.Empty.emptyTraceContext
@@ -52,7 +48,6 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import java.time.{Duration, Instant}
 import java.util.UUID
-import scala.concurrent.{ExecutionContext, Future}
 
 // Note: this suite contains hand-crafted updates that are impossible to produce on some ledgers
 // (e.g., because the ledger removes rollback nodes before sending them to the index database).
@@ -1794,18 +1789,6 @@ object UpdateToDbDtoSpec {
         exercise.exerciseResult.map(_ => emptyArray),
         exercise.keyOpt.map(_ => emptyArray),
       )
-    override def deserialize[E](
-        raw: Raw.Created[E],
-        eventProjectionProperties: EventProjectionProperties,
-    )(implicit
-        ec: ExecutionContext,
-        loggingContext: LoggingContextWithTrace,
-    ): Future[CreatedEvent] = Future.failed(new RuntimeException("Not implemented"))
-
-    override def deserialize(raw: TreeEvent.Exercised, verbose: Boolean)(implicit
-        ec: ExecutionContext,
-        loggingContext: LoggingContextWithTrace,
-    ): Future[ExercisedEvent] = Future.failed(new RuntimeException("Not implemented"))
   }
 
   // These test do not check the correctness of compression.

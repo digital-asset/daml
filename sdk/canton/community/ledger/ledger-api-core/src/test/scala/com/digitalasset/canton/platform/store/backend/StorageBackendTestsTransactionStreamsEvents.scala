@@ -3,13 +3,16 @@
 
 package com.digitalasset.canton.platform.store.backend
 
+import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
+  RawCreatedEvent,
+  RawFlatEvent,
+  RawTreeEvent,
+}
 import com.digitalasset.canton.platform.store.backend.common.{
   EventPayloadSourceForFlatTx,
   EventPayloadSourceForTreeTx,
 }
-import com.digitalasset.canton.platform.store.dao.events.Raw.{FlatEvent, TreeEvent}
-import com.digitalasset.daml.lf.data.Ref
-import com.google.protobuf.timestamp.Timestamp
+import com.digitalasset.daml.lf.data.{Ref, Time}
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.{Assertion, OptionValues}
@@ -46,12 +49,12 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
 
     testCreatedAt(
       partiesO = Some(Set(someParty)),
-      expectedCreatedAt = Timestamp(someTime.toInstant),
+      expectedCreatedAt = someTime,
     )
 
     testCreatedAt(
       partiesO = None,
-      expectedCreatedAt = Timestamp(someTime.toInstant),
+      expectedCreatedAt = someTime,
     )
   }
 
@@ -75,13 +78,13 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
     ) = fetch(Some(Set(someParty)))
 
     flatTransactionEvents.map(_.eventSequentialId) shouldBe Vector(1L, 2L, 3L, 4L)
-    flatTransactionEvents.map(_.event).collect { case created: FlatEvent.Created =>
-      created.partial.contractId
+    flatTransactionEvents.map(_.event).collect { case created: RawCreatedEvent =>
+      created.contractId
     } shouldBe Vector(contractId1, contractId2, contractId3, contractId4).map(_.coid)
 
     transactionTreeEvents.map(_.eventSequentialId) shouldBe Vector(1L, 2L, 3L, 4L)
-    transactionTreeEvents.map(_.event).collect { case created: TreeEvent.Created =>
-      created.partial.contractId
+    transactionTreeEvents.map(_.event).collect { case created: RawCreatedEvent =>
+      created.contractId
     } shouldBe Vector(contractId1, contractId2, contractId3, contractId4).map(_.coid)
 
     acs.map(_.eventSequentialId) shouldBe Vector(1L, 2L, 3L, 4L)
@@ -95,13 +98,13 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
     ) = fetch(None)
 
     flatTransactionEventsSuperReader.map(_.eventSequentialId) shouldBe Vector(1L, 2L, 3L, 4L)
-    flatTransactionEventsSuperReader.map(_.event).collect { case created: FlatEvent.Created =>
-      created.partial.contractId
+    flatTransactionEventsSuperReader.map(_.event).collect { case created: RawCreatedEvent =>
+      created.contractId
     } shouldBe Vector(contractId1, contractId2, contractId3, contractId4).map(_.coid)
 
     transactionTreeEventsSuperReader.map(_.eventSequentialId) shouldBe Vector(1L, 2L, 3L, 4L)
-    transactionTreeEventsSuperReader.map(_.event).collect { case created: TreeEvent.Created =>
-      created.partial.contractId
+    transactionTreeEventsSuperReader.map(_.event).collect { case created: RawCreatedEvent =>
+      created.contractId
     } shouldBe Vector(contractId1, contractId2, contractId3, contractId4).map(_.coid)
 
     acsSuperReader.map(_.eventSequentialId) shouldBe Vector(1L, 2L, 3L, 4L)
@@ -148,7 +151,7 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
 
   private def testCreatedAt(
       partiesO: Option[Set[Ref.Party]],
-      expectedCreatedAt: Timestamp,
+      expectedCreatedAt: Time.Timestamp,
   ): Assertion = {
     val (
       flatTransactionEvents,
@@ -158,38 +161,36 @@ private[backend] trait StorageBackendTestsTransactionStreamsEvents
       acs,
     ) = fetch(partiesO)
 
-    extractCreatedAtFrom[FlatEvent.Created, FlatEvent](
+    extractCreatedAtFrom[RawCreatedEvent, RawFlatEvent](
       in = flatTransactionEvents,
-      createdAt = _.partial.createdAt,
+      createdAt = _.ledgerEffectiveTime,
     ) shouldBe expectedCreatedAt
 
-    extractCreatedAtFrom[FlatEvent.Created, FlatEvent](
+    extractCreatedAtFrom[RawCreatedEvent, RawFlatEvent](
       in = flatTransaction,
-      createdAt = _.partial.createdAt,
+      createdAt = _.ledgerEffectiveTime,
     ) shouldBe expectedCreatedAt
 
-    extractCreatedAtFrom[TreeEvent.Created, TreeEvent](
+    extractCreatedAtFrom[RawCreatedEvent, RawTreeEvent](
       in = transactionTreeEvents,
-      createdAt = _.partial.createdAt,
+      createdAt = _.ledgerEffectiveTime,
     ) shouldBe expectedCreatedAt
 
-    extractCreatedAtFrom[TreeEvent.Created, TreeEvent](
+    extractCreatedAtFrom[RawCreatedEvent, RawTreeEvent](
       in = transactionTree,
-      createdAt = _.partial.createdAt,
+      createdAt = _.ledgerEffectiveTime,
     ) shouldBe expectedCreatedAt
 
-    acs.head.rawCreatedEvent.ledgerEffectiveTime.micros.shouldBe(
-      (expectedCreatedAt.seconds * 1000000) + (expectedCreatedAt.nanos / 1000)
-    )
+    acs.head.rawCreatedEvent.ledgerEffectiveTime shouldBe expectedCreatedAt
   }
 
   private def extractCreatedAtFrom[O: ClassTag, E >: O](
       in: Seq[EventStorageBackend.Entry[E]],
-      createdAt: O => Option[Timestamp],
-  ): Timestamp = {
+      createdAt: O => Time.Timestamp,
+  ): Time.Timestamp = {
     in.size shouldBe 1
     in.head.event match {
-      case o: O => createdAt(o).value
+      case o: O => createdAt(o)
       case _ =>
         fail(
           s"Expected created event of type ${implicitly[reflect.ClassTag[O]].runtimeClass.getSimpleName}"

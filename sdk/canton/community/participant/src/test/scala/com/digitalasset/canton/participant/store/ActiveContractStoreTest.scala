@@ -1507,6 +1507,46 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
       }
     }
 
+    "purging store removes all contracts" in {
+      val acs = mk()
+      val rc3 = RequestCounter(2)
+      val ts3 = ts2.addMicros(1)
+      val coid11 = ExampleTransactionFactory.suffixedId(1, 1)
+      val coid20 = ExampleTransactionFactory.suffixedId(2, 0)
+      val coid21 = ExampleTransactionFactory.suffixedId(2, 1)
+
+      val toc = TimeOfChange(rc, ts)
+      val toc2 = TimeOfChange(rc2, ts2)
+      val toc3 = TimeOfChange(rc3, ts3)
+      for {
+        _ <- acs
+          .markContractsCreated(
+            Seq(coid00 -> initialReassignmentCounter, coid01 -> initialReassignmentCounter),
+            toc,
+          )
+          .value
+        _ <- acs
+          .markContractsCreated(
+            Seq(coid10 -> initialReassignmentCounter, coid11 -> initialReassignmentCounter),
+            toc,
+          )
+          .value
+        _ <- acs.archiveContracts(Seq(coid00), toc2).value
+        _ <- acs
+          .markContractsCreated(
+            Seq(coid20 -> initialReassignmentCounter, coid21 -> initialReassignmentCounter),
+            toc3,
+          )
+          .value
+        snapshotBeforePurge <- acs.snapshot(toc.timestamp)
+        _ <- acs.purge()
+        snapshotAfterPurge <- acs.snapshot(toc3.timestamp)
+      } yield {
+        snapshotBeforePurge should not be empty
+        snapshotAfterPurge shouldBe empty
+      }
+    }
+
     "return a snapshot sorted in the contract ID order" in {
 
       val acs = mk()

@@ -209,5 +209,4 @@ trait PrunableByTime {
   protected[canton] def doPrune(limit: CantonTimestamp, lastPruning: Option[CantonTimestamp])(
       implicit traceContext: TraceContext
   ): Future[Int]
-
 }

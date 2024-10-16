@@ -52,16 +52,16 @@ private[dao] sealed class EventsReader(
       )
 
       deserialized <- Future.traverse(rawEvents) { event =>
-        event.event
-          .applyDeserialization(lfValueTranslation, eventProjectionProperties)
+        TransactionsReader
+          .deserializeFlatEvent(eventProjectionProperties, lfValueTranslation)(event)
           .map(_ -> event.domainId)
       }
 
-      createEvent = deserialized.flatMap { case (event, domainId) =>
-        event.event.created.map(create => Created(Some(create), domainId))
+      createEvent = deserialized.flatMap { case (entry, domainId) =>
+        entry.event.event.created.map(create => Created(Some(create), domainId))
       }.headOption
-      archiveEvent = deserialized.flatMap { case (event, domainId) =>
-        event.event.archived.map(archive => Archived(Some(archive), domainId))
+      archiveEvent = deserialized.flatMap { case (entry, domainId) =>
+        entry.event.event.archived.map(archive => Archived(Some(archive), domainId))
       }.headOption
 
     } yield {

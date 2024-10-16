@@ -94,9 +94,13 @@ trait SequencedEventStore extends PrunableByTime with NamedLogging with AutoClos
   /** Deletes all events with sequencer counter greater than or equal to `from`.
     */
   @VisibleForTesting
-  private[canton] def delete(from: SequencerCounter)(implicit
+  private[canton] def delete(fromInclusive: SequencerCounter)(implicit
       traceContext: TraceContext
   ): Future[Unit]
+
+  /** Purges all data from the store.
+    */
+  def purge()(implicit traceContext: TraceContext): Future[Unit] = delete(SequencerCounter.Genesis)
 }
 
 object SequencedEventStore {

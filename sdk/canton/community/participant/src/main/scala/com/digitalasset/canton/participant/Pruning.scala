@@ -55,4 +55,15 @@ object Pruning {
       s"The domain $domainId can not be pruned as there is a pending domain migration: $status"
   }
 
+  final case class PurgingUnknownDomain(domainId: DomainId) extends LedgerPruningError {
+    override def message = s"Domain $domainId does not exist."
+  }
+
+  final case class PurgingOnlyAllowedOnInactiveDomain(
+      domainId: DomainId,
+      status: DomainConnectionConfigStore.Status,
+  ) extends LedgerPruningError {
+    override def message: String =
+      s"Domain $domainId status needs to be inactive, but is ${status.getClass.getSimpleName}"
+  }
 }

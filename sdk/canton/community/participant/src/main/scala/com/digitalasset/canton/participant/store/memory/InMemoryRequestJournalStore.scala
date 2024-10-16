@@ -105,6 +105,11 @@ class InMemoryRequestJournalStore(protected val loggerFactory: NamedLoggerFactor
     Future.unit
   }
 
+  override def purge()(implicit traceContext: TraceContext): Future[Unit] = {
+    requestTable.clear()
+    Future.unit
+  }
+
   def size(start: CantonTimestamp, end: Option[CantonTimestamp])(implicit
       traceContext: TraceContext
   ): Future[Int] = {

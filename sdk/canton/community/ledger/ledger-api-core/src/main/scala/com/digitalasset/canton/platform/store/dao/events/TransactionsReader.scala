@@ -3,9 +3,10 @@
 
 package com.digitalasset.canton.platform.store.dao.events
 
-import com.daml.ledger.api.v2.event.CreatedEvent
+import com.daml.ledger.api.v2.event.{CreatedEvent, Event}
 import com.daml.ledger.api.v2.reassignment.{AssignedEvent, UnassignedEvent}
 import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
+import com.daml.ledger.api.v2.transaction.TreeEvent
 import com.daml.ledger.api.v2.update_service.{
   GetTransactionResponse,
   GetTransactionTreeResponse,
@@ -19,8 +20,13 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend
 import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
+  Entry,
+  RawArchivedEvent,
   RawAssignEvent,
   RawCreatedEvent,
+  RawExercisedEvent,
+  RawFlatEvent,
+  RawTreeEvent,
   RawUnassignEvent,
 }
 import com.digitalasset.canton.platform.store.dao.{
@@ -28,12 +34,7 @@ import com.digitalasset.canton.platform.store.dao.{
   EventProjectionProperties,
   LedgerDaoTransactionsReader,
 }
-import com.digitalasset.canton.platform.store.serialization.Compression
 import com.digitalasset.canton.platform.{Party, TemplatePartiesFilter}
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.ledger.EventId
-import com.digitalasset.daml.lf.transaction.NodeId
-import com.google.protobuf.ByteString
 import io.opentelemetry.api.trace.Span
 import org.apache.pekko.stream.scaladsl.Source
 import org.apache.pekko.{Done, NotUsed}
@@ -222,28 +223,6 @@ private[dao] object TransactionsReader {
     mat
   }
 
-  def deserializeEntry[E](
-      eventProjectionProperties: EventProjectionProperties,
-      lfValueTranslation: LfValueTranslation,
-  )(
-      entry: EventStorageBackend.Entry[Raw[E]]
-  )(implicit
-      loggingContext: LoggingContextWithTrace,
-      ec: ExecutionContext,
-  ): Future[EventStorageBackend.Entry[E]] =
-    deserializeEvent(eventProjectionProperties, lfValueTranslation)(entry).map(event =>
-      entry.copy(event = event)
-    )
-
-  private def deserializeEvent[E](
-      eventProjectionProperties: EventProjectionProperties,
-      lfValueTranslation: LfValueTranslation,
-  )(entry: EventStorageBackend.Entry[Raw[E]])(implicit
-      loggingContext: LoggingContextWithTrace,
-      ec: ExecutionContext,
-  ): Future[E] =
-    entry.event.applyDeserialization(lfValueTranslation, eventProjectionProperties)
-
   /** Groups together items of type [[A]] that share an attribute [[K]] over a
     * contiguous stretch of the input [[Source]]. Well suited to perform group-by
     * operations of streams where [[K]] attributes are either sorted or at least
@@ -274,48 +253,6 @@ private[dao] object TransactionsReader {
       .fold(Vector.empty[A])(_ :+ _)
       .concatSubstreams
 
-  def deserializeRawCreatedEvent(
-      lfValueTranslation: LfValueTranslation,
-      eventProjectionProperties: EventProjectionProperties,
-  )(rawCreatedEvent: RawCreatedEvent)(implicit
-      lc: LoggingContextWithTrace,
-      ec: ExecutionContext,
-  ): Future[CreatedEvent] =
-    lfValueTranslation
-      .deserializeRaw(
-        createdEvent = rawCreatedEvent,
-        createArgument = rawCreatedEvent.createArgument,
-        createArgumentCompression = Compression.Algorithm
-          .assertLookup(rawCreatedEvent.createArgumentCompression),
-        createKeyValue = rawCreatedEvent.createKeyValue,
-        createKeyValueCompression = Compression.Algorithm
-          .assertLookup(rawCreatedEvent.createKeyValueCompression),
-        templateId = rawCreatedEvent.templateId,
-        witnesses = rawCreatedEvent.witnessParties,
-        eventProjectionProperties = eventProjectionProperties,
-      )
-      .map(apiContractData =>
-        CreatedEvent(
-          eventId = EventId(
-            Ref.LedgerString.assertFromString(rawCreatedEvent.updateId),
-            NodeId(0), // all create Node ID is set synthetically to 0
-          ).toLedgerString,
-          contractId = rawCreatedEvent.contractId,
-          templateId = Some(
-            LfEngineToApi.toApiIdentifier(rawCreatedEvent.templateId)
-          ),
-          contractKey = apiContractData.contractKey,
-          createArguments = apiContractData.createArguments,
-          createdEventBlob = apiContractData.createdEventBlob.getOrElse(ByteString.EMPTY),
-          interfaceViews = apiContractData.interfaceViews,
-          witnessParties = rawCreatedEvent.witnessParties.toList,
-          signatories = rawCreatedEvent.signatories.toList,
-          observers = rawCreatedEvent.observers.toList,
-          createdAt = Some(TimestampConversion.fromLf(rawCreatedEvent.ledgerEffectiveTime)),
-          packageName = rawCreatedEvent.packageName,
-        )
-      )
-
   def toUnassignedEvent(rawUnassignEvent: RawUnassignEvent): UnassignedEvent =
     UnassignedEvent(
       unassignId = rawUnassignEvent.unassignId,
@@ -343,4 +280,54 @@ private[dao] object TransactionsReader {
       reassignmentCounter = rawAssignEvent.reassignmentCounter,
       createdEvent = Some(createdEvent),
     )
+
+  def deserializeFlatEvent(
+      eventProjectionProperties: EventProjectionProperties,
+      lfValueTranslation: LfValueTranslation,
+  )(
+      rawFlatEntry: Entry[RawFlatEvent]
+  )(implicit
+      loggingContext: LoggingContextWithTrace,
+      ec: ExecutionContext,
+  ): Future[Entry[Event]] = rawFlatEntry.event match {
+    case rawCreated: RawCreatedEvent =>
+      lfValueTranslation
+        .deserializeRaw(eventProjectionProperties)(rawCreated)
+        .map(createdEvent => rawFlatEntry.copy(event = Event(Event.Event.Created(createdEvent))))
+
+    case rawArchived: RawArchivedEvent =>
+      Future.successful(
+        rawFlatEntry.copy(
+          event = Event(Event.Event.Archived(lfValueTranslation.deserializeRaw(rawArchived)))
+        )
+      )
+  }
+
+  def deserializeTreeEvent(
+      eventProjectionProperties: EventProjectionProperties,
+      lfValueTranslation: LfValueTranslation,
+  )(
+      rawTreeEntry: Entry[RawTreeEvent]
+  )(implicit
+      loggingContext: LoggingContextWithTrace,
+      ec: ExecutionContext,
+  ): Future[Entry[TreeEvent]] = rawTreeEntry.event match {
+    case rawCreated: RawCreatedEvent =>
+      lfValueTranslation
+        .deserializeRaw(eventProjectionProperties)(rawCreated)
+        .map(createdEvent =>
+          rawTreeEntry.copy(
+            event = TreeEvent(TreeEvent.Kind.Created(createdEvent))
+          )
+        )
+
+    case rawExercised: RawExercisedEvent =>
+      lfValueTranslation
+        .deserializeRaw(eventProjectionProperties.verbose)(rawExercised)
+        .map(exercisedEvent =>
+          rawTreeEntry.copy(
+            event = TreeEvent(TreeEvent.Kind.Exercised(exercisedEvent))
+          )
+        )
+  }
 }

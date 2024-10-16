@@ -123,6 +123,11 @@ class InMemoryContractStore(protected val loggerFactory: NamedLoggerFactory)(
     Future.unit
   }
 
+  override def purge()(implicit traceContext: TraceContext): Future[Unit] = {
+    contracts.clear()
+    Future.unit
+  }
+
   override def lookupStakeholders(ids: Set[LfContractId])(implicit
       traceContext: TraceContext
   ): EitherT[Future, UnknownContracts, Map[LfContractId, Set[LfPartyId]]] = {

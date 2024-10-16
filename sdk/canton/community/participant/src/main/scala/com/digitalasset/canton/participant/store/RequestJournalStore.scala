@@ -69,6 +69,10 @@ trait RequestJournalStore { this: NamedLogging =>
   )(implicit traceContext: TraceContext): Future[Unit] =
     pruneInternal(beforeInclusive)
 
+  /** Purges all data from the request journal.
+    */
+  def purge()(implicit traceContext: TraceContext): Future[Unit]
+
   /** Deletes all request counters at or before the given timestamp.
     * Calls to this method are idempotent, independent of the order.
     */

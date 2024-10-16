@@ -329,10 +329,10 @@ class DbSequencedEventStore(
     } yield ()
 
   private[canton] override def delete(
-      from: SequencerCounter
+      fromInclusive: SequencerCounter
   )(implicit traceContext: TraceContext): Future[Unit] =
     storage.update_(
-      sqlu"delete from common_sequenced_events where domain_idx = $partitionKey and sequencer_counter >= $from",
+      sqlu"delete from common_sequenced_events where domain_idx = $partitionKey and sequencer_counter >= $fromInclusive",
       functionFullName,
     )
 }

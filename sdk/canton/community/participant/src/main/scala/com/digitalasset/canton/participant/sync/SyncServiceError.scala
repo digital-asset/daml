@@ -19,6 +19,7 @@ import com.digitalasset.canton.error.{
 }
 import com.digitalasset.canton.ledger.participant.state.SubmissionResult
 import com.digitalasset.canton.logging.ErrorLoggingContext
+import com.digitalasset.canton.participant.admin.grpc.PruningServiceError
 import com.digitalasset.canton.participant.domain.DomainRegistryError
 import com.digitalasset.canton.participant.store.DomainConnectionConfigStore
 import com.digitalasset.canton.util.ShowUtil.*
@@ -237,26 +238,13 @@ object SyncServiceError extends SyncServiceErrorGroup {
         with SyncServiceError
   }
 
-  @Explanation(
-    "This error is logged when a sync domain is not inactive."
-  )
-  @Resolution(
-    """If you attempt to purge a domain that has not been deactivated, this error will be emitted.
-      |Please ensure that the specified domain has a status of `Inactive` before attempting to purge it."""
-  )
-  object SyncServiceDomainStatusMustBeInactive
-      extends ErrorCode(
-        "SYNC_SERVICE_DOMAIN_STATUS_MUST_BE_INACTIVE",
-        ErrorCategory.InvalidGivenCurrentSystemStateOther,
-      ) {
-
-    final case class Error(domain: DomainAlias, status: DomainConnectionConfigStore.Status)(implicit
-        val loggingContext: ErrorLoggingContext
-    ) extends CantonError.Impl(
-          cause = s"$domain has status $status and therefore cannot be purged."
-        )
-        with SyncServiceError
-  }
+  final case class SyncServicePurgeDomainError(
+      domain: DomainAlias,
+      parent: PruningServiceError,
+  )(implicit
+      val loggingContext: ErrorLoggingContext
+  ) extends SyncServiceError
+      with ParentCantonError[PruningServiceError]
 
   @Explanation(
     "This error is logged when a sync domain is disconnected because the participant became passive."

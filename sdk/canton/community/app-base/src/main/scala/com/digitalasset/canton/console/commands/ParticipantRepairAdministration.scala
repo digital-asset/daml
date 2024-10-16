@@ -267,9 +267,9 @@ class ParticipantRepairAdministration(
     }
   }
 
-  @Help.Summary("Purge select data of a deactivated domain.")
+  @Help.Summary("Purge the data of a deactivated domain.")
   @Help.Description(
-    """This command deletes selected domain data and helps to ensure that stale data in the specified, deactivated domain
+    """This command deletes domain data and helps to ensure that stale data in the specified, deactivated domain
        |is not acted upon anymore. The specified domain needs to be in the `Inactive` status for purging to occur.
        |Purging a deactivated domain is typically performed automatically as part of a hard domain migration via
        |``repair.migrate_domain``."""

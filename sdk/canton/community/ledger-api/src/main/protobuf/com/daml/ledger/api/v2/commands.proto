@@ -151,8 +151,8 @@ message Commands {
     google.protobuf.Duration deduplication_duration = 5;
 
     // Specifies the start of the deduplication period by a completion stream offset (exclusive).
-    // Must be a valid hexadecimal string.
-    string deduplication_offset = 6;
+    // Must be a valid absolute offset (positive integer).
+    int64 deduplication_offset = 6;
   }
 
   // Lower bound for the ledger time assigned to the resulting transaction.

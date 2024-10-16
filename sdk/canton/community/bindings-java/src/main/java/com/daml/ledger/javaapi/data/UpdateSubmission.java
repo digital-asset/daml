@@ -38,7 +38,7 @@ public final class UpdateSubmission<U> {
   @NonNull private final Optional<Instant> minLedgerTimeAbs;
   @NonNull private final Optional<Duration> minLedgerTimeRel;
   @NonNull private final Optional<Duration> deduplicationDuration;
-  @NonNull private final Optional<String> deduplicationOffset;
+  @NonNull private final Optional<Long> deduplicationOffset;
   @NonNull private final Optional<String> accessToken;
 
   @NonNull private final String domainId;
@@ -53,7 +53,7 @@ public final class UpdateSubmission<U> {
       @NonNull Optional<Instant> minLedgerTimeAbs,
       @NonNull Optional<Duration> minLedgerTimeRel,
       @NonNull Optional<Duration> deduplicationDuration,
-      @NonNull Optional<String> deduplicationOffset,
+      @NonNull Optional<Long> deduplicationOffset,
       @NonNull Optional<String> accessToken,
       @NonNull String domainId) {
     this.workflowId = workflowId;
@@ -119,7 +119,7 @@ public final class UpdateSubmission<U> {
     return deduplicationDuration;
   }
 
-  public Optional<String> getDeduplicationOffset() {
+  public Optional<Long> getDeduplicationOffset() {
     return deduplicationOffset;
   }
 
@@ -247,7 +247,7 @@ public final class UpdateSubmission<U> {
         domainId);
   }
 
-  public UpdateSubmission<U> withDeduplicationOffset(Optional<String> deduplicationOffset) {
+  public UpdateSubmission<U> withDeduplicationOffset(Optional<Long> deduplicationOffset) {
     return new UpdateSubmission<U>(
         applicationId,
         commandId,
