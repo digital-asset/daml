@@ -31,7 +31,7 @@ import Control.Exception
 import Control.Monad.Except
 import Control.Monad.Extra
 import Control.Monad.Trans.Maybe
-import DA.Daml.Compiler.ExtractDar (extractDar,ExtractedDar(..))
+import DA.Daml.Compiler.ExtractDar (extractDar, ExtractedDar(..), edDeps)
 import DA.Daml.LF.Ast (renderMajorVersion, Version (versionMajor))
 import DA.Daml.Options
 import DA.Daml.Options.Packaging.Metadata
@@ -308,7 +308,7 @@ generateDalfRule opts =
         upgradedPackage <- join <$> useNoFile ExtractUpgradedPackage
         setPriority priorityGenerateDalf
         let lfDiags = LF.checkModule world lfVersion rawDalf
-            upgradeDiags = Upgrade.checkModule world rawDalf (foldMap Map.toList mbDalfDependencies) lfVersion (optUpgradeInfo opts) upgradedPackage
+            upgradeDiags = Upgrade.checkModule world rawDalf (map Upgrade.unitIdDalfPackageToUpgradedPkg (foldMap Map.toList mbDalfDependencies)) lfVersion (optUpgradeInfo opts) upgradedPackage
         pure $! second (rawDalf <$) (diagsToIdeResult file (lfDiags ++ upgradeDiags))
 
 -- TODO Share code with typecheckModule in ghcide. The environment needs to be setup
@@ -600,24 +600,24 @@ extractUpgradedPackageRule opts = do
     forM (uiUpgradedPackagePath $ optUpgradeInfo opts) $
       use_ ExtractUpgradedPackageFile . toNormalizedFilePath'
   define $ \ExtractUpgradedPackageFile file -> do
-    ExtractedDar{edMain,edDalfs} <- liftIO $ extractDar (fromNormalizedFilePath file)
+    extractedDar <- liftIO $ extractDar (fromNormalizedFilePath file)
     let decodeEntryWithUnitId decodeAs entry = do
           let bs = BSL.toStrict $ ZipArchive.fromEntry entry
           (pkgId, pkg) <- Archive.decodeArchive decodeAs bs
           let (pkgName, mbPkgVersion) = LF.safePackageMetadata pkg
-          pure (pkgId, pkg, pkgName, mbPkgVersion)
+          pure $ Upgrade.UpgradedPkgWithNameAndVersion pkgId pkg pkgName mbPkgVersion
     let mainAndDeps ::
           Either Archive.ArchiveError
-            ((LF.PackageId, LF.Package, LF.PackageName, Maybe LF.PackageVersion),
-             [(LF.PackageId, LF.Package, LF.PackageName, Maybe LF.PackageVersion)])
+            (Upgrade.UpgradedPkgWithNameAndVersion,
+             [Upgrade.UpgradedPkgWithNameAndVersion])
         mainAndDeps = do
-           main <- decodeEntryWithUnitId Archive.DecodeAsMain edMain
-           deps <- decodeEntryWithUnitId Archive.DecodeAsDependency `traverse` edDalfs
+           main <- decodeEntryWithUnitId Archive.DecodeAsMain (edMain extractedDar)
+           deps <- decodeEntryWithUnitId Archive.DecodeAsDependency `traverse` edDeps extractedDar
            pure (main, deps)
         packageConfigFilePath = maybe file (LSP.toNormalizedFilePath . (</> projectConfigName) . unwrapProjectPath) $ optMbPackageConfigPath opts
         diags = case mainAndDeps of
           Left _ -> [ideErrorPretty packageConfigFilePath ("Could not decode file as a DAR." :: T.Text)]
-          Right ((_, mainPkg, _, _), _) -> getUpgradedPackageErrs opts packageConfigFilePath mainPkg
+          Right (mainPkg, _) -> getUpgradedPackageErrs opts packageConfigFilePath (Upgrade.upwnavPkg mainPkg)
     extras <- getShakeExtras
     updateFileDiagnostics packageConfigFilePath ExtractUpgradedPackageFile extras $ map (\(_,y,z) -> (y,z)) diags
     pure ([], guard (null diags) >> rightToMaybe mainAndDeps)

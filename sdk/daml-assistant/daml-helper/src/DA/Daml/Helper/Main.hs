@@ -83,6 +83,13 @@ data Command
         { cantonReplOptions :: CantonReplOptions
         , remainingArguments :: [String]
         }
+    | UpgradeCheck
+        { darPaths :: [String]
+        , upgradeCheckTool :: UpgradeCheckTool
+        }
+
+data UpgradeCheckTool = UCTParticipant | UCTCompiler | UCTBoth
+  deriving (Show, Eq, Ord)
 
 data AppTemplate
   = AppTemplateDefault
@@ -102,6 +109,7 @@ commandParser = subparser $ fold
     , command "packages" (info (packagesCmd <**> helper) packagesCmdInfo)
     , command "sandbox" (info (cantonSandboxCmd <**> helper) cantonSandboxCmdInfo)
     , command "canton-console" (info (cantonReplCmd <**> helper) cantonReplCmdInfo)
+    , command "upgrade-check" (info upgradeCheckCmd forwardOptions)
     ]
   where
 
@@ -129,6 +137,10 @@ commandParser = subparser $ fold
         <*> optional (strOption (long "logback-config"))
         <*> many (argument str (metavar "ARG"))
         <*> stdinCloseOpt
+
+    upgradeCheckCmd = UpgradeCheck
+        <$> many (argument str (metavar "ARG"))
+        <*> (flag' UCTParticipant (long "participant") <|> flag' UCTCompiler (long "compiler") <|> flag' UCTBoth (long "both"))
 
     newCmd =
         let templateHelpStr = "Name of the template used to create the project (default: " <> defaultProjectTemplate <> ")"
@@ -521,3 +533,8 @@ runCommand = \case
                 putStrLn "Canton sandbox is ready."
     CantonRepl {..} ->
         runCantonRepl cantonReplOptions remainingArguments
+    UpgradeCheck {..} -> do
+        when (upgradeCheckTool `elem` [UCTParticipant, UCTBoth]) $
+          runJar "daml-sdk/daml-sdk.jar" (Just "daml-sdk/script-logback.xml") ("upgrade-check": darPaths)
+        when (upgradeCheckTool `elem` [UCTCompiler, UCTBoth]) $
+          runDamlc ("upgrade-check" : darPaths)
