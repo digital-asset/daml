@@ -22,7 +22,6 @@ private[lf] final class CommandPreprocessor(
     new ValueTranslator(
       pkgInterface = pkgInterface,
       checkV1ContractIdSuffixes = checkV1ContractIdSuffix,
-      checkTypeAnnotations = true,
     )
 
   import valueTranslator.validateCid

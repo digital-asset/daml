@@ -209,7 +209,6 @@ class ValueTranslatorSpec
   val valueTranslator = new ValueTranslator(
     compiledPackage.pkgInterface,
     checkV1ContractIdSuffixes = false,
-    checkTypeAnnotations = true,
   )
   import valueTranslator.unsafeTranslateValue
 
@@ -502,7 +501,6 @@ class ValueTranslatorSpec
       val valueTranslator = new ValueTranslator(
         compiledPackage.pkgInterface,
         checkV1ContractIdSuffixes = false,
-        checkTypeAnnotations = true,
       )
       val cids = List(
         ContractId.V1
@@ -528,7 +526,6 @@ class ValueTranslatorSpec
       val valueTranslator = new ValueTranslator(
         compiledPackage.pkgInterface,
         checkV1ContractIdSuffixes = true,
-        checkTypeAnnotations = true,
       )
       val legalCid =
         ContractId.V1.assertBuild(

@@ -54,7 +54,6 @@ object ScriptF {
     val valueTranslator = new ValueTranslator(
       pkgInterface = compiledPackages.pkgInterface,
       checkV1ContractIdSuffixes = false,
-      checkTypeAnnotations = false,
     )
     val utcClock = Clock.systemUTC()
     def addPartyParticipantMapping(party: Party, participant: Participant) = {

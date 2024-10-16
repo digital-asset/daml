@@ -402,7 +402,6 @@ private[lf] object ScenarioRunner {
       new ValueTranslator(
         pkgInterface = compiledPackages.pkgInterface,
         checkV1ContractIdSuffixes = config.requireSuffixedGlobalContractId,
-        checkTypeAnnotations = true,
       )
     def translateValue(typ: Ast.Type, value: Value): Result[SValue] =
       valueTranslator.translateValue(typ, value) match {

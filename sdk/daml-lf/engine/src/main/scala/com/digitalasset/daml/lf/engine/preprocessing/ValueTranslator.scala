@@ -17,7 +17,6 @@ import scala.annotation.tailrec
 private[lf] final class ValueTranslator(
     pkgInterface: language.PackageInterface,
     checkV1ContractIdSuffixes: Boolean,
-    checkTypeAnnotations: Boolean,
 ) {
 
   import Preprocessor._
@@ -58,11 +57,6 @@ private[lf] final class ValueTranslator(
     SValue.SContractId(cid)
   }
 
-  private[this] def pkgName(tmplId: Ref.TypeConName) =
-    handleLookup(pkgInterface.lookupPackage(tmplId.packageId)).name
-
-  private[this] def upgradable(tmplId: Ref.TypeConName) = pkgName(tmplId).isDefined
-
   // For efficient reason we do not produce here the monad Result[SValue] but rather throw
   // exception in case of error or package missing.
   @throws[Error.Preprocessing.Error]
@@ -79,28 +73,23 @@ private[lf] final class ValueTranslator(
         val newNesting = nesting + 1
         def typeError(msg: String = s"mismatching type: ${ty0.pretty} and value: $value0") =
           throw Error.Preprocessing.TypeMismatch(ty0, value0, msg)
-        def checkUserTypeId(targetType: Ref.TypeConName, mbSourceType: Option[Ref.TypeConName]) =
-          if (checkTypeAnnotations)
-            mbSourceType.foreach(sourceType =>
-              (pkgName(targetType), pkgName(sourceType)) match {
-                case (Some(targetPkgName), Some(sourcePkgName)) =>
-                  // Two upgradable packages, we check equality of type using packageName
-                  val targetTypeRef =
-                    Ref.TypeConRef(Ref.PackageRef.Name(targetPkgName), targetType.qualifiedName)
-                  val sourceTypeRef =
-                    Ref.TypeConRef(Ref.PackageRef.Name(sourcePkgName), sourceType.qualifiedName)
-                  if (targetTypeRef != sourceTypeRef)
-                    typeError(
-                      s"Mismatching variant id, the type tells us ${targetTypeRef}, but the value tells us ${sourceTypeRef}"
-                    )
-                case _ =>
-                  // At least one of the packages is not upgradable, we check equality of type using packageId
-                  if (targetType != sourceType)
-                    typeError(
-                      s"Mismatching variant id, the type tells us $targetType, but the value tells us $sourceType"
-                    )
-              }
-            )
+        def checkUserTypeId(
+            upgradable: Boolean,
+            targetType: Ref.TypeConName,
+            mbSourceType: Option[Ref.TypeConName],
+        ) =
+          mbSourceType.foreach { sourceType =>
+            if (upgradable)
+              if (targetType.qualifiedName != sourceType.qualifiedName)
+                typeError(
+                  s"Mismatching variant id, the type tells us ${targetType.qualifiedName}, but the value tells us ${sourceType.qualifiedName}"
+                )
+              else if (targetType != sourceType)
+                typeError(
+                  s"Mismatching variant id, the type tells us ${targetType}, but the value tells us ${sourceType}"
+                )
+          }
+
         val (ty1, tyArgs) = AstUtil.destructApp(ty0)
         ty1 match {
           case TBuiltin(bt) =>
@@ -186,10 +175,13 @@ private[lf] final class ValueTranslator(
                 typeError()
             }
           case TTyCon(tyCon) =>
+            val upgradable = handleLookup(
+              pkgInterface.lookupPackage(tyCon.packageId)
+            ).name.isDefined
             value0 match {
               // variant
               case ValueVariant(mbId, constructorName, val0) =>
-                checkUserTypeId(tyCon, mbId)
+                checkUserTypeId(upgradable, tyCon, mbId)
                 val info = handleLookup(
                   pkgInterface.lookupVariantConstructor(tyCon, constructorName)
                 )
@@ -202,7 +194,7 @@ private[lf] final class ValueTranslator(
                 )
               // records
               case ValueRecord(mbId, sourceElements) =>
-                checkUserTypeId(tyCon, mbId)
+                checkUserTypeId(upgradable, tyCon, mbId)
                 val lookupResult = handleLookup(pkgInterface.lookupDataRecord(tyCon))
                 val targetFieldsAndTypes = lookupResult.dataRecord.fields
                 val subst = lookupResult.subst(tyArgs)
@@ -218,7 +210,7 @@ private[lf] final class ValueTranslator(
                       )
                   }
 
-                if (upgradable(tyCon)) {
+                if (upgradable) {
                   val oLabeledFlds =
                     labeledRecordToMap(sourceElements)
                       .fold(typeError, identity _)
@@ -269,7 +261,7 @@ private[lf] final class ValueTranslator(
                         val (backwardsCorrectFields, remaining) =
                           targetFieldsAndTypes.foldLeft(initialState) {
                             case ((correctFields, remaining), (lbl, ty)) =>
-                              val v = remaining.get(lbl).getOrElse(addMissingField(lbl, ty)._2)
+                              val v = remaining.getOrElse(lbl, addMissingField(lbl, ty)._2)
                               ((lbl, v, ty) +: correctFields, remaining - lbl)
                           }
 
@@ -354,7 +346,7 @@ private[lf] final class ValueTranslator(
                   )
                 }
               case ValueEnum(mbId, constructor) if tyArgs.isEmpty =>
-                checkUserTypeId(tyCon, mbId)
+                checkUserTypeId(upgradable, tyCon, mbId)
                 val rank = handleLookup(pkgInterface.lookupEnumConstructor(tyCon, constructor))
                 SValue.SEnum(tyCon, constructor, rank)
               case _ =>

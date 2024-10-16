@@ -55,7 +55,6 @@ trait AbstractScriptTest extends CantonFixture with PekkoBeforeAndAfterAll {
       new com.daml.lf.engine.preprocessing.ValueTranslator(
         dar.compiledPackages.pkgInterface,
         checkV1ContractIdSuffixes = true,
-        checkTypeAnnotations = false,
       )
         .translateValue(typ, input)
         .left
