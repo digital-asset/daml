@@ -6,7 +6,7 @@ package engine
 
 import com.daml.lf.crypto.Hash.KeyPackageName
 import com.daml.lf.data.Ref
-import com.daml.lf.data.Ref.{Identifier, Name, PackageId}
+import com.daml.lf.data.Ref.{Identifier, Name, PackageId, QualifiedName}
 import com.daml.lf.language.{Ast, LookupError}
 import com.daml.lf.transaction.{
   GlobalKey,
@@ -110,13 +110,34 @@ final class ValueEnricher(
       .flatMap(choice => enrichValue(choice.argBinder._2, value))
 
   def enrichChoiceResult(
+      choicePackageId: PackageId,
+      qualifiedTemplateName: QualifiedName,
+      interfaceId: Option[Identifier],
+      choiceName: Name,
+      value: Value,
+  ): Result[Value] = {
+    handleLookup(
+      pkgInterface.lookupChoice(
+        Identifier(choicePackageId, qualifiedTemplateName),
+        interfaceId,
+        choiceName,
+      )
+    )
+      .flatMap(choice => enrichValue(choice.returnType, value))
+  }
+
+  def enrichChoiceResult(
       templateId: Identifier,
       interfaceId: Option[Identifier],
       choiceName: Name,
       value: Value,
-  ): Result[Value] =
-    handleLookup(pkgInterface.lookupChoice(templateId, interfaceId, choiceName))
-      .flatMap(choice => enrichValue(choice.returnType, value))
+  ): Result[Value] = enrichChoiceResult(
+    templateId.packageId,
+    templateId.qualifiedName,
+    interfaceId,
+    choiceName,
+    value,
+  );
 
   def enrichContractKey(tyCon: Identifier, value: Value): Result[Value] =
     handleLookup(pkgInterface.lookupTemplateKey(tyCon))
