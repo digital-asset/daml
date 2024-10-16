@@ -10,12 +10,12 @@ import qualified V1.IfaceMod as Iface
 import DA.Text
 
 {- PACKAGE
-name: iface
+name: signatory-observer-changes-iface
 versions: 1
 -}
 
 {- MODULE
-package: iface
+package: signatory-observer-changes-iface
 contents: |
   module IfaceMod where
 
@@ -32,7 +32,7 @@ contents: |
 {- PACKAGE
 name: signatory-observer-changes
 versions: 2
-depends: iface-1.0.0
+depends: signatory-observer-changes-iface-1.0.0
 -}
 
 {- MODULE

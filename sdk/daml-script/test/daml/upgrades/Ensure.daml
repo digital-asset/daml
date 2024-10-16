@@ -1,24 +1,46 @@
 -- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE AllowAmbiguousTypes #-}
-
 module Ensure (main) where
 
 import UpgradeTestLib
 import qualified V1.EnsureChanges as V1
 import qualified V2.EnsureChanges as V2
+import qualified V1.IfaceMod as Iface
 import DA.Exception
+
+{- PACKAGE
+name: ensure-changes-iface
+versions: 1
+-}
+
+{- MODULE
+package: ensure-changes-iface
+contents: |
+  module IfaceMod where
+
+  data MyUnit = MyUnit {}
+
+  interface I where
+    viewtype MyUnit
+
+    nonconsuming choice NoOp : ()
+      controller signatory this
+      do pure ()
+-}
 
 {- PACKAGE
 name: ensure-changes
 versions: 2
+depends: ensure-changes-iface-1.0.0
 -}
 
 {- MODULE
 package: ensure-changes
 contents: |
   module EnsureChanges where
+
+  import IfaceMod
 
   template EnsureChangesTemplate
     with
@@ -30,6 +52,9 @@ contents: |
       ensure v1Valid       -- @V 1
       ensure v2Valid       -- @V  2
 
+      interface instance I for EnsureChangesTemplate where
+        view = MyUnit {}
+
       choice EnsureChangesCall : Text
         controller party
         do pure "V1"       -- @V 1
@@ -39,29 +64,34 @@ contents: |
 main : TestTree
 main = tests
   [ ("Fails if the ensure clause changes such that V1 is not longer valid", ensureClauseBecomesInvalid)
+  , ("Fails if the ensure clause changes such that V1 is not longer valid, exercise by interface", ensureClauseBecomesInvalidDynamic)
   , ("Succeeds when implicitly creating a V1 contract such that the ensure clause only passes in V2", onlyV2EnsureClauseRequiredForImplicitUpgrade)
   , ("Fails when explicitly calling a V1 choice on a V2 contract that doesn't pass the ensure clause in V1", ensureClauseDowngradeToNoLongerValid)
   ]
 
 testForPreconditionFailed
-  : forall t2 t1 c2 r
-  . (Template t1, HasAgreement t1, Choice t2 c2 r, Show r)
+  :  (Template t1, HasAgreement t1, Show r)
   => (Party -> t1)
-  -> c2
-  -> Bool
+  -> (ContractId t1 -> Commands r)
   -> Test
-testForPreconditionFailed makeV1Contract v2Choice explicitPackageIds = test $ do
+testForPreconditionFailed makeV1Contract exerciseChoice = test $ do
   a <- allocatePartyOn "alice" participant0
   cid <- a `submit` createExactCmd (makeV1Contract a)
-  let cidV2 = coerceContractId @t1 @t2 cid
-  res <- a `trySubmit` (if explicitPackageIds then exerciseExactCmd else exerciseCmd) cidV2 v2Choice
+  res <-  a `trySubmit` exerciseChoice cid
   case res of
     Left (UnhandledException (Some (fromAnyException -> Some (PreconditionFailed _)))) -> pure ()
     res -> assertFail $ "Expected PreconditionFailed, got " <> show res
 
 ensureClauseBecomesInvalid : Test
 ensureClauseBecomesInvalid =
-  testForPreconditionFailed @V2.EnsureChangesTemplate (V1.EnsureChangesTemplate True False) V2.EnsureChangesCall False
+  testForPreconditionFailed (V1.EnsureChangesTemplate True False) $ \cidV1 ->
+     -- because the exercise is not exact, the contract should be upgraded to V2 before evaluating the ensure clause
+     exerciseCmd cidV1 V1.EnsureChangesCall
+
+ensureClauseBecomesInvalidDynamic : Test
+ensureClauseBecomesInvalidDynamic =
+  testForPreconditionFailed (V1.EnsureChangesTemplate True False) $ \cidV1 ->
+     exerciseExactCmd (coerceContractId @V1.EnsureChangesTemplate @Iface.I cidV1) Iface.NoOp
 
 onlyV2EnsureClauseRequiredForImplicitUpgrade : Test
 onlyV2EnsureClauseRequiredForImplicitUpgrade = test $ do
@@ -72,4 +102,5 @@ onlyV2EnsureClauseRequiredForImplicitUpgrade = test $ do
 
 ensureClauseDowngradeToNoLongerValid : Test
 ensureClauseDowngradeToNoLongerValid =
-  testForPreconditionFailed @V1.EnsureChangesTemplate (V2.EnsureChangesTemplate False True) V1.EnsureChangesCall True
+  testForPreconditionFailed (V2.EnsureChangesTemplate False True) $ \cidV2 ->
+    exerciseExactCmd (coerceContractId @V2.EnsureChangesTemplate @V1.EnsureChangesTemplate cidV2) V1.EnsureChangesCall
