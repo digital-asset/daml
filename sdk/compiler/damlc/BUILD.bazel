@@ -221,6 +221,7 @@ da_haskell_library(
         "uniplate",
         "unordered-containers",
         "utf8-string",
+        "validation",
         "vector",
         "xml",
         "yaml",

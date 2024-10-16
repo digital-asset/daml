@@ -1,7 +1,6 @@
 -- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
-{-# LANGUAGE InstanceSigs #-}
 {-# LANGUAGE ApplicativeDo #-}
 {-# LANGUAGE RankNTypes #-}
 module DA.Cli.Damlc.Command.UpgradeCheck (runUpgradeCheck) where
@@ -27,10 +26,20 @@ import Safe (maximumByMay, minimumByMay)
 import Data.Function (on)
 import Development.IDE.Types.Diagnostics (Diagnostic(..), showDiagnostics, ShowDiagnostic(..), DiagnosticSeverity(..))
 import Control.Monad.Trans.Except
+import qualified Data.Validation as Validation
+import Data.Validation (Validation)
+import Data.Functor.Compose
 
 -- Monad in which all checking operations run
--- Occasionally we change to CollectErrs
+-- Occasionally we change to CheckMValidate
 type CheckM = ExceptT [CheckingError] IO
+type CheckMValidate = Compose IO (Validation [CheckingError])
+
+fromValidate :: CheckMValidate a -> CheckM a
+fromValidate = ExceptT . fmap Validation.toEither . getCompose
+
+toValidate :: CheckM a -> CheckMValidate a
+toValidate = Compose . fmap Validation.fromEither . runExceptT
 
 fromEither :: (e -> CheckingError) -> Either e a -> CheckM a
 fromEither mkErr act = withExceptT (pure . mkErr) $ ExceptT $ pure act
@@ -91,33 +100,6 @@ newtype CheckingErrors = CheckingErrors [CheckingError]
 instance Pretty CheckingErrors where
   pPrint (CheckingErrors errs) = vcat $ map pPrint errs
 
--- Run as many applicative actions as possible, collecting errors as we go along
--- Used to collect errors for a list of monadic actions without aborting on the
--- first error.
-newtype CollectErrs m e a = CollectErrs { runCollectErrs :: m (Either e a) }
-
-instance (Functor m) => Functor (CollectErrs m e) where
-  fmap f (CollectErrs mea) = CollectErrs ((fmap . fmap) f mea)
-
-instance (Applicative m, Monoid e) => Applicative (CollectErrs m e) where
-  pure = CollectErrs . pure . Right
-  (<*>) :: forall m e a b. (Applicative m, Monoid e) => CollectErrs m e (a -> b) -> CollectErrs m e a -> CollectErrs m e b
-  (<*>) (CollectErrs mf) (CollectErrs ma) = CollectErrs (go <$> mf <*> ma)
-    where
-      go :: Either e (a -> b) -> Either e a -> Either e b
-      go f a =
-        case (f, a) of
-          (Left fErrs, Left aErrs) -> Left (fErrs <> aErrs)
-          (Left fErrs, _) -> Left fErrs
-          (_, Left aErrs) -> Left aErrs
-          (Right f, Right a) -> Right (f a)
-
-fromCollect :: CollectErrs IO [CheckingError] a -> CheckM a
-fromCollect = ExceptT . runCollectErrs
-
-toCollect :: CheckM a -> CollectErrs IO [CheckingError] a
-toCollect = CollectErrs . runExceptT
-
 -- Read main & deps from a DAR path, annotate with name and version so that
 -- upgrades knows which types to check against which
 type Archive = (NormalizedFilePath, UpgradedPkgWithNameAndVersion, [UpgradedPkgWithNameAndVersion])
@@ -130,9 +112,9 @@ readPathToArchive path = do
     catchIOException
       (CECantReadDar path . displayException)
       (extractDar (fromNormalizedFilePath path))
-  (main, deps) <- fromCollect $ do
-      main <- toCollect $ decodeEntryWithUnitId path Archive.DecodeAsMain (edMain extractedDar)
-      deps <- traverse (toCollect . decodeEntryWithUnitId path Archive.DecodeAsDependency) (edDeps extractedDar)
+  (main, deps) <- fromValidate $ do
+      main <- toValidate $ decodeEntryWithUnitId path Archive.DecodeAsMain (edMain extractedDar)
+      deps <- traverse (toValidate . decodeEntryWithUnitId path Archive.DecodeAsDependency) (edDeps extractedDar)
       pure (main, deps)
   pure (path, main, deps)
     where
@@ -202,7 +184,7 @@ runUpgradeCheck :: [String] -> IO ()
 runUpgradeCheck rawPaths = do
   let paths = map toNormalizedFilePath' rawPaths
   errsOrUnit <- runExceptT $ do
-    packages <- fromCollect $ traverse (toCollect . readPathToArchive) paths
+    packages <- fromValidate $ traverse (toValidate . readPathToArchive) paths
     sortedPackages <- topoSortPackagesM packages
     -- Given sorted packages p1, p2, p3, ... this gives you (p1, []), (p2,[p1]), (p3,[p2,p1]), ...
     let sortedPackagesWithPastPackages = mapMaybe go (reverse (tails (reverse sortedPackages)))
