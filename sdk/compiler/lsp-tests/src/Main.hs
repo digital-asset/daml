@@ -336,7 +336,7 @@ diagnosticTests run runScripts runUpgrades = testGroup "diagnostics"
               [ ( "Main.daml"
                 , [ ( DsError
                     , (1, 9)
-                    , "The upgraded template T has added new fields, but those fields are not Optional."
+                    , "The upgraded template T has added new fields, but the following new fields are not Optional:\n    Field 'q' with type Int64"
                     )
                   ]
                 )
