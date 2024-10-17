@@ -47,7 +47,7 @@ private[engine] final class Preprocessor(
   val commandPreprocessor =
     new CommandPreprocessor(
       pkgInterface = pkgInterface,
-      requireV1ContractIdSuffix = requireV1ContractIdSuffix,
+      checkV1ContractIdSuffix = requireV1ContractIdSuffix,
     )
 
   val transactionPreprocessor = new TransactionPreprocessor(commandPreprocessor)
@@ -160,8 +160,8 @@ private[engine] final class Preprocessor(
     */
   def translateValue(ty0: Ast.Type, v0: Value): Result[SValue] =
     safelyRun(pullTypePackages(ty0)) {
-      // this is used only by the value enricher, strict translation is the way to go
-      commandPreprocessor.unsafeStrictTranslateValue(ty0, v0)
+      // this is used only by the value enricher
+      commandPreprocessor.unsafeTranslateValue(ty0, v0)
     }
 
   private[engine] def preprocessApiCommand(

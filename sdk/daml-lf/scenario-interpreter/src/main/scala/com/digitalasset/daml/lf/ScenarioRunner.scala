@@ -401,10 +401,10 @@ private[lf] object ScenarioRunner {
     val valueTranslator =
       new ValueTranslator(
         pkgInterface = compiledPackages.pkgInterface,
-        requireV1ContractIdSuffix = config.requireSuffixedGlobalContractId,
+        checkV1ContractIdSuffixes = config.requireSuffixedGlobalContractId,
       )
     def translateValue(typ: Ast.Type, value: Value): Result[SValue] =
-      valueTranslator.strictTranslateValue(typ, value) match {
+      valueTranslator.translateValue(typ, value) match {
         case Left(err) => ResultError(err)
         case Right(sv) => ResultDone(sv)
       }

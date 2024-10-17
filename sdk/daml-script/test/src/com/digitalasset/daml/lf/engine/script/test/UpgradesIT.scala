@@ -80,7 +80,6 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
               )
             ),
             dar = testDar,
-            enableContractUpgrading = true,
           )
         } yield succeed
       }
@@ -133,7 +132,6 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
               )
             ),
             dar = testDar,
-            enableContractUpgrading = true,
           )
         } yield succeed
       }

@@ -1255,12 +1255,13 @@ object Ast {
   ) {
     import Ordering.Implicits._
 
+    private[lf] def upgradable: Boolean =
+      !isUtilityPackage && languageVersion >= LanguageVersion.Features.packageUpgrades
     // package Name if the package support upgrade
     // TODO: https://github.com/digital-asset/daml/issues/17965
     //  drop that in daml-3
     private[lf] val name: Option[Ref.PackageName] = metadata.collect {
-      case md if languageVersion >= LanguageVersion.Features.packageUpgrades && !isUtilityPackage =>
-        md.name
+      case md if upgradable => md.name
     }
   }
 

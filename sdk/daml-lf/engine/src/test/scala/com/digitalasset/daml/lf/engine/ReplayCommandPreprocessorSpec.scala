@@ -86,7 +86,7 @@ class ReplayCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
     val defaultPreprocessor =
       new CommandPreprocessor(
         compiledPackage.pkgInterface,
-        requireV1ContractIdSuffix = false,
+        checkV1ContractIdSuffix = false,
       )
 
     "reject improperly typed ApiCommands" in {
@@ -239,7 +239,7 @@ class ReplayCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
 
       val cmdPreprocessor = new CommandPreprocessor(
         compiledPackage.pkgInterface,
-        requireV1ContractIdSuffix = false,
+        checkV1ContractIdSuffix = false,
       )
 
       val cids = List(
@@ -264,7 +264,7 @@ class ReplayCommandPreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
 
       val cmdPreprocessor = new CommandPreprocessor(
         compiledPackage.pkgInterface,
-        requireV1ContractIdSuffix = true,
+        checkV1ContractIdSuffix = true,
       )
       val List(aLegalCid, anotherLegalCid) =
         List("a legal Contract ID", "another legal Contract ID").map(s =>

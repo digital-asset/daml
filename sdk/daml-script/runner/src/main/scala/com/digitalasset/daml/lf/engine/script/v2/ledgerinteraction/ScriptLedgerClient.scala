@@ -77,7 +77,6 @@ object ScriptLedgerClient {
 
   def realiseScriptLedgerClient(
       ledger: abstractLedgers.ScriptLedgerClient,
-      enableContractUpgrading: Boolean,
       compiledPackages: CompiledPackages,
   ): ScriptLedgerClient =
     ledger match {
@@ -86,7 +85,6 @@ object ScriptLedgerClient {
           grpcClient,
           applicationId,
           oAdminClient,
-          enableContractUpgrading,
           compiledPackages,
         )
       case _: abstractLedgers.JsonLedgerClient =>
@@ -97,7 +95,6 @@ object ScriptLedgerClient {
           traceLog,
           warningLog,
           canceled,
-          enableContractUpgrading,
         )
     }
 
@@ -121,8 +118,6 @@ trait ScriptLedgerClient {
   ): Future[Seq[ScriptLedgerClient.ActiveContract]]
 
   protected def transport: String
-
-  val enableContractUpgrading: Boolean = false
 
   final protected def unsupportedOn(what: String) =
     Future.failed(

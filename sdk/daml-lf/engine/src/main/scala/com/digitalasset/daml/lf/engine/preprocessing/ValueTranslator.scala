@@ -16,10 +16,9 @@ import scala.annotation.tailrec
 
 private[lf] final class ValueTranslator(
     pkgInterface: language.PackageInterface,
-    requireV1ContractIdSuffix: Boolean,
+    checkV1ContractIdSuffixes: Boolean,
 ) {
 
-  import ValueTranslator._
   import Preprocessor._
 
   @throws[Error.Preprocessing.Error]
@@ -46,7 +45,7 @@ private[lf] final class ValueTranslator(
   }
 
   val validateCid: ContractId => Unit =
-    if (requireV1ContractIdSuffix) { case cid: ContractId.V1 =>
+    if (checkV1ContractIdSuffixes) { case cid: ContractId.V1 =>
       if (cid.suffix.isEmpty)
         throw Error.Preprocessing.IllegalContractId.NonSuffixV1ContractId(cid)
     }
@@ -64,11 +63,9 @@ private[lf] final class ValueTranslator(
   private[preprocessing] def unsafeTranslateValue(
       ty: Type,
       value: Value,
-      config: Config,
   ): SValue = {
     // TODO: https://github.com/digital-asset/daml/issues/17082
     //   Should we consider factorizing this code with Seedy.Machine#importValues
-
     def go(ty0: Type, value0: Value, nesting: Int = 0): SValue =
       if (nesting > Value.MAXIMUM_NESTING) {
         throw Error.Preprocessing.ValueNesting(value)
@@ -76,21 +73,25 @@ private[lf] final class ValueTranslator(
         val newNesting = nesting + 1
         def typeError(msg: String = s"mismatching type: ${ty0.pretty} and value: $value0") =
           throw Error.Preprocessing.TypeMismatch(ty0, value0, msg)
-        def checkUserTypeId(targetType: Ref.TypeConName, mbSourceType: Option[Ref.TypeConName]) =
-          mbSourceType.foreach(sourceType =>
-            if (config.ignorePackageId) {
-              // In case of upgrade we simply ignore the package ID.
+        def checkUserTypeId(
+            upgradable: Boolean,
+            targetType: Ref.TypeConName,
+            mbSourceType: Option[Ref.TypeConName],
+        ) =
+          mbSourceType.foreach { sourceType =>
+            if (upgradable) {
               if (targetType.qualifiedName != sourceType.qualifiedName)
                 typeError(
                   s"Mismatching variant id, the type tells us ${targetType.qualifiedName}, but the value tells us ${sourceType.qualifiedName}"
                 )
             } else {
-              if (targetType != sourceType)
+              if (targetType != sourceType) {
                 typeError(
-                  s"Mismatching variant id, the type tells us $targetType, but the value tells us $sourceType"
+                  s"Mismatching variant id, the type tells us ${targetType}, but the value tells us ${sourceType}"
                 )
+              }
             }
-          )
+          }
 
         val (ty1, tyArgs) = AstUtil.destructApp(ty0)
         ty1 match {
@@ -177,10 +178,11 @@ private[lf] final class ValueTranslator(
                 typeError()
             }
           case TTyCon(tyCon) =>
+            val upgradable = handleLookup(pkgInterface.lookupPackage(tyCon.packageId)).upgradable
             value0 match {
               // variant
               case ValueVariant(mbId, constructorName, val0) =>
-                checkUserTypeId(tyCon, mbId)
+                checkUserTypeId(upgradable, tyCon, mbId)
                 val info = handleLookup(
                   pkgInterface.lookupVariantConstructor(tyCon, constructorName)
                 )
@@ -193,7 +195,7 @@ private[lf] final class ValueTranslator(
                 )
               // records
               case ValueRecord(mbId, sourceElements) =>
-                checkUserTypeId(tyCon, mbId)
+                checkUserTypeId(upgradable, tyCon, mbId)
                 val lookupResult = handleLookup(pkgInterface.lookupDataRecord(tyCon))
                 val targetFieldsAndTypes = lookupResult.dataRecord.fields
                 val subst = lookupResult.subst(tyArgs)
@@ -209,7 +211,7 @@ private[lf] final class ValueTranslator(
                       )
                   }
 
-                if (config.enableUpgrade) {
+                if (upgradable) {
                   val oLabeledFlds =
                     labeledRecordToMap(sourceElements)
                       .fold(typeError, identity _)
@@ -260,7 +262,7 @@ private[lf] final class ValueTranslator(
                         val (backwardsCorrectFields, remaining) =
                           targetFieldsAndTypes.foldLeft(initialState) {
                             case ((correctFields, remaining), (lbl, ty)) =>
-                              val v = remaining.get(lbl).getOrElse(addMissingField(lbl, ty)._2)
+                              val v = remaining.getOrElse(lbl, addMissingField(lbl, ty)._2)
                               ((lbl, v, ty) +: correctFields, remaining - lbl)
                           }
 
@@ -345,7 +347,7 @@ private[lf] final class ValueTranslator(
                   )
                 }
               case ValueEnum(mbId, constructor) if tyArgs.isEmpty =>
-                checkUserTypeId(tyCon, mbId)
+                checkUserTypeId(upgradable, tyCon, mbId)
                 val rank = handleLookup(pkgInterface.lookupEnumConstructor(tyCon, constructor))
                 SValue.SEnum(tyCon, constructor, rank)
               case _ =>
@@ -359,43 +361,9 @@ private[lf] final class ValueTranslator(
     go(ty, value)
   }
 
-  // This does not try to pull missing packages, return an error instead.
-  // TODO: https://github.com/digital-asset/daml/issues/17082
-  //  This is used by script and trigger, this should problaby use ValueTranslator.Config.Strict
-  def strictTranslateValue(
-      ty: Type,
-      value: Value,
-  ): Either[Error.Preprocessing.Error, SValue] =
+  def translateValue(ty: Type, value: Value): Either[Error.Preprocessing.Error, SValue] =
     safelyRun(
-      unsafeTranslateValue(ty, value, Config.Strict)
+      unsafeTranslateValue(ty, value)
     )
-
-  def translateValue(
-      ty: Type,
-      value: Value,
-      config: Config,
-  ): Either[Error.Preprocessing.Error, SValue] =
-    safelyRun(
-      unsafeTranslateValue(ty, value, config)
-    )
-
-}
-
-object ValueTranslator {
-
-  case class Config(
-      ignorePackageId: Boolean,
-      enableUpgrade: Boolean,
-  )
-  object Config {
-    val Strict =
-      Config(ignorePackageId = false, enableUpgrade = false)
-
-    val Coerceable =
-      Config(ignorePackageId = true, enableUpgrade = false)
-
-    val Upgradeable =
-      Config(ignorePackageId = true, enableUpgrade = true)
-  }
 
 }

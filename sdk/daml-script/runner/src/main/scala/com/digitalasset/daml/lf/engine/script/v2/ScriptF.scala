@@ -53,7 +53,7 @@ object ScriptF {
     def clients = _clients
     val valueTranslator = new ValueTranslator(
       pkgInterface = compiledPackages.pkgInterface,
-      requireV1ContractIdSuffix = false,
+      checkV1ContractIdSuffixes = false,
     )
     val utcClock = Clock.systemUTC()
     def addPartyParticipantMapping(party: Party, participant: Participant) = {
@@ -80,7 +80,7 @@ object ScriptF {
       }
 
     def translateValue(ty: Ast.Type, value: Value): Either[String, SValue] =
-      valueTranslator.strictTranslateValue(ty, value).left.map(_.toString)
+      valueTranslator.translateValue(ty, value).left.map(_.toString)
 
     def lookupLanguageVersion(packageId: PackageId): Either[String, LanguageVersion] = {
       compiledPackages.pkgInterface.lookupPackageLanguageVersion(packageId) match {
@@ -234,7 +234,6 @@ class ScriptF(majorLanguageVersion: LanguageMajorVersion) {
                     env.valueTranslator,
                     env.scriptIds,
                     _,
-                    client.enableContractUpgrading,
                   )
                 )
                 .flatMap { rs =>
@@ -244,7 +243,6 @@ class ScriptF(majorLanguageVersion: LanguageMajorVersion) {
                       env.valueTranslator,
                       env.scriptIds,
                       tree,
-                      client.enableContractUpgrading,
                     )
                     .map((rs, _))
                 }
@@ -289,7 +287,7 @@ class ScriptF(majorLanguageVersion: LanguageMajorVersion) {
             .to(FrontStack)
             .traverse(
               converter
-                .fromCreated(env.valueTranslator, _, tplId, client.enableContractUpgrading)
+                .fromCreated(env.valueTranslator, _, tplId)
             )
         )
       } yield SEValue(SList(res))
@@ -315,7 +313,6 @@ class ScriptF(majorLanguageVersion: LanguageMajorVersion) {
                 env.valueTranslator,
                 tplId,
                 c.argument,
-                client.enableContractUpgrading,
               )
               .map(
                 converter.makeTuple(
@@ -393,17 +390,11 @@ class ScriptF(majorLanguageVersion: LanguageMajorVersion) {
       tplId: Identifier,
       key: AnyContractKey,
   ) extends Cmd {
-    private def translateKey(
-        env: Env,
-        enableContractUpgrading: Boolean,
-    )(id: Identifier, v: Value): Either[String, SValue] =
+    private def translateKey(env: Env)(id: Identifier, v: Value): Either[String, SValue] =
       for {
         keyTy <- env.lookupKeyTy(id)
-        translatorConfig =
-          if (enableContractUpgrading) preprocessing.ValueTranslator.Config.Upgradeable
-          else preprocessing.ValueTranslator.Config.Strict
         translated <- env.valueTranslator
-          .translateValue(keyTy, v, translatorConfig)
+          .translateValue(keyTy, v)
           .left
           .map(_.message)
       } yield translated
@@ -419,11 +410,11 @@ class ScriptF(majorLanguageVersion: LanguageMajorVersion) {
           parties,
           tplId,
           key.key,
-          translateKey(env, client.enableContractUpgrading),
+          translateKey(env),
         )
         optR <- converter.toFuture(
           optR.traverse(
-            converter.fromCreated(env.valueTranslator, _, tplId, client.enableContractUpgrading)
+            converter.fromCreated(env.valueTranslator, _, tplId)
           )
         )
       } yield SEValue(SOptional(optR))

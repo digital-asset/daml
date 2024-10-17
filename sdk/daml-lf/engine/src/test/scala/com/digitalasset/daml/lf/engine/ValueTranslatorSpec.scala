@@ -6,8 +6,7 @@ package engine
 package preprocessing
 
 import com.daml.lf.data._
-import com.daml.lf.language.{Ast, LanguageMajorVersion}
-import com.daml.lf.language.Util._
+import com.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion}
 import com.daml.lf.speedy.ArrayList
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.testing.parser.ParserParameters
@@ -21,24 +20,14 @@ import com.daml.lf.speedy.Compiler
 
 import scala.util.{Failure, Success, Try}
 
-class ValueTranslatorSpecV1 extends ValueTranslatorSpec(LanguageMajorVersion.V1)
-//class ValueTranslatorSpecV2 extends ValueTranslatorSpec(LanguageMajorVersion.V2)
-
-class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
+class ValueTranslatorSpec
     extends AnyWordSpec
     with Inside
     with Matchers
     with TableDrivenPropertyChecks {
 
-  import ValueTranslator.Config
   import com.daml.lf.testing.parser.Implicits.SyntaxHelper
   import com.daml.lf.transaction.test.TransactionBuilder.Implicits.{defaultPackageId => _, _}
-
-  private[this] implicit val parserParameters: ParserParameters[ValueTranslatorSpec.this.type] =
-    ParserParameters.defaultFor(majorLanguageVersion)
-
-  private[this] implicit val defaultPackageId: Ref.PackageId =
-    parserParameters.defaultPackageId
 
   private[this] val aCid =
     ContractId.V1.assertBuild(
@@ -46,335 +35,438 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
       Bytes.assertFromString("00"),
     )
 
-  private[this] val pkg =
-    p"""
+  val aInt = ValueInt64(42)
+  val aText = ValueText("42")
+  val aParty = ValueParty("42")
+  val someText = ValueOptional(Some(aText))
+  val someParty = ValueOptional(Some(aParty))
+  val none = Value.ValueNone
+
+  val nonUpgradablePkgId = Ref.PackageId.assertFromString("-non-upgradable-")
+
+  implicit def pkgId(implicit
+      parserParameter: ParserParameters[ValueTranslatorSpec.this.type]
+  ): Ref.PackageId =
+    parserParameter.defaultPackageId
+
+  val (nonUpgradablePkg, nonUpgradableUserTestCases) = {
+    implicit val parserParameters: ParserParameters[ValueTranslatorSpec.this.type] =
+      ParserParameters(nonUpgradablePkgId, LanguageVersion.v1_15)
+
+    val pkg =
+      p"""metadata ( 'non-upgradable' : '1.0.0' )
+
         module Mod {
+          record @serializable Record (a: *) (b: *) (c: *) (d: *) = { fieldA: a, fieldB: Option b };
+          variant @serializable Variant (a: *) (b: *) (c: *) = ConsA: a | ConsB: b ;
+          enum @serializable Enum = Cons1 | Cons2 ;
+      }
+    """
+    val testCases = Table[Ast.Type, Value, List[Value], speedy.SValue](
+      ("type", "normalized value", "non normalized value", "svalue"),
+      (
+        t"Mod:Record Int64 Text Unit Unit",
+        ValueRecord("", ImmArray("" -> aInt, "" -> someText)),
+        List(
+          ValueRecord(
+            "Mod:Record",
+            ImmArray("fieldA" -> aInt, "fieldB" -> someText),
+          ),
+          ValueRecord(
+            "Mod:Record",
+            ImmArray("fieldB" -> someText, "fieldA" -> aInt),
+          ),
+          ValueRecord(
+            "",
+            ImmArray("fieldA" -> aInt, "fieldB" -> someText),
+          ),
+          ValueRecord(
+            "Mod:Record",
+            ImmArray("" -> aInt, "fieldB" -> someText),
+          ),
+          ValueRecord(
+            "",
+            ImmArray("fieldB" -> someText, "fieldA" -> aInt),
+          ),
+        ),
+        SRecord(
+          "Mod:Record",
+          ImmArray("fieldA", "fieldB"),
+          ArrayList(SInt64(42), SOptional(Some(SText("42")))),
+        ),
+      ),
+      (
+        t"Mod:Variant Int64 Text",
+        ValueVariant("", "ConsB", ValueText("some test")),
+        List(
+          ValueVariant("Mod:Variant", "ConsB", ValueText("some test"))
+        ),
+        SVariant("Mod:Variant", "ConsB", 1, SText("some test")),
+      ),
+      (
+        Ast.TTyCon("Mod:Enum"),
+        ValueEnum("", "Cons1"),
+        List(
+          ValueEnum("Mod:Enum", "Cons1")
+        ),
+        SEnum("Mod:Enum", "Cons1", 0),
+      ),
+    )
 
-          record @serializable Tuple (a: *) (b: *) = { x: a, y: b };
-          record @serializable Record = { field : Int64 };
-          variant @serializable Either (a: *) (b: *) = Left : a | Right : b;
-          enum Color = red | green | blue;
+    (pkg, testCases)
+  }
 
-          record Tricky (b: * -> *) = { x : b Unit };
+  val upgradablePkgId = Ref.PackageId.assertFromString("-upgradable-v1-")
+
+  val (upgradablePkg, upgradableUserTestCases) = {
+
+    val dummyPackageId = Ref.PackageId.assertFromString("-dummy-")
+
+    implicit val parserParameters: ParserParameters[ValueTranslatorSpec.this.type] =
+      ParserParameters(upgradablePkgId, LanguageVersion.v1_17)
+    val pkg = p"""metadata ( 'upgradable' : '1.0.0' )
+
+        module Mod {
+          record @serializable Record (a: *) (b: *) (c: *) (d: *) = { fieldA: a, fieldB: Option b, fieldC: Option c };
+          variant @serializable Variant (a: *) (b: *) (c: *) = ConsA: a | ConsB: b ;
+          enum @serializable Enum = Cons1 | Cons2 ;
 
           record MyCons = { head : Int64, tail: Mod:MyList };
           variant MyList = MyNil : Unit | MyCons: Mod:MyCons ;
-
-          record @serializable Template = { field : Int64 };
-          record @serializable TemplateRef = { owner: Party, cid: (ContractId Mod:Template) };
-
-          record @serializable Upgradeable = { field: Int64, extraField: (Option Text), anotherExtraField: (Option Text) };
-        }
+      }
     """
 
-  private[this] val compiledPackage = ConcurrentCompiledPackages(
-    Compiler.Config.Default(majorLanguageVersion)
+    val testCases = Table[Ast.Type, Value, List[Value], speedy.SValue](
+      ("type", "normalized value", "non normalized value", "svalue"),
+      (
+        t"Mod:Record Int64 Text Party Boolean Unit",
+        ValueRecord("", ImmArray("" -> aInt, "" -> none, "" -> someParty)),
+        List(
+          ValueRecord(
+            "Mod:Record",
+            ImmArray("fieldA" -> aInt, "fieldB" -> none, "fieldC" -> someParty),
+          ),
+          ValueRecord(
+            "Mod:Record",
+            ImmArray("fieldB" -> none, "fieldC" -> someParty, "fieldA" -> aInt),
+          ),
+          ValueRecord("", ImmArray("fieldA" -> aInt, "fieldB" -> none, "fieldC" -> someParty)),
+          ValueRecord("Mod:Record", ImmArray("" -> aInt, "fieldB" -> none, "fieldC" -> someParty)),
+          ValueRecord("", ImmArray("fieldC" -> someParty, "fieldB" -> none, "fieldA" -> aInt)),
+          ValueRecord("", ImmArray("" -> aInt, "" -> none, "" -> someParty)),
+          ValueRecord("", ImmArray("" -> aInt, "" -> none, "" -> someParty, "" -> none)),
+          ValueRecord("", ImmArray("fieldA" -> aInt, "fieldC" -> someParty)),
+          ValueRecord("", ImmArray("fieldA" -> aInt, "fieldD" -> none, "fieldC" -> someParty)),
+          ValueRecord(
+            Some((i"Mod:Record").copy(packageId = dummyPackageId)),
+            ImmArray("fieldA" -> aInt, "fieldB" -> none, "fieldC" -> someParty),
+          ),
+        ),
+        SRecord(
+          "Mod:Record",
+          ImmArray("fieldA", "fieldB", "fieldC"),
+          ArrayList(SInt64(42), SOptional(None), SOptional(Some(SParty("42")))),
+        ),
+      ),
+      (
+        t"Mod:Variant Int64 Text",
+        ValueVariant("", "ConsB", ValueText("some test")),
+        List(
+          ValueVariant("Mod:Variant", "ConsB", ValueText("some test")),
+          ValueVariant(
+            Some(i"Mod:Variant".copy(packageId = dummyPackageId)),
+            "ConsB",
+            ValueText("some test"),
+          ),
+        ),
+        SVariant("Mod:Variant", "ConsB", 1, SText("some test")),
+      ),
+      (
+        Ast.TTyCon("Mod:Enum"),
+        ValueEnum("", "Cons1"),
+        List(
+          ValueEnum("Mod:Enum", "Cons1"),
+          ValueEnum(Some(i"Mod:Enum".copy(packageId = dummyPackageId)), "Cons1"),
+        ),
+        SEnum("Mod:Enum", "Cons1", 0),
+      ),
+    )
+
+    (pkg -> testCases)
+  }
+
+  val upgradableV2PkgId = Ref.PackageId.assertFromString("-upgradable-v2-")
+
+  val upgradableV2Pkg = {
+    implicit val parserParameters: ParserParameters[ValueTranslatorSpec.this.type] =
+      ParserParameters(upgradableV2PkgId, LanguageVersion.v1_17)
+    p"""metadata ( 'upgradable' : '2.0.0' )
+
+          module Mod {
+          record @serializable Record (a: *) (b: *) (c: *) (d: *) = { fieldA: a, fieldB: Option b, fieldC: Option c, fieldD: Option d };
+          variant @serializable Variant (a: *) (b: *) (c: *) = ConsA: a | ConsB: b | ConsC: b;
+          enum @serializable Enum = Cons1 | Cons2 | Cons3 ;
+      }
+    """
+  }
+
+  implicit val parserParameters: ParserParameters[ValueTranslatorSpec.this.type] =
+    ParserParameters(upgradablePkgId, LanguageVersion.v1_17)
+
+  private[this] val compiledPackage =
+    ConcurrentCompiledPackages(Compiler.Config.Dev(LanguageMajorVersion.V1))
+  assert(compiledPackage.addPackage(nonUpgradablePkgId, nonUpgradablePkg) == ResultDone.Unit)
+  assert(compiledPackage.addPackage(upgradablePkgId, upgradablePkg) == ResultDone.Unit)
+  assert(compiledPackage.addPackage(upgradableV2PkgId, upgradableV2Pkg) == ResultDone.Unit)
+
+  val valueTranslator = new ValueTranslator(
+    compiledPackage.pkgInterface,
+    checkV1ContractIdSuffixes = false,
   )
-  assert(compiledPackage.addPackage(defaultPackageId, pkg) == ResultDone.Unit)
+  import valueTranslator.unsafeTranslateValue
+
+  val nonEmptyBuiltinTestCases = Table[Ast.Type, Value, List[Value], speedy.SValue](
+    ("type", "normalized value", "non normalized value", "sValue"),
+    (
+      t"Unit",
+      ValueUnit,
+      List.empty,
+      SValue.Unit,
+    ),
+    (
+      t"Bool",
+      ValueTrue,
+      List.empty,
+      SValue.True,
+    ),
+    (
+      t"Int64",
+      ValueInt64(42),
+      List.empty,
+      SInt64(42),
+    ),
+    (
+      t"Timestamp",
+      ValueTimestamp(Time.Timestamp.assertFromString("1969-07-20T20:17:00Z")),
+      List.empty,
+      STimestamp(Time.Timestamp.assertFromString("1969-07-20T20:17:00Z")),
+    ),
+    (
+      t"Date",
+      ValueDate(Time.Date.assertFromString("1879-03-14")),
+      List.empty,
+      SDate(Time.Date.assertFromString("1879-03-14")),
+    ),
+    (
+      t"Text",
+      ValueText("daml"),
+      List.empty,
+      SText("daml"),
+    ),
+    (
+      t"Numeric 10",
+      ValueNumeric(Numeric.assertFromString("10.0000000000")),
+      List(
+        ValueNumeric(Numeric.assertFromString("10.")),
+        ValueNumeric(Numeric.assertFromString("10.0")),
+        ValueNumeric(Numeric.assertFromString("10.00000000000000000000")),
+      ),
+      SNumeric(Numeric.assertFromString("10.0000000000")),
+    ),
+    (
+      t"Party",
+      ValueParty("42"),
+      List.empty,
+      SParty("42"),
+    ),
+    (
+      t"ContractId Unit",
+      ValueContractId(aCid),
+      List.empty,
+      SContractId(aCid),
+    ),
+    (
+      t"List Text",
+      ValueList(FrontStack(ValueText("a"), ValueText("b"))),
+      List.empty,
+      SList(FrontStack(SText("a"), SText("b"))),
+    ),
+    (
+      t"TextMap Bool",
+      ValueTextMap(SortedLookupList(Map("0" -> ValueTrue, "1" -> ValueFalse))),
+      List.empty,
+      SMap(true, SText("0") -> SValue.True, SText("1") -> SValue.False),
+    ),
+    (
+      t"GenMap Int64 Text",
+      ValueGenMap(ImmArray(ValueInt64(1) -> ValueText("1"), ValueInt64(42) -> ValueText("42"))),
+      List(
+        ValueGenMap(ImmArray(ValueInt64(42) -> ValueText("42"), ValueInt64(1) -> ValueText("1"))),
+        ValueGenMap(
+          ImmArray(
+            ValueInt64(1) -> ValueText("0"),
+            ValueInt64(42) -> ValueText("42"),
+            ValueInt64(1) -> ValueText("1"),
+          )
+        ),
+      ),
+      SMap(false, SInt64(1) -> SText("1"), SInt64(42) -> SText("42")),
+    ),
+    (
+      t"Option Text",
+      ValueOptional(Some(ValueText("text"))),
+      List.empty,
+      SOptional(Some(SText("text"))),
+    ),
+  )
+
+  val emptyBuiltinTestCase = Table[Ast.Type, Value, List[Nothing], speedy.SValue](
+    ("type", "normalized value", "non normalized value", "svalue"),
+    (
+      t"List Text",
+      ValueList(FrontStack.empty),
+      List.empty,
+      SList(FrontStack.empty),
+    ),
+    (
+      t"Option Text",
+      ValueOptional(None),
+      List.empty,
+      SOptional(None),
+    ),
+    (
+      t"TextMap Text",
+      ValueTextMap(SortedLookupList.Empty),
+      List.empty,
+      SMap(true),
+    ),
+    (
+      t"GenMap Int64 Text",
+      ValueGenMap(ImmArray.empty),
+      List.empty,
+      SMap(false),
+    ),
+  )
 
   "translateValue" should {
 
-    val valueTranslator = new ValueTranslator(
-      compiledPackage.pkgInterface,
-      requireV1ContractIdSuffix = false,
-    )
-    import valueTranslator.unsafeTranslateValue
+    val TRecordNonUpgradable = {
+      implicit val parserParameters: ParserParameters[ValueTranslatorSpec.this.type] =
+        ParserParameters(nonUpgradablePkgId, LanguageVersion.v1_15)
+      t"Mod:Record Int64 Text Party Unit"
+    }
 
-    val testCases = Table[Ast.Type, Value, speedy.SValue](
-      ("type", "value", "svalue"),
-      (TUnit, ValueUnit, SValue.Unit),
-      (TBool, ValueTrue, SValue.True),
-      (TInt64, ValueInt64(42), SInt64(42)),
-      (
-        TTimestamp,
-        ValueTimestamp(Time.Timestamp.assertFromString("1969-07-20T20:17:00Z")),
-        STimestamp(Time.Timestamp.assertFromString("1969-07-20T20:17:00Z")),
-      ),
-      (
-        TDate,
-        ValueDate(Time.Date.assertFromString("1879-03-14")),
-        SDate(Time.Date.assertFromString("1879-03-14")),
-      ),
-      (TText, ValueText("daml"), SText("daml")),
-      (
-        TNumeric(Ast.TNat(Decimal.scale)),
-        ValueNumeric(Numeric.assertFromString("10.")),
-        SNumeric(Numeric.assertFromString("10.0000000000")),
-      ),
-//      TNumeric(TNat(9)) ,
-//        ValueNumeric(Numeric.assertFromString("9.000000000")),
-      (TParty, ValueParty("Alice"), SParty("Alice")),
-      (
-        TContractId(t"Mod:Template"),
-        ValueContractId(aCid),
-        SContractId(aCid),
-      ),
-      (
-        TList(TText),
-        ValueList(FrontStack(ValueText("a"), ValueText("b"))),
-        SList(FrontStack(SText("a"), SText("b"))),
-      ),
-      (
-        TTextMap(TBool),
-        ValueTextMap(SortedLookupList(Map("0" -> ValueTrue, "1" -> ValueFalse))),
-        SMap(true, Iterator(SText("0") -> SValue.True, SText("1") -> SValue.False)),
-      ),
-      (
-        TGenMap(TInt64, TText),
-        ValueGenMap(ImmArray(ValueInt64(1) -> ValueText("1"), ValueInt64(42) -> ValueText("42"))),
-        SMap(false, Iterator(SInt64(1) -> SText("1"), SInt64(42) -> SText("42"))),
-      ),
-      (TOptional(TText), ValueOptional(Some(ValueText("text"))), SOptional(Some(SText("text")))),
-      (
-        t"Mod:Tuple Int64 Text",
-        ValueRecord("", ImmArray("x" -> ValueInt64(33), "y" -> ValueText("a"))),
-        SRecord("Mod:Tuple", ImmArray("x", "y"), ArrayList(SInt64(33), SText("a"))),
-      ),
-      (
-        t"Mod:Either Int64 Text",
-        ValueVariant("", "Right", ValueText("some test")),
-        SVariant("Mod:Either", "Right", 1, SText("some test")),
-      ),
-      (Ast.TTyCon("Mod:Color"), ValueEnum("", "blue"), SEnum("Mod:Color", "blue", 2)),
-      (
-        Ast.TApp(Ast.TTyCon("Mod:Tricky"), Ast.TBuiltin(Ast.BTList)),
-        ValueRecord("", ImmArray("" -> ValueNil)),
-        SRecord("Mod:Tricky", ImmArray("x"), ArrayList(SValue.EmptyList)),
-      ),
-    )
+    val TRecordUpgradable =
+      t"Mod:Record Int64 Text Party Unit"
 
-    "succeeds on well type values" in {
-      forAll(testCases) { (typ, value, svalue) =>
-        Try(
-          unsafeTranslateValue(typ, value, Config.Strict)
-        ) shouldBe Success(svalue)
+    "succeeds on any well-typed values" in {
+      forEvery(
+        nonUpgradableUserTestCases ++ upgradableUserTestCases ++ emptyBuiltinTestCase ++ nonEmptyBuiltinTestCases
+      ) { (typ, normal, nonNormal, svalue) =>
+        (normal +: nonNormal).takeRight(1).foreach { v =>
+          Try(unsafeTranslateValue(typ, v)) shouldBe Success(svalue)
+        }
       }
-    }
-
-    "handle different representation of the same record" in {
-      val typ = t"Mod:Tuple Int64 Text"
-      val testCases = Table(
-        "record",
-        ValueRecord("Mod:Tuple", ImmArray("x" -> ValueInt64(33), "y" -> ValueText("a"))),
-        ValueRecord("Mod:Tuple", ImmArray("y" -> ValueText("a"), "x" -> ValueInt64(33))),
-        ValueRecord("", ImmArray("x" -> ValueInt64(33), "y" -> ValueText("a"))),
-        ValueRecord("", ImmArray("" -> ValueInt64(33), "" -> ValueText("a"))),
-      )
-      val svalue = SRecord("Mod:Tuple", ImmArray("x", "y"), ArrayList(SInt64(33), SText("a")))
-
-      forEvery(testCases)(testCase =>
-        Try(
-          unsafeTranslateValue(typ, testCase, Config.Strict)
-        ) shouldBe Success(svalue)
-      )
-    }
-
-    "handle different representation of the same static record with upgrades enabled" in {
-      val typ = t"Mod:Tuple Int64 Text"
-      val testCases = Table(
-        "record",
-        ValueRecord("Mod:Tuple", ImmArray("x" -> ValueInt64(33), "y" -> ValueText("a"))),
-        ValueRecord("Mod:Tuple", ImmArray("y" -> ValueText("a"), "x" -> ValueInt64(33))),
-        ValueRecord("", ImmArray("x" -> ValueInt64(33), "y" -> ValueText("a"))),
-        ValueRecord("", ImmArray("" -> ValueInt64(33), "" -> ValueText("a"))),
-      )
-      val svalue = SRecord("Mod:Tuple", ImmArray("x", "y"), ArrayList(SInt64(33), SText("a")))
-
-      forEvery(testCases)(testCase =>
-        Try(
-          unsafeTranslateValue(typ, testCase, Config.Upgradeable)
-        ) shouldBe Success(svalue)
-      )
-    }
-
-    "handle different representation of the same upgraded/downgraded record" in {
-      val typ = t"Mod:Upgradeable"
-      def sValue(extraFieldDefined: Boolean, anotherExtraFieldDefined: Boolean) =
-        SRecord(
-          "Mod:Upgradeable",
-          ImmArray("field", "extraField", "anotherExtraField"),
-          ArrayList(
-            SInt64(1),
-            SOptional(Some(SText("a")).filter(Function.const(extraFieldDefined))),
-            SOptional(Some(SText("b")).filter(Function.const(anotherExtraFieldDefined))),
-          ),
-        )
-      def upgradeCaseSuccess(
-          extraFieldDefined: Boolean,
-          anotherExtraFieldDefined: Boolean,
-          value: Value,
-      ) =
-        (Success(sValue(extraFieldDefined, anotherExtraFieldDefined)), value)
-      def upgradeCaseFailure(s: String, value: Value) =
-        (Failure(Error.Preprocessing.TypeMismatch(typ, value, s)), value)
-      val testCases = Table(
-        ("svalue", "record"),
-        upgradeCaseSuccess(
-          true,
-          true,
-          ValueRecord(
-            "Mod:Upgradeable",
-            ImmArray(
-              "field" -> ValueInt64(1),
-              "extraField" -> ValueOptional(Some(ValueText("a"))),
-              "anotherExtraField" -> ValueOptional(Some(ValueText("b"))),
-            ),
-          ),
-        ),
-        upgradeCaseSuccess(
-          false,
-          true,
-          ValueRecord(
-            "Mod:Upgradeable",
-            ImmArray(
-              "field" -> ValueInt64(1),
-              "extraField" -> ValueOptional(None),
-              "anotherExtraField" -> ValueOptional(Some(ValueText("b"))),
-            ),
-          ),
-        ),
-        upgradeCaseSuccess(
-          false,
-          true,
-          ValueRecord(
-            "Mod:Upgradeable",
-            ImmArray(
-              "field" -> ValueInt64(1),
-              "anotherExtraField" -> ValueOptional(Some(ValueText("b"))),
-              "extraField" -> ValueOptional(None),
-            ),
-          ),
-        ),
-        upgradeCaseSuccess(
-          false,
-          true,
-          ValueRecord(
-            "Mod:Upgradeable",
-            ImmArray(
-              "field" -> ValueInt64(1),
-              "anotherExtraField" -> ValueOptional(Some(ValueText("b"))),
-            ),
-          ),
-        ),
-        upgradeCaseSuccess(
-          false,
-          false,
-          ValueRecord(
-            "Mod:Upgradeable",
-            ImmArray(
-              "field" -> ValueInt64(1)
-            ),
-          ),
-        ),
-        upgradeCaseSuccess(
-          false,
-          false,
-          ValueRecord(
-            "Mod:Upgradeable",
-            ImmArray(
-              "field" -> ValueInt64(1),
-              "bonusField" -> ValueOptional(None),
-            ),
-          ),
-        ),
-        upgradeCaseSuccess(
-          false,
-          true,
-          ValueRecord(
-            "Mod:Upgradeable",
-            ImmArray(
-              "field" -> ValueInt64(1),
-              "bonusField" -> ValueOptional(None),
-              "anotherExtraField" -> ValueOptional(Some(ValueText("b"))),
-            ),
-          ),
-        ),
-        upgradeCaseFailure(
-          "An optional contract field (\"bonusField\") with a value of Some may not be dropped during downgrading.",
-          ValueRecord(
-            "Mod:Upgradeable",
-            ImmArray(
-              "field" -> ValueInt64(1),
-              "bonusField" -> ValueOptional(Some(ValueText("bad"))),
-            ),
-          ),
-        ),
-        upgradeCaseFailure(
-          "Found non-optional extra field \"bonusField\", cannot remove for downgrading.",
-          ValueRecord(
-            "Mod:Upgradeable",
-            ImmArray(
-              "field" -> ValueInt64(1),
-              "bonusField" -> ValueText("bad"),
-            ),
-          ),
-        ),
-        upgradeCaseFailure(
-          "Missing non-optional field \"field\", cannot upgrade non-optional fields.",
-          ValueRecord("Mod:Upgradeable", ImmArray()),
-        ),
-      )
-
-      forEvery(testCases)((result, value) =>
-        Try(
-          unsafeTranslateValue(typ, value, Config.Upgradeable)
-        ) shouldBe result
-      )
-    }
-
-    "handle different representation of the same variant" in {
-      val typ = t"Mod:Either Text Int64"
-      val testCases = Table(
-        "variant",
-        ValueVariant("Mod:Either", "Left", ValueText("some test")),
-        ValueVariant("", "Left", ValueText("some test")),
-      )
-      val svalue = SVariant("Mod:Either", "Left", 0, SText("some test"))
-
-      forEvery(testCases)(value =>
-        Try(
-          unsafeTranslateValue(typ, value, Config.Strict)
-        ) shouldBe Success(svalue)
-      )
-    }
-
-    "handle different representation of the same enum" in {
-      val typ = t"Mod:Color"
-      val testCases = Table("enum", ValueEnum("Mod:Color", "green"), ValueEnum("", "green"))
-      val svalue = SEnum("Mod:Color", "green", 1)
-      forEvery(testCases)(value =>
-        Try(
-          unsafeTranslateValue(typ, value, Config.Strict)
-        ) shouldBe Success(svalue)
-      )
     }
 
     "return proper mismatch error" in {
-      val res = Try(
-        unsafeTranslateValue(
-          t"Mod:Tuple Int64 Text",
+      val testCases = Table[Ast.Type, Value, PartialFunction[Error.Preprocessing.Error, _]](
+        ("type", "value", "error"),
+        (
+          TRecordNonUpgradable,
           ValueRecord(
             "",
             ImmArray(
-              "x" -> ValueInt64(33),
-              "y" -> ValueParty("Alice"), // Here the field has type Party instead of Text
+              "fieldA" -> aInt
             ),
           ),
-          Config.Strict,
-        )
+          { case Error.Preprocessing.TypeMismatch(typ, _, msg) =>
+            typ shouldBe TRecordNonUpgradable
+            msg should include regex "Expecting 2 field for record .*, but got 1"
+          },
+        ),
+        (
+          TRecordNonUpgradable,
+          ValueRecord(
+            "",
+            ImmArray(
+              "fieldA" -> aInt,
+              "fieldB" -> someText,
+              "fieldC" -> none,
+            ),
+          ),
+          { case Error.Preprocessing.TypeMismatch(typ, _, msg) =>
+            typ shouldBe TRecordNonUpgradable
+            msg should include regex "Expecting 2 field for record .*, but got 3"
+          },
+        ),
+        (
+          TRecordUpgradable,
+          ValueRecord(
+            "",
+            ImmArray(
+              "fieldA" -> aInt,
+              "fieldB" -> someParty, // Here the field has type Party instead of Text
+              "fieldC" -> none,
+            ),
+          ),
+          { case Error.Preprocessing.TypeMismatch(typ, value, _) =>
+            typ shouldBe t"Text"
+            value shouldBe aParty
+          },
+        ),
+        (
+          TRecordUpgradable,
+          ValueRecord(
+            "",
+            ImmArray( // fields non-order and non fully labelled.
+              "fieldA" -> aInt,
+              "" -> none,
+              "fieldB" -> someText,
+            ),
+          ),
+          { case Error.Preprocessing.TypeMismatch(typ, _, _) =>
+            typ shouldBe TRecordUpgradable
+          },
+        ),
+        (
+          TRecordUpgradable,
+          ValueRecord(
+            "",
+            ImmArray(
+              "fieldA" -> aInt,
+              "fieldB" -> someParty, // Here the field has type Party instead of Text
+              "fieldC" -> none,
+            ),
+          ),
+          { case Error.Preprocessing.TypeMismatch(typ, value, _) =>
+            typ shouldBe t"Text"
+            value shouldBe aParty
+          },
+        ),
+        (
+          t"Mod:Variant Int64 Text",
+          ValueVariant("", "ConsB", aInt), // Here the variant has type Text instead of Int64
+          { case Error.Preprocessing.TypeMismatch(typ, value, _) =>
+            typ shouldBe t"Text"
+            value shouldBe aInt
+          },
+        ),
       )
-      inside(res) { case Failure(Error.Preprocessing.TypeMismatch(typ, value, _)) =>
-        typ shouldBe t"Text"
-        value shouldBe ValueParty("Alice")
-      }
+      forEvery(testCases)((typ, value, checkError) =>
+        inside(Try(unsafeTranslateValue(typ, value))) {
+          case Failure(error: Error.Preprocessing.Error) =>
+            checkError(error)
+        }
+      )
     }
 
     "fails on non-well type values" in {
-      forAll(testCases) { (typ1, value1, _) =>
-        forAll(testCases) { (_, value2, _) =>
+      forAll(nonEmptyBuiltinTestCases) { (typ1, value1, _, _) =>
+        forAll(nonEmptyBuiltinTestCases) { (_, value2, _, _) =>
           if (value1 != value2) {
             a[Error.Preprocessing.Error] shouldBe thrownBy(
-              unsafeTranslateValue(typ1, value2, Config.Strict)
+              unsafeTranslateValue(typ1, value2)
             )
           }
         }
@@ -395,41 +487,25 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
       val tooBig = mkMyList(50)
       val failure = Failure(Error.Preprocessing.ValueNesting(tooBig))
 
-      Try(
-        unsafeTranslateValue(
-          t"Mod:MyList",
-          notTooBig,
-          Config.Strict,
-        )
-      ) shouldBe a[Success[_]]
-      Try(
-        unsafeTranslateValue(
-          t"Mod:MyList",
-          tooBig,
-          Config.Strict,
-        )
-      ) shouldBe failure
+      Try(unsafeTranslateValue(t"Mod:MyList", notTooBig)) shouldBe a[Success[_]]
+      Try(unsafeTranslateValue(t"Mod:MyList", tooBig)) shouldBe failure
     }
 
     def testCasesForCid(culprit: ContractId) = {
       val cid = ValueContractId(culprit)
       Table[Ast.Type, Value](
         ("type" -> "value"),
-        t"ContractId Mod:Template" -> cid,
-        TList(t"ContractId Mod:Template") -> ValueList(FrontStack(cid)),
-        TTextMap(t"ContractId Mod:Template") -> ValueTextMap(SortedLookupList(Map("0" -> cid))),
-        TGenMap(TInt64, t"ContractId Mod:Template") -> ValueGenMap(ImmArray(ValueInt64(1) -> cid)),
-        TGenMap(t"ContractId Mod:Template", TInt64) -> ValueGenMap(ImmArray(cid -> ValueInt64(0))),
-        TOptional(t"ContractId Mod:Template") -> ValueOptional(Some(cid)),
-        t"Mod:TemplateRef" -> ValueRecord(
-          "",
-          ImmArray("" -> ValueParty("Alice"), "" -> cid),
+        t"ContractId Unit" -> cid,
+        t"List (ContractId Unit)" -> ValueList(FrontStack(cid)),
+        t"TextMap (ContractId Unit)" -> ValueTextMap(SortedLookupList(Map("0" -> cid))),
+        t"GenMap Int64 (ContractId Unit)" -> ValueGenMap(ImmArray(ValueInt64(1) -> cid)),
+        t"GenMap (ContractId Unit) Int64" -> ValueGenMap(ImmArray(cid -> ValueInt64(0))),
+        t"Option (ContractId Unit)" -> ValueOptional(Some(cid)),
+        t"Mod:Record (ContractId Unit) Unit Unit" -> ValueRecord(
+          None,
+          ImmArray("" -> cid, "" -> none),
         ),
-        TTyConApp("Mod:Either", ImmArray(t"ContractId Mod:Template", TInt64)) -> ValueVariant(
-          "",
-          "Left",
-          cid,
-        ),
+        t"Mod:Variant (ContractId Unit) Unit Unit" -> ValueVariant("", "ConsA", cid),
       )
     }
 
@@ -437,7 +513,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
 
       val valueTranslator = new ValueTranslator(
         compiledPackage.pkgInterface,
-        requireV1ContractIdSuffix = false,
+        checkV1ContractIdSuffixes = false,
       )
       val cids = List(
         ContractId.V1
@@ -451,13 +527,9 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
 
       cids.foreach(cid =>
         forEvery(testCasesForCid(cid))((typ, value) =>
-          Try(
-            valueTranslator.unsafeTranslateValue(
-              typ,
-              value,
-              Config.Strict,
-            )
-          ) shouldBe a[Success[_]]
+          Try(valueTranslator.unsafeTranslateValue(typ, value)) shouldBe a[Success[
+            _
+          ]]
         )
       )
     }
@@ -466,7 +538,7 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
 
       val valueTranslator = new ValueTranslator(
         compiledPackage.pkgInterface,
-        requireV1ContractIdSuffix = true,
+        checkV1ContractIdSuffixes = true,
       )
       val legalCid =
         ContractId.V1.assertBuild(
@@ -478,22 +550,10 @@ class ValueTranslatorSpec(majorLanguageVersion: LanguageMajorVersion)
       val failure = Failure(Error.Preprocessing.IllegalContractId.NonSuffixV1ContractId(illegalCid))
 
       forEvery(testCasesForCid(legalCid))((typ, value) =>
-        Try(
-          valueTranslator.unsafeTranslateValue(
-            typ,
-            value,
-            Config.Strict,
-          )
-        ) shouldBe a[Success[_]]
+        Try(valueTranslator.unsafeTranslateValue(typ, value)) shouldBe a[Success[_]]
       )
       forEvery(testCasesForCid(illegalCid))((typ, value) =>
-        Try(
-          valueTranslator.unsafeTranslateValue(
-            typ,
-            value,
-            Config.Strict,
-          )
-        ) shouldBe failure
+        Try(valueTranslator.unsafeTranslateValue(typ, value)) shouldBe failure
       )
     }
 

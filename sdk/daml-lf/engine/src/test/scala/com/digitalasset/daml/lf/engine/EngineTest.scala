@@ -2010,8 +2010,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
   }
 
   "exceptions" should {
-    val (exceptionsPkgId, exceptionsPkg, allExceptionsPkgs) =
-      loadAndAddPackage(s"daml-lf/tests/Exceptions-v${majorLanguageVersion.pretty}.dar")
     val kId = Identifier(exceptionsPkgId, "Exceptions:K")
     val tId = Identifier(exceptionsPkgId, "Exceptions:T")
     val let = Time.Timestamp.now()
@@ -2159,8 +2157,6 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
   }
 
   "action node seeds" should {
-    val (exceptionsPkgId, exceptionsPkg, allExceptionsPkgs) =
-      loadAndAddPackage(s"daml-lf/tests/Exceptions-v${majorLanguageVersion.pretty}.dar")
     val kId = Identifier(exceptionsPkgId, "Exceptions:K")
     val seedId = Identifier(exceptionsPkgId, "Exceptions:NodeSeeds")
     val let = Time.Timestamp.now()
@@ -2235,9 +2231,10 @@ class EngineTest(majorLanguageVersion: LanguageMajorVersion)
     }
   }
 
+  lazy val (exceptionsPkgId, exceptionsPkg, allExceptionsPkgs) =
+    loadAndAddPackage(s"daml-lf/tests/Exceptions-v${majorLanguageVersion.pretty}.dar")
+
   "global key lookups" should {
-    val (exceptionsPkgId, exceptionsPkg, allExceptionsPkgs) =
-      loadAndAddPackage(s"daml-lf/tests/Exceptions-v${majorLanguageVersion.pretty}.dar")
     val kId = Identifier(exceptionsPkgId, "Exceptions:K")
     val tId = Identifier(exceptionsPkgId, "Exceptions:GlobalLookups")
     val let = Time.Timestamp.now()

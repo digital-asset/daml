@@ -126,7 +126,6 @@ object RunnerMain {
               config.timeMode,
               traceLog,
               warningLog,
-              enableContractUpgrading = config.enableContractUpgrading,
             )
           _ <- Future {
             outputFile.foreach { outputFile =>

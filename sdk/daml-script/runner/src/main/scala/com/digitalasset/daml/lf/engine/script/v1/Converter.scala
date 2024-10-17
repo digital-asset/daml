@@ -42,7 +42,7 @@ object Converter extends script.Converter(LanguageMajorVersion.V1) {
       choice <- Name.fromString(result.choice)
       c <- lookupChoice(result.templateId, result.interfaceId, choice)
       translated <- translator
-        .strictTranslateValue(c.returnType, result.result)
+        .translateValue(c.returnType, result.result)
         .left
         .map(err => s"Failed to translate exercise result: $err")
     } yield translated

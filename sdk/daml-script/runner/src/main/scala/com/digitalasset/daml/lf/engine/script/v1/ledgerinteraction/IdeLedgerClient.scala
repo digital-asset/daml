@@ -64,7 +64,7 @@ class IdeLedgerClient(
   private[this] val preprocessor =
     new preprocessing.CommandPreprocessor(
       compiledPackages.pkgInterface,
-      requireV1ContractIdSuffix = false,
+      checkV1ContractIdSuffix = false,
     )
 
   private var _ledger: ScenarioLedger = ScenarioLedger.initialLedger(Time.Timestamp.Epoch)
@@ -145,10 +145,10 @@ class IdeLedgerClient(
 
     val valueTranslator = new ValueTranslator(
       pkgInterface = compiledPackages.pkgInterface,
-      requireV1ContractIdSuffix = false,
+      checkV1ContractIdSuffixes = false,
     )
 
-    valueTranslator.strictTranslateValue(TTyCon(templateId), arg) match {
+    valueTranslator.translateValue(TTyCon(templateId), arg) match {
       case Left(_) =>
         sys.error("computeView: translateValue failed")
 
