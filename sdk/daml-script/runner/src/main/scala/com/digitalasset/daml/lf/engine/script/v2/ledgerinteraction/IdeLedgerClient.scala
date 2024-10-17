@@ -455,11 +455,11 @@ class IdeLedgerClient(
       case Reference.Definition(name) => name.packageId
       case Reference.TypeSyn(name) => name.packageId
       case Reference.DataType(name) => name.packageId
-      case Reference.DataRecord(ref) => fromRef(ref.pkgRef)
+      case Reference.DataRecord(name) => name.packageId
       case Reference.DataRecordField(name, _) => name.packageId
-      case Reference.DataVariant(ref) => fromRef(ref.pkgRef)
+      case Reference.DataVariant(name) => name.packageId
       case Reference.DataVariantConstructor(name, _) => name.packageId
-      case Reference.DataEnum(ref) => fromRef(ref.pkgRef)
+      case Reference.DataEnum(name) => name.packageId
       case Reference.DataEnumConstructor(name, _) => name.packageId
       case Reference.Value(name) => name.packageId
       case Reference.Template(tyCon) => tyConRefToPkgId(tyCon)

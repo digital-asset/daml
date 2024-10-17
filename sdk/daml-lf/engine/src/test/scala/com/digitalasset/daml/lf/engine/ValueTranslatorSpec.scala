@@ -119,6 +119,9 @@ class ValueTranslatorSpec
   val upgradablePkgId = Ref.PackageId.assertFromString("-upgradable-v1-")
 
   val (upgradablePkg, upgradableUserTestCases) = {
+
+    val dummyPackageId = Ref.PackageId.assertFromString("-dummy-")
+
     implicit val parserParameters: ParserParameters[ValueTranslatorSpec.this.type] =
       ParserParameters(upgradablePkgId, LanguageVersion.v1_17)
     val pkg = p"""metadata ( 'upgradable' : '1.0.0' )
@@ -154,6 +157,10 @@ class ValueTranslatorSpec
           ValueRecord("", ImmArray("" -> aInt, "" -> none, "" -> someParty, "" -> none)),
           ValueRecord("", ImmArray("fieldA" -> aInt, "fieldC" -> someParty)),
           ValueRecord("", ImmArray("fieldA" -> aInt, "fieldD" -> none, "fieldC" -> someParty)),
+          ValueRecord(
+            Some((i"Mod:Record").copy(packageId = dummyPackageId)),
+            ImmArray("fieldA" -> aInt, "fieldB" -> none, "fieldC" -> someParty),
+          ),
         ),
         SRecord(
           "Mod:Record",
@@ -165,7 +172,12 @@ class ValueTranslatorSpec
         t"Mod:Variant Int64 Text",
         ValueVariant("", "ConsB", ValueText("some test")),
         List(
-          ValueVariant("Mod:Variant", "ConsB", ValueText("some test"))
+          ValueVariant("Mod:Variant", "ConsB", ValueText("some test")),
+          ValueVariant(
+            Some(i"Mod:Variant".copy(packageId = dummyPackageId)),
+            "ConsB",
+            ValueText("some test"),
+          ),
         ),
         SVariant("Mod:Variant", "ConsB", 1, SText("some test")),
       ),
@@ -173,7 +185,8 @@ class ValueTranslatorSpec
         Ast.TTyCon("Mod:Enum"),
         ValueEnum("", "Cons1"),
         List(
-          ValueEnum("Mod:Enum", "Cons1")
+          ValueEnum("Mod:Enum", "Cons1"),
+          ValueEnum(Some(i"Mod:Enum".copy(packageId = dummyPackageId)), "Cons1"),
         ),
         SEnum("Mod:Enum", "Cons1", 0),
       ),

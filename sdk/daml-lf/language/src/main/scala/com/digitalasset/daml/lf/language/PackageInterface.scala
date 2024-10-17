@@ -83,15 +83,12 @@ private[lf] class PackageInterface(val signatures: PartialFunction[PackageId, Pa
     lookupDataType(tyCon, context).flatMap { dataType =>
       dataType.cons match {
         case record: DataRecord => Right(DataRecordInfo(dataType, record))
-        case _ =>
-          Left(
-            LookupError.NotFound(Reference.DataRecord(TypeConRef.fromIdentifier(tyCon)), context)
-          )
+        case _ => Left(LookupError.NotFound(Reference.DataRecord(tyCon), context))
       }
     }
 
   def lookupDataRecord(tyCon: TypeConName): Either[LookupError, DataRecordInfo] =
-    lookupDataRecord(tyCon, Reference.DataRecord(TypeConRef.fromIdentifier(tyCon)))
+    lookupDataRecord(tyCon, Reference.DataRecord(tyCon))
 
   private[this] def lookupRecordFieldInfo(
       tyCon: TypeConName,
@@ -119,15 +116,12 @@ private[lf] class PackageInterface(val signatures: PartialFunction[PackageId, Pa
     lookupDataType(tyCon, context).flatMap(dataType =>
       dataType.cons match {
         case cons: DataVariant => Right(DataVariantInfo(dataType, cons))
-        case _ =>
-          Left(
-            LookupError.NotFound(Reference.DataVariant(TypeConRef.fromIdentifier(tyCon)), context)
-          )
+        case _ => Left(LookupError.NotFound(Reference.DataVariant(tyCon), context))
       }
     )
 
   def lookupDataVariant(tyCon: TypeConName): Either[LookupError, DataVariantInfo] =
-    lookupDataVariant(tyCon, Reference.DataVariant(TypeConRef.fromIdentifier(tyCon)))
+    lookupDataVariant(tyCon, Reference.DataVariant(tyCon))
 
   private[this] def lookupVariantConstructor(
       tyCon: TypeConName,
@@ -155,13 +149,12 @@ private[lf] class PackageInterface(val signatures: PartialFunction[PackageId, Pa
     lookupDataType(tyCon, context).flatMap { dataType =>
       dataType.cons match {
         case cons: DataEnum => Right(DataEnumInfo(dataType, cons))
-        case _ =>
-          Left(LookupError.NotFound(Reference.DataEnum(TypeConRef.fromIdentifier(tyCon)), context))
+        case _ => Left(LookupError.NotFound(Reference.DataEnum(tyCon), context))
       }
     }
 
   def lookupDataEnum(tyCon: TypeConName): Either[LookupError, DataEnumInfo] =
-    lookupDataEnum(tyCon, Reference.DataEnum(TypeConRef.fromIdentifier(tyCon)))
+    lookupDataEnum(tyCon, Reference.DataEnum(tyCon))
 
   private[this] def lookupEnumConstructor(
       tyCon: TypeConName,

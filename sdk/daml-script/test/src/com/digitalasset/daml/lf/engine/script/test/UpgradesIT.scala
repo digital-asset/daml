@@ -56,7 +56,7 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
   // Maybe provide our own tracer that doesn't tag, it makes the logs very long
   "Multi-participant Daml Script Upgrades" should {
     testCases.foreach { testCase =>
-      (testCase.name + " on IDE Ledger") ignore {
+      (testCase.name + " on IDE Ledger") in {
         for {
           // Build dars
           (testDarPath, deps) <- buildTestCaseDarMemoized(testCase)
