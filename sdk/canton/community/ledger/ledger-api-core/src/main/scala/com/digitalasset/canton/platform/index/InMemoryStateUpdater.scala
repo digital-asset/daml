@@ -148,6 +148,7 @@ private[platform] object InMemoryStateUpdaterFlow {
                     Some((domainId, recordTime))
                   case sim: Update.SequencerIndexMoved => Some((sim.domainId, sim.recordTime))
                   case _: Update.CommitRepair => None
+                  case tt: Update.TopologyTransactionEffective => Some((tt.domainId, tt.recordTime))
                 }
 
                 val lastDomainTimes = lastOffsetCheckpointO.map(_.domainTimes).getOrElse(Map.empty)

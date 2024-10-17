@@ -138,7 +138,7 @@ class ConfirmationRequestAndResponseProcessorTest
   private lazy val crypto =
     SymbolicCrypto.create(testedReleaseProtocolVersion, timeouts, loggerFactory)
 
-  private lazy val topology: TestingTopology = TestingTopology(
+  private lazy val topology: TestingTopology = TestingTopology.from(
     domains = Set(domainId),
     topology = Map(
       submitter -> Map(participant -> ParticipantPermission.Confirmation),
@@ -162,7 +162,7 @@ class ConfirmationRequestAndResponseProcessorTest
   )
 
   private lazy val identityFactory2 = {
-    val topology2 = TestingTopology(
+    val topology2 = TestingTopology.from(
       domains = Set(domainId),
       topology = Map(
         submitter -> Map(participant1 -> ParticipantPermission.Confirmation),
@@ -194,7 +194,7 @@ class ConfirmationRequestAndResponseProcessorTest
 
   private lazy val identityFactoryOnlySubmitter =
     TestingIdentityFactory(
-      TestingTopology(
+      TestingTopology.from(
         domains = Set(domainId),
         topology = Map(
           submitter -> Map(participant1 -> ParticipantPermission.Confirmation)

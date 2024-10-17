@@ -7,7 +7,7 @@ import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveNumeric}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLogging, TracedLogger}
-import com.digitalasset.canton.tracing.NoTracing
+import com.digitalasset.canton.tracing.TraceContext
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 
 import scala.jdk.CollectionConverters.*
@@ -301,7 +301,7 @@ object CommunityDbConfig {
   }
 }
 
-object DbConfig extends NoTracing {
+object DbConfig {
 
   val defaultConnectionTimeout: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(5)
 
@@ -324,13 +324,11 @@ object DbConfig extends NoTracing {
 
   /** Apply default values to the given db config
     */
-  def configWithFallback(
-      dbConfig: DbConfig
-  )(
+  def configWithFallback(dbConfig: DbConfig)(
       numThreads: PositiveInt,
       poolName: String,
       logger: TracedLogger,
-  ): Config = {
+  )(implicit traceContext: TraceContext): Config = {
     val commonDefaults = toConfig(
       Map(
         "poolName" -> poolName,

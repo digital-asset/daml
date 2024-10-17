@@ -96,7 +96,7 @@ class UniqueIdentifierTest extends AnyWordSpec with BaseTest {
       "produce sensible error messages " in {
         UniqueIdentifier.fromProtoPrimitive_("Bank::") shouldEqual Left(
           StringConversionError(
-            "Fingerprint decoding of `Bank::` failed with: StringConversionError(Daml-LF Party is empty)"
+            s"Fingerprint decoding of `Bank::` failed with: ${StringConversionError("Daml-LF Party is empty")}"
           )
         )
         UniqueIdentifier.fromProtoPrimitive_("") shouldEqual Left(
@@ -107,7 +107,7 @@ class UniqueIdentifierTest extends AnyWordSpec with BaseTest {
         )
         UniqueIdentifier.fromProtoPrimitive_("aa::Wur:st::") shouldEqual Left(
           StringConversionError(
-            "Fingerprint decoding of `aa::Wur:st::` failed with: StringConversionError(String contains reserved delimiter `::`.)"
+            s"Fingerprint decoding of `aa::Wur:st::` failed with: ${StringConversionError("String contains reserved delimiter `::`.")}"
           )
         )
         UniqueIdentifier.fromProtoPrimitive_("::") shouldEqual Left(

@@ -1188,7 +1188,9 @@ class SequencerClientTest
 
     private val logoutCalledRef = new AtomicReference[Boolean](false)
 
-    override def logout(): EitherT[FutureUnlessShutdown, Status, Unit] = {
+    override def logout()(implicit
+        traceContext: TraceContext
+    ): EitherT[FutureUnlessShutdown, Status, Unit] = {
       logoutCalledRef.set(true)
       EitherT.pure(())
     }

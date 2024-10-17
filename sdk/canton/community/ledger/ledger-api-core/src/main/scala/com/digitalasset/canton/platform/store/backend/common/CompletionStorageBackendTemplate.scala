@@ -57,7 +57,7 @@ class CompletionStorageBackendTemplate(
           completion_offset,
           record_time,
           command_id,
-          transaction_id,
+          update_id,
           rejection_status_code,
           rejection_status_message,
           rejection_status_details,
@@ -102,7 +102,7 @@ class CompletionStorageBackendTemplate(
   private val acceptedCommandSharedColumns: RowParser[
     Array[Int] ~ Offset ~ Timestamp ~ String ~ String ~ Option[String] ~ Int ~ TraceContext ~ String
   ] =
-    sharedColumns ~ str("transaction_id")
+    sharedColumns ~ str("update_id")
 
   private val deduplicationOffsetColumn: RowParser[Option[String]] =
     str("deduplication_offset").?
@@ -196,11 +196,11 @@ class CompletionStorageBackendTemplate(
       offset("completion_offset") ~
       long("publication_time") ~
       str("submission_id").? ~
-      str("transaction_id").? ~
+      str("update_id").? ~
       traceContextOption("trace_context")(noTracingLogger) ~
       bool("is_transaction") map {
         case internedDomainId ~ messageUuidString ~ requestSequencerCounterLong ~ recordTimeMicros ~ applicationId ~
-            commandId ~ submitters ~ offset ~ publicationTimeMicros ~ submissionId ~ transactionIdOpt ~ traceContext ~ true =>
+            commandId ~ submitters ~ offset ~ publicationTimeMicros ~ submissionId ~ updateIdOpt ~ traceContext ~ true =>
           // note: we only collect completions for transactions here for acceptance and transactions and reassignments for rejection (is_transaction will be true in rejection reassignment case as well)
           Some(
             PostPublishData(
@@ -227,7 +227,7 @@ class CompletionStorageBackendTemplate(
               offset = offset,
               publicationTime = CantonTimestamp.ofEpochMicro(publicationTimeMicros),
               submissionId = submissionId.map(Ref.SubmissionId.assertFromString),
-              accepted = transactionIdOpt.isDefined,
+              accepted = updateIdOpt.isDefined,
               traceContext = traceContext,
             )
           )
@@ -289,7 +289,7 @@ class CompletionStorageBackendTemplate(
         completion_offset,
         publication_time,
         submission_id,
-        transaction_id,
+        update_id,
         trace_context,
         is_transaction
       FROM

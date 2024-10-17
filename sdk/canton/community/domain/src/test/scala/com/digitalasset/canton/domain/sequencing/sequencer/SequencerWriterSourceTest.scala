@@ -278,7 +278,7 @@ class SequencerWriterSourceTest
         invalidTopologyTimestamp: CantonTimestamp,
     )(implicit
         env: Env
-    ): Future[Seq[StoreEvent[Payload]]] = {
+    ): Future[Seq[StoreEvent[PayloadId]]] = {
       import env.*
 
       clock.advanceTo(nowish)
@@ -313,7 +313,7 @@ class SequencerWriterSourceTest
       Since ordering of the events is not guaranteed, we sort them to ease
       the test.
      */
-    def sortByMessageId(events: Seq[StoreEvent[Payload]]): Seq[StoreEvent[Payload]] =
+    def sortByMessageId[P](events: Seq[StoreEvent[P]]): Seq[StoreEvent[P]] =
       events.sortBy(_.messageId.unwrap)
 
     "cause errors if way ahead of valid signing window" in withEnv() { implicit env =>
@@ -331,7 +331,7 @@ class SequencerWriterSourceTest
         )
         sortedEvents = sortByMessageId(events)
       } yield {
-        inside(sortedEvents.head) { case event: DeliverStoreEvent[Payload] =>
+        inside(sortedEvents.head) { case event: DeliverStoreEvent[_] =>
           event.messageId shouldBe messageId1
         }
 

@@ -53,7 +53,7 @@ object SerializableCompletionInfo {
     val v30.CompletionInfo(actAsP, applicationIdP, commandIdP, deduplicateUntilP, submissionIdP) =
       completionInfoP
     for {
-      actAs <- actAsP.toList.traverse(ProtoConverter.parseLfPartyId)
+      actAs <- actAsP.toList.traverse(ProtoConverter.parseLfPartyId(_, "act_as"))
       applicationId <- ProtoConverter.parseLFApplicationId(applicationIdP)
       commandId <- ProtoConverter.parseCommandId(commandIdP)
       deduplicateUntil <- deduplicateUntilP.traverse(SerializableDeduplicationPeriod.fromProtoV30)

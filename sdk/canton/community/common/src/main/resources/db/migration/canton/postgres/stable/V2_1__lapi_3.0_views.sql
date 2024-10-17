@@ -140,7 +140,7 @@ create or replace view debug.lapi_command_completions as
     application_id,
     debug.resolve_lapi_interned_strings(submitters) as submitters,
     command_id,
-    transaction_id,
+    update_id,
     submission_id,
     deduplication_offset,
     deduplication_duration_seconds,
@@ -194,7 +194,7 @@ create or replace view debug.lapi_events_consuming_exercise as
     debug.canton_timestamp(ledger_effective_time) as ledger_effective_time,
     node_index,
     event_offset,
-    transaction_id,
+    update_id,
     workflow_id,
     command_id,
     application_id,
@@ -225,7 +225,7 @@ create or replace view debug.lapi_events_create as
     debug.canton_timestamp(ledger_effective_time) as ledger_effective_time,
     node_index,
     event_offset,
-    transaction_id,
+    update_id,
     workflow_id,
     command_id,
     application_id,
@@ -257,7 +257,7 @@ create or replace view debug.lapi_events_non_consuming_exercise as
     debug.canton_timestamp(ledger_effective_time) as ledger_effective_time,
     node_index,
     event_offset,
-    transaction_id,
+    update_id,
     workflow_id,
     command_id,
     application_id,
@@ -303,6 +303,18 @@ create or replace view debug.lapi_events_unassign as
     debug.canton_timestamp(record_time) as record_time
   from lapi_events_unassign;
 
+create or replace view debug.lapi_events_party_to_participant as
+select
+    event_sequential_id,
+    event_offset,
+    update_id,
+    debug.resolve_lapi_interned_string(party_id) as party_id,
+    participant_id,
+    participant_permission,
+    debug.resolve_lapi_interned_string(domain_id) as domain_id,
+    debug.canton_timestamp(record_time) as record_time,
+    trace_context
+  from lapi_events_party_to_participant;
 
 create or replace view debug.lapi_identity_provider_config as
   select
@@ -332,7 +344,7 @@ create or replace view debug.lapi_party_record_annotations as
 
 create or replace view debug.lapi_transaction_meta as
   select
-    transaction_id,
+    update_id,
     event_offset,
     debug.canton_timestamp(publication_time) as publication_time,
     debug.canton_timestamp(record_time) as record_time,

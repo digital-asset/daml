@@ -5,11 +5,9 @@ package com.digitalasset.canton.participant.protocol.submission.routing
 
 import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.protocol.LfContractId
+import com.digitalasset.canton.protocol.{LfContractId, Stakeholders}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.daml.lf.data.Ref.Party
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -27,7 +25,7 @@ private[routing] object ContractsDomainData {
    */
   def create(
       domainStateProvider: DomainStateProvider,
-      contractsStakeholders: Map[LfContractId, Set[Party]],
+      contractsStakeholders: Map[LfContractId, Stakeholders],
       disclosedContracts: Seq[LfContractId],
   )(implicit
       ec: ExecutionContext,
@@ -58,5 +56,5 @@ private[routing] object ContractsDomainData {
 private[routing] final case class ContractData(
     id: LfContractId,
     domain: DomainId,
-    stakeholders: Set[LfPartyId],
+    stakeholders: Stakeholders,
 )

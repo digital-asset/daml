@@ -142,7 +142,7 @@ object ViewCommonData
   )(bytes: ByteString): ParsingResult[ViewCommonData] =
     for {
       informees <- viewCommonDataP.informees.traverse(informee =>
-        ProtoConverter.parseLfPartyId(informee)
+        ProtoConverter.parseLfPartyId(informee, "informees")
       )
       salt <- ProtoConverter
         .parseRequired(Salt.fromProtoV30, "salt", viewCommonDataP.salt)

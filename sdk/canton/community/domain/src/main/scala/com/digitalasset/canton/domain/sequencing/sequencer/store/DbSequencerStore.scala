@@ -14,8 +14,8 @@ import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.catsinstances.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.SequencerCounter
-import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
+import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeLong}
+import com.digitalasset.canton.config.{CachingConfigs, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.block.UninitializedBlockHeight
 import com.digitalasset.canton.domain.sequencing.sequencer.{
@@ -32,9 +32,16 @@ import com.digitalasset.canton.resource.DbStorage.Implicits.BuilderChain.*
 import com.digitalasset.canton.resource.DbStorage.Profile.{H2, Postgres}
 import com.digitalasset.canton.resource.{DbParameterUtils, DbStorage}
 import com.digitalasset.canton.sequencing.protocol.MessageId
+import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.store.db.DbDeserializationException
+import com.digitalasset.canton.store.db.RequiredTypesCodec.*
 import com.digitalasset.canton.topology.Member
-import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
+import com.digitalasset.canton.tracing.{
+  SerializableTraceContext,
+  TraceContext,
+  TracedAsyncLoadingCache,
+  TracedScaffeine,
+}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{EitherTUtil, retry}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -61,6 +68,7 @@ class DbSequencerStore(
     override protected val loggerFactory: NamedLoggerFactory,
     sequencerMember: Member,
     override val blockSequencerMode: Boolean,
+    cachingConfigs: CachingConfigs,
     overrideCloseContext: Option[CloseContext] = None,
 )(protected implicit val executionContext: ExecutionContext)
     extends SequencerStore
@@ -124,6 +132,13 @@ class DbSequencerStore(
       // there's nothing we can do from a `GetResult` with an error but throw
       resultE.fold(msg => throw new DbDeserializationException(msg), identity)
     }
+
+  private implicit val getPayloadResult: GetResult[Payload] =
+    GetResult
+      .createGetTuple2[PayloadId, ByteString]
+      .andThen { case (id, content) =>
+        Payload(id, content)
+      }
 
   case class DeliverStoreEventRow[P](
       timestamp: CantonTimestamp,
@@ -254,7 +269,7 @@ class DbSequencerStore(
           )
       }
 
-  private implicit val getDeliverStoreEventRowResult: GetResult[Sequenced[Payload]] = {
+  private implicit val getDeliverStoreEventRowResultWithPayload: GetResult[Sequenced[Payload]] = {
     val timestampGetter = implicitly[GetResult[CantonTimestamp]]
     val timestampOGetter = implicitly[GetResult[Option[CantonTimestamp]]]
     val discriminatorGetter = implicitly[GetResult[EventTypeDiscriminator]]
@@ -279,6 +294,48 @@ class DbSequencerStore(
         errorOGetter(r),
       )
 
+      row.asStoreEvent.valueOr(err =>
+        throw new DbDeserializationException(s"Failed to deserialize event row: $err")
+      )
+    }
+  }
+
+  private implicit val trafficReceiptOGetResult: GetResult[Option[TrafficReceipt]] =
+    GetResult
+      .createGetTuple3[Option[NonNegativeLong], Option[NonNegativeLong], Option[NonNegativeLong]]
+      .andThen {
+        case (Some(trafficConsumed), Some(baseTraffic), Some(lastConsumedCost)) =>
+          Some(TrafficReceipt(lastConsumedCost, trafficConsumed, baseTraffic))
+        case _ => None
+        // If fields are not populated by the left join (i.e. are NULL) in `readEvents(...)`,
+        // there's `None` for the receipt. This would happen for non-senders,
+      }
+
+  private implicit val getDeliverStoreEventRowResult: GetResult[Sequenced[PayloadId]] = {
+    val timestampGetter = implicitly[GetResult[CantonTimestamp]]
+    val timestampOGetter = implicitly[GetResult[Option[CantonTimestamp]]]
+    val discriminatorGetter = implicitly[GetResult[EventTypeDiscriminator]]
+    val messageIdGetter = implicitly[GetResult[Option[MessageId]]]
+    val memberIdGetter = implicitly[GetResult[Option[SequencerMemberId]]]
+    val memberIdNesGetter = implicitly[GetResult[Option[NonEmpty[SortedSet[SequencerMemberId]]]]]
+    val payloadIdGetter = implicitly[GetResult[Option[PayloadId]]]
+    val traceContextGetter = implicitly[GetResult[SerializableTraceContext]]
+    val errorOGetter = implicitly[GetResult[Option[ByteString]]]
+
+    GetResult { r =>
+      val row = DeliverStoreEventRow[PayloadId](
+        timestampGetter(r),
+        r.nextInt(),
+        discriminatorGetter(r),
+        messageIdGetter(r),
+        memberIdGetter(r),
+        memberIdNesGetter(r),
+        payloadIdGetter(r),
+        timestampOGetter(r),
+        traceContextGetter(r).unwrap,
+        errorOGetter(r),
+      )
+
       row.asStoreEvent
         .fold(
           msg => throw new DbDeserializationException(s"Failed to deserialize event row: $msg"),
@@ -295,6 +352,15 @@ class DbSequencerStore(
     case _: H2 =>
       ("array_contains(events.recipients, ", ")")
   }
+
+  private val payloadCache: TracedAsyncLoadingCache[PayloadId, Payload] = TracedScaffeine
+    .buildTracedAsyncFuture[PayloadId, Payload](
+      cache = cachingConfigs.sequencerPayloadCache.buildScaffeine(),
+      loader = traceContext =>
+        payloadId => readPayloadsFromStore(Seq(payloadId))(traceContext).map(_(payloadId)),
+      allLoader =
+        Some(traceContext => payloadIds => readPayloadsFromStore(payloadIds.toSeq)(traceContext)),
+    )(logger)
 
   override def registerMember(member: Member, timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
@@ -712,6 +778,25 @@ class DbSequencerStore(
       )
       .map(items => SortedSet(items*))
 
+  override def readPayloads(payloadIds: Seq[PayloadId])(implicit
+      traceContext: TraceContext
+  ): Future[Map[PayloadId, Payload]] =
+    payloadCache.getAll(payloadIds)
+
+  private def readPayloadsFromStore(payloadIds: Seq[PayloadId])(implicit
+      traceContext: TraceContext
+  ): Future[Map[PayloadId, Payload]] =
+    NonEmpty.from(payloadIds) match {
+      case None => Future.successful(Map.empty)
+      case Some(payloadIdsNE) =>
+        val query = sql"""select id, content
+        from sequencer_payloads
+        where """ ++ DbStorage.toInClause("id", payloadIdsNE)
+        storage.query(query.as[Payload], functionFullName).map { payloads =>
+          payloads.map(p => p.id -> p).toMap
+        }
+    }
+
   override def readEvents(
       memberId: SequencerMemberId,
       fromTimestampO: Option[CantonTimestamp],
@@ -731,11 +816,9 @@ class DbSequencerStore(
         safeWatermark: CantonTimestamp,
     ) = sql"""
         select events.ts, events.node_index, events.event_type, events.message_id, events.sender,
-          events.recipients, payloads.id, payloads.content, events.topology_timestamp,
+          events.recipients, events.payload_id, events.topology_timestamp,
           events.trace_context, events.error
         from sequencer_events events
-        left join sequencer_payloads payloads
-          on events.payload_id = payloads.id
         inner join sequencer_watermarks watermarks
           on events.node_index = watermarks.node_index
         where (events.recipients is null or (#$memberContainsBefore $memberId #$memberContainsAfter))
@@ -762,7 +845,7 @@ class DbSequencerStore(
           h2PostgresQueryEvents("array_contains(events.recipients, ", ")", safeWatermark)
       }
 
-      query.as[Sequenced[Payload]]
+      query.as[Sequenced[PayloadId]]
     }
 
     val query = for {

@@ -24,6 +24,7 @@ object PostgresResetStorageBackend extends ResetStorageBackend {
       delete from lapi_party_entries cascade;
       delete from lapi_party_records cascade;
       delete from lapi_party_record_annotations cascade;
+      delete from lapi_events_party_to_participant cascade;
       delete from lapi_string_interning cascade;
       delete from lapi_pe_create_id_filter_stakeholder cascade;
       delete from lapi_pe_create_id_filter_non_stakeholder_informee cascade;

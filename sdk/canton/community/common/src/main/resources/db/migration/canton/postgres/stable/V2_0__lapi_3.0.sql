@@ -86,8 +86,8 @@ CREATE TABLE lapi_command_completions (
     application_id varchar(4000) collate "C" not null,
     submitters integer[] not null,
     command_id varchar(4000) collate "C" not null,
-    -- The transaction ID is `NULL` for rejected transactions.
-    transaction_id varchar(4000) collate "C",
+    -- The update ID is `NULL` for rejected transactions/reassignments.
+    update_id varchar(4000) collate "C",
     -- The submission ID will be provided by the participant or driver if the application didn't provide one.
     -- Nullable to support historical data.
     submission_id text,
@@ -191,7 +191,7 @@ CREATE TABLE lapi_events_consuming_exercise (
     event_offset text not null,
 
     -- * transaction metadata
-    transaction_id text not null,
+    update_id text not null,
     workflow_id text,
 
     -- * submitter info (only visible on submitting participant)
@@ -251,7 +251,7 @@ CREATE TABLE lapi_events_create (
     event_offset text not null,
 
     -- * transaction metadata
-    transaction_id text not null,
+    update_id text not null,
     workflow_id text,
 
     -- * submitter info (only visible on submitting participant)
@@ -312,7 +312,7 @@ CREATE TABLE lapi_events_non_consuming_exercise (
     event_offset text not null,
 
     -- * transaction metadata
-    transaction_id text not null,
+    update_id text not null,
     workflow_id text,
 
     -- * submitter info (only visible on submitting participant)
@@ -403,6 +403,27 @@ CREATE INDEX lapi_events_unassign_event_offset_idx ON lapi_events_unassign USING
 CREATE INDEX lapi_events_unassign_event_sequential_id_idx ON lapi_events_unassign USING btree (event_sequential_id);
 
 ---------------------------------------------------------------------------------------------------
+-- Events: Topology (participant authorization mappings)
+---------------------------------------------------------------------------------------------------
+CREATE TABLE lapi_events_party_to_participant (
+    event_sequential_id bigint not null,
+    event_offset text not null,
+    update_id text not null,
+    party_id integer not null,
+    participant_id varchar(255) collate "C" not null,
+    participant_permission integer not null,
+    domain_id integer not null,
+    record_time bigint not null,
+    trace_context bytea
+);
+
+-- offset index: used to translate to sequential_id
+CREATE INDEX lapi_events_party_to_participant_event_offset_idx ON lapi_events_party_to_participant USING btree (event_offset);
+
+-- sequential_id index for paging
+CREATE INDEX lapi_events_party_to_participant_event_sequential_id_idx ON lapi_events_party_to_participant USING btree (event_sequential_id);
+
+---------------------------------------------------------------------------------------------------
 -- Identity provider configs
 --
 -- This table stores identity provider records used in the ledger api identity provider config
@@ -448,7 +469,7 @@ CREATE TABLE lapi_party_record_annotations (
 -- This table is used in point-wise lookups.
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_transaction_meta (
-    transaction_id text not null,
+    update_id text not null,
     event_offset text not null,
     publication_time bigint not null,
     record_time bigint not null,
@@ -458,7 +479,7 @@ CREATE TABLE lapi_transaction_meta (
 );
 
 CREATE INDEX lapi_transaction_meta_event_offset_idx ON lapi_transaction_meta USING btree (event_offset);
-CREATE INDEX lapi_transaction_meta_tid_idx ON lapi_transaction_meta USING btree (transaction_id);
+CREATE INDEX lapi_transaction_meta_uid_idx ON lapi_transaction_meta USING btree (update_id);
 CREATE INDEX lapi_transaction_meta_publication_time_idx ON lapi_transaction_meta USING btree (publication_time, event_offset);
 CREATE INDEX lapi_transaction_meta_domain_record_time_idx ON lapi_transaction_meta USING btree (domain_id, record_time);
 CREATE INDEX lapi_transaction_meta_domain_offset_idx ON lapi_transaction_meta USING btree (domain_id, event_offset);

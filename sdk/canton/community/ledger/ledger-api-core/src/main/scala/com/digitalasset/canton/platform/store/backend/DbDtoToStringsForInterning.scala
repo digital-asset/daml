@@ -86,6 +86,9 @@ object DbDtoToStringsForInterning {
         // since this information is stored in the lapi_party_entries as well
         dbDto.party.iterator
 
+      case dbDto: DbDto.EventPartyToParticipant =>
+        Iterator(dbDto.party_id)
+
       case _ => Iterator.empty
     }
 
@@ -95,6 +98,7 @@ object DbDtoToStringsForInterning {
       case dbDto: DbDto.EventCreate => Iterator(dbDto.domain_id)
       case dbDto: DbDto.EventUnassign => Iterator(dbDto.source_domain_id, dbDto.target_domain_id)
       case dbDto: DbDto.EventAssign => Iterator(dbDto.source_domain_id, dbDto.target_domain_id)
+      case dbDto: DbDto.EventPartyToParticipant => Iterator(dbDto.domain_id)
       case dbDto: DbDto.CommandCompletion => Iterator(dbDto.domain_id)
       case dbDto: DbDto.SequencerIndexMoved => Iterator(dbDto.domainId)
       case dbDto: DbDto.TransactionMeta => Iterator(dbDto.domain_id)

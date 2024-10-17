@@ -403,6 +403,10 @@ object ParallelIndexerSubscription {
             eventSeqId += 1
             dbDto.copy(event_sequential_id = eventSeqId)
 
+          case dbDto: DbDto.EventPartyToParticipant =>
+            eventSeqId += 1
+            dbDto.copy(event_sequential_id = eventSeqId)
+
           // we do not increase the event_seq_id here, because all the DbDto-s must have the same eventSeqId as the preceding Event
           case dbDto: DbDto.IdFilterCreateStakeholder =>
             dbDto.copy(event_sequential_id = eventSeqId)

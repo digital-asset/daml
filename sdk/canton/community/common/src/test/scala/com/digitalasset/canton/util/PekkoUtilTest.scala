@@ -13,7 +13,6 @@ import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
-import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality
 import com.digitalasset.canton.logging.SuppressionRule
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import com.digitalasset.canton.util.PekkoUtil.{
@@ -1236,7 +1235,24 @@ class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
       Threading.sleep(10)
       recoveringQueue.firstSuccessfulConsumerInitialization.isCompleted shouldBe false
       shutdownPromise.isCompleted shouldBe false
-      recoveringQueue.shutdown()
+      loggerFactory.assertEventuallyLogsSeq(
+        SuppressionRule.LoggerNameContains("RecoveringFutureQueueImpl") &&
+          SuppressionRule.LevelAndAbove(org.slf4j.event.Level.DEBUG)
+      )(
+        recoveringQueue.shutdown(),
+        logEntries => {
+          logEntries should have size (3)
+          logEntries.head.infoMessage should include(
+            "Before shutting down, preventing further initialization retries"
+          )
+          logEntries(1).infoMessage should include(
+            "Shutdown initiated"
+          )
+          logEntries(2).debugMessage should include(
+            "Consumer initialization is in progress, delaying shutdown"
+          )
+        },
+      )
       // subsequent shutdown has no effect
       loggerFactory.assertLogs(
         SuppressionRule.LoggerNameContains("RecoveringFutureQueueImpl") &&
@@ -1289,15 +1305,23 @@ class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
       // at this point we should be waiting
       val beforeShutdown = System.nanoTime()
       // shutdown should be interrupting the waiting for retry
-      loggerFactory.assertLogs(
+      loggerFactory.assertEventuallyLogsSeq(
         SuppressionRule.LoggerNameContains("RecoveringFutureQueueImpl") &&
-          SuppressionRule.Level(org.slf4j.event.Level.DEBUG)
+          SuppressionRule.LevelAndAbove(org.slf4j.event.Level.DEBUG)
       )(
         recoveringQueue.shutdown(),
-        logEntry =>
-          logEntry.debugMessage should include(
+        logEntries => {
+          logEntries should have size (3)
+          logEntries.head.infoMessage should include(
+            "Before shutting down, preventing further initialization retries"
+          )
+          logEntries(1).infoMessage should include(
+            "Shutdown initiated"
+          )
+          logEntries(2).infoMessage should include(
             "Interrupting wait for initialization retry, shutdown complete"
-          ),
+          )
+        },
       )
       // subsequent shutdown has no effect
       loggerFactory.assertLogs(
@@ -1402,20 +1426,29 @@ class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
         logEntry =>
           logEntry.errorMessage should include("Consumer initialization failed (attempt #8)"),
       )
-      // error 3, but as shutting down, maximum one more error might be reported
-      // (in case shutting down timer finishes later than initialization failure)
-      loggerFactory.assertLogsUnorderedOptional(
-        {
-          // error 3
-          initializationStartedPromise.get().future.futureValue
-          recoveringQueue.shutdown()
-          initializationContinuePromise.get().trySuccess(())
-          recoveringQueue.done.futureValue
-        },
-        LogEntryOptionality.Optional -> { logEntry =>
-          logEntry.errorMessage should include("Consumer initialization failed (attempt #9)")
+      initializationStartedPromise.get().future.futureValue
+      // shutting down after initialization started, and waiting until the async shutdown finishes
+      loggerFactory.assertEventuallyLogsSeq(
+        SuppressionRule.LoggerNameContains("RecoveringFutureQueueImpl") &&
+          SuppressionRule.LevelAndAbove(org.slf4j.event.Level.DEBUG)
+      )(
+        recoveringQueue.shutdown(),
+        logEntries => {
+          logEntries should have size (3)
+          logEntries.head.infoMessage should include(
+            "Before shutting down, preventing further initialization retries"
+          )
+          logEntries(1).infoMessage should include(
+            "Shutdown initiated"
+          )
+          logEntries(2).debugMessage should include(
+            "Consumer initialization is in progress, delaying shutdown"
+          )
         },
       )
+      // error 3, but as shutting down, no more errors are reported
+      initializationContinuePromise.get().trySuccess(())
+      recoveringQueue.done.futureValue
       recoveringQueue.firstSuccessfulConsumerInitialization.failed.futureValue
     }
 

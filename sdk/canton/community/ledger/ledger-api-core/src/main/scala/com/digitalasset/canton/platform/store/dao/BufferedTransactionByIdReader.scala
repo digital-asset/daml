@@ -53,7 +53,7 @@ class BufferedTransactionByIdReader[API_RESPONSE](
 object BufferedTransactionByIdReader {
   trait FetchTransactionByIdFromPersistence[API_RESPONSE] {
     def apply(
-        transactionId: String,
+        updateId: String,
         requestingParties: Set[Party],
         loggingContext: LoggingContextWithTrace,
     ): Future[Option[API_RESPONSE]]

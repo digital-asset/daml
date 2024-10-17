@@ -43,7 +43,7 @@ import com.digitalasset.canton.participant.protocol.submission.{
   SeedGenerator,
 }
 import com.digitalasset.canton.participant.protocol.{EngineController, ProcessingStartingPoints}
-import com.digitalasset.canton.participant.store.ReassignmentStoreTest.contract
+import com.digitalasset.canton.participant.store.ReassignmentStoreTest.coidAbs1
 import com.digitalasset.canton.participant.store.memory.*
 import com.digitalasset.canton.participant.store.{
   ParticipantNodeEphemeralState,
@@ -69,6 +69,7 @@ import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.Confirmation
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.HasTestCloseContext
+import monocle.macros.syntax.lens.*
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.util.UUID
@@ -103,6 +104,18 @@ class AssignmentProcessingStepsTest
 
   private lazy val participant = ParticipantId(
     UniqueIdentifier.tryFromProtoPrimitive("bothdomains::participant")
+  )
+
+  private lazy val contractId = coidAbs1
+  private lazy val contract = ExampleTransactionFactory.asSerializable(
+    contractId = contractId,
+    contractInstance = ExampleTransactionFactory.contractInstance(),
+    ledgerTime = CantonTimestamp.Epoch,
+    metadata = ContractMetadata.tryCreate(
+      stakeholders = Set(party1),
+      signatories = Set(party1),
+      maybeKeyWithMaintainersVersioned = None,
+    ),
   )
 
   private lazy val initialReassignmentCounter: ReassignmentCounter = ReassignmentCounter.Genesis
@@ -270,14 +283,22 @@ class AssignmentProcessingStepsTest
 
     "fail when a receiving party has no participant on the domain" in {
 
-      val unassignmentRequest = reassignmentDataHelpers.unassignmentRequest(
+      val helpers = reassignmentDataHelpers
+        .focus(_.contract.metadata)
+        .modify(metadata =>
+          ContractMetadata.tryCreate(
+            signatories = metadata.signatories,
+            // party3 is a stakeholder and therefore a receiving party
+            stakeholders = metadata.stakeholders + party3,
+            maybeKeyWithMaintainersVersioned = None,
+          )
+        )
+
+      val unassignmentRequest = helpers.unassignmentRequest(
         party1,
         DefaultTestIdentities.participant1,
         sourceMediator,
-      )(
-        // party3 is a stakeholder and therefore a receiving party
-        stakeholders = Set(party1, party3)
-      )
+      )()
 
       val reassignmentData2 =
         reassignmentDataHelpers.reassignmentData(reassignmentId, unassignmentRequest)()
@@ -382,15 +403,23 @@ class AssignmentProcessingStepsTest
         reassignmentId,
       )
 
+      // We need to change the contract instance otherwise we get another error (AssignmentSubmitterMustBeStakeholder)
+      val contract = ExampleTransactionFactory.asSerializable(
+        contractId = coidAbs1,
+        contractInstance = ExampleTransactionFactory.contractInstance(),
+        ledgerTime = CantonTimestamp.Epoch,
+        metadata = ContractMetadata.tryCreate(Set(), Set(party2), None),
+      )
+
       val reassignmentData2 = ReassignmentStoreTest.mkReassignmentDataForDomain(
         reassignmentId,
         sourceMediator,
         party2,
         targetDomain,
+        contract,
       )
 
       for {
-
         deps <- statefulDependencies
         (persistentState, ephemeralState) = deps
         _ <- setUpOrFail(reassignmentData2, unassignmentResult, persistentState).failOnShutdown
@@ -410,16 +439,9 @@ class AssignmentProcessingStepsTest
   }
 
   "receive request" should {
-    val contractId = ExampleTransactionFactory.suffixedId(10, 0)
-    val contract = ExampleTransactionFactory.asSerializable(
-      contractId,
-      contractInstance = ExampleTransactionFactory.contractInstance(),
-    )
-
-    val inTree =
+    val assignmentTree =
       makeFullAssignmentTree(
         party1,
-        Set(party1),
         contract,
         ExampleTransactionFactory.transactionId(0),
         targetDomain,
@@ -431,10 +453,14 @@ class AssignmentProcessingStepsTest
       val sessionKeyStore =
         new SessionKeyStoreWithInMemoryCache(CachingConfigs.defaultSessionKeyCacheConfig)
       for {
-        inRequest <- encryptFullAssignmentTree(inTree, RecipientsTest.testInstance, sessionKeyStore)
+        assignmentRequest <- encryptFullAssignmentTree(
+          assignmentTree,
+          RecipientsTest.testInstance,
+          sessionKeyStore,
+        )
         envelopes = NonEmpty(
           Seq,
-          OpenEnvelope(inRequest, RecipientsTest.testInstance)(testedProtocolVersion),
+          OpenEnvelope(assignmentRequest, RecipientsTest.testInstance)(testedProtocolVersion),
         )
         decrypted <-
           assignmentProcessingSteps
@@ -462,7 +488,6 @@ class AssignmentProcessingStepsTest
     "fail when target domain is not current domain" in {
       val inTree2 = makeFullAssignmentTree(
         party1,
-        Set(party1),
         contract,
         ExampleTransactionFactory.transactionId(0),
         Target(anotherDomain),
@@ -480,7 +505,7 @@ class AssignmentProcessingStepsTest
 
     "deduplicate requests with an alarm" in {
       // Send the same assignment request twice
-      val parsedRequest = mkParsedRequest(inTree)
+      val parsedRequest = mkParsedRequest(assignmentTree)
       val viewWithMetadata = (
         WithRecipients(parsedRequest.fullViewTree, parsedRequest.recipients),
         parsedRequest.signatureO,
@@ -516,15 +541,18 @@ class AssignmentProcessingStepsTest
   }
 
   "construct pending data and response" should {
-    val contractId = ExampleTransactionFactory.suffixedId(10, 0)
-    val contract =
-      ExampleTransactionFactory.asSerializable(
-        contractId,
+    "fail when wrong stakeholders given" in {
+      lazy val contractWrongStakeholders = ExampleTransactionFactory.asSerializable(
+        contractId = contractId,
         contractInstance = ExampleTransactionFactory.contractInstance(),
-        metadata = ContractMetadata.tryCreate(Set.empty, Set(party1), None),
+        ledgerTime = CantonTimestamp.Epoch,
+        metadata = ContractMetadata.tryCreate(
+          stakeholders = Set(party1, party2),
+          signatories = Set(party1),
+          maybeKeyWithMaintainersVersioned = None,
+        ),
       )
 
-    "fail when wrong stakeholders given" in {
       for {
         deps <- statefulDependencies
         (_persistentState, ephemeralState) = deps
@@ -532,8 +560,7 @@ class AssignmentProcessingStepsTest
         // party2 is incorrectly registered as a stakeholder
         fullAssignmentTree2 = makeFullAssignmentTree(
           party1,
-          stakeholders = Set(party1, party2),
-          contract,
+          contractWrongStakeholders,
           ExampleTransactionFactory.transactionId(0),
           targetDomain,
           targetMediator,
@@ -566,11 +593,9 @@ class AssignmentProcessingStepsTest
         (_persistentState, ephemeralState) = deps
 
         reassignmentLookup = ephemeralState.reassignmentCache
-        contractLookup = ephemeralState.contractLookup
 
         fullAssignmentTree = makeFullAssignmentTree(
           party1,
-          Set(party1),
           contract,
           ExampleTransactionFactory.transactionId(0),
           targetDomain,
@@ -685,7 +710,6 @@ class AssignmentProcessingStepsTest
 
   private def makeFullAssignmentTree(
       submitter: LfPartyId,
-      stakeholders: Set[LfPartyId],
       contract: SerializableContract,
       creatingTransactionId: TransactionId,
       targetDomain: Target[DomainId],
@@ -700,7 +724,6 @@ class AssignmentProcessingStepsTest
         crypto.pureCrypto,
         seed,
         submitterInfo(submitter),
-        stakeholders,
         contract,
         initialReassignmentCounter,
         creatingTransactionId,
@@ -710,7 +733,7 @@ class AssignmentProcessingStepsTest
         uuid,
         Source(testedProtocolVersion),
         Target(testedProtocolVersion),
-        reassigningParticipants = Set.empty,
+        confirmingReassigningParticipants = Set.empty,
       )
     )("Failed to create FullAssignmentTree")
   }

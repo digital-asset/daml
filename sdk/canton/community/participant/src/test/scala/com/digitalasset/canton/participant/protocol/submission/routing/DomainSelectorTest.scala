@@ -21,14 +21,18 @@ import com.digitalasset.canton.participant.sync.TransactionRoutingError.Configur
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.RoutingInternalError.InputContractsOnDifferentDomains
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.TopologyErrors.NoDomainForSubmission
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.UnableToQueryTopologySnapshot
-import com.digitalasset.canton.protocol.{LfContractId, LfLanguageVersion, LfVersionedTransaction}
+import com.digitalasset.canton.protocol.{
+  LfContractId,
+  LfLanguageVersion,
+  LfVersionedTransaction,
+  Stakeholders,
+}
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.VettedPackage
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{DamlLfVersionToProtocolVersions, ProtocolVersion}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, LfPartyId}
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.transaction.test.TransactionBuilder.Implicits.*
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -221,10 +225,14 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
           treeExercises.inputContract2Id -> repair,
           treeExercises.inputContract3Id -> da,
         )
-      val inputContractStakeholders: Map[LfContractId, Set[Ref.Party]] = Map(
-        treeExercises.inputContract1Id -> Set(party3, observer),
-        treeExercises.inputContract2Id -> Set(party3, observer),
-        treeExercises.inputContract3Id -> Set(signatory, party3),
+      val inputContractStakeholders = Map(
+        treeExercises.inputContract1Id -> Stakeholders
+          .tryCreate(Set(party3, observer)),
+        treeExercises.inputContract2Id -> Stakeholders
+          .tryCreate(Set(party3, observer)),
+        treeExercises.inputContract3Id -> Stakeholders.tryCreate(
+          Set(signatory, party3)
+        ),
       )
       val topology: Map[LfPartyId, List[ParticipantId]] = Map(
         signatory -> List(submitterParticipantId),
@@ -430,7 +438,7 @@ private[routing] object DomainSelectorTest {
       val exerciseByInterface = ExerciseByInterface(transactionVersion)
 
       val inputContractStakeholders = Map(
-        exerciseByInterface.inputContractId -> Set(signatory, observer)
+        exerciseByInterface.inputContractId -> Stakeholders.tryCreate(Set(signatory, observer))
       )
 
       new Selector(loggerFactory)(
@@ -457,7 +465,7 @@ private[routing] object DomainSelectorTest {
         domainProtocolVersion: DomainId => ProtocolVersion = defaultDomainProtocolVersion,
         vettedPackages: Seq[VettedPackage] = ExerciseByInterface.correctPackages,
         ledgerTime: CantonTimestamp = CantonTimestamp.now(),
-        inputContractStakeholders: Map[LfContractId, Set[Ref.Party]] = Map.empty,
+        inputContractStakeholders: Map[LfContractId, Stakeholders] = Map.empty,
         topology: Map[LfPartyId, List[ParticipantId]] = correctTopology,
     )(implicit
         ec: ExecutionContext,
@@ -468,7 +476,9 @@ private[routing] object DomainSelectorTest {
       val contractStakeholders =
         if (inputContractStakeholders.isEmpty)
           threeExercises.inputContractIds.map { inputContractId =>
-            inputContractId -> Set(signatory, observer)
+            inputContractId -> Stakeholders.tryCreate(
+              Set(signatory, observer)
+            )
           }.toMap
         else inputContractStakeholders
 
@@ -497,7 +507,7 @@ private[routing] object DomainSelectorTest {
         vettedPackages: Seq[VettedPackage],
         tx: LfVersionedTransaction,
         ledgerTime: CantonTimestamp,
-        inputContractStakeholders: Map[LfContractId, Set[Ref.Party]],
+        inputContractStakeholders: Map[LfContractId, Stakeholders],
         topology: Map[LfPartyId, List[ParticipantId]] = correctTopology,
     )(implicit ec: ExecutionContext, traceContext: TraceContext) {
 

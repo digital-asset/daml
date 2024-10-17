@@ -70,7 +70,7 @@ object Fingerprint {
   def fromProtoPrimitive(str: String): ParsingResult[Fingerprint] =
     UniqueIdentifier
       .verifyValidString(str) // verify that we can represent the string as part of the UID.
-      .leftMap(ProtoDeserializationError.StringConversionError.apply)
+      .leftMap(ProtoDeserializationError.StringConversionError.apply(_))
       .flatMap(String68.fromProtoPrimitive(_, "Fingerprint"))
       .map(Fingerprint(_))
 

@@ -62,7 +62,9 @@ class DirectSequencerClientTransport(
     with NamedLogging {
   import DirectSequencerClientTransport.*
 
-  override def logout(): EitherT[FutureUnlessShutdown, Status, Unit] =
+  override def logout()(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, Status, Unit] =
     // In-process connection is not authenticated
     EitherT.pure(())
 

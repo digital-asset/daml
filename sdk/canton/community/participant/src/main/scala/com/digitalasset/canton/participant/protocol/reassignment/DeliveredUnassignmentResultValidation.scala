@@ -35,7 +35,7 @@ private[reassignment] final case class DeliveredUnassignmentResultValidation(
 
   private val stakeholders = unassignmentRequest.stakeholders
   private val sourceDomainId = unassignmentRequest.sourceDomain
-  private val reassigningParticipants = unassignmentRequest.reassigningParticipants
+  private val reassigningParticipants = unassignmentRequest.confirmingReassigningParticipants
 
   def validate: EitherT[Future, Error, Unit] =
     for {

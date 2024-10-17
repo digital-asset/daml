@@ -219,7 +219,7 @@ object Verdict
   ): ParsingResult[(Set[LfPartyId], LocalReject)] = {
     val v30.RejectionReason(partiesP, rejectP) = protoReason
     for {
-      parties <- partiesP.traverse(ProtoConverter.parseLfPartyId).map(_.toSet)
+      parties <- partiesP.traverse(ProtoConverter.parseLfPartyId(_, "parties")).map(_.toSet)
       localVerdict <- ProtoConverter.parseRequired(LocalVerdict.fromProtoV30, "reject", rejectP)
       localReject <- localVerdict match {
         case localReject: LocalReject => Right(localReject)

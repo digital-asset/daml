@@ -52,6 +52,8 @@ private[backend] trait StorageBackendTestsReset extends Matchers with StorageBac
       // 5: unassign event
       dtoUnassign(offset(5), 5L, hashCid("#5")),
       DbDto.IdFilterUnassignStakeholder(5L, someTemplateId.toString, someParty.toString),
+      // 6: topology transaction
+      dtoPartyToParticipant(offset(6), 6L),
       // String interning
       DbDto.StringInterningDto(10, "d|x:abc"),
     )

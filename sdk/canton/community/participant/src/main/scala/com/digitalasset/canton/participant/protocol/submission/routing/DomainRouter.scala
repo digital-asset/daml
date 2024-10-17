@@ -43,8 +43,8 @@ import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.{LfKeyResolver, LfPartyId}
-import com.digitalasset.daml.lf.data.{ImmArray, Ref}
+import com.digitalasset.canton.{LfKeyResolver, LfPartyId, checked}
+import com.digitalasset.daml.lf.data.ImmArray
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -236,7 +236,7 @@ class DomainRouter(
     // Check that at least one party listed in actAs or readAs is a stakeholder so that we can reassign the contract if needed.
     // This check is overly strict on behalf of contracts that turn out not to need to be reassigned.
     val readerNotBeingStakeholder = contractData.filter { data =>
-      data.stakeholders.intersect(transactionData.readers).isEmpty
+      data.stakeholders.stakeholders.intersect(transactionData.readers).isEmpty
     }
 
     for {
@@ -368,19 +368,30 @@ object DomainRouter {
 
   private[routing] def inputContractsStakeholders(
       tx: LfVersionedTransaction
-  ): Map[LfContractId, Set[Ref.Party]] = {
+  ): Map[LfContractId, Stakeholders] = {
 
+    // TODO(#16065) Revisit this value
     val keyLookupMap = tx.nodes.values.collect { case LfNodeLookupByKey(_, _, key, Some(cid), _) =>
-      cid -> key.maintainers
+      cid -> checked(
+        Stakeholders.tryCreate(stakeholders = key.maintainers)
+      )
     }.toMap
 
     val mainMap = tx.nodes.values.collect {
-      case n: LfNodeFetch => n.coid -> n.stakeholders
-      case n: LfNodeExercises => n.targetCoid -> n.stakeholders
+      case n: LfNodeFetch =>
+        val stakeholders = checked(
+          Stakeholders.tryCreate(stakeholders = n.stakeholders)
+        )
+        n.coid -> stakeholders
+      case n: LfNodeExercises =>
+        val stakeholders = checked(
+          Stakeholders.tryCreate(stakeholders = n.stakeholders)
+        )
+
+        n.targetCoid -> stakeholders
     }.toMap
 
     (keyLookupMap ++ mainMap) -- tx.localContracts.keySet
-
   }
 
 }

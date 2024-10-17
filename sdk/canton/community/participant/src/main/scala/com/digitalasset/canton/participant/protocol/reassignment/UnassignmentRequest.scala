@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.protocol.reassignment
 
 import cats.data.EitherT
+import com.digitalasset.canton.ReassignmentCounter
 import com.digitalasset.canton.crypto.{HashOps, HmacOps, Salt, SaltSeed}
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -18,22 +19,20 @@ import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{LfPartyId, ReassignmentCounter}
 
 import java.util.UUID
 import scala.concurrent.ExecutionContext
 
 /** Request to reassign a contract away from a domain.
   *
-  * @param reassigningParticipants The list of reassigning participants
+  * @param confirmingReassigningParticipants The list of confirming reassigning participants
   * @param targetTimeProof a sequenced event that the submitter has recently observed on the target domain.
   *                        Determines the timestamp of the topology at the target domain.
   * @param reassignmentCounter The new reassignment counter (incremented value compared to the one in the ACS).
   */
 final case class UnassignmentRequest(
     submitterMetadata: ReassignmentSubmitterMetadata,
-    stakeholders: Set[LfPartyId],
-    reassigningParticipants: Set[ParticipantId],
+    confirmingReassigningParticipants: Set[ParticipantId],
     creatingTransactionId: TransactionId,
     contract: SerializableContract,
     sourceDomain: Source[DomainId],
@@ -59,9 +58,9 @@ final case class UnassignmentRequest(
         commonDataSalt,
         sourceDomain,
         sourceMediator,
-        stakeholders,
-        reassigningParticipants,
-        uuid,
+        stakeholders = Stakeholders(contract.metadata),
+        confirmingReassigningParticipants,
+        uuid = uuid,
         submitterMetadata,
         sourceProtocolVersion,
       )
@@ -90,7 +89,6 @@ object UnassignmentRequest {
       creatingTransactionId: TransactionId,
       contract: SerializableContract,
       submitterMetadata: ReassignmentSubmitterMetadata,
-      stakeholders: Set[LfPartyId],
       sourceDomain: Source[DomainId],
       sourceProtocolVersion: Source[ProtocolVersion],
       sourceMediator: MediatorGroupRecipient,
@@ -109,6 +107,7 @@ object UnassignmentRequest {
   ] = {
     val contractId = contract.contractId
     val templateId = contract.contractInstance.unversioned.template
+    val stakeholders = Stakeholders(contract.metadata)
 
     for {
       _ <- ReassignmentSubmissionValidation.unassignment(
@@ -116,18 +115,18 @@ object UnassignmentRequest {
         sourceTopology,
         submitterMetadata.submitter,
         participantId,
-        stakeholders,
+        stakeholders = stakeholders.stakeholders,
       )
 
       unassignmentRequestRecipients <- sourceTopology.unwrap
-        .activeParticipantsOfAll(stakeholders.toList)
+        .activeParticipantsOfAll(stakeholders.stakeholders.toList)
         .mapK(FutureUnlessShutdown.outcomeK)
         .leftMap(inactiveParties =>
           StakeholderHostingErrors(s"The following stakeholders are not active: $inactiveParties")
         )
 
       reassigningParticipants <- new ReassigningParticipants(
-        stakeholders,
+        stakeholders = stakeholders,
         sourceTopology,
         targetTopology,
       ).compute.mapK(FutureUnlessShutdown.outcomeK)
@@ -136,7 +135,7 @@ object UnassignmentRequest {
         .checkPackagesVetted(
           targetDomain.unwrap,
           targetTopology.unwrap,
-          stakeholders.view.map(_ -> Set(templateId.packageId)).toMap,
+          stakeholders.stakeholders.view.map(_ -> Set(templateId.packageId)).toMap,
           targetTopology.unwrap.referenceTime,
         )
         .leftMap[ReassignmentProcessorError](unknownPackage =>
@@ -146,7 +145,6 @@ object UnassignmentRequest {
     } yield {
       val unassignmentRequest = UnassignmentRequest(
         submitterMetadata,
-        stakeholders,
         reassigningParticipants,
         creatingTransactionId,
         contract,

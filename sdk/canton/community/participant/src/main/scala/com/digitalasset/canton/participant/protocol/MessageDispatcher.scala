@@ -839,40 +839,4 @@ private[participant] object MessageDispatcher {
     }
   }
 
-  object DefaultFactory extends Factory[MessageDispatcher] {
-    override def create(
-        protocolVersion: ProtocolVersion,
-        domainId: DomainId,
-        participantId: ParticipantId,
-        requestTracker: RequestTracker,
-        requestProcessors: RequestProcessors,
-        topologyProcessor: ParticipantTopologyProcessor,
-        trafficProcessor: TrafficControlProcessor,
-        acsCommitmentProcessor: AcsCommitmentProcessor.ProcessorType,
-        requestCounterAllocator: RequestCounterAllocator,
-        recordOrderPublisher: RecordOrderPublisher,
-        badRootHashMessagesRequestProcessor: BadRootHashMessagesRequestProcessor,
-        repairProcessor: RepairProcessor,
-        inFlightSubmissionTracker: InFlightSubmissionTracker,
-        loggerFactory: NamedLoggerFactory,
-        metrics: SyncDomainMetrics,
-    )(implicit ec: ExecutionContext, tracer: Tracer): MessageDispatcher =
-      new DefaultMessageDispatcher(
-        protocolVersion,
-        domainId,
-        participantId,
-        requestTracker,
-        requestProcessors,
-        topologyProcessor,
-        trafficProcessor,
-        acsCommitmentProcessor,
-        requestCounterAllocator,
-        recordOrderPublisher,
-        badRootHashMessagesRequestProcessor,
-        repairProcessor,
-        inFlightSubmissionTracker,
-        loggerFactory,
-        metrics,
-      )
-  }
 }

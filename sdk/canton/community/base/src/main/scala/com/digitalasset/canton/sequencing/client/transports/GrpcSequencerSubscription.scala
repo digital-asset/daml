@@ -10,7 +10,6 @@ import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.logging.NamedLogging.loggerWithoutTracing
 import com.digitalasset.canton.metrics.SequencerClientMetrics
 import com.digitalasset.canton.networking.grpc.GrpcError
 import com.digitalasset.canton.networking.grpc.GrpcError.GrpcServiceUnavailable
@@ -20,7 +19,7 @@ import com.digitalasset.canton.sequencing.protocol.SubscriptionResponse
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.tracing.TraceContext.withTraceContext
-import com.digitalasset.canton.tracing.{NoTracing, SerializableTraceContext, TraceContext, Traced}
+import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext, Traced}
 import com.digitalasset.canton.util.FutureUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
@@ -63,9 +62,7 @@ class GrpcSequencerSubscription[E, R: HasProtoTraceContext] private[transports] 
     override val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
-    extends SequencerSubscription[E]
-    with NoTracing // tracing details are serialized within the items handled inside onNext
-    {
+    extends SequencerSubscription[E] {
 
   /** Stores ongoing work performed by `onNext` or `complete`.
     * The contained future is completed whenever these methods are not busy.
@@ -79,14 +76,16 @@ class GrpcSequencerSubscription[E, R: HasProtoTraceContext] private[transports] 
     override def name: String = "cancel-current-await-in-onNext"
     override def done: Boolean = currentAwaitOnNext.get.isCompleted
     override def run(): Unit = currentAwaitOnNext.get.trySuccess(AbortedDueToShutdown).discard
-  })
+  })(TraceContext.empty)
 
   private val cancelledByClient = new AtomicBoolean(false)
 
   private def cancel(): Unit =
     if (!cancelledByClient.getAndSet(true)) context.close()
 
-  private def appendToCurrentProcessing(next: Try[Unit] => Future[Unit]): Unit = {
+  private def appendToCurrentProcessing(
+      next: Try[Unit] => Future[Unit]
+  )(implicit traceContext: TraceContext): Unit = {
     val newPromise = Promise[Unit]()
     val oldFuture = currentProcessing.getAndSet(newPromise.future)
     newPromise.completeWith(oldFuture.transformWith { outcome =>
@@ -117,6 +116,7 @@ class GrpcSequencerSubscription[E, R: HasProtoTraceContext] private[transports] 
   }
 
   override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = {
+    import TraceContext.Implicits.Empty.*
     // Signal termination by client
     val completionF = Future(complete(SubscriptionCloseReason.Closed))
     val onTimeout = (ex: TimeoutException) => {
@@ -147,7 +147,7 @@ class GrpcSequencerSubscription[E, R: HasProtoTraceContext] private[transports] 
       // so it is available here for logging
       implicit val traceContext: TraceContext =
         SerializableTraceContext
-          .fromProtoSafeV30Opt(loggerWithoutTracing(logger))(
+          .fromProtoSafeV30Opt(noTracingLogger)(
             implicitly[HasProtoTraceContext[R]].traceContext(value)
           )
           .unwrap
@@ -197,7 +197,8 @@ class GrpcSequencerSubscription[E, R: HasProtoTraceContext] private[transports] 
       }
     }
 
-    override def onError(t: Throwable): Unit =
+    override def onError(t: Throwable): Unit = {
+      import TraceContext.Implicits.Empty.*
       t match {
         case s: StatusRuntimeException if s.getStatus.getCode == CANCELLED =>
           if (cancelledByClient.get()) {
@@ -229,8 +230,10 @@ class GrpcSequencerSubscription[E, R: HasProtoTraceContext] private[transports] 
           logger.error("The sequencer subscription failed unexpectedly.", t)
           complete(GrpcSubscriptionUnexpectedException(exception))
       }
+    }
 
     override def onCompleted(): Unit = {
+      import TraceContext.Implicits.Empty.*
       // Info level, as this occurs from time to time due to the invalidation of the authentication token.
       logger.info("The sequencer subscription has been terminated by the server.")
       complete(

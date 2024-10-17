@@ -138,11 +138,11 @@ private[reassignment] class AssignmentValidation(
           )
 
           _ <- condUnitET[Future](
-            reassignmentData.unassignmentRequest.reassigningParticipants == assignmentRequest.reassigningParticipants,
+            reassignmentData.unassignmentRequest.confirmingReassigningParticipants == assignmentRequest.confirmingReassigningParticipants,
             ReassigningParticipantsMismatch(
               reassignmentId,
-              expected = reassignmentData.unassignmentRequest.reassigningParticipants,
-              declared = assignmentRequest.reassigningParticipants,
+              expected = reassignmentData.unassignmentRequest.confirmingReassigningParticipants,
+              declared = assignmentRequest.confirmingReassigningParticipants,
             ),
           )
 

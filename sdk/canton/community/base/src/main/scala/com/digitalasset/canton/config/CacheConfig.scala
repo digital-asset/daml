@@ -80,6 +80,7 @@ final case class CachingConfigs(
     kmsMetadataCache: CacheConfig = CachingConfigs.kmsMetadataCache,
     finalizedMediatorConfirmationRequests: CacheConfig =
       CachingConfigs.defaultFinalizedMediatorConfirmationRequestsCache,
+    sequencerPayloadCache: CacheConfig = CachingConfigs.defaultSequencerPayloadCache,
 )
 
 object CachingConfigs {
@@ -115,6 +116,8 @@ object CachingConfigs {
   val kmsMetadataCache: CacheConfig =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(20))
   val defaultFinalizedMediatorConfirmationRequestsCache =
+    CacheConfig(maximumSize = PositiveNumeric.tryCreate(1000))
+  val defaultSequencerPayloadCache: CacheConfig =
     CacheConfig(maximumSize = PositiveNumeric.tryCreate(1000))
   @VisibleForTesting
   val testing =

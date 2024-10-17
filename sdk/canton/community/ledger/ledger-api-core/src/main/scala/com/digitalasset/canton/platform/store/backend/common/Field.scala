@@ -76,6 +76,9 @@ private[backend] final case class ByteaOptional[FROM](
 private[backend] final case class Integer[FROM](extract: StringInterning => FROM => Int)
     extends TrivialField[FROM, Int]
 
+private[backend] final case class BooleanField[FROM](extract: StringInterning => FROM => Boolean)
+    extends TrivialField[FROM, Boolean]
+
 private[backend] final case class IntOptional[FROM](extract: StringInterning => FROM => Option[Int])
     extends Field[FROM, Option[Int], java.lang.Integer] {
   @SuppressWarnings(Array("org.wartremover.warts.Null"))

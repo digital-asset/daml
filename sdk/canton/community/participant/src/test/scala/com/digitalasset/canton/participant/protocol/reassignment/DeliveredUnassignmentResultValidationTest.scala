@@ -96,9 +96,14 @@ class DeliveredUnassignmentResultValidationTest
   private val cryptoSnapshot = cryptoClient.currentSnapshotApproximation
 
   private lazy val contractId = ExampleTransactionFactory.suffixedId(10, 0)
+
+  private lazy val stakeholders = Set(signatory, observer)
+
   private lazy val contract = ExampleTransactionFactory.asSerializable(
     contractId,
     contractInstance = ExampleTransactionFactory.contractInstance(),
+    metadata =
+      ContractMetadata.tryCreate(signatories = Set(signatory), stakeholders = stakeholders, None),
   )
 
   private lazy val reassignmentId = ReassignmentId(sourceDomain, CantonTimestamp.Epoch)
@@ -110,16 +115,14 @@ class DeliveredUnassignmentResultValidationTest
     identityFactory,
   )
 
-  private lazy val reassigningParticipants = NonEmpty.mk(Seq, submittingParticipant)
-  private lazy val stakeholders = Set(signatory, observer)
+  private lazy val confirmingReassigningParticipants = NonEmpty.mk(Seq, submittingParticipant)
 
   private lazy val unassignmentRequest = reassignmentDataHelpers.unassignmentRequest(
     submitter = signatory,
     submittingParticipant = submittingParticipant,
     sourceMediator = sourceMediator,
   )(
-    stakeholders = stakeholders,
-    reassigningParticipants = reassigningParticipants.toSet,
+    confirmingReassigningParticipants = confirmingReassigningParticipants.toSet
   )
 
   private lazy val reassignmentData =
@@ -152,7 +155,7 @@ class DeliveredUnassignmentResultValidationTest
     val result = reassignmentDataHelpers
       .unassignmentResult(
         result = transform(unassignmentResult.unwrap),
-        recipients = reassigningParticipants,
+        recipients = confirmingReassigningParticipants,
         sequencingTime = sequencingTime,
         overrideCryptoSnapshotMediator = overrideCryptoSnapshotMediator,
         overrideCryptoSnapshotSequencer = overrideCryptoSnapshotSequencer,
@@ -167,7 +170,7 @@ class DeliveredUnassignmentResultValidationTest
       val error = reassignmentDataHelpers
         .unassignmentResult(
           unassignmentResult.unwrap.copy(viewType = AssignmentViewType),
-          reassigningParticipants,
+          confirmingReassigningParticipants,
         )
         .value
         .futureValue
@@ -179,7 +182,7 @@ class DeliveredUnassignmentResultValidationTest
       reassignmentDataHelpers
         .unassignmentResult(
           unassignmentResult.unwrap.copy(viewType = UnassignmentViewType),
-          reassigningParticipants,
+          confirmingReassigningParticipants,
         )
         .futureValue shouldBe a[DeliveredUnassignmentResult]
     }
@@ -199,7 +202,7 @@ class DeliveredUnassignmentResultValidationTest
       val error = reassignmentDataHelpers
         .unassignmentResult(
           unassignmentResult.unwrap,
-          reassigningParticipants,
+          confirmingReassigningParticipants,
           // The batch will then contain two envelopes
           additionalEnvelopes = List((rootHashMessage, validEnvelope.recipients)),
         )
@@ -215,7 +218,7 @@ class DeliveredUnassignmentResultValidationTest
       reassignmentDataHelpers
         .unassignmentResult(
           unassignmentResult.unwrap,
-          reassigningParticipants,
+          confirmingReassigningParticipants,
         )
         .futureValue shouldBe a[DeliveredUnassignmentResult]
     }
@@ -238,7 +241,7 @@ class DeliveredUnassignmentResultValidationTest
       def updateAndValidate(verdict: Verdict) = reassignmentDataHelpers
         .unassignmentResult(
           unassignmentResult.unwrap.copy(verdict = verdict),
-          reassigningParticipants,
+          confirmingReassigningParticipants,
         )
         .value
         .futureValue
@@ -367,7 +370,7 @@ class DeliveredUnassignmentResultValidationTest
         .activeParticipantsOfAll(stakeholders.toList)
         .value
         .futureValue
-        .value shouldBe reassigningParticipants.toSet
+        .value shouldBe confirmingReassigningParticipants.toSet
 
       def validate(targetTopology: TopologySnapshot) = DeliveredUnassignmentResultValidation(
         unassignmentRequest = reassignmentData.unassignmentRequest,
@@ -394,7 +397,7 @@ class DeliveredUnassignmentResultValidationTest
         val result = ReassignmentDataHelpers
           .unassignmentResult(
             unassignmentResult.unwrap,
-            recipients = reassigningParticipants,
+            recipients = confirmingReassigningParticipants,
             protocolVersion = testedProtocolVersion,
             cryptoSnapshotMediator = mediatorCrypto,
             cryptoSnapshotSequencer = sequencerCrypto,

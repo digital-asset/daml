@@ -141,7 +141,7 @@ object ConfirmationResultMessage
       requestId <- RequestId.fromProtoPrimitive(requestIdP)
       rootHash <- RootHash.fromProtoPrimitive(rootHashP)
       verdict <- ProtoConverter.parseRequired(Verdict.fromProtoV30, "verdict", verdictPO)
-      informees <- informeesP.traverse(ProtoConverter.parseLfPartyId)
+      informees <- informeesP.traverse(ProtoConverter.parseLfPartyId(_, "informees"))
       rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
     } yield ConfirmationResultMessage(
       domainId,

@@ -31,7 +31,10 @@ object ProtoDeserializationError extends ProtoDeserializationErrorGroup {
   final case class TransactionDeserialization(message: String) extends ProtoDeserializationError
   final case class ValueDeserializationError(field: String, message: String)
       extends ProtoDeserializationError
-  final case class StringConversionError(message: String) extends ProtoDeserializationError
+  final case class StringConversionError(error: String, field: Option[String] = None)
+      extends ProtoDeserializationError {
+    val message = field.fold(error)(field => s"Unable to parse string in $field: $error")
+  }
   final case class UnrecognizedField(message: String) extends ProtoDeserializationError
   final case class UnrecognizedEnum(field: String, value: String, validValues: Seq[String])
       extends ProtoDeserializationError {

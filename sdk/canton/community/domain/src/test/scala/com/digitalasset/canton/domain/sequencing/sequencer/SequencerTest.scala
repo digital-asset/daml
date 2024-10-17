@@ -5,7 +5,7 @@ package com.digitalasset.canton.domain.sequencing.sequencer
 
 import cats.syntax.parallel.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.config.{DefaultProcessingTimeouts, ProcessingTimeout}
+import com.digitalasset.canton.config.{CachingConfigs, DefaultProcessingTimeouts, ProcessingTimeout}
 import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
@@ -106,6 +106,7 @@ class SequencerTest extends FixtureAsyncWordSpec with BaseTest with HasExecution
       loggerFactory,
       topologyClientMember,
       blockSequencerMode = false,
+      cachingConfigs = CachingConfigs(),
     )
 
     val sequencer: DatabaseSequencer =
@@ -120,6 +121,7 @@ class SequencerTest extends FixtureAsyncWordSpec with BaseTest with HasExecution
         topologyClientMember,
         testedProtocolVersion,
         crypto,
+        CachingConfigs(),
         metrics,
         loggerFactory,
         runtimeReady = FutureUnlessShutdown.unit,

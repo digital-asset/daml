@@ -210,7 +210,7 @@ class CantonSyncService(
   )
 
   /** Validates that the provided packages are vetted on the currently connected domains. */
-  // TODO(#15087) remove this waiting logic once topology events are published on the ledger api
+  // TODO(i21341) remove this waiting logic once topology events are published on the ledger api
   val synchronizeVettingOnConnectedDomains: PackageVettingSynchronization =
     new PackageVettingSynchronization {
       override def sync(packages: Set[PackageId])(implicit
@@ -1305,6 +1305,7 @@ class CantonSyncService(
               missingKeysAlerter,
               domainHandle.topologyClient,
               ephemeral.recordOrderPublisher,
+              parameters.experimentalEnableTopologyEvents,
             ),
           missingKeysAlerter,
           reassignmentCoordination,

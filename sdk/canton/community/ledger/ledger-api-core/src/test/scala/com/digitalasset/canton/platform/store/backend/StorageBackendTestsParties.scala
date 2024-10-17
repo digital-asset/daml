@@ -182,4 +182,6 @@ private[backend] trait StorageBackendTestsParties
     pageTwo
       .map(_.party) shouldBe Seq("a-", "a_", "b")
   }
+
+  // TODO(i21346) Implement basic tests for topology events
 }

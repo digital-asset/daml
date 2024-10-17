@@ -6,8 +6,8 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block
 import cats.data.EitherT
 import cats.syntax.either.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
-import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
+import com.digitalasset.canton.config.{CachingConfigs, ProcessingTimeout}
 import com.digitalasset.canton.crypto.{DomainSyncCryptoClient, HashPurpose, Signature}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.api.v30.TrafficControlErrorReason
@@ -74,6 +74,7 @@ class BlockSequencer(
     protocolVersion: ProtocolVersion,
     blockRateLimitManager: SequencerRateLimitManager,
     orderingTimeFixMode: OrderingTimeFixMode,
+    cachingConfigs: CachingConfigs,
     processingTimeouts: ProcessingTimeout,
     logEventDetails: Boolean,
     prettyPrinter: CantonPrettyPrinter,
@@ -105,6 +106,7 @@ class BlockSequencer(
       Some(blockRateLimitManager.trafficConsumedStore),
       protocolVersion,
       cryptoApi,
+      cachingConfigs,
       metrics,
       loggerFactory,
       blockSequencerMode = true,

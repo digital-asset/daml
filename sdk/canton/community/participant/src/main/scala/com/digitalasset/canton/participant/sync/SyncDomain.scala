@@ -908,7 +908,7 @@ class SyncDomain(
 
   def numberOfDirtyRequests(): Int = ephemeral.requestJournal.numberOfDirtyRequests
 
-  def logout(): EitherT[FutureUnlessShutdown, Status, Unit] =
+  def logout()(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, Status, Unit] =
     sequencerClient.logout()
 
   override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = {
@@ -1065,7 +1065,7 @@ object SyncDomain {
         reassignmentCoordination,
         inFlightSubmissionTracker,
         commandProgressTracker,
-        MessageDispatcher.DefaultFactory,
+        ParallelMessageDispatcherFactory,
         clock,
         syncDomainMetrics,
         futureSupervisor,

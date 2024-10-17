@@ -23,7 +23,7 @@ trait SequencerClientTransportCommon extends FlagCloseable {
 
   /** Revoke all the authentication tokens on this sequencer and close the connection.
     */
-  def logout(): EitherT[FutureUnlessShutdown, Status, Unit]
+  def logout()(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, Status, Unit]
 
   /** Sends a signed submission request to the sequencer.
     * If we failed to make the request, an error will be returned.

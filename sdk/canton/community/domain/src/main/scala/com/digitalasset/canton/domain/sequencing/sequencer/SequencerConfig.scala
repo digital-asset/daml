@@ -89,6 +89,13 @@ final case class CommunitySequencerReaderConfig(
     override val readBatchSize: Int = SequencerReaderConfig.defaultReadBatchSize,
     override val checkpointInterval: NonNegativeFiniteDuration =
       SequencerReaderConfig.defaultCheckpointInterval,
+    override val payloadBatchSize: Int = SequencerReaderConfig.defaultPayloadBatchSize,
+    override val payloadBatchWindow: NonNegativeFiniteDuration =
+      SequencerReaderConfig.defaultPayloadBatchWindow,
+    override val payloadFetchParallelism: Int =
+      SequencerReaderConfig.defaultPayloadFetchParallelism,
+    override val eventGenerationParallelism: Int =
+      SequencerReaderConfig.defaultEventGenerationParallelism,
 ) extends SequencerReaderConfig
 
 object CommunitySequencerConfig {

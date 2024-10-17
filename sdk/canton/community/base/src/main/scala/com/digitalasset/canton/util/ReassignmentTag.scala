@@ -14,11 +14,13 @@ import slick.jdbc.{GetResult, PositionedParameters, SetParameter}
   */
 sealed trait ReassignmentTag[+T] extends Product with Serializable {
   def unwrap: T
+  def kind: String
 }
 
 object ReassignmentTag {
   final case class Source[+T](value: T) extends ReassignmentTag[T] {
     override def unwrap: T = value
+    override def kind: String = "source"
   }
 
   object Source {
@@ -60,6 +62,7 @@ object ReassignmentTag {
 
   final case class Target[+T](value: T) extends ReassignmentTag[T] {
     override def unwrap: T = value
+    override def kind: String = "target"
   }
 
   object Target {

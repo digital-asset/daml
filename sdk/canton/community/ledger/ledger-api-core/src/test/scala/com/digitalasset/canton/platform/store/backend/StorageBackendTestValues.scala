@@ -6,6 +6,7 @@ package com.digitalasset.canton.platform.store.backend
 import com.digitalasset.canton.data
 import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
+import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.TransactionMetering
 import com.digitalasset.canton.platform.store.backend.MeteringParameterStorageBackend.LedgerMeteringEnd
 import com.digitalasset.canton.platform.store.dao.JdbcLedgerDao
@@ -169,7 +170,7 @@ private[store] object StorageBackendTestValues {
     DbDto.EventExercise(
       consuming = consuming,
       event_offset = offset.toHexString,
-      transaction_id = updateId,
+      update_id = updateId,
       ledger_effective_time = someTime.micros,
       command_id = Some(commandId),
       workflow_id = Some("workflow_id"),
@@ -277,6 +278,31 @@ private[store] object StorageBackendTestValues {
     )
   }
 
+  def dtoPartyToParticipant(
+      offset: Offset,
+      eventSequentialId: Long,
+      party: String = someParty,
+      participant: String = someParticipantId.toString,
+      authorizationLevel: AuthorizationLevel = AuthorizationLevel.Submission,
+      domainId: String = "x::sourcedomain",
+      recordTime: Timestamp = someTime,
+      effectiveTime: Timestamp = someTime,
+      traceContext: Array[Byte] = serializableTraceContext,
+  ): DbDto.EventPartyToParticipant = {
+    val updateId = updateIdFromOffset(offset)
+    DbDto.EventPartyToParticipant(
+      event_sequential_id = eventSequentialId,
+      event_offset = offset.toHexString,
+      update_id = updateId,
+      party_id = party,
+      participant_id = participant,
+      participant_permission = UpdateToDbDto.authorizationLevelToInt(authorizationLevel),
+      domain_id = domainId,
+      record_time = recordTime.micros,
+      trace_context = traceContext,
+    )
+  }
+
   def dtoCompletion(
       offset: Offset,
       submitters: Set[String] = Set("signatory"),
@@ -303,7 +329,7 @@ private[store] object StorageBackendTestValues {
       application_id = applicationId,
       submitters = submitters,
       command_id = commandId,
-      transaction_id = updateId.filter(_ == "").map(_ => updateIdFromOffset(offset)),
+      update_id = updateId.filter(_ == "").map(_ => updateIdFromOffset(offset)),
       rejection_status_code = None,
       rejection_status_message = None,
       rejection_status_details = None,
@@ -367,7 +393,7 @@ private[store] object StorageBackendTestValues {
   def dtoTransactionId(dto: DbDto): data.UpdateId =
     dto match {
       case e: DbDto.EventCreate => Ref.TransactionId.assertFromString(e.update_id)
-      case e: DbDto.EventExercise => Ref.TransactionId.assertFromString(e.transaction_id)
+      case e: DbDto.EventExercise => Ref.TransactionId.assertFromString(e.update_id)
       case e: DbDto.EventAssign => Ref.TransactionId.assertFromString(e.update_id)
       case e: DbDto.EventUnassign => Ref.TransactionId.assertFromString(e.update_id)
       case _ => sys.error(s"$dto does not have a transaction id")

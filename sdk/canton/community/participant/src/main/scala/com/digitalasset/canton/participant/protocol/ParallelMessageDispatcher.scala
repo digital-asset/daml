@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.protocol
 
 import cats.Monoid
 import com.digitalasset.canton.SequencerCounter
-import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.data.{CantonTimestamp, ViewType}
 import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.event.RecordOrderPublisher
@@ -17,7 +17,7 @@ import com.digitalasset.canton.participant.protocol.MessageDispatcher.{
 import com.digitalasset.canton.participant.protocol.conflictdetection.RequestTracker
 import com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionTracker
 import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor
-import com.digitalasset.canton.protocol.messages.DefaultOpenEnvelope
+import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.traffic.TrafficControlProcessor
 import com.digitalasset.canton.sequencing.{
@@ -33,8 +33,7 @@ import com.digitalasset.canton.store.SequencedEventStore.{
 import com.digitalasset.canton.topology.processing.SequencedTime
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{Spanning, TraceContext, Traced}
-import com.digitalasset.canton.util.MonadUtil
-import com.digitalasset.canton.util.Thereafter.syntax.*
+import com.digitalasset.canton.util.{HasFlushFuture, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import io.opentelemetry.api.trace.Tracer
@@ -42,7 +41,13 @@ import io.opentelemetry.api.trace.Tracer
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
-class DefaultMessageDispatcher(
+/** Dispatches the incoming messages of the [[com.digitalasset.canton.sequencing.client.SequencerClient]]
+  * to the different processors.
+  * It also informs the [[com.digitalasset.canton.participant.protocol.conflictdetection.RequestTracker]]
+  * about the passing of time for messages that are not processed by the
+  * [[com.digitalasset.canton.participant.protocol.ProtocolProcessor]].
+  */
+class ParallelMessageDispatcher(
     override protected val protocolVersion: ProtocolVersion,
     override protected val domainId: DomainId,
     override protected val participantId: ParticipantId,
@@ -56,45 +61,57 @@ class DefaultMessageDispatcher(
     override protected val badRootHashMessagesRequestProcessor: BadRootHashMessagesRequestProcessor,
     override protected val repairProcessor: RepairProcessor,
     override protected val inFlightSubmissionTracker: InFlightSubmissionTracker,
+    processAsyncronously: ViewType => Boolean,
     override protected val loggerFactory: NamedLoggerFactory,
     override val metrics: SyncDomainMetrics,
 )(override implicit val ec: ExecutionContext, tracer: Tracer)
     extends MessageDispatcher
-    with Spanning
-    with NamedLogging {
+    with NamedLogging
+    with HasFlushFuture
+    with Spanning {
 
   import MessageDispatcher.*
 
-  override protected type ProcessingResult = Unit
+  override protected type ProcessingResult = AsyncResult
 
-  override implicit val processingResultMonoid: Monoid[ProcessingResult] = {
-    import cats.instances.unit.*
-    Monoid[Unit]
-  }
-
-  private def runAsyncResult(
-      run: FutureUnlessShutdown[AsyncResult]
-  ): FutureUnlessShutdown[ProcessingResult] =
-    run.flatMap(_.unwrap)
+  override implicit val processingResultMonoid: Monoid[ProcessingResult] =
+    AsyncResult.monoidAsyncResult
 
   override protected def doProcess[A](
       kind: MessageKind[A],
       run: => FutureUnlessShutdown[A],
   ): FutureUnlessShutdown[ProcessingResult] = {
-    import MessageDispatcher.*
+    def runSynchronously(implicit ev: A =:= Unit): FutureUnlessShutdown[ProcessingResult] =
+      // We technically wouldn't need `ev` here because we throw away the result of `run`,
+      // but it's still a function parameter so that we get the compiler to complain if this is used with a non-unit type.
+      // A `run.map { case () => ... }` would not catch such problems either as `A` is unknown to the compiler
+      // and a Unit pattern match therefore looks OK to the Scala type checker :-(
+      HandlerResult.synchronous(run.map(ev))
+
+    def runSequential(implicit ev: A =:= AsyncResult): FutureUnlessShutdown[ProcessingResult] =
+      HandlerResult.synchronous(run.flatMap(_.unwrap))
+
     // Explicitly enumerate all cases for type safety
     kind match {
-      case TopologyTransaction => runAsyncResult(run)
-      case TrafficControlTransaction => run
-      case AcsCommitment => run
-      case CausalityMessageKind => run
-      case MalformedMessage => run
-      case UnspecifiedMessageKind => run
-      case RequestKind(_) => runAsyncResult(run)
-
-      case ResultKind(_) => runAsyncResult(run)
-
-      case DeliveryMessageKind => run
+      // The identity processor must run sequential on all delivered events and identity stuff needs to be
+      // processed before any other transaction (as it might have changed the topology state the
+      // other envelopes are referring to)
+      case TopologyTransaction => run
+      case TrafficControlTransaction => runSynchronously
+      case AcsCommitment => runSynchronously
+      case CausalityMessageKind => runSynchronously
+      case MalformedMessage => runSynchronously
+      case UnspecifiedMessageKind => runSynchronously
+      case RequestKind(viewType) =>
+        if (processAsyncronously(viewType)) run
+        else runSequential
+      case ResultKind(viewType) =>
+        if (processAsyncronously(viewType)) run
+        else runSequential
+      case DeliveryMessageKind =>
+        // TODO(#6914) Figure out the required synchronization to run this asynchronously.
+        //  We must make sure that the observation of having been sequenced runs before the tick to the record order publisher.
+        runSynchronously
     }
   }
 
@@ -103,88 +120,102 @@ class DefaultMessageDispatcher(
   ): HandlerResult =
     tracedEvents.withTraceContext { implicit batchTraceContext => events =>
       for {
-        _observeSequencing <- observeSequencing(
+        observeSequencing <- observeSequencing(
           events.collect { case WithOpeningErrors(e: OrdinaryProtocolEvent, _) =>
             e.signedEvent.content
           }
         )
-        result <- MonadUtil.sequentialTraverseMonoid(events)(handle)
-      } yield result
+        process <- MonadUtil.sequentialTraverseMonoid(events)(handle)
+      } yield processingResultMonoid.combine(observeSequencing, process)
     }
 
   @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   private def handle(eventE: WithOpeningErrors[PossiblyIgnoredProtocolEvent]): HandlerResult = {
     implicit val traceContext: TraceContext = eventE.event.traceContext
 
-    withSpan(s"MessageDispatcher.handle") { implicit traceContext => _ =>
-      val future = eventE.event match {
+    withSpan("MessageDispatcher.handle") { implicit traceContext => _ =>
+      eventE.event match {
         case OrdinarySequencedEvent(signedEvent) =>
           val signedEventE = eventE.map(_ => signedEvent)
           processOrdinary(signedEventE)
+
         case IgnoredSequencedEvent(ts, sc, _) =>
           tickTrackers(sc, ts, triggerAcsChangePublication = false)
       }
-
-      HandlerResult.synchronous(future)
     }(traceContext, tracer)
   }
 
   private def processOrdinary(
       signedEventE: WithOpeningErrors[SignedContent[SequencedEvent[DefaultOpenEnvelope]]]
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+  )(implicit traceContext: TraceContext): HandlerResult =
     signedEventE.event.content match {
       case deliver @ Deliver(sc, ts, _, _, _, _, _) if TimeProof.isTimeProofDeliver(deliver) =>
         logTimeProof(sc, ts)
         tickTrackers(sc, ts, triggerAcsChangePublication = true)
 
-      case Deliver(sc, ts, _, msgIdO, _, _, _) =>
+      case Deliver(sc, ts, _, msgId, _, _, _) =>
+        // TODO(#13883) Validate the topology timestamp
         if (signedEventE.hasNoErrors) {
-          logEvent(sc, ts, msgIdO, signedEventE.event)
+          logEvent(sc, ts, msgId, signedEventE.event)
         } else {
-          logFaultyEvent(sc, ts, msgIdO, signedEventE.map(_.content))
+          logFaultyEvent(sc, ts, msgId, signedEventE.map(_.content))
         }
         @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
         val deliverE =
           signedEventE.asInstanceOf[WithOpeningErrors[SignedContent[Deliver[DefaultOpenEnvelope]]]]
         processBatch(deliverE)
-          .thereafter {
-            // Make sure that the tick is not lost unless we're shutting down or getting an exception
-            case Success(outcome) =>
-              if (outcome != UnlessShutdown.AbortedDueToShutdown)
-                requestTracker.tick(sc, ts)
+          .transform {
+            case Success(asyncUS) =>
+              Success(asyncUS.map { asyncF =>
+                val asyncFTick = asyncF.thereafter { result =>
+                  // Make sure that the tick is not lost unless we're shutting down anyway or getting an exception
+                  result.foreach { outcome =>
+                    if (outcome != UnlessShutdown.AbortedDueToShutdown)
+                      requestTracker.tick(sc, ts)
+                  }
+                }
+                // error logging is the responsibility of the caller
+                addToFlushWithoutLogging(s"Deliver event with sequencer counter $sc")(
+                  asyncFTick.unwrap.unwrap
+                )
+                asyncFTick
+              })
             case Failure(ex) =>
-              logger.error("event processing failed.", ex)
+              logger.error("Synchronous event processing failed.", ex)
+              // Do not tick anything as the subscription will close anyway
+              // and there is no guarantee that the exception will happen again during a replay.
+              Failure(ex)
           }
 
       case error @ DeliverError(sc, ts, _, msgId, status, _) =>
         logDeliveryError(sc, ts, msgId, status)
-        logger.debug(s"Received a deliver error at $sc / $ts")
         for {
-          _unit <- observeDeliverError(error)
-          _unit <- tickTrackers(sc, ts, triggerAcsChangePublication = false)
-        } yield ()
+          _ <- observeDeliverError(error)
+          identityAsync <- tickTrackers(sc, ts, triggerAcsChangePublication = false)
+        } yield identityAsync
     }
 
   private def tickTrackers(
       sc: SequencerCounter,
       ts: CantonTimestamp,
       triggerAcsChangePublication: Boolean,
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[AsyncResult] =
+    // Signal to the topology processor that all messages up to timestamp `ts` have arrived
+    // Publish the tick only afterwards as this may trigger an ACS commitment computation which accesses the topology state.
     for {
-      // Signal to the topology processor that all messages up to timestamp `ts` have arrived
-      // Publish the empty ACS change only afterwards as this may trigger an ACS commitment computation which accesses the topology state.
-      _unit <- runAsyncResult(topologyProcessor(sc, SequencedTime(ts), None, Traced(List.empty)))
+      topologyAsync <- topologyProcessor(sc, SequencedTime(ts), None, Traced(List.empty))
       _ = {
         // Make sure that the tick is not lost
         requestTracker.tick(sc, ts)
         if (triggerAcsChangePublication)
           recordOrderPublisher.scheduleEmptyAcsChangePublication(sc, ts)
       }
-      _ <- FutureUnlessShutdown.outcomeF(
+      // ticking the RecordOrderPublisher asynchronously
+      recordOrderPublisherTickF = FutureUnlessShutdown.outcomeF(
         recordOrderPublisher.tick(sc, ts, eventO = None, requestCounterO = None)
       )
-    } yield ()
+    } yield topologyAsync.andThenF(_ => recordOrderPublisherTickF)
 
   @VisibleForTesting
-  override def flush(): Future[Unit] = Future.unit
+  override def flush(): Future[Unit] = doFlush()
 }

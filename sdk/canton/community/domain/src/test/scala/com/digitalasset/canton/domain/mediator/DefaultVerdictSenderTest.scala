@@ -202,7 +202,7 @@ class DefaultVerdictSenderTest
 
     val domainSyncCryptoApi: DomainSyncCryptoClient =
       if (testedProtocolVersion >= ProtocolVersion.v32) {
-        val topology = TestingTopology(
+        val topology = TestingTopology.from(
           Set(domainId),
           Map(
             submitter -> Map(participant -> ParticipantPermission.Confirmation),
@@ -222,7 +222,7 @@ class DefaultVerdictSenderTest
 
         identityFactory.forOwnerAndDomain(mediatorId, domainId)
       } else {
-        val topology = TestingTopology(
+        val topology = TestingTopology.from(
           Set(domainId),
           Map(
             submitter -> Map(participant -> ParticipantPermission.Confirmation),

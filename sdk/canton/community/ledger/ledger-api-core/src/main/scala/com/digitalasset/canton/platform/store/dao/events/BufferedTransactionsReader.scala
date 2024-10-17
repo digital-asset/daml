@@ -210,12 +210,12 @@ private[platform] object BufferedTransactionsReader {
       new BufferedTransactionByIdReader[GetTransactionResponse](
         inMemoryFanoutBuffer = transactionsBuffer,
         fetchFromPersistence = (
-            transactionId: String,
+            updateId: String,
             requestingParties: Set[Party],
             loggingContext: LoggingContextWithTrace,
         ) =>
           delegate.lookupFlatTransactionById(
-            platform.UpdateId.assertFromString(transactionId),
+            platform.UpdateId.assertFromString(updateId),
             requestingParties,
           )(loggingContext),
         toApiResponse = (
@@ -234,12 +234,12 @@ private[platform] object BufferedTransactionsReader {
       new BufferedTransactionByIdReader[GetTransactionTreeResponse](
         inMemoryFanoutBuffer = transactionsBuffer,
         fetchFromPersistence = (
-            transactionId: String,
+            updateId: String,
             requestingParties: Set[Party],
             loggingContext: LoggingContextWithTrace,
         ) =>
           delegate.lookupTransactionTreeById(
-            platform.UpdateId.assertFromString(transactionId),
+            platform.UpdateId.assertFromString(updateId),
             requestingParties,
           )(loggingContext),
         toApiResponse = (

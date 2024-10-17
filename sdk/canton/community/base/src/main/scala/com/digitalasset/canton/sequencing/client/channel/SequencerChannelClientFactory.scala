@@ -20,7 +20,7 @@ import com.digitalasset.canton.sequencing.{
 }
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.{DomainId, Member, SequencerId}
-import com.digitalasset.canton.tracing.{TraceContext, TracingConfig}
+import com.digitalasset.canton.tracing.TracingConfig
 import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.ManagedChannel
 
@@ -41,8 +41,7 @@ final class SequencerChannelClientFactory(
       sequencerConnections: SequencerConnections,
       expectedSequencers: NonEmpty[Map[SequencerAlias, SequencerId]],
   )(implicit
-      executionContext: ExecutionContextExecutor,
-      traceContext: TraceContext,
+      executionContext: ExecutionContextExecutor
   ): Either[String, SequencerChannelClient] =
     makeChannelTransports(
       sequencerConnections,
@@ -55,8 +54,7 @@ final class SequencerChannelClientFactory(
       member: Member,
       expectedSequencers: NonEmpty[Map[SequencerAlias, SequencerId]],
   )(implicit
-      executionContext: ExecutionContextExecutor,
-      traceContext: TraceContext,
+      executionContext: ExecutionContextExecutor
   ): Either[String, NonEmpty[Map[SequencerId, SequencerChannelClientTransport]]] = for {
     _ <- {
       val unexpectedSequencers = sequencerConnections.connections.collect {
@@ -86,8 +84,7 @@ final class SequencerChannelClientFactory(
       sequencerId: SequencerId,
       member: Member,
   )(implicit
-      executionContext: ExecutionContextExecutor,
-      traceContext: TraceContext,
+      executionContext: ExecutionContextExecutor
   ): SequencerChannelClientTransport = {
     val loggerFactoryWithSequencerId =
       SequencerClient.loggerFactoryWithSequencerId(loggerFactory, sequencerId)
@@ -107,10 +104,7 @@ final class SequencerChannelClientFactory(
   private def grpcSequencerClientAuth(
       connection: GrpcSequencerConnection,
       member: Member,
-  )(implicit
-      executionContext: ExecutionContextExecutor,
-      traceContext: TraceContext,
-  ): GrpcSequencerClientAuth = {
+  )(implicit executionContext: ExecutionContextExecutor): GrpcSequencerClientAuth = {
     val channelPerEndpoint = connection.endpoints.map { endpoint =>
       val subConnection = connection.copy(endpoints = NonEmpty.mk(Seq, endpoint))
       endpoint -> createChannel(subConnection)

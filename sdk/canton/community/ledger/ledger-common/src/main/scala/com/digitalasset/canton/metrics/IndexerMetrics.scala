@@ -215,6 +215,7 @@ object IndexerMetrics {
       val partyAllocation = "party_allocation"
       val transaction = "transaction"
       val reassignment = "reassignment"
+      val topologyTransaction = "topology_transaction"
     }
 
     object status {

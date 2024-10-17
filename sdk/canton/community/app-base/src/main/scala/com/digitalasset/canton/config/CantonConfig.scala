@@ -398,6 +398,8 @@ trait CantonConfig {
         commandProgressTracking = participantParameters.commandProgressTracker,
         unsafeEnableOnlinePartyReplication =
           participantParameters.unsafeEnableOnlinePartyReplication,
+        // TODO(i21341) Remove the flag before going to production
+        experimentalEnableTopologyEvents = participantParameters.experimentalEnableTopologyEvents,
       )
     }
 
