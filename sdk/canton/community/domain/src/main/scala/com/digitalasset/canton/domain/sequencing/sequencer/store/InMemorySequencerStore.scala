@@ -128,6 +128,9 @@ class InMemorySequencerStore(
       }
     )
 
+  // Disable the buffer for in-memory store
+  override val maxBufferedEvents: Int = 0
+
   override def resetWatermark(instanceIndex: Int, ts: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): EitherT[Future, SaveWatermarkError, Unit] =
@@ -167,8 +170,16 @@ class InMemorySequencerStore(
     }
 
   override def readEvents(
-      member: SequencerMemberId,
-      fromTimestampO: Option[CantonTimestamp] = None,
+      memberId: SequencerMemberId,
+      fromExclusiveO: Option[CantonTimestamp] = None,
+      limit: Int = 100,
+  )(implicit
+      traceContext: TraceContext
+  ): Future[ReadEvents] = readEventsInternal(memberId, fromExclusiveO, limit)
+
+  override protected def readEventsInternal(
+      memberId: SequencerMemberId,
+      fromExclusiveO: Option[CantonTimestamp] = None,
       limit: Int = 100,
   )(implicit
       traceContext: TraceContext
@@ -180,13 +191,13 @@ class InMemorySequencerStore(
     // if there's no watermark, we can't return any events
     watermarkO.fold[ReadEvents](SafeWatermark(watermarkO)) { watermark =>
       val payloads =
-        fromTimestampO
+        fromExclusiveO
           .fold(events.tailMap(CantonTimestamp.MinValue, true))(events.tailMap(_, false))
           .entrySet()
           .iterator()
           .asScala
           .takeWhile(e => e.getKey <= watermark)
-          .filter(e => isMemberRecipient(member)(e.getValue))
+          .filter(e => isMemberRecipient(memberId)(e.getValue))
           .take(limit)
           .map(entry => Sequenced(entry.getKey, entry.getValue))
           .toList
@@ -198,17 +209,17 @@ class InMemorySequencerStore(
     }
   }
 
-  override def readPayloads(payloadIds: Seq[PayloadId])(implicit
+  override def readPayloads(payloadIds: Seq[IdOrPayload])(implicit
       traceContext: TraceContext
   ): Future[Map[PayloadId, Payload]] =
     Future.successful(
-      payloadIds
-        .flatMap(id =>
+      payloadIds.flatMap {
+        case id: PayloadId =>
           Option(payloads.get(id.unwrap))
             .map(storedPayload => id -> Payload(id, storedPayload.content))
             .toList
-        )
-        .toMap
+        case payload: Payload => List(payload.id -> payload)
+      }.toMap
     )
 
   private def isMemberRecipient(member: SequencerMemberId)(event: StoreEvent[_]): Boolean =
@@ -541,6 +552,9 @@ class InMemorySequencerStore(
       saveCounterCheckpoints(memberIdCheckpoints)
     }
   }
+
+  // Buffer is disabled for in-memory store
+  override def prePopulateBuffer(implicit traceContext: TraceContext): Future[Unit] = Future.unit
 }
 
 object InMemorySequencerStore {

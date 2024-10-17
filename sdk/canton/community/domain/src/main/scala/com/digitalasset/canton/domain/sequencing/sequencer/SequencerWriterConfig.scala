@@ -7,6 +7,7 @@ import cats.syntax.option.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 
 sealed trait CommitMode {
   private[sequencer] val postgresSettings: NonEmpty[Seq[String]]
@@ -54,6 +55,7 @@ sealed trait SequencerWriterConfig {
         eventWriteBatchMaxDuration: NonNegativeFiniteDuration,
         commitModeValidation: Option[CommitMode],
         checkpointInterval: NonNegativeFiniteDuration,
+        maxBufferedEventsSize: NonNegativeInt,
     ): SequencerWriterConfig
   } =>
 
@@ -65,6 +67,7 @@ sealed trait SequencerWriterConfig {
   val eventWriteBatchMaxSize: Int
   val eventWriteBatchMaxDuration: NonNegativeFiniteDuration
   val commitModeValidation: Option[CommitMode]
+  val maxBufferedEventsSize: NonNegativeInt
 
   /** how frequently to generate counter checkpoints for all members */
   val checkpointInterval: NonNegativeFiniteDuration
@@ -79,6 +82,7 @@ sealed trait SequencerWriterConfig {
       eventWriteBatchMaxDuration: NonNegativeFiniteDuration = this.eventWriteBatchMaxDuration,
       commitModeValidation: Option[CommitMode] = this.commitModeValidation,
       checkpointInterval: NonNegativeFiniteDuration = this.checkpointInterval,
+      maxBufferedEventsSize: NonNegativeInt = this.maxBufferedEventsSize,
   ): SequencerWriterConfig =
     copy(
       payloadQueueSize,
@@ -90,6 +94,7 @@ sealed trait SequencerWriterConfig {
       eventWriteBatchMaxDuration,
       commitModeValidation,
       checkpointInterval,
+      maxBufferedEventsSize,
     )
 }
 
@@ -103,6 +108,8 @@ object SequencerWriterConfig {
 
   val DefaultCheckpointInterval: config.NonNegativeFiniteDuration =
     config.NonNegativeFiniteDuration.ofSeconds(30)
+
+  val DefaultMaxBufferedEventsSize: NonNegativeInt = NonNegativeInt.tryCreate(2000)
 
   /** Use to have events immediately flushed to the database. Useful for decreasing latency however at a high throughput
     * a large number of writes will be detrimental for performance.
@@ -119,6 +126,7 @@ object SequencerWriterConfig {
         NonNegativeFiniteDuration.ofMillis(20),
       override val commitModeValidation: Option[CommitMode] = CommitMode.Default.some,
       override val checkpointInterval: NonNegativeFiniteDuration = DefaultCheckpointInterval,
+      override val maxBufferedEventsSize: NonNegativeInt = DefaultMaxBufferedEventsSize,
   ) extends SequencerWriterConfig
 
   /** Creates batches of incoming events to minimize the number of writes to the database. Useful for a high throughput
@@ -137,5 +145,6 @@ object SequencerWriterConfig {
         NonNegativeFiniteDuration.ofMillis(5),
       override val commitModeValidation: Option[CommitMode] = CommitMode.Default.some,
       override val checkpointInterval: NonNegativeFiniteDuration = DefaultCheckpointInterval,
+      override val maxBufferedEventsSize: NonNegativeInt = DefaultMaxBufferedEventsSize,
   ) extends SequencerWriterConfig
 }

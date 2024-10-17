@@ -92,7 +92,7 @@ class CommandSubmitterWithRetry(
       abortIfClosing("submit-with-retry", futureSupervisor) {
         logger.debug(s"Submitting command=$commandId to command service")
         commandServiceClient
-          .submitAndWaitForUpdateId(commands, timeout = Some(timeout))
+          .submitAndWait(commands, timeout = Some(timeout))
       }
         .flatMap {
           case Left(status) =>

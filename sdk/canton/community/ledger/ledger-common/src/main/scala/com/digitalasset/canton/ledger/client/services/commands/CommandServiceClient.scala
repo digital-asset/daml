@@ -7,8 +7,8 @@ import com.daml.ledger.api.v2.command_service.CommandServiceGrpc.CommandServiceS
 import com.daml.ledger.api.v2.command_service.{
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse,
-  SubmitAndWaitForUpdateIdResponse,
   SubmitAndWaitRequest,
+  SubmitAndWaitResponse,
 }
 import com.daml.ledger.api.v2.commands.Commands
 import com.digitalasset.canton.ledger.client.LedgerClient
@@ -37,16 +37,6 @@ class CommandServiceClient(service: CommandServiceStub)(implicit
     * Note that the [[com.daml.ledger.api.v2.commands.Commands]] argument is scala protobuf. If you use java codegen,
     * you need to convert the List[Command] using the codegenToScalaProto method
     */
-  def submitAndWait(
-      commands: Commands,
-      timeout: Option[Duration] = None,
-      token: Option[String] = None,
-  )(implicit traceContext: TraceContext): Future[Either[Status, Unit]] =
-    submitAndHandle(
-      timeout,
-      token,
-      _.submitAndWait(SubmitAndWaitRequest(commands = Some(commands))).map(_ => ()),
-    )
 
   def deprecatedSubmitAndWaitForTransactionForJsonApi(
       request: SubmitAndWaitRequest,
@@ -92,17 +82,17 @@ class CommandServiceClient(service: CommandServiceStub)(implicit
       _.submitAndWaitForTransactionTree(SubmitAndWaitRequest(commands = Some(commands))),
     )
 
-  def submitAndWaitForUpdateId(
+  def submitAndWait(
       commands: Commands,
       timeout: Option[Duration] = None,
       token: Option[String] = None,
   )(implicit
       traceContext: TraceContext
-  ): Future[Either[Status, SubmitAndWaitForUpdateIdResponse]] =
+  ): Future[Either[Status, SubmitAndWaitResponse]] =
     submitAndHandle(
       timeout,
       token,
-      _.submitAndWaitForUpdateId(SubmitAndWaitRequest(commands = Some(commands))),
+      _.submitAndWait(SubmitAndWaitRequest(commands = Some(commands))),
     )
 
   private def serviceWithTokenAndDeadline(

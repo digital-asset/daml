@@ -7,15 +7,12 @@ import com.daml.ledger.javaapi.data.CommandsSubmission;
 import com.daml.ledger.javaapi.data.Transaction;
 import com.daml.ledger.javaapi.data.TransactionTree;
 import com.daml.ledger.javaapi.data.UpdateSubmission;
-import com.google.protobuf.Empty;
 import io.reactivex.Single;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 /** An RxJava version of {@link com.daml.ledger.api.v2.CommandServiceGrpc} */
 public interface CommandClient {
-  Single<Empty> submitAndWait(CommandsSubmission submission);
-
-  Single<String> submitAndWaitForTransactionId(CommandsSubmission submission);
+  Single<String> submitAndWait(CommandsSubmission submission);
 
   Single<Transaction> submitAndWaitForTransaction(CommandsSubmission submission);
 

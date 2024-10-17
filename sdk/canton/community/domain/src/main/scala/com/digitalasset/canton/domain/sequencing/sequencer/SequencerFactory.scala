@@ -64,13 +64,14 @@ abstract class DatabaseSequencerFactory(
 
   val sequencerStore: SequencerStore =
     SequencerStore(
-      storage,
-      protocolVersion,
-      timeouts,
-      loggerFactory,
-      sequencerId,
+      storage = storage,
+      protocolVersion = protocolVersion,
+      maxBufferedEventsSize = config.writer.maxBufferedEventsSize,
+      timeouts = timeouts,
+      loggerFactory = loggerFactory,
+      sequencerMember = sequencerId,
       blockSequencerMode = blockSequencerMode,
-      cachingConfigs,
+      cachingConfigs = cachingConfigs,
       // Overriding the store's close context with the writers, so that when the writer gets closed, the store
       // stops retrying forever
       overrideCloseContext = Some(this.closeContext),

@@ -6,7 +6,6 @@ package com.daml.ledger.rxjava.grpc.helpers
 import java.net.{InetSocketAddress, SocketAddress}
 import java.time.{Clock, Duration}
 import java.util.concurrent.TimeUnit
-
 import org.apache.pekko.actor.ActorSystem
 import com.daml.ledger.rxjava.grpc._
 import com.daml.ledger.rxjava.grpc.helpers.UpdateServiceImpl.LedgerItem
@@ -24,7 +23,7 @@ import com.daml.ledger.api.v2.command_completion_service.CompletionStreamRespons
 import com.daml.ledger.api.v2.command_service.{
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse,
-  SubmitAndWaitForUpdateIdResponse,
+  SubmitAndWaitResponse,
 }
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
 import com.daml.ledger.api.v2.package_service.{
@@ -37,7 +36,6 @@ import com.daml.ledger.api.v2.command_submission_service.SubmitResponse
 import com.daml.tracing.NoOpTelemetry
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.ledger.localstore.InMemoryUserManagementStore
-import com.google.protobuf.empty.Empty
 import io.grpc._
 import io.grpc.netty.NettyServerBuilder
 import io.reactivex.Observable
@@ -220,8 +218,7 @@ final class LedgerServices(val name: String) {
   }
 
   def withCommandClient(
-      submitAndWaitResponse: Future[Empty],
-      submitAndWaitForTransactionIdResponse: Future[SubmitAndWaitForUpdateIdResponse],
+      submitAndWaitResponse: Future[SubmitAndWaitResponse],
       submitAndWaitForTransactionResponse: Future[SubmitAndWaitForTransactionResponse],
       submitAndWaitForTransactionTreeResponse: Future[SubmitAndWaitForTransactionTreeResponse],
       authService: AuthService = AuthServiceWildcard,
@@ -229,7 +226,6 @@ final class LedgerServices(val name: String) {
   )(f: (CommandClientImpl, CommandServiceImpl) => Any): Any = {
     val (service, serviceImpl) = CommandServiceImpl.createWithRef(
       submitAndWaitResponse,
-      submitAndWaitForTransactionIdResponse,
       submitAndWaitForTransactionResponse,
       submitAndWaitForTransactionTreeResponse,
       authorizer,
@@ -267,8 +263,7 @@ final class LedgerServices(val name: String) {
       transactions: Observable[LedgerItem],
       commandSubmissionResponse: Future[SubmitResponse],
       completions: List[CompletionStreamResponse],
-      submitAndWaitResponse: Future[Empty],
-      submitAndWaitForUpdateIdResponse: Future[SubmitAndWaitForUpdateIdResponse],
+      submitAndWaitResponse: Future[SubmitAndWaitResponse],
       submitAndWaitForTransactionResponse: Future[SubmitAndWaitForTransactionResponse],
       submitAndWaitForTransactionTreeResponse: Future[SubmitAndWaitForTransactionTreeResponse],
       getTimeResponse: Future[GetTimeResponse],
@@ -284,7 +279,6 @@ final class LedgerServices(val name: String) {
       commandSubmissionResponse,
       completions,
       submitAndWaitResponse,
-      submitAndWaitForUpdateIdResponse,
       submitAndWaitForTransactionResponse,
       submitAndWaitForTransactionTreeResponse,
       getTimeResponse,

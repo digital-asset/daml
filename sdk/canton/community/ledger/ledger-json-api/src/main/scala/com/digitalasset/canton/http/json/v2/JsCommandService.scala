@@ -49,9 +49,9 @@ class JsCommandService(
   def endpoints() = List(
     jsonWithBody(
       commands.post
-        .in(sttp.tapir.stringToPath("submit-and-wait-for-update-id"))
-        .description("Submit a batch of commands and wait for the update id"),
-      submitAndWaitForUpdateId,
+        .in(sttp.tapir.stringToPath("submit-and-wait"))
+        .description("Submit a batch of commands and wait for the completion details"),
+      submitAndWait,
     ),
     jsonWithBody(
       commands.post
@@ -81,11 +81,11 @@ class JsCommandService(
     ),
   )
 
-  def submitAndWaitForUpdateId(callerContext: CallerContext): (
+  def submitAndWait(callerContext: CallerContext): (
       TracedInput[Unit],
       JsCommands,
   ) => Future[
-    Either[JsCantonError, JsSubmitAndWaitForUpdateIdResponse]
+    Either[JsCantonError, JsSubmitAndWaitResponse]
   ] = (req, body) => {
     implicit val token = callerContext.token()
     implicit val tc = req.traceContext
@@ -94,8 +94,8 @@ class JsCommandService(
       submitAndWaitRequest =
         SubmitAndWaitRequest(commands = Some(commands))
       result <- commandServiceClient(callerContext.token())
-        .submitAndWaitForUpdateId(submitAndWaitRequest)
-        .map(protocolConverters.SubmitAndWaitUpdateIdResponse.toJson)(
+        .submitAndWait(submitAndWaitRequest)
+        .map(protocolConverters.SubmitAndWaitResponse.toJson)(
           ExecutionContext.parasitic
         )
         .resultToRight
@@ -184,7 +184,7 @@ final case class JsSubmitAndWaitForTransactionResponse(
     transaction: JsTransaction
 )
 
-final case class JsSubmitAndWaitForUpdateIdResponse(
+final case class JsSubmitAndWaitResponse(
     update_id: String,
     completion_offset: String,
 )
@@ -309,6 +309,6 @@ object JsCommandServiceCodecs {
 
   implicit val jsDisclosedContractRW: Codec[JsDisclosedContract] = deriveCodec
 
-  implicit val jsSubmitAndWaitForUpdateIdResponseRW: Codec[JsSubmitAndWaitForUpdateIdResponse] =
+  implicit val jsSubmitAndWaitResponseRW: Codec[JsSubmitAndWaitResponse] =
     deriveCodec
 }

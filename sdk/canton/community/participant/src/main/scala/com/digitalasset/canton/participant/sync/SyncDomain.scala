@@ -77,6 +77,7 @@ import com.digitalasset.canton.topology.client.DomainTopologyClientWithInit
 import com.digitalasset.canton.topology.processing.{
   ApproximateTime,
   EffectiveTime,
+  SequencedTime,
   TopologyTransactionProcessor,
 }
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
@@ -501,6 +502,7 @@ class SyncDomain(
       logger.debug(s"Initialising topology client at clean head=$resubscriptionTs")
       // startup with the resubscription-ts
       topologyClient.updateHead(
+        SequencedTime(resubscriptionTs),
         EffectiveTime(resubscriptionTs),
         ApproximateTime(resubscriptionTs),
         potentialTopologyChange = true,
@@ -520,6 +522,7 @@ class SyncDomain(
         .map { topologyChangeDelay =>
           // update client
           topologyClient.updateHead(
+            SequencedTime(resubscriptionTs),
             EffectiveTime(resubscriptionTs.plus(topologyChangeDelay.duration)),
             ApproximateTime(resubscriptionTs),
             potentialTopologyChange = true,

@@ -14,7 +14,6 @@ import com.daml.ledger.javaapi.data.codegen.Exercised;
 import com.daml.ledger.javaapi.data.codegen.Update;
 import com.daml.ledger.rxjava.CommandClient;
 import com.daml.ledger.rxjava.grpc.helpers.StubHelper;
-import com.google.protobuf.Empty;
 import io.grpc.Channel;
 import io.reactivex.Single;
 import java.util.Optional;
@@ -30,23 +29,13 @@ public class CommandClientImpl implements CommandClient {
   }
 
   @Override
-  public Single<Empty> submitAndWait(CommandsSubmission submission) {
-    CommandServiceOuterClass.SubmitAndWaitRequest request =
-        SubmitAndWaitRequest.toProto(submission);
-
-    return Single.fromFuture(
-        StubHelper.authenticating(this.serviceStub, submission.getAccessToken())
-            .submitAndWait(request));
-  }
-
-  @Override
-  public Single<String> submitAndWaitForTransactionId(CommandsSubmission submission) {
+  public Single<String> submitAndWait(CommandsSubmission submission) {
     CommandServiceOuterClass.SubmitAndWaitRequest request =
         SubmitAndWaitRequest.toProto(submission);
     return Single.fromFuture(
             StubHelper.authenticating(this.serviceStub, submission.getAccessToken())
-                .submitAndWaitForUpdateId(request))
-        .map(CommandServiceOuterClass.SubmitAndWaitForUpdateIdResponse::getUpdateId);
+                .submitAndWait(request))
+        .map(CommandServiceOuterClass.SubmitAndWaitResponse::getUpdateId);
   }
 
   @Override

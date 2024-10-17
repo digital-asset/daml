@@ -17,9 +17,10 @@ trait TopologyTransactionProcessingSubscriber {
     * 2. If this method is called with `potentialTopologyChange == true`, then for every subsequent committed topology transaction
     *    either `updateHead(potentialTopologyChange == true, ...)` or `observed` must be called again;
     *    such calls must occur with ascending effective timestamps.
-    * 3. All sequenced events up to `approximateTimestamp` have been processed.
+    * 3. All sequenced events up to `sequencedTimestamp` have been processed.
     */
   def updateHead(
+      sequencedTimestamp: SequencedTime,
       effectiveTimestamp: EffectiveTime,
       approximateTimestamp: ApproximateTime,
       potentialTopologyChange: Boolean,

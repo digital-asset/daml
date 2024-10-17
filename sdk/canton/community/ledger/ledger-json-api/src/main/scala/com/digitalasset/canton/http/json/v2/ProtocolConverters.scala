@@ -640,24 +640,24 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
         )
   }
 
-  object SubmitAndWaitUpdateIdResponse
+  object SubmitAndWaitResponse
       extends ProtocolConverter[
-        lapi.command_service.SubmitAndWaitForUpdateIdResponse,
-        JsSubmitAndWaitForUpdateIdResponse,
+        lapi.command_service.SubmitAndWaitResponse,
+        JsSubmitAndWaitResponse,
       ] {
 
     def toJson(
-        response: lapi.command_service.SubmitAndWaitForUpdateIdResponse
-    ): JsSubmitAndWaitForUpdateIdResponse =
-      JsSubmitAndWaitForUpdateIdResponse(
+        response: lapi.command_service.SubmitAndWaitResponse
+    ): JsSubmitAndWaitResponse =
+      JsSubmitAndWaitResponse(
         update_id = response.updateId,
         completion_offset = ApiOffset.fromLong(response.completionOffset),
       )
 
     def fromJson(
-        response: JsSubmitAndWaitForUpdateIdResponse
-    ): lapi.command_service.SubmitAndWaitForUpdateIdResponse =
-      lapi.command_service.SubmitAndWaitForUpdateIdResponse(
+        response: JsSubmitAndWaitResponse
+    ): lapi.command_service.SubmitAndWaitResponse =
+      lapi.command_service.SubmitAndWaitResponse(
         updateId = response.update_id,
         completionOffset = ApiOffset.assertFromStringToLong(response.completion_offset),
       )

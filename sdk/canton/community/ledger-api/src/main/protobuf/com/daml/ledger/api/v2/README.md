@@ -41,7 +41,7 @@ To accommodate this unification, the Update notation is introduced:
 became GetUpdates, GetUpdateTrees respectively.
 - What was called in V1 transaction ID is called in v2 update ID (the semantics did not change).
 Affected V1 messages:
-  - command_service/SubmitAndWaitForUpdateIdResponse
+  - command_service/SubmitAndWait
   - completion/Completion
   - transaction/Transaction
   - transaction/TransactionTree

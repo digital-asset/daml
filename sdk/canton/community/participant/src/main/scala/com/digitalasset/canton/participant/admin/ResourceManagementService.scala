@@ -3,26 +3,29 @@
 
 package com.digitalasset.canton.participant.admin
 
+import cats.Eval
+import com.digitalasset.canton.config.RequireTypes.NonNegativeNumeric
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.error.LedgerApiErrors.ParticipantBackpressure
 import com.digitalasset.canton.ledger.participant.state.SubmissionResult
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.ErrorLoggingContext
-import com.digitalasset.canton.networking.grpc.StaticGrpcServices
 import com.digitalasset.canton.participant.metrics.ParticipantMetrics
 import com.digitalasset.canton.participant.protocol.TransactionProcessor.SubmissionErrors.ParticipantOverloaded
+import com.digitalasset.canton.participant.store.ParticipantSettingsStore
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.RateLimiter
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.math.Ordered.orderingToOrdered
 
-trait ResourceManagementService {
-
-  def metrics: ParticipantMetrics
-
-  def warnIfOverloadedDuring: Option[NonNegativeFiniteDuration]
+class ResourceManagementService(
+    store: Eval[ParticipantSettingsStore],
+    val warnIfOverloadedDuring: Option[NonNegativeFiniteDuration],
+    val metrics: ParticipantMetrics,
+) {
 
   private val lastSuccess: AtomicReference[CantonTimestamp] =
     new AtomicReference[CantonTimestamp](CantonTimestamp.now())
@@ -34,6 +37,67 @@ trait ResourceManagementService {
       resourceLimits.maxInflightValidationRequests.map(_.unwrap)
     )
     .discard
+
+  private val rateLimiterRef: AtomicReference[Option[RateLimiter]] = new AtomicReference(
+    createLimiter(store.value.settings.resourceLimits)
+  )
+
+  private def createLimiter(limits: ResourceLimits): Option[RateLimiter] =
+    limits.maxSubmissionRate.map(x =>
+      new RateLimiter(
+        NonNegativeNumeric.tryCreate(x.value.toDouble),
+        limits.maxSubmissionBurstFactor,
+      )
+    )
+
+  protected def checkNumberOfInflightValidationRequests(
+      currentLoad: Int
+  )(implicit loggingContext: ErrorLoggingContext): Option[SubmissionResult] =
+    resourceLimits.maxInflightValidationRequests
+      .filter(currentLoad >= _.unwrap)
+      .map { limit =>
+        val status =
+          ParticipantBackpressure
+            .Rejection(
+              s"too many in-flight validation requests (count: $currentLoad, limit: $limit)"
+            )
+            .rpcStatus()
+        // Choosing SynchronousReject instead of Overloaded, because that allows us to specify a custom error message.
+        SubmissionResult.SynchronousError(status)
+      }
+
+  protected def checkAndUpdateRate()(implicit
+      loggingContext: ErrorLoggingContext
+  ): Option[SubmissionResult] =
+    rateLimiterRef
+      .get()
+      .flatMap(limiter =>
+        if (limiter.checkAndUpdateRate()) None
+        else {
+          val status =
+            ParticipantBackpressure
+              .Rejection(
+                s"the amount of commands submitted to this participant exceeds the submission rate limit of ${limiter.maxTasksPerSecond} submissions per second with bursts of up to ${Math
+                    .ceil(limiter.maxBurst)
+                    .toInt} submissions"
+              )
+              .rpcStatus()
+          // Choosing SynchronousReject instead of Overloaded, because that allows us to specify a custom error message.
+          Some(SubmissionResult.SynchronousError(status))
+        }
+      )
+
+  def resourceLimits: ResourceLimits = store.value.settings.resourceLimits
+
+  def writeResourceLimits(
+      limits: ResourceLimits
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+    rateLimiterRef.set(createLimiter(limits))
+    store.value.writeResourceLimits(limits)
+  }
+
+  def refreshCache()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    store.value.refreshCache()
 
   def checkOverloaded(currentLoad: Int)(implicit
       loggingContext: ErrorLoggingContext
@@ -62,60 +126,5 @@ trait ResourceManagementService {
     }
 
     errorO
-  }
-
-  protected def checkNumberOfInflightValidationRequests(
-      currentLoad: Int
-  )(implicit loggingContext: ErrorLoggingContext): Option[SubmissionResult] =
-    resourceLimits.maxInflightValidationRequests
-      .filter(currentLoad >= _.unwrap)
-      .map { limit =>
-        val status =
-          ParticipantBackpressure
-            .Rejection(
-              s"too many in-flight validation requests (count: $currentLoad, limit: $limit)"
-            )
-            .rpcStatus()
-        // Choosing SynchronousReject instead of Overloaded, because that allows us to specify a custom error message.
-        SubmissionResult.SynchronousError(status)
-      }
-
-  protected def checkAndUpdateRate()(implicit
-      loggingContext: ErrorLoggingContext
-  ): Option[SubmissionResult]
-
-  def resourceLimits: ResourceLimits
-
-  def writeResourceLimits(limits: ResourceLimits)(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Unit]
-
-  def refreshCache()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
-}
-
-object ResourceManagementService {
-  class CommunityResourceManagementService(
-      override val warnIfOverloadedDuring: Option[NonNegativeFiniteDuration],
-      override val metrics: ParticipantMetrics,
-  ) extends ResourceManagementService {
-
-    override protected def checkAndUpdateRate()(implicit
-        loggingContext: ErrorLoggingContext
-    ): Option[SubmissionResult] =
-      None
-
-    /** The community edition only supports a fixed configuration that cannot be changed.
-      */
-    override def resourceLimits: ResourceLimits = ResourceLimits.community
-
-    override def writeResourceLimits(limits: ResourceLimits)(implicit
-        traceContext: TraceContext
-    ): FutureUnlessShutdown[Unit] =
-      FutureUnlessShutdown.failed(
-        StaticGrpcServices.notSupportedByCommunityStatus.asRuntimeException()
-      )
-
-    override def refreshCache()(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-      FutureUnlessShutdown.unit
   }
 }

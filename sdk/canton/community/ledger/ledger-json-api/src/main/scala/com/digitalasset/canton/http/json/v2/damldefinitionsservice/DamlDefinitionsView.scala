@@ -7,7 +7,6 @@ import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.digitalasset.canton.http.json.v2.damldefinitionsservice.Schema.{AllTemplatesResponse, TemplateDefinition, TypeSig}
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.language.DamlDefinitionsBuilders
 
 class DamlDefinitionsView(
     getPackageMetadataSnapshot: ContextualizedErrorLogger => PackageMetadata

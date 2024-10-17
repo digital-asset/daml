@@ -7,6 +7,7 @@ import cats.Order.*
 import cats.data.EitherT
 import cats.kernel.Order
 import cats.syntax.either.*
+import cats.syntax.order.*
 import cats.syntax.parallel.*
 import cats.{Functor, Show}
 import com.daml.nonempty.NonEmpty
@@ -30,13 +31,15 @@ import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, retry}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{ProtoDeserializationError, SequencerCounter}
+import com.digitalasset.canton.{ProtoDeserializationError, SequencerCounter, checked}
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
 import com.google.rpc.status.Status
 import slick.jdbc.{GetResult, SetParameter}
 
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicReference
+import scala.annotation.tailrec
 import scala.collection.immutable.SortedSet
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -68,15 +71,20 @@ object SequencerMemberId {
     Show.show[SequencerMemberId](_.toString)
 }
 
+sealed trait IdOrPayload
+
 /** Identifier for a payload. Should ideally be unique however this will be validated in [[SequencerStore.savePayloads]].
   * Is expected id is a timestamp in microseconds.
   */
-final case class PayloadId(private val id: CantonTimestamp) extends PrettyPrinting {
+final case class PayloadId(private val id: CantonTimestamp)
+    extends IdOrPayload
+    with PrettyPrinting {
   def unwrap: CantonTimestamp = id
 
   override protected def pretty: Pretty[PayloadId] = prettyOfClass(
     unnamedParam(_.id)
   )
+
 }
 
 object PayloadId {
@@ -99,7 +107,7 @@ object PayloadId {
 }
 
 /** Payload with a assigned id and content as bytes */
-final case class Payload(id: PayloadId, content: ByteString)
+final case class Payload(id: PayloadId, content: ByteString) extends IdOrPayload
 
 /** Sequencer events in a structure suitable for persisting in our events store.
   * The payload type is parameterized to allow specifying either a full payload or just a id referencing a payload.
@@ -412,16 +420,16 @@ private[sequencer] final case class SequencerStoreRecordCounts(
 
 trait ReadEvents {
   def nextTimestamp: Option[CantonTimestamp]
-  def payloads: Seq[Sequenced[PayloadId]]
+  def events: Seq[Sequenced[IdOrPayload]]
 }
 
-final case class ReadEventPayloads(payloads: Seq[Sequenced[PayloadId]]) extends ReadEvents {
-  def nextTimestamp: Option[CantonTimestamp] = payloads.lastOption.map(_.timestamp)
+final case class ReadEventPayloads(events: Seq[Sequenced[IdOrPayload]]) extends ReadEvents {
+  def nextTimestamp: Option[CantonTimestamp] = events.lastOption.map(_.timestamp)
 }
 
 /** No events found but may return the safe watermark across online sequencers to read from the next time */
 final case class SafeWatermark(nextTimestamp: Option[CantonTimestamp]) extends ReadEvents {
-  def payloads: Seq[Sequenced[PayloadId]] = Seq.empty
+  def events: Seq[Sequenced[IdOrPayload]] = Seq.empty
 }
 
 /** An interface for validating members of a sequencer, i.e. that member is registered at a certain time.
@@ -503,6 +511,54 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
       traceContext: TraceContext
   ): Future[Unit]
 
+  /** Maximum size the events buffer is allowed to reach before it starts dropping events.
+    * If set to 0, caching is disabled and all requests go to the underlying store (e.g. database).
+    */
+  def maxBufferedEvents: Int
+
+  /** This in-memory fan-out buffer allows DatabaseSequencer.single(...) instance to fully bypass reading events
+    * back from the database, since there's only a single writer.
+    * We use immutable [[Vector]] to provide a thread-safe buffer and allow efficient
+    * random access to find the reading start point using binary search.
+    * Requirements are:
+    * - Stores only events that has been persisted to the database (i.e. watermark updated)
+    * - Stores events in-order of increasing timestamp
+    * - Updates move the time forward
+    */
+  private val eventsBufferRef = new AtomicReference[Vector[Sequenced[Payload]]](
+    Vector.empty
+  )
+
+  /** In case of single instance sequencer we can use in-memory fanout buffer for events */
+  def bufferEvents(events: NonEmpty[Seq[Sequenced[Payload]]])(implicit tc: TraceContext): Unit =
+    if (maxBufferedEvents != 0) {
+      val eventsBuffer = eventsBufferRef.get()
+      val eventsToAppend = events.size match {
+        case eventsSize if eventsSize <= maxBufferedEvents => events.forgetNE
+        case _ => events.takeRight(maxBufferedEvents)
+      }
+      val updatedBuffer = eventsBuffer.appendedAll(eventsToAppend)
+      val updatedTruncatedBuffer = if (eventsBuffer.size > maxBufferedEvents) {
+        // We keep the last half of the buffer to avoid cleaning up the buffer too often
+        updatedBuffer.splitAt(eventsBuffer.size - maxBufferedEvents / 2)._2
+      } else {
+        updatedBuffer
+      }
+      if (!eventsBufferRef.compareAndSet(eventsBuffer, updatedTruncatedBuffer)) {
+        ErrorUtil.invalidState("Concurrent modification of the events buffer")
+      }
+    }
+
+  /** A method to pre-populate the buffer for events, at the sequencer startup to prevent "cache miss storm"
+    */
+  protected def setBuffer(events: Vector[Sequenced[Payload]]): Unit = eventsBufferRef.set(events)
+
+  def prePopulateBuffer(implicit traceContext: TraceContext): Future[Unit]
+
+  /** Empty the buffer for events, i.e. in case of a writer failure
+    */
+  def invalidateBuffer(): Unit = eventsBufferRef.set(Vector.empty)
+
   /** Flag any sequencers that have a last updated watermark on or before the given `cutoffTime` as offline. */
   def markLaggingSequencersOffline(cutoffTime: CantonTimestamp)(implicit
       traceContext: TraceContext
@@ -549,16 +605,91 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
   /** Fetch the indexes of all sequencers that are currently online */
   def fetchOnlineInstances(implicit traceContext: TraceContext): Future[SortedSet[Int]]
 
-  /** Read all events of which a member is a recipient from the provided timestamp but no greater than the earliest watermark. */
-  def readEvents(memberId: SequencerMemberId, fromTimestampO: Option[CantonTimestamp], limit: Int)(
-      implicit traceContext: TraceContext
+  /** Internal non-buffered implementation of `readEvents`.
+    */
+  protected def readEventsInternal(
+      memberId: SequencerMemberId,
+      fromExclusiveO: Option[CantonTimestamp],
+      limit: Int,
+  )(implicit
+      traceContext: TraceContext
   ): Future[ReadEvents]
 
   def readPayloads(
-      payloadIds: Seq[PayloadId]
+      payloadIds: Seq[IdOrPayload]
   )(implicit
       traceContext: TraceContext
   ): Future[Map[PayloadId, Payload]]
+
+  /** Read all events of which a member is a recipient from the provided timestamp but no greater than the earliest watermark.
+    * Passing both `member` and `memberId` to avoid a database query for the lookup.
+    */
+  def readEvents(
+      memberId: SequencerMemberId,
+      fromExclusiveO: Option[CantonTimestamp],
+      limit: Int,
+  )(implicit
+      traceContext: TraceContext
+  ): Future[ReadEvents] = {
+    logger.debug(
+      s"Reading events for member $memberId from timestamp $fromExclusiveO with limit $limit"
+    )
+    val cache = eventsBufferRef.get()
+    // "last" means the latest added event, with the most recent timestamp
+    // "head" means the earliest added event, with the oldest timestamp
+    logger.debug(
+      s"Current events buffer contains: ${cache.size} events, head: ${cache.headOption
+          .map(_.timestamp)}, last: ${cache.lastOption.map(_.timestamp)}"
+    )
+    fromExclusiveO match {
+      case Some(fromExclusive) =>
+        cache.headOption match {
+          case Some(earliestEvent) if earliestEvent.timestamp <= fromExclusive =>
+            // If the buffer has events that are newer than the requested timestamp, we can use the buffer
+            val start = SequencerStore.binarySearch[Sequenced[Payload], CantonTimestamp](
+              cache,
+              _.timestamp,
+              fromExclusive,
+            )
+            val events = cache
+              .slice(start, cache.size)
+              .view
+              .filter(_.event.members.contains(memberId))
+              .take(limit)
+              .toSeq
+
+            logger.debug(
+              s"Serving ${events.length} events from the buffer"
+            )
+
+            if (events.nonEmpty) {
+              Future.successful(
+                ReadEventPayloads(events)
+              )
+            } else {
+              // No events to read, advance the read watermark to the latest event's timestamp in the buffer
+              // Note that if fromExclusive > cache.lastOption.timestamp, we keep the watermark unchanged
+              // not to move it backwards and potentially read events twice
+              Future.successful(
+                SafeWatermark(cache.lastOption.map(_.timestamp) max Some(fromExclusive))
+              )
+            }
+          case _ =>
+            logger.debug(
+              s"Falling back to database access for events"
+            )
+            // If the buffer does not start earlier than the `fromExclusive` timestamp,
+            // we cannot serve the request with the buffer only, we need to fallback to read from the database
+            readEventsInternal(memberId, fromExclusiveO, limit)
+        }
+      case None =>
+        logger.debug(
+          s"Falling back to the database access for events"
+        )
+        // In case we start from the beginning of events, we cannot determine if we can rely on the buffer
+        readEventsInternal(memberId, fromExclusiveO, limit)
+    }
+  }
 
   /** Delete all events that are ahead of the watermark of this sequencer.
     * These events will not have been read and should be removed before returning the sequencer online.
@@ -820,6 +951,7 @@ object SequencerStore {
   def apply(
       storage: Storage,
       protocolVersion: ProtocolVersion,
+      maxBufferedEventsSize: NonNegativeInt,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
       sequencerMember: Member,
@@ -839,12 +971,13 @@ object SequencerStore {
         new DbSequencerStore(
           dbStorage,
           protocolVersion,
+          maxBufferedEventsSize,
           timeouts,
           loggerFactory,
           sequencerMember,
           blockSequencerMode = blockSequencerMode,
-          cachingConfigs,
-          overrideCloseContext,
+          cachingConfigs = cachingConfigs,
+          overrideCloseContext = overrideCloseContext,
         )
     }
 
@@ -857,4 +990,39 @@ object SequencerStore {
       actuallyPrunedToUp: Option[CantonTimestamp],
       report: String,
   )
+
+  /** This implementation always returns the insertion point of the needle in the haystack.
+    * In case of element existing it will return the index to insert needle after all the existing elements.
+    */
+  @SuppressWarnings(Array("org.wartremover.warts.IterableOps"))
+  private[store] def binarySearch[A, B](
+      haystack: Vector[A],
+      accessor: A => B,
+      needle: B,
+  )(implicit
+      ord: Ordering[B]
+  ): Int = {
+    import ord.*
+    @tailrec
+    def search(left: Int, right: Int): Int =
+      if (left >= right) left
+      else {
+        val mid = left + (right - left) / 2
+        if (accessor(haystack(mid)) <= needle) search(mid + 1, right)
+        else search(left, mid)
+      }
+
+    // Optimizations for empty haystack and needle being outside the range
+    if (haystack.isEmpty) {
+      0
+    } else {
+      if (needle < accessor(checked(haystack.head))) {
+        0
+      } else if (accessor(checked(haystack.last)) <= needle) {
+        haystack.size
+      } else {
+        search(0, haystack.size)
+      }
+    }
+  }
 }

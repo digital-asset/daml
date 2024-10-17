@@ -134,7 +134,7 @@ final case class Cli(
 
 }
 
-@nowarn(raw"msg=unused value of type .* \(add `: Unit` to discard silently\)")
+@nowarn(raw"msg=unused value of type .*")
 object Cli {
   // The `additionalVersions` parameter allows the enterprise CLI to output the version of additional,
   // enterprise-only dependencies (see `CantonAppDriver`).

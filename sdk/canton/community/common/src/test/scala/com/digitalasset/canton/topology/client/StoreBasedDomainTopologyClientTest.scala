@@ -11,7 +11,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
+import com.digitalasset.canton.topology.processing.{ApproximateTime, EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.db.DbTopologyStoreHelper
 import com.digitalasset.canton.topology.store.memory.InMemoryTopologyStore
 import com.digitalasset.canton.topology.store.{
@@ -91,11 +91,23 @@ trait StoreBasedTopologySnapshotTest extends AsyncWordSpec with BaseTest with Ha
             .failOnShutdown(s"observe timestamp $timestamp")
         } yield ()
 
-      def advance(ts: CantonTimestamp): Unit =
+      def observed(ts: CantonTimestamp): Unit =
+        observed(SequencedTime(ts), EffectiveTime(ts))
+
+      def observed(st: SequencedTime, et: EffectiveTime): Unit =
         client
-          .observed(SequencedTime(ts), EffectiveTime(ts), SequencerCounter(0), List())
-          .failOnShutdown(s"advance to $ts")
+          .observed(st, et, SequencerCounter(0), List())
+          .failOnShutdown(s"advance to ($st, $et)")
           .futureValue
+
+      def updateHead(
+          st: SequencedTime,
+          et: EffectiveTime,
+          at: ApproximateTime,
+          potentialTopologyChange: Boolean,
+      ): Unit =
+        client
+          .updateHead(st, et, at, potentialTopologyChange)
     }
 
     "waiting for snapshots" should {
@@ -106,38 +118,78 @@ trait StoreBasedTopologySnapshotTest extends AsyncWordSpec with BaseTest with Ha
       "announce snapshot if there is one" in {
         val fixture = new Fixture()
         import fixture.*
-        val tc = client
-        advance(ts1)
-        tc.snapshotAvailable(ts1) shouldBe true
-        tc.snapshotAvailable(ts2) shouldBe false
-        advance(ts2)
-        tc.snapshotAvailable(ts2) shouldBe true
+        observed(ts1)
+        client.snapshotAvailable(ts1) shouldBe true
+        client.snapshotAvailable(ts2) shouldBe false
+        observed(ts2.immediatePredecessor)
+        client.snapshotAvailable(ts2) shouldBe true
       }
 
       "correctly get notified" in {
         val fixture = new Fixture()
         import fixture.*
-        val tc = client
-        val wt = tc.awaitTimestamp(ts2)
-        wt match {
-          case Some(fut) =>
-            advance(ts1)
-            fut.isCompleted shouldBe false
-            advance(ts2)
-            fut.isCompleted shouldBe true
-          case None => fail("expected future")
+        val awaitTimestampF = client.awaitTimestamp(ts2).getOrElse(fail("expected future"))
+        observed(ts1)
+        awaitTimestampF.isCompleted shouldBe false
+        observed(ts2.immediatePredecessor)
+        awaitTimestampF.isCompleted shouldBe true
+      }
+
+      "just return None if snapshot already exists" in {
+        val fixture = new Fixture()
+        import fixture.*
+        observed(ts1)
+        val awaitTimestampF = client.awaitTimestamp(ts1)
+        awaitTimestampF shouldBe None
+      }
+    }
+
+    "waiting for sequenced time" should {
+      val ts1 = CantonTimestamp.Epoch
+      val ts2 = ts1.plusSeconds(60)
+
+      "correctly get notified on observed" in {
+        val fixture = new Fixture()
+        import fixture.*
+        val awaitSequencedTimestampF =
+          client.awaitSequencedTimestampUS(ts2).getOrElse(fail("expected future"))
+
+        observed(SequencedTime(ts1), EffectiveTime(ts1))
+        awaitSequencedTimestampF.isCompleted shouldBe false
+        observed(SequencedTime(ts2.immediatePredecessor), EffectiveTime(ts1))
+        awaitSequencedTimestampF.isCompleted shouldBe true
+      }
+
+      "correctly get notified on updateHead" in {
+        Table("potential topology change", true, false).forEvery { potentialTopologyChange =>
+          val fixture = new Fixture()
+          import fixture.*
+          val awaitSequencedTimestampF =
+            client.awaitSequencedTimestampUS(ts2).getOrElse(fail("expected future"))
+
+          updateHead(
+            SequencedTime(ts1),
+            EffectiveTime(ts1),
+            ApproximateTime(ts1),
+            potentialTopologyChange,
+          )
+          awaitSequencedTimestampF.isCompleted shouldBe false
+          updateHead(
+            SequencedTime(ts2.immediatePredecessor),
+            EffectiveTime(ts1),
+            ApproximateTime(ts1),
+            potentialTopologyChange,
+          )
+          awaitSequencedTimestampF.isCompleted shouldBe true
         }
       }
 
-      "just return a none if snapshot already exists" in {
+      "just return None if sequenced time already known" in {
         val fixture = new Fixture()
         import fixture.*
-        val tc = client
-        advance(ts1)
-        val wt = tc.awaitTimestamp(ts1)
-        wt shouldBe None
+        observed(SequencedTime(ts1), EffectiveTime(CantonTimestamp.MinValue))
+        client.awaitSequencedTimestampUS(ts1) shouldBe None
       }
-
     }
 
     "work with empty store" in {

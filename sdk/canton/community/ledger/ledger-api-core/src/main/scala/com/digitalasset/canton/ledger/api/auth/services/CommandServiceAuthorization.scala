@@ -9,7 +9,6 @@ import com.digitalasset.canton.auth.Authorizer
 import com.digitalasset.canton.ledger.api.ProxyCloseable
 import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.validation.CommandsValidator
-import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
 import scalapb.lenses.Lens
 
@@ -26,16 +25,6 @@ final class CommandServiceAuthorization(
     with ProxyCloseable
     with GrpcApiService {
 
-  override def submitAndWait(request: SubmitAndWaitRequest): Future[Empty] = {
-    val effectiveSubmitters = CommandsValidator.effectiveSubmitters(request.commands)
-    authorizer.requireActAndReadClaimsForParties(
-      actAs = effectiveSubmitters.actAs,
-      readAs = effectiveSubmitters.readAs,
-      applicationIdL = Lens.unit[SubmitAndWaitRequest].commands.applicationId,
-      call = service.submitAndWait,
-    )(request)
-  }
-
   override def submitAndWaitForTransaction(
       request: SubmitAndWaitRequest
   ): Future[SubmitAndWaitForTransactionResponse] = {
@@ -48,15 +37,15 @@ final class CommandServiceAuthorization(
     )(request)
   }
 
-  override def submitAndWaitForUpdateId(
+  override def submitAndWait(
       request: SubmitAndWaitRequest
-  ): Future[SubmitAndWaitForUpdateIdResponse] = {
+  ): Future[SubmitAndWaitResponse] = {
     val effectiveSubmitters = CommandsValidator.effectiveSubmitters(request.commands)
     authorizer.requireActAndReadClaimsForParties(
       actAs = effectiveSubmitters.actAs,
       readAs = effectiveSubmitters.readAs,
       applicationIdL = Lens.unit[SubmitAndWaitRequest].commands.applicationId,
-      call = service.submitAndWaitForUpdateId,
+      call = service.submitAndWait,
     )(request)
   }
 

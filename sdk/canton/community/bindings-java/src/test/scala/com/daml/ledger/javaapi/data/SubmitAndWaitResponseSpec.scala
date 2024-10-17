@@ -8,16 +8,16 @@ import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
-class SubmitAndWaitForUpdateIdResponseSpec
+class SubmitAndWaitResponseSpec
     extends AnyFlatSpec
     with Matchers
     with ScalaCheckDrivenPropertyChecks {
 
-  "SubmitAndWaitForUpdateIdResponse.fromProto" should "convert Protoc-generated instances to data instances" in forAll(
-    submitAndWaitForUpdateIdResponseGen
+  "SubmitAndWaitResponse.fromProto" should "convert Protoc-generated instances to data instances" in forAll(
+    submitAndWaitResponseGen
   ) { response =>
     val converted =
-      SubmitAndWaitForUpdateIdResponse.fromProto(response)
-    SubmitAndWaitForUpdateIdResponse.fromProto(converted.toProto) shouldEqual converted
+      SubmitAndWaitResponse.fromProto(response)
+    SubmitAndWaitResponse.fromProto(converted.toProto) shouldEqual converted
   }
 }

@@ -7,14 +7,12 @@ import com.digitalasset.canton.auth.Authorizer
 import com.digitalasset.canton.ledger.api.auth.services.CommandServiceAuthorization
 import com.daml.ledger.api.v2.command_service.CommandServiceGrpc.CommandService
 import com.daml.ledger.api.v2.command_service._
-import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
 
 import scala.concurrent.{ExecutionContext, Future}
 
 final class CommandServiceImpl(
-    submitAndWaitResponse: Future[Empty],
-    submitAndWaitForTransactionIdResponse: Future[SubmitAndWaitForUpdateIdResponse],
+    submitAndWaitResponse: Future[SubmitAndWaitResponse],
     submitAndWaitForTransactionResponse: Future[SubmitAndWaitForTransactionResponse],
     submitAndWaitForTransactionTreeResponse: Future[SubmitAndWaitForTransactionTreeResponse],
 ) extends CommandService
@@ -22,16 +20,9 @@ final class CommandServiceImpl(
 
   private var lastRequest: Option[SubmitAndWaitRequest] = None
 
-  override def submitAndWait(request: SubmitAndWaitRequest): Future[Empty] = {
+  override def submitAndWait(request: SubmitAndWaitRequest): Future[SubmitAndWaitResponse] = {
     this.lastRequest = Some(request)
     submitAndWaitResponse
-  }
-
-  override def submitAndWaitForUpdateId(
-      request: SubmitAndWaitRequest
-  ): Future[SubmitAndWaitForUpdateIdResponse] = {
-    this.lastRequest = Some(request)
-    submitAndWaitForTransactionIdResponse
   }
 
   override def submitAndWaitForTransaction(
@@ -54,15 +45,13 @@ final class CommandServiceImpl(
 object CommandServiceImpl {
 
   def createWithRef(
-      submitAndWaitResponse: Future[Empty],
-      submitAndWaitForTransactionIdResponse: Future[SubmitAndWaitForUpdateIdResponse],
+      submitAndWaitResponse: Future[SubmitAndWaitResponse],
       submitAndWaitForTransactionResponse: Future[SubmitAndWaitForTransactionResponse],
       submitAndWaitForTransactionTreeResponse: Future[SubmitAndWaitForTransactionTreeResponse],
       authorizer: Authorizer,
   )(implicit ec: ExecutionContext): (ServerServiceDefinition, CommandServiceImpl) = {
     val impl = new CommandServiceImpl(
       submitAndWaitResponse,
-      submitAndWaitForTransactionIdResponse,
       submitAndWaitForTransactionResponse,
       submitAndWaitForTransactionTreeResponse,
     )

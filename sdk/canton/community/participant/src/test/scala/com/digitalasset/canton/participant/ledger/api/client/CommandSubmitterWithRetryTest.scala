@@ -5,7 +5,7 @@ package com.digitalasset.canton.participant.ledger.api.client
 
 import com.daml.error.{BaseError, ErrorCategory, ErrorClass, ErrorCode}
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
-import com.daml.ledger.api.v2.command_service.SubmitAndWaitForUpdateIdResponse
+import com.daml.ledger.api.v2.command_service.SubmitAndWaitResponse
 import com.daml.ledger.api.v2.commands.Commands
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.concurrent.FutureSupervisor
@@ -49,9 +49,9 @@ class CommandSubmitterWithRetryTest
     ): Future[Assertion] = {
       val synchronousCommandClient = mock[CommandServiceClient]
       val simClock = new SimClock(loggerFactory = loggerFactory)
-      when(synchronousCommandClient.submitAndWaitForUpdateId(expectedCommands, Some(timeout)))
+      when(synchronousCommandClient.submitAndWait(expectedCommands, Some(timeout)))
         .thenAnswer(
-          result.map(_.map(updateId => SubmitAndWaitForUpdateIdResponse(updateId = updateId)))
+          result.map(_.map(updateId => SubmitAndWaitResponse(updateId = updateId)))
         )
       sut = new CommandSubmitterWithRetry(
         synchronousCommandClient,
@@ -129,7 +129,7 @@ class CommandSubmitterWithRetryTest
             result <- sut.submitCommands(commands, timeout)
           } yield {
             verify(commandClient, times(4))
-              .submitAndWaitForUpdateId(
+              .submitAndWait(
                 commands,
                 Some(timeout),
               )

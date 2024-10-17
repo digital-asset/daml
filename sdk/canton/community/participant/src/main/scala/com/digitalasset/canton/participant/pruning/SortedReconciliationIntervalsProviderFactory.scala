@@ -11,7 +11,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.sync.SyncDomainPersistentStateManager
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.client.StoreBasedDomainTopologyClient
-import com.digitalasset.canton.topology.processing.{ApproximateTime, EffectiveTime}
+import com.digitalasset.canton.topology.processing.{ApproximateTime, EffectiveTime, SequencedTime}
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -47,6 +47,7 @@ class SortedReconciliationIntervalsProviderFactory(
         StoreBasedDomainTopologyClient.NoPackageDependencies,
       )
       topologyClient.updateHead(
+        SequencedTime(subscriptionTs),
         EffectiveTime(subscriptionTs),
         ApproximateTime(subscriptionTs),
         potentialTopologyChange = true,

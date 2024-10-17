@@ -5,6 +5,7 @@ package com.digitalasset.canton.domain.sequencing.sequencer.store
 
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.CachingConfigs
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
@@ -23,6 +24,7 @@ trait DbSequencerStoreTest extends SequencerStoreTest with MultiTenantedSequence
       new DbSequencerStore(
         storage,
         testedProtocolVersion,
+        maxBufferedEventsSize = NonNegativeInt.zero, // test with cache is below
         timeouts,
         loggerFactory,
         sequencerMember,
@@ -34,6 +36,21 @@ trait DbSequencerStoreTest extends SequencerStoreTest with MultiTenantedSequence
       new DbSequencerStore(
         storage,
         testedProtocolVersion,
+        maxBufferedEventsSize = NonNegativeInt.zero, // HA mode does not support events cache
+        timeouts,
+        loggerFactory,
+        sequencerMember,
+        blockSequencerMode = true,
+        CachingConfigs(),
+      )
+    )
+  }
+  "DbSequencerStore with cache" should {
+    behave like sequencerStore(() =>
+      new DbSequencerStore(
+        storage,
+        testedProtocolVersion,
+        maxBufferedEventsSize = NonNegativeInt.tryCreate(10),
         timeouts,
         loggerFactory,
         sequencerMember,

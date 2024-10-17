@@ -543,8 +543,8 @@ final class RepairService(
         for {
           _ <- changeAssignation(
             contractIds,
-            sourceDomainId,
-            targetDomainId,
+            Source(sourceDomainId),
+            Target(targetDomainId),
             skipInactive,
             batchSize,
           )
@@ -565,8 +565,8 @@ final class RepairService(
     */
   def changeAssignation(
       contractIds: Seq[LfContractId],
-      sourceDomainId: DomainId,
-      targetDomainId: DomainId,
+      sourceDomainId: Source[DomainId],
+      targetDomainId: Target[DomainId],
       skipInactive: Boolean,
       batchSize: PositiveInt,
   )(implicit traceContext: TraceContext): EitherT[Future, String, Unit] =
@@ -575,18 +575,22 @@ final class RepairService(
       .map { numberOfContracts =>
         for {
           _ <- EitherTUtil.condUnitET[Future](
-            sourceDomainId != targetDomainId,
+            sourceDomainId.unwrap != targetDomainId.unwrap,
             "Source must differ from target domain!",
           )
           _ <- withRepairIndexer { repairIndexer =>
             for {
-              repairSource <- initRepairRequestAndVerifyPreconditions(
-                sourceDomainId,
-                numberOfContracts,
+              repairSource <- sourceDomainId.traverse(
+                initRepairRequestAndVerifyPreconditions(
+                  _,
+                  numberOfContracts,
+                )
               )
-              repairTarget <- initRepairRequestAndVerifyPreconditions(
-                targetDomainId,
-                numberOfContracts,
+              repairTarget <- targetDomainId.traverse(
+                initRepairRequestAndVerifyPreconditions(
+                  _,
+                  numberOfContracts,
+                )
               )
 
               changeAssignation = new ChangeAssignation(
@@ -602,7 +606,7 @@ final class RepairService(
                 ChangeAssignation.Data.from(contractIds, changeAssignation)
               )
 
-              _ <- cleanRepairRequests(repairTarget, repairSource)
+              _ <- cleanRepairRequests(repairTarget.unwrap, repairSource.unwrap)
 
               // Note the following purposely fails if any contract fails which results in not all contracts being processed.
               _ <- MonadUtil
@@ -650,12 +654,12 @@ final class RepairService(
   )(implicit context: TraceContext): EitherT[Future, String, Unit] =
     withRepairIndexer { repairIndexer =>
       for {
-        sourceRepairRequest <- initRepairRequestAndVerifyPreconditions(
-          reassignmentId.sourceDomain.unwrap
+        sourceRepairRequest <- reassignmentId.sourceDomain.traverse(
+          initRepairRequestAndVerifyPreconditions(_)
         )
-        targetRepairRequest <- initRepairRequestAndVerifyPreconditions(target.unwrap)
+        targetRepairRequest <- target.traverse(initRepairRequestAndVerifyPreconditions(_))
         reassignmentData <-
-          targetRepairRequest.domain.persistentState.reassignmentStore
+          targetRepairRequest.unwrap.domain.persistentState.reassignmentStore
             .lookup(reassignmentId)
             .leftMap(_.message)
 
@@ -671,8 +675,8 @@ final class RepairService(
         _ <- changeAssignation.completeUnassigned(unassignmentData)
 
         changeAssignationBack = new ChangeAssignation(
-          targetRepairRequest,
-          sourceRepairRequest,
+          Source(targetRepairRequest.unwrap),
+          Target(sourceRepairRequest.unwrap),
           participantId,
           syncCrypto,
           repairIndexer,

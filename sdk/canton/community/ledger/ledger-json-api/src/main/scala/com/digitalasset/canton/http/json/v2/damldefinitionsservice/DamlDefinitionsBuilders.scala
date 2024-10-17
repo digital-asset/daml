@@ -1,20 +1,19 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf
-package language
+package com.digitalasset.canton.http.json.v2.damldefinitionsservice
 
-import com.digitalasset.canton.http.json.v2.damldefinitionsservice.Schema
 import com.digitalasset.canton.http.json.v2.damldefinitionsservice.Schema.*
+import com.digitalasset.daml.lf.data
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.language.Ast.PackageSignature
 import com.digitalasset.daml.lf.language.TypeSig.*
+import com.digitalasset.daml.lf.language.{Ast, LookupError, PackageInterface}
 
 import scala.annotation.tailrec
 import scala.collection.immutable.VectorMap
 import scala.collection.mutable
 
-// TODO(#21695): Move to com.digitalasset.canton.http.json2.damldefinitionsservice once PackageInterface is public
 object DamlDefinitionsBuilders {
   def buildTypeSig(
       pkgId: Ref.PackageId,

@@ -9,7 +9,7 @@ import com.daml.ledger.api.v2.command_completion_service.CompletionStreamRespons
 import com.daml.ledger.api.v2.command_service.{
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse,
-  SubmitAndWaitForUpdateIdResponse,
+  SubmitAndWaitResponse,
 }
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
 import com.daml.ledger.api.v2.package_service.{
@@ -19,7 +19,6 @@ import com.daml.ledger.api.v2.package_service.{
 }
 import com.daml.ledger.api.v2.testing.time_service.GetTimeResponse
 import com.daml.ledger.api.v2.command_submission_service.SubmitResponse
-import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
 import io.reactivex.Observable
 
@@ -43,8 +42,7 @@ object LedgerServicesImpls {
       transactions: Observable[UpdateServiceImpl.LedgerItem],
       commandSubmissionResponse: Future[SubmitResponse],
       completions: List[CompletionStreamResponse],
-      submitAndWaitResponse: Future[Empty],
-      submitAndWaitForUpdateIdResponse: Future[SubmitAndWaitForUpdateIdResponse],
+      submitAndWaitResponse: Future[SubmitAndWaitResponse],
       submitAndWaitForTransactionResponse: Future[SubmitAndWaitForTransactionResponse],
       submitAndWaitForTransactionTreeResponse: Future[SubmitAndWaitForTransactionTreeResponse],
       getTimeResponse: Future[GetTimeResponse],
@@ -64,7 +62,6 @@ object LedgerServicesImpls {
       CommandCompletionServiceImpl.createWithRef(completions, authorizer)(ec)
     val (cServiceDef, cService) = CommandServiceImpl.createWithRef(
       submitAndWaitResponse,
-      submitAndWaitForUpdateIdResponse,
       submitAndWaitForTransactionResponse,
       submitAndWaitForTransactionTreeResponse,
       authorizer,

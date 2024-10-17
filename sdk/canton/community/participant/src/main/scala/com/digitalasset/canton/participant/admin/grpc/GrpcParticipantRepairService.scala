@@ -257,7 +257,9 @@ final class GrpcParticipantRepairService(
       // ensure here we don't process migration requests concurrently
       if (!domainMigrationInProgress.getAndSet(true)) {
         val migratedSourceDomain = for {
-          sourceDomainAlias <- EitherT.fromEither[Future](DomainAlias.create(request.sourceAlias))
+          sourceDomainAlias <- EitherT.fromEither[Future](
+            DomainAlias.create(request.sourceAlias).map(Source(_))
+          )
           conf <- EitherT
             .fromEither[Future](
               request.targetDomainConnectionConfig
@@ -265,6 +267,7 @@ final class GrpcParticipantRepairService(
                 .flatMap(
                   DomainConnectionConfig.fromProtoV30(_).leftMap(_.toString)
                 )
+                .map(Target(_))
             )
           _ <- EitherT(
             sync

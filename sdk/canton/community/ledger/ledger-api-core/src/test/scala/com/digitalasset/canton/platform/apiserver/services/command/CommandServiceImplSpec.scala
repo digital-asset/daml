@@ -70,7 +70,7 @@ class CommandServiceImplSpec
         )
       ).use { stub =>
         val request = SubmitAndWaitRequest.of(Some(commands))
-        stub.submitAndWaitForUpdateId(request).map { response =>
+        stub.submitAndWait(request).map { response =>
           verify(submissionTracker).track(
             eqTo(expectedSubmissionKey),
             eqTo(config.NonNegativeFiniteDuration.ofSeconds(1000L)),
@@ -104,7 +104,7 @@ class CommandServiceImplSpec
         val request = SubmitAndWaitRequest.of(Some(commands))
         stub
           .withDeadline(Deadline.after(3600L, TimeUnit.SECONDS, deadlineTicker))
-          .submitAndWaitForUpdateId(request)
+          .submitAndWait(request)
           .map { response =>
             verify(submissionTracker).track(
               eqTo(expectedSubmissionKey),
@@ -135,7 +135,7 @@ class CommandServiceImplSpec
       deadline
         .call { () =>
           service
-            .submitAndWaitForUpdateId(
+            .submitAndWait(
               SubmitAndWaitRequest.of(Some(commands.copy(submissionId = submissionId)))
             )(
               LoggingContextWithTrace.ForTesting
@@ -191,7 +191,7 @@ class CommandServiceImplSpec
         service: CommandServiceImpl
       ).use { stub =>
         val request = SubmitAndWaitRequest.of(Some(commands))
-        stub.submitAndWaitForUpdateId(request).failed.map {
+        stub.submitAndWait(request).failed.map {
           case RpcProtoExtractors.Exception(RpcProtoExtractors.Status(Code.DEADLINE_EXCEEDED)) =>
             succeed
           case unexpected => fail(s"Unexpected exception", unexpected)

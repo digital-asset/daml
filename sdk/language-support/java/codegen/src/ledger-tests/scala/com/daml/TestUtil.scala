@@ -8,12 +8,11 @@ import com.daml.integrationtest.CantonFixture
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v2.{CommandServiceGrpc, StateServiceGrpc}
 import com.daml.ledger.api.v2.StateServiceOuterClass.GetActiveContractsResponse
-import com.daml.ledger.api.v2.CommandServiceOuterClass.SubmitAndWaitRequest
+import com.daml.ledger.api.v2.CommandServiceOuterClass.{SubmitAndWaitRequest, SubmitAndWaitResponse}
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.daml.ledger.javaapi.data
 import com.daml.ledger.javaapi.data.{codegen => jcg, _}
 import com.daml.ledger.javaapi.data.codegen.HasCommands
-import com.google.protobuf.Empty
 import io.grpc.Channel
 import org.scalatest.{Assertion, Suite}
 
@@ -68,7 +67,7 @@ object TestUtil {
     None.toJava,
   )
 
-  def sendCmd(channel: Channel, partyName: String, hasCmds: HasCommands*): Empty = {
+  def sendCmd(channel: Channel, partyName: String, hasCmds: HasCommands*): SubmitAndWaitResponse = {
     val submission = CommandsSubmission
       .create(randomId, randomId, "", HasCommands.toCommands(hasCmds.asJava))
       .withWorkflowId(randomId)
@@ -90,7 +89,7 @@ object TestUtil {
       actAs: java.util.List[String],
       readAs: java.util.List[String],
       hasCmds: HasCommands*
-  ): Empty = {
+  ): SubmitAndWaitResponse = {
     val submission = CommandsSubmission
       .create(randomId, randomId, "", HasCommands.toCommands(hasCmds.asJava))
       .withWorkflowId(randomId)

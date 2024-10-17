@@ -44,19 +44,19 @@ trait TimeAwaiter {
     override def success(): Unit = promise.trySuccess(UnlessShutdown.unit).discard
   }
 
-  protected def expireTimeAwaiter(): Unit =
+  def expireTimeAwaiter(): Unit =
     blocking(awaitTimestampFuturesLock.synchronized {
       awaitTimestampFutures.iterator().asScala.foreach(_._2.shutdown().discard[Boolean])
     })
 
   protected def currentKnownTime: CantonTimestamp
 
-  protected def awaitKnownTimestamp(
+  def awaitKnownTimestamp(
       timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): Option[Future[Unit]] =
     awaitKnownTimestampGen(timestamp, new General()).map(_.promise.future)
 
-  protected def awaitKnownTimestampUS(
+  def awaitKnownTimestampUS(
       timestamp: CantonTimestamp
   )(implicit traceContext: TraceContext): Option[FutureUnlessShutdown[Unit]] =
     performUnlessClosing(s"await known timestamp at $timestamp") {
@@ -95,7 +95,7 @@ trait TimeAwaiter {
     )
   private val awaitTimestampFuturesLock: AnyRef = new Object()
 
-  protected def notifyAwaitedFutures(
+  def notifyAwaitedFutures(
       upToInclusive: CantonTimestamp
   )(implicit traceContext: TraceContext): Unit = {
     @tailrec def go(): Unit = Option(awaitTimestampFutures.peek()) match {

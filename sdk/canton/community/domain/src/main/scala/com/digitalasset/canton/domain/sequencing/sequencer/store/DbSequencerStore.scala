@@ -64,6 +64,7 @@ import scala.util.{Failure, Success}
 class DbSequencerStore(
     storage: DbStorage,
     protocolVersion: ProtocolVersion,
+    maxBufferedEventsSize: NonNegativeInt,
     override protected val timeouts: ProcessingTimeout,
     override protected val loggerFactory: NamedLoggerFactory,
     sequencerMember: Member,
@@ -343,6 +344,8 @@ class DbSequencerStore(
         )
     }
   }
+
+  override val maxBufferedEvents: Int = maxBufferedEventsSize.unwrap
 
   private val profile = storage.profile
 
@@ -778,10 +781,22 @@ class DbSequencerStore(
       )
       .map(items => SortedSet(items*))
 
-  override def readPayloads(payloadIds: Seq[PayloadId])(implicit
+  override def readPayloads(payloadIds: Seq[IdOrPayload])(implicit
       traceContext: TraceContext
-  ): Future[Map[PayloadId, Payload]] =
-    payloadCache.getAll(payloadIds)
+  ): Future[Map[PayloadId, Payload]] = {
+
+    val preloadedPayloads = payloadIds.collect { case payload: Payload =>
+      payload.id -> payload
+    }.toMap
+    val idsToLoad = payloadIds.collect { case id: PayloadId => id }
+
+    logger.debug(
+      s"readPayloads: reusing buffered ${preloadedPayloads.size} payloads and requesting ${idsToLoad.size}"
+    )
+    payloadCache.getAll(idsToLoad).map { accessedPayloads =>
+      accessedPayloads ++ preloadedPayloads
+    }
+  }
 
   private def readPayloadsFromStore(payloadIds: Seq[PayloadId])(implicit
       traceContext: TraceContext
@@ -797,7 +812,7 @@ class DbSequencerStore(
         }
     }
 
-  override def readEvents(
+  override protected def readEventsInternal(
       memberId: SequencerMemberId,
       fromTimestampO: Option[CantonTimestamp],
       limit: Int,
@@ -860,6 +875,65 @@ class DbSequencerStore(
       case (_, watermark) => SafeWatermark(watermark)
     }
   }
+
+  private def readEventsLatest(
+      limit: Int
+  )(implicit
+      traceContext: TraceContext
+  ): Future[Vector[Sequenced[Payload]]] = {
+
+    def queryEvents(safeWatermarkO: Option[CantonTimestamp]) = {
+      // If we don't have a safe watermark of all online sequencers (if all are offline) we'll fallback on allowing all
+      // and letting the offline condition in the query include the event if suitable
+      val safeWatermark = safeWatermarkO.getOrElse(CantonTimestamp.MaxValue)
+      val query =
+        sql"""
+        select events.ts, events.node_index, events.event_type, events.message_id, events.sender,
+          events.recipients, payloads.id, payloads.content, events.topology_timestamp,
+          events.trace_context, events.error,
+          traffic.extra_traffic_consumed, traffic.base_traffic_remainder, traffic.last_consumed_cost
+        from sequencer_events events
+        left join sequencer_payloads payloads
+          on events.payload_id = payloads.id
+        left join seq_traffic_control_consumed_journal traffic
+          on events.ts = traffic.sequencing_timestamp
+        inner join sequencer_watermarks watermarks
+          on events.node_index = watermarks.node_index
+        where
+          (
+              -- only consider events within the safe watermark
+              events.ts <= $safeWatermark
+              -- if the sequencer that produced the event is offline, only consider up until its offline watermark
+              and (watermarks.sequencer_online = true or events.ts <= watermarks.watermark_ts)
+          )
+        order by events.ts desc
+        limit $limit"""
+
+      query.as[Sequenced[Payload]]
+    }
+
+    val query = for {
+      safeWatermark <- safeWaterMarkDBIO
+      events <- queryEvents(safeWatermark)
+    } yield events
+
+    storage.query(query.transactionally, functionFullName)
+  }
+
+  override def prePopulateBuffer(implicit traceContext: TraceContext): Future[Unit] =
+    if (maxBufferedEvents == 0) {
+      logger.debug("Buffer pre-population disabled")
+      Future.unit
+    } else {
+      // When buffer is it capacity, we will half it. There's no point in pre-loading full buffer
+      // to half it immediately afterwards.
+      val populateWithCount = maxBufferedEvents / 2
+      logger.debug(s"Pre-populating buffer with at most $populateWithCount events")
+      readEventsLatest(populateWithCount).map { events =>
+        logger.debug(s"Fan out buffer now contains ${events.size} events")
+        setBuffer(events)
+      }
+    }
 
   private def safeWaterMarkDBIO: DBIOAction[Option[CantonTimestamp], NoStream, Effect.Read] = {
     val query = profile match {
