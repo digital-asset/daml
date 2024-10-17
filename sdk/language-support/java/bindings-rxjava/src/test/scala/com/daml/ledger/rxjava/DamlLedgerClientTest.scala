@@ -13,13 +13,12 @@ import com.daml.ledger.api.v2.command_completion_service.CompletionStreamRespons
 import com.daml.ledger.api.v2.command_service.{
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse,
-  SubmitAndWaitForUpdateIdResponse,
+  SubmitAndWaitResponse,
 }
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
 import com.daml.ledger.api.v2.package_service._
 import com.daml.ledger.api.v2.command_submission_service.SubmitResponse
 import com.google.protobuf.ByteString
-import com.google.protobuf.empty.Empty
 import io.grpc.Server
 import io.reactivex.Observable
 import org.scalatest.{Assertion, OptionValues}
@@ -235,8 +234,7 @@ class DamlLedgerClientTest
       Observable.empty(),
       Future.successful(SubmitResponse.defaultInstance),
       List(CompletionStreamResponse.defaultInstance),
-      Future.successful(Empty.defaultInstance),
-      Future.successful(SubmitAndWaitForUpdateIdResponse.defaultInstance),
+      Future.successful(SubmitAndWaitResponse.defaultInstance),
       Future.successful(SubmitAndWaitForTransactionResponse.defaultInstance),
       Future.successful(SubmitAndWaitForTransactionTreeResponse.defaultInstance),
       Future.successful(genGetTimeResponse),
