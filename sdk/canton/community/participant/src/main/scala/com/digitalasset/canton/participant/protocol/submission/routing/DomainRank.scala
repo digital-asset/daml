@@ -67,8 +67,7 @@ private[routing] class DomainRankComputation(
               sourceDomainId = Source(contractDomain),
               targetSnapshot = targetSnapshot,
               targetDomainId = targetDomain,
-              contractId = c.id,
-              contractStakeholders = c.stakeholders,
+              contract = c,
               readers = readers,
             )
           } yield Chain(c.id -> (submitter, contractDomain))
@@ -89,12 +88,11 @@ private[routing] class DomainRankComputation(
       sourceDomainId: Source[DomainId],
       targetSnapshot: Target[TopologySnapshot],
       targetDomainId: Target[DomainId],
-      contractId: LfContractId,
-      contractStakeholders: Set[LfPartyId],
+      contract: ContractData,
       readers: Set[LfPartyId],
   )(implicit traceContext: TraceContext): EitherT[Future, TransactionRoutingError, LfPartyId] = {
     logger.debug(
-      s"Computing submitter that can submit reassignment of $contractId with stakeholders $contractStakeholders from $sourceDomainId to $targetDomainId. Candidates are: $readers"
+      s"Computing submitter that can submit reassignment of ${contract.id} with stakeholders ${contract.stakeholders} from $sourceDomainId to $targetDomainId. Candidates are: $readers"
     )
 
     // Building the unassignment requests lets us check whether contract can be reassigned to target domain
@@ -105,34 +103,34 @@ private[routing] class DomainRankComputation(
       readers match {
         case Nil =>
           EitherT.leftT(
-            show"Cannot reassign contract $contractId from $sourceDomainId to $targetDomainId: ${errAccum
+            show"Cannot reassign contract ${contract.id} from $sourceDomainId to $targetDomainId: ${errAccum
                 .mkString(",")}"
           )
         case reader :: rest =>
           val result =
             for {
               _ <- ReassignmentSubmissionValidation.unassignment(
-                contractId,
+                contract.id,
                 sourceSnapshot,
                 reader,
                 participantId,
-                contractStakeholders,
+                contract.stakeholders.stakeholders,
               )
               _ <- new ReassigningParticipants(
-                contractStakeholders,
+                stakeholders = contract.stakeholders,
                 sourceSnapshot,
                 targetSnapshot,
               ).compute.mapK(FutureUnlessShutdown.outcomeK).leftWiden[ReassignmentProcessorError]
             } yield ()
           result
-            .onShutdown(Left(UnassignmentProcessorError.AbortedDueToShutdownOut(contractId)))
+            .onShutdown(Left(UnassignmentProcessorError.AbortedDueToShutdownOut(contract.id)))
             .biflatMap(
               left => go(rest, errAccum :+ show"Read $reader cannot reassign: $left"),
               _ => EitherT.rightT(reader),
             )
       }
 
-    go(readers.intersect(contractStakeholders).toList).leftMap(errors =>
+    go(readers.intersect(contract.stakeholders.stakeholders).toList).leftMap(errors =>
       AutomaticReassignmentForTransactionFailure.Failed(errors)
     )
   }

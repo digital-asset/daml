@@ -263,7 +263,7 @@ object CantonGrpcUtil {
     object AbortedDueToShutdown
         extends ErrorCode(
           id = "ABORTED_DUE_TO_SHUTDOWN",
-          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+          ErrorCategory.CancelledOperation,
         ) {
       final case class Error()(implicit val loggingContext: ErrorLoggingContext)
           extends CantonError.Impl("request aborted due to shutdown")

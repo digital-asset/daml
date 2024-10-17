@@ -11,8 +11,8 @@ import com.digitalasset.canton.config.{ClientConfig, KeepAliveClientConfig, TlsC
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.Endpoint
+import com.digitalasset.canton.tracing.TraceContextGrpc
 import com.digitalasset.canton.tracing.TracingConfig.Propagation
-import com.digitalasset.canton.tracing.{NoTracing, TraceContextGrpc}
 import com.digitalasset.canton.util.ResourceUtil.withResource
 import com.google.protobuf.ByteString
 import io.grpc.ManagedChannel
@@ -83,8 +83,7 @@ trait ClientChannelBuilderFactory extends (NamedLoggerFactory => ClientChannelBu
   */
 class CommunityClientChannelBuilder(protected val loggerFactory: NamedLoggerFactory)
     extends ClientChannelBuilder
-    with NamedLogging
-    with NoTracing {
+    with NamedLogging {
 
   /** Create the initial netty channel builder before customizing settings */
   override protected def createNettyChannelBuilder(
@@ -94,7 +93,7 @@ class CommunityClientChannelBuilder(protected val loggerFactory: NamedLoggerFact
 
     // warn that community does not support more than one domain connection if we've been passed multiple
     if (endpoints.size > 1) {
-      logger.warn(
+      noTracingLogger.warn(
         s"Canton Community does not support using many connections for a domain. Defaulting to first: $singleHost"
       )
     }

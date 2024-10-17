@@ -437,7 +437,10 @@ class ReplayingSendsSequencerClientTransportImpl(
     )
     with SequencerClientTransport
     with SequencerClientTransportPekko {
-  override def logout(): EitherT[FutureUnlessShutdown, Status, Unit] =
+
+  override def logout()(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, Status, Unit] =
     EitherT.pure(())
 
   override def subscribe[E](request: SubscriptionRequest, handler: SerializedEventHandler[E])(

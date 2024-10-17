@@ -155,7 +155,7 @@ object SubmitterMetadata
         .map(ParticipantId(_))
       actAs <- actAsP.traverse(
         ProtoConverter
-          .parseLfPartyId(_)
+          .parseLfPartyId(_, "act_as")
           .leftMap(e => ProtoDeserializationError.ValueConversionError("actAs", e.message))
       )
       applicationId <- ApplicationId

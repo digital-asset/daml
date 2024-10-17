@@ -10,7 +10,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.daml.lf.data.Ref.PackageId
 
-// TODO(#15087) remove this synchronization logic once topology events are published on the ledger api
+// TODO(i21341) remove this synchronization logic once topology events are published on the ledger api
 trait PackageVettingSynchronization {
   def sync(packages: Set[PackageId])(implicit
       traceContext: TraceContext

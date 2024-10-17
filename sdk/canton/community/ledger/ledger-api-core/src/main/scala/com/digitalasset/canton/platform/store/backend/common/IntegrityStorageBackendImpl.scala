@@ -147,6 +147,8 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
        UNION ALL
        SELECT completion_offset as _offset, record_time, domain_id FROM lapi_command_completions
          WHERE message_uuid is null -- it is not a timely reject (the record time there can be a source of violation: in corner cases it can move backwards)
+       UNION ALL
+       SELECT event_offset as _offset, record_time, domain_id FROM lapi_events_party_to_participant
        """.asVectorOf(
       offset("_offset") ~ long("record_time") ~ int("domain_id") map {
         case offset ~ recordTimeMicros ~ internedDomainId =>
@@ -169,16 +171,16 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
 
     // Verify no duplicate update id
     SQL"""
-          SELECT meta1.transaction_id as txId, meta1.event_offset as offset1, meta2.event_offset as offset2
+          SELECT meta1.update_id as uId, meta1.event_offset as offset1, meta2.event_offset as offset2
           FROM lapi_transaction_meta as meta1, lapi_transaction_meta as meta2
-          WHERE meta1.transaction_id = meta2.transaction_id and
+          WHERE meta1.update_id = meta2.update_id and
                 meta1.event_offset != meta2.event_offset
           FETCH NEXT 1 ROWS ONLY
       """
-      .asSingleOpt(str("txId") ~ offset("offset1") ~ offset("offset2"))(connection)
-      .foreach { case txId ~ offset1 ~ offset2 =>
+      .asSingleOpt(str("uId") ~ offset("offset1") ~ offset("offset2"))(connection)
+      .foreach { case uId ~ offset1 ~ offset2 =>
         throw new RuntimeException(
-          s"occurrence of duplicate update ID [$txId] found for offsets $offset1, $offset2"
+          s"occurrence of duplicate update ID [$uId] found for offsets $offset1, $offset2"
         )
       }
 
@@ -231,7 +233,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
             application_id,
             submitters,
             command_id,
-            transaction_id,
+            update_id,
             submission_id,
             message_uuid,
             request_sequencer_counter,
@@ -243,7 +245,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
           str("application_id") ~
           array[Int]("submitters") ~
           str("command_id") ~
-          str("transaction_id").? ~
+          str("update_id").? ~
           str("submission_id").? ~
           str("message_uuid").? ~
           long("request_sequencer_counter").? ~

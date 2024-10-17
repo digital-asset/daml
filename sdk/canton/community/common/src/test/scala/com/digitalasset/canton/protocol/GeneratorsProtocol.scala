@@ -228,6 +228,16 @@ final class GeneratorsProtocol(
     )
   )
 
+  implicit val stakeholdersArb: Arbitrary[Stakeholders] = Arbitrary(
+    for {
+      signatories <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
+      observers <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
+      stakeholders = signatories.union(observers)
+    } yield Stakeholders.tryCreate(
+      stakeholders = stakeholders
+    )
+  )
+
   implicit val requestIdArb: Arbitrary[RequestId] = genArbitrary
 
   implicit val rollbackContextArb: Arbitrary[RollbackContext] =

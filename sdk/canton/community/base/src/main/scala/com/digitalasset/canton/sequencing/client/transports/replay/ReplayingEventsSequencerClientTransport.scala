@@ -54,7 +54,9 @@ class ReplayingEventsSequencerClientTransport(
     with SequencerClientTransportPekko
     with NamedLogging {
 
-  override def logout(): EitherT[FutureUnlessShutdown, Status, Unit] =
+  override def logout()(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, Status, Unit] =
     EitherT.pure(())
 
   /** Does nothing */

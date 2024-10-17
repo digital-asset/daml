@@ -138,7 +138,7 @@ class UnassignmentProcessingSteps(
     for {
       _ <- targetIsNotSource(contractId, targetDomain)
       storedContract <- getStoredContract(ephemeralState.contractLookup, contractId)
-      stakeholders = storedContract.contract.metadata.stakeholders
+
       targetStaticDomainParameters <- reassignmentCoordination
         .getStaticDomainParameter(targetDomain)
         .mapK(FutureUnlessShutdown.outcomeK)
@@ -182,7 +182,6 @@ class UnassignmentProcessingSteps(
         creatingTransactionId,
         storedContract.contract,
         submitterMetadata,
-        stakeholders,
         domainId,
         sourceDomainProtocolVersion,
         mediator,
@@ -440,14 +439,13 @@ class UnassignmentProcessingSteps(
         else EitherT.pure[FutureUnlessShutdown, ReassignmentProcessorError](None)
 
       _ <- UnassignmentValidation.perform(
-        fullTree,
-        contract.metadata.stakeholders,
+        expectedStakeholders = Stakeholders(contract.metadata),
         contract.rawContractInstance.contractInstance.unversioned.template,
         sourceDomainProtocolVersion,
         Source(sourceSnapshot.ipsSnapshot),
         targetTopology,
         recipients,
-      )
+      )(fullTree)
 
       assignmentExclusivity <- getAssignmentExclusivity(
         targetTopology,

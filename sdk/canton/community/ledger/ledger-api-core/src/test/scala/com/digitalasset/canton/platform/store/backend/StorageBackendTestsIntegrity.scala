@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.platform.store.backend
 
+import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
@@ -420,6 +421,65 @@ private[backend] trait StorageBackendTestsIntegrity extends Matchers with Storag
     executeSql(ingest(updates, _))
     executeSql(updateLedgerEnd(offset(5), 4L))
     executeSql(backend.integrity.onlyForTestingVerifyIntegrity())
+  }
+
+  it should "detect monotonicity violation of record times for one domain in party to participant table" in {
+    val updates = Vector(
+      dtoPartyToParticipant(
+        offset(1),
+        1L,
+        someParty,
+        someParticipantId.toString,
+        AuthorizationLevel.Submission,
+        domainId = someDomainId.toProtoPrimitive,
+        recordTime = time5,
+      ),
+      dtoPartyToParticipant(
+        offset(2),
+        2L,
+        someParty,
+        someParticipantId.toString,
+        AuthorizationLevel.Confirmation,
+        domainId = someDomainId2.toProtoPrimitive,
+        recordTime = time1,
+      ),
+      dtoPartyToParticipant(
+        offset(3),
+        3L,
+        someParty,
+        someParticipantId.toString,
+        AuthorizationLevel.Observation,
+        domainId = someDomainId.toProtoPrimitive,
+        recordTime = time7,
+      ),
+      dtoPartyToParticipant(
+        offset(4),
+        4L,
+        someParty,
+        someParticipantId.toString,
+        AuthorizationLevel.Revoked,
+        domainId = someDomainId2.toProtoPrimitive,
+        recordTime = time3,
+      ),
+      dtoPartyToParticipant(
+        offset(5),
+        5L,
+        someParty,
+        someParticipantId.toString,
+        AuthorizationLevel.Submission,
+        domainId = someDomainId.toProtoPrimitive,
+        recordTime = time6,
+      ),
+    )
+
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(ingest(updates, _))
+    executeSql(updateLedgerEnd(offset(5), 5L))
+    val failure =
+      intercept[RuntimeException](executeSql(backend.integrity.onlyForTestingVerifyIntegrity()))
+    failure.getMessage should include(
+      "occurrence of decreasing record time found within one domain: offsets Offset(Bytes(000000000000000003)),Offset(Bytes(000000000000000005))"
+    )
   }
 
   it should "detect duplicated update ids" in {

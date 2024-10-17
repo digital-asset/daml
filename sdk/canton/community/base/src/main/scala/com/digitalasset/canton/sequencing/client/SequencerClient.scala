@@ -101,7 +101,7 @@ trait SequencerClient extends SequencerClientSend with FlagCloseable {
   /** Provides an entry point to revoke all the authentication tokens for a member on a given
     * sequencer, and close the connection to that sequencer.
     */
-  def logout(): EitherT[FutureUnlessShutdown, Status, Unit]
+  def logout()(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, Status, Unit]
 
   /** The sequencer client computes the cost of submission requests sent to the sequencer,
     * and update the traffic state when receiving confirmation that the event has been sequenced.
@@ -219,7 +219,9 @@ abstract class SequencerClientImpl(
     with Spanning
     with HasCloseContext {
 
-  override def logout(): EitherT[FutureUnlessShutdown, Status, Unit] =
+  override def logout()(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, Status, Unit] =
     sequencersTransportState.logout()
 
   protected val sequencersTransportState: SequencersTransportState =

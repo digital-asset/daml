@@ -72,8 +72,8 @@ CREATE TABLE lapi_command_completions (
     application_id VARCHAR(1000) NOT NULL,
     submitters INTEGER ARRAY NOT NULL,
     command_id VARCHAR(1000) NOT NULL,
-    -- The transaction ID is `NULL` for rejected transactions.
-    transaction_id VARCHAR(1000),
+    -- The update ID is `NULL` for rejected transactions/reassignments.
+    update_id VARCHAR(1000),
     -- The submission ID will be provided by the participant or driver if the application didn't provide one.
     -- Nullable to support historical data.
     submission_id VARCHAR(1000),
@@ -119,7 +119,7 @@ CREATE TABLE lapi_events_create (
     event_offset VARCHAR(4000) NOT NULL,
 
     -- * transaction metadata
-    transaction_id VARCHAR(4000) NOT NULL,
+    update_id VARCHAR(4000) NOT NULL,
     workflow_id VARCHAR(4000),
 
     -- * submitter info (only visible on submitting participant)
@@ -183,7 +183,7 @@ CREATE TABLE lapi_events_consuming_exercise (
     event_offset VARCHAR(4000) NOT NULL,
 
     -- * transaction metadata
-    transaction_id VARCHAR(4000) NOT NULL,
+    update_id VARCHAR(4000) NOT NULL,
     workflow_id VARCHAR(4000),
 
     -- * submitter info (only visible on submitting participant)
@@ -243,7 +243,7 @@ CREATE TABLE lapi_events_non_consuming_exercise (
     event_offset VARCHAR(4000) NOT NULL,
 
     -- * transaction metadata
-    transaction_id VARCHAR(4000) NOT NULL,
+    update_id VARCHAR(4000) NOT NULL,
     workflow_id VARCHAR(4000),
 
     -- * submitter info (only visible on submitting participant)
@@ -395,6 +395,27 @@ CREATE INDEX lapi_events_assign_event_offset_idx ON lapi_events_assign (event_of
 -- index for queries resolving contract ID to sequential IDs.
 CREATE INDEX lapi_events_assign_event_contract_id_idx ON lapi_events_assign (contract_id, event_sequential_id);
 
+---------------------------------------------------------------------------------------------------
+-- Events: Topology (participant authorization mappings)
+---------------------------------------------------------------------------------------------------
+CREATE TABLE lapi_events_party_to_participant (
+    event_sequential_id BIGINT NOT NULL,
+    event_offset VARCHAR(4000) NOT NULL,
+    update_id VARCHAR(4000) NOT NULL,
+    party_id INTEGER NOT NULL,
+    participant_id VARCHAR(1000) NOT NULL,
+    participant_permission integer NOT NULL,
+    domain_id INTEGER NOT NULL,
+    record_time BIGINT NOT NULL,
+    trace_context BINARY LARGE OBJECT
+);
+
+-- offset index: used to translate to sequential_id
+CREATE INDEX lapi_events_party_to_participant_event_offset_idx ON lapi_events_party_to_participant (event_offset);
+
+-- sequential_id index for paging
+CREATE INDEX lapi_events_party_to_participant_event_sequential_id_idx ON lapi_events_party_to_participant (event_sequential_id);
+
 -----------------------------
 -- Filter tables for events
 -----------------------------
@@ -467,7 +488,7 @@ CREATE INDEX lapi_pe_non_consuming_id_filter_informee_s_idx ON lapi_pe_non_consu
 -- This table is used in point-wise lookups.
 ---------------------------------------------------------------------------------------------------
 CREATE TABLE lapi_transaction_meta(
-    transaction_id VARCHAR(4000) NOT NULL,
+    update_id VARCHAR(4000) NOT NULL,
     event_offset VARCHAR(4000) NOT NULL,
     publication_time BIGINT NOT NULL,
     record_time BIGINT NOT NULL,
@@ -475,7 +496,7 @@ CREATE TABLE lapi_transaction_meta(
     event_sequential_id_first BIGINT NOT NULL,
     event_sequential_id_last BIGINT NOT NULL
 );
-CREATE INDEX lapi_transaction_meta_tid_idx ON lapi_transaction_meta(transaction_id);
+CREATE INDEX lapi_transaction_meta_uid_idx ON lapi_transaction_meta(update_id);
 CREATE INDEX lapi_transaction_meta_event_offset_idx ON lapi_transaction_meta(event_offset);
 CREATE INDEX lapi_transaction_meta_publication_time_idx ON lapi_transaction_meta USING btree (publication_time, event_offset);
 CREATE INDEX lapi_transaction_meta_domain_record_time_idx ON lapi_transaction_meta USING btree (domain_id, record_time);

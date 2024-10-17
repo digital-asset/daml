@@ -57,7 +57,7 @@ object ReassignmentSubmitterMetadata {
     ) = reassignmentSubmitterMetadataP
 
     for {
-      submitter <- ProtoConverter.parseLfPartyId(submitterP)
+      submitter <- ProtoConverter.parseLfPartyId(submitterP, "submitter")
       submittingParticipant <-
         UniqueIdentifier
           .fromProtoPrimitive(submittingParticipantP, "submitting_participant_uid")

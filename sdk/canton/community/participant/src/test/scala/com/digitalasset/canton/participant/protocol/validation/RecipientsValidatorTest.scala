@@ -44,13 +44,16 @@ class RecipientsValidatorTest extends BaseTestWordSpec with HasExecutionContext 
   lazy val participant2: ParticipantId = ParticipantId("participant2")
 
   lazy val snapshot: TopologySnapshot =
-    TestingTopology(topology =
-      Map(
-        inactive -> Map.empty,
-        party1 -> Map(participant1 -> ParticipantPermission.Submission),
-        party2 -> Map(participant2 -> ParticipantPermission.Submission),
+    TestingTopology
+      .from(topology =
+        Map(
+          inactive -> Map.empty,
+          party1 -> Map(participant1 -> ParticipantPermission.Submission),
+          party2 -> Map(participant2 -> ParticipantPermission.Submission),
+        )
       )
-    ).build(loggerFactory).topologySnapshot()
+      .build(loggerFactory)
+      .topologySnapshot()
 
   def viewHash(i: Int): ViewHash = ViewHash(TestHash.digest(i))
 
@@ -163,13 +166,16 @@ class RecipientsValidatorTest extends BaseTestWordSpec with HasExecutionContext 
         val input = mkInput1(Seq(inactive, party1), NonEmpty(Seq, participant1))
 
         val submissionSnapshot: TopologySnapshot =
-          TestingTopology(topology =
-            Map(
-              inactive -> Map(participant1 -> ParticipantPermission.Submission),
-              party1 -> Map(participant1 -> ParticipantPermission.Submission),
-              party2 -> Map(participant2 -> ParticipantPermission.Submission),
+          TestingTopology
+            .from(topology =
+              Map(
+                inactive -> Map(participant1 -> ParticipantPermission.Submission),
+                party1 -> Map(participant1 -> ParticipantPermission.Submission),
+                party2 -> Map(participant2 -> ParticipantPermission.Submission),
+              )
             )
-          ).build(loggerFactory).topologySnapshot()
+            .build(loggerFactory)
+            .topologySnapshot()
 
         val (wrongRecipients, goodInputs) = loggerFactory.assertLogs(
           validator
@@ -245,13 +251,16 @@ class RecipientsValidatorTest extends BaseTestWordSpec with HasExecutionContext 
         )
 
         val submissionSnapshot: TopologySnapshot =
-          TestingTopology(topology =
-            Map(
-              inactive -> Map(participant1 -> ParticipantPermission.Submission),
-              party1 -> Map(participant1 -> ParticipantPermission.Submission),
-              party2 -> Map(participant2 -> ParticipantPermission.Submission),
+          TestingTopology
+            .from(topology =
+              Map(
+                inactive -> Map(participant1 -> ParticipantPermission.Submission),
+                party1 -> Map(participant1 -> ParticipantPermission.Submission),
+                party2 -> Map(participant2 -> ParticipantPermission.Submission),
+              )
             )
-          ).build(loggerFactory).topologySnapshot()
+            .build(loggerFactory)
+            .topologySnapshot()
 
         val (wrongRecipients, goodInputs) = loggerFactory.assertLogs(
           validator
@@ -295,13 +304,16 @@ class RecipientsValidatorTest extends BaseTestWordSpec with HasExecutionContext 
         val input = mkInput1(Seq(party1, party2), NonEmpty(Seq, participant1))
 
         val submissionSnapshot: TopologySnapshot =
-          TestingTopology(topology =
-            Map(
-              inactive -> Map.empty,
-              party1 -> Map(participant1 -> ParticipantPermission.Submission),
-              party2 -> Map(participant1 -> ParticipantPermission.Submission),
+          TestingTopology
+            .from(topology =
+              Map(
+                inactive -> Map.empty,
+                party1 -> Map(participant1 -> ParticipantPermission.Submission),
+                party2 -> Map(participant1 -> ParticipantPermission.Submission),
+              )
             )
-          ).build(loggerFactory).topologySnapshot()
+            .build(loggerFactory)
+            .topologySnapshot()
 
         val (wrongRecipients, goodInputs) = loggerFactory.assertLogs(
           validator
@@ -375,16 +387,19 @@ class RecipientsValidatorTest extends BaseTestWordSpec with HasExecutionContext 
         val input = mkInput1(Seq(party1), NonEmpty(Seq, participant1, participant2))
 
         val submissionSnapshot: TopologySnapshot =
-          TestingTopology(topology =
-            Map(
-              inactive -> Map.empty,
-              party1 -> Map(
-                participant1 -> ParticipantPermission.Submission,
-                participant2 -> ParticipantPermission.Submission,
-              ),
-              party2 -> Map(participant2 -> ParticipantPermission.Submission),
+          TestingTopology
+            .from(topology =
+              Map(
+                inactive -> Map.empty,
+                party1 -> Map(
+                  participant1 -> ParticipantPermission.Submission,
+                  participant2 -> ParticipantPermission.Submission,
+                ),
+                party2 -> Map(participant2 -> ParticipantPermission.Submission),
+              )
             )
-          ).build(loggerFactory).topologySnapshot()
+            .build(loggerFactory)
+            .topologySnapshot()
 
         val (wrongRecipients, goodInputs) = loggerFactory.assertLogs(
           validator

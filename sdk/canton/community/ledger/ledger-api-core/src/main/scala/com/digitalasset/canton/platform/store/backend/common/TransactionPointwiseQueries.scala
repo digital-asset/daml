@@ -28,7 +28,7 @@ class TransactionPointwiseQueries(
   /** Fetches a matching event sequential id range unless it's within the pruning offset.
     */
   def fetchIdsFromTransactionMeta(
-      transactionId: data.UpdateId
+      updateId: data.UpdateId
   )(connection: Connection): Option[(Long, Long)] = {
     import com.digitalasset.canton.platform.store.backend.Conversions.ledgerStringToStatement
     import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
@@ -44,7 +44,7 @@ class TransactionPointwiseQueries(
          FROM
             lapi_transaction_meta t
          WHERE
-            t.transaction_id = $transactionId
+            t.update_id = $updateId
             AND
             t.event_offset <= $ledgerEndOffset
        """.as(EventSequentialIdFirstLast.singleOpt)(connection)

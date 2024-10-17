@@ -140,15 +140,16 @@ object AssignmentViewTree
   * @param stakeholders The stakeholders of the reassigned contract
   * @param uuid The uuid of the assignment request
   * @param submitterMetadata information about the submission
+  * @param confirmingReassigningParticipants The list of confirming reassigning participants
   */
 final case class AssignmentCommonData private (
     override val salt: Salt,
     targetDomain: Target[DomainId],
     targetMediatorGroup: MediatorGroupRecipient,
-    stakeholders: Set[LfPartyId],
+    stakeholders: Stakeholders,
     uuid: UUID,
     submitterMetadata: ReassignmentSubmitterMetadata,
-    reassigningParticipants: Set[ParticipantId],
+    confirmingReassigningParticipants: Set[ParticipantId],
 )(
     hashOps: HashOps,
     val targetProtocolVersion: Target[ProtocolVersion],
@@ -169,10 +170,11 @@ final case class AssignmentCommonData private (
       salt = Some(salt.toProtoV30),
       targetDomain = targetDomain.unwrap.toProtoPrimitive,
       targetMediatorGroup = targetMediatorGroup.group.value,
-      stakeholders = stakeholders.toSeq,
+      stakeholders = Some(stakeholders.toProtoV30),
       uuid = ProtoConverter.UuidConverter.toProtoPrimitive(uuid),
       submitterMetadata = Some(submitterMetadata.toProtoV30),
-      reassigningParticipantUids = reassigningParticipants.map(_.uid.toProtoPrimitive).toSeq,
+      confirmingReassigningParticipantUids =
+        confirmingReassigningParticipants.map(_.uid.toProtoPrimitive).toSeq,
     )
 
   override protected[this] def toByteStringUnmemoized: ByteString =
@@ -181,13 +183,14 @@ final case class AssignmentCommonData private (
   override def hashPurpose: HashPurpose = HashPurpose.AssignmentCommonData
 
   def confirmingParties: Map[LfPartyId, PositiveInt] =
-    stakeholders.map(_ -> PositiveInt.one).toMap
+    stakeholders.stakeholders.map(_ -> PositiveInt.one).toMap
 
   override protected def pretty: Pretty[AssignmentCommonData] = prettyOfClass(
     param("submitter metadata", _.submitterMetadata),
     param("target domain", _.targetDomain),
     param("target mediator group", _.targetMediatorGroup),
     param("stakeholders", _.stakeholders),
+    param("confirming reassigning participants", _.confirmingReassigningParticipants),
     param("uuid", _.uuid),
     param("salt", _.salt),
   )
@@ -210,20 +213,20 @@ object AssignmentCommonData
   def create(hashOps: HashOps)(
       salt: Salt,
       targetDomain: Target[DomainId],
-      targetMediator: MediatorGroupRecipient,
-      stakeholders: Set[LfPartyId],
+      targetMediatorGroup: MediatorGroupRecipient,
+      stakeholders: Stakeholders,
       uuid: UUID,
       submitterMetadata: ReassignmentSubmitterMetadata,
       targetProtocolVersion: Target[ProtocolVersion],
-      reassigningParticipants: Set[ParticipantId],
+      confirmingReassigningParticipants: Set[ParticipantId],
   ): AssignmentCommonData = AssignmentCommonData(
-    salt,
-    targetDomain,
-    targetMediator,
-    stakeholders,
-    uuid,
-    submitterMetadata,
-    reassigningParticipants,
+    salt = salt,
+    targetDomain = targetDomain,
+    targetMediatorGroup = targetMediatorGroup,
+    stakeholders = stakeholders,
+    uuid = uuid,
+    submitterMetadata = submitterMetadata,
+    confirmingReassigningParticipants = confirmingReassigningParticipants,
   )(hashOps, targetProtocolVersion, None)
 
   private[this] def fromProtoV30(
@@ -240,7 +243,7 @@ object AssignmentCommonData
       uuidP,
       targetMediatorGroupP,
       submitterMetadataPO,
-      reassigningParticipantUidsP,
+      confirmingReassigningParticipantUidsP,
     ) = assignmentCommonDataP
 
     for {
@@ -250,25 +253,29 @@ object AssignmentCommonData
         "target_mediator_group",
         targetMediatorGroupP,
       )
-      stakeholders <- stakeholdersP.traverse(ProtoConverter.parseLfPartyId)
+      stakeholders <- ProtoConverter.parseRequired(
+        Stakeholders.fromProtoV30,
+        "stakeholders",
+        stakeholdersP,
+      )
       uuid <- ProtoConverter.UuidConverter.fromProtoPrimitive(uuidP)
       submitterMetadata <- ProtoConverter
         .required("submitter_metadata", submitterMetadataPO)
         .flatMap(ReassignmentSubmitterMetadata.fromProtoV30)
 
-      reassigningParticipants <- reassigningParticipantUidsP.traverse(uid =>
+      confirmingReassigningParticipants <- confirmingReassigningParticipantUidsP.traverse(uid =>
         UniqueIdentifier
-          .fromProtoPrimitive(uid, "reassigning_participant_uids")
+          .fromProtoPrimitive(uid, "confirming_reassigning_participant_uids")
           .map(ParticipantId(_))
       )
     } yield AssignmentCommonData(
       salt,
       targetDomain,
       MediatorGroupRecipient(targetMediatorGroup),
-      stakeholders.toSet,
+      stakeholders = stakeholders,
       uuid,
       submitterMetadata,
-      reassigningParticipants.toSet,
+      confirmingReassigningParticipants.toSet,
     )(hashOps, targetProtocolVersion, Some(bytes))
   }
 }
@@ -446,18 +453,20 @@ final case class FullAssignmentTree(tree: AssignmentViewTree)
   private[this] val commonData = tree.commonData.tryUnwrap
   private[this] val view = tree.view.tryUnwrap
 
+  // Submission
   def submitterMetadata: ReassignmentSubmitterMetadata = commonData.submitterMetadata
-
   def submitter: LfPartyId = submitterMetadata.submitter
-
   def workflowId: Option[LfWorkflowId] = submitterMetadata.workflowId
 
-  def stakeholders: Set[LfPartyId] = commonData.stakeholders
+  // Parties and participants
+  def stakeholders: Set[LfPartyId] = tree.view.tryUnwrap.contract.metadata.stakeholders
+  override def informees: Set[LfPartyId] = tree.view.tryUnwrap.contract.metadata.stakeholders
+  override def confirmingReassigningParticipants: Set[ParticipantId] =
+    commonData.confirmingReassigningParticipants
 
+  // Contract
   def contract: SerializableContract = view.contract
-
   def reassignmentCounter: ReassignmentCounter = view.reassignmentCounter
-
   def creatingTransactionId: TransactionId = view.creatingTransactionId
 
   def unassignmentResultEvent: DeliveredUnassignmentResult = view.unassignmentResultEvent
@@ -466,23 +475,18 @@ final case class FullAssignmentTree(tree: AssignmentViewTree)
       submittingParticipantSignature: Signature
   ): AssignmentMediatorMessage = tree.mediatorMessage(submittingParticipantSignature)
 
+  // Domains
   override def sourceDomain: Source[DomainId] =
     view.unassignmentResultEvent.reassignmentId.sourceDomain
   override def targetDomain: Target[DomainId] = commonData.targetDomain
-
   override def domainId: DomainId = commonData.targetDomain.unwrap
-
   override def mediator: MediatorGroupRecipient = commonData.targetMediatorGroup
-
-  override def informees: Set[LfPartyId] = commonData.confirmingParties.keySet
 
   override def toBeSigned: Option[RootHash] = Some(tree.rootHash)
 
   override def viewHash: ViewHash = tree.viewHash
 
   override def rootHash: RootHash = tree.rootHash
-
-  override def reassigningParticipants: Set[ParticipantId] = commonData.reassigningParticipants
 
   override protected def pretty: Pretty[FullAssignmentTree] = prettyOfClass(unnamedParam(_.tree))
 

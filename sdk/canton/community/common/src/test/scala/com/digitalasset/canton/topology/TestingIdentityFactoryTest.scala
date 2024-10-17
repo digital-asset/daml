@@ -162,16 +162,19 @@ class TestingIdentityFactoryTest extends AnyWordSpec with BaseTest with HasExecu
           participant1 -> ParticipantPermission.Confirmation
         )
       )
-      val setup = TestingTopology(
-        topology = topology,
-        domainParameters = domainParameters,
-        participants = Map(
-          participant1 -> ParticipantAttributes(ParticipantPermission.Confirmation)
-        ),
-      ).build()
+      val setup = TestingTopology
+        .from(
+          topology = topology,
+          domainParameters = domainParameters,
+          participants = Map(
+            participant1 -> ParticipantAttributes(ParticipantPermission.Confirmation)
+          ),
+        )
+        .build()
       compare(setup)
       // extend with admin parties should give participant2 a signing key
-      val crypto2 = TestingTopology(topology = topology, domainParameters = domainParameters)
+      val crypto2 = TestingTopology
+        .from(topology = topology, domainParameters = domainParameters)
         .withParticipants(
           participant1 -> ParticipantAttributes(ParticipantPermission.Confirmation),
           participant2 -> ParticipantAttributes(ParticipantPermission.Submission),

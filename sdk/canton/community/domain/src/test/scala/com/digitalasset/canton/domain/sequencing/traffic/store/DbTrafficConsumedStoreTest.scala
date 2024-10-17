@@ -5,6 +5,7 @@ package com.digitalasset.canton.domain.sequencing.traffic.store
 
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.config.CachingConfigs
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.store.SequencerStore
 import com.digitalasset.canton.domain.sequencing.traffic.store.db.DbTrafficConsumedStore
@@ -25,6 +26,7 @@ trait DbTrafficConsumedStoreTest extends AsyncWordSpec with BaseTest with Traffi
     loggerFactory,
     blockSequencerMode = true,
     sequencerMember = DefaultTestIdentities.sequencerId,
+    cachingConfigs = CachingConfigs(),
   )
   def registerMemberInSequencerStore(member: Member): Future[Unit] =
     sequencerStore.registerMember(member, CantonTimestamp.Epoch).map(_ => ())

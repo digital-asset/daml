@@ -275,6 +275,7 @@ object TestingTimeServiceConfig {
   *                                           You should enable this only if all participants on a domain mutually trust each other.
   *                                           Otherwise, an attacker may compromise integrity of the ledger.
   * @param packageMetadataView Initialization parameters for the package metadata in-memory store.
+  * @param experimentalEnableTopologyEvents If true, topology events are propagated to the Ledger API clients
   */
 final case class ParticipantNodeParameterConfig(
     adminWorkflow: AdminWorkflowConfig = AdminWorkflowConfig(),
@@ -308,6 +309,7 @@ final case class ParticipantNodeParameterConfig(
     packageMetadataView: PackageMetadataViewConfig = PackageMetadataViewConfig(),
     commandProgressTracker: CommandProgressTrackerConfig = CommandProgressTrackerConfig(),
     unsafeEnableOnlinePartyReplication: Boolean = false,
+    experimentalEnableTopologyEvents: Boolean = false,
 ) extends LocalNodeParametersConfig
 
 /** Parameters for the participant node's stores

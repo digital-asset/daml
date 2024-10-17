@@ -59,6 +59,10 @@ object PackageServiceTest {
 
   def badDarPath: String =
     ("community" / "participant" / "src" / "test" / "resources" / "daml" / "illformed.dar").toString
+
+  def lf1xDarPath: String =
+    ("community" / "participant" / "src" / "test" / "resources" / "daml" / "dummy-1.15.dar").toString
+
 }
 
 class PackageServiceTest

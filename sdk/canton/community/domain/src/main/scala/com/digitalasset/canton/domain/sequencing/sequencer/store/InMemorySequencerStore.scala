@@ -175,13 +175,6 @@ class InMemorySequencerStore(
   ): Future[ReadEvents] = Future.successful {
     import scala.jdk.CollectionConverters.*
 
-    def lookupPayloadForDeliver(event: Sequenced[PayloadId]): Sequenced[Payload] =
-      event.map { payloadId =>
-        val storedPayload = Option(payloads.get(payloadId.unwrap))
-          .getOrElse(sys.error(s"payload not found for id [$payloadId]"))
-        Payload(payloadId, storedPayload.content)
-      }
-
     val watermarkO = watermark.get().map(_.timestamp)
 
     // if there's no watermark, we can't return any events
@@ -196,7 +189,6 @@ class InMemorySequencerStore(
           .filter(e => isMemberRecipient(member)(e.getValue))
           .take(limit)
           .map(entry => Sequenced(entry.getKey, entry.getValue))
-          .map(lookupPayloadForDeliver)
           .toList
 
       if (payloads.nonEmpty)
@@ -205,6 +197,19 @@ class InMemorySequencerStore(
         SafeWatermark(Some(watermark))
     }
   }
+
+  override def readPayloads(payloadIds: Seq[PayloadId])(implicit
+      traceContext: TraceContext
+  ): Future[Map[PayloadId, Payload]] =
+    Future.successful(
+      payloadIds
+        .flatMap(id =>
+          Option(payloads.get(id.unwrap))
+            .map(storedPayload => id -> Payload(id, storedPayload.content))
+            .toList
+        )
+        .toMap
+    )
 
   private def isMemberRecipient(member: SequencerMemberId)(event: StoreEvent[_]): Boolean =
     event match {

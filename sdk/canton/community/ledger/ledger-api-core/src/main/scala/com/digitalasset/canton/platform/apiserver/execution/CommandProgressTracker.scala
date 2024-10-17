@@ -71,7 +71,7 @@ final case class CommandStatus(
     param("state", _.state.toString().singleQuoted),
     param("completion", _.completion.status),
     paramIfDefined(
-      "transactionId",
+      "updateId",
       x => Option.when(x.completion.updateId.nonEmpty)(x.completion.updateId.singleQuoted),
     ),
     paramIfDefined(

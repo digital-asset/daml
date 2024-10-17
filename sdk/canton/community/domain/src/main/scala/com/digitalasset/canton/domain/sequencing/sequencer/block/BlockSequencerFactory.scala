@@ -57,6 +57,7 @@ abstract class BlockSequencerFactory(
     extends DatabaseSequencerFactory(
       blockSequencerConfig.toDatabaseSequencerConfig,
       storage,
+      nodeParameters.cachingConfigs,
       nodeParameters.processingTimeouts,
       protocolVersion,
       sequencerId,

@@ -46,7 +46,7 @@ object StoredParties
   def fromProtoV30(proto0: v30.StoredParties): ParsingResult[StoredParties] = {
     val v30.StoredParties(partiesP) = proto0
     for {
-      parties <- partiesP.traverse(ProtoConverter.parseLfPartyId)
+      parties <- partiesP.traverse(ProtoConverter.parseLfPartyId(_, "parties"))
     } yield StoredParties.fromIterable(parties)
   }
 }

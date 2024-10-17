@@ -50,7 +50,7 @@ object EventStorageBackendTemplate {
   private val baseColumnsForFlatTransactionsCreate =
     Seq(
       "event_offset",
-      "transaction_id",
+      "update_id",
       "node_index",
       "event_sequential_id",
       "ledger_effective_time",
@@ -77,7 +77,7 @@ object EventStorageBackendTemplate {
   private val baseColumnsForFlatTransactionsExercise =
     Seq(
       "event_offset",
-      "transaction_id",
+      "update_id",
       "node_index",
       "event_sequential_id",
       "ledger_effective_time",
@@ -113,7 +113,7 @@ object EventStorageBackendTemplate {
 
   private val sharedRow: RowParser[SharedRow] =
     str("event_offset") ~
-      str("transaction_id") ~
+      str("update_id") ~
       int("node_index") ~
       long("event_sequential_id") ~
       str("contract_id") ~
@@ -359,7 +359,7 @@ object EventStorageBackendTemplate {
 
   val selectColumnsForTransactionTreeCreate: String = Seq(
     "event_offset",
-    "transaction_id",
+    "update_id",
     "node_index",
     "event_sequential_id",
     "contract_id",
@@ -392,7 +392,7 @@ object EventStorageBackendTemplate {
 
   val selectColumnsForTransactionTreeExercise: String = Seq(
     "event_offset",
-    "transaction_id",
+    "update_id",
     "node_index",
     "event_sequential_id",
     "contract_id",
@@ -692,7 +692,7 @@ object EventStorageBackendTemplate {
   val createActiveContractRow =
     str("workflow_id").? ~
       int("domain_id") ~
-      str("transaction_id") ~
+      str("update_id") ~
       str("contract_id") ~
       int("template_id") ~
       int("package_name") ~

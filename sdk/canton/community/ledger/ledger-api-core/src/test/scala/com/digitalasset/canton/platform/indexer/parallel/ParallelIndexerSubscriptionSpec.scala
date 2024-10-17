@@ -114,7 +114,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
   private val someEventExercise = DbDto.EventExercise(
     consuming = true,
     event_offset = "",
-    transaction_id = "",
+    update_id = "",
     ledger_effective_time = 15,
     command_id = None,
     workflow_id = None,
@@ -199,7 +199,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
     application_id = "",
     submitters = Set.empty,
     command_id = "",
-    transaction_id = None,
+    update_id = None,
     rejection_status_code = None,
     rejection_status_message = None,
     rejection_status_details = None,

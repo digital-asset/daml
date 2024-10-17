@@ -991,6 +991,8 @@ private[backend] trait StorageBackendTestsPruning
     assertIndexDbDataSql(completion = Seq.empty)
   }
 
+  // TODO(i21351) Implement pruning tests for topology events
+
   /** Asserts the content of the tables subject to pruning.
     * Be default asserts the tables are empty.
     */

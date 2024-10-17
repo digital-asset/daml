@@ -1151,7 +1151,7 @@ object PekkoUtil extends HasLoggerName {
           logger.debug("Consumer initialization is in progress, delaying shutdown...")
 
         case Consumer.WaitingForRetry =>
-          logger.debug("Interrupting wait for initialization retry, shutdown complete")
+          logger.info("Interrupting wait for initialization retry, shutdown complete")
           discard(donePromise.trySuccess(Done))
       }
     }

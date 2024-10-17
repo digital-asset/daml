@@ -4,12 +4,11 @@
 package com.digitalasset.canton.participant.protocol.reassignment
 
 import cats.data.*
-import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.FullUnassignmentTree
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.ReassignmentSubmissionValidation
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
-import com.digitalasset.canton.protocol.LfTemplateId
+import com.digitalasset.canton.protocol.{LfTemplateId, Stakeholders}
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
@@ -22,26 +21,25 @@ import scala.concurrent.ExecutionContext
 /** Checks that need to be performed as part of phase 3 of the unassignment request processing
   */
 private[reassignment] final case class UnassignmentValidation(
-    request: FullUnassignmentTree,
-    expectedStakeholders: Set[LfPartyId],
+    expectedStakeholders: Stakeholders,
     expectedTemplateId: LfTemplateId,
     sourceProtocolVersion: Source[ProtocolVersion],
     sourceTopology: Source[TopologySnapshot],
     // Defined if and only if the participant is reassigning
     targetTopology: Option[Target[TopologySnapshot]],
     recipients: Recipients,
-) {
+)(request: FullUnassignmentTree) {
 
   private def checkStakeholders(implicit
       ec: ExecutionContext
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
     condUnitET(
-      request.stakeholders == expectedStakeholders,
+      request.stakeholders == expectedStakeholders.stakeholders,
       StakeholdersMismatch(
         None,
         declaredViewStakeholders = request.stakeholders,
         declaredContractStakeholders = None,
-        expectedStakeholders = Right(expectedStakeholders),
+        expectedStakeholders = Right(expectedStakeholders.stakeholders),
       ),
     )
 
@@ -52,14 +50,13 @@ private[reassignment] final case class UnassignmentValidation(
     targetTopology match {
       case Some(targetTopology) =>
         UnassignmentValidationReassigningParticipant(
-          request,
-          expectedStakeholders,
+          expectedStakeholders = expectedStakeholders,
           expectedTemplateId,
           sourceProtocolVersion,
           sourceTopology,
           targetTopology,
           recipients,
-        )
+        )(request)
       case None => EitherT.pure(())
     }
 
@@ -78,27 +75,25 @@ private[reassignment] final case class UnassignmentValidation(
 
 private[reassignment] object UnassignmentValidation {
   def perform(
-      request: FullUnassignmentTree,
-      expectedStakeholders: Set[LfPartyId],
+      expectedStakeholders: Stakeholders,
       expectedTemplateId: LfTemplateId,
       sourceProtocolVersion: Source[ProtocolVersion],
       sourceTopology: Source[TopologySnapshot],
       targetTopology: Option[Target[TopologySnapshot]],
       recipients: Recipients,
-  )(implicit
+  )(request: FullUnassignmentTree)(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] = {
 
     val validation = UnassignmentValidation(
-      request,
-      expectedStakeholders,
+      expectedStakeholders = expectedStakeholders,
       expectedTemplateId,
       sourceProtocolVersion,
       sourceTopology,
       targetTopology,
       recipients,
-    )
+    )(request)
 
     for {
       _ <- validation.checkStakeholders
@@ -107,7 +102,7 @@ private[reassignment] object UnassignmentValidation {
         topologySnapshot = sourceTopology,
         submitter = request.submitter,
         participantId = request.submitterMetadata.submittingParticipant,
-        stakeholders = expectedStakeholders,
+        stakeholders = expectedStakeholders.stakeholders,
       )
       _ <- validation.checkParticipants
       _ <- validation.checkTemplateId

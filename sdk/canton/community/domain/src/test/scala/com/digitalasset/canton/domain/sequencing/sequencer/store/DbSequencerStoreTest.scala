@@ -4,6 +4,7 @@
 package com.digitalasset.canton.domain.sequencing.sequencer.store
 
 import com.daml.nameof.NameOf.functionFullName
+import com.digitalasset.canton.config.CachingConfigs
 import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.resource.DbStorage
 import com.digitalasset.canton.store.db.{DbTest, H2Test, PostgresTest}
@@ -26,6 +27,7 @@ trait DbSequencerStoreTest extends SequencerStoreTest with MultiTenantedSequence
         loggerFactory,
         sequencerMember,
         blockSequencerMode = true,
+        CachingConfigs(),
       )
     )
     behave like multiTenantedSequencerStore(() =>
@@ -36,6 +38,7 @@ trait DbSequencerStoreTest extends SequencerStoreTest with MultiTenantedSequence
         loggerFactory,
         sequencerMember,
         blockSequencerMode = true,
+        CachingConfigs(),
       )
     )
   }

@@ -237,7 +237,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
       chosenValue <- ValueCoder
         .decodeVersionedValue(chosenValueP)
         .leftMap(err => ValueDeserializationError("chosen_value", err.errorMessage))
-      actors <- actorsP.traverse(ProtoConverter.parseLfPartyId).map(_.toSet)
+      actors <- actorsP.traverse(ProtoConverter.parseLfPartyId(_, field = "actors")).map(_.toSet)
       seed <- LfHash.fromProtoPrimitive("node_seed", seedP)
       actionDescription <- ExerciseActionDescription
         .create(
@@ -285,7 +285,7 @@ object ActionDescription extends HasProtocolVersionedCompanion[ActionDescription
     ) = f
     for {
       inputContractId <- ProtoConverter.parseLfContractId(inputContractIdP)
-      actors <- actorsP.traverse(ProtoConverter.parseLfPartyId).map(_.toSet)
+      actors <- actorsP.traverse(ProtoConverter.parseLfPartyId(_, field = "actors")).map(_.toSet)
       templateId <- RefIdentifierSyntax.fromProtoPrimitive(templateIdP)
       interfaceId <- interfaceIdP.traverse(RefIdentifierSyntax.fromProtoPrimitive)
     } yield FetchActionDescription(inputContractId, actors, byKey, templateId, interfaceId)(pv)

@@ -318,7 +318,7 @@ class SequencersTransportState(
       .discard
   })
 
-  def logout(): EitherT[FutureUnlessShutdown, Status, Unit] =
+  def logout()(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, Status, Unit] =
     states.values.toSeq.parTraverse_ { transportState =>
       transportState.transport.clientTransport.logout()
     }

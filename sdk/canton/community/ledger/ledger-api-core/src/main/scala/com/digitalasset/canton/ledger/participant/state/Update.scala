@@ -191,6 +191,55 @@ object Update {
     }
   }
 
+  final case class TopologyTransactionEffective(
+      updateId: Ref.TransactionId,
+      events: Set[TopologyTransactionEffective.TopologyEvent],
+      recordTime: Timestamp,
+      domainId: DomainId,
+      domainIndex: DomainIndex,
+      persisted: Promise[Unit] = Promise(),
+  ) extends Update {
+    override def pretty: Pretty[TopologyTransactionEffective] =
+      prettyOfClass(
+        param("recordTime", _.recordTime),
+        param("domainId", _.domainId),
+        indicateOmittedFields,
+      )
+    override def withRecordTime(recordTime: Timestamp): Update = this.copy(recordTime = recordTime)
+
+    override def domainIndexOpt: Option[(DomainId, DomainIndex)] = Some((domainId, domainIndex))
+  }
+
+  object TopologyTransactionEffective {
+
+    sealed trait AuthorizationLevel
+    object AuthorizationLevel {
+      final case object Submission extends AuthorizationLevel
+
+      final case object Confirmation extends AuthorizationLevel
+
+      final case object Observation extends AuthorizationLevel
+      final case object Revoked extends AuthorizationLevel
+    }
+    sealed trait TopologyEvent
+
+    object TopologyEvent {
+      final case class PartyToParticipantAuthorization(
+          party: Ref.Party,
+          participant: Ref.ParticipantId,
+          level: AuthorizationLevel,
+      ) extends TopologyEvent
+    }
+    implicit val `TopologyTransactionEffective to LoggingValue`
+        : ToLoggingValue[TopologyTransactionEffective] = { topologyTransactionEffective =>
+      LoggingValue.Nested.fromEntries(
+        Logging.updateId(topologyTransactionEffective.updateId),
+        Logging.recordTime(topologyTransactionEffective.recordTime),
+        Logging.domainId(topologyTransactionEffective.domainId),
+      )
+    }
+  }
+
   /** Signal the acceptance of a transaction.
     *
     * @param completionInfoO The information provided by the submitter of the command that
@@ -532,6 +581,10 @@ object Update {
       PartyAddedToParticipant.`PartyAddedToParticipant to LoggingValue`.toLoggingValue(update)
     case update: PartyAllocationRejected =>
       PartyAllocationRejected.`PartyAllocationRejected to LoggingValue`.toLoggingValue(update)
+    case update: TopologyTransactionEffective =>
+      TopologyTransactionEffective.`TopologyTransactionEffective to LoggingValue`.toLoggingValue(
+        update
+      )
     case update: TransactionAccepted =>
       TransactionAccepted.`TransactionAccepted to LoggingValue`.toLoggingValue(update)
     case update: CommandRejected =>

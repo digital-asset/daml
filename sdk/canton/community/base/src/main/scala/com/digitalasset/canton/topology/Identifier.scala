@@ -162,7 +162,7 @@ object UniqueIdentifier {
     } else {
       Left(s"Invalid unique identifier `$str` with missing namespace.")
     }
-    ret.leftMap(ProtoDeserializationError.StringConversionError.apply)
+    ret.leftMap(ProtoDeserializationError.StringConversionError.apply(_))
   }
 
   def fromProtoPrimitive(

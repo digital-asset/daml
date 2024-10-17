@@ -19,14 +19,11 @@ import com.digitalasset.canton.config.RequireTypes.{
   PositiveInt,
   PositiveLong,
 }
-import com.digitalasset.canton.protocol.{LfContractId, LfTemplateId}
-import com.digitalasset.canton.util.OptionUtil
+import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.{
   LedgerApplicationId,
   LedgerParticipantId,
   LedgerSubmissionId,
-  LedgerTransactionId,
-  LfPackageName,
   LfPartyId,
   LfWorkflowId,
   ProtoDeserializationError,
@@ -136,17 +133,14 @@ object ProtoConverter {
       .create(l)
       .leftMap(ProtoDeserializationError.InvariantViolation(field, _))
 
-  def parseLfPartyId(party: String): ParsingResult[LfPartyId] =
-    parseString(party)(LfPartyId.fromString)
+  def parseLfPartyId(party: String, field: String): ParsingResult[LfPartyId] =
+    parseString(party, field = Some(field))(LfPartyId.fromString)
 
-  def parseLfPartyIdO(party: String): ParsingResult[Option[LfPartyId]] =
-    Option.when(party.nonEmpty)(parseLfPartyId(party)).sequence
-
-  def parseLfParticipantId(party: String): ParsingResult[LedgerParticipantId] =
-    parseString(party)(LedgerParticipantId.fromString)
+  def parseLfParticipantId(party: String, field: String): ParsingResult[LedgerParticipantId] =
+    parseString(party, field = Some(field))(LedgerParticipantId.fromString)
 
   def parseLFApplicationId(applicationId: String): ParsingResult[LedgerApplicationId] =
-    parseString(applicationId)(LedgerApplicationId.fromString)
+    parseString(applicationId, field = None)(LedgerApplicationId.fromString)
 
   def parseLFSubmissionIdO(submissionId: String): ParsingResult[Option[LedgerSubmissionId]] =
     Option
@@ -154,36 +148,27 @@ object ProtoConverter {
       .sequence
 
   def parseLFSubmissionId(submissionId: String): ParsingResult[LedgerSubmissionId] =
-    parseString(submissionId)(LedgerSubmissionId.fromString)
+    parseString(submissionId, field = None)(LedgerSubmissionId.fromString)
 
   def parseLFWorkflowIdO(workflowId: String): ParsingResult[Option[LfWorkflowId]] =
     Option
-      .when(workflowId.nonEmpty)(parseString(workflowId)(LfWorkflowId.fromString))
+      .when(workflowId.nonEmpty)(parseString(workflowId, field = None)(LfWorkflowId.fromString))
       .sequence
 
-  def parseLedgerTransactionId(id: String): ParsingResult[LedgerTransactionId] =
-    parseString(id)(LedgerTransactionId.fromString)
-
   def parseLfContractId(id: String): ParsingResult[LfContractId] =
-    parseString(id)(LfContractId.fromString)
+    parseString(id, field = None)(LfContractId.fromString)
 
   def parseCommandId(id: String): ParsingResult[Ref.CommandId] =
-    parseString(id)(Ref.CommandId.fromString)
+    parseString(id, field = None)(Ref.CommandId.fromString)
 
   def parsePackageId(id: String): ParsingResult[Ref.PackageId] =
-    parseString(id)(Ref.PackageId.fromString)
+    parseString(id, field = None)(Ref.PackageId.fromString)
 
-  def parseTemplateIdO(id: String): ParsingResult[Option[LfTemplateId]] =
-    OptionUtil.emptyStringAsNone(id).traverse(parseTemplateId)
+  private def parseString[T](from: String, field: Option[String])(
+      to: String => Either[String, T]
+  ): ParsingResult[T] =
+    to(from).leftMap(StringConversionError.apply(_, field))
 
-  def parseTemplateId(id: String): ParsingResult[LfTemplateId] =
-    parseString(id)(LfTemplateId.fromString)
-
-  def parseLfPackageName(packageName: String): ParsingResult[LfPackageName] =
-    parseString(packageName)(LfPackageName.fromString)
-
-  private def parseString[T](from: String)(to: String => Either[String, T]): ParsingResult[T] =
-    to(from).leftMap(StringConversionError.apply)
   object InstantConverter extends ProtoConverter[Instant, Timestamp, ProtoDeserializationError] {
     override def toProtoPrimitive(value: Instant): Timestamp =
       Timestamp(value.getEpochSecond, value.getNano)

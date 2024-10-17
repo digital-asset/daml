@@ -133,7 +133,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
     DbDto.EventExercise(
       consuming = true,
       event_offset = "40",
-      transaction_id = "41",
+      update_id = "41",
       ledger_effective_time = 1,
       command_id = Some("42"),
       workflow_id = Some("43"),
@@ -167,7 +167,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       application_id = "65",
       submitters = Set("66", "67", "68"),
       command_id = "69",
-      transaction_id = Some("70"),
+      update_id = Some("70"),
       rejection_status_code = Some(1),
       rejection_status_message = Some("71"),
       rejection_status_details = None,

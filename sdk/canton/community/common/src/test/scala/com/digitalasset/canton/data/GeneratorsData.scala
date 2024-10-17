@@ -519,7 +519,8 @@ final class GeneratorsData(
 
       targetMediator <- Arbitrary.arbitrary[MediatorGroupRecipient]
 
-      stakeholders <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
+      stakeholders <- Arbitrary.arbitrary[Stakeholders]
+
       uuid <- Gen.uuid
 
       submitterMetadata <- Arbitrary.arbitrary[ReassignmentSubmitterMetadata]
@@ -549,8 +550,9 @@ final class GeneratorsData(
 
       sourceMediator <- Arbitrary.arbitrary[MediatorGroupRecipient]
 
-      stakeholders <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
-      reassigningParticipants <- Gen.containerOf[Set, ParticipantId](
+      stakeholders <- Arbitrary.arbitrary[Stakeholders]
+
+      confirmingReassigningParticipants <- Gen.containerOf[Set, ParticipantId](
         Arbitrary.arbitrary[ParticipantId]
       )
       uuid <- Gen.uuid
@@ -565,7 +567,7 @@ final class GeneratorsData(
         sourceDomain,
         sourceMediator,
         stakeholders,
-        reassigningParticipants,
+        confirmingReassigningParticipants,
         uuid,
         submitterMetadata,
         sourceProtocolVersion,

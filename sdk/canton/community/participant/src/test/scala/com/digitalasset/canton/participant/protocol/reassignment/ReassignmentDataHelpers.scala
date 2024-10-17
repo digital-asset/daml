@@ -37,7 +37,7 @@ import monocle.macros.syntax.lens.*
 import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
-class ReassignmentDataHelpers(
+final case class ReassignmentDataHelpers(
     contract: SerializableContract,
     sourceDomain: Source[DomainId],
     targetDomain: Target[DomainId],
@@ -76,15 +76,13 @@ class ReassignmentDataHelpers(
       submittingParticipant: ParticipantId,
       sourceMediator: MediatorGroupRecipient,
   )(
-      stakeholders: Set[LfPartyId] = Set(submitter),
-      reassigningParticipants: Set[ParticipantId] = Set(submittingParticipant),
+      confirmingReassigningParticipants: Set[ParticipantId] = Set(submittingParticipant)
   ): UnassignmentRequest = {
     val creatingTransactionId = ExampleTransactionFactory.transactionId(0)
 
     UnassignmentRequest(
       submitterMetadata = submitterInfo(submitter, submittingParticipant),
-      stakeholders = stakeholders,
-      reassigningParticipants = reassigningParticipants,
+      confirmingReassigningParticipants = confirmingReassigningParticipants,
       creatingTransactionId = creatingTransactionId,
       contract = contract,
       sourceDomain = sourceDomain,
@@ -143,7 +141,9 @@ class ReassignmentDataHelpers(
       )
 
     val recipients =
-      NonEmptyUtil.fromUnsafe(reassignmentData.unassignmentRequest.reassigningParticipants).toSeq
+      NonEmptyUtil
+        .fromUnsafe(reassignmentData.unassignmentRequest.confirmingReassigningParticipants)
+        .toSeq
 
     unassignmentResult(result, recipients)
   }

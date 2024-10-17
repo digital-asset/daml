@@ -10,12 +10,16 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.SubmitterInfo
 import com.digitalasset.canton.participant.sync.TransactionRoutingError
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.MalformedInputErrors
-import com.digitalasset.canton.protocol.{LfContractId, LfLanguageVersion, LfVersionedTransaction}
+import com.digitalasset.canton.protocol.{
+  LfContractId,
+  LfLanguageVersion,
+  LfVersionedTransaction,
+  Stakeholders,
+}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{LfPackageId, LfPartyId}
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.engine.Blinding
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -50,7 +54,7 @@ private[routing] object TransactionData {
       transaction: LfVersionedTransaction,
       ledgerTime: CantonTimestamp,
       domainStateProvider: DomainStateProvider,
-      contractsStakeholders: Map[LfContractId, Set[Party]],
+      contractsStakeholders: Map[LfContractId, Stakeholders],
       disclosedContracts: Seq[LfContractId],
       prescribedDomainIdO: Option[DomainId],
   )(implicit
@@ -84,7 +88,7 @@ private[routing] object TransactionData {
       transaction: LfVersionedTransaction,
       ledgerTime: CantonTimestamp,
       domainStateProvider: DomainStateProvider,
-      inputContractStakeholders: Map[LfContractId, Set[Party]],
+      inputContractStakeholders: Map[LfContractId, Stakeholders],
       disclosedContracts: Seq[LfContractId],
       prescribedDomainO: Option[DomainId],
   )(implicit

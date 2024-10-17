@@ -46,7 +46,7 @@ object DbDto {
   final case class EventExercise(
       consuming: Boolean,
       event_offset: String,
-      transaction_id: String,
+      update_id: String,
       ledger_effective_time: Long,
       command_id: Option[String],
       workflow_id: Option[String],
@@ -126,6 +126,18 @@ object DbDto {
       record_time: Long,
   ) extends DbDto
 
+  final case class EventPartyToParticipant(
+      event_sequential_id: Long,
+      event_offset: String,
+      update_id: String,
+      party_id: String,
+      participant_id: String,
+      participant_permission: Int,
+      domain_id: String,
+      record_time: Long,
+      trace_context: Array[Byte],
+  ) extends DbDto
+
   final case class PartyEntry(
       ledger_offset: String,
       recorded_at: Long,
@@ -144,7 +156,7 @@ object DbDto {
       application_id: String,
       submitters: Set[String],
       command_id: String,
-      transaction_id: Option[String],
+      update_id: Option[String],
       rejection_status_code: Option[Int],
       rejection_status_message: Option[String],
       rejection_status_details: Option[Array[Byte]],

@@ -36,6 +36,8 @@ private[backend] class IngestionStorageBackendTemplate(
       SQL"DELETE FROM lapi_events_unassign WHERE ${QueryStrategy.offsetIsGreater("event_offset", ledgerOffset)}",
       SQL"DELETE FROM lapi_events_assign WHERE ${QueryStrategy.offsetIsGreater("event_offset", ledgerOffset)}",
       SQL"DELETE FROM lapi_party_entries WHERE ${QueryStrategy.offsetIsGreater("ledger_offset", ledgerOffset)}",
+      SQL"DELETE FROM lapi_events_party_to_participant WHERE ${QueryStrategy
+          .offsetIsGreater("event_offset", ledgerOffset)}",
       SQL"DELETE FROM lapi_string_interning WHERE internal_id > $lastStringInterningId",
       SQL"DELETE FROM lapi_pe_create_id_filter_stakeholder WHERE event_sequential_id > $lastEventSequentialId",
       SQL"DELETE FROM lapi_pe_create_id_filter_non_stakeholder_informee WHERE event_sequential_id > $lastEventSequentialId",

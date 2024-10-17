@@ -4,19 +4,18 @@
 package com.digitalasset.canton.sequencing.authentication.grpc
 
 import cats.data.EitherT
-import cats.implicits.*
 import com.daml.nonempty.NonEmpty
-import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.Endpoint
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.sequencing.authentication.{
   AuthenticationToken,
   AuthenticationTokenManagerConfig,
 }
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.{DomainId, Member}
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.google.common.annotations.VisibleForTesting
 import io.grpc.*
 import io.grpc.ForwardingClientCall.SimpleForwardingClientCall
@@ -65,11 +64,21 @@ private[grpc] class SequencerClientTokenAuthentication(
       } yield endpoint
       val tokenManager = getTokenManager(maybeEndpoint)
 
+      implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
       tokenManager.getToken
         .leftMap(err =>
           Status.PERMISSION_DENIED.withDescription(s"Authentication token refresh error: $err")
         )
         .value
+        .onShutdown(
+          Left(
+            CantonGrpcUtil.GrpcErrors.AbortedDueToShutdown
+              .Error()
+              .asGrpcError
+              .getStatus
+              .withDescription("Token refresh aborted due to shutdown")
+          )
+        )
         .recover {
           case grpcError: StatusRuntimeException =>
             // if auth token refresh fails with a grpc error, pass along that status so that the grpc subscription retry
@@ -86,12 +95,9 @@ private[grpc] class SequencerClientTokenAuthentication(
                 .withCause(ex)
             )
         }
-        .unwrap
         .foreach {
-          case AbortedDueToShutdown =>
-            applier.fail(Status.ABORTED.withDescription("Aborted due to shutdown."))
-          case UnlessShutdown.Outcome(Left(errorStatus)) => applier.fail(errorStatus)
-          case UnlessShutdown.Outcome(Right(token)) =>
+          case Left(errorStatus) => applier.fail(errorStatus)
+          case Right(token) =>
             applier.apply(generateMetadata(token, maybeEndpoint))
         }
     }
@@ -165,10 +171,7 @@ object SequencerClientTokenAuthentication {
       tokenManagerConfig: AuthenticationTokenManagerConfig,
       clock: Clock,
       loggerFactory: NamedLoggerFactory,
-  )(implicit
-      executionContext: ExecutionContext,
-      traceContext: TraceContext,
-  ): SequencerClientAuthentication = {
+  )(implicit executionContext: ExecutionContext): SequencerClientAuthentication = {
     val tokenManagerPerEndpoint = obtainTokenPerEndpoint.transform { case (_, obtainToken) =>
       new AuthenticationTokenManager(
         obtainToken,

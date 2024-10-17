@@ -38,7 +38,7 @@ object SerializableKeyResolution {
       case v30.ViewParticipantData.ResolvedKey.Resolution
             .Free(v30.ViewParticipantData.FreeKey(maintainersP)) =>
         maintainersP
-          .traverse(ProtoConverter.parseLfPartyId)
+          .traverse(ProtoConverter.parseLfPartyId(_, "maintainers"))
           .map(maintainers => FreeKey(maintainers.toSet))
       case v30.ViewParticipantData.ResolvedKey.Resolution.Empty =>
         Left(FieldNotSet("ViewParticipantData.ResolvedKey.resolution"))

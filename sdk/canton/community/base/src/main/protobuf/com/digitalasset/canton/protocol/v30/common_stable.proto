@@ -38,3 +38,7 @@ message AggregationRule {
   repeated string eligible_members = 1;
   int32 threshold = 2;
 }
+
+message Stakeholders {
+  repeated string stakeholders = 1; // stakeholders of the contract
+}

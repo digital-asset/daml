@@ -59,7 +59,9 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
     with GrpcClientTransportHelpers
     with NamedLogging {
 
-  override def logout(): EitherT[FutureUnlessShutdown, Status, Unit] =
+  override def logout()(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, Status, Unit] =
     clientAuth.logout()
 
   protected val sequencerServiceClient: SequencerServiceStub = clientAuth(

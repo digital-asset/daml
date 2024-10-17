@@ -9,7 +9,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.error.CantonErrorGroups.SequencerSubscriptionErrorGroup
-import com.digitalasset.canton.lifecycle.{AsyncCloseable, AsyncOrSyncCloseable, FlagCloseableAsync}
+import com.digitalasset.canton.lifecycle.{AsyncOrSyncCloseable, FlagCloseableAsync, SyncCloseable}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLogging}
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
@@ -73,19 +73,13 @@ trait SequencerSubscription[HandlerError] extends FlagCloseableAsync with NamedL
       traceContext: TraceContext
   ): Unit
 
-  override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = {
-    import com.digitalasset.canton.tracing.TraceContext.Implicits.Empty.*
-
+  override protected def closeAsync(): Seq[AsyncOrSyncCloseable] =
     Seq(
-      AsyncCloseable(
-        "sequencer-subscription", {
-          closeReasonPromise.trySuccess(SubscriptionCloseReason.Closed).discard
-          closeReasonPromise.future
-        },
-        timeouts.shutdownNetwork,
+      SyncCloseable(
+        "sequencer-subscription",
+        closeReasonPromise.trySuccess(SubscriptionCloseReason.Closed).discard,
       )
     )
-  }
 
   // We don't want to throw here when closing the subscription fails (e.g in case of timeout)
   // If we threw we could short circuit the rest of the cleaning up of the gRPC stream and end up with

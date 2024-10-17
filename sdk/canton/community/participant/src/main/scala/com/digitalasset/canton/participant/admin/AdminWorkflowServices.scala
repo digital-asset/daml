@@ -34,7 +34,7 @@ import com.digitalasset.canton.topology.TopologyManagerError.{
 }
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
-import com.digitalasset.canton.tracing.{NoTracing, Spanning, TraceContext, Traced, TracerProvider}
+import com.digitalasset.canton.tracing.{Spanning, TraceContext, Traced, TracerProvider}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ResourceUtil.withResource
 import com.digitalasset.canton.util.{DamlPackageLoader, EitherTUtil}
@@ -69,8 +69,7 @@ class AdminWorkflowServices(
     executionSequencerFactory: ExecutionSequencerFactory,
 ) extends FlagCloseableAsync
     with NamedLogging
-    with Spanning
-    with NoTracing {
+    with Spanning {
 
   override protected def timeouts: ProcessingTimeout = parameters.processingTimeouts
 
@@ -131,6 +130,7 @@ class AdminWorkflowServices(
     )
 
   protected def closeAsync(): Seq[AsyncOrSyncCloseable] = {
+    import TraceContext.Implicits.Empty.*
     def adminServiceCloseables(
         name: String,
         subscription: Future[ResilientLedgerSubscription[?, ?]],
@@ -157,14 +157,14 @@ class AdminWorkflowServices(
   private def checkPackagesStatus(
       pkgs: Map[PackageId, Ast.Package],
       lc: LedgerClient,
-  ): Future[Boolean] =
+  )(implicit traceContext: TraceContext): Future[Boolean] =
     for {
       pkgRes <- pkgs.keys.toList.parTraverse(lc.packageService.getPackageStatus(_))
     } yield pkgRes.forall(pkgResponse => pkgResponse.packageStatus.isPackageStatusRegistered)
 
   private def handleDamlErrorDuringPackageLoading(
       res: EitherT[FutureUnlessShutdown, DamlError, Unit]
-  ): EitherT[Future, IllegalStateException, Unit] = EitherT {
+  )(implicit traceContext: TraceContext): EitherT[Future, IllegalStateException, Unit] = EitherT {
     EitherTUtil
       .leftSubflatMap(res) {
         case CantonPackageServiceError.IdentityManagerParentError(
@@ -254,6 +254,7 @@ class AdminWorkflowServices(
       applicationId: String,
       resubscribeIfPruned: Boolean,
   )(createService: LedgerClient => S): (Future[ResilientLedgerSubscription[?, ?]], S) = {
+    import TraceContext.Implicits.Empty.*
 
     val client = createLedgerClient(applicationId)
     val service = createService(client)

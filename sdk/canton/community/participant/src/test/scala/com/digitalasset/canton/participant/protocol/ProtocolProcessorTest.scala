@@ -120,7 +120,7 @@ class ProtocolProcessorTest
   )
   private val party = PartyId(UniqueIdentifier.tryFromProtoPrimitive("party::participant"))
   private val domain = DefaultTestIdentities.domainId
-  private val topology: TestingTopology = TestingTopology(
+  private val topology: TestingTopology = TestingTopology.from(
     Set(domain),
     Map(
       party.toLf -> Map(

@@ -9,7 +9,7 @@ import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{SequencerCounter, topology}
 
-import scala.concurrent.Future
+import scala.concurrent.{ExecutionContext, Future}
 
 // TODO(i18695): Clean up this and the trait as polymorphism is not needed here anymore
 class ParticipantTopologyTerminateProcessingTicker(
@@ -22,6 +22,6 @@ class ParticipantTopologyTerminateProcessingTicker(
       sc: SequencerCounter,
       sequencedTime: SequencedTime,
       effectiveTime: EffectiveTime,
-  )(implicit traceContext: TraceContext): Future[Unit] =
+  )(implicit traceContext: TraceContext, executionContext: ExecutionContext): Future[Unit] =
     recordOrderPublisher.tick(sc, sequencedTime.value, eventO = None, requestCounterO = None)
 }

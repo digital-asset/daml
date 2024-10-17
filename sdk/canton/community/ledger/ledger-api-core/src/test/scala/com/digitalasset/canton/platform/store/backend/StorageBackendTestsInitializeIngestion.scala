@@ -348,6 +348,8 @@ private[backend] trait StorageBackendTestsInitializeIngestion
     }
   }
 
+  // TODO(i21346) Implement initialization tests for topology events
+
   private def fetchIdsNonConsuming(): Vector[Long] =
     executeSql(
       backend.event.transactionStreamingQueries.fetchEventIdsForInformee(

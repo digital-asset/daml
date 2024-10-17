@@ -68,7 +68,7 @@ sealed trait TransactionPointwiseReader {
     for {
       // Fetching event sequential id range corresponding to the requested transaction id
       eventSeqIdRangeO <- dbDispatcher.executeSql(dbMetric)(
-        eventStorageBackend.transactionPointwiseQueries.fetchIdsFromTransactionMeta(transactionId =
+        eventStorageBackend.transactionPointwiseQueries.fetchIdsFromTransactionMeta(updateId =
           updateId
         )
       )

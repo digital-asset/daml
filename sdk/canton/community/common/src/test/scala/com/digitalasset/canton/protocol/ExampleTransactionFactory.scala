@@ -353,7 +353,7 @@ object ExampleTransactionFactory {
   val workflowId: WorkflowId = WorkflowId.assertFromString("testWorkflowId")
 
   val defaultTestingTopology: TestingTopology =
-    TestingTopology(
+    TestingTopology.from(
       topology = Map(
         submitter -> Map(submittingParticipant -> Submission),
         signatory -> Map(

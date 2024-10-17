@@ -333,10 +333,7 @@ object SequencerClientFactory {
       private def grpcSequencerClientAuth(
           connection: GrpcSequencerConnection,
           member: Member,
-      )(implicit
-          executionContext: ExecutionContextExecutor,
-          traceContext: TraceContext,
-      ): GrpcSequencerClientAuth = {
+      )(implicit executionContext: ExecutionContextExecutor): GrpcSequencerClientAuth = {
         val channelPerEndpoint = connection.endpoints.map { endpoint =>
           val subConnection = connection.copy(endpoints = NonEmpty.mk(Seq, endpoint))
           endpoint -> createChannel(subConnection)
@@ -361,7 +358,6 @@ object SequencerClientFactory {
           executionContext: ExecutionContextExecutor,
           executionSequencerFactory: ExecutionSequencerFactory,
           materializer: Materializer,
-          traceContext: TraceContext,
       ): SequencerClientTransport & SequencerClientTransportPekko = {
         val channel = createChannel(connection)
         val auth = grpcSequencerClientAuth(connection, member)

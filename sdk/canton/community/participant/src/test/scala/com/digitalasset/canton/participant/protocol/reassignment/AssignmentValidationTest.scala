@@ -101,6 +101,7 @@ class AssignmentValidationTest
     val contract = ExampleTransactionFactory.asSerializable(
       contractId,
       contractInstance = ExampleTransactionFactory.contractInstance(),
+      metadata = ContractMetadata.tryCreate(signatories = Set(), stakeholders = Set(party1), None),
     )
 
     val reassignmentId = ReassignmentId(sourceDomain, CantonTimestamp.Epoch)
@@ -352,7 +353,6 @@ class AssignmentValidationTest
         pureCrypto,
         seed,
         submitterInfo(submitter),
-        stakeholders,
         contract,
         reassignmentCounter,
         creatingTransactionId,
@@ -362,7 +362,7 @@ class AssignmentValidationTest
         uuid,
         Source(testedProtocolVersion),
         Target(testedProtocolVersion),
-        reassigningParticipants = reassigningParticipants,
+        confirmingReassigningParticipants = reassigningParticipants,
       )
     )("Failed to create FullAssignmentTree")
   }

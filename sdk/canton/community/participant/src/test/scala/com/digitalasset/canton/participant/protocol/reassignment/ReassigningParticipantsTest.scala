@@ -3,10 +3,12 @@
 
 package com.digitalasset.canton.participant.protocol.reassignment
 
+import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessorError.{
   PermissionErrors,
   StakeholderHostingErrors,
 }
+import com.digitalasset.canton.protocol.Stakeholders
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.Submission
@@ -22,6 +24,14 @@ class ReassigningParticipantsTest extends AnyWordSpec with BaseTest with HasExec
   ): TopologySnapshot =
     TestingTopology()
       .withReversedTopology(topology)
+      .build(loggerFactory)
+      .topologySnapshot()
+
+  private def createTestingWithThreshold(
+      topology: Map[LfPartyId, (PositiveInt, Seq[ParticipantId])]
+  ): TopologySnapshot =
+    TestingTopology()
+      .withThreshold(topology)
       .build(loggerFactory)
       .topologySnapshot()
 
@@ -56,7 +66,7 @@ class ReassigningParticipantsTest extends AnyWordSpec with BaseTest with HasExec
       )
 
       new ReassigningParticipants(
-        stakeholders = Set(alice, bob),
+        stakeholders = Stakeholders.tryCreate(Set(alice, bob)),
         sourceTopology = Source(snapshot),
         targetTopology = Target(snapshot),
       ).compute.futureValue shouldBe Set(p1, p2)
@@ -79,13 +89,13 @@ class ReassigningParticipantsTest extends AnyWordSpec with BaseTest with HasExec
       )
 
       new ReassigningParticipants(
-        stakeholders = Set(alice, bob),
+        stakeholders = Stakeholders.tryCreate(Set(alice, bob)),
         sourceTopology = Source(source),
         targetTopology = Target(target), // p3 missing
       ).compute.futureValue shouldBe Set(p1, p2)
 
       new ReassigningParticipants(
-        stakeholders = Set(alice, bob),
+        stakeholders = Stakeholders.tryCreate(Set(alice, bob)),
         sourceTopology = Source(source),
         targetTopology = Target(source), // p3 is there as well
       ).compute.futureValue shouldBe Set(p1, p2, p3)
@@ -106,7 +116,7 @@ class ReassigningParticipantsTest extends AnyWordSpec with BaseTest with HasExec
       )
 
       new ReassigningParticipants(
-        stakeholders = Set(alice, bob),
+        stakeholders = Stakeholders.tryCreate(Set(alice, bob)),
         sourceTopology = Source(incomplete),
         targetTopology = Target(complete),
       ).compute.value.futureValue.left.value shouldBe StakeholderHostingErrors(
@@ -114,7 +124,7 @@ class ReassigningParticipantsTest extends AnyWordSpec with BaseTest with HasExec
       )
 
       new ReassigningParticipants(
-        stakeholders = Set(alice, bob),
+        stakeholders = Stakeholders.tryCreate(Set(alice, bob)),
         sourceTopology = Source(complete),
         targetTopology = Target(incomplete),
       ).compute.value.futureValue.left.value shouldBe StakeholderHostingErrors(
@@ -122,7 +132,7 @@ class ReassigningParticipantsTest extends AnyWordSpec with BaseTest with HasExec
       )
 
       new ReassigningParticipants(
-        stakeholders = Set(alice, bob),
+        stakeholders = Stakeholders.tryCreate(Set(alice, bob)),
         sourceTopology = Source(complete),
         targetTopology = Target(complete),
       ).compute.futureValue shouldBe Set(p1, p2)
@@ -137,7 +147,7 @@ class ReassigningParticipantsTest extends AnyWordSpec with BaseTest with HasExec
       )
 
       new ReassigningParticipants(
-        stakeholders = Set(alice),
+        stakeholders = Stakeholders.tryCreate(Set(alice)),
         sourceTopology = Source(topology),
         targetTopology = Target(topology),
       ).compute.futureValue shouldBe Set(p1, p2)
@@ -152,7 +162,7 @@ class ReassigningParticipantsTest extends AnyWordSpec with BaseTest with HasExec
       )
 
       new ReassigningParticipants(
-        stakeholders = Set(alice),
+        stakeholders = Stakeholders.tryCreate(Set(alice)),
         sourceTopology = Source(topology),
         targetTopology = Target(topology),
       ).compute.futureValue shouldBe Set(p1)
@@ -172,7 +182,7 @@ class ReassigningParticipantsTest extends AnyWordSpec with BaseTest with HasExec
       )
 
       new ReassigningParticipants(
-        stakeholders = Set(alice),
+        stakeholders = Stakeholders.tryCreate(Set(alice)),
         sourceTopology = Source(source),
         targetTopology = Target(target),
       ).compute.value.futureValue.left.value shouldBe StakeholderHostingErrors(
@@ -210,13 +220,13 @@ class ReassigningParticipantsTest extends AnyWordSpec with BaseTest with HasExec
       )
 
       new ReassigningParticipants(
-        stakeholders = Set(alice),
+        stakeholders = Stakeholders.tryCreate(Set(alice)),
         sourceTopology = Source(source),
         targetTopology = Target(targetCorrect),
       ).compute.futureValue shouldBe Set(p1)
 
       new ReassigningParticipants(
-        stakeholders = Set(alice),
+        stakeholders = Stakeholders.tryCreate(Set(alice)),
         sourceTopology = Source(source),
         targetTopology = Target(targetIncorrect1),
       ).compute.value.futureValue.left.value shouldBe PermissionErrors(
@@ -224,11 +234,51 @@ class ReassigningParticipantsTest extends AnyWordSpec with BaseTest with HasExec
       )
 
       new ReassigningParticipants(
-        stakeholders = Set(alice),
+        stakeholders = Stakeholders.tryCreate(Set(alice)),
         sourceTopology = Source(source),
         targetTopology = Target(targetIncorrect2),
       ).compute.value.futureValue.left.value shouldBe PermissionErrors(
         s"For party $alice, no participant with submission permission on source domain has submission permission on target domain."
+      )
+    }
+
+    "fail if there are not enough reassigning participants" in {
+      val source = createTestingWithThreshold(
+        Map(
+          alice -> (PositiveInt.two, Seq(p1, p2, p3)),
+          bob -> (PositiveInt.two, Seq(p1, p2, p3)),
+          charlie -> (PositiveInt.one, Seq(p1)),
+        )
+      )
+
+      val target = createTestingWithThreshold(
+        Map(
+          alice -> (PositiveInt.one, Seq(p1)),
+          bob -> (PositiveInt.two, Seq(p1, p2)),
+          charlie -> (PositiveInt.two, Seq(p1, p3)),
+        )
+      )
+
+      new ReassigningParticipants(
+        stakeholders = Stakeholders.tryCreate(Set(alice)),
+        sourceTopology = Source(source),
+        targetTopology = Target(target),
+      ).compute.value.futureValue.left.value shouldBe StakeholderHostingErrors(
+        s"Stakeholder $alice requires at least 2 reassigning participants, but only 1 are available"
+      )
+
+      new ReassigningParticipants(
+        stakeholders = Stakeholders.tryCreate(Set(bob)),
+        sourceTopology = Source(source),
+        targetTopology = Target(target),
+      ).compute.futureValue shouldBe Set(p1, p2)
+
+      new ReassigningParticipants(
+        stakeholders = Stakeholders.tryCreate(Set(bob, charlie)),
+        sourceTopology = Source(source),
+        targetTopology = Target(target),
+      ).compute.value.futureValue.left.value shouldBe StakeholderHostingErrors(
+        s"Stakeholder $charlie requires at least 2 reassigning participants, but only 1 are available"
       )
     }
   }

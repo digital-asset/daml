@@ -38,7 +38,7 @@ class GrpcSequencerClientAuth(
     clock: Clock,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
-)(implicit executionContext: ExecutionContext, traceContext: TraceContext)
+)(implicit executionContext: ExecutionContext)
     extends FlagCloseable
     with NamedLogging {
 
@@ -53,7 +53,7 @@ class GrpcSequencerClientAuth(
       loggerFactory,
     )
 
-  def logout(): EitherT[FutureUnlessShutdown, Status, Unit] =
+  def logout()(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, Status, Unit] =
     channelPerEndpoint.forgetNE.toSeq.parTraverse_ { case (_, channel) =>
       val authenticationClient = new SequencerAuthenticationServiceStub(channel)
       tokenProvider.logout(authenticationClient)
@@ -65,7 +65,7 @@ class GrpcSequencerClientAuth(
       val authenticationClient = new SequencerAuthenticationServiceStub(channel)
       (tc: TraceContext) =>
         TraceContextGrpc.withGrpcContext(tc) {
-          tokenProvider.generateToken(authenticationClient)
+          tokenProvider.generateToken(authenticationClient)(tc)
         }
     }
     val clientAuthentication = SequencerClientTokenAuthentication(

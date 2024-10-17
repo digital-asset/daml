@@ -260,7 +260,7 @@ object SequentialWriteDaoSpec {
   private val someEventExercise = DbDto.EventExercise(
     consuming = true,
     event_offset = "",
-    transaction_id = "",
+    update_id = "",
     ledger_effective_time = 3,
     command_id = None,
     workflow_id = None,
