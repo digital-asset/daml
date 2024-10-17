@@ -24,7 +24,6 @@ import org.scalatest.wordspec.AnyWordSpec
 import scala.language.implicitConversions
 
 class InterfaceViewSpecV1 extends InterfaceViewSpec(LanguageMajorVersion.V1)
-//class InterfaceViewSpecV2 extends InterfaceViewSpec(LanguageMajorVersion.V2)
 
 @SuppressWarnings(
   Array(

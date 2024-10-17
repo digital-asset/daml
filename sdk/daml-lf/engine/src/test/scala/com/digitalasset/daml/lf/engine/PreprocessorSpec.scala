@@ -30,7 +30,6 @@ import com.daml.lf.speedy.Compiler
 import com.daml.nameof.NameOf.qualifiedNameOfMember
 
 class PreprocessorSpecV1 extends PreprocessorSpec(LanguageMajorVersion.V1)
-//class PreprocessorSpecV2 extends PreprocessorSpec(LanguageMajorVersion.V2)
 
 class PreprocessorSpec(majorLanguageVersion: LanguageMajorVersion)
     extends AnyWordSpec
