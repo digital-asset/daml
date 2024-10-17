@@ -6,17 +6,41 @@ module SignatoryObserverChanges (main) where
 import UpgradeTestLib
 import qualified V1.SignatoryObserverChanges as V1
 import qualified V2.SignatoryObserverChanges as V2
+import qualified V1.IfaceMod as Iface
 import DA.Text
+
+{- PACKAGE
+name: signatory-observer-changes-iface
+versions: 1
+-}
+
+{- MODULE
+package: signatory-observer-changes-iface
+contents: |
+  module IfaceMod where
+
+  data MyUnit = MyUnit {}
+
+  interface I where
+    viewtype MyUnit
+
+    nonconsuming choice NoOp : ()
+      controller signatory this
+      do pure ()
+-}
 
 {- PACKAGE
 name: signatory-observer-changes
 versions: 2
+depends: signatory-observer-changes-iface-1.0.0
 -}
 
 {- MODULE
 package: signatory-observer-changes
 contents: |
   module SignatoryObserverChanges where
+
+  import IfaceMod
 
   template SignatoryObserverChangesTemplate
     with
@@ -30,21 +54,42 @@ contents: |
       observer observers                              -- @V 1
       observer replacementObservers                   -- @V  2
 
+      interface instance I for SignatoryObserverChangesTemplate where
+        view = MyUnit {}
+
       choice InvalidUpgradeStakeholdersCall : () with -- @V  2
         controller signatory this                     -- @V  2
         do pure ()                                    -- @V  2
 -}
 
 main : TestTree
-main = tests
-  [ ("Succeeds if the signatories don't change", unchangedSignatoryUpgrade)
-  , ("Fails if the signatories set gets larger", largerSignatoryUpgrade)
-  , ("Fails if the signatories set gets smaller", smallerSignatoryUpgrade)
-  , ("Succeeds if the observers don't change", unchangeObserverUpgrade)
-  , ("Fails if the observers set gets larger", largerObserverUpgrade)
-  , ("Fails if the observers set gets smaller", smallerObserverUpgrade)
-  , ("Succeeds if the observer set loses parties that are already signatories", canRemoveObserversThatAreSignatories)
+main = tests $
+  [ subtree description
+      [ ("static exercise", testCase exerciseStaticChoice)
+      , ("dynamic exercise", testCase exerciseDynamicChoice)
+      ]
+  | (description, testCase) <-
+      [ ("Succeeds if the signatories don't change", unchangedSignatoryUpgrade)
+      , ("Fails if the signatories set gets larger", largerSignatoryUpgrade)
+      , ("Fails if the signatories set gets smaller", smallerSignatoryUpgrade)
+      , ("Succeeds if the observers don't change", unchangeObserverUpgrade)
+      , ("Fails if the observers set gets larger", largerObserverUpgrade)
+      , ("Fails if the observers set gets smaller", smallerObserverUpgrade)
+      , ("Succeeds if the observer set loses parties that are already signatories", canRemoveObserversThatAreSignatories)
+      ]
   ]
+
+type ChoiceExerciser = ContractId V1.SignatoryObserverChangesTemplate -> Commands ()
+
+exerciseStaticChoice : ChoiceExerciser
+exerciseStaticChoice cidV1 =
+  let cidV2 = coerceContractId @V1.SignatoryObserverChangesTemplate @V2.SignatoryObserverChangesTemplate cidV1
+  in exerciseCmd cidV2 V2.InvalidUpgradeStakeholdersCall
+
+exerciseDynamicChoice : ChoiceExerciser
+exerciseDynamicChoice cidV1 =
+  let cidI = coerceContractId @V1.SignatoryObserverChangesTemplate @Iface.I cidV1
+  in exerciseCmd cidI Iface.NoOp
 
 -- Given a function that maps a set of 3 parties to the pre-upgrade and post-upgrade signatory set
 -- and the same for observers
@@ -53,8 +98,9 @@ signatoryObserverUpgrade
   :  Bool
   -> ((Party, Party, Party) -> ([Party], [Party]))
   -> ((Party, Party, Party) -> ([Party], [Party]))
+  -> ChoiceExerciser
   -> Test
-signatoryObserverUpgrade shouldSucceed sigF obsF = test $ do
+signatoryObserverUpgrade shouldSucceed sigF obsF exerciseChoice = test $ do
   alice <- allocatePartyOn "alice" participant0
   bob <- allocatePartyOn "bob" participant0
   charlie <- allocatePartyOn "charlie" participant0
@@ -67,8 +113,7 @@ signatoryObserverUpgrade shouldSucceed sigF obsF = test $ do
     replacementSignatories = postSignatories
     replacementObservers = postObservers
 
-  let cidV2 = coerceContractId @V1.SignatoryObserverChangesTemplate @V2.SignatoryObserverChangesTemplate cid
-  res <- trySubmitMulti [alice, bob, charlie] [] $ exerciseCmd cidV2 V2.InvalidUpgradeStakeholdersCall
+  res <- trySubmitMulti [alice, bob, charlie] [] $ exerciseChoice cid
   case (res, shouldSucceed) of
     (Right _, True) -> pure ()
     (Left (DevError Upgrade msg), False)
@@ -79,31 +124,31 @@ signatoryObserverUpgrade shouldSucceed sigF obsF = test $ do
 unchanged : (Party, Party, Party) -> ([Party], [Party])
 unchanged (alice, bob, charlie) = ([alice], [alice])
 
-signatoryUpgrade : Bool -> ((Party, Party, Party) -> ([Party], [Party])) -> Test
+signatoryUpgrade : Bool -> ((Party, Party, Party) -> ([Party], [Party])) -> ChoiceExerciser ->Test
 signatoryUpgrade shouldSucceed f = signatoryObserverUpgrade shouldSucceed f unchanged
 
-observerUpgrade : Bool -> ((Party, Party, Party) -> ([Party], [Party])) -> Test
+observerUpgrade : Bool -> ((Party, Party, Party) -> ([Party], [Party])) -> ChoiceExerciser -> Test
 observerUpgrade shouldSucceed = signatoryObserverUpgrade shouldSucceed unchanged
 
-unchangedSignatoryUpgrade : Test
+unchangedSignatoryUpgrade : ChoiceExerciser -> Test
 unchangedSignatoryUpgrade = signatoryUpgrade True unchanged
 
-largerSignatoryUpgrade : Test
+largerSignatoryUpgrade : ChoiceExerciser -> Test
 largerSignatoryUpgrade = signatoryUpgrade False $ \(alice, bob, charlie) -> ([alice, bob], [alice, bob, charlie])
 
-smallerSignatoryUpgrade : Test
+smallerSignatoryUpgrade : ChoiceExerciser -> Test
 smallerSignatoryUpgrade = signatoryUpgrade False $ \(alice, bob, charlie) -> ([alice, bob, charlie], [alice, bob])
 
-unchangeObserverUpgrade : Test
+unchangeObserverUpgrade : ChoiceExerciser -> Test
 unchangeObserverUpgrade = observerUpgrade True unchanged
 
-largerObserverUpgrade : Test
+largerObserverUpgrade : ChoiceExerciser -> Test
 largerObserverUpgrade = observerUpgrade False $ \(alice, bob, charlie) -> ([alice, bob], [alice, bob, charlie])
 
-smallerObserverUpgrade : Test
+smallerObserverUpgrade : ChoiceExerciser -> Test
 smallerObserverUpgrade = observerUpgrade False $ \(alice, bob, charlie) -> ([alice, bob, charlie], [alice, bob])
 
-canRemoveObserversThatAreSignatories : Test
+canRemoveObserversThatAreSignatories : ChoiceExerciser -> Test
 canRemoveObserversThatAreSignatories =
   signatoryObserverUpgrade
     True
