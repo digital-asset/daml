@@ -60,7 +60,7 @@ import scala.util.Failure
 /** A write we want to make to the db */
 sealed trait Write
 object Write {
-  final case class Event(event: Presequenced[StoreEvent[PayloadId]]) extends Write
+  final case class Event(event: Presequenced[StoreEvent[Payload]]) extends Write
   case object KeepAlive extends Write
 }
 
@@ -76,7 +76,7 @@ sealed trait SequencedWrite extends HasTraceContext {
 }
 
 object SequencedWrite {
-  final case class Event(event: Sequenced[PayloadId]) extends SequencedWrite {
+  final case class Event(event: Sequenced[Payload]) extends SequencedWrite {
     override lazy val timestamp: CantonTimestamp = event.timestamp
     override def traceContext: TraceContext = event.traceContext
   }
@@ -85,14 +85,19 @@ object SequencedWrite {
   }
 }
 
-final case class BatchWritten(notifies: WriteNotification, latestTimestamp: CantonTimestamp)
+final case class BatchWritten(
+    notifies: WriteNotification,
+    latestTimestamp: CantonTimestamp,
+    events: Seq[NonEmpty[Seq[Sequenced[Payload]]]],
+)
 object BatchWritten {
 
   /** Assumes events are ordered by timestamp */
-  def apply(events: NonEmpty[Seq[Sequenced[_]]]): BatchWritten =
+  def apply(events: NonEmpty[Seq[Sequenced[Payload]]]): BatchWritten =
     BatchWritten(
       notifies = WriteNotification(events),
       latestTimestamp = events.last1.timestamp,
+      events = Seq(events),
     )
 }
 
@@ -275,12 +280,28 @@ object SequencerWriterSource {
             BatchWritten(
               left.notifies.union(right.notifies),
               left.latestTimestamp.max(right.latestTimestamp),
+              left.events ++ right.events,
             )
           )
         }
       }
       .via(UpdateWatermarkFlow(store, logger))
       .via(RecordWatermarkDelayMetricFlow(clock, metrics))
+      .via(
+        // Buffer events in case of block sequencer single instance mode
+        if (blockSequencerMode) {
+          Flow[Traced[BatchWritten]].map { tracedBatchWritten =>
+            tracedBatchWritten.withTraceContext { _ => batchWritten =>
+              batchWritten.events.foreach { events =>
+                store.bufferEvents(events)
+              }
+            }
+            tracedBatchWritten
+          }
+        } else {
+          Flow[Traced[BatchWritten]]
+        }
+      )
       .via(NotifyEventSignallerFlow(eventSignaller))
       .via(
         if (blockSequencerMode) { // write side checkpoints are only activated in block sequencer mode
@@ -486,7 +507,7 @@ object SequenceWritesFlow {
         // due to the groupedWithin we should likely always have items
         .fold(Future.successful[Traced[Option[BatchWritten]]](Traced.empty(None))) { writes =>
           withTracedBatch(logger, writes) { implicit traceContext => writes =>
-            val events: Option[NonEmpty[Seq[Sequenced[PayloadId]]]] =
+            val events: Option[NonEmpty[Seq[Sequenced[Payload]]]] =
               NonEmpty.from(writes.collect { case SequencedWrite.Event(event) =>
                 event
               })
@@ -494,8 +515,10 @@ object SequenceWritesFlow {
               events.fold[WriteNotification](WriteNotification.None)(WriteNotification(_))
             for {
               // if this write batch had any events then save them
-              _ <- events.fold(Future.unit)(store.saveEvents)
-            } yield Traced(BatchWritten(notifies, writes.last1.timestamp).some)
+              _ <- events.fold(Future.unit)(eventsWithPayload =>
+                store.saveEvents(eventsWithPayload.map(_.map(_.id)))
+              )
+            } yield Traced(BatchWritten(notifies, writes.last1.timestamp, events.toList).some)
           }
         }
 
@@ -524,11 +547,11 @@ object SequenceWritesFlow {
      */
     def sequenceEvent(
         timestamp: CantonTimestamp,
-        presequencedEvent: Presequenced[StoreEvent[PayloadId]],
-    ): Option[Sequenced[PayloadId]] = {
+        presequencedEvent: Presequenced[StoreEvent[Payload]],
+    ): Option[Sequenced[Payload]] = {
       def checkMaxSequencingTime(
-          event: Presequenced[StoreEvent[PayloadId]]
-      ): Either[BaseCantonError, Presequenced[StoreEvent[PayloadId]]] =
+          event: Presequenced[StoreEvent[Payload]]
+      ): Either[BaseCantonError, Presequenced[StoreEvent[Payload]]] =
         event.maxSequencingTimeO
           .toLeft(event)
           .leftFlatMap { maxSequencingTime =>
@@ -540,8 +563,8 @@ object SequenceWritesFlow {
           }
 
       def checkTopologyTimestamp(
-          event: Presequenced[StoreEvent[PayloadId]]
-      ): Presequenced[StoreEvent[PayloadId]] =
+          event: Presequenced[StoreEvent[Payload]]
+      ): Presequenced[StoreEvent[Payload]] =
         event.map {
           // we only do this validation for deliver events that specify a signing timestamp
           case deliver @ DeliverStoreEvent(
@@ -579,13 +602,13 @@ object SequenceWritesFlow {
         }
 
       def checkPayloadToEventMargin(
-          presequencedEvent: Presequenced[StoreEvent[PayloadId]]
-      ): Either[BaseCantonError, Presequenced[StoreEvent[PayloadId]]] =
+          presequencedEvent: Presequenced[StoreEvent[Payload]]
+      ): Either[BaseCantonError, Presequenced[StoreEvent[Payload]]] =
         presequencedEvent match {
           // we only need to check deliver events for payloads
           // the only reason why
-          case presequencedDeliver @ Presequenced(deliver: DeliverStoreEvent[PayloadId], _, _) =>
-            val payloadTs = deliver.payload.unwrap
+          case presequencedDeliver @ Presequenced(deliver: DeliverStoreEvent[Payload], _, _) =>
+            val payloadTs = deliver.payload.id.unwrap
             val bound = writerConfig.payloadToEventMargin
             val maxAllowableEventTime = payloadTs.add(bound.asJava)
             Either
@@ -645,20 +668,17 @@ object WritePayloadsFlow {
       loggerFactory: NamedLoggerFactory,
   )(implicit
       executionContext: ExecutionContext
-  ): Flow[Presequenced[StoreEvent[Payload]], Presequenced[StoreEvent[PayloadId]], NotUsed] = {
+  ): Flow[Presequenced[StoreEvent[Payload]], Presequenced[StoreEvent[Payload]], NotUsed] = {
     val logger = TracedLogger(WritePayloadsFlow.getClass, loggerFactory)
 
     def writePayloads(
         events: Seq[Presequenced[StoreEvent[Payload]]]
-    ): Future[Seq[Presequenced[StoreEvent[PayloadId]]]] =
-      if (events.isEmpty) Future.successful(Seq.empty[Presequenced[StoreEvent[PayloadId]]])
+    ): Future[Seq[Presequenced[StoreEvent[Payload]]]] =
+      if (events.isEmpty) Future.successful(Seq.empty[Presequenced[StoreEvent[Payload]]])
       else {
         implicit val traceContext: TraceContext = TraceContext.ofBatch(events)(logger)
         // extract the payloads themselves for storing
         val payloads = events.map(_.event).flatMap(extractPayload(_).toList)
-
-        // strip out the payloads and replace with their id as the content itself is not needed downstream
-        val eventsWithPayloadId = events.map(_.map(e => dropPayloadContent(e)))
         logger.debug(s"Writing ${payloads.size} payloads from batch of ${events.size}")
 
         // save the payloads if there are any
@@ -671,19 +691,13 @@ object WritePayloadsFlow {
                 new ConflictingPayloadIdException(id, conflictingInstance)
               case SavePayloadsError.PayloadMissing(id) => new PayloadMissingException(id)
             }
-            .map((_: Unit) => eventsWithPayloadId)
+            .map((_: Unit) => events)
         }
       }
 
     def extractPayload(event: StoreEvent[Payload]): Option[Payload] = event match {
       case DeliverStoreEvent(_, _, _, payload, _, _) => payload.some
       case _other => None
-    }
-
-    def dropPayloadContent(event: StoreEvent[Payload]): StoreEvent[PayloadId] = event match {
-      case deliver: DeliverStoreEvent[Payload] => deliver.map(_.id)
-      case error: DeliverErrorStoreEvent => error
-      case receipt: ReceiptStoreEvent => receipt
     }
 
     Flow[Presequenced[StoreEvent[Payload]]]

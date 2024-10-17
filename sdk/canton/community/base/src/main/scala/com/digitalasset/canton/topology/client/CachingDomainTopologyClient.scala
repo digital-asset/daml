@@ -46,14 +46,29 @@ final class CachingDomainTopologyClient(
     with NamedLogging {
 
   override def updateHead(
+      sequencedTimestamp: SequencedTime,
       effectiveTimestamp: EffectiveTime,
       approximateTimestamp: ApproximateTime,
       potentialTopologyChange: Boolean,
   )(implicit traceContext: TraceContext): Unit = {
     if (potentialTopologyChange)
       appendSnapshot(effectiveTimestamp.value)
-    delegate.updateHead(effectiveTimestamp, approximateTimestamp, potentialTopologyChange)
+    delegate.updateHead(
+      sequencedTimestamp,
+      effectiveTimestamp,
+      approximateTimestamp,
+      potentialTopologyChange,
+    )
   }
+
+  private val maxTimestampCache =
+    TracedScaffeine
+      .buildTracedAsyncFutureUS[CantonTimestamp, Option[
+        (SequencedTime, EffectiveTime)
+      ]](
+        cache = cachingConfigs.domainClientMaxTimestamp.buildScaffeine(),
+        loader = traceContext => delegate.awaitMaxTimestampUS(_)(traceContext),
+      )(logger)
 
   /** An entry with a given `timestamp` refers to the snapshot at timestamp `timestamp.immediateSuccessor`.
     * This is the snapshot that covers all committed topology transactions
@@ -186,6 +201,11 @@ final class CachingDomainTopologyClient(
     delegate.setDomainTimeTracker(tracker)
     super.setDomainTimeTracker(tracker)
   }
+
+  override def awaitMaxTimestampUS(sequencedTime: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]] =
+    maxTimestampCache.getUS(sequencedTime)
 }
 
 object CachingDomainTopologyClient {
@@ -226,9 +246,9 @@ object CachingDomainTopologyClient {
         loggerFactory,
       )
     store.maxTimestamp(CantonTimestamp.MaxValue, includeRejected = true).map { x =>
-      x.foreach { case (_sequenced, effective) =>
+      x.foreach { case (sequenced, effective) =>
         caching
-          .updateHead(effective, effective.toApproximate, potentialTopologyChange = true)
+          .updateHead(sequenced, effective, effective.toApproximate, potentialTopologyChange = true)
       }
       caching
     }

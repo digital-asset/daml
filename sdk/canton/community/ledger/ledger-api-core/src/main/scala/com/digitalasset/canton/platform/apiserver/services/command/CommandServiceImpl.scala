@@ -34,7 +34,6 @@ import com.digitalasset.canton.platform.apiserver.services.tracking.{
 }
 import com.digitalasset.canton.platform.apiserver.services.{ApiCommandService, logging}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.google.protobuf.empty.Empty
 import io.grpc.{Context, Deadline}
 
 import java.time.Instant
@@ -66,19 +65,10 @@ private[apiserver] final class CommandServiceImpl private[services] (
 
   def submitAndWait(
       request: SubmitAndWaitRequest
-  )(loggingContext: LoggingContextWithTrace): Future[Empty] =
-    withCommandsLoggingContext(request.getCommands, loggingContext) { (errorLogger, traceContext) =>
-      submitAndWaitInternal(request)(errorLogger, traceContext).map { _ =>
-        Empty.defaultInstance
-      }
-    }
-
-  def submitAndWaitForUpdateId(
-      request: SubmitAndWaitRequest
-  )(loggingContext: LoggingContextWithTrace): Future[SubmitAndWaitForUpdateIdResponse] =
+  )(loggingContext: LoggingContextWithTrace): Future[SubmitAndWaitResponse] =
     withCommandsLoggingContext(request.getCommands, loggingContext) { (errorLogger, traceContext) =>
       submitAndWaitInternal(request)(errorLogger, traceContext).map { response =>
-        SubmitAndWaitForUpdateIdResponse.of(
+        SubmitAndWaitResponse.of(
           updateId = response.completion.updateId,
           completionOffset = response.completion.offset,
         )

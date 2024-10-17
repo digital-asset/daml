@@ -1060,9 +1060,8 @@ object Generators {
       .build()
   }
 
-  def submitAndWaitForUpdateIdResponseGen
-      : Gen[v2.CommandServiceOuterClass.SubmitAndWaitForUpdateIdResponse] = {
-    import v2.CommandServiceOuterClass.SubmitAndWaitForUpdateIdResponse as Response
+  def submitAndWaitResponseGen: Gen[v2.CommandServiceOuterClass.SubmitAndWaitResponse] = {
+    import v2.CommandServiceOuterClass.SubmitAndWaitResponse as Response
     for {
       updateId <- Arbitrary.arbString.arbitrary
       completionOffset <- Arbitrary.arbLong.arbitrary
