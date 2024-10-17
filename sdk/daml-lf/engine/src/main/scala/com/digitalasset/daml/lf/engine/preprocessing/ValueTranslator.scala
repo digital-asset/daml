@@ -79,15 +79,18 @@ private[lf] final class ValueTranslator(
             mbSourceType: Option[Ref.TypeConName],
         ) =
           mbSourceType.foreach { sourceType =>
-            if (upgradable)
+            if (upgradable) {
               if (targetType.qualifiedName != sourceType.qualifiedName)
                 typeError(
                   s"Mismatching variant id, the type tells us ${targetType.qualifiedName}, but the value tells us ${sourceType.qualifiedName}"
                 )
-              else if (targetType != sourceType)
+            } else {
+              if (targetType != sourceType) {
                 typeError(
                   s"Mismatching variant id, the type tells us ${targetType}, but the value tells us ${sourceType}"
                 )
+              }
+            }
           }
 
         val (ty1, tyArgs) = AstUtil.destructApp(ty0)
@@ -175,9 +178,7 @@ private[lf] final class ValueTranslator(
                 typeError()
             }
           case TTyCon(tyCon) =>
-            val upgradable = handleLookup(
-              pkgInterface.lookupPackage(tyCon.packageId)
-            ).name.isDefined
+            val upgradable = handleLookup(pkgInterface.lookupPackage(tyCon.packageId)).upgradable
             value0 match {
               // variant
               case ValueVariant(mbId, constructorName, val0) =>
