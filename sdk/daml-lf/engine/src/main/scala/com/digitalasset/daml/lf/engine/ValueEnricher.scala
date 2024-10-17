@@ -137,7 +137,7 @@ final class ValueEnricher(
     interfaceId,
     choiceName,
     value,
-  );
+  )
 
   def enrichContractKey(tyCon: Identifier, value: Value): Result[Value] =
     handleLookup(pkgInterface.lookupTemplateKey(tyCon))
