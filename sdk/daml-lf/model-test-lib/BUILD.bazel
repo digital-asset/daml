@@ -69,6 +69,7 @@ da_scala_library(
     deps = [
         "//bazel_tools/runfiles:scala_runfiles",
         "//canton:bindings-java",
+        "//canton:community_ledger_ledger-api-core",
         "//canton:community_ledger_ledger-common",
         "//canton:community_util-logging",
         "//canton:ledger_api_proto_scala",

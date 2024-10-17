@@ -37,6 +37,7 @@ import com.digitalasset.canton.ledger.client.configuration.{
   LedgerClientConfiguration,
 }
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.PureCompiledPackages
 import com.google.protobuf.ByteString
@@ -220,7 +221,7 @@ private class CantonLedgerRunner(
     ledgerClientsForProjections(participantId).getTransactionsClient
       .getTransactionsTrees(
         "",
-        ledgerEnd,
+        ApiOffset.fromLong(ledgerEnd.get()),
         javaapi.data.TransactionFilter.fromProto(
           proto.TransactionFilter
             .newBuilder()
