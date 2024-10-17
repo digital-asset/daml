@@ -23,7 +23,11 @@ import org.scalatest.wordspec.AnyWordSpec
 class CantonCommunityConfigTest extends AnyWordSpec with BaseTest {
 
   import scala.jdk.CollectionConverters.*
+  import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
+
+  def name(str: String) = InstanceName.tryCreate(str)
   val simpleConf = "examples/01-simple-topology/simple-topology.conf"
+
   "the example simple topology configuration" should {
     lazy val config =
       loadFile(simpleConf).valueOrFail("failed to load simple-topology.conf")
@@ -38,6 +42,17 @@ class CantonCommunityConfigTest extends AnyWordSpec with BaseTest {
 
     "produce a port definition message" in {
       config.portDescription shouldBe "mydomain:admin-api=5019,public-api=5018;participant1:admin-api=5012,ledger-api=5011;participant2:admin-api=5022,ledger-api=5021"
+    }
+
+    "have synchronizeVettingOnUpload default to false" in {
+      config
+        .participants(name("participant1"))
+        .ledgerApi
+        .synchronizeVettingOnUpload shouldBe false // Takes the default
+      config
+        .participants(name("participant2"))
+        .ledgerApi
+        .synchronizeVettingOnUpload shouldBe true // Is explicitly set
     }
 
   }

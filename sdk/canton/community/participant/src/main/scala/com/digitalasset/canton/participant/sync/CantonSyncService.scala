@@ -164,6 +164,7 @@ class CantonSyncService(
     skipRecipientsCheck: Boolean,
     multiDomainLedgerAPIEnabled: Boolean,
     testingConfig: TestingConfigInternal,
+    synchronizeVettingOnUpload: Boolean,
 )(implicit ec: ExecutionContext, mat: Materializer, val tracer: Tracer)
     extends state.v2.WriteService
     with WriteParticipantPruningService
@@ -674,7 +675,7 @@ class CantonSyncService(
             fileNameO = None,
             submissionId = submissionId,
             vetAllPackages = true,
-            synchronizeVetting = false,
+            synchronizeVetting = synchronizeVettingOnUpload,
           )
           .map(_ => SubmissionResult.Acknowledged)
           .onShutdown(Left(PackageServiceErrors.ParticipantShuttingDown.Error()))
@@ -1690,6 +1691,7 @@ object CantonSyncService {
         skipRecipientsCheck: Boolean,
         multiDomainLedgerAPIEnabled: Boolean,
         testingConfig: TestingConfigInternal,
+        synchronizeVettingOnUpload: Boolean,
     )(implicit ec: ExecutionContext, mat: Materializer, tracer: Tracer): T
   }
 
@@ -1722,6 +1724,7 @@ object CantonSyncService {
         skipRecipientsCheck: Boolean,
         multiDomainLedgerAPIEnabled: Boolean,
         testingConfig: TestingConfigInternal,
+        synchronizeVettingOnUpload: Boolean,
     )(implicit
         ec: ExecutionContext,
         mat: Materializer,
@@ -1757,6 +1760,7 @@ object CantonSyncService {
         skipRecipientsCheck = skipRecipientsCheck,
         multiDomainLedgerAPIEnabled: Boolean,
         testingConfig,
+        synchronizeVettingOnUpload,
       )
   }
 }
