@@ -55,7 +55,7 @@ class UpgradesIT extends AsyncWordSpec with AbstractScriptTest with Inside with 
 
   // Maybe provide our own tracer that doesn't tag, it makes the logs very long
   "Multi-participant Daml Script Upgrades" should {
-    testCases.filter(_.name == "MultiParticipant").foreach { testCase =>
+    testCases.foreach { testCase =>
       (testCase.name + " on IDE Ledger") ignore {
         for {
           // Build dars
