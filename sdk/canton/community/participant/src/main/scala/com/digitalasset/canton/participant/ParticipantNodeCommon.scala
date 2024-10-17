@@ -473,6 +473,7 @@ trait ParticipantNodeBootstrapCommon[T <: ParticipantNodeCommon] {
         skipRecipientsCheck,
         multiDomainLedgerAPIEnabled = false,
         arguments.testingConfig,
+        synchronizeVettingOnUpload = config.ledgerApi.synchronizeVettingOnUpload,
       )
 
       _ = {

@@ -176,6 +176,7 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
       skipRecipientsCheck = false,
       multiDomainLedgerAPIEnabled = false,
       TestingConfigInternal(),
+      synchronizeVettingOnUpload = false,
     )
   }
 
