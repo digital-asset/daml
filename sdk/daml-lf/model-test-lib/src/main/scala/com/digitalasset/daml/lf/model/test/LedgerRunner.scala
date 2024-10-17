@@ -219,7 +219,7 @@ private class CantonLedgerRunner(
       .blockingGet()
     ledgerClientsForProjections(participantId).getTransactionsClient
       .getTransactionsTrees(
-        "",
+        0,
         ledgerEnd,
         javaapi.data.TransactionFilter.fromProto(
           proto.TransactionFilter

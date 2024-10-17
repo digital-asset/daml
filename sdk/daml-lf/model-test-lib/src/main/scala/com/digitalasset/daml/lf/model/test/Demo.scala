@@ -12,9 +12,10 @@ import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.Materializer
 import org.scalacheck.{Gen, Prop}
 
-import scala.annotation.nowarn
+//import scala.annotation.nowarn
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext}
+import scala.util.{Failure, Success, Try}
 
 object Demo {
 
@@ -86,7 +87,7 @@ object Demo {
 
     // val workers = ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(1))
 
-    @nowarn("cat=unused")
+    // @nowarn("cat=unused")
     val bad = Parser.parseScenario("""
         |Scenario
         |  Topology
@@ -94,21 +95,34 @@ object Demo {
         |  Ledger
         |    Commands participant=0 actAs={1} disclosures={}
         |      Create 0 sigs={1} obs={}
-        |    Commands participant=0 actAs={1} disclosures={}
+        |    Commands participant=0 actAs={1} disclosures={0}
         |      Exercise NonConsuming 0 ctl={1} cobs={}
-        |      Exercise NonConsuming 0 pkg=1 ctl={1} cobs={}
         |""".stripMargin)
 
-    validSymScenarios
-      // List(bad)
+    implicit val pretty: Ledgers.Scenario => org.scalacheck.util.Pretty =
+      (s: Ledgers.Scenario) => org.scalacheck.util.Pretty(_ => Pretty.prettyScenario(s))
+    // validSymScenarios
+    List(bad)
       .foreach(scenario => {
         // workers.execute(() =>
         if (scenario.ledger.nonEmpty) {
           println("\n==== ledger ====")
           println(Pretty.prettyScenario(scenario))
           assert(SymbolicSolver.valid(scenario, numPackages, numParties))
-          ideLedgerRunner.runAndProject(scenario) match {
-            case Left(error) =>
+          Try(ideLedgerRunner.runAndProject(scenario)) match {
+            case Failure(e) =>
+              println("INVALID LEDGER!")
+              println(Pretty.prettyScenario(scenario))
+              e.printStackTrace()
+              println(scenario)
+              println("shrinking")
+              Prop
+                .forAllShrink(Gen.const(scenario), Shrinkers.shrinkScenario.shrink)(s =>
+                  ideLedgerRunner.runAndProject(s).isRight
+                )
+                .check()
+              System.exit(1)
+            case Success(Left(error)) =>
               println("INVALID LEDGER!")
               println(Pretty.prettyScenario(scenario))
               println(error.pretty)
@@ -120,7 +134,7 @@ object Demo {
                 )
                 .check()
               System.exit(1)
-            case Right(ideProjections) =>
+            case Success(Right(ideProjections)) =>
               println("==== ide ledger ====")
               println("VALID!")
               //              ideProjections.foreach { case (partyId, projections) =>
