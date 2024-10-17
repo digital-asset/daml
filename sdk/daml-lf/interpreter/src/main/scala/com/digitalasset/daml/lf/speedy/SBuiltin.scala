@@ -1217,26 +1217,7 @@ private[lf] object SBuiltin {
       machine: UpdateMachine,
       coid: V.ContractId,
       interfaceId: TypeConName,
-  )(k: SAny => Control[Question.Update]): Control[Question.Update] = {
-    // Continuation called by two different branches of the expression below. Factorized out to avoid duplication.
-    def cacheContractAndReturnAny(
-        machine: UpdateMachine,
-        coid: V.ContractId,
-        dstTplId: Ref.ValueRef,
-        dstArg: SValue,
-    )(k: SAny => Control[Question.Update]): Control[Question.Update] = {
-      // ensure the contract and its metadata are cached
-      getContractInfo(
-        machine,
-        coid,
-        dstTplId,
-        dstArg,
-        allowCatchingContractInfoErrors = false,
-      ) { _ =>
-        k(SAny(Ast.TTyCon(dstTplId), dstArg))
-      }
-    }
-
+  )(k: SAny => Control[Question.Update]): Control[Question.Update] =
     fetchAny(machine, None, coid) { (maybePkgName, srcContract) =>
       maybePkgName match {
         case None =>
@@ -1258,31 +1239,43 @@ private[lf] object SBuiltin {
                       case Some(dstArg) =>
                         viewInterface(machine, interfaceId, dstTplId, dstArg) { dstView =>
                           executeExpression(machine, SEPreventCatch(srcView)) { srcViewValue =>
-                            // If the destination and src templates are the same, we skip the computation
-                            // of the destination template's view.
-                            if (dstTplId == srcTplId)
-                              cacheContractAndReturnAny(machine, coid, dstTplId, dstArg)(k)
-                            else
-                              executeExpression(machine, SEPreventCatch(dstView)) { dstViewValue =>
-                                if (srcViewValue != dstViewValue) {
-                                  Control.Error(
-                                    IE.Dev(
-                                      NameOf.qualifiedNameOfCurrentFunc,
-                                      IE.Dev.Upgrade(
-                                        IE.Dev.Upgrade.ViewMismatch(
-                                          coid,
-                                          interfaceId,
-                                          srcTplId,
-                                          dstTplId,
-                                          srcView = srcViewValue.toUnnormalizedValue,
-                                          dstView = dstViewValue.toUnnormalizedValue,
+                            getContractInfo(
+                              machine,
+                              coid,
+                              dstTplId,
+                              dstArg,
+                              allowCatchingContractInfoErrors = false,
+                            ) { contract =>
+                              // If the destination and src templates are the same, we skip the computation
+                              // of the destination template's view and the validation of the contract info.
+                              if (dstTplId == srcTplId)
+                                k(SAny(Ast.TTyCon(dstTplId), dstArg))
+                              else {
+                                validateContractInfo(machine, coid, dstTplId, contract) { () =>
+                                  executeExpression(machine, SEPreventCatch(dstView)) {
+                                    dstViewValue =>
+                                      if (srcViewValue != dstViewValue) {
+                                        Control.Error(
+                                          IE.Dev(
+                                            NameOf.qualifiedNameOfCurrentFunc,
+                                            IE.Dev.Upgrade(
+                                              IE.Dev.Upgrade.ViewMismatch(
+                                                coid,
+                                                interfaceId,
+                                                srcTplId,
+                                                dstTplId,
+                                                srcView = srcViewValue.toUnnormalizedValue,
+                                                dstView = dstViewValue.toUnnormalizedValue,
+                                              )
+                                            ),
+                                          )
                                         )
-                                      ),
-                                    )
-                                  )
-                                } else
-                                  cacheContractAndReturnAny(machine, coid, dstTplId, dstArg)(k)
+                                      } else
+                                        k(SAny(Ast.TTyCon(dstTplId), dstArg))
+                                  }
+                                }
                               }
+                            }
                           }
                         }
                     }
@@ -1293,7 +1286,6 @@ private[lf] object SBuiltin {
           }
       }
     }
-  }
 
   private[this] def resolvePackageName[Q](machine: UpdateMachine, pkgName: Ref.PackageName)(
       k: PackageId => Control[Q]
