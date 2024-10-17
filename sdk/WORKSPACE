@@ -623,6 +623,16 @@ switched_rules_by_language(
     java = True,
 )
 
+# WORKSPACE
+
+load("//bazel_tools:read_common_deps_json.bzl", "read_common_deps_json")
+
+read_common_deps_json(
+    name = "common_deps",
+    json_file = "//:all-common-dependencies.json",
+    output_file = "common_deps.bzl",
+)
+
 load("//:bazel-java-deps.bzl", "install_java_deps")
 
 install_java_deps()
