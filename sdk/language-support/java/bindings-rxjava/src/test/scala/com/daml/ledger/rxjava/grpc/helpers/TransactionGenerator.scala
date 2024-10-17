@@ -257,9 +257,10 @@ object TransactionGenerator {
     contractId <- nonEmptyId
     (scalaTemplateId, javaTemplateId) <- identifierGen
     parties <- Gen.listOf(nonEmptyId)
+    packageName <- Gen.option(nonEmptyId)
   } yield (
     Archived(ArchivedEvent(eventId, contractId, Some(scalaTemplateId), parties)),
-    new data.ArchivedEvent(parties.asJava, eventId, javaTemplateId, contractId),
+    new data.ArchivedEvent(parties.asJava, eventId, javaTemplateId, contractId, packageName.toJava),
   )
 
   val exercisedEventGen: Gen[(Exercised, data.ExercisedEvent)] = for {
