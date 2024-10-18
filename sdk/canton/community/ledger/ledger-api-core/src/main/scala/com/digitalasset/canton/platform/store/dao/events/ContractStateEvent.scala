@@ -21,7 +21,7 @@ object ContractStateEvent {
       eventOffset: Offset,
       signatories: Set[Party],
       keyMaintainers: Option[Set[Party]],
-      driverMetadata: Option[Array[Byte]],
+      driverMetadata: Array[Byte],
   ) extends ContractStateEvent
   final case class Archived(
       contractId: ContractId,

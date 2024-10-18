@@ -331,38 +331,36 @@ final class LfValueTranslation(
     def getFatContractInstance(
         createArgument: VersionedValue,
         createKey: Option[VersionedValue],
-    ): Option[Either[String, FatContractInstance]] =
-      Option(rawCreatedEvent.driverMetadata).filter(_.nonEmpty).map { driverMetadataBytes =>
-        for {
-          contractId <- ContractId.fromString(rawCreatedEvent.contractId)
-          signatories <- rawCreatedEvent.signatories.toList.traverse(Party.fromString).map(_.toSet)
-          observers <- rawCreatedEvent.observers.toList.traverse(Party.fromString).map(_.toSet)
-          maintainers <- rawCreatedEvent.createKeyMaintainers.toList
-            .traverse(Party.fromString)
-            .map(_.toSet)
-          globalKey <- createKey
-            .traverse(key =>
-              GlobalKey
-                .build(rawCreatedEvent.templateId, key.unversioned, rawCreatedEvent.packageName)
-                .left
-                .map(_.msg)
-            )
-        } yield FatContractInstance.fromCreateNode(
-          Node.Create(
-            coid = contractId,
-            templateId = rawCreatedEvent.templateId,
-            packageName = rawCreatedEvent.packageName,
-            packageVersion = rawCreatedEvent.packageVersion,
-            arg = createArgument.unversioned,
-            signatories = signatories,
-            stakeholders = signatories ++ observers,
-            keyOpt = globalKey.map(GlobalKeyWithMaintainers(_, maintainers)),
-            version = createArgument.version,
-          ),
-          createTime = rawCreatedEvent.ledgerEffectiveTime,
-          cantonData = Bytes.fromByteArray(driverMetadataBytes),
-        )
-      }
+    ): Either[String, FatContractInstance] =
+      for {
+        contractId <- ContractId.fromString(rawCreatedEvent.contractId)
+        signatories <- rawCreatedEvent.signatories.toList.traverse(Party.fromString).map(_.toSet)
+        observers <- rawCreatedEvent.observers.toList.traverse(Party.fromString).map(_.toSet)
+        maintainers <- rawCreatedEvent.createKeyMaintainers.toList
+          .traverse(Party.fromString)
+          .map(_.toSet)
+        globalKey <- createKey
+          .traverse(key =>
+            GlobalKey
+              .build(rawCreatedEvent.templateId, key.unversioned, rawCreatedEvent.packageName)
+              .left
+              .map(_.msg)
+          )
+      } yield FatContractInstance.fromCreateNode(
+        Node.Create(
+          coid = contractId,
+          templateId = rawCreatedEvent.templateId,
+          packageName = rawCreatedEvent.packageName,
+          packageVersion = rawCreatedEvent.packageVersion,
+          arg = createArgument.unversioned,
+          signatories = signatories,
+          stakeholders = signatories ++ observers,
+          keyOpt = globalKey.map(GlobalKeyWithMaintainers(_, maintainers)),
+          version = createArgument.version,
+        ),
+        createTime = rawCreatedEvent.ledgerEffectiveTime,
+        cantonData = Bytes.fromByteArray(rawCreatedEvent.driverMetadata),
+      )
 
     for {
       createKey <- Future(
@@ -417,7 +415,7 @@ final class LfValueTranslation(
       templateId: LfIdentifier,
       witnesses: Set[String],
       eventProjectionProperties: EventProjectionProperties,
-      fatContractInstance: => Option[Either[String, FatContractInstance]],
+      fatContractInstance: => Either[String, FatContractInstance],
   )(implicit
       ec: ExecutionContext,
       loggingContext: LoggingContextWithTrace,
@@ -443,20 +441,16 @@ final class LfValueTranslation(
     )
 
     def asyncCreatedEventBlob = condFuture(renderResult.createdEventBlob) {
-      fatContractInstance
-        .map { fatContractInstanceE =>
-          (for {
-            fatInstance <- fatContractInstanceE
-            encoded <- TransactionCoder
-              .encodeFatContractInstance(fatInstance)
-              .left
-              .map(_.errorMessage)
-          } yield encoded).fold(
-            err => Future.failed(new RuntimeException(s"Cannot serialize createdEventBlob: $err")),
-            Future.successful,
-          )
-        }
-        .getOrElse(Future.successful(ByteString.EMPTY))
+      (for {
+        fatInstance <- fatContractInstance
+        encoded <- TransactionCoder
+          .encodeFatContractInstance(fatInstance)
+          .left
+          .map(_.errorMessage)
+      } yield encoded).fold(
+        err => Future.failed(new RuntimeException(s"Cannot serialize createdEventBlob: $err")),
+        Future.successful,
+      )
     }
 
     for {

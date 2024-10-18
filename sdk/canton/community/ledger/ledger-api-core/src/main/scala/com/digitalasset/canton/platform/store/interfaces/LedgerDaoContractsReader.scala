@@ -52,7 +52,7 @@ object LedgerDaoContractsReader {
       signatories: Set[Party],
       globalKey: Option[GlobalKey],
       keyMaintainers: Option[Set[Party]],
-      driverMetadata: Option[Array[Byte]],
+      driverMetadata: Array[Byte],
   ) extends ContractState
 
   final case class ArchivedContract(stakeholders: Set[Party]) extends ContractState

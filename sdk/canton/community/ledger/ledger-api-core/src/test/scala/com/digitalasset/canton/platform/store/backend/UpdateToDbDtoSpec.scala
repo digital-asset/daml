@@ -302,7 +302,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         create_argument_compression = compressionAlgorithmId,
         create_key_value_compression = compressionAlgorithmId,
         event_sequential_id = 0,
-        driver_metadata = Some(someContractDriverMetadata.toByteArray),
+        driver_metadata = someContractDriverMetadata.toByteArray,
         domain_id = someDomainId1.toProtoPrimitive,
         trace_context = serializedEmptyTraceContext,
         record_time = someRecordTime.micros,
@@ -1046,7 +1046,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         create_argument_compression = compressionAlgorithmId,
         create_key_value_compression = None,
         event_sequential_id = 0,
-        driver_metadata = Some(someContractDriverMetadata.toByteArray),
+        driver_metadata = someContractDriverMetadata.toByteArray,
         domain_id = someDomainId1.toProtoPrimitive,
         trace_context = serializedEmptyTraceContext,
         record_time = someRecordTime.micros,
@@ -1265,85 +1265,10 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         create_argument_compression = compressionAlgorithmId,
         create_key_value_compression = None,
         event_sequential_id = 0,
-        driver_metadata = Some(someContractDriverMetadata.toByteArray),
+        driver_metadata = someContractDriverMetadata.toByteArray,
         domain_id = someDomainId1.toProtoPrimitive,
         trace_context = serializedEmptyTraceContext,
         record_time = someRecordTime.micros,
-      )
-      Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
-        DbDto.IdFilterCreateStakeholder(0L, createNode.templateId.toString, "signatory"),
-        DbDto.IdFilterCreateStakeholder(0L, createNode.templateId.toString, "observer"),
-      )
-      dtos.size shouldEqual 4
-    }
-
-    "handle TransactionAccepted (no contract metadata)" in {
-      // Transaction that is missing the contract metadata
-      // This can happen if the submitting participant is running an older version
-      // predating the introduction of the contract driver metadata
-      val transactionMeta = someTransactionMeta
-      val builder = TxBuilder()
-      val contractId = builder.newCid
-      val createNode = builder.create(
-        id = contractId,
-        templateId = "M:T",
-        argument = Value.ValueUnit,
-        signatories = List("signatory"),
-        observers = List("observer"),
-      )
-      val createNodeId = builder.add(createNode)
-      val transaction = builder.buildCommitted()
-      val update = state.Update.TransactionAccepted(
-        completionInfoO = None,
-        transactionMeta = transactionMeta,
-        transaction = transaction,
-        updateId = updateId,
-        recordTime = someRecordTime,
-        hostedWitnesses = Nil,
-        contractMetadata = Map.empty,
-        domainId = someDomainId1,
-        domainIndex = someDomainIndex,
-      )
-      val dtos = updateToDtos(update)
-
-      dtos.head shouldEqual DbDto.EventCreate(
-        event_offset = someOffset.toHexString,
-        update_id = updateId,
-        ledger_effective_time = transactionMeta.ledgerEffectiveTime.micros,
-        command_id = None,
-        workflow_id = transactionMeta.workflowId,
-        application_id = None,
-        submitters = None,
-        node_index = createNodeId.index,
-        event_id = EventId(updateId, createNodeId).toLedgerString,
-        contract_id = createNode.coid.coid,
-        template_id = createNode.templateId.toString,
-        package_name = createNode.packageName.toString,
-        package_version = createNode.packageVersion.map(_.toString()),
-        flat_event_witnesses = Set("signatory", "observer"),
-        tree_event_witnesses = Set("signatory", "observer"),
-        create_argument = emptyArray,
-        create_signatories = Set("signatory"),
-        create_observers = Set("observer"),
-        create_key_value = None,
-        create_key_maintainers = None,
-        create_key_hash = None,
-        create_argument_compression = compressionAlgorithmId,
-        create_key_value_compression = None,
-        event_sequential_id = 0,
-        driver_metadata = None,
-        domain_id = someDomainId1.toProtoPrimitive,
-        trace_context = serializedEmptyTraceContext,
-        record_time = someRecordTime.micros,
-      )
-      dtos(3) shouldEqual DbDto.TransactionMeta(
-        update_id = updateId,
-        event_offset = someOffset.toHexString,
-        publication_time = 0,
-        record_time = someRecordTime.micros,
-        domain_id = someDomainId1.toProtoPrimitive,
-        event_sequential_id_first = 0,
-        event_sequential_id_last = 0,
       )
       Set(dtos(1), dtos(2)) should contain theSameElementsAs Set(
         DbDto.IdFilterCreateStakeholder(0L, createNode.templateId.toString, "signatory"),
@@ -1480,7 +1405,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
             create_argument_compression = compressionAlgorithmId,
             create_key_value_compression = None,
             event_sequential_id = 0,
-            driver_metadata = Some(someContractDriverMetadata.toByteArray),
+            driver_metadata = someContractDriverMetadata.toByteArray,
             domain_id = someDomainId1.toProtoPrimitive,
             trace_context = serializedEmptyTraceContext,
             record_time = someRecordTime.micros,

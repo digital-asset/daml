@@ -46,7 +46,7 @@ object ContractStateValue {
       signatories: Set[Party],
       globalKey: Option[GlobalKey],
       keyMaintainers: Option[Set[Party]],
-      driverMetadata: Option[Array[Byte]],
+      driverMetadata: Array[Byte],
   ) extends ExistingContractValue
 
   final case class Archived(stakeholders: Set[Party]) extends ExistingContractValue

@@ -22,6 +22,7 @@ import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.participant.admin.grpc.PruningServiceError
 import com.digitalasset.canton.participant.domain.DomainRegistryError
 import com.digitalasset.canton.participant.store.DomainConnectionConfigStore
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.{DomainAlias, LedgerSubmissionId}
 import com.google.rpc.status.Status
@@ -182,8 +183,8 @@ object SyncServiceError extends SyncServiceErrorGroup {
   }
 
   final case class SyncServiceMigrationError(
-      from: DomainAlias,
-      to: DomainAlias,
+      from: Source[DomainAlias],
+      to: Target[DomainAlias],
       parent: SyncDomainMigrationError,
   )(implicit
       val loggingContext: ErrorLoggingContext
@@ -192,7 +193,8 @@ object SyncServiceError extends SyncServiceErrorGroup {
 
     override def logOnCreation: Boolean = false
 
-    override def mixinContext: Map[String, String] = Map("from" -> from.unwrap, "to" -> to.unwrap)
+    override def mixinContext: Map[String, String] =
+      Map("from" -> from.unwrap.unwrap, "to" -> to.unwrap.unwrap)
 
   }
 

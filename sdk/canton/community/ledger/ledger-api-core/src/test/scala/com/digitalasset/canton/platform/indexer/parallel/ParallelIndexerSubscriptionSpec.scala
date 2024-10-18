@@ -105,7 +105,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
     create_argument_compression = None,
     create_key_value_compression = None,
     event_sequential_id = 0,
-    driver_metadata = None,
+    driver_metadata = Array.empty,
     domain_id = "x::sourcedomain",
     trace_context = serializableTraceContext,
     record_time = 0,

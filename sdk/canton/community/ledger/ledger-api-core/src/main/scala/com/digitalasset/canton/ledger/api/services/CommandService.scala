@@ -6,22 +6,17 @@ package com.digitalasset.canton.ledger.api.services
 import com.daml.ledger.api.v2.command_service.{
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse,
-  SubmitAndWaitForUpdateIdResponse,
   SubmitAndWaitRequest,
+  SubmitAndWaitResponse,
 }
 import com.digitalasset.canton.logging.LoggingContextWithTrace
-import com.google.protobuf.empty.Empty
 
 import scala.concurrent.Future
 
 trait CommandService {
   def submitAndWait(request: SubmitAndWaitRequest)(
       loggingContext: LoggingContextWithTrace
-  ): Future[Empty]
-
-  def submitAndWaitForUpdateId(
-      request: SubmitAndWaitRequest
-  )(loggingContext: LoggingContextWithTrace): Future[SubmitAndWaitForUpdateIdResponse]
+  ): Future[SubmitAndWaitResponse]
 
   def submitAndWaitForTransaction(
       request: SubmitAndWaitRequest

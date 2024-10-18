@@ -27,6 +27,21 @@ object DomainSequencingTestUtils {
     DeliverStoreEvent(sender, messageId, recipients, payloadId, signingTs, traceContext)
   }
 
+  def deliverStoreEventWithPayloadWithDefaults(
+      sender: SequencerMemberId = SequencerMemberId(0),
+      payload: Payload = Payload(
+        PayloadId(CantonTimestamp.Epoch),
+        Batch.empty(BaseTest.testedProtocolVersion).toByteString,
+      ),
+      signingTs: Option[CantonTimestamp] = None,
+      traceContext: TraceContext = TraceContext.empty,
+  )(
+      recipients: NonEmpty[SortedSet[SequencerMemberId]] = NonEmpty(SortedSet, sender)
+  ): DeliverStoreEvent[Payload] = {
+    val messageId = MessageId.tryCreate("mock-deliver")
+    DeliverStoreEvent(sender, messageId, recipients, payload, signingTs, traceContext)
+  }
+
   def payloadsForEvents(events: Seq[Sequenced[PayloadId]]): List[Payload] = {
     val payloadIds = events.mapFilter(_.event.payloadO)
     payloadIds

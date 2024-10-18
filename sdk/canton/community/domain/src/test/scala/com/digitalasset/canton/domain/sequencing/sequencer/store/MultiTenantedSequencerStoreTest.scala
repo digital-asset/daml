@@ -55,8 +55,8 @@ trait MultiTenantedSequencerStoreTest extends FlagCloseable with HasCloseContext
     }
 
     def assertTimestamps(events: ReadEvents)(epochSeconds: Int*): Assertion = {
-      events.payloads.length shouldBe epochSeconds.length
-      events.payloads.map(_.timestamp) should contain theSameElementsInOrderAs epochSeconds.map(ts)
+      events.events.length shouldBe epochSeconds.length
+      events.events.map(_.timestamp) should contain theSameElementsInOrderAs epochSeconds.map(ts)
     }
 
     "checking sequencer liveness" should {
@@ -98,12 +98,12 @@ trait MultiTenantedSequencerStoreTest extends FlagCloseable with HasCloseContext
           _ <- sequencer2.saveWatermark(ts(6)).valueOrFail("saveWatermark2")
           aliceEvents <- store.readEvents(
             aliceId,
-            fromTimestampO = ts(2).some,
+            fromExclusiveO = ts(2).some,
             10,
           )
           bobEvents <- store.readEvents(
             bobId,
-            fromTimestampO = ts(2).some,
+            fromExclusiveO = ts(2).some,
             10,
           )
         } yield {
@@ -128,7 +128,7 @@ trait MultiTenantedSequencerStoreTest extends FlagCloseable with HasCloseContext
           _ <- sequencer3.saveWatermark(ts(6)).valueOrFail("saveWatermark3")
           eventsBefore <- store.readEvents(
             aliceId,
-            fromTimestampO = ts(0).some,
+            fromExclusiveO = ts(0).some,
             10,
           )
           // so despite a bunch of later events because s1 is last has a watermark at ts(3) we won't see any later events
@@ -136,7 +136,7 @@ trait MultiTenantedSequencerStoreTest extends FlagCloseable with HasCloseContext
           // mark s1 as offline
           _ <- store.markLaggingSequencersOffline(ts(3))
           eventsAfter <- store
-            .readEvents(aliceId, fromTimestampO = ts(0).some, 10)
+            .readEvents(aliceId, fromExclusiveO = ts(0).some, 10)
         } yield {
           // should now read all events up until the min online sequencer which is ts(6)
           // however it should now include events from sequencers after they went offline (ts(4))
@@ -166,13 +166,13 @@ trait MultiTenantedSequencerStoreTest extends FlagCloseable with HasCloseContext
           _ <- sequencer3.saveWatermark(ts(4)).valueOrFail("saveWatermark3")
           // mark s1 as offline
           _ <- sequencer1.goOffline()
-          events1 <- store.readEvents(aliceId, fromTimestampO = ts(0).some, 10)
+          events1 <- store.readEvents(aliceId, fromExclusiveO = ts(0).some, 10)
           _ = assertTimestamps(events1)(1, 2, 3)
           // when s2&s3 progress past the online watermark of s1 we should see event at ts(7) that s1 wrote
           // but not ts(8) as that was not included by their watermark and will later removed upon recovery
           _ <- sequencer2.saveWatermark(ts(9)).valueOrFail("saveWatermark4")
           _ <- sequencer3.saveWatermark(ts(9)).valueOrFail("saveWatermark5")
-          events2 <- store.readEvents(aliceId, fromTimestampO = ts(0).some, 10)
+          events2 <- store.readEvents(aliceId, fromExclusiveO = ts(0).some, 10)
         } yield {
           assertTimestamps(events2)(1, 2, 3, 5, 6, 7, 9)
         }
@@ -195,7 +195,7 @@ trait MultiTenantedSequencerStoreTest extends FlagCloseable with HasCloseContext
           _ <- sequencer3.saveWatermark(ts(3)).valueOrFail("saveWatermark3")
           // mark all sequencers as offline
           _ <- store.markLaggingSequencersOffline(ts(3))
-          readEvents <- store.readEvents(aliceId, fromTimestampO = ts(0).some, 10)
+          readEvents <- store.readEvents(aliceId, fromExclusiveO = ts(0).some, 10)
         } yield {
           assertTimestamps(readEvents)(1, 2, 3)
         }

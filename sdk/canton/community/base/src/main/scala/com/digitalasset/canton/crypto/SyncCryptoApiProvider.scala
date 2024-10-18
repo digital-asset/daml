@@ -42,6 +42,7 @@ import com.digitalasset.canton.topology.client.{
   TopologyClientApi,
   TopologySnapshot,
 }
+import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
 import com.digitalasset.canton.tracing.{TraceContext, TracedScaffeine}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.LoggerUtil
@@ -447,6 +448,11 @@ class DomainSyncCryptoClient(
   override def approximateTimestamp: CantonTimestamp = ips.approximateTimestamp
 
   override def onClosed(): Unit = Lifecycle.close(ips)(logger)
+
+  override def awaitMaxTimestampUS(sequencedTime: CantonTimestamp)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]] =
+    ips.awaitMaxTimestampUS(sequencedTime)
 }
 
 /** crypto operations for a (domain,timestamp) */

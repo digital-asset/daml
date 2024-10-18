@@ -371,10 +371,12 @@ object UpdateToDbDto {
         create_key_value_compression =
           compressionStrategy.createKeyValueCompression.id.filter(_ => createKeyValue.isDefined),
         event_sequential_id = 0, // this is filled later
-        driver_metadata =
-          // Allow None as the original participant might be running
-          // with a version predating the introduction of contract driver metadata
-          transactionAccepted.contractMetadata.get(create.coid).map(_.toByteArray),
+        driver_metadata = transactionAccepted.contractMetadata
+          .get(create.coid)
+          .map(_.toByteArray)
+          .getOrElse(
+            throw new IllegalStateException(s"missing driver metadata for contract ${create.coid}")
+          ),
         domain_id = transactionAccepted.domainId.toProtoPrimitive,
         trace_context = serializedTraceContext,
         record_time = transactionAccepted.recordTime.micros,

@@ -791,6 +791,9 @@ create table seq_traffic_control_consumed_journal (
        primary key (member, sequencing_timestamp)
 );
 
+-- This index helps joining traffic receipts without a member reference
+create index on seq_traffic_control_consumed_journal(sequencing_timestamp);
+
 --   BFT Ordering Tables
 
 -- Stores metadata for epochs

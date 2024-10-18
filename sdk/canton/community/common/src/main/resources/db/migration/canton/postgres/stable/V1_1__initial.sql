@@ -803,6 +803,9 @@ create table seq_traffic_control_consumed_journal (
        primary key (member, sequencing_timestamp)
 );
 
+-- This index helps joining traffic receipts without a member reference
+create index on seq_traffic_control_consumed_journal(sequencing_timestamp);
+
 --   BFT Ordering Tables
 
 -- Stores metadata for epochs
@@ -896,3 +899,74 @@ create table ord_p2p_endpoints (
   port smallint not null,
   primary key (host, port)
 );
+
+-- Auto-vacuum settings for large sequencer tables: these are defaults set based on testing of CN CILR test deployment
+alter table sequencer_counter_checkpoints
+    set (
+        autovacuum_vacuum_scale_factor = 0.0,
+        autovacuum_vacuum_threshold = 10000,
+        autovacuum_vacuum_cost_limit = 2000,
+        autovacuum_vacuum_cost_delay = 5,
+        autovacuum_vacuum_insert_scale_factor = 0.0,
+        autovacuum_vacuum_insert_threshold = 100000
+        );
+
+alter table sequencer_events
+    set (
+        autovacuum_vacuum_scale_factor = 0.0,
+        autovacuum_vacuum_threshold = 10000,
+        autovacuum_vacuum_cost_limit = 2000,
+        autovacuum_vacuum_cost_delay = 5,
+        autovacuum_vacuum_insert_scale_factor = 0.0,
+        autovacuum_vacuum_insert_threshold = 100000
+        );
+
+alter table sequencer_payloads
+    set (
+        autovacuum_vacuum_scale_factor = 0.0,
+        autovacuum_vacuum_threshold = 10000,
+        autovacuum_vacuum_cost_limit = 2000,
+        autovacuum_vacuum_cost_delay = 5,
+        autovacuum_vacuum_insert_scale_factor = 0.0,
+        autovacuum_vacuum_insert_threshold = 100000
+        );
+
+alter table seq_block_height
+    set (
+        autovacuum_vacuum_scale_factor = 0.0,
+        autovacuum_vacuum_threshold = 10000,
+        autovacuum_vacuum_cost_limit = 2000,
+        autovacuum_vacuum_cost_delay = 5,
+        autovacuum_vacuum_insert_scale_factor = 0.0,
+        autovacuum_vacuum_insert_threshold = 100000
+        );
+
+alter table seq_traffic_control_consumed_journal
+    set (
+        autovacuum_vacuum_scale_factor = 0.0,
+        autovacuum_vacuum_threshold = 10000,
+        autovacuum_vacuum_cost_limit = 2000,
+        autovacuum_vacuum_cost_delay = 5,
+        autovacuum_vacuum_insert_scale_factor = 0.0,
+        autovacuum_vacuum_insert_threshold = 100000
+        );
+
+alter table seq_in_flight_aggregated_sender
+    set (
+        autovacuum_vacuum_scale_factor = 0.0,
+        autovacuum_vacuum_threshold = 10000,
+        autovacuum_vacuum_cost_limit = 2000,
+        autovacuum_vacuum_cost_delay = 5,
+        autovacuum_vacuum_insert_scale_factor = 0.0,
+        autovacuum_vacuum_insert_threshold = 100000
+        );
+
+alter table seq_in_flight_aggregation
+    set (
+        autovacuum_vacuum_scale_factor = 0.0,
+        autovacuum_vacuum_threshold = 10000,
+        autovacuum_vacuum_cost_limit = 2000,
+        autovacuum_vacuum_cost_delay = 5,
+        autovacuum_vacuum_insert_scale_factor = 0.0,
+        autovacuum_vacuum_insert_threshold = 100000
+        );

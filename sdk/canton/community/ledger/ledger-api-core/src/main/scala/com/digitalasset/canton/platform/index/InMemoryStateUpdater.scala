@@ -352,7 +352,7 @@ private[platform] object InMemoryStateUpdater {
         eventOffset = createdEvent.eventOffset,
         signatories = createdEvent.createSignatories,
         keyMaintainers = createdEvent.createKeyMaintainers,
-        driverMetadata = createdEvent.driverMetadata.map(_.toByteArray),
+        driverMetadata = createdEvent.driverMetadata.toByteArray,
       )
     case exercisedEvent: TransactionLogUpdate.ExercisedEvent if exercisedEvent.consuming =>
       ContractStateEvent.Archived(
@@ -418,7 +418,13 @@ private[platform] object InMemoryStateUpdater {
           createKeyHash = create.keyOpt.map(_.globalKey.hash),
           createKey = create.keyOpt.map(_.globalKey),
           createKeyMaintainers = create.keyOpt.map(_.maintainers),
-          driverMetadata = txAccepted.contractMetadata.get(create.coid),
+          driverMetadata = txAccepted.contractMetadata
+            .get(create.coid)
+            .getOrElse(
+              throw new IllegalStateException(
+                s"missing driver metadata for contract ${create.coid}"
+              )
+            ),
         )
       case (nodeId, exercise: Exercise) =>
         TransactionLogUpdate.ExercisedEvent(
@@ -584,7 +590,7 @@ private[platform] object InMemoryStateUpdater {
               createKeyHash = create.keyOpt.map(_.globalKey.hash),
               createKey = create.keyOpt.map(_.globalKey),
               createKeyMaintainers = create.keyOpt.map(_.maintainers),
-              driverMetadata = Some(assign.contractMetadata),
+              driverMetadata = assign.contractMetadata,
             )
           )
         case unassign: Reassignment.Unassign =>

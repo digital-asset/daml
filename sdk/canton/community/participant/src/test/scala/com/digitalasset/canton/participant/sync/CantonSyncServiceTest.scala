@@ -154,7 +154,8 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
       commandProgressTracker,
       syncDomainStateFactory,
       clock,
-      new ResourceManagementService.CommunityResourceManagementService(
+      new ResourceManagementService(
+        Eval.now(participantSettingsStore),
         None,
         ParticipantTestMetrics,
       ),

@@ -402,6 +402,11 @@ class TestingIdentityFactory(
         override def snapshotUS(timestamp: CantonTimestamp)(implicit
             traceContext: TraceContext
         ): FutureUnlessShutdown[TopologySnapshot] = awaitSnapshotUS(timestamp)
+
+        override def awaitMaxTimestampUS(sequencedTime: CantonTimestamp)(implicit
+            traceContext: TraceContext
+        ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]] =
+          FutureUnlessShutdown.pure(None)
       })
     )
     ips

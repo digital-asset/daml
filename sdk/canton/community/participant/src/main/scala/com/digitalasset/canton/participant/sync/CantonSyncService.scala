@@ -92,7 +92,7 @@ import com.digitalasset.canton.tracing.{Spanning, TraceContext, Traced}
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.FutureInstances.parallelFuture
 import com.digitalasset.canton.util.OptionUtils.OptionExtension
-import com.digitalasset.canton.util.ReassignmentTag.Target
+import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.archive.DamlLf
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party, SubmissionId}
@@ -798,8 +798,8 @@ class CantonSyncService(
     *  Using the force flag should be a last resort, that is for disaster recovery when the source domain is unrecoverable.
     */
   def migrateDomain(
-      source: DomainAlias,
-      target: DomainConnectionConfig,
+      source: Source[DomainAlias],
+      target: Target[DomainConnectionConfig],
       force: Boolean,
   )(implicit
       traceContext: TraceContext
@@ -822,14 +822,14 @@ class CantonSyncService(
       _ <-
         connectQueue.executeEUS(
           migrationService
-            .migrateDomain(source, target, targetDomainInfo.domainId)
+            .migrateDomain(source, target, targetDomainInfo.map(_.domainId))
             .leftMap[SyncServiceError](
-              SyncServiceError.SyncServiceMigrationError(source, target.domain, _)
+              SyncServiceError.SyncServiceMigrationError(source, target.map(_.domain), _)
             ),
           "migrate domain",
         )
 
-      _ <- purgeDeactivatedDomain(source)
+      _ <- purgeDeactivatedDomain(source.unwrap)
     } yield ()
   }
 
@@ -1556,6 +1556,7 @@ class CantonSyncService(
     for {
       _ <- FutureUnlessShutdown.outcomeF(domainConnectionConfigStore.refreshCache())
       _ <- resourceManagementService.refreshCache()
+      _ = packageService.value.packageDependencyResolver.clearPackagesNotPreviouslyFound()
     } yield ()
 
   override def onClosed(): Unit = {

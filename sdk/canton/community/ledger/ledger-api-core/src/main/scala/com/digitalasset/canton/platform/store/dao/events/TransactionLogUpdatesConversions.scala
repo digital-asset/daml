@@ -517,30 +517,26 @@ private[events] object TransactionLogUpdatesConversions {
       executionContext: ExecutionContext,
   ): Future[apiEvent.CreatedEvent] = {
 
-    def getFatContractInstance: Option[Right[Nothing, FatContractInstance]] =
-      createdEvent.driverMetadata
-        .filter(_.nonEmpty)
-        .map(driverMetadataBytes =>
-          Right(
-            FatContractInstance.fromCreateNode(
-              Node.Create(
-                coid = createdEvent.contractId,
-                templateId = createdEvent.templateId,
-                packageName = createdEvent.packageName,
-                packageVersion = createdEvent.packageVersion,
-                arg = createdEvent.createArgument.unversioned,
-                signatories = createdEvent.createSignatories,
-                stakeholders = createdEvent.createSignatories ++ createdEvent.createObservers,
-                keyOpt = createdEvent.createKey.flatMap(k =>
-                  createdEvent.createKeyMaintainers.map(GlobalKeyWithMaintainers(k, _))
-                ),
-                version = createdEvent.createArgument.version,
-              ),
-              createTime = createdEvent.ledgerEffectiveTime,
-              cantonData = driverMetadataBytes,
-            )
-          )
+    def getFatContractInstance: Right[Nothing, FatContractInstance] =
+      Right(
+        FatContractInstance.fromCreateNode(
+          Node.Create(
+            coid = createdEvent.contractId,
+            templateId = createdEvent.templateId,
+            packageName = createdEvent.packageName,
+            packageVersion = createdEvent.packageVersion,
+            arg = createdEvent.createArgument.unversioned,
+            signatories = createdEvent.createSignatories,
+            stakeholders = createdEvent.createSignatories ++ createdEvent.createObservers,
+            keyOpt = createdEvent.createKey.flatMap(k =>
+              createdEvent.createKeyMaintainers.map(GlobalKeyWithMaintainers(k, _))
+            ),
+            version = createdEvent.createArgument.version,
+          ),
+          createTime = createdEvent.ledgerEffectiveTime,
+          cantonData = createdEvent.driverMetadata,
         )
+      )
 
     val createdEventWitnesses = createdWitnesses(createdEvent)
     val witnesses = requestingPartiesO
