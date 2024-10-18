@@ -1166,7 +1166,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
 
       s"exceptions thrown by ${test.templateName} cannot be caught when exercising a choice by interface" in {
         val alice = Ref.Party.assertFromString("Alice")
-        val cid = Value.ContractId.V1(Hash.hashPrivateKey("abc"))
+        val cid = Value.ContractId.V1(crypto.Hash.hashPrivateKey("abc"))
 
         inside {
           runUpdateApp(
@@ -1180,7 +1180,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
               cid -> Versioned(
                 version = TransactionVersion.StableVersions.max,
                 Value.ContractInstance(
-                  packageName = metadataTestsPkg.metadata.map(_.name),
+                  packageName = metadataTestsPkg.pkgName,
                   template = t"Mod:${test.templateName}" (templateDefsV1ParserParams)
                     .asInstanceOf[Ast.TTyCon]
                     .tycon,
