@@ -552,7 +552,7 @@ trait ParticipantNodeBootstrapCommon {
       adminServerRegistry
         .addServiceU(
           InspectionServiceGrpc.bindService(
-            new GrpcInspectionService(sync.stateInspection),
+            new GrpcInspectionService(sync.stateInspection, sync.aliasManager),
             executionContext,
           )
         )

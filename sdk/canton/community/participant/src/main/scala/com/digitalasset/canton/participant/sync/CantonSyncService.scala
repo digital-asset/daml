@@ -1506,6 +1506,7 @@ class CantonSyncService(
     for {
       _ <- FutureUnlessShutdown.outcomeF(domainConnectionConfigStore.refreshCache())
       _ <- resourceManagementService.refreshCache()
+      _ = packageService.dependencyResolver.clearPackagesNotPreviouslyFound()
       _ = participantNodePersistentState.value.multiDomainEventLog.setOnPublish(
         inFlightSubmissionTracker.onPublishListener
       )

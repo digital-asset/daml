@@ -14,7 +14,12 @@ import com.digitalasset.canton.ProtoDeserializationError.{
   StringConversionError,
   TimestampConversionError,
 }
-import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt, PositiveLong}
+import com.digitalasset.canton.config.RequireTypes.{
+  NonNegativeInt,
+  NonNegativeLong,
+  PositiveInt,
+  PositiveLong,
+}
 import com.digitalasset.canton.protocol.{LfContractId, LfTemplateId}
 import com.digitalasset.canton.util.OptionUtil
 import com.digitalasset.canton.{
@@ -106,6 +111,12 @@ object ProtoConverter {
 
   def parsePositiveInt(i: Int): ParsingResult[PositiveInt] =
     PositiveInt.create(i).leftMap(ProtoDeserializationError.InvariantViolation(_))
+
+  def parseNonNegativeInt(i: Int): ParsingResult[NonNegativeInt] =
+    NonNegativeInt.create(i).leftMap(ProtoDeserializationError.InvariantViolation(_))
+
+  def parseNonNegativeInt(i: Int, field: String): ParsingResult[NonNegativeInt] =
+    NonNegativeInt.create(i).leftMap(ProtoDeserializationError.InvariantViolation(_).inField(field))
 
   def parsePositiveLong(l: Long): ParsingResult[PositiveLong] =
     PositiveLong.create(l).leftMap(ProtoDeserializationError.InvariantViolation(_))
