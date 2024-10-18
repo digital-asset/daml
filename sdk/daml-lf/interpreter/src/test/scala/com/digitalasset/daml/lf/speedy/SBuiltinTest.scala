@@ -31,7 +31,6 @@ import scala.language.implicitConversions
 import scala.util.{Failure, Try}
 
 class SBuiltinTestV1 extends SBuiltinTest(LanguageMajorVersion.V1)
-//class SBuiltinTestV2 extends SBuiltinTest(LanguageMajorVersion.V2)
 
 class SBuiltinTest(majorLanguageVersion: LanguageMajorVersion)
     extends AnyFreeSpec

@@ -27,7 +27,6 @@ import org.scalatest.prop.TableDrivenPropertyChecks
 import java.util
 
 class UpgradeTestV1 extends UpgradeTest(LanguageMajorVersion.V1)
-//class UpgradeTestV2 extends UpgradeTest(LanguageMajorVersion.V2)
 
 class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     extends AnyFreeSpec
