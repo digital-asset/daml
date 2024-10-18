@@ -295,12 +295,20 @@ Remember that these steps are for testing the SDK within a Daml release.
 
 ### Wrap up
 
-1. If the release is bad, ask Gary to delete the release from the [releases
+1. If the release is bad, ask #team-daml to delete the release from the [releases
    page]. Mention why it is bad as a comment on your PR, and **stop the process
    here**.
 
    Note that **the Standard-Change label must remain on the PR**, even if the
    release has failed.
+
+1. if testing fails, do not report this on #product-releases, instead please report this in #team-daml-language.
+
+1. for 2.10 and 3.x releases, please annouce that tests were successful on #product-releases.
+
+1. for 3.x releases, that pass testing, please ensure that artifacts are successfully published on artifactory and github.
+
+1. for 2.10 rleases, that pass testing, please ensure that *key* stakeholders are pinged in the slack message that announces successful testing (that way they may inform selected end users of the snapshots availability).
 
 1. Announce the release on `#product-releases` on Slack. For a stable release,
    direct people to the release blog post. If there were any errors during testing,
