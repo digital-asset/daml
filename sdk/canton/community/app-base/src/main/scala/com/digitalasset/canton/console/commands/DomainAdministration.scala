@@ -76,7 +76,7 @@ trait DomainAdministration {
     @Help.Summary("List participant states")
     @Help.Description(
       """This command will list the currently valid state as stored in the authorized store.
-        | For a deep inspection of the identity management history, use the `topology.participant_domain_states.list` command."""
+        |For a deep inspection of the identity management history, use the `topology.participant_domain_states.list` command."""
     )
     def list(): Seq[ListParticipantDomainStateResult] = {
       consoleEnvironment
@@ -101,9 +101,9 @@ trait DomainAdministration {
 
     @Help.Summary("Change state and trust level of participant")
     @Help.Description("""Set the state of the participant within the domain.
-    Valid permissions are 'Submission', 'Confirmation', 'Observation' and 'Disabled'.
-    Valid trust levels are 'Vip' and 'Ordinary'.
-    Synchronize timeout can be used to ensure that the state has been propagated into the node
+         |Valid permissions are 'Submission', 'Confirmation', 'Observation' and 'Disabled'.
+         |Valid trust levels are 'Vip' and 'Ordinary'.
+         |Synchronize timeout can be used to ensure that the state has been propagated into the node
     """)
     def set_state(
         participant: ParticipantId,
@@ -224,7 +224,7 @@ trait DomainAdministration {
 
     @Help.Summary("Get the reconciliation interval configured for the domain")
     @Help.Description("""Depending on the protocol version used on the domain, the value will be
-        read either from the static domain parameters or the dynamic ones.""")
+        |read either from the static domain parameters or the dynamic ones.""")
     def get_reconciliation_interval: PositiveDurationSeconds =
       getParameterStaticV0DynamicV1(
         "reconciliation interval",
@@ -235,7 +235,7 @@ trait DomainAdministration {
 
     @Help.Summary("Get the max rate per participant")
     @Help.Description("""Depending on the protocol version used on the domain, the value will be
-        read either from the static domain parameters or the dynamic ones.""")
+        |read either from the static domain parameters or the dynamic ones.""")
     def get_max_rate_per_participant: NonNegativeInt =
       getParameterStaticV0DynamicV1(
         "max rate per participant",
@@ -246,9 +246,9 @@ trait DomainAdministration {
 
     @Help.Summary("Get the max request size")
     @Help.Description("""Depending on the protocol version used on the domain, the value will be
-        read either from the static domain parameters or the dynamic ones.
-        This value is not necessarily the one used by the sequencer node because it requires a restart
-        of the server to be taken into account.""")
+        |read either from the static domain parameters or the dynamic ones.
+        |This value is not necessarily the one used by the sequencer node because it requires a restart
+        |of the server to be taken into account.""")
     def get_max_request_size: NonNegativeInt =
       TraceContext.withNewTraceContext { implicit tc =>
         getParameterStaticV0DynamicV1(
@@ -338,8 +338,8 @@ trait DomainAdministration {
 
     @Help.Summary("Try to update the reconciliation interval for the domain")
     @Help.Description("""If the reconciliation interval is dynamic, update the value.
-        If the reconciliation interval is not dynamic (i.e., if the domain is running
-        on protocol version lower than `4`), then it will throw an error.
+        |If the reconciliation interval is not dynamic (i.e., if the domain is running
+        |on protocol version lower than `4`), then it will throw an error.
         """)
     @Help.AvailableFrom(ProtocolVersion.v4)
     def set_reconciliation_interval(
@@ -353,8 +353,8 @@ trait DomainAdministration {
 
     @Help.Summary("Try to update the max rate per participant for the domain")
     @Help.Description("""If the max rate per participant is dynamic, update the value.
-        If the max rate per participant is not dynamic (i.e., if the domain is running
-        on protocol version lower than `4`),  then it will throw an error.
+        |If the max rate per participant is not dynamic (i.e., if the domain is running
+        |on protocol version lower than `4`),  then it will throw an error.
         """)
     @Help.AvailableFrom(ProtocolVersion.v4)
     def set_max_rate_per_participant(
@@ -366,11 +366,11 @@ trait DomainAdministration {
         "update max rate per participant",
       )
 
-    @Help.Summary("Try to update the max rate per participant for the domain")
+    @Help.Summary("Try to update the max request size for the domain")
     @Help.Description("""If the max request size is dynamic, update the value.
-                         The update won't have any effect unless the sequencer server is restarted.
-    If the max request size is not dynamic (i.e., if the domain is running
-    on protocol version lower than `4`), then it will throw an error.
+        |The update won't have any effect unless the sequencer server is restarted.
+        |If the max request size is not dynamic (i.e., if the domain is running
+        |on protocol version lower than `4`), then it will throw an error.
     """)
     @Help.AvailableFrom(ProtocolVersion.v4)
     @deprecated("Use set_max_request_size instead", "2.5.0")
@@ -379,11 +379,11 @@ trait DomainAdministration {
         force: Boolean = false,
     ): Unit = set_max_request_size(maxRequestSize, force)
 
-    @Help.Summary("Try to update the max rate per participant for the domain")
+    @Help.Summary("Try to update the max request size for the domain")
     @Help.Description("""If the max request size is dynamic, update the value.
-                         The update won't have any effect unless the sequencer server is restarted.
-    If the max request size is not dynamic (i.e., if the domain is running
-    on protocol version lower than `4`), then it will throw an error.
+        |The update won't have any effect unless the sequencer server is restarted.
+        |If the max request size is not dynamic (i.e., if the domain is running
+        |on protocol version lower than `4`), then it will throw an error.
     """)
     @Help.AvailableFrom(ProtocolVersion.v4)
     def set_max_request_size(
@@ -410,7 +410,7 @@ trait DomainAdministration {
     @Help.Summary("Update the ACS commitments catch up config for the domain")
     @Help.Description(
       """The method will fail if the domain does not support the ``catchUpConfig`` parameter
-                     (i.e., if the domain is running on protocol version lower than `6`)"""
+        |(i.e., if the domain is running on protocol version lower than `6`)"""
     )
     @Help.AvailableFrom(ProtocolVersion.v6)
     def set_commitments_catch_up_config(

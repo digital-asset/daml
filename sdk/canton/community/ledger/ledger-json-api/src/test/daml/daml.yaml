@@ -1,9 +1,9 @@
-sdk-version: 2.9.4-snapshot.20240814.12888.0.vb3283a3f
+sdk-version: 2.9.5-snapshot.20240923.12896.0.va7af1e18
 build-options: 
 - --target=1.14
 name: JsonEncodingTest
 source: JsonEncodingTest.daml
-version: 2.9.4
+version: 2.9.5
 dependencies: 
 - daml-prim
 - daml-stdlib
