@@ -322,7 +322,7 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
     }
 
   it should "fail to start non-existent trigger" in withTriggerService(List(dar)) { uri: Uri =>
-    val expectedError = StatusCodes.UnprocessableEntity
+    val expectedError = StatusCodes.UnprocessableContent
     for {
       client <- defaultLedgerClient()
       party <- allocateParty(client)
@@ -344,7 +344,7 @@ trait AbstractTriggerServiceTest extends AbstractTriggerServiceTestHelper {
   }
 
   it should "fail to start wrongly typed trigger" in withTriggerService(List(dar)) { uri: Uri =>
-    val expectedError = StatusCodes.UnprocessableEntity
+    val expectedError = StatusCodes.UnprocessableContent
     for {
       client <- defaultLedgerClient()
       party <- allocateParty(client)
