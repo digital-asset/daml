@@ -43,11 +43,11 @@ main = tests
         [ broken ("queryContractId, src=v1 tgt=v2", queryKeyChangedExprChangedValue)
         , broken ("queryContractKey, src=v1 tgt=v2", qckKeyChangedExprChangedValue)
         , ("fetch, src=v1 tgt=v2", fetchKeyChangedExprChangedValue)
-        , broken ("fetchByKey, src=v1 tgt=v2", fbkKeyChangedExprChangedValue)
+        , ("fetchByKey, src=v1 tgt=v2", fbkKeyChangedExprChangedValue)
         , ("exercise, src=v1 tgt=v2", exerciseKeyChangedExprChangedValue)
-        , broken ("exerciseByKey, src=v1 tgt=v2", ebkKeyChangedExprChangedValue)
+        , ("exerciseByKey, src=v1 tgt=v2", ebkKeyChangedExprChangedValue)
         , ("exerciseCmd, src=v1 tgt=v2", exerciseCmdKeyChangedExprChangedValue)
-        , broken ("exerciseByKeyCmd, src=v1 tgt=v2", ebkCmdKeyChangedExprChangedValue)
+        , ("exerciseByKeyCmd, src=v1 tgt=v2", ebkCmdKeyChangedExprChangedValue)
         ]
       ]
     ]

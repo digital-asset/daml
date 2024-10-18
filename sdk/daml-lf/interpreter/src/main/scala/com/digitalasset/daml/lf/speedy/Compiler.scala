@@ -4,6 +4,7 @@
 package com.digitalasset.daml.lf
 package speedy
 
+import com.daml.scalautil.Statement.discard
 import com.digitalasset.daml.lf.data.Ref._
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Struct, Time}
 import com.digitalasset.daml.lf.language.Ast._
@@ -19,11 +20,9 @@ import com.digitalasset.daml.lf.speedy.PhaseOne.{Env, Position}
 import com.digitalasset.daml.lf.speedy.Profile.LabelModule
 import com.digitalasset.daml.lf.speedy.SBuiltinFun._
 import com.digitalasset.daml.lf.speedy.SValue._
-import com.digitalasset.daml.lf.speedy.{SExpr => t}
-import com.digitalasset.daml.lf.speedy.{SExpr0 => s}
+import com.digitalasset.daml.lf.speedy.{SExpr => t, SExpr0 => s}
 import com.digitalasset.daml.lf.stablepackages.{StablePackages, StablePackagesV2}
 import com.digitalasset.daml.lf.validation.{Validation, ValidationError}
-import com.daml.scalautil.Statement.discard
 import org.slf4j.LoggerFactory
 
 import scala.annotation.nowarn
@@ -287,17 +286,17 @@ private[lf] final class Compiler(
   private[this] def fun4(body: (Position, Position, Position, Position, Env) => s.SExpr): s.SExpr =
     s.SEAbs(4, body(Pos1, Pos2, Pos3, Pos4, Env4))
 
+  private[this] def unlabelledTopLevelFunction1(ref: t.SDefinitionRef)(
+      body: (Position, Env) => s.SExpr
+  ): (t.SDefinitionRef, SDefinition) =
+    ref -> SDefinition(pipeline(fun1(body)))
+
   private[this] def topLevelFunction1[SDefRef <: t.SDefinitionRef: LabelModule.Allowed](
       ref: SDefRef
   )(
       body: (Position, Env) => s.SExpr
   ): (SDefRef, SDefinition) =
     topLevelFunction(ref)(fun1(body))
-
-  private[this] def unlabelledTopLevelFunction2(ref: t.SDefinitionRef)(
-      body: (Position, Position, Env) => s.SExpr
-  ): (t.SDefinitionRef, SDefinition) =
-    ref -> SDefinition(pipeline(fun2(body)))
 
   private[this] def topLevelFunction2[SDefRef <: t.SDefinitionRef: LabelModule.Allowed](
       ref: SDefRef
@@ -496,8 +495,7 @@ private[lf] final class Compiler(
     let(
       env,
       SBFetchTemplate(tmplId)(
-        env.toSEVar(cidPos),
-        mbKey.fold(s.SEValue.None: s.SExpr)(pos => SBSome(env.toSEVar(pos))),
+        env.toSEVar(cidPos)
       ),
     ) { (tmplArgPos, _env) =>
       val env =
@@ -721,10 +719,8 @@ private[lf] final class Compiler(
       byKey = mbKey.isDefined,
       interfaceId = None,
     )(
-      env.toSEVar(cidPos),
-      mbKey.fold(s.SEValue.None: s.SExpr)(pos => SBSome(env.toSEVar(pos))),
+      env.toSEVar(cidPos)
     )
-
   }
 
   private[this] def compileFetchTemplate(
@@ -748,7 +744,6 @@ private[lf] final class Compiler(
           SBResolveSBUInsertFetchNode(ifaceId)(
             env.toSEVar(payloadPos),
             env.toSEVar(cidPos),
-            s.SEValue.None,
           ),
         ) { (_, env) =>
           env.toSEVar(payloadPos)
@@ -777,43 +772,34 @@ private[lf] final class Compiler(
       tmplId: Identifier,
       tmpl: Template,
   ): (t.SDefinitionRef, SDefinition) =
-    unlabelledTopLevelFunction2(t.ToContractInfoDefRef(tmplId)) { (tmplArgPos, mbKeyPos, env) =>
+    unlabelledTopLevelFunction1(t.ToContractInfoDefRef(tmplId)) { (tmplArgPos, env) =>
       // We use a chain of let bindings to make the evaluation order of SBuildContractInfoStruct's arguments is
       // independent from the evaluation strategy imposed by the ANF transformation.
       checkPreCondition(env, tmplId, env.toSEVar(tmplArgPos)) { env =>
         let(env, s.SEValue(STypeRep(TTyCon(tmplId)))) { (typePos, env) =>
           let(env, t.SignatoriesDefRef(tmplId)(env.toSEVar(tmplArgPos))) { (signatoriesPos, env) =>
             let(env, t.ObserversDefRef(tmplId)(env.toSEVar(tmplArgPos))) { (observersPos, env) =>
-              val body = tmpl.key match {
+              val mbKeyWithMaintainers = tmpl.key match {
                 case None =>
                   s.SEValue.None
                 case Some(tmplKey) =>
-                  s.SECase(
-                    env.toSEVar(mbKeyPos),
-                    List(
-                      s.SCaseAlt(
-                        t.SCPNone,
-                        let(
-                          env,
-                          translateExp(
-                            env.bindExprVar(tmpl.param, tmplArgPos),
-                            tmplKey.body,
-                          ),
-                        ) { (keyPos, env) =>
-                          SBSome(translateKeyWithMaintainers(env, keyPos, tmplKey))
-                        },
-                      ),
-                      s.SCaseAlt(t.SCPDefault, env.toSEVar(mbKeyPos)),
+                  let(
+                    env,
+                    translateExp(
+                      env.bindExprVar(tmpl.param, tmplArgPos),
+                      tmplKey.body,
                     ),
-                  )
+                  ) { (keyPos, env) =>
+                    SBSome(translateKeyWithMaintainers(env, keyPos, tmplKey))
+                  }
               }
-              let(env, body) { (bodyPos, env) =>
+              let(env, mbKeyWithMaintainers) { (mbKeyWithMaintainersPos, env) =>
                 SBuildContractInfoStruct(
                   env.toSEVar(typePos),
                   env.toSEVar(tmplArgPos),
                   env.toSEVar(signatoriesPos),
                   env.toSEVar(observersPos),
-                  env.toSEVar(bodyPos),
+                  env.toSEVar(mbKeyWithMaintainersPos),
                 )
               }
             }
@@ -950,15 +936,16 @@ private[lf] final class Compiler(
     //        _ = $insertLookup(tmplId> <keyWithM> <mbCid>
     //    in <mbCid>
     topLevelFunction2(t.LookupByKeyDefRef(tmplId)) { (keyPos, _, env) =>
-      let(env, translateKeyWithMaintainers(env, keyPos, tmplKey)) { (keyWithMPos, env) =>
-        let(env, SBULookupKey(tmplId)(env.toSEVar(keyWithMPos))) { (maybeCidPos, env) =>
-          let(
-            env,
-            SBUInsertLookupNode(tmplId)(env.toSEVar(keyWithMPos), env.toSEVar(maybeCidPos)),
-          ) { (_, env) =>
-            env.toSEVar(maybeCidPos)
+      let(env, s.SEPreventCatch(translateKeyWithMaintainers(env, keyPos, tmplKey))) {
+        (keyWithMPos, env) =>
+          let(env, SBULookupKey(tmplId)(env.toSEVar(keyWithMPos))) { (maybeCidPos, env) =>
+            let(
+              env,
+              SBUInsertLookupNode(tmplId)(env.toSEVar(keyWithMPos), env.toSEVar(maybeCidPos)),
+            ) { (_, env) =>
+              env.toSEVar(maybeCidPos)
+            }
           }
-        }
       }
     }
 
@@ -980,19 +967,20 @@ private[lf] final class Compiler(
     //        _ = $insertFetch <coid> <signatories> <observers> (Some <keyWithM> )
     //    in { contractId: ContractId Foo, contract: Foo }
     topLevelFunction2(t.FetchByKeyDefRef(tmplId)) { (keyPos, tokenPos, env) =>
-      let(env, translateKeyWithMaintainers(env, keyPos, tmplKey)) { (keyWithMPos, env) =>
-        let(env, SBUFetchKey(tmplId)(env.toSEVar(keyWithMPos))) { (cidPos, env) =>
-          let(
-            env,
-            translateFetchTemplateBody(env, tmplId)(
-              cidPos,
-              Some(keyWithMPos),
-              tokenPos,
-            ),
-          ) { (contractPos, env) =>
-            Tuple2(env.toSEVar(cidPos), env.toSEVar(contractPos))
+      let(env, s.SEPreventCatch(translateKeyWithMaintainers(env, keyPos, tmplKey))) {
+        (keyWithMPos, env) =>
+          let(env, SBUFetchKey(tmplId)(env.toSEVar(keyWithMPos))) { (cidPos, env) =>
+            let(
+              env,
+              translateFetchTemplateBody(env, tmplId)(
+                cidPos,
+                Some(keyWithMPos),
+                tokenPos,
+              ),
+            ) { (contractPos, env) =>
+              Tuple2(env.toSEVar(cidPos), env.toSEVar(contractPos))
+            }
           }
-        }
       }
     }
 
@@ -1082,7 +1070,7 @@ private[lf] final class Compiler(
         val expr1 =
           s.SEApp(
             s.SEVal(t.ToContractInfoDefRef(contract.templateId)),
-            List(s.SEValue(argument), s.SEValue.None),
+            List(s.SEValue(argument)),
           )
         val contractPos = env.nextPosition
         env = env.pushVar
