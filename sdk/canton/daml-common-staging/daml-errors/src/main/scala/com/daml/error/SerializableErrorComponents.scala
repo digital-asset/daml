@@ -212,7 +212,7 @@ private[error] final case class NonSecuritySensitiveErrorCodeComponents(
 private[error] object NonSecuritySensitiveErrorCodeComponents {
 
   /** The maximum size (in characters) of the self-service error description, truncated for transport as part of a Status */
-  val MaxCauseLogLength = 1024
+  val MaxCauseLogLength = 512
 
   private[error] def truncateDetails(
       context: Map[String, String],
