@@ -39,7 +39,6 @@ private[lf] class Runner(
   private val initialClientsV2 = initialClients.map(
     ScriptLedgerClient.realiseScriptLedgerClient(
       _,
-      unversionedRunner.enableContractUpgrading,
       unversionedRunner.extendedCompiledPackages,
     )
   )

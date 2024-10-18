@@ -44,7 +44,6 @@ class IdeLedgerClient(
     traceLog: TraceLog,
     warningLog: WarningLog,
     canceled: () => Boolean,
-    override val enableContractUpgrading: Boolean,
 ) extends ScriptLedgerClient {
   val submitErrors = new SubmitErrors(
     originalCompiledPackages.compilerConfig.allowedLanguageVersions.majorVersion
@@ -70,7 +69,7 @@ class IdeLedgerClient(
   private[this] def makePreprocessor =
     new preprocessing.CommandPreprocessor(
       compiledPackages.pkgInterface,
-      requireV1ContractIdSuffix = false,
+      checkV1ContractIdSuffix = false,
     )
 
   private[this] def partialFunctionFilterNot[A](f: A => Boolean): PartialFunction[A, A] = {
@@ -194,10 +193,10 @@ class IdeLedgerClient(
 
     val valueTranslator = new ValueTranslator(
       pkgInterface = compiledPackages.pkgInterface,
-      requireV1ContractIdSuffix = false,
+      checkV1ContractIdSuffixes = true,
     )
 
-    valueTranslator.strictTranslateValue(TTyCon(templateId), arg) match {
+    valueTranslator.translateValue(TTyCon(templateId), arg) match {
       case Left(_) =>
         sys.error("computeView: translateValue failed")
 
@@ -439,12 +438,18 @@ class IdeLedgerClient(
         throw new IllegalArgumentException("package name not supported")
     }
 
-  private def getReferencePackageId(ref: Reference): PackageId =
+  private def getReferencePackageId(ref: Reference): PackageId = {
+    def fromRef(ref: PackageRef) = ref match {
+      case PackageRef.Id(id) =>
+        id
+      case PackageRef.Name(_) =>
+        throw new IllegalArgumentException("package name not supported")
+    }
     ref match {
       // TODO: https://github.com/digital-asset/daml/issues/17995
       //  add support for package name
-      case Reference.PackageWithName(_) =>
-        throw new IllegalArgumentException("package name not supported")
+      case Reference.PackageWithName(name) =>
+        fromRef(PackageRef.Name(name))
       case Reference.Package(packageId) => packageId
       case Reference.Module(packageId, _) => packageId
       case Reference.Definition(name) => name.packageId
@@ -470,6 +475,7 @@ class IdeLedgerClient(
       case Reference.Method(name, _) => name.packageId
       case Reference.Exception(name) => name.packageId
     }
+  }
 
   private def getLookupErrorPackageId(err: LookupError): PackageId =
     err match {
