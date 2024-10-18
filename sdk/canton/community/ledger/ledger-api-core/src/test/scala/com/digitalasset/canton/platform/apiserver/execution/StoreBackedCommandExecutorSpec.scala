@@ -255,7 +255,7 @@ class StoreBackedCommandExecutorSpec
       globalKey = None,
       maintainers = None,
       // Filled below conditionally
-      driverMetadata = None,
+      driverMetadata = Array.empty,
     )
 
     val divulgedContractId: LfContractId = LfContractId.assertFromString("00" + "00" * 32 + "00")
@@ -266,7 +266,7 @@ class StoreBackedCommandExecutorSpec
         contractId: Option[LfContractId],
         expected: Option[Option[String]],
         authenticationResult: Either[String, Unit] = Right(()),
-        stakeholderContractDriverMetadata: Option[Array[Byte]] = Some(salt.toByteArray),
+        stakeholderContractDriverMetadata: Array[Byte] = salt.toByteArray,
     ): Future[Assertion] = {
       val ref: AtomicReference[Option[Option[String]]] = new AtomicReference(None)
       val mockEngine = mock[Engine]
@@ -415,18 +415,6 @@ class StoreBackedCommandExecutorSpec
         Some(stakeholderContractId),
         Some(Some(expected)),
         authenticationResult = Left(errorMessage),
-      )
-    }
-
-    "fail upgrade on stakeholder contracts without contract driver metadata" in {
-      val errorMessage = "Doesn't matter"
-      val expected =
-        s"Contract with $stakeholderContractId is missing the driver metadata and cannot be upgraded. This can happen for contracts created with older Canton versions"
-      doTest(
-        Some(stakeholderContractId),
-        Some(Some(expected)),
-        authenticationResult = Left(errorMessage),
-        stakeholderContractDriverMetadata = None,
       )
     }
   }

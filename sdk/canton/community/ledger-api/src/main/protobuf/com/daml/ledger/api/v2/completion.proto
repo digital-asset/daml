@@ -37,7 +37,7 @@ message Completion {
   string application_id = 4;
 
   // The set of parties on whose behalf the commands were executed.
-  // Contains the union of ``party`` and ``act_as`` from ``commands.proto``
+  // Contains the ``act_as`` parties from ``commands.proto``
   // filtered to the requesting parties in CompletionStreamRequest.
   // The order of the parties need not be the same as in the submission.
   // Each element must be a valid PartyIdString (as described in ``value.proto``).

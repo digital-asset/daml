@@ -118,7 +118,7 @@ class ContractStateCachesSpec
         eventOffset = offset,
         signatories = Set(Ref.Party.assertFromString(s"party-$cId")),
         keyMaintainers = None,
-        driverMetadata = None,
+        driverMetadata = Array.empty,
       )
     }
 

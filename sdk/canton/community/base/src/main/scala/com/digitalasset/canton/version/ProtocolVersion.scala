@@ -250,7 +250,7 @@ object ProtocolVersion {
   require(
     allProtocolVersions.sizeCompare(allProtocolVersions.distinct) == 0,
     s"All the protocol versions should be distinct." +
-      s"Found: ${Map("deprecated" -> deprecated, "deleted" -> deleted, "alpha" -> alpha, "stable" -> stable)}",
+      s"Found: ${Map("deprecated" -> deprecated, "deleted" -> deleted.forgetNE, "alpha" -> alpha.forgetNE, "stable" -> stable)}",
   )
 
   // TODO(i15561): change back to `stableAndSupported.max1` once there is a stable Daml 3 protocol version

@@ -532,7 +532,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         contractId = hashCid("#1"),
         commandId = "command id 1",
         domainId = "x::domain1",
-        driverMetadata = Some(someDriverMetadataBytes),
+        driverMetadata = someDriverMetadataBytes,
       ),
       dtoCreate(
         offset = offset(2),
@@ -540,7 +540,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         contractId = hashCid("#2"),
         commandId = "command id 2",
         domainId = "x::domain1",
-        driverMetadata = Some(someDriverMetadataBytes),
+        driverMetadata = someDriverMetadataBytes,
       ),
       dtoExercise(
         offset = offset(3),
@@ -828,7 +828,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         contractId = hashCid("#1"),
         commandId = "command id 1",
         domainId = "x::domain1",
-        driverMetadata = Some(someDriverMetadataBytes),
+        driverMetadata = someDriverMetadataBytes,
       ),
       dtoCreate(
         offset = offset(2),
@@ -836,7 +836,7 @@ private[backend] trait StorageBackendTestsReassignmentEvents
         contractId = hashCid("#2"),
         commandId = "command id 2",
         domainId = "x::domain1",
-        driverMetadata = Some(someDriverMetadataBytes),
+        driverMetadata = someDriverMetadataBytes,
       ),
       dtoExercise(
         offset = offset(3),

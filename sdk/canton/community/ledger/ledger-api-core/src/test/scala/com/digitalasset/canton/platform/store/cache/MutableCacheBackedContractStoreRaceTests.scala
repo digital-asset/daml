@@ -342,7 +342,7 @@ private object MutableCacheBackedContractStoreRaceTests {
           eventOffset = offset,
           signatories = stakeholders,
           keyMaintainers = None,
-          driverMetadata = None,
+          driverMetadata = Array.empty,
         )
       else
         ContractStateEvent.Archived(
@@ -438,7 +438,7 @@ private object MutableCacheBackedContractStoreRaceTests {
                   Set.empty,
                   None,
                   None,
-                  None,
+                  Array.empty,
                 )
               )
             else Some(ArchivedContract(stakeholders))

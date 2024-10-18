@@ -151,7 +151,7 @@ CREATE TABLE lapi_events_create (
     create_key_value_compression SMALLINT,
 
     -- * contract driver metadata
-    driver_metadata BINARY LARGE OBJECT,
+    driver_metadata BINARY LARGE OBJECT NOT NULL,
 
     domain_id INTEGER NOT NULL,
     trace_context BINARY LARGE OBJECT,

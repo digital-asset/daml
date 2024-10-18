@@ -116,7 +116,7 @@ object TransactionLogUpdate {
       createKeyHash: Option[Hash],
       createKey: Option[GlobalKey],
       createKeyMaintainers: Option[Set[Party]],
-      driverMetadata: Option[Bytes],
+      driverMetadata: Bytes,
   ) extends Event
 
   final case class ExercisedEvent(

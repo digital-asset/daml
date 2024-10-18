@@ -50,6 +50,6 @@ object ContractState {
       signatories: Set[Party],
       globalKey: Option[GlobalKey],
       maintainers: Option[Set[Party]],
-      driverMetadata: Option[Array[Byte]],
+      driverMetadata: Array[Byte],
   ) extends ContractState
 }

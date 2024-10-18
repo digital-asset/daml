@@ -61,7 +61,7 @@ function do_start_docker_db() {
     -e POSTGRES_PASSWORD=$POSTGRES_PASSWORD \
     -e POSTGRES_DB=$POSTGRES_DB \
     -v "$PWD/postgres.conf":/etc/postgresql/postgresql.conf \
-    postgres:12 \
+    postgres:14 \
     -c 'config_file=/etc/postgresql/postgresql.conf'
 }
 

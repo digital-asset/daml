@@ -434,7 +434,7 @@ object InMemoryStateUpdaterSpec {
             createKeyHash = None,
             createKey = None,
             createKeyMaintainers = None,
-            driverMetadata = Some(someContractMetadataBytes),
+            driverMetadata = someContractMetadataBytes,
           )
         ),
       )
@@ -684,7 +684,7 @@ object InMemoryStateUpdaterSpec {
       createKeyHash = createdNode.keyOpt.map(_.globalKey.hash),
       createKey = createdNode.keyOpt.map(_.globalKey),
       createKeyMaintainers = createdNode.keyOpt.map(_.maintainers),
-      driverMetadata = Some(someContractMetadataBytes),
+      driverMetadata = someContractMetadataBytes,
     )
 
   implicit val defaultValueProviderCreatedEvent

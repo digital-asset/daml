@@ -37,7 +37,7 @@ object DbDto {
       create_argument_compression: Option[Int],
       create_key_value_compression: Option[Int],
       event_sequential_id: Long,
-      driver_metadata: Option[Array[Byte]],
+      driver_metadata: Array[Byte],
       domain_id: String,
       trace_context: Array[Byte],
       record_time: Long,

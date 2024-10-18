@@ -138,7 +138,7 @@ private[backend] object AppendOnlySchema {
         "create_key_value_compression" -> fieldStrategy.smallintOptional(_ =>
           _.create_key_value_compression
         ),
-        "driver_metadata" -> fieldStrategy.byteaOptional(_ => _.driver_metadata),
+        "driver_metadata" -> fieldStrategy.bytea(_ => _.driver_metadata),
         "domain_id" -> fieldStrategy.int(stringInterning =>
           dbDto => stringInterning.domainId.unsafe.internalize(dbDto.domain_id)
         ),

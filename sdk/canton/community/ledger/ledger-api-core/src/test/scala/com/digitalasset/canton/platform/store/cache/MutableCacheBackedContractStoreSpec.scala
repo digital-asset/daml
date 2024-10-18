@@ -293,7 +293,7 @@ object MutableCacheBackedContractStoreSpec {
   private val exStakeholders = Set(bob)
   private val exSignatories = Set(alice)
   private val exMaintainers = Some(Set(bob))
-  private val exDriverMetadata = Some("meta".getBytes)
+  private val exDriverMetadata = "meta".getBytes
 
   private def contractStore(
       cachesSize: Long,
@@ -353,7 +353,7 @@ object MutableCacheBackedContractStoreSpec {
       signatories: Set[Party] = exSignatories,
       globalKey: Option[GlobalKey] = Some(someKey),
       maintainers: Option[Set[Party]] = exMaintainers,
-      driverMetadata: Option[Array[Byte]] = exDriverMetadata,
+      driverMetadata: Array[Byte] = exDriverMetadata,
   ): Future[Option[LedgerDaoContractsReader.ActiveContract]] =
     Future.successful(
       Some(

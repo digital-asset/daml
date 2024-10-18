@@ -131,7 +131,7 @@ object EventStorageBackendTemplate {
   private type CreatedEventRow =
     SharedRow ~ Array[Byte] ~ Option[Int] ~ Array[Int] ~ Array[Int] ~
       Option[Array[Byte]] ~ Option[Hash] ~ Option[Int] ~ Option[Array[Int]] ~
-      Option[Array[Byte]] ~ Option[Int]
+      Array[Byte] ~ Option[Int]
 
   private val createdEventRow: RowParser[CreatedEventRow] =
     sharedRow ~
@@ -143,7 +143,7 @@ object EventStorageBackendTemplate {
       hashFromHexString("create_key_hash").? ~
       int("create_key_value_compression").? ~
       array[Int]("create_key_maintainers").? ~
-      byteArray("driver_metadata").? ~
+      byteArray("driver_metadata") ~
       int("package_version").?
 
   private type ExercisedEventRow =
@@ -228,7 +228,7 @@ object EventStorageBackendTemplate {
               .getOrElse(Set.empty),
             ledgerEffectiveTime = ledgerEffectiveTime,
             createKeyHash = createKeyHash,
-            driverMetadata = driverMetadata.getOrElse(Array.empty),
+            driverMetadata = driverMetadata,
           ),
           domainId = stringInterning.domainId.unsafe.externalize(internedDomainId),
           traceContext = traceContext,
@@ -707,7 +707,7 @@ object EventStorageBackendTemplate {
       array[Int]("create_key_maintainers").? ~
       timestampFromMicros("ledger_effective_time") ~
       hashFromHexString("create_key_hash").? ~
-      byteArray("driver_metadata").? ~
+      byteArray("driver_metadata") ~
       long("event_sequential_id") ~
       int("node_index")
 
@@ -764,7 +764,7 @@ object EventStorageBackendTemplate {
             createKeyValueCompression = createKeyValueCompression,
             ledgerEffectiveTime = ledgerEffectiveTime,
             createKeyHash = createKeyHash,
-            driverMetadata = driverMetadata.getOrElse(Array.empty),
+            driverMetadata = driverMetadata,
           ),
           eventSequentialId = eventSequentialId,
         )

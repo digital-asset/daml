@@ -978,7 +978,8 @@ object ParticipantNodeBootstrap {
     override protected def createResourceService(
         arguments: Arguments
     )(store: Eval[ParticipantSettingsStore]): ResourceManagementService =
-      new ResourceManagementService.CommunityResourceManagementService(
+      new ResourceManagementService(
+        store,
         arguments.config.parameters.warnIfOverloadedFor.map(_.toInternal),
         arguments.metrics,
       )

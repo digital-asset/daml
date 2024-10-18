@@ -8,14 +8,13 @@ import org.checkerframework.checker.nullness.qual.NonNull;
 
 import java.util.Objects;
 
-public final class SubmitAndWaitForUpdateIdResponse {
+public final class SubmitAndWaitResponse {
 
   @NonNull private final String updateId;
 
   @NonNull private final Long completionOffset;
 
-  private SubmitAndWaitForUpdateIdResponse(
-      @NonNull String updateId, @NonNull Long completionOffset) {
+  private SubmitAndWaitResponse(@NonNull String updateId, @NonNull Long completionOffset) {
     this.updateId = updateId;
     this.completionOffset = completionOffset;
   }
@@ -30,14 +29,13 @@ public final class SubmitAndWaitForUpdateIdResponse {
     return completionOffset;
   }
 
-  public static SubmitAndWaitForUpdateIdResponse fromProto(
-      CommandServiceOuterClass.SubmitAndWaitForUpdateIdResponse response) {
-    return new SubmitAndWaitForUpdateIdResponse(
-        response.getUpdateId(), response.getCompletionOffset());
+  public static SubmitAndWaitResponse fromProto(
+      CommandServiceOuterClass.SubmitAndWaitResponse response) {
+    return new SubmitAndWaitResponse(response.getUpdateId(), response.getCompletionOffset());
   }
 
-  public CommandServiceOuterClass.SubmitAndWaitForUpdateIdResponse toProto() {
-    return CommandServiceOuterClass.SubmitAndWaitForUpdateIdResponse.newBuilder()
+  public CommandServiceOuterClass.SubmitAndWaitResponse toProto() {
+    return CommandServiceOuterClass.SubmitAndWaitResponse.newBuilder()
         .setUpdateId(updateId)
         .setCompletionOffset(completionOffset)
         .build();
@@ -46,7 +44,7 @@ public final class SubmitAndWaitForUpdateIdResponse {
   @Override
   public String toString() {
 
-    return "SubmitAndWaitForUpdateIdResponse{"
+    return "SubmitAndWaitResponse{"
         + "updateId='"
         + updateId
         + '\''
@@ -60,7 +58,7 @@ public final class SubmitAndWaitForUpdateIdResponse {
   public boolean equals(Object o) {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
-    SubmitAndWaitForUpdateIdResponse that = (SubmitAndWaitForUpdateIdResponse) o;
+    SubmitAndWaitResponse that = (SubmitAndWaitResponse) o;
     return Objects.equals(updateId, that.updateId)
         && Objects.equals(completionOffset, that.completionOffset);
   }

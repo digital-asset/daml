@@ -124,6 +124,7 @@ class BlockSequencerTest
       loggerFactory,
     )
     topologyClient.updateHead(
+      SequencedTime(CantonTimestamp.Epoch),
       EffectiveTime(CantonTimestamp.Epoch),
       ApproximateTime(CantonTimestamp.Epoch),
       potentialTopologyChange = true,

@@ -105,7 +105,7 @@ private[store] object StorageBackendTestValues {
       nonStakeholderInformees: Set[String] = Set.empty,
       commandId: String = UUID.randomUUID().toString,
       ledgerEffectiveTime: Timestamp = someTime,
-      driverMetadata: Option[Array[Byte]] = None,
+      driverMetadata: Array[Byte] = Array.empty,
       keyHash: Option[String] = None,
       domainId: String = "x::sourcedomain",
       createKey: Option[Array[Byte]] = None,

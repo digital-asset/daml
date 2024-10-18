@@ -17,7 +17,6 @@ import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFact
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 import com.digitalasset.canton.platform.apiserver.execution.StoreBackedCommandExecutor.AuthenticateContract
-import com.digitalasset.canton.platform.apiserver.execution.UpgradeVerificationResult.MissingDriverMetadata
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause
 import com.digitalasset.canton.platform.packages.DeduplicatingPackageLoader
 import com.digitalasset.canton.protocol.{
@@ -445,8 +444,10 @@ private[apiserver] final class StoreBackedCommandExecutor(
           .lookupContractState(coid)
           .map {
             case active: ContractState.Active =>
-              UpgradeVerificationContractData
-                .fromActiveContract(coid, active, recomputedContractMetadata)
+              Right(
+                UpgradeVerificationContractData
+                  .fromActiveContract(coid, active, recomputedContractMetadata)
+              )
             case ContractState.Archived => Left(UpgradeFailure("Contract archived"))
             case ContractState.NotFound => Left(ContractNotFound)
           }
@@ -523,29 +524,25 @@ private[apiserver] final class StoreBackedCommandExecutor(
         contractId: ContractId,
         active: ContractState.Active,
         recomputedMetadata: ContractMetadata,
-    ): Either[MissingDriverMetadata.type, UpgradeVerificationContractData] =
-      active.driverMetadata
-        .toRight(MissingDriverMetadata)
-        .map { driverMetadataBytes =>
-          UpgradeVerificationContractData(
-            contractId = contractId,
-            driverMetadataBytes = driverMetadataBytes,
-            contractInstance = active.contractInstance,
-            originalMetadata = ContractMetadata.tryCreate(
-              signatories = active.signatories,
-              stakeholders = active.stakeholders,
-              maybeKeyWithMaintainersVersioned =
-                (active.globalKey zip active.maintainers).map { case (globalKey, maintainers) =>
-                  Versioned(
-                    active.contractInstance.version,
-                    GlobalKeyWithMaintainers(globalKey, maintainers),
-                  )
-                },
-            ),
-            recomputedMetadata = recomputedMetadata,
-            ledgerTime = CantonTimestamp(active.ledgerEffectiveTime),
-          )
-        }
+    ): UpgradeVerificationContractData =
+      UpgradeVerificationContractData(
+        contractId = contractId,
+        driverMetadataBytes = active.driverMetadata,
+        contractInstance = active.contractInstance,
+        originalMetadata = ContractMetadata.tryCreate(
+          signatories = active.signatories,
+          stakeholders = active.stakeholders,
+          maybeKeyWithMaintainersVersioned =
+            (active.globalKey zip active.maintainers).map { case (globalKey, maintainers) =>
+              Versioned(
+                active.contractInstance.version,
+                GlobalKeyWithMaintainers(globalKey, maintainers),
+              )
+            },
+        ),
+        recomputedMetadata = recomputedMetadata,
+        ledgerTime = CantonTimestamp(active.ledgerEffectiveTime),
+      )
   }
 }
 

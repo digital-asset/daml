@@ -280,7 +280,7 @@ CREATE TABLE lapi_events_create (
     -- * compression flags
     create_argument_compression smallint,
     create_key_value_compression smallint,
-    driver_metadata bytea,
+    driver_metadata bytea not null,
     domain_id integer not null,
     create_key_maintainers integer[],
     trace_context bytea,

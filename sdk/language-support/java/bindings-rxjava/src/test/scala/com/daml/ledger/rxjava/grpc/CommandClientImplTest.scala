@@ -7,7 +7,7 @@ import com.digitalasset.canton.auth.{AuthService, AuthServiceWildcard}
 import com.daml.ledger.api.v2.command_service.{
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse,
-  SubmitAndWaitForUpdateIdResponse,
+  SubmitAndWaitResponse,
 }
 import com.daml.ledger.javaapi.data.{
   Command,
@@ -18,15 +18,14 @@ import com.daml.ledger.javaapi.data.{
 }
 import com.daml.ledger.rxjava._
 import com.daml.ledger.rxjava.grpc.helpers.{DataLayerHelpers, LedgerServices, TestConfiguration}
-import com.google.protobuf.empty.Empty
 import io.reactivex.Single
 import org.scalatest.OptionValues
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+
 import java.util.UUID.randomUUID
 import java.util.concurrent.TimeUnit
 import java.util.{Optional, UUID}
-
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
 import scala.util.chaining.scalaUtilChainingOps
@@ -42,8 +41,7 @@ class CommandClientImplTest
 
   private def withCommandClient(authService: AuthService = AuthServiceWildcard) = {
     ledgerServices.withCommandClient(
-      Future.successful(Empty.defaultInstance),
-      Future.successful(SubmitAndWaitForUpdateIdResponse.defaultInstance),
+      Future.successful(SubmitAndWaitResponse.defaultInstance),
       Future.successful(SubmitAndWaitForTransactionResponse.defaultInstance),
       Future.successful(SubmitAndWaitForTransactionTreeResponse.defaultInstance),
       authService,
@@ -147,9 +145,6 @@ class CommandClientImplTest
   private def submitAndWaitForTransaction(client: CommandClient) =
     submitAndWaitFor(client.submitAndWaitForTransaction) _
 
-  private def submitAndWaitForTransactionId(client: CommandClient) =
-    submitAndWaitFor(client.submitAndWaitForTransactionId) _
-
   private def submitAndWaitForTransactionTree(client: CommandClient) =
     submitAndWaitFor(client.submitAndWaitForTransactionTree) _
 
@@ -165,11 +160,6 @@ class CommandClientImplTest
       withClue("submitAndWaitForTransaction") {
         expectUnauthenticated {
           submitAndWaitForTransaction(client)(dummyCommands, someParty, None)
-        }
-      }
-      withClue("submitAndWaitForTransactionId") {
-        expectUnauthenticated {
-          submitAndWaitForTransactionId(client)(dummyCommands, someParty, None)
         }
       }
       withClue("submitAndWaitForTransactionTree") {
@@ -196,15 +186,6 @@ class CommandClientImplTest
           )
         }
       }
-      withClue("submitAndWaitForTransactionId") {
-        expectPermissionDenied {
-          submitAndWaitForTransactionId(client)(
-            dummyCommands,
-            someParty,
-            Option(someOtherPartyReadWriteToken),
-          )
-        }
-      }
       withClue("submitAndWaitForTransactionTree") {
         expectPermissionDenied {
           submitAndWaitForTransactionTree(client)(
@@ -225,13 +206,6 @@ class CommandClientImplTest
       }
       withClue("submitAndWaitForTransaction") {
         submitAndWaitForTransaction(client)(
-          dummyCommands,
-          someParty,
-          Option(somePartyReadWriteToken),
-        )
-      }
-      withClue("submitAndWaitForTransactionId") {
-        submitAndWaitForTransactionId(client)(
           dummyCommands,
           someParty,
           Option(somePartyReadWriteToken),
