@@ -529,11 +529,14 @@ create table sequencer_counter_checkpoints (
   -- and the domain topology manager for embedding sequencers)
   -- NULL if the sequencer counter checkpoint was generated before this column was added.
   latest_sequencer_event_ts bigint null,
-  primary key (member, counter)
+  primary key (member, counter, ts)
 );
 
 -- This index helps fetching the latest checkpoint for a member
 create index idx_sequencer_counter_checkpoints_by_member_ts on sequencer_counter_checkpoints(member, ts);
+
+-- This index helps fetching the latest and earliest checkpoints
+create index idx_sequencer_counter_checkpoints_by_ts on sequencer_counter_checkpoints(ts);
 
 -- record the latest acknowledgement sent by a sequencer client of a member for the latest event they have successfully
 -- processed and will not re-read.

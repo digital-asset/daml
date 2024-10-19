@@ -92,7 +92,7 @@ private[reassignment] object UnassignmentValidationReassigningParticipant {
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] = {
     val validation = new UnassignmentValidationReassigningParticipant(
-      expectedStakeholders.stakeholders,
+      expectedStakeholders.all,
       sourceProtocolVersion,
       sourceTopology,
       targetTopology,
@@ -101,20 +101,20 @@ private[reassignment] object UnassignmentValidationReassigningParticipant {
 
     for {
       unassignmentRequestRecipients <- sourceTopology.unwrap
-        .activeParticipantsOfAll(expectedStakeholders.stakeholders.toList)
+        .activeParticipantsOfAll(expectedStakeholders.all.toList)
         .mapK(FutureUnlessShutdown.outcomeK)
         .leftMap(inactiveParties =>
           StakeholderHostingErrors(s"The following stakeholders are not active: $inactiveParties")
         )
 
-      reassigningParticipants <- new ReassigningParticipants(
+      reassigningParticipants <- new ReassigningParticipantsComputation(
         stakeholders = expectedStakeholders,
         sourceTopology,
         targetTopology,
       ).compute.mapK(FutureUnlessShutdown.outcomeK)
       _ <- validation.checkRecipients(unassignmentRequestRecipients)
       _ <- validation.checkReassigningParticipants(reassigningParticipants)
-      _ <- validation.checkVetted(expectedStakeholders.stakeholders, expectedTemplateId)
+      _ <- validation.checkVetted(expectedStakeholders.all, expectedTemplateId)
     } yield ()
   }
 
