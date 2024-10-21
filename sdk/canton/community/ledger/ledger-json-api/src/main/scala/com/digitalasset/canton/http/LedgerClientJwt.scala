@@ -105,10 +105,11 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends Name
         case Terminates.AtParticipantEnd =>
           Source
             .future(client.stateService.getLedgerEnd())
-            .map(_.offset.getOrElse(0L))
+            .map(_.offset)
             .map(Some(_))
         case Terminates.Never => Source.single(None)
-        case Terminates.AtAbsolute(off) => Source.single(Some(ApiOffset.assertFromStringToLong(off)))
+        case Terminates.AtAbsolute(off) =>
+          Source.single(Some(ApiOffset.assertFromStringToLong(off)))
       }
       endSource.flatMapConcat { end =>
         if (skipRequest(offset, end))
@@ -268,14 +269,13 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends Name
       }
 
   def getLedgerEnd(client: DamlLedgerClient)(implicit
-      ec: EC,
-      traceContext: TraceContext,
+      traceContext: TraceContext
   ): GetLedgerEnd =
     jwt =>
       implicit lc => {
         Source.future(
           log(GetLedgerEndLog) {
-            client.stateService.getLedgerEndOffset(token = bearer(jwt)).map(_.getOrElse(0L))
+            client.stateService.getLedgerEndOffset(token = bearer(jwt))
           }
         )
       }
@@ -428,7 +428,7 @@ object LedgerClientJwt {
   sealed abstract class Terminates extends Product with Serializable
 
   object Terminates {
-    //TODO(#21801) remove AtParticipantEnd
+    // TODO(#21801) remove AtParticipantEnd
     case object AtParticipantEnd extends Terminates
     case object Never extends Terminates
     final case class AtAbsolute(off: String) extends Terminates

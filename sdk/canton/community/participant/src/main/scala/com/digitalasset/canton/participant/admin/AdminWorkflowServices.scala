@@ -261,9 +261,9 @@ class AdminWorkflowServices(
     val service = createService(client)
 
     val startupF =
-      client.stateService.getLedgerEndOffset().flatMap { offsetO =>
+      client.stateService.getLedgerEndOffset().flatMap { offset =>
         client.stateService
-          .getActiveContracts(filter = service.filters, validAtOffset = offsetO.getOrElse(0L))
+          .getActiveContracts(filter = service.filters, validAtOffset = offset)
           .map { case (acs, offset) =>
             logger.debug(s"Loading $acs $service")
             service.processAcs(acs)

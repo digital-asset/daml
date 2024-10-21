@@ -14,9 +14,7 @@ public final class ActiveContracts<Ct> {
 
   public final String workflowId;
 
-  public ActiveContracts(
-      @NonNull List<Ct> activeContracts,
-      @NonNull String workflowId) {
+  public ActiveContracts(@NonNull List<Ct> activeContracts, @NonNull String workflowId) {
     this.activeContracts = activeContracts;
     this.workflowId = workflowId;
   }

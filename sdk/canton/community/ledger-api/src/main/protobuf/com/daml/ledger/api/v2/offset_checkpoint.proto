@@ -16,8 +16,8 @@ option java_package = "com.daml.ledger.api.v2";
 // * detect time out of commands.
 // * provide an offset which can be used to restart consumption.
 message OffsetCheckpoint {
-  // The participant's offset (see below for more)
-  // Required, must be a valid absolute offset: positive integer
+  // The participant's offset, the details of the offset field are described in ``community/ledger-api/README.md``.
+  // Required, must be a valid absolute offset (positive integer).
   int64 offset = 1;
   repeated DomainTime domain_times = 2;
 }

@@ -47,9 +47,9 @@ message CompletionStreamRequest {
 
   // This field indicates the minimum offset for completions. This can be used to resume an earlier completion stream.
   // Optional, if not set the ledger uses the ledger begin offset instead.
-  // If specified, it must be a valid absolute offset (positive integer).
-  // If ledger has been pruned, this parameter must be specified and greater than the pruning offset.
-  optional int64 begin_exclusive = 3;
+  // If specified, it must be a valid absolute offset (positive integer) or zero (ledger begin offset).
+  // If the ledger has been pruned, this parameter must be specified and greater than the pruning offset.
+  int64 begin_exclusive = 3;
 }
 
 message CompletionStreamResponse {

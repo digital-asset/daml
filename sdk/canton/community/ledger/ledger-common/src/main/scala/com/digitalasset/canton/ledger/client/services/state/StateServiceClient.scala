@@ -74,9 +74,7 @@ class StateServiceClient(service: StateServiceStub)(implicit
   /** Get the current participant offset */
   def getLedgerEndOffset(
       token: Option[String] = None
-  )(implicit traceContext: TraceContext): Future[Option[Long]] =
-    getLedgerEnd(token).map { response =>
-      response.offset
-    }
+  )(implicit traceContext: TraceContext): Future[Long] =
+    getLedgerEnd(token).map(_.offset)
 
 }
