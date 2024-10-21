@@ -6,7 +6,6 @@ package com.daml.ledger.rxjava;
 import com.daml.ledger.javaapi.data.*;
 import io.reactivex.Flowable;
 import io.reactivex.Single;
-import java.util.Optional;
 import java.util.Set;
 
 /** An RxJava version of {@link com.daml.ledger.api.v2.StateServiceGrpc} */
@@ -53,7 +52,7 @@ public interface StateClient {
       Long activeAtOffset,
       String accessToken);
 
-  Single<Optional<Long>> getLedgerEnd();
+  Single<Long> getLedgerEnd();
 
-  Single<Optional<Long>> getLedgerEnd(String accessToken);
+  Single<Long> getLedgerEnd(String accessToken);
 }

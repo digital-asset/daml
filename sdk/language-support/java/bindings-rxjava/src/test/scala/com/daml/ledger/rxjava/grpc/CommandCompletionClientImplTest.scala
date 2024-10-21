@@ -16,7 +16,6 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.jdk.CollectionConverters._
 import scala.jdk.OptionConverters._
-import java.util.Optional
 
 class CommandCompletionClientImplTest
     extends AnyFlatSpec
@@ -44,7 +43,7 @@ class CommandCompletionClientImplTest
       completionResponses
     ) { (client, _) =>
       val completions = client
-        .completionStream(applicationId, Optional.empty[java.lang.Long](), List("Alice").asJava)
+        .completionStream(applicationId, 0L, List("Alice").asJava)
         .take(2)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingIterable()
@@ -74,11 +73,11 @@ class CommandCompletionClientImplTest
       List(completionResponse)
     ) { (client, serviceImpl) =>
       client
-        .completionStream(applicationId, Optional.empty[java.lang.Long](), parties.asJava)
+        .completionStream(applicationId, 0L, parties.asJava)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingFirst()
       serviceImpl.getLastCompletionStreamRequest.value.applicationId shouldBe applicationId
-      serviceImpl.getLastCompletionStreamRequest.value.beginExclusive shouldBe None
+      serviceImpl.getLastCompletionStreamRequest.value.beginExclusive shouldBe 0L
       serviceImpl.getLastCompletionStreamRequest.value.parties should contain theSameElementsAs parties
     }
   }
@@ -102,7 +101,7 @@ class CommandCompletionClientImplTest
       withClue("completionStream") {
         expectUnauthenticated {
           client
-            .completionStream("appId", Optional.empty[java.lang.Long](), List(someParty).asJava)
+            .completionStream("appId", 0L, List(someParty).asJava)
             .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
             .blockingFirst()
         }
@@ -125,7 +124,7 @@ class CommandCompletionClientImplTest
           client
             .completionStream(
               "appId",
-              Optional.empty[java.lang.Long](),
+              0L,
               List(someParty).asJava,
               someOtherPartyReadToken,
             )
@@ -150,7 +149,7 @@ class CommandCompletionClientImplTest
         client
           .completionStream(
             "appId",
-            Optional.empty[java.lang.Long](),
+            0L,
             List(someParty).asJava,
             somePartyReadToken,
           )
