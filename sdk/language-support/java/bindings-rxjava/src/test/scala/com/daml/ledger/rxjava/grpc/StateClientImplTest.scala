@@ -16,7 +16,6 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.ExecutionContext
 import scala.jdk.CollectionConverters._
-import scala.jdk.OptionConverters._
 
 class StateClientImplTest
     extends AnyFlatSpec
@@ -33,7 +32,7 @@ class StateClientImplTest
 
   it should "support the empty ACS" in {
     ledgerServices.withACSClient(Observable.empty(), Observable.empty()) { (acsClient, _) =>
-      val currentEnd = acsClient.getLedgerEnd.blockingGet().orElse(0L)
+      val currentEnd = acsClient.getLedgerEnd.blockingGet()
       val acs = acsClient
         .getActiveContracts(filterNothing, true, currentEnd)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
@@ -46,7 +45,7 @@ class StateClientImplTest
       Observable.fromArray(genGetActiveContractsResponse),
       Observable.empty(),
     ) { (acsClient, _) =>
-      val currentEnd = acsClient.getLedgerEnd.blockingGet().orElse(0L)
+      val currentEnd = acsClient.getLedgerEnd.blockingGet()
       val acs = acsClient
         .getActiveContracts(filterNothing, true, currentEnd)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
@@ -58,7 +57,7 @@ class StateClientImplTest
     val acsResponses = List.fill(10)(genGetActiveContractsResponse)
     ledgerServices.withACSClient(Observable.fromArray(acsResponses: _*), Observable.empty()) {
       (acsClient, _) =>
-        val currentEnd = acsClient.getLedgerEnd.blockingGet().orElse(0L)
+        val currentEnd = acsClient.getLedgerEnd.blockingGet()
         val acs = acsClient
           .getActiveContracts(filterNothing, true, currentEnd)
           .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
@@ -71,7 +70,7 @@ class StateClientImplTest
   it should "pass the transaction filter and the verbose flag to the ledger" in {
     ledgerServices.withACSClient(Observable.empty(), Observable.empty()) { (acsClient, acsImpl) =>
       val verbose = true
-      val currentEnd = acsClient.getLedgerEnd.blockingGet().orElse(0L)
+      val currentEnd = acsClient.getLedgerEnd.blockingGet()
       acsClient
         .getActiveContracts(filterNothing, verbose, currentEnd)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
@@ -120,13 +119,13 @@ class StateClientImplTest
         Observable.fromIterable(ledgerContent.asJava),
       ) { (stateClient, _) =>
         println(transactions.last.getOffset)
-        val expectedOffset = Some(transactions.last.getOffset)
-        stateClient.getLedgerEnd.blockingGet() shouldBe expectedOffset.toJava
+        val expectedOffset = transactions.last.getOffset
+        stateClient.getLedgerEnd.blockingGet() shouldBe expectedOffset
       }
   }
 
   it should "provide participant begin from empty ledger" in
     ledgerServices.withACSClient(Observable.empty(), Observable.empty()) { (transactionClient, _) =>
-      transactionClient.getLedgerEnd.blockingGet() shouldBe empty
+      transactionClient.getLedgerEnd.blockingGet() shouldBe 0L
     }
 }

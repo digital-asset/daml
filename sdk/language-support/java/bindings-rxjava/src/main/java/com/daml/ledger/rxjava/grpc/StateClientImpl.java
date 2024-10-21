@@ -102,7 +102,7 @@ public class StateClientImpl implements StateClient {
         contractFilter, parties, verbose, activeAtOffset, Optional.of(accessToken));
   }
 
-  private Single<Optional<Long>> getLedgerEnd(Optional<String> accessToken) {
+  private Single<Long> getLedgerEnd(Optional<String> accessToken) {
     StateServiceOuterClass.GetLedgerEndRequest request =
         StateServiceOuterClass.GetLedgerEndRequest.newBuilder().build();
     return Single.fromFuture(
@@ -112,12 +112,12 @@ public class StateClientImpl implements StateClient {
   }
 
   @Override
-  public Single<Optional<Long>> getLedgerEnd() {
+  public Single<Long> getLedgerEnd() {
     return getLedgerEnd(Optional.empty());
   }
 
   @Override
-  public Single<Optional<Long>> getLedgerEnd(String accessToken) {
+  public Single<Long> getLedgerEnd(String accessToken) {
     return getLedgerEnd(Optional.of(accessToken));
   }
 }

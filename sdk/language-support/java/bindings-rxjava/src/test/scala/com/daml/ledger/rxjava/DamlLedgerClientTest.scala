@@ -27,7 +27,6 @@ import org.scalatest.matchers.should.Matchers
 
 import scala.concurrent.Future
 import scala.jdk.CollectionConverters._
-import java.util.Optional
 
 class DamlLedgerClientTest
     extends AnyFlatSpec
@@ -110,7 +109,7 @@ class DamlLedgerClientTest
       activeContractsServiceImpl: StateServiceImpl,
   ): Assertion = {
     withClue(clueFor("StateClient")) {
-      val currentEnd = stateServiceClient.getLedgerEnd.blockingGet().orElse(0L)
+      val currentEnd = stateServiceClient.getLedgerEnd.blockingGet()
       stateServiceClient
         .getActiveContracts(filterFor(someParty), false, currentEnd)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
@@ -150,7 +149,7 @@ class DamlLedgerClientTest
   ): Assertion = {
     withClue(clueFor("CommandCompletionClient")) {
       commandCompletionClient
-        .completionStream("applicationId", Optional.empty[java.lang.Long](), List(someParty).asJava)
+        .completionStream("applicationId", 0L, List(someParty).asJava)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingFirst()
       commandCompletionServiceImpl.getLastCompletionStreamRequest.value.applicationId shouldBe "applicationId"
