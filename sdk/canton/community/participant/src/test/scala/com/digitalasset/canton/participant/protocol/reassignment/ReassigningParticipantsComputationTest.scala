@@ -17,7 +17,10 @@ import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, LfPartyId}
 import org.scalatest.wordspec.AnyWordSpec
 
-class ReassigningParticipantsTest extends AnyWordSpec with BaseTest with HasExecutionContext {
+class ReassigningParticipantsComputationTest
+    extends AnyWordSpec
+    with BaseTest
+    with HasExecutionContext {
 
   private def createTestingIdentityFactory(
       topology: Map[ParticipantId, Map[LfPartyId, ParticipantPermission]]
@@ -65,7 +68,7 @@ class ReassigningParticipantsTest extends AnyWordSpec with BaseTest with HasExec
         )
       )
 
-      new ReassigningParticipants(
+      new ReassigningParticipantsComputation(
         stakeholders = Stakeholders.tryCreate(Set(alice, bob)),
         sourceTopology = Source(snapshot),
         targetTopology = Target(snapshot),
@@ -88,13 +91,13 @@ class ReassigningParticipantsTest extends AnyWordSpec with BaseTest with HasExec
         )
       )
 
-      new ReassigningParticipants(
+      new ReassigningParticipantsComputation(
         stakeholders = Stakeholders.tryCreate(Set(alice, bob)),
         sourceTopology = Source(source),
         targetTopology = Target(target), // p3 missing
       ).compute.futureValue shouldBe Set(p1, p2)
 
-      new ReassigningParticipants(
+      new ReassigningParticipantsComputation(
         stakeholders = Stakeholders.tryCreate(Set(alice, bob)),
         sourceTopology = Source(source),
         targetTopology = Target(source), // p3 is there as well
@@ -115,7 +118,7 @@ class ReassigningParticipantsTest extends AnyWordSpec with BaseTest with HasExec
         )
       )
 
-      new ReassigningParticipants(
+      new ReassigningParticipantsComputation(
         stakeholders = Stakeholders.tryCreate(Set(alice, bob)),
         sourceTopology = Source(incomplete),
         targetTopology = Target(complete),
@@ -123,7 +126,7 @@ class ReassigningParticipantsTest extends AnyWordSpec with BaseTest with HasExec
         s"The following parties are not active on the source domain: Set($bob)"
       )
 
-      new ReassigningParticipants(
+      new ReassigningParticipantsComputation(
         stakeholders = Stakeholders.tryCreate(Set(alice, bob)),
         sourceTopology = Source(complete),
         targetTopology = Target(incomplete),
@@ -131,7 +134,7 @@ class ReassigningParticipantsTest extends AnyWordSpec with BaseTest with HasExec
         s"The following parties are not active on the target domain: Set($bob)"
       )
 
-      new ReassigningParticipants(
+      new ReassigningParticipantsComputation(
         stakeholders = Stakeholders.tryCreate(Set(alice, bob)),
         sourceTopology = Source(complete),
         targetTopology = Target(complete),
@@ -146,7 +149,7 @@ class ReassigningParticipantsTest extends AnyWordSpec with BaseTest with HasExec
         )
       )
 
-      new ReassigningParticipants(
+      new ReassigningParticipantsComputation(
         stakeholders = Stakeholders.tryCreate(Set(alice)),
         sourceTopology = Source(topology),
         targetTopology = Target(topology),
@@ -161,7 +164,7 @@ class ReassigningParticipantsTest extends AnyWordSpec with BaseTest with HasExec
         )
       )
 
-      new ReassigningParticipants(
+      new ReassigningParticipantsComputation(
         stakeholders = Stakeholders.tryCreate(Set(alice)),
         sourceTopology = Source(topology),
         targetTopology = Target(topology),
@@ -181,7 +184,7 @@ class ReassigningParticipantsTest extends AnyWordSpec with BaseTest with HasExec
         )
       )
 
-      new ReassigningParticipants(
+      new ReassigningParticipantsComputation(
         stakeholders = Stakeholders.tryCreate(Set(alice)),
         sourceTopology = Source(source),
         targetTopology = Target(target),
@@ -219,13 +222,13 @@ class ReassigningParticipantsTest extends AnyWordSpec with BaseTest with HasExec
         )
       )
 
-      new ReassigningParticipants(
+      new ReassigningParticipantsComputation(
         stakeholders = Stakeholders.tryCreate(Set(alice)),
         sourceTopology = Source(source),
         targetTopology = Target(targetCorrect),
       ).compute.futureValue shouldBe Set(p1)
 
-      new ReassigningParticipants(
+      new ReassigningParticipantsComputation(
         stakeholders = Stakeholders.tryCreate(Set(alice)),
         sourceTopology = Source(source),
         targetTopology = Target(targetIncorrect1),
@@ -233,7 +236,7 @@ class ReassigningParticipantsTest extends AnyWordSpec with BaseTest with HasExec
         s"For party $alice, no participant with submission permission on source domain has submission permission on target domain."
       )
 
-      new ReassigningParticipants(
+      new ReassigningParticipantsComputation(
         stakeholders = Stakeholders.tryCreate(Set(alice)),
         sourceTopology = Source(source),
         targetTopology = Target(targetIncorrect2),
@@ -259,7 +262,7 @@ class ReassigningParticipantsTest extends AnyWordSpec with BaseTest with HasExec
         )
       )
 
-      new ReassigningParticipants(
+      new ReassigningParticipantsComputation(
         stakeholders = Stakeholders.tryCreate(Set(alice)),
         sourceTopology = Source(source),
         targetTopology = Target(target),
@@ -267,13 +270,13 @@ class ReassigningParticipantsTest extends AnyWordSpec with BaseTest with HasExec
         s"Stakeholder $alice requires at least 2 reassigning participants, but only 1 are available"
       )
 
-      new ReassigningParticipants(
+      new ReassigningParticipantsComputation(
         stakeholders = Stakeholders.tryCreate(Set(bob)),
         sourceTopology = Source(source),
         targetTopology = Target(target),
       ).compute.futureValue shouldBe Set(p1, p2)
 
-      new ReassigningParticipants(
+      new ReassigningParticipantsComputation(
         stakeholders = Stakeholders.tryCreate(Set(bob, charlie)),
         sourceTopology = Source(source),
         targetTopology = Target(target),

@@ -13,7 +13,7 @@ import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.ReassignmentSubmissionValidation
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.ReassignmentProcessorError
 import com.digitalasset.canton.participant.protocol.reassignment.{
-  ReassigningParticipants,
+  ReassigningParticipantsComputation,
   UnassignmentProcessorError,
 }
 import com.digitalasset.canton.participant.sync.TransactionRoutingError
@@ -114,9 +114,9 @@ private[routing] class DomainRankComputation(
                 sourceSnapshot,
                 reader,
                 participantId,
-                contract.stakeholders.stakeholders,
+                contract.stakeholders.all,
               )
-              _ <- new ReassigningParticipants(
+              _ <- new ReassigningParticipantsComputation(
                 stakeholders = contract.stakeholders,
                 sourceSnapshot,
                 targetSnapshot,
@@ -130,7 +130,7 @@ private[routing] class DomainRankComputation(
             )
       }
 
-    go(readers.intersect(contract.stakeholders.stakeholders).toList).leftMap(errors =>
+    go(readers.intersect(contract.stakeholders.all).toList).leftMap(errors =>
       AutomaticReassignmentForTransactionFailure.Failed(errors)
     )
   }

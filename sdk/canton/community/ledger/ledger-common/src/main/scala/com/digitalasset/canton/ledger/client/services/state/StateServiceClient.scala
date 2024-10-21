@@ -36,8 +36,8 @@ class StateServiceClient(service: StateServiceStub)(implicit
     */
   def getActiveContractsSource(
       filter: TransactionFilter,
+      validAtOffset: Long,
       verbose: Boolean = false,
-      validAtOffset: Option[String] = None,
       token: Option[String] = None,
   )(implicit traceContext: TraceContext): Source[GetActiveContractsResponse, Future[String]] =
     ClientAdapter
@@ -45,7 +45,7 @@ class StateServiceClient(service: StateServiceStub)(implicit
         GetActiveContractsRequest(
           filter = Some(filter),
           verbose = verbose,
-          activeAtOffset = validAtOffset.getOrElse(""),
+          activeAtOffset = validAtOffset,
         ),
         LedgerClient.stubWithTracing(service, token).getActiveContracts,
       )
@@ -56,15 +56,15 @@ class StateServiceClient(service: StateServiceStub)(implicit
   /** Returns the resulting active contract set */
   def getActiveContracts(
       filter: TransactionFilter,
+      validAtOffset: Long,
       verbose: Boolean = false,
-      validAtOffset: Option[String] = None,
       token: Option[String] = None,
   )(implicit
       materializer: Materializer,
       traceContext: TraceContext,
   ): Future[(Seq[ActiveContract], String)] = {
     val (offsetF, contractsF) =
-      getActiveContractsSource(filter, verbose, validAtOffset, token)
+      getActiveContractsSource(filter, validAtOffset, verbose, token)
         .toMat(Sink.seq)(Keep.both)
         .run()
     val activeF = contractsF

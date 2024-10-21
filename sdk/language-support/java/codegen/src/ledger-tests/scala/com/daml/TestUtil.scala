@@ -7,7 +7,10 @@ import com.daml.bazeltools.BazelRunfiles
 import com.daml.integrationtest.CantonFixture
 import com.daml.ledger.api.testing.utils.SuiteResourceManagementAroundAll
 import com.daml.ledger.api.v2.{CommandServiceGrpc, StateServiceGrpc}
-import com.daml.ledger.api.v2.StateServiceOuterClass.GetActiveContractsResponse
+import com.daml.ledger.api.v2.StateServiceOuterClass.{
+  GetActiveContractsResponse,
+  GetLedgerEndRequest,
+}
 import com.daml.ledger.api.v2.CommandServiceOuterClass.{SubmitAndWaitRequest, SubmitAndWaitResponse}
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.daml.ledger.javaapi.data
@@ -129,12 +132,13 @@ object TestUtil {
   ): List[C] = {
     // Relies on ordering of ACS endpoint. This isn’t documented but currently
     // the ledger guarantees this.
-    val txService = StateServiceGrpc.newBlockingStub(channel)
-    val txs = txService.getActiveContracts(
+    val stateService = StateServiceGrpc.newBlockingStub(channel)
+    val currentEnd = stateService.getLedgerEnd(GetLedgerEndRequest.newBuilder().build()).getOffset
+    val txs = stateService.getActiveContracts(
       new GetActiveContractsRequest(
         allTemplates(partyName),
         true,
-        "",
+        currentEnd,
       ).toProto
     )
     val iterable: java.lang.Iterable[GetActiveContractsResponse] = () => txs

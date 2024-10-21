@@ -102,7 +102,7 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
   "detect stakeholders mismatch" in {
     // receiverParty2 is not a stakeholder on a contract, but it is listed as stakeholder here
     val incorrectStakeholders = Stakeholders.tryCreate(
-      stakeholders = stakeholders.stakeholders + receiverParty2
+      stakeholders = stakeholders.all + receiverParty2
     )
 
     val validation = mkUnassignmentValidation(
@@ -145,7 +145,7 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
       validation.futureValueUS
     }
 
-    assert(!stakeholders.stakeholders.contains(nonStakeholder))
+    assert(!stakeholders.all.contains(nonStakeholder))
 
     unassignmentValidation(submitterParty1).value shouldBe ()
     unassignmentValidation(
@@ -153,7 +153,7 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
     ).left.value shouldBe UnassignmentSubmitterMustBeStakeholder(
       contractId,
       submittingParty = nonStakeholder,
-      stakeholders = stakeholders.stakeholders,
+      stakeholders = stakeholders.all,
     )
   }
 
@@ -197,7 +197,7 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
     val updatedContract = contract.copy(metadata =
       ContractMetadata.tryCreate(
         signatories = Set(),
-        stakeholders = newStakeholders.stakeholders,
+        stakeholders = newStakeholders.all,
         maybeKeyWithMaintainersVersioned = None,
       )
     )

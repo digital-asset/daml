@@ -115,17 +115,17 @@ object UnassignmentRequest {
         sourceTopology,
         submitterMetadata.submitter,
         participantId,
-        stakeholders = stakeholders.stakeholders,
+        stakeholders = stakeholders.all,
       )
 
       unassignmentRequestRecipients <- sourceTopology.unwrap
-        .activeParticipantsOfAll(stakeholders.stakeholders.toList)
+        .activeParticipantsOfAll(stakeholders.all.toList)
         .mapK(FutureUnlessShutdown.outcomeK)
         .leftMap(inactiveParties =>
           StakeholderHostingErrors(s"The following stakeholders are not active: $inactiveParties")
         )
 
-      reassigningParticipants <- new ReassigningParticipants(
+      reassigningParticipants <- new ReassigningParticipantsComputation(
         stakeholders = stakeholders,
         sourceTopology,
         targetTopology,
@@ -135,7 +135,7 @@ object UnassignmentRequest {
         .checkPackagesVetted(
           targetDomain.unwrap,
           targetTopology.unwrap,
-          stakeholders.stakeholders.view.map(_ -> Set(templateId.packageId)).toMap,
+          stakeholders.all.view.map(_ -> Set(templateId.packageId)).toMap,
           targetTopology.unwrap.referenceTime,
         )
         .leftMap[ReassignmentProcessorError](unknownPackage =>

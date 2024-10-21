@@ -9,7 +9,6 @@ import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.ValidationLogger
 import com.digitalasset.canton.ledger.api.grpc.{GrpcApiService, StreamingServiceLifecycleManagement}
 import com.digitalasset.canton.ledger.api.validation.{FieldValidator, TransactionFilterValidator}
-import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.participant.state.WriteService
 import com.digitalasset.canton.ledger.participant.state.index.{
   IndexActiveContractsService as ACSBackend,
@@ -60,16 +59,10 @@ final class ApiStateService(
         filters <- TransactionFilterValidator.validate(
           request.getFilter
         )
-        activeAtO <- FieldValidator.optionalString(request.activeAtOffset)(str =>
-          ApiOffset.fromString(str).left.map { errorMsg =>
-            RequestValidationErrors.NonHexOffset
-              .Error(
-                fieldName = "active_at_offset",
-                offsetValue = request.activeAtOffset,
-                message = s"Reason: $errorMsg",
-              )
-              .asGrpcError
-          }
+
+        activeAt <- FieldValidator.requireNonNegativeOffset(
+          request.activeAtOffset,
+          "active_at_offset",
         )
       } yield {
         withEnrichedLoggingContext(telemetry)(
@@ -82,7 +75,7 @@ final class ApiStateService(
             .getActiveContracts(
               filter = filters,
               verbose = request.verbose,
-              activeAtO = activeAtO,
+              activeAt = activeAt,
             )
         }
       }

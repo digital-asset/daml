@@ -54,8 +54,13 @@ class DbTrafficConsumedStore(
       }
       .map(_.sum)
     storage
-      .queryAndUpdate(bulkInsert, functionFullName)
+      .queryAndUpdateUnlessShutdown(bulkInsert, functionFullName)
       .map(updateCount => logger.debug(s"Stored $updateCount traffic consumed entries"))
+      .onShutdown {
+        logger.debug(
+          "DbTrafficConsumedStore is shutting down, cancelling storing traffic consumed entries"
+        )
+      }
   }
 
   override def lookup(
@@ -175,8 +180,16 @@ class DbTrafficConsumedStore(
         .map(_.sum)
     } yield deletedTotalCount
 
-    storage.queryAndUpdate(pruningQuery, functionFullName).map { pruned =>
-      s"Removed $pruned traffic consumed entries"
-    }
+    storage
+      .queryAndUpdateUnlessShutdown(pruningQuery, functionFullName)
+      .onShutdown {
+        logger.debug(
+          "DbTrafficConsumedStore is shutting down, cancelling pruning traffic consumed entries"
+        )
+        0
+      }
+      .map { pruned =>
+        s"Removed $pruned traffic consumed entries"
+      }
   }
 }

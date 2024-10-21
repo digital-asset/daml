@@ -5,6 +5,7 @@ package com.digitalasset.canton.ledger.api.validation
 
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2.value.Identifier
+import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, JwksUrl}
 import com.digitalasset.canton.ledger.api.validation.ResourceAnnotationValidator.{
@@ -14,6 +15,7 @@ import com.digitalasset.canton.ledger.api.validation.ResourceAnnotationValidator
 }
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.*
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
+import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{Party, TypeConRef}
@@ -230,6 +232,21 @@ object FieldValidator {
       errorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, String] =
     Either.cond(s.isEmpty, s, invalidArgument(s"field $fieldName must be not set"))
+
+  def requireNonNegativeOffset(offset: Long, fieldName: String)(implicit
+      errorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, Offset] =
+    Either.cond(
+      offset >= 0,
+      Offset.fromLong(offset),
+      RequestValidationErrors.NegativeOffset
+        .Error(
+          fieldName = fieldName,
+          offsetValue = offset,
+          message = s"Reason: the offset in $fieldName field was a negative integer ($offset)",
+        )
+        .asGrpcError,
+    )
 
   def verifyMetadataAnnotations(
       annotations: Map[String, String],

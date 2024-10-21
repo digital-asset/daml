@@ -33,8 +33,9 @@ class StateClientImplTest
 
   it should "support the empty ACS" in {
     ledgerServices.withACSClient(Observable.empty(), Observable.empty()) { (acsClient, _) =>
+      val currentEnd = acsClient.getLedgerEnd.blockingGet().orElse(0L)
       val acs = acsClient
-        .getActiveContracts(filterNothing, true)
+        .getActiveContracts(filterNothing, true, currentEnd)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
       acs.blockingIterable().asScala.size shouldBe 0
     }
@@ -45,8 +46,9 @@ class StateClientImplTest
       Observable.fromArray(genGetActiveContractsResponse),
       Observable.empty(),
     ) { (acsClient, _) =>
+      val currentEnd = acsClient.getLedgerEnd.blockingGet().orElse(0L)
       val acs = acsClient
-        .getActiveContracts(filterNothing, true)
+        .getActiveContracts(filterNothing, true, currentEnd)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
       acs.blockingIterable().asScala.size shouldBe 1
     }
@@ -56,8 +58,9 @@ class StateClientImplTest
     val acsResponses = List.fill(10)(genGetActiveContractsResponse)
     ledgerServices.withACSClient(Observable.fromArray(acsResponses: _*), Observable.empty()) {
       (acsClient, _) =>
+        val currentEnd = acsClient.getLedgerEnd.blockingGet().orElse(0L)
         val acs = acsClient
-          .getActiveContracts(filterNothing, true)
+          .getActiveContracts(filterNothing, true, currentEnd)
           .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         acs.blockingIterable().asScala.size shouldBe 10
     }
@@ -68,8 +71,9 @@ class StateClientImplTest
   it should "pass the transaction filter and the verbose flag to the ledger" in {
     ledgerServices.withACSClient(Observable.empty(), Observable.empty()) { (acsClient, acsImpl) =>
       val verbose = true
+      val currentEnd = acsClient.getLedgerEnd.blockingGet().orElse(0L)
       acsClient
-        .getActiveContracts(filterNothing, verbose)
+        .getActiveContracts(filterNothing, verbose, currentEnd)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingIterable()
         .asScala
@@ -86,7 +90,7 @@ class StateClientImplTest
       (acsClient, _) =>
         expectUnauthenticated {
           acsClient
-            .getActiveContracts(filterFor(someParty), false, emptyToken)
+            .getActiveContracts(filterFor(someParty), false, 0L, emptyToken)
             .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
             .blockingIterable()
             .asScala
@@ -99,7 +103,7 @@ class StateClientImplTest
     ledgerServices.withACSClient(Observable.empty(), Observable.empty(), mockedAuthService) {
       (acsClient, _) =>
         acsClient
-          .getActiveContracts(filterFor(someParty), false, somePartyReadToken)
+          .getActiveContracts(filterFor(someParty), false, 0L, somePartyReadToken)
           .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
           .blockingIterable()
           .asScala
