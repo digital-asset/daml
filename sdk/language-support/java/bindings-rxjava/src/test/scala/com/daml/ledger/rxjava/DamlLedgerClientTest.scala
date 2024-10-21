@@ -110,8 +110,9 @@ class DamlLedgerClientTest
       activeContractsServiceImpl: StateServiceImpl,
   ): Assertion = {
     withClue(clueFor("StateClient")) {
+      val currentEnd = stateServiceClient.getLedgerEnd.blockingGet().orElse(0L)
       stateServiceClient
-        .getActiveContracts(filterFor(someParty), false)
+        .getActiveContracts(filterFor(someParty), false, currentEnd)
         .timeout(TestConfiguration.timeoutInSeconds, TimeUnit.SECONDS)
         .blockingIterable()
         .asScala
