@@ -78,8 +78,7 @@ public class StateClientImpl implements StateClient {
               response.getContractEntry().stream()
                   .map(ce -> contractFilter.toContract(ce.getCreatedEvent()))
                   .collect(Collectors.toList());
-          return new ActiveContracts<>(
-              response.getOffset(), activeContracts, response.getWorkflowId());
+          return new ActiveContracts<>(activeContracts, response.getWorkflowId());
         });
   }
 
