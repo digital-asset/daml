@@ -26,6 +26,8 @@ object InstrumentedGraph {
       delayTimer: Timer,
   ) extends BoundedSourceQueue[T] {
 
+    override def isCompleted: Boolean = delegate.isCompleted
+
     override def complete(): Unit = {
       delegate.complete()
       capacityCounter.dec(bufferSize.toLong)(MetricsContext.Empty)
