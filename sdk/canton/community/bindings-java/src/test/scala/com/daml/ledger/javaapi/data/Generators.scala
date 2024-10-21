@@ -507,12 +507,10 @@ object Generators {
 
   def getActiveContractResponseGen: Gen[v2.StateServiceOuterClass.GetActiveContractsResponse] =
     for {
-      offset <- Arbitrary.arbString.arbitrary
       workflowId <- Arbitrary.arbString.arbitrary
       entryGen <- contractEntryBuilderGen
     } yield v2.StateServiceOuterClass.GetActiveContractsResponse
       .newBuilder()
-      .setOffset(offset)
       .setWorkflowId(workflowId)
       .pipe(entryGen)
       .build()

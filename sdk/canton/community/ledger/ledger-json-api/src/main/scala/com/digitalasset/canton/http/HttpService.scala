@@ -116,6 +116,7 @@ class HttpService(
             ledgerClientJwt.getByContractId(ledgerClient),
             ledgerClientJwt.getActiveContracts(ledgerClient),
             ledgerClientJwt.getCreatesAndArchivesSince(ledgerClient),
+            ledgerClientJwt.getLedgerEnd(ledgerClient),
             loggerFactory,
           )
 

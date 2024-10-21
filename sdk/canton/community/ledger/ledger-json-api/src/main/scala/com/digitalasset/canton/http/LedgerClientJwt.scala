@@ -84,21 +84,16 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends Name
   def getActiveContracts(client: DamlLedgerClient)(implicit
       traceContext: TraceContext
   ): GetActiveContracts =
-    (jwt, filter, verbose) =>
+    (jwt, filter, offset, verbose) =>
       implicit lc => {
         log(GetActiveContractsLog) {
-          Source
-            .future(client.stateService.getLedgerEndOffset())
-            .flatMapConcat { offsetO =>
-              client.stateService
-                .getActiveContractsSource(
-                  filter = filter,
-                  validAtOffset = offsetO.getOrElse(0L),
-                  verbose = verbose,
-                  token = bearer(jwt),
-                )
-            }
-            .mapMaterializedValue(_ => NotUsed)
+          client.stateService
+            .getActiveContractsSource(
+              filter = filter,
+              token = bearer(jwt),
+              verbose = verbose,
+              validAtOffset = offset,
+            )
         }
       }
 
@@ -272,6 +267,19 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends Name
         }
       }
 
+  def getLedgerEnd(client: DamlLedgerClient)(implicit
+      ec: EC,
+      traceContext: TraceContext,
+  ): GetLedgerEnd =
+    jwt =>
+      implicit lc => {
+        Source.future(
+          log(GetLedgerEndLog) {
+            client.stateService.getLedgerEndOffset(token = bearer(jwt)).map(_.getOrElse(0L))
+          }
+        )
+      }
+
   private def logFuture[T, C](
       requestLog: RequestLog
   )(
@@ -327,11 +335,15 @@ object LedgerClientJwt {
     (
         Jwt,
         TransactionFilter,
+        Long,
         Boolean,
     ) => LoggingContextOf[InstanceUUID] => Source[
       GetActiveContractsResponse,
       NotUsed,
     ]
+
+  type GetLedgerEnd =
+    Jwt => LoggingContextOf[InstanceUUID] => Source[Long, NotUsed]
 
   type GetCreatesAndArchivesSince =
     (
@@ -483,6 +495,7 @@ object LedgerClientJwt {
         extends RequestLog(classOf[MeteringReportClient], "getMeteringReport")
     case object GetActiveContractsLog
         extends RequestLog(classOf[StateServiceClient], "getActiveContracts")
+    case object GetLedgerEndLog extends RequestLog(classOf[StateServiceClient], "getLedgerEnd")
     case object GetUpdatesLog extends RequestLog(classOf[UpdateServiceClient], "getUpdates")
     case object GetContractByContractIdLog
         extends RequestLog(classOf[EventQueryServiceClient], "getContractByContractId")
