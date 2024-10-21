@@ -52,9 +52,12 @@ public class IouMain {
     BiMap<Long, Iou.ContractId> idMap = Maps.synchronizedBiMap(HashBiMap.create());
     AtomicReference<String> acsOffset = new AtomicReference<>("");
 
+    Optional<Long> ledgerEndO = client.getStateClient().getLedgerEnd().blockingGet();
+
     client
         .getStateClient()
-        .getActiveContracts(Iou.contractFilter(), Collections.singleton(party), true)
+        .getActiveContracts(
+            Iou.contractFilter(), Collections.singleton(party), true, ledgerEndO.orElse(0L))
         .blockingForEach(
             response -> {
               response.offset.ifPresent(offset -> acsOffset.set(offset));
@@ -66,13 +69,7 @@ public class IouMain {
                   });
             });
 
-    String ledgerEnd =
-        client
-            .getStateClient()
-            .getLedgerEnd()
-            .blockingGet()
-            .map(num -> String.format("%018x", num))
-            .orElse("");
+    String ledgerEndString = ledgerEndO.map(num -> String.format("%018x", num)).orElse("");
 
     Disposable ignore =
         client
@@ -80,7 +77,7 @@ public class IouMain {
             .getTransactions(
                 Iou.contractFilter(),
                 acsOffset.get(),
-                ledgerEnd,
+                ledgerEndString,
                 Collections.singleton(party),
                 true)
             .forEach(
