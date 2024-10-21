@@ -50,12 +50,11 @@ public class IouMain {
     ConcurrentHashMap<Long, Iou> contracts = new ConcurrentHashMap<>();
     BiMap<Long, Iou.ContractId> idMap = Maps.synchronizedBiMap(HashBiMap.create());
 
-    Optional<Long> ledgerEndO = client.getStateClient().getLedgerEnd().blockingGet();
+    Long ledgerEnd = client.getStateClient().getLedgerEnd().blockingGet().orElse(0L);
 
     client
         .getStateClient()
-        .getActiveContracts(
-            Iou.contractFilter(), Collections.singleton(party), true, ledgerEndO.orElse(0L))
+        .getActiveContracts(Iou.contractFilter(), Collections.singleton(party), true, ledgerEnd)
         .blockingForEach(
             response -> {
               response.activeContracts.forEach(
@@ -66,15 +65,13 @@ public class IouMain {
                   });
             });
 
-    String ledgerEndString = ledgerEndO.map(num -> String.format("%018x", num)).orElse("");
-
     Disposable ignore =
         client
             .getTransactionsClient()
             .getTransactions(
                 Iou.contractFilter(),
-                ledgerEndString,
-                ledgerEndString,
+                ledgerEnd,
+                Optional.of(ledgerEnd),
                 Collections.singleton(party),
                 true)
             .forEach(
