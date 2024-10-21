@@ -862,7 +862,6 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
         .toJson(v.contractEntry)
         .map(ce =>
           JsGetActiveContractsResponse(
-            offset = v.offset,
             workflow_id = v.workflowId,
             contract_entry = ce,
           )
