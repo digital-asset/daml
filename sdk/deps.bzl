@@ -279,18 +279,18 @@ def daml_deps():
     if "com_github_grpc_grpc" not in native.existing_rules():
         http_archive(
             name = "com_github_grpc_grpc",
-            strip_prefix = "grpc-1.59.2",
-            urls = ["https://github.com/grpc/grpc/archive/v1.59.2.tar.gz"],
-            sha256 = "a3a65f0129c4922c5d7f4c11dcd40083a12ca54076fd3a927bcd63c53b7e44a5",
+            strip_prefix = "grpc-1.59.5",
+            urls = ["https://github.com/grpc/grpc/archive/v1.59.5.tar.gz"],
+            sha256 = "ad295f118a84d87096fe3eb416ef446d75d44c988eadccebc650656eb9383b3d",
         )
 
     if "com_google_protobuf" not in native.existing_rules():
         http_archive(
             name = "com_google_protobuf",
-            sha256 = "bd58f4cff519e8ea3a584d5cf5e37df923088eed5807d2e4f2928080feca4a60",
-            strip_prefix = "protobuf-3.24.0",
+            sha256 = "a1fa6ffa97c09d1efe0344e4352a6dbc51cebaafbdf20bcb6405147a0158c406",
+            strip_prefix = "protobuf-3.24.4",
             urls = [
-                "https://github.com/protocolbuffers/protobuf/archive/refs/tags/v3.24.0.tar.gz",
+                "https://github.com/protocolbuffers/protobuf/archive/refs/tags/v3.24.4.tar.gz",
             ],
         )
 
