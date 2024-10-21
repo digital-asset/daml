@@ -87,12 +87,17 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends Name
     (jwt, filter, verbose) =>
       implicit lc => {
         log(GetActiveContractsLog) {
-          client.stateService
-            .getActiveContractsSource(
-              filter = filter,
-              verbose = verbose,
-              token = bearer(jwt),
-            )
+          Source
+            .future(client.stateService.getLedgerEndOffset())
+            .flatMapConcat { offsetO =>
+              client.stateService
+                .getActiveContractsSource(
+                  filter = filter,
+                  validAtOffset = offsetO.getOrElse(0L),
+                  verbose = verbose,
+                  token = bearer(jwt),
+                )
+            }
             .mapMaterializedValue(_ => NotUsed)
         }
       }

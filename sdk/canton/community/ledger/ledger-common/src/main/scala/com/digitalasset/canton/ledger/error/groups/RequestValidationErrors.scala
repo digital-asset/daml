@@ -348,4 +348,22 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
           cause = s"Offset $offsetValue in $fieldName is not a positive integer: $message"
         )
   }
+
+  @Explanation("""The supplied offset is a negative integer.""")
+  @Resolution("Ensure the offset specified is a negative integer.")
+  object NegativeOffset
+      extends ErrorCode(
+        id = "NEGATIVE_OFFSET",
+        ErrorCategory.InvalidIndependentOfSystemState,
+      ) {
+    final case class Error(
+        fieldName: String,
+        offsetValue: Long,
+        message: String,
+    )(implicit
+        val loggingContext: ContextualizedErrorLogger
+    ) extends DamlError(
+          cause = s"Offset $offsetValue in $fieldName is a negative integer: $message"
+        )
+  }
 }

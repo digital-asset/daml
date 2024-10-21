@@ -407,7 +407,7 @@ object Generators {
     for {
       transactionFilter <- transactionFilterGen
       verbose <- Arbitrary.arbBool.arbitrary
-      activeAtOffset <- Arbitrary.arbString.arbitrary
+      activeAtOffset <- Arbitrary.arbLong.arbitrary
     } yield v2.StateServiceOuterClass.GetActiveContractsRequest
       .newBuilder()
       .setFilter(transactionFilter)

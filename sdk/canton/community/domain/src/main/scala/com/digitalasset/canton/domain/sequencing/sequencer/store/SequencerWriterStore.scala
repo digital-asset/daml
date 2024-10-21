@@ -7,6 +7,7 @@ import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.CommitMode
+import com.digitalasset.canton.lifecycle.CloseContext
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.retry
@@ -105,9 +106,10 @@ trait SequencerWriterStore extends AutoCloseable {
   /** Record a counter checkpoints for all members at the given timestamp.
     */
   def recordCounterCheckpointsAtTimestamp(ts: CantonTimestamp)(implicit
-      traceContext: TraceContext
+      traceContext: TraceContext,
+      externalCloseContext: CloseContext,
   ): Future[Unit] =
-    store.recordCounterCheckpointsAtTimestamp(ts)
+    store.recordCounterCheckpointsAtTimestamp(ts)(traceContext, externalCloseContext)
 
 }
 

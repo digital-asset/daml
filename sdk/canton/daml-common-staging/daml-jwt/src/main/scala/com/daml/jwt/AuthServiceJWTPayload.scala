@@ -80,6 +80,7 @@ object AuthServiceJWTCodec {
   private[this] final val propExp: String = "exp"
   private[this] final val propSub: String = "sub"
   private[this] final val propScope: String = "scope"
+  private[this] final val propScp: String = "scp"
 
   // ------------------------------------------------------------------------------------------------------------------
   // Encoding
@@ -167,7 +168,7 @@ object AuthServiceJWTCodec {
         exp = readInstant(propExp, fields),
         format = StandardJWTTokenFormat.Audience,
         audiences = readOptionalStringOrArray(propAud, fields),
-        scope = readOptionalString(propScope, fields),
+        scope = readAndCombineScopes(fields),
       )
     case _ =>
       deserializationError(
@@ -184,7 +185,7 @@ object AuthServiceJWTCodec {
         exp = readInstant(propExp, fields),
         format = StandardJWTTokenFormat.Scope,
         audiences = readOptionalStringOrArray(propAud, fields),
-        scope = readOptionalString(propScope, fields),
+        scope = readAndCombineScopes(fields),
       )
     case _ =>
       deserializationError(
@@ -200,13 +201,12 @@ object AuthServiceJWTCodec {
 
   private def readPayload(value: JsValue): AuthServiceJWTPayload = value match {
     case JsObject(fields) =>
-      val scopeO = fields.get(propScope)
       // Support scope that spells 'daml_ledger_api'
-      val scopes = scopeO.toList.collect { case JsString(scope) => scope.split(" ") }.flatten
+      val scopes = readScopes(fields)
       // We're using this rather restrictive test to ensure we continue parsing all legacy sandbox tokens that
       // are in use before the 2.0 release; and thereby maintain full backwards compatibility.
       val audienceValue = readOptionalStringOrArray(propAud, fields)
-      // Tokens with audience which starts with `https://daml.com/participant/jwt/aud/participant/${participantId}`
+      // Tokens with audience which starts with `https://daml.com/jwt/aud/participant/${participantId}`
       // where `${participantId}` is non-empty string are supported.
       // As required for JWTs, additional fields can be in a token but will be ignored (including scope)
       val participantAudiences = audienceValue.filter(_.startsWith(audPrefix))
@@ -223,7 +223,7 @@ object AuthServiceJWTCodec {
               format = StandardJWTTokenFormat.Audience,
               audiences =
                 List.empty, // we do not read or extract audience claims for ParticipantId-based tokens
-              scope = readOptionalString(propScope, fields),
+              scope = readAndCombineScopes(fields),
             )
           case Nil =>
             deserializationError(
@@ -237,7 +237,9 @@ object AuthServiceJWTCodec {
             )
         }
       } else if (scopes.contains(scopeLedgerApiFull)) {
-        // We support the tokens with scope containing `daml_ledger_api`, there is no restriction of `aud` field.
+        // We support the tokens with scope containing `daml_ledger_api`.
+        // `aud` field is interpreted as the participantId and may be validated by the apis authorizer for
+        // conformance with actual participantId.
         val participantId = audienceValue match {
           case id :: Nil => Some(id)
           case Nil => None
@@ -300,6 +302,23 @@ object AuthServiceJWTCodec {
       case Some(value) =>
         deserializationError(s"Could not read ${value.prettyPrint} as string for $name")
     }
+
+  private[this] def readScopes(fields: Map[String, JsValue]): List[String] = {
+    // Read the scopes from the "scope" field which contains a string with space separated entries,
+    // see https://datatracker.ietf.org/doc/html/rfc8693#name-scope-scopes-claim
+    // Otherwise, read from the "scp" field which contains a vector of entries,
+    // see https://ldapwiki.com/wiki/Wiki.jsp?page=Scp%20%28Scopes%29%20Claim
+    val scopes =
+      fields.get(propScope).toList.collect { case JsString(scope) => scope.split(" ") }.flatten
+    scopes.headOption.fold(
+      readOptionalStringOrArray(propScp, fields)
+    )(_ => scopes)
+  }
+
+  private[this] def readAndCombineScopes(fields: Map[String, JsValue]): Option[String] = {
+    val scopes = readScopes(fields)
+    scopes.headOption.fold[Option[String]](None)(_ => Some(scopes.mkString(" ")))
+  }
 
   private def readStringList(name: String, values: Vector[JsValue]) =
     values.toList.map {

@@ -53,7 +53,6 @@ object ErrorCategory {
       InvalidGivenCurrentSystemStateSeekAfterEnd,
       BackgroundProcessDegradationWarning,
       InternalUnsupportedOperation,
-      CancelledOperation,
     )
 
   def fromInt(ii: Int): Option[ErrorCategory] = all.find(_.asInt == ii)
@@ -69,7 +68,10 @@ object ErrorCategory {
 
   /** Service is temporarily unavailable
     */
-  @Description("One of the services required to process the request was not available.")
+  @Description("""One of the services required to process the request was not available.
+    |The request might or might not have been processed, as the server aborted the request while it was being processed.
+    |Note that for requests that change the state of the system, this error may be returned
+    |even if the request has completed successfully.""")
   @RetryStrategy("Retry quickly in load balancer.")
   @Resolution(
     "Expectation: transient failure that should be handled by retrying the request with appropriate backoff."
@@ -357,28 +359,6 @@ object ErrorCategory {
         securitySensitive = true,
         asInt = 14,
         rank = 1,
-      )
-      with ErrorCategory
-
-  @Description(
-    """The request might not have been processed, as the server or client cancelled the request while it was being processed.
-                 |Note that for requests that change the state of the
-                 |system, this error may be returned even if the request has completed successfully."""
-  )
-  @RetryStrategy("Retry for a limited number of times with deduplication.")
-  @Resolution(
-    """Expectation: Processing may have been cancelled due to a transient error.
-      |The transient errors might be solved by the application retrying.
-      |The non-transient errors will require operator intervention."""
-  )
-  case object CancelledOperation
-      extends ErrorCategoryImpl(
-        grpcCode = Some(Code.CANCELLED),
-        logLevel = Level.INFO,
-        retryable = Some(ErrorCategoryRetry(1.minute)),
-        securitySensitive = false,
-        asInt = 15,
-        rank = 3,
       )
       with ErrorCategory
 

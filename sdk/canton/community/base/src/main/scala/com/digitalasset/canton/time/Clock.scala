@@ -4,8 +4,8 @@
 package com.digitalasset.canton.time
 
 import cats.data.EitherT
+import cats.syntax.either.*
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
-import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.config.{ClientConfig, ProcessingTimeout}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -13,9 +13,15 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.error.CantonErrorGroups.ClockErrorGroup
 import com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown
-import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, Lifecycle, UnlessShutdown}
+import com.digitalasset.canton.lifecycle.{
+  FlagCloseable,
+  FutureUnlessShutdown,
+  Lifecycle,
+  SyncCloseable,
+  UnlessShutdown,
+}
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.networking.grpc.ClientChannelBuilder
+import com.digitalasset.canton.networking.grpc.{CantonGrpcUtil, ClientChannelBuilder}
 import com.digitalasset.canton.time.Clock.SystemClockRunningBackwards
 import com.digitalasset.canton.topology.admin.v30.{
   CurrentTimeRequest,
@@ -23,15 +29,17 @@ import com.digitalasset.canton.topology.admin.v30.{
 }
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
+import com.digitalasset.canton.util.retry.{AllExceptionRetryPolicy, Pause}
 import com.digitalasset.canton.util.{ErrorUtil, PriorityBlockingQueueUtil}
 import com.google.common.annotations.VisibleForTesting
-import com.google.protobuf.timestamp.Timestamp
+import io.grpc.ManagedChannel
 
 import java.time.{Clock as JClock, Duration, Instant}
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicLong, AtomicReference}
 import java.util.concurrent.{Callable, PriorityBlockingQueue, TimeUnit}
 import scala.annotation.tailrec
-import scala.concurrent.{ExecutionContextExecutor, Future, Promise}
+import scala.concurrent.duration.DurationInt
+import scala.concurrent.{ExecutionContextExecutor, Promise}
 import scala.util.{Random, Try}
 
 /** A clock returning the current time, but with a twist: it always
@@ -381,11 +389,12 @@ class SimClock(
 }
 
 class RemoteClock(
-    config: ClientConfig,
-    timeouts: ProcessingTimeout,
-    val loggerFactory: NamedLoggerFactory,
+    channel: ManagedChannel,
+    override protected val timeouts: ProcessingTimeout,
+    override protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContextExecutor)
     extends Clock
+    with FlagCloseable
     with NamedLogging {
 
   // same as wall-clock: we might use the normal execution context if the tasks are guaranteed to be light
@@ -393,19 +402,14 @@ class RemoteClock(
     loggerFactory.threadName + "-remoteclock",
     noTracingLogger,
   )
-  private val channel = ClientChannelBuilder.createChannelToTrustedServer(config)
   private val service = IdentityInitializationServiceGrpc.stub(channel)
 
-  private def getCurrentRemoteTime(): Future[Timestamp] =
-    service.currentTime(CurrentTimeRequest()).map(_.getCurrentTime)
-
-  private val running = new AtomicBoolean(true)
   private val updating = new AtomicReference[Option[CantonTimestamp]](None)
 
   backgroundUpdate()
 
   private def backgroundUpdate(): Unit =
-    if (running.get()) {
+    if (!isClosing) {
       update().discard
 
       val _ = scheduler.schedule(
@@ -429,7 +433,7 @@ class RemoteClock(
       case Some(tm) => tm
       case None =>
         // fetch current timestamp
-        val tm = getRemoteTime
+        val tm = getCurrentRemoteTime
         // see if something has been racing with us. if so, use other timestamp
         updating.getAndUpdate {
           case None => Some(tm)
@@ -449,37 +453,72 @@ class RemoteClock(
 
   override def now: CantonTimestamp = update()
 
-  @tailrec
-  private def getRemoteTime: CantonTimestamp = {
-    val req = for {
-      pbTimestamp <- EitherT.right[ProtoDeserializationError](getCurrentRemoteTime())
-      timestamp <- EitherT.fromEither[Future](CantonTimestamp.fromProtoTimestamp(pbTimestamp))
-    } yield timestamp
-    import TraceContext.Implicits.Empty.*
-    timeouts.network.await("fetching remote time")(req.value) match {
-      case Right(tm) => tm
-      case Left(err) =>
-        // we are forgiving here. a background process might start faster than the foreground process
-        // so the grpc call might fail because the API is not online. but as we are doing testing only,
-        // we don't make a big fuss about it, just emit a log and retry
-        noTracingLogger.info(
-          s"Failed to fetch remote time from ${config.port.unwrap}: $err. Will try again"
+  private def getCurrentRemoteTime: CantonTimestamp =
+    // Use a fresh trace context for each separate time update request and its retries.
+    TraceContext.withNewTraceContext { implicit traceContext =>
+      val fut = Pause(
+        logger,
+        this,
+        maxRetries = Int.MaxValue,
+        delay = 500.millis,
+        s"fetch remote time from channel $channel",
+      ).unlessShutdown(getCurrentRemoteTimeOnce.value, AllExceptionRetryPolicy)
+      timeouts.unbounded
+        .await("fetching remote time")(fut.unwrap)
+        .onShutdown {
+          // We return the least possible timestamp upon shutdown because it does not seem worth it to convert all calls to `now` to UnlessShutdown
+          // We don't use CantonTimestamp.MinValue itself because that is a sentinel value that should not be used for real times.
+          logger.info("Aborted fetching remote time due to shutdown. Returning min value.")
+          Right(CantonTimestamp.MinValue.immediateSuccessor)
+        }
+        .valueOr(err =>
+          ErrorUtil.invalidState(s"Retry loop terminated with a retryable error: $err")
         )
-        Threading.sleep(500)
-        getRemoteTime
     }
-  }
+
+  private def getCurrentRemoteTimeOnce(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, CantonTimestamp] =
+    for {
+      pbTimestamp <- CantonGrpcUtil
+        .sendGrpcRequest(service, "remote clock server")(
+          _.currentTime(CurrentTimeRequest()),
+          "fetch remote time",
+          timeouts.network.duration,
+          logger,
+          this,
+          // We retry at a higher level indefinitely and not here at all because we want a fairly short connection timeout here.
+          retryPolicy = _ => false,
+        )
+        .bimap(_.toString, _.currentTime)
+      timestamp <- EitherT.fromEither[FutureUnlessShutdown](
+        CantonTimestamp.fromProtoPrimitive(pbTimestamp).leftMap(_.toString)
+      )
+    } yield timestamp
 
   override protected def addToQueue(queue: Queued[?]): Unit = {
     val _ = tasks.add(queue)
   }
 
-  override def close(): Unit =
-    if (running.getAndSet(false)) {
+  override protected def onClosed(): Unit =
+    Lifecycle.close(
       // stopping the scheduler before the channel, so we don't get a failed call on shutdown
-      scheduler.shutdown()
-      Lifecycle.toCloseableChannel(channel, logger, "channel to remote clock server").close()
-    }
+      SyncCloseable("remote clock scheduler", scheduler.shutdown()),
+      Lifecycle.toCloseableChannel(channel, logger, "channel to remote clock server"),
+    )(logger)
+}
+
+object RemoteClock {
+  def apply(
+      config: ClientConfig,
+      timeouts: ProcessingTimeout,
+      loggerFactory: NamedLoggerFactory,
+  )(implicit ec: ExecutionContextExecutor): RemoteClock =
+    new RemoteClock(
+      ClientChannelBuilder.createChannelToTrustedServer(config),
+      timeouts,
+      loggerFactory,
+    )
 }
 
 /** This implementation allows us to control many independent sim clocks at the same time.

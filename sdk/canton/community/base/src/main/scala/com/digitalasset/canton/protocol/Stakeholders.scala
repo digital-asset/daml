@@ -11,7 +11,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.version.*
 
 // Invariant: signatories is a subset of stakeholders
-final case class Stakeholders private (stakeholders: Set[LfPartyId])
+final case class Stakeholders private (all: Set[LfPartyId])
     extends HasVersionedWrapper[Stakeholders]
     with PrettyPrinting {
 
@@ -19,11 +19,11 @@ final case class Stakeholders private (stakeholders: Set[LfPartyId])
     Stakeholders
 
   override protected def pretty: Pretty[Stakeholders.this.type] = prettyOfClass(
-    param("stakeholders", _.stakeholders)
+    param("all", _.all)
   )
 
   def toProtoV30: v30.Stakeholders = v30.Stakeholders(
-    stakeholders = stakeholders.toSeq
+    all = all.toSeq
   )
 }
 
@@ -38,17 +38,17 @@ object Stakeholders extends HasVersionedMessageCompanion[Stakeholders] {
   )
 
   def tryCreate(stakeholders: Set[LfPartyId]): Stakeholders =
-    new Stakeholders(stakeholders = stakeholders)
+    new Stakeholders(all = stakeholders)
 
   def apply(metadata: ContractMetadata): Stakeholders =
-    Stakeholders(stakeholders = metadata.stakeholders)
+    Stakeholders(all = metadata.stakeholders)
 
   def fromProtoV30(stakeholdersP: v30.Stakeholders): ParsingResult[Stakeholders] =
     for {
-      stakeholders <- stakeholdersP.stakeholders
+      stakeholders <- stakeholdersP.all
         .traverse(ProtoConverter.parseLfPartyId(_, "stakeholders"))
         .map(_.toSet)
 
-    } yield Stakeholders(stakeholders = stakeholders)
+    } yield Stakeholders(all = stakeholders)
 
 }

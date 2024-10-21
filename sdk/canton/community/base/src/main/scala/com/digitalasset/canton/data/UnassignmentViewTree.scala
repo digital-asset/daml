@@ -176,7 +176,7 @@ final case class UnassignmentCommonData private (
   override def hashPurpose: HashPurpose = HashPurpose.UnassignmentCommonData
 
   def confirmingParties: Map[LfPartyId, PositiveInt] =
-    stakeholders.stakeholders.map(_ -> PositiveInt.one).toMap
+    stakeholders.all.map(_ -> PositiveInt.one).toMap
 
   override protected def pretty: Pretty[UnassignmentCommonData] = prettyOfClass(
     param("submitter metadata", _.submitterMetadata),

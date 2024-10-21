@@ -29,7 +29,7 @@ import com.digitalasset.canton.util.{EitherTUtil, EitherUtil, ReassignmentTag, S
 
 import scala.concurrent.{ExecutionContext, Future}
 
-private[protocol] class ReassigningParticipants(
+private[protocol] class ReassigningParticipantsComputation(
     stakeholders: Stakeholders,
     sourceTopology: Source[TopologySnapshot],
     targetTopology: Target[TopologySnapshot],
@@ -61,7 +61,7 @@ private[protocol] class ReassigningParticipants(
         computeReassigningParticipants(sourcePermissions, targetPermissions)
       )
 
-      missingReassigningParticipantsFor = stakeholders.stakeholders.diff(
+      missingReassigningParticipantsFor = stakeholders.all.diff(
         confirmingReassigningParticipants.keySet
       )
 
@@ -172,21 +172,20 @@ private[protocol] class ReassigningParticipants(
     EitherT(
       topologySnapshot
         .traverseSingleton((_, topology) =>
-          topology.activeParticipantsOfPartiesWithInfo(stakeholders.stakeholders.toSeq).map {
-            permissions =>
-              val unknownParties = stakeholders.stakeholders.diff(permissions.keySet)
-              val partiesWithoutParticipants = permissions.filter { case (_, partyInfo) =>
-                partyInfo.participants.isEmpty
-              }
+          topology.activeParticipantsOfPartiesWithInfo(stakeholders.all.toSeq).map { permissions =>
+            val unknownParties = stakeholders.all.diff(permissions.keySet)
+            val partiesWithoutParticipants = permissions.filter { case (_, partyInfo) =>
+              partyInfo.participants.isEmpty
+            }
 
-              val missingParties = unknownParties.union(partiesWithoutParticipants.keySet)
+            val missingParties = unknownParties.union(partiesWithoutParticipants.keySet)
 
-              if (missingParties.isEmpty)
-                permissions.asRight
-              else
-                StakeholderHostingErrors(
-                  s"The following parties are not active on the ${topologySnapshot.kind} domain: $missingParties"
-                ).asLeft
+            if (missingParties.isEmpty)
+              permissions.asRight
+            else
+              StakeholderHostingErrors(
+                s"The following parties are not active on the ${topologySnapshot.kind} domain: $missingParties"
+              ).asLeft
           }
         )
         .map(_.sequence)
@@ -197,7 +196,7 @@ private[protocol] class ReassigningParticipants(
       targetStakeholdersInfo: Target[Map[LfPartyId, PartyInfo]],
       computedReassigningParticipant: Map[LfPartyId, NonEmpty[Set[ParticipantId]]],
   ): Either[UnassignmentProcessorError, Unit] =
-    stakeholders.stakeholders.toList
+    stakeholders.all.toList
       .traverse_ { stakeholder =>
         for {
           sourceThreshold <- sourceStakeholdersInfo.traverse(getThresholdFor(stakeholder, _))

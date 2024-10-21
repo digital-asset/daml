@@ -509,7 +509,7 @@ create table sequencer_counter_checkpoints (
    counter bigint not null,
    ts bigint not null,
    latest_sequencer_event_ts bigint,
-   primary key (member, counter)
+   primary key (member, counter, ts)
 );
 
 -- This index helps fetching the latest checkpoint for a member

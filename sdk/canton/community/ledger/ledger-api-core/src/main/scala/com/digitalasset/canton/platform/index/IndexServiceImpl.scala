@@ -301,7 +301,7 @@ private[index] class IndexServiceImpl(
   override def getActiveContracts(
       transactionFilter: TransactionFilter,
       verbose: Boolean,
-      activeAtO: Option[Offset],
+      activeAt: Offset,
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Source[GetActiveContractsResponse, NotUsed] = {
@@ -312,7 +312,6 @@ private[index] class IndexServiceImpl(
         _ <- checkUnknownIdentifiers(transactionFilter, currentPackageMetadata).left
           .map(_.asGrpcError)
         endOffset = ledgerEnd()
-        activeAt = activeAtO.getOrElse(endOffset)
         _ <- validatedAcsActiveAtOffset(activeAt = activeAt, ledgerEnd = endOffset)
       } yield {
         val activeContractsSource =

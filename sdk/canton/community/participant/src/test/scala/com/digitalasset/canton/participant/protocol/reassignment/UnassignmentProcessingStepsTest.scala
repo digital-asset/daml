@@ -332,7 +332,7 @@ final class UnassignmentProcessingStepsTest
         contract.copy(metadata =
           ContractMetadata.tryCreate(
             signatories = Set(),
-            stakeholders = stakeholders.stakeholders,
+            stakeholders = stakeholders.all,
             None,
           )
         )
