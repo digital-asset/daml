@@ -40,14 +40,10 @@ class UpdateServiceRequestValidator(partyValidator: PartyValidator) {
     for {
       filter <- requirePresence(req.filter, "filter")
       begin <- ParticipantOffsetValidator
-        .validate(req.beginExclusive)
+        .validateNonNegative(req.beginExclusive, "begin_exclusive")
         .map(ParticipantOffset.fromString)
       convertedEnd <- ParticipantOffsetValidator
-        .validate(req.endInclusive)
-        .map(str =>
-          if (str.isEmpty) None
-          else Some(ParticipantOffset.fromString(str))
-        )
+        .validateOptionalPositive(req.endInclusive, "end_inclusive")
       knownParties <- partyValidator.requireKnownParties(req.getFilter.filtersByParty.keySet)
     } yield PartialValidation(
       filter,

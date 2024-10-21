@@ -49,6 +49,7 @@ import spray.json.JsValue
 
 import scala.concurrent.{ExecutionContext, Future}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.tracing.NoTracing
 import scalaz.std.scalaFuture.*
 
@@ -438,11 +439,11 @@ class ContractsService(
     val transactionsSince: String => Source[
       lav2.transaction.Transaction,
       NotUsed,
-    ] =
+    ] = off =>
       getCreatesAndArchivesSince(
         jwt,
         txnFilter,
-        _: String,
+        ApiOffset.assertFromStringToLong(off),
         terminates,
       )(lc) via logTermination(logger, "transactions upstream")
 

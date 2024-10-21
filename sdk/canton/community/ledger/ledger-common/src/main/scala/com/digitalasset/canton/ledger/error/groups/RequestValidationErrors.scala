@@ -224,6 +224,7 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
         id = "OFFSET_AFTER_LEDGER_END",
         ErrorCategory.InvalidGivenCurrentSystemStateSeekAfterEnd,
       ) {
+    // TODO(#21781) use Longs in logs
     final case class Reject(offsetType: String, requestedOffset: String, ledgerEnd: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(

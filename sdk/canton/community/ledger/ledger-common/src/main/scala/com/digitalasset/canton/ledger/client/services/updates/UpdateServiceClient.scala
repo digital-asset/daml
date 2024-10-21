@@ -17,10 +17,10 @@ class UpdateServiceClient(service: UpdateServiceStub)(implicit
     esf: ExecutionSequencerFactory
 ) {
   def getUpdatesSource(
-      begin: String,
+      begin: Long,
       filter: TransactionFilter,
       verbose: Boolean = false,
-      end: String = "",
+      end: Option[Long] = None,
       token: Option[String] = None,
   )(implicit traceContext: TraceContext): Source[GetUpdatesResponse, NotUsed] =
     ClientAdapter

@@ -1074,8 +1074,8 @@ object LedgerApiCommands {
 
       override def createRequest(): Either[String, GetUpdatesRequest] = Right {
         GetUpdatesRequest(
-          beginExclusive = beginExclusive,
-          endInclusive = endInclusive,
+          beginExclusive = ApiOffset.assertFromStringToLong(beginExclusive),
+          endInclusive = ApiOffset.assertFromStringToLongO(endInclusive),
           verbose = verbose,
           filter = Some(filter),
         )

@@ -269,7 +269,10 @@ class AdminWorkflowServices(
             service.processAcs(acs)
             new ResilientLedgerSubscription(
               makeSource = subscribeOffset =>
-                client.updateService.getUpdatesSource(subscribeOffset, service.filters),
+                client.updateService.getUpdatesSource(
+                  ApiOffset.assertFromStringToLong(subscribeOffset),
+                  service.filters,
+                ),
               consumingFlow = Flow[GetUpdatesResponse]
                 .map(_.update)
                 .map {
