@@ -7,7 +7,7 @@ import com.daml.ledger.javaapi.data.GetEventsByContractIdResponse;
 import io.reactivex.Single;
 import java.util.Set;
 
-/** An RxJava version of {@link com.daml.ledger.api.v1.PackageServiceGrpc} */
+/** An RxJava version of {@link com.daml.ledger.api.v2.PackageServiceGrpc} */
 public interface EventQueryClient {
   Single<GetEventsByContractIdResponse> getEventsByContractId(
       String contractId, Set<String> requestingParties);
