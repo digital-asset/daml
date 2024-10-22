@@ -11,6 +11,8 @@ import qualified V1.ContractKeys as V1
 import qualified V2.ContractKeys as V2
 import qualified V1.ChangedKeyExpr as V1
 import qualified V2.ChangedKeyExpr as V2
+import qualified V1.ChangedMaintainersExpr as V1
+import qualified V2.ChangedMaintainersExpr as V2
 import qualified V1.UpgradedContractKeys as V1
 import qualified V2.UpgradedContractKeys as V2
 import qualified V1.IfaceMod as Iface
@@ -75,6 +77,28 @@ main = tests
         , ("exerciseByKey, src=v1 tgt=v2", ebkKeyChangedExprChangedValue)
         , ("exerciseCmd, src=v1 tgt=v2", exerciseCmdKeyChangedExprChangedValue)
         , ("exerciseByKeyCmd, src=v1 tgt=v2", ebkCmdKeyChangedExprChangedValue)
+        ]
+      ]
+    , subtree "Changed maintainers expression"
+      [ subtree "Unchanged maintainers value"
+        [ ("queryContractId, src=v1 tgt=v2", queryMaintainersChangedExprSameValue)
+        , ("queryContractMaintainers, src=v1 tgt=v2", qckMaintainersChangedExprSameValue)
+        , ("fetch, src=v1 tgt=v2", fetchMaintainersChangedExprSameValue)
+        , ("fetchByKey, src=v1 tgt=v2", fbkMaintainersChangedExprSameValue)
+        , ("exercise, src=v1 tgt=v2", exerciseMaintainersChangedExprSameValue)
+        , ("exerciseByMaintainers, src=v1 tgt=v2", ebkMaintainersChangedExprSameValue)
+        , ("exerciseCmd, src=v1 tgt=v2", exerciseCmdMaintainersChangedExprSameValue)
+        , ("exerciseByMaintainersCmd, src=v1 tgt=v2", ebkCmdMaintainersChangedExprSameValue)
+        ]
+      , subtree "Changed maintainers value"
+        [ ("queryContractId, src=v1 tgt=v2", queryMaintainersChangedExprChangedValue)
+        , ("queryContractMaintainers, src=v1 tgt=v2", qckMaintainersChangedExprChangedValue)
+        , ("fetch, src=v1 tgt=v2", fetchMaintainersChangedExprChangedValue)
+        , ("fetchByKey, src=v1 tgt=v2", fbkMaintainersChangedExprChangedValue)
+        , ("exercise, src=v1 tgt=v2", exerciseMaintainersChangedExprChangedValue)
+        , ("exerciseByMaintainers, src=v1 tgt=v2", ebkMaintainersChangedExprChangedValue)
+        , ("exerciseCmd, src=v1 tgt=v2", exerciseCmdMaintainersChangedExprChangedValue)
+        , ("exerciseByMaintainersCmd, src=v1 tgt=v2", ebkCmdMaintainersChangedExprChangedValue)
         ]
       ]
     ]
@@ -276,7 +300,7 @@ fetchKeyChangedExprChangedValue : Test
 fetchKeyChangedExprChangedValue = test $ do
   a <- allocateParty "alice"
   cid <- a `submit` createExactCmd (V1.ChangedKeyExpr a True)
-  expectKeyChangedError =<<
+  expectMetadataChangedError =<<
     a `trySubmit` createAndExerciseCmd (V2.ChangedKeyExprHelper a) (V2.ChangedKeyExprFetch $ coerceContractId cid)
 
 fbiKeyChangedExprSameValue : Test
@@ -290,7 +314,7 @@ fbiKeyChangedExprChangedValue : Test
 fbiKeyChangedExprChangedValue = test $ do
   a <- allocateParty "alice"
   cid <- a `submit` createExactCmd (V1.ChangedKeyExpr a True)
-  expectKeyChangedError =<<
+  expectMetadataChangedError =<<
     a `trySubmit` createAndExerciseCmd (V2.ChangedKeyExprHelper a) (V2.ChangedKeyExprFetchByInterface $ coerceContractId cid)
 
 fbkKeyChangedExprSameValue : Test
@@ -305,7 +329,7 @@ fbkKeyChangedExprChangedValue : Test
 fbkKeyChangedExprChangedValue = test $ do
   a <- allocateParty "alice"
   cid <- a `submit` createExactCmd (V1.ChangedKeyExpr a True)
-  expectKeyChangedError =<<
+  expectMetadataChangedError =<<
     a `trySubmit` createAndExerciseCmd (V2.ChangedKeyExprHelper a) (V2.ChangedKeyExprFetchByKey $ V2.ChangedKeyExprKey a False)
 
 exerciseKeyChangedExprSameValue : Test
@@ -347,36 +371,213 @@ exerciseKeyChangedExprChangedValue : Test
 exerciseKeyChangedExprChangedValue = test $ do
   a <- allocateParty "alice"
   cid <- a `submit` createExactCmd (V1.ChangedKeyExpr a True)
-  expectKeyChangedError =<<
+  expectMetadataChangedError =<<
     a `trySubmit` createAndExerciseCmd (V2.ChangedKeyExprHelper a) (V2.ChangedKeyExprExercise $ coerceContractId cid)
 
 ebiKeyChangedExprChangedValue : Test
 ebiKeyChangedExprChangedValue = test $ do
   a <- allocateParty "alice"
   cid <- a `submit` createExactCmd (V1.ChangedKeyExpr a True)
-  expectKeyChangedError =<<
+  expectMetadataChangedError =<<
     a `trySubmit` createAndExerciseCmd (V2.ChangedKeyExprHelper a) (V2.ChangedKeyExprExerciseByInterface $ coerceContractId cid)
 
 ebkKeyChangedExprChangedValue : Test
 ebkKeyChangedExprChangedValue = test $ do
   a <- allocateParty "alice"
   _ <- a `submit` createExactCmd (V1.ChangedKeyExpr a True)
-  expectKeyChangedError =<<
+  expectMetadataChangedError =<<
     a `trySubmit` createAndExerciseCmd (V2.ChangedKeyExprHelper a) (V2.ChangedKeyExprExerciseByKey $ V2.ChangedKeyExprKey a False)
 
 exerciseCmdKeyChangedExprChangedValue : Test
 exerciseCmdKeyChangedExprChangedValue = test $ do
   a <- allocateParty "alice"
   cid <- a `submit` createExactCmd (V1.ChangedKeyExpr a True)
-  expectKeyChangedError =<<
+  expectMetadataChangedError =<<
     a `trySubmit` exerciseExactCmd @V2.ChangedKeyExpr (coerceContractId cid) V2.ChangedKeyExprCall
 
 ebkCmdKeyChangedExprChangedValue : Test
 ebkCmdKeyChangedExprChangedValue = test $ do
   a <- allocateParty "alice"
   _ <- a `submit` createExactCmd (V1.ChangedKeyExpr a True)
-  expectKeyChangedError =<<
+  expectMetadataChangedError =<<
     a `trySubmit` exerciseByKeyExactCmd @V2.ChangedKeyExpr (V2.ChangedKeyExprKey a False) V2.ChangedKeyExprCall
+
+{- MODULE
+package: contract-key-upgrades
+contents: |
+  module ChangedMaintainersExpr where
+
+  data ChangedMaintainersExprKey = ChangedMaintainersExprKey with
+      p1 : Party
+      p2 : Party
+    deriving (Eq, Show)
+
+  template ChangedMaintainersExpr
+    with
+      p1 : Party
+      p2 : Party
+    where
+      signatory p1
+      key (ChangedMaintainersExprKey p1 p2) : ChangedMaintainersExprKey
+      maintainer key.p1                                       -- @V 1
+      maintainer key.p2                                       -- @V  2
+
+      choice ChangedMaintainersExprCall : Text
+        controller p1
+        do pure "V1"                                          -- @V 1
+        do pure "V2"                                          -- @V  2
+
+  template ChangedMaintainersExprHelper
+    with
+      party : Party
+    where
+      signatory party
+
+      choice ChangedMaintainersExprFetch : ChangedMaintainersExpr with
+          cid : ContractId ChangedMaintainersExpr
+        controller party
+        do fetch cid
+
+      choice ChangedMaintainersExprFetchByKey : (ContractId ChangedMaintainersExpr, ChangedMaintainersExpr) with
+          k : ChangedMaintainersExprKey
+        controller party
+        do fetchByKey k
+
+      choice ChangedMaintainersExprExercise : Text with
+          cid : ContractId ChangedMaintainersExpr
+        controller party
+        do exercise @ChangedMaintainersExpr cid ChangedMaintainersExprCall
+
+      choice ChangedMaintainersExprExerciseByKey : Text with
+          k : ChangedMaintainersExprKey
+        controller party
+        do exerciseByKey @ChangedMaintainersExpr k ChangedMaintainersExprCall
+-}
+
+qckMaintainersChangedExprSameValue : Test
+qckMaintainersChangedExprSameValue = test $ do
+  a <- allocateParty "alice"
+  cid <- a `submit` createExactCmd (V1.ChangedMaintainersExpr a a)
+  keyRes <- queryContractKey a $ V2.ChangedMaintainersExprKey a a
+  case keyRes of
+    Some (foundCid, foundContract) | show foundCid == show cid && foundContract == V2.ChangedMaintainersExpr a a -> pure ()
+    _ -> assertFail $ "Didn't find correct contract, expected " <> show (cid, V2.ChangedMaintainersExpr a a) <> ", got " <> show keyRes
+
+queryMaintainersChangedExprSameValue : Test
+queryMaintainersChangedExprSameValue = test $ do
+  a <- allocateParty "alice"
+  cid <- a `submit` createExactCmd (V1.ChangedMaintainersExpr a a)
+  res <- queryContractId a (coerceContractId @_ @V2.ChangedMaintainersExpr cid)
+  case res of
+    Some foundContract | foundContract == V2.ChangedMaintainersExpr a a -> pure ()
+    _ -> assertFail $ "Didn't find correct contract, expected " <> show (V2.ChangedMaintainersExpr a a) <> ", got " <> show res
+
+qckMaintainersChangedExprChangedValue : Test
+qckMaintainersChangedExprChangedValue = test $ do
+  a <- allocateParty "alice"
+  b <- allocateParty "bob"
+  cid <- a `submit` createExactCmd (V1.ChangedMaintainersExpr a b)
+  r <- queryContractKey @V2.ChangedMaintainersExpr a $ V2.ChangedMaintainersExprKey a b
+  r === Some (coerceContractId @_ @V2.ChangedMaintainersExpr cid, V2.ChangedMaintainersExpr a b)
+
+queryMaintainersChangedExprChangedValue : Test
+queryMaintainersChangedExprChangedValue = test $ do
+  a <- allocateParty "alice"
+  b <- allocateParty "bob"
+  cid <- a `submit` createExactCmd (V1.ChangedMaintainersExpr a b)
+  r <- queryContractId a (coerceContractId @_ @V2.ChangedMaintainersExpr cid)
+  r === Some (V2.ChangedMaintainersExpr a b)
+
+fetchMaintainersChangedExprSameValue : Test
+fetchMaintainersChangedExprSameValue = test $ do
+  a <- allocateParty "alice"
+  cid <- a `submit` createExactCmd (V1.ChangedMaintainersExpr a a)
+  foundContract <- a `submit` createAndExerciseCmd (V2.ChangedMaintainersExprHelper a) (V2.ChangedMaintainersExprFetch $ coerceContractId cid)
+  foundContract === V2.ChangedMaintainersExpr a a
+
+fetchMaintainersChangedExprChangedValue : Test
+fetchMaintainersChangedExprChangedValue = test $ do
+  a <- allocateParty "alice"
+  b <- allocateParty "bob"
+  cid <- a `submit` createExactCmd (V1.ChangedMaintainersExpr a b)
+  expectMetadataChangedError =<<
+    a `trySubmit` createAndExerciseCmd (V2.ChangedMaintainersExprHelper a) (V2.ChangedMaintainersExprFetch $ coerceContractId cid)
+
+fbkMaintainersChangedExprSameValue : Test
+fbkMaintainersChangedExprSameValue = test $ do
+  a <- allocateParty "alice"
+  cid <- a `submit` createExactCmd (V1.ChangedMaintainersExpr a a)
+  (foundCid, foundContract) <- a `submit` createAndExerciseCmd (V2.ChangedMaintainersExprHelper a) (V2.ChangedMaintainersExprFetchByKey $ V2.ChangedMaintainersExprKey a a)
+  foundContract === V2.ChangedMaintainersExpr a a
+  show foundCid === show cid
+
+fbkMaintainersChangedExprChangedValue : Test
+fbkMaintainersChangedExprChangedValue = test $ do
+  a <- allocateParty "alice"
+  b <- allocateParty "bob"
+  cid <- a `submit` createExactCmd (V1.ChangedMaintainersExpr a b)
+  expectMetadataChangedError =<<
+    a `trySubmit` createAndExerciseCmd (V2.ChangedMaintainersExprHelper a) (V2.ChangedMaintainersExprFetchByKey $ V2.ChangedMaintainersExprKey a b)
+
+exerciseMaintainersChangedExprSameValue : Test
+exerciseMaintainersChangedExprSameValue = test $ do
+  a <- allocateParty "alice"
+  cid <- a `submit` createExactCmd (V1.ChangedMaintainersExpr a a)
+  res <- a `submit` createAndExerciseCmd (V2.ChangedMaintainersExprHelper a) (V2.ChangedMaintainersExprExercise $ coerceContractId cid)
+  res === "V2"
+
+ebkMaintainersChangedExprSameValue : Test
+ebkMaintainersChangedExprSameValue = test $ do
+  a <- allocateParty "alice"
+  _ <- a `submit` createExactCmd (V1.ChangedMaintainersExpr a a)
+  res <- a `submit` createAndExerciseCmd (V2.ChangedMaintainersExprHelper a) (V2.ChangedMaintainersExprExerciseByKey $ V2.ChangedMaintainersExprKey a a)
+  res === "V2"
+
+exerciseCmdMaintainersChangedExprSameValue : Test
+exerciseCmdMaintainersChangedExprSameValue = test $ do
+  a <- allocateParty "alice"
+  cid <- a `submit` createExactCmd (V1.ChangedMaintainersExpr a a)
+  res <- a `submit` exerciseExactCmd @V2.ChangedMaintainersExpr (coerceContractId cid) V2.ChangedMaintainersExprCall
+  res === "V2"
+
+ebkCmdMaintainersChangedExprSameValue : Test
+ebkCmdMaintainersChangedExprSameValue = test $ do
+  a <- allocateParty "alice"
+  _ <- a `submit` createExactCmd (V1.ChangedMaintainersExpr a a)
+  res <- a `submit` exerciseByKeyExactCmd @V2.ChangedMaintainersExpr (V2.ChangedMaintainersExprKey a a) V2.ChangedMaintainersExprCall
+  res === "V2"
+
+exerciseMaintainersChangedExprChangedValue : Test
+exerciseMaintainersChangedExprChangedValue = test $ do
+  a <- allocateParty "alice"
+  b <- allocateParty "bob"
+  cid <- a `submit` createExactCmd (V1.ChangedMaintainersExpr a b)
+  expectMetadataChangedError =<<
+    a `trySubmit` createAndExerciseCmd (V2.ChangedMaintainersExprHelper a) (V2.ChangedMaintainersExprExercise $ coerceContractId cid)
+
+ebkMaintainersChangedExprChangedValue : Test
+ebkMaintainersChangedExprChangedValue = test $ do
+  a <- allocateParty "alice"
+  b <- allocateParty "bob"
+  _ <- a `submit` createExactCmd (V1.ChangedMaintainersExpr a b)
+  expectMetadataChangedError =<<
+    a `trySubmit` createAndExerciseCmd (V2.ChangedMaintainersExprHelper a) (V2.ChangedMaintainersExprExerciseByKey $ V2.ChangedMaintainersExprKey a b)
+
+exerciseCmdMaintainersChangedExprChangedValue : Test
+exerciseCmdMaintainersChangedExprChangedValue = test $ do
+  a <- allocateParty "alice"
+  b <- allocateParty "bob"
+  cid <- a `submit` createExactCmd (V1.ChangedMaintainersExpr a b)
+  expectMetadataChangedError =<<
+    a `trySubmit` exerciseExactCmd @V2.ChangedMaintainersExpr (coerceContractId cid) V2.ChangedMaintainersExprCall
+
+ebkCmdMaintainersChangedExprChangedValue : Test
+ebkCmdMaintainersChangedExprChangedValue = test $ do
+  a <- allocateParty "alice"
+  b <- allocateParty "bob"
+  _ <- a `submit` createExactCmd (V1.ChangedMaintainersExpr a b)
+  expectMetadataChangedError =<<
+    a `trySubmit` exerciseByKeyExactCmd @V2.ChangedMaintainersExpr (V2.ChangedMaintainersExprKey a b) V2.ChangedMaintainersExprCall
 
 {- MODULE
 package: contract-key-upgrades
@@ -454,8 +655,8 @@ exerciseUpdateKeyUpgraded = test $ do
 
 ------------------------------------------------------------------------------------------------------------------------
 
-expectKeyChangedError : Either SubmitError a -> Script ()
-expectKeyChangedError r = case r of
+expectMetadataChangedError : Either SubmitError a -> Script ()
+expectMetadataChangedError r = case r of
     Right _ -> assertFail "Expected failure but got success"
     Left (DevError Upgrade msg)
       | "Verify that neither the signatories, nor the observers, nor the contract key, nor the key's maintainers have changed" `isInfixOf` msg
