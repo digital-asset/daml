@@ -331,11 +331,6 @@ private[index] class IndexServiceImpl(
               )
           }
         activeContractsSource
-          .concat(
-            Source.single(
-              GetActiveContractsResponse(offset = ApiOffset.toApiString(activeAt))
-            )
-          )
           .buffered(metrics.index.activeContractsBufferSize, LedgerApiStreamsBufferSize)
       }
     }

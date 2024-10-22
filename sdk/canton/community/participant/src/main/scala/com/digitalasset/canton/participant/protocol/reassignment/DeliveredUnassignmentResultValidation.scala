@@ -93,16 +93,18 @@ private[reassignment] final case class DeliveredUnassignmentResultValidation(
 
   private def validateInformees = {
     val partyToParticipantsSourceF =
-      sourceTopology.unwrap.ipsSnapshot.activeParticipantsOfPartiesWithInfo(stakeholders.toSeq)
+      sourceTopology.unwrap.ipsSnapshot.activeParticipantsOfPartiesWithInfo(
+        stakeholders.all.toSeq
+      )
     val partyToParticipantsTargetF =
-      targetTopology.unwrap.activeParticipantsOfPartiesWithInfo(stakeholders.toSeq)
+      targetTopology.unwrap.activeParticipantsOfPartiesWithInfo(stakeholders.all.toSeq)
 
     // Check that each stakeholder is hosted on at least one reassigning participant
     // TODO(#21072) Revisit when confirmation is required only from signatories
     val stakeholdersHostedReassigningParticipants: Future[Either[Error, Unit]] = for {
       partyToParticipantsSource <- partyToParticipantsSourceF
       partyToParticipantsTarget <- partyToParticipantsTargetF
-      res = stakeholders.toSeq.traverse_ { stakeholder =>
+      res = stakeholders.all.toSeq.traverse_ { stakeholder =>
         val hostingParticipantsSource =
           partyToParticipantsSource.get(stakeholder).map(_.participants.keySet).getOrElse(Set.empty)
         val hostingParticipantsTarget =
@@ -122,8 +124,8 @@ private[reassignment] final case class DeliveredUnassignmentResultValidation(
     for {
       _ <- EitherT(stakeholdersHostedReassigningParticipants)
       _ <- EitherTUtil.condUnitET[Future][Error](
-        result.informees == stakeholders,
-        IncorrectInformees(stakeholders, result.informees),
+        result.informees == stakeholders.all,
+        IncorrectInformees(stakeholders.all, result.informees),
       )
     } yield ()
   }

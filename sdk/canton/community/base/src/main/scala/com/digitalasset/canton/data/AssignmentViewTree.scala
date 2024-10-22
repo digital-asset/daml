@@ -459,7 +459,8 @@ final case class FullAssignmentTree(tree: AssignmentViewTree)
   def workflowId: Option[LfWorkflowId] = submitterMetadata.workflowId
 
   // Parties and participants
-  def stakeholders: Set[LfPartyId] = tree.view.tryUnwrap.contract.metadata.stakeholders
+  // TODO(#21072) Check stakeholders and informees are compatible
+  def stakeholders: Stakeholders = commonData.stakeholders
   override def informees: Set[LfPartyId] = tree.view.tryUnwrap.contract.metadata.stakeholders
   override def confirmingReassigningParticipants: Set[ParticipantId] =
     commonData.confirmingReassigningParticipants

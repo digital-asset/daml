@@ -27,6 +27,7 @@ import com.digitalasset.canton.participant.config.LocalParticipantConfig
 import com.digitalasset.canton.participant.ledger.api.client.LedgerConnection
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerError
+import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration}
 import com.digitalasset.canton.topology.TopologyManagerError.{
   NoAppropriateSigningKeyInStore,
@@ -268,7 +269,10 @@ class AdminWorkflowServices(
             service.processAcs(acs)
             new ResilientLedgerSubscription(
               makeSource = subscribeOffset =>
-                client.updateService.getUpdatesSource(subscribeOffset, service.filters),
+                client.updateService.getUpdatesSource(
+                  ApiOffset.assertFromStringToLong(subscribeOffset),
+                  service.filters,
+                ),
               consumingFlow = Flow[GetUpdatesResponse]
                 .map(_.update)
                 .map {
@@ -280,7 +284,7 @@ class AdminWorkflowServices(
                   case GetUpdatesResponse.Update.Empty => ()
                 },
               subscriptionName = service.getClass.getSimpleName,
-              startOffset = offset,
+              startOffset = ApiOffset.fromLong(offset),
               extractOffset = ResilientLedgerSubscription.extractOffsetFromGetUpdateResponse,
               timeouts = timeouts,
               loggerFactory = loggerFactory,

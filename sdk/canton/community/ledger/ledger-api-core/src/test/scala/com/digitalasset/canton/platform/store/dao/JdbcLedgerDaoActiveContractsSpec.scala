@@ -614,9 +614,6 @@ private[dao] trait JdbcLedgerDaoActiveContractsSpec
 
     } yield {
       activeContracts should not be empty
-      forAll(activeContracts) { ac =>
-        ac.offset shouldBe empty
-      }
     }
   }
 

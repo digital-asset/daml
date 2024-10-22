@@ -457,7 +457,7 @@ class UnassignmentProcessingSteps(
 
       hostedStks <- EitherT.right(
         FutureUnlessShutdown.outcomeF(
-          hostedStakeholders(fullTree.stakeholders.toList, sourceSnapshot.ipsSnapshot)
+          hostedStakeholders(fullTree.stakeholders.all.toList, sourceSnapshot.ipsSnapshot)
         )
       )
 
@@ -516,7 +516,7 @@ class UnassignmentProcessingSteps(
         fullTree.submitterMetadata,
         reassignmentId,
         fullTree.targetDomain,
-        fullTree.stakeholders,
+        fullTree.stakeholders.all,
         hostedStks.toSet,
         fullTree.targetTimeProof,
         assignmentExclusivity,

@@ -55,7 +55,7 @@ private[participant] object AutomaticAssignment {
           }.toSet
         )
 
-    def performAutoInOnce
+    def performAutoAssignmentOnce
         : EitherT[Future, ReassignmentProcessorError, com.google.rpc.status.Status] =
       for {
         targetIps <- reassignmentCoordination
@@ -63,7 +63,7 @@ private[participant] object AutomaticAssignment {
           .map(_._2)
           .onShutdown(Left(DomainNotReady(targetDomain.unwrap, "Shutdown of time tracker")))
         possibleSubmittingParties <- EitherT.right(hostedStakeholders(targetIps.map(_.ipsSnapshot)))
-        inParty <- EitherT.fromOption[Future](
+        assignmentSubmitter <- EitherT.fromOption[Future](
           possibleSubmittingParties.headOption,
           AutomaticAssignmentError("No possible submitting party for automatic assignment"),
         )
@@ -71,7 +71,7 @@ private[participant] object AutomaticAssignment {
           .assign(
             targetDomain,
             ReassignmentSubmitterMetadata(
-              inParty,
+              assignmentSubmitter,
               participantId,
               unassignmentSubmitterMetadata.commandId,
               submissionId = None,
@@ -79,9 +79,7 @@ private[participant] object AutomaticAssignment {
               workflowId = None,
             ),
             id,
-          )(
-            TraceContext.empty
-          )
+          )(TraceContext.empty)
         AssignmentProcessingSteps.SubmissionResult(completionF) = submissionResult
         status <- EitherT.right(completionF)
       } yield status
@@ -96,22 +94,22 @@ private[participant] object AutomaticAssignment {
           previous: com.google.rpc.status.Status
       ): EitherT[Future, StopRetry, com.google.rpc.status.Status] =
         if (BaseCantonError.isStatusErrorCode(MediatorError.Timeout, previous))
-          performAutoInOnce.leftMap(error => StopRetry(Left(error)))
+          performAutoAssignmentOnce.leftMap(error => StopRetry(Left(error)))
         else EitherT.leftT[Future, com.google.rpc.status.Status](StopRetry(Right(previous)))
 
-      val initial = performAutoInOnce.leftMap(error => StopRetry(Left(error)))
+      val initial = performAutoAssignmentOnce.leftMap(error => StopRetry(Left(error)))
       val result = MonadUtil.repeatFlatmap(initial, tryAgain, retryCount)
 
       // The status was only useful to understand whether the operation could be retried
       result.leftFlatMap(attempt => EitherT.fromEither[Future](attempt.result)).map(_.discard)
     }
 
-    def triggerAutoIn(
+    def triggerAutoAssignment(
         targetSnapshot: Target[TopologySnapshot],
         targetDomainParameters: Target[DynamicDomainParametersWithValidity],
     ): Unit = {
 
-      val autoIn = for {
+      val autoAssignment = for {
         exclusivityLimit <- EitherT
           .fromEither[Future](
             targetDomainParameters.unwrap
@@ -151,7 +149,7 @@ private[participant] object AutomaticAssignment {
           } else EitherT.pure[Future, ReassignmentProcessorError](())
       } yield ()
 
-      EitherTUtil.doNotAwait(autoIn, "Automatic assignment failed", Level.INFO)
+      EitherTUtil.doNotAwait(autoAssignment, "Automatic assignment failed", Level.INFO)
     }
 
     for {
@@ -173,7 +171,7 @@ private[participant] object AutomaticAssignment {
     } yield {
 
       if (targetDomainParameters.unwrap.automaticAssignmentEnabled)
-        triggerAutoIn(targetSnapshot, targetDomainParameters)
+        triggerAutoAssignment(targetSnapshot, targetDomainParameters)
       else ()
     }
   }

@@ -41,4 +41,5 @@ message AggregationRule {
 
 message Stakeholders {
   repeated string all = 1; // all stakeholders of the contract
+  repeated string signatories = 2; // signatories of the contract
 }

@@ -11,15 +11,12 @@ import java.util.Optional;
 
 public final class GetActiveContractsResponse implements WorkflowEvent {
 
-  private final String offset;
-
   private final Optional<ContractEntry> contractEntry;
 
   private final String workflowId;
 
   public GetActiveContractsResponse(
-      @NonNull String offset, @NonNull Optional<ContractEntry> contractEntry, String workflowId) {
-    this.offset = offset;
+      @NonNull Optional<ContractEntry> contractEntry, String workflowId) {
     this.contractEntry = contractEntry;
     this.workflowId = workflowId;
   }
@@ -29,22 +26,18 @@ public final class GetActiveContractsResponse implements WorkflowEvent {
     switch (response.getContractEntryCase()) {
       case ACTIVE_CONTRACT:
         return new GetActiveContractsResponse(
-            response.getOffset(),
             Optional.of(ActiveContract.fromProto(response.getActiveContract())),
             response.getWorkflowId());
       case INCOMPLETE_UNASSIGNED:
         return new GetActiveContractsResponse(
-            response.getOffset(),
             Optional.of(IncompleteUnassigned.fromProto(response.getIncompleteUnassigned())),
             response.getWorkflowId());
       case INCOMPLETE_ASSIGNED:
         return new GetActiveContractsResponse(
-            response.getOffset(),
             Optional.of(IncompleteAssigned.fromProto(response.getIncompleteAssigned())),
             response.getWorkflowId());
       case CONTRACTENTRY_NOT_SET:
-        return new GetActiveContractsResponse(
-            response.getOffset(), Optional.empty(), response.getWorkflowId());
+        return new GetActiveContractsResponse(Optional.empty(), response.getWorkflowId());
       default:
         throw new ProtoContractEntryUnknown(response);
     }
@@ -53,7 +46,6 @@ public final class GetActiveContractsResponse implements WorkflowEvent {
   public StateServiceOuterClass.GetActiveContractsResponse toProto() {
     var builder =
         StateServiceOuterClass.GetActiveContractsResponse.newBuilder()
-            .setOffset(this.offset)
             .setWorkflowId(this.workflowId);
     if (contractEntry.isPresent()) {
       ContractEntry ce = contractEntry.get();
@@ -64,12 +56,6 @@ public final class GetActiveContractsResponse implements WorkflowEvent {
         builder.setIncompleteAssigned(((IncompleteAssigned) ce).toProto());
     }
     return builder.build();
-  }
-
-  @NonNull
-  public Optional<String> getOffset() {
-    // Empty string indicates that the field is not present in the protobuf.
-    return Optional.of(offset).filter(off -> !offset.equals(""));
   }
 
   public Optional<ContractEntry> getContractEntry() {
@@ -84,10 +70,7 @@ public final class GetActiveContractsResponse implements WorkflowEvent {
   @Override
   public String toString() {
     return "GetActiveContractsResponse{"
-        + "offset='"
-        + offset
-        + '\''
-        + ", contractEntry="
+        + "contractEntry="
         + contractEntry
         + ", workflowId="
         + workflowId
@@ -99,14 +82,13 @@ public final class GetActiveContractsResponse implements WorkflowEvent {
     if (this == o) return true;
     if (o == null || getClass() != o.getClass()) return false;
     GetActiveContractsResponse that = (GetActiveContractsResponse) o;
-    return Objects.equals(offset, that.offset)
-        && Objects.equals(contractEntry, that.contractEntry)
+    return Objects.equals(contractEntry, that.contractEntry)
         && Objects.equals(workflowId, that.workflowId);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(offset, contractEntry, workflowId);
+    return Objects.hash(contractEntry, workflowId);
   }
 }
 

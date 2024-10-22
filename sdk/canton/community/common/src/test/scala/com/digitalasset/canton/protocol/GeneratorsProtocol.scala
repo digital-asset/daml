@@ -232,9 +232,9 @@ final class GeneratorsProtocol(
     for {
       signatories <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
       observers <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
-      stakeholders = signatories.union(observers)
-    } yield Stakeholders.tryCreate(
-      stakeholders = stakeholders
+    } yield Stakeholders.withSignatoriesAndObservers(
+      signatories = signatories,
+      observers = observers,
     )
   )
 

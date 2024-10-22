@@ -373,19 +373,19 @@ object DomainRouter {
     // TODO(#16065) Revisit this value
     val keyLookupMap = tx.nodes.values.collect { case LfNodeLookupByKey(_, _, key, Some(cid), _) =>
       cid -> checked(
-        Stakeholders.tryCreate(stakeholders = key.maintainers)
+        Stakeholders.tryCreate(stakeholders = key.maintainers, signatories = Set.empty)
       )
     }.toMap
 
     val mainMap = tx.nodes.values.collect {
       case n: LfNodeFetch =>
         val stakeholders = checked(
-          Stakeholders.tryCreate(stakeholders = n.stakeholders)
+          Stakeholders.tryCreate(signatories = n.signatories, stakeholders = n.stakeholders)
         )
         n.coid -> stakeholders
       case n: LfNodeExercises =>
         val stakeholders = checked(
-          Stakeholders.tryCreate(stakeholders = n.stakeholders)
+          Stakeholders.tryCreate(signatories = n.signatories, stakeholders = n.stakeholders)
         )
 
         n.targetCoid -> stakeholders

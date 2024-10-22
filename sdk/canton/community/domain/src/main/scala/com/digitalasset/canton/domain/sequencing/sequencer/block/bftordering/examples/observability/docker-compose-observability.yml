@@ -1,0 +1,109 @@
+---
+# Copyright 2022 Digital Asset (Switzerland) GmbH and/or its affiliates
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+volumes:
+  grafana:
+    name: daml_observability_grafana
+  logs:
+    name: daml_observability_logs
+  loki:
+    name: daml_observability_loki
+  prometheus:
+    name: daml_observability_prometheus
+
+services:
+
+  prometheus:
+    # Prometheus LTS version
+    # https://prometheus.io/docs/introduction/release-cycle/
+    image: prom/prometheus:v2.45.1
+    container_name: daml_observability_prometheus
+    command:
+      # Prometheus configuration
+      - --config.file=/etc/prometheus/prometheus.yml
+      # Prometheus data location
+      - --storage.tsdb.path=/prometheus
+      # Enable reload HTTP endpoint
+      - --web.enable-lifecycle
+      # Avoid local disk exhaustion
+      - --storage.tsdb.retention.size=10GB
+      - --storage.tsdb.retention.time=1d
+      - --enable-feature=native-histograms
+    volumes:
+      # Prometheus configuration
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      # Prometheus persistent data
+      - prometheus:/prometheus
+    ports:
+      - 9090:9090
+
+  grafana:
+    # Grafana version
+    # https://github.com/grafana/grafana/blob/main/CHANGELOG.md
+    image: grafana/grafana:9.5.12-ubuntu
+    container_name: daml_observability_grafana
+    volumes:
+      # Grafana configuration
+      - ./grafana/grafana.ini:/etc/grafana/grafana.ini
+      # Grafana data sources
+      - ./grafana/datasources.yml:/etc/grafana/provisioning/datasources/default.yml
+      # Grafana dashboard sources
+      - ./grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/default.yml
+      # Grafana dashboards (auto-loading)
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+      # Grafana persistent data
+      - grafana:/var/lib/grafana
+    ports:
+      - 3000:3000
+    depends_on:
+      - prometheus
+      - loki
+      - exporter
+
+  exporter:
+    # Prometheus Node Exporter
+    # https://github.com/prometheus/node_exporter/
+    image: prom/node-exporter:v1.4.1
+    container_name: daml_observability_node_exporter
+
+  postgres-exporter:
+    # PostgreSQL Server Exporter
+    # https://github.com/prometheus-community/postgres_exporter/blob/master/CHANGELOG.md
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.14.0
+    container_name: daml_observability_postgres_exporter
+    environment:
+      DATA_SOURCE_USER: "postgres"
+      DATA_SOURCE_PASS: "postgres"
+      DATA_SOURCE_URI: "postgres:5432/postgres?sslmode=disable"
+      PG_EXPORTER_AUTO_DISCOVER_DATABASES: true
+    volumes:
+      # PostgreSQL Server Exporter configuration
+      - ./postgres/postgres_exporter.yml:/postgres_exporter.yml
+
+  loki:
+    # Loki version
+    # https://github.com/grafana/loki/blob/main/CHANGELOG.md
+    image: grafana/loki:2.7.7
+    container_name: daml_observability_loki
+    command: -config.file=/etc/loki/loki.yaml
+    volumes:
+      # Loki configuration
+      - ./loki/loki.yaml:/etc/loki/loki.yaml
+      # Loki persistent data
+      - loki:/loki
+    depends_on:
+      - promtail
+
+  promtail:
+    # Loki version
+    # https://github.com/grafana/loki/blob/main/CHANGELOG.md
+    image: grafana/promtail:2.7.7
+    container_name: daml_observability_promtail
+    command: -config.file=/etc/promtail/promtail.yml
+    volumes:
+      # Loki configuration
+      - ./loki/promtail.yaml:/etc/promtail/promtail.yml
+      # Logs to scrape
+      - logs:/var/log/promtail

@@ -51,13 +51,12 @@ object AcsTxStreamsTest {
   import org.apache.pekko.{NotUsed, stream as aks}
   import aks.scaladsl.{GraphDSL, RunnableGraph, Source}
   import aks.testkit as tk
-  import com.daml.ledger.api.v2 as lav2
   import com.daml.logging.LoggingContextOf
   import tk.TestPublisher.Probe as InProbe
   import tk.TestSubscriber.Probe as OutProbe
   import tk.scaladsl.{TestSink, TestSource}
 
-  private val liveBegin = lav2.state_service.GetActiveContractsResponse(offset = "42")
+  private val liveBegin: Left[Long, Nothing] = Left(42L)
 
   private implicit val `log ctx`: LoggingContextOf[Any] =
     LoggingContextOf.newLoggingContext(LoggingContextOf.label[Any])(identity)
