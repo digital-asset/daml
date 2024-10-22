@@ -175,6 +175,10 @@
   type: jar-lib
 - target: //test-common:modelext-tests-1.dev.java-codegen
   type: jar-lib
+- target: //test-common:upgrade_fetch-tests-1.0.0-1.dev.java-codegen
+  type: jar-lib
+- target: //test-common:upgrade_fetch-tests-2.0.0-1.dev.java-codegen
+  type: jar-lib
 - target: //test-common:upgrade-tests-1.0.0-1.dev.java-codegen
   type: jar-lib
 - target: //test-common:upgrade-tests-2.0.0-1.dev.java-codegen
