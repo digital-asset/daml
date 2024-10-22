@@ -503,9 +503,9 @@ object ReassignmentProcessingSteps {
 
   final case class StakeholdersMismatch(
       reassignmentId: Option[ReassignmentId],
-      declaredViewStakeholders: Set[LfPartyId],
-      declaredContractStakeholders: Option[Set[LfPartyId]],
-      expectedStakeholders: Either[String, Set[LfPartyId]],
+      declaredViewStakeholders: Stakeholders,
+      declaredContractStakeholders: Option[Stakeholders],
+      expectedStakeholders: Either[String, Stakeholders],
   ) extends ReassignmentProcessorError {
     override def message: String = s"For reassignment `$reassignmentId`: stakeholders mismatch"
   }

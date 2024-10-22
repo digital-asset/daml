@@ -57,7 +57,9 @@ class ReassigningParticipantsComputationTest
   private lazy val p3 = ParticipantId(
     UniqueIdentifier.tryFromProtoPrimitive("p3::participant3 ")
   )
-
+  private lazy val p4 = ParticipantId(
+    UniqueIdentifier.tryFromProtoPrimitive("p4::participant4 ")
+  )
   "ReassigningParticipants" should {
     "compute reassigning participants (homogeneous topology)" in {
       val snapshot = createTestingIdentityFactory(
@@ -69,13 +71,15 @@ class ReassigningParticipantsComputationTest
       )
 
       new ReassigningParticipantsComputation(
-        stakeholders = Stakeholders.tryCreate(Set(alice, bob)),
+        stakeholders = Stakeholders.withSignatoriesAndObservers(Set(alice), Set(bob)),
         sourceTopology = Source(snapshot),
         targetTopology = Target(snapshot),
       ).compute.futureValue shouldBe Set(p1, p2)
     }
 
     "not return participants connected to a single domain" in {
+      val stakeholders = Stakeholders.withSignatoriesAndObservers(Set(alice), Set(bob))
+
       val source = createTestingIdentityFactory(
         Map(
           p1 -> Map(alice -> ParticipantPermission.Submission),
@@ -92,19 +96,21 @@ class ReassigningParticipantsComputationTest
       )
 
       new ReassigningParticipantsComputation(
-        stakeholders = Stakeholders.tryCreate(Set(alice, bob)),
+        stakeholders = stakeholders,
         sourceTopology = Source(source),
         targetTopology = Target(target), // p3 missing
       ).compute.futureValue shouldBe Set(p1, p2)
 
       new ReassigningParticipantsComputation(
-        stakeholders = Stakeholders.tryCreate(Set(alice, bob)),
+        stakeholders = stakeholders,
         sourceTopology = Source(source),
         targetTopology = Target(source), // p3 is there as well
       ).compute.futureValue shouldBe Set(p1, p2, p3)
     }
 
     "fail if one stakeholder is unknown in the topology state" in {
+      val stakeholders = Stakeholders.withSignatoriesAndObservers(Set(alice), Set(bob))
+
       val incomplete = createTestingIdentityFactory(
         Map(
           p1 -> Map(alice -> ParticipantPermission.Submission)
@@ -119,7 +125,7 @@ class ReassigningParticipantsComputationTest
       )
 
       new ReassigningParticipantsComputation(
-        stakeholders = Stakeholders.tryCreate(Set(alice, bob)),
+        stakeholders = stakeholders,
         sourceTopology = Source(incomplete),
         targetTopology = Target(complete),
       ).compute.value.futureValue.left.value shouldBe StakeholderHostingErrors(
@@ -127,7 +133,7 @@ class ReassigningParticipantsComputationTest
       )
 
       new ReassigningParticipantsComputation(
-        stakeholders = Stakeholders.tryCreate(Set(alice, bob)),
+        stakeholders = stakeholders,
         sourceTopology = Source(complete),
         targetTopology = Target(incomplete),
       ).compute.value.futureValue.left.value shouldBe StakeholderHostingErrors(
@@ -135,7 +141,7 @@ class ReassigningParticipantsComputationTest
       )
 
       new ReassigningParticipantsComputation(
-        stakeholders = Stakeholders.tryCreate(Set(alice, bob)),
+        stakeholders = stakeholders,
         sourceTopology = Source(complete),
         targetTopology = Target(complete),
       ).compute.futureValue shouldBe Set(p1, p2)
@@ -146,14 +152,17 @@ class ReassigningParticipantsComputationTest
         Map(
           p1 -> Map(alice -> ParticipantPermission.Submission),
           p2 -> Map(alice -> ParticipantPermission.Confirmation),
+          p3 -> Map(bob -> ParticipantPermission.Submission),
+          p4 -> Map(bob -> ParticipantPermission.Confirmation),
         )
       )
 
       new ReassigningParticipantsComputation(
-        stakeholders = Stakeholders.tryCreate(Set(alice)),
+        stakeholders = Stakeholders.withSignatoriesAndObservers(Set(alice), Set(bob)),
         sourceTopology = Source(topology),
         targetTopology = Target(topology),
-      ).compute.futureValue shouldBe Set(p1, p2)
+      ).compute.futureValue shouldBe Set(p1, p2, p3, p4)
+
     }
 
     "only return participants with confirmation rights" in {
@@ -165,7 +174,7 @@ class ReassigningParticipantsComputationTest
       )
 
       new ReassigningParticipantsComputation(
-        stakeholders = Stakeholders.tryCreate(Set(alice)),
+        stakeholders = Stakeholders.withSignatories(Set(alice)),
         sourceTopology = Source(topology),
         targetTopology = Target(topology),
       ).compute.futureValue shouldBe Set(p1)
@@ -185,7 +194,7 @@ class ReassigningParticipantsComputationTest
       )
 
       new ReassigningParticipantsComputation(
-        stakeholders = Stakeholders.tryCreate(Set(alice)),
+        stakeholders = Stakeholders.withSignatories(Set(alice)),
         sourceTopology = Source(source),
         targetTopology = Target(target),
       ).compute.value.futureValue.left.value shouldBe StakeholderHostingErrors(
@@ -194,6 +203,8 @@ class ReassigningParticipantsComputationTest
     }
 
     "fail if one party has submission rights only on source domain" in {
+      val stakeholders = Stakeholders.withSignatories(Set(alice))
+
       val source = createTestingIdentityFactory(
         Map(
           p1 -> Map(alice -> ParticipantPermission.Submission),
@@ -223,13 +234,13 @@ class ReassigningParticipantsComputationTest
       )
 
       new ReassigningParticipantsComputation(
-        stakeholders = Stakeholders.tryCreate(Set(alice)),
+        stakeholders = stakeholders,
         sourceTopology = Source(source),
         targetTopology = Target(targetCorrect),
       ).compute.futureValue shouldBe Set(p1)
 
       new ReassigningParticipantsComputation(
-        stakeholders = Stakeholders.tryCreate(Set(alice)),
+        stakeholders = stakeholders,
         sourceTopology = Source(source),
         targetTopology = Target(targetIncorrect1),
       ).compute.value.futureValue.left.value shouldBe PermissionErrors(
@@ -237,7 +248,7 @@ class ReassigningParticipantsComputationTest
       )
 
       new ReassigningParticipantsComputation(
-        stakeholders = Stakeholders.tryCreate(Set(alice)),
+        stakeholders = stakeholders,
         sourceTopology = Source(source),
         targetTopology = Target(targetIncorrect2),
       ).compute.value.futureValue.left.value shouldBe PermissionErrors(
@@ -263,7 +274,7 @@ class ReassigningParticipantsComputationTest
       )
 
       new ReassigningParticipantsComputation(
-        stakeholders = Stakeholders.tryCreate(Set(alice)),
+        stakeholders = Stakeholders.withSignatories(Set(alice)),
         sourceTopology = Source(source),
         targetTopology = Target(target),
       ).compute.value.futureValue.left.value shouldBe StakeholderHostingErrors(
@@ -271,13 +282,13 @@ class ReassigningParticipantsComputationTest
       )
 
       new ReassigningParticipantsComputation(
-        stakeholders = Stakeholders.tryCreate(Set(bob)),
+        stakeholders = Stakeholders.withSignatories(Set(bob)),
         sourceTopology = Source(source),
         targetTopology = Target(target),
       ).compute.futureValue shouldBe Set(p1, p2)
 
       new ReassigningParticipantsComputation(
-        stakeholders = Stakeholders.tryCreate(Set(bob, charlie)),
+        stakeholders = Stakeholders.withSignatories(Set(bob, charlie)),
         sourceTopology = Source(source),
         targetTopology = Target(target),
       ).compute.value.futureValue.left.value shouldBe StakeholderHostingErrors(

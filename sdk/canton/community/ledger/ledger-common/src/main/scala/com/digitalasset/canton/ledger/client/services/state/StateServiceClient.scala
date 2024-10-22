@@ -16,10 +16,10 @@ import com.daml.ledger.api.v2.state_service.{
 }
 import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
 import com.digitalasset.canton.ledger.client.LedgerClient
-import com.digitalasset.canton.pekkostreams.ExtractMaterializedValue
 import com.digitalasset.canton.tracing.TraceContext
+import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.Materializer
-import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
+import org.apache.pekko.stream.scaladsl.{Sink, Source}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -28,18 +28,13 @@ class StateServiceClient(service: StateServiceStub)(implicit
     esf: ExecutionSequencerFactory,
 ) {
 
-  /** Returns a stream of GetActiveContractsResponse messages. The materialized value will
-    * be resolved to the offset that can be used as a starting offset for streaming transactions
-    * via the transaction service.
-    * If the stream completes before the offset can be set, the materialized future will
-    * be failed with an exception.
-    */
+  /** Returns a stream of GetActiveContractsResponse messages. */
   def getActiveContractsSource(
       filter: TransactionFilter,
       validAtOffset: Long,
       verbose: Boolean = false,
       token: Option[String] = None,
-  )(implicit traceContext: TraceContext): Source[GetActiveContractsResponse, Future[String]] =
+  )(implicit traceContext: TraceContext): Source[GetActiveContractsResponse, NotUsed] =
     ClientAdapter
       .serverStreaming(
         GetActiveContractsRequest(
@@ -48,9 +43,6 @@ class StateServiceClient(service: StateServiceStub)(implicit
           activeAtOffset = validAtOffset,
         ),
         LedgerClient.stubWithTracing(service, token).getActiveContracts,
-      )
-      .viaMat(StateServiceClient.extractOffset)(
-        Keep.right
       )
 
   /** Returns the resulting active contract set */
@@ -62,23 +54,15 @@ class StateServiceClient(service: StateServiceStub)(implicit
   )(implicit
       materializer: Materializer,
       traceContext: TraceContext,
-  ): Future[(Seq[ActiveContract], String)] = {
-    val (offsetF, contractsF) =
-      getActiveContractsSource(filter, validAtOffset, verbose, token)
-        .toMat(Sink.seq)(Keep.both)
-        .run()
-    val activeF = contractsF
-      .map(
-        _.map(_.contractEntry)
-          .collect { case ContractEntry.ActiveContract(value) =>
-            value
-          }
-      )
+  ): Future[(Seq[ActiveContract], Long)] =
     for {
-      active <- activeF
-      offset <- offsetF
-    } yield (active, offset)
-  }
+      contracts <- getActiveContractsSource(filter, validAtOffset, verbose, token).runWith(Sink.seq)
+      active = contracts
+        .map(_.contractEntry)
+        .collect { case ContractEntry.ActiveContract(value) =>
+          value
+        }
+    } yield (active, validAtOffset)
 
   def getLedgerEnd(
       token: Option[String] = None
@@ -94,13 +78,5 @@ class StateServiceClient(service: StateServiceStub)(implicit
     getLedgerEnd(token).map { response =>
       response.offset
     }
-
-}
-
-object StateServiceClient {
-  private val extractOffset =
-    new ExtractMaterializedValue[GetActiveContractsResponse, String](r =>
-      if (r.offset.nonEmpty) Some(r.offset) else None
-    )
 
 }

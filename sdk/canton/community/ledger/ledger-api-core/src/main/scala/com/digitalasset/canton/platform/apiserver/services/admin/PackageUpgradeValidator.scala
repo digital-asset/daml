@@ -15,7 +15,10 @@ import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.daml.lf.archive.DamlLf.Archive
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.language.Util.{dependenciesInTopologicalOrder, PkgIdWithNameAndVersion}
+import com.digitalasset.daml.lf.language.Util.{
+  PkgIdWithNameAndVersion,
+  dependenciesInTopologicalOrder,
+}
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
 import com.digitalasset.daml.lf.validation.{TypecheckUpgrades, UpgradeError}
 import scalaz.std.either.*
@@ -80,15 +83,17 @@ class PackageUpgradeValidator(
   ): EitherT[Future, DamlError, Unit] = {
     val (uploadedPackageId, uploadedPackageAst) = uploadedPackage
     val optUpgradingDar = Some(uploadedPackage)
-    val uploadedPackageIdWithMeta: PkgIdWithNameAndVersion = PkgIdWithNameAndVersion(uploadedPackage)
+    val uploadedPackageIdWithMeta: PkgIdWithNameAndVersion = PkgIdWithNameAndVersion(
+      uploadedPackage
+    )
     logger.info(
-      s"Uploading DAR file for ${uploadedPackageIdWithMeta} in submission ID ${loggingContext.serializeFiltered("submissionId")}."
+      s"Uploading DAR file for $uploadedPackageIdWithMeta in submission ID ${loggingContext.serializeFiltered("submissionId")}."
     )
     existingVersionedPackageId(uploadedPackageAst, packageMap) match {
       case Some(existingPackageId) =>
         if (existingPackageId == uploadedPackageId) {
           logger.info(
-            s"Ignoring upload of package ${uploadedPackageIdWithMeta} as it has been previously uploaded"
+            s"Ignoring upload of package $uploadedPackageIdWithMeta as it has been previously uploaded"
           )
           EitherT.rightT[Future, DamlError](())
         } else {
@@ -126,7 +131,7 @@ class PackageUpgradeValidator(
             optMinimalDar,
             optUpgradingDar,
           )
-          _ = logger.info(s"Typechecking upgrades for ${uploadedPackageIdWithMeta} succeeded.")
+          _ = logger.info(s"Typechecking upgrades for $uploadedPackageIdWithMeta succeeded.")
         } yield ()
     }
   }
@@ -226,7 +231,7 @@ class PackageUpgradeValidator(
           val newPkgId1WithMeta: PkgIdWithNameAndVersion = PkgIdWithNameAndVersion(newDar1)
           val (oldPkgId2, oldPkg2) = oldDar2
           val oldPkgId2WithMeta: PkgIdWithNameAndVersion = PkgIdWithNameAndVersion(oldDar2)
-          logger.info(s"Package ${newPkgId1WithMeta} claims to upgrade package id ${oldPkgId2WithMeta}")
+          logger.info(s"Package $newPkgId1WithMeta claims to upgrade package id $oldPkgId2WithMeta")
           EitherT(
             Future(
               TypecheckUpgrades
@@ -244,7 +249,7 @@ class PackageUpgradeValidator(
             case unhandledErr =>
               InternalError.Unhandled(
                 unhandledErr,
-                Some(s"Typechecking upgrades for ${oldPkgId2WithMeta} failed with unknown error."),
+                Some(s"Typechecking upgrades for $oldPkgId2WithMeta failed with unknown error."),
               )
           }
       }

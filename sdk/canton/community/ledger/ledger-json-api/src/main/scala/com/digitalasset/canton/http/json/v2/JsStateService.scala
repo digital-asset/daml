@@ -165,7 +165,6 @@ final case class JsUnassignedEvent(
 )
 
 final case class JsGetActiveContractsResponse(
-    offset: String,
     workflow_id: String,
     contract_entry: JsContractEntry,
 )

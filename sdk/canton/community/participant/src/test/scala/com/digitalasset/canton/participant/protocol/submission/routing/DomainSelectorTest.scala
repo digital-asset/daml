@@ -227,11 +227,12 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
         )
       val inputContractStakeholders = Map(
         treeExercises.inputContract1Id -> Stakeholders
-          .tryCreate(Set(party3, observer)),
+          .withSignatoriesAndObservers(Set(party3), Set(observer)),
         treeExercises.inputContract2Id -> Stakeholders
-          .tryCreate(Set(party3, observer)),
-        treeExercises.inputContract3Id -> Stakeholders.tryCreate(
-          Set(signatory, party3)
+          .withSignatoriesAndObservers(Set(party3), Set(observer)),
+        treeExercises.inputContract3Id -> Stakeholders.withSignatoriesAndObservers(
+          Set(signatory),
+          Set(party3),
         ),
       )
       val topology: Map[LfPartyId, List[ParticipantId]] = Map(
@@ -438,7 +439,10 @@ private[routing] object DomainSelectorTest {
       val exerciseByInterface = ExerciseByInterface(transactionVersion)
 
       val inputContractStakeholders = Map(
-        exerciseByInterface.inputContractId -> Stakeholders.tryCreate(Set(signatory, observer))
+        exerciseByInterface.inputContractId -> Stakeholders.withSignatoriesAndObservers(
+          Set(signatory),
+          Set(observer),
+        )
       )
 
       new Selector(loggerFactory)(
@@ -476,8 +480,9 @@ private[routing] object DomainSelectorTest {
       val contractStakeholders =
         if (inputContractStakeholders.isEmpty)
           threeExercises.inputContractIds.map { inputContractId =>
-            inputContractId -> Stakeholders.tryCreate(
-              Set(signatory, observer)
+            inputContractId -> Stakeholders.withSignatoriesAndObservers(
+              Set(signatory),
+              Set(observer),
             )
           }.toMap
         else inputContractStakeholders

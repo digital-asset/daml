@@ -34,12 +34,12 @@ private[reassignment] final case class UnassignmentValidation(
       ec: ExecutionContext
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
     condUnitET(
-      request.stakeholders == expectedStakeholders.all,
+      request.stakeholders == expectedStakeholders,
       StakeholdersMismatch(
         None,
         declaredViewStakeholders = request.stakeholders,
         declaredContractStakeholders = None,
-        expectedStakeholders = Right(expectedStakeholders.all),
+        expectedStakeholders = Right(expectedStakeholders),
       ),
     )
 

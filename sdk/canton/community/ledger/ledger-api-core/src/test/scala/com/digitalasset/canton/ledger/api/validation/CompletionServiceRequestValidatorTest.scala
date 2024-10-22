@@ -7,6 +7,7 @@ import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamRequest as GrpcCompletionStreamRequest
 import com.digitalasset.canton.ledger.api.domain.ParticipantOffset
 import com.digitalasset.canton.ledger.api.messages.command.completion.CompletionStreamRequest
+import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.daml.lf.data.Ref
 import io.grpc.Status.Code.*
 import org.mockito.MockitoSugar
@@ -20,7 +21,7 @@ class CompletionServiceRequestValidatorTest
   private val grpcCompletionReq = GrpcCompletionStreamRequest(
     expectedApplicationId,
     List(party),
-    offsetLong,
+    offsetLongO,
   )
   private val completionReq = CompletionStreamRequest(
     Ref.ApplicationId.assertFromString(expectedApplicationId),
@@ -63,7 +64,7 @@ class CompletionServiceRequestValidatorTest
           ),
           code = INVALID_ARGUMENT,
           description =
-            "NON_POSITIVE_OFFSET(8,0): Offset 0 in begin_exclusive is not a positive integer: the offset in begin_exclusive field has to be a positive integer (>0)",
+            "NON_POSITIVE_OFFSET(8,0): Offset 0 in begin_exclusive is not a positive integer: the offset has to be a positive integer (>0)",
           metadata = Map.empty,
         )
       }
@@ -75,7 +76,7 @@ class CompletionServiceRequestValidatorTest
           ),
           code = INVALID_ARGUMENT,
           description =
-            "NON_POSITIVE_OFFSET(8,0): Offset -100 in begin_exclusive is not a positive integer: the offset in begin_exclusive field has to be a positive integer (>0)",
+            "NON_POSITIVE_OFFSET(8,0): Offset -100 in begin_exclusive is not a positive integer: the offset has to be a positive integer (>0)",
           metadata = Map.empty,
         )
       }
@@ -130,13 +131,15 @@ class CompletionServiceRequestValidatorTest
         requestMustFailWith(
           request = validator.validateCompletionStreamRequest(
             completionReq.copy(offset =
-              ParticipantOffset.fromString((ledgerEnd.toInt + 1).toString)
+              ParticipantOffset.fromString(
+                ApiOffset.fromLong(ApiOffset.assertFromStringToLong(ledgerEnd) + 1)
+              )
             ),
             ledgerEnd,
           ),
           code = OUT_OF_RANGE,
           description =
-            "OFFSET_AFTER_LEDGER_END(12,0): Begin offset (1001) is after ledger end (1000)",
+            "OFFSET_AFTER_LEDGER_END(12,0): Begin offset (000000000000001001) is after ledger end (000000000000001000)",
           metadata = Map.empty,
         )
       }

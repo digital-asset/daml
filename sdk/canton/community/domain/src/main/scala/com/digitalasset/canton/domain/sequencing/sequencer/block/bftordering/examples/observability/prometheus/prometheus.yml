@@ -1,0 +1,46 @@
+---
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 1m
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets:
+        # Yourself
+        - 0.0.0.0:9090
+  - job_name: canton
+    static_configs:
+      - targets:
+        # Docker compose service
+        - canton:19090
+        labels:
+          namespace: static_local
+          pod: canton
+          container: canton
+  - job_name: grafana
+    static_configs:
+      - targets:
+        # Docker compose service
+        - grafana:3000
+  - job_name: exporter
+    static_configs:
+      - targets:
+        # Docker compose service
+        - exporter:9100
+  - job_name: loki
+    static_configs:
+      - targets:
+        # Docker compose service
+        - loki:5000
+  - job_name: promtail
+    static_configs:
+      - targets:
+        # Docker compose service
+        - promtail:5100
+  - job_name: postgres
+    static_configs:
+      - targets:
+          # Docker compose service
+          - postgres-exporter:9187

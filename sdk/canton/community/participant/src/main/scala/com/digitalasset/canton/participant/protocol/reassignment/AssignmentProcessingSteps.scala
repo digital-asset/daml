@@ -174,7 +174,7 @@ private[reassignment] class AssignmentProcessingSteps(
           topologySnapshot,
           submitter,
           participantId,
-          stakeholders = stakeholders,
+          stakeholders = stakeholders.all,
         )
         .mapK(FutureUnlessShutdown.outcomeK)
 
@@ -204,7 +204,7 @@ private[reassignment] class AssignmentProcessingSteps(
         .sign(rootHash.unwrap)
         .leftMap(ReassignmentSigningError.apply)
       mediatorMessage = fullTree.mediatorMessage(submittingParticipantSignature)
-      recipientsSet <- activeParticipantsOfParty(stakeholders.toSeq).mapK(
+      recipientsSet <- activeParticipantsOfParty(stakeholders.all.toSeq).mapK(
         FutureUnlessShutdown.outcomeK
       )
       recipients <- EitherT.fromEither[FutureUnlessShutdown](

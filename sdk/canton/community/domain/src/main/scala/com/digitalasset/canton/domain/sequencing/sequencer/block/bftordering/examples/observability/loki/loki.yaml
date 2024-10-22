@@ -1,0 +1,44 @@
+auth_enabled: false
+
+server:
+  http_listen_port: 5000
+  grpc_listen_port: 5001
+
+common:
+  path_prefix: /loki
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+  replication_factor: 1
+  persist_tokens: true
+  ring:
+    instance_addr: 127.0.0.1
+    kvstore:
+      store: inmemory
+
+query_range:
+  results_cache:
+    cache:
+      embedded_cache:
+        enabled: true
+        max_size_mb: 100
+
+schema_config:
+  configs:
+    - from: 2020-10-24
+      store: boltdb-shipper
+      object_store: filesystem
+      schema: v11
+      index:
+        prefix: index_
+        period: 24h
+      chunks:
+        prefix: chunks_
+        period: 24h
+
+analytics:
+  reporting_enabled: false
+
+tracing:
+  enabled: false
