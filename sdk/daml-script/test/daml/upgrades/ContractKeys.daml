@@ -65,8 +65,8 @@ main = tests
         , ("exerciseByKeyCmd, src=v1 tgt=v2", ebkCmdKeyChangedExprSameValue)
         ]
       , subtree "Changed key value"
-        [ broken ("queryContractId, src=v1 tgt=v2", queryKeyChangedExprChangedValue)
-        , broken ("queryContractKey, src=v1 tgt=v2", qckKeyChangedExprChangedValue)
+        [ ("queryContractId, src=v1 tgt=v2", queryKeyChangedExprChangedValue)
+        , ("queryContractKey, src=v1 tgt=v2", qckKeyChangedExprChangedValue)
         , ("fetch, src=v1 tgt=v2", fetchKeyChangedExprChangedValue)
         , ("fetchByInterface, src=v1 tgt=i", fbiKeyChangedExprChangedValue)
         , ("fetchByKey, src=v1 tgt=v2", fbkKeyChangedExprChangedValue)
@@ -251,17 +251,19 @@ qckKeyChangedExprChangedValue : Test
 qckKeyChangedExprChangedValue = test $ do
   a <- allocateParty "alice"
   cid <- a `submit` createExactCmd (V1.ChangedKeyExpr a True)
-  -- the following query works, even though the key value changed!
+  -- It is not daml-script's role to perform upgrade validation checks. It merely acts as a proxy for the ledger API
+  -- that upgrades the returned value to fit the requested type.
   r <- queryContractKey @V2.ChangedKeyExpr a $ V2.ChangedKeyExprKey a False
-  r === None
+  r === Some (coerceContractId @_ @V2.ChangedKeyExpr cid, V2.ChangedKeyExpr a True)
 
 queryKeyChangedExprChangedValue : Test
 queryKeyChangedExprChangedValue = test $ do
   a <- allocateParty "alice"
   cid <- a `submit` createExactCmd (V1.ChangedKeyExpr a True)
-  -- the following query works, even though the key value changed!
   r <- queryContractId a (coerceContractId @_ @V2.ChangedKeyExpr cid)
-  r === None
+  -- It is not daml-script's role to perform upgrade validation checks. It merely acts as a proxy for the ledger API
+  -- that upgrades the returned value to fit the requested type.
+  r === Some (V2.ChangedKeyExpr a True)
 
 fetchKeyChangedExprSameValue : Test
 fetchKeyChangedExprSameValue = test $ do
