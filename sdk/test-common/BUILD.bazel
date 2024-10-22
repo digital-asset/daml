@@ -65,11 +65,17 @@ general_test_dars = {
     "package_management": [],
 }
 
-upgrading_test_dars = {"upgrade": [
-    "1.0.0",
-    "2.0.0",
-    "3.0.0",
-]}
+upgrading_test_dars = {
+    "upgrade": [
+        "1.0.0",
+        "2.0.0",
+        "3.0.0",
+    ],
+    "upgrade_fetch": [
+        "1.0.0",
+        "2.0.0",
+    ],
+}
 
 test_dars = merge_test_dars_versioned(
     carbon_test_dars = carbon_test_dars,

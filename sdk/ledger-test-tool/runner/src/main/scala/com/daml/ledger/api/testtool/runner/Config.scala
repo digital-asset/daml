@@ -36,7 +36,7 @@ final case class Config(
 }
 
 object Config {
-  val DefaultTestDarExclusions = new Regex(".*upgrade-tests.*")
+  val DefaultTestDarExclusions = new Regex(".*upgrade(_fetch)?-tests.*")
 
   val default: Config = Config(
     participantsEndpoints = Vector.empty,

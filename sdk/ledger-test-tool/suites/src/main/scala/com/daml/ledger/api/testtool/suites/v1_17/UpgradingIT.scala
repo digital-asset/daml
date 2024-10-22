@@ -10,7 +10,10 @@ import com.daml.ledger.api.testtool.infrastructure.Allocation.{
   allocate,
 }
 import com.daml.ledger.api.testtool.infrastructure.Assertions._
-import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers.createdEvents
+import com.daml.ledger.api.testtool.infrastructure.TransactionHelpers.{
+  createdEvents,
+  exercisedEvents,
+}
 import com.daml.ledger.api.testtool.infrastructure.participant.ParticipantTestContext
 import com.daml.ledger.api.testtool.infrastructure.{Dars, LedgerTestSuite}
 import com.daml.ledger.api.testtool.suites.v1_17.UpgradingIT.EnrichedCommands
@@ -31,6 +34,9 @@ import com.daml.ledger.javaapi.data.{DamlRecord, Unit => _, _}
 import com.daml.ledger.test.java.upgrade.v1_0_0.upgrade.{UA => UA_V1}
 import com.daml.ledger.test.java.upgrade.v2_0_0.upgrade.{UA => UA_V2, UB => UB_V2}
 import com.daml.ledger.test.java.upgrade.v3_0_0.upgrade.{UB => UB_V3}
+import com.daml.ledger.test.java.upgrade_fetch.v1_0_0.upgradefetch.{Fetcher => FetcherV1, Fetch}
+import com.daml.ledger.test.java.upgrade_fetch.v2_0_0.upgradefetch.{Fetcher => FetcherV2}
+import com.daml.ledger.test.{UpgradeFetchTestDar1_0_0, UpgradeFetchTestDar2_0_0}
 import com.daml.ledger.test.{UpgradeTestDar1_0_0, UpgradeTestDar2_0_0, UpgradeTestDar3_0_0}
 import com.daml.lf.data.Ref
 import com.daml.lf.data.Ref.{PackageName, PackageRef}
@@ -52,6 +58,10 @@ class UpgradingIT extends LedgerTestSuite {
   implicit val upgradingUB_V3Companion
       : ContractCompanion.WithoutKey[UB_V3.Contract, UB_V3.ContractId, UB_V3] =
     UB_V3.COMPANION
+
+  implicit val upgradingFetcherV1_Companion
+      : ContractCompanion.WithoutKey[FetcherV1.Contract, FetcherV1.ContractId, FetcherV1] =
+    FetcherV1.COMPANION
 
   private val PkgNameRef = PackageRef.Name(PackageName.assertFromString("upgrade-tests"))
   private val UA_Identifier = ScalaPbIdentifier
@@ -305,6 +315,53 @@ class UpgradingIT extends LedgerTestSuite {
     }
   })
 
+  test(
+    "ChoicePackageId",
+    "Populate choicePackageId with package of the choice exercised, and template id with package with which contract was created",
+    allocate(SingleParty),
+  )(implicit ec => { case Participants(Participant(ledger, party)) =>
+    for {
+      // v1 is the only package for Fetcher
+      _ <- upload(ledger, UpgradeFetchTestDar1_0_0.path)
+
+      cid <- ledger.create(party, new FetcherV1(party))
+
+      // Exercised as per v1 implementation of choice
+      _ <- ledger.exercise(party, cid.exerciseFetch(new Fetch(cid)))
+
+      // v2 becomes the default package for Fetcher
+      _ <- upload(ledger, UpgradeFetchTestDar2_0_0.path)
+
+      // Exercised as per v2 implementation of choice
+      _ <- ledger.exercise(party, cid.exerciseFetch(new Fetch(cid)))
+
+      Vector(exercised1, exercised2) <- ledger
+        .transactionTrees(party)
+        .map(_.flatMap(exercisedEvents))
+    } yield {
+      val v1TmplId = FetcherV1.TEMPLATE_ID_WITH_PACKAGE_ID
+      val v2TmplId = FetcherV2.TEMPLATE_ID_WITH_PACKAGE_ID
+
+      // Both exercise events should use have the created templateId (i.e. v1)
+      assertEquals(toJavaProto(exercised1.templateId.get), v1TmplId.toProto)
+      // TODO(i21823): Uncomment
+      // assertEquals(toJavaProto(exercised2.templateId.get), v1TmplId.toProto)
+
+      // The first exercise has a result shape per v1, and the second per v2
+      assertExerciseResult(exercised1.exerciseResult.get, v1TmplId, new FetcherV1(party))
+      assertExerciseResult(
+        exercised2.exerciseResult.get,
+        v2TmplId,
+        new FetcherV2(party, Optional.empty()),
+      )
+
+      // The first exercise has a choicePackageId of v1 and the second of v2
+      // TODO(i21913): Uncomment
+      // assertEquals(toJavaProto(ex1.choicePackageId.get), FetcherV1.PACKAGE_ID.toProto)
+      // assertEquals(toJavaProto(ex2.choicePackageId.get), FetcherV2.PACKAGE_ID.toProto)
+    }
+  })
+
   private class Subscriptions(
       context: String,
       ledger: ParticipantTestContext,
@@ -340,6 +397,16 @@ class UpgradingIT extends LedgerTestSuite {
         acsCreates
       }
     }
+  }
+
+  private def assertExerciseResult[T <: Template](
+      got: value.Value,
+      wantRecordId: Identifier,
+      wantPayload: T,
+  ): Unit = {
+    val gotPb = value.Value.toJavaProto(got)
+    val wantPb = new DamlRecord(wantRecordId, wantPayload.toValue.getFields).toProto
+    assertEquals(gotPb, wantPb)
   }
 
   private def haveSamePopulatedFields[A <: Template, B <: Template](a: A, b: B) = {
