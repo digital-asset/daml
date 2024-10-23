@@ -259,7 +259,7 @@ object TransactionGenerator {
     parties <- Gen.listOf(nonEmptyId)
     packageName <- Gen.option(nonEmptyId)
   } yield (
-    Archived(ArchivedEvent(eventId, contractId, Some(scalaTemplateId), parties)),
+    Archived(ArchivedEvent(eventId, contractId, Some(scalaTemplateId), parties, packageName)),
     new data.ArchivedEvent(parties.asJava, eventId, javaTemplateId, contractId, packageName.toJava),
   )
 
