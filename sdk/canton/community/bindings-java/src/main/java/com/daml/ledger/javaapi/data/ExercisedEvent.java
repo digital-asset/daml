@@ -4,6 +4,7 @@
 package com.daml.ledger.javaapi.data;
 
 import com.daml.ledger.api.v1.EventOuterClass;
+import com.google.protobuf.StringValue;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -33,6 +34,8 @@ public final class ExercisedEvent implements TreeEvent {
 
   private final Value exerciseResult;
 
+  private final Optional<String> choicePackageId;
+
   public ExercisedEvent(
       @NonNull List<@NonNull String> witnessParties,
       @NonNull String eventId,
@@ -44,7 +47,8 @@ public final class ExercisedEvent implements TreeEvent {
       @NonNull List<@NonNull String> actingParties,
       boolean consuming,
       @NonNull List<@NonNull String> childEventIds,
-      @NonNull Value exerciseResult) {
+      @NonNull Value exerciseResult,
+      @NonNull Optional<String> choicePackageId) {
     this.witnessParties = witnessParties;
     this.eventId = eventId;
     this.templateId = templateId;
@@ -56,6 +60,7 @@ public final class ExercisedEvent implements TreeEvent {
     this.consuming = consuming;
     this.childEventIds = childEventIds;
     this.exerciseResult = exerciseResult;
+    this.choicePackageId = choicePackageId;
   }
 
   @NonNull
@@ -115,6 +120,11 @@ public final class ExercisedEvent implements TreeEvent {
     return exerciseResult;
   }
 
+  @NonNull
+  public Optional<String> getChoicePackageId() {
+    return choicePackageId;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
@@ -130,7 +140,8 @@ public final class ExercisedEvent implements TreeEvent {
         && Objects.equals(choiceArgument, that.choiceArgument)
         && Objects.equals(actingParties, that.actingParties)
         && Objects.equals(childEventIds, that.childEventIds)
-        && Objects.equals(exerciseResult, that.exerciseResult);
+        && Objects.equals(exerciseResult, that.exerciseResult)
+        && Objects.equals(choicePackageId, that.choicePackageId);
   }
 
   @Override
@@ -147,7 +158,8 @@ public final class ExercisedEvent implements TreeEvent {
         actingParties,
         childEventIds,
         consuming,
-        exerciseResult);
+        exerciseResult,
+        choicePackageId);
   }
 
   @Override
@@ -178,6 +190,8 @@ public final class ExercisedEvent implements TreeEvent {
         + childEventIds
         + ", exerciseResult="
         + exerciseResult
+        + ", choicePackageId="
+        + choicePackageId
         + '}';
   }
 
@@ -194,6 +208,7 @@ public final class ExercisedEvent implements TreeEvent {
     builder.addAllWitnessParties(getWitnessParties());
     builder.addAllChildEventIds(getChildEventIds());
     builder.setExerciseResult(getExerciseResult().toProto());
+    choicePackageId.ifPresent(p -> builder.setChoicePackageId(StringValue.of(p)));
     return builder.build();
   }
 
@@ -211,6 +226,8 @@ public final class ExercisedEvent implements TreeEvent {
         exercisedEvent.getActingPartiesList(),
         exercisedEvent.getConsuming(),
         exercisedEvent.getChildEventIdsList(),
-        Value.fromProto(exercisedEvent.getExerciseResult()));
+        Value.fromProto(exercisedEvent.getExerciseResult()),
+        exercisedEvent.hasChoicePackageId() ? Optional.of(exercisedEvent.getChoicePackageId().getValue()) : Optional.empty()
+      );
   }
 }

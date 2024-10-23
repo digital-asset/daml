@@ -71,7 +71,7 @@ object EventStorageBackendTemplate {
       "event_id",
       "contract_id",
       "template_id",
-      "NULL as package_name",
+      "package_name",
       "NULL as create_argument",
       "NULL as create_argument_compression",
       "NULL as create_signatories",
@@ -98,7 +98,9 @@ object EventStorageBackendTemplate {
 
   private type SharedRow =
     Offset ~ String ~ Int ~ Long ~ String ~ String ~ Timestamp ~ Int ~ Option[String] ~
-      Option[String] ~ Array[Int] ~ Option[Array[Int]] ~ Option[Int] ~ Option[Array[Byte]]
+      Option[String] ~ Array[Int] ~ Option[Array[Int]] ~ Option[Int] ~ Option[Array[Byte]] ~ Option[
+        Int
+      ]
 
   private val sharedRow: RowParser[SharedRow] =
     offset("event_offset") ~
@@ -114,13 +116,14 @@ object EventStorageBackendTemplate {
       array[Int]("event_witnesses") ~
       array[Int]("submitters").? ~
       int("domain_id").? ~
-      byteArray("trace_context").?
+      byteArray("trace_context").? ~
+      int("package_name").?
 
   private type CreatedEventRow =
     SharedRow ~ Array[Byte] ~ Option[Int] ~ Array[Int] ~ Array[Int] ~ Option[String] ~
       Option[Array[Byte]] ~ Option[Hash] ~ Option[Int] ~ Option[Array[Int]] ~ Option[
         Array[Byte]
-      ] ~ Option[Int]
+      ]
 
   private val createdEventRow: RowParser[CreatedEventRow] =
     sharedRow ~
@@ -133,12 +136,11 @@ object EventStorageBackendTemplate {
       hashFromHexString("create_key_hash").? ~
       int("create_key_value_compression").? ~
       array[Int]("create_key_maintainers").? ~
-      byteArray("driver_metadata").? ~
-      int("package_name").?
+      byteArray("driver_metadata").?
 
   private type ExercisedEventRow =
     SharedRow ~ Boolean ~ String ~ Array[Byte] ~ Option[Int] ~ Option[Array[Byte]] ~ Option[Int] ~
-      Array[Int] ~ Array[String] ~ Option[Int]
+      Array[Int] ~ Array[String]
 
   private val exercisedEventRow: RowParser[ExercisedEventRow] = {
     import com.digitalasset.canton.platform.store.backend.Conversions.bigDecimalColumnToBoolean
@@ -150,8 +152,7 @@ object EventStorageBackendTemplate {
       byteArray("exercise_result").? ~
       int("exercise_result_compression").? ~
       array[Int]("exercise_actors") ~
-      array[String]("exercise_child_event_ids") ~
-      int("package_name").?
+      array[String]("exercise_child_event_ids")
   }
 
   private type ArchiveEventRow = SharedRow
@@ -172,9 +173,9 @@ object EventStorageBackendTemplate {
   ): RowParser[EventStorageBackend.Entry[Raw.FlatEvent.Created]] =
     createdEventRow map {
       case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~
-          templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ internedDomainId ~ traceContext ~ createArgument ~ createArgumentCompression ~
+          templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ internedDomainId ~ traceContext ~ packageName ~ createArgument ~ createArgumentCompression ~
           createSignatories ~ createObservers ~ createAgreementText ~ createKeyValue ~ createKeyHash ~ createKeyValueCompression ~ createKeyMaintainers ~
-          driverMetadata ~ packageName =>
+          driverMetadata =>
         // ArraySeq.unsafeWrapArray is safe here
         // since we get the Array from parsing and don't let it escape anywhere.
         EventStorageBackend.Entry(
@@ -229,7 +230,7 @@ object EventStorageBackendTemplate {
   ): RowParser[EventStorageBackend.Entry[Raw.FlatEvent.Archived]] =
     archivedEventRow map {
       case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~
-          templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ internedDomainId ~ traceContext =>
+          templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ internedDomainId ~ traceContext ~ packageName =>
         // ArraySeq.unsafeWrapArray is safe here
         // since we get the Array from parsing and don't let it escape anywhere.
         EventStorageBackend.Entry(
@@ -254,6 +255,7 @@ object EventStorageBackendTemplate {
                 .map(stringInterning.party.unsafe.externalize)
                 .toArray
             ),
+            packageName = packageName.map(stringInterning.packageName.externalize),
           ),
           domainId = internedDomainId.map(stringInterning.domainId.unsafe.externalize),
           traceContext = traceContext,
@@ -275,9 +277,9 @@ object EventStorageBackendTemplate {
   ): RowParser[EventStorageBackend.Entry[Raw.TreeEvent.Created]] =
     createdEventRow map {
       case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~
-          templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ internedDomainId ~ traceContext ~
+          templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ internedDomainId ~ traceContext ~ packageName ~
           createArgument ~ createArgumentCompression ~ createSignatories ~ createObservers ~ createAgreementText ~
-          createKeyValue ~ createKeyHash ~ createKeyValueCompression ~ createKeyMaintainers ~ driverMetadata ~ packageName =>
+          createKeyValue ~ createKeyHash ~ createKeyValueCompression ~ createKeyMaintainers ~ driverMetadata =>
         // ArraySeq.unsafeWrapArray is safe here
         // since we get the Array from parsing and don't let it escape anywhere.
         EventStorageBackend.Entry(
@@ -331,7 +333,7 @@ object EventStorageBackendTemplate {
       stringInterning: StringInterning,
   ): RowParser[EventStorageBackend.Entry[Raw.TreeEvent.Exercised]] =
     exercisedEventRow map {
-      case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ internedDomainId ~ traceContext ~ exerciseConsuming ~ qualifiedChoiceName ~ exerciseArgument ~ exerciseArgumentCompression ~ exerciseResult ~ exerciseResultCompression ~ exerciseActors ~ exerciseChildEventIds ~ packageName =>
+      case eventOffset ~ transactionId ~ nodeIndex ~ eventSequentialId ~ eventId ~ contractId ~ ledgerEffectiveTime ~ templateId ~ commandId ~ workflowId ~ eventWitnesses ~ submitters ~ internedDomainId ~ traceContext ~ packageName ~ exerciseConsuming ~ qualifiedChoiceName ~ exerciseArgument ~ exerciseArgumentCompression ~ exerciseResult ~ exerciseResultCompression ~ exerciseActors ~ exerciseChildEventIds =>
         val Ref.QualifiedChoiceName(interfaceId, choiceName) =
           Ref.QualifiedChoiceName.assertFromString(qualifiedChoiceName)
         // ArraySeq.unsafeWrapArray is safe here

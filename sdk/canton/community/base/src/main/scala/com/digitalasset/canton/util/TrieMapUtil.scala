@@ -27,6 +27,19 @@ object TrieMapUtil {
         Either.cond(oldValue == newValue, (), errorFn(key, oldValue, newValue))
     }
 
+  def insertIfAbsentE[K, V, E](
+      map: TrieMap[K, V],
+      key: K,
+      newValue: V,
+      duplicateFn: (K, V, V) => Either[E, Unit],
+  ): Either[E, Unit] =
+    map.putIfAbsent(key, newValue) match {
+      case None => Right(())
+      case Some(oldValue) =>
+        if (oldValue == newValue) Right(())
+        else duplicateFn(key, oldValue, newValue)
+    }
+
   def insertIfAbsent[K, V, E](
       map: TrieMap[K, V],
       key: K,

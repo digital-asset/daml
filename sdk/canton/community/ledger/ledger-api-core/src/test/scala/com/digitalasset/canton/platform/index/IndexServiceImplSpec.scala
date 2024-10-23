@@ -539,7 +539,16 @@ class IndexServiceImplSpec
       enhancer(generatePruningTransaction, Source(trResponses))
         .runWith(Sink.seq)
         .futureValue
-    messages should contain theSameElementsInOrderAs interleave(pruningResponses, trResponses)
+    // Due to scheduling uncertainty we cannot rely on exact interleaving of the messages
+    // We need to separate them again and check consistency of each stream separately
+    private val (trMessages, pruningMessages) = messages.partition(_.prunedOffset.isEmpty)
+    // Due to scheduling uncertainty we cannot rely on exact number of pruning messages inserted
+    // We need to check the consistency of the stream no matter of its length
+    private val pruningPrefix = pruningMessages.zip(pruningResponses)
+    trMessages should contain theSameElementsInOrderAs trResponses
+    pruningPrefix.foreach { case (actual, expected) =>
+      actual shouldBe expected
+    }
   }
 }
 
@@ -604,8 +613,6 @@ object IndexServiceImplSpec {
       }
     }
     def toOffset: String => Offset = o => Offset.fromByteArray(o.getBytes)
-    def interleave[A](as: List[A], bs: List[A]): List[A] =
-      as.zip(bs).flatMap { case (a, b) => List(a, b) }
     def generateTransaction(offset: Offset): GetTransactionsResponse =
       GetTransactionsResponse(Seq(Transaction(offset = offset.toString)))
     def generatePruningTransaction(offset: Offset): GetTransactionsResponse =
