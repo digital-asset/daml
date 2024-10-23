@@ -201,9 +201,7 @@ class ReassignmentCoordination(
         staticDomainParameters,
         timestamp,
         Future.unit,
-      ).mapK(
-        FutureUnlessShutdown.outcomeK
-      )
+      ).mapK(FutureUnlessShutdown.outcomeK)
       snapshot <- cryptoSnapshot(domain, staticDomainParameters, timestamp).mapK(
         FutureUnlessShutdown.outcomeK
       )

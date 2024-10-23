@@ -1,0 +1,108 @@
+---
+# Copyright 2022 Digital Asset (Switzerland) GmbH and/or its affiliates
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+networks:
+  default:
+    name: daml_observability
+
+volumes:
+  postgres:
+    name: daml_observability_postgres
+
+services:
+
+  postgres:
+    # Latest PostgreSQL version supported by Canton
+    # https://www.postgresql.org/support/versioning/
+    image: postgres:16
+    container_name: daml_observability_postgres
+    environment:
+      # For default admin user 'postgres'
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      # PostgreSQL persistent data
+      - postgres:/var/lib/postgresql/data
+      # PostgreSQL bootstrap queries
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    # Wait for PostgreSQL to be up and ready after bootstrap
+    healthcheck:
+      test: "pg_isready -U postgres"
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 30s
+
+  canton:
+    image: ${CANTON_IMAGE}:${CANTON_VERSION}
+    container_name: daml_observability_canton
+    ports:
+      # Participant ledger APIs
+      - 10011:10011
+      - 10021:10021
+      # Participant admin APIs
+      - 10012:10012
+      - 10022:10022
+      # Mediator admin APIs
+      - 4602:4602
+      - 4612:4612
+      # Sequencer APIs
+      - 4401:4401
+      - 4411:4411
+      - 4421:4421
+      - 4431:4431
+      # Sequencer admin APIs
+      - 4402:4402
+      - 4412:4412
+      - 4422:4422
+      - 4432:4432
+      # BFT ordering P2P
+      - 31030:31030
+      - 31031:31031
+      - 31032:31032
+      - 31033:31033
+      # Prometheus exporter
+      - 19090:19090
+    environment:
+      JDK_JAVA_OPTIONS: "-XX:+ExitOnOutOfMemoryError -Xmx8G"
+      OTEL_EXPORTER_OTLP_METRICS_DEFAULT_HISTOGRAM_AGGREGATION: exponential_bucket_histogram
+    command:
+      - "daemon"
+      - "--log-level-root=${LOG_LEVEL:-INFO}"
+      - "--log-level-canton=${LOG_LEVEL:-DEBUG}"
+      - "--log-level-stdout=${LOG_LEVEL:-DEBUG}"
+#      - "--log-encoder=json"
+      - "--log-file-name=/var/log/promtail/canton.log"
+      - "--config=/canton/config/network.conf"
+      - "--bootstrap=/canton/config/bootstrap.canton"
+    volumes:
+      # Canton configuration
+      - ./canton:/canton/config
+      # Logs
+      - logs:/var/log/promtail
+    healthcheck:
+      # Requires grpcurl and jq in image
+      test: "grpcurl --plaintext localhost:10012 com.digitalasset.canton.health.admin.v0.StatusService.Status | jq -e '.success | select(.active)'"
+      interval: 10s
+      timeout: 1s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  console:
+    image: ${CANTON_IMAGE}:${CANTON_VERSION}
+    container_name: daml_observability_canton_console
+    environment:
+      JDK_JAVA_OPTIONS: "-XX:+ExitOnOutOfMemoryError -Xmx1G"
+    entrypoint: ["tail", "-f", "/dev/null"]
+    stop_grace_period: "0s"
+    volumes:
+      # Canton configuration
+      - ./canton:/canton/config
+      # Logs
+      - logs:/var/log/promtail
+    depends_on:
+      - canton

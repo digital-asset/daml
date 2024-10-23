@@ -39,23 +39,24 @@ final class UpdateServiceImpl(ledgerContent: Observable[LedgerItem])
   ): Unit = {
     lastUpdatesRequest.set(request)
 
-    if (request.beginExclusive > request.endInclusive) {
-      val metadata = new Metadata()
-      metadata.put(
-        Metadata.Key.of("cause", Metadata.ASCII_STRING_MARSHALLER),
-        s"BEGIN should be strictly smaller than END. Found BEGIN '${request.beginExclusive}' and END '${request.endInclusive}'",
-      )
-      responseObserver.onError(Status.INVALID_ARGUMENT.asRuntimeException(metadata))
-    } else {
-      ledgerContent.subscribe(new Observer[LedgerItem] {
-        override def onSubscribe(d: Disposable): Unit = ()
-        override def onNext(t: LedgerItem): Unit =
-          responseObserver.onNext(
-            GetUpdatesResponse(GetUpdatesResponse.Update.Transaction(t.toTransaction))
-          )
-        override def onError(t: Throwable): Unit = responseObserver.onError(t)
-        override def onComplete(): Unit = responseObserver.onCompleted()
-      })
+    request.endInclusive match {
+      case Some(endInclusive) if request.beginExclusive > endInclusive =>
+        val metadata = new Metadata()
+        metadata.put(
+          Metadata.Key.of("cause", Metadata.ASCII_STRING_MARSHALLER),
+          s"BEGIN should be strictly smaller than END. Found BEGIN '${request.beginExclusive}' and END '${request.endInclusive}'",
+        )
+        responseObserver.onError(Status.INVALID_ARGUMENT.asRuntimeException(metadata))
+      case _ =>
+        ledgerContent.subscribe(new Observer[LedgerItem] {
+          override def onSubscribe(d: Disposable): Unit = ()
+          override def onNext(t: LedgerItem): Unit =
+            responseObserver.onNext(
+              GetUpdatesResponse(GetUpdatesResponse.Update.Transaction(t.toTransaction))
+            )
+          override def onError(t: Throwable): Unit = responseObserver.onError(t)
+          override def onComplete(): Unit = responseObserver.onCompleted()
+        })
     }
   }
 

@@ -332,7 +332,7 @@ final class UnassignmentProcessingStepsTest
         contract.copy(metadata =
           ContractMetadata.tryCreate(
             signatories = Set(),
-            stakeholders = stakeholders.stakeholders,
+            stakeholders = stakeholders.all,
             None,
           )
         )
@@ -360,7 +360,7 @@ final class UnassignmentProcessingStepsTest
     }
 
     "fail if submitter is not a stakeholder" in {
-      val stakeholders = Stakeholders.tryCreate(Set(party1, party2))
+      val stakeholders = Stakeholders.tryCreate(Set(party1, party2), Set())
       val result = mkUnassignmentResult(
         testingTopology,
         testingTopology,
@@ -388,7 +388,7 @@ final class UnassignmentProcessingStepsTest
         )
       )
 
-      val stakeholders = Stakeholders.tryCreate(Set(submitter, party1))
+      val stakeholders = Stakeholders.tryCreate(Set(submitter, party1), Set())
       val result = mkUnassignmentResult(
         testingTopology,
         ipsNoSubmissionOnTarget,
@@ -412,7 +412,7 @@ final class UnassignmentProcessingStepsTest
         )
       )
 
-      val stakeholders = Stakeholders.tryCreate(Set(submitter, party1))
+      val stakeholders = Stakeholders.tryCreate(Set(submitter, party1), Set())
       val result = mkUnassignmentResult(
         ipsConfirmationOnSource,
         ipsNoConfirmationOnTarget,
@@ -435,7 +435,7 @@ final class UnassignmentProcessingStepsTest
         )
       )
 
-      val stakeholders = Stakeholders.tryCreate(Set(submitter, party1))
+      val stakeholders = Stakeholders.tryCreate(Set(submitter, party1), Set())
       val result = mkUnassignmentResult(
         testingTopology,
         ipsDifferentParticipant,
@@ -466,7 +466,7 @@ final class UnassignmentProcessingStepsTest
           packages = Map.empty, // The package is not known on the target domain
         )
 
-      val stakeholders = Stakeholders.tryCreate(Set(submitter, adminSubmitter, admin1))
+      val stakeholders = Stakeholders.tryCreate(Set(submitter, adminSubmitter, admin1), Set())
       val result = mkUnassignmentResult(
         sourceTopologySnapshot = sourceDomainTopology,
         targetTopologySnapshot = targetDomainTopology,
@@ -500,7 +500,8 @@ final class UnassignmentProcessingStepsTest
         ).topologySnapshot()
 
       // `party1` is a stakeholder hosted on `participant1`, but it has not vetted `templateId.packageId` on the target domain
-      val stakeholders = Stakeholders.tryCreate(Set(submitter, party1, adminSubmitter, admin1))
+      val stakeholders =
+        Stakeholders.tryCreate(Set(submitter, party1, adminSubmitter, admin1), Set())
 
       val result =
         mkUnassignmentResult(
@@ -573,7 +574,7 @@ final class UnassignmentProcessingStepsTest
           participant4,
         ).map(_ -> Seq(templateId.packageId)).toMap,
       )
-      val stakeholders = Stakeholders.tryCreate(Set(submitter, party1))
+      val stakeholders = Stakeholders.tryCreate(Set(submitter, party1), Set())
       val result =
         mkUnassignmentResult(ipsSource, ipsTarget, stakeholdersOverride = Some(stakeholders))
 
@@ -610,7 +611,7 @@ final class UnassignmentProcessingStepsTest
       val unassignmentResult = mkUnassignmentResult(
         testingTopology,
         testingTopology,
-        stakeholdersOverride = Some(Stakeholders.tryCreate(stakeholders)),
+        stakeholdersOverride = Some(Stakeholders.withSignatories(stakeholders)),
       ).value
 
       val expectedUnassignmentResult = UnassignmentRequestValidated(
@@ -888,7 +889,7 @@ final class UnassignmentProcessingStepsTest
         assignmentExclusivity = domainParameters
           .assignmentExclusivityLimitFor(timeProof.timestamp)
           .value
-        pendingOut = PendingUnassignment(
+        pendingUnassignment = PendingUnassignment(
           RequestId(CantonTimestamp.Epoch),
           RequestCounter(1),
           SequencerCounter(1),
@@ -915,7 +916,7 @@ final class UnassignmentProcessingStepsTest
             .getCommitSetAndContractsToBeStoredAndEvent(
               NoOpeningErrors(signedContent),
               reassignmentResult.verdict,
-              pendingOut,
+              pendingUnassignment,
               state.pendingUnassignmentSubmissions,
               crypto.pureCrypto,
             )

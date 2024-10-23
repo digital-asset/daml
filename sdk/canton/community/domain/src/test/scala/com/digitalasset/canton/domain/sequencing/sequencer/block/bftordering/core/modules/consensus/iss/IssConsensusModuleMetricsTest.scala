@@ -1,0 +1,36 @@
+// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss
+
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.BftSequencerBaseTest
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.EpochLength
+import org.scalatest.wordspec.AnyWordSpec
+
+class IssConsensusModuleMetricsTest extends AnyWordSpec with BftSequencerBaseTest {
+
+  "possibleVotesInEpoch" should {
+    "work as expected" in {
+      Table(
+        ("peers", "epochLength", "segmentLeaders", "viewsCount", "expected"),
+        (1, 1L, 1, 1L, 1),
+        (1, 1L, 1, 2L, 2),
+        (1, 2L, 1, 1L, 2),
+        (2, 1L, 1, 1L, 2),
+        (2, 1L, 1, 2L, 4),
+        (2, 2L, 1, 2L, 6),
+        (2, 2L, 2, 2L, 4),
+        (2, 2L, 2, 3L, 6),
+        (2, 2L, 2, 4L, 8),
+      ).forEvery { (peers, epochLength, segmentLeaders, viewsCount, expected) =>
+        val result = IssConsensusModuleMetrics.totalConsensusStageVotesInEpoch(
+          peers,
+          EpochLength(epochLength),
+          segmentLeaders,
+          viewsCount,
+        )
+        result shouldBe expected
+      }
+    }
+  }
+}

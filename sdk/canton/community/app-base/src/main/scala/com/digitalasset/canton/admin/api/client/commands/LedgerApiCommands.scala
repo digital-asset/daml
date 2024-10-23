@@ -1074,8 +1074,8 @@ object LedgerApiCommands {
 
       override def createRequest(): Either[String, GetUpdatesRequest] = Right {
         GetUpdatesRequest(
-          beginExclusive = beginExclusive,
-          endInclusive = endInclusive,
+          beginExclusive = ApiOffset.assertFromStringToLong(beginExclusive),
+          endInclusive = ApiOffset.assertFromStringToLongO(endInclusive),
           verbose = verbose,
           filter = Some(filter),
         )
@@ -1606,7 +1606,7 @@ object LedgerApiCommands {
         parties: Set[LfPartyId],
         limit: PositiveInt,
         templateFilter: Seq[TemplateId] = Seq.empty,
-        activeAtOffset: String = "",
+        activeAtOffset: String,
         verbose: Boolean = true,
         timeout: FiniteDuration,
         includeCreatedEventBlob: Boolean = false,
@@ -1635,7 +1635,7 @@ object LedgerApiCommands {
           GetActiveContractsRequest(
             filter = Some(TransactionFilter(parties.map((_, filter)).toMap)),
             verbose = verbose,
-            activeAtOffset = activeAtOffset,
+            activeAtOffset = ApiOffset.assertFromStringToLong(activeAtOffset),
           )
         )
       }

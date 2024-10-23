@@ -57,18 +57,10 @@ object DomainParameters {
   }
 
   final case class MaxRequestSize(value: NonNegativeInt) extends AnyVal {
-    def unwrap = value.unwrap
+    def unwrap: Int = value.unwrap
   }
 }
 
-/** @param AcsCommitmentsCatchUp Optional parameters of type [[com.digitalasset.canton.protocol.AcsCommitmentsCatchUpConfig]].
-  *                              Defined starting with protobuf version v2 and protocol version v6.
-  *                              If None, the catch-up mode is disabled: the participant does not trigger the
-  *                              catch-up mode when lagging behind.
-  *                              If not None, it specifies the number of reconciliation intervals that the
-  *                              participant skips in catch-up mode, and the number of catch-up intervals
-  *                              intervals a participant should lag behind in order to enter catch-up mode.
-  */
 final case class StaticDomainParameters(
     requiredSigningKeySchemes: NonEmpty[Set[SigningKeyScheme]],
     requiredEncryptionSpecs: RequiredEncryptionSpecs,

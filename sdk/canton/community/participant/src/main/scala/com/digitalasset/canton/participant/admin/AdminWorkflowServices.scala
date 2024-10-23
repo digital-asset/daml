@@ -27,6 +27,7 @@ import com.digitalasset.canton.participant.config.LocalParticipantConfig
 import com.digitalasset.canton.participant.ledger.api.client.LedgerConnection
 import com.digitalasset.canton.participant.sync.CantonSyncService
 import com.digitalasset.canton.participant.topology.ParticipantTopologyManagerError
+import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration}
 import com.digitalasset.canton.topology.TopologyManagerError.{
   NoAppropriateSigningKeyInStore,
@@ -260,29 +261,36 @@ class AdminWorkflowServices(
     val service = createService(client)
 
     val startupF =
-      client.stateService.getActiveContracts(service.filters).map { case (acs, offset) =>
-        logger.debug(s"Loading $acs $service")
-        service.processAcs(acs)
-        new ResilientLedgerSubscription(
-          makeSource = subscribeOffset =>
-            client.updateService.getUpdatesSource(subscribeOffset, service.filters),
-          consumingFlow = Flow[GetUpdatesResponse]
-            .map(_.update)
-            .map {
-              case GetUpdatesResponse.Update.Transaction(tx) =>
-                service.processTransaction(tx)
-              case GetUpdatesResponse.Update.Reassignment(reassignment) =>
-                service.processReassignment(reassignment)
-              case GetUpdatesResponse.Update.OffsetCheckpoint(_) => ()
-              case GetUpdatesResponse.Update.Empty => ()
-            },
-          subscriptionName = service.getClass.getSimpleName,
-          startOffset = offset,
-          extractOffset = ResilientLedgerSubscription.extractOffsetFromGetUpdateResponse,
-          timeouts = timeouts,
-          loggerFactory = loggerFactory,
-          resubscribeIfPruned = resubscribeIfPruned,
-        )
+      client.stateService.getLedgerEndOffset().flatMap { offsetO =>
+        client.stateService
+          .getActiveContracts(filter = service.filters, validAtOffset = offsetO.getOrElse(0L))
+          .map { case (acs, offset) =>
+            logger.debug(s"Loading $acs $service")
+            service.processAcs(acs)
+            new ResilientLedgerSubscription(
+              makeSource = subscribeOffset =>
+                client.updateService.getUpdatesSource(
+                  ApiOffset.assertFromStringToLong(subscribeOffset),
+                  service.filters,
+                ),
+              consumingFlow = Flow[GetUpdatesResponse]
+                .map(_.update)
+                .map {
+                  case GetUpdatesResponse.Update.Transaction(tx) =>
+                    service.processTransaction(tx)
+                  case GetUpdatesResponse.Update.Reassignment(reassignment) =>
+                    service.processReassignment(reassignment)
+                  case GetUpdatesResponse.Update.OffsetCheckpoint(_) => ()
+                  case GetUpdatesResponse.Update.Empty => ()
+                },
+              subscriptionName = service.getClass.getSimpleName,
+              startOffset = ApiOffset.fromLong(offset),
+              extractOffset = ResilientLedgerSubscription.extractOffsetFromGetUpdateResponse,
+              timeouts = timeouts,
+              loggerFactory = loggerFactory,
+              resubscribeIfPruned = resubscribeIfPruned,
+            )
+          }
       }
     (startupF, service)
   }

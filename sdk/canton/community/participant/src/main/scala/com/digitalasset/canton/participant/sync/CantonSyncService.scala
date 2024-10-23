@@ -1744,17 +1744,21 @@ class CantonSyncService(
       validAt: Offset,
       stakeholders: Set[LfPartyId],
   )(implicit traceContext: TraceContext): Future[Vector[Offset]] =
-    UpstreamOffsetConvert
-      .toGlobalOffset(validAt)
-      .fold(
-        error => Future.failed(new IllegalArgumentException(error)),
-        incompleteReassignmentData(_, stakeholders).map(
-          _.map(
-            _.reassignmentEventGlobalOffset.globalOffset
-              .pipe(UpstreamOffsetConvert.fromGlobalOffset)
-          ).toVector
-        ),
-      )
+    if (validAt == Offset.beforeBegin) {
+      Future.successful(Vector.empty)
+    } else {
+      UpstreamOffsetConvert
+        .toGlobalOffset(validAt)
+        .fold(
+          error => Future.failed(new IllegalArgumentException(error)),
+          incompleteReassignmentData(_, stakeholders).map(
+            _.map(
+              _.reassignmentEventGlobalOffset.globalOffset
+                .pipe(UpstreamOffsetConvert.fromGlobalOffset)
+            ).toVector
+          ),
+        )
+    }
 }
 
 object CantonSyncService {

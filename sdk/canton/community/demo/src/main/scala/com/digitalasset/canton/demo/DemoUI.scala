@@ -17,6 +17,7 @@ import com.digitalasset.canton.console.ParticipantReference
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.ClientChannelBuilder
+import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.topology.UniqueIdentifier
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.canton.util.LoggerUtil.clue
@@ -362,7 +363,7 @@ class ParticipantTab(
 
     val partyId = UniqueIdentifier.tryCreate(party, uid.namespace).toProtoPrimitive
     val req = new GetUpdatesRequest(
-      beginExclusive = offset,
+      beginExclusive = ApiOffset.assertFromStringToLong(offset),
       filter = Some(TransactionFilter(filtersByParty = Map(partyId -> Filters()))),
       verbose = true,
     )

@@ -183,7 +183,7 @@ final case class AssignmentCommonData private (
   override def hashPurpose: HashPurpose = HashPurpose.AssignmentCommonData
 
   def confirmingParties: Map[LfPartyId, PositiveInt] =
-    stakeholders.stakeholders.map(_ -> PositiveInt.one).toMap
+    stakeholders.all.map(_ -> PositiveInt.one).toMap
 
   override protected def pretty: Pretty[AssignmentCommonData] = prettyOfClass(
     param("submitter metadata", _.submitterMetadata),
@@ -459,7 +459,8 @@ final case class FullAssignmentTree(tree: AssignmentViewTree)
   def workflowId: Option[LfWorkflowId] = submitterMetadata.workflowId
 
   // Parties and participants
-  def stakeholders: Set[LfPartyId] = tree.view.tryUnwrap.contract.metadata.stakeholders
+  // TODO(#21072) Check stakeholders and informees are compatible
+  def stakeholders: Stakeholders = commonData.stakeholders
   override def informees: Set[LfPartyId] = tree.view.tryUnwrap.contract.metadata.stakeholders
   override def confirmingReassigningParticipants: Set[ParticipantId] =
     commonData.confirmingReassigningParticipants

@@ -11,17 +11,17 @@ import java.util.Optional;
 
 public final class GetUpdatesRequest {
 
-  @NonNull private final String beginExclusive;
+  @NonNull private final Long beginExclusive;
 
-  @NonNull private final String endInclusive;
+  @NonNull private final Optional<Long> endInclusive;
 
   @NonNull private final TransactionFilter transactionFilter;
 
   private final boolean verbose;
 
   public GetUpdatesRequest(
-      @NonNull String beginExclusive,
-      @NonNull String endInclusive,
+      @NonNull Long beginExclusive,
+      @NonNull Optional<Long> endInclusive,
       @NonNull TransactionFilter transactionFilter,
       boolean verbose) {
     this.beginExclusive = beginExclusive;
@@ -34,25 +34,30 @@ public final class GetUpdatesRequest {
     TransactionFilter filters = TransactionFilter.fromProto(request.getFilter());
     boolean verbose = request.getVerbose();
     return new GetUpdatesRequest(
-        request.getBeginExclusive(), request.getEndInclusive(), filters, verbose);
+        request.getBeginExclusive(),
+        request.hasEndInclusive() ? Optional.of(request.getEndInclusive()) : Optional.empty(),
+        filters,
+        verbose);
   }
 
   public UpdateServiceOuterClass.GetUpdatesRequest toProto() {
-    return UpdateServiceOuterClass.GetUpdatesRequest.newBuilder()
-        .setBeginExclusive(beginExclusive)
-        .setEndInclusive(endInclusive)
-        .setFilter(this.transactionFilter.toProto())
-        .setVerbose(this.verbose)
-        .build();
+    UpdateServiceOuterClass.GetUpdatesRequest.Builder builder =
+        UpdateServiceOuterClass.GetUpdatesRequest.newBuilder()
+            .setBeginExclusive(beginExclusive)
+            .setFilter(this.transactionFilter.toProto())
+            .setVerbose(this.verbose);
+
+    endInclusive.ifPresent(builder::setEndInclusive);
+    return builder.build();
   }
 
   @NonNull
-  public String getBeginExclusive() {
+  public Long getBeginExclusive() {
     return beginExclusive;
   }
 
   @NonNull
-  public String getEndInclusive() {
+  public Optional<Long> getEndInclusive() {
     return endInclusive;
   }
 

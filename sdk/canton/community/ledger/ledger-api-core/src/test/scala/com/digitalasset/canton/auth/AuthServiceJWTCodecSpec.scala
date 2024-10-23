@@ -131,6 +131,101 @@ class AuthServiceJWTCodecSpec
         minSuccessful(100),
       )(value => serializeAndParse(value) shouldBe Success(value))
     }
+
+    val expected = StandardJWTPayload(
+      issuer = Some("issuer"),
+      participantId = None,
+      userId = "someUserId",
+      exp = Some(Instant.ofEpochSecond(100)),
+      format = StandardJWTTokenFormat.Scope,
+      audiences = List("someParticipantId"),
+      scope = Some(AuthServiceJWTCodec.scopeLedgerApiFull),
+    )
+
+    "support standard JWT claims with just one scope" in {
+      val serialized =
+        s"""{
+           |  "iss": "issuer",
+           |  "aud": "someParticipantId",
+           |  "sub": "someUserId",
+           |  "exp": 100,
+           |  "scope": "${AuthServiceJWTCodec.scopeLedgerApiFull}"
+           |}
+        """.stripMargin
+      parse(serialized) shouldBe Success(expected)
+    }
+
+    "support standard JWT claims with just one scope in scp" in {
+      val serialized =
+        s"""{
+           |  "iss": "issuer",
+           |  "aud": "someParticipantId",
+           |  "sub": "someUserId",
+           |  "exp": 100,
+           |  "scp": ["${AuthServiceJWTCodec.scopeLedgerApiFull}"]
+           |}
+        """.stripMargin
+      parse(serialized) shouldBe Success(expected)
+    }
+
+    val extraScopes = s"dummy-scope1 ${AuthServiceJWTCodec.scopeLedgerApiFull} dummy-scope2"
+    val extraScopesJsArray = extraScopes.split(" ").toJson.prettyPrint
+
+    "support standard JWT claims with extra scopes" in {
+      val serialized =
+        s"""{
+           |  "iss": "issuer",
+           |  "aud": "someParticipantId",
+           |  "sub": "someUserId",
+           |  "exp": 100,
+           |  "scope": "$extraScopes"
+           |}
+        """.stripMargin
+      parse(serialized) shouldBe Success(expected.copy(scope = Some(extraScopes)))
+    }
+
+    "support standard JWT claims with extra scopes in scp" in {
+      val serialized =
+        s"""{
+           |  "iss": "issuer",
+           |  "aud": "someParticipantId",
+           |  "sub": "someUserId",
+           |  "exp": 100,
+           |  "scp": $extraScopesJsArray
+           |}
+        """.stripMargin
+      parse(serialized) shouldBe Success(expected.copy(scope = Some(extraScopes)))
+    }
+
+    val extraCompositeScopes =
+      s"dummy-scope1 ${AuthServiceJWTCodec.scopeLedgerApiFull} dummy-scope2"
+    val extraCompositeScopesJsArray = extraCompositeScopes.split(" ").toJson.prettyPrint
+
+    "support standard JWT claims with extra composite scopes" in {
+      val serialized =
+        s"""{
+           |  "iss": "issuer",
+           |  "aud": "someParticipantId",
+           |  "sub": "someUserId",
+           |  "exp": 100,
+           |  "scope": "$extraCompositeScopes"
+           |}
+        """.stripMargin
+      parse(serialized) shouldBe Success(expected.copy(scope = Some(extraCompositeScopes)))
+    }
+
+    "support standard JWT claims with extra composite scopes in scp" in {
+      val serialized =
+        s"""{
+           |  "iss": "issuer",
+           |  "aud": "someParticipantId",
+           |  "sub": "someUserId",
+           |  "exp": 100,
+           |  "scp": $extraCompositeScopesJsArray
+           |}
+        """.stripMargin
+      parse(serialized) shouldBe Success(expected.copy(scope = Some(extraCompositeScopes)))
+    }
   }
 
   "AuthServiceJWTPayload codec" when {
@@ -145,7 +240,17 @@ class AuthServiceJWTCodecSpec
         serializeAndParse(value) shouldBe Success(value)
       }
 
-      "support standard JWT claims with just the one scope" in {
+      val expected = StandardJWTPayload(
+        issuer = Some("issuer"),
+        participantId = Some("someParticipantId"),
+        userId = "someUserId",
+        exp = Some(Instant.ofEpochSecond(100)),
+        format = StandardJWTTokenFormat.Scope,
+        audiences = List.empty,
+        scope = Some(AuthServiceJWTCodec.scopeLedgerApiFull),
+      )
+
+      "support standard JWT claims with just one scope" in {
         val serialized =
           s"""{
             |  "iss": "issuer",
@@ -155,15 +260,19 @@ class AuthServiceJWTCodecSpec
             |  "scope": "${AuthServiceJWTCodec.scopeLedgerApiFull}"
             |}
           """.stripMargin
-        val expected = StandardJWTPayload(
-          issuer = Some("issuer"),
-          participantId = Some("someParticipantId"),
-          userId = "someUserId",
-          exp = Some(Instant.ofEpochSecond(100)),
-          format = StandardJWTTokenFormat.Scope,
-          audiences = List.empty,
-          scope = Some(AuthServiceJWTCodec.scopeLedgerApiFull),
-        )
+        parse(serialized) shouldBe Success(expected)
+      }
+
+      "support standard JWT claims with just one scope in scp" in {
+        val serialized =
+          s"""{
+             |  "iss": "issuer",
+             |  "aud": "someParticipantId",
+             |  "sub": "someUserId",
+             |  "exp": 100,
+             |  "scp": ["${AuthServiceJWTCodec.scopeLedgerApiFull}"]
+             |}
+          """.stripMargin
         parse(serialized) shouldBe Success(expected)
       }
 
@@ -191,16 +300,19 @@ class AuthServiceJWTCodecSpec
             |  "scope": "dummy-scope1 ${AuthServiceJWTCodec.scopeLedgerApiFull} dummy-scope2"
             |}
           """.stripMargin
-        val expected = StandardJWTPayload(
-          issuer = None,
-          participantId = Some("someParticipantId"),
-          userId = "someUserId",
-          exp = Some(Instant.ofEpochSecond(100)),
-          format = StandardJWTTokenFormat.Scope,
-          audiences = List.empty,
-          scope = Some(AuthServiceJWTCodec.scopeLedgerApiFull),
-        )
-        parse(serialized) shouldBe Success(expected)
+        parse(serialized) shouldBe Success(expected.copy(issuer = None))
+      }
+
+      "support standard JWT claims with extra scopes in scp" in {
+        val serialized =
+          s"""{
+             |  "aud": "someParticipantId",
+             |  "sub": "someUserId",
+             |  "exp": 100,
+             |  "scp": ["dummy-scope1", "${AuthServiceJWTCodec.scopeLedgerApiFull}", "dummy-scope2"]
+             |}
+          """.stripMargin
+        parse(serialized) shouldBe Success(expected.copy(issuer = None))
       }
 
       "support standard JWT claims with extra composite scopes" in {
@@ -212,16 +324,19 @@ class AuthServiceJWTCodecSpec
             |  "scope": "resource_server/dummy-scope1 ${AuthServiceJWTCodec.scopeLedgerApiFull} resource_server/dummy-scope2"
             |}
           """.stripMargin
-        val expected = StandardJWTPayload(
-          issuer = None,
-          participantId = Some("someParticipantId"),
-          userId = "someUserId",
-          exp = Some(Instant.ofEpochSecond(100)),
-          format = StandardJWTTokenFormat.Scope,
-          audiences = List.empty,
-          scope = Some(AuthServiceJWTCodec.scopeLedgerApiFull),
-        )
-        parse(serialized) shouldBe Success(expected)
+        parse(serialized) shouldBe Success(expected.copy(issuer = None))
+      }
+
+      "support standard JWT claims with extra composite scopes in scp" in {
+        val serialized =
+          s"""{
+             |  "aud": "someParticipantId",
+             |  "sub": "someUserId",
+             |  "exp": 100,
+             |  "scp": ["resource_server/dummy-scope1", "${AuthServiceJWTCodec.scopeLedgerApiFull}", "resource_server/dummy-scope2"]
+             |}
+          """.stripMargin
+        parse(serialized) shouldBe Success(expected.copy(issuer = None))
       }
 
       "support standard JWT claims with iss claim as string" in {

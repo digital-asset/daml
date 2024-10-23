@@ -53,15 +53,18 @@ service UpdateService {
 }
 
 message GetUpdatesRequest {
-  // Beginning of the requested ledger section.
+  // Beginning of the requested ledger section (non-negative integer).
   // The response will only contain transactions whose offset is strictly greater than this.
-  // Required
-  string begin_exclusive = 1;
+  // If zero, the stream will start from the beginning of the ledger.
+  // If positive, the streaming will start after this absolute offset.
+  // If the ledger has been pruned, this parameter must be specified and be greater than the pruning offset.
+  int64 begin_exclusive = 1;
 
   // End of the requested ledger section.
   // The response will only contain transactions whose offset is less than or equal to this.
   // Optional, if empty, the stream will not terminate.
-  string end_inclusive = 2;
+  // If specified, the stream will terminate after this absolute offset (positive integer) is reached.
+  optional int64 end_inclusive = 2;
 
   // Requesting parties with template filters.
   // Template filters must be empty for GetUpdateTrees requests.

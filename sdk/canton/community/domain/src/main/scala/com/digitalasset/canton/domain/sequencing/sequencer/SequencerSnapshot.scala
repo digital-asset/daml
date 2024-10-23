@@ -90,6 +90,17 @@ final case class SequencerSnapshot(
     param("trafficPurchased", _.trafficPurchased),
     param("trafficConsumed", _.trafficConsumed),
   )
+
+  // compares this snapshot with another one for contents equality
+  def hasSameContentsAs(otherSnapshot: SequencerSnapshot): Boolean =
+    lastTs == otherSnapshot.lastTs && latestBlockHeight == otherSnapshot.latestBlockHeight &&
+      // map comparison
+      heads.equals(otherSnapshot.heads) && status == otherSnapshot.status &&
+      // map comparison
+      inFlightAggregations.equals(otherSnapshot.inFlightAggregations) &&
+      additional == otherSnapshot.additional &&
+      trafficPurchased.toSet == otherSnapshot.trafficPurchased.toSet &&
+      trafficConsumed.toSet == otherSnapshot.trafficConsumed.toSet
 }
 
 object SequencerSnapshot extends HasProtocolVersionedCompanion[SequencerSnapshot] {

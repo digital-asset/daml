@@ -4,9 +4,11 @@
 package com.digitalasset.canton.http.json.v2
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.grpc.adapter.client.pekko.ClientAdapter
 import com.daml.ledger.api.v2.state_service
+import com.daml.ledger.api.v2.state_service.GetActiveContractsRequest
 import com.daml.ledger.api.v2.transaction_filter
+import com.daml.ledger.api.v2.reassignment
+import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.http.json.v2.JsSchema.{JsCantonError, JsEvent}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -24,7 +26,9 @@ import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Flow
-import sttp.tapir.query
+import sttp.capabilities
+import sttp.capabilities.pekko.PekkoStreams
+import sttp.tapir.{CodecFormat, Endpoint, query, webSocketBody}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -34,14 +38,12 @@ class JsStateService(
     val loggerFactory: NamedLoggerFactory,
 )(implicit
     val executionContext: ExecutionContext,
-    esf: ExecutionSequencerFactory,
+    val esf: ExecutionSequencerFactory,
 ) extends Endpoints
     with NamedLogging {
 
   import JsStateServiceCodecs.*
-
-  private lazy val state = v2Endpoint.in(sttp.tapir.stringToPath("state"))
-//  private lazy val wsState = wsEndpoint.in("state")
+  import JsStateService.*
 
   private def stateServiceClient(token: Option[String] = None)(implicit
       traceContext: TraceContext
@@ -50,28 +52,16 @@ class JsStateService(
 
   def endpoints() = List(
     websocket(
-      state.get
-        .in(sttp.tapir.stringToPath("active-contracts"))
-        .description("Get active contracts stream"),
+      activeContractsEndpoint,
       getActiveContractsStream,
     ),
-    json(
-      state.get
-        .in(sttp.tapir.stringToPath("connected-domains"))
-        .in(query[String]("party"))
-        .description("Get connected domains"),
-      getConnectedDomains,
-    ),
-    json(
-      state.get
-        .in(sttp.tapir.stringToPath("ledger-end"))
-        .description("Get ledger end"),
+    withServerLogic(JsStateService.getConnectedDomainsEndpoint, getConnectedDomains),
+    withServerLogic(
+      JsStateService.getLedgerEndEndpoint,
       getLedgerEnd,
     ),
-    json(
-      state.get
-        .in(sttp.tapir.stringToPath("latest-pruned-offsets"))
-        .description("Get latest pruned offsets"),
+    withServerLogic(
+      JsStateService.getLastPrunedOffsetsEndpoint,
       getLatestPrunedOffsets,
     ),
   )
@@ -110,19 +100,55 @@ class JsStateService(
     JsGetActiveContractsResponse,
     NotUsed,
   ] =
-    _ => {
-      Flow[state_service.GetActiveContractsRequest]
-        .flatMapConcat { req =>
-          ClientAdapter
-            .serverStreaming(
-              req,
-              stateServiceClient(caller.token())(TraceContext.empty).getActiveContracts,
-            )
-            .mapAsync(1)(r =>
-              protocolConverters.GetActiveContractsResponse.toJson(r)(caller.token())
-            )
-        }
+    req => {
+      implicit val token = caller.token()
+      implicit val tc = req.traceContext
+      prepareSingleWsStream(
+        stateServiceClient(caller.token())(TraceContext.empty).getActiveContracts,
+        (r: state_service.GetActiveContractsResponse) =>
+          protocolConverters.GetActiveContractsResponse.toJson(r),
+        limited = true,
+      )
     }
+}
+
+object JsStateService {
+  import Endpoints.*
+  import JsStateServiceCodecs.*
+
+  private lazy val state = v2Endpoint.in(sttp.tapir.stringToPath("state"))
+
+  val activeContractsEndpoint: Endpoint[CallerContext, Unit, JsCantonError, Flow[
+    GetActiveContractsRequest,
+    JsGetActiveContractsResponse,
+    Any,
+  ], Any with PekkoStreams with capabilities.WebSockets] = state.get
+    .in(sttp.tapir.stringToPath("active-contracts"))
+    .out(
+      webSocketBody[
+        state_service.GetActiveContractsRequest,
+        CodecFormat.Json,
+        JsGetActiveContractsResponse,
+        CodecFormat.Json,
+      ](PekkoStreams)
+    )
+    .description("Get active contracts stream")
+
+  val getConnectedDomainsEndpoint = state.get
+    .in(sttp.tapir.stringToPath("connected-domains"))
+    .in(query[String]("party"))
+    .out(jsonBody[state_service.GetConnectedDomainsResponse])
+    .description("Get connected domains")
+
+  val getLedgerEndEndpoint = state.get
+    .in(sttp.tapir.stringToPath("ledger-end"))
+    .out(jsonBody[state_service.GetLedgerEndResponse])
+    .description("Get ledger end")
+
+  val getLastPrunedOffsetsEndpoint = state.get
+    .in(sttp.tapir.stringToPath("latest-pruned-offsets"))
+    .out(jsonBody[state_service.GetLatestPrunedOffsetsResponse])
+    .description("Get latest pruned offsets")
 }
 
 object JsContractEntry {
@@ -132,7 +158,7 @@ object JsContractEntry {
   case class JsIncompleteAssigned(assigned_event: JsAssignedEvent) extends JsContractEntry
   case class JsIncompleteUnassigned(
       created_event: JsEvent.CreatedEvent,
-      unassigned_event: JsUnassignedEvent,
+      unassigned_event: reassignment.UnassignedEvent,
   ) extends JsContractEntry
 
   case class JsActiveContract(
@@ -165,7 +191,6 @@ final case class JsUnassignedEvent(
 )
 
 final case class JsGetActiveContractsResponse(
-    offset: String,
     workflow_id: String,
     contract_entry: JsContractEntry,
 )
@@ -202,6 +227,7 @@ object JsStateServiceCodecs {
 
   implicit val jsContractEntryRW: Codec[JsContractEntry] = deriveCodec
   implicit val jsIncompleteUnassignedRW: Codec[JsIncompleteUnassigned] = deriveCodec
+  implicit val unassignedEventRW: Codec[reassignment.UnassignedEvent] = deriveCodec
   implicit val jsIncompleteAssignedRW: Codec[JsIncompleteAssigned] = deriveCodec
   implicit val jsActiveContractRW: Codec[JsActiveContract] = deriveCodec
   implicit val jsUnassignedEventRW: Codec[JsUnassignedEvent] = deriveCodec

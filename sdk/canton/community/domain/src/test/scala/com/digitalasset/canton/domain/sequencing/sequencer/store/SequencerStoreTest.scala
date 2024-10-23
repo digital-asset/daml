@@ -907,7 +907,7 @@ trait SequencerStoreTest
           oldestTimestamp shouldBe Some(ts(5))
           statusBefore.safePruningTimestamp shouldBe ts(7)
           val removedCounts = recordCountsBefore - recordCountsAfter
-          removedCounts.counterCheckpoints shouldBe 3
+          removedCounts.counterCheckpoints shouldBe 1 // -3 checkpoints +2 checkpoints from pruning itself (at ts5)
           removedCounts.events shouldBe 2 // the two deliver event earlier than ts5 from ts2 and ts4
           removedCounts.payloads shouldBe 2 // for payload1 from ts1 + payload from deliverEventWithDefaults(ts2)
         }

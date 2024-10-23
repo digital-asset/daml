@@ -31,14 +31,23 @@ object GrpcValueCodec extends SchemaVisitor {
 
     override def fromDynamicValue(dv: DynamicValue): value.Value = {
       val fs = dv.record.iterator zip codecs map { case (f, c) =>
-        value.RecordField(value = Some(c.fromDynamicValue(f)))
+        value.RecordField(
+          label = f._1.getOrElse(""),
+          value = Some(c.fromDynamicValue(f._2)),
+        )
       }
       value.Value(Sum.Record(value.Record(fields = fs.toSeq)))
     }
 
     override def toDynamicValue(a: value.Value): DynamicValue =
       DynamicValue.Record(
-        a.getRecord.fields.view zip codecs map { case (f, c) => c.toDynamicValue(f.getValue) }
+        a.getRecord.fields.view zip codecs map { case (f, c) =>
+          if (f.label.isEmpty) {
+            (Option.empty[String], c.toDynamicValue(f.getValue))
+          } else {
+            (Some(f.label), c.toDynamicValue(f.getValue))
+          }
+        }
       )
   }
 

@@ -18,6 +18,6 @@ trait IndexActiveContractsService {
   def getActiveContracts(
       filter: TransactionFilter,
       verbose: Boolean,
-      activeAtO: Option[Offset],
+      activeAt: Offset,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetActiveContractsResponse, NotUsed]
 }

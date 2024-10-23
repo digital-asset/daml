@@ -16,8 +16,6 @@ import com.digitalasset.daml.lf.archive.DamlLf
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
-import com.digitalasset.daml.lf.ledger.EventId
-import com.digitalasset.daml.lf.transaction.NodeId
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.google.protobuf.ByteString
 
@@ -125,7 +123,6 @@ private[store] object StorageBackendTestValues {
       application_id = Some(someApplicationId),
       submitters = None,
       node_index = 0,
-      event_id = EventId(updateId, NodeId(0)).toLedgerString,
       contract_id = contractId.coid,
       template_id = someTemplateId.toString,
       package_name = somePackageName.toString,
@@ -177,7 +174,6 @@ private[store] object StorageBackendTestValues {
       application_id = Some(someApplicationId),
       submitters = Some(Set(actor)),
       node_index = 0,
-      event_id = EventId(updateId, NodeId(0)).toLedgerString,
       contract_id = contractId.coid,
       template_id = someTemplateId.toString,
       package_name = somePackageName,

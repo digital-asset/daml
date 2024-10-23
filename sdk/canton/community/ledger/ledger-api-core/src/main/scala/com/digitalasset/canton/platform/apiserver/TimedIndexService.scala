@@ -92,11 +92,11 @@ final class TimedIndexService(delegate: IndexService, metrics: LedgerApiServerMe
   override def getActiveContracts(
       filter: domain.TransactionFilter,
       verbose: Boolean,
-      activeAtO: Option[Offset],
+      activeAt: Offset,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetActiveContractsResponse, NotUsed] =
     Timed.source(
       metrics.services.index.getActiveContracts,
-      delegate.getActiveContracts(filter, verbose, activeAtO),
+      delegate.getActiveContracts(filter, verbose, activeAt),
     )
 
   override def lookupActiveContract(

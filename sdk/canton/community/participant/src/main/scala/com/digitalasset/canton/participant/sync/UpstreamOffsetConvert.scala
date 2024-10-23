@@ -38,7 +38,7 @@ object UpstreamOffsetConvert {
     val bytes = offset.bytes.toByteArray
     if (bytes.lengthCompare(longBasedByteLength) != 0) {
       if (offset == Offset.beforeBegin) {
-        Left(s"Invalid canton offset: before ledger begin is not allowed")
+        Left("Invalid canton offset: before ledger begin is not allowed")
       } else {
         Left(s"Invalid canton offset length: expected $longBasedByteLength, actual ${bytes.length}")
       }

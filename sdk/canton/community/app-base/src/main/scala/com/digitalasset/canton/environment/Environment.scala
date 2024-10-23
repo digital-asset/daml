@@ -237,7 +237,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
         clock.advanceTo(parent.now)
         clock
       case ClockConfig.RemoteClock(clientConfig) =>
-        new RemoteClock(
+        RemoteClock(
           clientConfig,
           config.parameters.timeouts.processing,
           clockLoggerFactory,

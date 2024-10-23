@@ -49,6 +49,7 @@ import spray.json.JsValue
 
 import scala.concurrent.{ExecutionContext, Future}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.tracing.NoTracing
 import scalaz.std.scalaFuture.*
 
@@ -58,6 +59,7 @@ class ContractsService(
     getContractByContractId: LedgerClientJwt.GetContractByContractId,
     getActiveContracts: LedgerClientJwt.GetActiveContracts,
     getCreatesAndArchivesSince: LedgerClientJwt.GetCreatesAndArchivesSince,
+    getLedgerEnd: LedgerClientJwt.GetLedgerEnd,
     val loggerFactory: NamedLoggerFactory,
 )(implicit ec: ExecutionContext)
     extends NamedLogging
@@ -396,18 +398,22 @@ class ContractsService(
       jwt: Jwt,
       txnFilter: TransactionFilter,
   )(implicit lc: LoggingContextOf[InstanceUUID]): Source[ContractStreamStep.LAV1, NotUsed] =
-    getActiveContracts(jwt, txnFilter, true)(lc)
-      .map { case GetActiveContractsResponse(offset, _, contractEntry) =>
-        if (contractEntry.isActiveContract) {
-          val createdEvent = contractEntry.activeContract
-            .getOrElse(
-              throw new RuntimeException(
-                "unreachable, activeContract should not have been empty since contract is checked to be an active contract"
-              )
-            )
-            .createdEvent
-          Acs(createdEvent.toVector)
-        } else LiveBegin(AbsoluteBookmark(domain.Offset(offset)))
+    getLedgerEnd(jwt)(lc)
+      .flatMapConcat { offset =>
+        getActiveContracts(jwt, txnFilter, offset, true)(lc)
+          .map { case GetActiveContractsResponse(_, contractEntry) =>
+            if (contractEntry.isActiveContract) {
+              val createdEvent = contractEntry.activeContract
+                .getOrElse(
+                  throw new RuntimeException(
+                    "unreachable, activeContract should not have been empty since contract is checked to be an active contract"
+                  )
+                )
+                .createdEvent
+              Acs(createdEvent.toVector)
+            } else LiveBegin(AbsoluteBookmark(domain.Offset(offset)))
+          }
+          .concat(Source.single(LiveBegin(AbsoluteBookmark(domain.Offset(offset)))))
       }
 
   /** An ACS ++ transaction stream of `templateIds`, starting at `startOffset`
@@ -422,17 +428,22 @@ class ContractsService(
       lc: LoggingContextOf[InstanceUUID]
   ): Source[ContractStreamStep.LAV1, NotUsed] = {
     def source =
-      (getActiveContracts(jwt, txnFilter, true)(lc)
+      (getLedgerEnd(jwt)(lc)
+        .flatMapConcat(offset =>
+          getActiveContracts(jwt, txnFilter, offset, true)(lc)
+            .map(Right(_))
+            .concat(Source.single(Left(offset)))
+        )
         via logTermination(logger, "ACS upstream"))
 
     val transactionsSince: String => Source[
       lav2.transaction.Transaction,
       NotUsed,
-    ] =
+    ] = off =>
       getCreatesAndArchivesSince(
         jwt,
         txnFilter,
-        _: String,
+        ApiOffset.assertFromStringToLong(off),
         terminates,
       )(lc) via logTermination(logger, "transactions upstream")
 

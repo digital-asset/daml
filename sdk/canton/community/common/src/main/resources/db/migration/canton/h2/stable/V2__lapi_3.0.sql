@@ -127,9 +127,6 @@ CREATE TABLE lapi_events_create (
     application_id VARCHAR(4000),
     submitters INTEGER ARRAY,
 
-    -- * event metadata
-    event_id VARCHAR(4000) NOT NULL,       -- string representation of (transaction_id, node_index)
-
     -- * shared event information
     contract_id VARCHAR(4000) NOT NULL,
     template_id INTEGER NOT NULL,
@@ -191,9 +188,6 @@ CREATE TABLE lapi_events_consuming_exercise (
     application_id VARCHAR(4000),
     submitters INTEGER ARRAY,
 
-    -- * event metadata
-    event_id VARCHAR(4000) NOT NULL,        -- string representation of (transaction_id, node_index)
-
     -- * shared event information
     contract_id VARCHAR(4000) NOT NULL,
     template_id INTEGER NOT NULL,
@@ -250,9 +244,6 @@ CREATE TABLE lapi_events_non_consuming_exercise (
     command_id VARCHAR(4000),
     application_id VARCHAR(4000),
     submitters INTEGER ARRAY,
-
-    -- * event metadata
-    event_id VARCHAR(4000) NOT NULL,        -- string representation of (transaction_id, node_index)
 
     -- * shared event information
     contract_id VARCHAR(4000) NOT NULL,

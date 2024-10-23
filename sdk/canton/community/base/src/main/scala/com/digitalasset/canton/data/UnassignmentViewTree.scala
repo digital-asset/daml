@@ -176,7 +176,7 @@ final case class UnassignmentCommonData private (
   override def hashPurpose: HashPurpose = HashPurpose.UnassignmentCommonData
 
   def confirmingParties: Map[LfPartyId, PositiveInt] =
-    stakeholders.stakeholders.map(_ -> PositiveInt.one).toMap
+    stakeholders.all.map(_ -> PositiveInt.one).toMap
 
   override protected def pretty: Pretty[UnassignmentCommonData] = prettyOfClass(
     param("submitter metadata", _.submitterMetadata),
@@ -246,6 +246,7 @@ object UnassignmentCommonData
         "source_mediator_group",
         sourceMediatorGroupP,
       )
+
       stakeholders <- ProtoConverter.parseRequired(
         Stakeholders.fromProtoV30,
         "stakeholders",
@@ -429,8 +430,9 @@ final case class FullUnassignmentTree(tree: UnassignmentViewTree)
   def workflowId: Option[LfWorkflowId] = submitterMetadata.workflowId
 
   // Parties and participants
+  // TODO(#21072) Check informees and stakeholders are compatible
   override def informees: Set[LfPartyId] = view.contract.metadata.stakeholders
-  def stakeholders: Set[LfPartyId] = view.contract.metadata.stakeholders
+  def stakeholders: Stakeholders = commonData.stakeholders
   override def confirmingReassigningParticipants: Set[ParticipantId] =
     commonData.confirmingReassigningParticipants
 

@@ -57,14 +57,15 @@ private[reassignment] class AssignmentValidation(
   )(implicit traceContext: TraceContext): EitherT[Future, ReassignmentProcessorError, Unit] = {
     val reassignmentId = assignmentRequest.unassignmentResultEvent.reassignmentId
 
-    val declaredContractStakeholders = assignmentRequest.contract.metadata.stakeholders
+    // TODO(#12926) We don't have re-interpretation check in the processing of the unassignment. Do we need it?
+    val declaredContractStakeholders = Stakeholders(assignmentRequest.contract.metadata)
     val declaredViewStakeholders = assignmentRequest.stakeholders
 
     for {
       metadata <- engine
         .contractMetadata(
           assignmentRequest.contract.contractInstance,
-          declaredContractStakeholders,
+          declaredContractStakeholders.all,
           getEngineAbortStatus,
         )
         .leftMap {
@@ -87,7 +88,7 @@ private[reassignment] class AssignmentValidation(
             ReinterpretationAborted(reassignmentId, reason)
 
         }
-      recomputedStakeholders = metadata.stakeholders
+      recomputedStakeholders = Stakeholders(metadata)
       _ <- condUnitET[Future](
         declaredViewStakeholders == recomputedStakeholders && declaredViewStakeholders == declaredContractStakeholders,
         StakeholdersMismatch(
@@ -181,7 +182,7 @@ private[reassignment] class AssignmentValidation(
             topologySnapshot = targetSnapshot,
             submitter = assignmentRequest.submitter,
             participantId = assignmentRequest.submitterMetadata.submittingParticipant,
-            stakeholders = assignmentRequest.stakeholders,
+            stakeholders = assignmentRequest.stakeholders.all,
           )
 
           exclusivityLimit <- ProcessingSteps
@@ -213,10 +214,10 @@ private[reassignment] class AssignmentValidation(
 
           stakeholders = assignmentRequest.stakeholders
           sourceConfirmingParties <- EitherT.right(
-            sourceIps.unwrap.canConfirm(participantId, stakeholders)
+            sourceIps.unwrap.canConfirm(participantId, stakeholders.all)
           )
           targetConfirmingParties <- EitherT.right(
-            targetSnapshot.unwrap.canConfirm(participantId, stakeholders)
+            targetSnapshot.unwrap.canConfirm(participantId, stakeholders.all)
           )
           confirmingParties = sourceConfirmingParties.intersect(targetConfirmingParties)
 
@@ -241,7 +242,7 @@ private[reassignment] class AssignmentValidation(
             topologySnapshot = targetSnapshot,
             submitter = assignmentRequest.submitter,
             participantId = assignmentRequest.submitterMetadata.submittingParticipant,
-            stakeholders = assignmentRequest.stakeholders,
+            stakeholders = assignmentRequest.stakeholders.all,
           )
           res <-
             if (isReassigningParticipant) {
@@ -253,7 +254,7 @@ private[reassignment] class AssignmentValidation(
               val confirmingPartiesF = targetSnapshot.unwrap
                 .canConfirm(
                   participantId,
-                  assignmentRequest.stakeholders,
+                  assignmentRequest.stakeholders.all,
                 )
               EitherT(confirmingPartiesF.map { confirmingParties =>
                 Right(Some(AssignmentValidationResult(confirmingParties))): Either[

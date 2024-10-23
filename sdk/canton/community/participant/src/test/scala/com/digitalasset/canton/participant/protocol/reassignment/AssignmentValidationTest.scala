@@ -101,7 +101,8 @@ class AssignmentValidationTest
     val contract = ExampleTransactionFactory.asSerializable(
       contractId,
       contractInstance = ExampleTransactionFactory.contractInstance(),
-      metadata = ContractMetadata.tryCreate(signatories = Set(), stakeholders = Set(party1), None),
+      metadata =
+        ContractMetadata.tryCreate(signatories = Set(party1), stakeholders = Set(party1), None),
     )
 
     val reassignmentId = ReassignmentId(sourceDomain, CantonTimestamp.Epoch)

@@ -5,6 +5,7 @@ package com.digitalasset.canton.http.json.v2
 
 import com.daml.ledger.api.v2.experimental_features
 import com.daml.ledger.api.v2.version_service
+import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError
 import com.digitalasset.canton.ledger.client.services.version.VersionClient
@@ -13,20 +14,17 @@ import com.google.protobuf
 import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
 import sttp.tapir.generic.auto.*
+import sttp.tapir.json.circe.jsonBody
 
 import scala.concurrent.{ExecutionContext, Future}
 
 class JsVersionService(versionClient: VersionClient, val loggerFactory: NamedLoggerFactory)(implicit
     val executionContext: ExecutionContext
 ) extends Endpoints {
-  import JsVersionServiceCodecs.*
-  private val version =
-    v2Endpoint.in(sttp.tapir.stringToPath("version"))
 
   def endpoints() = List(
-    json(
-      version.get
-        .description("Get the version details of the participant node"),
+    withServerLogic(
+      JsVersionService.versionEndpoint,
       getVersion,
     )
   )
@@ -40,6 +38,18 @@ class JsVersionService(versionClient: VersionClient, val loggerFactory: NamedLog
         .serviceStub(caller.token())(tracedInput.traceContext)
         .getLedgerApiVersion(version_service.GetLedgerApiVersionRequest())
         .resultToRight
+}
+
+object JsVersionService {
+  import Endpoints.*
+  import JsVersionServiceCodecs.*
+
+  private val version = v2Endpoint.in(sttp.tapir.stringToPath("version"))
+
+  val versionEndpoint = version.get
+    .out(jsonBody[version_service.GetLedgerApiVersionResponse])
+    .description("Get the version details of the participant node")
+
 }
 
 object JsVersionServiceCodecs {

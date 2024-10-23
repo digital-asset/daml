@@ -500,7 +500,7 @@
         </rewrite>
         <!-- Suppress errors due to passivation changes in the ReplicatedParticipantTestPostgres -->
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.participant.protocol.EnterpriseMessageDispatcher:ReplicatedParticipantTestPostgres</logger>
+            <logger>com.digitalasset.canton.participant.protocol.ParallelMessageDispatcher:ReplicatedParticipantTestPostgres</logger>
             <contains>Synchronous event processing failed</contains>
             <exceptionMessage>DbStorage instance is not active</exceptionMessage>
             <maxLevel>INFO</maxLevel>

@@ -64,7 +64,7 @@ class PekkoUtilTest extends StreamSpec with BaseTestWordSpec {
     (1 until (abortedFrom min (length + 1))).map(UnlessShutdown.Outcome.apply) ++
       Seq.fill((length - abortedFrom + 1) max 0)(UnlessShutdown.AbortedDueToShutdown)
 
-  override val expectedTestDuration: FiniteDuration = 90 seconds
+  override val expectedTestDuration: FiniteDuration = 120 seconds
 
   "mapAsyncUS" when {
     "parallelism is 1" should {

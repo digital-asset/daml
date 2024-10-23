@@ -90,7 +90,7 @@ class TransactionProcessor(
         ModelConformanceChecker(
           damle,
           confirmationRequestFactory.transactionTreeFactory,
-          SerializableContractAuthenticator(crypto.pureCrypto, parameters),
+          SerializableContractAuthenticator(crypto.pureCrypto),
           participantId,
           packageResolver,
           loggerFactory,
@@ -99,7 +99,7 @@ class TransactionProcessor(
         crypto,
         ephemeral.contractStore,
         metrics,
-        SerializableContractAuthenticator(crypto.pureCrypto, parameters),
+        SerializableContractAuthenticator(crypto.pureCrypto),
         new AuthenticationValidator(),
         new AuthorizationValidator(participantId),
         new InternalConsistencyChecker(

@@ -36,16 +36,18 @@ object DynamicValue {
   // Algebraic data types //
   //////////////////////////
 
-  /** ADT, Product type. Field values have to be in the same order os in the defining type. Field names here are not
-    * necessary, as codecs knows about field names at the time of construction
+  /** ADT, Product type. Field values have to be in the same order as in the defining type.
+    * Field labels here are not necessary, as codecs knows about field names at the time of construction.
+    * We store them in order to recreate some error conditions (for instance wrong labels) and reuse gRPC API error handling.
     */
 
-  final case class Record(fields: IterableOnce[DynamicValue]) extends Adt {
+  final case class Record(fields: IterableOnce[(Option[String], DynamicValue)]) extends Adt {
     override def inner: Any = fields
   }
 
   implicit class RecordExtension(value: DynamicValue) {
-    def record: IterableOnce[DynamicValue] = value.inner.asInstanceOf[IterableOnce[DynamicValue]]
+    def record: IterableOnce[(Option[String], DynamicValue)] =
+      value.inner.asInstanceOf[IterableOnce[(Option[String], DynamicValue)]]
   }
 
   /** ADT, Sum type. Contains constructor's ordinal index and a wrapped value. */

@@ -224,6 +224,7 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
         id = "OFFSET_AFTER_LEDGER_END",
         ErrorCategory.InvalidGivenCurrentSystemStateSeekAfterEnd,
       ) {
+    // TODO(#21781) use Longs in logs
     final case class Reject(offsetType: String, requestedOffset: String, ledgerEnd: String)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
@@ -346,6 +347,24 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
         val loggingContext: ContextualizedErrorLogger
     ) extends DamlError(
           cause = s"Offset $offsetValue in $fieldName is not a positive integer: $message"
+        )
+  }
+
+  @Explanation("""The supplied offset is a negative integer.""")
+  @Resolution("Ensure the offset specified is a negative integer.")
+  object NegativeOffset
+      extends ErrorCode(
+        id = "NEGATIVE_OFFSET",
+        ErrorCategory.InvalidIndependentOfSystemState,
+      ) {
+    final case class Error(
+        fieldName: String,
+        offsetValue: Long,
+        message: String,
+    )(implicit
+        val loggingContext: ContextualizedErrorLogger
+    ) extends DamlError(
+          cause = s"Offset $offsetValue in $fieldName is a negative integer: $message"
         )
   }
 }

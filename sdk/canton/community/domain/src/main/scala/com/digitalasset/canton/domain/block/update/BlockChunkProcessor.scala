@@ -186,8 +186,9 @@ private[update] final class BlockChunkProcessor(
     //  and we don't need to add a `Deliver` for the tick.
 
     logger.debug(
-      s"Block $height: emitting a topology tick at least at $tickAtLeastAt (actually at $tickSequencingTimestamp) " +
-        s"as requested by the block orderer"
+      s"Emitting topology tick: after processing block $height, the last sequenced timestamp is ${state.lastChunkTs} and " +
+        s"the block orderer requested to tick at least at $tickAtLeastAt, so " +
+        s"ticking topology at $tickSequencingTimestamp"
     )
     // We bypass validation here to make sure that the topology tick is always received by the sequencer runtime.
     for {

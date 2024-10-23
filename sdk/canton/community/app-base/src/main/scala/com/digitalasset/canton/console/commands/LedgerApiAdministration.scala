@@ -952,6 +952,9 @@ trait BaseLedgerApiAdministration extends NoTracing {
             |- limit: limit (default set via canton.parameter.console)
             |- verbose: whether the resulting events should contain detailed type information
             |- filterTemplate: list of templates ids to filter for, empty sequence acts as a wildcard
+            |- activeAtOffsetO: the offset at which the snapshot of the active contracts will be computed, it
+            |  must be no greater than the current ledger end offset and must be greater than or equal to the
+            |  last pruning offset. If no offset is specified then the current participant end will be used.
             |- timeout: the maximum wait time for the complete acs to arrive
             |- includeCreatedEventBlob: whether the result should contain the createdEventBlobs, it works only
             |  if the filterTemplate is non-empty
@@ -962,13 +965,23 @@ trait BaseLedgerApiAdministration extends NoTracing {
             limit: PositiveInt = defaultLimit,
             verbose: Boolean = true,
             filterTemplates: Seq[TemplateId] = Seq.empty,
-            activeAtOffset: String = "",
+            activeAtOffsetO: Option[String] = None,
             timeout: config.NonNegativeDuration = timeouts.unbounded,
             includeCreatedEventBlob: Boolean = false,
             resultFilter: GetActiveContractsResponse => Boolean = _.contractEntry.isDefined,
         ): Seq[WrappedContractEntry] = {
           val observer =
             new RecordingStreamObserver[GetActiveContractsResponse](limit.value, resultFilter)
+          val activeAt =
+            activeAtOffsetO match {
+              case None =>
+                consoleEnvironment.run {
+                  ledgerApiCommand(
+                    LedgerApiCommands.StateService.LedgerEnd()
+                  )
+                }
+              case Some(offset) => offset
+            }
           mkResult(
             consoleEnvironment.run {
               ledgerApiCommand(
@@ -977,7 +990,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
                   Set(party.toLf),
                   limit,
                   filterTemplates,
-                  activeAtOffset,
+                  activeAt,
                   verbose,
                   timeout.asFiniteApproximation,
                   includeCreatedEventBlob,
@@ -999,6 +1012,9 @@ trait BaseLedgerApiAdministration extends NoTracing {
             |- limit: limit (default set via canton.parameter.console)
             |- verbose: whether the resulting events should contain detailed type information
             |- filterTemplate: list of templates ids to filter for, empty sequence acts as a wildcard
+            |- activeAtOffsetO: the offset at which the snapshot of the active contracts will be computed, it
+            |  must be no greater than the current ledger end offset and must be greater than or equal to the
+            |  last pruning offset. If no offset is specified then the current participant end will be used.
             |- timeout: the maximum wait time for the complete acs to arrive
             |- includeCreatedEventBlob: whether the result should contain the createdEventBlobs, it works only
             |  if the filterTemplate is non-empty"""
@@ -1008,7 +1024,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             limit: PositiveInt = defaultLimit,
             verbose: Boolean = true,
             filterTemplates: Seq[TemplateId] = Seq.empty,
-            activeAtOffset: String = "",
+            activeAtOffsetO: Option[String] = None,
             timeout: config.NonNegativeDuration = timeouts.unbounded,
             includeCreatedEventBlob: Boolean = false,
         ): Seq[ActiveContract] =
@@ -1017,7 +1033,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             limit,
             verbose,
             filterTemplates,
-            activeAtOffset,
+            activeAtOffsetO,
             timeout,
             includeCreatedEventBlob,
             _.contractEntry.isActiveContract,
@@ -1033,6 +1049,9 @@ trait BaseLedgerApiAdministration extends NoTracing {
             |- limit: limit (default set via canton.parameter.console)
             |- verbose: whether the resulting events should contain detailed type information
             |- filterTemplate: list of templates ids to filter for, empty sequence acts as a wildcard
+            |- activeAtOffsetO: the offset at which the snapshot of the events will be computed, it
+            |  must be no greater than the current ledger end offset and must be greater than or equal to the
+            |  last pruning offset. If no offset is specified then the current participant end will be used.
             |- timeout: the maximum wait time for the complete acs to arrive
             |- includeCreatedEventBlob: whether the result should contain the createdEventBlobs, it works only
             |  if the filterTemplate is non-empty"""
@@ -1042,7 +1061,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             limit: PositiveInt = defaultLimit,
             verbose: Boolean = true,
             filterTemplates: Seq[TemplateId] = Seq.empty,
-            activeAtOffset: String = "",
+            activeAtOffsetO: Option[String] = None,
             timeout: config.NonNegativeDuration = timeouts.unbounded,
             includeCreatedEventBlob: Boolean = false,
         ): Seq[WrappedIncompleteUnassigned] =
@@ -1051,7 +1070,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             limit,
             verbose,
             filterTemplates,
-            activeAtOffset,
+            activeAtOffsetO,
             timeout,
             includeCreatedEventBlob,
             _.contractEntry.isIncompleteUnassigned,
@@ -1068,6 +1087,9 @@ trait BaseLedgerApiAdministration extends NoTracing {
             |- limit: limit (default set via canton.parameter.console)
             |- verbose: whether the resulting events should contain detailed type information
             |- filterTemplate: list of templates ids to filter for, empty sequence acts as a wildcard
+            |- activeAtOffsetO: the offset at which the snapshot of the events will be computed, it must be no
+            |  greater than the current ledger end offset and must be greater than or equal to the last
+            |  pruning offset. If no offset is specified then the current participant end will be used.
             |- timeout: the maximum wait time for the complete acs to arrive
             |- includeCreatedEventBlob: whether the result should contain the createdEventBlobs, it works only
             |  if the filterTemplate is non-empty"""
@@ -1077,7 +1099,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             limit: PositiveInt = defaultLimit,
             verbose: Boolean = true,
             filterTemplates: Seq[TemplateId] = Seq.empty,
-            activeAtOffset: String = "",
+            activeAtOffsetO: Option[String] = None,
             timeout: config.NonNegativeDuration = timeouts.unbounded,
             includeCreatedEventBlob: Boolean = false,
         ): Seq[WrappedIncompleteAssigned] =
@@ -1086,7 +1108,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             limit,
             verbose,
             filterTemplates,
-            activeAtOffset,
+            activeAtOffsetO,
             timeout,
             includeCreatedEventBlob,
             _.contractEntry.isIncompleteAssigned,
@@ -1104,6 +1126,9 @@ trait BaseLedgerApiAdministration extends NoTracing {
              - limit: limit (default set via canton.parameter.console)
              - verbose: whether the resulting events should contain detailed type information
              - filterTemplate: list of templates ids to filter for, empty sequence acts as a wildcard
+             - activeAtOffsetO: the offset at which the snapshot of the active contracts will be computed, it
+               must be no greater than the current ledger end offset and must be greater than or equal to the
+               last pruning offset. If no offset is specified then the current participant end will be used.
              - timeout: the maximum wait time for the complete acs to arrive
              - identityProviderId: limit the response to parties governed by the given identity provider
              - includeCreatedEventBlob: whether the result should contain the createdEventBlobs, it works only
@@ -1115,7 +1140,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
             limit: PositiveInt = defaultLimit,
             verbose: Boolean = true,
             filterTemplates: Seq[TemplateId] = Seq.empty,
-            activeAtOffset: String = "",
+            activeAtOffsetO: Option[String] = None,
             timeout: config.NonNegativeDuration = timeouts.unbounded,
             identityProviderId: String = "",
             includeCreatedEventBlob: Boolean = false,
@@ -1145,7 +1170,7 @@ trait BaseLedgerApiAdministration extends NoTracing {
                             localParties.toSet,
                             limit,
                             filterTemplates,
-                            activeAtOffset,
+                            activeAtOffsetO.getOrElse(end()),
                             verbose,
                             timeout.asFiniteApproximation,
                             includeCreatedEventBlob,

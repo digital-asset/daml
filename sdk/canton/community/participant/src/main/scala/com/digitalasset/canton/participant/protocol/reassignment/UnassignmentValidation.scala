@@ -34,12 +34,12 @@ private[reassignment] final case class UnassignmentValidation(
       ec: ExecutionContext
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
     condUnitET(
-      request.stakeholders == expectedStakeholders.stakeholders,
+      request.stakeholders == expectedStakeholders,
       StakeholdersMismatch(
         None,
         declaredViewStakeholders = request.stakeholders,
         declaredContractStakeholders = None,
-        expectedStakeholders = Right(expectedStakeholders.stakeholders),
+        expectedStakeholders = Right(expectedStakeholders),
       ),
     )
 
@@ -102,7 +102,7 @@ private[reassignment] object UnassignmentValidation {
         topologySnapshot = sourceTopology,
         submitter = request.submitter,
         participantId = request.submitterMetadata.submittingParticipant,
-        stakeholders = expectedStakeholders.stakeholders,
+        stakeholders = expectedStakeholders.all,
       )
       _ <- validation.checkParticipants
       _ <- validation.checkTemplateId
