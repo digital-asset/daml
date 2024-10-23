@@ -203,7 +203,12 @@ final class BftBlockOrderer(
         }
 
     awaitFuture(
-      orderingTopologyProvider.getOrderingTopologyAt(topologyQueryTimestamp),
+      orderingTopologyProvider.getOrderingTopologyAt(
+        topologyQueryTimestamp,
+        // TODO(#21999) workaround: skip `awaitMaxTimestamp` because, in the case of onboarded sequencers,
+        //  the last sequenced time detected is currently incorrect (too old).
+        assumePendingTopologyChanges = true,
+      ),
       "fetch bootstrap ordering topology",
     )
       .getOrElse {

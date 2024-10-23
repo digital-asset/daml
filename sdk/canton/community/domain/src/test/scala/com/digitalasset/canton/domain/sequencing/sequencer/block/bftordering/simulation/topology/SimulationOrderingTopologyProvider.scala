@@ -26,7 +26,10 @@ class SimulationOrderingTopologyProvider(
     peerEndpointsToOnboardingTimes: Map[Endpoint, EffectiveTime]
 ) extends OrderingTopologyProvider[SimulationEnv] {
 
-  override def getOrderingTopologyAt(timestamp: EffectiveTime)(implicit
+  override def getOrderingTopologyAt(
+      timestamp: EffectiveTime,
+      assumePendingTopologyChanges: Boolean = false,
+  )(implicit
       traceContext: TraceContext
   ): SimulationFuture[Option[(OrderingTopology, CryptoProvider[SimulationEnv])]] =
     SimulationFuture { () =>
@@ -44,7 +47,7 @@ class SimulationOrderingTopologyProvider(
           peerIdsToOnboardingTimes,
           SequencingParameters.Default,
           timestamp,
-          areTherePendingCantonTopologyChanges = false,
+          areTherePendingCantonTopologyChanges = assumePendingTopologyChanges,
         )
       Success(Some(topology -> SimulationCryptoProvider))
     }

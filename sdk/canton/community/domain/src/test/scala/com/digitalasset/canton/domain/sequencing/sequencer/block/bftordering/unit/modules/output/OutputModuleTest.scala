@@ -506,7 +506,12 @@ class OutputModuleTest
                 topologySnapshotEffectiveTime = topologySnapshotEffectiveTime,
                 areTherePendingCantonTopologyChanges = pendingChanges,
               )
-            when(topologyProviderMock.getOrderingTopologyAt(topologySnapshotEffectiveTime))
+            when(
+              topologyProviderMock.getOrderingTopologyAt(
+                topologySnapshotEffectiveTime,
+                assumePendingTopologyChanges = false,
+              )
+            )
               .thenReturn(() => Some((newOrderingTopology, fakeCryptoProvider)))
             val output = createOutputModule[FakePipeToSelfCellUnitTestEnv](
               orderingTopologyProvider = topologyProviderMock,
@@ -553,7 +558,8 @@ class OutputModuleTest
             output.getCurrentEpochCouldAlterSequencingTopology shouldBe true
 
             verify(topologyProviderMock, times(1)).getOrderingTopologyAt(
-              topologySnapshotEffectiveTime
+              topologySnapshotEffectiveTime,
+              assumePendingTopologyChanges = false,
             )
 
             output.receive(
@@ -598,7 +604,7 @@ class OutputModuleTest
         output.receive(Output.BlockDataFetched(blockData))
         output.getCurrentEpochCouldAlterSequencingTopology shouldBe false
 
-        verify(topologyProviderSpy, never).getOrderingTopologyAt(any[EffectiveTime])(
+        verify(topologyProviderSpy, never).getOrderingTopologyAt(any[EffectiveTime], any[Boolean])(
           any[TraceContext]
         )
         verify(consensusRef, times(1)).asyncSend(
@@ -870,7 +876,10 @@ object OutputModuleTest {
 class FakeOrderingTopologyProvider[E <: BaseIgnoringUnitTestEnv[E]]
     extends OrderingTopologyProvider[E] {
 
-  override def getOrderingTopologyAt(timestamp: EffectiveTime)(implicit
+  override def getOrderingTopologyAt(
+      timestamp: EffectiveTime,
+      assumePendingTopologyChanges: Boolean = false,
+  )(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Option[(OrderingTopology, CryptoProvider[E])]] = createFuture(None)
 

@@ -15,10 +15,15 @@ trait OrderingTopologyProvider[E <: Env[E]] {
     *
     * @param timestamp The timestamp at which to get the topology snapshot.
     * @param traceContext The trace context.
+    * @param assumePendingTopologyChanges If true, will not check if there are pending topology changes
+    *                                     and just assume there are.
     * @return A future that completes and yields the requested topology only if at least the immediate
     *         predecessor has been successfully sequenced and is visible to the sequencer's topology processor.
     */
-  def getOrderingTopologyAt(timestamp: EffectiveTime)(implicit
+  def getOrderingTopologyAt(
+      timestamp: EffectiveTime,
+      assumePendingTopologyChanges: Boolean = false,
+  )(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Option[(OrderingTopology, CryptoProvider[E])]]
 }

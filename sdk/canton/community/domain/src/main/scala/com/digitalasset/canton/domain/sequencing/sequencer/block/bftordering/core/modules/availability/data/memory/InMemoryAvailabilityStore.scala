@@ -11,8 +11,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   PekkoEnv,
   PekkoFutureUnlessShutdown,
 }
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.simulation.SimulationModuleSystem.SimulationEnv
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.simulation.future.SimulationFuture
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
@@ -77,11 +75,4 @@ final class InMemoryAvailabilityStore(
 ) extends GenericInMemoryAvailabilityStore[PekkoEnv](allKnownBatchesById) {
   override def createFuture[A](action: String)(x: () => Try[A]): PekkoFutureUnlessShutdown[A] =
     PekkoFutureUnlessShutdown(action, FutureUnlessShutdown.fromTry(x()))
-}
-
-final class SimulationAvailabilityStore(
-    allKnownBatchesById: mutable.Map[BatchId, OrderingRequestBatch] = mutable.Map.empty
-) extends GenericInMemoryAvailabilityStore[SimulationEnv](allKnownBatchesById) {
-  override def createFuture[A](action: String)(x: () => Try[A]): SimulationFuture[A] =
-    SimulationFuture(x)
 }

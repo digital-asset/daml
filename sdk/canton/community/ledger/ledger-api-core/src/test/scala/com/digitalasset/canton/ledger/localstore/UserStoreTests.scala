@@ -447,6 +447,20 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
         }
       }
     }
+    "grantUserRights should not fail when processing the same user concurrently" in {
+      testIt { tested =>
+        for {
+          _ <- tested.createUser(newUser("user1"), Set.empty)
+          allRights = List.tabulate(100)(i => CanActAs(s"party$i"): UserRight)
+          setsOfRights = allRights.sliding(30, 10).toList
+          results <- Future.sequence(
+            setsOfRights.map(rights => tested.grantRights("user1", rights.toSet, defaultIdpId))
+          )
+        } yield {
+          results.flatMap(_.value) should contain theSameElementsAs (allRights)
+        }
+      }
+    }
     "grantRights should fail on non-existent user" in {
       testIt { tested =>
         for {

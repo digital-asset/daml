@@ -176,6 +176,9 @@ class StoreBasedDomainTopologyClient(
   )(implicit
       traceContext: TraceContext
   ): Unit = {
+    logger.debug(
+      s"Head update: sequenced=$sequencedTimestamp, effective=$effectiveTimestamp, approx=$approximateTimestamp, potentialTopologyChange=$potentialTopologyChange"
+    )
     val curHead =
       head.updateAndGet(_.update(sequencedTimestamp, effectiveTimestamp, approximateTimestamp))
     sequencedTimeAwaiter.notifyAwaitedFutures(curHead.sequencedTimestamp.value.immediateSuccessor)
@@ -192,8 +195,12 @@ class StoreBasedDomainTopologyClient(
       effectiveTimestamp: EffectiveTime,
       sequencerCounter: SequencerCounter,
       transactions: Seq[GenericSignedTopologyTransaction],
-  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
+    logger.debug(
+      s"Observed: sequenced=$sequencedTimestamp, effective=$effectiveTimestamp"
+    )
     observedInternal(sequencedTimestamp, effectiveTimestamp)
+  }
 
   override def numPendingChanges: Int = pendingChanges.get()
 

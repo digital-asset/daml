@@ -4,6 +4,7 @@
 package com.digitalasset.canton.http.json.v2
 
 import com.daml.ledger.api.v2.admin.user_management_service
+import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
 import com.digitalasset.daml.lf.data.Ref.UserId
 import com.digitalasset.canton.ledger.client.services.admin.UserManagementClient
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
@@ -16,6 +17,7 @@ import io.circe.Codec
 import sttp.model.QueryParams
 import sttp.tapir.generic.auto.*
 import sttp.tapir.*
+import sttp.tapir.json.circe.jsonBody
 
 import scala.concurrent.Future
 
@@ -24,77 +26,54 @@ class JsUserManagementService(
     val loggerFactory: NamedLoggerFactory,
 ) extends Endpoints
     with NamedLogging {
-  import JsUserManagementCodecs.*
+  import JsUserManagementService.*
 
-  private val users = v2Endpoint.in("users")
-  private val userIdPath = "user-id"
   def endpoints() = List(
-    json(
-      users.get
-        .in(queryParams)
-        .description("List all users."),
+    withServerLogic(
+      JsUserManagementService.listUsersEndpoint,
       listUsers,
     ), // TODO (i19538) paging
-    jsonWithBody(
-      users.post
-        .description("Create user."),
+    withServerLogic(
+      JsUserManagementService.createUserEndpoint,
       createUser,
     ),
-    json(
-      users.get
-        .in(path[String](userIdPath))
-        .description("Get user details."),
+    withServerLogic(
+      JsUserManagementService.getUserEndpoint,
       getUser,
     ),
-    jsonWithBody(
-      users.patch
-        .in(path[String](userIdPath))
-        .description("Update  user."),
+    withServerLogic(
+      JsUserManagementService.updateUserEndpoint,
       updateUser,
     ),
-    json(
-      users.delete
-        .in(path[String](userIdPath))
-        .description("Delete user."),
+    withServerLogic(
+      JsUserManagementService.deleteUserEndpoint,
       deleteUser,
     ),
-    jsonWithBody(
-      users.post
-        .in(path[String](userIdPath))
-        .in("rights")
-        .description("Grant user rights."),
+    withServerLogic(
+      JsUserManagementService.grantUserRightsEndpoint,
       grantUserRights,
     ),
-    jsonWithBody(
-      users.patch
-        .in(path[String](userIdPath))
-        .in("rights")
-        .description("Revoke user rights."),
+    withServerLogic(
+      JsUserManagementService.revokeUserRightsEndpoint,
       revokeUserRights,
     ),
-    json(
-      users.get
-        .in(path[String](userIdPath))
-        .in("rights")
-        .description("List user rights."),
+    withServerLogic(
+      JsUserManagementService.listUserRightsEndpoint,
       listUserRights,
     ),
-    jsonWithBody(
-      users.patch
-        .in(path[String](userIdPath))
-        .in("identity-provider-id")
-        .description("Update user identity provider."),
+    withServerLogic(
+      JsUserManagementService.updateUserIdentityProviderEndpoint,
       updateUserIdentityProvider,
     ),
   )
   private def createUser(
       callerContext: CallerContext
-  ): (TracedInput[Unit], user_management_service.CreateUserRequest) => Future[
+  ): TracedInput[user_management_service.CreateUserRequest] => Future[
     Either[JsCantonError, user_management_service.CreateUserResponse]
-  ] = (req, body) =>
+  ] = req =>
     userManagementClient
       .serviceStub(callerContext.token())(req.traceContext)
-      .createUser(body)
+      .createUser(req.in)
       .resultToRight
 
   private def listUsers(
@@ -124,16 +103,16 @@ class JsUserManagementService(
 
   private def updateUser(
       callerContext: CallerContext
-  ): (TracedInput[String], user_management_service.UpdateUserRequest) => Future[
+  ): TracedInput[(String, user_management_service.UpdateUserRequest)] => Future[
     Either[JsCantonError, user_management_service.UpdateUserResponse]
-  ] = (req, body) =>
-    if (body.user.map(_.id) == Some(req.in)) {
+  ] = req =>
+    if (req.in._2.user.map(_.id).contains(req.in._1)) {
       userManagementClient
         .serviceStub(callerContext.token())(req.traceContext)
-        .updateUser(body)
+        .updateUser(req.in._2)
         .resultToRight
     } else {
-      unmatchedUserId(req.traceContext, req.in, body.user.map(_.id))
+      unmatchedUserId(req.traceContext, req.in._1, req.in._2.user.map(_.id))
     }
 
   private def deleteUser(
@@ -164,46 +143,46 @@ class JsUserManagementService(
 
   private def grantUserRights(
       callerContext: CallerContext
-  ): (TracedInput[String], user_management_service.GrantUserRightsRequest) => Future[
+  ): TracedInput[(String, user_management_service.GrantUserRightsRequest)] => Future[
     Either[JsCantonError, user_management_service.GrantUserRightsResponse]
   ] =
-    (req, body) =>
-      if (body.userId == req.in) {
+    req =>
+      if (req.in._2.userId == req.in._1) {
         userManagementClient
           .serviceStub(callerContext.token())(req.traceContext)
-          .grantUserRights(body)
+          .grantUserRights(req.in._2)
           .resultToRight
       } else {
-        unmatchedUserId(req.traceContext, req.in, Some(body.userId))
+        unmatchedUserId(req.traceContext, req.in._1, Some(req.in._2.userId))
       }
 
   private def revokeUserRights(
       callerContext: CallerContext
-  ): (TracedInput[String], user_management_service.RevokeUserRightsRequest) => Future[
+  ): TracedInput[(String, user_management_service.RevokeUserRightsRequest)] => Future[
     Either[JsCantonError, user_management_service.RevokeUserRightsResponse]
   ] =
-    (req, body) =>
-      if (body.userId == req.in) {
+    req =>
+      if (req.in._2.userId == req.in._1) {
         userManagementClient
           .serviceStub(callerContext.token())(req.traceContext)
-          .revokeUserRights(body)
+          .revokeUserRights(req.in._2)
           .resultToRight
       } else {
-        unmatchedUserId(req.traceContext, req.in, Some(body.userId))
+        unmatchedUserId(req.traceContext, req.in._1, Some(req.in._2.userId))
       }
 
   private def updateUserIdentityProvider(
       callerContext: CallerContext
-  ): (TracedInput[String], user_management_service.UpdateUserIdentityProviderIdRequest) => Future[
+  ): TracedInput[(String, user_management_service.UpdateUserIdentityProviderIdRequest)] => Future[
     Either[JsCantonError, user_management_service.UpdateUserIdentityProviderIdResponse]
-  ] = (req, body) =>
-    if (body.userId == req.in) {
+  ] = req =>
+    if (req.in._2.userId == req.in._1) {
       userManagementClient
         .serviceStub(callerContext.token())(req.traceContext)
-        .updateUserIdentityProviderId(body)
+        .updateUserIdentityProviderId(req.in._2)
         .resultToRight
     } else {
-      unmatchedUserId(req.traceContext, req.in, Some(body.userId))
+      unmatchedUserId(req.traceContext, req.in._1, Some(req.in._2.userId))
     }
 
   private def malformedUserId(errorMessage: String)(implicit traceContext: TraceContext) =
@@ -221,6 +200,75 @@ class JsUserManagementService(
         InvalidArgument.Reject(s"$userInPath does not match user in body: $userInBody ")
       )
     )
+}
+
+object JsUserManagementService {
+  import Endpoints.*
+  import JsUserManagementCodecs.*
+
+  private val users = v2Endpoint.in("users")
+  private val userIdPath = "user-id"
+  val listUsersEndpoint =
+    users.get
+      .in(queryParams)
+      .out(jsonBody[user_management_service.ListUsersResponse])
+      .description("List all users.")
+
+  val createUserEndpoint =
+    users.post
+      .in(jsonBody[user_management_service.CreateUserRequest])
+      .out(jsonBody[user_management_service.CreateUserResponse])
+      .description("Create user.")
+
+  val getUserEndpoint =
+    users.get
+      .in(path[String](userIdPath))
+      .out(jsonBody[user_management_service.GetUserResponse])
+      .description("Get user details.")
+
+  val updateUserEndpoint =
+    users.patch
+      .in(path[String](userIdPath))
+      .in(jsonBody[user_management_service.UpdateUserRequest])
+      .out(jsonBody[user_management_service.UpdateUserResponse])
+      .description("Update  user.")
+
+  val deleteUserEndpoint =
+    users.delete
+      .in(path[String](userIdPath))
+      .out(jsonBody[Unit])
+      .description("Delete user.")
+
+  val grantUserRightsEndpoint =
+    users.post
+      .in(path[String](userIdPath))
+      .in("rights")
+      .in(jsonBody[user_management_service.GrantUserRightsRequest])
+      .out(jsonBody[user_management_service.GrantUserRightsResponse])
+      .description("Grant user rights.")
+  val revokeUserRightsEndpoint =
+    users.patch
+      .in(path[String](userIdPath))
+      .in("rights")
+      .in(jsonBody[user_management_service.RevokeUserRightsRequest])
+      .out(jsonBody[user_management_service.RevokeUserRightsResponse])
+      .description("Revoke user rights.")
+
+  val listUserRightsEndpoint =
+    users.get
+      .in(path[String](userIdPath))
+      .in("rights")
+      .out(jsonBody[user_management_service.ListUserRightsResponse])
+      .description("List user rights.")
+
+  val updateUserIdentityProviderEndpoint =
+    users.patch
+      .in(path[String](userIdPath))
+      .in("identity-provider-id")
+      .in(jsonBody[user_management_service.UpdateUserIdentityProviderIdRequest])
+      .out(jsonBody[user_management_service.UpdateUserIdentityProviderIdResponse])
+      .description("Update user identity provider.")
+
 }
 
 object JsUserManagementCodecs {

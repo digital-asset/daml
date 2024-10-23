@@ -393,8 +393,6 @@ trait CantonConfig {
         journalGarbageCollectionDelay =
           participantParameters.journalGarbageCollectionDelay.toInternal,
         disableUpgradeValidation = participantParameters.disableUpgradeValidation,
-        allowForUnauthenticatedContractIds =
-          participantParameters.allowForUnauthenticatedContractIds,
         commandProgressTracking = participantParameters.commandProgressTracker,
         unsafeEnableOnlinePartyReplication =
           participantParameters.unsafeEnableOnlinePartyReplication,

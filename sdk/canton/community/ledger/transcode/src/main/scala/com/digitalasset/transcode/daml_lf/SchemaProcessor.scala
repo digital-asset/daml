@@ -11,7 +11,6 @@ import com.digitalasset.transcode.daml_lf.SchemaEntity.Template.DataKind
 import com.digitalasset.transcode.schema.*
 
 import scala.Function.const
-import scala.collection.immutable.Seq
 import scala.collection.mutable
 import scala.util.Try
 
