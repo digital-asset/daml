@@ -149,3 +149,6 @@ def merge_test_dars_versioned(lf_versions, general_test_dars, carbon_test_dars, 
             tests_for_lf_version.update(upgrading_test_dars)
         merged_tests[lf_version] = tests_for_lf_version
     return merged_tests
+
+def opts_get_lf_version(opts):
+    return opts.get("lf_version", default = "1.dev")
