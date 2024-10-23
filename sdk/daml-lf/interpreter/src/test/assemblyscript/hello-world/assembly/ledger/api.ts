@@ -40,10 +40,14 @@ export class LfIdentifier {
 
   toProtobuf(): protoIdentifier.Identifier {
     return new protoIdentifier.Identifier(
-      _packageId,
-      _module.split("."),
-      _name.split("."),
+      this._packageId,
+      this._module.split("."),
+      this._name.split("."),
     );
+  }
+
+  toString(): string {
+    return `${this._packageId}:${this.module}:${this.name}`;
   }
 }
 
@@ -55,6 +59,10 @@ export class LfValue {
   toProtobuf(): proto.Value {
     throw new Error("Unimplemented");
   }
+
+  toString(): string {
+    throw new Error("Unimplemented");
+  }
 }
 
 export class LfValueUnit extends LfValue {
@@ -62,7 +70,7 @@ export class LfValueUnit extends LfValue {
     if (isUnit(value)) {
       return new LfValueUnit();
     } else {
-      throw new Error(`${value} is not a unit value`);
+      throw new Error(`${protoValueToString(value)} is not a unit value`);
     }
   }
 
@@ -71,7 +79,13 @@ export class LfValueUnit extends LfValue {
   }
 
   toProtobuf(): proto.Value {
-    return new proto.Value((unit = new Empty()));
+    let result = new proto.Value();
+    result.unit = new Empty();
+    return result;
+  }
+
+  toString(): string {
+    return "()";
   }
 }
 
@@ -87,16 +101,22 @@ export class LfValueBool extends LfValue {
     if (isBool(value)) {
       return new LfValueBool(value.bool);
     } else {
-      throw new Error(`${value} is not a boolean value`);
+      throw new Error(`${protoValueToString(value)} is not a boolean value`);
     }
   }
 
   value(): bool {
-    return _value;
+    return this._value;
   }
 
   toProtobuf(): proto.Value {
-    return new proto.Value((bool = _value));
+    let result = new proto.Value();
+    result.bool = this._value;
+    return result;
+  }
+
+  toString(): string {
+    return `${this.value()}`;
   }
 }
 
@@ -112,16 +132,22 @@ export class LfValueInt extends LfValue {
     if (isInt64(value)) {
       return new LfValueInt(value.int64);
     } else {
-      throw new Error(`${value} is not a integer value`);
+      throw new Error(`${protoValueToString(value)} is not a integer value`);
     }
   }
 
   value(): i64 {
-    return _value;
+    return this._value;
   }
 
   toProtobuf(): proto.Value {
-    return new proto.Value((int64 = _value));
+    let result = new proto.Value();
+    result.int64 = this._value;
+    return result;
+  }
+
+  toString(): string {
+    return `${this.value()}`;
   }
 }
 
@@ -137,16 +163,22 @@ export class LfValueParty extends LfValue {
     if (isParty(value)) {
       return new LfValueParty(value.party);
     } else {
-      throw new Error(`${value} is not a party value`);
+      throw new Error(`${protoValueToString(value)} is not a party value`);
     }
   }
 
   value(): string {
-    return _party;
+    return this._party;
   }
 
   toProtobuf(): proto.Value {
-    return new proto.Value((party = _party));
+    let result = new proto.Value();
+    result.party = this._party;
+    return result;
+  }
+
+  toString(): string {
+    return `${this.value()}`;
   }
 }
 
@@ -162,16 +194,22 @@ export class LfValueString extends LfValue {
     if (isText(value)) {
       return new LfValueString(value.text);
     } else {
-      throw new Error(`${value} is not a string value`);
+      throw new Error(`${protoValueToString(value)} is not a string value`);
     }
   }
 
   value(): string {
-    return _value;
+    return this._value;
   }
 
   toProtobuf(): proto.Value {
-    return new proto.Value((text = _value));
+    let result = new proto.Value();
+    result.text = this._value;
+    return result;
+  }
+
+  toString(): string {
+    return `${this.value()}`;
   }
 }
 
@@ -180,23 +218,31 @@ export class LfValueContractId extends LfValue {
 
   constructor(contractId: string) {
     super();
-    this._contractId = String.UTF8.encode(contractId); // FIXME: need to perform the hex code conversion!
+    this._contractId = Uint8Array.wrap(String.UTF8.encode(contractId)); // FIXME: need to perform the hex code conversion!
   }
 
   static fromProtobuf(value: proto.Value): LfValueContractId {
     if (isContractId(value)) {
-      return new LfValueContractId(value.contractId); // FIXME:
+      return new LfValueContractId(String.UTF8.decode(value.contractId.buffer)); // FIXME:
     } else {
-      throw new Error(`${value} is not a contract ID value`);
+      throw new Error(
+        `${protoValueToString(value)} is not a contract ID value`,
+      );
     }
   }
 
   value(): string {
-    return _contractId; // FIXME: need to return hex encoded string here!
+    return String.UTF8.decode(this._contractId.buffer); // FIXME: need to return hex encoded string here!
   }
 
   toProtobuf(): proto.Value {
-    return new proto.Value((contractId = _contractId));
+    let result = new proto.Value();
+    result.contractId = this._contractId;
+    return result;
+  }
+
+  toString(): string {
+    return `${this.value()}`;
   }
 }
 
@@ -217,18 +263,23 @@ export class LfValueOptional extends LfValue {
 
       return new LfValueOptional(optValue);
     } else {
-      throw new Error(`${value} is not an optional value`);
+      throw new Error(`${protoValueToString(value)} is not an optional value`);
     }
   }
 
   value(): LfValue | null {
-    return _value;
+    return this._value;
   }
 
   toProtobuf(): proto.Value {
-    let optValue = _value == null ? null : _value.toProtobuf();
+    let optValue = this._value == null ? null : this._value.toProtobuf();
+    let result = new proto.Value();
+    result.optional = new protoOptional.Optional(optValue);
+    return result;
+  }
 
-    return new proto.Value((optional = new protoOptional.Optional(optValue)));
+  toString(): string {
+    return `${this.value()}`;
   }
 }
 
@@ -256,20 +307,24 @@ export class LfValueSet extends LfValue {
 
       return new LfValueSet(values);
     } else {
-      throw new Error(`${value} is not a set value`);
+      throw new Error(`${protoValueToString(value)} is not a set value`);
     }
   }
 
   value(): Set<LfValue> {
-    return _value;
+    return this._value;
   }
 
   toProtobuf(): proto.Value {
-    return new proto.Value(
-      (list = new protoList.List(
-        _value.values().map<proto.Value>(v => v.toProtobuf()),
-      )),
+    let result = new proto.Value();
+    result.list = new protoList.List(
+      this._value.values().map<proto.Value>(v => v.toProtobuf()),
     );
+    return result;
+  }
+
+  toString(): string {
+    return `${this.value()}`;
   }
 }
 
@@ -291,28 +346,29 @@ export class LfValueMap extends LfValue {
 
       return new LfValueMap(map);
     } else {
-      throw new Error(`${value} is not a map value`);
+      throw new Error(`${protoValueToString(value)} is not a map value`);
     }
   }
 
   value(): Map<LfValue, LfValue> {
-    return _value;
+    return this._value;
   }
 
   toProtobuf(): proto.Value {
-    return new proto.Value(
-      (map = new protoMap.Map(
-        _value
-          .keys()
-          .map<proto.Value>(
-            k =>
-              new protoMapEntry.Entry(
-                k.toProtobuf(),
-                _value.get(k).toProtobuf(),
-              ),
-          ),
-      )),
+    let result = new proto.Value();
+    result.map = new protoMap.Map(
+      this._value
+        .keys()
+        .map<protoMapEntry.Entry>(
+          k =>
+            new protoMapEntry.Entry(k.toProtobuf(), _value.get(k).toProtobuf()),
+        ),
     );
+    return result;
+  }
+
+  toString(): string {
+    return `${this.value()}`;
   }
 }
 
@@ -334,22 +390,28 @@ export class LfValueRecord extends LfValue {
 
       return new LfValueRecord(record);
     } else {
-      throw new Error(`${value} is not a record value`);
+      throw new Error(`${protoValueToString(value)} is not a record value`);
     }
   }
 
   value(): Map<string, LfValue> {
-    return _value;
+    return this._value;
   }
 
   toProtobuf(): proto.Value {
-    return new proto.Value(
-      (record = new protoRecord.Record(
-        _value
-          .values()
-          .map<proto.Value>(v => new protoRecordField.Field(v.toProtobuf())),
-      )),
+    let result = new proto.Value();
+    result.record = new protoRecord.Record(
+      this._value
+        .values()
+        .map<protoRecordField.Field>(
+          v => new protoRecordField.Field(v.toProtobuf()),
+        ),
     );
+    return result;
+  }
+
+  toString(): string {
+    return `${this.value()}`;
   }
 }
 
@@ -363,7 +425,7 @@ export class Choice<R> {
   }
 
   arg(): LfValue {
-    return _arg;
+    return this._arg;
   }
 
   controllers(): Set<string> {
@@ -413,36 +475,43 @@ export class NonConsumingChoice<R> extends ChoiceClosure<R> {
   }
 }
 
-export class Template<T> {
+export function templateId<T>(): LfIdentifier {
+  throw new Error("Unimplemented");
+}
+
+export function isValidArg<T>(arg: LfValue): bool {
+  throw new Error("Unimplemented");
+}
+
+export function fromLfValue<T>(arg: LfValue): Template<T> {
+  throw new Error("Unimplemented");
+}
+
+export class Template {
   private _arg: LfValue;
 
-  static fromLfValue(arg: LfValue): Template<T> {
-    throw new Error("Unimplemented");
-  }
-
-  static isValidArg(arg: LfValue): bool {
-    throw new Error("Unimplemented");
-  }
-
-  static templateId(): LfIdentifier {
-    throw new Error("Unimplemented");
+  constructor(arg: LfValue) {
+    this._arg = arg;
   }
 
   arg(): LfValue {
-    return _arg;
+    return this._arg;
   }
 
-  create(): Contract<T> {
+  create<T>(): Contract<T> {
     let templateIdByteStr = internal.ByteString.fromProtobufIdentifier(
-      T.templateId().toProtobuf(),
+      templateId<T>().toProtobuf(),
     );
-    let argByteStr = internal.ByteString.fromProtobuf(arg().toProtobuf());
+    let argByteStr = internal.ByteString.fromProtobuf(this.arg().toProtobuf());
     templateIdByteStr.alloc();
     argByteStr.alloc();
-    let contractId = LfValue.fromProtobuf(
-      internal
-        .createContract(templateIdByteStr.heapPtr(), argByteStr.heapPtr())
-        .toProtobuf(),
+    let contractId = LfValueContractId.fromProtobuf(
+      internal.ByteString.fromI32(
+        internal.createContract(
+          templateIdByteStr.heapPtr(),
+          argByteStr.heapPtr(),
+        ),
+      ).toProtobuf(),
     );
     argByteStr.dealloc();
     templateIdByteStr.dealloc();
@@ -475,12 +544,12 @@ export class Contract<T> {
   }
 
   contractId(): LfValueContractId {
-    return _contractId;
+    return this._contractId;
   }
 
   fetch(): T {
     let templateIdByteStr = internal.ByteString.fromProtobufIdentifier(
-      T.templateId().toProtobuf(),
+      templateId<T>().toProtobuf(),
     );
     let contractIdByteStr = internal.ByteString.fromProtobuf(
       contractId().toProtobuf(),
@@ -488,9 +557,9 @@ export class Contract<T> {
     templateIdByteStr.alloc();
     contractIdByteStr.alloc();
     let arg = LfValue.fromProtobuf(
-      internal
-        .fetchContractArg(templateIdByteStr, contractIdByteStr)
-        .toProtobuf(),
+      internal.ByteString.fromI32(
+        internal.fetchContractArg(templateIdByteStr, contractIdByteStr),
+      ).toProtobuf(),
     );
     contractIdByteStr.dealloc();
     templateIdByteStr.dealloc();
@@ -512,14 +581,14 @@ export class Contract<T> {
     choiceNameByteStr.alloc();
     argByteStr.alloc();
     let result = LfValue.fromProtobuf(
-      internal
-        .exerciseContract(
+      internal.ByteString.fromI32(
+        internal.exerciseContract(
           templateIdByteStr,
           contractIdByteStr,
           choiceNameByteStr,
           argByteStr,
-        )
-        .toProtobuf(),
+        ),
+      ).toProtobuf(),
     );
     argByteStr.dealloc();
     choiceNameByteStr.dealloc();
@@ -725,4 +794,8 @@ export function isRecord(value: proto.Value): bool {
     value.record != null &&
     value.enum == null
   );
+}
+
+function protoValueToString(value: proto.Value): string {
+  return String.UTF8.decode(proto.encodeValue(value).buffer);
 }

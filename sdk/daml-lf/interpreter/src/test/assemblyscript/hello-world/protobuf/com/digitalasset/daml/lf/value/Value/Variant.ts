@@ -12,7 +12,7 @@ import { Value } from "../Value";
 export class Variant {
   static encode(message: Variant, writer: Writer): void {
     writer.uint32(10);
-    writer.string(message.constructor);
+    writer.string(message._constructor);
 
     const value = message.value;
     if (value !== null) {
@@ -31,7 +31,7 @@ export class Variant {
       const tag = reader.uint32();
       switch (tag >>> 3) {
         case 1:
-          message.constructor = reader.string();
+          message._constructor = reader.string();
           break;
 
         case 2:

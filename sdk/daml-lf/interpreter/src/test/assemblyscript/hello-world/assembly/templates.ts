@@ -47,41 +47,44 @@ class SimpleTemplate_increment_closure extends api.ConsumingChoice<
   }
 }
 
-export class SimpleTemplate extends api.Template<SimpleTemplate> {
+export function toLfValue<SimpleTemplate>(
+  owner: string,
+  count: i64,
+): api.LfValue {
+  return new api.LfValueRecord(
+    new Map<string, api.LfValue>()
+      .set("owner", new api.LfValueParty(owner))
+      .set("count", new api.LfValueInt(count)),
+  );
+}
+
+export function fromLfValue<SimpleTemplate>(arg: api.LfValue): SimpleTemplate {
+  if (isValidArg(arg)) {
+    let owner = arg.map.entries[0].value.party;
+    let count = arg.map.entries[1].value.int64;
+    return new SimpleTemplate(owner, count);
+  } else {
+    throw new Error(
+      `${arg} is an invalid contract argument type for SimpleTemplate`,
+    );
+  }
+}
+
+export function templateId<SimpleTemplate>(): api.LfIdentifier {
+  return new api.LfIdentifier(
+    (module = "SimpleTemplate"),
+    (name = "fromLfValue"),
+  );
+}
+
+export class SimpleTemplate extends api.Template {
   private owner: string;
   private count: i64;
 
   constructor(owner: string, count: i64) {
-    super(toLfValue(owner, count));
+    super(toLfValue<SimpleTemplate>(owner, count));
     this.owner = owner;
     this.count = count;
-  }
-
-  static toLfValue(owner: string, count: i64): api.LfValue {
-    return new api.LfValueRecord(
-      new Map()
-        .set("owner", new api.LfValueParty(owner))
-        .set("count", new api.LfValueInt(count)),
-    );
-  }
-
-  static fromLfValue(arg: api.LfValue): SimpleTemplate {
-    if (isValidArg(arg)) {
-      let owner = arg.map.entries[0].value.party;
-      let count = arg.map.entries[1].value.int64;
-      return new SimpleTemplate(owner, count);
-    } else {
-      throw new Error(
-        `${arg} is an invalid contract argument type for SimpleTemplate`,
-      );
-    }
-  }
-
-  static templateId(): api.LfIdentifier {
-    return new api.LfIdentifier(
-      (module = "SimpleTemplate"),
-      (name = "fromLfValue"),
-    );
   }
 
   static isValidArg(arg: api.LfValue): bool {
@@ -95,7 +98,7 @@ export class SimpleTemplate extends api.Template<SimpleTemplate> {
   }
 
   signatories(): Set<string> {
-    return new Set().add(owner);
+    return new Set<string>().add(this.owner);
   }
 
   choices(): Map<string, SimpleTemplate_increment_closure> {
@@ -103,7 +106,7 @@ export class SimpleTemplate extends api.Template<SimpleTemplate> {
       .choices()
       .set(
         "SimpleTemplate_increment",
-        new SimpleTemplate_increment_closure(owner, count),
+        new SimpleTemplate_increment_closure(this.owner, this.count),
       );
   }
 }
@@ -114,7 +117,7 @@ export function SimpleTemplate_precond(
   arg: internal.ByteString,
 ): internal.ByteString {
   let contractArg = LfValue.fromProtobuf(arg.toProtobuf());
-  let template = SimpleTemplate.fromLfValue(contractArg);
+  let template = fromLfValue<SimpleTemplate>(contractArg);
   let precondition =
     SimpleTemplate.isValidArg(contractArg) && template.precond();
   return internal.ByteString.fromProtobuf(
@@ -125,7 +128,7 @@ export function SimpleTemplate_precond(
 export function SimpleTemplate_signatories(
   contractArg: internal.ByteString,
 ): internal.ByteString {
-  let template = SimpleTemplate.fromLfValue(
+  let template = fromLfValue<SimpleTemplate>(
     LfValue.fromProtobuf(contractArg.toProtobuf()),
   );
   return internal.ByteString.fromProtobuf(
@@ -141,7 +144,7 @@ export function SimpleTemplate_signatories(
 export function SimpleTemplate_observers(
   contractArg: internal.ByteString,
 ): internal.ByteString {
-  let template = SimpleTemplate.fromLfValue(
+  let template = fromLfValue<SimpleTemplate>(
     LfValue.fromProtobuf(contractArg.toProtobuf()),
   );
   return internal.ByteString.fromProtobuf(
@@ -157,7 +160,7 @@ export function SimpleTemplate_observers(
 export function SimpleTemplate_increment_consuming_property(
   contractArg: internal.ByteString,
 ): internal.ByteString {
-  let template = SimpleTemplate.fromLfValue(
+  let template = fromLfValue<SimpleTemplate>(
     LfValue.fromProtobuf(contractArg.toProtobuf()),
   );
   return internal.ByteString.fromProtobuf(
@@ -171,7 +174,7 @@ export function SimpleTemplate_increment_choice_controllers(
   contractArg: internal.ByteString,
   choiceArg: internal.ByteString,
 ): internal.ByteString {
-  let template = SimpleTemplate.fromLfValue(
+  let template = fromLfValue<SimpleTemplate>(
     LfValue.fromProtobuf(contractArg.toProtobuf()),
   );
   return internal.ByteString.fromProtobuf(
@@ -191,7 +194,7 @@ export function SimpleTemplate_increment_choice_observers(
   contractArg: internal.ByteString,
   choiceArg: internal.ByteString,
 ): internal.ByteString {
-  let template = SimpleTemplate.fromLfValue(
+  let template = fromLfValue<SimpleTemplate>(
     LfValue.fromProtobuf(contractArg.toProtobuf()),
   );
   return internal.ByteString.fromProtobuf(
@@ -211,7 +214,7 @@ export function SimpleTemplate_increment_choice_authorizers(
   contractArg: internal.ByteString,
   choiceArg: internal.ByteString,
 ): internal.ByteString {
-  let template = SimpleTemplate.fromLfValue(
+  let template = fromLfValue<SimpleTemplate>(
     LfValue.fromProtobuf(contractArg.toProtobuf()),
   );
   return internal.ByteString.fromProtobuf(

@@ -10,7 +10,7 @@ export function main(): void {
   let contract: Contract<SimpleTemplate> = new SimpleTemplate(
     "alice",
     42,
-  ).create();
+  ).create<SimpleTemplate>();
 
   logInfo(`created contract with ID ${contract.contractId()}`);
 }

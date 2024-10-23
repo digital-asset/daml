@@ -2,22 +2,23 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import * as proto from "../../protobuf/com/digitalasset/daml/lf/value/Value"
+import * as protoIdentifier from "../../protobuf/com/digitalasset/daml/lf/value/Identifier"
 
 @unmanaged
 export class ByteString {
-    ptr: ArrayBuffer;
+    ptr: Uint8Array;
     size: i32;
 
     private _heapPtr: i32;
 
-    constructor(data: ArrayBuffer) {
+    constructor(data: Uint8Array) {
         this.ptr = data;
         this.size = data.byteLength;
         this._heapPtr = 0;
     }
 
     static fromString(msg: string): ByteString {
-        let msgPtr = String.UTF8.encode(msg);
+        let msgPtr = Uint8Array.wrap(String.UTF8.encode(msg));
 
         return new ByteString(msgPtr);
     }
@@ -28,10 +29,24 @@ export class ByteString {
         return new ByteString(valuePtr);
     }
 
-    static fromProtobufIdentifier(value: proto.Identifier): ByteString {
-        let valuePtr = proto.encodeIdentifier(value);
+    static fromProtobufIdentifier(value: protoIdentifier.Identifier): ByteString {
+        let valuePtr = protoIdentifier.encodeIdentifier(value);
 
         return new ByteString(valuePtr);
+    }
+
+    static fromI32(value: i32): ByteString {
+        let valuePtr = load<i32>(value);
+        let valueSize = load<i32>(value, sizeof<i32>());
+        let data = new Array<u8>(valueSize);
+        let ptr = new Uint8Array(valueSize);
+
+        for (let i = 0; i < valueSize; i++) {
+            data.push(load<u8>(valuePtr + i));
+        }
+        ptr.set(data);
+
+        return new ByteString(ptr);
     }
 
     toProtobuf(): proto.Value {
@@ -44,7 +59,7 @@ export class ByteString {
         if (this._heapPtr == 0) {
             this._heapPtr = i32(heap.alloc(sizeof<i32>() * 2));
 
-            store<ArrayBuffer>(this._heapPtr, this.ptr);
+            store<Uint8Array>(this._heapPtr, this.ptr);
             store<i32>(this._heapPtr + sizeof<i32>(), this.size);
         } else {
             throw new Error("Attempted to allocate an allocated ByteString - need to call dealloc() first");
