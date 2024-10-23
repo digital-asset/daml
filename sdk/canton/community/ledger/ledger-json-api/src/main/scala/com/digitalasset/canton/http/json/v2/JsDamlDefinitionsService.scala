@@ -3,8 +3,13 @@
 
 package com.digitalasset.canton.http.json.v2
 
+import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
 import com.digitalasset.canton.http.json.v2.damldefinitionsservice.DamlDefinitionsView
-import com.digitalasset.canton.http.json.v2.damldefinitionsservice.Schema.{AllTemplatesResponse, TemplateDefinition, TypeSig}
+import com.digitalasset.canton.http.json.v2.damldefinitionsservice.Schema.{
+  AllTemplatesResponse,
+  TemplateDefinition,
+  TypeSig,
+}
 import com.digitalasset.canton.http.json.v2.damldefinitionsservice.Schema.Codecs.*
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import sttp.tapir.path
@@ -15,9 +20,7 @@ class JsDamlDefinitionsService(
     damlDefinitionsView: DamlDefinitionsView,
     val loggerFactory: NamedLoggerFactory,
 ) extends Endpoints {
-  private val definitions = v2Endpoint.in(sttp.tapir.stringToPath("definitions"))
-  private val packageDefinitions = definitions.in(sttp.tapir.stringToPath("packages"))
-  private val templateDefinitions = definitions.in(sttp.tapir.stringToPath("templates"))
+  import JsDamlDefinitionsService.*
   private val packageSignatureSelectorPath = "package-signature"
   private val templateSelectorPath = "template-id"
 
@@ -59,4 +62,11 @@ class JsDamlDefinitionsService(
       req: TracedInput[String]
   ): Future[Either[JsSchema.JsCantonError, Option[TemplateDefinition]]] =
     Future.successful(Right(damlDefinitionsView.templateDefinition(req.in)))
+}
+
+object JsDamlDefinitionsService {
+  import Endpoints.*
+  private val definitions = v2Endpoint.in(sttp.tapir.stringToPath("definitions"))
+  private val packageDefinitions = definitions.in(sttp.tapir.stringToPath("packages"))
+  private val templateDefinitions = definitions.in(sttp.tapir.stringToPath("templates"))
 }

@@ -45,6 +45,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   OrderingRequestBatch,
   OrderingRequestBatchStats,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.*
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.Availability.{
   LocalDissemination,
   LocalOutputFetch,
@@ -54,10 +55,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.Consensus.LocalAvailability.ProposalCreated
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.dependencies.AvailabilityModuleDependencies
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.{
-  Availability,
-  *,
-}
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.{
   ModuleRef,
   modules,

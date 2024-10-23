@@ -232,8 +232,7 @@ class SerializableContractAuthenticatorImplTest extends AnyWordSpec with BaseTes
 class WithContractAuthenticator(contractIdVersion: CantonContractIdVersion) extends BaseTest {
   protected lazy val unicumGenerator = new UnicumGenerator(new SymbolicPureCrypto())
   protected lazy val contractAuthenticator = new SerializableContractAuthenticatorImpl(
-    unicumGenerator,
-    false,
+    unicumGenerator
   )
 
   protected lazy val contractInstance = ExampleTransactionFactory.contractInstance()

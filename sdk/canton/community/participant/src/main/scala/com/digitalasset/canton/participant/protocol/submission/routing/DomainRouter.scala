@@ -297,10 +297,7 @@ object DomainRouter {
       loggerFactory = loggerFactory,
     )
 
-    val serializableContractAuthenticator = SerializableContractAuthenticator(
-      cryptoPureApi,
-      parameters,
-    )
+    val serializableContractAuthenticator = SerializableContractAuthenticator(cryptoPureApi)
 
     new DomainRouter(
       submit(connectedDomains),

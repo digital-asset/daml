@@ -265,8 +265,7 @@ class StartableStoppableLedgerApiServer(
         loggerFactory = loggerFactory,
       )
       serializableContractAuthenticator = SerializableContractAuthenticator(
-        config.syncService.pureCryptoApi,
-        parameters,
+        config.syncService.pureCryptoApi
       )
 
       authenticateContract: AuthenticateContract = c =>
@@ -372,6 +371,7 @@ class StartableStoppableLedgerApiServer(
       maxCacheSize = config.serverConfig.userManagementService.maxCacheSize,
       maxRightsPerUser = config.serverConfig.userManagementService.maxRightsPerUser,
       loggerFactory = loggerFactory,
+      flagCloseable = this,
     )(executionContext, traceContext)
 
   private def createExtraAdminUser(rawUserId: String, userManagementStore: UserManagementStore)(

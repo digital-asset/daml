@@ -31,6 +31,7 @@ import com.digitalasset.canton.networking.Endpoint
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.{SequencerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
+import org.scalatest.Assertions.fail
 
 import scala.collection.mutable
 import scala.concurrent.duration.FiniteDuration
@@ -120,9 +121,6 @@ object SimulationModuleSystem {
 
     override def abort(failure: Throwable): Nothing =
       fail(failure)
-
-    private def fail(str: String) = throw new RuntimeException(str)
-    private def fail(throwable: Throwable) = throw throwable
 
     override def blockingAwait[X](future: SimulationFuture[X]): X = future
       .resolveValue()

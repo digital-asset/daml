@@ -45,8 +45,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   PekkoEnv,
   PekkoFutureUnlessShutdown,
 }
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.simulation.SimulationModuleSystem.SimulationEnv
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.simulation.future.SimulationFuture
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.tracing.TraceContext
 
@@ -343,9 +341,4 @@ final class InMemoryEpochStore extends GenericInMemoryEpochStore[PekkoEnv] {
       value: () => Try[T]
   ): PekkoFutureUnlessShutdown[T] =
     PekkoFutureUnlessShutdown(action, FutureUnlessShutdown.fromTry(value()))
-}
-
-final class SimulationEpochStore extends GenericInMemoryEpochStore[SimulationEnv] {
-  override protected def createFuture[T](action: String)(value: () => Try[T]): SimulationFuture[T] =
-    SimulationFuture(value)
 }
