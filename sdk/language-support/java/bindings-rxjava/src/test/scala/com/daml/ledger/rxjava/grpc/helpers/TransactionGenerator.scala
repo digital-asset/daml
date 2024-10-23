@@ -278,6 +278,7 @@ object TransactionGenerator {
     (scalaChildren, javaChildren) <- eventsGen
     witnessParties <- Gen.listOf(nonEmptyId)
     (scalaExerciseResult, javaExerciseResult) <- Gen.sized(valueGen)
+    choicePackageId <- Gen.option(nonEmptyId)
   } yield (
     Exercised(
       ExercisedEvent(
@@ -307,6 +308,7 @@ object TransactionGenerator {
       consuming,
       Collections.emptyList(),
       javaExerciseResult,
+      choicePackageId.toJava,
     ),
   )
 
