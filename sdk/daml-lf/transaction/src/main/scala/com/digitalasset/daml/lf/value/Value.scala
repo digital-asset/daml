@@ -9,7 +9,7 @@ import com.digitalasset.daml.lf.data.Ref.{Identifier, Name, TypeConName}
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.{Ast, StablePackages}
 import data.ScalazEqual._
-import scalaz.{@@, Equal, Order, Tag}
+import scalaz.{Equal, Order}
 import scalaz.Ordering.EQ
 import scalaz.std.option._
 import scalaz.std.tuple._
@@ -150,18 +150,6 @@ object Value {
 
   /** The data constructors of a variant or enum, if defined. */
   type LookupVariantEnum = Identifier => Option[ImmArray[Name]]
-
-  /** This comparison assumes that you are comparing values of matching type,
-    * and, like the lf-value-json decoder, all variants and enums contain
-    * their identifier.  Moreover, the `Scope` must include all of those
-    * identifiers.
-    */
-  def orderInstance(Scope: LookupVariantEnum): Order[Value @@ Scope.type] =
-    Tag.subst(new `Value Order instance`(Scope): Order[Value])
-
-  // Order of GenMap entries is relevant for this equality.
-  implicit val `Value Equal instance`: Equal[Value] =
-    new `Value Equal instance`
 
   /** A contract instance is a value plus the template that originated it. */
   // Prefer to use transaction.FatContractInstance
@@ -378,46 +366,4 @@ private final class `Value Order instance`(Scope: Value.LookupVariantEnum) exten
   }
 
   private[this] def k[Z](f: Value PartialFunction Z): f.type = f
-}
-
-private final class `Value Equal instance` extends Equal[Value] {
-  import Value._
-  import ScalazEqual._
-
-  override final def equalIsNatural: Boolean = Equal[ContractId].equalIsNatural
-
-  implicit final def Self: this.type = this
-
-  override final def equal(a: Value, b: Value) =
-    (a, b).match2 {
-      case a @ (_: ValueInt64 | _: ValueNumeric | _: ValueText | _: ValueTimestamp | _: ValueParty |
-          _: ValueBool | _: ValueDate | ValueUnit) => { case b => a == b }
-      case r: ValueRecord => { case ValueRecord(tycon2, fields2) =>
-        import r._
-        tycon == tycon2 && fields === fields2
-      }
-      case v: ValueVariant => { case ValueVariant(tycon2, variant2, value2) =>
-        import v._
-        tycon == tycon2 && variant == variant2 && value === value2
-      }
-      case v: ValueEnum => { case ValueEnum(tycon2, value2) =>
-        import v._
-        tycon == tycon2 && value == value2
-      }
-      case ValueContractId(value) => { case ValueContractId(value2) =>
-        value === value2
-      }
-      case ValueList(values) => { case ValueList(values2) =>
-        values === values2
-      }
-      case ValueOptional(value) => { case ValueOptional(value2) =>
-        value === value2
-      }
-      case ValueTextMap(map1) => { case ValueTextMap(map2) =>
-        map1 === map2
-      }
-      case genMap: ValueGenMap => { case ValueGenMap(entries2) =>
-        genMap.entries === entries2
-      }
-    }(fallback = false)
 }
