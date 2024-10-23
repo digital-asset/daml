@@ -18,10 +18,9 @@ import DA.Test.Process
 import Test.Tasty
 import Test.Tasty.HUnit
 import SdkVersion (SdkVersioned, sdkVersion, withSdkVersions)
-import DA.Daml.LF.Ast.Version
 import Text.Regex.TDFA
 import qualified Data.Text as T
-import Data.Maybe (maybeToList)
+import Data.Maybe (maybeToList, fromMaybe)
 
 main :: IO ()
 main = withSdkVersions $ do
@@ -33,511 +32,264 @@ tests damlc =
     testGroup
         "Upgrade"
         (
-            [ test
+            [ mkTest
                 "CannotUpgradeView"
                 (FailWithError ".*Tried to implement a view of type (‘|\915\199\255)IView(’|\915\199\214) on interface (‘|\915\199\255)V1.I(’|\915\199\214), but the definition of interface (‘|\915\199\255)V1.I(’|\915\199\214) requires a view of type (‘|\915\199\255)V1.IView(’|\915\199\214)")
-                versionDefault
-                DependOnV1
-                True
-                True
+                testOptions
+                  { sharedDep = DependOnV1
+                  , warnBadInterfaceInstances = True
+                  }
             ] ++
             concat [
-                [ test
-                      "WarnsWhenTemplateChangesSignatories"
-                      (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template Main.A signatories:\n  The upgraded template A has changed the definition of its signatories..*Expression is structurally different")
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
-                      "WarnsWhenTemplateChangesAgreement"
-                      (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template Main.A agreement:\n  The upgraded template A has changed the definition of agreement..*Expression is structurally different")
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
-                      "WarnsWhenTemplateChangesObservers"
-                      (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template Main.A observers:\n  The upgraded template A has changed the definition of its observers..*Expression is structurally different")
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
-                      "SucceedsWhenATopLevelEnumChanges"
-                      Succeed
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
-                      "WarnsWhenTemplateChangesEnsure"
-                      (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template Main.A precondition:\n  The upgraded template A has changed the definition of its precondition..*Expression is structurally different")
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
-                      "WarnsWhenTemplateChangesKeyExpression"
-                      (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template Main.A key:\n  The upgraded template A has changed the expression for computing its key..*Expression is structurally different")
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
-                      "WarnsWhenTemplateChangesKeyMaintainers"
-                      (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template Main.A key:\n  The upgraded template A has changed the maintainers for its key.")
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
-                      "FailsWhenTemplateChangesKeyTypeSuperficially"
-                      (FailWithError "\ESC\\[0;91merror type checking template Main.A key:\n  The upgraded template A cannot change its key type.")
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
-                      "FailsWhenTemplateRemovesKeyType"
-                      (FailWithError "\ESC\\[0;91merror type checking template Main.A key:\n  The upgraded template A cannot remove its key.")
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
-                      "FailsWhenTemplateAddsKeyType"
-                      (FailWithError "\ESC\\[0;91merror type checking template Main.A key:\n  The upgraded template A cannot add a key where it didn't have one previously.")
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
-                      "FailsWhenNewFieldIsAddedToTemplateWithoutOptionalType"
-                      (FailWithError "\ESC\\[0;91merror type checking template Main.A :\n  The upgraded template A has added new fields, but the following new fields are not Optional:\n    Field 'new' with type Int64")
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
-                      "FailsWhenOldFieldIsDeletedFromTemplate"
-                      (FailWithError "\ESC\\[0;91merror type checking template Main.A :\n  The upgraded template A is missing some of its original fields.")
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
-                      "FailsWhenExistingFieldInTemplateIsChanged"
-                      (FailWithError "\ESC\\[0;91merror type checking template Main.A :\n  The upgraded template A has changed the types of some of its original fields.")
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
-                      "SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplate"
-                      Succeed
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
-                      "FailsWhenNewFieldIsAddedToTemplateChoiceWithoutOptionalType"
-                      (FailWithError "\ESC\\[0;91merror type checking template Main.A choice C:\n  The upgraded input type of choice C on template A has added new fields, but the following new fields are not Optional:\n    Field 'new' with type Int64")
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
-                      "FailsWhenOldFieldIsDeletedFromTemplateChoice"
-                      (FailWithError "\ESC\\[0;91merror type checking template Main.A choice C:\n  The upgraded input type of choice C on template A is missing some of its original fields.")
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
-                      "FailsWhenExistingFieldInTemplateChoiceIsChanged"
-                      (FailWithError "\ESC\\[0;91merror type checking template Main.A choice C:\n  The upgraded input type of choice C on template A has changed the types of some of its original fields.")
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
-                      "WarnsWhenControllersOfTemplateChoiceAreChanged"
-                      (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template Main.A choice C:\n  The upgraded choice C has changed the definition of controllers.")
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
-                      "WarnsWhenObserversOfTemplateChoiceAreChanged"
-                      (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template Main.A choice C:\n  The upgraded choice C has changed the definition of observers.")
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
-                      "FailsWhenTemplateChoiceChangesItsReturnType"
-                      (FailWithError "\ESC\\[0;91merror type checking template Main.A choice C:\n  The upgraded choice C cannot change its return type.")
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
-                      "SucceedsWhenTemplateChoiceReturnsATemplateWhichHasChanged"
-                      Succeed
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
-                      "SucceedsWhenTemplateChoiceInputArgumentHasChanged"
-                      Succeed
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
-                      "SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplateChoice"
-                      Succeed
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
-                      "FailsWhenATopLevelRecordAddsANonOptionalField"
-                      (FailWithError "\ESC\\[0;91merror type checking data type Main.A:\n  The upgraded data type A has added new fields, but the following new fields are not Optional:\n    Field 'y' with type Text")
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
-                      "SucceedsWhenATopLevelRecordAddsAnOptionalFieldAtTheEnd"
-                      Succeed
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
-                      "FailsWhenATopLevelRecordAddsAnOptionalFieldBeforeTheEnd"
-                      (FailWithError "\ESC\\[0;91merror type checking data type Main.A:\n  The upgraded data type A has added new fields, but the following fields need to be moved to the end: 'y'. All new fields in upgrades must be added to the end of the definition.")
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
-                      "SucceedsWhenATopLevelVariantAddsAConstructor"
-                      Succeed
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
-                      "FailsWhenATopLevelVariantRemovesAConstructor"
-                      (FailWithError "\ESC\\[0;91merror type checking <none>:\n  Data type A.Z appears in package that is being upgraded, but does not appear in this package.")
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
-                      "FailWhenATopLevelVariantChangesChangesTheOrderOfItsConstructors"
-                      (FailWithError "\ESC\\[0;91merror type checking data type Main.A:\n  The upgraded data type A has changed the order of its constructors - any new constructor must be added at the end of the variant.")
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
-                      "FailsWhenATopLevelVariantAddsAFieldToAConstructorsType"
-                      (FailWithError "\ESC\\[0;91merror type checking data type Main.A:\n  The upgraded constructor Y from variant A has added new fields, but the following new fields are not Optional:\n    Field 'y2' with type Int64")
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
-                      "SucceedsWhenATopLevelVariantAddsAnOptionalFieldToAConstructorsType"
-                      Succeed
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
-                      "SucceedWhenATopLevelEnumAddsAField"
-                      Succeed
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
-                      "FailWhenATopLevelEnumChangesChangesTheOrderOfItsConstructors"
-                      (FailWithError "\ESC\\[0;91merror type checking data type Main.A:\n  The upgraded data type A has changed the order of its constructors - any new enum constructor must be added at the end of the enum.")
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
+                [ mkTest
                       "ValidUpgrade"
                       Succeed
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
+                      testOptions { setUpgradeField = setUpgradeField }
+                , mkTest
                       "MissingModule"
                       (FailWithError "\ESC\\[0;91merror type checking <none>:\n  Module Other appears in package that is being upgraded, but does not appear in this package.")
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
+                      testOptions { setUpgradeField = setUpgradeField }
+                , mkTest
                       "MissingTemplate"
                       (FailWithError "\ESC\\[0;91merror type checking <none>:\n  Template U appears in package that is being upgraded, but does not appear in this package.")
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
+                      testOptions { setUpgradeField = setUpgradeField }
+                , mkTest
                       "MissingDataCon"
                       (FailWithError "\ESC\\[0;91merror type checking <none>:\n  Data type U appears in package that is being upgraded, but does not appear in this package.")
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
+                      testOptions { setUpgradeField = setUpgradeField }
+                , mkTest
                       "MissingChoice"
                       (FailWithError "\ESC\\[0;91merror type checking template Main.T :\n  Choice C2 appears in package that is being upgraded, but does not appear in this package.")
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
+                      testOptions { setUpgradeField = setUpgradeField }
+                , mkTest
                       "TemplateChangedKeyType"
                       (FailWithError "\ESC\\[0;91merror type checking template Main.T key:\n  The upgraded template T cannot change its key type.")
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
+                      testOptions { setUpgradeField = setUpgradeField }
+                , mkTest
                       "TemplateChangedKeyType2"
                       Succeed
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
+                      testOptions { setUpgradeField = setUpgradeField }
+                , mkTest
                       "RecordFieldsNewNonOptional"
                       (FailWithError "\ESC\\[0;91merror type checking data type Main.Struct:\n  The upgraded data type Struct has added new fields, but the following new fields are not Optional:\n    Field 'field2' with type Text")
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
+                      testOptions { setUpgradeField = setUpgradeField }
+                , mkTest
                       "FailsWithSynonymReturnTypeChange"
                       (FailWithError "\ESC\\[0;91merror type checking template Main.T choice C:\n  The upgraded choice C cannot change its return type.")
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
-                      "FailsWithSynonymReturnTypeChangeInSeparatePackage"
-                      (FailWithError "\ESC\\[0;91merror type checking template Main.T choice C:\n  The upgraded choice C cannot change its return type.")
-                      versionDefault
-                      (SeparateDeps False)
-                      False
-                      setUpgradeField
-                , test
-                      "SucceedsWhenUpgradingADependency"
-                      Succeed
-                      versionDefault
-                      (SeparateDeps False)
-                      False
-                      setUpgradeField
-                , test
-                      "FailsOnlyInModuleNotInReexports"
-                      (FailWithError "\ESC\\[0;91merror type checking data type Other.A:\n  The upgraded data type A has added new fields, but the following new fields are not Optional:\n    Field 'field2' with type Text")
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
-                , test
-                      "FailsWhenDatatypeChangesVariety"
-                      (FailWithError "\ESC\\[0;91merror type checking data type Main.RecordToEnum:\n  The upgraded data type RecordToEnum has changed from a record to a enum.")
-                      versionDefault
-                      NoDependencies
-                      False
-                      setUpgradeField
+                      testOptions { setUpgradeField = setUpgradeField }
                 ]
             | setUpgradeField <- [True, False]
             ] ++
-            concat [
-                [ testGeneral
-                      (prefix <> "WhenAnInterfaceAndATemplateAreDefinedInTheSamePackage")
-                      "WarnsWhenAnInterfaceAndATemplateAreDefinedInTheSamePackage"
-                      (expectation "type checking <none>:\n  This package defines both interfaces and templates.")
-                      versionDefault
-                      NoDependencies
-                      warnBadInterfaceInstances
-                      True
-                      doTypecheck
-                      []
-                      []
-                , testGeneral
-                      (prefix <> "WhenAnInterfaceIsUsedInThePackageThatItsDefinedIn")
-                      "WarnsWhenAnInterfaceIsUsedInThePackageThatItsDefinedIn"
-                      (expectation "type checking template Main.T interface instance Main.I for Main.T:\n  The interface I was defined in this package") -- TODO complete error
-                      versionDefault
-                      NoDependencies
-                      warnBadInterfaceInstances
-                      True
-                      doTypecheck
-                      []
-                      []
-                ]
-            | warnBadInterfaceInstances <- [True, False]
-            , let prefix = if warnBadInterfaceInstances then "Warns" else "Fail"
-            , let expectation msg =
-                      if warnBadInterfaceInstances
-                         then SucceedWithWarning ("\ESC\\[0;93mwarning while " <> msg)
-                         else FailWithError ("\ESC\\[0;91merror " <> msg)
-            , doTypecheck <- [True, False]
-            ] ++
-            [ test
+            [ testUpgradeCheck
+                  "ValidUpgrade"
+                  Succeed
+            , testUpgradeCheck
+                  "MissingModule"
+                  (FailWithError "error type checking <none>:\n  Module Other appears in package that is being upgraded, but does not appear in this package.")
+            , testUpgradeCheck
+                  "MissingTemplate"
+                  (FailWithError "error type checking <none>:\n  Template U appears in package that is being upgraded, but does not appear in this package.")
+            , testUpgradeCheck
+                  "MissingDataCon"
+                  (FailWithError "error type checking <none>:\n  Data type U appears in package that is being upgraded, but does not appear in this package.")
+            , testUpgradeCheck
+                  "MissingChoice"
+                  (FailWithError "error type checking template Main.T :\n  Choice C2 appears in package that is being upgraded, but does not appear in this package.")
+            , testUpgradeCheck
+                  "TemplateChangedKeyType"
+                  (FailWithError "error type checking template Main.T key:\n  The upgraded template T cannot change its key type.")
+            , testUpgradeCheck
+                  "TemplateChangedKeyType2"
+                  Succeed
+            , testUpgradeCheck
+                  "RecordFieldsNewNonOptional"
+                  (FailWithError "error type checking data type Main.Struct:\n  The upgraded data type Struct has added new fields, but the following new fields are not Optional:\n    Field 'field2' with type Text")
+            , testUpgradeCheck
+                  "FailsWithSynonymReturnTypeChange"
+                  (FailWithError "error type checking template Main.T choice C:\n  The upgraded choice C cannot change its return type.")
+            , testUpgradeCheck
+                  "WarnsWhenTemplateChangesSignatories"
+                  (SucceedWithWarning "warning while type checking template Main.A signatories:\n  The upgraded template A has changed the definition of its signatories..*Expression is structurally different")
+            , testUpgradeCheck
+                  "WarnsWhenTemplateChangesAgreement"
+                  (SucceedWithWarning "warning while type checking template Main.A agreement:\n  The upgraded template A has changed the definition of agreement..*Expression is structurally different")
+            , testUpgradeCheck
+                  "WarnsWhenTemplateChangesObservers"
+                  (SucceedWithWarning "warning while type checking template Main.A observers:\n  The upgraded template A has changed the definition of its observers..*Expression is structurally different")
+            , testUpgradeCheck
+                  "SucceedsWhenATopLevelEnumChanges"
+                  Succeed
+            , testUpgradeCheck
+                  "WarnsWhenTemplateChangesEnsure"
+                  (SucceedWithWarning "warning while type checking template Main.A precondition:\n  The upgraded template A has changed the definition of its precondition..*Expression is structurally different")
+            , testUpgradeCheck
+                  "WarnsWhenTemplateChangesKeyExpression"
+                  (SucceedWithWarning "warning while type checking template Main.A key:\n  The upgraded template A has changed the expression for computing its key..*Expression is structurally different")
+            , testUpgradeCheck
+                  "WarnsWhenTemplateChangesKeyMaintainers"
+                  (SucceedWithWarning "warning while type checking template Main.A key:\n  The upgraded template A has changed the maintainers for its key.")
+            , testUpgradeCheck
+                  "FailsWhenTemplateChangesKeyTypeSuperficially"
+                  (FailWithError "error type checking template Main.A key:\n  The upgraded template A cannot change its key type.")
+            , testUpgradeCheck
+                  "FailsWhenTemplateRemovesKeyType"
+                  (FailWithError "error type checking template Main.A key:\n  The upgraded template A cannot remove its key.")
+            , testUpgradeCheck
+                  "FailsWhenTemplateAddsKeyType"
+                  (FailWithError "error type checking template Main.A key:\n  The upgraded template A cannot add a key where it didn't have one previously.")
+            , testUpgradeCheck
+                  "FailsWhenNewFieldIsAddedToTemplateWithoutOptionalType"
+                  (FailWithError "error type checking template Main.A :\n  The upgraded template A has added new fields, but the following new fields are not Optional:\n    Field 'new' with type Int64")
+            , testUpgradeCheck
+                  "FailsWhenOldFieldIsDeletedFromTemplate"
+                  (FailWithError "error type checking template Main.A :\n  The upgraded template A is missing some of its original fields.")
+            , testUpgradeCheck
+                  "FailsWhenExistingFieldInTemplateIsChanged"
+                  (FailWithError "error type checking template Main.A :\n  The upgraded template A has changed the types of some of its original fields.")
+            , testUpgradeCheck
+                  "SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplate"
+                  Succeed
+            , testUpgradeCheck
+                  "FailsWhenNewFieldIsAddedToTemplateChoiceWithoutOptionalType"
+                  (FailWithError "error type checking template Main.A choice C:\n  The upgraded input type of choice C on template A has added new fields, but the following new fields are not Optional:\n    Field 'new' with type Int64")
+            , testUpgradeCheck
+                  "FailsWhenOldFieldIsDeletedFromTemplateChoice"
+                  (FailWithError "error type checking template Main.A choice C:\n  The upgraded input type of choice C on template A is missing some of its original fields.")
+            , testUpgradeCheck
+                  "FailsWhenExistingFieldInTemplateChoiceIsChanged"
+                  (FailWithError "error type checking template Main.A choice C:\n  The upgraded input type of choice C on template A has changed the types of some of its original fields.")
+            , testUpgradeCheck
+                  "WarnsWhenControllersOfTemplateChoiceAreChanged"
+                  (SucceedWithWarning "warning while type checking template Main.A choice C:\n  The upgraded choice C has changed the definition of controllers.")
+            , testUpgradeCheck
+                  "WarnsWhenObserversOfTemplateChoiceAreChanged"
+                  (SucceedWithWarning "warning while type checking template Main.A choice C:\n  The upgraded choice C has changed the definition of observers.")
+            , testUpgradeCheck
+                  "FailsWhenTemplateChoiceChangesItsReturnType"
+                  (FailWithError "error type checking template Main.A choice C:\n  The upgraded choice C cannot change its return type.")
+            , testUpgradeCheck
+                  "SucceedsWhenTemplateChoiceReturnsATemplateWhichHasChanged"
+                  Succeed
+            , testUpgradeCheck
+                  "SucceedsWhenTemplateChoiceInputArgumentHasChanged"
+                  Succeed
+            , testUpgradeCheck
+                  "SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplateChoice"
+                  Succeed
+            , testUpgradeCheck
+                  "FailsWhenATopLevelRecordAddsANonOptionalField"
+                  (FailWithError "error type checking data type Main.A:\n  The upgraded data type A has added new fields, but the following new fields are not Optional:\n    Field 'y' with type Text")
+            , testUpgradeCheck
+                  "SucceedsWhenATopLevelRecordAddsAnOptionalFieldAtTheEnd"
+                  Succeed
+            , testUpgradeCheck
+                  "FailsWhenATopLevelRecordAddsAnOptionalFieldBeforeTheEnd"
+                  (FailWithError "error type checking data type Main.A:\n  The upgraded data type A has added new fields, but the following fields need to be moved to the end: 'y'. All new fields in upgrades must be added to the end of the definition.")
+            , testUpgradeCheck
+                  "SucceedsWhenATopLevelVariantAddsAConstructor"
+                  Succeed
+            , testUpgradeCheck
+                  "FailsWhenATopLevelVariantRemovesAConstructor"
+                  (FailWithError "error type checking <none>:\n  Data type A.Z appears in package that is being upgraded, but does not appear in this package.")
+            , testUpgradeCheck
+                  "FailWhenATopLevelVariantChangesChangesTheOrderOfItsConstructors"
+                  (FailWithError "error type checking data type Main.A:\n  The upgraded data type A has changed the order of its constructors - any new constructor must be added at the end of the variant.")
+            , testUpgradeCheck
+                  "FailsWhenATopLevelVariantAddsAFieldToAConstructorsType"
+                  (FailWithError "error type checking data type Main.A:\n  The upgraded constructor Y from variant A has added new fields, but the following new fields are not Optional:\n    Field 'y2' with type Int64")
+            , testUpgradeCheck
+                  "SucceedsWhenATopLevelVariantAddsAnOptionalFieldToAConstructorsType"
+                  Succeed
+            , testUpgradeCheck
+                  "SucceedWhenATopLevelEnumAddsAField"
+                  Succeed
+            , testUpgradeCheck
+                  "FailWhenATopLevelEnumChangesChangesTheOrderOfItsConstructors"
+                  (FailWithError "error type checking data type Main.A:\n  The upgraded data type A has changed the order of its constructors - any new enum constructor must be added at the end of the enum.")
+            , testUpgradeCheck
+                  "FailsWithSynonymReturnTypeChangeInSeparatePackage"
+                  (FailWithError "error type checking template Main.T choice C:\n  The upgraded choice C cannot change its return type.")
+            , testUpgradeCheck
+                  "SucceedsWhenUpgradingADependency"
+                  Succeed
+            , testUpgradeCheck
+                  "FailsOnlyInModuleNotInReexports"
+                  (FailWithError "error type checking data type Other.A:\n  The upgraded data type A has added new fields, but the following new fields are not Optional:\n    Field 'field2' with type Text")
+            , testUpgradeCheck
+                  "FailsWhenDatatypeChangesVariety"
+                  (FailWithError "error type checking data type Main.RecordToEnum:\n  The upgraded data type RecordToEnum has changed from a record to a enum.")
+            , testUpgradeCheck
                   "SucceedsWhenATopLevelTypeSynonymChanges"
                   Succeed
-                  versionDefault
-                  NoDependencies
-                  False
-                  True
-            , test
+            , testUpgradeCheck
                   "SucceedsWhenTwoDeeplyNestedTypeSynonymsResolveToTheSameDatatypes"
                   Succeed
-                  versionDefault
-                  NoDependencies
-                  False
-                  True
-            , test
+            , testUpgradeCheck
                   "FailsWhenTwoDeeplyNestedTypeSynonymsResolveToDifferentDatatypes"
-                  (FailWithError "\ESC\\[0;91merror type checking template Main.A :\n  The upgraded template A has changed the types of some of its original fields.")
-                  versionDefault
-                  NoDependencies
-                  False
-                  True
-            , test
+                  (FailWithError "error type checking template Main.A :\n  The upgraded template A has changed the types of some of its original fields")
+            , testUpgradeCheck
                   "SucceedsWhenAnInterfaceIsOnlyDefinedInTheInitialPackage"
                   Succeed
-                  versionDefault
-                  NoDependencies
-                  False
-                  True
-            , test
+            , testUpgradeCheck
                   "FailsWhenAnInterfaceIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage"
-                  (FailWithError "\ESC\\[0;91merror type checking interface Main.I :\n  Tried to upgrade interface I, but interfaces cannot be upgraded. They should be removed whenever a package is being upgraded.")
-                  versionDefault
-                  NoDependencies
-                  False
-                  True
-            , test
+                  (FailWithError "error type checking interface Main.I :\n  Tried to upgrade interface I, but interfaces cannot be upgraded. They should be removed whenever a package is being upgraded.")
+            , testUpgradeCheck
                   "FailsWhenAnInstanceIsDropped"
-                  (FailWithError "\ESC\\[0;91merror type checking template Main.T :\n  Implementation of interface I by template T appears in package that is being upgraded, but does not appear in this package.")
-                  versionDefault
-                  SharedDep
-                  False
-                  True
-            , test
+                  (FailWithError "error type checking template Main.T :\n  Implementation of interface I by template T appears in package that is being upgraded, but does not appear in this package.")
+            , testUpgradeCheck
                   "FailsWhenAnInstanceIsAddedSeparateDep"
-                  (FailWithError "\ESC\\[0;91merror type checking template Main.T :\n  Implementation of interface I by template T appears in this package, but does not appear in package that is being upgraded.")
-                  versionDefault
-                  SharedDep
-                  False
-                  True
-            , test
+                  (FailWithError "error type checking template Main.T :\n  Implementation of interface I by template T appears in this package, but does not appear in package that is being upgraded.")
+            , testUpgradeCheck
                   "FailsWhenAnInstanceIsAddedUpgradedPackage"
-                  (FailWithError "\ESC\\[0;91merror type checking template Main.T :\n  Implementation of interface I by template T appears in this package, but does not appear in package that is being upgraded.")
-                  versionDefault
-                  DependOnV1
-                  True
-                  True
-            , test
+                  (FailWithError "error type checking template Main.T :\n  Implementation of interface I by template T appears in this package, but does not appear in package that is being upgraded.")
+            , testUpgradeCheck
                   "SucceedsWhenAnInstanceIsAddedToNewTemplateSeparateDep"
                   Succeed
-                  versionDefault
-                  SharedDep
-                  False
-                  True
-            , test
+            , testUpgradeCheck
                   "SucceedsWhenAnInstanceIsAddedToNewTemplateUpgradedPackage"
                   Succeed
-                  versionDefault
-                  DependOnV1
-                  True
-                  True
-            , test
+            , testUpgradeCheck
                   "FailsWhenDepsDowngradeVersionsWhileUsingDatatypes"
-                  (FailWithError "\ESC\\[0;91merror type checking data type Main.Main:\n  The upgraded data type Main has changed the types of some of its original fields.")
-                  versionDefault
-                  (SeparateDeps True)
-                  False
-                  True
-            , test
+                  (FailWithError "error type checking data type Main.Main:\n  The upgraded data type Main has changed the types of some of its original fields.")
+            , testUpgradeCheck
                   "SucceedsWhenDepsDowngradeVersionsWithoutUsingDatatypes"
                   Succeed
-                  versionDefault
-                  (SeparateDeps True)
-                  False
-                  True
-            , test
+            , testUpgradeCheck
                   "FailsWhenDependencyIsNotAValidUpgrade"
-                  (FailWithError "\ESC\\[0;91merror while validating that dependency upgrades-example-FailsWhenDependencyIsNotAValidUpgrade-dep version 0.0.2 is a valid upgrade of version 0.0.1\n  error type checking data type Dep.Dep:\n    The upgraded data type Dep has added new fields, but the following new fields are not Optional:\n      Field 'nonOptionalField' with type Text")
-                  versionDefault
-                  (SeparateDeps False)
-                  False
-                  True
-            , testWithAdditionalDars
-                  "FailsWhenUpgradedFieldPackagesAreNotUpgradable"
-                  (FailWithError "\ESC\\[0;91merror type checking data type ProjectMain.T:\n  The upgraded data type T has changed the types of some of its original fields.")
-                  versionDefault
-                  NoDependencies
-                  False
-                  True
-                  ["upgrades-SucceedsWhenATopLevelRecordAddsAnOptionalFieldAtTheEnd-v2.dar"] -- Note that dependencies are in different order
-                  ["upgrades-SucceedsWhenATopLevelRecordAddsAnOptionalFieldAtTheEnd-v1.dar"]
-            , testWithAdditionalDars
-                  "FailsWhenUpgradedFieldFromDifferentPackageName"
-                  (FailWithError "\ESC\\[0;91merror type checking data type Main.A:\n  The upgraded data type A has changed the types of some of its original fields.")
-                  versionDefault
-                  NoDependencies
-                  False
-                  True
-                  ["upgrades-FailsWhenUpgradedFieldFromDifferentPackageName-dep-name1.dar"]
-                  ["upgrades-FailsWhenUpgradedFieldFromDifferentPackageName-dep-name2.dar"]
-            , test
+                  (FailWithError "error while validating that dependency upgrades-example-FailsWhenDependencyIsNotAValidUpgrade-dep version 2.0.0 is a valid upgrade of version 1.0.0\n  error type checking data type Dep.Dep:\n    The upgraded data type Dep has added new fields, but the following new fields are not Optional:\n      Field 'nonOptionalField' with type Text")
+            , testUpgradeCheck
                   "SucceedsWhenUpgradingLFVersionWithoutExpressionWarning"
-                  (SucceedWithoutWarning "\ESC\\[0;93mwarning while type checking data type Main.T:\n  The upgraded template T has changed the definition of its signatories.")
-                  (version1_17, versionDefault)
-                  NoDependencies
-                  False
-                  True
-            , testWithAdditionalDars
-                  "WarnsWhenExpressionChangesPackageId"
-                  (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template Main.T signatories:\n  The upgraded template T has changed the definition of its signatories..*Name came from package .* and now comes from differently-named package .*")
-                  versionDefault
-                  NoDependencies
-                  False
-                  True
-                  ["upgrades-WarnsWhenExpressionChangesPackageId-dep-name1.dar"]
-                  ["upgrades-WarnsWhenExpressionChangesPackageId-dep-name2.dar"]
-            , test
+                  (SucceedWithoutWarning "warning while type checking data type Main.T:\n  The upgraded template T has changed the definition of its signatories.")
+            , testUpgradeCheck
                   "WarnsWhenExpressionChangesUtilityToSchemaPackage"
                   (SucceedWithWarning ".*the previous package was a utility package and the current one is not.")
-                  versionDefault
-                  (SeparateDeps False)
-                  False
-                  True
-            , test
+            , testUpgradeCheck
                   "WarnsWhenExpressionDowngradesVersion"
                   (SucceedWithWarning ".*Both packages support upgrades, but the previous package had a higher version than the current one.")
-                  versionDefault
-                  (SeparateDeps True)
-                  False
-                  True
+            , testUpgradeCheck
+                  "FailWhenParamCountChanges"
+                  (FailWithError "error type checking data type Main.MyStruct:\n  The upgraded data type MyStruct has changed the number of type variables it has.")
+            , testUpgradeCheck
+                  "SucceedWhenParamNameChanges"
+                  Succeed
+            , testUpgradeCheck
+                  "SucceedWhenPhantomParamBecomesUsed"
+                  Succeed
+            , testUpgradeCheck
+                  "SucceedsWhenNonSerializableTypesAreIncompatible"
+                  Succeed
+            , testUpgradeCheck
+                  "SucceedsWhenAddingNonOptionalFieldsToUnserializableTypes"
+                  Succeed
+            , testUpgradeCheck
+                  "SucceedsWhenChangingConstructorOfUnserializableType"
+                  Succeed
+            , testUpgradeCheck
+                  "SucceedsWhenDeletingUnserializableType"
+                  Succeed
+            , testUpgradeCheck
+                  "FailsWhenMakingTypeUnserializable"
+                  (FailWithError "error type checking data type Main.MyData:\n  The upgraded data type MyData was serializable and is now unserializable. Datatypes cannot change their serializability via upgrades.")
             -- TODO https://github.com/digital-asset/daml/issues/19980
             -- Currently there is no good way to test BindingMismatch errors
             -- in upgrades, because LF turns lambdas into their own
@@ -547,10 +299,59 @@ tests damlc =
             --, test
             --      "WarnsWhenExpressionChangesBindingOrder"
             --      (SucceedWithWarning ".*refer to different bindings in the environment")
-            --      versionDefault
+            --      version1_dev
             --      (SeparateDeps False)
             --      False
             --      True
+            ] ++
+            concat [
+                [ mkTest
+                      (prefix <> "WhenAnInterfaceAndATemplateAreDefinedInTheSamePackage")
+                      (expectation "type checking <none>:\n  This package defines both interfaces and templates.")
+                      testOptions
+                        { mbLocation = Just "WarnsWhenAnInterfaceAndATemplateAreDefinedInTheSamePackage"
+                        , warnBadInterfaceInstances = warnBadInterfaceInstances
+                        , doTypecheck = doTypecheck
+                        }
+                , mkTest
+                      (prefix <> "WhenAnInterfaceIsUsedInThePackageThatItsDefinedIn")
+                      (expectation "type checking template Main.T interface instance Main.I for Main.T:\n  The interface I was defined in this package") -- TODO complete error
+                      testOptions
+                        { mbLocation = Just "WarnsWhenAnInterfaceIsUsedInThePackageThatItsDefinedIn"
+                        , warnBadInterfaceInstances = warnBadInterfaceInstances
+                        , doTypecheck = doTypecheck
+                        }
+                ]
+            | warnBadInterfaceInstances <- [True, False]
+            , let prefix = if warnBadInterfaceInstances then "Warns" else "Fail"
+            , let expectation msg =
+                      if warnBadInterfaceInstances
+                         then SucceedWithWarning ("\ESC\\[0;93mwarning while " <> msg)
+                         else FailWithError ("\ESC\\[0;91merror " <> msg)
+            , doTypecheck <- [True, False]
+            ] ++
+            [ mkTest
+                  "FailsWhenUpgradedFieldPackagesAreNotUpgradable"
+                  (FailWithError "\ESC\\[0;91merror type checking data type ProjectMain.T:\n  The upgraded data type T has changed the types of some of its original fields.")
+                  testOptions
+                    -- Note that dependencies are in different order
+                    { additionalDarsV1 = ["upgrades-SucceedsWhenATopLevelRecordAddsAnOptionalFieldAtTheEnd-v2.dar"]
+                    , additionalDarsV2 = ["upgrades-SucceedsWhenATopLevelRecordAddsAnOptionalFieldAtTheEnd-v1.dar"]
+                    }
+            , mkTest
+                  "FailsWhenUpgradedFieldFromDifferentPackageName"
+                  (FailWithError "\ESC\\[0;91merror type checking data type Main.A:\n  The upgraded data type A has changed the types of some of its original fields.")
+                  testOptions
+                    { additionalDarsV1 = ["upgrades-FailsWhenUpgradedFieldFromDifferentPackageName-dep-name1.dar"]
+                    , additionalDarsV2 = ["upgrades-FailsWhenUpgradedFieldFromDifferentPackageName-dep-name2.dar"]
+                    }
+            , mkTest
+                  "WarnsWhenExpressionChangesPackageId"
+                  (SucceedWithWarning "\ESC\\[0;93mwarning while type checking template Main.T signatories:\n  The upgraded template T has changed the definition of its signatories..*Name came from package .* and now comes from differently-named package .*")
+                  testOptions
+                    { additionalDarsV1 = ["upgrades-WarnsWhenExpressionChangesPackageId-dep-name1.dar"]
+                    , additionalDarsV2 = ["upgrades-WarnsWhenExpressionChangesPackageId-dep-name2.dar"]
+                    }
             , testMetadata
                   "FailsWhenUpgradesPackageHasDifferentPackageName"
                   (FailWithError $ 
@@ -560,183 +361,119 @@ tests damlc =
                   )
                   "my-package"
                   "0.0.1"
-                  versionDefault
+                  LF.version1_dev
                   "my-package2"
                   "0.0.2"
-                  versionDefault
+                  LF.version1_dev
             , testMetadata
                   "FailsWhenUpgradesPackageHasEqualVersion"
                   (FailWithError "\ESC\\[0;91mMain package \\(v0.0.1\\) cannot have the same package version as Upgraded package \\(v0.0.1\\)")
                   "my-package"
                   "0.0.1"
-                  versionDefault
+                  LF.version1_dev
                   "my-package"
                   "0.0.1"
-                  versionDefault
+                  LF.version1_dev
             , testMetadata
                   "FailsWhenUpgradesPackageHasHigherVersion"
                   (FailWithError "\ESC\\[0;91mUpgraded package \\(v0.0.2\\) cannot have a higher package version than Main package \\(v0.0.1\\)")
                   "my-package"
                   "0.0.2"
-                  versionDefault
+                  LF.version1_dev
                   "my-package"
                   "0.0.1"
-                  versionDefault
+                  LF.version1_dev
             , testMetadata
                   "FailsWhenUpgradesPackageDoesNotSupportUpgrades"
                   (FailWithError "\ESC\\[0;91mUpgraded package \\(v0.0.1\\) LF Version \\(1.15\\) does not support Smart Contract Upgrades")
                   "my-package"
                   "0.0.1"
-                  version1_15
+                  LF.version1_15
                   "my-package"
                   "0.0.2"
-                  versionDefault
+                  LF.version1_dev
             , testMetadata
                   "FailsWhenMainPackageDoesNotSupportUpgrades"
                   (FailWithError "\ESC\\[0;91mMain package \\(v0.0.2\\) LF Version \\(1.15\\) does not support Smart Contract Upgrades")
                   "my-package"
                   "0.0.1"
-                  versionDefault
+                  LF.version1_dev
                   "my-package"
                   "0.0.2"
-                  version1_15
+                  LF.version1_15
             , testMetadata
                   "FailsWhenUpgradesPackageHasHigherLFVersion"
                   (FailWithError "\ESC\\[0;91mMain package \\(v0.0.2\\) LF Version \\(1.17\\) cannot be lower than the Upgraded package \\(v0.0.1\\) LF Version \\(1.dev\\)")
                   "my-package"
                   "0.0.1"
-                  version1_dev
+                  LF.version1_dev
                   "my-package"
                   "0.0.2"
-                  version1_17
+                  LF.version1_17
             , testMetadata
                   "SucceedsWhenUpgradesPackageHasLowerLFVersion"
                   Succeed
                   "my-package"
                   "0.0.1"
-                  version1_17
+                  LF.version1_17
                   "my-package"
                   "0.0.2"
-                  version1_dev
-            , test
+                  LF.version1_dev
+            , testUpgradeCheck
                   "SucceedsWhenAnExceptionIsOnlyDefinedInTheInitialPackage"
                   Succeed
-                  versionDefault
-                  NoDependencies
-                  False
-                  True
-            , test
+            , testUpgradeCheck
                   "FailsWhenAnExceptionIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage"
-                  (FailWithError "\ESC\\[0;91merror type checking exception Main.E:\n  Tried to upgrade exception E, but exceptions cannot be upgraded. They should be removed in any upgrading package.")
-                  versionDefault
-                  NoDependencies
-                  False
-                  True
-            , test
-                  "FailWhenParamCountChanges"
-                  (FailWithError "\ESC\\[0;91merror type checking data type Main.MyStruct:\n  The upgraded data type MyStruct has changed the number of type variables it has.")
-                  versionDefault
-                  NoDependencies
-                  False
-                  True
-            , test
-                  "SucceedWhenParamNameChanges"
-                  Succeed
-                  versionDefault
-                  NoDependencies
-                  False
-                  True
-            , test
-                  "SucceedWhenPhantomParamBecomesUsed"
-                  Succeed
-                  versionDefault
-                  NoDependencies
-                  False
-                  True
-            , test
-                  "SucceedsWhenNonSerializableTypesAreIncompatible"
-                  Succeed
-                  versionDefault
-                  NoDependencies
-                  False
-                  True
-            , test
-                  "SucceedsWhenAddingNonOptionalFieldsToUnserializableTypes"
-                  Succeed
-                  versionDefault
-                  NoDependencies
-                  False
-                  True
-            , test
-                  "SucceedsWhenChangingConstructorOfUnserializableType"
-                  Succeed
-                  versionDefault
-                  NoDependencies
-                  False
-                  True
-            , test
-                  "SucceedsWhenDeletingUnserializableType"
-                  Succeed
-                  versionDefault
-                  NoDependencies
-                  False
-                  True
-            , test
-                  "FailsWhenMakingTypeUnserializable"
-                  (FailWithError "\ESC\\[0;91merror type checking data type Main.MyData:\n  The upgraded data type MyData was serializable and is now unserializable. Datatypes cannot change their serializability via upgrades.")
-                  versionDefault
-                  NoDependencies
-                  False
-                  True
+                  (FailWithError "error type checking exception Main.E:\n  Tried to upgrade exception E, but exceptions cannot be upgraded. They should be removed in any upgrading package.")
             ]
        )
   where
-    -- TODO: https://github.com/digital-asset/daml/issues/19862
-    versionDefault :: LF.Version
-    versionDefault = version1_dev
-
-    test
-        :: IsVersionPair a
-        => String
+    testUpgradeCheck
+        :: String
         -> Expectation
-        -> a
-        -> Dependency
-        -> Bool
-        -> Bool
         -> TestTree
-    test name expectation lfVersion sharedDep warnBadInterfaceInstances setUpgradeField =
-            testGeneral name name expectation lfVersion sharedDep warnBadInterfaceInstances setUpgradeField True [] []
+    testUpgradeCheck name expectation =
+        testCase (name <> " (upgrade-check)") $ do
+            let testAdditionaDarRunfile version = locateRunfiles (mainWorkspace </> "test-common" </> ("upgrades-" <> name <> "-" <> version <> ".dar"))
+            v1Dar <- testAdditionaDarRunfile "v1"
+            v2Dar <- testAdditionaDarRunfile "v2"
+            let expectedDiagFile = Nothing
+            let regexPrefix = maybe "" (\filePat -> "File:.*" <> T.pack filePat <> ".+") expectedDiagFile
+            case expectation of
+              Succeed ->
+                  callProcessSilent damlc ["upgrade-check", v1Dar, v2Dar]
+              SucceedWithoutWarning regex -> do
+                  stderr <- callProcessForSuccessfulStderr damlc ["upgrade-check", v1Dar, v2Dar]
+                  let regexWithSeverity = "Severity: DsWarning\nMessage: \n" <> regex
+                  let compiledRegex :: Regex
+                      compiledRegex = makeRegexOpts defaultCompOpt { multiline = False } defaultExecOpt regexWithSeverity
+                  when (matchTest compiledRegex stderr) $
+                    assertFailure ("`daml build` succeeded, but should not give a warning matching '" <> show regexWithSeverity <> "':\n" <> show stderr)
+              FailWithError regex -> do
+                  stderr <- callProcessForStderr damlc ["upgrade-check", v1Dar, v2Dar]
+                  let regexWithSeverity = regexPrefix <> "Severity: DsError\nMessage: \n" <> regex
+                  let compiledRegex :: Regex
+                      compiledRegex = makeRegexOpts defaultCompOpt { multiline = False } defaultExecOpt regexWithSeverity
+                  unless (matchTest compiledRegex stderr) $
+                      assertFailure ("`daml build` failed as expected, but did not give an error matching '" <> show regexWithSeverity <> "':\n" <> show stderr)
+              SucceedWithWarning regex -> do
+                  stderr <- callProcessForSuccessfulStderr damlc ["upgrade-check", v1Dar, v2Dar]
+                  let regexWithSeverity = regexPrefix <> "Severity: DsWarning\nMessage: \n" <> regex
+                  let compiledRegex :: Regex
+                      compiledRegex = makeRegexOpts defaultCompOpt { multiline = False } defaultExecOpt regexWithSeverity
+                  case matchCount compiledRegex stderr of
+                    0 -> assertFailure ("`daml build` succeeded, but did not give a warning matching '" <> show regexWithSeverity <> "':\n" <> show stderr)
+                    1 -> pure ()
+                    _ -> assertFailure ("`daml build` succeeded, but gave a warning matching '" <> show regexWithSeverity <> "' more than once:\n" <> show stderr)
+            pure ()
 
-    testWithAdditionalDars
-        :: IsVersionPair a
-        => String
-        -> Expectation
-        -> a
-        -> Dependency
-        -> Bool
-        -> Bool
-        -> [String] -> [String]
-        -> TestTree
-    testWithAdditionalDars name expectation lfVersion sharedDep warnBadInterfaceInstances setUpgradeField additionalDarsV1 additionalDarsV2 =
-            testGeneral name name expectation lfVersion sharedDep warnBadInterfaceInstances setUpgradeField True additionalDarsV1 additionalDarsV2
-
-    testGeneral
-        :: IsVersionPair a
-        => String
-        -> String
-        -> Expectation
-        -> a
-        -> Dependency
-        -> Bool
-        -> Bool
-        -> Bool
-        -> [String] -> [String]
-        -> TestTree
-    testGeneral name location expectation lfVersion sharedDep warnBadInterfaceInstances setUpgradeField doTypecheck additionalDarsV1 additionalDarsV2 =
-        let upgradeFieldTrailer = if not setUpgradeField then " (no upgrades field)" else ""
+    mkTest :: String -> Expectation -> TestOptions -> TestTree
+    mkTest name expectation TestOptions{..} =
+        let location = fromMaybe name mbLocation
+            upgradeFieldTrailer = if not setUpgradeField then " (no upgrades field)" else ""
             doTypecheckTrailer = if not doTypecheck then " (disable typechecking)" else ""
         in
-        testCase (name <> upgradeFieldTrailer <> doTypecheckTrailer) $ do
+        testCase (name <> " (damlc build)" <> upgradeFieldTrailer <> doTypecheckTrailer) $ do
         withTempDir $ \dir -> do
             let newDir = dir </> "newVersion"
             let oldDir = dir </> "oldVersion"
@@ -859,7 +596,7 @@ tests damlc =
 
     testMetadata :: String -> Expectation -> String -> String -> LF.Version -> String -> String -> LF.Version -> TestTree
     testMetadata name expectation v1Name v1Version v1LfVersion v2Name v2Version v2LfVersion =
-        testCase name $ do
+        testCase (name <> " (damlc build)") $ do
         withTempDir $ \dir -> do
             let newDir = dir </> "newVersion"
             let oldDir = dir </> "oldVersion"
@@ -908,6 +645,33 @@ tests damlc =
             createDirectoryIfMissing True (takeDirectory $ dir </> file)
             writeFileUTF8 (dir </> file) content
 
+data TestOptions = TestOptions
+  { mbLocation :: Maybe String
+  , lfVersion :: VersionPair
+  , sharedDep :: Dependency
+  , warnBadInterfaceInstances :: Bool
+  , setUpgradeField :: Bool
+  , doTypecheck :: Bool
+  , additionalDarsV1 :: [String]
+  , additionalDarsV2 :: [String]
+  }
+
+testOptions :: TestOptions
+testOptions =
+  TestOptions
+    { mbLocation = Nothing
+    , lfVersion = versionPairs versionDefault
+    , sharedDep = NoDependencies
+    , warnBadInterfaceInstances = False
+    , setUpgradeField = True
+    , doTypecheck = True
+    , additionalDarsV1 = []
+    , additionalDarsV2 = []
+    }
+
+versionDefault :: LF.Version
+versionDefault = LF.version1_dev
+
 data Expectation
   = Succeed
   | FailWithError T.Text
@@ -921,8 +685,10 @@ data Dependency
   | SharedDep
   | SeparateDeps { shouldSwap :: Bool }
 
+type VersionPair = ((LF.Version, LF.Version), (LF.Version, LF.Version))
+
 class IsVersionPair a where
-  versionPairs :: a -> ((LF.Version, LF.Version), (LF.Version, LF.Version))
+  versionPairs :: a -> VersionPair
 
 instance IsVersionPair LF.Version where
   versionPairs v = ((v, v), (v, v))
@@ -930,5 +696,5 @@ instance IsVersionPair LF.Version where
 instance IsVersionPair (LF.Version, LF.Version) where
   versionPairs vs = (vs, vs)
 
-instance IsVersionPair ((LF.Version, LF.Version), (LF.Version, LF.Version)) where
+instance IsVersionPair VersionPair where
   versionPairs vs = vs
