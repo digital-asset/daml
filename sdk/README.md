@@ -27,7 +27,7 @@ asking on StackOverflow, please use [the `daml` tag].
 
 ## Contributing to Daml
 
-We warmly welcome [contributions](./CONTRIBUTING.md). If you are looking for ideas on how to contribute, please browse our
+We warmly welcome [contributions](../CONTRIBUTING.md). If you are looking for ideas on how to contribute, please browse our
 [issues](https://github.com/digital-asset/daml/issues). To build and test Daml:
 
 ### 1. Clone this repository
