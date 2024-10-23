@@ -109,7 +109,7 @@ trait CryptoPublicStore extends AutoCloseable {
       traceContext: TraceContext
   ): Future[Unit] =
     writeSigningKey(key, name).map { _ =>
-      signingKeyMap.put(key.id, SigningPublicKeyWithName(key, name)).discard
+      signingKeyMap.putIfAbsent(key.id, SigningPublicKeyWithName(key, name)).discard
     }
 
   def encryptionKey(encryptionKeyId: Fingerprint)(implicit
@@ -131,7 +131,7 @@ trait CryptoPublicStore extends AutoCloseable {
   ): Future[Unit] =
     writeEncryptionKey(key, name)
       .map { _ =>
-        encryptionKeyMap.put(key.id, EncryptionPublicKeyWithName(key, name)).discard
+        encryptionKeyMap.putIfAbsent(key.id, EncryptionPublicKeyWithName(key, name)).discard
       }
 
   protected def deleteKeyInternal(keyId: Fingerprint)(implicit

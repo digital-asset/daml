@@ -51,6 +51,8 @@ import spray.json._
 
       // second consume all successes
       partition.out1
+        //.zipWithIndex is broken in pekko 1.1.x (see https://github.com/apache/pekko/issues/1525)
+        //  We workaround using standard zip
         .zip(Source.fromIterator(() => Iterator.iterate(0L)(_ + 1)))
         .map(a => formatOneElement(a._1, a._2)) ~> concat.in(1)
 

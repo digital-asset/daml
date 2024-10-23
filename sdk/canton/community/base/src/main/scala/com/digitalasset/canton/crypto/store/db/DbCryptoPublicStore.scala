@@ -74,7 +74,8 @@ class DbCryptoPublicStore(
         sql"crypto_public_keys (key_id, purpose, data, name) values (${key.id}, ${key.purpose}, $key, $name)",
         queryKey(key.id, key.purpose),
       )(
-        existingKey => existingKey.publicKey == key && existingKey.name == name,
+        // An error is thrown if, and only if, the key we want to insert has the same id but different key payloads.
+        existingKey => existingKey.publicKey == key,
         _ => s"Existing public key for ${key.id} is different than inserted key",
       ),
       functionFullName,

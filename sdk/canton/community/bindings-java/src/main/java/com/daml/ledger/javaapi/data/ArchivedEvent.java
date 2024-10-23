@@ -4,8 +4,10 @@
 package com.daml.ledger.javaapi.data;
 
 import com.daml.ledger.api.v1.EventOuterClass;
+import com.google.protobuf.StringValue;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 public final class ArchivedEvent implements Event {
@@ -18,15 +20,19 @@ public final class ArchivedEvent implements Event {
 
   private final String contractId;
 
+  private final Optional<String> packageName;
+
   public ArchivedEvent(
       @NonNull List<@NonNull String> witnessParties,
       @NonNull String eventId,
       @NonNull Identifier templateId,
-      @NonNull String contractId) {
+      @NonNull String contractId,
+      @NonNull Optional<String> packageName) {
     this.witnessParties = witnessParties;
     this.eventId = eventId;
     this.templateId = templateId;
     this.contractId = contractId;
+    this.packageName = packageName;
   }
 
   @NonNull
@@ -53,6 +59,11 @@ public final class ArchivedEvent implements Event {
     return contractId;
   }
 
+  @NonNull
+  public Optional<String> getPackageName() {
+    return packageName;
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
@@ -61,13 +72,14 @@ public final class ArchivedEvent implements Event {
     return Objects.equals(witnessParties, that.witnessParties)
         && Objects.equals(eventId, that.eventId)
         && Objects.equals(templateId, that.templateId)
-        && Objects.equals(contractId, that.contractId);
+        && Objects.equals(contractId, that.contractId)
+        && Objects.equals(packageName, that.packageName);
   }
 
   @Override
   public int hashCode() {
 
-    return Objects.hash(witnessParties, eventId, templateId, contractId);
+    return Objects.hash(witnessParties, eventId, templateId, contractId, packageName);
   }
 
   @Override
@@ -83,16 +95,19 @@ public final class ArchivedEvent implements Event {
         + ", contractId='"
         + contractId
         + '\''
+        + ", packageName="
+        + packageName
         + '}';
   }
 
   public EventOuterClass.ArchivedEvent toProto() {
-    return EventOuterClass.ArchivedEvent.newBuilder()
+    EventOuterClass.ArchivedEvent.Builder builder = EventOuterClass.ArchivedEvent.newBuilder()
         .setContractId(getContractId())
         .setEventId(getEventId())
         .setTemplateId(getTemplateId().toProto())
-        .addAllWitnessParties(this.getWitnessParties())
-        .build();
+        .addAllWitnessParties(this.getWitnessParties());
+    packageName.ifPresent(a -> builder.setPackageName(StringValue.of(a)));
+    return builder.build();
   }
 
   public static ArchivedEvent fromProto(EventOuterClass.ArchivedEvent archivedEvent) {
@@ -100,6 +115,8 @@ public final class ArchivedEvent implements Event {
         archivedEvent.getWitnessPartiesList(),
         archivedEvent.getEventId(),
         Identifier.fromProto(archivedEvent.getTemplateId()),
-        archivedEvent.getContractId());
+        archivedEvent.getContractId(),
+        archivedEvent.hasPackageName() ? Optional.of(archivedEvent.getPackageName().getValue()) : Optional.empty()
+    );
   }
 }

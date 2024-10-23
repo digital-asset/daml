@@ -28,20 +28,23 @@ class InMemoryCryptoPublicStore(override protected val loggerFactory: NamedLogge
       keyId: Fingerprint,
       oldKey: K,
       newKey: K,
-  ): CryptoPublicStoreError =
-    CryptoPublicStoreError.KeyAlreadyExists(keyId, oldKey, newKey)
+  ): Either[CryptoPublicStoreError, Unit] =
+    if (oldKey.publicKey != newKey.publicKey)
+      Left(CryptoPublicStoreError.KeyAlreadyExists(keyId, oldKey, newKey))
+    else Right(())
 
   override protected def writeSigningKey(key: SigningPublicKey, name: Option[KeyName])(implicit
       traceContext: TraceContext
   ): Future[Unit] =
     Future {
       TrieMapUtil
-        .insertIfAbsent(
+        .insertIfAbsentE(
           storedSigningKeyMap,
           key.id,
           SigningPublicKeyWithName(key, name),
-          errorKeyDuplicate[SigningPublicKeyWithName] _,
+          errorKeyDuplicate[SigningPublicKeyWithName],
         )
+        // An error is thrown if, and only if, the key we want to insert has the same id but different key payloads.
         .valueOr { err =>
           ErrorUtil.invalidState(
             s"Existing public key for ${key.id} is different than inserted key: $err"
@@ -64,15 +67,16 @@ class InMemoryCryptoPublicStore(override protected val loggerFactory: NamedLogge
   ): Future[Unit] =
     Future {
       TrieMapUtil
-        .insertIfAbsent(
+        .insertIfAbsentE(
           storedEncryptionKeyMap,
           key.id,
           EncryptionPublicKeyWithName(key, name),
-          errorKeyDuplicate[EncryptionPublicKeyWithName] _,
+          errorKeyDuplicate[EncryptionPublicKeyWithName],
         )
-        .valueOr { _ =>
+        // An error is thrown if, and only if, the key we want to insert has the same id but different key payloads.
+        .valueOr { err =>
           ErrorUtil.invalidState(
-            s"Existing public key for ${key.id} is different than inserted key"
+            s"Existing public key for ${key.id} is different than inserted key: $err"
           )
         }
     }

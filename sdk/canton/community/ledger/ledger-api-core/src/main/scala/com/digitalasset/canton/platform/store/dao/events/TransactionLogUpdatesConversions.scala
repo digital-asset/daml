@@ -230,6 +230,7 @@ private[platform] object TransactionLogUpdatesConversions {
             templateId = Some(LfEngineToApi.toApiIdentifier(exercisedEvent.templateId)),
             witnessParties =
               requestingParties.iterator.filter(exercisedEvent.flatEventWitnesses).toSeq,
+            packageName = exercisedEvent.packageName,
           )
         )
       )

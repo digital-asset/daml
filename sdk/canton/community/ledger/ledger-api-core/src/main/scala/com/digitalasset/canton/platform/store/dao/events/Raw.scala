@@ -210,6 +210,7 @@ object Raw {
           contractId: String,
           templateId: Identifier,
           eventWitnesses: ArraySeq[String],
+          packageName: Option[String],
       ): Raw.FlatEvent.Archived =
         new Raw.FlatEvent.Archived(
           raw = PbArchivedEvent(
@@ -217,6 +218,7 @@ object Raw {
             contractId = contractId,
             templateId = Some(LfEngineToApi.toApiIdentifier(templateId)),
             witnessParties = eventWitnesses,
+            packageName = packageName,
           )
         )
 

@@ -184,6 +184,10 @@ message ArchivedEvent {
   // in ``value.proto``).
   // Required
   repeated string witness_parties = 4;
+
+  // The package name of the archived contract.
+  // Optional
+  google.protobuf.StringValue package_name = 5;
 }
 
 // Records that a choice has been exercised on a target contract.
@@ -200,7 +204,8 @@ message ExercisedEvent {
   string contract_id = 2;
 
   // The template of the target contract.
-  // The identifier uses the package-id reference format.
+  // The identifier uses the package-id reference format,
+  // with the package id at which the contract was created.
   //
   // Required
   Identifier template_id = 3;
@@ -261,5 +266,11 @@ message ExercisedEvent {
   // The result of exercising the choice.
   // Required
   Value exercise_result = 12;
+
+  // The package of the choice that was exercised, which may be different from the package
+  // with which the contract was created.
+  //
+  // Optional
+  google.protobuf.StringValue choice_package_id = 15;
 }
 

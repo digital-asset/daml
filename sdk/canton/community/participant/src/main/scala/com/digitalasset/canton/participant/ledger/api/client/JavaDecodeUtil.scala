@@ -7,31 +7,60 @@ import com.daml.ledger.javaapi.data.codegen.{
   Contract,
   ContractCompanion,
   ContractId,
+  ContractTypeCompanion,
   InterfaceCompanion,
 }
 import com.daml.ledger.javaapi.data.{
   ArchivedEvent,
   CreatedEvent as JavaCreatedEvent,
   Event,
+  Identifier,
   Transaction as JavaTransaction,
   TransactionTree,
   TreeEvent,
 }
+import com.daml.lf.data.Ref
 
 import scala.jdk.CollectionConverters.*
+import scala.jdk.OptionConverters.*
 
 object JavaDecodeUtil {
+
+  private def matchesTemplate[TC](
+      companion: ContractTypeCompanion[TC, ?, ?, ?],
+      packageName: Option[String],
+      templateId: Identifier,
+  ): Boolean = {
+    val (got, want) = packageName match {
+      case Some(name) => {
+        val pkgRefForName = Ref.PackageRef.Name(Ref.PackageName.assertFromString(name)).toString
+        (
+          new Identifier(pkgRefForName, templateId.getModuleName, templateId.getEntityName),
+          companion.TEMPLATE_ID,
+        )
+      }
+      case None =>
+        // No package name was populated on this event, so we must match against the package id.
+        (templateId, companion.TEMPLATE_ID_WITH_PACKAGE_ID)
+    }
+    got == want
+  }
+
   def decodeCreated[TC](
       companion: ContractCompanion[TC, ?, ?]
   )(event: JavaCreatedEvent): Option[TC] =
-    if (event.getTemplateId == companion.TEMPLATE_ID_WITH_PACKAGE_ID) {
+    if (matchesTemplate(companion, event.getPackageName.toScala, event.getTemplateId)) {
       Some(companion.fromCreatedEvent(event))
     } else None
 
   def decodeCreated[Id, View](
       companion: InterfaceCompanion[?, Id, View]
   )(event: JavaCreatedEvent): Option[Contract[Id, View]] =
-    if (event.getInterfaceViews.containsKey(companion.TEMPLATE_ID_WITH_PACKAGE_ID)) {
+    if (
+      event.getInterfaceViews.keySet.asScala.exists(
+        matchesTemplate(companion, event.getPackageName.toScala, _)
+      )
+    ) {
       Some(companion.fromCreatedEvent(event))
     } else None
 
@@ -70,7 +99,7 @@ object JavaDecodeUtil {
       companion: ContractCompanion[?, ?, T]
   )(event: ArchivedEvent): Option[ContractId[T]] =
     Option(event)
-      .filter(_.getTemplateId == companion.TEMPLATE_ID_WITH_PACKAGE_ID)
+      .filter(e => matchesTemplate(companion, e.getPackageName.toScala, e.getTemplateId))
       .map(_.getContractId)
       .map(new ContractId[T](_))
 
@@ -96,7 +125,12 @@ object JavaDecodeUtil {
     for {
       event <- eventsById.values.toList
       archive = event.toProtoTreeEvent.getExercised
-      if archive.getConsuming && archive.getTemplateId == companion.TEMPLATE_ID_WITH_PACKAGE_ID.toProto
+      packageName = if (archive.hasPackageName) Some(archive.getPackageName.toString) else None
+      if archive.getConsuming && matchesTemplate(
+        companion,
+        packageName,
+        Identifier.fromProto(archive.getTemplateId),
+      )
     } yield companion.toContractId(new ContractId(archive.getContractId))
 
 }

@@ -6,6 +6,7 @@ package com.digitalasset.canton.crypto.store
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
+import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
 
 trait CryptoPublicStoreTest extends BaseTest { this: AsyncWordSpec =>
@@ -98,10 +99,16 @@ trait CryptoPublicStoreTest extends BaseTest { this: AsyncWordSpec =>
         // Should succeed
         _ <- store.storeEncryptionKey(encKey1, encKey1WithName.name)
 
-        // Should fail due to different name
-        _failedInsert <- loggerFactory.assertInternalErrorAsync[IllegalStateException](
-          store.storeEncryptionKey(encKey1, None),
-          _.getMessage shouldBe s"Existing public key for ${encKey1.id} is different than inserted key",
+        // Should succeed and the old name is kept
+        _ <- store.storeEncryptionKey(encKey1, None)
+        _ <- store.storeEncryptionKey(encKey1, Some(KeyName.tryCreate("wrong_name")))
+
+        // Should fail due to different key payload
+        _ <- loggerFactory.assertInternalErrorAsync[IllegalStateException](
+          store.storeEncryptionKey(encKey1.copy(key = ByteString.EMPTY), None),
+          _.getMessage should startWith(
+            s"Existing public key for ${encKey1.id} is different than inserted key"
+          ),
         )
 
         result <- store.listEncryptionKeys
@@ -120,9 +127,13 @@ trait CryptoPublicStoreTest extends BaseTest { this: AsyncWordSpec =>
         _ <- store
           .storeSigningKey(sigKey1, sigKey1WithName.name)
 
+        // Should succeed and the old name is kept
+        _ <- store.storeSigningKey(sigKey1, None)
+        _ <- store.storeSigningKey(sigKey1, Some(KeyName.tryCreate("wrong_name")))
+
         // Should fail due to different name
-        _failedInsert <- loggerFactory.assertInternalErrorAsync[IllegalStateException](
-          store.storeSigningKey(sigKey1, None),
+        _ <- loggerFactory.assertInternalErrorAsync[IllegalStateException](
+          store.storeSigningKey(sigKey1.copy(key = ByteString.EMPTY), None),
           _.getMessage should startWith(
             s"Existing public key for ${sigKey1.id} is different than inserted key"
           ),
