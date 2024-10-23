@@ -294,6 +294,7 @@ object TransactionGenerator {
         witnessParties = witnessParties,
         childEventIds = Nil,
         exerciseResult = Some(scalaExerciseResult),
+        choicePackageId = choicePackageId,
       )
     ),
     new data.ExercisedEvent(
