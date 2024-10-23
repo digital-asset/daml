@@ -27,7 +27,7 @@ import com.dylibso.chicory.runtime.{
   Module => WasmModule,
 }
 import com.dylibso.chicory.wasm.exceptions.UninstantiableException
-import com.dylibso.chicory.wasm.types.{Value => WasmValue}
+import com.dylibso.chicory.wasm.types.{Value => WasmValue, ValueType => WasmValueType}
 import com.google.protobuf.ByteString
 
 import scala.concurrent.Await
@@ -413,6 +413,10 @@ final class WasmRunner(
       Array[WasmHostFunction](
         logFunc,
         abortFunc,
+        TeaVM.currentTimeMillis,
+        TeaVM.logString,
+        TeaVM.logInt,
+        TeaVM.logOutOfMemory,
         PureWasmHostFunctions.createContractFunc,
         PureWasmHostFunctions.fetchContractArgFunc,
         PureWasmHostFunctions.exerciseChoiceFunc,
@@ -427,6 +431,10 @@ final class WasmRunner(
       Array[WasmHostFunction](
         logFunc,
         abortFunc,
+        TeaVM.currentTimeMillis,
+        TeaVM.logString,
+        TeaVM.logInt,
+        TeaVM.logOutOfMemory,
         createContractFunc,
         fetchContractArgFunc,
         exerciseChoiceFunc,
@@ -534,6 +542,56 @@ object WasmRunner {
           submitters,
           authorizationChecker,
         ),
+    )
+  }
+
+  object TeaVM {
+    val currentTimeMillis: WasmHostFunction = new WasmHostFunction(
+      (_: WasmInstance, args: Array[WasmValue]) => {
+        require(args.length == 0)
+
+        Array(WasmValue.f64(0))
+      },
+      "teavm",
+      "currentTimeMillis",
+      List.empty.asJava,
+      List(WasmValueType.F64).asJava,
+    )
+
+    val logString: WasmHostFunction = new WasmHostFunction(
+      (_: WasmInstance, args: Array[WasmValue]) => {
+        require(args.length == 1)
+
+        Array.empty
+      },
+      "teavm",
+      "logString",
+      List(WasmValueType.I32).asJava,
+      List.empty.asJava,
+    )
+
+    val logInt: WasmHostFunction = new WasmHostFunction(
+      (_: WasmInstance, args: Array[WasmValue]) => {
+        require(args.length == 1)
+
+        Array.empty
+      },
+      "teavm",
+      "logInt",
+      List(WasmValueType.I32).asJava,
+      List.empty.asJava,
+    )
+
+    val logOutOfMemory: WasmHostFunction = new WasmHostFunction(
+      (_: WasmInstance, args: Array[WasmValue]) => {
+        require(args.length == 0)
+
+        Array.empty
+      },
+      "teavm",
+      "logOutOfMemory",
+      List.empty.asJava,
+      List.empty.asJava,
     )
   }
 

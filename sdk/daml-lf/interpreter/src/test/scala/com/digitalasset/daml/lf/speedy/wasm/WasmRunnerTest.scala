@@ -49,7 +49,8 @@ class WasmRunnerTest
     with MockitoSugar
     with BeforeAndAfterEach {
 
-  private val languages: Map[String, String] = Map("rust" -> "rs", "assemblyscript" -> "as")
+  private val languages: Map[String, String] =
+    Map("rust" -> "rs", "assemblyscript" -> "as", "scala" -> "scala", "java" -> "java")
   private val mockLogger = mock[Logger]
   private val darFile = Paths
     .get(

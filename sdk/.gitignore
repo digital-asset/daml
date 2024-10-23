@@ -16,6 +16,10 @@ target
 *.hi
 *.o
 
+# Gradle
+build/
+.gradle/
+
 # Daml
 .daml/
 

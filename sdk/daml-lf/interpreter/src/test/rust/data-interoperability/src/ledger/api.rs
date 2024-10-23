@@ -114,6 +114,7 @@ pub trait Template<T> {
 
     fn new(arg: lf::Value) -> T;
 
+    // TODO: this should call a host function - as package ID is not known until after code has been compiled
     #[allow(non_snake_case)]
     fn templateId() -> lf::Identifier;
 
@@ -129,14 +130,7 @@ pub trait Template<T> {
         return result; // lf::value::Boolean
     }
 
-    fn signatories(arg: lf::Value) -> lf::Value {
-        let mut result = lf::Value::new();
-        let empty = lf::value::List::new();
-
-        result.set_list(empty);
-
-        return result; // lf::value::List<lf::value::Party>
-    }
+    fn signatories(arg: lf::Value) -> lf::Value; // returns lf::value::List<lf::value::Party>
 
     fn observers(arg: lf::Value) -> lf::Value {
         let mut result = lf::Value::new();

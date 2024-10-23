@@ -117,13 +117,11 @@ impl ledger::api::Template<SimpleTemplate> for SimpleTemplate {
 
     #[allow(unused)]
     fn signatories(arg: lf::Value) -> lf::Value {
-         let mut bob = lf::Value::new();
-         let mut charlie = lf::Value::new();
+         let mut owner = ledger::utils::get_field(arg, 0);
          let mut result = lf::Value::new();
          let mut list = lf::value::List::new();
 
-         bob.set_party(String::from("bob"));
-         list.elements = vec![bob];
+         list.elements = vec![owner];
          result.set_list(list);
 
          return result;
