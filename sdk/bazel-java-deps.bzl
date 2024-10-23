@@ -48,7 +48,7 @@ version_specific = {
 # Version of GRPC and netty should follow the "known to work version combinations" as
 # described in  https://github.com/grpc/grpc-java/blob/master/SECURITY.md#netty
 netty_tcnative_version = "2.0.61.Final"
-netty_version = "4.1.100.Final"
+netty_version = "4.1.108.Final"
 grpc_version = "1.65.1"
 protobuf_version = "3.24.4"
 pekko_version = "1.1.2"
