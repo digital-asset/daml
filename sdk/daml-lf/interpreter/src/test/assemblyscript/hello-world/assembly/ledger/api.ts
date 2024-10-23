@@ -47,12 +47,8 @@ export class LfIdentifier {
   }
 }
 
-export class LfValue<V> {
-  static fromProtobuf(value: proto.Value): LfValue<V> {
-    throw new Error("Unimplemented");
-  }
-
-  value(): V {
+export class LfValue {
+  static fromProtobuf(value: proto.Value): LfValue {
     throw new Error("Unimplemented");
   }
 
@@ -61,7 +57,7 @@ export class LfValue<V> {
   }
 }
 
-export class LfValueUnit extends LfValue<Empty> {
+export class LfValueUnit extends LfValue {
   static fromProtobuf(value: proto.Value): LfValueUnit {
     if (isUnit(value)) {
       return new LfValueUnit();
@@ -79,7 +75,7 @@ export class LfValueUnit extends LfValue<Empty> {
   }
 }
 
-export class LfValueBool extends LfValue<bool> {
+export class LfValueBool extends LfValue {
   private _value: bool;
 
   constructor(value: bool) {
@@ -104,7 +100,7 @@ export class LfValueBool extends LfValue<bool> {
   }
 }
 
-export class LfValueInt extends LfValue<i64> {
+export class LfValueInt extends LfValue {
   private _value: i64;
 
   constructor(value: i64) {
@@ -129,7 +125,7 @@ export class LfValueInt extends LfValue<i64> {
   }
 }
 
-export class LfValueParty extends LfValue<string> {
+export class LfValueParty extends LfValue {
   private _party: string;
 
   constructor(party: string) {
@@ -154,7 +150,7 @@ export class LfValueParty extends LfValue<string> {
   }
 }
 
-export class LfValueString extends LfValue<string> {
+export class LfValueString extends LfValue {
   private _value: string;
 
   constructor(value: string) {
@@ -179,7 +175,7 @@ export class LfValueString extends LfValue<string> {
   }
 }
 
-export class LfValueContractId extends LfValue<string> {
+export class LfValueContractId extends LfValue {
   private _contractId: Uint8Array;
 
   constructor(contractId: string) {
@@ -204,7 +200,7 @@ export class LfValueContractId extends LfValue<string> {
   }
 }
 
-export class LfValueOptional extends LfValue<LfValue | null> {
+export class LfValueOptional extends LfValue {
   private _value: LfValue | null;
 
   constructor(value: LfValue | null) {
@@ -236,12 +232,20 @@ export class LfValueOptional extends LfValue<LfValue | null> {
   }
 }
 
-export class LfValueSet extends LfValue<Set<lfValue>> {
+export class LfValueSet extends LfValue {
   private _value: Set<LfValue>;
 
   constructor(value: Set<LfValue> = new Set<lfValue>()) {
     super();
     this._value = value;
+  }
+
+  static fromArray(value: Array<LfValue>): LfValueSet {
+    let values = new Set<LfValue>();
+
+    value.forEach(v => values.add(v));
+
+    return new LfValueSet(values);
   }
 
   static fromProtobuf(value: proto.Value): LfValueSet {
@@ -263,13 +267,13 @@ export class LfValueSet extends LfValue<Set<lfValue>> {
   toProtobuf(): proto.Value {
     return new proto.Value(
       (list = new protoList.List(
-        _value.values().map((v: LfValue, _, _): proto.Value => v.toProtobuf()),
+        _value.values().map<proto.Value>(v => v.toProtobuf()),
       )),
     );
   }
 }
 
-export class LfValueMap extends LfValue<Map<LfValue, LfValue>> {
+export class LfValueMap extends LfValue {
   private _value: Map<LfValue, LfValue>;
 
   constructor(value: Map<LfValue, LfValue> = new Map<LfValue, LfValue>()) {
@@ -300,8 +304,8 @@ export class LfValueMap extends LfValue<Map<LfValue, LfValue>> {
       (map = new protoMap.Map(
         _value
           .keys()
-          .map(
-            (k: LfValue, _, _): proto.Value =>
+          .map<proto.Value>(
+            k =>
               new protoMapEntry.Entry(
                 k.toProtobuf(),
                 _value.get(k).toProtobuf(),
@@ -312,7 +316,7 @@ export class LfValueMap extends LfValue<Map<LfValue, LfValue>> {
   }
 }
 
-export class LfValueRecord extends LfValue<Map<string, LfValue>> {
+export class LfValueRecord extends LfValue {
   private _value: Map<string, LfValue>;
 
   constructor(value: Map<string, LfValue>) {
@@ -343,10 +347,7 @@ export class LfValueRecord extends LfValue<Map<string, LfValue>> {
       (record = new protoRecord.Record(
         _value
           .values()
-          .map(
-            (v: LfValue, _, _): proto.Value =>
-              new protoRecordField.Field(v.toProtobuf()),
-          ),
+          .map<proto.Value>(v => new protoRecordField.Field(v.toProtobuf())),
       )),
     );
   }
@@ -365,16 +366,16 @@ export class Choice<R> {
     return _arg;
   }
 
-  controllers(): Set<LfValueParty> {
-    return new Set<LfValueParty>();
+  controllers(): Set<string> {
+    return new Set<string>();
   }
 
-  observers(): Set<LfValueParty> {
-    return new Set<LfValueParty>();
+  observers(): Set<string> {
+    return new Set<string>();
   }
 
-  authorizers(): Set<LfValueParty> {
-    return new Set<LfValueParty>();
+  authorizers(): Set<string> {
+    return new Set<string>();
   }
 
   exercise(): R {
@@ -392,7 +393,7 @@ export class ChoiceClosure<R> {
   }
 
   apply(choiceArg: LfValue): Choice<R> {
-    return new Choice<R>(contractArg, choiceArg);
+    throw new Error("Unimplemented");
   }
 }
 
@@ -453,11 +454,11 @@ export class Template<T> {
     return true;
   }
 
-  signatories(): Set<LfValueParty> {
+  signatories(): Set<string> {
     throw new Error("Unimplemented");
   }
 
-  observers(): Set<LfValueParty> {
+  observers(): Set<string> {
     return new Set<LfValueParty>();
   }
 
@@ -494,7 +495,7 @@ export class Contract<T> {
     contractIdByteStr.dealloc();
     templateIdByteStr.dealloc();
 
-    return new T(arg);
+    return T.fromLfValue(arg);
   }
 
   exercise(choiceName: string, arg: LfValue): LfValue {

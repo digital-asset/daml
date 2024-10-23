@@ -13,7 +13,7 @@ import { List } from "./Value/List";
 import { Map } from "./Value/Map";
 import { TextMap } from "./Value/TextMap";
 import { Record } from "./Value/Record";
-// import { Variant } from "./Value/Variant";
+import { Variant } from "./Value/Variant";
 import { Enum } from "./Value/Enum";
 
 export class Value {
@@ -90,13 +90,13 @@ export class Value {
       writer.ldelim();
     }
 
-    //     const variant = message.variant;
-    //     if (variant !== null) {
-    //       writer.uint32(114);
-    //       writer.fork();
-    //       Variant.encode(variant, writer);
-    //       writer.ldelim();
-    //     }
+    const variant = message.variant;
+    if (variant !== null) {
+      writer.uint32(114);
+      writer.fork();
+      Variant.encode(variant, writer);
+      writer.ldelim();
+    }
 
     const enum_ = message.enum;
     if (enum_ !== null) {
@@ -171,7 +171,7 @@ export class Value {
           break;
 
         case 14:
-          //           message.variant = Variant.decode(reader, reader.uint32());
+          message.variant = Variant.decode(reader, reader.uint32());
           break;
 
         case 15:
@@ -201,7 +201,7 @@ export class Value {
   map: Map | null;
   textMap: TextMap | null;
   record: Record | null;
-  //   variant: Variant | null;
+  variant: Variant | null;
   enum: Enum | null;
 
   constructor(
@@ -219,7 +219,7 @@ export class Value {
     map: Map | null = null,
     textMap: TextMap | null = null,
     record: Record | null = null,
-    //     variant: Variant | null = null,
+    variant: Variant | null = null,
     enum_: Enum | null = null,
   ) {
     this.unit = unit;
@@ -236,7 +236,7 @@ export class Value {
     this.map = map;
     this.textMap = textMap;
     this.record = record;
-    //     this.variant = variant;
+    this.variant = variant;
     this.enum = enum_;
   }
 }

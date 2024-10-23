@@ -3,44 +3,46 @@
 
 import * as api from "./ledger/api";
 
-class SimpleTemplate_increment extends api.Choice<api.LfValueContractId> {
-  private owner: api.LfValueParty;
-  private count: api.LfValueInt;
-  private n: api.LfValueInt;
+class SimpleTemplate_increment extends api.Choice<
+  api.Contract<SimpleTemplate>
+> {
+  private owner: string;
+  private count: i64;
+  private n: i64;
 
-  constructor(
-    owner: api.LfValueParty,
-    count: api.LfValueInt,
-    n: api.LfValueInt,
-  ) {
-    super(n);
+  constructor(owner: string, count: i64, n: i64) {
+    super(SimpleTemplate.toLfValue(owner, count), toLfValueInt(n));
     this.owner = owner;
     this.count = count;
     this.n = n;
   }
 
-  exercise(): api.LfValueContractId {
+  static toLfValue(n: i64): api.LfValue {
+    return new api.LfValueInt(n);
+  }
+
+  exercise(): api.Contract<SimpleTemplate> {
     api.logInfo(
-      `called AssemblyScript SimpleTemplate_increment(${n.value()}) with count = ${count.value()}`,
+      `called AssemblyScript SimpleTemplate_increment(${n}) with count = ${count}`,
     );
 
-    return new SimpleTemplate(
-      owner,
-      new api.LfValueInt(count.value() + n.value()),
-    ).create<SimpleTemplate>();
+    return new SimpleTemplate(owner, count + n).create();
   }
 }
 
-class SimpleTemplate_increment_closure extends api.ConsumingChoice<SimpleTemplate_increment> {
-  private owner: api.LfValueParty;
-  private count: api.LfValueInt;
+class SimpleTemplate_increment_closure extends api.ConsumingChoice<
+  api.Contract<SimpleTemplate>
+> {
+  private owner: string;
+  private count: i64;
 
-  constructor(owner: api.LfValueParty, count: api.LfValueInt) {
+  constructor(owner: string, count: i64) {
+    super(SimpleTemplate.toLfValue(owner, count));
     this.owner = owner;
     this.count = count;
   }
 
-  apply(n: api.LfValueInt): SimpleTemplate_increment {
+  apply(n: i64): SimpleTemplate_increment {
     return new SimpleTemplate_increment(owner, count, n);
   }
 }
@@ -50,15 +52,17 @@ export class SimpleTemplate extends api.Template<SimpleTemplate> {
   private count: i64;
 
   constructor(owner: string, count: i64) {
-    super(
-      api.LfValueMap(
-        new Map()
-          .set("owner", new api.LfValueParty(owner))
-          .set("count", new api.LfValueInt(count)),
-      ),
-    );
+    super(toLfValue(owner, count));
     this.owner = owner;
     this.count = count;
+  }
+
+  static toLfValue(owner: string, count: i64): api.LfValue {
+    return new api.LfValueRecord(
+      new Map()
+        .set("owner", new api.LfValueParty(owner))
+        .set("count", new api.LfValueInt(count)),
+    );
   }
 
   static fromLfValue(arg: api.LfValue): SimpleTemplate {
@@ -81,22 +85,16 @@ export class SimpleTemplate extends api.Template<SimpleTemplate> {
   }
 
   static isValidArg(arg: api.LfValue): bool {
-    if (isMap(arg) && arg.map.entries.length == 2) {
-      let owner = arg.map.entries[0];
-      let count = arg.map.entries[1];
-      if (owner.key.text != "owner" || !isParty(owner.value)) {
-        return false;
-      }
-      if (count.key.text != "count" || !isInt64(count.value)) {
-        return false;
-      }
-      return true;
+    if (isRecord(arg) && arg.record.fields.length == 2) {
+      let owner = arg.record.fields[0];
+      let count = arg.record.fields[1];
+      return isParty(owner.value) && isInt64(count.value);
     } else {
       return false;
     }
   }
 
-  signatories(): Set<api.LfValueParty> {
+  signatories(): Set<string> {
     return new Set().add(owner);
   }
 
@@ -105,7 +103,7 @@ export class SimpleTemplate extends api.Template<SimpleTemplate> {
       .choices()
       .set(
         "SimpleTemplate_increment",
-        new SimpleTemplate_increment_partial(owner, count),
+        new SimpleTemplate_increment_closure(owner, count),
       );
   }
 }
@@ -115,7 +113,7 @@ export class SimpleTemplate extends api.Template<SimpleTemplate> {
 export function SimpleTemplate_precond(
   arg: internal.ByteString,
 ): internal.ByteString {
-  let contractArg = LfValue.fromProtobuf(contractArg.toProtobuf());
+  let contractArg = LfValue.fromProtobuf(arg.toProtobuf());
   let template = SimpleTemplate.fromLfValue(contractArg);
   let precondition =
     SimpleTemplate.isValidArg(contractArg) && template.precond();
@@ -131,7 +129,12 @@ export function SimpleTemplate_signatories(
     LfValue.fromProtobuf(contractArg.toProtobuf()),
   );
   return internal.ByteString.fromProtobuf(
-    new api.LfValueSet(template.signatories()).toProtobuf(),
+    new api.LfValueSet.fromArray(
+      template
+        .signatories()
+        .values()
+        .map<api.LfValueParty>(party => new api.LfValueParty(party)),
+    ).toProtobuf(),
   );
 }
 
@@ -142,7 +145,12 @@ export function SimpleTemplate_observers(
     LfValue.fromProtobuf(contractArg.toProtobuf()),
   );
   return internal.ByteString.fromProtobuf(
-    new api.LfValueSet(template.observers()).toProtobuf(),
+    new api.LfValueSet.fromArray(
+      template
+        .observers()
+        .values()
+        .map<api.LfValueParty>(party => new api.LfValueParty(party)),
+    ).toProtobuf(),
   );
 }
 
@@ -167,12 +175,14 @@ export function SimpleTemplate_increment_choice_controllers(
     LfValue.fromProtobuf(contractArg.toProtobuf()),
   );
   return internal.ByteString.fromProtobuf(
-    new api.LfValueSet(
+    new api.LfValueSet.fromArray(
       template
         .choices()
         .get("SimpleTemplate_increment")
         .apply(LfValue.fromProtobuf(choiceArg.toProtobuf()))
-        .controllers(),
+        .controllers()
+        .values()
+        .map<api.LfValueParty>(party => new api.LfValueParty(party)),
     ).toProtobuf(),
   );
 }
@@ -185,12 +195,14 @@ export function SimpleTemplate_increment_choice_observers(
     LfValue.fromProtobuf(contractArg.toProtobuf()),
   );
   return internal.ByteString.fromProtobuf(
-    new api.LfValueSet(
+    new api.LfValueSet.fromArray(
       template
         .choices()
         .get("SimpleTemplate_increment")
         .apply(LfValue.fromProtobuf(choiceArg.toProtobuf()))
-        .observers(),
+        .observers()
+        .values()
+        .map<api.LfValueParty>(party => new api.LfValueParty(party)),
     ).toProtobuf(),
   );
 }
@@ -203,30 +215,14 @@ export function SimpleTemplate_increment_choice_authorizers(
     LfValue.fromProtobuf(contractArg.toProtobuf()),
   );
   return internal.ByteString.fromProtobuf(
-    new api.LfValueSet(
+    new api.LfValueSet.fromArray(
       template
         .choices()
         .get("SimpleTemplate_increment")
         .apply(LfValue.fromProtobuf(choiceArg.toProtobuf()))
-        .authorizers(),
+        .authorizers()
+        .values()
+        .map<api.LfValueParty>(party => new api.LfValueParty(party)),
     ).toProtobuf(),
-  );
-}
-
-// TODO: is the following actually needed?
-export function SimpleTemplate_increment_choice_exercise(
-  contractArg: internal.ByteString,
-  choiceArg: internal.ByteString,
-): internal.ByteString {
-  let template = SimpleTemplate.fromLfValue(
-    LfValue.fromProtobuf(contractArg.toProtobuf()),
-  );
-  return internal.ByteString.fromProtobuf(
-    template
-      .choices()
-      .get("SimpleTemplate_increment")
-      .apply(LfValue.fromProtobuf(choiceArg.toProtobuf()))
-      .exercise()
-      .toProtobuf(),
   );
 }

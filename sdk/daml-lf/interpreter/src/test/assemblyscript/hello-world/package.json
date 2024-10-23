@@ -14,9 +14,9 @@
     "start": "npx serve ."
   },
   "devDependencies": {
-    "assemblyscript": "^0.27.29"
+    "assemblyscript": "^0.27.30"
   },
   "dependencies": {
-    "ts-proto": "^2.2.0"
+    "ts-proto": "^2.2.5"
   }
 }

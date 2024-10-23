@@ -3,6 +3,7 @@
 
 import * as proto from "../../protobuf/com/digitalasset/daml/lf/value/Value"
 
+@unmanaged
 export class ByteString {
     ptr: ArrayBuffer;
     size: i32;
