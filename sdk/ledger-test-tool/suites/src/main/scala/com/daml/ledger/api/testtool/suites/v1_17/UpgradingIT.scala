@@ -342,7 +342,7 @@ class UpgradingIT extends LedgerTestSuite {
       val v1TmplId = FetcherV1.TEMPLATE_ID_WITH_PACKAGE_ID
       val v2TmplId = FetcherV2.TEMPLATE_ID_WITH_PACKAGE_ID
 
-      // Both exercise events should use have the created templateId (i.e. v1)
+      // Both exercise events's template-id should match the create template-id (i.e. v1)
       assertEquals(toJavaProto(exercised1.templateId.get), v1TmplId.toProto)
       // TODO(i21823): Uncomment
       // assertEquals(toJavaProto(exercised2.templateId.get), v1TmplId.toProto)
