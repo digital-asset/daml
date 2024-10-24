@@ -1,0 +1,120 @@
+# Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+
+load(
+    "//bazel_tools:scala.bzl",
+    "da_scala_binary",
+    "da_scala_library",
+    "lf_scalacopts_stricter",
+)
+load(
+    "//rules_daml:daml.bzl",
+    "daml_compile",
+    "default_damlc_opts",
+)
+load(
+    "//daml-lf/language:daml-lf.bzl",
+    "ENGINE_LF_VERSIONS",
+    "mangle_for_damlc",
+)
+
+PKG_VERSIONS = [
+    (1, None),
+    (2, 1),
+    (3, 2),
+]
+
+[
+    daml_compile(
+        name = "universal-pkgv{pkg_version}-lf{lf_version}".format(
+            lf_version = mangle_for_damlc(lf_version),
+            pkg_version = pkg_version,
+        ),
+        srcs = ["src/main/daml/Universal.daml"],
+        ghc_options = default_damlc_opts + [
+            "--ghc-option=-DPACKAGE_VERSION={}".format(pkg_version),
+        ],
+        project_name = "universal",
+        target = lf_version,
+        typecheck_upgrades = True,
+        upgrades = "//daml-lf/model-test-lib:universal-pkgv{pkg_version}-lf{lf_version}.dar".format(
+            lf_version = mangle_for_damlc(lf_version),
+            pkg_version = upgraded,
+        ) if upgraded != None else None,
+        version = "{}.0.0".format(pkg_version),
+    )
+    for lf_version in ENGINE_LF_VERSIONS
+    for (pkg_version, upgraded) in PKG_VERSIONS
+]
+
+da_scala_library(
+    name = "model-test-lib",
+    srcs = glob(
+        ["src/main/**/*.scala"],
+        exclude = ["src/main/scala/com/digitalasset/daml/lf/model/test/Demo.scala"],
+    ),
+    data = ["//canton:community_app_deploy.jar"],
+    scala_deps = [
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_typelevel_cats_core",
+        "@maven//:org_scala_lang_modules_scala_parser_combinators",
+        "@maven//:org_apache_pekko_pekko_stream",
+        "@maven//:org_typelevel_cats_kernel",
+        "@maven//:org_typelevel_paiges_core",
+    ],
+    scalacopts = lf_scalacopts_stricter,
+    tags = ["maven_coordinates=com.daml:daml-lf-model-test-lib:__VERSION__"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:bindings-java",
+        "//canton:community_ledger_ledger-common",
+        "//canton:community_util-logging",
+        "//canton:ledger_api_proto_scala",
+        "//daml-lf/archive:daml_lf_archive_reader",
+        "//daml-lf/data",
+        "//daml-lf/interpreter",
+        "//daml-lf/language",
+        "//daml-lf/scenario-interpreter",
+        "//daml-lf/transaction",
+        "//daml-script/runner:script-runner-lib",
+        "//language-support/java/bindings-rxjava",
+        "//libs-scala/contextualized-logging",
+        "//libs-scala/rs-grpc-bridge",
+        "@maven//:io_grpc_grpc_netty",
+        "@maven//:io_reactivex_rxjava2_rxjava",
+        "@maven//:org_reactivestreams_reactive_streams",
+        "@maven//:tools_aqua_z3_turnkey",
+    ],
+)
+
+da_scala_binary(
+    name = "demo",
+    srcs = ["src/main/scala/com/digitalasset/daml/lf/model/test/Demo.scala"],
+    data = [":universal-pkgv{pkg_version}-lf{lf_version}.dar".format(
+        lf_version = mangle_for_damlc(lf_version),
+        pkg_version = pkg_version,
+    ) for lf_version in ENGINE_LF_VERSIONS for (pkg_version, _) in PKG_VERSIONS],
+    main_class = "com.digitalasset.daml.lf.model.test.Demo",
+    resources = ["//daml-script/runner:src/main/resources/logback.xml"],
+    scala_deps = [
+        "@maven//:org_scalacheck_scalacheck",
+        "@maven//:org_scala_lang_modules_scala_parser_combinators",
+        "@maven//:org_apache_pekko_pekko_actor",
+        "@maven//:org_apache_pekko_pekko_stream",
+        #"@maven//:org_typelevel_cats_core",
+    ],
+    runtime_deps = [
+        "@maven//:ch_qos_logback_logback_classic",
+    ],
+    deps = [
+        ":model-test-lib",
+        "//bazel_tools/runfiles:scala_runfiles",
+        "//canton:community_util-logging",
+        "//daml-lf/data",
+        "//daml-lf/language",
+        "//libs-scala/rs-grpc-bridge",
+        "//libs-scala/rs-grpc-pekko",
+    ],
+)
