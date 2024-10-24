@@ -240,7 +240,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       .runCollectRequests(machine)
       .map { case (sv, uvs) => // ignoring any AuthRequest
         val v = sv.toNormalizedValue(VDev)
-        (sv, v, uvs)
+        (v, uvs)
       }
   }
 
@@ -491,7 +491,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
             in upure @(ContractId '-pkg1-':M:T) cid
           """
       )
-      inside(res) { case Right((_, ValueContractId(cid), verificationRequests)) =>
+      inside(res) { case Right((ValueContractId(cid), verificationRequests)) =>
         verificationRequests shouldBe List(
           UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v1_key))
         )
@@ -507,7 +507,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
             in upure @(ContractId '-pkg1-':M:T) cid
           """
       )
-      inside(res) { case Right((_, ValueContractId(cid), verificationRequests)) =>
+      inside(res) { case Right((ValueContractId(cid), verificationRequests)) =>
         verificationRequests shouldBe List(
           UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v2_key)),
           UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v2_key)),
@@ -523,7 +523,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
             in upure @(ContractId '-pkg1-':M:T) cid
           """
       )
-      inside(res) { case Right((_, ValueContractId(cid), verificationRequests)) =>
+      inside(res) { case Right((ValueContractId(cid), verificationRequests)) =>
         verificationRequests shouldBe List(
           UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v1_key))
         )
@@ -539,7 +539,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
                in upure @(ContractId '-pkg1-':M:T) cid
           """
       )
-      inside(res) { case Right((_, ValueContractId(cid), verificationRequests)) =>
+      inside(res) { case Right((ValueContractId(cid), verificationRequests)) =>
         verificationRequests shouldBe List(
           UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v2_key)),
           UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v2_key)),
@@ -561,7 +561,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           """,
         packageResolution = Map(Ref.PackageName.assertFromString("-upgrade-test-") -> pkgId2),
       )
-      inside(res) { case Right((_, ValueContractId(cid), verificationRequests)) =>
+      inside(res) { case Right((ValueContractId(cid), verificationRequests)) =>
         verificationRequests shouldBe List(
           UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v1_key))
         )
