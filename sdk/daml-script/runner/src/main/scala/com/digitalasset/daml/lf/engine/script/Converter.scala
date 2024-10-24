@@ -382,7 +382,7 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
   ): Either[String, SValue] = {
     for {
       translated <- translator
-        .translateValue(viewType, value)
+        .strictTranslateValue(viewType, value)
         .left
         .map(err => s"Failed to translate value of interface view: $err")
     } yield translated
@@ -524,7 +524,7 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
           requireV1ContractIdSuffix = false,
         )
       sValue <- valueTranslator
-        .translateValue(ty, lfValue)
+        .strictTranslateValue(ty, lfValue)
         .left
         .map(_.message)
     } yield sValue

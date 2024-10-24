@@ -107,12 +107,6 @@ object Error {
         override val message: String,
     ) extends Error
 
-    final case class NormalizationError(
-        typ: Ast.Type,
-        value: Value,
-        override val message: String,
-    ) extends Error
-
     final case class ValueNesting(culprit: Value) extends Error {
       override def message: String =
         s"Provided value exceeds maximum nesting level of ${Value.MAXIMUM_NESTING}"
