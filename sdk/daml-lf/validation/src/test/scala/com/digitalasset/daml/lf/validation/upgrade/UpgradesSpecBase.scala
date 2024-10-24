@@ -17,10 +17,14 @@ import org.scalatest.Inspectors.forEvery
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
+import java.nio.file.{Path, Paths}
 import java.io.File
 import java.io.FileInputStream
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
+import scala.sys.process._
+import com.daml.scalautil.Statement.discard
+//import org.scalatest.matchers.should.Matchers.{fail, succeed}
 
 abstract class UpgradesSpecAdminAPI(override val suffix: String) extends UpgradesSpec(suffix) {
   override def uploadPackageRaw(
@@ -70,18 +74,18 @@ class UpgradesSpecLedgerAPI(override val suffix: String = "Ledger API")
 
 trait ShortTests { this: UpgradesSpec =>
   s"Short upload-time Upgradeability Checks ($suffix)" should {
-    s"report no upgrade errors for valid upgrade ($suffix)" in {
-      testPackagePair(
+    s"upgrade-check-tool report no upgrade errors for valid upgrade ($suffix)" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-ValidUpgrade-v1.dar",
         "test-common/upgrades-ValidUpgrade-v2.dar",
-        assertPackageUpgradeCheck(None),
+        assertPackageUpgradeCheckTool(None),
       )
     }
-    s"report error when module is missing in upgrading package ($suffix)" in {
-      testPackagePair(
+    s"upgrade-check-tool report error when module is missing in upgrading package ($suffix)" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-MissingModule-v1.dar",
         "test-common/upgrades-MissingModule-v2.dar",
-        assertPackageUpgradeCheck(
+        assertPackageUpgradeCheckTool(
           Some(
             "Module Other appears in package that is being upgraded, but does not appear in the upgrading package."
           )
@@ -121,43 +125,43 @@ trait LongTests { this: UpgradesSpec =>
       )
     }
 
-    s"report no upgrade errors for valid upgrade ($suffix)" in {
-      testPackagePair(
+    s"upgrade-check-tool report no upgrade errors for valid upgrade ($suffix)" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-ValidUpgrade-v1.dar",
         "test-common/upgrades-ValidUpgrade-v2.dar",
-        assertPackageUpgradeCheck(None),
+        assertPackageUpgradeCheckTool(None),
       )
     }
-    s"report no upgrade errors for valid upgrades of parameterized data types ($suffix)" in {
-      testPackagePair(
+    s"upgrade-check-tool report no upgrade errors for valid upgrades of parameterized data types ($suffix)" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-ValidParameterizedTypesUpgrade-v1.dar",
         "test-common/upgrades-ValidParameterizedTypesUpgrade-v2.dar",
-        assertPackageUpgradeCheck(None),
+        assertPackageUpgradeCheckTool(None),
       )
     }
-    s"report no upgrade errors for alpha-equivalent complex key types ($suffix)" in {
-      testPackagePair(
+    s"upgrade-check-tool report no upgrade errors for alpha-equivalent complex key types ($suffix)" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-ValidKeyTypeEquality-v1.dar",
         "test-common/upgrades-ValidKeyTypeEquality-v2.dar",
-        assertPackageUpgradeCheck(None),
+        assertPackageUpgradeCheckTool(None),
       )
     }
-    s"report error when module is missing in upgrading package ($suffix)" in {
-      testPackagePair(
+    s"upgrade-check-tool report error when module is missing in upgrading package ($suffix)" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-MissingModule-v1.dar",
         "test-common/upgrades-MissingModule-v2.dar",
-        assertPackageUpgradeCheck(
+        assertPackageUpgradeCheckTool(
           Some(
             "Module Other appears in package that is being upgraded, but does not appear in the upgrading package."
           )
         ),
       )
     }
-    s"report error when template is missing in upgrading package ($suffix)" in {
-      testPackagePair(
+    s"upgrade-check-tool report error when template is missing in upgrading package ($suffix)" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-MissingTemplate-v1.dar",
         "test-common/upgrades-MissingTemplate-v2.dar",
-        assertPackageUpgradeCheck(
+        assertPackageUpgradeCheckTool(
           Some(
             "Template U appears in package that is being upgraded, but does not appear in the upgrading package."
           )
@@ -171,40 +175,40 @@ trait LongTests { this: UpgradesSpec =>
         assertPackageUpgradeCheckSecondOnly(None),
       )
     }
-    s"report error when datatype is missing in upgrading package ($suffix)" in {
-      testPackagePair(
+    s"upgrade-check-tool report error when datatype is missing in upgrading package ($suffix)" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-MissingDataCon-v1.dar",
         "test-common/upgrades-MissingDataCon-v2.dar",
-        assertPackageUpgradeCheck(
+        assertPackageUpgradeCheckTool(
           Some(
             "Data type U appears in package that is being upgraded, but does not appear in the upgrading package."
           )
         ),
       )
     }
-    s"report error when choice is missing in upgrading package ($suffix)" in {
-      testPackagePair(
+    s"upgrade-check-tool report error when choice is missing in upgrading package ($suffix)" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-MissingChoice-v1.dar",
         "test-common/upgrades-MissingChoice-v2.dar",
-        assertPackageUpgradeCheck(
+        assertPackageUpgradeCheckTool(
           Some(
             "Choice C2 appears in package that is being upgraded, but does not appear in the upgrading package."
           )
         ),
       )
     }
-    s"report error when key type changes ($suffix)" in {
-      testPackagePair(
+    s"upgrade-check-tool report error when key type changes ($suffix)" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-TemplateChangedKeyType-v1.dar",
         "test-common/upgrades-TemplateChangedKeyType-v2.dar",
-        assertPackageUpgradeCheck(Some("The upgraded template T cannot change its key type.")),
+        assertPackageUpgradeCheckTool(Some("The upgraded template T cannot change its key type.")),
       )
     }
-    s"report error when record fields change ($suffix)" in {
-      testPackagePair(
+    s"upgrade-check-tool report error when record fields change ($suffix)" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-RecordFieldsNewNonOptional-v1.dar",
         "test-common/upgrades-RecordFieldsNewNonOptional-v2.dar",
-        assertPackageUpgradeCheck(
+        assertPackageUpgradeCheckTool(
           Some(
             "The upgraded data type Struct has added new fields, but those fields are not Optional."
           )
@@ -213,120 +217,120 @@ trait LongTests { this: UpgradesSpec =>
     }
 
     // Ported from DamlcUpgrades.hs
-    s"Fails when template changes key type ($suffix)" in {
-      testPackagePair(
+    s"upgrade-check-tool Fails when template changes key type ($suffix)" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-FailsWhenTemplateChangesKeyType-v1.dar",
         "test-common/upgrades-FailsWhenTemplateChangesKeyType-v2.dar",
-        assertPackageUpgradeCheck(Some("The upgraded template A cannot change its key type.")),
+        assertPackageUpgradeCheckTool(Some("The upgraded template A cannot change its key type.")),
       )
     }
-    s"Fails when template removes key type ($suffix)" in {
-      testPackagePair(
+    s"upgrade-check-tool Fails when template removes key type ($suffix)" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-FailsWhenTemplateRemovesKeyType-v1.dar",
         "test-common/upgrades-FailsWhenTemplateRemovesKeyType-v2.dar",
-        assertPackageUpgradeCheck(Some("The upgraded template A cannot remove its key.")),
+        assertPackageUpgradeCheckTool(Some("The upgraded template A cannot remove its key.")),
       )
     }
-    s"Fails when template adds key type ($suffix)" in {
-      testPackagePair(
+    s"upgrade-check-tool Fails when template adds key type ($suffix)" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-FailsWhenTemplateAddsKeyType-v1.dar",
         "test-common/upgrades-FailsWhenTemplateAddsKeyType-v2.dar",
-        assertPackageUpgradeCheck(Some("The upgraded template A cannot add a key.")),
+        assertPackageUpgradeCheckTool(Some("The upgraded template A cannot add a key.")),
       )
     }
-    s"Fails when new field is added to template without Optional type ($suffix)" in {
-      testPackagePair(
+    s"upgrade-check-tool Fails when new field is added to template without Optional type ($suffix)" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-FailsWhenNewFieldIsAddedToTemplateWithoutOptionalType-v1.dar",
         "test-common/upgrades-FailsWhenNewFieldIsAddedToTemplateWithoutOptionalType-v2.dar",
-        assertPackageUpgradeCheck(
+        assertPackageUpgradeCheckTool(
           Some("The upgraded template A has added new fields, but those fields are not Optional.")
         ),
       )
     }
-    s"Fails when old field is deleted from template ($suffix)" in {
-      testPackagePair(
+    s"upgrade-check-tool Fails when old field is deleted from template ($suffix)" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-FailsWhenOldFieldIsDeletedFromTemplate-v1.dar",
         "test-common/upgrades-FailsWhenOldFieldIsDeletedFromTemplate-v2.dar",
-        assertPackageUpgradeCheck(
+        assertPackageUpgradeCheckTool(
           Some("The upgraded template A is missing some of its original fields.")
         ),
       )
     }
-    s"Fails when existing field in template is changed ($suffix)" in {
-      testPackagePair(
+    s"upgrade-check-tool Fails when existing field in template is changed ($suffix)" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-FailsWhenExistingFieldInTemplateIsChanged-v1.dar",
         "test-common/upgrades-FailsWhenExistingFieldInTemplateIsChanged-v2.dar",
-        assertPackageUpgradeCheck(
+        assertPackageUpgradeCheckTool(
           Some("The upgraded template A has changed the types of some of its original fields.")
         ),
       )
     }
-    s"Succeeds when new field with optional type is added to template ($suffix)" in {
-      testPackagePair(
+    s"upgrade-check-tool Succeeds when new field with optional type is added to template ($suffix)" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplate-v1.dar",
         "test-common/upgrades-SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplate-v2.dar",
-        assertPackageUpgradeCheck(None),
+        assertPackageUpgradeCheckTool(None),
       )
     }
-    s"Fails when new field is added to template choice without Optional type ($suffix)" in {
-      testPackagePair(
+    s"upgrade-check-tool Fails when new field is added to template choice without Optional type ($suffix)" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-FailsWhenNewFieldIsAddedToTemplateChoiceWithoutOptionalType-v1.dar",
         "test-common/upgrades-FailsWhenNewFieldIsAddedToTemplateChoiceWithoutOptionalType-v2.dar",
-        assertPackageUpgradeCheck(
+        assertPackageUpgradeCheckTool(
           Some(
             "The upgraded input type of choice C on template A has added new fields, but those fields are not Optional."
           )
         ),
       )
     }
-    s"Fails when old field is deleted from template choice ($suffix)" in {
-      testPackagePair(
+    s"upgrade-check-tool Fails when old field is deleted from template choice ($suffix)" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-FailsWhenOldFieldIsDeletedFromTemplateChoice-v1.dar",
         "test-common/upgrades-FailsWhenOldFieldIsDeletedFromTemplateChoice-v2.dar",
-        assertPackageUpgradeCheck(
+        assertPackageUpgradeCheckTool(
           Some(
             "The upgraded input type of choice C on template A is missing some of its original fields."
           )
         ),
       )
     }
-    s"Fails when existing field in template choice is changed ($suffix)" in {
-      testPackagePair(
+    s"upgrade-check-tool Fails when existing field in template choice is changed ($suffix)" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-FailsWhenExistingFieldInTemplateChoiceIsChanged-v1.dar",
         "test-common/upgrades-FailsWhenExistingFieldInTemplateChoiceIsChanged-v2.dar",
-        assertPackageUpgradeCheck(
+        assertPackageUpgradeCheckTool(
           Some(
             "The upgraded input type of choice C on template A has changed the types of some of its original fields."
           )
         ),
       )
     }
-    s"Fails when template choice changes its return type ($suffix)" in {
-      testPackagePair(
+    s"upgrade-check-tool Fails when template choice changes its return type ($suffix)" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-FailsWhenTemplateChoiceChangesItsReturnType-v1.dar",
         "test-common/upgrades-FailsWhenTemplateChoiceChangesItsReturnType-v2.dar",
-        assertPackageUpgradeCheck(Some("The upgraded choice C cannot change its return type.")),
+        assertPackageUpgradeCheckTool(Some("The upgraded choice C cannot change its return type.")),
       )
     }
-    s"Succeeds when template choice returns a template which has changed ($suffix)" in {
-      testPackagePair(
+    s"upgrade-check-tool Succeeds when template choice returns a template which has changed ($suffix)" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-SucceedsWhenTemplateChoiceReturnsATemplateWhichHasChanged-v1.dar",
         "test-common/upgrades-SucceedsWhenTemplateChoiceReturnsATemplateWhichHasChanged-v2.dar",
-        assertPackageUpgradeCheck(None),
+        assertPackageUpgradeCheckTool(None),
       )
     }
-    s"Succeeds when template choice input argument has changed ($suffix)" in {
-      testPackagePair(
+    s"upgrade-check-tool Succeeds when template choice input argument has changed ($suffix)" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentHasChanged-v1.dar",
         "test-common/upgrades-SucceedsWhenTemplateChoiceInputArgumentHasChanged-v2.dar",
-        assertPackageUpgradeCheck(None),
+        assertPackageUpgradeCheckTool(None),
       )
     }
-    s"Succeeds when new field with optional type is added to template choice ($suffix)" in {
-      testPackagePair(
+    s"upgrade-check-tool Succeeds when new field with optional type is added to template choice ($suffix)" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplateChoice-v1.dar",
         "test-common/upgrades-SucceedsWhenNewFieldWithOptionalTypeIsAddedToTemplateChoice-v2.dar",
-        assertPackageUpgradeCheck(None),
+        assertPackageUpgradeCheckTool(None),
       )
     }
 
@@ -398,31 +402,31 @@ trait LongTests { this: UpgradesSpec =>
       )(Predef.identity)
     }
 
-    "Fails when a top-level record adds a non-optional field" in {
-      testPackagePair(
+    "upgrade-check-tool Fails when a top-level record adds a non-optional field" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-FailsWhenATopLevelRecordAddsANonOptionalField-v1.dar",
         "test-common/upgrades-FailsWhenATopLevelRecordAddsANonOptionalField-v2.dar",
-        assertPackageUpgradeCheck(
+        assertPackageUpgradeCheckTool(
           Some("The upgraded data type A has added new fields, but those fields are not Optional.")
         ),
       )
     }
 
-    "Succeeds when a top-level record adds an optional field at the end" in {
-      testPackagePair(
+    "upgrade-check-tool Succeeds when a top-level record adds an optional field at the end" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-SucceedsWhenATopLevelRecordAddsAnOptionalFieldAtTheEnd-v1.dar",
         "test-common/upgrades-SucceedsWhenATopLevelRecordAddsAnOptionalFieldAtTheEnd-v2.dar",
-        assertPackageUpgradeCheck(
+        assertPackageUpgradeCheckTool(
           None
         ),
       )
     }
 
-    "Fails when a top-level record adds an optional field before the end" in {
-      testPackagePair(
+    "upgrade-check-tool Fails when a top-level record adds an optional field before the end" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-FailsWhenATopLevelRecordAddsAnOptionalFieldBeforeTheEnd-v1.dar",
         "test-common/upgrades-FailsWhenATopLevelRecordAddsAnOptionalFieldBeforeTheEnd-v2.dar",
-        assertPackageUpgradeCheck(
+        assertPackageUpgradeCheckTool(
           Some(
             "The upgraded data type A has changed the order of its fields - any new fields must be added at the end of the record."
           )
@@ -430,19 +434,19 @@ trait LongTests { this: UpgradesSpec =>
       )
     }
 
-    "Succeeds when a top-level variant adds a variant" in {
-      testPackagePair(
+    "upgrade-check-tool Succeeds when a top-level variant adds a variant" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-SucceedsWhenATopLevelVariantAddsAConstructor-v1.dar",
         "test-common/upgrades-SucceedsWhenATopLevelVariantAddsAConstructor-v2.dar",
-        assertPackageUpgradeCheck(None),
+        assertPackageUpgradeCheckTool(None),
       )
     }
 
-    "Fails when a top-level variant removes a variant" in {
-      testPackagePair(
+    "upgrade-check-tool Fails when a top-level variant removes a variant" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-FailsWhenATopLevelVariantRemovesAConstructor-v1.dar",
         "test-common/upgrades-FailsWhenATopLevelVariantRemovesAConstructor-v2.dar",
-        assertPackageUpgradeCheck(
+        assertPackageUpgradeCheckTool(
           Some(
             "Data type A.Z appears in package that is being upgraded, but does not appear in the upgrading package."
           )
@@ -450,11 +454,11 @@ trait LongTests { this: UpgradesSpec =>
       )
     }
 
-    "Fail when a top-level variant changes changes the order of its variants" in {
-      testPackagePair(
+    "upgrade-check-tool Fail when a top-level variant changes changes the order of its variants" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsConstructors-v1.dar",
         "test-common/upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsConstructors-v2.dar",
-        assertPackageUpgradeCheck(
+        assertPackageUpgradeCheckTool(
           Some(
             "The upgraded data type A has changed the order of its variants - any new variant must be added at the end of the variant."
           )
@@ -462,37 +466,37 @@ trait LongTests { this: UpgradesSpec =>
       )
     }
 
-    "Fails when a top-level variant adds a field to a variant's type" in {
-      testPackagePair(
+    "upgrade-check-tool Fails when a top-level variant adds a field to a variant's type" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-FailsWhenATopLevelVariantAddsAFieldToAConstructorsType-v1.dar",
         "test-common/upgrades-FailsWhenATopLevelVariantAddsAFieldToAConstructorsType-v2.dar",
-        assertPackageUpgradeCheck(
+        assertPackageUpgradeCheckTool(
           Some("The upgraded variant constructor A.Y from variant A has added a field.")
         ),
       )
     }
 
-    "Succeeds when a top-level variant adds an optional field to a variant's type" in {
-      testPackagePair(
+    "upgrade-check-tool Succeeds when a top-level variant adds an optional field to a variant's type" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-SucceedsWhenATopLevelVariantAddsAnOptionalFieldToAConstructorsType-v1.dar",
         "test-common/upgrades-SucceedsWhenATopLevelVariantAddsAnOptionalFieldToAConstructorsType-v2.dar",
-        assertPackageUpgradeCheck(None),
+        assertPackageUpgradeCheckTool(None),
       )
     }
 
-    "Succeeds when a top-level enum changes" in {
-      testPackagePair(
+    "upgrade-check-tool Succeeds when a top-level enum changes" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-SucceedsWhenATopLevelEnumChanges-v1.dar",
         "test-common/upgrades-SucceedsWhenATopLevelEnumChanges-v2.dar",
-        assertPackageUpgradeCheck(None),
+        assertPackageUpgradeCheckTool(None),
       )
     }
 
-    "Fail when a top-level enum changes changes the order of its variants" in {
-      testPackagePair(
+    "upgrade-check-tool Fail when a top-level enum changes changes the order of its variants" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-FailWhenATopLevelEnumChangesChangesTheOrderOfItsConstructors-v1.dar",
         "test-common/upgrades-FailWhenATopLevelEnumChangesChangesTheOrderOfItsConstructors-v2.dar",
-        assertPackageUpgradeCheck(
+        assertPackageUpgradeCheckTool(
           Some(
             "The upgraded data type A has changed the order of its variants - any new variant must be added at the end of the enum."
           )
@@ -500,81 +504,81 @@ trait LongTests { this: UpgradesSpec =>
       )
     }
 
-    "Succeeds when a top-level type synonym changes" in {
-      testPackagePair(
+    "upgrade-check-tool Succeeds when a top-level type synonym changes" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-SucceedsWhenATopLevelTypeSynonymChanges-v1.dar",
         "test-common/upgrades-SucceedsWhenATopLevelTypeSynonymChanges-v2.dar",
-        assertPackageUpgradeCheck(
+        assertPackageUpgradeCheckTool(
           None
         ),
       )
     }
 
-    "Succeeds when two deeply nested type synonyms resolve to the same datatypes" in {
-      testPackagePair(
+    "upgrade-check-tool Succeeds when two deeply nested type synonyms resolve to the same datatypes" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-SucceedsWhenTwoDeeplyNestedTypeSynonymsResolveToTheSameDatatypes-v1.dar",
         "test-common/upgrades-SucceedsWhenTwoDeeplyNestedTypeSynonymsResolveToTheSameDatatypes-v2.dar",
-        assertPackageUpgradeCheck(
+        assertPackageUpgradeCheckTool(
           None
         ),
       )
     }
 
-    "Fails when two deeply nested type synonyms resolve to different datatypes" in {
-      testPackagePair(
+    "upgrade-check-tool Fails when two deeply nested type synonyms resolve to different datatypes" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-FailsWhenTwoDeeplyNestedTypeSynonymsResolveToDifferentDatatypes-v1.dar",
         "test-common/upgrades-FailsWhenTwoDeeplyNestedTypeSynonymsResolveToDifferentDatatypes-v2.dar",
-        assertPackageUpgradeCheck(
+        assertPackageUpgradeCheckTool(
           Some("The upgraded template A has changed the types of some of its original fields.")
         ),
       )
     }
 
-    "Fails when datatype changes variety" in {
-      testPackagePair(
+    "upgrade-check-tool Fails when datatype changes variety" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-FailsWhenDatatypeChangesVariety-v1.dar",
         "test-common/upgrades-FailsWhenDatatypeChangesVariety-v2.dar",
-        assertPackageUpgradeCheck(
+        assertPackageUpgradeCheckTool(
           Some("The upgraded data type RecordToEnum has changed from a record to a enum.")
         ),
       )
     }
 
-    "Succeeds when adding non-optional fields to unserializable types" in {
-      testPackagePair(
+    "upgrade-check-tool Succeeds when adding non-optional fields to unserializable types" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-SucceedsWhenAddingNonOptionalFieldsToUnserializableTypes-v1.dar",
         "test-common/upgrades-SucceedsWhenAddingNonOptionalFieldsToUnserializableTypes-v2.dar",
-        assertPackageUpgradeCheck(
+        assertPackageUpgradeCheckTool(
           None
         ),
       )
     }
 
-    "Succeeds when changing variant of unserializable type" in {
-      testPackagePair(
+    "upgrade-check-tool Succeeds when changing variant of unserializable type" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-SucceedsWhenChangingConstructorOfUnserializableType-v1.dar",
         "test-common/upgrades-SucceedsWhenChangingConstructorOfUnserializableType-v2.dar",
-        assertPackageUpgradeCheck(
+        assertPackageUpgradeCheckTool(
           None
         ),
       )
     }
 
-    "Succeeds when deleting unserializable type" in {
-      testPackagePair(
+    "upgrade-check-tool Succeeds when deleting unserializable type" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-SucceedsWhenDeletingUnserializableType-v1.dar",
         "test-common/upgrades-SucceedsWhenDeletingUnserializableType-v2.dar",
-        assertPackageUpgradeCheck(
+        assertPackageUpgradeCheckTool(
           None
         ),
       )
     }
 
-    "Fails when making type unserializable" in {
-      testPackagePair(
+    "upgrade-check-tool Fails when making type unserializable" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-FailsWhenMakingTypeUnserializable-v1.dar",
         "test-common/upgrades-FailsWhenMakingTypeUnserializable-v2.dar",
-        assertPackageUpgradeCheck(
+        assertPackageUpgradeCheckTool(
           Some(
             "The upgraded data type MyData was serializable and is now unserializable. Datatypes cannot change their serializability via upgrades."
           )
@@ -583,21 +587,21 @@ trait LongTests { this: UpgradesSpec =>
     }
 
     // Copied interface tests
-    "Succeeds when an interface is only defined in the initial package." in {
-      testPackagePair(
+    "upgrade-check-tool Succeeds when an interface is only defined in the initial package." in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-SucceedsWhenAnInterfaceIsOnlyDefinedInTheInitialPackage-v1.dar",
         "test-common/upgrades-SucceedsWhenAnInterfaceIsOnlyDefinedInTheInitialPackage-v2.dar",
-        assertPackageUpgradeCheck(
+        assertPackageUpgradeCheckTool(
           None
         ),
       )
     }
 
-    "Fails when an interface is defined in an upgrading package when it was already in the prior package." in {
-      testPackagePair(
+    "upgrade-check-tool Fails when an interface is defined in an upgrading package when it was already in the prior package." in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-FailsWhenAnInterfaceIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v1.dar",
         "test-common/upgrades-FailsWhenAnInterfaceIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v2.dar",
-        assertPackageUpgradeCheck(
+        assertPackageUpgradeCheckTool(
           Some(
             "Tried to upgrade interface I, but interfaces cannot be upgraded. They should be removed in any upgrading package."
           )
@@ -635,11 +639,11 @@ trait LongTests { this: UpgradesSpec =>
       } yield result
     }
 
-    "Fails when an instance is added (upgraded package)." in {
-      testPackagePair(
+    "upgrade-check-tool Fails when an instance is added (upgraded package)." in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-FailsWhenAnInstanceIsAddedUpgradedPackage-v1.dar",
         "test-common/upgrades-FailsWhenAnInstanceIsAddedUpgradedPackage-v2.dar",
-        assertPackageUpgradeCheck(
+        assertPackageUpgradeCheckTool(
           Some(
             "Implementation of interface .*:Main:I by template T appears in this package, but does not appear in package that is being upgraded."
           )
@@ -647,21 +651,21 @@ trait LongTests { this: UpgradesSpec =>
       )
     }
 
-    "Succeeds when an instance is added to a new template (upgraded package)." in {
-      testPackagePair(
+    "upgrade-check-tool Succeeds when an instance is added to a new template (upgraded package)." in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-SucceedsWhenAnInstanceIsAddedToNewTemplateUpgradedPackage-v1.dar",
         "test-common/upgrades-SucceedsWhenAnInstanceIsAddedToNewTemplateUpgradedPackage-v2.dar",
-        assertPackageUpgradeCheck(
+        assertPackageUpgradeCheckTool(
           None
         ),
       )
     }
 
-    "Succeeds when an instance is added to a new template (separate dep)." in {
-      testPackagePair(
+    "upgrade-check-tool Succeeds when an instance is added to a new template (separate dep)." in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-SucceedsWhenAnInstanceIsAddedToNewTemplateSeparateDep-v1.dar",
         "test-common/upgrades-SucceedsWhenAnInstanceIsAddedToNewTemplateSeparateDep-v2.dar",
-        assertPackageUpgradeCheck(
+        assertPackageUpgradeCheckTool(
           None
         ),
       )
@@ -768,41 +772,41 @@ trait LongTests { this: UpgradesSpec =>
       }
     }
 
-    "Succeeds even when non-serializable types are incompatible" in {
-      testPackagePair(
+    "upgrade-check-tool Succeeds even when non-serializable types are incompatible" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-SucceedsWhenNonSerializableTypesAreIncompatible-v1.dar",
         "test-common/upgrades-SucceedsWhenNonSerializableTypesAreIncompatible-v2.dar",
-        assertPackageUpgradeCheck(
+        assertPackageUpgradeCheckTool(
           None
         ),
       )
     }
 
-    "Fails when comparing types from packages with different names" in {
-      testPackagePair(
+    "upgrade-check-tool Fails when comparing types from packages with different names" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-FailsWhenUpgradedFieldFromDifferentPackageName-v1.dar",
         "test-common/upgrades-FailsWhenUpgradedFieldFromDifferentPackageName-v2.dar",
-        assertPackageUpgradeCheck(
+        assertPackageUpgradeCheckTool(
           Some("The upgraded data type A has changed the types of some of its original fields.")
         ),
       )
     }
 
-    "Fails when comparing type constructors from other packages that resolve to incompatible types" in {
-      testPackagePair(
+    "upgrade-check-tool Fails when comparing type constructors from other packages that resolve to incompatible types" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-FailsWhenUpgradedFieldPackagesAreNotUpgradable-v1.dar",
         "test-common/upgrades-FailsWhenUpgradedFieldPackagesAreNotUpgradable-v2.dar",
-        assertPackageUpgradeCheck(
+        assertPackageUpgradeCheckTool(
           Some("The upgraded data type T has changed the types of some of its original fields.")
         ),
       )
     }
 
-    "FailWhenParamCountChanges" in {
-      testPackagePair(
+    "upgrade-check-tool FailWhenParamCountChanges" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-FailWhenParamCountChanges-v1.dar",
         "test-common/upgrades-FailWhenParamCountChanges-v2.dar",
-        assertPackageUpgradeCheck(
+        assertPackageUpgradeCheckTool(
           Some(
             "The upgraded data type MyStruct has changed the number of type variables it has."
           )
@@ -810,19 +814,19 @@ trait LongTests { this: UpgradesSpec =>
       )
     }
 
-    "SucceedWhenParamNameChanges" in {
-      testPackagePair(
+    "upgrade-check-tool SucceedWhenParamNameChanges" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-SucceedWhenParamNameChanges-v1.dar",
         "test-common/upgrades-SucceedWhenParamNameChanges-v2.dar",
-        assertPackageUpgradeCheck(None),
+        assertPackageUpgradeCheckTool(None),
       )
     }
 
-    "SucceedWhenPhantomParamBecomesUsed" in {
-      testPackagePair(
+    "upgrade-check-tool SucceedWhenPhantomParamBecomesUsed" in {
+      testPackagePairUpgradeCheck(
         "test-common/upgrades-SucceedWhenPhantomParamBecomesUsed-v1.dar",
         "test-common/upgrades-SucceedWhenPhantomParamBecomesUsed-v2.dar",
-        assertPackageUpgradeCheck(None),
+        assertPackageUpgradeCheckTool(None),
       )
     }
   }
@@ -1047,6 +1051,54 @@ abstract class UpgradesSpec(val suffix: String)
     val v1Upload = loadPackageIdAndBS(upgraded)
     val v2Upload = loadPackageIdAndBS(upgrading)
     testPackagePair(v1Upload, v2Upload, uploadAssertion)
+  }
+
+  def testPackagePairUpgradeCheck(
+      upgraded: String,
+      upgrading: String,
+      uploadAssertion: (
+          PackageId,
+          PackageId,
+      ) => String => Assertion,
+  ): Future[Assertion] = {
+    val (v1PackageId, _) = loadPackageIdAndBS(upgraded)
+    val (v2PackageId, _) = loadPackageIdAndBS(upgrading)
+    val v1Path = BazelRunfiles.rlocation(upgraded).toString
+    val v2Path = BazelRunfiles.rlocation(upgrading).toString
+
+    val exe = if (sys.props("os.name").toLowerCase.contains("windows")) ".exe" else ""
+    val damlSdk = BazelRunfiles.rlocation(Paths.get(s"daml-assistant/daml-sdk/sdk$exe"))
+
+    // Runs process with args, returns status and stdout <> stderr
+    def runProc(exe: Path, args: Seq[String]): Future[Either[String, String]] =
+      Future {
+        val out = new StringBuilder()
+        val cmd = exe.toString +: args
+        cmd !< ProcessLogger(line => discard(out append line append '\n')) match {
+          case 0 => Right(out.toString)
+          case _ => Left(out.toString)
+        }
+      }
+
+    for {
+      result <- runProc(damlSdk, Seq("upgrade-check", v1Path, v2Path))
+      assertion <- result match {
+        case Left(out) =>
+          uploadAssertion(v1PackageId, v2PackageId)(out)
+        case Right(out) =>
+          uploadAssertion(v1PackageId, v2PackageId)(out)
+      }
+    } yield assertion
+  }
+
+  def assertPackageUpgradeCheckTool(failureMessage: Option[String])(
+      testPackageFirstId: PackageId,
+      testPackageSecondId: PackageId,
+  )(upgradeCheckToolLogs: String): Assertion = {
+    failureMessage match {
+      case None => upgradeCheckToolLogs should not include regex(s"Error while checking two DARs:\nThe uploaded DAR contains a package $testPackageSecondId \\(.*\\), but upgrade checks indicate that (existing package $testPackageFirstId|new package $testPackageSecondId) \\(.*\\) cannot be an upgrade of (existing package $testPackageFirstId|new package $testPackageSecondId)")
+      case Some(msg) => upgradeCheckToolLogs should include regex(msg)
+    }
   }
 
   def testPackageTriple(

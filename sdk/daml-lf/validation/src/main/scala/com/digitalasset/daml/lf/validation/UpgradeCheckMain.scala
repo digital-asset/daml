@@ -57,7 +57,7 @@ object UpgradeCheckMain {
       val validation = validator.validateUpgrade(archives.toList)
       Await.result(validation.value, Duration.Inf) match {
         case Left(err: Validation.Upgradeability.Error) =>
-          logger.error(s"Error while checking two DARs:\n${err.upgradeError.prettyInternal}")
+          logger.error(s"Error while checking two DARs:\n${err.cause}")
           sys.exit(1)
         case Left(err) =>
           logger.error(s"Error while checking two DARs:\n${err.cause}")

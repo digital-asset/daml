@@ -105,6 +105,7 @@ da_scala_library(
     visibility = ["//visibility:public"],
     deps = [
         "//:sdk-version-scala-lib",
+        "//libs-scala/scala-utils",
         "//bazel_tools/runfiles:scala_runfiles",
         "//canton:community_admin-api",
         "//canton:community_ledger_ledger-common",
@@ -125,9 +126,11 @@ da_scala_library(
         "//libs-scala/rs-grpc-bridge",
         "//libs-scala/testing-utils",
         "//test-common/canton/it-lib",
+        "//daml-assistant/daml-sdk:sdk",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
+    unused_dependency_checker_mode = "off",
 )
 
 da_scala_test_suite(
