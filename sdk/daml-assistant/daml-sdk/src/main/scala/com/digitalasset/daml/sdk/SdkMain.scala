@@ -11,6 +11,7 @@ import com.daml.auth.middleware.oauth2.{Main => Oauth2Middleware}
 import com.daml.http.{Main => JsonApi}
 import com.daml.navigator.{NavigatorBackend => Navigator}
 import com.daml.script.export.{Main => Export}
+import com.daml.lf.validation.UpgradeCheckMain
 
 object SdkMain {
   def main(args: Array[String]): Unit = {
@@ -25,6 +26,7 @@ object SdkMain {
       case "trigger-service" => TriggerService.main(rest)
       case "oauth2-middleware" => Oauth2Middleware.main(rest)
       case "navigator" => Navigator.main(rest)
+      case "upgrade-check" => UpgradeCheckMain.main(rest)
       case _ => sys.exit(1)
     }
   }

@@ -590,6 +590,7 @@ exports_files(["stack.exe"], visibility = ["//visibility:public"])
             "uri-encode",
             "utf8-string",
             "uuid",
+            "validation",
             "vector",
             "xml",
             "yaml",

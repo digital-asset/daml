@@ -13,4 +13,5 @@ def deps(edition):
         "//triggers/service/auth:oauth2-middleware",
         "//navigator/backend:backend-resources",
         "//navigator/backend:frontend-resources",
+        "//daml-lf/validation:upgrade-check-main",
     ]

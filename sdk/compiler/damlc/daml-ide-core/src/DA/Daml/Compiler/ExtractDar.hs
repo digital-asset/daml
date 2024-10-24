@@ -5,6 +5,7 @@ module DA.Daml.Compiler.ExtractDar
   ( ExtractedDar(..)
   , extractDar
   , getEntry
+  , edDeps
   ) where
 
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
@@ -22,6 +23,10 @@ data ExtractedDar = ExtractedDar
     , edDalfs :: [ZipArchive.Entry]
     , edSrcs :: [ZipArchive.Entry]
     }
+
+edDeps :: ExtractedDar -> [ZipArchive.Entry]
+edDeps ExtractedDar {edDalfs, edMain} =
+  filter (\edDalf -> ZipArchive.eRelativePath edDalf /= ZipArchive.eRelativePath edMain) edDalfs
 
 -- | Extract a dar archive
 extractDar :: FilePath -> IO ExtractedDar
