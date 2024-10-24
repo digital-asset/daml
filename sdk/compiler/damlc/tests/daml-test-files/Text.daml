@@ -321,3 +321,13 @@ testAsciiToUpper = script do
   T.asciiToUpper "\0daml" === "\0DAML"
   T.asciiToUpper "da\0⛄ml" === "DA\0⛄ML"
   T.asciiToUpper "áèïõǔ" === "áèïõǔ" -- non-ASCII characters are unchanged
+
+testIsEmpty = script do
+  True === T.isEmpty ""
+  False === T.isEmpty "hello"
+  False === T.isEmpty " "
+
+testIsNotEmpty = script do
+  False === T.isNotEmpty ""
+  True === T.isNotEmpty "hello"
+  True === T.isNotEmpty " "
