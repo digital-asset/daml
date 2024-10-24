@@ -658,8 +658,7 @@ abstract class QueryStoreAndAuthDependentIntegrationTest
     } yield succeed
   }
 
-  // TODO(i21459) Fix, and unignore
-  "should recognise an archive against a newer version of the same contract" ignore withHttpService {
+  "should recognise an archive against a newer version of the same contract" in withHttpService {
     fixture =>
       import AbstractHttpServiceIntegrationTestFuns.{fooV1Dar, fooV2Dar}
 
