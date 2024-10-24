@@ -50,7 +50,7 @@ class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
         module Mod {
 
           record @serializable MyUnit = {};
-          record @serializable Record = { field : Int64, optField: Option Int64 };
+          record @serializable Record = { field : Int64 };
           variant @serializable Variant = variant1 : Text | variant2 : Int64 ;
           enum @serializable Enum = value1 | value2;
 
@@ -147,25 +147,8 @@ class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
       ),
       (
         TTyCon("Mod:Record"),
-        ValueRecord(None, ImmArray(None -> ValueInt64(33), None -> ValueNone)),
-        ValueRecord(
-          Some("Mod:Record"),
-          ImmArray(
-            Some[Ref.Name]("field") -> ValueInt64(33),
-            Some[Ref.Name]("optField") -> ValueNone,
-          ),
-        ),
-      ),
-      (
-        TTyCon("Mod:Record"),
         ValueRecord(None, ImmArray(None -> ValueInt64(33))),
-        ValueRecord(
-          Some("Mod:Record"),
-          ImmArray(
-            Some[Ref.Name]("field") -> ValueInt64(33),
-            Some[Ref.Name]("optField") -> ValueNone,
-          ),
-        ),
+        ValueRecord(Some("Mod:Record"), ImmArray(Some[Ref.Name]("field") -> ValueInt64(33))),
       ),
       (
         TTyCon("Mod:Variant"),
@@ -295,7 +278,7 @@ class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
         )
 
       val outputRecord =
-        ValueRecord("Mod:Record", ImmArray("field" -> ValueInt64(33), "optField" -> ValueNone))
+        ValueRecord("Mod:Record", ImmArray("field" -> ValueInt64(33)))
 
       val outputTransaction = buildTransaction(
         outputContract,

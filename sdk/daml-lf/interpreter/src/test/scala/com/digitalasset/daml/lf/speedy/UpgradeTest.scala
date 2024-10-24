@@ -10,7 +10,7 @@ import com.digitalasset.daml.lf.language.Ast._
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
 import com.digitalasset.daml.lf.speedy.SError.SError
 import com.digitalasset.daml.lf.speedy.SExpr.{SEApp, SExpr}
-import com.digitalasset.daml.lf.speedy.SValue.{SContractId, SRecord}
+import com.digitalasset.daml.lf.speedy.SValue.SContractId
 import com.digitalasset.daml.lf.testing.parser.Implicits._
 import com.digitalasset.daml.lf.testing.parser.ParserParameters
 import com.digitalasset.daml.lf.transaction.TransactionVersion.VDev
@@ -217,7 +217,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
   val theCid = ContractId.V1(crypto.Hash.hashPrivateKey(s"theCid"))
 
-  type Success = (SValue, Value, List[UpgradeVerificationRequest])
+  type Success = (Value, List[UpgradeVerificationRequest])
 
   def go(
       e: Expr,
@@ -240,7 +240,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       .runCollectRequests(machine)
       .map { case (sv, uvs) => // ignoring any AuthRequest
         val v = sv.toNormalizedValue(VDev)
-        (sv, v, uvs)
+        (v, uvs)
       }
   }
 
@@ -259,7 +259,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       .runCollectRequests(machine, getContract = Map(theCid -> Versioned(VDev, contract)))
       .map { case (sv, uvs) => // ignoring any AuthRequest
         val v = sv.toNormalizedValue(VDev)
-        (sv, v, uvs)
+        (v, uvs)
       }
   }
 
@@ -292,7 +292,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       .runCollectRequests(machine)
       .map { case (sv, uvs) => // ignoring any AuthRequest
         val v = sv.toNormalizedValue(VDev)
-        (sv, v, uvs)
+        (v, uvs)
       }
   }
 
@@ -327,16 +327,12 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           ValueInt64(100),
         )
 
-      val sv_extendedWithNone =
-        SRecord(
-          i"'-pkg3-':M:T",
-          ImmArray(n"sig", n"obs", n"aNumber", n"optSig"),
-          ArrayList(
-            SValue.SParty(alice),
-            SValue.SParty(bob),
-            SValue.SInt64(100),
-            SValue.SOptional(None),
-          ),
+      val v_extendedWithNone =
+        makeRecord(
+          ValueParty(alice),
+          ValueParty(bob),
+          ValueInt64(100),
+          ValueOptional(None),
         )
 
       inside(
@@ -344,9 +340,8 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           e"'-pkg3-':M:do_fetch",
           ContractInstance(pkgName, pkg2Ver, i"'-pkg2-':M:T", v_missingField),
         )
-      ) { case Right((sv, v, _)) =>
-        sv shouldBe sv_extendedWithNone
-        v shouldBe v_missingField
+      ) { case Right((v, _)) =>
+        v shouldBe v_extendedWithNone
       }
     }
 
@@ -401,7 +396,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       val res =
         go(e"'-pkg1-':M:do_fetch", ContractInstance(pkgName, pkg2Ver, i"'-pkg2-':M:T", v1_base))
 
-      inside(res) { case Right((_, v, _)) =>
+      inside(res) { case Right((v, _)) =>
         v shouldBe v1_base
       }
     }
@@ -467,7 +462,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           ContractInstance(pkgName, unknownPkgVer, i"'-unknow-':M:T", v1_extraNone),
         )
 
-      inside(res) { case Right((_, v, _)) =>
+      inside(res) { case Right((v, _)) =>
         v shouldBe v1_base
       }
     }
@@ -496,7 +491,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
             in upure @(ContractId '-pkg1-':M:T) cid
           """
       )
-      inside(res) { case Right((_, ValueContractId(cid), verificationRequests)) =>
+      inside(res) { case Right((ValueContractId(cid), verificationRequests)) =>
         verificationRequests shouldBe List(
           UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v1_key))
         )
@@ -512,7 +507,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
             in upure @(ContractId '-pkg1-':M:T) cid
           """
       )
-      inside(res) { case Right((_, ValueContractId(cid), verificationRequests)) =>
+      inside(res) { case Right((ValueContractId(cid), verificationRequests)) =>
         verificationRequests shouldBe List(
           UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v2_key)),
           UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v2_key)),
@@ -528,7 +523,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
             in upure @(ContractId '-pkg1-':M:T) cid
           """
       )
-      inside(res) { case Right((_, ValueContractId(cid), verificationRequests)) =>
+      inside(res) { case Right((ValueContractId(cid), verificationRequests)) =>
         verificationRequests shouldBe List(
           UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v1_key))
         )
@@ -544,7 +539,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
                in upure @(ContractId '-pkg1-':M:T) cid
           """
       )
-      inside(res) { case Right((_, ValueContractId(cid), verificationRequests)) =>
+      inside(res) { case Right((ValueContractId(cid), verificationRequests)) =>
         verificationRequests shouldBe List(
           UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v2_key)),
           UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v2_key)),
@@ -566,7 +561,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           """,
         packageResolution = Map(Ref.PackageName.assertFromString("-upgrade-test-") -> pkgId2),
       )
-      inside(res) { case Right((_, ValueContractId(cid), verificationRequests)) =>
+      inside(res) { case Right((ValueContractId(cid), verificationRequests)) =>
         verificationRequests shouldBe List(
           UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v1_key))
         )
@@ -575,7 +570,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
     "do recompute and check immutability of meta data when using different versions" in {
       // The following code is not properly typed, but emulates two commands that fetch a same contract using different versions.
-      val res: Either[SError, (SValue, Value, List[UpgradeVerificationRequest])] = go(
+      val res: Either[SError, (Value, List[UpgradeVerificationRequest])] = go(
         e"""\(cid: ContractId '-pkg1-':M:T) ->
                ubind
                  x1: Unit <- '-pkg2-':M:do_fetch cid;
@@ -584,7 +579,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           """,
         ContractInstance(pkgName, pkg1Ver, i"'-pkg1-':M:T", v1_base),
       )
-      inside(res) { case Right((_, _, verificationRequests)) =>
+      inside(res) { case Right((_, verificationRequests)) =>
         val v4_key = GlobalKeyWithMaintainers.assertBuild(
           i"'-pkg1-':M:T",
           ValueParty(bob),
@@ -619,17 +614,10 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         ValueOptional(Some(ValueParty(bob))),
       )
 
-    val v_alice_none_normal =
-      makeRecord(
-        ValueParty(alice),
-        ValueParty(bob),
-        ValueInt64(100),
-      )
-
     inside(
       go(e"'-pkg3-':M:do_fetch", ContractInstance(pkgName, pkg3Ver, i"'-pgk3-':M:T", v_alice_none))
-    ) { case Right((_, v, List(uv))) =>
-      v shouldBe v_alice_none_normal
+    ) { case Right((v, List(uv))) =>
+      v shouldBe v_alice_none
       uv.coid shouldBe theCid
       uv.signatories.toList shouldBe List(alice)
       uv.observers.toList shouldBe List(bob)
@@ -638,7 +626,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
     inside(
       go(e"'-pkg3-':M:do_fetch", ContractInstance(pkgName, pkg3Ver, i"'-pgk3-':M:T", v_alice_some))
-    ) { case Right((_, v, List(uv))) =>
+    ) { case Right((v, List(uv))) =>
       v shouldBe v_alice_some
       uv.coid shouldBe theCid
       uv.signatories.toList shouldBe List(alice, bob)
@@ -668,7 +656,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         )
         SValue.SRecord(i"'-pkg1-':M:T", fields, values)
       }
-      inside(goDisclosed(e"'-pkg1-':M:do_fetch", sv1_base)) { case Right((_, v, _)) =>
+      inside(goDisclosed(e"'-pkg1-':M:do_fetch", sv1_base)) { case Right((v, _)) =>
         v shouldBe v1_base
       }
     }
@@ -690,7 +678,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         )
         SValue.SRecord(i"'-unknown-':M:T", fields, values)
       }
-      inside(goDisclosed(e"'-pkg1-':M:do_fetch", sv1_base)) { case Right((_, v, _)) =>
+      inside(goDisclosed(e"'-pkg1-':M:do_fetch", sv1_base)) { case Right((v, _)) =>
         v shouldBe v1_base
       }
     }

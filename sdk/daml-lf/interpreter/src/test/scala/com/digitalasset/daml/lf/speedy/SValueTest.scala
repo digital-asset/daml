@@ -49,7 +49,7 @@ class SValueTest extends AnyWordSpec with Inside with Matchers with TableDrivenP
 
   "SMap" should {
 
-    "fail on creation with non strictly ordered indexed sequences" in {
+    "fail on creation with unordered indexed sequences" in {
       val testCases = Table[Boolean, IndexedSeqView[(SValue, SValue)]](
         ("isTextMap", "entries"),
         (
@@ -68,21 +68,13 @@ class SValueTest extends AnyWordSpec with Inside with Matchers with TableDrivenP
           false,
           ImmArray(SInt64(42) -> SText("42"), SInt64(1) -> SText("1")).toSeq.view,
         ),
-        (
-          false,
-          ImmArray(
-            SInt64(42) -> SText("42"),
-            SInt64(42) -> SText("42"),
-            SInt64(1) -> SText("1"),
-          ).toSeq.view,
-        ),
       )
 
       forAll(testCases) { (isTextMap, entries) =>
         val result = Try(SMap.fromOrderedEntries(isTextMap, entries))
 
         inside(result) { case Failure(error: IllegalArgumentException) =>
-          error.getMessage shouldBe "the entries are not strictly ordered"
+          error.getMessage shouldBe "the entries are not ordered"
         }
       }
     }
