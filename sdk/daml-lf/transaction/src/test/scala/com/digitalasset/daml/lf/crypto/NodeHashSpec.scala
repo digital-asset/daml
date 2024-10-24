@@ -419,16 +419,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     "not produce collision in global keys" in {
       hashExerciseNode(
         exerciseNode.copy(
-          keyOpt = Some(
-            GlobalKeyWithMaintainers(
-              GlobalKey.assertBuild(
-                defRef("module_key", "name"),
-                VA.text.inj("bye"), // Different from control value
-                PackageName.assertFromString("package_name_key"),
-              ),
-              Set[Party](Ref.Party.assertFromString("david")),
-            )
-          )
+          keyOpt = Some(globalKey2)
         )
       ) should !==(defaultHash)
     }
