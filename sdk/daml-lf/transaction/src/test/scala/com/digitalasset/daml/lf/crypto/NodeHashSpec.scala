@@ -900,4 +900,3 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     }
   }
 }
-
