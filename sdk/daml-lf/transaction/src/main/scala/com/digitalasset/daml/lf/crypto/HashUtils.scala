@@ -14,6 +14,8 @@ import java.security.MessageDigest
 
 object HashUtils {
 
+  private[crypto] def formatByteToHexString(byte: Byte): String = String.format("%02X", byte)
+
   /** Extension of OutputStream with additional methods to help exporting the encoding with context information
     */
   abstract class ContextAwareOutputStream extends OutputStream {
@@ -33,9 +35,11 @@ object HashUtils {
       discard(sb.append(Bytes.fromByteArray(b.slice(off, off + len)).toHexString))
     }
     override def write(byte: Byte): Unit =
-      discard(sb.append(byte.toString))
+      discard(sb.append(formatByteToHexString(byte)))
 
     def writeContext(context: String): Unit = discard(sb.append(context))
+
+    override def close(): Unit = sb.clear()
   }
 
   /** Interface for message digest. Allows to swap out default implementation for debug implementation.
@@ -120,7 +124,6 @@ object HashUtils {
 
     override def digest(buf: Array[Byte], offset: Int, len: Int): Int = {
       outputStream.flush()
-      outputStream.close()
       super.digest(buf, offset, len)
     }
 

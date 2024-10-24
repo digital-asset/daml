@@ -24,6 +24,7 @@ import com.digitalasset.daml.lf.crypto.HashUtils.{
   DebugMessageDigest,
   DefaultMessageDigest,
   MessageDigestWithContext,
+  formatByteToHexString,
 }
 import com.digitalasset.daml.lf.data.Ref.Name
 import com.digitalasset.daml.lf.language.LanguageVersion
@@ -168,7 +169,7 @@ object Hash {
       addBytes(Utf8.getBytes(s), contextO(s"$s (string)"))
 
     final def addBool(b: Boolean): this.type =
-      addByte(if (b) 1.toByte else 0.toByte, Option.when(isContextAware)(b.toString))
+      addByte(if (b) 1.toByte else 0.toByte, contextO(s"${b.toString} (bool)"))
 
     private val intBuffer = ByteBuffer.allocate(java.lang.Integer.BYTES)
 
@@ -220,8 +221,11 @@ object Hash {
   }
 
   // Transaction Builder class with builder methods to recursively encode nodes
-  private sealed class TransactionBuilder(protected val messageDigest: MessageDigestWithContext)
-      extends Builder(stringNumericToBytes, messageDigest.isContextAware) {
+  private sealed class TransactionBuilder(
+      protected val messageDigest: MessageDigestWithContext,
+      valueBuilder: ValueHashBuilder,
+  ) extends Builder(stringNumericToBytes, messageDigest.isContextAware) {
+
     override protected def update(a: ByteBuffer, context: Option[String]): Unit = {
       messageDigest.update(a, context)
     }
@@ -240,7 +244,7 @@ object Hash {
     }
 
     private[lf] def addFromVersionNode(node: Node, nodes: Map[NodeId, Node]): NodeBuilder = {
-      NodeBuilder.builderForNode(node, messageDigest).addNode(node, nodes)
+      NodeBuilder.builderForNode(node, messageDigest, valueBuilder).addNode(node, nodes)
     }
 
     @throws[NodeHashingError]
@@ -268,15 +272,18 @@ object Hash {
   private sealed abstract class NodeBuilder(
       version: NodeHashVersion,
       messageDigest: MessageDigestWithContext,
-  ) extends TransactionBuilder(messageDigest) {
+      valueBuilder: ValueHashBuilder,
+  ) extends TransactionBuilder(messageDigest, valueBuilder) {
     {
-      messageDigest.update(version.id, contextO(s"${version.id} (node_version)"))
+      messageDigest.update(
+        version.id,
+        contextO(s"${String.format("%02X", version.id)} (node_version)"),
+      )
     }
 
     // We pass the message digest from the node to the value builder, this way we can compute a single hash for the entire
     // node without having to individually hash every value in the node.
-    private val valueBuilder =
-      new LegacyBuilder(Purpose.TransactionHash, aCid2Bytes, stringNumericToBytes, messageDigest)
+    protected def valueBuilder: ValueHashBuilder
 
     protected def addWithValueBuilder[T](
         value: T,
@@ -303,32 +310,38 @@ object Hash {
 
   private object NodeBuilder {
     private[lf] val LanguageVersionToTransactionBuilder
-        : Map[LanguageVersion, MessageDigestWithContext => NodeBuilder] = Map(
-      LanguageVersion.v2_1 -> (md => new NodeBuilderV1(md))
+        : Map[LanguageVersion, (MessageDigestWithContext, ValueHashBuilder) => NodeBuilder] = Map(
+      LanguageVersion.v2_1 -> ((messageDigest, valueBuilder) =>
+        new NodeBuilderV1(messageDigest, valueBuilder),
+      )
     )
 
     @throws[NodeHashingError]
     private[lf] def builderForVersion(
         version: LanguageVersion,
         messageDigest: MessageDigestWithContext,
+        valueBuilder: ValueHashBuilder,
     ): NodeBuilder =
       NodeBuilder.LanguageVersionToTransactionBuilder
         .getOrElse(version, throw NodeHashingError.UnsupportedLanguageVersion(version))
-        .apply(messageDigest)
+        .apply(messageDigest, valueBuilder)
 
     private[lf] def builderForNode(
         node: Node,
         messageDigest: MessageDigestWithContext,
+        valueBuilder: ValueHashBuilder,
     ): NodeBuilder = node.optVersion match {
-      case Some(version) => builderForVersion(version, messageDigest)
+      case Some(version) => builderForVersion(version, messageDigest, valueBuilder)
       // If the node is version agnostic, the builder doesn't matter so pick V1
       // This only applies to rollback nodes
-      case None => new NodeBuilderV1(messageDigest)
+      case None => new NodeBuilderV1(messageDigest, valueBuilder)
     }
   }
 
-  private final class NodeBuilderV1(messageDigest: MessageDigestWithContext)
-      extends NodeBuilder(NodeHashVersion.V1, messageDigest) {
+  private final class NodeBuilderV1(
+      messageDigest: MessageDigestWithContext,
+      override protected val valueBuilder: ValueHashBuilder,
+  ) extends NodeBuilder(NodeHashVersion.V1, messageDigest, valueBuilder) {
     private def addCreateNode(create: Node.Create): this.type = {
       addContext("Create Node")
         .withContext("Contract Id")(_.addWithValueBuilder(create.coid, _.addCid))
@@ -413,7 +426,10 @@ object Hash {
     */
   @throws[NodeHashingError]
   def hashTransaction(versionedTransaction: VersionedTransaction): Hash = {
-    new TransactionBuilder(new DefaultMessageDigest(MessageDigestPrototype.Sha256.newDigest))
+    val messageDigest = new DefaultMessageDigest(MessageDigestPrototype.Sha256.newDigest)
+    val valueBuilder =
+      new LegacyBuilder(Purpose.TransactionHash, aCid2Bytes, stringNumericToBytes, messageDigest)
+    new TransactionBuilder(messageDigest, valueBuilder)
       .addNodesFromNodeIds(versionedTransaction.roots, versionedTransaction.nodes)
       .build
   }
@@ -426,9 +442,11 @@ object Hash {
       versionedTransaction: VersionedTransaction,
       outputStream: ContextAwareOutputStream,
   ): Hash = {
-    new TransactionBuilder(
+    val messageDigest =
       new DebugMessageDigest(MessageDigestPrototype.Sha256.newDigest, outputStream)
-    )
+    val valueBuilder =
+      new LegacyBuilder(Purpose.TransactionHash, aCid2Bytes, stringNumericToBytes, messageDigest)
+    new TransactionBuilder(messageDigest, valueBuilder)
       .addContext("Transaction")
       .withContext("Root Nodes")(
         _.addNodesFromNodeIds(versionedTransaction.roots, versionedTransaction.nodes)
@@ -440,7 +458,10 @@ object Hash {
     */
   @throws[NodeHashingError]
   def hashNode(node: Node, subNodes: Map[NodeId, Node] = Map.empty): Hash = {
-    new TransactionBuilder(new DefaultMessageDigest(MessageDigestPrototype.Sha256.newDigest))
+    val messageDigest = new DefaultMessageDigest(MessageDigestPrototype.Sha256.newDigest)
+    val valueBuilder =
+      new LegacyBuilder(Purpose.TransactionHash, aCid2Bytes, stringNumericToBytes, messageDigest)
+    new TransactionBuilder(messageDigest, valueBuilder)
       .addFromVersionNode(node, subNodes)
       .build
   }
@@ -454,9 +475,11 @@ object Hash {
       outputStream: ContextAwareOutputStream,
       subNodes: Map[NodeId, Node] = Map.empty,
   ): Hash = {
-    new TransactionBuilder(
+    val messageDigest =
       new DebugMessageDigest(MessageDigestPrototype.Sha256.newDigest, outputStream)
-    )
+    val valueBuilder =
+      new LegacyBuilder(Purpose.TransactionHash, aCid2Bytes, stringNumericToBytes, messageDigest)
+    new TransactionBuilder(messageDigest, valueBuilder)
       .addFromVersionNode(node, subNodes)
       .build
   }
@@ -486,6 +509,7 @@ object Hash {
       md: MessageDigestWithContext = new DefaultMessageDigest(
         MessageDigestPrototype.Sha256.newDigest
       ),
+      hashVersionAndPurpose: Boolean = true,
   ) extends Builder(numericToBytes, md.isContextAware) {
 
     /*
@@ -509,10 +533,15 @@ object Hash {
     override protected def doFinal(buf: Array[Byte]): Unit =
       assert(md.digest(buf, 0, underlyingHashLength) == underlyingHashLength)
 
-    md.update(version.id, contextO(s"${version.id} (value_version)"))
-    md.update(purpose.id, contextO(s"${purpose.id} (value_purpose)"))
+    if (hashVersionAndPurpose) {
+      md.update(version.id, contextO(s"${formatByteToHexString(version.id)} (value_version)"))
+      md.update(purpose.id, contextO(s"${formatByteToHexString(purpose.id)} (value_purpose)"))
+    }
   }
 
+  /** @param hashVersionAndPurpose Set to false to prevent the value builder from injecting its version and purpose in the hash.
+    *                              This should only be used to get the un-prefixed hash of a single value.
+    */
   private final class LegacyBuilder(
       purpose: Purpose,
       cid2Bytes: Value.ContractId => Bytes,
@@ -520,12 +549,14 @@ object Hash {
       md: MessageDigestWithContext = new DefaultMessageDigest(
         MessageDigestPrototype.Sha256.newDigest
       ),
+      hashVersionAndPurpose: Boolean = true,
   ) extends ValueHashBuilder(
         version = Version.Legacy,
         purpose = purpose,
         cid2Bytes = cid2Bytes,
         numericToBytes = numericToBytes,
         md = md,
+        hashVersionAndPurpose = hashVersionAndPurpose,
       ) {
 
     /*
@@ -550,7 +581,7 @@ object Hash {
     final override def addTypedValue(value: Value): this.type =
       value match {
         case Value.ValueUnit =>
-          addByte(0.toByte, contextO("0 (unit)"))
+          addByte(0.toByte, contextO("00 (unit)"))
         case Value.ValueBool(b) =>
           addBool(b)
         case Value.ValueInt64(v) =>
@@ -815,11 +846,28 @@ object Hash {
       purpose: Purpose,
       cid2Bytes: Value.ContractId => Bytes,
       upgradeFriendly: Boolean,
-  ): ValueHashBuilder =
+      numeric2Bytes: data.Numeric => Bytes = bigIntNumericToBytes,
+      debugOutputStream: Option[ContextAwareOutputStream] = None,
+      hashVersionAndPurpose: Boolean = true,
+  ): ValueHashBuilder = {
+    val messageDigest = debugOutputStream
+      .map(
+        new DebugMessageDigest(
+          MessageDigestPrototype.Sha256.newDigest,
+          _,
+        )
+      )
+      .getOrElse {
+        new DefaultMessageDigest(
+          MessageDigestPrototype.Sha256.newDigest
+        )
+      }
+
     if (upgradeFriendly)
-      new UpgradeFriendlyBuilder(purpose, cid2Bytes, bigIntNumericToBytes)
+      new UpgradeFriendlyBuilder(purpose, cid2Bytes, numeric2Bytes, messageDigest)
     else
-      new LegacyBuilder(purpose, cid2Bytes, bigIntNumericToBytes)
+      new LegacyBuilder(purpose, cid2Bytes, numeric2Bytes, messageDigest, hashVersionAndPurpose)
+  }
 
   private[crypto] def hMacBuilder(key: Hash): Builder = new HashMacBuilder(key)
 
