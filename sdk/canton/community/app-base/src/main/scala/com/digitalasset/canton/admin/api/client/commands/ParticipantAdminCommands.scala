@@ -9,7 +9,6 @@ import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
   ServerEnforcedTimeout,
   TimeoutType,
 }
-import com.digitalasset.canton.admin.api.client.commands.StatusAdminCommands.NodeStatusCommand
 import com.digitalasset.canton.admin.api.client.data.{
   DarMetadata,
   InFlightCount,
@@ -1915,10 +1914,10 @@ object ParticipantAdminCommands {
 
   object Health {
     final case class ParticipantStatusCommand()
-        extends NodeStatusCommand[
-          ParticipantStatus,
+        extends GrpcAdminCommand[
           ParticipantStatusRequest,
           ParticipantStatusResponse,
+          NodeStatus[ParticipantStatus],
         ] {
 
       override type Svc = ParticipantStatusServiceStub
@@ -1926,16 +1925,11 @@ object ParticipantAdminCommands {
       override def createService(channel: ManagedChannel): ParticipantStatusServiceStub =
         ParticipantStatusServiceGrpc.stub(channel)
 
-      override def getStatus(
-          service: ParticipantStatusServiceStub,
-          request: ParticipantStatusRequest,
-      ): Future[ParticipantStatusResponse] = service.participantStatus(request)
-
       override def submitRequest(
           service: ParticipantStatusServiceStub,
           request: ParticipantStatusRequest,
       ): Future[ParticipantStatusResponse] =
-        submitReq(service, request)
+        service.participantStatus(request)
 
       override def createRequest(): Either[String, ParticipantStatusRequest] = Right(
         ParticipantStatusRequest()

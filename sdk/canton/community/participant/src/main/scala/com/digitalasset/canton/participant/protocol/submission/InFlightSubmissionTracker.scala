@@ -110,7 +110,6 @@ class InFlightSubmissionTracker(
       // because we do not know whether we have already produced a timely rejection concurrently.
       deduplicationResult <- EitherT
         .right(deduplicator.checkDuplication(submission.changeIdHash, deduplicationPeriod).value)
-        .mapK(FutureUnlessShutdown.outcomeK)
     } yield deduplicationResult
   }
 
@@ -118,7 +117,7 @@ class InFlightSubmissionTracker(
   def updateRegistration(
       submission: InFlightSubmission[UnsequencedSubmission],
       rootHash: RootHash,
-  ): Future[Unit] = {
+  ): FutureUnlessShutdown[Unit] = {
     implicit val traceContext: TraceContext = submission.submissionTraceContext
 
     store.value.updateRegistration(submission, rootHash)
@@ -127,7 +126,7 @@ class InFlightSubmissionTracker(
   /** @see com.digitalasset.canton.participant.store.InFlightSubmissionStore.observeSequencing */
   def observeSequencing(domainId: DomainId, sequenceds: Map[MessageId, SequencedSubmission])(
       implicit traceContext: TraceContext
-  ): Future[Unit] =
+  ): FutureUnlessShutdown[Unit] =
     store.value.observeSequencing(domainId, sequenceds)
 
   /** @see com.digitalasset.canton.participant.store.InFlightSubmissionStore.observeSequencedRootHash */
@@ -136,7 +135,7 @@ class InFlightSubmissionTracker(
       submission: SequencedSubmission,
   )(implicit
       traceContext: TraceContext
-  ): Future[Unit] =
+  ): FutureUnlessShutdown[Unit] =
     store.value.observeSequencedRootHash(rootHash, submission)
 
   /** @see com.digitalasset.canton.participant.store.InFlightSubmissionStore.updateUnsequenced */
@@ -145,7 +144,7 @@ class InFlightSubmissionTracker(
       domainId: DomainId,
       messageId: MessageId,
       newTrackingData: UnsequencedSubmission,
-  )(implicit traceContext: TraceContext): Future[Unit] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     store.value.updateUnsequenced(changeIdHash, domainId, messageId, newTrackingData).map {
       (_: Unit) =>
         // Request a tick for the new timestamp if we're still connected to the domain
@@ -164,7 +163,7 @@ class InFlightSubmissionTracker(
     */
   def observeDeliverError(
       deliverError: DeliverError
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     def updatedTrackingData(
         inFlightO: Option[InFlightSubmission[SubmissionSequencingInfo]]
     ): Option[(ChangeIdHash, UnsequencedSubmission)] =
@@ -194,7 +193,7 @@ class InFlightSubmissionTracker(
       logger.debug(
         s"Ignoring deliver error $deliverError for $domainId and $messageId because the message was already sequenced."
       )
-      Future.successful(())
+      FutureUnlessShutdown.unit
     } else
       for {
         inFlightO <- store.value.lookupSomeMessageId(domainId, messageId)
@@ -278,8 +277,7 @@ class InFlightSubmissionTracker(
       traceContext: TraceContext
   ): FutureUnlessShutdown[Unit] =
     for {
-      timelyRejects <- FutureUnlessShutdown
-        .outcomeF(store.value.lookupUnsequencedUptoUnordered(domainId, upToInclusive))
+      timelyRejects <- store.value.lookupUnsequencedUptoUnordered(domainId, upToInclusive)
       events = timelyRejects.map(timelyRejectionEventFor)
       _skippedE <- participantEventPublisher.publishDomainRelatedEvents(events)
     } yield ()
@@ -297,7 +295,7 @@ class InFlightSubmissionTracker(
 
   def processPublications(
       publications: Seq[PostPublishData]
-  )(implicit traceContext: TraceContext): Future[Unit] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     for {
       _ <- deduplicator.processPublications(publications)
       trackedReferences = publications.map(publication =>
@@ -318,7 +316,8 @@ class InFlightSubmissionTracker(
             )
         }
       )
-      _ <- store.value.delete(trackedReferences)
+      _ <- store.value
+        .delete(trackedReferences)
     } yield ()
 
   /** Deletes the published, sequenced in-flight submissions with sequencing timestamps up to the given bound
@@ -333,7 +332,7 @@ class InFlightSubmissionTracker(
     */
   def recoverDomain(domainId: DomainId, upToInclusive: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Unit] = {
+  ): FutureUnlessShutdown[Unit] = {
     val domainState = domainStates(domainId).getOrElse(
       ErrorUtil.internalError(
         new IllegalStateException(s"Domain state for $domainId not found during crash recovery.")

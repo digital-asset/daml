@@ -5,11 +5,9 @@ package com.digitalasset.canton.console.commands
 
 import better.files.File
 import ch.qos.logback.classic.Level
-import com.digitalasset.canton.admin.api.client.commands.StatusAdminCommands.{
-  NodeStatusCommand,
-  NodeStatusElement,
-}
+import com.digitalasset.canton.admin.api.client.commands.StatusAdminCommands.NodeStatusElement
 import com.digitalasset.canton.admin.api.client.commands.{
+  GrpcAdminCommand,
   StatusAdminCommands,
   TopologyAdminCommands,
 }
@@ -46,7 +44,7 @@ abstract class HealthAdministration[S <: NodeStatus.Status](
 
   import runner.*
 
-  protected def nodeStatusCommand: NodeStatusCommand[S, _, _]
+  protected def nodeStatusCommand: GrpcAdminCommand[?, ?, NodeStatus[S]]
 
   @Help.Summary("Get human (and machine) readable status information")
   def status: NodeStatus[S] =

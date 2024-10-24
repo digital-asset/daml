@@ -105,9 +105,9 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
       commandDeduplicationStore.storeDefiniteAnswers(
         any[Seq[(ChangeId, DefiniteAnswerEvent, Boolean)]]
       )(anyTraceContext)
-    ).thenReturn(Future.unit)
+    ).thenReturn(FutureUnlessShutdown.unit)
     when(inFlightSubmissionStore.delete(any[Seq[InFlightReference]])(anyTraceContext))
-      .thenReturn(Future.unit)
+      .thenReturn(FutureUnlessShutdown.unit)
 
     val clock = new SimClock(loggerFactory = loggerFactory)
 

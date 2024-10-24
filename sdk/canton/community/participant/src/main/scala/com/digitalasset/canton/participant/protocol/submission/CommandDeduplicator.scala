@@ -9,6 +9,7 @@ import cats.syntax.either.*
 import com.digitalasset.canton.LedgerSubmissionId
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod, Offset}
 import com.digitalasset.canton.ledger.participant.state.ChangeId
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.protocol.submission.CommandDeduplicator.{
@@ -25,7 +26,7 @@ import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Implements the command deduplication logic.
   *
@@ -40,7 +41,7 @@ trait CommandDeduplicator {
       publications: Seq[PostPublishData]
   )(implicit
       traceContext: TraceContext
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 
   /** Perform deduplication for the given [[com.digitalasset.canton.participant.protocol.submission.ChangeIdHash]]
     * and [[com.digitalasset.canton.data.DeduplicationPeriod]].
@@ -55,7 +56,7 @@ trait CommandDeduplicator {
     */
   def checkDuplication(changeIdHash: ChangeIdHash, deduplicationPeriod: DeduplicationPeriod)(
       implicit traceContext: TraceContext
-  ): EitherT[Future, DeduplicationFailed, DeduplicationPeriod.DeduplicationOffset]
+  ): EitherT[FutureUnlessShutdown, DeduplicationFailed, DeduplicationPeriod.DeduplicationOffset]
 }
 
 object CommandDeduplicator {
@@ -86,7 +87,7 @@ class CommandDeduplicatorImpl(
 
   override def processPublications(
       publications: Seq[PostPublishData]
-  )(implicit traceContext: TraceContext): Future[Unit] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     store.value.storeDefiniteAnswers(
       publications.map(publication =>
         (
@@ -110,7 +111,7 @@ class CommandDeduplicatorImpl(
       deduplicationPeriod: DeduplicationPeriod,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, DeduplicationFailed, DeduplicationPeriod.DeduplicationOffset] = {
+  ): EitherT[FutureUnlessShutdown, DeduplicationFailed, DeduplicationPeriod.DeduplicationOffset] = {
 
     def dedupPeriodTooEarly(prunedOffset: GlobalOffset): DeduplicationFailed =
       DeduplicationPeriodTooEarly(
@@ -132,7 +133,7 @@ class CommandDeduplicatorImpl(
 
     def dedupDuration(
         duration: java.time.Duration
-    ): EitherT[Future, DeduplicationFailed, GlobalOffset] = {
+    ): EitherT[FutureUnlessShutdown, DeduplicationFailed, GlobalOffset] = {
       // Convert the duration into a timestamp based on the local participant clock
       // and check against the publication time of the definite answer events.
       //
@@ -150,7 +151,7 @@ class CommandDeduplicatorImpl(
 
       def checkAgainstPruning(
           deduplicationStart: CantonTimestamp
-      ): EitherT[Future, DeduplicationFailed, GlobalOffset] =
+      ): EitherT[FutureUnlessShutdown, DeduplicationFailed, GlobalOffset] =
         EitherTUtil.leftSubflatMap(store.value.latestPruning().toLeft(unprunedDedupOffset)) {
           case OffsetAndPublicationTime(prunedOffset, prunedPublicationTime) =>
             Either.cond(
@@ -161,7 +162,7 @@ class CommandDeduplicatorImpl(
         }
 
       for {
-        deduplicationStart <- EitherT.fromEither[Future](
+        deduplicationStart <- EitherT.fromEither[FutureUnlessShutdown](
           CantonTimestamp.fromInstant(baseline.minus(duration)).leftMap[DeduplicationFailed] {
             err =>
               logger.info(s"Deduplication period underflow: $err")
@@ -182,7 +183,7 @@ class CommandDeduplicatorImpl(
             latestAcceptance match {
               case None => checkAgainstPruning(deduplicationStart)
               case Some(acceptance) =>
-                EitherT.cond[Future](
+                EitherT.cond[FutureUnlessShutdown](
                   acceptance.publicationTime < deduplicationStart,
                   // Use the found offset rather than deduplicationStart
                   // so that we don't have to check whether deduplicationStart is at most the ledger end
@@ -200,10 +201,10 @@ class CommandDeduplicatorImpl(
 
     def dedupOffset(
         offset: Offset
-    ): EitherT[Future, DeduplicationFailed, GlobalOffset] = {
+    ): EitherT[FutureUnlessShutdown, DeduplicationFailed, GlobalOffset] = {
       def checkAgainstPruning(
           dedupOffset: GlobalOffset
-      ): EitherT[Future, DeduplicationFailed, GlobalOffset] =
+      ): EitherT[FutureUnlessShutdown, DeduplicationFailed, GlobalOffset] =
         EitherTUtil.leftSubflatMap(store.value.latestPruning().toLeft(unprunedDedupOffset)) {
           case OffsetAndPublicationTime(prunedOffset, _prunedPublicationTime) =>
             Either.cond(
@@ -214,7 +215,7 @@ class CommandDeduplicatorImpl(
         }
 
       for {
-        dedupOffset <- EitherT.fromEither[Future](
+        dedupOffset <- EitherT.fromEither[FutureUnlessShutdown](
           UpstreamOffsetConvert
             .toGlobalOffset(offset)
             .leftMap[DeduplicationFailed](err => MalformedOffset(err))
@@ -228,7 +229,7 @@ class CommandDeduplicatorImpl(
             latestAcceptance match {
               case None => checkAgainstPruning(dedupOffset)
               case Some(acceptance) =>
-                EitherT.cond[Future](
+                EitherT.cond[FutureUnlessShutdown](
                   acceptance.offset <= dedupOffset,
                   acceptance.offset,
                   AlreadyExists(

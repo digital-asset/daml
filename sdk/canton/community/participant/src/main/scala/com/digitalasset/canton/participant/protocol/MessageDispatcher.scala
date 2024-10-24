@@ -604,11 +604,10 @@ trait MessageDispatcher { this: NamedLogging =>
         map
       case (map, receipt) => map + receipt
     }
-    lazy val future =
-      FutureUnlessShutdown.outcomeF(
-        inFlightSubmissionTracker.observeSequencing(domainId, receiptsMap)
-      )
-    doProcess(DeliveryMessageKind, future)
+    doProcess(
+      DeliveryMessageKind,
+      inFlightSubmissionTracker.observeSequencing(domainId, receiptsMap),
+    )
   }
 
   protected def observeDeliverError(
@@ -616,7 +615,7 @@ trait MessageDispatcher { this: NamedLogging =>
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[ProcessingResult] =
     doProcess(
       DeliveryMessageKind,
-      FutureUnlessShutdown.outcomeF(inFlightSubmissionTracker.observeDeliverError(error)),
+      inFlightSubmissionTracker.observeDeliverError(error),
     )
 
   private def tickRecordOrderPublisher(sc: SequencerCounter, ts: CantonTimestamp)(implicit

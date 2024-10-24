@@ -108,7 +108,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
     val acsResponse =
       grpcClient.stateService.getLedgerEndOffset().flatMap { offset =>
         grpcClient.stateService
-          .getActiveContracts(filter, verbose = false, validAtOffset = offset.getOrElse(0L))
+          .getActiveContracts(filter, verbose = false, validAtOffset = offset)
           .map(_._1)
       }
     acsResponse.map(activeContracts =>
@@ -166,7 +166,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
     val acsResponse =
       grpcClient.stateService.getLedgerEndOffset().flatMap { offset =>
         grpcClient.stateService
-          .getActiveContracts(filter, verbose = false, validAtOffset = offset.getOrElse(0L))
+          .getActiveContracts(filter, verbose = false, validAtOffset = offset)
           .map(_._1)
       }
     acsResponse.map(activeContracts =>

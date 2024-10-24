@@ -449,7 +449,7 @@ class DbTopologyStore[StoreId <: TopologyStoreId](
       traceContext: TraceContext
   ): Future[GenericStoredTopologyTransactions] = {
     val timeFilter = sql" AND sequenced <= ${asOfInclusive.value}"
-    logger.debug(s"Querying essential state as of asOfInclusive")
+    logger.debug(s"Querying essential state as of $asOfInclusive")
 
     queryForTransactions(timeFilter, "essentialState").map(
       _.asSnapshotAtMaxEffectiveTime.retainAuthorizedHistoryAndEffectiveProposals

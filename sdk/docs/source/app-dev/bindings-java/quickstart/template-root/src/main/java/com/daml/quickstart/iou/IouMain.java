@@ -50,7 +50,7 @@ public class IouMain {
     ConcurrentHashMap<Long, Iou> contracts = new ConcurrentHashMap<>();
     BiMap<Long, Iou.ContractId> idMap = Maps.synchronizedBiMap(HashBiMap.create());
 
-    Long ledgerEnd = client.getStateClient().getLedgerEnd().blockingGet().orElse(0L);
+    Long ledgerEnd = client.getStateClient().getLedgerEnd().blockingGet();
 
     client
         .getStateClient()

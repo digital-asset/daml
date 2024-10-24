@@ -20,37 +20,22 @@ import scala.concurrent.Future
 
 object StatusAdminCommands {
 
-  abstract class NodeStatusCommand[
-      S <: NodeStatus.Status,
-      GrpcReq,
-      GrpcResponse,
-  ] extends GrpcAdminCommand[GrpcReq, GrpcResponse, NodeStatus[S]] {
-    def createRequest(): Either[String, GrpcReq]
-
-    def getStatus(service: Svc, request: GrpcReq): Future[GrpcResponse]
-
-    def submitReq(
-        service: Svc,
-        request: GrpcReq,
-    ): Future[GrpcResponse] = getStatus(service, request)
-  }
-
   /** Query the shared part of the status endpoint and project to an attribute
     * @param cmd Comment to query the node status endpoint
     * @param projector Projector from the node status to the attribute
     */
-  final case class NodeStatusElement[S <: NodeStatus.Status, GrpcReq, GrpcResponse, T](
-      cmd: NodeStatusCommand[S, GrpcReq, GrpcResponse],
+  final case class NodeStatusElement[S <: NodeStatus.Status, GrpcRequest, GrpcResponse, T](
+      cmd: GrpcAdminCommand[GrpcRequest, GrpcResponse, NodeStatus[S]],
       projector: NodeStatus[NodeStatus.Status] => T,
-  ) extends GrpcAdminCommand[GrpcReq, GrpcResponse, T] {
+  ) extends GrpcAdminCommand[GrpcRequest, GrpcResponse, T] {
     override type Svc = cmd.Svc
 
     override def createService(channel: ManagedChannel): Svc = cmd.createService(channel)
 
-    override def submitRequest(service: Svc, request: GrpcReq): Future[GrpcResponse] =
+    override def submitRequest(service: Svc, request: GrpcRequest): Future[GrpcResponse] =
       cmd.submitRequest(service, request)
 
-    override def createRequest(): Either[String, GrpcReq] = cmd.createRequest()
+    override def createRequest(): Either[String, GrpcRequest] = cmd.createRequest()
 
     override def handleResponse(response: GrpcResponse): Either[String, T] =
       cmd.handleResponse(response).map(projector)

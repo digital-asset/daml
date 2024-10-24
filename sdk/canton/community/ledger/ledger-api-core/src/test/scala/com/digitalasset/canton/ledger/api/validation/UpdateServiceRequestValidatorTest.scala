@@ -36,7 +36,7 @@ class UpdateServiceRequestValidatorTest
 
   private def txReqBuilder(templateIdsForParty: Seq[Identifier]) = GetUpdatesRequest(
     beginExclusive = 0L,
-    endInclusive = offsetLongO,
+    endInclusive = Some(offsetLong),
     filter = Some(
       TransactionFilter(
         Map(

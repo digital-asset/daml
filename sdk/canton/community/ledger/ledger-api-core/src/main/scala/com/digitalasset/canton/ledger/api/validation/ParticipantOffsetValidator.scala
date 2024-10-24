@@ -7,22 +7,9 @@ import com.daml.error.ContextualizedErrorLogger
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain.types.ParticipantOffset
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
-import com.digitalasset.daml.lf.data.Ref
 import io.grpc.StatusRuntimeException
 
 object ParticipantOffsetValidator {
-
-  // TODO(#21363) remove the function as it should no longer be used after converting CompletionStreamRequest to use non-optional int64
-  def validateOptional(
-      offsetO: Option[Long],
-      fieldName: String,
-  )(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, ParticipantOffset] =
-    offsetO match {
-      case None => Right(Ref.HexString.assertFromString(""))
-      case Some(offset) => validatePositive(offset, fieldName)
-    }
 
   def validateOptionalPositive(ledgerOffsetO: Option[Long], fieldName: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger

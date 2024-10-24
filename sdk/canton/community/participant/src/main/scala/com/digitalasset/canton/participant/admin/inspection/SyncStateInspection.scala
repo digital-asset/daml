@@ -631,9 +631,11 @@ final class SyncStateInspection(
           .toRight(s"Unknown domain $domain")
       )
       domainId = state.indexedDomain.domainId
-      unsequencedSubmissions <- EitherT.right[String](
+      unsequencedSubmissions <- EitherT(
         participantNodePersistentState.value.inFlightSubmissionStore
           .lookupUnsequencedUptoUnordered(domainId, CantonTimestamp.now())
+          .map(Right(_))
+          .onShutdown(Left("Aborted due to shutdown"))
       )
       pendingSubmissions = NonNegativeInt.tryCreate(unsequencedSubmissions.size)
       pendingTransactions <- EitherT.right[String](state.requestJournalStore.totalDirtyRequests())

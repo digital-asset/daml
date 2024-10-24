@@ -11,28 +11,24 @@ import java.util.Optional;
 
 public final class GetLedgerEndResponse {
 
-  @NonNull private final Optional<Long> offset;
+  @NonNull private final Long offset;
 
-  public GetLedgerEndResponse(@NonNull Optional<Long> offset) {
+  public GetLedgerEndResponse(@NonNull Long offset) {
     this.offset = offset;
   }
 
   @NonNull
-  public Optional<Long> getOffset() {
+  public Long getOffset() {
     return offset;
   }
 
   public static GetLedgerEndResponse fromProto(
       StateServiceOuterClass.GetLedgerEndResponse response) {
-    return new GetLedgerEndResponse(
-        response.hasOffset() ? Optional.of(response.getOffset()) : Optional.empty());
+    return new GetLedgerEndResponse(response.getOffset());
   }
 
   public StateServiceOuterClass.GetLedgerEndResponse toProto() {
-    StateServiceOuterClass.GetLedgerEndResponse.Builder builder =
-        StateServiceOuterClass.GetLedgerEndResponse.newBuilder();
-    offset.ifPresent(builder::setOffset);
-    return builder.build();
+    return StateServiceOuterClass.GetLedgerEndResponse.newBuilder().setOffset(this.offset).build();
   }
 
   @Override

@@ -337,4 +337,8 @@ final class ProgrammableUnitTestContext[MessageT](resolveAwaits: Boolean = false
 
   override def blockingAwait[X](future: () => X, duration: FiniteDuration): X =
     blockingAwait(future)
+
+  override def timeFuture[X](timer: Timer, futureUnlessShutdown: => () => X)(implicit
+      mc: MetricsContext
+  ): () => X = futureUnlessShutdown
 }

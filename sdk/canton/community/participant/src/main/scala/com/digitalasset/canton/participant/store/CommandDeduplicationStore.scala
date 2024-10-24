@@ -9,6 +9,7 @@ import cats.syntax.option.*
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.ChangeId
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.GlobalOffset
@@ -27,7 +28,7 @@ import com.digitalasset.canton.version.ReleaseProtocolVersion
 import com.digitalasset.canton.{ApplicationId, CommandId, LedgerSubmissionId}
 import slick.jdbc.GetResult
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 trait CommandDeduplicationStore extends AutoCloseable {
 
@@ -36,7 +37,7 @@ trait CommandDeduplicationStore extends AutoCloseable {
     */
   def lookup(changeIdHash: ChangeIdHash)(implicit
       traceContext: TraceContext
-  ): OptionT[Future, CommandDeduplicationData]
+  ): OptionT[FutureUnlessShutdown, CommandDeduplicationData]
 
   /** Updates the [[com.digitalasset.canton.participant.protocol.submission.ChangeIdHash]]'s for the given
     * [[com.digitalasset.canton.ledger.participant.state.ChangeId]]s with the given [[DefiniteAnswerEvent]]s.
@@ -47,7 +48,7 @@ trait CommandDeduplicationStore extends AutoCloseable {
     */
   def storeDefiniteAnswers(answers: Seq[(ChangeId, DefiniteAnswerEvent, Boolean)])(implicit
       traceContext: TraceContext
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 
   /** Updates the [[com.digitalasset.canton.participant.protocol.submission.ChangeIdHash]]'s for the given
     * [[com.digitalasset.canton.ledger.participant.state.ChangeId]] with the given [[DefiniteAnswerEvent]].
@@ -59,7 +60,7 @@ trait CommandDeduplicationStore extends AutoCloseable {
       changeId: ChangeId,
       definiteAnswerEvent: DefiniteAnswerEvent,
       accepted: Boolean,
-  ): Future[Unit] =
+  ): FutureUnlessShutdown[Unit] =
     storeDefiniteAnswers(Seq((changeId, definiteAnswerEvent, accepted)))(
       definiteAnswerEvent.traceContext
     )
@@ -71,13 +72,13 @@ trait CommandDeduplicationStore extends AutoCloseable {
     */
   def prune(upToInclusive: GlobalOffset, prunedPublicationTime: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 
   /** Returns the highest offset with which [[prune]] was called, and an upper bound on its publication time, if any.
     */
   def latestPruning()(implicit
       traceContext: TraceContext
-  ): OptionT[Future, OffsetAndPublicationTime]
+  ): OptionT[FutureUnlessShutdown, OffsetAndPublicationTime]
 }
 
 object CommandDeduplicationStore {

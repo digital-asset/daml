@@ -20,7 +20,7 @@ import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ReleaseProtocolVersion
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Backing store for [[com.digitalasset.canton.participant.protocol.submission.InFlightSubmissionTracker]].
   *
@@ -40,7 +40,7 @@ trait InFlightSubmissionStore extends AutoCloseable {
     */
   def lookup(changeIdHash: ChangeIdHash)(implicit
       traceContext: TraceContext
-  ): OptionT[Future, InFlightSubmission[SubmissionSequencingInfo]]
+  ): OptionT[FutureUnlessShutdown, InFlightSubmission[SubmissionSequencingInfo]]
 
   /** Returns all unsequenced in-flight submissions on the given domain
     * whose [[com.digitalasset.canton.participant.protocol.submission.UnsequencedSubmission.timeout]]
@@ -50,7 +50,7 @@ trait InFlightSubmissionStore extends AutoCloseable {
     */
   def lookupUnsequencedUptoUnordered(domainId: DomainId, observedSequencingTime: CantonTimestamp)(
       implicit traceContext: TraceContext
-  ): Future[Seq[InFlightSubmission[UnsequencedSubmission]]]
+  ): FutureUnlessShutdown[Seq[InFlightSubmission[UnsequencedSubmission]]]
 
   /** Returns all sequenced in-flight submissions on the given domain
     * whose [[com.digitalasset.canton.participant.protocol.submission.SequencedSubmission.sequencingTime]]
@@ -60,14 +60,14 @@ trait InFlightSubmissionStore extends AutoCloseable {
     */
   def lookupSequencedUptoUnordered(domainId: DomainId, sequencingTimeInclusive: CantonTimestamp)(
       implicit traceContext: TraceContext
-  ): Future[Seq[InFlightSubmission[SequencedSubmission]]]
+  ): FutureUnlessShutdown[Seq[InFlightSubmission[SequencedSubmission]]]
 
   /** Returns one of the in-flight submissions with the given [[com.digitalasset.canton.topology.DomainId]]
     * and [[com.digitalasset.canton.sequencing.protocol.MessageId]], if any.
     */
   def lookupSomeMessageId(domainId: DomainId, messageId: MessageId)(implicit
       traceContext: TraceContext
-  ): Future[Option[InFlightSubmission[SubmissionSequencingInfo]]]
+  ): FutureUnlessShutdown[Option[InFlightSubmission[SubmissionSequencingInfo]]]
 
   /** Returns the earliest [[com.digitalasset.canton.participant.protocol.submission.UnsequencedSubmission.timeout]]
     * or [[com.digitalasset.canton.participant.protocol.submission.SequencedSubmission.sequencingTime]] in the store, if any,
@@ -75,7 +75,7 @@ trait InFlightSubmissionStore extends AutoCloseable {
     */
   def lookupEarliest(domainId: DomainId)(implicit
       traceContext: TraceContext
-  ): Future[Option[CantonTimestamp]]
+  ): FutureUnlessShutdown[Option[CantonTimestamp]]
 
   /** Registers the given submission as being in-flight and unsequenced
     * unless there already is an in-flight submission for the same change ID.
@@ -104,7 +104,7 @@ trait InFlightSubmissionStore extends AutoCloseable {
   def updateRegistration(
       submission: InFlightSubmission[UnsequencedSubmission],
       rootHash: RootHash,
-  )(implicit traceContext: TraceContext): Future[Unit]
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 
   /** Moves the submissions to the given domain
     * with the given [[com.digitalasset.canton.sequencing.protocol.MessageId]]s
@@ -113,7 +113,7 @@ trait InFlightSubmissionStore extends AutoCloseable {
     */
   def observeSequencing(domainId: DomainId, submissions: Map[MessageId, SequencedSubmission])(
       implicit traceContext: TraceContext
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 
   /** Moves the submission with the given [[com.digitalasset.canton.protocol.RootHash]]
     * from [[com.digitalasset.canton.participant.protocol.submission.UnsequencedSubmission]]
@@ -149,7 +149,7 @@ trait InFlightSubmissionStore extends AutoCloseable {
       submission: SequencedSubmission,
   )(implicit
       traceContext: TraceContext
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 
   /** Deletes the referred to in-flight submissions if there are any.
     *
@@ -161,7 +161,9 @@ trait InFlightSubmissionStore extends AutoCloseable {
   // so that we do not have to guard against concurrent insertions between the two calls,
   // e.g., if there comes a submission whose max sequencing times is derived from a very early ledger time.
   // This is also the reason for why we combine the change ID with the message ID.
-  def delete(submissions: Seq[InFlightReference])(implicit traceContext: TraceContext): Future[Unit]
+  def delete(submissions: Seq[InFlightReference])(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit]
 
   /** Update the in-flight submission identified by the given `changeId`
     * if `submissionDomain` and `messageId` match and it is unsequenced and
@@ -180,7 +182,7 @@ trait InFlightSubmissionStore extends AutoCloseable {
       submissionDomain: DomainId,
       messageId: MessageId,
       newSequencingInfo: UnsequencedSubmission,
-  )(implicit traceContext: TraceContext): Future[Unit]
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit]
 }
 
 object InFlightSubmissionStore {

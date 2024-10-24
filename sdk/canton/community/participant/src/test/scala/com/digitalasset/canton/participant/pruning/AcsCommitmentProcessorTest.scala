@@ -974,7 +974,7 @@ class AcsCommitmentProcessorTest
             cleanReplayF = Future.successful(CantonTimestamp.MinValue),
             commitmentsPruningBound =
               CommitmentsPruningBound.Outstanding(_ => Future.successful(None)),
-            earliestInFlightSubmissionF = Future.successful(None),
+            earliestInFlightSubmissionFUS = FutureUnlessShutdown.pure(None),
             sortedReconciliationIntervalsProvider =
               constantSortedReconciliationIntervalsProvider(longInterval),
             domainId,
@@ -992,7 +992,7 @@ class AcsCommitmentProcessorTest
             commitmentsPruningBound = CommitmentsPruningBound.Outstanding(_ =>
               Future.successful(Some(CantonTimestamp.MinValue))
             ),
-            earliestInFlightSubmissionF = Future.successful(None),
+            earliestInFlightSubmissionFUS = FutureUnlessShutdown.pure(None),
             sortedReconciliationIntervalsProvider =
               constantSortedReconciliationIntervalsProvider(longInterval),
             domainId,
@@ -1022,7 +1022,7 @@ class AcsCommitmentProcessorTest
               if (checkForOutstandingCommitments)
                 CommitmentsPruningBound.Outstanding(noOutstandingCommitmentsF)
               else CommitmentsPruningBound.LastComputedAndSent(lastComputedAndSentF),
-            earliestInFlightSubmissionF = Future.successful(None),
+            earliestInFlightSubmissionFUS = FutureUnlessShutdown.pure(None),
             sortedReconciliationIntervalsProvider =
               constantSortedReconciliationIntervalsProvider(longInterval),
             domainId,
@@ -1693,10 +1693,12 @@ class AcsCommitmentProcessorTest
         () <- inFlightSubmissionStore
           .register(submission2)
           .valueOrFailShutdown("register message ID 2")
-        () <- inFlightSubmissionStore.observeSequencing(
-          submission2.submissionDomain,
-          Map(submission2.messageId -> SequencedSubmission(SequencerCounter(2), tsCleanRequest)),
-        )
+        () <- inFlightSubmissionStore
+          .observeSequencing(
+            submission2.submissionDomain,
+            Map(submission2.messageId -> SequencedSubmission(SequencerCounter(2), tsCleanRequest)),
+          )
+          .failOnShutdown
         testeeSafeToPrune = () =>
           PruningProcessor
             .latestSafeToPruneTick(
@@ -1725,10 +1727,10 @@ class AcsCommitmentProcessorTest
             .failOnShutdown
         res1 <- testeeSafeToPrune()
         // Now remove the timed-out submission 1 and compute the pruning point again
-        () <- inFlightSubmissionStore.delete(Seq(submission1.referenceByMessageId))
+        () <- inFlightSubmissionStore.delete(Seq(submission1.referenceByMessageId)).failOnShutdown
         res2 <- testeeSafeToPrune()
         // Now remove the clean request and compute the pruning point again
-        () <- inFlightSubmissionStore.delete(Seq(submission2.referenceByMessageId))
+        () <- inFlightSubmissionStore.delete(Seq(submission2.referenceByMessageId)).failOnShutdown
         res3 <- testeeSafeToPrune()
       } yield {
         assertInIntervalBefore(submission1.associatedTimestamp, reconciliationInterval)(res1)

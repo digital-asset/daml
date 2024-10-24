@@ -6,6 +6,7 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.un
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.domain.block.BlockFormat
 import com.digitalasset.canton.domain.block.BlockFormat.OrderedRequest
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.OrderedBlocksReader
@@ -61,7 +62,10 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   EmptyBlockSubscription,
   ModuleRef,
 }
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.unit.modules.*
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.unit.modules.{
+  ProgrammableUnitTestContext,
+  *,
+}
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.sequencer.admin.v30
 import com.digitalasset.canton.topology.processing.EffectiveTime
@@ -74,6 +78,7 @@ import org.scalatest.wordspec.AsyncWordSpecLike
 
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicReference
+import scala.collection.mutable
 import scala.jdk.DurationConverters.*
 import scala.util.Try
 
@@ -492,94 +497,128 @@ class OutputModuleTest
 
     "set the potential topology change flag to `true`, fetch a new topology and send it to consensus" when {
       "at least one block in the current epoch has requests to all members of domain" in {
-        Table("Pending Canton topology changes", false, true).forEvery {
-          val topologySnapshotEffectiveTime =
-            EffectiveTime(anotherTimestamp.immediateSuccessor)
+        val topologySnapshotEffectiveTime =
+          EffectiveTime(anotherTimestamp.immediateSuccessor)
 
-          pendingChanges =>
-            val topologyProviderMock = mock[OrderingTopologyProvider[FakePipeToSelfCellUnitTestEnv]]
-            val consensusRef = mock[ModuleRef[Consensus.Message[FakePipeToSelfCellUnitTestEnv]]]
-            val newOrderingTopology =
-              OrderingTopology(
-                peers = Set.empty,
-                SequencingParameters.Default,
-                topologySnapshotEffectiveTime = topologySnapshotEffectiveTime,
-                areTherePendingCantonTopologyChanges = pendingChanges,
-              )
-            when(
-              topologyProviderMock.getOrderingTopologyAt(
-                topologySnapshotEffectiveTime,
-                assumePendingTopologyChanges = false,
-              )
+        Table("Pending Canton topology changes", false, true).forEvery { pendingChanges =>
+          val topologyProviderMock = mock[OrderingTopologyProvider[ProgrammableUnitTestEnv]]
+          val consensusRef = mock[ModuleRef[Consensus.Message[ProgrammableUnitTestEnv]]]
+          val newOrderingTopology =
+            OrderingTopology(
+              peers = Set.empty,
+              SequencingParameters.Default,
+              topologySnapshotEffectiveTime = topologySnapshotEffectiveTime,
+              areTherePendingCantonTopologyChanges = pendingChanges,
             )
-              .thenReturn(() => Some((newOrderingTopology, fakeCryptoProvider)))
-            val output = createOutputModule[FakePipeToSelfCellUnitTestEnv](
-              orderingTopologyProvider = topologyProviderMock,
-              consensusRef = consensusRef,
-              requestInspector = new RequestInspector {
-                // Ensure that `currentEpochCouldAlterSequencingTopology` accumulates correctly by processing
-                //  more than one block and alternating the outcome starting from `true`.
-                private var outcome = true
+          when(
+            topologyProviderMock.getOrderingTopologyAt(
+              topologySnapshotEffectiveTime,
+              assumePendingTopologyChanges = false,
+            )
+          )
+            .thenReturn(() => Some((newOrderingTopology, fakeCryptoProvider)))
+          val subscriptionBlocks = mutable.Queue.empty[BlockFormat.Block]
+          val output = createOutputModule[ProgrammableUnitTestEnv](
+            orderingTopologyProvider = topologyProviderMock,
+            consensusRef = consensusRef,
+            requestInspector = new RequestInspector {
+              // Ensure that `currentEpochCouldAlterSequencingTopology` accumulates correctly by processing
+              //  more than one block and alternating the outcome starting from `true`.
+              private var outcome = true
 
-                override def isRequestToAllMembersOfDomain(
-                    _request: OrderingRequest,
-                    _protocolVersion: ProtocolVersion,
-                    _logger: TracedLogger,
-                    _traceContext: TraceContext,
-                ): Boolean = {
-                  val result = outcome
-                  outcome = !outcome
-                  result
-                }
-              },
-            )()
-            val cell =
-              new AtomicReference[
-                Option[() => Option[Output.Message[FakePipeToSelfCellUnitTestEnv]]]
-              ]
-            implicit val context
-                : FakePipeToSelfCellUnitTestContext[Output.Message[FakePipeToSelfCellUnitTestEnv]] =
-              FakePipeToSelfCellUnitTestContext(cell)
+              override def isRequestToAllMembersOfDomain(
+                  _request: OrderingRequest,
+                  _protocolVersion: ProtocolVersion,
+                  _logger: TracedLogger,
+                  _traceContext: TraceContext,
+              ): Boolean = {
+                val result = outcome
+                outcome = !outcome
+                result
+              }
+            },
+          )(blockSubscription = new EmptyBlockSubscription {
+            override def receiveBlock(block: BlockFormat.Block)(implicit
+                traceContext: TraceContext
+            ): Unit =
+              subscriptionBlocks.enqueue(block)
+          })
+          implicit val context
+              : ProgrammableUnitTestContext[Output.Message[ProgrammableUnitTestEnv]] =
+            new ProgrammableUnitTestContext(resolveAwaits = true)
 
-            val blockData1 =
-              completeBlockData(
-                BlockNumber.First,
-                commitTimestamp = aTimestamp,
-                lastInEpoch = false,
-              )
-            val blockData2 = completeBlockData(
+          val blockData1 = // lastInEpoch = false, isRequestToAllMembersOfDomain = true
+            completeBlockData(
+              BlockNumber.First,
+              commitTimestamp = aTimestamp,
+              lastInEpoch = false,
+            )
+          val blockData2 = // lastInEpoch = true, isRequestToAllMembersOfDomain = false
+            completeBlockData(
               BlockNumber(BlockNumber.First + 1L),
               commitTimestamp = anotherTimestamp,
               lastInEpoch = true,
             )
-            output.receive(Output.Start)
-            output.receive(Output.BlockDataFetched(blockData1))
-            output.receive(Output.BlockDataFetched(blockData2))
-            output.getCurrentEpochCouldAlterSequencingTopology shouldBe true
+          output.receive(Output.Start)
+          output.receive(Output.BlockDataFetched(blockData1))
+          val selfSent1 = context.runPipedMessages()
 
-            verify(topologyProviderMock, times(1)).getOrderingTopologyAt(
-              topologySnapshotEffectiveTime,
-              assumePendingTopologyChanges = false,
+          selfSent1 should contain only Output.BlockDataStored(
+            blockData1,
+            BlockNumber.First,
+            aTimestamp,
+          )
+
+          output.receive(Output.BlockDataFetched(blockData2))
+          val selfSent2 = context.runPipedMessages()
+
+          selfSent2 should have size 2
+          val (blockStored, topologyFetched) = selfSent2 match {
+            case Seq(
+                  m1 @ Output.BlockDataStored(
+                    `blockData2`,
+                    1L,
+                    `anotherTimestamp`,
+                  ),
+                  m2 @ Output.TopologyFetched(
+                    1L,
+                    `newOrderingTopology`,
+                    _,
+                  ),
+                ) =>
+              (m1, m2)
+            case _ => fail("Unexpected messages")
+          }
+
+          selfSent1.foreach(output.receive)
+          output.receive(blockStored)
+
+          output.getCurrentEpochCouldAlterSequencingTopology shouldBe true
+          subscriptionBlocks should have size 2
+          val block1 = subscriptionBlocks.dequeue()
+          block1.blockHeight shouldBe BlockNumber.First
+          block1.tickTopologyAtMicrosFromEpoch shouldBe None
+          val block2 = subscriptionBlocks.dequeue()
+          block2.blockHeight shouldBe BlockNumber(1)
+          block2.tickTopologyAtMicrosFromEpoch shouldBe Some(anotherTimestamp.toMicros)
+
+          verify(topologyProviderMock, times(1)).getOrderingTopologyAt(
+            topologySnapshotEffectiveTime,
+            assumePendingTopologyChanges = false,
+          )
+
+          output.receive(topologyFetched)
+
+          output.getCurrentEpochCouldAlterSequencingTopology shouldBe pendingChanges
+          verify(consensusRef, times(1)).asyncSend(
+            Consensus.NewEpochTopology(
+              secondEpochNumber,
+              newOrderingTopology,
+              any[CryptoProvider[ProgrammableUnitTestEnv]],
             )
+          )
 
-            output.receive(
-              Output.TopologyFetched(
-                secondEpochNumber,
-                newOrderingTopology,
-                fakeCryptoProvider,
-              )
-            )
-
-            output.getCurrentEpochCouldAlterSequencingTopology shouldBe pendingChanges
-            verify(consensusRef, times(1)).asyncSend(
-              Consensus.NewEpochTopology(
-                secondEpochNumber,
-                newOrderingTopology,
-                any[CryptoProvider[FakePipeToSelfCellUnitTestEnv]],
-              )
-            )
-
-            succeed
+          succeed
         }
       }
     }

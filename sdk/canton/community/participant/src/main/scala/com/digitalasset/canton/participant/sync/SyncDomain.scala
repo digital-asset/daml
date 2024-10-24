@@ -545,14 +545,12 @@ class SyncDomain(
       // but not yet removed from the in-flight submission store
       //
       // Remove and complete all in-flight submissions that have been published at the multi-domain event log.
-      _ <- EitherT
-        .right(
-          inFlightSubmissionTracker.recoverDomain(
-            domainId,
-            startingPoints.processing.prenextTimestamp,
-          )
+      _ <- EitherT.right(
+        inFlightSubmissionTracker.recoverDomain(
+          domainId,
+          startingPoints.processing.prenextTimestamp,
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
+      )
 
       // Phase 2: Initialize the repair processor
       repairs <- EitherT

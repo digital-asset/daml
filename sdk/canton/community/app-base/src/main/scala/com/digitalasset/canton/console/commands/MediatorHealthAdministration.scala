@@ -3,11 +3,8 @@
 
 package com.digitalasset.canton.console.commands
 
-import com.digitalasset.canton.admin.api.client.commands.{
-  MediatorAdminCommands,
-  StatusAdminCommands,
-}
-import com.digitalasset.canton.admin.api.client.data.MediatorStatus
+import com.digitalasset.canton.admin.api.client.commands.{GrpcAdminCommand, MediatorAdminCommands}
+import com.digitalasset.canton.admin.api.client.data.{MediatorStatus, NodeStatus}
 import com.digitalasset.canton.console.{AdminCommandRunner, ConsoleEnvironment, FeatureFlagFilter}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 
@@ -20,7 +17,6 @@ class MediatorHealthAdministration(
       consoleEnvironment,
     )
     with FeatureFlagFilter {
-  override protected def nodeStatusCommand
-      : StatusAdminCommands.NodeStatusCommand[MediatorStatus, _, _] =
+  override protected def nodeStatusCommand: GrpcAdminCommand[?, ?, NodeStatus[MediatorStatus]] =
     MediatorAdminCommands.Health.MediatorStatusCommand()
 }

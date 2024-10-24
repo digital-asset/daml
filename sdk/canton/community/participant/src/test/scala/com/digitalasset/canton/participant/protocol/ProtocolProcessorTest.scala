@@ -185,7 +185,7 @@ class ProtocolProcessorTest
       any[RootHash],
       any[SequencedSubmission],
     )(anyTraceContext)
-  ).thenAnswer(Future.unit)
+  ).thenAnswer(FutureUnlessShutdown.unit)
 
   private val trm = mock[ConfirmationResultMessage]
   when(trm.pretty).thenAnswer(Pretty.adHocPrettyInstance[ConfirmationResultMessage])
@@ -875,19 +875,20 @@ class ProtocolProcessorTest
         // The participant registers the submission in the in-flight submission tracker
         _ <- ifst
           .register(unsequencedSubmission, DeduplicationDuration(Duration.ofSeconds(10)))
-          .value
-          .onShutdown(fail())
+          .valueOrFailShutdown("register submission")
 
         // Even though sequenced later, the normal notification wins the race
-        _ <- ifst.observeSequencing(
-          domain,
-          Map(
-            unsequencedSubmission.messageId -> SequencedSubmission(
-              SequencerCounter(1),
-              requestId.unwrap.plusSeconds(1),
-            )
-          ),
-        )
+        _ <- ifst
+          .observeSequencing(
+            domain,
+            Map(
+              unsequencedSubmission.messageId -> SequencedSubmission(
+                SequencerCounter(1),
+                requestId.unwrap.plusSeconds(1),
+              )
+            ),
+          )
+          .failOnShutdown
 
         // The preplay gets processed and notifies the in-flight submission tracker
         _ <- sut
@@ -898,7 +899,7 @@ class ProtocolProcessorTest
           .unwrap
 
         // Retrieve the submission from the in-flight submission tracker store to check its info
-        sub <- inFlightSubmissionStore.lookup(changeIdHash).getOrElse(fail())
+        sub <- inFlightSubmissionStore.lookup(changeIdHash).getOrElse(fail()).failOnShutdown
       } yield sub
 
       val sub = subF.futureValue

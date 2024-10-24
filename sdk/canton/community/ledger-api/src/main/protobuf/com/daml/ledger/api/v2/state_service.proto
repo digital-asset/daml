@@ -163,9 +163,10 @@ enum ParticipantPermission {
 message GetLedgerEndRequest {}
 
 message GetLedgerEndResponse {
-  // If absent, the participant view of the ledger is empty.
-  // If specified, it is an absolute offset (positive integer).
-  optional int64 offset = 1;
+  // It will always be a non-negative integer.
+  // If zero, the participant view of the ledger is empty.
+  // If positive, the absolute offset of the ledger as viewed by the participant.
+  int64 offset = 1;
 }
 
 message GetLatestPrunedOffsetsRequest {
@@ -173,15 +174,17 @@ message GetLatestPrunedOffsetsRequest {
 }
 
 message GetLatestPrunedOffsetsResponse {
-  // If specified, the absolute offset (positive integer) up to which the ledger has been pruned,
+  // It will always be a non-negative integer.
+  // If positive, the absolute offset up to which the ledger has been pruned,
   // disregarding the state of all divulged contracts pruning.
-  // If absent, the ledger has not been pruned yet.
-  optional int64 participant_pruned_up_to_inclusive = 1;
+  // If zero, the ledger has not been pruned yet.
+  int64 participant_pruned_up_to_inclusive = 1;
 
-  // If specified, the absolute offset (postivie integer) up to which all divulged events have been pruned on the ledger.
+  // It will always be a non-negative integer.
+  // If positive, the absolute offset up to which all divulged events have been pruned on the ledger.
   // It can be at or before the ``participant_pruned_up_to_inclusive`` offset.
   // For more details about all divulged events pruning,
   // see ``PruneRequest.prune_all_divulged_contracts`` in ``participant_pruning_service.proto``.
-  // If absent, the divulged events have not been pruned yet.
-  optional int64 all_divulged_contracts_pruned_up_to_inclusive = 2;
+  // If zero, the divulged events have not been pruned yet.
+  int64 all_divulged_contracts_pruned_up_to_inclusive = 2;
 }

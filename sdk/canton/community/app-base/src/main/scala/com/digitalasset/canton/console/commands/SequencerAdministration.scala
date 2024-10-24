@@ -7,11 +7,12 @@ import com.digitalasset.canton.admin.api.client.commands.SequencerAdminCommands.
   InitializeFromGenesisState,
   InitializeFromOnboardingState,
 }
-import com.digitalasset.canton.admin.api.client.commands.{
-  SequencerAdminCommands,
-  StatusAdminCommands,
+import com.digitalasset.canton.admin.api.client.commands.{GrpcAdminCommand, SequencerAdminCommands}
+import com.digitalasset.canton.admin.api.client.data.{
+  NodeStatus,
+  SequencerStatus,
+  StaticDomainParameters,
 }
-import com.digitalasset.canton.admin.api.client.data.{SequencerStatus, StaticDomainParameters}
 import com.digitalasset.canton.config.{ConsoleCommandTimeout, NonNegativeDuration}
 import com.digitalasset.canton.console.{
   AdminCommandRunner,
@@ -137,7 +138,6 @@ class SequencerHealthAdministration(
       consoleEnvironment,
     )
     with FeatureFlagFilter {
-  override protected def nodeStatusCommand
-      : StatusAdminCommands.NodeStatusCommand[SequencerStatus, _, _] =
+  override protected def nodeStatusCommand: GrpcAdminCommand[?, ?, NodeStatus[SequencerStatus]] =
     SequencerAdminCommands.Health.SequencerStatusCommand()
 }
