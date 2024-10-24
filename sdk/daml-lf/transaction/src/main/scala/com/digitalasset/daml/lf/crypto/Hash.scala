@@ -8,18 +8,13 @@ import com.daml.crypto.{MacPrototype, MessageDigestPrototype}
 
 import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicLong
-import com.digitalasset.daml.lf.data.{
-  Bytes,
-  FrontStack,
-  ImmArray,
-  Ref,
-  SortedLookupList,
-  Time,
-  Utf8,
-}
+import com.digitalasset.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref, SortedLookupList, Time, Utf8}
 import com.digitalasset.daml.lf.value.Value
 import com.daml.scalautil.Statement.discard
+import com.digitalasset.daml.lf.crypto.HashUtils.{ContextAwareOutputStream, DebugMessageDigest, DefaultMessageDigest, MessageDigestWithContext}
 import com.digitalasset.daml.lf.data.Ref.Name
+import com.digitalasset.daml.lf.language.LanguageVersion
+import com.digitalasset.daml.lf.transaction._
 import scalaz.Order
 
 import javax.crypto.Mac
@@ -48,6 +43,14 @@ object Hash {
   object HashingError {
     final case class ForbiddenContractId()
         extends HashingError("Contract IDs are not supported in contract keys.")
+  }
+
+  sealed abstract class NodeHashingError(val msg: String) extends Exception with NoStackTrace
+  object NodeHashingError {
+    final case class IncompleteTransactionTree(nodeId: NodeId)
+      extends NodeHashingError(s"The transaction does not contain a node with nodeId $nodeId")
+    final case class UnsupportedLanguageVersion(version: TransactionVersion)
+      extends NodeHashingError(s"Cannot hash node with $version. Supported versions: ${NodeBuilder.LanguageVersionToTransactionBuilder.keySet.mkString(", ")}")
   }
 
   private def handleError[X](x: => X): Either[HashingError, X] =
@@ -93,11 +96,17 @@ object Hash {
   private[lf] val noCid2String: Value.ContractId => Nothing =
     _ => throw HashingError.ForbiddenContractId()
 
-  private[crypto] sealed abstract class Builder {
+  private[lf] val bigIntNumericToBytes: data.Numeric => Bytes =
+    numeric => Bytes.fromByteArray(numeric.unscaledValue().toByteArray)
 
-    protected def update(a: ByteBuffer): Unit
+  private[lf] val stringNumericToBytes: data.Numeric => Bytes =
+    numeric => Utf8.getBytes(data.Numeric.toString(numeric))
 
-    protected def update(a: Array[Byte]): Unit
+  private[crypto] sealed abstract class Builder(numericToBytes: data.Numeric => Bytes, protected val isContextAware: Boolean) {
+
+    protected def update(a: ByteBuffer, context: Option[String]): Unit
+
+    protected def update(a: Array[Byte], context: Option[String]): Unit
 
     protected def doFinal(buf: Array[Byte]): Unit
 
@@ -107,45 +116,47 @@ object Hash {
       new Hash(Bytes.fromByteArray(a))
     }
 
+    protected def contextO(context: => String) = Option.when(isContextAware)(context)
+
     /* add size delimited byte array. */
-    def addBytes(bytes: Array[Byte]): this.type = {
-      addInt(bytes.length).update(bytes)
+    def addBytes(bytes: Array[Byte], context: Option[String]): this.type = {
+      addInt(bytes.length).update(bytes, context)
       this
     }
 
     /* add size delimited byte string. */
-    def addBytes(bytes: Bytes): this.type = {
-      addInt(bytes.length).update(bytes.toByteBuffer)
+    def addBytes(bytes: Bytes, context: Option[String]): this.type = {
+      addInt(bytes.length).update(bytes.toByteBuffer, context)
       this
     }
 
     private val byteBuff = Array.ofDim[Byte](1)
 
-    final def addByte(a: Byte): this.type = {
+    final def addByte(a: Byte, context: Option[String]): this.type = {
       byteBuff(0) = a
-      update(byteBuff)
+      update(byteBuff, context)
       this
     }
 
     /* no size delimitation as hashes have fixed size  */
     final def addHash(a: Hash): this.type = {
-      update(a.bytes.toByteBuffer)
+      update(a.bytes.toByteBuffer, contextO(s"${a.toHexString} (hash)"))
       this
     }
 
     /* add size delimited utf8 string. */
     final def addString(s: String): this.type =
-      addBytes(Utf8.getBytes(s))
+      addBytes(Utf8.getBytes(s), contextO(s"$s (string)"))
 
     final def addBool(b: Boolean): this.type =
-      addByte(if (b) 1.toByte else 0.toByte)
+      addByte(if (b) 1.toByte else 0.toByte, Option.when(isContextAware)(b.toString))
 
     private val intBuffer = ByteBuffer.allocate(java.lang.Integer.BYTES)
 
     final def addInt(a: Int): this.type = {
       discard(intBuffer.rewind())
       discard(intBuffer.putInt(a).position(0))
-      update(intBuffer)
+      update(intBuffer,  contextO(s"${a.toString} (int)"))
       this
     }
 
@@ -154,12 +165,12 @@ object Hash {
     final def addLong(a: Long): this.type = {
       discard(longBuffer.rewind())
       discard(longBuffer.putLong(a).position(0))
-      update(longBuffer)
+      update(longBuffer,  contextO(s"${a.toString} (long)"))
       this
     }
 
     final def addNumeric(v: data.Numeric): this.type =
-      addBytes(v.unscaledValue().toByteArray)
+      addBytes(numericToBytes(v), contextO(s"${data.Numeric.toString(v)} (numeric)"))
 
     final def iterateOver[T, U](a: ImmArray[T])(f: (this.type, T) => this.type): this.type =
       a.foldLeft[this.type](addInt(a.length))(f)
@@ -180,18 +191,222 @@ object Hash {
       val ss = set.toSeq.sorted[String]
       iterateOver(ss.iterator, ss.size)(_ addString _)
     }
+
+    final def addOptional[S](opt: Option[S], hashS: this.type => S => this.type): this.type = {
+      opt match {
+        case None => addInt(0)
+        case Some(value) => hashS(addInt(1))(value)
+      }
+    }
   }
 
-  private final class HashMacBuilder(key: Hash) extends Builder {
+  // Transaction Builder class with builder methods to recursively encode nodes
+  private sealed class TransactionBuilder(protected val messageDigest: MessageDigestWithContext) extends Builder(stringNumericToBytes, messageDigest.isContextAware) {
+    override protected def update(a: ByteBuffer, context: Option[String]): Unit = {
+      messageDigest.update(a, context)
+    }
+    override protected def update(a: Array[Byte], context: Option[String]): Unit = {
+      messageDigest.update(a, context)
+    }
+    override protected def doFinal(buf: Array[Byte]): Unit = {
+      assert(messageDigest.digest(buf, 0, underlyingHashLength) == underlyingHashLength)
+    }
+    def addContext(context: => String): this.type = {
+      withContext(context)(identity)
+    }
+    def withContext(context: => String)(f: this.type => this.type): this.type = {
+      contextO(context).map(c => s"_${c}_\n").foreach(messageDigest.addContext)
+      f(this)
+    }
+
+    private[lf] def addFromVersionNode(node: Node, nodes: Map[NodeId, Node]): NodeBuilder = {
+      NodeBuilder.builderForNode(node, messageDigest).addNode(node, nodes)
+    }
+
+    @throws[NodeHashingError]
+    protected def addNodeFromNodeId(nodes: Map[NodeId, Node]): (this.type, NodeId) => this.type = (builder, nodeId) => {
+      nodes.get(nodeId) match {
+        // Remove the node from the map once we've used it
+        // This serves as an additional check that nodes are only hashed once
+        case Some(node) =>
+          // discard the resulting builder and return this one because addFromVersionNode returns a NodeBuilder
+          // but we want to return a builder of this.type. This doesn't change anything as the return value is
+          // only a convenience for chaining
+          discard(builder.addFromVersionNode(node, nodes - nodeId))
+          builder
+        case None => throw NodeHashingError.IncompleteTransactionTree(nodeId)
+      }
+    }
+
+    def addNodesFromNodeIds(nodeIds: ImmArray[NodeId], nodes: Map[NodeId, Node]): this.type =
+      iterateOver(nodeIds)(addNodeFromNodeId(nodes))
+  }
+
+  /**
+   * Class with additional methods to hash nodes. Uses a single MessageDigest to hash the entire node including all its values.
+   */
+  private sealed abstract class NodeBuilder(version: NodeHashVersion, messageDigest: MessageDigestWithContext) extends TransactionBuilder(messageDigest) {
+    {
+      messageDigest.update(version.id, contextO(s"${version.id} (node_version)"))
+    }
+
+    // We pass the message digest from the node to the value builder, this way we can compute a single hash for the entire
+    // node without having to individually hash every value in the node.
+    private val valueBuilder = new LegacyBuilder(Purpose.TransactionHash, aCid2Bytes, stringNumericToBytes, messageDigest)
+
+    protected def addWithValueBuilder[T](value: T, valueBuilderFn: ValueHashBuilder => T => ValueHashBuilder): this.type = {
+      discard(valueBuilderFn(valueBuilder)(value))
+      this
+    }
+
+    protected def addGlobalKeyWithMaintainers(globalKeyWithMaintainers: GlobalKeyWithMaintainers): this.type =
+      withContext("Maintainers")(_.addStringSet(globalKeyWithMaintainers.maintainers))
+        .withContext("Template Id")(_.addQualifiedName(globalKeyWithMaintainers.globalKey.templateId.qualifiedName))
+        .withContext("Package Name")(_.addString(globalKeyWithMaintainers.globalKey.packageName))
+        .withContext("Key")(_.addWithValueBuilder(globalKeyWithMaintainers.globalKey.key, _.addTypedValue))
+
+    def addNode(node: Node, nodes: Map[NodeId, Node]): NodeBuilder
+  }
+
+  private object NodeBuilder {
+    private [lf] val LanguageVersionToTransactionBuilder: Map[LanguageVersion, MessageDigestWithContext => NodeBuilder] = Map(
+      LanguageVersion.v2_1 -> (md => new NodeBuilderV1(md))
+    )
+
+    @throws[NodeHashingError]
+    private [lf] def builderForVersion(version: LanguageVersion, messageDigest: MessageDigestWithContext): NodeBuilder =
+      NodeBuilder
+        .LanguageVersionToTransactionBuilder
+        .getOrElse(version, throw NodeHashingError.UnsupportedLanguageVersion(version))
+        .apply(messageDigest)
+
+    private [lf] def builderForNode(node: Node, messageDigest: MessageDigestWithContext): NodeBuilder = node.optVersion match {
+      case Some(version) => builderForVersion(version, messageDigest)
+      // If the node is version agnostic, the builder doesn't matter so pick V1
+      // This only applies to rollback nodes
+      case None => new NodeBuilderV1(messageDigest)
+    }
+  }
+
+  private final class NodeBuilderV1(messageDigest: MessageDigestWithContext) extends NodeBuilder(NodeHashVersion.V1, messageDigest) {
+    private def addCreateNode(create: Node.Create): this.type = {
+      addContext("Create Node")
+        .withContext("Contract Id")(_.addWithValueBuilder(create.coid, _.addCid))
+        .withContext("Package Name")(_.addString(create.packageName))
+        .withContext("Template Id")(_.addIdentifier(create.templateId))
+        .withContext("Arg")(_.addWithValueBuilder(create.arg, _.addTypedValue))
+        .withContext("Signatories")(_.addStringSet(create.signatories))
+        .withContext("Stakeholders")(_.addStringSet(create.stakeholders))
+        .withContext("Global Keys")(_.addOptional(create.keyOpt, _.addGlobalKeyWithMaintainers))
+    }
+
+    private def addFetchNode(fetch: Node.Fetch): NodeBuilder = {
+      addContext("Fetch Node")
+        .withContext("Contract Id")(_.addWithValueBuilder(fetch.coid, _.addCid))
+        .withContext("Package Name")(_.addString(fetch.packageName))
+        .withContext("Template Id")(_.addIdentifier(fetch.templateId))
+        .withContext("Signatories")(_.addStringSet(fetch.signatories))
+        .withContext("Stakeholders")(_.addStringSet(fetch.stakeholders))
+        .withContext("Acting Parties")(_.addStringSet(fetch.actingParties))
+        .withContext("Global Keys")(_.addOptional(fetch.keyOpt, _.addGlobalKeyWithMaintainers))
+        .withContext("By Key")(_.addBool(fetch.byKey))
+        .withContext("Interface Id")(_.addOptional(fetch.interfaceId, _.addIdentifier))
+    }
+
+    private def addExerciseNode(exercise: Node.Exercise, nodes: Map[NodeId, Node]): NodeBuilder = {
+      addContext("Fetch Node")
+        .withContext("Contract Id")(_.addWithValueBuilder(exercise.targetCoid, _.addCid))
+        .withContext("Package Name")(_.addString(exercise.packageName))
+        .withContext("Template Id")(_.addIdentifier(exercise.templateId))
+        .withContext("Signatories")(_.addStringSet(exercise.signatories))
+        .withContext("Stakeholders")(_.addStringSet(exercise.stakeholders))
+        .withContext("Acting Parties")(_.addStringSet(exercise.actingParties))
+        .withContext("Global Keys")(_.addOptional(exercise.keyOpt, _.addGlobalKeyWithMaintainers))
+        .withContext("By Key")(_.addBool(exercise.byKey))
+        .withContext("Interface Id")(_.addOptional(exercise.interfaceId, _.addIdentifier))
+        .withContext("Choice Id")(_.addString(exercise.choiceId))
+        .withContext("Chosen Value")(_.addWithValueBuilder(exercise.chosenValue, _.addTypedValue))
+        .withContext("Consuming")(_.addBool(exercise.consuming))
+        .withContext("Exercise Result")(_.addOptional[Value](exercise.exerciseResult, { builder => value => builder.addWithValueBuilder(value, _.addTypedValue) }))
+        .withContext("Choice Observers")(_.addStringSet(exercise.choiceObservers))
+        .withContext("Choice Authorizers")(_.addOptional(exercise.choiceAuthorizers.map[Set[String]](_.map(_.toString)), _.addStringSet[String]))
+        .withContext("Children")(_.addNodesFromNodeIds(exercise.children, nodes))
+    }
+
+    private def addLookupByKeyNode(lookup: Node.LookupByKey): NodeBuilder = {
+      addContext("LookupByKey Node")
+        .withContext("Package Name")(_.addString(lookup.packageName))
+        .withContext("Template Id")(_.addIdentifier(lookup.templateId))
+        .withContext("Global Key")(_.addGlobalKeyWithMaintainers(lookup.key))
+        .withContext("Result")(_.addOptional[Value.ContractId](lookup.result, { builder => value => builder.addWithValueBuilder(value, _.addCid) }))
+    }
+
+    private def addRollbackNode(rollback: Node.Rollback, nodes: Map[NodeId, Node]): NodeBuilder =
+      addContext("Rollback Node")
+        .withContext("Children")(_.addNodesFromNodeIds(rollback.children, nodes))
+
+    override def addNode(node: Node, nodes: Map[NodeId, Node]): NodeBuilder = node match {
+      case create: Node.Create => addCreateNode(create)
+      case fetch: Node.Fetch => addFetchNode(fetch)
+      case exercise: Node.Exercise => addExerciseNode(exercise, nodes)
+      case lookup: Node.LookupByKey => addLookupByKeyNode(lookup)
+      case rollback: Node.Rollback => addRollbackNode(rollback, nodes)
+    }
+  }
+
+  /**
+   * Deterministically hash a versioned transaction using the hashing algorithm corresponding to each node version.
+   */
+  @throws[NodeHashingError]
+  def hashTransaction(versionedTransaction: VersionedTransaction): Hash = {
+    new TransactionBuilder(new DefaultMessageDigest(MessageDigestPrototype.Sha256.newDigest))
+      .addNodesFromNodeIds(versionedTransaction.roots, versionedTransaction.nodes)
+      .build
+  }
+
+  /**
+   * Deterministically hash a versioned transaction using the hashing algorithm corresponding to each node version.
+   * @param outputStream output stream that will receive encoded data context information while the transaction is being hashed.
+   */
+  @throws[NodeHashingError]
+  private [lf] def hashTransactionDebug(versionedTransaction: VersionedTransaction, outputStream: ContextAwareOutputStream): Hash = {
+    new TransactionBuilder(new DebugMessageDigest(MessageDigestPrototype.Sha256.newDigest, outputStream))
+      .addContext("Transaction")
+      .withContext("Root Nodes")(_.addNodesFromNodeIds(versionedTransaction.roots, versionedTransaction.nodes))
+      .build
+  }
+
+  /**
+   * Deterministically hash a node using the hashing algorithm corresponding its version.
+   */
+  @throws[NodeHashingError]
+  def hashNode(node: Node, subNodes: Map[NodeId, Node] = Map.empty): Hash = {
+    new TransactionBuilder(new DefaultMessageDigest(MessageDigestPrototype.Sha256.newDigest))
+      .addFromVersionNode(node, subNodes)
+      .build
+  }
+
+  /**
+   * Deterministically hash a node using the hashing algorithm corresponding its version.
+   * @param outputStream output stream that will receive encoded data context information while the node is being hashed.
+   */
+  @throws[NodeHashingError]
+  private [lf] def hashNodeDebug(node: Node, outputStream: ContextAwareOutputStream, subNodes: Map[NodeId, Node] = Map.empty): Hash = {
+    new TransactionBuilder(new DebugMessageDigest(MessageDigestPrototype.Sha256.newDigest, outputStream))
+      .addFromVersionNode(node, subNodes)
+      .build
+  }
+
+  private final class HashMacBuilder(key: Hash) extends Builder(bigIntNumericToBytes, isContextAware = false) {
     private val macPrototype: MacPrototype = MacPrototype.HmacSha256
     private val mac: Mac = macPrototype.newMac
 
     mac.init(new SecretKeySpec(key.bytes.toByteArray, macPrototype.algorithm))
 
-    final override protected def update(a: ByteBuffer): Unit =
+    final override protected def update(a: ByteBuffer, context: Option[String]): Unit =
       mac.update(a)
 
-    final override protected def update(a: Array[Byte]): Unit =
+    final override protected def update(a: Array[Byte], context: Option[String]): Unit =
       mac.update(a)
 
     final override protected def doFinal(buf: Array[Byte]): Unit =
@@ -202,7 +417,9 @@ object Hash {
       version: Version,
       purpose: Purpose,
       cid2Bytes: Value.ContractId => Bytes,
-  ) extends Builder {
+      numericToBytes: data.Numeric => Bytes,
+      md: MessageDigestWithContext = new DefaultMessageDigest(MessageDigestPrototype.Sha256.newDigest)
+  ) extends Builder(numericToBytes, md.isContextAware) {
 
     /*
      * In order to avoid hash collision, this should be used together
@@ -214,25 +431,27 @@ object Hash {
     def addTypedValue(value: Value): this.type
 
     def addCid(cid: Value.ContractId): this.type =
-      addBytes(cid2Bytes(cid))
+      addBytes(cid2Bytes(cid), contextO(s"${cid.coid} (contractId)"))
 
-    private val md = MessageDigestPrototype.Sha256.newDigest
+    override protected def update(a: ByteBuffer, context: Option[String]): Unit =
+      md.update(a, context)
 
-    override protected def update(a: ByteBuffer): Unit =
-      md.update(a)
-
-    override protected def update(a: Array[Byte]): Unit =
-      md.update(a)
+    override protected def update(a: Array[Byte], context: Option[String]): Unit =
+      md.update(a, context)
 
     override protected def doFinal(buf: Array[Byte]): Unit =
       assert(md.digest(buf, 0, underlyingHashLength) == underlyingHashLength)
 
-    md.update(version.id)
-    md.update(purpose.id)
+    md.update(version.id, contextO(s"${version.id} (value_version)"))
+    md.update(purpose.id, contextO(s"${purpose.id} (value_purpose)"))
   }
 
-  private final class LegacyBuilder(purpose: Purpose, cid2Bytes: Value.ContractId => Bytes)
-      extends ValueHashBuilder(version = Version.Legacy, purpose = purpose, cid2Bytes = cid2Bytes) {
+  private final class LegacyBuilder(purpose: Purpose,
+                                    cid2Bytes: Value.ContractId => Bytes,
+                                    numericToBytes: data.Numeric => Bytes,
+                                    md: MessageDigestWithContext = new DefaultMessageDigest(MessageDigestPrototype.Sha256.newDigest)
+                                   )
+      extends ValueHashBuilder(version = Version.Legacy, purpose = purpose, cid2Bytes = cid2Bytes, numericToBytes = numericToBytes, md = md) {
 
     /*
      * In the legacy case (i.e. contract cannot be upgraded) we implemented  following collision resistance property:
@@ -256,7 +475,7 @@ object Hash {
     final override def addTypedValue(value: Value): this.type =
       value match {
         case Value.ValueUnit =>
-          addByte(0.toByte)
+          addByte(0.toByte, contextO("0 (unit)"))
         case Value.ValueBool(b) =>
           addBool(b)
         case Value.ValueInt64(v) =>
@@ -272,7 +491,7 @@ object Hash {
         case Value.ValueText(v) =>
           addString(v)
         case Value.ValueContractId(cid) =>
-          addBytes(cid2Bytes(cid))
+          addBytes(cid2Bytes(cid), contextO(s"${cid.coid} (contractId)"))
         case Value.ValueOptional(opt) =>
           // We use Int instead of Byte for indicating Some vs None.
           // This waists 3 unnecessary bytes, but we have to keep it for backward compatibility.
@@ -299,11 +518,17 @@ object Hash {
       }
   }
 
-  private final class UpgradeFriendlyBuilder(purpose: Purpose, cid2Bytes: Value.ContractId => Bytes)
+  private final class UpgradeFriendlyBuilder(purpose: Purpose,
+                                             cid2Bytes: Value.ContractId => Bytes,
+                                             numericToBytes: data.Numeric => Bytes,
+                                             md: MessageDigestWithContext = new DefaultMessageDigest(MessageDigestPrototype.Sha256.newDigest)
+                                            )
       extends ValueHashBuilder(
         version = Version.UpgradeFriendly,
         purpose = purpose,
         cid2Bytes = cid2Bytes,
+        numericToBytes = numericToBytes,
+        md,
       ) {
 
     /*
@@ -362,7 +587,7 @@ object Hash {
     final override def addTypedValue(value: Value): this.type =
       value match {
         case Value.ValueUnit =>
-          addByte(0.toByte)
+          addByte(0.toByte, contextO("0 (unit)"))
         case Value.ValueBool(b) =>
           addBool(b)
         case Value.ValueInt64(v) =>
@@ -381,8 +606,8 @@ object Hash {
           addCid(cid)
         case Value.ValueOptional(opt) =>
           opt match {
-            case Some(value) => addByte(1.toByte).addTypedValue(value)
-            case None => addByte(0.toByte)
+            case Some(value) => addByte(1.toByte, contextO(s"true (bool)")).addTypedValue(value)
+            case None => addByte(0.toByte, contextO(s"false (bool)"))
           }
         case Value.ValueList(xs) =>
           addList(xs)
@@ -443,7 +668,7 @@ object Hash {
                 discard(addField.addString(value))
               case Value.ValueBool(value) =>
                 if (value)
-                  discard(addField.addByte(1.toByte))
+                  discard(addField.addByte(1.toByte, contextO(s"true (bool)")))
               case Value.ValueUnit =>
               // We never write unit
             }
@@ -475,7 +700,7 @@ object Hash {
       }
       // This delimits the end of the record.
       // Note it does not collide with the first byte of field numbers as those are always positives.
-      addByte(0xff.toByte)
+      addByte(0xff.toByte, contextO(s"record end"))
     }
 
   }
@@ -491,6 +716,7 @@ object Hash {
     val PrivateKey = new Purpose(3)
     val ContractInstance = new Purpose(5)
     val ChangeId = new Purpose(6)
+    val TransactionHash = new Purpose(7)
   }
 
   private class Version private (val id: Byte)
@@ -498,6 +724,12 @@ object Hash {
   private object Version {
     val Legacy = new Version(0) // LF 1.x to LF 2.1
     val UpgradeFriendly = new Version(1) // from LF 2.1
+  }
+
+  private class NodeHashVersion(val id: Byte)
+
+  private object NodeHashVersion {
+    val V1 = new NodeHashVersion(0)
   }
 
   // package private for testing purpose.
@@ -508,9 +740,9 @@ object Hash {
       upgradeFriendly: Boolean,
   ): ValueHashBuilder =
     if (upgradeFriendly)
-      new UpgradeFriendlyBuilder(purpose, cid2Bytes)
+      new UpgradeFriendlyBuilder(purpose, cid2Bytes, bigIntNumericToBytes)
     else
-      new LegacyBuilder(purpose, cid2Bytes)
+      new LegacyBuilder(purpose, cid2Bytes, bigIntNumericToBytes)
 
   private[crypto] def hMacBuilder(key: Hash): Builder = new HashMacBuilder(key)
 
