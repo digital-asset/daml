@@ -897,7 +897,6 @@ scala_library(
     scalacopts = canton_scalacopts + ["-language:postfixOps"],
     unused_dependency_checker_mode = "error",
     deps = [
-        ":bindings-java",
         ":ledger_api_proto_scala",
         "//daml-lf/data",
         "//daml-lf/language",
@@ -1458,7 +1457,12 @@ da_java_library(
         ":ledger-api-java",
         ":ledger-api-java-grpc",
     ],
-    javacopts = da_java_bindings_javacopts,
+    javacopts = [
+        "-Werror",
+        "-Xlint",
+        "-Xlint:-serial",
+        "-Xlint:-deprecation",  # Protoc 2.24 generates code that is deprecated in 2.25
+    ],
     tags = [
         "javadoc_root_packages=com.daml.ledger.javaapi.data",
         "maven_coordinates=com.daml:bindings-java:__VERSION__",
