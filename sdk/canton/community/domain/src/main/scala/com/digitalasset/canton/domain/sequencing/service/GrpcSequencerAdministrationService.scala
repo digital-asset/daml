@@ -210,6 +210,12 @@ class GrpcSequencerAdministrationService(
 
       sequencerSnapshot <- sequencer.snapshot(referenceEffective.value)
 
+      // wait for the snapshot's lastTs to be processed by the topology client,
+      // which implies that all topology transactions will have been properly processed and stored.
+      _ <- EitherT.right(
+        topologyClient.awaitTimestamp(sequencerSnapshot.lastTs).getOrElse(Future.unit)
+      )
+
       topologySnapshot <- EitherT.right[BaseCantonError](
         topologyStore.findEssentialStateAtSequencedTime(SequencedTime(sequencerSnapshot.lastTs))
       )

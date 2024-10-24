@@ -21,7 +21,7 @@ class CompletionServiceRequestValidatorTest
   private val grpcCompletionReq = GrpcCompletionStreamRequest(
     expectedApplicationId,
     List(party),
-    offsetLongO,
+    offsetLong,
   )
   private val completionReq = CompletionStreamRequest(
     Ref.ApplicationId.assertFromString(expectedApplicationId),
@@ -57,16 +57,12 @@ class CompletionServiceRequestValidatorTest
         )
       }
 
-      "return the correct error on zero begin exclusive offset" in {
-        requestMustFailWith(
-          request = validator.validateGrpcCompletionStreamRequest(
-            grpcCompletionReq.withBeginExclusive(0)
-          ),
-          code = INVALID_ARGUMENT,
-          description =
-            "NON_POSITIVE_OFFSET(8,0): Offset 0 in begin_exclusive is not a positive integer: the offset has to be a positive integer (>0)",
-          metadata = Map.empty,
-        )
+      "accept requests with begin exclusive offset zero" in {
+        inside(
+          validator.validateGrpcCompletionStreamRequest(grpcCompletionReq.withBeginExclusive(0))
+        ) { case Right(req) =>
+          req shouldBe completionReq.copy(offset = ParticipantOffset.fromString(""))
+        }
       }
 
       "return the correct error on negative begin exclusive offset" in {
@@ -76,7 +72,7 @@ class CompletionServiceRequestValidatorTest
           ),
           code = INVALID_ARGUMENT,
           description =
-            "NON_POSITIVE_OFFSET(8,0): Offset -100 in begin_exclusive is not a positive integer: the offset has to be a positive integer (>0)",
+            "NEGATIVE_OFFSET(8,0): Offset -100 in begin_exclusive is a negative integer: the offset in begin_exclusive field has to be a non-negative integer (>=0)",
           metadata = Map.empty,
         )
       }
@@ -92,7 +88,7 @@ class CompletionServiceRequestValidatorTest
       "tolerate empty offset (participant begin)" in {
         inside(
           validator.validateGrpcCompletionStreamRequest(
-            grpcCompletionReq.clearBeginExclusive
+            grpcCompletionReq.withBeginExclusive(0L)
           )
         ) { case Right(req) =>
           req.applicationId shouldEqual expectedApplicationId

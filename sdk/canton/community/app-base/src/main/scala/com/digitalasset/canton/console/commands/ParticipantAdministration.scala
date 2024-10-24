@@ -38,6 +38,7 @@ import com.digitalasset.canton.admin.api.client.data.{
   DarMetadata,
   InFlightCount,
   ListConnectedDomainsResult,
+  NodeStatus,
   ParticipantPruningSchedule,
   ParticipantStatus,
 }
@@ -1993,8 +1994,7 @@ class ParticipantHealthAdministration(
     )
     with FeatureFlagFilter
     with ParticipantHealthAdministrationCommon {
-  override protected def nodeStatusCommand
-      : StatusAdminCommands.NodeStatusCommand[ParticipantStatus, _, _] =
+  override protected def nodeStatusCommand: GrpcAdminCommand[?, ?, NodeStatus[ParticipantStatus]] =
     ParticipantAdminCommands.Health.ParticipantStatusCommand()
 
   @Help.Summary("Counts pending command submissions and transactions on a domain.")

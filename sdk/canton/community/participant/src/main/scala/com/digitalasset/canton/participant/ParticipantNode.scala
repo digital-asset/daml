@@ -487,7 +487,12 @@ class ParticipantNodeBootstrap(
                 reassignmentOffsetPersistence = ReassignmentStore.reassignmentOffsetPersistenceFor(
                   syncDomainPersistentStateManager
                 ),
-                postProcessor = inFlightSubmissionTracker.processPublications(_)(_),
+                postProcessor = inFlightSubmissionTracker
+                  .processPublications(_)(_)
+                  .failOnShutdownTo(
+                    // This will be throw in the Indexer pekko-stream pipeline, and handled gracefully there
+                    new RuntimeException("Post processing aborted due to shutdown")
+                  ),
                 loggerFactory = loggerFactory,
               )
             ),

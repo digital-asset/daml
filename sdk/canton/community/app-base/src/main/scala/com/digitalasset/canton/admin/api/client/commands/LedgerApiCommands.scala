@@ -1576,7 +1576,7 @@ object LedgerApiCommands {
       override def handleResponse(
           response: GetLedgerEndResponse
       ): Either[String, String] =
-        Right(ApiOffset.fromLongO(response.offset))
+        Right(ApiOffset.fromLong(response.offset))
     }
 
     final case class GetConnectedDomains(partyId: LfPartyId)
@@ -1682,7 +1682,7 @@ object LedgerApiCommands {
           CompletionStreamRequest(
             applicationId = applicationId,
             parties = Seq(partyId),
-            beginExclusive = ApiOffset.assertFromStringToLongO(beginOffsetExclusive),
+            beginExclusive = ApiOffset.assertFromStringToLong(beginOffsetExclusive),
           )
         )
 
@@ -1724,7 +1724,7 @@ object LedgerApiCommands {
         CompletionStreamRequest(
           applicationId = applicationId,
           parties = parties,
-          beginExclusive = ApiOffset.assertFromStringToLongO(offset),
+          beginExclusive = ApiOffset.assertFromStringToLong(offset),
         )
       }
 

@@ -140,7 +140,7 @@ final class ApiStateService(
       .currentLedgerEnd()
       .map(offset =>
         GetLedgerEndResponse(
-          ApiOffset.assertFromStringToLongO(offset)
+          ApiOffset.assertFromStringToLong(offset)
         )
       )
       .andThen(logger.logErrorsOnCall[GetLedgerEndResponse])

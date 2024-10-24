@@ -230,9 +230,9 @@ trait MessageDispatcherTest {
           any[Map[MessageId, SequencedSubmission]],
         )(anyTraceContext)
       )
-        .thenReturn(Future.unit)
+        .thenReturn(FutureUnlessShutdown.unit)
       when(inFlightSubmissionTracker.observeDeliverError(any[DeliverError])(anyTraceContext))
-        .thenReturn(Future.unit)
+        .thenReturn(FutureUnlessShutdown.unit)
 
       val protocolProcessors = new RequestProcessors {
         override protected def getInternal[P](

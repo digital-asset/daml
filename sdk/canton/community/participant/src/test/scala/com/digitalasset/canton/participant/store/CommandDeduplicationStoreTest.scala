@@ -59,47 +59,47 @@ trait CommandDeduplicationStoreTest extends BaseTest { this: AsyncWordSpec =>
           lookup shouldBe None
           pruning shouldBe None
         }
-      }
+      }.failOnShutdown
     }
 
     "storeDefiniteAnswers" should {
       "store rejections" in {
         val store = mk()
         for {
-          () <- store.storeDefiniteAnswers(
+          _ <- store.storeDefiniteAnswers(
             Seq(
               (changeId1a, answer1, false),
               (changeId2, answer2, false),
             )
           )
-          lookup1a <- valueOrFail(store.lookup(ChangeIdHash(changeId1a)))("lookup 1a")
-          lookup2 <- valueOrFail(store.lookup(ChangeIdHash(changeId2)))("lookup 2")
+          lookup1a <- valueOrFailUS(store.lookup(ChangeIdHash(changeId1a)))("lookup 1a")
+          lookup2 <- valueOrFailUS(store.lookup(ChangeIdHash(changeId2)))("lookup 2")
           lookupOther <- store.lookup(ChangeIdHash(changeId1ab)).value
         } yield {
           lookup1a shouldBe CommandDeduplicationData.tryCreate(changeId1a, answer1, None)
           lookup2 shouldBe CommandDeduplicationData.tryCreate(changeId2, answer2, None)
           lookupOther shouldBe None
         }
-      }
+      }.failOnShutdown
 
       "store acceptances" in {
         val store = mk()
         for {
-          () <- store.storeDefiniteAnswers(
+          _ <- store.storeDefiniteAnswers(
             Seq(
               (changeId1a, answer1, true),
               (changeId2, answer2, true),
             )
           )
-          lookup1a <- valueOrFail(store.lookup(ChangeIdHash(changeId1a)))("lookup 1a")
-          lookup2 <- valueOrFail(store.lookup(ChangeIdHash(changeId2)))("lookup 2")
+          lookup1a <- valueOrFailUS(store.lookup(ChangeIdHash(changeId1a)))("lookup 1a")
+          lookup2 <- valueOrFailUS(store.lookup(ChangeIdHash(changeId2)))("lookup 2")
           lookupOther <- store.lookup(ChangeIdHash(changeId1ab)).value
         } yield {
           lookup1a shouldBe CommandDeduplicationData.tryCreate(changeId1a, answer1, answer1.some)
           lookup2 shouldBe CommandDeduplicationData.tryCreate(changeId2, answer2, answer2.some)
           lookupOther shouldBe None
         }
-      }
+      }.failOnShutdown
 
       "idempotent store of acceptances" in {
         val store = mk()
@@ -128,57 +128,57 @@ trait CommandDeduplicationStoreTest extends BaseTest { this: AsyncWordSpec =>
         } yield {
           succeed
         }
-      }
+      }.failOnShutdown
 
       "update an acceptance" in {
         val store = mk()
         for {
-          () <- store.storeDefiniteAnswers(
+          _ <- store.storeDefiniteAnswers(
             Seq(
               (changeId1a, answer1, true),
               (changeId2, answer1, true),
             )
           )
-          () <- store.storeDefiniteAnswers(
+          _ <- store.storeDefiniteAnswers(
             Seq(
               (changeId1a, answer2, true), // update with an acceptance
               (changeId2, answer2, false), // update with a rejection
             )
           )
-          lookup1a <- valueOrFail(store.lookup(ChangeIdHash(changeId1a)))("lookup 1a")
-          lookup2 <- valueOrFail(store.lookup(ChangeIdHash(changeId2)))("lookup 2")
+          lookup1a <- valueOrFailUS(store.lookup(ChangeIdHash(changeId1a)))("lookup 1a")
+          lookup2 <- valueOrFailUS(store.lookup(ChangeIdHash(changeId2)))("lookup 2")
         } yield {
           lookup1a shouldBe CommandDeduplicationData.tryCreate(changeId1a, answer2, answer2.some)
           lookup2 shouldBe CommandDeduplicationData.tryCreate(changeId2, answer2, answer1.some)
         }
-      }
+      }.failOnShutdown
 
       "update a rejection" in {
         val store = mk()
         for {
-          () <- store.storeDefiniteAnswer(changeId1a, answer1, accepted = false)
-          () <- store.storeDefiniteAnswer(
+          _ <- store.storeDefiniteAnswer(changeId1a, answer1, accepted = false)
+          _ <- store.storeDefiniteAnswer(
             changeId1a,
             answer2,
             accepted = false,
           ) // update with a rejection
-          lookupR <- valueOrFail(store.lookup(ChangeIdHash(changeId1a)))("lookup rejection")
-          () <- store.storeDefiniteAnswer(
+          lookupR <- valueOrFailUS(store.lookup(ChangeIdHash(changeId1a)))("lookup rejection")
+          _ <- store.storeDefiniteAnswer(
             changeId1a,
             answer3,
             accepted = true,
           ) // update with an acceptance
-          lookupA <- valueOrFail(store.lookup(ChangeIdHash(changeId1a)))("lookup acceptance")
+          lookupA <- valueOrFailUS(store.lookup(ChangeIdHash(changeId1a)))("lookup acceptance")
         } yield {
           lookupR shouldBe CommandDeduplicationData.tryCreate(changeId1a, answer2, None)
           lookupA shouldBe CommandDeduplicationData.tryCreate(changeId1a, answer3, answer3.some)
         }
-      }
+      }.failOnShutdown
 
       "several updates in one batch" in {
         val store = mk()
         for {
-          () <- store.storeDefiniteAnswers(
+          _ <- store.storeDefiniteAnswers(
             Seq(
               (changeId1a, answer1, true),
               (changeId1ab, answer1, true),
@@ -186,22 +186,22 @@ trait CommandDeduplicationStoreTest extends BaseTest { this: AsyncWordSpec =>
               (changeId1ab, answer3, true), // Overwrite with acceptance
             )
           )
-          lookup1a <- valueOrFail(store.lookup(ChangeIdHash(changeId1a)))("lookup 1a")
-          lookup1ab <- valueOrFail(store.lookup(ChangeIdHash(changeId1ab)))("lookup 1ab")
+          lookup1a <- valueOrFailUS(store.lookup(ChangeIdHash(changeId1a)))("lookup 1a")
+          lookup1ab <- valueOrFailUS(store.lookup(ChangeIdHash(changeId1ab)))("lookup 1ab")
         } yield {
           lookup1a shouldBe CommandDeduplicationData.tryCreate(changeId1a, answer2, answer1.some)
           lookup1ab shouldBe CommandDeduplicationData.tryCreate(changeId1ab, answer3, answer3.some)
         }
-      }
+      }.failOnShutdown
 
       "not overwrite later offsets" in {
         val store = mk()
         for {
-          () <- store.storeDefiniteAnswer(changeId1a, answer1, accepted = true)
-          () <- store.storeDefiniteAnswer(changeId1a, answer3, accepted = false)
-          () <- MonadUtil.sequentialTraverse_(Seq(false, true)) { accept =>
+          _ <- store.storeDefiniteAnswer(changeId1a, answer1, accepted = true).failOnShutdown
+          _ <- store.storeDefiniteAnswer(changeId1a, answer3, accepted = false).failOnShutdown
+          _ <- MonadUtil.sequentialTraverse_(Seq(false, true)) { accept =>
             loggerFactory.assertThrowsAndLogsAsync[IllegalArgumentException](
-              store.storeDefiniteAnswer(changeId1a, answer2, accepted = accept),
+              store.storeDefiniteAnswer(changeId1a, answer2, accepted = accept).failOnShutdown,
               _.getMessage should include(
                 s"Cannot update command deduplication data for ${ChangeIdHash(
                     changeId1a
@@ -210,7 +210,9 @@ trait CommandDeduplicationStoreTest extends BaseTest { this: AsyncWordSpec =>
               _.errorMessage should include(ErrorUtil.internalErrorMessage),
             )
           }
-          lookup <- valueOrFail(store.lookup(ChangeIdHash(changeId1a)))("lookup acceptance")
+          lookup <- valueOrFailUS(store.lookup(ChangeIdHash(changeId1a)))(
+            "lookup acceptance"
+          ).failOnShutdown
         } yield {
           lookup shouldBe CommandDeduplicationData.tryCreate(changeId1a, answer3, answer1.some)
         }
@@ -222,30 +224,30 @@ trait CommandDeduplicationStoreTest extends BaseTest { this: AsyncWordSpec =>
         val store = mk()
         for {
           empty <- store.latestPruning().value
-          () <- store.prune(answer1.offset, answer1.publicationTime)
-          first <- valueOrFail(store.latestPruning())("first pruning lookup")
-          () <- store.prune(answer2.offset, answer2.publicationTime)
-          second <- valueOrFail(store.latestPruning())("second pruning lookup")
+          _ <- store.prune(answer1.offset, answer1.publicationTime)
+          first <- valueOrFailUS(store.latestPruning())("first pruning lookup")
+          _ <- store.prune(answer2.offset, answer2.publicationTime)
+          second <- valueOrFailUS(store.latestPruning())("second pruning lookup")
         } yield {
           empty shouldBe None
           first shouldBe OffsetAndPublicationTime(answer1.offset, answer1.publicationTime)
           second shouldBe OffsetAndPublicationTime(answer2.offset, answer2.publicationTime)
         }
-      }
+      }.failOnShutdown
 
       "only advance the pruning data" in {
         val store = mk()
         for {
-          () <- store.prune(answer2.offset, answer2.publicationTime)
-          baseline <- valueOrFail(store.latestPruning())("baseline pruning lookup")
-          () <- store.prune(answer1.offset, answer1.publicationTime)
-          tooLow <- valueOrFail(store.latestPruning())("tooLow pruning lookup")
-          () <- store.prune(answer3.offset, answer1.publicationTime)
-          publicationTimeTooLow <- valueOrFail(store.latestPruning())(
+          _ <- store.prune(answer2.offset, answer2.publicationTime)
+          baseline <- valueOrFailUS(store.latestPruning())("baseline pruning lookup")
+          _ <- store.prune(answer1.offset, answer1.publicationTime)
+          tooLow <- valueOrFailUS(store.latestPruning())("tooLow pruning lookup")
+          _ <- store.prune(answer3.offset, answer1.publicationTime)
+          publicationTimeTooLow <- valueOrFailUS(store.latestPruning())(
             "publicationTimeTooLow pruning lookup"
           )
-          () <- store.prune(answer1.offset, answer3.publicationTime)
-          offsetTooLow <- valueOrFail(store.latestPruning())("offsetTooLow pruning lookup")
+          _ <- store.prune(answer1.offset, answer3.publicationTime)
+          offsetTooLow <- valueOrFailUS(store.latestPruning())("offsetTooLow pruning lookup")
         } yield {
           baseline shouldBe OffsetAndPublicationTime(answer2.offset, answer2.publicationTime)
           tooLow shouldBe OffsetAndPublicationTime(answer2.offset, answer2.publicationTime)
@@ -255,23 +257,23 @@ trait CommandDeduplicationStoreTest extends BaseTest { this: AsyncWordSpec =>
           )
           offsetTooLow shouldBe OffsetAndPublicationTime(answer3.offset, answer3.publicationTime)
         }
-      }
+      }.failOnShutdown
 
       "remove by latest definite answer offset" in {
         val store = mk()
         for {
-          () <- store.storeDefiniteAnswers(
+          _ <- store.storeDefiniteAnswers(
             Seq(
               (changeId1a, answer1, false),
               (changeId1ab, answer2, true),
               (changeId2, answer3, false),
             )
           )
-          () <- store.prune(answer2.offset, CantonTimestamp.MaxValue)
+          _ <- store.prune(answer2.offset, CantonTimestamp.MaxValue)
           lookup1a <- store.lookup(ChangeIdHash(changeId1a)).value
           lookup1ab <- store.lookup(ChangeIdHash(changeId1ab)).value
           lookup2 <- store.lookup(ChangeIdHash(changeId2)).value
-          () <- store.prune(answer3.offset, CantonTimestamp.MinValue)
+          _ <- store.prune(answer3.offset, CantonTimestamp.MinValue)
           lookup2e <- store.lookup(ChangeIdHash(changeId2)).value
         } yield {
           lookup1a shouldBe None
@@ -279,21 +281,21 @@ trait CommandDeduplicationStoreTest extends BaseTest { this: AsyncWordSpec =>
           lookup2 shouldBe CommandDeduplicationData.tryCreate(changeId2, answer3, None).some
           lookup2e shouldBe None
         }
-      }
+      }.failOnShutdown
 
       "keep outdated acceptances" in {
         val store = mk()
         for {
-          () <- store.storeDefiniteAnswer(changeId1a, answer1, accepted = true)
-          () <- store.storeDefiniteAnswer(changeId1a, answer3, accepted = false)
-          () <- store.prune(answer2.offset, answer2.publicationTime)
+          _ <- store.storeDefiniteAnswer(changeId1a, answer1, accepted = true)
+          _ <- store.storeDefiniteAnswer(changeId1a, answer3, accepted = false)
+          _ <- store.prune(answer2.offset, answer2.publicationTime)
           lookup1a <- store.lookup(ChangeIdHash(changeId1a)).value
         } yield {
           lookup1a shouldBe CommandDeduplicationData
             .tryCreate(changeId1a, answer3, answer1.some)
             .some
         }
-      }
+      }.failOnShutdown
     }
   }
 }

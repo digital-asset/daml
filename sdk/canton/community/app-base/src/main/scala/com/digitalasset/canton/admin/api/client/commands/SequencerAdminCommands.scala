@@ -11,7 +11,6 @@ import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
   DefaultUnboundedTimeout,
   TimeoutType,
 }
-import com.digitalasset.canton.admin.api.client.commands.StatusAdminCommands.NodeStatusCommand
 import com.digitalasset.canton.admin.api.client.data.{NodeStatus, SequencerStatus}
 import com.digitalasset.canton.admin.domain.v30.SequencerStatusServiceGrpc.SequencerStatusServiceStub
 import com.digitalasset.canton.admin.domain.v30.{
@@ -357,10 +356,10 @@ object SequencerAdminCommands {
 
   object Health {
     final case class SequencerStatusCommand()
-        extends NodeStatusCommand[
-          SequencerStatus,
+        extends GrpcAdminCommand[
           SequencerStatusRequest,
           SequencerStatusResponse,
+          NodeStatus[SequencerStatus],
         ] {
 
       override type Svc = SequencerStatusServiceStub
@@ -368,16 +367,11 @@ object SequencerAdminCommands {
       override def createService(channel: ManagedChannel): SequencerStatusServiceStub =
         SequencerStatusServiceGrpc.stub(channel)
 
-      override def getStatus(
-          service: SequencerStatusServiceStub,
-          request: SequencerStatusRequest,
-      ): Future[SequencerStatusResponse] = service.sequencerStatus(request)
-
       override def submitRequest(
           service: SequencerStatusServiceStub,
           request: SequencerStatusRequest,
       ): Future[SequencerStatusResponse] =
-        submitReq(service, request)
+        service.sequencerStatus(request)
 
       override def createRequest(): Either[String, SequencerStatusRequest] = Right(
         SequencerStatusRequest()
