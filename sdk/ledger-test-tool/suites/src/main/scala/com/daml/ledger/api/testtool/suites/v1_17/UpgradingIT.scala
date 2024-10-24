@@ -344,8 +344,7 @@ class UpgradingIT extends LedgerTestSuite {
 
       // Both exercise events's template-id should match the create template-id (i.e. v1)
       assertEquals(toJavaProto(exercised1.templateId.get), v1TmplId.toProto)
-      // TODO(i21823): Uncomment
-      // assertEquals(toJavaProto(exercised2.templateId.get), v1TmplId.toProto)
+      assertEquals(toJavaProto(exercised2.templateId.get), v1TmplId.toProto)
 
       // The first exercise has a result shape per v1, and the second per v2
       assertExerciseResult(exercised1.exerciseResult.get, v1TmplId, new FetcherV1(party))
@@ -356,9 +355,8 @@ class UpgradingIT extends LedgerTestSuite {
       )
 
       // The first exercise has a choicePackageId of v1 and the second of v2
-      // TODO(i21913): Uncomment
-      // assertEquals(toJavaProto(ex1.choicePackageId.get), FetcherV1.PACKAGE_ID.toProto)
-      // assertEquals(toJavaProto(ex2.choicePackageId.get), FetcherV2.PACKAGE_ID.toProto)
+      assertEquals(exercised1.choicePackageId, Some(FetcherV1.PACKAGE_ID))
+      assertEquals(exercised2.choicePackageId, Some(FetcherV2.PACKAGE_ID))
     }
   })
 
