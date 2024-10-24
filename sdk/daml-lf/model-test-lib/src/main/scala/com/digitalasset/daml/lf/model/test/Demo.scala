@@ -12,6 +12,8 @@ import org.apache.pekko.actor.ActorSystem
 import org.apache.pekko.stream.Materializer
 import org.scalacheck.{Gen, Prop}
 
+import scala.annotation.nowarn
+
 //import scala.annotation.nowarn
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext}
@@ -87,7 +89,7 @@ object Demo {
 
     // val workers = ExecutionContext.fromExecutorService(Executors.newFixedThreadPool(1))
 
-    // @nowarn("cat=unused")
+    @nowarn("cat=unused")
     val bad = Parser.parseScenario("""
         |Scenario
         |  Topology
@@ -101,8 +103,8 @@ object Demo {
 
     implicit val pretty: Ledgers.Scenario => org.scalacheck.util.Pretty =
       (s: Ledgers.Scenario) => org.scalacheck.util.Pretty(_ => Pretty.prettyScenario(s))
-    // validSymScenarios
-    List(bad)
+    validSymScenarios
+      // List(bad)
       .foreach(scenario => {
         // workers.execute(() =>
         if (scenario.ledger.nonEmpty) {
