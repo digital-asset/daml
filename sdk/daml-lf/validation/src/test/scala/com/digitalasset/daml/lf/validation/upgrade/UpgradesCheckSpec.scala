@@ -61,6 +61,88 @@ final class UpgradesCheckSpec
   }
 
   s"Upgradeability Checks using `daml upgrade-check` tool" should {
+    s"Succeeds when v1 upgrades to v2 and then v3" in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-SuccessUpgradingV2ThenV3-v1.dar",
+          "test-common/upgrades-SuccessUpgradingV2ThenV3-v2.dar",
+          "test-common/upgrades-SuccessUpgradingV2ThenV3-v3.dar"
+        ),
+        Seq(
+          (0, 1, None),
+          (1, 2, None),
+        )
+      )
+    }
+
+    s"Succeeds when v1 upgrades to v3 and then v2" in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-SuccessUpgradingV3ThenV2-v1.dar",
+          "test-common/upgrades-SuccessUpgradingV3ThenV2-v3.dar",
+          "test-common/upgrades-SuccessUpgradingV3ThenV2-v2.dar",
+        ),
+        Seq(
+          (0, 2, None),
+          (0, 1, None)
+        )
+      )
+    }
+
+    s"Fails when v1 upgrades to v2, but v3 does not upgrade v2" in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-FailsWhenUpgradingV2ThenV3-v1.dar",
+          "test-common/upgrades-FailsWhenUpgradingV2ThenV3-v2.dar",
+          "test-common/upgrades-FailsWhenUpgradingV2ThenV3-v3.dar",
+        ),
+        Seq(
+          (0, 1, None),
+          (1, 2, Some("The upgraded template T is missing some of its original fields."))
+        )
+      )
+    }
+
+    s"Fails when v1 upgrades to v3, but v3 does not upgrade v2" in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-FailsWhenUpgradingV3ThenV2-v1.dar",
+          "test-common/upgrades-FailsWhenUpgradingV3ThenV2-v3.dar",
+          "test-common/upgrades-FailsWhenUpgradingV3ThenV2-v2.dar",
+        ),
+        Seq(
+          (0, 2, None),
+          (1, 2, Some("The upgraded template T is missing some of its original fields."))
+        )
+      )
+    }
+
+    "Fails when an instance is dropped." in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-FailsWhenAnInstanceIsDropped-dep.dar",
+          "test-common/upgrades-FailsWhenAnInstanceIsDropped-v1.dar",
+          "test-common/upgrades-FailsWhenAnInstanceIsDropped-v2.dar",
+        ),
+        Seq(
+          (1, 2, Some("Implementation of interface .*:Dep:I by template T appears in package that is being upgraded, but does not appear in this package."))
+        )
+      )
+    }
+
+    "Fails when an instance is added (separate dep)." in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-FailsWhenAnInstanceIsAddedSeparateDep-dep.dar",
+          "test-common/upgrades-FailsWhenAnInstanceIsAddedSeparateDep-v1.dar",
+          "test-common/upgrades-FailsWhenAnInstanceIsAddedSeparateDep-v2.dar",
+        ),
+        Seq(
+          (1, 2, Some("Implementation of interface .*:Dep:I by template T appears in this package, but does not appear in package that is being upgraded."))
+        )
+      )
+    }
+
     s"report no upgrade errors for valid upgrade" in {
       testPackages(
         Seq("test-common/upgrades-ValidUpgrade-v1.dar", "test-common/upgrades-ValidUpgrade-v2.dar"),
