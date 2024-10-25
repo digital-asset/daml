@@ -34,7 +34,7 @@ final class UpgradesCheckSpec
       uploadAssertion: Seq[PackageId] => String => Assertion,
   ): Future[Assertion] = {
     val paths: Seq[Path] = rawPaths.map((x: String) => BazelRunfiles.rlocation(Paths.get(x)))
-    val pkgIds: Seq[PackageId] = paths.map((x: Path) => loadPackageId(x))
+    val pkgIds: Seq[PackageId] = paths.map(loadPackageId)
 
     val exe = if (sys.props("os.name").toLowerCase.contains("windows")) ".exe" else ""
     val damlSdk = BazelRunfiles.rlocation(Paths.get(s"daml-assistant/daml-sdk/sdk$exe"))
@@ -68,7 +68,7 @@ final class UpgradesCheckSpec
     val testPackageSecondId: PackageId = pkgIds(1)
     failureMessage match {
       case None => upgradeCheckToolLogs should not include regex(s"Error while checking two DARs:\nThe uploaded DAR contains a package $testPackageSecondId \\(.*\\), but upgrade checks indicate that (existing package $testPackageFirstId|new package $testPackageSecondId) \\(.*\\) cannot be an upgrade of (existing package $testPackageFirstId|new package $testPackageSecondId)")
-      case Some(msg) => upgradeCheckToolLogs should include regex(msg)
+      case Some(msg) => upgradeCheckToolLogs should include regex(s"Error while checking two DARs:\nThe uploaded DAR contains a package $testPackageSecondId \\(.*\\), but upgrade checks indicate that (existing package $testPackageFirstId|new package $testPackageSecondId) \\(.*\\) cannot be an upgrade of (existing package $testPackageFirstId|new package $testPackageSecondId). Reason: $msg")
     }
   }
 
