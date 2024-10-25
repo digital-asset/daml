@@ -27,7 +27,13 @@ import scala.collection.mutable.Buffer
 import com.daml.scalautil.Statement.discard
 
 class StringLogger(val msgs: Buffer[String], val stringLoggerName: String) extends AbstractLogger {
-  override def handleNormalizedLoggingCall(lvl: Level, marker: Marker, str: String, args: Array[Object], err: Throwable) = {
+  override def handleNormalizedLoggingCall(
+      lvl: Level,
+      marker: Marker,
+      str: String,
+      args: Array[Object],
+      err: Throwable,
+  ) = {
     discard(msgs.append(MessageFormatter.basicArrayFormat(str, args)))
   }
 
@@ -45,9 +51,9 @@ class StringLogger(val msgs: Buffer[String], val stringLoggerName: String) exten
 }
 
 case class StringLoggerFactory(
-  val name: String,
-  val properties: ListMap[String, String] = ListMap(),
-  val msgs: Buffer[String] = Buffer(),
+    val name: String,
+    val properties: ListMap[String, String] = ListMap(),
+    val msgs: Buffer[String] = Buffer(),
 ) extends NamedLoggerFactory {
   override def getLogger(fullName: String): Logger = Logger(new StringLogger(msgs, fullName))
 
@@ -95,7 +101,7 @@ final case class CouldNotReadDar(path: String, err: ArchiveError) {
   val message: String = s"Error reading DAR from ${path}: ${err.msg}"
 }
 
-case class UpgradeCheckMain (loggerFactory: NamedLoggerFactory) {
+case class UpgradeCheckMain(loggerFactory: NamedLoggerFactory) {
   def logger = loggerFactory.getLogger(classOf[UpgradeCheckMain])
 
   implicit val ec: ExecutionContext = ExecutionContext.global

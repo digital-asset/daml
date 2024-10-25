@@ -47,7 +47,8 @@ abstract class UpgradesSpecAdminAPI(override val suffix: String) extends Upgrade
   }
 }
 
-class UpgradesSpecLedgerAPI(override val suffix: String = "Ledger API") extends UpgradesSpec(suffix) {
+class UpgradesSpecLedgerAPI(override val suffix: String = "Ledger API")
+    extends UpgradesSpec(suffix) {
   final override def uploadPackageRaw(
       entry: (PackageId, ByteString),
       dryRun: Boolean,
@@ -70,8 +71,7 @@ class UpgradesSpecLedgerAPI(override val suffix: String = "Ledger API") extends 
 }
 
 trait ShortTests { this: UpgradesSpec =>
-  s"Short upload-time Upgradeability Checks ($suffix)" should {
-  }
+  s"Short upload-time Upgradeability Checks ($suffix)" should {}
 }
 
 trait LongTests { this: UpgradesSpec =>
@@ -384,7 +384,7 @@ abstract class UpgradesSpec(val suffix: String)
 
   private[this] val cantonLogPath = java.nio.file.Paths.get(s"$cantonTmpDir/canton.log")
   protected def currentLogOffset() = java.nio.file.Files.size(cantonLogPath)
-  
+
   protected def cantonLog(beginOffset: Long): String = {
     import java.nio._
     val endOffset = currentLogOffset()
@@ -471,8 +471,11 @@ abstract class UpgradesSpec(val suffix: String)
       testPackageSecondId: PackageId,
   )(upgradeCheckToolLogs: String): Assertion = {
     failureMessage match {
-      case None => upgradeCheckToolLogs should not include regex(s"Error while checking two DARs:\nThe uploaded DAR contains a package $testPackageSecondId \\(.*\\), but upgrade checks indicate that (existing package $testPackageFirstId|new package $testPackageSecondId) \\(.*\\) cannot be an upgrade of (existing package $testPackageFirstId|new package $testPackageSecondId)")
-      case Some(msg) => upgradeCheckToolLogs should include regex(msg)
+      case None =>
+        upgradeCheckToolLogs should not include regex(
+          s"Error while checking two DARs:\nThe uploaded DAR contains a package $testPackageSecondId \\(.*\\), but upgrade checks indicate that (existing package $testPackageFirstId|new package $testPackageSecondId) \\(.*\\) cannot be an upgrade of (existing package $testPackageFirstId|new package $testPackageSecondId)"
+        )
+      case Some(msg) => upgradeCheckToolLogs should include regex (msg)
     }
   }
 
