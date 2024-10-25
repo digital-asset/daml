@@ -99,6 +99,21 @@ class MockStringInterning extends StringInterning {
         rawStringInterning.tryExternalize(id).map(DomainId.tryFromString)
     }
 
+  override val packageId: StringInterningDomain[Ref.PackageId] =
+    new StringInterningDomain[Ref.PackageId] {
+      override val unsafe: StringInterningAccessor[String] = rawStringInterning
+
+      override def internalize(t: Ref.PackageId): Int = tryInternalize(t).get
+
+      override def tryInternalize(t: Ref.PackageId): Option[Int] =
+        rawStringInterning.tryInternalize(t.toString)
+
+      override def externalize(id: Int): Ref.PackageId = tryExternalize(id).get
+
+      override def tryExternalize(id: Int): Option[Ref.PackageId] =
+        rawStringInterning.tryExternalize(id).map(Ref.PackageId.assertFromString)
+    }
+
   private[store] def reset(): Unit = blocking(synchronized {
     idToString = Map.empty
     stringToId = Map.empty

@@ -259,6 +259,7 @@ object SequentialWriteDaoSpec {
     contract_id = "1",
     template_id = None,
     package_name = None,
+    choice_package_id = None,
     flat_event_witnesses = Set.empty,
     tree_event_witnesses = Set.empty,
     create_key_value = None,
@@ -318,8 +319,21 @@ object SequentialWriteDaoSpec {
 
   private val dbDtoToStringsForInterningFixture: Iterable[DbDto] => DomainStringIterators = {
     case iterable if iterable.size == 5 =>
-      new DomainStringIterators(Iterator.empty, List("1").iterator, Iterator.empty)
-    case _ => new DomainStringIterators(Iterator.empty, Iterator.empty, Iterator.empty)
+      new DomainStringIterators(
+        Iterator.empty,
+        List("1").iterator,
+        Iterator.empty,
+        Iterator.empty,
+        Iterator.empty,
+      )
+    case _ =>
+      new DomainStringIterators(
+        Iterator.empty,
+        Iterator.empty,
+        Iterator.empty,
+        Iterator.empty,
+        Iterator.empty,
+      )
   }
 
   private val stringInterningViewFixture: StringInterning with InternizingStringInterningView =
@@ -333,6 +347,9 @@ object SequentialWriteDaoSpec {
       override def party: StringInterningDomain[Party] = throw new NotImplementedException
 
       override def domainId: StringInterningDomain[DomainId] = throw new NotImplementedException
+
+      override def packageId: StringInterningDomain[Ref.PackageId] =
+        throw new NotImplementedException
 
       override def internize(
           domainStringIterators: DomainStringIterators

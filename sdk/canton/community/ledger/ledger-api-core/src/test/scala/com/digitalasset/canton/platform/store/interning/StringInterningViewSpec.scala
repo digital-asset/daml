@@ -24,11 +24,14 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers with BaseTest 
     templateAbsent(testee, "22:t:a")
     templateAbsent(testee, "22:t:b")
     templateAbsent(testee, "22:same:name")
+    packageIdAbsent(testee, "pkg1")
+
     testee.internize(
       new DomainStringIterators(
         parties = List("p1", "p2", "22:same:name").iterator,
         templateIds = List("22:t:a", "22:t:b", "22:same:name").iterator,
         domainIds = List("x::domain1", "x::domain2").iterator,
+        packageIds = List("pkg1").iterator,
       )
     ) shouldBe Vector(
       1 -> "p|p1",
@@ -39,6 +42,7 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers with BaseTest 
       6 -> "t|22:same:name",
       7 -> "d|x::domain1",
       8 -> "d|x::domain2",
+      9 -> "i|pkg1",
     )
     partyPresent(testee, "p1", 1)
     partyPresent(testee, "p2", 2)
@@ -51,6 +55,8 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers with BaseTest 
     domainIdPresent(testee, "x::domain1", 7)
     domainIdPresent(testee, "x::domain2", 8)
     domainIdAbsent(testee, "x::domainunknown")
+    packageIdPresent(testee, "pkg1", 9)
+    packageIdAbsent(testee, "pkg2")
   }
 
   it should "extend working view correctly" in {
@@ -68,6 +74,7 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers with BaseTest 
         parties = List("p1", "p2", "22:same:name").iterator,
         templateIds = List("22:t:a").iterator,
         domainIds = List("x::domain1", "x::domain2").iterator,
+        packageIds = Iterator.empty,
       )
     ) shouldBe Vector(
       1 -> "p|p1",
@@ -93,6 +100,7 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers with BaseTest 
         parties = List("p1", "p2").iterator,
         templateIds = List("22:t:a", "22:t:b", "22:same:name").iterator,
         domainIds = List("x::domain1", "x::domain3").iterator,
+        packageIds = Iterator.empty,
       )
     ) shouldBe Vector(
       7 -> "t|22:t:b",
@@ -161,6 +169,7 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers with BaseTest 
         parties = List("p1", "p2").iterator,
         templateIds = List().iterator,
         domainIds = List("x::domain1").iterator,
+        packageIds = Iterator.empty,
       )
     )
     partyPresent(testee, "p1", 1)
@@ -201,6 +210,7 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers with BaseTest 
         parties = List("p1", "p2", "22:same:name").iterator,
         templateIds = List("22:t:a", "22:t:b", "22:same:name").iterator,
         domainIds = List("x::domain1", "x::domain2").iterator,
+        packageIds = Iterator.empty,
       )
     ) shouldBe Vector(
       1 -> "p|p1",
@@ -308,5 +318,25 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers with BaseTest 
     view.domainId.tryInternalize(typedDomainId) shouldBe None
     Try(view.domainId.unsafe.internalize(domainId)).isFailure shouldBe true
     view.domainId.unsafe.tryInternalize(domainId) shouldBe None
+  }
+
+  private def packageIdPresent(view: StringInterning, packageId: String, id: Int) = {
+    val typedPackageId = Ref.PackageId.assertFromString(packageId)
+    view.packageId.internalize(typedPackageId) shouldBe id
+    view.packageId.tryInternalize(typedPackageId) shouldBe Some(id)
+    view.packageId.externalize(id) shouldBe typedPackageId
+    view.packageId.tryExternalize(id) shouldBe Some(typedPackageId)
+    view.packageId.unsafe.internalize(packageId) shouldBe id
+    view.packageId.unsafe.tryInternalize(packageId) shouldBe Some(id)
+    view.packageId.unsafe.externalize(id) shouldBe packageId
+    view.packageId.unsafe.tryExternalize(id) shouldBe Some(packageId)
+  }
+
+  private def packageIdAbsent(view: StringInterning, packageId: String) = {
+    val typedPackageId = Ref.PackageId.assertFromString(packageId)
+    Try(view.packageId.internalize(typedPackageId)).isFailure shouldBe true
+    view.packageId.tryInternalize(typedPackageId) shouldBe None
+    Try(view.packageId.unsafe.internalize(packageId)).isFailure shouldBe true
+    view.packageId.unsafe.tryInternalize(packageId) shouldBe None
   }
 }

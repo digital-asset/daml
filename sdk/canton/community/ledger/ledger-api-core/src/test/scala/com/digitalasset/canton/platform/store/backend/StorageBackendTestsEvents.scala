@@ -440,6 +440,39 @@ private[backend] trait StorageBackendTestsEvents
       yield flatTransactions(i).traceContext should equal(Some(flatContexts(i)))
   }
 
+  it should "return the correct choice package id for for exercise events" in {
+    val wantChoicePackageIds = Seq(Some("pkgV1"), Some("pkgV2"))
+
+    val dbDtos = Vector(
+      dtoExercise(
+        offset = offset(1),
+        eventSequentialId = 1L,
+        consuming = true,
+        contractId = hashCid("#1"),
+        choicePackageId = wantChoicePackageIds(0),
+      ),
+      dtoExercise(
+        offset = offset(2),
+        eventSequentialId = 2L,
+        consuming = true,
+        contractId = hashCid("#2"),
+        choicePackageId = wantChoicePackageIds(1),
+      ),
+    )
+    executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
+    executeSql(ingest(dbDtos, _))
+    executeSql(updateLedgerEnd(offset(2), 2L))
+
+    val transactionTrees = executeSql(
+      backend.event.transactionPointwiseQueries.fetchTreeTransactionEvents(1L, 2L, Set.empty)
+    )
+
+    val gotChoicePackageIds =
+      transactionTrees.map(_.event.asInstanceOf[Raw.TreeEvent.Exercised].partial.choicePackageId)
+
+    gotChoicePackageIds should equal(wantChoicePackageIds)
+  }
+
   it should "return the correct keys for create events" in {
     val someKey = Some(someSerializedDamlLfValue)
     val someMaintainer = Some("maintainer")

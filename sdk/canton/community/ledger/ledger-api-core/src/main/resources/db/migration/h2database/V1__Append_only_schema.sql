@@ -263,6 +263,7 @@ CREATE TABLE participant_events_consuming_exercise (
     contract_id VARCHAR NOT NULL,
     template_id INTEGER NOT NULL,
     package_name INTEGER,
+    choice_package_id INTEGER,
     flat_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- stakeholders
     tree_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- informees
 
@@ -322,6 +323,7 @@ CREATE TABLE participant_events_non_consuming_exercise (
     contract_id VARCHAR NOT NULL,
     template_id INTEGER NOT NULL,
     package_name INTEGER,
+    choice_package_id INTEGER,
     flat_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- stakeholders
     tree_event_witnesses INTEGER ARRAY NOT NULL DEFAULT ARRAY[], -- informees
 

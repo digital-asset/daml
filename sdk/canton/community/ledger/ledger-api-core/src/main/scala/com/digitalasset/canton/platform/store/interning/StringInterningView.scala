@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.interning
 
-import com.daml.lf.data.Ref.PackageName
+import com.daml.lf.data.Ref.{PackageId, PackageName}
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.{Identifier, Party}
@@ -16,6 +16,7 @@ class DomainStringIterators(
     val templateIds: Iterator[String],
     val domainIds: Iterator[String],
     val packageNames: Iterator[String] = Iterator.empty,
+    val packageIds: Iterator[String],
 )
 
 trait InternizingStringInterningView {
@@ -84,6 +85,7 @@ class StringInterningView(override protected val loggerFactory: NamedLoggerFacto
   private val PartyPrefix = "p|"
   private val DomainIdPrefix = "d|"
   private val PackageNamePrefix = "k|"
+  private val PackageIdPrefix = "i|"
 
   override val templateId: StringInterningDomain[Identifier] =
     StringInterningDomain.prefixing(
@@ -117,13 +119,22 @@ class StringInterningView(override protected val loggerFactory: NamedLoggerFacto
       from = _.toProtoPrimitive,
     )
 
+  override val packageId: StringInterningDomain[PackageId] =
+    StringInterningDomain.prefixing(
+      prefix = PackageIdPrefix,
+      prefixedAccessor = rawAccessor,
+      to = PackageId.assertFromString,
+      from = _.toString,
+    )
+
   override def internize(domainStringIterators: DomainStringIterators): Iterable[(Int, String)] =
     blocking(synchronized {
       val allPrefixedStrings =
         domainStringIterators.parties.map(PartyPrefix + _) ++
           domainStringIterators.templateIds.map(TemplatePrefix + _) ++
           domainStringIterators.packageNames.map(PackageNamePrefix + _) ++
-          domainStringIterators.domainIds.map(DomainIdPrefix + _)
+          domainStringIterators.domainIds.map(DomainIdPrefix + _) ++
+          domainStringIterators.packageIds.map(PackageIdPrefix + _)
       val newEntries = RawStringInterning.newEntries(
         strings = allPrefixedStrings,
         rawStringInterning = raw,

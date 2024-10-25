@@ -72,6 +72,7 @@ object DbDto {
       contract_id: String,
       template_id: Option[String],
       package_name: Option[String],
+      choice_package_id: Option[String],
       flat_event_witnesses: Set[String],
       tree_event_witnesses: Set[String],
       create_key_value: Option[Array[Byte]],

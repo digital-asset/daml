@@ -322,6 +322,7 @@ object Raw {
           eventId: String,
           contractId: String,
           templateId: Identifier,
+          choicePackageId: Option[String],
           packageName: Option[String],
           interfaceId: Option[Identifier],
           exerciseConsuming: Boolean,
@@ -348,6 +349,7 @@ object Raw {
             witnessParties = eventWitnesses,
             childEventIds = exerciseChildEventIds,
             exerciseResult = null,
+            choicePackageId = choicePackageId,
           ),
           exerciseArgument = exerciseArgument,
           exerciseArgumentCompression =
