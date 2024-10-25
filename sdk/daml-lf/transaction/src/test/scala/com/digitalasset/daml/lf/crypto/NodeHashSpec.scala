@@ -7,7 +7,7 @@ package crypto
 import com.digitalasset.daml.lf.crypto.Hash.NodeHashingError.IncompleteTransactionTree
 import com.digitalasset.daml.lf.crypto.HashUtils.DebugStringOutputStream
 import com.digitalasset.daml.lf.data.Ref.{ChoiceName, PackageName, Party}
-import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, Time}
+import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, SortedLookupList, Time}
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value
@@ -16,7 +16,6 @@ import com.digitalasset.daml.lf.value.test.TypedValueGenerators.{ValueAddend => 
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-
 import java.time.Instant
 import scala.util.{Failure, Success}
 
@@ -78,6 +77,58 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     version = LanguageVersion.v2_1,
   )
 
+  private val createNodeEncoding = """00 - [00 (node_version)]
+                                     |# Create Node
+                                     |# Contract Id
+                                     |00000021 - [33 (int)]
+                                     |0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5 - [0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5 (contractId)]
+                                     |# Package Name
+                                     |0000000e - [14 (int)]
+                                     |7061636b6167652d6e616d652d30 - [package-name-0 (string)]
+                                     |# Template Id
+                                     |00000007 - [7 (int)]
+                                     |7061636b616765 - [package (string)]
+                                     |00000001 - [1 (int)]
+                                     |00000006 - [6 (int)]
+                                     |6d6f64756c65 - [module (string)]
+                                     |00000001 - [1 (int)]
+                                     |00000004 - [4 (int)]
+                                     |6e616d65 - [name (string)]
+                                     |# Arg
+                                     |00000005 - [5 (int)]
+                                     |68656c6c6f - [hello (string)]
+                                     |# Signatories
+                                     |00000002 - [2 (int)]
+                                     |00000005 - [5 (int)]
+                                     |616c696365 - [alice (string)]
+                                     |00000003 - [3 (int)]
+                                     |626f62 - [bob (string)]
+                                     |# Stakeholders
+                                     |00000002 - [2 (int)]
+                                     |00000005 - [5 (int)]
+                                     |616c696365 - [alice (string)]
+                                     |00000007 - [7 (int)]
+                                     |636861726c6965 - [charlie (string)]
+                                     |# Global Keys
+                                     |00000001 - [1 (int)]
+                                     |# Maintainers
+                                     |00000001 - [1 (int)]
+                                     |00000005 - [5 (int)]
+                                     |6461766964 - [david (string)]
+                                     |# Template Id
+                                     |00000001 - [1 (int)]
+                                     |0000000a - [10 (int)]
+                                     |6d6f64756c655f6b6579 - [module_key (string)]
+                                     |00000001 - [1 (int)]
+                                     |00000004 - [4 (int)]
+                                     |6e616d65 - [name (string)]
+                                     |# Package Name
+                                     |00000010 - [16 (int)]
+                                     |7061636b6167655f6e616d655f6b6579 - [package_name_key (string)]
+                                     |# Key
+                                     |00000005 - [5 (int)]
+                                     |68656c6c6f - [hello (string)]""".stripMargin
+
   private val fetchNode = Node.Fetch(
     coid = ContractId.V1.assertFromString(
       "0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5"
@@ -103,6 +154,69 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     version = LanguageVersion.v2_1,
   )
 
+  private val fetchNodeEncoding = """00 - [00 (node_version)]
+                                    |# Fetch Node
+                                    |# Contract Id
+                                    |00000021 - [33 (int)]
+                                    |0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5 - [0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5 (contractId)]
+                                    |# Package Name
+                                    |0000000e - [14 (int)]
+                                    |7061636b6167652d6e616d652d30 - [package-name-0 (string)]
+                                    |# Template Id
+                                    |00000007 - [7 (int)]
+                                    |7061636b616765 - [package (string)]
+                                    |00000001 - [1 (int)]
+                                    |00000006 - [6 (int)]
+                                    |6d6f64756c65 - [module (string)]
+                                    |00000001 - [1 (int)]
+                                    |00000004 - [4 (int)]
+                                    |6e616d65 - [name (string)]
+                                    |# Signatories
+                                    |00000001 - [1 (int)]
+                                    |00000005 - [5 (int)]
+                                    |616c696365 - [alice (string)]
+                                    |# Stakeholders
+                                    |00000001 - [1 (int)]
+                                    |00000007 - [7 (int)]
+                                    |636861726c6965 - [charlie (string)]
+                                    |# Acting Parties
+                                    |00000002 - [2 (int)]
+                                    |00000005 - [5 (int)]
+                                    |616c696365 - [alice (string)]
+                                    |00000003 - [3 (int)]
+                                    |626f62 - [bob (string)]
+                                    |# Global Keys
+                                    |00000001 - [1 (int)]
+                                    |# Maintainers
+                                    |00000001 - [1 (int)]
+                                    |00000005 - [5 (int)]
+                                    |6461766964 - [david (string)]
+                                    |# Template Id
+                                    |00000001 - [1 (int)]
+                                    |0000000a - [10 (int)]
+                                    |6d6f64756c655f6b6579 - [module_key (string)]
+                                    |00000001 - [1 (int)]
+                                    |00000004 - [4 (int)]
+                                    |6e616d65 - [name (string)]
+                                    |# Package Name
+                                    |00000010 - [16 (int)]
+                                    |7061636b6167655f6e616d655f6b6579 - [package_name_key (string)]
+                                    |# Key
+                                    |00000005 - [5 (int)]
+                                    |68656c6c6f - [hello (string)]
+                                    |# By Key
+                                    |01 - [true (bool)]
+                                    |# Interface Id
+                                    |00000001 - [1 (int)]
+                                    |00000007 - [7 (int)]
+                                    |7061636b616765 - [package (string)]
+                                    |00000001 - [1 (int)]
+                                    |00000010 - [16 (int)]
+                                    |696e746572666163655f6d6f64756c65 - [interface_module (string)]
+                                    |00000001 - [1 (int)]
+                                    |0000000e - [14 (int)]
+                                    |696e746572666163655f6e616d65 - [interface_name (string)]""".stripMargin
+
   private val exerciseNode = Node.Exercise(
     targetCoid = ContractId.V1.assertFromString(
       "0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5"
@@ -126,29 +240,72 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     version = LanguageVersion.v2_1,
   )
 
+  private val contractIdLookupNode =
+    "0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5"
   private val lookupNode = Node.LookupByKey(
     packageName = packageName0,
     templateId = defRef("module", "name"),
     key = globalKey,
     result = Some(
-      ContractId.V1.assertFromString(
-        "0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5"
-      )
+      ContractId.V1.assertFromString(contractIdLookupNode)
     ),
     version = LanguageVersion.v2_1,
   )
 
+  private val lookupNodeEncoding = s"""00 - [00 (node_version)]
+                                     |# LookupByKey Node
+                                     |# Package Name
+                                     |0000000e - [14 (int)]
+                                     |7061636b6167652d6e616d652d30 - [package-name-0 (string)]
+                                     |# Template Id
+                                     |00000007 - [7 (int)]
+                                     |7061636b616765 - [package (string)]
+                                     |00000001 - [1 (int)]
+                                     |00000006 - [6 (int)]
+                                     |6d6f64756c65 - [module (string)]
+                                     |00000001 - [1 (int)]
+                                     |00000004 - [4 (int)]
+                                     |6e616d65 - [name (string)]
+                                     |# Global Key
+                                     |# Maintainers
+                                     |00000001 - [1 (int)]
+                                     |00000005 - [5 (int)]
+                                     |6461766964 - [david (string)]
+                                     |# Template Id
+                                     |00000001 - [1 (int)]
+                                     |0000000a - [10 (int)]
+                                     |6d6f64756c655f6b6579 - [module_key (string)]
+                                     |00000001 - [1 (int)]
+                                     |00000004 - [4 (int)]
+                                     |6e616d65 - [name (string)]
+                                     |# Package Name
+                                     |00000010 - [16 (int)]
+                                     |7061636b6167655f6e616d655f6b6579 - [package_name_key (string)]
+                                     |# Key
+                                     |00000005 - [5 (int)]
+                                     |68656c6c6f - [hello (string)]
+                                     |# Result
+                                     |00000001 - [1 (int)]
+                                     |00000021 - [33 (int)]
+                                     |$contractIdLookupNode - [$contractIdLookupNode (contractId)]""".stripMargin
+
+  private val contractIdLookupNode2 =
+    "0059b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b"
   private val lookupNode2 = Node.LookupByKey(
     packageName = packageName0,
     templateId = defRef("module", "name"),
-    key = globalKey2,
+    key = globalKey,
     result = Some(
-      ContractId.V1.assertFromString(
-        "0059b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b"
-      )
+      ContractId.V1.assertFromString(contractIdLookupNode2) // Different from lookup node 1
     ),
     version = LanguageVersion.v2_1,
   )
+
+  private val lookupNode2Encoding = lookupNodeEncoding
+    .replace(
+      contractIdLookupNode,
+      contractIdLookupNode2,
+    )
 
   private val rollbackNode = Node.Rollback(
     children = ImmArray(NodeId(3), NodeId(4))
@@ -227,61 +384,11 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
 
     "explain encoding" in {
       assertWithOutputStream { os =>
-        val hash = Hash.hashNodeDebug(createNode, os)
+        val hash = Hash.hashNode(createNode, outputStream = Some(os))
         hash shouldBe defaultHash
-        os.result shouldBe """00 - [00 (value_version)]
+        os.result shouldBe s"""00 - [00 (value_version)]
                              |07 - [07 (value_purpose)]
-                             |00 - [00 (node_version)]
-                             |_Create Node_
-                             |_Contract Id_
-                             |00000021 - [33 (int)]
-                             |0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5 - [0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5 (contractId)]
-                             |_Package Name_
-                             |0000000e - [14 (int)]
-                             |7061636b6167652d6e616d652d30 - [package-name-0 (string)]
-                             |_Template Id_
-                             |00000007 - [7 (int)]
-                             |7061636b616765 - [package (string)]
-                             |00000001 - [1 (int)]
-                             |00000006 - [6 (int)]
-                             |6d6f64756c65 - [module (string)]
-                             |00000001 - [1 (int)]
-                             |00000004 - [4 (int)]
-                             |6e616d65 - [name (string)]
-                             |_Arg_
-                             |00000005 - [5 (int)]
-                             |68656c6c6f - [hello (string)]
-                             |_Signatories_
-                             |00000002 - [2 (int)]
-                             |00000005 - [5 (int)]
-                             |616c696365 - [alice (string)]
-                             |00000003 - [3 (int)]
-                             |626f62 - [bob (string)]
-                             |_Stakeholders_
-                             |00000002 - [2 (int)]
-                             |00000005 - [5 (int)]
-                             |616c696365 - [alice (string)]
-                             |00000007 - [7 (int)]
-                             |636861726c6965 - [charlie (string)]
-                             |_Global Keys_
-                             |00000001 - [1 (int)]
-                             |_Maintainers_
-                             |00000001 - [1 (int)]
-                             |00000005 - [5 (int)]
-                             |6461766964 - [david (string)]
-                             |_Template Id_
-                             |00000001 - [1 (int)]
-                             |0000000a - [10 (int)]
-                             |6d6f64756c655f6b6579 - [module_key (string)]
-                             |00000001 - [1 (int)]
-                             |00000004 - [4 (int)]
-                             |6e616d65 - [name (string)]
-                             |_Package Name_
-                             |00000010 - [16 (int)]
-                             |7061636b6167655f6e616d655f6b6579 - [package_name_key (string)]
-                             |_Key_
-                             |00000005 - [5 (int)]
-                             |68656c6c6f - [hello (string)]
+                             |$createNodeEncoding
                              |""".stripMargin
       }
     }
@@ -372,72 +479,11 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
 
     "explain encoding" in {
       assertWithOutputStream { os =>
-        val hash = Hash.hashNodeDebug(fetchNode, os)
+        val hash = Hash.hashNode(fetchNode, outputStream = Some(os))
         hash shouldBe defaultHash
-        os.result shouldBe """00 - [00 (value_version)]
+        os.result shouldBe s"""00 - [00 (value_version)]
                              |07 - [07 (value_purpose)]
-                             |00 - [00 (node_version)]
-                             |_Fetch Node_
-                             |_Contract Id_
-                             |00000021 - [33 (int)]
-                             |0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5 - [0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5 (contractId)]
-                             |_Package Name_
-                             |0000000e - [14 (int)]
-                             |7061636b6167652d6e616d652d30 - [package-name-0 (string)]
-                             |_Template Id_
-                             |00000007 - [7 (int)]
-                             |7061636b616765 - [package (string)]
-                             |00000001 - [1 (int)]
-                             |00000006 - [6 (int)]
-                             |6d6f64756c65 - [module (string)]
-                             |00000001 - [1 (int)]
-                             |00000004 - [4 (int)]
-                             |6e616d65 - [name (string)]
-                             |_Signatories_
-                             |00000001 - [1 (int)]
-                             |00000005 - [5 (int)]
-                             |616c696365 - [alice (string)]
-                             |_Stakeholders_
-                             |00000001 - [1 (int)]
-                             |00000007 - [7 (int)]
-                             |636861726c6965 - [charlie (string)]
-                             |_Acting Parties_
-                             |00000002 - [2 (int)]
-                             |00000005 - [5 (int)]
-                             |616c696365 - [alice (string)]
-                             |00000003 - [3 (int)]
-                             |626f62 - [bob (string)]
-                             |_Global Keys_
-                             |00000001 - [1 (int)]
-                             |_Maintainers_
-                             |00000001 - [1 (int)]
-                             |00000005 - [5 (int)]
-                             |6461766964 - [david (string)]
-                             |_Template Id_
-                             |00000001 - [1 (int)]
-                             |0000000a - [10 (int)]
-                             |6d6f64756c655f6b6579 - [module_key (string)]
-                             |00000001 - [1 (int)]
-                             |00000004 - [4 (int)]
-                             |6e616d65 - [name (string)]
-                             |_Package Name_
-                             |00000010 - [16 (int)]
-                             |7061636b6167655f6e616d655f6b6579 - [package_name_key (string)]
-                             |_Key_
-                             |00000005 - [5 (int)]
-                             |68656c6c6f - [hello (string)]
-                             |_By Key_
-                             |01 - [true (bool)]
-                             |_Interface Id_
-                             |00000001 - [1 (int)]
-                             |00000007 - [7 (int)]
-                             |7061636b616765 - [package (string)]
-                             |00000001 - [1 (int)]
-                             |00000010 - [16 (int)]
-                             |696e746572666163655f6d6f64756c65 - [interface_module (string)]
-                             |00000001 - [1 (int)]
-                             |0000000e - [14 (int)]
-                             |696e746572666163655f6e616d65 - [interface_name (string)]
+                             |$fetchNodeEncoding
                              |""".stripMargin
       }
     }
@@ -582,208 +628,97 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
 
     "explain encoding" in {
       assertWithOutputStream { os =>
-        val hash = Hash.hashNodeDebug(exerciseNode, os, subNodes)
+        val hash = Hash.hashNode(exerciseNode, subNodes, outputStream = Some(os))
         hash shouldBe defaultHash
-        os.result shouldBe """00 - [00 (value_version)]
-                             |07 - [07 (value_purpose)]
-                             |00 - [00 (node_version)]
-                             |_Fetch Node_
-                             |_Contract Id_
-                             |00000021 - [33 (int)]
-                             |0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5 - [0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5 (contractId)]
-                             |_Package Name_
-                             |0000000e - [14 (int)]
-                             |7061636b6167652d6e616d652d30 - [package-name-0 (string)]
-                             |_Template Id_
-                             |00000007 - [7 (int)]
-                             |7061636b616765 - [package (string)]
-                             |00000001 - [1 (int)]
-                             |00000006 - [6 (int)]
-                             |6d6f64756c65 - [module (string)]
-                             |00000001 - [1 (int)]
-                             |00000004 - [4 (int)]
-                             |6e616d65 - [name (string)]
-                             |_Signatories_
-                             |00000001 - [1 (int)]
-                             |00000005 - [5 (int)]
-                             |616c696365 - [alice (string)]
-                             |_Stakeholders_
-                             |00000001 - [1 (int)]
-                             |00000007 - [7 (int)]
-                             |636861726c6965 - [charlie (string)]
-                             |_Acting Parties_
-                             |00000002 - [2 (int)]
-                             |00000005 - [5 (int)]
-                             |616c696365 - [alice (string)]
-                             |00000003 - [3 (int)]
-                             |626f62 - [bob (string)]
-                             |_Global Keys_
-                             |00000001 - [1 (int)]
-                             |_Maintainers_
-                             |00000001 - [1 (int)]
-                             |00000005 - [5 (int)]
-                             |6461766964 - [david (string)]
-                             |_Template Id_
-                             |00000001 - [1 (int)]
-                             |0000000a - [10 (int)]
-                             |6d6f64756c655f6b6579 - [module_key (string)]
-                             |00000001 - [1 (int)]
-                             |00000004 - [4 (int)]
-                             |6e616d65 - [name (string)]
-                             |_Package Name_
-                             |00000010 - [16 (int)]
-                             |7061636b6167655f6e616d655f6b6579 - [package_name_key (string)]
-                             |_Key_
-                             |00000005 - [5 (int)]
-                             |68656c6c6f - [hello (string)]
-                             |_By Key_
-                             |01 - [true (bool)]
-                             |_Interface Id_
-                             |00000001 - [1 (int)]
-                             |00000007 - [7 (int)]
-                             |7061636b616765 - [package (string)]
-                             |00000001 - [1 (int)]
-                             |00000010 - [16 (int)]
-                             |696e746572666163655f6d6f64756c65 - [interface_module (string)]
-                             |00000001 - [1 (int)]
-                             |0000000e - [14 (int)]
-                             |696e746572666163655f6e616d65 - [interface_name (string)]
-                             |_Choice Id_
-                             |00000006 - [6 (int)]
-                             |63686f696365 - [choice (string)]
-                             |_Chosen Value_
-                             |0000000000007a94 - [31380 (long)]
-                             |_Consuming_
-                             |01 - [true (bool)]
-                             |_Exercise Result_
-                             |00000001 - [1 (int)]
-                             |00000006 - [6 (int)]
-                             |726573756c74 - [result (string)]
-                             |_Choice Observers_
-                             |00000001 - [1 (int)]
-                             |00000005 - [5 (int)]
-                             |6461766964 - [david (string)]
-                             |_Choice Authorizers_
-                             |00000001 - [1 (int)]
-                             |00000001 - [1 (int)]
-                             |00000003 - [3 (int)]
-                             |657665 - [eve (string)]
-                             |_Children_
-                             |00000002 - [2 (int)]
-                             |00 - [00 (node_version)]
-                             |_Create Node_
-                             |_Contract Id_
-                             |00000021 - [33 (int)]
-                             |0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5 - [0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5 (contractId)]
-                             |_Package Name_
-                             |0000000e - [14 (int)]
-                             |7061636b6167652d6e616d652d30 - [package-name-0 (string)]
-                             |_Template Id_
-                             |00000007 - [7 (int)]
-                             |7061636b616765 - [package (string)]
-                             |00000001 - [1 (int)]
-                             |00000006 - [6 (int)]
-                             |6d6f64756c65 - [module (string)]
-                             |00000001 - [1 (int)]
-                             |00000004 - [4 (int)]
-                             |6e616d65 - [name (string)]
-                             |_Arg_
-                             |00000005 - [5 (int)]
-                             |68656c6c6f - [hello (string)]
-                             |_Signatories_
-                             |00000002 - [2 (int)]
-                             |00000005 - [5 (int)]
-                             |616c696365 - [alice (string)]
-                             |00000003 - [3 (int)]
-                             |626f62 - [bob (string)]
-                             |_Stakeholders_
-                             |00000002 - [2 (int)]
-                             |00000005 - [5 (int)]
-                             |616c696365 - [alice (string)]
-                             |00000007 - [7 (int)]
-                             |636861726c6965 - [charlie (string)]
-                             |_Global Keys_
-                             |00000001 - [1 (int)]
-                             |_Maintainers_
-                             |00000001 - [1 (int)]
-                             |00000005 - [5 (int)]
-                             |6461766964 - [david (string)]
-                             |_Template Id_
-                             |00000001 - [1 (int)]
-                             |0000000a - [10 (int)]
-                             |6d6f64756c655f6b6579 - [module_key (string)]
-                             |00000001 - [1 (int)]
-                             |00000004 - [4 (int)]
-                             |6e616d65 - [name (string)]
-                             |_Package Name_
-                             |00000010 - [16 (int)]
-                             |7061636b6167655f6e616d655f6b6579 - [package_name_key (string)]
-                             |_Key_
-                             |00000005 - [5 (int)]
-                             |68656c6c6f - [hello (string)]
-                             |00 - [00 (node_version)]
-                             |_Fetch Node_
-                             |_Contract Id_
-                             |00000021 - [33 (int)]
-                             |0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5 - [0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5 (contractId)]
-                             |_Package Name_
-                             |0000000e - [14 (int)]
-                             |7061636b6167652d6e616d652d30 - [package-name-0 (string)]
-                             |_Template Id_
-                             |00000007 - [7 (int)]
-                             |7061636b616765 - [package (string)]
-                             |00000001 - [1 (int)]
-                             |00000006 - [6 (int)]
-                             |6d6f64756c65 - [module (string)]
-                             |00000001 - [1 (int)]
-                             |00000004 - [4 (int)]
-                             |6e616d65 - [name (string)]
-                             |_Signatories_
-                             |00000001 - [1 (int)]
-                             |00000005 - [5 (int)]
-                             |616c696365 - [alice (string)]
-                             |_Stakeholders_
-                             |00000001 - [1 (int)]
-                             |00000007 - [7 (int)]
-                             |636861726c6965 - [charlie (string)]
-                             |_Acting Parties_
-                             |00000002 - [2 (int)]
-                             |00000005 - [5 (int)]
-                             |616c696365 - [alice (string)]
-                             |00000003 - [3 (int)]
-                             |626f62 - [bob (string)]
-                             |_Global Keys_
-                             |00000001 - [1 (int)]
-                             |_Maintainers_
-                             |00000001 - [1 (int)]
-                             |00000005 - [5 (int)]
-                             |6461766964 - [david (string)]
-                             |_Template Id_
-                             |00000001 - [1 (int)]
-                             |0000000a - [10 (int)]
-                             |6d6f64756c655f6b6579 - [module_key (string)]
-                             |00000001 - [1 (int)]
-                             |00000004 - [4 (int)]
-                             |6e616d65 - [name (string)]
-                             |_Package Name_
-                             |00000010 - [16 (int)]
-                             |7061636b6167655f6e616d655f6b6579 - [package_name_key (string)]
-                             |_Key_
-                             |00000005 - [5 (int)]
-                             |68656c6c6f - [hello (string)]
-                             |_By Key_
-                             |01 - [true (bool)]
-                             |_Interface Id_
-                             |00000001 - [1 (int)]
-                             |00000007 - [7 (int)]
-                             |7061636b616765 - [package (string)]
-                             |00000001 - [1 (int)]
-                             |00000010 - [16 (int)]
-                             |696e746572666163655f6d6f64756c65 - [interface_module (string)]
-                             |00000001 - [1 (int)]
-                             |0000000e - [14 (int)]
-                             |696e746572666163655f6e616d65 - [interface_name (string)]
-                             |""".stripMargin
+        os.result shouldBe s"""00 - [00 (value_version)]
+                              |07 - [07 (value_purpose)]
+                              |00 - [00 (node_version)]
+                              |# Exercise Node
+                              |# Contract Id
+                              |00000021 - [33 (int)]
+                              |0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5 - [0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5 (contractId)]
+                              |# Package Name
+                              |0000000e - [14 (int)]
+                              |7061636b6167652d6e616d652d30 - [package-name-0 (string)]
+                              |# Template Id
+                              |00000007 - [7 (int)]
+                              |7061636b616765 - [package (string)]
+                              |00000001 - [1 (int)]
+                              |00000006 - [6 (int)]
+                              |6d6f64756c65 - [module (string)]
+                              |00000001 - [1 (int)]
+                              |00000004 - [4 (int)]
+                              |6e616d65 - [name (string)]
+                              |# Signatories
+                              |00000001 - [1 (int)]
+                              |00000005 - [5 (int)]
+                              |616c696365 - [alice (string)]
+                              |# Stakeholders
+                              |00000001 - [1 (int)]
+                              |00000007 - [7 (int)]
+                              |636861726c6965 - [charlie (string)]
+                              |# Acting Parties
+                              |00000002 - [2 (int)]
+                              |00000005 - [5 (int)]
+                              |616c696365 - [alice (string)]
+                              |00000003 - [3 (int)]
+                              |626f62 - [bob (string)]
+                              |# Global Keys
+                              |00000001 - [1 (int)]
+                              |# Maintainers
+                              |00000001 - [1 (int)]
+                              |00000005 - [5 (int)]
+                              |6461766964 - [david (string)]
+                              |# Template Id
+                              |00000001 - [1 (int)]
+                              |0000000a - [10 (int)]
+                              |6d6f64756c655f6b6579 - [module_key (string)]
+                              |00000001 - [1 (int)]
+                              |00000004 - [4 (int)]
+                              |6e616d65 - [name (string)]
+                              |# Package Name
+                              |00000010 - [16 (int)]
+                              |7061636b6167655f6e616d655f6b6579 - [package_name_key (string)]
+                              |# Key
+                              |00000005 - [5 (int)]
+                              |68656c6c6f - [hello (string)]
+                              |# By Key
+                              |01 - [true (bool)]
+                              |# Interface Id
+                              |00000001 - [1 (int)]
+                              |00000007 - [7 (int)]
+                              |7061636b616765 - [package (string)]
+                              |00000001 - [1 (int)]
+                              |00000010 - [16 (int)]
+                              |696e746572666163655f6d6f64756c65 - [interface_module (string)]
+                              |00000001 - [1 (int)]
+                              |0000000e - [14 (int)]
+                              |696e746572666163655f6e616d65 - [interface_name (string)]
+                              |# Choice Id
+                              |00000006 - [6 (int)]
+                              |63686f696365 - [choice (string)]
+                              |# Chosen Value
+                              |0000000000007a94 - [31380 (long)]
+                              |# Consuming
+                              |01 - [true (bool)]
+                              |# Exercise Result
+                              |00000001 - [1 (int)]
+                              |00000006 - [6 (int)]
+                              |726573756c74 - [result (string)]
+                              |# Choice Observers
+                              |00000001 - [1 (int)]
+                              |00000005 - [5 (int)]
+                              |6461766964 - [david (string)]
+                              |# Choice Authorizers
+                              |00000001 - [1 (int)]
+                              |00000001 - [1 (int)]
+                              |00000003 - [3 (int)]
+                              |657665 - [eve (string)]
+                              |# Children
+                              |00000002 - [2 (int)]
+                              |$createNodeEncoding
+                              |$fetchNodeEncoding
+                              |""".stripMargin
       }
     }
   }
@@ -831,46 +766,11 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
 
     "explain encoding" in {
       assertWithOutputStream { os =>
-        val hash = Hash.hashNodeDebug(lookupNode, os)
+        val hash = Hash.hashNode(lookupNode, outputStream = Some(os))
         hash shouldBe defaultHash
-        os.result shouldBe """00 - [00 (value_version)]
+        os.result shouldBe s"""00 - [00 (value_version)]
                              |07 - [07 (value_purpose)]
-                             |00 - [00 (node_version)]
-                             |_LookupByKey Node_
-                             |_Package Name_
-                             |0000000e - [14 (int)]
-                             |7061636b6167652d6e616d652d30 - [package-name-0 (string)]
-                             |_Template Id_
-                             |00000007 - [7 (int)]
-                             |7061636b616765 - [package (string)]
-                             |00000001 - [1 (int)]
-                             |00000006 - [6 (int)]
-                             |6d6f64756c65 - [module (string)]
-                             |00000001 - [1 (int)]
-                             |00000004 - [4 (int)]
-                             |6e616d65 - [name (string)]
-                             |_Global Key_
-                             |_Maintainers_
-                             |00000001 - [1 (int)]
-                             |00000005 - [5 (int)]
-                             |6461766964 - [david (string)]
-                             |_Template Id_
-                             |00000001 - [1 (int)]
-                             |0000000a - [10 (int)]
-                             |6d6f64756c655f6b6579 - [module_key (string)]
-                             |00000001 - [1 (int)]
-                             |00000004 - [4 (int)]
-                             |6e616d65 - [name (string)]
-                             |_Package Name_
-                             |00000010 - [16 (int)]
-                             |7061636b6167655f6e616d655f6b6579 - [package_name_key (string)]
-                             |_Key_
-                             |00000005 - [5 (int)]
-                             |68656c6c6f - [hello (string)]
-                             |_Result_
-                             |00000001 - [1 (int)]
-                             |00000021 - [33 (int)]
-                             |0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5 - [0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5 (contractId)]
+                             |$lookupNodeEncoding
                              |""".stripMargin
       }
     }
@@ -917,112 +817,16 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
 
     "explain encoding" in {
       assertWithOutputStream { os =>
-        val hash = Hash.hashNodeDebug(rollbackNode, os, subNodes)
+        val hash = Hash.hashNode(rollbackNode, subNodes, outputStream = Some(os))
         hash shouldBe defaultHash
-        os.result shouldBe """00 - [00 (value_version)]
+        os.result shouldBe s"""00 - [00 (value_version)]
                              |07 - [07 (value_purpose)]
                              |00 - [00 (node_version)]
-                             |_Rollback Node_
-                             |_Children_
+                             |# Rollback Node
+                             |# Children
                              |00000002 - [2 (int)]
-                             |00 - [00 (node_version)]
-                             |_LookupByKey Node_
-                             |_Package Name_
-                             |0000000e - [14 (int)]
-                             |7061636b6167652d6e616d652d30 - [package-name-0 (string)]
-                             |_Template Id_
-                             |00000007 - [7 (int)]
-                             |7061636b616765 - [package (string)]
-                             |00000001 - [1 (int)]
-                             |00000006 - [6 (int)]
-                             |6d6f64756c65 - [module (string)]
-                             |00000001 - [1 (int)]
-                             |00000004 - [4 (int)]
-                             |6e616d65 - [name (string)]
-                             |_Global Key_
-                             |_Maintainers_
-                             |00000001 - [1 (int)]
-                             |00000005 - [5 (int)]
-                             |6461766964 - [david (string)]
-                             |_Template Id_
-                             |00000001 - [1 (int)]
-                             |0000000a - [10 (int)]
-                             |6d6f64756c655f6b6579 - [module_key (string)]
-                             |00000001 - [1 (int)]
-                             |00000004 - [4 (int)]
-                             |6e616d65 - [name (string)]
-                             |_Package Name_
-                             |00000010 - [16 (int)]
-                             |7061636b6167655f6e616d655f6b6579 - [package_name_key (string)]
-                             |_Key_
-                             |00000005 - [5 (int)]
-                             |68656c6c6f - [hello (string)]
-                             |_Result_
-                             |00000001 - [1 (int)]
-                             |00000021 - [33 (int)]
-                             |0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5 - [0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5 (contractId)]
-                             |00 - [00 (node_version)]
-                             |_Fetch Node_
-                             |_Contract Id_
-                             |00000021 - [33 (int)]
-                             |0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5 - [0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5 (contractId)]
-                             |_Package Name_
-                             |0000000e - [14 (int)]
-                             |7061636b6167652d6e616d652d30 - [package-name-0 (string)]
-                             |_Template Id_
-                             |00000007 - [7 (int)]
-                             |7061636b616765 - [package (string)]
-                             |00000001 - [1 (int)]
-                             |00000006 - [6 (int)]
-                             |6d6f64756c65 - [module (string)]
-                             |00000001 - [1 (int)]
-                             |00000004 - [4 (int)]
-                             |6e616d65 - [name (string)]
-                             |_Signatories_
-                             |00000001 - [1 (int)]
-                             |00000005 - [5 (int)]
-                             |616c696365 - [alice (string)]
-                             |_Stakeholders_
-                             |00000001 - [1 (int)]
-                             |00000007 - [7 (int)]
-                             |636861726c6965 - [charlie (string)]
-                             |_Acting Parties_
-                             |00000002 - [2 (int)]
-                             |00000005 - [5 (int)]
-                             |616c696365 - [alice (string)]
-                             |00000003 - [3 (int)]
-                             |626f62 - [bob (string)]
-                             |_Global Keys_
-                             |00000001 - [1 (int)]
-                             |_Maintainers_
-                             |00000001 - [1 (int)]
-                             |00000005 - [5 (int)]
-                             |6461766964 - [david (string)]
-                             |_Template Id_
-                             |00000001 - [1 (int)]
-                             |0000000a - [10 (int)]
-                             |6d6f64756c655f6b6579 - [module_key (string)]
-                             |00000001 - [1 (int)]
-                             |00000004 - [4 (int)]
-                             |6e616d65 - [name (string)]
-                             |_Package Name_
-                             |00000010 - [16 (int)]
-                             |7061636b6167655f6e616d655f6b6579 - [package_name_key (string)]
-                             |_Key_
-                             |00000005 - [5 (int)]
-                             |68656c6c6f - [hello (string)]
-                             |_By Key_
-                             |01 - [true (bool)]
-                             |_Interface Id_
-                             |00000001 - [1 (int)]
-                             |00000007 - [7 (int)]
-                             |7061636b616765 - [package (string)]
-                             |00000001 - [1 (int)]
-                             |00000010 - [16 (int)]
-                             |696e746572666163655f6d6f64756c65 - [interface_module (string)]
-                             |00000001 - [1 (int)]
-                             |0000000e - [14 (int)]
-                             |696e746572666163655f6e616d65 - [interface_name (string)]
+                             |$lookupNodeEncoding
+                             |$fetchNodeEncoding
                              |""".stripMargin
       }
     }
@@ -1167,6 +971,30 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
       )
     }
 
+    "encode text map value" in {
+      assertEncode(
+        Value.ValueTextMap(
+          SortedLookupList(
+            Map(
+              "foo" -> Value.ValueNumeric(data.Numeric.assertFromString("31380.0")),
+              "bar" -> Value.ValueText("1284"),
+            )
+          )
+        ),
+        "dfbb7030b50a33138ab21fea4acf65a4dcc728f79273252c28873867301a7768",
+        """00000002 - [2 (int)]
+          |00000003 - [3 (int)]
+          |626172 - [bar (string)]
+          |00000004 - [4 (int)]
+          |31323834 - [1284 (string)]
+          |00000003 - [3 (int)]
+          |666f6f - [foo (string)]
+          |00000007 - [7 (int)]
+          |33313338302e30 - [31380.0 (numeric)]
+          |""".stripMargin,
+      )
+    }
+
     "encode gen map value" in {
       assertEncode(
         Value.ValueGenMap(
@@ -1271,7 +1099,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     )
 
     val defaultHash = Hash
-      .fromString("73b0411e26df5eaf497f7d540cc354ff26a97120cb9a8a86f3f2b8460e7521cb")
+      .fromString("f0621f12e29567f03ba1df78f560c1939e646260898694bc827b6f827dc659fc")
       .getOrElse(fail("Invalid hash"))
 
     "be stable" in {
@@ -1315,6 +1143,29 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
           nodes = nodes,
         )
       ) should !==(defaultHash)
+    }
+
+    "explain encoding" in {
+      assertWithOutputStream { os =>
+        val _ = Hash.hashTransaction(
+          VersionedTransaction(
+            version = LanguageVersion.v2_1,
+            roots = ImmArray(NodeId(1), NodeId(2)),
+            nodes = Map(NodeId(1) -> lookupNode, NodeId(2) -> lookupNode2),
+          ),
+          outputStream = Some(os),
+        )
+        os.result shouldBe s"""00 - [00 (value_version)]
+                              |07 - [07 (value_purpose)]
+                              |# Transaction Version
+                              |00000003 - [3 (int)]
+                              |322e31 - [2.1 (string)]
+                              |# Root Nodes
+                              |00000002 - [2 (int)]
+                              |$lookupNodeEncoding
+                              |$lookupNode2Encoding
+                              |""".stripMargin
+      }
     }
   }
 }

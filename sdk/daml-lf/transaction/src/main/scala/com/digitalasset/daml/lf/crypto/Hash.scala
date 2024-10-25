@@ -65,7 +65,7 @@ object Hash {
         extends NodeHashingError(s"The transaction does not contain a node with nodeId $nodeId")
     final case class UnsupportedLanguageVersion(version: TransactionVersion)
         extends NodeHashingError(
-          s"Cannot hash node with $version. Supported versions: ${NodeBuilder.LanguageVersionToTransactionBuilder.keySet
+          s"Cannot hash node with $version. Supported versions: ${NodeBuilder.LanguageVersionToNodeBuilder.keySet
               .mkString(", ")}"
         )
   }
@@ -239,7 +239,7 @@ object Hash {
       withContext(context)(identity)
     }
     def withContext(context: => String)(f: this.type => this.type): this.type = {
-      contextO(context).map(c => s"_${c}_\n").foreach(messageDigest.addContext)
+      contextO(context).map(c => s"# $c").foreach(messageDigest.addContext)
       f(this)
     }
 
@@ -265,6 +265,10 @@ object Hash {
 
     def addNodesFromNodeIds(nodeIds: ImmArray[NodeId], nodes: Map[NodeId, Node]): this.type =
       iterateOver(nodeIds)(addNodeFromNodeId(nodes))
+
+    def addTransactionVersion(transactionVersion: TransactionVersion): this.type = {
+      addString(TransactionVersion.toProtoValue(transactionVersion))
+    }
   }
 
   /** Class with additional methods to hash nodes. Uses a single MessageDigest to hash the entire node including all its values.
@@ -309,7 +313,7 @@ object Hash {
   }
 
   private object NodeBuilder {
-    private[lf] val LanguageVersionToTransactionBuilder
+    private[lf] val LanguageVersionToNodeBuilder
         : Map[LanguageVersion, (MessageDigestWithContext, ValueHashBuilder) => NodeBuilder] = Map(
       LanguageVersion.v2_1 -> ((messageDigest, valueBuilder) =>
         new NodeBuilderV1(messageDigest, valueBuilder),
@@ -322,7 +326,7 @@ object Hash {
         messageDigest: MessageDigestWithContext,
         valueBuilder: ValueHashBuilder,
     ): NodeBuilder =
-      NodeBuilder.LanguageVersionToTransactionBuilder
+      NodeBuilder.LanguageVersionToNodeBuilder
         .getOrElse(version, throw NodeHashingError.UnsupportedLanguageVersion(version))
         .apply(messageDigest, valueBuilder)
 
@@ -367,7 +371,7 @@ object Hash {
     }
 
     private def addExerciseNode(exercise: Node.Exercise, nodes: Map[NodeId, Node]): NodeBuilder = {
-      addContext("Fetch Node")
+      addContext("Exercise Node")
         .withContext("Contract Id")(_.addWithValueBuilder(exercise.targetCoid, _.addCid))
         .withContext("Package Name")(_.addString(exercise.packageName))
         .withContext("Template Id")(_.addIdentifier(exercise.templateId))
@@ -422,32 +426,29 @@ object Hash {
     }
   }
 
-  /** Deterministically hash a versioned transaction using the hashing algorithm corresponding to each node version.
-    */
-  @throws[NodeHashingError]
-  def hashTransaction(versionedTransaction: VersionedTransaction): Hash = {
-    val messageDigest = new DefaultMessageDigest(MessageDigestPrototype.Sha256.newDigest)
-    val valueBuilder =
-      new LegacyBuilder(Purpose.TransactionHash, aCid2Bytes, stringNumericToBytes, messageDigest)
-    new TransactionBuilder(messageDigest, valueBuilder)
-      .addNodesFromNodeIds(versionedTransaction.roots, versionedTransaction.nodes)
-      .build
-  }
+  private def makeMessageDigest(osO: Option[ContextAwareOutputStream]): MessageDigestWithContext =
+    osO match {
+      case Some(os) => new DebugMessageDigest(MessageDigestPrototype.Sha256.newDigest, os)
+      case None => new DefaultMessageDigest(MessageDigestPrototype.Sha256.newDigest)
+    }
 
   /** Deterministically hash a versioned transaction using the hashing algorithm corresponding to each node version.
-    * @param outputStream output stream that will receive encoded data context information while the transaction is being hashed.
+    * @param outputStream optional output stream that will receive encoded data and context information while the transaction is being hashed.
+    *                     Can be used to provide troubleshooting information on the encoding process.
     */
   @throws[NodeHashingError]
-  private[lf] def hashTransactionDebug(
+  @throws[HashingError]
+  def hashTransaction(
       versionedTransaction: VersionedTransaction,
-      outputStream: ContextAwareOutputStream,
+      outputStream: Option[ContextAwareOutputStream] = None,
   ): Hash = {
-    val messageDigest =
-      new DebugMessageDigest(MessageDigestPrototype.Sha256.newDigest, outputStream)
+    val messageDigest = makeMessageDigest(outputStream)
     val valueBuilder =
       new LegacyBuilder(Purpose.TransactionHash, aCid2Bytes, stringNumericToBytes, messageDigest)
     new TransactionBuilder(messageDigest, valueBuilder)
-      .addContext("Transaction")
+      .withContext("Transaction Version")(
+        _.addTransactionVersion(versionedTransaction.version)
+      )
       .withContext("Root Nodes")(
         _.addNodesFromNodeIds(versionedTransaction.roots, versionedTransaction.nodes)
       )
@@ -455,28 +456,18 @@ object Hash {
   }
 
   /** Deterministically hash a node using the hashing algorithm corresponding its version.
+    * @param outputStream optional output stream that will receive encoded data context and information while the node is being hashed.
+    *                     Can be used to provide troubleshooting information on the encoding process.
     */
   @throws[NodeHashingError]
-  def hashNode(node: Node, subNodes: Map[NodeId, Node] = Map.empty): Hash = {
-    val messageDigest = new DefaultMessageDigest(MessageDigestPrototype.Sha256.newDigest)
-    val valueBuilder =
-      new LegacyBuilder(Purpose.TransactionHash, aCid2Bytes, stringNumericToBytes, messageDigest)
-    new TransactionBuilder(messageDigest, valueBuilder)
-      .addFromVersionNode(node, subNodes)
-      .build
-  }
-
-  /** Deterministically hash a node using the hashing algorithm corresponding its version.
-    * @param outputStream output stream that will receive encoded data context information while the node is being hashed.
-    */
-  @throws[NodeHashingError]
-  private[lf] def hashNodeDebug(
+  @throws[HashingError]
+  // Only used in tests to assert the hash of individual nodes and provide encoding details
+  private[crypto] def hashNode(
       node: Node,
-      outputStream: ContextAwareOutputStream,
       subNodes: Map[NodeId, Node] = Map.empty,
+      outputStream: Option[ContextAwareOutputStream] = None,
   ): Hash = {
-    val messageDigest =
-      new DebugMessageDigest(MessageDigestPrototype.Sha256.newDigest, outputStream)
+    val messageDigest = makeMessageDigest(outputStream)
     val valueBuilder =
       new LegacyBuilder(Purpose.TransactionHash, aCid2Bytes, stringNumericToBytes, messageDigest)
     new TransactionBuilder(messageDigest, valueBuilder)

@@ -14,6 +14,7 @@ import java.security.MessageDigest
 
 object HashUtils {
 
+  private val lineSeparator = System.getProperty("line.separator")
   private[crypto] def formatByteToHexString(byte: Byte): String = String.format("%02X", byte)
 
   /** Extension of OutputStream with additional methods to help exporting the encoding with context information
@@ -76,13 +77,13 @@ object HashUtils {
     *
     * The format of the produced debug output is the following:
     *
-    * _Context About Following Lines_
+    * # Context About Following Lines
     * "encoded value in hex" - ["original value before encoding" ("additional contextual info", for instance type of the value)]
     *
     * e.g:
-    *   _Package Name_ # encoding of a package name value
-    *   0000000e - [14 (int)] # strings are encoded by first emitting the size of the encoded string as an int
-    *   7061636b6167652d6e616d652d30 - [package-name-0 (string)] # UTF-8 encoded value of 'package-name-0'. Note that its length is indeed 14 bytes (1 byte is encoded with 2 hexadecimal values)
+    *   # Package Name
+    *   0000000e - [14 (int)]
+    *   7061636b6167652d6e616d652d30 - [package-name-0 (string)]
     */
   private[crypto] class DebugMessageDigest(
       messageDigest: MessageDigest,
@@ -108,7 +109,7 @@ object HashUtils {
 
     private def contextForBytes(context: Option[String]) = {
       context
-        .map(c => s" - [$c]\n")
+        .map(c => s" - [$c]$lineSeparator")
     }
 
     override def update(a: Byte, context: Option[String]): Unit = {
@@ -127,7 +128,8 @@ object HashUtils {
       super.digest(buf, offset, len)
     }
 
-    override def addContext(context: String): Unit = outputStream.writeContext(context)
+    override def addContext(context: String): Unit =
+      outputStream.writeContext(s"$context$lineSeparator")
   }
 
 }
