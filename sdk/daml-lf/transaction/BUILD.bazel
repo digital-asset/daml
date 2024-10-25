@@ -73,7 +73,6 @@ da_scala_test(
     ]),
     max_heap_size = "3g",
     scala_deps = [
-        "@maven//:com_chuusai_shapeless",
         "@maven//:org_scalacheck_scalacheck",
         "@maven//:org_scalatestplus_scalacheck_1_15",
         "@maven//:org_scalaz_scalaz_core",
@@ -83,7 +82,6 @@ da_scala_test(
     deps = [
         ":transaction",
         ":value_proto_java",
-        "//daml-lf/api-type-signature",
         "//daml-lf/data",
         "//daml-lf/transaction-test-lib",
         "@maven//:com_google_protobuf_protobuf_java",
