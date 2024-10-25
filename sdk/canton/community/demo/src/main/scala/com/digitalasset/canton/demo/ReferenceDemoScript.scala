@@ -72,9 +72,9 @@ class ReferenceDemoScript(
 
   val maxImage: Int = 28
 
-  private val readyToSubscribeM = new AtomicReference[Map[String, String]](Map())
+  private val readyToSubscribeM = new AtomicReference[Map[String, Long]](Map())
 
-  override def subscriptions(): Map[String, String] = readyToSubscribeM.get()
+  override def subscriptions(): Map[String, Long] = readyToSubscribeM.get()
 
   def imagePath: String = s"file:$rootPath/images/"
 
@@ -199,7 +199,7 @@ class ReferenceDemoScript(
     participant.domains.reconnect(name).discard
   }
 
-  private val pruningOffset = new AtomicReference[Option[(String, Instant)]](None)
+  private val pruningOffset = new AtomicReference[Option[(Long, Instant)]](None)
   val steps = TraceContext.withNewTraceContext { implicit traceContext =>
     List[Step](
       Noop, // pres page nr = page * 2 - 1
@@ -223,7 +223,7 @@ class ReferenceDemoScript(
             partyIdCache.put(name, (pid, participant)).discard
             readyToSubscribeM
               .updateAndGet(cur => cur + (name -> ParticipantTab.LedgerBegin))
-              .discard[Map[String, String]]
+              .discard[Map[String, Long]]
           }
 
         },

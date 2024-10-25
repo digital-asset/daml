@@ -272,7 +272,7 @@ class StateTransferManagerTest extends AnyWordSpec with BaseTest {
           ),
           from = prePrepare.from,
           isLastInEpoch = true,
-          isStateTransferred = true,
+          mode = OrderedBlockForOutput.Mode.StateTransferLastBlock,
         )
       )
     )

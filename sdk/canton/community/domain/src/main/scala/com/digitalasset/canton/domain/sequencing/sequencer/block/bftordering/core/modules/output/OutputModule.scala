@@ -186,10 +186,15 @@ class OutputModule[E <: Env[E]](
 
       // From local consensus
       case Output.BlockOrdered(
-            orderedBlockForOutput @ OrderedBlockForOutput(orderedBlock, _, _, isStateTransferred)
+            orderedBlockForOutput @ OrderedBlockForOutput(
+              orderedBlock,
+              _,
+              _,
+              mode,
+            )
           ) =>
         logger.debug(
-          s"output received from local consensus ordered block (from state transfer = $isStateTransferred) " +
+          s"output received from local consensus ordered block (mode = $mode) " +
             s"with batch IDs ${orderedBlock.batchRefs}, retrieving data from local availability"
         )
 
@@ -222,6 +227,8 @@ class OutputModule[E <: Env[E]](
           s"Polled blocks from Peano queue ${orderedBlocks.map(_.orderedBlockForOutput.orderedBlock.metadata)}"
         )
 
+        // This is the main processing loop where we process blocks in order,
+        //  so it is generally safe to use the module's mutable state in it.
         orderedBlocks.foreach { orderedBlockData =>
           val orderedBlock = orderedBlockData.orderedBlockForOutput.orderedBlock
           val orderedBlockNumber = orderedBlock.metadata.blockNumber
@@ -250,6 +257,16 @@ class OutputModule[E <: Env[E]](
 
           previousStoredBlock.update(orderedBlockNumber, orderedBlockBftTime)
 
+          // Capture and pass the relevant mutable state along to prevent
+          //  that message handlers running after async calls race on it.
+          val couldAlterSequencingTopology = currentEpochCouldAlterSequencingTopology
+
+          // We start storing the metadata for fully-fetched blocks in order, but the completion of
+          //  the storage operations can happen in any order; this allows to optimize performance
+          //  and the Peano queue in `BlockSubscription` will ensure they are emitted them in the
+          //  correct order.
+          //  However, we cannot assume any ordering in the `BlockDataStored` handler below, so
+          //  we must pass the value of any relevant mutable state along with the message.
           logger.debug(s"Storing $outputBlockMetadata")
           pipeToSelf(
             store.insertIfMissing(outputBlockMetadata)
@@ -257,56 +274,75 @@ class OutputModule[E <: Env[E]](
             case Failure(exception) =>
               abort(s"Failed to add block $orderedBlockNumber", exception)
             case Success(_) =>
-              Output.BlockDataStored(orderedBlockData, orderedBlockNumber, orderedBlockBftTime)
+              Output.BlockDataStored(
+                orderedBlockData,
+                orderedBlockNumber,
+                orderedBlockBftTime,
+                couldAlterSequencingTopology,
+              )
           }
 
-          // Since consensus will wait for the topology before starting the new epoch, and we send it here,
-          //  i.e. only when all blocks, including the last block of the previous epoch, are fully fetched,
-          //  all blocks can always be read locally, which is essential because all other peers could in principle
-          //  be new in the new epoch, so they would have no past data (and would thus be unable to provide it to us).
-          //
-          //  Note that this flag is not set during state transfer, when consensus is inactive and shouldn't be
-          //   notified of topologies.
+          // Since consensus will wait for the topology before starting the new epoch, and we send it only when all
+          //  blocks, including the last block of the previous epoch, are fully fetched, all blocks can always be read
+          //  locally, which is essential because all other peers could (in principle, although this is definitely
+          //  not sensible governance) be swapped in the new epoch, so they would have no past data and would thus
+          //  be unable to provide it to us.
           if (orderedBlockData.orderedBlockForOutput.isLastInEpoch)
-            fetchNewEpochTopologyIfNeeded(orderedBlockData, orderedBlockBftTime)
+            fetchNewEpochTopologyIfNeeded(
+              orderedBlockData,
+              orderedBlockBftTime,
+              couldAlterSequencingTopology,
+            )
         }
 
-      // To optimize performance, blocks can be stored in the database in any order and the Peano queue in
-      // `BlockSubscription` will emit them in the correct order.
-      case Output.BlockDataStored(orderedBlockData, orderedBlockNumber, orderedBlockBftTime) =>
+      // Blocks metadata persistence can complete in any order, so relying on mutable state
+      //  is generally unsafe in this handler.
+      case Output.BlockDataStored(
+            orderedBlockData,
+            orderedBlockNumber,
+            orderedBlockBftTime,
+            epochCouldAlterSequencingTopology,
+          ) =>
         emitRequestsOrderingStats(metrics, orderedBlockData)
         // This is just a defensive check, as the block subscription will have the head correctly set to the
         //  initial height and will ignore blocks before that, but we cannot check nor enforce this assumption
         //  in this module due to the generic Peano queue type needed for simulation testing support.
         if (lastAcknowledgedBlockNumber.forall(orderedBlockNumber > _)) {
           val isBlockLastInEpoch = orderedBlockData.orderedBlockForOutput.isLastInEpoch
-          val tickTopology = isBlockLastInEpoch && currentEpochCouldAlterSequencingTopology
+          // We tick the topology even during state transfer; this is not needed by the Output module,
+          //  because during state transfer we don't query the topology (as consensus is not active),
+          //  but it ensures that the newly onboarded sequencer sequences (and stores) the same events
+          //  as the other sequencers, which in turn makes counters (and snapshots) consistent,
+          //  avoiding possible future problems e.g. with pruning and/or BFT onboarding from multiple
+          //  sequencer snapshots.
+          val tickTopology = isBlockLastInEpoch && epochCouldAlterSequencingTopology
           logger.debug(
             s"Sending block $orderedBlockNumber " +
               s"(current epoch = ${orderedBlockData.orderedBlockForOutput.orderedBlock.metadata.epochNumber}, " +
               s"block's BFT time = $orderedBlockBftTime, " +
               s"block size = ${orderedBlockData.requestsView.size}, " +
               s"is last in epoch = $isBlockLastInEpoch, " +
-              s"could alter sequencing topology = $currentEpochCouldAlterSequencingTopology, " +
+              s"could alter sequencing topology = $epochCouldAlterSequencingTopology, " +
               s"tick topology = $tickTopology) " +
               "to sequencer subscription"
           )
 
-          val block = BlockFormat.Block(
-            orderedBlockNumber,
-            blockDataToOrderedRequests(orderedBlockData, orderedBlockBftTime),
-            tickTopologyAtMicrosFromEpoch = Option.when(tickTopology)(
-              BftTime.epochEndBftTime(orderedBlockBftTime, orderedBlockData).toMicros
-            ),
+          blockSubscription.receiveBlock(
+            BlockFormat.Block(
+              orderedBlockNumber,
+              blockDataToOrderedRequests(orderedBlockData, orderedBlockBftTime),
+              tickTopologyAtMicrosFromEpoch = Option.when(tickTopology)(
+                BftTime.epochEndBftTime(orderedBlockBftTime, orderedBlockData).toMicros
+              ),
+            )
           )
-          blockSubscription.receiveBlock(block)
         }
 
       case TopologyFetched(epochNumber, orderingTopology, cryptoProvider) =>
         logger.debug(
           s"Fetched topology $orderingTopology for new epoch $epochNumber"
         )
-        setupNewEpochAndNotifyConsensus(epochNumber, Some((orderingTopology, cryptoProvider)))
+        setupNewEpoch(epochNumber, Some((orderingTopology, cryptoProvider)))
 
       case snapshotMessage: SequencerSnapshotMessage =>
         handleSnapshotMessage(snapshotMessage)
@@ -336,28 +372,6 @@ class OutputModule[E <: Env[E]](
         )
     }
 
-  private def setupNewEpochAndNotifyConsensus(
-      epochNumber: EpochNumber,
-      newOrderingTopologyAndCryptoProvider: Option[(OrderingTopology, CryptoProvider[E])],
-  ): Unit = {
-    currentEpochCouldAlterSequencingTopology = false
-
-    newOrderingTopologyAndCryptoProvider.foreach { case (newOrderingTopology, newCryptoProvider) =>
-      currentEpochOrderingTopology = newOrderingTopology
-      currentEpochCryptoProvider = newCryptoProvider
-      currentEpochCouldAlterSequencingTopology =
-        newOrderingTopology.areTherePendingCantonTopologyChanges
-    }
-
-    consensus.asyncSend(
-      Consensus.NewEpochTopology(
-        epochNumber,
-        currentEpochOrderingTopology,
-        currentEpochCryptoProvider,
-      )
-    )
-  }
-
   private def potentiallyAltersSequencersTopology(
       orderedBlockData: CompleteBlockData
   ): Boolean =
@@ -372,22 +386,36 @@ class OutputModule[E <: Env[E]](
     }.isDefined
 
   private def fetchNewEpochTopologyIfNeeded(
-      orderedBlockData: CompleteBlockData,
+      lastBlockInEpoch: CompleteBlockData,
       epochLastBlockBftTime: CantonTimestamp,
+      epochCouldAlterSequencingTopology: Boolean,
   )(implicit context: E#ActorContextT[Output.Message[E]], traceContext: TraceContext): Unit = {
-    val epochNumber = orderedBlockData.orderedBlockForOutput.orderedBlock.metadata.epochNumber
-    logger.debug(s"Last ordered block in epoch $epochNumber fully processed")
+    val blockMetadata = lastBlockInEpoch.orderedBlockForOutput.orderedBlock.metadata
+
+    if (!lastBlockInEpoch.orderedBlockForOutput.isLastInEpoch)
+      abort(
+        s"Block ${blockMetadata.blockNumber} " +
+          s"not last in epoch ${blockMetadata.epochNumber}"
+      )
+
+    val epochNumber = blockMetadata.epochNumber
+    val blockNumber = blockMetadata.blockNumber
+    logger.debug(s"Last ordered block $blockNumber in epoch $epochNumber fully processed")
 
     val epochEndBftTime =
       BftTime
         .epochEndBftTime(
           epochLastBlockBftTime,
-          epochLastBlockData = orderedBlockData,
+          epochLastBlockData = lastBlockInEpoch,
         )
 
-    if (currentEpochCouldAlterSequencingTopology) {
+    val lastBlockMode = lastBlockInEpoch.orderedBlockForOutput.mode
+    val consensusActive = lastBlockMode.isConsensusActive
+    val queryTopology = epochCouldAlterSequencingTopology && consensusActive
+    if (queryTopology) {
       logger.debug(
-        s"Completed epoch $epochNumber could have changed the sequencing topology, " +
+        s"Completed epoch $epochNumber; epoch could alter sequencing topology = $epochCouldAlterSequencingTopology, " +
+          s"lastBlockMode = $lastBlockMode => consensusActive = $consensusActive: " +
           "fetching an updated Canton topology effective after ticking the topology processor " +
           s"with epoch's last sequencing time $epochEndBftTime)"
       )
@@ -420,12 +448,50 @@ class OutputModule[E <: Env[E]](
       }
     } else {
       logger.debug(
-        s"Completed epoch $epochNumber didn't change the sequencing topology, " +
-          "keeping the current topology for the new epoch as well"
+        s"Completed epoch $epochNumber that " +
+          (if (epochCouldAlterSequencingTopology)
+             "possibly changed the sequencing topology but consensus wasn't active (middle of state transfer)"
+           else
+             "did not change the sequencing topology")
       )
-      setupNewEpochAndNotifyConsensus(
+      setupNewEpoch(
         EpochNumber(epochNumber + 1),
         newOrderingTopologyAndCryptoProvider = None,
+        consensusActive = consensusActive,
+      )
+    }
+  }
+
+  private def setupNewEpoch(
+      epochNumber: EpochNumber,
+      newOrderingTopologyAndCryptoProvider: Option[(OrderingTopology, CryptoProvider[E])],
+      consensusActive: Boolean = true,
+  )(implicit traceContext: TraceContext): Unit = {
+    // It is safe to use mutable state in this function because:
+    // - During state transfer the system can receive blocks while the new epoch is being set up, but since
+    //   consensus is inactive, this function is not called after querying the topology but directly from
+    //   the main blocks processing loop, i.e. it is called sequentially in block order.
+    // - At the end of state transfer and during consensus, it is called after the async query to the topology
+    //   completes, but there are no races because the system won't proceed until the topology is fetched.
+    currentEpochCouldAlterSequencingTopology = false
+
+    newOrderingTopologyAndCryptoProvider.foreach { case (newOrderingTopology, newCryptoProvider) =>
+      currentEpochOrderingTopology = newOrderingTopology
+      currentEpochCryptoProvider = newCryptoProvider
+      currentEpochCouldAlterSequencingTopology =
+        newOrderingTopology.areTherePendingCantonTopologyChanges
+    }
+
+    if (consensusActive) {
+      logger.debug(
+        s"Consensus active: sending new epoch's topology $currentEpochOrderingTopology to it"
+      )
+      consensus.asyncSend(
+        Consensus.NewEpochTopology(
+          epochNumber,
+          currentEpochOrderingTopology,
+          currentEpochCryptoProvider,
+        )
       )
     }
   }

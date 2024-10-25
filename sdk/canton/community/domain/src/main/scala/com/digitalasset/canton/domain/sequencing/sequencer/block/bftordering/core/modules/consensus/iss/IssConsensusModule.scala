@@ -367,6 +367,7 @@ final class IssConsensusModule[E <: Env[E]](
               orderedBlock,
               blockSegment.originalLeader,
               blockNumber == epochState.epoch.info.lastBlockNumber,
+              OrderedBlockForOutput.Mode.FromConsensus,
             )
           )
         )

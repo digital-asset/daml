@@ -378,12 +378,10 @@ class StateTransferManager[E <: Env[E]](
 
   private def sendBlockToOutput(prePrepare: PrePrepare, lastEpochToTransfer: EpochNumber): Unit = {
     val blockMetadata = prePrepare.blockMetadata
-    // TODO(#19661): Calculate reasonably
-    // We disable `NewEpochTopology` notifications from output to consensus, which is inactive during state transfer,
-    //  by never telling the output module that there are blocks that are last in their epoch. The last
-    //  state-transferred block will have the flag set to true, though, so that consensus receives the topology for,
-    //  and starts processing, the next epoch.
+    // TODO(#19661): don't assume a fixed epoch length
     val isLastInEpoch =
+      (blockMetadata.blockNumber + 1) % epochLength == 0 // As blocks are 0-indexed
+    val isLastStateTransferred =
       blockMetadata.blockNumber == (lastEpochToTransfer * epochLength) + epochLength - 1
 
     dependencies.output.asyncSend(
@@ -396,7 +394,11 @@ class StateTransferManager[E <: Env[E]](
           ),
           prePrepare.from,
           isLastInEpoch,
-          isStateTransferred = true,
+          mode =
+            if (isLastStateTransferred)
+              OrderedBlockForOutput.Mode.StateTransferLastBlock
+            else
+              OrderedBlockForOutput.Mode.StateTransfer,
         )
       )
     )

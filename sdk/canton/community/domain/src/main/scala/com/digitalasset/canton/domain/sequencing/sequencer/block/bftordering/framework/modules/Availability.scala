@@ -288,7 +288,8 @@ object Availability {
     ) extends LocalOutputFetch
 
     final case class FetchBatchDataFromPeers(
-        proofOfAvailability: ProofOfAvailability
+        proofOfAvailability: ProofOfAvailability,
+        mode: OrderedBlockForOutput.Mode,
     ) extends LocalOutputFetch
 
     final case class FetchRemoteBatchDataTimeout(batchId: BatchId) extends LocalOutputFetch

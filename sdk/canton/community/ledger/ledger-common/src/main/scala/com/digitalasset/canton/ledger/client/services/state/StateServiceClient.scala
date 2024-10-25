@@ -54,7 +54,7 @@ class StateServiceClient(service: StateServiceStub)(implicit
   )(implicit
       materializer: Materializer,
       traceContext: TraceContext,
-  ): Future[(Seq[ActiveContract], Long)] =
+  ): Future[Seq[ActiveContract]] =
     for {
       contracts <- getActiveContractsSource(filter, validAtOffset, verbose, token).runWith(Sink.seq)
       active = contracts
@@ -62,7 +62,7 @@ class StateServiceClient(service: StateServiceStub)(implicit
         .collect { case ContractEntry.ActiveContract(value) =>
           value
         }
-    } yield (active, validAtOffset)
+    } yield active
 
   def getLedgerEnd(
       token: Option[String] = None

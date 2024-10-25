@@ -436,6 +436,7 @@ class DbEpochStore(
               ),
               prePrepare.from,
               epochInfo.lastBlockNumber == prePrepare.blockMetadata.blockNumber,
+              OrderedBlockForOutput.Mode.FromConsensus,
             )
           }
         }

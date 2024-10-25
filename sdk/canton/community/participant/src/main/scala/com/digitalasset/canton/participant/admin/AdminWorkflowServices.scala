@@ -264,7 +264,7 @@ class AdminWorkflowServices(
       client.stateService.getLedgerEndOffset().flatMap { offset =>
         client.stateService
           .getActiveContracts(filter = service.filters, validAtOffset = offset)
-          .map { case (acs, offset) =>
+          .map { acs =>
             logger.debug(s"Loading $acs $service")
             service.processAcs(acs)
             new ResilientLedgerSubscription(

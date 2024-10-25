@@ -3,14 +3,11 @@
 
 package com.digitalasset.canton.time
 
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.lifecycle.{
-  FutureUnlessShutdown,
-  PerformUnlessClosing,
-  UnlessShutdown,
-}
-import com.digitalasset.canton.logging.NamedLogging
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, UnlessShutdown}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
 
@@ -20,12 +17,13 @@ import scala.concurrent.{Future, Promise, blocking}
 import scala.jdk.CollectionConverters.*
 
 /** Utility to implement a time awaiter
-  *
-  * Note, you need to invoke expireOnShutdown onClosed
   */
-trait TimeAwaiter {
-
-  this: PerformUnlessClosing & NamedLogging =>
+final class TimeAwaiter(
+    getCurrentKnownTime: () => CantonTimestamp,
+    override val timeouts: ProcessingTimeout,
+    override val loggerFactory: NamedLoggerFactory,
+) extends FlagCloseable
+    with NamedLogging {
 
   private abstract class Awaiting[T] {
     val promise: Promise[T] = Promise[T]()
@@ -44,12 +42,10 @@ trait TimeAwaiter {
     override def success(): Unit = promise.trySuccess(UnlessShutdown.unit).discard
   }
 
-  def expireTimeAwaiter(): Unit =
+  override def onClosed(): Unit =
     blocking(awaitTimestampFuturesLock.synchronized {
       awaitTimestampFutures.iterator().asScala.foreach(_._2.shutdown().discard[Boolean])
     })
-
-  protected def currentKnownTime: CantonTimestamp
 
   def awaitKnownTimestamp(
       timestamp: CantonTimestamp
@@ -68,7 +64,7 @@ trait TimeAwaiter {
       timestamp: CantonTimestamp,
       create: => Awaiting[T],
   )(implicit traceContext: TraceContext): Option[Awaiting[T]] = {
-    val current = currentKnownTime
+    val current = getCurrentKnownTime()
     if (current >= timestamp) None
     else {
       logger.debug(
@@ -80,7 +76,7 @@ trait TimeAwaiter {
       })
       // If the timestamp has been advanced while we're inserting into the priority queue,
       // make sure that we're completing the future.
-      val newCurrent = currentKnownTime
+      val newCurrent = getCurrentKnownTime()
       if (newCurrent >= timestamp) notifyAwaitedFutures(newCurrent)
       Some(awaiter)
     }

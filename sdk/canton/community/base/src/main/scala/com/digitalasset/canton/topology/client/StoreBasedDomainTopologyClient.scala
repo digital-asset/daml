@@ -9,11 +9,15 @@ import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, UnlessShutdown}
+import com.digitalasset.canton.lifecycle.{
+  FlagCloseable,
+  FutureUnlessShutdown,
+  Lifecycle,
+  UnlessShutdown,
+}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.time.{Clock, TimeAwaiter}
 import com.digitalasset.canton.topology.DomainId
-import com.digitalasset.canton.topology.client.StoreBasedDomainTopologyClient.TopologyClientTimeAwaiter
 import com.digitalasset.canton.topology.processing.{ApproximateTime, EffectiveTime, SequencedTime}
 import com.digitalasset.canton.topology.store.{
   PackageDependencyResolverUS,
@@ -126,14 +130,14 @@ class StoreBasedDomainTopologyClient(
     with NamedLogging {
 
   private val effectiveTimeAwaiter =
-    new TopologyClientTimeAwaiter(
+    new TimeAwaiter(
       getCurrentKnownTime = () => topologyKnownUntilTimestamp,
       timeouts,
       loggerFactory,
     )
 
   private val sequencedTimeAwaiter =
-    new TopologyClientTimeAwaiter(
+    new TimeAwaiter(
       getCurrentKnownTime = () => head.get().sequencedTimestamp.value.immediateSuccessor,
       timeouts,
       loggerFactory,
@@ -321,8 +325,10 @@ class StoreBasedDomainTopologyClient(
     effectiveTimeAwaiter.awaitKnownTimestamp(timestamp)
 
   override protected def onClosed(): Unit = {
-    sequencedTimeAwaiter.expireTimeAwaiter()
-    effectiveTimeAwaiter.expireTimeAwaiter()
+    Lifecycle.close(
+      sequencedTimeAwaiter,
+      effectiveTimeAwaiter,
+    )(logger)
     super.onClosed()
   }
 
@@ -334,17 +340,6 @@ class StoreBasedDomainTopologyClient(
 }
 
 object StoreBasedDomainTopologyClient {
-
-  private final class TopologyClientTimeAwaiter(
-      getCurrentKnownTime: () => CantonTimestamp,
-      override val timeouts: ProcessingTimeout,
-      override val loggerFactory: NamedLoggerFactory,
-  ) extends TimeAwaiter
-      with FlagCloseable
-      with NamedLogging {
-
-    override protected def currentKnownTime: CantonTimestamp = getCurrentKnownTime()
-  }
 
   object NoPackageDependencies extends PackageDependencyResolverUS {
     override def packageDependencies(packagesId: PackageId)(implicit
