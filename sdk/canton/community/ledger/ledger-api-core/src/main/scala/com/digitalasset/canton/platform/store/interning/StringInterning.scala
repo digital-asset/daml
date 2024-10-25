@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.interning
 
-import com.daml.lf.data.Ref.PackageName
+import com.daml.lf.data.Ref.{PackageId, PackageName}
 import com.digitalasset.canton.platform.{Identifier, Party}
 import com.digitalasset.canton.topology.DomainId
 
@@ -17,6 +17,7 @@ trait StringInterning {
   def packageName: StringInterningDomain[PackageName]
   def party: StringInterningDomain[Party]
   def domainId: StringInterningDomain[DomainId]
+  def packageId: StringInterningDomain[PackageId]
 }
 
 /** Composes a StringInterningAccessor for the domain-string type and an unsafe StringInterningAccessor for raw strings
