@@ -4,6 +4,7 @@
 package com.digitalasset.daml.lf
 package crypto
 
+import com.digitalasset.daml.lf.crypto.Hash.NodeHashingError
 import com.digitalasset.daml.lf.crypto.Hash.NodeHashingError.IncompleteTransactionTree
 import com.digitalasset.daml.lf.crypto.HashUtils.DebugStringOutputStream
 import com.digitalasset.daml.lf.data.Ref.{ChoiceName, PackageName, Party}
@@ -16,6 +17,7 @@ import com.digitalasset.daml.lf.value.test.TypedValueGenerators.{ValueAddend => 
 import org.scalatest.Assertion
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
+
 import java.time.Instant
 import scala.util.{Failure, Success}
 
@@ -60,10 +62,11 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     Set[Party](Ref.Party.assertFromString("david")),
   )
 
+  private val contractId1 = "0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5"
+  private val contractId2 = "0059b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b"
+
   private val createNode = Node.Create(
-    coid = ContractId.V1.assertFromString(
-      "0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5"
-    ),
+    coid = ContractId.V1.assertFromString(contractId1),
     packageName = packageName0,
     packageVersion = None,
     templateId = defRef("module", "name"),
@@ -77,7 +80,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     version = LanguageVersion.v2_1,
   )
 
-  private val createNodeEncoding = """00 - [00 (node_version)]
+  private val createNodeEncoding = """01 - [01 (node_version)]
                                      |# Create Node
                                      |# Contract Id
                                      |00000021 - [33 (int)]
@@ -108,31 +111,14 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
                                      |00000005 - [5 (int)]
                                      |616c696365 - [alice (string)]
                                      |00000007 - [7 (int)]
-                                     |636861726c6965 - [charlie (string)]
-                                     |# Global Keys
-                                     |00000001 - [1 (int)]
-                                     |# Maintainers
-                                     |00000001 - [1 (int)]
-                                     |00000005 - [5 (int)]
-                                     |6461766964 - [david (string)]
-                                     |# Template Id
-                                     |00000001 - [1 (int)]
-                                     |0000000a - [10 (int)]
-                                     |6d6f64756c655f6b6579 - [module_key (string)]
-                                     |00000001 - [1 (int)]
-                                     |00000004 - [4 (int)]
-                                     |6e616d65 - [name (string)]
-                                     |# Package Name
-                                     |00000010 - [16 (int)]
-                                     |7061636b6167655f6e616d655f6b6579 - [package_name_key (string)]
-                                     |# Key
-                                     |00000005 - [5 (int)]
-                                     |68656c6c6f - [hello (string)]""".stripMargin
+                                     |636861726c6965 - [charlie (string)]""".stripMargin
+
+  private val createNode2 = createNode.copy(
+    coid = ContractId.V1.assertFromString(contractId2)
+  )
 
   private val fetchNode = Node.Fetch(
-    coid = ContractId.V1.assertFromString(
-      "0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5"
-    ),
+    coid = ContractId.V1.assertFromString(contractId1),
     packageName = packageName0,
     templateId = defRef("module", "name"),
     actingParties =
@@ -154,7 +140,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     version = LanguageVersion.v2_1,
   )
 
-  private val fetchNodeEncoding = """00 - [00 (node_version)]
+  private val fetchNodeEncoding = """01 - [01 (node_version)]
                                     |# Fetch Node
                                     |# Contract Id
                                     |00000021 - [33 (int)]
@@ -185,27 +171,6 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
                                     |616c696365 - [alice (string)]
                                     |00000003 - [3 (int)]
                                     |626f62 - [bob (string)]
-                                    |# Global Keys
-                                    |00000001 - [1 (int)]
-                                    |# Maintainers
-                                    |00000001 - [1 (int)]
-                                    |00000005 - [5 (int)]
-                                    |6461766964 - [david (string)]
-                                    |# Template Id
-                                    |00000001 - [1 (int)]
-                                    |0000000a - [10 (int)]
-                                    |6d6f64756c655f6b6579 - [module_key (string)]
-                                    |00000001 - [1 (int)]
-                                    |00000004 - [4 (int)]
-                                    |6e616d65 - [name (string)]
-                                    |# Package Name
-                                    |00000010 - [16 (int)]
-                                    |7061636b6167655f6e616d655f6b6579 - [package_name_key (string)]
-                                    |# Key
-                                    |00000005 - [5 (int)]
-                                    |68656c6c6f - [hello (string)]
-                                    |# By Key
-                                    |01 - [true (bool)]
                                     |# Interface Id
                                     |00000001 - [1 (int)]
                                     |00000007 - [7 (int)]
@@ -216,6 +181,10 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
                                     |00000001 - [1 (int)]
                                     |0000000e - [14 (int)]
                                     |696e746572666163655f6e616d65 - [interface_name (string)]""".stripMargin
+
+  private val fetchNode2 = fetchNode.copy(
+    coid = ContractId.V1.assertFromString(contractId2)
+  )
 
   private val exerciseNode = Node.Exercise(
     targetCoid = ContractId.V1.assertFromString(
@@ -240,80 +209,31 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     version = LanguageVersion.v2_1,
   )
 
-  private val contractIdLookupNode =
-    "0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5"
   private val lookupNode = Node.LookupByKey(
     packageName = packageName0,
     templateId = defRef("module", "name"),
     key = globalKey,
     result = Some(
-      ContractId.V1.assertFromString(contractIdLookupNode)
+      ContractId.V1.assertFromString(contractId1)
     ),
     version = LanguageVersion.v2_1,
   )
-
-  private val lookupNodeEncoding = s"""00 - [00 (node_version)]
-                                     |# LookupByKey Node
-                                     |# Package Name
-                                     |0000000e - [14 (int)]
-                                     |7061636b6167652d6e616d652d30 - [package-name-0 (string)]
-                                     |# Template Id
-                                     |00000007 - [7 (int)]
-                                     |7061636b616765 - [package (string)]
-                                     |00000001 - [1 (int)]
-                                     |00000006 - [6 (int)]
-                                     |6d6f64756c65 - [module (string)]
-                                     |00000001 - [1 (int)]
-                                     |00000004 - [4 (int)]
-                                     |6e616d65 - [name (string)]
-                                     |# Global Key
-                                     |# Maintainers
-                                     |00000001 - [1 (int)]
-                                     |00000005 - [5 (int)]
-                                     |6461766964 - [david (string)]
-                                     |# Template Id
-                                     |00000001 - [1 (int)]
-                                     |0000000a - [10 (int)]
-                                     |6d6f64756c655f6b6579 - [module_key (string)]
-                                     |00000001 - [1 (int)]
-                                     |00000004 - [4 (int)]
-                                     |6e616d65 - [name (string)]
-                                     |# Package Name
-                                     |00000010 - [16 (int)]
-                                     |7061636b6167655f6e616d655f6b6579 - [package_name_key (string)]
-                                     |# Key
-                                     |00000005 - [5 (int)]
-                                     |68656c6c6f - [hello (string)]
-                                     |# Result
-                                     |00000001 - [1 (int)]
-                                     |00000021 - [33 (int)]
-                                     |$contractIdLookupNode - [$contractIdLookupNode (contractId)]""".stripMargin
-
-  private val contractIdLookupNode2 =
-    "0059b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b"
-  private val lookupNode2 = Node.LookupByKey(
-    packageName = packageName0,
-    templateId = defRef("module", "name"),
-    key = globalKey,
-    result = Some(
-      ContractId.V1.assertFromString(contractIdLookupNode2) // Different from lookup node 1
-    ),
-    version = LanguageVersion.v2_1,
-  )
-
-  private val lookupNode2Encoding = lookupNodeEncoding
-    .replace(
-      contractIdLookupNode,
-      contractIdLookupNode2,
-    )
 
   private val rollbackNode = Node.Rollback(
     children = ImmArray(NodeId(3), NodeId(4))
   )
 
+  "V1Encoding" should {
+    "not encode lookup nodes" in {
+      a[NodeHashingError.UnsupportedNode] shouldBe thrownBy {
+        Hash.hashNode(lookupNode)
+      }
+    }
+  }
+
   "CreateNodeBuilder V1" should {
     val defaultHash = Hash
-      .fromString("b039cba4d7db999c3dfca170423585b73bd9ce86e8ef2baba665fa72a6dd9571")
+      .fromString("5cf3faca1f5141ebeff8f1b12a5fb90d0eb5ecb24a4d2626e78c4161b35d3880")
       .getOrElse(fail("Invalid hash"))
 
     "be stable" in {
@@ -322,6 +242,14 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
 
     "not include agreement text" in {
       Hash.hashNode(createNode.copy(agreementText = "SOMETHING_ELSE")) shouldBe defaultHash
+    }
+
+    "not include global keys" in {
+      Hash.hashNode(
+        createNode.copy(
+          keyOpt = Some(globalKey2)
+        )
+      ) shouldBe defaultHash
     }
 
     "not produce collision in contractId" in {
@@ -374,14 +302,6 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
       ) should !==(defaultHash)
     }
 
-    "not produce collision in global keys" in {
-      Hash.hashNode(
-        createNode.copy(
-          keyOpt = Some(globalKey2)
-        )
-      ) should !==(defaultHash)
-    }
-
     "explain encoding" in {
       assertWithOutputStream { os =>
         val hash = Hash.hashNode(createNode, outputStream = Some(os))
@@ -396,11 +316,27 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
 
   "FetchNodeBuilder V1" should {
     val defaultHash = Hash
-      .fromString("732e6902d31a7953a0eddfc95822f2591df85f7742b0302e2818ad8c1f1fd44a")
+      .fromString("264abb6ace226ba5850151510d2a95006443aeb3d79f01091c32d399db33c8cb")
       .getOrElse(fail("Invalid hash"))
 
     "be stable" in {
       Hash.hashNode(fetchNode) shouldBe defaultHash
+    }
+
+    "not include global keys" in {
+      Hash.hashNode(
+        fetchNode.copy(
+          keyOpt = Some(globalKey2)
+        )
+      ) shouldBe defaultHash
+    }
+
+    "not include byKey" in {
+      Hash.hashNode(
+        fetchNode.copy(
+          byKey = false
+        )
+      ) shouldBe defaultHash
     }
 
     "not produce collision in contractId" in {
@@ -453,22 +389,6 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
       ) should !==(defaultHash)
     }
 
-    "not produce collision in global keys" in {
-      Hash.hashNode(
-        fetchNode.copy(
-          keyOpt = Some(globalKey2)
-        )
-      ) should !==(defaultHash)
-    }
-
-    "not produce collision in byKey" in {
-      Hash.hashNode(
-        fetchNode.copy(
-          byKey = false
-        )
-      ) should !==(defaultHash)
-    }
-
     "not produce collision in interface Id" in {
       Hash.hashNode(
         fetchNode.copy(
@@ -491,7 +411,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
 
   "ExerciseNodeBuilder V1" should {
     val defaultHash = Hash
-      .fromString("9bb74feed029430c9425576bb6262164fc106a049d8c3b30dfa2d41ff98e175d")
+      .fromString("f369fa73273e189c74cec1b72e42e0a6ddaab5417a1ff8f11569aecb337f804e")
       .getOrElse(fail("Invalid hash"))
 
     val subNodes = Map(NodeId(0) -> createNode, NodeId(1) -> fetchNode)
@@ -501,6 +421,30 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
 
     "be stable" in {
       hashExerciseNode(exerciseNode) shouldBe defaultHash
+    }
+
+    "not include global keys" in {
+      hashExerciseNode(
+        exerciseNode.copy(
+          keyOpt = Some(globalKey2)
+        )
+      ) shouldBe defaultHash
+    }
+
+    "not include choiceAuthorizers" in {
+      hashExerciseNode(
+        exerciseNode.copy(
+          choiceAuthorizers = Some(Set[Party](Ref.Party.assertFromString("alice")))
+        )
+      ) shouldBe defaultHash
+    }
+
+    "not include byKey" in {
+      hashExerciseNode(
+        exerciseNode.copy(
+          byKey = false
+        )
+      ) shouldBe defaultHash
     }
 
     "throw if some nodes are missing" in {
@@ -578,34 +522,10 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
       ) should !==(defaultHash)
     }
 
-    "not produce collision in choiceAuthorizers" in {
-      hashExerciseNode(
-        exerciseNode.copy(
-          choiceAuthorizers = Some(Set[Party](Ref.Party.assertFromString("alice")))
-        )
-      ) should !==(defaultHash)
-    }
-
     "not produce collision in children" in {
       hashExerciseNode(
         exerciseNode.copy(
           children = exerciseNode.children.reverse
-        )
-      ) should !==(defaultHash)
-    }
-
-    "not produce collision in global keys" in {
-      hashExerciseNode(
-        exerciseNode.copy(
-          keyOpt = Some(globalKey2)
-        )
-      ) should !==(defaultHash)
-    }
-
-    "not produce collision in byKey" in {
-      hashExerciseNode(
-        exerciseNode.copy(
-          byKey = false
         )
       ) should !==(defaultHash)
     }
@@ -632,7 +552,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
         hash shouldBe defaultHash
         os.result shouldBe s"""00 - [00 (value_version)]
                               |07 - [07 (value_purpose)]
-                              |00 - [00 (node_version)]
+                              |01 - [01 (node_version)]
                               |# Exercise Node
                               |# Contract Id
                               |00000021 - [33 (int)]
@@ -663,27 +583,6 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
                               |616c696365 - [alice (string)]
                               |00000003 - [3 (int)]
                               |626f62 - [bob (string)]
-                              |# Global Keys
-                              |00000001 - [1 (int)]
-                              |# Maintainers
-                              |00000001 - [1 (int)]
-                              |00000005 - [5 (int)]
-                              |6461766964 - [david (string)]
-                              |# Template Id
-                              |00000001 - [1 (int)]
-                              |0000000a - [10 (int)]
-                              |6d6f64756c655f6b6579 - [module_key (string)]
-                              |00000001 - [1 (int)]
-                              |00000004 - [4 (int)]
-                              |6e616d65 - [name (string)]
-                              |# Package Name
-                              |00000010 - [16 (int)]
-                              |7061636b6167655f6e616d655f6b6579 - [package_name_key (string)]
-                              |# Key
-                              |00000005 - [5 (int)]
-                              |68656c6c6f - [hello (string)]
-                              |# By Key
-                              |01 - [true (bool)]
                               |# Interface Id
                               |00000001 - [1 (int)]
                               |00000007 - [7 (int)]
@@ -709,11 +608,6 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
                               |00000001 - [1 (int)]
                               |00000005 - [5 (int)]
                               |6461766964 - [david (string)]
-                              |# Choice Authorizers
-                              |00000001 - [1 (int)]
-                              |00000001 - [1 (int)]
-                              |00000003 - [3 (int)]
-                              |657665 - [eve (string)]
                               |# Children
                               |00000002 - [2 (int)]
                               |$createNodeEncoding
@@ -723,65 +617,12 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     }
   }
 
-  "LookupUpByKeyNodeBuilder V1" should {
-    val defaultHash = Hash
-      .fromString("4612051258b2ea5b4626a9a389ae88631d4013c5e8e3873d6736f7a5d24e2b63")
-      .getOrElse(fail("Invalid hash"))
-
-    "be stable" in {
-      Hash.hashNode(lookupNode) shouldBe defaultHash
-    }
-
-    "not produce collision in package name" in {
-      Hash.hashNode(
-        lookupNode.copy(
-          packageName = PackageName.assertFromString("another_package_name")
-        )
-      ) should !==(defaultHash)
-    }
-
-    "not produce collision in template ID" in {
-      Hash.hashNode(
-        lookupNode.copy(
-          templateId = defRef("othermodule", "othername")
-        )
-      ) should !==(defaultHash)
-    }
-
-    "not produce collision in key" in {
-      Hash.hashNode(
-        lookupNode.copy(
-          key = globalKey2
-        )
-      ) should !==(defaultHash)
-    }
-
-    "not produce collision in result" in {
-      Hash.hashNode(
-        lookupNode.copy(
-          result = None
-        )
-      ) should !==(defaultHash)
-    }
-
-    "explain encoding" in {
-      assertWithOutputStream { os =>
-        val hash = Hash.hashNode(lookupNode, outputStream = Some(os))
-        hash shouldBe defaultHash
-        os.result shouldBe s"""00 - [00 (value_version)]
-                             |07 - [07 (value_purpose)]
-                             |$lookupNodeEncoding
-                             |""".stripMargin
-      }
-    }
-  }
-
   "RollbackNode Builder V1" should {
     val defaultHash = Hash
-      .fromString("27bf9531984829a8f3841f0c331bdca4994be802f28670032b23d44f135aa2ff")
+      .fromString("0e956f106478405107fe4685ac9adf57f86baa87bde033cc2ea7111df4a2955a")
       .getOrElse(fail("Invalid hash"))
 
-    val subNodes = Map(NodeId(3) -> lookupNode, NodeId(4) -> fetchNode)
+    val subNodes = Map(NodeId(3) -> createNode, NodeId(4) -> fetchNode)
     def hashRollbackNode(node: Node.Rollback) = {
       Hash.hashNode(node, subNodes)
     }
@@ -821,11 +662,11 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
         hash shouldBe defaultHash
         os.result shouldBe s"""00 - [00 (value_version)]
                              |07 - [07 (value_purpose)]
-                             |00 - [00 (node_version)]
+                             |01 - [01 (node_version)]
                              |# Rollback Node
                              |# Children
                              |00000002 - [2 (int)]
-                             |$lookupNodeEncoding
+                             |$createNodeEncoding
                              |$fetchNodeEncoding
                              |""".stripMargin
       }
@@ -1088,8 +929,8 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
       NodeId(0) -> createNode,
       NodeId(1) -> fetchNode,
       NodeId(2) -> exerciseNode,
-      NodeId(3) -> lookupNode,
-      NodeId(4) -> lookupNode2,
+      NodeId(3) -> createNode2,
+      NodeId(4) -> fetchNode2,
       NodeId(5) -> rollbackNode,
     )
     val transaction = VersionedTransaction(
@@ -1099,7 +940,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     )
 
     val defaultHash = Hash
-      .fromString("f0621f12e29567f03ba1df78f560c1939e646260898694bc827b6f827dc659fc")
+      .fromString("9c3f1aa275cb1eebfe65f0d84572600bc4ebed66e4f7875099a36f7e09a80dd7")
       .getOrElse(fail("Invalid hash"))
 
     "be stable" in {
@@ -1127,8 +968,8 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
             NodeId(75) -> createNode,
             NodeId(84) -> fetchNode,
             NodeId(8) -> exerciseNode.copy(children = ImmArray(NodeId(75), NodeId(84))),
-            NodeId(15) -> lookupNode,
-            NodeId(2009) -> lookupNode2,
+            NodeId(15) -> createNode2,
+            NodeId(2009) -> fetchNode2,
             NodeId(44) -> rollbackNode.copy(children = ImmArray(NodeId(15), NodeId(2009))),
           ),
         )
@@ -1151,7 +992,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
           VersionedTransaction(
             version = LanguageVersion.v2_1,
             roots = ImmArray(NodeId(1), NodeId(2)),
-            nodes = Map(NodeId(1) -> lookupNode, NodeId(2) -> lookupNode2),
+            nodes = Map(NodeId(1) -> createNode, NodeId(2) -> fetchNode),
           ),
           outputStream = Some(os),
         )
@@ -1162,8 +1003,8 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
                               |322e31 - [2.1 (string)]
                               |# Root Nodes
                               |00000002 - [2 (int)]
-                              |$lookupNodeEncoding
-                              |$lookupNode2Encoding
+                              |$createNodeEncoding
+                              |$fetchNodeEncoding
                               |""".stripMargin
       }
     }

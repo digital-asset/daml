@@ -61,6 +61,7 @@ object Hash {
 
   sealed abstract class NodeHashingError(val msg: String) extends Exception with NoStackTrace
   object NodeHashingError {
+    final case class UnsupportedNode(message: String) extends NodeHashingError(message)
     final case class IncompleteTransactionTree(nodeId: NodeId)
         extends NodeHashingError(s"The transaction does not contain a node with nodeId $nodeId")
     final case class UnsupportedLanguageVersion(version: TransactionVersion)
@@ -297,18 +298,6 @@ object Hash {
       this
     }
 
-    protected def addGlobalKeyWithMaintainers(
-        globalKeyWithMaintainers: GlobalKeyWithMaintainers
-    ): this.type =
-      withContext("Maintainers")(_.addStringSet(globalKeyWithMaintainers.maintainers))
-        .withContext("Template Id")(
-          _.addQualifiedName(globalKeyWithMaintainers.globalKey.templateId.qualifiedName)
-        )
-        .withContext("Package Name")(_.addString(globalKeyWithMaintainers.globalKey.packageName))
-        .withContext("Key")(
-          _.addWithValueBuilder(globalKeyWithMaintainers.globalKey.key, _.addTypedValue)
-        )
-
     def addNode(node: Node, nodes: Map[NodeId, Node]): NodeBuilder
   }
 
@@ -354,7 +343,6 @@ object Hash {
         .withContext("Arg")(_.addWithValueBuilder(create.arg, _.addTypedValue))
         .withContext("Signatories")(_.addStringSet(create.signatories))
         .withContext("Stakeholders")(_.addStringSet(create.stakeholders))
-        .withContext("Global Keys")(_.addOptional(create.keyOpt, _.addGlobalKeyWithMaintainers))
     }
 
     private def addFetchNode(fetch: Node.Fetch): NodeBuilder = {
@@ -365,8 +353,6 @@ object Hash {
         .withContext("Signatories")(_.addStringSet(fetch.signatories))
         .withContext("Stakeholders")(_.addStringSet(fetch.stakeholders))
         .withContext("Acting Parties")(_.addStringSet(fetch.actingParties))
-        .withContext("Global Keys")(_.addOptional(fetch.keyOpt, _.addGlobalKeyWithMaintainers))
-        .withContext("By Key")(_.addBool(fetch.byKey))
         .withContext("Interface Id")(_.addOptional(fetch.interfaceId, _.addIdentifier))
     }
 
@@ -378,8 +364,6 @@ object Hash {
         .withContext("Signatories")(_.addStringSet(exercise.signatories))
         .withContext("Stakeholders")(_.addStringSet(exercise.stakeholders))
         .withContext("Acting Parties")(_.addStringSet(exercise.actingParties))
-        .withContext("Global Keys")(_.addOptional(exercise.keyOpt, _.addGlobalKeyWithMaintainers))
-        .withContext("By Key")(_.addBool(exercise.byKey))
         .withContext("Interface Id")(_.addOptional(exercise.interfaceId, _.addIdentifier))
         .withContext("Choice Id")(_.addString(exercise.choiceId))
         .withContext("Chosen Value")(_.addWithValueBuilder(exercise.chosenValue, _.addTypedValue))
@@ -391,26 +375,7 @@ object Hash {
           )
         )
         .withContext("Choice Observers")(_.addStringSet(exercise.choiceObservers))
-        .withContext("Choice Authorizers")(
-          _.addOptional(
-            exercise.choiceAuthorizers.map[Set[String]](_.map(_.toString)),
-            _.addStringSet[String],
-          )
-        )
         .withContext("Children")(_.addNodesFromNodeIds(exercise.children, nodes))
-    }
-
-    private def addLookupByKeyNode(lookup: Node.LookupByKey): NodeBuilder = {
-      addContext("LookupByKey Node")
-        .withContext("Package Name")(_.addString(lookup.packageName))
-        .withContext("Template Id")(_.addIdentifier(lookup.templateId))
-        .withContext("Global Key")(_.addGlobalKeyWithMaintainers(lookup.key))
-        .withContext("Result")(
-          _.addOptional[Value.ContractId](
-            lookup.result,
-            { builder => value => builder.addWithValueBuilder(value, _.addCid) },
-          )
-        )
     }
 
     private def addRollbackNode(rollback: Node.Rollback, nodes: Map[NodeId, Node]): NodeBuilder =
@@ -421,8 +386,11 @@ object Hash {
       case create: Node.Create => addCreateNode(create)
       case fetch: Node.Fetch => addFetchNode(fetch)
       case exercise: Node.Exercise => addExerciseNode(exercise, nodes)
-      case lookup: Node.LookupByKey => addLookupByKeyNode(lookup)
       case rollback: Node.Rollback => addRollbackNode(rollback, nodes)
+      case _: Node.LookupByKey =>
+        throw NodeHashingError.UnsupportedNode(
+          s"LookupByKey nods are not supported in version ${NodeHashVersion.V1.id}"
+        )
     }
   }
 
@@ -828,7 +796,7 @@ object Hash {
   private class NodeHashVersion(val id: Byte)
 
   private object NodeHashVersion {
-    val V1 = new NodeHashVersion(0)
+    val V1 = new NodeHashVersion(1)
   }
 
   // package private for testing purpose.
