@@ -9,13 +9,9 @@ import com.daml.lf.data.Ref.{Identifier, Name, TypeConName}
 import com.daml.lf.data._
 import com.daml.lf.language.{Ast, StablePackages}
 import data.ScalazEqual._
-import scalaz.{@@, Equal, Order, Tag}
-import scalaz.Ordering.EQ
-import scalaz.std.option._
-import scalaz.std.tuple._
+import scalaz.{Equal, Order}
 import scalaz.syntax.order._
 import scalaz.syntax.semigroup._
-import scalaz.syntax.std.option._
 
 /** Values */
 sealed abstract class Value extends CidContainer[Value] with Product with Serializable {
@@ -150,18 +146,6 @@ object Value {
 
   /** The data constructors of a variant or enum, if defined. */
   type LookupVariantEnum = Identifier => Option[ImmArray[Name]]
-
-  /** This comparison assumes that you are comparing values of matching type,
-    * and, like the lf-value-json decoder, all variants and enums contain
-    * their identifier.  Moreover, the `Scope` must include all of those
-    * identifiers.
-    */
-  def orderInstance(Scope: LookupVariantEnum): Order[Value @@ Scope.type] =
-    Tag.subst(new `Value Order instance`(Scope): Order[Value])
-
-  // Order of GenMap entries is relevant for this equality.
-  implicit val `Value Equal instance`: Equal[Value] =
-    new `Value Equal instance`
 
   /** A contract instance is a value plus the template that originated it. */
   // Prefer to use transaction.FatContractInstance
@@ -307,130 +291,4 @@ object Value {
   val ValueFalse: ValueBool = ValueBool.False
   val ValueNil: ValueList = ValueList(FrontStack.empty)
   val ValueNone: ValueOptional = ValueOptional(None)
-}
-
-/** This Order is not strictly compatible with the Equal instance, so
-  * instances of it must always be local or tagged.
-  */
-private final class `Value Order instance`(Scope: Value.LookupVariantEnum) extends Order[Value] {
-  import Value._, Utf8.ImplicitOrder._
-  import scalaz.std.anyVal._
-  import ScalazEqual._2, _2._
-
-  implicit final def Self: this.type = this
-
-  override final def order(a: Value, b: Value) = {
-    val (ixa, cmp) = ixv(a)
-    cmp.applyOrElse(
-      b,
-      { b: Value =>
-        val (ixb, _) = ixv(b)
-        ixa ?|? ixb
-      },
-    )
-  }
-
-  private[this] def ixv(a: Value) = a match {
-    case ValueUnit => (0, k { case ValueUnit => EQ })
-    case ValueBool(a) => (10, k { case ValueBool(b) => a ?|? b })
-    case ValueInt64(a) => (20, k { case ValueInt64(b) => a ?|? b })
-    case ValueText(a) => (30, k { case ValueText(b) => a ?|? b })
-    case ValueNumeric(a) => (40, k { case ValueNumeric(b) => a ?|? b })
-    case ValueTimestamp(a) => (50, k { case ValueTimestamp(b) => a ?|? b })
-    case ValueDate(a) => (60, k { case ValueDate(b) => a ?|? b })
-    case ValueParty(a) => (70, k { case ValueParty(b) => a ?|? b })
-    case ValueContractId(a) => (80, k { case ValueContractId(b) => a ?|? b })
-    case ValueOptional(a) => (90, k { case ValueOptional(b) => a ?|? b })
-    case ValueList(a) => (100, k { case ValueList(b) => a ?|? b })
-    case ValueTextMap(a) => (110, k { case ValueTextMap(b) => a ?|? b })
-    case ValueGenMap(a) => (120, k { case ValueGenMap(b) => a ?|? b })
-    case ValueEnum(idA, a) =>
-      (
-        130,
-        k { case ValueEnum(idB, b) =>
-          ctorOrder(idA, idB, a, b)
-        },
-      )
-    case ValueRecord(_, a) => (140, k { case ValueRecord(_, b) => _2.T.subst(a) ?|? _2.T.subst(b) })
-    case ValueVariant(idA, conA, a) =>
-      (
-        160,
-        k { case ValueVariant(idB, conB, b) =>
-          ctorOrder(idA, idB, conA, conB) |+| a ?|? b
-        },
-      )
-  }
-
-  private[this] def ctorOrder(
-      idA: Option[Identifier],
-      idB: Option[Identifier],
-      ctorA: Ref.Name,
-      ctorB: Ref.Name,
-  ) = {
-    val idAB = unifyIds(idA, idB)
-    Scope(idAB).cata(
-      { ctors =>
-        val lookup = ctors.toSeq
-        (lookup indexOf ctorA) ?|? (lookup indexOf ctorB)
-      },
-      noType(idAB),
-    )
-  }
-  @throws[IllegalArgumentException]
-  private[this] def noType(id: Identifier): Nothing =
-    throw new IllegalArgumentException(s"type $id not found in scope")
-
-  // could possibly return Ordering \/ Id instead of throwing in the Some/Some case,
-  // not sure if that could apply to None/None...
-  @throws[IllegalArgumentException]
-  private[this] def unifyIds[Id <: Identifier](a: Option[Id], b: Option[Id]): Id = (a, b) match {
-    case (Some(idA), Some(idB)) =>
-      if (idA != idB) throw new IllegalArgumentException(s"types $idA and $idB don't match")
-      else idA
-    case _ => a orElse b getOrElse (throw new IllegalArgumentException("missing type identifier"))
-  }
-
-  private[this] def k[Z](f: Value PartialFunction Z): f.type = f
-}
-
-private final class `Value Equal instance` extends Equal[Value] {
-  import Value._
-  import ScalazEqual._
-
-  override final def equalIsNatural: Boolean = Equal[ContractId].equalIsNatural
-
-  implicit final def Self: this.type = this
-
-  override final def equal(a: Value, b: Value) =
-    (a, b).match2 {
-      case a @ (_: ValueInt64 | _: ValueNumeric | _: ValueText | _: ValueTimestamp | _: ValueParty |
-          _: ValueBool | _: ValueDate | ValueUnit) => { case b => a == b }
-      case r: ValueRecord => { case ValueRecord(tycon2, fields2) =>
-        import r._
-        tycon == tycon2 && fields === fields2
-      }
-      case v: ValueVariant => { case ValueVariant(tycon2, variant2, value2) =>
-        import v._
-        tycon == tycon2 && variant == variant2 && value === value2
-      }
-      case v: ValueEnum => { case ValueEnum(tycon2, value2) =>
-        import v._
-        tycon == tycon2 && value == value2
-      }
-      case ValueContractId(value) => { case ValueContractId(value2) =>
-        value === value2
-      }
-      case ValueList(values) => { case ValueList(values2) =>
-        values === values2
-      }
-      case ValueOptional(value) => { case ValueOptional(value2) =>
-        value === value2
-      }
-      case ValueTextMap(map1) => { case ValueTextMap(map2) =>
-        map1 === map2
-      }
-      case genMap: ValueGenMap => { case ValueGenMap(entries2) =>
-        genMap.entries === entries2
-      }
-    }(fallback = false)
 }
