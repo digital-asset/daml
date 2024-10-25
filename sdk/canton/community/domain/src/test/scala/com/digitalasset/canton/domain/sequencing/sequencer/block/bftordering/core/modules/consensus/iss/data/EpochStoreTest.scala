@@ -266,6 +266,7 @@ trait EpochStoreTest extends AsyncWordSpec {
             ),
             fakeSequencerId("address"),
             isLastInEpoch = true,
+            mode = OrderedBlockForOutput.Mode.FromConsensus,
           )
 
         for {

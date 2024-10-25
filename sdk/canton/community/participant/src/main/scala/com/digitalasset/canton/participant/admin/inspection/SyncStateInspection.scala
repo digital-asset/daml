@@ -608,7 +608,7 @@ final class SyncStateInspection(
       )
 
   def lookupPublicationTime(
-      ledgerOffset: String
+      ledgerOffset: Long
   )(implicit traceContext: TraceContext): EitherT[Future, String, CantonTimestamp] = for {
     offset <- EitherT.fromEither[Future](
       UpstreamOffsetConvert.toLedgerSyncOffset(ledgerOffset)

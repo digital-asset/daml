@@ -491,6 +491,7 @@ class CantonSyncService(
         PruningServiceError.UnsafeToPrune.Error(
           err.cause,
           err.message,
+          // TODO(#21781) replace toHexString with toString
           err.lastSafeOffset.fold("")(UpstreamOffsetConvert.fromGlobalOffset(_).toHexString),
         )
       )

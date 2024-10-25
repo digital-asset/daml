@@ -83,6 +83,7 @@ import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.{
   SentCmtState,
 }
 import com.digitalasset.canton.participant.pruning.{CommitmentContractMetadata, MismatchReason}
+import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.protocol.messages.{
   AcsCommitment,
   CommitmentPeriod,
@@ -521,7 +522,7 @@ class ParticipantPruningAdministrationGroup(
       |performs additional safety checks returning a ``NOT_FOUND`` error if ``pruneUpTo`` is higher than the
       |offset returned by ``find_safe_offset`` on any domain with events preceding the pruning offset."""
   )
-  def prune(pruneUpTo: String): Unit =
+  def prune(pruneUpTo: Long): Unit =
     consoleEnvironment.run(
       ledgerApiCommand(LedgerApiCommands.ParticipantPruningService.Prune(pruneUpTo))
     )
@@ -530,10 +531,12 @@ class ParticipantPruningAdministrationGroup(
     "Return the highest participant ledger offset whose record time is before or at the given one (if any) at which pruning is safely possible",
     FeatureFlag.Preview,
   )
-  def find_safe_offset(beforeOrAt: Instant = Instant.now()): Option[String] =
+  def find_safe_offset(beforeOrAt: Instant = Instant.now()): Option[Long] =
     check(FeatureFlag.Preview) {
-      val ledgerEnd = consoleEnvironment.run(
-        ledgerApiCommand(LedgerApiCommands.StateService.LedgerEnd())
+      val ledgerEnd = ApiOffset.fromLong(
+        consoleEnvironment.run(
+          ledgerApiCommand(LedgerApiCommands.StateService.LedgerEnd())
+        )
       )
       consoleEnvironment
         .run(
@@ -542,6 +545,7 @@ class ParticipantPruningAdministrationGroup(
               .GetSafePruningOffsetCommand(beforeOrAt, ledgerEnd)
           )
         )
+        .map(ApiOffset.assertFromStringToLong)
     }
 
   @Help.Summary(
@@ -558,10 +562,11 @@ class ParticipantPruningAdministrationGroup(
       |performs additional safety checks returning a ``NOT_FOUND`` error if ``pruneUpTo`` is higher than the
       |offset returned by ``find_safe_offset`` on any domain with events preceding the pruning offset."""
   )
-  def prune_internally(pruneUpTo: String): Unit =
+  def prune_internally(pruneUpTo: Long): Unit =
     check(FeatureFlag.Preview) {
+      val pruneUpToString = ApiOffset.fromLong(pruneUpTo)
       consoleEnvironment.run(
-        adminCommand(ParticipantAdminCommands.Pruning.PruneInternallyCommand(pruneUpTo))
+        adminCommand(ParticipantAdminCommands.Pruning.PruneInternallyCommand(pruneUpToString))
       )
     }
 

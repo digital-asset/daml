@@ -14,5 +14,28 @@ final case class OrderedBlockForOutput(
     orderedBlock: OrderedBlock,
     from: SequencerId, // Only used for metrics
     isLastInEpoch: Boolean,
-    isStateTransferred: Boolean = false,
+    mode: OrderedBlockForOutput.Mode,
 )
+
+object OrderedBlockForOutput {
+
+  sealed trait Mode extends Product with Serializable {
+
+    def isStateTransfer: Boolean = this match {
+      case Mode.StateTransfer | Mode.StateTransferLastBlock => true
+      case Mode.FromConsensus => false
+    }
+
+    def isConsensusActive: Boolean = this match {
+      case Mode.FromConsensus | Mode.StateTransferLastBlock => true
+      case Mode.StateTransfer => false
+    }
+  }
+
+  object Mode {
+
+    case object FromConsensus extends Mode
+    case object StateTransfer extends Mode
+    case object StateTransferLastBlock extends Mode
+  }
+}

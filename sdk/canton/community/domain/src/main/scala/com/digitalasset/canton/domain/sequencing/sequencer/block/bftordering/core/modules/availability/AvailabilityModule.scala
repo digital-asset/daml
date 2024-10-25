@@ -29,6 +29,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   OrderingBlock,
   ProofOfAvailability,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.OrderedBlockForOutput
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.topology.{
   Membership,
   OrderingTopology,
@@ -314,7 +315,7 @@ final class AvailabilityModule[E <: Env[E]](
                   fetchBatchDataFromPeers(
                     messageType,
                     proofOfAvailability,
-                    request.blockForOutput.isStateTransferred,
+                    request.blockForOutput.mode,
                   )
                 }
             }
@@ -392,8 +393,11 @@ final class AvailabilityModule[E <: Env[E]](
             //  the peers in the PoA are unreachable indefinitely, we'll need to resort (possibly manually)
             //  to state transfer incl. the batch payloads (when it is implemented).
             // TODO(#19661): Test it
-            if (status.isStateTransferred) extractPeers(None, useCurrentTopology = true)
-            else extractPeers(Some(status.originalProof.acks))
+            if (status.mode.isStateTransfer)
+              extractPeers(None, useCurrentTopology = true)
+            else
+              extractPeers(Some(status.originalProof.acks))
+
           case Some(peer) =>
             logger.debug(s"$messageType: got fetch timeout for $batchId, trying fetch from $peer")
             (peer, status.remainingPeersToTry.drop(1))
@@ -404,13 +408,14 @@ final class AvailabilityModule[E <: Env[E]](
             batchId,
             status.originalProof,
             remainingPeers,
+            status.mode,
           ),
         )
         startDownload(batchId, peer)
 
       // This message is only used for tests
-      case Availability.LocalOutputFetch.FetchBatchDataFromPeers(proofOfAvailability) =>
-        fetchBatchDataFromPeers(messageType, proofOfAvailability)
+      case Availability.LocalOutputFetch.FetchBatchDataFromPeers(proofOfAvailability, mode) =>
+        fetchBatchDataFromPeers(messageType, proofOfAvailability, mode)
     }
   }
 
@@ -479,7 +484,7 @@ final class AvailabilityModule[E <: Env[E]](
   private def fetchBatchDataFromPeers(
       messageType: String,
       proofOfAvailability: ProofOfAvailability,
-      isStateTransferred: Boolean = false,
+      mode: OrderedBlockForOutput.Mode,
   )(implicit
       context: E#ActorContextT[Availability.Message[E]],
       traceContext: TraceContext,
@@ -496,8 +501,10 @@ final class AvailabilityModule[E <: Env[E]](
       return
     }
     val (peer, remainingPeers) =
-      if (isStateTransferred) extractPeers(acks = None, useCurrentTopology = true)
-      else extractPeers(Some(proofOfAvailability.acks))
+      if (mode.isStateTransfer)
+        extractPeers(acks = None, useCurrentTopology = true)
+      else
+        extractPeers(Some(proofOfAvailability.acks))
     logger.debug(
       s"$messageType: fetch of ${proofOfAvailability.batchId} " +
         s"requested from local store, trying to fetch from $peer"
@@ -508,7 +515,7 @@ final class AvailabilityModule[E <: Env[E]](
         proofOfAvailability.batchId,
         proofOfAvailability,
         remainingPeers,
-        isStateTransferred,
+        mode,
       ),
     )
     startDownload(proofOfAvailability.batchId, peer)

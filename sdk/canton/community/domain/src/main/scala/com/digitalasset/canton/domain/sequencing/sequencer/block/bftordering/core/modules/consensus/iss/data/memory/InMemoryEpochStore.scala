@@ -312,6 +312,7 @@ abstract class GenericInMemoryEpochStore[E <: Env[E]]
                         ),
                         prePrepare.from,
                         isBlockLastInEpoch,
+                        OrderedBlockForOutput.Mode.FromConsensus,
                       )
                   )
                 case None =>

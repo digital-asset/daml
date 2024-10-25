@@ -16,7 +16,7 @@ final case class MissingBatchStatus(
     batchId: BatchId,
     originalProof: ProofOfAvailability,
     remainingPeersToTry: Seq[SequencerId],
-    isStateTransferred: Boolean = false,
+    mode: OrderedBlockForOutput.Mode,
 )
 
 final class MainOutputFetchProtocolState {

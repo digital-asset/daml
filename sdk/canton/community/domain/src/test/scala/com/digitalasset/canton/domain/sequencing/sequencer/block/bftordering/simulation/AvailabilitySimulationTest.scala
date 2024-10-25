@@ -181,6 +181,7 @@ class AvailabilitySimulationTest extends AnyFlatSpec with BaseTest {
                   ),
                   membership.myId,
                   isLastInEpoch = false, // Irrelevant for availability
+                  OrderedBlockForOutput.Mode.FromConsensus,
                 )
               )
             )

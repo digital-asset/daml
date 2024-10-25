@@ -386,6 +386,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
                 expectedOrderedBlock,
                 leaderOfBlock,
                 isLastBlockInEpoch,
+                OrderedBlockForOutput.Mode.FromConsensus,
               )
             )
           )

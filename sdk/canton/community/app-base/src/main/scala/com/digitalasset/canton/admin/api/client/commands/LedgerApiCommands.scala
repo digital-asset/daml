@@ -153,7 +153,6 @@ import com.digitalasset.canton.ledger.client.services.admin.IdentityProviderConf
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.networking.grpc.ForwardingStreamObserver
-import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.platform.apiserver.execution.CommandStatus
 import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.serialization.ProtoConverter
@@ -428,8 +427,7 @@ object LedgerApiCommands {
 
     }
 
-    final case class Prune(pruneUpTo: String)
-        extends BaseCommand[PruneRequest, PruneResponse, Unit] {
+    final case class Prune(pruneUpTo: Long) extends BaseCommand[PruneRequest, PruneResponse, Unit] {
 
       override def timeoutType: TimeoutType =
         DefaultUnboundedTimeout // pruning can take a very long time
@@ -437,7 +435,7 @@ object LedgerApiCommands {
       override def createRequest(): Either[String, PruneRequest] =
         Right(
           PruneRequest(
-            ApiOffset.assertFromStringToLong(pruneUpTo),
+            pruneUpTo,
             // canton always prunes divulged contracts both in the ledger api index-db and in canton stores
             pruneAllDivulgedContracts = true,
           )
@@ -1020,7 +1018,7 @@ object LedgerApiCommands {
     sealed trait ReassignmentWrapper extends UpdateTreeWrapper with UpdateWrapper {
       def reassignment: Reassignment
       def unassignId: String = reassignment.getUnassignedEvent.unassignId
-      def offset: String = ApiOffset.fromLong(reassignment.offset)
+      def offset: Long = reassignment.offset
     }
     object ReassignmentWrapper {
       def apply(reassignment: Reassignment): ReassignmentWrapper = {
@@ -1064,9 +1062,9 @@ object LedgerApiCommands {
         extends BaseCommand[GetUpdatesRequest, AutoCloseable, AutoCloseable]
         with SubscribeBase[GetUpdatesRequest, Resp, Res] {
 
-      def beginExclusive: String
+      def beginExclusive: Long
 
-      def endInclusive: String
+      def endInclusive: Option[Long]
 
       def filter: TransactionFilter
 
@@ -1074,8 +1072,8 @@ object LedgerApiCommands {
 
       override def createRequest(): Either[String, GetUpdatesRequest] = Right {
         GetUpdatesRequest(
-          beginExclusive = ApiOffset.assertFromStringToLong(beginExclusive),
-          endInclusive = ApiOffset.assertFromStringToLongO(endInclusive),
+          beginExclusive = beginExclusive,
+          endInclusive = endInclusive,
           verbose = verbose,
           filter = Some(filter),
         )
@@ -1084,8 +1082,8 @@ object LedgerApiCommands {
 
     final case class SubscribeTrees(
         override val observer: StreamObserver[UpdateTreeWrapper],
-        override val beginExclusive: String,
-        override val endInclusive: String,
+        override val beginExclusive: Long,
+        override val endInclusive: Option[Long],
         override val filter: TransactionFilter,
         override val verbose: Boolean,
     )(override implicit val loggingContext: ErrorLoggingContext)
@@ -1107,8 +1105,8 @@ object LedgerApiCommands {
 
     final case class SubscribeFlat(
         override val observer: StreamObserver[UpdateWrapper],
-        override val beginExclusive: String,
-        override val endInclusive: String,
+        override val beginExclusive: Long,
+        override val endInclusive: Option[Long],
         override val filter: TransactionFilter,
         override val verbose: Boolean,
     )(override implicit val loggingContext: ErrorLoggingContext)
@@ -1562,7 +1560,7 @@ object LedgerApiCommands {
     }
 
     final case class LedgerEnd()
-        extends BaseCommand[GetLedgerEndRequest, GetLedgerEndResponse, String] {
+        extends BaseCommand[GetLedgerEndRequest, GetLedgerEndResponse, Long] {
 
       override def createRequest(): Either[String, GetLedgerEndRequest] =
         Right(GetLedgerEndRequest())
@@ -1575,8 +1573,8 @@ object LedgerApiCommands {
 
       override def handleResponse(
           response: GetLedgerEndResponse
-      ): Either[String, String] =
-        Right(ApiOffset.fromLong(response.offset))
+      ): Either[String, Long] =
+        Right(response.offset)
     }
 
     final case class GetConnectedDomains(partyId: LfPartyId)
@@ -1606,7 +1604,7 @@ object LedgerApiCommands {
         parties: Set[LfPartyId],
         limit: PositiveInt,
         templateFilter: Seq[TemplateId] = Seq.empty,
-        activeAtOffset: String,
+        activeAtOffset: Long,
         verbose: Boolean = true,
         timeout: FiniteDuration,
         includeCreatedEventBlob: Boolean = false,
@@ -1635,7 +1633,7 @@ object LedgerApiCommands {
           GetActiveContractsRequest(
             filter = Some(TransactionFilter(parties.map((_, filter)).toMap)),
             verbose = verbose,
-            activeAtOffset = ApiOffset.assertFromStringToLong(activeAtOffset),
+            activeAtOffset = activeAtOffset,
           )
         )
       }
@@ -1666,7 +1664,7 @@ object LedgerApiCommands {
 
     final case class CompletionRequest(
         partyId: LfPartyId,
-        beginOffsetExclusive: String,
+        beginOffsetExclusive: Long,
         expectedCompletions: Int,
         timeout: java.time.Duration,
         applicationId: String,
@@ -1682,7 +1680,7 @@ object LedgerApiCommands {
           CompletionStreamRequest(
             applicationId = applicationId,
             parties = Seq(partyId),
-            beginExclusive = ApiOffset.assertFromStringToLong(beginOffsetExclusive),
+            beginExclusive = beginOffsetExclusive,
           )
         )
 
@@ -1713,7 +1711,7 @@ object LedgerApiCommands {
     final case class Subscribe(
         observer: StreamObserver[Completion],
         parties: Seq[String],
-        offset: String,
+        offset: Long,
         applicationId: String,
     )(implicit loggingContext: ErrorLoggingContext)
         extends BaseCommand[CompletionStreamRequest, AutoCloseable, AutoCloseable] {
@@ -1724,7 +1722,7 @@ object LedgerApiCommands {
         CompletionStreamRequest(
           applicationId = applicationId,
           parties = parties,
-          beginExclusive = ApiOffset.assertFromStringToLong(offset),
+          beginExclusive = offset,
         )
       }
 

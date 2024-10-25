@@ -37,6 +37,7 @@ object Output {
       orderedBlockData: CompleteBlockData,
       orderedBlockNumber: BlockNumber,
       orderedBlockBftTime: CantonTimestamp,
+      epochCouldAlterSequencingTopology: Boolean,
   ) extends Message[Nothing]
 
   final case class TopologyFetched[E <: Env[E]](
