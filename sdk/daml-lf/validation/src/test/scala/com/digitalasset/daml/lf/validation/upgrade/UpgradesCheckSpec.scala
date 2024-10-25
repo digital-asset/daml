@@ -13,10 +13,9 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import java.nio.file.{Path, Paths}
 import java.io.File
-import scala.concurrent.Future
-import scala.sys.process._
-import com.daml.scalautil.Statement.discard
 import org.scalatest.Inspectors.forEvery
+
+import com.digitalasset.daml.lf.validation.UpgradeCheckMain
 
 final class UpgradesCheckSpec
     extends AsyncWordSpec
@@ -31,32 +30,19 @@ final class UpgradesCheckSpec
   def testPackages(
       rawPaths: Seq[String],
       uploadAssertions: Seq[(Int, Int, Option[String])],
-  ): Future[Assertion] = {
+  ): Assertion = {
     val paths: Seq[Path] = rawPaths.map((x: String) => BazelRunfiles.rlocation(Paths.get(x)))
     val pkgIds: Seq[PackageId] = paths.map(loadPackageId)
 
-    val exe = if (sys.props("os.name").toLowerCase.contains("windows")) ".exe" else ""
-    val damlSdk = BazelRunfiles.rlocation(Paths.get(s"daml-assistant/daml-sdk/sdk$exe"))
+    val builder = new StringBuilder()
+    val (upgradeCheck, msgs) = UpgradeCheckMain.test
+    upgradeCheck.check(paths.toArray.map(_.toString))
+    for { msg <- msgs } {
+      (builder append msg) append '\n'
+    }
+    val out = builder.toString
 
-    // Runs process with args, returns status and stdout <> stderr
-    def runProc(exe: Path, args: Seq[String]): Future[Either[String, String]] =
-      Future {
-        val out = new StringBuilder()
-        val cmd = exe.toString +: args
-        cmd !< ProcessLogger(line => discard(out append line append '\n')) match {
-          case 0 => Right(out.toString)
-          case _ => Left(out.toString)
-        }
-      }
-
-    val args = "upgrade-check" +: paths.map(_.toString)
-    for {
-      result <- runProc(damlSdk, args)
-      out = result match {
-        case Left(out) => out
-        case Right(out) => out
-      }
-    } yield forEvery (uploadAssertions) { uploadAssertion =>
+    forEvery (uploadAssertions) { uploadAssertion =>
       checkTwo(uploadAssertion)(pkgIds, out)
     }
   }

@@ -50,6 +50,7 @@ da_scala_library(
     unused_dependency_checker_mode = "off",
     visibility = ["//visibility:public"],
     deps = [
+        "//libs-scala/scala-utils",
         "//canton:community_ledger_ledger-api-core",
         "//canton:community_ledger_ledger-common",
         "//canton:community_util-logging",
@@ -334,6 +335,8 @@ da_scala_test_suite(
         ],
         scalacopts = lf_scalacopts,
         deps = [
+            "//daml-lf/validation:upgrade-check-main",
+            "//libs-scala/scala-utils",
             ":upgrade-test-lib",
             "//:sdk-version-scala-lib",
             "//bazel_tools/runfiles:scala_runfiles",
