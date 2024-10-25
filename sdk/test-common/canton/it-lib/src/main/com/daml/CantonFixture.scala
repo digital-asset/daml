@@ -63,6 +63,7 @@ trait CantonFixtureWithResource[A]
   protected lazy val cantonJar: Path = CantonRunner.cantonPath
   protected lazy val targetScope: Option[String] = Option.empty
   protected lazy val maxPartiesPageSize: Option[Int] = None
+  protected lazy val synchronizeVettingOnUpload: Boolean = false
 
   // This flag setup some behavior to ease debugging tests.
   //  If `CantonFixtureDebugKeepTmpFiles` or `CantonFixtureDebugRemoveTmpFiles`
@@ -138,6 +139,7 @@ trait CantonFixtureWithResource[A]
     disableUpgradeValidation = disableUpgradeValidation,
     maxPartiesPageSize = maxPartiesPageSize,
     enableRemoteJavaDebugging = remoteJavaDebugging,
+    synchronizeVettingOnUpload = synchronizeVettingOnUpload,
   )
 
   protected def info(msg: String): Unit =

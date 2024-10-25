@@ -68,6 +68,7 @@ trait AbstractHttpServiceIntegrationTestFunsCustomToken
   import json.JsonProtocol._
 
   override protected lazy val maxPartiesPageSize = Some(100)
+  override protected lazy val synchronizeVettingOnUpload = true
 
   protected def jwt(uri: Uri)(implicit ec: ExecutionContext): Future[Jwt] =
     jwtForParties(uri)(domain.Party subst List("Alice"), List(), config.ledgerIds.headOption.value)
