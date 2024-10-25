@@ -47,8 +47,8 @@ version_specific = {
 
 apispec_version = "0.7.1"
 netty_tcnative_version = "2.0.61.Final"
-netty_version = "4.1.108.Final"
-grpc_version = "1.65.1"
+netty_version = "4.1.110.Final"
+grpc_version = "1.66.0"
 protobuf_version = "3.25.5"
 pekko_version = "1.1.2"
 pekko_http_version = "1.1.0"
