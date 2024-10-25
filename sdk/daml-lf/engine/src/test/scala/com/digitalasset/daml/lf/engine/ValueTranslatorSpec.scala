@@ -475,8 +475,8 @@ class ValueTranslatorSpec
           {
             case Error.Preprocessing.Lookup(
                   LookupError.NotFound(
-                    Reference.DataVariantConstructor(_, consName),
-                    Reference.DataEnumConstructor(_, _),
+                    Reference.DataEnumConstructor(_, consName),
+                    _,
                   )
                 ) =>
               consName shouldBe "Cons3"
@@ -548,8 +548,8 @@ class ValueTranslatorSpec
           {
             case Error.Preprocessing.Lookup(
                   LookupError.NotFound(
-                    Reference.DataVariantConstructor(_, consName),
-                    Reference.DataEnumConstructor(_, _),
+                    Reference.DataEnumConstructor(_, consName),
+                    _,
                   )
                 ) =>
               consName shouldBe "Cons3"
