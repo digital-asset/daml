@@ -314,24 +314,6 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
     }
   }
 
-  @Explanation("""The supplied offset could not be converted to a binary offset.""")
-  @Resolution("Ensure the offset is specified as a hexadecimal string.")
-  object NonHexOffset
-      extends ErrorCode(
-        id = "NON_HEXADECIMAL_OFFSET",
-        ErrorCategory.InvalidIndependentOfSystemState,
-      ) {
-    final case class Error(
-        fieldName: String,
-        offsetValue: String,
-        message: String,
-    )(implicit
-        val loggingContext: ContextualizedErrorLogger
-    ) extends DamlError(
-          cause = s"Offset in $fieldName not specified in hexadecimal: $offsetValue: $message"
-        )
-  }
-
   @Explanation("""The supplied offset is not a positive integer.""")
   @Resolution("Ensure the offset specified is a positive (non zero) integer.")
   object NonPositiveOffset

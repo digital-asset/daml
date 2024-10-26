@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.store
 
 import cats.data.EitherT
+import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.traverse.*
 import cats.{Eval, Foldable}
@@ -20,7 +21,7 @@ import com.digitalasset.canton.pruning.PruningStatus
 import com.digitalasset.canton.topology.client.DomainTopologyClient
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{EitherUtil, MonadUtil}
+import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.{LfPartyId, ReassignmentCounter}
 
 import scala.collection.immutable.SortedMap
@@ -247,7 +248,7 @@ class AcsInspection(
             allStakeholders ++= storedContract.contract.metadata.stakeholders
             f(storedContract.contract, reassignmentCounter)
           } else
-            Right(())
+            Either.unit
         }
         .map(_ => allStakeholders.toSet)
 
@@ -272,7 +273,7 @@ object AcsInspection {
     )(p: A => Boolean)(fail: A => AcsInspectionError)(implicit
         ec: ExecutionContext
     ): EitherT[Future, AcsInspectionError, Unit] =
-      EitherT(ffa.map(_.traverse_(a => EitherUtil.condUnitE(p(a), fail(a)))))
+      EitherT(ffa.map(_.traverse_(a => Either.cond(p(a), (), fail(a)))))
 
     def beforeRequestIndex(
         domainId: DomainId,

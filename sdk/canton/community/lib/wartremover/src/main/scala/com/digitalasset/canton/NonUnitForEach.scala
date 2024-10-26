@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton
 
-import cats.syntax.functorFilter.*
 import org.wartremover.{WartTraverser, WartUniverse}
 
 import scala.annotation.tailrec
@@ -121,10 +120,13 @@ object NonUnitForEach extends WartTraverser {
           case If(_, thenPart, elsePart) =>
             isInterestingResult(thenPart).orElse(isInterestingResult(elsePart))
           case Match(_, cases) =>
-            cases.mapFilter {
-              case CaseDef(_pat, _guard, body) => isInterestingResult(body)
-              case _ => None
-            }.headOption
+            cases.view
+              .map {
+                case CaseDef(_pat, _guard, body) => isInterestingResult(body)
+                case _ => None
+              }
+              .find(_.isDefined)
+              .flatten
           case _ =>
             Option.when(!uninterestingType(tree.tpe) && !isThisTypeResult(tree))(tree)
         }

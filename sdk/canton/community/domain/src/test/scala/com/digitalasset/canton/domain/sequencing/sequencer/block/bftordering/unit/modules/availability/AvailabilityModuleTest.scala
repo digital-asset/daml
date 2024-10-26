@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.unit.modules.availability
 
+import cats.syntax.either.*
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.crypto.{Signature, SignatureCheckError}
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
@@ -2239,7 +2240,7 @@ class AvailabilityModuleTest extends AnyWordSpec with BftSequencerBaseTest {
       when(underlyingMessage.getCryptographicEvidence) thenReturn AByteString
 
       when(cryptoProvider.verifySignature(hash, Node1Peer, Signature.noSignature)) thenReturn (() =>
-        Right(())
+        Either.unit
       )
 
       availability.receive(Availability.UnverifiedProtocolMessage(underlyingMessage, signature))

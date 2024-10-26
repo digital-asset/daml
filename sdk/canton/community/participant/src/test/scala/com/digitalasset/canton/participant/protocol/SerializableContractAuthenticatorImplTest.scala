@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.protocol
 
+import cats.syntax.either.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.crypto.{Salt, TestSalt}
 import com.digitalasset.canton.data.{CantonTimestamp, ViewPosition}
@@ -28,7 +29,7 @@ class SerializableContractAuthenticatorImplTest extends AnyWordSpec with BaseTes
         "correctly authenticate the contract" in new WithContractAuthenticator(
           AuthenticatedContractIdVersionV10
         ) {
-          contractAuthenticator.authenticate(contract) shouldBe Right(())
+          contractAuthenticator.authenticate(contract) shouldBe Either.unit
         }
       }
 

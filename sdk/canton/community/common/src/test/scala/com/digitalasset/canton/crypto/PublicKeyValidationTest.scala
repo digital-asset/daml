@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.crypto
 
+import cats.syntax.either.*
 import com.digitalasset.canton.BaseTest
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -41,7 +42,7 @@ trait PublicKeyValidationTest extends BaseTest with CryptoTestHelper { this: Asy
           )
         } yield
           if (format == publicKey.format || format == CryptoKeyFormat.Symbolic)
-            validationRes shouldEqual Right(())
+            validationRes shouldEqual Either.unit
           else
             validationRes.left.value should include(
               s"Failed to deserialize $format public key: KeyParseAndValidateError"

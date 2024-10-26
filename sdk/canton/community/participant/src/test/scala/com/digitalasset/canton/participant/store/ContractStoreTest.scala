@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.store
 
+import cats.syntax.either.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.{
@@ -301,7 +302,7 @@ trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
         res1 <- store.deleteContract(contractId).value
         c <- store.lookupE(contractId).value
       } yield {
-        res1 shouldEqual Right(())
+        res1 shouldEqual Either.unit
         c shouldEqual Left(UnknownContract(contractId))
       }
     }

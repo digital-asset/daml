@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.crypto
 
+import cats.syntax.either.*
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.crypto.SignatureCheckError.{InvalidSignature, SignatureWithWrongKey}
 import com.digitalasset.canton.crypto.SigningError.UnknownSigningKey
@@ -60,7 +61,7 @@ trait SigningTest extends AsyncWordSpec with BaseTest with CryptoTestHelper {
             hash = TestHash.digest("foobar")
             sig <- crypto.privateCrypto.sign(hash, publicKey.id).valueOrFail("sign")
             res = crypto.pureCrypto.verifySignature(hash, publicKey, sig)
-          } yield res shouldEqual Right(())
+          } yield res shouldEqual Either.unit
         }.failOnShutdown
 
         "fail to sign with unknown private key" in {

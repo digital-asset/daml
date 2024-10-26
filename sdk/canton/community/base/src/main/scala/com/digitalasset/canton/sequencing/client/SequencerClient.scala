@@ -567,7 +567,7 @@ abstract class SequencerClientImpl(
                   )
               }
             }
-            FutureUnlessShutdown.pure(Right(()))
+            FutureUnlessShutdown.pure(Either.unit)
           case None =>
             Monad[FutureUnlessShutdown].tailRecM(nextState)(step)
           case Some(AbortedDueToShutdown) =>
@@ -607,7 +607,7 @@ abstract class SequencerClientImpl(
         case Right(()) =>
           // Do not await the patience. This would defeat the point of asynchronous send.
           scheduleAmplification()
-          Right(Right(()))
+          Right(Either.unit)
         case Left(error) =>
           handleSyncError(error)
       }
@@ -1314,7 +1314,7 @@ class RichSequencerClientImpl(
                   s"asynchronous event processing for event batch with sequencer counters $firstSc to $lastSc"
                 )(asyncSignalledF)
                 // we do not wait for the async results to finish, we are done here once the synchronous part is done
-                Success(Right(()))
+                Success(Either.unit)
               case Success(UnlessShutdown.AbortedDueToShutdown) =>
                 putApplicationHandlerFailure(ApplicationHandlerShutdown).discard
                 Success(Left(ApplicationHandlerShutdown))

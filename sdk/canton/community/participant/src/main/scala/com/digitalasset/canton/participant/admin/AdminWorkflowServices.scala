@@ -175,7 +175,7 @@ class AdminWorkflowServices(
             ) =>
           // Log error by creating error object, but continue processing.
           AdminWorkflowServices.CanNotAutomaticallyVetAdminWorkflowPackage.Error().discard
-          Right(())
+          Either.unit
         case err =>
           Left(new IllegalStateException(CantonError.stringFromContext(err)))
       }

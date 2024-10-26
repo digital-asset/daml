@@ -376,33 +376,6 @@ class ErrorFactoriesSpec
       )
     }
 
-    "return a nonHexOffset error" in {
-      val msg =
-        s"NON_HEXADECIMAL_OFFSET(8,$truncatedCorrelationId): Offset in fieldName123 not specified in hexadecimal: offsetValue123: message123"
-      assertError(
-        RequestValidationErrors.NonHexOffset
-          .Error(
-            fieldName = "fieldName123",
-            offsetValue = "offsetValue123",
-            message = "message123",
-          )(contextualizedErrorLogger)
-          .asGrpcError
-      )(
-        code = Code.INVALID_ARGUMENT,
-        message = msg,
-        details = Seq[ErrorDetails.ErrorDetail](
-          ErrorDetails.ErrorInfoDetail(
-            "NON_HEXADECIMAL_OFFSET",
-            Map("category" -> "8", "test" -> getClass.getSimpleName),
-          ),
-          expectedCorrelationIdRequestInfo,
-        ),
-        logLevel = Level.INFO,
-        logMessage = msg,
-        logErrorContextRegEx = expectedLocationRegex,
-      )
-    }
-
     "return a nonPositiveOffset error" in {
       val msg =
         s"NON_POSITIVE_OFFSET(8,$truncatedCorrelationId): Offset -123 in fieldName123 is not a positive integer: message123"

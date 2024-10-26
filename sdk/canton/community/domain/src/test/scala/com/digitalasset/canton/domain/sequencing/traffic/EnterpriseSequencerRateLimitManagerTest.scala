@@ -3,7 +3,8 @@
 
 package com.digitalasset.canton.domain.sequencing.traffic
 
-import cats.implicits.catsSyntaxParallelTraverse_
+import cats.syntax.either.*
+import cats.syntax.parallel.*
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.CantonTimestamp
@@ -333,7 +334,7 @@ class EnterpriseSequencerRateLimitManagerTest
         _ <- purchaseTraffic
         res <- validate()
       } yield {
-        res shouldBe Right(())
+        res shouldBe Either.unit
       }
     }
 
@@ -368,7 +369,7 @@ class EnterpriseSequencerRateLimitManagerTest
             Some(SequencingSubmissionCost(incorrectSubmissionCostNN, testedProtocolVersion))
           )
         } yield {
-          res shouldBe Right(())
+          res shouldBe Either.unit
         }
     }
 
@@ -386,7 +387,7 @@ class EnterpriseSequencerRateLimitManagerTest
           submissionTimestamp = Some(submissionTimestamp),
         )
       } yield {
-        res shouldBe Right(())
+        res shouldBe Either.unit
       }
     }
 

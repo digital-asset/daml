@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.simulation.topology
 
+import cats.syntax.either.*
 import com.digitalasset.canton.crypto.{Hash, Signature, SignatureCheckError, SyncCryptoError}
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.CryptoProvider
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.simulation.SimulationModuleSystem.SimulationEnv
@@ -26,7 +27,7 @@ object SimulationCryptoProvider extends CryptoProvider[SimulationEnv] {
       traceContext: TraceContext
   ): SimulationFuture[Either[SignatureCheckError, Unit]] = SimulationFuture { () =>
     Try {
-      Right(())
+      Either.unit
     }
   }
 }

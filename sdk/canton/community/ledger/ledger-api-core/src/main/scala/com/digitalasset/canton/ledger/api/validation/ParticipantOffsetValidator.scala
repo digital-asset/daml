@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.ledger.api.validation
 
+import cats.syntax.either.*
 import com.daml.error.ContextualizedErrorLogger
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain.types.ParticipantOffset
@@ -69,13 +70,13 @@ object ParticipantOffsetValidator {
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Unit] =
-    if (ledgerOffset > ledgerEnd)
-      Left(
-        RequestValidationErrors.OffsetAfterLedgerEnd
-          .Reject(offsetType, ledgerOffset, ledgerEnd)
-          .asGrpcError
-      )
-    else Right(())
+    Either.cond(
+      ledgerOffset <= ledgerEnd,
+      (),
+      RequestValidationErrors.OffsetAfterLedgerEnd
+        .Reject(offsetType, ledgerOffset, ledgerEnd)
+        .asGrpcError,
+    )
 
   // Same as above, but with an optional offset.
   def offsetIsBeforeEnd(
@@ -85,7 +86,7 @@ object ParticipantOffsetValidator {
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Unit] =
-    ledgerOffset.fold[Either[StatusRuntimeException, Unit]](Right(()))(
+    ledgerOffset.fold(Either.unit[StatusRuntimeException])(
       offsetIsBeforeEnd(offsetType, _, ledgerEnd)
     )
 }

@@ -15,7 +15,6 @@ import com.digitalasset.canton.sequencing.protocol.{MediatorGroupRecipient, Time
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
-import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.*
 import com.digitalasset.canton.{LfPartyId, LfWorkflowId, ReassignmentCounter}
@@ -471,8 +470,9 @@ object FullUnassignmentTree {
   )(bytes: ByteString): ParsingResult[FullUnassignmentTree] =
     for {
       tree <- UnassignmentViewTree.fromByteString(crypto, sourceProtocolVersion)(bytes)
-      _ <- EitherUtil.condUnitE(
+      _ <- Either.cond(
         tree.isFullyUnblinded,
+        (),
         OtherError(s"Unassignment request ${tree.rootHash} is not fully unblinded"),
       )
     } yield FullUnassignmentTree(tree)

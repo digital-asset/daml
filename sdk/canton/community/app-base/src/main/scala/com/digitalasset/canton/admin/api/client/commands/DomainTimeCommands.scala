@@ -37,16 +37,16 @@ object DomainTimeCommands {
       timeout: NonNegativeDuration,
   ) extends BaseDomainTimeCommand[FetchTimeRequest, v30.FetchTimeResponse, FetchTimeResponse] {
 
-    override def createRequest(): Either[String, FetchTimeRequest] =
+    override protected def createRequest(): Either[String, FetchTimeRequest] =
       Right(FetchTimeRequest(domainIdO, freshnessBound))
 
-    override def submitRequest(
+    override protected def submitRequest(
         service: DomainTimeServiceStub,
         request: FetchTimeRequest,
     ): Future[v30.FetchTimeResponse] =
       service.fetchTime(request.toProtoV30)
 
-    override def handleResponse(
+    override protected def handleResponse(
         response: v30.FetchTimeResponse
     ): Either[String, FetchTimeResponse] =
       FetchTimeResponse.fromProto(response).leftMap(_.toString)
@@ -60,16 +60,17 @@ object DomainTimeCommands {
       timeout: NonNegativeDuration,
   ) extends BaseDomainTimeCommand[AwaitTimeRequest, v30.AwaitTimeResponse, Unit] {
 
-    override def createRequest(): Either[String, AwaitTimeRequest] =
+    override protected def createRequest(): Either[String, AwaitTimeRequest] =
       Right(AwaitTimeRequest(domainIdO, time))
 
-    override def submitRequest(
+    override protected def submitRequest(
         service: DomainTimeServiceStub,
         request: AwaitTimeRequest,
     ): Future[v30.AwaitTimeResponse] =
       service.awaitTime(request.toProtoV30)
 
-    override def handleResponse(response: v30.AwaitTimeResponse): Either[String, Unit] = Right(())
+    override protected def handleResponse(response: v30.AwaitTimeResponse): Either[String, Unit] =
+      Either.unit
 
     override def timeoutType: TimeoutType = CustomClientTimeout(timeout)
   }

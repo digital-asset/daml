@@ -65,9 +65,11 @@ object UpdatePathsTrie {
     /** @param updatePath unique path to be inserted
       */
     def insertUniquePath(updatePath: UpdatePath): Result[Unit] =
-      if (!doInsertUniquePath(updatePath.fieldPath)) {
-        Left(UpdatePathError.DuplicatedFieldPath(updatePath.toRawString))
-      } else Right(())
+      Either.cond(
+        doInsertUniquePath(updatePath.fieldPath),
+        (),
+        UpdatePathError.DuplicatedFieldPath(updatePath.toRawString),
+      )
 
     /** @return true if successfully inserted the field path, false if the field path was already present in this trie
       */

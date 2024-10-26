@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.protocol
 
 import cats.data.EitherT
+import cats.syntax.either.*
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -94,7 +95,8 @@ private[protocol] object ReassignmentSubmissionValidation {
         .hostedOn(Set(submitter), participantId)
         .map(_.get(submitter))
         .flatMap {
-          case Some(attribute) if attribute.permission == Submission => Future.successful(Right(()))
+          case Some(attribute) if attribute.permission == Submission =>
+            Future.successful(Either.unit)
           case Some(attribute) if attribute.permission.canConfirm =>
             // We allow reassignment submissions by each individual active participants of a consortium party
             topologySnapshot.consortiumThresholds(Set(submitter)).map { thresholds =>

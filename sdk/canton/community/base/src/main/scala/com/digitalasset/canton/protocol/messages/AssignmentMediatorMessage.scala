@@ -18,7 +18,6 @@ import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
-import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.version.{
   HasProtocolVersionedWithContextCompanion,
@@ -115,12 +114,14 @@ object AssignmentMediatorMessage
       tree <- ProtoConverter
         .required("AssignmentMediatorMessage.tree", treePO)
         .flatMap(AssignmentViewTree.fromProtoV30(context))
-      _ <- EitherUtil.condUnitE(
+      _ <- Either.cond(
         tree.commonData.isFullyUnblinded,
+        (),
         OtherError(s"Assignment common data is blinded in request ${tree.rootHash}"),
       )
-      _ <- EitherUtil.condUnitE(
+      _ <- Either.cond(
         tree.view.isBlinded,
+        (),
         OtherError(s"Assignment view data is not blinded in request ${tree.rootHash}"),
       )
       submittingParticipantSignature <- ProtoConverter

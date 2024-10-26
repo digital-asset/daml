@@ -23,6 +23,7 @@ import com.digitalasset.canton.domain.api.v30.SequencerAuthentication.{
 import com.digitalasset.canton.domain.api.v30.SequencerAuthenticationServiceGrpc.SequencerAuthenticationServiceStub
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging, TracedLogger}
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
 import com.digitalasset.canton.sequencing.authentication.grpc.AuthenticationTokenWithExpiry
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.topology.{DomainId, Member}
@@ -95,27 +96,30 @@ class AuthenticationTokenProvider(
 
   private def getChallenge(
       authenticationClient: SequencerAuthenticationServiceStub
-  ): EitherT[Future, Status, ChallengeResponse.Success] = EitherT {
-    authenticationClient
-      .challenge(
-        ChallengeRequest(
-          member.toProtoPrimitive,
-          supportedProtocolVersions.map(_.toProtoPrimitive),
-        )
-      )
-      .map(response => response.value)
-      .map {
-        case ChallengeResponse.Value.Success(success) => Right(success)
-        case ChallengeResponse.Value.Failure(ChallengeResponse.Failure(code, reason)) =>
-          Left(Status.fromCodeValue(code).withDescription(reason))
-        case ChallengeResponse.Value.Empty =>
-          Left(
-            Status.INTERNAL.withDescription(
-              "Problem with domain handshake with challenge. Received empty response from domain."
+  )(implicit traceContext: TraceContext): EitherT[Future, Status, ChallengeResponse.Success] =
+    EitherT {
+      CantonGrpcUtil
+        .sendGrpcRequestUnsafe(authenticationClient)(
+          _.challenge(
+            ChallengeRequest(
+              member.toProtoPrimitive,
+              supportedProtocolVersions.map(_.toProtoPrimitive),
             )
           )
-      }
-  }
+        )
+        .map(response => response.value)
+        .map {
+          case ChallengeResponse.Value.Success(success) => Right(success)
+          case ChallengeResponse.Value.Failure(ChallengeResponse.Failure(code, reason)) =>
+            Left(Status.fromCodeValue(code).withDescription(reason))
+          case ChallengeResponse.Value.Empty =>
+            Left(
+              Status.INTERNAL.withDescription(
+                "Problem with domain handshake with challenge. Received empty response from domain."
+              )
+            )
+        }
+    }
 
   private def authenticate(
       authenticationClient: SequencerAuthenticationServiceStub,
@@ -146,12 +150,14 @@ class AuthenticationTokenProvider(
         )
         .leftMap(err => Status.INTERNAL.withDescription(err.toString))
       token <- EitherT {
-        authenticationClient
-          .authenticate(
-            AuthenticateRequest(
-              member = member.toProtoPrimitive,
-              signature = signature.toProtoV30.some,
-              nonce = nonce.toProtoPrimitive,
+        CantonGrpcUtil
+          .sendGrpcRequestUnsafe(authenticationClient)(
+            _.authenticate(
+              AuthenticateRequest(
+                member = member.toProtoPrimitive,
+                signature = signature.toProtoV30.some,
+                nonce = nonce.toProtoPrimitive,
+              )
             )
           )
           .map(response => response.value)
@@ -188,12 +194,14 @@ class AuthenticationTokenProvider(
       token = tokenWithExpiry.token
 
       _ <- EitherT(
-        authenticationClient
-          .logout(LogoutRequest(token.toProtoPrimitive))
+        CantonGrpcUtil
+          .sendGrpcRequestUnsafe(authenticationClient)(
+            _.logout(LogoutRequest(token.toProtoPrimitive))
+          )
           .transform {
             case Failure(exc: StatusRuntimeException) => Success(Left(exc.getStatus))
             case Failure(exc) => Success(Left(Status.INTERNAL.withDescription(exc.getMessage)))
-            case Success(_) => Success(Right(()))
+            case Success(_) => Success(Either.unit)
           }
       ).mapK(FutureUnlessShutdown.outcomeK)
     } yield ()

@@ -25,7 +25,7 @@ import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.{DomainId, PartyId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.canton.util.{EitherTUtil, EitherUtil, GrpcStreamingUtils, ResourceUtil}
+import com.digitalasset.canton.util.{EitherTUtil, GrpcStreamingUtils, ResourceUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{DomainAlias, LfPartyId, SequencerCounter, protocol}
 import com.google.protobuf.ByteString
@@ -424,12 +424,13 @@ object GrpcParticipantRepairService {
             _ <- allProtocolVersions
               .get(targetDomainId)
               .map { foundProtocolVersion =>
-                EitherUtil.condUnitE(
+                Either.cond(
                   foundProtocolVersion == targetProtocolVersion,
+                  (),
                   s"Inconsistent protocol versions for domain $targetDomainId: found version is $foundProtocolVersion, passed is $targetProtocolVersion",
                 )
               }
-              .getOrElse(Right(()))
+              .getOrElse(Either.unit)
 
           } yield (sourceId, (targetDomainId, targetProtocolVersion))
       }

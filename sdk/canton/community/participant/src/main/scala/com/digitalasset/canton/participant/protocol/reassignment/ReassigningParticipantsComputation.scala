@@ -25,7 +25,7 @@ import com.digitalasset.canton.topology.transaction.{ParticipantAttributes, Part
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.SingletonTraverse.syntax.SingletonTraverseOps
-import com.digitalasset.canton.util.{EitherTUtil, EitherUtil, ReassignmentTag, SingletonTraverse}
+import com.digitalasset.canton.util.{EitherTUtil, ReassignmentTag, SingletonTraverse}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -113,8 +113,9 @@ private[protocol] class ReassigningParticipantsComputation(
 
       def hasSubmissionPermission = source.isEmpty || source.exists(target.contains)
 
-      EitherUtil.condUnitE(
+      Either.cond(
         hasSubmissionPermission,
+        (),
         PermissionErrors(
           s"For party $party, no participant with submission permission on source domain has submission permission on target domain."
         ),
@@ -203,10 +204,11 @@ private[protocol] class ReassigningParticipantsComputation(
           targetThreshold <- targetStakeholdersInfo.traverse(getThresholdFor(stakeholder, _))
 
           requiredReassigningParticipants = sourceThreshold.unwrap.max(targetThreshold.unwrap)
-          _ <- EitherUtil.condUnitE(
+          _ <- Either.cond(
             computedReassigningParticipant
               .get(stakeholder)
               .exists(participants => participants.size >= requiredReassigningParticipants.unwrap),
+            (),
             StakeholderHostingErrors(
               s"Stakeholder $stakeholder requires at least $requiredReassigningParticipants reassigning participants, but only ${computedReassigningParticipant(stakeholder).size} are available"
             ),

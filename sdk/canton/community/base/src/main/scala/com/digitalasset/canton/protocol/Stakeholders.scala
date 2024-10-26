@@ -7,7 +7,6 @@ import cats.syntax.traverse.*
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.version.*
 import com.digitalasset.canton.{LfPartyId, ProtoDeserializationError}
 import com.google.common.annotations.VisibleForTesting
@@ -78,8 +77,9 @@ object Stakeholders extends HasVersionedMessageCompanion[Stakeholders] {
 
       nonStakeholderSignatories = signatories -- stakeholders
 
-      _ <- EitherUtil.condUnitE(
+      _ <- Either.cond(
         nonStakeholderSignatories.isEmpty,
+        (),
         ProtoDeserializationError.InvariantViolation(
           "signatories",
           s"The following signatories are not stakeholders: $nonStakeholderSignatories",

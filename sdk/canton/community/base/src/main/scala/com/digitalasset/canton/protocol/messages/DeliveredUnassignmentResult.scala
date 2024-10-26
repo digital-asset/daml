@@ -16,7 +16,6 @@ import com.digitalasset.canton.sequencing.protocol.{
   SignedContent,
   WithOpeningErrors,
 }
-import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.util.ReassignmentTag.Source
 
 /** Invariants:
@@ -63,15 +62,17 @@ object DeliveredUnassignmentResult {
         val envelopesCount = envelopes.size
 
         for {
-          _ <- EitherUtil.condUnitE(
+          _ <- Either.cond(
             unassignmentResultsCount == 1,
+            (),
             InvalidUnassignmentResult(
               content,
               s"The deliver event must contain exactly one unassignment result, but found $unassignmentResultsCount.",
             ),
           )
-          _ <- EitherUtil.condUnitE(
+          _ <- Either.cond(
             envelopesCount == 1,
+            (),
             InvalidUnassignmentResult(
               content,
               s"The deliver event must contain exactly one envelope, but found $envelopesCount.",
@@ -88,8 +89,9 @@ object DeliveredUnassignmentResult {
   ): Either[InvalidUnassignmentResult, Unit] = for {
     confirmationResultMessage <- extractConfirmationResultMessage(result.content)
     verdict = confirmationResultMessage.message.verdict
-    _ <- EitherUtil.condUnitE(
+    _ <- Either.cond(
       verdict.isApprove,
+      (),
       InvalidUnassignmentResult(
         result.content,
         s"The unassignment result must be approving; found: $verdict",

@@ -174,7 +174,7 @@ object EncryptedView {
                  encryptionAlgorithmSpec.supportedEncryptionKeySpecs,
                )
              )
-           else Right(())).toEitherT[FutureUnlessShutdown]
+           else Either.unit).toEitherT[FutureUnlessShutdown]
         case None =>
           EitherT.leftT[FutureUnlessShutdown, Unit](
             DecryptionError.InvalidEncryptionKey(s"Encryption key $keyId not found")
@@ -440,7 +440,7 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
           )
     } yield viewRandomness
 
-  private def eitherT[VT <: ViewType, B](value: Either[EncryptedViewMessageError, B])(implicit
+  private def eitherT[B](value: Either[EncryptedViewMessageError, B])(implicit
       ec: ExecutionContext
   ): EitherT[FutureUnlessShutdown, EncryptedViewMessageError, B] =
     EitherT.fromEither[FutureUnlessShutdown](value)
@@ -484,8 +484,9 @@ object EncryptedViewMessage extends HasProtocolVersionedCompanion[EncryptedViewM
           .leftMap(EncryptedViewMessageError.SymmetricDecryptError.apply)
       )
       _ <- eitherT(
-        EitherUtil.condUnitE(
+        Either.cond(
           decrypted.domainId == encrypted.domainId,
+          (),
           EncryptedViewMessageError.WrongDomainIdInEncryptedViewMessage(
             encrypted.domainId,
             decrypted.domainId,

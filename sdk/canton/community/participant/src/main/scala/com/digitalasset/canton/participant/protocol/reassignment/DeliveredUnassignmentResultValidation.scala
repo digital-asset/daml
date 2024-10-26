@@ -17,8 +17,8 @@ import com.digitalasset.canton.protocol.{RequestId, RootHash}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.canton.util.{EitherTUtil, EitherUtil}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -114,8 +114,9 @@ private[reassignment] final case class DeliveredUnassignmentResultValidation(
           .intersect(hostingParticipantsTarget)
           .intersect(reassigningParticipants)
 
-        EitherUtil.condUnitE(
+        Either.cond(
           hostingReassigningParticipants.nonEmpty,
+          (),
           StakeholderNotHostedReassigningParticipant(stakeholder),
         )
       }

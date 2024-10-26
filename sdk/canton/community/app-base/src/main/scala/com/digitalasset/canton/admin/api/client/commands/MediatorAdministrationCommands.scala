@@ -51,7 +51,7 @@ object MediatorAdministrationCommands {
         v30.InitializeMediatorResponse,
         Unit,
       ] {
-    override def createRequest(): Either[String, v30.InitializeMediatorRequest] =
+    override protected def createRequest(): Either[String, v30.InitializeMediatorRequest] =
       Right(
         InitializeMediatorRequest(
           domainId,
@@ -60,12 +60,12 @@ object MediatorAdministrationCommands {
         ).toProtoV30
       )
 
-    override def submitRequest(
+    override protected def submitRequest(
         service: v30.MediatorInitializationServiceGrpc.MediatorInitializationServiceStub,
         request: v30.InitializeMediatorRequest,
     ): Future[v30.InitializeMediatorResponse] =
       service.initializeMediator(request)
-    override def handleResponse(
+    override protected def handleResponse(
         response: v30.InitializeMediatorResponse
     ): Either[String, Unit] =
       InitializeMediatorResponse
@@ -87,14 +87,15 @@ object MediatorAdministrationCommands {
         channel: ManagedChannel
     ): v30.MediatorAdministrationServiceGrpc.MediatorAdministrationServiceStub =
       v30.MediatorAdministrationServiceGrpc.stub(channel)
-    override def createRequest(): Either[String, v30.MediatorPruning.PruneRequest] =
+    override protected def createRequest(): Either[String, v30.MediatorPruning.PruneRequest] =
       Right(v30.MediatorPruning.PruneRequest(timestamp.toProtoTimestamp.some))
-    override def submitRequest(
+    override protected def submitRequest(
         service: v30.MediatorAdministrationServiceGrpc.MediatorAdministrationServiceStub,
         request: v30.MediatorPruning.PruneRequest,
     ): Future[v30.MediatorPruning.PruneResponse] = service.prune(request)
-    override def handleResponse(response: v30.MediatorPruning.PruneResponse): Either[String, Unit] =
-      Right(())
+    override protected def handleResponse(
+        response: v30.MediatorPruning.PruneResponse
+    ): Either[String, Unit] = Either.unit
 
     // all pruning commands will potentially take a long time
     override def timeoutType: TimeoutType = DefaultUnboundedTimeout
@@ -106,17 +107,17 @@ object MediatorAdministrationCommands {
         LocatePruningTimestamp.Response,
         Option[CantonTimestamp],
       ] {
-    override def createRequest(): Either[String, LocatePruningTimestamp.Request] = Right(
+    override protected def createRequest(): Either[String, LocatePruningTimestamp.Request] = Right(
       LocatePruningTimestamp.Request(index.value)
     )
 
-    override def submitRequest(
+    override protected def submitRequest(
         service: v30.MediatorAdministrationServiceGrpc.MediatorAdministrationServiceStub,
         request: LocatePruningTimestamp.Request,
     ): Future[LocatePruningTimestamp.Response] =
       service.locatePruningTimestamp(request)
 
-    override def handleResponse(
+    override protected def handleResponse(
         response: LocatePruningTimestamp.Response
     ): Either[String, Option[CantonTimestamp]] =
       response.timestamp.fold(Right(None): Either[String, Option[CantonTimestamp]])(

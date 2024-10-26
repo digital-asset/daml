@@ -481,7 +481,7 @@ class CantonSyncService(
       logger.info(
         s"Could not locate pruning point: ${err.message}. Considering success for idempotency"
       )
-      Right(())
+      Either.unit
     case Left(err: LedgerPruningOffsetNonCantonFormat) =>
       logger.info(err.message)
       Left(PruningServiceError.NonCantonOffset.Error(err.message))

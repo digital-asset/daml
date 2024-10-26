@@ -24,7 +24,6 @@ import com.digitalasset.canton.sequencing.protocol.{
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
-import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.*
 import com.digitalasset.canton.{LfPartyId, LfWorkflowId, ReassignmentCounter}
@@ -501,8 +500,9 @@ object FullAssignmentTree {
   )(bytes: ByteString): ParsingResult[FullAssignmentTree] =
     for {
       tree <- AssignmentViewTree.fromByteString(crypto, targetProtocolVersion)(bytes)
-      _ <- EitherUtil.condUnitE(
+      _ <- Either.cond(
         tree.isFullyUnblinded,
+        (),
         OtherError(s"Assignment request ${tree.rootHash} is not fully unblinded"),
       )
     } yield FullAssignmentTree(tree)

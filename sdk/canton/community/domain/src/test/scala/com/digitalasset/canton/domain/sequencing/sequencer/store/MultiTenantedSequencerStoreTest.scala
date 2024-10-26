@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer.store
 
+import cats.syntax.either.*
 import cats.syntax.option.*
 import com.daml.nonempty.NonEmptyUtil
 import com.digitalasset.canton.BaseTest
@@ -78,7 +79,7 @@ trait MultiTenantedSequencerStoreTest extends FlagCloseable with HasCloseContext
           // s2 should be online so shouldn't have returned an error
           s0Update.left.value shouldBe SaveWatermarkError.WatermarkFlaggedOffline
           s1Update.left.value shouldBe SaveWatermarkError.WatermarkFlaggedOffline
-          s2Update shouldBe Right(())
+          s2Update shouldBe Either.unit
         }
       }
     }

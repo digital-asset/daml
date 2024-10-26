@@ -210,7 +210,7 @@ class ParticipantPartiesAdministrationGroup(
           domainIds subsetOf registered,
           show"Party $partyId did not appear for $queriedParticipant on domain ${domainIds.diff(registered)}",
         )
-      } else Right(())
+      } else Either.unit
     val syncLedgerApi = waitForDomain match {
       case DomainChoice.All => true
       case DomainChoice.Only(aliases) => aliases.nonEmpty
@@ -246,7 +246,7 @@ class ParticipantPartiesAdministrationGroup(
             mustFullyAuthorize,
           ).toEither
           _ <- validDisplayName match {
-            case None => Right(())
+            case None => Either.unit
             case Some(name) =>
               reference
                 .adminCommand(
@@ -263,7 +263,7 @@ class ParticipantPartiesAdministrationGroup(
                 reference.ledger_api.parties.list().map(_.party).contains(partyId),
                 show"The party $partyId never appeared on the ledger API server",
               )
-            else Right(())
+            else Either.unit
           _ <- additionalSync.traverse_ { case (p, domains) =>
             waitForParty(
               partyId,

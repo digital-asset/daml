@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.admin
 
+import cats.syntax.either.*
 import com.daml.ledger.api.v2.reassignment.Reassignment
 import com.daml.ledger.api.v2.state_service.ActiveContract
 import com.daml.ledger.api.v2.transaction.Transaction
@@ -10,7 +11,6 @@ import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.participant.ledger.api.client.CommandResult
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.EitherUtil
 
 import scala.util.chaining.scalaUtilChainingOps
 
@@ -43,7 +43,7 @@ trait AdminWorkflowService extends NamedLogging with AutoCloseable {
         logger.info(
           s"Successfully submitted $operation with transactionId=$transactionId, waiting for response"
         )
-        EitherUtil.unit[String]
+        Either.unit[String]
       case CommandResult.Failed(_, errorStatus) =>
         Left(s"Failed $operation: Failed to submit $operation: $errorStatus".tap(logger.warn(_)))
       case CommandResult.AbortedDueToShutdown =>

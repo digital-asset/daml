@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.services
 
+import cats.syntax.either.*
 import com.daml.ledger.api.v2.testing.time_service.TimeServiceGrpc.TimeService
 import com.daml.ledger.api.v2.testing.time_service.{
   GetTimeRequest,
@@ -71,7 +72,7 @@ private[apiserver] final class ApiTimeService(
       requestedTime <- requirePresence(request.newTime, "new_time").map(toInstant)
       _ <- {
         if (!requestedTime.isBefore(expectedTime))
-          Right(())
+          Either.unit
         else
           Left(
             invalidArgument(

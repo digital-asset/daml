@@ -38,7 +38,6 @@ import com.digitalasset.canton.sequencing.{
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.{ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext, TracerProvider}
-import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.{DomainAlias, LfPartyId}
 import com.typesafe.scalalogging.Logger
 import io.opentelemetry.api.trace.Tracer
@@ -453,8 +452,9 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
         case (name, occurrences) if occurrences.sizeIs > 1 =>
           s"$name (${occurrences.size} occurrences)"
       }
-    EitherUtil.condUnitE(
+    Either.cond(
       nonUniqueNames.isEmpty,
+      (),
       new IllegalStateException(
         s"""Node names must be unique and must differ from reserved keywords. Please revisit node names in your config file.
          |Offending names: ${nonUniqueNames.mkString("(", ", ", ")")}""".stripMargin

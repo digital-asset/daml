@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.util
 
+import cats.syntax.either.*
 import com.digitalasset.canton.BaseTest
 import org.scalatest.wordspec.AnyWordSpec
 
@@ -16,12 +17,12 @@ class TrieMapUtilTest extends AnyWordSpec with BaseTest {
 
     "insert if absent" in {
       val map = TrieMap(1 -> "Foo", 2 -> "Bar")
-      TrieMapUtil.insertIfAbsent(map, 3, "test", Error.apply _) shouldBe Right(())
+      TrieMapUtil.insertIfAbsent(map, 3, "test", Error.apply _) shouldBe Either.unit
     }
 
     "insert if idempotent" in {
       val map = TrieMap(1 -> "Foo", 2 -> "Bar")
-      TrieMapUtil.insertIfAbsent(map, 2, "Bar", Error.apply _) shouldBe Right(())
+      TrieMapUtil.insertIfAbsent(map, 2, "Bar", Error.apply _) shouldBe Either.unit
     }
 
     "fail insert on different values " in {

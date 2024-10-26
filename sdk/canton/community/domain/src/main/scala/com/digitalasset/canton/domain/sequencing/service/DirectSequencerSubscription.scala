@@ -57,7 +57,7 @@ private[service] class DirectSequencerSubscription[E](
             performUnlessClosingF("direct-sequencer-subscription-handler") {
               handler(eventOrError)
             }.onShutdown {
-              Right(())
+              Either.unit
             }.map(_.leftMap(SubscriptionCloseReason.HandlerError(_)))
           case Some(reason) => Future.successful(Left(reason))
         }

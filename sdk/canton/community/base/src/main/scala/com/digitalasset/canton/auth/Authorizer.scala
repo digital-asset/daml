@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.auth
 
+import cats.syntax.either.*
 import com.daml.jwt.JwtTimestampLeeway
 import com.daml.ledger.api.v2.transaction_filter.Filters
 import com.daml.tracing.Telemetry
@@ -144,16 +145,14 @@ final class Authorizer(
         AuthorizationError.InvalidIdentityProviderId(requestIdentityProviderId.getOrElse("<empty>"))
       )
     case _ =>
-      Right(())
+      Either.unit
   }
 
   private[this] def requireForAll[T](
       xs: IterableOnce[T],
       f: T => Either[AuthorizationError, Unit],
   ): Either[AuthorizationError, Unit] =
-    xs.iterator.foldLeft[Either[AuthorizationError, Unit]](Right(()))((acc, x) =>
-      acc.flatMap(_ => f(x))
-    )
+    xs.iterator.foldLeft(Either.unit[AuthorizationError])((acc, x) => acc.flatMap(_ => f(x)))
 
   /** Wraps a streaming call to verify whether some Claims authorize to read as all parties
     * of the given set. Authorization is always granted for an empty collection of parties.
@@ -166,7 +165,7 @@ final class Authorizer(
     authorize(call) { claims =>
       for {
         _ <- valid(claims)
-        _ <- if (readAsAnyParty) claims.canReadAsAnyParty else Right(())
+        _ <- if (readAsAnyParty) claims.canReadAsAnyParty else Either.unit
         _ <- requireForAll(parties, party => claims.canReadAs(party))
       } yield {
         ()
@@ -185,8 +184,7 @@ final class Authorizer(
         _ <- authorizationErrorAsGrpc(requireForAll(parties, party => claims.canReadAs(party)))
         defaultedApplicationId <- defaultApplicationId(reqApplicationId, claims)
         _ <-
-          if (claims.claims.contains(ClaimReadAsAnyParty))
-            Right(())
+          if (claims.claims.contains(ClaimReadAsAnyParty)) Either.unit
           else authorizationErrorAsGrpc(claims.validForApplication(defaultedApplicationId))
       } yield applicationIdL.set(defaultedApplicationId)(req)
     }
@@ -216,12 +214,12 @@ final class Authorizer(
       for {
         _ <- authorizationErrorAsGrpc(valid(claims))
         _ <- authorizationErrorAsGrpc(
-          actAs.foldRight[Either[AuthorizationError, Unit]](Right(()))((p, acc) =>
+          actAs.foldRight(Either.unit[AuthorizationError])((p, acc) =>
             acc.flatMap(_ => claims.canActAs(p))
           )
         )
         _ <- authorizationErrorAsGrpc(
-          readAs.foldRight[Either[AuthorizationError, Unit]](Right(()))((p, acc) =>
+          readAs.foldRight(Either.unit[AuthorizationError])((p, acc) =>
             acc.flatMap(_ => claims.canReadAs(p))
           )
         )

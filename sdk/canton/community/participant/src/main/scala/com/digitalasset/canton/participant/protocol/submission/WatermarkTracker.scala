@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.protocol.submission
 
+import cats.syntax.either.*
 import com.digitalasset.canton.checked
 import com.digitalasset.canton.concurrent.{FutureSupervisor, SupervisedPromise}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -122,7 +123,7 @@ class WatermarkTracker[Mark: Pretty](
             )
             runningTasks.put(mark, count + 1)
         }
-        Right(())
+        Either.unit
       }
     }
 

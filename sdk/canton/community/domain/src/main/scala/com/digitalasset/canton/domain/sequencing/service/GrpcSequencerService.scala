@@ -99,7 +99,7 @@ object AuthenticationCheck {
     override def authenticate(
         member: Member,
         authenticatedMember: Option[Member],
-    ): Either[String, Unit] = Right(())
+    ): Either[String, Unit] = Either.unit
 
     override def lookupCurrentMember(): Option[Member] = None
   }
