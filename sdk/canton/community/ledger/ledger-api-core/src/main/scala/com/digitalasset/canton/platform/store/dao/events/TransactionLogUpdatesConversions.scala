@@ -422,7 +422,8 @@ private[platform] object TransactionLogUpdatesConversions {
         .map { exerciseResult =>
           val choiceResultEnricher = (value: Value) =>
             lfValueTranslation.enricher.enrichChoiceResult(
-              exercisedEvent.templateId,
+              exercisedEvent.choicePackageId,
+              exercisedEvent.templateId.qualifiedName,
               exercisedEvent.interfaceId,
               Ref.Name.assertFromString(exercisedEvent.choice),
               value.unversioned,
@@ -449,6 +450,7 @@ private[platform] object TransactionLogUpdatesConversions {
             contractId = exercisedEvent.contractId.coid,
             templateId = Some(LfEngineToApi.toApiIdentifier(exercisedEvent.templateId)),
             packageName = exercisedEvent.packageName,
+            choicePackageId = Some(exercisedEvent.choicePackageId.toString),
             interfaceId = exercisedEvent.interfaceId.map(LfEngineToApi.toApiIdentifier),
             choice = exercisedEvent.choice,
             choiceArgument = Some(choiceArgument),

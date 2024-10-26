@@ -376,7 +376,8 @@ final class LfValueTranslation(
             attribute = "exercise result",
             enrich = value =>
               enricher.enrichChoiceResult(
-                templateId.copy(packageId = choicePkgId),
+                choicePkgId,
+                templateId.qualifiedName,
                 interfaceId,
                 choiceName,
                 value.unversioned,
