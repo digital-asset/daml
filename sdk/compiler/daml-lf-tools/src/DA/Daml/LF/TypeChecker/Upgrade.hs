@@ -68,11 +68,11 @@ runGammaUnderUpgrades Upgrading{ _past = pastAction, _present = presentAction } 
     presentResult <- withReaderT (_present . _upgradingGamma) presentAction
     pure Upgrading { _past = pastResult, _present = presentResult }
 
-shouldTypecheck :: Version -> UpgradeInfo -> Bool
-shouldTypecheck _ upgradeInfo = uiTypecheckUpgrades upgradeInfo
+shouldTypecheck :: UpgradeInfo -> Bool
+shouldTypecheck upgradeInfo = uiTypecheckUpgrades upgradeInfo
 
 shouldTypecheckM :: TcPreUpgradeM Bool
-shouldTypecheckM = asks (uncurry shouldTypecheck)
+shouldTypecheckM = asks (shouldTypecheck . snd)
 
 mkGamma :: Version -> UpgradeInfo -> World -> Gamma
 mkGamma version upgradeInfo world =
@@ -165,7 +165,7 @@ checkModule
   -> [Diagnostic]
 checkModule world0 module_ deps version upgradeInfo mbUpgradedPkg =
   extractDiagnostics version upgradeInfo $
-    when (shouldTypecheck version upgradeInfo) $ do
+    when (shouldTypecheck upgradeInfo) $ do
       let world = extendWorldSelf module_ world0
       withReaderT (\(version, upgradeInfo) -> mkGamma version upgradeInfo world) $ do
         checkNewInterfacesAreUnused module_

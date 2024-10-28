@@ -58,6 +58,92 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
   }
 
   s"Upgradeability Checks using `daml upgrade-check` tool" should {
+    "report no upgrade errors when the upgrade use a newer version of LF" in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-SucceedsWhenNewerPackagesUsesANewerLFVersion-v1.dar",
+          "test-common/upgrades-SucceedsWhenNewerPackagesUsesANewerLFVersion-v2.dar",
+        ),
+        Seq(
+          (
+            "test-common/upgrades-SucceedsWhenNewerPackagesUsesANewerLFVersion-v1.dar",
+            "test-common/upgrades-SucceedsWhenNewerPackagesUsesANewerLFVersion-v2.dar",
+            None,
+          ),
+        )
+      )
+    }
+
+    "report upgrade errors when the upgrade use a older version of LF" in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-FailsWhenNewerPackagesUsesAnOlderLFVersion-v1.dar",
+          "test-common/upgrades-FailsWhenNewerPackagesUsesAnOlderLFVersion-v2.dar",
+        ),
+        Seq(
+          (
+            "test-common/upgrades-FailsWhenNewerPackagesUsesAnOlderLFVersion-v1.dar",
+            "test-common/upgrades-FailsWhenNewerPackagesUsesAnOlderLFVersion-v2.dar",
+            Some("The upgraded package uses an older LF version"),
+          ),
+        )
+      )
+    }
+
+    "Succeeds when v2 depends on v2dep which is a valid upgrade of v1dep" in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-UploadSucceedsWhenDepsAreValidUpgrades-v1.dar",
+          "test-common/upgrades-UploadSucceedsWhenDepsAreValidUpgrades-v2.dar",
+        ),
+        Seq(
+          (
+            "test-common/upgrades-UploadSucceedsWhenDepsAreValidUpgradesDep-v1.dar",
+            "test-common/upgrades-UploadSucceedsWhenDepsAreValidUpgradesDep-v2.dar",
+            None,
+          ),
+        )
+      )
+    }
+
+    "report upgrade errors when v2 depends on v2dep which is an invalid upgrade of v1dep" in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-UploadFailsWhenDepsAreInvalidUpgrades-v1.dar",
+          "test-common/upgrades-UploadFailsWhenDepsAreInvalidUpgrades-v2.dar",
+        ),
+        Seq((
+          "test-common/upgrades-FailsWhenExistingFieldInTemplateIsChanged-v1.dar",
+          "test-common/upgrades-FailsWhenExistingFieldInTemplateIsChanged-v2.dar",
+          Some("The upgraded template A has changed the types of some of its original fields."),
+        )),
+      )
+    }
+
+    "Fails when a package embeds a previous version of itself it is not a valid upgrade of" in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-FailsWhenDepIsInvalidPreviousVersionOfSelf-v2.dar"
+        ),
+        Seq((
+          "test-common/upgrades-FailsWhenDepIsInvalidPreviousVersionOfSelf-v1.dar",
+          "test-common/upgrades-FailsWhenDepIsInvalidPreviousVersionOfSelf-v2.dar",
+          Some("The upgraded data type T has added new fields, but those fields are not Optional.")
+        ))
+      )
+    }
+
+    "Succeeds when a package embeds a previous version of itself it is a valid upgrade of" in {
+      testPackages(
+        Seq("test-common/upgrades-SucceedsWhenDepIsValidPreviousVersionOfSelf-v2.dar"),
+        Seq((
+          "test-common/upgrades-SucceedsWhenDepIsValidPreviousVersionOfSelf-v1.dar",
+          "test-common/upgrades-SucceedsWhenDepIsValidPreviousVersionOfSelf-v2.dar",
+          None
+        ))
+      )
+    }
+
     s"Succeeds when v1 upgrades to v2 and then v3" in {
       testPackages(
         Seq(

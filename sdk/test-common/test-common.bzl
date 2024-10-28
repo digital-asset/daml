@@ -84,3 +84,6 @@ echo "case object %sTestDar extends TestDar { val path = \\"%s/%s-tests-%s.dar\\
             da_scala_library_kwargs.update({"tags": ["maven_coordinates=com.daml:%s-dar-files-%s-lib:__VERSION__" % (maven_name_prefix, lf_version)]})
         da_scala_library_kwargs.update(kwargs)
         da_scala_library(name = da_scala_library_name, **da_scala_library_kwargs)
+
+def opts_get_lf_version(opts):
+    return opts.get("lf_version", default = "2.dev")

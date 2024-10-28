@@ -207,7 +207,9 @@ da_scala_test_suite(
             "//test-common:upgrades-FailsWhenUpgradedFieldFromDifferentPackageName-v2.dar",
             "//test-common:upgrades-FailsWhenUpgradedFieldPackagesAreNotUpgradable-v1.dar",
             "//test-common:upgrades-FailsWhenUpgradedFieldPackagesAreNotUpgradable-v2.dar",
+            "//test-common:upgrades-FailsWhenDepIsInvalidPreviousVersionOfSelf-v1.dar",
             "//test-common:upgrades-FailsWhenDepIsInvalidPreviousVersionOfSelf-v2.dar",
+            "//test-common:upgrades-SucceedsWhenDepIsValidPreviousVersionOfSelf-v1.dar",
             "//test-common:upgrades-SucceedsWhenDepIsValidPreviousVersionOfSelf-v2.dar",
 
             # Ported from DamlcUpgrades.hs
@@ -317,6 +319,11 @@ da_scala_test_suite(
             "//test-common:upgrades-SucceedWhenParamNameChanges-v2.dar",
             "//test-common:upgrades-SucceedWhenPhantomParamBecomesUsed-v1.dar",
             "//test-common:upgrades-SucceedWhenPhantomParamBecomesUsed-v2.dar",
+
+            "//test-common:upgrades-FailsWhenNewerPackagesUsesAnOlderLFVersion-v1.dar",
+            "//test-common:upgrades-FailsWhenNewerPackagesUsesAnOlderLFVersion-v2.dar",
+            "//test-common:upgrades-SucceedsWhenNewerPackagesUsesANewerLFVersion-v1.dar",
+            "//test-common:upgrades-SucceedsWhenNewerPackagesUsesANewerLFVersion-v2.dar",
 
             # Test for dependency upgrades
             "//test-common:upgrades-FailsWhenDepsDowngradeVersionsWhileUsingDatatypes-dep-v1.dar",

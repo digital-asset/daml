@@ -4,13 +4,10 @@
 package com.digitalasset.daml.lf.validation
 package upgrade
 
-import com.daml.SdkVersion
 import com.daml.bazeltools.BazelRunfiles
-import com.daml.crypto.MessageDigestPrototype
 import com.daml.integrationtest.CantonFixture
-import com.digitalasset.daml.lf.archive.{Dar, DarReader, DarWriter}
+import com.digitalasset.daml.lf.archive.{DarReader}
 import com.digitalasset.daml.lf.data.Ref.PackageId
-import com.digitalasset.daml.lf.language.LanguageVersion
 import com.google.protobuf.ByteString
 import org.scalatest.{Assertion, Inside}
 import org.scalatest.Inspectors.forEvery
@@ -102,107 +99,6 @@ trait LongTests { this: UpgradesSpec =>
           "1.0.0"
         ),
       )
-    }
-
-    def mkTrivialPkg(pkgName: String, pkgVersion: String, lfVersion: LanguageVersion) = {
-      import com.digitalasset.daml.lf.testing.parser._
-      import com.digitalasset.daml.lf.testing.parser.Implicits._
-      import com.digitalasset.daml.lf.archive.testing.Encode
-
-      val selfPkgId = PackageId.assertFromString("-self-")
-
-      implicit val parserParameters: ParserParameters[this.type] =
-        ParserParameters(
-          defaultPackageId = selfPkgId,
-          languageVersion = lfVersion,
-        )
-
-      val pkg =
-        p""" metadata ( '$pkgName' : '$pkgVersion' )
-        module Mod {
-          record @serializable T = { sig: Party };
-          template (this: T) = {
-             precondition True;
-             signatories Cons @Party [Mod:T {sig} this] (Nil @Party);
-             observers Nil @Party;
-          };
-        }"""
-
-      val archive = Encode.encodeArchive(selfPkgId -> pkg, lfVersion)
-      val pkgId = PackageId.assertFromString(
-        MessageDigestPrototype.Sha256.newDigest
-          .digest(archive.getPayload.toByteArray)
-          .map("%02x" format _)
-          .mkString
-      )
-      val os = ByteString.newOutput()
-      DarWriter.encode(
-        SdkVersion.sdkVersion,
-        Dar(("archive.dalf", archive.toByteArray), List()),
-        os,
-      )
-
-      pkgId -> os.toByteString
-    }
-
-    "report no upgrade errors when the upgrade use a newer version of LF" in
-      testPackagePair(
-        mkTrivialPkg("-increasing-lf-version-", "1.0.0", LanguageVersion.v2_1),
-        mkTrivialPkg("-increasing-lf-version-", "2.0.0", LanguageVersion.v2_dev),
-        assertPackageUpgradeCheck(None),
-      )
-
-    "report upgrade errors when the upgrade use a older version of LF" in
-      testPackagePair(
-        mkTrivialPkg("-decreasing-lf-version-", "1.0.0", LanguageVersion.v2_dev),
-        mkTrivialPkg("-decreasing-lf-version-", "2.0.0", LanguageVersion.v2_1),
-        assertPackageUpgradeCheck(Some("The upgraded package uses an older LF version")),
-      )
-
-    "Succeeds when v2 depends on v2dep which is a valid upgrade of v1dep" in
-      testPackagePair(
-        "test-common/upgrades-UploadSucceedsWhenDepsAreValidUpgrades-v1.dar",
-        "test-common/upgrades-UploadSucceedsWhenDepsAreValidUpgrades-v2.dar",
-        assertPackageDependenciesUpgradeCheck(
-          "test-common/upgrades-UploadSucceedsWhenDepsAreValidUpgradesDep-v1.dar",
-          "test-common/upgrades-UploadSucceedsWhenDepsAreValidUpgradesDep-v2.dar",
-          None,
-        ),
-      )
-
-    "report upgrade errors when v2 depends on v2dep which is an invalid upgrade of v1dep" in
-      testPackagePair(
-        "test-common/upgrades-UploadFailsWhenDepsAreInvalidUpgrades-v1.dar",
-        "test-common/upgrades-UploadFailsWhenDepsAreInvalidUpgrades-v2.dar",
-        assertPackageDependenciesUpgradeCheck(
-          "test-common/upgrades-FailsWhenExistingFieldInTemplateIsChanged-v1.dar",
-          "test-common/upgrades-FailsWhenExistingFieldInTemplateIsChanged-v2.dar",
-          Some("The upgraded template A has changed the types of some of its original fields."),
-        ),
-      )
-
-    "Fails when a package embeds a previous version of itself it is not a valid upgrade of" in {
-      for {
-        uploadResult <- uploadPackage(
-          "test-common/upgrades-FailsWhenDepIsInvalidPreviousVersionOfSelf-v2.dar"
-        )
-      } yield {
-        // We expect the optional error to be defined. We do not check the error message because the machinery for
-        // reading the logs in this class is tailored towards package pairs. But the test below, which is identical to
-        // this one except the upgrade is valid, proves that it fails for the expected reason.
-        assert(uploadResult._2.isDefined)
-      }
-    }
-
-    "Succeeds when a package embeds a previous version of itself it is a valid upgrade of" in {
-      for {
-        uploadResult <- uploadPackage(
-          "test-common/upgrades-SucceedsWhenDepIsValidPreviousVersionOfSelf-v2.dar"
-        )
-      } yield {
-        // We expect the optional error to be empty.
-        assert(uploadResult._2.isEmpty)
-      }
     }
   }
 }
