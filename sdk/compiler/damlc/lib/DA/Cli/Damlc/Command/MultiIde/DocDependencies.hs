@@ -70,7 +70,7 @@ unpackDoc miState packageDb lfVersion name = runMaybeT $ do
 
 generateDocFile :: SdkVersioned => FilePath -> FilePath -> Version -> FilePath -> IO ()
 generateDocFile importDir packageDb lfVersion unpackDir = do
-  damlFiles <- getDamlRootFiles $ importDir
+  damlFiles <- getDamlRootFiles importDir
   let initialOpts = (defaultOptions $ Just lfVersion)
         { optImportPath = [importDir]
         , optPackageDbs = [packageDb]

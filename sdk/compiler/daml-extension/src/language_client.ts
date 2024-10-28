@@ -309,7 +309,9 @@ export class DamlLanguageClient {
 
   private static panels: { [packageName: string]: vscode.WebviewPanel } = {};
 
-  private static getOrCreateDocWindow(packageName: string): vscode.WebviewPanel {
+  private static getOrCreateDocWindow(
+    packageName: string,
+  ): vscode.WebviewPanel {
     let panels = DamlLanguageClient.panels;
     let panel = panels[packageName];
     if (panel) {
@@ -355,18 +357,18 @@ export class DamlLanguageClient {
         ) => {
           const result = await next(document, position, token);
           if (!result) return;
-  
+
           let locations: Array<vscode.Location> | Array<vscode.LocationLink>;
           if (result instanceof vscode.Location)
             locations = new Array(result as vscode.Location);
           else if (Array.isArray(result)) locations = result;
           else throw "Provide definition result was wrongly typed";
-  
+
           if (locations.length == 0) return;
-  
+
           // Currently ghc-ide only ever gives 1 or 0 results, so we operate only on the first element
           let location = locations[0];
-  
+
           // this should reuse existing page
           if (
             location instanceof vscode.Location &&
