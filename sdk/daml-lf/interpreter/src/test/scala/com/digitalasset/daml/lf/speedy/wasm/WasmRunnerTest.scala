@@ -168,85 +168,87 @@ class WasmRunnerTest
     }
   }
 
-  "rust create-contract" in {
-    val wasmModule = ByteString.readFrom(
-      Files.newInputStream(
-        BazelRunfiles.rlocation(
-          Paths.get(
-            s"daml-lf/interpreter/src/test/resources/create-contract.${languages("rust")}.wasm"
+  for (target <- Set("rust", "assemblyscript")) {
+    s"$target create-contract" in {
+      val wasmModule = ByteString.readFrom(
+        Files.newInputStream(
+          BazelRunfiles.rlocation(
+            Paths.get(
+              s"daml-lf/interpreter/src/test/resources/create-contract.${languages("rust")}.wasm"
+            )
           )
         )
       )
-    )
-    val submissionTime = Time.Timestamp.now()
-    val hashRoot0 = crypto.Hash.assertFromString("deadbeef" * 8)
-    val initialSeeding = InitialSeeding.RootNodeSeeds(ImmArray(Some(hashRoot0)))
-    val bob = Ref.Party.assertFromString("bob")
-    val submitters = Set(bob)
-    val readAs = Set.empty[Ref.Party]
-    val stakeholders = submitters ++ readAs
-    val pkgName = Ref.PackageName.assertFromString("wasm_package")
-    val wexpr = WasmExpr(wasmModule, "main")
-    val wasm = WasmRunner(
-      submitters = submitters,
-      readAs = readAs,
-      seeding = initialSeeding,
-      submissionTime = submissionTime,
-      authorizationChecker = DefaultAuthorizationChecker,
-      logger = createContextualizedLogger(mockLogger),
-      compiledPackages = compiledPackages,
-      wasmExpr = wexpr,
-      activeContractStore = WasmRunnerTestLib.acs(),
-    )(LoggingContext.ForTesting)
+      val submissionTime = Time.Timestamp.now()
+      val hashRoot0 = crypto.Hash.assertFromString("deadbeef" * 8)
+      val initialSeeding = InitialSeeding.RootNodeSeeds(ImmArray(Some(hashRoot0)))
+      val bob = Ref.Party.assertFromString("bob")
+      val submitters = Set(bob)
+      val readAs = Set.empty[Ref.Party]
+      val stakeholders = submitters ++ readAs
+      val pkgName = Ref.PackageName.assertFromString("wasm_package")
+      val wexpr = WasmExpr(wasmModule, "main")
+      val wasm = WasmRunner(
+        submitters = submitters,
+        readAs = readAs,
+        seeding = initialSeeding,
+        submissionTime = submissionTime,
+        authorizationChecker = DefaultAuthorizationChecker,
+        logger = createContextualizedLogger(mockLogger),
+        compiledPackages = compiledPackages,
+        wasmExpr = wexpr,
+        activeContractStore = WasmRunnerTestLib.acs(),
+      )(LoggingContext.ForTesting)
 
-    getLocalContractStore(wasm) shouldBe empty
+      getLocalContractStore(wasm) shouldBe empty
 
-    val result = wasm.evaluateWasmExpression()
+      val result = wasm.evaluateWasmExpression()
 
-    inside(result) {
-      case Right(
-            UpdateMachine.Result(
-              tx,
-              locationInfo,
-              nodeSeeds,
-              globalKeyMapping,
-              disclosedCreateEvents,
-            )
-          ) =>
-        tx.transaction.isWellFormed shouldBe Set.empty
-        tx.roots.length shouldBe 1
-        val nodeId = tx.roots.head
-        inside(tx.nodes(nodeId)) {
-          case Node.Create(
-                contractId,
-                `pkgName`,
-                _,
-                templateId,
-                arg @ ValueRecord(None, fields),
-                "",
-                `submitters`,
-                `stakeholders`,
-                None,
-                TransactionVersion.V31,
-              ) =>
-            verify(mockLogger).info(s"created contract with ID ${contractId.coid}")
-            templateId shouldBe Ref.TypeConName.assertFromString(
-              "cae3f9de0ee19fa89d4b65439865e1942a3a98b50c86156c3ab1b09e8266c833:wasm_module:SimpleTemplate.new"
-            )
-            fields.length shouldBe 2
-            fields(0) shouldBe (None, ValueParty(bob))
-            fields(1) shouldBe (None, ValueInt64(42L))
-            inside(getLocalContractStore(wasm).get(contractId)) { case Some(contractInfo) =>
-              contractInfo.templateId shouldBe templateId
-              contractInfo.arg shouldBe arg
-            }
-        }
-        tx.version shouldBe TransactionVersion.V31
-        locationInfo shouldBe empty
-        nodeSeeds.length shouldBe 1
-        nodeSeeds.head shouldBe (nodeId, hashRoot0)
-        globalKeyMapping shouldBe empty
-        disclosedCreateEvents shouldBe empty
+      inside(result) {
+        case Right(
+              UpdateMachine.Result(
+                tx,
+                locationInfo,
+                nodeSeeds,
+                globalKeyMapping,
+                disclosedCreateEvents,
+              )
+            ) =>
+          tx.transaction.isWellFormed shouldBe Set.empty
+          tx.roots.length shouldBe 1
+          val nodeId = tx.roots.head
+          inside(tx.nodes(nodeId)) {
+            case Node.Create(
+                  contractId,
+                  `pkgName`,
+                  _,
+                  templateId,
+                  arg @ ValueRecord(None, fields),
+                  "",
+                  `submitters`,
+                  `stakeholders`,
+                  None,
+                  TransactionVersion.V31,
+                ) =>
+              verify(mockLogger).info(s"created contract with ID ${contractId.coid}")
+              templateId shouldBe Ref.TypeConName.assertFromString(
+                "cae3f9de0ee19fa89d4b65439865e1942a3a98b50c86156c3ab1b09e8266c833:wasm_module:SimpleTemplate.new"
+              )
+              fields.length shouldBe 2
+              fields(0) shouldBe (None, ValueParty(bob))
+              fields(1) shouldBe (None, ValueInt64(42L))
+              inside(getLocalContractStore(wasm).get(contractId)) { case Some(contractInfo) =>
+                contractInfo.templateId shouldBe templateId
+                contractInfo.arg shouldBe arg
+              }
+          }
+          tx.version shouldBe TransactionVersion.V31
+          locationInfo shouldBe empty
+          nodeSeeds.length shouldBe 1
+          nodeSeeds.head shouldBe (nodeId, hashRoot0)
+          globalKeyMapping shouldBe empty
+          disclosedCreateEvents shouldBe empty
+      }
     }
   }
 
