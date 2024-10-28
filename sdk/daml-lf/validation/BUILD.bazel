@@ -170,6 +170,7 @@ da_scala_test_suite(
             exclude = [
                 "src/test/scala/**/upgrade/UpgradesSpecBase.scala",
                 "src/test/scala/**/upgrade/UpgradesSpecUtil.scala",
+                "src/test/scala/**/upgrade/UpgradesCheckSpecUtil.scala",
             ],
         ),
         data = [
