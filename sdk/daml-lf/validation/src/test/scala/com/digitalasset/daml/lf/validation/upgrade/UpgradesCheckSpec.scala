@@ -15,6 +15,8 @@ import java.nio.file.{Path, Paths}
 import java.io.File
 import org.scalatest.Inspectors.forEvery
 
+import com.digitalasset.daml.lf.validation.upgrade.{StringLoggerFactory}
+
 import com.digitalasset.daml.lf.validation.UpgradeCheckMain
 
 final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
@@ -31,9 +33,10 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
     val paths: Seq[Path] = rawPaths.map((x: String) => BazelRunfiles.rlocation(Paths.get(x)))
 
     val builder = new StringBuilder()
-    val (upgradeCheck, msgs) = UpgradeCheckMain.test
+    val loggerFactory = StringLoggerFactory("")
+    val upgradeCheck = UpgradeCheckMain(loggerFactory)
     upgradeCheck.check(paths.toArray.map(_.toString))
-    for { msg <- msgs } {
+    for { msg <- loggerFactory.msgs } {
       (builder append msg) append '\n'
     }
     val out = builder.toString

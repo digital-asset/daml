@@ -61,8 +61,8 @@ da_scala_library(
         "//daml-lf/validation",
         "//libs-scala/contextualized-logging",
         "//libs-scala/scala-utils",
-        "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
         "@maven//:org_slf4j_slf4j_api",
+        "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
     ],
 )
 
@@ -87,6 +87,7 @@ da_scala_library(
             [
                 "src/test/scala/**/upgrade/UpgradesSpecBase.scala",
                 "src/test/scala/**/upgrade/UpgradesSpecUtil.scala",
+                "src/test/scala/**/upgrade/UpgradesCheckSpecUtil.scala",
             ],
         ) +
         #  we depend on sources to avoid pushing a canton artifact to maven
@@ -106,6 +107,7 @@ da_scala_library(
     unused_dependency_checker_mode = "off",
     visibility = ["//visibility:public"],
     deps = [
+        "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
         "//:sdk-version-scala-lib",
         "//bazel_tools/runfiles:scala_runfiles",
         "//canton:community_admin-api",
