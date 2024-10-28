@@ -373,13 +373,11 @@ da_scala_dar_resources_library(
         ("FailWhenParamCountChanges", {}, {}),
         ("SucceedWhenParamNameChanges", {}, {}),
         ("SucceedWhenPhantomParamBecomesUsed", {}, {}),
-
         (
             "FailsWhenNewerPackagesUsesAnOlderLFVersion",
             {"lf_version": "2.dev"},
             {"lf_version": "2.1"},
         ),
-
         (
             "SucceedsWhenNewerPackagesUsesANewerLFVersion",
             {"lf_version": "2.1"},

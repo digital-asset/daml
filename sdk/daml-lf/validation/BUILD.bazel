@@ -61,8 +61,8 @@ da_scala_library(
         "//daml-lf/validation",
         "//libs-scala/contextualized-logging",
         "//libs-scala/scala-utils",
-        "@maven//:org_slf4j_slf4j_api",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
+        "@maven//:org_slf4j_slf4j_api",
     ],
 )
 
@@ -107,7 +107,6 @@ da_scala_library(
     unused_dependency_checker_mode = "off",
     visibility = ["//visibility:public"],
     deps = [
-        "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
         "//:sdk-version-scala-lib",
         "//bazel_tools/runfiles:scala_runfiles",
         "//canton:community_admin-api",
@@ -131,6 +130,7 @@ da_scala_library(
         "//libs-scala/scala-utils",
         "//libs-scala/testing-utils",
         "//test-common/canton/it-lib",
+        "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
@@ -321,7 +321,6 @@ da_scala_test_suite(
             "//test-common:upgrades-SucceedWhenParamNameChanges-v2.dar",
             "//test-common:upgrades-SucceedWhenPhantomParamBecomesUsed-v1.dar",
             "//test-common:upgrades-SucceedWhenPhantomParamBecomesUsed-v2.dar",
-
             "//test-common:upgrades-FailsWhenNewerPackagesUsesAnOlderLFVersion-v1.dar",
             "//test-common:upgrades-FailsWhenNewerPackagesUsesAnOlderLFVersion-v2.dar",
             "//test-common:upgrades-SucceedsWhenNewerPackagesUsesANewerLFVersion-v1.dar",
