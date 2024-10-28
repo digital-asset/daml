@@ -84,6 +84,10 @@ export class ByteString {
     }
 }
 
+export interface ToByteString {
+    toByteString(): ByteString;
+}
+
 @external("env", "logInfo")
 declare function logInfo(msgPtr: usize): void;
 export { logInfo }

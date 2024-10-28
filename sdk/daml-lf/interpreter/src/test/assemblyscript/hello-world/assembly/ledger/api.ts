@@ -283,35 +283,37 @@ export class LfValueOptional extends LfValue {
   }
 }
 
-export class LfValueSet extends LfValue {
-  private _value: Set<LfValue>;
+export class LfValueSet<V extends LfValue> extends LfValue {
+  private _value: Set<V>;
 
-  constructor(value: Set<LfValue> = new Set<lfValue>()) {
+  constructor(value: Set<V> = new Set<V>()) {
     super();
     this._value = value;
   }
 
-  static fromArray(value: Array<LfValue>): LfValueSet {
-    let values = new Set<LfValue>();
+  static fromArray<V extends LfValue>(value: Array<V>): LfValueSet<V> {
+    let values = new Set<V>();
 
-    value.forEach(v => values.add(v));
+    for (let i = 0; i < value.length; i++) {
+      values.add(value[i]);
+    }
 
-    return new LfValueSet(values);
+    return new LfValueSet<V>(values);
   }
 
-  static fromProtobuf(value: proto.Value): LfValueSet {
+  static fromProtobuf<V extends LfValue>(value: proto.Value): LfValueSet<V> {
     if (isList(value)) {
-      let values = new Set<LfValue>();
+      let values = new Set<V>();
 
       value.list.elements.forEach(v => values.add(LfValue.fromProtobuf(v)));
 
-      return new LfValueSet(values);
+      return new LfValueSet<V>(values);
     } else {
       throw new Error(`${protoValueToString(value)} is not a set value`);
     }
   }
 
-  value(): Set<LfValue> {
+  value(): Set<V> {
     return this._value;
   }
 
@@ -415,7 +417,7 @@ export class LfValueRecord extends LfValue {
   }
 }
 
-export class Choice<R> {
+export class Choice {
   private _contractArg: LfValue;
   private _choiceArg: LfValue;
 
@@ -440,57 +442,53 @@ export class Choice<R> {
     return new Set<string>();
   }
 
-  exercise(): R {
+  exercise<R extends internal.ToByteString>(): R {
     throw new Error("Unimplemented");
   }
 }
 
-export class ChoiceClosure<R> {
+export class ChoiceClosure {
   private _contractArg: LfValue;
-
-  static consuming: bool;
 
   constructor(contractArg: LfValue) {
     this._contractArg = contractArg;
   }
 
-  apply(choiceArg: LfValue): Choice<R> {
+  consuming(): bool {
+    throw new Error("Unimplemented");
+  }
+
+  apply<A>(choiceArg: A): Choice {
     throw new Error("Unimplemented");
   }
 }
 
-export class ConsumingChoice<R> extends ChoiceClosure<R> {
-  static consuming: bool = true;
-
+export class ConsumingChoice extends ChoiceClosure {
   constructor(contractArg: LfValue) {
     super(contractArg);
   }
-}
 
-export class NonConsumingChoice<R> extends ChoiceClosure<R> {
-  static consuming: bool = false;
-
-  constructor(contractArg: LfValue) {
-    super(contractArg);
+  consuming(): bool {
+    return true;
   }
 }
 
-export function templateId<T>(): LfIdentifier {
-  throw new Error("Unimplemented");
-}
+export class NonConsumingChoice<R> extends ChoiceClosure {
+  constructor(contractArg: LfValue) {
+    super(contractArg);
+  }
 
-export function isValidArg<T>(arg: LfValue): bool {
-  throw new Error("Unimplemented");
-}
-
-export function fromLfValue<T>(arg: LfValue): Template<T> {
-  throw new Error("Unimplemented");
+  consuming(): bool {
+    return false;
+  }
 }
 
 export class Template {
+  private _companion: TemplateCompanion;
   private _arg: LfValue;
 
-  constructor(arg: LfValue) {
+  constructor(companion: TemplateCompanion, arg: LfValue) {
+    this._companion = companion;
     this._arg = arg;
   }
 
@@ -498,9 +496,9 @@ export class Template {
     return this._arg;
   }
 
-  create<T>(): Contract<T> {
+  save<T extends Template>(): Contract<T> {
     let templateIdByteStr = internal.ByteString.fromProtobufIdentifier(
-      templateId<T>().toProtobuf(),
+      this._companion.templateId().toProtobuf(),
     );
     let argByteStr = internal.ByteString.fromProtobuf(this.arg().toProtobuf());
     templateIdByteStr.alloc();
@@ -516,7 +514,7 @@ export class Template {
     argByteStr.dealloc();
     templateIdByteStr.dealloc();
 
-    return new Contract<T>(contractId);
+    return new Contract<T>(this._companion, contractId);
   }
 
   precond(): bool {
@@ -528,31 +526,55 @@ export class Template {
   }
 
   observers(): Set<string> {
-    return new Set<LfValueParty>();
+    return new Set<string>();
   }
 
-  choices(): Map<string, ChoiceClosure<LfValue>> {
-    return new Map<string, ChoiceClosure<LfValue>>();
+  choices(): Map<string, ChoiceClosure> {
+    return new Map<string, ChoiceClosure>();
   }
 }
 
-export class Contract<T> {
-  private _contractId: LfValueContractId;
+export class TemplateCompanion {
+  templateId(): LfIdentifier {
+    throw new Error("Unimplemented");
+  }
 
-  constructor(contractId: LfValueContractId) {
+  isValidArg(arg: LfValue): bool {
+    throw new Error("Unimplemented");
+  }
+
+  toLfValue<T extends Template>(arg: T): LfValue {
+    throw new Error("Unimplemented");
+  }
+
+  fromLfValue<T extends Template>(arg: LfValue): T {
+    throw new Error("Unimplemented");
+  }
+}
+
+export class Contract<T extends Template> implements internal.ToByteString {
+  private _contractId: LfValueContractId;
+  private _companion: TemplateCompanion;
+
+  constructor(companion: TemplateCompanion, contractId: LfValueContractId) {
     this._contractId = contractId;
+    this._companion = companion;
   }
 
   contractId(): LfValueContractId {
     return this._contractId;
   }
 
+  toByteString(): internal.ByteString {
+    return internal.ByteString.fromProtobuf(this._contractId.toProtobuf());
+  }
+
   fetch(): T {
     let templateIdByteStr = internal.ByteString.fromProtobufIdentifier(
-      templateId<T>().toProtobuf(),
+      this._companion.templateId().toProtobuf(),
     );
     let contractIdByteStr = internal.ByteString.fromProtobuf(
-      contractId().toProtobuf(),
+      this.contractId().toProtobuf(),
     );
     templateIdByteStr.alloc();
     contractIdByteStr.alloc();
@@ -564,15 +586,15 @@ export class Contract<T> {
     contractIdByteStr.dealloc();
     templateIdByteStr.dealloc();
 
-    return T.fromLfValue(arg);
+    return this._companion.fromLfValue(arg);
   }
 
   exercise(choiceName: string, arg: LfValue): LfValue {
     let templateIdByteStr = internal.ByteString.fromProtobufIdentifier(
-      T.templateId().toProtobuf(),
+      this._companion.templateId().toProtobuf(),
     );
     let contractIdByteStr = internal.ByteString.fromProtobuf(
-      contractId().toProtobuf(),
+      this.contractId().toProtobuf(),
     );
     let choiceNameByteStr = internal.ByteString.fromString(choiceName);
     let argByteStr = internal.ByteString.fromProtobuf(arg.toProtobuf());
