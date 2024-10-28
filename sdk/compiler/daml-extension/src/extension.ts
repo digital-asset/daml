@@ -144,7 +144,14 @@ export async function activate(context: vscode.ExtensionContext) {
     showRecommendedDirenvPage,
   );
 
-  context.subscriptions.push(d1, d2, d3, d4, d5);
+  let d6 = vscode.commands.registerCommand(
+    "daml.getDocDefinition",
+    (locationDef: { anchor: string; unitid: string }) => {
+      console.log(locationDef);
+    },
+  );
+
+  context.subscriptions.push(d1, d2, d3, d4, d5, d6);
 }
 
 interface IdeManifest {

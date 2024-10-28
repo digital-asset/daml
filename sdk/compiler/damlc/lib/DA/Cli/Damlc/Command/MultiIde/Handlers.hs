@@ -27,13 +27,13 @@ import DA.Cli.Damlc.Command.MultiIde.SubIdeManagement
 import DA.Cli.Damlc.Command.MultiIde.Types
 import DA.Cli.Damlc.Command.MultiIde.Util
 import DA.Cli.Damlc.Command.MultiIde.DarDependencies (resolveSourceLocation, unpackDar, unpackedDarsLocation)
-import DA.Cli.Damlc.Command.MultiIde.DocDependencies (unpackDoc)
+import DA.Cli.Damlc.Command.MultiIde.DocDependencies (unpackDoc, packageDbAndLfFromPath)
 import DA.Daml.LanguageServer.SplitGotoDefinition
+import Data.Either.Extra (maybeToEither)
 import Data.Foldable (traverse_)
 import Data.List (find, isInfixOf)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe, mapMaybe)
-import qualified Data.Text as T
 import qualified Language.LSP.Types as LSP
 import qualified Language.LSP.Types.Lens as LSP
 import System.Exit (exitSuccess)
@@ -119,8 +119,13 @@ subIdeMessageHandler miState unblock ide bs = do
               -- .daml data-dependency path
               -- This is the worst case, we'll later add logic here to unpack and spinup an SubIde for the read-only dependency
               Nothing -> do
-                path <- unpackDoc miState (fromMaybe (error "Non filepath uri??") $ LSP.uriToFilePath $ loc ^. LSP.uri) (tgdnModuleName name)
-                replyLocations [LSP.uri .~ LSP.Uri (T.pack path) $ loc]
+                (packageDb, lfVersion) <- either fail pure $ do
+                  modulePath <- maybeToEither "Only URI filepath supported (WIP)" $ LSP.uriToFilePath $ loc ^. LSP.uri
+                  packageDbAndLfFromPath modulePath name
+                mUri <- unpackDoc miState packageDb lfVersion name
+                replyLocations $ case mUri of
+                  Nothing -> [loc]
+                  Just uri -> [LSP.uri .~ uri $ loc]
               -- We found a daml.yaml for this definition, send the getDefinitionByName request to its SubIde
               Just sourceLocation -> do
                 home <- resolveAndUnpackSourceLocation miState sourceLocation

@@ -83,12 +83,16 @@ export class DamlLanguageClient {
     identifier: string | undefined = undefined,
   ): Promise<DamlLanguageClient | null> {
     try {
+      const docWebviewScript = vscode.Uri.file(
+        path.join(_context.extensionPath, "src", "doc-webview.js"),
+      );
       const [languageClient, multiIdeSupport] =
         await DamlLanguageClient.createLanguageClient(
           rootPath,
           envVars,
           config,
           telemetryConsent,
+          docWebviewScript,
           identifier,
         );
       return new DamlLanguageClient(
@@ -302,11 +306,38 @@ export class DamlLanguageClient {
       }
     }
   }
+
+  private static panels: { [packageName: string]: vscode.WebviewPanel } = {};
+
+  private static getOrCreateDocWindow(packageName: string): vscode.WebviewPanel {
+    let panels = DamlLanguageClient.panels;
+    let panel = panels[packageName];
+    if (panel) {
+      panel.reveal();
+      return panel;
+    }
+    panel = vscode.window.createWebviewPanel(
+      `docs-${packageName}`,
+      `Generated documentation for ${packageName}`,
+      vscode.ViewColumn.One,
+      {
+        enableCommandUris: true,
+        enableScripts: true,
+      },
+    );
+    panel.onDidDispose(function () {
+      delete panels[packageName];
+    });
+    panels[packageName] = panel;
+    return panel;
+  }
+
   private static async createLanguageClient(
     rootPath: string,
     envVars: { [envVarName: string]: string },
     config: vscode.WorkspaceConfiguration,
     telemetryConsent: boolean | undefined,
+    docWebviewScript: vscode.Uri,
     identifier: string | undefined,
   ): Promise<[LanguageClient, boolean]> {
     // Options to control the language client
@@ -344,16 +375,16 @@ export class DamlLanguageClient {
           ) {
             const params = new URLSearchParams(location.uri.query);
             const path = params.get("path");
-            const unitIdOrPackageId = params.get("name");
-            if (!path || !unitIdOrPackageId) throw "Invalid open-docs data";
+            const unitId = params.get("unitid");
+            const anchor = params.get("anchor");
+            if (!path || !unitId) throw "Invalid open-docs data";
             const content = fs.readFileSync(path).toString();
-            const panel = vscode.window.createWebviewPanel(
-              `docs-${unitIdOrPackageId}`,
-              `Generated documentation for ${unitIdOrPackageId}`,
-              vscode.ViewColumn.One,
-              {},
-            );
-            panel.webview.html = content;
+            const panel = DamlLanguageClient.getOrCreateDocWindow(unitId);
+            const docWebviewScriptPath =
+              panel.webview.asWebviewUri(docWebviewScript);
+            panel.webview.html =
+              `<script src="${docWebviewScriptPath}"></script>\n` + content;
+            panel.webview.postMessage(anchor);
           } else return locations;
         },
       },
