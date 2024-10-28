@@ -244,6 +244,13 @@ def proto_jars(
         visibility = visibility,
     )
 
+    proto_gen(
+        name = "%s_java_sources" % name,
+        srcs = [":%s" % name],
+        plugin_name = "java",
+        visibility = visibility,
+    )
+
     # An empty Javadoc JAR for uploading the source proto JAR to Maven Central.
     pkg_empty_zip(
         name = "%s_jar_javadoc" % name,
@@ -252,28 +259,25 @@ def proto_jars(
 
     # Compiled protobufs.
     proto_library(
-        name = name,
+        name = "%s" % name,
         srcs = srcs,
         strip_import_prefix = strip_import_prefix,
         visibility = visibility,
         deps = deps + proto_deps,
     )
 
-    # JAR and source JAR containing the generated Java bindings.
-    native.java_proto_library(
+    # we do not use native.java_proto_library, as we need to depend on java from maven when
+    # the version of protoc and proto-java are different.
+    da_java_library(
         name = "%s_java" % name,
+        srcs = ["%s_java_sources" % name],
+        deps =
+            ["@maven//:com_google_protobuf_protobuf_java"] +
+            ["%s_java" % label for label in proto_deps] +
+            java_deps,
         tags = _maven_tags(maven_group, maven_artifact_prefix, maven_artifact_java_suffix),
         visibility = visibility,
-        deps = [":%s" % name],
     )
-
-    if maven_group and maven_artifact_prefix:
-        pom_file(
-            name = "%s_java_pom" % name,
-            tags = _maven_tags(maven_group, maven_artifact_prefix, maven_artifact_java_suffix),
-            target = ":%s_java" % name,
-            visibility = visibility,
-        )
 
     if javadoc_root_packages:
         javadoc_library(
