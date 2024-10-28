@@ -231,13 +231,22 @@ def proto_jars(
 
     # JAR and source JAR containing the *.proto files.
     da_java_library(
-        name = "%s_jar" % name,
-        srcs = None,
-        deps = None,
-        runtime_deps = ["%s_jar" % label for label in proto_deps],
+        name = "%s_java" % name,
+        srcs = ["%s_java_sources" % name],
+        deps =
+            ["@maven//:com_google_protobuf_protobuf_java"] +
+            ["%s_java" % label for label in proto_deps] +
+            java_deps,
         resources = srcs,
         resource_strip_prefix = "%s/%s/" % (native.package_name(), strip_import_prefix),
         tags = _maven_tags(maven_group, maven_artifact_prefix, maven_artifact_proto_suffix),
+        visibility = visibility,
+    )
+
+    proto_gen(
+        name = "%s_java_sources" % name,
+        srcs = [":%s" % name],
+        plugin_name = "java",
         visibility = visibility,
     )
 
@@ -249,28 +258,12 @@ def proto_jars(
 
     # Compiled protobufs.
     proto_library(
-        name = name,
+        name = "%s" % name,
         srcs = srcs,
         strip_import_prefix = strip_import_prefix,
         visibility = visibility,
         deps = deps + proto_deps,
     )
-
-    # JAR and source JAR containing the generated Java bindings.
-    native.java_proto_library(
-        name = "%s_java" % name,
-        tags = _maven_tags(maven_group, maven_artifact_prefix, maven_artifact_java_suffix),
-        visibility = visibility,
-        deps = [":%s" % name],
-    )
-
-    if maven_group and maven_artifact_prefix:
-        pom_file(
-            name = "%s_java_pom" % name,
-            tags = _maven_tags(maven_group, maven_artifact_prefix, maven_artifact_java_suffix),
-            target = ":%s_java" % name,
-            visibility = visibility,
-        )
 
     if javadoc_root_packages:
         javadoc_library(

@@ -20,10 +20,6 @@ da_scala_library(
         "//canton:ledger_api_proto_scala",
         "//libs-scala/contextualized-logging",
         "//libs-scala/logging-entries",
-        "@maven//:com_google_api_grpc_proto_google_common_protos",
-        "@maven//:com_google_protobuf_protobuf_java",
-        "@maven//:io_grpc_grpc_api",
-        "@maven//:io_grpc_grpc_protobuf",
         "@maven//:org_slf4j_slf4j_api",
     ],
 )
