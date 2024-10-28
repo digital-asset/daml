@@ -49,7 +49,8 @@ trait TransactionTreeFactory {
       contractOfId: SerializableContractOfId,
       keyResolver: LfKeyResolver,
       maxSequencingTime: CantonTimestamp,
-      validatePackageVettings: Boolean,
+      contractPackages: Map[LfContractId, LfPackageId],
+      validatePackageVettings: Boolean = true,
   )(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TransactionTreeConversionError, GenTransactionTree]

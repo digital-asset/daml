@@ -67,9 +67,9 @@ contents: |
 
 main : TestTree
 main = tests
-  [ ("Fetch a LF < 1.16 contract with a LF >= 1.16 template ID, expect LF 1.16 implementation to attempt to be used, but fail upgrade", fetchNonUpgradableLfFail)
-  , ("Fetch a LF >= 1.16 contract with a LF < 1.16 template ID, expect LF 1.15 implementation to attempt to be used, but fail upgrade", fetchNonUpgradingLfFail)        
-  , ("Call a LF >= 1.16 choice on a LF < 1.16 contract, expect LF 1.16 implementation to attempt to be used, but fail upgrade", exerciseNonUpgradableLfFail)
+  [ ("Fetch a LF < 1.17 contract with a LF >= 1.17 template ID, expect LF 1.17 implementation to attempt to be used, but fail upgrade", fetchNonUpgradableLfFail)
+  , ("Fetch a LF >= 1.17 contract with a LF < 1.17 template ID, expect LF 1.15 implementation to attempt to be used, but fail upgrade", fetchNonUpgradingLfFail)
+  , ("Call a LF >= 1.17 choice on a LF < 1.17 contract, expect LF 1.17 implementation to attempt to be used, but fail upgrade", exerciseNonUpgradableLfFail)
   , ("Call a LF < 1.15 choice on a LF >= 1.15 contract, expect LF 1.15 implementation to attempt to be used, but fail upgrade", exerciseNonUpgradingLfFail)
   ]
 

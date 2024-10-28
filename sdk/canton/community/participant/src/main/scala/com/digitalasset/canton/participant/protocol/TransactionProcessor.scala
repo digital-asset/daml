@@ -133,6 +133,7 @@ class TransactionProcessor(
       keyResolver: LfKeyResolver,
       transaction: WellFormedTransaction[WithoutSuffixes],
       disclosedContracts: Map[LfContractId, SerializableContract],
+      contractPackages: Map[LfContractId, LfPackageId],
   )(implicit
       traceContext: TraceContext
   ): EitherT[
@@ -149,6 +150,7 @@ class TransactionProcessor(
         keyResolver,
         transaction,
         disclosedContracts,
+        contractPackages,
       )
     )
 }

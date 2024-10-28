@@ -210,6 +210,7 @@ object Raw {
           contractId: String,
           templateId: Identifier,
           eventWitnesses: ArraySeq[String],
+          packageName: Option[String],
       ): Raw.FlatEvent.Archived =
         new Raw.FlatEvent.Archived(
           raw = PbArchivedEvent(
@@ -217,6 +218,7 @@ object Raw {
             contractId = contractId,
             templateId = Some(LfEngineToApi.toApiIdentifier(templateId)),
             witnessParties = eventWitnesses,
+            packageName = packageName,
           )
         )
 
@@ -320,6 +322,7 @@ object Raw {
           eventId: String,
           contractId: String,
           templateId: Identifier,
+          choicePackageId: Option[String],
           packageName: Option[String],
           interfaceId: Option[Identifier],
           exerciseConsuming: Boolean,
@@ -346,6 +349,7 @@ object Raw {
             witnessParties = eventWitnesses,
             childEventIds = exerciseChildEventIds,
             exerciseResult = null,
+            choicePackageId = choicePackageId,
           ),
           exerciseArgument = exerciseArgument,
           exerciseArgumentCompression =

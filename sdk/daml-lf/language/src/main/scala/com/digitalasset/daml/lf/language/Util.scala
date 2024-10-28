@@ -302,4 +302,21 @@ object Util {
   def toSignatures(pkgs: Map[Ref.PackageId, Package]): Map[Ref.PackageId, PackageSignature] =
     pkgs.transform((_, v) => toSignature(v))
 
+  final case class PkgIdWithNameAndVersion(
+      pkgId: Ref.PackageId,
+      name: Ref.PackageName,
+      version: Ref.PackageVersion,
+  ) {
+    override def toString: String =
+      s"${pkgId} (${name} v${version})"
+  }
+
+  object PkgIdWithNameAndVersion {
+    def apply(id: Ref.PackageId, metadata: Ast.PackageMetadata): PkgIdWithNameAndVersion =
+      PkgIdWithNameAndVersion(
+        id,
+        metadata.name,
+        metadata.version,
+      )
+  }
 }

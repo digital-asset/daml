@@ -430,9 +430,9 @@ sealed abstract class HasTxNodes {
     */
   final def inputContracts[Cid2 >: ContractId]: Set[Cid2] =
     fold(Set.empty[Cid2]) {
-      case (acc, (_, Node.Exercise(coid, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _))) =>
+      case (acc, (_, Node.Exercise(coid, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _))) =>
         acc + coid
-      case (acc, (_, Node.Fetch(coid, _, _, _, _, _, _, _, _))) =>
+      case (acc, (_, Node.Fetch(coid, _, _, _, _, _, _, _, _, _))) =>
         acc + coid
       case (acc, (_, Node.LookupByKey(_, _, _, Some(coid), _))) =>
         acc + coid
@@ -680,7 +680,8 @@ object Transaction {
     * @param nodeSeeds        : An association list that maps to each ID of create and exercise
     *                         nodes its seeds.
     * @param globalKeyMapping : input key mapping inferred by interpretation
-    * @param disclosedEvents    : disclosed create events that have been used in this transaction
+    * @param disclosedEvents  : disclosed create events that have been used in this transaction
+    * @param contractPackages : The input contracts used by the transaction together with their creating packages
     */
   final case class Metadata(
       submissionSeed: Option[crypto.Hash],
@@ -690,6 +691,7 @@ object Transaction {
       nodeSeeds: ImmArray[(NodeId, crypto.Hash)],
       globalKeyMapping: Map[GlobalKey, Option[Value.ContractId]],
       disclosedEvents: ImmArray[Node.Create],
+      contractPackages: Map[ContractId, PackageId],
   )
 
   def commitTransaction(submittedTransaction: SubmittedTransaction): CommittedTransaction =

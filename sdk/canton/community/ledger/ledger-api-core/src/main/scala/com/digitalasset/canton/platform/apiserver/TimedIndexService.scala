@@ -91,11 +91,10 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
       filter: domain.TransactionFilter,
       sendPrunedOffsets: Boolean,
       verbose: Boolean,
-      multiDomainEnabled: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetUpdatesResponse, NotUsed] =
     Timed.source(
       metrics.daml.services.index.transactions,
-      delegate.transactions(begin, endAt, filter, sendPrunedOffsets, verbose, multiDomainEnabled),
+      delegate.transactions(begin, endAt, filter, sendPrunedOffsets, verbose),
     )
 
   override def transactionTrees(
@@ -104,7 +103,6 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
       filter: domain.TransactionFilter,
       sendPrunedOffsets: Boolean,
       verbose: Boolean,
-      multiDomainEnabled: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetUpdateTreesResponse, NotUsed] =
     Timed.source(
       metrics.daml.services.index.transactionTrees,
@@ -114,7 +112,6 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
         filter,
         sendPrunedOffsets,
         verbose,
-        multiDomainEnabled,
       ),
     )
 
@@ -140,11 +137,10 @@ final class TimedIndexService(delegate: IndexService, metrics: Metrics) extends 
       filter: domain.TransactionFilter,
       verbose: Boolean,
       activeAtO: Option[Offset],
-      multiDomainEnabled: Boolean,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetActiveContractsResponse, NotUsed] =
     Timed.source(
       metrics.daml.services.index.getActiveContracts,
-      delegate.getActiveContracts(filter, verbose, activeAtO, multiDomainEnabled),
+      delegate.getActiveContracts(filter, verbose, activeAtO),
     )
 
   override def lookupActiveContract(

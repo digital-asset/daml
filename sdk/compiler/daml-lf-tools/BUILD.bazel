@@ -13,6 +13,7 @@ da_haskell_library(
         "either",
         "extra",
         "ghcide",
+        "ghc-lib-parser",
         "hashable",
         "lens",
         "mtl",

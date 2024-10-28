@@ -13,6 +13,7 @@ object DbDtoToStringsForInterning {
       parties = dbDtos.iterator.flatMap(partiesOf),
       domainIds = dbDtos.iterator.flatMap(domainIdsOf),
       packageNames = dbDtos.iterator.flatMap(packageNamesOf),
+      packageIds = dbDtos.iterator.flatMap(packageIdsOf),
     )
 
   private def templateIdsOf(dbDto: DbDto): Iterator[String] =
@@ -98,6 +99,13 @@ object DbDtoToStringsForInterning {
       case dbDto: DbDto.EventUnassign => Iterator(dbDto.source_domain_id, dbDto.target_domain_id)
       case dbDto: DbDto.EventAssign => Iterator(dbDto.source_domain_id, dbDto.target_domain_id)
       case dbDto: DbDto.CommandCompletion => dbDto.domain_id.iterator
+      case _ => Iterator.empty
+    }
+
+  private def packageIdsOf(dbDto: DbDto): Iterator[String] =
+    dbDto match {
+      case dbDto: DbDto.EventExercise =>
+        dbDto.choice_package_id.iterator
       case _ => Iterator.empty
     }
 }

@@ -98,7 +98,7 @@ trait LongTests { this: UpgradesSpec =>
 
     s"uploading the standard library twice for two different LF versions succeeds ($suffix)" in {
       for {
-        result1 <- uploadPackage("test-common/upgrades-EmptyProject-v116.dar")
+        result1 <- uploadPackage("test-common/upgrades-EmptyProject-v117.dar")
         result2 <- uploadPackage("test-common/upgrades-EmptyProject-v1dev.dar")
       } yield {
         // We expect both results to be error-free
@@ -111,8 +111,7 @@ trait LongTests { this: UpgradesSpec =>
         "test-common/upgrades-CommonVersionFailure-v1a.dar",
         "test-common/upgrades-CommonVersionFailure-v1b.dar",
         assertPackageUploadVersionFailure(
-          "A DAR with the same version number has previously been uploaded.",
-          "1.0.0",
+          "1.0.0"
         ),
       )
     }
@@ -157,6 +156,13 @@ trait LongTests { this: UpgradesSpec =>
             "Template U appears in package that is being upgraded, but does not appear in the upgrading package."
           )
         ),
+      )
+    }
+    s"allow uploading a package with a missing template but for a different package-name ($suffix)" in {
+      testPackagePair(
+        "test-common/upgrades-MissingTemplate-v1.dar",
+        "test-common/upgrades-MissingTemplateDifferentPackageName.dar",
+        assertPackageUpgradeCheckSecondOnly(None),
       )
     }
     s"report error when datatype is missing in upgrading package ($suffix)" in {
@@ -402,9 +408,9 @@ trait LongTests { this: UpgradesSpec =>
           forEvery(
             List(
               assertPackageUpgradeCheck(None)(v1Upload, v3Upload)(rawCantonLog),
-              assertPackageUpgradeCheck(
+              assertPackageUpgradeCheckSecondOnly(
                 Some("The upgraded template T is missing some of its original fields.")
-              )(v1Upload, v2Upload)(rawCantonLog),
+              )(v3Upload, v2Upload)(rawCantonLog),
             )
           ) { a => a }
         } finally {
@@ -447,16 +453,16 @@ trait LongTests { this: UpgradesSpec =>
 
     "Succeeds when a top-level variant adds a variant" in {
       testPackagePair(
-        "test-common/upgrades-SucceedsWhenATopLevelVariantAddsAVariant-v1.dar",
-        "test-common/upgrades-SucceedsWhenATopLevelVariantAddsAVariant-v2.dar",
+        "test-common/upgrades-SucceedsWhenATopLevelVariantAddsAConstructor-v1.dar",
+        "test-common/upgrades-SucceedsWhenATopLevelVariantAddsAConstructor-v2.dar",
         assertPackageUpgradeCheck(None),
       )
     }
 
     "Fails when a top-level variant removes a variant" in {
       testPackagePair(
-        "test-common/upgrades-FailsWhenATopLevelVariantRemovesAVariant-v1.dar",
-        "test-common/upgrades-FailsWhenATopLevelVariantRemovesAVariant-v2.dar",
+        "test-common/upgrades-FailsWhenATopLevelVariantRemovesAConstructor-v1.dar",
+        "test-common/upgrades-FailsWhenATopLevelVariantRemovesAConstructor-v2.dar",
         assertPackageUpgradeCheck(
           Some(
             "Data type A.Z appears in package that is being upgraded, but does not appear in the upgrading package."
@@ -467,8 +473,8 @@ trait LongTests { this: UpgradesSpec =>
 
     "Fail when a top-level variant changes changes the order of its variants" in {
       testPackagePair(
-        "test-common/upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsVariants-v1.dar",
-        "test-common/upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsVariants-v2.dar",
+        "test-common/upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsConstructors-v1.dar",
+        "test-common/upgrades-FailWhenATopLevelVariantChangesChangesTheOrderOfItsConstructors-v2.dar",
         assertPackageUpgradeCheck(
           Some(
             "The upgraded data type A has changed the order of its variants - any new variant must be added at the end of the variant."
@@ -479,8 +485,8 @@ trait LongTests { this: UpgradesSpec =>
 
     "Fails when a top-level variant adds a field to a variant's type" in {
       testPackagePair(
-        "test-common/upgrades-FailsWhenATopLevelVariantAddsAFieldToAVariantsType-v1.dar",
-        "test-common/upgrades-FailsWhenATopLevelVariantAddsAFieldToAVariantsType-v2.dar",
+        "test-common/upgrades-FailsWhenATopLevelVariantAddsAFieldToAConstructorsType-v1.dar",
+        "test-common/upgrades-FailsWhenATopLevelVariantAddsAFieldToAConstructorsType-v2.dar",
         assertPackageUpgradeCheck(
           Some("The upgraded variant constructor A.Y from variant A has added a field.")
         ),
@@ -489,8 +495,8 @@ trait LongTests { this: UpgradesSpec =>
 
     "Succeeds when a top-level variant adds an optional field to a variant's type" in {
       testPackagePair(
-        "test-common/upgrades-SucceedsWhenATopLevelVariantAddsAnOptionalFieldToAVariantsType-v1.dar",
-        "test-common/upgrades-SucceedsWhenATopLevelVariantAddsAnOptionalFieldToAVariantsType-v2.dar",
+        "test-common/upgrades-SucceedsWhenATopLevelVariantAddsAnOptionalFieldToAConstructorsType-v1.dar",
+        "test-common/upgrades-SucceedsWhenATopLevelVariantAddsAnOptionalFieldToAConstructorsType-v2.dar",
         assertPackageUpgradeCheck(None),
       )
     }
@@ -505,8 +511,8 @@ trait LongTests { this: UpgradesSpec =>
 
     "Fail when a top-level enum changes changes the order of its variants" in {
       testPackagePair(
-        "test-common/upgrades-FailWhenATopLevelEnumChangesChangesTheOrderOfItsVariants-v1.dar",
-        "test-common/upgrades-FailWhenATopLevelEnumChangesChangesTheOrderOfItsVariants-v2.dar",
+        "test-common/upgrades-FailWhenATopLevelEnumChangesChangesTheOrderOfItsConstructors-v1.dar",
+        "test-common/upgrades-FailWhenATopLevelEnumChangesChangesTheOrderOfItsConstructors-v2.dar",
         assertPackageUpgradeCheck(
           Some(
             "The upgraded data type A has changed the order of its variants - any new variant must be added at the end of the enum."
@@ -599,7 +605,7 @@ trait LongTests { this: UpgradesSpec =>
 
     "report no upgrade errors when the upgrade use a newer version of LF" in {
       testPackagePair(
-        mkTrivialPkg("-increasing-lf-version-", "1.0.0", LanguageVersion.v1_16),
+        mkTrivialPkg("-increasing-lf-version-", "1.0.0", LanguageVersion.v1_17),
         mkTrivialPkg("-increasing-lf-version-", "2.0.0", LanguageVersion.v1_dev),
         assertPackageUpgradeCheck(None),
       )
@@ -608,7 +614,7 @@ trait LongTests { this: UpgradesSpec =>
     "report upgrade errors when the upgrade use a older version of LF" in
       testPackagePair(
         mkTrivialPkg("-decreasing-lf-version-", "1.0.0", LanguageVersion.v1_dev),
-        mkTrivialPkg("-decreasing-lf-version-", "2.0.0", LanguageVersion.v1_16),
+        mkTrivialPkg("-decreasing-lf-version-", "2.0.0", LanguageVersion.v1_17),
         assertPackageUpgradeCheck(Some("The upgraded package uses an older LF version")),
       )
 
@@ -688,6 +694,48 @@ trait LongTests { this: UpgradesSpec =>
       )
     }
 
+    "Succeeds when adding non-optional fields to unserializable types" in {
+      testPackagePair(
+        "test-common/upgrades-SucceedsWhenAddingNonOptionalFieldsToUnserializableTypes-v1.dar",
+        "test-common/upgrades-SucceedsWhenAddingNonOptionalFieldsToUnserializableTypes-v2.dar",
+        assertPackageUpgradeCheck(
+          None
+        ),
+      )
+    }
+
+    "Succeeds when changing variant of unserializable type" in {
+      testPackagePair(
+        "test-common/upgrades-SucceedsWhenChangingConstructorOfUnserializableType-v1.dar",
+        "test-common/upgrades-SucceedsWhenChangingConstructorOfUnserializableType-v2.dar",
+        assertPackageUpgradeCheck(
+          None
+        ),
+      )
+    }
+
+    "Succeeds when deleting unserializable type" in {
+      testPackagePair(
+        "test-common/upgrades-SucceedsWhenDeletingUnserializableType-v1.dar",
+        "test-common/upgrades-SucceedsWhenDeletingUnserializableType-v2.dar",
+        assertPackageUpgradeCheck(
+          None
+        ),
+      )
+    }
+
+    "Fails when making type unserializable" in {
+      testPackagePair(
+        "test-common/upgrades-FailsWhenMakingTypeUnserializable-v1.dar",
+        "test-common/upgrades-FailsWhenMakingTypeUnserializable-v2.dar",
+        assertPackageUpgradeCheck(
+          Some(
+            "The upgraded data type MyData was serializable and is now unserializable. Datatypes cannot change their serializability via upgrades."
+          )
+        ),
+      )
+    }
+
     // Copied interface tests
     "Succeeds when an interface is only defined in the initial package." in {
       testPackagePair(
@@ -726,26 +774,100 @@ trait LongTests { this: UpgradesSpec =>
       } yield result
     }
 
-    "Succeeds when an instance is added (separate dep)." in {
+    "Fails when an instance is added (separate dep)." in {
       for {
-        _ <- uploadPackage("test-common/upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-dep.dar")
+        _ <- uploadPackage("test-common/upgrades-FailsWhenAnInstanceIsAddedSeparateDep-dep.dar")
         result <- testPackagePair(
-          "test-common/upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-v1.dar",
-          "test-common/upgrades-SucceedsWhenAnInstanceIsAddedSeparateDep-v2.dar",
+          "test-common/upgrades-FailsWhenAnInstanceIsAddedSeparateDep-v1.dar",
+          "test-common/upgrades-FailsWhenAnInstanceIsAddedSeparateDep-v2.dar",
           assertPackageUpgradeCheck(
-            None
+            Some(
+              "Implementation of interface .*:Dep:I by template T appears in this package, but does not appear in package that is being upgraded."
+            )
           ),
         )
       } yield result
     }
 
-    "Succeeds when an instance is added (upgraded package)." in {
+    "Fails when an instance is added (upgraded package)." in {
       testPackagePair(
-        "test-common/upgrades-SucceedsWhenAnInstanceIsAddedUpgradedPackage-v1.dar",
-        "test-common/upgrades-SucceedsWhenAnInstanceIsAddedUpgradedPackage-v2.dar",
+        "test-common/upgrades-FailsWhenAnInstanceIsAddedUpgradedPackage-v1.dar",
+        "test-common/upgrades-FailsWhenAnInstanceIsAddedUpgradedPackage-v2.dar",
+        assertPackageUpgradeCheck(
+          Some(
+            "Implementation of interface .*:Main:I by template T appears in this package, but does not appear in package that is being upgraded."
+          )
+        ),
+      )
+    }
+
+    "Succeeds when an instance is added to a new template (upgraded package)." in {
+      testPackagePair(
+        "test-common/upgrades-SucceedsWhenAnInstanceIsAddedToNewTemplateUpgradedPackage-v1.dar",
+        "test-common/upgrades-SucceedsWhenAnInstanceIsAddedToNewTemplateUpgradedPackage-v2.dar",
         assertPackageUpgradeCheck(
           None
         ),
+      )
+    }
+
+    "Succeeds when an instance is added to a new template (separate dep)." in {
+      testPackagePair(
+        "test-common/upgrades-SucceedsWhenAnInstanceIsAddedToNewTemplateSeparateDep-v1.dar",
+        "test-common/upgrades-SucceedsWhenAnInstanceIsAddedToNewTemplateSeparateDep-v2.dar",
+        assertPackageUpgradeCheck(
+          None
+        ),
+      )
+    }
+
+    "Succeeds when an exception is only defined in the initial package." in {
+      testPackagePair(
+        "test-common/upgrades-SucceedsWhenAnExceptionIsOnlyDefinedInTheInitialPackage-v1.dar",
+        "test-common/upgrades-SucceedsWhenAnExceptionIsOnlyDefinedInTheInitialPackage-v2.dar",
+        assertPackageUpgradeCheck(
+          None
+        ),
+      )
+    }
+
+    "Fails when an exception is defined in an upgrading package when it was already in the prior package." in {
+      testPackagePair(
+        "test-common/upgrades-FailsWhenAnExceptionIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v1.dar",
+        "test-common/upgrades-FailsWhenAnExceptionIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v2.dar",
+        assertPackageUpgradeCheck(
+          Some(
+            "Tried to upgrade exception E, but exceptions cannot be upgraded. They should be removed in any upgrading package."
+          )
+        ),
+      )
+    }
+
+    "FailWhenParamCountChanges" in {
+      testPackagePair(
+        "test-common/upgrades-FailWhenParamCountChanges-v1.dar",
+        "test-common/upgrades-FailWhenParamCountChanges-v2.dar",
+        assertPackageUpgradeCheck(
+          Some(
+            "The upgraded data type MyStruct has changed the number of type variables it has."
+          )
+        ),
+      )
+    }
+
+    "SucceedWhenParamNameChanges" in {
+      testPackagePair(
+        "test-common/upgrades-SucceedWhenParamNameChanges-v1.dar",
+        "test-common/upgrades-SucceedWhenParamNameChanges-v2.dar",
+        assertPackageUpgradeCheck(None),
+      )
+    }
+
+    "SucceedWhenPhantomParamBecomesUsed" in {
+      testPackagePair(
+        "test-common/upgrades-SucceedWhenPhantomParamBecomesUsed-v1.dar",
+        "test-common/upgrades-SucceedWhenPhantomParamBecomesUsed-v2.dar",
+        assertPackageUpgradeCheck(None),
       )
     }
   }
@@ -789,16 +911,20 @@ abstract class UpgradesSpec(val suffix: String)
   def assertPackageUpgradeCheckSecondOnly(
       failureMessage: Option[String]
   )(
-      v1: (PackageId, Option[Throwable]),
-      v2: (PackageId, Option[Throwable]),
+      uploadedFirst: (PackageId, Option[Throwable]),
+      uploadedSecond: (PackageId, Option[Throwable]),
   )(cantonLogSrc: String): Assertion =
-    assertPackageUpgradeCheckGeneral(failureMessage)(v1, v2, false)(cantonLogSrc)
+    assertPackageUpgradeCheckGeneral(failureMessage)(uploadedFirst, uploadedSecond, false)(
+      cantonLogSrc
+    )
 
   def assertPackageUpgradeCheck(failureMessage: Option[String])(
-      v1: (PackageId, Option[Throwable]),
-      v2: (PackageId, Option[Throwable]),
+      uploadedFirst: (PackageId, Option[Throwable]),
+      uploadedSecond: (PackageId, Option[Throwable]),
   )(cantonLogSrc: String): Assertion =
-    assertPackageUpgradeCheckGeneral(failureMessage)(v1, v2, true)(cantonLogSrc)
+    assertPackageUpgradeCheckGeneral(failureMessage)(uploadedFirst, uploadedSecond, true)(
+      cantonLogSrc
+    )
 
   def assertPackageDependenciesUpgradeCheck(
       v1dep: String,
@@ -818,61 +944,69 @@ abstract class UpgradesSpec(val suffix: String)
   def assertPackageUpgradeCheckGeneral(
       failureMessage: Option[String]
   )(
-      v1: (PackageId, Option[Throwable]),
-      v2: (PackageId, Option[Throwable]),
-      validateV1Checked: Boolean = true,
+      uploadedFirst: (PackageId, Option[Throwable]),
+      uploadedSecond: (PackageId, Option[Throwable]),
+      validateFirstChecked: Boolean = true,
   )(cantonLogSrc: String): Assertion = {
-    val (testPackageV1Id, uploadV1Result) = v1
-    val (testPackageV2Id, uploadV2Result) = v2
+    val (testPackageFirstId, uploadFirstResult) = uploadedFirst
+    val (testPackageSecondId, uploadSecondResult) = uploadedSecond
     if (disableUpgradeValidation) {
-      filterLog(cantonLogSrc, testPackageV1Id) should include regex (
-        s"Skipping upgrade validation for packages .*$testPackageV1Id".r
+      filterLog(cantonLogSrc, testPackageFirstId) should include regex (
+        s"Skipping upgrade validation for packages .*$testPackageFirstId".r
       )
-      filterLog(cantonLogSrc, testPackageV2Id) should include regex (
-        s"Skipping upgrade validation for packages .*$testPackageV2Id".r
+      filterLog(cantonLogSrc, testPackageSecondId) should include regex (
+        s"Skipping upgrade validation for packages .*$testPackageSecondId".r
+      )
+      filterLog(cantonLogSrc, testPackageSecondId) should not include regex(
+        s"The uploaded DAR contains a package $testPackageSecondId \\(.*\\), but upgrade checks indicate that (existing package $testPackageFirstId|new package $testPackageSecondId) \\(.*\\) cannot be an upgrade of (existing package $testPackageFirstId|new package $testPackageSecondId)"
+      )
+      cantonLogSrc should not include regex(
+        s"Typechecking upgrades for $testPackageSecondId \\(.*\\) succeeded."
       )
     } else {
-      uploadV1Result match {
-        case Some(err) if validateV1Checked =>
-          fail(s"Uploading first package $testPackageV1Id failed with message: $err");
+      uploadFirstResult match {
+        case Some(err) if validateFirstChecked =>
+          fail(s"Uploading first package $testPackageFirstId failed with message: $err");
         case _ => {}
       }
 
-      if (validateV1Checked) {
-        filterLog(cantonLogSrc, testPackageV2Id) should include(
-          s"Package $testPackageV2Id claims to upgrade package id $testPackageV1Id"
+      if (validateFirstChecked) {
+        filterLog(cantonLogSrc, testPackageSecondId) should include regex (
+          s"Package $testPackageSecondId \\(.*\\) claims to upgrade package id $testPackageFirstId \\(.*\\)"
         )
       }
 
       failureMessage match {
         // If a failure message is expected, look for it in the canton logs
         case Some(additionalInfo) =>
-          cantonLogSrc should include regex (
-            s"The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade err-context:\\{additionalInfo=$additionalInfo"
-          )
+          if (
+            s"The uploaded DAR contains a package $testPackageSecondId \\(.*\\), but upgrade checks indicate that (existing package $testPackageFirstId|new package $testPackageSecondId) \\(.*\\) cannot be an upgrade of (existing package $testPackageFirstId \\(.*\\)|new package $testPackageSecondId \\(.*\\)). Reason: $additionalInfo".r
+              .findFirstIn(cantonLogSrc)
+              .isEmpty
+          ) fail("did not find upgrade failure in canton log:\n")
 
-          uploadV2Result match {
+          uploadSecondResult match {
             case None =>
-              fail(s"Uploading second package $testPackageV2Id should fail but didn't.");
+              fail(s"Uploading second package $testPackageSecondId should fail but didn't.");
             case Some(err) => {
               val msg = err.toString
               msg should include("INVALID_ARGUMENT: DAR_NOT_VALID_UPGRADE")
-              msg should include(
-                "The DAR contains a package which claims to upgrade another package, but basic checks indicate the package is not a valid upgrade"
+              msg should include regex (
+                s"The uploaded DAR contains a package $testPackageSecondId \\(.*\\), but upgrade checks indicate that (existing package $testPackageFirstId|new package $testPackageSecondId) \\(.*\\) cannot be an upgrade of (existing package|new package)"
               )
             }
           }
 
         // If a failure is not expected, look for a success message
         case None =>
-          filterLog(cantonLogSrc, testPackageV2Id) should include(
-            s"Typechecking upgrades for $testPackageV2Id succeeded."
+          filterLog(cantonLogSrc, testPackageSecondId) should include regex (
+            s"Typechecking upgrades for $testPackageSecondId \\(.*\\) succeeded."
           )
-          uploadV2Result match {
+          uploadSecondResult match {
             case None => succeed;
             case Some(err) =>
               fail(
-                s"Uploading second package $testPackageV2Id shouldn't fail but did, with message: $err"
+                s"Uploading second package $testPackageSecondId shouldn't fail but did, with message: $err"
               );
           }
       }
@@ -887,8 +1021,8 @@ abstract class UpgradesSpec(val suffix: String)
     val (testPackageV1Id, uploadV1Result) = v1
     val (testPackageV2Id, uploadV2Result) = v2
     uploadV1Result should be(empty)
-    filterLog(cantonLogSrc, testPackageV2Id) should include(
-      s"Ignoring upload of package $testPackageV2Id as it has been previously uploaded"
+    filterLog(cantonLogSrc, testPackageV2Id) should include regex (
+      s"Ignoring upload of package $testPackageV2Id \\(.*\\) as it has been previously uploaded"
     )
     uploadV2Result should be(empty)
   }
@@ -898,19 +1032,20 @@ abstract class UpgradesSpec(val suffix: String)
       @annotation.unused v2: (PackageId, Option[Throwable]),
   )(@annotation.unused cantonLogSrc: String): Assertion = succeed
 
-  def assertPackageUploadVersionFailure(failureMessage: String, packageVersion: String)(
+  def assertPackageUploadVersionFailure(packageVersion: String)(
       v1: (PackageId, Option[Throwable]),
       v2: (PackageId, Option[Throwable]),
   )(cantonLogSrc: String): Assertion = {
     val (testPackageV1Id, uploadV1Result) = v1
     val (testPackageV2Id, uploadV2Result) = v2
+    val _ = packageVersion
     uploadV1Result match {
       case Some(err) =>
         fail(s"Uploading first package $testPackageV1Id failed with message: $err");
       case _ => {}
     }
     cantonLogSrc should include regex (
-      s"KNOWN_DAR_VERSION\\(.+,.+\\): A DAR with the same version number has previously been uploaded. err-context:\\{existingPackage=$testPackageV1Id, location=.+, packageVersion=$packageVersion, uploadedPackage=$testPackageV2Id\\}"
+      s"KNOWN_DAR_VERSION\\(.+,.+\\): Tried to upload package $testPackageV2Id \\(.* v${packageVersion}\\), but a different package $testPackageV1Id with the same name and version has previously been uploaded."
     )
     uploadV2Result match {
       case None =>
@@ -918,7 +1053,7 @@ abstract class UpgradesSpec(val suffix: String)
       case Some(err) => {
         val msg = err.toString
         msg should include("INVALID_ARGUMENT: KNOWN_DAR_VERSION")
-        msg should include(failureMessage)
+        msg should include regex (s"KNOWN_DAR_VERSION\\(.+,.+\\): Tried to upload package $testPackageV2Id \\(.* v${packageVersion}\\), but a different package $testPackageV1Id with the same name and version has previously been uploaded.")
       }
     }
   }

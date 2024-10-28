@@ -183,6 +183,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
           input.driverMetadata,
         )
       },
+      contractPackages = meta.contractPackages,
     )
   }
 

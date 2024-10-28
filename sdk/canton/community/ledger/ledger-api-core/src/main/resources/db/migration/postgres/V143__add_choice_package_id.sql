@@ -1,0 +1,2 @@
+ALTER TABLE participant_events_consuming_exercise ADD COLUMN choice_package_id INTEGER;
+ALTER TABLE participant_events_non_consuming_exercise ADD COLUMN choice_package_id INTEGER;

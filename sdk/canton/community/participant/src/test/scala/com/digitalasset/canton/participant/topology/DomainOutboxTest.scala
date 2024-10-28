@@ -43,8 +43,7 @@ class DomainOutboxTest extends AsyncWordSpec with BaseTest {
   private val crypto = TestingIdentityFactory.newCrypto(loggerFactory)(participant1)
   private val publicKey =
     FutureUtil
-      .noisyAwaitResult(crypto.cryptoPublicStore.signingKeys.value, "get public key", 10.seconds)
-      .valueOrFail("signing keys")
+      .noisyAwaitResult(crypto.cryptoPublicStore.signingKeys, "get public key", 10.seconds)
       .headOption
       .value
   private val namespace = Namespace(publicKey.id)

@@ -75,9 +75,9 @@ version1_14 = Version V1 (PointStable 14)
 version1_15 :: Version
 version1_15 = Version V1 (PointStable 15)
 
--- | Daml-LF version 1.16
-version1_16 :: Version
-version1_16 = Version V1 (PointStable 16)
+-- | Daml-LF version 1.17
+version1_17 :: Version
+version1_17 = Version V1 (PointStable 17)
 
 -- | The Daml-LF version used by default.
 versionDefault :: Version
@@ -100,7 +100,7 @@ supportedOutputVersions :: [Version]
 supportedOutputVersions = 
   [ version1_14 
   , version1_15 
-  , version1_16
+  , version1_17
   , version1_dev
 --  , version2_1, 
 --  , version2_dev
@@ -276,9 +276,9 @@ featureDynamicExercise = Feature
 
 featurePackageUpgrades :: Feature
 featurePackageUpgrades = Feature
-    { featureName = "Package upgrades POC"
+    { featureName = "Smart Contract Upgrade"
     , featureVersionReq = VersionReq \case
-        V1 ->  allMinorVersionsAfter (PointStable 16)
+        V1 -> allMinorVersionsAfter (PointStable 17)
         V2 -> allMinorVersions
     , featureCppFlag = Just "DAML_PACKAGE_UPGRADES"
     }

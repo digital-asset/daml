@@ -78,17 +78,18 @@ optionsParserInfo = info (optionsParser <**> helper)
     <> progDesc "Generate TypeScript bindings from a DAR"
     )
 
--- Build a list of packages from a list of DAR file paths.
-readPackages :: [FilePath] -> IO [(PackageId, Package)]
+-- Build a list of packages from a list of DAR file paths. Also tags each Package with whether its a main package
+readPackages :: [FilePath] -> IO [(PackageId, Package, Bool)]
 readPackages dars = concatMapM darToPackages dars
   where
-    darToPackages :: FilePath -> IO [(PackageId, Package)]
+    darToPackages :: FilePath -> IO [(PackageId, Package, Bool)]
     darToPackages dar = do
       dar <- B.readFile dar
       let archive = Zip.toArchive $ BSL.fromStrict dar
       dalfs <- either fail pure $ DAR.readDalfs archive
-      forM (DAR.mainDalf dalfs : DAR.dalfs dalfs) $ \dalf ->
-        either (fail . show) pure $ Archive.decodeArchive Archive.DecodeAsMain (BSL.toStrict dalf)
+      forM ((DAR.mainDalf dalfs, True) : ((,False) <$> DAR.dalfs dalfs)) $ \(dalf, isMain) -> do
+        (pkgId, pkg) <- either (fail . show) pure $ Archive.decodeArchive Archive.DecodeAsMain (BSL.toStrict dalf)
+        pure (pkgId, pkg, isMain)
 
 unitIdToText :: (PackageName, PackageVersion) -> T.Text
 unitIdToText (pkgName, pkgVersion) = unPackageName pkgName <> "-" <> unPackageVersion pkgVersion
@@ -98,28 +99,32 @@ packageUnitId pkg' = (\PackageMetadata {..} -> (packageName, packageVersion)) <$
 
 -- Work out the set of packages we have to generate script for and by
 -- what names.
-mergePackageMap :: [(PackageId, Package)] ->
+mergePackageMap :: [(PackageId, Package, Bool)] ->
                    Either T.Text (Map.Map PackageId (PackageReference, Package))
 mergePackageMap ps = fst <$> foldM merge mempty ps
   where
     merge :: (Map.Map PackageId (PackageReference, Package), Set.Set (PackageName, PackageVersion)) ->
-                  (PackageId, Package) ->
+                  (PackageId, Package, Bool) ->
                   Either T.Text (Map.Map PackageId (PackageReference, Package), Set.Set (PackageName, PackageVersion))
-    merge (pkgs, usedUnitIds) (pkgId, pkg) = do
-        let mOwnUnitId = packageUnitId pkg
+    merge (pkgs, usedUnitIds) (pkgId, pkg, isMain) = do
+        let pkgIsUtil = isUtilityPackage pkg
+            supportsUpgrades = pkgSupportsUpgrades pkg
             pkgRef =
               case packageMetadata pkg of
-                Just (PackageMetadata {..}) | packageLfVersion pkg `supports` featurePackageUpgrades ->
+                Just (PackageMetadata {..}) | supportsUpgrades && not pkgIsUtil ->
                   PkgNameVer (packageName, packageVersion)
                 _ ->
                   PkgId pkgId
+            mOwnUnitId = guard (supportsUpgrades && not pkgIsUtil || isMain) >> packageUnitId pkg
             newUsedUnitIds = maybe usedUnitIds (`Set.insert` usedUnitIds) mOwnUnitId
+            -- Do not include utility packages, as there is nothing to generate
+            newPkgs = if pkgIsUtil then pkgs else Map.insert pkgId (pkgRef, pkg) pkgs
 
         -- Check if there is a package with the same name but a
         -- different package id.
         forM_ mOwnUnitId $ \ownUnitId -> when (pkgId `Map.notMember` pkgs && ownUnitId `Set.member` usedUnitIds) $
             Left $ "Duplicate name '" <> unitIdToText ownUnitId <> "' for different packages detected"
-        pure (Map.insert pkgId (pkgRef, pkg) pkgs, newUsedUnitIds)
+        pure (newPkgs, newUsedUnitIds)
 
 -- Write packages for all the DALFs in all the DARs.
 main :: IO ()
@@ -145,17 +150,8 @@ main = do
                            PkgId _ -> unPackageId pkgId
                            PkgNameVer (pkgName, _) -> unPackageName pkgName <> " (hash: " <> unPackageId pkgId <> ")"
                          pkgUnitId = maybe (unPackageId pkgId) unitIdToText $ packageUnitId pkg
-                         isUtilityPackage =
-                          all (\mod ->
-                            null (moduleTemplates mod)
-                              && null (moduleInterfaces mod)
-                              && not (any (getIsSerializable . dataSerializable) $ moduleDataTypes mod)
-                          ) $ packageModules pkg
-                     if isUtilityPackage
-                       then T.putStrLn $ "Skipping " <> pkgDesc <> " as it does not define any serializable types"
-                       else do
-                         T.putStrLn $ "Generating " <> pkgDesc
-                         daml2js Daml2jsParams{..}
+                     T.putStrLn $ "Generating " <> pkgDesc
+                     daml2js Daml2jsParams{..}
 
 data PackageReference
     = PkgNameVer (PackageName, PackageVersion)

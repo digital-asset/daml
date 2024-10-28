@@ -172,7 +172,7 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
         )
       )
         .map { _ =>
-          signingKeyMap.put(key.id, SigningPrivateKeyWithName(key, name)).discard
+          signingKeyMap.putIfAbsent(key.id, SigningPrivateKeyWithName(key, name)).discard
         }
     } yield ()
 
@@ -211,7 +211,7 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
         )
       )
         .map { _ =>
-          decryptionKeyMap.put(key.id, EncryptionPrivateKeyWithName(key, name)).discard
+          decryptionKeyMap.putIfAbsent(key.id, EncryptionPrivateKeyWithName(key, name)).discard
         }
     } yield ()
 

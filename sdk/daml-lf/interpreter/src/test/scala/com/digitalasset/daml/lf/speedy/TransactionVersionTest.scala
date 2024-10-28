@@ -4,15 +4,15 @@
 package com.daml.lf
 package speedy
 
-import com.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.daml.lf.data.Ref.{IdString, PackageId, Party, TypeConName}
+import com.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.daml.lf.language.LanguageMajorVersion.{V1, V2}
 import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.daml.lf.speedy.SBuiltin.{SBCastAnyContract, SBFetchAny}
-import com.daml.lf.speedy.SExpr.{SEMakeClo, SEValue}
+import com.daml.lf.speedy.SExpr.SEMakeClo
 import com.daml.lf.testing.parser
-import com.daml.lf.transaction.{SubmittedTransaction, TransactionVersion, Versioned}
 import com.daml.lf.testing.parser.Implicits.SyntaxHelper
+import com.daml.lf.transaction.{SubmittedTransaction, TransactionVersion, Versioned}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 import org.scalatest.Inside
@@ -341,7 +341,7 @@ private[lf] class TransactionVersionTestHelpers(majorLanguageVersion: LanguageMa
           Array(),
           1,
           SExpr.SELet1General(
-            SBFetchAny(optTargetTemplateId = None)(speedyContractId, SEValue.None),
+            SBFetchAny(optTargetTemplateId = None)(speedyContractId),
             SExpr.SELet1General(
               SBCastAnyContract(templateId)(
                 speedyContractId,

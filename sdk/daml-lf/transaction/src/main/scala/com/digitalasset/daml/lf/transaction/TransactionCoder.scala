@@ -152,6 +152,47 @@ object TransactionCoder {
           )
     }
 
+  def decodeCreationPackageId(
+      s: String,
+      version: TransactionVersion,
+  ): Either[DecodeError, Option[Ref.PackageId]] =
+    if (version < TransactionVersion.minUpgrade)
+      Either.cond(
+        s.isEmpty,
+        None,
+        DecodeError(
+          s"creationPackageId is not supported by transaction version ${version.protoValue}"
+        ),
+      )
+    else if (s.nonEmpty)
+      Ref.PackageId
+        .fromString(s)
+        .fold(
+          err => Left(DecodeError(s"Invalid package name '$s': $err")),
+          pkgId => Right(Some(pkgId)),
+        )
+    else
+      Left(
+        DecodeError(s"creationPackageId is required for transaction version  ${version.protoValue}")
+      )
+
+  def encodeCreationPackageId(
+      creationPackageId: Option[Ref.PackageId],
+      version: TransactionVersion,
+  ): Either[EncodeError, String] =
+    if (version < TransactionVersion.minUpgrade)
+      Either.cond(
+        creationPackageId.isEmpty,
+        "",
+        EncodeError(
+          s"creationPackageId is not supported by transaction version ${version.protoValue}"
+        ),
+      )
+    else
+      creationPackageId.toRight(
+        EncodeError(s"creationPackageId is required for transaction version  ${version.protoValue}")
+      )
+
   /** Decode a contract instance from wire format
     *
     * @param protoCoinst protocol buffer encoded contract instance
@@ -276,9 +317,14 @@ object TransactionCoder {
                 )
               } yield nodeBuilder.setCreate(builder).build()
 
-            case nf @ Node.Fetch(_, _, _, _, _, _, _, _, _) =>
+            case nf @ Node.Fetch(_, _, _, _, _, _, _, _, _, _) =>
               val builder = TransactionOuterClass.NodeFetch.newBuilder()
               discard(builder.setTemplateId(ValueCoder.encodeIdentifier(nf.templateId)))
+              if (nodeVersion >= TransactionVersion.minUpgrade) {
+                nf.interfaceId.foreach(iface =>
+                  builder.setInterfaceId(ValueCoder.encodeIdentifier(iface))
+                )
+              }
               nf.stakeholders.foreach(builder.addStakeholders)
               nf.signatories.foreach(builder.addSignatories)
               discard(builder.setContractIdStruct(encodeCid.encode(nf.coid)))
@@ -294,7 +340,7 @@ object TransactionCoder {
                 )
               } yield nodeBuilder.setFetch(builder).build()
 
-            case ne @ Node.Exercise(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
+            case ne @ Node.Exercise(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
               val builder = TransactionOuterClass.NodeExercise.newBuilder()
               discard(
                 builder
@@ -322,9 +368,14 @@ object TransactionCoder {
               for {
                 encodedPkgName <- encodePackageName(ne.packageName, nodeVersion)
                 _ = builder.setPackageName(encodedPkgName)
+                encodedCreationPackageId <- encodeCreationPackageId(
+                  ne.creationPackageId,
+                  nodeVersion,
+                )
+                _ = builder.setCreationPackageId(encodedCreationPackageId)
                 _ <- Either.cond(
                   test = ne.version >= TransactionVersion.minChoiceAuthorizers ||
-                    !(ne.choiceAuthorizers.isDefined),
+                    !ne.choiceAuthorizers.isDefined,
                   right = (),
                   left = EncodeError(nodeVersion, isTooOldFor = "explicit choice-authorizers"),
                 )
@@ -500,6 +551,12 @@ object TransactionCoder {
           ni <- nodeId
           pkgName <- decodePackageName(protoFetch.getPackageName, nodeVersion)
           templateId <- ValueCoder.decodeIdentifier(protoFetch.getTemplateId)
+          interfaceId <-
+            if (nodeVersion >= TransactionVersion.minUpgrade && protoFetch.hasInterfaceId) {
+              ValueCoder.decodeIdentifier(protoFetch.getInterfaceId).map(Some(_))
+            } else {
+              Right(None)
+            }
           c <- decodeCid.decode(protoFetch.getContractIdStruct)
           actingParties <- toPartySet(protoFetch.getActorsList)
           stakeholders <- toPartySet(protoFetch.getStakeholdersList)
@@ -521,12 +578,14 @@ object TransactionCoder {
           keyOpt = keyOpt,
           byKey = byKey,
           version = nodeVersion,
+          interfaceId = interfaceId,
         )
 
       case NodeTypeCase.EXERCISE =>
         val protoExe = protoNode.getExercise
         for {
           pkgName <- decodePackageName(protoExe.getPackageName, nodeVersion)
+          creationPackageId <- decodeCreationPackageId(protoExe.getCreationPackageId, nodeVersion)
           templateId <- ValueCoder.decodeIdentifier(protoExe.getTemplateId)
           rvOpt <-
             if (!protoExe.hasResultVersioned && protoExe.getResultUnversioned.isEmpty) {
@@ -574,6 +633,7 @@ object TransactionCoder {
         } yield ni -> Node.Exercise(
           targetCoid = targetCoid,
           packageName = pkgName,
+          creationPackageId = creationPackageId,
           templateId = templateId,
           interfaceId = interfaceId,
           choiceId = choiceName,

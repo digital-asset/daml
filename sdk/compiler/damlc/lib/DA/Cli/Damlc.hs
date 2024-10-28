@@ -136,9 +136,11 @@ import DA.Daml.Options.Types (EnableScenarioService(..),
                               optEnableOfInterestRule,
                               optEnableScenarios,
                               optHaddock,
+                              optHideUnitId,
                               optIfaceDir,
                               optImportPath,
                               optIncrementalBuild,
+                              optMbPackageConfigPath,
                               optMbPackageName,
                               optMbPackageVersion,
                               optPackageDbs,
@@ -184,7 +186,7 @@ import qualified Data.ByteString.Char8 as BSC
 import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.Lazy.Char8 as BSLC
 import qualified Data.ByteString.UTF8 as BSUTF8
-import Data.Either (fromRight, partitionEithers)
+import Data.Either (partitionEithers)
 import Data.FileEmbed (embedFile)
 import qualified Data.HashSet as HashSet
 import Data.List (isPrefixOf, isInfixOf)
@@ -338,6 +340,7 @@ cmdMultiIde _numProcessors =
   where
     cmd = fmap (Command MultiIde Nothing) $ runMultiIde
         <$> cliOptLogLevel
+        <*> optional (strOptionOnce $ long "ide-identifier" <> help "Identifier string for this IDE")
         <*> many (strArgument mempty)
 
 cmdIde :: SdkVersion.Class.SdkVersioned => Int -> Mod CommandFields Command
@@ -813,9 +816,10 @@ execIde telemetry (Debug debug) enableScenarioService autorunAllScenarios option
                       whenJust gcpStateM $ \gcpState -> Logger.GCP.logIgnored gcpState
                       f loggerH
                   TelemetryDisabled -> f loggerH
-          mPkgConfig <- withMaybeConfig (withPackageConfig defaultProjectPath) pure
+          pkgPath <- getCanonDefaultProjectPath
+          mPkgConfig <- withMaybeConfig (withPackageConfig pkgPath) pure
           let pkgConfUpgradeDar = pUpgradeDar =<< mPkgConfig
-          options <- updateUpgradePath "ide" options pkgConfUpgradeDar
+          options <- updateUpgradePath "ide" pkgPath options pkgConfUpgradeDar
           options <- pure options
               { optScenarioService = enableScenarioService
               , optEnableOfInterestRule = True
@@ -824,6 +828,13 @@ execIde telemetry (Debug debug) enableScenarioService autorunAllScenarios option
               -- individual options. As a stopgap we ignore the argument to
               -- --jobs.
               , optThreads = 0
+              , optMbPackageName = pName <$> mPkgConfig
+              , optMbPackageVersion = mPkgConfig >>= pVersion
+              , optMbPackageConfigPath = Just pkgPath
+              -- IDE was built around not passing the package name and version, assuming the unit-id is "main" everywhere
+              -- For upgrade metadata checking, the IDE now needs the package name and version
+              -- This flag allows us to still hide the unit-id from ghc, so our assumption that the unit-id is "main" holds.
+              , optHideUnitId = True
               }
           installDepsAndInitPackageDb options (InitPkgDb True)
           scenarioServiceConfig <- readScenarioServiceConfig
@@ -934,6 +945,9 @@ execLint inputFiles opts =
 defaultProjectPath :: ProjectPath
 defaultProjectPath = ProjectPath "."
 
+getCanonDefaultProjectPath :: IO ProjectPath
+getCanonDefaultProjectPath = fmap ProjectPath $ canonicalizePath $ unwrapProjectPath defaultProjectPath
+
 -- | If we're in a daml project, read the daml.yaml field, install the dependencies and create the
 -- project local package database. Otherwise do nothing.
 execInit :: SdkVersion.Class.SdkVersioned => Options -> ProjectOpts -> Command
@@ -998,16 +1012,17 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb enableMultiPacka
   Command Build (Just projectOpts) $ evalContT $ do
     relativize <- ContT $ withProjectRoot' (projectOpts {projectCheck = ProjectCheck "" False})
 
-    let buildSingle :: PackageConfigFields -> IO ()
-        buildSingle pkgConfig = void $ buildEffect relativize pkgConfig opts mbOutFile incrementalBuild initPkgDb
-        buildMulti :: Maybe PackageConfigFields -> ProjectPath -> IO ()
-        buildMulti mPkgConfig multiPackageConfigPath = do
+    let buildSingle :: ProjectPath -> PackageConfigFields -> IO ()
+        buildSingle pkgPath pkgConfig = void $ buildEffect relativize pkgPath pkgConfig opts mbOutFile incrementalBuild initPkgDb
+        buildMulti :: ProjectPath -> Maybe PackageConfigFields -> ProjectPath -> IO ()
+        buildMulti pkgPath mPkgConfig multiPackageConfigPath = do
           hPutStrLn stderr $ "Running multi-package build of "
             <> maybe ("all packages in " <> unwrapProjectPath multiPackageConfigPath) (T.unpack . LF.unPackageName . pName) mPkgConfig <> "."
           withMultiPackageConfig multiPackageConfigPath $ \multiPackageConfig ->
-            multiPackageBuildEffect relativize mPkgConfig multiPackageConfig projectOpts opts mbOutFile incrementalBuild initPkgDb noCache
+            multiPackageBuildEffect relativize pkgPath mPkgConfig multiPackageConfig opts mbOutFile incrementalBuild initPkgDb noCache
 
-    mPkgConfig <- ContT $ withMaybeConfig $ withPackageConfig defaultProjectPath
+    pkgPath <- liftIO getCanonDefaultProjectPath
+    mPkgConfig <- ContT $ withMaybeConfig $ withPackageConfig pkgPath
     liftIO $ if getEnableMultiPackage enableMultiPackage then do
       mMultiPackagePath <- getMultiPackagePath multiPackageLocation
       -- At this point, if mMultiPackagePath is Just, we know it points to a multi-package.yaml
@@ -1017,7 +1032,7 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb enableMultiPacka
         (True, _, Just multiPackagePath) ->
           -- TODO[SW]: Ideally we would error here if any of the flags that change `opts` has been set, as it won't be propagated
           -- Its unclear how to implement this.
-          buildMulti Nothing multiPackagePath
+          buildMulti pkgPath Nothing multiPackagePath
 
         -- We're attempting to multi-package build --all but we don't have a multi-package.yaml
         (True, _, Nothing) -> do
@@ -1026,12 +1041,12 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb enableMultiPacka
           exitFailure
 
         -- We know the package we want and we have a multi-package.yaml
-        (False, Just pkgConfig, Just multiPackagePath) -> buildMulti (Just pkgConfig) multiPackagePath
+        (False, Just pkgConfig, Just multiPackagePath) -> buildMulti pkgPath (Just pkgConfig) multiPackagePath
 
         -- We know the package we want but we do not have a multi-package. The user has provided no reason they would want a multi-package build.
         (False, Just pkgConfig, Nothing) -> do
           hPutStrLn stderr $ "Running single package build of " <> T.unpack (LF.unPackageName $ pName pkgConfig) <> " as no multi-package.yaml was found."
-          buildSingle pkgConfig
+          buildSingle pkgPath pkgConfig
 
         -- We have no package context, but we have found a multi package at the current directory
         (False, Nothing, Just _) -> do
@@ -1057,7 +1072,7 @@ execBuild projectOpts opts mbOutFile incrementalBuild initPkgDb enableMultiPacka
             then do
               hPutStrLn stderr "Multi-package build option used with multi-package disabled - re-enable it by setting the --enable-multi-package=yes flag."
               exitFailure
-            else buildSingle pkgConfig
+            else buildSingle pkgPath pkgConfig
 
 -- Takes the withPackageConfig style functions and changes the continuation
 -- to give a Maybe, where Nothing signifies a missing file. Parse errors are still thrown
@@ -1078,9 +1093,18 @@ withMaybeConfig withConfig handler = do
     ) (withConfig $ pure . Just)
   handler mConfig
 
-buildEffect :: SdkVersion.Class.SdkVersioned => (FilePath -> IO FilePath) -> PackageConfigFields -> Options -> Maybe FilePath -> IncrementalBuild -> InitPkgDb -> IO (Maybe LF.PackageId)
-buildEffect relativize pkgConfig opts mbOutFile incrementalBuild initPkgDb = do
-  (pkgConfig, opts) <- syncUpgradesField pkgConfig opts
+buildEffect
+  :: SdkVersion.Class.SdkVersioned
+  => (FilePath -> IO FilePath)
+  -> ProjectPath
+  -> PackageConfigFields
+  -> Options
+  -> Maybe FilePath
+  -> IncrementalBuild
+  -> InitPkgDb
+  -> IO (Maybe LF.PackageId)
+buildEffect relativize pkgPath pkgConfig opts mbOutFile incrementalBuild initPkgDb = do
+  (pkgConfig, opts) <- syncUpgradesField pkgPath pkgConfig opts
   let PackageConfigFields{..} = pkgConfig
   installDepsAndInitPackageDb opts initPkgDb
   loggerH <- getLogger opts "build"
@@ -1093,6 +1117,7 @@ buildEffect relativize pkgConfig opts mbOutFile incrementalBuild initPkgDb = do
       opts
         { optMbPackageName = Just pName
         , optMbPackageVersion = pVersion
+        , optMbPackageConfigPath = Just pkgPath
         , optIncrementalBuild = incrementalBuild
         }
       loggerH
@@ -1114,20 +1139,25 @@ buildEffect relativize pkgConfig opts mbOutFile incrementalBuild initPkgDb = do
             Nothing -> pure $ distDir </> name <.> "dar"
             Just out -> rel out
 
-        syncUpgradesField :: PackageConfigFields -> Options -> IO (PackageConfigFields, Options)
-        syncUpgradesField pkgConf opts = do
-          opts <- updateUpgradePath "build" opts (pUpgradeDar pkgConf)
+        syncUpgradesField :: ProjectPath -> PackageConfigFields -> Options -> IO (PackageConfigFields, Options)
+        syncUpgradesField pkgPath pkgConf opts = do
+          opts <- updateUpgradePath "build" pkgPath opts (pUpgradeDar pkgConf)
           pure (pkgConf { pUpgradeDar = uiUpgradedPackagePath (optUpgradeInfo opts) }, opts)
 
-updateUpgradePath :: T.Text -> Options -> Maybe FilePath -> IO Options
-updateUpgradePath context opts@Options{optUpgradeInfo} newPkgPath = do
-  uiUpgradedPackagePath <- case (newPkgPath, uiUpgradedPackagePath optUpgradeInfo) of
+updateUpgradePath :: T.Text -> ProjectPath -> Options -> Maybe FilePath -> IO Options
+updateUpgradePath context projectPath opts@Options{optUpgradeInfo} newPkgPath = do
+  let projectFilePath = unwrapProjectPath projectPath
+  optCanonPath <- traverse canonicalizePath $ uiUpgradedPackagePath optUpgradeInfo
+  pkgCanonPath <- withCurrentDirectory projectFilePath $ traverse canonicalizePath newPkgPath
+  -- optUpgradeInfo is normalised to current directory
+  -- newPkgPath is normalised to daml.yaml location (or currentDirectory)
+  uiUpgradedPackagePath <- case (pkgCanonPath, optCanonPath) of
     (Just damlYamlOption, Just buildFlagsOption) | damlYamlOption /= buildFlagsOption -> do
       loggerH <- getLogger opts context
       Logger.logError loggerH $ T.unlines
         [ "ERROR: Specified two different DARs to run upgrade checks against:"
-        , "  Path specified in daml.yaml `upgrades:` field is '" <> T.pack damlYamlOption <> "'"
-        , "  Path specified in `--upgrades` build option is '" <> T.pack buildFlagsOption <> "'"
+        , "  Path specified in daml.yaml `upgrades:` field is '" <> T.pack (makeRelative projectFilePath damlYamlOption) <> "'"
+        , "  Path specified in `--upgrades` build option is '" <> T.pack (makeRelative projectFilePath buildFlagsOption) <> "'"
         ]
       exitFailure
     (a, b) ->
@@ -1169,19 +1199,18 @@ updateUpgradePath context opts@Options{optUpgradeInfo} newPkgPath = do
 multiPackageBuildEffect
   :: SdkVersion.Class.SdkVersioned
   => (FilePath -> IO FilePath)
+  -> ProjectPath
   -> Maybe PackageConfigFields -- Nothing signifies build all
   -> MultiPackageConfigFields
-  -> ProjectOpts
   -> Options
   -> Maybe FilePath
   -> IncrementalBuild
   -> InitPkgDb
   -> MultiPackageNoCache
   -> IO ()
-multiPackageBuildEffect relativize mPkgConfig multiPackageConfig projectOpts opts mbOutFile incrementalBuild initPkgDb noCache = do
+multiPackageBuildEffect relativize pkgPath mPkgConfig multiPackageConfig opts mbOutFile incrementalBuild initPkgDb noCache = do
   vfs <- makeVFSHandle
   loggerH <- getLogger opts "multi-package build"
-  cDir <- getCurrentDirectory
   assistantPath <- getEnv "DAML_ASSISTANT"
   -- Must drop DAML_PROJECT from env var so it can be repopulated based on `cwd`
   assistantEnv <- filter (flip notElem ["DAML_PROJECT", "DAML_SDK_VERSION", "DAML_SDK"] . fst) <$> getEnvironment
@@ -1197,11 +1226,11 @@ multiPackageBuildEffect relativize mPkgConfig multiPackageConfig projectOpts opt
 
       buildableDataDeps = BuildableDataDeps $ flip Map.lookup buildableDataDepsMapping
       mRootPkgBuilder = flip fmap mPkgConfig $ \pkgConfig -> do
-        mPkgId <- buildEffect relativize pkgConfig opts mbOutFile incrementalBuild initPkgDb
+        mPkgId <- buildEffect relativize pkgPath pkgConfig opts mbOutFile incrementalBuild initPkgDb
         pure $ fromMaybe
           (error "Internal error: root package was built from dalf, giving no package-id. This is incompatible with multi-package")
           mPkgId
-      mRootPkgData = (toNormalizedFilePath' $ maybe cDir unwrapProjectPath $ projectRoot projectOpts,) <$> mRootPkgBuilder
+      mRootPkgData = (toNormalizedFilePath' $ unwrapProjectPath pkgPath,) <$> mRootPkgBuilder
       rule = buildMultiRule assistantRunner buildableDataDeps noCache mRootPkgData
 
   -- Set up a near empty shake environment, with just the buildMulti rule
@@ -1471,38 +1500,53 @@ execClean :: ProjectOpts -> EnableMultiPackage -> MultiPackageLocation -> MultiP
 execClean projectOpts enableMultiPackage multiPackageLocation cleanAll =
   Command Clean (Just projectOpts) effect
   where
-    effect =
-      case (getEnableMultiPackage enableMultiPackage, getMultiPackageCleanAll cleanAll) of
-        (True, True) -> do
-          mMultiPackagePath <- getMultiPackagePath multiPackageLocation
-          case mMultiPackagePath of
-            Nothing -> do
-              hPutStrLn stderr "Couldn't find a multi-package.yaml at current or parent directory. Use --multi-package-path to specify its location."
-              exitFailure
-            Just path ->
-              withMultiPackageConfig path $ \multiPackageConfig ->
-                forM_ (mpPackagePaths multiPackageConfig) $ \p ->
-                  singleCleanEffect $ projectOpts {projectRoot = Just $ ProjectPath p}
-        (False, True) -> do
-          hPutStrLn stderr "Multi-package clean option used with multi-package disabled - re-enable it by setting the --enable-multi-package=yes flag."
-          exitFailure
-        _ -> singleCleanEffect projectOpts
+    effect
+      | getEnableMultiPackage enableMultiPackage
+      = do
+        mMultiPackagePath <- getMultiPackagePath multiPackageLocation
+        isProject <- withProjectRoot' (projectOpts {projectCheck = ProjectCheck "" False}) $ const $ doesFileExist projectConfigName
+        case (mMultiPackagePath, isProject, getMultiPackageCleanAll cleanAll) of
+          -- daml clean --all with no multi-package.yaml
+          (Nothing, _, True) -> do
+            hPutStrLn stderr "Couldn't find a multi-package.yaml at current or parent directory. Use --multi-package-path to specify its location."
+            exitFailure
+          -- daml clean --all with a multi-package.yaml
+          (Just path, _, True) ->
+            withMultiPackageConfig path $ \multiPackageConfig -> do
+              hPutStrLn stderr $ "Running multi-package clean of all packages in " <> unwrapProjectPath path
+              forM_ (mpPackagePaths multiPackageConfig) $ \p ->
+                singleCleanEffect $ projectOpts {projectRoot = Just $ ProjectPath p}
+              hPutStrLn stderr "Removed build artifacts."
+          -- daml clean in a package
+          (_, True, False) -> do
+            singleCleanEffect projectOpts
+            hPutStrLn stderr "Removed build artifacts."
+          -- daml clean outside a package and no multi-package.yaml
+          (Nothing, False, False) -> do
+            hPutStrLn stderr "No valid daml.yaml or multi-package.yaml could be found."
+            exitFailure
+          -- daml clean outside a package with a multi-package.yaml
+          (Just _, False, False) -> do
+            hPutStrLn stderr $ "No valid daml.yaml found, but a multi-package.yaml was found instead.\n"
+              <> "If you intended to clean everything within this multi-package.yaml, use the --all flag"
+            exitFailure
+      | getMultiPackageCleanAll cleanAll
+      = do
+        hPutStrLn stderr "Multi-package clean option used with multi-package disabled - re-enable it by setting the --enable-multi-package=yes flag."
+        exitFailure
+      | otherwise = do
+        singleCleanEffect projectOpts
+        hPutStrLn stderr "Removed build artifacts."
 
 singleCleanEffect :: ProjectOpts -> IO ()
 singleCleanEffect projectOpts =
   withProjectRoot' projectOpts $ \_relativize -> do
     isProject <- doesFileExist projectConfigName
     when isProject $ do
-        let removeAndWarn path = do
-                whenM (doesDirectoryExist path) $ do
-                    putStrLn ("Removing directory " <> path)
-                    removePathForcibly path
-                whenM (doesFileExist path) $ do
-                    putStrLn ("Removing file " <> path)
-                    removePathForcibly path
-        removeAndWarn damlArtifactDir
-        putStrLn "Removed build artifacts."
-
+      canonDir <- getCurrentDirectory
+      hPutStrLn stderr $ "Cleaning " <> canonDir
+      whenM (doesPathExist damlArtifactDir) $
+        removePathForcibly damlArtifactDir
 
 execPackage :: SdkVersion.Class.SdkVersioned
             => ProjectOpts
@@ -1874,7 +1918,7 @@ darPathFromDamlYaml path = do
   (name, version, mOutput) <-
     onDamlYaml 
       (\e -> error $ "Failed to parse daml.yaml at " <> path <> " for multi-package build: " <> displayException e)
-      (\project -> fromRight (error $ "Failed to read package info in daml.yaml at " <> path) $ do
+      (\project -> do
         name <- queryProjectConfigRequired ["name"] project
         version <- queryProjectConfigRequired ["version"] project
         mOutput <- queryProjectConfigBuildOutput project
@@ -1889,7 +1933,7 @@ buildMultiPackageConfigFromDamlYaml :: FilePath -> IO BuildMultiPackageConfig
 buildMultiPackageConfigFromDamlYaml path =
   onDamlYaml
     (\e -> error $ "Failed to parse daml.yaml at " <> path <> " for multi-package build: " <> displayException e)
-    (\project -> fromRight (error "Failed to get project info") $ do
+    (\project -> do
       bmSdkVersion <- queryProjectConfigRequired ["sdk-version"] project
       bmName <- queryProjectConfigRequired ["name"] project
       bmVersion <- queryProjectConfigRequired ["version"] project
@@ -1906,7 +1950,7 @@ buildMultiPackageConfigFromDamlYaml path =
     mbProjectOpts = Just $ ProjectOpts (Just $ ProjectPath path) (ProjectCheck "" False)
 
 -- | Extract some value from a daml.yaml via a projection function. Return a default value if the file doesn't exist
-onDamlYaml :: (ConfigError -> t) -> (ProjectConfig -> t) -> Maybe ProjectOpts -> IO t
+onDamlYaml :: (ConfigError -> t) -> (ProjectConfig -> Either ConfigError t) -> Maybe ProjectOpts -> IO t
 onDamlYaml def f mbProjectOpts = do
     -- This is the same logic used in withProjectRoot but we don’t need to change CWD here
     -- and this is simple enough so we inline it here.
@@ -1915,11 +1959,11 @@ onDamlYaml def f mbProjectOpts = do
     let projectPath = fromMaybe (ProjectPath ".") (mbProjectPath <|> mbEnvProjectPath)
     handle (\(e :: ConfigError) -> pure $ def e) $ do
         project <- readProjectConfig projectPath
-        pure $ f project
+        either throwIO pure $ f project
 
 cliArgsFromDamlYaml :: Maybe ProjectOpts -> IO [String]
 cliArgsFromDamlYaml =
-  onDamlYaml (const []) $ \project -> case queryProjectConfigRequired ["build-options"] project of
+  onDamlYaml (const []) $ \project -> Right $ case queryProjectConfigRequired ["build-options"] project of
     Left _ -> []
     Right xs -> xs
 

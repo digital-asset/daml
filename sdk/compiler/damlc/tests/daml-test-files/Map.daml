@@ -26,9 +26,13 @@ testFromList = script do
   True === member 3 (fromList [(1, "a"), (3, "b"), (4, "c")])
   [(1, "b")] === toList (fromList [(1, "a"), (1, "c"), (1, "b")])
 
-testFromListWith = script do
-  fromListWith (<>) [(5,"a"), (5,"b"), (3,"b"), (3,"a"), (5,"c")] === fromList [(5, "abc"), (3, "ba")]
-  fromListWith (<>) [] === (M.empty : Map Int Text)
+testFromListWithL = script do
+  fromListWithL (<>) [(5,"a"), (5,"b"), (3,"b"), (3,"a"), (5,"c")] === fromList [(5, "cba"), (3, "ab")]
+  fromListWithL (<>) [] === (M.empty : Map Int Text)
+
+testFromListWithR = script do
+  fromListWithR (<>) [(5,"a"), (5,"b"), (3,"b"), (3,"a"), (5,"c")] === fromList [(5, "abc"), (3, "ba")]
+  fromListWithR (<>) [] === (M.empty : Map Int Text)
 
 testMember = script do
   False === member "a" (fromList ([("", 1.0), ("b", 2.0), ("c", 3.0)] : [(Text, Decimal)]))

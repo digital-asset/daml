@@ -16,13 +16,18 @@ import com.digitalasset.canton.config.ConfigErrors.{
 import com.digitalasset.canton.logging.SuppressingLogger.LogEntryOptionality
 import com.digitalasset.canton.logging.{ErrorLoggingContext, LogEntry, SuppressionRule}
 import com.digitalasset.canton.version.HandshakeErrors.DeprecatingProtocolVersion
+import com.digitalasset.canton.version.ProtocolVersion
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 import org.scalatest.wordspec.AnyWordSpec
 
 class CantonCommunityConfigTest extends AnyWordSpec with BaseTest {
 
   import scala.jdk.CollectionConverters.*
+  import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
+
+  def name(str: String) = InstanceName.tryCreate(str)
   val simpleConf = "examples/01-simple-topology/simple-topology.conf"
+
   "the example simple topology configuration" should {
     lazy val config =
       loadFile(simpleConf).valueOrFail("failed to load simple-topology.conf")
@@ -37,6 +42,17 @@ class CantonCommunityConfigTest extends AnyWordSpec with BaseTest {
 
     "produce a port definition message" in {
       config.portDescription shouldBe "mydomain:admin-api=5019,public-api=5018;participant1:admin-api=5012,ledger-api=5011;participant2:admin-api=5022,ledger-api=5021"
+    }
+
+    "have synchronizeVettingOnUpload default to false" in {
+      config
+        .participants(name("participant1"))
+        .ledgerApi
+        .synchronizeVettingOnUpload shouldBe false // Takes the default
+      config
+        .participants(name("participant2"))
+        .ledgerApi
+        .synchronizeVettingOnUpload shouldBe true // Is explicitly set
     }
 
   }
@@ -332,10 +348,15 @@ class CantonCommunityConfigTest extends AnyWordSpec with BaseTest {
   }
 
   "parsing our config example snippets" should {
+
+    val excludeIfNoBeta: Set[String] =
+      if (ProtocolVersion.beta.nonEmpty) Set.empty else Set("beta-version-support.conf")
+
     "succeed on all examples" in {
       val inputDir = baseDir / "documentation-snippets"
       inputDir
         .list(_.extension.contains(".conf"))
+        .filter(f => !excludeIfNoBeta.contains(f.name))
         .foreach(file =>
           loggerFactory.assertLogsUnorderedOptional(
             loadFiles(Seq(simpleConf, "documentation-snippets/" + file.name))

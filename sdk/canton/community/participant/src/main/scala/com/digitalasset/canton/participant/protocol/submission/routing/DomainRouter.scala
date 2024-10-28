@@ -45,7 +45,7 @@ import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.{DomainAlias, LfKeyResolver, LfPartyId}
+import com.digitalasset.canton.{DomainAlias, LfKeyResolver, LfPackageId, LfPartyId}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -66,6 +66,7 @@ class DomainRouter(
         WellFormedTransaction[WithoutSuffixes],
         TraceContext,
         Map[LfContractId, SerializableContract],
+        Map[LfContractId, LfPackageId],
     ) => EitherT[Future, TransactionRoutingError, FutureUnlessShutdown[TransactionSubmitted]],
     contractsTransferer: ContractsTransfer,
     snapshotProvider: DomainStateProvider,
@@ -86,6 +87,7 @@ class DomainRouter(
       keyResolver: LfKeyResolver,
       transaction: LfSubmittedTransaction,
       explicitlyDisclosedContracts: ImmArray[ProcessedDisclosedContract],
+      contractPackages: Map[LfContractId, LfPackageId],
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, TransactionRoutingError, FutureUnlessShutdown[TransactionSubmitted]] =
@@ -137,6 +139,7 @@ class DomainRouter(
         domainIdResolver,
         contractRoutingParties,
         transactionMeta.optDomainId,
+        contractPackages,
       )
 
       domainSelector <- domainSelectorFactory.create(transactionData)
@@ -175,6 +178,7 @@ class DomainRouter(
         wfTransaction,
         traceContext,
         inputDisclosedContracts.view.map(sc => sc.contractId -> sc).toMap,
+        contractPackages,
       )
     } yield transactionSubmittedF
 
@@ -357,6 +361,7 @@ object DomainRouter {
       tx: WellFormedTransaction[WithoutSuffixes],
       traceContext: TraceContext,
       disclosedContracts: Map[LfContractId, SerializableContract],
+      contractPackages: Map[LfContractId, LfPackageId],
   )(implicit
       ec: ExecutionContext
   ): EitherT[Future, TransactionRoutingError, FutureUnlessShutdown[TransactionSubmitted]] =
@@ -374,6 +379,7 @@ object DomainRouter {
           keyResolver,
           tx,
           disclosedContracts,
+          contractPackages,
         )(traceContext)
       )
     } yield result

@@ -87,7 +87,6 @@ class StartableStoppableLedgerApiServer(
     dbConfig: DbSupport.DbConfig,
     telemetry: Telemetry,
     futureSupervisor: FutureSupervisor,
-    multiDomainEnabled: Boolean,
     parameters: ParticipantNodeParameters,
     commandProgressTracker: CommandProgressTracker,
 )(implicit
@@ -222,7 +221,6 @@ class StartableStoppableLedgerApiServer(
           executionContext,
           tracer,
           loggerFactory,
-          multiDomainEnabled = multiDomainEnabled,
           maxEventsByContractKeyCacheSize = Option.when(
             config.serverConfig.unsafeEnableEventsByContractKeyCache.enabled
           )(config.serverConfig.unsafeEnableEventsByContractKeyCache.cacheSize.unwrap),
@@ -243,7 +241,6 @@ class StartableStoppableLedgerApiServer(
         executionContext,
         tracer,
         loggerFactory,
-        multiDomainEnabled = multiDomainEnabled,
         startupMode = overrideIndexerStartupMode.getOrElse(DefaultIndexerStartupMode),
         dataSourceProperties = DbSupport.DataSourceProperties(
           connectionPool = IndexerConfig
@@ -274,7 +271,6 @@ class StartableStoppableLedgerApiServer(
           maxQueueSize = maxQueueSize.value,
           maxBatchSize = maxBatchSize.value,
           parallelism = parallelism.value,
-          multiDomainEnabled = multiDomainEnabled,
           loggerFactory = loggerFactory,
         )
       }
@@ -290,7 +286,6 @@ class StartableStoppableLedgerApiServer(
         inMemoryState = inMemoryState,
         tracer = config.tracerProvider.tracer,
         loggerFactory = loggerFactory,
-        incompleteOffsets = timedReadService.incompleteReassignmentOffsets(_, _)(_),
         contractLoader = contractLoader,
         pruningOffsetCache = pruningOffsetCache,
       )
@@ -365,7 +360,6 @@ class StartableStoppableLedgerApiServer(
         engineLoggingConfig = config.cantonParameterConfig.engine.submissionPhaseLogging,
         telemetry = telemetry,
         loggerFactory = loggerFactory,
-        multiDomainEnabled = multiDomainEnabled,
         authenticateUpgradableContract = authenticateUpgradableContract,
         dynParamGetter = config.syncService.dynamicDomainParameterGetter,
         pruningOffsetCache = pruningOffsetCache,

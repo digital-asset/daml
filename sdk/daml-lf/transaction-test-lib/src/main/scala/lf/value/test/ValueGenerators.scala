@@ -363,6 +363,7 @@ object ValueGenerators {
       keyOpt = key,
       byKey = byKey,
       version = version,
+      interfaceId = None,
     )
 
   /** Makes rollback node with some random child IDs. */
@@ -410,6 +411,7 @@ object ValueGenerators {
     } yield Node.Exercise(
       targetCoid = targetCoid,
       packageName = pkgName,
+      creationPackageId = pkgName.map(_ => templateId.packageId),
       templateId = templateId,
       interfaceId = interfaceId,
       choiceId = choiceId,

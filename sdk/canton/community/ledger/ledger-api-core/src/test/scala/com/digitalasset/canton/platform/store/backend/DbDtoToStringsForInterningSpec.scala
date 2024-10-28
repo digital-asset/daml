@@ -160,6 +160,7 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       contract_id = "49",
       template_id = Some("50"),
       package_name = Some("PN3"),
+      choice_package_id = Some("pkg1"),
       flat_event_witnesses = Set("51", "52", "53"),
       tree_event_witnesses = Set("54", "55", "56"),
       exercise_argument = None,

@@ -23,7 +23,6 @@ object LedgerApiServer {
       executionContext: ExecutionContext,
       tracer: Tracer,
       loggerFactory: NamedLoggerFactory,
-      multiDomainEnabled: Boolean,
       maxEventsByContractKeyCacheSize: Option[Int],
   )(implicit
       traceContext: TraceContext
@@ -52,7 +51,6 @@ object LedgerApiServer {
           indexServiceConfig.preparePackageMetadataTimeOutWarning.underlying,
         metrics = metrics,
         loggerFactory = loggerFactory,
-        multiDomainEnabled = multiDomainEnabled,
       )
     } yield inMemoryState -> inMemoryStateUpdater
 }

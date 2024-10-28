@@ -5,6 +5,7 @@ package com.daml.lf
 package engine
 package preprocessing
 
+import com.daml.lf.command.ReplayCommand
 import com.daml.lf.data.{Ref, ImmArray}
 import com.daml.lf.language.{Ast, LookupError}
 import com.daml.lf.speedy.SValue
@@ -46,7 +47,7 @@ private[engine] final class Preprocessor(
   val commandPreprocessor =
     new CommandPreprocessor(
       pkgInterface = pkgInterface,
-      requireV1ContractIdSuffix = requireV1ContractIdSuffix,
+      checkV1ContractIdSuffix = requireV1ContractIdSuffix,
     )
 
   val transactionPreprocessor = new TransactionPreprocessor(commandPreprocessor)
@@ -159,8 +160,8 @@ private[engine] final class Preprocessor(
     */
   def translateValue(ty0: Ast.Type, v0: Value): Result[SValue] =
     safelyRun(pullTypePackages(ty0)) {
-      // this is used only by the value enricher, strict translation is the way to go
-      commandPreprocessor.unsafeStrictTranslateValue(ty0, v0)
+      // this is used only by the value enricher
+      commandPreprocessor.unsafeTranslateValue(ty0, v0)
     }
 
   private[engine] def preprocessApiCommand(
@@ -220,10 +221,22 @@ private[engine] final class Preprocessor(
 
   private[engine] def preprocessReplayCommand(
       cmd: command.ReplayCommand
-  ): Result[speedy.Command] =
-    safelyRun(pullPackage(List(cmd.templateId))) {
+  ): Result[speedy.Command] = {
+    def templateAndInterfaceIds =
+      cmd match {
+        case ReplayCommand.Create(templateId, _) => List(templateId)
+        case ReplayCommand.Exercise(templateId, interfaceId, _, _, _) =>
+          templateId :: interfaceId.toList
+        case ReplayCommand.ExerciseByKey(templateId, _, _, _) => List(templateId)
+        case ReplayCommand.Fetch(templateId, interfaceId, _) =>
+          templateId :: interfaceId.toList
+        case ReplayCommand.FetchByKey(templateId, _) => List(templateId)
+        case ReplayCommand.LookupByKey(templateId, _) => List(templateId)
+      }
+    safelyRun(pullPackage(templateAndInterfaceIds)) {
       commandPreprocessor.unsafePreprocessReplayCommand(cmd)
     }
+  }
 
   /** Translates a complete transaction. Assumes no contract ID suffixes are used */
   def translateTransactionRoots(

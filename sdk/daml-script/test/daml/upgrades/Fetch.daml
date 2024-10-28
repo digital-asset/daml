@@ -42,9 +42,9 @@ main = tests
   , ("Downgrade a contract with Nones when fetching", fetchDowngradedNone)
   , ("Fail to downgrade a contract with Somes when fetching", fetchDowngradedSome)
 
-  , -- Fetching tests with unvetted sources (IDE ledger doesn't support unvetting)
-    brokenOnIDELedger ("Upgrade a contract when fetching where the source package (V1) is unvetted", fetchUpgradedSourceUnvetted)
-  , brokenOnIDELedger ("Downgrade a contract with Nones when fetching where the source package (V2) is unvetted", fetchDowngradedNoneSourceUnvetted)
+  , -- Fetching tests with unvetted sources
+    broken ("Upgrade a contract when fetching where the source package (V1) is unvetted", fetchUpgradedSourceUnvetted)
+  , broken ("Downgrade a contract with Nones when fetching where the source package (V2) is unvetted", fetchDowngradedNoneSourceUnvetted)
   ]
 
 exerciseV1Util : Choice V1.FetchHelper c r => Party -> c -> Script r

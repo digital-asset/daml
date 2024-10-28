@@ -87,6 +87,7 @@ import com.digitalasset.canton.{
   DiscardOps,
   LedgerSubmissionId,
   LfKeyResolver,
+  LfPackageId,
   LfPartyId,
   RequestCounter,
   SequencerCounter,
@@ -181,6 +182,7 @@ class TransactionProcessingSteps(
       keyResolver,
       wfTransaction,
       disclosedContracts,
+      contractPackages,
     ) = param
 
     val tracked = new TrackedTransactionSubmission(
@@ -192,6 +194,7 @@ class TransactionProcessingSteps(
       recentSnapshot,
       ephemeralState.contractLookup,
       disclosedContracts,
+      contractPackages,
     )
 
     EitherT.rightT[FutureUnlessShutdown, TransactionSubmissionError](tracked)
@@ -229,6 +232,7 @@ class TransactionProcessingSteps(
       recentSnapshot: DomainSnapshotSyncCryptoApi,
       contractLookup: ContractLookup,
       disclosedContracts: Map[LfContractId, SerializableContract],
+      contractPackages: Map[LfContractId, LfPackageId],
   )(implicit traceContext: TraceContext)
       extends TrackedSubmission {
 
@@ -412,6 +416,7 @@ class TransactionProcessingSteps(
               None,
               maxSequencingTime,
               protocolVersion,
+              contractPackages,
             )
             .leftMap[TransactionSubmissionTrackingData.RejectionCause] {
               case TransactionTreeFactoryError(UnknownPackageError(unknownTo)) =>
@@ -1678,6 +1683,7 @@ object TransactionProcessingSteps {
       keyResolver: LfKeyResolver,
       transaction: WellFormedTransaction[WithoutSuffixes],
       disclosedContracts: Map[LfContractId, SerializableContract],
+      contractPackages: Map[LfContractId, LfPackageId],
   )
 
   final case class EnrichedTransaction(

@@ -48,6 +48,8 @@ message CreatedEvent {
   string contract_id = 2;
 
   // The template of the created contract.
+  // The identifier uses the package-id reference format.
+  //
   // Required
   Identifier template_id = 3;
 
@@ -62,12 +64,14 @@ message CreatedEvent {
 
   // The arguments that have been used to create the contract.
   // Set either:
+  //
   //   - if there was a party, which is in the ``witness_parties`` of this event,
   //     and for which an ``InclusiveFilters`` exists with the ``template_id`` of this event
   //     among the ``template_ids``,
   //   - or if there was a party, which is in the ``witness_parties`` of this event,
   //     and for which a wildcard filter exists (``Filters`` without ``InclusiveFilters``,
   //     or with an ``InclusiveFilters`` with empty ``template_ids`` and empty ``interface_filters``).
+  //
   // Optional
   Record create_arguments = 4;
 
@@ -81,9 +85,11 @@ message CreatedEvent {
 
   // Interface views specified in the transaction filter.
   // Includes an ``InterfaceView`` for each interface for which there is a ``InterfaceFilter`` with
+  //
   //   - its party in the ``witness_parties`` of this event,
   //   - and which is implemented by the template of this event,
   //   - and which has ``include_interface_view`` set.
+  //
   // Optional
   repeated InterfaceView interface_views = 11;
 
@@ -93,11 +99,13 @@ message CreatedEvent {
   // of the event. If served as part of a flat transaction those will
   // be limited to all parties specified in the ``TransactionFilter`` that
   // are stakeholders of the contract (i.e. either signatories or observers).
-  // In case of v2 API:
-  //   If the ``CreatedEvent`` is returned as part of an AssignedEvent,
-  //   ActiveContract or IncompleteUnassigned (so the event is related to
-  //   an assignment or unassignment): this will include all parties of the
-  //   ``TransactionFilter`` that are stakeholders of the contract.
+  //
+  // In case of v2 API,
+  // if the ``CreatedEvent`` is returned as part of an AssignedEvent,
+  // ActiveContract or IncompleteUnassigned (so the event is related to
+  // an assignment or unassignment): this will include all parties of the
+  // ``TransactionFilter`` that are stakeholders of the contract.
+  //
   // Required
   repeated string witness_parties = 5;
 
@@ -129,6 +137,8 @@ message CreatedEvent {
 message InterfaceView {
 
   // The interface implemented by the matched event.
+  // The identifier uses the package-id reference format.
+  //
   // Required
   Identifier interface_id = 1;
 
@@ -160,6 +170,8 @@ message ArchivedEvent {
   string contract_id = 2;
 
   // The template of the archived contract.
+  // The identifier uses the package-id reference format.
+  //
   // Required
   Identifier template_id = 3;
 
@@ -172,6 +184,10 @@ message ArchivedEvent {
   // in ``value.proto``).
   // Required
   repeated string witness_parties = 4;
+
+  // The package name of the archived contract.
+  // Optional
+  google.protobuf.StringValue package_name = 5;
 }
 
 // Records that a choice has been exercised on a target contract.
@@ -188,6 +204,9 @@ message ExercisedEvent {
   string contract_id = 2;
 
   // The template of the target contract.
+  // The identifier uses the package-id reference format,
+  // with the package id at which the contract was created.
+  //
   // Required
   Identifier template_id = 3;
 
@@ -196,6 +215,8 @@ message ExercisedEvent {
   google.protobuf.StringValue package_name = 14;
 
   // The interface where the choice is defined, if inherited.
+  // If defined, the identifier uses the package-id reference format.
+  //
   // Optional
   Identifier interface_id = 13;
 
@@ -245,5 +266,11 @@ message ExercisedEvent {
   // The result of exercising the choice.
   // Required
   Value exercise_result = 12;
+
+  // The package of the choice that was exercised, which may be different from the package
+  // with which the contract was created.
+  //
+  // Optional
+  google.protobuf.StringValue choice_package_id = 15;
 }
 

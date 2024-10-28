@@ -3,8 +3,7 @@
 
 package com.digitalasset.canton.crypto.store.db
 
-import cats.data.EitherT
-import cats.syntax.bifunctor.*
+import cats.data.OptionT
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.*
@@ -12,9 +11,8 @@ import com.digitalasset.canton.crypto.store.*
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.TimedLoadGauge
 import com.digitalasset.canton.resource.DbStorage.DbAction
-import com.digitalasset.canton.resource.{DbStorage, DbStore}
+import com.digitalasset.canton.resource.{DbStorage, DbStore, IdempotentInsert}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.version.ReleaseProtocolVersion
 import slick.jdbc.{GetResult, SetParameter}
 
@@ -47,7 +45,7 @@ class DbCryptoPublicStore(
       .as[K]
       .map(_.toSet)
 
-  private def queryKey[K <: PublicKeyWithName: GetResult](
+  private def queryKeyO[K <: PublicKeyWithName: GetResult](
       keyId: Fingerprint,
       purpose: KeyPurpose,
   ): DbAction.ReadOnly[Option[K]] =
@@ -55,105 +53,85 @@ class DbCryptoPublicStore(
       .as[K]
       .headOption
 
-  private def insertKeyUpdate[K <: PublicKey: SetParameter, KN <: PublicKeyWithName: GetResult](
-      key: K,
-      name: Option[KeyName],
-  ): DbAction.WriteOnly[Int] =
-    storage.profile match {
-      case _: DbStorage.Profile.Oracle =>
-        sqlu"""insert
-               /*+  IGNORE_ROW_ON_DUPKEY_INDEX ( crypto_public_keys ( key_id ) ) */
-               into crypto_public_keys (key_id, purpose, data, name)
-           values (${key.id}, ${key.purpose}, $key, $name)"""
-      case _ =>
-        sqlu"""insert into crypto_public_keys (key_id, purpose, data, name)
-           values (${key.id}, ${key.purpose}, $key, $name)
-           on conflict do nothing"""
-    }
+  private def queryKey[K <: PublicKeyWithName: GetResult](
+      keyId: Fingerprint,
+      purpose: KeyPurpose,
+  ): DbAction.ReadOnly[K] =
+    sql"select data, name from crypto_public_keys where key_id = $keyId and purpose = $purpose"
+      .as[K]
+      .head
 
   private def insertKey[K <: PublicKey: SetParameter, KN <: PublicKeyWithName: GetResult](
       key: K,
       name: Option[KeyName],
-  )(implicit traceContext: TraceContext): EitherT[Future, CryptoPublicStoreError, Unit] =
-    insertTime.eitherTEvent {
-      for {
-        inserted <- EitherT.right(storage.update(insertKeyUpdate(key, name), functionFullName))
-        res <-
-          if (inserted == 0) {
-            // If no key was inserted by the insert query, check that the existing value matches
-            storage
-              .querySingle(queryKey(key.id, key.purpose), functionFullName)
-              .toRight(
-                CryptoPublicStoreError.FailedToInsertKey(key.id, "No key inserted and no key found")
-              )
-              .flatMap { existingKey =>
-                EitherT
-                  .cond[Future](
-                    existingKey.publicKey == key && existingKey.name == name,
-                    (),
-                    CryptoPublicStoreError.KeyAlreadyExists(key.id, existingKey.name.map(_.unwrap)),
-                  )
-                  .leftWiden[CryptoPublicStoreError]
-              }
-          } else EitherT.rightT[Future, CryptoPublicStoreError](())
-      } yield res
-    }
+  )(implicit
+      traceContext: TraceContext
+  ): Future[Unit] =
+    storage.queryAndUpdate(
+      IdempotentInsert.insertVerifyingConflicts(
+        storage,
+        "crypto_public_keys ( key_id )",
+        sql"crypto_public_keys (key_id, purpose, data, name) values (${key.id}, ${key.purpose}, $key, $name)",
+        queryKey(key.id, key.purpose),
+      )(
+        // An error is thrown if, and only if, the key we want to insert has the same id but different key payloads.
+        existingKey => existingKey.publicKey == key,
+        _ => s"Existing public key for ${key.id} is different than inserted key",
+      ),
+      functionFullName,
+    )
 
   override def readSigningKey(signingKeyId: Fingerprint)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CryptoPublicStoreError, Option[SigningPublicKeyWithName]] =
-    EitherTUtil.fromFuture(
-      storage
-        .querySingle(
-          queryKey[SigningPublicKeyWithName](signingKeyId, KeyPurpose.Signing),
-          functionFullName,
-        )
-        .value,
-      err => CryptoPublicStoreError.FailedToReadKey(signingKeyId, err.toString),
-    )
+  ): OptionT[Future, SigningPublicKeyWithName] =
+    storage
+      .querySingle(
+        queryKeyO[SigningPublicKeyWithName](signingKeyId, KeyPurpose.Signing),
+        functionFullName,
+      )
 
   override def readEncryptionKey(encryptionKeyId: Fingerprint)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CryptoPublicStoreError, Option[EncryptionPublicKeyWithName]] =
-    EitherTUtil.fromFuture(
-      storage
-        .querySingle(
-          queryKey[EncryptionPublicKeyWithName](encryptionKeyId, KeyPurpose.Encryption),
-          functionFullName,
-        )
-        .value,
-      err => CryptoPublicStoreError.FailedToReadKey(encryptionKeyId, err.toString),
-    )
+  ): OptionT[Future, EncryptionPublicKeyWithName] =
+    storage
+      .querySingle(
+        queryKeyO[EncryptionPublicKeyWithName](encryptionKeyId, KeyPurpose.Encryption),
+        functionFullName,
+      )
 
   override protected def writeSigningKey(key: SigningPublicKey, name: Option[KeyName])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CryptoPublicStoreError, Unit] =
+  ): Future[Unit] =
     insertKey[SigningPublicKey, SigningPublicKeyWithName](key, name)
 
   override protected def writeEncryptionKey(key: EncryptionPublicKey, name: Option[KeyName])(
       implicit traceContext: TraceContext
-  ): EitherT[Future, CryptoPublicStoreError, Unit] =
+  ): Future[Unit] =
     insertKey[EncryptionPublicKey, EncryptionPublicKeyWithName](key, name)
 
   override private[store] def listSigningKeys(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CryptoPublicStoreError, Set[SigningPublicKeyWithName]] =
-    EitherTUtil.fromFuture(
-      queryTime.event(
-        storage.query(queryKeys[SigningPublicKeyWithName](KeyPurpose.Signing), functionFullName)
-      ),
-      err => CryptoPublicStoreError.FailedToListKeys(err.toString),
+  ): Future[Set[SigningPublicKeyWithName]] =
+    storage.query(
+      queryKeys[SigningPublicKeyWithName](KeyPurpose.Signing),
+      functionFullName,
     )
 
   override private[store] def listEncryptionKeys(implicit
       traceContext: TraceContext
-  ): EitherT[Future, CryptoPublicStoreError, Set[EncryptionPublicKeyWithName]] =
-    EitherTUtil
-      .fromFuture(
-        queryTime.event(
-          storage
-            .query(queryKeys[EncryptionPublicKeyWithName](KeyPurpose.Encryption), functionFullName)
-        ),
-        err => CryptoPublicStoreError.FailedToListKeys(err.toString),
+  ): Future[Set[EncryptionPublicKeyWithName]] =
+    storage
+      .query(
+        queryKeys[EncryptionPublicKeyWithName](KeyPurpose.Encryption),
+        functionFullName,
+      )
+
+  override protected def deleteKeyInternal(
+      keyId: Fingerprint
+  )(implicit traceContext: TraceContext): Future[Unit] =
+    storage
+      .update_(
+        sqlu"delete from crypto_public_keys where key_id = $keyId",
+        functionFullName,
       )
 }

@@ -68,6 +68,7 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
         targetCoid = create1,
         templateId = someTemplateId,
         packageName = testPackageName,
+        creationPackageId = None,
         interfaceId = None,
         choiceId = someChoiceName,
         consuming = true,
@@ -101,12 +102,14 @@ private[dao] trait JdbcLedgerDaoDivulgenceSpec extends LoneElement with Inside {
         ),
         byKey = false,
         version = TransactionVersion.minVersion,
+        interfaceId = None,
       )
 
       val exercise3c = Node.Exercise(
         targetCoid = create2Cid,
         templateId = someTemplateId,
         packageName = testPackageName,
+        creationPackageId = None,
         interfaceId = None,
         choiceId = someChoiceName,
         consuming = true,

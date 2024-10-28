@@ -25,6 +25,8 @@ service InspectionService {
   rpc LookupOffsetByTime(LookupOffsetByTime.Request) returns (LookupOffsetByTime.Response);
   // Look up the ledger offset by an index, e.g. 1 returns the first offset, 2 the second, etc.
   rpc LookupOffsetByIndex(LookupOffsetByIndex.Request) returns (LookupOffsetByIndex.Response);
+  // Count in-flight submissions and transactions for a domain
+  rpc CountInFlight(CountInFlight.Request) returns (CountInFlight.Response);
 }
 
 message LookupContractDomain {
@@ -76,5 +78,17 @@ message LookupOffsetByIndex {
     // the absolute offset as a string corresponding to the specified index.
     // empty string if no such offset exists.
     string offset = 1;
+  }
+}
+
+message CountInFlight {
+  message Request {
+    // the domain to query for pending submissions and in-flight transactions
+    string domain_id = 1;
+  }
+
+  message Response {
+    uint32 pending_submissions = 1;
+    uint32 pending_transactions = 2;
   }
 }

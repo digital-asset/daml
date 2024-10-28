@@ -367,12 +367,20 @@ final class LfValueTranslation(
       )
       exerciseResult <- exerciseResult match {
         case Some(result) =>
+          val choicePkgId = raw.partial.choicePackageId
+            .map(LfPackageId.assertFromString)
+            .getOrElse(templateId.packageId)
           toApiValue(
             value = result,
             verbose = verbose,
             attribute = "exercise result",
             enrich = value =>
-              enricher.enrichChoiceResult(templateId, interfaceId, choiceName, value.unversioned),
+              enricher.enrichChoiceResult(
+                templateId.copy(packageId = choicePkgId),
+                interfaceId,
+                choiceName,
+                value.unversioned,
+              ),
           ).map(Some(_))
         case None => Future.successful(None)
       }

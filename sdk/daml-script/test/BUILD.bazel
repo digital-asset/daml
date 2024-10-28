@@ -31,6 +31,8 @@ NON_UPGRADE_LF_VERSION = "1.15"
             glob(["**/*.daml"]) + [
                 "//daml-script/daml:daml-script-{}.dar".format(target),
                 "//docs:source/daml-script/template-root/src/ScriptExample.daml",
+                "//daml-script/test:template.dar",
+                "//daml-script/test:retrointerface.dar",
             ],
         outs = ["script-test.dar"],
         cmd = """
@@ -43,6 +45,8 @@ NON_UPGRADE_LF_VERSION = "1.15"
       cp -L $(location :daml/TestExceptions.daml) $$TMP_DIR/daml
       cp -L $(location :daml/TestInterfaces.daml) $$TMP_DIR/daml
       cp -L $(location //docs:source/daml-script/template-root/src/ScriptExample.daml) $$TMP_DIR/daml
+      cp -L $(location //daml-script/test:template.dar) $$TMP_DIR/
+      cp -L $(location //daml-script/test:retrointerface.dar) $$TMP_DIR/
       cat << EOF >> $$TMP_DIR/daml/ScriptExample.daml
 initializeFixed : Script ()
 initializeFixed = do
@@ -62,6 +66,9 @@ dependencies:
   - daml-stdlib
   - daml-prim
   - daml-script-{target}.dar
+data-dependencies:
+  - template.dar
+  - retrointerface.dar
 build-options:
   - --target={target}
   - --typecheck-upgrades=no
@@ -221,6 +228,19 @@ daml_compile(
     version = "1.0.0",
 )
 
+daml_compile(
+    name = "template",
+    srcs = [":daml/Template.daml"],
+    target = "1.15",
+)
+
+daml_compile(
+    name = "retrointerface",
+    srcs = [":daml/RetroInterface.daml"],
+    data_dependencies = ["//daml-script/test:template.dar"],
+    target = "1.15",
+)
+
 filegroup(
     name = "upgrade-test-files",
     srcs = glob(["daml/upgrades/*.daml"]),
@@ -241,6 +261,8 @@ da_scala_test_suite(
         ":script-test.dar",
         ":script-test-no-ledger.dar",
         "//daml-script/runner:daml-script-binary",
+        "//daml-script/test:retrointerface.dar",
+        "//daml-script/test:template.dar",
     ],
     resources = glob(["src/main/resources/**/*"]),
     scala_deps = [

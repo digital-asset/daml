@@ -157,14 +157,14 @@ private[routing] class DomainSelector(
         }
     }.separate
 
-    val domainsFilter = DomainsFilter(
-      submittedTransaction = transactionData.transaction,
+    val domainsSplit = DomainsFilter.split(
+      requiredPackagesPerParty = transactionData.requiredPackagesPerParty,
       domains = domainStates,
-      loggerFactory = loggerFactory,
+      transactionVersion = transactionData.version,
     )
 
     for {
-      domains <- EitherT.liftF(domainsFilter.split)
+      domains <- EitherT.liftF(domainsSplit)
 
       (unusableDomains, usableDomains) = domains
       allUnusableDomains =

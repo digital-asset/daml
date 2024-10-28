@@ -24,9 +24,13 @@ testFromList = script do
   True === member "3" (fromList [("1", "a"), ("3", "b"), ("4", "c")])
   fromList [("1", "b")] === fromList [("1", "a"), ("1", "c"), ("1", "b")]
 
-testFromListWith = script do
-  fromListWith (++) [("A", [1]), ("A", [2]), ("B", [2]), ("B", [1]), ("A", [3])] === fromList [("A", [1, 2, 3]), ("B", [2, 1])]
-  fromListWith (++) [] === (empty : TextMap [Int])
+testFromListWithL = script do
+  fromListWithL (++) [("A", [1]), ("A", [2]), ("B", [2]), ("B", [1]), ("A", [3])] === fromList [("A", [3, 2, 1]), ("B", [1, 2])]
+  fromListWithL (++) [] === (empty : TextMap [Int])
+
+testFromListWithR = script do
+  fromListWithR (++) [("A", [1]), ("A", [2]), ("B", [2]), ("B", [1]), ("A", [3])] === fromList [("A", [1, 2, 3]), ("B", [2, 1])]
+  fromListWithR (++) [] === (empty : TextMap [Int])
 
 testMember = script do
   False === member "a" (fromList ([("", 1.0), ("b", 2.0), ("c", 3.0)] : [(Text, Decimal)]))
@@ -76,3 +80,7 @@ testMerge = script do
   [("A", "bb"), ("C", "aa")] === toList (merge (\_ v -> if v <= "bb" then Some v else None) (\_ v -> Some v) (\_ _ _ -> None) m1 empty)
   [("A", "a"), ("C", "b")] === toList (merge (\_ v -> Some v) (\_ v -> if v <= "bb" then Some v else None) (\_ _ _ -> None) empty m2)
   [("A","bb"), ("B","dd"), ("C","aa")] === toList (merge (\_ _ -> None) (\_ _ -> None) (\_ v _ -> Some v) m1 m2)
+
+testInsertWith = script do
+  insertWith (-) "A" 2 (fromList []) === fromList [("A", 2)]
+  insertWith (-) "A" 2 (fromList [("A",1)]) === fromList [("A", 2-1)]

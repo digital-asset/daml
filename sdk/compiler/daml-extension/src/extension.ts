@@ -7,42 +7,22 @@
 import * as vscode from "vscode";
 import * as path from "path";
 import * as fs from "fs";
-import * as os from "os";
-import {
-  LanguageClient,
-  LanguageClientOptions,
-  RequestType,
-  NotificationType,
-  CancellationToken,
-  ProvideDefinitionSignature,
-} from "vscode-languageclient/node";
-import {
-  Uri,
-  ViewColumn,
-  window,
-  QuickPickOptions,
-  ExtensionContext,
-  WorkspaceConfiguration,
-} from "vscode";
-import * as which from "which";
+import { ViewColumn, ExtensionContext } from "vscode";
 import * as util from "util";
 import fetch from "node-fetch";
-import { getOrd } from "fp-ts/lib/Array";
-import { ordNumber } from "fp-ts/lib/Ord";
-import { URLSearchParams } from "url";
-
-let damlRoot: string = path.join(os.homedir(), ".daml");
+import { DamlLanguageClient } from "./language_client";
+import { resetTelemetryConsent, getTelemetryConsent } from "./telemetry";
+import { WebviewFiles, getVRFilePath } from "./virtual_resource_manager";
+import * as child_process from "child_process";
+import * as semver from "semver";
 
 const versionContextKey = "version";
 
-type WebviewFiles = {
-  src: Uri; // The JavaScript file.
-  css: Uri;
-};
-
-var damlLanguageClient: LanguageClient;
-var virtualResourceManager: VirtualResourceManager;
-var isMultiIde: boolean;
+var damlLanguageClients: { [projectPath: string]: DamlLanguageClient } = {};
+var webviewFiles: WebviewFiles;
+var outputChannel: vscode.OutputChannel = vscode.window.createOutputChannel(
+  "Daml Extension Host",
+);
 
 // Extension activation
 // Note: You can log debug information by using `console.log()`
@@ -65,85 +45,59 @@ export async function activate(context: vscode.ExtensionContext) {
   // Display release notes on updates
   showReleaseNotesIfNewVersion(context);
 
-  const webviewFiles: WebviewFiles = {
+  webviewFiles = {
     src: vscode.Uri.file(path.join(context.extensionPath, "src", "webview.js")),
     css: vscode.Uri.file(
       path.join(context.extensionPath, "src", "webview.css"),
     ),
   };
 
-  async function shutdownLanguageServer() {
-    // Stop the Language server
-    stopKeepAliveWatchdog();
-    await damlLanguageClient.stop();
-    virtualResourceManager.dispose();
-    const index = context.subscriptions.indexOf(virtualResourceManager, 0);
-    if (index > -1) {
-      context.subscriptions.splice(index, 1);
-    }
-  }
-
-  async function setupLanguageServer(
-    config: vscode.WorkspaceConfiguration,
-    consent: boolean | undefined,
-  ) {
-    damlLanguageClient = createLanguageClient(config, consent);
-    damlLanguageClient.registerProposedFeatures();
-
-    virtualResourceManager = new VirtualResourceManager(
-      damlLanguageClient,
-      webviewFiles,
-      context,
-    );
-    context.subscriptions.push(virtualResourceManager);
-
-    let _unused = damlLanguageClient.onReady().then(() => {
-      startKeepAliveWatchdog();
-      damlLanguageClient.onNotification(
-        DamlVirtualResourceDidChangeNotification.type,
-        params =>
-          virtualResourceManager.setContent(params.uri, params.contents),
-      );
-      damlLanguageClient.onNotification(
-        DamlVirtualResourceNoteNotification.type,
-        params => virtualResourceManager.setNote(params.uri, params.note),
-      );
-      damlLanguageClient.onNotification(
-        DamlVirtualResourceDidProgressNotification.type,
-        params =>
-          virtualResourceManager.setProgress(
-            params.uri,
-            params.millisecondsPassed,
-            params.startedAt,
-          ),
-      );
-      let sdkInstallState: SdkInstallState = {};
-      damlLanguageClient.onNotification(DamlSdkInstallProgress.type, params =>
-        handleDamlSdkInstallProgress(sdkInstallState, params),
-      );
-    });
-
-    damlLanguageClient.start();
-  }
+  await startLanguageServers(context);
 
   vscode.workspace.onDidChangeConfiguration(
     async (event: vscode.ConfigurationChangeEvent) => {
       if (event.affectsConfiguration("daml")) {
-        await shutdownLanguageServer();
+        await stopLanguageServers();
         await new Promise(resolve => setTimeout(resolve, 1000));
-        const config = vscode.workspace.getConfiguration("daml");
-        const consent = await getTelemetryConsent(config, context);
-        setupLanguageServer(config, consent);
+        await startLanguageServers(context);
       }
     },
   );
 
-  const config = vscode.workspace.getConfiguration("daml");
-  const consent = await getTelemetryConsent(config, context);
-  setupLanguageServer(config, consent);
+  let d1 = vscode.commands.registerCommand(
+    "daml.showResource",
+    (title, uri) => {
+      let vrPathMb = getVRFilePath(uri);
+      if (!vrPathMb) return;
 
-  let d1 = vscode.commands.registerCommand("daml.showResource", (title, uri) =>
-    virtualResourceManager.createOrShow(title, uri),
+      // Need to normalize paths so that prefix comparison works on Windows,
+      // where path separators can differ.
+      let vrPath: string = path.normalize(vrPathMb);
+      let isPrefixOfVrPath = (candidate: string) =>
+        vrPath.startsWith(path.normalize(candidate) + path.sep);
+
+      // Try to find a client for the virtual resource- if we can't, log to DevTools
+      let foundAClient = false;
+      for (let projectPath in damlLanguageClients) {
+        if (vrPath.startsWith(projectPath)) {
+          foundAClient = true;
+          damlLanguageClients[projectPath].virtualResourceManager.createOrShow(
+            title,
+            uri,
+          );
+          break;
+        }
+      }
+
+      if (!foundAClient) {
+        console.log(
+          `daml.showResource: Could not find a language client for ${vrPath}`,
+        );
+        vscode.window.showWarningMessage(
+          `Could not show script results - could not find a language client for ${vrPath}`,
+        );
+      }
+    },
   );
 
   let d2 = vscode.commands.registerCommand("daml.openDamlDocs", openDamlDocs);
@@ -185,7 +139,176 @@ export async function activate(context: vscode.ExtensionContext) {
     resetTelemetryConsent(context),
   );
 
-  context.subscriptions.push(d1, d2, d3, d4);
+  let d5 = vscode.commands.registerCommand(
+    "daml.installRecommendedDirenv",
+    showRecommendedDirenvPage,
+  );
+
+  context.subscriptions.push(d1, d2, d3, d4, d5);
+}
+
+interface IdeManifest {
+  [multiPackagePath: string]: { [envVarName: string]: string };
+}
+
+function parseIdeManifest(path: string): IdeManifest | null {
+  try {
+    const json = JSON.parse(fs.readFileSync(path, "utf8"));
+    const manifest: IdeManifest = {};
+    for (const entry of json) {
+      manifest[entry["multi-package-directory"]] = entry.environment;
+    }
+    return manifest;
+  } catch (e) {
+    outputChannel.appendLine("Failed to parse ide-manifest file: " + e);
+    return null;
+  }
+}
+
+function fileExists(path: string): Promise<boolean> {
+  return new Promise(r => fs.access(path, fs.constants.F_OK, e => r(!e)));
+}
+
+async function showRecommendedDirenvPage() {
+  await vscode.commands.executeCommand("extension.open", "mkhl.direnv");
+  vscode.window.showInformationMessage(
+    "After installing, reload the VSCode window or restart the extension host through the command palette.",
+  );
+}
+
+async function tryGenerateIdeManifest(
+  rootPath: string,
+  envrcExistsWithoutExt: boolean,
+): Promise<boolean> {
+  const generateIdeManifestCommand =
+    rootPath + '/gradlew run --args="--project-dir ' + rootPath + '"';
+  try {
+    await util.promisify(child_process.exec)(generateIdeManifestCommand, {
+      cwd: rootPath,
+    });
+    return true;
+  } catch (e) {
+    outputChannel.appendLine("Gradle setup failure: " + e);
+    vscode.window
+      .showInformationMessage(
+        "Daml is starting without gradle environment." +
+          (envrcExistsWithoutExt
+            ? " You may be missing a direnv extension."
+            : ""),
+        "See Output",
+        ...(envrcExistsWithoutExt ? ["Install direnv"] : []),
+      )
+      .then((resp: string | undefined) => {
+        if (resp == "See Output") outputChannel.show();
+        if (resp == "Install direnv") showRecommendedDirenvPage();
+      });
+  }
+  return false;
+}
+
+async function startLanguageServers(context: ExtensionContext) {
+  const config = vscode.workspace.getConfiguration("daml");
+  const consent = await getTelemetryConsent(config, context);
+  const rootPath = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
+  if (!rootPath) throw "Couldn't find workspace root";
+  const multiIDESupport = config.get("multiPackageIdeSupport");
+  const gradleSupport = config.get("multiPackageIdeGradleSupport");
+
+  const gradlewExists = await fileExists(rootPath + "/gradlew");
+  // Of the 3 direnv extensions I found, mkhl.direnv is most popular and only one that populates environment variables for other extensions
+  // As such, it is the one we recommend.
+  const envrcExistsWithoutExt: boolean =
+    (await fileExists(rootPath + "/.envrc")) &&
+    vscode.extensions.getExtension("mkhl.direnv") == null;
+
+  if (envrcExistsWithoutExt && gradleSupport) {
+    const warningMessage =
+      "Found an .envrc file but the recommended direnv VSCode extension was not installed. Daml IDE may fail to start due to missing environment." +
+      "\nWould you like to install this extension or attempt to continue without it?";
+    const installAnswer = "Install extension";
+    const doNotInstallAnswer = "Continue without";
+    const neverInstallAnswer = "Do not ask again";
+    const doNotInstallkey = "no-install-direnv";
+
+    // Don't ask if we previously selected doNotInstallAnswer
+    if (!context.workspaceState.get(doNotInstallkey, false)) {
+      const selection = await vscode.window.showWarningMessage(
+        warningMessage,
+        installAnswer,
+        doNotInstallAnswer,
+        neverInstallAnswer,
+      );
+
+      if (selection == neverInstallAnswer) {
+        context.workspaceState.update(doNotInstallkey, true);
+        vscode.window.showInformationMessage(
+          "Warning disabled. If you need the extension in future, run Install Daml Recommended Direnv in the command pallette.",
+        );
+      } else if (selection == installAnswer) {
+        await showRecommendedDirenvPage();
+        return;
+      }
+    }
+  }
+
+  var isGradleProject = false;
+  if (multiIDESupport && gradleSupport && gradlewExists) {
+    isGradleProject = await tryGenerateIdeManifest(
+      rootPath,
+      envrcExistsWithoutExt,
+    );
+  }
+
+  if (isGradleProject) {
+    const ideManifest: IdeManifest | null = parseIdeManifest(
+      rootPath + "/build/ide-manifest.json",
+    );
+    if (!ideManifest)
+      throw "Failed to find and parse ide manifest for gradle project.";
+    // If we only have one Multi-IDE, we don't need the `--ide-identifier`, which gives us slightly improved backwards compatibility
+    const singleMultiIde = Object.keys(ideManifest).length == 1;
+    let n = 0;
+    for (const projectPath in ideManifest) {
+      let envVars = ideManifest[projectPath];
+      n++;
+      const languageClient = await DamlLanguageClient.build(
+        projectPath,
+        envVars,
+        config,
+        consent,
+        context,
+        webviewFiles,
+        singleMultiIde ? undefined : n.toString(),
+      );
+      if (languageClient) damlLanguageClients[projectPath] = languageClient;
+    }
+  } else {
+    const languageClient = await DamlLanguageClient.build(
+      rootPath,
+      {},
+      config,
+      consent,
+      context,
+      webviewFiles,
+    );
+    if (languageClient) damlLanguageClients[rootPath] = languageClient;
+  }
+}
+
+async function stopLanguageServers() {
+  for (let projectPath in damlLanguageClients) {
+    let damlLanguageClient = damlLanguageClients[projectPath];
+    await damlLanguageClient.stop();
+  }
+  damlLanguageClients = {};
+}
+
+// this method is called when your extension is deactivated
+export async function deactivate() {
+  for (let projectPath in damlLanguageClients) {
+    let damlLanguageClient = damlLanguageClients[projectPath];
+    damlLanguageClient.forceStop();
+  }
 }
 
 // Compare the extension version with the one stored in the global state.
@@ -206,21 +329,11 @@ async function showReleaseNotesIfNewVersion(context: ExtensionContext) {
     extensionVersion !== "" &&
     (!recordedVersion ||
       (typeof recordedVersion === "string" &&
-        checkVersionUpgrade(recordedVersion, extensionVersion)))
+        semver.lt(recordedVersion, extensionVersion)))
   ) {
     await showReleaseNotes(extensionVersion);
     await context.globalState.update(versionContextKey, extensionVersion);
   }
-}
-
-// Check that `version2` is an upgrade from `version1`,
-// i.e. that the components of the version number have increased
-// (checked from major to minor version numbers).
-function checkVersionUpgrade(version1: string, version2: string) {
-  const comps1 = version1.split(".").map(Number);
-  const comps2 = version2.split(".").map(Number);
-  const o = getOrd(ordNumber);
-  return o.compare(comps2, comps1) > 0;
 }
 
 // Show the release notes from the Daml Blog.
@@ -242,612 +355,6 @@ async function showReleaseNotes(version: string) {
   } catch (_error) {}
 }
 
-function getViewColumnForShowResource(): ViewColumn {
-  const active = vscode.window.activeTextEditor;
-  if (!active || !active.viewColumn) {
-    return ViewColumn.One;
-  }
-  switch (active.viewColumn) {
-    case ViewColumn.One:
-      return ViewColumn.Two;
-    case ViewColumn.Two:
-      return ViewColumn.Three;
-    default:
-      return active.viewColumn;
-  }
-}
-
-function loadPreviewIfAvailable() {
-  if (vscode.extensions.getExtension("EFanZh.graphviz-preview")) {
-    vscode.commands.executeCommand("graphviz.showPreviewToSide");
-  } else {
-    vscode.window.showInformationMessage(
-      "Install Graphviz Preview (https://marketplace.visualstudio.com/items?itemName=EFanZh.graphviz-preview) plugin to see graph for this dot file",
-    );
-  }
-}
-
 function openDamlDocs() {
   vscode.env.openExternal(vscode.Uri.parse("https://docs.daml.com"));
-}
-
-function addIfInConfig(
-  config: vscode.WorkspaceConfiguration,
-  baseArgs: string[],
-  toAdd: [string, string[]][],
-): string[] {
-  let addedArgs: string[][] = toAdd
-    .filter(x => config.get(x[0]))
-    .map(x => x[1]);
-  addedArgs.unshift(baseArgs);
-  return [].concat.apply([], <any>addedArgs);
-}
-
-function getLanguageServerArgs(
-  config: vscode.WorkspaceConfiguration,
-  telemetryConsent: boolean | undefined,
-): string[] {
-  const multiIDESupport = config.get("multiPackageIdeSupport");
-  isMultiIde = !!multiIDESupport;
-  const logLevel = config.get("logLevel");
-  const isDebug = logLevel == "Debug" || logLevel == "Telemetry";
-
-  let args: string[] = [multiIDESupport ? "multi-ide" : "ide", "--"];
-
-  if (telemetryConsent === true) {
-    args.push("--telemetry");
-  } else if (telemetryConsent === false) {
-    args.push("--optOutTelemetry");
-  } else if (telemetryConsent == undefined) {
-    // The user has not made an explicit choice.
-    args.push("--telemetry-ignored");
-  }
-  if (multiIDESupport === true) {
-    args.push("--log-level=" + logLevel);
-  } else {
-    if (isDebug) args.push("--debug");
-  }
-  const extraArgsString = config.get("extraArguments", "").trim();
-  // split on an empty string returns an array with a single empty string
-  const extraArgs = extraArgsString === "" ? [] : extraArgsString.split(" ");
-  args = args.concat(extraArgs);
-  const serverArgs: string[] = addIfInConfig(config, args, [
-    ["profile", ["+RTS", "-h", "-RTS"]],
-    ["autorunAllTests", ["--studio-auto-run-all-scenarios=yes"]],
-  ]);
-
-  return serverArgs;
-}
-
-export function createLanguageClient(
-  config: vscode.WorkspaceConfiguration,
-  telemetryConsent: boolean | undefined,
-): LanguageClient {
-  // Options to control the language client
-  let clientOptions: LanguageClientOptions = {
-    // Register the server for Daml
-    documentSelector: ["daml"],
-    middleware: {
-      provideDefinition: async (
-        document: vscode.TextDocument,
-        position: vscode.Position,
-        token: CancellationToken,
-        next: ProvideDefinitionSignature,
-      ) => {
-        const result = await next(document, position, token);
-        if (!result) return;
-
-        let locations: Array<vscode.Location> | Array<vscode.LocationLink>;
-        if (result instanceof vscode.Location)
-          locations = new Array(result as vscode.Location);
-        else if (Array.isArray(result)) locations = result;
-        else throw "Provide definition result was wrongly typed";
-
-        if (locations.length == 0) return;
-
-        // Currently ghc-ide only ever gives 1 or 0 results, so we operate only on the first element
-        let location = locations[0];
-
-        // this should reuse existing page
-        if (
-          location instanceof vscode.Location &&
-          location.uri.scheme == "daml" &&
-          location.uri.path == "open-docs"
-        ) {
-          const params = new URLSearchParams(location.uri.query);
-          const path = params.get("path");
-          const unitIdOrPackageId = params.get("name");
-          if (!path || !unitIdOrPackageId) throw "Invalid open-docs data";
-          const content = fs.readFileSync(path).toString();
-          const panel = vscode.window.createWebviewPanel(
-            `docs-${unitIdOrPackageId}`,
-            `Generated documentation for ${unitIdOrPackageId}`,
-            vscode.ViewColumn.One,
-            {},
-          );
-          panel.webview.html = content;
-        } else return locations;
-      },
-    },
-  };
-
-  let command: string;
-
-  try {
-    command = which.sync("daml");
-  } catch (ex) {
-    const damlCmdPath = path.join(damlRoot, "bin", "daml");
-    if (fs.existsSync(damlCmdPath)) {
-      command = damlCmdPath;
-    } else {
-      vscode.window.showErrorMessage(
-        "Failed to start the Daml language server. Make sure the assistant is installed.",
-      );
-      throw new Error("Failed to locate assistant.");
-    }
-  }
-
-  const serverArgs = getLanguageServerArgs(config, telemetryConsent);
-
-  const languageClient = new LanguageClient(
-    "daml-language-server",
-    "Daml Language Server",
-    {
-      args: serverArgs,
-      command: command,
-      options: { cwd: vscode.workspace.rootPath, shell: true },
-    },
-    clientOptions,
-    true,
-  );
-  return languageClient;
-}
-
-// this method is called when your extension is deactivated
-export async function deactivate() {
-  // unLinkSyntax();
-  // Stop keep-alive watchdog and terminate language server.
-  stopKeepAliveWatchdog();
-  if (isMultiIde) await damlLanguageClient.stop();
-  else (<any>damlLanguageClient)._serverProcess.kill("SIGTERM");
-}
-
-// Keep alive timer for periodically checking that the server is responding
-// to requests in a timely manner. If the server fails to respond it is
-// terminated with SIGTERM.
-var keepAliveTimer: NodeJS.Timer;
-let keepAliveInterval = 60000; // Send KA every 60s.
-
-// Wait for max 120s before restarting process.
-// NOTE(JM): If you change this, make sure to also change the server-side timeouts to get
-// detailed errors rather than cause a restart.
-// Legacy Daml timeout for language server is defined in
-// DA.Daml.LanguageServer.
-let keepAliveTimeout = 120000;
-
-function startKeepAliveWatchdog() {
-  clearTimeout(keepAliveTimer);
-  keepAliveTimer = setTimeout(keepAlive, keepAliveInterval);
-}
-
-function stopKeepAliveWatchdog() {
-  clearTimeout(keepAliveTimer);
-}
-
-function keepAlive() {
-  function killDamlc() {
-    vscode.window.showErrorMessage(
-      "Sorry, you’ve hit a bug requiring a Daml Language Server restart. We’d greatly appreciate a bug report — ideally with example files.",
-    );
-
-    // Terminate the damlc process with SIGTERM. The language client will restart the process automatically.
-    // NOTE(JM): Verify that this works on Windows.
-    // https://nodejs.org/api/child_process.html#child_process_child_kill_signal
-    (<any>damlLanguageClient)._childProcess.kill("SIGTERM");
-
-    // Restart the watchdog after 10s
-    setTimeout(startKeepAliveWatchdog, 10000);
-  }
-
-  let killTimer = setTimeout(killDamlc, keepAliveTimeout);
-  damlLanguageClient.sendRequest(DamlKeepAliveRequest.type, null).then(r => {
-    // Keep-alive request succeeded, clear the kill timer
-    // and reschedule the keep-alive.
-    clearTimeout(killTimer);
-    startKeepAliveWatchdog();
-  });
-}
-
-// Custom requests
-
-namespace DamlKeepAliveRequest {
-  export let type = new RequestType<void, void, void>("daml/keepAlive");
-}
-
-// Custom notifications
-
-interface DamlSdkInstallProgressNotification {
-  sdkVersion: string;
-  kind: "begin" | "report" | "end";
-  progress: number;
-}
-
-namespace DamlSdkInstallProgress {
-  export let type = new NotificationType<DamlSdkInstallProgressNotification>(
-    "daml/sdkInstallProgress",
-  );
-}
-
-interface DamlSdkInstallCancelNotification {
-  sdkVersion: string;
-}
-
-namespace DamlSdkInstallCancel {
-  export let type = new NotificationType<DamlSdkInstallCancelNotification>(
-    "daml/sdkInstallCancel",
-  );
-}
-
-type Progress = vscode.Progress<{ increment: number }>;
-type SdkInstallState = {
-  [sdkVersion: string]: {
-    progress: Progress;
-    resolve: (_: void) => void;
-    reported: number;
-  };
-};
-
-// Handle the SdkInstall work done tokens separately, as we want them to popup as a notification, but VSCode LSPClient doesn't give us a way to do this
-function handleDamlSdkInstallProgress(
-  sdkInstallState: SdkInstallState,
-  message: DamlSdkInstallProgressNotification,
-): void {
-  switch (message.kind) {
-    case "begin":
-      vscode.window.withProgress<void>(
-        {
-          location: vscode.ProgressLocation.Notification,
-          cancellable: true,
-          title: "Installing Daml SDK " + message.sdkVersion,
-        },
-        async (
-          progress: Progress,
-          cancellationToken: vscode.CancellationToken,
-        ) => {
-          cancellationToken.onCancellationRequested(() => {
-            delete sdkInstallState[message.sdkVersion];
-            damlLanguageClient.sendNotification(DamlSdkInstallCancel.type, {
-              sdkVersion: message.sdkVersion,
-            });
-          });
-          return new Promise<void>((resolve, _) => {
-            sdkInstallState[message.sdkVersion] = {
-              progress,
-              resolve,
-              reported: 0,
-            };
-          });
-        },
-      );
-      break;
-    case "report":
-      let progressData = sdkInstallState[message.sdkVersion];
-      if (!progressData) return;
-      let diff = Math.max(0, message.progress - progressData.reported);
-      progressData.progress.report({ increment: diff });
-      progressData.reported += diff;
-      break;
-    case "end":
-      sdkInstallState[message.sdkVersion]?.resolve();
-      delete sdkInstallState[message.sdkVersion];
-      break;
-  }
-}
-
-interface VirtualResourceChangedParams {
-  /** The virtual resource uri */
-  uri: string;
-
-  /** The new contents of the virtual resource */
-  contents: string;
-}
-
-namespace DamlVirtualResourceDidChangeNotification {
-  export let type = new NotificationType<VirtualResourceChangedParams>(
-    "daml/virtualResource/didChange",
-  );
-}
-
-interface VirtualResourceNoteParams {
-  /** The virtual resource uri */
-  uri: string;
-
-  /** The note to set on the virtual resource */
-  note: string;
-}
-
-namespace DamlVirtualResourceNoteNotification {
-  export let type = new NotificationType<VirtualResourceNoteParams>(
-    "daml/virtualResource/note",
-  );
-}
-
-interface VirtualResourceProgressedParams {
-  /** The virtual resource uri */
-  uri: string;
-
-  /** Number of milliseconds passed since the resource started */
-  millisecondsPassed: number;
-
-  /** Unix timestamp where the resource started running */
-  startedAt: number;
-}
-
-namespace DamlVirtualResourceDidProgressNotification {
-  export let type = new NotificationType<VirtualResourceProgressedParams>(
-    "daml/virtualResource/didProgress",
-  );
-}
-
-type UriString = string;
-type ScenarioResult = string;
-type View = {
-  selected: string;
-  showArchived: boolean;
-  showDetailedDisclosure: boolean;
-};
-
-class VirtualResourceManager {
-  // Note (MK): While it is tempting to switch to Map<Uri, …> for these types
-  // Map uses reference equality for objects so this goes horribly wrong.
-  // Mapping from URIs to the web view panel
-  private _panels: Map<UriString, vscode.WebviewPanel> = new Map<
-    UriString,
-    vscode.WebviewPanel
-  >();
-  // Mapping from URIs to the HTML content of the webview
-  private _panelContents: Map<UriString, ScenarioResult> = new Map<
-    UriString,
-    ScenarioResult
-  >();
-  // Mapping from URIs to selected view
-  private _panelViews: Map<UriString, View> = new Map<UriString, View>();
-  private _lastStatusUpdate: Map<UriString, number> = new Map<
-    UriString,
-    number
-  >();
-  private _client: LanguageClient;
-  private _disposables: vscode.Disposable[] = [];
-  private _webviewFiles: WebviewFiles;
-  private _context: ExtensionContext;
-
-  constructor(
-    client: LanguageClient,
-    webviewFiles: WebviewFiles,
-    context: ExtensionContext,
-  ) {
-    this._client = client;
-    this._webviewFiles = webviewFiles;
-    this._context = context;
-  }
-
-  private open(uri: UriString) {
-    this._client.sendNotification("textDocument/didOpen", {
-      textDocument: {
-        uri: uri,
-        languageId: "",
-        version: 0,
-        text: "",
-      },
-    });
-  }
-
-  private close(uri: UriString) {
-    this._client.sendNotification("textDocument/didClose", {
-      textDocument: { uri: uri },
-    });
-  }
-
-  public createOrShow(title: string, uri: UriString) {
-    const column = getViewColumnForShowResource();
-
-    let panel = this._panels.get(uri);
-    if (panel) {
-      panel.reveal(column);
-      return;
-    }
-    this.open(uri);
-    panel = vscode.window.createWebviewPanel("daml", title, column, {
-      enableScripts: true,
-      enableFindWidget: true,
-      enableCommandUris: true,
-    });
-    panel.onDidDispose(
-      () => {
-        this._panels.delete(uri);
-        this.close(uri);
-      },
-      null,
-      this._disposables,
-    );
-    let defaultView: View = this._context.workspaceState.get(uri) || {
-      selected: "table",
-      showArchived: false,
-      showDetailedDisclosure: false,
-    };
-    let updateView = (v: View, key: string, value: Object) => {
-      let updatedView = { ...v, [key]: value };
-      this._panelViews.set(uri, updatedView);
-      this._context.workspaceState.update(uri, updatedView);
-    };
-    panel.webview.onDidReceiveMessage(message => {
-      const v = this._panelViews.get(uri) || defaultView;
-      switch (message.command) {
-        case "set_selected_view":
-          updateView(v, "selected", message.value);
-          break;
-        case "set_show_archived":
-          updateView(v, "showArchived", message.value);
-          break;
-        case "set_show_detailed_disclosure":
-          updateView(v, "showDetailedDisclosure", message.value);
-          break;
-      }
-    });
-    this._panels.set(uri, panel);
-    panel.webview.html =
-      this._panelContents.get(uri) || "Loading virtual resource...";
-  }
-
-  public setProgress(
-    uri: UriString,
-    millisecondsPassed: number,
-    startedAt: number,
-  ) {
-    const panel = this._panels.get(uri);
-    if (panel == undefined) return;
-    const updateTimestamp = this._lastStatusUpdate.get(uri);
-    const isOutOfDate = updateTimestamp != null && updateTimestamp > startedAt;
-    if (isOutOfDate) return;
-    this._lastStatusUpdate.set(uri, startedAt);
-    panel.webview.html =
-      `Virtual resource has been running for ${millisecondsPassed} ms ` +
-      "<!-- " +
-      new Date() +
-      " -->";
-  }
-
-  public setContent(uri: UriString, contents: ScenarioResult) {
-    let defaultView: View = this._context.workspaceState.get(uri) || {
-      selected: "table",
-      showArchived: false,
-      showDetailedDisclosure: false,
-    };
-    const panel = this._panels.get(uri);
-    if (panel) {
-      contents = contents.replace(
-        "$webviewSrc",
-        panel.webview.asWebviewUri(this._webviewFiles.src).toString(),
-      );
-      contents = contents.replace(
-        "$webviewCss",
-        panel.webview.asWebviewUri(this._webviewFiles.css).toString(),
-      );
-      this._panelContents.set(uri, contents);
-      this._lastStatusUpdate.set(uri, Date.now());
-      // append timestamp to force page reload (prevent using cache) as otherwise notes are not getting cleared
-      panel.webview.html = contents + "<!-- " + new Date() + " -->";
-      const panelView = this._panelViews.get(uri);
-      const actualDefault = contents.includes('class="table"')
-        ? defaultView
-        : { ...defaultView, selected: "transaction" };
-      panel.webview.postMessage({
-        command: "set_view",
-        value: panelView || actualDefault,
-      });
-    }
-  }
-
-  public setNote(uri: UriString, note: string) {
-    const panel = this._panels.get(uri);
-    if (panel) {
-      panel.webview.postMessage({ command: "add_note", value: note });
-    }
-  }
-
-  public dispose() {
-    for (const panel of this._panels.values()) {
-      panel.dispose();
-    }
-    for (const disposable of this._disposables.values()) {
-      disposable.dispose();
-    }
-  }
-}
-
-let telemetryOverride = {
-  enable: "Enable",
-  disable: "Disable",
-  fromConsent: "From consent popup",
-};
-const options = {
-  yes: "Yes, I would like to help improve Daml!",
-  no: "No, I'd rather not.",
-  read: "I'd like to read the privacy policy first.",
-};
-
-function ifYouChangeYourMind() {
-  window.showInformationMessage(
-    'If you change your mind, data sharing preferences can be found in settings under "daml.telemetry"',
-  );
-}
-
-const telemetryConsentKey = "telemetry-consent";
-const privacyPolicy = "https://www.digitalasset.com/privacy-policy";
-
-function setConsentState(ex: ExtensionContext, val: undefined | boolean) {
-  ex.globalState.update(telemetryConsentKey, val);
-}
-
-function resetTelemetryConsent(ex: ExtensionContext) {
-  return function () {
-    setConsentState(ex, undefined);
-  };
-}
-
-function handleResult(
-  ex: ExtensionContext,
-  res: string | undefined,
-): boolean | undefined {
-  if (typeof res === "undefined") {
-    return undefined;
-  } else
-    switch (res) {
-      case options.yes: {
-        setConsentState(ex, true);
-        ifYouChangeYourMind();
-        return true;
-      }
-      case options.no: {
-        setConsentState(ex, false);
-        ifYouChangeYourMind();
-        return false;
-      }
-      case options.read: {
-        vscode.env.openExternal(vscode.Uri.parse(privacyPolicy));
-        return false;
-      }
-      default:
-        throw "Unrecognised telemetry option";
-    }
-}
-
-async function telemetryPopUp(): Promise<string | undefined> {
-  let qpo: QuickPickOptions = {
-    placeHolder: "Do you want to allow the collection of usage data",
-  };
-  return window.showQuickPick([options.yes, options.read, options.no], qpo);
-}
-
-async function getTelemetryConsent(
-  config: WorkspaceConfiguration,
-  ex: ExtensionContext,
-): Promise<boolean | undefined> {
-  switch (config.get("telemetry") as string) {
-    case telemetryOverride.enable:
-      return true;
-    case telemetryOverride.disable:
-      return false;
-    case telemetryOverride.fromConsent: {
-      const consent = ex.globalState.get(telemetryConsentKey);
-      if (typeof consent === "boolean") {
-        return consent;
-      }
-      const res = await telemetryPopUp();
-      // the user has closed the popup, ask again on next startup
-      return handleResult(ex, res);
-    }
-    default:
-      throw "Unexpected telemetry override option";
-  }
 }

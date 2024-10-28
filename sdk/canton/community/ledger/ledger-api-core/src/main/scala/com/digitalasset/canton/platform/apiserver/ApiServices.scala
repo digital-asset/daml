@@ -61,7 +61,6 @@ import io.grpc.protobuf.services.ProtoReflectionService
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.stream.Materializer
 
-import java.time.Instant
 import scala.collection.immutable
 import scala.concurrent.duration.FiniteDuration
 import scala.concurrent.{ExecutionContext, Future}
@@ -117,7 +116,6 @@ object ApiServices {
       authenticateUpgradableContract: AuthenticateUpgradableContract,
       telemetry: Telemetry,
       val loggerFactory: NamedLoggerFactory,
-      multiDomainEnabled: Boolean,
       dynParamGetter: DynamicDomainParameterGetter,
       pruningOffsetCache: PruningOffsetCache,
   )(implicit
@@ -259,68 +257,11 @@ object ApiServices {
           )
         )
 
-      val (ledgerApiV2Services, ledgerApiUpdateService) = if (multiDomainEnabled) {
-        val apiTimeServiceOpt =
-          optTimeServiceBackend.map(tsb =>
-            new TimeServiceV2Authorization(
-              new ApiTimeServiceV2(tsb, telemetry, loggerFactory),
-              authorizer,
-            )
-          )
-        val apiCommandCompletionService = new ApiCommandCompletionServiceV2(
-          completionsService,
-          metrics,
-          telemetry,
-          loggerFactory,
-        )
-        val apiEventQueryService =
-          new ApiEventQueryServiceV2(eventQueryService, telemetry, loggerFactory)
-        val apiPackageService = new ApiPackageServiceV2(packagesService, telemetry, loggerFactory)
-        val apiUpdateService =
-          new ApiUpdateService(
-            transactionsService,
-            metrics,
-            telemetry,
-            loggerFactory,
-            transactionServiceRequestValidator,
-          )
-        val apiStateService =
-          new ApiStateService(
-            acsService = activeContractsService,
-            readService = readService,
-            txService = transactionsService,
-            metrics = metrics,
-            telemetry = telemetry,
-            loggerFactory = loggerFactory,
-          )
-        val apiVersionService =
-          new ApiVersionServiceV2(
-            ledgerFeatures,
-            userManagementServiceConfig,
-            partyManagementServiceConfig,
-            telemetry,
-            loggerFactory,
-          )
-
-        val v2Services = apiTimeServiceOpt.toList :::
-          List(
-            new CommandCompletionServiceV2Authorization(apiCommandCompletionService, authorizer),
-            new EventQueryServiceV2Authorization(apiEventQueryService, authorizer),
-            new PackageServiceV2Authorization(apiPackageService, authorizer),
-            new UpdateServiceAuthorization(apiUpdateService, authorizer),
-            new StateServiceAuthorization(apiStateService, authorizer),
-            apiVersionService,
-          )
-
-        v2Services -> Some(apiUpdateService)
-      } else Nil -> None
-
       val writeServiceBackedApiServices =
         intitializeWriteServiceBackedApiServices(
           ledgerId,
           ledgerConfigurationSubscription,
           apiTransactionService,
-          ledgerApiUpdateService,
           checkOverloaded,
         )
 
@@ -368,8 +309,7 @@ object ApiServices {
           loggerFactory,
         )
 
-      ledgerApiV2Services :::
-        apiTimeServiceOpt.toList :::
+      apiTimeServiceOpt.toList :::
         apiInspectionServiceOpt.toList :::
         writeServiceBackedApiServices :::
         List(
@@ -391,7 +331,6 @@ object ApiServices {
         ledgerId: LedgerId,
         ledgerConfigurationSubscription: LedgerConfigurationSubscription,
         apiTransactionService: ApiTransactionService,
-        ledgerApiV2Enabled: Option[ApiUpdateService],
         checkOverloaded: TraceContext => Option[state.SubmissionResult],
     )(implicit
         executionContext: ExecutionContext
@@ -492,67 +431,24 @@ object ApiServices {
           loggerFactory = loggerFactory,
         )
 
-        val participantPruningService = Option
-          .when(!multiDomainEnabled)( // TODO(i13540): pruning is not supported for multi domain
-            new ParticipantPruningServiceAuthorization(
-              ApiParticipantPruningService.createApiService(
-                indexService,
-                writeService,
-                pruningOffsetCache,
-                metrics,
-                telemetry,
-                loggerFactory,
-              ),
-              authorizer,
-            )
-          )
-          .toList
-
-        val ledgerApiV2Services = ledgerApiV2Enabled.toList.flatMap { apiUpdateService =>
-          val apiSubmissionServiceV2 = new ApiCommandSubmissionServiceV2(
-            commandsValidator = commandsValidator,
-            commandSubmissionService = commandSubmissionService,
-            writeService = writeService,
-            currentLedgerTime = () => timeProvider.getCurrentTime,
-            currentUtcTime = () => Instant.now,
-            maxDeduplicationDuration = () =>
-              ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationDuration),
-            submissionIdGenerator = SubmissionIdGenerator.Random,
-            metrics = metrics,
-            telemetry = telemetry,
-            loggerFactory = loggerFactory,
-          )
-          val apiCommandService = new ApiCommandServiceV2(
-            commandsValidator = commandsValidator,
-            transactionServices = new ApiCommandServiceV2.TransactionServices(
-              getTransactionTreeById = apiUpdateService.getTransactionTreeById,
-              getTransactionById = apiUpdateService.getTransactionById,
-            ),
-            submissionTracker = submissionTracker,
-            submit = apiSubmissionServiceV2.submitWithTraceContext,
-            defaultTrackingTimeout = commandConfig.defaultTrackingTimeout,
-            currentLedgerTime = () => timeProvider.getCurrentTime,
-            currentUtcTime = () => Instant.now,
-            maxDeduplicationDuration = () =>
-              ledgerConfigurationSubscription.latestConfiguration().map(_.maxDeduplicationDuration),
-            generateSubmissionId = SubmissionIdGenerator.Random,
-            telemetry = telemetry,
-            loggerFactory = loggerFactory,
-          )
-
-          List(
-            new CommandSubmissionServiceV2Authorization(apiSubmissionServiceV2, authorizer),
-            new CommandServiceV2Authorization(apiCommandService, authorizer),
-          )
-        }
-
         List(
           new CommandSubmissionServiceAuthorization(apiSubmissionService, authorizer),
           new CommandServiceAuthorization(apiCommandService, authorizer),
           new PartyManagementServiceAuthorization(apiPartyManagementService, authorizer),
           new PackageManagementServiceAuthorization(apiPackageManagementService, authorizer),
           new ConfigManagementServiceAuthorization(apiConfigManagementService, authorizer),
-        ) ::: participantPruningService ::: ledgerApiV2Services
+          new ParticipantPruningServiceAuthorization(
+            ApiParticipantPruningService.createApiService(
+              indexService,
+              writeService,
+              pruningOffsetCache,
+              metrics,
+              telemetry,
+              loggerFactory,
+            ),
+            authorizer,
+          ),
+        )
       }
     }
   }

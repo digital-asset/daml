@@ -197,6 +197,9 @@ private[backend] object AppendOnlySchema {
         "package_name" -> fieldStrategy.intOptional(stringInterning =>
           _.package_name.map(stringInterning.packageName.unsafe.internalize)
         ),
+        "choice_package_id" -> fieldStrategy.intOptional(stringInterning =>
+          _.choice_package_id.map(stringInterning.packageId.unsafe.internalize)
+        ),
         "flat_event_witnesses" -> fieldStrategy.intArray(stringInterning =>
           _.flat_event_witnesses.map(stringInterning.party.unsafe.internalize)
         ),

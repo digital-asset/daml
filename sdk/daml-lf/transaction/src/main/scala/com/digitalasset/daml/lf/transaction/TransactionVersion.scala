@@ -18,10 +18,10 @@ object TransactionVersion {
 
   case object V14 extends TransactionVersion("14", 14)
   case object V15 extends TransactionVersion("15", 15)
-  case object V16 extends TransactionVersion("16", 16)
+  case object V17 extends TransactionVersion("17", 17)
   case object VDev extends TransactionVersion("dev", Int.MaxValue)
 
-  val All = List(V14, V15, V16, VDev)
+  val All = List(V14, V15, V17, VDev)
 
   implicit val Ordering: scala.Ordering[TransactionVersion] =
     scala.Ordering.by(_.index)
@@ -46,10 +46,10 @@ object TransactionVersion {
   def maxVersion: TransactionVersion = VDev
 
   private[lf] val minInterfaces = V15
-  private[lf] val minExplicitDisclosure = V16
+  private[lf] val minExplicitDisclosure = V17
   private[lf] val minChoiceAuthorizers = VDev
-  private[lf] val minUpgrade = V16
-  private[lf] val minSharedKeys = V16
+  private[lf] val minUpgrade = V17
+  private[lf] val minSharedKeys = V17
 
   private[lf] val assignNodeVersion: LanguageVersion => TransactionVersion = {
     import LanguageVersion._
@@ -62,7 +62,7 @@ object TransactionVersion {
       v1_13 -> V14,
       v1_14 -> V14,
       v1_15 -> V15,
-      v1_16 -> V16,
+      v1_17 -> V17,
       v1_dev -> VDev,
       // TODO(#17366): Map to TransactionVersion 2.1 once it exists.
       v2_1 -> VDev,

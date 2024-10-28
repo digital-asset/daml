@@ -225,11 +225,21 @@ object LedgerClientJwt {
 
   def getCreatesAndArchivesSince(client: DamlLedgerClient): GetCreatesAndArchivesSince =
     (jwt, ledgerId, filter, offset, terminates) => { implicit lc =>
-      {
-        val end = terminates.toOffset
-        if (skipRequest(offset, end))
+      import com.daml.http.util.LedgerOffsetUtil.AbsoluteOffsetOrdering.gt
+      (offset.value, terminates.toOffset.map(_.value)) match {
+        case (start: LedgerOffset.Value.Absolute, Some(end: LedgerOffset.Value.Absolute))
+            if gt(start, end) => {
+          logger.debug(
+            s"""When looking up $filter, the lastOffset in the cache was $start which was greater than the ledger end of $end.
+               |This can occur due to concurrent queries updating the cache (which is harmless), or may indicate that the server
+               |is using a cache which was populated against an entirely different ledger.
+               |In the latter case, please restart with a start-mode of 'create-and-start'.""".stripMargin
+          )
           Source.empty[Transaction]
-        else {
+        }
+        case (start, Some(end)) if start == end => // Noop, we're already up-to-date
+          Source.empty[Transaction]
+        case _ => // Normal case, fetch the changes
           LedgerClientRequestTimeLogger.log(GetTransactionsLog) {
             client.transactionClient
               .getTransactions(
@@ -241,18 +251,8 @@ object LedgerClientJwt {
                 token = bearer(jwt),
               )
           }
-        }
       }
     }
-
-  private def skipRequest(start: LedgerOffset, end: Option[LedgerOffset]): Boolean = {
-    import com.daml.http.util.LedgerOffsetUtil.AbsoluteOffsetOrdering
-    (start.value, end.map(_.value)) match {
-      case (s: LedgerOffset.Value.Absolute, Some(e: LedgerOffset.Value.Absolute)) =>
-        AbsoluteOffsetOrdering.gteq(s, e)
-      case _ => false
-    }
-  }
 
   def listKnownParties(client: DamlLedgerClient)(implicit
       ec: EC

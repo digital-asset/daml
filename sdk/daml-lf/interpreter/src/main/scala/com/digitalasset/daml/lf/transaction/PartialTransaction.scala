@@ -4,7 +4,7 @@
 package com.daml.lf
 package speedy
 
-import com.daml.lf.data.Ref.{ChoiceName, Location, PackageName, Party, TypeConName}
+import com.daml.lf.data.Ref.{ChoiceName, Location, PackageId, PackageName, Party, TypeConName}
 import com.daml.lf.data.{BackStack, ImmArray, Time}
 import com.daml.lf.ledger.Authorize
 import com.daml.lf.speedy.Speedy.{ContractInfo, CachedKey}
@@ -143,6 +143,7 @@ private[lf] object PartialTransaction {
   final case class ExercisesContextInfo(
       targetId: Value.ContractId,
       packageName: Option[PackageName],
+      creationPackageId: Option[PackageId],
       templateId: TypeConName,
       interfaceId: Option[TypeConName],
       contractKey: Option[GlobalKeyWithMaintainers],
@@ -374,6 +375,7 @@ private[speedy] case class PartialTransaction(
       optLocation: Option[Location],
       byKey: Boolean,
       version: TxVersion,
+      interfaceId: Option[TypeConName],
   ): Either[TxErr.TransactionError, PartialTransaction] =
     mustBeActive(NameOf.qualifiedNameOfCurrentFunc, Some(coid)) {
       val contextActors = context.info.authorizers
@@ -390,6 +392,7 @@ private[speedy] case class PartialTransaction(
         keyOpt = contract.keyOpt.map(_.globalKeyWithMaintainers),
         byKey = byKey,
         version = version,
+        interfaceId = interfaceId,
       )
 
       val newContractState = assertRightKey(
@@ -443,6 +446,7 @@ private[speedy] case class PartialTransaction(
     */
   def beginExercises(
       packageName: Option[PackageName],
+      creationPackageId: Option[PackageId],
       templateId: TypeConName,
       targetId: Value.ContractId,
       contract: ContractInfo,
@@ -464,6 +468,7 @@ private[speedy] case class PartialTransaction(
         ExercisesContextInfo(
           targetId = targetId,
           packageName = packageName,
+          creationPackageId = creationPackageId,
           templateId = templateId, // may differ from contract.templateId during soft-exercise
           interfaceId = interfaceId,
           contractKey =
@@ -557,6 +562,7 @@ private[speedy] case class PartialTransaction(
     Node.Exercise(
       targetCoid = ec.targetId,
       packageName = ec.packageName,
+      creationPackageId = ec.creationPackageId,
       templateId = ec.templateId,
       interfaceId = ec.interfaceId,
       choiceId = ec.choiceId,

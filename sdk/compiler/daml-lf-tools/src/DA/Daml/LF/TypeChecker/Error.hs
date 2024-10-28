@@ -1,6 +1,7 @@
 -- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
+{-# OPTIONS_GHC -Wno-orphans #-}
 module DA.Daml.LF.TypeChecker.Error(
     Context(..),
     Error(..),
@@ -15,6 +16,8 @@ module DA.Daml.LF.TypeChecker.Error(
     errorLocation,
     toDiagnostic,
     Warning(..),
+    PackageUpgradeOrigin(..),
+    UpgradeMismatchReason(..),
     ) where
 
 import Control.Applicative
@@ -23,9 +26,11 @@ import qualified Data.Text as T
 import Development.IDE.Types.Diagnostics
 import Development.IDE.Types.Location
 import Numeric.Natural
+import qualified Data.List as L
 
 import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Pretty
+import DA.Daml.LF.Ast.Alpha (Mismatch(..), SomeName(..))
 import DA.Daml.UtilLF (sourceLocToRange)
 
 -- TODO(MH): Rework the context machinery to avoid code duplication.
@@ -39,6 +44,13 @@ data Context
   | ContextDefValue !Module !DefValue
   | ContextDefException !Module !DefException
   | ContextDefInterface !Module !DefInterface !InterfacePart
+  | ContextDefUpgrading
+      { cduPkgName :: !PackageName -- Name of package being checked for upgrade validity
+      , cduPkgVersion :: !(Upgrading RawPackageVersion) -- Prior (upgradee) and current (upgrader) version of dep package
+      , cduSubContext :: !Context -- Context within the package of the error
+      , cduIsDependency :: !Bool -- Is the package a dependency package or is it the main package?
+      }
+  deriving (Eq)
 
 data TemplatePart
   = TPWhole
@@ -50,12 +62,14 @@ data TemplatePart
   -- ^ Specifically the `key` keyword, not maintainers
   | TPChoice TemplateChoice
   | TPInterfaceInstance InterfaceInstanceHead (Maybe SourceLoc)
+  deriving (Eq)
 
 data InterfacePart
   = IPWhole
   | IPMethod InterfaceMethod
   | IPChoice TemplateChoice
   | IPInterfaceInstance InterfaceInstanceHead (Maybe SourceLoc)
+  deriving (Eq)
 
 data SerializabilityRequirement
   = SRTemplateArg
@@ -65,7 +79,7 @@ data SerializabilityRequirement
   | SRDataType
   | SRExceptionArg
   | SRView
-  deriving (Show)
+  deriving (Show, Eq)
 
 -- | Reason why a type is not serializable.
 data UnserializabilityReason
@@ -185,18 +199,18 @@ data UnwarnableError
   | EUpgradeMissingChoice !ChoiceName
   | EUpgradeMissingDataCon !TypeConName
   | EUpgradeMismatchDataConsVariety !TypeConName !DataCons !DataCons
-  | EUpgradeRecordFieldsMissing !UpgradedRecordOrigin
-  | EUpgradeRecordFieldsExistingChanged !UpgradedRecordOrigin
-  | EUpgradeRecordFieldsNewNonOptional !UpgradedRecordOrigin
+  | EUpgradeRecordFieldsMissing !UpgradedRecordOrigin ![FieldName]
+  | EUpgradeRecordFieldsExistingChanged !UpgradedRecordOrigin ![(FieldName, Upgrading Type)]
+  | EUpgradeRecordFieldsNewNonOptional !UpgradedRecordOrigin ![(FieldName, Type)]
+  | EUpgradeRecordNewFieldsNotAtEnd !UpgradedRecordOrigin ![FieldName]
   | EUpgradeRecordFieldsOrderChanged !UpgradedRecordOrigin
-  | EUpgradeVariantAddedVariant !UpgradedRecordOrigin
-  | EUpgradeVariantRemovedVariant !UpgradedRecordOrigin
-  | EUpgradeVariantChangedVariantType !UpgradedRecordOrigin
-  | EUpgradeVariantAddedVariantField !UpgradedRecordOrigin
-  | EUpgradeVariantVariantsOrderChanged !UpgradedRecordOrigin
-  | EUpgradeEnumAddedVariant !UpgradedRecordOrigin
-  | EUpgradeEnumRemovedVariant !UpgradedRecordOrigin
-  | EUpgradeEnumVariantsOrderChanged !UpgradedRecordOrigin
+  | EUpgradeVariantRemovedConstructor !UpgradedRecordOrigin ![VariantConName]
+  | EUpgradeVariantChangedConstructorType !UpgradedRecordOrigin ![VariantConName]
+  | EUpgradeVariantNewConstructorsNotAtEnd !UpgradedRecordOrigin ![VariantConName]
+  | EUpgradeVariantConstructorsOrderChanged !UpgradedRecordOrigin
+  | EUpgradeEnumRemovedConstructor !UpgradedRecordOrigin ![VariantConName]
+  | EUpgradeEnumNewConstructorsNotAtEnd !UpgradedRecordOrigin ![VariantConName]
+  | EUpgradeEnumConstructorsOrderChanged !UpgradedRecordOrigin
   | EUpgradeRecordChangedOrigin !TypeConName !UpgradedRecordOrigin !UpgradedRecordOrigin
   | EUpgradeTemplateChangedKeyType !TypeConName
   | EUpgradeChoiceChangedReturnType !ChoiceName
@@ -204,13 +218,23 @@ data UnwarnableError
   | EUpgradeTemplateAddedKey !TypeConName !TemplateKey
   | EUpgradeTriedToUpgradeIface !TypeConName
   | EUpgradeMissingImplementation !TypeConName !TypeConName
+  | EForbiddenNewImplementation !TypeConName !TypeConName
+  | EUpgradeDependenciesFormACycle ![(PackageId, Maybe PackageMetadata)]
+  | EUpgradeMultiplePackagesWithSameNameAndVersion !PackageName !RawPackageVersion ![PackageId]
+  | EUpgradeTriedToUpgradeException !TypeConName
+  | EUpgradeDifferentParamsCount !UpgradedRecordOrigin
+  | EUpgradeDifferentParamsKinds !UpgradedRecordOrigin
+  | EUpgradeDatatypeBecameUnserializable !UpgradedRecordOrigin
   deriving (Show)
 
 data WarnableError
   = WEUpgradeShouldDefineIfacesAndTemplatesSeparately
-  | WEUpgradeShouldDefineIfaceWithoutImplementation !TypeConName ![TypeConName]
+  | WEUpgradeShouldDefineIfaceWithoutImplementation !ModuleName !TypeConName !TypeConName
   | WEUpgradeShouldDefineTplInSeparatePackage !TypeConName !TypeConName
-  deriving (Show)
+  | WEDependencyHasUnparseableVersion !PackageName !PackageVersion !PackageUpgradeOrigin
+  | WEDependencyHasNoMetadataDespiteUpgradeability !PackageId !PackageUpgradeOrigin
+  | WEUpgradeShouldDefineExceptionsAndTemplatesSeparately
+  deriving (Eq, Show)
 
 instance Pretty WarnableError where
   pPrint = \case
@@ -220,13 +244,12 @@ instance Pretty WarnableError where
         , "It is recommended that interfaces are defined in their own package separate from their implementations."
         , "Ignore this error message with the --warn-bad-interface-instances=yes flag."
         ]
-    WEUpgradeShouldDefineIfaceWithoutImplementation iface implementingTemplates ->
-      vsep $ concat
-        [ [ "The interface " <> pPrint iface <> " was defined in this package and implemented in this package by the following templates:" ]
-        , map (quotes . pPrint) implementingTemplates
-        , [ "This may make this package and its dependents not upgradeable." ]
-        , [ "It is recommended that interfaces are defined in their own package separate from their implementations." ]
-        , [ "Ignore this error message with the --warn-bad-interface-instances=yes flag." ]
+    WEUpgradeShouldDefineIfaceWithoutImplementation implModule implIface implTpl ->
+      vsep
+        [ "The interface " <> pPrint implIface <> " was defined in this package and implemented in " <> pPrint implModule <> " by " <> pPrint implTpl
+        , "This may make this package and its dependents not upgradeable."
+        , "It is recommended that interfaces are defined in their own package separate from their implementations."
+        , "Ignore this error message with the --warn-bad-interface-instances=yes flag."
         ]
     WEUpgradeShouldDefineTplInSeparatePackage tpl iface ->
       vsep
@@ -235,6 +258,24 @@ instance Pretty WarnableError where
         , "It is recommended that interfaces are defined in their own package separate from their implementations."
         , "Ignore this error message with the --warn-bad-interface-instances=yes flag."
         ]
+    WEDependencyHasUnparseableVersion pkgName version packageOrigin ->
+      "Dependency " <> pPrint pkgName <> " of " <> pPrint packageOrigin <> " has a version which cannot be parsed: '" <> pPrint version <> "'"
+    WEDependencyHasNoMetadataDespiteUpgradeability pkgId packageOrigin ->
+      "Dependency with package ID " <> pPrint pkgId <> " of " <> pPrint packageOrigin <> " has no metadata, despite being compiled with an SDK version that supports metadata."
+    WEUpgradeShouldDefineExceptionsAndTemplatesSeparately ->
+      vsep
+        [ "This package defines both exceptions and templates. This may make this package and its dependents not upgradeable."
+        , "It is recommended that exceptions are defined in their own package separate from their implementations."
+        , "Ignore this error message with the --warn-bad-exceptions=yes flag."
+        ]
+
+data PackageUpgradeOrigin = UpgradingPackage | UpgradedPackage
+  deriving (Eq, Ord, Show)
+
+instance Pretty PackageUpgradeOrigin where
+  pPrint = \case
+    UpgradingPackage -> "new upgrading package"
+    UpgradedPackage -> "previous package"
 
 data UpgradedRecordOrigin
   = TemplateBody TypeConName
@@ -254,6 +295,7 @@ contextLocation = \case
   ContextDefValue _ v        -> dvalLocation v
   ContextDefException _ e    -> exnLocation e
   ContextDefInterface _ i ip -> interfaceLocation i ip <|> intLocation i -- Fallback to interface header location if other locations are missing
+  ContextDefUpgrading {} -> Nothing
 
 templateLocation :: Template -> TemplatePart -> Maybe SourceLoc
 templateLocation t = \case
@@ -304,6 +346,13 @@ instance Show Context where
       "exception " <> show (moduleName m) <> "." <> show (exnName e)
     ContextDefInterface m i p ->
       "interface " <> show (moduleName m) <> "." <> show (intName i) <> " " <> show p
+    ContextDefUpgrading { cduPkgName, cduPkgVersion, cduSubContext, cduIsDependency } ->
+      let prettyPkgName =
+            if cduIsDependency
+            then "dependency " <> T.unpack (unPackageName cduPkgName)
+            else T.unpack (unPackageName cduPkgName)
+      in
+      "upgrading " <> prettyPkgName <> " " <> show (_present cduPkgVersion) <> ", " <> show cduSubContext
 
 instance Show TemplatePart where
   show = \case
@@ -368,11 +417,7 @@ instance Pretty Error where
     EUnwarnableError err -> pPrint err
     EWarnableError err -> pPrint err
     EWarningToError warning -> pPrint warning
-    EContext ctx err ->
-      vcat
-      [ "error type checking " <> pretty ctx <> ":"
-      , nest 2 (pretty err)
-      ]
+    EContext ctx err -> prettyWithContext ctx (Right err)
 
 instance Pretty UnwarnableError where
   pPrint = \case
@@ -631,52 +676,101 @@ instance Pretty UnwarnableError where
         printCons DataVariant {} = "variant"
         printCons DataEnum {} = "enum"
         printCons DataInterface {} = "interface"
-    EUpgradeRecordFieldsMissing origin -> "The upgraded " <> pPrint origin <> " is missing some of its original fields."
-    EUpgradeRecordFieldsExistingChanged origin -> "The upgraded " <> pPrint origin <> " has changed the types of some of its original fields."
-    EUpgradeRecordFieldsNewNonOptional origin -> "The upgraded " <> pPrint origin <> " has added new fields, but those fields are not Optional."
+    EUpgradeRecordFieldsMissing origin fields -> "The upgraded " <> pPrint origin <> " is missing some of its original fields: " <> fcommasep (map pPrintWithQuotes fields)
+    EUpgradeRecordFieldsExistingChanged origin fields ->
+      vcat
+        [ "The upgraded " <> pPrint origin <> " has changed the types of some of its original fields:"
+        , nest 2 $ vcat (map pPrintChangedType fields)
+        ]
+      where
+        pPrintChangedType (fieldName, Upgrading { _past = pastType, _present = presentType }) =
+          "Field " <> pPrintWithQuotes fieldName <> " changed type from " <> pPrint pastType <> " to " <> pPrint presentType
+    EUpgradeRecordNewFieldsNotAtEnd origin fields -> "The upgraded " <> pPrint origin <> " has added new fields, but the following fields need to be moved to the end: " <> fcommasep (map pPrintWithQuotes fields) <> ". All new fields in upgrades must be added to the end of the definition."
+    EUpgradeRecordFieldsNewNonOptional origin fields ->
+      vcat
+        [ "The upgraded " <> pPrint origin <> " has added new fields, but the following new fields are not Optional:"
+        , nest 2 $ vcat (map pPrintFieldType fields)
+        ]
+      where
+        pPrintFieldType (fieldName, type_) = "Field " <> pPrintWithQuotes fieldName <> " with type " <> pPrint type_
     EUpgradeRecordFieldsOrderChanged origin -> "The upgraded " <> pPrint origin <> " has changed the order of its fields - any new fields must be added at the end of the record."
-    EUpgradeVariantAddedVariant origin -> "The upgraded " <> pPrint origin <> " has added a new variant."
-    EUpgradeVariantRemovedVariant origin -> "The upgraded " <> pPrint origin <> " has removed an existing variant."
-    EUpgradeVariantChangedVariantType origin -> "The upgraded " <> pPrint origin <> " has changed the type of a variant."
-    EUpgradeVariantAddedVariantField origin -> "The upgraded " <> pPrint origin <> " has added a field."
-    EUpgradeVariantVariantsOrderChanged origin -> "The upgraded " <> pPrint origin <> " has changed the order of its variants - any new variant must be added at the end of the variant."
-    EUpgradeEnumAddedVariant origin -> "The upgraded " <> pPrint origin <> " has added a new variant."
-    EUpgradeEnumRemovedVariant origin -> "The upgraded " <> pPrint origin <> " has removed an existing variant."
-    EUpgradeEnumVariantsOrderChanged origin -> "The upgraded " <> pPrint origin <> " has changed the order of its variants - any new variant must be added at the end of the enum."
+    EUpgradeVariantRemovedConstructor origin constructors -> "The upgraded " <> pPrint origin <> " is missing some of its original constructors: " <> fcommasep (map pPrint constructors)
+    EUpgradeVariantChangedConstructorType origin constructors -> "The upgraded " <> pPrint origin <> " has changed the type of some of its original constructors: " <> fcommasep (map pPrint constructors)
+    EUpgradeVariantNewConstructorsNotAtEnd origin constructors -> "The upgraded " <> pPrint origin <> " has added new constructors, but the following constructors need to be moved to the end: " <> fcommasep (map pPrintWithQuotes constructors) <> ". All new constructors in upgrades must be added to the end of the definition."
+    EUpgradeVariantConstructorsOrderChanged origin -> "The upgraded " <> pPrint origin <> " has changed the order of its constructors - any new constructor must be added at the end of the variant."
+    EUpgradeEnumRemovedConstructor origin constructors -> "The upgraded " <> pPrint origin <> " is missing some of its original constructors: " <> fcommasep (map pPrint constructors)
+    EUpgradeEnumNewConstructorsNotAtEnd origin constructors -> "The upgraded " <> pPrint origin <> " has added new constructors, but the following constructors need to be moved to the end: " <> fcommasep (map pPrintWithQuotes constructors) <> ". All new variant constructors in upgrades must be added to the end of the definition."
+    EUpgradeEnumConstructorsOrderChanged origin -> "The upgraded " <> pPrint origin <> " has changed the order of its constructors - any new enum constructor must be added at the end of the enum."
     EUpgradeRecordChangedOrigin dataConName past present -> "The record " <> pPrint dataConName <> " has changed origin from " <> pPrint past <> " to " <> pPrint present
     EUpgradeChoiceChangedReturnType choice -> "The upgraded choice " <> pPrint choice <> " cannot change its return type."
     EUpgradeTemplateChangedKeyType templateName -> "The upgraded template " <> pPrint templateName <> " cannot change its key type."
     EUpgradeTemplateRemovedKey templateName _key -> "The upgraded template " <> pPrint templateName <> " cannot remove its key."
     EUpgradeTemplateAddedKey template _key -> "The upgraded template " <> pPrint template <> " cannot add a key where it didn't have one previously."
-    EUpgradeTriedToUpgradeIface iface -> "Tried to upgrade interface " <> pPrint iface <> ", but interfaces cannot be upgraded. They should be removed in any upgrading package."
+    EUpgradeTriedToUpgradeIface iface -> "Tried to upgrade interface " <> pPrint iface <> ", but interfaces cannot be upgraded. They should be removed whenever a package is being upgraded."
     EUpgradeMissingImplementation tpl iface -> "Implementation of interface " <> pPrint iface <> " by template " <> pPrint tpl <> " appears in package that is being upgraded, but does not appear in this package."
+    EForbiddenNewImplementation tpl iface -> "Implementation of interface " <> pPrint iface <> " by template " <> pPrint tpl <> " appears in this package, but does not appear in package that is being upgraded."
+    EUpgradeDependenciesFormACycle deps ->
+      vcat
+        [ "Dependencies from the `upgrades:` field and dependencies defined on the current package form a cycle:"
+        , nest 2 $ vcat $ map pprintDep deps
+        ]
+      where
+      pprintDep (pkgId, Just meta) = pPrint pkgId <> "(" <> pPrint (packageName meta) <> ", " <> pPrint (packageVersion meta) <> ")"
+      pprintDep (pkgId, Nothing) = pPrint pkgId
+    EUpgradeMultiplePackagesWithSameNameAndVersion name version ids -> "Multiple packages with name " <> pPrint name <> " and version " <> pPrint (show version) <> ": " <> hcat (L.intersperse ", " (map pPrint ids))
+    EUpgradeTriedToUpgradeException exception ->
+      "Tried to upgrade exception " <> pPrint exception <> ", but exceptions cannot be upgraded. They should be removed in any upgrading package."
+    EUpgradeDifferentParamsCount origin -> "The upgraded " <> pPrint origin <> " has changed the number of type variables it has."
+    EUpgradeDifferentParamsKinds origin -> "The upgraded " <> pPrint origin <> " has changed the kind of one of its type variables."
+    EUpgradeDatatypeBecameUnserializable origin -> "The upgraded " <> pPrint origin <> " was serializable and is now unserializable. Datatypes cannot change their serializability via upgrades."
+
+pPrintWithQuotes :: Pretty a => a -> Doc ann
+pPrintWithQuotes a = "'" <> pPrint a <> "'"
 
 instance Pretty UpgradedRecordOrigin where
   pPrint = \case
     TemplateBody tpl -> "template " <> pPrint tpl
     TemplateChoiceInput tpl chcName -> "input type of choice " <> pPrint chcName <> " on template " <> pPrint tpl
-    VariantConstructor variantName variantConName -> "variant constructor " <> pPrint variantConName <> " from variant " <> pPrint variantName
+    VariantConstructor variantName variantConName -> "constructor " <> pPrint variantConName <> " from variant " <> pPrint variantName
     InterfaceBody iface -> "interface " <> pPrint iface
     TopLevel datatype -> "data type " <> pPrint datatype
 
-instance Pretty Context where
-  pPrint = \case
+prettyWithContext :: Context -> Either Warning Error -> Doc a
+prettyWithContext ctx warningOrErr =
+  let header prettyCtx =
+        vcat
+        [ case warningOrErr of
+            Right _ -> "error type checking " <> prettyCtx <> ":"
+            Left _ -> "warning while type checking " <> prettyCtx <> ":"
+        , nest 2 (either pretty pretty warningOrErr)
+        ]
+  in
+  case ctx of
     ContextNone ->
-      string "<none>"
+      header $ string "<none>"
     ContextDefModule m ->
-      hsep [ "module" , pretty (moduleName m) ]
+      header $ hsep [ "module" , pretty (moduleName m) ]
     ContextDefTypeSyn m ts ->
-      hsep [ "type synonym", pretty (moduleName m) <> "." <>  pretty (synName ts) ]
+      header $ hsep [ "type synonym", pretty (moduleName m) <> "." <>  pretty (synName ts) ]
     ContextDefDataType m dt ->
-      hsep [ "data type", pretty (moduleName m) <> "." <>  pretty (dataTypeCon dt) ]
+      header $ hsep [ "data type", pretty (moduleName m) <> "." <>  pretty (dataTypeCon dt) ]
     ContextTemplate m t p ->
-      hsep [ "template", pretty (moduleName m) <> "." <>  pretty (tplTypeCon t), string (show p) ]
+      header $ hsep [ "template", pretty (moduleName m) <> "." <>  pretty (tplTypeCon t), string (show p) ]
     ContextDefValue m v ->
-      hsep [ "value", pretty (moduleName m) <> "." <> pretty (fst $ dvalBinder v) ]
+      header $ hsep [ "value", pretty (moduleName m) <> "." <> pretty (fst $ dvalBinder v) ]
     ContextDefException m e ->
-      hsep [ "exception", pretty (moduleName m) <> "." <> pretty (exnName e) ]
+      header $ hsep [ "exception", pretty (moduleName m) <> "." <> pretty (exnName e) ]
     ContextDefInterface m i p ->
-      hsep [ "interface", pretty (moduleName m) <> "." <> pretty (intName i), string (show p)]
+      header $ hsep [ "interface", pretty (moduleName m) <> "." <> pretty (intName i), string (show p)]
+    ContextDefUpgrading { cduPkgName, cduPkgVersion, cduSubContext, cduIsDependency } ->
+      let prettyPkgName = if cduIsDependency then hsep ["dependency", pretty cduPkgName] else pretty cduPkgName
+          upgradeOrDowngrade = if _present cduPkgVersion > _past cduPkgVersion then "upgrade" else "downgrade"
+      in
+      vcat
+      [ hsep [ "error while validating that", prettyPkgName, "version", string (show (_present cduPkgVersion)), "is a valid", upgradeOrDowngrade, "of version", string (show (_past cduPkgVersion)) ]
+      , nest 2 $
+        prettyWithContext cduSubContext warningOrErr
+      ]
 
 class ToDiagnostic a where
   toDiagnostic :: a -> Diagnostic
@@ -705,21 +799,21 @@ instance ToDiagnostic UnwarnableError where
 
 data Warning
   = WContext !Context !Warning
-  | WTemplateChangedPrecondition !TypeConName
-  | WTemplateChangedSignatories !TypeConName
-  | WTemplateChangedObservers !TypeConName
-  | WTemplateChangedAgreement !TypeConName
-  | WChoiceChangedControllers !ChoiceName
-  | WChoiceChangedObservers !ChoiceName
-  | WChoiceChangedAuthorizers !ChoiceName
-  | WTemplateChangedKeyExpression !TypeConName
-  | WTemplateChangedKeyMaintainers !TypeConName
+  | WTemplateChangedPrecondition !TypeConName ![Mismatch UpgradeMismatchReason]
+  | WTemplateChangedSignatories !TypeConName ![Mismatch UpgradeMismatchReason]
+  | WTemplateChangedObservers !TypeConName ![Mismatch UpgradeMismatchReason]
+  | WTemplateChangedAgreement !TypeConName ![Mismatch UpgradeMismatchReason]
+  | WChoiceChangedControllers !ChoiceName ![Mismatch UpgradeMismatchReason]
+  | WChoiceChangedObservers !ChoiceName ![Mismatch UpgradeMismatchReason]
+  | WChoiceChangedAuthorizers !ChoiceName ![Mismatch UpgradeMismatchReason]
+  | WTemplateChangedKeyExpression !TypeConName ![Mismatch UpgradeMismatchReason]
+  | WTemplateChangedKeyMaintainers !TypeConName ![Mismatch UpgradeMismatchReason]
   | WCouldNotExtractForUpgradeChecking !T.Text !(Maybe T.Text)
     -- ^ When upgrading, we extract relevant expressions for things like
     -- signatories. If the expression changes shape so that we can't get the
     -- underlying expression that has changed, this warning is emitted.
   | WErrorToWarning !WarnableError
-  deriving (Show)
+  deriving (Eq, Show)
 
 warningLocation :: Warning -> Maybe SourceLoc
 warningLocation = \case
@@ -728,22 +822,33 @@ warningLocation = \case
 
 instance Pretty Warning where
   pPrint = \case
-    WContext ctx err ->
-      vcat
-      [ "warning while type checking " <> pretty ctx <> ":"
-      , nest 2 (pretty err)
-      ]
-    WTemplateChangedPrecondition template -> "The upgraded template " <> pPrint template <> " has changed the definition of its precondition."
-    WTemplateChangedSignatories template -> "The upgraded template " <> pPrint template <> " has changed the definition of its signatories."
-    WTemplateChangedObservers template -> "The upgraded template " <> pPrint template <> " has changed the definition of its observers."
-    WTemplateChangedAgreement template -> "The upgraded template " <> pPrint template <> " has changed the definition of agreement."
-    WChoiceChangedControllers choice -> "The upgraded choice " <> pPrint choice <> " has changed the definition of controllers."
-    WChoiceChangedObservers choice -> "The upgraded choice " <> pPrint choice <> " has changed the definition of observers."
-    WChoiceChangedAuthorizers choice -> "The upgraded choice " <> pPrint choice <> " has changed the definition of authorizers."
-    WTemplateChangedKeyExpression template -> "The upgraded template " <> pPrint template <> " has changed the expression for computing its key."
-    WTemplateChangedKeyMaintainers template -> "The upgraded template " <> pPrint template <> " has changed the maintainers for its key."
+    WContext ctx warning -> prettyWithContext ctx (Left warning)
+    WTemplateChangedPrecondition template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the definition of its precondition."
+    WTemplateChangedSignatories template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the definition of its signatories."
+    WTemplateChangedObservers template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the definition of its observers."
+    WTemplateChangedAgreement template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the definition of agreement."
+    WChoiceChangedControllers choice mismatches -> withMismatchInfo mismatches $ "The upgraded choice " <> pPrint choice <> " has changed the definition of controllers."
+    WChoiceChangedObservers choice mismatches -> withMismatchInfo mismatches $ "The upgraded choice " <> pPrint choice <> " has changed the definition of observers."
+    WChoiceChangedAuthorizers choice mismatches -> withMismatchInfo mismatches $ "The upgraded choice " <> pPrint choice <> " has changed the definition of authorizers."
+    WTemplateChangedKeyExpression template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the expression for computing its key."
+    WTemplateChangedKeyMaintainers template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the maintainers for its key."
     WCouldNotExtractForUpgradeChecking attribute mbExtra -> "Could not check if the upgrade of " <> text attribute <> " is valid because its expression is the not the right shape." <> foldMap (const " Extra context: " <> text) mbExtra
     WErrorToWarning err -> pPrint err
+    where
+    withMismatchInfo :: [Mismatch UpgradeMismatchReason] -> Doc ann -> Doc ann
+    withMismatchInfo [] doc = doc
+    withMismatchInfo [mismatch] doc =
+      vcat
+        [ doc
+        , "There is 1 difference in the expression:"
+        , nest 2 $ pPrint mismatch
+        ]
+    withMismatchInfo mismatches doc =
+      vcat
+        [ doc
+        , "There are " <> string (show (length mismatches)) <> " differences in the expression, including:"
+        , nest 2 $ vcat $ map pPrint (take 3 mismatches)
+        ]
 
 instance ToDiagnostic Warning where
   toDiagnostic warning = Diagnostic
@@ -755,3 +860,71 @@ instance ToDiagnostic Warning where
       , _message = renderPretty warning
       , _relatedInformation = Nothing
       }
+
+instance Pretty SomeName where
+  pPrint = \case
+    SNTypeVarName typeVarName -> pPrint typeVarName
+    SNExprVarName exprVarName -> pPrint exprVarName
+    SNTypeConName typeConName -> pPrint typeConName
+    SNExprValName exprValName -> pPrint exprValName
+    SNFieldName fieldName -> pPrint fieldName
+    SNChoiceName choiceName -> pPrint choiceName
+    SNTypeSynName typeSynName -> pPrint typeSynName
+    SNVariantConName variantConName -> pPrint variantConName
+    SNMethodName methodName -> pPrint methodName
+    SNQualified qualified -> pPrint qualified
+
+instance Pretty reason => Pretty (Mismatch reason) where
+  pPrint = \case
+    NameMismatch name1 name2 reason -> "Name " <> pPrint name1 <> " and name " <> pPrint name2 <> " differ for the following reason: " <> pPrint reason
+    BindingMismatch var1 var2 -> "Name " <> pPrint var1 <> " and name " <> pPrint var2 <> " refer to different bindings in the environment."
+    StructuralMismatch -> "Expression is structurally different."
+
+type MbUpgradingDep = Either PackageId UpgradingDep
+
+data UpgradeMismatchReason
+  = CustomReason String
+  | OriginChangedFromSelfToImport MbUpgradingDep
+  | OriginChangedFromImportToSelf MbUpgradingDep
+  | PackageNameChanged (Upgrading UpgradingDep)
+  | DifferentPackagesNeitherOfWhichSupportsUpgrades (Upgrading UpgradingDep)
+  | PastPackageHasHigherVersion (Upgrading UpgradingDep)
+  | PackageChangedFromUtilityToSchemaPackage (Upgrading UpgradingDep)
+  | PackageChangedFromSchemaToUtilityPackage (Upgrading UpgradingDep)
+  | PackageChangedFromDoesNotSupportUpgradesToSupportUpgrades (Upgrading UpgradingDep)
+  | PackageChangedFromSupportUpgradesToDoesNotSupportUpgrades (Upgrading UpgradingDep)
+  | CouldNotFindPackageForPastIdentifier MbUpgradingDep
+  | CouldNotFindPackageForPresentIdentifier MbUpgradingDep
+  deriving (Eq, Show)
+
+instance Pretty UpgradingDep where
+  pPrint = string . show
+
+instance Pretty UpgradeMismatchReason where
+  pPrint = \case
+    CustomReason str -> string str
+    OriginChangedFromSelfToImport import_ ->
+      "Name came from the current package and now comes from different package '" <> tryShowPkgId import_ <> "'"
+    OriginChangedFromImportToSelf import_ ->
+      "Name came from different package '" <> tryShowPkgId import_ <> "' and now comes from the current package"
+    PackageNameChanged pkg ->
+      "Name came from package '" <> pPrint (_past pkg) <> "' and now comes from differently-named package '" <> pPrint (_present pkg) <> "'"
+    DifferentPackagesNeitherOfWhichSupportsUpgrades pkg ->
+      "Name came from package '" <> pPrint (_past pkg) <> "' and now comes from package '" <> pPrint (_present pkg) <> "'. Neither package supports upgrades, which may mean they have different implementations of the name."
+    PastPackageHasHigherVersion pkg ->
+      "Name came from package '" <> pPrint (_past pkg) <> "' and now comes from package '" <> pPrint (_present pkg) <> "'. Both packages support upgrades, but the previous package had a higher version than the current one."
+    PackageChangedFromSchemaToUtilityPackage pkg ->
+      "Name came from package '" <> pPrint (_past pkg) <> "' and now comes from package '" <> pPrint (_present pkg) <> "'. Both packages support upgrades, but the previous package was not a utility package and the current one is."
+    PackageChangedFromUtilityToSchemaPackage pkg ->
+      "Name came from package '" <> pPrint (_past pkg) <> "' and now comes from package '" <> pPrint (_present pkg) <> "'. Both packages support upgrades, but the previous package was a utility package and the current one is not."
+    PackageChangedFromDoesNotSupportUpgradesToSupportUpgrades pkg ->
+      "Name came from package '" <> pPrint (_past pkg) <> "' and now comes from package '" <> pPrint (_present pkg) <> "'. The previous package did not support upgrades and the current one does."
+    PackageChangedFromSupportUpgradesToDoesNotSupportUpgrades pkg ->
+      "Name came from package '" <> pPrint (_past pkg) <> "' and now comes from package '" <> pPrint (_present pkg) <> "'. The previous package supported upgrades and the current one does not."
+    CouldNotFindPackageForPastIdentifier pkg ->
+      "Could not find " <> tryShowPkgId pkg <> " in the package list for past version of this name."
+    CouldNotFindPackageForPresentIdentifier pkg ->
+      "Could not find " <> tryShowPkgId pkg <> " in the package list for present version of this name."
+    where
+      tryShowPkgId (Left pkgId) = pPrint pkgId
+      tryShowPkgId (Right dep) = string (show dep)

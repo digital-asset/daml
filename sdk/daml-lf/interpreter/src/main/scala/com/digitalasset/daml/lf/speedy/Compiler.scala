@@ -299,17 +299,17 @@ private[lf] final class Compiler(
   private[this] def fun4(body: (Position, Position, Position, Position, Env) => s.SExpr): s.SExpr =
     s.SEAbs(4, body(Pos1, Pos2, Pos3, Pos4, Env4))
 
+  private[this] def unlabelledTopLevelFunction1(ref: t.SDefinitionRef)(
+      body: (Position, Env) => s.SExpr
+  ): (t.SDefinitionRef, SDefinition) =
+    ref -> SDefinition(pipeline(fun1(body)))
+
   private[this] def topLevelFunction1[SDefRef <: t.SDefinitionRef: LabelModule.Allowed](
       ref: SDefRef
   )(
       body: (Position, Env) => s.SExpr
   ): (SDefRef, SDefinition) =
     topLevelFunction(ref)(fun1(body))
-
-  private[this] def unlabelledTopLevelFunction2(ref: t.SDefinitionRef)(
-      body: (Position, Position, Env) => s.SExpr
-  ): (t.SDefinitionRef, SDefinition) =
-    ref -> SDefinition(pipeline(fun2(body)))
 
   private[this] def topLevelFunction2[SDefRef <: t.SDefinitionRef: LabelModule.Allowed](
       ref: SDefRef
@@ -529,8 +529,7 @@ private[lf] final class Compiler(
       SBCastAnyContract(tmplId)(
         env.toSEVar(cidPos),
         SBFetchAny(optTargetTemplateId)(
-          env.toSEVar(cidPos),
-          mbKey.fold(s.SEValue.None: s.SExpr)(pos => SBSome(env.toSEVar(pos))),
+          env.toSEVar(cidPos)
         ),
       ),
     ) { (tmplArgPos, _env) =>
@@ -590,66 +589,49 @@ private[lf] final class Compiler(
       cidPos: Position,
       choiceArgPos: Position,
       tokenPos: Position,
-  ): s.SExpr =
-    let(
-      env,
-      (if (soft) SBSoftFetchInterface else SBFetchAny(None))(
-        env.toSEVar(cidPos),
-        s.SEValue.None,
-      ),
-    ) { (payloadPos, env) =>
-      let(
-        env,
-        SBCastAnyInterface(ifaceId)(
-          env.toSEVar(cidPos),
+  ): s.SExpr = {
+    let(env, SBFetchInterface(soft, ifaceId)(env.toSEVar(cidPos))) { (payloadPos, _env) =>
+      val env =
+        _env.bindExprVar(param, payloadPos).bindExprVar(choice.argBinder._1, choiceArgPos)
+      let(env, SBExtractSAnyValue(env.toSEVar(payloadPos))) { (castPos, env) =>
+        // We use a chain of let bindings to make the evaluation order of SBResolveSBUBeginExercise's arguments
+        // is independent from the evaluation strategy imposed by the ANF transformation.
+        val applyChoiceGuardExpr = SBApplyChoiceGuard(choice.name, Some(ifaceId))(
+          env.toSEVar(guardPos),
           env.toSEVar(payloadPos),
-        ),
-      ) { (castPos, env) =>
-        let(
-          env,
-          s.SEPreventCatch(SBViewInterface(ifaceId)(env.toSEVar(payloadPos))),
-        ) { (_, _env) =>
-          val env =
-            _env.bindExprVar(param, payloadPos).bindExprVar(choice.argBinder._1, choiceArgPos)
-          // We use a chain of let bindings to make the evaluation order of SBResolveSBUBeginExercise's arguments
-          // is independent from the evaluation strategy imposed by the ANF transformation.
-          val applyChoiceGuardExpr = SBApplyChoiceGuard(choice.name, Some(ifaceId))(
-            env.toSEVar(guardPos),
-            env.toSEVar(payloadPos),
-            env.toSEVar(cidPos),
-          )
-          let(env, applyChoiceGuardExpr) { (_, env) =>
-            val controllersExpr = s.SEPreventCatch(translateExp(env, choice.controllers))
-            let(env, controllersExpr) { (controllersPos, env) =>
-              val observersExpr = choice.choiceObservers match {
-                case Some(observers) => s.SEPreventCatch(translateExp(env, observers))
+          env.toSEVar(cidPos),
+        )
+        let(env, applyChoiceGuardExpr) { (_, env) =>
+          val controllersExpr = s.SEPreventCatch(translateExp(env, choice.controllers))
+          let(env, controllersExpr) { (controllersPos, env) =>
+            val observersExpr = choice.choiceObservers match {
+              case Some(observers) => s.SEPreventCatch(translateExp(env, observers))
+              case None => s.SEValue.EmptyList
+            }
+            let(env, observersExpr) { (observersPos, env) =>
+              val authorizersExpr = choice.choiceAuthorizers match {
+                case Some(authorizers) => s.SEPreventCatch(translateExp(env, authorizers))
                 case None => s.SEValue.EmptyList
               }
-              let(env, observersExpr) { (observersPos, env) =>
-                val authorizersExpr = choice.choiceAuthorizers match {
-                  case Some(authorizers) => s.SEPreventCatch(translateExp(env, authorizers))
-                  case None => s.SEValue.EmptyList
-                }
-                let(env, authorizersExpr) { (authorizersPos, env) =>
-                  val exerciseExpr = SBResolveSBUBeginExercise(
-                    interfaceId = ifaceId,
-                    choiceName = choice.name,
-                    consuming = choice.consuming,
-                    byKey = false,
-                    explicitChoiceAuthority = choice.choiceAuthorizers.isDefined,
-                  )(
-                    env.toSEVar(payloadPos),
-                    env.toSEVar(choiceArgPos),
-                    env.toSEVar(cidPos),
-                    env.toSEVar(controllersPos),
-                    env.toSEVar(observersPos),
-                    env.toSEVar(authorizersPos),
-                    env.toSEVar(castPos),
-                  )
-                  let(env, exerciseExpr) { (_, _env) =>
-                    val env = _env.bindExprVar(choice.selfBinder, cidPos)
-                    s.SEScopeExercise(app(translateExp(env, choice.update), env.toSEVar(tokenPos)))
-                  }
+              let(env, authorizersExpr) { (authorizersPos, env) =>
+                val exerciseExpr = SBResolveSBUBeginExercise(
+                  interfaceId = ifaceId,
+                  choiceName = choice.name,
+                  consuming = choice.consuming,
+                  byKey = false,
+                  explicitChoiceAuthority = choice.choiceAuthorizers.isDefined,
+                )(
+                  env.toSEVar(payloadPos),
+                  env.toSEVar(choiceArgPos),
+                  env.toSEVar(cidPos),
+                  env.toSEVar(controllersPos),
+                  env.toSEVar(observersPos),
+                  env.toSEVar(authorizersPos),
+                  env.toSEVar(castPos),
+                )
+                let(env, exerciseExpr) { (_, _env) =>
+                  val env = _env.bindExprVar(choice.selfBinder, cidPos)
+                  s.SEScopeExercise(app(translateExp(env, choice.update), env.toSEVar(tokenPos)))
                 }
               }
             }
@@ -657,6 +639,7 @@ private[lf] final class Compiler(
         }
       }
     }
+  }
 
   private[this] def compileInterfaceChoice(
       ifaceId: TypeConName,
@@ -774,11 +757,10 @@ private[lf] final class Compiler(
       tmplId,
       optTargetTemplateId,
       byKey = mbKey.isDefined,
+      interfaceId = None,
     )(
-      env.toSEVar(cidPos),
-      mbKey.fold(s.SEValue.None: s.SExpr)(pos => SBSome(env.toSEVar(pos))),
+      env.toSEVar(cidPos)
     )
-
   }
 
   private[this] def compileFetchTemplate(
@@ -796,40 +778,21 @@ private[lf] final class Compiler(
   private[this] def compileFetchInterface(
       ifaceId: Identifier,
       soft: Boolean,
-  ): (t.SDefinitionRef, SDefinition) =
+  ): (t.SDefinitionRef, SDefinition) = {
     topLevelFunction2(t.FetchInterfaceDefRef(ifaceId)) { (cidPos, _, env) =>
-      let(
-        env,
-        (if (soft) SBSoftFetchInterface else SBFetchAny(None))(
-          env.toSEVar(cidPos),
-          s.SEValue.None,
-        ),
-      ) { (payloadPos, env) =>
+      let(env, SBFetchInterface(soft, ifaceId)(env.toSEVar(cidPos))) { (payloadPos, env) =>
         let(
           env,
-          SBCastAnyInterface(ifaceId)(
-            env.toSEVar(cidPos),
+          SBResolveSBUInsertFetchNode(ifaceId)(
             env.toSEVar(payloadPos),
+            env.toSEVar(cidPos),
           ),
         ) { (_, env) =>
-          let(
-            env,
-            s.SEPreventCatch(SBViewInterface(ifaceId)(env.toSEVar(payloadPos))),
-          ) { (_, env) =>
-            let(
-              env,
-              SBResolveSBUInsertFetchNode(
-                env.toSEVar(payloadPos),
-                env.toSEVar(cidPos),
-                s.SEValue.None,
-              ),
-            ) { (_, env) =>
-              env.toSEVar(payloadPos)
-            }
-          }
+          env.toSEVar(payloadPos)
         }
       }
     }
+  }
 
   private[this] def compileAgreementText(
       tmplId: Identifier,
@@ -860,7 +823,7 @@ private[lf] final class Compiler(
       tmplId: Identifier,
       tmpl: Template,
   ): (t.SDefinitionRef, SDefinition) =
-    unlabelledTopLevelFunction2(t.ToContractInfoDefRef(tmplId)) { (tmplArgPos, mbKeyPos, env) =>
+    unlabelledTopLevelFunction1(t.ToContractInfoDefRef(tmplId)) { (tmplArgPos, env) =>
       // We use a chain of let bindings to make the evaluation order of SBuildContractInfoStruct's arguments is
       // independent from the evaluation strategy imposed by the ANF transformation.
       checkPreCondition(env, tmplId, env.toSEVar(tmplArgPos)) { env =>
@@ -871,37 +834,28 @@ private[lf] final class Compiler(
                 (signatoriesPos, env) =>
                   let(env, t.ObserversDefRef(tmplId)(env.toSEVar(tmplArgPos))) {
                     (observersPos, env) =>
-                      val body = tmpl.key match {
+                      val mbKeyWithMaintainers = tmpl.key match {
                         case None =>
                           s.SEValue.None
                         case Some(tmplKey) =>
-                          s.SECase(
-                            env.toSEVar(mbKeyPos),
-                            List(
-                              s.SCaseAlt(
-                                t.SCPNone,
-                                let(
-                                  env,
-                                  translateExp(
-                                    env.bindExprVar(tmpl.param, tmplArgPos),
-                                    tmplKey.body,
-                                  ),
-                                ) { (keyPos, env) =>
-                                  SBSome(translateKeyWithMaintainers(env, keyPos, tmplKey))
-                                },
-                              ),
-                              s.SCaseAlt(t.SCPDefault, env.toSEVar(mbKeyPos)),
+                          let(
+                            env,
+                            translateExp(
+                              env.bindExprVar(tmpl.param, tmplArgPos),
+                              tmplKey.body,
                             ),
-                          )
+                          ) { (keyPos, env) =>
+                            SBSome(translateKeyWithMaintainers(env, keyPos, tmplKey))
+                          }
                       }
-                      let(env, body) { (bodyPos, env) =>
+                      let(env, mbKeyWithMaintainers) { (mbKeyWithMaintainersPos, env) =>
                         SBuildContractInfoStruct(
                           env.toSEVar(typePos),
                           env.toSEVar(tmplArgPos),
                           env.toSEVar(agreementTextPos),
                           env.toSEVar(signatoriesPos),
                           env.toSEVar(observersPos),
-                          env.toSEVar(bodyPos),
+                          env.toSEVar(mbKeyWithMaintainersPos),
                         )
                       }
                   }
@@ -1040,16 +994,17 @@ private[lf] final class Compiler(
     //        _ = $insertLookup(tmplId> <keyWithM> <mbCid>
     //    in <mbCid>
     topLevelFunction2(t.LookupByKeyDefRef(tmplId)) { (keyPos, _, env) =>
-      let(env, translateKeyWithMaintainers(env, keyPos, tmplKey)) { (keyWithMPos, env) =>
-        let(env, SBULookupKey(tmplId, optTargetTemplateId)(env.toSEVar(keyWithMPos))) {
-          (maybeCidPos, env) =>
-            let(
-              env,
-              SBUInsertLookupNode(tmplId)(env.toSEVar(keyWithMPos), env.toSEVar(maybeCidPos)),
-            ) { (_, env) =>
-              env.toSEVar(maybeCidPos)
-            }
-        }
+      let(env, s.SEPreventCatch(translateKeyWithMaintainers(env, keyPos, tmplKey))) {
+        (keyWithMPos, env) =>
+          let(env, SBULookupKey(tmplId, optTargetTemplateId)(env.toSEVar(keyWithMPos))) {
+            (maybeCidPos, env) =>
+              let(
+                env,
+                SBUInsertLookupNode(tmplId)(env.toSEVar(keyWithMPos), env.toSEVar(maybeCidPos)),
+              ) { (_, env) =>
+                env.toSEVar(maybeCidPos)
+              }
+          }
       }
     }
 
@@ -1070,20 +1025,21 @@ private[lf] final class Compiler(
     //        _ = $insertFetch <coid> <signatories> <observers> (Some <keyWithM> )
     //    in { contractId: ContractId Foo, contract: Foo }
     topLevelFunction2(t.FetchByKeyDefRef(tmplId)) { (keyPos, tokenPos, env) =>
-      let(env, translateKeyWithMaintainers(env, keyPos, tmplKey)) { (keyWithMPos, env) =>
-        let(env, SBUFetchKey(tmplId, optTargetTemplateId)(env.toSEVar(keyWithMPos))) {
-          (cidPos, env) =>
-            let(
-              env,
-              translateFetchTemplateBody(env, tmplId, optTargetTemplateId)(
-                cidPos,
-                Some(keyWithMPos),
-                tokenPos,
-              ),
-            ) { (contractPos, env) =>
-              FetchByKeyResult(env.toSEVar(cidPos), env.toSEVar(contractPos))
-            }
-        }
+      let(env, s.SEPreventCatch(translateKeyWithMaintainers(env, keyPos, tmplKey))) {
+        (keyWithMPos, env) =>
+          let(env, SBUFetchKey(tmplId, optTargetTemplateId)(env.toSEVar(keyWithMPos))) {
+            (cidPos, env) =>
+              let(
+                env,
+                translateFetchTemplateBody(env, tmplId, optTargetTemplateId)(
+                  cidPos,
+                  Some(keyWithMPos),
+                  tokenPos,
+                ),
+              ) { (contractPos, env) =>
+                FetchByKeyResult(env.toSEVar(cidPos), env.toSEVar(contractPos))
+              }
+          }
       }
     }
 
@@ -1174,7 +1130,7 @@ private[lf] final class Compiler(
           val expr1 =
             s.SEApp(
               s.SEVal(t.ToContractInfoDefRef(templateId)),
-              List(s.SEValue(argument), s.SEValue.None),
+              List(s.SEValue(argument)),
             )
           val contractPos = env.nextPosition
           env = env.pushVar

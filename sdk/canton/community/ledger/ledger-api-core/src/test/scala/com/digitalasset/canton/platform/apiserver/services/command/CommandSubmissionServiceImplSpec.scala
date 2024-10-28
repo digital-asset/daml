@@ -290,6 +290,7 @@ class CommandSubmissionServiceImplSpec
       interpretationTimeNanos = estimatedInterpretationCost,
       globalKeyMapping = Map.empty,
       processedDisclosedContracts = processedDisclosedContracts,
+      contractPackages = Map.empty,
     )
 
     when(ledgerConfigurationSubscription.latestConfiguration())
@@ -308,6 +309,7 @@ class CommandSubmissionServiceImplSpec
         eqTo(estimatedInterpretationCost),
         eqTo(Map.empty),
         eqTo(processedDisclosedContracts),
+        eqTo(Map.empty),
       )(any[TraceContext])
     ).thenReturn(CompletableFuture.completedFuture(SubmissionResult.Acknowledged))
 

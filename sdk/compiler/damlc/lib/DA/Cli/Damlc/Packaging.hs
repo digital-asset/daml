@@ -384,6 +384,9 @@ generateAndInstallIfaceFiles GenerateAndInstallIfaceFilesArgs {..} = do
             , optDflagCheck = False
             , optMbPackageName = Just pkgName
             , optMbPackageVersion = mbPkgVersion
+            -- This is essentially a new package options, cannot inherit optHideUnitId = True from IDE
+            -- or the dependency will be installed as "main"
+            , optHideUnitId = False
             , optGhcCustomOpts = []
             , optPackageImports =
                   baseImports ++

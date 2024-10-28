@@ -44,8 +44,8 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
       shouldStorePkgNameAndVersion = false,
     )
 
-    s"persist LF ${LanguageVersion.v1_16} packages" in testPackagePersistence(
-      testLanguageVersion = LanguageVersion.v1_16,
+    s"persist LF ${LanguageVersion.v1_17} packages" in testPackagePersistence(
+      testLanguageVersion = LanguageVersion.v1_17,
       shouldStorePkgNameAndVersion = true,
     )
 
@@ -176,7 +176,7 @@ class PackageUploaderTest extends AnyWordSpec with BaseTest with HasExecutionCon
         pkgName,
         pkgVersion1,
         "someParty: Party",
-        LanguageVersion.v1_16,
+        LanguageVersion.v1_17,
         Ref.PackageId.assertFromString("somePkgId"),
       )
 
@@ -440,7 +440,7 @@ object PackageUploaderTest {
     pkgName,
     pkgVersion2,
     "discriminator: Text",
-    LanguageVersion.v1_16,
+    LanguageVersion.v1_17,
     Ref.PackageId.assertFromString("somePkgId"),
   )
   private val archive_max_stable_LF = lfArchiveTemplate(

@@ -13,9 +13,9 @@
   type: jar-lib
 - target: //daml-lf/archive:daml_lf_1.15_archive_proto_java
   type: jar-proto
-- target: //daml-lf/archive:daml_lf_1.16_archive_proto_jar
+- target: //daml-lf/archive:daml_lf_1.17_archive_proto_jar
   type: jar-lib
-- target: //daml-lf/archive:daml_lf_1.16_archive_proto_java
+- target: //daml-lf/archive:daml_lf_1.17_archive_proto_java
   type: jar-proto
 - target: //daml-lf/archive:daml_lf_dev_archive_proto_jar
   type: jar-lib
@@ -174,6 +174,10 @@
 - target: //test-common:carbonv3-tests-1.dev.java-codegen
   type: jar-lib
 - target: //test-common:modelext-tests-1.dev.java-codegen
+  type: jar-lib
+- target: //test-common:upgrade_fetch-tests-1.0.0-1.dev.java-codegen
+  type: jar-lib
+- target: //test-common:upgrade_fetch-tests-2.0.0-1.dev.java-codegen
   type: jar-lib
 - target: //test-common:upgrade-tests-1.0.0-1.dev.java-codegen
   type: jar-lib

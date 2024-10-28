@@ -79,7 +79,6 @@ object ApiServiceOwner {
       jwtTimestampLeeway: Option[JwtTimestampLeeway],
       tokenExpiryGracePeriodForStreams: Option[NonNegativeDuration],
       enableExplicitDisclosure: Boolean = false,
-      multiDomainEnabled: Boolean,
       // immutable configuration parameters
       ledgerId: LedgerId,
       participantId: Ref.ParticipantId,
@@ -186,7 +185,6 @@ object ApiServiceOwner {
         enableExplicitDisclosure = enableExplicitDisclosure,
         telemetry = telemetry,
         loggerFactory = loggerFactory,
-        multiDomainEnabled = multiDomainEnabled,
         authenticateUpgradableContract = authenticateUpgradableContract,
         dynParamGetter = dynParamGetter,
         pruningOffsetCache = pruningOffsetCache,

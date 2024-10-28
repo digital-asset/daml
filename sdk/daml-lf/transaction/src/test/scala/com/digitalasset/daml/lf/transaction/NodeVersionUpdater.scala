@@ -66,6 +66,7 @@ object NodeVersionUpdater {
       n.copy(
         version = version,
         packageName = packageName,
+        creationPackageId = packageName.map(_ => n.templateId.packageId),
         keyOpt = n.keyOpt.map(rehash(version, packageName)),
       )
   }

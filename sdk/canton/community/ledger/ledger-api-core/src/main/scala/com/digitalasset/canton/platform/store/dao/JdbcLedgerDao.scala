@@ -51,7 +51,7 @@ import com.digitalasset.canton.platform.store.entries.{
 }
 import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.canton.platform.store.utils.QueueBasedConcurrencyLimiter
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.tracing.Traced
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
@@ -77,7 +77,6 @@ private class JdbcLedgerDao(
     globalMaxEventPayloadQueries: Int,
     tracer: Tracer,
     val loggerFactory: NamedLoggerFactory,
-    incompleteOffsets: (Offset, Set[Ref.Party], TraceContext) => Future[Vector[Offset]],
     contractLoader: ContractLoader,
 ) extends LedgerDao
     with NamedLogging {
@@ -533,19 +532,6 @@ private class JdbcLedgerDao(
     queryNonPruned = queryNonPruned,
     eventStorageBackend = readStorageBackend.eventStorageBackend,
     lfValueTranslation = translation,
-    incompleteOffsets = incompleteOffsets,
-    metrics = metrics,
-    tracer = tracer,
-    loggerFactory = loggerFactory,
-  )(servicesExecutionContext)
-
-  private val reassignmentStreamReader = new ReassignmentStreamReader(
-    globalIdQueriesLimiter = globalIdQueriesLimiter,
-    globalPayloadQueriesLimiter = globalPayloadQueriesLimiter,
-    dbDispatcher = dbDispatcher,
-    queryNonPruned = queryNonPruned,
-    eventStorageBackend = readStorageBackend.eventStorageBackend,
-    lfValueTranslation = translation,
     metrics = metrics,
     tracer = tracer,
     loggerFactory = loggerFactory,
@@ -561,7 +547,6 @@ private class JdbcLedgerDao(
     lfValueTranslation = translation,
     metrics = metrics,
     tracer = tracer,
-    reassignmentStreamReader = reassignmentStreamReader,
     loggerFactory = loggerFactory,
   )(servicesExecutionContext)
 
@@ -575,7 +560,6 @@ private class JdbcLedgerDao(
     lfValueTranslation = translation,
     metrics = metrics,
     tracer = tracer,
-    reassignmentStreamReader = reassignmentStreamReader,
     loggerFactory = loggerFactory,
   )(servicesExecutionContext)
 
@@ -731,7 +715,6 @@ private[platform] object JdbcLedgerDao {
       globalMaxEventPayloadQueries: Int,
       tracer: Tracer,
       loggerFactory: NamedLoggerFactory,
-      incompleteOffsets: (Offset, Set[Ref.Party], TraceContext) => Future[Vector[Offset]],
       contractLoader: ContractLoader = ContractLoader.dummyLoader,
   ): LedgerReadDao =
     new JdbcLedgerDao(
@@ -753,7 +736,6 @@ private[platform] object JdbcLedgerDao {
       globalMaxEventPayloadQueries = globalMaxEventPayloadQueries,
       tracer = tracer,
       loggerFactory = loggerFactory,
-      incompleteOffsets = incompleteOffsets,
       contractLoader = contractLoader,
     )
 
@@ -795,7 +777,6 @@ private[platform] object JdbcLedgerDao {
       globalMaxEventPayloadQueries = globalMaxEventPayloadQueries,
       tracer = tracer,
       loggerFactory = loggerFactory,
-      incompleteOffsets = (_, _, _) => Future.successful(Vector.empty),
       contractLoader = contractLoader,
     )
 

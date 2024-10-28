@@ -125,6 +125,7 @@ object Node {
       stakeholders: Set[Party],
       override val keyOpt: Option[GlobalKeyWithMaintainers],
       override val byKey: Boolean,
+      val interfaceId: Option[TypeConName],
       // For the sake of consistency between types with a version field, keep this field the last.
       override val version: TransactionVersion,
   ) extends LeafOnlyAction {
@@ -134,7 +135,8 @@ object Node {
     override def mapCid(f: ContractId => ContractId): Node.Fetch =
       copy(coid = f(coid))
 
-    override def packageIds: Iterable[PackageId] = Iterable(templateId.packageId)
+    override def packageIds: Iterable[PackageId] =
+      Iterable(templateId.packageId) ++ interfaceId.map(_.packageId)
 
     override def informeesOfNode: Set[Party] = signatories | actingParties
     override def requiredAuthorizers: Set[Party] = actingParties
@@ -148,6 +150,7 @@ object Node {
   final case class Exercise(
       targetCoid: ContractId,
       override val packageName: Option[PackageName],
+      creationPackageId: Option[PackageId],
       override val templateId: TypeConName,
       interfaceId: Option[TypeConName],
       choiceId: ChoiceName,

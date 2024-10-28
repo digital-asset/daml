@@ -1127,6 +1127,7 @@ object TransactionSpec {
     Node.Exercise(
       targetCoid = cid,
       packageName = None,
+      creationPackageId = None,
       templateId = "DummyModule:dummyName",
       interfaceId = None,
       choiceId = "dummyChoice",

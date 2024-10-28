@@ -125,7 +125,7 @@ object ParticipantStatus {
             active = status.active,
             status.topologyQueue,
             status.components,
-            Some(ReleaseVersion.current),
+            status.version,
             Some(supportedProtocolVersions),
           )
         )

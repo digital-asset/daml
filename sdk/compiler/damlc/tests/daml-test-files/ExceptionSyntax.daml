@@ -2,6 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- @SUPPORTS-LF-FEATURE DAML_EXCEPTIONS
+-- @WARN since-lf=1.17 2.0; warn-bad-exceptions
 -- @QUERY-LF [ $pkg.modules[].exceptions[] ] | length == 1
 
 -- | Test that exception syntax is correctly handled.

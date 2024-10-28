@@ -11,10 +11,11 @@ import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
 import com.daml.lf.speedy.SError.SError
 import com.daml.lf.speedy.SExpr.{SEApp, SExpr}
 import com.daml.lf.speedy.SValue.SContractId
+import com.daml.lf.speedy.Speedy.UpdateMachine
 import com.daml.lf.testing.parser.Implicits._
 import com.daml.lf.testing.parser.ParserParameters
-import com.daml.lf.transaction.TransactionVersion.V16
-import com.daml.lf.transaction.{GlobalKeyWithMaintainers, Versioned}
+import com.daml.lf.transaction.TransactionVersion.V17
+import com.daml.lf.transaction.{GlobalKeyWithMaintainers, Node, Versioned}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value._
 import com.daml.logging.LoggingContext
@@ -42,6 +43,26 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       pkgId: Ref.PackageId
   ): ParserParameters[this.type] =
     ParserParameters(pkgId, languageVersion = majorLanguageVersion.maxStableVersion)
+
+  val ifacePkgId = Ref.PackageId.assertFromString("-iface-")
+  private lazy val ifacePkg = {
+    implicit def pkgId: Ref.PackageId = ifacePkgId
+    p""" metadata ( '-iface-' : '1.0.0' )
+    module M {
+
+      record @serializable MyUnit = {};
+      interface (this : Iface) = {
+        viewtype M:MyUnit;
+        method myChoice : Text;
+
+        choice @nonConsuming MyChoice (self) (ctl: Party): Text
+          , controllers (Cons @Party [ctl] Nil @Party)
+          , observers (Nil @Party)
+          to upure @Text (call_method @M:Iface myChoice this);
+      };
+    }
+    """
+  }
 
   lazy val pkgId0 = Ref.PackageId.assertFromString("-pkg0-")
   private lazy val pkg0 = {
@@ -85,8 +106,22 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         signatories M:mkList (M:T {sig} this) (None @Party);
         observers M:mkList (M:T {obs} this) (None @Party);
         agreement "Agreement";
+        implements '-iface-':M:Iface {
+          view = '-iface-':M:MyUnit {};
+          method myChoice = "myChoice v1";
+        };
         key @Party (M:T {sig} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
       };
+
+      val mkParty : Text -> Party =
+        \(t:Text) ->
+          case TEXT_TO_PARTY t of
+            None -> ERROR @Party "none"
+          | Some x -> x;
+
+      val do_create: Text -> Text -> Int64 -> Update (ContractId M:T) =
+        \(sig: Text) -> \(obs: Text) -> \(n: Int64) ->
+          create @M:T M:T { sig = M:mkParty sig, obs = M:mkParty obs, aNumber = n };
 
       val do_fetch: ContractId M:T -> Update M:T =
         \(cId: ContractId M:T) ->
@@ -105,7 +140,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
   val pkgId2: Ref.PackageId = Ref.PackageId.assertFromString("-pkg2-")
 
   private lazy val pkg2 = {
-    // same signatures as pkg1
+    // adds a choice to T
     implicit def pkgId: Ref.PackageId = pkgId2
     p""" metadata ( '-upgrade-test-' : '2.0.0' )
       module M {
@@ -116,6 +151,14 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         signatories '-pkg1-':M:mkList (M:T {sig} this) (None @Party);
         observers '-pkg1-':M:mkList (M:T {obs} this) (None @Party);
         agreement "Agreement";
+        choice NoOp (self) (arg: Unit) : Unit,
+          controllers Cons @Party [M:T {sig} this] Nil @Party,
+          observers Nil @Party
+          to upure @Unit ();
+        implements '-iface-':M:Iface {
+          view = '-iface-':M:MyUnit {};
+          method myChoice = "myChoice v2";
+        };
         key @Party (M:T {sig} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
       };
 
@@ -139,6 +182,10 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         signatories '-pkg1-':M:mkList (M:T {sig} this) (M:T {optSig} this);
         observers '-pkg1-':M:mkList (M:T {obs} this) (None @Party);
         agreement "Agreement";
+        choice NoOp (self) (arg: Unit) : Unit,
+          controllers Cons @Party [M:T {sig} this] Nil @Party,
+          observers Nil @Party
+          to upure @Unit ();
         key @Party (M:T {sig} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
       };
 
@@ -163,12 +210,19 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         signatories '-pkg1-':M:mkList (M:T {obs} this) (None @Party);
         observers '-pkg1-':M:mkList (M:T {sig} this) (None @Party);
         agreement "Agreement";
+        choice NoOp (self) (u: Unit) : Unit,
+          controllers '-pkg1-':M:mkList (M:T {sig} this) (None @Party),
+          observers Nil @Party
+          to upure @Unit ();
         key @Party (M:T {obs} this) (\ (p: Party) -> Cons @Party [p] Nil @Party);
       };
 
       val do_fetch: ContractId M:T -> Update M:T =
         \(cId: ContractId M:T) ->
           fetch_template @M:T cId;
+
+      val do_exercise: ContractId M:T -> Update Unit  =
+        \(cId: ContractId M:T) -> exercise @M:T NoOp cId ();
       }
     """
   }
@@ -184,7 +238,14 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
   private lazy val pkgs =
     PureCompiledPackages.assertBuild(
-      Map(pkgId0 -> pkg0, pkgId1 -> pkg1, pkgId2 -> pkg2, pkgId3 -> pkg3, pkgId4 -> pkg4),
+      Map(
+        ifacePkgId -> ifacePkg,
+        pkgId0 -> pkg0,
+        pkgId1 -> pkg1,
+        pkgId2 -> pkg2,
+        pkgId3 -> pkg3,
+        pkgId4 -> pkg4,
+      ),
       Compiler.Config.Dev(majorLanguageVersion),
     )
 
@@ -195,8 +256,47 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
 
   type Success = (Value, List[UpgradeVerificationRequest])
 
+  def go(
+      e: Expr,
+      packageResolution: Map[Ref.PackageName, Ref.PackageId] = Map.empty,
+  ): Either[SError, Success] = {
+    goFinish(e, packageResolution).map(_._1)
+  }
+
+  private def goFinish(
+      e: Expr,
+      packageResolution: Map[Ref.PackageName, Ref.PackageId],
+  ): Either[SError, (Success, UpdateMachine.Result)] = {
+
+    val sexprToEval: SExpr = pkgs.compiler.unsafeCompile(e)
+
+    implicit def logContext: LoggingContext = LoggingContext.ForTesting
+    val seed = crypto.Hash.hashPrivateKey("seed")
+    val machine = Speedy.Machine.fromUpdateSExpr(
+      pkgs,
+      seed,
+      sexprToEval,
+      Set(alice, bob),
+      packageResolution = packageResolution,
+    )
+
+    SpeedyTestLib
+      .runCollectRequests(machine)
+      .map { case (sv, _, uvs) => // ignoring any AuthRequest
+        val v = sv.toNormalizedValue(V17)
+        ((v, uvs), data.assertRight(machine.finish.left.map(_.toString)))
+      }
+  }
+
   // The given contractValue is wrapped as a contract available for ledger-fetch
   def go(e: Expr, contract: ContractInstance): Either[SError, Success] = {
+    goFinish(e, contract).map(_._1)
+  }
+
+  private def goFinish(
+      e: Expr,
+      contract: ContractInstance,
+  ): Either[SError, (Success, UpdateMachine.Result)] = {
 
     val se: SExpr = pkgs.compiler.unsafeCompile(e)
     val args: Array[SValue] = Array(SContractId(theCid))
@@ -207,10 +307,10 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     val machine = Speedy.Machine.fromUpdateSExpr(pkgs, seed, sexprToEval, Set(alice, bob))
 
     SpeedyTestLib
-      .runCollectRequests(machine, getContract = Map(theCid -> Versioned(V16, contract)))
+      .runCollectRequests(machine, getContract = Map(theCid -> Versioned(V17, contract)))
       .map { case (sv, _, uvs) => // ignoring any AuthRequest
-        val v = sv.toNormalizedValue(V16)
-        (v, uvs)
+        val v = sv.toNormalizedValue(V17)
+        ((v, uvs), data.assertRight(machine.finish.left.map(_.toString)))
       }
   }
 
@@ -228,7 +328,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     val contractInfo: Speedy.ContractInfo =
       // NICK: where does this contract-info even get used?
       Speedy.ContractInfo(
-        version = V16,
+        version = V17,
         packageName = pkgName,
         templateId = i"'-unknown-':M:T",
         value = contractSValue,
@@ -242,7 +342,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
     SpeedyTestLib
       .runCollectRequests(machine)
       .map { case (sv, _, uvs) => // ignoring any AuthRequest
-        val v = sv.toNormalizedValue(V16)
+        val v = sv.toNormalizedValue(V17)
         (v, uvs)
       }
   }
@@ -266,12 +366,20 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
       i"'-pkg1-':M:T",
       ValueParty(alice),
       Set(alice),
-      crypto.Hash.KeyPackageName.assertBuild(pkgName, V16),
+      crypto.Hash.KeyPackageName.assertBuild(pkgName, V17),
+    )
+
+  val v2_key =
+    GlobalKeyWithMaintainers.assertBuild(
+      i"'-pkg2-':M:T",
+      ValueParty(alice),
+      Set(alice),
+      crypto.Hash.KeyPackageName.assertBuild(pkgName, V17),
     )
 
   "upgrade attempted" - {
 
-    "contract is LF < 1.16 -- should be reject" in {
+    "contract is LF < 1.17 -- should be reject" in {
       val v =
         makeRecord(
           ValueParty(alice),
@@ -418,17 +526,107 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
   "upgrade" - {
     "be able to fetch a same contract using different versions" in {
       // The following code is not properly typed, but emulates two commands that fetch a same contract using different versions.
-      val res = go(
+
+      val instance = ContractInstance(pkgName, i"'-pkg1-':M:T", v1_base)
+      val res = goFinish(
         e"""\(cid: ContractId '-pkg1-':M:T) ->
                ubind
                  x1: Unit <- '-pkg2-':M:do_fetch cid;
                  x2: Unit <- '-pkg3-':M:do_fetch cid
                in upure @Unit ()
           """,
-        ContractInstance(pkgName, i"'-pkg1-':M:T", v1_base),
+        instance,
       )
-      res shouldBe a[Right[_, _]]
+      inside(res) { case Right((_, result)) =>
+        result.contractPackages shouldBe Map(theCid -> instance.template.packageId)
+      }
     }
+
+    "be able to fetch a locally created contract using different versions" in {
+      val res = go(
+        e"""ubind
+              cid: ContractId '-pkg1-':M:T <- '-pkg1-':M:do_create "alice" "bob" 100;
+              _: '-pkg2-':M:T <- fetch_template @'-pkg2-':M:T cid
+            in upure @(ContractId '-pkg1-':M:T) cid
+          """
+      )
+      inside(res) { case Right((ValueContractId(cid), verificationRequests)) =>
+        verificationRequests shouldBe List(
+          UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v1_key))
+        )
+      }
+    }
+
+    "be able to fetch by key a locally created contract using different versions" in {
+      val res = go(
+        e"""let alice : Party = '-pkg1-':M:mkParty "alice"
+            in ubind
+              cid: ContractId '-pkg1-':M:T <- '-pkg1-':M:do_create "alice" "bob" 100;
+              _: '-pkg2-':M:T <- fetch_by_key @'-pkg2-':M:T alice
+            in upure @(ContractId '-pkg1-':M:T) cid
+          """
+      )
+      inside(res) { case Right((ValueContractId(cid), verificationRequests)) =>
+        verificationRequests shouldBe List(
+          UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v2_key)),
+          UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v2_key)),
+        )
+      }
+    }
+
+    "be able to exercise a locally created contract using different versions" in {
+      val res = go(
+        e"""ubind
+              cid: ContractId '-pkg1-':M:T <- '-pkg1-':M:do_create "alice" "bob" 100;
+              _: Unit <- exercise @'-pkg2-':M:T NoOp cid ()
+            in upure @(ContractId '-pkg1-':M:T) cid
+          """
+      )
+      inside(res) { case Right((ValueContractId(cid), verificationRequests)) =>
+        verificationRequests shouldBe List(
+          UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v1_key))
+        )
+      }
+    }
+
+    "be able to exercise by key a locally created contract using different versions" in {
+      val res = go(
+        e"""let alice : Party = '-pkg1-':M:mkParty "alice"
+            in ubind
+                 cid: ContractId '-pkg1-':M:T <- '-pkg1-':M:do_create "alice" "bob" 100;
+                 _: Unit <- exercise_by_key @'-pkg2-':M:T NoOp alice ()
+               in upure @(ContractId '-pkg1-':M:T) cid
+          """
+      )
+      inside(res) { case Right((ValueContractId(cid), verificationRequests)) =>
+        verificationRequests shouldBe List(
+          UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v2_key)),
+          UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v2_key)),
+        )
+      }
+    }
+
+    // TODO(https://github.com/digital-asset/daml/issues/20099): re-enable this test once fixed
+    "be able to exercise by interface locally created contract using different versions" ignore {
+      val res = go(
+        e"""let alice : Party = '-pkg1-':M:mkParty "alice"
+            in ubind
+                 cid: ContractId '-pkg1-':M:T <- '-pkg1-':M:do_create "alice" "bob" 100;
+                 res: Text <- exercise_interface @'-iface-':M:Iface
+                                MyChoice
+                                (COERCE_CONTRACT_ID @'-pkg1-':M:T @'-iface-':M:Iface cid)
+                                alice
+               in upure @(ContractId '-pkg1-':M:T) cid
+          """,
+        packageResolution = Map(Ref.PackageName.assertFromString("-upgrade-test-") -> pkgId2),
+      )
+      inside(res) { case Right((ValueContractId(cid), verificationRequests)) =>
+        verificationRequests shouldBe List(
+          UpgradeVerificationRequest(cid, Set(alice), Set(bob), Some(v1_key))
+        )
+      }
+    }
+
     "do recompute and check immutability of meta data when using different versions" in {
       // The following code is not properly typed, but emulates two commands that fetch a same contract using different versions.
       val res: Either[SError, (Value, List[UpgradeVerificationRequest])] = go(
@@ -445,7 +643,7 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           i"'-pkg1-':M:T",
           ValueParty(bob),
           Set(bob),
-          crypto.Hash.KeyPackageName.assertBuild(pkgName, V16),
+          crypto.Hash.KeyPackageName.assertBuild(pkgName, V17),
         )
         verificationRequests shouldBe List(
           UpgradeVerificationRequest(theCid, Set(alice), Set(bob), Some(v1_key)),
@@ -475,22 +673,30 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
         ValueOptional(Some(ValueParty(bob))),
       )
 
-    inside(go(e"'-pkg3-':M:do_fetch", ContractInstance(pkgName, i"'-pgk3-':M:T", v_alice_none))) {
-      case Right((v, List(uv))) =>
-        v shouldBe v_alice_none
-        uv.coid shouldBe theCid
-        uv.signatories.toList shouldBe List(alice)
-        uv.observers.toList shouldBe List(bob)
-        uv.keyOpt shouldBe Some(v1_key)
+    inside(
+      go(
+        e"'-pkg3-':M:do_fetch",
+        ContractInstance(pkgName, i"'-misspelled-pkg3-':M:T", v_alice_none),
+      )
+    ) { case Right((v, List(uv))) =>
+      v shouldBe v_alice_none
+      uv.coid shouldBe theCid
+      uv.signatories.toList shouldBe List(alice)
+      uv.observers.toList shouldBe List(bob)
+      uv.keyOpt shouldBe Some(v1_key)
     }
 
-    inside(go(e"'-pkg3-':M:do_fetch", ContractInstance(pkgName, i"'-pgk3-':M:T", v_alice_some))) {
-      case Right((v, List(uv))) =>
-        v shouldBe v_alice_some
-        uv.coid shouldBe theCid
-        uv.signatories.toList shouldBe List(alice, bob)
-        uv.observers.toList shouldBe List(bob)
-        uv.keyOpt shouldBe Some(v1_key)
+    inside(
+      go(
+        e"'-pkg3-':M:do_fetch",
+        ContractInstance(pkgName, i"'-misspelled-pkg3-':M:T", v_alice_some),
+      )
+    ) { case Right((v, List(uv))) =>
+      v shouldBe v_alice_some
+      uv.coid shouldBe theCid
+      uv.signatories.toList shouldBe List(alice, bob)
+      uv.observers.toList shouldBe List(bob)
+      uv.keyOpt shouldBe Some(v1_key)
     }
 
   }
@@ -508,11 +714,13 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           n"obs",
           n"aNumber",
         )
+
         def values: util.ArrayList[SValue] = ArrayList(
           SValue.SParty(alice), // And it needs to be a party
           SValue.SParty(bob),
           SValue.SInt64(100),
         )
+
         SValue.SRecord(i"'-pkg1-':M:T", fields, values)
       }
       inside(goDisclosed(e"'-pkg1-':M:do_fetch", sv1_base)) { case Right((v, _)) =>
@@ -529,19 +737,54 @@ class UpgradeTest(majorLanguageVersion: LanguageMajorVersion)
           n"aNumber",
           n"extraField",
         )
+
         def values: util.ArrayList[SValue] = ArrayList(
           SValue.SParty(alice),
           SValue.SParty(bob),
           SValue.SInt64(100),
           SValue.SOptional(None),
         )
+
         SValue.SRecord(i"'-unknown-':M:T", fields, values)
       }
       inside(goDisclosed(e"'-pkg1-':M:do_fetch", sv1_base)) { case Right((v, _)) =>
         v shouldBe v1_base
       }
     }
-
   }
 
+  "Exercise Node" - {
+
+    "is populated with contract ID " in {
+      val v_alice_none =
+        makeRecord(
+          ValueParty(alice),
+          ValueParty(bob),
+          ValueInt64(100),
+          ValueOptional(None),
+        )
+
+      val se: SExpr = pkgs.compiler.unsafeCompile(e"'-pkg4-':M:do_exercise")
+      val args: Array[SValue] = Array(SContractId(theCid))
+      val sexprToEval: SExpr = SEApp(se, args)
+
+      implicit def logContext: LoggingContext = LoggingContext.ForTesting
+
+      val seed = crypto.Hash.hashPrivateKey("seed")
+      val machine = Speedy.Machine.fromUpdateSExpr(pkgs, seed, sexprToEval, Set(alice, bob))
+
+      val res =
+        SpeedyTestLib.buildTransactionCollectRequests(
+          machine,
+          getContract =
+            Map(theCid -> Versioned(V17, ContractInstance(pkgName, i"'-pkg3-':M:T", v_alice_none))),
+        )
+
+      inside(res.map(_._1.nodes.values.toList)) { case Right(List(exe: Node.Exercise)) =>
+        exe.packageName shouldBe Some("-upgrade-test-")
+        exe.creationPackageId shouldBe Some("-pkg3-")
+        exe.templateId.packageId shouldBe "-pkg4-"
+      }
+    }
+  }
 }

@@ -132,7 +132,7 @@ class SecretKeyAdministration(
       adminCommand(VaultAdminCommands.RegisterKmsEncryptionKey(kmsKeyId, name))
     }
 
-  private def findPublicKey(
+  protected def findPublicKey(
       fingerprint: String,
       topologyAdmin: TopologyAdministrationGroupCommon,
       owner: KeyOwner,
@@ -148,7 +148,7 @@ class SecretKeyAdministration(
   @Help.Summary("Rotate a given node's keypair with a new pre-generated KMS keypair")
   @Help.Description(
     """Rotates an existing encryption or signing key stored externally in a KMS with a pre-generated
-      key.
+      key. For a sequencer or mediator node use `rotate_kms_node_key` with a domain manager reference as an argument.
       |The fingerprint of the key we want to rotate.
       |The id of the new KMS key (e.g. Resource Name)."""
   )
@@ -175,7 +175,8 @@ class SecretKeyAdministration(
   @Help.Summary("Rotate a node's public/private key pair")
   @Help.Description(
     """Rotates an existing encryption or signing key. NOTE: A namespace root or intermediate
-      signing key CANNOT be rotated by this command.
+      signing key CANNOT be rotated by this command. For a sequencer or mediator node use `rotate_kms_node_key` with
+      a domain manager reference as an argument.
       |The fingerprint of the key we want to rotate."""
   )
   def rotate_node_key(fingerprint: String, name: Option[String] = None): PublicKey = {
@@ -183,14 +184,9 @@ class SecretKeyAdministration(
 
     val currentKey = findPublicKey(fingerprint, instance.topology, owner)
 
-    val newKey = name match {
-      case Some(_) => regenerateKey(currentKey, name)
-      case None =>
-        regenerateKey(
-          currentKey,
-          generateNewNameForRotatedKey(fingerprint, consoleEnvironment.environment.clock),
-        )
-    }
+    val newName =
+      name.orElse(generateNewNameForRotatedKey(fingerprint, consoleEnvironment.environment.clock))
+    val newKey = regenerateKey(currentKey, newName)
 
     // Rotate the key for the node in the topology management
     instance.topology.owner_to_key_mappings.rotate_key(
@@ -549,9 +545,7 @@ class LocalSecretKeyAdministration(
           .leftMap(err => s"Error retrieving private key [$fingerprint] $err")
         publicKey <- crypto.cryptoPublicStore
           .publicKey(fingerprint)
-          .leftMap(_.toString)
-          .subflatMap(_.toRight(s"no public key found for [$fingerprint]"))
-          .leftMap(err => s"Error retrieving public key [$fingerprint] $err")
+          .toRight(s"Error retrieving public key [$fingerprint]: no public key found")
         keyPair: CryptoKeyPair[PublicKey, PrivateKey] = (publicKey, privateKey) match {
           case (pub: SigningPublicKey, pkey: SigningPrivateKey) =>
             new SigningKeyPair(pub, pkey)

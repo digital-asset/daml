@@ -27,6 +27,8 @@ def deps(lf_version):
         "//test-common:upgrade-tests-1.0.0-%s.java-codegen" % lf_version,
         "//test-common:upgrade-tests-2.0.0-%s.java-codegen" % lf_version,
         "//test-common:upgrade-tests-3.0.0-%s.java-codegen" % lf_version,
+        "//test-common:upgrade_fetch-tests-1.0.0-%s.java-codegen" % lf_version,
+        "//test-common:upgrade_fetch-tests-2.0.0-%s.java-codegen" % lf_version,
     ]
     additional_tests = (carbon_tests if _has_model_tests(lf_version) else []) + (upgrading_tests if _has_upgrading_tests(lf_version) else [])
     return [

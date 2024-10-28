@@ -336,7 +336,7 @@ cantonConfig CantonOptions{..} =
                      , "admin-api" Aeson..= port cantonDomainAdminApi
                      , "init" Aeson..= Aeson.object
                            [ "domain-parameters" Aeson..= Aeson.object
-                               [ "protocol-version" Aeson..= ("6" :: T.Text) ]
+                               [ "protocol-version" Aeson..= ("5" :: T.Text) ]
                            ]
                      ]
                 ]

@@ -63,6 +63,8 @@ message GetEventsByContractKeyRequest {
   Value contract_key = 1;
 
   // The template id associated with the contract key
+  // Both package-name and package-id reference formats for the identifier are supported.
+  //
   // Required
   Identifier template_id = 2;
 

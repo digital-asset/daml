@@ -194,6 +194,7 @@ private[store] object StorageBackendTestValues {
       actor: String = "actor",
       commandId: String = UUID.randomUUID().toString,
       domainId: Option[String] = None,
+      choicePackageId: Option[String] = None,
       traceContext: Array[Byte] = serializableTraceContext,
   ): DbDto.EventExercise = {
     val transactionId = transactionIdFromOffset(offset)
@@ -211,6 +212,7 @@ private[store] object StorageBackendTestValues {
       contract_id = contractId.coid,
       template_id = Some(someTemplateId.toString),
       package_name = None,
+      choice_package_id = choicePackageId,
       flat_event_witnesses = if (consuming) Set(signatory) else Set.empty,
       tree_event_witnesses = Set(signatory, actor),
       create_key_value = None,

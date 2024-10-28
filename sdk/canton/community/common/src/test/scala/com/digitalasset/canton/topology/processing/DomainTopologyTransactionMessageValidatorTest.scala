@@ -92,6 +92,7 @@ class DomainTopologyTransactionMessageValidatorTest
       override val defaultSigningKey: SigningPublicKey =
         crypto.cryptoPublicStore
           .signingKey(domainId.uid.namespace.fingerprint)
+          .value
           .futureValue
           .valueOrFail("must have key")
       val dNs = mkAdd(

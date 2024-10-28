@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.store.memory
 
 import cats.data.{EitherT, OptionT}
 import com.digitalasset.canton.concurrent.DirectExecutionContext
+import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.RequestJournal.{RequestData, RequestState}
@@ -131,8 +132,8 @@ class InMemoryRequestJournalStore(protected val loggerFactory: NamedLoggerFactor
 
   private def withRc(rc: RequestCounter, msg: String): String = s"Request $rc: $msg"
 
-  override def totalDirtyRequests()(implicit traceContext: TraceContext): Future[Int] =
-    Future.successful(requestTable.count { case (_, result) =>
+  override def totalDirtyRequests()(implicit traceContext: TraceContext): Future[NonNegativeInt] =
+    Future.successful(NonNegativeInt.tryCreate(requestTable.count { case (_, result) =>
       result.commitTime.isEmpty
-    })
+    }))
 }

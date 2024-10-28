@@ -241,6 +241,7 @@ final case class LedgerApiServerConfig(
       LedgerApiServerConfig.DefaultIdentityProviderManagementConfig,
     unsafeEnableEventsByContractKeyCache: EnableEventsByContractKeyCache =
       EnableEventsByContractKeyCache.Disabled,
+    synchronizeVettingOnUpload: Boolean = false,
 ) extends CommunityServerConfig // We can't currently expose enterprise server features at the ledger api anyway
     {
 

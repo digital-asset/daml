@@ -257,6 +257,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       targetCoid = targetCid,
       templateId = someTemplateId,
       packageName = testPackageName,
+      creationPackageId = None,
       interfaceId = None,
       choiceId = someChoiceName,
       consuming = true,
@@ -287,6 +288,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
       keyOpt = None,
       byKey = false,
       version = txVersion,
+      interfaceId = None,
     )
 
   // Ids of all contracts created in a transaction - both transient and non-transient
@@ -420,6 +422,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
         targetCoid = id,
         templateId = someTemplateId,
         packageName = testPackageName,
+        creationPackageId = None,
         interfaceId = None,
         choiceId = someChoiceName,
         consuming = false,
@@ -447,6 +450,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
         keyOpt = None,
         byKey = false,
         version = txVersion,
+        interfaceId = None,
       ),
       exerciseId,
     )
@@ -806,6 +810,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
         targetCoid = contractId,
         templateId = someTemplateId,
         packageName = testPackageName,
+        creationPackageId = None,
         interfaceId = None,
         choiceId = Ref.ChoiceName.assertFromString("Archive"),
         consuming = true,
@@ -896,6 +901,7 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend with OptionVa
         keyOpt = None,
         byKey = false,
         version = txVersion,
+        interfaceId = None,
       )
     )
     nextOffset() -> LedgerEntry.Transaction(

@@ -65,7 +65,7 @@ import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.*
-import com.digitalasset.canton.util.retry.RetryUtil.AllExnRetryable
+import com.digitalasset.canton.util.retry.AllExceptionRetryPolicy
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import org.slf4j.event.Level
@@ -948,6 +948,9 @@ final class RepairService(
     templateId = c.rawContractInstance.contractInstance.unversioned.template,
     packageName = c.rawContractInstance.contractInstance.unversioned.packageName,
     interfaceId = None,
+    creationPackageId = c.rawContractInstance.contractInstance.unversioned.packageName.map(_ =>
+      c.rawContractInstance.contractInstance.unversioned.template.packageId
+    ),
     choiceId = LfChoiceName.assertFromString("Archive"),
     consuming = true,
     actingParties = c.metadata.signatories,
@@ -1117,7 +1120,7 @@ final class RepairService(
             )
             .unlessShutdown(
               FutureUnlessShutdown.outcomeF(check(persistentState, indexedDomain)),
-              AllExnRetryable,
+              AllExceptionRetryPolicy,
             )
         )
       }

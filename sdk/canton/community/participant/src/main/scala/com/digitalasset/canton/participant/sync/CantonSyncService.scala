@@ -121,7 +121,6 @@ import scala.collection.concurrent.TrieMap
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.FutureConverters.*
-import scala.util.chaining.scalaUtilChainingOps
 import scala.util.{Failure, Right, Success}
 
 /** The Canton-based synchronization service.
@@ -165,6 +164,7 @@ class CantonSyncService(
     skipRecipientsCheck: Boolean,
     multiDomainLedgerAPIEnabled: Boolean,
     testingConfig: TestingConfigInternal,
+    synchronizeVettingOnUpload: Boolean,
 )(implicit ec: ExecutionContext, mat: Materializer, val tracer: Tracer)
     extends state.v2.WriteService
     with WriteParticipantPruningService
@@ -405,6 +405,7 @@ class CantonSyncService(
       _estimatedInterpretationCost: Long,
       keyResolver: LfKeyResolver,
       disclosedContracts: ImmArray[ProcessedDisclosedContract],
+      contractPackages: Map[LfContractId, LfPackageId],
   )(implicit
       traceContext: TraceContext
   ): CompletionStage[SubmissionResult] = {
@@ -419,6 +420,7 @@ class CantonSyncService(
         transaction,
         keyResolver,
         disclosedContracts,
+        contractPackages,
       )
     }.map(result =>
       result.map { _asyncResult =>
@@ -529,6 +531,7 @@ class CantonSyncService(
       transaction: LfSubmittedTransaction,
       keyResolver: LfKeyResolver,
       explicitlyDisclosedContracts: ImmArray[ProcessedDisclosedContract],
+      contractPackages: Map[LfContractId, LfPackageId],
   )(implicit
       traceContext: TraceContext
   ): Future[Either[SubmissionResult, FutureUnlessShutdown[_]]] = {
@@ -565,6 +568,7 @@ class CantonSyncService(
         keyResolver,
         transaction,
         explicitlyDisclosedContracts,
+        contractPackages,
       )
       // TODO(i2794) retry command if token expired
       submittedFF.value.transform { result =>
@@ -671,7 +675,7 @@ class CantonSyncService(
             fileNameO = None,
             submissionId = submissionId,
             vetAllPackages = true,
-            synchronizeVetting = false,
+            synchronizeVetting = synchronizeVettingOnUpload,
           )
           .map(_ => SubmissionResult.Acknowledged)
           .onShutdown(Left(PackageServiceErrors.ParticipantShuttingDown.Error()))
@@ -1655,22 +1659,6 @@ class CantonSyncService(
         )
       }
       .map(_.flatten)
-
-  override def incompleteReassignmentOffsets(
-      validAt: LedgerSyncOffset,
-      stakeholders: Set[LfPartyId],
-  )(implicit traceContext: TraceContext): Future[Vector[LedgerSyncOffset]] =
-    UpstreamOffsetConvert
-      .toGlobalOffset(validAt)
-      .fold(
-        error => Future.failed(new IllegalArgumentException(error)),
-        incompleteTransferData(_, stakeholders).map(
-          _.map(
-            _.transferEventGlobalOffset.globalOffset
-              .pipe(UpstreamOffsetConvert.fromGlobalOffset)
-          ).toVector
-        ),
-      )
 }
 
 object CantonSyncService {
@@ -1703,6 +1691,7 @@ object CantonSyncService {
         skipRecipientsCheck: Boolean,
         multiDomainLedgerAPIEnabled: Boolean,
         testingConfig: TestingConfigInternal,
+        synchronizeVettingOnUpload: Boolean,
     )(implicit ec: ExecutionContext, mat: Materializer, tracer: Tracer): T
   }
 
@@ -1735,6 +1724,7 @@ object CantonSyncService {
         skipRecipientsCheck: Boolean,
         multiDomainLedgerAPIEnabled: Boolean,
         testingConfig: TestingConfigInternal,
+        synchronizeVettingOnUpload: Boolean,
     )(implicit
         ec: ExecutionContext,
         mat: Materializer,
@@ -1770,6 +1760,7 @@ object CantonSyncService {
         skipRecipientsCheck = skipRecipientsCheck,
         multiDomainLedgerAPIEnabled: Boolean,
         testingConfig,
+        synchronizeVettingOnUpload,
       )
   }
 }

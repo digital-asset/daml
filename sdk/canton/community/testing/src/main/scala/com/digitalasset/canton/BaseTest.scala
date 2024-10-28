@@ -389,8 +389,12 @@ object BaseTest {
     protocolVersion = protocolVersion,
   )
 
+  // TODO(#21009) default protocol version should be a stable one
+  private lazy val defaultTestProtocolVersion: ProtocolVersion =
+    ProtocolVersion.unstable.sorted.filter(_ != ProtocolVersion.dev).last
+
   lazy val testedProtocolVersion: ProtocolVersion =
-    tryGetProtocolVersionFromEnv.getOrElse(ProtocolVersion.latestStable)
+    tryGetProtocolVersionFromEnv.getOrElse(defaultTestProtocolVersion)
 
   lazy val testedProtocolVersionValidation: ProtocolVersionValidation =
     ProtocolVersionValidation(testedProtocolVersion)
@@ -400,12 +404,12 @@ object BaseTest {
   )
 
   lazy val pvPackageName: Option[PackageName] = Option.when(
-    testedProtocolVersion >= ProtocolVersion.v6
+    testedProtocolVersion >= ProtocolVersion.v7
   )(PackageName.assertFromString("package_name"))
 
   lazy val pvTransactionVersion: TransactionVersion = testedProtocolVersion match {
     case ProtocolVersion.`dev` => TransactionVersion.maxVersion
-    case ProtocolVersion.`v6` => TransactionVersion.V16
+    case ProtocolVersion.`v7` => TransactionVersion.V17
     case ProtocolVersion.`v5` => TransactionVersion.V15
     case unexpectedPV => sys.error(s"Unexpected protocol version $unexpectedPV.")
   }

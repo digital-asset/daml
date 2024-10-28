@@ -67,14 +67,15 @@ class TransactionTreeFactoryImplV3(
       decomposition: TransactionViewDecomposition
   ): Set[LfPackageId] = {
 
-    def nodePref(n: LfActionNode): Set[(LfPackageName, LfPackageId)] = n match {
-      case ex: LfNodeExercises if ex.interfaceId.isDefined =>
-        ex.packageName match {
-          case Some(packageName) => Set((packageName, ex.templateId.packageId))
-          case None =>
-            throw new IllegalStateException(s"LF 1.16 nodes must have package name [$ex]")
-        }
-      case _ => Set.empty
+    def nodePref(n: LfActionNode): Set[(LfPackageName, LfPackageId)] = (n, n.packageName) match {
+      case _ if !supportsUpgrading(n.version) =>
+        Set.empty
+      case (ex: LfNodeExercises, Some(packageName)) if ex.interfaceId.isDefined =>
+        Set(packageName -> ex.templateId.packageId)
+      case (ex: LfNodeFetch, Some(packageName)) if ex.interfaceId.isDefined =>
+        Set(packageName -> ex.templateId.packageId)
+      case _ =>
+        Set.empty
     }
 
     @tailrec

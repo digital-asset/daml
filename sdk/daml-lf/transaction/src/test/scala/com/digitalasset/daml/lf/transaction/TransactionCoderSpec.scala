@@ -345,7 +345,7 @@ class TransactionCoderSpec
 
     // TODO: https://github.com/digital-asset/daml/issues/17995
     //  enable the test
-    "accept to encode ContractInstance with a packageName iff version >= 1.16" ignore {
+    "accept to encode ContractInstance with a packageName iff version >= 1.17" ignore {
       forAll(
         malformedCreateNodeGen(),
         pkgNameGen(TransactionVersion.minUpgrade),
@@ -365,7 +365,7 @@ class TransactionCoderSpec
 
     // TODO: https://github.com/digital-asset/daml/issues/17995
     //  enable the test
-    "accept to encode FatContractInstance with a packageName iff version >= 1.16" ignore {
+    "accept to encode FatContractInstance with a packageName iff version >= 1.17" ignore {
       forAll(
         malformedCreateNodeGen(),
         pkgNameGen(TransactionVersion.minUpgrade),
@@ -476,7 +476,7 @@ class TransactionCoderSpec
 
     // TODO: https://github.com/digital-asset/daml/issues/17995
     //  enable the test
-    "accept to encode action node with a packageName iff version >= 1.16" ignore {
+    "accept to encode action node with a packageName iff version >= 1.17" ignore {
       forAll(
         danglingRefGenActionNode,
         pkgNameGen(TransactionVersion.minUpgrade),
@@ -545,7 +545,7 @@ class TransactionCoderSpec
 
     // TODO: https://github.com/digital-asset/daml/issues/17995
     //  enable the test
-    "accept to decode ContractInstance with packageName iff version >= 1.16" ignore {
+    "accept to decode ContractInstance with packageName iff version >= 1.17" ignore {
       forAll(
         malformedCreateNodeGen(),
         pkgNameGen(TransactionVersion.minUpgrade),
@@ -566,7 +566,7 @@ class TransactionCoderSpec
 
     // TODO: https://github.com/digital-asset/daml/issues/17995
     //  enable the test
-    "accept to decode FatContractInstance with packageName iff version >= 1.16" ignore {
+    "accept to decode FatContractInstance with packageName iff version >= 1.17" ignore {
       forAll(
         malformedCreateNodeGen(),
         pkgNameGen(TransactionVersion.minUpgrade),
@@ -845,7 +845,7 @@ class TransactionCoderSpec
 
     // TODO: https://github.com/digital-asset/daml/issues/17995
     //  enable the test
-    "accept to decode action node with packageName iff version >= 1.16" ignore {
+    "accept to decode action node with packageName iff version >= 1.17" ignore {
       forAll(
         danglingRefGenActionNode,
         pkgNameGen(TransactionVersion.minUpgrade),
@@ -1048,10 +1048,15 @@ class TransactionCoderSpec
 
   private[this] def normalizeExe(exe: Node.Exercise) = {
     val node = exe.packageName match {
-      case Some(_) if exe.version < TransactionVersion.minUpgrade => exe.copy(packageName = None)
+      case Some(_) if exe.version < TransactionVersion.minUpgrade =>
+        exe.copy(packageName = None, creationPackageId = None)
       case None if exe.version >= TransactionVersion.minUpgrade =>
-        exe.copy(packageName = dummyPackageName)
-      case _ => exe
+        exe.copy(
+          packageName = exe.packageName.orElse(dummyPackageName),
+          creationPackageId = exe.creationPackageId.orElse(Some(exe.templateId.packageId)),
+        )
+      case _ =>
+        exe
     }
     node.copy(
       interfaceId =

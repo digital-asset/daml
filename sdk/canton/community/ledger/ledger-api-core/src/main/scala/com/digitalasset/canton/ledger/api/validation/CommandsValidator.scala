@@ -13,7 +13,6 @@ import com.daml.ledger.api.v1.commands.Command.Command.{
   ExerciseByKey as ProtoExerciseByKey,
 }
 import com.daml.ledger.api.v1.commands as V1
-import com.daml.ledger.api.v2.commands as V2
 import com.daml.lf.command.*
 import com.daml.lf.data.*
 import com.daml.lf.value.Value as Lf
@@ -305,28 +304,13 @@ object CommandsValidator {
   def effectiveSubmitters(commands: Option[V1.Commands]): Submitters[String] =
     commands.fold(noSubmitters)(effectiveSubmitters)
 
-  def effectiveSubmittersV2(commands: Option[V2.Commands]): Submitters[String] =
-    commands.fold(noSubmitters)(effectiveSubmitters)
-
   def effectiveSubmitters(commands: V1.Commands): Submitters[String] = {
     val actAs = effectiveActAs(commands)
     val readAs = commands.readAs.toSet -- actAs
     Submitters(actAs, readAs)
   }
 
-  def effectiveSubmitters(commands: V2.Commands): Submitters[String] = {
-    val actAs = effectiveActAs(commands)
-    val readAs = commands.readAs.toSet -- actAs
-    Submitters(actAs, readAs)
-  }
-
   def effectiveActAs(commands: V1.Commands): Set[String] =
-    if (commands.party.isEmpty)
-      commands.actAs.toSet
-    else
-      commands.actAs.toSet + commands.party
-
-  def effectiveActAs(commands: V2.Commands): Set[String] =
     if (commands.party.isEmpty)
       commands.actAs.toSet
     else

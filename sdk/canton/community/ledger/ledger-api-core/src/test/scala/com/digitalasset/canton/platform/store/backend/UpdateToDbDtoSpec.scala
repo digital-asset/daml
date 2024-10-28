@@ -16,14 +16,13 @@ import com.daml.lf.transaction.{BlindingInfo, GlobalKey}
 import com.daml.lf.value.Value
 import com.daml.metrics.api.MetricsContext
 import com.daml.platform.index.index.StatusDetails
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.api.DeduplicationPeriod.{
   DeduplicationDuration,
   DeduplicationOffset,
 }
 import com.digitalasset.canton.ledger.configuration.{Configuration, LedgerTimeModel}
 import com.digitalasset.canton.ledger.offset.Offset
-import com.digitalasset.canton.ledger.participant.state.v2.{Reassignment, ReassignmentInfo, Update}
+import com.digitalasset.canton.ledger.participant.state.v2.Update
 import com.digitalasset.canton.ledger.participant.state.v2 as state
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.Metrics
@@ -36,7 +35,6 @@ import com.digitalasset.canton.platform.store.dao.events.{
 }
 import com.digitalasset.canton.platform.store.dao.{EventProjectionProperties, JdbcLedgerDao}
 import com.digitalasset.canton.platform.{ContractId, Create, Exercise}
-import com.digitalasset.canton.protocol.{SourceDomainId, TargetDomainId}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext.Implicits.Empty.emptyTraceContext
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext, Traced}
@@ -287,7 +285,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         state.Update.CommandRejected.FinalReason(status),
         domainId = Some(someDomainId1),
       )
-      val dtos = updateToDtos(update, multiDomainEnabled = true)
+      val dtos = updateToDtos(update)
 
       dtos should contain theSameElementsInOrderAs List(
         DbDto.CommandCompletion(
@@ -305,7 +303,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           deduplication_duration_seconds = None,
           deduplication_duration_nanos = None,
           deduplication_start = None,
-          domain_id = Some(someDomainId1.toProtoPrimitive),
+          domain_id = None,
           trace_context = serializedEmptyTraceContext,
         )
       )
@@ -449,7 +447,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         contractMetadata = Map(contractId -> someContractDriverMetadata),
         hostedWitnesses = Nil,
       )
-      val dtos = updateToDtos(update, multiDomainEnabled = true)
+      val dtos = updateToDtos(update)
 
       dtos.head shouldEqual DbDto.EventCreate(
         event_offset = Some(someOffset.toHexString),
@@ -489,7 +487,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         create_key_value_compression = compressionAlgorithmId,
         event_sequential_id = 0,
         driver_metadata = Some(someContractDriverMetadata.toByteArray),
-        domain_id = Some(someDomainId1.toProtoPrimitive),
+        domain_id = None,
         trace_context = serializedEmptyTraceContext,
       )
       dtos(5) shouldEqual DbDto.CommandCompletion(
@@ -507,7 +505,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         deduplication_duration_nanos = None,
         deduplication_duration_seconds = None,
         deduplication_start = None,
-        domain_id = Some(someDomainId1.toProtoPrimitive),
+        domain_id = None,
         trace_context = serializedEmptyTraceContext,
       )
       dtos(6) shouldEqual DbDto.TransactionMeta(
@@ -578,6 +576,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           contract_id = exerciseNode.targetCoid.coid,
           template_id = Some(exerciseNode.templateId.toString),
           package_name = exerciseNode.packageName,
+          choice_package_id = Some(defaultPackageId),
           flat_event_witnesses = Set("signatory", "observer"), // stakeholders
           tree_event_witnesses = Set("signatory", "observer"), // informees
           create_key_value = None,
@@ -664,7 +663,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         contractMetadata = Map.empty,
         hostedWitnesses = Nil,
       )
-      val dtos = updateToDtos(update, multiDomainEnabled = true)
+      val dtos = updateToDtos(update)
 
       dtos should contain theSameElementsInOrderAs List(
         DbDto.EventExercise(
@@ -681,6 +680,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           contract_id = exerciseNode.targetCoid.coid,
           template_id = Some(exerciseNode.templateId.toString),
           package_name = exerciseNode.packageName,
+          choice_package_id = Some(defaultPackageId),
           flat_event_witnesses = Set("signatory", "observer"), // stakeholders
           tree_event_witnesses = Set("signatory", "observer"), // informees
           create_key_value = None,
@@ -693,7 +693,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_argument_compression = compressionAlgorithmId,
           exercise_result_compression = compressionAlgorithmId,
           event_sequential_id = 0,
-          domain_id = Some(someDomainId1.toProtoPrimitive),
+          domain_id = None,
           trace_context = serializedEmptyTraceContext,
         ),
         DbDto.IdFilterConsumingStakeholder(
@@ -721,7 +721,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           deduplication_duration_nanos = None,
           deduplication_duration_seconds = None,
           deduplication_start = None,
-          domain_id = Some(someDomainId1.toProtoPrimitive),
+          domain_id = None,
           trace_context = serializedEmptyTraceContext,
         ),
         DbDto.TransactionMeta(
@@ -786,6 +786,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           contract_id = exerciseNode.targetCoid.coid,
           template_id = Some(exerciseNode.templateId.toString),
           package_name = exerciseNode.packageName,
+          choice_package_id = Some(defaultPackageId),
           flat_event_witnesses = Set.empty, // stakeholders
           tree_event_witnesses = Set("signatory"), // informees
           create_key_value = None,
@@ -866,7 +867,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         contractMetadata = Map.empty,
         hostedWitnesses = Nil,
       )
-      val dtos = updateToDtos(update, multiDomainEnabled = true)
+      val dtos = updateToDtos(update)
 
       dtos should contain theSameElementsInOrderAs List(
         DbDto.EventExercise(
@@ -883,6 +884,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           contract_id = exerciseNode.targetCoid.coid,
           template_id = Some(exerciseNode.templateId.toString),
           package_name = exerciseNode.packageName,
+          choice_package_id = Some(defaultPackageId),
           flat_event_witnesses = Set.empty, // stakeholders
           tree_event_witnesses = Set("signatory"), // informees
           create_key_value = None,
@@ -895,7 +897,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_argument_compression = compressionAlgorithmId,
           exercise_result_compression = compressionAlgorithmId,
           event_sequential_id = 0,
-          domain_id = Some(someDomainId1.toProtoPrimitive),
+          domain_id = None,
           trace_context = serializedEmptyTraceContext,
         ),
         DbDto.IdFilterNonConsumingInformee(
@@ -917,7 +919,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           deduplication_duration_nanos = None,
           deduplication_duration_seconds = None,
           deduplication_start = None,
-          domain_id = Some(someDomainId1.toProtoPrimitive),
+          domain_id = None,
           trace_context = serializedEmptyTraceContext,
         ),
         DbDto.TransactionMeta(
@@ -1008,6 +1010,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           contract_id = exerciseNodeA.targetCoid.coid,
           template_id = Some(exerciseNodeA.templateId.toString),
           package_name = exerciseNodeA.packageName,
+          choice_package_id = Some(defaultPackageId),
           flat_event_witnesses = Set.empty, // stakeholders
           tree_event_witnesses = Set("signatory"), // informees
           create_key_value = None,
@@ -1045,6 +1048,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           contract_id = exerciseNodeB.targetCoid.coid,
           template_id = Some(exerciseNodeB.templateId.toString),
           package_name = exerciseNodeB.packageName,
+          choice_package_id = Some(defaultPackageId),
           flat_event_witnesses = Set.empty, // stakeholders
           tree_event_witnesses = Set("signatory"), // informees
           create_key_value = None,
@@ -1077,6 +1081,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           contract_id = exerciseNodeC.targetCoid.coid,
           template_id = Some(exerciseNodeC.templateId.toString),
           package_name = exerciseNodeC.packageName,
+          choice_package_id = Some(defaultPackageId),
           flat_event_witnesses = Set.empty, // stakeholders
           tree_event_witnesses = Set("signatory"), // informees
           create_key_value = None,
@@ -1183,7 +1188,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         contractMetadata = Map.empty,
         hostedWitnesses = Nil,
       )
-      val dtos = updateToDtos(update, multiDomainEnabled = true)
+      val dtos = updateToDtos(update)
 
       dtos should contain theSameElementsInOrderAs List(
         DbDto.EventExercise(
@@ -1200,6 +1205,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           contract_id = exerciseNodeA.targetCoid.coid,
           template_id = Some(exerciseNodeA.templateId.toString),
           package_name = exerciseNodeA.packageName,
+          choice_package_id = Some(defaultPackageId),
           flat_event_witnesses = Set.empty, // stakeholders
           tree_event_witnesses = Set("signatory"), // informees
           create_key_value = None,
@@ -1217,7 +1223,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_argument_compression = compressionAlgorithmId,
           exercise_result_compression = compressionAlgorithmId,
           event_sequential_id = 0,
-          domain_id = Some(someDomainId1.toProtoPrimitive),
+          domain_id = None,
           trace_context = serializedEmptyTraceContext,
         ),
         DbDto.IdFilterNonConsumingInformee(
@@ -1238,6 +1244,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           contract_id = exerciseNodeB.targetCoid.coid,
           template_id = Some(exerciseNodeB.templateId.toString),
           package_name = exerciseNodeB.packageName,
+          choice_package_id = Some(defaultPackageId),
           flat_event_witnesses = Set.empty, // stakeholders
           tree_event_witnesses = Set("signatory"), // informees
           create_key_value = None,
@@ -1250,7 +1257,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_argument_compression = compressionAlgorithmId,
           exercise_result_compression = compressionAlgorithmId,
           event_sequential_id = 0,
-          domain_id = Some(someDomainId1.toProtoPrimitive),
+          domain_id = None,
           trace_context = serializedEmptyTraceContext,
         ),
         DbDto.IdFilterNonConsumingInformee(
@@ -1271,6 +1278,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           contract_id = exerciseNodeC.targetCoid.coid,
           template_id = Some(exerciseNodeC.templateId.toString),
           package_name = exerciseNodeC.packageName,
+          choice_package_id = Some(defaultPackageId),
           flat_event_witnesses = Set.empty, // stakeholders
           tree_event_witnesses = Set("signatory"), // informees
           create_key_value = None,
@@ -1283,7 +1291,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           exercise_argument_compression = compressionAlgorithmId,
           exercise_result_compression = compressionAlgorithmId,
           event_sequential_id = 0,
-          domain_id = Some(someDomainId1.toProtoPrimitive),
+          domain_id = None,
           trace_context = serializedEmptyTraceContext,
         ),
         DbDto.IdFilterNonConsumingInformee(
@@ -1305,7 +1313,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           deduplication_duration_nanos = None,
           deduplication_duration_seconds = None,
           deduplication_start = None,
-          domain_id = Some(someDomainId1.toProtoPrimitive),
+          domain_id = None,
           trace_context = serializedEmptyTraceContext,
         ),
         DbDto.TransactionMeta(
@@ -1446,6 +1454,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           contract_id = exerciseNode.targetCoid.coid,
           template_id = Some(exerciseNode.templateId.toString),
           package_name = exerciseNode.packageName,
+          choice_package_id = Some(defaultPackageId),
           flat_event_witnesses = Set("signatory", "observer"),
           tree_event_witnesses = Set("signatory", "observer", "divulgee"),
           create_key_value = None,
@@ -1604,6 +1613,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         contract_id = exerciseNode.targetCoid.coid,
         template_id = Some(exerciseNode.templateId.toString),
         package_name = exerciseNode.packageName,
+        choice_package_id = Some(defaultPackageId),
         flat_event_witnesses = Set("signatory", "observer"),
         tree_event_witnesses = Set("signatory", "observer", "divulgee"),
         create_key_value = None,
@@ -1731,6 +1741,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
         contract_id = exerciseNode.targetCoid.coid,
         template_id = Some(exerciseNode.templateId.toString),
         package_name = exerciseNode.packageName,
+        choice_package_id = Some(defaultPackageId),
         flat_event_witnesses = Set("signatory", "observer"),
         tree_event_witnesses = Set("disclosee"), // taken from explicit blinding info
         create_key_value = None,
@@ -2176,204 +2187,15 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
           dtos.size shouldEqual 5
       }
     }
-
-    "handle ReassignmentAccepted - Assign" in {
-      val completionInfo = someCompletionInfo
-      val builder = TxBuilder()
-      val contractId = builder.newCid
-      val createNode = builder
-        .create(
-          id = contractId,
-          templateId = "M:T",
-          argument = Value.ValueUnit,
-          signatories = Set("signatory"),
-          observers = Set("observer", "observer2"),
-        )
-        .copy(agreementText = "agreement text")
-
-      val update = state.Update.ReassignmentAccepted(
-        optCompletionInfo = Some(completionInfo),
-        workflowId = Some(someWorkflowId),
-        updateId = transactionId,
-        recordTime = someRecordTime,
-        reassignmentInfo = ReassignmentInfo(
-          sourceDomain = SourceDomainId(DomainId.tryFromString("x::domain1")),
-          targetDomain = TargetDomainId(DomainId.tryFromString("x::domain2")),
-          submitter = Option(someParty),
-          reassignmentCounter = 1500L,
-          hostedStakeholders = Nil,
-          unassignId = CantonTimestamp.assertFromLong(1000000000),
-        ),
-        reassignment = Reassignment.Assign(
-          ledgerEffectiveTime = Time.Timestamp.assertFromLong(17000000),
-          createNode = createNode,
-          contractMetadata = someContractDriverMetadata,
-        ),
-      )
-
-      updateToDtos(update) shouldBe Nil
-
-      val dtos = updateToDtos(update, multiDomainEnabled = true)
-
-      dtos.head shouldEqual DbDto.EventAssign(
-        event_offset = someOffset.toHexString,
-        update_id = update.updateId,
-        command_id = Some(completionInfo.commandId),
-        workflow_id = Some(someWorkflowId),
-        submitter = Option(someParty),
-        contract_id = createNode.coid.coid,
-        template_id = createNode.templateId.toString,
-        flat_event_witnesses = Set("signatory", "observer", "observer2"),
-        create_argument = emptyArray,
-        create_signatories = Set("signatory"),
-        create_observers = Set("observer", "observer2"),
-        create_agreement_text = Some("agreement text"),
-        create_key_value = None,
-        create_key_maintainers = None,
-        create_key_hash = None,
-        create_argument_compression = compressionAlgorithmId,
-        create_key_value_compression = None,
-        event_sequential_id = 0,
-        ledger_effective_time = 17000000,
-        driver_metadata = someContractDriverMetadata.toByteArray,
-        source_domain_id = "x::domain1",
-        target_domain_id = "x::domain2",
-        unassign_id = "1000000000",
-        reassignment_counter = 1500L,
-        trace_context = serializedEmptyTraceContext,
-      )
-      dtos(4) shouldEqual DbDto.CommandCompletion(
-        completion_offset = someOffset.toHexString,
-        record_time = update.recordTime.micros,
-        application_id = completionInfo.applicationId,
-        submitters = completionInfo.actAs.toSet,
-        command_id = completionInfo.commandId,
-        transaction_id = Some(update.updateId),
-        rejection_status_code = None,
-        rejection_status_message = None,
-        rejection_status_details = None,
-        submission_id = completionInfo.submissionId,
-        deduplication_offset = None,
-        deduplication_duration_nanos = None,
-        deduplication_duration_seconds = None,
-        deduplication_start = None,
-        domain_id = Some("x::domain2"),
-        trace_context = serializedEmptyTraceContext,
-      )
-      dtos(5) shouldEqual DbDto.TransactionMeta(
-        transaction_id = transactionId,
-        event_offset = someOffset.toHexString,
-        event_sequential_id_first = 0,
-        event_sequential_id_last = 0,
-      )
-      Set(dtos(1), dtos(2), dtos(3)) should contain theSameElementsAs Set(
-        DbDto.IdFilterAssignStakeholder(0L, createNode.templateId.toString, "signatory"),
-        DbDto.IdFilterAssignStakeholder(0L, createNode.templateId.toString, "observer"),
-        DbDto.IdFilterAssignStakeholder(0L, createNode.templateId.toString, "observer2"),
-      )
-      dtos.size shouldEqual 6
-    }
-
-    "handle ReassignmentAccepted - Unassign" in {
-      val completionInfo = someCompletionInfo
-      val builder = TxBuilder()
-      val contractId = builder.newCid
-      val createNode = builder
-        .create(
-          id = contractId,
-          templateId = "M:T",
-          argument = Value.ValueUnit,
-          signatories = Set("signatory"),
-          observers = Set("observer"),
-        )
-        .copy(agreementText = "agreement text")
-
-      val update = state.Update.ReassignmentAccepted(
-        optCompletionInfo = Some(completionInfo),
-        workflowId = Some(someWorkflowId),
-        updateId = transactionId,
-        recordTime = someRecordTime,
-        reassignmentInfo = ReassignmentInfo(
-          sourceDomain = SourceDomainId(DomainId.tryFromString("x::domain1")),
-          targetDomain = TargetDomainId(DomainId.tryFromString("x::domain2")),
-          submitter = Option(someParty),
-          reassignmentCounter = 1500L,
-          hostedStakeholders = Nil,
-          unassignId = CantonTimestamp.assertFromLong(1000000000),
-        ),
-        reassignment = Reassignment.Unassign(
-          contractId = contractId,
-          templateId = createNode.templateId,
-          stakeholders =
-            List("signatory12", "observer23", "asdasdasd").map(Ref.Party.assertFromString),
-          assignmentExclusivity = Some(Time.Timestamp.assertFromLong(123456)),
-        ),
-      )
-
-      updateToDtos(update) shouldBe Nil
-
-      val dtos = updateToDtos(update, multiDomainEnabled = true)
-
-      dtos.head shouldEqual DbDto.EventUnassign(
-        event_offset = someOffset.toHexString,
-        update_id = update.updateId,
-        command_id = Some(completionInfo.commandId),
-        workflow_id = Some(someWorkflowId),
-        submitter = someParty,
-        contract_id = createNode.coid.coid,
-        template_id = createNode.templateId.toString,
-        flat_event_witnesses = Set("signatory12", "observer23", "asdasdasd"),
-        event_sequential_id = 0,
-        source_domain_id = "x::domain1",
-        target_domain_id = "x::domain2",
-        unassign_id = "1000000000",
-        reassignment_counter = 1500L,
-        assignment_exclusivity = Some(123456L),
-        trace_context = serializedEmptyTraceContext,
-      )
-      dtos(4) shouldEqual DbDto.CommandCompletion(
-        completion_offset = someOffset.toHexString,
-        record_time = update.recordTime.micros,
-        application_id = completionInfo.applicationId,
-        submitters = completionInfo.actAs.toSet,
-        command_id = completionInfo.commandId,
-        transaction_id = Some(update.updateId),
-        rejection_status_code = None,
-        rejection_status_message = None,
-        rejection_status_details = None,
-        submission_id = completionInfo.submissionId,
-        deduplication_offset = None,
-        deduplication_duration_nanos = None,
-        deduplication_duration_seconds = None,
-        deduplication_start = None,
-        domain_id = Some("x::domain1"),
-        trace_context = serializedEmptyTraceContext,
-      )
-      dtos(5) shouldEqual DbDto.TransactionMeta(
-        transaction_id = transactionId,
-        event_offset = someOffset.toHexString,
-        event_sequential_id_first = 0,
-        event_sequential_id_last = 0,
-      )
-      Set(dtos(1), dtos(2), dtos(3)) should contain theSameElementsAs Set(
-        DbDto.IdFilterUnassignStakeholder(0L, createNode.templateId.toString, "signatory12"),
-        DbDto.IdFilterUnassignStakeholder(0L, createNode.templateId.toString, "observer23"),
-        DbDto.IdFilterUnassignStakeholder(0L, createNode.templateId.toString, "asdasdasd"),
-      )
-      dtos.size shouldEqual 6
-    }
-
   }
   private def updateToDtos(
-      update: Update,
-      multiDomainEnabled: Boolean = false,
+      update: Update
   ) =
     UpdateToDbDto(
       someParticipantId,
       valueSerialization,
       compressionStrategy,
       Metrics.ForTesting,
-      multiDomainEnabled = multiDomainEnabled,
     )(
       MetricsContext.Empty
     )(

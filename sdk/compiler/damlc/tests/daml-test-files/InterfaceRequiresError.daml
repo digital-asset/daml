@@ -2,8 +2,8 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- @SUPPORTS-LF-FEATURE DAML_INTERFACE
--- @ WARN since-lf=1.16 2.0; warn-bad-interface-instances
--- @ WARN since-lf=1.16 2.0; warn-bad-interface-instances
+-- @ WARN since-lf=1.17 2.0; warn-bad-interface-instances
+-- @ WARN since-lf=1.17 2.0; warn-bad-interface-instances
 -- @ERROR range=27:5-28:32;error type checking template InterfaceRequiresError.T interface instance InterfaceRequiresError:B for InterfaceRequiresError:T: Missing required 'interface instance InterfaceRequiresError:A for InterfaceRequiresError:T', required by interface 'InterfaceRequiresError:B'
 
 -- | Check that interface hierarchy is enforced. So if interface B requires

@@ -227,7 +227,6 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
               verbose = true,
               wildcardWitnesses = Set(alice, bob, charlie),
             ),
-            multiDomainEnabled = false,
           )
       )
     } yield {
@@ -261,7 +260,6 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
               verbose = true,
               wildcardWitnesses = Set(alice),
             ),
-            multiDomainEnabled = false,
           )
       )
       resultForBob <- transactionsOf(
@@ -274,7 +272,6 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
               verbose = true,
               wildcardWitnesses = Set(bob),
             ),
-            multiDomainEnabled = false,
           )
       )
       resultForCharlie <- transactionsOf(
@@ -287,7 +284,6 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
               verbose = true,
               wildcardWitnesses = Set(charlie),
             ),
-            multiDomainEnabled = false,
           )
       )
     } yield {

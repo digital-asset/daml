@@ -401,10 +401,10 @@ private[lf] object ScenarioRunner {
     val valueTranslator =
       new ValueTranslator(
         pkgInterface = compiledPackages.pkgInterface,
-        requireV1ContractIdSuffix = config.requireSuffixedGlobalContractId,
+        checkV1ContractIdSuffixes = config.requireSuffixedGlobalContractId,
       )
     def translateValue(typ: Ast.Type, value: Value): Result[SValue] =
-      valueTranslator.strictTranslateValue(typ, value) match {
+      valueTranslator.translateValue(typ, value) match {
         case Left(err) => ResultError(err)
         case Right(sv) => ResultDone(sv)
       }
@@ -508,7 +508,7 @@ private[lf] object ScenarioRunner {
           Interruption(continue)
         case SResult.SResultFinal(resultValue) =>
           ledgerMachine.finish match {
-            case Right(Speedy.UpdateMachine.Result(tx, locationInfo, _, _, _)) =>
+            case Right(Speedy.UpdateMachine.Result(tx, locationInfo, _, _, _, _)) =>
               ledger.commit(committers, readAs, location, enrich(tx), locationInfo) match {
                 case Left(err) =>
                   SubmissionError(err, enrich(ledgerMachine.incompleteTransaction))

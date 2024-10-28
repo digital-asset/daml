@@ -37,18 +37,18 @@ versions = {
             "src/main/scala/com/daml/ledger/api/testtool/suites/v1_15.scala",
         ],
     },
-    "1.16": {
+    "1.17": {
         "srcs": glob([
             "src/main/scala/com/daml/ledger/api/testtool/suites/v1_8/**/*",
             "src/main/scala/com/daml/ledger/api/testtool/suites/v1_14/**/*",
             "src/main/scala/com/daml/ledger/api/testtool/suites/v1_15/**/*",
-            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_16/**/*",
+            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_17/**/*",
         ]),
         "entrypoints": [
             "src/main/scala/com/daml/ledger/api/testtool/suites/v1_8.scala",
             "src/main/scala/com/daml/ledger/api/testtool/suites/v1_14.scala",
             "src/main/scala/com/daml/ledger/api/testtool/suites/v1_15.scala",
-            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_16.scala",
+            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_17.scala",
         ],
     },
     "1.dev": {
@@ -56,14 +56,14 @@ versions = {
             "src/main/scala/com/daml/ledger/api/testtool/suites/v1_8/**/*",
             "src/main/scala/com/daml/ledger/api/testtool/suites/v1_14/**/*",
             "src/main/scala/com/daml/ledger/api/testtool/suites/v1_15/**/*",
-            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_16/**/*",
+            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_17/**/*",
             "src/main/scala/com/daml/ledger/api/testtool/suites/v1_dev/**/*",
         ]),
         "entrypoints": [
             "src/main/scala/com/daml/ledger/api/testtool/suites/v1_8.scala",
             "src/main/scala/com/daml/ledger/api/testtool/suites/v1_14.scala",
             "src/main/scala/com/daml/ledger/api/testtool/suites/v1_15.scala",
-            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_16.scala",
+            "src/main/scala/com/daml/ledger/api/testtool/suites/v1_17.scala",
             "src/main/scala/com/daml/ledger/api/testtool/suites/v1_dev.scala",
         ],
     },

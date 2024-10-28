@@ -45,7 +45,8 @@ object LanguageVersion {
 
   val All = AllV1 ++ AllV2
 
-  val List(v1_6, v1_7, v1_8, v1_11, v1_12, v1_13, v1_14, v1_15, v1_16, v1_dev, v2_1, v2_dev) =
+  // LF 1.16 have been introduce in 2.9 but declared as broken
+  val List(v1_6, v1_7, v1_8, v1_11, v1_12, v1_13, v1_14, v1_15, v1_17, v1_dev, v2_1, v2_dev) =
     All: @nowarn("msg=match may not be exhaustive")
 
   // TODO(#17366): Once LF2 deprecates some features, it will no longer be possible to represent
@@ -71,8 +72,8 @@ object LanguageVersion {
     val bigNumeric = v1_13
     val exceptions = v1_14
     val basicInterfaces = v1_15
-    val packageUpgrades = v1_16
-    val sharedKeys = v1_16
+    val packageUpgrades = v1_17
+    val sharedKeys = v1_17
     val choiceFuncs = v1_dev
     val choiceAuthority = v1_dev
     val natTypeErasure = v1_dev
@@ -103,7 +104,7 @@ object LanguageVersion {
   // All the stable and preview versions
   // Equals `Stable` if no preview version is available
   val EarlyAccessVersions: VersionRange[LanguageVersion] =
-    StableVersions.copy(max = v1_16)
+    StableVersions.copy(max = v1_17)
 
   // All the versions
   def AllVersions(majorLanguageVersion: LanguageMajorVersion): VersionRange[LanguageVersion] = {

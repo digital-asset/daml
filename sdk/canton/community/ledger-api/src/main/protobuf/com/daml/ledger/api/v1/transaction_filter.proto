@@ -18,11 +18,13 @@ message TransactionFilter {
 
   // Each key must be a valid PartyIdString (as described in ``value.proto``).
   // The interpretation of the filter depends on the stream being filtered:
-  // (1) For **transaction tree streams** only party filters with wildcards are allowed, and all subtrees
-  //     whose root has one of the listed parties as an informee are returned.
-  // (2) For **transaction and active-contract-set streams** create and archive events are returned for all contracts whose
+  //
+  // 1. For **transaction tree streams** only party filters with wildcards are allowed, and all subtrees
+  //    whose root has one of the listed parties as an informee are returned.
+  // 2. For **transaction and active-contract-set streams** create and archive events are returned for all contracts whose
   //    stakeholders include at least one of the listed parties and match the
   //    per-party filter.
+  //
   // Required
   map<string, Filters> filters_by_party = 1;
 }
@@ -74,6 +76,8 @@ message InterfaceFilter {
   // The interface that a matching contract must implement.
   // The ``interface_id`` needs to be valid: corresponding interface should be defined in
   // one of the available packages at the time of the query.
+  // Both package-name and package-id reference formats for the identifier are supported.
+  //
   // Required
   Identifier interface_id = 1;
 
@@ -97,6 +101,8 @@ message TemplateFilter {
   // A template for which the payload should be included in the response.
   // The ``template_id`` needs to be valid: corresponding template should be defined in
   // one of the available packages at the time of the query.
+  // Both package-name and package-id reference formats for the identifier are supported.
+  //
   // Required
   Identifier template_id = 1;
 

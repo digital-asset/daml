@@ -64,6 +64,7 @@ class CachedEventsReader(
             contractId = exercise.contractId.coid,
             templateId = Some(LfEngineToApi.toApiIdentifier(exercise.templateId)),
             witnessParties = exercise.flatEventWitnesses.toSeq,
+            packageName = exercise.packageName,
           )
         }
 

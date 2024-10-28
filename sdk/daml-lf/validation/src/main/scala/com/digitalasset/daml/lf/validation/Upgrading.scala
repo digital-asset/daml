@@ -4,6 +4,7 @@
 package com.daml.lf
 package validation
 
+import com.daml.lf.data.Ref.TypeConName
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.{Ast, LanguageVersion}
@@ -195,6 +196,31 @@ object UpgradeError {
     override def message: String =
       s"Implementation of interface $iface by template $tpl appears in package that is being upgraded, but does not appear in this package."
   }
+
+  final case class ForbiddenNewInstance(tpl: Ref.DottedName, iface: Ref.TypeConName) extends Error {
+    override def message: String =
+      s"Implementation of interface $iface by template $tpl appears in this package, but does not appear in package that is being upgraded."
+  }
+
+  final case class TriedToUpgradeException(exception: Ref.DottedName) extends Error {
+    override def message: String =
+      s"Tried to upgrade exception $exception, but exceptions cannot be upgraded. They should be removed in any upgrading package."
+  }
+
+  final case class DatatypeBecameUnserializable(origin: UpgradedRecordOrigin) extends Error {
+    override def message: String =
+      s"The upgraded $origin was serializable and is now unserializable. Datatypes cannot change their serializability via upgrades."
+  }
+
+  final case class DifferentParamsCount(origin: UpgradedRecordOrigin) extends Error {
+    override def message: String =
+      s"The upgraded $origin has changed the number of type variables it has."
+  }
+
+  final case class DifferentParamsKinds(origin: UpgradedRecordOrigin) extends Error {
+    override def message: String =
+      s"The upgraded $origin has changed the kind of one of its type variables."
+  }
 }
 
 sealed abstract class UpgradedRecordOrigin
@@ -294,13 +320,10 @@ private case class Closure[A](env: Env, value: A)
 object TypecheckUpgrades {
 
   sealed abstract class UploadPhaseCheck
-  object DarCheck extends UploadPhaseCheck {
-    override def toString: String = "dar-check"
-  }
-  object MinimalDarCheck extends UploadPhaseCheck {
+  case object MinimalDarCheck extends UploadPhaseCheck {
     override def toString: String = "minimal-dar-check"
   }
-  object MaximalDarCheck extends UploadPhaseCheck {
+  case object MaximalDarCheck extends UploadPhaseCheck {
     override def toString: String = "maximal-dar-check"
   }
 
@@ -328,9 +351,10 @@ object TypecheckUpgrades {
   private def checkDeleted[K, V](
       arg: Upgrading[Map[K, V]],
       handler: (K, V) => UpgradeError.Error,
+      filter: (K, V) => Boolean = (_: K, _: V) => true,
   ): Try[(Map[K, Upgrading[V]], Map[K, V])] = {
     val (deletedV, existingV, newV) = extractDelExistNew(arg)
-    deletedV.headOption match {
+    deletedV.view.filter((kv: (K, V)) => filter(kv._1, kv._2)).headOption match {
       case Some((k, v)) => fail(handler(k, v))
       case _ => Success((existingV, newV))
     }
@@ -400,27 +424,36 @@ case class TypecheckUpgrades(
       module: Ast.Module
   ): (
       Map[Ref.DottedName, (Ast.DDataType, Ast.DefInterface)],
+      Map[Ref.DottedName, (Ast.DDataType, Ast.DefException)],
       Map[Ref.DottedName, Ast.DDataType],
   ) = {
     val datatypes: Map[Ref.DottedName, Ast.DDataType] = module.definitions.collect({
       case (name, dt: Ast.DDataType) => (name, dt)
     })
-    val (ifaces, other) = datatypes.partitionMap({ case (tcon, dt) =>
-      lookupInterface(module, tcon, dt)
+    val (ifaces, other1) = datatypes.partitionMap({ case (tcon, dt) =>
+      lookupInterfaceOrException(module, tcon, dt)
     })
-    (ifaces.toMap, other.filter(_._2.serializable).toMap)
+    val (exceptions, other) = other1.partitionMap(identity)
+    (ifaces.toMap, exceptions.toMap, other.toMap)
   }
 
-  private def lookupInterface(
+  private def lookupInterfaceOrException(
       module: Ast.Module,
       tcon: Ref.DottedName,
       dt: Ast.DDataType,
   ): Either[
     (Ref.DottedName, (Ast.DDataType, Ast.DefInterface)),
-    (Ref.DottedName, Ast.DDataType),
+    Either[
+      (Ref.DottedName, (Ast.DDataType, Ast.DefException)),
+      (Ref.DottedName, Ast.DDataType),
+    ],
   ] = {
     module.interfaces.get(tcon) match {
-      case None => Right((tcon, dt))
+      case None =>
+        Right(module.exceptions.get(tcon) match {
+          case None => Right((tcon, dt))
+          case Some(exception) => Left((tcon, (dt, exception)))
+        })
       case Some(iface) => Left((tcon, (dt, iface)))
     }
   }
@@ -435,14 +468,15 @@ case class TypecheckUpgrades(
   }
 
   private def checkModule(module: Upgrading[Ast.Module]): Try[Unit] = {
-    val (pastIfaceDts, pastUnownedDts) = splitModuleDts(module.past)
-    val (presentIfaceDts, presentUnownedDts) = splitModuleDts(module.present)
+    val (pastIfaceDts, pastExceptionDts, pastUnownedDts) = splitModuleDts(module.past)
+    val (presentIfaceDts, presentExceptionDts, presentUnownedDts) = splitModuleDts(module.present)
     val ifaceDts = Upgrading(past = pastIfaceDts, present = presentIfaceDts)
+    val exceptionDts = Upgrading(past = pastExceptionDts, present = presentExceptionDts)
     val unownedDts = Upgrading(past = pastUnownedDts, present = presentUnownedDts)
 
     val moduleWithMetadata = module.map(ModuleWithMetadata)
     for {
-      (existingTemplates, _new) <- checkDeleted(
+      (existingTemplates, newTemplates) <- checkDeleted(
         module.map(_.templates),
         (name: Ref.DottedName, _: Ast.Template) => UpgradeError.MissingTemplate(name),
       )
@@ -451,19 +485,21 @@ case class TypecheckUpgrades(
       (_ifaceDel, ifaceExisting, _ifaceNew) = extractDelExistNew(ifaceDts)
       _ <- checkContinuedIfaces(ifaceExisting)
 
-      (_instanceExisting, _instanceNew) <-
-        checkDeleted(
-          module.map(flattenInstances(_)),
-          (tplImpl: (Ref.DottedName, Ref.TypeConName), _: (Ast.Template, Ast.TemplateImplements)) =>
-            {
-              val (tpl, impl) = tplImpl
-              UpgradeError.MissingImplementation(tpl, impl)
-            },
-        )
+      (_exceptionDel, exceptionExisting, _exceptionNew) = extractDelExistNew(exceptionDts)
+      _ <- checkContinuedExceptions(exceptionExisting)
+
+      (instanceDel, _instanceExisting, instanceNew) = extractDelExistNew(
+        module.map(flattenInstances)
+      )
+      _ <- checkDeletedInstances(instanceDel)
+      _ <- checkAddedInstances(instanceNew.view.filterKeys { case (tyCon, _) =>
+        !newTemplates.contains(tyCon)
+      }.toMap)
 
       (existingDatatypes, _new) <- checkDeleted(
         unownedDts,
         (name: Ref.DottedName, _: Ast.DDataType) => UpgradeError.MissingDataCon(name),
+        filter = (_: Ref.DottedName, dt: Ast.DDataType) => dt.serializable,
       )
       _ <- tryAll(existingDatatypes, checkDatatype(moduleWithMetadata, _))
     } yield ()
@@ -480,6 +516,34 @@ case class TypecheckUpgrades(
       },
     ).map(_ => ())
   }
+
+  private def checkContinuedExceptions(
+      exceptions: Map[Ref.DottedName, Upgrading[(Ast.DDataType, Ast.DefException)]]
+  ): Try[Unit] = {
+    tryAll(
+      exceptions,
+      (arg: (Ref.DottedName, Upgrading[(Ast.DDataType, Ast.DefException)])) => {
+        val (name, _) = arg
+        fail(UpgradeError.TriedToUpgradeException(name))
+      },
+    ).map(_ => ())
+  }
+
+  private def checkDeletedInstances(
+      deletedInstances: Map[(Ref.DottedName, TypeConName), (Ast.Template, Ast.TemplateImplements)]
+  ): Try[Unit] =
+    deletedInstances.headOption match {
+      case Some(((tpl, iface), _)) => fail(UpgradeError.MissingImplementation(tpl, iface))
+      case None => Success(())
+    }
+
+  private def checkAddedInstances(
+      newInstances: Map[(Ref.DottedName, TypeConName), (Ast.Template, Ast.TemplateImplements)]
+  ): Try[Unit] =
+    newInstances.headOption match {
+      case Some(((tpl, iface), _)) => fail(UpgradeError.ForbiddenNewInstance(tpl, iface))
+      case None => Success(())
+    }
 
   private def checkTemplate(
       templateAndName: (Ref.DottedName, Upgrading[Ast.Template])
@@ -500,15 +564,15 @@ case class TypecheckUpgrades(
     val compatibleNames = past.qualifiedName == present.qualifiedName
     val compatiblePackages =
       (packageMap.get(past.packageId), packageMap.get(present.packageId)) match {
-        // The two packages have LF versions < 1.16.
-        // They must be the exact same package as LF < 1.16 don't support upgrades.
+        // The two packages have LF versions < 1.17.
+        // They must be the exact same package as LF < 1.17 don't support upgrades.
         case (None, None) => past.packageId == present.packageId
-        // The two packages have LF versions >= 1.16.
+        // The two packages have LF versions >= 1.17.
         // The present package must be a valid upgrade of the past package. Since we validate uploaded packages in
         // topological order, the package version ordering is a proxy for the "upgrades" relationship.
         case (Some((pastName, pastVersion)), Some((presentName, presentVersion))) =>
           pastName == presentName && pastVersion <= presentVersion
-        // LF versions < 1.16 and >= 1.16 are not comparable.
+        // LF versions < 1.17 and >= 1.17 are not comparable.
         case (_, _) => false
       }
     compatibleNames && compatiblePackages
@@ -587,72 +651,93 @@ case class TypecheckUpgrades(
       moduleWithMetadata: Upgrading[ModuleWithMetadata],
       nameAndDatatype: (Ref.DottedName, Upgrading[Ast.DDataType]),
   ): Try[Unit] = {
-    val (name, datatype) = nameAndDatatype
+    val (name, datatype: Upgrading[Ast.DDataType]) = nameAndDatatype
     val origin = moduleWithMetadata.map(_.dataTypeOrigin(name))
-    if (unifyUpgradedRecordOrigin(origin.present) != unifyUpgradedRecordOrigin(origin.past)) {
-      fail(UpgradeError.RecordChangedOrigin(name, origin))
-    } else {
-      val env = datatype.map(dt => Env().extend(dt.params.map(_._1)))
-      datatype.map(_.cons) match {
-        case Upgrading(past: Ast.DataRecord, present: Ast.DataRecord) =>
-          checkFields(
-            origin.present,
-            Upgrading(Closure(env.past, past), Closure(env.present, present)),
-          )
-        case Upgrading(past: Ast.DataVariant, present: Ast.DataVariant) =>
-          val upgrade = Upgrading(past, present)
-          val variants: Upgrading[Map[Ast.VariantConName, Ast.Type]] =
-            upgrade.map(variant => Map.from(variant.variants.iterator))
-          for {
-            (existing, new_) <- checkDeleted(
-              variants,
-              (_: Ast.VariantConName, _: Ast.Type) =>
-                UpgradeError.VariantRemovedVariant(origin.present),
-            )
+    datatype.map(_.serializable) match {
+      case Upgrading(true /* past */, false /* present */ ) =>
+        fail(UpgradeError.DatatypeBecameUnserializable(origin.present))
+      case Upgrading(false /* past */, true /* present */ ) =>
+        Success(())
+      case Upgrading(false /* past */, false /* present */ ) =>
+        Success(())
+      case Upgrading(true, true) =>
+        if (unifyUpgradedRecordOrigin(origin.present) != unifyUpgradedRecordOrigin(origin.past)) {
+          fail(UpgradeError.RecordChangedOrigin(name, origin))
+        } else {
+          val env = datatype.map(dt => Env().extend(dt.params.map(_._1)))
 
-            changedTypes = existing.filter { case (field @ _, typ) =>
-              !checkType(env.zip(typ, Closure.apply _))
-            }
-            _ <-
-              if (changedTypes.nonEmpty)
-                fail(UpgradeError.VariantChangedVariantType(origin.present))
-              else Success(())
+          val paramsLengthMatch = datatype.map(_.params.length).fold(_ == _)
+          val allKindsMatch = datatype.map(_.params.map(_._2)).fold(_ == _)
 
-            changedVariantNames: ImmArray[(Ast.VariantConName, Ast.VariantConName)] = {
-              val variantNames: Upgrading[ImmArray[Ast.VariantConName]] =
-                upgrade.map(_.variants.map(_._1))
-              variantNames.past.zip(variantNames.present).filter { case (past, present) =>
-                past != present
-              }
-            }
-            _ <- failIf(
-              changedVariantNames.nonEmpty,
-              UpgradeError.VariantVariantsOrderChanged(origin.present),
-            )
-          } yield ()
-        case Upgrading(past: Ast.DataEnum, present: Ast.DataEnum) =>
-          val upgrade = Upgrading(past, present)
-          val enums: Upgrading[Map[Ast.EnumConName, Unit]] =
-            upgrade.map(enums => Map.from(enums.constructors.iterator.map(enum => (enum, ()))))
           for {
-            (_, new_) <- checkDeleted(
-              enums,
-              (_: Ast.EnumConName, _: Unit) => UpgradeError.EnumRemovedVariant(origin.present),
-            )
-            changedVariantNames: ImmArray[(Ast.EnumConName, Ast.EnumConName)] = {
-              val variantNames: Upgrading[ImmArray[Ast.EnumConName]] = upgrade.map(_.constructors)
-              variantNames.past.zip(variantNames.present).filter { case (past, present) =>
-                past != present
-              }
+            _ <- failIf(!paramsLengthMatch, UpgradeError.DifferentParamsCount(origin.present))
+            _ <- failIf(!allKindsMatch, UpgradeError.DifferentParamsKinds(origin.present))
+
+            _ <- datatype.map(_.cons) match {
+              case Upgrading(past: Ast.DataRecord, present: Ast.DataRecord) =>
+                checkFields(
+                  origin.present,
+                  Upgrading(Closure(env.past, past), Closure(env.present, present)),
+                )
+              case Upgrading(past: Ast.DataVariant, present: Ast.DataVariant) =>
+                val upgrade = Upgrading(past, present)
+                val variants: Upgrading[Map[Ast.VariantConName, Ast.Type]] =
+                  upgrade.map(variant => Map.from(variant.variants.iterator))
+                for {
+                  (existing, new_) <- checkDeleted(
+                    variants,
+                    (_: Ast.VariantConName, _: Ast.Type) =>
+                      UpgradeError.VariantRemovedVariant(origin.present),
+                  )
+
+                  changedTypes = existing.filter { case (field @ _, typ) =>
+                    !checkType(env.zip(typ, Closure.apply _))
+                  }
+                  _ <-
+                    if (changedTypes.nonEmpty)
+                      fail(UpgradeError.VariantChangedVariantType(origin.present))
+                    else Success(())
+
+                  changedVariantNames: ImmArray[(Ast.VariantConName, Ast.VariantConName)] = {
+                    val variantNames: Upgrading[ImmArray[Ast.VariantConName]] =
+                      upgrade.map(_.variants.map(_._1))
+                    variantNames.past.zip(variantNames.present).filter { case (past, present) =>
+                      past != present
+                    }
+                  }
+                  _ <- failIf(
+                    changedVariantNames.nonEmpty,
+                    UpgradeError.VariantVariantsOrderChanged(origin.present),
+                  )
+                } yield ()
+              case Upgrading(past: Ast.DataEnum, present: Ast.DataEnum) =>
+                val upgrade = Upgrading(past, present)
+                val enums: Upgrading[Map[Ast.EnumConName, Unit]] =
+                  upgrade.map(enums =>
+                    Map.from(enums.constructors.iterator.map(enum => (enum, ())))
+                  )
+                for {
+                  (_, new_) <- checkDeleted(
+                    enums,
+                    (_: Ast.EnumConName, _: Unit) => UpgradeError.EnumRemovedVariant(origin.present),
+                  )
+                  changedVariantNames: ImmArray[(Ast.EnumConName, Ast.EnumConName)] = {
+                    val variantNames: Upgrading[ImmArray[Ast.EnumConName]] =
+                      upgrade.map(_.constructors)
+                    variantNames.past.zip(variantNames.present).filter { case (past, present) =>
+                      past != present
+                    }
+                  }
+                  _ <- failIf(
+                    changedVariantNames.nonEmpty,
+                    UpgradeError.EnumVariantsOrderChanged(origin.present),
+                  )
+                } yield ()
+              case Upgrading(Ast.DataInterface, Ast.DataInterface) => Try(())
+              case other => fail(UpgradeError.MismatchDataConsVariety(name, other))
             }
-            _ <- failIf(
-              changedVariantNames.nonEmpty,
-              UpgradeError.EnumVariantsOrderChanged(origin.present),
-            )
           } yield ()
-        case Upgrading(Ast.DataInterface, Ast.DataInterface) => Try(())
-        case other => fail(UpgradeError.MismatchDataConsVariety(name, other))
-      }
+        }
     }
   }
 

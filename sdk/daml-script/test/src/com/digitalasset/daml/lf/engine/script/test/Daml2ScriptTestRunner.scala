@@ -23,6 +23,7 @@ class Daml2ScriptTestRunner extends DamlScriptTestRunner {
           |MultiTest:listKnownPartiesTest SUCCESS
           |MultiTest:multiTest SUCCESS
           |MultiTest:partyIdHintTest SUCCESS
+          |MultiTest:retroactiveExercise SUCCESS
           |ScriptExample:allocateParties SUCCESS
           |ScriptExample:initializeFixed SUCCESS
           |ScriptExample:initializeUser SUCCESS

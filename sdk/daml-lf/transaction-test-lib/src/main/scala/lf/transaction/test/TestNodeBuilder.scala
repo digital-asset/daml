@@ -102,6 +102,7 @@ trait TestNodeBuilder {
       choiceAuthorizers = None,
       targetCoid = contract.coid,
       packageName = contract.packageName,
+      creationPackageId = contract.packageName.map(_ => contract.templateId.packageId),
       templateId = contract.templateId,
       interfaceId = interfaceId,
       choiceId = choice,
@@ -131,6 +132,7 @@ trait TestNodeBuilder {
       keyOpt = contract.keyOpt,
       byKey = byKey,
       version = contractTxVersion(contract),
+      interfaceId = None,
     )
 
   def lookupByKey(contract: Node.Create, found: Boolean = true): Node.LookupByKey =

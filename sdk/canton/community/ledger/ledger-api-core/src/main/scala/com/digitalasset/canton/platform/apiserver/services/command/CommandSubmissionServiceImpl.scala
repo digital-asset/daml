@@ -260,6 +260,7 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
         result.interpretationTimeNanos,
         result.globalKeyMapping,
         result.processedDisclosedContracts,
+        result.contractPackages,
       )
       .toScalaUnwrapped
   }

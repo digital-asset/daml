@@ -6,16 +6,12 @@ package svalue
 
 import com.daml.lf.crypto
 import com.daml.lf.data.{Bytes, FrontStack, Ref}
-import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
-import com.daml.lf.speedy.SExpr.{SEImportValue, SELet1, SELocF, SELocS, SEMakeClo}
 import com.daml.lf.value.Value
-import com.daml.lf.value.test.TypedValueGenerators.genAddend
-import com.daml.lf.value.test.ValueGenerators.{comparableCoidsGen, suffixedV1CidGen}
-import com.daml.lf.PureCompiledPackages
+import com.daml.lf.value.test.ValueGenerators.comparableCoidsGen
 import com.daml.lf.typesig
 import com.daml.lf.interpretation.Error.ContractIdComparability
-import com.daml.lf.language.{Ast, LanguageMajorVersion, Util => AstUtil}
+import com.daml.lf.language.{Ast, Util => AstUtil}
 import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.Inside
 import org.scalatest.prop.TableFor2
@@ -26,25 +22,19 @@ import org.scalatestplus.scalacheck.{
 }
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import scalaz.{Order, Tag}
-import scalaz.syntax.order._
+import scalaz.Order
 import scalaz.scalacheck.{ScalazProperties => SzP}
 
 import scala.language.implicitConversions
 import scala.util.{Failure, Try}
 
-class OrderingSpecV1 extends OrderingSpec(LanguageMajorVersion.V1)
-//class OrderingSpecV2 extends OrderingSpec(LanguageMajorVersion.V2)
-
-class OrderingSpec(majorLanguageVersion: LanguageMajorVersion)
+class OrderingSpec
     extends AnyWordSpec
     with Inside
     with Matchers
     with Checkers
     with ScalaCheckDrivenPropertyChecks
     with ScalaCheckPropertyChecks {
-
-  import SpeedyTestLib.loggingContext
 
   private[lf] def toAstType(typ: typesig.Type): Ast.Type = typ match {
     case typesig.TypeCon(name, typArgs) =>
@@ -116,22 +106,8 @@ class OrderingSpec(majorLanguageVersion: LanguageMajorVersion)
   // The tests are here as this is difficult to test outside daml-lf/interpreter.
   "txn Value Ordering" should {
     import Value.{ContractId => Cid}
-    implicit val cidArb: Arbitrary[Cid] = Arbitrary(suffixedV1CidGen)
     implicit val svalueOrd: Order[SValue] = Order fromScalaOrdering Ordering
     implicit val cidOrd: Order[Cid] = svalueOrd contramap SContractId
-    val EmptyScope: Value.LookupVariantEnum = _ => None
-
-    "match SValue Ordering" in forAll(genAddend, minSuccessful(100)) { va =>
-      import va.{injarb, injshrink}
-      implicit val valueOrd: Order[Value] = Tag unsubst Value.orderInstance(EmptyScope)
-      forAll(minSuccessful(20)) { (a: va.Inj, b: va.Inj) =>
-        import va.injord
-        val ta = va.inj(a)
-        val tb = va.inj(b)
-        val bySvalue = translatePrimValue(va.t, ta) ?|? translatePrimValue(va.t, tb)
-        (a ?|? b, ta ?|? tb) should ===((bySvalue, bySvalue))
-      }
-    }
 
     "match global ContractId ordering" in forEvery(Table("gen", comparableCoidsGen: _*)) {
       coidGen =>
@@ -181,25 +157,6 @@ class OrderingSpec(majorLanguageVersion: LanguageMajorVersion)
           Failure(SError.SErrorDamlException(ContractIdComparability(globalCid)))
       }
 
-    }
-  }
-
-  private[this] val txSeed = crypto.Hash.hashPrivateKey("OrderingSpec")
-  private[this] val committers = Set(Ref.Party.assertFromString("Alice"))
-
-  private def translatePrimValue(typ: typesig.Type, v: Value) = {
-
-    val machine = Speedy.Machine.fromUpdateSExpr(
-      PureCompiledPackages.Empty(Compiler.Config.Default(majorLanguageVersion)),
-      transactionSeed = txSeed,
-      updateSE =
-        SELet1(SEImportValue(toAstType(typ), v), SEMakeClo(Array(SELocS(1)), 1, SELocF(0))),
-      committers = committers,
-    )
-
-    machine.run() match {
-      case SResultFinal(value) => value
-      case _ => throw new Error(s"error while translating value $v")
     }
   }
 }

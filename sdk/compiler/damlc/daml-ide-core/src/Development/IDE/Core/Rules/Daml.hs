@@ -23,7 +23,7 @@ import qualified DA.Daml.LF.Proto3.EncodeV1 as EncodeV1
 import qualified DA.Daml.LF.Proto3.EncodeV2 as EncodeV2
 import HscTypes
 import MkIface
-import Maybes (MaybeErr(..))
+import Maybes (MaybeErr(..), rightToMaybe)
 import TcRnMonad (initIfaceLoad)
 
 import qualified "zip-archive" Codec.Archive.Zip as ZipArchive
@@ -38,6 +38,8 @@ import DA.Daml.LF.Ast (renderMajorVersion, Version (versionMajor))
 import DA.Daml.Options
 import DA.Daml.Options.Packaging.Metadata
 import DA.Daml.Options.Types
+import DA.Daml.Project.Consts (projectConfigName)
+import DA.Daml.Project.Types (ProjectPath (..))
 import Data.Aeson hiding (Options)
 import Data.Bifunctor (bimap)
 import Data.Binary (Binary())
@@ -46,6 +48,7 @@ import qualified Data.ByteString.Lazy as BSL
 import qualified Data.ByteString.UTF8 as BS
 import Data.Either.Extra
 import Data.Foldable
+import Data.Function (on)
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.HashSet as HashSet
 import Data.Hashable (Hashable())
@@ -293,10 +296,11 @@ getExternalPackages file = do
         map LF.dalfPackagePkg (Map.elems pkgMap) <> map LF.dalfPackagePkg (Map.elems stablePackages)
 
 -- Generates and type checks the DALF for a module.
-generateDalfRule :: Options -> Rules ()
+generateDalfRule :: SdkVersioned => Options -> Rules ()
 generateDalfRule opts =
     define $ \GenerateDalf file -> do
         lfVersion <- getDamlLfVersion
+        mbDalfDependencies <- runMaybeT (getDalfDependencies [file])
         WhnfPackage pkg <- use_ GeneratePackageDeps file
         pkgs <- getExternalPackages file
         let world = LF.initWorldSelf pkgs pkg
@@ -307,7 +311,7 @@ generateDalfRule opts =
             Left err -> ([ideErrorPretty file err], Nothing)
             Right dalf ->
                 let lfDiags = LF.checkModule world lfVersion dalf
-                    upgradeDiags = Upgrade.checkModule world dalf lfVersion (optUpgradeInfo opts) upgradedPackage
+                    upgradeDiags = Upgrade.checkModule world dalf (foldMap Map.toList mbDalfDependencies) lfVersion (optUpgradeInfo opts) upgradedPackage
                 in second (dalf <$) (diagsToIdeResult file (lfDiags ++ upgradeDiags))
 
 -- TODO Share code with typecheckModule in ghcide. The environment needs to be setup
@@ -535,18 +539,109 @@ generatePackageMap version mbProjRoot userPkgDbs = do
                      (LF.extPackagePkg $ LF.dalfPackagePkg pkg)
                      (LF.dalfPackageId pkg)
 
+getUpgradedPackageErrs :: Options -> LSP.NormalizedFilePath -> LF.Package -> [FileDiagnostic]
+getUpgradedPackageErrs opts file mainPkg = catMaybes $
+  [ justIf (not $ optDamlLfVersion opts `LF.supports` LF.featurePackageUpgrades) $
+      ideErrorPretty file $ mconcat
+        [ mainPackage <> " LF Version ("
+        , T.pack $ LF.renderVersion $ optDamlLfVersion opts
+        , ") does not support Smart Contract Upgrades"
+        ]
+  , justIf (not $ LF.packageLfVersion mainPkg `LF.supports` LF.featurePackageUpgrades) $
+      ideErrorPretty file $ mconcat
+        [ upgradedPackage <> " LF Version ("
+        , T.pack $ LF.renderVersion $ LF.packageLfVersion mainPkg
+        , ") does not support Smart Contract Upgrades"
+        ]
+  , if optDamlLfVersion opts `lfVersionMajorNe` LF.packageLfVersion mainPkg
+      then
+        Just $
+          ideErrorPretty file $ mconcat
+            [ mainPackage <> " LF Version ("
+            , T.pack $ LF.renderVersion $ LF.packageLfVersion mainPkg
+            , ") must have the same major LF version as " <> upgradedPackage <> " LF Version ("
+            , T.pack $ LF.renderVersion $ optDamlLfVersion opts
+            , ")"
+            ]
+      else
+        justIf (optDamlLfVersion opts `lfVersionMinorLt` LF.packageLfVersion mainPkg) $
+          ideErrorPretty file $ mconcat
+            [ mainPackage <> " LF Version ("
+            , T.pack $ LF.renderVersion $ optDamlLfVersion opts
+            , ") cannot be lower than the " <> upgradedPackage <> " LF Version ("
+            , T.pack $ LF.renderVersion $ LF.packageLfVersion mainPkg
+            , ")"
+            ]
+  ] ++ case LF.packageMetadata mainPkg of
+    Nothing -> [Just $ ideErrorPretty file ("Upgraded DAR does not contain metadata" :: T.Text)]
+    Just meta ->
+      [ justIf (optMbPackageName opts /= Just (LF.packageName meta)) $
+          ideErrorPretty file $ mconcat
+            [ "Main package must have the same package name as upgraded package."
+            , "\n" <> mainPackage <> " name: "
+            , maybe "<unknown>" LF.unPackageName (optMbPackageName opts)
+
+            , "\n" <> upgradedPackage <> " name: "
+            , LF.unPackageName (LF.packageName meta)
+            ]
+      , justIf (optMbPackageVersion opts == Just (LF.packageVersion meta)) $
+          ideErrorPretty file $
+            mainPackage <> " cannot have the same package version as " <> upgradedPackage
+      , justIf (maybe False (`packageVersionLt` LF.packageVersion meta) $ optMbPackageVersion opts) $
+          ideErrorPretty file $
+            upgradedPackage <> " cannot have a higher package version than " <> mainPackage
+      ]
+  where
+    justIf :: Bool -> a -> Maybe a
+    justIf cond val = guard cond >> Just val
+
+    -- package versions have been checked at this point
+    packageVersionLt :: LF.PackageVersion -> LF.PackageVersion -> Bool
+    packageVersionLt = (<) `on` fromRight (error "Impossible invalid package version") . LF.splitPackageVersion id
+     
+    lfVersionMinorLt :: LF.Version -> LF.Version -> Bool
+    lfVersionMinorLt = (<) `on` LF.versionMinor
+
+    lfVersionMajorNe :: LF.Version -> LF.Version -> Bool
+    lfVersionMajorNe = (/=) `on` LF.versionMajor
+
+    -- Renders "v1.0.0" if the version exists, "no version" else
+    renderMPackageVersion :: Maybe LF.PackageVersion -> T.Text
+    renderMPackageVersion = maybe "no version" $ \v -> "v" <> LF.unPackageVersion v
+
+    mainPackage :: T.Text
+    mainPackage = "Main package (" <> renderMPackageVersion (optMbPackageVersion opts) <> ")"
+
+    upgradedPackage :: T.Text
+    upgradedPackage = "Upgraded package (" <> renderMPackageVersion (LF.packageVersion <$> LF.packageMetadata mainPkg) <> ")"
+
 extractUpgradedPackageRule :: Options -> Rules ()
 extractUpgradedPackageRule opts = do
   defineNoFile $ \ExtractUpgradedPackage ->
-    case uiUpgradedPackagePath (optUpgradeInfo opts) of
-      Nothing -> pure Nothing
-      Just path -> use ExtractUpgradedPackageFile (toNormalizedFilePath' path)
+    forM (uiUpgradedPackagePath $ optUpgradeInfo opts) $
+      use_ ExtractUpgradedPackageFile . toNormalizedFilePath'
   define $ \ExtractUpgradedPackageFile file -> do
-    ExtractedDar{edMain} <- liftIO $ extractDar (fromNormalizedFilePath file)
-    let bs = BSL.toStrict $ ZipArchive.fromEntry edMain
-    case Archive.decodeArchive Archive.DecodeAsMain bs of
-      Left _ -> pure ([ideErrorPretty file ("Could not decode file as a DAR." :: T.Text)], Nothing)
-      Right (pid, package) -> pure ([], Just (pid, package))
+    ExtractedDar{edMain,edDalfs} <- liftIO $ extractDar (fromNormalizedFilePath file)
+    let decodeEntryWithUnitId decodeAs entry = do
+          let bs = BSL.toStrict $ ZipArchive.fromEntry entry
+          (pkgId, pkg) <- Archive.decodeArchive decodeAs bs
+          let (pkgName, mbPkgVersion) = LF.packageMetadataFromFile (ZipArchive.eRelativePath entry) pkg pkgId
+          pure (pkgId, pkg, pkgName, mbPkgVersion)
+    let mainAndDeps ::
+          Either Archive.ArchiveError
+            ((LF.PackageId, LF.Package, LF.PackageName, Maybe LF.PackageVersion),
+             [(LF.PackageId, LF.Package, LF.PackageName, Maybe LF.PackageVersion)])
+        mainAndDeps = do
+           main <- decodeEntryWithUnitId Archive.DecodeAsMain edMain
+           deps <- decodeEntryWithUnitId Archive.DecodeAsDependency `traverse` edDalfs
+           pure (main, deps)
+        packageConfigFilePath = maybe file (LSP.toNormalizedFilePath . (</> projectConfigName) . unwrapProjectPath) $ optMbPackageConfigPath opts
+        diags = case mainAndDeps of
+          Left _ -> [ideErrorPretty packageConfigFilePath ("Could not decode file as a DAR." :: T.Text)]
+          Right ((_, mainPkg, _, _), _) -> getUpgradedPackageErrs opts packageConfigFilePath mainPkg
+    extras <- getShakeExtras
+    updateFileDiagnostics packageConfigFilePath ExtractUpgradedPackageFile extras $ map (\(_,y,z) -> (y,z)) diags
+    pure ([], guard (null diags) >> rightToMaybe mainAndDeps)
 
 readDalfPackage :: FilePath -> IO (Either FileDiagnostic LF.DalfPackage)
 readDalfPackage dalf = do

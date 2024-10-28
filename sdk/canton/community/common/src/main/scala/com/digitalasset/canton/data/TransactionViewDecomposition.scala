@@ -7,6 +7,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.*
+import com.digitalasset.canton.version.ProtocolVersion
 
 import scala.annotation.tailrec
 
@@ -36,15 +37,17 @@ object TransactionViewDecomposition {
       override val nodeId: LfNodeId,
       tailNodes: Seq[TransactionViewDecomposition],
       override val rbContext: RollbackContext,
-  ) extends TransactionViewDecomposition {
+  )(protocolVersion: ProtocolVersion)
+      extends TransactionViewDecomposition {
 
-    childViews.foreach { sv =>
-      require(
-        sv.viewConfirmationParameters != viewConfirmationParameters,
-        s"Children must have different informees or quorums than parent. " +
-          s"Found informees ${viewConfirmationParameters.informees} and quorums ${viewConfirmationParameters.quorums}",
-      )
-    }
+    if (protocolVersion <= ProtocolVersion.v5)
+      childViews.foreach { sv =>
+        require(
+          sv.viewConfirmationParameters != viewConfirmationParameters,
+          s"Children must have different informees or quorums than parent. " +
+            s"Found informees ${viewConfirmationParameters.informees} and quorums ${viewConfirmationParameters.quorums}",
+        )
+      }
 
     override def lfNode: LfActionNode = rootNode
 
@@ -73,7 +76,7 @@ object TransactionViewDecomposition {
         )
       copy(
         viewConfirmationParameters = newViewConfirmationParameters
-      )
+      )(protocolVersion)
     }
 
     /** This view with the submittingAdminParty (if defined) added as an extra confirming party.
@@ -91,7 +94,7 @@ object TransactionViewDecomposition {
         )
       copy(
         viewConfirmationParameters = newViewConfirmationParameters
-      )
+      )(protocolVersion)
     }
 
     override def pretty: Pretty[NewView] = prettyOfClass(

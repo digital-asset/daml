@@ -74,6 +74,7 @@ class ConfirmationRequestFactoryTest
   val ledgerConfiguration: LedgerConfiguration = DefaultDamlValues.ledgerConfiguration
   val submitterInfo: SubmitterInfo = DefaultParticipantStateValues.submitterInfo(submitters)
   val maxSequencingTime: CantonTimestamp = ledgerTime.plusSeconds(10)
+  val testContractPackages: Map[LfContractId, LfPackageId] = Map.empty
 
   // Crypto snapshots
   def createCryptoSnapshot(
@@ -148,7 +149,8 @@ class ConfirmationRequestFactoryTest
           _contractOfId: SerializableContractOfId,
           _keyResolver: LfKeyResolver,
           _maxSequencingTime: CantonTimestamp,
-          validatePackageVettings: Boolean,
+          _contractPackages: Map[LfContractId, LfPackageId],
+          _validatePackageVettings: Boolean,
       )(implicit
           traceContext: TraceContext
       ): EitherT[FutureUnlessShutdown, TransactionTreeConversionError, GenTransactionTree] = {
@@ -319,7 +321,7 @@ class ConfirmationRequestFactoryTest
           .value
 
         val encryptedViewMessage: EncryptedViewMessage[TransactionViewType] =
-          if (testedProtocolVersion >= ProtocolVersion.v6) {
+          if (testedProtocolVersion >= ProtocolVersion.v7) {
             // simulates session key cache
             val keySeedSession = privateKeysetCache.getOrElseUpdate(
               recipients.leafRecipients,
@@ -420,6 +422,7 @@ class ConfirmationRequestFactoryTest
               Some(testKeySeed),
               maxSequencingTime,
               testedProtocolVersion,
+              testContractPackages,
             )
             .value
             .map { res =>
@@ -430,7 +433,7 @@ class ConfirmationRequestFactoryTest
         }
       }
 
-      s"use different session key after key is revoked between two requests" onlyRunWithOrGreaterThan ProtocolVersion.v6 in {
+      s"use different session key after key is revoked between two requests" onlyRunWithOrGreaterThan ProtocolVersion.v7 in {
         val factory = confirmationRequestFactory(Right(singleFetch.transactionTree))
         // we use the same store for two requests to simulate what would happen in a real scenario
         val store =
@@ -455,6 +458,7 @@ class ConfirmationRequestFactoryTest
               Some(testKeySeed),
               maxSequencingTime,
               testedProtocolVersion,
+              testContractPackages,
             )
             .map(_ =>
               store
@@ -497,6 +501,7 @@ class ConfirmationRequestFactoryTest
             Some(testKeySeed),
             maxSequencingTime,
             testedProtocolVersion,
+            testContractPackages,
           )
           .value
           .map(
@@ -534,6 +539,7 @@ class ConfirmationRequestFactoryTest
             Some(testKeySeed),
             maxSequencingTime,
             testedProtocolVersion,
+            testContractPackages,
           )
           .value
           .map(
@@ -568,6 +574,7 @@ class ConfirmationRequestFactoryTest
             Some(testKeySeed),
             maxSequencingTime,
             testedProtocolVersion,
+            testContractPackages,
           )
           .value
           .map(_ should equal(Left(TransactionTreeFactoryError(error))))
@@ -599,6 +606,7 @@ class ConfirmationRequestFactoryTest
             Some(testKeySeed),
             maxSequencingTime,
             testedProtocolVersion,
+            testContractPackages,
           )
           .value
           .map(
@@ -635,6 +643,7 @@ class ConfirmationRequestFactoryTest
             Some(testKeySeed),
             maxSequencingTime,
             testedProtocolVersion,
+            testContractPackages,
           )
           .value
           .map {

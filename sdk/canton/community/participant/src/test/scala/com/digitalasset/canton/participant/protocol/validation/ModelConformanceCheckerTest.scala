@@ -9,18 +9,9 @@ import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.{PackageId, PackageName}
 import com.daml.lf.engine.Error as LfError
 import com.daml.lf.language.{Ast, LanguageVersion}
-import com.daml.lf.value.Value
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
-import com.digitalasset.canton.crypto.{HashAlgorithm, HashPurpose}
-import com.digitalasset.canton.data.{
-  CantonTimestamp,
-  FreeKey,
-  FullTransactionViewTree,
-  SerializableKeyResolution,
-  TransactionView,
-}
+import com.digitalasset.canton.data.{CantonTimestamp, FullTransactionViewTree, TransactionView}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.logging.NamedLoggingContext
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactoryImpl
 import com.digitalasset.canton.participant.protocol.validation.ModelConformanceChecker.*
@@ -38,16 +29,7 @@ import com.digitalasset.canton.topology.transaction.VettedPackages
 import com.digitalasset.canton.topology.{TestingIdentityFactory, TestingTopology}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.util.LfTransactionBuilder.{defaultKeyPackageName, defaultTemplateId}
-import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.canton.{
-  BaseTest,
-  LfCommand,
-  LfKeyResolver,
-  LfPackageId,
-  LfPartyId,
-  RequestCounter,
-}
+import com.digitalasset.canton.{BaseTest, LfCommand, LfKeyResolver, LfPartyId, RequestCounter}
 import org.scalatest.Assertion
 import org.scalatest.wordspec.AsyncWordSpec
 import pprint.Tree
@@ -174,12 +156,6 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
   )
   private val packageResolver: PackageResolver = _ => _ => Future.successful(Some(pkg))
 
-  val preReinterpretationPackageIds: PackageIdsOfView =
-    if (testedProtocolVersion >= ProtocolVersion.v6)
-      packageIdsOfActionDescription
-    else
-      legacyPackageIdsOfView
-
   def buildUnderTest(reinterpretCommand: HasReinterpret): ModelConformanceChecker =
     new ModelConformanceChecker(
       reinterpretCommand,
@@ -188,8 +164,6 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
       submitterParticipant,
       dummyAuthenticator,
       packageResolver,
-      preReinterpretationPackageIds,
-      checkUsedPackages = testedProtocolVersion >= ProtocolVersion.v6,
       loggerFactory,
     )
 
@@ -385,247 +359,137 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
        */
     }
 
-    "a package (referenced by create) is not vetted by some participant" must {
-      "yield an error" in {
-        import ExampleTransactionFactory.*
-        testVettingError(
-          NonEmpty.from(factory.SingleCreate(lfHash(0)).rootTransactionViewTrees).value,
-          // The package is not vetted for signatoryParticipant
-          vettings = Seq(VettedPackages(submitterParticipant, Seq(packageId))),
-          packageDependenciesLookup = new TestPackageResolver(Right(Set.empty)),
-          expectedError = UnvettedPackages(Map(signatoryParticipant -> Set(packageId))),
-        )
+    "package vetting" must {
+
+      import ExampleTransactionFactory.*
+
+      def testVetting(
+          example: ExampleTransaction,
+          usedPackages: Set[PackageId],
+          vettings: Seq[VettedPackages],
+          unknownPackage: Option[PackageId],
+          expectedError: UnvettedPackages,
+      ): Future[Assertion] = {
+
+        val sut = buildUnderTest(reinterpretExample(example, usedPackages))
+        val rootViewTrees = NonEmpty.from(example.rootTransactionViewTrees).value
+
+        val snapshot = TestingIdentityFactory(
+          TestingTopology(
+          ).withTopology(
+            Map(
+              submitter -> submitterParticipant,
+              signatory -> signatoryParticipant,
+            )
+          ).withPackages(vettings),
+          loggerFactory,
+          TestDomainParameters.defaultDynamic,
+        ).topologySnapshot(packageDependencies = new TestPackageResolver(unknownPackage))
+
+        for {
+          error <- check(sut, viewsWithNoInputKeys(rootViewTrees), snapshot).value
+        } yield error match {
+          case Right(_) if expectedError.unvetted.isEmpty => succeed
+          case Left(ErrorWithSubTransaction(actual, _, _)) =>
+            actual.forgetNE shouldBe Seq(expectedError)
+          case other => fail(s"Did not expect $other")
+        }
       }
-    }
 
-    "a package (referenced by exercise) is not vetted by some participant" must {
-      "yield an error" in {
-        import ExampleTransactionFactory.*
-        val exercise = factory.SingleExercise(lfHash(0))
-        val view = factory.view(
-          node = exerciseNode(exercise.contractId, signatories = Set(signatory)),
-          viewIndex = 0,
-          consumed = Set.empty,
-          coreInputs = exercise.inputContracts.values.toSeq,
-          created = Seq.empty,
-          resolvedKeys = Map.empty,
-          seed = Some(exercise.seed),
-          isRoot = true,
-          Set.empty,
+      "succeed if all package are vetted" in {
+
+        val example: factory.UpgradedSingleExercise = factory.UpgradedSingleExercise(lfHash(0))
+
+        val usedPackageId = example.upgradedTemplateId.packageId
+        val referencedPackageId = example.contractInstance.unversioned.template.packageId
+
+        val passCase = UnvettedPackages(Map.empty)
+
+        testVetting(
+          example,
+          usedPackages = Set(usedPackageId),
+          vettings = Seq(
+            VettedPackages(signatoryParticipant, Seq(usedPackageId, referencedPackageId)),
+            VettedPackages(submitterParticipant, Seq(usedPackageId, referencedPackageId)),
+          ),
+          unknownPackage = None,
+          expectedError = passCase,
         )
-        val viewTree = factory.rootTransactionViewTree(view)
 
-        testVettingError(
-          NonEmpty(Seq, viewTree),
-          // The package is not vetted for submitterParticipant
+      }
+
+      "fail if an un-vetted package is used" in {
+
+        val unexpectedPackageId = PackageId.assertFromString("unexpected-pkg")
+        val example = factory.SingleCreate(seed = factory.deriveNodeSeed(0))
+        val expected =
+          UnvettedPackages(
+            Map(
+              submitterParticipant -> Set(unexpectedPackageId)
+            )
+          )
+        testVetting(
+          example,
+          usedPackages = Set(unexpectedPackageId),
           vettings = Seq.empty,
-          packageDependenciesLookup = new TestPackageResolver(Right(Set.empty)),
+          unknownPackage = None,
+          expectedError = expected,
+        )
+
+      }
+
+      "fail if an un-vetted contract package is referenced" in {
+
+        val example: factory.UpgradedSingleExercise = factory.UpgradedSingleExercise(lfHash(0))
+        val contractPackageId = example.contractInstance.unversioned.template.packageId
+        val expected = UnvettedPackages(Map(submitterParticipant -> Set(contractPackageId)))
+
+        testVetting(
+          example,
+          usedPackages = Set.empty,
+          vettings = Seq.empty,
+          unknownPackage = None,
+          expectedError = expected,
+        )
+
+      }
+
+      "fail if a package is not vetted by all participants" in {
+        val example = factory.SingleExercise(lfHash(0))
+        testVetting(
+          example,
+          usedPackages = Set(packageId),
+          vettings = Seq(VettedPackages(signatoryParticipant, Seq(packageId))),
+          unknownPackage = None,
           expectedError = UnvettedPackages(
             Map(
-              submitterParticipant -> Set(exercise.contractInstance.unversioned.template.packageId)
+              submitterParticipant -> Set(packageId)
             )
           ),
         )
       }
-    }
 
-    def testVettingError(
-        rootViewTrees: NonEmpty[Seq[FullTransactionViewTree]],
-        vettings: Seq[VettedPackages],
-        packageDependenciesLookup: PackageDependencyResolverUS,
-        expectedError: UnvettedPackages,
-    ): Future[Assertion] = {
-      import ExampleTransactionFactory.*
-
-      val sut = buildUnderTest(failOnReinterpret)
-
-      val snapshot = TestingIdentityFactory(
-        TestingTopology(
-        ).withTopology(Map(submitter -> submitterParticipant, observer -> signatoryParticipant))
-          .withPackages(vettings),
-        loggerFactory,
-        TestDomainParameters.defaultDynamic,
-      ).topologySnapshot(packageDependencies = packageDependenciesLookup)
-
-      for {
-        error <- check(sut, viewsWithNoInputKeys(rootViewTrees), snapshot).value
-      } yield error shouldBe Left(
-        ErrorWithSubTransaction(
-          NonEmpty(Seq, expectedError),
-          None,
-          Seq.empty,
-        )
-      )
-    }
-
-    "a package is not found in the package store" must {
-      "yield an error" in {
-        import ExampleTransactionFactory.*
-        testVettingError(
-          NonEmpty.from(factory.SingleCreate(lfHash(0)).rootTransactionViewTrees).value,
+      "fail if a package is not found in the package store" in {
+        testVetting(
+          factory.SingleCreate(lfHash(0)),
+          usedPackages = Set(packageId),
           vettings = Seq(
             VettedPackages(submitterParticipant, Seq(packageId)),
             VettedPackages(signatoryParticipant, Seq(packageId)),
           ),
-          // Submitter participant is unable to lookup dependencies.
-          // Therefore, the validation concludes that the package is not in the store
-          // and thus that the package is not vetted.
-          packageDependenciesLookup = new TestPackageResolver(Left(packageId)),
+          unknownPackage = Some(packageId),
           expectedError = UnvettedPackages(Map(submitterParticipant -> Set(packageId))),
         )
       }
-    }
 
-    "package ids used for pre-reinterpretation vetting" must {
-
-      val seed: LfHash = lfHash(0)
-
-      def mkPackageContractInstance(i: Int): (PackageId, SerializableContract) = {
-        val packageId = PackageId.assertFromString(s"package-$i")
-        val lfH = lfHash(i)
-        val cH = com.digitalasset.canton.crypto.Hash
-          .digest(HashPurpose.Unicum, lfH.bytes.toByteString, HashAlgorithm.Sha256)
-        val cId = NonAuthenticatedContractId.fromDiscriminator(lfH, Unicum(cH))
-        val contract =
-          asSerializable(cId, contractInstance(templateId = defaultTemplateId.copy(packageId)))
-        packageId -> contract
-      }
-
-      val (p1, c1) = mkPackageContractInstance(1)
-      val (p2, c2) = mkPackageContractInstance(2)
-      val (p3, c3) = mkPackageContractInstance(3)
-      val (p4, c4) = mkPackageContractInstance(4)
-      val (_, c5) = mkPackageContractInstance(5)
-      val (p6, _) = mkPackageContractInstance(6)
-
-      def keyOf(c: SerializableContract): LfGlobalKey = LfGlobalKey.assertBuild(
-        c.contractInstance.unversioned.template,
-        Value.ValueUnit,
-        defaultKeyPackageName,
-      )
-
-      def mkView(
-          node: LfActionNode,
-          coreInputs: Seq[SerializableContract] = Seq.empty,
-          created: Seq[SerializableContract] = Seq.empty,
-          resolvedKeys: Map[LfGlobalKey, SerializableKeyResolution] = Map.empty,
-          packagePreference: Set[LfPackageId] = Set.empty,
-          seedO: Option[LfHash] = Some(seed),
-      ) =
-        factory.view(
-          node = node,
-          viewIndex = 0,
-          consumed = Set.empty,
-          coreInputs = coreInputs,
-          created = created,
-          resolvedKeys = resolvedKeys,
-          seed = seedO,
-          isRoot = true,
-          packagePreference = packagePreference,
-        )
-
-      "support legacy package id computation" in {
-        val view = mkView(
-          node = exerciseNode(c1.contractId, signatories = Set(submitter)),
-          created = Seq(c2),
-          coreInputs = Seq(c3),
-          resolvedKeys = Map(keyOf(c4) -> FreeKey(Set(submitter))(c4.contractInstance.version)),
-        )
-        val actual = legacyPackageIdsOfView(view, implicitly[NamedLoggingContext])
-        actual shouldBe Set(p2, p3, p4)
-      }
-
-      "support upgraded creations" in {
-        val view = mkView(
-          node = createNode(c1.contractId, c1.contractInstance, signatories = Set(submitter)),
-          created = Seq(c1),
-        )
-        val actual = packageIdsOfActionDescription(view, implicitly[NamedLoggingContext])
-        actual shouldBe Set(p1)
-      }
-
-      "support upgraded executions" in {
-        val view = mkView(
-          node = exerciseNode(
-            targetCoid = c1.contractId,
-            templateId = c2.contractInstance.unversioned.template,
-            signatories = Set(submitter),
-          ),
-          created = Seq(c3),
-          coreInputs = Seq(c4),
-          resolvedKeys = Map(keyOf(c5) -> FreeKey(Set(submitter))(LfTransactionVersion.maxVersion)),
-          packagePreference = Set(p6),
-        )
-        val actual = packageIdsOfActionDescription(view, implicitly[NamedLoggingContext])
-        actual shouldBe Set(p2, p6)
-      }
-
-      "support upgraded lookupByKey" in {
-        val node =
-          lookupByKeyNode(keyOf(c2), maintainers = Set(submitter), resolution = Some(c1.contractId))
-        val view = mkView(node, seedO = None)
-        val actual = packageIdsOfActionDescription(view, implicitly[NamedLoggingContext])
-        actual shouldBe Set(p2)
-      }
-
-      if (testedProtocolVersion >= ProtocolVersion.v6) {
-        "support upgraded fetch" in {
-          // Here the templateId is coming from the (possibly upgraded) package the fetch is targeted at
-          val node = fetchNode(
-            c1.contractId,
-            signatories = Set(submitter),
-            actingParties = Set(signatory),
-            templateId = c2.contractInstance.unversioned.template,
-          )
-          val view = mkView(node, coreInputs = Seq(c1), seedO = None)
-          val actual = packageIdsOfActionDescription(view, implicitly[NamedLoggingContext])
-          actual shouldBe Set(p2)
-        }
-      }
-
-    }
-
-    if (testedProtocolVersion >= ProtocolVersion.v6) {
-
-      "post-reinterpretation used package vetting" must {
-
-        "fail conformance if an un-vetted package is used" in {
-          val unexpectedPackageId = PackageId.assertFromString("unexpected-pkg")
-          val example = factory.SingleCreate(seed = factory.deriveNodeSeed(0))
-          val sut =
-            buildUnderTest(reinterpretExample(example, usedPackages = Set(unexpectedPackageId)))
-          val expected = Left(
-            ErrorWithSubTransaction(
-              NonEmpty(
-                Seq,
-                UnvettedPackages(
-                  Map(
-                    submitterParticipant -> Set(unexpectedPackageId),
-                    observerParticipant -> Set(unexpectedPackageId),
-                  )
-                ),
-              ),
-              None,
-              Seq.empty,
-            )
-          )
-          for {
-            actual <- check(sut, viewsWithNoInputKeys(example.rootTransactionViewTrees)).value
-          } yield {
-            actual shouldBe expected
-          }
-        }
-      }
     }
   }
 
-  class TestPackageResolver(result: Either[PackageId, Set[PackageId]])
-      extends PackageDependencyResolverUS {
-    import cats.syntax.either.*
+  class TestPackageResolver(unknown: Option[PackageId]) extends PackageDependencyResolverUS {
     override def packageDependencies(packages: List[PackageId])(implicit
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
-      result.toEitherT
+      EitherT.fromEither(unknown.toLeft(packages.toSet))
   }
 
 }

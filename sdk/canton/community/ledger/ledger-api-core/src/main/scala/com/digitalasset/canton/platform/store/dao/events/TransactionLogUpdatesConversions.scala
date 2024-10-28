@@ -47,7 +47,6 @@ private[platform] object TransactionLogUpdatesConversions {
         wildcardParties: Set[Party],
         templateSpecificParties: Map[Identifier, Set[Party]],
         requestingParties: Set[Party],
-        multiDomainEnabled: Boolean,
     ): Traced[TransactionLogUpdate] => Option[Traced[TransactionLogUpdate]] = traced =>
       traced.traverse {
         case transaction: TransactionLogUpdate.TransactionAccepted =>
@@ -70,19 +69,7 @@ private[platform] object TransactionLogUpdatesConversions {
             )
           )
         case _: TransactionLogUpdate.TransactionRejected => None
-        case u: TransactionLogUpdate.ReassignmentAccepted =>
-          Option.when(
-            multiDomainEnabled && u.reassignmentInfo.hostedStakeholders.exists(party =>
-              wildcardParties(party) || templateSpecificParties
-                .get(u.reassignment match {
-                  case TransactionLogUpdate.ReassignmentAccepted.Unassigned(unassign) =>
-                    unassign.templateId
-                  case TransactionLogUpdate.ReassignmentAccepted.Assigned(createdEvent) =>
-                    createdEvent.templateId
-                })
-                .exists(_ contains party)
-            )
-          )(u)
+        case u: TransactionLogUpdate.ReassignmentAccepted => None
       }
 
     def toGetTransactionsResponse(
@@ -130,7 +117,7 @@ private[platform] object TransactionLogUpdatesConversions {
         loggingContext: LoggingContextWithTrace,
         executionContext: ExecutionContext,
     ): Future[Option[GetTransactionResponse]] =
-      filter(requestingParties, Map.empty, requestingParties, false)(transactionLogUpdate)
+      filter(requestingParties, Map.empty, requestingParties)(transactionLogUpdate)
         .collect {
           case traced @ Traced(transactionAccepted: TransactionLogUpdate.TransactionAccepted) =>
             toFlatTransaction(
@@ -243,6 +230,7 @@ private[platform] object TransactionLogUpdatesConversions {
             templateId = Some(LfEngineToApi.toApiIdentifier(exercisedEvent.templateId)),
             witnessParties =
               requestingParties.iterator.filter(exercisedEvent.flatEventWitnesses).toSeq,
+            packageName = exercisedEvent.packageName,
           )
         )
       )
@@ -250,8 +238,7 @@ private[platform] object TransactionLogUpdatesConversions {
 
   object ToTransactionTree {
     def filter(
-        requestingParties: Set[Party],
-        multiDomainEnabled: Boolean,
+        requestingParties: Set[Party]
     ): Traced[TransactionLogUpdate] => Option[Traced[TransactionLogUpdate]] = traced =>
       traced.traverse {
         case transaction: TransactionLogUpdate.TransactionAccepted =>
@@ -262,10 +249,7 @@ private[platform] object TransactionLogUpdatesConversions {
             transaction.copy(events = filteredForVisibility)
           )
         case _: TransactionLogUpdate.TransactionRejected => None
-        case u: TransactionLogUpdate.ReassignmentAccepted =>
-          Option.when(
-            multiDomainEnabled && u.reassignmentInfo.hostedStakeholders.exists(requestingParties)
-          )(u)
+        case _: TransactionLogUpdate.ReassignmentAccepted => None
       }
 
     def toGetTransactionResponse(
@@ -276,7 +260,7 @@ private[platform] object TransactionLogUpdatesConversions {
         loggingContext: LoggingContextWithTrace,
         executionContext: ExecutionContext,
     ): Future[Option[GetTransactionTreeResponse]] =
-      filter(requestingParties, false)(transactionLogUpdate)
+      filter(requestingParties)(transactionLogUpdate)
         .collect { case traced @ Traced(tx: TransactionLogUpdate.TransactionAccepted) =>
           toTransactionTree(
             transactionAccepted = tx,
