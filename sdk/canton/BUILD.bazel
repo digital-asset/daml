@@ -73,13 +73,13 @@ scala_library(
         "-language:postfixOps",
     ],
     unused_dependency_checker_mode = "error",
+    visibility = ["//visibility:public"],
     deps = [
         ":ledger_api_proto_scala",
         "@maven//:org_slf4j_slf4j_api",
         "@maven//:org_typelevel_cats_core_2_13",
         "@maven//:org_typelevel_cats_kernel_2_13",
     ],
-    visibility = ["//visibility:public"],
 )
 
 ### community/lib/pekko ###
@@ -149,13 +149,13 @@ scala_macro_library(
 
 scala_library(
     name = "community_util-logging",
-    visibility = ["//visibility:public"],
     srcs = glob(["community/util-logging/src/main/**/*.scala"]),
     scalacopts = [
         "-Xsource:3",
         "-language:postfixOps",
     ],
     unused_dependency_checker_mode = "error",
+    visibility = ["//visibility:public"],
     deps = [
         ":daml-common-staging_daml-errors",
         ":pekko-stream-minus-patched-classes",
