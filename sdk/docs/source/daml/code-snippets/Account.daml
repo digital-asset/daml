@@ -109,7 +109,7 @@ test = script do
   let shipment = Shipment with
         receiver = alice
         retailer = wonderland
-        item = "Rainbow coloured unicorn"
+        item = "Rainbow coloured unicorn "
         price = 50.0
   submit alice do
     exerciseByKeyCmd @Account (key account) AddAccountObserver with newObserver = wonderland
