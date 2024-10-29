@@ -639,8 +639,8 @@ object Hash {
           addCid(cid)
         case Value.ValueOptional(opt) =>
           opt match {
-            case Some(value) => addByte(1.toByte, s"true (bool)").addTypedValue(value)
-            case None => addByte(0.toByte, s"false (bool)")
+            case Some(value) => addByte(1.toByte, "Some (optional)").addTypedValue(value)
+            case None => addByte(0.toByte, "None (optional)")
           }
         case Value.ValueList(xs) =>
           addList(xs)
