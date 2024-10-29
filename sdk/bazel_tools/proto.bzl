@@ -229,14 +229,13 @@ def proto_jars(
         visibility = [":__subpackages__", "//release:__subpackages__"],
     )
 
+
     # JAR and source JAR containing the *.proto files.
     da_java_library(
-        name = "%s_java" % name,
-        srcs = ["%s_java_sources" % name],
-        deps =
-            ["@maven//:com_google_protobuf_protobuf_java"] +
-            ["%s_java" % label for label in proto_deps] +
-            java_deps,
+        name = "%s_jar" % name,
+        srcs = None,
+        deps = None,
+        runtime_deps = ["%s_jar" % label for label in proto_deps],
         resources = srcs,
         resource_strip_prefix = "%s/%s/" % (native.package_name(), strip_import_prefix),
         tags = _maven_tags(maven_group, maven_artifact_prefix, maven_artifact_proto_suffix),
@@ -263,6 +262,19 @@ def proto_jars(
         strip_import_prefix = strip_import_prefix,
         visibility = visibility,
         deps = deps + proto_deps,
+    )
+
+    # we do not use native.java_proto_library, as we need to depend on java from maven when
+    # the version of protoc and proto-java are different.
+    da_java_library(
+        name = "%s_java" % name,
+        srcs = ["%s_java_sources" % name],
+        deps =
+            ["@maven//:com_google_protobuf_protobuf_java"] +
+            ["%s_java" % label for label in proto_deps] +
+            java_deps,
+        tags = _maven_tags(maven_group, maven_artifact_prefix, maven_artifact_java_suffix),
+        visibility = visibility,
     )
 
     if javadoc_root_packages:
