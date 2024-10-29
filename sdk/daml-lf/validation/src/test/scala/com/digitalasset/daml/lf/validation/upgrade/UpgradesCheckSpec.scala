@@ -77,6 +77,56 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
       )
     }
 
+    s"Succeeds when template upgrades its key type" in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-SucceedsWhenTemplateUpgradesKeyType-v1.dar",
+          "test-common/upgrades-SucceedsWhenTemplateUpgradesKeyType-v2.dar",
+        ),
+        Seq(
+          (
+            "test-common/upgrades-SucceedsWhenTemplateUpgradesKeyType-v1.dar",
+            "test-common/upgrades-SucceedsWhenTemplateUpgradesKeyType-v2.dar",
+            None,
+          )
+        ),
+      )
+    }
+
+    "Succeeds when an exception is only defined in the initial package." in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-SucceedsWhenAnExceptionIsOnlyDefinedInTheInitialPackage-v1.dar",
+          "test-common/upgrades-SucceedsWhenAnExceptionIsOnlyDefinedInTheInitialPackage-v2.dar",
+        ),
+        Seq(
+          (
+            "test-common/upgrades-SucceedsWhenAnExceptionIsOnlyDefinedInTheInitialPackage-v1.dar",
+            "test-common/upgrades-SucceedsWhenAnExceptionIsOnlyDefinedInTheInitialPackage-v2.dar",
+            None,
+          )
+        ),
+      )
+    }
+
+    "Fails when an exception is defined in an upgrading package when it was already in the prior package." in {
+      testPackages(
+        Seq(
+          "test-common/upgrades-FailsWhenAnExceptionIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v1.dar",
+          "test-common/upgrades-FailsWhenAnExceptionIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v2.dar",
+        ),
+        Seq(
+          (
+            "test-common/upgrades-FailsWhenAnExceptionIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v1.dar",
+            "test-common/upgrades-FailsWhenAnExceptionIsDefinedInAnUpgradingPackageWhenItWasAlreadyInThePriorPackage-v2.dar",
+            Some(
+              "Tried to upgrade exception E, but exceptions cannot be upgraded. They should be removed in any upgrading package."
+            ),
+          )
+        ),
+      )
+    }
+
     "report upgrade errors when the upgrade use a older version of LF" in {
       testPackages(
         Seq(
