@@ -639,7 +639,10 @@ extractUpgradedPackageRule opts = do
         packageConfigFilePath = maybe file (LSP.toNormalizedFilePath . (</> projectConfigName) . unwrapProjectPath) $ optMbPackageConfigPath opts
         diags = case mainAndDeps of
           Left _ -> [ideErrorPretty packageConfigFilePath ("Could not decode file as a DAR." :: T.Text)]
-          Right (mainPkg, _) -> getUpgradedPackageErrs opts packageConfigFilePath (Upgrade.upwnavPkg mainPkg)
+          Right (mainPkg, _) ->
+            if Upgrade.shouldTypecheck (optDamlLfVersion opts) (optUpgradeInfo opts)
+            then getUpgradedPackageErrs opts packageConfigFilePath (Upgrade.upwnavPkg mainPkg)
+            else []
     extras <- getShakeExtras
     updateFileDiagnostics packageConfigFilePath ExtractUpgradedPackageFile extras $ map (\(_,y,z) -> (y,z)) diags
     pure ([], guard (null diags) >> rightToMaybe mainAndDeps)

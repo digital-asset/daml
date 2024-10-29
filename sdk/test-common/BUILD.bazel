@@ -325,6 +325,7 @@ da_scala_dar_resources_library(
                 default = [],
             ),
             dependencies = ["//daml-script/daml:daml-script-{}.dar".format(opts_get_lf_version(v1opts))],
+            #enable_interfaces = True,
             ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
             module_prefixes = v1opts.get(
                 "module_prefixes",
@@ -343,6 +344,7 @@ da_scala_dar_resources_library(
                 default = [],
             ),
             dependencies = ["//daml-script/daml:daml-script-{}.dar".format(opts_get_lf_version(v2opts))],
+            #enable_interfaces = True,
             ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
             module_prefixes = v2opts.get(
                 "module_prefixes",
@@ -373,6 +375,11 @@ da_scala_dar_resources_library(
             "UploadSucceedsWhenDepsAreValidUpgrades",
             {"data_dependencies": ["//test-common:upgrades-ValidUpgrade-v1.dar"]},
             {"data_dependencies": ["//test-common:upgrades-ValidUpgrade-v2.dar"]},
+        ),
+        (
+            "UploadSucceedsWhenDepsAreValidUpgradesDep",
+            {},
+            {},
         ),
         (
             "UploadFailsWhenDepsAreInvalidUpgrades",
@@ -509,6 +516,16 @@ da_scala_dar_resources_library(
         ("FailWhenParamCountChanges", {}, {}),
         ("SucceedWhenParamNameChanges", {}, {}),
         ("SucceedWhenPhantomParamBecomesUsed", {}, {}),
+        (
+            "FailsWhenNewerPackagesUsesAnOlderLFVersion",
+            {"lf_version": "1.dev"},
+            {"lf_version": "1.17"},
+        ),
+        (
+            "SucceedsWhenNewerPackagesUsesANewerLFVersion",
+            {"lf_version": "1.17"},
+            {"lf_version": "1.dev"},
+        ),
     ]
 ]
 

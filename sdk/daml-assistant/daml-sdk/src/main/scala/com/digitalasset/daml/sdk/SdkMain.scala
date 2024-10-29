@@ -26,7 +26,7 @@ object SdkMain {
       case "trigger-service" => TriggerService.main(rest)
       case "oauth2-middleware" => Oauth2Middleware.main(rest)
       case "navigator" => Navigator.main(rest)
-      case "upgrade-check" => UpgradeCheckMain.main(rest)
+      case "upgrade-check" => UpgradeCheckMain.default.main(rest)
       case _ => sys.exit(1)
     }
   }

@@ -20,17 +20,17 @@ final case class CouldNotReadDar(path: String, err: ArchiveError) {
   val message: String = s"Error reading DAR from ${path}: ${err.msg}"
 }
 
-case class UpgradeCheckMain() {}
-object UpgradeCheckMain {
+case class UpgradeCheckMain(loggerFactory: NamedLoggerFactory) {
+  def logger = loggerFactory.getLogger(classOf[UpgradeCheckMain])
+
   implicit val ec: ExecutionContext = ExecutionContext.global
   implicit val loggingContext: LoggingContextWithTrace = LoggingContextWithTrace.empty
-  val loggerFactory = NamedLoggerFactory.root
-  def logger = loggerFactory.getLogger(classOf[UpgradeCheckMain])
 
   private def decodeDar(
       path: String
   ): Either[CouldNotReadDar, Dar[(Ref.PackageId, Ast.Package)]] = {
-    logger.debug(s"Decoding DAR from ${path}")
+    val s: String = s"Decoding DAR from ${path}"
+    logger.debug(s)
     val result = DarDecoder.readArchiveFromFile(new File(path))
     result.left.map(CouldNotReadDar(path, _))
   }
@@ -41,13 +41,13 @@ object UpgradeCheckMain {
     loggerFactory = loggerFactory,
   )
 
-  def main(args: Array[String]): Unit = {
-    logger.debug(s"Called UpgradeCheckMain with args: ${args.toSeq.mkString("\n")}")
+  def check(paths: Array[String]): Int = {
+    logger.debug(s"Called UpgradeCheckMain with paths: ${paths.toSeq.mkString("\n")}")
 
-    val (failures, dars) = args.partitionMap(decodeDar(_))
+    val (failures, dars) = paths.partitionMap(decodeDar(_))
     if (failures.nonEmpty) {
       failures.foreach((e: CouldNotReadDar) => logger.error(e.message))
-      sys.exit(1)
+      1
     } else {
       val archives = for { dar <- dars; archive <- dar.all.toSeq } yield {
         logger.debug(s"Package with ID ${archive._1} and metadata ${archive._2.metadata}")
@@ -57,13 +57,21 @@ object UpgradeCheckMain {
       val validation = validator.validateUpgrade(archives.toList)
       Await.result(validation.value, Duration.Inf) match {
         case Left(err: Validation.Upgradeability.Error) =>
-          logger.error(s"Error while checking two DARs:\n${err.upgradeError.prettyInternal}")
-          sys.exit(1)
+          logger.error(s"Error while checking two DARs:\n${err.cause}")
+          1
         case Left(err) =>
           logger.error(s"Error while checking two DARs:\n${err.cause}")
-          sys.exit(1)
-        case Right(()) => ()
+          1
+        case Right(()) => 0
       }
     }
+  }
+
+  def main(args: Array[String]) = sys.exit(check(args))
+}
+
+object UpgradeCheckMain {
+  def default: UpgradeCheckMain = {
+    UpgradeCheckMain(NamedLoggerFactory.root)
   }
 }
