@@ -31,6 +31,7 @@ import Development.IDE.Core.RuleTypes
 
 import DA.Daml.DocTest
 import qualified DA.Daml.LF.Ast as LF
+import DA.Daml.LF.TypeChecker.Upgrade (UpgradedPkgWithNameAndVersion)
 import qualified DA.Daml.LF.ScenarioServiceClient as SS
 
 import Language.Haskell.HLint4
@@ -318,7 +319,7 @@ instance Binary ExtractUpgradedPackage
 instance Hashable ExtractUpgradedPackage
 instance NFData ExtractUpgradedPackage
 
-type instance RuleResult ExtractUpgradedPackage = Maybe ((LF.PackageId, LF.Package, LF.PackageName, Maybe LF.PackageVersion), [(LF.PackageId, LF.Package, LF.PackageName, Maybe LF.PackageVersion)])
+type instance RuleResult ExtractUpgradedPackage = Maybe (UpgradedPkgWithNameAndVersion, [UpgradedPkgWithNameAndVersion])
 
 data ExtractUpgradedPackageFile = ExtractUpgradedPackageFile
    deriving (Eq, Show, Typeable, Generic)
@@ -326,4 +327,4 @@ instance Binary ExtractUpgradedPackageFile
 instance Hashable ExtractUpgradedPackageFile
 instance NFData ExtractUpgradedPackageFile
 
-type instance RuleResult ExtractUpgradedPackageFile = ((LF.PackageId, LF.Package, LF.PackageName, Maybe LF.PackageVersion), [(LF.PackageId, LF.Package, LF.PackageName, Maybe LF.PackageVersion)])
+type instance RuleResult ExtractUpgradedPackageFile = (UpgradedPkgWithNameAndVersion, [UpgradedPkgWithNameAndVersion])
