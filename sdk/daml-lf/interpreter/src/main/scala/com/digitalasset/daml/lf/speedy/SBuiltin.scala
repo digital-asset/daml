@@ -1394,7 +1394,7 @@ private[lf] object SBuiltin {
 
   // Only for interface fetches
   final case class SBResolveSBUInsertFetchNode(
-      interfaceId: TypeConName
+      oInterfaceId: Option[TypeConName] // Only provided if Upgrades are enabled
   ) extends SBuiltin(1) {
     override private[speedy] def execute[Q](
         args: util.ArrayList[SValue],
@@ -1406,7 +1406,7 @@ private[lf] object SBuiltin {
           templateId,
           Some(templateId),
           byKey = false,
-          interfaceId = Some(interfaceId),
+          interfaceId = oInterfaceId,
         )
       )
       Control.Expression(e)

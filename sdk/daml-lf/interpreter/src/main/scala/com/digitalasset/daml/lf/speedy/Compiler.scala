@@ -783,7 +783,7 @@ private[lf] final class Compiler(
       let(env, SBFetchInterface(soft, ifaceId)(env.toSEVar(cidPos))) { (payloadPos, env) =>
         let(
           env,
-          SBResolveSBUInsertFetchNode(ifaceId)(
+          SBResolveSBUInsertFetchNode(Option.when(soft)(ifaceId))(
             env.toSEVar(payloadPos),
             env.toSEVar(cidPos),
           ),
