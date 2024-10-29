@@ -29,7 +29,10 @@ module DA.Internal.Desugar (
     InterfaceView,
     mkInterfaceView,
     userWrittenTuple,
-    bypassReduceLambda
+    bypassReduceLambda,
+    DataRecord,
+    DataEnum,
+    DataVariant,
 ) where
 
 import DA.Internal.Prelude
@@ -150,3 +153,12 @@ mkInterfaceView = magic @"mkInterfaceView"
 
 bypassReduceLambda : forall a. a -> a
 bypassReduceLambda = magic @"bypassReduceLambda"
+
+class    DataRecord
+instance DataRecord
+
+class    DataVariant
+instance DataVariant
+
+class    DataEnum
+instance DataEnum
