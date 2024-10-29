@@ -199,9 +199,9 @@ color-string 1.5.5: https://github.com/Qix-/color-string : MIT License
 colour 2.3.6: http://www.haskell.org/haskellwiki/Colour : MIT License
 combine-source-map 0.8.0: https://github.com/thlorenz/combine-source-map : MIT License
 com.google.api.grpc:proto-google-common-protos 2.29.0 : Apache License 2.0
-Commander.js 2.19.0: https://github.com/tj/Commander.js : MIT License
-Commander.js 7.2.0: https://github.com/tj/Commander.js : MIT License
-Commander.js v2.20.3: https://github.com/tj/Commander.js : MIT License
+Commander.js 2.19.0: https://github.com/visionmedia/Commander.js : MIT License
+Commander.js 7.2.0: https://github.com/visionmedia/Commander.js : MIT License
+Commander.js v2.20.3: https://github.com/visionmedia/Commander.js : MIT License
 common 4.7.8 : BSD 3-clause "New" or "Revised" License
 commonjs-assert 1.4.1: https://github.com/defunctzombie/commonjs-assert : MIT License
 commonjs-assert 1.5.1: https://github.com/defunctzombie/commonjs-assert : MIT License
@@ -838,8 +838,8 @@ node-lru-cache 6.0.0: http://github.com/isaacs/node-lru-cache : ISC License
 node-mkdirp 0.5.5: https://github.com/substack/node-mkdirp : MIT License
 node-parents 1.0.1: https://github.com/substack/node-parents : MIT License
 node-process 0.11.10: https://github.com/defunctzombie/node-process : MIT License
-node-semver 7.5.4: https://github.com/npm/node-semver : ISC License
-node-semver 7.6.3: https://github.com/npm/node-semver : ISC License
+node-semver 7.5.4: https://github.com/isaacs/node-semver : ISC License
+node-semver 7.6.3: https://github.com/isaacs/node-semver : ISC License
 node-shell-quote 1.8.1: https://github.com/substack/node-shell-quote : MIT License
 node-syntax-error 1.4.0: https://github.com/substack/node-syntax-error : MIT License
 node-url 0.11.3: https://github.com/defunctzombie/node-url : MIT License
