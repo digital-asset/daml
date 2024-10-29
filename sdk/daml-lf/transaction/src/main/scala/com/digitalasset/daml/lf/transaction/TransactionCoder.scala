@@ -255,7 +255,9 @@ object TransactionCoder {
     discard(builder.setContractId(node.coid.toBytes.toByteString))
     discard(builder.setPackageName(node.packageName))
     discard(builder.setTemplateId(ValueCoder.encodeIdentifier(node.templateId)))
-    node.interfaceId.foreach(iface => builder.setInterfaceId(ValueCoder.encodeIdentifier(iface)))
+    if (version >= TransactionVersion.minFetchInterfaceId) {
+      node.interfaceId.foreach(iface => builder.setInterfaceId(ValueCoder.encodeIdentifier(iface)))
+    }
     non_maintainer_signatories.foreach(builder.addNonMaintainerSignatories)
     non_signatory_stakeholders.foreach(builder.addNonSignatoryStakeholders)
     node.actingParties.foreach(builder.addActors)
@@ -466,7 +468,7 @@ object TransactionCoder {
       pkgName <- decodePackageName(msg.getPackageName)
       templateId <- ValueCoder.decodeIdentifier(msg.getTemplateId)
       interfaceId <-
-        if (msg.hasInterfaceId) {
+        if (nodeVersion >= TransactionVersion.minFetchInterfaceId && msg.hasInterfaceId) {
           ValueCoder.decodeIdentifier(msg.getInterfaceId).map(Some(_))
         } else {
           Right(None)
