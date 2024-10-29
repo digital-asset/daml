@@ -229,7 +229,6 @@ def proto_jars(
         visibility = [":__subpackages__", "//release:__subpackages__"],
     )
 
-
     # JAR and source JAR containing the *.proto files.
     da_java_library(
         name = "%s_jar" % name,
