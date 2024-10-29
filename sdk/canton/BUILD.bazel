@@ -211,6 +211,7 @@ scala_macro_library(
     scalacopts = canton_scalacopts + ["-Wconf:cat=unused-pat-vars:s"],
     unused_dependency_checker_mode = "error",
     deps = [
+        "@maven//:io_grpc_grpc_stub",
         "@maven//:org_typelevel_cats_core_2_13",
         "@maven//:org_typelevel_cats_kernel_2_13",
         "@maven//:org_wartremover_wartremover_2_13_11",
@@ -389,6 +390,7 @@ da_scala_library(
         "//libs-scala/rs-grpc-bridge",
         "//libs-scala/rs-grpc-pekko",
         "//observability/metrics",
+        "@maven//:org_typelevel_cats_core_2_13",
         "@maven//:com_google_guava_guava",
         "@maven//:com_google_protobuf_protobuf_java",
         "@maven//:com_thesamet_scalapb_scalapb_runtime_2_13",
