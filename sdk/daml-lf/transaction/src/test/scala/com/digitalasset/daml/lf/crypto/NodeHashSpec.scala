@@ -4,11 +4,13 @@
 package com.digitalasset.daml.lf
 package crypto
 
+import com.daml.crypto.MessageDigestPrototype
 import com.digitalasset.daml.lf.crypto.Hash.NodeHashingError
+import com.digitalasset.daml.lf.crypto.HashUtils.HashTracer
 import com.digitalasset.daml.lf.crypto.Hash.NodeHashingError.IncompleteTransactionTree
-import com.digitalasset.daml.lf.crypto.HashUtils.DebugStringOutputStream
+import com.digitalasset.daml.lf.crypto.HashUtils.HashTracer.StringHashTracer
 import com.digitalasset.daml.lf.data.Ref.{ChoiceName, PackageName, Party}
-import com.digitalasset.daml.lf.data.{FrontStack, ImmArray, Ref, SortedLookupList, Time}
+import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction._
 import com.digitalasset.daml.lf.value.Value
@@ -19,7 +21,6 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
 
 import java.time.Instant
-import scala.util.{Failure, Success}
 
 class NodeHashSpec extends AnyWordSpec with Matchers {
 
@@ -34,15 +35,6 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
         Ref.DottedName.assertFromString(name),
       ),
     )
-
-  private def assertWithOutputStream[T](f: DebugStringOutputStream => T): T = {
-    scala.util.Using(new DebugStringOutputStream) { os =>
-      f(os)
-    } match {
-      case Failure(exception) => throw exception
-      case Success(value) => value
-    }
-  }
 
   private val globalKey = GlobalKeyWithMaintainers(
     GlobalKey.assertBuild(
@@ -80,39 +72,41 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     version = LanguageVersion.v2_1,
   )
 
-  private val createNodeEncoding = """01 - [01 (node_version)]
+  private val createNodeEncoding = """'01' # 01 (node_version)
                                      |# Create Node
+                                     |'00' # Node Tag
                                      |# Contract Id
-                                     |00000021 - [33 (int)]
-                                     |0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5 - [0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5 (contractId)]
+                                     |'00000021' # 33 (int)
+                                     |'0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5' # 0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5 (contractId)
                                      |# Package Name
-                                     |0000000e - [14 (int)]
-                                     |7061636b6167652d6e616d652d30 - [package-name-0 (string)]
+                                     |'0000000e' # 14 (int)
+                                     |'7061636b6167652d6e616d652d30' # package-name-0 (string)
                                      |# Template Id
-                                     |00000007 - [7 (int)]
-                                     |7061636b616765 - [package (string)]
-                                     |00000001 - [1 (int)]
-                                     |00000006 - [6 (int)]
-                                     |6d6f64756c65 - [module (string)]
-                                     |00000001 - [1 (int)]
-                                     |00000004 - [4 (int)]
-                                     |6e616d65 - [name (string)]
+                                     |'00000007' # 7 (int)
+                                     |'7061636b616765' # package (string)
+                                     |'00000001' # 1 (int)
+                                     |'00000006' # 6 (int)
+                                     |'6d6f64756c65' # module (string)
+                                     |'00000001' # 1 (int)
+                                     |'00000004' # 4 (int)
+                                     |'6e616d65' # name (string)
                                      |# Arg
-                                     |00000005 - [5 (int)]
-                                     |68656c6c6f - [hello (string)]
+                                     |'00000005' # 5 (int)
+                                     |'68656c6c6f' # hello (string)
                                      |# Signatories
-                                     |00000002 - [2 (int)]
-                                     |00000005 - [5 (int)]
-                                     |616c696365 - [alice (string)]
-                                     |00000003 - [3 (int)]
-                                     |626f62 - [bob (string)]
+                                     |'00000002' # 2 (int)
+                                     |'00000005' # 5 (int)
+                                     |'616c696365' # alice (string)
+                                     |'00000003' # 3 (int)
+                                     |'626f62' # bob (string)
                                      |# Stakeholders
-                                     |00000002 - [2 (int)]
-                                     |00000005 - [5 (int)]
-                                     |616c696365 - [alice (string)]
-                                     |00000007 - [7 (int)]
-                                     |636861726c6965 - [charlie (string)]""".stripMargin
+                                     |'00000002' # 2 (int)
+                                     |'00000005' # 5 (int)
+                                     |'616c696365' # alice (string)
+                                     |'00000007' # 7 (int)
+                                     |'636861726c6965' # charlie (string)""".stripMargin
 
+  private val createNodeHash = "3de658958601401fc344b999d0ab7fc6a3761dea3f0aa8d86f5b119626ed9516"
   private val createNode2 = createNode.copy(
     coid = ContractId.V1.assertFromString(contractId2)
   )
@@ -140,48 +134,50 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     version = LanguageVersion.v2_1,
   )
 
-  private val fetchNodeEncoding = """01 - [01 (node_version)]
+  private val fetchNodeEncoding = """'01' # 01 (node_version)
                                     |# Fetch Node
+                                    |'02' # Node Tag
                                     |# Contract Id
-                                    |00000021 - [33 (int)]
-                                    |0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5 - [0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5 (contractId)]
+                                    |'00000021' # 33 (int)
+                                    |'0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5' # 0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5 (contractId)
                                     |# Package Name
-                                    |0000000e - [14 (int)]
-                                    |7061636b6167652d6e616d652d30 - [package-name-0 (string)]
+                                    |'0000000e' # 14 (int)
+                                    |'7061636b6167652d6e616d652d30' # package-name-0 (string)
                                     |# Template Id
-                                    |00000007 - [7 (int)]
-                                    |7061636b616765 - [package (string)]
-                                    |00000001 - [1 (int)]
-                                    |00000006 - [6 (int)]
-                                    |6d6f64756c65 - [module (string)]
-                                    |00000001 - [1 (int)]
-                                    |00000004 - [4 (int)]
-                                    |6e616d65 - [name (string)]
+                                    |'00000007' # 7 (int)
+                                    |'7061636b616765' # package (string)
+                                    |'00000001' # 1 (int)
+                                    |'00000006' # 6 (int)
+                                    |'6d6f64756c65' # module (string)
+                                    |'00000001' # 1 (int)
+                                    |'00000004' # 4 (int)
+                                    |'6e616d65' # name (string)
                                     |# Signatories
-                                    |00000001 - [1 (int)]
-                                    |00000005 - [5 (int)]
-                                    |616c696365 - [alice (string)]
+                                    |'00000001' # 1 (int)
+                                    |'00000005' # 5 (int)
+                                    |'616c696365' # alice (string)
                                     |# Stakeholders
-                                    |00000001 - [1 (int)]
-                                    |00000007 - [7 (int)]
-                                    |636861726c6965 - [charlie (string)]
+                                    |'00000001' # 1 (int)
+                                    |'00000007' # 7 (int)
+                                    |'636861726c6965' # charlie (string)
                                     |# Acting Parties
-                                    |00000002 - [2 (int)]
-                                    |00000005 - [5 (int)]
-                                    |616c696365 - [alice (string)]
-                                    |00000003 - [3 (int)]
-                                    |626f62 - [bob (string)]
+                                    |'00000002' # 2 (int)
+                                    |'00000005' # 5 (int)
+                                    |'616c696365' # alice (string)
+                                    |'00000003' # 3 (int)
+                                    |'626f62' # bob (string)
                                     |# Interface Id
-                                    |00000001 - [1 (int)]
-                                    |00000007 - [7 (int)]
-                                    |7061636b616765 - [package (string)]
-                                    |00000001 - [1 (int)]
-                                    |00000010 - [16 (int)]
-                                    |696e746572666163655f6d6f64756c65 - [interface_module (string)]
-                                    |00000001 - [1 (int)]
-                                    |0000000e - [14 (int)]
-                                    |696e746572666163655f6e616d65 - [interface_name (string)]""".stripMargin
+                                    |'01' # Some
+                                    |'00000007' # 7 (int)
+                                    |'7061636b616765' # package (string)
+                                    |'00000001' # 1 (int)
+                                    |'00000010' # 16 (int)
+                                    |'696e746572666163655f6d6f64756c65' # interface_module (string)
+                                    |'00000001' # 1 (int)
+                                    |'0000000e' # 14 (int)
+                                    |'696e746572666163655f6e616d65' # interface_name (string)""".stripMargin
 
+  private val fetchNodeHash = "90a81b06c8125fbdf3ace171554c397b185381a01856c48dd301409ef2734aa6"
   private val fetchNode2 = fetchNode.copy(
     coid = ContractId.V1.assertFromString(contractId2)
   )
@@ -223,6 +219,13 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     children = ImmArray(NodeId(3), NodeId(4))
   )
 
+  // Function to assert that the tracing does match the hash
+  private def assertStringTracer(stringHashTracer: StringHashTracer, hash: Hash) = {
+    val messageDigest = MessageDigestPrototype.Sha256.newDigest
+    messageDigest.update(stringHashTracer.asByteArray)
+    Hash.assertFromByteArray(messageDigest.digest()) shouldBe hash
+  }
+
   "V1Encoding" should {
     "not encode lookup nodes" in {
       a[NodeHashingError.UnsupportedNode] shouldBe thrownBy {
@@ -233,7 +236,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
 
   "CreateNodeBuilder V1" should {
     val defaultHash = Hash
-      .fromString("5cf3faca1f5141ebeff8f1b12a5fb90d0eb5ecb24a4d2626e78c4161b35d3880")
+      .fromString(createNodeHash)
       .getOrElse(fail("Invalid hash"))
 
     "be stable" in {
@@ -303,20 +306,22 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     }
 
     "explain encoding" in {
-      assertWithOutputStream { os =>
-        val hash = Hash.hashNode(createNode, outputStream = Some(os))
+      {
+        val hashTracer = new HashTracer.StringHashTracer()
+        val hash = Hash.hashNode(createNode, hashTracer = hashTracer)
         hash shouldBe defaultHash
-        os.result shouldBe s"""00 - [00 (value_version)]
-                             |07 - [07 (value_purpose)]
+        hashTracer.result shouldBe s"""'00' # 00 (value_version)
+                             |'07' # 07 (value_purpose)
                              |$createNodeEncoding
                              |""".stripMargin
+        assertStringTracer(hashTracer, hash)
       }
     }
   }
 
   "FetchNodeBuilder V1" should {
     val defaultHash = Hash
-      .fromString("264abb6ace226ba5850151510d2a95006443aeb3d79f01091c32d399db33c8cb")
+      .fromString(fetchNodeHash)
       .getOrElse(fail("Invalid hash"))
 
     "be stable" in {
@@ -398,20 +403,21 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     }
 
     "explain encoding" in {
-      assertWithOutputStream { os =>
-        val hash = Hash.hashNode(fetchNode, outputStream = Some(os))
-        hash shouldBe defaultHash
-        os.result shouldBe s"""00 - [00 (value_version)]
-                             |07 - [07 (value_purpose)]
-                             |$fetchNodeEncoding
-                             |""".stripMargin
-      }
+      val hashTracer = new HashTracer.StringHashTracer()
+      val hash = Hash.hashNode(fetchNode, hashTracer = hashTracer)
+      hash shouldBe defaultHash
+      hashTracer.result shouldBe s"""'00' # 00 (value_version)
+                                    |'07' # 07 (value_purpose)
+                                    |$fetchNodeEncoding
+                                    |""".stripMargin
+
+      assertStringTracer(hashTracer, hash)
     }
   }
 
   "ExerciseNodeBuilder V1" should {
     val defaultHash = Hash
-      .fromString("f369fa73273e189c74cec1b72e42e0a6ddaab5417a1ff8f11569aecb337f804e")
+      .fromString("ffc9d43e5dc25e16a63d12c877ecce429f8c572bee9e5be3e24ba5763f5a0b13")
       .getOrElse(fail("Invalid hash"))
 
     val subNodes = Map(NodeId(0) -> createNode, NodeId(1) -> fetchNode)
@@ -547,79 +553,81 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     }
 
     "explain encoding" in {
-      assertWithOutputStream { os =>
-        val hash = Hash.hashNode(exerciseNode, subNodes, outputStream = Some(os))
-        hash shouldBe defaultHash
-        os.result shouldBe s"""00 - [00 (value_version)]
-                              |07 - [07 (value_purpose)]
-                              |01 - [01 (node_version)]
-                              |# Exercise Node
-                              |# Contract Id
-                              |00000021 - [33 (int)]
-                              |0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5 - [0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5 (contractId)]
-                              |# Package Name
-                              |0000000e - [14 (int)]
-                              |7061636b6167652d6e616d652d30 - [package-name-0 (string)]
-                              |# Template Id
-                              |00000007 - [7 (int)]
-                              |7061636b616765 - [package (string)]
-                              |00000001 - [1 (int)]
-                              |00000006 - [6 (int)]
-                              |6d6f64756c65 - [module (string)]
-                              |00000001 - [1 (int)]
-                              |00000004 - [4 (int)]
-                              |6e616d65 - [name (string)]
-                              |# Signatories
-                              |00000001 - [1 (int)]
-                              |00000005 - [5 (int)]
-                              |616c696365 - [alice (string)]
-                              |# Stakeholders
-                              |00000001 - [1 (int)]
-                              |00000007 - [7 (int)]
-                              |636861726c6965 - [charlie (string)]
-                              |# Acting Parties
-                              |00000002 - [2 (int)]
-                              |00000005 - [5 (int)]
-                              |616c696365 - [alice (string)]
-                              |00000003 - [3 (int)]
-                              |626f62 - [bob (string)]
-                              |# Interface Id
-                              |00000001 - [1 (int)]
-                              |00000007 - [7 (int)]
-                              |7061636b616765 - [package (string)]
-                              |00000001 - [1 (int)]
-                              |00000010 - [16 (int)]
-                              |696e746572666163655f6d6f64756c65 - [interface_module (string)]
-                              |00000001 - [1 (int)]
-                              |0000000e - [14 (int)]
-                              |696e746572666163655f6e616d65 - [interface_name (string)]
-                              |# Choice Id
-                              |00000006 - [6 (int)]
-                              |63686f696365 - [choice (string)]
-                              |# Chosen Value
-                              |0000000000007a94 - [31380 (long)]
-                              |# Consuming
-                              |01 - [true (bool)]
-                              |# Exercise Result
-                              |00000001 - [1 (int)]
-                              |00000006 - [6 (int)]
-                              |726573756c74 - [result (string)]
-                              |# Choice Observers
-                              |00000001 - [1 (int)]
-                              |00000005 - [5 (int)]
-                              |6461766964 - [david (string)]
-                              |# Children
-                              |00000002 - [2 (int)]
-                              |$createNodeEncoding
-                              |$fetchNodeEncoding
-                              |""".stripMargin
-      }
+      val hashTracer = new HashTracer.StringHashTracer()
+      val hash = Hash.hashNode(exerciseNode, subNodes, hashTracer = hashTracer)
+      hash shouldBe defaultHash
+      hashTracer.result shouldBe s"""'00' # 00 (value_version)
+                                      |'07' # 07 (value_purpose)
+                                      |'01' # 01 (node_version)
+                                      |# Exercise Node
+                                      |'01' # Node Tag
+                                      |# Contract Id
+                                      |'00000021' # 33 (int)
+                                      |'0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5' # 0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5 (contractId)
+                                      |# Package Name
+                                      |'0000000e' # 14 (int)
+                                      |'7061636b6167652d6e616d652d30' # package-name-0 (string)
+                                      |# Template Id
+                                      |'00000007' # 7 (int)
+                                      |'7061636b616765' # package (string)
+                                      |'00000001' # 1 (int)
+                                      |'00000006' # 6 (int)
+                                      |'6d6f64756c65' # module (string)
+                                      |'00000001' # 1 (int)
+                                      |'00000004' # 4 (int)
+                                      |'6e616d65' # name (string)
+                                      |# Signatories
+                                      |'00000001' # 1 (int)
+                                      |'00000005' # 5 (int)
+                                      |'616c696365' # alice (string)
+                                      |# Stakeholders
+                                      |'00000001' # 1 (int)
+                                      |'00000007' # 7 (int)
+                                      |'636861726c6965' # charlie (string)
+                                      |# Acting Parties
+                                      |'00000002' # 2 (int)
+                                      |'00000005' # 5 (int)
+                                      |'616c696365' # alice (string)
+                                      |'00000003' # 3 (int)
+                                      |'626f62' # bob (string)
+                                      |# Interface Id
+                                      |'01' # Some
+                                      |'00000007' # 7 (int)
+                                      |'7061636b616765' # package (string)
+                                      |'00000001' # 1 (int)
+                                      |'00000010' # 16 (int)
+                                      |'696e746572666163655f6d6f64756c65' # interface_module (string)
+                                      |'00000001' # 1 (int)
+                                      |'0000000e' # 14 (int)
+                                      |'696e746572666163655f6e616d65' # interface_name (string)
+                                      |# Choice Id
+                                      |'00000006' # 6 (int)
+                                      |'63686f696365' # choice (string)
+                                      |# Chosen Value
+                                      |'0000000000007a94' # 31380 (long)
+                                      |# Consuming
+                                      |'01' # true (bool)
+                                      |# Exercise Result
+                                      |'01' # Some
+                                      |'00000006' # 6 (int)
+                                      |'726573756c74' # result (string)
+                                      |# Choice Observers
+                                      |'00000001' # 1 (int)
+                                      |'00000005' # 5 (int)
+                                      |'6461766964' # david (string)
+                                      |# Children
+                                      |'00000002' # 2 (int)
+                                      |'$createNodeHash' # (Hashed Inner Node)
+                                      |'$fetchNodeHash' # (Hashed Inner Node)
+                                      |""".stripMargin
+
+      assertStringTracer(hashTracer, hash)
     }
   }
 
   "RollbackNode Builder V1" should {
     val defaultHash = Hash
-      .fromString("0e956f106478405107fe4685ac9adf57f86baa87bde033cc2ea7111df4a2955a")
+      .fromString("3c765116f7941cc496fa49e8fa98e79e50b1506725258ba7d93eaaf78219c88a")
       .getOrElse(fail("Invalid hash"))
 
     val subNodes = Map(NodeId(3) -> createNode, NodeId(4) -> fetchNode)
@@ -657,42 +665,41 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     }
 
     "explain encoding" in {
-      assertWithOutputStream { os =>
-        val hash = Hash.hashNode(rollbackNode, subNodes, outputStream = Some(os))
+      {
+        val hashTracer = new HashTracer.StringHashTracer()
+        val hash = Hash.hashNode(rollbackNode, subNodes, hashTracer = hashTracer)
         hash shouldBe defaultHash
-        os.result shouldBe s"""00 - [00 (value_version)]
-                             |07 - [07 (value_purpose)]
-                             |01 - [01 (node_version)]
-                             |# Rollback Node
-                             |# Children
-                             |00000002 - [2 (int)]
-                             |$createNodeEncoding
-                             |$fetchNodeEncoding
-                             |""".stripMargin
+        hashTracer.result shouldBe s"""'00' # 00 (value_version)
+                                      |'07' # 07 (value_purpose)
+                                      |'01' # 01 (node_version)
+                                      |# Rollback Node
+                                      |'04' # Node Tag
+                                      |# Children
+                                      |'00000002' # 2 (int)
+                                      |'$createNodeHash' # (Hashed Inner Node)
+                                      |'$fetchNodeHash' # (Hashed Inner Node)
+                                      |""".stripMargin
+
+        assertStringTracer(hashTracer, hash)
       }
     }
   }
 
   "ValueBuilder" should {
-    def withValueBuilder(f: (Hash.ValueHashBuilder, DebugStringOutputStream) => Assertion) = {
-      assertWithOutputStream { os =>
-        val builder = Hash.builder(
-          Hash.Purpose.TransactionHash,
-          Hash.aCid2Bytes,
-          upgradeFriendly = false,
-          Hash.stringNumericToBytes,
-          Some(os),
-          hashVersionAndPurpose = false,
-        )
-        f(builder, os)
+    def withValueBuilder(f: (Hash.ValueHashBuilder, HashTracer.StringHashTracer) => Assertion) = {
+      {
+        val hashTracer = new HashTracer.StringHashTracer()
+        val builder = Hash.valueBuilderForV1Node(hashTracer)
+        f(builder, hashTracer)
       }
     }
 
     def assertEncode(value: Value, expectedHash: String, expectedDebugEncoding: String) = {
-      withValueBuilder { case (builder, os) =>
+      withValueBuilder { case (builder, hashTracer) =>
         val hash = builder.addTypedValue(value).build
         hash.toHexString shouldBe expectedHash
-        os.result shouldBe expectedDebugEncoding
+        hashTracer.result shouldBe expectedDebugEncoding
+        assertStringTracer(hashTracer, hash)
       }
     }
 
@@ -700,7 +707,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
       assertEncode(
         Value.ValueUnit,
         "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
-        """00 - [00 (unit)]
+        """'00' # 00 (unit)
           |""".stripMargin,
       )
     }
@@ -709,7 +716,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
       assertEncode(
         Value.ValueBool(true),
         "4bf5122f344554c53bde2ebb8cd2b7e3d1600ad631c385a5d7cce23c7785459a",
-        """01 - [true (bool)]
+        """'01' # true (bool)
           |""".stripMargin,
       )
     }
@@ -718,7 +725,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
       assertEncode(
         Value.ValueBool(false),
         "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
-        """00 - [false (bool)]
+        """'00' # false (bool)
           |""".stripMargin,
       )
     }
@@ -727,8 +734,8 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
       assertEncode(
         Value.ValueText("hello world!"),
         "5c565bbe3c8230ef9614db8546c67aef5bce169628e0bd6b1c7cc33687ce0af9",
-        """0000000c - [12 (int)]
-          |68656c6c6f20776f726c6421 - [hello world! (string)]
+        """'0000000c' # 12 (int)
+          |'68656c6c6f20776f726c6421' # hello world! (string)
           |""".stripMargin,
       )
     }
@@ -738,8 +745,8 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
       assertEncode(
         Value.ValueNumeric(data.Numeric.assertFromString("125.1002")),
         "0fc95b51582bace59f230996c4cd303de53c09071854f77e2700344d1b2555c7",
-        """00000008 - [8 (int)]
-          |3132352e31303032 - [125.1002 (numeric)]
+        """'00000008' # 8 (int)
+          |'3132352e31303032' # 125.1002 (numeric)
           |""".stripMargin,
       )
     }
@@ -751,8 +758,8 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
             .assertFromString("0059b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b")
         ),
         "e0b332966cef8940f0a8dbc08129a8868d3b1c36dc3f2fffd955c100558e8ac1",
-        """00000021 - [33 (int)]
-          |0059b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b - [0059b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b (contractId)]
+        """'00000021' # 33 (int)
+          |'0059b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b' # 0059b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b (contractId)
           |""".stripMargin,
       )
     }
@@ -761,8 +768,8 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
       assertEncode(
         Value.ValueEnum(Some(defRef("module", "name")), Ref.Name.assertFromString("ENUM")),
         "9917214dd61c334d5436ad6de190812e3a20d908f7c414ed3c1b01d904ab17c1",
-        """00000004 - [4 (int)]
-          |454e554d - [ENUM (string)]
+        """'00000004' # 4 (int)
+          |'454e554d' # ENUM (string)
           |""".stripMargin,
       )
     }
@@ -771,7 +778,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
       assertEncode(
         Value.ValueInt64(10L),
         "8d85f8467240628a94819b26bee26e3a9b2804334c63482deacec8d64ab4e1e7",
-        """000000000000000a - [10 (long)]
+        """'000000000000000a' # 10 (long)
           |""".stripMargin,
       )
     }
@@ -784,9 +791,9 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
           Value.ValueTrue,
         ),
         "fdb1c8d0beed4ac69e4d3204612c639ef4d0112ec47b5a0892c03fabc822546d",
-        """00000004 - [4 (int)]
-          |454e554d - [ENUM (string)]
-          |01 - [true (bool)]
+        """'00000004' # 4 (int)
+          |'454e554d' # ENUM (string)
+          |'01' # true (bool)
           |""".stripMargin,
       )
     }
@@ -803,11 +810,11 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
           )
         ),
         "85a4041b88750e001d13b3cac6353cf41819c52c94937d2771c978854247b157",
-        """00000003 - [3 (int)]
-          |00000004 - [4 (int)]
-          |66697665 - [five (string)]
-          |0000000000000005 - [5 (long)]
-          |01 - [true (bool)]
+        """'00000003' # 3 (int)
+          |'00000004' # 4 (int)
+          |'66697665' # five (string)
+          |'0000000000000005' # 5 (long)
+          |'01' # true (bool)
           |""".stripMargin,
       )
     }
@@ -823,15 +830,15 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
           )
         ),
         "dfbb7030b50a33138ab21fea4acf65a4dcc728f79273252c28873867301a7768",
-        """00000002 - [2 (int)]
-          |00000003 - [3 (int)]
-          |626172 - [bar (string)]
-          |00000004 - [4 (int)]
-          |31323834 - [1284 (string)]
-          |00000003 - [3 (int)]
-          |666f6f - [foo (string)]
-          |00000007 - [7 (int)]
-          |33313338302e30 - [31380.0 (numeric)]
+        """'00000002' # 2 (int)
+          |'00000003' # 3 (int)
+          |'626172' # bar (string)
+          |'00000004' # 4 (int)
+          |'31323834' # 1284 (string)
+          |'00000003' # 3 (int)
+          |'666f6f' # foo (string)
+          |'00000007' # 7 (int)
+          |'33313338302e30' # 31380.0 (numeric)
           |""".stripMargin,
       )
     }
@@ -845,13 +852,13 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
           )
         ),
         "b092566476b5a3209642237c2f3c05868f30aa04a8d144bef640bcd9450f1fdd",
-        """00000002 - [2 (int)]
-          |0000000000000005 - [5 (long)]
-          |00000004 - [4 (int)]
-          |66697665 - [five (string)]
-          |000000000000000a - [10 (long)]
-          |00000003 - [3 (int)]
-          |74656e - [ten (string)]
+        """'00000002' # 2 (int)
+          |'0000000000000005' # 5 (long)
+          |'00000004' # 4 (int)
+          |'66697665' # five (string)
+          |'000000000000000a' # 10 (long)
+          |'00000003' # 3 (int)
+          |'74656e' # ten (string)
           |""".stripMargin,
       )
     }
@@ -860,7 +867,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
       assertEncode(
         Value.ValueOptional(None),
         "df3f619804a92fdb4057192dc43dd748ea778adc52bc498ce80524c014b81119",
-        """00000000 - [0 (int)]
+        """'00000000' # 0 (int)
           |""".stripMargin,
       )
     }
@@ -869,9 +876,9 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
       assertEncode(
         Value.ValueOptional(Some(Value.ValueText("hello"))),
         "48a912ec1cbf8f3a5ee629c859e646a36fb50fb0c213dc6a01d250f14b436343",
-        """00000001 - [1 (int)]
-          |00000005 - [5 (int)]
-          |68656c6c6f - [hello (string)]
+        """'00000001' # 1 (int)
+          |'00000005' # 5 (int)
+          |'68656c6c6f' # hello (string)
           |""".stripMargin,
       )
     }
@@ -883,7 +890,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
           Time.Timestamp.assertFromInstant(Instant.ofEpochMilli(1729788226000L))
         ),
         "07cf7b5fc18777a69daed0a5cf18b0af3b99922841f9dce07642bff5e29d1572",
-        """0006253bb4bf5480 - [1729788226000000 (long)]
+        """'0006253bb4bf5480' # 1729788226000000 (long)
           |""".stripMargin,
       )
     }
@@ -893,7 +900,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
         // Thursday, 24 October 2024
         Value.ValueDate(Time.Date.assertFromDaysSinceEpoch(20020)),
         "0437201334bcf43caa3632db5b12c4900b461b34391e89ed2317d934c6cf4b76",
-        """00004e34 - [20020 (int)]
+        """'00004e34' # 20020 (int)
           |""".stripMargin,
       )
     }
@@ -914,10 +921,10 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
           ),
         ),
         "fa5f5d67d77d85f097e84ab6afc800794e8faa2a1f633e3c7ee9e6dc95e7466c",
-        """00000002 - [2 (int)]
-          |01 - [true (bool)]
-          |00000005 - [5 (int)]
-          |68656c6c6f - [hello (string)]
+        """'00000002' # 2 (int)
+          |'01' # true (bool)
+          |'00000005' # 5 (int)
+          |'68656c6c6f' # hello (string)
           |""".stripMargin,
       )
     }
@@ -940,7 +947,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     )
 
     val defaultHash = Hash
-      .fromString("9c3f1aa275cb1eebfe65f0d84572600bc4ebed66e4f7875099a36f7e09a80dd7")
+      .fromString("930995f3dc176ac4cd608fa4d5e1388633bfd0a76abe360f24a98c8fc8ea3f89")
       .getOrElse(fail("Invalid hash"))
 
     "be stable" in {
@@ -987,25 +994,25 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     }
 
     "explain encoding" in {
-      assertWithOutputStream { os =>
-        val _ = Hash.hashTransaction(
+      {
+        val hashTracer = new HashTracer.StringHashTracer()
+        val hash = Hash.hashTransaction(
           VersionedTransaction(
             version = LanguageVersion.v2_1,
             roots = ImmArray(NodeId(1), NodeId(2)),
             nodes = Map(NodeId(1) -> createNode, NodeId(2) -> fetchNode),
           ),
-          outputStream = Some(os),
+          hashTracer = hashTracer,
         )
-        os.result shouldBe s"""00 - [00 (value_version)]
-                              |07 - [07 (value_purpose)]
-                              |# Transaction Version
-                              |00000003 - [3 (int)]
-                              |322e31 - [2.1 (string)]
-                              |# Root Nodes
-                              |00000002 - [2 (int)]
-                              |$createNodeEncoding
-                              |$fetchNodeEncoding
-                              |""".stripMargin
+        hashTracer.result shouldBe s"""# Transaction Version
+                                      |'00000003' # 3 (int)
+                                      |'322e31' # 2.1 (string)
+                                      |# Root Nodes
+                                      |'00000002' # 2 (int)
+                                      |'3de658958601401fc344b999d0ab7fc6a3761dea3f0aa8d86f5b119626ed9516' # (Hashed Inner Node)
+                                      |'90a81b06c8125fbdf3ace171554c397b185381a01856c48dd301409ef2734aa6' # (Hashed Inner Node)
+                                      |""".stripMargin
+        assertStringTracer(hashTracer, hash)
       }
     }
   }

@@ -5,131 +5,95 @@ package com.digitalasset.daml.lf
 package crypto
 
 import com.daml.scalautil.Statement.discard
-import com.digitalasset.daml.lf.crypto.Hash.underlyingHashLength
+import com.digitalasset.daml.lf.crypto.HashUtils.HashTracer.StringHashTracer.{
+  encodedValueWrapper,
+  encodingRegex,
+  inlineContext,
+  inlineValue,
+}
 import com.digitalasset.daml.lf.data.Bytes
 
-import java.io.OutputStream
 import java.nio.ByteBuffer
-import java.security.MessageDigest
 
 object HashUtils {
 
   private val lineSeparator = System.getProperty("line.separator")
   private[crypto] def formatByteToHexString(byte: Byte): String = String.format("%02X", byte)
 
-  /** Extension of OutputStream with additional methods to help exporting the encoding with context information
+  /** Interface to provide observability in the encoding algorithm.
+    * Use for debugging.
     */
-  abstract class ContextAwareOutputStream extends OutputStream {
-    def write(byte: Byte): Unit
-    def writeContext(context: String): Unit
+  trait HashTracer {
+    def trace(bytes: ByteBuffer, context: String): Unit
+    def trace(bytes: Array[Byte], context: String): Unit
+    def trace(byte: Byte, context: String): Unit
+    def context(context: String): Unit
+    def subNodeTracer: HashTracer
   }
 
-  /** Implementation of ContextAwareOutputStream for debugging.
-    * Support contextual info and writes the encoding to a String
-    */
-  class DebugStringOutputStream extends ContextAwareOutputStream {
-    private val sb = new StringBuilder()
-    def result: String = sb.result()
-    override def write(b: Int): Unit =
-      discard(sb.append(Bytes.fromByteArray(Array(b.toByte)).toHexString))
-    override def write(b: Array[Byte], off: Int, len: Int) = {
-      discard(sb.append(Bytes.fromByteArray(b.slice(off, off + len)).toHexString))
+  object HashTracer {
+    case object NoOp extends HashTracer {
+      override def trace(bytes: ByteBuffer, context: String): Unit = {}
+      override def trace(bytes: Array[Byte], context: String): Unit = {}
+      override def trace(byte: Byte, context: String): Unit = {}
+      override def context(context: String): Unit = {}
+      override val subNodeTracer: HashTracer = this
     }
-    override def write(byte: Byte): Unit =
-      discard(sb.append(formatByteToHexString(byte)))
 
-    def writeContext(context: String): Unit = discard(sb.append(context))
+    object StringHashTracer {
+      private val encodedValueWrapper = "'"
+      private val encodingRegex = s"$encodedValueWrapper[0-9a-fA-F]+$encodedValueWrapper".r
+      private def inlineContext(context: String): String = s" # $context"
+      private def inlineValue(value: String): String =
+        s"$encodedValueWrapper$value$encodedValueWrapper"
+    }
 
-    override def close(): Unit = sb.clear()
-  }
-
-  /** Interface for message digest. Allows to swap out default implementation for debug implementation.
-    */
-  private[crypto] trait MessageDigestWithContext {
-    def messageDigest: MessageDigest
-    def update(a: Byte, context: Option[String]): Unit
-    def update(a: ByteBuffer, context: Option[String]): Unit
-    def update(a: Array[Byte], context: Option[String]): Unit
-    def digest(buf: Array[Byte], offset: Int, len: Int): Int
-    def addContext(context: String): Unit
-    def isContextAware: Boolean
-  }
-
-  /** Default Message Digest implementation. Ignores context and simply feeds all bytes to the delegate MessageDigest.
-    * @param messageDigest MessageDigest delegate which calculates the hash.
-    */
-  private[crypto] class DefaultMessageDigest(override val messageDigest: MessageDigest)
-      extends MessageDigestWithContext {
-    override val isContextAware: Boolean = false
-    override def update(a: Byte, context: Option[String]): Unit = messageDigest.update(a)
-    override def update(a: ByteBuffer, context: Option[String]): Unit = messageDigest.update(a)
-    override def update(a: Array[Byte], context: Option[String]): Unit = messageDigest.update(a)
-    override def digest(buf: Array[Byte], offset: Int, len: Int): Int =
-      messageDigest.digest(buf, 0, underlyingHashLength)
-    // Default message digest doesn't do anything with the context
-    override def addContext(context: String): Unit = {}
-  }
-
-  /** Message Digest for debugging with support for contextual information and output stream to observe the encoding result.
-    *
-    * @param messageDigest MessageDigest delegate which calculates the hash.
-    * @param outputStream Output stream that also receives the encoded objects along with context information.
-    *
-    * The format of the produced debug output is the following:
-    *
-    * # Context About Following Lines
-    * "encoded value in hex" - ["original value before encoding" ("additional contextual info", for instance type of the value)]
-    *
-    * e.g:
-    *   # Package Name
-    *   0000000e - [14 (int)]
-    *   7061636b6167652d6e616d652d30 - [package-name-0 (string)]
-    */
-  private[crypto] class DebugMessageDigest(
-      messageDigest: MessageDigest,
-      outputStream: ContextAwareOutputStream,
-  ) extends DefaultMessageDigest(messageDigest) {
-    override val isContextAware: Boolean = true
-
-    override def update(a: ByteBuffer, context: Option[String]): Unit = {
-      if (a.hasArray) {
-        update(a.array(), context)
-      } else {
-        // Copied from MessageDigestSpi.engineUpdate(ByteBuffer input)
-        var len = a.remaining
-        val tempArray = new Array[Byte](len)
-        while (len > 0) {
-          val chunk = Math.min(len, tempArray.length)
-          discard(a.get(tempArray, 0, chunk))
-          len -= chunk
-        }
-        update(tempArray, context)
+    /** Hash tracer that accumulated encoded values into a string.
+      * @param traceSubNodes whether sub nodes should be traced as well (defaults to false)
+      */
+    class StringHashTracer(traceSubNodes: Boolean = false) extends HashTracer {
+      private val sb = new StringBuilder()
+      def result: String = sb.result()
+      override def trace(b: Byte, context: String): Unit =
+        discard(
+          sb
+            .append(inlineValue(Bytes.fromByteArray(Array(b)).toHexString))
+            .append(inlineContext(context))
+            .append(lineSeparator)
+        )
+      override def trace(b: Array[Byte], context: String) = {
+        discard(
+          sb
+            .append(inlineValue(Bytes.fromByteArray(b).toHexString))
+            .append(inlineContext(context))
+            .append(lineSeparator)
+        )
       }
-    }
+      override def trace(byteBuffer: ByteBuffer, context: String): Unit = {
+        if (byteBuffer.hasArray) {
+          trace(byteBuffer.array(), context)
+        } else {
+          val array = new Array[Byte](byteBuffer.remaining())
+          discard(byteBuffer.get(array))
+          trace(array, context)
+          discard(byteBuffer.rewind())
+        }
+      }
 
-    private def contextForBytes(context: Option[String]) = {
-      context
-        .map(c => s" - [$c]$lineSeparator")
-    }
+      def asByteArray: Array[Byte] = {
+        encodingRegex
+          .findAllMatchIn(result)
+          // Strip the quotes
+          .map(_.toString().stripPrefix(encodedValueWrapper).stripSuffix(encodedValueWrapper))
+          .map(Bytes.assertFromString)
+          .toArray
+          .flatMap(_.toByteArray)
+      }
 
-    override def update(a: Byte, context: Option[String]): Unit = {
-      outputStream.write(a)
-      contextForBytes(context).foreach(outputStream.writeContext)
-      super.update(a, context)
-    }
-    override def update(a: Array[Byte], context: Option[String]): Unit = {
-      outputStream.write(a)
-      contextForBytes(context).foreach(outputStream.writeContext)
-      super.update(a, context)
-    }
+      def context(context: String): Unit = discard(sb.append(context).append(lineSeparator))
 
-    override def digest(buf: Array[Byte], offset: Int, len: Int): Int = {
-      outputStream.flush()
-      super.digest(buf, offset, len)
+      override val subNodeTracer: HashTracer = if (traceSubNodes) this else HashTracer.NoOp
     }
-
-    override def addContext(context: String): Unit =
-      outputStream.writeContext(s"$context$lineSeparator")
   }
 
 }

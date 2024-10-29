@@ -83,6 +83,7 @@ da_scala_test(
     scalacopts = lf_scalacopts,
     deps = [
         ":transaction",
+        "//libs-scala/crypto",
         "//daml-lf/api-type-signature",
         "//daml-lf/data",
         "//daml-lf/language",
