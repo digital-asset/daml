@@ -1,17 +1,17 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-package com.digitalasset.daml.lf.validation
+package com.daml.lf.validation
 
 import com.digitalasset.canton.ledger.error.PackageServiceErrors.Validation
 import java.io.File
-import com.digitalasset.daml.lf.archive.DarDecoder
-import com.digitalasset.daml.lf.archive.Dar
-import com.digitalasset.daml.lf.archive.{Error => ArchiveError}
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.language.Ast
+import com.daml.lf.archive.DarDecoder
+import com.daml.lf.archive.Dar
+import com.daml.lf.archive.{Error => ArchiveError}
+import com.daml.lf.data.Ref
+import com.daml.lf.language.Ast
 
-import com.digitalasset.canton.platform.apiserver.services.admin.PackageUpgradeValidator
+import com.digitalasset.canton.participant.admin.PackageUpgradeValidator
 import scala.concurrent.{ExecutionContext, Future, Await}
 import scala.concurrent.duration._
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
@@ -50,7 +50,7 @@ object UpgradeCheckMain {
       sys.exit(1)
     } else {
       val archives = for { dar <- dars; archive <- dar.all.toSeq } yield {
-        logger.debug(s"Package with ID ${archive._1} and metadata ${archive._2.pkgNameVersion}")
+        logger.debug(s"Package with ID ${archive._1} and metadata ${archive._2.metadata}")
         archive
       }
 
