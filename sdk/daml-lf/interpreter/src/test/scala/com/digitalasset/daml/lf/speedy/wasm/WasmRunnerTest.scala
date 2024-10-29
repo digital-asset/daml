@@ -174,7 +174,7 @@ class WasmRunnerTest
         Files.newInputStream(
           BazelRunfiles.rlocation(
             Paths.get(
-              s"daml-lf/interpreter/src/test/resources/create-contract.${languages("rust")}.wasm"
+              s"daml-lf/interpreter/src/test/resources/create-contract.${languages(target)}.wasm"
             )
           )
         )

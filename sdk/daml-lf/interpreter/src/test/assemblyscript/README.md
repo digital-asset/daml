@@ -32,6 +32,16 @@ npm run asbuild
 cp ./build/release.wasm ../../resources/hello-world.as.wasm
 ```
 
+## `create-contract` Project
+
+In the AssemblyScript package directory `./create-contract` run:
+```shell
+mkdir -p protobuf
+protoc --plugin=protoc-gen-as=../node_modules/.bin/as-proto-gen --as_opt=gen-helper-methods --as_out=protobuf --proto_path ../../../../../transaction/src/main/protobuf/com/digitalasset/daml/lf value.proto
+npm run asbuild
+cp ./build/release.wasm ../../resources/create-contract.as.wasm
+```
+
 # Issues
 
 AssemblyScript was unable to compile the LF `value.proto` file - there were issues with variants that required some manual patching.

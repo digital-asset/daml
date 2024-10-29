@@ -7,6 +7,13 @@ import { SimpleTemplate, SimpleTemplateCompanion } from "./templates";
 
 export function main(): void {
   api.logInfo("hello-world");
+
+  let contract: api.Contract<SimpleTemplate> = SimpleTemplate.create(
+    "alice",
+    42,
+  ).save<SimpleTemplate>();
+
+  api.logInfo(`created contract with ID ${contract.contractId()}`);
 }
 
 // The following are code generated export functions for each api.Template instance
