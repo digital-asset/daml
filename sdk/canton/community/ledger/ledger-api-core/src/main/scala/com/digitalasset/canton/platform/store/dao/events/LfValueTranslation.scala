@@ -354,6 +354,9 @@ final class LfValueTranslation(
     lazy val interfaceId: Option[LfIdentifier] =
       raw.partial.interfaceId.map(apiIdentifierToDamlLfIdentifier)
     lazy val choiceName: LfChoiceName = LfChoiceName.assertFromString(raw.partial.choice)
+    val choicePkgId = raw.partial.choicePackageId
+      .map(LfPackageId.assertFromString)
+      .getOrElse(templateId.packageId)
 
     // Convert Daml-LF values to ledger API values.
     // In verbose mode, this involves loading Daml-LF packages and filling in missing type information.
@@ -363,20 +366,23 @@ final class LfValueTranslation(
         verbose = verbose,
         attribute = "exercise argument",
         enrich = value =>
-          enricher.enrichChoiceArgument(templateId, interfaceId, choiceName, value.unversioned),
+          enricher.enrichChoiceArgument(
+            templateId.copy(packageId = choicePkgId),
+            interfaceId,
+            choiceName,
+            value.unversioned,
+          ),
       )
       exerciseResult <- exerciseResult match {
         case Some(result) =>
-          val choicePkgId = raw.partial.choicePackageId
-            .map(LfPackageId.assertFromString)
-            .getOrElse(templateId.packageId)
           toApiValue(
             value = result,
             verbose = verbose,
             attribute = "exercise result",
             enrich = value =>
               enricher.enrichChoiceResult(
-                templateId.copy(packageId = choicePkgId),
+                choicePkgId,
+                templateId.qualifiedName,
                 interfaceId,
                 choiceName,
                 value.unversioned,

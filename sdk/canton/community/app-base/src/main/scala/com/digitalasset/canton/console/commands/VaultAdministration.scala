@@ -24,7 +24,7 @@ import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
 import com.digitalasset.canton.topology.{KeyOwner, KeyOwnerCode}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{BinaryFileUtil, OptionUtil}
+import com.digitalasset.canton.util.BinaryFileUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 
@@ -45,17 +45,17 @@ class SecretKeyAdministration(
 
   import runner.*
 
-  protected def regenerateKey(currentKey: PublicKey, name: Option[String]): PublicKey =
+  protected def regenerateKey(currentKey: PublicKey, name: String): PublicKey =
     currentKey match {
       case encKey: EncryptionPublicKey =>
         instance.keys.secret.generate_encryption_key(
           scheme = Some(encKey.scheme),
-          name = OptionUtil.noneAsEmptyString(name),
+          name = name,
         )
       case signKey: SigningPublicKey =>
         instance.keys.secret.generate_signing_key(
           scheme = Some(signKey.scheme),
-          name = OptionUtil.noneAsEmptyString(name),
+          name = name,
         )
       case unknown => throw new IllegalArgumentException(s"Invalid public key type: $unknown")
     }
@@ -150,16 +150,22 @@ class SecretKeyAdministration(
     """Rotates an existing encryption or signing key stored externally in a KMS with a pre-generated
       key. For a sequencer or mediator node use `rotate_kms_node_key` with a domain manager reference as an argument.
       |The fingerprint of the key we want to rotate.
-      |The id of the new KMS key (e.g. Resource Name)."""
+      |The id of the new KMS key (e.g. Resource Name).
+      |An optional name for the new key."""
   )
-  def rotate_kms_node_key(fingerprint: String, newKmsKeyId: String): PublicKey = {
+  def rotate_kms_node_key(
+      fingerprint: String,
+      newKmsKeyId: String,
+      name: String = "",
+  ): PublicKey = {
 
     val owner = instance.id.keyOwner
 
     val currentKey = findPublicKey(fingerprint, instance.topology, owner)
     val newKey = currentKey.purpose match {
-      case KeyPurpose.Signing => instance.keys.secret.register_kms_signing_key(newKmsKeyId)
-      case KeyPurpose.Encryption => instance.keys.secret.register_kms_encryption_key(newKmsKeyId)
+      case KeyPurpose.Signing => instance.keys.secret.register_kms_signing_key(newKmsKeyId, name)
+      case KeyPurpose.Encryption =>
+        instance.keys.secret.register_kms_encryption_key(newKmsKeyId, name)
     }
 
     // Rotate the key for the node in the topology management
@@ -177,15 +183,19 @@ class SecretKeyAdministration(
     """Rotates an existing encryption or signing key. NOTE: A namespace root or intermediate
       signing key CANNOT be rotated by this command. For a sequencer or mediator node use `rotate_kms_node_key` with
       a domain manager reference as an argument.
-      |The fingerprint of the key we want to rotate."""
+      |The fingerprint of the key we want to rotate.
+      |An optional name for the new key."""
   )
-  def rotate_node_key(fingerprint: String, name: Option[String] = None): PublicKey = {
+  def rotate_node_key(fingerprint: String, name: String = ""): PublicKey = {
     val owner = instance.id.keyOwner
 
     val currentKey = findPublicKey(fingerprint, instance.topology, owner)
 
     val newName =
-      name.orElse(generateNewNameForRotatedKey(fingerprint, consoleEnvironment.environment.clock))
+      if (name.isEmpty)
+        generateNewNameForRotatedKey(fingerprint, consoleEnvironment.environment.clock)
+      else name
+
     val newKey = regenerateKey(currentKey, newName)
 
     // Rotate the key for the node in the topology management
@@ -260,7 +270,7 @@ class SecretKeyAdministration(
   protected def generateNewNameForRotatedKey(
       currentKeyId: String,
       clock: Clock,
-  ): Option[String] = {
+  ): String = {
     val keyName = instance.keys.secret
       .list()
       .find(_.publicKey.fingerprint.unwrap == currentKeyId)
@@ -270,10 +280,10 @@ class SecretKeyAdministration(
 
     keyName.map(_.unwrap) match {
       case Some(rotatedKeyRegExp(currentName)) =>
-        Some(s"$currentName-${clock.now.show}")
+        s"$currentName-${clock.now.show}"
       case Some(currentName) =>
-        Some(s"$currentName-rotated-${clock.now.show}")
-      case None => None
+        s"$currentName-rotated-${clock.now.show}"
+      case None => ""
     }
   }
 
