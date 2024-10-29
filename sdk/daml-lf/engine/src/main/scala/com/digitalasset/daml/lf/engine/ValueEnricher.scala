@@ -101,13 +101,35 @@ final class ValueEnricher(
   }
 
   def enrichChoiceArgument(
+      choicePackageId: PackageId,
+      qualifiedTemplateName: QualifiedName,
+      interfaceId: Option[Identifier],
+      choiceName: Name,
+      value: Value,
+  ): Result[Value] =
+    handleLookup(
+      pkgInterface.lookupChoice(
+        Identifier(choicePackageId, qualifiedTemplateName),
+        interfaceId,
+        choiceName,
+      )
+    )
+      .flatMap(choice => enrichValue(choice.argBinder._2, value))
+
+  // Deprecated
+  def enrichChoiceArgument(
       templateId: Identifier,
       interfaceId: Option[Identifier],
       choiceName: Name,
       value: Value,
   ): Result[Value] =
-    handleLookup(pkgInterface.lookupChoice(templateId, interfaceId, choiceName))
-      .flatMap(choice => enrichValue(choice.argBinder._2, value))
+    enrichChoiceArgument(
+      templateId.packageId,
+      templateId.qualifiedName,
+      interfaceId,
+      choiceName,
+      value,
+    )
 
   def enrichChoiceResult(
       choicePackageId: PackageId,
@@ -126,6 +148,7 @@ final class ValueEnricher(
       .flatMap(choice => enrichValue(choice.returnType, value))
   }
 
+  // Deprecated
   def enrichChoiceResult(
       templateId: Identifier,
       interfaceId: Option[Identifier],
