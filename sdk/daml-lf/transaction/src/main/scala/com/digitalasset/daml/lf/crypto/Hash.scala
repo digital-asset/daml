@@ -254,7 +254,7 @@ object Hash {
 
     override def addVersion: this.type = {
       super.addVersion
-        .addByte(version.id, s"${formatByteToHexString(version.id)} (node_version)")
+        .addByte(version.id, s"${formatByteToHexString(version.id)} (Node Encoding Version)")
     }
 
     def addNode(node: Node, nodes: Map[NodeId, Node]): NodeBuilder
@@ -300,6 +300,7 @@ object Hash {
     private def addCreateNode(create: Node.Create): this.type = {
       addContext("Create Node")
         .addByte(NodeBuilder.NodeTag.CreateTag.tag, "Node Tag")
+        .withContext("Node Version")(_.addString(TransactionVersion.toProtoValue(create.version)))
         .withContext("Contract Id")(_.addCid(create.coid))
         .withContext("Package Name")(_.addString(create.packageName))
         .withContext("Template Id")(_.addIdentifier(create.templateId))
@@ -311,6 +312,7 @@ object Hash {
     private def addFetchNode(fetch: Node.Fetch): NodeBuilder = {
       addContext("Fetch Node")
         .addByte(NodeBuilder.NodeTag.FetchTag.tag, "Node Tag")
+        .withContext("Node Version")(_.addString(TransactionVersion.toProtoValue(fetch.version)))
         .withContext("Contract Id")(_.addCid(fetch.coid))
         .withContext("Package Name")(_.addString(fetch.packageName))
         .withContext("Template Id")(_.addIdentifier(fetch.templateId))
@@ -323,6 +325,7 @@ object Hash {
     private def addExerciseNode(exercise: Node.Exercise, nodes: Map[NodeId, Node]): NodeBuilder = {
       addContext("Exercise Node")
         .addByte(NodeBuilder.NodeTag.ExerciseTag.tag, "Node Tag")
+        .withContext("Node Version")(_.addString(TransactionVersion.toProtoValue(exercise.version)))
         .withContext("Contract Id")(_.addCid(exercise.targetCoid))
         .withContext("Package Name")(_.addString(exercise.packageName))
         .withContext("Template Id")(_.addIdentifier(exercise.templateId))
@@ -462,8 +465,8 @@ object Hash {
       assert(md.digest(buf, 0, underlyingHashLength) == underlyingHashLength)
 
     def addVersion: this.type = {
-      addByte(version.id, s"${formatByteToHexString(version.id)} (value_version)")
-        .addByte(purpose.id, s"${formatByteToHexString(purpose.id)} (value_purpose)")
+      addByte(version.id, s"${formatByteToHexString(version.id)} (Value Encoding Version)")
+        .addByte(purpose.id, s"${formatByteToHexString(purpose.id)} (Value Encoding Purpose)")
     }
   }
 
