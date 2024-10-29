@@ -33,7 +33,13 @@ import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate.CompletionDetails
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.Implicits.packageMetadataSemigroup
-import com.digitalasset.canton.platform.{Contract, InMemoryState, Key, Party}
+import com.digitalasset.canton.platform.{
+  Contract,
+  InMemoryState,
+  Key,
+  Party,
+  templateIdWithCreationPackageId,
+}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Flow
@@ -385,7 +391,7 @@ private[platform] object InMemoryStateUpdater {
           eventId = EventId(txAccepted.transactionId, nodeId),
           contractId = exercise.targetCoid,
           ledgerEffectiveTime = txAccepted.transactionMeta.ledgerEffectiveTime,
-          templateId = exercise.templateId,
+          templateId = templateIdWithCreationPackageId(exercise),
           packageName = exercise.packageName,
           commandId = txAccepted.completionInfoO.map(_.commandId).getOrElse(""),
           workflowId = txAccepted.transactionMeta.workflowId.getOrElse(""),
@@ -405,6 +411,7 @@ private[platform] object InMemoryStateUpdater {
           exerciseResult = exercise.versionedExerciseResult,
           consuming = exercise.consuming,
           interfaceId = exercise.interfaceId,
+          choicePackageId = exercise.templateId.packageId,
         )
     }
 

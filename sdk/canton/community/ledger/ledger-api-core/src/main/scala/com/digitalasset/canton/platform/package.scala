@@ -75,4 +75,7 @@ package object platform {
         t <- resourceOwner
       } yield t
   }
+
+  def templateIdWithCreationPackageId(exe: Exercise) =
+    exe.creationPackageId.fold(exe.templateId)(pkgId => exe.templateId.copy(packageId = pkgId))
 }

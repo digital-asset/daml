@@ -149,5 +149,6 @@ object TransactionLogUpdate {
       exerciseArgument: LfValue.VersionedValue,
       exerciseResult: Option[LfValue.VersionedValue],
       consuming: Boolean,
+      choicePackageId: Ref.PackageId,
   ) extends Event
 }
