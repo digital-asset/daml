@@ -6,6 +6,7 @@ package com.digitalasset.canton.environment
 import better.files.File
 import cats.Applicative
 import cats.data.EitherT
+import cats.syntax.either.*
 import com.daml.metrics.HealthMetrics
 import com.daml.metrics.api.MetricHandle.LabeledMetricsFactory
 import com.daml.metrics.api.MetricName
@@ -251,8 +252,8 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
       f.nodes.startAndWait("nope") shouldEqual Left(ConfigurationNotFound("nope"))
     }
     "not error if the node is already running when we try to start" in { f =>
-      f.nodes.startAndWait("n1").map(_ => ()) shouldBe Right(()) // first create should work
-      f.nodes.startAndWait("n1").map(_ => ()) shouldBe Right(()) // second is now a noop
+      f.nodes.startAndWait("n1").map(_ => ()) shouldBe Either.unit // first create should work
+      f.nodes.startAndWait("n1").map(_ => ()) shouldBe Either.unit // second is now a noop
     }
     "return an initialization failure if an exception is thrown during startup" in { f =>
       val exception = new RuntimeException("Nope!")
@@ -276,7 +277,7 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
       f.nodes.stopAndWait("nope") shouldEqual Left(ConfigurationNotFound("nope"))
     }
     "return successfully if the node is not running" in { f =>
-      f.nodes.stopAndWait("n1") shouldBe Right(())
+      f.nodes.stopAndWait("n1") shouldBe Either.unit
     }
     "return an initialization failure if an exception is thrown during shutdown" in { f =>
       val anException = new RuntimeException("Nope!")
@@ -286,7 +287,7 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
       }
       f.nodeFactory.setupCreate(node)
 
-      f.nodes.startAndWait("n1") shouldBe Right(())
+      f.nodes.startAndWait("n1") shouldBe Either.unit
 
       loggerFactory.assertThrowsAndLogs[ShutdownFailedException](
         f.nodes.stopAndWait("n1"),
@@ -298,9 +299,9 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
     }
     "properly stop a running node" in { f =>
       f.nodeFactory.setupCreate(new TestNodeBootstrap(f.config))
-      f.nodes.startAndWait("n1") shouldBe Right(())
+      f.nodes.startAndWait("n1") shouldBe Either.unit
       f.nodes.isRunning("n1") shouldBe true
-      f.nodes.stopAndWait("n1") shouldBe Right(())
+      f.nodes.stopAndWait("n1") shouldBe Either.unit
       f.nodes.isRunning("n1") shouldBe false
     }
   }
@@ -321,7 +322,7 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
     // push start result
     startPromise.success(startupResult)
     // node should be properly closed and stop should succeed
-    stop.value.futureValue shouldBe Right(())
+    stop.value.futureValue shouldBe Either.unit
     node.isClosing shouldBe true
     // wait for start to be have completed all callbacks including removing n1 from nodes.
     start.value.futureValue.discard
@@ -335,7 +336,7 @@ class NodesTest extends FixtureAnyWordSpec with BaseTest with HasExecutionContex
 
   "work when we are just starting" when {
     "start succeeded" in { f =>
-      startStopBehavior(f, Right(()))
+      startStopBehavior(f, Either.unit)
     }
     "start failed" in { f =>
       startStopBehavior(f, Left("Stinky"))

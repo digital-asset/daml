@@ -4,6 +4,7 @@
 package com.digitalasset.canton.store.memory
 
 import cats.data.EitherT
+import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.data.CantonTimestamp
@@ -166,9 +167,9 @@ class InMemorySequencedEventStore(protected val loggerFactory: NamedLoggerFactor
       }
       eventByTimestamp.addAll(events)
 
-      Right(())
+      Either.unit
     } else if (from > to) {
-      Right(())
+      Either.unit
     } else {
       Left(ChangeWouldResultInGap(firstSc, from - 1))
     }
@@ -218,13 +219,12 @@ class InMemorySequencedEventStore(protected val loggerFactory: NamedLoggerFactor
           eventByTimestamp.remove(ts).discard
           timestampOfCounter.remove(sc).discard
         }
-        Right(())
-
+        Either.unit
       } else {
         Left(ChangeWouldResultInGap(fromEffective, to))
       }
     } else {
-      Right(())
+      Either.unit
     }
   }
 

@@ -300,13 +300,13 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
     withNewTraceContext { implicit traceContext =>
       if (config.parameters.manualStart) {
         logger.info("Manual start requested.")
-        Right(())
+        Either.unit
       } else {
         logger.info("Automatically starting all instances")
         val startup = for {
           _ <- startAll()
           _ <- reconnectParticipants
-          _ <- if (autoConnectLocal) autoConnectLocalNodes() else Right(())
+          _ <- if (autoConnectLocal) autoConnectLocalNodes() else Either.unit
         } yield writePortsFile()
         // log results
         startup

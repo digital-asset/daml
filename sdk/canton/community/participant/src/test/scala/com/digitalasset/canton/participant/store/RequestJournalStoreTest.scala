@@ -352,6 +352,48 @@ trait RequestJournalStoreTest {
       }
     }
 
-    // TODO(i18695): Add unit tests for lastRequestCounterWithRequestTimestampBeforeOrAt
+    "lastRequestCounterWithRequestTimestampBeforeOrAt" should {
+      "return the last request counter before a request timestamp" in {
+        val store = mk()
+        for {
+          _ <- setupRequests(store)
+          early <- store.lastRequestCounterWithRequestTimestampBeforeOrAt(tsWithSecs(0))
+          firstAt <- store.lastRequestCounterWithRequestTimestampBeforeOrAt(tsWithSecs(1))
+          firstAfter <- store.lastRequestCounterWithRequestTimestampBeforeOrAt(tsWithSecs(2))
+          secondAt <- store.lastRequestCounterWithRequestTimestampBeforeOrAt(tsWithSecs(3))
+          secondAfter <- store.lastRequestCounterWithRequestTimestampBeforeOrAt(tsWithSecs(4))
+        } yield {
+          early shouldBe None
+          firstAt shouldBe Some(rc)
+          firstAfter shouldBe Some(rc)
+          secondAt shouldBe Some(rc + 2)
+          secondAfter shouldBe Some(rc + 2)
+        }
+      }
+
+      "return the last request counter before a request timestamp should not care about the commit time" in {
+        val store = mk()
+        for {
+          _ <- setupRequests(store)
+          _ <- valueOrFail(store.replace(rc, tsWithSecs(1), Clean, Some(tsWithSecs(1000))))(
+            "replace1"
+          )
+          _ <- valueOrFail(store.replace(rc + 2, tsWithSecs(3), Clean, Some(tsWithSecs(3))))(
+            "replace2"
+          )
+          early <- store.lastRequestCounterWithRequestTimestampBeforeOrAt(tsWithSecs(0))
+          firstAt <- store.lastRequestCounterWithRequestTimestampBeforeOrAt(tsWithSecs(1))
+          firstAfter <- store.lastRequestCounterWithRequestTimestampBeforeOrAt(tsWithSecs(2))
+          secondAt <- store.lastRequestCounterWithRequestTimestampBeforeOrAt(tsWithSecs(3))
+          secondAfter <- store.lastRequestCounterWithRequestTimestampBeforeOrAt(tsWithSecs(4))
+        } yield {
+          early shouldBe None
+          firstAt shouldBe Some(rc)
+          firstAfter shouldBe Some(rc)
+          secondAt shouldBe Some(rc + 2)
+          secondAfter shouldBe Some(rc + 2)
+        }
+      }
+    }
   }
 }

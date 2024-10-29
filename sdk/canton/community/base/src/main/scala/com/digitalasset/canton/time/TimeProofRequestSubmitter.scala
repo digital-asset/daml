@@ -4,6 +4,7 @@
 package com.digitalasset.canton.time
 
 import cats.data.EitherT
+import cats.syntax.either.*
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.{ProcessingTimeout, TimeProofRequestConfig}
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
@@ -85,7 +86,7 @@ private[time] class TimeProofRequestSubmitterImpl(
         if (stillPending) {
           logger.debug("Sending time request")
           sendRequest(traceContext).value
-        } else FutureUnlessShutdown.pure(Right(()))
+        } else FutureUnlessShutdown.pure(Either.unit)
       }
 
     def eventuallySendRequest(): Unit =

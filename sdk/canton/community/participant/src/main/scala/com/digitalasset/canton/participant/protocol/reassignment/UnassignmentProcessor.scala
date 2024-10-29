@@ -10,11 +10,14 @@ import com.digitalasset.canton.crypto.DomainSyncCryptoClient
 import com.digitalasset.canton.data.ViewType.UnassignmentViewType
 import com.digitalasset.canton.lifecycle.PromiseUnlessShutdownFactory
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.participant.protocol.ProtocolProcessor
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.ReassignmentProcessorError
 import com.digitalasset.canton.participant.protocol.submission.{
   InFlightSubmissionTracker,
   SeedGenerator,
+}
+import com.digitalasset.canton.participant.protocol.{
+  ProtocolProcessor,
+  SerializableContractAuthenticator,
 }
 import com.digitalasset.canton.participant.store.SyncDomainEphemeralState
 import com.digitalasset.canton.participant.util.DAMLe
@@ -57,6 +60,7 @@ class UnassignmentProcessor(
         reassignmentCoordination,
         seedGenerator,
         staticDomainParameters,
+        SerializableContractAuthenticator(domainCrypto.pureCrypto),
         sourceProtocolVersion,
         loggerFactory,
       ),

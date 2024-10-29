@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.pruning
 
 import cats.data.EitherT
+import cats.syntax.either.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import cats.syntax.traverseFilter.*
@@ -131,7 +132,7 @@ class PruningProcessor(
       val done = offset == pruneUpToInclusive
       pruneLedgerEventBatch(lastUpTo, offset).transform {
         case Left(e) => Right(Left(e))
-        case Right(_) if done => Right(Right(()))
+        case Right(_) if done => Right(Either.unit)
         case Right(_) => Left(Some(offset))
       }.value
     }

@@ -3,6 +3,8 @@
 
 package com.digitalasset.canton.ledger.api.validation
 
+import cats.syntax.either.*
+
 import java.nio.charset.StandardCharsets
 import scala.util.matching.Regex
 
@@ -53,14 +55,14 @@ object ResourceAnnotationValidator {
           AnnotationsSizeExceededError,
         )
       _ <- validateAnnotationKeys(annotations)
-      _ <- if (allowEmptyValues) Right(()) else validateAnnotationsValues(annotations)
+      _ <- if (allowEmptyValues) Either.unit else validateAnnotationsValues(annotations)
     } yield ()
   }
 
   private def validateAnnotationsValues(
       annotations: Map[String, String]
   ): Either[MetadataAnnotationsError, Unit] =
-    annotations.view.iterator.foldLeft(Right(()): Either[MetadataAnnotationsError, Unit]) {
+    annotations.view.iterator.foldLeft(Either.unit[MetadataAnnotationsError]) {
       case (acc, (key, value)) =>
         for {
           _ <- acc
@@ -71,12 +73,11 @@ object ResourceAnnotationValidator {
   private def validateAnnotationKeys(
       annotations: Map[String, String]
   ): Either[MetadataAnnotationsError, Unit] =
-    annotations.keys.iterator.foldLeft(Right(()): Either[MetadataAnnotationsError, Unit]) {
-      (acc, key) =>
-        for {
-          _ <- acc
-          _ <- isValidKey(key)
-        } yield ()
+    annotations.keys.iterator.foldLeft(Either.unit[MetadataAnnotationsError]) { (acc, key) =>
+      for {
+        _ <- acc
+        _ <- isValidKey(key)
+      } yield ()
     }
 
   private def isValidKey(key: String): Either[MetadataAnnotationsError, Unit] =
@@ -105,15 +106,13 @@ object ResourceAnnotationValidator {
         )
       )
     } else {
-      if (DnsSubdomainRegex.matches(prefixSegment)) {
-        Right(())
-      } else {
-        Left(
-          InvalidAnnotationsKeyError(
-            s"Key prefix segment '${shorten(prefixSegment)}' has invalid syntax"
-          )
-        )
-      }
+      Either.cond(
+        DnsSubdomainRegex.matches(prefixSegment),
+        (),
+        InvalidAnnotationsKeyError(
+          s"Key prefix segment '${shorten(prefixSegment)}' has invalid syntax"
+        ),
+      )
     }
 
   private def isValidKeyNameSegment(
@@ -126,15 +125,13 @@ object ResourceAnnotationValidator {
         )
       )
     } else {
-      if (KeySegmentRegex.matches(nameSegment)) {
-        Right(())
-      } else {
-        Left(
-          InvalidAnnotationsKeyError(
-            s"Key name segment '${shorten(nameSegment)}' has invalid syntax"
-          )
-        )
-      }
+      Either.cond(
+        KeySegmentRegex.matches(nameSegment),
+        (),
+        InvalidAnnotationsKeyError(
+          s"Key name segment '${shorten(nameSegment)}' has invalid syntax"
+        ),
+      )
     }
 
   private def shorten(s: String): String =

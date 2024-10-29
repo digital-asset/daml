@@ -134,8 +134,9 @@ class CompletionServiceRequestValidatorTest
             ledgerEnd,
           ),
           code = OUT_OF_RANGE,
-          description =
-            "OFFSET_AFTER_LEDGER_END(12,0): Begin offset (000000000000001001) is after ledger end (000000000000001000)",
+          description = s"OFFSET_AFTER_LEDGER_END(12,0): Begin offset (${ApiOffset
+              .assertFromStringToLong(ledgerEnd) + 1}) is after ledger end (${ApiOffset
+              .assertFromStringToLong(ledgerEnd)})",
           metadata = Map.empty,
         )
       }

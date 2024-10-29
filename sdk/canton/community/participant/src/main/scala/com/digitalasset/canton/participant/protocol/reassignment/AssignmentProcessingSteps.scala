@@ -43,6 +43,7 @@ import com.digitalasset.canton.participant.protocol.{
   EngineController,
   ProcessingSteps,
   ReassignmentSubmissionValidation,
+  SerializableContractAuthenticator,
 }
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.ActiveContractStore.Archived
@@ -76,6 +77,7 @@ private[reassignment] class AssignmentProcessingSteps(
     val engine: DAMLe,
     reassignmentCoordination: ReassignmentCoordination,
     seedGenerator: SeedGenerator,
+    serializableContractAuthenticator: SerializableContractAuthenticator,
     staticDomainParameters: Target[StaticDomainParameters],
     targetProtocolVersion: Target[ProtocolVersion],
     protected val loggerFactory: NamedLoggerFactory,
@@ -105,6 +107,7 @@ private[reassignment] class AssignmentProcessingSteps(
 
   private val assignmentValidation = new AssignmentValidation(
     domainId,
+    serializableContractAuthenticator,
     staticDomainParameters,
     participantId,
     engine,
@@ -421,7 +424,7 @@ private[reassignment] class AssignmentProcessingSteps(
               validationResultO,
             )
           )
-          .leftMap(e => FailedToCreateResponse(reassignmentId, e): ReassignmentProcessorError)
+          .leftMap[ReassignmentProcessorError](FailedToCreateResponse(reassignmentId, _))
       } yield {
         reassignmentResponses.map(_ -> Recipients.cc(mediator))
       }

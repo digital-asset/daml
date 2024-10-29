@@ -30,15 +30,15 @@ object SequencerPublicCommands {
         proto.SequencerConnect.GetDomainIdResponse,
         DomainId,
       ] {
-    override def createRequest(): Either[String, Empty] = Right(Empty())
+    override protected def createRequest(): Either[String, Empty] = Right(Empty())
 
-    override def submitRequest(
+    override protected def submitRequest(
         service: SequencerConnectServiceStub,
         request: Empty,
     ): Future[proto.SequencerConnect.GetDomainIdResponse] =
       service.getDomainId(proto.SequencerConnect.GetDomainIdRequest())
 
-    override def handleResponse(
+    override protected def handleResponse(
         response: proto.SequencerConnect.GetDomainIdResponse
     ): Either[String, DomainId] =
       DomainId.fromProtoPrimitive(response.domainId, "domain_id").leftMap(_.message)
@@ -50,15 +50,15 @@ object SequencerPublicCommands {
         proto.SequencerConnect.GetDomainParametersResponse,
         ConsoleStaticDomainParameters,
       ] {
-    override def createRequest(): Either[String, Empty] = Right(Empty())
+    override protected def createRequest(): Either[String, Empty] = Right(Empty())
 
-    override def submitRequest(
+    override protected def submitRequest(
         service: SequencerConnectServiceStub,
         request: Empty,
     ): Future[proto.SequencerConnect.GetDomainParametersResponse] =
       service.getDomainParameters(proto.SequencerConnect.GetDomainParametersRequest())
 
-    override def handleResponse(
+    override protected def handleResponse(
         response: proto.SequencerConnect.GetDomainParametersResponse
     ): Either[String, ConsoleStaticDomainParameters] =
       response.parameters match {

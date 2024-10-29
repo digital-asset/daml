@@ -150,7 +150,7 @@ final class ApiParticipantPruningService private (
   )(implicit loggingContext: LoggingContextWithTrace): Future[Unit] = {
     import state.PruningResult.*
     logger.info(
-      s"About to prune participant ledger up to ${pruneUpTo.toApiString} inclusively starting with the write service."
+      s"About to prune participant ledger up to ${pruneUpTo.toApiType} inclusively starting with the write service."
     )
     writeService
       .prune(pruneUpTo, submissionId, pruneAllDivulgedContracts)
@@ -159,7 +159,7 @@ final class ApiParticipantPruningService private (
         case NotPruned(status) =>
           Future.failed(new ApiException(StatusProto.toStatusRuntimeException(status)))
         case ParticipantPruned =>
-          logger.info(s"Pruned participant ledger up to ${pruneUpTo.toApiString} inclusively.")
+          logger.info(s"Pruned participant ledger up to ${pruneUpTo.toApiType} inclusively.")
           Future.successful(())
       }
   }
@@ -169,11 +169,11 @@ final class ApiParticipantPruningService private (
       pruneAllDivulgedContracts: Boolean,
       incompletReassignmentOffsets: Vector[Offset],
   )(implicit loggingContext: LoggingContextWithTrace): Future[PruneResponse] = {
-    logger.info(s"About to prune ledger api server index to ${pruneUpTo.toApiString} inclusively.")
+    logger.info(s"About to prune ledger api server index to ${pruneUpTo.toApiType} inclusively.")
     readBackend
       .prune(pruneUpTo, pruneAllDivulgedContracts, incompletReassignmentOffsets)
       .map { _ =>
-        logger.info(s"Pruned ledger api server index up to ${pruneUpTo.toApiString} inclusively.")
+        logger.info(s"Pruned ledger api server index up to ${pruneUpTo.toApiType} inclusively.")
         PruneResponse()
       }
   }

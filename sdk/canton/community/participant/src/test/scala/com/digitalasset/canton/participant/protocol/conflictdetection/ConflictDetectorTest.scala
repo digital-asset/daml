@@ -232,7 +232,7 @@ class ConflictDetectorTest
           .failOnShutdown
       } yield {
         cr shouldBe mkActivenessResult()
-        fin shouldBe Right(())
+        fin shouldBe Either.unit
       }
     }
 
@@ -280,7 +280,7 @@ class ConflictDetectorTest
           .failOnShutdown
       } yield {
         cr shouldBe mkActivenessResult()
-        fin shouldBe Right(())
+        fin shouldBe Either.unit
       }
     }
 
@@ -348,7 +348,7 @@ class ConflictDetectorTest
           )
           .flatten
           .failOnShutdown
-        _ = assert(fin == Right(()))
+        _ = assert(fin == Either.unit)
 
         _ = checkContractStateAbsent(cd, coid00)(s"evict archived contract $coid00")
         _ = checkContractStateAbsent(cd, coid01)(s"evict unlocked non-archived contract $coid01")
@@ -380,13 +380,13 @@ class ConflictDetectorTest
           .finalizeRequest(CommitSet.empty, TimeOfChange(rc + 1, ts.plusMillis(1)))
           .flatten
           .failOnShutdown
-        _ = assert(fin1 == Right(()))
+        _ = assert(fin1 == Either.unit)
         _ = checkContractState(cd, coid00, 0, 1, 0)(
           s"Rollback of request ${rc + 1} releases the deactivation lock."
         )
 
         fin0 <- cd.finalizeRequest(commitSet0, toc).flatten.failOnShutdown
-        _ = fin0 shouldBe Right(())
+        _ = fin0 shouldBe Either.unit
         _ = forEvery(Seq(coid00, coid01)) { coid =>
           checkContractStateAbsent(cd, coid)(s"created contract $coid is evicted")
         }
@@ -487,7 +487,7 @@ class ConflictDetectorTest
           create = Set(coid20),
         )
         fin1 <- cd.finalizeRequest(commitSet1, toc).flatten.failOnShutdown
-        _ = assert(fin1 == Right(()))
+        _ = assert(fin1 == Either.unit)
         _ = checkContractState(cd, coid00, active, toc0, 1, 1, 0)(s"$coid00 remains locked once")
         _ = checkContractState(cd, coid11, Archived, toc, 1, 0, 0)(
           s"Archived $coid11 remains due to pending activation check"
@@ -565,7 +565,7 @@ class ConflictDetectorTest
           .finalizeRequest(mkCommitSet(create = Set(coid01)), toc1)
           .flatten
           .failOnShutdown
-        _ = assert(fin1 == Right(()))
+        _ = assert(fin1 == Either.unit)
       } yield succeed
     }
 
@@ -667,7 +667,7 @@ class ConflictDetectorTest
           .finalizeRequest(mkCommitSet(arch = Set(coid00, coid11, coid20)), toc1)
           .flatten
           .failOnShutdown
-        _ = assert(fin1 == Right(()))
+        _ = assert(fin1 == Either.unit)
         _ <- List(coid00 -> 1, coid11 -> 0, coid20 -> 1).parTraverse_ { case (coid, locks) =>
           if (locks > 0) {
             checkContractState(cd, coid, Archived, toc1, 0, locks, 0)(
@@ -867,7 +867,7 @@ class ConflictDetectorTest
           .finalizeRequest(mkCommitSet(arch = Set(coid00, coid10)), toc1)
           .flatten
           .failOnShutdown
-        _ = fin1 shouldBe Right(())
+        _ = fin1 shouldBe Either.unit
         _ <- List(coid00 -> 0, coid10 -> 0).parTraverse_ { case (coid, deactivationLocks) =>
           checkContractState(cd, coid, Archived, toc1, 0, 1 + deactivationLocks, 0)(
             s"contract $coid archived by opportunistic follow-up still locked"
@@ -912,14 +912,14 @@ class ConflictDetectorTest
           .finalizeRequest(CommitSet.empty, TimeOfChange(RequestCounter(0), Epoch))
           .flatten
           .failOnShutdown
-        _ = assert(fin0 == Right(()))
+        _ = assert(fin0 == Either.unit)
         _ = checkContractStateAbsent(cd, coid00)(s"Rolled back contract $coid00 is evicted")
 
         // Re-creating rolled-back contract coid00
         cr1 <- prefetchAndCheck(cd, RequestCounter(1), mkActivenessSet(create = Set(coid00)))
         _ = cr1 shouldBe mkActivenessResult()
         fin1 <- cd.finalizeRequest(mkCommitSet(create = Set(coid00)), toc1).flatten.failOnShutdown
-        _ = fin1 shouldBe Right(())
+        _ = fin1 shouldBe Either.unit
         _ <- checkContractState(acs, coid00, (active, toc1))(s"Contract $coid00 created")
       } yield succeed
     }
@@ -937,7 +937,7 @@ class ConflictDetectorTest
           .finalizeRequest(CommitSet.empty, TimeOfChange(RequestCounter(0), Epoch))
           .flatten
           .failOnShutdown
-        _ = assert(fin0 == Right(()))
+        _ = assert(fin0 == Either.unit)
         _ = checkContractState(cd, coid00, 0, 1, 0)(s"Rolled back contract $coid00 is locked")
 
         cr2 <- prefetchAndCheck(cd, RequestCounter(2), mkActivenessSet(create = Set(coid00)))
@@ -990,7 +990,7 @@ class ConflictDetectorTest
           _ <-
             finF1Complete.future // Delay ACs updates until outer finalizeRequest future has completed
         } yield {
-          assert(fin3 == Right(()))
+          assert(fin3 == Either.unit)
           checkContractState(cd, coid20, Archived, toc3, 0, 1, 2)(s"Contract $coid20 is archived")
           ()
         }
@@ -1162,7 +1162,7 @@ class ConflictDetectorTest
         commitSet = mkCommitSet(assign = Map(coid00 -> reassignment1, coid01 -> reassignment2))
         toc = TimeOfChange(RequestCounter(0), ts)
         finTxIn <- cd.finalizeRequest(commitSet, toc).flatten.failOnShutdown
-        _ = assert(finTxIn == Right(()))
+        _ = assert(finTxIn == Either.unit)
         _ = Seq(coid00, coid01, coid10).foreach { coid =>
           checkContractStateAbsent(cd, coid)(s"Contract $coid is evicted.")
         }
@@ -1486,7 +1486,7 @@ class ConflictDetectorTest
             prior = Map(coid00 -> Some(ReassignedAway(targetDomain1, reassignmentCounter1))),
           )
         )
-        assert(fin1 == Right(()))
+        assert(fin1 == Either.unit)
         assert(
           fetch00.contains(
             AcsContractState(
@@ -1530,7 +1530,7 @@ class ConflictDetectorTest
           actRes2 == mkActivenessResult(notFree = Map(coid00 -> active)),
           s"double activation is reported",
         )
-        assert(fin2 == Right(()))
+        assert(fin2 == Either.unit)
         assert(fetch00.contains(AcsContractState(active, RequestCounter(1), ofEpochMilli(1000))))
       }
     }
@@ -1569,7 +1569,7 @@ class ConflictDetectorTest
         fin2 <- cd.finalizeRequest(commitSet2, toc2).flatten.failOnShutdown
         fin1 <- cd.finalizeRequest(commitSet1, toc1).flatten.failOnShutdown
       } yield {
-        assert(fin2 == Right(()), s"First commit goes through")
+        assert(fin2 == Either.unit, s"First commit goes through")
         fin1
           .leftOrFail("Double (de)activations are reported.")
           .toList should contain(AcsError(ChangeAfterArchival(coid00, toc1, toc2)))
@@ -1671,7 +1671,7 @@ class ConflictDetectorTest
         fin1 <- cd.finalizeRequest(commitSet, toc).flatten.failOnShutdown
         fin2 <- promise.future
       } yield {
-        assert(fin1 == Right(()), "First assignment succeeds")
+        assert(fin1 == Either.unit, "First assignment succeeds")
         fin2.leftOrFail(s"Reassignment $reassignment1 was already completed").toList should contain(
           ReassignmentsStoreError(ReassignmentAlreadyCompleted(reassignment1, toc2))
         )
@@ -1709,7 +1709,7 @@ class ConflictDetectorTest
           unassign = Map(coid01 -> (domain1 -> reassignmentCounter1)),
         )
         fin1 <- cd.finalizeRequest(commitSet1, toc1).flatten.failOnShutdown
-        _ = assert(fin1 == Right(()))
+        _ = assert(fin1 == Either.unit)
 
         _ <- acs.prune(toc1.timestamp)
 
@@ -1722,8 +1722,8 @@ class ConflictDetectorTest
         // Triggers invariant checking if invariant checking is enabled
         fin3 <- cd.finalizeRequest(CommitSet.empty, toc3).flatten.failOnShutdown
       } yield {
-        assert(fin2 == Right(()))
-        assert(fin3 == Right(()))
+        assert(fin2 == Either.unit)
+        assert(fin3 == Either.unit)
       }
     }
 
@@ -1889,6 +1889,6 @@ class ConflictDetectorTest
       fin <- cd.finalizeRequest(commitSet, TimeOfChange(rc, recordTime)).flatten.failOnShutdown
     } yield {
       assert(cr == activenessResult, "activeness check reports the correct result")
-      assert(fin == Right(()))
+      assert(fin == Either.unit)
     }
 }

@@ -201,7 +201,7 @@ object SequencedEventValidator extends HasLoggerName {
     )(implicit
         traceContext: TraceContext
     ): EitherT[FutureUnlessShutdown, SequencedEventValidationError[Nothing], Unit] =
-      EitherT(FutureUnlessShutdown.pure(Either.right(())))
+      EitherT(FutureUnlessShutdown.pure(Either.unit))
     override def validateOnReconnect(
         priorEvent: Option[PossiblyIgnoredSerializedEvent],
         reconnectEvent: OrdinarySerializedEvent,

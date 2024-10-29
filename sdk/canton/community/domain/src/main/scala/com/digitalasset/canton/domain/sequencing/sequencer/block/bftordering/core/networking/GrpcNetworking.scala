@@ -152,6 +152,7 @@ final class GrpcNetworking(
       (channel, BftOrderingServiceGrpc.stub(channel))
     }
 
+    @SuppressWarnings(Array("com.digitalasset.canton.DirectGrpcServiceInvocation"))
     private def createServerEndpoint(
         serverPeer: Endpoint,
         channel: ManagedChannel,

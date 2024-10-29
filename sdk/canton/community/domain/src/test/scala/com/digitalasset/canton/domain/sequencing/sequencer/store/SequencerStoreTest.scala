@@ -4,6 +4,7 @@
 package com.digitalasset.canton.domain.sequencing.sequencer.store
 
 import cats.data.EitherT
+import cats.syntax.either.*
 import cats.syntax.functor.*
 import cats.syntax.option.*
 import cats.syntax.parallel.*
@@ -627,8 +628,8 @@ trait SequencerStoreTest
           )
           withTopologyTimestamp <- env.store.saveCounterCheckpoint(aliceId, checkpoint2).value
         } yield {
-          withoutTopologyTimestamp shouldBe Right(())
-          withTopologyTimestamp shouldBe Right(())
+          withoutTopologyTimestamp shouldBe Either.unit
+          withTopologyTimestamp shouldBe Either.unit
         }
       }
 
@@ -654,10 +655,10 @@ trait SequencerStoreTest
             .saveCounterCheckpoint(aliceId, checkpoint(SequencerCounter(10), ts2, Some(ts3)))
             .value // note different topology client timestamp value
         } yield {
-          updatedTimestamp shouldBe Right(())
-          updatedTimestampAndTopologyTimestamp shouldBe Right(())
-          allowedDuplicateInsert shouldBe Right(())
-          updatedTimestamp2 shouldBe Right(())
+          updatedTimestamp shouldBe Either.unit
+          updatedTimestampAndTopologyTimestamp shouldBe Either.unit
+          allowedDuplicateInsert shouldBe Either.unit
+          updatedTimestamp2 shouldBe Either.unit
         }
       }
     }

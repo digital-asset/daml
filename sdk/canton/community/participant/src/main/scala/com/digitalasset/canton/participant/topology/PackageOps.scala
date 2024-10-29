@@ -4,7 +4,8 @@
 package com.digitalasset.canton.participant.topology
 
 import cats.data.EitherT
-import cats.implicits.toBifunctorOps
+import cats.syntax.bifunctor.*
+import cats.syntax.either.*
 import cats.syntax.functor.*
 import cats.syntax.parallel.*
 import com.daml.nameof.NameOf.functionFullName
@@ -90,7 +91,7 @@ class PackageOpsImpl(
           state.activeContractStore
             .packageUsage(packageId, state.contractStore)
             .map(opt =>
-              opt.fold[Either[PackageInUse, Unit]](Right(()))(contractId =>
+              opt.fold(Either.unit[PackageInUse])(contractId =>
                 Left(new PackageInUse(packageId, contractId, state.indexedDomain.domainId))
               )
             )

@@ -24,7 +24,7 @@ class FutureUnlessShutdownTest extends AsyncWordSpec with BaseTest with HasExecu
 
     "detect discarded FutureunlessShutdown when wrapped" in {
       val result = WartTestTraverser(DiscardedFuture) {
-        EitherT(FutureUnlessShutdown.pure(Either.right(())))
+        EitherT(FutureUnlessShutdown.pure(Either.unit))
         ()
       }
       DiscardedFutureTest.assertErrors(result, 1)

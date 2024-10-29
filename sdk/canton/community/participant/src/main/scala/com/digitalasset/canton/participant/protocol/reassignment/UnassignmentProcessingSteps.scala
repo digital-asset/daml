@@ -43,7 +43,11 @@ import com.digitalasset.canton.participant.protocol.submission.{
   EncryptedViewMessageFactory,
   SeedGenerator,
 }
-import com.digitalasset.canton.participant.protocol.{EngineController, ProcessingSteps}
+import com.digitalasset.canton.participant.protocol.{
+  EngineController,
+  ProcessingSteps,
+  SerializableContractAuthenticator,
+}
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.ActiveContractStore.{
   Active,
@@ -82,6 +86,7 @@ class UnassignmentProcessingSteps(
     reassignmentCoordination: ReassignmentCoordination,
     seedGenerator: SeedGenerator,
     staticDomainParameters: Source[StaticDomainParameters],
+    serializableContractAuthenticator: SerializableContractAuthenticator,
     val sourceDomainProtocolVersion: Source[ProtocolVersion],
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
@@ -421,6 +426,8 @@ class UnassignmentProcessingSteps(
 
     val reassignmentId: ReassignmentId = ReassignmentId(fullTree.sourceDomain, ts)
     val view = fullTree.tree.view.tryUnwrap
+
+    // TODO(#15090) The instance should be checked against the local version
     val contract = view.contract
     val isReassigningParticipant = fullTree.isReassigningParticipant(participantId)
 
@@ -439,6 +446,7 @@ class UnassignmentProcessingSteps(
         else EitherT.pure[FutureUnlessShutdown, ReassignmentProcessorError](None)
 
       _ <- UnassignmentValidation.perform(
+        serializableContractAuthenticator = serializableContractAuthenticator,
         expectedStakeholders = Stakeholders(contract.metadata),
         contract.rawContractInstance.contractInstance.unversioned.template,
         sourceDomainProtocolVersion,

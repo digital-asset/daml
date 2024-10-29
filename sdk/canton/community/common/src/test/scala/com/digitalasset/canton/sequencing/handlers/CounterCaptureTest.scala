@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.sequencing.handlers
 
+import cats.syntax.either.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.sequencing.protocol.SignedContent
 import com.digitalasset.canton.sequencing.{SequencerTestUtils, SerializedEventHandler}
@@ -27,7 +28,7 @@ class CounterCaptureTest extends AnyWordSpec with BaseTest {
 
     "update the counter when we successfully process an event" in {
       val counterCapture = new CounterCapture(SequencerCounter(1), loggerFactory)
-      val handler: TestEventHandler = _ => Future.successful(Right(()))
+      val handler: TestEventHandler = _ => Future.successful(Either.unit)
       val capturingHandler = counterCapture(handler)
 
       val fut = capturingHandler(
@@ -37,7 +38,7 @@ class CounterCaptureTest extends AnyWordSpec with BaseTest {
       )
 
       counterCapture.counter shouldBe SequencerCounter(42)
-      fut.futureValue shouldBe Right(())
+      fut.futureValue shouldBe Either.unit
     }
 
     "not update the counter when the handler fails" in {

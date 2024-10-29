@@ -59,9 +59,7 @@ import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{ErrorUtil, ReassignmentTag}
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LfPartyId, RequestCounter, SequencerCounter}
 import com.digitalasset.daml.lf.engine
 
@@ -526,12 +524,15 @@ object ReassignmentProcessingSteps {
     }
   }
 
-  final case class TemplateIdMismatch(
-      declaredTemplateId: LfTemplateId,
-      expectedTemplateId: LfTemplateId,
-  ) extends ReassignmentProcessorError {
-    override def message: String =
+  final case class ContractError(message: String) extends ReassignmentProcessorError
+
+  object ContractError {
+    def templateIdMismatch(
+        declaredTemplateId: LfTemplateId,
+        expectedTemplateId: LfTemplateId,
+    ): ContractError = ContractError(
       s"Template ID mismatch for reassignment. Declared=$declaredTemplateId, expected=$expectedTemplateId`"
+    )
   }
 
   final case class AssignmentSubmitterMustBeStakeholder(
@@ -580,15 +581,6 @@ object ReassignmentProcessingSteps {
       error: InvalidConfirmationResponse,
   ) extends ReassignmentProcessorError {
     override def message: String = s"Cannot reassign `$reassignmentId`: failed to create response"
-  }
-
-  final case class IncompatibleProtocolVersions(
-      contractId: LfContractId,
-      source: Source[ProtocolVersion],
-      target: Target[ProtocolVersion],
-  ) extends ReassignmentProcessorError {
-    override def message: String =
-      s"Cannot reassign contract `$contractId`: invalid reassignment from domain with protocol version $source to domain with protocol version $target"
   }
 
   final case class FieldConversionError(

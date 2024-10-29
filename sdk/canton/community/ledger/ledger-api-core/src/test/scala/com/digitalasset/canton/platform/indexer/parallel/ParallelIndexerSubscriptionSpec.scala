@@ -269,7 +269,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
     val applicationId = Ref.ApplicationId.assertFromString("a0")
 
     val timestamp: Long = 12345
-    val offset = Ref.HexString.assertFromString("02")
+    val offset = Ref.HexString.assertFromString("00" * 8 + "02")
     val someHash = Hash.hashPrivateKey("p0")
 
     val someRecordTime =

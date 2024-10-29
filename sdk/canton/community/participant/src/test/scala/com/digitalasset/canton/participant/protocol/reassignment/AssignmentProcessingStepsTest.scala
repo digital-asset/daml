@@ -42,7 +42,11 @@ import com.digitalasset.canton.participant.protocol.submission.{
   EncryptedViewMessageFactory,
   SeedGenerator,
 }
-import com.digitalasset.canton.participant.protocol.{EngineController, ProcessingStartingPoints}
+import com.digitalasset.canton.participant.protocol.{
+  EngineController,
+  ProcessingStartingPoints,
+  SerializableContractAuthenticator,
+}
 import com.digitalasset.canton.participant.store.ReassignmentStoreTest.coidAbs1
 import com.digitalasset.canton.participant.store.memory.*
 import com.digitalasset.canton.participant.store.{
@@ -106,16 +110,12 @@ class AssignmentProcessingStepsTest
     UniqueIdentifier.tryFromProtoPrimitive("bothdomains::participant")
   )
 
-  private lazy val contractId = coidAbs1
-  private lazy val contract = ExampleTransactionFactory.asSerializable(
-    contractId = contractId,
-    contractInstance = ExampleTransactionFactory.contractInstance(),
-    ledgerTime = CantonTimestamp.Epoch,
+  private lazy val contract = ExampleTransactionFactory.authenticatedSerializableContract(
     metadata = ContractMetadata.tryCreate(
       stakeholders = Set(party1),
       signatories = Set(party1),
       maybeKeyWithMaintainersVersioned = None,
-    ),
+    )
   )
 
   private lazy val initialReassignmentCounter: ReassignmentCounter = ReassignmentCounter.Genesis
@@ -481,7 +481,7 @@ class AssignmentProcessingStepsTest
             .value
       } yield {
         decrypted.decryptionErrors shouldBe Seq.empty
-        activenessSet shouldBe mkActivenessSet(assign = Set(contractId))
+        activenessSet shouldBe mkActivenessSet(assign = Set(contract.contractId))
       }
     }
 
@@ -542,16 +542,14 @@ class AssignmentProcessingStepsTest
 
   "construct pending data and response" should {
     "fail when wrong stakeholders given" in {
-      lazy val contractWrongStakeholders = ExampleTransactionFactory.asSerializable(
-        contractId = contractId,
-        contractInstance = ExampleTransactionFactory.contractInstance(),
-        ledgerTime = CantonTimestamp.Epoch,
-        metadata = ContractMetadata.tryCreate(
-          stakeholders = Set(party1, party2),
-          signatories = Set(party1),
-          maybeKeyWithMaintainersVersioned = None,
-        ),
-      )
+      lazy val contractWrongStakeholders =
+        ExampleTransactionFactory.authenticatedSerializableContract(
+          metadata = ContractMetadata.tryCreate(
+            stakeholders = Set(party1, party2),
+            signatories = Set(party1),
+            maybeKeyWithMaintainersVersioned = None,
+          )
+        )
 
       for {
         deps <- statefulDependencies
@@ -702,6 +700,7 @@ class AssignmentProcessingStepsTest
         loggerFactory,
       ),
       seedGenerator,
+      SerializableContractAuthenticator(pureCrypto),
       Target(defaultStaticDomainParameters),
       Target(testedProtocolVersion),
       loggerFactory = loggerFactory,

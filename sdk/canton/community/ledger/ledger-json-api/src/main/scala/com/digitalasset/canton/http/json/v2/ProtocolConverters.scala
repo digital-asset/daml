@@ -16,7 +16,6 @@ import com.digitalasset.canton.http.json.v2.JsSchema.{
   JsTransactionTree,
   JsTreeEvent,
 }
-import com.digitalasset.canton.platform.ApiOffset
 import com.google.rpc.status.Status
 import ujson.StringRenderer
 import ujson.circe.CirceJson
@@ -326,7 +325,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
             workflow_id = v.workflowId,
             effective_at = v.getEffectiveAt,
             events = ev,
-            offset = ApiOffset.fromLong(v.offset),
+            offset = v.offset,
             domain_id = v.domainId,
             trace_context = v.traceContext,
             record_time = v.getRecordTime,
@@ -345,7 +344,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
           workflowId = v.workflow_id,
           effectiveAt = Some(v.effective_at),
           events = ev.map(lapi.event.Event(_)),
-          offset = ApiOffset.assertFromStringToLong(v.offset),
+          offset = v.offset,
           domainId = v.domain_id,
           traceContext = v.trace_context,
           recordTime = Some(v.record_time),
@@ -408,7 +407,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
             command_id = lapiTransactionTree.commandId,
             workflow_id = lapiTransactionTree.workflowId,
             effective_at = lapiTransactionTree.effectiveAt,
-            offset = ApiOffset.fromLong(lapiTransactionTree.offset),
+            offset = lapiTransactionTree.offset,
             events_by_id = jsEvents,
             root_event_ids = lapiTransactionTree.rootEventIds,
             domain_id = lapiTransactionTree.domainId,
@@ -476,7 +475,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
           lapi.transaction.TransactionTree(
             eventsById = events.toMap,
             rootEventIds = jsTransactionTree.root_event_ids,
-            offset = ApiOffset.assertFromStringToLong(jsTransactionTree.offset),
+            offset = jsTransactionTree.offset,
             updateId = jsTransactionTree.update_id,
             commandId = jsTransactionTree.command_id,
             workflowId = jsTransactionTree.workflow_id,
@@ -569,7 +568,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     ): JsSubmitAndWaitResponse =
       JsSubmitAndWaitResponse(
         update_id = response.updateId,
-        completion_offset = ApiOffset.fromLong(response.completionOffset),
+        completion_offset = response.completionOffset,
       )
 
     def fromJson(
@@ -577,7 +576,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
     ): lapi.command_service.SubmitAndWaitResponse =
       lapi.command_service.SubmitAndWaitResponse(
         updateId = response.update_id,
-        completionOffset = ApiOffset.assertFromStringToLong(response.completion_offset),
+        completionOffset = response.completion_offset,
       )
   }
 
@@ -954,7 +953,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
           update_id = v.updateId,
           command_id = v.commandId,
           workflow_id = v.workflowId,
-          offset = ApiOffset.fromLong(v.offset),
+          offset = v.offset,
           event = e,
           trace_context = v.traceContext,
           record_time = v.getRecordTime,
@@ -972,7 +971,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
             updateId = value.update_id,
             commandId = value.command_id,
             workflowId = value.workflow_id,
-            offset = ApiOffset.assertFromStringToLong(value.offset),
+            offset = value.offset,
             event = re,
             traceContext = value.trace_context,
             recordTime = Some(value.record_time),

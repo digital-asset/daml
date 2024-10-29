@@ -796,8 +796,7 @@ private[client] trait PartyTopologySnapshotBaseClient {
           }
         }
         .map { res =>
-          if (res.isEmpty) Right(())
-          else Left(res)
+          Either.cond(res.isEmpty, (), res)
         }
     )
   }

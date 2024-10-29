@@ -636,9 +636,9 @@ class ACSReader(
 object ACSReader {
 
   def acsBeforePruningErrorReason(acsOffset: Offset, prunedUpToOffset: Offset): String =
-    s"Active contracts request at offset ${acsOffset.toHexString} precedes pruned offset ${prunedUpToOffset.toHexString}"
+    s"Active contracts request at offset ${acsOffset.toLong} precedes pruned offset ${prunedUpToOffset.toLong}"
 
   def acsAfterLedgerEndErrorReason(acsOffset: Offset, ledgerEndOffset: Offset): String =
-    s"Active contracts request at offset ${acsOffset.toHexString} preceded by ledger end offset ${ledgerEndOffset.toHexString}"
+    s"Active contracts request at offset ${acsOffset.toLong} preceded by ledger end offset ${ledgerEndOffset.toLong}"
 
 }

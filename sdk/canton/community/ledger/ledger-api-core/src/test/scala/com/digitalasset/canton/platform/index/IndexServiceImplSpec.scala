@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.platform.index
 
+import cats.syntax.either.*
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.Offset
@@ -556,7 +557,7 @@ class IndexServiceImplSpec
     checkUnknownIdentifiers(
       TransactionFilter(filtersByParty = Map.empty),
       PackageMetadata(),
-    ) shouldBe Right(())
+    ) shouldBe Either.unit
   }
 
   it should "return an unknown template for not known template" in new Scope {
@@ -693,7 +694,7 @@ class IndexServiceImplSpec
         templates = Set(template1),
         packageNameMap = Map(packageName1 -> packageResolutionForTemplate1),
       ),
-    ) shouldBe Right(())
+    ) shouldBe Either.unit
 
     checkUnknownIdentifiers(
       TransactionFilter(
@@ -705,7 +706,7 @@ class IndexServiceImplSpec
         templates = Set(template1),
         packageNameMap = Map(packageName1 -> packageResolutionForTemplate1),
       ),
-    ) shouldBe Right(())
+    ) shouldBe Either.unit
   }
 
   it should "only return unknown templates and interfaces" in new Scope {

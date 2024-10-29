@@ -40,7 +40,11 @@ import com.digitalasset.canton.participant.protocol.submission.{
   EncryptedViewMessageFactory,
   SeedGenerator,
 }
-import com.digitalasset.canton.participant.protocol.{EngineController, ProcessingStartingPoints}
+import com.digitalasset.canton.participant.protocol.{
+  EngineController,
+  ProcessingStartingPoints,
+  SerializableContractAuthenticator,
+}
 import com.digitalasset.canton.participant.store.memory.*
 import com.digitalasset.canton.participant.store.{
   ParticipantNodeEphemeralState,
@@ -76,7 +80,6 @@ import com.digitalasset.canton.{
   LedgerApplicationId,
   LedgerCommandId,
   LfPackageId,
-  LfPackageName,
   LfPartyId,
   ReassignmentCounter,
   RequestCounter,
@@ -120,11 +123,6 @@ final class UnassignmentProcessingStepsTest
   private lazy val submittingParticipant = ParticipantId(
     UniqueIdentifier.tryFromProtoPrimitive("submitting::participant")
   )
-
-  private lazy val templateId =
-    LfTemplateId.assertFromString("unassignmentprocessingstepstestpackage:template:id")
-  private lazy val packageName =
-    LfPackageName.assertFromString("unassignmentprocessingstepstestpackagename")
 
   private lazy val initialReassignmentCounter: ReassignmentCounter = ReassignmentCounter.Genesis
 
@@ -201,7 +199,9 @@ final class UnassignmentProcessingStepsTest
   ): TopologySnapshot =
     createTestingIdentityFactory(topology, packages).topologySnapshot()
 
-  private def createCryptoFactory(packages: Seq[LfPackageId] = Seq(templateId.packageId)) = {
+  private def createCryptoFactory(
+      packages: Seq[LfPackageId] = Seq(ExampleTransactionFactory.packageId)
+  ) = {
     val topology = Map(
       submittingParticipant -> Map(
         party1 -> ParticipantPermission.Submission,
@@ -238,7 +238,7 @@ final class UnassignmentProcessingStepsTest
       Some(cryptoSnapshot),
       Some(None),
       loggerFactory,
-      Seq(templateId.packageId),
+      Seq(ExampleTransactionFactory.packageId),
     )(directExecutionContext)
 
   private lazy val coordination: ReassignmentCoordination =
@@ -254,6 +254,7 @@ final class UnassignmentProcessingStepsTest
       reassignmentCoordination,
       seedGenerator,
       Source(defaultStaticDomainParameters),
+      SerializableContractAuthenticator(crypto.pureCrypto),
       Source(testedProtocolVersion),
       loggerFactory,
     )(executorService)
@@ -277,17 +278,14 @@ final class UnassignmentProcessingStepsTest
   private lazy val timeProof =
     TimeProofTestUtil.mkTimeProof(timestamp = CantonTimestamp.Epoch, targetDomain = targetDomain)
 
-  private lazy val contractId = ExampleTransactionFactory.suffixedId(10, 0)
-
-  private lazy val contract = ExampleTransactionFactory.asSerializable(
-    contractId,
-    contractInstance = ExampleTransactionFactory.contractInstance(templateId = templateId),
-    metadata = ContractMetadata.tryCreate(
-      signatories = Set(),
+  private lazy val contract = ExampleTransactionFactory.authenticatedSerializableContract(
+    ContractMetadata.tryCreate(
+      signatories = Set(submitter),
       stakeholders = Set(submitter, party1),
       maybeKeyWithMaintainersVersioned = None,
-    ),
+    )
   )
+  private lazy val contractId = contract.contractId
 
   private lazy val creatingTransactionId = ExampleTransactionFactory.transactionId(0)
 
@@ -319,7 +317,7 @@ final class UnassignmentProcessingStepsTest
         participant2 -> Map(party2 -> Submission),
       ),
       packages = Seq(submittingParticipant, participant1, participant2)
-        .map(_ -> Seq(templateId.packageId))
+        .map(_ -> Seq(ExampleTransactionFactory.packageId))
         .toMap,
     )
 
@@ -453,7 +451,7 @@ final class UnassignmentProcessingStepsTest
             participant1 -> Map(party1 -> Submission),
           ),
           packages = Seq(submittingParticipant, participant1)
-            .map(_ -> Seq(templateId.packageId))
+            .map(_ -> Seq(ExampleTransactionFactory.packageId))
             .toMap, // The package is known on the source domain
         )
 
@@ -485,8 +483,9 @@ final class UnassignmentProcessingStepsTest
             participant1 -> Map(party1 -> Submission),
           ),
           // On the source domain, the package is vetted on all participants
-          packages =
-            Seq(submittingParticipant, participant1).map(_ -> Seq(templateId.packageId)).toMap,
+          packages = Seq(submittingParticipant, participant1)
+            .map(_ -> Seq(ExampleTransactionFactory.packageId))
+            .toMap,
         ).topologySnapshot()
 
       val targetDomainTopology =
@@ -496,7 +495,7 @@ final class UnassignmentProcessingStepsTest
             participant1 -> Map(party1 -> Submission),
           ),
           // On the target domain, the package is not vetted on `participant1`
-          packages = Map(submittingParticipant -> Seq(templateId.packageId)),
+          packages = Map(submittingParticipant -> Seq(ExampleTransactionFactory.packageId)),
         ).topologySnapshot()
 
       // `party1` is a stakeholder hosted on `participant1`, but it has not vetted `templateId.packageId` on the target domain
@@ -558,7 +557,7 @@ final class UnassignmentProcessingStepsTest
           participant2,
           participant3,
           participant4,
-        ).map(_ -> Seq(templateId.packageId)).toMap,
+        ).map(_ -> Seq(ExampleTransactionFactory.packageId)).toMap,
       )
       val ipsTarget = createTestingTopologySnapshot(
         Map(
@@ -572,11 +571,9 @@ final class UnassignmentProcessingStepsTest
           participant1,
           participant3,
           participant4,
-        ).map(_ -> Seq(templateId.packageId)).toMap,
+        ).map(_ -> Seq(ExampleTransactionFactory.packageId)).toMap,
       )
-      val stakeholders = Stakeholders.tryCreate(Set(submitter, party1), Set())
-      val result =
-        mkUnassignmentResult(ipsSource, ipsTarget, stakeholdersOverride = Some(stakeholders))
+      val result = mkUnassignmentResult(ipsSource, ipsTarget)
 
       result.value shouldEqual
         UnassignmentRequestValidated(
@@ -639,15 +636,6 @@ final class UnassignmentProcessingStepsTest
   "prepare submission" should {
     "succeed without errors" in {
       val state = mkState
-      val contract = ExampleTransactionFactory.asSerializable(
-        contractId,
-        contractInstance = ExampleTransactionFactory.contractInstance(templateId = templateId),
-        metadata = ContractMetadata.tryCreate(
-          signatories = Set(party1),
-          stakeholders = Set(party1),
-          maybeKeyWithMaintainersVersioned = None,
-        ),
-      )
       val transactionId = ExampleTransactionFactory.transactionId(1)
       val submissionParam =
         UnassignmentProcessingSteps.SubmissionParam(
@@ -771,11 +759,11 @@ final class UnassignmentProcessingStepsTest
     ) = {
       val state = mkState
       val metadata = ContractMetadata.tryCreate(Set.empty, Set(party1), None)
-      val contract = ExampleTransactionFactory.asSerializable(
-        contractId,
-        contractInstance = ExampleTransactionFactory.contractInstance(templateId = templateId),
-        metadata = metadata,
+
+      val contract = ExampleTransactionFactory.authenticatedSerializableContract(
+        metadata = metadata
       )
+
       val transactionId = ExampleTransactionFactory.transactionId(1)
       val unassignmentRequest = UnassignmentRequest(
         submitterMetadata = submitterMetadata(party1),
@@ -896,8 +884,8 @@ final class UnassignmentProcessingStepsTest
           rootHash,
           contractId,
           ReassignmentCounter.Genesis,
-          templateId = templateId,
-          packageName = packageName,
+          templateId = ExampleTransactionFactory.templateId,
+          packageName = ExampleTransactionFactory.packageName,
           isReassigningParticipant = false,
           submitterMetadata = submitterMetadata(submitter),
           reassignmentId,

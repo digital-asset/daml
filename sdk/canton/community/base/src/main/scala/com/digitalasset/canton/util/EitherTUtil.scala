@@ -181,11 +181,10 @@ object EitherTUtil {
   ): FutureUnlessShutdown[R] =
     x.foldF(FutureUnlessShutdown.failed, FutureUnlessShutdown.pure)
 
-  def unit[A]: EitherT[Future, A, Unit] = EitherT(Future.successful(().asRight[A]))
+  def unit[A]: EitherT[Future, A, Unit] = EitherT(Future.successful(Either.unit))
 
-  def unitUS[A]: EitherT[FutureUnlessShutdown, A, Unit] = EitherT(
-    FutureUnlessShutdown.pure(().asRight[A])
-  )
+  def unitUS[A]: EitherT[FutureUnlessShutdown, A, Unit] =
+    EitherT(FutureUnlessShutdown.pure(Either.unit))
 
   object syntax {
     implicit class FunctorToEitherT[F[_]: Functor, T](f: F[T]) {

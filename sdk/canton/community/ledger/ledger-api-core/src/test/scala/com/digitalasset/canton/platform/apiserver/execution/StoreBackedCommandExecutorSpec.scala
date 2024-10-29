@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.execution
 
+import cats.syntax.either.*
 import com.daml.logging.LoggingContext
 import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
@@ -163,7 +164,7 @@ class StoreBackedCommandExecutorSpec
       Ref.ParticipantId.assertFromString("anId"),
       mock[WriteService],
       mock[ContractStore],
-      authenticateContract = _ => Right(()),
+      authenticateContract = _ => Either.unit,
       metrics = LedgerApiServerMetrics.ForTesting,
       EngineLoggingConfig(),
       loggerFactory = loggerFactory,
@@ -265,7 +266,7 @@ class StoreBackedCommandExecutorSpec
     def doTest(
         contractId: Option[LfContractId],
         expected: Option[Option[String]],
-        authenticationResult: Either[String, Unit] = Right(()),
+        authenticationResult: Either[String, Unit] = Either.unit,
         stakeholderContractDriverMetadata: Array[Byte] = salt.toByteArray,
     ): Future[Assertion] = {
       val ref: AtomicReference[Option[Option[String]]] = new AtomicReference(None)

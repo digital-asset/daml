@@ -195,7 +195,7 @@ object HeadlessConsole extends NoTracing {
   ): Either[HeadlessConsoleError, Unit] =
     result match {
       case Success(_) =>
-        Right(())
+        Either.unit
       case failing: Failing => Left(convertAmmoniteError(failing, logger))
       case unexpected =>
         logger.error("Unexpected result from ammonite: {}", unexpected)

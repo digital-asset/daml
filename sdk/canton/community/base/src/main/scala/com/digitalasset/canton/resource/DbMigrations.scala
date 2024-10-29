@@ -257,7 +257,7 @@ trait DbMigrations { this: NamedLogging =>
         .leftMap(DbMigrations.FlywayError.apply)
       pendingMigrations = info.pending()
       _ <-
-        if (pendingMigrations.isEmpty) Right(())
+        if (pendingMigrations.isEmpty) Either.unit
         else {
           val currentVersion = Option(info.current()).map(_.getVersion.getVersion)
           val lastVersion = pendingMigrations.last.getVersion.getVersion

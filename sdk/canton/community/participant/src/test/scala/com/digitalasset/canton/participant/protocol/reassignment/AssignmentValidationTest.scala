@@ -11,13 +11,13 @@ import com.digitalasset.canton.data.{
   FullAssignmentTree,
   ReassignmentSubmitterMetadata,
 }
+import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidation.*
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.{
   AssignmentSubmitterMustBeStakeholder,
-  IncompatibleProtocolVersions,
+  ContractError,
 }
 import com.digitalasset.canton.participant.protocol.submission.SeedGenerator
-import com.digitalasset.canton.participant.store.ReassignmentStoreTest.transactionId1
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
@@ -25,7 +25,6 @@ import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.canton.version.ProtocolVersion
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.util.UUID
@@ -97,12 +96,8 @@ class AssignmentValidationTest
     testInstance(targetDomain, Set(party1), Set(party1), cryptoSnapshot, None)
 
   "validateAssignmentRequest" should {
-    val contractId = ExampleTransactionFactory.suffixedId(10, 0)
-    val contract = ExampleTransactionFactory.asSerializable(
-      contractId,
-      contractInstance = ExampleTransactionFactory.contractInstance(),
-      metadata =
-        ContractMetadata.tryCreate(signatories = Set(party1), stakeholders = Set(party1), None),
+    val contract = ExampleTransactionFactory.authenticatedSerializableContract(
+      ContractMetadata.tryCreate(signatories = Set(party1), stakeholders = Set(party1), None)
     )
 
     val reassignmentId = ReassignmentId(sourceDomain, CantonTimestamp.Epoch)
@@ -127,7 +122,6 @@ class AssignmentValidationTest
     val assignmentRequest = makeFullAssignmentTree(
       contract,
       unassignmentResult,
-      creatingTransactionId = ExampleTransactionFactory.transactionId(0),
     )
 
     "succeed without errors in the basic case (no reassignment data)" in {
@@ -213,6 +207,103 @@ class AssignmentValidationTest
       )
     }
 
+    "detect inconsistent contract data" in {
+      def validate(cid: LfContractId) = {
+        val updatedContract = contract.copy(contractId = cid)
+
+        val assignmentRequest = makeFullAssignmentTree(
+          updatedContract,
+          unassignmentResult,
+        )
+
+        assignmentValidation
+          .validateAssignmentRequest(
+            CantonTimestamp.Epoch,
+            assignmentRequest,
+            Some(reassignmentData),
+            Target(cryptoSnapshot),
+            isReassigningParticipant = false,
+          )
+          .value
+          .futureValue
+      }
+
+      val unauthenticatedContractId = ExampleTransactionFactory
+        .authenticatedSerializableContract(
+          metadata = ContractMetadata
+            .tryCreate(signatories = Set(party1), stakeholders = Set(party1, party2), None)
+        )
+        .contractId
+
+      validate(contract.contractId).value.value shouldBe a[AssignmentValidationResult]
+
+      // The data differs from the one stored locally in ReassignmentData
+      validate(unauthenticatedContractId).left.value shouldBe a[ContractDataMismatch]
+    }
+
+    "detect invalid contract id" in {
+      def validate(cid: LfContractId, reassignmentDataDefined: Boolean) = {
+        val updatedContract = contract.copy(contractId = cid)
+
+        val reassignmentDataHelpers = new ReassignmentDataHelpers(
+          updatedContract,
+          reassignmentId.sourceDomain,
+          targetDomain,
+          identityFactory,
+        )
+
+        val unassignmentRequest =
+          reassignmentDataHelpers.unassignmentRequest(
+            party1,
+            submittingParticipant,
+            sourceMediator,
+          )()
+
+        val reassignmentData =
+          reassignmentDataHelpers.reassignmentData(reassignmentId, unassignmentRequest)()
+
+        val unassignmentResult = reassignmentDataHelpers
+          .unassignmentResult(reassignmentData)
+          .futureValue
+
+        val assignmentRequest = makeFullAssignmentTree(
+          updatedContract,
+          unassignmentResult,
+        )
+
+        assignmentValidation
+          .validateAssignmentRequest(
+            CantonTimestamp.Epoch,
+            assignmentRequest,
+            reassignmentDataO = Option.when(reassignmentDataDefined)(reassignmentData),
+            Target(cryptoSnapshot),
+            isReassigningParticipant = true,
+          )
+          .value
+          .futureValue
+      }
+
+      val unauthenticatedContractId = ExampleTransactionFactory
+        .authenticatedSerializableContract(
+          metadata = ContractMetadata
+            .tryCreate(signatories = Set(party1), stakeholders = Set(party1, party2), None)
+        )
+        .contractId
+
+      validate(contract.contractId, reassignmentDataDefined = true).value.value shouldBe
+        a[AssignmentValidationResult]
+      validate(contract.contractId, reassignmentDataDefined = false).value.value shouldBe
+        a[AssignmentValidationResult]
+
+      inside(validate(unauthenticatedContractId, reassignmentDataDefined = true).left.value) {
+        case ContractError(msg) if msg.contains("Mismatching contract id suffixes.") => succeed
+      }
+
+      inside(validate(unauthenticatedContractId, reassignmentDataDefined = false).left.value) {
+        case ContractError(msg) if msg.contains("Mismatching contract id suffixes.") => succeed
+      }
+    }
+
     "detect reassigning participant mismatch" in {
       def validate(reassigningParticipants: Set[ParticipantId]) = {
         val assignmentTree = makeFullAssignmentTree(
@@ -280,35 +371,6 @@ class AssignmentValidationTest
         stakeholders = Set(party1),
       )
     }
-
-    "disallow reassignments from source domain supporting reassignment counter to destination domain not supporting them" in {
-      val reassignmentDataSourceDomainPVCNTestNet =
-        reassignmentData.copy(sourceProtocolVersion = Source(ProtocolVersion.v32))
-      for {
-        result <-
-          assignmentValidation
-            .validateAssignmentRequest(
-              CantonTimestamp.Epoch,
-              assignmentRequest,
-              Some(reassignmentDataSourceDomainPVCNTestNet),
-              Target(cryptoSnapshot),
-              isReassigningParticipant = true,
-            )
-            .value
-      } yield {
-        if (unassignmentRequest.targetProtocolVersion.unwrap >= ProtocolVersion.v32) {
-          result shouldBe Right(Some(AssignmentValidationResult(Set(party1))))
-        } else {
-          result shouldBe Left(
-            IncompatibleProtocolVersions(
-              reassignmentDataSourceDomainPVCNTestNet.contract.contractId,
-              reassignmentDataSourceDomainPVCNTestNet.sourceProtocolVersion,
-              unassignmentRequest.targetProtocolVersion,
-            )
-          )
-        }
-      }
-    }
   }
 
   private def testInstance(
@@ -322,6 +384,7 @@ class AssignmentValidationTest
 
     new AssignmentValidation(
       domainId,
+      SerializableContractAuthenticator(pureCrypto),
       Target(defaultStaticDomainParameters),
       submittingParticipant,
       damle,
@@ -340,8 +403,7 @@ class AssignmentValidationTest
       contract: SerializableContract,
       unassignmentResult: DeliveredUnassignmentResult,
       submitter: LfPartyId = party1,
-      stakeholders: Set[LfPartyId] = Set(party1),
-      creatingTransactionId: TransactionId = transactionId1,
+      creatingTransactionId: TransactionId = ExampleTransactionFactory.transactionId(0),
       uuid: UUID = new UUID(4L, 5L),
       targetDomain: Target[DomainId] = targetDomain,
       targetMediator: MediatorGroupRecipient = targetMediator,

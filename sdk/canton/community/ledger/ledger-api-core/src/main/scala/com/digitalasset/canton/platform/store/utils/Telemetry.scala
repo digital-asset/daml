@@ -16,15 +16,15 @@ object Telemetry {
       tracer
         .spanBuilder(fullyQualifiedFunctionName)
         .setNoParent()
-        .setAttribute(SpanAttribute.OffsetFrom.key, startExclusive.toHexString)
-        .setAttribute(SpanAttribute.OffsetTo.key, endInclusive.toHexString)
+        .setAttribute(SpanAttribute.OffsetFrom.key, startExclusive.toLong.toString)
+        .setAttribute(SpanAttribute.OffsetTo.key, endInclusive.toLong.toString)
         .startSpan()
 
     def createSpan(tracer: Tracer, activeAt: Offset)(fullyQualifiedFunctionName: String): Span =
       tracer
         .spanBuilder(fullyQualifiedFunctionName)
         .setNoParent()
-        .setAttribute(SpanAttribute.Offset.key, activeAt.toHexString)
+        .setAttribute(SpanAttribute.Offset.key, activeAt.toLong.toString)
         .startSpan()
 
   }

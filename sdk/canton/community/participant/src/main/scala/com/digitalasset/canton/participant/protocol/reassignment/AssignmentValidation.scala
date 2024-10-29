@@ -26,6 +26,7 @@ import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentPro
 import com.digitalasset.canton.participant.protocol.{
   ProcessingSteps,
   ReassignmentSubmissionValidation,
+  SerializableContractAuthenticator,
 }
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.util.DAMLe
@@ -43,6 +44,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 private[reassignment] class AssignmentValidation(
     domainId: Target[DomainId],
+    serializableContractAuthenticator: SerializableContractAuthenticator,
     staticDomainParameters: Target[StaticDomainParameters],
     participantId: ParticipantId,
     engine: DAMLe,
@@ -155,6 +157,12 @@ private[reassignment] class AssignmentValidation(
             ContractDataMismatch(reassignmentId),
           )
 
+          _ <- EitherT.fromEither[Future](
+            serializableContractAuthenticator
+              .authenticate(assignmentRequest.contract)
+              .leftMap[ReassignmentProcessorError](ContractError(_))
+          )
+
           unassignmentSubmitter = reassignmentData.unassignmentRequest.submitter
           targetTimeProof = reassignmentData.unassignmentRequest.targetTimeProof.timestamp
 
@@ -235,7 +243,7 @@ private[reassignment] class AssignmentValidation(
         } yield Some(AssignmentValidationResult(confirmingParties))
 
       case None =>
-        // TODO(#12926) Check what validations can be done here
+        // TODO(#12926) Check what validations can be done here + ensure coverage
         for {
           _ <- ReassignmentSubmissionValidation.assignment(
             reassignmentId = reassignmentId,
@@ -244,24 +252,31 @@ private[reassignment] class AssignmentValidation(
             participantId = assignmentRequest.submitterMetadata.submittingParticipant,
             stakeholders = assignmentRequest.stakeholders.all,
           )
+
+          confirmingPartiesF = targetSnapshot.unwrap
+            .canConfirm(
+              participantId,
+              assignmentRequest.stakeholders.all,
+            )
+
+          _ <- EitherT.fromEither[Future](
+            serializableContractAuthenticator
+              .authenticate(assignmentRequest.contract)
+              .leftMap[ReassignmentProcessorError](ContractError(_))
+          )
+
+          confirmingParties <- EitherT
+            .liftF[Future, ReassignmentProcessorError, Set[LfPartyId]](confirmingPartiesF)
+
           res <-
             if (isReassigningParticipant) {
               // This happens either in case of malicious assignments (incorrectly declared reassigning participants)
               // OR if the reassignment data has been pruned.
               // The assignment should be rejected due to other validations (e.g. conflict detection), but
               // we could code this more defensively at some point
-
-              val confirmingPartiesF = targetSnapshot.unwrap
-                .canConfirm(
-                  participantId,
-                  assignmentRequest.stakeholders.all,
-                )
-              EitherT(confirmingPartiesF.map { confirmingParties =>
-                Right(Some(AssignmentValidationResult(confirmingParties))): Either[
-                  ReassignmentProcessorError,
-                  Option[AssignmentValidationResult],
-                ]
-              })
+              EitherT.rightT[Future, ReassignmentProcessorError](
+                Some(AssignmentValidationResult(confirmingParties))
+              )
             } else EitherT.rightT[Future, ReassignmentProcessorError](None)
         } yield res
     }

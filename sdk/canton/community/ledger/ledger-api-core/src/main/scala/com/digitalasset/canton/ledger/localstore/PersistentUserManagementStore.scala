@@ -231,8 +231,7 @@ class PersistentUserManagementStore(
       withUser(id, identityProviderId) { _ =>
         backend.deleteUser(id = id)(connection)
       }.flatMap {
-        case true => Right(())
-        case false => Left(UserNotFound(userId = id))
+        Either.cond(_, (), UserNotFound(userId = id))
       }
     }.map(tapSuccess { _ =>
       logger.info(

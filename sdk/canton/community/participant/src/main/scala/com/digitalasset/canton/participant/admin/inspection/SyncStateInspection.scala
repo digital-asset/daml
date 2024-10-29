@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.admin.inspection
 
 import cats.Eval
 import cats.data.EitherT
+import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
@@ -202,7 +203,7 @@ final class SyncStateInspection(
                       )
                     case Right(_) =>
                       outputStream.flush()
-                      Right(())
+                      Either.unit
                   }
                 }
                 .mapK(FutureUnlessShutdown.outcomeK)
@@ -600,11 +601,11 @@ final class SyncStateInspection(
 
   def getOffsetByTime(
       pruneUpTo: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[Option[String]] =
+  )(implicit traceContext: TraceContext): Future[Option[Long]] =
     participantNodePersistentState.value.ledgerApiStore
       .lastDomainOffsetBeforeOrAtPublicationTime(pruneUpTo)
       .map(
-        _.map(_.offset.toHexString)
+        _.map(_.offset.toLong)
       )
 
   def lookupPublicationTime(

@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.protocol
 
 import cats.Eval
 import cats.data.EitherT
+import cats.syntax.either.*
 import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.daml.test.evidence.scalatest.ScalaTestSupport.TagContainer
@@ -1052,7 +1053,7 @@ class ProtocolProcessorTest
         .futureValue
 
       eventually() {
-        processF.value.futureValue shouldEqual Right(())
+        processF.value.futureValue shouldEqual Either.unit
         taskScheduler.readSequencerCounterQueue(resultSc) shouldBe BeforeHead
         requestJournal.query(rc).value.futureValue.value.state shouldBe RequestState.Clean
       }

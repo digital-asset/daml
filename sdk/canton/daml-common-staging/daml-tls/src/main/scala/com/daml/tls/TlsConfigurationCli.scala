@@ -60,6 +60,6 @@ object TlsConfigurationCli {
 
   private def validatePath(path: String, message: String): Either[String, Unit] = {
     val valid = Try(Paths.get(path).toFile.canRead).getOrElse(false)
-    if (valid) Right(()) else Left(message)
+    Either.cond(valid, (), message)
   }
 }

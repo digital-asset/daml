@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.admin.inspection
 
 import cats.Eval
 import cats.data.OptionT
+import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.{DomainIndex, RequestIndex}
@@ -254,7 +255,7 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar {
           timestamp = None,
         ) { case (contract, _) =>
           builder += contract
-          Right(())
+          Either.unit
         }
         .map(_ => builder.result())
         .value

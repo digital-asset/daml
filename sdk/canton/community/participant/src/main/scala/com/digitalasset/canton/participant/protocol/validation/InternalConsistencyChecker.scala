@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.protocol.validation
 
+import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.FullTransactionViewTree
@@ -96,7 +97,7 @@ class InternalConsistencyChecker(
   ): Result[Unit] =
     NonEmpty.from(newlyCreated.intersect(previouslyReferenced)) match {
       case Some(ne) => Left(ErrorWithInternalConsistencyCheck(UsedBeforeCreation(ne)))
-      case None => Right(())
+      case None => Either.unit
     }
 
   private def checkNotUsedAfterArchive(
@@ -105,7 +106,7 @@ class InternalConsistencyChecker(
   ): Result[Unit] =
     NonEmpty.from(previouslyConsumed.intersect(newlyReferenced)) match {
       case Some(ne) => Left(ErrorWithInternalConsistencyCheck(UsedAfterArchive(ne)))
-      case None => Right(())
+      case None => Either.unit
     }
 
   /** @param inconsistent - the set of inconsistent keys or the empty set if no inconsistencies have been found,
@@ -115,7 +116,7 @@ class InternalConsistencyChecker(
   private def checkConsistentKeyUse(inconsistent: Set[LfGlobalKey]): Result[Unit] =
     NonEmpty.from(inconsistent) match {
       case Some(ne) => Left(ErrorWithInternalConsistencyCheck(InconsistentKeyUse(ne)))
-      case None => Right(())
+      case None => Either.unit
     }
 }
 

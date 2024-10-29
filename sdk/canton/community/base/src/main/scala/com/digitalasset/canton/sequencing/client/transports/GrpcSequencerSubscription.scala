@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.sequencing.client.transports
 
+import cats.syntax.either.*
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -69,7 +70,7 @@ class GrpcSequencerSubscription[E, R: HasProtoTraceContext] private[transports] 
     */
   private val currentProcessing = new AtomicReference[Future[Unit]](Future.unit)
   private val currentAwaitOnNext = new AtomicReference[Promise[UnlessShutdown[Either[E, Unit]]]](
-    Promise.successful(Outcome(Right(())))
+    Promise.successful(Outcome(Either.unit))
   )
 
   runOnShutdown_(new RunOnShutdown {

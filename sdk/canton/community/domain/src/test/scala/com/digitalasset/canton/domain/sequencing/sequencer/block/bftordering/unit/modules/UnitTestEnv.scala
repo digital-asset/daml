@@ -4,6 +4,7 @@
 package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.unit.modules
 
 import cats.Traverse
+import cats.syntax.either.*
 import com.daml.metrics.api.MetricHandle.Timer
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.crypto.{Hash, Signature, SignatureCheckError, SyncCryptoError}
@@ -262,7 +263,7 @@ object ProgrammableUnitTestEnv {
 
     override def verifySignature(hash: Hash, member: SequencerId, signature: Signature)(implicit
         traceContext: TraceContext
-    ): () => Either[SignatureCheckError, Unit] = () => Right(())
+    ): () => Either[SignatureCheckError, Unit] = () => Either.unit
   }
 }
 

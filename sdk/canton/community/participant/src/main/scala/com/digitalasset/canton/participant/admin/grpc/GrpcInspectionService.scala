@@ -63,7 +63,7 @@ class GrpcInspectionService(
         case Right(cantonTimestamp) =>
           syncStateInspection
             .getOffsetByTime(cantonTimestamp)
-            .map(ledgerOffset => LookupOffsetByTime.Response(ledgerOffset.getOrElse("")))
+            .map(ledgerOffset => LookupOffsetByTime.Response(ledgerOffset))
         case Left(err) =>
           Future.failed(new IllegalArgumentException(s"""Failed to parse timestamp: $err"""))
       }

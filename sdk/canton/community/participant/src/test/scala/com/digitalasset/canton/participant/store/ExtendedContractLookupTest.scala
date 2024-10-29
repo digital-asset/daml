@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.store
 
+import cats.syntax.either.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator
@@ -27,11 +28,11 @@ class ExtendedContractLookupTest extends AsyncWordSpec with BaseTest {
   import com.digitalasset.canton.protocol.ExampleTransactionFactory.suffixedId
 
   object dummyAuthenticator extends SerializableContractAuthenticator {
-    override def authenticate(contract: SerializableContract): Either[String, Unit] = Right(())
+    override def authenticate(contract: SerializableContract): Either[String, Unit] = Either.unit
     override def verifyMetadata(
         contract: SerializableContract,
         metadata: ContractMetadata,
-    ): Either[String, Unit] = Right(())
+    ): Either[String, Unit] = Either.unit
   }
 
   val coid00: LfContractId = suffixedId(0, 0)

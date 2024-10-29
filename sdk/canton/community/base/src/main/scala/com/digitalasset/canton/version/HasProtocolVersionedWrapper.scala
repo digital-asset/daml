@@ -640,7 +640,7 @@ trait HasProtocolVersionedWrapperCompanion[
           unexpectedProtoVersionError(expected, deserializedRepresentativeProtocolVersion),
         )
       case ProtocolVersionValidation.NoValidation =>
-        Right(())
+        Either.unit
     }
 
   private[version] def unexpectedProtoVersionError(
