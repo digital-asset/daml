@@ -88,9 +88,19 @@ export class SimpleTemplate extends api.Template {
 
   constructor(companion: api.TemplateCompanion, arg: api.LfValue) {
     super(companion, arg);
-    let template = companion.fromLfValue<SimpleTemplate>(arg);
-    this.owner = template.owner;
-    this.count = template.count;
+    if (!companion.isValidArg(arg)) {
+      throw new Error(
+        `${arg} is an invalid contract argument type for SimpleTemplate`,
+      );
+    }
+    let owner = (arg as api.LfValueRecord).value().keys()[0];
+    let count = (arg as api.LfValueRecord).value().keys()[1];
+    this.owner = (
+      (arg as api.LfValueRecord).value().get(owner) as api.LfValueParty
+    ).value();
+    this.count = (
+      (arg as api.LfValueRecord).value().get(count) as api.LfValueInt
+    ).value();
   }
 
   static create(owner: string, count: i64): SimpleTemplate {

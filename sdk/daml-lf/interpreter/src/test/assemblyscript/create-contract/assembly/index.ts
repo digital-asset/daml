@@ -6,8 +6,6 @@ import * as internal from "./ledger/internal";
 import { SimpleTemplate, SimpleTemplateCompanion } from "./templates";
 
 export function main(): void {
-  api.logInfo("hello-world");
-
   let contract: api.Contract<SimpleTemplate> = SimpleTemplate.create(
     "alice",
     42,

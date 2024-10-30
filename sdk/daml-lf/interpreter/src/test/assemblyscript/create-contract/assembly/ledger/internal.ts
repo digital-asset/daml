@@ -4,7 +4,6 @@
 import * as proto from "../../protobuf/com/digitalasset/daml/lf/value/Value"
 import * as protoIdentifier from "../../protobuf/com/digitalasset/daml/lf/value/Identifier"
 
-@unmanaged
 export class ByteString {
     ptr: Uint8Array;
     size: i32;
@@ -58,8 +57,12 @@ export class ByteString {
     alloc(): void {
         if (this._heapPtr == 0) {
             this._heapPtr = i32(heap.alloc(sizeof<i32>() * 2));
+            let dataPtr = i32(heap.alloc(this.size));
 
-            store<Uint8Array>(this._heapPtr, this.ptr);
+            for (let offset = 0; offset < this.size; offset++) {
+                store<u8>(dataPtr + offset, this.ptr[offset]);
+            }
+            store<i32>(this._heapPtr, dataPtr);
             store<i32>(this._heapPtr + sizeof<i32>(), this.size);
         } else {
             throw new Error("Attempted to allocate an allocated ByteString - need to call dealloc() first");

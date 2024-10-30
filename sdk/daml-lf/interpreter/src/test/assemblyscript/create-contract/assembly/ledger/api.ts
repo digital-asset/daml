@@ -24,7 +24,7 @@ export class LfIdentifier {
   private _module: string;
   private _name: string;
 
-  constructor(module: string, name: string, packageId: string = "()") {
+  constructor(module: string, name: string, packageId: string = "") {
     this._packageId = packageId;
     this._module = module;
     this._name = name;
@@ -47,7 +47,7 @@ export class LfIdentifier {
   }
 
   toString(): string {
-    return `${this._packageId}:${this.module}:${this.name}`;
+    return `${this._packageId}:${this._module}:${this._name}`;
   }
 }
 
@@ -500,9 +500,15 @@ export class Template {
     let templateIdByteStr = internal.ByteString.fromProtobufIdentifier(
       this._companion.templateId().toProtobuf(),
     );
+    logInfo(
+      `DEBUGGY: contract save called with ${templateIdByteStr.heapPtr()}`,
+    );
     let argByteStr = internal.ByteString.fromProtobuf(this.arg().toProtobuf());
     templateIdByteStr.alloc();
     argByteStr.alloc();
+    logInfo(
+      `DEBUGGY: contract save ${templateIdByteStr.heapPtr()}; ${argByteStr.heapPtr()}`,
+    );
     let contractId = LfValueContractId.fromProtobuf(
       internal.ByteString.fromI32(
         internal.createContract(
