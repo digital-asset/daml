@@ -1457,10 +1457,7 @@ da_java_library(
         ":ledger-api-java",
         ":ledger-api-java-grpc",
     ],
-    javacopts = [
-        "-Werror",
-        "-Xlint",
-        "-Xlint:-serial",
+    javacopts = da_java_bindings_javacopts + [
         "-Xlint:-deprecation",  # Protoc 2.24 generates code that is deprecated in 2.25
     ],
     tags = [
