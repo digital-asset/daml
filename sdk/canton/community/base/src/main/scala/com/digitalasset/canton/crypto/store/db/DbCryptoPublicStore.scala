@@ -87,9 +87,10 @@ class DbCryptoPublicStore(
                 CryptoPublicStoreError.FailedToInsertKey(key.id, "No key inserted and no key found")
               )
               .flatMap { existingKey =>
+                // An error is thrown if, and only if, the key we want to insert has the same id but different key payloads.
                 EitherT
                   .cond[Future](
-                    existingKey.publicKey == key && existingKey.name == name,
+                    existingKey.publicKey == key,
                     (),
                     CryptoPublicStoreError.KeyAlreadyExists(key.id, existingKey.name.map(_.unwrap)),
                   )

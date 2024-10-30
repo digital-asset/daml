@@ -112,12 +112,10 @@ class DbCryptoPrivateStore(
     def equalKeys(existingKey: StoredPrivateKey, newKey: StoredPrivateKey): Boolean = {
       if (existingKey.wrapperKeyId.isEmpty) {
         existingKey.data == newKey.data &&
-        existingKey.name == newKey.name &&
         existingKey.purpose == newKey.purpose
       } else {
         // in the encrypted case we cannot compare the contents of data directly, we simply do not allow
-        // keys having the same name and purpose
-        existingKey.name == newKey.name &&
+        // keys having the same purpose
         existingKey.purpose == newKey.purpose
       }
     }
@@ -132,7 +130,7 @@ class DbCryptoPrivateStore(
             // If no key was inserted by the insert query, check that the existing value matches
             storage
               .querySingle(queryKey(key.id, key.purpose), functionFullName)
-              // If we don't find the duplicate key, it may have been concurrently deleted and we could retry to insert it.
+              // If we don't find the duplicate key, it may have been concurrently deleted, and we could retry to insert it.
               .toRight(
                 CryptoPrivateStoreError
                   .FailedToInsertKey(key.id, "No key inserted and no key found")

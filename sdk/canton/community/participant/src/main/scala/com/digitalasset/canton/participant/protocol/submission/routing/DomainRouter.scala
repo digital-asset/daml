@@ -9,6 +9,7 @@ import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.parallel.*
 import com.daml.lf.data.{ImmArray, Ref}
+import com.daml.lf.value.Value.ContractId
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.CryptoPureApi
 import com.digitalasset.canton.data.ProcessedDisclosedContract
@@ -34,6 +35,7 @@ import com.digitalasset.canton.participant.sync.TransactionRoutingError.Topology
   UnknownContractDomains,
 }
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.{
+  ConfigurationErrors,
   MalformedInputErrors,
   RoutingInternalError,
   UnableToQueryTopologySnapshot,
@@ -71,6 +73,7 @@ class DomainRouter(
     snapshotProvider: DomainStateProvider,
     serializableContractAuthenticator: SerializableContractAuthenticator,
     autoTransferTransaction: Boolean,
+    allowForUnauthenticatedContractIds: Boolean,
     domainSelectorFactory: DomainSelectorFactory,
     override protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
@@ -128,6 +131,8 @@ class DomainRouter(
           .leftMap(RoutingInternalError.IllformedTransaction)
       )
 
+      _ <- EitherT.fromEither[Future](validateContractIds(wfTransaction.unwrap))
+
       contractRoutingParties = inputContractRoutingParties(wfTransaction.unwrap)
 
       transactionData <- TransactionData.create(
@@ -179,6 +184,30 @@ class DomainRouter(
       )
     } yield transactionSubmittedF
   }
+
+  private def validateContractIds(
+      transaction: LfVersionedTransaction
+  ): Either[TransactionRoutingError, Unit] =
+    if (allowForUnauthenticatedContractIds) Right(())
+    else {
+      def validateContractId(contractId: ContractId): Either[String, Unit] = {
+        val ContractId.V1(_discriminator, cantonContractSuffix) = contractId
+
+        CantonContractIdVersion.fromContractSuffix(cantonContractSuffix) match {
+          case Right(NonAuthenticatedContractId) =>
+            Left(s"Unauthenticated contract ID: $contractId")
+          case Right(_) => Right(())
+          case Left(errMsg) =>
+            throw new IllegalArgumentException(
+              s"Unsupported contract id scheme detected. Please contact support. Context: $errMsg"
+            )
+        }
+      }
+
+      transaction.inputContracts.toSeq
+        .traverse_(validateContractId)
+        .leftMap(ConfigurationErrors.InputContractHasUnauthenticatedId.Error)
+    }
 
   private def allInformeesOnDomain(
       informees: Set[LfPartyId]
@@ -320,6 +349,7 @@ object DomainRouter {
       domainStateProvider,
       serializableContractAuthenticator,
       autoTransferTransaction = parameters.enablePreviewFeatures,
+      allowForUnauthenticatedContractIds = parameters.allowForUnauthenticatedContractIds,
       domainSelectorFactory,
       parameters.processingTimeouts,
       loggerFactory,
