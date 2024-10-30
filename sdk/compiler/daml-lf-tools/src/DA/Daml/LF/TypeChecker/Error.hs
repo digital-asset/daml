@@ -243,21 +243,18 @@ instance Pretty WarnableError where
       vsep
         [ "This package defines both interfaces and templates. This may make this package and its dependents not upgradeable."
         , "It is recommended that interfaces are defined in their own package separate from their implementations."
-        , "Ignore this error message with the --warn-bad-interface-instances=yes flag."
         ]
     WEUpgradeShouldDefineIfaceWithoutImplementation implModule implIface implTpl ->
       vsep
         [ "The interface " <> pPrint implIface <> " was defined in this package and implemented in " <> pPrint implModule <> " by " <> pPrint implTpl
         , "This may make this package and its dependents not upgradeable."
         , "It is recommended that interfaces are defined in their own package separate from their implementations."
-        , "Ignore this error message with the --warn-bad-interface-instances=yes flag."
         ]
     WEUpgradeShouldDefineTplInSeparatePackage tpl iface ->
       vsep
         [ "The template " <> pPrint tpl <> " has implemented interface " <> pPrint iface <> ", which is defined in a previous version of this package."
         , "This may make this package and its dependents not upgradeable."
         , "It is recommended that interfaces are defined in their own package separate from their implementations."
-        , "Ignore this error message with the --warn-bad-interface-instances=yes flag."
         ]
     WEDependencyHasUnparseableVersion pkgName version packageOrigin ->
       "Dependency " <> pPrint pkgName <> " of " <> pPrint packageOrigin <> " has a version which cannot be parsed: '" <> pPrint version <> "'"
@@ -468,7 +465,15 @@ instance Pretty UnserializabilityReason where
 instance Pretty Error where
   pPrint = \case
     EUnwarnableError err -> pPrint err
-    EWarnableError err -> pPrint err
+    EWarnableError err ->
+      case filterNameForWarnableError err of
+        Just name ->
+          vcat
+            [ pPrint err
+            , "Downgrade this error to a warning with -W" <> string name
+            , "Disable this error entirely with -Wno-" <> string name
+            ]
+        Nothing -> pPrint err
     EWarningToError warning -> pPrint warning
     EContext ctx err -> prettyWithContext ctx (Right err)
 
@@ -906,7 +911,15 @@ instance Pretty Warning where
   pPrint = \case
     WContext ctx warning -> prettyWithContext ctx (Left warning)
     WStandaloneWarning standaloneWarning -> pPrint standaloneWarning
-    WErrorToWarning err -> pPrint err
+    WErrorToWarning err ->
+      case filterNameForWarnableError err of
+        Just name ->
+          vcat
+            [ pPrint err
+            , "Upgrade this warning to an error -Werror=" <> string name
+            , "Disable this warning entirely with -Wno-" <> string name
+            ]
+        Nothing -> pPrint err
 
 instance ToDiagnostic Warning where
   toDiagnostic warning = Diagnostic
