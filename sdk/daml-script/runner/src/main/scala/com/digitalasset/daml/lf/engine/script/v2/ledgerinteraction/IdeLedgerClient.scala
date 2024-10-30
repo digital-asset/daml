@@ -29,6 +29,7 @@ import com.digitalasset.daml.lf.speedy.Speedy.Machine
 import com.digitalasset.daml.lf.speedy.{Pretty, SError, SValue, TraceLog, WarningLog}
 import com.digitalasset.daml.lf.transaction.{
   FatContractInstance,
+  FatContractInstanceImpl,
   GlobalKey,
   IncompleteTransaction,
   Node,
@@ -39,7 +40,6 @@ import com.digitalasset.daml.lf.transaction.{
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.daml.nonempty.NonEmpty
-
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory}
 import com.digitalasset.canton.ledger.localstore.InMemoryUserManagementStore
 import scalaz.OneAnd
@@ -119,8 +119,24 @@ class IdeLedgerClient(
   private val userManagementStore =
     new InMemoryUserManagementStore(createAdmin = false, namedLoggerFactory)
 
-  private[this] def blob(contract: FatContractInstance): Bytes =
-    Bytes.fromByteString(TransactionCoder.encodeFatContractInstance(contract).toOption.get)
+  private[this] def blob(contract: FatContractInstance): Bytes = {
+    val valueTranslator =
+      new ValueTranslator(compiledPackages.pkgInterface, requireV1ContractIdSuffix = false)
+    valueTranslator.translateValue(TTyCon(contract.templateId), contract.createArg) match {
+      case Left(_) =>
+        sys.error("blob: translateValue failed")
+      case Right(sArg) =>
+        val normalizedArg = sArg.toNormalizedValue(contract.version)
+        val normalizedContract =
+          contract.asInstanceOf[FatContractInstanceImpl].copy(createArg = normalizedArg)
+        Bytes.fromByteString(
+          TransactionCoder
+            .encodeFatContractInstance(normalizedContract)
+            .toOption
+            .get
+        )
+    }
+  }
 
   private[this] def blob(create: Node.Create, createAt: Time.Timestamp): Bytes =
     blob(FatContractInstance.fromCreateNode(create, createAt, Bytes.Empty))
