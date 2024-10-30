@@ -11,7 +11,6 @@ import com.digitalasset.canton.ledger.error.LedgerApiErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.tracing.{NoTracing, Spanning}
 import com.digitalasset.canton.util.Thereafter.syntax.ThereafterOps
 import com.digitalasset.canton.util.TryUtil.ForFailedOps
@@ -36,11 +35,11 @@ import scala.util.{Failure, Success, Try}
   * (i.e. allow re-processing the same transaction twice).
   */
 class ResilientLedgerSubscription[S, T](
-    makeSource: String => Source[S, NotUsed],
+    makeSource: Long => Source[S, NotUsed],
     consumingFlow: Flow[S, T, ?],
     subscriptionName: String,
-    startOffset: String,
-    extractOffset: S => Option[String],
+    startOffset: Long,
+    extractOffset: S => Option[Long],
     val timeouts: ProcessingTimeout,
     val loggerFactory: NamedLoggerFactory,
     resubscribeIfPruned: Boolean = false,
@@ -51,7 +50,7 @@ class ResilientLedgerSubscription[S, T](
     with NamedLogging
     with Spanning
     with NoTracing {
-  private val offsetRef = new AtomicReference[String](startOffset)
+  private val offsetRef = new AtomicReference[Long](startOffset)
   private implicit val policyRetry: retry.Success[Any] = retry.Success.always
   private val ledgerSubscriptionRef = new AtomicReference[Option[LedgerSubscription]](None)
   private[client] val subscriptionF = retry
@@ -163,7 +162,7 @@ class ResilientLedgerSubscription[S, T](
             logger.warn(
               s"Setting the ${subject(capitalized = false)} offset to a later offset [$earliestOffset] due to pruning. Some commands might timeout or events might become stale."
             )
-            offsetRef.set(earliestOffset)
+            offsetRef.set(earliestOffset.toLong)
           } else {
             logger.error(
               s"Connection ${subject(capitalized = false)} failed to resubscribe from  ${offsetRef
@@ -179,13 +178,14 @@ class ResilientLedgerSubscription[S, T](
 }
 
 object ResilientLedgerSubscription {
-  def extractOffsetFromGetUpdateResponse(response: GetUpdatesResponse): Option[String] =
+  def extractOffsetFromGetUpdateResponse(response: GetUpdatesResponse): Option[Long] =
     response.update match {
       case Update.Transaction(value) =>
-        Some(ApiOffset.fromLong(value.offset))
+        Some(value.offset)
       case Update.Reassignment(value) =>
-        Some(ApiOffset.fromLong(value.offset))
-      case Update.OffsetCheckpoint(_) => None
+        Some(value.offset)
+      case Update.OffsetCheckpoint(value) =>
+        Some(value.offset)
       case Update.Empty => None
     }
 

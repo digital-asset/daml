@@ -15,6 +15,7 @@ import com.digitalasset.canton.data.ViewType.AssignmentViewType
 import com.digitalasset.canton.data.{
   CantonTimestamp,
   FullAssignmentTree,
+  ReassigningParticipants,
   ReassignmentSubmitterMetadata,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -42,7 +43,11 @@ import com.digitalasset.canton.participant.protocol.submission.{
   EncryptedViewMessageFactory,
   SeedGenerator,
 }
-import com.digitalasset.canton.participant.protocol.{EngineController, ProcessingStartingPoints}
+import com.digitalasset.canton.participant.protocol.{
+  EngineController,
+  ProcessingStartingPoints,
+  SerializableContractAuthenticator,
+}
 import com.digitalasset.canton.participant.store.ReassignmentStoreTest.coidAbs1
 import com.digitalasset.canton.participant.store.memory.*
 import com.digitalasset.canton.participant.store.{
@@ -106,16 +111,12 @@ class AssignmentProcessingStepsTest
     UniqueIdentifier.tryFromProtoPrimitive("bothdomains::participant")
   )
 
-  private lazy val contractId = coidAbs1
-  private lazy val contract = ExampleTransactionFactory.asSerializable(
-    contractId = contractId,
-    contractInstance = ExampleTransactionFactory.contractInstance(),
-    ledgerTime = CantonTimestamp.Epoch,
+  private lazy val contract = ExampleTransactionFactory.authenticatedSerializableContract(
     metadata = ContractMetadata.tryCreate(
       stakeholders = Set(party1),
       signatories = Set(party1),
       maybeKeyWithMaintainersVersioned = None,
-    ),
+    )
   )
 
   private lazy val initialReassignmentCounter: ReassignmentCounter = ReassignmentCounter.Genesis
@@ -235,7 +236,8 @@ class AssignmentProcessingStepsTest
     signatureO,
     None,
     isFreshOwnTimelyRequest = true,
-    isReassigningParticipant = false,
+    isConfirmingReassigningParticipant = false,
+    isObservingReassigningParticipant = false,
     Seq.empty,
     targetMediator,
     cryptoSnapshot,
@@ -282,10 +284,42 @@ class AssignmentProcessingStepsTest
     }
 
     "fail when a receiving party has no participant on the domain" in {
+      // metadataTransformer updates the contract metadata to inject receiving parties
+      def test(metadataTransformer: ContractMetadata => ContractMetadata) = {
+        val helpers = reassignmentDataHelpers
+          .focus(_.contract.metadata)
+          .modify(metadataTransformer)
 
-      val helpers = reassignmentDataHelpers
-        .focus(_.contract.metadata)
-        .modify(metadata =>
+        val unassignmentRequest = helpers.unassignmentRequest(
+          party1,
+          DefaultTestIdentities.participant1,
+          sourceMediator,
+        )()
+
+        val reassignmentData2 =
+          reassignmentDataHelpers.reassignmentData(reassignmentId, unassignmentRequest)()
+
+        for {
+          deps <- statefulDependencies
+          (persistentState, state) = deps
+          _ <- setUpOrFail(reassignmentData2, unassignmentResult, persistentState).failOnShutdown
+          preparedSubmission <- leftOrFailShutdown(
+            assignmentProcessingSteps.createSubmission(
+              submissionParam,
+              targetMediator,
+              state,
+              cryptoSnapshot,
+            )
+          )("prepare submission did not return a left")
+        } yield {
+          inside(preparedSubmission) { case NoParticipantForReceivingParty(_, p) =>
+            p shouldBe party3
+          }
+        }
+      }
+
+      for {
+        _ <- test(metadata =>
           ContractMetadata.tryCreate(
             signatories = metadata.signatories,
             // party3 is a stakeholder and therefore a receiving party
@@ -294,32 +328,15 @@ class AssignmentProcessingStepsTest
           )
         )
 
-      val unassignmentRequest = helpers.unassignmentRequest(
-        party1,
-        DefaultTestIdentities.participant1,
-        sourceMediator,
-      )()
-
-      val reassignmentData2 =
-        reassignmentDataHelpers.reassignmentData(reassignmentId, unassignmentRequest)()
-
-      for {
-        deps <- statefulDependencies
-        (persistentState, state) = deps
-        _ <- setUpOrFail(reassignmentData2, unassignmentResult, persistentState).failOnShutdown
-        preparedSubmission <- leftOrFailShutdown(
-          assignmentProcessingSteps.createSubmission(
-            submissionParam,
-            targetMediator,
-            state,
-            cryptoSnapshot,
+        _ <- test(metadata =>
+          ContractMetadata.tryCreate(
+            // party3 is a signatory and therefore a receiving party
+            signatories = metadata.signatories + party3,
+            stakeholders = metadata.stakeholders + party3,
+            maybeKeyWithMaintainersVersioned = None,
           )
-        )("prepare submission did not return a left")
-      } yield {
-        inside(preparedSubmission) { case NoParticipantForReceivingParty(_, p) =>
-          p shouldBe party3
-        }
-      }
+        )
+      } yield succeed
     }
 
     "fail when unassignment processing is not yet complete" in {
@@ -369,7 +386,6 @@ class AssignmentProcessingStepsTest
     }
 
     "fail when participant does not have submission permission for party" in {
-
       val failingTopology = TestingTopology(domains = Set(sourceDomain.unwrap))
         .withReversedTopology(
           Map(participant -> Map(party1 -> ParticipantPermission.Observation))
@@ -481,7 +497,7 @@ class AssignmentProcessingStepsTest
             .value
       } yield {
         decrypted.decryptionErrors shouldBe Seq.empty
-        activenessSet shouldBe mkActivenessSet(assign = Set(contractId))
+        activenessSet shouldBe mkActivenessSet(assign = Set(contract.contractId))
       }
     }
 
@@ -542,48 +558,62 @@ class AssignmentProcessingStepsTest
 
   "construct pending data and response" should {
     "fail when wrong stakeholders given" in {
-      lazy val contractWrongStakeholders = ExampleTransactionFactory.asSerializable(
-        contractId = contractId,
-        contractInstance = ExampleTransactionFactory.contractInstance(),
-        ledgerTime = CantonTimestamp.Epoch,
-        metadata = ContractMetadata.tryCreate(
-          stakeholders = Set(party1, party2),
-          signatories = Set(party1),
-          maybeKeyWithMaintainersVersioned = None,
-        ),
-      )
+      def test(contractWrongStakeholders: SerializableContract) =
+        for {
+          deps <- statefulDependencies
+          (_persistentState, ephemeralState) = deps
 
-      for {
-        deps <- statefulDependencies
-        (_persistentState, ephemeralState) = deps
+          fullAssignmentTree2 = makeFullAssignmentTree(
+            party1,
+            contractWrongStakeholders,
+            ExampleTransactionFactory.transactionId(0),
+            targetDomain,
+            targetMediator,
+            unassignmentResult,
+          )
 
-        // party2 is incorrectly registered as a stakeholder
-        fullAssignmentTree2 = makeFullAssignmentTree(
-          party1,
-          contractWrongStakeholders,
-          ExampleTransactionFactory.transactionId(0),
-          targetDomain,
-          targetMediator,
-          unassignmentResult,
+          reassignmentLookup = ephemeralState.reassignmentCache
+
+          result <- leftOrFail(
+            assignmentProcessingSteps
+              .constructPendingDataAndResponse(
+                mkParsedRequest(fullAssignmentTree2),
+                reassignmentLookup,
+                FutureUnlessShutdown.pure(mkActivenessResult()),
+                engineController =
+                  EngineController(participant, RequestId(CantonTimestamp.Epoch), loggerFactory),
+              )
+              .flatMap(_.confirmationResponsesF)
+          )("construction of pending data and response did not return a left").failOnShutdown
+        } yield {
+          result should matchPattern { case StakeholdersMismatch(_, _, _, _) =>
+          }
+        }
+
+      // party2 is incorrectly registered as a stakeholder
+      val contractWrongStakeholders: SerializableContract =
+        ExampleTransactionFactory.authenticatedSerializableContract(
+          metadata = ContractMetadata.tryCreate(
+            stakeholders = Set(party1, party2),
+            signatories = Set(party1),
+            maybeKeyWithMaintainersVersioned = None,
+          )
         )
 
-        reassignmentLookup = ephemeralState.reassignmentCache
+      // party2 is incorrectly registered as a signatory
+      val contractWrongSignatories: SerializableContract =
+        ExampleTransactionFactory.authenticatedSerializableContract(
+          metadata = ContractMetadata.tryCreate(
+            stakeholders = Set(party1, party2),
+            signatories = Set(party1, party2),
+            maybeKeyWithMaintainersVersioned = None,
+          )
+        )
 
-        result <- leftOrFail(
-          assignmentProcessingSteps
-            .constructPendingDataAndResponse(
-              mkParsedRequest(fullAssignmentTree2),
-              reassignmentLookup,
-              FutureUnlessShutdown.pure(mkActivenessResult()),
-              engineController =
-                EngineController(participant, RequestId(CantonTimestamp.Epoch), loggerFactory),
-            )
-            .flatMap(_.confirmationResponsesF)
-        )("construction of pending data and response did not return a left").failOnShutdown
-      } yield {
-        result should matchPattern { case StakeholdersMismatch(_, _, _, _) =>
-        }
-      }
+      for {
+        _ <- test(contractWrongStakeholders)
+        _ <- test(contractWrongSignatories)
+      } yield succeed
     }
 
     "succeed without errors" in {
@@ -643,7 +673,7 @@ class AssignmentProcessingStepsTest
         initialReassignmentCounter,
         submitterInfo(submitter),
         ExampleTransactionFactory.transactionId(0),
-        isReassigningParticipant = false,
+        isObservingReassigningParticipant = false,
         reassignmentId,
         contract.metadata.stakeholders,
         MediatorGroupRecipient(MediatorGroupIndex.one),
@@ -702,6 +732,7 @@ class AssignmentProcessingStepsTest
         loggerFactory,
       ),
       seedGenerator,
+      SerializableContractAuthenticator(pureCrypto),
       Target(defaultStaticDomainParameters),
       Target(testedProtocolVersion),
       loggerFactory = loggerFactory,
@@ -733,7 +764,7 @@ class AssignmentProcessingStepsTest
         uuid,
         Source(testedProtocolVersion),
         Target(testedProtocolVersion),
-        confirmingReassigningParticipants = Set.empty,
+        reassigningParticipants = ReassigningParticipants.empty,
       )
     )("Failed to create FullAssignmentTree")
   }

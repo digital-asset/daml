@@ -63,7 +63,7 @@ class GrpcInspectionService(
         case Right(cantonTimestamp) =>
           syncStateInspection
             .getOffsetByTime(cantonTimestamp)
-            .map(ledgerOffset => LookupOffsetByTime.Response(ledgerOffset.getOrElse("")))
+            .map(ledgerOffset => LookupOffsetByTime.Response(ledgerOffset))
         case Left(err) =>
           Future.failed(new IllegalArgumentException(s"""Failed to parse timestamp: $err"""))
       }
@@ -417,12 +417,10 @@ class GrpcInspectionService(
 
         contractsAndTransferCounter <- EitherTUtil
           .fromFuture(
-            FutureUnlessShutdown.outcomeF(
-              syncStateInspection.activeContractsStakeholdersFilter(
-                domainId,
-                cantonTickTs,
-                counterParticipantParties.map(_.toLf),
-              )
+            syncStateInspection.activeContractsStakeholdersFilter(
+              domainId,
+              cantonTickTs,
+              counterParticipantParties.map(_.toLf),
             ),
             err => InspectionServiceError.InternalServerError.Error(err.toString),
           )

@@ -24,10 +24,14 @@ import com.digitalasset.canton.sequencing.protocol.{
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
-import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.*
-import com.digitalasset.canton.{LfPartyId, LfWorkflowId, ReassignmentCounter}
+import com.digitalasset.canton.{
+  LfPartyId,
+  LfWorkflowId,
+  ProtoDeserializationError,
+  ReassignmentCounter,
+}
 import com.google.protobuf.ByteString
 
 import java.util.UUID
@@ -140,7 +144,7 @@ object AssignmentViewTree
   * @param stakeholders The stakeholders of the reassigned contract
   * @param uuid The uuid of the assignment request
   * @param submitterMetadata information about the submission
-  * @param confirmingReassigningParticipants The list of confirming reassigning participants
+  * @param reassigningParticipants The list of reassigning participants
   */
 final case class AssignmentCommonData private (
     override val salt: Salt,
@@ -149,7 +153,7 @@ final case class AssignmentCommonData private (
     stakeholders: Stakeholders,
     uuid: UUID,
     submitterMetadata: ReassignmentSubmitterMetadata,
-    confirmingReassigningParticipants: Set[ParticipantId],
+    reassigningParticipants: ReassigningParticipants,
 )(
     hashOps: HashOps,
     val targetProtocolVersion: Target[ProtocolVersion],
@@ -174,7 +178,9 @@ final case class AssignmentCommonData private (
       uuid = ProtoConverter.UuidConverter.toProtoPrimitive(uuid),
       submitterMetadata = Some(submitterMetadata.toProtoV30),
       confirmingReassigningParticipantUids =
-        confirmingReassigningParticipants.map(_.uid.toProtoPrimitive).toSeq,
+        reassigningParticipants.confirming.map(_.uid.toProtoPrimitive).toSeq,
+      observingReassigningParticipantUids =
+        reassigningParticipants.observing.map(_.uid.toProtoPrimitive).toSeq,
     )
 
   override protected[this] def toByteStringUnmemoized: ByteString =
@@ -183,14 +189,14 @@ final case class AssignmentCommonData private (
   override def hashPurpose: HashPurpose = HashPurpose.AssignmentCommonData
 
   def confirmingParties: Map[LfPartyId, PositiveInt] =
-    stakeholders.all.map(_ -> PositiveInt.one).toMap
+    stakeholders.signatories.map(_ -> PositiveInt.one).toMap
 
   override protected def pretty: Pretty[AssignmentCommonData] = prettyOfClass(
     param("submitter metadata", _.submitterMetadata),
     param("target domain", _.targetDomain),
     param("target mediator group", _.targetMediatorGroup),
     param("stakeholders", _.stakeholders),
-    param("confirming reassigning participants", _.confirmingReassigningParticipants),
+    param("reassigning participants", _.reassigningParticipants),
     param("uuid", _.uuid),
     param("salt", _.salt),
   )
@@ -218,7 +224,7 @@ object AssignmentCommonData
       uuid: UUID,
       submitterMetadata: ReassignmentSubmitterMetadata,
       targetProtocolVersion: Target[ProtocolVersion],
-      confirmingReassigningParticipants: Set[ParticipantId],
+      reassigningParticipants: ReassigningParticipants,
   ): AssignmentCommonData = AssignmentCommonData(
     salt = salt,
     targetDomain = targetDomain,
@@ -226,7 +232,7 @@ object AssignmentCommonData
     stakeholders = stakeholders,
     uuid = uuid,
     submitterMetadata = submitterMetadata,
-    confirmingReassigningParticipants = confirmingReassigningParticipants,
+    reassigningParticipants = reassigningParticipants,
   )(hashOps, targetProtocolVersion, None)
 
   private[this] def fromProtoV30(
@@ -244,6 +250,7 @@ object AssignmentCommonData
       targetMediatorGroupP,
       submitterMetadataPO,
       confirmingReassigningParticipantUidsP,
+      observingReassigningParticipantUidsP,
     ) = assignmentCommonDataP
 
     for {
@@ -268,6 +275,19 @@ object AssignmentCommonData
           .fromProtoPrimitive(uid, "confirming_reassigning_participant_uids")
           .map(ParticipantId(_))
       )
+      observingReassigningParticipants <- observingReassigningParticipantUidsP.traverse(uid =>
+        UniqueIdentifier
+          .fromProtoPrimitive(uid, "observing_reassigning_participant_uids")
+          .map(ParticipantId(_))
+      )
+
+      reassigningParticipants <- ReassigningParticipants
+        .create(
+          confirming = confirmingReassigningParticipants.toSet,
+          observing = observingReassigningParticipants.toSet,
+        )
+        .leftMap(ProtoDeserializationError.InvariantViolation(field = "confirming", _))
+
     } yield AssignmentCommonData(
       salt,
       targetDomain,
@@ -275,7 +295,7 @@ object AssignmentCommonData
       stakeholders = stakeholders,
       uuid,
       submitterMetadata,
-      confirmingReassigningParticipants.toSet,
+      reassigningParticipants = reassigningParticipants,
     )(hashOps, targetProtocolVersion, Some(bytes))
   }
 }
@@ -459,11 +479,10 @@ final case class FullAssignmentTree(tree: AssignmentViewTree)
   def workflowId: Option[LfWorkflowId] = submitterMetadata.workflowId
 
   // Parties and participants
-  // TODO(#21072) Check stakeholders and informees are compatible
+  // TODO(#22048) Check stakeholders and informees are compatible
   def stakeholders: Stakeholders = commonData.stakeholders
   override def informees: Set[LfPartyId] = tree.view.tryUnwrap.contract.metadata.stakeholders
-  override def confirmingReassigningParticipants: Set[ParticipantId] =
-    commonData.confirmingReassigningParticipants
+  override def reassigningParticipants: ReassigningParticipants = commonData.reassigningParticipants
 
   // Contract
   def contract: SerializableContract = view.contract
@@ -501,8 +520,9 @@ object FullAssignmentTree {
   )(bytes: ByteString): ParsingResult[FullAssignmentTree] =
     for {
       tree <- AssignmentViewTree.fromByteString(crypto, targetProtocolVersion)(bytes)
-      _ <- EitherUtil.condUnitE(
+      _ <- Either.cond(
         tree.isFullyUnblinded,
+        (),
         OtherError(s"Assignment request ${tree.rootHash} is not fully unblinded"),
       )
     } yield FullAssignmentTree(tree)

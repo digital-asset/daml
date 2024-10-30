@@ -222,12 +222,12 @@ private[participant] class NaiveRequestTracker(
             requestData.timeoutResult outcome NoTimeout
             taskScheduler.scheduleTask(task)
             taskScheduler.addTick(sc, resultTimestamp)
-            Right(())
+            Either.unit
 
           case Some(oldData) =>
             if (oldData == data) {
               logger.debug(withRC(rc, s"Result signalled a second time to the request tracker."))
-              Right(())
+              Either.unit
             } else {
               logger.warn(
                 withRC(rc, s"Result with different parameters signalled to the request tracker.")

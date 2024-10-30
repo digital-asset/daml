@@ -10,6 +10,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.metrics.BftOrderingMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModuleMetrics.emitNonCompliance
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.validation.ViewChangeMessageValidator
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
   BlockNumber,
   EpochNumber,
@@ -42,6 +43,7 @@ class PbftViewChangeState(
     override val loggerFactory: NamedLoggerFactory,
 )(implicit mc: MetricsContext)
     extends NamedLogging {
+  private val messageValidator = new ViewChangeMessageValidator(membership, blockNumbers)
   private val viewChangeMap = mutable.HashMap[SequencerId, ViewChange]()
   private var newView: Option[NewView] = None
 
@@ -121,18 +123,21 @@ class PbftViewChangeState(
       case Some(_) =>
         logger.info(s"View change from ${vc.from} already exists; ignoring new vote")
       case None =>
-        if (!isValidViewChangeMessage(vc)) {
-          emitNonCompliance(metrics)(
-            vc.from,
-            epoch,
-            view,
-            vc.blockMetadata.blockNumber,
-            metrics.security.noncompliant.labels.violationType.values.ConsensusInvalidMessage,
-          )
-          logger.warn(s"Invalid view change message; ignoring vote")
-        } else {
-          viewChangeMap.put(vc.from, vc).discard
-          stateChanged = true
+        validateViewChangeMessage(vc) match {
+          case Right(()) =>
+            viewChangeMap.put(vc.from, vc).discard
+            stateChanged = true
+          case Left(error) =>
+            emitNonCompliance(metrics)(
+              vc.from,
+              epoch,
+              view,
+              vc.blockMetadata.blockNumber,
+              metrics.security.noncompliant.labels.violationType.values.ConsensusInvalidMessage,
+            )
+            logger.warn(
+              s"Invalid view change message from ${vc.from}, ignoring vote. Reason: $error"
+            )
         }
     }
     stateChanged
@@ -144,7 +149,8 @@ class PbftViewChangeState(
   // - Validate Prepares all have matching hash and are from enough distinct peers
   // - Is there some extra validation that should be done on the PrePrepare?
   //     - e.g., ensuring that blocks are ⊥ when they need to be
-  private def isValidViewChangeMessage(vc: ViewChange): Boolean = true
+  private def validateViewChangeMessage(vc: ViewChange): Either[String, Unit] =
+    messageValidator.validateViewChangeMessage(vc)
 
   private def setNewView(nv: NewView)(implicit traceContext: TraceContext): Boolean = {
     var stateChange = false

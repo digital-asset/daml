@@ -14,7 +14,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.admin.v30
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
-import com.digitalasset.canton.util.{EitherTUtil, EitherUtil}
+import com.digitalasset.canton.util.EitherTUtil
 import io.grpc.Status
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -162,8 +162,9 @@ object GrpcDomainTimeService {
       // allow none or the actual domainId to return the time tracker
       domainIdO =>
         for {
-          _ <- EitherUtil.condUnitE(
+          _ <- Either.cond(
             domainIdO.forall(_ == domainId),
+            (),
             "Provided domain id does not match running domain",
           )
         } yield timeTracker,

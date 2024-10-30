@@ -164,13 +164,13 @@ class SequencerWriterQueues private[sequencer] (
       event <- eventGenerator.generate(submissionOrOutcome)
       enqueueResult = deliverEventQueue.offer(event)
       _ <- EitherT.fromEither[Future](enqueueResult match {
-        case QueueOfferResult.Enqueued => Right(())
+        case QueueOfferResult.Enqueued => Either.unit
         case QueueOfferResult.Dropped =>
           Left(SendAsyncError.Overloaded("Sequencer event buffer is full"): SendAsyncError)
         case QueueOfferResult.QueueClosed => Left(SendAsyncError.ShuttingDown())
         case other =>
           logger.warn(s"Unexpected result from payload queue offer: $other")
-          Right(())
+          Either.unit
       })
     } yield ()
 

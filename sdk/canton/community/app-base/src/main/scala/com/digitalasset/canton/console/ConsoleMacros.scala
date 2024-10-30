@@ -61,7 +61,7 @@ import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.{
   PositiveSignedTopologyTransaction,
 }
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
-import com.digitalasset.canton.util.{BinaryFileUtil, EitherUtil}
+import com.digitalasset.canton.util.BinaryFileUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{DomainAlias, SequencerAlias}
 import com.digitalasset.daml.lf.value.Value.ContractId
@@ -787,8 +787,9 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
     }
 
     private def no_domain(nodes: NonEmpty[Seq[InstanceReference]]): Either[String, Unit] =
-      EitherUtil.condUnitE(
+      Either.cond(
         !nodes.exists(_.health.initialized()),
+        (),
         "the domain has not yet been bootstrapped but some sequencers or mediators are already part of one",
       )
 
@@ -805,7 +806,7 @@ trait ConsoleMacros extends NamedLogging with NoTracing {
           .toRight("you need at least one sequencer")
         neMediators <- NonEmpty.from(mediators.distinct).toRight("you need at least one mediator")
         nodes = neOwners ++ neSequencers ++ neMediators
-        _ = EitherUtil.condUnitE(nodes.forall(_.health.is_running()), "all nodes must be running")
+        _ = Either.cond(nodes.forall(_.health.is_running()), (), "all nodes must be running")
         ns <- expected_namespace(neOwners)
         expectedId = ns.map(ns => DomainId(UniqueIdentifier.tryCreate(name, ns.toProtoPrimitive)))
         actualIdIfAllNodesAreInitialized <- expectedId.fold(

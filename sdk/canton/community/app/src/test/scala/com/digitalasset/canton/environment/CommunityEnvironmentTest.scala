@@ -4,6 +4,7 @@
 package com.digitalasset.canton.environment
 
 import cats.data.EitherT
+import cats.syntax.either.*
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.config.{CantonCommunityConfig, TestingConfigInternal}
@@ -137,7 +138,7 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
         Seq("s1", "s2").foreach(setupSequencerFactory(_, mockSequencer))
         Seq("m1", "m2").foreach(setupMediatorFactory(_, mockMediator))
 
-        environment.startAndReconnect(false) shouldBe Right(())
+        environment.startAndReconnect(false) shouldBe Either.unit
         verify(pp.getNode.valueOrFail("node should be set"), times(2))
           .reconnectDomainsIgnoreFailures()(any[TraceContext], any[ExecutionContext])
 
@@ -176,7 +177,7 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
 //        setupDomainFactory("d2", d2)
 //
 //        clue("auto-start") {
-//          environment.startAndReconnect(true) shouldBe Right(())
+//          environment.startAndReconnect(true) shouldBe Either.unit
 //        }
 //
 //        verify(pn, times(2)).autoConnectLocalDomain(any[DomainConnectionConfig])(
@@ -209,7 +210,7 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
         Seq("m1", "m2").foreach(setupMediatorFactory(_, mockMediator))
 
         clue("write ports file") {
-          environment.startAndReconnect(false) shouldBe Right(())
+          environment.startAndReconnect(false) shouldBe Either.unit
         }
         assert(f.exists())
 
@@ -228,7 +229,7 @@ class CommunityEnvironmentTest extends AnyWordSpec with BaseTest with HasExecuti
         Seq("s1", "s2").foreach(setupSequencerFactory(_, mySequencer))
         Seq("m1", "m2").foreach(setupMediatorFactory(_, myMediator))
 
-        environment.startAndReconnect(false) shouldBe Right(())
+        environment.startAndReconnect(false) shouldBe Either.unit
       }
 
       "report exceptions" in new TestEnvironment {

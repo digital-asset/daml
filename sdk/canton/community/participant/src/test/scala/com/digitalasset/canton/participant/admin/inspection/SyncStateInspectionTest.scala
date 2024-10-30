@@ -397,7 +397,7 @@ sealed trait SyncStateInspectionTest
         state = CommitmentPeriodState.Buffered,
       )
     for {
-      _ <- store.queue.enqueue(dummyCommitment.message)
+      _ <- store.queue.enqueue(dummyCommitment.message).failOnShutdown
 
       crossDomainReceived = syncStateInspection.crossDomainReceivedCommitmentMessages(
         Seq(domainSearchPeriod),

@@ -7,6 +7,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.crypto.{LtHash16, Signature, SigningPublicKey, TestHash}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.event.RecordTime
 import com.digitalasset.canton.participant.pruning.{
   SortedReconciliationIntervalsHelpers,
@@ -156,9 +157,9 @@ trait AcsCommitmentStoreTest
         _ <- NonEmpty
           .from(List(CommitmentData(remoteId, period(1, 2), dummyCommitment)))
           .fold(Future.unit)(store.storeComputed(_))
-        found1 <- store.getComputed(period(0, 1), remoteId)
-        found2 <- store.getComputed(period(0, 2), remoteId)
-        found3 <- store.getComputed(period(0, 1), remoteId2)
+        found1 <- store.getComputed(period(0, 1), remoteId).failOnShutdown
+        found2 <- store.getComputed(period(0, 2), remoteId).failOnShutdown
+        found3 <- store.getComputed(period(0, 1), remoteId2).failOnShutdown
       } yield {
         found1.toList shouldBe List(period(0, 1) -> dummyCommitment)
         found2.toList shouldBe List(
@@ -569,9 +570,9 @@ trait AcsCommitmentStoreTest
         _ <- store.markUnsafe(remoteId2, period(2, 4), srip)
         _ <- store.markUnsafe(remoteId2, period(4, 6), srip)
 
-        _ <- store.prune(ts(3))
+        _ <- store.prune(ts(3)).failOnShutdown
         prune1 <- store.outstanding(ts(0), ts(10), includeMatchedPeriods = true)
-        _ <- store.prune(ts(6))
+        _ <- store.prune(ts(6)).failOnShutdown
         prune2 <- store.outstanding(ts(0), ts(10), includeMatchedPeriods = true)
       } yield {
         start shouldBe None
@@ -886,9 +887,9 @@ trait CommitmentQueueTest extends CommitmentStoreBaseTest {
       val c32 = commitment(remoteId2, 10, 15, dummyCommitment2)
       val c41 = commitment(remoteId, 15, 20, dummyCommitment)
 
-      for {
+      (for {
         _ <- queue.enqueue(c11)
-        _ <- queue.enqueue(c11) // Idempotent enqueue
+        _ <- queue.enqueue(c11) // Idempotent enqueueUS
         _ <- queue.enqueue(c12)
         _ <- queue.enqueue(c21)
         at5 <- queue.peekThrough(ts(5))
@@ -898,11 +899,11 @@ trait CommitmentQueueTest extends CommitmentStoreBaseTest {
         _ <- queue.enqueue(c32)
         at10with32 <- queue.peekThrough(ts(10))
         at15 <- queue.peekThrough(ts(15))
-        _ <- queue.deleteThrough(ts(5))
+        _ <- FutureUnlessShutdown.outcomeF(queue.deleteThrough(ts(5)))
         at15AfterDelete <- queue.peekThrough(ts(15))
         _ <- queue.enqueue(c31)
         at15with31 <- queue.peekThrough(ts(15))
-        _ <- queue.deleteThrough(ts(15))
+        _ <- FutureUnlessShutdown.outcomeF(queue.deleteThrough(ts(15)))
         at20AfterDelete <- queue.peekThrough(ts(20))
         _ <- queue.enqueue(c41)
         at20with41 <- queue.peekThrough(ts(20))
@@ -917,7 +918,7 @@ trait CommitmentQueueTest extends CommitmentStoreBaseTest {
         at15with31.toSet shouldBe Set(c21, c22, c32, c31)
         at20AfterDelete shouldBe List.empty
         at20with41 shouldBe List(c41)
-      }
+      }).failOnShutdown
     }
 
     "peekThroughAtOrAfter works as expected" in {
@@ -931,25 +932,25 @@ trait CommitmentQueueTest extends CommitmentStoreBaseTest {
       val c41 = commitment(remoteId, 15, 20, dummyCommitment)
 
       for {
-        _ <- queue.enqueue(c11)
-        _ <- queue.enqueue(c11) // Idempotent enqueue
-        _ <- queue.enqueue(c12)
-        _ <- queue.enqueue(c21)
+        _ <- queue.enqueue(c11).failOnShutdown
+        _ <- queue.enqueue(c11).failOnShutdown // Idempotent enqueue
+        _ <- queue.enqueue(c12).failOnShutdown
+        _ <- queue.enqueue(c21).failOnShutdown
         at5 <- queue.peekThroughAtOrAfter(ts(5))
         at10 <- queue.peekThroughAtOrAfter(ts(10))
-        _ <- queue.enqueue(c22)
+        _ <- queue.enqueue(c22).failOnShutdown
         at10with22 <- queue.peekThroughAtOrAfter(ts(10))
         at15 <- queue.peekThroughAtOrAfter(ts(15))
-        _ <- queue.enqueue(c32)
+        _ <- queue.enqueue(c32).failOnShutdown
         at10with32 <- queue.peekThroughAtOrAfter(ts(10))
         at15with32 <- queue.peekThroughAtOrAfter(ts(15))
         _ <- queue.deleteThrough(ts(5))
         at15AfterDelete <- queue.peekThroughAtOrAfter(ts(15))
-        _ <- queue.enqueue(c31)
+        _ <- queue.enqueue(c31).failOnShutdown
         at15with31 <- queue.peekThroughAtOrAfter(ts(15))
         _ <- queue.deleteThrough(ts(15))
         at20AfterDelete <- queue.peekThroughAtOrAfter(ts(20))
-        _ <- queue.enqueue(c41)
+        _ <- queue.enqueue(c41).failOnShutdown
         at20with41 <- queue.peekThroughAtOrAfter(ts(20))
       } yield {
         // We don't really care how the priority queue breaks the ties, so just use sets here
@@ -1006,9 +1007,9 @@ trait CommitmentQueueTest extends CommitmentStoreBaseTest {
       val c22 = commitment(remoteId2, 5, 10, dummyCommitment5)
 
       for {
-        _ <- queue.enqueue(c11)
-        _ <- queue.enqueue(c12)
-        _ <- queue.enqueue(c21)
+        _ <- queue.enqueue(c11).failOnShutdown
+        _ <- queue.enqueue(c12).failOnShutdown
+        _ <- queue.enqueue(c21).failOnShutdown
         at05 <- queue.peekOverlapsForCounterParticipant(period(0, 5), remoteId)(
           nonEmptyTraceContext1
         )
@@ -1021,8 +1022,8 @@ trait CommitmentQueueTest extends CommitmentStoreBaseTest {
         at1015 <- queue.peekOverlapsForCounterParticipant(period(10, 15), remoteId)(
           nonEmptyTraceContext1
         )
-        _ <- queue.enqueue(c13)
-        _ <- queue.enqueue(c22)
+        _ <- queue.enqueue(c13).failOnShutdown
+        _ <- queue.enqueue(c22).failOnShutdown
         at1015after <- queue.peekOverlapsForCounterParticipant(period(10, 15), remoteId)(
           nonEmptyTraceContext1
         )

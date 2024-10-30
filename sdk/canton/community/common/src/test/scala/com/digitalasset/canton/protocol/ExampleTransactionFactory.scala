@@ -15,6 +15,7 @@ import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.data.TransactionViewDecomposition.{NewView, SameView}
 import com.digitalasset.canton.data.ViewPosition.MerklePathElement
+import com.digitalasset.canton.protocol.AuthenticatedContractIdVersionV10
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.*
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
@@ -41,8 +42,9 @@ import com.digitalasset.canton.util.LfTransactionUtil.{
 }
 import com.digitalasset.canton.util.{LfTransactionBuilder, LfTransactionUtil}
 import com.digitalasset.canton.version.ProtocolVersion
-import com.digitalasset.daml.lf.data.Ref.PackageId
+import com.digitalasset.daml.lf.data.Ref.{PackageId, PackageName}
 import com.digitalasset.daml.lf.data.{Bytes, ImmArray}
+import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.Versioned
 import com.digitalasset.daml.lf.value.Value
 import com.digitalasset.daml.lf.value.Value.{
@@ -66,16 +68,18 @@ import DeduplicationPeriod.DeduplicationDuration
 /** Provides convenience methods for creating [[ExampleTransaction]]s and parts thereof.
   */
 object ExampleTransactionFactory {
+  import EitherValues.*
+
   val pureCrypto: CryptoPureApi = new SymbolicPureCrypto()
   // Helper methods for Daml-LF types
-  val languageVersion = LfTransactionBuilder.defaultLanguageVersion
-  val packageId = LfTransactionBuilder.defaultPackageId
-  val upgradePackageId = LfPackageId.assertFromString("upgraded-pkg-id")
-  val templateId = LfTransactionBuilder.defaultTemplateId
-  val packageName = LfTransactionBuilder.defaultPackageName
-  val someOptUsedPackages = Some(Set(packageId))
-  val defaultGlobalKey = LfTransactionBuilder.defaultGlobalKey
-  val transactionVersion = LfTransactionBuilder.defaultTransactionVersion
+  val languageVersion: LanguageVersion = LfTransactionBuilder.defaultLanguageVersion
+  val packageId: LfPackageId = LfTransactionBuilder.defaultPackageId
+  val upgradePackageId: LfPackageId = LfPackageId.assertFromString("upgraded-pkg-id")
+  val templateId: LfTemplateId = LfTransactionBuilder.defaultTemplateId
+  val packageName: PackageName = LfTransactionBuilder.defaultPackageName
+  val someOptUsedPackages: Option[Set[LfPackageId]] = Some(Set(packageId))
+  val defaultGlobalKey: LfGlobalKey = LfTransactionBuilder.defaultGlobalKey
+  val transactionVersion: LfLanguageVersion = LfTransactionBuilder.defaultTransactionVersion
 
   private val random = new Random(0)
 
@@ -98,6 +102,42 @@ object ExampleTransactionFactory {
       packageVersion = None,
       arg = versionedValueCapturing(capturedIds.toList),
     )
+
+  def authenticatedSerializableContract(
+      metadata: ContractMetadata,
+      instance: LfContractInst = ExampleTransactionFactory.contractInstance(),
+      ledgerTime: CantonTimestamp = CantonTimestamp.Epoch,
+  ): SerializableContract = {
+    val unicumGenerator = new UnicumGenerator(new SymbolicPureCrypto())
+    val contractIdVersion =
+      CantonContractIdVersion.fromProtocolVersion(BaseTest.testedProtocolVersion).value
+
+    val (contractSalt, unicum) = unicumGenerator.generateSaltAndUnicum(
+      domainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::da")),
+      mediator = MediatorGroupRecipient(MediatorGroupIndex.one),
+      transactionUuid = new UUID(1L, 1L),
+      viewPosition = ViewPosition(List.empty),
+      viewParticipantDataSalt = TestSalt.generateSalt(1),
+      createIndex = 0,
+      ledgerCreateTime = LedgerCreateTime(ledgerTime),
+      metadata = metadata,
+      suffixedContractInstance = ExampleTransactionFactory.asSerializableRaw(instance),
+      contractIdVersion = contractIdVersion,
+    )
+
+    val contractId = contractIdVersion.fromDiscriminator(
+      ExampleTransactionFactory.lfHash(1337),
+      unicum,
+    )
+
+    SerializableContract(
+      contractId = contractId,
+      contractInstance = instance,
+      metadata = metadata,
+      ledgerTime = ledgerTime,
+      contractSalt = Some(contractSalt.unwrap),
+    ).value
+  }
 
   val veryDeepValue: Value = {
     def deepValue(depth: Int): Value =
@@ -287,7 +327,7 @@ object ExampleTransactionFactory {
     TestHash.digest(s"transactionId$index")
   )
 
-  def unicum(index: Int) = Unicum(TestHash.digest(s"unicum$index"))
+  def unicum(index: Int): Unicum = Unicum(TestHash.digest(s"unicum$index"))
 
   def lfHash(index: Int): LfHash =
     LfHash.assertFromBytes(

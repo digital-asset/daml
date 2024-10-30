@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.ledger.localstore
 
+import cats.syntax.either.*
 import com.digitalasset.canton.ledger.api.domain.{
   IdentityProviderConfig,
   IdentityProviderId,
@@ -227,7 +228,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
         } yield {
           res1 shouldBe Right(createdUser("user1"))
           user1 shouldBe res1
-          res2 shouldBe Right(())
+          res2 shouldBe Either.unit
           user2 shouldBe Left(UserNotFound("user1"))
         }
       }
@@ -253,7 +254,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
           res3 <- tested.createUser(user, Set.empty)
         } yield {
           res1 shouldBe Right(createdUser("user1"))
-          res2 shouldBe Right(())
+          res2 shouldBe Either.unit
           res3 shouldBe Right(createdUser("user1"))
         }
 
@@ -328,7 +329,7 @@ trait UserStoreTests extends UserStoreSpecBase { self: AsyncFreeSpec =>
               )
             )
           )
-          res3 shouldBe Right(())
+          res3 shouldBe Either.unit
           users2 shouldBe Right(UsersPage(Seq(createdUser("user2"))))
 
         }

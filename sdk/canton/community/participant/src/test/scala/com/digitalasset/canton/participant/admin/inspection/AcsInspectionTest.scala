@@ -5,12 +5,12 @@ package com.digitalasset.canton.participant.admin.inspection
 
 import cats.Eval
 import cats.data.OptionT
+import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.{DomainIndex, RequestIndex}
 import com.digitalasset.canton.participant.admin.inspection.AcsInspectionTest.{
   FakeDomainId,
-  mockLedgerApiStore,
   readAllVisibleActiveContracts,
 }
 import com.digitalasset.canton.participant.ledger.api.LedgerApiStore
@@ -36,6 +36,7 @@ import com.digitalasset.canton.store.IndexedDomain
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{
+  BaseTest,
   LfPartyId,
   LfValue,
   LfVersioned,
@@ -64,7 +65,7 @@ final class AcsInspectionTest
 
     "the snapshot is empty" should {
       "return an empty result" in {
-        for (contracts <- readAllVisibleActiveContracts(emptyState, mockLedgerApiStore, Set.empty))
+        for (contracts <- readAllVisibleActiveContracts(emptyState, Set.empty))
           yield {
             contracts.value shouldBe empty
           }
@@ -87,7 +88,6 @@ final class AcsInspectionTest
         for (
           contracts <- readAllVisibleActiveContracts(
             consistent,
-            mockLedgerApiStore,
             Set(party("a"), party("b")),
           )
         )
@@ -103,7 +103,6 @@ final class AcsInspectionTest
         for (
           contracts <- readAllVisibleActiveContracts(
             consistent,
-            mockLedgerApiStore,
             Set(party("a")),
           )
         )
@@ -129,7 +128,6 @@ final class AcsInspectionTest
         for (
           contracts <- readAllVisibleActiveContracts(
             inconsistent,
-            mockLedgerApiStore,
             Set(party("b")),
           )
         )
@@ -145,7 +143,7 @@ final class AcsInspectionTest
 
 }
 
-object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar {
+object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar with BaseTest {
 
   private val FakeDomainId = DomainId.tryFromString(s"acme::${"0" * 68}")
 
@@ -201,11 +199,11 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar {
     val snapshot = allContractIds.map(_ -> (CantonTimestamp.Epoch, ReassignmentCounter.Genesis))
 
     val acs = mock[ActiveContractStore]
-    when(acs.snapshot(any[CantonTimestamp]))
+    when(acs.snapshot(any[CantonTimestamp])(mockedTraceContext))
       .thenAnswer(Future.successful(SortedMap.from(snapshot)))
 
     val cs = mock[ContractStore]
-    when(cs.lookupManyExistingUncached(any[Seq[LfContractId]]))
+    when(cs.lookupManyExistingUncached(any[Seq[LfContractId]])(mockedTraceContext))
       .thenAnswer { (contractIds: Seq[LfContractId]) =>
         OptionT
           .fromOption[Future](NonEmpty.from(contractIds.filter(missingContracts)))
@@ -240,7 +238,6 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar {
 
   private def readAllVisibleActiveContracts(
       state: SyncDomainPersistentState,
-      ledgerApiStore: LedgerApiStore,
       parties: Set[LfPartyId],
   )(implicit
       ec: ExecutionContext
@@ -254,8 +251,9 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar {
           timestamp = None,
         ) { case (contract, _) =>
           builder += contract
-          Right(())
-        }
+          Either.unit
+        }(tc, ec)
+        .failOnShutdown
         .map(_ => builder.result())
         .value
     }

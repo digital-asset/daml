@@ -286,8 +286,12 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       val block1 = slotNumbers.head1
 
       val pp1 = createPrePrepare(block1, view1, from = otherPeer1)
-      val commit = createCommit(block1, view1, from = otherPeer1, pp1.hash)
-      val commitCertificate = CommitCertificate(pp1, Seq(commit))
+      val commits = Seq(
+        createCommit(block1, view1, from = otherPeer1, pp1.hash),
+        createCommit(block1, view1, from = otherPeer2, pp1.hash),
+        createCommit(block1, view1, from = otherPeer3, pp1.hash),
+      )
+      val commitCertificate = CommitCertificate(pp1, commits)
 
       val bottomPP1 = createBottomPrePrepare(slotNumbers(1), view2, otherPeer1)
       val bottomPP2 = createBottomPrePrepare(slotNumbers(2), view2, otherPeer1)
@@ -330,7 +334,7 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         ),
         // as a result of processing the new-view that contains a commit certificate for block1,
         // block one gets completed as see in the presence of the result below and the absence of prepares for it
-        CompletedBlock(pp1, Seq(commit), view2),
+        CompletedBlock(pp1, commits, view2),
         SendPbftMessage(
           createPrepare(slotNumbers(1), view2, myId, bottomPP1.hash),
           store = Some(StorePrePrepare(bottomPP1)),
@@ -1139,7 +1143,7 @@ object SegmentStateTest {
     val prePrepareHash = prePrepare.hash
     val prepareSeq = allPeers
       .filterNot(_ == prePrepareSource)
-      .take(fullMembership.orderingTopology.strongQuorum - 1)
+      .take(fullMembership.orderingTopology.strongQuorum)
       .map(peer => createPrepare(blockNumber, view, peer, prePrepareHash))
     PrepareCertificate(prePrepare, prepareSeq)
   }

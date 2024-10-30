@@ -66,7 +66,7 @@ object RequireTypes {
 
     /** This instructs the server to automatically choose a free port.
       */
-    lazy val Dynamic = Port.tryCreate(0)
+    lazy val Dynamic: Port = Port.tryCreate(0)
   }
 
   sealed trait RefinedNumeric[T] extends Ordered[RefinedNumeric[T]] {

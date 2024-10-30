@@ -4,6 +4,7 @@
 package com.digitalasset.canton.domain.sequencing.service
 
 import cats.data.EitherT
+import cats.syntax.either.*
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
@@ -406,7 +407,7 @@ class GrpcSequencerIntegrationTest
           .value
           .onShutdown(fail())
       } yield {
-        response shouldBe Right(())
+        response shouldBe Either.unit
       }
 
       result.futureValue

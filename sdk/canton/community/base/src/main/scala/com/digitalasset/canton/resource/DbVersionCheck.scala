@@ -58,14 +58,14 @@ object DbVersionCheck extends HasLoggerName {
               )
             )
           _unit <- {
-            if (expectedPostgresVersions.contains(majorVersion)) Right(())
+            if (expectedPostgresVersions.contains(majorVersion)) Either.unit
             else if (majorVersion > maxPostgresVersion) {
               val level = if (standardConfig) Level.WARN else Level.INFO
               LoggerUtil.logAtLevel(
                 level,
                 s"Expected Postgres version $expectedPostgresVersionsStr but got higher version $versionString",
               )
-              Right(())
+              Either.unit
             } else
               Left(
                 s"Expected Postgres version $expectedPostgresVersionsStr but got lower version $versionString"
@@ -76,13 +76,14 @@ object DbVersionCheck extends HasLoggerName {
 
       case Profile.H2(_) =>
         // We don't perform version checks for H2
-        Right(())
+        Either.unit
     }
     if (standardConfig) either
-    else
-      either.leftFlatMap { error =>
+    else {
+      either.swap.foreach { error =>
         loggingContext.info(error.toString)
-        Right(())
       }
+      Either.unit
+    }
   }
 }

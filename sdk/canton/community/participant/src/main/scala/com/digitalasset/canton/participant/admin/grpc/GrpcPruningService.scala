@@ -18,7 +18,7 @@ import com.digitalasset.canton.admin.pruning.v30.{
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.error.CantonError
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.PruningServiceErrorGroup
-import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.NonHexOffset
+import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.InvalidArgument
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil
@@ -58,7 +58,9 @@ class GrpcPruningService(
               UpstreamOffsetConvert
                 .toLedgerSyncOffset(request.pruneUpTo)
                 .leftMap(err =>
-                  NonHexOffset.Error("prune_up_to", request.pruneUpTo, err).asGrpcError
+                  InvalidArgument
+                    .Reject(s"The prune_up_to field (${request.pruneUpTo}) is invalid: $err")
+                    .asGrpcError
                 )
             )
           _ <- CantonGrpcUtil.mapErrNewETUS(sync.pruneInternally(ledgerSyncOffset))
@@ -159,7 +161,7 @@ class GrpcPruningService(
           .NoSafePruningOffset(GetSafePruningOffsetResponse.NoSafePruningOffset())
       )(offset =>
         GetSafePruningOffsetResponse.Response
-          .SafePruningOffset(UpstreamOffsetConvert.fromGlobalOffset(offset).toHexString)
+          .SafePruningOffset(UpstreamOffsetConvert.fromGlobalOffset(offset).toLong)
       )
 
     GetSafePruningOffsetResponse(response)

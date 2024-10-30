@@ -30,16 +30,16 @@ object EnterpriseSequencerConnectionAdminCommands {
         v30.GetConnectionResponse,
         Option[SequencerConnections],
       ] {
-    override def submitRequest(
+    override protected def submitRequest(
         service: v30.SequencerConnectionServiceGrpc.SequencerConnectionServiceStub,
         request: v30.GetConnectionRequest,
     ): Future[v30.GetConnectionResponse] = service.getConnection(request)
 
-    override def createRequest(): Either[String, v30.GetConnectionRequest] = Right(
+    override protected def createRequest(): Either[String, v30.GetConnectionRequest] = Right(
       v30.GetConnectionRequest()
     )
 
-    override def handleResponse(
+    override protected def handleResponse(
         response: v30.GetConnectionResponse
     ): Either[String, Option[SequencerConnections]] = {
       val v30.GetConnectionResponse(sequencerConnectionsPO) = response
@@ -55,36 +55,37 @@ object EnterpriseSequencerConnectionAdminCommands {
         v30.SetConnectionResponse,
         Unit,
       ] {
-    override def submitRequest(
+    override protected def submitRequest(
         service: v30.SequencerConnectionServiceGrpc.SequencerConnectionServiceStub,
         request: v30.SetConnectionRequest,
     ): Future[v30.SetConnectionResponse] = service.setConnection(request)
 
-    override def createRequest(): Either[String, v30.SetConnectionRequest] = Right(
+    override protected def createRequest(): Either[String, v30.SetConnectionRequest] = Right(
       v30.SetConnectionRequest(
         Some(connections.toProtoV30),
         sequencerConnectionValidation = validation.toProtoV30,
       )
     )
 
-    override def handleResponse(response: v30.SetConnectionResponse): Either[String, Unit] =
+    override protected def handleResponse(
+        response: v30.SetConnectionResponse
+    ): Either[String, Unit] =
       Either.unit
   }
 
   final case class Logout()
       extends BaseSequencerConnectionAdminCommand[v30.LogoutRequest, v30.LogoutResponse, Unit] {
 
-    override def createRequest(): Either[String, v30.LogoutRequest] =
+    override protected def createRequest(): Either[String, v30.LogoutRequest] =
       Right(v30.LogoutRequest())
 
-    override def submitRequest(
+    override protected def submitRequest(
         service: v30.SequencerConnectionServiceGrpc.SequencerConnectionServiceStub,
         request: v30.LogoutRequest,
     ): Future[v30.LogoutResponse] =
       service.logout(request)
 
-    override def handleResponse(response: v30.LogoutResponse): Either[String, Unit] = Right(
-      ()
-    )
+    override protected def handleResponse(response: v30.LogoutResponse): Either[String, Unit] =
+      Either.unit
   }
 }

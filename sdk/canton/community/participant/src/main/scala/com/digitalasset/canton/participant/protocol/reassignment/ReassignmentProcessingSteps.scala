@@ -56,12 +56,9 @@ import com.digitalasset.canton.protocol.messages.Verdict.{
 }
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
-import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{ErrorUtil, ReassignmentTag}
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LfPartyId, RequestCounter, SequencerCounter}
 import com.digitalasset.daml.lf.engine
 
@@ -238,7 +235,10 @@ trait ReassignmentProcessingSteps[
         signature,
         submitterMetadataO,
         isFreshOwnTimelyRequest,
-        viewTree.isReassigningParticipant(participantId),
+        isConfirmingReassigningParticipant =
+          viewTree.isConfirmingReassigningParticipant(participantId),
+        isObservingReassigningParticipant =
+          viewTree.isObservingReassigningParticipant(participantId),
         malformedPayloads,
         mediator,
         snapshot,
@@ -258,12 +258,6 @@ trait ReassignmentProcessingSteps[
         s"Received a unassignment/assignment request with id $requestId with all payloads being malformed. Crashing..."
       )
     )
-
-  protected def hostedStakeholders(
-      stakeholders: List[LfPartyId],
-      snapshot: TopologySnapshot,
-  )(implicit traceContext: TraceContext): Future[List[LfPartyId]] =
-    snapshot.hostedOn(stakeholders.toSet, participantId).map(_.keySet.toList)
 
   override def eventAndSubmissionIdForRejectedCommand(
       ts: CantonTimestamp,
@@ -404,7 +398,8 @@ object ReassignmentProcessingSteps {
       signatureO: Option[Signature],
       override val submitterMetadataO: Option[ReassignmentSubmitterMetadata],
       override val isFreshOwnTimelyRequest: Boolean,
-      isReassigningParticipant: Boolean,
+      isConfirmingReassigningParticipant: Boolean,
+      isObservingReassigningParticipant: Boolean,
       override val malformedPayloads: Seq[MalformedPayload],
       override val mediator: MediatorGroupRecipient,
       override val snapshot: DomainSnapshotSyncCryptoApi,
@@ -526,12 +521,15 @@ object ReassignmentProcessingSteps {
     }
   }
 
-  final case class TemplateIdMismatch(
-      declaredTemplateId: LfTemplateId,
-      expectedTemplateId: LfTemplateId,
-  ) extends ReassignmentProcessorError {
-    override def message: String =
+  final case class ContractError(message: String) extends ReassignmentProcessorError
+
+  object ContractError {
+    def templateIdMismatch(
+        declaredTemplateId: LfTemplateId,
+        expectedTemplateId: LfTemplateId,
+    ): ContractError = ContractError(
       s"Template ID mismatch for reassignment. Declared=$declaredTemplateId, expected=$expectedTemplateId`"
+    )
   }
 
   final case class AssignmentSubmitterMustBeStakeholder(
@@ -580,15 +578,6 @@ object ReassignmentProcessingSteps {
       error: InvalidConfirmationResponse,
   ) extends ReassignmentProcessorError {
     override def message: String = s"Cannot reassign `$reassignmentId`: failed to create response"
-  }
-
-  final case class IncompatibleProtocolVersions(
-      contractId: LfContractId,
-      source: Source[ProtocolVersion],
-      target: Target[ProtocolVersion],
-  ) extends ReassignmentProcessorError {
-    override def message: String =
-      s"Cannot reassign contract `$contractId`: invalid reassignment from domain with protocol version $source to domain with protocol version $target"
   }
 
   final case class FieldConversionError(

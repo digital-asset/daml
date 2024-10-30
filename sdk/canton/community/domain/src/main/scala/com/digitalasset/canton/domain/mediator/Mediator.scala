@@ -229,7 +229,7 @@ private[mediator] class Mediator(
       _ = logger.debug(show"Pruning finalized responses up to [$pruneAt]")
       _ <- EitherT.right(state.prune(pruneAt))
       _ = logger.debug(show"Pruning sequenced event up to [$pruneAt]")
-      _ <- EitherT.right(FutureUnlessShutdown.outcomeF(sequencedEventStore.prune(pruneAt)))
+      _ <- EitherT.right(sequencedEventStore.prune(pruneAt))
 
       // After pruning successfully, update the "max-event-age" metric
       // looking up the oldest event (in case prunedAt precedes any events and nothing was pruned).

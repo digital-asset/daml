@@ -101,7 +101,7 @@ class SerializableContractAuthenticatorImpl(unicumGenerator: UnicumGenerator)
           _ <- Either.cond(
             recomputedSuffix == cantonContractSuffix,
             (),
-            s"Mismatching contract id suffixes. expected: $recomputedSuffix vs actual: $cantonContractSuffix",
+            s"Mismatching contract id suffixes. Expected: $recomputedSuffix vs actual: $cantonContractSuffix",
           )
         } yield ()
       case Left(scheme) => Left(s"Unsupported contract authentication id scheme: $scheme")

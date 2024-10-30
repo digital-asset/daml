@@ -7,6 +7,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.event.RecordTime
 import com.digitalasset.canton.participant.pruning.SortedReconciliationIntervalsProvider
 import com.digitalasset.canton.protocol.messages.AcsCommitment.CommitmentType
@@ -59,13 +60,13 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
 
   override def pruningStatus(implicit
       traceContext: TraceContext
-  ): Future[Option[PruningStatus]] = Future.successful(None)
+  ): FutureUnlessShutdown[Option[PruningStatus]] = FutureUnlessShutdown.pure(None)
 
   override protected[canton] def advancePruningTimestamp(
       phase: PruningPhase,
       timestamp: CantonTimestamp,
-  )(implicit traceContext: TraceContext): Future[Unit] =
-    incrementCounterAndErrF()
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    incrementCounterAndErrUS()
 
   override protected[canton] def doPrune(
       limit: CantonTimestamp,
@@ -77,8 +78,8 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
 
   override def getComputed(period: CommitmentPeriod, counterParticipant: ParticipantId)(implicit
       traceContext: TraceContext
-  ): Future[Iterable[(CommitmentPeriod, CommitmentType)]] =
-    Future.successful(Iterable.empty)
+  ): FutureUnlessShutdown[Iterable[(CommitmentPeriod, CommitmentType)]] =
+    FutureUnlessShutdown.pure(Iterable.empty)
 
   override def lastComputedAndSent(implicit
       traceContext: TraceContext
@@ -126,6 +127,11 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
     Future.failed(new RuntimeException("error"))
   }
 
+  private def incrementCounterAndErrUS[V](): FutureUnlessShutdown[V] = {
+    writeCounter.incrementAndGet().discard
+    FutureUnlessShutdown.failed(new RuntimeException("error"))
+  }
+
   class ThrowOnWriteIncrementalCommitmentStore extends IncrementalCommitmentStore {
     override def get()(implicit
         traceContext: TraceContext
@@ -146,11 +152,11 @@ class ThrowOnWriteCommitmentStore()(override implicit val ec: ExecutionContext)
   class ThrowOnWriteCommitmentQueue extends CommitmentQueue {
     override def enqueue(commitment: AcsCommitment)(implicit
         traceContext: TraceContext
-    ): Future[Unit] = incrementCounterAndErrF()
+    ): FutureUnlessShutdown[Unit] = FutureUnlessShutdown.outcomeF(incrementCounterAndErrF())
 
     override def peekThrough(timestamp: CantonTimestamp)(implicit
         traceContext: TraceContext
-    ): Future[List[AcsCommitment]] = Future.successful(List.empty)
+    ): FutureUnlessShutdown[List[AcsCommitment]] = FutureUnlessShutdown.pure(List.empty)
 
     override def peekThroughAtOrAfter(
         timestamp: CantonTimestamp

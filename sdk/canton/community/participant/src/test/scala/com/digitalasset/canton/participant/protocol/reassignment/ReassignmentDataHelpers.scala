@@ -13,7 +13,12 @@ import com.digitalasset.canton.crypto.{
   Signature,
   TestHash,
 }
-import com.digitalasset.canton.data.{CantonTimestamp, ReassignmentSubmitterMetadata, ViewType}
+import com.digitalasset.canton.data.{
+  CantonTimestamp,
+  ReassigningParticipants,
+  ReassignmentSubmitterMetadata,
+  ViewType,
+}
 import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentData.UnassignmentGlobalOffset
 import com.digitalasset.canton.participant.protocol.submission.SeedGenerator
@@ -76,13 +81,14 @@ final case class ReassignmentDataHelpers(
       submittingParticipant: ParticipantId,
       sourceMediator: MediatorGroupRecipient,
   )(
-      confirmingReassigningParticipants: Set[ParticipantId] = Set(submittingParticipant)
+      reassigningParticipants: ReassigningParticipants =
+        ReassigningParticipants.withConfirmers(Set(submittingParticipant))
   ): UnassignmentRequest = {
     val creatingTransactionId = ExampleTransactionFactory.transactionId(0)
 
     UnassignmentRequest(
       submitterMetadata = submitterInfo(submitter, submittingParticipant),
-      confirmingReassigningParticipants = confirmingReassigningParticipants,
+      reassigningParticipants = reassigningParticipants,
       creatingTransactionId = creatingTransactionId,
       contract = contract,
       sourceDomain = sourceDomain,
@@ -140,10 +146,9 @@ final case class ReassignmentDataHelpers(
         protocolVersion,
       )
 
-    val recipients =
-      NonEmptyUtil
-        .fromUnsafe(reassignmentData.unassignmentRequest.confirmingReassigningParticipants)
-        .toSeq
+    val recipients = NonEmptyUtil
+      .fromUnsafe(reassignmentData.unassignmentRequest.reassigningParticipants.observing)
+      .toSeq
 
     unassignmentResult(result, recipients)
   }

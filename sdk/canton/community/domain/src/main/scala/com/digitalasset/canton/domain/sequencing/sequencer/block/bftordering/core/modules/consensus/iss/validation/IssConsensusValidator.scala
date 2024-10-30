@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.validation
 
+import cats.syntax.either.*
 import com.digitalasset.canton.crypto.SignatureCheckError
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.CryptoProvider
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.availability.{
@@ -42,7 +43,7 @@ final class IssConsensusValidator[E <: Env[E]] {
             localTimestamp,
             from,
           ) =>
-        context.pureFuture(Right(()))
+        context.pureFuture(Either.unit)
       case ConsensusSegment.ConsensusMessage.Commit(
             blockMetadata,
             viewNumber,
@@ -50,7 +51,7 @@ final class IssConsensusValidator[E <: Env[E]] {
             localTimestamp,
             from,
           ) =>
-        context.pureFuture(Right(()))
+        context.pureFuture(Either.unit)
       case msg: ConsensusSegment.ConsensusMessage.ViewChange =>
         validateViewChange(msg)
       case ConsensusSegment.ConsensusMessage.NewView(

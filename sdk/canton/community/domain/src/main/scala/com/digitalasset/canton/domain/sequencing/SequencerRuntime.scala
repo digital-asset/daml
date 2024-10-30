@@ -4,6 +4,7 @@
 package com.digitalasset.canton.domain.sequencing
 
 import cats.data.EitherT
+import cats.syntax.either.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -457,7 +458,7 @@ class SequencerRuntime(
         )
       )
       _ <- domainOutboxO
-        .map(_.startup().onShutdown(Right(())))
+        .map(_.startup().onShutdown(Either.unit))
         .getOrElse(EitherT.rightT[Future, String](()))
     } yield {
       logger.info("Sequencer runtime initialized")

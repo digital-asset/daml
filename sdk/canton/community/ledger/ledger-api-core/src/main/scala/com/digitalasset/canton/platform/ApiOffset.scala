@@ -42,8 +42,12 @@ object ApiOffset {
   def toApiString(offset: Offset): Ref.HexString =
     offset.toHexString
 
+  def toApiType(offset: Offset): Long =
+    offset.toLong
+
   implicit class ApiOffsetConverter(val offset: Offset) {
     def toApiString: Ref.HexString = ApiOffset.toApiString(offset)
+    def toApiType: Long = ApiOffset.toApiType(offset)
   }
 
 }

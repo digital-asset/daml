@@ -83,7 +83,6 @@ import com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor.{
   SentCmtState,
 }
 import com.digitalasset.canton.participant.pruning.{CommitmentContractMetadata, MismatchReason}
-import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.protocol.messages.{
   AcsCommitment,
   CommitmentPeriod,
@@ -533,11 +532,10 @@ class ParticipantPruningAdministrationGroup(
   )
   def find_safe_offset(beforeOrAt: Instant = Instant.now()): Option[Long] =
     check(FeatureFlag.Preview) {
-      val ledgerEnd = ApiOffset.fromLong(
-        consoleEnvironment.run(
-          ledgerApiCommand(LedgerApiCommands.StateService.LedgerEnd())
-        )
+      val ledgerEnd = consoleEnvironment.run(
+        ledgerApiCommand(LedgerApiCommands.StateService.LedgerEnd())
       )
+
       consoleEnvironment
         .run(
           adminCommand(
@@ -545,7 +543,6 @@ class ParticipantPruningAdministrationGroup(
               .GetSafePruningOffsetCommand(beforeOrAt, ledgerEnd)
           )
         )
-        .map(ApiOffset.assertFromStringToLong)
     }
 
   @Help.Summary(
@@ -564,9 +561,8 @@ class ParticipantPruningAdministrationGroup(
   )
   def prune_internally(pruneUpTo: Long): Unit =
     check(FeatureFlag.Preview) {
-      val pruneUpToString = ApiOffset.fromLong(pruneUpTo)
       consoleEnvironment.run(
-        adminCommand(ParticipantAdminCommands.Pruning.PruneInternallyCommand(pruneUpToString))
+        adminCommand(ParticipantAdminCommands.Pruning.PruneInternallyCommand(pruneUpTo))
       )
     }
 
@@ -619,17 +615,14 @@ class ParticipantPruningAdministrationGroup(
       |the event. Returns ``None`` if no such offset exists.
     """
   )
-  def get_offset_by_time(upToInclusive: Instant): Option[String] =
+  def get_offset_by_time(upToInclusive: Instant): Option[Long] =
     consoleEnvironment.run(
       adminCommand(
         ParticipantAdminCommands.Inspection.LookupOffsetByTime(
           ProtoConverter.InstantConverter.toProtoPrimitive(upToInclusive)
         )
       )
-    ) match {
-      case "" => None
-      case offset => Some(offset)
-    }
+    )
 }
 
 class LocalCommitmentsAdministrationGroup(
@@ -1851,9 +1844,11 @@ trait ParticipantAdministration extends FeatureFlagFilter {
             .find(_.domain == domain)
             .toRight(s"No such domain $domain configured")
           newConfig = modifier(cfg)
-          _ <-
-            if (newConfig.domain == cfg.domain) Right(())
-            else Left("We don't support modifying the domain alias of a DomainConnectionConfig.")
+          _ <- Either.cond(
+            newConfig.domain == cfg.domain,
+            (),
+            "We don't support modifying the domain alias of a DomainConnectionConfig.",
+          )
           _ <- adminCommand(
             ParticipantAdminCommands.DomainConnectivity.ModifyDomainConnection(
               modifier(cfg),

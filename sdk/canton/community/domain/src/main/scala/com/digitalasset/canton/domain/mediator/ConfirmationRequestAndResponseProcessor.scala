@@ -659,8 +659,9 @@ private[mediator] class ConfirmationRequestAndResponseProcessor(
     request.informeesAndConfirmationParamsByViewPosition.toSeq
       .traverse_ { case (viewPosition, ViewConfirmationParameters(_, quorums)) =>
         val minimumThreshold = NonNegativeInt.one
-        EitherUtil.condUnitE(
+        Either.cond(
           quorums.exists(quorum => quorum.threshold >= minimumThreshold),
+          (),
           MediatorVerdict.MediatorReject(
             MediatorError.MalformedMessage
               .Reject(

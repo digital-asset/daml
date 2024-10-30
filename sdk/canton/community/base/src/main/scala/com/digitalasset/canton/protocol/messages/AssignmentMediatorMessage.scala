@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.protocol.messages
 
+import cats.syntax.functor.*
 import com.digitalasset.canton.ProtoDeserializationError.OtherError
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.{HashOps, Signature}
@@ -18,7 +19,6 @@ import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
-import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.version.{
   HasProtocolVersionedWithContextCompanion,
@@ -61,15 +61,13 @@ final case class AssignmentMediatorMessage(
 
   override def informeesAndConfirmationParamsByViewPosition
       : Map[ViewPosition, ViewConfirmationParameters] = {
-    val confirmingParties = commonData.confirmingParties
-    val viewThreshold = NonNegativeInt.tryCreate(confirmingParties.size)
+    val confirmingParties = commonData.confirmingParties.fmap(_.toNonNegative)
+    val nonConfirmingParties = commonData.stakeholders.nonConfirming.map(_ -> NonNegativeInt.zero)
 
-    Map(
-      tree.viewPosition -> ViewConfirmationParameters.createOnlyWithConfirmers(
-        confirmingParties,
-        viewThreshold,
-      )
-    )
+    val informees = confirmingParties ++ nonConfirmingParties
+    val threshold = NonNegativeInt.tryCreate(confirmingParties.size)
+
+    Map(tree.viewPosition -> ViewConfirmationParameters.create(informees, threshold))
   }
 
   override def toProtoSomeEnvelopeContentV30: v30.EnvelopeContent.SomeEnvelopeContent =
@@ -115,12 +113,14 @@ object AssignmentMediatorMessage
       tree <- ProtoConverter
         .required("AssignmentMediatorMessage.tree", treePO)
         .flatMap(AssignmentViewTree.fromProtoV30(context))
-      _ <- EitherUtil.condUnitE(
+      _ <- Either.cond(
         tree.commonData.isFullyUnblinded,
+        (),
         OtherError(s"Assignment common data is blinded in request ${tree.rootHash}"),
       )
-      _ <- EitherUtil.condUnitE(
+      _ <- Either.cond(
         tree.view.isBlinded,
+        (),
         OtherError(s"Assignment view data is not blinded in request ${tree.rootHash}"),
       )
       submittingParticipantSignature <- ProtoConverter

@@ -87,7 +87,9 @@ object ConsensusSegment {
       // TODO(i18194) add signatures
     }
 
-    sealed trait PbftNormalCaseMessage extends PbftNetworkMessage
+    sealed trait PbftNormalCaseMessage extends PbftNetworkMessage {
+      def hash: Hash
+    }
     sealed trait PbftViewChangeMessage extends PbftNetworkMessage
 
     object PbftNetworkMessage {

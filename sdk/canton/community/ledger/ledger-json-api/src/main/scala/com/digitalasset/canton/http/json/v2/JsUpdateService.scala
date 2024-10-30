@@ -263,7 +263,7 @@ case class JsReassignment(
     update_id: String,
     command_id: String,
     workflow_id: String,
-    offset: String,
+    offset: Long,
     event: JsReassignmentEvent.JsReassignmentEvent,
     trace_context: Option[com.daml.ledger.api.v2.trace_context.TraceContext],
     record_time: com.google.protobuf.timestamp.Timestamp,

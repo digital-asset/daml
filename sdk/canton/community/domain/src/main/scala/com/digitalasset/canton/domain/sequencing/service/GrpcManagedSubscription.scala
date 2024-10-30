@@ -4,6 +4,7 @@
 package com.digitalasset.canton.domain.sequencing.service
 
 import cats.data.EitherT
+import cats.syntax.either.*
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -99,7 +100,7 @@ private[service] class GrpcManagedSubscription[T](
           e,
         )
         signalAndClose(ErrorSignal(Status.INTERNAL.withCause(e).asException()))
-        Right(())
+        Either.unit
       }
     case Left(error) =>
       // Turn a subscription error (e.g. due to a tombstone) into a grpc observer error and

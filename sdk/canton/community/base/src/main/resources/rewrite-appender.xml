@@ -498,20 +498,6 @@
             <maxLevel>INFO</maxLevel>
             <testing>true</testing>
         </rewrite>
-        <!-- Suppress errors due to passivation changes in the ReplicatedParticipantTestPostgres -->
-        <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.participant.protocol.ParallelMessageDispatcher:ReplicatedParticipantTestPostgres</logger>
-            <contains>Synchronous event processing failed</contains>
-            <exceptionMessage>DbStorage instance is not active</exceptionMessage>
-            <maxLevel>INFO</maxLevel>
-            <testing>true</testing>
-        </rewrite>
-        <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.sequencing.client.RichSequencerClientImpl:ReplicatedParticipantTestPostgres</logger>
-            <contains>Synchronous event processing stopped because instance became passive</contains>
-            <maxLevel>INFO</maxLevel>
-            <testing>true</testing>
-        </rewrite>
         <!-- At shutdown of the HikariPool warnings are going to be logged when ThreadPoolExecutor#awaitTermination
          time out or get interrupted.
 

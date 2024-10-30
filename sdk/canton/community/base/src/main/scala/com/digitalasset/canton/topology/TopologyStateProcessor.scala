@@ -5,6 +5,7 @@ package com.digitalasset.canton.topology
 
 import cats.data.EitherT
 import cats.instances.seq.*
+import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.functor.*
 import com.daml.nonempty.NonEmpty
@@ -285,7 +286,7 @@ class TopologyStateProcessor[+PureCrypto <: CryptoPureApi](
         (),
         TopologyTransactionRejection.SerialMismatch(expected, toValidate.serial),
       )
-    case None => Right(())
+    case None => Either.unit
   }
 
   private def transactionIsAuthorized(

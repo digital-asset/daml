@@ -190,7 +190,7 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
         id = "PARTICIPANT_PRUNED_DATA_ACCESSED",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
-    final case class Reject(override val cause: String, earliestOffset: String)(implicit
+    final case class Reject(override val cause: String, earliestOffset: Long)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
           cause = cause,
@@ -207,7 +207,7 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
         id = "PARTICIPANT_DATA_ACCESSED_AFTER_LEDGER_END",
         ErrorCategory.InvalidGivenCurrentSystemStateOther,
       ) {
-    final case class Reject(override val cause: String, latestOffset: String)(implicit
+    final case class Reject(override val cause: String, latestOffset: Long)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
           cause = cause,
@@ -224,8 +224,7 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
         id = "OFFSET_AFTER_LEDGER_END",
         ErrorCategory.InvalidGivenCurrentSystemStateSeekAfterEnd,
       ) {
-    // TODO(#21781) use Longs in logs
-    final case class Reject(offsetType: String, requestedOffset: String, ledgerEnd: String)(implicit
+    final case class Reject(offsetType: String, requestedOffset: Long, ledgerEnd: Long)(implicit
         loggingContext: ContextualizedErrorLogger
     ) extends DamlErrorWithDefiniteAnswer(
           cause = s"$offsetType offset ($requestedOffset) is after ledger end ($ledgerEnd)"
@@ -312,24 +311,6 @@ object RequestValidationErrors extends RequestValidationErrorGroup {
           .map(ValidMaxDeduplicationFieldKey -> _.toString)
           .toList
     }
-  }
-
-  @Explanation("""The supplied offset could not be converted to a binary offset.""")
-  @Resolution("Ensure the offset is specified as a hexadecimal string.")
-  object NonHexOffset
-      extends ErrorCode(
-        id = "NON_HEXADECIMAL_OFFSET",
-        ErrorCategory.InvalidIndependentOfSystemState,
-      ) {
-    final case class Error(
-        fieldName: String,
-        offsetValue: String,
-        message: String,
-    )(implicit
-        val loggingContext: ContextualizedErrorLogger
-    ) extends DamlError(
-          cause = s"Offset in $fieldName not specified in hexadecimal: $offsetValue: $message"
-        )
   }
 
   @Explanation("""The supplied offset is not a positive integer.""")

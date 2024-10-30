@@ -17,7 +17,6 @@ import com.digitalasset.canton.console.ParticipantReference
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.ClientChannelBuilder
-import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.topology.UniqueIdentifier
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
 import com.digitalasset.canton.util.LoggerUtil.clue
@@ -342,17 +341,15 @@ class ParticipantTab(
             val message = se.getStatus.getDescription
             logger.info(s"Attempt to access pruned participant ledger state: $message")
             val errorPattern =
-              // TODO(#21781) replace ([0-9a-fA-F]*) with ([0-9]*)
-              "Transactions request from ([0-9a-fA-F]*) to ([0-9a-fA-F]*) precedes pruned offset ([0-9a-fA-F]+)".r
+              "Transactions request from ([0-9]*) to ([0-9]*) precedes pruned offset ([0-9]+)".r
             Try {
-              val errorPattern(_badStartHexOffset, _endHexOffset, hexPrunedOffset) = message
-              logger.info(s"Identified pruning offset position as $hexPrunedOffset")
-              hexPrunedOffset
+              val errorPattern(_badStartOffset, _endOffset, prunedOffset) = message
+              logger.info(s"Identified pruning offset position as $prunedOffset")
+              prunedOffset.toLong
             } match {
               case Success(prunedOffset) =>
                 logger.info(s"Resubscribing from offset $prunedOffset instead")
-                // TODO(#21781) replace assertFromStringToLong with toLong
-                reStart(Some(ApiOffset.assertFromStringToLong(prunedOffset)))
+                reStart(Some(prunedOffset))
               case Failure(throwable) =>
                 logger.error("Out-of-range error does not match pruning error", throwable)
 

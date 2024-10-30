@@ -6,7 +6,7 @@ package com.digitalasset.canton.participant.protocol.reassignment
 import cats.data.EitherT
 import cats.syntax.bifunctor.*
 import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.data.FullUnassignmentTree
+import com.digitalasset.canton.data.{FullUnassignmentTree, ReassigningParticipants}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.ReassignmentProcessorError
 import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessorError.*
@@ -31,16 +31,16 @@ private[reassignment] sealed abstract case class UnassignmentValidationReassigni
     recipients: Recipients,
 )(request: FullUnassignmentTree) {
   private def checkReassigningParticipants(
-      expectedReassigningParticipants: Set[ParticipantId]
+      expectedReassigningParticipants: ReassigningParticipants
   )(implicit
       ec: ExecutionContext
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
     condUnitET[FutureUnlessShutdown](
-      request.confirmingReassigningParticipants == expectedReassigningParticipants,
+      request.reassigningParticipants == expectedReassigningParticipants,
       ReassigningParticipantsMismatch(
         contractId = request.contractId,
         expected = expectedReassigningParticipants,
-        declared = request.confirmingReassigningParticipants,
+        declared = request.reassigningParticipants,
       ),
     )
 
@@ -91,6 +91,7 @@ private[reassignment] object UnassignmentValidationReassigningParticipant {
       ec: ExecutionContext,
       traceContext: TraceContext,
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] = {
+
     val validation = new UnassignmentValidationReassigningParticipant(
       expectedStakeholders.all,
       sourceProtocolVersion,

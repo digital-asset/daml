@@ -13,7 +13,6 @@ import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.*
-import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.version.*
 import com.google.common.annotations.VisibleForTesting
 import monocle.Lens
@@ -105,7 +104,7 @@ object FullInformeeTree
       errors += "The participant metadata of an informee tree must be blinded."
 
     val message = errors.result().mkString(" ")
-    EitherUtil.condUnitE(message.isEmpty, message)
+    Either.cond(message.isEmpty, (), message)
   }
 
   private[data] def checkViews(
@@ -138,7 +137,7 @@ object FullInformeeTree
     go(rootViews.unblindedElements)
 
     val message = errors.result().mkString("\n")
-    EitherUtil.condUnitE(message.isEmpty, message)
+    Either.cond(message.isEmpty, (), message)
   }
 
   private[data] def viewCommonDataByViewPosition(

@@ -60,12 +60,12 @@ class TestingIdentityFactoryTest extends AnyWordSpec with BaseTest with HasExecu
       "signature of participant1 is verifiable by participant1" in {
         await(
           p1.currentSnapshotApproximation.verifySignature(hash, participant1, signature)
-        ) shouldBe Right(())
+        ) shouldBe Either.unit
       }
       "signature of participant1 is verifiable by participant2" in {
         await(
           p2.currentSnapshotApproximation.verifySignature(hash, participant1, signature)
-        ) shouldBe Right(())
+        ) shouldBe Either.unit
       }
       "signature verification fails for wrong key owner" in {
         await(
@@ -205,7 +205,7 @@ class TestingIdentityFactoryTest extends AnyWordSpec with BaseTest with HasExecu
       "participant2 signatures are valid" in {
         await(
           p2.currentSnapshotApproximation.verifySignature(hash, participant2, signature)
-        ) shouldBe Right(())
+        ) shouldBe Either.unit
         await(
           p1.currentSnapshotApproximation.verifySignature(hash, participant1, signature)
         ).left.value shouldBe a[SignatureCheckError]

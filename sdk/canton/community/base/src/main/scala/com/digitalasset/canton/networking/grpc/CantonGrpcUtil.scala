@@ -18,7 +18,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{DelayUtil, EitherTUtil}
-import com.digitalasset.canton.{ProtoDeserializationError, config}
+import com.digitalasset.canton.{GrpcServiceInvocationMethod, ProtoDeserializationError, config}
 import io.grpc.*
 import io.grpc.stub.AbstractStub
 
@@ -110,6 +110,7 @@ object CantonGrpcUtil {
     * @param logPolicy          use this to configure log levels for errors
     * @param retryPolicy        invoked after an error to determine whether to retry
     */
+  @GrpcServiceInvocationMethod
   def sendGrpcRequest[Svc <: AbstractStub[Svc], Res](client: Svc, serverName: String)(
       send: Svc => Future[Res],
       requestDescription: String,
@@ -146,7 +147,7 @@ object CantonGrpcUtil {
       if (onShutdownRunner.isClosing) FutureUnlessShutdown.abortedDueToShutdown
       else {
         logger.debug(s"Sending request $requestDescription to $serverName.")
-        val sendF = TraceContextGrpc.withGrpcContext(traceContext)(send(clientWithDeadline))
+        val sendF = sendGrpcRequestUnsafe(clientWithDeadline)(send)
         val withRetries = sendF.transformWith {
           case Success(value) =>
             logger.debug(s"Request $requestDescription has succeeded for $serverName.")
@@ -196,6 +197,7 @@ object CantonGrpcUtil {
     *
     * Based on [[sendGrpcRequest]]
     */
+  @GrpcServiceInvocationMethod
   def sendSingleGrpcRequest[Svc <: AbstractStub[Svc], Res](
       serverName: String,
       requestDescription: String,
@@ -232,6 +234,17 @@ object CantonGrpcUtil {
       closeableChannel.close()
     }
   }
+
+  /** Performs `send` once on `service` after having set the trace context in gRPC context.
+    * Does not perform any error handling.
+    *
+    * Prefer [[sendGrpcRequest]] whenever possible
+    */
+  @GrpcServiceInvocationMethod
+  def sendGrpcRequestUnsafe[Svc <: AbstractStub[Svc], Resp](service: Svc)(
+      send: Svc => Future[Resp]
+  )(implicit traceContext: TraceContext): Future[Resp] =
+    TraceContextGrpc.withGrpcContext(traceContext)(send(service))
 
   def silentLogPolicy(error: GrpcError)(logger: TracedLogger)(traceContext: TraceContext): Unit =
     // Log an info, if a cause is defined to not discard the cause information

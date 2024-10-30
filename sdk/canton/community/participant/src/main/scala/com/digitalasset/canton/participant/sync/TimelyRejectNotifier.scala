@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.sync
 
 import cats.Monad
+import cats.syntax.either.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.lifecycle.UnlessShutdown.{AbortedDueToShutdown, Outcome}
@@ -146,14 +147,15 @@ class TimelyRejectNotifier(
           (bound, newState)
         }
         oldState match {
-          case Outcome(Running) => Right(())
+          case Outcome(Running) => Either.unit
           case Outcome(Pending(newTraceContext)) =>
-            if (notificationOutcome.isOutcome) {
-              Left {
+            Either.cond(
+              !notificationOutcome.isOutcome,
+              (), {
                 val boundIncreased = bound > theBound
                 LoopState(bound, boundIncreased, newTraceContext)
-              }
-            } else Right(())
+              },
+            )
           case _ =>
             ErrorUtil.invalidState("getAndUpdate should already have thrown an exception")
         }

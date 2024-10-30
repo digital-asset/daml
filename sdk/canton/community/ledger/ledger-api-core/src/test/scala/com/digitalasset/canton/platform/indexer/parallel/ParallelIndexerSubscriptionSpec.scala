@@ -36,6 +36,7 @@ import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.{CommittedTransaction, VersionedTransaction}
+import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.SpanSugar.convertIntToGrainOfTime
@@ -44,9 +45,13 @@ import org.slf4j.event.Level
 import java.sql.Connection
 import java.time.Instant
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, Future, Promise}
 
-class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with NamedLogging {
+class ParallelIndexerSubscriptionSpec
+    extends AnyFlatSpec
+    with ScalaFutures
+    with Matchers
+    with NamedLogging {
 
   implicit val traceContext: TraceContext = TraceContext.empty
   private val serializableTraceContext =
@@ -269,7 +274,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
     val applicationId = Ref.ApplicationId.assertFromString("a0")
 
     val timestamp: Long = 12345
-    val offset = Ref.HexString.assertFromString("02")
+    val offset = Ref.HexString.assertFromString("00" * 8 + "02")
     val someHash = Hash.hashPrivateKey("p0")
 
     val someRecordTime =
@@ -1008,6 +1013,71 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
           Some(someSequencerIndex2),
         ),
       )
+  }
+
+  behavior of "commitRepair"
+
+  it should "trigger storing ledger-end on CommitRepair" in {
+    val ledgerEndStoredPromise = Promise[Unit]()
+    val processingEndStoredPromise = Promise[Unit]()
+    val updateInMemoryStatePromise = Promise[Unit]()
+    val aggregatedLedgerEnd = new AtomicReference[(LedgerEnd, Map[DomainId, DomainIndex])](
+      LedgerEnd.beforeBegin -> Map.empty
+    )
+    val input = Vector(
+      offset(13) -> Traced(Update.Init(Timestamp.now())),
+      offset(14) -> Traced(Update.Init(Timestamp.now())),
+      offset(15) -> Traced(Update.CommitRepair()),
+    )
+    ParallelIndexerSubscription
+      .commitRepair(
+        storeLedgerEnd = (_, _) => {
+          ledgerEndStoredPromise.success(())
+          Future.unit
+        },
+        storePostProcessingEnd = _ => {
+          processingEndStoredPromise.success(())
+          Future.unit
+        },
+        updateInMemoryState = _ => updateInMemoryStatePromise.success(()),
+        aggregatedLedgerEnd = aggregatedLedgerEnd,
+        logger = loggerFactory.getTracedLogger(this.getClass),
+      )(implicitly)(input)
+      .futureValue shouldBe input
+    ledgerEndStoredPromise.future.isCompleted shouldBe true
+    processingEndStoredPromise.future.isCompleted shouldBe true
+    updateInMemoryStatePromise.future.isCompleted shouldBe true
+  }
+
+  it should "not trigger storing ledger-end on non CommitRepair Updates" in {
+    val ledgerEndStoredPromise = Promise[Unit]()
+    val processingEndStoredPromise = Promise[Unit]()
+    val updateInMemoryStatePromise = Promise[Unit]()
+    val aggregatedLedgerEnd = new AtomicReference[(LedgerEnd, Map[DomainId, DomainIndex])](
+      LedgerEnd.beforeBegin -> Map.empty
+    )
+    val input = Vector(
+      offset(13) -> Traced(Update.Init(Timestamp.now())),
+      offset(14) -> Traced(Update.Init(Timestamp.now())),
+    )
+    ParallelIndexerSubscription
+      .commitRepair(
+        storeLedgerEnd = (_, _) => {
+          ledgerEndStoredPromise.success(())
+          Future.unit
+        },
+        storePostProcessingEnd = _ => {
+          processingEndStoredPromise.success(())
+          Future.unit
+        },
+        updateInMemoryState = _ => updateInMemoryStatePromise.success(()),
+        aggregatedLedgerEnd = aggregatedLedgerEnd,
+        logger = loggerFactory.getTracedLogger(this.getClass),
+      )(implicitly)(input)
+      .futureValue shouldBe input
+    ledgerEndStoredPromise.future.isCompleted shouldBe false
+    processingEndStoredPromise.future.isCompleted shouldBe false
+    updateInMemoryStatePromise.future.isCompleted shouldBe false
   }
 
 }

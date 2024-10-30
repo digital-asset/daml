@@ -72,6 +72,11 @@ object ExtractUsedAndCreated {
         parties ++= c.stakeholders
         parties ++= c.maintainers
       }
+      data.participant.createdCore.foreach { c =>
+        // The object invariants of metadata enforce that every maintainer is also a stakeholder.
+        // Therefore, we don't have to explicitly add maintainers.
+        parties ++= c.contract.metadata.stakeholders
+      }
       data.participant.resolvedKeys.values
         .collect { case Versioned(_, FreeKey(maintainers)) => maintainers }
         .foreach(parties ++=)

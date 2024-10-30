@@ -34,7 +34,6 @@ import com.digitalasset.canton.topology.store.StoredTopologyTransaction.GenericS
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc, Traced}
 import com.digitalasset.canton.util.EitherTUtil.syntax.*
-import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import io.grpc.Context.CancellableContext
 import io.grpc.{CallOptions, Context, ManagedChannel, Status}
@@ -73,31 +72,16 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
       timeout: Duration,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SendAsyncClientResponseError, Unit] =
-    sendInternal(
+  ): EitherT[FutureUnlessShutdown, SendAsyncClientResponseError, Unit] = {
+    val endpoint = "send-async-versioned"
+    val messageId = request.content.messageId
+    // sends are at-most-once so we cannot retry when unavailable as we don't know if the request has been accepted
+    val sendAtMostOnce = retryPolicy(retryOnUnavailable = false)
+    val response = CantonGrpcUtil.sendGrpcRequest(sequencerServiceClient, "sequencer")(
       stub =>
         stub.sendAsyncVersioned(
           v30.SendAsyncVersionedRequest(signedSubmissionRequest = request.toByteString)
         ),
-      "send-async-versioned",
-      request.content.messageId,
-      timeout,
-      SendAsyncVersionedResponse.fromProtoV30,
-    )
-
-  private def sendInternal[Resp](
-      send: SequencerServiceStub => Future[Resp],
-      endpoint: String,
-      messageId: MessageId,
-      timeout: Duration,
-      fromResponseProto: Resp => ParsingResult[SendAsyncVersionedResponse],
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, SendAsyncClientResponseError, Unit] = {
-    // sends are at-most-once so we cannot retry when unavailable as we don't know if the request has been accepted
-    val sendAtMostOnce = retryPolicy(retryOnUnavailable = false)
-    val response = CantonGrpcUtil.sendGrpcRequest(sequencerServiceClient, "sequencer")(
-      stub => send(stub),
       requestDescription = s"$endpoint/$messageId",
       timeout = timeout,
       logger = logger,
@@ -107,7 +91,7 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
     )
     response.biflatMap(
       fromGrpcError(_, messageId).toEitherT,
-      fromResponse(_, fromResponseProto).toEitherT,
+      fromResponse(_, SendAsyncVersionedResponse.fromProtoV30).toEitherT,
     )
   }
 
@@ -126,8 +110,9 @@ private[transports] abstract class GrpcSequencerClientTransportCommon(
   private def fromGrpcError(error: GrpcError, messageId: MessageId)(implicit
       traceContext: TraceContext
   ): Either[SendAsyncClientResponseError, Unit] = {
-    val result = EitherUtil.condUnitE(
+    val result = Either.cond(
       !bubbleSendErrorPolicy(error),
+      (),
       SendAsyncClientError.RequestFailed(s"Failed to make request to the server: $error"),
     )
 

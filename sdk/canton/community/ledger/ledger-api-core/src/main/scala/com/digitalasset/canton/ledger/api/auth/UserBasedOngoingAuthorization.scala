@@ -146,14 +146,14 @@ private[auth] final class UserBasedOngoingAuthorization[A](
     // Safety switch to abort the stream if the user-rights-state-check task
     // fails to refresh within 2*[[userRightsCheckIntervalInSeconds]] seconds.
     // In normal conditions we expected the refresh delay to be about [[userRightsCheckIntervalInSeconds]] seconds.
-    if (
-      originalClaims.resolvedFromUser &&
-      lastUserRightsCheckTime.get.isBefore(
-        now.minusSeconds(2 * userRightsCheckIntervalInSeconds.toLong)
-      )
-    ) {
-      Left(staleStreamAuthError)
-    } else Right(())
+    Either.cond(
+      !(originalClaims.resolvedFromUser &&
+        lastUserRightsCheckTime.get.isBefore(
+          now.minusSeconds(2 * userRightsCheckIntervalInSeconds.toLong)
+        )),
+      (),
+      staleStreamAuthError,
+    )
 
   private def checkClaimsExpiry(now: Instant): Either[StatusRuntimeException, Unit] =
     originalClaims

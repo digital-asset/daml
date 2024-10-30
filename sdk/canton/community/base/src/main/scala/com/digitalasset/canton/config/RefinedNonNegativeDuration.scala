@@ -11,6 +11,7 @@ import com.digitalasset.canton.config.RefinedNonNegativeDuration.{
   strToFiniteDuration,
 }
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.lifecycle.{FutureUnlessShutdown, UnlessShutdown}
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.serialization.ProtoConverter
@@ -60,12 +61,12 @@ trait RefinedNonNegativeDuration[D <: RefinedNonNegativeDuration[D]] extends Pre
     else Int.MaxValue
 
   /** Same as Await.result, but with this timeout */
-  def await[F](
+  def await[A](
       description: => String,
       logFailing: Option[Level] = None,
       stackTraceFilter: Thread => Boolean = defaultStackTraceFilter,
       onTimeout: TimeoutException => Unit = _ => (),
-  )(fut: Future[F])(implicit loggingContext: ErrorLoggingContext): F =
+  )(fut: Future[A])(implicit loggingContext: ErrorLoggingContext): A =
     noisyAwaitResult(
       logFailing.fold(fut)(level => FutureUtil.logOnFailure(fut, description, level = level)),
       description,
@@ -73,6 +74,17 @@ trait RefinedNonNegativeDuration[D <: RefinedNonNegativeDuration[D]] extends Pre
       stackTraceFilter = stackTraceFilter,
       onTimeout = onTimeout,
     )
+
+  /** Same as Await.result, but with this timeout */
+  def awaitUS[A](
+      description: => String,
+      logFailing: Option[Level] = None,
+      stackTraceFilter: Thread => Boolean = defaultStackTraceFilter,
+      onTimeout: TimeoutException => Unit = _ => (),
+  )(
+      futUS: FutureUnlessShutdown[A]
+  )(implicit loggingContext: ErrorLoggingContext): UnlessShutdown[A] =
+    await(description, logFailing, stackTraceFilter, onTimeout)(futUS.unwrap)
 
   /** Same as await, but not returning a value */
   def await_(

@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.store.db
 
 import cats.data.{EitherT, OptionT}
 import cats.syntax.alternative.*
+import cats.syntax.either.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.{BatchAggregatorConfig, ProcessingTimeout}
@@ -486,7 +487,7 @@ object DbInFlightSubmissionStore {
       storage.withSyncCommitOnPostgres(bulkQuery)
     }
 
-    private val success: Try[Result] = Success(Outcome(Some(Right(()))))
+    private val success: Try[Result] = Success(Outcome(Some(Either.unit)))
     override protected def onSuccessItemUpdate(
         item: Traced[InFlightSubmission[UnsequencedSubmission]]
     ): Try[Result] = success

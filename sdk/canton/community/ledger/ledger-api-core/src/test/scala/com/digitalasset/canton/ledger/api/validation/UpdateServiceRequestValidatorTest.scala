@@ -153,7 +153,9 @@ class UpdateServiceRequestValidatorTest
           ),
           code = OUT_OF_RANGE,
           description =
-            "OFFSET_AFTER_LEDGER_END(12,0): Begin offset (00000000000000100a) is after ledger end (000000000000001000)",
+            s"OFFSET_AFTER_LEDGER_END(12,0): Begin offset (${ApiOffset.assertFromStringToLong(
+                ledgerEnd
+              ) + 10L}) is after ledger end (${ApiOffset.assertFromStringToLong(ledgerEnd)})",
           metadata = Map.empty,
         )
       }
@@ -166,7 +168,9 @@ class UpdateServiceRequestValidatorTest
           ),
           code = OUT_OF_RANGE,
           description =
-            "OFFSET_AFTER_LEDGER_END(12,0): End offset (00000000000000100a) is after ledger end (000000000000001000)",
+            s"OFFSET_AFTER_LEDGER_END(12,0): End offset (${ApiOffset.assertFromStringToLong(
+                ledgerEnd
+              ) + 10L}) is after ledger end (${ApiOffset.assertFromStringToLong(ledgerEnd)})",
           metadata = Map.empty,
         )
       }

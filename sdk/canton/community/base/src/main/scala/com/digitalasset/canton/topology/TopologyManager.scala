@@ -674,7 +674,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
         .collectFirst { case DomainParametersState(_, previousParameters) =>
           previousParameters
         } match {
-        case None => Right(())
+        case None => Either.unit
         case Some(domainParameters) =>
           val changeIsDangerous =
             newDomainParameters.ledgerTimeRecordTimeTolerance > domainParameters.ledgerTimeRecordTimeTolerance

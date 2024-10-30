@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.admin.api.client.commands
 
+import cats.syntax.either.*
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.admin.EnterpriseSequencerBftAdminData.{
   OrderingTopology,
   PeerNetworkStatus,
@@ -44,20 +45,20 @@ object EnterpriseSequencerBftAdminCommands {
         Unit,
       ] {
 
-    override def createRequest(): Either[String, AddPeerEndpointRequest] = Right(
+    override protected def createRequest(): Either[String, AddPeerEndpointRequest] = Right(
       AddPeerEndpointRequest.of(Some(endpointToProto(endpoint)))
     )
 
-    override def submitRequest(
+    override protected def submitRequest(
         service: SequencerBftAdministrationServiceStub,
         request: AddPeerEndpointRequest,
     ): Future[AddPeerEndpointResponse] =
       service.addPeerEndpoint(request)
 
-    override def handleResponse(
+    override protected def handleResponse(
         response: AddPeerEndpointResponse
     ): Either[String, Unit] =
-      Right(())
+      Either.unit
   }
 
   final case class RemovePeerEndpoint(endpoint: Endpoint)
@@ -67,20 +68,20 @@ object EnterpriseSequencerBftAdminCommands {
         Unit,
       ] {
 
-    override def createRequest(): Either[String, RemovePeerEndpointRequest] = Right(
+    override protected def createRequest(): Either[String, RemovePeerEndpointRequest] = Right(
       RemovePeerEndpointRequest.of(Some(endpointToProto(endpoint)))
     )
 
-    override def submitRequest(
+    override protected def submitRequest(
         service: SequencerBftAdministrationServiceStub,
         request: RemovePeerEndpointRequest,
     ): Future[RemovePeerEndpointResponse] =
       service.removePeerEndpoint(request)
 
-    override def handleResponse(
+    override protected def handleResponse(
         response: RemovePeerEndpointResponse
     ): Either[String, Unit] =
-      Right(())
+      Either.unit
   }
 
   final case class GetPeerNetworkStatus(endpoints: Option[Iterable[Endpoint]])
@@ -90,17 +91,17 @@ object EnterpriseSequencerBftAdminCommands {
         PeerNetworkStatus,
       ] {
 
-    override def createRequest(): Either[String, GetPeerNetworkStatusRequest] = Right(
+    override protected def createRequest(): Either[String, GetPeerNetworkStatusRequest] = Right(
       GetPeerNetworkStatusRequest.of(endpoints.getOrElse(Iterable.empty).map(endpointToProto).toSeq)
     )
 
-    override def submitRequest(
+    override protected def submitRequest(
         service: SequencerBftAdministrationServiceStub,
         request: GetPeerNetworkStatusRequest,
     ): Future[GetPeerNetworkStatusResponse] =
       service.getPeerNetworkStatus(request)
 
-    override def handleResponse(
+    override protected def handleResponse(
         response: GetPeerNetworkStatusResponse
     ): Either[String, PeerNetworkStatus] =
       PeerNetworkStatus.fromProto(response)
@@ -113,17 +114,17 @@ object EnterpriseSequencerBftAdminCommands {
         OrderingTopology,
       ] {
 
-    override def createRequest(): Either[String, GetOrderingTopologyRequest] = Right(
+    override protected def createRequest(): Either[String, GetOrderingTopologyRequest] = Right(
       GetOrderingTopologyRequest.of()
     )
 
-    override def submitRequest(
+    override protected def submitRequest(
         service: SequencerBftAdministrationServiceStub,
         request: GetOrderingTopologyRequest,
     ): Future[GetOrderingTopologyResponse] =
       service.getOrderingTopology(request)
 
-    override def handleResponse(
+    override protected def handleResponse(
         response: GetOrderingTopologyResponse
     ): Either[String, OrderingTopology] =
       OrderingTopology.fromProto(response)

@@ -30,17 +30,17 @@ object MediatorAdminCommands {
       override def createService(channel: ManagedChannel): MediatorStatusServiceStub =
         MediatorStatusServiceGrpc.stub(channel)
 
-      override def submitRequest(
+      override protected def submitRequest(
           service: MediatorStatusServiceStub,
           request: MediatorStatusRequest,
       ): Future[MediatorStatusResponse] =
         service.mediatorStatus(request)
 
-      override def createRequest(): Either[String, MediatorStatusRequest] = Right(
+      override protected def createRequest(): Either[String, MediatorStatusRequest] = Right(
         MediatorStatusRequest()
       )
 
-      override def handleResponse(
+      override protected def handleResponse(
           response: MediatorStatusResponse
       ): Either[String, NodeStatus[MediatorStatus]] =
         MediatorStatus.fromProtoV30(response).leftMap(_.message)

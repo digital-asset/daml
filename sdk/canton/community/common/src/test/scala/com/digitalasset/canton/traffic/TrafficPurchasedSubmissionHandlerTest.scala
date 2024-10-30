@@ -4,6 +4,7 @@
 package com.digitalasset.canton.traffic
 
 import cats.data.EitherT
+import cats.syntax.either.*
 import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeLong, PositiveInt}
@@ -124,7 +125,7 @@ class TrafficPurchasedSubmissionHandlerTest
       trafficParams.setBalanceRequestSubmissionWindowSize.duration.toSeconds
     )
 
-    resultF.failOnShutdown.futureValue shouldBe Right(())
+    resultF.failOnShutdown.futureValue shouldBe Either.unit
 
     val batch = batchCapture.getValue
     batch.envelopes.head.recipients shouldBe Recipients(
@@ -222,7 +223,7 @@ class TrafficPurchasedSubmissionHandlerTest
       ),
     )
 
-    resultF.failOnShutdown.futureValue shouldBe Right(())
+    resultF.failOnShutdown.futureValue shouldBe Either.unit
   }
 
   "catch sequencer client failures" in {
@@ -306,7 +307,7 @@ class TrafficPurchasedSubmissionHandlerTest
           UnlessShutdown.Outcome(SendResult.Error(deliverError))
         )
 
-        resultF.failOnShutdown.value.futureValue shouldBe Right(())
+        resultF.failOnShutdown.value.futureValue shouldBe Either.unit
       },
       LogEntry.assertLogSeq(
         Seq(
@@ -359,7 +360,7 @@ class TrafficPurchasedSubmissionHandlerTest
           UnlessShutdown.Outcome(SendResult.Timeout(CantonTimestamp.Epoch))
         )
 
-        resultF.value.failOnShutdown.futureValue shouldBe Right(())
+        resultF.value.failOnShutdown.futureValue shouldBe Either.unit
       },
       LogEntry.assertLogSeq(
         Seq(

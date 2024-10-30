@@ -53,9 +53,6 @@ object UpstreamOffsetConvert {
     }
   }
 
-  def toStringOffset(offset: GlobalOffset): String =
-    fromGlobalOffset(offset).toHexString
-
   def tryToLedgerSyncOffset(offset: String): Offset =
     toLedgerSyncOffset(offset).valueOr(err => throw new IllegalArgumentException(err))
 

@@ -37,7 +37,7 @@ trait PrunableByTimeTest {
 
     "pruning timestamps increase" in {
       val acs = mkPrunable(executionContext)
-      for {
+      (for {
         status0 <- acs.pruningStatus
         _ <- acs.prune(ts)
         status1 <- acs.pruningStatus
@@ -59,7 +59,7 @@ trait PrunableByTimeTest {
           status3.contains(PruningStatus(PruningPhase.Completed, ts3, Some(ts3))),
           s"Pruning status remains at $ts3",
         )
-      }
+      }).failOnShutdown
     }
 
     "pruning timestamps advance under concurrent pruning" in {
@@ -72,7 +72,7 @@ trait PrunableByTimeTest {
 
       def timestampForIter(iter: Int): CantonTimestamp = CantonTimestamp.ofEpochSecond(iter.toLong)
       def prune(iter: Int): Future[Unit] =
-        prunable.prune(timestampForIter(iter))
+        prunable.prune(timestampForIter(iter)).failOnShutdown
 
       val lastRead = new AtomicReference[Option[PruningStatus]](None)
 
@@ -87,7 +87,7 @@ trait PrunableByTimeTest {
             s"PrunableByTime pruning status decreased from $previousO to $statusO",
           )
           if (statusO.exists(_.phase == PruningPhase.Started)) 1 else 0
-        }(parallelEc)
+        }(parallelEc).failOnShutdown
 
       val pruningsF = Future.traverse((1 to iterations).toList)(prune)(List, parallelEc)
       val readingsF = MonadUtil.sequentialTraverse(1 to iterations)(_ => read())(
@@ -97,7 +97,7 @@ trait PrunableByTimeTest {
       val testF = for {
         _ <- pruningsF
         readings <- readingsF
-        statusEnd <- prunable.pruningStatus
+        statusEnd <- prunable.pruningStatus.failOnShutdown
       } yield {
         logger.info(s"concurrent pruning test had ${readings.sum} intermediate readings")
         val ts = timestampForIter(iterations)
@@ -182,7 +182,7 @@ class PrunableByTimeLogicTest
       MonadUtil
         .sequentialTraverse_(increments) { counter =>
           pruningRequests.getAndSet(Seq.empty)
-          prune(ts0.plusSeconds(counter * mult))
+          prune(ts0.plusSeconds(counter * mult)).failOnShutdown
         }
 
   }
@@ -196,15 +196,15 @@ class PrunableByTimeLogicTest
       f.returnValues.set(Seq.fill(20)(10))
       for {
         // first pruning hits empty state, therefore 1 pruning query
-        _ <- f.prune(ts0)
+        _ <- f.prune(ts0).failOnShutdown
         _ = {
           f.pruningRequests.getAndSet(Seq.empty) should have length 1
         }
         // pruning in 1 minute interval with default of max 5 seconds interval with hit the 10 bucket limit
-        _ <- f.prune(ts1)
+        _ <- f.prune(ts1).failOnShutdown
         _ = f.assertRequests(ts0, ts1, 10)
         // subsequent pruning in 10 sec interval will be spaced into 2 buckets of 5s
-        _ <- f.prune(ts2)
+        _ <- f.prune(ts2).failOnShutdown
         _ = f.assertRequests(ts1, ts2, 2)
       } yield {
         succeed
@@ -241,9 +241,9 @@ class PrunableByTimeLogicTest
     "limit number of buckets during big jumps" in { f =>
       f.returnValues.set(Seq.fill(200)(10))
       for {
-        _ <- f.prune(ts0)
+        _ <- f.prune(ts0).failOnShutdown
         _ = { f.pruningRequests.set(Seq.empty) }
-        _ <- f.prune(ts0.plusSeconds(1000))
+        _ <- f.prune(ts0.plusSeconds(1000)).failOnShutdown
       } yield {
         f.assertRequests(ts0, ts0.plusSeconds(1000), 10)
       }

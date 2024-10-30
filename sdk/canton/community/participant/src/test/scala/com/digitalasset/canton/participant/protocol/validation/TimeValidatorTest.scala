@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.protocol.validation
 
+import cats.syntax.either.*
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.protocol.TransactionProcessingSteps.CommonData
@@ -60,8 +61,8 @@ class TimeValidatorTest extends AnyWordSpec with BaseTest {
           ledgerTimeRecordTimeTolerance,
         )
 
-        earliestRes shouldBe Right(())
-        latestRes shouldBe Right(())
+        earliestRes shouldBe Either.unit
+        latestRes shouldBe Either.unit
       }
     }
 
@@ -132,8 +133,8 @@ class TimeValidatorTest extends AnyWordSpec with BaseTest {
           ledgerTimeRecordTimeTolerance,
         )
 
-        earliestRes shouldBe Right(())
-        latestRes shouldBe Right(())
+        earliestRes shouldBe Either.unit
+        latestRes shouldBe Either.unit
       }
     }
 

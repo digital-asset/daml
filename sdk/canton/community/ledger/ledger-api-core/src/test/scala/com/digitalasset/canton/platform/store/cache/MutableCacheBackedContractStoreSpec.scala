@@ -273,10 +273,10 @@ class MutableCacheBackedContractStoreSpec
 
 @nowarn("msg=match may not be exhaustive")
 object MutableCacheBackedContractStoreSpec {
-  private val offset0 = offset(0L)
-  private val offset1 = offset(1L)
-  private val offset2 = offset(2L)
-  private val offset3 = offset(3L)
+  private val offset0 = Offset.fromLong(1L)
+  private val offset1 = Offset.fromLong(2L)
+  private val offset2 = Offset.fromLong(3L)
+  private val offset3 = Offset.fromLong(4L)
 
   private val Seq(alice, bob, charlie) = Seq("alice", "bob", "charlie").map(party)
   private val (
@@ -398,6 +398,4 @@ object MutableCacheBackedContractStoreSpec {
       ValueText(desc),
       Ref.PackageName.assertFromString("pkg-name"),
     )
-
-  private def offset(idx: Long) = Offset.fromByteArray(BigInt(idx).toByteArray)
 }

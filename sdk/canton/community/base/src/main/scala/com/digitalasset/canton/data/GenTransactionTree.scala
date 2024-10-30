@@ -23,7 +23,7 @@ import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{EitherUtil, MonadUtil}
+import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.version.*
 import com.google.common.annotations.VisibleForTesting
 import monocle.Lens
@@ -58,8 +58,9 @@ final case class GenTransactionTree private (
       val rootHash = tree.rootHash
 
       for {
-        _ <- EitherUtil.condUnitE(
+        _ <- Either.cond(
           !usedHashes.contains(rootHash),
+          (),
           "A transaction tree must contain a hash at most once. " +
             s"Found the hash ${rootHash.toString} twice.",
         )

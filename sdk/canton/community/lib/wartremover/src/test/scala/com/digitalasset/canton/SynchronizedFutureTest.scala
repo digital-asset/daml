@@ -72,7 +72,7 @@ class SynchronizedFutureTest extends AnyWordSpec with Matchers {
 
     "detects futures wrapped in an EitherT" in {
       val result = WartTestTraverser(SynchronizedFuture) {
-        synchronized(EitherT(Future.successful(Either.right(()))))
+        synchronized(EitherT(Future.successful(Either.unit)))
       }
       assertIsErrorSynchronized(result)
     }

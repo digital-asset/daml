@@ -9,7 +9,7 @@ import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.HashOps
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.CloseContext
+import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.messages.{DefaultOpenEnvelope, ProtocolMessage}
@@ -68,7 +68,9 @@ trait SequencedEventStore extends PrunableByTime with NamedLogging with AutoClos
     */
   def findRange(criterion: RangeCriterion, limit: Option[Int])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SequencedEventRangeOverlapsWithPruning, Seq[PossiblyIgnoredSerializedEvent]]
+  ): EitherT[FutureUnlessShutdown, SequencedEventRangeOverlapsWithPruning, Seq[
+    PossiblyIgnoredSerializedEvent
+  ]]
 
   def sequencedEvents(limit: Option[Int] = None)(implicit
       traceContext: TraceContext

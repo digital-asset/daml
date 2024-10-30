@@ -252,7 +252,7 @@ class TransactionProcessingSteps(
         case CommandDeduplicator.AlreadyExists(completionOffset, accepted, submissionId) =>
           CommandDeduplicationError.DuplicateCommandReject(
             changeId,
-            UpstreamOffsetConvert.fromGlobalOffset(completionOffset).toHexString,
+            UpstreamOffsetConvert.fromGlobalOffset(completionOffset).toLong,
             accepted,
             submissionId,
           ) ->
@@ -273,7 +273,7 @@ class TransactionProcessingSteps(
               CommandDeduplicationError.DeduplicationPeriodStartsTooEarlyErrorWithOffset(
                 changeId,
                 requested,
-                earliestOffset.toHexString,
+                earliestOffset.toLong,
               )
           }
           error -> emptyDeduplicationPeriod
