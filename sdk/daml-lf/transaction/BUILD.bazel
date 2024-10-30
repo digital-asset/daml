@@ -31,9 +31,7 @@ proto_jars(
     srcs = ["src/main/protobuf/com/daml/lf/transaction.proto"],
     maven_artifact_prefix = "daml-lf-transaction",
     maven_group = "com.daml",
-    proto_deps = [
-        ":value_proto",
-    ],
+    proto_deps = [":value_proto"],
     strip_import_prefix = "src/main/protobuf/",
     visibility = ["//visibility:public"],
 )

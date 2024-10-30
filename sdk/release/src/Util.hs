@@ -83,7 +83,7 @@ data JarType
       -- ^ Same as Deploy but includes corrected licenses.
       -- only works for artefacts build with `da_scala_binary`.
     | Proto
-      -- ^ A java protobuf library (*-speed.jar).
+      -- ^ A java protobuf library
     | Scala
       -- ^ A scala library jar, with source and scaladoc jars.
     | JarJar
@@ -227,7 +227,7 @@ mainFileName (Jar jarTy) name = case jarTy of
     Lib -> "lib" <> name <> ".jar"
     Deploy -> name <> "_deploy.jar"
     Distribute -> name <> "_distribute.jar"
-    Proto -> "lib" <> T.replace "_java" "" name <> "-speed.jar"
+    Proto -> "lib" <> name <> ".jar"
     Scala -> name <> ".jar"
     JarJar -> name <> ".jar"
 
@@ -249,7 +249,7 @@ deploySourceJarName Artifact{..}
 
 protoSourceJarName :: Artifact a -> Maybe Text
 protoSourceJarName Artifact{..}
-  | Jar Proto <- artReleaseType = Just $ T.replace "_java" "" (snd (splitBazelTarget artTarget)) <> "-speed-src.jar"
+  | Jar Proto <- artReleaseType = Just $ T.replace "_java" "" (snd (splitBazelTarget artTarget)) <> "_java_sources.srcjar"
   | otherwise = Nothing
 
 customSourceJarName :: Artifact a -> Maybe Text
