@@ -1,10 +1,10 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- @ WARN warn-bad-interface-instances
--- @ WARN warn-bad-interface-instances
--- @ WARN warn-bad-interface-instances
--- @ WARN warn-bad-interface-instances
+-- @ WARN -Werror=upgrade-interfaces
+-- @ WARN -Werror=upgrade-interfaces
+-- @ WARN -Werror=upgrade-interfaces
+-- @ WARN -Werror=upgrade-interfaces
 
 -- | Try out some upcasts and downcasts, checking that everything works.
 module InterfaceUpcastDowncast where

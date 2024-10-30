@@ -1,6 +1,6 @@
 module DamlDocHoogle where
 
--- @ WARN warn-bad-interface-instances
+-- @ WARN -Werror=upgrade-interfaces
 
 -- | T docs
 template T with

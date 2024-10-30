@@ -595,7 +595,7 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
     optWarnBadInterfaceInstances =
       determineAuto defaultUiWarnBadInterfaceInstances <$>
         flagYesNoAuto''
-          "warn-bad-interface-instances"
+          "-Wupgrade-interfaces"
           "Convert errors about bad, non-upgradeable interface instances into warnings."
           idm
 

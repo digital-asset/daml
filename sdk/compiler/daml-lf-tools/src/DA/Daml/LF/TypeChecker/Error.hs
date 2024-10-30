@@ -23,6 +23,7 @@ module DA.Daml.LF.TypeChecker.Error(
     DamlWarningFlagStatus(..),
     parseDamlWarningFlag,
     getWarningStatus,
+    upgradeInterfacesName, upgradeInterfacesFilter,
     ) where
 
 import Control.Applicative
@@ -272,7 +273,7 @@ data DamlWarningFlag
     , rfStatus :: DamlWarningFlagStatus
     , rfFilter :: WarnableError -> Bool
     }
-  | WarnBadInterfaceInstances Bool -- When true, same as warn-bad-interface-instances
+  | WarnBadInterfaceInstances Bool -- When true, same as -Wupgrade-interfaces
 
 parseDamlWarningFlag :: String -> Either String DamlWarningFlag
 parseDamlWarningFlag = \case

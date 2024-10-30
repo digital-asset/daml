@@ -1,8 +1,8 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- @ WARN warn-bad-interface-instances
--- @ WARN warn-bad-interface-instances
+-- @ WARN -Werror=upgrade-interfaces
+-- @ WARN -Werror=upgrade-interfaces
 -- @ERROR range=21:5-22:32;error type checking template InterfaceMissingMethod.T interface instance InterfaceMissingMethod:I for InterfaceMissingMethod:T: Interface instance lacks an implementation for method 'm'
 
 module InterfaceMissingMethod where
