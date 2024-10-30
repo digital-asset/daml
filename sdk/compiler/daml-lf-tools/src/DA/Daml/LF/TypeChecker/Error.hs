@@ -16,8 +16,15 @@ module DA.Daml.LF.TypeChecker.Error(
     errorLocation,
     toDiagnostic,
     Warning(..),
+    StandaloneWarning(..),
     PackageUpgradeOrigin(..),
     UpgradeMismatchReason(..),
+    DamlWarningFlag(..),
+    DamlWarningFlagStatus(..),
+    parseDamlWarningFlag,
+    getWarningStatus,
+    upgradeInterfacesName, upgradeInterfacesFilter,
+    upgradeExceptionsName, upgradeExceptionsFilter,
     ) where
 
 import Control.Applicative
@@ -114,7 +121,7 @@ data UnserializabilityReason
 data Error
   = EUnwarnableError !UnwarnableError
   | EWarnableError !WarnableError
-  | EWarningToError !Warning
+  | EWarningToError !StandaloneWarning
   | EContext !Context !Error
   deriving (Show)
 
@@ -242,21 +249,18 @@ instance Pretty WarnableError where
       vsep
         [ "This package defines both interfaces and templates. This may make this package and its dependents not upgradeable."
         , "It is recommended that interfaces are defined in their own package separate from their implementations."
-        , "Ignore this error message with the --warn-bad-interface-instances=yes flag."
         ]
     WEUpgradeShouldDefineIfaceWithoutImplementation implModule implIface implTpl ->
       vsep
         [ "The interface " <> pPrint implIface <> " was defined in this package and implemented in " <> pPrint implModule <> " by " <> pPrint implTpl
         , "This may make this package and its dependents not upgradeable."
         , "It is recommended that interfaces are defined in their own package separate from their implementations."
-        , "Ignore this error message with the --warn-bad-interface-instances=yes flag."
         ]
     WEUpgradeShouldDefineTplInSeparatePackage tpl iface ->
       vsep
         [ "The template " <> pPrint tpl <> " has implemented interface " <> pPrint iface <> ", which is defined in a previous version of this package."
         , "This may make this package and its dependents not upgradeable."
         , "It is recommended that interfaces are defined in their own package separate from their implementations."
-        , "Ignore this error message with the --warn-bad-interface-instances=yes flag."
         ]
     WEDependencyHasUnparseableVersion pkgName version packageOrigin ->
       "Dependency " <> pPrint pkgName <> " of " <> pPrint packageOrigin <> " has a version which cannot be parsed: '" <> pPrint version <> "'"
@@ -266,8 +270,87 @@ instance Pretty WarnableError where
       vsep
         [ "This package defines both exceptions and templates. This may make this package and its dependents not upgradeable."
         , "It is recommended that exceptions are defined in their own package separate from their implementations."
-        , "Ignore this error message with the --warn-bad-exceptions=yes flag."
+        , "Ignore this error message with the -Wupgrade-exceptions flag."
         ]
+
+data DamlWarningFlagStatus
+  = AsError -- -Werror=<name>
+  | AsWarning -- -W<name>
+  | Hidden -- -Wno-<name>
+
+data DamlWarningFlag
+  = RawDamlWarningFlag
+    { rfName :: String
+    , rfStatus :: DamlWarningFlagStatus
+    , rfFilter :: WarnableError -> Bool
+    }
+  | WarnBadInterfaceInstances Bool -- When true, same as -Wupgrade-interfaces
+  | WarnBadExceptions Bool
+
+parseDamlWarningFlag :: String -> Either String DamlWarningFlag
+parseDamlWarningFlag = \case
+  ('e':'r':'r':'o':'r':'=':name) -> RawDamlWarningFlag name AsError <$> parseNameE name
+  ('n':'o':'-':name) -> RawDamlWarningFlag name Hidden <$> parseNameE name
+  name -> RawDamlWarningFlag name AsWarning <$> parseNameE name
+  where
+  namesToFilters =
+    [ (upgradeInterfacesName, upgradeInterfacesFilter)
+    , (upgradeExceptionsName, upgradeExceptionsFilter)
+    ]
+
+  parseNameE name = case lookup name namesToFilters of
+    Nothing -> Left $ "Warning flag is not valid - warning flags must be of the form `error=<name>`, `no-<name>`, or `<name>`. The list of available names is: " <> L.intercalate ", " (map fst namesToFilters)
+    Just filter -> Right filter
+
+filterNameForWarnableError :: WarnableError -> Maybe String
+filterNameForWarnableError err | upgradeInterfacesFilter err = Just upgradeInterfacesName
+filterNameForWarnableError err | upgradeExceptionsFilter err = Just upgradeExceptionsName
+filterNameForWarnableError _ = Nothing
+
+upgradeInterfacesName :: String
+upgradeInterfacesName = "upgrade-interfaces"
+
+upgradeInterfacesFilter :: WarnableError -> Bool
+upgradeInterfacesFilter =
+    \case
+        WEUpgradeShouldDefineIfacesAndTemplatesSeparately {} -> True
+        WEUpgradeShouldDefineIfaceWithoutImplementation {} -> True
+        WEUpgradeShouldDefineTplInSeparatePackage {} -> True
+        _ -> False
+
+upgradeExceptionsName :: String
+upgradeExceptionsName = "upgrade-exceptions"
+
+upgradeExceptionsFilter :: WarnableError -> Bool
+upgradeExceptionsFilter =
+    \case
+        WEUpgradeShouldDefineExceptionsAndTemplatesSeparately {} -> True
+        _ -> False
+
+dwfFilter :: DamlWarningFlag -> WarnableError -> Bool
+dwfFilter RawDamlWarningFlag { rfFilter } = rfFilter
+dwfFilter WarnBadInterfaceInstances {} = upgradeInterfacesFilter
+dwfFilter WarnBadExceptions {} = upgradeExceptionsFilter
+
+dwfStatus :: DamlWarningFlag -> DamlWarningFlagStatus
+dwfStatus RawDamlWarningFlag { rfStatus } = rfStatus
+dwfStatus (WarnBadInterfaceInstances shouldWarn) = if shouldWarn then AsWarning else AsError
+dwfStatus (WarnBadExceptions shouldWarn) = if shouldWarn then AsWarning else AsError
+
+dwfStatusDefault :: WarnableError -> DamlWarningFlagStatus
+dwfStatusDefault = \case
+  WEUpgradeShouldDefineIfacesAndTemplatesSeparately {} -> AsError
+  WEUpgradeShouldDefineIfaceWithoutImplementation {} -> AsError
+  WEUpgradeShouldDefineTplInSeparatePackage {} -> AsError
+  WEUpgradeShouldDefineExceptionsAndTemplatesSeparately {} -> AsError
+  WEDependencyHasUnparseableVersion {} -> AsWarning
+  WEDependencyHasNoMetadataDespiteUpgradeability {} -> AsWarning
+
+getWarningStatus :: [DamlWarningFlag] -> WarnableError -> DamlWarningFlagStatus
+getWarningStatus flags err =
+  case filter (\flag -> dwfFilter flag err) flags of
+    [] -> dwfStatusDefault err
+    xs -> dwfStatus (last xs)
 
 data PackageUpgradeOrigin = UpgradingPackage | UpgradedPackage
   deriving (Eq, Ord, Show)
@@ -415,7 +498,15 @@ instance Pretty UnserializabilityReason where
 instance Pretty Error where
   pPrint = \case
     EUnwarnableError err -> pPrint err
-    EWarnableError err -> pPrint err
+    EWarnableError err ->
+      case filterNameForWarnableError err of
+        Just name ->
+          vcat
+            [ pPrint err
+            , "Downgrade this error to a warning with -W" <> string name
+            , "Disable this error entirely with -Wno-" <> string name
+            ]
+        Nothing -> pPrint err
     EWarningToError warning -> pPrint warning
     EContext ctx err -> prettyWithContext ctx (Right err)
 
@@ -799,7 +890,12 @@ instance ToDiagnostic UnwarnableError where
 
 data Warning
   = WContext !Context !Warning
-  | WTemplateChangedPrecondition !TypeConName ![Mismatch UpgradeMismatchReason]
+  | WStandaloneWarning !StandaloneWarning
+  | WErrorToWarning !WarnableError
+  deriving (Eq, Show)
+
+data StandaloneWarning
+  = WTemplateChangedPrecondition !TypeConName ![Mismatch UpgradeMismatchReason]
   | WTemplateChangedSignatories !TypeConName ![Mismatch UpgradeMismatchReason]
   | WTemplateChangedObservers !TypeConName ![Mismatch UpgradeMismatchReason]
   | WTemplateChangedAgreement !TypeConName ![Mismatch UpgradeMismatchReason]
@@ -812,7 +908,6 @@ data Warning
     -- ^ When upgrading, we extract relevant expressions for things like
     -- signatories. If the expression changes shape so that we can't get the
     -- underlying expression that has changed, this warning is emitted.
-  | WErrorToWarning !WarnableError
   deriving (Eq, Show)
 
 warningLocation :: Warning -> Maybe SourceLoc
@@ -820,9 +915,8 @@ warningLocation = \case
   WContext ctx _ -> contextLocation ctx
   _ -> Nothing
 
-instance Pretty Warning where
+instance Pretty StandaloneWarning where
   pPrint = \case
-    WContext ctx warning -> prettyWithContext ctx (Left warning)
     WTemplateChangedPrecondition template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the definition of its precondition."
     WTemplateChangedSignatories template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the definition of its signatories."
     WTemplateChangedObservers template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the definition of its observers."
@@ -833,7 +927,6 @@ instance Pretty Warning where
     WTemplateChangedKeyExpression template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the expression for computing its key."
     WTemplateChangedKeyMaintainers template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the maintainers for its key."
     WCouldNotExtractForUpgradeChecking attribute mbExtra -> "Could not check if the upgrade of " <> text attribute <> " is valid because its expression is the not the right shape." <> foldMap (const " Extra context: " <> text) mbExtra
-    WErrorToWarning err -> pPrint err
     where
     withMismatchInfo :: [Mismatch UpgradeMismatchReason] -> Doc ann -> Doc ann
     withMismatchInfo [] doc = doc
@@ -849,6 +942,20 @@ instance Pretty Warning where
         , "There are " <> string (show (length mismatches)) <> " differences in the expression, including:"
         , nest 2 $ vcat $ map pPrint (take 3 mismatches)
         ]
+
+instance Pretty Warning where
+  pPrint = \case
+    WContext ctx warning -> prettyWithContext ctx (Left warning)
+    WStandaloneWarning standaloneWarning -> pPrint standaloneWarning
+    WErrorToWarning err ->
+      case filterNameForWarnableError err of
+        Just name ->
+          vcat
+            [ pPrint err
+            , "Upgrade this warning to an error -Werror=" <> string name
+            , "Disable this warning entirely with -Wno-" <> string name
+            ]
+        Nothing -> pPrint err
 
 instance ToDiagnostic Warning where
   toDiagnostic warning = Diagnostic

@@ -19,7 +19,6 @@ import qualified DA.Daml.LF.Ast.Alpha as Alpha
 import           DA.Daml.LF.TypeChecker.Check (expandTypeSynonyms)
 import           DA.Daml.LF.TypeChecker.Env
 import           DA.Daml.LF.TypeChecker.Error
-import           DA.Daml.Options.Types (UpgradeInfo (..))
 import           Data.Either (partitionEithers)
 import           Data.Hashable
 import qualified Data.HashMap.Strict as HMS
@@ -36,7 +35,17 @@ import Control.DeepSeq (NFData)
 
 -- Allows us to split the world into upgraded and non-upgraded
 type TcUpgradeM = TcMF UpgradingEnv
-type TcPreUpgradeM = TcMF (Version, UpgradeInfo)
+type TcPreUpgradeM = TcMF PreUpgradingEnv
+data PreUpgradingEnv = PreUpgradingEnv
+  { pueVersion :: Version
+  , pueUpgradeInfo :: UpgradeInfo
+  , pueWarningFlags :: [DamlWarningFlag]
+  }
+
+data UpgradeInfo = UpgradeInfo
+  { uiUpgradedPackagePath :: Maybe FilePath
+  , uiTypecheckUpgrades :: Bool
+  }
 
 type DepsMap = HMS.HashMap LF.PackageId UpgradingDep
 
@@ -68,41 +77,23 @@ runGammaUnderUpgrades Upgrading{ _past = pastAction, _present = presentAction } 
     presentResult <- withReaderT (_present . _upgradingGamma) presentAction
     pure Upgrading { _past = pastResult, _present = presentResult }
 
-shouldTypecheck :: Version -> UpgradeInfo -> Bool
-shouldTypecheck version upgradeInfo = version `LF.supports` LF.featurePackageUpgrades && uiTypecheckUpgrades upgradeInfo
+shouldTypecheck :: PreUpgradingEnv -> Bool
+shouldTypecheck PreUpgradingEnv { pueVersion, pueUpgradeInfo } = pueVersion `LF.supports` LF.featurePackageUpgrades && uiTypecheckUpgrades pueUpgradeInfo
 
 shouldTypecheckM :: TcPreUpgradeM Bool
-shouldTypecheckM = asks (uncurry shouldTypecheck)
+shouldTypecheckM = asks shouldTypecheck
 
-mkGamma :: Version -> UpgradeInfo -> World -> Gamma
-mkGamma version upgradeInfo world =
-    let addBadIfaceSwapIndicator, addBadExceptionSwapIndicator :: Gamma -> Gamma
-        addBadIfaceSwapIndicator =
-            if uiWarnBadInterfaceInstances upgradeInfo
-            then
-                addDiagnosticSwapIndicator (\case
-                    Left WEUpgradeShouldDefineIfaceWithoutImplementation {} -> Just True
-                    Left WEUpgradeShouldDefineTplInSeparatePackage {} -> Just True
-                    Left WEUpgradeShouldDefineIfacesAndTemplatesSeparately {} -> Just True
-                    _ -> Nothing)
-            else id
-        addBadExceptionSwapIndicator =
-            if uiWarnBadExceptions upgradeInfo
-            then
-                addDiagnosticSwapIndicator (\case
-                    Left WEUpgradeShouldDefineExceptionsAndTemplatesSeparately {} -> Just True
-                    _ -> Nothing)
-            else id
-    in
-    addBadExceptionSwapIndicator $ addBadIfaceSwapIndicator $ emptyGamma world version
+mkGamma :: PreUpgradingEnv -> World -> Gamma
+mkGamma PreUpgradingEnv { pueVersion, pueWarningFlags } world =
+    set damlWarningFlags pueWarningFlags (emptyGamma world pueVersion)
 
 gammaM :: World -> TcPreUpgradeM Gamma
-gammaM world = asks (flip (uncurry mkGamma) world)
+gammaM world = asks (flip mkGamma world)
 
 {- HLINT ignore "Use nubOrd" -}
-extractDiagnostics :: Version -> UpgradeInfo -> TcPreUpgradeM () -> [Diagnostic]
-extractDiagnostics version upgradeInfo action =
-  case runGammaF (version, upgradeInfo) action of
+extractDiagnostics :: Version -> UpgradeInfo -> [DamlWarningFlag] -> TcPreUpgradeM () -> [Diagnostic]
+extractDiagnostics version upgradeInfo warningFlags action =
+  case runGammaF (PreUpgradingEnv version upgradeInfo warningFlags) action of
     Left err -> [toDiagnostic err]
     Right ((), warnings) -> map toDiagnostic (nub warnings)
 
@@ -116,18 +107,18 @@ unitIdDalfPackageToUpgradedPkg (unitId, dalfPkg) =
 
 checkPackage
   :: LF.Package
-  -> [UpgradedPkgWithNameAndVersion] -> Version -> UpgradeInfo
+  -> [UpgradedPkgWithNameAndVersion] -> Version -> UpgradeInfo -> [DamlWarningFlag]
   -> Maybe (UpgradedPkgWithNameAndVersion, [UpgradedPkgWithNameAndVersion])
   -> [Diagnostic]
 checkPackage = checkPackageToDepth CheckOnlyMissingModules
 
 checkPackageToDepth
   :: CheckDepth -> LF.Package
-  -> [UpgradedPkgWithNameAndVersion] -> Version -> UpgradeInfo
+  -> [UpgradedPkgWithNameAndVersion] -> Version -> UpgradeInfo -> [DamlWarningFlag]
   -> Maybe (UpgradedPkgWithNameAndVersion, [UpgradedPkgWithNameAndVersion])
   -> [Diagnostic]
-checkPackageToDepth checkDepth pkg deps version upgradeInfo mbUpgradedPkg =
-  extractDiagnostics version upgradeInfo $ do
+checkPackageToDepth checkDepth pkg deps version upgradeInfo warningFlags mbUpgradedPkg =
+  extractDiagnostics version upgradeInfo warningFlags $ do
     shouldTypecheck <- shouldTypecheckM
     when shouldTypecheck $ do
       case mbUpgradedPkg of
@@ -147,7 +138,7 @@ checkPackageBoth checkDepth mbContext pkg ((upgradedPkgId, upgradedPkg), depsMap
           Nothing -> id
           Just context -> withContextF present' context
   in
-  withReaderT (\(version, upgradeInfo) -> UpgradingEnv (mkGamma version upgradeInfo <$> upgradingWorld) depsMap) $
+  withReaderT (\preEnv -> UpgradingEnv (mkGamma preEnv <$> upgradingWorld) depsMap) $
     withMbContext $
       checkPackageM checkDepth (UpgradedPackageId upgradedPkgId) (Upgrading upgradedPkg pkg)
 
@@ -160,21 +151,22 @@ checkPackageSingle mbContext pkg =
       withMbContext :: TcM () -> TcM ()
       withMbContext = maybe id withContext mbContext
   in
-  withReaderT (\(version, upgradeInfo) -> mkGamma version upgradeInfo presentWorld) $
+  withReaderT (\preEnv -> mkGamma preEnv presentWorld) $
     withMbContext $ do
       checkNewInterfacesAreUnused pkg
       checkInterfacesAndExceptionsHaveNoTemplates
 
 checkModule
   :: LF.World -> LF.Module
-  -> [UpgradedPkgWithNameAndVersion] -> Version -> UpgradeInfo
+  -> [UpgradedPkgWithNameAndVersion] -> Version -> UpgradeInfo -> [DamlWarningFlag]
   -> Maybe (UpgradedPkgWithNameAndVersion, [UpgradedPkgWithNameAndVersion])
   -> [Diagnostic]
-checkModule world0 module_ deps version upgradeInfo mbUpgradedPkg =
-  extractDiagnostics version upgradeInfo $
-    when (shouldTypecheck version upgradeInfo) $ do
+checkModule world0 module_ deps version upgradeInfo warningFlags mbUpgradedPkg =
+  extractDiagnostics version upgradeInfo warningFlags $ do
+    shouldTypecheck <- shouldTypecheckM
+    when shouldTypecheck $ do
       let world = extendWorldSelf module_ world0
-      withReaderT (\(version, upgradeInfo) -> mkGamma version upgradeInfo world) $ do
+      withReaderT (\preEnv -> mkGamma preEnv world) $ do
         checkNewInterfacesAreUnused module_
         checkInterfacesAndExceptionsHaveNoTemplates
       case mbUpgradedPkg of
@@ -184,7 +176,7 @@ checkModule world0 module_ deps version upgradeInfo mbUpgradedPkg =
             -- TODO: https://github.com/digital-asset/daml/issues/19859
             depsMap <- checkUpgradeDependenciesM deps (upgradedPkgWithId : upgradingDeps)
             let upgradingWorld = Upgrading { _past = initWorldSelf [] (upwnavPkg upgradedPkgWithId), _present = world }
-            withReaderT (\(version, upgradeInfo) -> UpgradingEnv (mkGamma version upgradeInfo <$> upgradingWorld) depsMap) $
+            withReaderT (\preEnv -> UpgradingEnv (mkGamma preEnv <$> upgradingWorld) depsMap) $
               case NM.lookup (NM.name module_) (LF.packageModules (upwnavPkg upgradedPkgWithId)) of
                 Nothing -> pure ()
                 Just pastModule -> do
@@ -202,12 +194,12 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
             case upwnavVersion of
               Nothing -> do
                 when (pkgSupportsUpgrades upwnavPkg && PackageName "daml-prim" /= upwnavName) $
-                  diagnosticWithContext $ WErrorToWarning $ WEDependencyHasNoMetadataDespiteUpgradeability upwnavPkgId UpgradedPackage
+                  diagnosticWithContext $ WEDependencyHasNoMetadataDespiteUpgradeability upwnavPkgId UpgradedPackage
                 pure $ Just (upwnavName, [(Nothing, upwnavPkgId, upwnavPkg)])
               Just packageVersion -> do
                 case splitPackageVersion id packageVersion of
                   Left version -> do
-                    diagnosticWithContext $ WErrorToWarning $ WEDependencyHasUnparseableVersion upwnavName version UpgradedPackage
+                    diagnosticWithContext $ WEDependencyHasUnparseableVersion upwnavName version UpgradedPackage
                     pure Nothing
                   Right rawVersion ->
                     pure $ Just (upwnavName, [(Just rawVersion, upwnavPkgId, upwnavPkg)])
@@ -231,7 +223,7 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
     where
     withPkgAsGamma :: Package -> TcM a -> TcPreUpgradeM a
     withPkgAsGamma pkg action =
-      withReaderT (\(version, _) -> emptyGamma (initWorldSelf [] pkg) version) action
+      withReaderT (\pue -> emptyGamma (initWorldSelf [] pkg) (pueVersion pue)) action
 
     upgradeablePackageMapToDeps :: UpgradeablePackageMap -> DepsMap
     upgradeablePackageMapToDeps upgradeablePackageMap =
@@ -284,12 +276,12 @@ checkUpgradeDependenciesM presentDeps pastDeps = do
         case mbPkgVersion of
             Nothing -> do
               when (pkgSupportsUpgrades presentPkg && PackageName "daml-prim" /= packageName) $
-                diagnosticWithContext $ WErrorToWarning $ WEDependencyHasNoMetadataDespiteUpgradeability presentPkgId UpgradedPackage
+                diagnosticWithContext $ WEDependencyHasNoMetadataDespiteUpgradeability presentPkgId UpgradedPackage
               pure $ Just (packageName, (Nothing, presentPkgId, presentPkg))
             Just packageVersion ->
               case splitPackageVersion id packageVersion of
                 Left version -> do
-                  diagnosticWithContext $ WErrorToWarning $ WEDependencyHasUnparseableVersion packageName version UpgradedPackage
+                  diagnosticWithContext $ WEDependencyHasUnparseableVersion packageName version UpgradedPackage
                   pure Nothing
                 Right presentVersion -> do
                   let result = (packageName, (Just presentVersion, presentPkgId, presentPkg))

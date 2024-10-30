@@ -3,8 +3,8 @@
 
 -- @SUPPORTS-LF-FEATURE DAML_INTERFACE
 
--- @ WARN since-lf=1.17 2.0; warn-bad-interface-instances
--- @ WARN since-lf=1.17 2.0; warn-bad-interface-instances
+-- @ WARN since-lf=1.17 2.0; -Werror=upgrade-interfaces
+-- @ WARN since-lf=1.17 2.0; -Werror=upgrade-interfaces
 module InterfaceArchive where
 
 import Daml.Script

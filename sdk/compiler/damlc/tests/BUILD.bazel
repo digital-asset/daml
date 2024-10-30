@@ -152,6 +152,7 @@ da_haskell_library(
     visibility = ["//visibility:public"],
     deps = [
         "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-tools",
         "//compiler/daml-lf-proto-encode",
         "//compiler/damlc:damlc-lib",
         "//compiler/damlc/daml-compiler",

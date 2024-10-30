@@ -25,6 +25,7 @@ da_haskell_library(
     src_strip_prefix = "daml-opts-types",
     visibility = ["//visibility:public"],
     deps = [
+        "//compiler/daml-lf-tools",
         "//compiler/daml-lf-ast",
         "//compiler/damlc/daml-package-config",
         "//daml-assistant:daml-project-config",

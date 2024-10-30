@@ -1,8 +1,8 @@
 -- Copyright (c) 2022, Digital Asset (Switzerland) GmbH and/or its affiliates.
 -- All rights reserved.
 
--- @ WARN since-lf=1.17 2.0; warn-bad-interface-instances
--- @ WARN since-lf=1.17 2.0; warn-bad-interface-instances
+-- @ WARN since-lf=1.17 2.0; -Werror=upgrade-interfaces
+-- @ WARN since-lf=1.17 2.0; -Werror=upgrade-interfaces
 module InterfaceContractDoesNotImplementInterface where
 import Daml.Script
 

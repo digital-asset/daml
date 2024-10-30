@@ -891,7 +891,7 @@ tests damlc =
           , "  - --target=" <> LF.renderVersion lfVersion
           ]
             ++ ["  - --typecheck-upgrades=no" | not doTypecheck]
-            ++ ["  - --warn-bad-interface-instances=yes" | warnBadInterfaceInstances ]
+            ++ ["  - -Wupgrade-interfaces" | warnBadInterfaceInstances ]
             ++ ["upgrades: '" <> path <> "'" | Just path <- pure upgradedFile]
             ++ renderDataDeps deps
         )
