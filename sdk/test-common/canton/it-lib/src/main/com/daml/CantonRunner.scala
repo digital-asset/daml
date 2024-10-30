@@ -96,6 +96,7 @@ object CantonRunner {
          |        ${authConfig}
          |        ${tls}
          |        ${partiesPageSize}
+         |        synchronize-vetting-on-upload = ${config.synchronizeVettingOnUpload}
          |      }
          |      storage.type = memory
          |      parameters = {
