@@ -19,7 +19,10 @@ import com.digitalasset.daml.lf.data.{
 }
 import com.digitalasset.daml.lf.value.Value
 import com.daml.scalautil.Statement.discard
+import com.digitalasset.daml.lf.crypto.HashUtils.{HashTracer, formatByteToHexString}
 import com.digitalasset.daml.lf.data.Ref.Name
+import com.digitalasset.daml.lf.language.LanguageVersion
+import com.digitalasset.daml.lf.transaction._
 import scalaz.Order
 
 import javax.crypto.Mac
@@ -48,6 +51,26 @@ object Hash {
   object HashingError {
     final case class ForbiddenContractId()
         extends HashingError("Contract IDs are not supported in contract keys.")
+  }
+
+  sealed abstract class NodeHashingError(val msg: String) extends Exception
+  object NodeHashingError {
+    final case class UnsupportedNode(message: String) extends NodeHashingError(message)
+    final case class IncompleteTransactionTree(nodeId: NodeId)
+        extends NodeHashingError(s"The transaction does not contain a node with nodeId $nodeId")
+    final case class UnsupportedLanguageVersion(
+        nodeHashVersion: NodeHashVersion,
+        version: TransactionVersion,
+    ) extends NodeHashingError(
+          s"Cannot hash node with LF $version using hash version $nodeHashVersion. Supported LF versions: ${NodeBuilder.HashingVersionToSupportedLFVersionMapping
+              .getOrElse(nodeHashVersion, Set.empty)
+              .mkString(", ")}"
+        )
+    final case class UnsupportedHashingVersion(version: NodeHashVersion)
+        extends NodeHashingError(
+          s"Cannot hash node with hashing version $version. Supported versions: ${NodeBuilder.HashingVersionToSupportedLFVersionMapping.keySet
+              .mkString(", ")}"
+        )
   }
 
   private def handleError[X](x: => X): Either[HashingError, X] =
@@ -93,11 +116,21 @@ object Hash {
   private[lf] val noCid2String: Value.ContractId => Nothing =
     _ => throw HashingError.ForbiddenContractId()
 
-  private[crypto] sealed abstract class Builder {
+  private[lf] val bigIntNumericToBytes: data.Numeric => Bytes =
+    numeric => Bytes.fromByteArray(numeric.unscaledValue().toByteArray)
 
-    protected def update(a: ByteBuffer): Unit
+  private[lf] val stringNumericToBytes: data.Numeric => Bytes =
+    numeric => Utf8.getBytes(data.Numeric.toString(numeric))
 
-    protected def update(a: Array[Byte]): Unit
+  private[crypto] sealed abstract class Builder(
+      numericToBytes: data.Numeric => Bytes
+  ) {
+
+    /** @param context Used by `HashTracer`s to provide contextualized information about what the encoded value represents
+      */
+    protected def update(a: ByteBuffer, context: => String): Unit
+
+    protected def update(a: Array[Byte], context: => String): Unit
 
     protected def doFinal(buf: Array[Byte]): Unit
 
@@ -108,44 +141,44 @@ object Hash {
     }
 
     /* add size delimited byte array. */
-    def addBytes(bytes: Array[Byte]): this.type = {
-      addInt(bytes.length).update(bytes)
+    def addBytes(bytes: Array[Byte], context: => String): this.type = {
+      addInt(bytes.length).update(bytes, context)
       this
     }
 
     /* add size delimited byte string. */
-    def addBytes(bytes: Bytes): this.type = {
-      addInt(bytes.length).update(bytes.toByteBuffer)
+    def addBytes(bytes: Bytes, context: => String): this.type = {
+      addInt(bytes.length).update(bytes.toByteBuffer, context)
       this
     }
 
     private val byteBuff = Array.ofDim[Byte](1)
 
-    final def addByte(a: Byte): this.type = {
+    final def addByte(a: Byte, context: => String): this.type = {
       byteBuff(0) = a
-      update(byteBuff)
+      update(byteBuff, context)
       this
     }
 
     /* no size delimitation as hashes have fixed size  */
-    final def addHash(a: Hash): this.type = {
-      update(a.bytes.toByteBuffer)
+    final def addHash(a: Hash, context: => String): this.type = {
+      update(a.bytes.toByteBuffer, context)
       this
     }
 
     /* add size delimited utf8 string. */
     final def addString(s: String): this.type =
-      addBytes(Utf8.getBytes(s))
+      addBytes(Utf8.getBytes(s), s"$s (string)")
 
     final def addBool(b: Boolean): this.type =
-      addByte(if (b) 1.toByte else 0.toByte)
+      addByte(if (b) 1.toByte else 0.toByte, s"${b.toString} (bool)")
 
     private val intBuffer = ByteBuffer.allocate(java.lang.Integer.BYTES)
 
     final def addInt(a: Int): this.type = {
       discard(intBuffer.rewind())
       discard(intBuffer.putInt(a).position(0))
-      update(intBuffer)
+      update(intBuffer, s"${a.toString} (int)")
       this
     }
 
@@ -154,12 +187,12 @@ object Hash {
     final def addLong(a: Long): this.type = {
       discard(longBuffer.rewind())
       discard(longBuffer.putLong(a).position(0))
-      update(longBuffer)
+      update(longBuffer, s"${a.toString} (long)")
       this
     }
 
     final def addNumeric(v: data.Numeric): this.type =
-      addBytes(v.unscaledValue().toByteArray)
+      addBytes(numericToBytes(v), s"${data.Numeric.toString(v)} (numeric)")
 
     final def iterateOver[T, U](a: ImmArray[T])(f: (this.type, T) => this.type): this.type =
       a.foldLeft[this.type](addInt(a.length))(f)
@@ -180,18 +213,265 @@ object Hash {
       val ss = set.toSeq.sorted[String]
       iterateOver(ss.iterator, ss.size)(_ addString _)
     }
+
+    final def addOptional[S](opt: Option[S], hashS: this.type => S => this.type): this.type = {
+      opt match {
+        case None => addByte(0.toByte, "None")
+        case Some(value) => hashS(addByte(1.toByte, "Some"))(value)
+      }
+    }
   }
 
-  private final class HashMacBuilder(key: Hash) extends Builder {
+  // Transaction Builder class with builder methods to recursively encode nodes
+  private sealed class TransactionBuilderV1(
+      hashTracer: HashTracer
+  ) extends LegacyBuilder(Purpose.TransactionHash, aCid2Bytes, stringNumericToBytes, hashTracer) {
+
+    private[lf] def encodeNode(
+        node: Node,
+        nodes: Map[NodeId, Node],
+        hashTracer: HashTracer = this.hashTracer,
+    ): NodeBuilder = {
+      node.optVersion
+        .foreach(
+          NodeBuilder
+            .assertHashingVersionSupportsLfVersion(_, NodeHashVersion.V1)
+        )
+
+      new NodeBuilderV1(hashTracer).addVersion.addNode(node, nodes)
+    }
+
+    @throws[NodeHashingError]
+    protected def addNodeFromNodeId(nodes: Map[NodeId, Node]): (this.type, NodeId) => this.type =
+      (builder, nodeId) => {
+        val node = nodes.getOrElse(nodeId, throw NodeHashingError.IncompleteTransactionTree(nodeId))
+        // For inner node with add the hashed value of the node to the current builder. We do not inline
+        // the encoded node. This is to keep NodeBuilder self contained w.r.t to its message digest.
+        addHash(
+          builder.encodeNode(node, nodes, hashTracer.subNodeTracer).build,
+          "(Hashed Inner Node)",
+        )
+      }
+
+    def addNodesFromNodeIds(nodeIds: ImmArray[NodeId], nodes: Map[NodeId, Node]): this.type =
+      iterateOver(nodeIds)(addNodeFromNodeId(nodes))
+
+    def addTransactionVersion(transactionVersion: TransactionVersion): this.type = {
+      addString(TransactionVersion.toProtoValue(transactionVersion))
+    }
+  }
+
+  /** Class with additional methods to hash nodes. Uses a single MessageDigest to hash the entire node including all its values.
+    */
+  private sealed abstract class NodeBuilder(
+      version: NodeHashVersion,
+      hashTracer: HashTracer,
+  ) extends TransactionBuilderV1(hashTracer) {
+
+    override def addVersion: this.type = {
+      super.addVersion
+        .addByte(version.id, s"${formatByteToHexString(version.id)} (Node Encoding Version)")
+    }
+
+    def addNode(node: Node, nodes: Map[NodeId, Node]): NodeBuilder
+  }
+
+  private object NodeBuilder {
+    private[lf] val HashingVersionToSupportedLFVersionMapping
+        : Map[NodeHashVersion, Set[LanguageVersion]] =
+      Map(
+        NodeHashVersion.V1 -> Set(LanguageVersion.v2_1)
+      )
+
+    private[crypto] sealed abstract class NodeTag(val tag: Byte)
+    private[crypto] object NodeTag {
+      case object CreateTag extends NodeTag(0)
+      case object ExerciseTag extends NodeTag(1)
+      case object FetchTag extends NodeTag(2)
+      case object LookupTag extends NodeTag(3)
+      case object RollbackTag extends NodeTag(4)
+    }
+
+    @throws[NodeHashingError]
+    private[lf] def assertHashingVersionSupportsLfVersion(
+        version: LanguageVersion,
+        nodeHashVersion: NodeHashVersion,
+    ): Unit = {
+      if (
+        !HashingVersionToSupportedLFVersionMapping
+          // This really shouldn't happen, unless someone removed an entry from the HashingVersionToSupportedLFVersionMapping map
+          .getOrElse(
+            nodeHashVersion,
+            throw NodeHashingError.UnsupportedHashingVersion(nodeHashVersion),
+          )
+          .contains(version)
+      ) throw NodeHashingError.UnsupportedLanguageVersion(nodeHashVersion, version)
+    }
+  }
+
+  private final class NodeBuilderV1(hashTracer: HashTracer)
+      extends NodeBuilder(NodeHashVersion.V1, hashTracer) {
+    private val addCreateNode: Node.Create => this.type = {
+      // Pattern match to make it more obvious which fields are part of the hashing and which are not
+      case Node.Create(
+            coid,
+            packageName,
+            _packageVersion @ _,
+            templateId,
+            arg,
+            _agreementText @ _,
+            signatories,
+            stakeholders,
+            _keyOpt @ _,
+            version,
+          ) =>
+        addContext("Create Node")
+          .withContext("Node Version")(_.addString(TransactionVersion.toProtoValue(version)))
+          .addByte(NodeBuilder.NodeTag.CreateTag.tag, "Node Tag")
+          .withContext("Contract Id")(_.addCid(coid))
+          .withContext("Package Name")(_.addString(packageName))
+          .withContext("Template Id")(_.addIdentifier(templateId))
+          .withContext("Arg")(_.addTypedValue(arg))
+          .withContext("Signatories")(_.addStringSet(signatories))
+          .withContext("Stakeholders")(_.addStringSet(stakeholders))
+    }
+
+    private val addFetchNode: Node.Fetch => this.type = {
+      case Node.Fetch(
+            coid,
+            packageName,
+            templateId,
+            actingParties,
+            signatories,
+            stakeholders,
+            _keyOpt @ _,
+            _byKey @ _,
+            _interfaceId @ _,
+            version,
+          ) =>
+        addContext("Fetch Node")
+          .withContext("Node Version")(_.addString(TransactionVersion.toProtoValue(version)))
+          .addByte(NodeBuilder.NodeTag.FetchTag.tag, "Node Tag")
+          .withContext("Contract Id")(_.addCid(coid))
+          .withContext("Package Name")(_.addString(packageName))
+          .withContext("Template Id")(_.addIdentifier(templateId))
+          .withContext("Signatories")(_.addStringSet(signatories))
+          .withContext("Stakeholders")(_.addStringSet(stakeholders))
+          .withContext("Acting Parties")(_.addStringSet(actingParties))
+    }
+
+    private def addExerciseNode(nodes: Map[NodeId, Node]): Node.Exercise => this.type = {
+      case Node.Exercise(
+            targetCoid,
+            packageName,
+            templateId,
+            interfaceId,
+            choiceId,
+            consuming,
+            actingParties,
+            chosenValue,
+            stakeholders,
+            signatories,
+            choiceObservers,
+            _choiceAuthorizers @ _,
+            children,
+            exerciseResult,
+            _keyOpt @ _,
+            _byKey @ _,
+            version,
+          ) =>
+        addContext("Exercise Node")
+          .withContext("Node Version")(_.addString(TransactionVersion.toProtoValue(version)))
+          .addByte(NodeBuilder.NodeTag.ExerciseTag.tag, "Node Tag")
+          .withContext("Contract Id")(_.addCid(targetCoid))
+          .withContext("Package Name")(_.addString(packageName))
+          .withContext("Template Id")(_.addIdentifier(templateId))
+          .withContext("Signatories")(_.addStringSet(signatories))
+          .withContext("Stakeholders")(_.addStringSet(stakeholders))
+          .withContext("Acting Parties")(_.addStringSet(actingParties))
+          .withContext("Interface Id")(_.addOptional(interfaceId, _.addIdentifier))
+          .withContext("Choice Id")(_.addString(choiceId))
+          .withContext("Chosen Value")(_.addTypedValue(chosenValue))
+          .withContext("Consuming")(_.addBool(consuming))
+          .withContext("Exercise Result")(
+            _.addOptional[Value](
+              exerciseResult,
+              { builder => value => builder.addTypedValue(value) },
+            )
+          )
+          .withContext("Choice Observers")(_.addStringSet(choiceObservers))
+          .withContext("Children")(_.addNodesFromNodeIds(children, nodes))
+    }
+
+    private def addRollbackNode(nodes: Map[NodeId, Node]): Node.Rollback => this.type = {
+      case Node.Rollback(children) =>
+        addContext("Rollback Node")
+          .addByte(NodeBuilder.NodeTag.RollbackTag.tag, "Node Tag")
+          .withContext("Children")(_.addNodesFromNodeIds(children, nodes))
+    }
+
+    override def addNode(node: Node, nodes: Map[NodeId, Node]): this.type = node match {
+      case create: Node.Create => addCreateNode(create)
+      case fetch: Node.Fetch => addFetchNode(fetch)
+      case exercise: Node.Exercise => addExerciseNode(nodes)(exercise)
+      case rollback: Node.Rollback => addRollbackNode(nodes)(rollback)
+      case _: Node.LookupByKey =>
+        throw NodeHashingError.UnsupportedNode(
+          s"LookupByKey nodes are not supported in version ${NodeHashVersion.V1.id}"
+        )
+    }
+  }
+
+  /** Deterministically hash a versioned transaction using the Version 1 of the hashing algorithm.
+    * @param hashTracer tracer that can be used to debug encoding of the transaction.
+    */
+  @throws[NodeHashingError]
+  @throws[HashingError]
+  def hashTransactionV1(
+      versionedTransaction: VersionedTransaction,
+      hashTracer: HashTracer = HashTracer.NoOp,
+  ): Hash = {
+    new TransactionBuilderV1(hashTracer)
+      .withContext("Transaction Version")(
+        _.addTransactionVersion(versionedTransaction.version)
+      )
+      .withContext("Root Nodes")(
+        _.addNodesFromNodeIds(versionedTransaction.roots, versionedTransaction.nodes)
+      )
+      .build
+  }
+
+  /** Deterministically hash a node using the Version 1 of the hashing algorithm.
+    * @param hashTracer tracer that can be used to debug encoding of the node.
+    */
+  @throws[NodeHashingError]
+  @throws[HashingError]
+  def hashNodeV1(
+      node: Node,
+      subNodes: Map[NodeId, Node] = Map.empty,
+      hashTracer: HashTracer = HashTracer.NoOp,
+  ): Hash = {
+    new TransactionBuilderV1(hashTracer)
+      .encodeNode(node, subNodes)
+      .build
+  }
+
+  // Only for testing
+  private[crypto] def valueBuilderForV1Node(
+      hashTracer: HashTracer = HashTracer.NoOp
+  ): ValueHashBuilder =
+    new NodeBuilderV1(hashTracer)
+
+  private final class HashMacBuilder(key: Hash) extends Builder(bigIntNumericToBytes) {
     private val macPrototype: MacPrototype = MacPrototype.HmacSha256
     private val mac: Mac = macPrototype.newMac
 
     mac.init(new SecretKeySpec(key.bytes.toByteArray, macPrototype.algorithm))
 
-    final override protected def update(a: ByteBuffer): Unit =
+    final override protected def update(a: ByteBuffer, context: => String): Unit =
       mac.update(a)
 
-    final override protected def update(a: Array[Byte]): Unit =
+    final override protected def update(a: Array[Byte], context: => String): Unit =
       mac.update(a)
 
     final override protected def doFinal(buf: Array[Byte]): Unit =
@@ -202,7 +482,20 @@ object Hash {
       version: Version,
       purpose: Purpose,
       cid2Bytes: Value.ContractId => Bytes,
-  ) extends Builder {
+      numericToBytes: data.Numeric => Bytes,
+      hashTracer: HashTracer,
+  ) extends Builder(numericToBytes) {
+
+    protected val md = MessageDigestPrototype.Sha256.newDigest
+
+    def addContext(context: => String): this.type = {
+      withContext(context)(identity)
+    }
+
+    def withContext(context: => String)(f: this.type => this.type): this.type = {
+      hashTracer.context(s"# $context")
+      f(this)
+    }
 
     /*
      * In order to avoid hash collision, this should be used together
@@ -214,25 +507,40 @@ object Hash {
     def addTypedValue(value: Value): this.type
 
     def addCid(cid: Value.ContractId): this.type =
-      addBytes(cid2Bytes(cid))
+      addBytes(cid2Bytes(cid), s"${cid.coid} (contractId)")
 
-    private val md = MessageDigestPrototype.Sha256.newDigest
-
-    override protected def update(a: ByteBuffer): Unit =
+    override protected def update(a: ByteBuffer, context: => String): Unit = {
+      hashTracer.trace(a, context)
       md.update(a)
+    }
 
-    override protected def update(a: Array[Byte]): Unit =
+    override protected def update(a: Array[Byte], context: => String): Unit = {
+      hashTracer.trace(a, context)
       md.update(a)
+    }
 
     override protected def doFinal(buf: Array[Byte]): Unit =
       assert(md.digest(buf, 0, underlyingHashLength) == underlyingHashLength)
 
-    md.update(version.id)
-    md.update(purpose.id)
+    def addVersion: this.type = {
+      addByte(version.id, s"${formatByteToHexString(version.id)} (Value Encoding Version)")
+        .addByte(purpose.id, s"${formatByteToHexString(purpose.id)} (Value Encoding Purpose)")
+    }
   }
 
-  private final class LegacyBuilder(purpose: Purpose, cid2Bytes: Value.ContractId => Bytes)
-      extends ValueHashBuilder(version = Version.Legacy, purpose = purpose, cid2Bytes = cid2Bytes) {
+  // TODO #20203 Rename to a better suited name
+  private[crypto] sealed class LegacyBuilder(
+      purpose: Purpose,
+      cid2Bytes: Value.ContractId => Bytes,
+      numericToBytes: data.Numeric => Bytes,
+      hashTracer: HashTracer,
+  ) extends ValueHashBuilder(
+        version = Version.Legacy,
+        purpose = purpose,
+        cid2Bytes = cid2Bytes,
+        numericToBytes = numericToBytes,
+        hashTracer = hashTracer,
+      ) {
 
     /*
      * In the legacy case (i.e. contract cannot be upgraded) we implemented  following collision resistance property:
@@ -256,7 +564,7 @@ object Hash {
     final override def addTypedValue(value: Value): this.type =
       value match {
         case Value.ValueUnit =>
-          addByte(0.toByte)
+          addByte(0.toByte, "00 (unit)")
         case Value.ValueBool(b) =>
           addBool(b)
         case Value.ValueInt64(v) =>
@@ -272,7 +580,7 @@ object Hash {
         case Value.ValueText(v) =>
           addString(v)
         case Value.ValueContractId(cid) =>
-          addBytes(cid2Bytes(cid))
+          addBytes(cid2Bytes(cid), s"${cid.coid} (contractId)")
         case Value.ValueOptional(opt) =>
           // We use Int instead of Byte for indicating Some vs None.
           // This waists 3 unnecessary bytes, but we have to keep it for backward compatibility.
@@ -299,11 +607,17 @@ object Hash {
       }
   }
 
-  private final class UpgradeFriendlyBuilder(purpose: Purpose, cid2Bytes: Value.ContractId => Bytes)
-      extends ValueHashBuilder(
+  private final class UpgradeFriendlyBuilder(
+      purpose: Purpose,
+      cid2Bytes: Value.ContractId => Bytes,
+      numericToBytes: data.Numeric => Bytes,
+      hashTracer: HashTracer,
+  ) extends ValueHashBuilder(
         version = Version.UpgradeFriendly,
         purpose = purpose,
         cid2Bytes = cid2Bytes,
+        numericToBytes = numericToBytes,
+        hashTracer = hashTracer,
       ) {
 
     /*
@@ -362,7 +676,8 @@ object Hash {
     final override def addTypedValue(value: Value): this.type =
       value match {
         case Value.ValueUnit =>
-          addByte(0.toByte)
+          // We could use value.productPrefix to enrich the context here and for all values
+          addByte(0.toByte, "0 (unit)")
         case Value.ValueBool(b) =>
           addBool(b)
         case Value.ValueInt64(v) =>
@@ -381,8 +696,8 @@ object Hash {
           addCid(cid)
         case Value.ValueOptional(opt) =>
           opt match {
-            case Some(value) => addByte(1.toByte).addTypedValue(value)
-            case None => addByte(0.toByte)
+            case Some(value) => addByte(1.toByte, "Some (optional)").addTypedValue(value)
+            case None => addByte(0.toByte, "None (optional)")
           }
         case Value.ValueList(xs) =>
           addList(xs)
@@ -443,7 +758,7 @@ object Hash {
                 discard(addField.addString(value))
               case Value.ValueBool(value) =>
                 if (value)
-                  discard(addField.addByte(1.toByte))
+                  discard(addField.addByte(1.toByte, s"true (bool)"))
               case Value.ValueUnit =>
               // We never write unit
             }
@@ -475,7 +790,7 @@ object Hash {
       }
       // This delimits the end of the record.
       // Note it does not collide with the first byte of field numbers as those are always positives.
-      addByte(0xff.toByte)
+      addByte(0xff.toByte, "record end")
     }
 
   }
@@ -491,6 +806,7 @@ object Hash {
     val PrivateKey = new Purpose(3)
     val ContractInstance = new Purpose(5)
     val ChangeId = new Purpose(6)
+    val TransactionHash = new Purpose(7)
   }
 
   private class Version private (val id: Byte)
@@ -500,17 +816,26 @@ object Hash {
     val UpgradeFriendly = new Version(1) // from LF 2.1
   }
 
+  class NodeHashVersion(val id: Byte)
+
+  object NodeHashVersion {
+    val V1 = new NodeHashVersion(1)
+  }
+
   // package private for testing purpose.
   // Do not call this method from outside Hash object/
   private[crypto] def builder(
       purpose: Purpose,
       cid2Bytes: Value.ContractId => Bytes,
       upgradeFriendly: Boolean,
-  ): ValueHashBuilder =
+      numeric2Bytes: data.Numeric => Bytes = bigIntNumericToBytes,
+      hashTracer: HashTracer = HashTracer.NoOp,
+  ): ValueHashBuilder = {
     if (upgradeFriendly)
-      new UpgradeFriendlyBuilder(purpose, cid2Bytes)
+      new UpgradeFriendlyBuilder(purpose, cid2Bytes, numeric2Bytes, hashTracer).addVersion
     else
-      new LegacyBuilder(purpose, cid2Bytes)
+      new LegacyBuilder(purpose, cid2Bytes, numeric2Bytes, hashTracer).addVersion
+  }
 
   private[crypto] def hMacBuilder(key: Hash): Builder = new HashMacBuilder(key)
 
@@ -640,7 +965,7 @@ object Hash {
       maintainer: Ref.Party,
   ): Hash =
     builder(Purpose.MaintainerContractKeyUUID, noCid2String, upgradeFriendly = true)
-      .addHash(keyHash)
+      .addHash(keyHash, "Key Hash")
       .addString(maintainer)
       .build
 }

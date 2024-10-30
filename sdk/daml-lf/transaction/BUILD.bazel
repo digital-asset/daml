@@ -85,6 +85,7 @@ da_scala_test(
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/transaction-test-lib",
+        "//libs-scala/crypto",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
