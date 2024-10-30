@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.protocol.conflictdetection
 
+import cats.syntax.either.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.participant.metrics.ParticipantTestMetrics
@@ -104,7 +105,7 @@ class NaiveRequestTrackerTest
         "Request present immediately after transaction result",
       )
       _ = enterTick(rt, SequencerCounter(3), CantonTimestamp.ofEpochMilli(3))
-      _ <- finalize0.map(result => assert(result == Right(())))
+      _ <- finalize0.map(result => assert(result == Either.unit))
       _ = assert(
         !rt.requestInFlight(RequestCounter(0)),
         "Request evicted immediately after finalization",

@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.ledger.metering
 
+import cats.syntax.either.*
 import com.digitalasset.canton.platform.apiserver.meteringreport.HmacSha256.Key
 import com.digitalasset.canton.platform.apiserver.meteringreport.JcsSigner.VerificationStatus
 import com.digitalasset.canton.platform.apiserver.meteringreport.{JcsSigner, MeteringReportKey}
@@ -119,7 +120,7 @@ object Main {
     if (Files.isDirectory(dir)) {
       for {
         keys <- Files.list(dir).toScala(List).traverse(readKey)
-        _ <- if (keys.isEmpty) Left(NoKeys(keyDir)) else Right(())
+        _ <- Either.cond(keys.nonEmpty, (), NoKeys(keyDir))
       } yield {
         keys.map(k => k.scheme -> k).toMap
       }
@@ -140,7 +141,7 @@ object Main {
 
   private def verifyReport(json: String, keys: Map[String, Key]): ExitCodeOr[Unit] =
     JcsSigner.verify(json, keys.get) match {
-      case VerificationStatus.Ok => Right(())
+      case VerificationStatus.Ok => Either.unit
       case status => Left(FailedVerification(status))
     }
 

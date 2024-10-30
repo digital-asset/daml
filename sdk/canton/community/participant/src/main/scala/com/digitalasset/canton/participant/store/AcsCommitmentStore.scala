@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.store
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.event.RecordTime
 import com.digitalasset.canton.participant.pruning.SortedReconciliationIntervalsProvider
 import com.digitalasset.canton.protocol.messages.{
@@ -142,7 +143,7 @@ trait AcsCommitmentLookup {
     */
   def getComputed(period: CommitmentPeriod, counterParticipant: ParticipantId)(implicit
       traceContext: TraceContext
-  ): Future[Iterable[(CommitmentPeriod, AcsCommitment.CommitmentType)]]
+  ): FutureUnlessShutdown[Iterable[(CommitmentPeriod, AcsCommitment.CommitmentType)]]
 
   /** Last locally processed timestamp.
     *
@@ -247,7 +248,9 @@ trait IncrementalCommitmentStore {
   */
 trait CommitmentQueue {
 
-  def enqueue(commitment: AcsCommitment)(implicit traceContext: TraceContext): Future[Unit]
+  def enqueue(commitment: AcsCommitment)(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit]
 
   /** Returns an unordered list of commitments whose period ends at or before the given timestamp.
     *
@@ -255,7 +258,7 @@ trait CommitmentQueue {
     */
   def peekThrough(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[List[AcsCommitment]]
+  ): FutureUnlessShutdown[List[AcsCommitment]]
 
   /** Returns an unordered list of commitments whose period ends at or after the given timestamp.
     *

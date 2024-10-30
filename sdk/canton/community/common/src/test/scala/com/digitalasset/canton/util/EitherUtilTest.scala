@@ -9,13 +9,6 @@ import org.scalatest.wordspec.AnyWordSpec
 
 @SuppressWarnings(Array("org.wartremover.warts.Var"))
 class EitherUtilTest extends AnyWordSpec with BaseTest {
-  "EitherUtil" should {
-    "construct an Either[L, Unit]" in {
-      EitherUtil.condUnitE(true, "sadness") shouldBe Right(())
-      EitherUtil.condUnitE(false, "sadness") shouldBe Left("sadness")
-    }
-  }
-
   "EitherUtil.RichEither" should {
     val left: Either[String, Int] = Left("sadness")
     val right: Either[String, Int] = Right(42)

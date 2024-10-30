@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.data
 
+import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.ProtoDeserializationError.OtherError
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
@@ -15,10 +16,14 @@ import com.digitalasset.canton.sequencing.protocol.{MediatorGroupRecipient, Time
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
-import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.*
-import com.digitalasset.canton.{LfPartyId, LfWorkflowId, ReassignmentCounter}
+import com.digitalasset.canton.{
+  LfPartyId,
+  LfWorkflowId,
+  ProtoDeserializationError,
+  ReassignmentCounter,
+}
 import com.google.protobuf.ByteString
 
 import java.util.UUID
@@ -131,7 +136,7 @@ object UnassignmentViewTree
   * @param sourceDomain The domain to which the unassignment request is sent
   * @param sourceMediatorGroup The mediator that coordinates the unassignment request on the source domain
   * @param stakeholders Information about the stakeholders and signatories
-  * @param confirmingReassigningParticipants The list of confirming reassigning participants
+  * @param reassigningParticipants The list of reassigning participants
   * @param uuid The request UUID of the unassignment
   * @param submitterMetadata information about the submission
   */
@@ -140,7 +145,7 @@ final case class UnassignmentCommonData private (
     sourceDomain: Source[DomainId],
     sourceMediatorGroup: MediatorGroupRecipient,
     stakeholders: Stakeholders,
-    confirmingReassigningParticipants: Set[ParticipantId],
+    reassigningParticipants: ReassigningParticipants,
     uuid: UUID,
     submitterMetadata: ReassignmentSubmitterMetadata,
 )(
@@ -167,7 +172,9 @@ final case class UnassignmentCommonData private (
       uuid = ProtoConverter.UuidConverter.toProtoPrimitive(uuid),
       submitterMetadata = Some(submitterMetadata.toProtoV30),
       confirmingReassigningParticipantUids =
-        confirmingReassigningParticipants.toSeq.map(_.uid.toProtoPrimitive),
+        reassigningParticipants.confirming.toSeq.map(_.uid.toProtoPrimitive),
+      observingReassigningParticipantUids =
+        reassigningParticipants.observing.toSeq.map(_.uid.toProtoPrimitive),
     )
 
   override protected[this] def toByteStringUnmemoized: ByteString =
@@ -176,14 +183,14 @@ final case class UnassignmentCommonData private (
   override def hashPurpose: HashPurpose = HashPurpose.UnassignmentCommonData
 
   def confirmingParties: Map[LfPartyId, PositiveInt] =
-    stakeholders.all.map(_ -> PositiveInt.one).toMap
+    stakeholders.signatories.map(_ -> PositiveInt.one).toMap
 
   override protected def pretty: Pretty[UnassignmentCommonData] = prettyOfClass(
     param("submitter metadata", _.submitterMetadata),
     param("source domain", _.sourceDomain),
     param("source mediator group", _.sourceMediatorGroup),
     param("stakeholders", _.stakeholders),
-    param("confirming reassigning participants", _.confirmingReassigningParticipants),
+    param("reassigning participants", _.reassigningParticipants),
     param("uuid", _.uuid),
     param("salt", _.salt),
   )
@@ -208,7 +215,7 @@ object UnassignmentCommonData
       sourceDomain: Source[DomainId],
       sourceMediatorGroup: MediatorGroupRecipient,
       stakeholders: Stakeholders,
-      confirmingReassigningParticipants: Set[ParticipantId],
+      reassigningParticipants: ReassigningParticipants,
       uuid: UUID,
       submitterMetadata: ReassignmentSubmitterMetadata,
       sourceProtocolVersion: Source[ProtocolVersion],
@@ -217,7 +224,7 @@ object UnassignmentCommonData
     sourceDomain = sourceDomain,
     sourceMediatorGroup = sourceMediatorGroup,
     stakeholders = stakeholders,
-    confirmingReassigningParticipants = confirmingReassigningParticipants,
+    reassigningParticipants = reassigningParticipants,
     uuid = uuid,
     submitterMetadata = submitterMetadata,
   )(hashOps, sourceProtocolVersion, None)
@@ -234,6 +241,7 @@ object UnassignmentCommonData
       sourceDomainP,
       stakeholdersP,
       confirmingReassigningParticipantUidsP,
+      observingReassigningParticipantUidsP,
       uuidP,
       sourceMediatorGroupP,
       submitterMetadataPO,
@@ -257,17 +265,30 @@ object UnassignmentCommonData
           .fromProtoPrimitive(uid, "confirming_reassigning_participant_uids")
           .map(ParticipantId(_))
       )
+      observingReassigningParticipants <- observingReassigningParticipantUidsP.traverse(uid =>
+        UniqueIdentifier
+          .fromProtoPrimitive(uid, "observing_reassigning_participant_uids")
+          .map(ParticipantId(_))
+      )
+
       uuid <- ProtoConverter.UuidConverter.fromProtoPrimitive(uuidP)
       submitterMetadata <- ProtoConverter
         .required("submitter_metadata", submitterMetadataPO)
         .flatMap(ReassignmentSubmitterMetadata.fromProtoV30)
+
+      reassigningParticipants <- ReassigningParticipants
+        .create(
+          confirming = confirmingReassigningParticipants.toSet,
+          observing = observingReassigningParticipants.toSet,
+        )
+        .leftMap(ProtoDeserializationError.InvariantViolation(field = "confirming", _))
 
     } yield UnassignmentCommonData(
       salt,
       sourceDomain,
       MediatorGroupRecipient(sourceMediatorGroup),
       stakeholders = stakeholders,
-      confirmingReassigningParticipants.toSet,
+      reassigningParticipants = reassigningParticipants,
       uuid,
       submitterMetadata,
     )(hashOps, sourceProtocolVersion, Some(bytes))
@@ -430,13 +451,13 @@ final case class FullUnassignmentTree(tree: UnassignmentViewTree)
   def workflowId: Option[LfWorkflowId] = submitterMetadata.workflowId
 
   // Parties and participants
-  // TODO(#21072) Check informees and stakeholders are compatible
+  // TODO(#22048) Check informees and stakeholders are compatible
   override def informees: Set[LfPartyId] = view.contract.metadata.stakeholders
   def stakeholders: Stakeholders = commonData.stakeholders
-  override def confirmingReassigningParticipants: Set[ParticipantId] =
-    commonData.confirmingReassigningParticipants
+  override def reassigningParticipants: ReassigningParticipants = commonData.reassigningParticipants
 
   // Contract
+  def contract: SerializableContract = view.contract
   def contractId: LfContractId = view.contract.contractId
   def templateId: LfTemplateId = view.templateId
   def reassignmentCounter: ReassignmentCounter = view.reassignmentCounter
@@ -446,6 +467,7 @@ final case class FullUnassignmentTree(tree: UnassignmentViewTree)
   override def sourceDomain: Source[DomainId] = commonData.sourceDomain
   override def targetDomain: Target[DomainId] = view.targetDomain
   def targetTimeProof: TimeProof = view.targetTimeProof
+  def targetProtocolVersion: Target[ProtocolVersion] = view.targetProtocolVersion
 
   def mediatorMessage(
       submittingParticipantSignature: Signature
@@ -471,8 +493,9 @@ object FullUnassignmentTree {
   )(bytes: ByteString): ParsingResult[FullUnassignmentTree] =
     for {
       tree <- UnassignmentViewTree.fromByteString(crypto, sourceProtocolVersion)(bytes)
-      _ <- EitherUtil.condUnitE(
+      _ <- Either.cond(
         tree.isFullyUnblinded,
+        (),
         OtherError(s"Unassignment request ${tree.rootHash} is not fully unblinded"),
       )
     } yield FullUnassignmentTree(tree)

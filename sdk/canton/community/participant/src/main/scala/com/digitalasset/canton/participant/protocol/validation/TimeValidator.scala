@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.protocol.validation
 
+import cats.syntax.either.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.participant.protocol.TransactionProcessingSteps.CommonData
@@ -61,7 +62,7 @@ object TimeValidator {
         )
       )
 
-    } else Right(())
+    } else Either.unit
 
   }
 

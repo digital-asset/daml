@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.store.db
 
 import cats.data.{EitherT, OptionT}
+import cats.syntax.either.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
@@ -269,7 +270,7 @@ class DbRequestJournalStore(
         }
       }
 
-      private val success: Try[Result] = Success(Right(()))
+      private val success: Try[Result] = Success(Either.unit)
       override protected def onSuccessItemUpdate(item: Traced[ReplaceRequest]): Try[Result] =
         success
 
@@ -296,7 +297,7 @@ class DbRequestJournalStore(
             } else if (data.state == newState && data.commitTime == commitTime)
               // `update` may under report the number of changed rows,
               // so we're fine if the new state is already there.
-              Success(Right(()))
+              Success(Either.unit)
             else {
               val ex = new ConcurrentModificationException(
                 s"Concurrent request journal modification for request $rc"

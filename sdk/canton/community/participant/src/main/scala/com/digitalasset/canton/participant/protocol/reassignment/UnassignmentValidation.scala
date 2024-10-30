@@ -4,10 +4,14 @@
 package com.digitalasset.canton.participant.protocol.reassignment
 
 import cats.data.*
+import cats.syntax.either.*
 import com.digitalasset.canton.data.FullUnassignmentTree
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.participant.protocol.ReassignmentSubmissionValidation
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
+import com.digitalasset.canton.participant.protocol.{
+  ReassignmentSubmissionValidation,
+  SerializableContractAuthenticator,
+}
 import com.digitalasset.canton.protocol.{LfTemplateId, Stakeholders}
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -25,7 +29,7 @@ private[reassignment] final case class UnassignmentValidation(
     expectedTemplateId: LfTemplateId,
     sourceProtocolVersion: Source[ProtocolVersion],
     sourceTopology: Source[TopologySnapshot],
-    // Defined if and only if the participant is reassigning
+    // Defined if and only if the participant is observing reassigning
     targetTopology: Option[Target[TopologySnapshot]],
     recipients: Recipients,
 )(request: FullUnassignmentTree) {
@@ -66,7 +70,7 @@ private[reassignment] final case class UnassignmentValidation(
     EitherT.cond[FutureUnlessShutdown](
       expectedTemplateId == request.templateId,
       (),
-      TemplateIdMismatch(
+      ContractError.templateIdMismatch(
         declaredTemplateId = request.templateId,
         expectedTemplateId = expectedTemplateId,
       ),
@@ -74,7 +78,11 @@ private[reassignment] final case class UnassignmentValidation(
 }
 
 private[reassignment] object UnassignmentValidation {
+
+  /** @param targetTopology Defined if and only if the participant is observing reassigning
+    */
   def perform(
+      serializableContractAuthenticator: SerializableContractAuthenticator,
       expectedStakeholders: Stakeholders,
       expectedTemplateId: LfTemplateId,
       sourceProtocolVersion: Source[ProtocolVersion],
@@ -97,6 +105,13 @@ private[reassignment] object UnassignmentValidation {
 
     for {
       _ <- validation.checkStakeholders
+
+      _ <- EitherT.fromEither[FutureUnlessShutdown](
+        serializableContractAuthenticator
+          .authenticate(request.contract)
+          .leftMap[ReassignmentProcessorError](ContractError(_))
+      )
+
       _ <- ReassignmentSubmissionValidation.unassignment(
         contractId = request.contractId,
         topologySnapshot = sourceTopology,

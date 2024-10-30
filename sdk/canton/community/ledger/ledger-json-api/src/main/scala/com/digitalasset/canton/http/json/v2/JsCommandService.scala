@@ -102,8 +102,7 @@ class JsCommandService(
     )
   }
 
-  def submitAndWait(callerContext: CallerContext):
-      TracedInput[JsCommands] => Future[
+  def submitAndWait(callerContext: CallerContext): TracedInput[JsCommands] => Future[
     Either[JsCantonError, JsSubmitAndWaitResponse]
   ] = req => {
     implicit val token: Option[String] = callerContext.token()
@@ -192,7 +191,7 @@ final case class JsSubmitAndWaitForTransactionResponse(
 
 final case class JsSubmitAndWaitResponse(
     update_id: String,
-    completion_offset: String,
+    completion_offset: Long,
 )
 
 object JsCommand {

@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.store
 
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveContractIdsChange
 import com.digitalasset.canton.participant.store.ActiveContractStore.{
   AcsError,
@@ -120,14 +121,14 @@ class ThrowingAcs[T <: Throwable](mk: String => T)(override implicit val ec: Exe
   override protected[canton] def advancePruningTimestamp(
       phase: PruningPhase,
       timestamp: CantonTimestamp,
-  )(implicit traceContext: TraceContext): Future[Unit] =
-    Future.failed(mk(s"advancePruningTimestamp"))
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    FutureUnlessShutdown.failed(mk(s"advancePruningTimestamp"))
 
   /** Always returns [[scala.None$]] so that the failure does not happen while checking the invariant. */
   override def pruningStatus(implicit
       traceContext: TraceContext
-  ): Future[Option[PruningStatus]] =
-    Future.successful(None)
+  ): FutureUnlessShutdown[Option[PruningStatus]] =
+    FutureUnlessShutdown.pure(None)
 
   override def deleteSince(criterion: RequestCounter)(implicit
       traceContext: TraceContext

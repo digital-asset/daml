@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.version
 
+import cats.syntax.either.*
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.version.ProtocolVersionCompatibility.canClientConnectToServer
 import org.scalatest.wordspec.AnyWordSpec
@@ -15,7 +16,7 @@ class ProtocolVersionCompatibilityTest extends AnyWordSpec with BaseTest {
           clientSupportedVersions = Seq(ProtocolVersion.v32, ProtocolVersion.dev),
           serverVersion = ProtocolVersion.dev,
           None,
-        ) shouldBe Right(())
+        ) shouldBe Either.unit
       }
 
       "fail with a nice message if incompatible" in {

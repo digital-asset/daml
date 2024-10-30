@@ -120,15 +120,15 @@ object TransactionFilterValidator {
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Unit] =
-    if (templateFilters.isEmpty && interfaceFilters.isEmpty && wildcardFilters.isEmpty)
-      Left(
-        RequestValidationErrors.InvalidArgument
-          .Reject(
-            "requests with empty template, interface and wildcard filters are not supported"
-          )
-          .asGrpcError
-      )
-    else Right(())
+    Either.cond(
+      !(templateFilters.isEmpty && interfaceFilters.isEmpty && wildcardFilters.isEmpty),
+      (),
+      RequestValidationErrors.InvalidArgument
+        .Reject(
+          "requests with empty template, interface and wildcard filters are not supported"
+        )
+        .asGrpcError,
+    )
 
   private def mergeWildcardFilters(
       filters: Seq[WildcardFilter]

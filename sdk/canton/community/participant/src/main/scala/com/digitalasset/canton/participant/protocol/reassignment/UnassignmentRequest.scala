@@ -25,14 +25,14 @@ import scala.concurrent.ExecutionContext
 
 /** Request to reassign a contract away from a domain.
   *
-  * @param confirmingReassigningParticipants The list of confirming reassigning participants
+  * @param reassigningParticipants The list of reassigning participants
   * @param targetTimeProof a sequenced event that the submitter has recently observed on the target domain.
   *                        Determines the timestamp of the topology at the target domain.
   * @param reassignmentCounter The new reassignment counter (incremented value compared to the one in the ACS).
   */
 final case class UnassignmentRequest(
     submitterMetadata: ReassignmentSubmitterMetadata,
-    confirmingReassigningParticipants: Set[ParticipantId],
+    reassigningParticipants: ReassigningParticipants,
     creatingTransactionId: TransactionId,
     contract: SerializableContract,
     sourceDomain: Source[DomainId],
@@ -59,7 +59,7 @@ final case class UnassignmentRequest(
         sourceDomain,
         sourceMediator,
         stakeholders = Stakeholders(contract.metadata),
-        confirmingReassigningParticipants,
+        reassigningParticipants,
         uuid = uuid,
         submitterMetadata,
         sourceProtocolVersion,

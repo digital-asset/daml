@@ -205,7 +205,7 @@ class TopologyAdministrationGroup(
           s"Expecting filterDomain and filterStore to relate to the same domain but found `$domain` and `$domainStore`",
         )
 
-      case _ => Right(())
+      case _ => Either.unit
     }
   }
 

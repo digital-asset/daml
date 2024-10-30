@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.pruning
 
 import cats.data.EitherT
+import cats.syntax.either.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import cats.syntax.traverseFilter.*
@@ -131,7 +132,7 @@ class PruningProcessor(
       val done = offset == pruneUpToInclusive
       pruneLedgerEventBatch(lastUpTo, offset).transform {
         case Left(e) => Right(Left(e))
-        case Right(_) if done => Right(Right(()))
+        case Right(_) if done => Right(Either.unit)
         case Right(_) => Left(Some(offset))
       }.value
     }
@@ -535,9 +536,7 @@ class PruningProcessor(
       archivedContracts <- FutureUnlessShutdown.outcomeF(
         lookUpContractsArchivedBeforeOrAt(fromExclusive, upToInclusive)
       )
-      _ <- FutureUnlessShutdown.outcomeF(
-        cutoffs.domainOffsets.parTraverse(pruneDomain(archivedContracts))
-      )
+      _ <- cutoffs.domainOffsets.parTraverse(pruneDomain(archivedContracts))
       _ <- cutoffs.globalOffsetO.fold(FutureUnlessShutdown.unit) {
         case (globalOffset, publicationTime) =>
           pruneDeduplicationStore(globalOffset, publicationTime)
@@ -552,7 +551,7 @@ class PruningProcessor(
       archived: Iterable[LfContractId]
   )(domainOffset: PruningCutoffs.DomainOffset)(implicit
       traceContext: TraceContext
-  ): Future[Unit] = {
+  ): FutureUnlessShutdown[Unit] = {
     val PruningCutoffs.DomainOffset(state, lastTimestamp, lastRequestCounter) = domainOffset
 
     logger.info(
@@ -563,16 +562,18 @@ class PruningProcessor(
     for {
       // We must prune the contract store even if the event log is empty, because there is not necessarily an archival event
       // for divulged contracts or reassigned-away contracts.
-      _ <- state.contractStore.deleteIgnoringUnknown(archived)
+      _ <- FutureUnlessShutdown.outcomeF(state.contractStore.deleteIgnoringUnknown(archived))
 
-      _ <- lastRequestCounter.fold(Future.unit)(state.contractStore.deleteDivulged)
+      _ <- FutureUnlessShutdown.outcomeF(
+        lastRequestCounter.fold(Future.unit)(state.contractStore.deleteDivulged)
+      )
 
       // we don't prune stores that are pruned by the JournalGarbageCollector regularly anyway
       _ = logger.debug("Pruning sequenced event store...")
       _ <- state.sequencedEventStore.prune(lastTimestamp)
 
       _ = logger.debug("Pruning request journal store...")
-      _ <- state.requestJournalStore.prune(lastTimestamp)
+      _ <- FutureUnlessShutdown.outcomeF(state.requestJournalStore.prune(lastTimestamp))
 
       _ = logger.debug("Pruning acs commitment store...")
       _ <- state.acsCommitmentStore.prune(lastTimestamp)

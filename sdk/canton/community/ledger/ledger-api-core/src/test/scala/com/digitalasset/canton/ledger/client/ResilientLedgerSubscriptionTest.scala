@@ -10,7 +10,6 @@ import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.client.ResilientLedgerSubscriptionTest.SubscriptionState
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.ParticipantPrunedDataAccessed
 import com.digitalasset.canton.logging.LogEntry
-import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.{BaseTest, HasExecutionContext}
 import io.grpc.{Status, StatusRuntimeException}
 import org.apache.pekko.NotUsed
@@ -86,11 +85,13 @@ class ResilientLedgerSubscriptionTest extends AnyWordSpec with BaseTest with Has
     "resubscribe from the latest unpruned offset" when {
       s"the current subscription fails with a ${ParticipantPrunedDataAccessed.id} error" in new TestContext {
 
-        private val nextOffsetAfterPruned = "17"
+        private val nextOffsetAfterPruned = 17L
         runTest { sut =>
           val sub = getSubscriberWhenReady()
           val reject =
-            ParticipantPrunedDataAccessed.Reject("some cause", "17")(NoLogging).asGrpcError
+            ParticipantPrunedDataAccessed
+              .Reject("some cause", nextOffsetAfterPruned)(NoLogging)
+              .asGrpcError
           sub.subscriber.onError(reject)
 
           eventually() {
@@ -115,15 +116,15 @@ class ResilientLedgerSubscriptionTest extends AnyWordSpec with BaseTest with Has
     val subscriptionName = "SubscriptionForTestService"
     val sender = new Party("alice")
 
-    val initialOffset: String = "00"
-    val reSubscriptionOffset = ApiOffset.fromLong(7)
-    val tx = Transaction(offset = 7L)
+    val initialOffset: Long = 0L
+    val reSubscriptionOffset: Long = 7L
+    val tx = Transaction(offset = reSubscriptionOffset)
 
     private[client] val subscriber = new AtomicReference[Option[SubscriptionState]](
       None
     )
 
-    def makeSource(offset: String): Source[Transaction, NotUsed] =
+    def makeSource(offset: Long): Source[Transaction, NotUsed] =
       Source.fromPublisher[Transaction](new Publisher[Transaction] {
         override def subscribe(s: Subscriber[_ >: Transaction]): Unit = {
           subscriber.updateAndGet { cur =>
@@ -166,7 +167,7 @@ class ResilientLedgerSubscriptionTest extends AnyWordSpec with BaseTest with Has
             },
             subscriptionName = subscriptionName,
             startOffset = initialOffset,
-            extractOffset = tx => Some(ApiOffset.fromLong(tx.offset)),
+            extractOffset = tx => Some(tx.offset),
             timeouts = timeouts,
             loggerFactory = loggerFactory,
             resubscribeIfPruned = true,
@@ -187,7 +188,7 @@ class ResilientLedgerSubscriptionTest extends AnyWordSpec with BaseTest with Has
 object ResilientLedgerSubscriptionTest {
   private[client] final case class SubscriptionState(
       index: Int,
-      offset: String,
+      offset: Long,
       subscriber: Subscriber[_ >: Transaction],
       request: Long,
       cancel: Boolean,

@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.protocol.validation
 
+import cats.syntax.either.*
 import com.daml.nonempty.NonEmptyUtil
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.data.FullTransactionViewTree
@@ -49,7 +50,7 @@ class InternalConsistencyCheckerTest extends AnyWordSpec with BaseTest {
       }
 
       Random.shuffle(testScopes).sorted shouldBe testScopes
-      checkRollbackScopeOrder(testScopes) shouldBe Right(())
+      checkRollbackScopeOrder(testScopes) shouldBe Either.unit
       checkRollbackScopeOrder(testScopes.reverse).isLeft shouldBe true
     }
   }
@@ -69,7 +70,7 @@ class InternalConsistencyCheckerTest extends AnyWordSpec with BaseTest {
 
         "reinterpret views individually" in {
           example.transactionViewTrees.foreach { viewTree =>
-            check(sut, Seq(viewTree)) shouldBe Right(())
+            check(sut, Seq(viewTree)) shouldBe Either.unit
           }
         }
       }

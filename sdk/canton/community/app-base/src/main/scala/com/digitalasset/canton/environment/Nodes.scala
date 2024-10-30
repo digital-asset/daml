@@ -5,6 +5,7 @@ package com.digitalasset.canton.environment
 
 import cats.data.EitherT
 import cats.instances.future.*
+import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.{Applicative, Id}
 import com.digitalasset.canton.concurrent.ExecutionContextIdlenessExecutorService
@@ -262,7 +263,7 @@ class ManagedNodes[
       case Left(_) =>
         // we can remap a startup failure to a success here, as we don't want the
         // startup failure to propagate into a shutdown failure
-        Right(())
+        Either.unit
       case Right(node) =>
         nodes.remove(name).foreach {
           // if there were other processes messing with the node, we won't shutdown
@@ -271,7 +272,7 @@ class ManagedNodes[
           case _ =>
             logger.info(s"Node $name has already disappeared.")
         }
-        Right(())
+        Either.unit
     }
 
   override protected def closeAsync(): Seq[AsyncOrSyncCloseable] = {
@@ -286,7 +287,7 @@ class ManagedNodes[
       fn: DbConfig => F[Either[StartupError, Unit]]
   )(implicit F: Applicative[F]): F[Either[StartupError, Unit]] = storageConfig match {
     case dbConfig: DbConfig => fn(dbConfig)
-    case _ => F.pure(Right(()))
+    case _ => F.pure(Either.unit)
   }
 
   // if database is fresh, we will migrate it. Otherwise, we will check if there is any pending migrations,
@@ -323,8 +324,7 @@ class ManagedNodes[
     }
 
   private def checkNotRunning(name: InstanceName): Either[StartupError, Unit] =
-    if (isRunning(name)) Left(AlreadyRunning(name))
-    else Right(())
+    Either.cond(!isRunning(name), (), AlreadyRunning(name))
 
   private def runMigration(
       name: InstanceName,

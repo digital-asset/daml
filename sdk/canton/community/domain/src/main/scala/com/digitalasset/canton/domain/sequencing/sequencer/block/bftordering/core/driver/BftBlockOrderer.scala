@@ -4,6 +4,7 @@
 package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.driver
 
 import cats.data.EitherT
+import cats.syntax.either.*
 import com.daml.metrics.api.MetricsContext
 import com.daml.tracing.NoOpTelemetry
 import com.digitalasset.canton.concurrent.Threading
@@ -478,7 +479,7 @@ final class BftBlockOrderer(
       )
     )
     EitherT(replyPromise.future.map {
-      case SequencerNode.RequestAccepted => Right(())
+      case SequencerNode.RequestAccepted => Either.unit
       case SequencerNode.RequestRejected(reason) =>
         Left(SendAsyncError.Overloaded(reason)) // Currently the only case
       case _ => Left(SendAsyncError.Internal("wrong response"))

@@ -84,25 +84,27 @@ trait PrunableByTime {
     */
   final def prune(
       limit: CantonTimestamp
-  )(implicit errorLoggingContext: ErrorLoggingContext, closeContext: CloseContext): Future[Unit] = {
+  )(implicit
+      errorLoggingContext: ErrorLoggingContext,
+      closeContext: CloseContext,
+  ): FutureUnlessShutdown[Unit] = {
     implicit val traceContext: TraceContext = errorLoggingContext.traceContext
-    val ret = for {
-      lastTs <- FutureUnlessShutdown.outcomeF(getLastPruningTs)
-      _ <- FutureUnlessShutdown.outcomeF(advancePruningTimestamp(PruningPhase.Started, limit))
+    for {
+      lastTs <- getLastPruningTs
+      _ <- advancePruningTimestamp(PruningPhase.Started, limit)
       // prune in buckets to avoid generating too large db transactions
       res <- MonadUtil.sequentialTraverse(
         computeBuckets(lastTs, limit)
       ) { case (prev, next) =>
         closeContext.context.performUnlessClosingF(s"prune interval $next")(doPrune(next, prev))
       }
-      _ <- FutureUnlessShutdown.outcomeF(advancePruningTimestamp(PruningPhase.Completed, limit))
+      _ <- advancePruningTimestamp(PruningPhase.Completed, limit)
     } yield {
       val num = res.sum
       if (num > 0)
         errorLoggingContext.logger.debug(s"Pruned $num $kind using ${res.length} intervals")
       lastTs.foreach(ts => updateBucketSize(res, limit - ts))
     }
-    ret.onShutdown(())
   }
 
   private val stepSizeMillis = new AtomicReference[Long](
@@ -184,7 +186,7 @@ trait PrunableByTime {
     }
   private def getLastPruningTs(implicit
       traceContext: TraceContext
-  ): Future[Option[CantonTimestamp]] = pruningStatus.map(_.flatMap(_.lastSuccess))
+  ): FutureUnlessShutdown[Option[CantonTimestamp]] = pruningStatus.map(_.flatMap(_.lastSuccess))
 
   /** Returns the latest timestamp at which pruning was started or completed.
     * For [[com.digitalasset.canton.pruning.PruningPhase.Started]], it is guaranteed
@@ -194,12 +196,14 @@ trait PrunableByTime {
     * That is, another pruning with the returned timestamp (or earlier) has no effect on the store.
     * Returns [[scala.None$]] if no pruning has ever been started on the store.
     */
-  def pruningStatus(implicit traceContext: TraceContext): Future[Option[PruningStatus]]
+  def pruningStatus(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Option[PruningStatus]]
 
   @VisibleForTesting
   protected[canton] def advancePruningTimestamp(phase: PruningPhase, timestamp: CantonTimestamp)(
       implicit traceContext: TraceContext
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 
   /** Actual invocation of doPrune
     *

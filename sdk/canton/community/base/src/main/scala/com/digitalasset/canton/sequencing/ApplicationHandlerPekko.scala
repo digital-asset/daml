@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.sequencing
 
+import cats.syntax.either.*
 import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricsContext
 import com.daml.nonempty.NonEmpty
@@ -68,7 +69,7 @@ class ApplicationHandlerPekko[F[+_], Context](
               errorOrSyncResult match {
                 case Right(Some(syncResult)) =>
                   processAsyncResult(syncResult, killSwitchOfContext(context))
-                case Right(None) => FutureUnlessShutdown.pure(Right(()))
+                case Right(None) => FutureUnlessShutdown.pure(Either.unit)
                 case Left(error) => FutureUnlessShutdown.pure(Left(error))
               }
             case AbortedDueToShutdown => FutureUnlessShutdown.abortedDueToShutdown

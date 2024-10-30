@@ -5,13 +5,14 @@ package com.digitalasset.canton.store.db
 
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.pruning.{PruningPhase, PruningStatus}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.store.{IndexedDomain, IndexedString, PrunableByTime}
 import com.digitalasset.canton.tracing.TraceContext
 import slick.jdbc.SetParameter
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Mixin for a db store that stores the latest point in time when
   * pruning has started or finished.
@@ -45,17 +46,17 @@ trait DbPrunableByTime extends PrunableByTime {
 
   override def pruningStatus(implicit
       traceContext: TraceContext
-  ): Future[Option[PruningStatus]] = {
+  ): FutureUnlessShutdown[Option[PruningStatus]] = {
     val query = sql"""
         select phase, ts, succeeded from #$pruning_status_table
         where #$partitionColumn = $partitionKey
         """.as[PruningStatus].headOption
-    storage.query(query, functionFullName)
+    storage.queryUnlessShutdown(query, functionFullName)
   }
 
   protected[canton] def advancePruningTimestamp(phase: PruningPhase, timestamp: CantonTimestamp)(
       implicit traceContext: TraceContext
-  ): Future[Unit] = {
+  ): FutureUnlessShutdown[Unit] = {
 
     val query = (storage.profile, phase) match {
       case (_: DbStorage.Profile.Postgres, PruningPhase.Completed) =>
@@ -92,7 +93,7 @@ trait DbPrunableByTime extends PrunableByTime {
     )
 
     for {
-      rowCount <- storage.update(query, "pruning status upsert")
+      rowCount <- storage.updateUnlessShutdown(query, "pruning status upsert")
       _ <-
         if (logger.underlying.isDebugEnabled && rowCount != 1 && phase == PruningPhase.Started) {
           pruningStatus.map {
@@ -102,7 +103,7 @@ trait DbPrunableByTime extends PrunableByTime {
               )
             case _ =>
           }
-        } else Future.successful(())
+        } else FutureUnlessShutdown.pure(())
     } yield {
       logger.debug(
         s"Finished setting phase of $pruning_status_table to \"${phase.kind}\" and timestamp to $timestamp"

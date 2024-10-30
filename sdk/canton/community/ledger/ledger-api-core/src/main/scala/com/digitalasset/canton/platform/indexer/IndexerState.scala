@@ -42,7 +42,7 @@ class IndexerState(
   //   5 - repair indexing is initiating
   //   6 - repair indexing is ready to be used (here provided repairOperation starts executing)
   //   7 - repair indexing is used: FutureQueue offer operations
-  //   8 - repair usage finished (block finished execiting)
+  //   8 - repair usage finished (block finished executing)
   //   9 - repair is committing: the Ledger End will be persisted
   //  10 - repair indexing stops
   //  11 - normal indexing resumes operation (starts the recovering initialization loop)
@@ -64,7 +64,7 @@ class IndexerState(
           _ = queue.shutdown()
           _ <- queue.done
           _ = logger.info("Initializing Repair Indexer...")
-          repairIndexer <- repairIndexerFactory()
+          repairIndexer <- withStateUnlessShutdown(_ => repairIndexerFactory())
           _ = logger.info("Repair Indexer ready")
         } yield new RepairQueueProxy(repairIndexer, () => onRepairFinished(), loggerFactory)
         val result = repairIndexerF.transformWith {
@@ -118,39 +118,56 @@ class IndexerState(
   private def executeRepairOperation(
       repairIndexer: RepairQueueProxy,
       repairOperation: PekkoUtil.FutureQueue[Traced[Update]] => EitherT[Future, String, Unit],
-  ): Future[Either[String, Unit]] = {
-    def waitForRepairIndexerToTerminateAndThenReturn[T](result: Try[T]): Future[T] =
-      repairIndexer.done.transform(_ => result)
+  ): Future[Either[String, Unit]] = withStateUnlessShutdown { _ =>
+    def waitForRepairIndexerToTerminateAndThenReturnUnlessShutdown[T](result: Try[T]): Future[T] =
+      withStateUnlessShutdown(_ => repairIndexer.done.transform(_ => result))
 
-    def commitRepair(): Future[Right[Nothing, Unit]] =
+    def waitForRepairIndexerToTerminateUnlessShutdownAndThenReturn[T](result: Try[T]): Future[T] =
+      withStateUnlessShutdown(_ => repairIndexer.done).transform(_ => result)
+
+    def commitRepair(): Future[Right[Nothing, Unit]] = withStateUnlessShutdown(_ =>
       repairIndexer.commit().transformWith {
         case Failure(t) =>
           logger.warn(s"Committing repair changes failed, resuming normal indexing...", t)
           repairIndexer.shutdown()
-          waitForRepairIndexerToTerminateAndThenReturn(
+          waitForRepairIndexerToTerminateUnlessShutdownAndThenReturn(
             Failure(new Exception("Committing repair changes failed", t))
           )
 
         case Success(_) =>
           logger.info(s"Committing repair changes succeeded, resuming normal indexing...")
-          waitForRepairIndexerToTerminateAndThenReturn(Success(Right(())))
+          waitForRepairIndexerToTerminateUnlessShutdownAndThenReturn(Success(Right(())))
       }
+    )
 
-    repairOperation(repairIndexer).value.transformWith {
+    Future.delegate(repairOperation(repairIndexer).value).transformWith {
       case Failure(t) =>
         logger.info("Repair operation failed with exception, resuming normal indexing...", t)
         repairIndexer.shutdown()
-        waitForRepairIndexerToTerminateAndThenReturn(Failure(t))
+        waitForRepairIndexerToTerminateAndThenReturnUnlessShutdown(Failure(t))
 
       case Success(Left(failure)) =>
         logger.info(s"Repair operation failed with error ($failure), resuming normal indexing...")
         repairIndexer.shutdown()
-        waitForRepairIndexerToTerminateAndThenReturn(Success(Left(failure)))
+        waitForRepairIndexerToTerminateAndThenReturnUnlessShutdown(Success(Left(failure)))
 
       case Success(Right(_)) =>
         logger.info(s"Repair operation succeeded, committing changes...")
         commitRepair()
     }
+  }
+
+  // Mapping all results to a clean shutdown, to allow further shutdown-steps to complete normally.
+  private def handleShutdownDoneResult(doneResult: Try[Done]): Success[Unit] = {
+    doneResult match {
+      case Success(Done) =>
+        logger.info("IndexerState stopped successfully")
+
+      case Failure(t) =>
+        // Logging at info level since either Repair-Index or Recovering-Indexer should emit warnings in case of shutdown related problems.
+        logger.info("IndexerState stopped with a failure", t)
+    }
+    Success(())
   }
 
   def shutdown(): Future[Unit] = withState {
@@ -162,7 +179,7 @@ class IndexerState(
           shutdownInitiated = true,
         )
       }
-      queue.done.map(_ =>
+      queue.done.transform { doneResult =>
         queue.uncommittedQueueSnapshot.foreach(
           _._2.value.persisted
             .tryFailure(
@@ -172,7 +189,8 @@ class IndexerState(
             )
             .discard
         )
-      )
+        handleShutdownDoneResult(doneResult)
+      }
 
     case Repair(queueF, repairDone, shutdownInitiated) =>
       if (!shutdownInitiated) {
@@ -183,7 +201,7 @@ class IndexerState(
           shutdownInitiated = true,
         )
       }
-      queueF.flatMap(_.done).map(_ => ())
+      queueF.flatMap(_.done).transform(handleShutdownDoneResult)
   }
 
   def ensureNoProcessingForDomain(domainId: DomainId): Future[Unit] = withStateUnlessShutdown {

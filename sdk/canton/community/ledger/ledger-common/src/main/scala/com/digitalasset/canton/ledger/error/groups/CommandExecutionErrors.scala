@@ -21,6 +21,7 @@ import com.digitalasset.daml.lf.engine.Error as LfError
 import com.digitalasset.daml.lf.interpretation.Error as LfInterpretationError
 import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
 import com.digitalasset.daml.lf.transaction.{GlobalKey, TransactionVersion}
+import com.digitalasset.daml.lf.value.Value.ContractId
 import com.digitalasset.daml.lf.value.{Value, ValueCoder}
 import com.digitalasset.daml.lf.{VersionRange, language}
 import com.google.common.io.BaseEncoding
@@ -127,6 +128,49 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
         ErrorCategoryRetry(duration = 60.seconds)
       )
     }
+  }
+
+  @Explanation(
+    """This error occurs if some of the disclosed contracts attached to the command submission that were also used in command interpretation have specified mismatching domain-ids.
+      |This can happen if the domain-ids of the disclosed contracts are out of sync OR if the originating contracts are assigned to different domains."""
+  )
+  @Resolution(
+    "Retry the submission with an up-to-date set of attached disclosed contracts or re-create a command submission that only uses disclosed contracts residing on the same domain."
+  )
+  object DisclosedContractsDomainIdMismatch
+      extends ErrorCode(
+        id = "DISCLOSED_CONTRACTS_DOMAIN_ID_MISMATCH",
+        ErrorCategory.InvalidIndependentOfSystemState,
+      ) {
+    final case class Reject(mismatchingContractIdToDomainIds: Map[ContractId, String])(implicit
+        loggingContext: ContextualizedErrorLogger
+    ) extends DamlErrorWithDefiniteAnswer(
+          cause =
+            s"Some disclosed contracts that were used during command interpretation have mismatching domain-ids: $mismatchingContractIdToDomainIds"
+        )
+  }
+
+  @Explanation(
+    """This error occurs when the domain-id provided in the command submission mismatches the domain-id specified in one of the disclosed contracts used in command interpretation."""
+  )
+  @Resolution(
+    "Retry the submission with all disclosed contracts residing on the target submission domain."
+  )
+  object PrescribedDomainIdMismatch
+      extends ErrorCode(
+        id = "PRESCRIBED_DOMAIN_ID_MISMATCH",
+        ErrorCategory.InvalidIndependentOfSystemState,
+      ) {
+    final case class Reject(
+        usedDisclosedContractsSpecifyingADomainId: Set[ContractId],
+        disclosedContractsDomainId: String,
+        prescribedDomainId: String,
+    )(implicit
+        loggingContext: ContextualizedErrorLogger
+    ) extends DamlErrorWithDefiniteAnswer(
+          cause =
+            s"The target domain=$prescribedDomainId specified in the command submission mismatches the domain-id=$disclosedContractsDomainId of some attached disclosed contracts that have been used in the submission (used-disclosed-contract-ids=$usedDisclosedContractsSpecifyingADomainId)"
+        )
   }
 
   @Explanation("Command execution errors raised due to invalid packages.")

@@ -825,8 +825,9 @@ final class RepairService(
             _localStakeholderOrWitnesses <- EitherT(
               hostsParties(topologySnapshot, contract.metadata.stakeholders, participantId).map {
                 localStakeholders =>
-                  EitherUtil.condUnitE(
+                  Either.cond(
                     contractToAdd.witnesses.nonEmpty || localStakeholders.nonEmpty,
+                    (),
                     log(
                       s"Contract ${contract.contractId} has no local stakeholders ${contract.metadata.stakeholders} and no witnesses defined"
                     ),
@@ -1159,7 +1160,7 @@ final class RepairService(
             logger.debug(
               s"Clean head reached ${startingPoints.processing.prenextTimestamp}, clearing $timestamp"
             )
-            Right(())
+            Either.unit
           } else {
             logger.debug(
               s"Clean head is still at ${startingPoints.processing.prenextTimestamp} which is not yet $timestamp"

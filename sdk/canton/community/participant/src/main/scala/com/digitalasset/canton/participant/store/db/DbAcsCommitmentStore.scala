@@ -103,7 +103,7 @@ class DbAcsCommitmentStore(
 
   override def getComputed(period: CommitmentPeriod, counterParticipant: ParticipantId)(implicit
       traceContext: TraceContext
-  ): Future[Iterable[(CommitmentPeriod, AcsCommitment.CommitmentType)]] = {
+  ): FutureUnlessShutdown[Iterable[(CommitmentPeriod, AcsCommitment.CommitmentType)]] = {
     val query = sql"""
         select from_exclusive, to_inclusive, commitment from par_computed_acs_commitments
           where domain_idx = $indexedDomain
@@ -113,7 +113,7 @@ class DbAcsCommitmentStore(
           order by from_exclusive asc"""
       .as[(CommitmentPeriod, AcsCommitment.CommitmentType)]
 
-    storage.query(query, operationName = "commitments: get computed")
+    storage.queryUnlessShutdown(query, operationName = "commitments: get computed")
   }
 
   override def storeComputed(
@@ -660,7 +660,7 @@ class DbCommitmentQueue(
 
   override def enqueue(
       commitment: AcsCommitment
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val commitmentDbHash =
       Hash.digest(HashPurpose.AcsCommitmentDb, commitment.commitment, HashAlgorithm.Sha256)
     val insertAction =
@@ -669,9 +669,7 @@ class DbCommitmentQueue(
              values($indexedDomain, ${commitment.sender}, ${commitment.counterParticipant}, ${commitment.period.fromExclusive}, ${commitment.period.toInclusive}, ${commitment.commitment}, $commitmentDbHash)
              on conflict do nothing"""
 
-    {
-      storage.update_(insertAction, operationName = "enqueue commitment")
-    }
+    storage.updateUnlessShutdown_(insertAction, operationName = "enqueue commitment")
   }
 
   /** Returns all commitments whose period ends at or before the given timestamp.
@@ -680,9 +678,9 @@ class DbCommitmentQueue(
     */
   override def peekThrough(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[List[AcsCommitment]] =
+  ): FutureUnlessShutdown[List[AcsCommitment]] =
     storage
-      .query(
+      .queryUnlessShutdown(
         sql"""select sender, counter_participant, from_exclusive, to_inclusive, commitment
              from par_commitment_queue
              where domain_idx = $indexedDomain and to_inclusive <= $timestamp"""

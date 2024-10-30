@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.protocol.validation
 
 import cats.data.EitherT
+import cats.syntax.either.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.{NonEmpty, NonEmptyUtil}
 import com.digitalasset.canton.data.*
@@ -142,11 +143,11 @@ class ModelConformanceCheckerTest extends AsyncWordSpec with BaseTest {
     )
 
   object dummyAuthenticator extends SerializableContractAuthenticator {
-    override def authenticate(contract: SerializableContract): Either[String, Unit] = Right(())
+    override def authenticate(contract: SerializableContract): Either[String, Unit] = Either.unit
     override def verifyMetadata(
         contract: SerializableContract,
         metadata: ContractMetadata,
-    ): Either[String, Unit] = Right(())
+    ): Either[String, Unit] = Either.unit
   }
 
   def check(

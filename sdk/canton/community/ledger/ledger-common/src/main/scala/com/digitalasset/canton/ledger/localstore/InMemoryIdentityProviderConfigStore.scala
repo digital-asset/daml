@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.ledger.localstore
 
+import cats.syntax.either.*
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{IdentityProviderConfig, IdentityProviderId}
@@ -70,7 +71,7 @@ class InMemoryIdentityProviderConfigStore(
       currentState <- checkIdExists(id)
       _ <- update.issuerUpdate
         .map(checkIssuerDoNotExists(_, update.identityProviderId))
-        .getOrElse(Right(()))
+        .getOrElse(Either.unit)
     } yield {
       val updatedValue = currentState
         .copy(isDeactivated = update.isDeactivatedUpdate.getOrElse(currentState.isDeactivated))

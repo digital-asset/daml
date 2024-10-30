@@ -7,6 +7,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.event.RecordTime
 import com.digitalasset.canton.participant.pruning.{
@@ -88,8 +89,8 @@ class InMemoryAcsCommitmentStore(protected val loggerFactory: NamedLoggerFactory
 
   override def getComputed(period: CommitmentPeriod, counterParticipant: ParticipantId)(implicit
       traceContext: TraceContext
-  ): Future[List[(CommitmentPeriod, AcsCommitment.CommitmentType)]] =
-    Future.successful(
+  ): FutureUnlessShutdown[List[(CommitmentPeriod, AcsCommitment.CommitmentType)]] =
+    FutureUnlessShutdown.pure(
       for {
         m <- computed.get(counterParticipant).toList
         commitments <- m
@@ -433,9 +434,14 @@ class InMemoryCommitmentQueue(implicit val ec: ExecutionContext) extends Commitm
     Future.successful(evaluated)
   }
 
+  private def syncUS[T](v: => T): FutureUnlessShutdown[T] = {
+    val evaluated = blocking(lock.synchronized(v))
+    FutureUnlessShutdown.pure(evaluated)
+  }
+
   override def enqueue(
       commitment: AcsCommitment
-  )(implicit traceContext: TraceContext): Future[Unit] = syncF {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = syncUS {
     queue.enqueue(commitment)
   }
 
@@ -445,7 +451,7 @@ class InMemoryCommitmentQueue(implicit val ec: ExecutionContext) extends Commitm
     */
   override def peekThrough(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[List[AcsCommitment]] = syncF {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[List[AcsCommitment]] = syncUS {
     queue.takeWhile(_.period.toInclusive <= timestamp).toList
   }
 

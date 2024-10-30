@@ -48,9 +48,9 @@ private[dao] final class CommandCompletionsReader(
           minOffsetExclusive = startExclusive,
           maxOffsetInclusive = endInclusive,
           errorPruning = (prunedOffset: Offset) =>
-            s"Command completions request from ${startExclusive.toHexString} to ${endInclusive.toHexString} overlaps with pruned offset ${prunedOffset.toHexString}",
+            s"Command completions request from ${startExclusive.toLong} to ${endInclusive.toLong} overlaps with pruned offset ${prunedOffset.toLong}",
           errorLedgerEnd = (ledgerEndOffset: Offset) =>
-            s"Command completions request from ${startExclusive.toHexString} to ${endInclusive.toHexString} is beyond ledger end offset ${ledgerEndOffset.toHexString}",
+            s"Command completions request from ${startExclusive.toLong} to ${endInclusive.toLong} is beyond ledger end offset ${ledgerEndOffset.toLong}",
         ) {
           storageBackend.commandCompletions(
             startExclusive = range.startExclusive,

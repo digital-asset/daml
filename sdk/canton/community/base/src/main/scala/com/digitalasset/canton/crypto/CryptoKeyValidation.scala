@@ -53,7 +53,7 @@ object CryptoKeyValidation {
          */
         parseAndValidateDerOrRawKey(publicKey).map(_ => ())
       case CryptoKeyFormat.Symbolic =>
-        Right(())
+        Either.unit
     }
 
     // If the result is already in the cache it means the key has already been validated.

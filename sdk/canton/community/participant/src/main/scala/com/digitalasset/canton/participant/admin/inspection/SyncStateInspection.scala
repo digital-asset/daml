@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.admin.inspection
 
 import cats.Eval
 import cats.data.EitherT
+import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
@@ -14,6 +15,7 @@ import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
 import com.digitalasset.canton.ledger.participant.state.{DomainIndex, RequestIndex}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
 import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.admin.data.ActiveContract
 import com.digitalasset.canton.participant.admin.inspection.SyncStateInspection.{
@@ -42,10 +44,12 @@ import com.digitalasset.canton.store.SequencedEventStore.{
 import com.digitalasset.canton.store.{SequencedEventRangeOverlapsWithPruning, SequencedEventStore}
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.OptionUtils.OptionExtension
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{DomainAlias, LfPartyId, ReassignmentCounter, RequestCounter}
+import com.google.common.annotations.VisibleForTesting
 
 import java.io.OutputStream
 import java.time.Instant
@@ -119,18 +123,18 @@ final class SyncStateInspection(
       domain,
     )
 
+  @VisibleForTesting
   def acsPruningStatus(
       domain: DomainAlias
   )(implicit traceContext: TraceContext): Option[PruningStatus] =
-    getOrFail(
-      timeouts.inspection.await("acsPruningStatus") {
-        syncDomainPersistentStateManager
-          .getByAlias(domain)
-          .traverse(_.acsInspection.pruningStatus())
-
-      },
-      domain,
-    )
+    timeouts.inspection
+      .awaitUS("acsPruningStatus")(
+        getOrFail(
+          getPersistentState(domain),
+          domain,
+        ).acsInspection.activeContractStore.pruningStatus
+      )
+      .onShutdown(throw GrpcErrors.AbortedDueToShutdown.Error().asGrpcError)
 
   private def disableJournalCleaningForFilter(
       domains: Map[DomainId, SyncDomainPersistentState],
@@ -202,10 +206,9 @@ final class SyncStateInspection(
                       )
                     case Right(_) =>
                       outputStream.flush()
-                      Right(())
+                      Either.unit
                   }
                 }
-                .mapK(FutureUnlessShutdown.outcomeK)
 
               _ <- result match {
                 case Some((allStakeholders, snapshotTs)) if partiesOffboarding =>
@@ -274,35 +277,39 @@ final class SyncStateInspection(
       domain: DomainId,
       timestamp: CantonTimestamp,
       parties: Set[LfPartyId],
-  )(implicit traceContext: TraceContext): Future[Set[(LfContractId, ReassignmentCounter)]] =
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Set[(LfContractId, ReassignmentCounter)]] =
     for {
-      state <- syncDomainPersistentStateManager.get(domain) match {
-        case Some(state) => Future.successful(state)
-        case None =>
-          Future.failed(new IllegalArgumentException(s"Unable to find contract store for $domain."))
-      }
+      state <- FutureUnlessShutdown.fromTry(
+        syncDomainPersistentStateManager
+          .get(domain)
+          .toTry(new IllegalArgumentException(s"Unable to find contract store for $domain."))
+      )
 
-      snapshot <- state.activeContractStore.snapshot(timestamp)
+      snapshot <- FutureUnlessShutdown.outcomeF(state.activeContractStore.snapshot(timestamp))
 
       // check that the active contract store has not been pruned up to timestamp, otherwise the snapshot is inconsistent.
       pruningStatus <- state.activeContractStore.pruningStatus
       _ <-
         if (pruningStatus.exists(_.timestamp > timestamp)) {
-          Future.failed(
+          FutureUnlessShutdown.failed(
             new IllegalStateException(
               s"Active contract store for domain $domain has been pruned up to ${pruningStatus
                   .map(_.lastSuccess)}, which is after the requested timestamp $timestamp"
             )
           )
-        } else Future.unit
+        } else FutureUnlessShutdown.unit
 
-      contracts <- state.contractStore
-        .lookupManyExistingUncached(snapshot.keys.toSeq)
-        .valueOr { missingContractId =>
-          ErrorUtil.invalidState(
-            s"Contract id $missingContractId is in the active contract store but its contents is not in the contract store"
-          )
-        }
+      contracts <- FutureUnlessShutdown.outcomeF(
+        state.contractStore
+          .lookupManyExistingUncached(snapshot.keys.toSeq)
+          .valueOr { missingContractId =>
+            ErrorUtil.invalidState(
+              s"Contract id $missingContractId is in the active contract store but its contents is not in the contract store"
+            )
+          }
+      )
 
       contractsWithTransferCounter = contracts.map(c => c -> snapshot(c.contractId)._2)
 
@@ -343,24 +350,27 @@ final class SyncStateInspection(
       to: Option[Instant],
       limit: Option[Int],
   )(implicit traceContext: TraceContext): Seq[ParsingResult[PossiblyIgnoredProtocolEvent]] = {
-    val state = getPersistentState(domain).getOrElse(
-      throw new NoSuchElementException(s"Unknown domain $domain")
-    )
+    val state = getOrFail(getPersistentState(domain), domain)
     val messagesF =
-      if (from.isEmpty && to.isEmpty) state.sequencedEventStore.sequencedEvents(limit)
+      if (from.isEmpty && to.isEmpty)
+        FutureUnlessShutdown.outcomeF(state.sequencedEventStore.sequencedEvents(limit))
       else { // if a timestamp is set, need to use less efficient findRange method (it sorts results first)
         val cantonFrom =
           from.map(t => CantonTimestamp.assertFromInstant(t)).getOrElse(CantonTimestamp.MinValue)
         val cantonTo =
           to.map(t => CantonTimestamp.assertFromInstant(t)).getOrElse(CantonTimestamp.MaxValue)
-        state.sequencedEventStore.findRange(ByTimestampRange(cantonFrom, cantonTo), limit).valueOr {
-          // this is an inspection command, so no need to worry about pruned events
-          case SequencedEventRangeOverlapsWithPruning(_criterion, _pruningStatus, foundEvents) =>
-            foundEvents
-        }
+        state.sequencedEventStore
+          .findRange(ByTimestampRange(cantonFrom, cantonTo), limit)
+          .valueOr {
+            // this is an inspection command, so no need to worry about pruned events
+            case SequencedEventRangeOverlapsWithPruning(_criterion, _pruningStatus, foundEvents) =>
+              foundEvents
+          }
       }
     val closed =
-      timeouts.inspection.await(s"finding messages from $from to $to on $domain")(messagesF)
+      timeouts.inspection
+        .awaitUS(s"finding messages from $from to $to on $domain")(messagesF)
+        .onShutdown(throw GrpcErrors.AbortedDueToShutdown.Error().asGrpcError)
     val opener =
       new EnvelopeOpener[PossiblyIgnoredSequencedEvent](
         tryGetProtocolVersion(state, domain),
@@ -369,12 +379,11 @@ final class SyncStateInspection(
     closed.map(opener.open)
   }
 
+  @VisibleForTesting
   def findMessage(domain: DomainAlias, criterion: SequencedEventStore.SearchCriterion)(implicit
       traceContext: TraceContext
   ): Option[ParsingResult[PossiblyIgnoredProtocolEvent]] = {
-    val state = getPersistentState(domain).getOrElse(
-      throw new NoSuchElementException(s"Unknown domain $domain")
-    )
+    val state = getOrFail(getPersistentState(domain), domain)
     val messageF = state.sequencedEventStore.find(criterion).value
     val closed =
       timeouts.inspection
@@ -394,35 +403,29 @@ final class SyncStateInspection(
       counterParticipant: Option[ParticipantId] = None,
   )(implicit
       traceContext: TraceContext
-  ): Iterable[(CommitmentPeriod, ParticipantId, AcsCommitment.CommitmentType)] = {
-    val persistentState = getPersistentState(domain)
+  ): Iterable[(CommitmentPeriod, ParticipantId, AcsCommitment.CommitmentType)] =
     timeouts.inspection.await(s"$functionFullName from $start to $end on $domain")(
-      getOrFail(persistentState, domain).acsCommitmentStore
+      getOrFail(getPersistentState(domain), domain).acsCommitmentStore
         .searchComputedBetween(start, end, counterParticipant.toList)
     )
-  }
 
   def findLastComputedAndSent(
       domain: DomainAlias
-  )(implicit traceContext: TraceContext): Option[CantonTimestampSecond] = {
-    val persistentState = getPersistentState(domain)
+  )(implicit traceContext: TraceContext): Option[CantonTimestampSecond] =
     timeouts.inspection.await(s"$functionFullName on $domain")(
-      getOrFail(persistentState, domain).acsCommitmentStore.lastComputedAndSent
+      getOrFail(getPersistentState(domain), domain).acsCommitmentStore.lastComputedAndSent
     )
-  }
 
   def findReceivedCommitments(
       domain: DomainAlias,
       start: CantonTimestamp,
       end: CantonTimestamp,
       counterParticipant: Option[ParticipantId] = None,
-  )(implicit traceContext: TraceContext): Iterable[SignedProtocolMessage[AcsCommitment]] = {
-    val persistentState = getPersistentState(domain)
+  )(implicit traceContext: TraceContext): Iterable[SignedProtocolMessage[AcsCommitment]] =
     timeouts.inspection.await(s"$functionFullName from $start to $end on $domain")(
-      getOrFail(persistentState, domain).acsCommitmentStore
+      getOrFail(getPersistentState(domain), domain).acsCommitmentStore
         .searchReceivedBetween(start, end, counterParticipant.toList)
     )
-  }
 
   def crossDomainSentCommitmentMessages(
       domainPeriods: Seq[DomainSearchCommitmentPeriod],
@@ -436,18 +439,19 @@ final class SyncStateInspection(
           domain <- syncDomainPersistentStateManager
             .aliasForDomainId(dp.indexedDomain.domainId)
             .toRight(s"No domain alias found for ${dp.indexedDomain.domainId}")
-          persistentState = getPersistentState(domain)
+
+          persistentState <- getPersistentStateE(domain)
 
           result = for {
-            computed <- getOrFail(persistentState, domain).acsCommitmentStore
+            computed <- persistentState.acsCommitmentStore
               .searchComputedBetween(dp.fromExclusive, dp.toInclusive, counterParticipants)
             received <-
               if (verbose)
-                getOrFail(persistentState, domain).acsCommitmentStore
+                persistentState.acsCommitmentStore
                   .searchReceivedBetween(dp.fromExclusive, dp.toInclusive, counterParticipants)
                   .map(iter => iter.map(rec => rec.message))
               else Future.successful(Seq.empty)
-            outstanding <- getOrFail(persistentState, domain).acsCommitmentStore
+            outstanding <- persistentState.acsCommitmentStore
               .outstanding(
                 dp.fromExclusive,
                 dp.toInclusive,
@@ -486,57 +490,70 @@ final class SyncStateInspection(
       states: Seq[CommitmentPeriodState],
       verbose: Boolean,
   )(implicit traceContext: TraceContext): Either[String, Iterable[ReceivedAcsCommitment]] =
-    timeouts.inspection.await(functionFullName) {
-      val searchResult = domainPeriods.map { dp =>
-        for {
-          domain <- syncDomainPersistentStateManager
-            .aliasForDomainId(dp.indexedDomain.domainId)
-            .toRight(s"No domain alias found for ${dp.indexedDomain.domainId}")
-          persistentState = getPersistentState(domain)
+    timeouts.inspection
+      .awaitUS(functionFullName) {
+        val searchResult = domainPeriods.map { dp =>
+          for {
+            domain <- syncDomainPersistentStateManager
+              .aliasForDomainId(dp.indexedDomain.domainId)
+              .toRight(s"No domain alias found for ${dp.indexedDomain.domainId}")
+            persistentState <- getPersistentStateE(domain)
 
-          result = for {
-            computed <-
-              if (verbose)
-                getOrFail(persistentState, domain).acsCommitmentStore
-                  .searchComputedBetween(dp.fromExclusive, dp.toInclusive, counterParticipants)
-              else Future.successful(Seq.empty)
-            received <- getOrFail(persistentState, domain).acsCommitmentStore
-              .searchReceivedBetween(dp.fromExclusive, dp.toInclusive, counterParticipants)
-              .map(iter => iter.map(rec => rec.message))
-            outstanding <- getOrFail(persistentState, domain).acsCommitmentStore
-              .outstanding(
-                dp.fromExclusive,
-                dp.toInclusive,
-                counterParticipants,
-                includeMatchedPeriods = true,
+            result = for {
+              computed <-
+                if (verbose)
+                  FutureUnlessShutdown.outcomeF(
+                    persistentState.acsCommitmentStore
+                      .searchComputedBetween(dp.fromExclusive, dp.toInclusive, counterParticipants)
+                  )
+                else FutureUnlessShutdown.pure(Seq.empty)
+              received <- FutureUnlessShutdown.outcomeF(
+                persistentState.acsCommitmentStore
+                  .searchReceivedBetween(dp.fromExclusive, dp.toInclusive, counterParticipants)
+                  .map(iter => iter.map(rec => rec.message))
               )
-            buffered <- getOrFail(persistentState, domain).acsCommitmentStore.queue
-              .peekThrough(dp.toInclusive) // peekThrough takes an upper bound parameter
-              .collect(iter =>
-                iter.filter(cmt =>
-                  cmt.period.fromExclusive >= dp.fromExclusive && cmt.domainId == dp.indexedDomain.domainId && (counterParticipants.isEmpty ||
-                    counterParticipants
-                      .contains(cmt.sender))
+              outstanding <- FutureUnlessShutdown.outcomeF(
+                persistentState.acsCommitmentStore
+                  .outstanding(
+                    dp.fromExclusive,
+                    dp.toInclusive,
+                    counterParticipants,
+                    includeMatchedPeriods = true,
+                  )
+              )
+              buffered <- persistentState.acsCommitmentStore.queue
+                .peekThrough(dp.toInclusive) // peekThrough takes an upper bound parameter
+                .map(iter =>
+                  iter.filter(cmt =>
+                    cmt.period.fromExclusive >= dp.fromExclusive && cmt.domainId == dp.indexedDomain.domainId && (counterParticipants.isEmpty ||
+                      counterParticipants
+                        .contains(cmt.sender))
+                  )
                 )
+            } yield ReceivedAcsCommitment
+              .compare(
+                dp.indexedDomain.domainId,
+                received,
+                computed,
+                buffered,
+                outstanding,
+                verbose,
               )
-          } yield ReceivedAcsCommitment
-            .compare(dp.indexedDomain.domainId, received, computed, buffered, outstanding, verbose)
-            .filter(cmt => states.isEmpty || states.contains(cmt.state))
-        } yield result
-      }
+              .filter(cmt => states.isEmpty || states.contains(cmt.state))
+          } yield result
+        }
 
-      val (lefts, rights) = searchResult.partitionMap(identity)
+        val (lefts, rights) = searchResult.partitionMap(identity)
 
-      NonEmpty.from(lefts) match {
-        case Some(leftsNe) => Future.successful(Left(leftsNe.head1))
-        case None =>
-          Future
-            .sequence(rights)
-            .map(seqRecAcsCommitments =>
+        NonEmpty.from(lefts) match {
+          case Some(leftsNe) => FutureUnlessShutdown.pure(Left(leftsNe.head1))
+          case None =>
+            rights.sequence.map(seqRecAcsCommitments =>
               Right(seqRecAcsCommitments.flatten.toSet)
             ) // toSet is done to avoid duplicates
+        }
       }
-    }
+      .onShutdown(throw GrpcErrors.AbortedDueToShutdown.Error().asGrpcError)
 
   def outstandingCommitments(
       domain: DomainAlias,
@@ -558,19 +575,20 @@ final class SyncStateInspection(
       endAtOrBefore: CantonTimestamp,
   )(implicit traceContext: TraceContext): Iterable[AcsCommitment] = {
     val persistentState = getPersistentState(domain)
-    timeouts.inspection.await(s"$functionFullName to and including $endAtOrBefore on $domain")(
-      getOrFail(persistentState, domain).acsCommitmentStore.queue.peekThrough(endAtOrBefore)
-    )
+    timeouts.inspection
+      .awaitUS(s"$functionFullName to and including $endAtOrBefore on $domain")(
+        getOrFail(persistentState, domain).acsCommitmentStore.queue.peekThrough(endAtOrBefore)
+      )
+      .onShutdown(throw GrpcErrors.AbortedDueToShutdown.Error().asGrpcError)
   }
 
   def noOutstandingCommitmentsTs(domain: DomainAlias, beforeOrAt: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Option[CantonTimestamp] = {
-    val persistentState = getPersistentState(domain)
+  ): Option[CantonTimestamp] =
     timeouts.inspection.await(s"$functionFullName on $domain for ts $beforeOrAt")(
-      getOrFail(persistentState, domain).acsCommitmentStore.noOutstandingCommitments(beforeOrAt)
+      getOrFail(getPersistentState(domain), domain).acsCommitmentStore
+        .noOutstandingCommitments(beforeOrAt)
     )
-  }
 
   def lookupRequestIndex(domain: DomainAlias)(implicit
       traceContext: TraceContext
@@ -581,30 +599,33 @@ final class SyncStateInspection(
   def lookupDomainLedgerEnd(domain: DomainAlias)(implicit
       traceContext: TraceContext
   ): Either[String, Future[DomainIndex]] =
-    getPersistentState(domain)
+    getPersistentStateE(domain)
       .map(state =>
         participantNodePersistentState.value.ledgerApiStore
           .domainIndex(state.indexedDomain.domainId)
       )
-      .toRight(s"Not connected to $domain")
 
   def requestStateInJournal(rc: RequestCounter, domain: DomainAlias)(implicit
       traceContext: TraceContext
   ): Either[String, Future[Option[RequestJournal.RequestData]]] =
-    getPersistentState(domain)
-      .toRight(s"Not connected to $domain")
+    getPersistentStateE(domain)
       .map(state => state.requestJournalStore.query(rc).value)
 
   private[this] def getPersistentState(domain: DomainAlias): Option[SyncDomainPersistentState] =
     syncDomainPersistentStateManager.getByAlias(domain)
 
+  private[this] def getPersistentStateE(
+      domain: DomainAlias
+  ): Either[String, SyncDomainPersistentState] =
+    syncDomainPersistentStateManager.getByAlias(domain).toRight(s"no such domain [$domain]")
+
   def getOffsetByTime(
       pruneUpTo: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[Option[String]] =
+  )(implicit traceContext: TraceContext): Future[Option[Long]] =
     participantNodePersistentState.value.ledgerApiStore
       .lastDomainOffsetBeforeOrAtPublicationTime(pruneUpTo)
       .map(
-        _.map(_.offset.toHexString)
+        _.map(_.offset.toLong)
       )
 
   def lookupPublicationTime(

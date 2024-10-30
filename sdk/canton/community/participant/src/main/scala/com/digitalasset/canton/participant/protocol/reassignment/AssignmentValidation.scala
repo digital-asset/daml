@@ -26,6 +26,7 @@ import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentPro
 import com.digitalasset.canton.participant.protocol.{
   ProcessingSteps,
   ReassignmentSubmissionValidation,
+  SerializableContractAuthenticator,
 }
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.util.DAMLe
@@ -43,6 +44,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 private[reassignment] class AssignmentValidation(
     domainId: Target[DomainId],
+    serializableContractAuthenticator: SerializableContractAuthenticator,
     staticDomainParameters: Target[StaticDomainParameters],
     participantId: ParticipantId,
     engine: DAMLe,
@@ -101,13 +103,20 @@ private[reassignment] class AssignmentValidation(
     } yield ()
   }
 
+  // TODO(#12926) Check what validations should be done for observing reassigning participants
+  // TODO(#22048) Split this method in smaller chunks
+  /** Validate the unassignment request
+    * @return The option should be defined iff a confirmation will be sent, which means:
+    *         - The participant is a confirming reassigning participant
+    *         - `reassignmentDataO` is defined
+    */
   @VisibleForTesting
   private[reassignment] def validateAssignmentRequest(
       assignmentRequestTs: CantonTimestamp,
       assignmentRequest: FullAssignmentTree,
       reassignmentDataO: Option[ReassignmentData],
       targetCrypto: Target[DomainSnapshotSyncCryptoApi],
-      isReassigningParticipant: Boolean,
+      isConfirmingReassigningParticipant: Boolean,
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, ReassignmentProcessorError, Option[AssignmentValidationResult]] = {
@@ -115,7 +124,7 @@ private[reassignment] class AssignmentValidation(
     val targetSnapshot = targetCrypto.map(_.ipsSnapshot)
 
     reassignmentDataO match {
-      case Some(reassignmentData) =>
+      case Some(reassignmentData) if isConfirmingReassigningParticipant =>
         val sourceDomain = reassignmentData.unassignmentRequest.sourceDomain
         val unassignmentTs = reassignmentData.unassignmentTs
         for {
@@ -139,11 +148,11 @@ private[reassignment] class AssignmentValidation(
           )
 
           _ <- condUnitET[Future](
-            reassignmentData.unassignmentRequest.confirmingReassigningParticipants == assignmentRequest.confirmingReassigningParticipants,
+            reassignmentData.unassignmentRequest.reassigningParticipants == assignmentRequest.reassigningParticipants,
             ReassigningParticipantsMismatch(
               reassignmentId,
-              expected = reassignmentData.unassignmentRequest.confirmingReassigningParticipants,
-              declared = assignmentRequest.confirmingReassigningParticipants,
+              expected = reassignmentData.unassignmentRequest.reassigningParticipants,
+              declared = assignmentRequest.reassigningParticipants,
             ),
           )
 
@@ -153,6 +162,12 @@ private[reassignment] class AssignmentValidation(
           _ <- condUnitET[Future](
             assignmentRequest.contract == reassignmentData.contract,
             ContractDataMismatch(reassignmentId),
+          )
+
+          _ <- EitherT.fromEither[Future](
+            serializableContractAuthenticator
+              .authenticate(assignmentRequest.contract)
+              .leftMap[ReassignmentProcessorError](ContractError(_))
           )
 
           unassignmentSubmitter = reassignmentData.unassignmentRequest.submitter
@@ -214,10 +229,10 @@ private[reassignment] class AssignmentValidation(
 
           stakeholders = assignmentRequest.stakeholders
           sourceConfirmingParties <- EitherT.right(
-            sourceIps.unwrap.canConfirm(participantId, stakeholders.all)
+            sourceIps.unwrap.canConfirm(participantId, stakeholders.signatories)
           )
           targetConfirmingParties <- EitherT.right(
-            targetSnapshot.unwrap.canConfirm(participantId, stakeholders.all)
+            targetSnapshot.unwrap.canConfirm(participantId, stakeholders.signatories)
           )
           confirmingParties = sourceConfirmingParties.intersect(targetConfirmingParties)
 
@@ -234,8 +249,8 @@ private[reassignment] class AssignmentValidation(
 
         } yield Some(AssignmentValidationResult(confirmingParties))
 
-      case None =>
-        // TODO(#12926) Check what validations can be done here
+      case _ => // No reassignment data or participant is a pure observing reassigning participant
+        // TODO(#12926) Check what validations can be done here + ensure coverage
         for {
           _ <- ReassignmentSubmissionValidation.assignment(
             reassignmentId = reassignmentId,
@@ -244,24 +259,31 @@ private[reassignment] class AssignmentValidation(
             participantId = assignmentRequest.submitterMetadata.submittingParticipant,
             stakeholders = assignmentRequest.stakeholders.all,
           )
+
+          confirmingPartiesF = targetSnapshot.unwrap
+            .canConfirm(
+              participantId,
+              assignmentRequest.stakeholders.signatories,
+            )
+
+          _ <- EitherT.fromEither[Future](
+            serializableContractAuthenticator
+              .authenticate(assignmentRequest.contract)
+              .leftMap[ReassignmentProcessorError](ContractError(_))
+          )
+
+          confirmingParties <- EitherT
+            .liftF[Future, ReassignmentProcessorError, Set[LfPartyId]](confirmingPartiesF)
+
           res <-
-            if (isReassigningParticipant) {
-              // This happens either in case of malicious assignments (incorrectly declared reassigning participants)
+            if (isConfirmingReassigningParticipant) {
+              // This happens either in case of malicious assignments (incorrectly declared confirming reassigning participants)
               // OR if the reassignment data has been pruned.
               // The assignment should be rejected due to other validations (e.g. conflict detection), but
               // we could code this more defensively at some point
-
-              val confirmingPartiesF = targetSnapshot.unwrap
-                .canConfirm(
-                  participantId,
-                  assignmentRequest.stakeholders.all,
-                )
-              EitherT(confirmingPartiesF.map { confirmingParties =>
-                Right(Some(AssignmentValidationResult(confirmingParties))): Either[
-                  ReassignmentProcessorError,
-                  Option[AssignmentValidationResult],
-                ]
-              })
+              EitherT.rightT[Future, ReassignmentProcessorError](
+                Some(AssignmentValidationResult(confirmingParties))
+              )
             } else EitherT.rightT[Future, ReassignmentProcessorError](None)
         } yield res
     }
@@ -328,8 +350,8 @@ object AssignmentValidation extends LocalRejectionGroup {
 
   final case class ReassigningParticipantsMismatch(
       reassignmentId: ReassignmentId,
-      expected: Set[ParticipantId],
-      declared: Set[ParticipantId],
+      expected: ReassigningParticipants,
+      declared: ReassigningParticipants,
   ) extends UnassignmentProcessorError {
     override def message: String =
       s"Cannot assign `$reassignmentId`: reassigning participants mismatch"

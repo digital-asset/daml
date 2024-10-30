@@ -100,6 +100,10 @@ object LedgerApiIndexer {
     val numIndexer = ledgerApiIndexerConfig.indexerConfig.ingestionParallelism.unwrap
     initializationLogger.info(s"Creating Ledger API Indexer storage, num-indexer: $numIndexer")
     val res = (for {
+      _ <- ResourceOwner.forReleasable(() => ()) { _ =>
+        initializationLogger.info("Ledger API Indexer stopped.")
+        Future.unit
+      }
       (inMemoryState, inMemoryStateUpdaterFlow) <-
         LedgerApiServer.createInMemoryStateAndUpdater(
           commandProgressTracker,
@@ -186,9 +190,7 @@ object LedgerApiIndexer {
         repairIndexerFactory = () => repairIndexerCreateFunction().map(new IndexingFutureQueue(_)),
         loggerFactory = loggerFactory,
       )
-      _ <- ResourceOwner.forReleasable(() => indexerState)(
-        _.shutdown().map(_ => initializationLogger.info("Ledger API Indexer stopped."))
-      )
+      _ <- ResourceOwner.forReleasable(() => indexerState)(_.shutdown())
     } yield {
       initializationLogger.info("Ledger API Indexer started, initializing recoverable indexing.")
       new LedgerApiIndexer(

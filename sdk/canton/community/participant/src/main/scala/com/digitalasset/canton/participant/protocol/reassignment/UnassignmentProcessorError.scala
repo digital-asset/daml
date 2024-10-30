@@ -4,13 +4,14 @@
 package com.digitalasset.canton.participant.protocol.reassignment
 
 import com.digitalasset.canton.LfPartyId
+import com.digitalasset.canton.data.ReassigningParticipants
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.ReassignmentProcessorError
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.PackageUnknownTo
 import com.digitalasset.canton.participant.store.ActiveContractStore.Status
 import com.digitalasset.canton.protocol.messages.DeliveredUnassignmentResult
 import com.digitalasset.canton.protocol.{LfContractId, ReassignmentId}
 import com.digitalasset.canton.sequencing.protocol.Recipients
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.topology.DomainId
 
 trait UnassignmentProcessorError extends ReassignmentProcessorError
 
@@ -67,8 +68,8 @@ object UnassignmentProcessorError {
 
   final case class ReassigningParticipantsMismatch(
       contractId: LfContractId,
-      expected: Set[ParticipantId],
-      declared: Set[ParticipantId],
+      expected: ReassigningParticipants,
+      declared: ReassigningParticipants,
   ) extends UnassignmentProcessorError {
     override def message: String =
       s"Cannot unassign contract `$contractId`: reassigning participants mismatch"

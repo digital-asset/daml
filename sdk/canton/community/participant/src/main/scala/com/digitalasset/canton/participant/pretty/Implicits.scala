@@ -15,7 +15,7 @@ object Implicits {
   implicit val prettyReadServiceOffset: Pretty[Offset] = prettyOfString(
     // Do not use `toReadableHash` because this is not a hash but a hex-encoded string
     // whose end contains the most important information
-    _.toHexString
+    _.toLong.toString
   )
 
   implicit def prettyChangeId: Pretty[ChangeId] = prettyOfClass(

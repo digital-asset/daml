@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.sequencing.client
 
+import cats.syntax.either.*
 import com.digitalasset.canton.config.{DefaultProcessingTimeouts, ProcessingTimeout}
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -239,7 +240,7 @@ class ResilientSequencerSubscriptionTest
       val resilientSequencerSubscription = new ResilientSequencerSubscription[TestHandlerError](
         SequencerId(domainId.uid),
         SequencerCounter(0),
-        _ => Future.successful[Either[TestHandlerError, Unit]](Right(())),
+        _ => Future.successful(Either.unit[TestHandlerError]),
         subscriptionFactory,
         retryDelay(),
         timeouts,
@@ -270,7 +271,7 @@ class ResilientSequencerSubscriptionTest
       val resilientSequencerSubscription = new ResilientSequencerSubscription[TestHandlerError](
         SequencerId(domainId.uid),
         SequencerCounter(0),
-        _ => Future.successful[Either[TestHandlerError, Unit]](Right(())),
+        _ => Future.successful(Either.unit[TestHandlerError]),
         subscriptionFactory,
         retryDelay(),
         timeouts,
@@ -353,7 +354,7 @@ trait ResilientSequencerSubscriptionTestUtils {
     val subscription = new ResilientSequencerSubscription(
       SequencerId(domainId.uid), // only used for logging
       SequencerCounter(0),
-      _ => Future.successful[Either[TestHandlerError, Unit]](Right(())),
+      _ => Future.successful(Either.unit[TestHandlerError]),
       subscriptionTestFactory,
       retryDelayRule,
       DefaultProcessingTimeouts.testing,

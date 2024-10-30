@@ -69,5 +69,5 @@ object Offset {
       )
 
   implicit val `Offset to LoggingValue`: ToLoggingValue[Offset] = value =>
-    LoggingValue.OfString(value.toHexString)
+    LoggingValue.OfLong(value.toLong)
 }

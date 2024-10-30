@@ -78,7 +78,7 @@ trait InstanceReference
   @inline final override def uid: UniqueIdentifier = id.uid
 
   val name: String
-  protected val instanceType: String
+  protected[canton] val instanceType: String
 
   protected[canton] def executionContext: ExecutionContext
 
@@ -490,7 +490,7 @@ abstract class ParticipantReference(
   override protected val loggerFactory: NamedLoggerFactory =
     consoleEnvironment.environment.loggerFactory.append("participant", name)
 
-  override protected val instanceType: String = ParticipantReference.InstanceType
+  override protected[canton] val instanceType: String = ParticipantReference.InstanceType
   override protected def runner: AdminCommandRunner = this
 
   @Help.Summary(
@@ -758,7 +758,7 @@ abstract class SequencerReference(
       case _ => false
     }
 
-  override protected val instanceType: String = SequencerReference.InstanceType
+  override protected[canton] val instanceType: String = SequencerReference.InstanceType
   override protected val loggerFactory: NamedLoggerFactory =
     consoleEnvironment.environment.loggerFactory.append("sequencer", name)
 
@@ -1258,7 +1258,7 @@ abstract class MediatorReference(val consoleEnvironment: ConsoleEnvironment, nam
 
   override protected def runner: AdminCommandRunner = this
 
-  override protected val instanceType: String = MediatorReference.InstanceType
+  override protected[canton] val instanceType: String = MediatorReference.InstanceType
   override protected val loggerFactory: NamedLoggerFactory =
     consoleEnvironment.environment.loggerFactory
       .append(MediatorNodeBootstrap.LoggerFactoryKeyName, name)

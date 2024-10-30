@@ -4,6 +4,7 @@
 package com.digitalasset.canton.environment
 
 import cats.data.EitherT
+import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -217,12 +218,12 @@ abstract class BootstrapStageWithStorage[
             logger.info(
               s"Initialization stage $description completed in the background, proceeding."
             )
-            performUnlessClosingEitherU(description)(result.start().onShutdown(Right(())))
+            performUnlessClosingEitherU(description)(result.start().onShutdown(Either.unit))
           case None => // was aborted due to shutdown, so we just pass
             EitherT.rightT[FutureUnlessShutdown, String](())
         }.onShutdown {
           logger.debug(s"Initialization of $description aborted due to shutdown")
-          Right(())
+          Either.unit
         },
         s"Background startup failed at $description",
       )

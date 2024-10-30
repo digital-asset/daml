@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.topology
 
 import cats.data.EitherT
+import cats.syntax.either.*
 import cats.syntax.functor.*
 import cats.syntax.parallel.*
 import com.daml.nameof.NameOf.functionFullName
@@ -416,7 +417,7 @@ private class DomainOnboardingOutbox(
           "Can not onboard as local participant doesn't have a valid signing key"
         )
       )
-    } else Right(())
+    } else Either.unit
   }
 
 }

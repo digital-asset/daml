@@ -567,23 +567,26 @@ private[conflictdetection] class LockableStates[
         timeouts.io.await(
           s"running fetchStatesForInvariantChecking with ${withoutPendingWrites.keys}"
         )(store.fetchStatesForInvariantChecking(withoutPendingWrites.keys))
-      val pruningStatusO = timeouts.io.await("getting the pruning status")(store.pruningStatus)
-      withoutPendingWrites.foreach { case (id, state) =>
-        val storedState = storeSnapshot.get(id)
-        state.versionedState.foreach { versionedState =>
-          if (versionedState != storedState) {
-            val mayHaveBeenPruned = pruningStatusO.exists(pruningTime =>
-              versionedState.exists(vs =>
-                vs.timestamp <= pruningTime.timestamp && vs.status.prunable
-              )
-            )
-            if (!mayHaveBeenPruned || storedState.nonEmpty)
-              throw IllegalConflictDetectionStateException(
-                show"${lockableStatus.kind.unquoted} $id without pending writes has inconsistent states. Memory: ${state.versionedState}, store: $storedState, pruning status: $pruningStatusO"
-              )
+      timeouts.io
+        .awaitUS("getting the pruning status")(store.pruningStatus)
+        .map { case pruningStatusO =>
+          withoutPendingWrites.foreach { case (id, state) =>
+            val storedState = storeSnapshot.get(id)
+            state.versionedState.foreach { versionedState =>
+              if (versionedState != storedState) {
+                val mayHaveBeenPruned = pruningStatusO.exists(pruningTime =>
+                  versionedState
+                    .exists(vs => vs.timestamp <= pruningTime.timestamp && vs.status.prunable)
+                )
+                if (!mayHaveBeenPruned || storedState.nonEmpty)
+                  throw IllegalConflictDetectionStateException(
+                    show"${lockableStatus.kind.unquoted} $id without pending writes has inconsistent states. Memory: ${state.versionedState}, store: $storedState, pruning status: $pruningStatusO"
+                  )
+              }
+            }
           }
         }
-      }
+        .onShutdown(())
     }
 
     assertPendingActivenessChecksMarked()

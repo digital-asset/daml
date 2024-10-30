@@ -61,7 +61,7 @@ class LedgerServerPartyNotifier(
       .toLeft(())
       .leftMap(_ => s"Allocation for party $party is already inflight")
   } else
-    Right(())
+    Either.unit
 
   def expireExpectedPartyAllocationForNodes(
       party: PartyId,

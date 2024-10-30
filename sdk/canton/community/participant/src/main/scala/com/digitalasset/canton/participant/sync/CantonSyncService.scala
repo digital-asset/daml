@@ -481,7 +481,7 @@ class CantonSyncService(
       logger.info(
         s"Could not locate pruning point: ${err.message}. Considering success for idempotency"
       )
-      Right(())
+      Either.unit
     case Left(err: LedgerPruningOffsetNonCantonFormat) =>
       logger.info(err.message)
       Left(PruningServiceError.NonCantonOffset.Error(err.message))
@@ -491,8 +491,7 @@ class CantonSyncService(
         PruningServiceError.UnsafeToPrune.Error(
           err.cause,
           err.message,
-          // TODO(#21781) replace toHexString with toString
-          err.lastSafeOffset.fold("")(UpstreamOffsetConvert.fromGlobalOffset(_).toHexString),
+          err.lastSafeOffset.fold("")(UpstreamOffsetConvert.fromGlobalOffset(_).toLong.toString),
         )
       )
     case Left(err: LedgerPruningOffsetUnsafeDomain) =>

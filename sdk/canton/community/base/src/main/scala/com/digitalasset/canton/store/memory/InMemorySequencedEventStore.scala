@@ -4,11 +4,12 @@
 package com.digitalasset.canton.store.memory
 
 import cats.data.EitherT
+import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.lifecycle.CloseContext
+import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.sequencing.{OrdinarySerializedEvent, PossiblyIgnoredSerializedEvent}
 import com.digitalasset.canton.store.SequencedEventStore.*
@@ -83,7 +84,7 @@ class InMemorySequencedEventStore(protected val loggerFactory: NamedLoggerFactor
 
   override def findRange(criterion: RangeCriterion, limit: Option[Int])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SequencedEventRangeOverlapsWithPruning, Seq[
+  ): EitherT[FutureUnlessShutdown, SequencedEventRangeOverlapsWithPruning, Seq[
     PossiblyIgnoredSerializedEvent
   ]] = {
     logger.debug(s"Looking to retrieve delivery event $criterion")
@@ -103,7 +104,7 @@ class InMemorySequencedEventStore(protected val loggerFactory: NamedLoggerFactor
           }
       }
     })
-    EitherT.fromEither[Future](res)
+    EitherT.fromEither[FutureUnlessShutdown](res)
   }
 
   override def sequencedEvents(
@@ -166,9 +167,9 @@ class InMemorySequencedEventStore(protected val loggerFactory: NamedLoggerFactor
       }
       eventByTimestamp.addAll(events)
 
-      Right(())
+      Either.unit
     } else if (from > to) {
-      Right(())
+      Either.unit
     } else {
       Left(ChangeWouldResultInGap(firstSc, from - 1))
     }
@@ -218,13 +219,12 @@ class InMemorySequencedEventStore(protected val loggerFactory: NamedLoggerFactor
           eventByTimestamp.remove(ts).discard
           timestampOfCounter.remove(sc).discard
         }
-        Right(())
-
+        Either.unit
       } else {
         Left(ChangeWouldResultInGap(fromEffective, to))
       }
     } else {
-      Right(())
+      Either.unit
     }
   }
 

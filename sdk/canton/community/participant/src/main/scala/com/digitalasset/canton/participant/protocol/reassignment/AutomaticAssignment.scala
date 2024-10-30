@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.protocol.reassignment
 
 import cats.data.*
 import cats.syntax.bifunctor.*
+import cats.syntax.either.*
 import cats.syntax.functor.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.LfPartyId
@@ -136,12 +137,12 @@ private[participant] object AutomaticAssignment {
               _ <- EitherTUtil.leftSubflatMap(performAutoInRepeatedly) {
                 // Filter out submission errors occurring because the reassignment is already completed
                 case NoReassignmentData(_, ReassignmentCompleted(_, _)) =>
-                  Right(())
+                  Either.unit
                 // Filter out the case that the participant has disconnected from the target domain in the meantime.
                 case UnknownDomain(domain, _) if domain == targetDomain.unwrap =>
-                  Right(())
+                  Either.unit
                 case DomainNotReady(domain, _) if domain == targetDomain.unwrap =>
-                  Right(())
+                  Either.unit
                 // Filter out the case that the target domain is closing right now
                 case other => Left(other)
               }

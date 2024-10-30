@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.admin.api.client.commands
 
+import com.digitalasset.canton.GrpcServiceInvocationMethod
 import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand.{
   DefaultBoundedTimeout,
   TimeoutType,
@@ -21,11 +22,16 @@ trait AdminCommand[Req, Res, Result] {
 
   /** Create the request from configured options
     */
-  def createRequest(): Either[String, Req]
+  protected def createRequest(): Either[String, Req]
+
+  @inline private[client] final def createRequestInternal(): Either[String, Req] = createRequest()
 
   /** Handle the response the service has provided
     */
-  def handleResponse(response: Res): Either[String, Result]
+  protected def handleResponse(response: Res): Either[String, Result]
+
+  @inline private[client] final def handleResponseInternal(response: Res): Either[String, Result] =
+    handleResponse(response)
 
   /** Determines within which time frame the request should complete
     *
@@ -49,11 +55,20 @@ trait GrpcAdminCommand[Req, Res, Result] extends AdminCommand[Req, Res, Result] 
 
   /** Create the GRPC service to call
     */
-  def createService(channel: ManagedChannel): Svc
+  protected def createService(channel: ManagedChannel): Svc
+
+  @inline private[client] def createServiceInternal(channel: ManagedChannel): Svc =
+    createService(channel)
 
   /** Submit the created request to our service
     */
-  def submitRequest(service: Svc, request: Req): Future[Res]
+  // This method is called only via `CantonGrpcUtil.sendGrpcRequest`.
+  // All implementations can therefore directly call the service stub's methods.
+  @GrpcServiceInvocationMethod
+  protected def submitRequest(service: Svc, request: Req): Future[Res]
+
+  @inline private[client] final def submitRequestInternal(service: Svc, request: Req): Future[Res] =
+    submitRequest(service, request)
 
 }
 

@@ -45,10 +45,13 @@ trait ViewTree extends PrettyPrinting {
 trait ReassignmentViewTree extends ViewTree {
   def submitterMetadata: ReassignmentSubmitterMetadata
 
-  def confirmingReassigningParticipants: Set[ParticipantId]
+  def reassigningParticipants: ReassigningParticipants
 
-  def isReassigningParticipant(participantId: ParticipantId): Boolean =
-    confirmingReassigningParticipants.contains(participantId)
+  def isConfirmingReassigningParticipant(participantId: ParticipantId): Boolean =
+    reassigningParticipants.confirming.contains(participantId)
+
+  def isObservingReassigningParticipant(participantId: ParticipantId): Boolean =
+    reassigningParticipants.observing.contains(participantId)
 
   val viewPosition: ViewPosition =
     ViewPosition.root // Use a dummy value, as there is only one view.

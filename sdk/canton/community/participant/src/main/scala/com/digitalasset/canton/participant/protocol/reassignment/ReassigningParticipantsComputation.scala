@@ -8,11 +8,9 @@ import cats.syntax.bifunctor.*
 import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.functor.*
-import cats.syntax.functorFilter.*
 import cats.syntax.traverse.*
-import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.LfPartyId
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
+import com.digitalasset.canton.data.ReassigningParticipants
 import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessorError.{
   PermissionErrors,
   StakeholderHostingErrors,
@@ -25,7 +23,8 @@ import com.digitalasset.canton.topology.transaction.{ParticipantAttributes, Part
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.SingletonTraverse.syntax.SingletonTraverseOps
-import com.digitalasset.canton.util.{EitherTUtil, EitherUtil, ReassignmentTag, SingletonTraverse}
+import com.digitalasset.canton.util.{ReassignmentTag, SingletonTraverse}
+import monocle.macros.syntax.lens.*
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -41,11 +40,12 @@ private[protocol] class ReassigningParticipantsComputation(
   /** Compute the list of reassigning participant.
     *
     * Returns an error if:
-    * - one stakeholder is not hosted on a reassigning participant
-    * - one stakeholder is only hosted with observation permission on the source or target domain
-    * - one stakeholder does not have enough reassigning participants to meet the threshold defined on both source and target domain
+    * - one stakeholder is not hosted on some observing reassigning participant
+    * - one signatory is not hosted on some confirming reassigning participant
+    * - one signatory does not have enough confirming reassigning participants to meet
+    *   the threshold defined on both source and target domain
     */
-  def compute: EitherT[Future, UnassignmentProcessorError, Set[ParticipantId]] =
+  def compute: EitherT[Future, UnassignmentProcessorError, ReassigningParticipants] =
     for {
       sourceStakeholdersInfo <- getStakeholdersPartyInfo(sourceTopology)
       targetStakeholdersInfo <- getStakeholdersPartyInfo(targetTopology)
@@ -57,32 +57,28 @@ private[protocol] class ReassigningParticipantsComputation(
         .fromEither[Future](partySubmissionCheck(sourcePermissions, targetPermissions))
         .leftWiden
 
-      confirmingReassigningParticipants <- EitherT.fromEither[Future](
-        computeReassigningParticipants(sourcePermissions, targetPermissions)
-      )
-
-      missingReassigningParticipantsFor = stakeholders.all.diff(
-        confirmingReassigningParticipants.keySet
-      )
-
-      _ <- EitherTUtil
-        .condUnitET[Future](
-          missingReassigningParticipantsFor.isEmpty,
-          StakeholderHostingErrors(
-            s"The following stakeholders are not hosted on reassigning participants: $missingReassigningParticipantsFor"
-          ),
+      confirmingReassigningParticipants <- EitherT
+        .fromEither[Future](
+          computeConfirmingReassigningParticipants(sourceStakeholdersInfo, targetStakeholdersInfo)
         )
         .leftWiden[UnassignmentProcessorError]
 
-      _ <- EitherT.fromEither[Future](
-        validateReassigningParticipantsCount(
-          sourceStakeholdersInfo,
-          targetStakeholdersInfo,
-          confirmingReassigningParticipants,
+      observingReassigningParticipants <- EitherT
+        .fromEither[Future](
+          computeObservingReassigningParticipants(sourceStakeholdersInfo, targetStakeholdersInfo)
         )
+        .leftWiden[UnassignmentProcessorError]
+
+      reassigningParticipants <- EitherT.fromEither[Future](
+        ReassigningParticipants
+          .create(
+            confirming = confirmingReassigningParticipants,
+            observing = observingReassigningParticipants,
+          )
+          .leftMap[UnassignmentProcessorError](PermissionErrors.apply)
       )
 
-    } yield confirmingReassigningParticipants.values.flatten.toSet
+    } yield reassigningParticipants
 
   /* Checks the following hosting requirements for each party:
    * If the party is hosted on a participant with submission permission,
@@ -113,56 +109,101 @@ private[protocol] class ReassigningParticipantsComputation(
 
       def hasSubmissionPermission = source.isEmpty || source.exists(target.contains)
 
-      EitherUtil.condUnitE(
+      Either.cond(
         hasSubmissionPermission,
+        (),
         PermissionErrors(
           s"For party $party, no participant with submission permission on source domain has submission permission on target domain."
         ),
       )
     }
-
   }
 
-  private def computeReassigningParticipants(
-      permissionsSource: Source[Map[LfPartyId, Map[ParticipantId, ParticipantAttributes]]],
-      permissionsTarget: Target[Map[LfPartyId, Map[ParticipantId, ParticipantAttributes]]],
-  ): Either[StakeholderHostingErrors, Map[LfPartyId, NonEmpty[Set[ParticipantId]]]] =
-    for {
-      confirmationSource <- keepConfirmingParticipants(permissionsSource)
-      confirmationTarget <- keepConfirmingParticipants(permissionsTarget)
+  /** Compute the confirming reassigning participants
+    * Fails if one signatory is not hosted on sufficiently many confirming reassigning participants
+    */
+  private def computeConfirmingReassigningParticipants(
+      permissionsSource: Source[Map[LfPartyId, PartyInfo]],
+      permissionsTarget: Target[Map[LfPartyId, PartyInfo]],
+  ): Either[StakeholderHostingErrors, Set[ParticipantId]] = {
+    val confirmationSource = keepConfirmingParticipants(permissionsSource.unwrap)
+    val confirmationTarget = keepConfirmingParticipants(permissionsTarget.unwrap)
 
-      reassigningParticipants = confirmationSource.toList.mapFilter { case (party, participants) =>
-        confirmationTarget
-          .get(party)
-          .map(_.intersect(participants))
-          .flatMap(NonEmpty.from)
-          .map(party -> _)
-      }.toMap
+    stakeholders.signatories.toSeq
+      .traverse { signatory =>
+        for {
+          sourceInfo <- confirmationSource
+            .get(signatory)
+            .toRight(
+              StakeholderHostingErrors(s"Signatory $signatory is not hosted on the source domain")
+            )
+          targetInfo <- confirmationTarget
+            .get(signatory)
+            .toRight(
+              StakeholderHostingErrors(s"Signatory $signatory is not hosted on the target domain")
+            )
 
-    } yield reassigningParticipants
+          reassigningParticipants = sourceInfo.participants.keySet
+            .intersect(targetInfo.participants.keySet)
+
+          requiredReassigningParticipants = sourceInfo.threshold.max(targetInfo.threshold)
+
+          _ <- Either.cond(
+            reassigningParticipants.size >= requiredReassigningParticipants.unwrap,
+            (),
+            StakeholderHostingErrors(
+              s"Signatory $signatory requires at least $requiredReassigningParticipants reassigning participants, but only ${reassigningParticipants.size} are available"
+            ),
+          )
+
+        } yield reassigningParticipants
+      }
+      .map(_.toSet.flatten)
+  }
+
+  /** Compute the observing reassigning participants
+    * Fails if one stakeholder is not hosted on any observing reassigning participant
+    */
+  private def computeObservingReassigningParticipants(
+      permissionsSource: Source[Map[LfPartyId, PartyInfo]],
+      permissionsTarget: Target[Map[LfPartyId, PartyInfo]],
+  ): Either[StakeholderHostingErrors, Set[ParticipantId]] =
+    stakeholders.all.toSeq
+      .traverse { stakeholder =>
+        for {
+          sourceInfo <- permissionsSource.unwrap
+            .get(stakeholder)
+            .toRight(
+              StakeholderHostingErrors(s"Signatory $stakeholder is not hosted on the source domain")
+            )
+          targetInfo <- permissionsTarget.unwrap
+            .get(stakeholder)
+            .toRight(
+              StakeholderHostingErrors(s"Signatory $stakeholder is not hosted on the target domain")
+            )
+
+          observingReassigningParticipants = sourceInfo.participants.keySet
+            .intersect(targetInfo.participants.keySet)
+
+          _ <- Either.cond(
+            observingReassigningParticipants.nonEmpty,
+            (),
+            StakeholderHostingErrors(
+              s"Stakeholder $stakeholder requires at least one reassigning participants, but only none are available"
+            ),
+          )
+
+        } yield observingReassigningParticipants
+      }
+      .map(_.toSet.flatten)
 
   // Filter out participants that hosts party with observation rights
-  // Fails if one party is not hosted on any participant with at least confirmation rights
   private def keepConfirmingParticipants(
-      permissionsTagged: ReassignmentTag[Map[LfPartyId, Map[ParticipantId, ParticipantAttributes]]]
-  ): Either[StakeholderHostingErrors, Map[LfPartyId, Set[ParticipantId]]] = {
-    val permissions = permissionsTagged.unwrap
-    val confirmingParticipants: Map[LfPartyId, Set[ParticipantId]] = permissions.mapFilter {
-      participants =>
-        val confirmingParticipants = participants.filter { case (_, permissions) =>
-          permissions.permission.canConfirm
-        }.keySet
-
-        Option.when(confirmingParticipants.nonEmpty)(confirmingParticipants)
-    }
-
-    val missingParties = permissions.keySet.diff(confirmingParticipants.keySet)
-    if (missingParties.isEmpty) confirmingParticipants.asRight
-    else
-      StakeholderHostingErrors(
-        s"The following stakeholders are not hosted with confirmation rights on ${permissionsTagged.kind} domain: $missingParties"
-      ).asLeft
-  }
+      permissions: Map[LfPartyId, PartyInfo]
+  ): Map[LfPartyId, PartyInfo] =
+    permissions.fmap(
+      _.focus(_.participants).modify(_.filter { case (_, permissions) => permissions.canConfirm })
+    )
 
   // Returns the list of participants hosting at least one of the stakeholders.
   // Fails if one stakeholder is unknown.
@@ -190,40 +231,4 @@ private[protocol] class ReassigningParticipantsComputation(
         )
         .map(_.sequence)
     )
-
-  private def validateReassigningParticipantsCount(
-      sourceStakeholdersInfo: Source[Map[LfPartyId, PartyInfo]],
-      targetStakeholdersInfo: Target[Map[LfPartyId, PartyInfo]],
-      computedReassigningParticipant: Map[LfPartyId, NonEmpty[Set[ParticipantId]]],
-  ): Either[UnassignmentProcessorError, Unit] =
-    stakeholders.all.toList
-      .traverse_ { stakeholder =>
-        for {
-          sourceThreshold <- sourceStakeholdersInfo.traverse(getThresholdFor(stakeholder, _))
-          targetThreshold <- targetStakeholdersInfo.traverse(getThresholdFor(stakeholder, _))
-
-          requiredReassigningParticipants = sourceThreshold.unwrap.max(targetThreshold.unwrap)
-          _ <- EitherUtil.condUnitE(
-            computedReassigningParticipant
-              .get(stakeholder)
-              .exists(participants => participants.size >= requiredReassigningParticipants.unwrap),
-            StakeholderHostingErrors(
-              s"Stakeholder $stakeholder requires at least $requiredReassigningParticipants reassigning participants, but only ${computedReassigningParticipant(stakeholder).size} are available"
-            ),
-          )
-
-        } yield ()
-      }
-
-  private def getThresholdFor(
-      party: LfPartyId,
-      partyInfo: Map[LfPartyId, PartyInfo],
-  ): Either[StakeholderHostingErrors, PositiveInt] =
-    partyInfo
-      .get(party)
-      .map(_.threshold)
-      .toRight(
-        StakeholderHostingErrors(s"Stakeholder $party not found on target domain")
-      )
-
 }

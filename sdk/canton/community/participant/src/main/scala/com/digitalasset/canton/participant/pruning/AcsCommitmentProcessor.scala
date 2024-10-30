@@ -303,7 +303,7 @@ class AcsCommitmentProcessor private (
   private def processBufferedAtInit(
       timestamp: Option[CantonTimestampSecond]
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
-    dbQueue.execute(
+    dbQueue.executeUS(
       timestamp.traverse_(ts => processBuffered(ts, endExclusive = false)),
       "processBufferedAtInit",
     )
@@ -615,16 +615,15 @@ class AcsCommitmentProcessor private (
           } else Future.unit
         }
 
-        _ <- FutureUnlessShutdown.outcomeF {
+        _ <-
           if (!catchingUpInProgress) {
             healthComponent.resolveUnhealthy()
             indicateReadyForRemote(completedPeriod.toInclusive)
             for {
               _ <- processBuffered(completedPeriod.toInclusive, endExclusive = false)
-              _ <- indicateLocallyProcessed(completedPeriod)
+              _ <- FutureUnlessShutdown.outcomeF(indicateLocallyProcessed(completedPeriod))
             } yield ()
-          } else Future.unit
-        }
+          } else FutureUnlessShutdown.unit
 
         // we only send commitments when no catch-up is in progress or at coarse-grain catch-up interval limit.
         _ <-
@@ -641,9 +640,8 @@ class AcsCommitmentProcessor private (
               // Processes buffered counter-commitments for the catch-up period and compares them with local commitments,
               // which are available if there was a mismatch at the catch-up boundary
               // Ignore the buffered commitment at the boundary
-              _ <- FutureUnlessShutdown.outcomeF(
-                processBuffered(completedPeriod.toInclusive, endExclusive = true)
-              )
+              _ <- processBuffered(completedPeriod.toInclusive, endExclusive = true)
+
               // *After the above check* (the order matters), mark all reconciliation intervals as locally processed.
               _ <- FutureUnlessShutdown.outcomeF(indicateLocallyProcessed(completedPeriod))
               // clear the commitment snapshot in memory once we caught up
@@ -887,7 +885,7 @@ class AcsCommitmentProcessor private (
 
   private def isCatchUpPeriod(period: CommitmentPeriod)(implicit
       traceContext: TraceContext
-  ): Future[Boolean] =
+  ): FutureUnlessShutdown[Boolean] =
     for {
       possibleCatchUpCmts <- store.getComputed(period, participantId)
     } yield {
@@ -978,21 +976,21 @@ class AcsCommitmentProcessor private (
       commitment: AcsCommitment
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     dbQueue
-      .execute(
+      .executeUS(
         {
           // Make sure that the ready-for-remote check is atomic with buffering the commitment
           val readyToCheck = readyForRemote.get().exists(_ >= commitment.period.toInclusive)
           if (readyToCheck) {
             // Do not sequentialize the checking
-            Future.successful(checkMatchAndMarkSafe(List(commitment)))
+            FutureUnlessShutdown.pure(checkMatchAndMarkSafe(List(commitment)))
           } else {
             logger.debug(s"Buffering $commitment for later processing")
-            store.queue.enqueue(commitment).map((_: Unit) => Future.successful(()))
+            store.queue.enqueue(commitment).map((_: Unit) => FutureUnlessShutdown.unit)
           }
         },
         s"check commitment readiness at ${commitment.period} by ${commitment.sender}",
       )
-      .flatMap(FutureUnlessShutdown.outcomeF)
+      .flatten
 
   private def indicateReadyForRemote(timestamp: CantonTimestampSecond)(implicit
       traceContext: TraceContext
@@ -1017,7 +1015,7 @@ class AcsCommitmentProcessor private (
   private def processBuffered(
       timestamp: CantonTimestampSecond,
       endExclusive: Boolean,
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     logger.debug(s"Processing buffered commitments until $timestamp ${if (endExclusive) "exclusive"
       else "inclusive"}")
     for {
@@ -1091,7 +1089,7 @@ class AcsCommitmentProcessor private (
 
   private def checkMatchAndMarkSafe(
       remote: List[AcsCommitment]
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     logger.debug(s"Processing ${remote.size} remote commitments")
     remote.parTraverse_ { cmt =>
       for {
@@ -1099,7 +1097,7 @@ class AcsCommitmentProcessor private (
         // check if we were in a catch-up phase
         possibleCatchUp <- isCatchUpPeriod(cmt.period)
         lastPruningTime <- store.pruningStatus
-        _ <-
+        _ <- FutureUnlessShutdown.outcomeF {
           if (matches(cmt, commitments, lastPruningTime.map(_.timestamp), possibleCatchUp)) {
             store.markSafe(
               cmt.sender,
@@ -1113,6 +1111,7 @@ class AcsCommitmentProcessor private (
               sortedReconciliationIntervalsProvider,
             )
           }
+        }
       } yield ()
     }
   }
@@ -1161,7 +1160,7 @@ class AcsCommitmentProcessor private (
               )(traceContext)
             )
 
-            lastPruningTime <- FutureUnlessShutdown.outcomeF(store.pruningStatus)
+            lastPruningTime <- store.pruningStatus
 
             _ = if (counterCommitmentList.size > intervals.size) {
               AcsCommitmentAlarm
@@ -1174,7 +1173,7 @@ class AcsCommitmentProcessor private (
             }
 
             // check if we were in a catch-up phase
-            possibleCatchUp <- FutureUnlessShutdown.outcomeF(isCatchUpPeriod(period))
+            possibleCatchUp <- isCatchUpPeriod(period)
 
             // get lists of counter-commitments that match and, respectively, do not match locally computed commitments
             (matching, mismatches) = counterCommitmentList.partition(counterCommitment =>
