@@ -118,9 +118,9 @@ object Hash {
       numericToBytes: data.Numeric => Bytes
   ) {
 
-    protected def update(a: ByteBuffer, context: String): Unit
+    protected def update(a: ByteBuffer, context: => String): Unit
 
-    protected def update(a: Array[Byte], context: String): Unit
+    protected def update(a: Array[Byte], context: => String): Unit
 
     protected def doFinal(buf: Array[Byte]): Unit
 
@@ -131,27 +131,27 @@ object Hash {
     }
 
     /* add size delimited byte array. */
-    def addBytes(bytes: Array[Byte], context: String): this.type = {
+    def addBytes(bytes: Array[Byte], context: => String): this.type = {
       addInt(bytes.length).update(bytes, context)
       this
     }
 
     /* add size delimited byte string. */
-    def addBytes(bytes: Bytes, context: String): this.type = {
+    def addBytes(bytes: Bytes, context: => String): this.type = {
       addInt(bytes.length).update(bytes.toByteBuffer, context)
       this
     }
 
     private val byteBuff = Array.ofDim[Byte](1)
 
-    final def addByte(a: Byte, context: String): this.type = {
+    final def addByte(a: Byte, context: => String): this.type = {
       byteBuff(0) = a
       update(byteBuff, context)
       this
     }
 
     /* no size delimitation as hashes have fixed size  */
-    final def addHash(a: Hash, context: String = ""): this.type = {
+    final def addHash(a: Hash, context: => String): this.type = {
       update(a.bytes.toByteBuffer, context)
       this
     }
@@ -217,7 +217,7 @@ object Hash {
       hashTracer: HashTracer
   ) extends LegacyBuilder(Purpose.TransactionHash, aCid2Bytes, stringNumericToBytes, hashTracer) {
 
-    private[lf] def addFromVersionNode(
+    private[lf] def addFromVersionedNode(
         node: Node,
         nodes: Map[NodeId, Node],
         hashTracer: HashTracer = this.hashTracer,
@@ -232,7 +232,7 @@ object Hash {
         // For inner node with add the hashed value of the node to the current builder. We do not inline
         // the encoded node. This is to keep NodeBuilder self contained w.r.t to its message digest.
         addHash(
-          builder.addFromVersionNode(node, nodes, hashTracer.subNodeTracer).build,
+          builder.addFromVersionedNode(node, nodes, hashTracer.subNodeTracer).build,
           "(Hashed Inner Node)",
         )
       }
@@ -299,8 +299,8 @@ object Hash {
       extends NodeBuilder(NodeHashVersion.V1, hashTracer) {
     private def addCreateNode(create: Node.Create): this.type = {
       addContext("Create Node")
-        .addByte(NodeBuilder.NodeTag.CreateTag.tag, "Node Tag")
         .withContext("Node Version")(_.addString(TransactionVersion.toProtoValue(create.version)))
+        .addByte(NodeBuilder.NodeTag.CreateTag.tag, "Node Tag")
         .withContext("Contract Id")(_.addCid(create.coid))
         .withContext("Package Name")(_.addString(create.packageName))
         .withContext("Template Id")(_.addIdentifier(create.templateId))
@@ -311,21 +311,20 @@ object Hash {
 
     private def addFetchNode(fetch: Node.Fetch): NodeBuilder = {
       addContext("Fetch Node")
-        .addByte(NodeBuilder.NodeTag.FetchTag.tag, "Node Tag")
         .withContext("Node Version")(_.addString(TransactionVersion.toProtoValue(fetch.version)))
+        .addByte(NodeBuilder.NodeTag.FetchTag.tag, "Node Tag")
         .withContext("Contract Id")(_.addCid(fetch.coid))
         .withContext("Package Name")(_.addString(fetch.packageName))
         .withContext("Template Id")(_.addIdentifier(fetch.templateId))
         .withContext("Signatories")(_.addStringSet(fetch.signatories))
         .withContext("Stakeholders")(_.addStringSet(fetch.stakeholders))
         .withContext("Acting Parties")(_.addStringSet(fetch.actingParties))
-        .withContext("Interface Id")(_.addOptional(fetch.interfaceId, _.addIdentifier))
     }
 
     private def addExerciseNode(exercise: Node.Exercise, nodes: Map[NodeId, Node]): NodeBuilder = {
       addContext("Exercise Node")
-        .addByte(NodeBuilder.NodeTag.ExerciseTag.tag, "Node Tag")
         .withContext("Node Version")(_.addString(TransactionVersion.toProtoValue(exercise.version)))
+        .addByte(NodeBuilder.NodeTag.ExerciseTag.tag, "Node Tag")
         .withContext("Contract Id")(_.addCid(exercise.targetCoid))
         .withContext("Package Name")(_.addString(exercise.packageName))
         .withContext("Template Id")(_.addIdentifier(exercise.templateId))
@@ -394,7 +393,7 @@ object Hash {
       hashTracer: HashTracer = HashTracer.NoOp,
   ): Hash = {
     new TransactionBuilder(hashTracer)
-      .addFromVersionNode(node, subNodes)
+      .addFromVersionedNode(node, subNodes)
       .build
   }
 
@@ -410,10 +409,10 @@ object Hash {
 
     mac.init(new SecretKeySpec(key.bytes.toByteArray, macPrototype.algorithm))
 
-    final override protected def update(a: ByteBuffer, context: String): Unit =
+    final override protected def update(a: ByteBuffer, context: => String): Unit =
       mac.update(a)
 
-    final override protected def update(a: Array[Byte], context: String): Unit =
+    final override protected def update(a: Array[Byte], context: => String): Unit =
       mac.update(a)
 
     final override protected def doFinal(buf: Array[Byte]): Unit =
@@ -451,12 +450,12 @@ object Hash {
     def addCid(cid: Value.ContractId): this.type =
       addBytes(cid2Bytes(cid), s"${cid.coid} (contractId)")
 
-    override protected def update(a: ByteBuffer, context: String): Unit = {
+    override protected def update(a: ByteBuffer, context: => String): Unit = {
       hashTracer.trace(a, context)
       md.update(a)
     }
 
-    override protected def update(a: Array[Byte], context: String): Unit = {
+    override protected def update(a: Array[Byte], context: => String): Unit = {
       hashTracer.trace(a, context)
       md.update(a)
     }
@@ -620,6 +619,7 @@ object Hash {
     final override def addTypedValue(value: Value): this.type =
       value match {
         case Value.ValueUnit =>
+          // We could use value.productPrefix to enrich the context here and for all values
           addByte(0.toByte, "0 (unit)")
         case Value.ValueBool(b) =>
           addBool(b)
@@ -908,7 +908,7 @@ object Hash {
       maintainer: Ref.Party,
   ): Hash =
     builder(Purpose.MaintainerContractKeyUUID, noCid2String, upgradeFriendly = true)
-      .addHash(keyHash)
+      .addHash(keyHash, "Key Hash")
       .addString(maintainer)
       .build
 }

@@ -74,10 +74,10 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
 
   private val createNodeEncoding = """'01' # 01 (Node Encoding Version)
                                      |# Create Node
-                                     |'00' # Node Tag
                                      |# Node Version
                                      |'00000003' # 3 (int)
                                      |'322e31' # 2.1 (string)
+                                     |'00' # Node Tag
                                      |# Contract Id
                                      |'00000021' # 33 (int)
                                      |'0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5' # 0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5 (contractId)
@@ -109,7 +109,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
                                      |'00000007' # 7 (int)
                                      |'636861726c6965' # charlie (string)""".stripMargin
 
-  private val createNodeHash = "6a217e6d8168c13f65355a52c7dcbdab842cab9ae1e3d187ccef96afa9b6d4ee"
+  private val createNodeHash = "cd23b374f5555060bfa935a8c51ada927e1425aa034405962fa55ef8723a5fc3"
   private val createNode2 = createNode.copy(
     coid = ContractId.V1.assertFromString(contractId2)
   )
@@ -139,10 +139,10 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
 
   private val fetchNodeEncoding = """'01' # 01 (Node Encoding Version)
                                     |# Fetch Node
-                                    |'02' # Node Tag
                                     |# Node Version
                                     |'00000003' # 3 (int)
                                     |'322e31' # 2.1 (string)
+                                    |'02' # Node Tag
                                     |# Contract Id
                                     |'00000021' # 33 (int)
                                     |'0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5' # 0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5 (contractId)
@@ -171,19 +171,9 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
                                     |'00000005' # 5 (int)
                                     |'616c696365' # alice (string)
                                     |'00000003' # 3 (int)
-                                    |'626f62' # bob (string)
-                                    |# Interface Id
-                                    |'01' # Some
-                                    |'00000007' # 7 (int)
-                                    |'7061636b616765' # package (string)
-                                    |'00000001' # 1 (int)
-                                    |'00000010' # 16 (int)
-                                    |'696e746572666163655f6d6f64756c65' # interface_module (string)
-                                    |'00000001' # 1 (int)
-                                    |'0000000e' # 14 (int)
-                                    |'696e746572666163655f6e616d65' # interface_name (string)""".stripMargin
+                                    |'626f62' # bob (string)""".stripMargin
 
-  private val fetchNodeHash = "3198e087ca77671ae6ab538a955af86c09241b820df51d1d81c21b1fd843355d"
+  private val fetchNodeHash = "a148c7872b41fc17349d82a5e7dc460b3477c8d083f08b7b144c8275ed5adfcc"
   private val fetchNode2 = fetchNode.copy(
     coid = ContractId.V1.assertFromString(contractId2)
   )
@@ -211,6 +201,8 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     version = LanguageVersion.v2_1,
   )
 
+  private val exerciseNodeHash = "7d7922eb93d6acaef7a497313f7f8f785b16cac7dba3910c441cdc1ab41f54b4"
+
   private val lookupNode = Node.LookupByKey(
     packageName = packageName0,
     templateId = defRef("module", "name"),
@@ -224,6 +216,8 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
   private val rollbackNode = Node.Rollback(
     children = ImmArray(NodeId(3), NodeId(4))
   )
+
+  private val rollbackNodeHash = "d70605b7a7398f79c0aaa7a280ac0fa7ca079dce3f9a8f1f1d1044f82822591e"
 
   // Function to assert that the tracing does match the hash
   private def assertStringTracer(stringHashTracer: StringHashTracer, hash: Hash) = {
@@ -400,14 +394,6 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
       ) should !==(defaultHash)
     }
 
-    "not produce collision in interface Id" in {
-      Hash.hashNode(
-        fetchNode.copy(
-          interfaceId = None
-        )
-      ) should !==(defaultHash)
-    }
-
     "explain encoding" in {
       val hashTracer = new HashTracer.StringHashTracer()
       val hash = Hash.hashNode(fetchNode, hashTracer = hashTracer)
@@ -423,7 +409,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
 
   "ExerciseNodeBuilder V1" should {
     val defaultHash = Hash
-      .fromString("5404b7ce738d358ac421c2d0225046e41df67fc02ce54e4e339c4f0f3d384a63")
+      .fromString(exerciseNodeHash)
       .getOrElse(fail("Invalid hash"))
 
     val subNodes = Map(NodeId(0) -> createNode, NodeId(1) -> fetchNode)
@@ -566,10 +552,10 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
                                       |'07' # 07 (Value Encoding Purpose)
                                       |'01' # 01 (Node Encoding Version)
                                       |# Exercise Node
-                                      |'01' # Node Tag
                                       |# Node Version
                                       |'00000003' # 3 (int)
                                       |'322e31' # 2.1 (string)
+                                      |'01' # Node Tag
                                       |# Contract Id
                                       |'00000021' # 33 (int)
                                       |'0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5' # 0007e7b5534931dfca8e1b485c105bae4e10808bd13ddc8e897f258015f9d921c5 (contractId)
@@ -636,7 +622,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
 
   "RollbackNode Builder V1" should {
     val defaultHash = Hash
-      .fromString("185c8f12ea97fcdce4ad846422ee6abbf7e7d355e20c243e786b75f2c5f7dfa0")
+      .fromString(rollbackNodeHash)
       .getOrElse(fail("Invalid hash"))
 
     val subNodes = Map(NodeId(3) -> createNode, NodeId(4) -> fetchNode)
@@ -956,7 +942,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     )
 
     val defaultHash = Hash
-      .fromString("ff26249402022cc97f6307933a31d22aa4e91af670cba364383968cbecd4a100")
+      .fromString("0508dd7092d9019033a4f00e7beffe9e7961c077cd23139f6783edc700cd2964")
       .getOrElse(fail("Invalid hash"))
 
     "be stable" in {

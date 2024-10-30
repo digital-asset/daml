@@ -83,11 +83,11 @@ da_scala_test(
     scalacopts = lf_scalacopts,
     deps = [
         ":transaction",
-        "//libs-scala/crypto",
         "//daml-lf/api-type-signature",
         "//daml-lf/data",
         "//daml-lf/language",
         "//daml-lf/transaction-test-lib",
+        "//libs-scala/crypto",
         "@maven//:com_google_protobuf_protobuf_java",
     ],
 )
