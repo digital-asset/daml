@@ -43,8 +43,6 @@ import           Data.HashMap.Strict (HashMap)
 
 import           DA.Daml.LF.Ast
 import           DA.Daml.LF.TypeChecker.Error
-import           DA.Daml.Options.Types (DamlWarningFlagStatus(..), DamlWarningFlag)
-import           DA.Cli.Options (getWarningStatus)
 
 -- | The environment for the Daml-LF type checker.
 data Gamma = Gamma

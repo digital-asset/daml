@@ -36,8 +36,6 @@ module DA.Daml.Options.Types
     , optUnitId
     , getLogger
     , UpgradeInfo (..)
-    , DamlWarningFlag(..)
-    , DamlWarningFlagStatus(..)
     , defaultUiTypecheckUpgrades
     , defaultUiWarnBadInterfaceInstances
     , defaultUpgradeInfo
@@ -59,6 +57,7 @@ import Module (UnitId, stringToUnitId)
 import qualified System.Directory as Dir
 import System.FilePath
 import DA.Daml.LF.TypeChecker.Error
+import DA.Daml.LF.TypeChecker.Upgrade (UpgradeInfo(..))
 
 -- | Orphan instances for debugging
 instance Show PackageFlag where
@@ -143,24 +142,6 @@ data Options = Options
   , optUpgradeInfo :: UpgradeInfo
   , optDamlWarningFlags :: [DamlWarningFlag]
   }
-
-data UpgradeInfo = UpgradeInfo
-  { uiUpgradedPackagePath :: Maybe FilePath
-  , uiTypecheckUpgrades :: Bool
-  }
-
-data DamlWarningFlagStatus
-  = AsError -- -Werror=<name>
-  | AsWarning -- -W<name>
-  | Hidden -- -Wno-<name>
-
-data DamlWarningFlag
-  = RawDamlWarningFlag
-    { rfName :: String
-    , rfStatus :: DamlWarningFlagStatus
-    , rfFilter :: WarnableError -> Bool
-    }
-  | WarnBadInterfaceInstances Bool -- When true, same as -Wupgrade-interfaces
 
 newtype IncrementalBuild = IncrementalBuild { getIncrementalBuild :: Bool }
   deriving Show

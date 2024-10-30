@@ -24,6 +24,7 @@ import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.Resource (ResourceT)
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Proto3.Archive (encodeArchiveAndHash)
+import DA.Daml.LF.TypeChecker.Error (DamlWarningFlag)
 import DA.Daml.LF.TypeChecker.Upgrade as Upgrade
 import DA.Daml.Options (expandSdkPackages)
 import DA.Daml.Options.Types

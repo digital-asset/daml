@@ -19,7 +19,6 @@ import qualified DA.Daml.LF.Ast.Alpha as Alpha
 import           DA.Daml.LF.TypeChecker.Check (expandTypeSynonyms)
 import           DA.Daml.LF.TypeChecker.Env
 import           DA.Daml.LF.TypeChecker.Error
-import           DA.Daml.Options.Types (UpgradeInfo (..))
 import           Data.Either (partitionEithers)
 import           Data.Hashable
 import qualified Data.HashMap.Strict as HMS
@@ -33,7 +32,6 @@ import Data.Function (on)
 import Module (UnitId)
 import GHC.Generics (Generic)
 import Control.DeepSeq (NFData)
-import           DA.Daml.Options.Types (DamlWarningFlag(..))
 
 -- Allows us to split the world into upgraded and non-upgraded
 type TcUpgradeM = TcMF UpgradingEnv
@@ -42,6 +40,11 @@ data PreUpgradingEnv = PreUpgradingEnv
   { pueVersion :: Version
   , pueUpgradeInfo :: UpgradeInfo
   , pueWarningFlags :: [DamlWarningFlag]
+  }
+
+data UpgradeInfo = UpgradeInfo
+  { uiUpgradedPackagePath :: Maybe FilePath
+  , uiTypecheckUpgrades :: Bool
   }
 
 type DepsMap = HMS.HashMap LF.PackageId UpgradingDep
@@ -78,7 +81,7 @@ shouldTypecheckM :: TcPreUpgradeM Bool
 shouldTypecheckM = asks $ uiTypecheckUpgrades . pueUpgradeInfo
 
 mkGamma :: PreUpgradingEnv -> World -> Gamma
-mkGamma PreUpgradingEnv { pueVersion, pueUpgradeInfo, pueWarningFlags } world =
+mkGamma PreUpgradingEnv { pueVersion, pueWarningFlags } world =
     set damlWarningFlags pueWarningFlags (emptyGamma world pueVersion)
 
 gammaM :: World -> TcPreUpgradeM Gamma
