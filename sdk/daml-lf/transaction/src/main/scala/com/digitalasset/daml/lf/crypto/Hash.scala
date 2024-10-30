@@ -422,7 +422,7 @@ object Hash {
     }
   }
 
-  /** Deterministically hash a versioned transaction using the hashing algorithm corresponding to each node version.
+  /** Deterministically hash a versioned transaction using the Version 1 of the hashing algorithm.
     * @param hashTracer tracer that can be used to debug encoding of the transaction.
     */
   @throws[NodeHashingError]
@@ -441,13 +441,12 @@ object Hash {
       .build
   }
 
-  /** Deterministically hash a node using the hashing algorithm corresponding its version.
+  /** Deterministically hash a node using the Version 1 of the hashing algorithm.
     * @param hashTracer tracer that can be used to debug encoding of the node.
     */
   @throws[NodeHashingError]
   @throws[HashingError]
-  // Only used in tests to assert the hash of individual nodes and provide encoding details
-  private[crypto] def hashNodeV1(
+  def hashNodeV1(
       node: Node,
       subNodes: Map[NodeId, Node] = Map.empty,
       hashTracer: HashTracer = HashTracer.NoOp,
