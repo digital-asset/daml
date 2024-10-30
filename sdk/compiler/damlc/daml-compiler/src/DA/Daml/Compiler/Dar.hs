@@ -109,8 +109,9 @@ buildDar ::
     -> NormalizedFilePath
     -> FromDalf
     -> UpgradeInfo
+    -> [DamlWarningFlag]
     -> IO (Maybe (Zip.ZipArchive (), Maybe LF.PackageId))
-buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo = do
+buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo warningFlags = do
     liftIO $
         IdeLogger.logDebug (ideLogger service) $
         "Creating dar: " <> T.pack pSrc
@@ -160,7 +161,7 @@ buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo = do
                  dalfDependencies0 <- getDalfDependencies files
                  MaybeT $
                      runDiagnosticCheck $ diagsToIdeResult (toNormalizedFilePath' pSrc) $
-                         Upgrade.checkPackage pkg (map Upgrade.unitIdDalfPackageToUpgradedPkg (Map.toList dalfDependencies0)) lfVersion upgradeInfo mbUpgradedPackage
+                         Upgrade.checkPackage pkg (map Upgrade.unitIdDalfPackageToUpgradedPkg (Map.toList dalfDependencies0)) lfVersion upgradeInfo warningFlags mbUpgradedPackage
                  let dalfDependencies =
                          [ (T.pack $ unitIdString unitId, LF.dalfPackageBytes pkg, LF.dalfPackageId pkg)
                          | (unitId, pkg) <- Map.toList dalfDependencies0

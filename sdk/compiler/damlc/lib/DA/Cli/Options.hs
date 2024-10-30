@@ -21,6 +21,7 @@ import qualified DA.Service.Logger as Logger
 import qualified Module as GHC
 import qualified Text.ParserCombinators.ReadP as R
 import qualified Data.Text as T
+import DA.Daml.LF.TypeChecker.Error
 
 -- | Pretty-printing documents with syntax-highlighting annotations.
 type Document = Pretty.Doc Pretty.SyntaxClass
@@ -449,6 +450,7 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
     optTestFilter <- compilePatternExpr <$> optTestPattern
     let optHideUnitId = False
     optUpgradeInfo <- optUpgradeInfo
+    optDamlWarningFlags <- many optDamlWarningFlag
 
     return Options{..}
   where
@@ -597,12 +599,64 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
         "Convert errors about bad, non-upgradeable interface instances into warnings."
         idm
 
+    optDamlWarningFlag :: Parser DamlWarningFlag
+    optDamlWarningFlag =
+      Options.Applicative.option parseDamlWarningFlag (short 'W' <> long "warn")
+      <|> 
+      fmap WarnBadInterfaceInstances optWarnBadInterfaceInstances
+
     optUpgradeInfo :: Parser UpgradeInfo
     optUpgradeInfo = do
       uiTypecheckUpgrades <- optTypecheckUpgrades
       uiUpgradedPackagePath <- optUpgradeDar
-      uiWarnBadInterfaceInstances <- optWarnBadInterfaceInstances
       pure UpgradeInfo {..}
+
+parseDamlWarningFlag :: ReadM DamlWarningFlag
+parseDamlWarningFlag = eitherReader parseDamlWarningFlagE
+  where
+  names =
+    [ ( "upgrade-interfaces"
+      , upgradeInterfacesFilter
+      )
+    ]
+
+  parseNameE name = case lookup name names of
+    Nothing -> Left $ "Warning flag is not valid - warning flags must be of the form `error=<name>`, `no-<name>`, or `<name>`. The list of available names is: " <> intercalate ", " (map fst names)
+    Just filter -> Right filter
+
+  parseDamlWarningFlagE ('e':'r':'r':'o':'r':'=':name) = RawDamlWarningFlag name AsError <$> parseNameE name
+  parseDamlWarningFlagE ('n':'o':'-':name) = RawDamlWarningFlag name Hidden <$> parseNameE name
+  parseDamlWarningFlagE name = RawDamlWarningFlag name AsWarning <$> parseNameE name
+
+upgradeInterfacesFilter :: WarnableError -> Bool
+upgradeInterfacesFilter =
+    \case
+        WEUpgradeShouldDefineIfacesAndTemplatesSeparately {} -> True
+        WEUpgradeShouldDefineIfaceWithoutImplementation {} -> True
+        WEUpgradeShouldDefineTplInSeparatePackage {} -> True
+        _ -> False
+
+dwfFilter :: DamlWarningFlag -> WarnableError -> Bool
+dwfFilter RawDamlWarningFlag { rfFilter } = rfFilter
+dwfFilter WarnBadInterfaceInstances {} = upgradeInterfacesFilter
+
+dwfStatus :: DamlWarningFlag -> DamlWarningFlagStatus
+dwfStatus RawDamlWarningFlag { rfStatus } = rfStatus
+dwfStatus (WarnBadInterfaceInstances shouldWarn) = if shouldWarn then AsWarning else AsError
+
+dwfStatusDefault :: WarnableError -> DamlWarningFlagStatus
+dwfStatusDefault = \case
+  WEUpgradeShouldDefineIfacesAndTemplatesSeparately {} -> AsError
+  WEUpgradeShouldDefineIfaceWithoutImplementation {} -> AsError
+  WEUpgradeShouldDefineTplInSeparatePackage {} -> AsError
+  WEDependencyHasUnparseableVersion {} -> AsWarning
+  WEDependencyHasNoMetadataDespiteUpgradeability {} -> AsWarning
+
+getWarningStatus :: [DamlWarningFlag] -> WarnableError -> DamlWarningFlagStatus
+getWarningStatus flags err =
+  case filter (\flag -> dwfFilter flag err) flags of
+    [] -> dwfStatusDefault err
+    xs -> dwfStatus (last xs)
 
 optGhcCustomOptions :: Parser [String]
 optGhcCustomOptions =

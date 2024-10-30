@@ -308,7 +308,7 @@ generateDalfRule opts =
         upgradedPackage <- join <$> useNoFile ExtractUpgradedPackage
         setPriority priorityGenerateDalf
         let lfDiags = LF.checkModule world lfVersion rawDalf
-            upgradeDiags = Upgrade.checkModule world rawDalf (map Upgrade.unitIdDalfPackageToUpgradedPkg (foldMap Map.toList mbDalfDependencies)) lfVersion (optUpgradeInfo opts) upgradedPackage
+            upgradeDiags = Upgrade.checkModule world rawDalf (map Upgrade.unitIdDalfPackageToUpgradedPkg (foldMap Map.toList mbDalfDependencies)) lfVersion (optUpgradeInfo opts) (optDamlWarningFlags opts) upgradedPackage
         pure $! second (rawDalf <$) (diagsToIdeResult file (lfDiags ++ upgradeDiags))
 
 -- TODO Share code with typecheckModule in ghcide. The environment needs to be setup

@@ -36,6 +36,8 @@ module DA.Daml.Options.Types
     , optUnitId
     , getLogger
     , UpgradeInfo (..)
+    , DamlWarningFlag(..)
+    , DamlWarningFlagStatus(..)
     , defaultUiTypecheckUpgrades
     , defaultUiWarnBadInterfaceInstances
     , defaultUpgradeInfo
@@ -56,6 +58,7 @@ import DynFlags (ModRenaming(..), PackageFlag(..), PackageArg(..))
 import Module (UnitId, stringToUnitId)
 import qualified System.Directory as Dir
 import System.FilePath
+import DA.Daml.LF.TypeChecker.Error
 
 -- | Orphan instances for debugging
 instance Show PackageFlag where
@@ -138,13 +141,26 @@ data Options = Options
   -- ^ When running in IDE, some rules need access to the package name and version, but we don't want to use own
   -- unit-id, as script + scenario service assume it will be "main"
   , optUpgradeInfo :: UpgradeInfo
+  , optDamlWarningFlags :: [DamlWarningFlag]
   }
 
 data UpgradeInfo = UpgradeInfo
-    { uiUpgradedPackagePath :: Maybe FilePath
-    , uiTypecheckUpgrades :: Bool
-    , uiWarnBadInterfaceInstances :: Bool
+  { uiUpgradedPackagePath :: Maybe FilePath
+  , uiTypecheckUpgrades :: Bool
+  }
+
+data DamlWarningFlagStatus
+  = AsError -- -Werror=<name>
+  | AsWarning -- -W<name>
+  | Hidden -- -Wno-<name>
+
+data DamlWarningFlag
+  = RawDamlWarningFlag
+    { rfName :: String
+    , rfStatus :: DamlWarningFlagStatus
+    , rfFilter :: WarnableError -> Bool
     }
+  | WarnBadInterfaceInstances Bool -- When true, same as -Wupgrade-interfaces
 
 newtype IncrementalBuild = IncrementalBuild { getIncrementalBuild :: Bool }
   deriving Show
@@ -291,13 +307,13 @@ defaultOptions mbVersion =
         , optAllowLargeTuples = AllowLargeTuples False
         , optHideUnitId = False
         , optUpgradeInfo = defaultUpgradeInfo
+        , optDamlWarningFlags = []
         }
 
 defaultUpgradeInfo :: UpgradeInfo
 defaultUpgradeInfo = UpgradeInfo
     { uiUpgradedPackagePath = Nothing
     , uiTypecheckUpgrades = defaultUiTypecheckUpgrades
-    , uiWarnBadInterfaceInstances = defaultUiWarnBadInterfaceInstances
     }
 
 defaultUiTypecheckUpgrades, defaultUiWarnBadInterfaceInstances :: Bool

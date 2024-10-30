@@ -16,6 +16,7 @@ module DA.Daml.LF.TypeChecker.Error(
     errorLocation,
     toDiagnostic,
     Warning(..),
+    StandaloneWarning(..),
     PackageUpgradeOrigin(..),
     UpgradeMismatchReason(..),
     ) where
@@ -112,7 +113,7 @@ data UnserializabilityReason
 data Error
   = EUnwarnableError !UnwarnableError
   | EWarnableError !WarnableError
-  | EWarningToError !Warning
+  | EWarningToError !StandaloneWarning
   | EContext !Context !Error
   deriving (Show)
 
@@ -782,7 +783,12 @@ instance ToDiagnostic UnwarnableError where
 
 data Warning
   = WContext !Context !Warning
-  | WTemplateChangedPrecondition !TypeConName ![Mismatch UpgradeMismatchReason]
+  | WStandaloneWarning !StandaloneWarning
+  | WErrorToWarning !WarnableError
+  deriving (Eq, Show)
+
+data StandaloneWarning
+  = WTemplateChangedPrecondition !TypeConName ![Mismatch UpgradeMismatchReason]
   | WTemplateChangedSignatories !TypeConName ![Mismatch UpgradeMismatchReason]
   | WTemplateChangedObservers !TypeConName ![Mismatch UpgradeMismatchReason]
   | WTemplateChangedAgreement !TypeConName ![Mismatch UpgradeMismatchReason]
@@ -795,7 +801,6 @@ data Warning
     -- ^ When upgrading, we extract relevant expressions for things like
     -- signatories. If the expression changes shape so that we can't get the
     -- underlying expression that has changed, this warning is emitted.
-  | WErrorToWarning !WarnableError
   deriving (Eq, Show)
 
 warningLocation :: Warning -> Maybe SourceLoc
@@ -803,9 +808,8 @@ warningLocation = \case
   WContext ctx _ -> contextLocation ctx
   _ -> Nothing
 
-instance Pretty Warning where
+instance Pretty StandaloneWarning where
   pPrint = \case
-    WContext ctx warning -> prettyWithContext ctx (Left warning)
     WTemplateChangedPrecondition template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the definition of its precondition."
     WTemplateChangedSignatories template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the definition of its signatories."
     WTemplateChangedObservers template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the definition of its observers."
@@ -816,7 +820,6 @@ instance Pretty Warning where
     WTemplateChangedKeyExpression template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the expression for computing its key."
     WTemplateChangedKeyMaintainers template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the maintainers for its key."
     WCouldNotExtractForUpgradeChecking attribute mbExtra -> "Could not check if the upgrade of " <> text attribute <> " is valid because its expression is the not the right shape." <> foldMap (const " Extra context: " <> text) mbExtra
-    WErrorToWarning err -> pPrint err
     where
     withMismatchInfo :: [Mismatch UpgradeMismatchReason] -> Doc ann -> Doc ann
     withMismatchInfo [] doc = doc
@@ -832,6 +835,12 @@ instance Pretty Warning where
         , "There are " <> string (show (length mismatches)) <> " differences in the expression, including:"
         , nest 2 $ vcat $ map pPrint (take 3 mismatches)
         ]
+
+instance Pretty Warning where
+  pPrint = \case
+    WContext ctx warning -> prettyWithContext ctx (Left warning)
+    WStandaloneWarning standaloneWarning -> pPrint standaloneWarning
+    WErrorToWarning err -> pPrint err
 
 instance ToDiagnostic Warning where
   toDiagnostic warning = Diagnostic
