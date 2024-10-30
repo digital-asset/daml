@@ -256,7 +256,7 @@ def proto_jars(
 
     # Compiled protobufs.
     proto_library(
-        name = "%s" % name,
+        name = name,
         srcs = srcs,
         strip_import_prefix = strip_import_prefix,
         visibility = visibility,
