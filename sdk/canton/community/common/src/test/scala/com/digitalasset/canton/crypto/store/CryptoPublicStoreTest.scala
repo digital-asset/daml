@@ -6,6 +6,7 @@ package com.digitalasset.canton.crypto.store
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicCrypto
+import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
 
 trait CryptoPublicStoreTest extends BaseTest { this: AsyncWordSpec =>
@@ -86,12 +87,20 @@ trait CryptoPublicStoreTest extends BaseTest { this: AsyncWordSpec =>
           .storeEncryptionKey(encKey1, encKey1WithName.name)
           .valueOrFail("store key 1 with name again")
 
-        // Should fail due to different name
-        failedInsert <- store.storeEncryptionKey(encKey1, None).value
+        // Should succeed and the old name is kept
+        _ <- store
+          .storeEncryptionKey(encKey1, None)
+          .valueOrFail("store key 1 with empty name")
+        _ <- store
+          .storeEncryptionKey(encKey1, Some(KeyName.tryCreate("wrong_name")))
+          .valueOrFail("store key 1 with a different name")
+
+        // Should fail due to different key payload
+        failedInsert <- store.storeEncryptionKey(encKey1.copy(key = ByteString.EMPTY), None).value
 
         result <- store.listEncryptionKeys
       } yield {
-        failedInsert.left.value shouldBe a[CryptoPublicStoreError]
+        failedInsert.left.value shouldBe a[CryptoPublicStoreError.KeyAlreadyExists]
         result shouldEqual Set(encKey1WithName)
       }
     }
@@ -108,12 +117,20 @@ trait CryptoPublicStoreTest extends BaseTest { this: AsyncWordSpec =>
           .storeSigningKey(sigKey1, sigKey1WithName.name)
           .valueOrFail("store key 1 with name again")
 
-        // Should fail due to different name
-        failedInsert <- store.storeSigningKey(sigKey1, None).value
+        // Should succeed and the old name is kept
+        _ <- store
+          .storeSigningKey(sigKey1, None)
+          .valueOrFail("store key 1 with empty name")
+        _ <- store
+          .storeSigningKey(sigKey1, Some(KeyName.tryCreate("wrong_name")))
+          .valueOrFail("store key 1 with a different name")
+
+        // Should fail due to different key payload
+        failedInsert <- store.storeSigningKey(sigKey1.copy(key = ByteString.EMPTY), None).value
 
         result <- store.listSigningKeys
       } yield {
-        failedInsert.left.value shouldBe a[CryptoPublicStoreError]
+        failedInsert.left.value shouldBe a[CryptoPublicStoreError.KeyAlreadyExists]
         result shouldEqual Set(sigKey1WithName)
       }
     }

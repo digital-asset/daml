@@ -40,7 +40,7 @@ trait InstanceReferenceCommon
     with PrettyPrinting {
 
   val name: String
-  protected val instanceType: String
+  protected[canton] val instanceType: String
 
   protected[canton] def executionContext: ExecutionContext
 
@@ -236,7 +236,7 @@ trait DomainReference
   val consoleEnvironment: ConsoleEnvironment
   val name: String
 
-  override protected val instanceType: String = DomainReference.InstanceType
+  override protected[canton] val instanceType: String = DomainReference.InstanceType
 
   override type Status = DomainStatus
 
@@ -488,7 +488,7 @@ abstract class ParticipantReference(
 
   protected def runner: AdminCommandRunner = this
 
-  override protected val instanceType: String = ParticipantReference.InstanceType
+  override protected[canton] val instanceType: String = ParticipantReference.InstanceType
 
   @Help.Summary("Health and diagnostic related commands")
   @Help.Group("Health")

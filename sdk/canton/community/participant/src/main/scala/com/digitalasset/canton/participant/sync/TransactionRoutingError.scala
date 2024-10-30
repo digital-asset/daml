@@ -96,6 +96,36 @@ object TransactionRoutingError extends RoutingErrorGroup {
           )
           with TransactionRoutingErrorWithDomain
     }
+
+    @Explanation(
+      """An input contract uses an unauthenticated ID."""
+    )
+    @Resolution(
+      """The presence of contracts with unauthenticated IDs indicates that these contracts have likely been
+        |created using an earlier version of Canton. Unauthenticated contract IDs are deprecated as they have
+        |security implications, and are no longer allowed by default. In order to still permit the submission of
+        |transactions that use them, you must configure the participants with the `allow-for-unauthenticated-contract-ids`
+        |flag set to true.
+        |See the following point in the documentation:
+        |   https://docs.daml.com/canton/usermanual/upgrading.html#test-the-configuration-additional-change-if-you-were-running-protocol-version-3
+        |
+        |IMPORTANT: Please note that you MUST set the flag on ALL the participants connected to the domain.
+        |Failure to do so will end up in critical failures of the participants.
+        |"""
+    )
+    object InputContractHasUnauthenticatedId
+        extends ErrorCode(
+          id = "INPUT_CONTRACT_HAS_UNAUTHENTICATED_ID",
+          ErrorCategory.InvalidGivenCurrentSystemStateOther,
+        ) {
+      final case class Error(err: String)
+          extends TransactionErrorImpl(
+            cause =
+              s"Trying to submit a transaction that uses contracts with unauthenticated ID: $err"
+          )
+          with TransactionRoutingError
+          with TransactionSubmissionError
+    }
   }
 
   object MalformedInputErrors extends ErrorGroup() {

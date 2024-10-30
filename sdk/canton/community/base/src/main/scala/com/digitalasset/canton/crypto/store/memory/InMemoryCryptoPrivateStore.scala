@@ -64,8 +64,10 @@ class InMemoryCryptoPrivateStore(
       keyId: Fingerprint,
       oldKey: K,
       newKey: K,
-  ): CryptoPrivateStoreError =
-    CryptoPrivateStoreError.KeyAlreadyExists(keyId, oldKey.name.map(_.unwrap))
+  ): Either[CryptoPrivateStoreError, Unit] =
+    if (oldKey.privateKey != newKey.privateKey)
+      Left(CryptoPrivateStoreError.KeyAlreadyExists(keyId, oldKey.name.map(_.unwrap)))
+    else Right(())
 
   private[crypto] def readPrivateKey(keyId: Fingerprint, purpose: KeyPurpose)(implicit
       traceContext: TraceContext
@@ -102,11 +104,11 @@ class InMemoryCryptoPrivateStore(
         buildKeyWithNameFunc: (A, Option[KeyName]) => B,
     ): EitherT[Future, CryptoPrivateStoreError, Unit] =
       TrieMapUtil
-        .insertIfAbsent(
+        .insertIfAbsentE(
           cache,
           key.id,
           buildKeyWithNameFunc(pk, key.name),
-          errorDuplicate[B] _,
+          errorDuplicate[B],
         )
         .toEitherT
 

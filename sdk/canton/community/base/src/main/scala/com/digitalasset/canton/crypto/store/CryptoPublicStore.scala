@@ -130,7 +130,7 @@ trait CryptoPublicStore extends AutoCloseable {
       traceContext: TraceContext
   ): EitherT[Future, CryptoPublicStoreError, Unit] =
     writeSigningKey(key, name).map { _ =>
-      val _ = signingKeyMap.put(key.id, SigningPublicKeyWithName(key, name))
+      signingKeyMap.putIfAbsent(key.id, SigningPublicKeyWithName(key, name)).discard
     }
 
   def encryptionKey(encryptionKeyId: Fingerprint)(implicit
@@ -152,7 +152,7 @@ trait CryptoPublicStore extends AutoCloseable {
   ): EitherT[Future, CryptoPublicStoreError, Unit] =
     writeEncryptionKey(key, name)
       .map { _ =>
-        val _ = encryptionKeyMap.put(key.id, EncryptionPublicKeyWithName(key, name))
+        encryptionKeyMap.putIfAbsent(key.id, EncryptionPublicKeyWithName(key, name)).discard
       }
 
   private def retrieveKeyAndUpdateCache[KN <: PublicKeyWithName](
