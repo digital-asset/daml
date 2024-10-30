@@ -593,11 +593,11 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
 
     optWarnBadInterfaceInstances :: Parser Bool
     optWarnBadInterfaceInstances =
-      flagYesNoAuto
-        "warn-bad-interface-instances"
-        defaultUiWarnBadInterfaceInstances
-        "Convert errors about bad, non-upgradeable interface instances into warnings."
-        idm
+      determineAuto defaultUiWarnBadInterfaceInstances <$>
+        flagYesNoAuto''
+          "warn-bad-interface-instances"
+          "Convert errors about bad, non-upgradeable interface instances into warnings."
+          idm
 
     optDamlWarningFlag :: Parser DamlWarningFlag
     optDamlWarningFlag =
