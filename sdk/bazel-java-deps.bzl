@@ -46,16 +46,16 @@ version_specific = {
 # need to be updated with careful consideration.
 
 apispec_version = "0.7.1"
-netty_tcnative_version = "2.0.61.Final"
-netty_version = "4.1.108.Final"
-grpc_version = "1.60.0"
-protobuf_version = "3.24.0"
-pekko_version = "1.0.1"
-pekko_http_version = "1.0.0"
+netty_tcnative_version = "2.0.65.Final"
+netty_version = "4.1.110.Final"
+grpc_version = "1.67.1"
+protobuf_version = "3.25.5"
+pekko_version = "1.1.2"
+pekko_http_version = "1.1.0"
 tapir_version = "1.8.5"
 ujson_version = "4.0.2"
 
-guava_version = "31.1-jre"
+guava_version = "33.3.0-jre"
 
 # Updated 2024-03-15
 opentelemetry_version = "1.36.0"
