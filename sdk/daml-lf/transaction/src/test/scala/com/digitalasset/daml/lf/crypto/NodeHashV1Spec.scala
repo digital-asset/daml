@@ -22,7 +22,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import java.time.Instant
 
-class NodeHashSpec extends AnyWordSpec with Matchers {
+class NodeHashV1Spec extends AnyWordSpec with Matchers {
 
   private val packageId0 = Ref.PackageId.assertFromString("package")
   private val packageName0 = Ref.PackageName.assertFromString("package-name-0")
@@ -229,7 +229,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
   "V1Encoding" should {
     "not encode lookup nodes" in {
       a[NodeHashingError.UnsupportedNode] shouldBe thrownBy {
-        Hash.hashNode(lookupNode)
+        Hash.hashNodeV1(lookupNode)
       }
     }
   }
@@ -240,15 +240,15 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
       .getOrElse(fail("Invalid hash"))
 
     "be stable" in {
-      Hash.hashNode(createNode) shouldBe defaultHash
+      Hash.hashNodeV1(createNode) shouldBe defaultHash
     }
 
     "not include agreement text" in {
-      Hash.hashNode(createNode.copy(agreementText = "SOMETHING_ELSE")) shouldBe defaultHash
+      Hash.hashNodeV1(createNode.copy(agreementText = "SOMETHING_ELSE")) shouldBe defaultHash
     }
 
     "not include global keys" in {
-      Hash.hashNode(
+      Hash.hashNodeV1(
         createNode.copy(
           keyOpt = Some(globalKey2)
         )
@@ -256,7 +256,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     }
 
     "not produce collision in contractId" in {
-      Hash.hashNode(
+      Hash.hashNodeV1(
         createNode.copy(
           coid = ContractId.V1.assertFromString(
             "0059b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b"
@@ -266,7 +266,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     }
 
     "not produce collision in package name" in {
-      Hash.hashNode(
+      Hash.hashNodeV1(
         createNode.copy(
           packageName = PackageName.assertFromString("another_package_name")
         )
@@ -274,7 +274,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     }
 
     "not produce collision in template ID" in {
-      Hash.hashNode(
+      Hash.hashNodeV1(
         createNode.copy(
           templateId = defRef("othermodule", "othername")
         )
@@ -282,7 +282,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     }
 
     "not produce collision in arg" in {
-      Hash.hashNode(
+      Hash.hashNodeV1(
         createNode.copy(
           arg = VA.bool.inj(true)
         )
@@ -290,7 +290,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     }
 
     "not produce collision in signatories" in {
-      Hash.hashNode(
+      Hash.hashNodeV1(
         createNode.copy(
           signatories = Set[Party](Ref.Party.assertFromString("alice"))
         )
@@ -298,7 +298,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     }
 
     "not produce collision in stakeholders" in {
-      Hash.hashNode(
+      Hash.hashNodeV1(
         createNode.copy(
           stakeholders = Set[Party](Ref.Party.assertFromString("alice"))
         )
@@ -308,7 +308,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     "explain encoding" in {
       {
         val hashTracer = new HashTracer.StringHashTracer()
-        val hash = Hash.hashNode(createNode, hashTracer = hashTracer)
+        val hash = Hash.hashNodeV1(createNode, hashTracer = hashTracer)
         hash shouldBe defaultHash
         hashTracer.result shouldBe s"""'00' # 00 (Value Encoding Version)
                              |'07' # 07 (Value Encoding Purpose)
@@ -325,11 +325,11 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
       .getOrElse(fail("Invalid hash"))
 
     "be stable" in {
-      Hash.hashNode(fetchNode) shouldBe defaultHash
+      Hash.hashNodeV1(fetchNode) shouldBe defaultHash
     }
 
     "not include global keys" in {
-      Hash.hashNode(
+      Hash.hashNodeV1(
         fetchNode.copy(
           keyOpt = Some(globalKey2)
         )
@@ -337,7 +337,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     }
 
     "not include byKey" in {
-      Hash.hashNode(
+      Hash.hashNodeV1(
         fetchNode.copy(
           byKey = false
         )
@@ -345,7 +345,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     }
 
     "not produce collision in contractId" in {
-      Hash.hashNode(
+      Hash.hashNodeV1(
         fetchNode.copy(
           coid = ContractId.V1.assertFromString(
             "0059b59ad7a6b6066e77b91ced54b8282f0e24e7089944685cb8f22f32fcbc4e1b"
@@ -355,7 +355,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     }
 
     "not produce collision in package name" in {
-      Hash.hashNode(
+      Hash.hashNodeV1(
         fetchNode.copy(
           packageName = PackageName.assertFromString("another_package_name")
         )
@@ -363,7 +363,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     }
 
     "not produce collision in template ID" in {
-      Hash.hashNode(
+      Hash.hashNodeV1(
         fetchNode.copy(
           templateId = defRef("othermodule", "othername")
         )
@@ -371,7 +371,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     }
 
     "not produce collision in actingParties" in {
-      Hash.hashNode(
+      Hash.hashNodeV1(
         fetchNode.copy(
           actingParties = Set[Party](Ref.Party.assertFromString("charlie"))
         )
@@ -379,7 +379,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     }
 
     "not produce collision in signatories" in {
-      Hash.hashNode(
+      Hash.hashNodeV1(
         fetchNode.copy(
           signatories = Set[Party](Ref.Party.assertFromString("bob"))
         )
@@ -387,7 +387,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     }
 
     "not produce collision in stakeholders" in {
-      Hash.hashNode(
+      Hash.hashNodeV1(
         fetchNode.copy(
           stakeholders = Set[Party](Ref.Party.assertFromString("alice"))
         )
@@ -396,7 +396,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
 
     "explain encoding" in {
       val hashTracer = new HashTracer.StringHashTracer()
-      val hash = Hash.hashNode(fetchNode, hashTracer = hashTracer)
+      val hash = Hash.hashNodeV1(fetchNode, hashTracer = hashTracer)
       hash shouldBe defaultHash
       hashTracer.result shouldBe s"""'00' # 00 (Value Encoding Version)
                                     |'07' # 07 (Value Encoding Purpose)
@@ -414,7 +414,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
 
     val subNodes = Map(NodeId(0) -> createNode, NodeId(1) -> fetchNode)
     def hashExerciseNode(node: Node.Exercise) = {
-      Hash.hashNode(node, subNodes)
+      Hash.hashNodeV1(node, subNodes)
     }
 
     "be stable" in {
@@ -447,12 +447,12 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
 
     "throw if some nodes are missing" in {
       an[IncompleteTransactionTree] shouldBe thrownBy {
-        Hash.hashNode(exerciseNode)
+        Hash.hashNodeV1(exerciseNode)
       }
     }
 
     "not hash NodeIds" in {
-      Hash.hashNode(
+      Hash.hashNodeV1(
         exerciseNode
           // Change the node Ids values
           .copy(children = exerciseNode.children.map(nodeId => NodeId(nodeId.index + 1))),
@@ -546,7 +546,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
 
     "explain encoding" in {
       val hashTracer = new HashTracer.StringHashTracer()
-      val hash = Hash.hashNode(exerciseNode, subNodes, hashTracer = hashTracer)
+      val hash = Hash.hashNodeV1(exerciseNode, subNodes, hashTracer = hashTracer)
       hash shouldBe defaultHash
       hashTracer.result shouldBe s"""'00' # 00 (Value Encoding Version)
                                       |'07' # 07 (Value Encoding Purpose)
@@ -627,7 +627,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
 
     val subNodes = Map(NodeId(3) -> createNode, NodeId(4) -> fetchNode)
     def hashRollbackNode(node: Node.Rollback) = {
-      Hash.hashNode(node, subNodes)
+      Hash.hashNodeV1(node, subNodes)
     }
 
     "be stable" in {
@@ -636,12 +636,12 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
 
     "throw if some nodes are missing" in {
       an[IncompleteTransactionTree] shouldBe thrownBy {
-        Hash.hashNode(rollbackNode)
+        Hash.hashNodeV1(rollbackNode)
       }
     }
 
     "not hash NodeIds" in {
-      Hash.hashNode(
+      Hash.hashNodeV1(
         rollbackNode
           // Change the node Ids values but not the nodes
           .copy(children = rollbackNode.children.map(nodeId => NodeId(nodeId.index + 1))),
@@ -662,7 +662,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     "explain encoding" in {
       {
         val hashTracer = new HashTracer.StringHashTracer()
-        val hash = Hash.hashNode(rollbackNode, subNodes, hashTracer = hashTracer)
+        val hash = Hash.hashNodeV1(rollbackNode, subNodes, hashTracer = hashTracer)
         hash shouldBe defaultHash
         hashTracer.result shouldBe s"""'00' # 00 (Value Encoding Version)
                                       |'07' # 07 (Value Encoding Purpose)
@@ -946,12 +946,12 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
       .getOrElse(fail("Invalid hash"))
 
     "be stable" in {
-      Hash.hashTransaction(transaction) shouldBe defaultHash
+      Hash.hashTransactionV1(transaction) shouldBe defaultHash
     }
 
     "throw if some nodes are missing" in {
       an[IncompleteTransactionTree] shouldBe thrownBy {
-        Hash.hashTransaction(
+        Hash.hashTransactionV1(
           VersionedTransaction(
             version = LanguageVersion.v2_1,
             roots = roots,
@@ -962,7 +962,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     }
 
     "not hash NodeIds" in {
-      Hash.hashTransaction(
+      Hash.hashTransactionV1(
         VersionedTransaction(
           version = LanguageVersion.v2_1,
           roots = ImmArray(NodeId(8), NodeId(44)),
@@ -979,7 +979,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     }
 
     "not produce collision in children" in {
-      Hash.hashTransaction(
+      Hash.hashTransactionV1(
         VersionedTransaction(
           version = LanguageVersion.v2_1,
           roots = roots.reverse,
@@ -991,7 +991,7 @@ class NodeHashSpec extends AnyWordSpec with Matchers {
     "explain encoding" in {
       {
         val hashTracer = new HashTracer.StringHashTracer()
-        val hash = Hash.hashTransaction(
+        val hash = Hash.hashTransactionV1(
           VersionedTransaction(
             version = LanguageVersion.v2_1,
             roots = ImmArray(NodeId(1), NodeId(2)),

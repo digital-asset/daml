@@ -58,9 +58,17 @@ object Hash {
     final case class UnsupportedNode(message: String) extends NodeHashingError(message)
     final case class IncompleteTransactionTree(nodeId: NodeId)
         extends NodeHashingError(s"The transaction does not contain a node with nodeId $nodeId")
-    final case class UnsupportedLanguageVersion(version: TransactionVersion)
+    final case class UnsupportedLanguageVersion(
+        nodeHashVersion: NodeHashVersion,
+        version: TransactionVersion,
+    ) extends NodeHashingError(
+          s"Cannot hash node with LF $version using hash version $nodeHashVersion. Supported LF versions: ${NodeBuilder.HashingVersionToSupportedLFVersionMapping
+              .getOrElse(nodeHashVersion, Set.empty)
+              .mkString(", ")}"
+        )
+    final case class UnsupportedHashingVersion(version: NodeHashVersion)
         extends NodeHashingError(
-          s"Cannot hash node with $version. Supported versions: ${NodeBuilder.LanguageVersionToNodeBuilder.keySet
+          s"Cannot hash node with hashing version $version. Supported versions: ${NodeBuilder.HashingVersionToSupportedLFVersionMapping.keySet
               .mkString(", ")}"
         )
   }
@@ -118,6 +126,8 @@ object Hash {
       numericToBytes: data.Numeric => Bytes
   ) {
 
+    /** @param context Used by `HashTracer`s to provide contextualized information about what the encoded value represents
+      */
     protected def update(a: ByteBuffer, context: => String): Unit
 
     protected def update(a: Array[Byte], context: => String): Unit
@@ -213,16 +223,22 @@ object Hash {
   }
 
   // Transaction Builder class with builder methods to recursively encode nodes
-  private sealed class TransactionBuilder(
+  private sealed class TransactionBuilderV1(
       hashTracer: HashTracer
   ) extends LegacyBuilder(Purpose.TransactionHash, aCid2Bytes, stringNumericToBytes, hashTracer) {
 
-    private[lf] def addFromVersionedNode(
+    private[lf] def encodeNode(
         node: Node,
         nodes: Map[NodeId, Node],
         hashTracer: HashTracer = this.hashTracer,
     ): NodeBuilder = {
-      NodeBuilder.builderForNode(node, hashTracer).addVersion.addNode(node, nodes)
+      node.optVersion
+        .foreach(
+          NodeBuilder
+            .assertHashingVersionSupportsLfVersion(_, NodeHashVersion.V1)
+        )
+
+      new NodeBuilderV1(hashTracer).addVersion.addNode(node, nodes)
     }
 
     @throws[NodeHashingError]
@@ -232,7 +248,7 @@ object Hash {
         // For inner node with add the hashed value of the node to the current builder. We do not inline
         // the encoded node. This is to keep NodeBuilder self contained w.r.t to its message digest.
         addHash(
-          builder.addFromVersionedNode(node, nodes, hashTracer.subNodeTracer).build,
+          builder.encodeNode(node, nodes, hashTracer.subNodeTracer).build,
           "(Hashed Inner Node)",
         )
       }
@@ -250,7 +266,7 @@ object Hash {
   private sealed abstract class NodeBuilder(
       version: NodeHashVersion,
       hashTracer: HashTracer,
-  ) extends TransactionBuilder(hashTracer) {
+  ) extends TransactionBuilderV1(hashTracer) {
 
     override def addVersion: this.type = {
       super.addVersion
@@ -261,9 +277,10 @@ object Hash {
   }
 
   private object NodeBuilder {
-    private[lf] val LanguageVersionToNodeBuilder: Map[LanguageVersion, HashTracer => NodeBuilder] =
+    private[lf] val HashingVersionToSupportedLFVersionMapping
+        : Map[NodeHashVersion, Set[LanguageVersion]] =
       Map(
-        LanguageVersion.v2_1 -> (hashTracer => new NodeBuilderV1(hashTracer))
+        NodeHashVersion.V1 -> Set(LanguageVersion.v2_1)
       )
 
     private[crypto] sealed abstract class NodeTag(val tag: Byte)
@@ -276,85 +293,128 @@ object Hash {
     }
 
     @throws[NodeHashingError]
-    private[lf] def builderForVersion(
+    private[lf] def assertHashingVersionSupportsLfVersion(
         version: LanguageVersion,
-        hashTracer: HashTracer,
-    ): NodeBuilder =
-      NodeBuilder.LanguageVersionToNodeBuilder
-        .getOrElse(version, throw NodeHashingError.UnsupportedLanguageVersion(version))
-        .apply(hashTracer)
-
-    private[lf] def builderForNode(
-        node: Node,
-        hashTracer: HashTracer,
-    ): NodeBuilder = node.optVersion match {
-      case Some(version) => builderForVersion(version, hashTracer)
-      // If the node is version agnostic, the builder doesn't matter so pick V1
-      // This only applies to rollback nodes
-      case None => new NodeBuilderV1(hashTracer)
+        nodeHashVersion: NodeHashVersion,
+    ): Unit = {
+      if (
+        !HashingVersionToSupportedLFVersionMapping
+          // This really shouldn't happen, unless someone removed an entry from the HashingVersionToSupportedLFVersionMapping map
+          .getOrElse(
+            nodeHashVersion,
+            throw NodeHashingError.UnsupportedHashingVersion(nodeHashVersion),
+          )
+          .contains(version)
+      ) throw NodeHashingError.UnsupportedLanguageVersion(nodeHashVersion, version)
     }
   }
 
   private final class NodeBuilderV1(hashTracer: HashTracer)
       extends NodeBuilder(NodeHashVersion.V1, hashTracer) {
-    private def addCreateNode(create: Node.Create): this.type = {
-      addContext("Create Node")
-        .withContext("Node Version")(_.addString(TransactionVersion.toProtoValue(create.version)))
-        .addByte(NodeBuilder.NodeTag.CreateTag.tag, "Node Tag")
-        .withContext("Contract Id")(_.addCid(create.coid))
-        .withContext("Package Name")(_.addString(create.packageName))
-        .withContext("Template Id")(_.addIdentifier(create.templateId))
-        .withContext("Arg")(_.addTypedValue(create.arg))
-        .withContext("Signatories")(_.addStringSet(create.signatories))
-        .withContext("Stakeholders")(_.addStringSet(create.stakeholders))
+    private val addCreateNode: Node.Create => this.type = {
+      // Pattern match to make it more obvious which fields are part of the hashing and which are not
+      case Node.Create(
+            coid,
+            packageName,
+            _packageVersion @ _,
+            templateId,
+            arg,
+            _agreementText @ _,
+            signatories,
+            stakeholders,
+            _keyOpt @ _,
+            version,
+          ) =>
+        addContext("Create Node")
+          .withContext("Node Version")(_.addString(TransactionVersion.toProtoValue(version)))
+          .addByte(NodeBuilder.NodeTag.CreateTag.tag, "Node Tag")
+          .withContext("Contract Id")(_.addCid(coid))
+          .withContext("Package Name")(_.addString(packageName))
+          .withContext("Template Id")(_.addIdentifier(templateId))
+          .withContext("Arg")(_.addTypedValue(arg))
+          .withContext("Signatories")(_.addStringSet(signatories))
+          .withContext("Stakeholders")(_.addStringSet(stakeholders))
     }
 
-    private def addFetchNode(fetch: Node.Fetch): NodeBuilder = {
-      addContext("Fetch Node")
-        .withContext("Node Version")(_.addString(TransactionVersion.toProtoValue(fetch.version)))
-        .addByte(NodeBuilder.NodeTag.FetchTag.tag, "Node Tag")
-        .withContext("Contract Id")(_.addCid(fetch.coid))
-        .withContext("Package Name")(_.addString(fetch.packageName))
-        .withContext("Template Id")(_.addIdentifier(fetch.templateId))
-        .withContext("Signatories")(_.addStringSet(fetch.signatories))
-        .withContext("Stakeholders")(_.addStringSet(fetch.stakeholders))
-        .withContext("Acting Parties")(_.addStringSet(fetch.actingParties))
+    private val addFetchNode: Node.Fetch => this.type = {
+      case Node.Fetch(
+            coid,
+            packageName,
+            templateId,
+            actingParties,
+            signatories,
+            stakeholders,
+            _keyOpt @ _,
+            _byKey @ _,
+            _interfaceId @ _,
+            version,
+          ) =>
+        addContext("Fetch Node")
+          .withContext("Node Version")(_.addString(TransactionVersion.toProtoValue(version)))
+          .addByte(NodeBuilder.NodeTag.FetchTag.tag, "Node Tag")
+          .withContext("Contract Id")(_.addCid(coid))
+          .withContext("Package Name")(_.addString(packageName))
+          .withContext("Template Id")(_.addIdentifier(templateId))
+          .withContext("Signatories")(_.addStringSet(signatories))
+          .withContext("Stakeholders")(_.addStringSet(stakeholders))
+          .withContext("Acting Parties")(_.addStringSet(actingParties))
     }
 
-    private def addExerciseNode(exercise: Node.Exercise, nodes: Map[NodeId, Node]): NodeBuilder = {
-      addContext("Exercise Node")
-        .withContext("Node Version")(_.addString(TransactionVersion.toProtoValue(exercise.version)))
-        .addByte(NodeBuilder.NodeTag.ExerciseTag.tag, "Node Tag")
-        .withContext("Contract Id")(_.addCid(exercise.targetCoid))
-        .withContext("Package Name")(_.addString(exercise.packageName))
-        .withContext("Template Id")(_.addIdentifier(exercise.templateId))
-        .withContext("Signatories")(_.addStringSet(exercise.signatories))
-        .withContext("Stakeholders")(_.addStringSet(exercise.stakeholders))
-        .withContext("Acting Parties")(_.addStringSet(exercise.actingParties))
-        .withContext("Interface Id")(_.addOptional(exercise.interfaceId, _.addIdentifier))
-        .withContext("Choice Id")(_.addString(exercise.choiceId))
-        .withContext("Chosen Value")(_.addTypedValue(exercise.chosenValue))
-        .withContext("Consuming")(_.addBool(exercise.consuming))
-        .withContext("Exercise Result")(
-          _.addOptional[Value](
-            exercise.exerciseResult,
-            { builder => value => builder.addTypedValue(value) },
+    private def addExerciseNode(nodes: Map[NodeId, Node]): Node.Exercise => this.type = {
+      case Node.Exercise(
+            targetCoid,
+            packageName,
+            templateId,
+            interfaceId,
+            choiceId,
+            consuming,
+            actingParties,
+            chosenValue,
+            stakeholders,
+            signatories,
+            choiceObservers,
+            _choiceAuthorizers @ _,
+            children,
+            exerciseResult,
+            _keyOpt @ _,
+            _byKey @ _,
+            version,
+          ) =>
+        addContext("Exercise Node")
+          .withContext("Node Version")(_.addString(TransactionVersion.toProtoValue(version)))
+          .addByte(NodeBuilder.NodeTag.ExerciseTag.tag, "Node Tag")
+          .withContext("Contract Id")(_.addCid(targetCoid))
+          .withContext("Package Name")(_.addString(packageName))
+          .withContext("Template Id")(_.addIdentifier(templateId))
+          .withContext("Signatories")(_.addStringSet(signatories))
+          .withContext("Stakeholders")(_.addStringSet(stakeholders))
+          .withContext("Acting Parties")(_.addStringSet(actingParties))
+          .withContext("Interface Id")(_.addOptional(interfaceId, _.addIdentifier))
+          .withContext("Choice Id")(_.addString(choiceId))
+          .withContext("Chosen Value")(_.addTypedValue(chosenValue))
+          .withContext("Consuming")(_.addBool(consuming))
+          .withContext("Exercise Result")(
+            _.addOptional[Value](
+              exerciseResult,
+              { builder => value => builder.addTypedValue(value) },
+            )
           )
-        )
-        .withContext("Choice Observers")(_.addStringSet(exercise.choiceObservers))
-        .withContext("Children")(_.addNodesFromNodeIds(exercise.children, nodes))
+          .withContext("Choice Observers")(_.addStringSet(choiceObservers))
+          .withContext("Children")(_.addNodesFromNodeIds(children, nodes))
     }
 
-    private def addRollbackNode(rollback: Node.Rollback, nodes: Map[NodeId, Node]): NodeBuilder =
-      addContext("Rollback Node")
-        .addByte(NodeBuilder.NodeTag.RollbackTag.tag, "Node Tag")
-        .withContext("Children")(_.addNodesFromNodeIds(rollback.children, nodes))
+    private def addRollbackNode(nodes: Map[NodeId, Node]): Node.Rollback => this.type = {
+      case Node.Rollback(children) =>
+        addContext("Rollback Node")
+          .addByte(NodeBuilder.NodeTag.RollbackTag.tag, "Node Tag")
+          .withContext("Children")(_.addNodesFromNodeIds(children, nodes))
+    }
 
-    override def addNode(node: Node, nodes: Map[NodeId, Node]): NodeBuilder = node match {
+    override def addNode(node: Node, nodes: Map[NodeId, Node]): this.type = node match {
       case create: Node.Create => addCreateNode(create)
       case fetch: Node.Fetch => addFetchNode(fetch)
-      case exercise: Node.Exercise => addExerciseNode(exercise, nodes)
-      case rollback: Node.Rollback => addRollbackNode(rollback, nodes)
+      case exercise: Node.Exercise => addExerciseNode(nodes)(exercise)
+      case rollback: Node.Rollback => addRollbackNode(nodes)(rollback)
       case _: Node.LookupByKey =>
         throw NodeHashingError.UnsupportedNode(
           s"LookupByKey nodes are not supported in version ${NodeHashVersion.V1.id}"
@@ -367,11 +427,11 @@ object Hash {
     */
   @throws[NodeHashingError]
   @throws[HashingError]
-  def hashTransaction(
+  def hashTransactionV1(
       versionedTransaction: VersionedTransaction,
       hashTracer: HashTracer = HashTracer.NoOp,
   ): Hash = {
-    new TransactionBuilder(hashTracer)
+    new TransactionBuilderV1(hashTracer)
       .withContext("Transaction Version")(
         _.addTransactionVersion(versionedTransaction.version)
       )
@@ -387,13 +447,13 @@ object Hash {
   @throws[NodeHashingError]
   @throws[HashingError]
   // Only used in tests to assert the hash of individual nodes and provide encoding details
-  private[crypto] def hashNode(
+  private[crypto] def hashNodeV1(
       node: Node,
       subNodes: Map[NodeId, Node] = Map.empty,
       hashTracer: HashTracer = HashTracer.NoOp,
   ): Hash = {
-    new TransactionBuilder(hashTracer)
-      .addFromVersionedNode(node, subNodes)
+    new TransactionBuilderV1(hashTracer)
+      .encodeNode(node, subNodes)
       .build
   }
 
@@ -469,9 +529,7 @@ object Hash {
     }
   }
 
-  /** @param hashVersionAndPurpose Set to false to prevent the value builder from injecting its version and purpose in the hash.
-    *                              This should only be used to get the un-prefixed hash of a single value.
-    */
+  // TODO #20203 Rename to a better suited name
   private[crypto] sealed class LegacyBuilder(
       purpose: Purpose,
       cid2Bytes: Value.ContractId => Bytes,
@@ -759,9 +817,9 @@ object Hash {
     val UpgradeFriendly = new Version(1) // from LF 2.1
   }
 
-  private class NodeHashVersion(val id: Byte)
+  class NodeHashVersion(val id: Byte)
 
-  private object NodeHashVersion {
+  object NodeHashVersion {
     val V1 = new NodeHashVersion(1)
   }
 
