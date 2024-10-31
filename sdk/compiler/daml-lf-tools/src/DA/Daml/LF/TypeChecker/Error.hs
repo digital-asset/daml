@@ -7,7 +7,7 @@ module DA.Daml.LF.TypeChecker.Error(
     Error(..),
     overUnwarnable,
     UnwarnableError(..),
-    WarnableError(..),
+    ErrorOrWarning(..),
     TemplatePart(..),
     InterfacePart(..),
     UnserializabilityReason(..),
@@ -16,7 +16,7 @@ module DA.Daml.LF.TypeChecker.Error(
     errorLocation,
     toDiagnostic,
     Warning(..),
-    StandaloneWarning(..),
+    UnerrorableWarning(..),
     PackageUpgradeOrigin(..),
     UpgradeMismatchReason(..),
     DamlWarningFlag(..),
@@ -117,8 +117,7 @@ data UnserializabilityReason
 
 data Error
   = EUnwarnableError !UnwarnableError
-  | EWarnableError !WarnableError
-  | EWarningToError !StandaloneWarning
+  | EErrorOrWarning !ErrorOrWarning
   | EContext !Context !Error
   deriving (Show)
 
@@ -230,7 +229,7 @@ data UnwarnableError
   | EUpgradeDatatypeBecameUnserializable !UpgradedRecordOrigin
   deriving (Show)
 
-data WarnableError
+data ErrorOrWarning
   = WEUpgradeShouldDefineIfacesAndTemplatesSeparately
   | WEUpgradeShouldDefineIfaceWithoutImplementation !ModuleName !TypeConName !TypeConName
   | WEUpgradeShouldDefineTplInSeparatePackage !TypeConName !TypeConName
@@ -238,7 +237,7 @@ data WarnableError
   | WEDependencyHasNoMetadataDespiteUpgradeability !PackageId !PackageUpgradeOrigin
   deriving (Eq, Show)
 
-instance Pretty WarnableError where
+instance Pretty ErrorOrWarning where
   pPrint = \case
     WEUpgradeShouldDefineIfacesAndTemplatesSeparately ->
       vsep
@@ -271,7 +270,7 @@ data DamlWarningFlag
   = RawDamlWarningFlag
     { rfName :: String
     , rfStatus :: DamlWarningFlagStatus
-    , rfFilter :: WarnableError -> Bool
+    , rfFilter :: ErrorOrWarning -> Bool
     }
   | WarnBadInterfaceInstances Bool -- When true, same as -Wupgrade-interfaces
 
@@ -287,19 +286,19 @@ parseDamlWarningFlag = \case
     Nothing -> Left $ "Warning flag is not valid - warning flags must be of the form `-Werror=<name>`, `-Wno-<name>`, or `-W<name>`. Available names are: " <> L.intercalate ", " (map fst namesToFilters)
     Just rfFilter -> Right rfFilter
 
-namesToFilters :: (String, WarnableError -> Bool)
+namesToFilters :: [(String, ErrorOrWarning -> Bool)]
 namesToFilters =
   [ (upgradeInterfacesName, upgradeInterfacesFilter)
   ]
 
-filterNameForWarnableError :: WarnableError -> Maybe String
-filterNameForWarnableError err | upgradeInterfacesFilter err = Just upgradeInterfacesName
-filterNameForWarnableError _ = Nothing
+filterNameForErrorOrWarning :: ErrorOrWarning -> Maybe String
+filterNameForErrorOrWarning err | upgradeInterfacesFilter err = Just upgradeInterfacesName
+filterNameForErrorOrWarning _ = Nothing
 
 upgradeInterfacesName :: String
 upgradeInterfacesName = "upgrade-interfaces"
 
-upgradeInterfacesFilter :: WarnableError -> Bool
+upgradeInterfacesFilter :: ErrorOrWarning -> Bool
 upgradeInterfacesFilter =
     \case
         WEUpgradeShouldDefineIfacesAndTemplatesSeparately {} -> True
@@ -307,7 +306,7 @@ upgradeInterfacesFilter =
         WEUpgradeShouldDefineTplInSeparatePackage {} -> True
         _ -> False
 
-dwfFilter :: DamlWarningFlag -> WarnableError -> Bool
+dwfFilter :: DamlWarningFlag -> ErrorOrWarning -> Bool
 dwfFilter RawDamlWarningFlag { rfFilter } = rfFilter
 dwfFilter WarnBadInterfaceInstances {} = upgradeInterfacesFilter
 
@@ -315,7 +314,7 @@ dwfStatus :: DamlWarningFlag -> DamlWarningFlagStatus
 dwfStatus RawDamlWarningFlag { rfStatus } = rfStatus
 dwfStatus (WarnBadInterfaceInstances shouldWarn) = if shouldWarn then AsWarning else AsError
 
-dwfStatusDefault :: WarnableError -> DamlWarningFlagStatus
+dwfStatusDefault :: ErrorOrWarning -> DamlWarningFlagStatus
 dwfStatusDefault = \case
   WEUpgradeShouldDefineIfacesAndTemplatesSeparately {} -> AsError
   WEUpgradeShouldDefineIfaceWithoutImplementation {} -> AsError
@@ -323,7 +322,7 @@ dwfStatusDefault = \case
   WEDependencyHasUnparseableVersion {} -> AsWarning
   WEDependencyHasNoMetadataDespiteUpgradeability {} -> AsWarning
 
-getWarningStatus :: [DamlWarningFlag] -> WarnableError -> DamlWarningFlagStatus
+getWarningStatus :: [DamlWarningFlag] -> ErrorOrWarning -> DamlWarningFlagStatus
 getWarningStatus flags err =
   case filter (\flag -> dwfFilter flag err) flags of
     [] -> dwfStatusDefault err
@@ -471,8 +470,8 @@ instance Pretty UnserializabilityReason where
 instance Pretty Error where
   pPrint = \case
     EUnwarnableError err -> pPrint err
-    EWarnableError err ->
-      case filterNameForWarnableError err of
+    EErrorOrWarning err ->
+      case filterNameForErrorOrWarning err of
         Just name ->
           vcat
             [ pPrint err
@@ -480,7 +479,6 @@ instance Pretty Error where
             , "Disable this error entirely with -Wno-" <> string name
             ]
         Nothing -> pPrint err
-    EWarningToError warning -> pPrint warning
     EContext ctx err -> prettyWithContext ctx (Right err)
 
 instance Pretty UnwarnableError where
@@ -860,11 +858,11 @@ instance ToDiagnostic UnwarnableError where
 
 data Warning
   = WContext !Context !Warning
-  | WStandaloneWarning !StandaloneWarning
-  | WErrorToWarning !WarnableError
+  | WUnerrorableWarning !UnerrorableWarning
+  | WErrorToWarning !ErrorOrWarning
   deriving (Eq, Show)
 
-data StandaloneWarning
+data UnerrorableWarning
   = WTemplateChangedPrecondition !TypeConName ![Mismatch UpgradeMismatchReason]
   | WTemplateChangedSignatories !TypeConName ![Mismatch UpgradeMismatchReason]
   | WTemplateChangedObservers !TypeConName ![Mismatch UpgradeMismatchReason]
@@ -885,7 +883,7 @@ warningLocation = \case
   WContext ctx _ -> contextLocation ctx
   _ -> Nothing
 
-instance Pretty StandaloneWarning where
+instance Pretty UnerrorableWarning where
   pPrint = \case
     WTemplateChangedPrecondition template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the definition of its precondition."
     WTemplateChangedSignatories template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the definition of its signatories."
@@ -916,9 +914,9 @@ instance Pretty StandaloneWarning where
 instance Pretty Warning where
   pPrint = \case
     WContext ctx warning -> prettyWithContext ctx (Left warning)
-    WStandaloneWarning standaloneWarning -> pPrint standaloneWarning
+    WUnerrorableWarning standaloneWarning -> pPrint standaloneWarning
     WErrorToWarning err ->
-      case filterNameForWarnableError err of
+      case filterNameForErrorOrWarning err of
         Just name ->
           vcat
             [ pPrint err

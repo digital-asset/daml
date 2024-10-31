@@ -68,7 +68,7 @@ class SomeErrorOrWarning d where
 getLfVersion :: MonadGamma m => m Version
 getLfVersion = view lfVersion
 
-getWarningStatusF :: forall m gamma. MonadGammaF gamma m => Getter gamma Gamma -> WarnableError -> m DamlWarningFlagStatus
+getWarningStatusF :: forall m gamma. MonadGammaF gamma m => Getter gamma Gamma -> ErrorOrWarning -> m DamlWarningFlagStatus
 getWarningStatusF getter warnableError = do
   flags <- view (getter . damlWarningFlags)
   pure (getWarningStatus flags warnableError)
@@ -145,7 +145,7 @@ diagnosticWithContext = diagnosticWithContextF id
 throwWithContext :: MonadGamma m => UnwarnableError -> m a
 throwWithContext = throwWithContextF id
 
-warnWithContext :: MonadGamma m => StandaloneWarning -> m ()
+warnWithContext :: MonadGamma m => UnerrorableWarning -> m ()
 warnWithContext = warnWithContextF id
 
 withContext :: MonadGamma m => Context -> m b -> m b
@@ -162,8 +162,8 @@ throwWithContextFRaw getter err = do
   ctx <- view $ getter . locCtx
   throwError $ EContext ctx err
 
-warnWithContextF :: forall m gamma. MonadGammaF gamma m => Getter gamma Gamma -> StandaloneWarning -> m ()
-warnWithContextF getter warning = warnWithContextFRaw getter (WStandaloneWarning warning)
+warnWithContextF :: forall m gamma. MonadGammaF gamma m => Getter gamma Gamma -> UnerrorableWarning -> m ()
+warnWithContextF getter warning = warnWithContextFRaw getter (WUnerrorableWarning warning)
 
 warnWithContextFRaw :: forall m gamma. MonadGammaF gamma m => Getter gamma Gamma -> Warning -> m ()
 warnWithContextFRaw getter warning = do
@@ -183,13 +183,13 @@ withContextF setter newCtx = local (over (setter . locCtx) setCtx)
 instance SomeErrorOrWarning UnwarnableError where
   diagnosticWithContextF = throwWithContextF
 
-instance SomeErrorOrWarning WarnableError where
+instance SomeErrorOrWarning ErrorOrWarning where
   diagnosticWithContextF getter err = do
     status <- getWarningStatusF getter err
     case status of
-      AsError -> throwWithContextFRaw getter (EWarnableError err)
+      AsError -> throwWithContextFRaw getter (EErrorOrWarning err)
       AsWarning -> warnWithContextFRaw getter (WErrorToWarning err)
       Hidden -> pure ()
 
-instance SomeErrorOrWarning StandaloneWarning where
+instance SomeErrorOrWarning UnerrorableWarning where
   diagnosticWithContextF = warnWithContextF
