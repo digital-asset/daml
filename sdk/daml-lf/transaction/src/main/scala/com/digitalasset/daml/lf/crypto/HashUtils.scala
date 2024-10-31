@@ -17,7 +17,6 @@ import scala.jdk.CollectionConverters._
 
 object HashUtils {
 
-//  private val lineSeparator = System.getProperty("line.separator")
   private[crypto] def formatByteToHexString(byte: Byte): String = String.format("%02X", byte)
 
   /** Interface to provide observability in the encoding algorithm.
