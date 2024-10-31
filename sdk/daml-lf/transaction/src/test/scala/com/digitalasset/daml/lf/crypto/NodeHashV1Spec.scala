@@ -123,7 +123,7 @@ class NodeHashV1Spec extends AnyWordSpec with Matchers {
     stakeholders = Set[Party](Ref.Party.assertFromString("charlie")),
     keyOpt = None,
     byKey = false,
-    interfaceId = None,
+    interfaceId = Some(defRef("interface_module", "interface_name")),
     version = LanguageVersion.v2_1,
   )
 
@@ -148,6 +148,16 @@ class NodeHashV1Spec extends AnyWordSpec with Matchers {
                                     |'00000001' # 1 (int)
                                     |'00000004' # 4 (int)
                                     |'6e616d65' # name (string)
+                                    |# Interface Id
+                                    |'01' # Some
+                                    |'00000007' # 7 (int)
+                                    |'7061636b616765' # package (string)
+                                    |'00000001' # 1 (int)
+                                    |'00000010' # 16 (int)
+                                    |'696e746572666163655f6d6f64756c65' # interface_module (string)
+                                    |'00000001' # 1 (int)
+                                    |'0000000e' # 14 (int)
+                                    |'696e746572666163655f6e616d65' # interface_name (string)
                                     |# Signatories
                                     |'00000001' # 1 (int)
                                     |'00000005' # 5 (int)
@@ -163,7 +173,7 @@ class NodeHashV1Spec extends AnyWordSpec with Matchers {
                                     |'00000003' # 3 (int)
                                     |'626f62' # bob (string)""".stripMargin
 
-  private val fetchNodeHash = "a148c7872b41fc17349d82a5e7dc460b3477c8d083f08b7b144c8275ed5adfcc"
+  private val fetchNodeHash = "782dfe884373f3fa68972a44354bdb82e4c34fdea97c79311128f203cdf005a2"
   private val fetchNode2 = fetchNode.copy(
     coid = ContractId.V1.assertFromString(contractId2)
   )
@@ -191,7 +201,7 @@ class NodeHashV1Spec extends AnyWordSpec with Matchers {
     version = LanguageVersion.v2_1,
   )
 
-  private val exerciseNodeHash = "7d7922eb93d6acaef7a497313f7f8f785b16cac7dba3910c441cdc1ab41f54b4"
+  private val exerciseNodeHash = "66ec818470e43dccbc49b71ef1627f4b460fdf8a463562c893c46ecf5ab77c1c"
 
   private val lookupNode = Node.LookupByKey(
     packageName = packageName0,
@@ -207,7 +217,7 @@ class NodeHashV1Spec extends AnyWordSpec with Matchers {
     children = ImmArray(NodeId(3), NodeId(4))
   )
 
-  private val rollbackNodeHash = "d70605b7a7398f79c0aaa7a280ac0fa7ca079dce3f9a8f1f1d1044f82822591e"
+  private val rollbackNodeHash = "f02a4405f80340578f67ef0e80663e87d964908918ce06ec7945c95415072d86"
 
   // Function to assert that the tracing does match the hash
   private def assertStringTracer(stringHashTracer: StringHashTracer, hash: Hash) = {
@@ -930,7 +940,7 @@ class NodeHashV1Spec extends AnyWordSpec with Matchers {
     )
 
     val defaultHash = Hash
-      .fromString("0508dd7092d9019033a4f00e7beffe9e7961c077cd23139f6783edc700cd2964")
+      .fromString("a66b7c3c44b20ed69c71f81febb674eb69cf36640c9db7f9fd89e3190a7d513f")
       .getOrElse(fail("Invalid hash"))
 
     "be stable" in {

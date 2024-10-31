@@ -353,13 +353,13 @@ object Hash {
           ) =>
         if (keyOpt.nonEmpty) notSupported("keyOpt in Fetch node") // 2.dev feature
         if (byKey == true) notSupported("byKey in Fetch node") // 2.dev feature
-        if (interfaceId.nonEmpty) notSupported("interfaceId in Fetch node") // 2.dev feature
         addContext("Fetch Node")
           .withContext("Node Version")(_.addString(TransactionVersion.toProtoValue(version)))
           .addByte(NodeBuilder.NodeTag.FetchTag.tag, "Node Tag")
           .withContext("Contract Id")(_.addCid(coid))
           .withContext("Package Name")(_.addString(packageName))
           .withContext("Template Id")(_.addIdentifier(templateId))
+          .withContext("Interface Id")(_.addOptional(interfaceId, _.addIdentifier))
           .withContext("Signatories")(_.addStringSet(signatories))
           .withContext("Stakeholders")(_.addStringSet(stakeholders))
           .withContext("Acting Parties")(_.addStringSet(actingParties))
