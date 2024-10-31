@@ -298,7 +298,7 @@ parseRawDamlWarningFlag = \case
   where
   parseNameE name = case lookup name namesToFilters of
     Nothing -> Left $ "Warning flag is not valid - warning flags must be of the form `-Werror=<name>`, `-Wno-<name>`, or `-W<name>`. Available names are: " <> L.intercalate ", " (map fst namesToFilters)
-    Just filter -> Right filter
+    Just rfFilter -> Right rfFilter
 
 namesToFilters :: [(String, WarnableError -> Bool)]
 namesToFilters =
