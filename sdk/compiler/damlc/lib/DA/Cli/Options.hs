@@ -586,7 +586,7 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
     optWarnBadInterfaceInstances :: Parser Bool
     optWarnBadInterfaceInstances =
       determineAuto defaultUiWarnBadInterfaceInstances <$>
-        flagYesNoAuto''
+        flagYesNoAutoNoDefault
           "warn-bad-interface-instances"
           "(Deprecated) Convert errors about bad, non-upgradeable interface instances into warnings."
           hidden
@@ -614,7 +614,7 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
     optWarnBadExceptions :: Parser Bool
     optWarnBadExceptions =
       determineAuto defaultUiWarnBadInterfaceInstances <$>
-        flagYesNoAuto''
+        flagYesNoAutoNoDefault
           "warn-bad-exceptions"
           "(Deprecated) Convert errors about bad, non-upgradeable exceptions into warnings."
           hidden
