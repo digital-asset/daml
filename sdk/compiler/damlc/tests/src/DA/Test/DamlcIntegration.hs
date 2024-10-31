@@ -82,7 +82,7 @@ import Options.Applicative (execParser, forwardOptions, info, many, strArgument)
 import Outputable (ppr, showSDoc)
 import qualified Proto3.Suite.JSONPB as JSONPB
 import DA.Daml.Project.Types (unsafeResolveReleaseVersion, parseUnresolvedVersion)
-import DA.Daml.LF.TypeChecker.Error (DamlWarningFlag(..), DamlWarningFlagStatus(..), upgradeInterfacesFlag, upgradeExceptionsFlag)
+import DA.Daml.LF.TypeChecker.Error (DamlWarningFlagStatus(..), upgradeInterfacesFlag, upgradeExceptionsFlag)
 
 import Test.Tasty
 import Test.Tasty.Golden (goldenVsStringDiff)
