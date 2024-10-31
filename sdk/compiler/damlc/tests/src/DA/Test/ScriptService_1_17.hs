@@ -238,7 +238,7 @@ options :: Options
 options =
   let opts0 = defaultOptions (Just lfVersion)
   in
-  opts0 { optDamlWarningFlags = optDamlWarningFlags opts0 ++ [RawDamlWarningFlag upgradeInterfacesName AsWarning upgradeInterfacesFilter] }
+  opts0 { optDamlWarningFlags = optDamlWarningFlags opts0 ++ [upgradeInterfacesFlag AsWarning] }
 
 
 runScripts :: SdkVersioned => SS.Handle -> [T.Text] -> IO [(VirtualResource, Either T.Text T.Text)]

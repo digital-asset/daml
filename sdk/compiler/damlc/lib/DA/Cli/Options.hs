@@ -608,7 +608,7 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
           [ "Turn an error into a warning with -W<name> or -Wwarn=<name> or -Wno-error=<name>"
           , "Turn a warning into an error with -Werror=<name>"
           , "Disable warnings and errors with -Wno-<name>"
-          , "Available names are: " <> PAL.string (intercalate ", " (map fst namesToFilters))
+          , "Available names are: " <> PAL.string (intercalate ", " (map fst namesToFlags))
           ]
 
     optWarnBadExceptions :: Parser Bool

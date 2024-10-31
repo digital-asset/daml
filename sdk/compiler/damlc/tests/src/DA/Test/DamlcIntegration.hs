@@ -82,7 +82,7 @@ import Options.Applicative (execParser, forwardOptions, info, many, strArgument)
 import Outputable (ppr, showSDoc)
 import qualified Proto3.Suite.JSONPB as JSONPB
 import DA.Daml.Project.Types (unsafeResolveReleaseVersion, parseUnresolvedVersion)
-import DA.Daml.LF.TypeChecker.Error (DamlWarningFlag(..), DamlWarningFlagStatus(..), upgradeInterfacesName, upgradeInterfacesFilter, upgradeExceptionsName, upgradeExceptionsFilter)
+import DA.Daml.LF.TypeChecker.Error (DamlWarningFlag(..), DamlWarningFlagStatus(..), upgradeInterfacesFlag, upgradeExceptionsFlag)
 
 import Test.Tasty
 import Test.Tasty.Golden (goldenVsStringDiff)
@@ -331,8 +331,8 @@ getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlags) =
                     }
                 , optPackageImports = packageFlags
                 , optDamlWarningFlags =
-                    [ RawDamlWarningFlag upgradeInterfacesName AsWarning upgradeInterfacesFilter
-                    , RawDamlWarningFlag upgradeExceptionsName AsWarning upgradeExceptionsFilter
+                    [ upgradeInterfacesFlag AsWarning
+                    , upgradeExceptionsFlag AsWarning
                     ]
                 }
 

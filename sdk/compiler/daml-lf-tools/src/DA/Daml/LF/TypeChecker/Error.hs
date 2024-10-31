@@ -23,9 +23,9 @@ module DA.Daml.LF.TypeChecker.Error(
     DamlWarningFlagStatus(..),
     parseRawDamlWarningFlag,
     getWarningStatus,
-    upgradeInterfacesName, upgradeInterfacesFilter,
-    upgradeExceptionsName, upgradeExceptionsFilter,
-    namesToFilters,
+    upgradeInterfacesFlag,
+    upgradeExceptionsFlag,
+    namesToFlags,
     ) where
 
 import Control.Applicative
@@ -293,21 +293,25 @@ data DamlWarningFlag
 
 parseRawDamlWarningFlag :: String -> Either String DamlWarningFlag
 parseRawDamlWarningFlag = \case
-  ('e':'r':'r':'o':'r':'=':name) -> RawDamlWarningFlag name AsError <$> parseNameE name
-  ('n':'o':'-':'e':'r':'r':'o':'r':'=':name) -> RawDamlWarningFlag name AsWarning <$> parseNameE name
-  ('n':'o':'-':name) -> RawDamlWarningFlag name Hidden <$> parseNameE name
-  ('w':'a':'r':'n':'=':name) -> RawDamlWarningFlag name AsWarning <$> parseNameE name
-  name -> RawDamlWarningFlag name AsWarning <$> parseNameE name
+  ('e':'r':'r':'o':'r':'=':name) -> parseNameE name AsError
+  ('n':'o':'-':'e':'r':'r':'o':'r':'=':name) -> parseNameE name AsWarning
+  ('n':'o':'-':name) -> parseNameE name Hidden
+  ('w':'a':'r':'n':'=':name) -> parseNameE name AsWarning
+  name -> parseNameE name AsWarning
   where
-  parseNameE name = case lookup name namesToFilters of
-    Nothing -> Left $ "Warning flag is not valid - warning flags must be of the form `-Werror=<name>`, `-Wno-<name>`, or `-W<name>`. Available names are: " <> L.intercalate ", " (map fst namesToFilters)
-    Just rfFilter -> Right rfFilter
+  parseNameE name status = case lookup name namesToFlags of
+    Nothing -> Left $ "Warning flag is not valid - warning flags must be of the form `-Werror=<name>`, `-Wno-<name>`, or `-W<name>`. Available names are: " <> L.intercalate ", " (map fst namesToFlags)
+    Just flag -> Right (flag status)
 
-namesToFilters :: [(String, ErrorOrWarning -> Bool)]
-namesToFilters =
-  [ (upgradeInterfacesName, upgradeInterfacesFilter)
-  , (upgradeExceptionsName, upgradeExceptionsFilter)
+namesToFlags :: [(String, DamlWarningFlagStatus -> DamlWarningFlag)]
+namesToFlags =
+  [ (upgradeInterfacesName, upgradeInterfacesFlag)
+  , (upgradeExceptionsName, upgradeExceptionsFlag)
   ]
+
+upgradeInterfacesFlag, upgradeExceptionsFlag :: DamlWarningFlagStatus -> DamlWarningFlag
+upgradeInterfacesFlag status = RawDamlWarningFlag upgradeInterfacesName status upgradeInterfacesFilter
+upgradeExceptionsFlag status = RawDamlWarningFlag upgradeExceptionsName status upgradeExceptionsFilter
 
 filterNameForErrorOrWarning :: ErrorOrWarning -> Maybe String
 filterNameForErrorOrWarning err | upgradeInterfacesFilter err = Just upgradeInterfacesName
