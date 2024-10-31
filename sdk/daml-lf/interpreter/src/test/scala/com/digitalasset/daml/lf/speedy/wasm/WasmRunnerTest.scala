@@ -49,7 +49,8 @@ class WasmRunnerTest
     with MockitoSugar
     with BeforeAndAfterEach {
 
-  private val languages: Map[String, String] = Map("rust" -> "rs")
+  private val languages: Map[String, String] =
+    Map("rust" -> "rs", "assemblyscript" -> "as", "scala" -> "scala", "java" -> "java")
   private val mockLogger = mock[Logger]
   private val darFile = Paths
     .get(
@@ -114,138 +115,144 @@ class WasmRunnerTest
 
   // TODO: validate that host functions have their return data segments GCed
 
-  "hello-world" in {
-    val wasmModule = ByteString.readFrom(
-      Files.newInputStream(
-        BazelRunfiles.rlocation(
-          Paths.get(s"daml-lf/interpreter/src/test/resources/hello-world.${languages("rust")}.wasm")
-        )
-      )
-    )
-    val submissionTime = Time.Timestamp.now()
-    val initialSeeding = InitialSeeding.NoSeed
-    val wexpr = WasmExpr(wasmModule, "main")
-    val wasm = WasmRunner(
-      submitters = Set.empty,
-      readAs = Set.empty,
-      seeding = initialSeeding,
-      submissionTime = submissionTime,
-      authorizationChecker = NoopAuthorizationChecker,
-      logger = createContextualizedLogger(mockLogger),
-      activeContractStore = WasmRunnerTestLib.acs(),
-      wasmExpr = wexpr,
-      compiledPackages = compiledPackages,
-    )(LoggingContext.ForTesting)
-
-    getLocalContractStore(wasm) shouldBe empty
-
-    val result = wasm.evaluateWasmExpression()
-
-    inside(result) {
-      case Right(
-            UpdateMachine.Result(
-              tx,
-              locationInfo,
-              nodeSeeds,
-              globalKeyMapping,
-              disclosedCreateEvents,
+  for (target <- languages.keys) {
+    s"$target hello-world" in {
+      val wasmModule = ByteString.readFrom(
+        Files.newInputStream(
+          BazelRunfiles.rlocation(
+            Paths.get(
+              s"daml-lf/interpreter/src/test/resources/hello-world.${languages(target)}.wasm"
             )
-          ) =>
-        tx.nodes shouldBe empty
-        tx.roots shouldBe empty
-        tx.version shouldBe TransactionVersion.V31
-        locationInfo shouldBe empty
-        nodeSeeds shouldBe empty
-        globalKeyMapping shouldBe empty
-        disclosedCreateEvents shouldBe empty
-        verify(mockLogger).info("hello-world")
-    }
-    getLocalContractStore(wasm) shouldBe empty
-  }
-
-  "create-contract" in {
-    val wasmModule = ByteString.readFrom(
-      Files.newInputStream(
-        BazelRunfiles.rlocation(
-          Paths.get(
-            s"daml-lf/interpreter/src/test/resources/create-contract.${languages("rust")}.wasm"
           )
         )
       )
-    )
-    val submissionTime = Time.Timestamp.now()
-    val hashRoot0 = crypto.Hash.assertFromString("deadbeef" * 8)
-    val initialSeeding = InitialSeeding.RootNodeSeeds(ImmArray(Some(hashRoot0)))
-    val bob = Ref.Party.assertFromString("bob")
-    val submitters = Set(bob)
-    val readAs = Set.empty[Ref.Party]
-    val stakeholders = submitters ++ readAs
-    val pkgName = Ref.PackageName.assertFromString("wasm_package")
-    val wexpr = WasmExpr(wasmModule, "main")
-    val wasm = WasmRunner(
-      submitters = submitters,
-      readAs = readAs,
-      seeding = initialSeeding,
-      submissionTime = submissionTime,
-      authorizationChecker = DefaultAuthorizationChecker,
-      logger = createContextualizedLogger(mockLogger),
-      compiledPackages = compiledPackages,
-      wasmExpr = wexpr,
-      activeContractStore = WasmRunnerTestLib.acs(),
-    )(LoggingContext.ForTesting)
+      val submissionTime = Time.Timestamp.now()
+      val initialSeeding = InitialSeeding.NoSeed
+      val wexpr = WasmExpr(wasmModule, "main")
+      val wasm = WasmRunner(
+        submitters = Set.empty,
+        readAs = Set.empty,
+        seeding = initialSeeding,
+        submissionTime = submissionTime,
+        authorizationChecker = NoopAuthorizationChecker,
+        logger = createContextualizedLogger(mockLogger),
+        activeContractStore = WasmRunnerTestLib.acs(),
+        wasmExpr = wexpr,
+        compiledPackages = compiledPackages,
+      )(LoggingContext.ForTesting)
 
-    getLocalContractStore(wasm) shouldBe empty
+      getLocalContractStore(wasm) shouldBe empty
 
-    val result = wasm.evaluateWasmExpression()
+      val result = wasm.evaluateWasmExpression()
 
-    inside(result) {
-      case Right(
-            UpdateMachine.Result(
-              tx,
-              locationInfo,
-              nodeSeeds,
-              globalKeyMapping,
-              disclosedCreateEvents,
-            )
-          ) =>
-        tx.transaction.isWellFormed shouldBe Set.empty
-        tx.roots.length shouldBe 1
-        val nodeId = tx.roots.head
-        inside(tx.nodes(nodeId)) {
-          case Node.Create(
-                contractId,
-                `pkgName`,
-                _,
-                templateId,
-                arg @ ValueRecord(None, fields),
-                "",
-                `submitters`,
-                `stakeholders`,
-                None,
-                TransactionVersion.V31,
-              ) =>
-            verify(mockLogger).info(s"created contract with ID ${contractId.coid}")
-            templateId shouldBe Ref.TypeConName.assertFromString(
-              "cae3f9de0ee19fa89d4b65439865e1942a3a98b50c86156c3ab1b09e8266c833:wasm_module:SimpleTemplate.new"
-            )
-            fields.length shouldBe 2
-            fields(0) shouldBe (None, ValueParty(bob))
-            fields(1) shouldBe (None, ValueInt64(42L))
-            inside(getLocalContractStore(wasm).get(contractId)) { case Some(contractInfo) =>
-              contractInfo.templateId shouldBe templateId
-              contractInfo.arg shouldBe arg
-            }
-        }
-        tx.version shouldBe TransactionVersion.V31
-        locationInfo shouldBe empty
-        nodeSeeds.length shouldBe 1
-        nodeSeeds.head shouldBe (nodeId, hashRoot0)
-        globalKeyMapping shouldBe empty
-        disclosedCreateEvents shouldBe empty
+      inside(result) {
+        case Right(
+              UpdateMachine.Result(
+                tx,
+                locationInfo,
+                nodeSeeds,
+                globalKeyMapping,
+                disclosedCreateEvents,
+              )
+            ) =>
+          tx.nodes shouldBe empty
+          tx.roots shouldBe empty
+          tx.version shouldBe TransactionVersion.V31
+          locationInfo shouldBe empty
+          nodeSeeds shouldBe empty
+          globalKeyMapping shouldBe empty
+          disclosedCreateEvents shouldBe empty
+          verify(mockLogger).info("hello-world")
+      }
+      getLocalContractStore(wasm) shouldBe empty
     }
   }
 
-  "fetch-global-contract" in {
+  for (target <- Set("rust", "assemblyscript")) {
+    s"$target create-contract" in {
+      val wasmModule = ByteString.readFrom(
+        Files.newInputStream(
+          BazelRunfiles.rlocation(
+            Paths.get(
+              s"daml-lf/interpreter/src/test/resources/create-contract.${languages(target)}.wasm"
+            )
+          )
+        )
+      )
+      val submissionTime = Time.Timestamp.now()
+      val hashRoot0 = crypto.Hash.assertFromString("deadbeef" * 8)
+      val initialSeeding = InitialSeeding.RootNodeSeeds(ImmArray(Some(hashRoot0)))
+      val bob = Ref.Party.assertFromString("bob")
+      val submitters = Set(bob)
+      val readAs = Set.empty[Ref.Party]
+      val stakeholders = submitters ++ readAs
+      val pkgName = Ref.PackageName.assertFromString("wasm_package")
+      val wexpr = WasmExpr(wasmModule, "main")
+      val wasm = WasmRunner(
+        submitters = submitters,
+        readAs = readAs,
+        seeding = initialSeeding,
+        submissionTime = submissionTime,
+        authorizationChecker = DefaultAuthorizationChecker,
+        logger = createContextualizedLogger(mockLogger),
+        compiledPackages = compiledPackages,
+        wasmExpr = wexpr,
+        activeContractStore = WasmRunnerTestLib.acs(),
+      )(LoggingContext.ForTesting)
+
+      getLocalContractStore(wasm) shouldBe empty
+
+      val result = wasm.evaluateWasmExpression()
+
+      inside(result) {
+        case Right(
+              UpdateMachine.Result(
+                tx,
+                locationInfo,
+                nodeSeeds,
+                globalKeyMapping,
+                disclosedCreateEvents,
+              )
+            ) =>
+          tx.transaction.isWellFormed shouldBe Set.empty
+          tx.roots.length shouldBe 1
+          val nodeId = tx.roots.head
+          inside(tx.nodes(nodeId)) {
+            case Node.Create(
+                  contractId,
+                  `pkgName`,
+                  _,
+                  templateId,
+                  arg @ ValueRecord(None, fields),
+                  "",
+                  `submitters`,
+                  `stakeholders`,
+                  None,
+                  TransactionVersion.V31,
+                ) =>
+              verify(mockLogger).info(s"created contract with ID ${contractId.coid}")
+              templateId shouldBe Ref.TypeConName.assertFromString(
+                "cae3f9de0ee19fa89d4b65439865e1942a3a98b50c86156c3ab1b09e8266c833:wasm_module:SimpleTemplate.new"
+              )
+              fields.length shouldBe 2
+              fields(0) shouldBe (None, ValueParty(bob))
+              fields(1) shouldBe (None, ValueInt64(42L))
+              inside(getLocalContractStore(wasm).get(contractId)) { case Some(contractInfo) =>
+                contractInfo.templateId shouldBe templateId
+                contractInfo.arg shouldBe arg
+              }
+          }
+          tx.version shouldBe TransactionVersion.V31
+          locationInfo shouldBe empty
+          nodeSeeds.length shouldBe 1
+          nodeSeeds.head shouldBe (nodeId, hashRoot0)
+          globalKeyMapping shouldBe empty
+          disclosedCreateEvents shouldBe empty
+      }
+    }
+  }
+
+  "rust fetch-global-contract" in {
     val wasmModule = ByteString.readFrom(
       Files.newInputStream(
         BazelRunfiles.rlocation(
@@ -337,7 +344,7 @@ class WasmRunnerTest
     getLocalContractStore(wasm) shouldBe empty
   }
 
-  "fetch-local-contract" in {
+  "rust fetch-local-contract" in {
     val wasmModule = ByteString.readFrom(
       Files.newInputStream(
         BazelRunfiles.rlocation(
@@ -456,7 +463,7 @@ logger.info("..$newCoId..") -R4->      +
            +            <-R0-          +
            |
    */
-  "exercise-choice" in {
+  "rust exercise-choice" in {
     val wasmModule = ByteString.readFrom(
       Files.newInputStream(
         BazelRunfiles.rlocation(

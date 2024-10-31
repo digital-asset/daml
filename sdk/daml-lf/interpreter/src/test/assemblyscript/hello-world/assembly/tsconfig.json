@@ -1,0 +1,9 @@
+{
+  "extends": "assemblyscript/std/assembly.json",
+  "include": [
+    "./**/*.ts"
+  ],
+  "options": {
+    "enable": ["reference-types"]
+  }
+}
