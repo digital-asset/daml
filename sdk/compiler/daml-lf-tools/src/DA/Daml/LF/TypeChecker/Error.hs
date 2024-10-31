@@ -21,10 +21,11 @@ module DA.Daml.LF.TypeChecker.Error(
     UpgradeMismatchReason(..),
     DamlWarningFlag(..),
     DamlWarningFlagStatus(..),
-    parseDamlWarningFlag,
+    parseRawDamlWarningFlag,
     getWarningStatus,
     upgradeInterfacesName, upgradeInterfacesFilter,
     upgradeExceptionsName, upgradeExceptionsFilter,
+    namesToFilters,
     ) where
 
 import Control.Applicative
@@ -287,20 +288,21 @@ data DamlWarningFlag
   | WarnBadInterfaceInstances Bool -- When true, same as -Wupgrade-interfaces
   | WarnBadExceptions Bool
 
-parseDamlWarningFlag :: String -> Either String DamlWarningFlag
-parseDamlWarningFlag = \case
+parseRawDamlWarningFlag :: String -> Either String DamlWarningFlag
+parseRawDamlWarningFlag = \case
   ('e':'r':'r':'o':'r':'=':name) -> RawDamlWarningFlag name AsError <$> parseNameE name
   ('n':'o':'-':name) -> RawDamlWarningFlag name Hidden <$> parseNameE name
   name -> RawDamlWarningFlag name AsWarning <$> parseNameE name
   where
-  namesToFilters =
-    [ (upgradeInterfacesName, upgradeInterfacesFilter)
-    , (upgradeExceptionsName, upgradeExceptionsFilter)
-    ]
-
   parseNameE name = case lookup name namesToFilters of
-    Nothing -> Left $ "Warning flag is not valid - warning flags must be of the form `error=<name>`, `no-<name>`, or `<name>`. The list of available names is: " <> L.intercalate ", " (map fst namesToFilters)
+    Nothing -> Left $ "Warning flag is not valid - warning flags must be of the form `error=<name>`, `no-<name>`, or `<name>`. Available names are: " <> L.intercalate ", " (map fst namesToFilters)
     Just filter -> Right filter
+
+namesToFilters :: [(String, WarnableError -> Bool)]
+namesToFilters =
+  [ (upgradeInterfacesName, upgradeInterfacesFilter)
+  , (upgradeExceptionsName, upgradeExceptionsFilter)
+  ]
 
 filterNameForWarnableError :: WarnableError -> Maybe String
 filterNameForWarnableError err | upgradeInterfacesFilter err = Just upgradeInterfacesName

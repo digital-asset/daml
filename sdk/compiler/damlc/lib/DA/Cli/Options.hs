@@ -23,6 +23,8 @@ import qualified Text.ParserCombinators.ReadP as R
 import qualified Data.Text as T
 import DA.Daml.LF.TypeChecker.Error
 
+import qualified Text.PrettyPrint.ANSI.Leijen as PAL
+
 -- | Pretty-printing documents with syntax-highlighting annotations.
 type Document = Pretty.Doc Pretty.SyntaxClass
 
@@ -591,9 +593,23 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
 
     optDamlWarningFlag :: Parser DamlWarningFlag
     optDamlWarningFlag =
-      Options.Applicative.option (eitherReader parseDamlWarningFlag) (short 'W' <> long "warn")
+      optRawDamlWarningFlag
       <|> fmap WarnBadInterfaceInstances optWarnBadInterfaceInstances
       <|> fmap WarnBadExceptions optWarnBadExceptions
+
+    optRawDamlWarningFlag :: Parser DamlWarningFlag
+    optRawDamlWarningFlag =
+      Options.Applicative.option
+        (eitherReader parseRawDamlWarningFlag)
+        (short 'W' <> long "warn" <> helpDoc (Just helpStr))
+      where
+      helpStr =
+        PAL.vcat
+          [ "Downgrade errors to warnings with -W<name>"
+          , "upgrade warnings to errors with -Werror=<name>"
+          , "disable warnings and errors with -Wno-<name>"
+          , "Available names are: " <> PAL.string (intercalate ", " (map fst namesToFilters))
+          ]
 
     optWarnBadExceptions :: Parser Bool
     optWarnBadExceptions =
