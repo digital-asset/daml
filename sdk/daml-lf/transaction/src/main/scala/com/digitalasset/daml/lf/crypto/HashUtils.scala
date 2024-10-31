@@ -12,12 +12,12 @@ import com.digitalasset.daml.lf.crypto.HashUtils.HashTracer.StringHashTracer.{
   inlineValue,
 }
 import com.digitalasset.daml.lf.data.Bytes
-
 import java.nio.ByteBuffer
+import scala.jdk.CollectionConverters._
 
 object HashUtils {
 
-  private val lineSeparator = System.getProperty("line.separator")
+//  private val lineSeparator = System.getProperty("line.separator")
   private[crypto] def formatByteToHexString(byte: Byte): String = String.format("%02X", byte)
 
   /** Interface to provide observability in the encoding algorithm.
@@ -46,28 +46,32 @@ object HashUtils {
       private def inlineContext(context: String): String = s" # $context"
       private def inlineValue(value: String): String =
         s"$encodedValueWrapper$value$encodedValueWrapper"
+
+      def apply(traceSubNodes: Boolean = false) =
+        new StringHashTracer(traceSubNodes, new StringBuilder(), 0)
     }
 
     /** Hash tracer that accumulated encoded values into a string.
       * @param traceSubNodes whether sub nodes should be traced as well (defaults to false)
       */
-    class StringHashTracer(traceSubNodes: Boolean = false) extends HashTracer {
-      private val sb = new StringBuilder()
+    case class StringHashTracer private (
+        traceSubNodes: Boolean,
+        private val sb: StringBuilder,
+        level: Int,
+    ) extends HashTracer {
       def result: String = sb.result()
-      override def trace(b: Byte, context: String): Unit =
-        discard(
-          sb
-            .append(inlineValue(Bytes.fromByteArray(Array(b)).toHexString))
-            .append(inlineContext(context))
-            .append(lineSeparator)
-        )
+
+      // We indent the encoding based on the depth, this allows to visually represented nested nodes
+      private def appendLine(string: String): Unit = {
+        discard(sb.append(string.indent(level * 2))) // indent with 2 whitespaces
+      }
+
+      override def trace(b: Byte, context: String): Unit = {
+        appendLine(inlineValue(Bytes.fromByteArray(Array(b)).toHexString) + inlineContext(context))
+      }
+
       override def trace(b: Array[Byte], context: String) = {
-        discard(
-          sb
-            .append(inlineValue(Bytes.fromByteArray(b).toHexString))
-            .append(inlineContext(context))
-            .append(lineSeparator)
-        )
+        appendLine(inlineValue(Bytes.fromByteArray(b).toHexString) + inlineContext(context))
       }
       override def trace(byteBuffer: ByteBuffer, context: String): Unit = {
         if (byteBuffer.hasArray) {
@@ -80,19 +84,30 @@ object HashUtils {
         }
       }
 
+      /** Returns a byte array of the encoding performed through this HashTracer.
+        * traceSubNodes does not affect the result of this function, only encoded bytes at the first level are returned.
+        */
       def asByteArray: Array[Byte] = {
-        encodingRegex
-          .findAllMatchIn(result)
+        result
+          .lines()
+          .iterator()
+          .asScala
+          // The byte array only returns top level encoding, so filter out lines that are indented
+          .filterNot(_.startsWith(" "))
+          .flatMap(encodingRegex.findFirstIn(_))
           // Strip the quotes
-          .map(_.toString().stripPrefix(encodedValueWrapper).stripSuffix(encodedValueWrapper))
+          .map(_.stripPrefix(encodedValueWrapper).stripSuffix(encodedValueWrapper))
           .map(Bytes.assertFromString)
           .toArray
           .flatMap(_.toByteArray)
       }
 
-      def context(context: String): Unit = discard(sb.append(context).append(lineSeparator))
+      def context(context: String): Unit = {
+        appendLine(context)
+      }
 
-      override val subNodeTracer: HashTracer = if (traceSubNodes) this else HashTracer.NoOp
+      override lazy val subNodeTracer: HashTracer =
+        if (traceSubNodes) this.copy(level = level + 1) else HashTracer.NoOp
     }
   }
 

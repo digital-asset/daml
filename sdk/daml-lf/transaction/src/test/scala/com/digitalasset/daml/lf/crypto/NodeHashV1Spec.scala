@@ -4,11 +4,9 @@
 package com.digitalasset.daml.lf
 package crypto
 
-import com.daml.crypto.MessageDigestPrototype
 import com.digitalasset.daml.lf.crypto.Hash.NodeHashingError
 import com.digitalasset.daml.lf.crypto.HashUtils.HashTracer
 import com.digitalasset.daml.lf.crypto.Hash.NodeHashingError.IncompleteTransactionTree
-import com.digitalasset.daml.lf.crypto.HashUtils.HashTracer.StringHashTracer
 import com.digitalasset.daml.lf.data.Ref.{ChoiceName, PackageName, Party}
 import com.digitalasset.daml.lf.data._
 import com.digitalasset.daml.lf.language.LanguageVersion
@@ -22,7 +20,7 @@ import org.scalatest.wordspec.AnyWordSpec
 
 import java.time.Instant
 
-class NodeHashV1Spec extends AnyWordSpec with Matchers {
+class NodeHashV1Spec extends AnyWordSpec with Matchers with HashUtils {
 
   private val packageId0 = Ref.PackageId.assertFromString("package")
   private val packageName0 = Ref.PackageName.assertFromString("package-name-0")
@@ -209,13 +207,6 @@ class NodeHashV1Spec extends AnyWordSpec with Matchers {
 
   private val rollbackNodeHash = "d70605b7a7398f79c0aaa7a280ac0fa7ca079dce3f9a8f1f1d1044f82822591e"
 
-  // Function to assert that the tracing does match the hash
-  private def assertStringTracer(stringHashTracer: StringHashTracer, hash: Hash) = {
-    val messageDigest = MessageDigestPrototype.Sha256.newDigest
-    messageDigest.update(stringHashTracer.asByteArray)
-    Hash.assertFromByteArray(messageDigest.digest()) shouldBe hash
-  }
-
   "V1Encoding" should {
     "not encode lookup nodes" in {
       a[NodeHashingError.UnsupportedFeature] shouldBe thrownBy {
@@ -297,7 +288,7 @@ class NodeHashV1Spec extends AnyWordSpec with Matchers {
 
     "explain encoding" in {
       {
-        val hashTracer = new HashTracer.StringHashTracer()
+        val hashTracer = HashTracer.StringHashTracer()
         val hash = Hash.hashNodeV1(createNode, hashTracer = hashTracer)
         hash shouldBe defaultHash
         hashTracer.result shouldBe s"""'00' # 00 (Value Encoding Version)
@@ -381,7 +372,7 @@ class NodeHashV1Spec extends AnyWordSpec with Matchers {
     }
 
     "explain encoding" in {
-      val hashTracer = new HashTracer.StringHashTracer()
+      val hashTracer = HashTracer.StringHashTracer()
       val hash = Hash.hashNodeV1(fetchNode, hashTracer = hashTracer)
       hash shouldBe defaultHash
       hashTracer.result shouldBe s"""'00' # 00 (Value Encoding Version)
@@ -533,7 +524,7 @@ class NodeHashV1Spec extends AnyWordSpec with Matchers {
     }
 
     "explain encoding" in {
-      val hashTracer = new HashTracer.StringHashTracer()
+      val hashTracer = HashTracer.StringHashTracer()
       val hash = Hash.hashNodeV1(exerciseNode, subNodes, hashTracer = hashTracer)
       hash shouldBe defaultHash
       hashTracer.result shouldBe s"""'00' # 00 (Value Encoding Version)
@@ -649,7 +640,7 @@ class NodeHashV1Spec extends AnyWordSpec with Matchers {
 
     "explain encoding" in {
       {
-        val hashTracer = new HashTracer.StringHashTracer()
+        val hashTracer = HashTracer.StringHashTracer()
         val hash = Hash.hashNodeV1(rollbackNode, subNodes, hashTracer = hashTracer)
         hash shouldBe defaultHash
         hashTracer.result shouldBe s"""'00' # 00 (Value Encoding Version)
@@ -671,7 +662,7 @@ class NodeHashV1Spec extends AnyWordSpec with Matchers {
   "ValueBuilder" should {
     def withValueBuilder(f: (Hash.ValueHashBuilder, HashTracer.StringHashTracer) => Assertion) = {
       {
-        val hashTracer = new HashTracer.StringHashTracer()
+        val hashTracer = HashTracer.StringHashTracer()
         val builder = Hash.valueBuilderForV1Node(hashTracer)
         f(builder, hashTracer)
       }
@@ -978,7 +969,7 @@ class NodeHashV1Spec extends AnyWordSpec with Matchers {
 
     "explain encoding" in {
       {
-        val hashTracer = new HashTracer.StringHashTracer()
+        val hashTracer = HashTracer.StringHashTracer()
         val hash = Hash.hashTransactionV1(
           VersionedTransaction(
             version = LanguageVersion.v2_1,
