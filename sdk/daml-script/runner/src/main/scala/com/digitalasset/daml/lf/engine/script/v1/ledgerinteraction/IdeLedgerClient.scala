@@ -308,10 +308,6 @@ class IdeLedgerClient(
       // A default package map for when using LF1.17 with old daml-script
       // Needed for interface exercises, which will perform a soft fetch, and ask for package resolution
       // Assumes single package per name and gives this package. If multiple, throws recommending daml-script-beta
-
-      // TODO: This doesn't work as daml-prim and such are added multiple times
-      // We could try to omit them by LF and serializability and utility and all that
-      // Note that v2 does not omit utility packages, so may also error - try with daml3-script
       val packageMap: Map[PackageName, PackageId] =
         compiledPackages.packageIds
           .collect(
