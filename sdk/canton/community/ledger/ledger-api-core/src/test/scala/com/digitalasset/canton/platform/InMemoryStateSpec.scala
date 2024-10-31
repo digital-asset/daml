@@ -48,7 +48,8 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
           submissionTracker,
           inOrder,
         ) =>
-      val initOffset = Offset.fromHexString(Ref.HexString.assertFromString("abcdef"))
+      val initOffset =
+        Offset.fromHexString(Ref.HexString.assertFromString("00" * 6 + "abcdef")).toAbsoluteOffsetO
       val initEventSequentialId = 1337L
       val initStringInterningId = 17
       val initPublicationTime = CantonTimestamp.now()
@@ -59,7 +60,7 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
       when(updateStringInterningView(stringInterningView, initLedgerEnd)).thenReturn(Future.unit)
       when(dispatcherState.stopDispatcher()).thenReturn(Future.unit)
       when(dispatcherState.isRunning).thenReturn(true)
-      when(mutableLedgerEndCache.apply()).thenReturn(Offset.beforeBegin -> 0L)
+      when(mutableLedgerEndCache.apply()).thenReturn(None -> 0L)
       when(dispatcherState.getDispatcher).thenReturn(
         Dispatcher("", Offset.beforeBegin, Offset.beforeBegin)
       )
@@ -78,18 +79,20 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
             .verify(mutableLedgerEndCache)
             .set((initOffset, initEventSequentialId, initPublicationTime))
           inOrder.verify(submissionTracker).close()
-          inOrder.verify(dispatcherState).startDispatcher(initLedgerEnd.lastOffset)
+          inOrder
+            .verify(dispatcherState)
+            .startDispatcher(Offset.fromAbsoluteOffsetO(initLedgerEnd.lastOffset))
 
           inMemoryState.initialized shouldBe true
         }
 
-        reInitOffset = Offset.fromHexString(Ref.HexString.assertFromString("abeeee"))
+        reInitOffset = Offset.fromHexString(Ref.HexString.assertFromString("00" * 6 + "abeeee"))
         reInitEventSequentialId = 9999L
         reInitStringInterningId = 50
         reInitPublicationTime = CantonTimestamp.now()
         reInitLedgerEnd = ParameterStorageBackend
           .LedgerEnd(
-            reInitOffset,
+            reInitOffset.toAbsoluteOffsetO,
             reInitEventSequentialId,
             reInitStringInterningId,
             reInitPublicationTime,
@@ -110,7 +113,7 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
           when(dispatcherState.stopDispatcher()).thenReturn(Future.unit)
           when(mutableLedgerEndCache.apply()).thenReturn(initOffset -> initEventSequentialId)
           when(dispatcherState.getDispatcher).thenReturn(
-            Dispatcher("", Offset.beforeBegin, initOffset)
+            Dispatcher("", Offset.beforeBegin, Offset.fromAbsoluteOffsetO(initOffset))
           )
         }
 
@@ -123,11 +126,11 @@ class InMemoryStateSpec extends AsyncFlatSpec with MockitoSugar with Matchers wi
 
           when(dispatcherState.isRunning).thenReturn(false)
           inMemoryState.initialized shouldBe false
-          inOrder.verify(contractStateCaches).reset(reInitOffset)
+          inOrder.verify(contractStateCaches).reset(reInitOffset.toAbsoluteOffsetO)
           inOrder.verify(inMemoryFanoutBuffer).flush()
           inOrder
             .verify(mutableLedgerEndCache)
-            .set((reInitOffset, reInitEventSequentialId, reInitPublicationTime))
+            .set((reInitOffset.toAbsoluteOffsetO, reInitEventSequentialId, reInitPublicationTime))
           inOrder.verify(dispatcherState).startDispatcher(reInitOffset)
 
           when(dispatcherState.isRunning).thenReturn(true)

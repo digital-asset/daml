@@ -229,11 +229,3 @@ message GetTrafficStateForMemberResponse {
 
   com.digitalasset.canton.protocol.v30.TrafficState traffic_state = 1;
 }
-
-message SequencedEventTrafficState {
-  // Remaining extra traffic at the time of this event
-  uint64 extra_traffic_remainder = 2;
-
-  // Total extra traffic consumed at the time of this event
-  uint64 extra_traffic_consumed = 3;
-}

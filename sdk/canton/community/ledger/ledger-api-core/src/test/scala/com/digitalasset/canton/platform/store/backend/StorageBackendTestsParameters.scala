@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.backend
 
-import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.{DomainIndex, RequestIndex, SequencerIndex}
 import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.digitalasset.canton.{HasExecutionContext, RequestCounter, SequencerCounter}
@@ -23,7 +23,7 @@ private[backend] trait StorageBackendTestsParameters
   import StorageBackendTestValues.*
 
   it should "store and retrieve ledger end and domain indexes correctly" in {
-    val someOffset = offset(1)
+    val someOffset = Some(absoluteOffset(1))
     val someSequencerTime = CantonTimestamp.now().plusSeconds(10)
     val someDomainIndex = DomainIndex.of(
       RequestIndex(
@@ -35,7 +35,7 @@ private[backend] trait StorageBackendTestsParameters
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(backend.parameter.ledgerEnd) shouldBe LedgerEnd(
-      lastOffset = Offset.beforeBegin,
+      lastOffset = None,
       lastEventSeqId = 0,
       lastStringInterningId = 0,
       lastPublicationTime = CantonTimestamp.MinValue,
@@ -116,7 +116,7 @@ private[backend] trait StorageBackendTestsParameters
     executeSql(
       backend.parameter.updateLedgerEnd(
         ledgerEnd = LedgerEnd(
-          lastOffset = offset(100),
+          lastOffset = Some(absoluteOffset(100)),
           lastEventSeqId = 100,
           lastStringInterningId = 100,
           lastPublicationTime = CantonTimestamp.MinValue.plusSeconds(100),
@@ -128,7 +128,7 @@ private[backend] trait StorageBackendTestsParameters
       )
     )
     executeSql(backend.parameter.ledgerEnd) shouldBe LedgerEnd(
-      lastOffset = offset(100),
+      lastOffset = Some(absoluteOffset(100)),
       lastEventSeqId = 100,
       lastStringInterningId = 100,
       lastPublicationTime = CantonTimestamp.MinValue.plusSeconds(100),

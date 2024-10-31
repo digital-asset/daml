@@ -31,7 +31,7 @@ import com.digitalasset.canton.sequencing.client.{
   SequencerSubscriptionError,
 }
 import com.digitalasset.canton.sequencing.protocol.*
-import com.digitalasset.canton.sequencing.traffic.{TrafficConsumed, TrafficReceipt}
+import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.sequencing.{GroupAddressResolver, OrdinarySerializedEvent}
 import com.digitalasset.canton.store.SequencedEventStore.OrdinarySequencedEvent
 import com.digitalasset.canton.store.db.DbDeserializationException
@@ -456,36 +456,34 @@ class SequencerReader(
           // To not introduce gaps in the sequencer counters,
           // we deliver an empty batch to the member if it is not the sender.
           // This way, we can avoid revalidating the skipped events after the checkpoint we resubscribe from.
-          val eventF = if (registeredMember.memberId == unvalidatedEvent.event.sender) {
+          val event = if (registeredMember.memberId == unvalidatedEvent.event.sender) {
             val error =
               SequencerErrors.TopoologyTimestampTooEarly(
                 topologyTimestamp,
                 unvalidatedEvent.timestamp,
               )
-            getTrafficReceipt(unvalidatedEvent.event.sender, unvalidatedEvent.timestamp).map(
-              trafficReceiptO =>
-                DeliverError.create(
-                  counter,
-                  unvalidatedEvent.timestamp,
-                  domainId,
-                  unvalidatedEvent.event.messageId,
-                  error,
-                  protocolVersion,
-                  trafficReceiptO,
-                )
+            DeliverError.create(
+              counter,
+              unvalidatedEvent.timestamp,
+              domainId,
+              unvalidatedEvent.event.messageId,
+              error,
+              protocolVersion,
+              trafficReceiptForNonSequencerSender(
+                unvalidatedEvent.event.sender,
+                unvalidatedEvent.event.trafficReceiptO,
+              ),
             )
           } else {
-            Future.successful(
-              Deliver.create(
-                counter,
-                unvalidatedEvent.timestamp,
-                domainId,
-                None,
-                emptyBatch,
-                None,
-                protocolVersion,
-                None,
-              )
+            Deliver.create(
+              counter,
+              unvalidatedEvent.timestamp,
+              domainId,
+              None,
+              emptyBatch,
+              None,
+              protocolVersion,
+              None,
             )
           }
 
@@ -493,7 +491,7 @@ class SequencerReader(
           // and might not reach the topology client even
           // if it was originally addressed to it.
           // So keep the before timestamp
-          eventF.map(event =>
+          Future.successful(
             UnsignedEventData(
               event,
               None,
@@ -660,29 +658,12 @@ class SequencerReader(
           }
       } yield OrdinarySequencedEvent(signedEvent)(traceContext)
 
-    private def getTrafficReceipt(senderMemberId: SequencerMemberId, timestamp: CantonTimestamp)(
-        implicit traceContext: TraceContext
-    ): Future[Option[TrafficReceipt]] = member match {
-      case _: SequencerId => Future.successful(None)
-      case _ =>
-        if (registeredMember.memberId == senderMemberId) { // traffic receipt is only for the sender
-          trafficConsumedStoreO match { // and only if we have traffic management enabled
-            case Some(trafficConsumedStore) =>
-              trafficConsumedStore.lookupAt(member, timestamp).map {
-                case Some(trafficConsumed) => Some(trafficConsumed.toTrafficReceipt)
-                case None =>
-                  logger.debug(
-                    s"Traffic consumed not found for member $member, receipt will contain init value"
-                  )
-                  TrafficConsumed.init(member).toTrafficReceipt.some
-              }
-            case None =>
-              Future.successful(None)
-          }
-        } else {
-          Future.successful(None)
-        }
-    }
+    private def trafficReceiptForNonSequencerSender(
+        senderMemberId: SequencerMemberId,
+        trafficReceiptO: Option[TrafficReceipt],
+    ) =
+      if (member.code == SequencerId.Code || registeredMember.memberId != senderMemberId) None
+      else trafficReceiptO
 
     /** Takes our stored event and turns it back into a real sequenced event.
       */
@@ -705,6 +686,7 @@ class SequencerReader(
               payload,
               topologyTimestampO,
               _traceContext,
+              trafficReceiptO,
             ) =>
           // message id only goes to sender
           val messageIdO = Option.when(registeredMember.memberId == sender)(messageId)
@@ -749,7 +731,6 @@ class SequencerReader(
             memberGroupRecipients = resolvedGroupAddresses.collect {
               case (groupRecipient, groupMembers) if groupMembers.contains(member) => groupRecipient
             }.toSet
-            trafficReceiptO <- getTrafficReceipt(sender, timestamp)
           } yield {
             val filteredBatch = Batch.filterClosedEnvelopesFor(batch, member, memberGroupRecipients)
             Deliver.create[ClosedEnvelope](
@@ -760,12 +741,19 @@ class SequencerReader(
               filteredBatch,
               topologyTimestampO,
               protocolVersion,
-              trafficReceiptO,
+              // deliver events should only retain the traffic state for the sender's subscription
+              trafficReceiptForNonSequencerSender(sender, trafficReceiptO),
             )
           }
 
-        case ReceiptStoreEvent(sender, messageId, topologyTimestampO, _traceContext) =>
-          getTrafficReceipt(sender, timestamp).map(trafficReceiptO =>
+        case ReceiptStoreEvent(
+              sender,
+              messageId,
+              topologyTimestampO,
+              _traceContext,
+              trafficReceiptO,
+            ) =>
+          Future.successful(
             Deliver.create[ClosedEnvelope](
               counter,
               timestamp,
@@ -774,14 +762,14 @@ class SequencerReader(
               emptyBatch,
               topologyTimestampO,
               protocolVersion,
-              trafficReceiptO,
+              trafficReceiptForNonSequencerSender(sender, trafficReceiptO),
             )
           )
-        case DeliverErrorStoreEvent(sender, messageId, error, _traceContext) =>
+        case DeliverErrorStoreEvent(sender, messageId, error, _traceContext, trafficReceiptO) =>
           val status = DeliverErrorStoreEvent
             .fromByteString(error, protocolVersion)
             .valueOr(err => throw new DbDeserializationException(err.toString))
-          getTrafficReceipt(sender, timestamp).map(trafficReceiptO =>
+          Future.successful(
             DeliverError.create(
               counter,
               timestamp,
@@ -789,7 +777,7 @@ class SequencerReader(
               messageId,
               status,
               protocolVersion,
-              trafficReceiptO,
+              trafficReceiptForNonSequencerSender(sender, trafficReceiptO),
             )
           )
       }

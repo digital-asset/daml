@@ -7,7 +7,8 @@ import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricHandle.Timer
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.canton.caching.Cache
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.Offset.fromAbsoluteOffsetO
+import com.digitalasset.canton.data.{AbsoluteOffset, Offset}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.store.cache.StateCache.PendingUpdatesState
 import com.digitalasset.canton.tracing.TraceContext
@@ -26,7 +27,7 @@ import scala.concurrent.{ExecutionContext, Future, blocking}
   */
 @SuppressWarnings(Array("org.wartremover.warts.FinalCaseClass")) // This class is mocked in tests
 private[platform] case class StateCache[K, V](
-    initialCacheIndex: Offset,
+    initialCacheIndex: Option[AbsoluteOffset],
     cache: Cache[K, V],
     registerUpdateTimer: Timer,
     loggerFactory: NamedLoggerFactory,
@@ -64,13 +65,13 @@ private[platform] case class StateCache[K, V](
         // The mutable contract state cache update stream should generally increase the cacheIndex strictly monotonically.
         // However, the most recent updates can be replayed in case of failure of the mutable contract state cache update stream.
         // In this case, we must ignore the already seen updates (i.e. that have `validAt` before or at the cacheIndex).
-        if (validAt > cacheIndex) {
+        if (validAt.toAbsoluteOffsetO > cacheIndex) {
           batch.keySet.foreach { key =>
             pendingUpdates
               .get(key)
-              .foreach(_.latestValidAt = validAt)
+              .foreach(_.latestValidAt = validAt.toAbsoluteOffsetO)
           }
-          cacheIndex = validAt
+          cacheIndex = validAt.toAbsoluteOffsetO
           cache.putAll(batch)
           logger.debug(
             s"Updated cache with a batch of ${batch
@@ -79,7 +80,8 @@ private[platform] case class StateCache[K, V](
           )
         } else
           logger.warn(
-            s"Ignoring incoming synchronous update at an index ($validAt) equal to or before the cache index ($cacheIndex)"
+            s"Ignoring incoming synchronous update at an index (${validAt.toLong}) equal to or before the cache index (${cacheIndex
+                .fold(0L)(_.unwrap)})"
           )
       }),
     )
@@ -101,7 +103,7 @@ private[platform] case class StateCache[K, V](
     registerUpdateTimer,
     blocking(pendingUpdates.synchronized {
       val validAt = cacheIndex
-      val eventualValue = Future.delegate(fetchAsync(validAt))
+      val eventualValue = Future.delegate(fetchAsync(fromAbsoluteOffsetO(validAt)))
       val pendingUpdatesForKey = pendingUpdates.getOrElseUpdate(key, PendingUpdatesState.empty)
       if (pendingUpdatesForKey.latestValidAt < validAt) {
         pendingUpdatesForKey.latestValidAt = validAt
@@ -116,7 +118,7 @@ private[platform] case class StateCache[K, V](
     *
     * @param resetAtOffset The cache re-initialization offset
     */
-  def reset(resetAtOffset: Offset): Unit =
+  def reset(resetAtOffset: Option[AbsoluteOffset]): Unit =
     blocking(pendingUpdates.synchronized {
       cacheIndex = resetAtOffset
       pendingUpdates.clear()
@@ -126,7 +128,7 @@ private[platform] case class StateCache[K, V](
   private def registerEventualCacheUpdate(
       key: K,
       eventualUpdate: Future[V],
-      validAt: Offset,
+      validAt: Option[AbsoluteOffset],
   )(implicit traceContext: TraceContext): Future[Unit] =
     eventualUpdate
       .map { (value: V) =>
@@ -196,12 +198,12 @@ object StateCache {
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
   private[cache] final case class PendingUpdatesState(
       var pendingCount: Long,
-      var latestValidAt: Offset,
+      var latestValidAt: Option[AbsoluteOffset],
   )
   private[cache] object PendingUpdatesState {
     def empty: PendingUpdatesState = PendingUpdatesState(
-      0L,
-      Offset.beforeBegin,
+      pendingCount = 0L,
+      latestValidAt = None,
     )
   }
 }

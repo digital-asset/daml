@@ -22,7 +22,7 @@ object ContractsStateCache {
       ec: ExecutionContext
   ): StateCache[ContractId, ContractStateValue] =
     StateCache(
-      initialCacheIndex = initialCacheIndex,
+      initialCacheIndex = initialCacheIndex.toAbsoluteOffsetO,
       cache = SizedCache.from[ContractId, ContractStateValue](
         SizedCache.Configuration(cacheSize),
         metrics.execution.cache.contractState.stateCache,

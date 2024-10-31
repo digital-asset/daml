@@ -66,15 +66,15 @@ class InMemoryState(
           submissionTracker.close()
         }
         // Start a new Ledger API offset dispatcher
-        _ = dispatcherState.startDispatcher(ledgerEnd.lastOffset)
+        _ = dispatcherState.startDispatcher(Offset.fromAbsoluteOffsetO(ledgerEnd.lastOffset))
       } yield ()
 
     def inMemoryStateIsUptodate: Boolean =
       ledgerEndCache()._1 == ledgerEnd.lastOffset &&
         ledgerEndCache()._2 == ledgerEnd.lastEventSeqId &&
         ledgerEndCache.publicationTime == ledgerEnd.lastPublicationTime &&
-        dispatcherState.getDispatcher.getHead() == ledgerEnd.lastOffset &&
-        cachesUpdatedUpto.get() == ledgerEnd.lastOffset
+        dispatcherState.getDispatcher.getHead().toAbsoluteOffsetO == ledgerEnd.lastOffset &&
+        cachesUpdatedUpto.get().toAbsoluteOffsetO == ledgerEnd.lastOffset
 
     def ledgerEndComparisonLog: String =
       s"[inMemoryLedgerEnd:(offset:${ledgerEndCache()._1},eventSeqId:${ledgerEndCache()._2},publicationTime:${ledgerEndCache.publicationTime}) persistedLedgerEnd:(offset:${ledgerEnd.lastOffset},eventSeqId:${ledgerEnd.lastEventSeqId},publicationTime:${ledgerEnd.lastPublicationTime}) dispatcher-head:${dispatcherState.getDispatcher
@@ -128,7 +128,7 @@ object InMemoryState {
       ledgerEndCache = mutableLedgerEndCache,
       dispatcherState = dispatcherState,
       contractStateCaches = ContractStateCaches.build(
-        initialLedgerEnd.lastOffset,
+        Offset.fromAbsoluteOffsetO(initialLedgerEnd.lastOffset),
         maxContractStateCacheSize,
         maxContractKeyStateCacheSize,
         metrics,

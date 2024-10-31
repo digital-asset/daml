@@ -180,6 +180,12 @@ class EnterpriseSequencerRateLimitManager(
       FutureUnlessShutdown.pure(request.submissionCost.map(_.cost)),
       computeEventCost(request.batch, topology),
     ).parMapN {
+      // Submission contains a cost but traffic control is disabled in the topology snapshot
+      case (Some(submissionCost), None) =>
+        Left(TrafficControlDisabled(submissionCost, topology.timestamp))
+      case (Some(submissionCost), Some(ValidCostWithDetails(parameters, _, _)))
+          if !parameters.enforceRateLimiting =>
+        Left(TrafficControlDisabled(submissionCost, topology.timestamp))
       // Submission cost is present and matches the correct cost, we're golden
       case (Some(submissionCost), Some(validCost @ ValidCostWithDetails(_, _, correctCostDetails)))
           if submissionCost == correctCostDetails.eventCost =>
@@ -197,9 +203,6 @@ class EnterpriseSequencerRateLimitManager(
             correctCostDetails,
           )
         )
-      // Submission contains a cost but traffic control is disabled in the topology snapshot
-      case (Some(submissionCost), None) =>
-        Left(TrafficControlDisabled(submissionCost, topology.timestamp))
       // Submission does not contain a cost but traffic control is enabled in the topology snapshot
       case (None, Some(ValidCostWithDetails(parameters, _, correctCostDetails)))
           if correctCostDetails.eventCost != NonNegativeLong.zero =>

@@ -130,21 +130,24 @@ private[apiserver] final class StoreBackedCommandExecutor(
       tc: TraceContext
   ): Either[ErrorCause.DisclosedContractsDomainIdMismatch, CommandExecutionResult] = {
     val disclosedContractsMap =
-      commands.disclosedContracts.toSeq.view.map(d => d.fatContractInstance.contractId -> d).toMap
-    val disclosedContractsUsedInInterpretation = meta.disclosedEvents.map { event =>
-      val disclosedContract = disclosedContractsMap(event.coid)
-      ProcessedDisclosedContract(
-        create = event,
-        createdAt = disclosedContract.fatContractInstance.createdAt,
-        driverMetadata = disclosedContract.fatContractInstance.cantonData,
-        domainIdO = disclosedContract.domainIdO,
-      )
-    }
+      commands.disclosedContracts.iterator.map(d => d.fatContractInstance.contractId -> d).toMap
+
+    val processedDisclosedContractsDomains = meta.disclosedEvents
+      .map { event =>
+        val disclosedContract = disclosedContractsMap(event.coid)
+        ProcessedDisclosedContract(
+          create = event,
+          createdAt = disclosedContract.fatContractInstance.createdAt,
+          driverMetadata = disclosedContract.fatContractInstance.cantonData,
+        ) -> disclosedContract.domainIdO
+      }
 
     StoreBackedCommandExecutor
       .considerDisclosedContractsDomainId(
         commands.domainId,
-        disclosedContractsUsedInInterpretation,
+        processedDisclosedContractsDomains.map { case (disclosed, domainIdO) =>
+          disclosed.contractId -> domainIdO
+        },
         logger,
       )
       .map { prescribedDomainIdO =>
@@ -176,7 +179,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
           dependsOnLedgerTime = meta.dependsOnTime,
           interpretationTimeNanos = interpretationTimeNanos,
           globalKeyMapping = meta.globalKeyMapping,
-          processedDisclosedContracts = disclosedContractsUsedInInterpretation,
+          processedDisclosedContracts = processedDisclosedContractsDomains.map(_._1),
         )
       }
   }
@@ -569,15 +572,14 @@ object StoreBackedCommandExecutor {
 
   def considerDisclosedContractsDomainId(
       prescribedDomainIdO: Option[DomainId],
-      disclosedContractsUsedInInterpretation: ImmArray[ProcessedDisclosedContract],
+      disclosedContractsUsedInInterpretation: ImmArray[(ContractId, Option[DomainId])],
       logger: TracedLogger,
   )(implicit
       tc: TraceContext
   ): Either[ErrorCause.DisclosedContractsDomainIdMismatch, Option[DomainId]] = {
     val disclosedContractsDomainIds: View[(ContractId, DomainId)] =
       disclosedContractsUsedInInterpretation.toSeq.view.collect {
-        case ProcessedDisclosedContract(create, _, _, Some(domainId)) =>
-          create.coid -> domainId
+        case (contractId, Some(domainId)) => contractId -> domainId
       }
 
     val domainIdsOfDisclosedContracts = disclosedContractsDomainIds.map(_._2).toSet

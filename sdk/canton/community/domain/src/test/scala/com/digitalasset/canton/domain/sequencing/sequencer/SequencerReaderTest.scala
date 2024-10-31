@@ -702,6 +702,7 @@ class SequencerReaderTest
                     _payload,
                     Some(topologyTimestamp),
                     _traceContext,
+                    _trafficReceiptO,
                   ),
                 ),
               ),

@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.data
 
+import cats.syntax.either.*
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
 import com.digitalasset.canton.data.Offset.beforeBegin
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
@@ -37,6 +38,46 @@ final case class Offset(bytes: Bytes) extends Ordered[Offset] {
   def toLong: Long =
     if (this == beforeBegin) 0L
     else ByteBuffer.wrap(bytes.toByteArray).getLong(1)
+
+  // TODO(#21220) remove after the unification of Offsets
+  def toAbsoluteOffsetO: Option[AbsoluteOffset] =
+    if (this == beforeBegin) None
+    else Some(AbsoluteOffset.tryFromLong(this.toLong))
+}
+
+/** Offsets into streams with hierarchical addressing.
+  *
+  * We use these offsets to address changes to the participant state.
+  * Offsets are opaque values that must be strictly increasing.
+  */
+// TODO(#21220) rename to Offset
+class AbsoluteOffset private (val positive: Long) extends AnyVal with Ordered[AbsoluteOffset] {
+  def unwrap: Long = positive
+
+  def compare(that: AbsoluteOffset): Int = this.positive.compare(that.positive)
+
+  override def toString: String = s"AbsoluteOffset($positive)"
+
+  // TODO(#22143) remove after Offsets are stored as integers in db
+  def toHexString: String = Offset.fromLong(positive).toHexString
+
+  // TODO(#21220) remove after the unification of Offsets
+  def toOffset: Offset = Offset.fromLong(this.unwrap)
+}
+
+object AbsoluteOffset {
+  val firstOffset = AbsoluteOffset.tryFromLong(1L)
+  val beforeBegin: Option[AbsoluteOffset] = None
+
+  def tryFromLong(num: Long): AbsoluteOffset =
+    fromLong(num).valueOr(err => throw new IllegalArgumentException(err))
+
+  def fromLong(num: Long): Either[String, AbsoluteOffset] =
+    Either.cond(
+      num > 0L,
+      new AbsoluteOffset(num),
+      s"Expecting positive value for offset, found $num.",
+    )
 }
 
 object Offset {
@@ -67,6 +108,13 @@ object Offset {
           )
         )
       )
+
+  // TODO(#21220) remove after the unification of Offsets
+  def fromAbsoluteOffsetO(valueO: Option[AbsoluteOffset]): Offset =
+    valueO match {
+      case None => beforeBegin
+      case Some(value) => fromLong(value.unwrap)
+    }
 
   implicit val `Offset to LoggingValue`: ToLoggingValue[Offset] = value =>
     LoggingValue.OfLong(value.toLong)

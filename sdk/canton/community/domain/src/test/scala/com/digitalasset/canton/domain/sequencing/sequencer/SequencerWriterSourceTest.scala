@@ -217,6 +217,7 @@ class SequencerWriterSourceTest
           Set.empty,
           payload1,
           None,
+          None,
         )
         _ <- loggerFactory.assertLogs(
           {
@@ -247,12 +248,14 @@ class SequencerWriterSourceTest
           Set.empty,
           payload1,
           None,
+          None,
         )
         deliver2 = DeliverStoreEvent.ensureSenderReceivesEvent(
           aliceId,
           messageId2,
           Set.empty,
           payload2,
+          None,
           None,
         )
         _ <- {
@@ -265,7 +268,7 @@ class SequencerWriterSourceTest
       } yield {
         events.events should have size 1
         events.events.headOption.map(_.event).value should matchPattern {
-          case DeliverStoreEvent(_, `messageId2`, _, _, _, _) =>
+          case DeliverStoreEvent(_, `messageId2`, _, _, _, _, _) =>
         }
       }
     }
@@ -291,6 +294,7 @@ class SequencerWriterSourceTest
           Set.empty,
           payload1,
           Some(validTopologyTimestamp),
+          None,
         )
         deliver2 = DeliverStoreEvent.ensureSenderReceivesEvent(
           aliceId,
@@ -298,6 +302,7 @@ class SequencerWriterSourceTest
           Set.empty,
           payload1,
           Some(invalidTopologyTimestamp),
+          None,
         )
         _ = offerDeliverOrFail(Presequenced.alwaysValid(deliver1))
         _ = offerDeliverOrFail(Presequenced.alwaysValid(deliver2))
@@ -335,7 +340,7 @@ class SequencerWriterSourceTest
           event.messageId shouldBe messageId1
         }
 
-        inside(sortedEvents(1)) { case DeliverErrorStoreEvent(_, _, errorO, _) =>
+        inside(sortedEvents(1)) { case DeliverErrorStoreEvent(_, _, errorO, _, _) =>
           getErrorMessage(errorO) should (include("Invalid topology timestamp")
             and include("The topology timestamp must be before or at "))
         }
@@ -377,7 +382,7 @@ class SequencerWriterSourceTest
             error = events.events.collectFirst {
               case Sequenced(
                     _,
-                    deliverError @ DeliverErrorStoreEvent(`aliceId`, _, _, _),
+                    deliverError @ DeliverErrorStoreEvent(`aliceId`, _, _, _, _),
                   ) =>
                 deliverError
             }.value
@@ -398,6 +403,7 @@ class SequencerWriterSourceTest
             messageId1,
             Set.empty,
             generatePayload(),
+            None,
             None,
           )
         )

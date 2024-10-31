@@ -11,7 +11,7 @@ import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
-import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
+import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond, Offset}
 import com.digitalasset.canton.ledger.participant.state.{DomainIndex, RequestIndex}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -692,7 +692,9 @@ final class SyncStateInspection(
     timeouts.inspection.await(s"$functionFullName")(
       participantNodePersistentState.value.ledgerApiStore.lastDomainOffsetBeforeOrAt(
         domainId,
-        participantNodePersistentState.value.ledgerApiStore.ledgerEndCache()._1,
+        Offset.fromAbsoluteOffsetO(
+          participantNodePersistentState.value.ledgerApiStore.ledgerEndCache()._1
+        ),
       )
     )
 

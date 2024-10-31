@@ -8,6 +8,7 @@ import com.digitalasset.canton.ProtoDeserializationError.OtherError
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.{HashOps, Signature}
 import com.digitalasset.canton.data.{
+  UnassignmentCommonData,
   UnassignmentViewTree,
   ViewConfirmationParameters,
   ViewPosition,
@@ -37,12 +38,11 @@ import java.util.UUID
 final case class UnassignmentMediatorMessage(
     tree: UnassignmentViewTree,
     override val submittingParticipantSignature: Signature,
-) extends MediatorConfirmationRequest
-    with UnsignedProtocolMessage {
+) extends ReassignmentMediatorMessage {
   require(tree.commonData.isFullyUnblinded, "The unassignment common data must be unblinded")
   require(tree.view.isBlinded, "The unassignment view must be blinded")
 
-  private[this] val commonData = tree.commonData.tryUnwrap
+  protected[this] val commonData: UnassignmentCommonData = tree.commonData.tryUnwrap
 
   override def submittingParticipant: ParticipantId = tree.submittingParticipant
 

@@ -3,16 +3,9 @@
 
 package com.digitalasset.canton.protocol.messages
 
-import cats.syntax.functor.*
 import com.digitalasset.canton.ProtoDeserializationError.OtherError
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.{HashOps, Signature}
-import com.digitalasset.canton.data.{
-  AssignmentViewTree,
-  ViewConfirmationParameters,
-  ViewPosition,
-  ViewType,
-}
+import com.digitalasset.canton.data.{AssignmentCommonData, AssignmentViewTree, ViewType}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
@@ -37,14 +30,14 @@ import java.util.UUID
 final case class AssignmentMediatorMessage(
     tree: AssignmentViewTree,
     override val submittingParticipantSignature: Signature,
-) extends MediatorConfirmationRequest {
+) extends ReassignmentMediatorMessage {
 
   require(tree.commonData.isFullyUnblinded, "The assignment common data must be unblinded")
   require(tree.view.isBlinded, "The assignment view must be blinded")
 
   override def submittingParticipant: ParticipantId = tree.submittingParticipant
 
-  private[this] val commonData = tree.commonData.tryUnwrap
+  protected[this] val commonData: AssignmentCommonData = tree.commonData.tryUnwrap
 
   // Align the protocol version with the common data's protocol version
   lazy val protocolVersion: Target[ProtocolVersion] = commonData.targetProtocolVersion
@@ -58,17 +51,6 @@ final case class AssignmentMediatorMessage(
   override def mediator: MediatorGroupRecipient = commonData.targetMediatorGroup
 
   override def requestUuid: UUID = commonData.uuid
-
-  override def informeesAndConfirmationParamsByViewPosition
-      : Map[ViewPosition, ViewConfirmationParameters] = {
-    val confirmingParties = commonData.confirmingParties.fmap(_.toNonNegative)
-    val nonConfirmingParties = commonData.stakeholders.nonConfirming.map(_ -> NonNegativeInt.zero)
-
-    val informees = confirmingParties ++ nonConfirmingParties
-    val threshold = NonNegativeInt.tryCreate(confirmingParties.size)
-
-    Map(tree.viewPosition -> ViewConfirmationParameters.create(informees, threshold))
-  }
 
   override def toProtoSomeEnvelopeContentV30: v30.EnvelopeContent.SomeEnvelopeContent =
     v30.EnvelopeContent.SomeEnvelopeContent.AssignmentMediatorMessage(toProtoV30)
