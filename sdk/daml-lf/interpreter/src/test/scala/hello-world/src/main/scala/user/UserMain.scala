@@ -9,10 +9,11 @@ import org.teavm.interop.Export
 object UserMain {
   @Export(name = "main")
   def main(): Unit = {
-//    implicit val companion: SimpleTemplate.type = SimpleTemplate
+    implicit val companion: SimpleTemplate.type = SimpleTemplate
 
     logInfo("hello-world")
-//    val contractId = new SimpleTemplate(LfValueParty("alice"), LfValueInt(42)).create[SimpleTemplate, SimpleTemplate.type]()
-//    logInfo(s"created contract $contractId")
+    val contractId = new SimpleTemplate(LfValueParty("alice"), LfValueInt(42))
+      .create[SimpleTemplate, SimpleTemplate.type]()
+    logInfo(s"created contract $contractId")
   }
 }

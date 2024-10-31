@@ -473,7 +473,7 @@ export class ConsumingChoice extends ChoiceClosure {
   }
 }
 
-export class NonConsumingChoice<R> extends ChoiceClosure {
+export class NonConsumingChoice extends ChoiceClosure {
   constructor(contractArg: LfValue) {
     super(contractArg);
   }

@@ -33,3 +33,5 @@ define struct based `ByteString` data types (by extending the teaVM `Structure` 
 
 Implementing the teaVM `teavm.logString` host function (e.g. using a Scala `println` style implementation) should allow
 additional debugging of the hello-world example.
+
+Possible workaround to Protobuf issues: implement our own serialization/deserialization solution for the guest/host memory interactions.
