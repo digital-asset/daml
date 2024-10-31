@@ -21,9 +21,10 @@ module DA.Daml.LF.TypeChecker.Error(
     UpgradeMismatchReason(..),
     DamlWarningFlag(..),
     DamlWarningFlagStatus(..),
-    parseDamlWarningFlag,
+    parseRawDamlWarningFlag,
     getWarningStatus,
     upgradeInterfacesName, upgradeInterfacesFilter,
+    namesToFilters,
     ) where
 
 import Control.Applicative
@@ -263,7 +264,7 @@ instance Pretty ErrorOrWarning where
 
 data DamlWarningFlagStatus
   = AsError -- -Werror=<name>
-  | AsWarning -- -W<name>
+  | AsWarning -- -W<name> or -Wwarn=<name> or -Wno-error=<name>
   | Hidden -- -Wno-<name>
 
 data DamlWarningFlag
@@ -272,10 +273,12 @@ data DamlWarningFlag
     , rfStatus :: DamlWarningFlagStatus
     , rfFilter :: ErrorOrWarning -> Bool
     }
-  | WarnBadInterfaceInstances Bool -- When true, same as -Wupgrade-interfaces
+  | WarnBadInterfaceInstances Bool
+  -- ^ For legacy --warn-bad-interface-instance flag.
+  -- Interpreted identically to -Wupgrade-interfaces
 
-parseDamlWarningFlag :: String -> Either String DamlWarningFlag
-parseDamlWarningFlag = \case
+parseRawDamlWarningFlag :: String -> Either String DamlWarningFlag
+parseRawDamlWarningFlag = \case
   ('e':'r':'r':'o':'r':'=':name) -> RawDamlWarningFlag name AsError <$> parseNameE name
   ('n':'o':'-':'e':'r':'r':'o':'r':'=':name) -> RawDamlWarningFlag name AsWarning <$> parseNameE name
   ('n':'o':'-':name) -> RawDamlWarningFlag name Hidden <$> parseNameE name
