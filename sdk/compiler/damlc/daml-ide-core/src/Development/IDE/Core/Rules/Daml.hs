@@ -311,7 +311,7 @@ generateDalfRule opts =
             Left err -> ([ideErrorPretty file err], Nothing)
             Right dalf ->
                 let lfDiags = LF.checkModule world lfVersion dalf
-                    upgradeDiags = Upgrade.checkModule world dalf (map Upgrade.unitIdDalfPackageToUpgradedPkg (foldMap Map.toList mbDalfDependencies)) lfVersion (optUpgradeInfo opts) upgradedPackage
+                    upgradeDiags = Upgrade.checkModule world dalf (map Upgrade.unitIdDalfPackageToUpgradedPkg (foldMap Map.toList mbDalfDependencies)) lfVersion (optUpgradeInfo opts) (optDamlWarningFlags opts) upgradedPackage
                 in second (dalf <$) (diagsToIdeResult file (lfDiags ++ upgradeDiags))
 
 -- TODO Share code with typecheckModule in ghcide. The environment needs to be setup

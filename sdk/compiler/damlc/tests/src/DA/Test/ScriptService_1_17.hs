@@ -42,6 +42,7 @@ import System.IO.Extra
 import Test.Tasty
 import Test.Tasty.HUnit
 import Text.Regex.TDFA
+import DA.Daml.LF.TypeChecker.Error
 
 lfVersion :: LF.Version
 lfVersion = LF.version1_17
@@ -237,7 +238,7 @@ options :: Options
 options =
   let opts0 = defaultOptions (Just lfVersion)
   in
-  opts0 { optUpgradeInfo = (optUpgradeInfo opts0) { uiWarnBadInterfaceInstances = True } }
+  opts0 { optDamlWarningFlags = optDamlWarningFlags opts0 ++ [upgradeInterfacesFlag AsWarning] }
 
 
 runScripts :: SdkVersioned => SS.Handle -> [T.Text] -> IO [(VirtualResource, Either T.Text T.Text)]

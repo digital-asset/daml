@@ -5,6 +5,7 @@ module Options.Applicative.Extended
     ( YesNoAuto (..)
     , flagYesNoAuto
     , flagYesNoAuto'
+    , flagYesNoAutoNoDefault
     , determineAuto
     , determineAutoM
     , optionOnce
@@ -45,7 +46,14 @@ determineAutoM m = \case
 -- This maps yes to "Just true", no to "Just False" and auto to "Nothing"
 flagYesNoAuto' :: String -> String -> Mod OptionFields YesNoAuto -> Parser YesNoAuto
 flagYesNoAuto' flagName helpText mods =
-    optionOnce reader (long flagName <> value Auto <> help helpText <> completeWith ["true", "false", "yes", "no", "auto"] <> mods)
+    flagYesNoAutoNoDefault flagName helpText (value Auto <> mods)
+
+-- | This constructs flags that can be set to yes, no, or auto, with no default
+-- This maps yes to "Just true", no to "Just False" and auto to "Nothing"
+-- Use this when putting this flag behind a combinator like `many`
+flagYesNoAutoNoDefault :: String -> String -> Mod OptionFields YesNoAuto -> Parser YesNoAuto
+flagYesNoAutoNoDefault flagName helpText mods =
+    optionOnce reader (long flagName <> help helpText <> completeWith ["true", "false", "yes", "no", "auto"] <> mods)
   where reader = eitherReader $ \case
             "yes" -> Right Yes
             "true" -> Right Yes

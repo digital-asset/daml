@@ -4,7 +4,7 @@
 -- @ SCRIPT-V2
 
 -- @ WARN range=20:1-20:52; Import of internal module Daml.Script.Internal of package daml3-script is discouraged, as this module will change without warning.
--- @ WARN warn-bad-exceptions
+-- @ WARN -Wupgrade-exceptions
 
 {-# LANGUAGE ApplicativeDo #-}
 

@@ -3,9 +3,9 @@
 
 -- @SUPPORTS-LF-FEATURE DAML_INTERFACE
 
--- @ WARN since-lf=1.16 2.0; warn-bad-interface-instances
--- @ WARN since-lf=1.16 2.0; warn-bad-interface-instances
--- @ WARN since-lf=1.16 2.0; warn-bad-interface-instances
+-- @ WARN since-lf=1.16 2.0; -Werror=upgrade-interfaces
+-- @ WARN since-lf=1.16 2.0; -Werror=upgrade-interfaces
+-- @ WARN since-lf=1.16 2.0; -Werror=upgrade-interfaces
 -- | Test interface conversion functions specifically.
 module InterfaceConversions where
 

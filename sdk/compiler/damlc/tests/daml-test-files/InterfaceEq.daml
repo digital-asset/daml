@@ -2,9 +2,9 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- @SUPPORTS-LF-FEATURE DAML_INTERFACE
--- @ WARN since-lf=1.16 2.0; warn-bad-interface-instances
--- @ WARN since-lf=1.16 2.0; warn-bad-interface-instances
--- @ WARN since-lf=1.16 2.0; warn-bad-interface-instances
+-- @ WARN since-lf=1.16 2.0; -Werror=upgrade-interfaces
+-- @ WARN since-lf=1.16 2.0; -Werror=upgrade-interfaces
+-- @ WARN since-lf=1.16 2.0; -Werror=upgrade-interfaces
 module InterfaceEq where
 
 import Daml.Script

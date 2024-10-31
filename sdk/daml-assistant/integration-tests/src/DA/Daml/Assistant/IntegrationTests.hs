@@ -123,7 +123,7 @@ damlStart tmpDir disableUpgradeValidation = do
             , "    npm-scope: daml.js"
             , "  java:"
             , "    output-directory: ui/java"
-            ] ++ [ "build-options:\n- --warn-bad-interface-instances=yes\n- --warn-bad-exceptions=yes" | disableUpgradeValidation ]
+            ] ++ [ "build-options:\n- -Wno-upgrade-interfaces\n- -Wno-upgrade-exceptions" | disableUpgradeValidation ]
     writeFileUTF8 (projDir </> "daml/Main.daml") $
         unlines
             [ "module Main where"
