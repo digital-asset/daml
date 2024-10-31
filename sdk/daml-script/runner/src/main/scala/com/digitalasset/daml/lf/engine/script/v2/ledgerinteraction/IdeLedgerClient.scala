@@ -200,8 +200,8 @@ class IdeLedgerClient(
     )
 
     valueTranslator.strictTranslateValue(TTyCon(templateId), arg) match {
-      case Left(_) =>
-        sys.error("computeView: translateValue failed")
+      case Left(e) =>
+        sys.error(s"computeView: translateValue failed: $e")
 
       case Right(argument) =>
         val compiler: speedy.Compiler = compiledPackages.compiler
