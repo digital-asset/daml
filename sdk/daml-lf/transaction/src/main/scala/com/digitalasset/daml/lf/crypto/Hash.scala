@@ -55,7 +55,7 @@ object Hash {
 
   sealed abstract class NodeHashingError(val msg: String) extends Exception
   object NodeHashingError {
-    final case class UnsupportedNode(message: String) extends NodeHashingError(message)
+    final case class UnsupportedFeature(message: String) extends NodeHashingError(message)
     final case class IncompleteTransactionTree(nodeId: NodeId)
         extends NodeHashingError(s"The transaction does not contain a node with nodeId $nodeId")
     final case class UnsupportedLanguageVersion(
@@ -316,15 +316,17 @@ object Hash {
       case Node.Create(
             coid,
             packageName,
-            _packageVersion @ _,
+            packageVersion,
             templateId,
             arg,
             _agreementText @ _,
             signatories,
             stakeholders,
-            _keyOpt @ _,
+            keyOpt,
             version,
           ) =>
+        if (packageVersion.isDefined) notSupported("packageVersion in Create node") // 2.dev feature
+        if (keyOpt.isDefined) notSupported("keyOpt in Create node") // 2.dev feature
         addContext("Create Node")
           .withContext("Node Version")(_.addString(TransactionVersion.toProtoValue(version)))
           .addByte(NodeBuilder.NodeTag.CreateTag.tag, "Node Tag")
@@ -344,11 +346,14 @@ object Hash {
             actingParties,
             signatories,
             stakeholders,
-            _keyOpt @ _,
-            _byKey @ _,
-            _interfaceId @ _,
+            keyOpt,
+            byKey,
+            interfaceId,
             version,
           ) =>
+        if (keyOpt.nonEmpty) notSupported("keyOpt in Fetch node") // 2.dev feature
+        if (byKey == true) notSupported("byKey in Fetch node") // 2.dev feature
+        if (interfaceId.nonEmpty) notSupported("interfaceId in Fetch node") // 2.dev feature
         addContext("Fetch Node")
           .withContext("Node Version")(_.addString(TransactionVersion.toProtoValue(version)))
           .addByte(NodeBuilder.NodeTag.FetchTag.tag, "Node Tag")
@@ -373,13 +378,17 @@ object Hash {
             stakeholders,
             signatories,
             choiceObservers,
-            _choiceAuthorizers @ _,
+            choiceAuthorizers,
             children,
             exerciseResult,
-            _keyOpt @ _,
-            _byKey @ _,
+            keyOpt,
+            byKey,
             version,
           ) =>
+        if (choiceAuthorizers.nonEmpty)
+          notSupported("choiceAuthorizers in Exercise node") // 2.dev feature
+        if (keyOpt.nonEmpty) notSupported("keyOpt in Exercise node") // 2.dev feature
+        if (byKey == true) notSupported("byKey in Exercise node") // 2.dev feature
         addContext("Exercise Node")
           .withContext("Node Version")(_.addString(TransactionVersion.toProtoValue(version)))
           .addByte(NodeBuilder.NodeTag.ExerciseTag.tag, "Node Tag")
@@ -416,10 +425,13 @@ object Hash {
       case exercise: Node.Exercise => addExerciseNode(nodes)(exercise)
       case rollback: Node.Rollback => addRollbackNode(nodes)(rollback)
       case _: Node.LookupByKey =>
-        throw NodeHashingError.UnsupportedNode(
-          s"LookupByKey nodes are not supported in version ${NodeHashVersion.V1.id}"
-        )
+        notSupported(s"LookupByKey node")
     }
+
+    private[this] def notSupported(str: String) =
+      throw NodeHashingError.UnsupportedFeature(
+        s"$str is not supported in version ${NodeHashVersion.V1.id}"
+      )
   }
 
   /** Deterministically hash a versioned transaction using the Version 1 of the hashing algorithm.

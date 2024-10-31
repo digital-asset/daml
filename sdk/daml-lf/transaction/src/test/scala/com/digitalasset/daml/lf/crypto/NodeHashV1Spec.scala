@@ -63,12 +63,11 @@ class NodeHashV1Spec extends AnyWordSpec with Matchers {
     packageVersion = None,
     templateId = defRef("module", "name"),
     arg = VA.text.inj("hello"),
-    agreementText = "NOT_PART_OF_HASH",
     signatories =
       Set[Party](Ref.Party.assertFromString("alice"), Ref.Party.assertFromString("bob")),
     stakeholders =
       Set[Party](Ref.Party.assertFromString("alice"), Ref.Party.assertFromString("charlie")),
-    keyOpt = Some(globalKey),
+    keyOpt = None,
     version = LanguageVersion.v2_1,
   )
 
@@ -122,18 +121,9 @@ class NodeHashV1Spec extends AnyWordSpec with Matchers {
       Set[Party](Ref.Party.assertFromString("alice"), Ref.Party.assertFromString("bob")),
     signatories = Set[Party](Ref.Party.assertFromString("alice")),
     stakeholders = Set[Party](Ref.Party.assertFromString("charlie")),
-    keyOpt = Some(
-      GlobalKeyWithMaintainers(
-        GlobalKey.assertBuild(
-          defRef("module_key", "name"),
-          VA.text.inj("hello"),
-          PackageName.assertFromString("package_name_key"),
-        ),
-        Set[Party](Ref.Party.assertFromString("david")),
-      )
-    ),
-    byKey = true,
-    interfaceId = Some(defRef("interface_module", "interface_name")),
+    keyOpt = None,
+    byKey = false,
+    interfaceId = None,
     version = LanguageVersion.v2_1,
   )
 
@@ -193,11 +183,11 @@ class NodeHashV1Spec extends AnyWordSpec with Matchers {
     stakeholders = Set[Party](Ref.Party.assertFromString("charlie")),
     signatories = Set[Party](Ref.Party.assertFromString("alice")),
     choiceObservers = Set[Party](Ref.Party.assertFromString("david")),
-    choiceAuthorizers = Some(Set[Party](Ref.Party.assertFromString("eve"))),
+    choiceAuthorizers = None,
     children = ImmArray(NodeId(0), NodeId(1)),
     exerciseResult = Some(VA.text.inj("result")),
-    keyOpt = Some(globalKey),
-    byKey = true,
+    keyOpt = None,
+    byKey = false,
     version = LanguageVersion.v2_1,
   )
 
@@ -228,7 +218,7 @@ class NodeHashV1Spec extends AnyWordSpec with Matchers {
 
   "V1Encoding" should {
     "not encode lookup nodes" in {
-      a[NodeHashingError.UnsupportedNode] shouldBe thrownBy {
+      a[NodeHashingError.UnsupportedFeature] shouldBe thrownBy {
         Hash.hashNodeV1(lookupNode)
       }
     }
@@ -247,12 +237,12 @@ class NodeHashV1Spec extends AnyWordSpec with Matchers {
       Hash.hashNodeV1(createNode.copy(agreementText = "SOMETHING_ELSE")) shouldBe defaultHash
     }
 
-    "not include global keys" in {
-      Hash.hashNodeV1(
-        createNode.copy(
-          keyOpt = Some(globalKey2)
+    "fails  global keys" in {
+      a[NodeHashingError.UnsupportedFeature] shouldBe thrownBy(
+        Hash.hashNodeV1(
+          createNode.copy(keyOpt = Some(globalKey2))
         )
-      ) shouldBe defaultHash
+      )
     }
 
     "not produce collision in contractId" in {
@@ -328,20 +318,16 @@ class NodeHashV1Spec extends AnyWordSpec with Matchers {
       Hash.hashNodeV1(fetchNode) shouldBe defaultHash
     }
 
-    "not include global keys" in {
-      Hash.hashNodeV1(
-        fetchNode.copy(
-          keyOpt = Some(globalKey2)
-        )
-      ) shouldBe defaultHash
+    "fail if node includes global keys" in {
+      a[NodeHashingError.UnsupportedFeature] shouldBe thrownBy(
+        Hash.hashNodeV1(fetchNode.copy(keyOpt = Some(globalKey2)))
+      )
     }
 
-    "not include byKey" in {
-      Hash.hashNodeV1(
-        fetchNode.copy(
-          byKey = false
-        )
-      ) shouldBe defaultHash
+    "fail if node includes byKey" in {
+      a[NodeHashingError.UnsupportedFeature] shouldBe thrownBy(
+        Hash.hashNodeV1(fetchNode.copy(byKey = true))
+      )
     }
 
     "not produce collision in contractId" in {
@@ -422,19 +408,21 @@ class NodeHashV1Spec extends AnyWordSpec with Matchers {
     }
 
     "not include global keys" in {
-      hashExerciseNode(
-        exerciseNode.copy(
-          keyOpt = Some(globalKey2)
+      a[NodeHashingError.UnsupportedFeature] shouldBe thrownBy(
+        hashExerciseNode(
+          exerciseNode.copy(keyOpt = Some(globalKey2))
         )
-      ) shouldBe defaultHash
+      )
     }
 
     "not include choiceAuthorizers" in {
-      hashExerciseNode(
-        exerciseNode.copy(
-          choiceAuthorizers = Some(Set[Party](Ref.Party.assertFromString("alice")))
+      a[NodeHashingError.UnsupportedFeature] shouldBe thrownBy(
+        hashExerciseNode(
+          exerciseNode.copy(choiceAuthorizers =
+            Some(Set[Party](Ref.Party.assertFromString("alice")))
+          )
         )
-      ) shouldBe defaultHash
+      )
     }
 
     "not include byKey" in {
