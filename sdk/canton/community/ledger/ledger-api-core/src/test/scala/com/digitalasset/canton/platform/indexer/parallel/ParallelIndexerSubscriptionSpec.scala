@@ -708,14 +708,14 @@ class ParallelIndexerSubscriptionSpec
 
   it should "apply ingestTailFunction on the last batch and forward the batch of batches" in {
     val ledgerEnd = ParameterStorageBackend.LedgerEnd(
-      lastOffset = offset(5),
+      lastOffset = offset(5).toAbsoluteOffsetO,
       lastEventSeqId = 2000,
       lastStringInterningId = 300,
       lastPublicationTime = CantonTimestamp.MinValue,
     )
 
     val secondBatchLedgerEnd = ParameterStorageBackend.LedgerEnd(
-      lastOffset = offset(6),
+      lastOffset = offset(6).toAbsoluteOffsetO,
       lastEventSeqId = 3000,
       lastStringInterningId = 400,
       lastPublicationTime = CantonTimestamp.MinValue.plusSeconds(10),
@@ -727,7 +727,7 @@ class ParallelIndexerSubscriptionSpec
     }
 
     val batch = Batch(
-      lastOffset = ledgerEnd.lastOffset,
+      lastOffset = Offset.fromAbsoluteOffsetO(ledgerEnd.lastOffset),
       lastSeqEventId = ledgerEnd.lastEventSeqId,
       lastStringInterningId = ledgerEnd.lastStringInterningId,
       lastRecordTime = someTime.toEpochMilli,
@@ -742,7 +742,7 @@ class ParallelIndexerSubscriptionSpec
       batch,
       batch.copy(
         lastSeqEventId = secondBatchLedgerEnd.lastEventSeqId,
-        lastOffset = secondBatchLedgerEnd.lastOffset,
+        lastOffset = Offset.fromAbsoluteOffsetO(secondBatchLedgerEnd.lastOffset),
         lastStringInterningId = secondBatchLedgerEnd.lastStringInterningId,
         publicationTime = secondBatchLedgerEnd.lastPublicationTime,
       ),
@@ -776,7 +776,7 @@ class ParallelIndexerSubscriptionSpec
         offsetsUpdates = Vector.empty,
       )
     ) shouldBe ParameterStorageBackend.LedgerEnd(
-      lastOffset = offset(5),
+      lastOffset = offset(5).toAbsoluteOffsetO,
       lastEventSeqId = 2000,
       lastStringInterningId = 300,
       lastPublicationTime = CantonTimestamp.MinValue.plusSeconds(20),
@@ -874,7 +874,7 @@ class ParallelIndexerSubscriptionSpec
 
   private val someAggregatedLedgerEndForRepair: (LedgerEnd, Map[DomainId, DomainIndex]) =
     ParameterStorageBackend.LedgerEnd(
-      lastOffset = offset(5),
+      lastOffset = offset(5).toAbsoluteOffsetO,
       lastEventSeqId = 2000,
       lastStringInterningId = 300,
       lastPublicationTime = CantonTimestamp.ofEpochMicro(5),
@@ -973,7 +973,7 @@ class ParallelIndexerSubscriptionSpec
       .apply(someBatchOfBatches)
     aggregateLedgerEndForRepairRef.get() shouldBe
       ParameterStorageBackend.LedgerEnd(
-        lastOffset = offset(20),
+        lastOffset = offset(20).toAbsoluteOffsetO,
         lastEventSeqId = 2020,
         lastStringInterningId = 320,
         lastPublicationTime = CantonTimestamp.ofEpochMicro(25),
@@ -999,7 +999,7 @@ class ParallelIndexerSubscriptionSpec
       .apply(someBatchOfBatches)
     aggregateLedgerEndForRepairRef.get() shouldBe
       ParameterStorageBackend.LedgerEnd(
-        lastOffset = offset(20),
+        lastOffset = offset(20).toAbsoluteOffsetO,
         lastEventSeqId = 2020,
         lastStringInterningId = 320,
         lastPublicationTime = CantonTimestamp.ofEpochMicro(25),

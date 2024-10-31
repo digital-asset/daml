@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.backend
 
 import com.digitalasset.canton.data
-import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.TransactionMetering
@@ -31,8 +31,9 @@ private[store] object StorageBackendTestValues {
 
   /** Produces offsets that are ordered the same as the input value */
   def offset(x: Long): Offset = Offset.fromLong(x)
+  def absoluteOffset(x: Long): AbsoluteOffset = AbsoluteOffset.tryFromLong(x)
   def ledgerEnd(o: Long, e: Long): ParameterStorageBackend.LedgerEnd =
-    ParameterStorageBackend.LedgerEnd(offset(o), e, 0, CantonTimestamp.now())
+    ParameterStorageBackend.LedgerEnd(Some(absoluteOffset(o)), e, 0, CantonTimestamp.now())
   def updateIdFromOffset(x: Offset): Ref.LedgerString =
     Ref.LedgerString.assertFromString(x.toHexString)
 

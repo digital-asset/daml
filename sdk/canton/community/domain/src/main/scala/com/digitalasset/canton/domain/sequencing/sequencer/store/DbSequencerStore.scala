@@ -142,6 +142,10 @@ class DbSequencerStore(
         Payload(id, content)
       }
 
+  /** @param trafficReceiptO If traffic management is enabled, there should always be traffic information for the sender.
+    *                        The information might be discarded later though, in case the event is being processed as part
+    *                        of a subscription for any of the recipients that isn't the sender.
+    */
   case class DeliverStoreEventRow[P](
       timestamp: CantonTimestamp,
       instanceIndex: Int,
@@ -154,6 +158,7 @@ class DbSequencerStore(
       traceContext: TraceContext,
       // TODO(#15628) We should represent this differently, so that DeliverErrorStoreEvent.fromByteString parameter is always defined as well
       errorO: Option[ByteString],
+      trafficReceiptO: Option[TrafficReceipt],
   ) {
     lazy val asStoreEvent: Either[String, Sequenced[P]] =
       for {
@@ -177,6 +182,7 @@ class DbSequencerStore(
         payload,
         topologyTimestampO,
         traceContext,
+        trafficReceiptO,
       )
 
     private lazy val asErrorStoreEvent: Either[String, DeliverErrorStoreEvent] =
@@ -188,6 +194,7 @@ class DbSequencerStore(
         messageId,
         errorO,
         traceContext,
+        trafficReceiptO,
       )
 
     private lazy val asReceiptStoreEvent: Either[String, ReceiptStoreEvent] =
@@ -199,6 +206,7 @@ class DbSequencerStore(
         messageId,
         topologyTimestampO,
         traceContext,
+        trafficReceiptO,
       )
 
   }
@@ -216,6 +224,7 @@ class DbSequencerStore(
               payloadId,
               topologyTimestampO,
               traceContext,
+              trafficReceiptO,
             ) =>
           DeliverStoreEventRow(
             storeEvent.timestamp,
@@ -228,8 +237,9 @@ class DbSequencerStore(
             topologyTimestampO = topologyTimestampO,
             traceContext = traceContext,
             errorO = None,
+            trafficReceiptO = trafficReceiptO,
           )
-        case DeliverErrorStoreEvent(sender, messageId, errorO, traceContext) =>
+        case DeliverErrorStoreEvent(sender, messageId, errorO, traceContext, trafficReceiptO) =>
           DeliverStoreEventRow(
             timestamp = storeEvent.timestamp,
             instanceIndex = instanceIndex,
@@ -240,8 +250,15 @@ class DbSequencerStore(
               Some(NonEmpty(SortedSet, sender)), // must be set for sender to receive value
             traceContext = traceContext,
             errorO = errorO,
+            trafficReceiptO = trafficReceiptO,
           )
-        case ReceiptStoreEvent(sender, messageId, topologyTimestampO, traceContext) =>
+        case ReceiptStoreEvent(
+              sender,
+              messageId,
+              topologyTimestampO,
+              traceContext,
+              trafficReceiptO,
+            ) =>
           DeliverStoreEventRow(
             timestamp = storeEvent.timestamp,
             instanceIndex = instanceIndex,
@@ -253,6 +270,7 @@ class DbSequencerStore(
             traceContext = traceContext,
             errorO = None,
             topologyTimestampO = topologyTimestampO,
+            trafficReceiptO = trafficReceiptO,
           )
       }
   }
@@ -271,6 +289,19 @@ class DbSequencerStore(
           )
       }
 
+  private implicit val trafficReceiptOGetResult: GetResult[Option[TrafficReceipt]] =
+    GetResult
+      .createGetTuple3[Option[NonNegativeLong], Option[NonNegativeLong], Option[NonNegativeLong]]
+      .andThen {
+        case (Some(consumedCost), Some(trafficConsumed), Some(baseTraffic)) =>
+          Some(TrafficReceipt(consumedCost, trafficConsumed, baseTraffic))
+        case (None, None, None) => None
+        case (consumedCost, extraTrafficConsumed, baseTrafficRemainder) =>
+          throw new DbDeserializationException(
+            s"Inconsistent traffic data: consumedCost=$consumedCost, extraTrafficConsumed=$extraTrafficConsumed, baseTrafficRemained=$baseTrafficRemainder"
+          )
+      }
+
   private implicit val getDeliverStoreEventRowResultWithPayload: GetResult[Sequenced[Payload]] = {
     val timestampGetter = implicitly[GetResult[CantonTimestamp]]
     val timestampOGetter = implicitly[GetResult[Option[CantonTimestamp]]]
@@ -281,6 +312,7 @@ class DbSequencerStore(
     val payloadGetter = implicitly[GetResult[Option[Payload]]]
     val traceContextGetter = implicitly[GetResult[SerializableTraceContext]]
     val errorOGetter = implicitly[GetResult[Option[ByteString]]]
+    val trafficReceipt = implicitly[GetResult[Option[TrafficReceipt]]]
 
     GetResult { r =>
       val row = DeliverStoreEventRow[Payload](
@@ -294,6 +326,7 @@ class DbSequencerStore(
         timestampOGetter(r),
         traceContextGetter(r).unwrap,
         errorOGetter(r),
+        trafficReceipt(r),
       )
 
       row.asStoreEvent.valueOr(err =>
@@ -301,17 +334,6 @@ class DbSequencerStore(
       )
     }
   }
-
-  private implicit val trafficReceiptOGetResult: GetResult[Option[TrafficReceipt]] =
-    GetResult
-      .createGetTuple3[Option[NonNegativeLong], Option[NonNegativeLong], Option[NonNegativeLong]]
-      .andThen {
-        case (Some(trafficConsumed), Some(baseTraffic), Some(lastConsumedCost)) =>
-          Some(TrafficReceipt(lastConsumedCost, trafficConsumed, baseTraffic))
-        case _ => None
-        // If fields are not populated by the left join (i.e. are NULL) in `readEvents(...)`,
-        // there's `None` for the receipt. This would happen for non-senders,
-      }
 
   private implicit val getDeliverStoreEventRowResult: GetResult[Sequenced[PayloadId]] = {
     val timestampGetter = implicitly[GetResult[CantonTimestamp]]
@@ -323,6 +345,7 @@ class DbSequencerStore(
     val payloadIdGetter = implicitly[GetResult[Option[PayloadId]]]
     val traceContextGetter = implicitly[GetResult[SerializableTraceContext]]
     val errorOGetter = implicitly[GetResult[Option[ByteString]]]
+    val trafficReceipt = implicitly[GetResult[Option[TrafficReceipt]]]
 
     GetResult { r =>
       val row = DeliverStoreEventRow[PayloadId](
@@ -336,6 +359,7 @@ class DbSequencerStore(
         timestampOGetter(r),
         traceContextGetter(r).unwrap,
         errorOGetter(r),
+        trafficReceipt(r),
       )
 
       row.asStoreEvent
@@ -587,9 +611,9 @@ class DbSequencerStore(
     val saveSql =
       """insert into sequencer_events (
         |  ts, node_index, event_type, message_id, sender, recipients,
-        |  payload_id, topology_timestamp, trace_context, error
+        |  payload_id, topology_timestamp, trace_context, error, consumed_cost, extra_traffic_consumed, base_traffic_remainder
         |)
-        |  values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        |  values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         |  on conflict do nothing""".stripMargin
 
     storage.queryAndUpdate(
@@ -605,6 +629,7 @@ class DbSequencerStore(
           topologyTimestampO,
           traceContext,
           errorO,
+          trafficReceiptO,
         ) = DeliverStoreEventRow(instanceIndex, event)
 
         pp >> timestamp
@@ -617,6 +642,9 @@ class DbSequencerStore(
         pp >> topologyTimestampO
         pp >> SerializableTraceContext(traceContext)
         pp >> errorO
+        pp >> trafficReceiptO.map(_.consumedCost)
+        pp >> trafficReceiptO.map(_.extraTrafficConsumed)
+        pp >> trafficReceiptO.map(_.baseTrafficRemainder)
       },
       functionFullName,
     )
@@ -833,7 +861,8 @@ class DbSequencerStore(
     ) = sql"""
         select events.ts, events.node_index, events.event_type, events.message_id, events.sender,
           events.recipients, events.payload_id, events.topology_timestamp,
-          events.trace_context, events.error
+          events.trace_context, events.error,
+          events.consumed_cost, events.extra_traffic_consumed, events.base_traffic_remainder
         from sequencer_events events
         inner join sequencer_watermarks watermarks
           on events.node_index = watermarks.node_index
@@ -892,12 +921,10 @@ class DbSequencerStore(
         select events.ts, events.node_index, events.event_type, events.message_id, events.sender,
           events.recipients, payloads.id, payloads.content, events.topology_timestamp,
           events.trace_context, events.error,
-          traffic.extra_traffic_consumed, traffic.base_traffic_remainder, traffic.last_consumed_cost
+          events.consumed_cost, events.extra_traffic_consumed, events.base_traffic_remainder
         from sequencer_events events
         left join sequencer_payloads payloads
           on events.payload_id = payloads.id
-        left join seq_traffic_control_consumed_journal traffic
-          on events.ts = traffic.sequencing_timestamp
         inner join sequencer_watermarks watermarks
           on events.node_index = watermarks.node_index
         where

@@ -14,7 +14,7 @@ import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveLong}
-import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
+import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond, Offset}
 import com.digitalasset.canton.ledger.participant.state.DomainIndex
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
@@ -384,9 +384,12 @@ class PruningProcessor(
     }
     for {
       _ <- EitherT.cond[FutureUnlessShutdown](
-        participantNodePersistentState.value.ledgerApiStore
-          .ledgerEndCache()
-          ._1
+        Offset
+          .fromAbsoluteOffsetO(
+            participantNodePersistentState.value.ledgerApiStore
+              .ledgerEndCache()
+              ._1
+          )
           .toLong >= pruneUptoInclusive.toLong,
         (),
         Pruning.LedgerPruningOffsetAfterLedgerEnd: LedgerPruningError,

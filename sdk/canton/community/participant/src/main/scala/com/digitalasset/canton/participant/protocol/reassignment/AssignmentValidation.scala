@@ -12,7 +12,6 @@ import com.digitalasset.canton.data.*
 import com.digitalasset.canton.error.CantonErrorGroups.ParticipantErrorGroup.TransactionErrorGroup.LocalRejectionGroup
 import com.digitalasset.canton.error.{Alarm, AlarmErrorCode}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.participant.protocol.EngineController.GetEngineAbortStatus
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidation.InvalidUnassignmentResult.DeliveredUnassignmentResultError
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidation.{
   AssignmentValidationResult,
@@ -29,15 +28,12 @@ import com.digitalasset.canton.participant.protocol.{
   SerializableContractAuthenticator,
 }
 import com.digitalasset.canton.participant.store.*
-import com.digitalasset.canton.participant.util.DAMLe
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil.condUnitET
 import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.{LfPartyId, ReassignmentCounter}
-import com.digitalasset.daml.lf.engine.Error as LfError
-import com.digitalasset.daml.lf.interpretation.Error as LfInterpretationError
 import com.google.common.annotations.VisibleForTesting
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -47,61 +43,10 @@ private[reassignment] class AssignmentValidation(
     serializableContractAuthenticator: SerializableContractAuthenticator,
     staticDomainParameters: Target[StaticDomainParameters],
     participantId: ParticipantId,
-    engine: DAMLe,
     reassignmentCoordination: ReassignmentCoordination,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit val ec: ExecutionContext)
     extends NamedLogging {
-
-  def checkStakeholders(
-      assignmentRequest: FullAssignmentTree,
-      getEngineAbortStatus: GetEngineAbortStatus,
-  )(implicit traceContext: TraceContext): EitherT[Future, ReassignmentProcessorError, Unit] = {
-    val reassignmentId = assignmentRequest.unassignmentResultEvent.reassignmentId
-
-    // TODO(#12926) We don't have re-interpretation check in the processing of the unassignment. Do we need it?
-    val declaredContractStakeholders = Stakeholders(assignmentRequest.contract.metadata)
-    val declaredViewStakeholders = assignmentRequest.stakeholders
-
-    for {
-      metadata <- engine
-        .contractMetadata(
-          assignmentRequest.contract.contractInstance,
-          declaredContractStakeholders.all,
-          getEngineAbortStatus,
-        )
-        .leftMap {
-          case DAMLe.EngineError(
-                LfError.Interpretation(
-                  e @ LfError.Interpretation.DamlException(
-                    LfInterpretationError.FailedAuthorization(_, _)
-                  ),
-                  _,
-                )
-              ) =>
-            StakeholdersMismatch(
-              Some(reassignmentId),
-              declaredViewStakeholders = declaredViewStakeholders,
-              declaredContractStakeholders = Some(declaredContractStakeholders),
-              expectedStakeholders = Left(e.message),
-            )
-          case DAMLe.EngineError(error) => MetadataNotFound(error)
-          case DAMLe.EngineAborted(reason) =>
-            ReinterpretationAborted(reassignmentId, reason)
-
-        }
-      recomputedStakeholders = Stakeholders(metadata)
-      _ <- condUnitET[Future](
-        declaredViewStakeholders == recomputedStakeholders && declaredViewStakeholders == declaredContractStakeholders,
-        StakeholdersMismatch(
-          Some(reassignmentId),
-          declaredViewStakeholders = declaredViewStakeholders,
-          declaredContractStakeholders = Some(declaredContractStakeholders),
-          expectedStakeholders = Right(recomputedStakeholders),
-        ),
-      ).leftWiden[ReassignmentProcessorError]
-    } yield ()
-  }
 
   // TODO(#12926) Check what validations should be done for observing reassigning participants
   // TODO(#22048) Split this method in smaller chunks

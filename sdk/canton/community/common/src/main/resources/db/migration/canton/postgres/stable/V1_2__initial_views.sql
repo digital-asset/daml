@@ -491,7 +491,10 @@ create or replace view debug.sequencer_events as
     payload_id,
     debug.canton_timestamp(topology_timestamp) as topology_timestamp,
     trace_context,
-    error
+    error,
+    consumed_cost,
+    extra_traffic_consumed,
+    base_traffic_remainder
   from sequencer_events;
 
 create or replace view debug.par_pruning_schedules as

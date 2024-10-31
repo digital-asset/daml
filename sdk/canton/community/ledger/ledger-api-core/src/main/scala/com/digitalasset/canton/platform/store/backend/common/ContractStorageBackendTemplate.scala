@@ -158,7 +158,7 @@ class ContractStorageBackendTemplate(
     if (contractIds.isEmpty) Map.empty
     else {
       import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
-      val ledgerEndOffset = ledgerEndCache()._1
+      val ledgerEndOffset = Offset.fromAbsoluteOffsetO(ledgerEndCache()._1)
       SQL"""
          WITH min_event_sequential_ids_of_assign AS (
              SELECT MIN(event_sequential_id) min_event_sequential_id

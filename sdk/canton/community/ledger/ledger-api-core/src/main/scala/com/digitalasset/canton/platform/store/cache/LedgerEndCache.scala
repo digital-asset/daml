@@ -3,28 +3,28 @@
 
 package com.digitalasset.canton.platform.store.cache
 
-import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp}
 
 trait LedgerEndCache {
-  def apply(): (Offset, Long)
+  def apply(): (Option[AbsoluteOffset], Long)
   def publicationTime: CantonTimestamp
 }
 
 trait MutableLedgerEndCache extends LedgerEndCache {
-  def set(ledgerEnd: (Offset, Long, CantonTimestamp)): Unit
+  def set(ledgerEnd: (Option[AbsoluteOffset], Long, CantonTimestamp)): Unit
 }
 
 object MutableLedgerEndCache {
   def apply(): MutableLedgerEndCache =
     new MutableLedgerEndCache {
       @SuppressWarnings(Array("org.wartremover.warts.Null", "org.wartremover.warts.Var"))
-      @volatile private var ledgerEnd: (Offset, Long, CantonTimestamp) = _
+      @volatile private var ledgerEnd: (Option[AbsoluteOffset], Long, CantonTimestamp) = _
 
-      override def set(ledgerEnd: (Offset, Long, CantonTimestamp)): Unit = this.ledgerEnd =
-        ledgerEnd
+      override def set(ledgerEnd: (Option[AbsoluteOffset], Long, CantonTimestamp)): Unit =
+        this.ledgerEnd = ledgerEnd
 
       @SuppressWarnings(Array("org.wartremover.warts.Null"))
-      override def apply(): (Offset, Long) =
+      override def apply(): (Option[AbsoluteOffset], Long) =
         if (ledgerEnd == null) throw new IllegalStateException("uninitialized")
         else {
           val (offset, sequentialId, _) = ledgerEnd

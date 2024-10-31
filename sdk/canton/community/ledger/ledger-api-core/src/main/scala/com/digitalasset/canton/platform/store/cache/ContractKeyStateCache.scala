@@ -21,7 +21,7 @@ object ContractKeyStateCache {
       ec: ExecutionContext
   ): StateCache[GlobalKey, ContractKeyStateValue] =
     StateCache(
-      initialCacheIndex = initialCacheIndex,
+      initialCacheIndex = initialCacheIndex.toAbsoluteOffsetO,
       cache = SizedCache.from[GlobalKey, ContractKeyStateValue](
         SizedCache.Configuration(cacheSize),
         metrics.execution.cache.keyState.stateCache,

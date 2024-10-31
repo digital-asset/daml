@@ -280,8 +280,8 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
       resultForAlice <- transactionsOf(
         ledgerDao.transactionsReader
           .getTransactionTrees(
-            startExclusive = from.lastOffset,
-            endInclusive = to.lastOffset,
+            startExclusive = Offset.fromAbsoluteOffsetO(from.lastOffset),
+            endInclusive = Offset.fromAbsoluteOffsetO(to.lastOffset),
             requestingParties = Some(Set(alice)),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
@@ -292,8 +292,8 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
       resultForBob <- transactionsOf(
         ledgerDao.transactionsReader
           .getTransactionTrees(
-            startExclusive = from.lastOffset,
-            endInclusive = to.lastOffset,
+            startExclusive = Offset.fromAbsoluteOffsetO(from.lastOffset),
+            endInclusive = Offset.fromAbsoluteOffsetO(to.lastOffset),
             requestingParties = Some(Set(bob)),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
@@ -304,8 +304,8 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
       resultForCharlie <- transactionsOf(
         ledgerDao.transactionsReader
           .getTransactionTrees(
-            startExclusive = from.lastOffset,
-            endInclusive = to.lastOffset,
+            startExclusive = Offset.fromAbsoluteOffsetO(from.lastOffset),
+            endInclusive = Offset.fromAbsoluteOffsetO(to.lastOffset),
             requestingParties = Some(Set(charlie)),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
@@ -328,7 +328,11 @@ private[dao] trait JdbcLedgerDaoTransactionTreesSpec
       (_, t3) <- store(singleExercise(nonTransient(t2).loneElement))
       (_, t4) <- store(fullyTransient())
       to <- ledgerDao.lookupLedgerEnd()
-    } yield (from.lastOffset, to.lastOffset, Seq(t1, t2, t3, t4))
+    } yield (
+      Offset.fromAbsoluteOffsetO(from.lastOffset),
+      Offset.fromAbsoluteOffsetO(to.lastOffset),
+      Seq(t1, t2, t3, t4),
+    )
 
   private def lookupIndividually(
       transactions: Seq[LedgerEntry.Transaction],

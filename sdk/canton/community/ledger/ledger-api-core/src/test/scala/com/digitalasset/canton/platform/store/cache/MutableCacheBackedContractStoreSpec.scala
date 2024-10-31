@@ -75,15 +75,15 @@ class MutableCacheBackedContractStoreSpec
           loggerFactory = loggerFactory,
           spyContractsReader,
         ).asFuture
-        _ = store.contractStateCaches.contractState.cacheIndex = offset1
+        _ = store.contractStateCaches.contractState.cacheIndex = offset1.toAbsoluteOffsetO
         cId2_lookup <- store.lookupActiveContract(Set(alice), cId_2)
         another_cId2_lookup <- store.lookupActiveContract(Set(alice), cId_2)
 
-        _ = store.contractStateCaches.contractState.cacheIndex = offset2
+        _ = store.contractStateCaches.contractState.cacheIndex = offset2.toAbsoluteOffsetO
         cId3_lookup <- store.lookupActiveContract(Set(bob), cId_3)
         another_cId3_lookup <- store.lookupActiveContract(Set(bob), cId_3)
 
-        _ = store.contractStateCaches.contractState.cacheIndex = offset3
+        _ = store.contractStateCaches.contractState.cacheIndex = offset3.toAbsoluteOffsetO
         nonExistentCId = contractId(5)
         nonExistentCId_lookup <- store.lookupActiveContract(Set.empty, nonExistentCId)
         another_nonExistentCId_lookup <- store.lookupActiveContract(Set.empty, nonExistentCId)
@@ -116,7 +116,7 @@ class MutableCacheBackedContractStoreSpec
           loggerFactory = loggerFactory,
           spyContractsReader,
         ).asFuture
-        _ = store.contractStateCaches.contractState.cacheIndex = offset1
+        _ = store.contractStateCaches.contractState.cacheIndex = offset1.toAbsoluteOffsetO
         negativeLookup_cId6 <- store.lookupActiveContract(Set(alice), cId_6)
         positiveLookup_cId6 <- store.lookupActiveContract(Set(alice), cId_6)
       } yield {
@@ -135,11 +135,11 @@ class MutableCacheBackedContractStoreSpec
         cId1_lookup0 <- store.lookupActiveContract(Set(alice), cId_1)
         cId2_lookup0 <- store.lookupActiveContract(Set(bob), cId_2)
 
-        _ = store.contractStateCaches.contractState.cacheIndex = offset1
+        _ = store.contractStateCaches.contractState.cacheIndex = offset1.toAbsoluteOffsetO
         cId1_lookup1 <- store.lookupActiveContract(Set(alice), cId_1)
         cid1_lookup1_archivalNotDivulged <- store.lookupActiveContract(Set(charlie), cId_1)
 
-        _ = store.contractStateCaches.contractState.cacheIndex = offset2
+        _ = store.contractStateCaches.contractState.cacheIndex = offset2.toAbsoluteOffsetO
         cId2_lookup2 <- store.lookupActiveContract(Set(bob), cId_2)
         cid2_lookup2_divulged <- store.lookupActiveContract(Set(charlie), cId_2)
         cid2_lookup2_nonVisible <- store.lookupActiveContract(Set(alice), cId_2)
@@ -171,7 +171,7 @@ class MutableCacheBackedContractStoreSpec
         assigned_firstLookup <- store.lookupContractKey(Set(alice), someKey)
         assigned_secondLookup <- store.lookupContractKey(Set(alice), someKey)
 
-        _ = store.contractStateCaches.keyState.cacheIndex = offset1
+        _ = store.contractStateCaches.keyState.cacheIndex = offset1.toAbsoluteOffsetO
         unassigned_firstLookup <- store.lookupContractKey(Set(alice), unassignedKey)
         unassigned_secondLookup <- store.lookupContractKey(Set(alice), unassignedKey)
       } yield {
@@ -193,14 +193,14 @@ class MutableCacheBackedContractStoreSpec
         store <- contractStore(cachesSize = 0L, loggerFactory).asFuture
         key_lookup0 <- store.lookupContractKey(Set(alice), someKey)
 
-        _ = store.contractStateCaches.keyState.cacheIndex = offset1
+        _ = store.contractStateCaches.keyState.cacheIndex = offset1.toAbsoluteOffsetO
         key_lookup1 <- store.lookupContractKey(Set(alice), someKey)
 
-        _ = store.contractStateCaches.keyState.cacheIndex = offset2
+        _ = store.contractStateCaches.keyState.cacheIndex = offset2.toAbsoluteOffsetO
         key_lookup2 <- store.lookupContractKey(Set(bob), someKey)
         key_lookup2_notVisible <- store.lookupContractKey(Set(charlie), someKey)
 
-        _ = store.contractStateCaches.keyState.cacheIndex = offset3
+        _ = store.contractStateCaches.keyState.cacheIndex = offset3.toAbsoluteOffsetO
         key_lookup3 <- store.lookupContractKey(Set(bob), someKey)
       } yield {
         key_lookup0 shouldBe Some(cId_1)

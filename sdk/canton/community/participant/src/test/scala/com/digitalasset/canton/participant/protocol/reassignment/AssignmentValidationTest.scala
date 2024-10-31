@@ -106,8 +106,7 @@ class AssignmentValidationTest
 
   private val seedGenerator = new SeedGenerator(pureCrypto)
 
-  private val assignmentValidation =
-    testInstance(targetDomain, Set(signatory), Set(signatory), cryptoSnapshot, None)
+  private val assignmentValidation = testInstance(targetDomain, cryptoSnapshot, None)
 
   "validateAssignmentRequest" should {
     val contract = ExampleTransactionFactory.authenticatedSerializableContract(
@@ -182,8 +181,6 @@ class AssignmentValidationTest
       val assignmentProcessingSteps2 =
         testInstance(
           targetDomain,
-          Set(signatory),
-          Set(signatory),
           cryptoSnapshot,
           Some(promise.future), // Topology state is not available
         )
@@ -433,19 +430,14 @@ class AssignmentValidationTest
 
   private def testInstance(
       domainId: Target[DomainId],
-      signatories: Set[LfPartyId],
-      stakeholders: Set[LfPartyId],
       snapshotOverride: DomainSnapshotSyncCryptoApi,
       awaitTimestampOverride: Option[Future[Unit]],
-  ): AssignmentValidation = {
-    val damle = DAMLeTestInstance(submittingParticipant, signatories, stakeholders)(loggerFactory)
-
+  ): AssignmentValidation =
     new AssignmentValidation(
       domainId,
       SerializableContractAuthenticator(pureCrypto),
       Target(defaultStaticDomainParameters),
       submittingParticipant,
-      damle,
       TestReassignmentCoordination.apply(
         Set(),
         CantonTimestamp.Epoch,
@@ -455,7 +447,6 @@ class AssignmentValidationTest
       ),
       loggerFactory = loggerFactory,
     )
-  }
 
   private def makeFullAssignmentTree(
       contract: SerializableContract,

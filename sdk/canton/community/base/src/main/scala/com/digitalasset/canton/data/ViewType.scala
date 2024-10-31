@@ -53,7 +53,7 @@ object ViewType {
   type TransactionViewType = TransactionViewType.type
 
   sealed trait ReassignmentViewType extends ViewType {
-    type View <: ReassignmentViewTree with HasToByteString
+    type View <: FullReassignmentViewTree with HasToByteString
     type FullView = View
     override type ViewSubmitterMetadata = ReassignmentSubmitterMetadata
   }

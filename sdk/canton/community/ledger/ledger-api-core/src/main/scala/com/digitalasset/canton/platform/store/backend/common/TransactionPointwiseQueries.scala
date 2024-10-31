@@ -36,7 +36,7 @@ class TransactionPointwiseQueries(
     // the events and transaction_meta tables are written to prior to the ledger end being updated.
     // 2. Checking "event_offset > participant_pruned_up_to_inclusive" is needed in order to
     // prevent fetching data that is within the pruning offset. (Such data may only be accessed by retrieving an ACS)
-    val ledgerEndOffset: Offset = ledgerEndCache()._1
+    val ledgerEndOffset: Offset = Offset.fromAbsoluteOffsetO(ledgerEndCache()._1)
     SQL"""
          SELECT
             t.event_sequential_id_first,

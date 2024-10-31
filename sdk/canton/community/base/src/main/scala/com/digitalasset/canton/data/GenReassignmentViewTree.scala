@@ -30,9 +30,6 @@ abstract class GenReassignmentViewTree[
     hashOps: HashOps
 ) extends MerkleTreeInnerNode[Tree](hashOps) { this: Tree =>
 
-  val viewPosition: ViewPosition =
-    ViewPosition.root // Use a dummy value, as there is only one view.
-
   override def subtrees: Seq[MerkleTree[_]] = Seq(commonData, participantData)
 
   /*
@@ -42,7 +39,9 @@ abstract class GenReassignmentViewTree[
   The versioning does not play well with this parametrized class so we define the serialization
   method explicitly.
    */
-  private def toProtoVersioned(version: ProtocolVersion): VersionedMessage[ReassignmentViewTree] =
+  private def toProtoVersioned(
+      version: ProtocolVersion
+  ): VersionedMessage[FullReassignmentViewTree] =
     VersionedMessage(toProtoV30.toByteString, 1)
 
   def toByteString(version: ProtocolVersion): ByteString = toProtoVersioned(version).toByteString

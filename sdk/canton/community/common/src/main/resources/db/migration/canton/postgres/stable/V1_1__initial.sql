@@ -571,7 +571,13 @@ create table sequencer_events (
   topology_timestamp bigint null,
   -- trace context associated with the event
   trace_context bytea not null,
-  error bytea
+  error bytea,
+  -- the last cost consumed at sequencing_timestamp
+  consumed_cost bigint,
+  -- total extra traffic consumed at the time of the event
+  extra_traffic_consumed bigint,
+  -- extra traffic remainder at the time of the event
+  base_traffic_remainder bigint
 );
 
 -- Sequence of local offsets used by the participant event publisher

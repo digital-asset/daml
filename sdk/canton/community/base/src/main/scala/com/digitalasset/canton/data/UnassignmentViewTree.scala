@@ -6,24 +6,18 @@ package com.digitalasset.canton.data
 import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.ProtoDeserializationError.OtherError
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.MerkleTree.RevealSubtree
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.UnassignmentMediatorMessage
 import com.digitalasset.canton.protocol.{v30, *}
 import com.digitalasset.canton.sequencing.protocol.{MediatorGroupRecipient, TimeProof}
+import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.*
-import com.digitalasset.canton.{
-  LfPartyId,
-  LfWorkflowId,
-  ProtoDeserializationError,
-  ReassignmentCounter,
-}
+import com.digitalasset.canton.{ProtoDeserializationError, ReassignmentCounter}
 import com.google.protobuf.ByteString
 
 import java.util.UUID
@@ -43,10 +37,8 @@ final case class UnassignmentViewTree(
       UnassignmentViewTree,
       UnassignmentMediatorMessage,
     ](commonData, view)(hashOps)
-    with HasProtocolVersionedWrapper[UnassignmentViewTree] {
-
-  def submittingParticipant: ParticipantId =
-    commonData.tryUnwrap.submitterMetadata.submittingParticipant
+    with HasProtocolVersionedWrapper[UnassignmentViewTree]
+    with ReassignmentViewTree {
 
   override private[data] def withBlindedSubtrees(
       optimizedBlindingPolicy: PartialFunction[RootHash, MerkleTree.BlindingCommand]
@@ -153,8 +145,8 @@ final case class UnassignmentCommonData private (
     val sourceProtocolVersion: Source[ProtocolVersion],
     override val deserializedFrom: Option[ByteString],
 ) extends MerkleTreeLeaf[UnassignmentCommonData](hashOps)
-    with HasProtocolVersionedWrapper[UnassignmentCommonData]
-    with ProtocolVersionedMemoizedEvidence {
+    with ReassignmentCommonData
+    with HasProtocolVersionedWrapper[UnassignmentCommonData] {
 
   @transient override protected lazy val companionObj: UnassignmentCommonData.type =
     UnassignmentCommonData
@@ -181,9 +173,6 @@ final case class UnassignmentCommonData private (
     super[HasProtocolVersionedWrapper].toByteString
 
   override def hashPurpose: HashPurpose = HashPurpose.UnassignmentCommonData
-
-  def confirmingParties: Map[LfPartyId, PositiveInt] =
-    stakeholders.signatories.map(_ -> PositiveInt.one).toMap
 
   override protected def pretty: Pretty[UnassignmentCommonData] = prettyOfClass(
     param("submitter metadata", _.submitterMetadata),
@@ -321,7 +310,7 @@ final case class UnassignmentView private (
     override val deserializedFrom: Option[ByteString],
 ) extends MerkleTreeLeaf[UnassignmentView](hashOps)
     with HasProtocolVersionedWrapper[UnassignmentView]
-    with ProtocolVersionedMemoizedEvidence {
+    with ReassignmentView {
 
   @transient override protected lazy val companionObj: UnassignmentView.type = UnassignmentView
 
@@ -329,9 +318,6 @@ final case class UnassignmentView private (
     super[HasProtocolVersionedWrapper].toByteString
 
   def hashPurpose: HashPurpose = HashPurpose.UnassignmentView
-
-  def templateId: LfTemplateId =
-    contract.rawContractInstance.contractInstance.unversioned.template
 
   protected def toProtoV30: v30.UnassignmentView =
     v30.UnassignmentView(
@@ -437,30 +423,15 @@ object UnassignmentView
   * @throws java.lang.IllegalArgumentException if the [[tree]] is not fully unblinded
   */
 final case class FullUnassignmentTree(tree: UnassignmentViewTree)
-    extends ReassignmentViewTree
+    extends FullReassignmentViewTree
     with HasToByteString
     with PrettyPrinting {
   require(tree.isFullyUnblinded, "An unassignment request must be fully unblinded")
 
-  private[this] val commonData = tree.commonData.tryUnwrap
-  private[this] val view = tree.view.tryUnwrap
+  protected[this] val commonData: UnassignmentCommonData = tree.commonData.tryUnwrap
+  protected[this] val view: UnassignmentView = tree.view.tryUnwrap
 
-  // Submissions
-  def submitterMetadata: ReassignmentSubmitterMetadata = commonData.submitterMetadata
-  def submitter: LfPartyId = submitterMetadata.submitter
-  def workflowId: Option[LfWorkflowId] = submitterMetadata.workflowId
-
-  // Parties and participants
-  // TODO(#22048) Check informees and stakeholders are compatible
-  override def informees: Set[LfPartyId] = view.contract.metadata.stakeholders
-  def stakeholders: Stakeholders = commonData.stakeholders
-  override def reassigningParticipants: ReassigningParticipants = commonData.reassigningParticipants
-
-  // Contract
-  def contract: SerializableContract = view.contract
-  def contractId: LfContractId = view.contract.contractId
-  def templateId: LfTemplateId = view.templateId
-  def reassignmentCounter: ReassignmentCounter = view.reassignmentCounter
+  override def reassignmentId: Option[ReassignmentId] = None
 
   // Domains
   override def domainId: DomainId = sourceDomain.unwrap

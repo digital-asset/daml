@@ -3,12 +3,21 @@
 
 package com.digitalasset.canton.data
 
-import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.{RootHash, ViewHash}
+import com.digitalasset.canton.protocol.{
+  LfContractId,
+  LfTemplateId,
+  ReassignmentId,
+  RootHash,
+  SerializableContract,
+  Stakeholders,
+  TransactionId,
+  ViewHash,
+}
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
+import com.digitalasset.canton.{LfPartyId, LfWorkflowId, ReassignmentCounter}
 
 /** Common supertype of all view trees that are sent as [[com.digitalasset.canton.protocol.messages.EncryptedViewMessage]]s */
 trait ViewTree extends PrettyPrinting {
@@ -42,20 +51,39 @@ trait ViewTree extends PrettyPrinting {
 
 /** Supertype of [[FullUnassignmentTree]] and [[FullAssignmentTree]]
   */
-trait ReassignmentViewTree extends ViewTree {
-  def submitterMetadata: ReassignmentSubmitterMetadata
+trait FullReassignmentViewTree extends ViewTree {
+  def tree: ReassignmentViewTree
+  protected[this] def commonData: ReassignmentCommonData
+  protected[this] def view: ReassignmentView
 
-  def reassigningParticipants: ReassigningParticipants
-
-  def isConfirmingReassigningParticipant(participantId: ParticipantId): Boolean =
-    reassigningParticipants.confirming.contains(participantId)
-
-  def isObservingReassigningParticipant(participantId: ParticipantId): Boolean =
-    reassigningParticipants.observing.contains(participantId)
+  def reassignmentId: Option[ReassignmentId]
 
   val viewPosition: ViewPosition =
     ViewPosition.root // Use a dummy value, as there is only one view.
 
   def sourceDomain: Source[DomainId]
   def targetDomain: Target[DomainId]
+
+  // Submissions
+  def submitterMetadata: ReassignmentSubmitterMetadata = commonData.submitterMetadata
+  def submitter: LfPartyId = submitterMetadata.submitter
+  def workflowId: Option[LfWorkflowId] = submitterMetadata.workflowId
+
+  // Parties and participants
+  // TODO(#22048) Check informees and stakeholders are compatible
+  override def informees: Set[LfPartyId] = view.contract.metadata.stakeholders
+  def stakeholders: Stakeholders = commonData.stakeholders
+
+  def reassigningParticipants: ReassigningParticipants = commonData.reassigningParticipants
+  def isConfirmingReassigningParticipant(participantId: ParticipantId): Boolean =
+    reassigningParticipants.confirming.contains(participantId)
+  def isObservingReassigningParticipant(participantId: ParticipantId): Boolean =
+    reassigningParticipants.observing.contains(participantId)
+
+  // Contract
+  def contract: SerializableContract = view.contract
+  def contractId: LfContractId = view.contract.contractId
+  def templateId: LfTemplateId = view.templateId
+  def reassignmentCounter: ReassignmentCounter = view.reassignmentCounter
+  def creatingTransactionId: TransactionId = view.creatingTransactionId
 }

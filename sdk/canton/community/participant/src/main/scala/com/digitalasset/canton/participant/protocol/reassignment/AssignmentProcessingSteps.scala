@@ -110,10 +110,11 @@ private[reassignment] class AssignmentProcessingSteps(
     serializableContractAuthenticator,
     staticDomainParameters,
     participantId,
-    engine,
     reassignmentCoordination,
     loggerFactory,
   )
+
+  private val reassignmentValidation = new ReassignmentValidation(engine, loggerFactory)
 
   override def submissionIdOfPendingRequest(pendingData: PendingAssignment): RootHash =
     pendingData.rootHash
@@ -380,7 +381,7 @@ private[reassignment] class AssignmentProcessingSteps(
     // We perform the stakeholders check asynchronously so that we can complete the pending request
     // in the Phase37Synchronizer without waiting for it, thereby allowing us to concurrently receive a
     // mediator verdict.
-    val stakeholdersCheckResultET = assignmentValidation
+    val stakeholdersCheckResultET = reassignmentValidation
       .checkStakeholders(
         fullViewTree,
         getEngineAbortStatus = () => engineController.abortStatus,
