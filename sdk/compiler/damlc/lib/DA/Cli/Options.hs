@@ -595,14 +595,28 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
     optWarnBadInterfaceInstances =
       determineAuto defaultUiWarnBadInterfaceInstances <$>
         flagYesNoAuto''
-          "-Wupgrade-interfaces"
-          "Convert errors about bad, non-upgradeable interface instances into warnings."
-          idm
+          "warn-bad-interface-instances"
+          "(Deprecated) Convert errors about bad, non-upgradeable interface instances into warnings."
+          hidden
 
     optDamlWarningFlag :: Parser DamlWarningFlag
     optDamlWarningFlag =
-      Options.Applicative.option (eitherReader parseDamlWarningFlag) (short 'W' <> long "warn")
+      optRawDamlWarningFlag
       <|> fmap WarnBadInterfaceInstances optWarnBadInterfaceInstances
+
+    optRawDamlWarningFlag :: Parser DamlWarningFlag
+    optRawDamlWarningFlag =
+      Options.Applicative.option
+        (eitherReader parseRawDamlWarningFlag)
+        (short 'W' <> long "warn" <> helpDoc (Just helpStr))
+      where
+      helpStr =
+        PAL.vcat
+          [ "Turn an error into a warning with -W<name>"
+          , "Turn a warning into an error with -Werror=<name>"
+          , "Disable warnings and errors with -Wno-<name>"
+          , "Available names are: " <> PAL.string (intercalate ", " (map fst namesToFilters))
+          ]
 
     optUpgradeInfo :: Parser UpgradeInfo
     optUpgradeInfo = do
