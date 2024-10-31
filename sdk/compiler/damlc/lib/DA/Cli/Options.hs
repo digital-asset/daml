@@ -608,11 +608,11 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
     optRawDamlWarningFlag =
       Options.Applicative.option
         (eitherReader parseRawDamlWarningFlag)
-        (short 'W' <> long "warn" <> helpDoc (Just helpStr))
+        (short 'W' <> helpDoc (Just helpStr))
       where
       helpStr =
         PAL.vcat
-          [ "Turn an error into a warning with -W<name>"
+          [ "Turn an error into a warning with -W<name> or -Wwarn=<name> or -Wno-error=<name>"
           , "Turn a warning into an error with -Werror=<name>"
           , "Disable warnings and errors with -Wno-<name>"
           , "Available names are: " <> PAL.string (intercalate ", " (map fst namesToFilters))

@@ -283,11 +283,14 @@ parseDamlWarningFlag = \case
   ('w':'a':'r':'n':'=':name) -> RawDamlWarningFlag name AsWarning <$> parseNameE name
   name -> RawDamlWarningFlag name AsWarning <$> parseNameE name
   where
-  namesToFilters = [(upgradeInterfacesName, upgradeInterfacesFilter)]
-
   parseNameE name = case lookup name namesToFilters of
-    Nothing -> Left $ "Warning flag is not valid - warning flags must be of the form `error=<name>`, `no-<name>`, or `<name>`. The list of available names is: " <> L.intercalate ", " (map fst namesToFilters)
+    Nothing -> Left $ "Warning flag is not valid - warning flags must be of the form `-Werror=<name>`, `-Wno-<name>`, or `-W<name>`. Available names are: " <> L.intercalate ", " (map fst namesToFilters)
     Just filter -> Right filter
+
+namesToFilters :: (String, WarnableError -> Bool)
+namesToFilters =
+  [ (upgradeInterfacesName, upgradeInterfacesFilter)
+  ]
 
 filterNameForWarnableError :: WarnableError -> Maybe String
 filterNameForWarnableError err | upgradeInterfacesFilter err = Just upgradeInterfacesName
