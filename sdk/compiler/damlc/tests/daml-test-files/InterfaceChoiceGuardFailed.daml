@@ -6,8 +6,8 @@ module InterfaceChoiceGuardFailed where
 import Daml.Script
 
 -- @SUPPORTS-LF-FEATURE DAML_INTERFACE_EXTENDED
--- @WARN warn-bad-interface-instances
--- @WARN warn-bad-interface-instances
+-- @WARN -Werror=upgrade-interfaces
+-- @WARN -Werror=upgrade-interfaces
 data EmptyInterfaceView = EmptyInterfaceView {}
 
 interface I where

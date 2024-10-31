@@ -3,8 +3,8 @@
 
 {-# LANGUAGE ApplicativeDo #-}
 
--- @ WARN warn-bad-interface-instances
--- @ WARN warn-bad-interface-instances
+-- @ WARN -Werror=upgrade-interfaces
+-- @ WARN -Werror=upgrade-interfaces
 
 module QualifiedInterface where
 

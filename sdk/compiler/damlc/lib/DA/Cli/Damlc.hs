@@ -142,6 +142,7 @@ import DA.Daml.Options.Types (EnableScenarioService(..),
                               optSkipScenarioValidation,
                               optThreads,
                               optUpgradeInfo,
+                              optDamlWarningFlags,
                               pkgNameVersion,
                               projectPackageDatabase)
 import DA.Daml.Package.Config (MultiPackageConfigFields(..),
@@ -1028,6 +1029,7 @@ buildEffect relativize pkgPath pkgConfig opts mbOutFile incrementalBuild initPkg
               (toNormalizedFilePath' $ fromMaybe ifaceDir $ optIfaceDir opts)
               (FromDalf False)
               (optUpgradeInfo opts)
+              (optDamlWarningFlags opts)
       (dar, mPkgId) <- mbErr "ERROR: Creation of DAR file failed." mbDar
       createDarFile loggerH fp dar
       pure mPkgId
@@ -1422,6 +1424,7 @@ execPackage projectOpts filePath opts mbOutFile dalfInput =
                             (toNormalizedFilePath' $ fromMaybe ifaceDir $ optIfaceDir opts)
                             dalfInput
                             (optUpgradeInfo opts)
+                            (optDamlWarningFlags opts)
           case mbDar of
             Nothing -> do
                 hPutStrLn stderr "ERROR: Creation of DAR file failed."

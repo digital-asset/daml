@@ -31,8 +31,8 @@ module DA.Daml.LF.TypeChecker.Env(
     Gamma(..),
     emptyGamma,
     SomeErrorOrWarning(..),
-    addDiagnosticSwapIndicator,
-    withDiagnosticSwapIndicatorF,
+    getWarningStatusF,
+    damlWarningFlags,
     ) where
 
 import           Control.Lens hiding (Context)
@@ -56,7 +56,7 @@ data Gamma = Gamma
     -- ^ The packages in scope.
   , _lfVersion :: Version
     -- ^ The Daml-LF version of the package being type checked.
-  , _diagnosticSwapIndicator :: Either WarnableError Warning -> Bool
+  , _damlWarningFlags :: [DamlWarningFlag]
     -- ^ Function for relaxing errors into warnings and strictifying warnings into errors
   }
 
@@ -68,23 +68,10 @@ class SomeErrorOrWarning d where
 getLfVersion :: MonadGamma m => m Version
 getLfVersion = view lfVersion
 
-getDiagnosticSwapIndicatorF :: forall m gamma. MonadGammaF gamma m => Getter gamma Gamma -> m (Either WarnableError Warning -> Bool)
-getDiagnosticSwapIndicatorF getter = view (getter . diagnosticSwapIndicator)
-
-addDiagnosticSwapIndicator
-  :: (Either WarnableError Warning -> Maybe Bool)
-  -> Gamma -> Gamma
-addDiagnosticSwapIndicator newIndicator =
-  diagnosticSwapIndicator %~ \oldIndicator err ->
-    case newIndicator err of
-      Nothing -> oldIndicator err
-      Just verdict -> verdict
-
-withDiagnosticSwapIndicatorF
-  :: MonadGammaF gamma m
-  => Setter' gamma Gamma -> (Either WarnableError Warning -> Maybe Bool) -> m () -> m ()
-withDiagnosticSwapIndicatorF setter newIndicator =
-  locally setter (addDiagnosticSwapIndicator newIndicator)
+getWarningStatusF :: forall m gamma. MonadGammaF gamma m => Getter gamma Gamma -> ErrorOrWarning -> m DamlWarningFlagStatus
+getWarningStatusF getter warnableError = do
+  flags <- view (getter . damlWarningFlags)
+  pure (getWarningStatus flags warnableError)
 
 getWorld :: MonadGamma m => m World
 getWorld = view world
@@ -117,7 +104,7 @@ match p e x = either (const (throwWithContext e)) pure (matching p x)
 -- | Environment containing only the packages in scope but no type or term
 -- variables.
 emptyGamma :: World -> Version -> Gamma
-emptyGamma world version = Gamma ContextNone mempty mempty world version (const False)
+emptyGamma world version = Gamma ContextNone mempty mempty world version []
 
 -- | Run a computation in the current environment extended by a new type
 -- variable/kind binding. Does not fail on shadowing.
@@ -158,7 +145,7 @@ diagnosticWithContext = diagnosticWithContextF id
 throwWithContext :: MonadGamma m => UnwarnableError -> m a
 throwWithContext = throwWithContextF id
 
-warnWithContext :: MonadGamma m => Warning -> m ()
+warnWithContext :: MonadGamma m => UnerrorableWarning -> m ()
 warnWithContext = warnWithContextF id
 
 withContext :: MonadGamma m => Context -> m b -> m b
@@ -175,8 +162,13 @@ throwWithContextFRaw getter err = do
   ctx <- view $ getter . locCtx
   throwError $ EContext ctx err
 
-warnWithContextF :: forall m gamma. MonadGammaF gamma m => Getter gamma Gamma -> Warning -> m ()
-warnWithContextF = diagnosticWithContextF
+warnWithContextF :: forall m gamma. MonadGammaF gamma m => Getter gamma Gamma -> UnerrorableWarning -> m ()
+warnWithContextF getter warning = warnWithContextFRaw getter (WUnerrorableWarning warning)
+
+warnWithContextFRaw :: forall m gamma. MonadGammaF gamma m => Getter gamma Gamma -> Warning -> m ()
+warnWithContextFRaw getter warning = do
+  ctx <- view $ getter . locCtx
+  modify' (WContext ctx warning :)
 
 withContextF :: MonadGammaF gamma m => Setter' gamma Gamma -> Context -> m b -> m b
 withContextF setter newCtx = local (over (setter . locCtx) setCtx)
@@ -191,22 +183,13 @@ withContextF setter newCtx = local (over (setter . locCtx) setCtx)
 instance SomeErrorOrWarning UnwarnableError where
   diagnosticWithContextF = throwWithContextF
 
-instance SomeErrorOrWarning WarnableError where
+instance SomeErrorOrWarning ErrorOrWarning where
   diagnosticWithContextF getter err = do
-    shouldSwap <- getDiagnosticSwapIndicatorF getter
-    if shouldSwap (Left err)
-       then do
-        ctx <- view $ getter . locCtx
-        modify' (WContext ctx (WErrorToWarning err) :)
-       else do
-        throwWithContextFRaw getter (EWarnableError err)
+    status <- getWarningStatusF getter err
+    case status of
+      AsError -> throwWithContextFRaw getter (EErrorOrWarning err)
+      AsWarning -> warnWithContextFRaw getter (WErrorToWarning err)
+      Hidden -> pure ()
 
-instance SomeErrorOrWarning Warning where
-  diagnosticWithContextF getter warning = do
-    shouldSwap <- getDiagnosticSwapIndicatorF getter
-    if shouldSwap (Right warning)
-       then do
-        throwWithContextFRaw getter (EWarningToError warning)
-       else do
-        ctx <- view $ getter . locCtx
-        modify' (WContext ctx warning :)
+instance SomeErrorOrWarning UnerrorableWarning where
+  diagnosticWithContextF = warnWithContextF

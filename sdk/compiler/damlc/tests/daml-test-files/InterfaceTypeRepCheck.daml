@@ -1,9 +1,9 @@
 -- Copyright (c) 2022 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 -- SPDX-License-Identifier: Apache-2.0
 
--- @ WARN warn-bad-interface-instances
--- @ WARN warn-bad-interface-instances
--- @ WARN warn-bad-interface-instances
+-- @ WARN -Werror=upgrade-interfaces
+-- @ WARN -Werror=upgrade-interfaces
+-- @ WARN -Werror=upgrade-interfaces
 -- @ERROR Attempt to fetch or exercise a wrongly typed contract
 
 -- | Verify that you can't accidentally exercise a T1 template

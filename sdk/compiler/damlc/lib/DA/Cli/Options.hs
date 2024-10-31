@@ -21,6 +21,9 @@ import qualified DA.Service.Logger as Logger
 import qualified Module as GHC
 import qualified Text.ParserCombinators.ReadP as R
 import qualified Data.Text as T
+import DA.Daml.LF.TypeChecker.Error
+
+import qualified Text.PrettyPrint.ANSI.Leijen as PAL
 
 -- | Pretty-printing documents with syntax-highlighting annotations.
 type Document = Pretty.Doc Pretty.SyntaxClass
@@ -449,6 +452,7 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
     optTestFilter <- compilePatternExpr <$> optTestPattern
     let optHideUnitId = False
     optUpgradeInfo <- optUpgradeInfo
+    optDamlWarningFlags <- many optDamlWarningFlag
 
     return Options{..}
   where
@@ -591,17 +595,35 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
 
     optWarnBadInterfaceInstances :: Parser Bool
     optWarnBadInterfaceInstances =
-      flagYesNoAuto
-        "warn-bad-interface-instances"
-        defaultUiWarnBadInterfaceInstances
-        "Convert errors about bad, non-upgradeable interface instances into warnings."
-        idm
+      determineAuto defaultUiWarnBadInterfaceInstances <$>
+        flagYesNoAutoNoDefault
+          "warn-bad-interface-instances"
+          "(Deprecated) Convert errors about bad, non-upgradeable interface instances into warnings."
+          hidden
+
+    optDamlWarningFlag :: Parser DamlWarningFlag
+    optDamlWarningFlag =
+      optRawDamlWarningFlag
+      <|> fmap WarnBadInterfaceInstances optWarnBadInterfaceInstances
+
+    optRawDamlWarningFlag :: Parser DamlWarningFlag
+    optRawDamlWarningFlag =
+      Options.Applicative.option
+        (eitherReader parseRawDamlWarningFlag)
+        (short 'W' <> helpDoc (Just helpStr))
+      where
+      helpStr =
+        PAL.vcat
+          [ "Turn an error into a warning with -W<name> or -Wwarn=<name> or -Wno-error=<name>"
+          , "Turn a warning into an error with -Werror=<name>"
+          , "Disable warnings and errors with -Wno-<name>"
+          , "Available names are: " <> PAL.string (intercalate ", " (map fst namesToFlags))
+          ]
 
     optUpgradeInfo :: Parser UpgradeInfo
     optUpgradeInfo = do
       uiTypecheckUpgrades <- optTypecheckUpgrades
       uiUpgradedPackagePath <- optUpgradeDar
-      uiWarnBadInterfaceInstances <- optWarnBadInterfaceInstances
       pure UpgradeInfo {..}
 
 optGhcCustomOptions :: Parser [String]
