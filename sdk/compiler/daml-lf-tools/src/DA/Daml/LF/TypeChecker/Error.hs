@@ -278,7 +278,9 @@ data DamlWarningFlag
 parseDamlWarningFlag :: String -> Either String DamlWarningFlag
 parseDamlWarningFlag = \case
   ('e':'r':'r':'o':'r':'=':name) -> RawDamlWarningFlag name AsError <$> parseNameE name
+  ('n':'o':'-':'e':'r':'r':'o':'r':'=':name) -> RawDamlWarningFlag name AsWarning <$> parseNameE name
   ('n':'o':'-':name) -> RawDamlWarningFlag name Hidden <$> parseNameE name
+  ('w':'a':'r':'n':'=':name) -> RawDamlWarningFlag name AsWarning <$> parseNameE name
   name -> RawDamlWarningFlag name AsWarning <$> parseNameE name
   where
   namesToFilters = [(upgradeInterfacesName, upgradeInterfacesFilter)]
