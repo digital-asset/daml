@@ -294,9 +294,8 @@ namesToFlags =
   [ (upgradeInterfacesName, upgradeInterfacesFlag)
   ]
 
-upgradeInterfacesFlag, upgradeExceptionsFlag :: DamlWarningFlagStatus -> DamlWarningFlag
+upgradeInterfacesFlag :: DamlWarningFlagStatus -> DamlWarningFlag
 upgradeInterfacesFlag status = RawDamlWarningFlag upgradeInterfacesName status upgradeInterfacesFilter
-upgradeExceptionsFlag status = RawDamlWarningFlag upgradeExceptionsName status upgradeExceptionsFilter
 
 filterNameForErrorOrWarning :: ErrorOrWarning -> Maybe String
 filterNameForErrorOrWarning err | upgradeInterfacesFilter err = Just upgradeInterfacesName

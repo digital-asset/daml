@@ -23,6 +23,8 @@ import qualified Text.ParserCombinators.ReadP as R
 import qualified Data.Text as T
 import DA.Daml.LF.TypeChecker.Error
 
+import qualified Text.PrettyPrint.ANSI.Leijen as PAL
+
 -- | Pretty-printing documents with syntax-highlighting annotations.
 type Document = Pretty.Doc Pretty.SyntaxClass
 
