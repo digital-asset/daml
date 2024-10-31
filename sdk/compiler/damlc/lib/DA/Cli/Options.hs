@@ -587,9 +587,9 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
     optWarnBadInterfaceInstances =
       determineAuto defaultUiWarnBadInterfaceInstances <$>
         flagYesNoAuto''
-          "-Wupgrade-interfaces"
-          "Convert errors about bad, non-upgradeable interface instances into warnings."
-          idm
+          "warn-bad-interface-instances"
+          "(Deprecated) Convert errors about bad, non-upgradeable interface instances into warnings."
+          hidden
 
     optDamlWarningFlag :: Parser DamlWarningFlag
     optDamlWarningFlag =
@@ -605,9 +605,9 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
       where
       helpStr =
         PAL.vcat
-          [ "Downgrade errors to warnings with -W<name>"
-          , "upgrade warnings to errors with -Werror=<name>"
-          , "disable warnings and errors with -Wno-<name>"
+          [ "Turn an error into a warning with -W<name>"
+          , "Turn a warning into an error with -Werror=<name>"
+          , "Disable warnings and errors with -Wno-<name>"
           , "Available names are: " <> PAL.string (intercalate ", " (map fst namesToFilters))
           ]
 
@@ -616,8 +616,8 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
       determineAuto defaultUiWarnBadInterfaceInstances <$>
         flagYesNoAuto''
           "warn-bad-exceptions"
-          "Convert errors about bad, non-upgradeable exceptions into warnings."
-          idm
+          "(Deprecated) Convert errors about bad, non-upgradeable exceptions into warnings."
+          hidden
 
     optUpgradeInfo :: Parser UpgradeInfo
     optUpgradeInfo = do
