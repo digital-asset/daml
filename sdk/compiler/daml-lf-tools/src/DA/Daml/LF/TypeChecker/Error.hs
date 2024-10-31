@@ -275,7 +275,7 @@ instance Pretty ErrorOrWarning where
 
 data DamlWarningFlagStatus
   = AsError -- -Werror=<name>
-  | AsWarning -- -W<name>
+  | AsWarning -- -W<name> or -Wwarn=<name> or -Wno-error=<name>
   | Hidden -- -Wno-<name>
 
 data DamlWarningFlag
@@ -284,8 +284,12 @@ data DamlWarningFlag
     , rfStatus :: DamlWarningFlagStatus
     , rfFilter :: ErrorOrWarning -> Bool
     }
-  | WarnBadInterfaceInstances Bool -- When true, same as -Wupgrade-interfaces
+  | WarnBadInterfaceInstances Bool
+  -- ^ For legacy --warn-bad-interface-instance flag.
+  -- Interpreted identically to -Wupgrade-interfaces
   | WarnBadExceptions Bool
+  -- ^ For legacy --warn-bad-exceptions flag.
+  -- Interpreted identically to -Wupgrade-exceptions
 
 parseRawDamlWarningFlag :: String -> Either String DamlWarningFlag
 parseRawDamlWarningFlag = \case
