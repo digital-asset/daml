@@ -8,15 +8,7 @@ import com.daml.crypto.{MacPrototype, MessageDigestPrototype}
 
 import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicLong
-import com.digitalasset.daml.lf.data.{
-  Bytes,
-  FrontStack,
-  ImmArray,
-  Ref,
-  SortedLookupList,
-  Time,
-  Utf8,
-}
+import com.digitalasset.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref, SortedLookupList, Time, Utf8}
 import com.digitalasset.daml.lf.value.Value
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.daml.lf.crypto.HashUtils.{HashTracer, formatByteToHexString}
@@ -25,6 +17,7 @@ import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction._
 import scalaz.Order
 
+import java.util.UUID
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 import scala.util.control.NoStackTrace
@@ -222,24 +215,56 @@ object Hash {
     }
   }
 
-  // Transaction Builder class with builder methods to recursively encode nodes
-  private sealed class TransactionBuilderV1(
-      hashTracer: HashTracer
+  object TransactionMetadataBuilderV1 {
+    final case class Metadata(
+                                     actAs: ImmArray[Ref.Party],
+                                     commandId: Ref.CommandId,
+                                     submissionId: Ref.SubmissionId,
+                                     transactionUUID: UUID,
+                                     mediatorGroup: Int,
+                                     domainId: String,
+                                     ledgerEffectiveTime: Option[Time.Timestamp],
+                                     submissionTime: Time.Timestamp,
+                                     submissionSeed: Hash,
+                                     disclosedContracts: ImmArray[Node.Create],
+                                   )
+  }
+
+  /**
+   * Hashes Transaction Metadata using the V1 Hashing Scheme
+   */
+  @throws[NodeHashingError]
+  @throws[HashingError]
+  def hashTransactionMetadataV1(metadata: TransactionMetadataBuilderV1.Metadata, hashTracer: HashTracer = HashTracer.NoOp): Hash = {
+    new NodeBuilderV1(hashTracer)
+      .withContext("Act As Parties")(_.iterateOver(metadata.actAs)(_ addString _))
+      .withContext("Command Id")(_.addString(metadata.commandId))
+      .withContext("Submission Id")(_.addString(metadata.submissionId))
+      .withContext("Transaction UUID")(_.addString(metadata.transactionUUID.toString))
+      .withContext("Mediator Group")(_.addInt(metadata.mediatorGroup))
+      .withContext("Domain Id")(_.addString(metadata.domainId))
+      .withContext("Ledger Effective Time")(_.addOptional(metadata.ledgerEffectiveTime.map(_.micros), _.addLong))
+      .withContext("Submission Time")(_.addLong(metadata.submissionTime.micros))
+      .withContext("Submission Seed")(_.addHash(metadata.submissionSeed, "Submission Seed Hash"))
+      .withContext("Disclosed Events")(_.iterateOver(metadata.disclosedContracts)((builder, node) => builder.addNode(node, Map.empty)))
+      .build
+  }
+
+  /** Class with additional methods to hash nodes. Uses a single MessageDigest to hash the entire node including all its values.
+    */
+  private sealed abstract class NodeBuilder(
+      hashTracer: HashTracer,
   ) extends LegacyBuilder(Purpose.TransactionHash, aCid2Bytes, stringNumericToBytes, hashTracer) {
 
-    private[lf] def encodeNode(
-        node: Node,
-        nodes: Map[NodeId, Node],
-        hashTracer: HashTracer = this.hashTracer,
-    ): NodeBuilder = {
-      node.optVersion
-        .foreach(
-          NodeBuilder
-            .assertHashingVersionSupportsLfVersion(_, NodeHashVersion.V1)
-        )
-
-      new NodeBuilderV1(hashTracer).addVersion.addNode(node, nodes)
+    protected def addHashVersion(version: NodeHashVersion): this.type = {
+      addByte(version.id, s"${formatByteToHexString(version.id)} (Node Encoding Version)")
     }
+
+    private [crypto] def encodeNode(
+                                node: Node,
+                                nodes: Map[NodeId, Node],
+                                hashTracer: HashTracer = this.hashTracer,
+                              ): NodeBuilder
 
     @throws[NodeHashingError]
     protected def addNodeFromNodeId(nodes: Map[NodeId, Node]): (this.type, NodeId) => this.type =
@@ -255,23 +280,6 @@ object Hash {
 
     def addNodesFromNodeIds(nodeIds: ImmArray[NodeId], nodes: Map[NodeId, Node]): this.type =
       iterateOver(nodeIds)(addNodeFromNodeId(nodes))
-
-    def addTransactionVersion(transactionVersion: TransactionVersion): this.type = {
-      addString(TransactionVersion.toProtoValue(transactionVersion))
-    }
-  }
-
-  /** Class with additional methods to hash nodes. Uses a single MessageDigest to hash the entire node including all its values.
-    */
-  private sealed abstract class NodeBuilder(
-      version: NodeHashVersion,
-      hashTracer: HashTracer,
-  ) extends TransactionBuilderV1(hashTracer) {
-
-    override def addVersion: this.type = {
-      super.addVersion
-        .addByte(version.id, s"${formatByteToHexString(version.id)} (Node Encoding Version)")
-    }
 
     def addNode(node: Node, nodes: Map[NodeId, Node]): NodeBuilder
   }
@@ -309,8 +317,23 @@ object Hash {
     }
   }
 
-  private final class NodeBuilderV1(hashTracer: HashTracer)
-      extends NodeBuilder(NodeHashVersion.V1, hashTracer) {
+  private sealed class NodeBuilderV1(hashTracer: HashTracer)
+      extends NodeBuilder(hashTracer) {
+
+    override private [crypto] def encodeNode(
+                                node: Node,
+                                nodes: Map[NodeId, Node],
+                                hashTracer: HashTracer = this.hashTracer,
+                              ): NodeBuilder = {
+      node.optVersion
+        .foreach(
+          NodeBuilder
+            .assertHashingVersionSupportsLfVersion(_, NodeHashVersion.V1)
+        )
+
+      new NodeBuilderV1(hashTracer).addVersion.addHashVersion(NodeHashVersion.V1).addNode(node, nodes)
+    }
+
     private val addCreateNode: Node.Create => this.type = {
       // Pattern match to make it more obvious which fields are part of the hashing and which are not
       case Node.Create(
@@ -443,9 +466,9 @@ object Hash {
       versionedTransaction: VersionedTransaction,
       hashTracer: HashTracer = HashTracer.NoOp,
   ): Hash = {
-    new TransactionBuilderV1(hashTracer)
+    new NodeBuilderV1(hashTracer)
       .withContext("Transaction Version")(
-        _.addTransactionVersion(versionedTransaction.version)
+        _.addString(TransactionVersion.toProtoValue(versionedTransaction.version))
       )
       .withContext("Root Nodes")(
         _.addNodesFromNodeIds(versionedTransaction.roots, versionedTransaction.nodes)
@@ -463,7 +486,7 @@ object Hash {
       subNodes: Map[NodeId, Node] = Map.empty,
       hashTracer: HashTracer = HashTracer.NoOp,
   ): Hash = {
-    new TransactionBuilderV1(hashTracer)
+    new NodeBuilderV1(hashTracer)
       .encodeNode(node, subNodes)
       .build
   }
