@@ -62,7 +62,7 @@ object DomainParameters {
 }
 
 final case class StaticDomainParameters(
-    requiredSigningKeySchemes: NonEmpty[Set[SigningKeyScheme]],
+    requiredSigningSpecs: RequiredSigningSpecs,
     requiredEncryptionSpecs: RequiredEncryptionSpecs,
     requiredSymmetricKeySchemes: NonEmpty[Set[SymmetricKeyScheme]],
     requiredHashAlgorithms: NonEmpty[Set[HashAlgorithm]],
@@ -79,7 +79,7 @@ final case class StaticDomainParameters(
 
   def toProtoV30: v30.StaticDomainParameters =
     v30.StaticDomainParameters(
-      requiredSigningKeySchemes = requiredSigningKeySchemes.toSeq.map(_.toProtoEnum),
+      requiredSigningSpecs = Some(requiredSigningSpecs.toProtoV30),
       requiredEncryptionSpecs = Some(requiredEncryptionSpecs.toProtoV30),
       requiredSymmetricKeySchemes = requiredSymmetricKeySchemes.toSeq.map(_.toProtoEnum),
       requiredHashAlgorithms = requiredHashAlgorithms.toSeq.map(_.toProtoEnum),
@@ -116,7 +116,7 @@ object StaticDomainParameters
       domainParametersP: v30.StaticDomainParameters
   ): ParsingResult[StaticDomainParameters] = {
     val v30.StaticDomainParameters(
-      requiredSigningKeySchemesP,
+      requiredSigningSpecsOP,
       requiredEncryptionSpecsOP,
       requiredSymmetricKeySchemesP,
       requiredHashAlgorithmsP,
@@ -125,35 +125,36 @@ object StaticDomainParameters
     ) = domainParametersP
 
     for {
-      requiredSigningKeySchemes <- requiredKeySchemes(
-        "requiredSigningKeySchemes",
-        requiredSigningKeySchemesP,
-        SigningKeyScheme.fromProtoEnum,
+      requiredSigningSpecsP <- requiredSigningSpecsOP.toRight(
+        ProtoDeserializationError.FieldNotSet(
+          "required_signing_specs"
+        )
       )
+      requiredSigningSpecs <- RequiredSigningSpecs.fromProtoV30(requiredSigningSpecsP)
       requiredEncryptionSpecsP <- requiredEncryptionSpecsOP.toRight(
         ProtoDeserializationError.FieldNotSet(
-          "requiredEncryptionSpecs"
+          "required_encryption_specs"
         )
       )
       requiredEncryptionSpecs <- RequiredEncryptionSpecs.fromProtoV30(requiredEncryptionSpecsP)
       requiredSymmetricKeySchemes <- requiredKeySchemes(
-        "requiredSymmetricKeySchemes",
+        "required_symmetric_key_schemes",
         requiredSymmetricKeySchemesP,
         SymmetricKeyScheme.fromProtoEnum,
       )
       requiredHashAlgorithms <- requiredKeySchemes(
-        "requiredHashAlgorithms",
+        "required_hash_algorithms",
         requiredHashAlgorithmsP,
         HashAlgorithm.fromProtoEnum,
       )
       requiredCryptoKeyFormats <- requiredKeySchemes(
-        "requiredCryptoKeyFormats",
+        "required_crypto_key_formats",
         requiredCryptoKeyFormatsP,
         CryptoKeyFormat.fromProtoEnum,
       )
       protocolVersion <- ProtocolVersion.fromProtoPrimitive(protocolVersionP)
     } yield StaticDomainParameters(
-      requiredSigningKeySchemes,
+      requiredSigningSpecs,
       requiredEncryptionSpecs,
       requiredSymmetricKeySchemes,
       requiredHashAlgorithms,

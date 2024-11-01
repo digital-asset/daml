@@ -5,6 +5,7 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.un
 
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.EpochState
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultLeaderSelectionPolicy
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.GenesisTopologySnapshotEffectiveTime
@@ -239,7 +240,10 @@ class StateTransferManagerTest extends AnyWordSpec with BaseTest {
     )(completeInit = () => (), abort = fail(_)) shouldBe NoEpochStateUpdates
 
     val messages = context.runPipedMessages() // store block
-    messages should contain only StateTransferMessage.BlockStored(prePrepare, blockTransferResponse)
+    messages should contain only StateTransferMessage.BlockStored(
+      prePrepare.message,
+      blockTransferResponse,
+    )
 
     val newEpochState = stateTransferManager.handleStateTransferMessage(
       messages.headOption
@@ -267,12 +271,14 @@ class StateTransferManagerTest extends AnyWordSpec with BaseTest {
         OrderedBlockForOutput(
           OrderedBlock(
             blockMetadata,
-            prePrepare.block.proofs,
-            prePrepare.canonicalCommitSet,
+            prePrepare.message.block.proofs,
+            prePrepare.message.canonicalCommitSet,
           ),
           from = prePrepare.from,
           isLastInEpoch = true,
-          mode = OrderedBlockForOutput.Mode.StateTransferLastBlock,
+          mode = OrderedBlockForOutput.Mode.StateTransfer.LastBlock(
+            pendingTopologyChangesInNextEpoch = false
+          ),
         )
       )
     )
@@ -333,12 +339,14 @@ object StateTransferManagerTest {
   private def aPrePrepare(
       blockMetadata: BlockMetadata = BlockMetadata.mk(EpochNumber.First, BlockNumber.First)
   ) =
-    PrePrepare.create(
-      blockMetadata,
-      viewNumber = ViewNumber.First,
-      CantonTimestamp.Epoch,
-      OrderingBlock(Seq.empty),
-      CanonicalCommitSet(Set.empty),
-      mySequencerId,
-    )
+    PrePrepare
+      .create(
+        blockMetadata,
+        viewNumber = ViewNumber.First,
+        CantonTimestamp.Epoch,
+        OrderingBlock(Seq.empty),
+        CanonicalCommitSet(Set.empty),
+        mySequencerId,
+      )
+      .fakeSign
 }

@@ -8,6 +8,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.cor
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.EpochInProgress
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.CryptoProvider
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.Commit
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.dependencies.ConsensusModuleDependencies
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.{
@@ -26,7 +27,7 @@ trait SegmentModuleRefFactory[E <: Env[E]] {
       context: E#ActorContextT[Consensus.Message[E]],
       epoch: Epoch,
       cryptoProvider: CryptoProvider[E],
-      latestCompletedEpochLastCommits: Seq[Commit],
+      latestCompletedEpochLastCommits: Seq[SignedMessage[Commit]],
       epochInProgress: EpochInProgress,
   )(
       segmentState: SegmentState,
@@ -46,7 +47,7 @@ final class SegmentModuleRefFactoryImpl[E <: Env[E]](
       context: E#ActorContextT[Consensus.Message[E]],
       epoch: Epoch,
       cryptoProvider: CryptoProvider[E],
-      latestCompletedEpochLastCommits: Seq[Commit],
+      latestCompletedEpochLastCommits: Seq[SignedMessage[Commit]],
       epochInProgress: EpochInProgress,
   )(
       segmentState: SegmentState,

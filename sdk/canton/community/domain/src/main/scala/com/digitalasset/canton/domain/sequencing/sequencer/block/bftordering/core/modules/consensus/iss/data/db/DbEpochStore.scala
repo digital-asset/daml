@@ -8,6 +8,7 @@ import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.domain.sequencing.sequencer.bftordering.v1
 import com.digitalasset.canton.domain.sequencing.sequencer.bftordering.v1.ConsensusMessage as ProtoConsensusMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.{
@@ -26,6 +27,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   EpochLength,
   EpochNumber,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.iss.EpochInfo
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.{
   CommitCertificate,
@@ -48,9 +50,10 @@ import com.digitalasset.canton.resource.DbStorage.DbAction
 import com.digitalasset.canton.resource.DbStorage.Implicits.setParameterByteString
 import com.digitalasset.canton.resource.DbStorage.Profile.{H2, Postgres}
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
+import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.store.db.DbDeserializationException
+import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.topology.processing.EffectiveTime
-import com.digitalasset.canton.topology.{SequencerId, UniqueIdentifier}
 import com.digitalasset.canton.tracing.TraceContext
 import slick.dbio.DBIOAction
 import slick.jdbc.{GetResult, PositionedResult, SetParameter}
@@ -80,35 +83,20 @@ class DbEpochStore(
     )
   }
 
-  private implicit val readPbftMessage: GetResult[PbftNetworkMessage] =
-    GetResult(r => parsePbftMessage(r))
+  private implicit val readPbftMessage: GetResult[SignedMessage[PbftNetworkMessage]] =
+    GetResult(parseSignedMessage(from => IssConsensusModule.parseNetworkMessage(from, _)))
 
-  private implicit val tryReadPrePrepareMessage: GetResult[PrePrepare] =
-    GetResult(r => tryParsePrePrepareMessage(r))
+  private implicit val tryReadPrePrepareMessage: GetResult[SignedMessage[PrePrepare]] =
+    GetResult(parseSignedMessage(_ => PrePrepare.fromProtoConsensusMessage))
 
   private implicit val tryReadPrePrepareMessageAndEpochInfo: GetResult[(PrePrepare, EpochInfo)] =
     GetResult { r =>
-      val prePrepare = tryParsePrePrepareMessage(r)
-      prePrepare -> readEpoch(r)
+      val prePrepare = parseSignedMessage(_ => PrePrepare.fromProtoConsensusMessage)(r)
+      prePrepare.message -> readEpoch(r)
     }
 
-  private def tryParsePrePrepareMessage(r: PositionedResult) =
-    parsePbftMessage(r) match {
-      case prePrepare: PrePrepare => prePrepare
-      case m =>
-        throw new DbDeserializationException(
-          s"Expected to deserialize a pre-prepare message but got: $m"
-        )
-    }
-
-  private implicit val readCommitMessage: GetResult[Commit] = GetResult { r =>
-    parsePbftMessage(r) match {
-      case c: Commit => c
-      case m =>
-        throw new DbDeserializationException(
-          s"Expected to deserialize a commit message but got: $m"
-        )
-    }
+  private implicit val readCommitMessage: GetResult[SignedMessage[Commit]] = GetResult {
+    parseSignedMessage(_ => Commit.fromProtoConsensusMessage)
   }
 
   private def createFuture[X](
@@ -116,21 +104,18 @@ class DbEpochStore(
   )(future: => Future[X])(implicit traceContext: TraceContext): PekkoFutureUnlessShutdown[X] =
     PekkoFutureUnlessShutdown(actionName, storage.performUnlessClosingF(actionName)(future))
 
-  private def parsePbftMessage(r: PositionedResult): PbftNetworkMessage = {
+  private def parseSignedMessage[A <: PbftNetworkMessage](
+      parse: SequencerId => ProtoConsensusMessage => ParsingResult[A]
+  )(
+      r: PositionedResult
+  ): SignedMessage[A] = {
     val messageBytes = r.nextBytes()
-    val sequencerIdString = r.nextString()
 
     val messageOrError = for {
-      consensusMessageProto <- Try(ProtoConsensusMessage.parseFrom(messageBytes)).toEither
+      signedMessageProto <- Try(v1.SignedMessage.parseFrom(messageBytes)).toEither
         .leftMap(x => ProtoDeserializationError.OtherError(x.toString))
-      sequencerId <- UniqueIdentifier
-        .fromProtoPrimitive(sequencerIdString, "fromSequencerId")
-        .map(SequencerId(_))
-      consensus <- IssConsensusModule.parseNetworkMessage(
-        sequencerId,
-        consensusMessageProto,
-      )
-    } yield consensus
+      message <- SignedMessage.fromProtoWithSequencerId(parse)(signedMessageProto)
+    } yield message
 
     messageOrError.fold(
       error => throw new DbDeserializationException(s"Could not deserialize pbft message: $error"),
@@ -138,8 +123,9 @@ class DbEpochStore(
     )
   }
 
-  private implicit val setPbftMessagesParameter: SetParameter[PbftNetworkMessage] = { (msg, pp) =>
-    pp >> msg.toProto.toByteString
+  private implicit val setPbftMessagesParameter: SetParameter[SignedMessage[PbftNetworkMessage]] = {
+    (msg, pp) =>
+      pp >> msg.toProto.toByteString
   }
 
   override def startEpoch(
@@ -213,17 +199,17 @@ class DbEpochStore(
                  """.as[EpochInfo]
           epoch = epochInfo.lastOption.getOrElse(Genesis.GenesisEpochInfo)
           lastBlockCommitMessages <-
-            sql"""select message, from_sequencer_id
+            sql"""select message
                   from ord_pbft_messages_completed pbft_message
                   where pbft_message.block_number = ${epoch.lastBlockNumber} and pbft_message.discriminator = $CommitMessageDiscriminator
                   order by pbft_message.from_sequencer_id
-               """.as[Commit]
+               """.as[SignedMessage[Commit]]
         } yield Epoch(epoch, lastBlockCommitMessages),
         functionFullName,
       )
   }
 
-  override def addPrePrepare(prePrepare: ConsensusMessage.PrePrepare)(implicit
+  override def addPrePrepare(prePrepare: SignedMessage[ConsensusMessage.PrePrepare])(implicit
       traceContext: TraceContext
   ): PekkoFutureUnlessShutdown[Unit] = createFuture(addPrePrepareActionName(prePrepare)) {
     storage.update_(
@@ -233,7 +219,7 @@ class DbEpochStore(
   }
 
   override def addPrepares(
-      prepares: Seq[ConsensusMessage.Prepare]
+      prepares: Seq[SignedMessage[ConsensusMessage.Prepare]]
   )(implicit traceContext: TraceContext): PekkoFutureUnlessShutdown[Unit] =
     createFuture(addPreparesActionName) {
       storage.update_(
@@ -242,7 +228,9 @@ class DbEpochStore(
       )
     }
 
-  override def addViewChangeMessage[M <: PbftViewChangeMessage](viewChangeMessage: M)(implicit
+  override def addViewChangeMessage[M <: PbftViewChangeMessage](
+      viewChangeMessage: SignedMessage[M]
+  )(implicit
       traceContext: TraceContext
   ): PekkoFutureUnlessShutdown[Unit] =
     createFuture(addViewChangeMessageActionName(viewChangeMessage)) {
@@ -253,13 +241,13 @@ class DbEpochStore(
     }
 
   override def addOrderedBlock(
-      prePrepare: PrePrepare,
-      commitMessages: Seq[Commit],
+      prePrepare: SignedMessage[PrePrepare],
+      commitMessages: Seq[SignedMessage[Commit]],
   )(implicit
       traceContext: TraceContext
   ): PekkoFutureUnlessShutdown[Unit] = {
-    val epochNumber = prePrepare.blockMetadata.epochNumber
-    val blockNumber = prePrepare.blockMetadata.blockNumber
+    val epochNumber = prePrepare.message.blockMetadata.epochNumber
+    val blockNumber = prePrepare.message.blockMetadata.blockNumber
     createFuture(addOrderedBlockActionName(epochNumber, blockNumber)) {
       storage.update_(
         DBIOAction
@@ -279,15 +267,15 @@ class DbEpochStore(
     sqlu"delete from ord_pbft_messages_in_progress where block_number=$blockNumber and discriminator <= $PrepareMessageDiscriminator"
 
   private def insertInProgressPbftMessages[M <: PbftNetworkMessage](
-      messages: Seq[M]
+      messages: Seq[SignedMessage[M]]
   ): Seq[DbAction.WriteOnly[Int]] =
     messages.headOption.fold(Seq.empty[DbAction.WriteOnly[Int]]) { head =>
-      val discriminator = getDiscriminator(head)
+      val discriminator = getDiscriminator(head.message)
       messages.map { msg =>
         val sequencerId = msg.from.uid.toProtoPrimitive
-        val blockNumber = msg.blockMetadata.blockNumber
-        val epochNumber = msg.blockMetadata.epochNumber
-        val viewNumber = msg.viewNumber
+        val blockNumber = msg.message.blockMetadata.blockNumber
+        val epochNumber = msg.message.blockMetadata.epochNumber
+        val viewNumber = msg.message.viewNumber
 
         profile match {
           case _: Postgres =>
@@ -313,14 +301,14 @@ class DbEpochStore(
     }
 
   private def insertFinalPbftMessages[M <: PbftNetworkMessage](
-      messages: Seq[M]
+      messages: Seq[SignedMessage[M]]
   ): Seq[DbAction.WriteOnly[Int]] =
     messages.headOption.fold(Seq.empty[DbAction.WriteOnly[Int]]) { head =>
-      val discriminator = getDiscriminator(head)
+      val discriminator = getDiscriminator(head.message)
       messages.map { msg =>
         val sequencerId = msg.from.uid.toProtoPrimitive
-        val blockNumber = msg.blockMetadata.blockNumber
-        val epochNumber = msg.blockMetadata.epochNumber
+        val blockNumber = msg.message.blockMetadata.blockNumber
+        val epochNumber = msg.message.blockMetadata.epochNumber
 
         profile match {
           case _: Postgres =>
@@ -344,6 +332,7 @@ class DbEpochStore(
       }
     }
 
+  @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
   override def loadEpochProgress(activeEpochInfo: EpochInfo)(implicit
       traceContext: TraceContext
   ): PekkoFutureUnlessShutdown[EpochInProgress] =
@@ -352,32 +341,35 @@ class DbEpochStore(
         .query(
           for {
             completeBlockMessages <-
-              sql"""select message, from_sequencer_id
+              sql"""select message
                     from ord_pbft_messages_completed
                     where epoch_number = ${activeEpochInfo.number}
                     order by from_sequencer_id, block_number
-                 """.as[PbftNetworkMessage](readPbftMessage)
+                 """.as[SignedMessage[PbftNetworkMessage]](readPbftMessage)
             pbftMessagesForIncompleteBlocks <-
-              sql"""select message, from_sequencer_id
+              sql"""select message
                     from ord_pbft_messages_in_progress
                     where epoch_number = ${activeEpochInfo.number}
                     order by from_sequencer_id, block_number, discriminator, view_number
                  """
                 // had to set the GetResult explicitly because for some reason it was picking the one for commit messages
-                .as[PbftNetworkMessage](readPbftMessage)
+                .as[SignedMessage[PbftNetworkMessage]](readPbftMessage)
           } yield {
             val commits = completeBlockMessages
-              .collect { case commit: Commit =>
-                commit
+              .collect { case s @ SignedMessage(_: Commit, _, _) =>
+                s.asInstanceOf[SignedMessage[Commit]]
               }
-              .groupBy(_.blockMetadata.blockNumber)
+              .groupBy(_.message.blockMetadata.blockNumber)
             val sortedBlocks = completeBlockMessages
-              .collect { case pp: PrePrepare =>
+              .collect { case s @ SignedMessage(pp: PrePrepare, _, _) =>
                 val blockNumber = pp.blockMetadata.blockNumber
                 Block(
                   activeEpochInfo.number,
                   blockNumber,
-                  CommitCertificate(pp, commits.getOrElse(blockNumber, Seq.empty)),
+                  CommitCertificate(
+                    s.asInstanceOf[SignedMessage[PrePrepare]],
+                    commits.getOrElse(blockNumber, Seq.empty),
+                  ),
                 )
               }
               .sortBy(_.blockNumber)
@@ -390,17 +382,19 @@ class DbEpochStore(
   override def loadPrePreparesForCompleteBlocks(
       startEpochNumberInclusive: EpochNumber,
       endEpochNumberInclusive: EpochNumber,
-  )(implicit traceContext: TraceContext): PekkoFutureUnlessShutdown[Seq[PrePrepare]] =
+  )(implicit
+      traceContext: TraceContext
+  ): PekkoFutureUnlessShutdown[Seq[SignedMessage[PrePrepare]]] =
     createFuture(loadPrePreparesActionName(startEpochNumberInclusive, endEpochNumberInclusive)) {
       storage
         .query(
-          sql"""select completed_message.message, completed_message.from_sequencer_id
+          sql"""select completed_message.message
                 from ord_pbft_messages_completed completed_message
                 where completed_message.discriminator = $PrePrepareMessageDiscriminator
                   and completed_message.epoch_number >= $startEpochNumberInclusive
                   and completed_message.epoch_number <= $endEpochNumberInclusive
                 order by completed_message.block_number
-             """.as[PrePrepare](tryReadPrePrepareMessage),
+             """.as[SignedMessage[PrePrepare]](tryReadPrePrepareMessage),
           functionFullName,
         )
     }
@@ -412,7 +406,7 @@ class DbEpochStore(
       storage
         .query(
           sql"""select
-                  completed_message.message, completed_message.from_sequencer_id,
+                  completed_message.message,
                   epoch.epoch_number, epoch.start_block_number, epoch.epoch_length, epoch.topology_ts
                 from
                   ord_pbft_messages_completed completed_message

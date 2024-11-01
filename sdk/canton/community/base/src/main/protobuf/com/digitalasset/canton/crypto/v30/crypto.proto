@@ -35,6 +35,9 @@ message Signature {
   // The fingerprint/id of the keypair used to create this signature and needed to verify.
   // The referenced key provides the context for the used signature scheme.
   string signed_by = 3;
+
+  // The signing algorithm specification used to generate this signature
+  SigningAlgorithmSpec signing_algorithm_spec = 4;
 }
 
 enum SignatureFormat {
@@ -47,12 +50,28 @@ enum SignatureFormat {
 enum EncryptionKeySpec {
   ENCRYPTION_KEY_SPEC_UNSPECIFIED = 0;
 
-  // Elliptic Curve Key based on NIST P-256 (aka Secp256r1)
+  // Elliptic Curve Key from the NIST P-256 curve (aka Secp256r1)
   // as defined in https://doi.org/10.6028/NIST.FIPS.186-4
   ENCRYPTION_KEY_SPEC_EC_P256 = 1;
 
   // RSA with 2048 bits
-  ENCRYPTION_KEY_SPEC_RSA_2048 = 3;
+  ENCRYPTION_KEY_SPEC_RSA_2048 = 2;
+}
+
+enum SigningKeySpec {
+  SIGNING_KEY_SPEC_UNSPECIFIED = 0;
+
+  // Elliptic Curve Key from Curve25519
+  // as defined in http://ed25519.cr.yp.to/
+  SIGNING_KEY_SPEC_EC_CURVE25519 = 1;
+
+  // Elliptic Curve Key from the NIST P-256 curve (aka Secp256r1)
+  // as defined in https://doi.org/10.6028/NIST.FIPS.186-4
+  SIGNING_KEY_SPEC_EC_P256 = 2;
+
+  // Elliptic Curve Key from the NISTP-2384 curve (aka Secp384r1)
+  // as defined in https://doi.org/10.6028/NIST.FIPS.186-4
+  SIGNING_KEY_SPEC_EC_P384 = 3;
 }
 
 message PublicKey {
@@ -103,11 +122,14 @@ message SigningPublicKey {
   // Serialized public key in the format specified above
   bytes public_key = 3;
 
-  // Explicit state the key scheme of the serialized public key
-  SigningKeyScheme scheme = 4;
+  // No longer used (only kept for backwards compatibility) stores both the crypto key scheme and algorithm.
+  SigningKeyScheme scheme = 4 [deprecated = true];
 
   // Explicitly state the key's intended use
   repeated SigningKeyUsage usage = 5;
+
+  // The key specification that was used to generate the key pair
+  SigningKeySpec key_spec = 6;
 }
 
 message SigningPrivateKey {
@@ -118,11 +140,14 @@ message SigningPrivateKey {
   // Serialized private key in the format specified above
   bytes private_key = 3;
 
-  // Explicit state the key scheme of the serialized private key
-  SigningKeyScheme scheme = 4;
+  // No longer used (only kept for backwards compatibility) stores both the crypto key scheme and algorithm.
+  SigningKeyScheme scheme = 4 [deprecated = true];
 
   // Explicitly state the key's intended use
   repeated SigningKeyUsage usage = 5;
+
+  // The key specification that was used to generate the key pair
+  SigningKeySpec key_spec = 6;
 }
 
 message SigningKeyPair {
@@ -130,6 +155,21 @@ message SigningKeyPair {
   SigningPrivateKey private_key = 2;
 }
 
+enum SigningAlgorithmSpec {
+  SIGNING_ALGORITHM_SPEC_UNSPECIFIED = 0;
+
+  // EdDSA Signature based on Curve25519 with SHA-512
+  // http://ed25519.cr.yp.to/
+  SIGNING_ALGORITHM_SPEC_ED25519 = 1;
+
+  // Elliptic Curve Digital Signature Algorithm with SHA256
+  SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_256 = 2;
+
+  // Elliptic Curve Digital Signature Algorithm with SHA384
+  SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_384 = 3;
+}
+
+// @deprecated
 enum SigningKeyScheme {
   SIGNING_KEY_SCHEME_UNSPECIFIED = 0;
 
@@ -140,6 +180,12 @@ enum SigningKeyScheme {
   // EC-DSA with NIST curve P-256 or P-384
   SIGNING_KEY_SCHEME_EC_DSA_P256 = 2;
   SIGNING_KEY_SCHEME_EC_DSA_P384 = 3;
+}
+
+// Used to announce the required signing key and algorithm specifications in the static domain parameters.
+message RequiredSigningSpecs {
+  repeated SigningAlgorithmSpec algorithms = 1;
+  repeated SigningKeySpec keys = 2;
 }
 
 message EncryptionPublicKey {
@@ -194,6 +240,7 @@ enum EncryptionAlgorithmSpec {
   ENCRYPTION_ALGORITHM_SPEC_RSA_OAEP_SHA256 = 3;
 }
 
+// @deprecated
 enum EncryptionKeyScheme {
   ENCRYPTION_KEY_SCHEME_UNSPECIFIED = 0;
 
@@ -208,6 +255,7 @@ enum EncryptionKeyScheme {
   ENCRYPTION_KEY_SCHEME_RSA2048_OAEP_SHA256 = 3;
 }
 
+// Used to announce the required encryption key and algorithm specifications in the static domain parameters.
 message RequiredEncryptionSpecs {
   repeated EncryptionAlgorithmSpec algorithms = 1;
   repeated EncryptionKeySpec keys = 2;

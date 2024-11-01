@@ -70,6 +70,8 @@ class GrpcSequencerSubscriptionTest extends AnyWordSpec with BaseTest with HasEx
               format = cryptoproto.SignatureFormat.SIGNATURE_FORMAT_RAW,
               signature = ByteString.copyFromUtf8("not checked in this test"),
               signedBy = "not checked",
+              signingAlgorithmSpec =
+                cryptoproto.SigningAlgorithmSpec.SIGNING_ALGORITHM_SPEC_UNSPECIFIED,
             )
           ),
           timestampOfSigningKey = None,

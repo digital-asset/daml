@@ -9,6 +9,7 @@ import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.BftSequencerBaseTest
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.{
   Epoch,
   Segment,
@@ -31,6 +32,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.topology.Membership
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.{
   Commit,
+  PbftSignedNetworkMessage,
   PrePrepare,
   Prepare,
 }
@@ -66,7 +68,7 @@ class LeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         completeBlock(segmentState, blockNumber)
         val commits = orderedBlock.canonicalCommitSet.sortedCommits
         commits.size shouldBe 1
-        commits.head.blockMetadata.blockNumber shouldBe blockNumber - 1
+        commits.head.message.blockMetadata.blockNumber shouldBe blockNumber - 1
       }
       leaderSegmentState.moreSlotsToAssign shouldBe false
 
@@ -80,14 +82,16 @@ class LeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
             EpochNumber.First,
             BlockNumber(n),
             CommitCertificate(
-              PrePrepare.create(
-                BlockMetadata(EpochNumber.First, n),
-                ViewNumber.First,
-                CantonTimestamp.Epoch,
-                OrderingBlock(Seq.empty),
-                CanonicalCommitSet(Set.empty),
-                myId,
-              ),
+              PrePrepare
+                .create(
+                  BlockMetadata(EpochNumber.First, n),
+                  ViewNumber.First,
+                  CantonTimestamp.Epoch,
+                  OrderingBlock(Seq.empty),
+                  CanonicalCommitSet(Set.empty),
+                  myId,
+                )
+                .fakeSign,
               commits,
             ),
           )
@@ -140,7 +144,7 @@ class LeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
       val canonicalCommits = orderedBlock.canonicalCommitSet.sortedCommits
       canonicalCommits.size shouldBe 1
-      canonicalCommits.head.localTimestamp shouldBe timestamp
+      canonicalCommits.head.message.localTimestamp shouldBe timestamp
     }
 
     "tell when this node is blocking progress" in {
@@ -205,24 +209,30 @@ class LeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
   private def completeBlock(segmentState: SegmentState, blockNumber: BlockNumber): Unit = {
     val metadata = BlockMetadata.mk(0, blockNumber)
     val prePrepare =
-      PrePrepare.create(
-        metadata,
-        ViewNumber.First,
-        CantonTimestamp.Epoch,
-        OrderingBlock(Seq.empty),
-        CanonicalCommitSet(Set.empty),
-        from = segmentState.segment.originalLeader,
-      )
-    val ppHash = prePrepare.hash
-    val _ = assertNoLogs(segmentState.processEvent(prePrepare))
+      PrePrepare
+        .create(
+          metadata,
+          ViewNumber.First,
+          CantonTimestamp.Epoch,
+          OrderingBlock(Seq.empty),
+          CanonicalCommitSet(Set.empty),
+          from = segmentState.segment.originalLeader,
+        )
+        .fakeSign
+    val ppHash = prePrepare.message.hash
+    val _ = assertNoLogs(segmentState.processEvent(PbftSignedNetworkMessage(prePrepare)))
     otherPeers.foreach { peer =>
       val prepare =
-        Prepare.create(metadata, ViewNumber.First, ppHash, CantonTimestamp.Epoch, from = peer)
-      val _ = assertNoLogs(segmentState.processEvent(prepare))
+        Prepare
+          .create(metadata, ViewNumber.First, ppHash, CantonTimestamp.Epoch, from = peer)
+          .fakeSign
+      val _ = assertNoLogs(segmentState.processEvent(PbftSignedNetworkMessage(prepare)))
 
       val commit =
-        Commit.create(metadata, ViewNumber.First, ppHash, CantonTimestamp.Epoch, from = peer)
-      val _ = assertNoLogs(segmentState.processEvent(commit))
+        Commit
+          .create(metadata, ViewNumber.First, ppHash, CantonTimestamp.Epoch, from = peer)
+          .fakeSign
+      val _ = assertNoLogs(segmentState.processEvent(PbftSignedNetworkMessage(commit)))
     }
     segmentState.isBlockComplete(blockNumber) shouldBe false
     segmentState.confirmCompleteBlockStored(blockNumber, ViewNumber.First)
@@ -248,13 +258,15 @@ object LeaderSegmentStateTest {
 
   private val commits = (otherPeers + myId)
     .map { peer =>
-      Commit.create(
-        BlockMetadata.mk(EpochNumber.First, BlockNumber.First),
-        ViewNumber.First,
-        Hash.digest(HashPurpose.BftOrderingPbftBlock, ByteString.EMPTY, HashAlgorithm.Sha256),
-        CantonTimestamp.Epoch,
-        from = peer,
-      )
+      Commit
+        .create(
+          BlockMetadata.mk(EpochNumber.First, BlockNumber.First),
+          ViewNumber.First,
+          Hash.digest(HashPurpose.BftOrderingPbftBlock, ByteString.EMPTY, HashAlgorithm.Sha256),
+          CantonTimestamp.Epoch,
+          from = peer,
+        )
+        .fakeSign
     }
     .toSeq
     .sorted

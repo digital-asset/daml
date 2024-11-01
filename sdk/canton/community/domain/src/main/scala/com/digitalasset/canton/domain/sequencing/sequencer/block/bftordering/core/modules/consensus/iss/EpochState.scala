@@ -15,6 +15,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   BlockNumber,
   EpochNumber,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.availability.OrderingBlock
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.iss.{
   BlockMetadata,
@@ -66,8 +67,8 @@ class EpochState[E <: Env[E]](
   ) = true
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
-  private var lastBlockCommitMessagesOption: Option[Seq[Commit]] = None
-  def lastBlockCommitMessages: Seq[Commit] =
+  private var lastBlockCommitMessagesOption: Option[Seq[SignedMessage[Commit]]] = None
+  def lastBlockCommitMessages: Seq[SignedMessage[Commit]] =
     lastBlockCommitMessagesOption.getOrElse(abort("The current epoch's last block is not complete"))
 
   def isEpochComplete: Boolean = isSlotComplete.forall(identity)
@@ -112,7 +113,7 @@ class EpochState[E <: Env[E]](
 
   def confirmBlockCompleted(
       blockMetadata: BlockMetadata,
-      commits: Seq[Commit],
+      commits: Seq[SignedMessage[Commit]],
   )(implicit traceContext: TraceContext): Unit = {
     confirmBlockCompleted(blockMetadata.blockNumber)
     if (blockMetadata.blockNumber == epoch.info.lastBlockNumber)

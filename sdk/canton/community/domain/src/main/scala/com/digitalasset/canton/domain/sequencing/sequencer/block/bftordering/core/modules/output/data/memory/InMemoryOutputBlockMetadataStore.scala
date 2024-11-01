@@ -116,6 +116,25 @@ abstract class GenericInMemoryOutputBlockMetadataStore[E <: Env[E]]
           .map(blocks)
       )
     )
+
+  override def setPendingChangesInNextEpoch(
+      block: BlockNumber,
+      areTherePendingCantonTopologyChanges: Boolean,
+  )(implicit traceContext: TraceContext): E#FutureUnlessShutdownT[Unit] =
+    createFuture(setPendingChangesInNextEpochActionName) { () =>
+      blocks
+        .updateWith(block) {
+          case Some(metadata) =>
+            Some(
+              metadata.copy(pendingTopologyChangesInNextEpoch =
+                areTherePendingCantonTopologyChanges
+              )
+            )
+          case None => None
+        }
+        .map(_ => Success(()))
+        .getOrElse(Failure(new RuntimeException(s"Block $block not found")))
+    }
 }
 
 class InMemoryOutputBlockMetadataStore extends GenericInMemoryOutputBlockMetadataStore[PekkoEnv] {

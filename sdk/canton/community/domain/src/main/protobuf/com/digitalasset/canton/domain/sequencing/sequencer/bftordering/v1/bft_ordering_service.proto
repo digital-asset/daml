@@ -54,6 +54,12 @@ message BftOrderingMessageBody {
   }
 }
 
+message SignedMessage {
+  ConsensusMessage message = 1; // TODO(#21169) This will `bytes` in the future
+  string from = 2;
+  com.digitalasset.canton.crypto.v30.Signature signature = 3;
+}
+
 message AvailabilityMessage {
   oneof message {
     google.protobuf.Empty ping = 1;
@@ -152,14 +158,14 @@ message ViewChange {
 // of a PBFT instance at the end of a view change
 message NewView {
   int32 segment_index = 1;
-  repeated ConsensusMessage view_changes = 2;
-  repeated ConsensusMessage pre_prepares = 3;
+  repeated SignedMessage /*ConsensusMessage*/ view_changes = 2;
+  repeated SignedMessage /*ConsensusMessage*/ pre_prepares = 3;
 }
 
 // A canonical (fixed) set of (usually 2f+1) Commit messages that completed the recent stable block.
 // Check the BFT time design for more details.
 message CanonicalCommitSet {
-  repeated ConsensusMessage canonical_commits = 1;
+  repeated SignedMessage /*ConsensusMessage*/ canonical_commits = 1;
 }
 
 message ConsensusCertificate {
@@ -172,15 +178,15 @@ message ConsensusCertificate {
 // A self-contained, cryptographically-verifiable set of one PrePrepare and quorum-1 Prepares that
 // prove a particular value (payload) was prepared for a particular (epoch, block, view)-tuple
 message PrepareCertificate {
-  ConsensusMessage pre_prepare = 1;
-  repeated ConsensusMessage prepares = 2;
+  SignedMessage /*ConsensusMessage*/ pre_prepare = 1;
+  repeated SignedMessage /*ConsensusMessage*/ prepares = 2;
 }
 
 // A self-contained, cryptographically-verifiable set of one PrePrepare and quorum-1 Commits that
 // prove a particular value (payload) was committed for a particular (epoch, block, view)-tuple
 message CommitCertificate {
-  ConsensusMessage pre_prepare = 1;
-  repeated ConsensusMessage commits = 2;
+  SignedMessage /*ConsensusMessage*/ pre_prepare = 1;
+  repeated SignedMessage /*ConsensusMessage*/ commits = 2;
 }
 
 message OrderingBlock {
@@ -217,7 +223,7 @@ message BlockTransferResponse {
   // Effective time of the topology for the latest completed epoch of the serving node.
   google.protobuf.Timestamp latest_completed_epoch_topology_effective_time = 2;
   // Reused to reduce the number of messages and conversions.
-  repeated ConsensusMessage block_pre_prepares = 3;
+  repeated SignedMessage /*ConsensusMessage*/ block_pre_prepares = 3;
   // For BFT time calculation.
-  repeated ConsensusMessage last_block_commits = 4;
+  repeated SignedMessage /*ConsensusMessage*/ last_block_commits = 4;
 }

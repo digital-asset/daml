@@ -7,6 +7,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.BftSequencerBaseTest
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fakeSequencerId
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
   BlockNumber,
@@ -52,14 +53,16 @@ class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTe
       epochNumber: Long,
       blockNumber: Long,
       viewNumber: Long = ViewNumber.First,
-  ) = PrePrepare.create(
-    BlockMetadata.mk(epochNumber, blockNumber),
-    ViewNumber(viewNumber),
-    CantonTimestamp.Epoch,
-    OrderingBlock(Seq.empty),
-    CanonicalCommitSet(Set.empty),
-    from = myId,
-  )
+  ) = PrePrepare
+    .create(
+      BlockMetadata.mk(epochNumber, blockNumber),
+      ViewNumber(viewNumber),
+      CantonTimestamp.Epoch,
+      OrderingBlock(Seq.empty),
+      CanonicalCommitSet(Set.empty),
+      from = myId,
+    )
+    .fakeSign
 
   private def prepare(
       epochNumber: Long,
@@ -68,13 +71,15 @@ class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTe
       viewNumber: Long = view0,
       from: SequencerId = myId,
   ) =
-    Prepare.create(
-      BlockMetadata.mk(epochNumber, blockNumber),
-      ViewNumber(viewNumber),
-      hash,
-      CantonTimestamp.Epoch,
-      from,
-    )
+    Prepare
+      .create(
+        BlockMetadata.mk(epochNumber, blockNumber),
+        ViewNumber(viewNumber),
+        hash,
+        CantonTimestamp.Epoch,
+        from,
+      )
+      .fakeSign
 
   private def commit(
       epochNumber: Long,
@@ -83,13 +88,15 @@ class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTe
       viewNumber: Long = ViewNumber.First,
       from: SequencerId = myId,
   ) =
-    Commit.create(
-      BlockMetadata.mk(epochNumber, blockNumber),
-      ViewNumber(viewNumber),
-      hash,
-      CantonTimestamp.Epoch,
-      from,
-    )
+    Commit
+      .create(
+        BlockMetadata.mk(epochNumber, blockNumber),
+        ViewNumber(viewNumber),
+        hash,
+        CantonTimestamp.Epoch,
+        from,
+      )
+      .fakeSign
 
   private def viewChangeMsg(viewNumber: ViewNumber, consensusCerts: Seq[ConsensusCertificate]) =
     ViewChange.create(
@@ -161,8 +168,8 @@ class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTe
       val pp1 = prePrepare(epochNumber, 1L, view0)
       val pp3 = prePrepare(epochNumber, 3L, view0)
 
-      val pc = PrepareCertificate(pp1, Seq(prepare(epochNumber, 1L, pp1.hash)))
-      val cc = CommitCertificate(pp3, Seq(commit(epochNumber, 3L, pp3.hash)))
+      val pc = PrepareCertificate(pp1, Seq(prepare(epochNumber, 1L, pp1.message.hash)))
+      val cc = CommitCertificate(pp3, Seq(commit(epochNumber, 3L, pp3.message.hash)))
 
       val result =
         validator.validateViewChangeMessage(viewChangeMsg(view1, Seq[ConsensusCertificate](pc, cc)))
@@ -192,15 +199,15 @@ class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTe
       val pc = PrepareCertificate(
         pp1,
         Seq(
-          prepare(epochNumber, 1L, pp1.hash, view2),
-          prepare(epochNumber, 1L, pp1.hash, view2, from = otherId),
+          prepare(epochNumber, 1L, pp1.message.hash, view2),
+          prepare(epochNumber, 1L, pp1.message.hash, view2, from = otherId),
         ),
       )
       val cc = CommitCertificate(
         pp3,
         Seq(
-          commit(epochNumber, 3L, pp3.hash, view0),
-          commit(epochNumber, 3L, pp3.hash, view1, from = otherId),
+          commit(epochNumber, 3L, pp3.message.hash, view0),
+          commit(epochNumber, 3L, pp3.message.hash, view1, from = otherId),
         ),
       )
 
@@ -220,9 +227,9 @@ class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTe
       val pc = PrepareCertificate(
         pp1,
         Seq(
-          prepare(epochNumber, 1L, pp1.hash),
-          prepare(epochNumber, 1L, pp1.hash),
-          prepare(epochNumber, 1L, pp1.hash, from = otherId),
+          prepare(epochNumber, 1L, pp1.message.hash),
+          prepare(epochNumber, 1L, pp1.message.hash),
+          prepare(epochNumber, 1L, pp1.message.hash, from = otherId),
         ),
       )
 
@@ -242,15 +249,15 @@ class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTe
       val pc = PrepareCertificate(
         pp1,
         Seq(
-          prepare(epochNumber, 3L, pp1.hash, view1),
-          prepare(epochNumber, 3L, pp1.hash, view1, from = otherId),
+          prepare(epochNumber, 3L, pp1.message.hash, view1),
+          prepare(epochNumber, 3L, pp1.message.hash, view1, from = otherId),
         ),
       )
       val cc = CommitCertificate(
         pp3,
         Seq(
-          commit(epochNumber, 1L, pp3.hash, view1),
-          commit(epochNumber, 2L, pp3.hash, view1, from = otherId),
+          commit(epochNumber, 1L, pp3.message.hash, view1),
+          commit(epochNumber, 2L, pp3.message.hash, view1, from = otherId),
         ),
       )
 
@@ -269,7 +276,7 @@ class ViewChangeMessageValidatorTest extends AnyWordSpec with BftSequencerBaseTe
       val cc = CommitCertificate(
         pp3,
         Seq(
-          commit(epochNumber, 3L, pp3.hash, view1)
+          commit(epochNumber, 3L, pp3.message.hash, view1)
         ),
       )
 

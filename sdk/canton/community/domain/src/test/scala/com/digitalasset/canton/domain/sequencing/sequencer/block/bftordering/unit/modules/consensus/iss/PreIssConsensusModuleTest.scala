@@ -18,6 +18,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   EpochLength,
   EpochNumber,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.iss.EpochInfo
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.topology.Membership
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.Commit
@@ -105,7 +106,7 @@ class PreIssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExec
             context: IgnoringUnitTestContext[Consensus.Message[IgnoringUnitTestEnv]],
             epoch: EpochState.Epoch,
             cryptoProvider: CryptoProvider[IgnoringUnitTestEnv],
-            latestCompletedEpochLastCommits: Seq[Commit],
+            latestCompletedEpochLastCommits: Seq[SignedMessage[Commit]],
             epochInProgress: EpochInProgress,
         )(
             segmentState: SegmentState,

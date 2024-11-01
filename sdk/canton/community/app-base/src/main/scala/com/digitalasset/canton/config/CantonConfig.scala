@@ -206,8 +206,7 @@ object ClockConfig {
     *
     * @param skew    maximum simulated clock skew (0)
     *                If positive, Canton nodes will use a WallClock, but the time of the wall clocks
-    *                will be shifted by a random number between `-simulateMaxClockSkewMillis` and
-    *                `simulateMaxClockSkewMillis`. The clocks will never move backwards.
+    *                will be shifted by a random number. The clocks will never move backwards.
     */
   final case class WallClock(
       skew: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(0)
@@ -709,12 +708,14 @@ object CantonConfig {
       deriveReader[GrpcHealthServerConfig]
     lazy implicit val communityCryptoProviderReader: ConfigReader[CommunityCryptoProvider] =
       deriveEnumerationReader[CommunityCryptoProvider]
-    lazy implicit val encryptionKeySpecReader: ConfigReader[EncryptionKeySpec] =
-      deriveEnumerationReader[EncryptionKeySpec]
-    lazy implicit val cryptoSigningKeySchemeReader: ConfigReader[SigningKeyScheme] =
-      deriveEnumerationReader[SigningKeyScheme]
+    lazy implicit val cryptoSigningAlgorithmSpecReader: ConfigReader[SigningAlgorithmSpec] =
+      deriveEnumerationReader[SigningAlgorithmSpec]
+    lazy implicit val signingKeySpecReader: ConfigReader[SigningKeySpec] =
+      deriveEnumerationReader[SigningKeySpec]
     lazy implicit val cryptoEncryptionAlgorithmSpecReader: ConfigReader[EncryptionAlgorithmSpec] =
       deriveEnumerationReader[EncryptionAlgorithmSpec]
+    lazy implicit val encryptionKeySpecReader: ConfigReader[EncryptionKeySpec] =
+      deriveEnumerationReader[EncryptionKeySpec]
     lazy implicit val cryptoSymmetricKeySchemeReader: ConfigReader[SymmetricKeyScheme] =
       deriveEnumerationReader[SymmetricKeyScheme]
     lazy implicit val cryptoHashAlgorithmReader: ConfigReader[HashAlgorithm] =
@@ -723,6 +724,8 @@ object CantonConfig {
       deriveEnumerationReader[PbkdfScheme]
     lazy implicit val cryptoKeyFormatReader: ConfigReader[CryptoKeyFormat] =
       deriveEnumerationReader[CryptoKeyFormat]
+    lazy implicit val signingSchemeConfigReader: ConfigReader[SigningSchemeConfig] =
+      deriveReader[SigningSchemeConfig]
     lazy implicit val encryptionSchemeConfigReader: ConfigReader[EncryptionSchemeConfig] =
       deriveReader[EncryptionSchemeConfig]
     implicit def cryptoSchemeConfig[S: ConfigReader: Order]: ConfigReader[CryptoSchemeConfig[S]] =
@@ -1147,12 +1150,14 @@ object CantonConfig {
       InitConfigBase.writerForSubtype(deriveWriter[ParticipantInitConfig])
     lazy implicit val communityCryptoProviderWriter: ConfigWriter[CommunityCryptoProvider] =
       deriveEnumerationWriter[CommunityCryptoProvider]
-    lazy implicit val encryptionKeySpecWriter: ConfigWriter[EncryptionKeySpec] =
-      deriveEnumerationWriter[EncryptionKeySpec]
-    lazy implicit val cryptoSigningKeySchemeWriter: ConfigWriter[SigningKeyScheme] =
-      deriveEnumerationWriter[SigningKeyScheme]
+    lazy implicit val cryptoSigningAlgorithmSpecWriter: ConfigWriter[SigningAlgorithmSpec] =
+      deriveEnumerationWriter[SigningAlgorithmSpec]
+    lazy implicit val signingKeySpecWriter: ConfigWriter[SigningKeySpec] =
+      deriveEnumerationWriter[SigningKeySpec]
     lazy implicit val cryptoEncryptionAlgorithmSpecWriter: ConfigWriter[EncryptionAlgorithmSpec] =
       deriveEnumerationWriter[EncryptionAlgorithmSpec]
+    lazy implicit val encryptionKeySpecWriter: ConfigWriter[EncryptionKeySpec] =
+      deriveEnumerationWriter[EncryptionKeySpec]
     lazy implicit val cryptoSymmetricKeySchemeWriter: ConfigWriter[SymmetricKeyScheme] =
       deriveEnumerationWriter[SymmetricKeyScheme]
     lazy implicit val cryptoHashAlgorithmWriter: ConfigWriter[HashAlgorithm] =
@@ -1161,6 +1166,8 @@ object CantonConfig {
       deriveEnumerationWriter[PbkdfScheme]
     lazy implicit val cryptoKeyFormatWriter: ConfigWriter[CryptoKeyFormat] =
       deriveEnumerationWriter[CryptoKeyFormat]
+    lazy implicit val signingSchemeConfigWriter: ConfigWriter[SigningSchemeConfig] =
+      deriveWriter[SigningSchemeConfig]
     lazy implicit val encryptionSchemeConfigWriter: ConfigWriter[EncryptionSchemeConfig] =
       deriveWriter[EncryptionSchemeConfig]
     implicit def cryptoSchemeConfigWriter[S: ConfigWriter]: ConfigWriter[CryptoSchemeConfig[S]] =

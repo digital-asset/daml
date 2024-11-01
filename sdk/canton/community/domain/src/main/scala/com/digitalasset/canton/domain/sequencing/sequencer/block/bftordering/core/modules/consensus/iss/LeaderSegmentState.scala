@@ -8,6 +8,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.cor
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.Block
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.BlockNumber
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.availability.OrderingBlock
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.bfttime.CanonicalCommitSet
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.OrderedBlock
@@ -75,7 +76,7 @@ class LeaderSegmentState(
   def assignToSlot(
       blockToOrder: OrderingBlock,
       localTimestamp: CantonTimestamp,
-      latestCompletedEpochLastCommits: Seq[Commit],
+      latestCompletedEpochLastCommits: Seq[SignedMessage[Commit]],
   ): OrderedBlock = {
     val lastStableCommits = if (nextRelativeBlockToOrder > 0) {
       val previousBlockNumberInSegment = segment.slotNumbers(nextRelativeBlockToOrder - 1)

@@ -133,7 +133,7 @@ object VaultAdminCommands {
   final case class GenerateSigningKey(
       name: String,
       usage: NonEmpty[Set[SigningKeyUsage]],
-      schemeO: Option[SigningKeyScheme],
+      keySpec: Option[SigningKeySpec],
   ) extends BaseVaultAdminCommand[
         v30.GenerateSigningKeyRequest,
         v30.GenerateSigningKeyResponse,
@@ -145,7 +145,9 @@ object VaultAdminCommands {
         v30.GenerateSigningKeyRequest(
           name = name,
           usage = usage.map(_.toProtoEnum).toSeq,
-          keyScheme = SigningKeyScheme.toProtoEnumOpt(schemeO),
+          keySpec = keySpec.fold[cryptoproto.SigningKeySpec](
+            cryptoproto.SigningKeySpec.SIGNING_KEY_SPEC_UNSPECIFIED
+          )(_.toProtoEnum),
         )
       )
 

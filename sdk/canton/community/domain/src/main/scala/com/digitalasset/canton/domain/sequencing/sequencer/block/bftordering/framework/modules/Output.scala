@@ -41,7 +41,15 @@ object Output {
   ) extends Message[Nothing]
 
   final case class TopologyFetched[E <: Env[E]](
-      epochNumber: EpochNumber,
+      lastCompletedBlockNumber: BlockNumber,
+      newEpochNumber: EpochNumber,
+      orderingTopology: OrderingTopology,
+      cryptoProvider: CryptoProvider[E],
+  ) extends Message[E]
+
+  final case class LastBlockUpdated[E <: Env[E]](
+      lastCompletedBlockNumber: BlockNumber,
+      newEpochNumber: EpochNumber,
       orderingTopology: OrderingTopology,
       cryptoProvider: CryptoProvider[E],
   ) extends Message[E]

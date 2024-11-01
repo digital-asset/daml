@@ -107,6 +107,23 @@ message Signature {
   // The fingerprint/id of the keypair used to create this signature and needed to verify.
   // The referenced key provides the context for the used signature scheme.
   string signed_by = 3;
+
+  // The signing algorithm specification used to generate this signature
+  SigningAlgorithmSpec signing_algorithm_spec = 4;
+}
+
+enum SigningAlgorithmSpec {
+  SIGNING_ALGORITHM_SPEC_UNSPECIFIED = 0;
+
+  // EdDSA Signature based on Curve25519 with SHA-512
+  // http://ed25519.cr.yp.to/
+  SIGNING_ALGORITHM_SPEC_ED25519 = 1;
+
+  // Elliptic Curve Digital Signature Algorithm with SHA256
+  SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_256 = 2;
+
+  // Elliptic Curve Digital Signature Algorithm with SHA384
+  SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_384 = 3;
 }
 
 enum SignatureFormat {

@@ -63,6 +63,8 @@ object JceSecureRandom {
 
 class JcePureCrypto(
     override val defaultSymmetricKeyScheme: SymmetricKeyScheme,
+    override val defaultSigningAlgorithmSpec: SigningAlgorithmSpec,
+    override val supportedSigningAlgorithmSpecs: NonEmpty[Set[SigningAlgorithmSpec]],
     override val defaultEncryptionAlgorithmSpec: EncryptionAlgorithmSpec,
     override val supportedEncryptionAlgorithmSpecs: NonEmpty[Set[EncryptionAlgorithmSpec]],
     override val defaultHashAlgorithm: HashAlgorithm,
@@ -284,9 +286,10 @@ class JcePureCrypto(
     } yield key
   }
 
-  override protected[crypto] def sign(
+  override protected[crypto] def signBytes(
       bytes: ByteString,
       signingKey: SigningPrivateKey,
+      signingAlgorithmSpec: SigningAlgorithmSpec = defaultSigningAlgorithmSpec,
   ): Either[SigningError, Signature] = {
 
     def signWithSigner(signer: PublicKeySign): Either[SigningError, Signature] =
@@ -295,30 +298,45 @@ class JcePureCrypto(
         .bimap(
           err => SigningError.FailedToSign(show"$err"),
           signatureBytes =>
-            new Signature(SignatureFormat.Raw, ByteString.copyFrom(signatureBytes), signingKey.id),
+            new Signature(
+              SignatureFormat.Raw,
+              ByteString.copyFrom(signatureBytes),
+              signingKey.id,
+              Some(signingAlgorithmSpec),
+            ),
         )
 
-    signingKey.scheme match {
-      case SigningKeyScheme.Ed25519 =>
-        for {
-          _ <- CryptoKeyValidation.ensureFormat(
-            signingKey.format,
-            Set(CryptoKeyFormat.Raw),
-            SigningError.InvalidSigningKey.apply,
-          )
-          signer <- Either
-            .catchOnly[GeneralSecurityException](new Ed25519Sign(signingKey.key.toByteArray))
-            .leftMap(err =>
-              SigningError.InvalidSigningKey(show"Failed to get signer for Ed25519: $err")
-            )
-          signature <- signWithSigner(signer)
-        } yield signature
+    CryptoKeyValidation
+      .selectSigningAlgorithmSpec(
+        signingKey.keySpec,
+        signingAlgorithmSpec,
+        supportedSigningAlgorithmSpecs,
+        algorithmSpec =>
+          SigningError.UnsupportedAlgorithmSpec(algorithmSpec, supportedSigningAlgorithmSpecs),
+      )
+      .flatMap { _ =>
+        signingKey.keySpec match {
+          case SigningKeySpec.EcCurve25519 =>
+            for {
+              _ <- CryptoKeyValidation.ensureFormat(
+                signingKey.format,
+                Set(CryptoKeyFormat.Raw),
+                err => SigningError.InvalidSigningKey(err),
+              )
+              signer <- Either
+                .catchOnly[GeneralSecurityException](new Ed25519Sign(signingKey.key.toByteArray))
+                .leftMap(err =>
+                  SigningError.InvalidSigningKey(show"Failed to get signer for Ed25519: $err")
+                )
+              signature <- signWithSigner(signer)
+            } yield signature
 
-      case SigningKeyScheme.EcDsaP256 =>
-        ecDsaSigner(signingKey, HashType.SHA256).flatMap(signWithSigner)
-      case SigningKeyScheme.EcDsaP384 =>
-        ecDsaSigner(signingKey, HashType.SHA384).flatMap(signWithSigner)
-    }
+          case SigningKeySpec.EcP256 =>
+            ecDsaSigner(signingKey, HashType.SHA256).flatMap(signWithSigner)
+          case SigningKeySpec.EcP384 =>
+            ecDsaSigner(signingKey, HashType.SHA384).flatMap(signWithSigner)
+        }
+      }
   }
 
   override protected[crypto] def verifySignature(
@@ -346,8 +364,42 @@ class JcePureCrypto(
         ),
       )
 
-      _ <- publicKey.scheme match {
-        case SigningKeyScheme.Ed25519 =>
+      /* To ensure backwards compatibility and handle signatures that lack a 'signingAlgorithmSpec',
+       * we check the key specification and derive the algorithm based on it. This approach works
+       * because there is currently a one-to-one mapping between key and algorithm specifications.
+       * If this one-to-one mapping is ever broken, this derivation must be revisited.
+       */
+      signingAlgorithmSpec <- signature.signingAlgorithmSpec match {
+        case Some(spec) => Right(spec)
+        case None =>
+          supportedSigningAlgorithmSpecs
+            .find(_.supportedSigningKeySpecs.contains(publicKey.keySpec))
+            .toRight(
+              SignatureCheckError
+                .NoMatchingAlgorithmSpec(
+                  "No matching algorithm spec for key spec " + publicKey.keySpec
+                )
+            )
+      }
+
+      _ <- CryptoKeyValidation.ensureCryptoSpec(
+        publicKey.keySpec,
+        signingAlgorithmSpec,
+        signingAlgorithmSpec.supportedSigningKeySpecs,
+        supportedSigningAlgorithmSpecs,
+        algorithmSpec =>
+          SignatureCheckError
+            .UnsupportedAlgorithmSpec(algorithmSpec, supportedSigningAlgorithmSpecs),
+        keySpec =>
+          SignatureCheckError.KeyAlgoSpecsMismatch(
+            keySpec,
+            signingAlgorithmSpec,
+            signingAlgorithmSpec.supportedSigningKeySpecs,
+          ),
+      )
+
+      _ <- publicKey.keySpec match {
+        case SigningKeySpec.EcCurve25519 =>
           for {
             javaPublicKey <- parseAndGetPublicKey(
               publicKey,
@@ -366,8 +418,8 @@ class JcePureCrypto(
             _ <- verify(verifier)
           } yield ()
 
-        case SigningKeyScheme.EcDsaP256 => ecDsaVerifier(publicKey, HashType.SHA256).flatMap(verify)
-        case SigningKeyScheme.EcDsaP384 => ecDsaVerifier(publicKey, HashType.SHA384).flatMap(verify)
+        case SigningKeySpec.EcP256 => ecDsaVerifier(publicKey, HashType.SHA256).flatMap(verify)
+        case SigningKeySpec.EcP384 => ecDsaVerifier(publicKey, HashType.SHA384).flatMap(verify)
       }
     } yield ()
   }
@@ -542,7 +594,8 @@ class JcePureCrypto(
         encryptionAlgorithmSpec,
         supportedEncryptionAlgorithmSpecs,
         algorithmSpec =>
-          EncryptionError.UnsupportedAlgorithmSpec(algorithmSpec, supportedEncryptionAlgorithmSpecs),
+          EncryptionError
+            .UnsupportedAlgorithmSpec(algorithmSpec, supportedEncryptionAlgorithmSpecs),
       )
       .flatMap {
         case EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm =>
@@ -636,16 +689,18 @@ class JcePureCrypto(
       deserialize: ByteString => Either[DeserializationError, M]
   ): Either[DecryptionError, M] = {
     CryptoKeyValidation
-      .ensureEncryptionSpec(
+      .ensureCryptoSpec(
         privateKey.keySpec,
         encrypted.encryptionAlgorithmSpec,
+        encrypted.encryptionAlgorithmSpec.supportedEncryptionKeySpecs,
         supportedEncryptionAlgorithmSpecs,
         algorithmSpec =>
           DecryptionError
             .UnsupportedAlgorithmSpec(algorithmSpec, supportedEncryptionAlgorithmSpecs),
         keySpec =>
-          DecryptionError.UnsupportedKeySpec(
+          DecryptionError.KeyAlgoSpecsMismatch(
             keySpec,
+            encrypted.encryptionAlgorithmSpec,
             encrypted.encryptionAlgorithmSpec.supportedEncryptionKeySpecs,
           ),
       )

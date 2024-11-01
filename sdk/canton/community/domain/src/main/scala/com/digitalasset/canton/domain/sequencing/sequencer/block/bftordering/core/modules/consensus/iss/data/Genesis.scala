@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data
 
-import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
+import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose, Signature}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.Epoch
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.OrderingTopologyProvider
@@ -13,6 +13,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   EpochNumber,
   ViewNumber,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.iss.{
   BlockMetadata,
   EpochInfo,
@@ -46,20 +47,27 @@ object Genesis {
       lastBlockCommitMessages = Seq.empty,
     )
 
-  def genesisCanonicalCommitSet(self: SequencerId, timestamp: CantonTimestamp): Seq[Commit] = Seq(
-    ConsensusSegment.ConsensusMessage.Commit.create(
-      BlockMetadata(
-        GenesisEpochNumber,
-        BlockNumber(GenesisStartBlockNumber - 1),
+  def genesisCanonicalCommitSet(
+      self: SequencerId,
+      timestamp: CantonTimestamp,
+  ): Seq[SignedMessage[Commit]] = Seq(
+    SignedMessage(
+      ConsensusSegment.ConsensusMessage.Commit.create(
+        BlockMetadata(
+          GenesisEpochNumber,
+          BlockNumber(GenesisStartBlockNumber - 1),
+        ),
+        ViewNumber.First,
+        Hash.digest(
+          HashPurpose.BftOrderingPbftBlock,
+          ByteString.EMPTY,
+          HashAlgorithm.Sha256,
+        ),
+        timestamp,
+        self,
       ),
-      ViewNumber.First,
-      Hash.digest(
-        HashPurpose.BftOrderingPbftBlock,
-        ByteString.EMPTY,
-        HashAlgorithm.Sha256,
-      ),
-      timestamp,
       self,
+      Signature.noSignature, // TODO(#22184) sign this commit to make it valid
     )
   )
 }

@@ -10,7 +10,8 @@ import com.digitalasset.canton.crypto.CryptoFactory.{
   selectAllowedEncryptionAlgorithmSpecs,
   selectAllowedEncryptionKeySpecs,
   selectAllowedHashAlgorithms,
-  selectAllowedSigningKeyScheme,
+  selectAllowedSigningAlgorithmSpecs,
+  selectAllowedSigningKeySpecs,
   selectAllowedSymmetricKeySchemes,
 }
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -23,7 +24,8 @@ import com.digitalasset.canton.version.ProtocolVersion
   * See <a href="https://docs.daml.com/canton/architecture/overview.html">the Canton architecture overview</a>
   * for further information.
   *
-  * @param requiredSigningKeySchemes    The optional required signing key schemes that a member has to support. If none is specified, all the allowed schemes are required.
+  * @param requiredSigningAlgorithmSpecs         The optional required signing algorithm specifications that a member has to support. If none is specified, all the allowed specifications are required.
+  * @param requiredSigningKeySpecs      The optional required signing key specifications that a member has to support. If none is specified, all the allowed specifications are required.
   * @param requiredEncryptionAlgorithmSpecs      The optional required encryption algorithm specifications that a member has to support. If none is specified, all the allowed specifications are required.
   * @param requiredEncryptionKeySpecs   The optional required encryption key specifications that a member has to support. If none is specified, all the allowed specifications are required.
   * @param requiredSymmetricKeySchemes  The optional required symmetric key schemes that a member has to support. If none is specified, all the allowed schemes are required.
@@ -32,7 +34,8 @@ import com.digitalasset.canton.version.ProtocolVersion
   * @param dontWarnOnDeprecatedPV       If true, then this domain will not emit a warning when configured to use a deprecated protocol version (such as 2.0.0).
   */
 final case class DomainParametersConfig(
-    requiredSigningKeySchemes: Option[NonEmpty[Set[SigningKeyScheme]]] = None,
+    requiredSigningAlgorithmSpecs: Option[NonEmpty[Set[SigningAlgorithmSpec]]] = None,
+    requiredSigningKeySpecs: Option[NonEmpty[Set[SigningKeySpec]]] = None,
     requiredEncryptionAlgorithmSpecs: Option[NonEmpty[Set[EncryptionAlgorithmSpec]]] = None,
     requiredEncryptionKeySpecs: Option[NonEmpty[Set[EncryptionKeySpec]]] = None,
     requiredSymmetricKeySchemes: Option[NonEmpty[Set[SymmetricKeyScheme]]] = None,
@@ -46,7 +49,8 @@ final case class DomainParametersConfig(
     with PrettyPrinting {
 
   override protected def pretty: Pretty[DomainParametersConfig] = prettyOfClass(
-    param("requiredSigningKeySchemes", _.requiredSigningKeySchemes),
+    param("requiredSigningAlgorithmSpecs", _.requiredSigningAlgorithmSpecs),
+    param("requiredSigningKeySpecs", _.requiredSigningKeySpecs),
     param("requiredEncryptionAlgorithmSpecs", _.requiredEncryptionAlgorithmSpecs),
     param("requiredEncryptionKeySpecs", _.requiredEncryptionKeySpecs),
     param("requiredSymmetricKeySchemes", _.requiredSymmetricKeySchemes),
@@ -83,9 +87,13 @@ final case class DomainParametersConfig(
 
     // Set to allowed schemes if none required schemes are specified
     for {
-      newRequiredSigningKeySchemes <- selectSchemes(
-        requiredSigningKeySchemes,
-        selectAllowedSigningKeyScheme,
+      newRequiredSigningAlgorithmSpecs <- selectSchemes(
+        requiredSigningAlgorithmSpecs,
+        selectAllowedSigningAlgorithmSpecs,
+      )
+      newRequiredSigningKeySpecs <- selectSchemes(
+        requiredSigningKeySpecs,
+        selectAllowedSigningKeySpecs,
       )
       newRequiredEncryptionAlgorithmSpecs <- selectSchemes(
         requiredEncryptionAlgorithmSpecs,
@@ -108,7 +116,10 @@ final case class DomainParametersConfig(
       )
     } yield {
       StaticDomainParameters(
-        requiredSigningKeySchemes = newRequiredSigningKeySchemes,
+        requiredSigningSpecs = RequiredSigningSpecs(
+          newRequiredSigningAlgorithmSpecs,
+          newRequiredSigningKeySpecs,
+        ),
         requiredEncryptionSpecs = RequiredEncryptionSpecs(
           newRequiredEncryptionAlgorithmSpecs,
           newRequiredEncryptionKeySpecs,

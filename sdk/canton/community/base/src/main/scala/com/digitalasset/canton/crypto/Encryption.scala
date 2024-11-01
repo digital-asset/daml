@@ -10,11 +10,7 @@ import cats.syntax.traverse.*
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError
-import com.digitalasset.canton.crypto.store.{
-  CryptoPrivateStoreError,
-  CryptoPrivateStoreExtended,
-  CryptoPublicStoreError,
-}
+import com.digitalasset.canton.crypto.store.{CryptoPrivateStoreError, CryptoPrivateStoreExtended}
 import com.digitalasset.canton.error.{BaseCantonError, CantonErrorGroups}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
@@ -267,9 +263,42 @@ object EncryptionKeySpec {
       case v30.EncryptionKeySpec.ENCRYPTION_KEY_SPEC_RSA_2048 =>
         Right(EncryptionKeySpec.Rsa2048)
     }
+
+  /** If keySpec is unspecified, use the old EncryptionKeyScheme from the key */
+  def fromProtoEnumWithDefaultScheme(
+      keySpecP: v30.EncryptionKeySpec,
+      keySchemeP: v30.EncryptionKeyScheme,
+  ): ParsingResult[EncryptionKeySpec] =
+    EncryptionKeySpec
+      .fromProtoEnum("key_spec", keySpecP)
+      .leftFlatMap {
+        case ProtoDeserializationError.FieldNotSet(_) =>
+          EncryptionKeySpec.fromProtoEnumEncryptionKeyScheme("scheme", keySchemeP)
+        case err => Left(err)
+      }
+
+  /** Converts an old EncryptionKeyScheme enum to the new key scheme,
+    * ensuring backward compatibility with existing data.
+    */
+  def fromProtoEnumEncryptionKeyScheme(
+      field: String,
+      schemeP: v30.EncryptionKeyScheme,
+  ): ParsingResult[EncryptionKeySpec] =
+    schemeP match {
+      case v30.EncryptionKeyScheme.ENCRYPTION_KEY_SCHEME_UNSPECIFIED =>
+        Left(ProtoDeserializationError.FieldNotSet(field))
+      case v30.EncryptionKeyScheme.Unrecognized(value) =>
+        Left(ProtoDeserializationError.UnrecognizedEnum(field, value))
+      case v30.EncryptionKeyScheme.ENCRYPTION_KEY_SCHEME_ECIES_P256_HKDF_HMAC_SHA256_AES128GCM =>
+        Right(EncryptionKeySpec.EcP256)
+      case v30.EncryptionKeyScheme.ENCRYPTION_KEY_SCHEME_ECIES_P256_HMAC_SHA256A_ES128CBC =>
+        Right(EncryptionKeySpec.EcP256)
+      case v30.EncryptionKeyScheme.ENCRYPTION_KEY_SCHEME_RSA2048_OAEP_SHA256 =>
+        Right(EncryptionKeySpec.Rsa2048)
+    }
 }
 
-/** Key schemes for asymmetric/hybrid encryption. */
+/** Algorithm schemes for asymmetric/hybrid encryption. */
 sealed trait EncryptionAlgorithmSpec extends Product with Serializable with PrettyPrinting {
   def name: String
   def supportDeterministicEncryption: Boolean
@@ -323,13 +352,6 @@ object EncryptionAlgorithmSpec {
       v30.EncryptionAlgorithmSpec.ENCRYPTION_ALGORITHM_SPEC_RSA_OAEP_SHA256
   }
 
-  val allSchemes: NonEmpty[Set[EncryptionAlgorithmSpec]] = NonEmpty.mk(
-    Set,
-    EciesHkdfHmacSha256Aes128Gcm,
-    EciesHkdfHmacSha256Aes128Cbc,
-    RsaOaepSha256,
-  )
-
   def fromProtoEnum(
       field: String,
       schemeP: v30.EncryptionAlgorithmSpec,
@@ -346,7 +368,6 @@ object EncryptionAlgorithmSpec {
       case v30.EncryptionAlgorithmSpec.ENCRYPTION_ALGORITHM_SPEC_RSA_OAEP_SHA256 =>
         Right(EncryptionAlgorithmSpec.RsaOaepSha256)
     }
-
 }
 
 /** Required encryption algorithms and keys for asymmetric/hybrid encryption to be listed in the domain.
@@ -400,68 +421,6 @@ object RequiredEncryptionSpecs {
           )
         )
     } yield RequiredEncryptionSpecs(algorithmSpecsNE, keySpecsNE)
-}
-
-sealed trait EncryptionKeyScheme extends Product with Serializable with PrettyPrinting {
-  def name: String
-  override val pretty: Pretty[this.type] = prettyOfString(_.name)
-}
-
-object EncryptionKeyScheme {
-
-  implicit val encryptionKeySchemeOrder: Order[EncryptionKeyScheme] =
-    Order.by[EncryptionKeyScheme, String](_.name)
-
-  case object EciesP256HkdfHmacSha256Aes128Gcm extends EncryptionKeyScheme {
-    override val name: String = "ECIES-P256_HMAC256_AES128-GCM"
-  }
-
-  /* This hybrid scheme from JCE/Bouncy Castle is intended to be used to encrypt the key for the view payload data
-   * and can be made deterministic (e.g. using the hash(message ++ public key) as our source of randomness).
-   * This way, every recipient of the view message can check that every other recipient can decrypt it
-   * (i.e. transparency).
-   */
-  case object EciesP256HmacSha256Aes128Cbc extends EncryptionKeyScheme {
-    override val name: String = "ECIES-P256_HMAC256_AES128-CBC"
-  }
-
-  case object Rsa2048OaepSha256 extends EncryptionKeyScheme {
-    override val name: String = "RSA2048-OAEP-SHA256"
-  }
-
-  def fromProtoEnum(
-      field: String,
-      schemeP: v30.EncryptionKeyScheme,
-  ): ParsingResult[EncryptionKeyScheme] =
-    schemeP match {
-      case v30.EncryptionKeyScheme.ENCRYPTION_KEY_SCHEME_UNSPECIFIED =>
-        Left(ProtoDeserializationError.FieldNotSet(field))
-      case v30.EncryptionKeyScheme.Unrecognized(value) =>
-        Left(ProtoDeserializationError.UnrecognizedEnum(field, value))
-      case v30.EncryptionKeyScheme.ENCRYPTION_KEY_SCHEME_ECIES_P256_HKDF_HMAC_SHA256_AES128GCM =>
-        Right(EncryptionKeyScheme.EciesP256HkdfHmacSha256Aes128Gcm)
-      case v30.EncryptionKeyScheme.ENCRYPTION_KEY_SCHEME_ECIES_P256_HMAC_SHA256A_ES128CBC =>
-        Right(EncryptionKeyScheme.EciesP256HmacSha256Aes128Cbc)
-      case v30.EncryptionKeyScheme.ENCRYPTION_KEY_SCHEME_RSA2048_OAEP_SHA256 =>
-        Right(EncryptionKeyScheme.Rsa2048OaepSha256)
-    }
-
-  def fromProtoEnumToEncryptionKeySpec(
-      field: String,
-      schemeP: v30.EncryptionKeyScheme,
-  ): ParsingResult[EncryptionKeySpec] =
-    schemeP match {
-      case v30.EncryptionKeyScheme.ENCRYPTION_KEY_SCHEME_UNSPECIFIED =>
-        Left(ProtoDeserializationError.FieldNotSet(field))
-      case v30.EncryptionKeyScheme.Unrecognized(value) =>
-        Left(ProtoDeserializationError.UnrecognizedEnum(field, value))
-      case v30.EncryptionKeyScheme.ENCRYPTION_KEY_SCHEME_ECIES_P256_HKDF_HMAC_SHA256_AES128GCM =>
-        Right(EncryptionKeySpec.EcP256)
-      case v30.EncryptionKeyScheme.ENCRYPTION_KEY_SCHEME_ECIES_P256_HMAC_SHA256A_ES128CBC =>
-        Right(EncryptionKeySpec.EcP256)
-      case v30.EncryptionKeyScheme.ENCRYPTION_KEY_SCHEME_RSA2048_OAEP_SHA256 =>
-        Right(EncryptionKeySpec.Rsa2048)
-    }
 }
 
 /** Key schemes for symmetric encryption. */
@@ -640,14 +599,10 @@ object EncryptionPublicKey
   ): ParsingResult[EncryptionPublicKey] =
     for {
       format <- CryptoKeyFormat.fromProtoEnum("format", publicKeyP.format)
-      // if keySpec is unspecified, use the old [[EncryptionKeyScheme]] from the public key
-      keySpec <- EncryptionKeySpec
-        .fromProtoEnum("keySpec", publicKeyP.keySpec)
-        .leftFlatMap {
-          case ProtoDeserializationError.FieldNotSet(_) =>
-            EncryptionKeyScheme.fromProtoEnumToEncryptionKeySpec("scheme", publicKeyP.scheme)
-          case err => Left(err)
-        }
+      keySpec <- EncryptionKeySpec.fromProtoEnumWithDefaultScheme(
+        publicKeyP.keySpec,
+        publicKeyP.scheme,
+      )
       encryptionPublicKey <- EncryptionPublicKey.create(
         format,
         publicKeyP.publicKey,
@@ -724,13 +679,10 @@ object EncryptionPrivateKey extends HasVersionedMessageCompanion[EncryptionPriva
     for {
       id <- Fingerprint.fromProtoPrimitive(privateKeyP.id)
       format <- CryptoKeyFormat.fromProtoEnum("format", privateKeyP.format)
-      keySpecET = EncryptionKeySpec.fromProtoEnum("keySpec", privateKeyP.keySpec)
-      // if keySpec is unspecified, use the old [[EncryptionKeyScheme]] from the private key
-      keySpec <- keySpecET match {
-        case Left(_: ProtoDeserializationError.FieldNotSet) =>
-          EncryptionKeyScheme.fromProtoEnumToEncryptionKeySpec("scheme", privateKeyP.scheme)
-        case value => value
-      }
+      keySpec <- EncryptionKeySpec.fromProtoEnumWithDefaultScheme(
+        privateKeyP.keySpec,
+        privateKeyP.scheme,
+      )
     } yield new EncryptionPrivateKey(id, format, privateKeyP.privateKey, keySpec)
 }
 
@@ -778,6 +730,17 @@ object DecryptionError {
     override protected def pretty: Pretty[UnsupportedAlgorithmSpec] = prettyOfClass(
       param("algorithmSpec", _.algorithmSpec),
       param("supportedAlgorithmSpecs", _.supportedAlgorithmSpecs),
+    )
+  }
+  final case class KeyAlgoSpecsMismatch(
+      encryptionKeySpec: EncryptionKeySpec,
+      algorithmSpec: EncryptionAlgorithmSpec,
+      supportedKeySpecsByAlgo: Set[EncryptionKeySpec],
+  ) extends DecryptionError {
+    override def pretty: Pretty[KeyAlgoSpecsMismatch] = prettyOfClass(
+      param("encryptionKeySpec", _.encryptionKeySpec),
+      param("algorithmSpec", _.algorithmSpec),
+      param("supportedKeySpecsByAlgo", _.supportedKeySpecsByAlgo),
     )
   }
   final case class UnsupportedKeySpec(
@@ -872,12 +835,6 @@ object EncryptionKeyGenerationError extends CantonErrorGroups.CommandErrorGroup 
     )
   }
 
-  final case class EncryptionPublicStoreError(error: CryptoPublicStoreError)
-      extends EncryptionKeyGenerationError {
-    override protected def pretty: Pretty[EncryptionPublicStoreError] = prettyOfClass(
-      unnamedParam(_.error)
-    )
-  }
 }
 
 sealed trait EncryptionKeyCreationError extends Product with Serializable with PrettyPrinting
@@ -891,9 +848,4 @@ object EncryptionKeyCreationError {
     )
   }
 
-  final case class NoRandomnessProvided(error: String) extends EncryptionKeyCreationError {
-    override protected def pretty: Pretty[NoRandomnessProvided] = prettyOfClass(
-      unnamedParam(_.error.unquoted)
-    )
-  }
 }

@@ -8,6 +8,7 @@ import com.digitalasset.canton.crypto.{Hash, HashAlgorithm, HashPurpose}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.BftSequencerBaseTest
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.PbftBlockState.*
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fakeSequencerId
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
@@ -15,6 +16,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   EpochNumber,
   ViewNumber,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.availability.OrderingBlock
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.bfttime.CanonicalCommitSet
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.iss.BlockMetadata
@@ -215,7 +217,7 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
         // PrePrepare from leader (peer1)
         val pp = createPrePrepare(leader)
-        val hash = pp.hash
+        val hash = pp.message.hash
 
         val myPrepare = createPrepare(myId, hash)
         val peerPrepares = peers.map(createPrepare(_, hash))
@@ -370,7 +372,7 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
       // As a follower, receive the PrePrepare and send a Prepare
       val pp = createPrePrepare(leader)
-      val hash = pp.hash
+      val hash = pp.message.hash
       val myPrepare = createPrepare(myId, hash)
       val myCommit = createCommit(myId, hash)
 
@@ -469,7 +471,10 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       assertNoLogs(blockState.processMessage(prePrepare)) shouldBe true
       val processResults2 = assertNoLogs(blockState.advance())
       inside(processResults2) {
-        case Seq(SendPbftMessage(_: PrePrepare, _), SendPbftMessage(p, _)) =>
+        case Seq(
+              SendPbftMessage(SignedMessage(_: PrePrepare, _, _), _),
+              SendPbftMessage(SignedMessage(p, _, _), _),
+            ) =>
           // if a new prepare had been created, its timestamp would have been influenced by the clock advancement
           // but that didn't happen, we know the rehydrated prepare was picked
           p.localTimestamp shouldBe CantonTimestamp.Epoch
@@ -514,38 +519,44 @@ object PbftBlockStateTest {
     )
   )
   private val prePrepare = createPrePrepare(myId)
-  private val ppHash = prePrepare.hash
+  private val ppHash = prePrepare.message.hash
   private val wrongHash = Hash.digest(
     HashPurpose.BftOrderingPbftBlock,
     ByteString.copyFromUtf8("bad data"),
     HashAlgorithm.Sha256,
   )
 
-  private def createPrePrepare(p: SequencerId): PrePrepare =
-    PrePrepare.create(
-      BlockMetadata.mk(EpochNumber.First, BlockNumber.First),
-      ViewNumber.First,
-      CantonTimestamp.Epoch,
-      OrderingBlock(Seq()),
-      canonicalCommitSet,
-      from = p,
-    )
+  private def createPrePrepare(p: SequencerId): SignedMessage[PrePrepare] =
+    PrePrepare
+      .create(
+        BlockMetadata.mk(EpochNumber.First, BlockNumber.First),
+        ViewNumber.First,
+        CantonTimestamp.Epoch,
+        OrderingBlock(Seq()),
+        canonicalCommitSet,
+        from = p,
+      )
+      .fakeSign
 
-  private def createPrepare(p: SequencerId, hash: Hash = ppHash): Prepare =
-    Prepare.create(
-      BlockMetadata.mk(EpochNumber.First, BlockNumber.First),
-      ViewNumber.First,
-      hash,
-      CantonTimestamp.Epoch,
-      from = p,
-    )
+  private def createPrepare(p: SequencerId, hash: Hash = ppHash): SignedMessage[Prepare] =
+    Prepare
+      .create(
+        BlockMetadata.mk(EpochNumber.First, BlockNumber.First),
+        ViewNumber.First,
+        hash,
+        CantonTimestamp.Epoch,
+        from = p,
+      )
+      .fakeSign
 
-  private def createCommit(p: SequencerId, hash: Hash = ppHash): Commit =
-    Commit.create(
-      BlockMetadata.mk(EpochNumber.First, BlockNumber.First),
-      ViewNumber.First,
-      hash,
-      CantonTimestamp.Epoch,
-      from = p,
-    )
+  private def createCommit(p: SequencerId, hash: Hash = ppHash): SignedMessage[Commit] =
+    Commit
+      .create(
+        BlockMetadata.mk(EpochNumber.First, BlockNumber.First),
+        ViewNumber.First,
+        hash,
+        CantonTimestamp.Epoch,
+        from = p,
+      )
+      .fakeSign
 }

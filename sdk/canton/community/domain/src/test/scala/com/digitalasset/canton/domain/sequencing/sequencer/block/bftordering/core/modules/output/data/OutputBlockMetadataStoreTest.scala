@@ -36,6 +36,7 @@ trait OutputBlockMetadataStoreTest extends AsyncWordSpec {
             blockNumber = BlockNumber.First,
             blockBftTime = CantonTimestamp.Epoch,
             epochCouldAlterSequencingTopology = true,
+            pendingTopologyChangesInNextEpoch = true,
           )
         }
       }
@@ -225,6 +226,35 @@ trait OutputBlockMetadataStoreTest extends AsyncWordSpec {
           }
         }
       }
+
+      "set that there are pending changes in the next epoch" in {
+        val store = createStore()
+        val block1 = createBlock(BlockNumber.First)
+        val storeInit: Future[Unit] = for {
+          _ <- store.insertIfMissing(block1)
+        } yield ()
+
+        for {
+          _ <- storeInit
+          _ <- store.setPendingChangesInNextEpoch(
+            BlockNumber.First,
+            areTherePendingCantonTopologyChanges = true,
+          )
+          _ <- store.setPendingChangesInNextEpoch(
+            BlockNumber.First,
+            areTherePendingCantonTopologyChanges = true,
+          ) // Idempotent
+          retrievedBlocks <- store.getFromInclusive(BlockNumber.First)
+        } yield {
+          retrievedBlocks should contain only OutputBlockMetadata(
+            epochNumber = EpochNumber.First,
+            blockNumber = BlockNumber.First,
+            blockBftTime = CantonTimestamp.Epoch,
+            epochCouldAlterSequencingTopology = true,
+            pendingTopologyChangesInNextEpoch = true,
+          )
+        }
+      }
     }
 }
 
@@ -240,6 +270,8 @@ object OutputBlockMetadataStoreTest {
       blockNumber = BlockNumber(blockNumber),
       blockBftTime = timestamp,
       epochCouldAlterSequencingTopology =
+        true, // Set to true only to ensure that we can read back non-default values
+      pendingTopologyChangesInNextEpoch =
         true, // Set to true only to ensure that we can read back non-default values
     )
 }

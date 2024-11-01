@@ -897,9 +897,16 @@ create table ord_metadata_output_blocks (
   block_number bigint not null,
   bft_ts bigint not null,
   epoch_could_alter_sequencing_topology bool not null, -- Cumulative over all blocks in the epoch (restart support)
+  pending_topology_changes_in_next_epoch bool not null, -- Possibly true only for last block in epoch
   primary key (block_number),
   -- enable idempotent writes: "on conflict, do nothing"
-  constraint unique_output_block unique (epoch_number, block_number, bft_ts, epoch_could_alter_sequencing_topology)
+  constraint unique_output_block unique (
+    epoch_number,
+    block_number,
+    bft_ts,
+    epoch_could_alter_sequencing_topology,
+    pending_topology_changes_in_next_epoch
+  )
 );
 
 -- Stores P2P endpoints from the configuration or admin command

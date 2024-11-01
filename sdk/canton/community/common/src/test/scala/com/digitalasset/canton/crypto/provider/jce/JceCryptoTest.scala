@@ -38,14 +38,14 @@ class JceCryptoTest
         )
         .valueOrFail("failed to create crypto")
 
-    behave like signingProvider(Jce.signing.supported, jceCrypto())
+    behave like signingProvider(Jce.signingAlgorithms.supported, jceCrypto())
     behave like encryptionProvider(
       Jce.encryptionAlgorithms.supported,
       Jce.symmetric.supported,
       jceCrypto(),
     )
     behave like privateKeySerializerProvider(
-      Jce.signing.supported,
+      Jce.signingKeys.supported,
       Jce.encryptionKeys.supported,
       jceCrypto(),
     )
@@ -111,7 +111,7 @@ class JceCryptoTest
     )
 
     behave like publicKeyValidationProvider(
-      Jce.signing.supported,
+      Jce.signingKeys.supported,
       Jce.encryptionKeys.supported,
       Jce.supportedCryptoKeyFormats,
       jceCrypto().failOnShutdown,
