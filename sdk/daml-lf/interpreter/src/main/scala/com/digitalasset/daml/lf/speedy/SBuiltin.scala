@@ -2500,19 +2500,16 @@ private[lf] object SBuiltin {
           continue()
         case Some(msg) =>
           Control.Error(
-            IE.Dev(
-              NameOf.qualifiedNameOfCurrentFunc,
-              IE.Dev.Upgrade(
-                IE.Dev.Upgrade.ValidationFailed(
-                  coid = coid,
-                  srcTemplateId = srcTemplateId,
-                  dstTemplateId = contract.templateId,
-                  signatories = contract.signatories,
-                  observers = contract.observers,
-                  keyOpt = keyOpt,
-                  msg = msg,
-                )
-              ),
+            IE.Upgrade(
+              IE.Upgrade.ValidationFailed(
+                coid = coid,
+                srcTemplateId = srcTemplateId,
+                dstTemplateId = contract.templateId,
+                signatories = contract.signatories,
+                observers = contract.observers,
+                keyOpt = keyOpt,
+                msg = msg,
+              )
             )
           )
       },
