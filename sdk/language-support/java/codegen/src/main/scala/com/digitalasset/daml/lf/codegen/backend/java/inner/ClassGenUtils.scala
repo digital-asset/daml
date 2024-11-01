@@ -70,7 +70,8 @@ private[inner] object ClassGenUtils {
       name: String,
   ): Seq[FieldSpec] = {
     val packageRef = pkgName match {
-      case Some(name) if lfVer >= LanguageVersion.Features.packageUpgrades => PackageRef.Name(name)
+      case Some(name) if lfVer >= LanguageVersion.Features.smartContractUpgrade =>
+        PackageRef.Name(name)
       case _ => PackageRef.Id(pkgId)
     }
     def idField(fieldName: String, pkg: String) =

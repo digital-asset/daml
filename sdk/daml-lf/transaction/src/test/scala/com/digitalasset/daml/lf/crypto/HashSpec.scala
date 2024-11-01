@@ -1106,11 +1106,14 @@ class HashSpec extends AnyWordSpec with Matchers with TableDrivenPropertyChecks 
     "build depending on language version" in {
       KeyPackageName(
         somePkgName,
-        LanguageVersion.Features.packageUpgrades,
+        LanguageVersion.Features.smartContractUpgrade,
       ).toOption shouldBe somePkgName
       KeyPackageName(somePkgName, LanguageVersion.v1_15).toOption shouldBe None
       assertThrows[IllegalArgumentException] {
-        KeyPackageName(None, LanguageVersion.Features.packageUpgrades).toOption shouldBe somePkgName
+        KeyPackageName(
+          None,
+          LanguageVersion.Features.smartContractUpgrade,
+        ).toOption shouldBe somePkgName
       }
     }
   }

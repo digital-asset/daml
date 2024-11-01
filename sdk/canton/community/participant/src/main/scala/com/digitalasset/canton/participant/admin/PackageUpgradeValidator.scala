@@ -56,7 +56,7 @@ class PackageUpgradeValidator(
       case pkgId :: rest =>
         val pkg = upgradingPackagesMap(pkgId)
         val supportsUpgrades =
-          pkg.languageVersion >= LanguageVersion.Features.packageUpgrades && !pkg.isUtilityPackage
+          pkg.languageVersion >= LanguageVersion.Features.smartContractUpgrade && !pkg.isUtilityPackage
         pkg.metadata match {
           case Some(pkgMetadata) =>
             for {

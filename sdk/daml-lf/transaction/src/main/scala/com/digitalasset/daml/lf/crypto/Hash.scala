@@ -669,9 +669,9 @@ object Hash {
         version: LanguageVersion,
     ): Either[String, KeyPackageName] =
       packageName match {
-        case Some(name) if version >= LanguageVersion.Features.packageUpgrades =>
+        case Some(name) if version >= LanguageVersion.Features.smartContractUpgrade =>
           Right(UsePackageName(name))
-        case _ if version < LanguageVersion.Features.packageUpgrades => Right(NoPackageName)
+        case _ if version < LanguageVersion.Features.smartContractUpgrade => Right(NoPackageName)
         case _ =>
           Left(
             s"Invalid KeyPackageName combination, package name [$packageName] and language version [$version]"
