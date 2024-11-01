@@ -89,7 +89,6 @@ import           DA.Daml.LFConversion.Utils
 import           DA.Daml.Preprocessor (isInternal)
 import           DA.Daml.UtilGHC
 import           DA.Daml.UtilLF
-import           DA.Pretty (renderPretty)
 
 import           Development.IDE.Types.Diagnostics
 import           Development.IDE.Types.Location
@@ -638,7 +637,7 @@ convertDamlTyCon ::
      (TyCon -> Bool)
   -> String
   -> Env
-  -> (GHC.TyCon -> String)
+  -> (GHC.TyCon -> StandaloneError)
   -> GHC.TyCon
   -> ConvertM (LF.Qualified LF.TypeConName)
 convertDamlTyCon hasExpectedCtx unhandledStr env errHandler tycon
@@ -650,10 +649,10 @@ convertDamlTyCon hasExpectedCtx unhandledStr env errHandler tycon
     | otherwise =
         conversionError $ errHandler tycon
 
-convertInterfaceTyCon :: Env -> (GHC.TyCon -> String) -> GHC.TyCon -> ConvertM (LF.Qualified LF.TypeConName)
+convertInterfaceTyCon :: Env -> (GHC.TyCon -> StandaloneError) -> GHC.TyCon -> ConvertM (LF.Qualified LF.TypeConName)
 convertInterfaceTyCon = convertDamlTyCon hasDamlInterfaceCtx "interface type"
 
-convertTemplateTyCon :: Env -> (GHC.TyCon -> String) -> GHC.TyCon -> ConvertM (LF.Qualified LF.TypeConName)
+convertTemplateTyCon :: Env -> (GHC.TyCon -> StandaloneError) -> GHC.TyCon -> ConvertM (LF.Qualified LF.TypeConName)
 convertTemplateTyCon = convertDamlTyCon hasDamlTemplateCtx "template type"
 
 convertInterfaces :: SdkVersioned => Env -> ModuleContents -> ConvertM [Definition]
@@ -696,7 +695,7 @@ convertInterface env mc intName ib =
       intMethods <- convertMethods (ibMethods ib)
       intChoices <- convertChoices env mc intName emptyTemplateBinds
       intView <- case ibViewType ib of
-          Nothing -> conversionError $ "No view found for interface " <> renderPretty intName
+          Nothing -> conversionError $ NoViewFoundForInterface intName
           Just viewType -> convertType env viewType
       pure $ DInterface DefInterface {..}
 
@@ -706,8 +705,7 @@ convertInterface env mc intName ib =
         withRange mloc do
           convertInterfaceTyCon env handleIsNotInterface iface
       where
-        handleIsNotInterface tyCon =
-          "cannot require '" ++ prettyPrint tyCon ++ "' because it is not an interface"
+        handleIsNotInterface = CannotRequireNonInterface
 
     convertMethods ::
          MS.Map MethodName (GHC.Type, Maybe SourceLoc)
@@ -1183,21 +1181,16 @@ convertInterfaceInstance parent env iib = withRange (iibLoc iib) do
     qualifyInterfaceCon =
       convertInterfaceTyCon env handleIsNotInterface
       where
-        handleIsNotInterface tyCon =
-          mkErr $ "'" <> prettyPrint tyCon <> "' is not an interface"
+        handleIsNotInterface tyCon = mkErr $ NotAnInterface tyCon
 
     qualifyTemplateCon =
       convertTemplateTyCon env handleIsNotTemplate
       where
-        handleIsNotTemplate tyCon =
-          mkErr $ "'" <> prettyPrint tyCon <> "' is not a template"
+        handleIsNotTemplate tyCon = mkErr $ NotATemplate tyCon
 
     checkParent templateQualTypeCon =
       unless (qualifyLocally env parent == templateQualTypeCon) $
-        conversionError $ mkErr $ unwords
-          [ "The template of this interface instance does not match the"
-          , "enclosing template declaration."
-          ]
+        conversionError $ mkErr DoesNotMatchEnclosingTemplateDeclaration
 
     convertMethods ms = fmap NM.fromList . sequence $
       [ InterfaceInstanceMethod k . (`ETmApp` EVar this) <$> convertExpr env v
@@ -1208,16 +1201,10 @@ convertInterfaceInstance parent env iib = withRange (iibLoc iib) do
         [view] -> do
             viewLFExpr <- convertExpr env view
             pure $ viewLFExpr `ETmApp` EVar this
-        [] -> conversionError $ mkErr "no view implementation defined"
-        _ -> conversionError $ mkErr "more than one view implementation defined"
+        [] -> conversionError $ mkErr NoViewDefined
+        _ -> conversionError $ mkErr MoreThanOneViewDefined
 
-    mkErr s = unwords
-        [ "Invalid 'interface instance"
-        , prettyPrint (iibInterface iib)
-        , "for"
-        , prettyPrint (iibTemplate iib) <> "':"
-        , s
-        ]
+    mkErr s = InvalidInterface (iibInterface iib) (iibTemplate iib) s
 
 convertChoices :: SdkVersioned => Env -> ModuleContents -> LF.TypeConName -> TemplateBinds -> ConvertM (NM.NameMap TemplateChoice)
 convertChoices env mc tplTypeCon tbinds =
@@ -1460,11 +1447,7 @@ convertBind env mc (name, x)
     | EnableScenarios False <- envEnableScenarios env
     , ty@(TypeCon scenarioType [_]) <- varType name -- Scenario : * -> *
     , NameIn DA_Internal_LF "Scenario" <- scenarioType
-    = withRange (convNameLoc name) $ conversionError $ unlines
-        [ "Scenarios are no longer supported."
-        , "Instead, consider using Daml Script (https://docs.daml.com/daml-script/index.html)."
-        , "When compiling " <> prettyPrint name <> " : " <> prettyPrint ty <> "."
-        ]
+    = withRange (convNameLoc name) $ conversionError $ ScenariosNoLongerSupported name ty
 
     -- Regular functions
     | otherwise
@@ -1645,17 +1628,17 @@ convertExpr env0 e = do
         pure (x' `ETyApp` t1' `ETyApp` t2' `ETmApp` EBuiltinFun (BEText (unpackCStringUtf8 s)))
     go env (VarIn DA_Internal_Template_Functions "exerciseGuarded") _
         | not $ envLfVersion env `supports` featureExtendedInterfaces
-        = conversionError "Guarded exercises are only available with --target=1.dev"
+        = conversionError $ OnlySupportedOnDev "Guarded exercises are"
     go env (VarIn DA_Internal_Template_Functions "choiceController") _
         | not $ envLfVersion env `supports` featureChoiceFuncs
-        = conversionError "The function `choiceController` is only available with --target=1.dev"
+        = conversionError $ OnlySupportedOnDev "The function `choiceController` is"
     go env (VarIn DA_Internal_Template_Functions "choiceObserver") _
         | not $ envLfVersion env `supports` featureChoiceFuncs
-        = conversionError "The function `choiceObserver` is only available with --target=1.dev"
+        = conversionError $ OnlySupportedOnDev "The function `choiceObserver` is"
 
     go env (VarIn DA_Internal_Template_Functions "dynamicExercise") _
         | not $ envLfVersion env `supports` featureDynamicExercise
-        = conversionError "The function `dynamicExercise` is only available with --target=1.dev"
+        = conversionError $ OnlySupportedOnDev "The function `dynamicExercise` is"
 
     go env (ConstraintTupleProjection index arity) args
         | (LExpr x : args') <- drop arity args -- drop the type arguments
@@ -2077,8 +2060,7 @@ convertDataCon env m con args
     , envUserWrittenTuple env
     , IsTuple arity <- con
     = do
-        when (arity > 5) $
-          conversionWarning "Used tuple of size > 5! Daml only has Show, Eq, Ord instances for tuples of size <= 5."
+        when (arity > 5) $ conversionDiagnostic $ LargeTuple arity
         let env' = env { envUserWrittenTuple = False }
         convertDataCon env' m con args
     -- Fully applied
