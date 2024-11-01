@@ -59,7 +59,7 @@ import qualified System.Directory as Dir
 import System.FilePath
 import qualified DA.Daml.LF.TypeChecker.Error.WarningFlags as WarningFlags
 import qualified DA.Daml.LF.TypeChecker.Error as TypeCheckerError
-import qualified DA.Daml.LFConversion.ConvertM as LFConversion
+import qualified DA.Daml.LFConversion.Errors as LFConversion
 import DA.Daml.LF.TypeChecker.Upgrade (UpgradeInfo(..))
 
 -- | Orphan instances for debugging
