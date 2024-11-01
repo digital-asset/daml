@@ -17,7 +17,8 @@ module DA.Daml.LFConversion.ConvertM (
     StandaloneWarning(..),
     StandaloneError(..),
     ErrorOrWarning(..),
-    InvalidInterfaceError(..)
+    InvalidInterfaceError(..),
+    damlWarningFlagParser
   ) where
 
 import           DA.Daml.UtilLF
@@ -38,11 +39,30 @@ import           "ghc-lib" GHC
 import           "ghc-lib" GhcPlugins as GHC hiding ((<>), notNull)
 import           DA.Pretty (renderPretty)
 
+import DA.Daml.LF.TypeChecker.Error.WarningFlags
+
 import "ghc-lib" TyCoRep
 
 data ConversionEnv = ConversionEnv
   { convModuleFilePath :: !NormalizedFilePath
   , convRange :: !(Maybe SourceLoc)
+  , convWarningFlags :: DamlWarningFlags ErrorOrWarning
+  }
+
+damlWarningFlagParser :: DamlWarningFlagParser ErrorOrWarning
+damlWarningFlagParser =
+  DamlWarningFlagParser
+    { dwfpFlagParsers = [(warnLargeTuplesName, warnLargeTuplesFlag)]
+    , dwfpDefault = \case
+        LargeTuple _ -> AsWarning
+    }
+
+warnLargeTuplesName = "large-tuples"
+warnLargeTuplesFlag status = RawDamlWarningFlag
+  { rfName = warnLargeTuplesName
+  , rfStatus = status
+  , rfFilter = \case
+      LargeTuple _ -> True
   }
 
 data ConversionState = ConversionState

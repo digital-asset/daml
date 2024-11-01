@@ -81,6 +81,7 @@ module DA.Daml.LFConversion
     , ConversionEnv(..) -- exposed for testing
     ) where
 
+import           DA.Daml.LF.TypeChecker.Error.WarningFlags (noDamlWarningFlags)
 import           DA.Daml.LFConversion.Primitives
 import           DA.Daml.LFConversion.MetadataEncoding
 import           DA.Daml.LFConversion.ConvertM
@@ -745,7 +746,7 @@ convertModule
       -- ^ Only used for information that isn't available in ModDetails.
     -> ModDetails
     -> Either FileDiagnostic (LF.Module, [FileDiagnostic])
-convertModule lfVersion enableScenarios enableInterfaces allowLargeTuples pkgMap stablePackages file coreModule modIface details = runConvertM (ConversionEnv file Nothing) $ do
+convertModule lfVersion enableScenarios enableInterfaces allowLargeTuples pkgMap stablePackages file coreModule modIface details = runConvertM (ConversionEnv file Nothing (noDamlWarningFlags damlWarningFlagParser)) $ do
     let
       env = mkEnv lfVersion enableScenarios enableInterfaces allowLargeTuples pkgMap stablePackages (cm_module coreModule)
       mc = extractModuleContents env coreModule modIface details
