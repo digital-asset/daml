@@ -1,4 +1,9 @@
-module DA.Daml.LF.TypeChecker.Error.WarningFlags where
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module DA.Daml.LF.TypeChecker.Error.WarningFlags (
+        module DA.Daml.LF.TypeChecker.Error.WarningFlags
+    ) where
 
 import qualified Data.List as L
 import Data.Functor.Contravariant
@@ -88,3 +93,4 @@ noDamlWarningFlags parser = DamlWarningFlags
   { dwfFlags = []
   , dwfDefault = dwfpDefault parser
   }
+

@@ -1,4 +1,9 @@
-module DA.Daml.LFConversion.Errors where
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module DA.Daml.LFConversion.Errors (
+        module DA.Daml.LFConversion.Errors
+    ) where
 
 import           Development.IDE.Types.Diagnostics
 import           Development.IDE.Types.Location
@@ -150,3 +155,4 @@ ppStandaloneWarning (PolymorphicTopLevelScript name ty tyVar) =
 
 ppErrorOrWarning :: ErrorOrWarning -> String
 ppErrorOrWarning (LargeTuple n) = "Used tuple of size " <> show n <> ". Daml only has Show, Eq, Ord instances for tuples of size <= 5."
+
