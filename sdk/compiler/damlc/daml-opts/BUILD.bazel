@@ -31,6 +31,7 @@ da_haskell_library(
         "//daml-assistant:daml-project-config",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
+        "//compiler/damlc/daml-lf-conversion-errors",
     ],
 )
 
@@ -64,6 +65,8 @@ da_haskell_library(
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto",
         "//compiler/daml-lf-reader",
+        "//compiler/daml-lf-tools",
+        "//compiler/damlc/daml-lf-conversion",
         "//compiler/damlc/daml-preprocessor",
         "//compiler/damlc/daml-rule-types",
         "//daml-assistant:daml-project-config",
