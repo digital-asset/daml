@@ -140,7 +140,7 @@ data Options = Options
   -- ^ When running in IDE, some rules need access to the package name and version, but we don't want to use own
   -- unit-id, as script + scenario service assume it will be "main"
   , optUpgradeInfo :: UpgradeInfo
-  , optDamlWarningFlags :: [DamlWarningFlag]
+  , optDamlWarningFlags :: [DamlWarningFlag ErrorOrWarning]
   }
 
 newtype IncrementalBuild = IncrementalBuild { getIncrementalBuild :: Bool }
