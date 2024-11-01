@@ -609,7 +609,7 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
     optRawDamlWarningFlag :: Parser DamlWarningFlag
     optRawDamlWarningFlag =
       Options.Applicative.option
-        (eitherReader parseRawDamlWarningFlag)
+        (eitherReader (parseRawDamlWarningFlag namesToFlags))
         (short 'W' <> helpDoc (Just helpStr))
       where
       helpStr =
