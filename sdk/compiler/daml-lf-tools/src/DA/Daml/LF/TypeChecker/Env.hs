@@ -56,7 +56,7 @@ data Gamma = Gamma
     -- ^ The packages in scope.
   , _lfVersion :: Version
     -- ^ The Daml-LF version of the package being type checked.
-  , _damlWarningFlags :: [DamlWarningFlag]
+  , _damlWarningFlags :: DamlWarningFlags ErrorOrWarning
     -- ^ Function for relaxing errors into warnings and strictifying warnings into errors
   }
 
@@ -104,7 +104,7 @@ match p e x = either (const (throwWithContext e)) pure (matching p x)
 -- | Environment containing only the packages in scope but no type or term
 -- variables.
 emptyGamma :: World -> Version -> Gamma
-emptyGamma world version = Gamma ContextNone mempty mempty world version []
+emptyGamma world version = Gamma ContextNone mempty mempty world version (noDamlWarningFlags damlWarningFlagParser)
 
 -- | Run a computation in the current environment extended by a new type
 -- variable/kind binding. Does not fail on shadowing.

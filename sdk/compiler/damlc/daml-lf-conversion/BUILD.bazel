@@ -38,6 +38,7 @@ da_haskell_library(
         "//compiler/daml-lf-proto",
         "//compiler/daml-lf-tools",
         "//compiler/damlc/daml-ghc-util",
+        "//compiler/damlc/daml-lf-conversion-errors",
         "//compiler/damlc/daml-lf-util",
         "//compiler/damlc/daml-opts:daml-opts-types",
         "//compiler/damlc/daml-preprocessor",
@@ -66,7 +67,9 @@ da_haskell_test(
     visibility = ["//visibility:private"],
     deps = [
         ":daml-lf-conversion",
+        "//compiler/damlc/daml-lf-conversion-errors",
         "//compiler/daml-lf-ast",
+        "//compiler/daml-lf-tools",
         "//compiler/damlc/daml-ghc-util",
     ],
 )

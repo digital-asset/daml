@@ -2,7 +2,6 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 module DA.Daml.LFConversion.ConvertM (
-    ConversionError(..),
     ConversionEnv(..),
     ConvertM(..),
     runConvertM,
@@ -11,11 +10,19 @@ module DA.Daml.LFConversion.ConvertM (
     resetFreshVarCounters,
     conversionWarning,
     conversionError,
+    conversionDiagnostic,
     unsupported,
     unknown,
-    unhandled
+    unhandled,
+    StandaloneWarning(..),
+    StandaloneError(..),
+    ErrorOrWarning(..),
+    InvalidInterfaceError(..),
+    damlWarningFlagParser,
+    warnLargeTuplesFlag
   ) where
 
+import           DA.Daml.LFConversion.Errors
 import           DA.Daml.UtilLF
 
 import           Development.IDE.Types.Diagnostics
@@ -27,35 +34,17 @@ import           Control.Monad.Reader
 import           Control.Monad.State.Strict
 import           DA.Daml.LF.Ast as LF
 import           Data.Data hiding (TyCon)
-import           Data.List.Extra
 import qualified Data.Map.Strict as MS
 import qualified Data.Text.Extended as T
 import           "ghc-lib" GHC
 import           "ghc-lib" GhcPlugins as GHC hiding ((<>), notNull)
-
-data ConversionError
-  = ConversionError
-     { errorFilePath :: !NormalizedFilePath
-     , errorRange :: !(Maybe Range)
-     , errorMessage :: !String
-     }
-  deriving Show
-
-data ConversionEnv = ConversionEnv
-  { convModuleFilePath :: !NormalizedFilePath
-  , convRange :: !(Maybe SourceLoc)
-  }
-
-data ConversionState = ConversionState
-    { freshTmVarCounter :: Int
-    , warnings :: [FileDiagnostic]
-    }
+import           DA.Daml.LF.TypeChecker.Error.WarningFlags
 
 newtype ConvertM a = ConvertM (ReaderT ConversionEnv (StateT ConversionState (Except FileDiagnostic)) a)
   deriving (Functor, Applicative, Monad, MonadError FileDiagnostic, MonadState ConversionState, MonadReader ConversionEnv)
 
 instance MonadFail ConvertM where
-    fail = conversionError
+    fail = conversionError . RawError
 
 -- The left case is for the single error thrown, the right case for a list of
 -- non-fatal warnings
@@ -83,27 +72,33 @@ resetFreshVarCounters = modify' (\st -> st{freshTmVarCounter = 0})
 ---------------------------------------------------------------------
 -- FAILURE REPORTING
 
-conversionError :: String -> ConvertM e
-conversionError msg = do
+conversionError :: StandaloneError -> ConvertM e
+conversionError = conversionErrorRaw . StandaloneError
+
+conversionErrorRaw :: Error -> ConvertM e
+conversionErrorRaw err = do
   ConversionEnv{..} <- ask
   throwError $ (convModuleFilePath,ShowDiag,) Diagnostic
       { _range = maybe noRange sourceLocToRange convRange
       , _severity = Just DsError
       , _source = Just "Core to Daml-LF"
-      , _message = T.pack msg
+      , _message = T.pack (ppError err)
       , _code = Nothing
       , _relatedInformation = Nothing
       , _tags = Nothing
       }
 
-conversionWarning :: String -> ConvertM ()
-conversionWarning msg = do
+conversionWarning :: StandaloneWarning -> ConvertM ()
+conversionWarning = conversionWarningRaw . StandaloneWarning
+
+conversionWarningRaw :: Warning -> ConvertM ()
+conversionWarningRaw msg = do
   ConversionEnv{..} <- ask
   let diagnostic = Diagnostic
         { _range = maybe noRange sourceLocToRange convRange
         , _severity = Just DsWarning
         , _source = Just "Core to Daml-LF"
-        , _message = T.pack msg
+        , _message = T.pack (ppWarning msg)
         , _code = Nothing
         , _relatedInformation = Nothing
         , _tags = Nothing
@@ -111,21 +106,35 @@ conversionWarning msg = do
       fileDiagnostic = (convModuleFilePath, ShowDiag, diagnostic)
   modify $ \s -> s { warnings = fileDiagnostic : warnings s }
 
+getErrorOrWarningStatus :: ErrorOrWarning -> ConvertM DamlWarningFlagStatus
+getErrorOrWarningStatus errOrWarn = do
+   warningFlags <- asks convWarningFlags
+   pure (getWarningStatus warningFlags errOrWarn)
+
+class IsErrorOrWarning e where
+  conversionDiagnostic :: e -> ConvertM ()
+
+instance IsErrorOrWarning StandaloneError where
+  conversionDiagnostic = conversionError
+
+instance IsErrorOrWarning StandaloneWarning where
+  conversionDiagnostic = conversionWarning
+
+instance IsErrorOrWarning ErrorOrWarning where
+  conversionDiagnostic errOrWarn = do
+    status <- getErrorOrWarningStatus errOrWarn
+    case status of
+      AsError -> conversionErrorRaw (ErrorOrWarningAsError errOrWarn)
+      AsWarning -> conversionWarningRaw (ErrorOrWarningAsWarning errOrWarn)
+      Hidden -> pure ()
+
 unsupported :: (HasCallStack, Outputable a) => String -> a -> ConvertM e
-unsupported typ x = conversionError errMsg
-    where
-         errMsg =
-             "Failure to process Daml program, this feature is not currently supported.\n" ++
-             typ ++ "\n" ++
-             prettyPrint x
+unsupported typ x = conversionError (Unsupported typ (prettyPrint x))
 
 unknown :: HasCallStack => GHC.UnitId -> MS.Map GHC.UnitId DalfPackage -> ConvertM e
-unknown unitId pkgMap = conversionError errMsg
-    where errMsg =
-              "Unknown package: " ++ GHC.unitIdString unitId
-              ++ "\n" ++  "Loaded packages are:" ++ prettyPrint (MS.keys pkgMap)
+unknown unitId pkgMap = conversionError (UnknownPackage unitId pkgMap)
 
 unhandled :: (HasCallStack, Data a, Outputable a) => String -> a -> ConvertM e
-unhandled typ x = unsupported (typ ++ " with " ++ lower (show (toConstr x))) x
+unhandled typ x = conversionError (Unhandled typ (toConstr x) (prettyPrint x))
 
 
