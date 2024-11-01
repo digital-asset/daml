@@ -213,12 +213,18 @@ class NodeHashV1Spec extends AnyWordSpec with Matchers with HashUtils {
 
   private val rollbackNodeHash = "ddf782a2d201ef3c4dc25f472954af7bfae6934e4e8707ca8892311c0c3b660c"
 
-  private val nodeSeedCreate = Hash.assertFromString("926bbb6f341bc0092ae65d06c6e284024907148cc29543ef6bff0930f5d52c19")
-  private val nodeSeedFetch = Hash.assertFromString("4d2a522e9ee44e31b9bef2e3c8a07d43475db87463c6a13c4ea92f898ac8a930")
-  private val nodeSeedExercise = Hash.assertFromString("a867edafa1277f46f879ab92c373a15c2d75c5d86fec741705cee1eb01ef8c9e")
-  private val nodeSeedRollback = Hash.assertFromString("5483d5df9b245e662c0e4368b8062e8a0fd24c17ce4ded1a0e452e4ee879dd81")
-  private val nodeSeedCreate2 = Hash.assertFromString("e0c69eae8afb38872fa425c2cdba794176f3b9d97e8eefb7b0e7c831f566458f")
-  private val nodeSeedFetch2 = Hash.assertFromString("b4f0534e651ac8d5e10d95ddfcafdb123550a5e3185e3fe61ec1746a7222a88e")
+  private val nodeSeedCreate =
+    Hash.assertFromString("926bbb6f341bc0092ae65d06c6e284024907148cc29543ef6bff0930f5d52c19")
+  private val nodeSeedFetch =
+    Hash.assertFromString("4d2a522e9ee44e31b9bef2e3c8a07d43475db87463c6a13c4ea92f898ac8a930")
+  private val nodeSeedExercise =
+    Hash.assertFromString("a867edafa1277f46f879ab92c373a15c2d75c5d86fec741705cee1eb01ef8c9e")
+  private val nodeSeedRollback =
+    Hash.assertFromString("5483d5df9b245e662c0e4368b8062e8a0fd24c17ce4ded1a0e452e4ee879dd81")
+  private val nodeSeedCreate2 =
+    Hash.assertFromString("e0c69eae8afb38872fa425c2cdba794176f3b9d97e8eefb7b0e7c831f566458f")
+  private val nodeSeedFetch2 =
+    Hash.assertFromString("b4f0534e651ac8d5e10d95ddfcafdb123550a5e3185e3fe61ec1746a7222a88e")
 
   private val defaultNodeSeedsMap = Map(
     NodeId(0) -> nodeSeedCreate,
@@ -237,28 +243,34 @@ class NodeHashV1Spec extends AnyWordSpec with Matchers with HashUtils {
     NodeId(4) -> exerciseNode,
     NodeId(5) -> rollbackNode,
   )
-  
+
   private def hashNodeV1(
-                          node: Node,
-                          nodeSeed: Option[Hash],
-                          subNodes: Map[NodeId, Node] = subNodesMap,
-                          hashTracer: HashTracer = HashTracer.NoOp,
-                        ) = Hash.hashNodeV1(
-    node, defaultNodeSeedsMap, nodeSeed, subNodes, hashTracer,
+      node: Node,
+      nodeSeed: Option[Hash],
+      subNodes: Map[NodeId, Node] = subNodesMap,
+      hashTracer: HashTracer,
+  ) = Hash.hashNodeV1(
+    node,
+    defaultNodeSeedsMap,
+    nodeSeed,
+    subNodes,
+    hashTracer,
   )
 
   private def shiftNodeIds(array: ImmArray[NodeId]): ImmArray[NodeId] = array.map {
-    case NodeId(i) => NodeId(i+1)
+    case NodeId(i) => NodeId(i + 1)
   }
 
   private def shiftNodeIdsSeeds(map: Map[NodeId, Hash]): Map[NodeId, Hash] = map.map {
-    case (NodeId(i), value) => NodeId(i+1) -> value
+    case (NodeId(i), value) => NodeId(i + 1) -> value
   }
 
   private def shiftNodeIds(map: Map[NodeId, Node]): Map[NodeId, Node] = map.map {
-    case (NodeId(i), exercise: Node.Exercise) => NodeId(i+1) -> exercise.copy(children = shiftNodeIds(exercise.children))
-    case (NodeId(i), rollback: Node.Rollback) => NodeId(i+1) -> rollback.copy(children = shiftNodeIds(rollback.children))
-    case (NodeId(i), node) => NodeId(i+1) -> node
+    case (NodeId(i), exercise: Node.Exercise) =>
+      NodeId(i + 1) -> exercise.copy(children = shiftNodeIds(exercise.children))
+    case (NodeId(i), rollback: Node.Rollback) =>
+      NodeId(i + 1) -> rollback.copy(children = shiftNodeIds(rollback.children))
+    case (NodeId(i), node) => NodeId(i + 1) -> node
   }
 
   "V1Encoding" should {
@@ -451,8 +463,17 @@ class NodeHashV1Spec extends AnyWordSpec with Matchers with HashUtils {
       .fromString(exerciseNodeHash)
       .getOrElse(fail("Invalid hash"))
 
-    def hashExerciseNode(node: Node.Exercise, subNodes: Map[NodeId, Node] = subNodesMap, hashTracer: HashTracer = HashTracer.NoOp) = {
-      hashNodeV1(node, nodeSeed = Some(nodeSeedExercise), subNodes = subNodes, hashTracer = hashTracer)
+    def hashExerciseNode(
+        node: Node.Exercise,
+        subNodes: Map[NodeId, Node] = subNodesMap,
+        hashTracer: HashTracer = HashTracer.NoOp,
+    ) = {
+      hashNodeV1(
+        node,
+        nodeSeed = Some(nodeSeedExercise),
+        subNodes = subNodes,
+        hashTracer = hashTracer,
+      )
     }
 
     "be stable" in {
@@ -673,8 +694,18 @@ class NodeHashV1Spec extends AnyWordSpec with Matchers with HashUtils {
     // Rollback node has 2 children: create and fetch, but they're assigned different NodeIds than in the default nodeSeeds mapping
     // So we make a seedMap specific for it, so that the hashes still match
 //    val rollbackNodeSeeds = Map(NodeId(3) -> nodeSeedCreate, NodeId(4) -> nodeSeedFetch)
-    def hashRollbackNode(node: Node.Rollback, subNodes: Map[NodeId, Node] = subNodesMap, hashTracer: HashTracer = HashTracer.NoOp) = {
-      Hash.hashNodeV1(node, nodeSeed = Some(nodeSeedRollback), nodeSeeds = defaultNodeSeedsMap, subNodes = subNodes, hashTracer = hashTracer)
+    def hashRollbackNode(
+        node: Node.Rollback,
+        subNodes: Map[NodeId, Node] = subNodesMap,
+        hashTracer: HashTracer = HashTracer.NoOp,
+    ) = {
+      Hash.hashNodeV1(
+        node,
+        nodeSeed = Some(nodeSeedRollback),
+        nodeSeeds = defaultNodeSeedsMap,
+        subNodes = subNodes,
+        hashTracer = hashTracer,
+      )
     }
 
     "be stable" in {

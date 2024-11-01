@@ -30,12 +30,12 @@ class MetadataHashV1Spec extends AnyWordSpec with Matchers with HashUtils {
   private val node1 = FatContractInstance.fromCreateNode(
     TransactionSpec.dummyCreateNode(cid1, Set(alice), Set(alice)),
     Time.Timestamp.Epoch.add(Duration.ofDays(10)),
-    Bytes.assertFromString("0010")
+    Bytes.assertFromString("0010"),
   )
   private val node2 = FatContractInstance.fromCreateNode(
     TransactionSpec.dummyCreateNode(cid2, Set(bob), Set(bob)),
     Time.Timestamp.Epoch.add(Duration.ofDays(20)),
-    Bytes.assertFromString("0050")
+    Bytes.assertFromString("0050"),
   )
   private val metadata = Hash.TransactionMetadataBuilderV1.Metadata(
     actAs = SortedSet(alice, bob),

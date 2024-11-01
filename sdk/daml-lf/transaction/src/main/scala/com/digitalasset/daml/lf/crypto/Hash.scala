@@ -8,7 +8,15 @@ import com.daml.crypto.{MacPrototype, MessageDigestPrototype}
 
 import java.nio.ByteBuffer
 import java.util.concurrent.atomic.AtomicLong
-import com.digitalasset.daml.lf.data.{Bytes, FrontStack, ImmArray, Ref, SortedLookupList, Time, Utf8}
+import com.digitalasset.daml.lf.data.{
+  Bytes,
+  FrontStack,
+  ImmArray,
+  Ref,
+  SortedLookupList,
+  Time,
+  Utf8,
+}
 import com.digitalasset.daml.lf.value.Value
 import com.daml.scalautil.Statement.discard
 import com.digitalasset.daml.lf.crypto.HashUtils.{HashTracer, formatByteToHexString}
@@ -219,16 +227,16 @@ object Hash {
 
   object TransactionMetadataBuilderV1 {
     final case class Metadata(
-                               actAs: SortedSet[Ref.Party],
-                               commandId: Ref.CommandId,
-                               submissionId: Ref.SubmissionId,
-                               transactionUUID: UUID,
-                               mediatorGroup: Int,
-                               domainId: String,
-                               ledgerEffectiveTime: Option[Time.Timestamp],
-                               submissionTime: Time.Timestamp,
-                               submissionSeed: Hash,
-                               disclosedContracts: SortedMap[ContractId, FatContractInstance],
+        actAs: SortedSet[Ref.Party],
+        commandId: Ref.CommandId,
+        submissionId: Ref.SubmissionId,
+        transactionUUID: UUID,
+        mediatorGroup: Int,
+        domainId: String,
+        ledgerEffectiveTime: Option[Time.Timestamp],
+        submissionTime: Time.Timestamp,
+        submissionSeed: Hash,
+        disclosedContracts: SortedMap[ContractId, FatContractInstance],
     )
   }
 
@@ -242,7 +250,9 @@ object Hash {
   ): Hash = {
     new NodeBuilderV1(Purpose.MetadataHash, hashTracer)
       .addHashVersion(NodeHashVersion.V1)
-      .withContext("Act As Parties")(_.iterateOver(metadata.actAs.iterator, metadata.actAs.size)(_ addString _))
+      .withContext("Act As Parties")(
+        _.iterateOver(metadata.actAs.iterator, metadata.actAs.size)(_ addString _)
+      )
       .withContext("Command Id")(_.addString(metadata.commandId))
       .withContext("Submission Id")(_.addString(metadata.submissionId))
       .withContext("Transaction UUID")(_.addString(metadata.transactionUUID.toString))
@@ -254,10 +264,22 @@ object Hash {
       .withContext("Submission Time")(_.addLong(metadata.submissionTime.micros))
       .withContext("Submission Seed")(_.addHash(metadata.submissionSeed, "Submission Seed Hash"))
       .withContext("Disclosed Contracts")(
-        _.iterateOver(metadata.disclosedContracts.valuesIterator, metadata.disclosedContracts.size)((builder, fatInstance) =>
-          builder
-            .withContext("Created At")(_.addLong(fatInstance.createdAt.micros))
-            .withContext("Create Contract")(builder => builder.addHash(builder.hashNode(fatInstance.toCreateNode, Option.empty[Hash], Map.empty, Map.empty, hashTracer.subNodeTracer), "Disclosed Contract"))
+        _.iterateOver(metadata.disclosedContracts.valuesIterator, metadata.disclosedContracts.size)(
+          (builder, fatInstance) =>
+            builder
+              .withContext("Created At")(_.addLong(fatInstance.createdAt.micros))
+              .withContext("Create Contract")(builder =>
+                builder.addHash(
+                  builder.hashNode(
+                    fatInstance.toCreateNode,
+                    Option.empty[Hash],
+                    Map.empty,
+                    Map.empty,
+                    hashTracer.subNodeTracer,
+                  ),
+                  "Disclosed Contract",
+                )
+              )
         )
       )
       .build
@@ -267,7 +289,7 @@ object Hash {
     */
   private sealed abstract class NodeBuilder(
       purpose: Purpose,
-      hashTracer: HashTracer
+      hashTracer: HashTracer,
   ) extends LegacyBuilder(purpose, aCid2Bytes, stringNumericToBytes, hashTracer) {
 
     def addHashVersion(version: NodeHashVersion): this.type = {
@@ -283,7 +305,10 @@ object Hash {
     ): Hash
 
     @throws[NodeHashingError]
-    protected def addNodeFromNodeId(nodes: Map[NodeId, Node], nodeSeeds: Map[NodeId, Hash]): (this.type, NodeId) => this.type =
+    protected def addNodeFromNodeId(
+        nodes: Map[NodeId, Node],
+        nodeSeeds: Map[NodeId, Hash],
+    ): (this.type, NodeId) => this.type =
       (builder, nodeId) => {
         val node = nodes.getOrElse(nodeId, throw NodeHashingError.IncompleteTransactionTree(nodeId))
         addHash(
@@ -292,7 +317,11 @@ object Hash {
         )
       }
 
-    def addNodesFromNodeIds(nodeIds: ImmArray[NodeId], nodes: Map[NodeId, Node], nodeSeeds: Map[NodeId, Hash]): this.type =
+    def addNodesFromNodeIds(
+        nodeIds: ImmArray[NodeId],
+        nodes: Map[NodeId, Node],
+        nodeSeeds: Map[NodeId, Hash],
+    ): this.type =
       iterateOver(nodeIds)(addNodeFromNodeId(nodes, nodeSeeds))
   }
 
@@ -329,7 +358,8 @@ object Hash {
     }
   }
 
-  private sealed class NodeBuilderV1(purpose: Purpose, hashTracer: HashTracer) extends NodeBuilder(purpose, hashTracer) {
+  private sealed class NodeBuilderV1(purpose: Purpose, hashTracer: HashTracer)
+      extends NodeBuilder(purpose, hashTracer) {
 
     override private[crypto] def hashNode(
         node: Node,
@@ -344,8 +374,7 @@ object Hash {
             .assertHashingVersionSupportsLfVersion(_, NodeHashVersion.V1)
         )
 
-      new NodeBuilderV1(purpose, hashTracer)
-        .addVersion
+      new NodeBuilderV1(purpose, hashTracer).addVersion
         .addHashVersion(NodeHashVersion.V1)
         .addNode(node, nodeSeed, nodes, nodeSeeds)
         .build
@@ -370,7 +399,9 @@ object Hash {
         addContext("Create Node")
           .withContext("Node Version")(_.addString(TransactionVersion.toProtoValue(version)))
           .addByte(NodeBuilder.NodeTag.CreateTag.tag, "Node Tag")
-          .withContext("Node Seed")(_.addOptional(nodeSeed, builder => seed => builder.addHash(seed, "node seed")))
+          .withContext("Node Seed")(
+            _.addOptional(nodeSeed, builder => seed => builder.addHash(seed, "node seed"))
+          )
           .withContext("Contract Id")(_.addCid(coid))
           .withContext("Package Name")(_.addString(packageName))
           .withContext("Template Id")(_.addIdentifier(templateId))
@@ -398,7 +429,9 @@ object Hash {
         addContext("Fetch Node")
           .withContext("Node Version")(_.addString(TransactionVersion.toProtoValue(version)))
           .addByte(NodeBuilder.NodeTag.FetchTag.tag, "Node Tag")
-          .withContext("Node Seed")(_.addOptional(nodeSeed, builder => seed => builder.addHash(seed, "node seed")))
+          .withContext("Node Seed")(
+            _.addOptional(nodeSeed, builder => seed => builder.addHash(seed, "node seed"))
+          )
           .withContext("Contract Id")(_.addCid(coid))
           .withContext("Package Name")(_.addString(packageName))
           .withContext("Template Id")(_.addIdentifier(templateId))
@@ -407,7 +440,11 @@ object Hash {
           .withContext("Acting Parties")(_.addStringSet(actingParties))
     }
 
-    private def addExerciseNode(nodes: Map[NodeId, Node], nodeSeed: Option[Hash], nodeSeeds: Map[NodeId, Hash]): Node.Exercise => this.type = {
+    private def addExerciseNode(
+        nodes: Map[NodeId, Node],
+        nodeSeed: Option[Hash],
+        nodeSeeds: Map[NodeId, Hash],
+    ): Node.Exercise => this.type = {
       case Node.Exercise(
             targetCoid,
             packageName,
@@ -434,7 +471,9 @@ object Hash {
         addContext("Exercise Node")
           .withContext("Node Version")(_.addString(TransactionVersion.toProtoValue(version)))
           .addByte(NodeBuilder.NodeTag.ExerciseTag.tag, "Node Tag")
-          .withContext("Node Seed")(_.addOptional(nodeSeed, builder => seed => builder.addHash(seed, "node seed")))
+          .withContext("Node Seed")(
+            _.addOptional(nodeSeed, builder => seed => builder.addHash(seed, "node seed"))
+          )
           .withContext("Contract Id")(_.addCid(targetCoid))
           .withContext("Package Name")(_.addString(packageName))
           .withContext("Template Id")(_.addIdentifier(templateId))
@@ -455,15 +494,25 @@ object Hash {
           .withContext("Children")(_.addNodesFromNodeIds(children, nodes, nodeSeeds))
     }
 
-    private def addRollbackNode(nodes: Map[NodeId, Node], nodeSeed: Option[Hash], nodeSeeds: Map[NodeId, Hash]): Node.Rollback => this.type = {
-      case Node.Rollback(children) =>
-        addContext("Rollback Node")
-          .addByte(NodeBuilder.NodeTag.RollbackTag.tag, "Node Tag")
-          .withContext("Node Seed")(_.addOptional(nodeSeed, builder => seed => builder.addHash(seed, "node seed")))
-          .withContext("Children")(_.addNodesFromNodeIds(children, nodes, nodeSeeds))
+    private def addRollbackNode(
+        nodes: Map[NodeId, Node],
+        nodeSeed: Option[Hash],
+        nodeSeeds: Map[NodeId, Hash],
+    ): Node.Rollback => this.type = { case Node.Rollback(children) =>
+      addContext("Rollback Node")
+        .addByte(NodeBuilder.NodeTag.RollbackTag.tag, "Node Tag")
+        .withContext("Node Seed")(
+          _.addOptional(nodeSeed, builder => seed => builder.addHash(seed, "node seed"))
+        )
+        .withContext("Children")(_.addNodesFromNodeIds(children, nodes, nodeSeeds))
     }
 
-    private def addNode(node: Node, nodeSeed: Option[Hash], nodes: Map[NodeId, Node], nodeSeeds: Map[NodeId, Hash]): this.type = node match {
+    private def addNode(
+        node: Node,
+        nodeSeed: Option[Hash],
+        nodes: Map[NodeId, Node],
+        nodeSeeds: Map[NodeId, Hash],
+    ): this.type = node match {
       case create: Node.Create => addCreateNode(nodeSeed)(create)
       case fetch: Node.Fetch => addFetchNode(nodeSeed)(fetch)
       case exercise: Node.Exercise => addExerciseNode(nodes, nodeSeed, nodeSeeds)(exercise)

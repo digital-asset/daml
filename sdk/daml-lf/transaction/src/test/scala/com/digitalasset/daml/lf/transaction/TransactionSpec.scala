@@ -1109,7 +1109,11 @@ object TransactionSpec {
       version = TransactionVersion.minVersion,
     )
 
-  def dummyCreateNode(createCid: V.ContractId, signatories: Set[Ref.Party] = Set.empty, stakeholders: Set[Ref.Party] = Set.empty): Node.Create =
+  def dummyCreateNode(
+      createCid: V.ContractId,
+      signatories: Set[Ref.Party] = Set.empty,
+      stakeholders: Set[Ref.Party] = Set.empty,
+  ): Node.Create =
     Node.Create(
       coid = createCid,
       packageName = Ref.PackageName.assertFromString("PkgName"),
