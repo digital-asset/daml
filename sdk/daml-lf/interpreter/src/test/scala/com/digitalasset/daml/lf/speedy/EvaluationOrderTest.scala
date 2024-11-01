@@ -65,7 +65,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
   private[this] implicit val parserParameters: ParserParameters[this.type] =
     ParserParameters(packageId, languageVersion = languageVersion)
 
-  private val upgradingEnabled = languageVersion >= LanguageVersion.Features.packageUpgrades
+  private val upgradingEnabled = languageVersion >= LanguageVersion.Features.smartContractUpgrade
 
   val pkg = p"""  metadata ( 'evaluation-order-test' : '1.0.0' )
     module M {

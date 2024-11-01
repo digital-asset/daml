@@ -112,7 +112,7 @@ private[lf] final class ConcurrentCompiledPackages(compilerConfig: Compiler.Conf
                   .unsafeCompilePackage(
                     pkgId,
                     pkg,
-                    pkgSignature.languageVersion >= LanguageVersion.Features.packageUpgrades,
+                    pkgSignature.languageVersion >= LanguageVersion.Features.smartContractUpgrade,
                   )
               } catch {
                 case e: validation.ValidationError =>
