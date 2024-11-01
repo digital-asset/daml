@@ -137,7 +137,7 @@ class BlockSequencer(
 
   private val (killSwitchF, done) = {
     val headState = stateManager.getHeadState
-    noTracingLogger.info(s"Subscribing to block source from ${headState.block.height}")
+    noTracingLogger.info(s"Subscribing to block source from ${headState.block.height + 1}")
 
     val updateGenerator = new BlockUpdateGeneratorImpl(
       domainId,

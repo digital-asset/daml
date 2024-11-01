@@ -30,18 +30,20 @@ class PackageDependencyResolver(
     with FlagCloseable
     with PackageDependencyResolverUS {
 
-  private val dependencyCache
-      : TracedAsyncLoadingCache[PackageId, Either[PackageId, Set[PackageId]]] =
-    TracedScaffeine.buildTracedAsyncFutureUS[PackageId, Either[PackageId, Set[PackageId]]](
-      cache = Scaffeine().maximumSize(10000).expireAfterAccess(15.minutes),
-      loader = t => p => loadPackageDependencies(p)(t).value,
-      allLoader = None,
-    )(logger)
+  private val dependencyCache: TracedAsyncLoadingCache[
+    FutureUnlessShutdown,
+    PackageId,
+    Either[PackageId, Set[PackageId]],
+  ] = TracedScaffeine.buildTracedAsyncFutureUS[PackageId, Either[PackageId, Set[PackageId]]](
+    cache = Scaffeine().maximumSize(10000).expireAfterAccess(15.minutes),
+    loader = t => p => loadPackageDependencies(p)(t).value,
+    allLoader = None,
+  )(logger)
 
   def packageDependencies(packageId: PackageId)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
-    EitherT(dependencyCache.getUS(packageId).map(_.map(_ - packageId)))
+    EitherT(dependencyCache.get(packageId).map(_.map(_ - packageId)))
 
   def packageDependencies(packages: List[PackageId])(implicit
       traceContext: TraceContext

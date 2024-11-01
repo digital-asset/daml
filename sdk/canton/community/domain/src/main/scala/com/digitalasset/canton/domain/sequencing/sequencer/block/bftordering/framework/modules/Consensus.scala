@@ -4,7 +4,6 @@
 package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules
 
 import cats.syntax.traverse.*
-import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.bftordering.v1.{
   BftOrderingMessageBody as ProtoBftOrderingMessageBody,
@@ -15,6 +14,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.bftordering.v1.{
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.Epoch
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.CryptoProvider
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.EpochNumber
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.availability.OrderingBlock
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.OrderedBlock
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.iss.EpochInfo
@@ -60,16 +60,20 @@ object Consensus {
   sealed trait ConsensusMessage extends ProtocolMessage
   object ConsensusMessage {
     final case class PbftUnverifiedNetworkMessage(
-        underlyingNetworkMessage: ConsensusSegment.ConsensusMessage.PbftNetworkMessage
+        underlyingNetworkMessage: SignedMessage[
+          ConsensusSegment.ConsensusMessage.PbftNetworkMessage
+        ]
     ) extends ConsensusMessage
 
     final case class PbftVerifiedNetworkMessage(
-        underlyingNetworkMessage: ConsensusSegment.ConsensusMessage.PbftNetworkMessage
+        underlyingNetworkMessage: SignedMessage[
+          ConsensusSegment.ConsensusMessage.PbftNetworkMessage
+        ]
     ) extends ConsensusMessage
 
     final case class BlockOrdered(
         block: OrderedBlock,
-        commits: Seq[ConsensusSegment.ConsensusMessage.Commit],
+        commits: Seq[SignedMessage[ConsensusSegment.ConsensusMessage.Commit]],
     ) extends ConsensusMessage
 
     final case class CompleteEpochStored(epoch: Epoch) extends ConsensusMessage
@@ -113,8 +117,8 @@ object Consensus {
     final case class BlockTransferResponse private (
         latestCompletedEpoch: EpochNumber,
         latestCompletedEpochTopologySnapshotEffectiveTime: EffectiveTime,
-        prePrepares: Seq[PrePrepare],
-        lastBlockCommits: Seq[Commit],
+        prePrepares: Seq[SignedMessage[PrePrepare]],
+        lastBlockCommits: Seq[SignedMessage[Commit]],
         from: SequencerId,
     ) extends StateTransferMessage {
       def toProto: ProtoBftOrderingMessageBody = {
@@ -140,8 +144,8 @@ object Consensus {
       def create(
           latestCompletedEpoch: EpochNumber,
           lastEpochToTransferTopologySnapshotEffectiveTime: EffectiveTime,
-          prePrepares: Seq[PrePrepare],
-          lastBlockCommits: Seq[Commit],
+          prePrepares: Seq[SignedMessage[PrePrepare]],
+          lastBlockCommits: Seq[SignedMessage[Commit]],
           from: SequencerId,
       ): BlockTransferResponse = BlockTransferResponse(
         latestCompletedEpoch,
@@ -155,41 +159,17 @@ object Consensus {
           protoResponse: ProtoBlockTransferResponse,
           from: SequencerId,
       ): ParsingResult[BlockTransferResponse] = {
-        val prePreparesE = protoResponse.blockPrePrepares.map { protoConsensusMessage =>
-          for {
-            header <- ConsensusSegment.ConsensusMessage.PbftNetworkMessage.headerFromProto(
-              protoConsensusMessage
-            )
-            protoPrePrepare <- protoConsensusMessage.message.prePrepare.toRight(
-              ProtoDeserializationError.OtherError("Not a PrePrepare message")
-            )
-            prePrepare <- PrePrepare.fromProto(
-              header.blockMetadata,
-              header.viewNumber,
-              header.timestamp,
-              protoPrePrepare,
-              header.from,
-            )
-          } yield prePrepare
-        }.sequence
+        val prePreparesE = protoResponse.blockPrePrepares.traverse {
+          SignedMessage.fromProto(
+            ConsensusSegment.ConsensusMessage.PrePrepare.fromProtoConsensusMessage
+          )
+        }
 
-        val lastBlockCommitsE = protoResponse.lastBlockCommits.map { protoConsensusMessage =>
-          for {
-            header <- ConsensusSegment.ConsensusMessage.PbftNetworkMessage.headerFromProto(
-              protoConsensusMessage
-            )
-            protoCommit <- protoConsensusMessage.message.commit.toRight(
-              ProtoDeserializationError.OtherError("Not a Commit message")
-            )
-            commit <- Commit.fromProto(
-              header.blockMetadata,
-              header.viewNumber,
-              header.timestamp,
-              protoCommit,
-              header.from,
-            )
-          } yield commit
-        }.sequence
+        val lastBlockCommitsE = protoResponse.lastBlockCommits.traverse {
+          SignedMessage.fromProto(
+            ConsensusSegment.ConsensusMessage.Commit.fromProtoConsensusMessage
+          )
+        }
 
         for {
           prePrepares <- prePreparesE

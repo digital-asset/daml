@@ -13,6 +13,7 @@ import com.digitalasset.canton.domain.metrics.BftOrderingMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultDatabaseReadTimeout
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.OrderedBlocksReader
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.OutputModule.{
+  AreTherePendingTopologyChanges,
   DefaultRequestInspector,
   PreviousStoredBlock,
   RequestInspector,
@@ -30,6 +31,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   BlockNumber,
   EpochNumber,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.OrderedBlockForOutput.Mode
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.{
   OrderedBlock,
   OrderedBlockForOutput,
@@ -45,6 +47,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   GetAdditionalInfo,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.Output.{
+  LastBlockUpdated,
   SequencerSnapshotMessage,
   TopologyFetched,
 }
@@ -248,6 +251,12 @@ class OutputModule[E <: Env[E]](
               orderedBlockNumber,
               orderedBlockBftTime,
               currentEpochCouldAlterSequencingTopology,
+              pendingTopologyChangesInNextEpoch =
+                completedBlockData.orderedBlockForOutput.mode match {
+                  case Mode.FromConsensus =>
+                    false // But it may be updated later if the topology needs to be fetched
+                  case transfer: Mode.StateTransfer => transfer.pendingTopologyChangesInNextEpoch
+                },
             )
 
           logger.debug(
@@ -338,11 +347,48 @@ class OutputModule[E <: Env[E]](
           )
         }
 
-      case TopologyFetched(epochNumber, orderingTopology, cryptoProvider) =>
+      case TopologyFetched(
+            lastCompletedBlockNumber,
+            newEpochNumber,
+            orderingTopology,
+            cryptoProvider,
+          ) =>
         logger.debug(
-          s"Fetched topology $orderingTopology for new epoch $epochNumber"
+          s"Fetched topology $orderingTopology for new epoch $newEpochNumber"
         )
-        setupNewEpoch(epochNumber, Some((orderingTopology, cryptoProvider)))
+        if (orderingTopology.areTherePendingCantonTopologyChanges)
+          pipeToSelf(
+            store.setPendingChangesInNextEpoch(
+              lastCompletedBlockNumber,
+              orderingTopology.areTherePendingCantonTopologyChanges,
+            )
+          ) {
+            case Failure(exception) =>
+              abort(
+                s"Failed to set pending changes in next epoch for block $lastCompletedBlockNumber",
+                exception,
+              )
+            case Success(_) =>
+              LastBlockUpdated(
+                lastCompletedBlockNumber,
+                newEpochNumber,
+                orderingTopology,
+                cryptoProvider,
+              )
+          }
+        else
+          setupNewEpoch(newEpochNumber, Right((orderingTopology, cryptoProvider)))
+
+      case LastBlockUpdated(
+            lastCompletedBlockNumber,
+            newEpochNumber,
+            orderingTopology,
+            cryptoProvider,
+          ) =>
+        logger.debug(
+          s"Updated last block $lastCompletedBlockNumber"
+        )
+        setupNewEpoch(newEpochNumber, Right((orderingTopology, cryptoProvider)))
 
       case snapshotMessage: SequencerSnapshotMessage =>
         handleSnapshotMessage(snapshotMessage)
@@ -385,6 +431,7 @@ class OutputModule[E <: Env[E]](
         )
     }.isDefined
 
+  @SuppressWarnings(Array("org.wartremover.warts.IsInstanceOf"))
   private def fetchNewEpochTopologyIfNeeded(
       lastBlockInEpoch: CompleteBlockData,
       epochLastBlockBftTime: CantonTimestamp,
@@ -398,9 +445,11 @@ class OutputModule[E <: Env[E]](
           s"not last in epoch ${blockMetadata.epochNumber}"
       )
 
-    val epochNumber = blockMetadata.epochNumber
-    val blockNumber = blockMetadata.blockNumber
-    logger.debug(s"Last ordered block $blockNumber in epoch $epochNumber fully processed")
+    val completedEpochNumber = blockMetadata.epochNumber
+    val lastCompletedBlockNumber = blockMetadata.blockNumber
+    logger.debug(
+      s"Last ordered block $lastCompletedBlockNumber in epoch $completedEpochNumber fully processed"
+    )
 
     val epochEndBftTime =
       BftTime
@@ -410,12 +459,12 @@ class OutputModule[E <: Env[E]](
         )
 
     val lastBlockMode = lastBlockInEpoch.orderedBlockForOutput.mode
-    val consensusActive = lastBlockMode.isConsensusActive
-    val queryTopology = epochCouldAlterSequencingTopology && consensusActive
+    val shouldQueryTopology = lastBlockMode.shouldQueryTopology
+    val queryTopology = epochCouldAlterSequencingTopology && shouldQueryTopology
     if (queryTopology) {
       logger.debug(
-        s"Completed epoch $epochNumber; epoch could alter sequencing topology = $epochCouldAlterSequencingTopology, " +
-          s"lastBlockMode = $lastBlockMode => consensusActive = $consensusActive: " +
+        s"Completed epoch $completedEpochNumber; epoch could alter sequencing topology = $epochCouldAlterSequencingTopology, " +
+          s"lastBlockMode = $lastBlockMode => lastBlockMode.shouldQueryTopology = $shouldQueryTopology: " +
           "fetching an updated Canton topology effective after ticking the topology processor " +
           s"with epoch's last sequencing time $epochEndBftTime)"
       )
@@ -439,7 +488,8 @@ class OutputModule[E <: Env[E]](
         case Success(Some((orderingTopology, cryptoProvider))) =>
           metrics.topology.validators.updateValue(orderingTopology.peers.size)
           Output.TopologyFetched(
-            EpochNumber(epochNumber + 1),
+            lastCompletedBlockNumber,
+            EpochNumber(completedEpochNumber + 1),
             orderingTopology,
             cryptoProvider,
           )
@@ -448,47 +498,66 @@ class OutputModule[E <: Env[E]](
       }
     } else {
       logger.debug(
-        s"Completed epoch $epochNumber that " +
+        s"Completed epoch $completedEpochNumber that " +
           (if (epochCouldAlterSequencingTopology)
-             "possibly changed the sequencing topology but consensus wasn't active (middle of state transfer)"
+             "possibly changed the sequencing topology but topology shouldn't be queried (state transfer)"
            else
              "did not change the sequencing topology")
       )
       setupNewEpoch(
-        EpochNumber(epochNumber + 1),
-        newOrderingTopologyAndCryptoProvider = None,
-        consensusActive = consensusActive,
+        EpochNumber(completedEpochNumber + 1),
+        newOrderingTopologyAndCryptoProvider = Left(lastBlockMode match {
+          case Mode.FromConsensus =>
+            // Then we entered this branch due to no topology changes (pending or not) having been detected
+            //  in the current epoch, so there won't be pending changes in the subsequent epoch.
+            false
+          case st: Mode.StateTransfer => st.pendingTopologyChangesInNextEpoch
+        }),
+        sendTopologyToConsensus = shouldQueryTopology ||
+          // TODO(#19661): we should rather send the queried topology for the last state-transferred block but
+          //  we assume that the initial sequencer topology for the onboarded node won't change up to and including
+          //  the first epoch in which it switches from state transfer to consensus.
+          lastBlockMode.isInstanceOf[
+            OrderedBlockForOutput.Mode.StateTransfer.LastBlock
+          ],
       )
     }
   }
 
   private def setupNewEpoch(
-      epochNumber: EpochNumber,
-      newOrderingTopologyAndCryptoProvider: Option[(OrderingTopology, CryptoProvider[E])],
-      consensusActive: Boolean = true,
+      newEpochNumber: EpochNumber,
+      newOrderingTopologyAndCryptoProvider: Either[
+        AreTherePendingTopologyChanges,
+        (OrderingTopology, CryptoProvider[E]),
+      ],
+      sendTopologyToConsensus: Boolean = true,
   )(implicit traceContext: TraceContext): Unit = {
     // It is safe to use mutable state in this function because:
     // - During state transfer the system can receive blocks while the new epoch is being set up, but since
     //   consensus is inactive, this function is not called after querying the topology but directly from
     //   the main blocks processing loop, i.e. it is called sequentially in block order.
-    // - At the end of state transfer and during consensus, it is called after the async query to the topology
-    //   completes, but there are no races because the system won't proceed until the topology is fetched.
+    // - During consensus, it is called after the async query to the topology completes,
+    //   but there are no races because the system won't proceed until the topology is fetched.
     currentEpochCouldAlterSequencingTopology = false
 
-    newOrderingTopologyAndCryptoProvider.foreach { case (newOrderingTopology, newCryptoProvider) =>
-      currentEpochOrderingTopology = newOrderingTopology
-      currentEpochCryptoProvider = newCryptoProvider
-      currentEpochCouldAlterSequencingTopology =
-        newOrderingTopology.areTherePendingCantonTopologyChanges
+    newOrderingTopologyAndCryptoProvider match {
+      case Right((newOrderingTopology, newCryptoProvider)) =>
+        currentEpochOrderingTopology = newOrderingTopology
+        currentEpochCryptoProvider = newCryptoProvider
+        currentEpochCouldAlterSequencingTopology =
+          newOrderingTopology.areTherePendingCantonTopologyChanges
+
+      case Left(areTherePendingCantonTopologyChanges) =>
+        currentEpochCouldAlterSequencingTopology = areTherePendingCantonTopologyChanges
     }
 
-    if (consensusActive) {
+    if (sendTopologyToConsensus) {
       logger.debug(
         s"Consensus active: sending new epoch's topology $currentEpochOrderingTopology to it"
       )
       consensus.asyncSend(
         Consensus.NewEpochTopology(
-          epochNumber,
+          newEpochNumber,
           currentEpochOrderingTopology,
           currentEpochCryptoProvider,
         )
@@ -511,6 +580,8 @@ class OutputModule[E <: Env[E]](
 }
 
 object OutputModule {
+
+  private type AreTherePendingTopologyChanges = Boolean
 
   class PreviousStoredBlock {
 

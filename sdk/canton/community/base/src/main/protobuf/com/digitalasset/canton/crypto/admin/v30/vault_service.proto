@@ -177,7 +177,7 @@ message ListPublicKeysResponse {
 }
 
 message GenerateSigningKeyRequest {
-  com.digitalasset.canton.crypto.v30.SigningKeyScheme key_scheme = 1;
+  com.digitalasset.canton.crypto.v30.SigningKeySpec key_spec = 1;
 
   // optional descriptive name for the key
   string name = 2;

@@ -36,6 +36,7 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
       orderingTopology: OrderingTopology,
       requester: ModuleRef[SequencerNode.SnapshotMessage],
   )(implicit actorContext: E#ActorContextT[Output.Message[E]], traceContext: TraceContext): Unit = {
+    // TODO(#19661): Consider returning an error if the `snapshotTimestamp` is too high, i.e., above the safe watermark.
     val peerFirstKnownAtTimestamps =
       orderingTopology.peersFirstKnownAt.view.filter(_._2.value <= snapshotTimestamp).toSeq
     val firstKnownAtBlockFutures = peerFirstKnownAtTimestamps.map { case (_, timestamp) =>
@@ -49,6 +50,7 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
         logger.error(errorMessage, exception)
         Some(Output.SequencerSnapshotMessage.AdditionalInfoRetrievalError(requester, errorMessage))
       case Success(blocks) =>
+        logger.info(s"Retrieved blocks $blocks for sequencer snapshot at $snapshotTimestamp")
         val epochNumbers = blocks.map(_.map(_.epochNumber))
         provideWithEpochBasedInfo(epochNumbers, peerFirstKnownAtTimestamps, requester)
         // We chain several `pipeToSelf` for simplicity, rather than continue via messages to the Output module;
@@ -103,6 +105,7 @@ class SequencerSnapshotAdditionalInfoProvider[E <: Env[E]](
             )
           }
           .toMap
+        logger.info(s"Providing peers for sequencer snapshot: $peersFirstKnownAt")
         Some(
           Output.SequencerSnapshotMessage
             .AdditionalInfo(

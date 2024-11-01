@@ -22,6 +22,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   EpochNumber,
   ViewNumber,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.availability.{
   BatchId,
   OrderingBlock,
@@ -581,7 +582,7 @@ object IssConsensusModuleTest {
           _context: ContextType,
           epoch: EpochState.Epoch,
           cryptoProvider: CryptoProvider[ProgrammableUnitTestEnv],
-          latestCompletedEpochLastCommits: Seq[Commit],
+          latestCompletedEpochLastCommits: Seq[SignedMessage[Commit]],
           epochInProgress: EpochStore.EpochInProgress,
       )(
           segmentState: SegmentState,

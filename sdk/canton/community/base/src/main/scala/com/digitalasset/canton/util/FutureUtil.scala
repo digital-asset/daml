@@ -3,6 +3,8 @@
 
 package com.digitalasset.canton.util
 
+import cats.arrow.FunctionK
+import cats.~>
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.ErrorLoggingContext
@@ -124,6 +126,19 @@ object FutureUtil {
     val wrappedFuture = Future.fromTry(Try(future)).flatten
     doNotAwait(wrappedFuture, failureMessage, onFailure, level)
   }
+
+  /** Java libraries often wrap exceptions in a future inside a [[java.util.concurrent.CompletionException]]
+    * when they convert a Java-style future into a Scala-style future. When our code then tries to catch our own
+    * exceptions, the logic fails because we do not look inside the [[java.util.concurrent.CompletionException]].
+    * We therefore want to unwrap such exceptions
+    */
+  def unwrapCompletionException[A](f: Future[A])(implicit ec: ExecutionContext): Future[A] =
+    f.transform(TryUtil.unwrapCompletionException)
+
+  def unwrapCompletionExceptionK(implicit ec: ExecutionContext): Future ~> Future =
+    new FunctionK[Future, Future] {
+      override def apply[A](fa: Future[A]): Future[A] = unwrapCompletionException(fa)
+    }
 
   lazy val defaultStackTraceFilter: Thread => Boolean = {
     // Include threads directly used by Canton (incl. tests).

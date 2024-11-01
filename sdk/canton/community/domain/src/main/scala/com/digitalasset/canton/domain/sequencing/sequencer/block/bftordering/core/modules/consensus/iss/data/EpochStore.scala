@@ -15,6 +15,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   BlockNumber,
   EpochNumber,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.CommitCertificate
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.iss.EpochInfo
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.{
@@ -52,13 +53,13 @@ trait EpochStore[E <: Env[E]] {
   ): E#FutureUnlessShutdownT[Epoch]
   protected def latestCompletedEpochActionName: String = "fetch latest completed epoch"
 
-  def addPrePrepare(prePrepare: PrePrepare)(implicit
+  def addPrePrepare(prePrepare: SignedMessage[PrePrepare])(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Unit]
-  protected def addPrePrepareActionName(prePrepare: PrePrepare): String =
-    s"add PrePrepare ${prePrepare.blockMetadata.blockNumber} epoch: ${prePrepare.blockMetadata.epochNumber}"
+  protected def addPrePrepareActionName(prePrepare: SignedMessage[PrePrepare]): String =
+    s"add PrePrepare ${prePrepare.message.blockMetadata.blockNumber} epoch: ${prePrepare.message.blockMetadata.epochNumber}"
 
-  def addPrepares(prepares: Seq[Prepare])(implicit
+  def addPrepares(prepares: Seq[SignedMessage[Prepare]])(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Unit]
 
@@ -76,13 +77,13 @@ trait EpochStore[E <: Env[E]] {
     * Once a correct node starts a view change to v+1, and sends the view-change message to other peers, it should not
     * go back to working on view v after a restart.
     */
-  def addViewChangeMessage[M <: PbftViewChangeMessage](viewChangeMessage: M)(implicit
+  def addViewChangeMessage[M <: PbftViewChangeMessage](viewChangeMessage: SignedMessage[M])(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Unit]
 
   protected def addViewChangeMessageActionName[M <: PbftViewChangeMessage](
-      viewChangeMessage: M
-  ): String = viewChangeMessage match {
+      viewChangeMessage: SignedMessage[M]
+  ): String = viewChangeMessage.message match {
     case newView: NewView =>
       s"add NewView for view ${newView.viewNumber}, segment ${newView.segmentIndex} and leader ${newView.from}"
     case viewChange: ViewChange =>
@@ -90,8 +91,8 @@ trait EpochStore[E <: Env[E]] {
   }
 
   def addOrderedBlock(
-      prePrepare: PrePrepare,
-      commitMessages: Seq[Commit],
+      prePrepare: SignedMessage[PrePrepare],
+      commitMessages: Seq[SignedMessage[Commit]],
   )(implicit
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Unit]
@@ -109,7 +110,7 @@ trait EpochStore[E <: Env[E]] {
       endEpochNumberInclusive: EpochNumber,
   )(implicit
       traceContext: TraceContext
-  ): E#FutureUnlessShutdownT[Seq[PrePrepare]]
+  ): E#FutureUnlessShutdownT[Seq[SignedMessage[PrePrepare]]]
   protected def loadPrePreparesActionName(
       startEpochNumberInclusive: EpochNumber,
       endEpochNumberInclusive: EpochNumber,
@@ -121,7 +122,7 @@ object EpochStore {
   // Can we remove these classes and merge with Epoch/Blocks from Data?
   final case class Epoch(
       info: EpochInfo,
-      lastBlockCommitMessages: Seq[Commit],
+      lastBlockCommitMessages: Seq[SignedMessage[Commit]],
   )
 
   final case class Block(
@@ -132,7 +133,7 @@ object EpochStore {
 
   final case class EpochInProgress(
       completedBlocks: Seq[Block] = Seq.empty, // Expected to be sorted by height
-      pbftMessagesForIncompleteBlocks: Seq[PbftNetworkMessage] = Seq.empty,
+      pbftMessagesForIncompleteBlocks: Seq[SignedMessage[PbftNetworkMessage]] = Seq.empty,
   )
 
   def apply(

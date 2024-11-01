@@ -6,12 +6,14 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.co
 import cats.syntax.either.*
 import com.digitalasset.canton.crypto.SignatureCheckError
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.CryptoProvider
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.availability.{
   AvailabilityAck,
   OrderingBlock,
   ProofOfAvailability,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.ConsensusCertificate
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.PbftNetworkMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.{
   Consensus,
   ConsensusSegment,
@@ -63,7 +65,7 @@ final class IssConsensusValidator[E <: Env[E]] {
             prePrepares,
             from,
           ) =>
-        collectFuturesAndFlatten(prePrepares.map(validatePrePrepare(_)))
+        collectFuturesAndFlatten(prePrepares.map(validateSignedMessage(validatePrePrepare)))
     }
   }
 
@@ -115,7 +117,7 @@ final class IssConsensusValidator[E <: Env[E]] {
       cryptoProvider: CryptoProvider[E],
       traceContext: TraceContext,
   ): Return =
-    validatePrePrepare(message.prePrepare)
+    validateSignedMessage(validatePrePrepare)(message.prePrepare)
 
   private def validateViewChange(
       message: ConsensusSegment.ConsensusMessage.ViewChange
@@ -134,6 +136,12 @@ final class IssConsensusValidator[E <: Env[E]] {
         ) =>
       collectFuturesAndFlatten(certs.map(validateConsensusCertificate(_)))
   }
+
+  private def validateSignedMessage[A <: PbftNetworkMessage](
+      validator: A => Return
+  )(signedMessage: SignedMessage[A]): Return =
+    // TODO(#20458) actually validate the signature
+    validator(signedMessage.message)
 
   private def collectFutures[Err](
       futures: Seq[E#FutureUnlessShutdownT[Either[Err, Unit]]]

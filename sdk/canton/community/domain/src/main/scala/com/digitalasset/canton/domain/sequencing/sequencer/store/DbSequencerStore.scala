@@ -381,7 +381,7 @@ class DbSequencerStore(
       ("array_contains(events.recipients, ", ")")
   }
 
-  private val payloadCache: TracedAsyncLoadingCache[PayloadId, Payload] = TracedScaffeine
+  private val payloadCache: TracedAsyncLoadingCache[Future, PayloadId, Payload] = TracedScaffeine
     .buildTracedAsyncFuture[PayloadId, Payload](
       cache = cachingConfigs.sequencerPayloadCache.buildScaffeine(),
       loader = traceContext =>

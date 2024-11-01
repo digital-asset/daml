@@ -8,6 +8,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.BftSequencerBaseTest
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.{
   Epoch,
   Segment,
@@ -144,14 +145,16 @@ object BlockedProgressDetectorTest {
       epochNumber,
       blockNumber,
       commitCertificate = CommitCertificate(
-        PrePrepare.create(
-          BlockMetadata(epochNumber, blockNumber),
-          ViewNumber.First,
-          CantonTimestamp.Epoch,
-          OrderingBlock(Seq.empty),
-          CanonicalCommitSet(Set.empty),
-          myId,
-        ),
+        PrePrepare
+          .create(
+            BlockMetadata(epochNumber, blockNumber),
+            ViewNumber.First,
+            CantonTimestamp.Epoch,
+            OrderingBlock(Seq.empty),
+            CanonicalCommitSet(Set.empty),
+            myId,
+          )
+          .fakeSign,
         Seq.empty,
       ),
     )

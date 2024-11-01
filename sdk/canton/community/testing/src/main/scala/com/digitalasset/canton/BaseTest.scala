@@ -452,7 +452,7 @@ object BaseTest {
       protocolVersion: ProtocolVersion = testedProtocolVersion,
       acsCommitmentsCatchUp: Option[AcsCommitmentsCatchUpConfig] = None,
   ): StaticDomainParameters = StaticDomainParameters(
-    requiredSigningKeySchemes = SymbolicCryptoProvider.supportedSigningKeySchemes,
+    requiredSigningSpecs = SymbolicCryptoProvider.supportedSigningSpecs,
     requiredEncryptionSpecs = SymbolicCryptoProvider.supportedEncryptionSpecs,
     requiredSymmetricKeySchemes = SymbolicCryptoProvider.supportedSymmetricKeySchemes,
     requiredHashAlgorithms = SymbolicCryptoProvider.supportedHashAlgorithms,

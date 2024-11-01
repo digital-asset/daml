@@ -54,12 +54,12 @@ object JceJavaKeyConverter {
 
     (publicKey: @unchecked) match {
       case sigKey: SigningPublicKey =>
-        sigKey.scheme match {
-          case SigningKeyScheme.Ed25519 =>
+        sigKey.keySpec match {
+          case SigningKeySpec.EcCurve25519 =>
             val algoId = new AlgorithmIdentifier(EdECObjectIdentifiers.id_Ed25519)
             val x509PublicKey = new SubjectPublicKeyInfo(algoId, publicKey.key.toByteArray)
             convert(CryptoKeyFormat.Raw, x509PublicKey.getEncoded, "Ed25519")
-          case SigningKeyScheme.EcDsaP256 | SigningKeyScheme.EcDsaP384 =>
+          case SigningKeySpec.EcP256 | SigningKeySpec.EcP384 =>
             convert(CryptoKeyFormat.Der, publicKey.key.toByteArray, "EC")
         }
       case encKey: EncryptionPublicKey =>
@@ -105,22 +105,22 @@ object JceJavaKeyConverter {
 
     (privateKey: @unchecked) match {
       case sigKey: SigningPrivateKey =>
-        sigKey.scheme match {
-          case SigningKeyScheme.Ed25519 if sigKey.format == CryptoKeyFormat.Raw =>
+        sigKey.keySpec match {
+          case SigningKeySpec.EcCurve25519 if sigKey.format == CryptoKeyFormat.Raw =>
             val privateKeyInfo = new PrivateKeyInfo(
               new AlgorithmIdentifier(EdECObjectIdentifiers.id_Ed25519),
               new DEROctetString(privateKey.key.toByteArray),
             )
             convertFromPkcs8(privateKeyInfo.getEncoded, "Ed25519")
-          case SigningKeyScheme.EcDsaP256 if sigKey.format == CryptoKeyFormat.Der =>
+          case SigningKeySpec.EcP256 if sigKey.format == CryptoKeyFormat.Der =>
             convertFromPkcs8(privateKey.key.toByteArray, "EC")
-          case SigningKeyScheme.EcDsaP384 if sigKey.format == CryptoKeyFormat.Der =>
+          case SigningKeySpec.EcP384 if sigKey.format == CryptoKeyFormat.Der =>
             convertFromPkcs8(privateKey.key.toByteArray, "EC")
           case _ =>
-            val expectedFormat = sigKey.scheme match {
-              case SigningKeyScheme.Ed25519 => CryptoKeyFormat.Raw
-              case SigningKeyScheme.EcDsaP256 => CryptoKeyFormat.Der
-              case SigningKeyScheme.EcDsaP384 => CryptoKeyFormat.Der
+            val expectedFormat = sigKey.keySpec match {
+              case SigningKeySpec.EcCurve25519 => CryptoKeyFormat.Raw
+              case SigningKeySpec.EcP256 => CryptoKeyFormat.Der
+              case SigningKeySpec.EcP384 => CryptoKeyFormat.Der
             }
             Either.left[JceJavaKeyConversionError, JPrivateKey](
               JceJavaKeyConversionError.UnsupportedKeyFormat(sigKey.format, expectedFormat)

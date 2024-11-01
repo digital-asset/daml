@@ -24,7 +24,7 @@ import com.digitalasset.canton.topology.store.{
 }
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.SignedTopologyTransaction.GenericSignedTopologyTransaction
-import com.digitalasset.canton.tracing.{TraceContext, TracedScaffeine}
+import com.digitalasset.canton.tracing.{TraceContext, TracedAsyncLoadingCache, TracedScaffeine}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.{ErrorUtil, MonadUtil}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -61,14 +61,17 @@ final class CachingDomainTopologyClient(
     )
   }
 
-  private val maxTimestampCache =
-    TracedScaffeine
-      .buildTracedAsyncFutureUS[CantonTimestamp, Option[
-        (SequencedTime, EffectiveTime)
-      ]](
-        cache = cachingConfigs.domainClientMaxTimestamp.buildScaffeine(),
-        loader = traceContext => delegate.awaitMaxTimestampUS(_)(traceContext),
-      )(logger)
+  private val maxTimestampCache: TracedAsyncLoadingCache[
+    FutureUnlessShutdown,
+    CantonTimestamp,
+    Option[(SequencedTime, EffectiveTime)],
+  ] = TracedScaffeine
+    .buildTracedAsyncFutureUS[CantonTimestamp, Option[
+      (SequencedTime, EffectiveTime)
+    ]](
+      cache = cachingConfigs.domainClientMaxTimestamp.buildScaffeine(),
+      loader = traceContext => delegate.awaitMaxTimestampUS(_)(traceContext),
+    )(logger)
 
   /** An entry with a given `timestamp` refers to the snapshot at timestamp `timestamp.immediateSuccessor`.
     * This is the snapshot that covers all committed topology transactions
@@ -205,7 +208,7 @@ final class CachingDomainTopologyClient(
   override def awaitMaxTimestampUS(sequencedTime: CantonTimestamp)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[(SequencedTime, EffectiveTime)]] =
-    maxTimestampCache.getUS(sequencedTime)
+    maxTimestampCache.get(sequencedTime)
 }
 
 object CachingDomainTopologyClient {
@@ -499,7 +502,7 @@ class CachingTopologySnapshot(
   override private[client] def loadVettedPackages(participant: ParticipantId)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Map[PackageId, VettedPackage]] =
-    packageVettingCache.getUS(participant)
+    packageVettingCache.get(participant)
 
   private[client] def loadUnvettedPackagesOrDependenciesUsingLoader(
       participant: ParticipantId,
@@ -592,5 +595,5 @@ class CachingTopologySnapshot(
   override def partyAuthorization(party: PartyId)(implicit
       traceContext: TraceContext
   ): FutureUnlessShutdown[Option[PartyKeyTopologySnapshotClient.PartyAuthorizationInfo]] =
-    partyAuthorizationsCache.getUS(party)
+    partyAuthorizationsCache.get(party)
 }

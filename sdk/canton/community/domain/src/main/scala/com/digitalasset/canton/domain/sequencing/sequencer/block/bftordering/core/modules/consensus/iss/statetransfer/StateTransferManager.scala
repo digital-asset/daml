@@ -17,6 +17,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   EpochLength,
   EpochNumber,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.iss.EpochInfo
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.{
   OrderedBlock,
@@ -231,7 +232,7 @@ class StateTransferManager[E <: Env[E]](
         epochStore.loadPrePreparesForCompleteBlocks(startEpoch, lastEpochToTransfer)
       ) {
         case Success(prePrepares) =>
-          val startBlockNumber = prePrepares.map(_.blockMetadata.blockNumber).minOption
+          val startBlockNumber = prePrepares.map(_.message.blockMetadata.blockNumber).minOption
           logger.info(
             s"State transfer: sending blocks starting from epoch $startEpoch (block number = $startBlockNumber) up to " +
               s"$lastEpochToTransfer (inclusive) to $to"
@@ -279,11 +280,11 @@ class StateTransferManager[E <: Env[E]](
       traceContext: TraceContext,
   ): Unit =
     response.prePrepares.foreach { prePrepare =>
-      val blockNumber = prePrepare.blockMetadata.blockNumber
+      val blockNumber = prePrepare.message.blockMetadata.blockNumber
       stateTransferState.get(blockNumber) match {
         case Some(inProgress: StateTransferState.InProgress) =>
           val updatedState = StateTransferState.InProgress(
-            inProgress.prePreparesFromState.prePrepares :+ prePrepare
+            inProgress.prePreparesFromState.prePrepares :+ prePrepare.message
           )
           stateTransferState.update(blockNumber, updatedState)
           storePrePrepareIfQuorumReceived(
@@ -297,7 +298,7 @@ class StateTransferManager[E <: Env[E]](
             s"State transfer: received block $blockNumber for which we have a quorum of messages already, dropping..."
           )
         case None =>
-          val newState = StateTransferState.InProgress(Seq(prePrepare))
+          val newState = StateTransferState.InProgress(Seq(prePrepare.message))
           stateTransferState.update(blockNumber, newState)
           storePrePrepareIfQuorumReceived(
             prePrepare,
@@ -309,7 +310,7 @@ class StateTransferManager[E <: Env[E]](
     }
 
   private def storePrePrepareIfQuorumReceived(
-      prePrepare: PrePrepare,
+      prePrepare: SignedMessage[PrePrepare],
       prePreparesFromState: PrePreparesFromState,
       fullResponse: StateTransferMessage.BlockTransferResponse,
       activeMembership: Membership,
@@ -321,7 +322,7 @@ class StateTransferManager[E <: Env[E]](
       // TODO(#19661): Send and store commits (so that they can be used for retransmissions)
       context.pipeToSelf(epochStore.addOrderedBlock(prePrepare, commitMessages = Seq.empty)) {
         case Success(()) =>
-          Some(StateTransferMessage.BlockStored(prePrepare, fullResponse))
+          Some(StateTransferMessage.BlockStored(prePrepare.message, fullResponse))
         case Failure(exception) =>
           Some(Consensus.ConsensusMessage.AsyncException(exception))
       }
@@ -394,11 +395,14 @@ class StateTransferManager[E <: Env[E]](
           ),
           prePrepare.from,
           isLastInEpoch,
+          // TODO(#22067): Support transferring whether the block is last and there are pending changes in the next epoch
           mode =
             if (isLastStateTransferred)
-              OrderedBlockForOutput.Mode.StateTransferLastBlock
+              OrderedBlockForOutput.Mode.StateTransfer
+                .LastBlock(pendingTopologyChangesInNextEpoch = false)
             else
-              OrderedBlockForOutput.Mode.StateTransfer,
+              OrderedBlockForOutput.Mode.StateTransfer
+                .MiddleBlock(pendingTopologyChangesInNextEpoch = false),
         )
       )
     )

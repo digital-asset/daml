@@ -149,12 +149,12 @@ class GrpcVaultService(
     implicit val traceContext: TraceContext = TraceContextGrpc.fromGrpcContext
     for {
       scheme <-
-        if (request.keyScheme.isSigningKeySchemeUnspecified)
-          Future.successful(crypto.privateCrypto.defaultSigningKeyScheme)
+        if (request.keySpec.isSigningKeySpecUnspecified)
+          Future.successful(crypto.privateCrypto.defaultSigningKeySpec)
         else
           Future(
-            SigningKeyScheme
-              .fromProtoEnum("key_scheme", request.keyScheme)
+            SigningKeySpec
+              .fromProtoEnum("key_spec", request.keySpec)
               .valueOr(err => throw ProtoDeserializationFailure.WrapNoLogging(err).asGrpcError)
           )
       usage <- Future(

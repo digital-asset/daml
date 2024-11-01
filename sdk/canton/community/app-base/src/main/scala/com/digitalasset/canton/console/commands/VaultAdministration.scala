@@ -53,7 +53,7 @@ class SecretKeyAdministration(
       case signKey: SigningPublicKey =>
         instance.keys.secret.generate_signing_key(
           usage = signKey.usage,
-          scheme = Some(signKey.scheme),
+          keySpec = Some(signKey.keySpec),
           name = name,
         )
       case unknown => throw new IllegalArgumentException(s"Invalid public key type: $unknown")
@@ -80,17 +80,17 @@ class SecretKeyAdministration(
       | - IdentityDelegation: for a signing key that acts as a delegation key for the root namespace and that can also be used to sign topology requests;
       | - SequencerAuthentication: for a signing key that authenticates members of the network towards a sequencer;
       | - Protocol: for a signing key that deals with all the signing that happens as part of the protocol.
-      |The scheme can be used to select a key scheme and the default scheme is used if left unspecified."""
+      |The keySpec can be used to select a key specification, e.g., which elliptic curve to use, and the default spec is used if left unspecified."""
   )
   def generate_signing_key(
       name: String = "",
       usage: Set[SigningKeyUsage] = SigningKeyUsage.All,
-      scheme: Option[SigningKeyScheme] = None,
+      keySpec: Option[SigningKeySpec] = None,
   ): SigningPublicKey =
     NonEmpty.from(usage) match {
       case Some(usageNE) =>
         consoleEnvironment.run {
-          adminCommand(VaultAdminCommands.GenerateSigningKey(name, usageNE, scheme))
+          adminCommand(VaultAdminCommands.GenerateSigningKey(name, usageNE, keySpec))
         }
       case None => throw new IllegalArgumentException("no signing key usage specified")
     }
@@ -99,7 +99,7 @@ class SecretKeyAdministration(
   @Help.Description(
     """
       |The optional name argument allows you to store an associated string for your convenience.
-      |The scheme can be used to select a key scheme and the default scheme is used if left unspecified."""
+      |The keySpec can be used to select a key specification, e.g., which elliptic curve to use, and the default spec is used if left unspecified."""
   )
   def generate_encryption_key(
       name: String = "",

@@ -22,6 +22,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   EpochNumber,
   ViewNumber,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.availability.{
   OrderingBlock,
   ProofOfAvailability,
@@ -52,7 +53,7 @@ object ConsensusSegment {
   object Internal {
     final case class OrderedBlockStored(
         block: OrderedBlock,
-        commits: Seq[ConsensusSegment.ConsensusMessage.Commit],
+        commits: Seq[SignedMessage[ConsensusSegment.ConsensusMessage.Commit]],
         viewNumber: ViewNumber,
     ) extends Message
 
@@ -80,11 +81,23 @@ object ConsensusSegment {
     /** Pbft consensus messages coming from the network
       * The order of messages below correspond to the protocol steps
       */
-    sealed trait PbftNetworkMessage extends PbftEvent {
+    sealed trait PbftNetworkMessage {
+      def blockMetadata: BlockMetadata
+      def viewNumber: ViewNumber
       def localTimestamp: CantonTimestamp
       def from: SequencerId
       def toProto: ProtoConsensusMessage
       // TODO(i18194) add signatures
+    }
+
+    /** A Signed Pbft consensus message that is an actual event that the consensus module
+      * will act upon
+      */
+    final case class PbftSignedNetworkMessage(message: SignedMessage[PbftNetworkMessage])
+        extends PbftEvent {
+      override def blockMetadata: BlockMetadata = message.message.blockMetadata
+
+      override def viewNumber: ViewNumber = message.message.viewNumber
     }
 
     sealed trait PbftNormalCaseMessage extends PbftNetworkMessage {
@@ -146,10 +159,10 @@ object ConsensusSegment {
           }
 
         canonicalCommitSet.sortedCommits.foreach { commit =>
-          builder.add(commit.blockMetadata.blockNumber)
-          builder.add(commit.blockMetadata.epochNumber)
-          builder.add(commit.hash.getCryptographicEvidence)
-          builder.add(commit.localTimestamp.toMicros)
+          builder.add(commit.message.blockMetadata.blockNumber)
+          builder.add(commit.message.blockMetadata.epochNumber)
+          builder.add(commit.message.hash.getCryptographicEvidence)
+          builder.add(commit.message.localTimestamp.toMicros)
         }
 
         builder.finish()
@@ -441,15 +454,15 @@ object ConsensusSegment {
         segmentIndex: Int,
         viewNumber: ViewNumber,
         localTimestamp: CantonTimestamp,
-        viewChanges: Seq[ViewChange],
-        prePrepares: Seq[PrePrepare],
+        viewChanges: Seq[SignedMessage[ViewChange]],
+        prePrepares: Seq[SignedMessage[PrePrepare]],
         from: SequencerId,
     ) extends PbftViewChangeMessage {
       import NewView.*
 
-      private lazy val sortedViewChanges: Seq[ViewChange] = viewChanges.sorted
+      private lazy val sortedViewChanges: Seq[SignedMessage[ViewChange]] = viewChanges.sorted
 
-      lazy val computedCertificatePerBlock = computeCertificatePerBlock(viewChanges)
+      lazy val computedCertificatePerBlock = computeCertificatePerBlock(viewChanges.map(_.message))
 
       override def toProto: ProtoConsensusMessage =
         ProtoConsensusMessage.of(
@@ -474,8 +487,8 @@ object ConsensusSegment {
           segmentIndex: Int,
           viewNumber: ViewNumber,
           localTimestamp: CantonTimestamp,
-          viewChanges: Seq[ViewChange],
-          prePrepares: Seq[PrePrepare],
+          viewChanges: Seq[SignedMessage[ViewChange]],
+          prePrepares: Seq[SignedMessage[PrePrepare]],
           from: SequencerId,
       ): NewView = NewView(
         blockMetadata,
@@ -497,8 +510,12 @@ object ConsensusSegment {
           from: SequencerId,
       ): ParsingResult[NewView] =
         for {
-          viewChanges <- newView.viewChanges.traverse(ViewChange.fromProtoConsensusMessage)
-          prePrepares <- newView.prePrepares.traverse(PrePrepare.fromProtoConsensusMessage)
+          viewChanges <- newView.viewChanges.traverse(
+            SignedMessage.fromProto(ViewChange.fromProtoConsensusMessage)
+          )
+          prePrepares <- newView.prePrepares.traverse(
+            SignedMessage.fromProto(PrePrepare.fromProtoConsensusMessage)
+          )
         } yield ConsensusSegment.ConsensusMessage.NewView(
           blockMetadata,
           newView.segmentIndex,
@@ -518,13 +535,15 @@ object ConsensusSegment {
           viewChanges: Seq[ViewChange]
       ): Map[BlockNumber, ConsensusCertificate] = viewChanges
         .flatMap(_.consensusCerts)
-        .groupBy(_.prePrepare.blockMetadata.blockNumber)
+        .groupBy(_.prePrepare.message.blockMetadata.blockNumber)
         .fmap[ConsensusCertificate] { certs =>
           certs
             .collect { case cc: CommitCertificate => cc }
-            .maxByOption(_.prePrepare.viewNumber)
+            .maxByOption(_.prePrepare.message.viewNumber)
             .getOrElse[ConsensusCertificate](
-              certs.collect { case pc: PrepareCertificate => pc }.maxBy(_.prePrepare.viewNumber)
+              certs
+                .collect { case pc: PrepareCertificate => pc }
+                .maxBy(_.prePrepare.message.viewNumber)
             )
         }
     }

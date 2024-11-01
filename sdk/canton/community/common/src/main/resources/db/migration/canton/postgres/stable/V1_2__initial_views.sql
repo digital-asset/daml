@@ -672,7 +672,8 @@ create or replace view debug.ord_metadata_output_blocks as
     epoch_number,
     block_number,
     debug.canton_timestamp(bft_ts) as bft_ts,
-    epoch_could_alter_sequencing_topology
+    epoch_could_alter_sequencing_topology,
+    pending_topology_changes_in_next_epoch
   from ord_metadata_output_blocks;
 
 create or replace view debug.common_static_strings as

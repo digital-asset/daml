@@ -10,7 +10,7 @@ import com.digitalasset.canton.admin.api.client.data.crypto.{
   CryptoKeyFormat,
   HashAlgorithm,
   RequiredEncryptionSpecs,
-  SigningKeyScheme,
+  RequiredSigningSpecs,
   SymmetricKeyScheme,
 }
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
@@ -46,7 +46,7 @@ import io.scalaland.chimney.dsl.*
 import scala.Ordering.Implicits.*
 
 final case class StaticDomainParameters(
-    requiredSigningKeySchemes: NonEmpty[Set[SigningKeyScheme]],
+    requiredSigningSpecs: RequiredSigningSpecs,
     requiredEncryptionSpecs: RequiredEncryptionSpecs,
     requiredSymmetricKeySchemes: NonEmpty[Set[SymmetricKeyScheme]],
     requiredHashAlgorithms: NonEmpty[Set[HashAlgorithm]],
@@ -122,7 +122,7 @@ object StaticDomainParameters {
       domainParametersP: v30.StaticDomainParameters
   ): ParsingResult[StaticDomainParameters] = {
     val v30.StaticDomainParameters(
-      requiredSigningKeySchemesP,
+      requiredSigningSpecsOP,
       requiredEncryptionSpecsOP,
       requiredSymmetricKeySchemesP,
       requiredHashAlgorithmsP,
@@ -131,10 +131,20 @@ object StaticDomainParameters {
     ) = domainParametersP
 
     for {
-      requiredSigningKeySchemes <- requiredKeySchemes(
-        "requiredSigningKeySchemes",
-        requiredSigningKeySchemesP,
-        DomainCrypto.SigningKeyScheme.fromProtoEnum,
+      requiredSigningSpecsP <- requiredSigningSpecsOP.toRight(
+        ProtoDeserializationError.FieldNotSet(
+          "required_signing_specs"
+        )
+      )
+      requiredSigningAlgorithmSpecs <- requiredKeySchemes(
+        "required_signing_algorithm_specs",
+        requiredSigningSpecsP.algorithms,
+        DomainCrypto.SigningAlgorithmSpec.fromProtoEnum,
+      )
+      requiredSigningKeySpecs <- requiredKeySchemes(
+        "required_signing_key_specs",
+        requiredSigningSpecsP.keys,
+        DomainCrypto.SigningKeySpec.fromProtoEnum,
       )
       requiredEncryptionSpecsP <- requiredEncryptionSpecsOP.toRight(
         ProtoDeserializationError.FieldNotSet(
@@ -142,27 +152,27 @@ object StaticDomainParameters {
         )
       )
       requiredEncryptionAlgorithmSpecs <- requiredKeySchemes(
-        "requiredEncryptionAlgorithmSpecs",
+        "required_encryption_algorithm_specs",
         requiredEncryptionSpecsP.algorithms,
         DomainCrypto.EncryptionAlgorithmSpec.fromProtoEnum,
       )
       requiredEncryptionKeySpecs <- requiredKeySchemes(
-        "requiredEncryptionKeySpecs",
+        "required_encryption_key_specs",
         requiredEncryptionSpecsP.keys,
         DomainCrypto.EncryptionKeySpec.fromProtoEnum,
       )
       requiredSymmetricKeySchemes <- requiredKeySchemes(
-        "requiredSymmetricKeySchemes",
+        "required_symmetric_key_schemes",
         requiredSymmetricKeySchemesP,
         DomainCrypto.SymmetricKeyScheme.fromProtoEnum,
       )
       requiredHashAlgorithms <- requiredKeySchemes(
-        "requiredHashAlgorithms",
+        "required_hash_algorithms",
         requiredHashAlgorithmsP,
         DomainCrypto.HashAlgorithm.fromProtoEnum,
       )
       requiredCryptoKeyFormats <- requiredKeySchemes(
-        "requiredCryptoKeyFormats",
+        "required_crypto_key_formats",
         requiredCryptoKeyFormatsP,
         DomainCrypto.CryptoKeyFormat.fromProtoEnum,
       )
@@ -170,7 +180,7 @@ object StaticDomainParameters {
       protocolVersion <- ProtocolVersion.fromProtoPrimitive(protocolVersionP, allowDeleted = true)
     } yield StaticDomainParameters(
       StaticDomainParametersInternal(
-        requiredSigningKeySchemes,
+        DomainCrypto.RequiredSigningSpecs(requiredSigningAlgorithmSpecs, requiredSigningKeySpecs),
         DomainCrypto
           .RequiredEncryptionSpecs(requiredEncryptionAlgorithmSpecs, requiredEncryptionKeySpecs),
         requiredSymmetricKeySchemes,

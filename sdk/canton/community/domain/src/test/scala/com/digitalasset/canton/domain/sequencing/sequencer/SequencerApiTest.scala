@@ -204,6 +204,7 @@ abstract class SequencerApiTest
                 include(ExceededMaxSequencingTime.id) or include("Observed Send")
               }) or include("Detected new members without sequencer counter") or
                 include regex "Creating .* at block height None" or
+                include("Received `Start` message") or
                 include("Completing init") or
                 include("Subscribing to block source from") or
                 include("Advancing sim clock") or

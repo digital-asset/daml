@@ -6,6 +6,8 @@ package com.digitalasset.canton.lifecycle
 import cats.{Applicative, Eval, Monad, Monoid, Traverse}
 
 import scala.annotation.tailrec
+import scala.util.control.NoStackTrace
+import scala.util.{Failure, Success, Try}
 
 /** The outcome of a computation ([[UnlessShutdown.Outcome]])
   * unless the computation has aborted due to a shutdown ([[UnlessShutdown.AbortedDueToShutdown]]).
@@ -71,6 +73,27 @@ object UnlessShutdown {
   def fromOption[A](x: Option[A]): UnlessShutdown[A] =
     x.fold[UnlessShutdown[A]](AbortedDueToShutdown)(Outcome.apply)
 
+  /** Converts [[com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown]]s into
+    * an internal exception so that shutdowns can tunnel through APIs that expect a plain [[scala.util.Try]]
+    * Must be used together with [[com.digitalasset.canton.lifecycle.UnlessShutdown.recoverFromAbortException]]
+    * to turn the internal exception back into [[com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown]].
+    */
+  def failOnShutdownToAbortException[A](x: Try[UnlessShutdown[A]], action: String): Try[A] =
+    x.flatMap {
+      case Outcome(result) => Success(result)
+      case AbortedDueToShutdown => Failure(AbortedDueToShutdownException(action))
+    }
+
+  def recoverFromAbortException[A](x: Try[A]): Try[UnlessShutdown[A]] =
+    x.transform(
+      value => Success(UnlessShutdown.Outcome(value)),
+      {
+        case AbortedDueToShutdownException(_) =>
+          Success(UnlessShutdown.AbortedDueToShutdown)
+        case other => Failure(other)
+      },
+    )
+
   /** Cats traverse and monad instance for [[UnlessShutdown]].
     *
     * [[AbortedDueToShutdown]] propagates.
@@ -123,4 +146,12 @@ object UnlessShutdown {
           case AbortedDueToShutdown => AbortedDueToShutdown
         }
     }
+
+  /** Internal exception to channel an [[com.digitalasset.canton.lifecycle.UnlessShutdown.AbortedDueToShutdown]]
+    * through an API that expects plain [[scala.concurrent.Future]] or [[scala.util.Try]].
+    * Do not use this exception for reporting a shutdown to the caller of an API.
+    */
+  private final case class AbortedDueToShutdownException(action: String)
+      extends RuntimeException(s"'$action' was aborted due to shutdown.")
+      with NoStackTrace
 }

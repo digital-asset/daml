@@ -4,6 +4,7 @@
 package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss
 
 import com.daml.metrics.api.MetricsContext
+import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.metrics.BftOrderingMetrics
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModuleMetrics.emitNonCompliance
@@ -13,6 +14,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   EpochNumber,
   ViewNumber,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.iss.BlockMetadata
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.{
   CommitCertificate,
@@ -30,13 +32,13 @@ import scala.collection.mutable
 
 sealed trait PbftBlockState extends NamedLogging {
   val leader: SequencerId
-  def processMessage(msg: PbftNormalCaseMessage)(implicit
+  def processMessage(msg: SignedMessage[PbftNormalCaseMessage])(implicit
       traceContext: TraceContext
   ): Boolean
   def advance()(implicit traceContext: TraceContext): Seq[ProcessResult]
   def isBlockComplete: Boolean
   def confirmCompleteBlockStored(): Unit
-  def commitMessageQuorum: Seq[Commit]
+  def commitMessageQuorum: Seq[SignedMessage[Commit]]
   def consensusCertificate: Option[ConsensusCertificate]
 }
 
@@ -59,12 +61,12 @@ object PbftBlockState {
     private val isLeaderOfThisView: Boolean = membership.myId == leader
 
     // In-memory storage for block's PBFT votes in this view
-    private var prePrepare: Option[PrePrepare] = None
+    private var prePrepare: Option[SignedMessage[PrePrepare]] = None
     private var sentPrePrepare: Boolean = false
-    private var myPrepare: Option[Prepare] = None
-    private val prepareMap = mutable.HashMap[SequencerId, Prepare]()
+    private var myPrepare: Option[SignedMessage[Prepare]] = None
+    private val prepareMap = mutable.HashMap[SequencerId, SignedMessage[Prepare]]()
     private var myCommit: Option[Commit] = None
-    private val commitMap = mutable.HashMap[SequencerId, Commit]()
+    private val commitMap = mutable.HashMap[SequencerId, SignedMessage[Commit]]()
 
     // TRUE when PrePrepare is sent (leader-only) AND Prepare is sent (all peers)
     private var prePrepared: Boolean = false
@@ -78,18 +80,19 @@ object PbftBlockState {
     /** Processes a normal case (i.e., not a view change) PBFT message for the block in progress.
       * @return `true` if the state has been updated; it's the only case when `advance` should be called,
       */
+    @SuppressWarnings(Array("org.wartremover.warts.AsInstanceOf"))
     override def processMessage(
-        msg: PbftNormalCaseMessage
+        msg: SignedMessage[PbftNormalCaseMessage]
     )(implicit traceContext: TraceContext): Boolean =
-      msg match {
-        case pp: PrePrepare =>
-          setPrePrepare(pp)
+      msg.message match {
+        case _: PrePrepare =>
+          setPrePrepare(msg.asInstanceOf[SignedMessage[PrePrepare]])
 
-        case p: Prepare =>
-          addPrepare(p)
+        case _: Prepare =>
+          addPrepare(msg.asInstanceOf[SignedMessage[Prepare]])
 
-        case c: Commit =>
-          addCommit(c)
+        case _: Commit =>
+          addCommit(msg.asInstanceOf[SignedMessage[Commit]])
       }
 
     /** Advances the block processing state.
@@ -100,7 +103,7 @@ object PbftBlockState {
     override def advance()(implicit traceContext: TraceContext): Seq[ProcessResult] =
       prePrepare
         .map { pp =>
-          val hash = pp.hash
+          val hash = pp.message.hash
 
           val prePrepareAction =
             if (shouldSendPrePrepare) {
@@ -117,7 +120,12 @@ object PbftBlockState {
                   // if our prepare has been restored after a crash,
                   // we don't create a different one but rather take existing one
                   membership.myId, {
-                    val p = Prepare.create(pp.blockMetadata, view, hash, clock.now, membership.myId)
+                    val p = SignedMessage(
+                      Prepare
+                        .create(pp.message.blockMetadata, view, hash, clock.now, membership.myId),
+                      membership.myId,
+                      Signature.noSignature, // TODO(#20458) actually sign the message
+                    )
                     addPrepare(p).discard
                     p
                   },
@@ -136,8 +144,13 @@ object PbftBlockState {
           val commitAction =
             if (shouldSendCommit) {
               prepared = true
-              val commit = Commit.create(pp.blockMetadata, view, hash, clock.now, membership.myId)
-              myCommit = Some(commit)
+              val commit =
+                SignedMessage(
+                  Commit.create(pp.message.blockMetadata, view, hash, clock.now, membership.myId),
+                  membership.myId,
+                  Signature.noSignature, // TODO(#20458)
+                )
+              myCommit = Some(commit.message)
               addCommit(commit).discard
               Seq(
                 SendPbftMessage(
@@ -165,28 +178,28 @@ object PbftBlockState {
 
     def commitVoters: Iterable[SequencerId] = commitMap.keys
 
-    private def setPrePrepare(pp: PrePrepare)(implicit
+    private def setPrePrepare(pp: SignedMessage[PrePrepare])(implicit
         traceContext: TraceContext
     ): Boolean =
       // Only PrePrepares contained in a NewView message (during a view change) will result in pp.view != view
       // In this case, we want to store "old" PrePrepares (from previous views and previous leaders) in this block
       // We rely on validation of the NewView message to safely bootstrap this block with a valid PrePrepare
-      if (pp.viewNumber == view && pp.from != leader) {
+      if (pp.message.viewNumber == view && pp.from != leader) {
         emitNonCompliance(metrics)(
           pp.from,
           epoch,
           view,
-          pp.blockMetadata.blockNumber,
+          pp.message.blockMetadata.blockNumber,
           metrics.security.noncompliant.labels.violationType.values.ConsensusRoleEquivocation,
         )
         logger.warn(
-          s"PrePrepare for block ${pp.blockMetadata.blockNumber} from wrong peer (${pp.from}), " +
+          s"PrePrepare for block ${pp.message.blockMetadata.blockNumber} from wrong peer (${pp.from}), " +
             s"should be from $leader"
         )
         false
       } else if (prePrepare.isDefined) {
         logger.info(
-          s"PrePrepare for block ${pp.blockMetadata.blockNumber} already exists; ignoring new one"
+          s"PrePrepare for block ${pp.message.blockMetadata.blockNumber} already exists; ignoring new one"
         )
         false
       } else {
@@ -196,24 +209,26 @@ object PbftBlockState {
         true
       }
 
-    private def addPrepare(p: Prepare)(implicit traceContext: TraceContext): Boolean =
+    private def addPrepare(
+        p: SignedMessage[Prepare]
+    )(implicit traceContext: TraceContext): Boolean =
       prepareMap.get(p.from) match {
         case Some(prepare) =>
           val baseLogMsg =
-            s"Prepare for block ${p.blockMetadata.blockNumber} already exists from peer ${p.from};"
-          if (prepare.hash != p.hash) {
+            s"Prepare for block ${p.message.blockMetadata.blockNumber} already exists from peer ${p.from};"
+          if (prepare.message.hash != p.message.hash) {
             emitNonCompliance(metrics)(
               p.from,
               epoch,
               view,
-              p.blockMetadata.blockNumber,
+              p.message.blockMetadata.blockNumber,
               metrics.security.noncompliant.labels.violationType.values.ConsensusDataEquivocation,
             )
             logger.warn(
-              s"$baseLogMsg stored Prepare has hash ${prepare.hash}, found different hash ${p.hash}"
+              s"$baseLogMsg stored Prepare has hash ${prepare.message.hash}, found different hash ${p.message.hash}"
             )
           } else {
-            logger.info(s"$baseLogMsg new Prepare has matching hash (${prepare.hash})")
+            logger.info(s"$baseLogMsg new Prepare has matching hash (${prepare.message.hash})")
           }
           false
         case None =>
@@ -221,24 +236,24 @@ object PbftBlockState {
           true
       }
 
-    private def addCommit(c: Commit)(implicit traceContext: TraceContext): Boolean =
+    private def addCommit(c: SignedMessage[Commit])(implicit traceContext: TraceContext): Boolean =
       commitMap.get(c.from) match {
         case Some(commit) =>
           val baseLogMsg =
-            s"Commit for block ${c.blockMetadata.blockNumber} already exists from peer ${c.from}; "
-          if (commit.hash != c.hash) {
+            s"Commit for block ${c.message.blockMetadata.blockNumber} already exists from peer ${c.from}; "
+          if (commit.message.hash != c.message.hash) {
             emitNonCompliance(metrics)(
               c.from,
               epoch,
               view,
-              c.blockMetadata.blockNumber,
+              c.message.blockMetadata.blockNumber,
               metrics.security.noncompliant.labels.violationType.values.ConsensusDataEquivocation,
             )
             logger.warn(
-              s"$baseLogMsg stored Commit has hash ${commit.hash}, found different hash ${c.hash}"
+              s"$baseLogMsg stored Commit has hash ${commit.message.hash}, found different hash ${c.message.hash}"
             )
           } else {
-            logger.info(s"$baseLogMsg new Commit has matching hash (${commit.hash})")
+            logger.info(s"$baseLogMsg new Commit has matching hash (${commit.message.hash})")
           }
           false
         case None =>
@@ -256,8 +271,8 @@ object PbftBlockState {
 
     private def shouldSendCommit(implicit traceContext: TraceContext): Boolean =
       prePrepare.fold(false) { pp =>
-        val hash = pp.hash
-        val (matchingHash, nonMatchingHash) = prepareMap.values.partition(_.hash == hash)
+        val hash = pp.message.hash
+        val (matchingHash, nonMatchingHash) = prepareMap.values.partition(_.message.hash == hash)
         val result =
           matchingHash.size >= membership.orderingTopology.strongQuorum && !prepared
         if (nonMatchingHash.nonEmpty)
@@ -269,8 +284,8 @@ object PbftBlockState {
 
     private def shouldCompleteBlock(implicit traceContext: TraceContext): Boolean =
       prePrepare.fold(false) { pp =>
-        val hash = pp.hash
-        val (matchingHash, nonMatchingHash) = commitMap.values.partition(_.hash == hash)
+        val hash = pp.message.hash
+        val (matchingHash, nonMatchingHash) = commitMap.values.partition(_.message.hash == hash)
         val result =
           matchingHash.size >= membership.orderingTopology.strongQuorum && myCommit.isDefined && !committed
         if (nonMatchingHash.nonEmpty)
@@ -288,11 +303,14 @@ object PbftBlockState {
       else
         abort("Uncommitted block shouldn't be stored")
 
-    override def commitMessageQuorum: Seq[Commit] = {
+    override def commitMessageQuorum: Seq[SignedMessage[Commit]] = {
       val hash =
-        prePrepare.getOrElse(abort("The block is not complete (there is no PrePrepare)")).hash
+        prePrepare
+          .getOrElse(abort("The block is not complete (there is no PrePrepare)"))
+          .message
+          .hash
       if (committed) {
-        val commitsMatchingHash = commitMap.view.values.filter(_.hash == hash)
+        val commitsMatchingHash = commitMap.view.values.filter(_.message.hash == hash)
         // Assumes that commits are already validated.
         // Sorting here has is not strictly needed for correctness, but it improves order stability in tests.
         commitsMatchingHash.toSeq.sorted.take(membership.orderingTopology.strongQuorum)
@@ -305,7 +323,7 @@ object PbftBlockState {
           CommitCertificate(
             pp,
             commitMap.values
-              .filter(_.hash == pp.hash)
+              .filter(_.message.hash == pp.message.hash)
               .toSeq
               .sortBy(_.from)
               .take(membership.orderingTopology.strongQuorum),
@@ -316,9 +334,9 @@ object PbftBlockState {
           PrepareCertificate(
             pp,
             prepareMap.values
-              .filter(_.hash == pp.hash)
+              .filter(_.message.hash == pp.message.hash)
               .toSeq
-              .sortBy(_.from)
+              .sortBy(_.message.from)
               .take(membership.orderingTopology.strongQuorum),
           )
         )
@@ -332,11 +350,11 @@ object PbftBlockState {
       override val loggerFactory: NamedLoggerFactory,
   ) extends PbftBlockState {
     override def processMessage(
-        msg: PbftNormalCaseMessage
+        msg: SignedMessage[PbftNormalCaseMessage]
     )(implicit traceContext: TraceContext): Boolean = {
       val messageType = shortType(msg)
       logger.info(
-        s"Block ${msg.blockMetadata.blockNumber} is complete, " +
+        s"Block ${msg.message.blockMetadata.blockNumber} is complete, " +
           s"so ignoring message $messageType from peer ${msg.from}"
       )
       true
@@ -344,18 +362,18 @@ object PbftBlockState {
     override def advance()(implicit traceContext: TraceContext): Seq[ProcessResult] = Seq.empty
     override def isBlockComplete: Boolean = true
     override def confirmCompleteBlockStored(): Unit = ()
-    override def commitMessageQuorum: Seq[Commit] = commitCertificate.commits
+    override def commitMessageQuorum: Seq[SignedMessage[Commit]] = commitCertificate.commits
     override def consensusCertificate: Option[ConsensusCertificate] = Some(commitCertificate)
   }
 
   sealed trait ProcessResult extends Product with Serializable
   final case class SendPbftMessage[MessageT <: PbftNetworkMessage](
-      pbftMessage: MessageT,
+      pbftMessage: SignedMessage[MessageT],
       store: Option[StoreResult],
   ) extends ProcessResult
   final case class CompletedBlock(
-      prePrepare: PrePrepare,
-      commitMessageQuorum: Seq[Commit],
+      prePrepare: SignedMessage[PrePrepare],
+      commitMessageQuorum: Seq[SignedMessage[Commit]],
       viewNumber: ViewNumber,
   ) extends ProcessResult
   final case class ViewChangeStartNestedTimer(blockMetadata: BlockMetadata, viewNumber: ViewNumber)
@@ -373,8 +391,9 @@ object PbftBlockState {
   ) extends ProcessResult
 
   sealed trait StoreResult extends Product with Serializable
-  final case class StorePrePrepare(prePrepare: PrePrepare) extends StoreResult
-  final case class StorePrepares(prepares: Seq[Prepare]) extends StoreResult
-  final case class StoreViewChangeMessage[M <: PbftViewChangeMessage](viewChangeMessage: M)
-      extends StoreResult
+  final case class StorePrePrepare(prePrepare: SignedMessage[PrePrepare]) extends StoreResult
+  final case class StorePrepares(prepares: Seq[SignedMessage[Prepare]]) extends StoreResult
+  final case class StoreViewChangeMessage[M <: PbftViewChangeMessage](
+      viewChangeMessage: SignedMessage[M]
+  ) extends StoreResult
 }

@@ -18,7 +18,7 @@ trait CryptoTestHelper extends BaseTest with HasExecutionContext {
     *
     * @param crypto determines the algorithms used for signing, hashing, and encryption, used
     *               on the client side for serialization.
-    * @param encryptionKeySpec the encryption scheme for the new key.
+    * @param encryptionKeySpec the encryption key specification for the new key.
     * @return an encryption public key
     */
   protected def getEncryptionPublicKey(
@@ -45,16 +45,16 @@ trait CryptoTestHelper extends BaseTest with HasExecutionContext {
     * @param crypto    determines the algorithms used for signing, hashing, and encryption, used
     *                  on the client side for serialization.
     * @param usage     what the key must be used for
-    * @param scheme    the signing scheme for the new key.
+    * @param keySpec   the signing key specification for the new key.
     * @return a signing public key
     */
   protected def getSigningPublicKey(
       crypto: Crypto,
       usage: NonEmpty[Set[SigningKeyUsage]],
-      scheme: SigningKeyScheme,
+      keySpec: SigningKeySpec,
   ): FutureUnlessShutdown[SigningPublicKey] =
     crypto
-      .generateSigningKey(scheme, usage)
+      .generateSigningKey(keySpec, usage)
       .valueOrFail("generate signing key")
 
   /** Helper method to get two different signing public keys.
@@ -62,11 +62,11 @@ trait CryptoTestHelper extends BaseTest with HasExecutionContext {
   protected def getTwoSigningPublicKeys(
       crypto: Crypto,
       usage: NonEmpty[Set[SigningKeyUsage]],
-      scheme: SigningKeyScheme,
+      keySpec: SigningKeySpec,
   ): FutureUnlessShutdown[(SigningPublicKey, SigningPublicKey)] =
     for {
-      pubKey1 <- getSigningPublicKey(crypto, usage, scheme)
-      pubKey2 <- getSigningPublicKey(crypto, usage, scheme)
+      pubKey1 <- getSigningPublicKey(crypto, usage, keySpec)
+      pubKey2 <- getSigningPublicKey(crypto, usage, keySpec)
     } yield (pubKey1, pubKey2)
 
 }

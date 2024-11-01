@@ -63,6 +63,15 @@ trait OutputBlockMetadataStore[E <: Env[E]] {
       traceContext: TraceContext
   ): E#FutureUnlessShutdownT[Option[OutputBlockMetadata]]
   protected val lastConsecutiveActionName: String = "get last consecutive block metadata"
+
+  def setPendingChangesInNextEpoch(
+      block: BlockNumber,
+      areTherePendingCantonTopologyChanges: Boolean,
+  )(implicit
+      traceContext: TraceContext
+  ): E#FutureUnlessShutdownT[Unit]
+  protected val setPendingChangesInNextEpochActionName: String =
+    "set pending changes in next epoch block metadata"
 }
 
 object OutputBlockMetadataStore {
@@ -72,6 +81,7 @@ object OutputBlockMetadataStore {
       blockNumber: BlockNumber,
       blockBftTime: CantonTimestamp,
       epochCouldAlterSequencingTopology: Boolean, // Cumulative over all blocks in the epoch (restart support)
+      pendingTopologyChangesInNextEpoch: Boolean, // May be true only for the last block in an epoch
   )
 
   def apply(

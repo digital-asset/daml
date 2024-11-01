@@ -16,6 +16,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.snapshot.SequencerSnapshotAdditionalInfo
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.topology.Membership
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.Consensus
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.PbftSignedNetworkMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.dependencies.ConsensusModuleDependencies
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.{
   Env,
@@ -119,12 +120,13 @@ final class PreIssConsensusModule[E <: Env[E]](
         segmentModuleRefFactory,
       )
 
-    epochInProgress.pbftMessagesForIncompleteBlocks.groupBy(_.blockMetadata.blockNumber).foreach {
-      case (_, messages) =>
+    epochInProgress.pbftMessagesForIncompleteBlocks
+      .groupBy(_.message.blockMetadata.blockNumber)
+      .foreach { case (_, messages) =>
         messages.foreach { pbftMessage =>
-          epochState.processPbftMessage(pbftMessage)
+          epochState.processPbftMessage(PbftSignedNetworkMessage(pbftMessage))
         }
-    }
+      }
 
     epochState -> latestCompletedEpochFromStore
   }

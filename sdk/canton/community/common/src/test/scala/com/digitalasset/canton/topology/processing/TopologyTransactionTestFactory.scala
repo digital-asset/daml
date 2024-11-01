@@ -24,7 +24,7 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
     NamespaceDelegation.tryCreate(ns, key, isRootDelegation)
 
   val ns1 = Namespace(key1.fingerprint)
-  val ns1_unsupportedScheme = Namespace(key1_unsupportedScheme.fingerprint)
+  val ns1_unsupportedSpec = Namespace(key1_unsupportedSpec.fingerprint)
   val ns2 = Namespace(key2.fingerprint)
   val ns3 = Namespace(key3.fingerprint)
   val ns4 = Namespace(key4.fingerprint)
@@ -44,8 +44,8 @@ class TopologyTransactionTestFactory(loggerFactory: NamedLoggerFactory, initEc: 
   val ns1k1_k1 = mkAdd(createNs(ns1, key1, isRootDelegation = true), key1)
   val ns1k1_k1_unsupportedScheme =
     mkAdd(
-      createNs(ns1_unsupportedScheme, key1_unsupportedScheme, isRootDelegation = true),
-      key1_unsupportedScheme,
+      createNs(ns1_unsupportedSpec, key1_unsupportedSpec, isRootDelegation = true),
+      key1_unsupportedSpec,
     )
   val ns1k2_k1 = mkAdd(createNs(ns1, key2, isRootDelegation = true), key1)
   val ns1k2_k1p = mkAdd(createNs(ns1, key2, isRootDelegation = true), key1)
