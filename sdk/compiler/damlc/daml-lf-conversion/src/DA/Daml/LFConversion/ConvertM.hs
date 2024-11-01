@@ -18,7 +18,8 @@ module DA.Daml.LFConversion.ConvertM (
     StandaloneError(..),
     ErrorOrWarning(..),
     InvalidInterfaceError(..),
-    damlWarningFlagParser
+    damlWarningFlagParser,
+    warnLargeTuplesFlag
   ) where
 
 import           DA.Daml.UtilLF
@@ -57,7 +58,10 @@ damlWarningFlagParser =
         LargeTuple _ -> AsWarning
     }
 
+warnLargeTuplesName :: String
 warnLargeTuplesName = "large-tuples"
+
+warnLargeTuplesFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
 warnLargeTuplesFlag status = RawDamlWarningFlag
   { rfName = warnLargeTuplesName
   , rfStatus = status
@@ -103,9 +107,11 @@ data InvalidInterfaceError
   | NoViewDefined
   | MoreThanOneViewDefined
 
+ppError :: Error -> String
 ppError (StandaloneError err) = ppStandaloneError err
 ppError (ErrorOrWarningAsError errOrWarn) = ppErrorOrWarning errOrWarn
 
+ppWarning :: Warning -> String
 ppWarning (StandaloneWarning warn) = ppStandaloneWarning warn
 ppWarning (ErrorOrWarningAsWarning errOrWarn) = ppErrorOrWarning errOrWarn
 
@@ -146,6 +152,7 @@ ppStandaloneError = \case
   CannotRequireNonInterface tyCon ->
     "cannot require '" ++ prettyPrint tyCon ++ "' because it is not an interface"
 
+ppInvalidInterfaceError :: InvalidInterfaceError -> String
 ppInvalidInterfaceError (NotAnInterface iface) = "'" <> prettyPrint iface <> "' is not an interface"
 ppInvalidInterfaceError (NotATemplate tpl) = "'" <> prettyPrint tpl <> "' is not a template"
 ppInvalidInterfaceError DoesNotMatchEnclosingTemplateDeclaration = unwords

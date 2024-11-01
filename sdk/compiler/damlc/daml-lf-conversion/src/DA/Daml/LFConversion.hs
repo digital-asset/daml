@@ -81,7 +81,7 @@ module DA.Daml.LFConversion
     , ConversionEnv(..) -- exposed for testing
     ) where
 
-import           DA.Daml.LF.TypeChecker.Error.WarningFlags (noDamlWarningFlags)
+import           DA.Daml.LF.TypeChecker.Error.WarningFlags (DamlWarningFlags)
 import           DA.Daml.LFConversion.Primitives
 import           DA.Daml.LFConversion.MetadataEncoding
 import           DA.Daml.LFConversion.ConvertM
@@ -101,7 +101,7 @@ import           Control.Monad.Extra
 import           Control.Monad.State.Strict
 import           DA.Daml.LF.Ast as LF
 import           DA.Daml.LF.Ast.Numeric
-import           DA.Daml.Options.Types (EnableScenarios (..), EnableInterfaces (..), AllowLargeTuples (..))
+import           DA.Daml.Options.Types (EnableScenarios (..), EnableInterfaces (..))
 import qualified Data.Decimal as Decimal
 import           Data.Foldable (foldlM)
 import           Data.Int
@@ -146,7 +146,6 @@ data Env = Env
     ,envLfVersion :: LF.Version
     ,envEnableScenarios :: EnableScenarios
     ,envEnableInterfaces :: EnableInterfaces
-    ,envAllowLargeTuples :: AllowLargeTuples
     ,envUserWrittenTuple :: Bool
     ,envTypeVars :: !(MS.Map Var TypeVarName)
         -- ^ Maps GHC type variables in scope to their LF type variable names
@@ -159,12 +158,11 @@ mkEnv ::
      LF.Version
   -> EnableScenarios
   -> EnableInterfaces
-  -> AllowLargeTuples
   -> MS.Map UnitId DalfPackage
   -> MS.Map (UnitId, LF.ModuleName) PackageId
   -> GHC.Module
   -> Env
-mkEnv envLfVersion envEnableScenarios envEnableInterfaces envAllowLargeTuples envPkgMap envStablePackages ghcModule = do
+mkEnv envLfVersion envEnableScenarios envEnableInterfaces envPkgMap envStablePackages ghcModule = do
   let
     envGHCModuleName = GHC.moduleName ghcModule
     envModuleUnitId = GHC.moduleUnitId ghcModule
@@ -737,7 +735,7 @@ convertModule
     => LF.Version
     -> EnableScenarios
     -> EnableInterfaces
-    -> AllowLargeTuples
+    -> DamlWarningFlags ErrorOrWarning
     -> MS.Map UnitId DalfPackage
     -> MS.Map (GHC.UnitId, LF.ModuleName) LF.PackageId
     -> NormalizedFilePath
@@ -746,9 +744,9 @@ convertModule
       -- ^ Only used for information that isn't available in ModDetails.
     -> ModDetails
     -> Either FileDiagnostic (LF.Module, [FileDiagnostic])
-convertModule lfVersion enableScenarios enableInterfaces allowLargeTuples pkgMap stablePackages file coreModule modIface details = runConvertM (ConversionEnv file Nothing (noDamlWarningFlags damlWarningFlagParser)) $ do
+convertModule lfVersion enableScenarios enableInterfaces damlWarningFlagParser pkgMap stablePackages file coreModule modIface details = runConvertM (ConversionEnv file Nothing damlWarningFlagParser) $ do
     let
-      env = mkEnv lfVersion enableScenarios enableInterfaces allowLargeTuples pkgMap stablePackages (cm_module coreModule)
+      env = mkEnv lfVersion enableScenarios enableInterfaces pkgMap stablePackages (cm_module coreModule)
       mc = extractModuleContents env coreModule modIface details
     defs <- convertModuleContents env mc
     pure (LF.moduleFromDefinitions (envLFModuleName env) (Just $ fromNormalizedFilePath file) flags defs)
@@ -2057,8 +2055,7 @@ splitConArgs_maybe con args = do
 -- work. Constructor workers are not handled (yet).
 convertDataCon :: SdkVersioned => Env -> GHC.Module -> DataCon -> [LArg Var] -> ConvertM (LF.Expr, [LArg Var])
 convertDataCon env m con args
-    | AllowLargeTuples False <- envAllowLargeTuples env
-    , envUserWrittenTuple env
+    | envUserWrittenTuple env
     , IsTuple arity <- con
     = do
         when (arity > 5) $ conversionDiagnostic $ LargeTuple arity
