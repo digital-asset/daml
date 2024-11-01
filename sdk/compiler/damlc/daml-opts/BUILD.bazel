@@ -27,11 +27,11 @@ da_haskell_library(
     deps = [
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-tools",
+        "//compiler/damlc/daml-lf-conversion-errors",
         "//compiler/damlc/daml-package-config",
         "//daml-assistant:daml-project-config",
         "//libs-haskell/bazel-runfiles",
         "//libs-haskell/da-hs-base",
-        "//compiler/damlc/daml-lf-conversion-errors",
     ],
 )
 

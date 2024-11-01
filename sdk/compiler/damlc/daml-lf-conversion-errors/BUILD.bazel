@@ -32,4 +32,3 @@ da_haskell_library(
         "//sdk-version/hs:sdk-version-class-lib",
     ],
 )
-
