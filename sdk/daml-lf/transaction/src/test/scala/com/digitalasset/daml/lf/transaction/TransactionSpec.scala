@@ -1109,15 +1109,15 @@ object TransactionSpec {
       version = TransactionVersion.minVersion,
     )
 
-  def dummyCreateNode(createCid: V.ContractId): Node.Create =
+  def dummyCreateNode(createCid: V.ContractId, signatories: Set[Ref.Party] = Set.empty, stakeholders: Set[Ref.Party] = Set.empty): Node.Create =
     Node.Create(
       coid = createCid,
       packageName = Ref.PackageName.assertFromString("PkgName"),
       packageVersion = None,
       templateId = Ref.Identifier.assertFromString("-dummyPkg-:DummyModule:dummyName"),
       arg = V.ValueContractId(cid("#dummyCid")),
-      signatories = Set.empty,
-      stakeholders = Set.empty,
+      signatories = signatories,
+      stakeholders = stakeholders,
       keyOpt = None,
       version = TransactionVersion.minVersion,
     )
