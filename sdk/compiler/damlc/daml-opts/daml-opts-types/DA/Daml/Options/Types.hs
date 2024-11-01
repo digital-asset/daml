@@ -9,7 +9,6 @@ module DA.Daml.Options.Types
     , EnableScenarioService(..)
     , EnableScenarios(..)
     , EnableInterfaces(..)
-    , AllowLargeTuples(..)
     , StudioAutorunAllScenarios(..)
     , SkipScenarioValidation(..)
     , DlintRulesFile(..)
@@ -22,6 +21,7 @@ module DA.Daml.Options.Types
     , PackageFlag(..)
     , ModRenaming(..)
     , PackageArg(..)
+    , ErrorOrWarning
     , defaultOptions
     , damlArtifactDir
     , projectPackageDatabase
@@ -39,6 +39,7 @@ module DA.Daml.Options.Types
     , defaultUiTypecheckUpgrades
     , defaultUiWarnBadInterfaceInstances
     , defaultUpgradeInfo
+    , damlWarningFlagParser
     ) where
 
 import Control.Monad.Reader
@@ -56,7 +57,9 @@ import DynFlags (ModRenaming(..), PackageFlag(..), PackageArg(..))
 import Module (UnitId, stringToUnitId)
 import qualified System.Directory as Dir
 import System.FilePath
-import DA.Daml.LF.TypeChecker.Error
+import qualified DA.Daml.LF.TypeChecker.Error.WarningFlags as WarningFlags
+import qualified DA.Daml.LF.TypeChecker.Error as TypeCheckerError
+import qualified DA.Daml.LFConversion.ConvertM as LFConversion
 import DA.Daml.LF.TypeChecker.Upgrade (UpgradeInfo(..))
 
 -- | Orphan instances for debugging
@@ -134,14 +137,20 @@ data Options = Options
   , optAccessTokenPath :: Maybe FilePath
   -- ^ Path to a file containing an access JWT token. This is used for building to query/fetch
   -- packages from remote ledgers.
-  , optAllowLargeTuples :: AllowLargeTuples
-  -- ^ Do not warn when tuples of size > 5 are used
   , optHideUnitId :: Bool
   -- ^ When running in IDE, some rules need access to the package name and version, but we don't want to use own
   -- unit-id, as script + scenario service assume it will be "main"
   , optUpgradeInfo :: UpgradeInfo
-  , optDamlWarningFlags :: [DamlWarningFlag ErrorOrWarning]
+  , optDamlWarningFlags :: WarningFlags.DamlWarningFlags ErrorOrWarning
   }
+
+type ErrorOrWarning = Either TypeCheckerError.ErrorOrWarning LFConversion.ErrorOrWarning
+
+damlWarningFlagParser :: WarningFlags.DamlWarningFlagParser ErrorOrWarning
+damlWarningFlagParser =
+  WarningFlags.combineParsers
+    TypeCheckerError.damlWarningFlagParser
+    LFConversion.damlWarningFlagParser
 
 newtype IncrementalBuild = IncrementalBuild { getIncrementalBuild :: Bool }
   deriving Show
@@ -196,9 +205,6 @@ newtype EnableScenarioService = EnableScenarioService { getEnableScenarioService
     deriving Show
 
 newtype EnableScenarios = EnableScenarios { getEnableScenarios :: Bool }
-    deriving Show
-
-newtype AllowLargeTuples = AllowLargeTuples { getAllowLargeTuples :: Bool }
     deriving Show
 
 newtype StudioAutorunAllScenarios = StudioAutorunAllScenarios { getStudioAutorunAllScenarios :: Bool }
@@ -285,10 +291,9 @@ defaultOptions mbVersion =
         , optIgnorePackageMetadata = IgnorePackageMetadata False
         , optEnableOfInterestRule = False
         , optAccessTokenPath = Nothing
-        , optAllowLargeTuples = AllowLargeTuples False
         , optHideUnitId = False
         , optUpgradeInfo = defaultUpgradeInfo
-        , optDamlWarningFlags = []
+        , optDamlWarningFlags = WarningFlags.noDamlWarningFlags damlWarningFlagParser
         }
 
 defaultUpgradeInfo :: UpgradeInfo

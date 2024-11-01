@@ -113,6 +113,7 @@ import SdkVersion.Class (SdkVersioned, damlStdlib)
 import Language.Haskell.HLint4
 
 import Development.IDE.Core.Rules.Daml.SpanInfo
+import Data.Functor.Contravariant
 
 -- | Get thr URI that corresponds to a virtual resource. The VS Code has a
 -- document provider that will handle our special documents.
@@ -258,8 +259,8 @@ priorityGenerateDalf = priorityGenerateCore
 
 -- Generates the DALF for a module without adding serializability information
 -- or type checking it.
-generateRawDalfRule :: SdkVersioned => Rules ()
-generateRawDalfRule =
+generateRawDalfRule :: SdkVersioned => Options -> Rules ()
+generateRawDalfRule opts =
     define $ \GenerateRawDalf file -> do
         lfVersion <- getDamlLfVersion
         (coreDiags, mbCore) <- generateCore (RunSimplifier False) file
@@ -272,10 +273,10 @@ generateRawDalfRule =
                     -- Generate the map from package names to package hashes
                     PackageMap pkgMap <- use_ GeneratePackageMap file
                     stablePkgs <- useNoFile_ GenerateStablePackages
-                    DamlEnv{envEnableScenarios, envEnableInterfaces, envAllowLargeTuples} <- getDamlServiceEnv
+                    DamlEnv{envEnableScenarios, envEnableInterfaces} <- getDamlServiceEnv
                     modIface <- hm_iface . tmrModInfo <$> use_ TypeCheck file
                     -- GHC Core to Daml-LF
-                    case convertModule lfVersion envEnableScenarios envEnableInterfaces envAllowLargeTuples pkgMap (Map.map LF.dalfPackageId stablePkgs) file core modIface details of
+                    case convertModule lfVersion envEnableScenarios envEnableInterfaces (contramap Right (optDamlWarningFlags opts)) pkgMap (Map.map LF.dalfPackageId stablePkgs) file core modIface details of
                         Left e -> return ([e], Nothing)
                         Right (v, conversionWarnings) -> do
                             WhnfPackage pkg <- use_ GeneratePackageDeps file
@@ -308,7 +309,7 @@ generateDalfRule opts =
         upgradedPackage <- join <$> useNoFile ExtractUpgradedPackage
         setPriority priorityGenerateDalf
         let lfDiags = LF.checkModule world lfVersion rawDalf
-            upgradeDiags = Upgrade.checkModule world rawDalf (map Upgrade.unitIdDalfPackageToUpgradedPkg (foldMap Map.toList mbDalfDependencies)) lfVersion (optUpgradeInfo opts) (optDamlWarningFlags opts) upgradedPackage
+            upgradeDiags = Upgrade.checkModule world rawDalf (map Upgrade.unitIdDalfPackageToUpgradedPkg (foldMap Map.toList mbDalfDependencies)) lfVersion (optUpgradeInfo opts) (contramap Left (optDamlWarningFlags opts)) upgradedPackage
         pure $! second (rawDalf <$) (diagsToIdeResult file (lfDiags ++ upgradeDiags))
 
 -- TODO Share code with typecheckModule in ghcide. The environment needs to be setup
@@ -432,11 +433,11 @@ generateSerializedDalfRule options =
                             -- lf conversion
                             PackageMap pkgMap <- use_ GeneratePackageMap file
                             stablePkgs <- useNoFile_ GenerateStablePackages
-                            DamlEnv{envEnableScenarios, envEnableInterfaces, envAllowLargeTuples} <- getDamlServiceEnv
+                            DamlEnv{envEnableScenarios, envEnableInterfaces} <- getDamlServiceEnv
                             let modInfo = tmrModInfo tm
                                 details = hm_details modInfo
                                 modIface = hm_iface modInfo
-                            case convertModule lfVersion envEnableScenarios envEnableInterfaces envAllowLargeTuples pkgMap (Map.map LF.dalfPackageId stablePkgs) file core modIface details of
+                            case convertModule lfVersion envEnableScenarios envEnableInterfaces (contramap Right (optDamlWarningFlags options)) pkgMap (Map.map LF.dalfPackageId stablePkgs) file core modIface details of
                                 Left e -> pure ([e], Nothing)
                                 Right (rawDalf, conversionWarnings) -> do
                                     -- LF postprocessing
@@ -1608,7 +1609,7 @@ internalModules = map FPP.normalise
 
 damlRule :: SdkVersioned => Options -> Rules ()
 damlRule opts = do
-    generateRawDalfRule
+    generateRawDalfRule opts
     generateDalfRule opts
     generateSerializedDalfRule opts
     readSerializedDalfRule
