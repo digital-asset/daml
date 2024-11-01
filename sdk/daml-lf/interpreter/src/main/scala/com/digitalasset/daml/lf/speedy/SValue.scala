@@ -32,24 +32,28 @@ sealed abstract class SValue {
     */
   def toUnnormalizedValue: V = {
     toValue(
-      normalize = false
+      dropTypeInfos = false,
+      dropTrailingNoneFields = false,
     )
   }
 
   /** Convert a speedy-value to a value normalized according to the LF version.
     */
-  @scala.annotation.nowarn("cat=unused")
-  def toNormalizedValue(version: TransactionVersion): V =
-    toValue(normalize = true)
+  def toNormalizedValue(version: TransactionVersion): V = {
+    import Ordering.Implicits._
+    toValue(
+      dropTypeInfos = true,
+      dropTrailingNoneFields = (TransactionVersion.minUpgrade <= version),
+    )
+  }
 
-  private[this] def toValue(normalize: Boolean): V = {
+  private[speedy] def toValue(
+      dropTypeInfos: Boolean,
+      dropTrailingNoneFields: Boolean,
+  ): V = {
 
     def maybeEraseTypeInfo[X](x: X): Option[X] =
-      if (normalize) {
-        None
-      } else {
-        Some(x)
-      }
+      if (dropTypeInfos) None else Some(x)
 
     def go(v: SValue, maxNesting: Int = V.MAXIMUM_NESTING): V = {
       if (maxNesting < 0)
@@ -68,13 +72,16 @@ sealed abstract class SValue {
         case SUnit => V.ValueUnit
         case SDate(x) => V.ValueDate(x)
         case r: SRecord =>
+          val values = r.values.asScala
+          val n =
+            if (dropTrailingNoneFields)
+              values.reverseIterator.dropWhile(_ == SValue.SValue.None).size
+            else
+              values.size
           V.ValueRecord(
             maybeEraseTypeInfo(r.id),
-            r.fields.toSeq.zipWithIndex
-              .map { case (field, fieldNum) =>
-                val sv = r.lookupField(fieldNum, field)
-                (maybeEraseTypeInfo(field), go(sv, nextMaxNesting))
-              }
+            (r.fields.iterator.take(n) zip values)
+              .map { case (field, sv) => (maybeEraseTypeInfo(field), go(sv, nextMaxNesting)) }
               .to(ImmArray),
           )
         case SVariant(id, variant, _, sv) =>

@@ -52,7 +52,7 @@ class TestTraceLog extends TraceLog {
 }
 
 class EvaluationOrderTestPreUpgrade extends EvaluationOrderTest(LanguageVersion.v1_15)
-class EvaluationOrderTestPrePostUpgrade extends EvaluationOrderTest(LanguageVersion.v1_17)
+class EvaluationOrderTestPostUpgrade extends EvaluationOrderTest(LanguageVersion.v1_17)
 
 class EvaluationOrderTest(languageVersion: LanguageVersion)
     extends AnyFreeSpec
@@ -1367,7 +1367,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
           }
         }
 
-        // TEST_EVIDENCE: Integrity: Evaluation order of exercise-by-key of a non-cached global contract with visibility failure
+        // TEST_EVIDENCE: Integrity: Evaluation order of exercise_by_key of a non-cached global contract with visibility failure
         "visibility failure" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -1490,7 +1490,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
           }
         }
 
-        // TEST_EVIDENCE: Integrity: Evaluation order of exercise-by-key of a cached global contract with visibility failure
+        // TEST_EVIDENCE: Integrity: Evaluation order of exercise_by_key of a cached global contract with visibility failure
         "visibility failure" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2439,7 +2439,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
           }
         }
 
-        // TEST_EVIDENCE: Integrity: Evaluation order of fetch-by-key of a non-cached global contract with visibility failure
+        // TEST_EVIDENCE: Integrity: Evaluation order of fetch_by_key of a non-cached global contract with visibility failure
         "visibility failure" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
@@ -2526,7 +2526,7 @@ class EvaluationOrderTest(languageVersion: LanguageVersion)
           }
         }
 
-        // TEST_EVIDENCE: Integrity: Evaluation order of fetch-by-key of a cached global contract with visibility failure
+        // TEST_EVIDENCE: Integrity: Evaluation order of fetch_by_key of a cached global contract with visibility failure
         "visibility failure" in {
           val (res, msgs) = evalUpdateApp(
             pkgs,
