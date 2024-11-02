@@ -447,7 +447,7 @@ private[index] class IndexServiceImpl(
                   packageName = Some(name),
                   // It's fine to not use the precise LanguageVersion of the key's package
                   // since this argument is only used for deciding if the key pertains to upgradable packages or not
-                  version = LanguageVersion.Features.smartContractUpgrade,
+                  version = LanguageVersion.Features.packageUpgrades,
                 )
                 .map(templateIdWithDummyPackageId -> _)
             case PackageRef.Id(pkgId) =>
@@ -455,7 +455,7 @@ private[index] class IndexServiceImpl(
               packageMetadataSnapshot.packageIdVersionMap
                 .get(pkgId)
                 .map { case (name, _) =>
-                  KeyPackageName.build(Some(name), LanguageVersion.Features.smartContractUpgrade)
+                  KeyPackageName.build(Some(name), LanguageVersion.Features.packageUpgrades)
                 }
                 // If package-id is not found in the upgradable packageIdVersionMap, we assume
                 // that it is not ugpradable or does not exist

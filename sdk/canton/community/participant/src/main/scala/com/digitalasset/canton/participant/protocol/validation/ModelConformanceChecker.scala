@@ -228,7 +228,7 @@ class ModelConformanceChecker(
         }
         resolvedNameBindings = resolved
           .collect {
-            case (pId, lv, Some(name)) if lv >= LanguageVersion.Features.smartContractUpgrade =>
+            case (pId, lv, Some(name)) if lv >= LanguageVersion.Features.packageUpgrades =>
               name -> pId
           }
         nameBindings <- MapsUtil.toNonConflictingMap(resolvedNameBindings) leftMap { conflicts =>
