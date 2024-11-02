@@ -28,10 +28,6 @@ class JsIdentityProviderService(
   def endpoints() =
     List(
       withServerLogic(
-        JsIdentityProviderService.listIdpsEndpoint,
-        listIdps,
-      ),
-      withServerLogic(
         JsIdentityProviderService.createIdpsEndpoint,
         createIdps,
       ),
@@ -46,6 +42,10 @@ class JsIdentityProviderService(
       withServerLogic(
         JsIdentityProviderService.deleteIdpEndpoint,
         deleteIdp,
+      ),
+      withServerLogic(
+        JsIdentityProviderService.listIdpsEndpoint,
+        listIdps,
       ),
     )
 
@@ -74,10 +74,9 @@ class JsIdentityProviderService(
 
   private def updateIdp(
       callerContext: CallerContext
-  ):
-      TracedInput[(String,
-      identity_provider_config_service.UpdateIdentityProviderConfigRequest)]
-   => Future[
+  ): TracedInput[
+    (String, identity_provider_config_service.UpdateIdentityProviderConfigRequest)
+  ] => Future[
     Either[JsCantonError, identity_provider_config_service.UpdateIdentityProviderConfigResponse]
   ] =
     req =>
@@ -101,15 +100,15 @@ class JsIdentityProviderService(
       callerContext: CallerContext
   ): TracedInput[String] => Future[
     Either[JsCantonError, identity_provider_config_service.GetIdentityProviderConfigResponse]
-  ] =
-    req =>
-      identityProviderConfigClient
-        .serviceStub(callerContext.token())(req.traceContext)
-        .getIdentityProviderConfig(
-          identity_provider_config_service
-            .GetIdentityProviderConfigRequest(identityProviderId = req.in)
-        )
-        .resultToRight
+  ] = { req =>
+    identityProviderConfigClient
+      .serviceStub(callerContext.token())(req.traceContext)
+      .getIdentityProviderConfig(
+        identity_provider_config_service
+          .GetIdentityProviderConfigRequest(identityProviderId = req.in)
+      )
+      .resultToRight
+  }
 
   private def deleteIdp(
       callerContext: CallerContext
@@ -161,7 +160,7 @@ object JsIdentityProviderService {
   val deleteIdpEndpoint =
     idps.delete
       .in(path[String](identityProviderPath))
-      .out(jsonBody[ identity_provider_config_service.DeleteIdentityProviderConfigResponse])
+      .out(jsonBody[identity_provider_config_service.DeleteIdentityProviderConfigResponse])
       .description("Delete identity provider config")
 }
 

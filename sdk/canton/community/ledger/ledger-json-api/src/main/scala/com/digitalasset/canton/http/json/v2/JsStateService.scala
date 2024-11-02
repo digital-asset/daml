@@ -8,18 +8,14 @@ import com.daml.ledger.api.v2.state_service
 import com.daml.ledger.api.v2.state_service.GetActiveContractsRequest
 import com.daml.ledger.api.v2.transaction_filter
 import com.daml.ledger.api.v2.reassignment
+import com.digitalasset.canton.http.{JsonApiConfig, WebsocketConfig}
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.http.json.v2.JsSchema.{JsCantonError, JsEvent}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.*
-import com.digitalasset.canton.http.json.v2.JsContractEntry.{
-  JsActiveContract,
-  JsContractEntry,
-  JsIncompleteAssigned,
-  JsIncompleteUnassigned,
-}
+import com.digitalasset.canton.http.json.v2.JsContractEntry.{JsActiveContract, JsContractEntry, JsIncompleteAssigned, JsIncompleteUnassigned}
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.tracing.TraceContext
 import io.circe.Codec
@@ -39,6 +35,7 @@ class JsStateService(
 )(implicit
     val executionContext: ExecutionContext,
     val esf: ExecutionSequencerFactory,
+  wsConfig: WebsocketConfig,
 ) extends Endpoints
     with NamedLogging {
 
@@ -107,7 +104,7 @@ class JsStateService(
         stateServiceClient(caller.token())(TraceContext.empty).getActiveContracts,
         (r: state_service.GetActiveContractsResponse) =>
           protocolConverters.GetActiveContractsResponse.toJson(r),
-        limited = true,
+        withCloseDelay = true,
       )
     }
 }
@@ -118,17 +115,13 @@ object JsStateService {
 
   private lazy val state = v2Endpoint.in(sttp.tapir.stringToPath("state"))
 
-  val activeContractsEndpoint: Endpoint[CallerContext, Unit, JsCantonError, Flow[
-    GetActiveContractsRequest,
-    JsGetActiveContractsResponse,
-    Any,
-  ], Any with PekkoStreams with capabilities.WebSockets] = state.get
+  val activeContractsEndpoint = state.get
     .in(sttp.tapir.stringToPath("active-contracts"))
     .out(
       webSocketBody[
         state_service.GetActiveContractsRequest,
         CodecFormat.Json,
-        JsGetActiveContractsResponse,
+        Either[JsCantonError, JsGetActiveContractsResponse],
         CodecFormat.Json,
       ](PekkoStreams)
     )

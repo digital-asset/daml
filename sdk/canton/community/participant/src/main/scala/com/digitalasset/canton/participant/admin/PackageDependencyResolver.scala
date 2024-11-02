@@ -31,19 +31,20 @@ class PackageDependencyResolver(
     with PackageDependencyResolverUS {
 
   private val dependencyCache: TracedAsyncLoadingCache[
-    FutureUnlessShutdown,
+    EitherT[FutureUnlessShutdown, PackageId, *],
     PackageId,
-    Either[PackageId, Set[PackageId]],
-  ] = TracedScaffeine.buildTracedAsyncFutureUS[PackageId, Either[PackageId, Set[PackageId]]](
-    cache = Scaffeine().maximumSize(10000).expireAfterAccess(15.minutes),
-    loader = t => p => loadPackageDependencies(p)(t).value,
-    allLoader = None,
-  )(logger)
+    Set[PackageId],
+  ] = TracedScaffeine
+    .buildTracedAsync[EitherT[FutureUnlessShutdown, PackageId, *], PackageId, Set[PackageId]](
+      cache = Scaffeine().maximumSize(10000).expireAfterAccess(15.minutes),
+      loader = implicit tc => loadPackageDependencies _,
+      allLoader = None,
+    )(logger)
 
   def packageDependencies(packageId: PackageId)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, PackageId, Set[PackageId]] =
-    EitherT(dependencyCache.get(packageId).map(_.map(_ - packageId)))
+    dependencyCache.get(packageId).map(_ - packageId)
 
   def packageDependencies(packages: List[PackageId])(implicit
       traceContext: TraceContext
@@ -55,8 +56,6 @@ class PackageDependencyResolver(
   def getPackageDescription(packageId: PackageId)(implicit
       traceContext: TraceContext
   ): Future[Option[PackageDescription]] = damlPackageStore.getPackageDescription(packageId)
-
-  def clearPackagesNotPreviouslyFound(): Unit = dependencyCache.clear((_, e) => e.isLeft)
 
   private def loadPackageDependencies(packageId: PackageId)(implicit
       traceContext: TraceContext

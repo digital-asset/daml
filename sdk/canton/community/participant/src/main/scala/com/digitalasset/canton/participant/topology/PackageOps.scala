@@ -26,7 +26,7 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.util.{EitherTUtil, SimpleExecutionQueue}
+import com.digitalasset.canton.util.{ContinueAfterFailure, EitherTUtil, SimpleExecutionQueue}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.data.Ref.PackageId
 
@@ -68,7 +68,6 @@ class PackageOpsImpl(
     val loggerFactory: NamedLoggerFactory,
     val timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
-    exitOnFatalFailures: Boolean,
 )(implicit val ec: ExecutionContext)
     extends PackageOps
     with FlagCloseable {
@@ -78,7 +77,8 @@ class PackageOpsImpl(
     futureSupervisor,
     timeouts,
     loggerFactory,
-    crashOnFailure = exitOnFatalFailures,
+    logTaskTiming = false,
+    failureMode = ContinueAfterFailure,
   )
 
   override def checkPackageUnused(packageId: PackageId)(implicit
@@ -139,7 +139,7 @@ class PackageOpsImpl(
           }
           // only synchronize with the connected domains if a new VettedPackages transaction was actually issued
           _ <- EitherTUtil.ifThenET(newVettedPackagesCreated) {
-            synchronizeVetting.sync(packagesToBeAdded.get.toSet)
+            synchronizeVetting.sync(packagesToBeAdded.get.toSet).mapK(FutureUnlessShutdown.outcomeK)
           }
         } yield ()
 

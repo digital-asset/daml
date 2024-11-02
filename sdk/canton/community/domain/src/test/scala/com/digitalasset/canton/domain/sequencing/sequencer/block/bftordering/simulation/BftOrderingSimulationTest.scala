@@ -133,6 +133,7 @@ trait BftOrderingSimulationTest extends AnyFlatSpec with BaseTest {
             simulationEpochStore,
             orderedBlocksReader = simulationEpochStore,
             outputBlockMetadataStore,
+            outputBlocksReader = outputBlockMetadataStore,
           )
 
           val orderingTopologyProvider =

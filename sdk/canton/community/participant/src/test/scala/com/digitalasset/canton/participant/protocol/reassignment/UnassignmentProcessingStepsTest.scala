@@ -27,9 +27,10 @@ import com.digitalasset.canton.participant.protocol.conflictdetection.ConflictDe
   mkActivenessSet,
 }
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.{
-  NoReassignmentSubmissionPermission,
+  NotHostedOnParticipant,
   ParsedReassignmentRequest,
   ReassignmentProcessorError,
+  SubmitterMustBeStakeholder,
 }
 import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessingSteps.PendingUnassignment
 import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessorError.*
@@ -364,28 +365,28 @@ final class UnassignmentProcessingStepsTest
         testingTopology,
         testingTopology,
         stakeholdersOverride = Some(stakeholders),
-      ).left.value shouldBe UnassignmentSubmitterMustBeStakeholder(
-        contractId,
+      ).left.value shouldBe SubmitterMustBeStakeholder(
+        ReassignmentRef(contractId),
         submitter,
         stakeholders.all,
       )
     }
 
-    "fail if submitting participant does not have submission permission" in {
-      val ipsNoSubmissionPermission =
-        createTestingTopologySnapshot(Map(submittingParticipant -> Map(submitter -> Confirmation)))
+    "fail if submitting party is not hosted on participant" in {
+      val ipsNotHostedOnParticipant =
+        createTestingTopologySnapshot(Map.empty)
 
       mkUnassignmentResult(
-        ipsNoSubmissionPermission,
+        ipsNotHostedOnParticipant,
         testingTopology,
-      ).left.value shouldBe NoReassignmentSubmissionPermission(
-        s"Unassignment of $contractId",
+      ).left.value shouldBe NotHostedOnParticipant(
+        ReassignmentRef(contractId),
         submitter,
         submittingParticipant,
       )
     }
 
-    "fail if a stakeholder cannot submit on target domain" in {
+    "succeed if a stakeholder cannot submit on target domain" in {
       val ipsNoSubmissionOnTarget = createTestingTopologySnapshot(
         Map(
           submittingParticipant -> Map(submitter -> Submission),
@@ -398,9 +399,7 @@ final class UnassignmentProcessingStepsTest
         testingTopology,
         ipsNoSubmissionOnTarget,
         stakeholdersOverride = Some(stakeholders),
-      ).left.value shouldBe PermissionErrors(
-        s"For party $party1, no participant with submission permission on source domain has submission permission on target domain."
-      )
+      ).value shouldBe a[UnassignmentRequestValidated]
     }
 
     "fail if a signatory is not hosted on a confirming reassigning participant" in {
@@ -431,25 +430,6 @@ final class UnassignmentProcessingStepsTest
       )
 
       result.left.value shouldBe expectedError
-    }
-
-    "fail if a stakeholder is not hosted on the same participant on both domains" in {
-      val ipsDifferentParticipant = createTestingTopologySnapshot(
-        Map(
-          submittingParticipant -> Map(submitter -> Submission),
-          participant1 -> Map(party1 -> Confirmation),
-          participant2 -> Map(party1 -> Submission),
-        )
-      )
-
-      val stakeholders = Stakeholders.tryCreate(Set(submitter, party1), Set())
-      mkUnassignmentResult(
-        testingTopology,
-        ipsDifferentParticipant,
-        stakeholdersOverride = Some(stakeholders),
-      ).left.value shouldBe PermissionErrors(
-        s"For party $party1, no participant with submission permission on source domain has submission permission on target domain."
-      )
     }
 
     // TODO(i13201) This should ideally be covered in integration tests as well

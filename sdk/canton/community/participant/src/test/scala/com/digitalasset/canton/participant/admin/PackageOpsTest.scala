@@ -279,7 +279,6 @@ class PackageOpsTest extends PackageOpsTestBase {
       loggerFactory = loggerFactory,
       timeouts = ProcessingTimeout(),
       futureSupervisor = futureSupervisor,
-      exitOnFatalFailures = false,
     )
 
     val topologyStore = mock[TopologyStore[AuthorizedStore]]

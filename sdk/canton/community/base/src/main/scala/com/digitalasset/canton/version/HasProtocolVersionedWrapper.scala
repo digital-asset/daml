@@ -454,7 +454,7 @@ trait HasSupportedProtoVersions[ValueClass] {
   }
 
   object UnsupportedProtoCodec {
-    def apply(fromInclusive: ProtocolVersion): UnsupportedProtoCodec =
+    def apply(fromInclusive: ProtocolVersion = ProtocolVersion.minimum): UnsupportedProtoCodec =
       new UnsupportedProtoCodec(
         new RepresentativeProtocolVersion[HasSupportedProtoVersions.this.type](fromInclusive) {}
       )

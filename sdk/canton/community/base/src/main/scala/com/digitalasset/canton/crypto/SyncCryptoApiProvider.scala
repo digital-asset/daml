@@ -367,22 +367,23 @@ class DomainSyncCryptoClient(
       staticDomainParameters,
       snapshot,
       crypto,
-      implicit tc => (ts, usage) => EitherT(mySigningKeyCache.get((ts, usage))),
+      implicit tc => (ts, usage) => mySigningKeyCache.get((ts, usage)),
       cacheConfigs.keyCache,
       loggerFactory,
     )
 
   private val mySigningKeyCache: TracedAsyncLoadingCache[
-    FutureUnlessShutdown,
+    EitherT[FutureUnlessShutdown, SyncCryptoError, *],
     (CantonTimestamp, NonEmpty[Set[SigningKeyUsage]]),
-    Either[SyncCryptoError, Fingerprint],
-  ] = TracedScaffeine.buildTracedAsyncFutureUS[
+    Fingerprint,
+  ] = TracedScaffeine.buildTracedAsync[
+    EitherT[FutureUnlessShutdown, SyncCryptoError, *],
     (CantonTimestamp, NonEmpty[Set[SigningKeyUsage]]),
-    Either[SyncCryptoError, Fingerprint],
+    Fingerprint,
   ](
     cache = cacheConfigs.mySigningKeyCache.buildScaffeine(),
     loader = implicit traceContext => { case (timestamp, usage) =>
-      findSigningKey(timestamp, usage).value
+      findSigningKey(timestamp, usage)
     },
   )(logger)
 
@@ -476,7 +477,7 @@ class DomainSnapshotSyncCryptoApi(
     new DomainCryptoPureApi(staticDomainParameters, crypto.pureCrypto)
   private val validKeysCache =
     TracedScaffeine
-      .buildTracedAsyncFuture[Member, Map[Fingerprint, SigningPublicKey]](
+      .buildTracedAsync[Future, Member, Map[Fingerprint, SigningPublicKey]](
         cache = validKeysCacheConfig.buildScaffeine(),
         loader = traceContext =>
           member =>

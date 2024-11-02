@@ -215,7 +215,7 @@ class CantonSyncService(
     new PackageVettingSynchronization {
       override def sync(packages: Set[PackageId])(implicit
           traceContext: TraceContext
-      ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Unit] =
+      ): EitherT[Future, ParticipantTopologyManagerError, Unit] =
         // wait for packages to be vetted on the currently connected domains
         EitherT
           .right[ParticipantTopologyManagerError](
@@ -234,7 +234,6 @@ class CantonSyncService(
                 .map(domainId -> _)
             }
           )
-          .mapK(FutureUnlessShutdown.outcomeK)
           .map { result =>
             result.foreach { case (domainId, successful) =>
               if (!successful)
@@ -310,7 +309,6 @@ class CantonSyncService(
   private val repairServiceDAMLe =
     new DAMLe(
       pkgId => traceContext => packageService.value.getPackage(pkgId)(traceContext),
-      None,
       engine,
       parameters.engine.validationPhaseLogging,
       loggerFactory,
@@ -1556,7 +1554,6 @@ class CantonSyncService(
     for {
       _ <- FutureUnlessShutdown.outcomeF(domainConnectionConfigStore.refreshCache())
       _ <- resourceManagementService.refreshCache()
-      _ = packageService.value.packageDependencyResolver.clearPackagesNotPreviouslyFound()
     } yield ()
 
   override def onClosed(): Unit = {

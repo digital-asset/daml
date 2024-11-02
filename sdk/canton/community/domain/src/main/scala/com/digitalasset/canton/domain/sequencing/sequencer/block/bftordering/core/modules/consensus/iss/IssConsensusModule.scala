@@ -31,6 +31,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.cor
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.StateTransferManager
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.StateTransferManager.NewEpochState
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.validation.IssConsensusValidator
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.data.OutputBlocksReader
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.{
   HasDelayedInit,
   shortType,
@@ -86,6 +87,7 @@ final class IssConsensusModule[E <: Env[E]](
     epochLength: EpochLength, // Currently fixed for all epochs
     startupState: StartupState[E],
     epochStore: EpochStore[E],
+    outputBlocksReader: OutputBlocksReader[E],
     clock: Clock,
     metrics: BftOrderingMetrics,
     segmentModuleRefFactory: SegmentModuleRefFactory[E],
@@ -94,8 +96,14 @@ final class IssConsensusModule[E <: Env[E]](
     override val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
 )(
-    stateTransferManager: StateTransferManager[E] =
-      new StateTransferManager(dependencies, epochLength, epochStore, thisPeer, loggerFactory)
+    stateTransferManager: StateTransferManager[E] = new StateTransferManager(
+      dependencies,
+      epochLength,
+      epochStore,
+      outputBlocksReader,
+      thisPeer,
+      loggerFactory,
+    )
 )(implicit mc: MetricsContext)
     extends Consensus[E]
     with HasDelayedInit[Consensus.ProtocolMessage] {

@@ -42,7 +42,6 @@ import com.digitalasset.canton.participant.protocol.submission.{
 import com.digitalasset.canton.participant.protocol.{
   EngineController,
   ProcessingSteps,
-  ReassignmentSubmissionValidation,
   SerializableContractAuthenticator,
 }
 import com.digitalasset.canton.participant.store.*
@@ -172,9 +171,9 @@ private[reassignment] class AssignmentProcessingSteps(
         )
 
       stakeholders = reassignmentData.unassignmentRequest.stakeholders
-      _ <- ReassignmentSubmissionValidation
-        .assignment(
-          reassignmentId,
+      _ <- ReassignmentValidation
+        .checkSubmitter(
+          ReassignmentRef(reassignmentId),
           topologySnapshot,
           submitter,
           participantId,

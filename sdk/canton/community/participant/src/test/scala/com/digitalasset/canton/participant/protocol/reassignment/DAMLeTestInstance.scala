@@ -68,7 +68,6 @@ object DAMLeTestInstance {
     val packageResolver = DAMLe.packageResolver(mockPackageService)
     new DAMLe(
       packageResolver,
-      None,
       engine,
       EngineLoggingConfig(),
       loggerFactory,

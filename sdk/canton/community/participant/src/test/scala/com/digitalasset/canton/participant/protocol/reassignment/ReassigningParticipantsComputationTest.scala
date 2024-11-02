@@ -5,10 +5,7 @@ package com.digitalasset.canton.participant.protocol.reassignment
 
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.ReassigningParticipants
-import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessorError.{
-  PermissionErrors,
-  StakeholderHostingErrors,
-}
+import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessorError.StakeholderHostingErrors
 import com.digitalasset.canton.protocol.Stakeholders
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.ParticipantPermission
@@ -264,60 +261,6 @@ class ReassigningParticipantsComputationTest
         targetTopology = Target(target),
       ).compute.value.futureValue.left.value shouldBe StakeholderHostingErrors(
         s"Signatory $signatory requires at least 1 reassigning participants, but only 0 are available"
-      )
-    }
-
-    "fail if one party has submission rights only on source domain" in {
-      val stakeholders = Stakeholders.withSignatories(Set(signatory))
-
-      val source = createTestingIdentityFactory(
-        Map(
-          p1 -> Map(signatory -> ParticipantPermission.Submission),
-          p2 -> Map(signatory -> ParticipantPermission.Confirmation),
-          p3 -> Map(signatory -> ParticipantPermission.Confirmation),
-        )
-      )
-
-      val targetCorrect = createTestingIdentityFactory(
-        Map(
-          p1 -> Map(signatory -> ParticipantPermission.Submission)
-        )
-      )
-
-      val targetIncorrect1 = createTestingIdentityFactory(
-        Map(
-          p1 -> Map(signatory -> ParticipantPermission.Confirmation)
-        )
-      )
-
-      val targetIncorrect2 = createTestingIdentityFactory(
-        Map(
-          p1 -> Map(signatory -> ParticipantPermission.Confirmation),
-          // signatory not hosted on p3 with submission rights
-          p3 -> Map(signatory -> ParticipantPermission.Submission),
-        )
-      )
-
-      new ReassigningParticipantsComputation(
-        stakeholders = stakeholders,
-        sourceTopology = Source(source),
-        targetTopology = Target(targetCorrect),
-      ).compute.futureValue shouldBe ReassigningParticipants.tryCreate(Set(p1), Set(p1))
-
-      new ReassigningParticipantsComputation(
-        stakeholders = stakeholders,
-        sourceTopology = Source(source),
-        targetTopology = Target(targetIncorrect1),
-      ).compute.value.futureValue.left.value shouldBe PermissionErrors(
-        s"For party $signatory, no participant with submission permission on source domain has submission permission on target domain."
-      )
-
-      new ReassigningParticipantsComputation(
-        stakeholders = stakeholders,
-        sourceTopology = Source(source),
-        targetTopology = Target(targetIncorrect2),
-      ).compute.value.futureValue.left.value shouldBe PermissionErrors(
-        s"For party $signatory, no participant with submission permission on source domain has submission permission on target domain."
       )
     }
 

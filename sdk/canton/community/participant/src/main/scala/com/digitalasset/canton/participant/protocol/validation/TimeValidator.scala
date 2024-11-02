@@ -16,6 +16,7 @@ object TimeValidator {
       commonData: CommonData,
       sequencerTimestamp: CantonTimestamp,
       ledgerTimeRecordTimeTolerance: NonNegativeFiniteDuration,
+      submissionTimeRecordTimeTolerance: NonNegativeFiniteDuration,
       amSubmitter: Boolean,
       logger: TracedLogger,
   )(implicit tc: TraceContext): Either[TimeCheckFailure, Unit] = {
@@ -47,18 +48,18 @@ object TimeValidator {
     }
     // check that the submission time is valid
     else if (
-      submissionTime < sequencerTimestamp - ledgerTimeRecordTimeTolerance ||
-      submissionTime > sequencerTimestamp + ledgerTimeRecordTimeTolerance
+      submissionTime < sequencerTimestamp - submissionTimeRecordTimeTolerance ||
+      submissionTime > sequencerTimestamp + submissionTimeRecordTimeTolerance
     ) {
       log(
         s"The delta of the submission time $submissionTime and the record time $sequencerTimestamp exceeds the max " +
-          s"of $ledgerTimeRecordTimeTolerance"
+          s"of $submissionTimeRecordTimeTolerance"
       )
       Left(
         SubmissionTimeRecordTimeDeltaTooLargeError(
           submissionTime,
           sequencerTimestamp,
-          ledgerTimeRecordTimeTolerance,
+          submissionTimeRecordTimeTolerance,
         )
       )
 

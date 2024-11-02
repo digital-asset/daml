@@ -325,7 +325,6 @@ class ParticipantNodeBootstrap(
         loggerFactory = ParticipantNodeBootstrap.this.loggerFactory,
         timeouts = timeouts,
         futureSupervisor = futureSupervisor,
-        exitOnFatalFailures = parameters.exitOnFatalFailures,
       )
 
       addCloseable(packageOps)

@@ -5,7 +5,7 @@ package com.digitalasset.canton.http.json.v2
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.jwt.Jwt
-import com.digitalasset.canton.http.PackageService
+import com.digitalasset.canton.http.{JsonApiConfig, PackageService, WebsocketConfig}
 import com.digitalasset.canton.http.util.Logging.instanceUUIDLogCtx
 import com.digitalasset.canton.http.json.v2.damldefinitionsservice.DamlDefinitionsView
 import com.digitalasset.canton.ledger.client.LedgerClient
@@ -62,7 +62,8 @@ object V2Routes {
       materializer: Materializer,
       loggerFactory: NamedLoggerFactory,
   )(implicit
-      esf: ExecutionSequencerFactory
+      esf: ExecutionSequencerFactory,
+      ws: WebsocketConfig,
   ): V2Routes = {
     implicit val ec: ExecutionContext = executionContext
 

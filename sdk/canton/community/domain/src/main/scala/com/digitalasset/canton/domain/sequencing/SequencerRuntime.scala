@@ -31,7 +31,6 @@ import com.digitalasset.canton.domain.sequencing.authentication.{
 import com.digitalasset.canton.domain.sequencing.config.SequencerNodeParameters
 import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.service.*
-import com.digitalasset.canton.domain.sequencing.service.channel.GrpcSequencerChannelService
 import com.digitalasset.canton.health.HealthListener
 import com.digitalasset.canton.health.admin.data.TopologyQueueStatus
 import com.digitalasset.canton.lifecycle.{
@@ -210,8 +209,10 @@ class SequencerRuntime(
   private val sequencerChannelServiceO = Option.when(
     localNodeParameters.unsafeEnableOnlinePartyReplication
   )(
-    new GrpcSequencerChannelService(
+    channel.GrpcSequencerChannelService(
       authenticationConfig.check,
+      clock,
+      staticDomainParameters.protocolVersion,
       localNodeParameters.processingTimeouts,
       loggerFactory,
     )

@@ -222,8 +222,14 @@ message BlockTransferResponse {
   int64 latest_completed_epoch = 1;
   // Effective time of the topology for the latest completed epoch of the serving node.
   google.protobuf.Timestamp latest_completed_epoch_topology_effective_time = 2;
-  // Reused to reduce the number of messages and conversions.
-  repeated SignedMessage /*ConsensusMessage*/ block_pre_prepares = 3;
+  repeated BlockTransferData block_transfer_data = 3;
   // For BFT time calculation.
   repeated SignedMessage /*ConsensusMessage*/ last_block_commits = 4;
+}
+
+message BlockTransferData {
+  // Reused to reduce the number of messages and conversions.
+  SignedMessage /*ConsensusMessage*/ block_pre_prepare = 1;
+  // Can only be true for last blocks in epochs, used to correctly tick the topology during state transfer.
+  bool pending_topology_changes = 2;
 }

@@ -395,9 +395,6 @@ class ClockTest extends AnyWordSpec with BaseTest with HasExecutionContext {
         },
         // TODO(#21278): Ensure that shutdown works as expected
         _.warningMessage should include("shutdown did not complete gracefully in allotted"),
-        _.warningMessage should include(
-          "Request failed for remote clock server. Is the server running?"
-        ),
       )
     }
   }
