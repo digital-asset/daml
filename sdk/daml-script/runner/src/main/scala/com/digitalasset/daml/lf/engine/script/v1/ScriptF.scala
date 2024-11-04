@@ -30,12 +30,15 @@ import scalaz.{Foldable, OneAnd}
 
 import java.time.Clock
 import scala.concurrent.{ExecutionContext, Future}
+import scala.util.Random
 
 sealed trait ScriptF
 
 object ScriptF {
   final case class Catch(act: SValue, handle: SValue, continue: SValue) extends ScriptF
   final case class Throw(exc: SAny) extends ScriptF
+
+  private val globalRandom = new Random(0)
 
   sealed trait Cmd extends ScriptF with Script.FailableCmd {
     def execute(env: Env)(implicit
@@ -691,7 +694,7 @@ object ScriptF {
       continue: SValue,
   )
 
-  final case class Ctx(knownPackages: Map[String, PackageId], compiledPackages: CompiledPackages)
+  final case class Ctx(knownPackages: Map[String, PackageId], compiledPackages: CompiledPackages, random: Random = globalRandom)
 
   private def toStackTrace(ctx: Ctx, stackTrace: Option[SValue]): Either[String, StackTrace] =
     stackTrace match {
@@ -878,7 +881,8 @@ object ScriptF {
 
   private def parseAllocParty(ctx: Ctx, v: SValue): Either[String, AllocParty] = {
     def convert(
-        idHint: String,
+        requestedName: String,
+        givenHint: String,
         participantName: SValue,
         stackTrace: Option[SValue],
         continue: SValue,
@@ -886,29 +890,32 @@ object ScriptF {
       for {
         participantName <- Converter.toParticipantName(participantName)
         stackTrace <- toStackTrace(ctx, stackTrace)
+        idHint <- Converter.toPartyIdHint(givenHint, requestedName, ctx.random)
       } yield AllocParty(idHint, participantName, stackTrace, continue)
     v match {
       case SRecord(
             _,
             _,
             ArrayList(
+              SText(requestedName),
               SText(idHint),
               participantName,
               continue,
             ),
           ) =>
-        convert(idHint, participantName, None, continue)
+        convert(requestedName, idHint, participantName, None, continue)
       case SRecord(
             _,
             _,
             ArrayList(
+              SText(requestedName),
               SText(idHint),
               participantName,
               continue,
               stackTrace,
             ),
           ) =>
-        convert(idHint, participantName, Some(stackTrace), continue)
+        convert(requestedName, idHint, participantName, Some(stackTrace), continue)
       case _ => Left(s"Expected AllocParty payload but got $v")
     }
   }

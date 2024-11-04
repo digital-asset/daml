@@ -5,17 +5,22 @@ Transactions:
   │   referenced by #4:2, #5:2, #8:0
   │   disclosed to (since): 'Alice' (0), 'Bob' (0)
   └─> 'Alice' creates LfDevContractKeys:TextKey
-              with
-                p = 'Alice'; k = "some-key"; disclosedTo = ['Bob']
+                       with
+                         p = 'Alice';
+			 k = "some-key";
+			 disclosedTo = ['Bob']
   
   TX 1 1970-01-01T00:00:00Z
-     mustFailAt actAs: {'Alice'} readAs: {} (LfDevContractKeys:106:3)
+     mustFailAt actAs: {'Alice'} readAs: 
+                                            {} (LfDevContractKeys:106:3)
   
   TX 2 1970-01-01T00:00:00Z
-     mustFailAt actAs: {'Bob'} readAs: {} (LfDevContractKeys:113:3)
+     mustFailAt actAs: {'Bob'} readAs: 
+                                            {} (LfDevContractKeys:113:3)
   
   TX 3 1970-01-01T00:00:00Z
-     mustFailAt actAs: {'Bob'} readAs: {} (LfDevContractKeys:115:3)
+     mustFailAt actAs: {'Bob'} readAs: 
+                                            {} (LfDevContractKeys:115:3)
   
   TX 4 1970-01-01T00:00:00Z (LfDevContractKeys:118:11)
   #4:0
@@ -144,14 +149,18 @@ Transactions:
   #10:0
   │   consumed by: #11:0
   │   referenced by #11:0
-  │   disclosed to (since): 'Alice' (10), 'Bob' (10)
+  │   disclosed to (since): 'Alice' (10),
+                            'Bob' (10)
   └─> 'Alice' creates LfDevContractKeys:TextKey
-              with
-                p = 'Alice'; k = "some-key-2"; disclosedTo = ['Bob']
+                       with
+                         p = 'Alice';
+                         k = "some-key-2";
+                         disclosedTo = ['Bob']
   
   TX 11 1970-01-01T00:00:00Z (LfDevContractKeys:148:13)
   #11:0
-  │   disclosed to (since): 'Alice' (11), 'Bob' (11)
+  │   disclosed to (since): 'Alice' (11),
+                            'Bob' (11)
   └─> 'Alice' exercises TextKeyChoice on #10:0 (LfDevContractKeys:TextKey)
   
   #11:1
@@ -241,7 +250,8 @@ Transactions:
                   by key _1 = 'Alice'; _2 = "same-choice-key"
   
   TX 15 1970-01-01T00:00:00Z
-     mustFailAt actAs: {'Alice'} readAs: {} (LfDevContractKeys:171:3)
+     mustFailAt actAs: {'Alice'} readAs: 
+                                     {} (LfDevContractKeys:171:3)
   
   TX 16 1970-01-01T00:00:00Z (LfDevContractKeys:175:10)
   #16:0
@@ -281,7 +291,8 @@ Transactions:
           found: #16:0
   
   TX 19 1970-01-01T00:00:00Z
-     mustFailAt actAs: {'Alice'} readAs: {} (LfDevContractKeys:187:3)
+     mustFailAt actAs: {'Alice'} readAs:
+                                             {} (LfDevContractKeys:187:3)
 
 Active contracts:  #12:0, #13:0, #14:1, #16:0
 

@@ -63,6 +63,7 @@ import           System.IO
 import           System.IO.Extra
 import           System.Info.Extra (isWindows)
 import           Text.Read
+import qualified Text.Regex.PCRE.ByteString.Utils as PCRE
 import qualified Data.Map.Strict as MS
 import qualified Data.HashMap.Strict as HashMap
 import qualified Data.HashSet as HashSet
@@ -391,6 +392,14 @@ data DamlOutput = DamlOutput
   , scriptResults :: HashMap.HashMap T.Text T.Text
   }
 
+stripPartySuffix :: T.Text -> T.Text
+stripPartySuffix = replace "'([a-zA-Z0-9]+)-[a-z0-9]{8}'" "'\\1'"
+  where
+    replace :: BS.ByteString -> BS.ByteString -> T.Text -> T.Text
+    replace pattern replacement input = case PCRE.substituteCompile' pattern (TE.encodeUtf8 input) replacement of
+      Right(result) -> TE.decodeUtf8 result
+      Left(err) -> error err
+
 testSetup :: IO IdeState -> FilePath -> FilePath -> IO DamlOutput
 testSetup getService outdir path = do
   service <- getService
@@ -427,7 +436,8 @@ damlFileTestTree version (IsScriptV2Opt isScriptV2Opt) getService outdir registe
               testPassed . buildLog <$> getDamlOutput
           , singleTest "Check diagnostics" $ TestCase \log -> do
               diags <- diagnostics <$> getDamlOutput
-              resDiag <- checkDiagnostics log [fields | DiagnosticFields fields <- anns] diags
+              let diags_ = [ (x, y, d { _message = (stripPartySuffix (_message d)) }) | (x, y, d) <- diags ] 
+              resDiag <- checkDiagnostics log [fields | DiagnosticFields fields <- anns] diags_
               pure $ maybe (testPassed "") testFailed resDiag
           , testGroup "jq Queries"
               [ singleTest ("#" <> show @Integer ix) $ TestCase \log -> do
@@ -447,7 +457,7 @@ damlFileTestTree version (IsScriptV2Opt isScriptV2Opt) getService outdir registe
                       . HashMap.lookup (T.pack scriptName)
                       . scriptResults
                       <$> getDamlOutput
-                    pure $ BSL.fromStrict $ TE.encodeUtf8 scriptResult
+                    pure $ BSL.fromStrict $ TE.encodeUtf8 (stripPartySuffix scriptResult)
               | Ledger scriptName expectedFile <- anns
               ]
           ]
@@ -460,7 +470,7 @@ damlFileTestTree version (IsScriptV2Opt isScriptV2Opt) getService outdir registe
       DoesNotSupportFeature featureName -> version `satisfies` versionReqForFeaturePartial featureName
       ScriptV2 -> not isScriptV2Opt
       _ -> False
-    diff ref new = [POSIX_DIFF, "--strip-trailing-cr", ref, new]
+    diff ref new = [POSIX_DIFF, "-b", "--strip-trailing-cr", ref, new]
 
 containsVersion :: MS.Map LF.MajorVersion LF.MinorVersion -> LF.Version -> Bool
 containsVersion bounds (Version major minor) =

@@ -4,8 +4,8 @@ import (implicit) qualified GHC.Types
 import (implicit) qualified DA.Internal.Desugar
 import (implicit) DA.Internal.RebindableSyntax
 import Daml.Script
-import DA.Assert
 import DA.Exception
+import DA.Text ( isInfixOf )
 data GHC.Types.DamlTemplate => MyTemplate
   = MyTemplate {p : Party}
   deriving (DA.Internal.Desugar.Eq, DA.Internal.Desugar.Show)
@@ -176,7 +176,8 @@ _choice$_Test$Call
                         (DA.Internal.Desugar.fromAnyException -> DA.Internal.Desugar.Some (PreconditionFailed msg))
                           -> DA.Internal.Desugar.Some pure msg
                         _ -> DA.Internal.Desugar.None
-               m === "Template precondition violated: MyTemplate {p = 'Alice'}")
+               assert $ "Template precondition violated: MyTemplate {p = 'Alice"
+                 `isInfixOf` m)
 test
   = script
       do p <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")

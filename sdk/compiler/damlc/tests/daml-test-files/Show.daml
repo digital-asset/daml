@@ -6,6 +6,7 @@ module Show where
 
 import Daml.Script
 import DA.Assert
+import DA.Text (isInfixOf)
 
 data Color = Red | Green | Blue | Dbl {dbl1 : Int, dbl2 : Int}
   deriving Show
@@ -23,8 +24,8 @@ data Fields a = Field1 {foo : Foo, color : Optional Color} | Field2 [a]
   deriving Show
 
 main = script do
-  p <- allocatePartyWithHint "alice" (PartyIdHint "alice")
-  show p === "'alice'"
+  p <- allocateParty "alice"
+  assert $ "alice" `isInfixOf` show p
   show Bar === "bar"
   show Green === "Green"
   show (Field2 ["test"]) === "Field2 [\"test\"]"

@@ -5,8 +5,8 @@
 module ExceptionCreate where
 
 import Daml.Script
-import DA.Assert
 import DA.Exception
+import DA.Text (isInfixOf)
 
 template MyTemplate
     with
@@ -30,7 +30,7 @@ template Test
                     catch
                         PreconditionFailed msg ->
                             pure msg
-                m === "Template precondition violated: MyTemplate {p = 'Alice'}"
+                assert $ "Template precondition violated: MyTemplate {p = 'Alice" `isInfixOf` m
 
 test = script do
     p <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")

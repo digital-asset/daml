@@ -36,6 +36,9 @@ import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 object ScriptF {
+
+  private val globalRandom = new scala.util.Random(0)
+
   val left = SEBuiltinFun(
     SBVariantCon(StablePackagesV2.Either, Name.assertFromString("Left"), 0)
   )
@@ -928,9 +931,10 @@ object ScriptF {
 
   private def parseAllocParty(v: SValue): Either[String, AllocParty] =
     v match {
-      case SRecord(_, _, ArrayList(SText(idHint), participantName)) =>
+      case SRecord(_, _, ArrayList(SText(requestedName), SText(givenHint), participantName)) =>
         for {
           participantName <- Converter.toParticipantName(participantName)
+          idHint <- Converter.toPartyIdHint(givenHint, requestedName, globalRandom)
         } yield AllocParty(idHint, participantName)
       case _ => Left(s"Expected AllocParty payload but got $v")
     }

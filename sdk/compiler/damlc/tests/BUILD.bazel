@@ -134,6 +134,7 @@ da_haskell_library(
         "ghcide",
         "lsp-types",
         "optparse-applicative",
+	"pcre-utils",
         "process",
         "proto3-suite",
         "shake",

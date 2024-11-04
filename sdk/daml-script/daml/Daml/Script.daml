@@ -384,7 +384,8 @@ passTime rt = do
   setTime (addRelTime t rt)
 
 data AllocateParty a = AllocateParty
-  { idHint : Text
+  { requestedName : Text
+  , idHint : Text
   , participant : Optional Text
   , continue : Party -> a
   , locations : [(Text, SrcLoc)]
@@ -411,12 +412,13 @@ newtype ParticipantName = ParticipantName { participantName : Text }
 -- | Allocate a party
 -- using the party management service.
 allocateParty : HasCallStack => Text -> Script Party
-allocateParty _deprecatedDisplayName = allocatePartyWithHint _deprecatedDisplayName (PartyIdHint "")
+allocateParty requestedName = allocatePartyWithHint requestedName (PartyIdHint "")
 
 -- | Allocate a party with the given id hint
 -- using the party management service.
 allocatePartyWithHint : HasCallStack => Text -> PartyIdHint -> Script Party
-allocatePartyWithHint _ (PartyIdHint idHint) = lift $ Free $ AllocParty $ AllocateParty with
+allocatePartyWithHint requestedName (PartyIdHint idHint) = lift $ Free $ AllocParty $ AllocateParty with
+  requestedName = requestedName
   idHint = idHint
   participant = None
   continue = pure
@@ -425,12 +427,13 @@ allocatePartyWithHint _ (PartyIdHint idHint) = lift $ Free $ AllocParty $ Alloca
 -- | Allocate a party
 -- on the specified participant using the party management service.
 allocatePartyOn : Text -> ParticipantName -> Script Party
-allocatePartyOn _deprecatedDisplayName participantName = allocatePartyWithHintOn _deprecatedDisplayName (PartyIdHint "") participantName
+allocatePartyOn requestedName participantName = allocatePartyWithHintOn requestedName (PartyIdHint "") participantName
 
 -- | Allocate a party with the given id hint
 -- on the specified participant using the party management service.
 allocatePartyWithHintOn : Text -> PartyIdHint -> ParticipantName -> Script Party
-allocatePartyWithHintOn _ (PartyIdHint idHint) (ParticipantName participant) = lift $ Free $ AllocParty $ AllocateParty with
+allocatePartyWithHintOn requestedName (PartyIdHint idHint) (ParticipantName participant) = lift $ Free $ AllocParty $ AllocateParty with
+  requestedName = requestedName
   idHint = idHint
   participant = Some participant
   continue = pure
