@@ -235,7 +235,7 @@ object Hash {
         domainId: String,
         ledgerEffectiveTime: Option[Time.Timestamp],
         submissionTime: Time.Timestamp,
-        submissionSeed: Hash,
+        nodeSeeds: SortedMap[NodeId, Hash],
         disclosedContracts: SortedMap[ContractId, FatContractInstance],
     )
   }
@@ -262,7 +262,11 @@ object Hash {
         _.addOptional(metadata.ledgerEffectiveTime.map(_.micros), _.addLong)
       )
       .withContext("Submission Time")(_.addLong(metadata.submissionTime.micros))
-      .withContext("Submission Seed")(_.addHash(metadata.submissionSeed, "Submission Seed Hash"))
+      .withContext("Node Seeds")(
+        _.iterateOver(metadata.nodeSeeds.valuesIterator, metadata.nodeSeeds.size)((builder, seed) =>
+          builder.addHash(seed, "Node Seed")
+        )
+      )
       .withContext("Disclosed Contracts")(
         _.iterateOver(metadata.disclosedContracts.valuesIterator, metadata.disclosedContracts.size)(
           (builder, fatInstance) =>
