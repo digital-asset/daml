@@ -62,6 +62,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       compiledPackages.compiler.unsafeCompile(expr),
       PartialFunction.empty,
       getKey,
+      Map.empty,
     )
   }
 
@@ -72,6 +73,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       args: Array[SValue],
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance],
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId],
+      disclosures: Iterable[(Value.ContractId, Speedy.ContractInfo)],
   ): Either[SError, SValue] = {
     runUpdateExpr(
       compiledPackages,
@@ -79,6 +81,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       SEApp(compiledPackages.compiler.unsafeCompile(expr), args),
       getContract,
       getKey,
+      disclosures,
     )
   }
 
@@ -88,6 +91,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       sexpr: SExpr,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance],
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId],
+      disclosures: Iterable[(Value.ContractId, Speedy.ContractInfo)],
   ): Either[SError, SValue] = {
     val machine = Speedy.Machine
       .fromUpdateSExpr(
@@ -97,6 +101,9 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
         updateSE = sexpr,
         committers = Set(alice),
       )
+    disclosures.foreach { case (coid, info) =>
+      machine.addDisclosedContracts(coid, info)
+    }
     SpeedyTestLib
       .run(machine, getContract = getContract, getKey = getKey)
   }
@@ -1189,7 +1196,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
           Ref.Identifier.assertFromString(s"-template-defs-v1-id-:Mod:${test.templateName}")
         val cid = Value.ContractId.V1(Hash.hashPrivateKey("abc"))
         val key = SValue.SRecord(
-          templateId,
+          Ref.Identifier.assertFromString(s"$commonDefsPkgId:Mod:Key"),
           ImmArray(
             Ref.Name.assertFromString("label"),
             Ref.Name.assertFromString("maintainers"),
@@ -1205,58 +1212,110 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
           Set(alice),
           KeyPackageName(Some(templateDefsPkgName), metadataTestsPkg.languageVersion),
         )
+        val globalContract = Versioned(
+          version = TransactionVersion.minUpgrade,
+          Value.ContractInstance(
+            packageName = templateDefsV1Pkg.metadata.map(_.name),
+            template = templateId,
+            arg = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice))),
+          ),
+        )
+        val disclosedContract = Speedy.ContractInfo(
+          version = TransactionVersion.minUpgrade,
+          Some(templateDefsPkgName),
+          templateId,
+          SValue.SRecord(
+            templateId,
+            ImmArray(Ref.Name.assertFromString("p")),
+            ArrayList(SValue.SParty(alice)),
+          ),
+          "agreement",
+          Set(alice),
+          Set.empty,
+          None,
+//          Some(Speedy.CachedKey(
+//            KeyPackageName(templateId, ),
+//            globalKeyWithMaintainers = GlobalKey.GlobalKeyWithMaintainers(
+//              globalKey,
+//              Set(alice),
+//            ),
+//            ???
+//          ))
+        )
+
+        sealed trait ContractOrigin {
+          def testMethodSuffix: String
+          def getContract: Map[Value.ContractId, Value.VersionedContractInstance]
+          def disclosures: Map[Value.ContractId, Speedy.ContractInfo]
+        }
+        case object Global extends ContractOrigin {
+          override def testMethodSuffix: String = "Global"
+          override def getContract: Map[Value.ContractId, Value.VersionedContractInstance] =
+            Map(cid -> globalContract)
+          override def disclosures: Map[Value.ContractId, Speedy.ContractInfo] =
+            Map.empty
+        }
+        case object Disclosure extends ContractOrigin {
+          override def testMethodSuffix: String = "Global"
+          override def getContract: Map[Value.ContractId, Value.VersionedContractInstance] =
+            Map.empty
+          override def disclosures: Map[Value.ContractId, Speedy.ContractInfo] =
+            Map(cid -> disclosedContract)
+        }
+        case object Local extends ContractOrigin {
+          override def testMethodSuffix: String = "Local"
+          override def getContract: Map[Value.ContractId, Value.VersionedContractInstance] =
+            Map.empty
+          override def disclosures: Map[Value.ContractId, Speedy.ContractInfo] =
+            Map.empty
+        }
 
         val testCases = {
-          Table[Expr, SValue](
-            ("expression", "arg"),
-            (
-              e"Mod:exercise${test.templateName}AndCatchErrorGlobal" (metadataTestsParserParams),
-              SContractId(cid),
-            ),
-            (
-              e"Mod:exercise${test.templateName}AndCatchErrorLocal" (metadataTestsParserParams),
-              SUnit,
-            ),
-            (
-              e"Mod:fetch${test.templateName}AndCatchErrorGlobal" (metadataTestsParserParams),
-              SContractId(cid),
-            ),
-            (
-              e"Mod:fetch${test.templateName}AndCatchErrorLocal" (metadataTestsParserParams),
-              SUnit,
-            ),
-            (
-              e"Mod:fetch${test.templateName}ByInterfaceAndCatchErrorGlobal" (
-                metadataTestsParserParams
-              ),
-              SContractId(cid),
-            ),
-            (
-              e"Mod:fetch${test.templateName}ByInterfaceAndCatchErrorLocal" (
-                metadataTestsParserParams
-              ),
-              SUnit,
-            ),
-            (
-              e"Mod:fetch${test.templateName}ByKeyAndCatchErrorGlobal" (metadataTestsParserParams),
-              key,
-            ),
-            (
-              e"Mod:fetch${test.templateName}ByKeyAndCatchErrorLocal" (metadataTestsParserParams),
-              SUnit,
-            ),
-            (
-              e"Mod:lookUp${test.templateName}ByKeyAndCatchErrorGlobal" (metadataTestsParserParams),
-              key,
-            ),
-            (
-              e"Mod:lookUp${test.templateName}ByKeyAndCatchErrorLocal" (metadataTestsParserParams),
-              SUnit,
-            ),
+          Table[Expr, SValue, ContractOrigin](
+            ("expression", "arg", "contract_origin"),
+            List(Global, Disclosure, Local).flatMap { origin =>
+              List(
+                (
+                  e"Mod:exercise${test.templateName}AndCatchError${origin.testMethodSuffix}" (
+                    metadataTestsParserParams
+                  ),
+                  SContractId(cid),
+                  origin,
+                ),
+                (
+                  e"Mod:fetch${test.templateName}AndCatchError${origin.testMethodSuffix}" (
+                    metadataTestsParserParams
+                  ),
+                  SContractId(cid),
+                  origin,
+                ),
+                (
+                  e"Mod:fetch${test.templateName}ByInterfaceAndCatchError${origin.testMethodSuffix}" (
+                    metadataTestsParserParams
+                  ),
+                  SContractId(cid),
+                  origin,
+                ),
+                (
+                  e"Mod:fetch${test.templateName}ByKeyAndCatchError${origin.testMethodSuffix}" (
+                    metadataTestsParserParams
+                  ),
+                  key,
+                  origin,
+                ),
+                (
+                  e"Mod:lookUp${test.templateName}ByKeyAndCatchError${origin.testMethodSuffix}" (
+                    metadataTestsParserParams
+                  ),
+                  key,
+                  origin,
+                ),
+              )
+            }: _*
           )
         }
 
-        forEvery(testCases) { (expr, arg) =>
+        forEvery(testCases) { (expr, arg, origin) =>
           inside {
             runUpdateApp(
               compiledPackages,
@@ -1265,21 +1324,11 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
               ),
               expr,
               Array(arg),
-              getContract = Map(
-                cid -> Versioned(
-                  version = TransactionVersion.StableVersions.max,
-                  Value.ContractInstance(
-                    packageName = metadataTestsPkg.metadata.map(_.name),
-                    template = t"Mod:${test.templateName}" (templateDefsV1ParserParams)
-                      .asInstanceOf[Ast.TTyCon]
-                      .tycon,
-                    arg = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice))),
-                  ),
-                )
-              ),
+              getContract = origin.getContract,
               getKey = Map(
                 globalKey -> cid
               ),
+              disclosures = origin.disclosures,
             )
           } {
             case Left(
@@ -1347,6 +1396,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
                 )
               ),
               getKey = PartialFunction.empty,
+              disclosures = Map.empty,
             )
           } {
             case Left(
