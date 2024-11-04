@@ -293,7 +293,7 @@ defaultOptions mbVersion =
         , optAccessTokenPath = Nothing
         , optHideUnitId = False
         , optUpgradeInfo = defaultUpgradeInfo
-        , optDamlWarningFlags = WarningFlags.noDamlWarningFlags damlWarningFlagParser
+        , optDamlWarningFlags = WarningFlags.mkDamlWarningFlags damlWarningFlagParser []
         }
 
 defaultUpgradeInfo :: UpgradeInfo

@@ -88,9 +88,11 @@ getWarningStatus DamlWarningFlags { dwfDefault, dwfFlags } err =
     [] -> dwfDefault err
     xs -> rfStatus (last xs)
 
-noDamlWarningFlags :: DamlWarningFlagParser a -> DamlWarningFlags a
-noDamlWarningFlags parser = DamlWarningFlags
-  { dwfFlags = []
+mkDamlWarningFlags :: DamlWarningFlagParser a -> [DamlWarningFlag a] -> DamlWarningFlags a
+mkDamlWarningFlags parser flags = DamlWarningFlags
+  { dwfFlags = flags
   , dwfDefault = dwfpDefault parser
   }
 
+addDamlWarningFlags :: [DamlWarningFlag a] -> DamlWarningFlags a -> DamlWarningFlags a
+addDamlWarningFlags newFlags flags = flags { dwfFlags = dwfFlags flags ++ newFlags }

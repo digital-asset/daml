@@ -82,7 +82,8 @@ import Options.Applicative (execParser, forwardOptions, info, many, strArgument)
 import Outputable (ppr, showSDoc)
 import qualified Proto3.Suite.JSONPB as JSONPB
 import DA.Daml.Project.Types (unsafeResolveReleaseVersion, parseUnresolvedVersion)
-import DA.Daml.LF.TypeChecker.Error (DamlWarningFlagStatus(..), upgradeInterfacesFlag)
+import qualified DA.Daml.LF.TypeChecker.Error.WarningFlags as WarningFlags
+import DA.Daml.LF.TypeChecker.Error (upgradeInterfacesFlag)
 
 import Test.Tasty
 import Test.Tasty.Golden (goldenVsStringDiff)
@@ -333,8 +334,10 @@ getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlags) =
                 , optDetailLevel = PrettyLevel (-1)
                 , optEnableInterfaces = EnableInterfaces True
                 , optDamlWarningFlags =
-                    [ upgradeInterfacesFlag AsWarning
-                    ]
+                    WarningFlags.addDamlWarningFlags
+                      [ WarningFlags.toLeft (upgradeInterfacesFlag WarningFlags.AsWarning)
+                      ]
+                      (optDamlWarningFlags opts0)
                 }
 
               mkIde options = do
