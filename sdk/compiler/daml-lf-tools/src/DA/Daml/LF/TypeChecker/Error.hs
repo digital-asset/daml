@@ -27,7 +27,7 @@ module DA.Daml.LF.TypeChecker.Error(
     upgradeInterfacesFlag,
     upgradeExceptionsFlag,
     damlWarningFlagParser,
-    noDamlWarningFlags,
+    mkDamlWarningFlags,
     combineParsers
     ) where
 
