@@ -79,10 +79,13 @@ class GrpcLedgerClient(
       explicitPackageId: Boolean,
   ): api.Identifier = {
     val converted = toApiIdentifier(identifier)
-    def pkgName = Runner
-      .getPackageName(compiledPackages, identifier.packageId)
-      .getOrElse(throw new IllegalArgumentException("Couldn't get package name"))
-    if (explicitPackageId) converted else converted.copy(packageId = "#" + pkgName)
+
+    // Package name will not be returned for non-upgradable packages
+    Runner
+      .getUpgradablePackageName(compiledPackages, identifier.packageId)
+      .filter(_ => !explicitPackageId)
+      .map(pkgName => converted.copy(packageId = "#" + pkgName))
+      .getOrElse(converted)
   }
 
   // TODO[SW]: Currently do not support querying with explicit package id, interface for this yet to be determined
