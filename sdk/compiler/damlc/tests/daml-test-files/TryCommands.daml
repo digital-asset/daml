@@ -23,8 +23,8 @@ template Name
 -- Takes a unit to avoid it being run directly
 failedAuthScript : () -> Script ()
 failedAuthScript _ = do
-  a <- allocateParty "alice"
-  b <- allocateParty "bob"
+  a <- allocatePartyWithHint "alice" (PartyIdHint "alice")
+  b <- allocatePartyWithHint "bob" (PartyIdHint "bob")
   a `submit` createCmd Name with party = b
   pure ()
 
@@ -45,7 +45,7 @@ tryCommandsAuthorizationFailure = do
 tryCommandsContractNotActive : Script ()
 tryCommandsContractNotActive = do
   res <- tryCommands $ do
-    a <- allocateParty "alice"
+    a <- allocatePartyWithHint "alice" (PartyIdHint "alice")
     cid <- a `submit` createCmd Name with party = a
     a `submit` archiveCmd cid
     a `submit` archiveCmd cid

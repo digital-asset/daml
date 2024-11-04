@@ -362,7 +362,6 @@ object ScriptF {
       } yield SEAppAtomic(SEValue(continue), Array(SEValue(SOptional(optR))))
   }
   final case class AllocParty(
-      displayName: String,
       idHint: String,
       participant: Option[Participant],
       stackTrace: StackTrace,
@@ -380,7 +379,7 @@ object ScriptF {
           case Right(client) => Future.successful(client)
           case Left(err) => Future.failed(new RuntimeException(err))
         }
-        party <- client.allocateParty(idHint, displayName)
+        party <- client.allocateParty(idHint)
 
       } yield {
         participant.foreach(env.addPartyParticipantMapping(party, _))
@@ -879,7 +878,6 @@ object ScriptF {
 
   private def parseAllocParty(ctx: Ctx, v: SValue): Either[String, AllocParty] = {
     def convert(
-        displayName: String,
         idHint: String,
         participantName: SValue,
         stackTrace: Option[SValue],
@@ -888,31 +886,29 @@ object ScriptF {
       for {
         participantName <- Converter.toParticipantName(participantName)
         stackTrace <- toStackTrace(ctx, stackTrace)
-      } yield AllocParty(displayName, idHint, participantName, stackTrace, continue)
+      } yield AllocParty(idHint, participantName, stackTrace, continue)
     v match {
       case SRecord(
             _,
             _,
             ArrayList(
-              SText(displayName),
               SText(idHint),
               participantName,
               continue,
             ),
           ) =>
-        convert(displayName, idHint, participantName, None, continue)
+        convert(idHint, participantName, None, continue)
       case SRecord(
             _,
             _,
             ArrayList(
-              SText(displayName),
               SText(idHint),
               participantName,
               continue,
               stackTrace,
             ),
           ) =>
-        convert(displayName, idHint, participantName, Some(stackTrace), continue)
+        convert(idHint, participantName, Some(stackTrace), continue)
       case _ => Left(s"Expected AllocParty payload but got $v")
     }
   }

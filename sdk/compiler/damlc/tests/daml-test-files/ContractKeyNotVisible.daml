@@ -18,8 +18,8 @@ template Foo
     maintainer key
 
 aScript = script do
-  alice <- allocateParty "Alice"
-  bob <- allocateParty "Bob"
+  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
+  bob <- allocatePartyWithHint "Bob" (PartyIdHint "Bob")
   _ <- submit bob do createCmd Foo with p = bob
   canSeeKey @Foo alice bob
   pure ()
@@ -61,8 +61,8 @@ template Delegation
       do lookupByKey @Keyed sig
 
 divulgeeLookup = script do
-  sig <- allocateParty "s" -- Signatory
-  divulgee <- allocateParty "d" -- Divulgee
+  sig <- allocatePartyWithHint "s" (PartyIdHint "s") -- Signatory
+  divulgee <- allocatePartyWithHint "d" (PartyIdHint "d") -- Divulgee
   keyedCid <- submit sig do createCmd Keyed with ..
   divulgercid <- submit divulgee do createCmd Divulger with ..
   submit sig do exerciseCmd divulgercid DivulgeKeyed with ..
@@ -78,8 +78,8 @@ divulgeeLookup = script do
   pure ()
 
 blindLookup = script do
-  sig <- allocateParty "s" -- Signatory
-  blind <- allocateParty "b" -- Blind
+  sig <- allocatePartyWithHint "s" (PartyIdHint "s") -- Signatory
+  blind <- allocatePartyWithHint "b" (PartyIdHint "b") -- Blind
   _ <- submit sig do createCmd Keyed with ..
   -- Blind party can't do positive lookup with maintainer authority.
   cid <- submit sig $ createCmd (Delegation sig blind)
@@ -107,13 +107,13 @@ template LocalKeyVisibility
          pure ()
 
 localLookup = script do
-  p1 <- allocateParty "p1"
-  p2 <- allocateParty "p2"
+  p1 <- allocatePartyWithHint "p1" (PartyIdHint "p1")
+  p2 <- allocatePartyWithHint "p2" (PartyIdHint "p2")
   cid <- submit p1 $ createCmd (LocalKeyVisibility p1 p2)
   submit p2 $ exerciseCmd cid LocalLookup
 
 localFetch = script do
-  p1 <- allocateParty "p1"
-  p2 <- allocateParty "p2"
+  p1 <- allocatePartyWithHint "p1" (PartyIdHint "p1")
+  p2 <- allocatePartyWithHint "p2" (PartyIdHint "p2")
   cid <- submit p1 $ createCmd (LocalKeyVisibility p1 p2)
   submit p2 $ exerciseCmd cid LocalFetch

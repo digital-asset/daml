@@ -44,8 +44,8 @@ data Name
     | NInterfaceChoice ModuleName TypeConName ChoiceName
 
 -- | Display a name in a super unambiguous way.
-displayName :: Name -> T.Text
-displayName = \case
+nameToText :: Name -> T.Text
+nameToText = \case
     NModule (ModuleName m) ->
         T.concat ["module ", dot m]
     NVirtualModule (ModuleName m) (ModuleName mOrigin) ->
@@ -156,7 +156,7 @@ addName name (NCState nameMap)
     | null badNames =
         Right . NCState $ M.insert frName (name : oldNames) nameMap
     | otherwise =
-        let err = EUnwarnableError $ EForbiddenNameCollision (displayName name) (map displayName badNames)
+        let err = EUnwarnableError $ EForbiddenNameCollision (nameToText name) (map nameToText badNames)
         in Left err
   where
     frName = fullyResolve name

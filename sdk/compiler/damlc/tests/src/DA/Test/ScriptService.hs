@@ -153,7 +153,7 @@ testScriptService lfVersion getScriptService =
                       "  (cid1, cid2) <- submit p $ (,) <$> createCmd (T p 23) <*> createCmd (T p 42)",
                       "  submit p $ (,) <$> exerciseCmd cid1 C <*> exerciseCmd cid2 C",
                       "testArchive = do",
-                      "  p <- allocateParty \"p\"",
+                      "  p <- allocatePartyWithHint \"p\" (PartyIdHint \"p\")",
                       "  cid <- submit p (createCmd (T p 42))",
                       "  submit p (archiveCmd cid)"
                     ]
@@ -361,9 +361,9 @@ testScriptService lfVersion getScriptService =
                       "  details <- listKnownParties",
                       "  assertEq (length details) 3",
                       "  let [aliceDetails, alice1Details, bobDetails] = details",
-                      "  assertEq aliceDetails (PartyDetails alice (Some \"alice\") True)",
-                      "  assertEq alice1Details (PartyDetails alice1 (Some \"alice\") True)",
-                      "  assertEq bobDetails (PartyDetails bob (Some \"bob\") True)",
+                      "  assertEq aliceDetails (PartyDetails alice True)",
+                      "  assertEq alice1Details (PartyDetails alice1 True)",
+                      "  assertEq bobDetails (PartyDetails bob True)",
                       "duplicateAllocateWithHint = do",
                       "  _ <- allocatePartyWithHint \"alice\" (PartyIdHint \"alice\")",
                       "  _ <- allocatePartyWithHint \"alice\" (PartyIdHint \"alice\")",
@@ -373,8 +373,6 @@ testScriptService lfVersion getScriptService =
                       "  p2 <- allocatePartyWithHint \"\" (PartyIdHint \"hint\")",
                       "  details <- listKnownParties",
                       "  let [p1Details, p2Details] = details",
-                      "  assertEq p1Details.displayName (Some \"\")",
-                      "  assertEq p2Details.displayName (Some \"\")",
                       "  assertEq p2Details.party (fromSome $ partyFromText \"hint\")",
                       "  t1 <- submit p1 $ createCmd T { owner = p1, observer = p2 }",
                       "  pure ()"
@@ -453,7 +451,7 @@ testScriptService lfVersion getScriptService =
                 expectScriptSuccess rs (vr "testSucceed") $ \r ->
                   matchRegex r "Active contracts:  #2:0, #3:0"
                 expectScriptFailure rs (vr "testFail") $ \r ->
-                  matchRegex r "missing authorization from 'p1'",
+                  matchRegex r "missing authorization from 'party1'",
               testCase "submitTree" $ do
                 rs <-
                   runScripts
@@ -851,19 +849,19 @@ testScriptServiceWithKeys lfVersion getScriptService =
                       "      controller p",
                       "      do abort \"abortCrash\"",
                       "testMissingAuthorization = do",
-                      "  p1 <- allocateParty \"p1\"",
-                      "  p2 <- allocateParty \"p2\"",
-                      "  submit p1 (createCmd (MultiSignatory p1 p2))",
+                      "  party <- allocateParty \"party\"",
+                      "  party1 <- allocateParty \"party1\"",
+                      "  submit party (createCmd (MultiSignatory party party1))",
                       "testDuplicateKey = do",
                       "  p <- allocateParty \"p\"",
                       "  submit p (createCmd (TKey p))",
                       "  submit p (createCmd (TKey p))",
                       "testNotVisible = do",
-                      "  p1 <- allocateParty \"p1\"",
-                      "  p2 <- allocateParty \"p2\"",
-                      "  cid <- submit p1 (createCmd (TKey p1))",
-                      "  helperCid <- submit p2 (createCmd (Helper p2))",
-                      "  submit p2 (exerciseCmd helperCid (Fetch cid))",
+                      "  party <- allocateParty \"party\"",
+                      "  party1 <- allocateParty \"party1\"",
+                      "  cid <- submit party (createCmd (TKey party))",
+                      "  helperCid <- submit party1 (createCmd (Helper party1))",
+                      "  submit party1 (exerciseCmd helperCid (Fetch cid))",
                       "testError = do",
                       "  p <- allocateParty \"p\"",
                       "  cid <- submit p (createCmd (Helper p))",
@@ -873,18 +871,18 @@ testScriptServiceWithKeys lfVersion getScriptService =
                       "  cid <- submit p (createCmd (Helper p))",
                       "  submit p (exerciseCmd cid Abort)",
                       "testPartialSubmit = do",
-                      "  p1 <- allocateParty \"p1\"",
-                      "  p2 <- allocateParty \"p2\"",
-                      "  submit p1 (createCmd (Helper p1))",
-                      "  submit p2 (createCmd (Helper p1))",
+                      "  party <- allocateParty \"party\"",
+                      "  party1 <- allocateParty \"party1\"",
+                      "  submit party (createCmd (Helper party))",
+                      "  submit party1 (createCmd (Helper party))",
                       "testPartialSubmitMustFail = do",
-                      "  p1 <- allocateParty \"p1\"",
-                      "  p2 <- allocateParty \"p2\"",
-                      "  submit p1 (createCmd (Helper p1))",
-                      "  submitMustFail p2 (createCmd (Helper p2))"
+                      "  party <- allocateParty \"party\"",
+                      "  party1 <- allocateParty \"party1\"",
+                      "  submit party (createCmd (Helper party))",
+                      "  submitMustFail party1 (createCmd (Helper party1))"
                     ]
                 expectScriptFailure rs (vr "testMissingAuthorization") $ \r ->
-                  matchRegex r "failed due to a missing authorization from 'p2'"
+                  matchRegex r "failed due to a missing authorization from 'party1'"
                 expectScriptFailure rs (vr "testDuplicateKey") $ \r ->
                   matchRegex r "due to unique key violation for key"
                 expectScriptFailure rs (vr "testNotVisible") $ \r ->
@@ -904,7 +902,7 @@ testScriptServiceWithKeys lfVersion getScriptService =
                     , "Partial transaction:"
                     , "  Sub-transactions:"
                     , "     0"
-                    , ".*'p1' creates Test:Helper.*"
+                    , ".*'party' creates Test:Helper.*"
                     ]
                 expectScriptFailure rs (vr "testPartialSubmitMustFail") $ \r ->
                   matchRegex r $ T.unlines
@@ -916,7 +914,7 @@ testScriptServiceWithKeys lfVersion getScriptService =
                     , "Partial transaction:"
                     , "  Sub-transactions:"
                     , "     0"
-                    , ".*'p2' creates Test:Helper.*"
+                    , ".*'party1' creates Test:Helper.*"
                     ]
                 pure (),
               testCase "contract keys" $ do

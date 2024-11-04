@@ -44,7 +44,7 @@ template T2_create_success
 t2_create_badlyAuthorized : Script ()
 t2_create_badlyAuthorized = script do
   mach <- allocateParty "Mach"
-  ivy <- allocateParty "Ivy"
+  ivy <- allocatePartyWithHint "Ivy" (PartyIdHint "Ivy")
   _ <- mach `submit` createAndExerciseCmd (T2_create_success ivy mach) T2Call
   abort "t2 Finished"
 
@@ -99,7 +99,7 @@ template T4_createViaExerice_success
 -- @ERROR range=101:1-101:36; failed due to a missing authorization from 'Ivy'
 t4_createViaExerice_badlyAuthorized : Script ()
 t4_createViaExerice_badlyAuthorized = script do
-  ivy <- allocateParty "Ivy"
+  ivy <- allocatePartyWithHint "Ivy" (PartyIdHint "Ivy")
   mach <- allocateParty "Mach"
   builder <-
     mach `submit` createCmd (TheContractBuilder with p1 = mach; p2 = mach)

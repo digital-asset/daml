@@ -203,7 +203,7 @@ listKnownPartiesTest = do
   p <- allocateParty "myparty"
   after <- listKnownParties
   let new = after \\ before
-  new === [PartyDetails p (Some "myparty") True]
+  new === [PartyDetails p True]
   pure (new, p)
 
 auth : (Party, Party) -> Script ()
@@ -255,7 +255,7 @@ jsonAllocateParty p = do
   pre <- listKnownParties
   r <- allocatePartyWithHint p (PartyIdHint p)
   post <- listKnownParties
-  sort (PartyDetails r (Some p) True :: pre) === sort post
+  sort (PartyDetails r True :: pre) === sort post
   pure r
 
 jsonMultiParty : (Party, Party) -> Script ()

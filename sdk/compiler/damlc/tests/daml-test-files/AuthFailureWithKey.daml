@@ -35,8 +35,8 @@ template Test1
 -- @ERROR range=37:1-37:35; failed due to a missing authorization from 'Alice'
 t1_LookupByKeyMissingAuthorization : Script ()
 t1_LookupByKeyMissingAuthorization = script do
-  alice <- allocateParty "Alice"
-  bob <- allocateParty "Bob"
+  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
+  bob <- allocatePartyWithHint "Bob" (PartyIdHint "Bob")
   alice `submit`
     createCmd (TheContract1 with ss = [alice]; ms = [alice]; os = [bob]; id = 100)
   _ <- bob `submit` createAndExerciseCmd (Test1 bob ([alice],100)) Call1
@@ -55,7 +55,7 @@ template TheContract2
 -- @ERROR range=57:1-57:37; failed due to that some parties are maintainers but not signatories: 'Bob'
 t2_MaintainersNotSubsetOfSignatories : Script ()
 t2_MaintainersNotSubsetOfSignatories = script do
-  alice <- allocateParty "Alice"
-  bob <- allocateParty "Bob"
+  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
+  bob <- allocatePartyWithHint "Bob" (PartyIdHint "Bob")
   alice `submit` createCmd (TheContract2 with s = alice; m = bob; id = 100)
   abort "t2 finished"

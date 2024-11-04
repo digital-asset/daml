@@ -43,8 +43,8 @@ template KeyOps
 
 -- @LEDGER run LfDevContractKeyThroughExercises.EXPECTED.ledger
 run = script do
-  alice <- allocateParty "Alice"
-  bob <- allocateParty "Bob"
+  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
+  bob <- allocatePartyWithHint "Bob" (PartyIdHint "Bob")
 
   let
     salice = S.singleton alice

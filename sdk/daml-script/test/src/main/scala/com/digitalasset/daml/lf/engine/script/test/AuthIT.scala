@@ -33,7 +33,7 @@ class AuthIT(override val majorLanguageVersion: LanguageMajorVersion)
           adminClient <- defaultLedgerClient(config.adminToken)
           userId = Ref.UserId.assertFromString(CantonFixture.freshUserId())
           partyDetails <- Future.sequence(
-            List.fill(2)(adminClient.partyManagementClient.allocateParty(None, None))
+            List.fill(2)(adminClient.partyManagementClient.allocateParty(None, None, None))
           )
           parties = partyDetails.map(_.party)
           user = domain.User(userId, None)

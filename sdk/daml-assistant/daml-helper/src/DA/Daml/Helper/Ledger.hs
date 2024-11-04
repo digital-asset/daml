@@ -245,7 +245,6 @@ runLedgerListParties flags (JsonFlag json) = do
         TL.putStrLn . encodeToLazyText . A.toJSON $
             [ A.object
                 [ "party" .= TL.toStrict (L.unParty party)
-                , "display_name" .= TL.toStrict displayName
                 , "is_local" .= isLocal
                 ]
             | L.PartyDetails {..} <- xs
@@ -418,7 +417,7 @@ lookupParty :: LedgerArgs -> String -> IO (Maybe L.Party)
 lookupParty args name = do
     xs <- listParties args
     let text = TL.pack name
-    let pred L.PartyDetails{displayName,party} = if text == displayName then Just party else Nothing
+    let pred L.PartyDetails{party} = if text `TL.isInfixOf` L.unParty party then Just party else Nothing
     return $ firstJust pred xs
 
 allocateParty :: LedgerArgs -> String -> IO L.Party
@@ -426,7 +425,7 @@ allocateParty args name = do
   let text = TL.pack name
   L.PartyDetails {party} <-
       runWithLedgerArgs args $
-        L.allocateParty $ L.AllocatePartyRequest {partyIdHint = text, displayName = text}
+        L.allocateParty $ L.AllocatePartyRequest {partyIdHint = text}
   return party
 
 -- TODO[SW] Implementation not ported to ledger-api-v1, as it wasn't fully working in the first place, and we're moving away from
