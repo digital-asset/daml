@@ -7,7 +7,6 @@ import Daml.Script.Internal.LowLevel
 import DA.Stack
 
 data AllocateParty = AllocateParty with
-  displayName : Text
   idHint : Text
   participant : Optional Text
 instance IsQuestion AllocateParty Party where command = "AllocateParty"
@@ -21,32 +20,24 @@ newtype ParticipantName = ParticipantName { participantName : Text }
 -- | Allocate a party with the given display name
 -- using the party management service.
 allocateParty : HasCallStack => Text -> Script Party
-allocateParty displayName = lift $ AllocateParty with
-  displayName
-  idHint = ""
-  participant = None
+allocateParty _deprecatedDisplayName = allocatePartyWithHint _deprecatedDisplayName (PartyIdHint "")
 
 -- | Allocate a party with the given display name and id hint
 -- using the party management service.
 allocatePartyWithHint : HasCallStack => Text -> PartyIdHint -> Script Party
-allocatePartyWithHint displayName (PartyIdHint idHint) = lift $ AllocateParty with
-  displayName
+allocatePartyWithHint _ (PartyIdHint idHint) = lift $ AllocateParty with
   idHint = idHint
   participant = None
 
 -- | Allocate a party with the given display name
 -- on the specified participant using the party management service.
 allocatePartyOn : Text -> ParticipantName -> Script Party
-allocatePartyOn displayName (ParticipantName participant) = lift $ AllocateParty with
-  displayName
-  idHint = ""
-  participant = Some participant
+allocatePartyOn _deprecatedDisplayName participantName = allocatePartyWithHintOn _deprecatedDisplayName (PartyIdHint "") participantName
 
 -- | Allocate a party with the given display name and id hint
 -- on the specified participant using the party management service.
 allocatePartyWithHintOn : Text -> PartyIdHint -> ParticipantName -> Script Party
-allocatePartyWithHintOn displayName (PartyIdHint idHint) (ParticipantName participant) = lift $ AllocateParty with
-  displayName
+allocatePartyWithHintOn _ (PartyIdHint idHint) (ParticipantName participant) = lift $ AllocateParty with
   idHint = idHint
   participant = Some participant
 
@@ -54,7 +45,6 @@ allocatePartyWithHintOn displayName (PartyIdHint idHint) (ParticipantName partic
 data PartyDetails = PartyDetails
   with
     party : Party -- ^ Party id
-    displayName : Optional Text -- ^ Optional display name
     isLocal : Bool -- ^ True if party is hosted by the backing participant.
   deriving (Eq, Ord, Show)
 

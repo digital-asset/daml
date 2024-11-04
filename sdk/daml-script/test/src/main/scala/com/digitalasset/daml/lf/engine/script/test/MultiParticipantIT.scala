@@ -70,15 +70,15 @@ class MultiParticipantIT(override val majorLanguageVersion: LanguageMajorVersion
           assert(vals.size == 2)
           val first = SList(
             FrontStack(
-              tuple(SOptional(None), SBool(false)),
-              tuple(SOptional(Some(SText("p1"))), SBool(true)),
+              tuple(SText("p1"), SBool(true)),
+              tuple(SText("p2"), SBool(false)),
             )
           )
           assert(vals.get(0) == first)
           val second = SList(
             FrontStack(
-              tuple(SOptional(None), SBool(false)),
-              tuple(SOptional(Some(SText("p2"))), SBool(true)),
+              tuple(SText("p1"), SBool(false)),
+              tuple(SText("p2"), SBool(true)),
             )
           )
           assert(vals.get(1) == second)

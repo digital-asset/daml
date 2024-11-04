@@ -38,8 +38,8 @@ template Tester
 
 -- @LEDGER run LfStableExceptionAuth.EXPECTED.ledger
 run = script do
-  a <- allocateParty "a"
-  b <- allocateParty "b"
+  a <- allocatePartyWithHint "a" (PartyIdHint "a")
+  b <- allocatePartyWithHint "b" (PartyIdHint "b")
   cid <- submit a $ createCmd (Tester a b)
   -- Tests that we have the authorization from the parent exercise.
   submit b $ exerciseCmd cid CreateInTry

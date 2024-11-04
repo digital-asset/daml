@@ -16,7 +16,7 @@ unlessS b f = if b then pure () else f
 
 -- @LEDGER run LfStableEmbedAbort.EXPECTED.ledger
 run = script do
-  alice <- allocateParty "Alice"
+  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
   unlessS True (abort "fail")
   unlessS True (assert False)
   submit alice do createAndExerciseCmd (Helper alice) Exe

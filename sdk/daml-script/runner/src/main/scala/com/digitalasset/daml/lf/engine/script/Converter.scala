@@ -407,7 +407,6 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
       record(
         scriptIds.damlScript("PartyDetails"),
         ("party", SParty(details.party)),
-        ("displayName", SOptional(details.displayName.map(SText))),
         ("isLocal", SBool(details.isLocal)),
       )
     )

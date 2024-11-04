@@ -1287,10 +1287,10 @@ scriptTests lfVersion mbScenarioService scriptPackageData = Tasty.testGroup "Scr
           , "      do fetch iouCid"
 
           , "test = script do"
-          , "  regulator <- allocateParty \"Regulator\""
-          , "  issuer <- allocateParty \"Issuer\""
-          , "  owner <- allocateParty \"Owner\""
-          , "  spy <- allocateParty \"Spy\""
+          , "  regulator <- allocatePartyWithHint \"Regulator\" (PartyIdHint \"Regulator\")"
+          , "  issuer <- allocatePartyWithHint \"Issuer\" (PartyIdHint \"Issuer\")"
+          , "  owner <- allocatePartyWithHint \"Owner\" (PartyIdHint \"Owner\")"
+          , "  spy <- allocatePartyWithHint \"Spy\" (PartyIdHint \"Spy\")"
           , "  iouIssuerCid <- submit regulator do createCmd IouIssuer with regulator; issuer"
           , "  iouCid <- submit issuer do exerciseCmd iouIssuerCid Issue with owner"
           , "  iouDivulgerCid <- submit spy do createCmd IouDivulger with sender = owner; receiver = spy"
@@ -1340,7 +1340,7 @@ scriptTests lfVersion mbScenarioService scriptPackageData = Tasty.testGroup "Scr
           , "         assert False"
 
           , "test = script do"
-          , "  p <- allocateParty \"p\""
+          , "  p <- allocatePartyWithHint \"p\" (PartyIdHint \"p\")"
           , "  c <- submit p do createCmd T with p = p"
           , "  submit p $ do exerciseCmd c Fail"
           ]

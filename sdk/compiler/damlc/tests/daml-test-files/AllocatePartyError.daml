@@ -8,5 +8,5 @@ module AllocatePartyError where
 import Daml.Script
 
 main = script do
-    _ <- allocateParty "#party"
+    _ <- allocatePartyWithHint "#party" (PartyIdHint "#party")
     pure ()

@@ -48,7 +48,7 @@ trait TestLedger extends CantonFixture with SuiteResourceManagementAroundAll {
   protected def allocateParty: Future[String] = {
     implicit val ec: ExecutionContextExecutor = system.dispatcher
     client.partyManagementClient
-      .allocateParty(hint = None, displayName = None)
+      .allocateParty(hint = None, deprecatedDisplayName = None, token = None)
       .map(_.party)
   }
 

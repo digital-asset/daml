@@ -394,7 +394,6 @@ object ScriptF {
       } yield SEValue(SOptional(optR))
   }
   final case class AllocParty(
-      displayName: String,
       idHint: String,
       participant: Option[Participant],
   ) extends Cmd {
@@ -408,7 +407,7 @@ object ScriptF {
           case Right(client) => Future.successful(client)
           case Left(err) => Future.failed(new RuntimeException(err))
         }
-        party <- client.allocateParty(idHint, displayName)
+        party <- client.allocateParty(idHint)
 
       } yield {
         participant.foreach(env.addPartyParticipantMapping(party, _))
@@ -929,10 +928,10 @@ object ScriptF {
 
   private def parseAllocParty(v: SValue): Either[String, AllocParty] =
     v match {
-      case SRecord(_, _, ArrayList(SText(displayName), SText(idHint), participantName)) =>
+      case SRecord(_, _, ArrayList(SText(idHint), participantName)) =>
         for {
           participantName <- Converter.toParticipantName(participantName)
-        } yield AllocParty(displayName, idHint, participantName)
+        } yield AllocParty(idHint, participantName)
       case _ => Left(s"Expected AllocParty payload but got $v")
     }
 

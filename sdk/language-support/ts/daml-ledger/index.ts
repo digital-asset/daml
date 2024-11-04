@@ -39,13 +39,11 @@ export type QueryResult<T extends object, K, I extends string> = {
  */
 export type PartyInfo = {
   identifier: Party;
-  displayName?: string;
   isLocal: boolean;
 };
 
 const partyInfoDecoder: jtv.Decoder<PartyInfo> = jtv.object({
   identifier: jtv.string(),
-  displayName: jtv.optional(jtv.string()),
   isLocal: jtv.boolean(),
 });
 
@@ -1968,7 +1966,6 @@ export class Ledger {
    */
   async allocateParty(partyOpt: {
     identifierHint?: string;
-    displayName?: string;
   }): Promise<PartyInfo> {
     const json = await this.submit("v1/parties/allocate", partyOpt);
     return decode(partyInfoDecoder, json);

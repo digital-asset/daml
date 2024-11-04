@@ -27,9 +27,9 @@ data TestCase t c = TestCase
 
 buildScript : (Choice t c r, HasEnsure t) => (TestData -> TestCase t c) -> Script ()
 buildScript mkTestCase = do
-  alice <- allocateParty "alice"
-  bank <- allocateParty "bank"
-  divulgee <- allocateParty "divulgee"
+  alice <- allocatePartyWithHint "alice" (PartyIdHint "alice")
+  bank <- allocatePartyWithHint "bank" (PartyIdHint "bank")
+  divulgee <- allocatePartyWithHint "divulgee" (PartyIdHint "divulgee")
 
   iou <- submit bank do
     createCmd Iou with

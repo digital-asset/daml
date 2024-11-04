@@ -147,7 +147,7 @@ trait ScriptLedgerClient {
       optLocation: Option[Location],
   )(implicit ec: ExecutionContext, mat: Materializer): Future[ScriptLedgerClient.TransactionTree]
 
-  def allocateParty(partyIdHint: String, displayName: String)(implicit
+  def allocateParty(partyIdHint: String)(implicit
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Ref.Party]
