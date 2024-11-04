@@ -21,6 +21,7 @@ import com.digitalasset.daml.lf.transaction.test.TransactionBuilder
 import com.digitalasset.daml.lf.value.Value._
 import org.scalacheck.{Arbitrary, Gen}
 import Arbitrary.arbitrary
+import com.digitalasset.daml.lf.language.LanguageVersion
 
 import scala.Ordering.Implicits.infixOrderingOps
 import scala.collection.immutable.HashMap
@@ -315,12 +316,16 @@ object ValueGenerators {
     for {
       coid <- coidGen
       packageName <- pkgNameGen
-      pkgVer <- pkgVerGen(version)
+      pkgVer <-
+        if (version <= LanguageVersion.v2_1) Gen.const(Option.empty[PackageVersion])
+        else pkgVerGen(version)
       templateId <- idGen
       arg <- valueGen()
       signatories <- genNonEmptyParties
       stakeholders <- genNonEmptyParties
-      key <- Gen.option(keyWithMaintainersGen(templateId, packageName))
+      key <-
+        if (version <= LanguageVersion.v2_1) Gen.const(Option.empty[GlobalKeyWithMaintainers])
+        else Gen.option(keyWithMaintainersGen(templateId, packageName))
     } yield Node.Create(
       coid = coid,
       packageName = packageName,
@@ -347,8 +352,10 @@ object ValueGenerators {
       actingParties <- genNonEmptyParties
       signatories <- genNonEmptyParties
       stakeholders <- genNonEmptyParties
-      key <- Gen.option(keyWithMaintainersGen(templateId, pkgName))
-      byKey <- Gen.oneOf(true, false)
+      key <-
+        if (version <= LanguageVersion.v2_1) Gen.const(Option.empty[GlobalKeyWithMaintainers])
+        else Gen.option(keyWithMaintainersGen(templateId, pkgName))
+      byKey <- if (version <= LanguageVersion.v2_1) Gen.const(false) else Gen.oneOf(true, false)
     } yield Node.Fetch(
       coid = coid,
       packageName = pkgName,
@@ -395,15 +402,18 @@ object ValueGenerators {
       stakeholders <- genNonEmptyParties
       signatories <- genNonEmptyParties
       choiceObservers <- genMaybeEmptyParties
-      choiceAuthorizersList <- genMaybeEmptyParties
+      choiceAuthorizersList <-
+        if (version <= LanguageVersion.v2_1) Gen.const(Set.empty[Party]) else genMaybeEmptyParties
       choiceAuthorizers = if (choiceAuthorizersList.isEmpty) None else Some(choiceAuthorizersList)
       children <- Gen
         .listOf(Arbitrary.arbInt.arbitrary)
         .map(_.map(NodeId(_)))
         .map(_.to(ImmArray))
       exerciseResult <- Gen.option(valueGen())
-      key <- Gen.option(keyWithMaintainersGen(templateId, pkgName))
-      byKey <- Gen.oneOf(true, false)
+      key <-
+        if (version <= LanguageVersion.v2_1) Gen.const(Option.empty[GlobalKeyWithMaintainers])
+        else Gen.option(keyWithMaintainersGen(templateId, pkgName))
+      byKey <- if (version <= LanguageVersion.v2_1) Gen.const(false) else Gen.oneOf(true, false)
     } yield Node.Exercise(
       targetCoid = targetCoid,
       packageName = pkgName,
