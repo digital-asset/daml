@@ -320,7 +320,7 @@ golang/appengine v1.6.7: http://google.golang.org/appengine : Apache License 2.0
 golang.org/x/crypto 20200622-snapshot-75b28801: https://godoc.org/golang.org/x/crypto : BSD 3-clause "New" or "Revised" License
 golang.org/x/lint 20210508-snapshot-6edffad5 : BSD 3-clause "New" or "Revised" License
 golang.org/x/mod v0.5.0 : BSD 3-clause "New" or "Revised" License
-golang.org/x/net 20201203-snapshot-60bc85c4: https://godoc.org/golang.org/x/net : BSD 3-clause "New" or "Revised" License
+golang.org/x/net 20201203-snapshot-60bc85c4: https://github.com/golang/net : BSD 3-clause "New" or "Revised" License
 golang.org/x/oauth2 20210819-snapshot-2bc19b11 : BSD 3-clause "New" or "Revised" License
 golang.org/x/sync 20210219-snapshot-036812b2: https://pkg.go.dev/golang.org/x/sync : BSD 3-clause "New" or "Revised" License
 golang.org/x/sys 20210917-snapshot-d61c044b: https://pkg.go.dev/golang.org/x/sync : BSD 3-clause "New" or "Revised" License
