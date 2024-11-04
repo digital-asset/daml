@@ -689,11 +689,6 @@ class NodeHashV1Spec extends AnyWordSpec with Matchers with HashUtils {
       .fromString(rollbackNodeHash)
       .getOrElse(fail("Invalid hash"))
 
-//    val subNodes = Map(NodeId(3) -> createNode, NodeId(4) -> fetchNode)
-
-    // Rollback node has 2 children: create and fetch, but they're assigned different NodeIds than in the default nodeSeeds mapping
-    // So we make a seedMap specific for it, so that the hashes still match
-//    val rollbackNodeSeeds = Map(NodeId(3) -> nodeSeedCreate, NodeId(4) -> nodeSeedFetch)
     def hashRollbackNode(
         node: Node.Rollback,
         subNodes: Map[NodeId, Node] = subNodesMap,

@@ -271,11 +271,11 @@ object Hash {
               .withContext("Create Contract")(builder =>
                 builder.addHash(
                   builder.hashNode(
-                    fatInstance.toCreateNode,
-                    Option.empty[Hash],
-                    Map.empty,
-                    Map.empty,
-                    hashTracer.subNodeTracer,
+                    node = fatInstance.toCreateNode,
+                    nodeSeed = Option.empty[Hash],
+                    nodes = Map.empty,
+                    nodeSeeds = Map.empty,
+                    hashTracer = hashTracer.subNodeTracer,
                   ),
                   "Disclosed Contract",
                 )
