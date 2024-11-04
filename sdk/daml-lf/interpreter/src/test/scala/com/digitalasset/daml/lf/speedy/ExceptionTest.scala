@@ -6,15 +6,15 @@ package speedy
 
 import com.daml.lf.crypto.Hash
 import com.daml.lf.crypto.Hash.KeyPackageName
-import com.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.daml.lf.data.Ref.{PackageId, Party}
+import com.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion, StablePackages}
 import com.daml.lf.language.LanguageDevConfig.{LeftToRight, RightToLeft}
-import com.daml.lf.speedy.SResult.{SResultError, SResultFinal}
+import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion, StablePackages}
 import com.daml.lf.speedy.SError.{SError, SErrorDamlException}
 import com.daml.lf.speedy.SExpr._
+import com.daml.lf.speedy.SResult.{SResultError, SResultFinal}
 import com.daml.lf.speedy.SValue.{SContractId, SParty, SUnit}
 import com.daml.lf.speedy.SpeedyTestLib.typeAndCompile
 import com.daml.lf.testing.parser
@@ -25,8 +25,8 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ValueRecord, ValueText}
 import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
-import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.prop.TableDrivenPropertyChecks
 
 class ExceptionTestV1 extends ExceptionTest(LanguageMajorVersion.V1)
 //class ExceptionTestV2 extends ExceptionTest(LanguageMajorVersion.V2)
@@ -1189,208 +1189,154 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       override def testMethodSuffix: String = "Local"
     }
 
-    for {
-      test <- List(
-        FailingPrecondition,
-        FailingSignatories,
-        FailingObservers,
-        FailingAgreement,
-        FailingKey,
-        FailingMaintainers,
-      )
-    } {
+    val contractOrigins: List[ContractOrigin] = List(Global, Disclosure, Local)
 
-      s"exceptions thrown by ${test.templateName} can be caught on when creating a contract" in {
-        runUpdateExpr(
-          compiledPackages,
-          e"Mod:createAndCatchError${test.templateName}" (metadataTestsParserParams),
-        ) shouldBe Right(SUnit)
-      }
+    val failingTemplateMetadataTemplates: List[String] = List(
+      FailingPrecondition.templateName,
+      FailingSignatories.templateName,
+      FailingObservers.templateName,
+      FailingAgreement.templateName,
+      FailingKey.templateName,
+      FailingMaintainers.templateName,
+    )
 
-      s"exceptions thrown by ${test.templateName} cannot be caught when fetched or exercised" - {
-        for {
-          origin <- List(
-            Global,
-            Disclosure,
-            Local,
-          )
-        } {
-          origin.description in {
-            val alice = Ref.Party.assertFromString("Alice")
-            val templateId =
-              Ref.Identifier.assertFromString(s"-template-defs-v1-id-:Mod:${test.templateName}")
-            val cid = Value.ContractId.V1(Hash.hashPrivateKey("abc"))
-            val key = SValue.SRecord(
-              Ref.Identifier.assertFromString(s"$commonDefsPkgId:Mod:Key"),
-              ImmArray(
-                Ref.Name.assertFromString("label"),
-                Ref.Name.assertFromString("maintainers"),
-              ),
-              ArrayList(
-                SValue.SText("test-key"),
-                SValue.SList(FrontStack(SValue.SParty(alice))),
-              ),
-            )
-            val globalKey = GlobalKeyWithMaintainers.assertBuild(
-              templateId,
-              key.toUnnormalizedValue,
-              Set(alice),
-              KeyPackageName(Some(templateDefsPkgName), metadataTestsPkg.languageVersion),
-            )
-            val globalContract = Versioned(
-              version = TransactionVersion.minUpgrade,
-              Value.ContractInstance(
-                packageName = templateDefsV1Pkg.metadata.map(_.name),
-                template = templateId,
-                arg = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice))),
-              ),
-            )
-            val disclosedContract = Speedy.ContractInfo(
-              version = TransactionVersion.minUpgrade,
-              Some(templateDefsPkgName),
-              templateId,
-              SValue.SRecord(
-                templateId,
-                ImmArray(Ref.Name.assertFromString("p")),
-                ArrayList(SValue.SParty(alice)),
-              ),
-              "agreement",
-              Set(alice),
-              Set.empty,
-              None,
-            )
+    val failingChoiceMetadataTemplates: List[String] = List(
+      FailingChoiceControllers.templateName,
+      FailingChoiceObservers.templateName,
+    )
 
-            val testCases = {
-              Table[String, SValue](
-                ("test method prefix", "arg"),
-                (
-                  "exerciseAndCatchError",
-                  SContractId(cid),
-                ),
-                (
-                  "fetchAndCatchError",
-                  SContractId(cid),
-                ),
-                (
-                  "fetchByInterfaceAndCatchError",
-                  SContractId(cid),
-                ),
-                (
-                  "fetchByKeyAndCatchError",
-                  key,
-                ),
-                (
-                  "lookUpByKeyAndCatchError",
-                  key,
-                ),
-              )
-            }
-
-            forEvery(testCases) { (prefix, arg) =>
-              inside {
-                runUpdateApp(
-                  compiledPackages,
-                  packageResolution = Map(
-                    templateDefsPkgName -> templateDefsV2PkgId
-                  ),
-                  e"Mod:${prefix}${origin.testMethodSuffix}${test.templateName}" (
-                    metadataTestsParserParams
-                  ),
-                  Array(arg),
-                  getContract = origin match {
-                    case Global => Map(cid -> globalContract)
-                    case Disclosure => Map.empty
-                    case Local => Map.empty
-                  },
-                  getKey = Map(
-                    globalKey -> cid
-                  ),
-                  disclosures = origin match {
-                    case Global => Map.empty
-                    case Disclosure => Map(cid -> disclosedContract)
-                    case Local => Map.empty
-                  },
-                )
-              } {
-                case Left(
-                      SError.SErrorDamlException(
-                        IE.UnhandledException(
-                          _,
-                          Value.ValueRecord(_, ImmArray((_, Value.ValueText(msg)))),
-                        )
-                      )
-                    ) =>
-                  msg shouldBe test.templateName
-              }
-            }
-          }
+    s"metadata exceptions can be caught when creating a contract" - {
+      for (templateName <- failingTemplateMetadataTemplates) {
+        templateName in {
+          runUpdateExpr(
+            compiledPackages,
+            e"Mod:createAndCatchError${templateName}" (metadataTestsParserParams),
+          ) shouldBe Right(SUnit)
         }
       }
     }
 
-    for {
-      test <- List(
-        FailingChoiceControllers,
-        FailingChoiceObservers,
+    s"metadata exceptions cannot be caught" - {
+      // A test case is a LF test method prefix, a function that provides the argument to the test method,
+      // and a list of relevant template names to test.
+      val testCases = List[(String, (Value.ContractId, SValue) => SValue, List[String])](
+        (
+          "exerciseAndCatchError",
+          (cid, _) => SContractId(cid),
+          failingTemplateMetadataTemplates,
+        ),
+        (
+          "fetchAndCatchError",
+          (cid, _) => SContractId(cid),
+          failingTemplateMetadataTemplates,
+        ),
+        (
+          "fetchByInterfaceAndCatchError",
+          (cid, _) => SContractId(cid),
+          failingTemplateMetadataTemplates,
+        ),
+        (
+          "fetchByKeyAndCatchError",
+          (_, key) => key,
+          failingTemplateMetadataTemplates,
+        ),
+        (
+          "lookUpByKeyAndCatchError",
+          (_, key) => key,
+          failingTemplateMetadataTemplates,
+        ),
+        (
+          "exerciseByInterfaceAndCatchError",
+          (cid, _) => SContractId(cid),
+          failingChoiceMetadataTemplates,
+        ),
       )
-    } {
 
-      s"exceptions thrown by ${test.templateName} cannot be caught when exercising a choice by interface" in {
-        val alice = Ref.Party.assertFromString("Alice")
-        val cid = Value.ContractId.V1(Hash.hashPrivateKey("abc"))
+      for (testCase <- testCases) {
+        val (prefix, argProvider, relevantTemplates) = testCase
+        prefix - {
+          for (templateName <- relevantTemplates) {
+            templateName - {
+              val alice = Ref.Party.assertFromString("Alice")
+              val templateId =
+                Ref.Identifier.assertFromString(s"-template-defs-v1-id-:Mod:$templateName")
+              val cid = Value.ContractId.V1(Hash.hashPrivateKey("abc"))
+              val key = SValue.SRecord(
+                Ref.Identifier.assertFromString(s"$commonDefsPkgId:Mod:Key"),
+                ImmArray(
+                  Ref.Name.assertFromString("label"),
+                  Ref.Name.assertFromString("maintainers"),
+                ),
+                ArrayList(
+                  SValue.SText("test-key"),
+                  SValue.SList(FrontStack(SValue.SParty(alice))),
+                ),
+              )
+              val globalKey = GlobalKeyWithMaintainers.assertBuild(
+                templateId,
+                key.toUnnormalizedValue,
+                Set(alice),
+                KeyPackageName(Some(templateDefsPkgName), metadataTestsPkg.languageVersion),
+              )
+              val globalContract = Versioned(
+                version = TransactionVersion.minUpgrade,
+                Value.ContractInstance(
+                  packageName = templateDefsV1Pkg.metadata.map(_.name),
+                  template = templateId,
+                  arg = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice))),
+                ),
+              )
+              val disclosedContract = Speedy.ContractInfo(
+                version = TransactionVersion.minUpgrade,
+                Some(templateDefsPkgName),
+                templateId,
+                SValue.SRecord(
+                  templateId,
+                  ImmArray(Ref.Name.assertFromString("p")),
+                  ArrayList(SValue.SParty(alice)),
+                ),
+                "agreement",
+                Set(alice),
+                Set.empty,
+                None,
+              )
 
-        val testCases = {
-          Table[Expr, SValue](
-            ("expression", "arg"),
-            (
-              e"Mod:exerciseByInterfaceAndCatchErrorGlobal${test.templateName}" (
-                metadataTestsParserParams
-              ),
-              SContractId(cid),
-            ),
-            (
-              e"Mod:exerciseByInterfaceAndCatchErrorLocal${test.templateName}" (
-                metadataTestsParserParams
-              ),
-              SUnit,
-            ),
-          )
-        }
-
-        forEvery(testCases) { (expr, arg) =>
-          inside {
-            runUpdateApp(
-              compiledPackages,
-              packageResolution = Map(
-                templateDefsPkgName -> templateDefsV2PkgId
-              ),
-              expr,
-              Array(arg),
-              getContract = Map(
-                cid -> Versioned(
-                  version = TransactionVersion.StableVersions.max,
-                  Value.ContractInstance(
-                    packageName = metadataTestsPkg.metadata.map(_.name),
-                    template = t"Mod:${test.templateName}" (templateDefsV1ParserParams)
-                      .asInstanceOf[Ast.TTyCon]
-                      .tycon,
-                    arg = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice))),
-                  ),
-                )
-              ),
-              getKey = PartialFunction.empty,
-              disclosures = Map.empty,
-            )
-          } {
-            case Left(
-                  SError.SErrorDamlException(
-                    IE.UnhandledException(
-                      _,
-                      Value.ValueRecord(_, ImmArray((_, Value.ValueText(msg)))),
+              for (origin <- contractOrigins) {
+                origin.description in {
+                  inside {
+                    runUpdateApp(
+                      compiledPackages,
+                      packageResolution = Map(templateDefsPkgName -> templateDefsV2PkgId),
+                      e"Mod:${prefix}${origin.testMethodSuffix}$templateName" (
+                        metadataTestsParserParams
+                      ),
+                      Array(argProvider(cid, key)),
+                      getContract = origin match {
+                        case Global => Map(cid -> globalContract)
+                        case Disclosure => Map.empty
+                        case Local => Map.empty
+                      },
+                      getKey = Map(globalKey -> cid),
+                      disclosures = origin match {
+                        case Global => Map.empty
+                        case Disclosure => Map(cid -> disclosedContract)
+                        case Local => Map.empty
+                      },
                     )
-                  )
-                ) =>
-              msg shouldBe test.templateName
+                  } {
+                    case Left(
+                          SError.SErrorDamlException(
+                            IE.UnhandledException(
+                              _,
+                              Value.ValueRecord(_, ImmArray((_, Value.ValueText(msg)))),
+                            )
+                          )
+                        ) =>
+                      msg shouldBe templateName
+                  }
+                }
+              }
+            }
           }
         }
       }
