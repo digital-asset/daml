@@ -98,6 +98,11 @@ final class GeneratorsProtocol(
           else None
         }
 
+      // Because of the potential multiplication by 2 below, we want a reasonably small value
+      submissionTimeRecordTimeTolerance <- Gen
+        .choose(0L, 10000L)
+        .map(NonNegativeFiniteDuration.tryOfMicros)
+
       dynamicDomainParameters = DynamicDomainParameters.tryCreate(
         confirmationResponseTimeout,
         mediatorReactionTimeout,
@@ -112,6 +117,7 @@ final class GeneratorsProtocol(
         onboardingRestriction,
         acsCommitmentsCatchupConfig,
         participantDomainLimits,
+        submissionTimeRecordTimeTolerance,
       )(representativePV)
 
     } yield dynamicDomainParameters

@@ -23,16 +23,17 @@ message Enums {
   }
 
   // enum indicating the participant permission level
+  // Regardless of the ParticipantPermission level, all participants can submit a reassignment.
   enum ParticipantPermission {
     PARTICIPANT_PERMISSION_UNSPECIFIED = 0;
 
-    // participant is active, can submit transactions
+    // participant is active, can submit transactions and reassignments
     PARTICIPANT_PERMISSION_SUBMISSION = 1;
 
-    // participant is passive, can only confirm transactions
+    // participant is passive, can only confirm transactions and submit reassignments
     PARTICIPANT_PERMISSION_CONFIRMATION = 2;
 
-    // participant is passive, can only observe transactions
+    // participant is passive, can only observe transactions and submit reassignments
     PARTICIPANT_PERMISSION_OBSERVATION = 3;
   }
 }

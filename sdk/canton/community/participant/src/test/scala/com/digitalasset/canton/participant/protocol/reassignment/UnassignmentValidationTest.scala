@@ -13,11 +13,9 @@ import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentPro
   ContractError,
   ReassignmentProcessorError,
   StakeholdersMismatch,
+  SubmitterMustBeStakeholder,
 }
-import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessorError.{
-  ReassigningParticipantsMismatch,
-  UnassignmentSubmitterMustBeStakeholder,
-}
+import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessorError.ReassigningParticipantsMismatch
 import com.digitalasset.canton.participant.protocol.submission.SeedGenerator
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.{MediatorGroupRecipient, Recipients}
@@ -183,8 +181,8 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
       unassignmentValidation(signatory).value shouldBe ()
       unassignmentValidation(
         nonStakeholder
-      ).left.value shouldBe UnassignmentSubmitterMustBeStakeholder(
-        contract.contractId,
+      ).left.value shouldBe SubmitterMustBeStakeholder(
+        ReassignmentRef(contract.contractId),
         submittingParty = nonStakeholder,
         stakeholders = stakeholders.all,
       )

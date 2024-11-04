@@ -313,6 +313,7 @@ final class BftBlockOrderer(
         epochStore,
         orderedBlocksReader = epochStore,
         outputStore,
+        outputBlocksReader = outputStore,
       )
     BftOrderingModuleSystemInitializer(
       sequencerId,

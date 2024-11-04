@@ -233,8 +233,7 @@ class SecretKeyAdministration(
   @Help.Description(
     """
       |For a participant node it rotates the signing and encryption key pair.
-      |For a domain or domain manager node it rotates the signing key pair as those nodes do not have an encryption key pair.
-      |For a sequencer or mediator node use `rotate_node_keys` with a domain manager reference as an argument.
+      |For a sequencer or mediator node it rotates the signing key pair as those nodes do not have an encryption key pair.
       |NOTE: Namespace root or intermediate signing keys are NOT rotated by this command."""
   )
   def rotate_node_keys(): Unit = {

@@ -10,18 +10,20 @@ import com.daml.ledger.api.v2.admin.package_management_service
 import com.google.protobuf
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.{Source, StreamConverters}
-import org.apache.pekko.util
+import org.apache.pekko.{NotUsed, util}
 import sttp.tapir.{CodecFormat, path, streamBinaryBody}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters.IteratorHasAsScala
 import JsPackageCodecs.*
+import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
 import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.tracing.TraceContext
 import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
+import org.apache.pekko.util.ByteString
 import sttp.capabilities.pekko.PekkoStreams
 import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.jsonBody
@@ -73,7 +75,9 @@ class JsPackageService(
       val bs = protobuf.ByteString.readFrom(inputStream)
       packageManagementClient
         .uploadDarFile(bs, caller.jwt.map(_.token))
-        .map(_ => package_management_service.UploadDarFileResponse())
+        .map { _ =>
+          package_management_service.UploadDarFileResponse()
+        }
         .resultToRight
 
   }
@@ -82,12 +86,15 @@ class JsPackageService(
     packageClient
       .getPackage(tracedInput.in, caller.jwt.map(_.token))(tracedInput.traceContext)
       .map(response =>
-        Source.fromIterator(() =>
-          response.archivePayload
-            .asReadOnlyByteBufferList()
-            .iterator
-            .asScala
-            .map(org.apache.pekko.util.ByteString(_))
+        (
+          Source.fromIterator(() =>
+            response.archivePayload
+              .asReadOnlyByteBufferList()
+              .iterator
+              .asScala
+              .map(org.apache.pekko.util.ByteString(_))
+          ),
+          response.hash,
         )
       )
       .resultToRight
@@ -114,6 +121,9 @@ object JsPackageService {
     packages.get
       .in(path[String](packageIdPath))
       .out(streamBinaryBody(PekkoStreams)(CodecFormat.OctetStream()))
+      .out(
+        sttp.tapir.header[String]("Canton-Package-Hash")
+      ) // Non standard header used for hash output
       .description("Download the package for the requested package-id")
 
   val packageStatusEndpoint =

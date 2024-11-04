@@ -19,7 +19,7 @@ class TracedScaffeineTest extends AsyncWordSpec with BaseTest {
   "TracedScaffeineUS" should {
     "should get a value when not shutting down" in {
       val keysCache =
-        TracedScaffeine.buildTracedAsyncFutureUS[Int, Int](
+        TracedScaffeine.buildTracedAsync[FutureUnlessShutdown, Int, Int](
           cache = CachingConfigs.testing.mySigningKeyCache.buildScaffeine(),
           loader = traceContext => input => getValue(input),
         )(logger)
@@ -30,9 +30,23 @@ class TracedScaffeineTest extends AsyncWordSpec with BaseTest {
       }
     }.failOnShutdown
 
+    "ignore the trace context stored with a key" in {
+      val counter = new AtomicInteger()
+      val keysCache = TracedScaffeine.buildTracedAsync[FutureUnlessShutdown, Int, Int](
+        cache = CachingConfigs.testing.mySigningKeyCache.buildScaffeine(),
+        loader = traceContext => input => getValue(counter.incrementAndGet() + input),
+      )(logger)
+      for {
+        result1 <- keysCache.get(10)(TraceContext.empty)
+        result2 <- keysCache.get(10)(TraceContext.createNew())
+      } yield {
+        result1 shouldBe result2
+      }
+    }.failOnShutdown
+
     "Handle AbortDueToShutdownException in get" in {
       val keysCache =
-        TracedScaffeine.buildTracedAsyncFutureUS[Int, Int](
+        TracedScaffeine.buildTracedAsync[FutureUnlessShutdown, Int, Int](
           cache = CachingConfigs.testing.mySigningKeyCache.buildScaffeine(),
           loader = traceContext => input => getValueBroken(input),
         )(logger)
@@ -49,7 +63,7 @@ class TracedScaffeineTest extends AsyncWordSpec with BaseTest {
     // with java.util.concurrent.CompletionException
     "Handle AbortDueToShutdownException in getAll" in {
       val keysCache =
-        TracedScaffeine.buildTracedAsyncFutureUS[Int, Int](
+        TracedScaffeine.buildTracedAsync[FutureUnlessShutdown, Int, Int](
           cache = CachingConfigs.testing.mySigningKeyCache.buildScaffeine(),
           loader = traceContext => input => getValueBroken(input),
         )(logger)
@@ -70,7 +84,7 @@ class TracedScaffeineTest extends AsyncWordSpec with BaseTest {
       }
 
       val keysCache =
-        TracedScaffeine.buildTracedAsyncFutureUS[Int, Int](
+        TracedScaffeine.buildTracedAsync[FutureUnlessShutdown, Int, Int](
           cache = CachingConfigs.testing.mySigningKeyCache.buildScaffeine(),
           loader = traceContext => input => getValueCount(input),
         )(logger)

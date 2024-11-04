@@ -4,8 +4,11 @@
 package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.data.memory
 
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.data.OutputBlockMetadataStore
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.data.OutputBlockMetadataStore.OutputBlockMetadata
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.data.{
+  OutputBlockMetadataStore,
+  OutputBlocksReader,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.Env
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
   BlockNumber,
@@ -22,7 +25,8 @@ import scala.collection.concurrent.TrieMap
 import scala.util.{Failure, Success, Try}
 
 abstract class GenericInMemoryOutputBlockMetadataStore[E <: Env[E]]
-    extends OutputBlockMetadataStore[E] {
+    extends OutputBlockMetadataStore[E]
+    with OutputBlocksReader[E] {
 
   private val blocks: TrieMap[BlockNumber, OutputBlockMetadata] = TrieMap.empty
 
@@ -134,6 +138,25 @@ abstract class GenericInMemoryOutputBlockMetadataStore[E <: Env[E]]
         }
         .map(_ => Success(()))
         .getOrElse(Failure(new RuntimeException(s"Block $block not found")))
+    }
+
+  override def loadOutputBlockMetadata(
+      startEpochNumberInclusive: EpochNumber,
+      endEpochNumberInclusive: EpochNumber,
+  )(implicit traceContext: TraceContext): E#FutureUnlessShutdownT[Seq[OutputBlockMetadata]] =
+    createFuture(
+      loadOutputBlockMetadataActionName(startEpochNumberInclusive, endEpochNumberInclusive)
+    ) { () =>
+      Success(
+        blocks.values
+          .collect {
+            case block
+                if startEpochNumberInclusive <= block.epochNumber && block.epochNumber <= endEpochNumberInclusive =>
+              block
+          }
+          .toSeq
+          .sortBy(_.blockNumber)
+      )
     }
 }
 

@@ -155,11 +155,6 @@ class PackageUploader(
           sourceDescription = lengthValidatedDarName.getOrElse(String255.empty),
           dar = dar,
         )
-        // update our dependency cache
-        // we need to do this due to an issue we can hit if we have pre-populated the cache
-        // with the information about the package not being present (with a None)
-        // now, that the package is loaded, we need to get rid of this None.
-        _ = packageDependencyResolver.clearPackagesNotPreviouslyFound()
         _ = logger.debug(
           s"Managed to upload one or more archives for submissionId $submissionId"
         )

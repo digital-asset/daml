@@ -7,6 +7,7 @@ import cats.syntax.traverse.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.bftordering.v1.{
   BftOrderingMessageBody as ProtoBftOrderingMessageBody,
+  BlockTransferData as ProtoBlockTransferData,
   BlockTransferRequest as ProtoBlockTransferRequest,
   BlockTransferResponse as ProtoBlockTransferResponse,
   StateTransferMessage as ProtoStateTransferMessage,
@@ -114,15 +115,44 @@ object Consensus {
         )
     }
 
+    final case class BlockTransferData private (
+        prePrepare: SignedMessage[PrePrepare],
+        pendingTopologyChanges: Boolean,
+    ) {
+      def toProto: ProtoBlockTransferData =
+        ProtoBlockTransferData.of(
+          Some(prePrepare.toProto),
+          pendingTopologyChanges,
+        )
+    }
+    object BlockTransferData {
+      def create(
+          prePrepare: SignedMessage[PrePrepare],
+          pendingTopologyChanges: Boolean,
+      ): BlockTransferData = BlockTransferData(prePrepare, pendingTopologyChanges)
+
+      def fromProto(protoData: ProtoBlockTransferData): ParsingResult[BlockTransferData] =
+        for {
+          signedMessage <-
+            ProtoConverter.required(
+              "blockPrePrepare",
+              protoData.blockPrePrepare,
+            )
+          prePrepare <-
+            SignedMessage.fromProto(
+              ConsensusSegment.ConsensusMessage.PrePrepare.fromProtoConsensusMessage
+            )(signedMessage)
+        } yield BlockTransferData(prePrepare, protoData.pendingTopologyChanges)
+    }
+
     final case class BlockTransferResponse private (
         latestCompletedEpoch: EpochNumber,
         latestCompletedEpochTopologySnapshotEffectiveTime: EffectiveTime,
-        prePrepares: Seq[SignedMessage[PrePrepare]],
+        blockTransferData: Seq[BlockTransferData],
         lastBlockCommits: Seq[SignedMessage[Commit]],
         from: SequencerId,
     ) extends StateTransferMessage {
       def toProto: ProtoBftOrderingMessageBody = {
-        val protoPrePrepares = prePrepares.view.map(_.toProto).toSeq
         val protoLastBlockCommits = lastBlockCommits.view.map(_.toProto).toSeq
         ProtoBftOrderingMessageBody.of(
           ProtoBftOrderingMessageBody.Message.StateTransferMessage(
@@ -131,7 +161,7 @@ object Consensus {
                 ProtoBlockTransferResponse.of(
                   latestCompletedEpoch,
                   Some(latestCompletedEpochTopologySnapshotEffectiveTime.value.toProtoTimestamp),
-                  protoPrePrepares,
+                  blockTransferData.view.map(_.toProto).toSeq,
                   protoLastBlockCommits,
                 )
               )
@@ -144,13 +174,13 @@ object Consensus {
       def create(
           latestCompletedEpoch: EpochNumber,
           lastEpochToTransferTopologySnapshotEffectiveTime: EffectiveTime,
-          prePrepares: Seq[SignedMessage[PrePrepare]],
+          blockTransferData: Seq[BlockTransferData],
           lastBlockCommits: Seq[SignedMessage[Commit]],
           from: SequencerId,
       ): BlockTransferResponse = BlockTransferResponse(
         latestCompletedEpoch,
         lastEpochToTransferTopologySnapshotEffectiveTime,
-        prePrepares,
+        blockTransferData,
         lastBlockCommits,
         from,
       )
@@ -159,10 +189,8 @@ object Consensus {
           protoResponse: ProtoBlockTransferResponse,
           from: SequencerId,
       ): ParsingResult[BlockTransferResponse] = {
-        val prePreparesE = protoResponse.blockPrePrepares.traverse {
-          SignedMessage.fromProto(
-            ConsensusSegment.ConsensusMessage.PrePrepare.fromProtoConsensusMessage
-          )
+        val blockTransferDataE = protoResponse.blockTransferData.traverse {
+          BlockTransferData.fromProto
         }
 
         val lastBlockCommitsE = protoResponse.lastBlockCommits.traverse {
@@ -172,7 +200,7 @@ object Consensus {
         }
 
         for {
-          prePrepares <- prePreparesE
+          blockTransferData <- blockTransferDataE
           lastBlockCommits <- lastBlockCommitsE
           latestCompletedEpochTopologySnapshotSequencingInstantP <- ProtoConverter
             .required(
@@ -185,7 +213,7 @@ object Consensus {
         } yield BlockTransferResponse(
           EpochNumber(protoResponse.latestCompletedEpoch),
           latestCompletedEpochTopologyEffectiveTime,
-          prePrepares,
+          blockTransferData,
           lastBlockCommits,
           from,
         )
@@ -198,7 +226,7 @@ object Consensus {
     ) extends StateTransferMessage
 
     final case class BlockStored[E <: Env[E]](
-        prePrepare: PrePrepare,
+        blockTransferData: BlockTransferData,
         fullResponse: StateTransferMessage.BlockTransferResponse,
     ) extends StateTransferMessage
   }

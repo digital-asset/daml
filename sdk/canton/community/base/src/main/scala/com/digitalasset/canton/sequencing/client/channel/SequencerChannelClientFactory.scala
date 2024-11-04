@@ -10,6 +10,7 @@ import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.Crypto
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.networking.grpc.ClientChannelBuilder
+import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.sequencing.client.grpc.GrpcSequencerChannelBuilder
 import com.digitalasset.canton.sequencing.client.transports.GrpcSequencerClientAuth
 import com.digitalasset.canton.sequencing.client.{SequencerClient, SequencerClientConfig}
@@ -26,11 +27,14 @@ import io.grpc.ManagedChannel
 
 import scala.concurrent.ExecutionContextExecutor
 
+/** The SequencerChannelClientFactory creates a SequencerChannelClient and its embedded GRPC channel transports
+  */
 final class SequencerChannelClientFactory(
     domainId: DomainId,
     crypto: Crypto,
     config: SequencerClientConfig,
     traceContextPropagation: TracingConfig.Propagation,
+    domainParameters: StaticDomainParameters,
     processingTimeout: ProcessingTimeout,
     clock: Clock,
     loggerFactory: NamedLoggerFactory,
@@ -47,7 +51,15 @@ final class SequencerChannelClientFactory(
       sequencerConnections,
       member,
       expectedSequencers,
-    ).map(new SequencerChannelClient(member, _, processingTimeout, loggerFactory))
+    ).map(transportMap =>
+      new SequencerChannelClient(
+        member,
+        new SequencerChannelClientState(transportMap, processingTimeout, loggerFactory),
+        domainParameters,
+        processingTimeout,
+        loggerFactory,
+      )
+    )
 
   private def makeChannelTransports(
       sequencerConnections: SequencerConnections,
@@ -85,9 +97,7 @@ final class SequencerChannelClientFactory(
       member: Member,
   )(implicit
       executionContext: ExecutionContextExecutor
-  ): SequencerChannelClientTransport = {
-    val loggerFactoryWithSequencerId =
-      SequencerClient.loggerFactoryWithSequencerId(loggerFactory, sequencerId)
+  ): SequencerChannelClientTransport =
     conn match {
       case connection: GrpcSequencerConnection =>
         val channel = createChannel(connection)
@@ -96,10 +106,9 @@ final class SequencerChannelClientFactory(
           channel,
           auth,
           processingTimeout,
-          loggerFactoryWithSequencerId,
+          loggerFactory.append("sequencerId", sequencerId.uid.toString),
         )
     }
-  }
 
   private def grpcSequencerClientAuth(
       connection: GrpcSequencerConnection,
@@ -125,6 +134,8 @@ final class SequencerChannelClientFactory(
     )
   }
 
+  /** Creates a GRPC-level managed channel (not to be confused with a sequencer channel).
+    */
   private def createChannel(conn: GrpcSequencerConnection)(implicit
       executionContext: ExecutionContextExecutor
   ): ManagedChannel = {

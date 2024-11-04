@@ -897,6 +897,7 @@ class TransactionProcessingSteps(
           commonData,
           requestTimestamp,
           domainParameters.ledgerTimeRecordTimeTolerance,
+          domainParameters.submissionTimeRecordTimeTolerance,
           amSubmitter,
           logger,
         )

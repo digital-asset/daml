@@ -11,6 +11,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.cor
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.EpochInProgress
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.GenesisEpoch
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.data.OutputBlocksReader
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.CryptoProvider
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fakeSequencerId
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.{
@@ -69,6 +70,7 @@ class PreIssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExec
         (anEpoch, anEpoch, anEpoch.info),
       ).forEvery { (latestCompletedEpoch, latestEpoch, expectedEpochInfoInState) =>
         val epochStore = mock[EpochStore[IgnoringUnitTestEnv]]
+        val outputBlocksReader = mock[OutputBlocksReader[IgnoringUnitTestEnv]]
         when(epochStore.latestEpoch(includeInProgress = false)).thenReturn(() =>
           latestCompletedEpoch
         )
@@ -76,7 +78,7 @@ class PreIssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExec
         when(epochStore.loadEpochProgress(latestEpoch.info)).thenReturn(() =>
           EpochStore.EpochInProgress(Seq.empty, Seq.empty)
         )
-        val preIssConsensusModule = createPreIssConsensusModule(epochStore)
+        val preIssConsensusModule = createPreIssConsensusModule(epochStore, outputBlocksReader)
         val (epochState, lastCompletedEpochRestored) =
           preIssConsensusModule.restoreEpochStateFromDB()
 
@@ -91,13 +93,15 @@ class PreIssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExec
   }
 
   private def createPreIssConsensusModule(
-      epochStore: EpochStore[IgnoringUnitTestEnv]
+      epochStore: EpochStore[IgnoringUnitTestEnv],
+      outputBlocksReader: OutputBlocksReader[IgnoringUnitTestEnv],
   ): PreIssConsensusModule[IgnoringUnitTestEnv] =
     new PreIssConsensusModule[IgnoringUnitTestEnv](
       initialMembership = Membership(selfId),
       fakeCryptoProvider,
       epochLength,
       epochStore,
+      outputBlocksReader,
       None,
       clock,
       SequencerMetrics.noop(getClass.getSimpleName).bftOrdering,

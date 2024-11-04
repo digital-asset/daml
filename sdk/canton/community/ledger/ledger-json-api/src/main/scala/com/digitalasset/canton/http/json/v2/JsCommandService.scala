@@ -6,20 +6,12 @@ package com.digitalasset.canton.http.json.v2
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.v2.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
 import com.google.protobuf
-import com.daml.ledger.api.v2.{
-  command_completion_service,
-  command_submission_service,
-  completion,
-  reassignment_command,
-}
+import com.daml.ledger.api.v2.{command_completion_service, command_submission_service, completion, reassignment_command}
 import com.daml.ledger.api.v2.commands.Commands.DeduplicationPeriod
+import com.digitalasset.canton.http.{JsonApiConfig, WebsocketConfig}
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput, v2Endpoint}
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
-import com.digitalasset.canton.http.json.v2.JsSchema.{
-  JsCantonError,
-  JsTransaction,
-  JsTransactionTree,
-}
+import com.digitalasset.canton.http.json.v2.JsSchema.{JsCantonError, JsTransaction, JsTransactionTree}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.*
@@ -41,6 +33,7 @@ class JsCommandService(
 )(implicit
     val executionContext: ExecutionContext,
     esf: ExecutionSequencerFactory,
+  wsConfig: WebsocketConfig,
 ) extends Endpoints
     with NamedLogging {
 
@@ -289,7 +282,7 @@ object JsCommandService {
         webSocketBody[
           command_completion_service.CompletionStreamRequest,
           CodecFormat.Json,
-          command_completion_service.CompletionStreamResponse,
+          Either[JsCantonError, command_completion_service.CompletionStreamResponse],
           CodecFormat.Json,
         ](PekkoStreams)
       )

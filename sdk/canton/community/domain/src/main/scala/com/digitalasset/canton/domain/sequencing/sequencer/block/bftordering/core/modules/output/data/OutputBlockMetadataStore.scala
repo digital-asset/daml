@@ -80,6 +80,7 @@ object OutputBlockMetadataStore {
       epochNumber: EpochNumber,
       blockNumber: BlockNumber,
       blockBftTime: CantonTimestamp,
+      // TODO(#22205): consider using a separate table for the following epoch-level info
       epochCouldAlterSequencingTopology: Boolean, // Cumulative over all blocks in the epoch (restart support)
       pendingTopologyChangesInNextEpoch: Boolean, // May be true only for the last block in an epoch
   )
@@ -88,7 +89,9 @@ object OutputBlockMetadataStore {
       storage: Storage,
       timeouts: ProcessingTimeout,
       loggerFactory: NamedLoggerFactory,
-  )(implicit ec: ExecutionContext): OutputBlockMetadataStore[PekkoEnv] =
+  )(implicit
+      ec: ExecutionContext
+  ): OutputBlockMetadataStore[PekkoEnv] & OutputBlocksReader[PekkoEnv] =
     storage match {
       case _: MemoryStorage =>
         new InMemoryOutputBlockMetadataStore

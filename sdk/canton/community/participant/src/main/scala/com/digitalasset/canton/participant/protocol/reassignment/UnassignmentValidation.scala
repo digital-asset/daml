@@ -7,11 +7,8 @@ import cats.data.*
 import cats.syntax.either.*
 import com.digitalasset.canton.data.FullUnassignmentTree
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.*
-import com.digitalasset.canton.participant.protocol.{
-  ReassignmentSubmissionValidation,
-  SerializableContractAuthenticator,
-}
 import com.digitalasset.canton.protocol.{LfTemplateId, Stakeholders}
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -112,13 +109,15 @@ private[reassignment] object UnassignmentValidation {
           .leftMap[ReassignmentProcessorError](ContractError(_))
       )
 
-      _ <- ReassignmentSubmissionValidation.unassignment(
-        contractId = request.contractId,
-        topologySnapshot = sourceTopology,
-        submitter = request.submitter,
-        participantId = request.submitterMetadata.submittingParticipant,
-        stakeholders = expectedStakeholders.all,
-      )
+      _ <- ReassignmentValidation
+        .checkSubmitter(
+          ReassignmentRef(request.contractId),
+          topologySnapshot = sourceTopology,
+          submitter = request.submitter,
+          participantId = request.submitterMetadata.submittingParticipant,
+          stakeholders = expectedStakeholders.all,
+        )
+        .mapK(FutureUnlessShutdown.outcomeK)
       _ <- validation.checkParticipants
       _ <- validation.checkTemplateId
     } yield ()

@@ -93,6 +93,11 @@ trait RefinedNonNegativeDuration[D <: RefinedNonNegativeDuration[D]] extends Pre
   )(fut: Future[?])(implicit loggingContext: ErrorLoggingContext): Unit =
     await(description, logFailing)(fut).discard
 
+  def awaitUS_(description: => String, logFailing: Option[Level] = None)(
+      fut: FutureUnlessShutdown[?]
+  )(implicit loggingContext: ErrorLoggingContext): Unit =
+    awaitUS(description, logFailing)(fut).discard
+
   def toProtoPrimitive: com.google.protobuf.duration.Duration = {
     val d = asJavaApproximation
     com.google.protobuf.duration.Duration(d.getSeconds, d.getNano)

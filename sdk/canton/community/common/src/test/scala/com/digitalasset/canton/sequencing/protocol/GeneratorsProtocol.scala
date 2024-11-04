@@ -132,6 +132,28 @@ final class GeneratorsProtocol(
     } yield SubscriptionRequest.apply(member, counter, protocolVersion)
   )
 
+  implicit val sequencerChannelMetadataArb: Arbitrary[SequencerChannelMetadata] =
+    Arbitrary(
+      for {
+        channelId <- Arbitrary.arbitrary[SequencerChannelId]
+        initiatingMember <- Arbitrary.arbitrary[Member]
+        receivingMember <- Arbitrary.arbitrary[Member]
+      } yield SequencerChannelMetadata.apply(
+        channelId,
+        initiatingMember,
+        receivingMember,
+        protocolVersion,
+      )
+    )
+
+  implicit val sequencerChannelConnectedToMembersArb
+      : Arbitrary[SequencerChannelConnectedToAllEndpoints] =
+    Arbitrary(
+      SequencerChannelConnectedToAllEndpoints.apply(
+        protocolVersion
+      )
+    )
+
   private val sequencerDeliverErrorCodeArb: Arbitrary[SequencerDeliverErrorCode] = genArbitrary
 
   private implicit val sequencerDeliverErrorArb: Arbitrary[SequencerDeliverError] =

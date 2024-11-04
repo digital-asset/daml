@@ -6,7 +6,6 @@ package com.digitalasset.canton.tracing
 import cats.~>
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.discard.Implicits.*
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.util.FutureUtil
 import com.github.blemale.scaffeine.{AsyncLoadingCache, Scaffeine}
@@ -14,59 +13,37 @@ import com.github.blemale.scaffeine.{AsyncLoadingCache, Scaffeine}
 import scala.concurrent.{ExecutionContext, Future}
 
 object TracedScaffeine {
-  def buildTracedAsyncFuture[K, V](
+
+  def buildTracedAsync[F[_], K, V](
       cache: Scaffeine[Any, Any],
-      loader: TraceContext => K => Future[V],
-      allLoader: Option[TraceContext => Iterable[K] => Future[Map[K, V]]] = None,
+      loader: TraceContext => K => F[V],
+      allLoader: Option[TraceContext => Iterable[K] => F[Map[K, V]]] = None,
   )(
       tracedLogger: TracedLogger
-  )(implicit ec: ExecutionContext): TracedAsyncLoadingCache[Future, K, V] =
-    new TracedAsyncLoadingCache[Future, K, V](
+  )(implicit tunnel: EffectTunnel[F, Future]): TracedAsyncLoadingCache[F, K, V] =
+    new TracedAsyncLoadingCache[F, K, V](
       cache.buildAsyncFuture[Traced[K], V](
-        loader = tracedKey => loader(tracedKey.traceContext)(tracedKey.unwrap),
-        allLoader = allLoader.map { tracedFunction => (tracedKeys: Iterable[Traced[K]]) =>
-          {
-            val traceContext = tracedKeys.headOption
-              .map(_.traceContext)
-              .getOrElse(TraceContext.empty)
-            val keys = tracedKeys.map(_.unwrap)
-            tracedFunction(traceContext)(keys)
-              .map(_.map { case (key, value) => Traced(key)(traceContext) -> value })
-          }
-        },
+        loader = tracedKey => tunnel.enter(tracedKey.withTraceContext(loader)),
+        allLoader = allLoader.map(tracedAllLoader(tracedLogger, _)(tunnel.enter)),
       ),
       tracedLogger,
-      // The Caffeine cache's getAll method wraps exceptions from the loader in a `CompletionException`.
-      // We should strip it here.
-      FutureUtil.unwrapCompletionExceptionK,
+      tunnel.exitK,
     )
 
-  def buildTracedAsyncFutureUS[K, V](
-      cache: Scaffeine[Any, Any],
-      loader: TraceContext => K => FutureUnlessShutdown[V],
-      allLoader: Option[TraceContext => Iterable[K] => FutureUnlessShutdown[Map[K, V]]] = None,
+  private def tracedAllLoader[F[_], K, V](
+      tracedLogger: TracedLogger,
+      allLoader: TraceContext => Iterable[K] => F[Map[K, V]],
   )(
-      tracedLogger: TracedLogger
-  )(implicit ec: ExecutionContext): TracedAsyncLoadingCache[FutureUnlessShutdown, K, V] =
-    new TracedAsyncLoadingCache[FutureUnlessShutdown, K, V](
-      cache.buildAsyncFuture[Traced[K], V](
-        loader = _.withTraceContext(loader)
-          .failOnShutdownToAbortException("TracedAsyncLoadingCache-loader"),
-        allLoader = allLoader.map { tracedFunction => (tracedKeys: Iterable[Traced[K]]) =>
-          {
-            val traceContext = TraceContext.ofBatch(tracedKeys)(tracedLogger)
-            val keys = tracedKeys.map(_.unwrap)
-            tracedFunction(traceContext)(keys)
-              .map(_.map { case (key, value) => Traced(key)(traceContext) -> value })
-          }.failOnShutdownToAbortException("TracedAsyncLoadingCache-allLoader")
-        },
-      ),
-      tracedLogger,
-      // The Caffeine cache's getAll method wraps exceptions from the loader in a `CompletionException`.
-      // We should strip it here.
-      FutureUnlessShutdown.recoverFromAbortExceptionK.compose(FutureUtil.unwrapCompletionExceptionK),
-    )
-
+      toFuture: F[Map[K, V]] => Future[Map[K, V]]
+  ): Iterable[Traced[K]] => Future[Map[Traced[K], V]] = {
+    implicit val ec: ExecutionContext = DirectExecutionContext(tracedLogger)
+    tracedKeys => {
+      val traceContext = TraceContext.ofBatch(tracedKeys)(tracedLogger)
+      val keys = tracedKeys.map(_.unwrap)
+      toFuture(allLoader(traceContext)(keys))
+        .map(_.map { case (key, value) => Traced(key)(traceContext) -> value })
+    }
+  }
 }
 
 class TracedAsyncLoadingCache[F[_], K, V] private[tracing] (
@@ -79,15 +56,23 @@ class TracedAsyncLoadingCache[F[_], K, V] private[tracing] (
   /** @see com.github.blemale.scaffeine.AsyncLoadingCache.get
     */
   def get(key: K)(implicit traceContext: TraceContext): F[V] =
-    postProcess(underlying.get(Traced(key)(traceContext)))
+    postProcess(
+      // The Caffeine cache's getAll method wraps exceptions from the loader in a `CompletionException`.
+      // We should strip it here.
+      FutureUtil.unwrapCompletionException(underlying.get(Traced(key)(traceContext)))
+    )
 
   /** @see com.github.blemale.scaffeine.AsyncLoadingCache.getAll
     */
   def getAll(keys: Iterable[K])(implicit traceContext: TraceContext): F[Map[K, V]] =
     postProcess(
-      underlying
-        .getAll(keys.map(Traced(_)(traceContext)))
-        .map(_.map { case (tracedKey, value) => tracedKey.unwrap -> value })(ec)
+      // The Caffeine cache's getAll method wraps exceptions from the loader in a `CompletionException`.
+      // We should strip it here.
+      FutureUtil.unwrapCompletionException(
+        underlying
+          .getAll(keys.map(Traced(_)(traceContext)))
+          .map(_.map { case (tracedKey, value) => tracedKey.unwrap -> value })(ec)
+      )
     )
 
   /** Remove those mappings for which the predicate `filter` returns true */

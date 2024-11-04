@@ -133,7 +133,6 @@ class BlockSequencerTest
       member = sequencer1,
       domainId,
       topologyClient,
-      // This works even though the crypto owner is the domain manager!!!
       topologyTransactionFactory.cryptoApi.crypto,
       CachingConfigs.testing,
       defaultStaticDomainParameters,

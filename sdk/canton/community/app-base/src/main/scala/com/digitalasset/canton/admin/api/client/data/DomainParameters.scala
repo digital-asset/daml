@@ -207,6 +207,7 @@ final case class DynamicDomainParameters(
     onboardingRestriction: OnboardingRestriction,
     acsCommitmentsCatchUpConfig: Option[AcsCommitmentsCatchUpConfig],
     participantDomainLimits: ParticipantDomainLimits,
+    submissionTimeRecordTimeTolerance: NonNegativeFiniteDuration,
 ) {
 
   def decisionTimeout: config.NonNegativeFiniteDuration =
@@ -215,21 +216,23 @@ final case class DynamicDomainParameters(
   @inline def confirmationRequestsMaxRate: NonNegativeInt =
     participantDomainLimits.confirmationRequestsMaxRate
 
-  if (ledgerTimeRecordTimeTolerance * 2 > mediatorDeduplicationTimeout)
+  if (submissionTimeRecordTimeTolerance * 2 > mediatorDeduplicationTimeout)
     throw new InvalidDynamicDomainParameters(
-      s"The ledgerTimeRecordTimeTolerance ($ledgerTimeRecordTimeTolerance) must be at most half of the " +
+      s"The submissionTimeRecordTimeTolerance ($submissionTimeRecordTimeTolerance) must be at most half of the " +
         s"mediatorDeduplicationTimeout ($mediatorDeduplicationTimeout)."
     )
 
   // https://docs.google.com/document/d/1tpPbzv2s6bjbekVGBn6X5VZuw0oOTHek5c30CBo4UkI/edit#bookmark=id.1dzc6dxxlpca
-  private[canton] def compatibleWithNewLedgerTimeRecordTimeTolerance(
-      newLedgerTimeRecordTimeTolerance: NonNegativeFiniteDuration
+  // Originally the validation was done on ledgerTimeRecordTimeTolerance, but was moved to submissionTimeRecordTimeTolerance
+  // instead when the parameter was introduced
+  private[canton] def compatibleWithNewSubmissionTimeRecordTimeTolerance(
+      newSubmissionTimeRecordTimeTolerance: NonNegativeFiniteDuration
   ): Boolean =
-    // If false, a new request may receive the same ledger time as a previous request and the previous
+    // If false, a new request may receive the same submission time as a previous request and the previous
     // request may be evicted too early from the mediator's deduplication store.
     // Thus, an attacker may assign the same UUID to both requests.
     // See i9028 for a detailed design. (This is the second clause of item 2 of Lemma 2).
-    ledgerTimeRecordTimeTolerance + newLedgerTimeRecordTimeTolerance <= mediatorDeduplicationTimeout
+    submissionTimeRecordTimeTolerance + newSubmissionTimeRecordTimeTolerance <= mediatorDeduplicationTimeout
 
   def update(
       confirmationResponseTimeout: NonNegativeFiniteDuration = confirmationResponseTimeout,
@@ -245,7 +248,10 @@ final case class DynamicDomainParameters(
         sequencerAggregateSubmissionTimeout,
       trafficControlParameters: Option[TrafficControlParameters] = trafficControlParameters,
       onboardingRestriction: OnboardingRestriction = onboardingRestriction,
-      acsCommitmentsCatchUpConfig: Option[AcsCommitmentsCatchUpConfig] = acsCommitmentsCatchUpConfig,
+      acsCommitmentsCatchUpConfig: Option[AcsCommitmentsCatchUpConfig] =
+        acsCommitmentsCatchUpConfig,
+      submissionTimeRecordTimeTolerance: NonNegativeFiniteDuration =
+        submissionTimeRecordTimeTolerance,
   ): DynamicDomainParameters = this.copy(
     confirmationResponseTimeout = confirmationResponseTimeout,
     mediatorReactionTimeout = mediatorReactionTimeout,
@@ -260,6 +266,7 @@ final case class DynamicDomainParameters(
     onboardingRestriction = onboardingRestriction,
     acsCommitmentsCatchUpConfig = acsCommitmentsCatchUpConfig,
     participantDomainLimits = ParticipantDomainLimits(confirmationRequestsMaxRate),
+    submissionTimeRecordTimeTolerance = submissionTimeRecordTimeTolerance,
   )
 
   private[canton] def toInternal: Either[String, DynamicDomainParametersInternal] =
@@ -287,6 +294,8 @@ final case class DynamicDomainParameters(
           onboardingRestriction = onboardingRestriction,
           acsCommitmentsCatchUpConfigParameter = acsCommitmentsCatchUpConfig,
           participantDomainLimits = participantDomainLimits.toInternal,
+          submissionTimeRecordTimeTolerance =
+            InternalNonNegativeFiniteDuration.fromConfig(submissionTimeRecordTimeTolerance),
         )(rpv)
       }
 }

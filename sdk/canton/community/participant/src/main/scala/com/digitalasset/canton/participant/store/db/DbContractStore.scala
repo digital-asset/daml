@@ -475,7 +475,3 @@ class DbContractStore(
   override def contractCount()(implicit traceContext: TraceContext): Future[Int] =
     storage.query(sql"select count(*) from par_contracts".as[Int].head, functionFullName)
 }
-
-object DbContractStore {
-  final case class AbortedDueToShutdownException(message: String) extends RuntimeException(message)
-}

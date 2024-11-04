@@ -15,8 +15,8 @@ import com.digitalasset.canton.data.{
 import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidation.*
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.{
-  AssignmentSubmitterMustBeStakeholder,
   ContractError,
+  SubmitterMustBeStakeholder,
 }
 import com.digitalasset.canton.participant.protocol.submission.SeedGenerator
 import com.digitalasset.canton.protocol.*
@@ -420,8 +420,8 @@ class AssignmentValidationTest
       // Happy path / control
       validate(signatory).value.value.confirmingParties shouldBe Set(signatory)
 
-      validate(otherParty).left.value shouldBe AssignmentSubmitterMustBeStakeholder(
-        unassignmentResult.reassignmentId,
+      validate(otherParty).left.value shouldBe SubmitterMustBeStakeholder(
+        ReassignmentRef(unassignmentResult.reassignmentId),
         submittingParty = otherParty,
         stakeholders = Set(signatory, observer),
       )

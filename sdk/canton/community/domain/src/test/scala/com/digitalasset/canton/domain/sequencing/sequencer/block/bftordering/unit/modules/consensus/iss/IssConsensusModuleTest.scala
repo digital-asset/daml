@@ -13,6 +13,8 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.cor
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.memory.GenericInMemoryEpochStore
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.leaders.SimpleLeaderSelectionPolicy
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.StateTransferManager
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.data.OutputBlocksReader
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.output.data.memory.GenericInMemoryOutputBlockMetadataStore
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.CryptoProvider
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fakeSequencerId
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.ModuleRef
@@ -488,6 +490,8 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
       otherPeers: Set[SequencerId] = Set.empty,
       epochStore: EpochStore[ProgrammableUnitTestEnv] =
         new InMemoryUnitTestEpochStore[ProgrammableUnitTestEnv],
+      outputBlocksReader: OutputBlocksReader[ProgrammableUnitTestEnv] =
+        new InMemoryUnitTestOutputBlockMetadataStore[ProgrammableUnitTestEnv],
       preConfiguredInitialEpochState: Option[
         ContextType => EpochState[ProgrammableUnitTestEnv]
       ] = None,
@@ -531,7 +535,14 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
         )
 
     val stateTransferManager = stateTransferManagerOpt.getOrElse(
-      new StateTransferManager(dependencies, epochLength, epochStore, selfId, loggerFactory)
+      new StateTransferManager(
+        dependencies,
+        epochLength,
+        epochStore,
+        outputBlocksReader,
+        selfId,
+        loggerFactory,
+      )
     )
 
     context -> new IssConsensusModule(
@@ -544,6 +555,7 @@ class IssConsensusModuleTest extends AsyncWordSpec with BaseTest with HasExecuti
         latestCompletedEpochFromStore,
       ),
       epochStore,
+      outputBlocksReader,
       clock,
       SequencerMetrics.noop(getClass.getSimpleName).bftOrdering,
       createSegmentModuleRefFactory(segmentModuleFactoryFunction),
@@ -600,6 +612,13 @@ object IssConsensusModuleTest {
 
 final class InMemoryUnitTestEpochStore[E <: BaseIgnoringUnitTestEnv[E]]
     extends GenericInMemoryEpochStore[E] {
+  override protected def createFuture[T](action: String)(
+      value: () => Try[T]
+  ): E#FutureUnlessShutdownT[T] = () => value().get
+}
+
+final class InMemoryUnitTestOutputBlockMetadataStore[E <: BaseIgnoringUnitTestEnv[E]]
+    extends GenericInMemoryOutputBlockMetadataStore[E] {
   override protected def createFuture[T](action: String)(
       value: () => Try[T]
   ): E#FutureUnlessShutdownT[T] = () => value().get

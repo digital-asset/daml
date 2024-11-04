@@ -8,7 +8,6 @@ import com.digitalasset.canton.ReassignmentCounter
 import com.digitalasset.canton.crypto.{HashOps, HmacOps, Salt, SaltSeed}
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.participant.protocol.ReassignmentSubmissionValidation
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.ReassignmentProcessorError
 import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessorError.StakeholderHostingErrors
 import com.digitalasset.canton.participant.protocol.submission.UsableDomain
@@ -110,13 +109,15 @@ object UnassignmentRequest {
     val stakeholders = Stakeholders(contract.metadata)
 
     for {
-      _ <- ReassignmentSubmissionValidation.unassignment(
-        contractId,
-        sourceTopology,
-        submitterMetadata.submitter,
-        participantId,
-        stakeholders = stakeholders.all,
-      )
+      _ <- ReassignmentValidation
+        .checkSubmitter(
+          ReassignmentRef(contractId),
+          sourceTopology,
+          submitterMetadata.submitter,
+          participantId,
+          stakeholders = stakeholders.all,
+        )
+        .mapK(FutureUnlessShutdown.outcomeK)
 
       unassignmentRequestRecipients <- sourceTopology.unwrap
         .activeParticipantsOfAll(stakeholders.all.toList)

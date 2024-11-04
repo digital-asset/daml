@@ -342,4 +342,7 @@ final class ProgrammableUnitTestContext[MessageT](resolveAwaits: Boolean = false
   override def timeFuture[X](timer: Timer, futureUnlessShutdown: => () => X)(implicit
       mc: MetricsContext
   ): () => X = futureUnlessShutdown
+
+  override def zipFuture[X, Y](future1: () => X, future2: () => Y): () => (X, Y) =
+    () => (future1(), future2())
 }
