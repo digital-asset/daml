@@ -27,7 +27,7 @@ template Helper
 
 -- @LEDGER run LfDevMustFailCommit.EXPECTED.ledger
 run = do
-  p <- allocateParty "p"
+  p <- allocatePartyWithHint "p" (PartyIdHint "p")
   submit p $ createCmd (Keyed p 0)
   -- This fails when committing the transaction but it
   -- passes Speedy without error.

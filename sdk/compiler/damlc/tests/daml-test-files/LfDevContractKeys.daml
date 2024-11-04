@@ -93,8 +93,8 @@ template Helper
 
 -- @LEDGER run LfDevContractKeys.EXPECTED.ledger
 run = script do
-  alice <- allocateParty "Alice"
-  bob <- allocateParty "Bob"
+  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
+  bob <- allocatePartyWithHint "Bob" (PartyIdHint "Bob")
 
   cid1 <- submit alice do
     createCmd TextKey with

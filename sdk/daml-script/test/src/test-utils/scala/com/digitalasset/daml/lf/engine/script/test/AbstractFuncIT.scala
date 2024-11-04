@@ -219,7 +219,6 @@ abstract class AbstractFuncIT
           inside(vals.get(0)) { case SList(FrontStackCons(SRecord(_, _, details), FrontStack())) =>
             details should contain theSameElementsInOrderAs (Seq(
               vals.get(1),
-              SOptional(Some(SText("myparty"))),
               SBool(true),
             ))
           }

@@ -349,12 +349,12 @@ class GrpcLedgerClient(
     } yield result
   }
 
-  override def allocateParty(partyIdHint: String, displayName: String)(implicit
+  override def allocateParty(partyIdHint: String)(implicit
       ec: ExecutionContext,
       mat: Materializer,
   ) = {
     grpcClient.partyManagementClient
-      .allocateParty(Some(partyIdHint), Some(displayName))
+      .allocateParty(Some(partyIdHint), None, None)
       .map(_.party)
   }
 

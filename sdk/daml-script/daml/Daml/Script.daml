@@ -384,8 +384,7 @@ passTime rt = do
   setTime (addRelTime t rt)
 
 data AllocateParty a = AllocateParty
-  { displayName : Text
-  , idHint : Text
+  { idHint : Text
   , participant : Optional Text
   , continue : Party -> a
   , locations : [(Text, SrcLoc)]
@@ -409,41 +408,29 @@ newtype PartyIdHint = PartyIdHint { partyIdHint : Text }
 
 newtype ParticipantName = ParticipantName { participantName : Text }
 
--- | Allocate a party with the given display name
+-- | Allocate a party
 -- using the party management service.
 allocateParty : HasCallStack => Text -> Script Party
-allocateParty displayName = lift $ Free $ AllocParty $ AllocateParty with
-  displayName
-  idHint = ""
-  participant = None
-  continue = pure
-  locations = getCallStack callStack
+allocateParty _deprecatedDisplayName = allocatePartyWithHint _deprecatedDisplayName (PartyIdHint "")
 
--- | Allocate a party with the given display name and id hint
+-- | Allocate a party with the given id hint
 -- using the party management service.
 allocatePartyWithHint : HasCallStack => Text -> PartyIdHint -> Script Party
-allocatePartyWithHint displayName (PartyIdHint idHint) = lift $ Free $ AllocParty $ AllocateParty with
-  displayName
+allocatePartyWithHint _ (PartyIdHint idHint) = lift $ Free $ AllocParty $ AllocateParty with
   idHint = idHint
   participant = None
   continue = pure
   locations = getCallStack callStack
 
--- | Allocate a party with the given display name
+-- | Allocate a party
 -- on the specified participant using the party management service.
 allocatePartyOn : Text -> ParticipantName -> Script Party
-allocatePartyOn displayName (ParticipantName participant) = lift $ Free $ AllocParty $ AllocateParty with
-  displayName
-  idHint = ""
-  participant = Some participant
-  continue = pure
-  locations = getCallStack callStack
+allocatePartyOn _deprecatedDisplayName participantName = allocatePartyWithHintOn _deprecatedDisplayName (PartyIdHint "") participantName
 
--- | Allocate a party with the given display name and id hint
+-- | Allocate a party with the given id hint
 -- on the specified participant using the party management service.
 allocatePartyWithHintOn : Text -> PartyIdHint -> ParticipantName -> Script Party
-allocatePartyWithHintOn displayName (PartyIdHint idHint) (ParticipantName participant) = lift $ Free $ AllocParty $ AllocateParty with
-  displayName
+allocatePartyWithHintOn _ (PartyIdHint idHint) (ParticipantName participant) = lift $ Free $ AllocParty $ AllocateParty with
   idHint = idHint
   participant = Some participant
   continue = pure
@@ -469,7 +456,6 @@ listKnownPartiesOn (ParticipantName participant) =
 data PartyDetails = PartyDetails
   with
     party : Party -- ^ Party id
-    displayName : Optional Text -- ^ Optional display name
     isLocal : Bool -- ^ True if party is hosted by the backing participant.
   deriving (Eq, Ord, Show)
 

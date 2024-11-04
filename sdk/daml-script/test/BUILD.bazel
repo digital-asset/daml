@@ -54,9 +54,9 @@ load(
       cat << EOF >> $$TMP_DIR/daml/ScriptExample.daml
 initializeFixed : Script ()
 initializeFixed = do
-  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
-  bob <- allocatePartyWithHint "Bob" (PartyIdHint "Bob")
-  bank <- allocatePartyWithHint "Bank" (PartyIdHint "Bank")
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
+  bank <- allocateParty "Bank"
   let parties = LedgerParties{{..}}
   initialize parties
 EOF

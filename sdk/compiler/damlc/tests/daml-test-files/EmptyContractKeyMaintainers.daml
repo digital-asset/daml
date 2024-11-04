@@ -44,21 +44,21 @@ template Test
         pure ()
 
 createCmdNoMaintainer = script do
-  alice <- allocateParty "Alice"
+  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
   alice `submit` createCmd NoMaintainer with sig = alice
 
 queryNoMaintainer = script do
-  alice <- allocateParty "Alice"
+  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
   canSeeKey @NoMaintainer alice alice
 
 createNoMaintainer = script do
-  alice <- allocateParty "Alice"
+  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
   alice `submit` createAndExerciseCmd (Test alice) CreateTest
 
 fetchNoMaintainer = script do
-  alice <- allocateParty "Alice"
+  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
   alice `submit` createAndExerciseCmd (Test alice) FetchTest
 
 lookupNoMaintainer = script do
-  alice <- allocateParty "Alice"
+  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
   alice `submit` createAndExerciseCmd (Test alice) LookupTest

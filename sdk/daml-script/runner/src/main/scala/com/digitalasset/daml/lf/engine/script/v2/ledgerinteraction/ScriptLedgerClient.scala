@@ -201,7 +201,7 @@ trait ScriptLedgerClient {
     (Seq[ScriptLedgerClient.CommandResult], ScriptLedgerClient.TransactionTree),
   ]]
 
-  def allocateParty(partyIdHint: String, displayName: String)(implicit
+  def allocateParty(partyIdHint: String)(implicit
       ec: ExecutionContext,
       mat: Materializer,
   ): Future[Ref.Party]
