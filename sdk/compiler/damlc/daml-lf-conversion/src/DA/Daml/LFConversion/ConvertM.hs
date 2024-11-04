@@ -38,6 +38,7 @@ import qualified Data.Map.Strict as MS
 import qualified Data.Text.Extended as T
 import           "ghc-lib" GHC
 import           "ghc-lib" GhcPlugins as GHC hiding ((<>), notNull)
+import           DA.Daml.LF.TypeChecker.Error.WarningFlags
 
 newtype ConvertM a = ConvertM (ReaderT ConversionEnv (StateT ConversionState (Except FileDiagnostic)) a)
   deriving (Functor, Applicative, Monad, MonadError FileDiagnostic, MonadState ConversionState, MonadReader ConversionEnv)
@@ -105,6 +106,11 @@ conversionWarningRaw msg = do
       fileDiagnostic = (convModuleFilePath, ShowDiag, diagnostic)
   modify $ \s -> s { warnings = fileDiagnostic : warnings s }
 
+getErrorOrWarningStatus :: ErrorOrWarning -> ConvertM DamlWarningFlagStatus
+getErrorOrWarningStatus errOrWarn = do
+   warningFlags <- asks convWarningFlags
+   pure (getWarningStatus warningFlags errOrWarn)
+
 class IsErrorOrWarning e where
   conversionDiagnostic :: e -> ConvertM ()
 
@@ -115,7 +121,12 @@ instance IsErrorOrWarning StandaloneWarning where
   conversionDiagnostic = conversionWarning
 
 instance IsErrorOrWarning ErrorOrWarning where
-  conversionDiagnostic errOrWarn = conversionWarningRaw (ErrorOrWarningAsWarning errOrWarn)
+  conversionDiagnostic errOrWarn = do
+    status <- getErrorOrWarningStatus errOrWarn
+    case status of
+      AsError -> conversionErrorRaw (ErrorOrWarningAsError errOrWarn)
+      AsWarning -> conversionWarningRaw (ErrorOrWarningAsWarning errOrWarn)
+      Hidden -> pure ()
 
 unsupported :: (HasCallStack, Outputable a) => String -> a -> ConvertM e
 unsupported typ x = conversionError (Unsupported typ (prettyPrint x))
