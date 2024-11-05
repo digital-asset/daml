@@ -20,12 +20,15 @@ module DA.Daml.LF.TypeChecker.Error(
     PackageUpgradeOrigin(..),
     UpgradeMismatchReason(..),
     DamlWarningFlag(..),
+    DamlWarningFlags(..),
     DamlWarningFlagStatus(..),
     parseRawDamlWarningFlag,
     getWarningStatus,
     upgradeInterfacesFlag,
     upgradeExceptionsFlag,
-    namesToFlags,
+    damlWarningFlagParserTypeChecker,
+    mkDamlWarningFlags,
+    combineParsers
     ) where
 
 import Control.Applicative
@@ -40,6 +43,7 @@ import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Pretty
 import DA.Daml.LF.Ast.Alpha (Mismatch(..), SomeName(..))
 import DA.Daml.UtilLF (sourceLocToRange)
+import DA.Daml.LF.TypeChecker.Error.WarningFlags
 
 -- TODO(MH): Rework the context machinery to avoid code duplication.
 -- | Type checking context for error reporting purposes.
@@ -273,50 +277,30 @@ instance Pretty ErrorOrWarning where
         , "Ignore this error message with the -Wupgrade-exceptions flag."
         ]
 
-data DamlWarningFlagStatus
-  = AsError -- -Werror=<name>
-  | AsWarning -- -W<name> or -Wwarn=<name> or -Wno-error=<name>
-  | Hidden -- -Wno-<name>
-
-data DamlWarningFlag
-  = RawDamlWarningFlag
-    { rfName :: String
-    , rfStatus :: DamlWarningFlagStatus
-    , rfFilter :: ErrorOrWarning -> Bool
-    }
-  | WarnBadInterfaceInstances Bool
-  -- ^ For legacy --warn-bad-interface-instance flag.
-  -- Interpreted identically to -Wupgrade-interfaces
-  | WarnBadExceptions Bool
-  -- ^ For legacy --warn-bad-exceptions flag.
-  -- Interpreted identically to -Wupgrade-exceptions
-
-parseRawDamlWarningFlag :: String -> Either String DamlWarningFlag
-parseRawDamlWarningFlag = \case
-  ('e':'r':'r':'o':'r':'=':name) -> parseNameE name AsError
-  ('n':'o':'-':'e':'r':'r':'o':'r':'=':name) -> parseNameE name AsWarning
-  ('n':'o':'-':name) -> parseNameE name Hidden
-  ('w':'a':'r':'n':'=':name) -> parseNameE name AsWarning
-  name -> parseNameE name AsWarning
-  where
-  parseNameE name status = case lookup name namesToFlags of
-    Nothing -> Left $ "Warning flag is not valid - warning flags must be of the form `-Werror=<name>`, `-Wno-<name>`, or `-W<name>`. Available names are: " <> L.intercalate ", " (map fst namesToFlags)
-    Just flag -> Right (flag status)
-
-namesToFlags :: [(String, DamlWarningFlagStatus -> DamlWarningFlag)]
-namesToFlags =
-  [ (upgradeInterfacesName, upgradeInterfacesFlag)
-  , (upgradeExceptionsName, upgradeExceptionsFlag)
-  ]
-
-upgradeInterfacesFlag, upgradeExceptionsFlag :: DamlWarningFlagStatus -> DamlWarningFlag
-upgradeInterfacesFlag status = RawDamlWarningFlag upgradeInterfacesName status upgradeInterfacesFilter
-upgradeExceptionsFlag status = RawDamlWarningFlag upgradeExceptionsName status upgradeExceptionsFilter
+damlWarningFlagParserTypeChecker :: DamlWarningFlagParser ErrorOrWarning
+damlWarningFlagParserTypeChecker = DamlWarningFlagParser
+  { dwfpFlagParsers =
+      [ (upgradeInterfacesName, upgradeInterfacesFlag)
+      , (upgradeExceptionsName, upgradeExceptionsFlag)
+      , (upgradeDependencyMetadataName, upgradeDependencyMetadataFlag)
+      ]
+  , dwfpDefault = \case
+      WEUpgradeShouldDefineIfacesAndTemplatesSeparately {} -> AsError
+      WEUpgradeShouldDefineIfaceWithoutImplementation {} -> AsError
+      WEUpgradeShouldDefineTplInSeparatePackage {} -> AsError
+      WEUpgradeShouldDefineExceptionsAndTemplatesSeparately {} -> AsError
+      WEDependencyHasUnparseableVersion {} -> AsWarning
+      WEDependencyHasNoMetadataDespiteUpgradeability {} -> AsWarning
+  }
 
 filterNameForErrorOrWarning :: ErrorOrWarning -> Maybe String
 filterNameForErrorOrWarning err | upgradeInterfacesFilter err = Just upgradeInterfacesName
 filterNameForErrorOrWarning err | upgradeExceptionsFilter err = Just upgradeExceptionsName
+filterNameForErrorOrWarning err | upgradeDependencyMetadataFilter err = Just upgradeDependencyMetadataName
 filterNameForErrorOrWarning _ = Nothing
+
+upgradeInterfacesFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
+upgradeInterfacesFlag status = RawDamlWarningFlag upgradeInterfacesName status upgradeInterfacesFilter
 
 upgradeInterfacesName :: String
 upgradeInterfacesName = "upgrade-interfaces"
@@ -329,6 +313,9 @@ upgradeInterfacesFilter =
         WEUpgradeShouldDefineTplInSeparatePackage {} -> True
         _ -> False
 
+upgradeExceptionsFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
+upgradeExceptionsFlag status = RawDamlWarningFlag upgradeExceptionsName status upgradeExceptionsFilter
+
 upgradeExceptionsName :: String
 upgradeExceptionsName = "upgrade-exceptions"
 
@@ -338,30 +325,18 @@ upgradeExceptionsFilter =
         WEUpgradeShouldDefineExceptionsAndTemplatesSeparately {} -> True
         _ -> False
 
-dwfFilter :: DamlWarningFlag -> ErrorOrWarning -> Bool
-dwfFilter RawDamlWarningFlag { rfFilter } = rfFilter
-dwfFilter WarnBadInterfaceInstances {} = upgradeInterfacesFilter
-dwfFilter WarnBadExceptions {} = upgradeExceptionsFilter
+upgradeDependencyMetadataFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
+upgradeDependencyMetadataFlag status = RawDamlWarningFlag upgradeDependencyMetadataName status upgradeDependencyMetadataFilter
 
-dwfStatus :: DamlWarningFlag -> DamlWarningFlagStatus
-dwfStatus RawDamlWarningFlag { rfStatus } = rfStatus
-dwfStatus (WarnBadInterfaceInstances shouldWarn) = if shouldWarn then AsWarning else AsError
-dwfStatus (WarnBadExceptions shouldWarn) = if shouldWarn then AsWarning else AsError
+upgradeDependencyMetadataName :: String
+upgradeDependencyMetadataName = "upgrade-dependency-metadata"
 
-dwfStatusDefault :: ErrorOrWarning -> DamlWarningFlagStatus
-dwfStatusDefault = \case
-  WEUpgradeShouldDefineIfacesAndTemplatesSeparately {} -> AsError
-  WEUpgradeShouldDefineIfaceWithoutImplementation {} -> AsError
-  WEUpgradeShouldDefineTplInSeparatePackage {} -> AsError
-  WEUpgradeShouldDefineExceptionsAndTemplatesSeparately {} -> AsError
-  WEDependencyHasUnparseableVersion {} -> AsWarning
-  WEDependencyHasNoMetadataDespiteUpgradeability {} -> AsWarning
-
-getWarningStatus :: [DamlWarningFlag] -> ErrorOrWarning -> DamlWarningFlagStatus
-getWarningStatus flags err =
-  case filter (\flag -> dwfFilter flag err) flags of
-    [] -> dwfStatusDefault err
-    xs -> dwfStatus (last xs)
+upgradeDependencyMetadataFilter :: ErrorOrWarning -> Bool
+upgradeDependencyMetadataFilter =
+    \case
+        WEDependencyHasUnparseableVersion {} -> True
+        WEDependencyHasNoMetadataDespiteUpgradeability {} -> True
+        _ -> False
 
 data PackageUpgradeOrigin = UpgradingPackage | UpgradedPackage
   deriving (Eq, Ord, Show)

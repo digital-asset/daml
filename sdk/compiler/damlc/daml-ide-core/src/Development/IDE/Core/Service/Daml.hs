@@ -56,7 +56,6 @@ data DamlEnv = DamlEnv
   , envDamlLfVersion :: LF.Version
   , envSkipScenarioValidation :: SkipScenarioValidation
   , envEnableScenarios :: EnableScenarios
-  , envAllowLargeTuples :: AllowLargeTuples
   , envStudioAutorunAllScenarios :: StudioAutorunAllScenarios
   , envTestFilter :: T.Text -> Bool
   , envDetailLevel :: PrettyLevel
@@ -77,7 +76,6 @@ mkDamlEnv opts autorunAllScenarios scenarioService = do
         , envDamlLfVersion = optDamlLfVersion opts
         , envSkipScenarioValidation = optSkipScenarioValidation opts
         , envEnableScenarios = optEnableScenarios opts
-        , envAllowLargeTuples = optAllowLargeTuples opts
         , envStudioAutorunAllScenarios = autorunAllScenarios
         , envTestFilter = optTestFilter opts
         , envDetailLevel = optDetailLevel opts

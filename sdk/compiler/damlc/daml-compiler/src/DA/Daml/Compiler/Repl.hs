@@ -40,6 +40,7 @@ import Data.Bifunctor (first)
 import Data.Either.Combinators (whenLeft)
 import Data.Functor.Alt
 import Data.Functor.Bind
+import Data.Functor.Contravariant
 import Data.Foldable
 import Data.Generics.Uniplate.Data (descendBi)
 import Data.IORef
@@ -479,7 +480,7 @@ runRepl importPkgs opts replClient logger ideState = do
                 liftIO $ writeDiags diags
                 MaybeT (pure r)
         r <- liftIO $ withReplLogger logger writeDiags $ runAction ideState $ runMaybeT $ do
-            DamlEnv{envDamlLfVersion = lfVersion, envEnableScenarios, envAllowLargeTuples} <- lift getDamlServiceEnv
+            DamlEnv{envDamlLfVersion = lfVersion, envEnableScenarios} <- lift getDamlServiceEnv
             let pm = toParsedModule dflags source
             IdeOptions { optDefer = defer } <- lift getIdeOptions
             packageState <- hscEnv <$> useE' GhcSession file
@@ -489,7 +490,7 @@ runRepl importPkgs opts replClient logger ideState = do
             PackageMap pkgMap <- useE' GeneratePackageMap file
             stablePkgs <- lift $ useNoFile_ GenerateStablePackages
             let modIface = hm_iface (tmrModInfo tm)
-            case convertModule lfVersion envEnableScenarios envAllowLargeTuples pkgMap (Map.map LF.dalfPackageId stablePkgs) file core modIface details of
+            case convertModule lfVersion envEnableScenarios (contramap Right (optDamlWarningFlags opts)) pkgMap (Map.map LF.dalfPackageId stablePkgs) file core modIface details of
                 Left diag -> handleIdeResult ([diag], Nothing)
                 Right (v, conversionWarnings) -> do
                    pkgs <- lift $ getExternalPackages file
