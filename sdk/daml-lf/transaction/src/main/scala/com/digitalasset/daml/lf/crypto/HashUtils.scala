@@ -31,6 +31,7 @@ object HashUtils {
   }
 
   object HashTracer {
+    private val lineSeparator = System.lineSeparator()
     case object NoOp extends HashTracer {
       override def trace(bytes: ByteBuffer, context: String): Unit = {}
       override def trace(bytes: Array[Byte], context: String): Unit = {}
@@ -60,9 +61,12 @@ object HashUtils {
     ) extends HashTracer {
       def result: String = sb.result()
 
+      private def crossPlatformIndent(string: String, indent: Int) =
+        string.indent(indent).replaceAll("\n", lineSeparator)
+
       // We indent the encoding based on the depth, this allows to visually represented nested nodes
       private def appendLine(string: String): Unit = {
-        discard(sb.append(string.indent(level * 2))) // indent with 2 whitespaces
+        discard(sb.append(crossPlatformIndent(string, level * 2))) // indent with 2 whitespaces
       }
 
       override def trace(b: Byte, context: String): Unit = {
