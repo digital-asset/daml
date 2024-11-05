@@ -28,17 +28,29 @@ final class ValueEnricher(
     compiledPackages: CompiledPackages,
     translateValue: (Ast.Type, Value) => Result[SValue],
     loadPackage: (PackageId, language.Reference) => Result[Unit],
+    keepTypeInfo: Boolean,
+    keepFieldName: Boolean,
+    keepTrailingNoneFields: Boolean
 ) {
 
-  def this(engine: Engine) =
+  def this(
+      engine: Engine,
+      keepTypeInfo: Boolean = true,
+      keepFieldName: Boolean = true,
+      keepTrailingNoneFields: Boolean = true
+          ) =
     this(
       engine.compiledPackages(),
       engine.preprocessor.translateValue,
       engine.loadPackage,
+      keepTypeInfo = keepTypeInfo,
+      keepFieldName = keepFieldName,
+      keepTrailingNoneFields = keepTrailingNoneFields,
     )
 
   def enrichValue(typ: Ast.Type, value: Value): Result[Value] =
-    translateValue(typ, value).map(_.toUnnormalizedValue)
+    translateValue(typ, value)
+      .map(_.toValue(keepTypeInfo = keepTypeInfo, keepFieldName = keepFieldName, keepTrailingNoneFields = keepTrailingNoneFields))
 
   def enrichVersionedValue(
       typ: Ast.Type,

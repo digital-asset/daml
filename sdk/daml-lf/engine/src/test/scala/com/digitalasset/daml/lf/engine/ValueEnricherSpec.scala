@@ -308,6 +308,23 @@ class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
       enricher.enrichVersionedTransaction(inputTransaction) shouldBe ResultDone(outputTransaction)
 
     }
+
+    "enricher can keep field name without type annotation" in {
+      val enrich = new ValueEnricher(engine, keepTypeInfo = false, keepFieldName = true)
+      import enrich.enrichValue
+
+      val tRecord = TTyCon("Mod:Record")
+      val normalizedRecord = ValueRecord(None, ImmArray(None -> ValueInt64(33)))
+      val enrichedRecord = ValueRecord(None, ImmArray(Some[Ref.Name]("field") -> ValueInt64(33)))
+      val tVariant = TTyCon("Mod:Variant")
+      val normalizedVariant = ValueVariant(None, "variant1", ValueText("some test"))
+      val tEnum = TTyCon("Mod:Enum")
+      val normalizedEnum = ValueEnum(None, "value1")
+
+      enrichValue(tRecord, normalizedRecord) shouldBe ResultDone(enrichedRecord)
+      enrichValue(tVariant, normalizedVariant) shouldBe ResultDone(normalizedVariant)
+      enrichValue(tEnum, normalizedEnum) shouldBe ResultDone(normalizedEnum)
+    }
   }
 
 }
