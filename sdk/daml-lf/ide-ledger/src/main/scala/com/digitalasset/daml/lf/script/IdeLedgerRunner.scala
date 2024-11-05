@@ -257,7 +257,13 @@ private[lf] object IdeLedgerRunner {
     def loadPackage(pkgId: PackageId, context: language.Reference): Result[Unit] = {
       crash(LookupError.MissingPackage.pretty(pkgId, context))
     }
-    val enricher = new ValueEnricher(compiledPackages, translateValue, loadPackage)
+    val enricher = new ValueEnricher(
+      compiledPackages = compiledPackages,
+      translateValue = translateValue,
+      loadPackage = loadPackage,
+      keepTypeInfo = true,
+      keepFieldName = true,
+    )
     def consume[V](res: Result[V]): V =
       res match {
         case ResultDone(x) => x
