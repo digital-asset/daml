@@ -73,10 +73,10 @@ class InMemoryContractStore(protected val loggerFactory: NamedLoggerFactory)(
   }
 
   override def storeCreatedContracts(
-      creations: Seq[(WithTransactionId[SerializableContract], RequestCounter)]
+      creations: Seq[(SerializableContract, RequestCounter)]
   )(implicit traceContext: TraceContext): Future[Unit] = {
-    creations.foreach { case (WithTransactionId(creation, transactionId), requestCounter) =>
-      store(StoredContract.fromCreatedContract(creation, requestCounter, transactionId))
+    creations.foreach { case (creation, requestCounter) =>
+      store(StoredContract.fromCreatedContract(creation, requestCounter))
     }
     Future.unit
   }
@@ -118,7 +118,7 @@ class InMemoryContractStore(protected val loggerFactory: NamedLoggerFactory)(
       upTo: RequestCounter
   )(implicit traceContext: TraceContext): Future[Unit] = {
     contracts.filterInPlace { case (_, contract) =>
-      contract.creatingTransactionIdO.isDefined || contract.requestCounter > upTo
+      !contract.isDivulged || contract.requestCounter > upTo
     }
     Future.unit
   }

@@ -65,12 +65,12 @@ object PrepareCertificate {
     for {
       prePrepare <- ProtoConverter
         .parseRequired(
-          SignedMessage.fromProto(PrePrepare.fromProtoConsensusMessage),
+          SignedMessage.fromProto(v1.ConsensusMessage)(PrePrepare.fromProtoConsensusMessage),
           "prePrepare",
           prepareCertificate.prePrepare,
         )
       prepares <- prepareCertificate.prepares.traverse(
-        SignedMessage.fromProto(Prepare.fromProtoConsensusMessage)
+        SignedMessage.fromProto(v1.ConsensusMessage)(Prepare.fromProtoConsensusMessage)
       )
     } yield PrepareCertificate(prePrepare, prepares)
 }
@@ -85,12 +85,12 @@ object CommitCertificate {
     for {
       prePrepare <- ProtoConverter
         .parseRequired(
-          SignedMessage.fromProto(PrePrepare.fromProtoConsensusMessage),
+          SignedMessage.fromProto(v1.ConsensusMessage)(PrePrepare.fromProtoConsensusMessage),
           "prePrepare",
           commitCertificate.prePrepare,
         )
       commits <- commitCertificate.commits.traverse(
-        SignedMessage.fromProto(Commit.fromProtoConsensusMessage)
+        SignedMessage.fromProto(v1.ConsensusMessage)(Commit.fromProtoConsensusMessage)
       )
     } yield CommitCertificate(prePrepare, commits)
 }

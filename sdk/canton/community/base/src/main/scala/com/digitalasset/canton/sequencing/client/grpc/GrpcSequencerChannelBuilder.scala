@@ -20,7 +20,7 @@ object GrpcSequencerChannelBuilder {
       connection: GrpcSequencerConnection,
       maxRequestSize: NonNegativeInt,
       traceContextPropagation: Propagation,
-      keepAlive: Option[KeepAliveClientConfig] = Some(KeepAliveClientConfig()),
+      keepAlive: Option[KeepAliveClientConfig],
   )(implicit executor: Executor): ManagedChannel =
     clientChannelBuilder
       .create(

@@ -18,11 +18,7 @@ import com.digitalasset.canton.participant.store.ActiveContractStore.ActivenessC
 }
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
-import com.digitalasset.canton.protocol.ExampleTransactionFactory.{
-  asSerializable,
-  contractInstance,
-  transactionId,
-}
+import com.digitalasset.canton.protocol.ExampleTransactionFactory.{asSerializable, contractInstance}
 import com.digitalasset.canton.protocol.{ExampleTransactionFactory, LfContractId}
 import com.digitalasset.canton.pruning.{PruningPhase, PruningStatus}
 import com.digitalasset.canton.store.PrunableByTimeTest
@@ -1951,7 +1947,6 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         contracts.parTraverse_ { case (contractId, pkg) =>
           contractStore.storeCreatedContract(
             RequestCounter(0),
-            transactionId(1),
             asSerializable(
               contractId,
               contractInstance = contractInstance(

@@ -30,8 +30,8 @@ final case class Stakeholders private (all: Set[LfPartyId], signatories: Set[LfP
   }
 
   override protected def pretty: Pretty[Stakeholders.this.type] = prettyOfClass(
-    param("all", _.all),
-    param("signatories", _.signatories),
+    param("all", _.all.toSeq.sorted),
+    param("signatories", _.signatories.toSeq.sorted),
   )
 
   def toProtoV30: v30.Stakeholders = v30.Stakeholders(

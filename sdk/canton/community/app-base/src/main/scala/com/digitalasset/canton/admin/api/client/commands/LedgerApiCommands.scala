@@ -1460,8 +1460,8 @@ object LedgerApiCommands {
         Right(
           ExecuteSubmissionRequest(
             preparedTransaction = Some(preparedTransaction),
+            partySignatures = Some(makePartySignatures),
             submissionId = submissionId,
-            partiesSignatures = Some(makePartySignatures),
             applicationId = applicationId,
             workflowId = workflowId,
             deduplicationPeriod = serializeDeduplicationPeriod(deduplicationPeriod),

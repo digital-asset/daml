@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer
 
+import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultLeaderSelectionPolicy
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.GenesisEpochNumber
@@ -18,6 +19,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   EpochLength,
   EpochNumber,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.iss.EpochInfo
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.{
   OrderedBlock,
@@ -101,7 +103,12 @@ class StateTransferManager[E <: Env[E]](
 
         val blockTransferRequest = StateTransferMessage.BlockTransferRequest
           .create(startEpoch, latestCompletedEpochNumber, activeMembership.myId)
-        sendBlockTransferRequest(blockTransferRequest, to = peerId)(abort)
+        val signedMessage = SignedMessage(
+          blockTransferRequest,
+          Signature.noSignature,
+        ) // TODO(#20458) properly sign this message
+
+        sendBlockTransferRequest(signedMessage, to = peerId)(abort)
       }
     }
 
@@ -113,6 +120,38 @@ class StateTransferManager[E <: Env[E]](
       context: E#ActorContextT[Consensus.Message[E]],
       traceContext: TraceContext,
   ): Option[NewEpochState] =
+    message match {
+      case StateTransferMessage.NetworkMessage(message) =>
+        handleStateTransferNetworkMessage(message, activeMembership, latestCompletedEpoch)(
+          completeInit,
+          abort,
+        )
+        NoEpochStateUpdates
+
+      case StateTransferMessage.SendBlockTransferRequest(blockTransferRequest, to) =>
+        sendBlockTransferRequest(blockTransferRequest, to)(abort)
+        NoEpochStateUpdates
+
+      case StateTransferMessage.BlockStored(blockTransferData, fullResponse) =>
+        if (isInStateTransfer) {
+          handleStoredPrePrepare(blockTransferData, fullResponse, activeMembership)(abort)
+        } else {
+          logger.info(
+            s"State transfer: received a block stored message for block " +
+              s"${blockTransferData.prePrepare.message.blockMetadata} while not in state transfer"
+          )
+          NoEpochStateUpdates
+        }
+    }
+
+  def handleStateTransferNetworkMessage(
+      message: Consensus.StateTransferMessage.StateTransferNetworkMessage,
+      activeMembership: Membership,
+      latestCompletedEpoch: EpochStore.Epoch,
+  )(completeInit: () => Unit, abort: String => Nothing)(implicit
+      context: E#ActorContextT[Consensus.Message[E]],
+      traceContext: TraceContext,
+  ): Unit =
     message match {
       case request @ StateTransferMessage.BlockTransferRequest(
             startEpoch,
@@ -137,7 +176,6 @@ class StateTransferManager[E <: Env[E]](
               s"dropping..."
           )
         }
-        NoEpochStateUpdates
 
       case StateTransferMessage.BlockTransferResponse(_, _, Seq(), Seq(), from) =>
         if (isInStateTransfer) {
@@ -148,7 +186,6 @@ class StateTransferManager[E <: Env[E]](
             s"State transfer: received an empty block transfer response while not in state transfer"
           )
         }
-        NoEpochStateUpdates
 
       case response: StateTransferMessage.BlockTransferResponse =>
         if (isInStateTransfer) {
@@ -161,26 +198,10 @@ class StateTransferManager[E <: Env[E]](
               "while not in state transfer"
           )
         }
-        NoEpochStateUpdates
-
-      case StateTransferMessage.SendBlockTransferRequest(blockTransferRequest, to) =>
-        sendBlockTransferRequest(blockTransferRequest, to)(abort)
-        NoEpochStateUpdates
-
-      case StateTransferMessage.BlockStored(blockTransferData, fullResponse) =>
-        if (isInStateTransfer) {
-          handleStoredPrePrepare(blockTransferData, fullResponse, activeMembership)(abort)
-        } else {
-          logger.info(
-            s"State transfer: received a block stored message for block " +
-              s"${blockTransferData.prePrepare.message.blockMetadata} while not in state transfer"
-          )
-          NoEpochStateUpdates
-        }
     }
 
   private def sendBlockTransferRequest(
-      blockTransferRequest: StateTransferMessage.BlockTransferRequest,
+      blockTransferRequest: SignedMessage[StateTransferMessage.BlockTransferRequest],
       to: SequencerId,
   )(abort: String => Nothing)(implicit
       context: E#ActorContextT[Consensus.Message[E]],
@@ -194,7 +215,7 @@ class StateTransferManager[E <: Env[E]](
         )
       logger.debug(s"State transfer: sending a block transfer request to $to")
       dependencies.p2pNetworkOut.asyncSend(
-        P2PNetworkOut.send(blockTransferRequest.toProto, signature = None, to)
+        P2PNetworkOut.send(wrapSignedMessage(blockTransferRequest), to)
       )
     } else {
       logger.info(
@@ -215,7 +236,7 @@ class StateTransferManager[E <: Env[E]](
         s"State transfer: nothing to transfer to $to, start epoch was $startEpoch, " +
           s"latest locally completed epoch is $lastEpochToTransfer"
       )
-      val responseProto = StateTransferMessage.BlockTransferResponse
+      val response = StateTransferMessage.BlockTransferResponse
         .create(
           lastEpochToTransfer,
           lastEpochToTransferTopologySnapshotEffectiveTime,
@@ -223,8 +244,11 @@ class StateTransferManager[E <: Env[E]](
           lastBlockCommits = Seq.empty,
           from = thisPeer,
         )
-        .toProto
-      dependencies.p2pNetworkOut.asyncSend(P2PNetworkOut.send(responseProto, signature = None, to))
+      val signedMessage =
+        SignedMessage(response, Signature.noSignature) // TODO(#20458) properly sign this message
+      dependencies.p2pNetworkOut.asyncSend(
+        P2PNetworkOut.send(wrapSignedMessage(signedMessage), to)
+      )
     } else {
       val blocksToTransfer = (lastEpochToTransfer - startEpoch + 1) * epochLength
       logger.info(
@@ -267,7 +291,7 @@ class StateTransferManager[E <: Env[E]](
             s"State transfer: sending blocks starting from epoch $startEpoch (block number = $startBlockNumber) up to " +
               s"$lastEpochToTransfer (inclusive) to $to"
           )
-          val responseProto = StateTransferMessage.BlockTransferResponse
+          val response = StateTransferMessage.BlockTransferResponse
             .create(
               lastEpochToTransfer,
               lastEpochToTransferTopologySnapshotEffectiveTime,
@@ -275,15 +299,23 @@ class StateTransferManager[E <: Env[E]](
               latestCompletedEpoch.lastBlockCommitMessages,
               from = thisPeer,
             )
-            .toProto
+          val signedMessage = SignedMessage(
+            response,
+            Signature.noSignature,
+          ) // TODO(#20458) properly sign this message
           dependencies.p2pNetworkOut.asyncSend(
-            P2PNetworkOut.send(responseProto, signature = None, to)
+            P2PNetworkOut.send(wrapSignedMessage(signedMessage), to)
           )
           None // do not send anything back
         case Failure(exception) => Some(Consensus.ConsensusMessage.AsyncException(exception))
       }
     }
   }
+
+  private def wrapSignedMessage(
+      signedMessage: SignedMessage[Consensus.StateTransferMessage.StateTransferNetworkMessage]
+  ): P2PNetworkOut.BftOrderingNetworkMessage =
+    P2PNetworkOut.BftOrderingNetworkMessage.StateTransferMessage(signedMessage)
 
   private def handleEmptyBlockResponse(completeInit: () => Unit, abort: String => Nothing)(implicit
       traceContext: TraceContext

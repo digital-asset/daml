@@ -123,7 +123,6 @@ object PbftBlockState {
                     val p = SignedMessage(
                       Prepare
                         .create(pp.message.blockMetadata, view, hash, clock.now, membership.myId),
-                      membership.myId,
                       Signature.noSignature, // TODO(#20458) actually sign the message
                     )
                     addPrepare(p).discard
@@ -147,7 +146,6 @@ object PbftBlockState {
               val commit =
                 SignedMessage(
                   Commit.create(pp.message.blockMetadata, view, hash, clock.now, membership.myId),
-                  membership.myId,
                   Signature.noSignature, // TODO(#20458)
                 )
               myCommit = Some(commit.message)

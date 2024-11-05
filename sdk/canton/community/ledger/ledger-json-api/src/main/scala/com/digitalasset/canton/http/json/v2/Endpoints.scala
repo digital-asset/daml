@@ -7,7 +7,7 @@ package com.digitalasset.canton.http.json.v2
 import com.daml.error.utils.DecodedCantonError
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.grpc.adapter.client.pekko.ClientAdapter
-import com.digitalasset.canton.http.{JsonApiConfig, WebsocketConfig}
+import com.digitalasset.canton.http.WebsocketConfig
 import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError
 import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.InvalidArgument
@@ -33,7 +33,6 @@ import io.grpc.stub.StreamObserver
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success, Try}
-import scala.concurrent.duration.{DurationInt, FiniteDuration}
 import scala.util.control.NonFatal
 
 trait Endpoints extends NamedLogging {
@@ -48,7 +47,7 @@ trait Endpoints extends NamedLogging {
           .fromStatusRuntimeException(sre)
           .getOrElse(
             throw new RuntimeException(
-              "Failed to convert response to JsCantonError."
+              s"Failed to convert response to JsCantonError from ${sre.getMessage}", sre
             ) // TODO (i19398) improve error handling in JSON (repeated code)
           )
       )

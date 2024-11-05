@@ -14,8 +14,8 @@ import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.sequencing.TrafficControlParameters
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, PositiveSeconds}
-import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.transaction.ParticipantDomainLimits
+import com.digitalasset.canton.topology.{DomainId, PartyId}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.transaction.Versioned
 import com.google.protobuf.ByteString
@@ -262,5 +262,11 @@ final class GeneratorsProtocol(
         rolledBack,
       )
       .value
+  )
+
+  implicit val externalAuthorizationArb: Arbitrary[ExternalAuthorization] = Arbitrary(
+    for {
+      signatures <- Arbitrary.arbitrary[Map[PartyId, Seq[Signature]]]
+    } yield ExternalAuthorization.create(signatures, protocolVersion)
   )
 }

@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.unit.modules.consensus.iss.statetransfer
 
-import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.BftSequencerBaseTest
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.EpochState
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultLeaderSelectionPolicy
@@ -31,6 +31,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   EpochNumber,
   ViewNumber,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.availability.OrderingBlock
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.bfttime.CanonicalCommitSet
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.iss.{
@@ -43,6 +44,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.topology.Membership
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.Consensus.StateTransferMessage
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.Consensus.StateTransferMessage.NetworkMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.PrePrepare
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.dependencies.ConsensusModuleDependencies
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.{
@@ -58,8 +60,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.uni
 import com.digitalasset.canton.topology.SequencerId
 import org.scalatest.wordspec.AnyWordSpec
 
-class StateTransferManagerTest extends AnyWordSpec with BaseTest {
-
+class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
   import StateTransferManagerTest.*
 
   "StateTransferManager" should {
@@ -89,6 +90,7 @@ class StateTransferManagerTest extends AnyWordSpec with BaseTest {
           latestCompletedEpoch = Genesis.GenesisEpochNumber,
           from = mySequencerId,
         )
+        .fakeSign
       assertBlockTransferRequestHasBeenSent(
         p2pNetworkOutRef,
         blockTransferRequest,
@@ -132,6 +134,7 @@ class StateTransferManagerTest extends AnyWordSpec with BaseTest {
           latestCompletedEpoch = Genesis.GenesisEpochNumber,
           from = mySequencerId,
         )
+        .fakeSign
       stateTransferManager.handleStateTransferMessage(
         StateTransferMessage.SendBlockTransferRequest(blockTransferRequest, to = otherSequencerId),
         membership,
@@ -192,10 +195,13 @@ class StateTransferManagerTest extends AnyWordSpec with BaseTest {
       val latestCompletedEpochRemotely = Genesis.GenesisEpochNumber
 
       stateTransferManager.handleStateTransferMessage(
-        StateTransferMessage.BlockTransferRequest.create(
-          startEpoch = EpochNumber.First,
-          latestCompletedEpoch = latestCompletedEpochRemotely,
-          from = otherSequencerId,
+        NetworkMessage(
+          StateTransferMessage.BlockTransferRequest
+            .create(
+              startEpoch = EpochNumber.First,
+              latestCompletedEpoch = latestCompletedEpochRemotely,
+              from = otherSequencerId,
+            )
         ),
         membership,
         latestCompletedEpoch = latestCompletedEpochLocally,
@@ -210,16 +216,17 @@ class StateTransferManagerTest extends AnyWordSpec with BaseTest {
       verify(p2pNetworkOutRef, times(1))
         .asyncSend(
           P2PNetworkOut.send(
-            StateTransferMessage.BlockTransferResponse
-              .create(
-                latestCompletedEpoch = EpochNumber.First,
-                GenesisTopologySnapshotEffectiveTime,
-                Seq(blockTransferData),
-                lastBlockCommits = Seq.empty,
-                from = mySequencerId,
-              )
-              .toProto,
-            signature = None,
+            P2PNetworkOut.BftOrderingNetworkMessage.StateTransferMessage(
+              StateTransferMessage.BlockTransferResponse
+                .create(
+                  latestCompletedEpoch = EpochNumber.First,
+                  GenesisTopologySnapshotEffectiveTime,
+                  Seq(blockTransferData),
+                  lastBlockCommits = Seq.empty,
+                  from = mySequencerId,
+                )
+                .fakeSign
+            ),
             to = otherSequencerId,
           )
         )
@@ -266,7 +273,7 @@ class StateTransferManagerTest extends AnyWordSpec with BaseTest {
       from = otherSequencerId,
     )
     stateTransferManager.handleStateTransferMessage(
-      blockTransferResponse,
+      NetworkMessage(blockTransferResponse),
       membership,
       latestCompletedEpochLocally,
     )(completeInit = () => (), abort = fail(_)) shouldBe NoEpochStateUpdates
@@ -342,7 +349,7 @@ class StateTransferManagerTest extends AnyWordSpec with BaseTest {
 
   private def assertBlockTransferRequestHasBeenSent(
       p2pNetworkOutRef: ModuleRef[P2PNetworkOut.Message],
-      blockTransferRequest: StateTransferMessage.BlockTransferRequest,
+      blockTransferRequest: SignedMessage[StateTransferMessage.BlockTransferRequest],
       to: SequencerId,
       numberOfTimes: Int,
   )(implicit context: ContextType): Unit = {
@@ -357,7 +364,12 @@ class StateTransferManagerTest extends AnyWordSpec with BaseTest {
     val order = inOrder(p2pNetworkOutRef)
     order
       .verify(p2pNetworkOutRef, times(numberOfTimes))
-      .asyncSend(P2PNetworkOut.send(blockTransferRequest.toProto, signature = None, to))
+      .asyncSend(
+        P2PNetworkOut.send(
+          P2PNetworkOut.BftOrderingNetworkMessage.StateTransferMessage(blockTransferRequest),
+          to,
+        )
+      )
     order.verify(p2pNetworkOutRef, never).asyncSend(any[P2PNetworkOut.Message])
   }
 }

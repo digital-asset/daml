@@ -6,10 +6,10 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.co
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.crypto.{Signature, v30}
+import com.digitalasset.canton.crypto.{HashPurpose, Signature}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.domain.metrics.BftOrderingMetrics
-import com.digitalasset.canton.domain.sequencing.sequencer.bftordering.v1 as proto
+import com.digitalasset.canton.domain.sequencing.sequencer.bftordering.v1
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.availability.AvailabilityModule.*
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.availability.AvailabilityModuleMetrics.{
   emitDisseminationStateStats,
@@ -37,6 +37,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.{
   CompleteBlockData,
   OrderingRequestBatch,
+  SignedMessage,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.*
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.Availability.{
@@ -45,12 +46,10 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.dependencies.AvailabilityModuleDependencies
 import com.digitalasset.canton.logging.NamedLoggerFactory
-import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.version.v1.UntypedVersionedMessage
 import com.google.protobuf.ByteString
 
 import scala.collection.mutable
@@ -108,33 +107,28 @@ final class AvailabilityModule[E <: Env[E]](
             handleRemoteProtocolMessage(message)
           case message: Availability.LocalProtocolMessage[E] =>
             handleLocalProtocolMessage(message)
-          case Availability.UnverifiedProtocolMessage(underlyingMessage, signature) =>
-            logger.debug(s"Start to verify message from ${underlyingMessage.from}")
-            val hashToVerify = RemoteProtocolMessage.hashForSignature(
-              underlyingMessage.from,
-              underlyingMessage.getCryptographicEvidence,
-            )
+          case Availability.UnverifiedProtocolMessage(signedMessage) =>
+            logger.debug(s"Start to verify message from ${signedMessage.from}")
             pipeToSelf(
-              activeCryptoProvider.verifySignature(
-                hashToVerify,
-                underlyingMessage.from,
-                signature,
+              activeCryptoProvider.verifySignedMessage(
+                signedMessage,
+                hashPurpose = HashPurpose.BftSignedAvailabilityMessage,
               )
             ) {
               case Failure(exception) =>
                 abort(
-                  s"Can't verify signature for $underlyingMessage (signature $signature)",
+                  s"Can't verify signature for ${signedMessage.message} (signature ${signedMessage.signature})",
                   exception,
                 )
               case Success(Left(exception)) =>
                 logger.warn(
-                  s"Skipping message since we can't verify signature for $underlyingMessage (signature $signature) reason=$exception"
+                  s"Skipping message since we can't verify signature for ${signedMessage.message} (signature ${signedMessage.signature}) reason=$exception"
                 )
-                emitInvalidMessage(metrics, underlyingMessage.from)
+                emitInvalidMessage(metrics, signedMessage.from)
                 Availability.NoOp
               case Success(Right(())) =>
-                logger.debug(s"Verified message is from ${underlyingMessage.from}")
-                underlyingMessage
+                logger.debug(s"Verified message is from ${signedMessage.from}")
+                signedMessage.message
             }
         }
     }
@@ -824,42 +818,34 @@ final class AvailabilityModule[E <: Env[E]](
   private def send(message: RemoteProtocolMessage, to: SequencerId)(implicit
       context: E#ActorContextT[Availability.Message[E]],
       traceContext: TraceContext,
-  ): Unit = {
-    val (serializedMessage, hashToSign) = dependencies.serializer.messageForTransport(message)
-
-    pipeToSelf(activeCryptoProvider.sign(hashToSign))(
-      handleFailure(s"Can't sign message $message") { signature =>
+  ): Unit =
+    pipeToSelf(activeCryptoProvider.signMessage(message, HashPurpose.BftSignedAvailabilityMessage))(
+      handleFailure(s"Can't sign message $message") { signedMessage =>
         dependencies.p2pNetworkOut.asyncSend(
           P2PNetworkOut.send(
-            RemoteProtocolMessage.toProto(serializedMessage),
-            Some(signature.toProtoV30),
+            P2PNetworkOut.BftOrderingNetworkMessage.AvailabilityMessage(signedMessage),
             to,
           )
         )
         Availability.NoOp
       }
     )
-  }
 
   private def multicast(message: RemoteProtocolMessage, peers: Set[SequencerId])(implicit
       context: E#ActorContextT[Availability.Message[E]],
       traceContext: TraceContext,
-  ): Unit = {
-    val (serializedMessage, hashToSign) = dependencies.serializer.messageForTransport(message)
-
-    pipeToSelf(activeCryptoProvider.sign(hashToSign))(
-      handleFailure(s"Can't sign message $message") { signature =>
+  ): Unit =
+    pipeToSelf(activeCryptoProvider.signMessage(message, HashPurpose.BftSignedAvailabilityMessage))(
+      handleFailure(s"Can't sign message $message") { signedMessage =>
         dependencies.p2pNetworkOut.asyncSend(
           P2PNetworkOut.Multicast(
-            RemoteProtocolMessage.toProto(serializedMessage),
-            Some(signature.toProtoV30),
+            P2PNetworkOut.BftOrderingNetworkMessage.AvailabilityMessage(signedMessage),
             peers,
           )
         )
         Availability.NoOp
       }
     )
-  }
 
   private def validateBatch(
       batchId: BatchId,
@@ -902,53 +888,39 @@ object AvailabilityModule {
 
   private def parseAvailabilityNetworkMessage(
       from: SequencerId,
-      message: proto.AvailabilityMessage,
+      message: v1.AvailabilityMessage,
       originalMessage: ByteString,
-      protoSignature: Option[v30.Signature],
-  ): ParsingResult[Availability.UnverifiedProtocolMessage] = for {
-    underlyingMessage <- (message.message match {
-      case proto.AvailabilityMessage.Message.Empty =>
+  ): ParsingResult[Availability.RemoteProtocolMessage] =
+    message.message match {
+      case v1.AvailabilityMessage.Message.Empty =>
         Left(ProtoDeserializationError.OtherError("Empty Received"))
-      case proto.AvailabilityMessage.Message.Ping(_) =>
+      case v1.AvailabilityMessage.Message.Ping(_) =>
         Left(ProtoDeserializationError.OtherError("Ping Received"))
-      case proto.AvailabilityMessage.Message.StoreRequest(value) =>
+      case v1.AvailabilityMessage.Message.StoreRequest(value) =>
         Availability.RemoteDissemination.RemoteBatch.fromProtoV30(from, value)(originalMessage)
-      case proto.AvailabilityMessage.Message.StoreResponse(value) =>
+      case v1.AvailabilityMessage.Message.StoreResponse(value) =>
         Availability.RemoteDissemination.RemoteBatchAcknowledged.fromProtoV30(from, value)(
           originalMessage
         )
-      case proto.AvailabilityMessage.Message.BatchRequest(value) =>
+      case v1.AvailabilityMessage.Message.BatchRequest(value) =>
         Availability.RemoteOutputFetch.FetchRemoteBatchData.fromProtoV30(from, value)(
           originalMessage
         )
-      case proto.AvailabilityMessage.Message.BatchResponse(value) =>
+      case v1.AvailabilityMessage.Message.BatchResponse(value) =>
         Availability.RemoteOutputFetch.RemoteBatchDataFetched.fromProtoV30(from, value)(
           originalMessage
         )
-    }): Either[ProtoDeserializationError, RemoteProtocolMessage]
-    signature <- Signature.fromProtoV30(protoSignature.getOrElse(Signature.noSignature.toProtoV30))
-  } yield Availability.UnverifiedProtocolMessage(underlyingMessage, signature)
+    }
 
   def parseNetworkMessage(
-      from: SequencerId,
-      message: ByteString,
-      protoSignature: Option[v30.Signature],
+      protoSignedMessage: v1.SignedMessage
   ): ParsingResult[Availability.UnverifiedProtocolMessage] =
-    for {
-      versionedMessage <- ProtoConverter.protoParser(UntypedVersionedMessage.parseFrom)(message)
-      unVersionedBytes <- versionedMessage.wrapper.data.toRight(
-        ProtoDeserializationError.OtherError("Missing data in UntypedVersionedMessage")
-      )
-      parsedMessage <- ProtoConverter.protoParser(proto.AvailabilityMessage.parseFrom)(
-        unVersionedBytes
-      )
-      x <- parseAvailabilityNetworkMessage(
-        from,
-        parsedMessage,
-        message,
-        protoSignature,
-      )
-    } yield x
+    SignedMessage
+      .fromProtoWithSequencerId(v1.AvailabilityMessage)(from =>
+        proto =>
+          originalByteString => parseAvailabilityNetworkMessage(from, proto, originalByteString)
+      )(protoSignedMessage)
+      .map(Availability.UnverifiedProtocolMessage.apply)
 
   private def quorumProbability(
       currentOrderingTopology: OrderingTopology,

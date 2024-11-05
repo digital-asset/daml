@@ -81,8 +81,8 @@ create table par_contracts (
     ledger_create_time varchar(300) not null,
     -- The request counter of the request that created or divulged the contract
     request_counter bigint not null,
-    -- The transaction that created the contract; null for divulged contracts
-    creating_transaction_id binary large object,
+    -- Whether the contract is known via divulgence
+    is_divulged boolean not null,
     -- We store metadata of the contract instance for inspection
     package_id varchar(300) not null,
     template_id varchar not null,

@@ -177,14 +177,9 @@ class UnassignmentProcessingSteps(
           .leftMap(_ => UnassignmentProcessorError.ReassignmentCounterOverflow)
       )
 
-      creatingTransactionId <- EitherT.fromEither[FutureUnlessShutdown](
-        storedContract.creatingTransactionIdO.toRight(CreatingTransactionIdNotFound(contractId))
-      )
-
       validated <- UnassignmentRequest.validated(
         participantId,
         timeProof,
-        creatingTransactionId,
         storedContract.contract,
         submitterMetadata,
         domainId,
@@ -428,7 +423,6 @@ class UnassignmentProcessingSteps(
     val reassignmentId: ReassignmentId = ReassignmentId(fullTree.sourceDomain, ts)
     val view = fullTree.tree.view.tryUnwrap
 
-    // TODO(#15090) The instance should be checked against the local version
     val contract = view.contract
 
     val isConfirmingReassigningParticipant =
@@ -437,11 +431,6 @@ class UnassignmentProcessingSteps(
       fullTree.isObservingReassigningParticipant(participantId)
 
     for {
-      // Since the unassignment request should be sent only to participants that host a stakeholder of the contract,
-      // we can expect to find the contract in the contract store.
-
-      // TODO(i15090): Validate contract data against contract id and contract metadata against contract data
-
       targetTopology <-
         if (isObservingReassigningParticipant)
           getTopologySnapshotAtTimestamp(
@@ -452,12 +441,13 @@ class UnassignmentProcessingSteps(
 
       _ <- UnassignmentValidation.perform(
         serializableContractAuthenticator = serializableContractAuthenticator,
-        expectedStakeholders = Stakeholders(contract.metadata),
-        contract.rawContractInstance.contractInstance.unversioned.template,
         sourceDomainProtocolVersion,
         Source(sourceSnapshot.ipsSnapshot),
         targetTopology,
         recipients,
+        engine,
+        () => engineController.abortStatus,
+        loggerFactory,
       )(fullTree)
 
       assignmentExclusivity <- getAssignmentExclusivity(
@@ -809,6 +799,7 @@ class UnassignmentProcessingSteps(
           LocalRejectError.UnassignmentRejects.ActivenessCheckFailed
             .Reject(s"$activenessResult")
             .toLocalReject(sourceDomainProtocolVersion.unwrap)
+
       // TODO(#22048) Switch to safe method or pass non-empty confirmingSignatories?
       val response = checked(
         ConfirmationResponse.tryCreate(

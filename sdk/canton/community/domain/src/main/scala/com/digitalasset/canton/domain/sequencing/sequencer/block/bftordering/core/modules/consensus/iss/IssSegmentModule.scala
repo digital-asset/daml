@@ -6,7 +6,6 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.co
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.domain.sequencing.sequencer.bftordering.v1.BftOrderingMessageBody
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.Epoch
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.IssSegmentModule.BlockCompletionTimeout
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.PbftBlockState.{
@@ -169,7 +168,6 @@ class IssSegmentModule[E <: Env[E]](
                   orderedBlock.canonicalCommitSet,
                   from = thisPeer,
                 ),
-                thisPeer,
                 Signature.noSignature, // TODO(#20458) actually sign
               )
               processPbftEvent(PbftSignedNetworkMessage(prePrepare))
@@ -337,12 +335,7 @@ class IssSegmentModule[E <: Env[E]](
           )
           p2pNetworkOut.asyncSend(
             P2PNetworkOut.Multicast(
-              BftOrderingMessageBody.of(
-                BftOrderingMessageBody.Message.ConsensusMessage(
-                  pbftMessage.message.toProto
-                ) // TODO(#20458) actually use SignedMessage
-              ),
-              signature = None,
+              P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(pbftMessage),
               to = peers,
             )
           )

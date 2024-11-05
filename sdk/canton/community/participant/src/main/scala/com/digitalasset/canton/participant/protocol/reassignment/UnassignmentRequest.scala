@@ -32,7 +32,6 @@ import scala.concurrent.ExecutionContext
 final case class UnassignmentRequest(
     submitterMetadata: ReassignmentSubmitterMetadata,
     reassigningParticipants: ReassigningParticipants,
-    creatingTransactionId: TransactionId,
     contract: SerializableContract,
     sourceDomain: Source[DomainId],
     sourceProtocolVersion: Source[ProtocolVersion],
@@ -68,7 +67,6 @@ final case class UnassignmentRequest(
       .create(hashOps)(
         viewSalt,
         contract,
-        creatingTransactionId,
         targetDomain,
         targetTimeProof,
         sourceProtocolVersion,
@@ -85,7 +83,6 @@ object UnassignmentRequest {
   def validated(
       participantId: ParticipantId,
       timeProof: TimeProof,
-      creatingTransactionId: TransactionId,
       contract: SerializableContract,
       submitterMetadata: ReassignmentSubmitterMetadata,
       sourceDomain: Source[DomainId],
@@ -147,7 +144,6 @@ object UnassignmentRequest {
       val unassignmentRequest = UnassignmentRequest(
         submitterMetadata,
         reassigningParticipants,
-        creatingTransactionId,
         contract,
         sourceDomain,
         sourceProtocolVersion,

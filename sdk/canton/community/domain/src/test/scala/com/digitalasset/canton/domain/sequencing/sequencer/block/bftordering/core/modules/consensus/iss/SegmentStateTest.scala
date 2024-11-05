@@ -870,7 +870,7 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
       // Simulate a local timeout via PbftTimeout event
       var results = assertNoLogs(segment.processEvent(createTimeout(view1)))
-      inside(results) { case Seq(SendPbftMessage(SignedMessage(vc: ViewChange, _, _), _)) =>
+      inside(results) { case Seq(SendPbftMessage(SignedMessage(vc: ViewChange, _), _)) =>
         vc.consensusCerts should have size 1
         vc.consensusCerts.head.prePrepare shouldBe pp1
         inside(vc.consensusCerts.head) { case cc: CommitCertificate =>
@@ -958,7 +958,7 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
 
       // Simulate next view change via local timeout again, expecting prepareCert for block1 and block2
       results = assertNoLogs(segment.processEvent(createTimeout(view2)))
-      inside(results) { case Seq(SendPbftMessage(SignedMessage(vc: ViewChange, _, _), _)) =>
+      inside(results) { case Seq(SendPbftMessage(SignedMessage(vc: ViewChange, _), _)) =>
         vc.consensusCerts should have size 2
         // For block1, we expect PrePrepare from original view1 but Prepares from new view2
         vc.consensusCerts.head.prePrepare shouldBe pp1
@@ -1056,9 +1056,9 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       results should matchPattern {
         case List(
               _: ViewChangeCompleted,
-              SendPbftMessage(SignedMessage(_: Prepare, _, _), _),
-              SendPbftMessage(SignedMessage(_: Prepare, _, _), _),
-              SendPbftMessage(SignedMessage(_: Prepare, _, _), _),
+              SendPbftMessage(SignedMessage(_: Prepare, _), _),
+              SendPbftMessage(SignedMessage(_: Prepare, _), _),
+              SendPbftMessage(SignedMessage(_: Prepare, _), _),
             ) =>
       }
 
@@ -1118,9 +1118,9 @@ class SegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       inside(results) {
         case List(
               _: ViewChangeCompleted,
-              SendPbftMessage(p1 @ SignedMessage(_: Prepare, _, _), _),
-              SendPbftMessage(p2 @ SignedMessage(_: Prepare, _, _), _),
-              SendPbftMessage(p3 @ SignedMessage(_: Prepare, _, _), _),
+              SendPbftMessage(p1 @ SignedMessage(_: Prepare, _), _),
+              SendPbftMessage(p2 @ SignedMessage(_: Prepare, _), _),
+              SendPbftMessage(p3 @ SignedMessage(_: Prepare, _), _),
             ) =>
           // because we advanced the clock time, this would fail if new prepares were being created, with different timestamps
           p1 shouldBe prepare1

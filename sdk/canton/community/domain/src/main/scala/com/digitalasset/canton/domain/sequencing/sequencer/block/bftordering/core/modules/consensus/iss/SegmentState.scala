@@ -381,7 +381,6 @@ class SegmentState(
           consensusCerts = consensusCerts.collect { case Some(cert) => cert },
           from = membership.myId,
         ),
-        membership.myId,
         Signature.noSignature,
       )
     }

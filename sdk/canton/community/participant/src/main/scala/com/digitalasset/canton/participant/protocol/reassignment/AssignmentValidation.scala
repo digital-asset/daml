@@ -16,7 +16,6 @@ import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValid
 import com.digitalasset.canton.participant.protocol.reassignment.AssignmentValidation.{
   AssignmentValidationResult,
   ContractDataMismatch,
-  CreatingTransactionIdMismatch,
   InconsistentReassignmentCounter,
   NonInitiatorSubmitsBeforeExclusivityTimeout,
   ReassigningParticipantsMismatch,
@@ -134,7 +133,6 @@ private[reassignment] class AssignmentValidation(
           )(assignmentRequest.unassignmentResultEvent).validate
             .leftMap(err => DeliveredUnassignmentResultError(reassignmentId, err.error).reported())
 
-          // TODO(#12926): validate assignmentRequest.stakeholders
           _ <- ReassignmentValidation.checkSubmitter(
             ReassignmentRef(reassignmentId),
             topologySnapshot = targetSnapshot,
@@ -160,14 +158,6 @@ private[reassignment] class AssignmentValidation(
             ),
           )
 
-          _ <- condUnitET[Future](
-            reassignmentData.creatingTransactionId == assignmentRequest.creatingTransactionId,
-            CreatingTransactionIdMismatch(
-              reassignmentId,
-              assignmentRequest.creatingTransactionId,
-              reassignmentData.creatingTransactionId,
-            ),
-          )
           sourceIps = sourceCrypto.map(_.ipsSnapshot)
 
           stakeholders = assignmentRequest.stakeholders
@@ -313,15 +303,6 @@ object AssignmentValidation extends LocalRejectionGroup {
   final case class ContractDataMismatch(reassignmentId: ReassignmentId)
       extends AssignmentValidationError {
     override def message: String = s"Cannot assign `$reassignmentId`: contract data mismatch"
-  }
-
-  final case class CreatingTransactionIdMismatch(
-      reassignmentId: ReassignmentId,
-      assignmentTransactionId: TransactionId,
-      localTransactionId: TransactionId,
-  ) extends AssignmentValidationError {
-    override def message: String =
-      s"Cannot assign `$reassignmentId`: creating transaction id mismatch"
   }
 
   final case class InconsistentReassignmentCounter(

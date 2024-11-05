@@ -68,8 +68,6 @@ class AssignmentValidationTest
     UniqueIdentifier.tryFromProtoPrimitive("domain::participant")
   )
 
-  private val initialReassignmentCounter: ReassignmentCounter = ReassignmentCounter.Genesis
-
   private def submitterInfo(submitter: LfPartyId): ReassignmentSubmitterMetadata =
     ReassignmentSubmitterMetadata(
       submitter,
@@ -119,7 +117,7 @@ class AssignmentValidationTest
 
     val reassignmentId = ReassignmentId(sourceDomain, CantonTimestamp.Epoch)
 
-    val reassignmentDataHelpers = new ReassignmentDataHelpers(
+    val reassignmentDataHelpers = ReassignmentDataHelpers(
       contract,
       reassignmentId.sourceDomain,
       targetDomain,
@@ -176,7 +174,7 @@ class AssignmentValidationTest
       validate(isConfirmingReassigningParticipant = false) shouldBe None
     }
 
-    "wait for the topology state to be available " in {
+    "wait for the topology state to be available" in {
       val promise: Promise[Unit] = Promise()
       val assignmentProcessingSteps2 =
         testInstance(
@@ -210,7 +208,6 @@ class AssignmentValidationTest
         contract,
         unassignmentResult,
         reassignmentCounter = reassignmentData.reassignmentCounter + 1,
-        creatingTransactionId = ExampleTransactionFactory.transactionId(0),
       )
 
       assignmentValidation
@@ -273,7 +270,7 @@ class AssignmentValidationTest
       def validate(cid: LfContractId, reassignmentDataDefined: Boolean) = {
         val updatedContract = contract.copy(contractId = cid)
 
-        val reassignmentDataHelpers = new ReassignmentDataHelpers(
+        val reassignmentDataHelpers = ReassignmentDataHelpers(
           updatedContract,
           reassignmentId.sourceDomain,
           targetDomain,
@@ -342,7 +339,6 @@ class AssignmentValidationTest
           contract,
           unassignmentResult,
           reassigningParticipants = reassigningParticipants,
-          creatingTransactionId = ExampleTransactionFactory.transactionId(0),
         )
 
         assignmentValidation
@@ -402,7 +398,6 @@ class AssignmentValidationTest
           contract,
           unassignmentResult,
           submitter = submitter,
-          creatingTransactionId = ExampleTransactionFactory.transactionId(0),
         )
 
         assignmentValidation
@@ -452,11 +447,10 @@ class AssignmentValidationTest
       contract: SerializableContract,
       unassignmentResult: DeliveredUnassignmentResult,
       submitter: LfPartyId = signatory,
-      creatingTransactionId: TransactionId = ExampleTransactionFactory.transactionId(0),
       uuid: UUID = new UUID(4L, 5L),
       targetDomain: Target[DomainId] = targetDomain,
       targetMediator: MediatorGroupRecipient = targetMediator,
-      reassignmentCounter: ReassignmentCounter = initialReassignmentCounter,
+      reassignmentCounter: ReassignmentCounter = ReassignmentCounter(1),
       reassigningParticipants: ReassigningParticipants = reassigningParticipants,
   ): FullAssignmentTree = {
     val seed = seedGenerator.generateSaltSeed()
@@ -467,7 +461,6 @@ class AssignmentValidationTest
         submitterInfo(submitter),
         contract,
         reassignmentCounter,
-        creatingTransactionId,
         targetDomain,
         targetMediator,
         unassignmentResult,

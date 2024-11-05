@@ -514,7 +514,7 @@ trait ProcessingSteps[
     */
   case class CommitAndStoreContractsAndPublishEvent(
       commitSet: Option[Future[CommitSet]],
-      contractsToBeStored: Seq[WithTransactionId[SerializableContract]],
+      contractsToBeStored: Seq[SerializableContract],
       maybeEvent: Option[Traced[Update]],
   )
 

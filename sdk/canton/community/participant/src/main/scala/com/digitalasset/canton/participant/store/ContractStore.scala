@@ -8,12 +8,7 @@ import cats.instances.list.*
 import cats.syntax.foldable.*
 import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import com.digitalasset.canton.protocol.{
-  LfContractId,
-  SerializableContract,
-  TransactionId,
-  WithTransactionId,
-}
+import com.digitalasset.canton.protocol.{LfContractId, SerializableContract}
 import com.digitalasset.canton.store.Purgeable
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.tracing.TraceContext
@@ -30,15 +25,14 @@ trait ContractStore extends ContractLookup with Purgeable {
     * @param creations      The contracts to be created together with the transaction id and the request counter
     */
   def storeCreatedContracts(
-      creations: Seq[(WithTransactionId[SerializableContract], RequestCounter)]
+      creations: Seq[(SerializableContract, RequestCounter)]
   )(implicit traceContext: TraceContext): Future[Unit]
 
   def storeCreatedContract(
       requestCounter: RequestCounter,
-      transactionId: TransactionId,
       contract: SerializableContract,
   )(implicit traceContext: TraceContext): Future[Unit] =
-    storeCreatedContracts(Seq((WithTransactionId(contract, transactionId), requestCounter)))
+    storeCreatedContracts(Seq((contract, requestCounter)))
 
   /** Store divulged contracts.
     * Assumes the contract data has been authenticated against the contract id using
@@ -107,15 +101,14 @@ trait ContractStore extends ContractLookup with Purgeable {
 
 /** Data to be stored for a contract.
   *
-  * @param contract               The contract to be stored
-  * @param requestCounter         The request counter of the latest request that stored the contract.
-  * @param creatingTransactionIdO The id of the transaction that created the contract.
-  *                               [[scala.None]] for divulged and witnessed contracts.
+  * @param contract       The contract to be stored
+  * @param requestCounter The request counter of the latest request that stored the contract.
+  * @param isDivulged     Whether the contract was divulged
   */
 final case class StoredContract(
     contract: SerializableContract,
     requestCounter: RequestCounter,
-    creatingTransactionIdO: Option[TransactionId],
+    isDivulged: Boolean,
 ) extends PrettyPrinting {
   def contractId: LfContractId = contract.contractId
 
@@ -127,12 +120,12 @@ final case class StoredContract(
         s"Cannot merge $this with $other due to different contract ids",
       )
       if (
-        creatingTransactionIdO.isEmpty && other.creatingTransactionIdO.isDefined ||
-        creatingTransactionIdO.isDefined == other.creatingTransactionIdO.isDefined && requestCounter < other.requestCounter
+        isDivulged && !other.isDivulged ||
+        isDivulged == other.isDivulged && requestCounter < other.requestCounter
       ) {
         copy(
           requestCounter = other.requestCounter,
-          creatingTransactionIdO = other.creatingTransactionIdO,
+          isDivulged = other.isDivulged,
         )
       } else this
     }
@@ -140,23 +133,23 @@ final case class StoredContract(
   override protected def pretty: Pretty[StoredContract] = prettyOfClass(
     param("contract", _.contract),
     param("request counter", _.requestCounter),
-    paramIfDefined("creating transaction id", _.creatingTransactionIdO),
+    param("is divulged", _.isDivulged),
   )
 }
 
 object StoredContract {
+
   def fromCreatedContract(
       contract: SerializableContract,
       requestCounter: RequestCounter,
-      transactionId: TransactionId,
   ): StoredContract =
-    StoredContract(contract, requestCounter, Some(transactionId))
+    StoredContract(contract, requestCounter, isDivulged = false)
 
   def fromDivulgedContract(
       contract: SerializableContract,
       requestCounter: RequestCounter,
   ): StoredContract =
-    StoredContract(contract, requestCounter, None)
+    StoredContract(contract, requestCounter, isDivulged = true)
 }
 
 sealed trait ContractStoreError extends Product with Serializable with PrettyPrinting

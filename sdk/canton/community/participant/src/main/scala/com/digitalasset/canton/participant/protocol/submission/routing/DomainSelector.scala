@@ -36,7 +36,7 @@ private[routing] class DomainSelectorFactory(
   ): EitherT[Future, TransactionRoutingError, DomainSelector] =
     for {
       admissibleDomains <- admissibleDomains.forParties(
-        submitters = transactionData.actAs,
+        submitters = transactionData.actAs -- transactionData.signedExternally,
         informees = transactionData.informees,
       )
     } yield new DomainSelector(

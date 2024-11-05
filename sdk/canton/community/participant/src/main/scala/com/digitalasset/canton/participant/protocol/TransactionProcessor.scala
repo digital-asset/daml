@@ -101,7 +101,7 @@ class TransactionProcessor(
         metrics,
         SerializableContractAuthenticator(crypto.pureCrypto),
         new AuthenticationValidator(),
-        new AuthorizationValidator(participantId),
+        new AuthorizationValidator(participantId, parameters.enableExternalAuthorization),
         new InternalConsistencyChecker(
           staticDomainParameters.protocolVersion,
           loggerFactory,

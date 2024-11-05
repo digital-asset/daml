@@ -185,7 +185,9 @@ final case class LedgerApiServerConfig(
     authServices: Seq[AuthServiceConfig] = Seq.empty,
     adminToken: Option[String] = None,
     jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
-    keepAliveServer: Option[KeepAliveServerConfig] = Some(KeepAliveServerConfig()),
+    keepAliveServer: Option[LedgerApiKeepAliveServerConfig] = Some(
+      LedgerApiKeepAliveServerConfig()
+    ),
     maxInboundMessageSize: NonNegativeInt = ServerConfig.defaultMaxInboundMessageSize,
     rateLimit: Option[RateLimitingConfig] = Some(DefaultRateLimit),
     postgresDataSource: PostgresDataSourceConfig = PostgresDataSourceConfig(),
@@ -273,6 +275,7 @@ object TestingTimeServiceConfig {
   * @param disableUpgradeValidation Disable the package upgrade verification on DAR upload
   * @param packageMetadataView Initialization parameters for the package metadata in-memory store.
   * @param experimentalEnableTopologyEvents If true, topology events are propagated to the Ledger API clients
+  * @param enableExternalAuthorization If true, external authentication is supported
   */
 final case class ParticipantNodeParameterConfig(
     adminWorkflow: AdminWorkflowConfig = AdminWorkflowConfig(),
@@ -306,6 +309,7 @@ final case class ParticipantNodeParameterConfig(
     commandProgressTracker: CommandProgressTrackerConfig = CommandProgressTrackerConfig(),
     unsafeEnableOnlinePartyReplication: Boolean = false,
     experimentalEnableTopologyEvents: Boolean = false,
+    enableExternalAuthorization: Boolean = false,
 ) extends LocalNodeParametersConfig
 
 /** Parameters for the participant node's stores

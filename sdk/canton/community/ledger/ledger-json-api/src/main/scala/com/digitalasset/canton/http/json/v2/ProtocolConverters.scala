@@ -17,7 +17,6 @@ import com.digitalasset.canton.http.json.v2.JsSchema.{
   JsTreeEvent,
 }
 import com.google.rpc.status.Status
-import io.circe.Json
 import ujson.StringRenderer
 import ujson.circe.CirceJson
 

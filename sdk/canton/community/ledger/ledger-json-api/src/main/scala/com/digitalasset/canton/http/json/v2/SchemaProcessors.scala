@@ -7,7 +7,6 @@ import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2.value
 import com.daml.ledger.api.v2.value.{Identifier, Value}
 import com.digitalasset.canton.caching.CaffeineCache
-import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.fetchcontracts.util.IdentifierConverters
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidField
 import com.digitalasset.daml.lf.data.Ref

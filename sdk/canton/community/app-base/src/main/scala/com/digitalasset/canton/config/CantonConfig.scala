@@ -397,6 +397,7 @@ trait CantonConfig {
           participantParameters.unsafeEnableOnlinePartyReplication,
         // TODO(i21341) Remove the flag before going to production
         experimentalEnableTopologyEvents = participantParameters.experimentalEnableTopologyEvents,
+        enableExternalAuthorization = participantParameters.enableExternalAuthorization,
       )
     }
 
@@ -678,8 +679,11 @@ object CantonConfig {
       deriveReader[ServerAuthRequirementConfig]
     lazy implicit val keepAliveClientConfigReader: ConfigReader[KeepAliveClientConfig] =
       deriveReader[KeepAliveClientConfig]
-    lazy implicit val keepAliveServerConfigReader: ConfigReader[KeepAliveServerConfig] =
-      deriveReader[KeepAliveServerConfig]
+    lazy implicit val keepAliveServerConfigReader: ConfigReader[BasicKeepAliveServerConfig] =
+      deriveReader[BasicKeepAliveServerConfig]
+    lazy implicit val lapiKeepAliveServerConfigReader
+        : ConfigReader[LedgerApiKeepAliveServerConfig] =
+      deriveReader[LedgerApiKeepAliveServerConfig]
     lazy implicit val tlsServerConfigReader: ConfigReader[TlsServerConfig] =
       deriveReader[TlsServerConfig]
     lazy implicit val tlsClientConfigReader: ConfigReader[TlsClientConfig] =
@@ -1121,8 +1125,11 @@ object CantonConfig {
       deriveWriter[ServerAuthRequirementConfig]
     lazy implicit val keepAliveClientConfigWriter: ConfigWriter[KeepAliveClientConfig] =
       deriveWriter[KeepAliveClientConfig]
-    lazy implicit val keepAliveServerConfigWriter: ConfigWriter[KeepAliveServerConfig] =
-      deriveWriter[KeepAliveServerConfig]
+    lazy implicit val keepAliveServerConfigWriter: ConfigWriter[BasicKeepAliveServerConfig] =
+      deriveWriter[BasicKeepAliveServerConfig]
+    lazy implicit val lapiKeepAliveServerConfigWriter
+        : ConfigWriter[LedgerApiKeepAliveServerConfig] =
+      deriveWriter[LedgerApiKeepAliveServerConfig]
     lazy implicit val tlsServerConfigWriter: ConfigWriter[TlsServerConfig] =
       deriveWriter[TlsServerConfig]
     lazy implicit val tlsClientConfigWriter: ConfigWriter[TlsClientConfig] =

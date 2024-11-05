@@ -5,7 +5,7 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fr
 
 import cats.syntax.traverse.*
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.sequencing.sequencer.bftordering.v1.CanonicalCommitSet as ProtoCanonicalCommitSet
+import com.digitalasset.canton.domain.sequencing.sequencer.bftordering.v1
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.Commit
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
@@ -17,14 +17,14 @@ final case class CanonicalCommitSet(private val commits: Set[SignedMessage[Commi
 
   val timestamps: Seq[CantonTimestamp] = sortedCommits.map(_.message.localTimestamp)
 
-  def toProto: ProtoCanonicalCommitSet = ProtoCanonicalCommitSet.of(sortedCommits.map(_.toProto))
+  def toProto: v1.CanonicalCommitSet = v1.CanonicalCommitSet.of(sortedCommits.map(_.toProto))
 }
 
 object CanonicalCommitSet {
-  def fromProto(canonicalCommitSet: ProtoCanonicalCommitSet): ParsingResult[CanonicalCommitSet] =
+  def fromProto(canonicalCommitSet: v1.CanonicalCommitSet): ParsingResult[CanonicalCommitSet] =
     canonicalCommitSet.canonicalCommits
       .traverse(
-        SignedMessage.fromProto(Commit.fromProtoConsensusMessage)
+        SignedMessage.fromProto(v1.ConsensusMessage)(Commit.fromProtoConsensusMessage)
       )
       .map(x => CanonicalCommitSet(SortedSet.from(x)))
 }

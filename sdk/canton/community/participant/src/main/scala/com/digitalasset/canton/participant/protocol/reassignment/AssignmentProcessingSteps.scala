@@ -191,7 +191,6 @@ private[reassignment] class AssignmentProcessingSteps(
           submitterMetadata,
           reassignmentData.contract,
           reassignmentData.reassignmentCounter,
-          reassignmentData.creatingTransactionId,
           targetDomain,
           mediator,
           unassignmentResult,
@@ -381,7 +380,7 @@ private[reassignment] class AssignmentProcessingSteps(
     // in the Phase37Synchronizer without waiting for it, thereby allowing us to concurrently receive a
     // mediator verdict.
     val stakeholdersCheckResultET = reassignmentValidation
-      .checkStakeholders(
+      .checkMetadata(
         fullViewTree,
         getEngineAbortStatus = () => engineController.abortStatus,
       )
@@ -452,10 +451,9 @@ private[reassignment] class AssignmentProcessingSteps(
         fullViewTree.contract,
         fullViewTree.reassignmentCounter,
         fullViewTree.submitterMetadata,
-        fullViewTree.creatingTransactionId,
         isObservingReassigningParticipant = isObservingReassigningParticipant,
         reassignmentId,
-        hostedStakeholders.toSet,
+        hostedStakeholders,
         mediator,
         locallyRejectedF,
         engineController.abort,
@@ -569,7 +567,6 @@ private[reassignment] class AssignmentProcessingSteps(
       contract,
       reassignmentCounter,
       submitterMetadata,
-      creatingTransactionId,
       isObservingReassigningParticipant,
       reassignmentId,
       hostedStakeholders,
@@ -603,7 +600,7 @@ private[reassignment] class AssignmentProcessingSteps(
           ),
         )
         val commitSetO = Some(Future.successful(commitSet))
-        val contractsToBeStored = Seq(WithTransactionId(contract, creatingTransactionId))
+        val contractsToBeStored = Seq(contract)
 
         for {
           update <- createReassignmentAccepted(
@@ -733,7 +730,6 @@ object AssignmentProcessingSteps {
       contract: SerializableContract,
       reassignmentCounter: ReassignmentCounter,
       submitterMetadata: ReassignmentSubmitterMetadata,
-      creatingTransactionId: TransactionId,
       isObservingReassigningParticipant: Boolean,
       reassignmentId: ReassignmentId,
       hostedStakeholders: Set[LfPartyId],
@@ -752,7 +748,6 @@ object AssignmentProcessingSteps {
       submitterMetadata: ReassignmentSubmitterMetadata,
       contract: SerializableContract,
       reassignmentCounter: ReassignmentCounter,
-      creatingTransactionId: TransactionId,
       targetDomain: Target[DomainId],
       targetMediator: MediatorGroupRecipient,
       unassignmentResult: DeliveredUnassignmentResult,
@@ -782,7 +777,6 @@ object AssignmentProcessingSteps {
         .create(pureCrypto)(
           viewSalt,
           contract,
-          creatingTransactionId,
           unassignmentResult,
           sourceProtocolVersion,
           targetProtocolVersion,

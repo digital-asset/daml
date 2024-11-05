@@ -6,42 +6,62 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fr
 import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.domain.sequencing.sequencer.bftordering.v1
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.PbftNetworkMessage
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
 import com.digitalasset.canton.topology.SequencerId
+import com.digitalasset.canton.version.v1.UntypedVersionedMessage
+import com.google.protobuf.ByteString
 
-final case class SignedMessage[+MessageT <: PbftNetworkMessage](
+trait MessageFrom {
+  def from: SequencerId
+}
+
+final case class SignedMessage[+MessageT <: ProtocolVersionedMemoizedEvidence & MessageFrom](
     message: MessageT,
-    from: SequencerId,
     signature: Signature,
 ) {
-  // TODO(#21169) v1.ConsensusMessage will be ByteString in future
   def toProto: v1.SignedMessage =
     v1.SignedMessage.of(
-      Some(message.toProto),
-      from.toProtoPrimitive,
+      message.getCryptographicEvidence,
+      message.from.toProtoPrimitive,
       signature = Some(signature.toProtoV30),
     )
+
+  def from: SequencerId = message.from
 }
 
 object SignedMessage {
-  def fromProto[MessageT <: PbftNetworkMessage](
-      parse: v1.ConsensusMessage => ParsingResult[MessageT]
+  def fromProto[
+      MessageT <: ProtocolVersionedMemoizedEvidence & MessageFrom,
+      Proto <: scalapb.GeneratedMessage,
+  ](
+      p: scalapb.GeneratedMessageCompanion[Proto]
+  )(
+      parse: Proto => ByteString => ParsingResult[MessageT]
   )(
       proto: v1.SignedMessage
   ): ParsingResult[SignedMessage[MessageT]] =
-    fromProtoWithSequencerId(_ => parse)(proto)
+    fromProtoWithSequencerId(p)(_ => parse)(proto)
 
-  def fromProtoWithSequencerId[A <: PbftNetworkMessage](
-      parse: SequencerId => v1.ConsensusMessage => ParsingResult[A]
+  def fromProtoWithSequencerId[
+      A <: ProtocolVersionedMemoizedEvidence & MessageFrom,
+      Proto <: scalapb.GeneratedMessage,
+  ](
+      p: scalapb.GeneratedMessageCompanion[Proto]
+  )(
+      parse: SequencerId => Proto => ByteString => ParsingResult[A]
   )(proto: v1.SignedMessage): ParsingResult[SignedMessage[A]] = for {
-    protoMessage <- proto.message.toRight(ProtoDeserializationError.FieldNotSet("message"))
     from <- SequencerId.fromProtoPrimitive(proto.from, "from")
-    message <- parse(from)(protoMessage)
+    versionedMessage <- ProtoConverter.protoParser(UntypedVersionedMessage.parseFrom)(proto.message)
+    unVersionedBytes <- versionedMessage.wrapper.data.toRight(
+      ProtoDeserializationError.OtherError("Missing data in UntypedVersionedMessage")
+    )
+    protoMessage <- ProtoConverter.protoParser(p.parseFrom)(unVersionedBytes)
+    message <- parse(from)(protoMessage)(proto.message)
     signature <- Signature.fromProtoV30(proto.getSignature)
-  } yield SignedMessage(message, from, signature)
+  } yield SignedMessage(message, signature)
 
-  implicit def ordering[A <: PbftNetworkMessage](implicit
+  implicit def ordering[A <: ProtocolVersionedMemoizedEvidence & MessageFrom](implicit
       ordering: Ordering[A]
   ): Ordering[SignedMessage[A]] =
     ordering.on(_.message)

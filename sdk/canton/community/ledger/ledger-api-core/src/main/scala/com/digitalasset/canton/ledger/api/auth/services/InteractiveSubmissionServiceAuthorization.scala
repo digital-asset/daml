@@ -44,7 +44,7 @@ final class InteractiveSubmissionServiceAuthorization(
       request: ExecuteSubmissionRequest
   ): Future[ExecuteSubmissionResponse] = {
     // TODO(i21367): we want to use the actAs and readAs parties from the transaction instead of the parties that have signed
-    val signingParties = request.partiesSignatures.toList
+    val signingParties = request.partySignatures.toList
       .flatMap(_.signatures.toSet.map[String](_.party))
       .toSet[String]
     authorizer.requireActAndReadClaimsForParties(

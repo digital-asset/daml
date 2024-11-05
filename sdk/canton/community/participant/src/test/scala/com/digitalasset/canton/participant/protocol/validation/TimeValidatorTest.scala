@@ -18,12 +18,11 @@ import org.scalatest.wordspec.AnyWordSpec
 import java.time.Duration
 
 class TimeValidatorTest extends AnyWordSpec with BaseTest {
-  val sequencerTimestamp: CantonTimestamp = CantonTimestamp.ofEpochSecond(0)
-  val ledgerTimeRecordTimeTolerance: NonNegativeFiniteDuration =
+  private val ledgerTimeRecordTimeTolerance: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.tryOfSeconds(10)
-  val submissionTimeRecordTimeTolerance: NonNegativeFiniteDuration =
+  private val submissionTimeRecordTimeTolerance: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.tryOfSeconds(60)
-  val transactionId: TransactionId = ExampleTransactionFactory.transactionId(0)
+  private val transactionId: TransactionId = ExampleTransactionFactory.transactionId(0)
 
   private def checkTimestamps(
       ledgerTime: CantonTimestamp,
