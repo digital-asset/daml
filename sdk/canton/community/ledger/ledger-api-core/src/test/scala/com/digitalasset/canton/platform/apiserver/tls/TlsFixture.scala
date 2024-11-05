@@ -79,6 +79,7 @@ final case class TlsFixture(
           tlsConfiguration = Some(serverTlsConfiguration),
           servicesExecutor = servicesExecutor,
           metrics = Metrics.ForTesting,
+          keepAlive = None,
           loggerFactory = loggerFactory,
         )
       )
