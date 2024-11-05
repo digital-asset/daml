@@ -282,6 +282,7 @@ damlWarningFlagParserTypeChecker = DamlWarningFlagParser
   { dwfpFlagParsers =
       [ (upgradeInterfacesName, upgradeInterfacesFlag)
       , (upgradeExceptionsName, upgradeExceptionsFlag)
+      , (upgradeDependencyMetadataName, upgradeDependencyMetadataFlag)
       ]
   , dwfpDefault = \case
       WEUpgradeShouldDefineIfacesAndTemplatesSeparately {} -> AsError
@@ -292,14 +293,14 @@ damlWarningFlagParserTypeChecker = DamlWarningFlagParser
       WEDependencyHasNoMetadataDespiteUpgradeability {} -> AsWarning
   }
 
-upgradeInterfacesFlag, upgradeExceptionsFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
-upgradeInterfacesFlag status = RawDamlWarningFlag upgradeInterfacesName status upgradeInterfacesFilter
-upgradeExceptionsFlag status = RawDamlWarningFlag upgradeExceptionsName status upgradeExceptionsFilter
-
 filterNameForErrorOrWarning :: ErrorOrWarning -> Maybe String
 filterNameForErrorOrWarning err | upgradeInterfacesFilter err = Just upgradeInterfacesName
 filterNameForErrorOrWarning err | upgradeExceptionsFilter err = Just upgradeExceptionsName
+filterNameForErrorOrWarning err | upgradeDependencyMetadataFilter err = Just upgradeDependencyMetadataName
 filterNameForErrorOrWarning _ = Nothing
+
+upgradeInterfacesFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
+upgradeInterfacesFlag status = RawDamlWarningFlag upgradeInterfacesName status upgradeInterfacesFilter
 
 upgradeInterfacesName :: String
 upgradeInterfacesName = "upgrade-interfaces"
@@ -312,6 +313,9 @@ upgradeInterfacesFilter =
         WEUpgradeShouldDefineTplInSeparatePackage {} -> True
         _ -> False
 
+upgradeExceptionsFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
+upgradeExceptionsFlag status = RawDamlWarningFlag upgradeExceptionsName status upgradeExceptionsFilter
+
 upgradeExceptionsName :: String
 upgradeExceptionsName = "upgrade-exceptions"
 
@@ -319,6 +323,18 @@ upgradeExceptionsFilter :: ErrorOrWarning -> Bool
 upgradeExceptionsFilter =
     \case
         WEUpgradeShouldDefineExceptionsAndTemplatesSeparately {} -> True
+
+upgradeDependencyMetadataFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
+upgradeDependencyMetadataFlag status = RawDamlWarningFlag upgradeDependencyMetadataName status upgradeDependencyMetadataFilter
+
+upgradeDependencyMetadataName :: String
+upgradeDependencyMetadataName = "upgrade-dependency-metadata"
+
+upgradeDependencyMetadataFilter :: ErrorOrWarning -> Bool
+upgradeDependencyMetadataFilter =
+    \case
+        WEDependencyHasUnparseableVersion {} -> True
+        WEDependencyHasNoMetadataDespiteUpgradeability {} -> True
         _ -> False
 
 data PackageUpgradeOrigin = UpgradingPackage | UpgradedPackage
