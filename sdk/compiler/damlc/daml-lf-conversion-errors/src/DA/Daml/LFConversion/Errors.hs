@@ -21,14 +21,8 @@ import DA.Daml.LF.TypeChecker.Error.WarningFlags
 
 import "ghc-lib" TyCoRep
 
-data ConversionEnv = ConversionEnv
-  { convModuleFilePath :: !NormalizedFilePath
-  , convRange :: !(Maybe SourceLoc)
-  , convWarningFlags :: DamlWarningFlags ErrorOrWarning
-  }
-
-damlWarningFlagParser :: DamlWarningFlagParser ErrorOrWarning
-damlWarningFlagParser =
+damlWarningFlagParserLFConversion :: DamlWarningFlagParser ErrorOrWarning
+damlWarningFlagParserLFConversion =
   DamlWarningFlagParser
     { dwfpFlagParsers = [(warnLargeTuplesName, warnLargeTuplesFlag)]
     , dwfpDefault = \case

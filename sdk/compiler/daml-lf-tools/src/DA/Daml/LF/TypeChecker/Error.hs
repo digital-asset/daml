@@ -25,7 +25,7 @@ module DA.Daml.LF.TypeChecker.Error(
     parseRawDamlWarningFlag,
     getWarningStatus,
     upgradeInterfacesFlag,
-    damlWarningFlagParser,
+    damlWarningFlagParserTypeChecker,
     mkDamlWarningFlags,
     combineParsers
     ) where
@@ -266,8 +266,8 @@ instance Pretty ErrorOrWarning where
     WEDependencyHasNoMetadataDespiteUpgradeability pkgId packageOrigin ->
       "Dependency with package ID " <> pPrint pkgId <> " of " <> pPrint packageOrigin <> " has no metadata, despite being compiled with an SDK version that supports metadata."
 
-damlWarningFlagParser :: DamlWarningFlagParser ErrorOrWarning
-damlWarningFlagParser = DamlWarningFlagParser
+damlWarningFlagParserTypeChecker :: DamlWarningFlagParser ErrorOrWarning
+damlWarningFlagParserTypeChecker = DamlWarningFlagParser
   { dwfpFlagParsers = [(upgradeInterfacesName, upgradeInterfacesFlag)]
   , dwfpDefault = \case
       WEUpgradeShouldDefineIfacesAndTemplatesSeparately {} -> AsError

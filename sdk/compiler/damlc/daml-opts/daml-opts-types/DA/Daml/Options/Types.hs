@@ -40,6 +40,8 @@ module DA.Daml.Options.Types
     , defaultUiWarnBadInterfaceInstances
     , defaultUpgradeInfo
     , damlWarningFlagParser
+    , TypeCheckerError.damlWarningFlagParserTypeChecker
+    , LFConversion.damlWarningFlagParserLFConversion
     ) where
 
 import Control.Monad.Reader
@@ -149,8 +151,8 @@ type ErrorOrWarning = Either TypeCheckerError.ErrorOrWarning LFConversion.ErrorO
 damlWarningFlagParser :: WarningFlags.DamlWarningFlagParser ErrorOrWarning
 damlWarningFlagParser =
   WarningFlags.combineParsers
-    TypeCheckerError.damlWarningFlagParser
-    LFConversion.damlWarningFlagParser
+    TypeCheckerError.damlWarningFlagParserTypeChecker
+    LFConversion.damlWarningFlagParserLFConversion
 
 newtype IncrementalBuild = IncrementalBuild { getIncrementalBuild :: Bool }
   deriving Show
