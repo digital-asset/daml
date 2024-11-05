@@ -59,6 +59,7 @@ object Hash {
   sealed abstract class NodeHashingError(val msg: String) extends Exception
   object NodeHashingError {
     final case class UnsupportedFeature(message: String) extends NodeHashingError(message)
+    final case class MissingNodeSeed(message: String) extends NodeHashingError(message)
     final case class IncompleteTransactionTree(nodeId: NodeId)
         extends NodeHashingError(s"The transaction does not contain a node with nodeId $nodeId")
     final case class UnsupportedLanguageVersion(
@@ -235,7 +236,6 @@ object Hash {
         domainId: String,
         ledgerEffectiveTime: Option[Time.Timestamp],
         submissionTime: Time.Timestamp,
-        nodeSeeds: SortedMap[NodeId, Hash],
         disclosedContracts: SortedMap[ContractId, FatContractInstance],
     )
   }
@@ -248,7 +248,8 @@ object Hash {
       metadata: TransactionMetadataBuilderV1.Metadata,
       hashTracer: HashTracer = HashTracer.NoOp,
   ): Hash = {
-    new NodeBuilderV1(Purpose.MetadataHash, hashTracer)
+    // Do not enforce node seed for create nodes here as we hash disclosed events which do not have a seed
+    new NodeBuilderV1(Purpose.MetadataHash, hashTracer, enforceNodeSeedForCreateNodes = false)
       .addHashVersion(NodeHashVersion.V1)
       .withContext("Act As Parties")(
         _.iterateOver(metadata.actAs.iterator, metadata.actAs.size)(_ addString _)
@@ -262,11 +263,6 @@ object Hash {
         _.addOptional(metadata.ledgerEffectiveTime.map(_.micros), _.addLong)
       )
       .withContext("Submission Time")(_.addLong(metadata.submissionTime.micros))
-      .withContext("Node Seeds")(
-        _.iterateOver(metadata.nodeSeeds.valuesIterator, metadata.nodeSeeds.size)((builder, seed) =>
-          builder.addHash(seed, "Node Seed")
-        )
-      )
       .withContext("Disclosed Contracts")(
         _.iterateOver(metadata.disclosedContracts.valuesIterator, metadata.disclosedContracts.size)(
           (builder, fatInstance) =>
@@ -362,8 +358,11 @@ object Hash {
     }
   }
 
-  private sealed class NodeBuilderV1(purpose: Purpose, hashTracer: HashTracer)
-      extends NodeBuilder(purpose, hashTracer) {
+  private sealed class NodeBuilderV1(
+      purpose: Purpose,
+      hashTracer: HashTracer,
+      enforceNodeSeedForCreateNodes: Boolean,
+  ) extends NodeBuilder(purpose, hashTracer) {
 
     override private[crypto] def hashNode(
         node: Node,
@@ -378,7 +377,7 @@ object Hash {
             .assertHashingVersionSupportsLfVersion(_, NodeHashVersion.V1)
         )
 
-      new NodeBuilderV1(purpose, hashTracer).addVersion
+      new NodeBuilderV1(purpose, hashTracer, enforceNodeSeedForCreateNodes).addVersion
         .addHashVersion(NodeHashVersion.V1)
         .addNode(node, nodeSeed, nodes, nodeSeeds)
         .build
@@ -414,7 +413,7 @@ object Hash {
           .withContext("Stakeholders")(_.addStringSet(stakeholders))
     }
 
-    private def addFetchNode(nodeSeed: Option[Hash]): Node.Fetch => this.type = {
+    private val addFetchNode: Node.Fetch => this.type = {
       case Node.Fetch(
             coid,
             packageName,
@@ -433,9 +432,6 @@ object Hash {
         addContext("Fetch Node")
           .withContext("Node Version")(_.addString(TransactionVersion.toProtoValue(version)))
           .addByte(NodeBuilder.NodeTag.FetchTag.tag, "Node Tag")
-          .withContext("Node Seed")(
-            _.addOptional(nodeSeed, builder => seed => builder.addHash(seed, "node seed"))
-          )
           .withContext("Contract Id")(_.addCid(coid))
           .withContext("Package Name")(_.addString(packageName))
           .withContext("Template Id")(_.addIdentifier(templateId))
@@ -446,7 +442,7 @@ object Hash {
 
     private def addExerciseNode(
         nodes: Map[NodeId, Node],
-        nodeSeed: Option[Hash],
+        nodeSeed: Hash,
         nodeSeeds: Map[NodeId, Hash],
     ): Node.Exercise => this.type = {
       case Node.Exercise(
@@ -475,9 +471,7 @@ object Hash {
         addContext("Exercise Node")
           .withContext("Node Version")(_.addString(TransactionVersion.toProtoValue(version)))
           .addByte(NodeBuilder.NodeTag.ExerciseTag.tag, "Node Tag")
-          .withContext("Node Seed")(
-            _.addOptional(nodeSeed, builder => seed => builder.addHash(seed, "node seed"))
-          )
+          .withContext("Node Seed")(_.addHash(nodeSeed, "seed"))
           .withContext("Contract Id")(_.addCid(targetCoid))
           .withContext("Package Name")(_.addString(packageName))
           .withContext("Template Id")(_.addIdentifier(templateId))
@@ -500,34 +494,43 @@ object Hash {
 
     private def addRollbackNode(
         nodes: Map[NodeId, Node],
-        nodeSeed: Option[Hash],
         nodeSeeds: Map[NodeId, Hash],
     ): Node.Rollback => this.type = { case Node.Rollback(children) =>
       addContext("Rollback Node")
         .addByte(NodeBuilder.NodeTag.RollbackTag.tag, "Node Tag")
-        .withContext("Node Seed")(
-          _.addOptional(nodeSeed, builder => seed => builder.addHash(seed, "node seed"))
-        )
         .withContext("Children")(_.addNodesFromNodeIds(children, nodes, nodeSeeds))
     }
 
     private def addNode(
         node: Node,
-        nodeSeed: Option[Hash],
+        nodeSeedO: Option[Hash],
         nodes: Map[NodeId, Node],
         nodeSeeds: Map[NodeId, Hash],
-    ): this.type = node match {
-      case create: Node.Create => addCreateNode(nodeSeed)(create)
-      case fetch: Node.Fetch => addFetchNode(nodeSeed)(fetch)
-      case exercise: Node.Exercise => addExerciseNode(nodes, nodeSeed, nodeSeeds)(exercise)
-      case rollback: Node.Rollback => addRollbackNode(nodes, nodeSeed, nodeSeeds)(rollback)
-      case _: Node.LookupByKey =>
+    ): this.type = (node, nodeSeedO) match {
+      // Create nodes in a transaction should have a node seed, but we also need to encode create nodes for disclosed contracts
+      // which do not have one.
+      // We could differentiate between the 2 cases but to keep the encoding simpler we encode create nodes with an optional seed
+      case (create: Node.Create, nodeSeed) =>
+        // We can still enforce that create nodes within a transaction have a seed, even if we then encode it as an optional
+        if (enforceNodeSeedForCreateNodes && nodeSeed.isEmpty) missingNodeSeed(node)
+        addCreateNode(nodeSeed)(create)
+      case (fetch: Node.Fetch, _) => addFetchNode(fetch)
+      case (exercise: Node.Exercise, Some(nodeSeed)) =>
+        addExerciseNode(nodes, nodeSeed, nodeSeeds)(exercise)
+      case (_: Node.Exercise, None) => missingNodeSeed(node)
+      case (rollback: Node.Rollback, _) => addRollbackNode(nodes, nodeSeeds)(rollback)
+      case (_: Node.LookupByKey, _) =>
         notSupported(s"LookupByKey node")
     }
 
     private[this] def notSupported(str: String) =
       throw NodeHashingError.UnsupportedFeature(
         s"$str is not supported in version ${NodeHashVersion.V1.id}"
+      )
+
+    private[this] def missingNodeSeed(node: Node) =
+      throw NodeHashingError.MissingNodeSeed(
+        s"Missing node seed for node $node"
       )
   }
 
@@ -541,7 +544,7 @@ object Hash {
       nodeSeeds: Map[NodeId, Hash],
       hashTracer: HashTracer = HashTracer.NoOp,
   ): Hash = {
-    new NodeBuilderV1(Purpose.TransactionHash, hashTracer)
+    new NodeBuilderV1(Purpose.TransactionHash, hashTracer, enforceNodeSeedForCreateNodes = true)
       .withContext("Transaction Version")(
         _.addString(TransactionVersion.toProtoValue(versionedTransaction.version))
       )
@@ -562,8 +565,9 @@ object Hash {
       nodeSeed: Option[Hash] = None,
       subNodes: Map[NodeId, Node] = Map.empty,
       hashTracer: HashTracer = HashTracer.NoOp,
+      enforceNodeSeedForCreateNodes: Boolean = true,
   ): Hash = {
-    new NodeBuilderV1(Purpose.TransactionHash, hashTracer)
+    new NodeBuilderV1(Purpose.TransactionHash, hashTracer, enforceNodeSeedForCreateNodes)
       .hashNode(node, nodeSeed, subNodes, nodeSeeds)
   }
 
@@ -571,7 +575,7 @@ object Hash {
   private[crypto] def valueBuilderForV1Node(
       hashTracer: HashTracer = HashTracer.NoOp
   ): ValueHashBuilder =
-    new NodeBuilderV1(Purpose.TransactionHash, hashTracer)
+    new NodeBuilderV1(Purpose.TransactionHash, hashTracer, enforceNodeSeedForCreateNodes = false)
 
   private final class HashMacBuilder(key: Hash) extends Builder(bigIntNumericToBytes) {
     private val macPrototype: MacPrototype = MacPrototype.HmacSha256

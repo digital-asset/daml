@@ -316,15 +316,14 @@ object ValueGenerators {
     for {
       coid <- coidGen
       packageName <- pkgNameGen
-      pkgVer <-
-        if (version <= LanguageVersion.v2_1) Gen.const(Option.empty[PackageVersion])
-        else pkgVerGen(version)
+      pkgVer <- pkgVerGen(version)
       templateId <- idGen
       arg <- valueGen()
       signatories <- genNonEmptyParties
       stakeholders <- genNonEmptyParties
       key <-
-        if (version <= LanguageVersion.v2_1) Gen.const(Option.empty[GlobalKeyWithMaintainers])
+        if (version < LanguageVersion.Features.contractKeys)
+          Gen.const(Option.empty[GlobalKeyWithMaintainers])
         else Gen.option(keyWithMaintainersGen(templateId, packageName))
     } yield Node.Create(
       coid = coid,
@@ -353,9 +352,12 @@ object ValueGenerators {
       signatories <- genNonEmptyParties
       stakeholders <- genNonEmptyParties
       key <-
-        if (version <= LanguageVersion.v2_1) Gen.const(Option.empty[GlobalKeyWithMaintainers])
+        if (version < LanguageVersion.Features.contractKeys)
+          Gen.const(Option.empty[GlobalKeyWithMaintainers])
         else Gen.option(keyWithMaintainersGen(templateId, pkgName))
-      byKey <- if (version <= LanguageVersion.v2_1) Gen.const(false) else Gen.oneOf(true, false)
+      byKey <-
+        if (version < LanguageVersion.Features.contractKeys) Gen.const(false)
+        else Gen.oneOf(true, false)
     } yield Node.Fetch(
       coid = coid,
       packageName = pkgName,
@@ -403,7 +405,8 @@ object ValueGenerators {
       signatories <- genNonEmptyParties
       choiceObservers <- genMaybeEmptyParties
       choiceAuthorizersList <-
-        if (version <= LanguageVersion.v2_1) Gen.const(Set.empty[Party]) else genMaybeEmptyParties
+        if (version < LanguageVersion.Features.choiceAuthority) Gen.const(Set.empty[Party])
+        else genMaybeEmptyParties
       choiceAuthorizers = if (choiceAuthorizersList.isEmpty) None else Some(choiceAuthorizersList)
       children <- Gen
         .listOf(Arbitrary.arbInt.arbitrary)
@@ -411,9 +414,12 @@ object ValueGenerators {
         .map(_.to(ImmArray))
       exerciseResult <- Gen.option(valueGen())
       key <-
-        if (version <= LanguageVersion.v2_1) Gen.const(Option.empty[GlobalKeyWithMaintainers])
+        if (version < LanguageVersion.Features.contractKeys)
+          Gen.const(Option.empty[GlobalKeyWithMaintainers])
         else Gen.option(keyWithMaintainersGen(templateId, pkgName))
-      byKey <- if (version <= LanguageVersion.v2_1) Gen.const(false) else Gen.oneOf(true, false)
+      byKey <-
+        if (version < LanguageVersion.Features.contractKeys) Gen.const(false)
+        else Gen.oneOf(true, false)
     } yield Node.Exercise(
       targetCoid = targetCoid,
       packageName = pkgName,
