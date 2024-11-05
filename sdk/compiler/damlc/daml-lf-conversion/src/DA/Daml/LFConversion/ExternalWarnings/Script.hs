@@ -39,11 +39,4 @@ topLevelWarnings (name, _x)
   | (ForAllTy (Bndr tyVar Inferred) ty@(TypeCon scriptType _)) <- varType name -- Only inferred forall, explicit forall is acceptable. Script : * -> *
   , isDamlScriptType scriptType
   = withRange (convNameLoc name) $ conversionWarning $ PolymorphicTopLevelScript name ty tyVar
-      --[ "This method is implicitly polymorphic. Top level polymorphic scripts will not be run as tests."
-      --, "If this is intentional, please write an explicit type signature with the `forall'"
-      --, "If not, either provide a specialised type signature, such as:"
-      --, showSDocUnsafe $ quotes $ ppr name <+> ":" <+> pprType (substUnit tyVar ty)
-      --, "Or apply the unit type to the top level `script' call:"
-      --, showSDocUnsafe $ quotes $ ppr name <+> "= script @() do ..."
-      --]
   | otherwise = pure ()
