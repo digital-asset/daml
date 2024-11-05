@@ -288,7 +288,6 @@ object UnassignmentCommonData
   */
 /** @param salt The salt used to blind the Merkle hash.
   * @param contract Contract being reassigned
-  * @param creatingTransactionId Id of the transaction that created the contract
   * @param targetDomain The domain to which the contract is reassigned.
   * @param targetTimeProof The sequenced event from the target domain whose timestamp defines
   *                        the baseline for measuring time periods on the target domain
@@ -297,7 +296,6 @@ object UnassignmentCommonData
 final case class UnassignmentView private (
     override val salt: Salt,
     contract: SerializableContract,
-    creatingTransactionId: TransactionId,
     targetDomain: Target[DomainId],
     targetTimeProof: TimeProof,
     targetProtocolVersion: Target[ProtocolVersion],
@@ -326,12 +324,10 @@ final case class UnassignmentView private (
       targetTimeProof = Some(targetTimeProof.toProtoV30),
       targetProtocolVersion = targetProtocolVersion.unwrap.toProtoPrimitive,
       reassignmentCounter = reassignmentCounter.toProtoPrimitive,
-      creatingTransactionId = creatingTransactionId.toProtoPrimitive,
       contract = Some(contract.toProtoV30),
     )
 
   override protected def pretty: Pretty[UnassignmentView] = prettyOfClass(
-    param("creating transaction id", _.creatingTransactionId),
     param("template id", _.templateId),
     param("target domain", _.targetDomain),
     param("target time proof", _.targetTimeProof),
@@ -359,7 +355,6 @@ object UnassignmentView
   def create(hashOps: HashOps)(
       salt: Salt,
       contract: SerializableContract,
-      creatingTransactionId: TransactionId,
       targetDomain: Target[DomainId],
       targetTimeProof: TimeProof,
       sourceProtocolVersion: Source[ProtocolVersion],
@@ -369,7 +364,6 @@ object UnassignmentView
     UnassignmentView(
       salt,
       contract,
-      creatingTransactionId,
       targetDomain,
       targetTimeProof,
       targetProtocolVersion,
@@ -385,7 +379,6 @@ object UnassignmentView
       targetTimeProofP,
       targetProtocolVersionP,
       reassignmentCounterP,
-      creatingTransactionIdP,
       contractPO,
     ) = unassignmentViewP
 
@@ -396,7 +389,6 @@ object UnassignmentView
       targetTimeProof <- ProtoConverter
         .required("targetTimeProof", targetTimeProofP)
         .flatMap(TimeProof.fromProtoV30(targetProtocolVersion, hashOps))
-      creatingTransactionId <- TransactionId.fromProtoPrimitive(creatingTransactionIdP)
       contract <- ProtoConverter
         .required("UnassignmentViewTree.contract", contractPO)
         .flatMap(SerializableContract.fromProtoV30)
@@ -404,7 +396,6 @@ object UnassignmentView
     } yield UnassignmentView(
       salt,
       contract,
-      creatingTransactionId,
       Target(targetDomain),
       targetTimeProof,
       Target(targetProtocolVersion),

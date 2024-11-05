@@ -293,7 +293,6 @@ object AssignmentCommonData
   *
   * @param salt                    The salt to blind the Merkle hash
   * @param contract                The contract to be reassigned including the instance
-  * @param creatingTransactionId   The id of the transaction that created the contract
   * @param unassignmentResultEvent The signed deliver event of the unassignment result message
   * @param sourceProtocolVersion   Protocol version of the source domain.
   * @param reassignmentCounter     The [[com.digitalasset.canton.ReassignmentCounter]] of the contract.
@@ -301,7 +300,6 @@ object AssignmentCommonData
 final case class AssignmentView private (
     override val salt: Salt,
     contract: SerializableContract,
-    creatingTransactionId: TransactionId,
     unassignmentResultEvent: DeliveredUnassignmentResult,
     sourceProtocolVersion: Source[ProtocolVersion],
     reassignmentCounter: ReassignmentCounter,
@@ -324,14 +322,12 @@ final case class AssignmentView private (
     v30.AssignmentView(
       salt = Some(salt.toProtoV30),
       contract = Some(contract.toProtoV30),
-      creatingTransactionId = creatingTransactionId.toProtoPrimitive,
       unassignmentResultEvent = unassignmentResultEvent.result.toByteString,
       sourceProtocolVersion = sourceProtocolVersion.unwrap.toProtoPrimitive,
       reassignmentCounter = reassignmentCounter.toProtoPrimitive,
     )
 
   override protected def pretty: Pretty[AssignmentView] = prettyOfClass(
-    param("creating transaction id", _.creatingTransactionId),
     param("unassignment result event", _.unassignmentResultEvent),
     param("source protocol version", _.sourceProtocolVersion),
     param("reassignment counter", _.reassignmentCounter),
@@ -357,7 +353,6 @@ object AssignmentView
   def create(hashOps: HashOps)(
       salt: Salt,
       contract: SerializableContract,
-      creatingTransactionId: TransactionId,
       unassignmentResultEvent: DeliveredUnassignmentResult,
       sourceProtocolVersion: Source[ProtocolVersion],
       targetProtocolVersion: Target[ProtocolVersion],
@@ -367,7 +362,6 @@ object AssignmentView
       AssignmentView(
         salt,
         contract,
-        creatingTransactionId,
         unassignmentResultEvent,
         sourceProtocolVersion,
         reassignmentCounter,
@@ -382,7 +376,6 @@ object AssignmentView
       saltP,
       contractP,
       unassignmentResultEventP,
-      creatingTransactionIdP,
       sourceProtocolVersionP,
       reassignmentCounterP,
     ) =
@@ -394,7 +387,6 @@ object AssignmentView
         hashOps,
         saltP,
         unassignmentResultEventP,
-        creatingTransactionIdP,
         sourceProtocolVersion,
       )
       contract <- ProtoConverter
@@ -404,7 +396,6 @@ object AssignmentView
     } yield AssignmentView(
       commonData.salt,
       contract,
-      commonData.creatingTransactionId,
       commonData.unassignmentResultEvent,
       commonData.sourceProtocolVersion,
       ReassignmentCounter(reassignmentCounterP),
@@ -413,7 +404,6 @@ object AssignmentView
 
   private[AssignmentView] final case class CommonData(
       salt: Salt,
-      creatingTransactionId: TransactionId,
       unassignmentResultEvent: DeliveredUnassignmentResult,
       sourceProtocolVersion: Source[ProtocolVersion],
   )
@@ -423,7 +413,6 @@ object AssignmentView
         hashOps: HashOps,
         saltP: Option[com.digitalasset.canton.crypto.v30.Salt],
         unassignmentResultEventP: ByteString,
-        creatingTransactionIdP: ByteString,
         sourceProtocolVersion: Source[ProtocolVersion],
     ): ParsingResult[CommonData] =
       for {
@@ -439,10 +428,8 @@ object AssignmentView
         unassignmentResultEvent <- DeliveredUnassignmentResult
           .create(NoOpeningErrors(unassignmentResultEventMC))
           .leftMap(err => OtherError(err.toString))
-        creatingTransactionId <- TransactionId.fromProtoPrimitive(creatingTransactionIdP)
       } yield CommonData(
         salt,
-        creatingTransactionId,
         unassignmentResultEvent,
         sourceProtocolVersion,
       )

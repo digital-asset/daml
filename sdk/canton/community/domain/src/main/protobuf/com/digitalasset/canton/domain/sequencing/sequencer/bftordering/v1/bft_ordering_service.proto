@@ -37,7 +37,6 @@ message BftOrderingServiceReceiveRequest {
   string trace_context = 1;
   BftOrderingMessageBody body = 2;
   string sent_by_sequencer_uid = 3;
-  com.digitalasset.canton.crypto.v30.Signature signature = 4;
 }
 
 message BftOrderingServiceReceiveResponse {
@@ -46,21 +45,20 @@ message BftOrderingServiceReceiveResponse {
 
 message BftOrderingMessageBody {
   oneof message {
-    // The bytes represents a `AvailabilityMessage` but are bytes here to so that we have
-    // a stable source for signatures
-    bytes availability_message = 1;
-    ConsensusMessage consensus_message = 2;
-    StateTransferMessage state_transfer_message = 3;
+    SignedMessage /* AvailabilityMessage */ availability_message = 1;
+    SignedMessage /* ConsensusMessage */ consensus_message = 2;
+    SignedMessage /* StateTransferMessage */ state_transfer_message = 3;
   }
 }
 
 message SignedMessage {
-  ConsensusMessage message = 1; // TODO(#21169) This will `bytes` in the future
+  bytes message = 1;
   string from = 2;
   com.digitalasset.canton.crypto.v30.Signature signature = 3;
 }
 
 message AvailabilityMessage {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
   oneof message {
     google.protobuf.Empty ping = 1;
     StoreRequest store_request = 2;
@@ -72,8 +70,6 @@ message AvailabilityMessage {
 
 // A `StoreRequest` is requesting another availability node to store
 message StoreRequest {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
-
   bytes batch_id = 1;
   Batch batch = 2;
 }
@@ -92,23 +88,21 @@ message OrderingRequest {
 }
 
 message StoreResponse {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
   bytes batch_id = 1;
   com.digitalasset.canton.crypto.v30.Signature signature = 2;
 }
 
 message BatchRequest {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
   bytes batch_id = 1;
 }
 
 message BatchResponse {
-  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
   bytes batch_id = 1;
   Batch batch = 2;
 }
 
 message ConsensusMessage {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
   BlockMetadata block_metadata = 1;
   int64 view_number = 2;
   string from_sequencer_uid = 3;
@@ -205,6 +199,7 @@ message AvailabilityAck {
 
 // State transfer
 message StateTransferMessage {
+  option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
   oneof message {
     BlockTransferRequest block_request = 1;
     BlockTransferResponse block_response = 2;

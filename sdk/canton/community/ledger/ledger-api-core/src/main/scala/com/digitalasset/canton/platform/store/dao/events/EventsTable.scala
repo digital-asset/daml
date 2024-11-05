@@ -27,14 +27,14 @@ object EventsTable {
   object TransactionConversions {
 
     private def extractTraceContext[EventT](
-        events: Vector[Entry[EventT]]
+        events: Seq[Entry[EventT]]
     ): Option[DamlTraceContext] =
-      events
+      events.iterator
         .map(_.traceContext)
         .collectFirst { case Some(tc) => tc }
         .map(DamlTraceContext.parseFrom)
 
-    private def flatTransaction(events: Vector[Entry[Event]]): Option[ApiTransaction] =
+    private def flatTransaction(events: Seq[Entry[Event]]): Option[ApiTransaction] =
       events.headOption.flatMap { first =>
         val flatEvents =
           TransactionConversion.removeTransient(events.iterator.map(_.event).toVector)
@@ -60,7 +60,7 @@ object EventsTable {
       }
 
     def toGetTransactionsResponse(
-        events: Vector[Entry[Event]]
+        events: Seq[Entry[Event]]
     ): List[(Long, GetUpdatesResponse)] =
       flatTransaction(events).toList.map(tx =>
         tx.offset -> GetUpdatesResponse(GetUpdatesResponse.Update.Transaction(tx))
@@ -68,13 +68,13 @@ object EventsTable {
       )
 
     def toGetFlatTransactionResponse(
-        events: Vector[Entry[Event]]
+        events: Seq[Entry[Event]]
     ): Option[GetTransactionResponse] =
       flatTransaction(events).map(tx => GetTransactionResponse(Some(tx)))
 
     private def treeOf(
-        events: Vector[Entry[TreeEvent]]
-    ): (Map[String, TreeEvent], Vector[String], Option[DamlTraceContext]) = {
+        events: Seq[Entry[TreeEvent]]
+    ): (Map[String, TreeEvent], Seq[String], Option[DamlTraceContext]) = {
 
       // The identifiers of all visible events in this transactions, preserving
       // the order in which they are retrieved from the index
@@ -101,7 +101,7 @@ object EventsTable {
     }
 
     private def transactionTree(
-        events: Vector[Entry[TreeEvent]]
+        events: Seq[Entry[TreeEvent]]
     ): Option[ApiTransactionTree] =
       events.headOption.map { first =>
         val (eventsById, rootEventIds, traceContext) = treeOf(events)
@@ -120,7 +120,7 @@ object EventsTable {
       }
 
     def toGetTransactionTreesResponse(
-        events: Vector[Entry[TreeEvent]]
+        events: Seq[Entry[TreeEvent]]
     ): List[(Long, GetUpdateTreesResponse)] =
       transactionTree(events).toList.map(tx =>
         tx.offset -> GetUpdateTreesResponse(GetUpdateTreesResponse.Update.TransactionTree(tx))
@@ -128,7 +128,7 @@ object EventsTable {
       )
 
     def toGetTransactionResponse(
-        events: Vector[Entry[TreeEvent]]
+        events: Seq[Entry[TreeEvent]]
     ): Option[GetTransactionTreeResponse] =
       transactionTree(events).map(tx => GetTransactionTreeResponse(Some(tx)))
 

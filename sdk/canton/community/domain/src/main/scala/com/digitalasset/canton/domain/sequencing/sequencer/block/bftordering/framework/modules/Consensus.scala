@@ -4,18 +4,12 @@
 package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules
 
 import cats.syntax.traverse.*
+import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.domain.sequencing.sequencer.bftordering.v1.{
-  BftOrderingMessageBody as ProtoBftOrderingMessageBody,
-  BlockTransferData as ProtoBlockTransferData,
-  BlockTransferRequest as ProtoBlockTransferRequest,
-  BlockTransferResponse as ProtoBlockTransferResponse,
-  StateTransferMessage as ProtoStateTransferMessage,
-}
+import com.digitalasset.canton.domain.sequencing.sequencer.bftordering.v1
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.Epoch
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.CryptoProvider
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.NumberIdentifiers.EpochNumber
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.availability.OrderingBlock
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.OrderedBlock
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.ordering.iss.EpochInfo
@@ -23,16 +17,29 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   Membership,
   OrderingTopology,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.{
+  MessageFrom,
+  SignedMessage,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.{
   Commit,
   PrePrepare,
 }
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.dependencies.ConsensusModuleDependencies
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.{Env, Module}
-import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
+import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.topology.processing.EffectiveTime
+import com.digitalasset.canton.version.{
+  HasMemoizedProtocolVersionedWithContextCompanion,
+  HasProtocolVersionedWrapper,
+  HasRepresentativeProtocolVersion,
+  ProtoVersion,
+  ProtocolVersion,
+  RepresentativeProtocolVersion,
+}
+import com.google.protobuf.ByteString
 
 object Consensus {
 
@@ -83,35 +90,80 @@ object Consensus {
   }
 
   sealed trait StateTransferMessage extends ProtocolMessage
+
   object StateTransferMessage {
+    sealed trait StateTransferNetworkMessage
+        extends HasRepresentativeProtocolVersion
+        with ProtocolVersionedMemoizedEvidence
+        with MessageFrom
+
     final case class BlockTransferRequest private (
         startEpoch: EpochNumber,
         latestCompletedEpoch: EpochNumber,
         from: SequencerId,
-    ) extends StateTransferMessage {
-      def toProto: ProtoBftOrderingMessageBody =
-        ProtoBftOrderingMessageBody.of(
-          ProtoBftOrderingMessageBody.Message.StateTransferMessage(
-            ProtoStateTransferMessage.of(
-              ProtoStateTransferMessage.Message.BlockRequest(
-                ProtoBlockTransferRequest.of(startEpoch, latestCompletedEpoch)
-              )
-            )
+    )(
+        override val representativeProtocolVersion: RepresentativeProtocolVersion[
+          BlockTransferRequest.type
+        ],
+        override val deserializedFrom: Option[ByteString],
+    ) extends StateTransferNetworkMessage
+        with HasProtocolVersionedWrapper[BlockTransferRequest] {
+      def toProto: v1.StateTransferMessage =
+        v1.StateTransferMessage.of(
+          v1.StateTransferMessage.Message.BlockRequest(
+            v1.BlockTransferRequest.of(startEpoch, latestCompletedEpoch)
           )
         )
+
+      override protected val companionObj: BlockTransferRequest.type = BlockTransferRequest
+
+      override protected[this] def toByteStringUnmemoized: ByteString =
+        super[HasProtocolVersionedWrapper].toByteString
     }
-    object BlockTransferRequest {
+
+    object BlockTransferRequest
+        extends HasMemoizedProtocolVersionedWithContextCompanion[
+          BlockTransferRequest,
+          SequencerId,
+        ] {
+      override def name: String = "BlockTransferRequest"
       def create(
           startEpoch: EpochNumber,
           latestCompletedEpoch: EpochNumber,
           from: SequencerId,
-      ): BlockTransferRequest = BlockTransferRequest(startEpoch, latestCompletedEpoch, from)
+      ): BlockTransferRequest = BlockTransferRequest(startEpoch, latestCompletedEpoch, from)(
+        protocolVersionRepresentativeFor(ProtocolVersion.minimum),
+        None,
+      )
 
-      def fromProto(request: ProtoBlockTransferRequest, from: SequencerId): BlockTransferRequest =
+      def fromProtoStateTransferMessage(from: SequencerId, value: v1.StateTransferMessage)(
+          originalByteString: ByteString
+      ): ParsingResult[BlockTransferRequest] = for {
+        protoBlockTransferRequest <- value.message.blockRequest.toRight(
+          ProtoDeserializationError.OtherError(s"Not a $name message")
+        )
+      } yield fromProto(from, protoBlockTransferRequest)(originalByteString)
+
+      def fromProto(from: SequencerId, request: v1.BlockTransferRequest)(
+          originalByteString: ByteString
+      ): BlockTransferRequest =
         BlockTransferRequest(
           EpochNumber(request.startEpoch),
           EpochNumber(request.latestCompletedEpoch),
           from,
+        )(protocolVersionRepresentativeFor(ProtocolVersion.minimum), Some(originalByteString))
+
+      override def supportedProtoVersions: SupportedProtoVersions =
+        SupportedProtoVersions(
+          ProtoVersion(30) ->
+            VersionedProtoConverter(
+              ProtocolVersion.v32
+            )(v1.StateTransferMessage)(
+              supportedProtoVersionMemoized(_)(
+                fromProtoStateTransferMessage
+              ),
+              _.toProto.toByteString,
+            )
         )
     }
 
@@ -119,8 +171,8 @@ object Consensus {
         prePrepare: SignedMessage[PrePrepare],
         pendingTopologyChanges: Boolean,
     ) {
-      def toProto: ProtoBlockTransferData =
-        ProtoBlockTransferData.of(
+      def toProto: v1.BlockTransferData =
+        v1.BlockTransferData.of(
           Some(prePrepare.toProto),
           pendingTopologyChanges,
         )
@@ -131,7 +183,7 @@ object Consensus {
           pendingTopologyChanges: Boolean,
       ): BlockTransferData = BlockTransferData(prePrepare, pendingTopologyChanges)
 
-      def fromProto(protoData: ProtoBlockTransferData): ParsingResult[BlockTransferData] =
+      def fromProto(protoData: v1.BlockTransferData): ParsingResult[BlockTransferData] =
         for {
           signedMessage <-
             ProtoConverter.required(
@@ -139,7 +191,7 @@ object Consensus {
               protoData.blockPrePrepare,
             )
           prePrepare <-
-            SignedMessage.fromProto(
+            SignedMessage.fromProto(v1.ConsensusMessage)(
               ConsensusSegment.ConsensusMessage.PrePrepare.fromProtoConsensusMessage
             )(signedMessage)
         } yield BlockTransferData(prePrepare, protoData.pendingTopologyChanges)
@@ -151,26 +203,38 @@ object Consensus {
         blockTransferData: Seq[BlockTransferData],
         lastBlockCommits: Seq[SignedMessage[Commit]],
         from: SequencerId,
-    ) extends StateTransferMessage {
-      def toProto: ProtoBftOrderingMessageBody = {
+    )(
+        override val representativeProtocolVersion: RepresentativeProtocolVersion[
+          BlockTransferResponse.type
+        ],
+        override val deserializedFrom: Option[ByteString],
+    ) extends StateTransferNetworkMessage
+        with HasProtocolVersionedWrapper[BlockTransferResponse] {
+      def toProto: v1.StateTransferMessage = {
         val protoLastBlockCommits = lastBlockCommits.view.map(_.toProto).toSeq
-        ProtoBftOrderingMessageBody.of(
-          ProtoBftOrderingMessageBody.Message.StateTransferMessage(
-            ProtoStateTransferMessage.of(
-              ProtoStateTransferMessage.Message.BlockResponse(
-                ProtoBlockTransferResponse.of(
-                  latestCompletedEpoch,
-                  Some(latestCompletedEpochTopologySnapshotEffectiveTime.value.toProtoTimestamp),
-                  blockTransferData.view.map(_.toProto).toSeq,
-                  protoLastBlockCommits,
-                )
-              )
+        v1.StateTransferMessage.of(
+          v1.StateTransferMessage.Message.BlockResponse(
+            v1.BlockTransferResponse.of(
+              latestCompletedEpoch,
+              Some(latestCompletedEpochTopologySnapshotEffectiveTime.value.toProtoTimestamp),
+              blockTransferData.view.map(_.toProto).toSeq,
+              protoLastBlockCommits,
             )
           )
         )
       }
+      override protected val companionObj: BlockTransferResponse.type = BlockTransferResponse
+
+      override protected[this] def toByteStringUnmemoized: ByteString =
+        super[HasProtocolVersionedWrapper].toByteString
     }
-    object BlockTransferResponse {
+
+    object BlockTransferResponse
+        extends HasMemoizedProtocolVersionedWithContextCompanion[
+          BlockTransferResponse,
+          SequencerId,
+        ] {
+      override def name: String = "BlockTransferResponse"
       def create(
           latestCompletedEpoch: EpochNumber,
           lastEpochToTransferTopologySnapshotEffectiveTime: EffectiveTime,
@@ -183,18 +247,30 @@ object Consensus {
         blockTransferData,
         lastBlockCommits,
         from,
+      )(
+        protocolVersionRepresentativeFor(ProtocolVersion.minimum),
+        None,
       )
 
+      def fromProtoStateTransferMessage(from: SequencerId, value: v1.StateTransferMessage)(
+          originalByteString: ByteString
+      ): ParsingResult[BlockTransferResponse] = for {
+        protoBlockTransferResponse <- value.message.blockResponse.toRight(
+          ProtoDeserializationError.OtherError(s"Not a $name message")
+        )
+        blockTransferResponse <- fromProto(from, protoBlockTransferResponse)(originalByteString)
+      } yield blockTransferResponse
+
       def fromProto(
-          protoResponse: ProtoBlockTransferResponse,
           from: SequencerId,
-      ): ParsingResult[BlockTransferResponse] = {
+          protoResponse: v1.BlockTransferResponse,
+      )(originalByteString: ByteString): ParsingResult[BlockTransferResponse] = {
         val blockTransferDataE = protoResponse.blockTransferData.traverse {
           BlockTransferData.fromProto
         }
 
         val lastBlockCommitsE = protoResponse.lastBlockCommits.traverse {
-          SignedMessage.fromProto(
+          SignedMessage.fromProto(v1.ConsensusMessage)(
             ConsensusSegment.ConsensusMessage.Commit.fromProtoConsensusMessage
           )
         }
@@ -210,18 +286,35 @@ object Consensus {
           latestCompletedEpochTopologyEffectiveTime <- CantonTimestamp
             .fromProtoTimestamp(latestCompletedEpochTopologySnapshotSequencingInstantP)
             .map(EffectiveTime(_))
+          rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
         } yield BlockTransferResponse(
           EpochNumber(protoResponse.latestCompletedEpoch),
           latestCompletedEpochTopologyEffectiveTime,
           blockTransferData,
           lastBlockCommits,
           from,
-        )
+        )(rpv, Some(originalByteString))
       }
+
+      override def supportedProtoVersions: SupportedProtoVersions =
+        SupportedProtoVersions(
+          ProtoVersion(30) ->
+            VersionedProtoConverter(
+              ProtocolVersion.v32
+            )(v1.StateTransferMessage)(
+              supportedProtoVersionMemoized(_)(
+                fromProtoStateTransferMessage
+              ),
+              _.toProto.toByteString,
+            )
+        )
     }
 
+    final case class NetworkMessage(message: StateTransferNetworkMessage)
+        extends StateTransferMessage
+
     final case class SendBlockTransferRequest(
-        blockTransferRequest: BlockTransferRequest,
+        blockTransferRequest: SignedMessage[BlockTransferRequest],
         to: SequencerId,
     ) extends StateTransferMessage
 

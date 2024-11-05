@@ -185,7 +185,7 @@ object AcsInspectionTest extends MockitoSugar with ArgumentMatchersSugar with Ba
       LedgerCreateTime(CantonTimestamp.Epoch),
       None,
     )
-    StoredContract(serializableContract, RequestCounter.MaxValue, None)
+    StoredContract(serializableContract, RequestCounter.MaxValue, isDivulged = true)
   }
 
   private def mockSyncDomainPersistentState(

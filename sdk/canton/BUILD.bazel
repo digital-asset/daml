@@ -713,7 +713,6 @@ scala_library(
     ],
     deps = [
         ":bindings-java",
-        ":community_admin-api",
         ":community_base",
         ":community_common",
         ":community_ledger_ledger-common",

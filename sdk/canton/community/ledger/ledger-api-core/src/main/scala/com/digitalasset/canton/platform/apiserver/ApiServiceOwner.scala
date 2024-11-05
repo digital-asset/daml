@@ -9,6 +9,7 @@ import com.daml.tracing.Telemetry
 import com.digitalasset.canton.auth.{AuthService, Authorizer}
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.config.{
+  KeepAliveServerConfig,
   NonNegativeDuration,
   NonNegativeFiniteDuration,
   TlsServerConfig,
@@ -107,6 +108,7 @@ object ApiServiceOwner {
       dynParamGetter: DynamicDomainParameterGetter,
       interactiveSubmissionServiceConfig: InteractiveSubmissionServiceConfig,
       lfValueTranslation: LfValueTranslation,
+      keepAlive: Option[KeepAliveServerConfig],
   )(implicit
       actorSystem: ActorSystem,
       materializer: Materializer,
@@ -204,6 +206,7 @@ object ApiServiceOwner {
         ) :: otherInterceptors,
         servicesExecutionContext,
         metrics,
+        keepAlive,
         loggerFactory,
       )
     } yield {

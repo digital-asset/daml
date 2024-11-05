@@ -91,12 +91,21 @@ message PrepareSubmissionRequest {
   repeated string package_id_selection_preference = 10;
 }
 
+// The transaction serialization version used when building the hash
+enum TransactionSerializationVersion {
+  TRANSACTION_SERIALIZATION_VERSION_UNSPECIFIED = 0;
+  TRANSACTION_SERIALIZATION_VERSION_V1 = 1;
+}
+
 message PrepareSubmissionResponse {
   // the interpreted transaction, it represents the ledger changes necessary to execute the commands specified in the request
   PreparedTransaction prepared_transaction = 1;
   // hash of the transaction, this is what needs to be signed by the party to authorize the transaction
   // TODO(i20660): Document hashing algorithm
   bytes prepared_transaction_hash = 2;
+
+  // The transaction serialization version used when building the hash
+  TransactionSerializationVersion serialization_version = 3;
 }
 
 message Signature {
@@ -155,7 +164,7 @@ message ExecuteSubmissionRequest {
   // Each party can provide one or more signatures..
   // and one or more parties can sign.
   // Note that currently, only single party submissions are supported.
-  PartySignatures parties_signatures = 2;
+  PartySignatures party_signatures = 2;
 
   // Identifier of the on-ledger workflow that this command is a part of.
   // Must be a valid LedgerString (as described in ``value.proto``).
@@ -188,6 +197,9 @@ message ExecuteSubmissionRequest {
 
   // See [PrepareSubmissionRequest.application_id]
   string application_id = 7;
+
+  // The transaction serialization version used when building the hash
+  TransactionSerializationVersion serialization_version = 8;
 }
 
 message ExecuteSubmissionResponse {}

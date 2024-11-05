@@ -472,8 +472,8 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       val processResults2 = assertNoLogs(blockState.advance())
       inside(processResults2) {
         case Seq(
-              SendPbftMessage(SignedMessage(_: PrePrepare, _, _), _),
-              SendPbftMessage(SignedMessage(p, _, _), _),
+              SendPbftMessage(SignedMessage(_: PrePrepare, _), _),
+              SendPbftMessage(SignedMessage(p, _), _),
             ) =>
           // if a new prepare had been created, its timestamp would have been influenced by the clock advancement
           // but that didn't happen, we know the rehydrated prepare was picked

@@ -8,11 +8,7 @@ import com.digitalasset.canton.ProtoDeserializationError
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.domain.metrics.BftOrderingMetrics
-import com.digitalasset.canton.domain.sequencing.sequencer.bftordering.v1.ConsensusMessage.Message
-import com.digitalasset.canton.domain.sequencing.sequencer.bftordering.v1.{
-  ConsensusMessage,
-  StateTransferMessage as ProtoStateTransferMessage,
-}
+import com.digitalasset.canton.domain.sequencing.sequencer.bftordering.v1
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.Epoch
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.{
   DefaultLeaderSelectionPolicy,
@@ -77,6 +73,7 @@ import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.tracing.TraceContext
 import com.google.common.annotations.VisibleForTesting
+import com.google.protobuf.ByteString
 
 import scala.collection.mutable
 import scala.concurrent.duration.{DurationInt, FiniteDuration}
@@ -541,73 +538,86 @@ object IssConsensusModule {
 
   def parseNetworkMessage(
       from: SequencerId,
-      message: ConsensusMessage,
+      message: v1.ConsensusMessage,
+  )(
+      originalByteString: ByteString
   ): ParsingResult[ConsensusSegment.ConsensusMessage.PbftNetworkMessage] =
     for {
       header <- headerFromProto(message)
       result <- (message.message match {
-        case Message.PrePrepare(value) =>
+        case v1.ConsensusMessage.Message.PrePrepare(value) =>
           ConsensusSegment.ConsensusMessage.PrePrepare.fromProto(
             header.blockMetadata,
             header.viewNumber,
             header.timestamp,
             value,
             from,
-          )
-        case Message.Prepare(value) =>
+          )(originalByteString)
+        case v1.ConsensusMessage.Message.Prepare(value) =>
           ConsensusSegment.ConsensusMessage.Prepare.fromProto(
             header.blockMetadata,
             header.viewNumber,
             header.timestamp,
             value,
             from,
-          )
-        case Message.Commit(value) =>
+          )(originalByteString)
+        case v1.ConsensusMessage.Message.Commit(value) =>
           ConsensusSegment.ConsensusMessage.Commit.fromProto(
             header.blockMetadata,
             header.viewNumber,
             header.timestamp,
             value,
             from,
-          )
-        case Message.ViewChange(value) =>
+          )(originalByteString)
+        case v1.ConsensusMessage.Message.ViewChange(value) =>
           ConsensusSegment.ConsensusMessage.ViewChange.fromProto(
             header.blockMetadata,
             header.viewNumber,
             header.timestamp,
             value,
             from,
-          )
-        case Message.NewView(value) =>
+          )(originalByteString)
+        case v1.ConsensusMessage.Message.NewView(value) =>
           ConsensusSegment.ConsensusMessage.NewView.fromProto(
             header.blockMetadata,
             header.viewNumber,
             header.timestamp,
             value,
             from,
-          )
-        case Message.Empty => Left(ProtoDeserializationError.OtherError("Empty Received"))
+          )(originalByteString)
+        case v1.ConsensusMessage.Message.Empty =>
+          Left(ProtoDeserializationError.OtherError("Empty Received"))
       }): ParsingResult[ConsensusSegment.ConsensusMessage.PbftNetworkMessage]
     } yield result
 
   def parseUnverifiedNetworkMessage(
       from: SequencerId,
-      message: ConsensusMessage,
+      message: v1.ConsensusMessage,
+  )(
+      originalByteString: ByteString
   ): ParsingResult[Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage] =
-    parseNetworkMessage(from, message).map(msg =>
-      PbftUnverifiedNetworkMessage(SignedMessage(msg, from, Signature.noSignature))
+    parseNetworkMessage(from, message)(originalByteString).map(msg =>
+      PbftUnverifiedNetworkMessage(SignedMessage(msg, Signature.noSignature))
     ) // TODO(#20458) Check that all consensus messages are valid
 
   def parseStateTransferMessage(
       from: SequencerId,
-      message: ProtoStateTransferMessage,
-  ): ParsingResult[Consensus.StateTransferMessage] =
+      message: v1.StateTransferMessage,
+  )(
+      originalByteString: ByteString
+  ): ParsingResult[Consensus.StateTransferMessage.StateTransferNetworkMessage] =
     message.message match {
-      case ProtoStateTransferMessage.Message.BlockRequest(value) =>
-        Right(Consensus.StateTransferMessage.BlockTransferRequest.fromProto(value, from))
-      case ProtoStateTransferMessage.Message.BlockResponse(value) =>
-        Consensus.StateTransferMessage.BlockTransferResponse.fromProto(value, from)
-      case ProtoStateTransferMessage.Message.Empty =>
+      case v1.StateTransferMessage.Message.BlockRequest(value) =>
+        Right(
+          Consensus.StateTransferMessage.BlockTransferRequest.fromProto(from, value)(
+            originalByteString
+          )
+        )
+      case v1.StateTransferMessage.Message.BlockResponse(value) =>
+        Consensus.StateTransferMessage.BlockTransferResponse.fromProto(from, value)(
+          originalByteString
+        )
+      case v1.StateTransferMessage.Message.Empty =>
         Left(ProtoDeserializationError.OtherError("Empty Received"))
     }
 }

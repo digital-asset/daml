@@ -5,10 +5,9 @@ package com.digitalasset.canton.http.json.v2
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.v2.state_service
-import com.daml.ledger.api.v2.state_service.GetActiveContractsRequest
 import com.daml.ledger.api.v2.transaction_filter
 import com.daml.ledger.api.v2.reassignment
-import com.digitalasset.canton.http.{JsonApiConfig, WebsocketConfig}
+import com.digitalasset.canton.http.WebsocketConfig
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.http.json.v2.JsSchema.{JsCantonError, JsEvent}
@@ -22,9 +21,8 @@ import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Flow
-import sttp.capabilities
 import sttp.capabilities.pekko.PekkoStreams
-import sttp.tapir.{CodecFormat, Endpoint, query, webSocketBody}
+import sttp.tapir.{CodecFormat, query, webSocketBody}
 
 import scala.concurrent.{ExecutionContext, Future}
 

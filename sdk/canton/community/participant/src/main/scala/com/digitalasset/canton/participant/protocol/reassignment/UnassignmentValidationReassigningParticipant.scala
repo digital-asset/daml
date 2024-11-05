@@ -24,7 +24,6 @@ import scala.concurrent.ExecutionContext
 
 // Additional validations for reassigning participants
 private[reassignment] sealed abstract case class UnassignmentValidationReassigningParticipant(
-    expectedStakeholders: Set[LfPartyId],
     sourceProtocolVersion: Source[ProtocolVersion],
     sourceTopology: Source[TopologySnapshot],
     targetTopology: Target[TopologySnapshot],
@@ -93,7 +92,6 @@ private[reassignment] object UnassignmentValidationReassigningParticipant {
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] = {
 
     val validation = new UnassignmentValidationReassigningParticipant(
-      expectedStakeholders.all,
       sourceProtocolVersion,
       sourceTopology,
       targetTopology,

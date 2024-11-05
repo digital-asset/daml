@@ -6,7 +6,6 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.un
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.metrics.SequencerMetrics
-import com.digitalasset.canton.domain.sequencing.sequencer.bftordering.v1.BftOrderingMessageBody
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.EpochState.Epoch
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultEpochLength
@@ -172,24 +171,21 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         )
         p2pBuffer should contain theSameElementsInOrderAs Seq[P2PNetworkOut.Message](
           P2PNetworkOut.Multicast(
-            BftOrderingMessageBody.of(
-              BftOrderingMessageBody.Message.ConsensusMessage(blockPrePrepare1Node.message.toProto)
+            P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
+              blockPrePrepare1Node
             ),
-            None,
             Set.empty,
           ),
           P2PNetworkOut.Multicast(
-            BftOrderingMessageBody.of(
-              BftOrderingMessageBody.Message.ConsensusMessage(expectedPrepare1Node.message.toProto)
+            P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
+              expectedPrepare1Node
             ),
-            None,
             Set.empty,
           ),
           P2PNetworkOut.Multicast(
-            BftOrderingMessageBody.of(
-              BftOrderingMessageBody.Message.ConsensusMessage(expectedCommit1Node.message.toProto)
+            P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
+              expectedCommit1Node
             ),
-            None,
             Set.empty,
           ),
         )
@@ -266,19 +262,13 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         def baseCommit(from: SequencerId) = commitFromPrePrepare(expectedPrePrepare)(from = from)
         p2pBuffer should contain theSameElementsInOrderAs Seq[P2PNetworkOut.Message](
           P2PNetworkOut.Multicast(
-            BftOrderingMessageBody.of(
-              BftOrderingMessageBody.Message.ConsensusMessage(expectedPrePrepare.toProto)
-            ),
-            None,
+            P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(expectedPrePrepare.fakeSign),
             otherPeers.toSet,
           ),
           P2PNetworkOut.Multicast(
-            BftOrderingMessageBody.of(
-              BftOrderingMessageBody.Message.ConsensusMessage(
-                basePrepare(from = selfId).message.toProto
-              )
+            P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
+              basePrepare(from = selfId)
             ),
-            None,
             otherPeers.toSet,
           ),
         )
@@ -289,12 +279,9 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         consensus.receive(PbftSignedNetworkMessage(basePrepare(from = otherPeers(1))))
         p2pBuffer should contain theSameElementsInOrderAs Seq[P2PNetworkOut.Message](
           P2PNetworkOut.Multicast(
-            BftOrderingMessageBody.of(
-              BftOrderingMessageBody.Message.ConsensusMessage(
-                baseCommit(from = selfId).message.toProto
-              )
+            P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
+              baseCommit(from = selfId)
             ),
-            None,
             otherPeers.toSet,
           )
         )
@@ -369,12 +356,9 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         consensus.receive(PbftSignedNetworkMessage(remotePrePrepare))
         p2pBuffer should contain theSameElementsInOrderAs Seq[P2PNetworkOut.Message](
           P2PNetworkOut.Multicast(
-            BftOrderingMessageBody.of(
-              BftOrderingMessageBody.Message.ConsensusMessage(
-                basePrepare(from = selfId).message.toProto
-              )
+            P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
+              basePrepare(from = selfId)
             ),
-            None,
             otherPeers.toSet,
           )
         )
@@ -385,12 +369,9 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         consensus.receive(PbftSignedNetworkMessage(basePrepare(from = otherPeers(1))))
         p2pBuffer should contain theSameElementsInOrderAs Seq[P2PNetworkOut.Message](
           P2PNetworkOut.Multicast(
-            BftOrderingMessageBody.of(
-              BftOrderingMessageBody.Message.ConsensusMessage(
-                baseCommit(from = selfId).message.toProto
-              )
+            P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
+              baseCommit(from = selfId)
             ),
-            None,
             otherPeers.toSet,
           )
         )
@@ -516,53 +497,35 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         //      - block1 and block2: bottom blocks
         p2pBuffer should contain theSameElementsInOrderAs Seq[P2PNetworkOut.Message](
           P2PNetworkOut.Multicast(
-            BftOrderingMessageBody.of(
-              BftOrderingMessageBody.Message.ConsensusMessage(expectedViewChange.message.toProto)
-            ),
-            None,
+            P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(expectedViewChange),
             Set.empty,
           ),
           P2PNetworkOut.Multicast(
-            BftOrderingMessageBody.of(
-              BftOrderingMessageBody.Message.ConsensusMessage(expectedNewView.message.toProto)
-            ),
-            None,
+            P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(expectedNewView),
             Set.empty,
           ),
           P2PNetworkOut.Multicast(
-            BftOrderingMessageBody.of(
-              BftOrderingMessageBody.Message.ConsensusMessage(
-                prepareFromPrePrepare(bottomBlock1.message)(from = selfId).message.toProto
-              )
+            P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
+              prepareFromPrePrepare(bottomBlock1.message)(from = selfId)
             ),
-            None,
             Set.empty,
           ),
           P2PNetworkOut.Multicast(
-            BftOrderingMessageBody.of(
-              BftOrderingMessageBody.Message.ConsensusMessage(
-                commitFromPrePrepare(bottomBlock1.message)(from = selfId).message.toProto
-              )
+            P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
+              commitFromPrePrepare(bottomBlock1.message)(from = selfId)
             ),
-            None,
             Set.empty,
           ),
           P2PNetworkOut.Multicast(
-            BftOrderingMessageBody.of(
-              BftOrderingMessageBody.Message.ConsensusMessage(
-                prepareFromPrePrepare(bottomBlock2.message)(from = selfId).message.toProto
-              )
+            P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
+              prepareFromPrePrepare(bottomBlock2.message)(from = selfId)
             ),
-            None,
             Set.empty,
           ),
           P2PNetworkOut.Multicast(
-            BftOrderingMessageBody.of(
-              BftOrderingMessageBody.Message.ConsensusMessage(
-                commitFromPrePrepare(bottomBlock2.message)(from = selfId).message.toProto
-              )
+            P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
+              commitFromPrePrepare(bottomBlock2.message)(from = selfId)
             ),
-            None,
             Set.empty,
           ),
         )
@@ -659,10 +622,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         // After the local timeout, we just expect a single multicasted ViewChange msg from local node
         p2pBuffer should contain theSameElementsInOrderAs Seq[P2PNetworkOut.Message](
           P2PNetworkOut.Multicast(
-            BftOrderingMessageBody.of(
-              BftOrderingMessageBody.Message.ConsensusMessage(expectedViewChange().message.toProto)
-            ),
-            None,
+            P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(expectedViewChange()),
             otherPeers.toSet,
           )
         )
@@ -719,33 +679,23 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         //    ViewChange, NewView, and Commit for bottom block0:
         p2pBuffer should contain theSameElementsInOrderAs Seq[P2PNetworkOut.Message](
           P2PNetworkOut.Multicast(
-            BftOrderingMessageBody.of(
-              BftOrderingMessageBody.Message.ConsensusMessage(
-                viewChange1Node1BlockNoProgress.message.toProto
-              )
+            P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
+              viewChange1Node1BlockNoProgress
             ),
-            None,
             Set.empty,
           ),
           P2PNetworkOut.Multicast(
-            BftOrderingMessageBody.of(
-              BftOrderingMessageBody.Message.ConsensusMessage(newView1Node1BlockNoProgress.toProto)
+            P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
+              newView1Node1BlockNoProgress.fakeSign
             ),
-            None,
             Set.empty,
           ),
           P2PNetworkOut.Multicast(
-            BftOrderingMessageBody.of(
-              BftOrderingMessageBody.Message.ConsensusMessage(prepareBottomBlock0.message.toProto)
-            ),
-            None,
+            P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(prepareBottomBlock0),
             Set.empty,
           ),
           P2PNetworkOut.Multicast(
-            BftOrderingMessageBody.of(
-              BftOrderingMessageBody.Message.ConsensusMessage(commitBottomBlock0.message.toProto)
-            ),
-            None,
+            P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(commitBottomBlock0),
             Set.empty,
           ),
         )
@@ -818,24 +768,15 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         )
         p2pBuffer should contain theSameElementsInOrderAs Seq[P2PNetworkOut.Message](
           P2PNetworkOut.Multicast(
-            BftOrderingMessageBody.of(
-              BftOrderingMessageBody.Message.ConsensusMessage(epoch1PrePrepare.message.toProto)
-            ),
-            None,
+            P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(epoch1PrePrepare),
             Set.empty,
           ),
           P2PNetworkOut.Multicast(
-            BftOrderingMessageBody.of(
-              BftOrderingMessageBody.Message.ConsensusMessage(epoch1Prepare.message.toProto)
-            ),
-            None,
+            P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(epoch1Prepare),
             Set.empty,
           ),
           P2PNetworkOut.Multicast(
-            BftOrderingMessageBody.of(
-              BftOrderingMessageBody.Message.ConsensusMessage(epoch1Commit.message.toProto)
-            ),
-            None,
+            P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(epoch1Commit),
             Set.empty,
           ),
         )
@@ -919,12 +860,9 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         )
         p2pBuffer should contain theSameElementsInOrderAs Seq[P2PNetworkOut.Message](
           P2PNetworkOut.Multicast(
-            BftOrderingMessageBody.of(
-              BftOrderingMessageBody.Message.ConsensusMessage(
-                basePrepare(from = selfId).message.toProto
-              )
+            P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
+              basePrepare(from = selfId)
             ),
-            None,
             otherPeers.toSet,
           )
         )
@@ -947,12 +885,9 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         )
         p2pBuffer should contain theSameElementsInOrderAs Seq[P2PNetworkOut.Message](
           P2PNetworkOut.Multicast(
-            BftOrderingMessageBody.of(
-              BftOrderingMessageBody.Message.ConsensusMessage(
-                baseCommit(from = selfId).message.toProto
-              )
+            P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
+              baseCommit(from = selfId)
             ),
-            None,
             otherPeers.toSet,
           )
         )

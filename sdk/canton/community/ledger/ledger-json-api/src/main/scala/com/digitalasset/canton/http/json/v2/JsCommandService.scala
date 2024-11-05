@@ -8,7 +8,7 @@ import com.daml.ledger.api.v2.command_service.{CommandServiceGrpc, SubmitAndWait
 import com.google.protobuf
 import com.daml.ledger.api.v2.{command_completion_service, command_submission_service, completion, reassignment_command}
 import com.daml.ledger.api.v2.commands.Commands.DeduplicationPeriod
-import com.digitalasset.canton.http.{JsonApiConfig, WebsocketConfig}
+import com.digitalasset.canton.http.WebsocketConfig
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput, v2Endpoint}
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.http.json.v2.JsSchema.{JsCantonError, JsTransaction, JsTransactionTree}

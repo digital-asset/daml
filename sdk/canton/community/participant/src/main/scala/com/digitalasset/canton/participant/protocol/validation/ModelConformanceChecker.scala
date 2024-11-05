@@ -210,7 +210,7 @@ class ModelConformanceChecker(
             case ContractMismatch(actual, _) =>
               InvalidInputContract(cid, actual.templateId, view.viewHash): Error
           }
-          .map(_ => cid -> StoredContract(contract, requestCounter, None))
+          .map(_ => cid -> StoredContract(contract, requestCounter, isDivulged = true))
       }
       .map(_.toMap)
       .mapK(FutureUnlessShutdown.outcomeK)

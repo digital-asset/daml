@@ -35,7 +35,7 @@ object DefaultParticipantStateValues {
       commandId.unwrap,
       deduplicationPeriod,
       submissionId,
-      Option.empty[ExternallySignedTransaction],
+      externallySignedSubmission = None,
     )
 
   def completionInfo(

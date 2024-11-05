@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules
 
-import com.digitalasset.canton.crypto.v30
-import com.digitalasset.canton.domain.sequencing.sequencer.bftordering.v1.BftOrderingMessageBody
+import com.digitalasset.canton.domain.sequencing.sequencer.bftordering.v1
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.admin.EnterpriseSequencerBftAdminData.PeerNetworkStatus
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.dependencies.P2PNetworkOutModuleDependencies
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.{Env, Module}
 import com.digitalasset.canton.networking.Endpoint
@@ -38,18 +38,51 @@ object P2PNetworkOut {
     ) extends Admin
   }
 
+  sealed trait BftOrderingNetworkMessage {
+    def toProto: v1.BftOrderingMessageBody
+  }
+
+  object BftOrderingNetworkMessage {
+    final case class AvailabilityMessage(
+        signedMessage: SignedMessage[Availability.RemoteProtocolMessage]
+    ) extends BftOrderingNetworkMessage {
+      override def toProto: v1.BftOrderingMessageBody = v1.BftOrderingMessageBody.of(
+        v1.BftOrderingMessageBody.Message.AvailabilityMessage(signedMessage.toProto)
+      )
+    }
+
+    final case class ConsensusMessage(
+        signedMessage: SignedMessage[ConsensusSegment.ConsensusMessage.PbftNetworkMessage]
+    ) extends BftOrderingNetworkMessage {
+      override def toProto: v1.BftOrderingMessageBody = v1.BftOrderingMessageBody.of(
+        v1.BftOrderingMessageBody.Message.ConsensusMessage(signedMessage.toProto)
+      )
+    }
+
+    final case class StateTransferMessage(
+        signedMessage: SignedMessage[Consensus.StateTransferMessage.StateTransferNetworkMessage]
+    ) extends BftOrderingNetworkMessage {
+      override def toProto: v1.BftOrderingMessageBody = v1.BftOrderingMessageBody.of(
+        v1.BftOrderingMessageBody.Message.StateTransferMessage(signedMessage.toProto)
+      )
+    }
+
+    final case object Empty extends BftOrderingNetworkMessage {
+      override def toProto: v1.BftOrderingMessageBody =
+        v1.BftOrderingMessageBody(v1.BftOrderingMessageBody.Message.Empty)
+    }
+  }
+
   final case class Multicast(
-      message: BftOrderingMessageBody,
-      signature: Option[v30.Signature],
+      message: BftOrderingNetworkMessage,
       to: Set[SequencerId],
   ) extends Message
 
   def send(
-      message: BftOrderingMessageBody,
-      signature: Option[v30.Signature],
+      message: BftOrderingNetworkMessage,
       to: SequencerId,
   ): Multicast =
-    Multicast(message, signature, Set(to))
+    Multicast(message, Set(to))
 }
 
 trait P2PNetworkOut[E <: Env[E]] extends Module[E, P2PNetworkOut.Message] {

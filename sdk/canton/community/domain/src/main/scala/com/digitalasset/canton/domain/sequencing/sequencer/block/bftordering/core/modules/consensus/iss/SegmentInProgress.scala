@@ -62,7 +62,7 @@ object SegmentInProgress {
       val preparesPerView: Map[ViewNumber, List[SignedMessage[Prepare]]] = {
         val prepareQuorumPerBlock: Map[BlockNumber, Seq[SignedMessage[Prepare]]] =
           segmentInProgressMessages
-            .collect { case s @ SignedMessage(_: Prepare, _, _) =>
+            .collect { case s @ SignedMessage(_: Prepare, _) =>
               s.asInstanceOf[SignedMessage[Prepare]]
             }
             .groupBy(_.message.blockMetadata.blockNumber)
@@ -78,13 +78,13 @@ object SegmentInProgress {
       // we only care about the pre-prepares for the initial view,
       // since any other pre-prepares would be included in new-view messages
       val initialPrePreparesPerBlock: List[SignedMessage[PrePrepare]] = segmentInProgressMessages
-        .collect { case s @ SignedMessage(_: PrePrepare, _, _) =>
+        .collect { case s @ SignedMessage(_: PrePrepare, _) =>
           s.asInstanceOf[SignedMessage[PrePrepare]]
         }
         .groupBy(_.message.blockMetadata.blockNumber)
         .fmap { allPrePreparesForBlock =>
           allPrePreparesForBlock.collectFirst {
-            case s @ SignedMessage(pp: PrePrepare, _, _) if pp.viewNumber == ViewNumber.First =>
+            case s @ SignedMessage(pp: PrePrepare, _) if pp.viewNumber == ViewNumber.First =>
               s
           }
         }
@@ -97,7 +97,7 @@ object SegmentInProgress {
       val newViews: Seq[SignedMessage[NewView]] =
         segmentInProgressMessages
           .collect {
-            case s @ SignedMessage(nv: NewView, _, _)
+            case s @ SignedMessage(nv: NewView, _)
                 if (nv.viewNumber == highestView) || preparesPerView.contains(nv.viewNumber) =>
               s.asInstanceOf[SignedMessage[NewView]]
           }
@@ -107,12 +107,12 @@ object SegmentInProgress {
       // no new-view message at that view. before that, the new-view messages are enough.
       val viewChangeAtLatestView: Option[SignedMessage[ViewChange]] = {
         val highestNewViewViewNumber = segmentInProgressMessages
-          .collect { case s @ SignedMessage(newView: NewView, _, _) => newView.viewNumber }
+          .collect { case s @ SignedMessage(newView: NewView, _) => newView.viewNumber }
           .maxOption
           .getOrElse(ViewNumber.First)
         segmentInProgressMessages
           .collectFirst {
-            case s @ SignedMessage(vc: ViewChange, _, _)
+            case s @ SignedMessage(vc: ViewChange, _)
                 if vc.viewNumber == highestView && vc.viewNumber > highestNewViewViewNumber =>
               s.asInstanceOf[SignedMessage[ViewChange]]
           }

@@ -20,6 +20,7 @@ import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{LfPackageId, LfPartyId}
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.IdString
 import com.digitalasset.daml.lf.engine.Blinding
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -39,6 +40,7 @@ private[routing] final case class TransactionData private (
     requiredPackagesPerParty: Map[LfPartyId, Set[LfPackageId]],
     actAs: Set[LfPartyId],
     readAs: Set[LfPartyId],
+    signedExternally: Set[LfPartyId],
     inputContractsDomainData: ContractsDomainData,
     prescribedDomainO: Option[DomainId],
 ) {
@@ -51,6 +53,7 @@ private[routing] object TransactionData {
   def create(
       actAs: Set[LfPartyId],
       readAs: Set[LfPartyId],
+      signedExternally: Set[LfPartyId],
       transaction: LfVersionedTransaction,
       ledgerTime: CantonTimestamp,
       domainStateProvider: DomainStateProvider,
@@ -79,6 +82,7 @@ private[routing] object TransactionData {
       requiredPackagesPerParty = Blinding.partyPackages(transaction),
       actAs = actAs,
       readAs = readAs,
+      signedExternally = signedExternally,
       inputContractsDomainData = contractsDomainData,
       prescribedDomainO = prescribedDomainIdO,
     )
@@ -95,17 +99,21 @@ private[routing] object TransactionData {
       ec: ExecutionContext,
       traceContext: TraceContext,
   ): EitherT[Future, TransactionRoutingError, TransactionData] = {
-    def parseReader(party: Ref.Party) = LfPartyId
+    def parseReader(party: Ref.Party): Either[TransactionRoutingError, IdString.Party] = LfPartyId
       .fromString(party)
       .leftMap[TransactionRoutingError](MalformedInputErrors.InvalidReader.Error.apply)
 
     for {
       actAs <- EitherT.fromEither[Future](submitterInfo.actAs.traverse(parseReader).map(_.toSet))
       readers <- EitherT.fromEither[Future](submitterInfo.readAs.traverse(parseReader).map(_.toSet))
+      signedExternally = submitterInfo.externallySignedSubmission.fold(Set.empty[LfPartyId])(
+        _.signatures.keys.map(_.toLf).toSet
+      )
 
       transactionData <- create(
         actAs = actAs,
         readAs = readers,
+        signedExternally = signedExternally,
         transaction,
         ledgerTime,
         domainStateProvider,

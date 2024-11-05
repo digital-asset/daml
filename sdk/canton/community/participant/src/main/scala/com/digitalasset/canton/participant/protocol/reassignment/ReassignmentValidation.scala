@@ -16,7 +16,6 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.EitherTUtil.condUnitET
 import com.digitalasset.canton.util.{EitherTUtil, ReassignmentTag}
 import com.digitalasset.daml.lf.engine.Error as LfError
 import com.digitalasset.daml.lf.interpretation.Error as LfInterpretationError
@@ -29,21 +28,20 @@ private[reassignment] class ReassignmentValidation(
 )(implicit val ec: ExecutionContext)
     extends NamedLogging {
 
-  def checkStakeholders(
-      request: FullReassignmentViewTree,
+  def checkMetadata(
+      reassignmentRequest: FullReassignmentViewTree,
       getEngineAbortStatus: GetEngineAbortStatus,
   )(implicit traceContext: TraceContext): EitherT[Future, ReassignmentProcessorError, Unit] = {
-    val reassignmentId = request.reassignmentId
+    val reassignmentId = reassignmentRequest.reassignmentId
 
-    // TODO(#12926) We don't have re-interpretation check in the processing of the unassignment. Do we need it?
-    val declaredContractStakeholders = Stakeholders(request.contract.metadata)
-    val declaredViewStakeholders = request.stakeholders
+    val declaredContractMetadata = reassignmentRequest.contract.metadata
+    val declaredViewStakeholders = reassignmentRequest.stakeholders
 
     for {
-      metadata <- engine
+      recomputedMetadata <- engine
         .contractMetadata(
-          request.contract.contractInstance,
-          declaredContractStakeholders.all,
+          reassignmentRequest.contract.contractInstance,
+          declaredContractMetadata.stakeholders,
           getEngineAbortStatus,
         )
         .leftMap {
@@ -58,24 +56,35 @@ private[reassignment] class ReassignmentValidation(
             StakeholdersMismatch(
               reassignmentId,
               declaredViewStakeholders = declaredViewStakeholders,
-              declaredContractStakeholders = Some(declaredContractStakeholders),
+              declaredContractStakeholders = Some(Stakeholders(declaredContractMetadata)),
               expectedStakeholders = Left(e.message),
             )
           case DAMLe.EngineError(error) => MetadataNotFound(error)
-          case DAMLe.EngineAborted(reason) =>
-            ReinterpretationAborted(reassignmentId, reason)
+          case DAMLe.EngineAborted(reason) => ReinterpretationAborted(reassignmentId, reason)
         }
 
-      recomputedStakeholders = Stakeholders(metadata)
-      _ <- condUnitET[Future](
-        declaredViewStakeholders == recomputedStakeholders && declaredViewStakeholders == declaredContractStakeholders,
-        StakeholdersMismatch(
-          reassignmentId,
-          declaredViewStakeholders = declaredViewStakeholders,
-          declaredContractStakeholders = Some(declaredContractStakeholders),
-          expectedStakeholders = Right(recomputedStakeholders),
+      _ <- EitherTUtil.condUnitET[Future](
+        recomputedMetadata == declaredContractMetadata,
+        ContractMetadataMismatch(
+          reassignmentId = reassignmentId,
+          declaredContractMetadata = declaredContractMetadata,
+          expectedMetadata = recomputedMetadata,
         ),
-      ).leftWiden[ReassignmentProcessorError]
+      )
+
+      declaredContractStakeholders = Stakeholders(declaredContractMetadata)
+
+      _ <- EitherTUtil
+        .condUnitET[Future](
+          declaredViewStakeholders == declaredContractStakeholders,
+          StakeholdersMismatch(
+            reassignmentId,
+            declaredViewStakeholders = declaredViewStakeholders,
+            declaredContractStakeholders = Some(declaredContractStakeholders),
+            expectedStakeholders = Right(Stakeholders(recomputedMetadata)),
+          ),
+        )
+        .leftWiden[ReassignmentProcessorError]
     } yield ()
   }
 

@@ -66,7 +66,6 @@ object Genesis {
         timestamp,
         self,
       ),
-      self,
       Signature.noSignature, // TODO(#22184) sign this commit to make it valid
     )
   )

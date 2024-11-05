@@ -30,6 +30,7 @@ final case class ParticipantNodeParameters(
     commandProgressTracking: CommandProgressTrackerConfig,
     unsafeEnableOnlinePartyReplication: Boolean,
     experimentalEnableTopologyEvents: Boolean,
+    enableExternalAuthorization: Boolean,
 ) extends CantonNodeParameters
     with HasGeneralCantonNodeParameters {
   override def dontWarnOnDeprecatedPV: Boolean = protocolConfig.dontWarnOnDeprecatedPV
@@ -81,5 +82,6 @@ object ParticipantNodeParameters {
     commandProgressTracking = CommandProgressTrackerConfig(),
     unsafeEnableOnlinePartyReplication = false,
     experimentalEnableTopologyEvents = true,
+    enableExternalAuthorization = false,
   )
 }

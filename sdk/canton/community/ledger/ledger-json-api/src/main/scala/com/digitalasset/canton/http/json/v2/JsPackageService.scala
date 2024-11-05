@@ -10,20 +10,18 @@ import com.daml.ledger.api.v2.admin.package_management_service
 import com.google.protobuf
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.{Source, StreamConverters}
-import org.apache.pekko.{NotUsed, util}
+import org.apache.pekko.util
 import sttp.tapir.{CodecFormat, path, streamBinaryBody}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.jdk.CollectionConverters.IteratorHasAsScala
 import JsPackageCodecs.*
-import com.digitalasset.canton.concurrent.Threading
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
 import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.tracing.TraceContext
 import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
-import org.apache.pekko.util.ByteString
 import sttp.capabilities.pekko.PekkoStreams
 import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.jsonBody

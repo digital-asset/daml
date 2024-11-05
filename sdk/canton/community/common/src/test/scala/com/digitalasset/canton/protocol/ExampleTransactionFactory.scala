@@ -322,7 +322,6 @@ object ExampleTransactionFactory {
   val malformedLfTransaction: LfVersionedTransaction = transaction(Seq(0))
 
   // Helper methods for contract ids and transaction ids
-
   def transactionId(index: Int): TransactionId = TransactionId(
     TestHash.digest(s"transactionId$index")
   )
@@ -798,6 +797,7 @@ class ExampleTransactionFactory(
       DefaultDamlValues.submissionId().some,
       DeduplicationDuration(JDuration.ofSeconds(100)),
       ledgerTime.plusSeconds(100),
+      None,
       cryptoOps,
       protocolVersion,
     )

@@ -105,7 +105,6 @@ class PbftViewChangeState(
             canonicalCommitSet = CanonicalCommitSet(Set.empty),
             from = membership.myId,
           ),
-          from = membership.myId,
           signature = Signature.noSignature, // TODO(#20458) actually sign this message
         ),
       )
@@ -121,7 +120,6 @@ class PbftViewChangeState(
         prePrepares = prePrepares,
         from = membership.myId,
       ),
-      membership.myId,
       Signature.noSignature,
     )
 

@@ -334,6 +334,7 @@ class StartableStoppableLedgerApiServer(
         dynParamGetter = config.syncService.dynamicDomainParameterGetter,
         interactiveSubmissionServiceConfig = config.serverConfig.interactiveSubmissionService,
         lfValueTranslation = lfValueTranslationForInteractiveSubmission,
+        keepAlive = config.serverConfig.keepAliveServer,
       )
       _ <- startHttpApiIfEnabled(timedWriteService)
       _ <- config.serverConfig.userManagementService.additionalAdminUserId

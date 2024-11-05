@@ -5,10 +5,13 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.co
 
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.crypto.Signature
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.ConsensusSegment.ConsensusMessage.PbftNetworkMessage
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.{
+  MessageFrom,
+  SignedMessage,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.pekko.PekkoModuleSystem.PekkoFutureUnlessShutdown
 import com.digitalasset.canton.logging.{LogEntry, SuppressionRule}
+import com.digitalasset.canton.serialization.ProtocolVersionedMemoizedEvidence
 import org.scalatest.Assertion
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -33,7 +36,7 @@ trait BftSequencerBaseTest extends BaseTest {
 }
 
 object BftSequencerBaseTest {
-  implicit class FakeSigner[A <: PbftNetworkMessage](msg: A) {
-    def fakeSign: SignedMessage[A] = SignedMessage(msg, msg.from, Signature.noSignature)
+  implicit class FakeSigner[A <: ProtocolVersionedMemoizedEvidence & MessageFrom](msg: A) {
+    def fakeSign: SignedMessage[A] = SignedMessage(msg, Signature.noSignature)
   }
 }

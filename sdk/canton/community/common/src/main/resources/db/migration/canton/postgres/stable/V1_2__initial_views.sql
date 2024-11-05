@@ -186,7 +186,7 @@ create or replace view debug.par_contracts as
     metadata,
     ledger_create_time,
     request_counter,
-    creating_transaction_id,
+    is_divulged,
     package_id,
     template_id,
     contract_salt

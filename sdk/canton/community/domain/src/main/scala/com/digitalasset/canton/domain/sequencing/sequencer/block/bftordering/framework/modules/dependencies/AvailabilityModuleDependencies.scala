@@ -3,10 +3,6 @@
 
 package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.dependencies
 
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.availability.{
-  AvailabilitySerializer,
-  AvailabilitySerializerImpl,
-}
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.ModuleRef
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.{
   Consensus,
@@ -20,5 +16,4 @@ final case class AvailabilityModuleDependencies[E](
     p2pNetworkOut: ModuleRef[P2PNetworkOut.Message],
     consensus: ModuleRef[Consensus.Message[E]],
     output: ModuleRef[Output.Message[E]],
-    serializer: AvailabilitySerializer = AvailabilitySerializerImpl,
 )

@@ -14,7 +14,8 @@ import scala.concurrent.duration.*
 final case class JsonApiConfig(
     server: HttpServerConfig,
     allowInsecureTokens: Boolean = false,
-    websocketConfig: Option[WebsocketConfig] = None, //TODO (i22224) Use this in new JSON API (if applies)
+    websocketConfig: Option[WebsocketConfig] =
+      None, // TODO (i22224) Use this in new JSON API (if applies)
     debugLoggingOfHttpBodies: Boolean = false,
     damlDefinitionsServiceEnabled: Boolean = false,
 ) extends StartSettings
@@ -41,5 +42,5 @@ object WebsocketConfig {
   val DefaultMaxBurst: Int = 20
   val DefaultThrottleMode: ThrottleMode = ThrottleMode.Shaping
   val DefaultHeartbeatPeriod: FiniteDuration = 5.second
-  val DefaultCloseDelay: FiniteDuration = 2.seconds
+  val DefaultCloseDelay: FiniteDuration = 3.seconds
 }

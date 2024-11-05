@@ -81,8 +81,8 @@ create table par_contracts (
   ledger_create_time varchar(300) collate "C" not null,
   -- The request counter of the request that created or divulged the contract
   request_counter bigint not null,
-  -- The transaction that created the contract; null for divulged contracts
-  creating_transaction_id bytea,
+  -- Whether the contract is known via divulgence
+  is_divulged boolean not null,
   -- We store metadata of the contract instance for inspection
   package_id varchar(300) collate "C" not null,
   template_id varchar collate "C" not null,
@@ -97,7 +97,7 @@ create table par_contracts (
 create index idx_par_contracts_find on par_contracts(domain_idx, package_id, template_id);
 
 -- Partial index for pruning
-create index idx_par_contracts_request_counter on par_contracts(domain_idx, request_counter) where creating_transaction_id is null;
+create index idx_par_contracts_request_counter on par_contracts(domain_idx, request_counter) where is_divulged is true;
 
 -- provides a serial enumeration of static strings so we don't store the same string over and over in the db
 -- currently only storing uids

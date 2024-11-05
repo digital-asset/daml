@@ -379,7 +379,6 @@ trait ReassignmentProcessingSteps[
       err: ProtocolProcessor.ResultProcessingError
   ): ReassignmentProcessorError =
     GenericStepsError(err)
-
 }
 
 object ReassignmentProcessingSteps {
@@ -475,12 +474,6 @@ object ReassignmentProcessingSteps {
     override def message: String = s"Contract metadata not found: ${err.message}"
   }
 
-  final case class CreatingTransactionIdNotFound(contractId: LfContractId)
-      extends ReassignmentProcessorError {
-    override def message: String = s"Creating transaction id not found for contract `$contractId`"
-
-  }
-
   final case class NoTimeProofFromDomain(domainId: DomainId, reason: String)
       extends ReassignmentProcessorError {
     override def message: String = s"Cannot fetch time proof for domain `$domainId`: $reason"
@@ -494,6 +487,14 @@ object ReassignmentProcessingSteps {
 
     override def message: String =
       s"For $reference: $party is not hosted on $participantId"
+  }
+
+  final case class ContractMetadataMismatch(
+      reassignmentId: Option[ReassignmentId],
+      declaredContractMetadata: ContractMetadata,
+      expectedMetadata: ContractMetadata,
+  ) extends ReassignmentProcessorError {
+    override def message: String = s"For reassignment `$reassignmentId`: metadata mismatch"
   }
 
   final case class StakeholdersMismatch(
@@ -522,15 +523,6 @@ object ReassignmentProcessingSteps {
   }
 
   final case class ContractError(message: String) extends ReassignmentProcessorError
-
-  object ContractError {
-    def templateIdMismatch(
-        declaredTemplateId: LfTemplateId,
-        expectedTemplateId: LfTemplateId,
-    ): ContractError = ContractError(
-      s"Template ID mismatch for reassignment. Declared=$declaredTemplateId, expected=$expectedTemplateId`"
-    )
-  }
 
   final case class SubmitterMustBeStakeholder(
       reference: ReassignmentRef,

@@ -8,7 +8,6 @@ import com.digitalasset.canton.config.CantonRequireTypes.String73
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeLong, PositiveInt}
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.{CantonTimestamp, GeneratorsData}
-import com.digitalasset.canton.protocol.TransactionAuthorizationPartySignatures
 import com.digitalasset.canton.protocol.messages.{GeneratorsMessages, ProtocolMessage}
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.serialization.{
@@ -16,7 +15,7 @@ import com.digitalasset.canton.serialization.{
   HasCryptographicEvidence,
 }
 import com.digitalasset.canton.time.TimeProofTestUtil
-import com.digitalasset.canton.topology.{DomainId, Member, PartyId}
+import com.digitalasset.canton.topology.{DomainId, Member}
 import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.version.{GeneratorsVersion, ProtocolVersion}
 import com.digitalasset.canton.{Generators, SequencerCounter}
@@ -29,13 +28,13 @@ final class GeneratorsProtocol(
     generatorsMessages: GeneratorsMessages,
     generatorsData: GeneratorsData,
 ) {
+  import GeneratorsProtocol.*
   import com.digitalasset.canton.Generators.*
   import com.digitalasset.canton.config.GeneratorsConfig.*
   import com.digitalasset.canton.crypto.GeneratorsCrypto.*
   import com.digitalasset.canton.data.GeneratorsDataTime.*
   import com.digitalasset.canton.topology.GeneratorsTopology.*
   import generatorsMessages.*
-  import GeneratorsProtocol.*
 
   implicit val acknowledgeRequestArb: Arbitrary[AcknowledgeRequest] = Arbitrary(for {
     ts <- Arbitrary.arbitrary[CantonTimestamp]
@@ -112,12 +111,6 @@ final class GeneratorsProtocol(
         SubmissionRequest.protocolVersionRepresentativeFor(protocolVersion).representative,
       )
     )
-
-  implicit val partySignaturesArb: Arbitrary[TransactionAuthorizationPartySignatures] = Arbitrary(
-    for {
-      signatures <- Arbitrary.arbitrary[Map[PartyId, Seq[Signature]]]
-    } yield TransactionAuthorizationPartySignatures(signatures, protocolVersion)
-  )
 
   implicit val topologyStateForInitRequestArb: Arbitrary[TopologyStateForInitRequest] = Arbitrary(
     for {

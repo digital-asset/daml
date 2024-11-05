@@ -6,8 +6,8 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.co
 import cats.syntax.either.*
 import com.daml.metrics.api.MetricsContext
 import com.digitalasset.canton.config.ProcessingTimeout
-import com.digitalasset.canton.crypto.v30
 import com.digitalasset.canton.domain.metrics.BftOrderingMetrics
+import com.digitalasset.canton.domain.sequencing.sequencer.bftordering.v1
 import com.digitalasset.canton.domain.sequencing.sequencer.bftordering.v1.BftOrderingMessageBody.Message
 import com.digitalasset.canton.domain.sequencing.sequencer.bftordering.v1.{
   BftOrderingMessageBody,
@@ -19,6 +19,7 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.cor
   emitReceiveStats,
   receiveMetricsContext,
 }
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.data.SignedMessage
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.framework.modules.{
   Availability,
   Consensus,
@@ -60,7 +61,6 @@ class BftP2PNetworkIn[E <: Env[E]](
     parseAndForwardBody(
       sequencerIdOrError,
       message.body,
-      message.signature,
       start,
     )
   }
@@ -68,7 +68,6 @@ class BftP2PNetworkIn[E <: Env[E]](
   private def parseAndForwardBody(
       from: Either[String, SequencerId],
       body: Option[BftOrderingMessageBody],
-      protoSignature: Option[v30.Signature],
       start: Instant,
   )(implicit traceContext: TraceContext): Unit = {
     val outcome: OutcomeType = from match {
@@ -79,7 +78,7 @@ class BftP2PNetworkIn[E <: Env[E]](
         body.fold[OutcomeType]({
           logger.info(s"Received empty message body from $from, dropping")
           metrics.p2p.receive.labels.source.values.Empty(from)
-        })(body => handleMessage(from, body.message, protoSignature))
+        })(body => handleMessage(from, body.message))
     }
     val end = Instant.now
     val mc1 = receiveMetricsContext(metrics)(outcome)
@@ -93,7 +92,6 @@ class BftP2PNetworkIn[E <: Env[E]](
   private def handleMessage(
       from: SequencerId,
       message: Message,
-      protoSignature: Option[v30.Signature],
   )(implicit
       traceContext: TraceContext
   ): OutcomeType =
@@ -103,7 +101,7 @@ class BftP2PNetworkIn[E <: Env[E]](
         metrics.p2p.receive.labels.source.values.Empty(from)
       case Message.AvailabilityMessage(availabilityMessage) =>
         AvailabilityModule
-          .parseNetworkMessage(from, availabilityMessage, protoSignature)
+          .parseNetworkMessage(availabilityMessage)
           .fold(
             errorMessage =>
               logger.warn(
@@ -113,25 +111,36 @@ class BftP2PNetworkIn[E <: Env[E]](
           )
         metrics.p2p.receive.labels.source.values.Availability(from)
       case Message.ConsensusMessage(consensusMessage) =>
-        IssConsensusModule
-          .parseUnverifiedNetworkMessage(from, consensusMessage)
+        SignedMessage
+          .fromProto(v1.ConsensusMessage)(IssConsensusModule.parseNetworkMessage(from, _))(
+            consensusMessage
+          )
           .fold(
             errorMessage =>
               logger.warn(
                 s"Dropping consensus message from $from as it couldn't be parsed: $errorMessage"
               ),
-            consensus.asyncSend,
+            signedMessage =>
+              consensus.asyncSend(
+                Consensus.ConsensusMessage.PbftUnverifiedNetworkMessage(signedMessage)
+              ),
           )
         metrics.p2p.receive.labels.source.values.Consensus(from)
       case Message.StateTransferMessage(message) =>
-        IssConsensusModule
-          .parseStateTransferMessage(from, message)
+        SignedMessage
+          .fromProto(v1.StateTransferMessage)(
+            IssConsensusModule
+              .parseStateTransferMessage(from, _)
+          )(message)
           .fold(
             errorMessage =>
               logger.warn(
                 s"Dropping state transfer message from $from as it couldn't be parsed: $errorMessage"
               ),
-            consensus.asyncSend,
+            signedMessage =>
+              consensus.asyncSend(
+                Consensus.StateTransferMessage.NetworkMessage(signedMessage.message)
+              ),
           )
         metrics.p2p.receive.labels.source.values.StateTransfer(from)
     }

@@ -55,6 +55,7 @@ import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.topology.SequencerId
 import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.tracing.TraceContext
+import com.google.protobuf.ByteString
 import slick.dbio.DBIOAction
 import slick.jdbc.{GetResult, PositionedResult, SetParameter}
 
@@ -105,7 +106,7 @@ class DbEpochStore(
     PekkoFutureUnlessShutdown(actionName, storage.performUnlessClosingF(actionName)(future))
 
   private def parseSignedMessage[A <: PbftNetworkMessage](
-      parse: SequencerId => ProtoConsensusMessage => ParsingResult[A]
+      parse: SequencerId => ProtoConsensusMessage => ByteString => ParsingResult[A]
   )(
       r: PositionedResult
   ): SignedMessage[A] = {
@@ -114,7 +115,9 @@ class DbEpochStore(
     val messageOrError = for {
       signedMessageProto <- Try(v1.SignedMessage.parseFrom(messageBytes)).toEither
         .leftMap(x => ProtoDeserializationError.OtherError(x.toString))
-      message <- SignedMessage.fromProtoWithSequencerId(parse)(signedMessageProto)
+      message <- SignedMessage.fromProtoWithSequencerId(v1.ConsensusMessage)(parse)(
+        signedMessageProto
+      )
     } yield message
 
     messageOrError.fold(
@@ -356,12 +359,12 @@ class DbEpochStore(
                 .as[SignedMessage[PbftNetworkMessage]](readPbftMessage)
           } yield {
             val commits = completeBlockMessages
-              .collect { case s @ SignedMessage(_: Commit, _, _) =>
+              .collect { case s @ SignedMessage(_: Commit, _) =>
                 s.asInstanceOf[SignedMessage[Commit]]
               }
               .groupBy(_.message.blockMetadata.blockNumber)
             val sortedBlocks = completeBlockMessages
-              .collect { case s @ SignedMessage(pp: PrePrepare, _, _) =>
+              .collect { case s @ SignedMessage(pp: PrePrepare, _) =>
                 val blockNumber = pp.blockMetadata.blockNumber
                 Block(
                   activeEpochInfo.number,
