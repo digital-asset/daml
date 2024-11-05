@@ -744,7 +744,7 @@ convertModule
       -- ^ Only used for information that isn't available in ModDetails.
     -> ModDetails
     -> Either FileDiagnostic (LF.Module, [FileDiagnostic])
-convertModule lfVersion enableScenarios enableInterfaces damlWarningFlagParser pkgMap stablePackages file coreModule modIface details = runConvertM (ConversionEnv file Nothing damlWarningFlagParser) $ do
+convertModule lfVersion enableScenarios enableInterfaces damlWarningFlags pkgMap stablePackages file coreModule modIface details = runConvertM (ConversionEnv file Nothing damlWarningFlags) $ do
     let
       env = mkEnv lfVersion enableScenarios enableInterfaces pkgMap stablePackages (cm_module coreModule)
       mc = extractModuleContents env coreModule modIface details
