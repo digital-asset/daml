@@ -104,7 +104,7 @@ match p e x = either (const (throwWithContext e)) pure (matching p x)
 -- | Environment containing only the packages in scope but no type or term
 -- variables.
 emptyGamma :: World -> Version -> Gamma
-emptyGamma world version = Gamma ContextNone mempty mempty world version (mkDamlWarningFlags damlWarningFlagParser [])
+emptyGamma world version = Gamma ContextNone mempty mempty world version (mkDamlWarningFlags damlWarningFlagParserTypeChecker [])
 
 -- | Run a computation in the current environment extended by a new type
 -- variable/kind binding. Does not fail on shadowing.

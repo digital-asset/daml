@@ -18,7 +18,7 @@ module DA.Daml.LFConversion.ConvertM (
     StandaloneError(..),
     ErrorOrWarning(..),
     InvalidInterfaceError(..),
-    damlWarningFlagParser,
+    damlWarningFlagParserLFConversion,
     warnLargeTuplesFlag
   ) where
 
@@ -39,6 +39,12 @@ import qualified Data.Text.Extended as T
 import           "ghc-lib" GHC
 import           "ghc-lib" GhcPlugins as GHC hiding ((<>), notNull)
 import           DA.Daml.LF.TypeChecker.Error.WarningFlags
+
+data ConversionEnv = ConversionEnv
+  { convModuleFilePath :: !NormalizedFilePath
+  , convRange :: !(Maybe SourceLoc)
+  , convWarningFlags :: DamlWarningFlags ErrorOrWarning
+  }
 
 newtype ConvertM a = ConvertM (ReaderT ConversionEnv (StateT ConversionState (Except FileDiagnostic)) a)
   deriving (Functor, Applicative, Monad, MonadError FileDiagnostic, MonadState ConversionState, MonadReader ConversionEnv)

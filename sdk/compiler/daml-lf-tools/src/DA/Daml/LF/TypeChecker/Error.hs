@@ -26,7 +26,7 @@ module DA.Daml.LF.TypeChecker.Error(
     getWarningStatus,
     upgradeInterfacesFlag,
     upgradeExceptionsFlag,
-    damlWarningFlagParser,
+    damlWarningFlagParserTypeChecker,
     mkDamlWarningFlags,
     combineParsers
     ) where
@@ -277,8 +277,8 @@ instance Pretty ErrorOrWarning where
         , "Ignore this error message with the -Wupgrade-exceptions flag."
         ]
 
-damlWarningFlagParser :: DamlWarningFlagParser ErrorOrWarning
-damlWarningFlagParser = DamlWarningFlagParser
+damlWarningFlagParserTypeChecker :: DamlWarningFlagParser ErrorOrWarning
+damlWarningFlagParserTypeChecker = DamlWarningFlagParser
   { dwfpFlagParsers =
       [ (upgradeInterfacesName, upgradeInterfacesFlag)
       , (upgradeExceptionsName, upgradeExceptionsFlag)
