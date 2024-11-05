@@ -323,6 +323,7 @@ upgradeExceptionsFilter :: ErrorOrWarning -> Bool
 upgradeExceptionsFilter =
     \case
         WEUpgradeShouldDefineExceptionsAndTemplatesSeparately {} -> True
+        _ -> False
 
 upgradeDependencyMetadataFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
 upgradeDependencyMetadataFlag status = RawDamlWarningFlag upgradeDependencyMetadataName status upgradeDependencyMetadataFilter
