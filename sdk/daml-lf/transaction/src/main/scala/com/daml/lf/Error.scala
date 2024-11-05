@@ -168,6 +168,20 @@ object Error {
         keyOpt: Option[GlobalKeyWithMaintainers],
         msg: String,
     ) extends Error
+
+    // TODO https://github.com/digital-asset/daml/issues/17647:
+    //  - add coid, srcTmplId (alternatively pkgId of srcTmplId), and dstTempId
+    final case class DowngradeDropDefinedField(expectedType: Ast.Type, actualValue: Value)
+        extends Error
+
+    final case class ViewMismatch(
+        coid: ContractId,
+        iterfaceId: TypeConName,
+        srcTemplateId: TypeConName,
+        dstTemplateId: TypeConName,
+        srcView: Value,
+        dstView: Value,
+    ) extends Error
   }
 
   // Error that can be thrown by dev or PoC feature only
@@ -176,30 +190,6 @@ object Error {
   object Dev {
 
     sealed abstract class Error extends Serializable with Product
-
-    // TODO https://github.com/digital-asset/daml/issues/17647
-    // - move as normal interpretation Error
-    sealed case class Upgrade(error: Upgrade.Error) extends Error
-
-    // TODO https://github.com/digital-asset/daml/issues/18616: migrate Upgrade error cases out of Dev
-    object Upgrade {
-
-      sealed abstract class Error extends Serializable with Product
-
-      // TODO https://github.com/digital-asset/daml/issues/17647:
-      //  - add coid, srcTmplId (alternatively pkgId of srcTmplId), and dstTempId
-      final case class DowngradeDropDefinedField(expectedType: Ast.Type, actualValue: Value)
-          extends Error
-
-      final case class ViewMismatch(
-          coid: ContractId,
-          iterfaceId: TypeConName,
-          srcTemplateId: TypeConName,
-          dstTemplateId: TypeConName,
-          srcView: Value,
-          dstView: Value,
-      ) extends Error
-    }
 
     /** A choice guard returned false, invalidating some expectation. */
     final case class ChoiceGuardFailed(
