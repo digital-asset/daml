@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.apiserver
 
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.metrics.grpc.GrpcMetricsServerInterceptor
-import com.digitalasset.canton.DiscardOps
+import com.digitalasset.canton.config.KeepAliveServerConfig
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.Metrics
@@ -17,8 +17,7 @@ import io.netty.handler.ssl.SslContext
 
 import java.io.IOException
 import java.net.{BindException, InetAddress, InetSocketAddress}
-import java.util.concurrent.Executor
-import java.util.concurrent.TimeUnit.SECONDS
+import java.util.concurrent.{Executor, TimeUnit}
 import scala.concurrent.duration.DurationInt
 import scala.util.Failure
 import scala.util.control.NoStackTrace
@@ -43,31 +42,62 @@ object GrpcServer {
       servicesExecutor: Executor,
       services: Iterable[BindableService],
       loggerFactory: NamedLoggerFactory,
+      keepAlive: Option[KeepAliveServerConfig],
   ): ResourceOwner[Server] = {
     val host = address.map(InetAddress.getByName).getOrElse(InetAddress.getLoopbackAddress)
-    val builder = NettyServerBuilder.forAddress(new InetSocketAddress(host, desiredPort.unwrap))
-    builder.sslContext(sslContext.orNull)
-    builder.permitKeepAliveTime(10, SECONDS)
-    builder.permitKeepAliveWithoutCalls(true)
-    builder.executor(servicesExecutor)
-    builder.maxInboundMessageSize(maxInboundMessageSize)
+    val builder =
+      NettyServerBuilder
+        .forAddress(new InetSocketAddress(host, desiredPort.unwrap))
+        .sslContext(sslContext.orNull)
+        .executor(servicesExecutor)
+        .maxInboundMessageSize(maxInboundMessageSize)
+
+    val builderWithKeepAlive = configureKeepAlive(keepAlive, builder)
     // NOTE: Interceptors run in the reverse order in which they were added.
-    interceptors.foreach(interceptor => builder.intercept(interceptor).discard)
-    builder.intercept(new ActiveStreamMetricsInterceptor(metrics))
-    builder.intercept(new GrpcMetricsServerInterceptor(metrics.daml.grpc))
-    builder.intercept(new TruncatedStatusInterceptor(MaximumStatusDescriptionLength))
-    builder.intercept(new ErrorInterceptor(loggerFactory))
-    services.foreach { service =>
-      builder.addService(service)
-      toLegacyService(service).foreach(builder.addService)
+    val builderWithInterceptors =
+      interceptors
+        .foldLeft(builderWithKeepAlive) { case (builder, interceptor) =>
+          builder.intercept(interceptor)
+        }
+        .intercept(new ActiveStreamMetricsInterceptor(metrics))
+        .intercept(new GrpcMetricsServerInterceptor(metrics.daml.grpc))
+        .intercept(new TruncatedStatusInterceptor(MaximumStatusDescriptionLength))
+        .intercept(new ErrorInterceptor(loggerFactory))
+
+    val builderWithServices = services.foldLeft(builderWithInterceptors) {
+      case (builder, service) =>
+        toLegacyService(service).fold(builder.addService(service))(legacyService =>
+          builder
+            .addService(service)
+            .addService(legacyService)
+        )
     }
     ResourceOwner
-      .forServer(builder, shutdownTimeout = 1.second)
+      .forServer(builderWithServices, shutdownTimeout = 1.second)
       .transform(_.recoverWith {
         case e: IOException if e.getCause != null && e.getCause.isInstanceOf[BindException] =>
           Failure(new UnableToBind(desiredPort, e.getCause))
       })
   }
+
+  def configureKeepAlive(
+      keepAlive: Option[KeepAliveServerConfig],
+      builder: NettyServerBuilder,
+  ): NettyServerBuilder =
+    keepAlive.fold(builder) { ka =>
+      val time = ka.time.unwrap.toMillis
+      val timeout = ka.timeout.unwrap.toMillis
+      val permitTime = ka.permitKeepAliveTime.unwrap.toMillis
+      val permitKAWOCalls = ka.permitKeepAliveWithoutCalls
+      builder
+        .keepAliveTime(time, TimeUnit.MILLISECONDS)
+        .keepAliveTimeout(timeout, TimeUnit.MILLISECONDS)
+        .permitKeepAliveTime(
+          permitTime,
+          TimeUnit.MILLISECONDS,
+        ) // gracefully allowing a bit more aggressive keep alives from clients
+        .permitKeepAliveWithoutCalls(permitKAWOCalls)
+    }
 
   final class UnableToBind(port: Port, cause: Throwable)
       extends RuntimeException(

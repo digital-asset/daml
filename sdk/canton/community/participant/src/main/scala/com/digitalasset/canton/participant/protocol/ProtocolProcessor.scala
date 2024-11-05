@@ -535,10 +535,16 @@ abstract class ProtocolProcessor[
         EitherT[FutureUnlessShutdown, steps.RequestError, Unit],
       ],
   )(implicit traceContext: TraceContext): HandlerResult =
-    // We discard the lefts because they are logged by `logRequestWarnings`
+    // We transform the lefts into exceptions to abort the application handler and prevent further execution
     logRequestWarnings(ts, result)
-      .map(innerAsync => AsyncResult(innerAsync.getOrElse(())))
-      .getOrElse(AsyncResult.immediate)
+      .map(innerAsync =>
+        AsyncResult(
+          innerAsync.valueOr(err =>
+            ErrorUtil.invalidState(s"Asynchronous failure in application handler: $err")
+          )
+        )
+      )
+      .valueOr(err => ErrorUtil.invalidState(s"Synchronous failure in application handler: $err"))
 
   private[this] def logRequestWarnings(
       resultTimestamp: CantonTimestamp,

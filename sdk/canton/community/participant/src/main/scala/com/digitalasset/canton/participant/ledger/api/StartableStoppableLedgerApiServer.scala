@@ -363,6 +363,7 @@ class StartableStoppableLedgerApiServer(
         authenticateUpgradableContract = authenticateUpgradableContract,
         dynParamGetter = config.syncService.dynamicDomainParameterGetter,
         pruningOffsetCache = pruningOffsetCache,
+        keepAlive = config.serverConfig.keepAliveServer,
       )
       _ <- startHttpApiIfEnabled
       _ <- {
