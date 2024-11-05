@@ -19,13 +19,10 @@ main = tests $ brokenOnIDELedger <$>
   , ("Exercise a choice against a V1 contract with V1 unvetted on submitter via Choice Body", v1UnvettedOnSubmitterChoiceBody)
   , ("Exercise a choice against a V1 contract with V1 unvetted on submitter via Choice Body Interface", v1UnvettedOnSubmitterChoiceBodyInterface)
 
-  , -- Didn't get the usual missing package error, we get No valid domain for submission found
-    -- It's unclear if this is a problem, since the submission is still rejected
-    -- This applies to next 4 tests
-    brokenOnCanton ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Command", v1UnvettedOnSubmitterDisclosedCommand)
-  , brokenOnCanton ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Command Interface", v1UnvettedOnSubmitterDisclosedCommandInterface)
-  , brokenOnCanton ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Choice Body", v1UnvettedOnSubmitterDisclosedChoiceBody)
-  , brokenOnCanton ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Choice Body Interface", v1UnvettedOnSubmitterDisclosedChoiceBodyInterface)
+  , ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Command", v1UnvettedOnSubmitterDisclosedCommand)
+  , ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Command Interface", v1UnvettedOnSubmitterDisclosedCommandInterface)
+  , ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Choice Body", v1UnvettedOnSubmitterDisclosedChoiceBody)
+  , ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Choice Body Interface", v1UnvettedOnSubmitterDisclosedChoiceBodyInterface)
 
   , ("Exercise a choice against a V1 contract with V1 unvetted on a non-confirming informee via Command", v1UnvettedOnNonConfirmingInformeeCommand)
   , ("Exercise a choice against a V1 contract with V1 unvetted on a non-confirming informee via Command Interface", v1UnvettedOnNonConfirmingInformeeCommandInterface)
@@ -168,6 +165,11 @@ expectPackageMissingFailure (Right res) = fail $ "Expected failure, got success:
 expectPackageMissingFailure (Left (UnknownError (isInfixOf "Some packages are not known to all informees" -> True))) = pure ()
 expectPackageMissingFailure (Left e) = fail $ "Expected package missing error, got " <> show e
 
+expectNoDomainFailure : Show a => Either SubmitError a -> Script ()
+expectNoDomainFailure (Right res) = fail $ "Expected failure, got success: " <> show res
+expectNoDomainFailure (Left (UnknownError (isInfixOf "No valid domain for submission found" -> True))) = pure ()
+expectNoDomainFailure (Left e) = fail $ "Expected No Domain error, got " <> show e
+
 v1UnvettedOnSubmitterCommand : Test
 v1UnvettedOnSubmitterCommand = test $ do
   alice <- allocateParty "alice"
@@ -204,6 +206,9 @@ v1UnvettedOnSubmitterChoiceBodyInterface = test $ do
     res <- alice `trySubmit` createAndExerciseCmd (TestTemplateHelper with p = alice) (HelperInterfaceChoice with iid = iid)
     expectPackageMissingFailure res
 
+-- Following 4 tests use `expectNoDomainFailure`, over expectPackageMissingFailure
+-- This is incorrect, and implies an issue with the domain selector, but under the hood is giving the correct error
+-- So we will likely not fix this for 2.x
 v1UnvettedOnSubmitterDisclosedCommand : Test
 v1UnvettedOnSubmitterDisclosedCommand = test $ do
   alice <- allocatePartyOn "alice" participant0
@@ -214,7 +219,7 @@ v1UnvettedOnSubmitterDisclosedCommand = test $ do
 
   withUnvettedDarOnParticipant "unvetted-packages-test-template-1.0.0" participant1 $ do
     res <- (actAs bob <> disclose disclosure) `trySubmit` exerciseCmd cidV2 V2.TestTemplateChoiceDisclosed with c = bob
-    expectPackageMissingFailure res
+    expectNoDomainFailure res
 
 v1UnvettedOnSubmitterDisclosedCommandInterface : Test
 v1UnvettedOnSubmitterDisclosedCommandInterface = test $ do
@@ -227,7 +232,7 @@ v1UnvettedOnSubmitterDisclosedCommandInterface = test $ do
 
   withUnvettedDarOnParticipant "unvetted-packages-test-template-1.0.0" participant1 $ do
     res <- (actAs bob <> disclose disclosure) `trySubmit` exerciseCmd iid GetVersionDisclosed with c = bob
-    expectPackageMissingFailure res
+    expectNoDomainFailure res
 
 v1UnvettedOnSubmitterDisclosedChoiceBody : Test
 v1UnvettedOnSubmitterDisclosedChoiceBody = test $ do
@@ -239,7 +244,7 @@ v1UnvettedOnSubmitterDisclosedChoiceBody = test $ do
 
   withUnvettedDarOnParticipant "unvetted-packages-test-template-1.0.0" participant1 $ do
     res <- (actAs bob <> disclose disclosure) `trySubmit` createAndExerciseCmd (TestTemplateHelper with p = bob) (HelperChoiceDisclosed with cid = cidV2)
-    expectPackageMissingFailure res
+    expectNoDomainFailure res
 
 v1UnvettedOnSubmitterDisclosedChoiceBodyInterface : Test
 v1UnvettedOnSubmitterDisclosedChoiceBodyInterface = test $ do
@@ -252,7 +257,7 @@ v1UnvettedOnSubmitterDisclosedChoiceBodyInterface = test $ do
 
   withUnvettedDarOnParticipant "unvetted-packages-test-template-1.0.0" participant1 $ do
     res <- (actAs bob <> disclose disclosure) `trySubmit` createAndExerciseCmd (TestTemplateHelper with p = bob) (HelperInterfaceChoiceDisclosed with iid = iid)
-    expectPackageMissingFailure res
+    expectNoDomainFailure res
 
 v1UnvettedOnNonConfirmingInformeeCommand : Test
 v1UnvettedOnNonConfirmingInformeeCommand = test $ do
