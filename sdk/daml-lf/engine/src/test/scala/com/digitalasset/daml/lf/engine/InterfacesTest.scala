@@ -47,7 +47,7 @@ class InterfacesTest(majorLanguageVersion: LanguageMajorVersion)
 
   private[this] val engine = Engine.DevEngine(majorLanguageVersion)
   private[this] val compiledPackages = ConcurrentCompiledPackages(engine.config.getCompilerConfig)
-  private[this] val preprocessor = new preprocessing.Preprocessor(compiledPackages)
+  private[this] val preprocessor = preprocessing.Preprocessor.forTesting(compiledPackages)
 
   private def loadAndAddPackage(resource: String): (PackageId, Package, Map[PackageId, Package]) = {
     val packages = UniversalArchiveDecoder.assertReadFile(new File(rlocation(resource)))

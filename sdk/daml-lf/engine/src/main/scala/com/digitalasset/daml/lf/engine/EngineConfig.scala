@@ -49,6 +49,7 @@ final case class EngineConfig(
     limits: interpretation.Limits = interpretation.Limits.Lenient,
     checkAuthorization: Boolean = true,
     iterationsBetweenInterruptions: Long = 10000,
+    paranoiacMode: Boolean = true,
 ) {
   private[lf] def getCompilerConfig: speedy.Compiler.Config =
     speedy.Compiler.Config(

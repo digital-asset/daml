@@ -27,9 +27,9 @@ import org.scalatest.matchers.should.Matchers
 import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.wordspec.AnyWordSpec
 
-class ValueEnricherSpecV2 extends ValueEnricherSpec(LanguageMajorVersion.V2)
+class EnricherSpecV2 extends EnricherSpec(LanguageMajorVersion.V2)
 
-class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
+class EnricherSpec(majorLanguageVersion: LanguageMajorVersion)
     extends AnyWordSpec
     with Matchers
     with TableDrivenPropertyChecks {
@@ -42,7 +42,9 @@ class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
   implicit val defaultPackageId: Ref.PackageId =
     defaultParserParameters.defaultPackageId
 
-  private def cid(key: String): ContractId = ContractId.V1(Hash.hashPrivateKey(key))
+  val nonEmptySuffix = Bytes.assertFromString("00")
+  private def cid(key: String): ContractId =
+    ContractId.V1.assertBuild(Hash.hashPrivateKey(key), nonEmptySuffix)
 
   val pkg =
     p"""metadata ( 'pkg' : '1.0.0' )
@@ -107,7 +109,7 @@ class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
     .left
     .foreach(err => sys.error(err.message))
 
-  private[this] val enricher = new ValueEnricher(engine)
+  private[this] val enricher = new Enricher(engine)
 
   "enrichValue" should {
 
@@ -305,6 +307,28 @@ class ValueEnricherSpec(majorLanguageVersion: LanguageMajorVersion)
         be(ResultDone(inputTransaction))
       enricher.enrichVersionedTransaction(inputTransaction) shouldBe ResultDone(outputTransaction)
 
+    }
+
+    "enricher can keep field name without type annotation" in {
+      val enrich = new Enricher(
+        engine,
+        addTypeInfo = false,
+        addFieldNames = true,
+        addTrailingNoneFields = false,
+      )
+      import enrich.enrichValue
+
+      val tRecord = TTyCon("Mod:Record")
+      val normalizedRecord = ValueRecord(None, ImmArray(None -> ValueInt64(33)))
+      val enrichedRecord = ValueRecord(None, ImmArray(Some[Ref.Name]("field") -> ValueInt64(33)))
+      val tVariant = TTyCon("Mod:Variant")
+      val normalizedVariant = ValueVariant(None, "variant1", ValueText("some test"))
+      val tEnum = TTyCon("Mod:Enum")
+      val normalizedEnum = ValueEnum(None, "value1")
+
+      enrichValue(tRecord, normalizedRecord) shouldBe ResultDone(enrichedRecord)
+      enrichValue(tVariant, normalizedVariant) shouldBe ResultDone(normalizedVariant)
+      enrichValue(tEnum, normalizedEnum) shouldBe ResultDone(normalizedEnum)
     }
   }
 
