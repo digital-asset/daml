@@ -626,7 +626,7 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
 
     optDamlWarningFlags :: Parser (WarningFlags.DamlWarningFlags ErrorOrWarning)
     optDamlWarningFlags =
-      WarningFlags.DamlWarningFlags (WarningFlags.dwfpDefault damlWarningFlagParser) <$> many optDamlWarningFlag
+      WarningFlags.mkDamlWarningFlags damlWarningFlagParser <$> many optDamlWarningFlag
 
     optRawDamlWarningFlag :: Parser (WarningFlags.DamlWarningFlag ErrorOrWarning)
     optRawDamlWarningFlag =
