@@ -6,7 +6,6 @@ module DA.Daml.LFConversion.Errors (
     ) where
 
 import           Development.IDE.Types.Diagnostics
-import           Development.IDE.Types.Location
 import           Development.IDE.GHC.Util
 
 import           DA.Daml.LF.Ast as LF

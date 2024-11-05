@@ -268,7 +268,10 @@ instance Pretty ErrorOrWarning where
 
 damlWarningFlagParserTypeChecker :: DamlWarningFlagParser ErrorOrWarning
 damlWarningFlagParserTypeChecker = DamlWarningFlagParser
-  { dwfpFlagParsers = [(upgradeInterfacesName, upgradeInterfacesFlag)]
+  { dwfpFlagParsers =
+      [ (upgradeInterfacesName, upgradeInterfacesFlag)
+      , (upgradeDependencyMetadataName, upgradeDependencyMetadataFlag)
+      ]
   , dwfpDefault = \case
       WEUpgradeShouldDefineIfacesAndTemplatesSeparately {} -> AsError
       WEUpgradeShouldDefineIfaceWithoutImplementation {} -> AsError
@@ -277,12 +280,13 @@ damlWarningFlagParserTypeChecker = DamlWarningFlagParser
       WEDependencyHasNoMetadataDespiteUpgradeability {} -> AsWarning
   }
 
-upgradeInterfacesFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
-upgradeInterfacesFlag status = RawDamlWarningFlag upgradeInterfacesName status upgradeInterfacesFilter
-
 filterNameForErrorOrWarning :: ErrorOrWarning -> Maybe String
 filterNameForErrorOrWarning err | upgradeInterfacesFilter err = Just upgradeInterfacesName
+filterNameForErrorOrWarning err | upgradeDependencyMetadataFilter err = Just upgradeDependencyMetadataName
 filterNameForErrorOrWarning _ = Nothing
+
+upgradeInterfacesFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
+upgradeInterfacesFlag status = RawDamlWarningFlag upgradeInterfacesName status upgradeInterfacesFilter
 
 upgradeInterfacesName :: String
 upgradeInterfacesName = "upgrade-interfaces"
@@ -293,6 +297,19 @@ upgradeInterfacesFilter =
         WEUpgradeShouldDefineIfacesAndTemplatesSeparately {} -> True
         WEUpgradeShouldDefineIfaceWithoutImplementation {} -> True
         WEUpgradeShouldDefineTplInSeparatePackage {} -> True
+        _ -> False
+
+upgradeDependencyMetadataFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
+upgradeDependencyMetadataFlag status = RawDamlWarningFlag upgradeDependencyMetadataName status upgradeDependencyMetadataFilter
+
+upgradeDependencyMetadataName :: String
+upgradeDependencyMetadataName = "upgrade-dependency-metadata"
+
+upgradeDependencyMetadataFilter :: ErrorOrWarning -> Bool
+upgradeDependencyMetadataFilter =
+    \case
+        WEDependencyHasUnparseableVersion {} -> True
+        WEDependencyHasNoMetadataDespiteUpgradeability {} -> True
         _ -> False
 
 data PackageUpgradeOrigin = UpgradingPackage | UpgradedPackage
