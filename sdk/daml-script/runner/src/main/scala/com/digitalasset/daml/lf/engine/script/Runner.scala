@@ -511,17 +511,6 @@ object Runner {
       pkgSig <- compiledPackages.pkgInterface.lookupPackage(pkgId).toOption
       meta <- pkgSig.metadata
     } yield meta.name.toString
-
-  // PackageName not returned for non-upgradable packages
-  def getUpgradablePackageName(
-      compiledPackages: CompiledPackages,
-      pkgId: PackageId,
-  ): Option[String] =
-    for {
-      pkgSig <- compiledPackages.pkgInterface.lookupPackage(pkgId).toOption
-      if pkgSig.upgradable
-      meta <- pkgSig.metadata
-    } yield meta.name.toString
 }
 
 private[lf] class Runner(
