@@ -650,8 +650,8 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
     }
 
     // TODO https://github.com/digital-asset/daml/issues/18616: use a non-Dev based error code
-    @Explanation("TODO")
-    @Resolution("TODO")
+    @Explanation("Upgrade validation fails when trying to upgrade the contract")
+    @Resolution("Verify that neither the signatories, nor the observers, nor the contract key, nor the key's maintainers have changed")
     object UpgradeError extends ErrorCode(
       id = "INTERPRETATION_UPGRADE_ERROR",
       ErrorCategory.InvalidGivenCurrentSystemStateOther,
