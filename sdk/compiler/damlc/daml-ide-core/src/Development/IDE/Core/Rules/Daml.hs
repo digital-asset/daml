@@ -541,7 +541,9 @@ generatePackageMap version mbProjRoot userPkgDbs = do
                      (LF.dalfPackageId pkg)
 
 getUpgradedPackageErrs :: Options -> LSP.NormalizedFilePath -> LF.Package -> [FileDiagnostic]
-getUpgradedPackageErrs opts file mainPkg = catMaybes $
+getUpgradedPackageErrs opts file mainPkg
+  | not (uiTypecheckUpgrades (optUpgradeInfo opts)) = [] -- If user turns off typecheck upgrades, then even metadata warnings are disabled
+  | otherwise = catMaybes $
   [ justIf (not $ optDamlLfVersion opts `LF.supports` LF.featurePackageUpgrades) $
       ideErrorPretty file $ mconcat
         [ mainPackage <> " LF Version ("
@@ -640,9 +642,7 @@ extractUpgradedPackageRule opts = do
         diags = case mainAndDeps of
           Left _ -> [ideErrorPretty packageConfigFilePath ("Could not decode file as a DAR." :: T.Text)]
           Right (mainPkg, _) ->
-            if Upgrade.shouldTypecheck (optDamlLfVersion opts) (optUpgradeInfo opts)
-            then getUpgradedPackageErrs opts packageConfigFilePath (Upgrade.upwnavPkg mainPkg)
-            else []
+            getUpgradedPackageErrs opts packageConfigFilePath (Upgrade.upwnavPkg mainPkg)
     extras <- getShakeExtras
     updateFileDiagnostics packageConfigFilePath ExtractUpgradedPackageFile extras $ map (\(_,y,z) -> (y,z)) diags
     pure ([], guard (null diags) >> rightToMaybe mainAndDeps)
