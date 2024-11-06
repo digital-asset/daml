@@ -22,6 +22,7 @@ import Control.Monad.STM
 import Data.Aeson (fromJSON, toJSON)
 import Data.Either.Extra (eitherToMaybe)
 import qualified Data.Map as Map
+import Data.Maybe (catMaybes)
 import qualified Data.Set as Set
 import qualified Data.Text as T
 import DA.Cli.Damlc.Command.MultiIde.ClientCommunication
@@ -52,6 +53,14 @@ ensureIdeSdkInstalled miState ver home ideData = do
 
       if versionIsInstalled
         then pure (installDatas, Nothing)
+        else if unresolvedReleaseVersionToString ver == "0.0.0" then do
+            let errText = "Version 0.0.0 is not installed, it can be installed by building daml-head locally."
+                installData' = 
+                  installData
+                    { sidPendingHomes = Set.insert home $ sidPendingHomes installData
+                    , sidStatus = SISFailed errText Nothing
+                    }
+            pure (Map.insert ver installData' installDatas, Just (LSP.DsError, errText))
         else do
           -- Ask the user if they want to install
           let verStr = T.pack $ unresolvedReleaseVersionToString ver
@@ -96,11 +105,13 @@ installingSdkIdeDiagnosticMessage :: UnresolvedReleaseVersion -> T.Text
 installingSdkIdeDiagnosticMessage ver =
   "Installing Daml SDK version " <> T.pack (unresolvedReleaseVersionToString ver)
 
-failedInstallIdeDiagnosticMessage :: UnresolvedReleaseVersion -> T.Text -> SomeException -> T.Text
-failedInstallIdeDiagnosticMessage ver outputLog err =
-  "Failed to install Daml SDK version " <> T.pack (unresolvedReleaseVersionToString ver) <> " due to the following:\n"
-    <> (if outputLog == "" then "" else outputLog <> "\n")
-    <> T.pack (displayException err)
+failedInstallIdeDiagnosticMessage :: UnresolvedReleaseVersion -> T.Text -> Maybe SomeException -> T.Text
+failedInstallIdeDiagnosticMessage ver outputLog mErr =
+  T.unlines $ catMaybes
+    [ Just $ "Failed to install Daml SDK version " <> T.pack (unresolvedReleaseVersionToString ver) <> " due to the following:"
+    , if outputLog == "" then Nothing else Just outputLog
+    , T.pack . displayException <$> mErr
+    ]
 
 -- Set the install status for a version, updating all pending packages with diagnostics if needed
 updateSdkInstallStatus :: MultiIdeState -> SdkInstallDatas -> UnresolvedReleaseVersion -> LSP.DiagnosticSeverity -> T.Text -> SdkInstallStatus -> IO SdkInstallDatas
@@ -177,8 +188,8 @@ onSdkInstallerFinished miState ver outputLogVar mError = do
       withIDEs_ miState $ \ides -> foldM disableIde ides homes
     Just err -> do
       outputLog <- takeMVar outputLogVar
-      let errText = failedInstallIdeDiagnosticMessage ver outputLog err
-      installDatas' <- updateSdkInstallStatus miState installDatas ver LSP.DsError errText (SISFailed outputLog err)
+      let errText = failedInstallIdeDiagnosticMessage ver outputLog (Just err)
+      installDatas' <- updateSdkInstallStatus miState installDatas ver LSP.DsError errText (SISFailed outputLog $ Just err)
       sendClient miState $ showMessage LSP.MtError errText
       atomically $ putTMVar (misSdkInstallDatasVar miState) installDatas'
 
