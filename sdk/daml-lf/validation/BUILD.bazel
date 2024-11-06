@@ -55,7 +55,6 @@ da_scala_library(
         "//canton:community_ledger_ledger-common",
         "//canton:community_participant",
         "//canton:community_util-logging",
-        "//canton:community_participant",
         "//canton:daml-common-staging_daml-errors",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
@@ -361,8 +360,6 @@ da_scala_test_suite(
         deps = [
             "//bazel_tools/runfiles:scala_runfiles",
             ":upgrade-test-lib",
-            "//bazel_tools/runfiles:scala_runfiles",
-            "//canton:community_util-logging",
             "//canton:ledger_api_proto_scala",
             "//daml-lf/archive:daml_lf_archive_reader",
             "//daml-lf/data",
