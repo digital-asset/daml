@@ -82,7 +82,8 @@ import Options.Applicative (execParser, forwardOptions, info, many, strArgument)
 import Outputable (ppr, showSDoc)
 import qualified Proto3.Suite.JSONPB as JSONPB
 import DA.Daml.Project.Types (unsafeResolveReleaseVersion, parseUnresolvedVersion)
-import DA.Daml.LF.TypeChecker.Error (DamlWarningFlagStatus(..), upgradeInterfacesFlag, upgradeExceptionsFlag)
+import qualified DA.Daml.LF.TypeChecker.Error.WarningFlags as WarningFlags
+import DA.Daml.LF.TypeChecker.Error (upgradeInterfacesFlag, upgradeExceptionsFlag)
 
 import Test.Tasty
 import Test.Tasty.Golden (goldenVsStringDiff)
@@ -321,20 +322,23 @@ getIntegrationTests registerTODO scenarioService (packageDbPath, packageFlags) =
         tree = askOption $ \(LfVersionOpt version) ->
                askOption @IsScriptV2Opt $ \isScriptV2Opt ->
           let opts0 = defaultOptions (Just version)
-              opts = opts0
-                { optPackageDbs = [packageDbPath]
-                , optThreads = 0
-                , optCoreLinting = True
-                , optDlintUsage = DlintEnabled DlintOptions
-                    { dlintRulesFile = DefaultDlintRulesFile
-                    , dlintHintFiles = NoDlintHintFiles
-                    }
-                , optPackageImports = packageFlags
-                , optDamlWarningFlags =
-                    [ upgradeInterfacesFlag AsWarning
-                    , upgradeExceptionsFlag AsWarning
-                    ]
-                }
+              opts =
+                opts0
+                  { optPackageDbs = [packageDbPath]
+                  , optThreads = 0
+                  , optCoreLinting = True
+                  , optDlintUsage = DlintEnabled DlintOptions
+                      { dlintRulesFile = DefaultDlintRulesFile
+                      , dlintHintFiles = NoDlintHintFiles
+                      }
+                  , optPackageImports = packageFlags
+                  , optDamlWarningFlags =
+                      WarningFlags.addDamlWarningFlags
+                        [ WarningFlags.toLeft (upgradeInterfacesFlag WarningFlags.AsWarning)
+                        , WarningFlags.toLeft (upgradeExceptionsFlag WarningFlags.AsWarning)
+                        ]
+                        (optDamlWarningFlags opts0)
+                  }
 
               mkIde options = do
                 damlEnv <- mkDamlEnv options (StudioAutorunAllScenarios True) (Just scenarioService)

@@ -30,7 +30,7 @@ class SBuiltinInterfaceTestDefaultLf
     )
 class SBuiltinInterfaceTestEarlyAccessLf
     extends SBuiltinInterfaceTest(
-      LanguageVersion.Features.packageUpgrades,
+      LanguageVersion.Features.smartContractUpgrade,
       Compiler.Config.Dev(LanguageMajorVersion.V1),
     )
 
@@ -46,7 +46,7 @@ class SBuiltinInterfaceUpgradeTest extends AnyFreeSpec with Matchers with Inside
   val ifaceParserParams = ParserParameters(
     defaultPackageId = ifacePkgId,
     // TODO: revert to the default version once it supports upgrades
-    languageVersion = LanguageVersion.Features.packageUpgrades,
+    languageVersion = LanguageVersion.Features.smartContractUpgrade,
   )
   val ifacePkg =
     p"""metadata ( '$ifacePkgName' : '1.0.0' )
@@ -71,7 +71,7 @@ class SBuiltinInterfaceUpgradeTest extends AnyFreeSpec with Matchers with Inside
   def implemParserParams(pkgVersion: Int) = ParserParameters(
     defaultPackageId = implemPkgId(pkgVersion),
     // TODO: revert to the default version once it supports upgrades
-    languageVersion = LanguageVersion.Features.packageUpgrades,
+    languageVersion = LanguageVersion.Features.smartContractUpgrade,
   )
   def implemPkg(pkgVersion: Int) =
     p"""metadata ( '$implemPkgName' : '$pkgVersion.0.0' )

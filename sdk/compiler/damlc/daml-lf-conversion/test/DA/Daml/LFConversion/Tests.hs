@@ -15,6 +15,8 @@ import qualified Data.Text as T
 
 import DA.Daml.LFConversion
 import DA.Daml.LFConversion.MetadataEncoding
+import DA.Daml.LFConversion.Errors
+import DA.Daml.LF.TypeChecker.Error.WarningFlags
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.UtilGHC (fsFromText)
 
@@ -316,5 +318,6 @@ bignumericTests = testGroup "BigNumeric"
         let dummyEnv = ConversionEnv
               { convModuleFilePath = toNormalizedFilePath' ""
               , convRange = Nothing
+              , convWarningFlags = mkDamlWarningFlags damlWarningFlagParserLFConversion []
               }
         in runConvertM dummyEnv $ convertRationalBigNumeric (numerator r) (denominator r)

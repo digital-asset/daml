@@ -340,7 +340,7 @@ convertPrim _ "UExerciseInterface"
 
 convertPrim version "UExerciseInterfaceGuarded" _
     | not (version `supports` featureExtendedInterfaces) =
-        conversionError "Guards on choice exercises are only available with --target=1.dev"
+        conversionError $ OnlySupportedOnDev "Guards on choice exercises are"
 
 convertPrim _ "UExerciseInterfaceGuarded"
     (   TContractId (TCon iface)
@@ -542,7 +542,7 @@ convertPrim _ "EViewInterface" (TCon iface :-> _) =
 
 convertPrim version "EChoiceController" _
     | not (version `supports` featureChoiceFuncs) =
-        conversionError "'choiceController' is only available with --target=1.dev"
+        conversionError $ OnlySupportedOnDev "'choiceController' is"
 
 convertPrim _ "EChoiceController"
     (TCon template :-> TCon choice :-> TList TParty) =
@@ -555,7 +555,7 @@ convertPrim _ "EChoiceController"
 
 convertPrim version "EChoiceObserver" _
     | not (version `supports` featureChoiceFuncs) =
-        conversionError "'choiceObserver' is only available with --target=1.dev"
+        conversionError $ OnlySupportedOnDev "'choiceObserver' is"
 
 convertPrim _ "EChoiceObserver"
     (TCon template :-> TCon choice :-> TList TParty) =
@@ -571,7 +571,7 @@ convertPrim (isDevVersion->True) (L.stripPrefix "$" -> Just builtin) typ =
       EExperimental (T.pack builtin) typ
 
 -- Unknown primitive.
-convertPrim _ x ty = conversionError $ "Unknown primitive " ++ show x ++ " at type " ++ renderPretty ty
+convertPrim _ x ty = conversionError $ UnknownPrimitive x ty
 
 -- | Some builtins are only supported in specific versions of Daml-LF.
 whenRuntimeSupports :: Version -> Feature -> Type -> Expr -> Expr

@@ -119,7 +119,7 @@ private[lf] object Compiler {
       Right(
         packages.foldLeft(Map.empty[t.SDefinitionRef, SDefinition]) { case (acc, (pkgId, pkg)) =>
           val enableContractUpgrading =
-            pkg.languageVersion >= LanguageVersion.Features.packageUpgrades
+            pkg.languageVersion >= LanguageVersion.Features.smartContractUpgrade
           acc ++ compiler.compilePackage(pkgId, pkg, enableContractUpgrading)
         }
       )

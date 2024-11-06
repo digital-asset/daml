@@ -47,4 +47,14 @@ class LanguageVersionSpec extends AnyWordSpec with Matchers with TableDrivenProp
     }
   }
 
+  "There is only one stable Upgradable version " in {
+    import Ordering.Implicits._
+    // A lot of pieces in the smart contract upgrade design for 2.x assume there is only one LF version supporting upgrade.
+    // For instance see https://github.com/DACH-NY/canton/issues/20297
+    // If we introduce a second version supporting upgrade, we will need to carefully check where this can break.
+    LanguageVersion.AllV1.count(
+      _ >= LanguageVersion.Features.smartContractUpgrade
+    ) shouldBe 2 // 1.17 and 1.dev
+  }
+
 }

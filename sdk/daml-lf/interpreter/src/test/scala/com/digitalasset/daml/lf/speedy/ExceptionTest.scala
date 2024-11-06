@@ -773,7 +773,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
     val parserParameters =
       defaultParserParameters.copy(
         // TODO: revert to the default version once it supports upgrades
-        languageVersion = LanguageVersion.Features.packageUpgrades
+        languageVersion = LanguageVersion.Features.smartContractUpgrade
       )
 
     // A package that defines an interface, a key type, an exception, and a party to be used by

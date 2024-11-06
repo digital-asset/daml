@@ -336,7 +336,7 @@ nixpkgs_java_configure(
 
 load("@rules_jvm_external//:defs.bzl", "maven_install")
 
-grpc_version = "1.35.0"
+grpc_version = "1.67.1"
 
 load("@scala_version//:index.bzl", "scala_artifacts", "scala_major_version", "scala_version")
 

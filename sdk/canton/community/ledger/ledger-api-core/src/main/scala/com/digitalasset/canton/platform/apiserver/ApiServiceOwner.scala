@@ -10,7 +10,11 @@ import com.daml.lf.data.Ref
 import com.daml.lf.engine.Engine
 import com.daml.tracing.Telemetry
 import com.digitalasset.canton.config.RequireTypes.Port
-import com.digitalasset.canton.config.{NonNegativeDuration, NonNegativeFiniteDuration}
+import com.digitalasset.canton.config.{
+  KeepAliveServerConfig,
+  NonNegativeDuration,
+  NonNegativeFiniteDuration,
+}
 import com.digitalasset.canton.ledger.api.auth.*
 import com.digitalasset.canton.ledger.api.auth.interceptor.AuthorizationInterceptor
 import com.digitalasset.canton.ledger.api.domain
@@ -115,6 +119,7 @@ object ApiServiceOwner {
       authenticateUpgradableContract: AuthenticateUpgradableContract,
       dynParamGetter: DynamicDomainParameterGetter,
       pruningOffsetCache: PruningOffsetCache,
+      keepAlive: Option[KeepAliveServerConfig],
   )(implicit
       actorSystem: ActorSystem,
       materializer: Materializer,
@@ -210,6 +215,7 @@ object ApiServiceOwner {
         ) :: otherInterceptors,
         servicesExecutionContext,
         metrics,
+        keepAlive,
         loggerFactory,
       )
     } yield {

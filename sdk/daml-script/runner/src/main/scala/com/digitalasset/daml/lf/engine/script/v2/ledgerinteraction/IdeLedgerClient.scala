@@ -108,7 +108,7 @@ class IdeLedgerClient(
       .lookupPackage(packageId)
       .fold(
         _ => false,
-        pkgSig => pkgSig.languageVersion >= LanguageVersion.Features.packageUpgrades,
+        pkgSig => pkgSig.languageVersion >= LanguageVersion.Features.smartContractUpgrade,
       )
 
   private var _ledger: ScenarioLedger = ScenarioLedger.initialLedger(Time.Timestamp.Epoch)

@@ -120,10 +120,11 @@ object CantonServerBuilder {
       keepAlive: Option[KeepAliveServerConfig],
       builder: NettyServerBuilder,
   ): NettyServerBuilder =
-    keepAlive.fold(builder) { opt =>
-      val time = opt.time.unwrap.toMillis
-      val timeout = opt.timeout.unwrap.toMillis
-      val permitTime = opt.permitKeepAliveTime.unwrap.toMillis
+    keepAlive.fold(builder) { ka =>
+      val time = ka.time.unwrap.toMillis
+      val timeout = ka.timeout.unwrap.toMillis
+      val permitTime = ka.permitKeepAliveTime.unwrap.toMillis
+      val permitKAWOCalls = ka.permitKeepAliveWithoutCalls
       builder
         .keepAliveTime(time, TimeUnit.MILLISECONDS)
         .keepAliveTimeout(timeout, TimeUnit.MILLISECONDS)
@@ -131,6 +132,7 @@ object CantonServerBuilder {
           permitTime,
           TimeUnit.MILLISECONDS,
         ) // gracefully allowing a bit more aggressive keep alives from clients
+        .permitKeepAliveWithoutCalls(permitKAWOCalls)
     }
 
   /** Create a GRPC server build using conventions from our configuration.

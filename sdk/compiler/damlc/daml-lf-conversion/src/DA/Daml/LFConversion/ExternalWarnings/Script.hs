@@ -23,9 +23,6 @@ pattern Daml3ScriptPackage <- (T.stripPrefix "daml3-script-" . fsToText . unitId
 pattern Daml3ScriptInternalModule :: GHC.Module
 pattern Daml3ScriptInternalModule <- ModuleIn Daml3ScriptPackage "Daml.Script.Internal.LowLevel"
 
-substUnit :: TyVar -> Type -> Type
-substUnit tyVar ty = TyCoRep.substTy (setTvSubstEnv emptyTCvSubst $ mkVarEnv [(tyVar, TyConApp unitTyCon [])]) ty
-
 isDamlScriptType :: TyCon -> Bool
 isDamlScriptType (NameIn Daml2ScriptModule "Script") = True
 isDamlScriptType (NameIn Daml3ScriptInternalModule "Script") = True
@@ -41,12 +38,5 @@ topLevelWarnings (name, _x)
   -- `myTest = script @() do ...; error "Got here"`
   | (ForAllTy (Bndr tyVar Inferred) ty@(TypeCon scriptType _)) <- varType name -- Only inferred forall, explicit forall is acceptable. Script : * -> *
   , isDamlScriptType scriptType
-  = withRange (convNameLoc name) $ conversionWarning $ unlines
-      [ "This method is implicitly polymorphic. Top level polymorphic scripts will not be run as tests."
-      , "If this is intentional, please write an explicit type signature with the `forall'"
-      , "If not, either provide a specialised type signature, such as:"
-      , showSDocUnsafe $ quotes $ ppr name <+> ":" <+> pprType (substUnit tyVar ty)
-      , "Or apply the unit type to the top level `script' call:"
-      , showSDocUnsafe $ quotes $ ppr name <+> "= script @() do ..."
-      ]
+  = withRange (convNameLoc name) $ conversionWarning $ PolymorphicTopLevelScript name ty tyVar
   | otherwise = pure ()
