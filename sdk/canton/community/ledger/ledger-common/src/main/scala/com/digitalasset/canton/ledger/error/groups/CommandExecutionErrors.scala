@@ -649,6 +649,29 @@ object CommandExecutionErrors extends CommandExecutionErrorGroup {
       ) extends DamlErrorWithDefiniteAnswer(cause = cause) {}
     }
 
+    // TODO https://github.com/digital-asset/daml/issues/18616: use a non-Dev based error code
+    @Explanation("Upgrade validation fails when trying to upgrade the contract")
+    @Resolution("Verify that neither the signatories, nor the observers, nor the contract key, nor the key's maintainers have changed")
+    object UpgradeError extends ErrorCode(
+      id = "INTERPRETATION_UPGRADE_ERROR",
+      ErrorCategory.InvalidGivenCurrentSystemStateOther,
+    ) {
+      final case class Reject(
+                               override val cause: String,
+                               err: LfInterpretationError.Upgrade.Error,
+                             )(implicit
+                               loggingContext: ContextualizedErrorLogger
+                             ) extends DamlErrorWithDefiniteAnswer(
+        cause = cause
+      ) {
+
+        override def resources: Seq[(ErrorResource, String)] =
+          Seq(
+            (ErrorResource.DevErrorType, err.getClass.getSimpleName)
+          )
+      }
+    }
+
     @Explanation(
       """This error is a catch-all for errors thrown by in-development features, and should never be thrown in production."""
     )

@@ -267,14 +267,20 @@ final class Conversions(
                         .addAllAccepted(accepted.map(convertIdentifier(_)).asJava)
                     )
                   case _: Dev.Upgrade =>
+                    // TODO https://github.com/digital-asset/daml/issues/18616: remove this case when issue completes
                     proto.ScenarioError.UpgradeError.newBuilder.setMessage(
                       speedy.Pretty.prettyDamlException(interpretationError).render(80)
                     )
                 }
+              case _: Upgrade =>
+                proto.ScenarioError.UpgradeError.newBuilder.setMessage(
+                  speedy.Pretty.prettyDamlException(interpretationError).render(80)
+                )
               case err @ Dev(_, _) =>
                 builder.setCrash(s"Unexpected Dev error: " + err.toString)
             }
         }
+
       case Error.ContractNotEffective(coid, tid, effectiveAt) =>
         builder.setScenarioContractNotEffective(
           proto.ScenarioError.ContractNotEffective.newBuilder
