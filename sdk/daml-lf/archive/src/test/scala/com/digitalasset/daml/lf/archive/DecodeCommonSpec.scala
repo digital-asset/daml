@@ -1242,7 +1242,7 @@ class DecodeCommonSpec
       }
     }
 
-    s"decode softFetch iff version >= ${LV.Features.packageUpgrades} " in {
+    s"decode softFetch iff version >= ${LV.Features.smartContractUpgrade} " in {
       val dottedNameTable = ImmArraySeq("Mod", "T").map(Ref.DottedName.assertFromString)
       val unit = DamlLf1.Unit.newBuilder().build()
       val pkgRef = DamlLf1.PackageRef.newBuilder().setSelf(unit).build
@@ -1269,7 +1269,7 @@ class DecodeCommonSpec
         val decoder = moduleDecoder(version, ImmArraySeq.empty, dottedNameTable, typeTable)
         val proto = DamlLf1.Expr.newBuilder().setUpdate(softFetchProto).build()
         val result = Try(decoder.decodeExprForTest(proto, "test"))
-        if (version >= LV.Features.packageUpgrades)
+        if (version >= LV.Features.smartContractUpgrade)
           result shouldBe Success(Ast.EUpdate(softFetchScala))
         else
           inside(result) { case Failure(error) => error shouldBe an[Error.Parsing] }
@@ -1572,7 +1572,7 @@ class DecodeCommonSpec
       }
     }
 
-    s"decode upgradedPackageId iff version >= ${LV.Features.packageUpgrades} " in {
+    s"decode upgradedPackageId iff version >= ${LV.Features.smartContractUpgrade} " in {
       forEveryVersionSuchThat(_ >= LV.Features.packageMetadata) { version =>
         val result = Try(
           new DecodeCommon(version).decodePackageMetadata(
@@ -1595,7 +1595,7 @@ class DecodeCommonSpec
           )
         )
 
-        if (version >= LV.Features.packageUpgrades)
+        if (version >= LV.Features.smartContractUpgrade)
           result shouldBe Success(
             Ast.PackageMetadata(
               Ref.PackageName.assertFromString("foobar"),

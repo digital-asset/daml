@@ -43,6 +43,7 @@ import Test.Tasty
 import Test.Tasty.HUnit
 import Text.Regex.TDFA
 import DA.Daml.LF.TypeChecker.Error
+import qualified DA.Daml.LF.TypeChecker.Error.WarningFlags as WarningFlags
 
 lfVersion :: LF.Version
 lfVersion = LF.version1_17
@@ -238,7 +239,14 @@ options :: Options
 options =
   let opts0 = defaultOptions (Just lfVersion)
   in
-  opts0 { optDamlWarningFlags = optDamlWarningFlags opts0 ++ [upgradeInterfacesFlag AsWarning] }
+  opts0
+    { optDamlWarningFlags =
+        WarningFlags.addDamlWarningFlags
+          [ WarningFlags.toLeft (upgradeInterfacesFlag WarningFlags.AsWarning)
+          , WarningFlags.toLeft (upgradeExceptionsFlag WarningFlags.AsWarning)
+          ]
+          (optDamlWarningFlags opts0)
+    }
 
 
 runScripts :: SdkVersioned => SS.Handle -> [T.Text] -> IO [(VirtualResource, Either T.Text T.Text)]

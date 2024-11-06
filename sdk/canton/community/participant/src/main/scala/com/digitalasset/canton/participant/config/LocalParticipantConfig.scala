@@ -225,7 +225,9 @@ final case class LedgerApiServerConfig(
       LedgerApiServerConfig.DefaultManagementServiceTimeout,
     postgresDataSource: PostgresDataSourceConfig = PostgresDataSourceConfig(),
     authServices: Seq[AuthServiceConfig] = Seq.empty,
-    keepAliveServer: Option[KeepAliveServerConfig] = Some(KeepAliveServerConfig()),
+    keepAliveServer: Option[LedgerApiKeepAliveServerConfig] = Some(
+      LedgerApiKeepAliveServerConfig()
+    ),
     maxInboundMessageSize: NonNegativeInt = ServerConfig.defaultMaxInboundMessageSize,
     databaseConnectionTimeout: config.NonNegativeFiniteDuration =
       LedgerApiServerConfig.DefaultDatabaseConnectionTimeout,

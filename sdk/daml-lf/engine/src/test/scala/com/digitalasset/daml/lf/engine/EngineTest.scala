@@ -2545,7 +2545,7 @@ class EngineTestHelpers(majorLanguageVersion: LanguageMajorVersion) {
     tx.nodes.collect { case (nodeId, node: Node.Action) if node.byKey => nodeId }.toSet
 
   def getPackageName(basicTestsPkg: Package): Option[PackageName] = {
-    if (basicTestsPkg.languageVersion < LanguageVersion.Features.packageUpgrades)
+    if (basicTestsPkg.languageVersion < LanguageVersion.Features.smartContractUpgrade)
       None
     else
       Some(basicTestsPkg.metadata.get.name)

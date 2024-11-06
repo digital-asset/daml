@@ -1256,7 +1256,7 @@ object Ast {
     import Ordering.Implicits._
 
     private[lf] def upgradable: Boolean =
-      !isUtilityPackage && languageVersion >= LanguageVersion.Features.packageUpgrades
+      !isUtilityPackage && languageVersion >= LanguageVersion.Features.smartContractUpgrade
     // package Name if the package support upgrade
     // TODO: https://github.com/digital-asset/daml/issues/17965
     //  drop that in daml-3
