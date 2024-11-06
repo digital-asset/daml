@@ -244,6 +244,8 @@ object GrpcErrorParser {
         caseErr { case Seq((ErrorResource.ContractId, cid)) =>
           SubmitError.ContractIdComparability(cid)
         }
+      case "INTERPRETATION_UPGRADE_ERROR" =>
+        SubmitError.UpgradeError(message)
       case "INTERPRETATION_DEV_ERROR" =>
         caseErr { case Seq((ErrorResource.DevErrorType, errorType)) =>
           SubmitError.DevError(errorType, message)
