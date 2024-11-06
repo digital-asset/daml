@@ -62,7 +62,6 @@ da_scala_library(
         "//daml-lf/language",
         "//daml-lf/validation",
         "//libs-scala/contextualized-logging",
-        "//libs-scala/scala-utils",
         "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
         "@maven//:org_slf4j_slf4j_api",
     ],
