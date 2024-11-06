@@ -51,11 +51,16 @@ sealed trait Result[+A] extends Product with Serializable {
   }
 
   private[lf] def consume(
-      pcs: PartialFunction[ContractId, VersionedContractInstance] = PartialFunction.empty,
-      pkgs: PartialFunction[PackageId, Package] = PartialFunction.empty,
-      keys: PartialFunction[GlobalKeyWithMaintainers, ContractId] = PartialFunction.empty,
-      grantNeedAuthority: Boolean = false,
-      grantUpgradeVerification: Option[String] = Some("not validated!"),
+      pcs: PartialFunction[ContractId, VersionedContractInstance],
+      pkgs: PartialFunction[PackageId, Package],
+      keys: PartialFunction[GlobalKeyWithMaintainers, ContractId],
+      grantNeedAuthority: Boolean,
+      grantUpgradeVerification: (
+          ContractId,
+          Set[Party],
+          Set[Party],
+          Option[GlobalKeyWithMaintainers],
+      ) => Option[String],
   ): Either[Error, A] = {
     @tailrec
     def go(res: Result[A]): Either[Error, A] =
@@ -67,11 +72,20 @@ sealed trait Result[+A] extends Product with Serializable {
         case ResultNeedPackage(pkgId, resume) => go(resume(pkgs.lift(pkgId)))
         case ResultNeedKey(key, resume) => go(resume(keys.lift(key)))
         case ResultNeedAuthority(_, _, resume) => go(resume(grantNeedAuthority))
-        case ResultNeedUpgradeVerification(_, _, _, _, resume) =>
-          go(resume(grantUpgradeVerification))
+        case ResultNeedUpgradeVerification(coid, signatories, observers, keyOpt, resume) =>
+          go(resume(grantUpgradeVerification(coid, signatories, observers, keyOpt)))
       }
     go(this)
   }
+
+  private[lf] def consume(
+      pcs: PartialFunction[ContractId, VersionedContractInstance] = PartialFunction.empty,
+      pkgs: PartialFunction[PackageId, Package] = PartialFunction.empty,
+      keys: PartialFunction[GlobalKeyWithMaintainers, ContractId] = PartialFunction.empty,
+      grantNeedAuthority: Boolean = false,
+      grantUpgradeVerification: Option[String] = Some("not validated!"),
+  ): Either[Error, A] =
+    consume(pcs, pkgs, keys, grantNeedAuthority, (_, _, _, _) => grantUpgradeVerification)
 }
 
 final case class ResultInterruption[A](continue: () => Result[A]) extends Result[A]
