@@ -903,7 +903,7 @@ abstract class UpgradesSpec(val suffix: String)
         s"Skipping upgrade validation for packages .*$testPackageSecondId".r
       )
       filterLog(cantonLogSrc, testPackageSecondId) should not include regex(
-        s"The uploaded DAR contains a package $testPackageSecondId \\(.*\\), but upgrade checks indicate that (existing package $testPackageFirstId|new package $testPackageSecondId) \\(.*\\) cannot be an upgrade of (existing package $testPackageFirstId|new package $testPackageSecondId)"
+        s"Upgrade checks indicate that (existing package $testPackageFirstId|new package $testPackageSecondId) \\(.*\\) cannot be an upgrade of (existing package $testPackageFirstId|new package $testPackageSecondId)"
       )
       cantonLogSrc should not include regex(
         s"Typechecking upgrades for $testPackageSecondId \\(.*\\) succeeded."
@@ -925,7 +925,7 @@ abstract class UpgradesSpec(val suffix: String)
         // If a failure message is expected, look for it in the canton logs
         case Some(additionalInfo) =>
           if (
-            s"The uploaded DAR contains a package $testPackageSecondId \\(.*\\), but upgrade checks indicate that (existing package $testPackageFirstId|new package $testPackageSecondId) \\(.*\\) cannot be an upgrade of (existing package $testPackageFirstId \\(.*\\)|new package $testPackageSecondId \\(.*\\)). Reason: $additionalInfo".r
+            s"Upgrade checks indicate that (existing package $testPackageFirstId|new package $testPackageSecondId) \\(.*\\) cannot be an upgrade of (existing package $testPackageFirstId \\(.*\\)|new package $testPackageSecondId \\(.*\\)). Reason: $additionalInfo".r
               .findFirstIn(cantonLogSrc)
               .isEmpty
           ) fail("did not find upgrade failure in canton log:\n")
@@ -937,7 +937,7 @@ abstract class UpgradesSpec(val suffix: String)
               val msg = err.toString
               msg should include("INVALID_ARGUMENT: DAR_NOT_VALID_UPGRADE")
               msg should include regex (
-                s"The uploaded DAR contains a package $testPackageSecondId \\(.*\\), but upgrade checks indicate that (existing package $testPackageFirstId|new package $testPackageSecondId) \\(.*\\) cannot be an upgrade of (existing package|new package)"
+                s"Upgrade checks indicate that (existing package $testPackageFirstId|new package $testPackageSecondId) \\(.*\\) cannot be an upgrade of (existing package|new package)"
               )
             }
           }
