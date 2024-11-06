@@ -52,8 +52,11 @@ private[backend] class IngestionStorageBackendTemplate(
           .offsetIsGreater("ledger_offset", ledgerOffset)}",
       // As reassignment global offsets are persisted before the ledger end, they might change after indexer recovery, so in the cleanup
       // phase here we make sure that all the persisted global offsets are revoked which are after the ledger end.
-      SQL"UPDATE par_reassignments SET unassignment_global_offset = null WHERE unassignment_global_offset > ${ledgerOffset.toLong}",
-      SQL"UPDATE par_reassignments SET assignment_global_offset = null WHERE assignment_global_offset > ${ledgerOffset.toLong}",
+      // TODO(#22143) use QueryStrategy.offsetIsGreater in the two following statements as well when offsets are stored as integers in db
+      SQL"UPDATE par_reassignments SET unassignment_global_offset = null WHERE unassignment_global_offset > ${ledgerOffset
+          .fold(0L)(_.unwrap)}",
+      SQL"UPDATE par_reassignments SET assignment_global_offset = null WHERE assignment_global_offset > ${ledgerOffset
+          .fold(0L)(_.unwrap)}",
     ).map(_.execute()(connection)).discard
   }
 

@@ -13,10 +13,33 @@ import qualified V1.ChangedKeyExpr as V1
 import qualified V2.ChangedKeyExpr as V2
 import qualified V1.UpgradedContractKeys as V1
 import qualified V2.UpgradedContractKeys as V2
+import qualified V1.IfaceMod as Iface
+
+{- PACKAGE
+name: contract-key-upgrades-iface
+versions: 1
+-}
+
+{- MODULE
+package: contract-key-upgrades-iface
+contents: |
+  module IfaceMod where
+
+  data MyUnit = MyUnit {}
+    deriving (Eq, Show)
+
+  interface I where
+    viewtype MyUnit
+
+    nonconsuming choice NoOp : ()
+      controller signatory this
+      do pure ()
+-}
 
 {- PACKAGE
 name: contract-key-upgrades
 versions: 2
+depends: contract-key-upgrades-iface-1.0.0
 -}
 
 main : TestTree
@@ -33,8 +56,10 @@ main = tests
         [ ("queryContractId, src=v1 tgt=v2", queryKeyChangedExprSameValue)
         , ("queryContractKey, src=v1 tgt=v2", qckKeyChangedExprSameValue)
         , ("fetch, src=v1 tgt=v2", fetchKeyChangedExprSameValue)
+        , ("fetchByInterface, src=v1 tgt=i", fbiKeyChangedExprSameValue)
         , ("fetchByKey, src=v1 tgt=v2", fbkKeyChangedExprSameValue)
         , ("exercise, src=v1 tgt=v2", exerciseKeyChangedExprSameValue)
+        , ("exerciseByInterface, src=v1 tgt=i", ebiKeyChangedExprSameValue)
         , ("exerciseByKey, src=v1 tgt=v2", ebkKeyChangedExprSameValue)
         , ("exerciseCmd, src=v1 tgt=v2", exerciseCmdKeyChangedExprSameValue)
         , ("exerciseByKeyCmd, src=v1 tgt=v2", ebkCmdKeyChangedExprSameValue)
@@ -43,11 +68,13 @@ main = tests
         [ broken ("queryContractId, src=v1 tgt=v2", queryKeyChangedExprChangedValue)
         , broken ("queryContractKey, src=v1 tgt=v2", qckKeyChangedExprChangedValue)
         , ("fetch, src=v1 tgt=v2", fetchKeyChangedExprChangedValue)
-        , broken ("fetchByKey, src=v1 tgt=v2", fbkKeyChangedExprChangedValue)
+        , ("fetchByInterface, src=v1 tgt=i", fbiKeyChangedExprChangedValue)
+        , ("fetchByKey, src=v1 tgt=v2", fbkKeyChangedExprChangedValue)
         , ("exercise, src=v1 tgt=v2", exerciseKeyChangedExprChangedValue)
-        , broken ("exerciseByKey, src=v1 tgt=v2", ebkKeyChangedExprChangedValue)
+        , ("exerciseByInterface, src=v1 tgt=i", ebiKeyChangedExprChangedValue)
+        , ("exerciseByKey, src=v1 tgt=v2", ebkKeyChangedExprChangedValue)
         , ("exerciseCmd, src=v1 tgt=v2", exerciseCmdKeyChangedExprChangedValue)
-        , broken ("exerciseByKeyCmd, src=v1 tgt=v2", ebkCmdKeyChangedExprChangedValue)
+        , ("exerciseByKeyCmd, src=v1 tgt=v2", ebkCmdKeyChangedExprChangedValue)
         ]
       ]
     ]
@@ -138,6 +165,8 @@ package: contract-key-upgrades
 contents: |
   module ChangedKeyExpr where
 
+  import IfaceMod
+
   data ChangedKeyExprKey = ChangedKeyExprKey with
       p : Party
       b : Bool
@@ -152,6 +181,9 @@ contents: |
       key (ChangedKeyExprKey party False) : ChangedKeyExprKey -- @V 1
       key (ChangedKeyExprKey party b)     : ChangedKeyExprKey -- @V  2
       maintainer key.p
+
+      interface instance I for ChangedKeyExpr where
+        view = MyUnit {}
 
       choice ChangedKeyExprCall : Text
         controller party
@@ -169,6 +201,13 @@ contents: |
         controller party
         do fetch cid
 
+      choice ChangedKeyExprFetchByInterface : MyUnit with
+          cid : ContractId I
+        controller party
+        do
+          i <- fetch cid
+          pure (view i)
+
       choice ChangedKeyExprFetchByKey : (ContractId ChangedKeyExpr, ChangedKeyExpr) with
           k : ChangedKeyExprKey
         controller party
@@ -178,6 +217,11 @@ contents: |
           cid : ContractId ChangedKeyExpr
         controller party
         do exercise @ChangedKeyExpr cid ChangedKeyExprCall
+
+      choice ChangedKeyExprExerciseByInterface : () with
+          cid : ContractId I
+        controller party
+        do exercise @I cid NoOp
 
       choice ChangedKeyExprExerciseByKey : Text with
           k : ChangedKeyExprKey
@@ -233,6 +277,20 @@ fetchKeyChangedExprChangedValue = test $ do
   expectKeyChangedError =<<
     a `trySubmit` createAndExerciseCmd (V2.ChangedKeyExprHelper a) (V2.ChangedKeyExprFetch $ coerceContractId cid)
 
+fbiKeyChangedExprSameValue : Test
+fbiKeyChangedExprSameValue = test $ do
+  a <- allocateParty "alice"
+  cid <- a `submit` createExactCmd (V1.ChangedKeyExpr a False)
+  foundContract <- a `submit` createAndExerciseCmd (V2.ChangedKeyExprHelper a) (V2.ChangedKeyExprFetchByInterface $ coerceContractId cid)
+  foundContract === Iface.MyUnit {}
+
+fbiKeyChangedExprChangedValue : Test
+fbiKeyChangedExprChangedValue = test $ do
+  a <- allocateParty "alice"
+  cid <- a `submit` createExactCmd (V1.ChangedKeyExpr a True)
+  expectKeyChangedError =<<
+    a `trySubmit` createAndExerciseCmd (V2.ChangedKeyExprHelper a) (V2.ChangedKeyExprFetchByInterface $ coerceContractId cid)
+
 fbkKeyChangedExprSameValue : Test
 fbkKeyChangedExprSameValue = test $ do
   a <- allocateParty "alice"
@@ -245,7 +303,6 @@ fbkKeyChangedExprChangedValue : Test
 fbkKeyChangedExprChangedValue = test $ do
   a <- allocateParty "alice"
   cid <- a `submit` createExactCmd (V1.ChangedKeyExpr a True)
-  -- the fetch inside the following command works, even though the key value changed!
   expectKeyChangedError =<<
     a `trySubmit` createAndExerciseCmd (V2.ChangedKeyExprHelper a) (V2.ChangedKeyExprFetchByKey $ V2.ChangedKeyExprKey a False)
 
@@ -255,6 +312,13 @@ exerciseKeyChangedExprSameValue = test $ do
   cid <- a `submit` createExactCmd (V1.ChangedKeyExpr a False)
   res <- a `submit` createAndExerciseCmd (V2.ChangedKeyExprHelper a) (V2.ChangedKeyExprExercise $ coerceContractId cid)
   res === "V2"
+
+ebiKeyChangedExprSameValue : Test
+ebiKeyChangedExprSameValue = test $ do
+  a <- allocateParty "alice"
+  cid <- a `submit` createExactCmd (V1.ChangedKeyExpr a False)
+  res <- a `submit` createAndExerciseCmd (V2.ChangedKeyExprHelper a) (V2.ChangedKeyExprExerciseByInterface $ coerceContractId cid)
+  res === ()
 
 ebkKeyChangedExprSameValue : Test
 ebkKeyChangedExprSameValue = test $ do
@@ -283,6 +347,13 @@ exerciseKeyChangedExprChangedValue = test $ do
   cid <- a `submit` createExactCmd (V1.ChangedKeyExpr a True)
   expectKeyChangedError =<<
     a `trySubmit` createAndExerciseCmd (V2.ChangedKeyExprHelper a) (V2.ChangedKeyExprExercise $ coerceContractId cid)
+
+ebiKeyChangedExprChangedValue : Test
+ebiKeyChangedExprChangedValue = test $ do
+  a <- allocateParty "alice"
+  cid <- a `submit` createExactCmd (V1.ChangedKeyExpr a True)
+  expectKeyChangedError =<<
+    a `trySubmit` createAndExerciseCmd (V2.ChangedKeyExprHelper a) (V2.ChangedKeyExprExerciseByInterface $ coerceContractId cid)
 
 ebkKeyChangedExprChangedValue : Test
 ebkKeyChangedExprChangedValue = test $ do

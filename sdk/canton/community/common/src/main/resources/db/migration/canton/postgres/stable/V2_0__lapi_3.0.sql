@@ -199,9 +199,6 @@ CREATE TABLE lapi_events_consuming_exercise (
     application_id text,
     submitters integer[],
 
-    -- * event metadata
-    event_id text not null,     -- string representation of (transaction_id, node_index)
-
     -- * shared event information
     contract_id text not null,
     template_id integer not null,
@@ -258,9 +255,6 @@ CREATE TABLE lapi_events_create (
     command_id text,
     application_id text,
     submitters integer[],
-
-    -- * event metadata
-    event_id text not null,     -- string representation of (transaction_id, node_index)
 
     -- * shared event information
     contract_id text not null,
@@ -319,9 +313,6 @@ CREATE TABLE lapi_events_non_consuming_exercise (
     command_id text,
     application_id text,
     submitters integer[],
-
-    -- * event metadata
-    event_id text not null,         -- string representation of (transaction_id, node_index)
 
     -- * shared event information
     contract_id text not null,

@@ -9,7 +9,8 @@ import com.digitalasset.canton.crypto.{
   EncryptionKeySpec,
   HashAlgorithm,
   PbkdfScheme,
-  SigningKeyScheme,
+  SigningAlgorithmSpec,
+  SigningKeySpec,
   SymmetricKeyScheme,
 }
 
@@ -25,6 +26,16 @@ final case class CryptoProviderScheme[S](default: S, supported: NonEmpty[Set[S]]
 final case class CryptoSchemeConfig[S](
     default: Option[S] = None,
     allowed: Option[NonEmpty[Set[S]]] = None,
+)
+
+/** Stores the configuration of the signing scheme.
+  *
+  * @param algorithms the algorithm specifications
+  * @param keys the key specifications
+  */
+final case class SigningSchemeConfig(
+    algorithms: CryptoSchemeConfig[SigningAlgorithmSpec] = CryptoSchemeConfig(),
+    keys: CryptoSchemeConfig[SigningKeySpec] = CryptoSchemeConfig(),
 )
 
 /** Stores the configuration of the encryption scheme.
@@ -44,7 +55,7 @@ trait CryptoConfig {
   def provider: CryptoProvider
 
   /** the signing key scheme configuration */
-  def signing: CryptoSchemeConfig[SigningKeyScheme]
+  def signing: SigningSchemeConfig
 
   /** the encryption scheme configuration */
   def encryption: EncryptionSchemeConfig
@@ -61,7 +72,7 @@ trait CryptoConfig {
 
 final case class CommunityCryptoConfig(
     provider: CommunityCryptoProvider = CommunityCryptoProvider.Jce,
-    signing: CryptoSchemeConfig[SigningKeyScheme] = CryptoSchemeConfig(),
+    signing: SigningSchemeConfig = SigningSchemeConfig(),
     encryption: EncryptionSchemeConfig = EncryptionSchemeConfig(),
     symmetric: CryptoSchemeConfig[SymmetricKeyScheme] = CryptoSchemeConfig(),
     hash: CryptoSchemeConfig[HashAlgorithm] = CryptoSchemeConfig(),

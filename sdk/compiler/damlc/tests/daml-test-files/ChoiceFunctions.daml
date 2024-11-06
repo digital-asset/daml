@@ -2,8 +2,8 @@
 -- SPDX-License-Identifier: Apache-2.0
 
 -- @SUPPORTS-LF-FEATURE DAML_CHOICE_FUNCS
--- @WARN warn-bad-interface-instances
--- @WARN warn-bad-interface-instances
+-- @WARN -Werror=upgrade-interfaces
+-- @WARN -Werror=upgrade-interfaces
 
 module ChoiceFunctions where
 

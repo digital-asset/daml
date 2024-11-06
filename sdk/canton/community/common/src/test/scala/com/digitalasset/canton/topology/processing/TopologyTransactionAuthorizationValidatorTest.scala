@@ -7,7 +7,7 @@ import cats.Apply
 import cats.instances.list.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
-import com.digitalasset.canton.crypto.SignatureCheckError.{InvalidCryptoScheme, InvalidSignature}
+import com.digitalasset.canton.crypto.SignatureCheckError.{InvalidSignature, UnsupportedKeySpec}
 import com.digitalasset.canton.crypto.{DomainCryptoPureApi, Signature, SigningPublicKey}
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.topology.*
@@ -152,11 +152,12 @@ class TopologyTransactionAuthorizationValidatorTest
             Seq(
               Some {
                 case TopologyTransactionRejection.SignatureCheckFailed(
-                      InvalidCryptoScheme(message)
+                      UnsupportedKeySpec(
+                        Factory.SigningKeys.key1_unsupportedSpec.keySpec,
+                        defaultStaticDomainParameters.requiredSigningSpecs.keys,
+                      )
                     ) =>
-                  message ==
-                    s"The signing key scheme ${Factory.SigningKeys.key1_unsupportedScheme.scheme} is not part " +
-                    s"of the required schemes: ${defaultStaticDomainParameters.requiredSigningKeySchemes}"
+                  true
                 case _ => false
               }
             ),

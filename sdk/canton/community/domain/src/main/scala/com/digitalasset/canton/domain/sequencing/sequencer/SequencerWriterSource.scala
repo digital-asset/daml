@@ -37,6 +37,7 @@ import com.digitalasset.canton.sequencing.protocol.{
   SequencerErrors,
   SubmissionRequest,
 }
+import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.time.{Clock, NonNegativeFiniteDuration}
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.BatchTracing.withTracedBatch
@@ -164,13 +165,13 @@ class SequencerWriterQueues private[sequencer] (
       event <- eventGenerator.generate(submissionOrOutcome)
       enqueueResult = deliverEventQueue.offer(event)
       _ <- EitherT.fromEither[Future](enqueueResult match {
-        case QueueOfferResult.Enqueued => Right(())
+        case QueueOfferResult.Enqueued => Either.unit
         case QueueOfferResult.Dropped =>
           Left(SendAsyncError.Overloaded("Sequencer event buffer is full"): SendAsyncError)
         case QueueOfferResult.QueueClosed => Left(SendAsyncError.ShuttingDown())
         case other =>
           logger.warn(s"Unexpected result from payload queue offer: $other")
-          Right(())
+          Either.unit
       })
     } yield ()
 
@@ -336,6 +337,7 @@ class SendEventGenerator(
       traceContext: TraceContext
   ): EitherT[Future, SendAsyncError, Presequenced[StoreEvent[Payload]]] = {
     val submission = submissionOrOutcome.map(_.submission).merge
+
     def lookupSender: EitherT[Future, SendAsyncError, SequencerMemberId] = EitherT(
       store
         .lookupMember(submission.sender)
@@ -367,6 +369,7 @@ class SendEventGenerator(
     def validateAndGenerateEvent(
         senderId: SequencerMemberId,
         batch: Batch[ClosedEnvelope],
+        trafficReceiptO: Option[TrafficReceipt],
     ): Future[StoreEvent[Payload]] = {
       def unknownRecipientsDeliverError(
           unknownRecipients: NonEmpty[Seq[Member]]
@@ -379,6 +382,7 @@ class SendEventGenerator(
           error.rpcStatusWithoutLoggingContext(),
           protocolVersion,
           traceContext,
+          trafficReceiptO = trafficReceiptO,
         )
       }
 
@@ -398,6 +402,7 @@ class SendEventGenerator(
           recipientIds,
           payload,
           submission.topologyTimestamp,
+          trafficReceiptO,
         )
       }
 
@@ -415,16 +420,21 @@ class SendEventGenerator(
       event <- EitherT.right(
         submissionOrOutcome match {
           case Left(submission) =>
-            validateAndGenerateEvent(senderId, submission.batch)
+            validateAndGenerateEvent(senderId, submission.batch, trafficReceiptO = None)
           case Right(outcome: SubmissionOutcome.Deliver) =>
-            validateAndGenerateEvent(senderId, outcome.batch) // possibly an aggregated batch
-          case Right(_: SubmissionOutcome.DeliverReceipt) =>
+            validateAndGenerateEvent(
+              senderId,
+              outcome.batch,
+              outcome.trafficReceiptO,
+            ) // possibly an aggregated batch
+          case Right(deliverReceipt: SubmissionOutcome.DeliverReceipt) =>
             Future.successful(
               ReceiptStoreEvent(
                 senderId,
                 submission.messageId,
                 submission.topologyTimestamp,
                 traceContext,
+                deliverReceipt.trafficReceiptO,
               )
             )
           case Right(reject: SubmissionOutcome.Reject) =>
@@ -435,6 +445,7 @@ class SendEventGenerator(
                 reject.error,
                 protocolVersion,
                 traceContext,
+                reject.trafficReceiptO,
               )
             )
         }
@@ -574,6 +585,7 @@ object SequenceWritesFlow {
                 _,
                 Some(topologyTimestamp),
                 _,
+                trafficReceiptO,
               ) =>
             // We only check that the signing timestamp is at most the assigned timestamp.
             // The lower bound will be checked only when reading the event
@@ -596,6 +608,7 @@ object SequenceWritesFlow {
                 reason.rpcStatusWithoutLoggingContext(),
                 protocolVersion,
                 event.traceContext,
+                trafficReceiptO,
               )
             }
           case other => other
@@ -696,7 +709,7 @@ object WritePayloadsFlow {
       }
 
     def extractPayload(event: StoreEvent[Payload]): Option[Payload] = event match {
-      case DeliverStoreEvent(_, _, _, payload, _, _) => payload.some
+      case DeliverStoreEvent(_, _, _, payload, _, _, _) => payload.some
       case _other => None
     }
 

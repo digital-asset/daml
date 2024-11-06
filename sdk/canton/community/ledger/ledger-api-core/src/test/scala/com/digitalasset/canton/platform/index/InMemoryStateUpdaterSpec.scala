@@ -186,7 +186,9 @@ class InMemoryStateUpdaterSpec
       )
     inOrder.verify(inMemoryFanoutBuffer).push(tx_rejected_offset, tx_rejected)
 
-    inOrder.verify(ledgerEndCache).set((lastOffset, lastEventSeqId, lastPublicationTime))
+    inOrder
+      .verify(ledgerEndCache)
+      .set((lastOffset.toAbsoluteOffsetO, lastEventSeqId, lastPublicationTime))
     inOrder.verify(dispatcher).signalNewHead(lastOffset)
     inOrder
       .verify(submissionTracker)
@@ -407,7 +409,7 @@ object InMemoryStateUpdaterSpec {
           reassignmentCounter = 15L,
           hostedStakeholders = party2 :: Nil,
           unassignId = CantonTimestamp.assertFromLong(155555L),
-          isReassigningParticipant = true,
+          isObservingReassigningParticipant = true,
         ),
         reassignment = TransactionLogUpdate.ReassignmentAccepted.Assigned(
           CreatedEvent(
@@ -455,7 +457,7 @@ object InMemoryStateUpdaterSpec {
           reassignmentCounter = 15L,
           hostedStakeholders = party1 :: Nil,
           unassignId = CantonTimestamp.assertFromLong(1555551L),
-          isReassigningParticipant = true,
+          isObservingReassigningParticipant = true,
         ),
         reassignment = TransactionLogUpdate.ReassignmentAccepted.Unassigned(
           Reassignment.Unassign(
@@ -543,7 +545,7 @@ object InMemoryStateUpdaterSpec {
       Offset.fromHexString(Ref.HexString.assertFromString("bbbb"))
 
     val tx_rejected_offset: Offset =
-      Offset.fromHexString(Ref.HexString.assertFromString("cccc"))
+      Offset.fromLong(3333L)
 
     val tx_accepted_withCompletionStreamResponse: Traced[TransactionLogUpdate.TransactionAccepted] =
       Traced(
@@ -761,8 +763,8 @@ object InMemoryStateUpdaterSpec {
       .bimap(identity, Traced[Update](_))
 
   private def offset(idx: Long): Offset = {
-    val base = BigInt(1) << 32
-    Offset.fromByteArray((base + idx).toByteArray)
+    val base = 1000000000L
+    Offset.fromLong(base + idx)
   }
 
   // traverse the list from left to right and if a None is found add the exact previous checkpoint in the result
@@ -921,7 +923,7 @@ object InMemoryStateUpdaterSpec {
         reassignmentCounter = 15L,
         hostedStakeholders = party2 :: Nil,
         unassignId = CantonTimestamp.assertFromLong(155555L),
-        isReassigningParticipant = true,
+        isObservingReassigningParticipant = true,
       ),
       reassignment = Reassignment.Assign(
         ledgerEffectiveTime = Timestamp.assertFromLong(12222),
@@ -952,7 +954,7 @@ object InMemoryStateUpdaterSpec {
         reassignmentCounter = 15L,
         hostedStakeholders = party1 :: Nil,
         unassignId = CantonTimestamp.assertFromLong(1555551L),
-        isReassigningParticipant = true,
+        isObservingReassigningParticipant = true,
       ),
       reassignment = Reassignment.Unassign(
         contractId = someCreateNode.coid,

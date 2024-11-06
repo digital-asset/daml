@@ -53,9 +53,9 @@ message LookupOffsetByTime {
   }
 
   message Response {
-    // the absolute offset as a string corresponding to the specified timestamp.
-    // empty string if no such offset exists.
-    string offset = 1;
+    // if specified, the absolute offset as an integer corresponding to the specified timestamp.
+    // if absent, no such offset exists.
+    optional int64 offset = 1;
   }
 }
 

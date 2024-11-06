@@ -153,6 +153,7 @@ da_haskell_library(
     deps = [
         "//compiler/daml-lf-ast",
         "//compiler/daml-lf-proto-encode",
+        "//compiler/daml-lf-tools",
         "//compiler/damlc:damlc-lib",
         "//compiler/damlc/daml-compiler",
         "//compiler/damlc/daml-ide-core",

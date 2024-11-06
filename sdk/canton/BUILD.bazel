@@ -211,6 +211,7 @@ scala_macro_library(
     scalacopts = canton_scalacopts + ["-Wconf:cat=unused-pat-vars:s"],
     unused_dependency_checker_mode = "error",
     deps = [
+        "@maven//:io_grpc_grpc_stub",
         "@maven//:org_typelevel_cats_core_2_13",
         "@maven//:org_typelevel_cats_kernel_2_13",
         "@maven//:org_wartremover_wartremover_2_13_11",
@@ -402,6 +403,7 @@ da_scala_library(
         "@maven//:org_apache_pekko_pekko_actor_2_13",
         "@maven//:org_scalaz_scalaz_core_2_13",
         "@maven//:org_slf4j_slf4j_api",
+        "@maven//:org_typelevel_cats_core_2_13",
     ],
 )
 
@@ -711,7 +713,6 @@ scala_library(
     ],
     deps = [
         ":bindings-java",
-        ":community_admin-api",
         ":community_base",
         ":community_common",
         ":community_ledger_ledger-common",
@@ -820,6 +821,7 @@ scala_library(
         "//daml-lf/archive:daml_lf_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/data",
+        "//daml-lf/engine",
         "//daml-lf/language",
         "//daml-lf/transaction",
         "//libs-scala/concurrent",
@@ -896,7 +898,6 @@ scala_library(
     scalacopts = canton_scalacopts + ["-language:postfixOps"],
     unused_dependency_checker_mode = "error",
     deps = [
-        ":bindings-java",
         ":ledger_api_proto_scala",
         "//daml-lf/data",
         "//daml-lf/language",
@@ -985,6 +986,7 @@ scala_library(
         "@maven//:dev_optics_monocle_macro_2_13",
         "@maven//:io_circe_circe_core_2_13",
         "@maven//:io_grpc_grpc_api",
+        "@maven//:io_grpc_grpc_netty",
         "@maven//:io_grpc_grpc_services",
         "@maven//:io_grpc_grpc_stub",
         "@maven//:io_netty_netty_handler",
@@ -992,7 +994,9 @@ scala_library(
         "@maven//:io_scalaland_chimney_2_13",
         "@maven//:junit_junit",
         "@maven//:org_apache_pekko_pekko_actor_2_13",
+        "@maven//:org_apache_pekko_pekko_actor_typed_2_13",
         "@maven//:org_postgresql_postgresql",
+        "@maven//:org_reactivestreams_reactive_streams",
         "@maven//:org_scala_lang_modules_scala_java8_compat_2_13",
         "@maven//:org_scala_lang_scala_reflect",
         "@maven//:org_scalaz_scalaz_core_2_13",
@@ -1454,7 +1458,12 @@ da_java_library(
         ":ledger-api-java",
         ":ledger-api-java-grpc",
     ],
-    javacopts = da_java_bindings_javacopts,
+    javacopts = [
+        "-Werror",
+        "-Xlint",
+        "-Xlint:-serial",
+        "-Xlint:-deprecation",  # Protoc 2.24 generates code that is deprecated in 2.25
+    ],
     tags = [
         "javadoc_root_packages=com.daml.ledger.javaapi.data",
         "maven_coordinates=com.daml:bindings-java:__VERSION__",
@@ -1569,6 +1578,7 @@ proto_jars(
     srcs = glob(["community/ledger-api/src/main/protobuf/com/daml/ledger/api/v*/**/*.proto"]),
     grpc = True,
     java_conversions = True,
+    java_deps = ["@maven//:com_google_api_grpc_proto_google_common_protos"],
     maven_artifact_prefix = "ledger-api",
     maven_artifact_scala_suffix = "scalapb",
     maven_group = "com.daml",

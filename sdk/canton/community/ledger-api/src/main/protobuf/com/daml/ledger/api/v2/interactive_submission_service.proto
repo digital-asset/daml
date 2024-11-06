@@ -91,12 +91,21 @@ message PrepareSubmissionRequest {
   repeated string package_id_selection_preference = 10;
 }
 
+// The transaction serialization version used when building the hash
+enum TransactionSerializationVersion {
+  TRANSACTION_SERIALIZATION_VERSION_UNSPECIFIED = 0;
+  TRANSACTION_SERIALIZATION_VERSION_V1 = 1;
+}
+
 message PrepareSubmissionResponse {
   // the interpreted transaction, it represents the ledger changes necessary to execute the commands specified in the request
   PreparedTransaction prepared_transaction = 1;
   // hash of the transaction, this is what needs to be signed by the party to authorize the transaction
   // TODO(i20660): Document hashing algorithm
   bytes prepared_transaction_hash = 2;
+
+  // The transaction serialization version used when building the hash
+  TransactionSerializationVersion serialization_version = 3;
 }
 
 message Signature {
@@ -107,6 +116,23 @@ message Signature {
   // The fingerprint/id of the keypair used to create this signature and needed to verify.
   // The referenced key provides the context for the used signature scheme.
   string signed_by = 3;
+
+  // The signing algorithm specification used to generate this signature
+  SigningAlgorithmSpec signing_algorithm_spec = 4;
+}
+
+enum SigningAlgorithmSpec {
+  SIGNING_ALGORITHM_SPEC_UNSPECIFIED = 0;
+
+  // EdDSA Signature based on Curve25519 with SHA-512
+  // http://ed25519.cr.yp.to/
+  SIGNING_ALGORITHM_SPEC_ED25519 = 1;
+
+  // Elliptic Curve Digital Signature Algorithm with SHA256
+  SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_256 = 2;
+
+  // Elliptic Curve Digital Signature Algorithm with SHA384
+  SIGNING_ALGORITHM_SPEC_EC_DSA_SHA_384 = 3;
 }
 
 enum SignatureFormat {
@@ -138,7 +164,7 @@ message ExecuteSubmissionRequest {
   // Each party can provide one or more signatures..
   // and one or more parties can sign.
   // Note that currently, only single party submissions are supported.
-  PartySignatures parties_signatures = 2;
+  PartySignatures party_signatures = 2;
 
   // Identifier of the on-ledger workflow that this command is a part of.
   // Must be a valid LedgerString (as described in ``value.proto``).
@@ -171,6 +197,9 @@ message ExecuteSubmissionRequest {
 
   // See [PrepareSubmissionRequest.application_id]
   string application_id = 7;
+
+  // The transaction serialization version used when building the hash
+  TransactionSerializationVersion serialization_version = 8;
 }
 
 message ExecuteSubmissionResponse {}

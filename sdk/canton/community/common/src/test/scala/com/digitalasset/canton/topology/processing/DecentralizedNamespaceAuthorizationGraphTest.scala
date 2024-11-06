@@ -106,7 +106,10 @@ class DecentralizedNamespaceAuthorizationGraphTest
         key: SigningPublicKey,
     ): AuthorizedTopologyTransaction[T] = {
       val signature = factory.cryptoApi.crypto.privateCrypto
-        .sign(authTx.hash.hash, key.fingerprint)
+        .sign(
+          authTx.hash.hash,
+          key.fingerprint,
+        )
         .value
         .futureValueUS
         .getOrElse(sys.error(s"Error when signing ${authTx}with $key"))

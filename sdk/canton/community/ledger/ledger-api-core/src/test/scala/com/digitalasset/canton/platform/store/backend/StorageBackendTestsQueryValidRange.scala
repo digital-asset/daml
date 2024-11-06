@@ -90,12 +90,12 @@ private[backend] trait StorageBackendTestsQueryValidRange extends Matchers with 
         QueryValidRangeImpl(backend.parameter, this.loggerFactory).withRangeNotPruned(
           minOffsetExclusive = offset(2),
           maxOffsetInclusive = offset(10),
-          errorPruning = pruningOffset => s"pruning issue: ${pruningOffset.toHexString}",
+          errorPruning = pruningOffset => s"pruning issue: ${pruningOffset.toLong}",
           errorLedgerEnd = _ => "",
         )(())
       ),
       assertions = _.infoMessage should include(
-        "PARTICIPANT_PRUNED_DATA_ACCESSED(9,0): pruning issue: 000000000000000003"
+        "PARTICIPANT_PRUNED_DATA_ACCESSED(9,0): pruning issue: 3"
       ),
     )
   }
@@ -198,12 +198,12 @@ private[backend] trait StorageBackendTestsQueryValidRange extends Matchers with 
       within = executeSql(implicit connection =>
         QueryValidRangeImpl(backend.parameter, this.loggerFactory).withOffsetNotBeforePruning(
           offset = offset(2),
-          errorPruning = pruningOffset => s"pruning issue: ${pruningOffset.toHexString}",
+          errorPruning = pruningOffset => s"pruning issue: ${pruningOffset.toLong}",
           errorLedgerEnd = _ => "",
         )(())
       ),
       assertions = _.infoMessage should include(
-        "PARTICIPANT_PRUNED_DATA_ACCESSED(9,0): pruning issue: 000000000000000003"
+        "PARTICIPANT_PRUNED_DATA_ACCESSED(9,0): pruning issue: 3"
       ),
     )
   }

@@ -305,11 +305,11 @@ final case class TransactionView private (
 
     for {
       _ <- viewParticipantData.unwrap match {
-        case Left(_) => Right(())
+        case Left(_) => Either.unit
         case Right(d) => validateViewParticipantData(d, childParticipantData)
       }
       _ <- viewCommonData.unwrap match {
-        case Left(_) => Right(())
+        case Left(_) => Either.unit
         case Right(d) => validateViewCommonData(d, childCommonData)
       }
     } yield this
@@ -463,7 +463,7 @@ object TransactionView
             case WithPath(p, e: ExerciseActionDescription) => WithPath(p, e)
           },
         )
-      case _ => Right(())
+      case _ => Either.unit
     }
 
   }

@@ -8,7 +8,7 @@ import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.SignatureCheckError.SignatureWithWrongKey
 import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, HashPurpose}
 import com.digitalasset.canton.data.ViewType.{AssignmentViewType, UnassignmentViewType}
-import com.digitalasset.canton.data.{CantonTimestamp, ViewType}
+import com.digitalasset.canton.data.{CantonTimestamp, ReassigningParticipants, ViewType}
 import com.digitalasset.canton.error.MediatorError
 import com.digitalasset.canton.participant.protocol.reassignment.DeliveredUnassignmentResultValidation.{
   IncorrectDomain,
@@ -17,7 +17,7 @@ import com.digitalasset.canton.participant.protocol.reassignment.DeliveredUnassi
   IncorrectRootHash,
   IncorrectSignatures,
   ResultTimestampExceedsDecisionTime,
-  StakeholderNotHostedReassigningParticipant,
+  StakeholderNotHostedObservingReassigningParticipant,
 }
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.LocalRejectError.ConsistencyRejections.LockedContracts
@@ -56,7 +56,6 @@ class DeliveredUnassignmentResultValidationTest
     UniqueIdentifier.tryFromProtoPrimitive("signatory::party")
   ).toLf
 
-  // TODO(#21072) Revisit when confirmation is required only from signatories
   private val observer: LfPartyId = PartyId(
     UniqueIdentifier.tryFromProtoPrimitive("observer::party")
   ).toLf
@@ -108,21 +107,21 @@ class DeliveredUnassignmentResultValidationTest
 
   private lazy val reassignmentId = ReassignmentId(sourceDomain, CantonTimestamp.Epoch)
 
-  private lazy val reassignmentDataHelpers = new ReassignmentDataHelpers(
+  private lazy val reassignmentDataHelpers = ReassignmentDataHelpers(
     contract,
     reassignmentId.sourceDomain,
     targetDomain,
     identityFactory,
   )
 
-  private lazy val confirmingReassigningParticipants = NonEmpty.mk(Seq, submittingParticipant)
+  private lazy val reassigningParticipants = NonEmpty.mk(Seq, submittingParticipant)
 
   private lazy val unassignmentRequest = reassignmentDataHelpers.unassignmentRequest(
     submitter = signatory,
     submittingParticipant = submittingParticipant,
     sourceMediator = sourceMediator,
   )(
-    confirmingReassigningParticipants = confirmingReassigningParticipants.toSet
+    reassigningParticipants = ReassigningParticipants.withConfirmers(reassigningParticipants.toSet)
   )
 
   private lazy val reassignmentData =
@@ -155,7 +154,7 @@ class DeliveredUnassignmentResultValidationTest
     val result = reassignmentDataHelpers
       .unassignmentResult(
         result = transform(unassignmentResult.unwrap),
-        recipients = confirmingReassigningParticipants,
+        recipients = reassigningParticipants,
         sequencingTime = sequencingTime,
         overrideCryptoSnapshotMediator = overrideCryptoSnapshotMediator,
         overrideCryptoSnapshotSequencer = overrideCryptoSnapshotSequencer,
@@ -170,7 +169,7 @@ class DeliveredUnassignmentResultValidationTest
       val error = reassignmentDataHelpers
         .unassignmentResult(
           unassignmentResult.unwrap.copy(viewType = AssignmentViewType),
-          confirmingReassigningParticipants,
+          reassigningParticipants,
         )
         .value
         .futureValue
@@ -182,7 +181,7 @@ class DeliveredUnassignmentResultValidationTest
       reassignmentDataHelpers
         .unassignmentResult(
           unassignmentResult.unwrap.copy(viewType = UnassignmentViewType),
-          confirmingReassigningParticipants,
+          reassigningParticipants,
         )
         .futureValue shouldBe a[DeliveredUnassignmentResult]
     }
@@ -202,7 +201,7 @@ class DeliveredUnassignmentResultValidationTest
       val error = reassignmentDataHelpers
         .unassignmentResult(
           unassignmentResult.unwrap,
-          confirmingReassigningParticipants,
+          reassigningParticipants,
           // The batch will then contain two envelopes
           additionalEnvelopes = List((rootHashMessage, validEnvelope.recipients)),
         )
@@ -218,7 +217,7 @@ class DeliveredUnassignmentResultValidationTest
       reassignmentDataHelpers
         .unassignmentResult(
           unassignmentResult.unwrap,
-          confirmingReassigningParticipants,
+          reassigningParticipants,
         )
         .futureValue shouldBe a[DeliveredUnassignmentResult]
     }
@@ -241,7 +240,7 @@ class DeliveredUnassignmentResultValidationTest
       def updateAndValidate(verdict: Verdict) = reassignmentDataHelpers
         .unassignmentResult(
           unassignmentResult.unwrap.copy(verdict = verdict),
-          confirmingReassigningParticipants,
+          reassigningParticipants,
         )
         .value
         .futureValue
@@ -297,9 +296,8 @@ class DeliveredUnassignmentResultValidationTest
     "detect incorrect informees" in {
       val missingParty = Set(signatory)
       val tooManyParties = stakeholders + otherParty
-      val expectedRootHash = unassignmentResult.unwrap.rootHash
 
-      updateAndValidate(_.copy(rootHash = expectedRootHash)).value shouldBe ()
+      updateAndValidate(_.copy(informees = stakeholders)).value shouldBe ()
       updateAndValidate(_.copy(informees = missingParty)).left.value shouldBe IncorrectInformees(
         stakeholders,
         missingParty,
@@ -342,8 +340,8 @@ class DeliveredUnassignmentResultValidationTest
       ))
     }
 
-    "detect stakeholder not hosted on a reassigning participant" in {
-      // Stakeholder observer is not in this topology, which means that it will not have a reassigning participant
+    "detect stakeholder not hosted on some observing reassigning participant" in {
+      // Stakeholder observer is not in this topology, which means that it will not have an observing reassigning participant
       val observerMissing = TestingTopology()
         .withDomains(targetDomain.unwrap)
         .withReversedTopology(
@@ -370,7 +368,7 @@ class DeliveredUnassignmentResultValidationTest
         .activeParticipantsOfAll(stakeholders.toList)
         .value
         .futureValue
-        .value shouldBe confirmingReassigningParticipants.toSet
+        .value shouldBe reassigningParticipants.toSet
 
       def validate(targetTopology: TopologySnapshot) = DeliveredUnassignmentResultValidation(
         unassignmentRequest = reassignmentData.unassignmentRequest,
@@ -381,7 +379,9 @@ class DeliveredUnassignmentResultValidationTest
       )(unassignmentResult).validate.value.futureValue
 
       validate(cryptoSnapshot.ipsSnapshot).value shouldBe ()
-      validate(observerMissing).left.value shouldBe StakeholderNotHostedReassigningParticipant(
+      validate(
+        observerMissing
+      ).left.value shouldBe StakeholderNotHostedObservingReassigningParticipant(
         observer
       )
     }
@@ -397,7 +397,7 @@ class DeliveredUnassignmentResultValidationTest
         val result = ReassignmentDataHelpers
           .unassignmentResult(
             unassignmentResult.unwrap,
-            recipients = confirmingReassigningParticipants,
+            recipients = reassigningParticipants,
             protocolVersion = testedProtocolVersion,
             cryptoSnapshotMediator = mediatorCrypto,
             cryptoSnapshotSequencer = sequencerCrypto,

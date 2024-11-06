@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.backend.common
 
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.{AbsoluteOffset, Offset}
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.{
   CompositeSql,
   SqlStringInterpolation,
@@ -67,13 +67,15 @@ object QueryStrategy {
     *
     * The offset column must only contain valid offsets (no NULL, no Offset.beforeBegin)
     */
-  def offsetIsGreater(nonNullableColumn: String, startExclusive: Offset): CompositeSql = {
-    import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
+  def offsetIsGreater(
+      nonNullableColumn: String,
+      startExclusive: Option[AbsoluteOffset],
+  ): CompositeSql = {
+    import com.digitalasset.canton.platform.store.backend.Conversions.AbsoluteOffsetToStatement
     // Note: casing Offset.beforeBegin makes the resulting query simpler:
-    if (startExclusive == Offset.beforeBegin) {
-      cSQL"#${constBooleanWhere(true)}"
-    } else {
-      cSQL"#$nonNullableColumn > $startExclusive"
+    startExclusive match {
+      case None => cSQL"#${constBooleanWhere(true)}"
+      case Some(start) => cSQL"#$nonNullableColumn > $start"
     }
   }
 

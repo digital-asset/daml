@@ -4,6 +4,7 @@
 package com.digitalasset.canton.http.json.v2
 
 import com.daml.ledger.api.v2.event_query_service
+import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.http.json.v2.JsSchema.{JsCantonError, JsEvent}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -26,31 +27,25 @@ class JsEventService(
 ) extends Endpoints
     with NamedLogging {
 
-  import JsEventServiceCodecs.*
-
-  private lazy val events = v2Endpoint.in(sttp.tapir.stringToPath("events"))
-
   private def eventServiceClient(token: Option[String] = None)(implicit
       traceContext: TraceContext
   ): event_query_service.EventQueryServiceGrpc.EventQueryServiceStub =
     ledgerClient.serviceClient(event_query_service.EventQueryServiceGrpc.stub, token)
 
   def endpoints() = List(
-    json(
-      events.get
-        .in(sttp.tapir.stringToPath("events-by-contract-id"))
-        .in(path[String]("contract-id"))
-        .in(query[List[String]]("parties"))
-        .description("Get events by contract Id"),
+    withServerLogic(
+      JsEventService.getEventsByContractIdEndpoint,
       getEventsByContractId,
     )
   )
 
-  def getEventsByContractId(callerContext: CallerContext): (
-      TracedInput[(String, List[String])]
-  ) => Future[
+  def getEventsByContractId(
+      callerContext: CallerContext
+  ): TracedInput[(String, List[String])] => Future[
     Either[JsCantonError, JsGetEventsByContractIdResponse]
   ] = req => {
+    implicit val token = callerContext.token()
+    implicit val tc = req.traceContext
     val parties = req.in._2
     eventServiceClient(callerContext.token())(req.traceContext)
       .getEventsByContractId(
@@ -60,7 +55,7 @@ class JsEventService(
             requestingParties = parties.toIndexedSeq,
           )
       )
-      .flatMap(protocolConverters.GetEventsByContractIdRequest.toJson(_)(callerContext.token()))
+      .flatMap(protocolConverters.GetEventsByContractIdRequest.toJson(_))
       .resultToRight
   }
 }
@@ -79,6 +74,18 @@ case class JsGetEventsByContractIdResponse(
     archived: Option[JsArchived],
 )
 
+object JsEventService {
+  import Endpoints.*
+  import JsEventServiceCodecs.*
+
+  private lazy val events = v2Endpoint.in(sttp.tapir.stringToPath("events"))
+  val getEventsByContractIdEndpoint = events.get
+    .in(sttp.tapir.stringToPath("events-by-contract-id"))
+    .in(path[String]("contract-id"))
+    .in(query[List[String]]("parties"))
+    .out(jsonBody[JsGetEventsByContractIdResponse])
+    .description("Get events by contract Id")
+}
 object JsEventServiceCodecs {
   implicit val jsCreatedRW: Codec[JsCreated] = deriveCodec
   implicit val jsArchivedRW: Codec[JsArchived] = deriveCodec

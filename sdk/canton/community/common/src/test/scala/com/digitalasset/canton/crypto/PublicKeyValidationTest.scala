@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.crypto
 
+import cats.syntax.either.*
 import com.digitalasset.canton.BaseTest
 import org.scalatest.wordspec.AsyncWordSpec
 
@@ -41,7 +42,7 @@ trait PublicKeyValidationTest extends BaseTest with CryptoTestHelper { this: Asy
           )
         } yield
           if (format == publicKey.format || format == CryptoKeyFormat.Symbolic)
-            validationRes shouldEqual Right(())
+            validationRes shouldEqual Either.unit
           else
             validationRes.left.value should include(
               s"Failed to deserialize $format public key: KeyParseAndValidateError"
@@ -52,22 +53,22 @@ trait PublicKeyValidationTest extends BaseTest with CryptoTestHelper { this: Asy
   /** Test public key validation
     */
   def publicKeyValidationProvider(
-      supportedSigningKeySchemes: Set[SigningKeyScheme],
+      supportedSigningKeySpecs: Set[SigningKeySpec],
       supportedEncryptionKeySpecs: Set[EncryptionKeySpec],
       supportedCryptoKeyFormats: Set[CryptoKeyFormat],
       newCrypto: => Future[Crypto],
   ): Unit =
     "Validate public keys" should {
-      forAll(supportedSigningKeySchemes) { signingKeyScheme =>
+      forAll(supportedSigningKeySpecs) { signingKeySpec =>
         keyValidationTest[SigningPublicKey](
           supportedCryptoKeyFormats,
-          signingKeyScheme.toString,
+          if (signingKeySpec.toString == "EC-P256") "EC-P256-Signing" else signingKeySpec.toString,
           newCrypto,
           crypto =>
             getSigningPublicKey(
               crypto,
               SigningKeyUsage.ProtocolOnly,
-              signingKeyScheme,
+              signingKeySpec,
             ).failOnShutdown,
         )
       }
@@ -75,7 +76,8 @@ trait PublicKeyValidationTest extends BaseTest with CryptoTestHelper { this: Asy
       forAll(supportedEncryptionKeySpecs) { encryptionKeySpec =>
         keyValidationTest[EncryptionPublicKey](
           supportedCryptoKeyFormats,
-          encryptionKeySpec.toString,
+          if (encryptionKeySpec.toString == "EC-P256") "EC-P256-Encryption"
+          else encryptionKeySpec.toString,
           newCrypto,
           crypto => getEncryptionPublicKey(crypto, encryptionKeySpec).failOnShutdown,
         )

@@ -4,7 +4,8 @@
 package com.digitalasset.canton.participant.topology
 
 import cats.data.EitherT
-import cats.implicits.toBifunctorOps
+import cats.syntax.bifunctor.*
+import cats.syntax.either.*
 import cats.syntax.functor.*
 import cats.syntax.parallel.*
 import com.daml.nameof.NameOf.functionFullName
@@ -25,7 +26,7 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.util.{EitherTUtil, SimpleExecutionQueue}
+import com.digitalasset.canton.util.{ContinueAfterFailure, EitherTUtil, SimpleExecutionQueue}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.data.Ref.PackageId
 
@@ -67,7 +68,6 @@ class PackageOpsImpl(
     val loggerFactory: NamedLoggerFactory,
     val timeouts: ProcessingTimeout,
     futureSupervisor: FutureSupervisor,
-    exitOnFatalFailures: Boolean,
 )(implicit val ec: ExecutionContext)
     extends PackageOps
     with FlagCloseable {
@@ -77,7 +77,8 @@ class PackageOpsImpl(
     futureSupervisor,
     timeouts,
     loggerFactory,
-    crashOnFailure = exitOnFatalFailures,
+    logTaskTiming = false,
+    failureMode = ContinueAfterFailure,
   )
 
   override def checkPackageUnused(packageId: PackageId)(implicit
@@ -90,7 +91,7 @@ class PackageOpsImpl(
           state.activeContractStore
             .packageUsage(packageId, state.contractStore)
             .map(opt =>
-              opt.fold[Either[PackageInUse, Unit]](Right(()))(contractId =>
+              opt.fold(Either.unit[PackageInUse])(contractId =>
                 Left(new PackageInUse(packageId, contractId, state.indexedDomain.domainId))
               )
             )
@@ -138,7 +139,7 @@ class PackageOpsImpl(
           }
           // only synchronize with the connected domains if a new VettedPackages transaction was actually issued
           _ <- EitherTUtil.ifThenET(newVettedPackagesCreated) {
-            synchronizeVetting.sync(packagesToBeAdded.get.toSet)
+            synchronizeVetting.sync(packagesToBeAdded.get.toSet).mapK(FutureUnlessShutdown.outcomeK)
           }
         } yield ()
 

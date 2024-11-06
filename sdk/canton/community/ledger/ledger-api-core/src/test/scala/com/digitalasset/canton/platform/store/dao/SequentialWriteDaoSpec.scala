@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.store.dao
 
-import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state.{DomainIndex, Update}
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.platform.PackageName
@@ -42,7 +42,7 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
 
   it should "store correctly in a happy path case" in {
     val storageBackendCaptor =
-      new StorageBackendCaptor(LedgerEnd(Offset.beforeBegin, 5, 1, CantonTimestamp.MinValue))
+      new StorageBackendCaptor(LedgerEnd(None, 5, 1, CantonTimestamp.MinValue))
     val ledgerEndCache = MutableLedgerEndCache()
     val testee = SequentialWriteDaoImpl(
       parameterStorageBackend = storageBackendCaptor,
@@ -52,18 +52,23 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
       stringInterningView = stringInterningViewFixture,
       dbDtosToStringsForInterning = dbDtoToStringsForInterningFixture,
     )
-    testee.store(someConnection, offset("01"), singlePartyFixture)
-    ledgerEndCache() shouldBe (offset("01") -> 5)
-    testee.store(someConnection, offset("02"), allEventsFixture)
-    ledgerEndCache() shouldBe (offset("02") -> 7)
-    testee.store(someConnection, offset("03"), None)
-    ledgerEndCache() shouldBe (offset("03") -> 7)
-    testee.store(someConnection, offset("04"), partyAndCreateFixture)
-    ledgerEndCache() shouldBe (offset("04") -> 8)
+    testee.store(someConnection, Offset.fromAbsoluteOffsetO(offset(1L)), singlePartyFixture)
+    ledgerEndCache() shouldBe (offset(1L) -> 5)
+    testee.store(someConnection, Offset.fromAbsoluteOffsetO(offset(2L)), allEventsFixture)
+    ledgerEndCache() shouldBe (offset(2L) -> 7)
+    testee.store(someConnection, Offset.fromAbsoluteOffsetO(offset(3L)), None)
+    ledgerEndCache() shouldBe (offset(3L) -> 7)
+    testee.store(someConnection, Offset.fromAbsoluteOffsetO(offset(4L)), partyAndCreateFixture)
+    ledgerEndCache() shouldBe (offset(4L) -> 8)
 
     storageBackendCaptor.captured(0) shouldBe someParty
     storageBackendCaptor
-      .captured(1) shouldBe LedgerEnd(offset("01"), 5, 1, CantonTimestamp.MinValue)
+      .captured(1) shouldBe LedgerEnd(
+      offset(1L),
+      5,
+      1,
+      CantonTimestamp.MinValue,
+    )
     storageBackendCaptor.captured(2).asInstanceOf[DbDto.EventCreate].event_sequential_id shouldBe 6
     storageBackendCaptor
       .captured(3)
@@ -78,13 +83,28 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
       .asInstanceOf[DbDto.EventExercise]
       .event_sequential_id shouldBe 7
     storageBackendCaptor
-      .captured(6) shouldBe LedgerEnd(offset("02"), 7, 1, CantonTimestamp.MinValue)
+      .captured(6) shouldBe LedgerEnd(
+      offset(2L),
+      7,
+      1,
+      CantonTimestamp.MinValue,
+    )
     storageBackendCaptor
-      .captured(7) shouldBe LedgerEnd(offset("03"), 7, 1, CantonTimestamp.MinValue)
+      .captured(7) shouldBe LedgerEnd(
+      offset(3L),
+      7,
+      1,
+      CantonTimestamp.MinValue,
+    )
     storageBackendCaptor.captured(8) shouldBe someParty
     storageBackendCaptor.captured(9).asInstanceOf[DbDto.EventCreate].event_sequential_id shouldBe 8
     storageBackendCaptor
-      .captured(10) shouldBe LedgerEnd(offset("04"), 8, 1, CantonTimestamp.MinValue)
+      .captured(10) shouldBe LedgerEnd(
+      offset(4L),
+      8,
+      1,
+      CantonTimestamp.MinValue,
+    )
     storageBackendCaptor.captured should have size 11
   }
 
@@ -99,17 +119,27 @@ class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
       stringInterningView = stringInterningViewFixture,
       dbDtosToStringsForInterning = dbDtoToStringsForInterningFixture,
     )
-    testee.store(someConnection, offset("03"), None)
-    ledgerEndCache() shouldBe (offset("03") -> 0)
-    testee.store(someConnection, offset("04"), partyAndCreateFixture)
-    ledgerEndCache() shouldBe (offset("04") -> 1)
+    testee.store(someConnection, Offset.fromAbsoluteOffsetO(offset(3L)), None)
+    ledgerEndCache() shouldBe (offset(3L) -> 0)
+    testee.store(someConnection, Offset.fromAbsoluteOffsetO(offset(4L)), partyAndCreateFixture)
+    ledgerEndCache() shouldBe (offset(4L) -> 1)
 
     storageBackendCaptor
-      .captured(0) shouldBe LedgerEnd(offset("03"), 0, 0, CantonTimestamp.MinValue)
+      .captured(0) shouldBe LedgerEnd(
+      offset(3L),
+      0,
+      0,
+      CantonTimestamp.MinValue,
+    )
     storageBackendCaptor.captured(1) shouldBe someParty
     storageBackendCaptor.captured(2).asInstanceOf[DbDto.EventCreate].event_sequential_id shouldBe 1
     storageBackendCaptor
-      .captured(3) shouldBe LedgerEnd(offset("04"), 1, 0, CantonTimestamp.MinValue)
+      .captured(3) shouldBe LedgerEnd(
+      offset(4L),
+      1,
+      0,
+      CantonTimestamp.MinValue,
+    )
     storageBackendCaptor.captured should have size 4
   }
 
@@ -204,7 +234,7 @@ object SequentialWriteDaoSpec {
   private val serializableTraceContext =
     SerializableTraceContext(TraceContext.empty).toDamlProto.toByteArray
 
-  private def offset(s: String): Offset = Offset.fromHexString(Ref.HexString.assertFromString(s))
+  private def offset(l: Long): Option[AbsoluteOffset] = Offset.fromLong(l).toAbsoluteOffsetO
 
   private def someUpdate(key: String) = Some(
     Update.PartyAllocationRejected(
@@ -235,7 +265,6 @@ object SequentialWriteDaoSpec {
     application_id = None,
     submitters = None,
     node_index = 3,
-    event_id = "",
     contract_id = "1",
     template_id = "",
     package_name = "2",
@@ -267,7 +296,6 @@ object SequentialWriteDaoSpec {
     application_id = None,
     submitters = None,
     node_index = 3,
-    event_id = "",
     contract_id = "1",
     template_id = "",
     package_name = "2",

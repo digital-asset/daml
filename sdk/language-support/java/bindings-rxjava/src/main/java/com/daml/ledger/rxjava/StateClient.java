@@ -6,17 +6,16 @@ package com.daml.ledger.rxjava;
 import com.daml.ledger.javaapi.data.*;
 import io.reactivex.Flowable;
 import io.reactivex.Single;
-import java.util.Optional;
 import java.util.Set;
 
-/** An RxJava version of {@link com.daml.ledger.api.v1.ActiveContractsServiceGrpc} */
+/** An RxJava version of {@link com.daml.ledger.api.v2.StateServiceGrpc} */
 public interface StateClient {
 
   Flowable<GetActiveContractsResponse> getActiveContracts(
-      TransactionFilter filter, boolean verbose);
+      TransactionFilter filter, boolean verbose, Long activeAtOffset);
 
   Flowable<GetActiveContractsResponse> getActiveContracts(
-      TransactionFilter filter, boolean verbose, String accessToken);
+      TransactionFilter filter, boolean verbose, Long activeAtOffset, String accessToken);
 
   /**
    * Get active Contracts
@@ -26,10 +25,12 @@ public interface StateClient {
    * @param parties Set of parties to be included in the transaction filter.
    * @param verbose If enabled, values served over the API will contain more information than
    *     strictly necessary to interpret the data.
+   * @param activeAtOffset The offset at which the snapshot of the active contracts will be
+   *     computed.
    * @return Flowable of active contracts of type <code>Ct</code>
    */
   <Ct> Flowable<ActiveContracts<Ct>> getActiveContracts(
-      ContractFilter<Ct> contractFilter, Set<String> parties, boolean verbose);
+      ContractFilter<Ct> contractFilter, Set<String> parties, boolean verbose, Long activeAtOffset);
 
   /**
    * Get active Contracts
@@ -39,13 +40,19 @@ public interface StateClient {
    * @param parties Set of parties to be included in the transaction filter.
    * @param verbose If enabled, values served over the API will contain more information than
    *     strictly necessary to interpret the data.
+   * @param activeAtOffset The offset at which the snapshot of the active contracts will be
+   *     computed.
    * @param accessToken Access token for authentication.
    * @return Active contracts of type <code>Ct</code>
    */
   <Ct> Flowable<ActiveContracts<Ct>> getActiveContracts(
-      ContractFilter<Ct> contractFilter, Set<String> parties, boolean verbose, String accessToken);
+      ContractFilter<Ct> contractFilter,
+      Set<String> parties,
+      boolean verbose,
+      Long activeAtOffset,
+      String accessToken);
 
-  Single<Optional<Long>> getLedgerEnd();
+  Single<Long> getLedgerEnd();
 
-  Single<Optional<Long>> getLedgerEnd(String accessToken);
+  Single<Long> getLedgerEnd(String accessToken);
 }

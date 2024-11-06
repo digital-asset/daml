@@ -4,6 +4,7 @@
 package com.digitalasset.canton.platform.apiserver.execution
 
 import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.data.DeduplicationPeriod.DeduplicationDuration
 import com.digitalasset.canton.data.{DeduplicationPeriod, ProcessedDisclosedContract}
 import com.digitalasset.canton.ledger.api.domain.{CommandId, Commands}
 import com.digitalasset.canton.ledger.participant.state.index.MaximumLedgerTime
@@ -12,7 +13,6 @@ import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause
 import com.digitalasset.canton.platform.apiserver.services.ErrorCause.LedgerTime
-import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.daml.lf.command.ApiCommands as LfCommands
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref.{Identifier, PackageName, PackageVersion}
@@ -27,8 +27,6 @@ import org.scalatest.wordspec.AsyncWordSpec
 
 import java.time.Duration
 import scala.concurrent.Future
-
-import DeduplicationPeriod.DeduplicationDuration
 
 class LedgerTimeAwareCommandExecutorSpec
     extends AsyncWordSpec
@@ -73,7 +71,6 @@ class LedgerTimeAwareCommandExecutorSpec
       keyOpt = None,
       // TODO(#19494): Change to minVersion once 2.2 is released and 2.1 is removed
       version = LanguageVersion.v2_dev,
-      domainIdO = Some(DomainId.tryFromString("x::domainId")),
     )
   )
 

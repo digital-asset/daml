@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.backend
 
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
-import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
 import com.digitalasset.canton.ledger.participant.state.DomainIndex
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
@@ -178,7 +178,7 @@ trait MeteringParameterStorageBackend {
 
 object ParameterStorageBackend {
   final case class LedgerEnd(
-      lastOffset: Offset,
+      lastOffset: Option[AbsoluteOffset],
       lastEventSeqId: Long,
       lastStringInterningId: Int,
       lastPublicationTime: CantonTimestamp,
@@ -187,7 +187,7 @@ object ParameterStorageBackend {
   object LedgerEnd {
     val beforeBegin: ParameterStorageBackend.LedgerEnd =
       ParameterStorageBackend.LedgerEnd(
-        Offset.beforeBegin,
+        None,
         EventSequentialId.beforeBegin,
         0,
         CantonTimestamp.MinValue,

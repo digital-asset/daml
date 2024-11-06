@@ -304,6 +304,7 @@ class StreamAuthorizationComponentSpec
       servicesExecutor = ec,
       services = List(bindableService),
       loggerFactory = loggerFactory,
+      keepAlive = None,
     )
 
     val channelOwner = ResourceOwner.forChannel(

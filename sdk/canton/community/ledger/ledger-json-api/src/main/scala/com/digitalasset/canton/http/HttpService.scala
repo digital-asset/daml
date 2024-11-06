@@ -82,6 +82,8 @@ class HttpService(
       val DummyApplicationId: ApplicationId = ApplicationId("HTTP-JSON-API-Gateway")
 
       implicit val settings: ServerSettings = ServerSettings(asys).withTransparentHeadRequests(true)
+      implicit val wsConfig = startSettings.websocketConfig.getOrElse(WebsocketConfig())
+
       val clientConfig = LedgerClientConfiguration(
         applicationId = ApplicationId.unwrap(DummyApplicationId),
         commandClient = CommandClientConfiguration.default,
@@ -116,6 +118,7 @@ class HttpService(
             ledgerClientJwt.getByContractId(ledgerClient),
             ledgerClientJwt.getActiveContracts(ledgerClient),
             ledgerClientJwt.getCreatesAndArchivesSince(ledgerClient),
+            ledgerClientJwt.getLedgerEnd(ledgerClient),
             loggerFactory,
           )
 

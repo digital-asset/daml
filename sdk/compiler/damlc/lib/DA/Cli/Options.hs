@@ -21,6 +21,11 @@ import qualified DA.Service.Logger as Logger
 import qualified Module as GHC
 import qualified Text.ParserCombinators.ReadP as R
 import qualified Data.Text as T
+import qualified DA.Daml.LF.TypeChecker.Error as Error
+import qualified DA.Daml.LF.TypeChecker.Error.WarningFlags as WarningFlags
+import qualified DA.Daml.LFConversion.ConvertM as LFConversion
+
+import qualified Text.PrettyPrint.ANSI.Leijen as PAL
 
 -- | Pretty-printing documents with syntax-highlighting annotations.
 type Document = Pretty.Doc Pretty.SyntaxClass
@@ -279,12 +284,6 @@ enableInterfacesOpt = EnableInterfaces <$>
             \If disabled, defining interfaces and interface instances is a compile-time error. \
             \Off by default."
 
-allowLargeTuplesOpt :: Parser AllowLargeTuples
-allowLargeTuplesOpt = AllowLargeTuples <$>
-    flagYesNoAuto "disable-warn-large-tuples" False desc internal
-    where
-        desc = "Do not warn when tuples of size > 5 are used."
-
 dlintRulesFileParser :: Parser DlintRulesFile
 dlintRulesFileParser =
   lastOr DefaultDlintRulesFile $
@@ -445,10 +444,10 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
     optCppPath <- optCppPath
     optEnableScenarios <- enableScenariosOpt
     optEnableInterfaces <- enableInterfacesOpt
-    optAllowLargeTuples <- allowLargeTuplesOpt
     optTestFilter <- compilePatternExpr <$> optTestPattern
     let optHideUnitId = False
     optUpgradeInfo <- optUpgradeInfo
+    optDamlWarningFlags <- optDamlWarningFlags
 
     return Options{..}
   where
@@ -589,19 +588,59 @@ optionsParser numProcessors enableScenarioService parsePkgName parseDlintUsage =
         "Typecheck upgrades."
         idm
 
-    optWarnBadInterfaceInstances :: Parser Bool
+    optWarnBadInterfaceInstances :: Parser (WarningFlags.DamlWarningFlag Error.ErrorOrWarning)
     optWarnBadInterfaceInstances =
-      flagYesNoAuto
-        "warn-bad-interface-instances"
-        defaultUiWarnBadInterfaceInstances
-        "Convert errors about bad, non-upgradeable interface instances into warnings."
-        idm
+      toDamlWarningFlag <$>
+        flagYesNoAutoNoDefault
+          "warn-bad-interface-instances"
+          "(Deprecated) Convert errors about bad, non-upgradeable interface instances into warnings."
+          hidden
+      where
+      toDamlWarningFlag auto =
+        if determineAuto defaultUiWarnBadInterfaceInstances auto
+        then Error.upgradeInterfacesFlag WarningFlags.AsWarning
+        else Error.upgradeInterfacesFlag WarningFlags.AsError
+
+
+    allowLargeTuplesOpt :: Parser (WarningFlags.DamlWarningFlag LFConversion.ErrorOrWarning)
+    allowLargeTuplesOpt =
+      toDamlWarningFlag <$>
+        flagYesNoAutoNoDefault
+          "disable-warn-large-tuples"
+          "Do not warn when tuples of size > 5 are used."
+          internal
+      where
+      toDamlWarningFlag auto =
+        if determineAuto False auto
+        then LFConversion.warnLargeTuplesFlag WarningFlags.Hidden
+        else LFConversion.warnLargeTuplesFlag WarningFlags.AsWarning
+
+    optDamlWarningFlag :: Parser (WarningFlags.DamlWarningFlag ErrorOrWarning)
+    optDamlWarningFlag =
+      optRawDamlWarningFlag <|> fmap WarningFlags.toLeft optWarnBadInterfaceInstances <|> fmap WarningFlags.toRight allowLargeTuplesOpt
+
+    optDamlWarningFlags :: Parser (WarningFlags.DamlWarningFlags ErrorOrWarning)
+    optDamlWarningFlags =
+      WarningFlags.mkDamlWarningFlags damlWarningFlagParser <$> many optDamlWarningFlag
+
+    optRawDamlWarningFlag :: Parser (WarningFlags.DamlWarningFlag ErrorOrWarning)
+    optRawDamlWarningFlag =
+      Options.Applicative.option
+        (eitherReader (WarningFlags.parseRawDamlWarningFlag damlWarningFlagParser))
+        (short 'W' <> helpDoc (Just helpStr))
+      where
+      helpStr =
+        PAL.vcat
+          [ "Turn an error into a warning with -W<name> or -Wwarn=<name> or -Wno-error=<name>"
+          , "Turn a warning into an error with -Werror=<name>"
+          , "Disable warnings and errors with -Wno-<name>"
+          , "Available names are: " <> PAL.string (WarningFlags.namesAsList damlWarningFlagParser)
+          ]
 
     optUpgradeInfo :: Parser UpgradeInfo
     optUpgradeInfo = do
       uiTypecheckUpgrades <- optTypecheckUpgrades
       uiUpgradedPackagePath <- optUpgradeDar
-      uiWarnBadInterfaceInstances <- optWarnBadInterfaceInstances
       pure UpgradeInfo {..}
 
 optGhcCustomOptions :: Parser [String]

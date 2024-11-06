@@ -215,7 +215,7 @@ class CantonSyncService(
     new PackageVettingSynchronization {
       override def sync(packages: Set[PackageId])(implicit
           traceContext: TraceContext
-      ): EitherT[FutureUnlessShutdown, ParticipantTopologyManagerError, Unit] =
+      ): EitherT[Future, ParticipantTopologyManagerError, Unit] =
         // wait for packages to be vetted on the currently connected domains
         EitherT
           .right[ParticipantTopologyManagerError](
@@ -234,7 +234,6 @@ class CantonSyncService(
                 .map(domainId -> _)
             }
           )
-          .mapK(FutureUnlessShutdown.outcomeK)
           .map { result =>
             result.foreach { case (domainId, successful) =>
               if (!successful)
@@ -310,7 +309,6 @@ class CantonSyncService(
   private val repairServiceDAMLe =
     new DAMLe(
       pkgId => traceContext => packageService.value.getPackage(pkgId)(traceContext),
-      None,
       engine,
       parameters.engine.validationPhaseLogging,
       loggerFactory,
@@ -481,7 +479,7 @@ class CantonSyncService(
       logger.info(
         s"Could not locate pruning point: ${err.message}. Considering success for idempotency"
       )
-      Right(())
+      Either.unit
     case Left(err: LedgerPruningOffsetNonCantonFormat) =>
       logger.info(err.message)
       Left(PruningServiceError.NonCantonOffset.Error(err.message))
@@ -491,7 +489,7 @@ class CantonSyncService(
         PruningServiceError.UnsafeToPrune.Error(
           err.cause,
           err.message,
-          err.lastSafeOffset.fold("")(UpstreamOffsetConvert.fromGlobalOffset(_).toHexString),
+          err.lastSafeOffset.fold("")(UpstreamOffsetConvert.fromGlobalOffset(_).toLong.toString),
         )
       )
     case Left(err: LedgerPruningOffsetUnsafeDomain) =>
@@ -1556,7 +1554,6 @@ class CantonSyncService(
     for {
       _ <- FutureUnlessShutdown.outcomeF(domainConnectionConfigStore.refreshCache())
       _ <- resourceManagementService.refreshCache()
-      _ = packageService.value.packageDependencyResolver.clearPackagesNotPreviouslyFound()
     } yield ()
 
   override def onClosed(): Unit = {
@@ -1744,17 +1741,21 @@ class CantonSyncService(
       validAt: Offset,
       stakeholders: Set[LfPartyId],
   )(implicit traceContext: TraceContext): Future[Vector[Offset]] =
-    UpstreamOffsetConvert
-      .toGlobalOffset(validAt)
-      .fold(
-        error => Future.failed(new IllegalArgumentException(error)),
-        incompleteReassignmentData(_, stakeholders).map(
-          _.map(
-            _.reassignmentEventGlobalOffset.globalOffset
-              .pipe(UpstreamOffsetConvert.fromGlobalOffset)
-          ).toVector
-        ),
-      )
+    if (validAt == Offset.beforeBegin) {
+      Future.successful(Vector.empty)
+    } else {
+      UpstreamOffsetConvert
+        .toGlobalOffset(validAt)
+        .fold(
+          error => Future.failed(new IllegalArgumentException(error)),
+          incompleteReassignmentData(_, stakeholders).map(
+            _.map(
+              _.reassignmentEventGlobalOffset.globalOffset
+                .pipe(UpstreamOffsetConvert.fromGlobalOffset)
+            ).toVector
+          ),
+        )
+    }
 }
 
 object CantonSyncService {

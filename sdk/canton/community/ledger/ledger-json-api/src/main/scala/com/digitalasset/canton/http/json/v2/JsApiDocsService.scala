@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.http.json.v2
 
+import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput, baseEndpoint}
 import com.digitalasset.canton.ledger.client.services.version.VersionClient
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.tracing.TraceContext

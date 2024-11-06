@@ -6,6 +6,7 @@ package com.digitalasset.canton.topology.transaction
 import cats.data.EitherT
 import cats.instances.future.*
 import cats.instances.order.*
+import cats.syntax.either.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.KeyPurpose
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -406,7 +407,7 @@ class ValidatingTopologyMappingChecks(
               logger.info(
                 s"Accepting onboarding of ${toValidate.mapping.participantId} as it is allow listed"
               )
-              Right(())
+              Either.unit
             case None =>
               logger.info(
                 s"Rejecting onboarding of ${toValidate.mapping.participantId} as it is not allow listed as of ${effective.value}"

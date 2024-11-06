@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.protocol
 
+import cats.syntax.either.*
 import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.crypto.{Salt, TestSalt}
 import com.digitalasset.canton.data.{CantonTimestamp, ViewPosition}
@@ -13,6 +14,7 @@ import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
 import com.digitalasset.canton.util.LfTransactionBuilder.{defaultPackageName, defaultTemplateId}
 import com.digitalasset.canton.{BaseTest, LfPackageName, LfPartyId, protocol}
+import com.digitalasset.daml.lf.data.Ref.IdString
 import com.digitalasset.daml.lf.transaction.Versioned
 import com.digitalasset.daml.lf.value.Value
 import org.scalatest.Assertion
@@ -28,7 +30,7 @@ class SerializableContractAuthenticatorImplTest extends AnyWordSpec with BaseTes
         "correctly authenticate the contract" in new WithContractAuthenticator(
           AuthenticatedContractIdVersionV10
         ) {
-          contractAuthenticator.authenticate(contract) shouldBe Right(())
+          contractAuthenticator.authenticate(contract) shouldBe Either.unit
         }
       }
 
@@ -232,19 +234,19 @@ class SerializableContractAuthenticatorImplTest extends AnyWordSpec with BaseTes
 class WithContractAuthenticator(contractIdVersion: CantonContractIdVersion) extends BaseTest {
   protected lazy val unicumGenerator = new UnicumGenerator(new SymbolicPureCrypto())
   protected lazy val contractAuthenticator = new SerializableContractAuthenticatorImpl(
-    unicumGenerator,
-    false,
+    unicumGenerator
   )
 
-  protected lazy val contractInstance = ExampleTransactionFactory.contractInstance()
-  protected lazy val ledgerTime = CantonTimestamp.MinValue
-  protected lazy val alice = LfPartyId.assertFromString("alice")
-  protected lazy val signatories = Set(ExampleTransactionFactory.signatory, alice)
-  protected lazy val observers = Set(ExampleTransactionFactory.observer)
-  protected lazy val maintainers = Set(ExampleTransactionFactory.signatory)
-  protected lazy val contractKey =
+  protected lazy val contractInstance: LfContractInst = ExampleTransactionFactory.contractInstance()
+  protected lazy val ledgerTime: CantonTimestamp = CantonTimestamp.MinValue
+  protected lazy val alice: IdString.Party = LfPartyId.assertFromString("alice")
+  protected lazy val signatories: Set[IdString.Party] =
+    Set(ExampleTransactionFactory.signatory, alice)
+  protected lazy val observers: Set[LfPartyId] = Set(ExampleTransactionFactory.observer)
+  protected lazy val maintainers: Set[LfPartyId] = Set(ExampleTransactionFactory.signatory)
+  protected lazy val contractKey: Versioned[LfGlobalKeyWithMaintainers] =
     ExampleTransactionFactory.globalKeyWithMaintainers(maintainers = maintainers)
-  protected lazy val contractMetadata =
+  protected lazy val contractMetadata: ContractMetadata =
     ContractMetadata.tryCreate(signatories, signatories ++ observers, Some(contractKey))
   protected lazy val (contractSalt, unicum) = unicumGenerator.generateSaltAndUnicum(
     domainId = DomainId(UniqueIdentifier.tryFromProtoPrimitive("domain::da")),
@@ -298,7 +300,7 @@ class WithContractAuthenticator(contractIdVersion: CantonContractIdVersion) exte
     val actualSuffix = unicum.toContractIdSuffix(contractIdVersion)
     val expectedSuffix = recomputedUnicum.toContractIdSuffix(contractIdVersion)
     contractAuthenticator.authenticate(changeContract(contract)) shouldBe Left(
-      s"Mismatching contract id suffixes. expected: $expectedSuffix vs actual: $actualSuffix"
+      s"Mismatching contract id suffixes. Expected: $expectedSuffix vs actual: $actualSuffix"
     )
   }
 }

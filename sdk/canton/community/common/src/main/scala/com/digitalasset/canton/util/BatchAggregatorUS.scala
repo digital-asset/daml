@@ -112,11 +112,6 @@ object BatchAggregatorUS {
     /** Pretty printer for items */
     def prettyItem: Pretty[A]
 
-    case class AbortedDueToShutdownException()
-        extends RuntimeException({
-          show"Aborted due to shutdown."
-        })
-
     case class NoResponseForAggregatedItemException(item: A)
         extends RuntimeException({
           implicit val prettyA: Pretty[A] = prettyItem

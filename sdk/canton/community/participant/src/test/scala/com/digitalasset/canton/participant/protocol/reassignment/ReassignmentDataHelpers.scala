@@ -9,11 +9,17 @@ import com.digitalasset.canton.*
 import com.digitalasset.canton.crypto.{
   DomainCryptoPureApi,
   DomainSnapshotSyncCryptoApi,
+  DomainSyncCryptoClient,
   HashPurpose,
   Signature,
   TestHash,
 }
-import com.digitalasset.canton.data.{CantonTimestamp, ReassignmentSubmitterMetadata, ViewType}
+import com.digitalasset.canton.data.{
+  CantonTimestamp,
+  ReassigningParticipants,
+  ReassignmentSubmitterMetadata,
+  ViewType,
+}
 import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentData.UnassignmentGlobalOffset
 import com.digitalasset.canton.participant.protocol.submission.SeedGenerator
@@ -41,17 +47,18 @@ final case class ReassignmentDataHelpers(
     contract: SerializableContract,
     sourceDomain: Source[DomainId],
     targetDomain: Target[DomainId],
-    identityFactory: TestingIdentityFactory,
+    pureCrypto: DomainCryptoPureApi,
+    // mediatorCryptoClient and sequencerCryptoClient need to be defined for computation of the DeliveredUnassignmentResult
+    mediatorCryptoClient: Option[DomainSyncCryptoClient] = None,
+    sequencerCryptoClient: Option[DomainSyncCryptoClient] = None,
+    targetTime: CantonTimestamp = CantonTimestamp.Epoch,
 )(implicit executionContext: ExecutionContext) {
+  import org.scalatest.OptionValues.*
 
   private val targetTimeProof: TimeProof = TimeProofTestUtil.mkTimeProof(
-    timestamp = CantonTimestamp.Epoch,
+    timestamp = targetTime,
     targetDomain = targetDomain,
   )
-
-  private val pureCrypto: DomainCryptoPureApi = identityFactory
-    .forOwnerAndDomain(DefaultTestIdentities.mediatorId, sourceDomain.unwrap)
-    .pureCrypto
 
   private val seedGenerator: SeedGenerator =
     new SeedGenerator(pureCrypto)
@@ -76,14 +83,12 @@ final case class ReassignmentDataHelpers(
       submittingParticipant: ParticipantId,
       sourceMediator: MediatorGroupRecipient,
   )(
-      confirmingReassigningParticipants: Set[ParticipantId] = Set(submittingParticipant)
-  ): UnassignmentRequest = {
-    val creatingTransactionId = ExampleTransactionFactory.transactionId(0)
-
+      reassigningParticipants: ReassigningParticipants =
+        ReassigningParticipants.withConfirmers(Set(submittingParticipant))
+  ): UnassignmentRequest =
     UnassignmentRequest(
       submitterMetadata = submitterInfo(submitter, submittingParticipant),
-      confirmingReassigningParticipants = confirmingReassigningParticipants,
-      creatingTransactionId = creatingTransactionId,
+      reassigningParticipants = reassigningParticipants,
       contract = contract,
       sourceDomain = sourceDomain,
       sourceProtocolVersion = Source(protocolVersion),
@@ -91,9 +96,8 @@ final case class ReassignmentDataHelpers(
       targetDomain = targetDomain,
       targetProtocolVersion = Target(protocolVersion),
       targetTimeProof = targetTimeProof,
-      reassignmentCounter = ReassignmentCounter.Genesis,
+      reassignmentCounter = ReassignmentCounter(1),
     )
-  }
 
   def reassignmentData(reassignmentId: ReassignmentId, unassignmentRequest: UnassignmentRequest)(
       unassignmentGlobalOffset: Option[GlobalOffset] = None
@@ -136,14 +140,13 @@ final case class ReassignmentDataHelpers(
         requestId = RequestId(reassignmentData.unassignmentTs),
         rootHash = reassignmentData.unassignmentRequest.rootHash,
         verdict = Verdict.Approve(protocolVersion),
-        informees = reassignmentData.unassignmentRequest.stakeholders,
+        informees = reassignmentData.unassignmentRequest.stakeholders.all,
         protocolVersion,
       )
 
-    val recipients =
-      NonEmptyUtil
-        .fromUnsafe(reassignmentData.unassignmentRequest.confirmingReassigningParticipants)
-        .toSeq
+    val recipients = NonEmptyUtil
+      .fromUnsafe(reassignmentData.unassignmentRequest.reassigningParticipants.observing)
+      .toSeq
 
     unassignmentResult(result, recipients)
   }
@@ -164,15 +167,11 @@ final case class ReassignmentDataHelpers(
   ] = {
 
     val cryptoSnapshotMediator = overrideCryptoSnapshotMediator.getOrElse(
-      identityFactory
-        .forOwnerAndDomain(DefaultTestIdentities.mediatorId, sourceDomain.unwrap)
-        .currentSnapshotApproximation
+      mediatorCryptoClient.value.currentSnapshotApproximation
     )
 
     val cryptoSnapshotSequencer = overrideCryptoSnapshotSequencer.getOrElse(
-      identityFactory
-        .forOwnerAndDomain(DefaultTestIdentities.sequencerId, sourceDomain.unwrap)
-        .currentSnapshotApproximation
+      sequencerCryptoClient.value.currentSnapshotApproximation
     )
 
     ReassignmentDataHelpers.unassignmentResult(
@@ -199,6 +198,32 @@ final case class ReassignmentDataHelpers(
 
 object ReassignmentDataHelpers {
   import org.scalatest.EitherValues.*
+
+  def apply(
+      contract: SerializableContract,
+      sourceDomain: Source[DomainId],
+      targetDomain: Target[DomainId],
+      identityFactory: TestingIdentityFactory,
+  )(implicit executionContext: ExecutionContext) = {
+    val pureCrypto = identityFactory
+      .forOwnerAndDomain(DefaultTestIdentities.mediatorId, sourceDomain.unwrap)
+      .pureCrypto
+
+    new ReassignmentDataHelpers(
+      contract = contract,
+      sourceDomain = sourceDomain,
+      targetDomain = targetDomain,
+      pureCrypto = pureCrypto,
+      mediatorCryptoClient = Some(
+        identityFactory
+          .forOwnerAndDomain(DefaultTestIdentities.mediatorId, sourceDomain.unwrap)
+      ),
+      sequencerCryptoClient = Some(
+        identityFactory
+          .forOwnerAndDomain(DefaultTestIdentities.sequencerId, sourceDomain.unwrap)
+      ),
+    )
+  }
 
   /**  From the result, constructs the DeliveredUnassignmentResult (mostly add mediator and sequencer signatures)
     */

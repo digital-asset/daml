@@ -104,12 +104,12 @@ object ProtocolVersionCompatibility {
 
     // if dev-version support is on for participant and domain, ignore the min protocol version
     if (clientSupportsRequiredVersion && serverVersion.isAlpha)
-      Right(())
+      Either.unit
     else if (clientMinVersionLargerThanReqVersion)
       Left(MinProtocolError(serverVersion, clientMinimumVersion, clientSupportsRequiredVersion))
     else if (!clientSupportsRequiredVersion)
       Left(VersionNotSupportedError(serverVersion, clientSupportedVersions))
-    else Right(())
+    else Either.unit
   }
 }
 

@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.ledger.localstore
 
+import cats.syntax.either.*
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, ObjectMeta, User, UserRight}
 import com.digitalasset.canton.ledger.api.validation.ResourceAnnotationValidator
@@ -109,7 +110,7 @@ class InMemoryUserManagementStore(
   )(implicit loggingContext: LoggingContextWithTrace): Future[Result[Unit]] =
     withUser(id, identityProviderId) { _ =>
       state.remove(id).discard
-      Right(())
+      Either.unit
     }
 
   override def grantRights(
@@ -220,11 +221,11 @@ class InMemoryUserManagementStore(
       annotations: Map[String, String],
       userId: Ref.UserId,
   ): Result[Unit] =
-    if (!ResourceAnnotationValidator.isWithinMaxAnnotationsByteSize(annotations)) {
-      Left(MaxAnnotationsSizeExceeded(userId))
-    } else {
-      Right(())
-    }
+    Either.cond(
+      ResourceAnnotationValidator.isWithinMaxAnnotationsByteSize(annotations),
+      (),
+      MaxAnnotationsSizeExceeded(userId),
+    )
 
 }
 

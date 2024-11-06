@@ -39,7 +39,7 @@ private[backend] class ParameterStorageBackendImpl(
         UPDATE
           lapi_parameters
         SET
-          ledger_end = ${ledgerEnd.lastOffset},
+          ledger_end = ${Offset.fromAbsoluteOffsetO(ledgerEnd.lastOffset)},
           ledger_end_sequential_id = ${ledgerEnd.lastEventSeqId},
           ledger_end_string_interning_id = ${ledgerEnd.lastStringInterningId},
           ledger_end_publication_time = ${ledgerEnd.lastPublicationTime.toMicros}
@@ -129,7 +129,7 @@ private[backend] class ParameterStorageBackendImpl(
     LedgerEndOffsetParser ~ LedgerEndSequentialIdParser ~ LedgerEndStringInterningIdParser ~ LedgerEndPublicationTimeParser map {
       case lastOffset ~ lastEventSequentialId ~ lastStringInterningId ~ lastPublicationTime =>
         ParameterStorageBackend.LedgerEnd(
-          lastOffset,
+          lastOffset.toAbsoluteOffsetO,
           lastEventSequentialId,
           lastStringInterningId,
           lastPublicationTime,
@@ -161,7 +161,7 @@ private[backend] class ParameterStorageBackendImpl(
               #$LedgerEndPublicationTimeColumnName
             ) values(
               ${participantId.unwrap: String},
-              ${ledgerEnd.lastOffset},
+              ${Offset.fromAbsoluteOffsetO(ledgerEnd.lastOffset)},
               ${ledgerEnd.lastEventSeqId},
               ${ledgerEnd.lastStringInterningId},
               ${ledgerEnd.lastPublicationTime.toMicros}

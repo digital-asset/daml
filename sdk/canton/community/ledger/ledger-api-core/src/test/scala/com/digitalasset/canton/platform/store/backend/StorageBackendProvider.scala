@@ -44,7 +44,12 @@ trait StorageBackendProvider {
       ledgerEndPublicationTime: CantonTimestamp = CantonTimestamp.now(),
   )(connection: Connection): Unit = {
     backend.parameter.updateLedgerEnd(
-      LedgerEnd(ledgerEndOffset, ledgerEndSequentialId, 0, ledgerEndPublicationTime)
+      LedgerEnd(
+        ledgerEndOffset.toAbsoluteOffsetO,
+        ledgerEndSequentialId,
+        0,
+        ledgerEndPublicationTime,
+      )
     )(
       connection
     ) // we do not care about the stringInterningId here

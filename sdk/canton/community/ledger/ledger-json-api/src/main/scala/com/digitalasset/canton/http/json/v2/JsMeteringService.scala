@@ -14,45 +14,56 @@ import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.jsonBody
 import com.google.protobuf
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
-class JsMeteringService(meteringReportClient: MeteringReportClient, val loggerFactory: NamedLoggerFactory) extends Endpoints {
-  import JsMeteringServiceCodecs.*
-  private lazy val metering = v2Endpoint.in("metering")
+class JsMeteringService(
+    meteringReportClient: MeteringReportClient,
+    val loggerFactory: NamedLoggerFactory,
+) extends Endpoints {
 
-  private val report =
-    metering
-      .in("report")
-      .in(path[String]("application-id"))
-      .in(headers)
-      .description(
-        "Metering report that provides information necessary for billing participant and application operators."
-      )
-      .mapIn(traceHeadersMapping[String]())
-      .in(query[protobuf.timestamp.Timestamp]("from"))
-      .in(query[Option[protobuf.timestamp.Timestamp]]("to"))
-      .out(jsonBody[metering_report_service.GetMeteringReportResponse])
-      .serverSecurityLogicSuccess(Future.successful)
-      .serverLogic {
-        caller =>
-          { input =>
-            val from = Some(input._2)
-            val to = input._3
-            val req = metering_report_service.GetMeteringReportRequest(
-              from = from,
-              to = to,
-              applicationId = input._1.in,
-            )
+  import JsMeteringService.*
 
-            val resp = meteringReportClient
-              .getMeteringReport(req, caller.token())(input._1.traceContext)
-            resp.resultToRight.transform(handleErrorResponse(input._1.traceContext))(ExecutionContext.parasitic)
-          }
-      }
+  private val report = withServerLogic(
+    reportEndpoint,
+    (caller: Endpoints.CallerContext) =>
+      (input: Endpoints.TracedInput[
+        (String, protobuf.timestamp.Timestamp, Option[protobuf.timestamp.Timestamp])
+      ]) => {
+        val (applicationId, from, to) = input.in
+        val req = metering_report_service.GetMeteringReportRequest(
+          from = Some(from),
+          to = to,
+          applicationId = applicationId,
+        )
+        val resp = meteringReportClient
+          .getMeteringReport(req, caller.token())(input.traceContext)
+        resp.resultToRight.transform(handleErrorResponse(input.traceContext))(
+          ExecutionContext.parasitic
+        )
+      },
+  )
 
   def endpoints() = List(
     report
   )
+
+}
+
+object JsMeteringService {
+  import Endpoints.*
+  import JsMeteringServiceCodecs.*
+
+  private lazy val metering = v2Endpoint.in("metering")
+  val reportEndpoint =
+    metering
+      .in("report")
+      .in(path[String]("application-id"))
+      .in(query[protobuf.timestamp.Timestamp]("from"))
+      .in(query[Option[protobuf.timestamp.Timestamp]]("to"))
+      .out(jsonBody[metering_report_service.GetMeteringReportResponse])
+      .description(
+        "Metering report that provides information necessary for billing participant and application operators."
+      )
 
 }
 object JsMeteringServiceCodecs {

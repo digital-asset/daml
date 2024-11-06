@@ -78,19 +78,21 @@ private[platform] final case class InitializeParallelIngestion(
       )(
         completionStorageBackend.commandCompletionsForRecovery(
           startExclusive = postProcessingEndOffset.getOrElse(Offset.beforeBegin),
-          endInclusive = ledgerEnd.lastOffset,
+          endInclusive = Offset.fromAbsoluteOffsetO(ledgerEnd.lastOffset),
         )
       )
       _ <- postProcessor(potentiallyNonPostProcessedCompletions, loggingContext.traceContext)
       _ <- dbDispatcher.executeSql(metrics.indexer.postProcessingEndIngestion)(
-        parameterStorageBackend.updatePostProcessingEnd(ledgerEnd.lastOffset)
+        parameterStorageBackend.updatePostProcessingEnd(
+          Offset.fromAbsoluteOffsetO(ledgerEnd.lastOffset)
+        )
       )
       _ = logger.info(s"Indexer initialized at $ledgerEnd")
       _ <- initializeInMemoryState(ledgerEnd)
     } yield InitializeParallelIngestion.Initialized(
       initialLastEventSeqId = ledgerEnd.lastEventSeqId,
       initialLastStringInterningId = ledgerEnd.lastStringInterningId,
-      initialLastOffset = ledgerEnd.lastOffset,
+      initialLastOffset = Offset.fromAbsoluteOffsetO(ledgerEnd.lastOffset),
       initialLastPublicationTime = ledgerEnd.lastPublicationTime,
     )
   }

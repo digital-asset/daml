@@ -4,6 +4,7 @@
 package com.digitalasset.canton.topology.transaction
 
 import cats.instances.order.*
+import cats.syntax.either.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveInt}
 import com.digitalasset.canton.crypto.{Fingerprint, SigningPublicKey}
@@ -474,7 +475,7 @@ class ValidatingTopologyMappingChecksTest
         addToStore(store, p1_otk, p1_dtc, p2_otk, p2_dtc)
 
         // handle the happy case
-        checkTransaction(checks, mkPTP()) shouldBe Right(())
+        checkTransaction(checks, mkPTP()) shouldBe Either.unit
 
         // unhappy scenarios
         val invalidParticipantPermission = Seq(
@@ -531,7 +532,7 @@ class ValidatingTopologyMappingChecksTest
               participants,
             )
           )
-          checkTransaction(checks, ptp) shouldBe Right(())
+          checkTransaction(checks, ptp) shouldBe Either.unit
         }
       }
 
@@ -598,7 +599,7 @@ class ValidatingTopologyMappingChecksTest
 
         // happy case: we allow the DTC (either a creation or modifying an existing one)
         // if there is a valid explicit admin party allocation
-        checkTransaction(checks, p1_dtc, None) shouldBe Right(())
+        checkTransaction(checks, p1_dtc, None) shouldBe Either.unit
 
         // unhappy case: there already exists a normal party allocation with the same UID
         checkTransaction(checks, p2_dtc, None) shouldBe Left(
@@ -677,7 +678,7 @@ class ValidatingTopologyMappingChecksTest
           checks,
           factory.mkAdd(DomainTrustCertificate(participant1, domainId)),
           None,
-        ) shouldBe Right(())
+        ) shouldBe Either.unit
       }
 
       "reject a rejoining participant" in {
@@ -736,8 +737,8 @@ class ValidatingTopologyMappingChecksTest
           factory.SigningKeys.key1,
         )
 
-        checkTransaction(checks, mds1) shouldBe Right(())
-        checkTransaction(checks, mds2, Some(mds1)) shouldBe Right(())
+        checkTransaction(checks, mds1) shouldBe Either.unit
+        checkTransaction(checks, mds2, Some(mds1)) shouldBe Either.unit
       }
 
       "report MediatorsAlreadyAssignedToGroups for duplicate mediator assignments" in {
@@ -895,8 +896,8 @@ class ValidatingTopologyMappingChecksTest
           factory.SigningKeys.key1,
         )
 
-        checkTransaction(checks, sds1) shouldBe Right(())
-        checkTransaction(checks, sds2, Some(sds1)) shouldBe Right(())
+        checkTransaction(checks, sds1) shouldBe Either.unit
+        checkTransaction(checks, sds2, Some(sds1)) shouldBe Either.unit
       }
       "report sequencers defined both as active and observers" in {
         val (Seq(seq1, seq2), _transactions) = generateMemberIdentities(2, SequencerId(_))
@@ -985,9 +986,9 @@ class ValidatingTopologyMappingChecksTest
           NonEmpty(Set, factory.SigningKeys.key1),
         )
 
-        checkTransaction(checks, okm_sequencer) shouldBe Right(())
-        checkTransaction(checks, okm_mediator) shouldBe Right(())
-        checkTransaction(checks, okm_participant) shouldBe Right(())
+        checkTransaction(checks, okm_sequencer) shouldBe Either.unit
+        checkTransaction(checks, okm_mediator) shouldBe Either.unit
+        checkTransaction(checks, okm_participant) shouldBe Either.unit
       }
       "reject minimum key violations" in {
         val (checks, _) = mk()

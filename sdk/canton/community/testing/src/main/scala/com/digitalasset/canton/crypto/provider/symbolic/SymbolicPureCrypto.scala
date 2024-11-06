@@ -37,15 +37,20 @@ class SymbolicPureCrypto extends CryptoPureApi {
 
   // NOTE: The following schemes are not really used by Symbolic crypto, but we pretend to support them
   override val defaultSymmetricKeyScheme: SymmetricKeyScheme = SymmetricKeyScheme.Aes128Gcm
+  override val defaultSigningAlgorithmSpec: SigningAlgorithmSpec =
+    SigningAlgorithmSpec.Ed25519
+  override val supportedSigningAlgorithmSpecs: NonEmpty[Set[SigningAlgorithmSpec]] =
+    NonEmpty.mk(Set, SigningAlgorithmSpec.Ed25519)
   override val defaultEncryptionAlgorithmSpec: EncryptionAlgorithmSpec =
     EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm
   override val supportedEncryptionAlgorithmSpecs: NonEmpty[Set[EncryptionAlgorithmSpec]] =
     NonEmpty.mk(Set, EncryptionAlgorithmSpec.EciesHkdfHmacSha256Aes128Gcm)
   override val defaultPbkdfScheme: PbkdfScheme = PbkdfScheme.Argon2idMode1
 
-  override protected[crypto] def sign(
+  override protected[crypto] def signBytes(
       bytes: ByteString,
       signingKey: SigningPrivateKey,
+      signingAlgorithmSpec: SigningAlgorithmSpec = defaultSigningAlgorithmSpec,
   ): Either[SigningError, Signature] = {
     val counter = signatureCounter.getAndIncrement()
     Right(SymbolicPureCrypto.createSignature(bytes, signingKey.id, counter))
@@ -332,5 +337,6 @@ object SymbolicPureCrypto {
       SignatureFormat.Raw,
       bytes.concat(DeterministicEncoding.encodeInt(counter)),
       signingKey,
+      None,
     )
 }

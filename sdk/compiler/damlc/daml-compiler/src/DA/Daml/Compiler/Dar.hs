@@ -24,6 +24,7 @@ import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.Resource (ResourceT)
 import qualified DA.Daml.LF.Ast as LF
 import DA.Daml.LF.Proto3.Archive (encodeArchiveAndHash)
+import DA.Daml.LF.TypeChecker.Error.WarningFlags (DamlWarningFlags)
 import DA.Daml.LF.TypeChecker.Upgrade as Upgrade
 import DA.Daml.Options (expandSdkPackages)
 import DA.Daml.Options.Types
@@ -35,6 +36,7 @@ import qualified Data.ByteString.Lazy.Char8 as BSC
 import qualified Data.ByteString.Lazy.UTF8 as BSLUTF8
 import Data.Conduit (ConduitT)
 import Data.Conduit.Combinators (sourceFile, sourceLazy)
+import Data.Functor.Contravariant
 import Data.List.Extra
 import qualified Data.Map.Strict as Map
 import Data.Maybe
@@ -109,8 +111,9 @@ buildDar ::
     -> NormalizedFilePath
     -> FromDalf
     -> UpgradeInfo
+    -> DamlWarningFlags ErrorOrWarning
     -> IO (Maybe (Zip.ZipArchive (), Maybe LF.PackageId))
-buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo = do
+buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo warningFlags = do
     liftIO $
         IdeLogger.logDebug (ideLogger service) $
         "Creating dar: " <> T.pack pSrc
@@ -160,7 +163,7 @@ buildDar service PackageConfigFields {..} ifDir dalfInput upgradeInfo = do
                  dalfDependencies0 <- getDalfDependencies files
                  MaybeT $
                      runDiagnosticCheck $ diagsToIdeResult (toNormalizedFilePath' pSrc) $
-                         Upgrade.checkPackage pkg (map Upgrade.unitIdDalfPackageToUpgradedPkg (Map.toList dalfDependencies0)) lfVersion upgradeInfo mbUpgradedPackage
+                         Upgrade.checkPackage pkg (map Upgrade.unitIdDalfPackageToUpgradedPkg (Map.toList dalfDependencies0)) lfVersion upgradeInfo (contramap Left warningFlags) mbUpgradedPackage
                  let dalfDependencies =
                          [ (T.pack $ unitIdString unitId, LF.dalfPackageBytes pkg, LF.dalfPackageId pkg)
                          | (unitId, pkg) <- Map.toList dalfDependencies0

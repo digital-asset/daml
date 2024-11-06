@@ -4,6 +4,7 @@
 package com.digitalasset.canton.crypto
 
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.crypto.SignatureCheckError.UnsupportedKeySpec
 import com.digitalasset.canton.protocol.StaticDomainParameters
 import com.digitalasset.canton.serialization.DeserializationError
 import com.digitalasset.canton.tracing.TraceContext
@@ -24,14 +25,14 @@ final class DomainCryptoPureApi(
 ) extends CryptoPureApi {
 
   private def checkAgainstStaticDomainParams(
-      scheme: SigningKeyScheme
+      keySpec: SigningKeySpec
   ): Either[SignatureCheckError, Unit] =
     Either.cond(
-      staticDomainParameters.requiredSigningKeySchemes.contains(scheme),
+      staticDomainParameters.requiredSigningSpecs.keys.contains(keySpec),
       (),
-      SignatureCheckError.InvalidCryptoScheme(
-        s"The signing key scheme $scheme is not part of the " +
-          s"required schemes: ${staticDomainParameters.requiredSigningKeySchemes}"
+      UnsupportedKeySpec(
+        keySpec,
+        staticDomainParameters.requiredSigningSpecs.keys,
       ),
     )
 
@@ -41,7 +42,7 @@ final class DomainCryptoPureApi(
       signature: Signature,
   ): Either[SignatureCheckError, Unit] =
     for {
-      _ <- checkAgainstStaticDomainParams(publicKey.scheme)
+      _ <- checkAgainstStaticDomainParams(publicKey.keySpec)
       _ <- pureCrypto.verifySignature(hash, publicKey, signature)
     } yield ()
 
@@ -51,7 +52,7 @@ final class DomainCryptoPureApi(
       signature: Signature,
   ): Either[SignatureCheckError, Unit] =
     for {
-      _ <- checkAgainstStaticDomainParams(publicKey.scheme)
+      _ <- checkAgainstStaticDomainParams(publicKey.keySpec)
       _ <- pureCrypto.verifySignature(bytes, publicKey, signature)
     } yield ()
 
@@ -134,8 +135,15 @@ final class DomainCryptoPureApi(
   override protected[crypto] def generateRandomBytes(length: Int): Array[Byte] =
     pureCrypto.generateRandomBytes(length)
 
-  override protected[crypto] def sign(
+  override def defaultSigningAlgorithmSpec: SigningAlgorithmSpec =
+    pureCrypto.defaultSigningAlgorithmSpec
+
+  override def supportedSigningAlgorithmSpecs: NonEmpty[Set[SigningAlgorithmSpec]] =
+    pureCrypto.supportedSigningAlgorithmSpecs
+
+  override protected[crypto] def signBytes(
       bytes: ByteString,
       signingKey: SigningPrivateKey,
-  ): Either[SigningError, Signature] = pureCrypto.sign(bytes, signingKey)
+      signingAlgorithmSpec: SigningAlgorithmSpec = defaultSigningAlgorithmSpec,
+  ): Either[SigningError, Signature] = pureCrypto.signBytes(bytes, signingKey, signingAlgorithmSpec)
 }

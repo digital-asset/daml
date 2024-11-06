@@ -14,11 +14,11 @@ import scala.concurrent.duration.*
 final case class JsonApiConfig(
     server: HttpServerConfig,
     allowInsecureTokens: Boolean = false,
-    websocketConfig: Option[WebsocketConfig] = None,
+    websocketConfig: Option[WebsocketConfig] =
+      None, // TODO (i22224) Use this in new JSON API (if applies)
     debugLoggingOfHttpBodies: Boolean = false,
     damlDefinitionsServiceEnabled: Boolean = false,
-  ) extends StartSettings
-
+) extends StartSettings
 
 // It is public for Daml Hub
 final case class WebsocketConfig(
@@ -28,6 +28,7 @@ final case class WebsocketConfig(
     maxBurst: Int = WSC.DefaultMaxBurst,
     mode: ThrottleMode = WSC.DefaultThrottleMode,
     heartbeatPeriod: FiniteDuration = WSC.DefaultHeartbeatPeriod,
+    closeDelay: FiniteDuration = WSC.DefaultCloseDelay,
 )
 
 object WebsocketConfig {
@@ -41,4 +42,5 @@ object WebsocketConfig {
   val DefaultMaxBurst: Int = 20
   val DefaultThrottleMode: ThrottleMode = ThrottleMode.Shaping
   val DefaultHeartbeatPeriod: FiniteDuration = 5.second
+  val DefaultCloseDelay: FiniteDuration = 3.seconds
 }

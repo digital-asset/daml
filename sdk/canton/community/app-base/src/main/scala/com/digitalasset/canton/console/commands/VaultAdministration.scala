@@ -26,7 +26,7 @@ import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.store.TopologyStoreId.AuthorizedStore
 import com.digitalasset.canton.topology.{Member, MemberCode}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{BinaryFileUtil, OptionUtil}
+import com.digitalasset.canton.util.BinaryFileUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 
@@ -43,18 +43,18 @@ class SecretKeyAdministration(
 
   import runner.*
 
-  protected def regenerateKey(currentKey: PublicKey, name: Option[String]): PublicKey =
+  private def regenerateKey(currentKey: PublicKey, name: String): PublicKey =
     currentKey match {
       case encKey: EncryptionPublicKey =>
         instance.keys.secret.generate_encryption_key(
           keySpec = Some(encKey.keySpec),
-          name = OptionUtil.noneAsEmptyString(name),
+          name = name,
         )
       case signKey: SigningPublicKey =>
         instance.keys.secret.generate_signing_key(
-          name = OptionUtil.noneAsEmptyString(name),
           usage = signKey.usage,
-          scheme = Some(signKey.scheme),
+          keySpec = Some(signKey.keySpec),
+          name = name,
         )
       case unknown => throw new IllegalArgumentException(s"Invalid public key type: $unknown")
     }
@@ -80,17 +80,17 @@ class SecretKeyAdministration(
       | - IdentityDelegation: for a signing key that acts as a delegation key for the root namespace and that can also be used to sign topology requests;
       | - SequencerAuthentication: for a signing key that authenticates members of the network towards a sequencer;
       | - Protocol: for a signing key that deals with all the signing that happens as part of the protocol.
-      |The scheme can be used to select a key scheme and the default scheme is used if left unspecified."""
+      |The keySpec can be used to select a key specification, e.g., which elliptic curve to use, and the default spec is used if left unspecified."""
   )
   def generate_signing_key(
       name: String = "",
       usage: Set[SigningKeyUsage] = SigningKeyUsage.All,
-      scheme: Option[SigningKeyScheme] = None,
+      keySpec: Option[SigningKeySpec] = None,
   ): SigningPublicKey =
     NonEmpty.from(usage) match {
       case Some(usageNE) =>
         consoleEnvironment.run {
-          adminCommand(VaultAdminCommands.GenerateSigningKey(name, usageNE, scheme))
+          adminCommand(VaultAdminCommands.GenerateSigningKey(name, usageNE, keySpec))
         }
       case None => throw new IllegalArgumentException("no signing key usage specified")
     }
@@ -99,7 +99,7 @@ class SecretKeyAdministration(
   @Help.Description(
     """
       |The optional name argument allows you to store an associated string for your convenience.
-      |The scheme can be used to select a key scheme and the default scheme is used if left unspecified."""
+      |The keySpec can be used to select a key specification, e.g., which elliptic curve to use, and the default spec is used if left unspecified."""
   )
   def generate_encryption_key(
       name: String = "",
@@ -169,18 +169,25 @@ class SecretKeyAdministration(
     """Rotates an existing encryption or signing key stored externally in a KMS with a pre-generated
       key. NOTE: A namespace root signing key CANNOT be rotated by this command.
       |The fingerprint of the key we want to rotate.
-      |The id of the new KMS key (e.g. Resource Name)."""
+      |The id of the new KMS key (e.g. Resource Name).
+      |An optional name for the new key."""
   )
-  def rotate_kms_node_key(fingerprint: String, newKmsKeyId: String): PublicKey = {
+  def rotate_kms_node_key(
+      fingerprint: String,
+      newKmsKeyId: String,
+      name: String = "",
+  ): PublicKey = {
 
     val owner = instance.id.member
 
     val currentKey = findPublicKey(fingerprint, instance.topology, owner)
     val newKey = currentKey match {
       case SigningPublicKey(_, _, _, usage) =>
-        instance.keys.secret.register_kms_signing_key(newKmsKeyId, usage)
-      case _: EncryptionPublicKey => instance.keys.secret.register_kms_encryption_key(newKmsKeyId)
-      case _ => throw new IllegalStateException("Unsupported key type")
+        instance.keys.secret.register_kms_signing_key(newKmsKeyId, usage, name)
+      case _: EncryptionPublicKey =>
+        instance.keys.secret.register_kms_encryption_key(newKmsKeyId, name)
+      case _ =>
+        throw new IllegalStateException("Unsupported key type")
     }
 
     // Rotate the key for the node in the topology management
@@ -197,21 +204,20 @@ class SecretKeyAdministration(
   @Help.Description(
     """Rotates an existing encryption or signing key. NOTE: A namespace root or intermediate
       signing key CANNOT be rotated by this command.
-      |The fingerprint of the key we want to rotate."""
+      |The fingerprint of the key we want to rotate.
+      |An optional name for the new key."""
   )
-  def rotate_node_key(fingerprint: String, name: Option[String] = None): PublicKey = {
+  def rotate_node_key(fingerprint: String, name: String = ""): PublicKey = {
     val owner = instance.id.member
 
     val currentKey = findPublicKey(fingerprint, instance.topology, owner)
 
-    val newKey = name match {
-      case Some(_) => regenerateKey(currentKey, name)
-      case None =>
-        regenerateKey(
-          currentKey,
-          generateNewNameForRotatedKey(fingerprint, consoleEnvironment.environment.clock),
-        )
-    }
+    val newName =
+      if (name.isEmpty)
+        generateNewNameForRotatedKey(fingerprint, consoleEnvironment.environment.clock)
+      else name
+
+    val newKey = regenerateKey(currentKey, newName)
 
     // Rotate the key for the node in the topology management
     instance.topology.owner_to_key_mappings.rotate_key(
@@ -227,8 +233,7 @@ class SecretKeyAdministration(
   @Help.Description(
     """
       |For a participant node it rotates the signing and encryption key pair.
-      |For a domain or domain manager node it rotates the signing key pair as those nodes do not have an encryption key pair.
-      |For a sequencer or mediator node use `rotate_node_keys` with a domain manager reference as an argument.
+      |For a sequencer or mediator node it rotates the signing key pair as those nodes do not have an encryption key pair.
       |NOTE: Namespace root or intermediate signing keys are NOT rotated by this command."""
   )
   def rotate_node_keys(): Unit = {
@@ -260,7 +265,7 @@ class SecretKeyAdministration(
 
   /** Helper to find public keys for topology/x shared between community and enterprise
     */
-  protected def findPublicKeys(
+  private def findPublicKeys(
       topologyAdmin: TopologyAdministrationGroup,
       owner: Member,
   ): Seq[PublicKey] =
@@ -275,10 +280,10 @@ class SecretKeyAdministration(
   /** Helper to name new keys generated during a rotation with a ...-rotated-<timestamp> tag to better identify
     * the new keys after a rotation
     */
-  protected def generateNewNameForRotatedKey(
+  private def generateNewNameForRotatedKey(
       currentKeyId: String,
       clock: Clock,
-  ): Option[String] = {
+  ): String = {
     val keyName = instance.keys.secret
       .list()
       .find(_.publicKey.fingerprint.unwrap == currentKeyId)
@@ -288,10 +293,10 @@ class SecretKeyAdministration(
 
     keyName.map(_.unwrap) match {
       case Some(rotatedKeyRegExp(currentName)) =>
-        Some(s"$currentName-${clock.now.show}")
+        s"$currentName-${clock.now.show}"
       case Some(currentName) =>
-        Some(s"$currentName-rotated-${clock.now.show}")
-      case None => None
+        s"$currentName-rotated-${clock.now.show}"
+      case None => ""
     }
   }
 

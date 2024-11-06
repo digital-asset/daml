@@ -315,10 +315,12 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
 
       for {
         _ <- store.store(events)
-        found <- store.findRange(
-          ByTimestampRange(events(firstIndex).timestamp, events(lastIndex).timestamp),
-          None,
-        )
+        found <- store
+          .findRange(
+            ByTimestampRange(events(firstIndex).timestamp, events(lastIndex).timestamp),
+            None,
+          )
+          .failOnShutdown
       } yield {
         assert(found.toList == events.slice(firstIndex, lastIndex + 1))
       }
@@ -343,10 +345,12 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
 
       for {
         _ <- store.store(events)
-        foundByTs <- store.findRange(
-          ByTimestampRange(events(firstIndex).timestamp, events.lastOption.value.timestamp),
-          Some(limit),
-        )
+        foundByTs <- store
+          .findRange(
+            ByTimestampRange(events(firstIndex).timestamp, events.lastOption.value.timestamp),
+            Some(limit),
+          )
+          .failOnShutdown
       } yield {
         assert(foundByTs.toList == events.slice(firstIndex, firstIndex + limit))
       }
@@ -372,20 +376,24 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
 
       for {
         _ <- store.store(events)
-        foundByTs1 <- store.findRange(
-          ByTimestampRange(
-            events(firstIndex).timestamp.minusMillis(delta / 2L),
-            events(lastIndex).timestamp.plusMillis(delta / 2L),
-          ),
-          None,
-        )
-        foundByTs2 <- store.findRange(
-          ByTimestampRange(
-            events.headOption.value.timestamp.minusMillis(delta / 2L),
-            events.lastOption.value.timestamp.plusMillis(delta / 2L),
-          ),
-          None,
-        )
+        foundByTs1 <- store
+          .findRange(
+            ByTimestampRange(
+              events(firstIndex).timestamp.minusMillis(delta / 2L),
+              events(lastIndex).timestamp.plusMillis(delta / 2L),
+            ),
+            None,
+          )
+          .failOnShutdown
+        foundByTs2 <- store
+          .findRange(
+            ByTimestampRange(
+              events.headOption.value.timestamp.minusMillis(delta / 2L),
+              events.lastOption.value.timestamp.plusMillis(delta / 2L),
+            ),
+            None,
+          )
+          .failOnShutdown
       } yield {
         assert(foundByTs1.toList == events.slice(firstIndex, lastIndex + 1))
         assert(foundByTs2.toList == events)
@@ -402,7 +410,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
       } yield {
         assert(foundByTs.toList == List.empty)
       }
-    }
+    }.failOnShutdown
 
     "find range returns no values when range outside store values" in {
       val store = mk()
@@ -425,9 +433,13 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
 
       for {
         _ <- store.store(events)
-        foundByTsAbove <- store.findRange(ByTimestampRange(getTs(max + 5), getTs(max + 10)), None)
+        foundByTsAbove <- store
+          .findRange(ByTimestampRange(getTs(max + 5), getTs(max + 10)), None)
+          .failOnShutdown
 
-        foundByTsBelow <- store.findRange(ByTimestampRange(getTs(min - 10), getTs(min - 5)), None)
+        foundByTsBelow <- store
+          .findRange(ByTimestampRange(getTs(min - 10), getTs(min - 5)), None)
+          .failOnShutdown
       } yield {
         assert(foundByTsAbove.toList == List.empty)
         assert(foundByTsBelow.toList == List.empty)
@@ -478,12 +490,15 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
       val criterionBelow = ByTimestampRange(CantonTimestamp.MinValue, CantonTimestamp.Epoch)
       for {
         _ <- store.store(events)
-        _ <- store.prune(tsPrune)
+        _ <- store.prune(tsPrune).failOnShutdown
         succeed <- store
           .findRange(ByTimestampRange(tsPrune.immediateSuccessor, ts4), None)
           .valueOrFail("successful range query")
-        fail2 <- leftOrFail(store.findRange(criterionAt, None))("at pruning point")
-        failBelow <- leftOrFail(store.findRange(criterionBelow, None))("before pruning point")
+          .failOnShutdown
+        fail2 <- leftOrFail(store.findRange(criterionAt, None))("at pruning point").failOnShutdown
+        failBelow <- leftOrFail(store.findRange(criterionBelow, None))(
+          "before pruning point"
+        ).failOnShutdown
       } yield {
         val pruningStatus = PruningStatus(PruningPhase.Completed, tsPrune, Some(tsPrune))
         fail2 shouldBe SequencedEventRangeOverlapsWithPruning(
@@ -624,7 +639,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
 
       for {
         _ <- store.store(Seq(firstDeliver, secondDeliver, deliver1, thirdDeliver, deliver2))
-        _ <- store.prune(ts2)
+        _ <- store.prune(ts2).failOnShutdown
         eventsAfterPruningOrPurging <- store.sequencedEvents()
       } yield {
         assert(
@@ -729,7 +744,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
           events <- store.sequencedEvents()
           range <- valueOrFail(store.findRange(ByTimestampRange(ts(11), ts(12)), limit = None))(
             "findRange"
-          )
+          ).failOnShutdown
           byTimestamp <- valueOrFail(store.find(ByTimestamp(ts(11))))("find by timestamp")
           latestUpTo <- valueOrFail(store.find(LatestUpto(ts(11))))("find latest up to")
         } yield {
@@ -751,7 +766,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
           events <- store.sequencedEvents()
           range <- valueOrFail(store.findRange(ByTimestampRange(ts(12), ts(14)), limit = None))(
             "findRange"
-          )
+          ).failOnShutdown
           ignoredEventByTimestamp <- valueOrFail(store.find(ByTimestamp(ts(13))))(
             "find by timestamp"
           )
@@ -781,7 +796,7 @@ trait SequencedEventStoreTest extends PrunableByTimeTest with CloseableTest {
           events <- store.sequencedEvents()
           range <- valueOrFail(store.findRange(ByTimestampRange(ts(11), ts(13)), limit = None))(
             "findRange"
-          )
+          ).failOnShutdown
           deliverByTimestamp <- valueOrFail(store.find(ByTimestamp(ts(10))))("find by timestamp")
           deliverLatestUpTo <- valueOrFail(store.find(LatestUpto(ts(10))))("find latest up to")
         } yield {

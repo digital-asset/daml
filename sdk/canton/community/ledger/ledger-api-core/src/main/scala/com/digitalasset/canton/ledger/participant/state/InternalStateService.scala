@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.AtomicReference
 trait InternalStateService {
   def activeContracts(
       partyIds: Set[LfPartyId],
-      validAt: Option[Offset],
+      validAt: Offset,
   )(implicit traceContext: TraceContext): Source[GetActiveContractsResponse, NotUsed]
 }
 

@@ -84,16 +84,16 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends Name
   def getActiveContracts(client: DamlLedgerClient)(implicit
       traceContext: TraceContext
   ): GetActiveContracts =
-    (jwt, filter, verbose) =>
+    (jwt, filter, offset, verbose) =>
       implicit lc => {
         log(GetActiveContractsLog) {
           client.stateService
             .getActiveContractsSource(
               filter = filter,
-              verbose = verbose,
               token = bearer(jwt),
+              verbose = verbose,
+              validAtOffset = offset,
             )
-            .mapMaterializedValue(_ => NotUsed)
         }
       }
 
@@ -101,13 +101,15 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends Name
       client: DamlLedgerClient
   )(implicit traceContext: TraceContext): GetCreatesAndArchivesSince =
     (jwt, filter, offset, terminates) => { implicit lc =>
-      val endSource: Source[String, NotUsed] = terminates match {
+      val endSource: Source[Option[Long], NotUsed] = terminates match {
         case Terminates.AtParticipantEnd =>
           Source
             .future(client.stateService.getLedgerEnd())
-            .map(response => ApiOffset.fromLongO(response.offset))
-        case Terminates.Never => Source.single("")
-        case Terminates.AtAbsolute(off) => Source.single(off)
+            .map(_.offset)
+            .map(Some(_))
+        case Terminates.Never => Source.single(None)
+        case Terminates.AtAbsolute(off) =>
+          Source.single(Some(ApiOffset.assertFromStringToLong(off)))
       }
       endSource.flatMapConcat { end =>
         if (skipRequest(offset, end))
@@ -167,11 +169,10 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends Name
   //      }
   //  }
 
-  private def skipRequest(start: String, end: String): Boolean =
-    (start, end) match {
-      case (_, "") => false
-      case ("", _) => false
-      case _ => start >= end
+  private def skipRequest(start: Long, endO: Option[Long]): Boolean =
+    (start, endO) match {
+      case (_, Some(end)) => start >= end
+      case (_, None) => false
     }
 
   // TODO(#13303): Replace all occurrences of EC for logging purposes in this file
@@ -267,6 +268,18 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends Name
         }
       }
 
+  def getLedgerEnd(client: DamlLedgerClient)(implicit
+      traceContext: TraceContext
+  ): GetLedgerEnd =
+    jwt =>
+      implicit lc => {
+        Source.future(
+          log(GetLedgerEndLog) {
+            client.stateService.getLedgerEndOffset(token = bearer(jwt))
+          }
+        )
+      }
+
   private def logFuture[T, C](
       requestLog: RequestLog
   )(
@@ -322,17 +335,21 @@ object LedgerClientJwt {
     (
         Jwt,
         TransactionFilter,
+        Long,
         Boolean,
     ) => LoggingContextOf[InstanceUUID] => Source[
       GetActiveContractsResponse,
       NotUsed,
     ]
 
+  type GetLedgerEnd =
+    Jwt => LoggingContextOf[InstanceUUID] => Source[Long, NotUsed]
+
   type GetCreatesAndArchivesSince =
     (
         Jwt,
         TransactionFilter,
-        String,
+        Long,
         Terminates,
     ) => LoggingContextOf[InstanceUUID] => Source[Transaction, NotUsed]
 
@@ -411,6 +428,7 @@ object LedgerClientJwt {
   sealed abstract class Terminates extends Product with Serializable
 
   object Terminates {
+    // TODO(#21801) remove AtParticipantEnd
     case object AtParticipantEnd extends Terminates
     case object Never extends Terminates
     final case class AtAbsolute(off: String) extends Terminates
@@ -478,6 +496,7 @@ object LedgerClientJwt {
         extends RequestLog(classOf[MeteringReportClient], "getMeteringReport")
     case object GetActiveContractsLog
         extends RequestLog(classOf[StateServiceClient], "getActiveContracts")
+    case object GetLedgerEndLog extends RequestLog(classOf[StateServiceClient], "getLedgerEnd")
     case object GetUpdatesLog extends RequestLog(classOf[UpdateServiceClient], "getUpdates")
     case object GetContractByContractIdLog
         extends RequestLog(classOf[EventQueryServiceClient], "getContractByContractId")

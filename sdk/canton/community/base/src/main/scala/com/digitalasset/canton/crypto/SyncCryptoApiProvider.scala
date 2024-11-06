@@ -18,9 +18,9 @@ import com.digitalasset.canton.concurrent.{FutureSupervisor, HasFutureSupervisio
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.config.{CacheConfig, CachingConfigs, ProcessingTimeout}
 import com.digitalasset.canton.crypto.SignatureCheckError.{
-  InvalidCryptoScheme,
   SignatureWithWrongKey,
   SignerHasNoValidKeys,
+  UnsupportedKeySpec,
 }
 import com.digitalasset.canton.crypto.SyncCryptoError.{KeyNotAvailable, SyncCryptoEncryptionError}
 import com.digitalasset.canton.data.CantonTimestamp
@@ -29,7 +29,6 @@ import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
   FutureUnlessShutdown,
   Lifecycle,
-  UnlessShutdown,
 }
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.protocol.{DynamicDomainParameters, StaticDomainParameters}
@@ -43,7 +42,7 @@ import com.digitalasset.canton.topology.client.{
   TopologySnapshot,
 }
 import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime}
-import com.digitalasset.canton.tracing.{TraceContext, TracedScaffeine}
+import com.digitalasset.canton.tracing.{TraceContext, TracedAsyncLoadingCache, TracedScaffeine}
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.LoggerUtil
 import com.digitalasset.canton.version.{HasVersionedToByteString, ProtocolVersion}
@@ -259,7 +258,7 @@ object SyncCryptoClient {
           s"Waiting for topology snapshot at $timestamp; desired=$desiredTimestamp, known until ${client.topologyKnownUntilTimestamp}; previous $previousTimestampO"
         )
         awaitSnapshotSupervised(
-          s"requesting topology snapshot at topology snapshot at $timestamp; desired=$desiredTimestamp, previousO=$previousTimestampO, known until=${client.topologyKnownUntilTimestamp}",
+          s"requesting topology snapshot at $timestamp; desired=$desiredTimestamp, previousO=$previousTimestampO, known until=${client.topologyKnownUntilTimestamp}",
           timestamp,
           traceContext,
         )
@@ -368,24 +367,25 @@ class DomainSyncCryptoClient(
       staticDomainParameters,
       snapshot,
       crypto,
-      implicit tc =>
-        (ts, usage) => EitherT(FutureUnlessShutdown(mySigningKeyCache.get((ts, usage)))),
+      implicit tc => (ts, usage) => mySigningKeyCache.get((ts, usage)),
       cacheConfigs.keyCache,
       loggerFactory,
     )
 
-  private val mySigningKeyCache =
-    TracedScaffeine
-      .buildTracedAsyncFuture[(CantonTimestamp, NonEmpty[Set[SigningKeyUsage]]), UnlessShutdown[
-        Either[SyncCryptoError, Fingerprint]
-      ]](
-        cache = cacheConfigs.mySigningKeyCache.buildScaffeine(),
-        loader = traceContext =>
-          key => {
-            val (timestamp, usage) = key
-            findSigningKey(timestamp, usage)(traceContext).value.unwrap
-          },
-      )(logger)
+  private val mySigningKeyCache: TracedAsyncLoadingCache[
+    EitherT[FutureUnlessShutdown, SyncCryptoError, *],
+    (CantonTimestamp, NonEmpty[Set[SigningKeyUsage]]),
+    Fingerprint,
+  ] = TracedScaffeine.buildTracedAsync[
+    EitherT[FutureUnlessShutdown, SyncCryptoError, *],
+    (CantonTimestamp, NonEmpty[Set[SigningKeyUsage]]),
+    Fingerprint,
+  ](
+    cache = cacheConfigs.mySigningKeyCache.buildScaffeine(),
+    loader = implicit traceContext => { case (timestamp, usage) =>
+      findSigningKey(timestamp, usage)
+    },
+  )(logger)
 
   private def findSigningKey(
       referenceTime: CantonTimestamp,
@@ -477,7 +477,7 @@ class DomainSnapshotSyncCryptoApi(
     new DomainCryptoPureApi(staticDomainParameters, crypto.pureCrypto)
   private val validKeysCache =
     TracedScaffeine
-      .buildTracedAsyncFuture[Member, Map[Fingerprint, SigningPublicKey]](
+      .buildTracedAsync[Future, Member, Map[Fingerprint, SigningPublicKey]](
         cache = validKeysCacheConfig.buildScaffeine(),
         loader = traceContext =>
           member =>
@@ -540,13 +540,13 @@ class DomainSnapshotSyncCryptoApi(
     }
     validKeys.get(signature.signedBy) match {
       case Some(key) =>
-        if (staticDomainParameters.requiredSigningKeySchemes.contains(key.scheme))
+        if (staticDomainParameters.requiredSigningSpecs.keys.contains(key.keySpec))
           pureCrypto.verifySignature(hash, key, signature)
         else
           Left(
-            InvalidCryptoScheme(
-              s"The signing key scheme ${key.scheme} is not part of the " +
-                s"required schemes: ${staticDomainParameters.requiredSigningKeySchemes}"
+            UnsupportedKeySpec(
+              key.keySpec,
+              staticDomainParameters.requiredSigningSpecs.keys,
             )
           )
       case None =>

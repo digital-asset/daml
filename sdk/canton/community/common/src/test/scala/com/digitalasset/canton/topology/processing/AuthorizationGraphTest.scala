@@ -67,7 +67,10 @@ class AuthorizationGraphTest
         key: SigningPublicKey,
     ): AuthorizedTopologyTransaction[T] = {
       val signature = factory.cryptoApi.crypto.privateCrypto
-        .sign(authTx.hash.hash, key.fingerprint)
+        .sign(
+          authTx.hash.hash,
+          key.fingerprint,
+        )
         .value
         .failOnShutdown
         .futureValue

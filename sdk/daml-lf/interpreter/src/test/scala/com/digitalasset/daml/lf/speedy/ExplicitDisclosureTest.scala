@@ -7,17 +7,17 @@ package speedy
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.interpretation.Error.{ContractKeyNotFound, ContractNotActive}
 import com.digitalasset.daml.lf.language.LanguageMajorVersion
-import com.digitalasset.daml.lf.speedy.SExpr.SEValue
-import com.digitalasset.daml.lf.value.Value
-import com.digitalasset.daml.lf.value.Value.ContractId
-import org.scalatest.{Assertion, Inside}
-import org.scalatest.freespec.AnyFreeSpec
-import org.scalatest.matchers.should.Matchers
 import com.digitalasset.daml.lf.speedy.SBuiltinFun.{SBFetchTemplate, SBUFetchKey, SBULookupKey}
+import com.digitalasset.daml.lf.speedy.SExpr.SEValue
 import com.digitalasset.daml.lf.speedy.SValue.SContractId
 import com.digitalasset.daml.lf.speedy.Speedy.ContractInfo
-import com.digitalasset.daml.lf.transaction.GlobalKeyWithMaintainers
 import com.digitalasset.daml.lf.testing.parser.Implicits._
+import com.digitalasset.daml.lf.transaction.GlobalKeyWithMaintainers
+import com.digitalasset.daml.lf.value.Value
+import com.digitalasset.daml.lf.value.Value.ContractId
+import org.scalatest.freespec.AnyFreeSpec
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.{Assertion, Inside}
 
 class ExplicitDisclosureTestV2 extends ExplicitDisclosureTest(LanguageMajorVersion.V2)
 
@@ -45,7 +45,7 @@ private[lf] class ExplicitDisclosureTest(majorLanguageVersion: LanguageMajorVers
       "disclosure table queried when contract ID is disclosed" - {
         "contract ID in disclosure table only" in {
           disclosureTableQueriedWhenContractDisclosed(
-            SBFetchTemplate(caveTemplateId)(SEValue(SContractId(contractId)), SEValue.None),
+            SBFetchTemplate(caveTemplateId)(SEValue(SContractId(contractId))),
             disclosedCaveContract,
             disclosures = List(disclosedCaveContract),
           )(result =>
@@ -57,7 +57,7 @@ private[lf] class ExplicitDisclosureTest(majorLanguageVersion: LanguageMajorVers
 
         "contract ID in ledger and disclosure table" in {
           disclosureTableQueriedWhenContractDisclosed(
-            SBFetchTemplate(caveTemplateId)(SEValue(SContractId(contractId)), SEValue.None),
+            SBFetchTemplate(caveTemplateId)(SEValue(SContractId(contractId))),
             disclosedCaveContract,
             getContract = Map(contractId -> ledgerCaveContract),
             disclosures = List(disclosedCaveContract),
@@ -72,7 +72,7 @@ private[lf] class ExplicitDisclosureTest(majorLanguageVersion: LanguageMajorVers
       "contract IDs that are inactive" - {
         "ledger query fails when contract ID is not disclosed" in {
           ledgerQueryFailsWhenContractNotDisclosed(
-            SBFetchTemplate(caveTemplateId)(SEValue(SContractId(contractId)), SEValue.None),
+            SBFetchTemplate(caveTemplateId)(SEValue(SContractId(contractId))),
             contractId,
             "TestMod:destroyCave",
             committers = Set(ledgerParty),
@@ -92,7 +92,7 @@ private[lf] class ExplicitDisclosureTest(majorLanguageVersion: LanguageMajorVers
         "disclosure table query fails when contract ID is disclosed" - {
           "contract ID in disclosure table only" in {
             disclosureTableQueryFailsWhenContractDisclosed(
-              SBFetchTemplate(caveTemplateId)(SEValue(SContractId(contractId)), SEValue.None),
+              SBFetchTemplate(caveTemplateId)(SEValue(SContractId(contractId))),
               disclosedCaveContract,
               contractId,
               "TestMod:destroyCave",
@@ -112,7 +112,7 @@ private[lf] class ExplicitDisclosureTest(majorLanguageVersion: LanguageMajorVers
 
           "contract ID in ledger and disclosure table" in {
             disclosureTableQueryFailsWhenContractDisclosed(
-              SBFetchTemplate(caveTemplateId)(SEValue(SContractId(contractId)), SEValue.None),
+              SBFetchTemplate(caveTemplateId)(SEValue(SContractId(contractId))),
               disclosedCaveContract,
               contractId,
               "TestMod:destroyCave",

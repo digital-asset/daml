@@ -186,6 +186,14 @@ object ViewConfirmationParameters {
       extends RuntimeException(message)
 
   /** Creates a [[ViewConfirmationParameters]] with a single quorum consisting of all confirming parties and a given threshold.
+    *
+    * Informees are parties involved in the view and can have a weight indicating their confirmation role:
+    * - Non-confirming informees have a weight of 0.
+    * - Confirming informees have a positive weight (with a recommended value of 1).
+    *
+    * The `threshold` parameter determines the minimum number of confirmers required to approve the view.
+    * Currently, only thresholds equal to the total weight of all confirmers are supported
+    * (i.e., threshold == sum of weights of all confirming informees).
     */
   def create(
       informees: Map[LfPartyId, NonNegativeInt],
@@ -205,6 +213,9 @@ object ViewConfirmationParameters {
 
   /** Creates a [[ViewConfirmationParameters]] where all informees are confirmers and
     * includes a single quorum consisting of all confirming parties and a given threshold.
+    *
+    * Confirmers must have a positive weight (with a recommended value of 1). Currently,
+    * only thresholds equal to the sum of all confirmers' weights are supported.
     */
   def createOnlyWithConfirmers(
       confirmers: Map[LfPartyId, PositiveInt],

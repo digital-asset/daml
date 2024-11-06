@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.store
 
 import cats.data.EitherT
+import cats.syntax.either.*
 import cats.syntax.foldable.*
 import cats.syntax.traverse.*
 import cats.{Eval, Foldable}
@@ -20,7 +21,7 @@ import com.digitalasset.canton.pruning.PruningStatus
 import com.digitalasset.canton.topology.client.DomainTopologyClient
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, PartyId}
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.{EitherUtil, MonadUtil}
+import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.{LfPartyId, ReassignmentCounter}
 
 import scala.collection.immutable.SortedMap
@@ -62,6 +63,7 @@ class AcsInspection(
     } yield res
 
   /** Get the current snapshot
+    *
     * @return A snapshot (with its timestamp) or None if no clean timestamp is known
     */
   def getCurrentSnapshot()(implicit
@@ -91,19 +93,23 @@ class AcsInspection(
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[Future, AcsInspectionError, AcsSnapshot[
+  ): EitherT[FutureUnlessShutdown, AcsInspectionError, AcsSnapshot[
     SortedMap[LfContractId, (CantonTimestamp, ReassignmentCounter)]
   ]] =
     for {
       _ <-
         if (!skipCleanTimestampCheck)
-          TimestampValidation.beforeRequestIndex(
-            domainId,
-            ledgerApiStore.value.domainIndex(domainId).map(_.requestIndex),
-            timestamp,
-          )
-        else EitherT.pure[Future, AcsInspectionError](())
-      snapshot <- EitherT.right(activeContractStore.snapshot(timestamp))
+          TimestampValidation
+            .beforeRequestIndex(
+              domainId,
+              ledgerApiStore.value.domainIndex(domainId).map(_.requestIndex),
+              timestamp,
+            )
+            .mapK(FutureUnlessShutdown.outcomeK)
+        else EitherT.pure[FutureUnlessShutdown, AcsInspectionError](())
+      snapshot <- EitherT
+        .right(activeContractStore.snapshot(timestamp))
+        .mapK(FutureUnlessShutdown.outcomeK)
       // check after getting the snapshot in case a pruning was happening concurrently
       _ <- TimestampValidation.afterPruning(
         domainId,
@@ -120,21 +126,24 @@ class AcsInspection(
   )(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[Future, AcsInspectionError, Option[
+  ): EitherT[FutureUnlessShutdown, AcsInspectionError, Option[
     AcsSnapshot[Iterator[Seq[(LfContractId, ReassignmentCounter)]]]
   ]] = {
 
     type MaybeSnapshot =
       Option[AcsSnapshot[SortedMap[LfContractId, (CantonTimestamp, ReassignmentCounter)]]]
 
-    val maybeSnapshotET: EitherT[Future, AcsInspectionError, MaybeSnapshot] = timestamp match {
-      case Some(timestamp) =>
-        getSnapshotAt(domainId)(timestamp, skipCleanTimestampCheck = skipCleanTimestampCheck)
-          .map(Some(_))
+    val maybeSnapshotET: EitherT[FutureUnlessShutdown, AcsInspectionError, MaybeSnapshot] =
+      timestamp match {
+        case Some(timestamp) =>
+          getSnapshotAt(domainId)(timestamp, skipCleanTimestampCheck = skipCleanTimestampCheck)
+            .map(Some(_))
 
-      case None =>
-        EitherT.right[AcsInspectionError](getCurrentSnapshot())
-    }
+        case None =>
+          EitherT
+            .right[AcsInspectionError](getCurrentSnapshot())
+            .mapK(FutureUnlessShutdown.outcomeK)
+      }
 
     maybeSnapshotET.map(
       _.map { case AcsSnapshot(snapshot, ts) =>
@@ -200,7 +209,7 @@ class AcsInspection(
   )(f: (SerializableContract, ReassignmentCounter) => Either[AcsInspectionError, Unit])(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[Future, AcsInspectionError, Option[(Set[LfPartyId], CantonTimestamp)]] =
+  ): EitherT[FutureUnlessShutdown, AcsInspectionError, Option[(Set[LfPartyId], CantonTimestamp)]] =
     for {
       acsSnapshotO <- getAcsSnapshot(
         domainId,
@@ -218,6 +227,7 @@ class AcsInspection(
 
   /** Applies function f to all the contracts in the batch whose set of stakeholders has
     * non-empty intersection with `parties`
+    *
     * @return The union of all stakeholders of all contracts on which `f` was applied
     */
   private def forEachBatch(
@@ -227,7 +237,7 @@ class AcsInspection(
   )(batch: Seq[(LfContractId, ReassignmentCounter)])(implicit
       traceContext: TraceContext,
       ec: ExecutionContext,
-  ): EitherT[Future, AcsInspectionError, Set[LfPartyId]] = {
+  ): EitherT[FutureUnlessShutdown, AcsInspectionError, Set[LfPartyId]] = {
     val (cids, reassignmentCounters) = batch.unzip
 
     val allStakeholders: mutable.Set[LfPartyId] = mutable.Set()
@@ -238,6 +248,7 @@ class AcsInspection(
         .leftMap(missingContract =>
           AcsInspectionError.InconsistentSnapshot(domainId, missingContract)
         )
+        .mapK(FutureUnlessShutdown.outcomeK)
 
       contractsWithReassignmentCounter = batch.zip(reassignmentCounters)
 
@@ -247,16 +258,13 @@ class AcsInspection(
             allStakeholders ++= storedContract.contract.metadata.stakeholders
             f(storedContract.contract, reassignmentCounter)
           } else
-            Right(())
+            Either.unit
         }
         .map(_ => allStakeholders.toSet)
 
-      allStakeholders <- EitherT.fromEither[Future](stakeholdersE)
+      allStakeholders <- EitherT.fromEither[FutureUnlessShutdown](stakeholdersE)
     } yield allStakeholders
   }
-
-  def pruningStatus()(implicit traceContext: TraceContext): Future[Option[PruningStatus]] =
-    activeContractStore.pruningStatus
 }
 
 object AcsInspection {
@@ -272,7 +280,14 @@ object AcsInspection {
     )(p: A => Boolean)(fail: A => AcsInspectionError)(implicit
         ec: ExecutionContext
     ): EitherT[Future, AcsInspectionError, Unit] =
-      EitherT(ffa.map(_.traverse_(a => EitherUtil.condUnitE(p(a), fail(a)))))
+      EitherT(ffa.map(_.traverse_(a => Either.cond(p(a), (), fail(a)))))
+
+    private def validateUS[A, F[_]: Foldable](
+        ffa: FutureUnlessShutdown[F[A]]
+    )(p: A => Boolean)(fail: A => AcsInspectionError)(implicit
+        ec: ExecutionContext
+    ): EitherT[FutureUnlessShutdown, AcsInspectionError, Unit] =
+      EitherT(ffa.map(_.traverse_(a => Either.cond(p(a), (), fail(a)))))
 
     def beforeRequestIndex(
         domainId: DomainId,
@@ -285,14 +300,14 @@ object AcsInspection {
 
     def afterPruning(
         domainId: DomainId,
-        pruningStatus: Future[Option[PruningStatus]],
+        pruningStatus: FutureUnlessShutdown[Option[PruningStatus]],
         timestamp: CantonTimestamp,
     )(implicit
         ec: ExecutionContext
-    ): EitherT[Future, AcsInspectionError, Unit] =
-      validate(pruningStatus)(timestamp >= _.timestamp)(ps =>
-        AcsInspectionError.TimestampBeforePruning(domainId, timestamp, ps.timestamp)
-      )
+    ): EitherT[FutureUnlessShutdown, AcsInspectionError, Unit] =
+      validateUS(pruningStatus)(
+        timestamp >= _.timestamp
+      )(ps => AcsInspectionError.TimestampBeforePruning(domainId, timestamp, ps.timestamp))
 
   }
 }

@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.sequencing.client.transports
 
+import cats.syntax.either.*
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -55,12 +56,12 @@ object HasProtoTraceContext {
     }
 }
 
-@VisibleForTesting
-class GrpcSequencerSubscription[E, R: HasProtoTraceContext] private[transports] (
+abstract class ConsumesCancellableGrpcStreamObserver[
+    E,
+    R: HasProtoTraceContext,
+] private[client] (
     context: CancellableContext,
-    callHandler: Traced[R] => Future[Either[E, Unit]],
-    override val timeouts: ProcessingTimeout,
-    protected val loggerFactory: NamedLoggerFactory,
+    timeouts: ProcessingTimeout,
 )(implicit executionContext: ExecutionContext)
     extends SequencerSubscription[E] {
 
@@ -69,8 +70,11 @@ class GrpcSequencerSubscription[E, R: HasProtoTraceContext] private[transports] 
     */
   private val currentProcessing = new AtomicReference[Future[Unit]](Future.unit)
   private val currentAwaitOnNext = new AtomicReference[Promise[UnlessShutdown[Either[E, Unit]]]](
-    Promise.successful(Outcome(Right(())))
+    Promise.successful(Outcome(Either.unit))
   )
+
+  protected def callHandler: Traced[R] => Future[Either[E, Unit]]
+  protected def onCompleteCloseReason: SubscriptionCloseReason[E]
 
   runOnShutdown_(new RunOnShutdown {
     override def name: String = "cancel-current-await-in-onNext"
@@ -141,7 +145,7 @@ class GrpcSequencerSubscription[E, R: HasProtoTraceContext] private[transports] 
   }
 
   @VisibleForTesting // so unit tests can call onNext, onError and onComplete
-  private[transports] val observer = new StreamObserver[R] {
+  private[client] val observer = new StreamObserver[R] {
     override def onNext(value: R): Unit = {
       // we take the unusual step of immediately trying to deserialize the trace-context
       // so it is available here for logging
@@ -236,20 +240,34 @@ class GrpcSequencerSubscription[E, R: HasProtoTraceContext] private[transports] 
       import TraceContext.Implicits.Empty.*
       // Info level, as this occurs from time to time due to the invalidation of the authentication token.
       logger.info("The sequencer subscription has been terminated by the server.")
-      complete(
-        GrpcSubscriptionError(
-          GrpcError(
-            "subscription",
-            "sequencer",
-            Status.UNAVAILABLE
-              .withDescription("Connection terminated by the server.")
-              .asRuntimeException(),
-          )
-        )
-      )
+      complete(onCompleteCloseReason)
     }
 
   }
+}
+
+@VisibleForTesting
+class GrpcSequencerSubscription[E, R: HasProtoTraceContext] private[transports] (
+    context: CancellableContext,
+    override protected val callHandler: Traced[R] => Future[Either[E, Unit]],
+    override val timeouts: ProcessingTimeout,
+    protected val loggerFactory: NamedLoggerFactory,
+)(implicit executionContext: ExecutionContext)
+    extends ConsumesCancellableGrpcStreamObserver[E, R](
+      context,
+      timeouts,
+    ) {
+
+  override protected lazy val onCompleteCloseReason = GrpcSubscriptionError(
+    GrpcError(
+      "subscription",
+      "sequencer",
+      Status.UNAVAILABLE
+        .withDescription("Connection terminated by the server.")
+        .asRuntimeException(),
+    )
+  )
+
 }
 
 object GrpcSequencerSubscription {

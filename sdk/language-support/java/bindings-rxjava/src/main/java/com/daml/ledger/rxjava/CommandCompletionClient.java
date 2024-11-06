@@ -6,16 +6,15 @@ package com.daml.ledger.rxjava;
 import com.daml.ledger.javaapi.data.CompletionStreamResponse;
 import io.reactivex.Flowable;
 import java.util.List;
-import java.util.Optional;
 
 /** An RxJava version of {@link com.daml.ledger.api.v2.CommandCompletionServiceGrpc} */
 public interface CommandCompletionClient {
 
   Flowable<CompletionStreamResponse> completionStream(
-      String applicationId, Optional<Long> offset, List<String> parties);
+      String applicationId, Long offset, List<String> parties);
 
   Flowable<CompletionStreamResponse> completionStream(
-      String applicationId, Optional<Long> offset, List<String> parties, String accessToken);
+      String applicationId, Long offset, List<String> parties, String accessToken);
 
   Flowable<CompletionStreamResponse> completionStream(String applicationId, List<String> parties);
 

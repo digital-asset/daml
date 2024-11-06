@@ -7,7 +7,9 @@ import com.daml.error.*
 import com.daml.error.ErrorCategory.GenericErrorCategory
 import com.daml.error.utils.DecodedCantonError
 import com.daml.ledger.api.v2.admin.object_meta.ObjectMeta
+import com.daml.ledger.api.v2.offset_checkpoint
 import com.daml.ledger.api.v2.trace_context.TraceContext
+import com.digitalasset.canton.http.json.v2.JsSchema.JsEvent.CreatedEvent
 import com.google.protobuf
 import com.google.protobuf.field_mask.FieldMask
 import com.google.protobuf.struct.Struct
@@ -21,7 +23,7 @@ import sttp.tapir.{DecodeResult, Schema, SchemaType}
 
 import java.time.Instant
 import java.util.Base64
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.util.Try
 
 /** JSON wrappers that do not belong to a particular service */
@@ -33,7 +35,7 @@ object JsSchema {
       workflow_id: String,
       effective_at: com.google.protobuf.timestamp.Timestamp,
       events: Seq[JsEvent.Event],
-      offset: String,
+      offset: Long,
       domain_id: String,
       trace_context: Option[TraceContext],
       record_time: com.google.protobuf.timestamp.Timestamp,
@@ -44,7 +46,7 @@ object JsSchema {
       command_id: String,
       workflow_id: String,
       effective_at: Option[protobuf.timestamp.Timestamp],
-      offset: String,
+      offset: Long,
       events_by_id: Map[String, JsTreeEvent.TreeEvent],
       root_event_ids: Seq[String],
       domain_id: String,
@@ -98,7 +100,7 @@ object JsSchema {
         event_id: String,
         contract_id: String,
         template_id: String,
-        interface_id: String,
+        interface_id: Option[String],
         choice: String,
         choice_argument: Json,
         acting_parties: Seq[String],
@@ -109,20 +111,7 @@ object JsSchema {
         package_name: String,
     ) extends TreeEvent
 
-    final case class CreatedTreeEvent(
-        event_id: String,
-        contract_id: String,
-        template_id: String,
-        contract_key: Option[Json],
-        create_arguments: Option[Json],
-        created_event_blob: protobuf.ByteString,
-        interface_views: Seq[JsInterfaceView],
-        witness_parties: Seq[String],
-        signatories: Seq[String],
-        observers: Seq[String],
-        createdAt: Option[com.google.protobuf.timestamp.Timestamp],
-        packageName: String,
-    ) extends TreeEvent
+    final case class CreatedTreeEvent(value: CreatedEvent) extends TreeEvent
 
   }
 
@@ -135,9 +124,12 @@ object JsSchema {
       resources: Seq[(String, String)],
       errorCategory: Int,
       grpcCodeValue: Option[Int],
+      retryInfo: Option[Duration],
+      definiteAnswer: Option[Boolean],
   )
 
   object JsCantonError {
+    import DirectScalaPbRwImplicits.*
     implicit val rw: Codec[JsCantonError] = deriveCodec
 
     def fromErrorCode(damlError: DamlError): JsCantonError = JsCantonError(
@@ -148,7 +140,13 @@ object JsSchema {
       context = damlError.context,
       resources = damlError.resources.map { case (k, v) => (k.asString, v) },
       errorCategory = damlError.code.category.asInt,
-      grpcCodeValue = None,
+      grpcCodeValue = damlError.code.category.grpcCode.map(_.value()),
+      retryInfo = damlError.code.category.retryable.map(_.duration),
+      definiteAnswer = damlError match {
+        case errorWithDefiniteAnswer: DamlErrorWithDefiniteAnswer =>
+          Some(errorWithDefiniteAnswer.definiteAnswer)
+        case _ => None
+      },
     )
 
     def fromDecodedCantonError(decodedCantonError: DecodedCantonError): JsCantonError =
@@ -161,6 +159,8 @@ object JsSchema {
         traceId = decodedCantonError.traceId,
         context = decodedCantonError.context,
         resources = decodedCantonError.resources.map { case (k, v) => (k.toString, v) },
+        retryInfo = decodedCantonError.code.category.retryable.map(_.duration),
+        definiteAnswer = decodedCantonError.definiteAnswerO,
       )
 
     implicit val genericErrorClass: ErrorClass = ErrorClass(
@@ -180,7 +180,9 @@ object JsSchema {
           category = GenericErrorCategory(
             grpcCode = jsCantonError.grpcCodeValue.map(Status.fromCodeValue).map(_.getCode),
             logLevel = Level.INFO,
-            retryable = None,
+            retryable = jsCantonError.retryInfo.map(duration =>
+              ErrorCategoryRetry(FiniteDuration(duration.length, duration.unit))
+            ),
             securitySensitive = false,
             asInt = jsCantonError.errorCategory,
             rank = 1,
@@ -191,6 +193,7 @@ object JsSchema {
         traceId = jsCantonError.traceId,
         context = jsCantonError.context,
         resources = jsCantonError.resources.map { case (k, v) => (ErrorResource(k), v) },
+        definiteAnswerO = jsCantonError.definiteAnswer,
       )
   }
   object DirectScalaPbRwImplicits {
@@ -274,5 +277,13 @@ object JsSchema {
     implicit val jsTreeEvent: Codec[JsTreeEvent.TreeEvent] = deriveCodec
     implicit val jsExercisedTreeEvent: Codec[JsTreeEvent.ExercisedTreeEvent] = deriveCodec
     implicit val jsCreatedTreeEvent: Codec[JsTreeEvent.CreatedTreeEvent] = deriveCodec
+
+    implicit val offsetCheckpoint: Codec[offset_checkpoint.OffsetCheckpoint] = deriveCodec
+    implicit val offsetCheckpointDomainTime: Codec[offset_checkpoint.DomainTime] = deriveCodec
+
+    implicit val grpcStatusRW: Codec[
+      com.google.rpc.status.Status
+    ] = deriveCodec
+
   }
 }

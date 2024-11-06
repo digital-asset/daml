@@ -9,6 +9,7 @@ import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.ChangeId
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.protocol.submission.ChangeIdHash
@@ -28,7 +29,7 @@ import com.digitalasset.canton.{ApplicationId, CommandId}
 import slick.jdbc.SetParameter
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class DbCommandDeduplicationStore(
     override protected val storage: DbStorage,
@@ -53,7 +54,9 @@ class DbCommandDeduplicationStore(
 
   override def lookup(
       changeIdHash: ChangeIdHash
-  )(implicit traceContext: TraceContext): OptionT[Future, CommandDeduplicationData] = {
+  )(implicit
+      traceContext: TraceContext
+  ): OptionT[FutureUnlessShutdown, CommandDeduplicationData] = {
     val query =
       sql"""
         select application_id, command_id, act_as,
@@ -62,12 +65,12 @@ class DbCommandDeduplicationStore(
         from par_command_deduplication
         where change_id_hash = $changeIdHash
         """.as[CommandDeduplicationData].headOption
-    storage.querySingle(query, functionFullName)
+    storage.querySingleUnlessShutdown(query, functionFullName)
   }
 
   override def storeDefiniteAnswers(
       answers: Seq[(ChangeId, DefiniteAnswerEvent, Boolean)]
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     val update = storage.profile match {
       case _: DbStorage.Profile.Postgres =>
         """
@@ -176,7 +179,7 @@ class DbCommandDeduplicationStore(
     // published events in the multi-domain event log, which itself uses synchronous commits and
     // therefore ensures synchronization. After a crash, crash recovery will sync the
     // command deduplication data with the indexer DB.
-    storage.queryAndUpdate(bulkUpdate, functionFullName).flatMap { rowCounts =>
+    storage.queryAndUpdateUnlessShutdown(bulkUpdate, functionFullName).flatMap { rowCounts =>
       MonadUtil.sequentialTraverse_(rowCounts.iterator.zip(answers.tails)) {
         case (rowCount, currentAndLaterAnswers) =>
           val (changeId, definiteAnswerEvent, accepted) =
@@ -197,13 +200,13 @@ class DbCommandDeduplicationStore(
       definiteAnswerEvent: DefiniteAnswerEvent,
       accepted: Boolean,
       laterAnswersInBatch: Seq[(ChangeId, DefiniteAnswerEvent, Boolean)],
-  ): Future[Unit] = {
+  ): FutureUnlessShutdown[Unit] = {
     implicit val traceContext: TraceContext = definiteAnswerEvent.traceContext
     if (rowCount == 1) {
       val acceptance = if (accepted) definiteAnswerEvent.some else None
       val data = CommandDeduplicationData.tryCreate(changeId, definiteAnswerEvent, acceptance)
       logger.debug(s"Updated command deduplication data for ${changeId.hash} to $data")
-      Future.unit
+      FutureUnlessShutdown.unit
     } else if (rowCount == 0) {
       val changeIdHash = ChangeIdHash(changeId)
       // Check what's in the DB
@@ -263,7 +266,7 @@ class DbCommandDeduplicationStore(
         }
       }
     } else {
-      ErrorUtil.internalErrorAsync(
+      ErrorUtil.internalErrorAsyncShutdown(
         new DbSerializationException(
           s"Updating the command deduplication for ${changeId.hash} updated $rowCount rows"
         )
@@ -273,7 +276,7 @@ class DbCommandDeduplicationStore(
 
   override def prune(upToInclusive: GlobalOffset, prunedPublicationTime: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Unit] = {
+  ): FutureUnlessShutdown[Unit] = {
     cachedLastPruning.updateAndGet {
       case Some(Some(OffsetAndPublicationTime(currentOffset, currentPublicationTime))) =>
         Some(
@@ -314,13 +317,13 @@ class DbCommandDeduplicationStore(
       }
       val doPrune =
         sqlu"""delete from par_command_deduplication where offset_definite_answer <= $upToInclusive"""
-      storage.update_(updatePruneOffset.andThen(doPrune), functionFullName)
+      storage.updateUnlessShutdown_(updatePruneOffset.andThen(doPrune), functionFullName)
     }
   }
 
   override def latestPruning()(implicit
       traceContext: TraceContext
-  ): OptionT[Future, CommandDeduplicationStore.OffsetAndPublicationTime] =
+  ): OptionT[FutureUnlessShutdown, CommandDeduplicationStore.OffsetAndPublicationTime] =
     cachedLastPruning.get() match {
       case None =>
         {
@@ -329,13 +332,13 @@ class DbCommandDeduplicationStore(
           select pruning_offset, publication_time
           from par_command_deduplication_pruning
              """.as[OffsetAndPublicationTime].headOption
-          storage.querySingle(query, functionFullName)
+          storage.querySingleUnlessShutdown(query, functionFullName)
         }
           .transform { offset =>
             // only replace if we haven't raced with another thread
             cachedLastPruning.compareAndSet(None, Some(offset))
             offset
           }
-      case Some(value) => OptionT.fromOption[Future](value)
+      case Some(value) => OptionT.fromOption[FutureUnlessShutdown](value)
     }
 }

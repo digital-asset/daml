@@ -7,6 +7,7 @@ import com.daml.error.{ContextualizedErrorLogger, NoLogging}
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamRequest as GrpcCompletionStreamRequest
 import com.digitalasset.canton.ledger.api.domain.ParticipantOffset
 import com.digitalasset.canton.ledger.api.messages.command.completion.CompletionStreamRequest
+import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.daml.lf.data.Ref
 import io.grpc.Status.Code.*
 import org.mockito.MockitoSugar
@@ -56,16 +57,12 @@ class CompletionServiceRequestValidatorTest
         )
       }
 
-      "return the correct error on zero begin exclusive offset" in {
-        requestMustFailWith(
-          request = validator.validateGrpcCompletionStreamRequest(
-            grpcCompletionReq.withBeginExclusive(0)
-          ),
-          code = INVALID_ARGUMENT,
-          description =
-            "NON_POSITIVE_OFFSET(8,0): Offset 0 in begin_exclusive is not a positive integer: the offset in begin_exclusive field has to be a positive integer (>0)",
-          metadata = Map.empty,
-        )
+      "accept requests with begin exclusive offset zero" in {
+        inside(
+          validator.validateGrpcCompletionStreamRequest(grpcCompletionReq.withBeginExclusive(0))
+        ) { case Right(req) =>
+          req shouldBe completionReq.copy(offset = ParticipantOffset.fromString(""))
+        }
       }
 
       "return the correct error on negative begin exclusive offset" in {
@@ -75,7 +72,7 @@ class CompletionServiceRequestValidatorTest
           ),
           code = INVALID_ARGUMENT,
           description =
-            "NON_POSITIVE_OFFSET(8,0): Offset -100 in begin_exclusive is not a positive integer: the offset in begin_exclusive field has to be a positive integer (>0)",
+            "NEGATIVE_OFFSET(8,0): Offset -100 in begin_exclusive is a negative integer: the offset in begin_exclusive field has to be a non-negative integer (>=0)",
           metadata = Map.empty,
         )
       }
@@ -91,7 +88,7 @@ class CompletionServiceRequestValidatorTest
       "tolerate empty offset (participant begin)" in {
         inside(
           validator.validateGrpcCompletionStreamRequest(
-            grpcCompletionReq.clearBeginExclusive
+            grpcCompletionReq.withBeginExclusive(0L)
           )
         ) { case Right(req) =>
           req.applicationId shouldEqual expectedApplicationId
@@ -130,13 +127,16 @@ class CompletionServiceRequestValidatorTest
         requestMustFailWith(
           request = validator.validateCompletionStreamRequest(
             completionReq.copy(offset =
-              ParticipantOffset.fromString((ledgerEnd.toInt + 1).toString)
+              ParticipantOffset.fromString(
+                ApiOffset.fromLong(ApiOffset.assertFromStringToLong(ledgerEnd) + 1)
+              )
             ),
             ledgerEnd,
           ),
           code = OUT_OF_RANGE,
-          description =
-            "OFFSET_AFTER_LEDGER_END(12,0): Begin offset (1001) is after ledger end (1000)",
+          description = s"OFFSET_AFTER_LEDGER_END(12,0): Begin offset (${ApiOffset
+              .assertFromStringToLong(ledgerEnd) + 1}) is after ledger end (${ApiOffset
+              .assertFromStringToLong(ledgerEnd)})",
           metadata = Map.empty,
         )
       }

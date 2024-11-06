@@ -8,7 +8,6 @@ import com.digitalasset.canton.ReassignmentCounter
 import com.digitalasset.canton.crypto.{HashOps, HmacOps, Salt, SaltSeed}
 import com.digitalasset.canton.data.*
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.participant.protocol.ReassignmentSubmissionValidation
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.ReassignmentProcessorError
 import com.digitalasset.canton.participant.protocol.reassignment.UnassignmentProcessorError.StakeholderHostingErrors
 import com.digitalasset.canton.participant.protocol.submission.UsableDomain
@@ -25,15 +24,14 @@ import scala.concurrent.ExecutionContext
 
 /** Request to reassign a contract away from a domain.
   *
-  * @param confirmingReassigningParticipants The list of confirming reassigning participants
+  * @param reassigningParticipants The list of reassigning participants
   * @param targetTimeProof a sequenced event that the submitter has recently observed on the target domain.
   *                        Determines the timestamp of the topology at the target domain.
   * @param reassignmentCounter The new reassignment counter (incremented value compared to the one in the ACS).
   */
 final case class UnassignmentRequest(
     submitterMetadata: ReassignmentSubmitterMetadata,
-    confirmingReassigningParticipants: Set[ParticipantId],
-    creatingTransactionId: TransactionId,
+    reassigningParticipants: ReassigningParticipants,
     contract: SerializableContract,
     sourceDomain: Source[DomainId],
     sourceProtocolVersion: Source[ProtocolVersion],
@@ -59,7 +57,7 @@ final case class UnassignmentRequest(
         sourceDomain,
         sourceMediator,
         stakeholders = Stakeholders(contract.metadata),
-        confirmingReassigningParticipants,
+        reassigningParticipants,
         uuid = uuid,
         submitterMetadata,
         sourceProtocolVersion,
@@ -69,7 +67,6 @@ final case class UnassignmentRequest(
       .create(hashOps)(
         viewSalt,
         contract,
-        creatingTransactionId,
         targetDomain,
         targetTimeProof,
         sourceProtocolVersion,
@@ -86,7 +83,6 @@ object UnassignmentRequest {
   def validated(
       participantId: ParticipantId,
       timeProof: TimeProof,
-      creatingTransactionId: TransactionId,
       contract: SerializableContract,
       submitterMetadata: ReassignmentSubmitterMetadata,
       sourceDomain: Source[DomainId],
@@ -110,22 +106,24 @@ object UnassignmentRequest {
     val stakeholders = Stakeholders(contract.metadata)
 
     for {
-      _ <- ReassignmentSubmissionValidation.unassignment(
-        contractId,
-        sourceTopology,
-        submitterMetadata.submitter,
-        participantId,
-        stakeholders = stakeholders.stakeholders,
-      )
+      _ <- ReassignmentValidation
+        .checkSubmitter(
+          ReassignmentRef(contractId),
+          sourceTopology,
+          submitterMetadata.submitter,
+          participantId,
+          stakeholders = stakeholders.all,
+        )
+        .mapK(FutureUnlessShutdown.outcomeK)
 
       unassignmentRequestRecipients <- sourceTopology.unwrap
-        .activeParticipantsOfAll(stakeholders.stakeholders.toList)
+        .activeParticipantsOfAll(stakeholders.all.toList)
         .mapK(FutureUnlessShutdown.outcomeK)
         .leftMap(inactiveParties =>
           StakeholderHostingErrors(s"The following stakeholders are not active: $inactiveParties")
         )
 
-      reassigningParticipants <- new ReassigningParticipants(
+      reassigningParticipants <- new ReassigningParticipantsComputation(
         stakeholders = stakeholders,
         sourceTopology,
         targetTopology,
@@ -135,7 +133,7 @@ object UnassignmentRequest {
         .checkPackagesVetted(
           targetDomain.unwrap,
           targetTopology.unwrap,
-          stakeholders.stakeholders.view.map(_ -> Set(templateId.packageId)).toMap,
+          stakeholders.all.view.map(_ -> Set(templateId.packageId)).toMap,
           targetTopology.unwrap.referenceTime,
         )
         .leftMap[ReassignmentProcessorError](unknownPackage =>
@@ -146,7 +144,6 @@ object UnassignmentRequest {
       val unassignmentRequest = UnassignmentRequest(
         submitterMetadata,
         reassigningParticipants,
-        creatingTransactionId,
         contract,
         sourceDomain,
         sourceProtocolVersion,

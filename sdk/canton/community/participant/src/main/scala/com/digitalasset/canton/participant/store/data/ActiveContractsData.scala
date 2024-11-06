@@ -6,7 +6,6 @@ package com.digitalasset.canton.participant.store.data
 import com.digitalasset.canton.ReassignmentCounter
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.LfContractId
-import com.digitalasset.canton.util.EitherUtil
 
 final case class ActiveContractData(
     contractId: LfContractId,
@@ -46,8 +45,9 @@ object ActiveContractsData {
       }
       .keySet
 
-    EitherUtil.condUnitE(
+    Either.cond(
       duplicates.isEmpty,
+      (),
       s"The following (contractId, toc) have several reassignment counters: $duplicates",
     )
   }

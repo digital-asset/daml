@@ -3,20 +3,19 @@
 
 package com.digitalasset.canton.participant.store
 
+import cats.syntax.either.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.{
   asSerializable,
   contractInstance,
   packageId,
-  transactionId,
 }
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.{
   ContractMetadata,
   ExampleTransactionFactory,
   SerializableContract,
-  WithTransactionId,
 }
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.{BaseTest, LfPartyId, RequestCounter}
@@ -39,10 +38,8 @@ trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
     val contractId4 = ExampleTransactionFactory.suffixedId(4, 0)
     val contractId5 = ExampleTransactionFactory.suffixedId(5, 0)
     val contract = asSerializable(contractId, contractInstance = contractInstance())
-    val transactionId1 = transactionId(1)
-    val transactionId2 = transactionId(2)
     val rc = RequestCounter(0)
-    val storedContract = StoredContract.fromCreatedContract(contract, rc, transactionId1)
+    val storedContract = StoredContract.fromCreatedContract(contract, rc)
     val divulgedContract = StoredContract.fromDivulgedContract(contract, rc)
 
     val rc2 = RequestCounter(1)
@@ -83,7 +80,7 @@ trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
       val store = mk()
 
       for {
-        _ <- store.storeCreatedContract(rc, transactionId1, contract)
+        _ <- store.storeCreatedContract(rc, contract)
         c <- store.lookupE(contractId)
         inst <- store.lookupContractE(contractId)
       } yield {
@@ -111,11 +108,11 @@ trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
         )
 
       val storedLargeContractUpdated =
-        StoredContract.fromCreatedContract(largeContract, rc2, transactionId1)
+        StoredContract.fromCreatedContract(largeContract, rc2)
 
       for {
-        _ <- store.storeCreatedContract(rc, transactionId1, largeContract)
-        _ <- store.storeCreatedContract(rc2, transactionId1, largeContract)
+        _ <- store.storeCreatedContract(rc, largeContract)
+        _ <- store.storeCreatedContract(rc2, largeContract)
         c <- store.lookupE(contractId)
         inst <- store.lookupContractE(contractId)
       } yield {
@@ -140,10 +137,8 @@ trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
     "store the same contract twice for the same id" in {
       val store = mk()
 
-      val element = WithTransactionId(contract, transactionId1)
-
       for {
-        _ <- store.storeCreatedContracts(Seq((element, rc), (element, rc)))
+        _ <- store.storeCreatedContracts(Seq((contract, rc), (contract, rc)))
         _ <- store.storeDivulgedContracts(rc, Seq(contract2, contract2))
       } yield succeed
     }
@@ -151,14 +146,10 @@ trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
     "take the second created contract" in {
       val store = mk()
       for {
-        _ <- store.storeCreatedContract(rc, transactionId1, contract)
-        _ <- store.storeCreatedContract(rc2, transactionId2, contract)
+        _ <- store.storeCreatedContract(rc, contract)
+        _ <- store.storeCreatedContract(rc2, contract)
         c <- store.lookupE(contract.contractId)
-      } yield c shouldBe StoredContract.fromCreatedContract(
-        contract,
-        rc2,
-        transactionId2,
-      )
+      } yield c shouldBe StoredContract.fromCreatedContract(contract, rc2)
     }
 
     "succeed when storing a different contract for an existing id" must {
@@ -185,22 +176,13 @@ trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
         } yield c shouldBe divulgedContract2
       }
 
-      val storedContract2 =
-        StoredContract.fromCreatedContract(
-          contract,
-          rc2,
-          transactionId2,
-        )
+      val storedContract2 = StoredContract.fromCreatedContract(contract, rc2)
       "for created contracts" in {
         val store = mk()
 
         for {
-          _ <- store.storeCreatedContract(rc, transactionId1, contract)
-          _ <- store.storeCreatedContract(
-            rc2,
-            transactionId2,
-            contract,
-          )
+          _ <- store.storeCreatedContract(rc, contract)
+          _ <- store.storeCreatedContract(rc2, contract)
           c <- store.lookupE(contract.contractId)
         } yield c shouldBe storedContract2
       }
@@ -209,12 +191,8 @@ trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
         val store = mk()
 
         for {
-          _ <- store.storeCreatedContract(
-            rc2,
-            transactionId2,
-            contract,
-          )
-          _ <- store.storeCreatedContract(rc, transactionId1, contract)
+          _ <- store.storeCreatedContract(rc2, contract)
+          _ <- store.storeCreatedContract(rc, contract)
           c <- store.lookupE(contract.contractId)
         } yield c shouldBe storedContract2
       }
@@ -224,11 +202,7 @@ trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
 
         for {
           _ <- store.storeDivulgedContract(rc2 + 1, contract)
-          _ <- store.storeCreatedContract(
-            rc2,
-            transactionId2,
-            contract,
-          )
+          _ <- store.storeCreatedContract(rc2, contract)
           c <- store.lookupE(contract.contractId)
         } yield c shouldBe storedContract2
       }
@@ -237,11 +211,7 @@ trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
         val store = mk()
 
         for {
-          _ <- store.storeCreatedContract(
-            rc2,
-            transactionId2,
-            contract,
-          )
+          _ <- store.storeCreatedContract(rc2, contract)
           _ <- store.storeDivulgedContract(rc2 + 1, contract)
           c <- store.lookupE(contract.contractId)
         } yield c shouldBe storedContract2
@@ -252,11 +222,7 @@ trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
 
         for {
           _ <- store.storeDivulgedContract(rc2 - 1, contract)
-          _ <- store.storeCreatedContract(
-            rc2,
-            transactionId2,
-            contract,
-          )
+          _ <- store.storeCreatedContract(rc2, contract)
           c <- store.lookupE(contract.contractId)
         } yield c shouldBe storedContract2
       }
@@ -265,11 +231,7 @@ trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
         val store = mk()
 
         for {
-          _ <- store.storeCreatedContract(
-            rc2,
-            transactionId2,
-            contract,
-          )
+          _ <- store.storeCreatedContract(rc2, contract)
           _ <- store.storeDivulgedContract(rc2 - 1, contract)
           c <- store.lookupE(contract.contractId)
         } yield c shouldBe storedContract2
@@ -288,7 +250,7 @@ trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
       val modifiedContract = contract2.copy(contractId = contractId)
 
       for {
-        _ <- store.storeCreatedContract(rc, transactionId1, contract)
+        _ <- store.storeCreatedContract(rc, contract)
         _ <- store.storeDivulgedContract(rc2, modifiedContract)
         c <- store.lookupE(contract.contractId)
       } yield c shouldBe storedContract
@@ -297,11 +259,11 @@ trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
     "delete a contract" in {
       val store = mk()
       for {
-        _ <- store.storeCreatedContract(rc, transactionId1, contract)
+        _ <- store.storeCreatedContract(rc, contract)
         res1 <- store.deleteContract(contractId).value
         c <- store.lookupE(contractId).value
       } yield {
-        res1 shouldEqual Right(())
+        res1 shouldEqual Either.unit
         c shouldEqual Left(UnknownContract(contractId))
       }
     }
@@ -317,7 +279,7 @@ trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
       val store = mk()
       for {
         _ <- List(contract, contract2, contract4, contract5)
-          .parTraverse(store.storeCreatedContract(rc, transactionId1, _))
+          .parTraverse(store.storeCreatedContract(rc, _))
         _ <- store.deleteIgnoringUnknown(Seq(contractId, contractId2, contractId3, contractId4))
         notFounds <- List(contractId, contractId2, contractId3, contractId4).parTraverse(
           store.lookupE(_).value
@@ -338,9 +300,9 @@ trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
       val store = mk()
       for {
         _ <- store.storeDivulgedContract(RequestCounter(0), contract)
-        _ <- store.storeCreatedContract(RequestCounter(0), transactionId1, contract2)
+        _ <- store.storeCreatedContract(RequestCounter(0), contract2)
         _ <- store.storeDivulgedContract(RequestCounter(1), contract3)
-        _ <- store.storeCreatedContract(RequestCounter(1), transactionId1, contract4)
+        _ <- store.storeCreatedContract(RequestCounter(1), contract4)
         _ <- store.storeDivulgedContract(RequestCounter(2), contract5)
         _ <- store.deleteDivulged(RequestCounter(1))
         c1 <- store.lookupContract(contract.contractId).value
@@ -360,9 +322,9 @@ trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
     "purge contract store deletes all contracts" in {
       val store = mk()
       for {
-        _ <- store.storeCreatedContract(rc, transactionId1, contract)
-        _ <- store.storeCreatedContract(rc2, transactionId1, contract2)
-        _ <- store.storeCreatedContract(rc2, transactionId1, contract3)
+        _ <- store.storeCreatedContract(rc, contract)
+        _ <- store.storeCreatedContract(rc2, contract2)
+        _ <- store.storeCreatedContract(rc2, contract3)
         contractsBeforePurge <- store.find(
           filterId = None,
           filterPackage = None,
@@ -386,13 +348,12 @@ trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
       val store = mk()
 
       for {
-        _ <- store.storeCreatedContract(rc, transactionId1, contract)
-        _ <- store.storeCreatedContract(rc, transactionId1, contract2)
-        _ <- store.storeCreatedContract(rc, transactionId1, contract3)
-        _ <- store.storeCreatedContract(rc, transactionId1, contract4)
+        _ <- store.storeCreatedContract(rc, contract)
+        _ <- store.storeCreatedContract(rc, contract2)
+        _ <- store.storeCreatedContract(rc, contract3)
+        _ <- store.storeCreatedContract(rc, contract4)
         _ <- store.storeCreatedContract(
           rc,
-          transactionId2,
           contract2.copy(
             contractId = contractId5,
             ledgerCreateTime = LedgerCreateTime(CantonTimestamp.Epoch),
@@ -425,8 +386,8 @@ trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
       val store = mk()
 
       for {
-        _ <- store.storeCreatedContract(rc, transactionId1, contract)
-        _ <- store.storeCreatedContract(rc, transactionId2, contract2)
+        _ <- store.storeCreatedContract(rc, contract)
+        _ <- store.storeCreatedContract(rc, contract2)
         c1 <- store.lookup(contractId).value
         c1inst <- store.lookupContract(contractId).value
         c3 <- store.lookup(contractId3).value
@@ -442,10 +403,10 @@ trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
       val store = mk()
 
       for {
-        _ <- store.storeCreatedContract(rc, transactionId1, contract)
-        _ <- store.storeCreatedContract(rc, transactionId1, contract2)
-        _ <- store.storeCreatedContract(rc, transactionId1, contract3)
-        _ <- store.storeCreatedContract(rc, transactionId1, contract4)
+        _ <- store.storeCreatedContract(rc, contract)
+        _ <- store.storeCreatedContract(rc, contract2)
+        _ <- store.storeCreatedContract(rc, contract3)
+        _ <- store.storeCreatedContract(rc, contract4)
         res <- store.lookupStakeholders(Set(contractId, contractId2, contractId4))
       } yield {
         res shouldBe Map(
@@ -470,9 +431,9 @@ trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
       val store = mk()
 
       for {
-        _ <- store.storeCreatedContract(rc, transactionId1, contract)
-        _ <- store.storeCreatedContract(rc, transactionId1, contract3)
-        _ <- store.storeCreatedContract(rc, transactionId1, contract4)
+        _ <- store.storeCreatedContract(rc, contract)
+        _ <- store.storeCreatedContract(rc, contract3)
+        _ <- store.storeCreatedContract(rc, contract4)
         res <- store.lookupStakeholders(Set(contractId, contractId2, contractId4)).value
       } yield {
         res shouldBe Left(UnknownContracts(Set(contractId2)))

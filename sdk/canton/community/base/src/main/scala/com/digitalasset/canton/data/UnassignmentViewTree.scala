@@ -3,22 +3,21 @@
 
 package com.digitalasset.canton.data
 
+import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.ProtoDeserializationError.OtherError
-import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.MerkleTree.RevealSubtree
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.UnassignmentMediatorMessage
 import com.digitalasset.canton.protocol.{v30, *}
 import com.digitalasset.canton.sequencing.protocol.{MediatorGroupRecipient, TimeProof}
+import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, UniqueIdentifier}
-import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.*
-import com.digitalasset.canton.{LfPartyId, LfWorkflowId, ReassignmentCounter}
+import com.digitalasset.canton.{ProtoDeserializationError, ReassignmentCounter}
 import com.google.protobuf.ByteString
 
 import java.util.UUID
@@ -38,10 +37,8 @@ final case class UnassignmentViewTree(
       UnassignmentViewTree,
       UnassignmentMediatorMessage,
     ](commonData, view)(hashOps)
-    with HasProtocolVersionedWrapper[UnassignmentViewTree] {
-
-  def submittingParticipant: ParticipantId =
-    commonData.tryUnwrap.submitterMetadata.submittingParticipant
+    with HasProtocolVersionedWrapper[UnassignmentViewTree]
+    with ReassignmentViewTree {
 
   override private[data] def withBlindedSubtrees(
       optimizedBlindingPolicy: PartialFunction[RootHash, MerkleTree.BlindingCommand]
@@ -131,7 +128,7 @@ object UnassignmentViewTree
   * @param sourceDomain The domain to which the unassignment request is sent
   * @param sourceMediatorGroup The mediator that coordinates the unassignment request on the source domain
   * @param stakeholders Information about the stakeholders and signatories
-  * @param confirmingReassigningParticipants The list of confirming reassigning participants
+  * @param reassigningParticipants The list of reassigning participants
   * @param uuid The request UUID of the unassignment
   * @param submitterMetadata information about the submission
   */
@@ -140,7 +137,7 @@ final case class UnassignmentCommonData private (
     sourceDomain: Source[DomainId],
     sourceMediatorGroup: MediatorGroupRecipient,
     stakeholders: Stakeholders,
-    confirmingReassigningParticipants: Set[ParticipantId],
+    reassigningParticipants: ReassigningParticipants,
     uuid: UUID,
     submitterMetadata: ReassignmentSubmitterMetadata,
 )(
@@ -148,8 +145,8 @@ final case class UnassignmentCommonData private (
     val sourceProtocolVersion: Source[ProtocolVersion],
     override val deserializedFrom: Option[ByteString],
 ) extends MerkleTreeLeaf[UnassignmentCommonData](hashOps)
-    with HasProtocolVersionedWrapper[UnassignmentCommonData]
-    with ProtocolVersionedMemoizedEvidence {
+    with ReassignmentCommonData
+    with HasProtocolVersionedWrapper[UnassignmentCommonData] {
 
   @transient override protected lazy val companionObj: UnassignmentCommonData.type =
     UnassignmentCommonData
@@ -167,7 +164,9 @@ final case class UnassignmentCommonData private (
       uuid = ProtoConverter.UuidConverter.toProtoPrimitive(uuid),
       submitterMetadata = Some(submitterMetadata.toProtoV30),
       confirmingReassigningParticipantUids =
-        confirmingReassigningParticipants.toSeq.map(_.uid.toProtoPrimitive),
+        reassigningParticipants.confirming.toSeq.map(_.uid.toProtoPrimitive),
+      observingReassigningParticipantUids =
+        reassigningParticipants.observing.toSeq.map(_.uid.toProtoPrimitive),
     )
 
   override protected[this] def toByteStringUnmemoized: ByteString =
@@ -175,15 +174,12 @@ final case class UnassignmentCommonData private (
 
   override def hashPurpose: HashPurpose = HashPurpose.UnassignmentCommonData
 
-  def confirmingParties: Map[LfPartyId, PositiveInt] =
-    stakeholders.stakeholders.map(_ -> PositiveInt.one).toMap
-
   override protected def pretty: Pretty[UnassignmentCommonData] = prettyOfClass(
     param("submitter metadata", _.submitterMetadata),
     param("source domain", _.sourceDomain),
     param("source mediator group", _.sourceMediatorGroup),
     param("stakeholders", _.stakeholders),
-    param("confirming reassigning participants", _.confirmingReassigningParticipants),
+    param("reassigning participants", _.reassigningParticipants),
     param("uuid", _.uuid),
     param("salt", _.salt),
   )
@@ -208,7 +204,7 @@ object UnassignmentCommonData
       sourceDomain: Source[DomainId],
       sourceMediatorGroup: MediatorGroupRecipient,
       stakeholders: Stakeholders,
-      confirmingReassigningParticipants: Set[ParticipantId],
+      reassigningParticipants: ReassigningParticipants,
       uuid: UUID,
       submitterMetadata: ReassignmentSubmitterMetadata,
       sourceProtocolVersion: Source[ProtocolVersion],
@@ -217,7 +213,7 @@ object UnassignmentCommonData
     sourceDomain = sourceDomain,
     sourceMediatorGroup = sourceMediatorGroup,
     stakeholders = stakeholders,
-    confirmingReassigningParticipants = confirmingReassigningParticipants,
+    reassigningParticipants = reassigningParticipants,
     uuid = uuid,
     submitterMetadata = submitterMetadata,
   )(hashOps, sourceProtocolVersion, None)
@@ -234,6 +230,7 @@ object UnassignmentCommonData
       sourceDomainP,
       stakeholdersP,
       confirmingReassigningParticipantUidsP,
+      observingReassigningParticipantUidsP,
       uuidP,
       sourceMediatorGroupP,
       submitterMetadataPO,
@@ -246,6 +243,7 @@ object UnassignmentCommonData
         "source_mediator_group",
         sourceMediatorGroupP,
       )
+
       stakeholders <- ProtoConverter.parseRequired(
         Stakeholders.fromProtoV30,
         "stakeholders",
@@ -256,17 +254,30 @@ object UnassignmentCommonData
           .fromProtoPrimitive(uid, "confirming_reassigning_participant_uids")
           .map(ParticipantId(_))
       )
+      observingReassigningParticipants <- observingReassigningParticipantUidsP.traverse(uid =>
+        UniqueIdentifier
+          .fromProtoPrimitive(uid, "observing_reassigning_participant_uids")
+          .map(ParticipantId(_))
+      )
+
       uuid <- ProtoConverter.UuidConverter.fromProtoPrimitive(uuidP)
       submitterMetadata <- ProtoConverter
         .required("submitter_metadata", submitterMetadataPO)
         .flatMap(ReassignmentSubmitterMetadata.fromProtoV30)
+
+      reassigningParticipants <- ReassigningParticipants
+        .create(
+          confirming = confirmingReassigningParticipants.toSet,
+          observing = observingReassigningParticipants.toSet,
+        )
+        .leftMap(ProtoDeserializationError.InvariantViolation(field = "confirming", _))
 
     } yield UnassignmentCommonData(
       salt,
       sourceDomain,
       MediatorGroupRecipient(sourceMediatorGroup),
       stakeholders = stakeholders,
-      confirmingReassigningParticipants.toSet,
+      reassigningParticipants = reassigningParticipants,
       uuid,
       submitterMetadata,
     )(hashOps, sourceProtocolVersion, Some(bytes))
@@ -277,7 +288,6 @@ object UnassignmentCommonData
   */
 /** @param salt The salt used to blind the Merkle hash.
   * @param contract Contract being reassigned
-  * @param creatingTransactionId Id of the transaction that created the contract
   * @param targetDomain The domain to which the contract is reassigned.
   * @param targetTimeProof The sequenced event from the target domain whose timestamp defines
   *                        the baseline for measuring time periods on the target domain
@@ -286,7 +296,6 @@ object UnassignmentCommonData
 final case class UnassignmentView private (
     override val salt: Salt,
     contract: SerializableContract,
-    creatingTransactionId: TransactionId,
     targetDomain: Target[DomainId],
     targetTimeProof: TimeProof,
     targetProtocolVersion: Target[ProtocolVersion],
@@ -299,7 +308,7 @@ final case class UnassignmentView private (
     override val deserializedFrom: Option[ByteString],
 ) extends MerkleTreeLeaf[UnassignmentView](hashOps)
     with HasProtocolVersionedWrapper[UnassignmentView]
-    with ProtocolVersionedMemoizedEvidence {
+    with ReassignmentView {
 
   @transient override protected lazy val companionObj: UnassignmentView.type = UnassignmentView
 
@@ -308,9 +317,6 @@ final case class UnassignmentView private (
 
   def hashPurpose: HashPurpose = HashPurpose.UnassignmentView
 
-  def templateId: LfTemplateId =
-    contract.rawContractInstance.contractInstance.unversioned.template
-
   protected def toProtoV30: v30.UnassignmentView =
     v30.UnassignmentView(
       salt = Some(salt.toProtoV30),
@@ -318,12 +324,10 @@ final case class UnassignmentView private (
       targetTimeProof = Some(targetTimeProof.toProtoV30),
       targetProtocolVersion = targetProtocolVersion.unwrap.toProtoPrimitive,
       reassignmentCounter = reassignmentCounter.toProtoPrimitive,
-      creatingTransactionId = creatingTransactionId.toProtoPrimitive,
       contract = Some(contract.toProtoV30),
     )
 
   override protected def pretty: Pretty[UnassignmentView] = prettyOfClass(
-    param("creating transaction id", _.creatingTransactionId),
     param("template id", _.templateId),
     param("target domain", _.targetDomain),
     param("target time proof", _.targetTimeProof),
@@ -351,7 +355,6 @@ object UnassignmentView
   def create(hashOps: HashOps)(
       salt: Salt,
       contract: SerializableContract,
-      creatingTransactionId: TransactionId,
       targetDomain: Target[DomainId],
       targetTimeProof: TimeProof,
       sourceProtocolVersion: Source[ProtocolVersion],
@@ -361,7 +364,6 @@ object UnassignmentView
     UnassignmentView(
       salt,
       contract,
-      creatingTransactionId,
       targetDomain,
       targetTimeProof,
       targetProtocolVersion,
@@ -377,7 +379,6 @@ object UnassignmentView
       targetTimeProofP,
       targetProtocolVersionP,
       reassignmentCounterP,
-      creatingTransactionIdP,
       contractPO,
     ) = unassignmentViewP
 
@@ -388,7 +389,6 @@ object UnassignmentView
       targetTimeProof <- ProtoConverter
         .required("targetTimeProof", targetTimeProofP)
         .flatMap(TimeProof.fromProtoV30(targetProtocolVersion, hashOps))
-      creatingTransactionId <- TransactionId.fromProtoPrimitive(creatingTransactionIdP)
       contract <- ProtoConverter
         .required("UnassignmentViewTree.contract", contractPO)
         .flatMap(SerializableContract.fromProtoV30)
@@ -396,7 +396,6 @@ object UnassignmentView
     } yield UnassignmentView(
       salt,
       contract,
-      creatingTransactionId,
       Target(targetDomain),
       targetTimeProof,
       Target(targetProtocolVersion),
@@ -415,35 +414,22 @@ object UnassignmentView
   * @throws java.lang.IllegalArgumentException if the [[tree]] is not fully unblinded
   */
 final case class FullUnassignmentTree(tree: UnassignmentViewTree)
-    extends ReassignmentViewTree
+    extends FullReassignmentViewTree
     with HasToByteString
     with PrettyPrinting {
   require(tree.isFullyUnblinded, "An unassignment request must be fully unblinded")
 
-  private[this] val commonData = tree.commonData.tryUnwrap
-  private[this] val view = tree.view.tryUnwrap
+  protected[this] val commonData: UnassignmentCommonData = tree.commonData.tryUnwrap
+  protected[this] val view: UnassignmentView = tree.view.tryUnwrap
 
-  // Submissions
-  def submitterMetadata: ReassignmentSubmitterMetadata = commonData.submitterMetadata
-  def submitter: LfPartyId = submitterMetadata.submitter
-  def workflowId: Option[LfWorkflowId] = submitterMetadata.workflowId
-
-  // Parties and participants
-  override def informees: Set[LfPartyId] = view.contract.metadata.stakeholders
-  def stakeholders: Set[LfPartyId] = view.contract.metadata.stakeholders
-  override def confirmingReassigningParticipants: Set[ParticipantId] =
-    commonData.confirmingReassigningParticipants
-
-  // Contract
-  def contractId: LfContractId = view.contract.contractId
-  def templateId: LfTemplateId = view.templateId
-  def reassignmentCounter: ReassignmentCounter = view.reassignmentCounter
+  override def reassignmentId: Option[ReassignmentId] = None
 
   // Domains
   override def domainId: DomainId = sourceDomain.unwrap
   override def sourceDomain: Source[DomainId] = commonData.sourceDomain
   override def targetDomain: Target[DomainId] = view.targetDomain
   def targetTimeProof: TimeProof = view.targetTimeProof
+  def targetProtocolVersion: Target[ProtocolVersion] = view.targetProtocolVersion
 
   def mediatorMessage(
       submittingParticipantSignature: Signature
@@ -469,8 +455,9 @@ object FullUnassignmentTree {
   )(bytes: ByteString): ParsingResult[FullUnassignmentTree] =
     for {
       tree <- UnassignmentViewTree.fromByteString(crypto, sourceProtocolVersion)(bytes)
-      _ <- EitherUtil.condUnitE(
+      _ <- Either.cond(
         tree.isFullyUnblinded,
+        (),
         OtherError(s"Unassignment request ${tree.rootHash} is not fully unblinded"),
       )
     } yield FullUnassignmentTree(tree)

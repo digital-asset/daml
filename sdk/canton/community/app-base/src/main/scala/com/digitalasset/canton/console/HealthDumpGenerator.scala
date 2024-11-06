@@ -4,7 +4,7 @@
 package com.digitalasset.canton.console
 
 import better.files.File
-import com.digitalasset.canton.admin.api.client.commands.StatusAdminCommands.NodeStatusCommand
+import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand
 import com.digitalasset.canton.admin.api.client.data.{CantonStatus, NodeStatus}
 import com.digitalasset.canton.config.LocalNodeConfig
 import com.digitalasset.canton.console.CommandErrors.CommandError
@@ -27,7 +27,7 @@ trait HealthDumpGenerator[Status <: CantonStatus] {
   private def getStatusForNode[S <: NodeStatus.Status](
       nodeName: String,
       nodeConfig: LocalNodeConfig,
-      nodeStatusCommand: NodeStatusCommand[S, _, _],
+      nodeStatusCommand: GrpcAdminCommand[?, ?, NodeStatus[S]],
   ): NodeStatus[S] =
     grpcAdminCommandRunner
       .runCommand(
@@ -42,7 +42,7 @@ trait HealthDumpGenerator[Status <: CantonStatus] {
 
   protected def statusMap[S <: NodeStatus.Status](
       nodes: Map[String, LocalNodeConfig],
-      nodeStatusCommand: NodeStatusCommand[S, _, _],
+      nodeStatusCommand: GrpcAdminCommand[?, ?, NodeStatus[S]],
   ): Map[String, () => NodeStatus[S]] =
     nodes.map { case (nodeName, nodeConfig) =>
       nodeName -> (() => getStatusForNode[S](nodeName, nodeConfig, nodeStatusCommand))

@@ -157,13 +157,13 @@ private[dao] final case class SequentialWriteDaoImpl[DB_BATCH](
 
       parameterStorageBackend.updateLedgerEnd(
         ParameterStorageBackend.LedgerEnd(
-          lastOffset = offset,
+          lastOffset = offset.toAbsoluteOffsetO,
           lastEventSeqId = lastEventSeqId,
           lastStringInterningId = lastStringInterningId,
           lastPublicationTime = CantonTimestamp.MinValue,
         )
       )(connection)
 
-      ledgerEndCache.set((offset, lastEventSeqId, CantonTimestamp.MinValue))
+      ledgerEndCache.set((offset.toAbsoluteOffsetO, lastEventSeqId, CantonTimestamp.MinValue))
     })
 }

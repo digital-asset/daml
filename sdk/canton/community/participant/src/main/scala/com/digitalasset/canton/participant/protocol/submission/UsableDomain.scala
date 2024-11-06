@@ -9,7 +9,6 @@ import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdownImpl.AbortedDueToShutdownException
 import com.digitalasset.canton.participant.protocol.submission.TransactionTreeFactory.PackageUnknownTo
 import com.digitalasset.canton.protocol.LfLanguageVersion
 import com.digitalasset.canton.topology.client.TopologySnapshot
@@ -43,7 +42,7 @@ object UsableDomain {
         requiredPackagesByParty,
         ledgerTime,
       )
-        .failOnShutdownTo(AbortedDueToShutdownException("Usable domain checking"))
+        .failOnShutdownToAbortException("Usable domain checking")
     val partiesConnected: EitherT[Future, MissingActiveParticipant, Unit] =
       checkConnectedParties(domainId, snapshot, requiredPackagesByParty.keySet)
     val compatibleProtocolVersion: EitherT[Future, UnsupportedMinimumProtocolVersion, Unit] =

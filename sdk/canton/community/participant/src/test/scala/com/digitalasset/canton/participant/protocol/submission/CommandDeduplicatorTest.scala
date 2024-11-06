@@ -1,118 +1,52 @@
 // Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 
-// Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
-// SPDX-License-Identifier: Apache-2.0
-/* TODO(i18695): fix
 package com.digitalasset.canton.participant.protocol.submission
 
 import cats.Eval
 import cats.syntax.option.*
-import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
-import com.digitalasset.canton.participant.protocol.ProcessingSteps
+import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod, Offset}
+import com.digitalasset.canton.ledger.participant.state.CompletionInfo
 import com.digitalasset.canton.participant.protocol.submission.CommandDeduplicator.{
   AlreadyExists,
   DeduplicationPeriodTooEarly,
   MalformedOffset,
 }
-import com.digitalasset.canton.participant.store.InFlightSubmissionStore.{
-  InFlightByMessageId,
-  InFlightReference,
-}
-import com.digitalasset.canton.participant.store.MultiDomainEventLog.DeduplicationInfo
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.memory.InMemoryCommandDeduplicationStore
-import com.digitalasset.canton.participant.sync.LedgerSyncEvent.CommandRejected.FinalReason
-import com.digitalasset.canton.participant.sync.LedgerSyncEvent.{
-  CommandRejected,
-  TransactionAccepted,
-}
-import com.digitalasset.canton.participant.sync.UpstreamOffsetConvert
-import com.digitalasset.canton.participant.{
-  DefaultParticipantStateValues,
-  GlobalOffset,
-  LedgerSyncOffset,
-  RequestOffset,
-}
-import com.digitalasset.canton.sequencing.protocol.MessageId
+import com.digitalasset.canton.participant.{DefaultParticipantStateValues, GlobalOffset}
+import com.digitalasset.canton.platform.indexer.parallel.{PostPublishData, PublishSource}
 import com.digitalasset.canton.time.SimClock
-import com.digitalasset.canton.topology.{DefaultTestIdentities, DomainId}
+import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.{BaseTest, DefaultDamlValues, RequestCounter}
+import com.digitalasset.canton.{BaseTest, DefaultDamlValues}
 import com.digitalasset.daml.lf.data.Ref
-import com.google.rpc.Code
-import com.google.rpc.status.Status as RpcStatus
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.util.UUID
-import scala.annotation.nowarn
 
-@nowarn("msg=match may not be exhaustive")
 class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
   import scala.language.implicitConversions
 
   private lazy val clock = new SimClock(loggerFactory = loggerFactory)
 
+  private val domainId = DomainId.tryFromString("da::default")
   private lazy val submissionId1 = DefaultDamlValues.submissionId().some
-  private lazy val event1 = TransactionAccepted(
-    completionInfoO = DefaultParticipantStateValues.completionInfo(List.empty).some,
-    transactionMeta = DefaultParticipantStateValues.transactionMeta(),
-    transaction = DefaultDamlValues.emptyCommittedTransaction,
-    transactionId = DefaultDamlValues.lfTransactionId(1),
-    recordTime = CantonTimestamp.Epoch.toLf,
-    divulgedContracts = List.empty,
-    blindingInfoO = None,
-    hostedWitnesses = Nil,
-    contractMetadata = Map(),
-    domainId = DomainId.tryFromString("da::default"),
-  )
-  private lazy val changeId1 = event1.completionInfoO.value.changeId
+  private lazy val event1CompletionInfo = DefaultParticipantStateValues.completionInfo(List.empty)
+  private lazy val changeId1 = event1CompletionInfo.changeId
   private lazy val changeId1Hash = ChangeIdHash(changeId1)
-
-  private lazy val event2 =
-    event1.copy(completionInfoO = None, transactionId = DefaultDamlValues.lfTransactionId(2))
-
-  private lazy val event1reject = CommandRejected(
-    CantonTimestamp.Epoch.toLf,
-    event1.completionInfoO.value,
-    new FinalReason(RpcStatus(code = Code.ABORTED_VALUE, message = "event1 rejection")),
-    ProcessingSteps.RequestType.Transaction,
-    domainId,
-  )
-
-  private lazy val event3 = CommandRejected(
-    CantonTimestamp.Epoch.toLf,
-    DefaultParticipantStateValues
-      .completionInfo(List.empty, commandId = DefaultDamlValues.commandId(3), submissionId = None),
-    FinalReason(RpcStatus(code = Code.NOT_FOUND_VALUE, message = "event3 message")),
-    ProcessingSteps.RequestType.Transaction,
-    domainId,
-  )
-  private lazy val changeId3 = event3.completionInfo.changeId
-  private lazy val changeId3Hash = ChangeIdHash(changeId3)
-
-  private lazy val domainId = DefaultTestIdentities.domainId
-  private lazy val messageId = MessageId.fromUuid(new UUID(10, 10))
-  private lazy val inFlightReference = InFlightByMessageId(domainId, messageId)
+  private lazy val event2CompletionInfo = DefaultParticipantStateValues
+    .completionInfo(List.empty, commandId = DefaultDamlValues.commandId(3), submissionId = None)
+  private lazy val changeId2 = event2CompletionInfo.changeId
+  private lazy val changeId2Hash = ChangeIdHash(changeId2)
+  private lazy val messageUuid = new UUID(10, 10)
 
   class Fixture(
       val dedup: CommandDeduplicator,
       val store: CommandDeduplicationStore,
   )
 
-  private lazy val eventsInLog = Seq(event1reject, event1, event1reject, event2, event3)
-  private lazy val Seq(
-    event1rejectOffset,
-    event1Offset,
-    event1rejectOffset2,
-    event2Offset,
-    event3Offset,
-  ) = eventsInLog.zipWithIndex.map(_._2.toLong)
-
   private implicit def toGlobalOffset(i: Long): GlobalOffset = GlobalOffset.tryFromLong(i)
-
-  private implicit def toLocalOffset(i: Long): RequestOffset =
-    RequestOffset(CantonTimestamp.ofEpochSecond(i), RequestCounter(i))
 
   private def mk(lowerBound: CantonTimestamp = CantonTimestamp.MinValue): Fixture = {
     val store = new InMemoryCommandDeduplicationStore(loggerFactory)
@@ -121,31 +55,39 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
     new Fixture(dedup, store)
   }
 
-  private def dedupOffset(globalOffset: GlobalOffset): DeduplicationPeriod.DeduplicationOffset =
-    DeduplicationPeriod.DeduplicationOffset(UpstreamOffsetConvert.fromGlobalOffset(globalOffset))
+  private def dedupOffset(longOffset: Long): DeduplicationPeriod.DeduplicationOffset =
+    DeduplicationPeriod.DeduplicationOffset(Offset.fromLong(longOffset))
 
-  private def mkPublication(
-      globalOffset: GlobalOffset,
-      localOffset: RequestOffset,
+  private def mkPublicationInternal(
+      longOffset: Long,
+      completionInfo: CompletionInfo,
+      accepted: Boolean,
       publicationTime: CantonTimestamp,
-      inFlightReference: Option[InFlightReference] = this.inFlightReference.some,
-  ): MultiDomainEventLog.OnPublish.Publication = {
-    val deduplicationInfo =
-      if (localOffset.requestCounter.unwrap < eventsInLog.size) {
-        DeduplicationInfo.fromEvent(
-          eventsInLog(localOffset.requestCounter.unwrap.toInt),
-          TraceContext.empty,
-        )
-      } else None
-
-    MultiDomainEventLog.OnPublish.Publication(
-      globalOffset,
-      publicationTime,
-      inFlightReference,
-      deduplicationInfo,
-      event1,
+  ): PostPublishData =
+    PostPublishData(
+      submissionDomainId = domainId,
+      publishSource = PublishSource.Local(messageUuid),
+      applicationId = completionInfo.applicationId,
+      commandId = completionInfo.commandId,
+      actAs = completionInfo.actAs.toSet,
+      offset = Offset.fromLong(longOffset),
+      publicationTime = publicationTime,
+      submissionId = completionInfo.submissionId,
+      accepted = accepted,
+      traceContext = implicitly,
     )
-  }
+
+  private def mkRejectedPublication(
+      longOffset: Long,
+      completionInfo: CompletionInfo,
+      publicationTime: CantonTimestamp,
+  ): PostPublishData = mkPublicationInternal(longOffset, completionInfo, false, publicationTime)
+
+  private def mkAcceptedPublication(
+      longOffset: Long,
+      completionInfo: CompletionInfo,
+      publicationTime: CantonTimestamp,
+  ): PostPublishData = mkPublicationInternal(longOffset, completionInfo, true, publicationTime)
 
   private lazy val dedupTime1Day: DeduplicationPeriod.DeduplicationDuration =
     DeduplicationPeriod.DeduplicationDuration(java.time.Duration.ofDays(1))
@@ -163,26 +105,26 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
           )
           .valueOrFail("dedup 1")
         offset3 <- fix.dedup
-          .checkDuplication(changeId3Hash, dedupOffset(100L))
+          .checkDuplication(changeId2Hash, dedupOffset(100L))
           .valueOrFail("dedup 3")
       } yield {
-        offset1 shouldBe dedupOffset(MultiDomainEventLog.ledgerFirstOffset)
-        offset3 shouldBe dedupOffset(MultiDomainEventLog.ledgerFirstOffset)
+        offset1 shouldBe dedupOffset(Offset.firstOffset.toLong)
+        offset3 shouldBe dedupOffset(Offset.firstOffset.toLong)
       }
-    }
+    }.failOnShutdown
 
     "complain about malformed offsets" in {
       val fix = mk()
       val malformedOffset =
         DeduplicationPeriod.DeduplicationOffset(
-          LedgerSyncOffset.fromHexString(Ref.HexString.assertFromString("0123456789abcdef00"))
+          Offset.fromHexString(Ref.HexString.assertFromString("0123456789abcdef00"))
         )
       for {
         error <- fix.dedup
           .checkDuplication(changeId1Hash, malformedOffset)
           .leftOrFail("malformed offset")
       } yield error shouldBe a[MalformedOffset]
-    }
+    }.failOnShutdown
 
     "complain about time underflow" in {
       val fix = mk()
@@ -201,36 +143,36 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
           ),
         )
       }
-    }
+    }.failOnShutdown
 
     "persist publication" in {
       val fix = mk()
       val offset1 = 3L
       val publicationTime1 = CantonTimestamp.ofEpochSecond(1)
-      val publication1 = mkPublication(offset1, event1Offset, publicationTime1)
+      val publication1 =
+        mkAcceptedPublication(offset1, event1CompletionInfo, publicationTime1)
       val offset2 = 4L
       val publicationTime2 = CantonTimestamp.ofEpochSecond(2)
-      val publication2 = mkPublication(offset2, event3Offset, publicationTime2)
+      val publication2 = mkRejectedPublication(offset2, event2CompletionInfo, publicationTime2)
       val offset3 = 6L
       val publicationTime3 = CantonTimestamp.ofEpochSecond(3)
-      val publication3 = mkPublication(offset3, event1rejectOffset, publicationTime3)
-      val publication4 = mkPublication(
-        100L,
-        event2Offset,
-        CantonTimestamp.ofEpochSecond(4),
-        inFlightReference = None,
-      )
+      val publication3 =
+        mkRejectedPublication(offset3, event1CompletionInfo, publicationTime3)
       for {
-        () <- fix.dedup.processPublications(Seq(publication1, publication2))
-        lookup1 <- valueOrFail(fix.store.lookup(changeId1Hash))("find event1")
-        lookup2 <- valueOrFail(fix.store.lookup(changeId3Hash))("find event3")
-        () <- fix.dedup.processPublications(
-          Seq(publication3, publication4)
+        _ <- fix.dedup.processPublications(Seq(publication1, publication2))
+        lookup1 <- valueOrFailUS(fix.store.lookup(changeId1Hash))("find event1")
+        lookup2 <- valueOrFailUS(fix.store.lookup(changeId2Hash))("find event3")
+        _ <- fix.dedup.processPublications(
+          Seq(publication3)
         ) // update changeId1 and ignore event2
-        lookup3 <- valueOrFail(fix.store.lookup(changeId1Hash))("find event1")
+        lookup3 <- valueOrFailUS(fix.store.lookup(changeId1Hash))("find event1")
       } yield {
         val definiteAnswerEvent1 =
-          DefiniteAnswerEvent(offset1, publicationTime1, submissionId1)(TraceContext.empty)
+          DefiniteAnswerEvent(
+            offset1,
+            publicationTime1,
+            submissionId1,
+          )(TraceContext.empty)
         lookup1 shouldBe CommandDeduplicationData.tryCreate(
           changeId1,
           definiteAnswerEvent1,
@@ -238,28 +180,29 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
         )
         val definiteAnswerEvent2 =
           DefiniteAnswerEvent(offset2, publicationTime2, None)(TraceContext.empty)
-        lookup2 shouldBe CommandDeduplicationData.tryCreate(changeId3, definiteAnswerEvent2, None)
+        lookup2 shouldBe CommandDeduplicationData.tryCreate(changeId2, definiteAnswerEvent2, None)
         val definiteAnswerEvent3 =
-          DefiniteAnswerEvent(offset3, publicationTime3, submissionId1)(TraceContext.empty)
+          DefiniteAnswerEvent(
+            offset3,
+            publicationTime3,
+            submissionId1,
+          )(TraceContext.empty)
         lookup3 shouldBe CommandDeduplicationData.tryCreate(
           changeId1,
           definiteAnswerEvent3,
           definiteAnswerEvent1.some,
         )
       }
-    }
+    }.failOnShutdown
 
     "deduplicate accepted commands" in {
       val fix = mk()
       val publicationTime = clock.now
       val offset1 = 3L
-      val publication1 = mkPublication(offset1, event1Offset, publicationTime)
-      val offset2 = 5L
-      val publication2 =
-        mkPublication(offset2, event2Offset, publicationTime) // event without completion info
+      val publication1 = mkAcceptedPublication(offset1, event1CompletionInfo, publicationTime)
 
       for {
-        () <- fix.dedup.processPublications(Seq(publication1, publication2))
+        _ <- fix.dedup.processPublications(Seq(publication1))
         () = clock.advance(java.time.Duration.ofDays(1))
         errorTime <- fix.dedup
           .checkDuplication(changeId1Hash, dedupTime1Day)
@@ -277,44 +220,54 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
           .checkDuplication(changeId1Hash, dedupOffset(4L))
           .valueOrFail("no dedup conflict by offset 4")
         okOther <- fix.dedup
-          .checkDuplication(changeId3Hash, dedupOffset(offset1))
+          .checkDuplication(changeId2Hash, dedupOffset(offset1.toLong))
           .valueOrFail("do dedup conflict for other change ID")
       } yield {
-        errorTime shouldBe AlreadyExists(offset1, accepted = true, submissionId1)
-        okTime shouldBe dedupOffset(offset1)
-        errorOffset shouldBe AlreadyExists(offset1, accepted = true, submissionId1)
-        okOffset4 shouldBe dedupOffset(offset1)
-        okOffset5 shouldBe dedupOffset(offset1)
-        okOther shouldBe dedupOffset(MultiDomainEventLog.ledgerFirstOffset)
+        errorTime shouldBe AlreadyExists(
+          offset1,
+          accepted = true,
+          submissionId1,
+        )
+        okTime shouldBe dedupOffset(offset1.toLong)
+        errorOffset shouldBe AlreadyExists(
+          offset1,
+          accepted = true,
+          submissionId1,
+        )
+        okOffset4 shouldBe dedupOffset(offset1.toLong)
+        okOffset5 shouldBe dedupOffset(offset1.toLong)
+        okOther shouldBe dedupOffset(Offset.firstOffset.toLong)
       }
-    }
+    }.failOnShutdown
 
     "not deduplicate upon a rejection" in {
       val fix = mk()
       val publicationTime1 = clock.now
       val offset1 = 3L
-      val publication1 = mkPublication(offset1, event1rejectOffset, publicationTime1)
+      val publication1 =
+        mkRejectedPublication(offset1, event1CompletionInfo, publicationTime1)
 
       clock.advance(java.time.Duration.ofHours(1))
       val publicationTime2 = clock.now
       val offset2 = 5L
-      val publication2 = mkPublication(offset2, event1Offset, publicationTime2)
+      val publication2 =
+        mkAcceptedPublication(offset2, event1CompletionInfo, publicationTime2)
 
       clock.advance(java.time.Duration.ofHours(1))
       val offset3 = 10L
       val publication3 =
-        mkPublication(offset3, event1rejectOffset2, publicationTime2, inFlightReference = None)
+        mkRejectedPublication(offset3, event1CompletionInfo, publicationTime2)
 
       for {
-        () <- fix.dedup.processPublications(Seq(publication1))
+        _ <- fix.dedup.processPublications(Seq(publication1))
         () = clock.advance(java.time.Duration.ofDays(1))
         okTime <- fix.dedup
           .checkDuplication(changeId1Hash, dedupTime1Day)
           .valueOrFail("no dedup conflict by time")
         okOffset <- fix.dedup
-          .checkDuplication(changeId1Hash, dedupOffset(offset1 - 1))
+          .checkDuplication(changeId1Hash, dedupOffset(offset1.toLong - 1))
           .valueOrFail("no dedup conflict by offset")
-        () <- fix.dedup.processPublications(Seq(publication2, publication3))
+        _ <- fix.dedup.processPublications(Seq(publication2, publication3))
         okTimeAfter <- fix.dedup
           .checkDuplication(changeId1Hash, dedupTime1Day)
           .valueOrFail("no dedup conflict by time after accept")
@@ -325,20 +278,28 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
           )
           .leftOrFail("dedup conflict by time")
         okOffsetAfter <- fix.dedup
-          .checkDuplication(changeId1Hash, dedupOffset(offset2))
+          .checkDuplication(changeId1Hash, dedupOffset(offset2.toLong))
           .valueOrFail("no dedup conflict by offset at accept")
         errorOffset <- fix.dedup
-          .checkDuplication(changeId1Hash, dedupOffset(offset2 - 1))
+          .checkDuplication(changeId1Hash, dedupOffset(offset2.toLong - 1))
           .leftOrFail("dedup conflict by offset before accept")
       } yield {
-        okTime shouldBe dedupOffset(MultiDomainEventLog.ledgerFirstOffset)
-        okOffset shouldBe dedupOffset(MultiDomainEventLog.ledgerFirstOffset)
-        okTimeAfter shouldBe dedupOffset(offset2)
-        errorTime shouldBe AlreadyExists(offset2, accepted = true, submissionId1)
-        okOffsetAfter shouldBe dedupOffset(offset2)
-        errorOffset shouldBe AlreadyExists(offset2, accepted = true, submissionId1)
+        okTime shouldBe dedupOffset(Offset.firstOffset.toLong)
+        okOffset shouldBe dedupOffset(Offset.firstOffset.toLong)
+        okTimeAfter shouldBe dedupOffset(offset2.toLong)
+        errorTime shouldBe AlreadyExists(
+          offset2,
+          accepted = true,
+          submissionId1,
+        )
+        okOffsetAfter shouldBe dedupOffset(offset2.toLong)
+        errorOffset shouldBe AlreadyExists(
+          offset2,
+          accepted = true,
+          submissionId1,
+        )
       }
-    }
+    }.failOnShutdown
 
     "check pruning bound" in {
       val fix = mk()
@@ -346,7 +307,7 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
       val pruningOffset = 30L
       clock.advance(java.time.Duration.ofDays(1))
       for {
-        () <- fix.store.prune(pruningOffset, pruningTime)
+        _ <- fix.store.prune(pruningOffset, pruningTime)
         errorTime <- fix.dedup
           .checkDuplication(changeId1Hash, dedupTime1Day)
           .leftOrFail("dedup time too early")
@@ -371,27 +332,29 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
         )
         okOffset shouldBe dedupOffset(pruningOffset)
       }
-    }
+    }.failOnShutdown
 
     "ignore pruning bound when there is an acceptance" in {
       val fix = mk()
       val publicationTime1 = clock.now
       val offset1 = 5L
-      val publication1 = mkPublication(offset1, event1Offset, publicationTime1)
+      val publication1 =
+        mkAcceptedPublication(offset1, event1CompletionInfo, publicationTime1)
 
       clock.advance(java.time.Duration.ofHours(1))
       val publicationTime2 = clock.now
       val offset2 = 10L
-      val publication2 = mkPublication(offset2, event1rejectOffset2, publicationTime2)
+      val publication2 =
+        mkRejectedPublication(offset2, event1CompletionInfo, publicationTime2)
 
       for {
-        () <- fix.dedup.processPublications(Seq(publication1))
-        () <- fix.dedup.processPublications(Seq(publication2))
-        () = clock.advance(java.time.Duration.ofHours(23))
+        _ <- fix.dedup.processPublications(Seq(publication1))
+        _ <- fix.dedup.processPublications(Seq(publication2))
+        _ = clock.advance(java.time.Duration.ofHours(23))
         // This shouldn't prune the entry because the most recent definite answer is after the pruning offset
         // So we can still specify dedup periods that start before the pruning
-        pruningOffset = offset1 + 2L
-        () <- fix.store.prune(pruningOffset, publicationTime1.plusSeconds(10))
+        pruningOffset = offset1.toLong + 2L
+        _ <- fix.store.prune(pruningOffset, publicationTime1.plusSeconds(10))
         okTime <- fix.dedup
           .checkDuplication(changeId1Hash, dedupTimeAlmost1Day)
           .valueOrFail("no dedup conflict on time")
@@ -399,22 +362,22 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
           .checkDuplication(changeId1Hash, dedupTime1Day)
           .leftOrFail("dedup conflict on time")
         okOffset <- fix.dedup
-          .checkDuplication(changeId1Hash, dedupOffset(offset1))
+          .checkDuplication(changeId1Hash, dedupOffset(offset1.toLong))
           .valueOrFail("no dedup conflict on offset")
         errorOffset <- fix.dedup
-          .checkDuplication(changeId1Hash, dedupOffset(offset1 - 1))
+          .checkDuplication(changeId1Hash, dedupOffset(offset1.toLong - 1))
           .leftOrFail("dedup conflict on offset")
         otherTime <- fix.dedup
-          .checkDuplication(changeId3Hash, dedupTimeAlmost1Day)
+          .checkDuplication(changeId2Hash, dedupTimeAlmost1Day)
           .leftOrFail("dedup time conflict on other")
         otherOffset <- fix.dedup
-          .checkDuplication(changeId3Hash, dedupOffset(pruningOffset - 1L))
+          .checkDuplication(changeId2Hash, dedupOffset(pruningOffset - 1L))
           .leftOrFail("dedup time conflict on pre-pruning offset")
       } yield {
-        okTime shouldBe dedupOffset(offset1)
-        errorTime shouldBe AlreadyExists(offset1, accepted = true, submissionId1)
-        okOffset shouldBe dedupOffset(offset1)
-        errorOffset shouldBe AlreadyExists(offset1, accepted = true, submissionId1)
+        okTime shouldBe dedupOffset(offset1.toLong)
+        errorTime shouldBe AlreadyExists(offset1.toLong, accepted = true, submissionId1)
+        okOffset shouldBe dedupOffset(offset1.toLong)
+        errorOffset shouldBe AlreadyExists(offset1.toLong, accepted = true, submissionId1)
         otherTime shouldBe DeduplicationPeriodTooEarly(
           dedupTimeAlmost1Day,
           dedupOffset(pruningOffset),
@@ -424,12 +387,13 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
           dedupOffset(pruningOffset),
         )
       }
-    }
+    }.failOnShutdown
 
     "consider the publication time bound" in {
       val publicationTime1 = clock.now
       val offset1 = 5L
-      val publication1 = mkPublication(offset1, event1Offset, publicationTime1)
+      val publication1 =
+        mkAcceptedPublication(offset1, event1CompletionInfo, publicationTime1)
 
       val lowerBound = publicationTime1.add(java.time.Duration.ofDays(1))
       val fix = mk(lowerBound)
@@ -437,7 +401,7 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
       clock.advance(java.time.Duration.ofHours(23))
 
       for {
-        () <- fix.dedup.processPublications(Seq(publication1))
+        _ <- fix.dedup.processPublications(Seq(publication1))
         okTime <- fix.dedup
           .checkDuplication(changeId1Hash, dedupTimeAlmost1Day)
           .valueOrFail("no dedup conflict on time")
@@ -445,10 +409,9 @@ class CommandDeduplicatorTest extends AsyncWordSpec with BaseTest {
           .checkDuplication(changeId1Hash, dedupTime1Day)
           .leftOrFail("dedup conflict on time")
       } yield {
-        okTime shouldBe dedupOffset(offset1)
-        errorTime shouldBe AlreadyExists(offset1, accepted = true, submissionId1)
+        okTime shouldBe dedupOffset(offset1.toLong)
+        errorTime shouldBe AlreadyExists(offset1.toLong, accepted = true, submissionId1)
       }
-    }
+    }.failOnShutdown
   }
 }
- */

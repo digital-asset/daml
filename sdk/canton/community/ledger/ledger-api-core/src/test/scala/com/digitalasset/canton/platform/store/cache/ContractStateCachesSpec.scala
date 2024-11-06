@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.cache
 
 import cats.data.NonEmptyVector
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.{AbsoluteOffset, Offset}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent
 import com.digitalasset.canton.{HasExecutionContext, TestEssentials}
@@ -40,8 +40,8 @@ class ContractStateCachesSpec
       loggerFactory,
     )
 
-    contractStateCaches.keyState.cacheIndex shouldBe cacheInitializationOffset
-    contractStateCaches.contractState.cacheIndex shouldBe cacheInitializationOffset
+    contractStateCaches.keyState.cacheIndex shouldBe cacheInitializationOffset.toAbsoluteOffsetO
+    contractStateCaches.contractState.cacheIndex shouldBe cacheInitializationOffset.toAbsoluteOffsetO
   }
 
   "push" should "update the caches with a batch of events" in new TestScope {
@@ -81,7 +81,7 @@ class ContractStateCachesSpec
   }
 
   "reset" should "reset the caches on `reset`" in new TestScope {
-    val someOffset = Offset.fromHexString(Ref.HexString.assertFromString("aabbcc"))
+    private val someOffset = Some(AbsoluteOffset.tryFromLong(112233L))
 
     contractStateCaches.reset(someOffset)
     verify(keyStateCache).reset(someOffset)
@@ -177,5 +177,5 @@ class ContractStateCachesSpec
     Versioned(LanguageVersion.StableVersions(LanguageVersion.Major.V2).max, contractInstance)
   }
 
-  private def offset(idx: Int) = Offset.fromByteArray(BigInt(idx.toLong).toByteArray)
+  private def offset(idx: Int) = Offset.fromLong(idx.toLong)
 }

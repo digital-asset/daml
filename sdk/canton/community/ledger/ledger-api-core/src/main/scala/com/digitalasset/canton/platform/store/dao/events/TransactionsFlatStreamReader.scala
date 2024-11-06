@@ -35,6 +35,7 @@ import com.digitalasset.canton.platform.store.utils.{
   QueueBasedConcurrencyLimiter,
   Telemetry,
 }
+import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.NotUsed
@@ -190,9 +191,9 @@ class TransactionsFlatStreamReader(
                   minOffsetExclusive = queryRange.startExclusiveOffset,
                   maxOffsetInclusive = queryRange.endInclusiveOffset,
                   errorPruning = (prunedOffset: Offset) =>
-                    s"Transactions request from ${queryRange.startExclusiveOffset.toHexString} to ${queryRange.endInclusiveOffset.toHexString} precedes pruned offset ${prunedOffset.toHexString}",
+                    s"Transactions request from ${queryRange.startExclusiveOffset.toLong} to ${queryRange.endInclusiveOffset.toLong} precedes pruned offset ${prunedOffset.toLong}",
                   errorLedgerEnd = (ledgerEndOffset: Offset) =>
-                    s"Transactions request from ${queryRange.startExclusiveOffset.toHexString} to ${queryRange.endInclusiveOffset.toHexString} is beyond ledger end offset ${ledgerEndOffset.toHexString}",
+                    s"Transactions request from ${queryRange.startExclusiveOffset.toLong} to ${queryRange.endInclusiveOffset.toLong} is beyond ledger end offset ${ledgerEndOffset.toLong}",
                 ) {
                   eventStorageBackend.transactionStreamingQueries
                     .fetchEventPayloadsFlat(target = target)(
@@ -243,7 +244,7 @@ class TransactionsFlatStreamReader(
           deserializeLfValues(rawEvents, eventProjectionProperties)
         )
       )
-      .mapConcat { (groupOfPayloads: Vector[Entry[Event]]) =>
+      .mapConcat { (groupOfPayloads: Seq[Entry[Event]]) =>
         val responses = TransactionConversions.toGetTransactionsResponse(groupOfPayloads)
         responses.map { case (offset, response) => Offset.fromLong(offset) -> response }
       }
@@ -280,9 +281,9 @@ class TransactionsFlatStreamReader(
   private def deserializeLfValues(
       rawEvents: Vector[Entry[RawFlatEvent]],
       eventProjectionProperties: EventProjectionProperties,
-  )(implicit lc: LoggingContextWithTrace): Future[Vector[Entry[Event]]] =
+  )(implicit lc: LoggingContextWithTrace): Future[Seq[Entry[Event]]] =
     Timed.future(
-      future = Future.traverse(rawEvents)(
+      future = MonadUtil.sequentialTraverse(rawEvents)(
         TransactionsReader.deserializeFlatEvent(eventProjectionProperties, lfValueTranslation)
       ),
       timer = dbMetrics.flatTxStream.translationTimer,

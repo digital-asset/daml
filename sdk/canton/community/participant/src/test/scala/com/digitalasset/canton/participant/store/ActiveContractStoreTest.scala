@@ -18,11 +18,7 @@ import com.digitalasset.canton.participant.store.ActiveContractStore.ActivenessC
 }
 import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
-import com.digitalasset.canton.protocol.ExampleTransactionFactory.{
-  asSerializable,
-  contractInstance,
-  transactionId,
-}
+import com.digitalasset.canton.protocol.ExampleTransactionFactory.{asSerializable, contractInstance}
 import com.digitalasset.canton.protocol.{ExampleTransactionFactory, LfContractId}
 import com.digitalasset.canton.pruning.{PruningPhase, PruningStatus}
 import com.digitalasset.canton.store.PrunableByTimeTest
@@ -1424,11 +1420,11 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         _ <- acs
           .archiveContract(coid21, toc3)
           .value // Transient contract coid21
-        _ <- acs.prune(ts2)
-        status <- acs.pruningStatus
+        _ <- acs.prune(ts2).failOnShutdown
+        status <- acs.pruningStatus.failOnShutdown
         fetch <- acs.fetchStates(Seq(coid00, coid01, coid10, coid11, coid20, coid21))
         count <- acs.contractCount(ts3)
-        _ <- acs.prune(ts3)
+        _ <- acs.prune(ts3).failOnShutdown
         fetcha <- acs.fetchStates(Seq(coid20, coid21))
       } yield {
         status shouldBe Some(PruningStatus(PruningPhase.Completed, ts2, Some(ts2)))
@@ -1471,14 +1467,14 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         assignments <- activationsWithTC.parTraverse { case (toc, tc) =>
           acs.assignContract(coid00, toc, sourceDomain1, tc).value
         }
-        _ <- acs.prune(toc4.timestamp)
+        _ <- acs.prune(toc4.timestamp).failOnShutdown
         snapshotsTakenAfterIgnoredPrune <- activations.parTraverse(toc =>
           acs.snapshot(toc.timestamp)
         )
         countsAfterIgnoredPrune <- activations.parTraverse(toc => acs.contractCount(toc.timestamp))
         // the presence of an archival/deactivation enables pruning
         _ <- acs.archiveContract(coid00, toc4).value
-        _ <- acs.prune(toc4.timestamp)
+        _ <- acs.prune(toc4.timestamp).failOnShutdown
 
         snapshotsTakenAfterActualPrune <- activations.parTraverse(toc =>
           acs.snapshot(toc.timestamp)
@@ -1951,7 +1947,6 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         contracts.parTraverse_ { case (contractId, pkg) =>
           contractStore.storeCreatedContract(
             RequestCounter(0),
-            transactionId(1),
             asSerializable(
               contractId,
               contractInstance = contractInstance(

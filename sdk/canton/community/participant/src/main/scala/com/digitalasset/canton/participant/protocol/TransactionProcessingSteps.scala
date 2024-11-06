@@ -252,7 +252,7 @@ class TransactionProcessingSteps(
         case CommandDeduplicator.AlreadyExists(completionOffset, accepted, submissionId) =>
           CommandDeduplicationError.DuplicateCommandReject(
             changeId,
-            UpstreamOffsetConvert.fromGlobalOffset(completionOffset).toHexString,
+            UpstreamOffsetConvert.fromGlobalOffset(completionOffset).toLong,
             accepted,
             submissionId,
           ) ->
@@ -273,7 +273,7 @@ class TransactionProcessingSteps(
               CommandDeduplicationError.DeduplicationPeriodStartsTooEarlyErrorWithOffset(
                 changeId,
                 requested,
-                earliestOffset.toHexString,
+                earliestOffset.toLong,
               )
           }
           error -> emptyDeduplicationPeriod
@@ -318,7 +318,10 @@ class TransactionProcessingSteps(
       val submitterInfoWithDedupPeriod =
         submitterInfo.copy(deduplicationPeriod = actualDeduplicationOffset)
 
-      def causeWithTemplate(message: String, reason: TransactionConfirmationRequestCreationError) =
+      def causeWithTemplate(
+          message: String,
+          reason: TransactionConfirmationRequestCreationError,
+      ): TransactionSubmissionTrackingData.CauseWithTemplate =
         TransactionSubmissionTrackingData.CauseWithTemplate(
           SubmissionErrors.MalformedRequest.Error(message, reason)
         )
@@ -897,6 +900,7 @@ class TransactionProcessingSteps(
           commonData,
           requestTimestamp,
           domainParameters.ledgerTimeRecordTimeTolerance,
+          domainParameters.submissionTimeRecordTimeTolerance,
           amSubmitter,
           logger,
         )
@@ -1273,7 +1277,7 @@ class TransactionProcessingSteps(
       traceContext: TraceContext
   ): EitherT[Future, TransactionProcessorError, CommitAndStoreContractsAndPublishEvent] = {
     val commitSetF = Future.successful(commitSet)
-    val contractsToBeStored = createdContracts.values.toSeq.map(WithTransactionId(_, txId))
+    val contractsToBeStored = createdContracts.values.toSeq
 
     val witnessedAndDivulged = witnessed ++ divulged
     def storeDivulgedContracts: Future[Unit] =

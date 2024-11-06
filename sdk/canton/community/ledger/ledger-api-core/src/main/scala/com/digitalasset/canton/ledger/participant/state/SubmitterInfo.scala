@@ -4,11 +4,10 @@
 package com.digitalasset.canton.ledger.participant.state
 
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
+import com.digitalasset.canton.crypto.{Hash, Signature}
 import com.digitalasset.canton.data.DeduplicationPeriod
-import com.digitalasset.canton.protocol.{
-  ExternallySignedTransaction,
-  TransactionAuthorizationPartySignatures,
-}
+import com.digitalasset.canton.ledger.participant.state.SubmitterInfo.ExternallySignedSubmission
+import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.daml.lf.data.Ref
 
 /** Collects context information for a submission.
@@ -29,6 +28,8 @@ import com.digitalasset.daml.lf.data.Ref
   *                             [[Update]].
   * @param submissionId         An identifier for the submission that allows an application to
   *                             correlate completions to its submissions.
+  * @param externallySignedSubmission If this is provided then the authorization for all acting parties
+  *                                   will be provided by the enclosed signatures.
   */
 final case class SubmitterInfo(
     actAs: List[Ref.Party],
@@ -37,7 +38,7 @@ final case class SubmitterInfo(
     commandId: Ref.CommandId,
     deduplicationPeriod: DeduplicationPeriod,
     submissionId: Option[Ref.SubmissionId],
-    externallySignedTransaction: Option[ExternallySignedTransaction],
+    externallySignedSubmission: Option[ExternallySignedSubmission],
 ) {
 
   /** The ID for the ledger change */
@@ -52,14 +53,15 @@ final case class SubmitterInfo(
       submissionId,
       None,
     )
+
 }
 
 object SubmitterInfo {
-  implicit val `PartySignatures to LoggingValue`
-      : ToLoggingValue[TransactionAuthorizationPartySignatures] = {
-    case TransactionAuthorizationPartySignatures(signatures) =>
+  implicit val `ExternallySignedSubmission to LoggingValue`
+      : ToLoggingValue[ExternallySignedSubmission] = {
+    case ExternallySignedSubmission(_, signatures) =>
       LoggingValue.Nested.fromEntries(
-        "parties" -> signatures.map(_._1.toProtoPrimitive)
+        "signatures" -> signatures.keys.map(_.toProtoPrimitive)
       )
   }
   implicit val `SubmitterInfo to LoggingValue`: ToLoggingValue[SubmitterInfo] = {
@@ -70,7 +72,7 @@ object SubmitterInfo {
           commandId,
           deduplicationPeriod,
           submissionId,
-          externallySignedTransaction,
+          externallySignedSubmission,
         ) =>
       LoggingValue.Nested.fromEntries(
         "actAs " -> actAs,
@@ -79,7 +81,13 @@ object SubmitterInfo {
         "commandId " -> commandId,
         "deduplicationPeriod " -> deduplicationPeriod,
         "submissionId" -> submissionId,
-        "partySignatures" -> externallySignedTransaction.map(_.signatures),
+        "externallySignedSubmission" -> externallySignedSubmission,
       )
   }
+
+  final case class ExternallySignedSubmission(
+      hash: Hash,
+      signatures: Map[PartyId, Seq[Signature]],
+  )
+
 }

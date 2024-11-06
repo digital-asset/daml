@@ -1,0 +1,50 @@
+server:
+  http_listen_port: 5100
+  grpc_listen_port: 5101
+
+positions:
+  filename: /var/log/promtail/positions.yaml
+
+clients:
+  - url: http://loki:5000/loki/api/v1/push
+
+scrape_configs:
+  - job_name: logs
+    pipeline_stages:
+      - json:
+          expressions:
+            timestamp: '"@timestamp"'
+            output: message
+            thread_name: thread_name
+            level: level
+            trace_id: '"trace-id"'
+            stack_trace: stack_trace
+            logger_name: logger_name
+      - labels:
+          thread_name: ''
+          level: ''
+          trace_id: ''
+          stack_trace: ''
+          logger_name: ''
+      - timestamp:
+          source: timestamp
+          format: '2006-01-02T15:04:05.000Z'
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: canton
+          namespace: docker-compose
+          __path__: /var/log/promtail/canton.log
+      - targets:
+          - localhost
+        labels:
+          job: http-json
+          namespace: docker-compose
+          __path__: /var/log/promtail/http-json.log
+      - targets:
+          - localhost
+        labels:
+          job: trigger-service
+          namespace: docker-compose
+          __path__: /var/log/promtail/trigger-service.log

@@ -3,10 +3,9 @@
 
 package com.digitalasset.canton.participant.sync
 
-import cats.syntax.either.*
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.participant.GlobalOffset
-import com.digitalasset.daml.lf.data.{Bytes as LfBytes, Ref}
+import com.digitalasset.daml.lf.data.Bytes as LfBytes
 import com.google.protobuf.ByteString
 
 import java.nio.{ByteBuffer, ByteOrder}
@@ -38,7 +37,7 @@ object UpstreamOffsetConvert {
     val bytes = offset.bytes.toByteArray
     if (bytes.lengthCompare(longBasedByteLength) != 0) {
       if (offset == Offset.beforeBegin) {
-        Left(s"Invalid canton offset: before ledger begin is not allowed")
+        Left("Invalid canton offset: before ledger begin is not allowed")
       } else {
         Left(s"Invalid canton offset length: expected $longBasedByteLength, actual ${bytes.length}")
       }
@@ -53,12 +52,13 @@ object UpstreamOffsetConvert {
     }
   }
 
-  def toStringOffset(offset: GlobalOffset): String =
-    fromGlobalOffset(offset).toHexString
+  def tryToLedgerSyncOffset(offset: Long): Offset =
+    Offset.fromLong(offset)
 
-  def tryToLedgerSyncOffset(offset: String): Offset =
-    toLedgerSyncOffset(offset).valueOr(err => throw new IllegalArgumentException(err))
-
-  def toLedgerSyncOffset(offset: String): Either[String, Offset] =
-    Ref.HexString.fromString(offset).map(Offset.fromHexString)
+  def toLedgerSyncOffset(offset: Long): Either[String, Offset] =
+    try {
+      Right(tryToLedgerSyncOffset(offset))
+    } catch {
+      case e: Throwable => Left(e.getMessage)
+    }
 }

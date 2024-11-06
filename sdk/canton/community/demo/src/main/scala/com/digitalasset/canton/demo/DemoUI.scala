@@ -63,7 +63,7 @@ trait BaseScript extends NamedLogging {
 
   def steps: Seq[Step]
   def parties(): Seq[(String, ParticipantReference)]
-  def subscriptions(): Map[String, String]
+  def subscriptions(): Map[String, Long]
   def maxImage: Int
   def imagePath: String
 
@@ -167,7 +167,7 @@ class ParticipantTab(
       flushing: Boolean,
       channel: Option[ManagedChannel],
       resubscribe: Boolean,
-      subscribeFrom: String,
+      subscribeFrom: Long,
   )
 
   private val currentChannel = new AtomicReference[SubscriptionState](
@@ -247,7 +247,7 @@ class ParticipantTab(
     }
   }
 
-  def reStart(newOffsetO: Option[String] = None): Unit = {
+  def reStart(newOffsetO: Option[Long] = None): Unit = {
     val cur = currentChannel.updateAndGet(x =>
       x.copy(resubscribe = true, subscribeFrom = newOffsetO.getOrElse(x.subscribeFrom))
     )
@@ -257,7 +257,7 @@ class ParticipantTab(
     }
   }
 
-  private def subscribeToChannel(offset: String): Unit = {
+  private def subscribeToChannel(offset: Long): Unit = {
     val channel =
       ClientChannelBuilder.createChannelToTrustedServer(participant.config.clientLedgerApi)
     logger.debug(s"Subscribing ${participant.name} at $offset")
@@ -341,11 +341,11 @@ class ParticipantTab(
             val message = se.getStatus.getDescription
             logger.info(s"Attempt to access pruned participant ledger state: $message")
             val errorPattern =
-              "Transactions request from ([0-9a-fA-F]*) to ([0-9a-fA-F]*) precedes pruned offset ([0-9a-fA-F]+)".r
+              "Transactions request from ([0-9]*) to ([0-9]*) precedes pruned offset ([0-9]+)".r
             Try {
-              val errorPattern(_badStartHexOffset, _endHexOffset, hexPrunedOffset) = message
-              logger.info(s"Identified pruning offset position as $hexPrunedOffset")
-              hexPrunedOffset
+              val errorPattern(_badStartOffset, _endOffset, prunedOffset) = message
+              logger.info(s"Identified pruning offset position as $prunedOffset")
+              prunedOffset.toLong
             } match {
               case Success(prunedOffset) =>
                 logger.info(s"Resubscribing from offset $prunedOffset instead")
@@ -530,7 +530,7 @@ class ParticipantTab(
 }
 
 object ParticipantTab {
-  val LedgerBegin: String = ""
+  val LedgerBegin: Long = 0L
 }
 
 class Controls(

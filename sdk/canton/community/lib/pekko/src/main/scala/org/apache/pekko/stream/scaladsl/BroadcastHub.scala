@@ -1,6 +1,7 @@
 package org.apache.pekko.stream.scaladsl
 
 import org.apache.pekko.NotUsed
+import org.apache.pekko.annotation.InternalApi
 import org.apache.pekko.stream.stage.*
 import org.apache.pekko.stream.*
 
@@ -9,68 +10,107 @@ import scala.annotation.tailrec
 import scala.concurrent.{Future, Promise}
 import scala.util.{Failure, Success, Try}
 
-// This class has been copied from Pekko 2.6.18
+// This class has been copied from Pekko 1.1.2
 // and instrumented with logging and a bug fix for the race condition reported in https://github.com/akka/akka/issues/31530
 // The changes are marked with `INSTRUMENT` and `FIXED` respectively
 
-/** A BroadcastHub is a special streaming hub that is able to broadcast streamed elements to a dynamic set of consumers.
-  * It consists of two parts, a [[Sink]] and a [[Source]]. The [[Sink]] broadcasts elements from a producer to the
-  * actually live consumers it has. Once the producer has been materialized, the [[Sink]] it feeds into returns a
-  * materialized value which is the corresponding [[Source]]. This [[Source]] can be materialized an arbitrary number
-  * of times, where each of the new materializations will receive their elements from the original [[Sink]].
-  */
+
+/**
+ * A BroadcastHub is a special streaming hub that is able to broadcast streamed elements to a dynamic set of consumers.
+ * It consists of two parts, a [[Sink]] and a [[Source]]. The [[Sink]] broadcasts elements from a producer to the
+ * actually live consumers it has. Once the producer has been materialized, the [[Sink]] it feeds into returns a
+ * materialized value which is the corresponding [[Source]]. This [[Source]] can be materialized an arbitrary number
+ * of times, where each of the new materializations will receive their elements from the original [[Sink]].
+ */
 object BroadcastHub {
 
-  /** Creates a [[Sink]] that receives elements from its upstream producer and broadcasts them to a dynamic set
-    * of consumers. After the [[Sink]] returned by this method is materialized, it returns a [[Source]] as materialized
-    * value. This [[Source]] can be materialized an arbitrary number of times and each materialization will receive the
-    * broadcast elements from the original [[Sink]].
-    *
-    * Every new materialization of the [[Sink]] results in a new, independent hub, which materializes to its own
-    * [[Source]] for consuming the [[Sink]] of that materialization.
-    *
-    * If the original [[Sink]] is failed, then the failure is immediately propagated to all of its materialized
-    * [[Source]]s (possibly jumping over already buffered elements). If the original [[Sink]] is completed, then
-    * all corresponding [[Source]]s are completed. Both failure and normal completion is "remembered" and later
-    * materializations of the [[Source]] will see the same (failure or completion) state. [[Source]]s that are
-    * cancelled are simply removed from the dynamic set of consumers.
-    *
-    * @param bufferSize Buffer size used by the producer. Gives an upper bound on how "far" from each other two
-    *                   concurrent consumers can be in terms of element. If this buffer is full, the producer
-    *                   is backpressured. Must be a power of two and less than 4096.
-    */
-  def sink[T](bufferSize: Int): Sink[T, Source[T, NotUsed]] =
-    Sink.fromGraph(new BroadcastHub[T](bufferSize))
+  /**
+   * INTERNAL API
+   */
+  @InternalApi private[pekko] val defaultBufferSize = 256
 
-  /** Creates a [[Sink]] that receives elements from its upstream producer and broadcasts them to a dynamic set
-    * of consumers. After the [[Sink]] returned by this method is materialized, it returns a [[Source]] as materialized
-    * value. This [[Source]] can be materialized arbitrary many times and each materialization will receive the
-    * broadcast elements from the original [[Sink]].
-    *
-    * Every new materialization of the [[Sink]] results in a new, independent hub, which materializes to its own
-    * [[Source]] for consuming the [[Sink]] of that materialization.
-    *
-    * If the original [[Sink]] is failed, then the failure is immediately propagated to all of its materialized
-    * [[Source]]s (possibly jumping over already buffered elements). If the original [[Sink]] is completed, then
-    * all corresponding [[Source]]s are completed. Both failure and normal completion is "remembered" and later
-    * materializations of the [[Source]] will see the same (failure or completion) state. [[Source]]s that are
-    * cancelled are simply removed from the dynamic set of consumers.
-    */
-  def sink[T]: Sink[T, Source[T, NotUsed]] = sink(bufferSize = 256)
+  /**
+   * Creates a [[Sink]] that receives elements from its upstream producer and broadcasts them to a dynamic set
+   * of consumers. After the [[Sink]] returned by this method is materialized, it returns a [[Source]] as materialized
+   * value. This [[Source]] can be materialized an arbitrary number of times and each materialization will receive the
+   * broadcast elements from the original [[Sink]].
+   *
+   * Every new materialization of the [[Sink]] results in a new, independent hub, which materializes to its own
+   * [[Source]] for consuming the [[Sink]] of that materialization.
+   *
+   * If the original [[Sink]] is failed, then the failure is immediately propagated to all of its materialized
+   * [[Source]]s (possibly jumping over already buffered elements). If the original [[Sink]] is completed, then
+   * all corresponding [[Source]]s are completed. Both failure and normal completion is "remembered" and later
+   * materializations of the [[Source]] will see the same (failure or completion) state. [[Source]]s that are
+   * cancelled are simply removed from the dynamic set of consumers.
+   *
+   * @param bufferSize Buffer size used by the producer. Gives an upper bound on how "far" from each other two
+   *                   concurrent consumers can be in terms of element. If this buffer is full, the producer
+   *                   is backpressured. Must be a power of two and less than 4096.
+   */
+  def sink[T](bufferSize: Int): Sink[T, Source[T, NotUsed]] = Sink.fromGraph(new BroadcastHub[T](bufferSize))
+
+  /**
+   * Creates a [[Sink]] that receives elements from its upstream producer and broadcasts them to a dynamic set
+   * of consumers. After the [[Sink]] returned by this method is materialized, it returns a [[Source]] as materialized
+   * value. This [[Source]] can be materialized an arbitrary number of times and each materialization will receive the
+   * broadcast elements from the original [[Sink]].
+   *
+   * Every new materialization of the [[Sink]] results in a new, independent hub, which materializes to its own
+   * [[Source]] for consuming the [[Sink]] of that materialization.
+   *
+   * If the original [[Sink]] is failed, then the failure is immediately propagated to all of its materialized
+   * [[Source]]s (possibly jumping over already buffered elements). If the original [[Sink]] is completed, then
+   * all corresponding [[Source]]s are completed. Both failure and normal completion is "remembered" and later
+   * materializations of the [[Source]] will see the same (failure or completion) state. [[Source]]s that are
+   * cancelled are simply removed from the dynamic set of consumers.
+   *
+   * @param startAfterNrOfConsumers Elements are buffered until this number of consumers have been connected.
+   *                                This is only used initially when the operator is starting up, i.e. it is not honored when consumers have
+   *                                been removed (canceled).
+   * @param bufferSize              Buffer size used by the producer. Gives an upper bound on how "far" from each other two
+   *                                concurrent consumers can be in terms of element. If this buffer is full, the producer
+   *                                is backpressured. Must be a power of two and less than 4096.
+   * @since 1.1.0
+   */
+  def sink[T](startAfterNrOfConsumers: Int, bufferSize: Int): Sink[T, Source[T, NotUsed]] =
+    Sink.fromGraph(new BroadcastHub[T](startAfterNrOfConsumers, bufferSize))
+
+  /**
+   * Creates a [[Sink]] with default buffer size 256 that receives elements from its upstream producer and broadcasts them to a dynamic set
+   * of consumers. After the [[Sink]] returned by this method is materialized, it returns a [[Source]] as materialized
+   * value. This [[Source]] can be materialized arbitrary many times and each materialization will receive the
+   * broadcast elements from the original [[Sink]].
+   *
+   * Every new materialization of the [[Sink]] results in a new, independent hub, which materializes to its own
+   * [[Source]] for consuming the [[Sink]] of that materialization.
+   *
+   * If the original [[Sink]] is failed, then the failure is immediately propagated to all of its materialized
+   * [[Source]]s (possibly jumping over already buffered elements). If the original [[Sink]] is completed, then
+   * all corresponding [[Source]]s are completed. Both failure and normal completion is "remembered" and later
+   * materializations of the [[Source]] will see the same (failure or completion) state. [[Source]]s that are
+   * cancelled are simply removed from the dynamic set of consumers.
+   */
+  def sink[T]: Sink[T, Source[T, NotUsed]] = sink(bufferSize = defaultBufferSize)
 
 }
 
-/** INTERNAL API
-  */
+/**
+ * INTERNAL API
+ */
 private[pekko] class BroadcastHub[T](
-    bufferSize: Int,
-    // INSTRUMENT BEGIN
-    registrationPendingCallback: Long => Unit = _ => (),
-    // INSTRUMENT END
-) extends GraphStageWithMaterializedValue[SinkShape[T], Source[T, NotUsed]] {
+                                      startAfterNrOfConsumers: Int,
+                                      bufferSize: Int,
+                                      // INSTRUMENT BEGIN
+                                      registrationPendingCallback: Long => Unit = _ => (),
+                                      // INSTRUMENT END
+                                    )
+  extends GraphStageWithMaterializedValue[SinkShape[T], Source[T, NotUsed]] {
+  require(startAfterNrOfConsumers >= 0, "startAfterNrOfConsumers must >= 0")
   require(bufferSize > 0, "Buffer size must be positive")
   require(bufferSize < 4096, "Buffer size larger then 4095 is not allowed")
   require((bufferSize & bufferSize - 1) == 0, "Buffer size must be a power of two")
+  def this(bufferSize: Int) = this(0, bufferSize)
 
   private val Mask = bufferSize - 1
   private val WheelMask = (bufferSize * 2) - 1
@@ -93,10 +133,8 @@ private[pekko] class BroadcastHub[T](
   private object Completed
 
   private sealed trait HubState
-  private case class Open(
-      callbackFuture: Future[AsyncCallback[HubEvent]],
-      registrations: List[Consumer],
-  ) extends HubState
+  private case class Open(callbackFuture: Future[AsyncCallback[HubEvent]], registrations: List[Consumer])
+    extends HubState
   private case class Closed(failure: Option[Throwable]) extends HubState
 
   private class BroadcastSinkLogic(_shape: Shape) extends GraphStageLogic(_shape) with InHandler {
@@ -104,6 +142,7 @@ private[pekko] class BroadcastHub[T](
     private[this] val callbackPromise: Promise[AsyncCallback[HubEvent]] = Promise()
     private[this] val noRegistrationsState = Open(callbackPromise.future, Nil)
     val state = new AtomicReference[HubState](noRegistrationsState)
+    private var initialized = false
 
     // Start from values that will almost immediately overflow. This has no effect on performance, any starting
     // number will do, however, this protects from regressions as these values *almost surely* overflow and fail
@@ -133,7 +172,9 @@ private[pekko] class BroadcastHub[T](
     override def preStart(): Unit = {
       setKeepGoing(true)
       callbackPromise.success(getAsyncCallback[HubEvent](onEvent))
-      pull(in)
+      if (startAfterNrOfConsumers == 0) {
+        pull(in)
+      }
     }
 
     // Cannot complete immediately if there is no space in the queue to put the completion marker
@@ -144,46 +185,14 @@ private[pekko] class BroadcastHub[T](
       if (!isFull) pull(in)
     }
 
+    private def tryPull(): Unit = {
+      if (initialized && !isClosed(in) && !hasBeenPulled(in) && !isFull) {
+        pull(in)
+      }
+    }
+
     private def onEvent(ev: HubEvent): Unit = {
       ev match {
-        case RegistrationPending =>
-          state.getAndSet(noRegistrationsState).asInstanceOf[Open].registrations.foreach {
-            consumer =>
-              val startFrom = head
-              activeConsumers += 1
-              addConsumer(consumer, startFrom)
-              // INSTRUMENT BEGIN
-              // add a callback hook so that we can control the interleaving in tests
-              registrationPendingCallback(consumer.id)
-              // INSTRUMENT END
-              // in case the consumer is already stopped we need to undo registration
-              implicit val ec = materializer.executionContext
-              consumer.callback.invokeWithFeedback(Initialize(startFrom)).failed.foreach {
-                case _: StreamDetachedException =>
-                  callbackPromise.future.foreach { callback =>
-                    callback.invoke(UnRegister(consumer.id, startFrom, startFrom))
-                  }
-                case _ => ()
-              }
-          }
-
-        case UnRegister(id, previousOffset, finalOffset) =>
-          if (findAndRemoveConsumer(id, previousOffset) != null)
-            activeConsumers -= 1
-          if (activeConsumers == 0) {
-            if (isClosed(in)) completeStage()
-            else if (head != finalOffset) {
-              // If our final consumer goes away, we roll forward the buffer so a subsequent consumer does not
-              // see the already consumed elements. This feature is quite handy.
-              while (head != finalOffset) {
-                queue(head & Mask) = null
-                head += 1
-              }
-              head = finalOffset
-              if (!hasBeenPulled(in)) pull(in)
-            }
-          } else checkUnblock(previousOffset)
-
         case Advance(id, previousOffset) =>
           val newOffset = previousOffset + DemandThreshold
           // Move the consumer from its last known offset to its new one. Check if we are unblocked.
@@ -198,6 +207,47 @@ private[pekko] class BroadcastHub[T](
           // Also check if the consumer is now unblocked since we published an element since it went asleep.
           if (currentOffset != tail) consumer.callback.invoke(Wakeup)
           checkUnblock(previousOffset)
+
+        case RegistrationPending =>
+          state.getAndSet(noRegistrationsState).asInstanceOf[Open].registrations.foreach { consumer =>
+            val startFrom = head
+            activeConsumers += 1
+            addConsumer(consumer, startFrom)
+            // INSTRUMENT BEGIN
+            // add a callback hook so that we can control the interleaving in tests
+            registrationPendingCallback(consumer.id)
+            // INSTRUMENT END
+            // in case the consumer is already stopped we need to undo registration
+            implicit val ec = materializer.executionContext
+            consumer.callback.invokeWithFeedback(Initialize(startFrom)).failed.foreach {
+              case _: StreamDetachedException =>
+                callbackPromise.future.foreach(callback =>
+                  callback.invoke(UnRegister(consumer.id, startFrom, startFrom)))
+              case _ => ()
+            }
+          }
+          if (activeConsumers >= startAfterNrOfConsumers) {
+            initialized = true
+          }
+          tryPull()
+
+        case UnRegister(id, previousOffset, finalOffset) =>
+          if (findAndRemoveConsumer(id, previousOffset) != null)
+            activeConsumers -= 1
+          if (activeConsumers == 0) {
+            if (isClosed(in)) completeStage()
+            else if (head != finalOffset) {
+              // If our final consumer goes away, we roll forward the buffer so a subsequent consumer does not
+              // see the already consumed elements. This feature is quite handy.
+              while (head != finalOffset) {
+                queue(head & Mask) = null
+                head += 1
+              }
+              head = finalOffset
+              tryPull()
+            }
+          } else checkUnblock(previousOffset)
+
       }
     }
 
@@ -252,7 +302,7 @@ private[pekko] class BroadcastHub[T](
     private def checkUnblock(offsetOfConsumerRemoved: Int): Unit = {
       if (unblockIfPossible(offsetOfConsumerRemoved)) {
         if (isClosed(in)) complete()
-        else if (!hasBeenPulled(in)) pull(in)
+        else tryPull()
       }
     }
 
@@ -339,8 +389,7 @@ private[pekko] class BroadcastHub[T](
   private case class Initialize(offset: Int) extends ConsumerEvent
 
   override def createLogicAndMaterializedValue(
-      inheritedAttributes: Attributes
-  ): (GraphStageLogic, Source[T, NotUsed]) = {
+                                                inheritedAttributes: Attributes): (GraphStageLogic, Source[T, NotUsed]) = {
     val idCounter = new AtomicLong()
 
     val logic = new BroadcastSinkLogic(shape)
@@ -380,15 +429,11 @@ private[pekko] class BroadcastHub[T](
             @tailrec def register(): Unit = {
               logic.state.get() match {
                 case Closed(Some(ex)) => failStage(ex)
-                case Closed(None) => completeStage()
+                case Closed(None)     => completeStage()
                 case previousState @ Open(callbackFuture, registrations) =>
                   val newRegistrations = Consumer(id, callback) :: registrations
-                  if (
-                    logic.state.compareAndSet(previousState, Open(callbackFuture, newRegistrations))
-                  ) {
-                    callbackFuture.onComplete(getAsyncCallback(onHubReady).invoke)(
-                      materializer.executionContext
-                    )
+                  if (logic.state.compareAndSet(previousState, Open(callbackFuture, newRegistrations))) {
+                    callbackFuture.onComplete(getAsyncCallback(onHubReady).invoke)(materializer.executionContext)
                   } else register()
               }
             }
@@ -447,7 +492,7 @@ private[pekko] class BroadcastHub[T](
 
           private def onCommand(cmd: ConsumerEvent): Unit = cmd match {
             case HubCompleted(Some(ex)) => failStage(ex)
-            case HubCompleted(None) => completeStage()
+            case HubCompleted(None)     => completeStage()
             case Wakeup =>
               if (isAvailable(out)) onPull()
             case Initialize(initialOffset) =>

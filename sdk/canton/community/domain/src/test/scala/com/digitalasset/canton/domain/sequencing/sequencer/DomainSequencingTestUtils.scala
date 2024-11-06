@@ -9,6 +9,7 @@ import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.store.*
 import com.digitalasset.canton.sequencing.protocol.{Batch, MessageId}
+import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.tracing.TraceContext
 
 import scala.collection.immutable.SortedSet
@@ -20,11 +21,20 @@ object DomainSequencingTestUtils {
       payloadId: PayloadId = PayloadId(CantonTimestamp.Epoch),
       signingTs: Option[CantonTimestamp] = None,
       traceContext: TraceContext = TraceContext.empty,
+      trafficReceiptO: Option[TrafficReceipt] = None,
   )(
       recipients: NonEmpty[SortedSet[SequencerMemberId]] = NonEmpty(SortedSet, sender)
   ): DeliverStoreEvent[PayloadId] = {
     val messageId = MessageId.tryCreate("mock-deliver")
-    DeliverStoreEvent(sender, messageId, recipients, payloadId, signingTs, traceContext)
+    DeliverStoreEvent(
+      sender,
+      messageId,
+      recipients,
+      payloadId,
+      signingTs,
+      traceContext,
+      trafficReceiptO,
+    )
   }
 
   def deliverStoreEventWithPayloadWithDefaults(
@@ -35,11 +45,20 @@ object DomainSequencingTestUtils {
       ),
       signingTs: Option[CantonTimestamp] = None,
       traceContext: TraceContext = TraceContext.empty,
+      trafficReceiptO: Option[TrafficReceipt] = None,
   )(
       recipients: NonEmpty[SortedSet[SequencerMemberId]] = NonEmpty(SortedSet, sender)
   ): DeliverStoreEvent[Payload] = {
     val messageId = MessageId.tryCreate("mock-deliver")
-    DeliverStoreEvent(sender, messageId, recipients, payload, signingTs, traceContext)
+    DeliverStoreEvent(
+      sender,
+      messageId,
+      recipients,
+      payload,
+      signingTs,
+      traceContext,
+      trafficReceiptO,
+    )
   }
 
   def payloadsForEvents(events: Seq[Sequenced[PayloadId]]): List[Payload] = {

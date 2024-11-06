@@ -236,7 +236,7 @@ class DomainRouter(
     // Check that at least one party listed in actAs or readAs is a stakeholder so that we can reassign the contract if needed.
     // This check is overly strict on behalf of contracts that turn out not to need to be reassigned.
     val readerNotBeingStakeholder = contractData.filter { data =>
-      data.stakeholders.stakeholders.intersect(transactionData.readers).isEmpty
+      data.stakeholders.all.intersect(transactionData.readers).isEmpty
     }
 
     for {
@@ -297,10 +297,7 @@ object DomainRouter {
       loggerFactory = loggerFactory,
     )
 
-    val serializableContractAuthenticator = SerializableContractAuthenticator(
-      cryptoPureApi,
-      parameters,
-    )
+    val serializableContractAuthenticator = SerializableContractAuthenticator(cryptoPureApi)
 
     new DomainRouter(
       submit(connectedDomains),
@@ -373,19 +370,19 @@ object DomainRouter {
     // TODO(#16065) Revisit this value
     val keyLookupMap = tx.nodes.values.collect { case LfNodeLookupByKey(_, _, key, Some(cid), _) =>
       cid -> checked(
-        Stakeholders.tryCreate(stakeholders = key.maintainers)
+        Stakeholders.tryCreate(stakeholders = key.maintainers, signatories = Set.empty)
       )
     }.toMap
 
     val mainMap = tx.nodes.values.collect {
       case n: LfNodeFetch =>
         val stakeholders = checked(
-          Stakeholders.tryCreate(stakeholders = n.stakeholders)
+          Stakeholders.tryCreate(signatories = n.signatories, stakeholders = n.stakeholders)
         )
         n.coid -> stakeholders
       case n: LfNodeExercises =>
         val stakeholders = checked(
-          Stakeholders.tryCreate(stakeholders = n.stakeholders)
+          Stakeholders.tryCreate(signatories = n.signatories, stakeholders = n.stakeholders)
         )
 
         n.targetCoid -> stakeholders

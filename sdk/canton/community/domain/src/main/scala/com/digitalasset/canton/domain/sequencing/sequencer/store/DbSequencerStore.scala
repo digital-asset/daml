@@ -4,6 +4,7 @@
 package com.digitalasset.canton.domain.sequencing.sequencer.store
 
 import cats.data.EitherT
+import cats.implicits.catsSyntaxOrder
 import cats.instances.future.*
 import cats.syntax.bifunctor.*
 import cats.syntax.either.*
@@ -43,7 +44,7 @@ import com.digitalasset.canton.tracing.{
   TracedScaffeine,
 }
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.util.{EitherTUtil, retry}
+import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, retry}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
@@ -62,7 +63,7 @@ import scala.util.{Failure, Success}
   * Supports many concurrent instances reading and writing to the same backing database.
   */
 class DbSequencerStore(
-    storage: DbStorage,
+    @VisibleForTesting private[canton] val storage: DbStorage,
     protocolVersion: ProtocolVersion,
     maxBufferedEventsSize: NonNegativeInt,
     override protected val timeouts: ProcessingTimeout,
@@ -141,6 +142,10 @@ class DbSequencerStore(
         Payload(id, content)
       }
 
+  /** @param trafficReceiptO If traffic management is enabled, there should always be traffic information for the sender.
+    *                        The information might be discarded later though, in case the event is being processed as part
+    *                        of a subscription for any of the recipients that isn't the sender.
+    */
   case class DeliverStoreEventRow[P](
       timestamp: CantonTimestamp,
       instanceIndex: Int,
@@ -153,6 +158,7 @@ class DbSequencerStore(
       traceContext: TraceContext,
       // TODO(#15628) We should represent this differently, so that DeliverErrorStoreEvent.fromByteString parameter is always defined as well
       errorO: Option[ByteString],
+      trafficReceiptO: Option[TrafficReceipt],
   ) {
     lazy val asStoreEvent: Either[String, Sequenced[P]] =
       for {
@@ -176,6 +182,7 @@ class DbSequencerStore(
         payload,
         topologyTimestampO,
         traceContext,
+        trafficReceiptO,
       )
 
     private lazy val asErrorStoreEvent: Either[String, DeliverErrorStoreEvent] =
@@ -187,6 +194,7 @@ class DbSequencerStore(
         messageId,
         errorO,
         traceContext,
+        trafficReceiptO,
       )
 
     private lazy val asReceiptStoreEvent: Either[String, ReceiptStoreEvent] =
@@ -198,6 +206,7 @@ class DbSequencerStore(
         messageId,
         topologyTimestampO,
         traceContext,
+        trafficReceiptO,
       )
 
   }
@@ -215,6 +224,7 @@ class DbSequencerStore(
               payloadId,
               topologyTimestampO,
               traceContext,
+              trafficReceiptO,
             ) =>
           DeliverStoreEventRow(
             storeEvent.timestamp,
@@ -227,8 +237,9 @@ class DbSequencerStore(
             topologyTimestampO = topologyTimestampO,
             traceContext = traceContext,
             errorO = None,
+            trafficReceiptO = trafficReceiptO,
           )
-        case DeliverErrorStoreEvent(sender, messageId, errorO, traceContext) =>
+        case DeliverErrorStoreEvent(sender, messageId, errorO, traceContext, trafficReceiptO) =>
           DeliverStoreEventRow(
             timestamp = storeEvent.timestamp,
             instanceIndex = instanceIndex,
@@ -239,8 +250,15 @@ class DbSequencerStore(
               Some(NonEmpty(SortedSet, sender)), // must be set for sender to receive value
             traceContext = traceContext,
             errorO = errorO,
+            trafficReceiptO = trafficReceiptO,
           )
-        case ReceiptStoreEvent(sender, messageId, topologyTimestampO, traceContext) =>
+        case ReceiptStoreEvent(
+              sender,
+              messageId,
+              topologyTimestampO,
+              traceContext,
+              trafficReceiptO,
+            ) =>
           DeliverStoreEventRow(
             timestamp = storeEvent.timestamp,
             instanceIndex = instanceIndex,
@@ -252,6 +270,7 @@ class DbSequencerStore(
             traceContext = traceContext,
             errorO = None,
             topologyTimestampO = topologyTimestampO,
+            trafficReceiptO = trafficReceiptO,
           )
       }
   }
@@ -270,6 +289,19 @@ class DbSequencerStore(
           )
       }
 
+  private implicit val trafficReceiptOGetResult: GetResult[Option[TrafficReceipt]] =
+    GetResult
+      .createGetTuple3[Option[NonNegativeLong], Option[NonNegativeLong], Option[NonNegativeLong]]
+      .andThen {
+        case (Some(consumedCost), Some(trafficConsumed), Some(baseTraffic)) =>
+          Some(TrafficReceipt(consumedCost, trafficConsumed, baseTraffic))
+        case (None, None, None) => None
+        case (consumedCost, extraTrafficConsumed, baseTrafficRemainder) =>
+          throw new DbDeserializationException(
+            s"Inconsistent traffic data: consumedCost=$consumedCost, extraTrafficConsumed=$extraTrafficConsumed, baseTrafficRemained=$baseTrafficRemainder"
+          )
+      }
+
   private implicit val getDeliverStoreEventRowResultWithPayload: GetResult[Sequenced[Payload]] = {
     val timestampGetter = implicitly[GetResult[CantonTimestamp]]
     val timestampOGetter = implicitly[GetResult[Option[CantonTimestamp]]]
@@ -280,6 +312,7 @@ class DbSequencerStore(
     val payloadGetter = implicitly[GetResult[Option[Payload]]]
     val traceContextGetter = implicitly[GetResult[SerializableTraceContext]]
     val errorOGetter = implicitly[GetResult[Option[ByteString]]]
+    val trafficReceipt = implicitly[GetResult[Option[TrafficReceipt]]]
 
     GetResult { r =>
       val row = DeliverStoreEventRow[Payload](
@@ -293,6 +326,7 @@ class DbSequencerStore(
         timestampOGetter(r),
         traceContextGetter(r).unwrap,
         errorOGetter(r),
+        trafficReceipt(r),
       )
 
       row.asStoreEvent.valueOr(err =>
@@ -300,17 +334,6 @@ class DbSequencerStore(
       )
     }
   }
-
-  private implicit val trafficReceiptOGetResult: GetResult[Option[TrafficReceipt]] =
-    GetResult
-      .createGetTuple3[Option[NonNegativeLong], Option[NonNegativeLong], Option[NonNegativeLong]]
-      .andThen {
-        case (Some(trafficConsumed), Some(baseTraffic), Some(lastConsumedCost)) =>
-          Some(TrafficReceipt(lastConsumedCost, trafficConsumed, baseTraffic))
-        case _ => None
-        // If fields are not populated by the left join (i.e. are NULL) in `readEvents(...)`,
-        // there's `None` for the receipt. This would happen for non-senders,
-      }
 
   private implicit val getDeliverStoreEventRowResult: GetResult[Sequenced[PayloadId]] = {
     val timestampGetter = implicitly[GetResult[CantonTimestamp]]
@@ -322,6 +345,7 @@ class DbSequencerStore(
     val payloadIdGetter = implicitly[GetResult[Option[PayloadId]]]
     val traceContextGetter = implicitly[GetResult[SerializableTraceContext]]
     val errorOGetter = implicitly[GetResult[Option[ByteString]]]
+    val trafficReceipt = implicitly[GetResult[Option[TrafficReceipt]]]
 
     GetResult { r =>
       val row = DeliverStoreEventRow[PayloadId](
@@ -335,6 +359,7 @@ class DbSequencerStore(
         timestampOGetter(r),
         traceContextGetter(r).unwrap,
         errorOGetter(r),
+        trafficReceipt(r),
       )
 
       row.asStoreEvent
@@ -356,8 +381,8 @@ class DbSequencerStore(
       ("array_contains(events.recipients, ", ")")
   }
 
-  private val payloadCache: TracedAsyncLoadingCache[PayloadId, Payload] = TracedScaffeine
-    .buildTracedAsyncFuture[PayloadId, Payload](
+  private val payloadCache: TracedAsyncLoadingCache[Future, PayloadId, Payload] =
+    TracedScaffeine.buildTracedAsync[Future, PayloadId, Payload](
       cache = cachingConfigs.sequencerPayloadCache.buildScaffeine(),
       loader = traceContext =>
         payloadId => readPayloadsFromStore(Seq(payloadId))(traceContext).map(_(payloadId)),
@@ -586,9 +611,9 @@ class DbSequencerStore(
     val saveSql =
       """insert into sequencer_events (
         |  ts, node_index, event_type, message_id, sender, recipients,
-        |  payload_id, topology_timestamp, trace_context, error
+        |  payload_id, topology_timestamp, trace_context, error, consumed_cost, extra_traffic_consumed, base_traffic_remainder
         |)
-        |  values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        |  values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         |  on conflict do nothing""".stripMargin
 
     storage.queryAndUpdate(
@@ -604,6 +629,7 @@ class DbSequencerStore(
           topologyTimestampO,
           traceContext,
           errorO,
+          trafficReceiptO,
         ) = DeliverStoreEventRow(instanceIndex, event)
 
         pp >> timestamp
@@ -616,6 +642,9 @@ class DbSequencerStore(
         pp >> topologyTimestampO
         pp >> SerializableTraceContext(traceContext)
         pp >> errorO
+        pp >> trafficReceiptO.map(_.consumedCost)
+        pp >> trafficReceiptO.map(_.extraTrafficConsumed)
+        pp >> trafficReceiptO.map(_.baseTrafficRemainder)
       },
       functionFullName,
     )
@@ -832,7 +861,8 @@ class DbSequencerStore(
     ) = sql"""
         select events.ts, events.node_index, events.event_type, events.message_id, events.sender,
           events.recipients, events.payload_id, events.topology_timestamp,
-          events.trace_context, events.error
+          events.trace_context, events.error,
+          events.consumed_cost, events.extra_traffic_consumed, events.base_traffic_remainder
         from sequencer_events events
         inner join sequencer_watermarks watermarks
           on events.node_index = watermarks.node_index
@@ -891,12 +921,10 @@ class DbSequencerStore(
         select events.ts, events.node_index, events.event_type, events.message_id, events.sender,
           events.recipients, payloads.id, payloads.content, events.topology_timestamp,
           events.trace_context, events.error,
-          traffic.extra_traffic_consumed, traffic.base_traffic_remainder, traffic.last_consumed_cost
+          events.consumed_cost, events.extra_traffic_consumed, events.base_traffic_remainder
         from sequencer_events events
         left join sequencer_payloads payloads
           on events.payload_id = payloads.id
-        left join seq_traffic_control_consumed_journal traffic
-          on events.ts = traffic.sequencing_timestamp
         inner join sequencer_watermarks watermarks
           on events.node_index = watermarks.node_index
         where
@@ -1012,74 +1040,129 @@ class DbSequencerStore(
         }
       }
       result <- storage
-        .queryUnlessShutdown(query.transactionally, functionFullName)
+        .queryUnlessShutdown(query, functionFullName)
         .onShutdown {
           logger.debug("Cancelling checkpointsAtTimestamp due to shutdown")
           Map.empty[Member, CounterCheckpoint]
         }
     } yield result
 
+  private def previousCheckpoints(
+      beforeInclusive: CantonTimestamp
+  )(implicit traceContext: TraceContext): DBIOAction[
+    (CantonTimestamp, Map[Member, CounterCheckpoint]),
+    NoStream,
+    Effect.Read,
+  ] = {
+    val query = storage.profile match {
+      case _: Postgres =>
+        sql"""
+          select m.member, coalesce(cc.counter, -1) as counter, coalesce(cc.ts, ${CantonTimestamp.MinValue}) as ts, cc.latest_sequencer_event_ts
+                        from sequencer_members m
+                          left join lateral (
+                                  select *
+                                  from sequencer_counter_checkpoints
+                                  where member = m.id and ts <= $beforeInclusive and ts >= m.registered_ts
+                                  order by member, ts desc
+                                  limit 1
+                              ) cc
+                              on true
+                        where m.enabled = true and m.registered_ts <= $beforeInclusive
+          """
+      case _ =>
+        sql"""
+          select m.member, max(cc.counter) as counter, max(cc.ts) as ts, max(cc.latest_sequencer_event_ts) as latest_sequencer_event_ts
+          from
+            sequencer_members m left join sequencer_counter_checkpoints cc on m.id = cc.member
+          where
+            cc.ts <= $beforeInclusive and
+            m.registered_ts <= $beforeInclusive and
+            m.enabled = true
+          group by m.member
+          """
+    }
+    query.as[(Member, CounterCheckpoint)].map { previousCheckpoints =>
+      val timestamps = previousCheckpoints.view.map { case (_member, checkpoint) =>
+        checkpoint.timestamp
+      }.toSet - CantonTimestamp.MinValue // in case the member is new, with no prior checkpoints and events
+
+      if (timestamps.size > 1) {
+        // We added an assumption that for any ts1 we can find a checkpoint at ts0 <= ts1,
+        // such that we have all enabled members included in that checkpoint.
+        // Then instead of filtering for each member individually, we can just filter for the ts0 >
+        // when scanning events and this simple filter should be efficient and recognizable by the query planner.
+        // If no such checkpoints are found, we return Left to indicate
+        ErrorUtil.invalidState(
+          s"Checkpoint for all members are not aligned. Found timestamps: $timestamps"
+        )
+      } else {
+        (timestamps.headOption.getOrElse(CantonTimestamp.MinValue), previousCheckpoints.toMap)
+      }
+    }
+  }
+
   private def memberCheckpointsQuery(
       beforeInclusive: CantonTimestamp,
       safeWatermark: CantonTimestamp,
-  ) = {
+  )(implicit traceContext: TraceContext) = {
     // this query returns checkpoints for all registered enabled members at the given timestamp
     // it will produce checkpoints at exactly the `beforeInclusive` timestamp by assuming that the checkpoint's
     // `timestamp` doesn't need to be exact as long as it's a valid lower bound for a given (member, counter).
     // it does this by taking existing events and checkpoints before or at the given timestamp in order to compute
     // the equivalent latest checkpoint for each member at or before this timestamp.
-    val query = storage.profile match {
+    def query(previousCheckpointTimestamp: CantonTimestamp) = storage.profile match {
       case _: Postgres =>
         sql"""
             -- the max counter for each member will be either the number of events -1 (because the index is 0 based)
             -- or the checkpoint counter + number of events after that checkpoint
             -- the timestamp for a member will be the maximum between the highest event timestamp and the checkpoint timestamp (if it exists)
-            select sequencer_members.member, checkpoints.counter + count(events.ts), $beforeInclusive, checkpoints.latest_sequencer_event_ts
-            from sequencer_members
-            left join (
-                -- if the member has checkpoints, let's find the latest one that's still before or at the given timestamp.
-                -- using checkpoints is essential for cases where the db has been pruned and for performance (to avoid scanning complete events table)
-                -- the very negative number is CantonTimestamp.MinValue, it helps postgres to use the index on ts field (instead of IS NOT NULL check)
-              select m.id member, coalesce(cc.counter, -1) as counter, coalesce(cc.ts, -62135596800000000) as ts, cc.latest_sequencer_event_ts
-                from sequencer_members m
-                  left join lateral (
-                          select *
-                          from sequencer_counter_checkpoints
-                          where member = m.id and ts <= $beforeInclusive
-                          order by member, ts desc
-                          limit 1
-                      ) cc
-                      on true
-            ) as checkpoints on checkpoints.member = sequencer_members.id
-            left join sequencer_events as events
-              on ((sequencer_members.id = any(events.recipients))
-                      -- we just want the events between the checkpoint and the requested timestamp
-                      -- and within the safe watermark
-                      and events.ts <= $beforeInclusive and events.ts <= $safeWatermark
-                      -- start from closest checkpoint the checkpoint is defined, we only want events past it
-                      and events.ts > checkpoints.ts
-                      -- start from member's registration date
-                      and events.ts >= sequencer_members.registered_ts)
+            with
+              enabled_members as (
+                select
+                  member,
+                  id
+                from sequencer_members
+                where
+                  -- consider the given timestamp
+                  registered_ts <= $beforeInclusive
+                  -- no need to consider disabled members since they can't be served events anymore
+                  and enabled = true
+              ),
+              events_per_member as (
+                select
+                  unnest(events.recipients) member,
+                  events.ts,
+                  events.node_index
+                from sequencer_events events
+                where
+                  -- we just want the events between the checkpoint and the requested timestamp
+                  -- and within the safe watermark
+                  events.ts <= $beforeInclusive and events.ts <= $safeWatermark
+                  -- start from closest checkpoint the checkpoint is defined, we only want events past it
+                  and events.ts > $previousCheckpointTimestamp
+              )
+            select
+              members.member,
+              count(events.ts)
+            from
+              enabled_members members
+            left join events_per_member as events
+              on  events.member = members.id
             left join sequencer_watermarks watermarks
               on (events.node_index is not null) and events.node_index = watermarks.node_index
-            where (
-                -- no need to consider disabled members since they can't be served events anymore
-                sequencer_members.enabled = true
-                -- consider the given timestamp
-                and sequencer_members.registered_ts <= $beforeInclusive
-                and ((events.ts is null) or (
-                    -- if the sequencer that produced the event is offline, only consider up until its offline watermark
-                     watermarks.watermark_ts is not null and (watermarks.sequencer_online = true or events.ts <= watermarks.watermark_ts)
-                    ))
-              )
-            group by (sequencer_members.member, checkpoints.counter, checkpoints.ts, checkpoints.latest_sequencer_event_ts)
+            where
+              ((events.ts is null) or (
+                -- if the sequencer that produced the event is offline, only consider up until its offline watermark
+                watermarks.watermark_ts is not null and (watermarks.sequencer_online = true or events.ts <= watermarks.watermark_ts)
+              ))
+            group by members.member
              """
       case _ =>
         sql"""
             -- the max counter for each member will be either the number of events -1 (because the index is 0 based)
             -- or the checkpoint counter + number of events after that checkpoint
             -- the timestamp for a member will be the maximum between the highest event timestamp and the checkpoint timestamp (if it exists)
-            select sequencer_members.member, coalesce(checkpoints.counter, - 1) + count(events.ts), $beforeInclusive, checkpoints.latest_sequencer_event_ts
+            select sequencer_members.member, count(events.ts), $beforeInclusive, null  -- null is only used to deserialize the result into `CounterCheckpoint`
             from sequencer_members
             left join (
                 -- if the member has checkpoints, let's find the one latest one that's still before or at the given timestamp.
@@ -1113,55 +1196,53 @@ class DbSequencerStore(
             group by (sequencer_members.member, checkpoints.counter, checkpoints.ts, checkpoints.latest_sequencer_event_ts)
             """
     }
-    query.as[(Member, CounterCheckpoint)].map(_.toMap)
+
+    for {
+      (previousCheckpointTimestamp, previousCheckpoints) <- previousCheckpoints(beforeInclusive)
+      countedEventsSinceCheckpoint <- query(previousCheckpointTimestamp)
+        .as[(Member, Long)]
+        .map(_.toMap)
+    } yield {
+      val initialCheckpoint =
+        CounterCheckpoint(SequencerCounter(-1), CantonTimestamp.MinValue, None)
+      val allMembers = countedEventsSinceCheckpoint.keySet ++ previousCheckpoints.keySet
+      // We count the events since the previous checkpoint and add to it to produce a new one
+      allMembers.map { member =>
+        val addToCounter = countedEventsSinceCheckpoint.getOrElse(member, 0L)
+        val checkpoint = previousCheckpoints.getOrElse(member, initialCheckpoint)
+        (
+          member,
+          checkpoint.copy(counter = checkpoint.counter + addToCounter, timestamp = beforeInclusive),
+        )
+      }.toMap
+    }
   }
 
   private def memberLatestSequencerTimestampQuery(
-      timestamp: CantonTimestamp,
+      beforeInclusive: CantonTimestamp,
       safeWatermark: CantonTimestamp,
       sequencerId: SequencerMemberId,
-  ) = {
+  )(implicit traceContext: TraceContext) = {
     // in order to compute the latest sequencer event for each member at a timestamp, we find the latest event ts
     // for an event addressed both to the sequencer and that member
-    val query = storage.profile match {
+    def query(previousCheckpointTimestamp: CantonTimestamp) = storage.profile match {
       case _: Postgres =>
         sql"""
             -- for each member we scan the sequencer_events table
-            -- bounded above by the requested `timestamp`, watermark, registration date, etc...
-            -- bounded below by an existing sequencer counter (or by beginning of time)
+            -- bounded above by the requested `timestamp`, watermark, registration date;
+            -- bounded below by an existing sequencer counter (or by beginning of time), by member registration date;
             -- this is crucial to avoid scanning the whole table and using the index on `ts` field
-            select sequencer_members.member, coalesce(max(events.ts), checkpoints.latest_sequencer_event_ts)
+            select sequencer_members.member, max(events.ts)
             from sequencer_members
-            left join (
-                -- if the member has checkpoints, let's find the latest one that's still before or at the given timestamp.
-                -- using checkpoints is essential for cases where the db has been pruned
-                -- the very negative number is CantonTimestamp.MinValue
-              select
-                  m.id member,
-                  coalesce(cc.ts, -62135596800000000) as ts,
-                  cc.latest_sequencer_event_ts,
-                  0 as predicate_pushdown_barrier
-                from sequencer_members m
-                  left join lateral (
-                          select *
-                          from sequencer_counter_checkpoints
-                          where member = m.id and ts <= $timestamp
-                          order by member, ts desc
-                          limit 1
-                      ) cc
-                      on true
-            ) as checkpoints on checkpoints.member = sequencer_members.id
             left join sequencer_events as events
               on ((sequencer_members.id = any(events.recipients)) -- member is in recipients
                     -- this sequencer itself is in recipients
-                    -- NOTE: we add predicate_pushdown_barrier (="0") here to prevent the query planner quirk,
-                    -- so that Postgres doesn't push down the predicate (and revert to Seq scan on events table)
-                    and ((checkpoints.predicate_pushdown_barrier + $sequencerId) = any(events.recipients))
+                    and $sequencerId = any(events.recipients)
                     -- we just want the events between the checkpoint and the requested timestamp
                     -- and within the safe watermark
-                    and events.ts <= $timestamp and events.ts <= $safeWatermark
+                    and events.ts <= $beforeInclusive and events.ts <= $safeWatermark
                     -- start from closest checkpoint, we only want events past it
-                    and events.ts > checkpoints.ts
+                    and events.ts > $previousCheckpointTimestamp
                     -- start from member's registration date
                     and events.ts >= sequencer_members.registered_ts)
             left join sequencer_watermarks watermarks
@@ -1170,13 +1251,13 @@ class DbSequencerStore(
                 -- no need to consider disabled members since they can't be served events anymore
                 sequencer_members.enabled = true
                 -- consider the given timestamp
-                and sequencer_members.registered_ts <= $timestamp
+                and sequencer_members.registered_ts <= $beforeInclusive
                 and ((events.ts is null) or (
                     -- if the sequencer that produced the event is offline, only consider up until its offline watermark
                      watermarks.watermark_ts is not null and (watermarks.sequencer_online = true or events.ts <= watermarks.watermark_ts)
                     ))
               )
-            group by (sequencer_members.member, checkpoints.latest_sequencer_event_ts)
+            group by sequencer_members.member
              """
       case _ =>
         sql"""
@@ -1185,7 +1266,7 @@ class DbSequencerStore(
             left join sequencer_events as events
               on ((#$memberContainsBefore sequencer_members.id #$memberContainsAfter)
                       and (#$memberContainsBefore $sequencerId #$memberContainsAfter)
-                      and events.ts <= $timestamp and events.ts <= $safeWatermark
+                      and events.ts <= $beforeInclusive and events.ts <= $safeWatermark
                       -- start from member's registration date
                       and events.ts >= sequencer_members.registered_ts)
             left join sequencer_watermarks watermarks
@@ -1194,7 +1275,7 @@ class DbSequencerStore(
                 -- no need to consider disabled members since they can't be served events anymore
                 sequencer_members.enabled = true
                 -- consider the given timestamp
-                and sequencer_members.registered_ts <= $timestamp
+                and sequencer_members.registered_ts <= $beforeInclusive
                 and events.ts is not null
                 -- if the sequencer that produced the event is offline, only consider up until its offline watermark
                 and  (watermarks.watermark_ts is not null and (watermarks.sequencer_online = true or events.ts <= watermarks.watermark_ts))
@@ -1202,7 +1283,25 @@ class DbSequencerStore(
             group by (sequencer_members.member, events.ts)
             """
     }
-    query.as[(Member, Option[CantonTimestamp])].map(_.toMap)
+
+    for {
+      (previousCheckpointTimestamp, previousCheckpoints) <- previousCheckpoints(beforeInclusive)
+      latestSequencerTimestampsSincePreviousCheckpoint <- query(previousCheckpointTimestamp)
+        .as[(Member, Option[CantonTimestamp])]
+        .map(_.toMap)
+    } yield {
+      val allMembers =
+        latestSequencerTimestampsSincePreviousCheckpoint.keySet ++ previousCheckpoints.keySet
+      // We pick the timestamp either from previous checkpoint or from the latest event,
+      // can be `None` as well if neither are present or if set to `None` in the checkpoint
+      allMembers.map { member =>
+        val checkpointLatestSequencerTimestamp =
+          previousCheckpoints.get(member).flatMap(_.latestTopologyClientTimestamp)
+        val latestSequencerTimestamp =
+          latestSequencerTimestampsSincePreviousCheckpoint.get(member).flatten
+        (member, latestSequencerTimestamp max checkpointLatestSequencerTimestamp)
+      }.toMap
+    }
   }
 
   override def deleteEventsPastWatermark(
@@ -1249,39 +1348,66 @@ class DbSequencerStore(
       traceContext: TraceContext,
       externalCloseContext: CloseContext,
   ): Future[Unit] = {
-    def saveCounterCheckpointQuery(memberId: SequencerMemberId, checkpoint: CounterCheckpoint) = {
-      val CounterCheckpoint(counter, ts, latestSequencerEventTimestamp) = checkpoint
+    val insertAllCheckpoints =
       profile match {
         case _: Postgres =>
-          sqlu"""insert into sequencer_counter_checkpoints (member, counter, ts, latest_sequencer_event_ts)
-             values ($memberId, $counter, $ts, $latestSequencerEventTimestamp)
-             on conflict (member, counter)
-             do update set ts = $ts, latest_sequencer_event_ts = $latestSequencerEventTimestamp
-             where excluded.ts >= sequencer_counter_checkpoints.ts
-             """
-        case _: H2 =>
-          sqlu"""merge into sequencer_counter_checkpoints using dual
-                    on member = $memberId and counter = $counter
-                    when not matched then
-                      insert (member, counter, ts, latest_sequencer_event_ts)
-                      values ($memberId, $counter, $ts, $latestSequencerEventTimestamp)
-                    when matched and ts <= $ts then
-                      update set ts = $ts, latest_sequencer_event_ts = $latestSequencerEventTimestamp
-                  """
-      }
-    }
+          val insertQuery =
+            """insert into sequencer_counter_checkpoints (member, counter, ts, latest_sequencer_event_ts)
+             |values (?, ?, ?, ?)
+             |on conflict (member, counter, ts)
+             |do update set latest_sequencer_event_ts = ?
+             |where excluded.latest_sequencer_event_ts > sequencer_counter_checkpoints.latest_sequencer_event_ts
+             |""".stripMargin
 
-    // TODO(#18401): Use bulk insert here, as this is still not efficient for large numbers of checkpoints
-    val combinedQuery = DBIO.sequence(
-      checkpoints.map { case (memberId, checkpoint) =>
-        saveCounterCheckpointQuery(memberId, checkpoint)
+          DbStorage
+            .bulkOperation(insertQuery, checkpoints, storage.profile) { pp => memberIdCheckpoint =>
+              val (memberId, checkpoint) = memberIdCheckpoint
+              pp >> memberId
+              pp >> checkpoint.counter
+              pp >> checkpoint.timestamp
+              pp >> checkpoint.latestTopologyClientTimestamp
+              pp >> checkpoint.latestTopologyClientTimestamp
+            }
+            .transactionally
+
+        case _: H2 =>
+          val insertQuery =
+            """merge into sequencer_counter_checkpoints using dual
+              |on member = ? and counter = ? and ts = ?
+              |  when not matched then
+              |    insert (member, counter, ts, latest_sequencer_event_ts)
+              |    values (?, ?, ?, ?)
+              |  when matched and latest_sequencer_event_ts < ? then
+              |    update set latest_sequencer_event_ts = ?
+              |""".stripMargin
+
+          DbStorage
+            .bulkOperation(insertQuery, checkpoints, storage.profile) { pp => memberIdCheckpoint =>
+              val (memberId, checkpoint) = memberIdCheckpoint
+              pp >> memberId
+              pp >> checkpoint.counter
+              pp >> checkpoint.timestamp
+              pp >> memberId
+              pp >> checkpoint.counter
+              pp >> checkpoint.timestamp
+              pp >> checkpoint.latestTopologyClientTimestamp
+              pp >> checkpoint.latestTopologyClientTimestamp
+              pp >> checkpoint.latestTopologyClientTimestamp
+            }
+            .transactionally
       }
-    )
 
     CloseContext.withCombinedContext(closeContext, externalCloseContext, timeouts, logger)(
       combinedCloseContext =>
         storage
-          .update(combinedQuery, functionFullName)(traceContext, combinedCloseContext)
+          .queryAndUpdateUnlessShutdown(insertAllCheckpoints, functionFullName)(
+            traceContext,
+            combinedCloseContext,
+          )
+          .onShutdown {
+            logger.debug("Cancelling saveCounterCheckpoints due to shutdown")
+            Array.empty[Int]
+          }
           .map { updateCounts =>
             checkpoints.foreach { case (memberId, checkpoint) =>
               logger.debug(
@@ -1308,10 +1434,41 @@ class DbSequencerStore(
              where member = $memberId
                and counter < $counter
                and ts <= $safeWatermark
-             order by counter desc
+             order by counter desc, ts desc
               #${storage.limit(1)}
              """.as[CounterCheckpoint].headOption
     } yield checkpoint
+    storage.query(checkpointQuery, functionFullName)
+  }
+
+  override def fetchLatestCheckpoint()(implicit
+      traceContext: TraceContext
+  ): Future[Option[CantonTimestamp]] = {
+    val checkpointQuery = for {
+      safeWatermarkO <- safeWaterMarkDBIO
+      safeWatermark = safeWatermarkO.getOrElse(CantonTimestamp.MaxValue)
+      checkpoint <- sql"""
+        select ts
+        from sequencer_counter_checkpoints
+        where ts <= $safeWatermark and ts > ${CantonTimestamp.Epoch}
+        order by ts desc
+        #${storage.limit(1)}"""
+        .as[CantonTimestamp]
+        .headOption
+      checkpointOrMinEvent <- checkpoint match {
+        case None =>
+          sql"""select ts from sequencer_events
+                where ts <= $safeWatermark and ts > ${CantonTimestamp.Epoch}
+                order by ts asc
+                #${storage.limit(1)}"""
+            .as[CantonTimestamp]
+            .headOption
+        case ts @ Some(_) =>
+          DBIO.successful(ts)
+      }
+
+    } yield checkpointOrMinEvent
+
     storage.query(checkpointQuery, functionFullName)
   }
 
@@ -1492,7 +1649,7 @@ class DbSequencerStore(
     }
 
   @VisibleForTesting
-  override protected[store] def countRecords(implicit
+  override protected[canton] def countRecords(implicit
       traceContext: TraceContext
   ): Future[SequencerStoreRecordCounts] = {
     def count(statement: canton.SQLActionBuilder): Future[Long] =
@@ -1560,7 +1717,7 @@ class DbSequencerStore(
 
   override def recordCounterCheckpointsAtTimestamp(
       timestamp: CantonTimestamp
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext, externalCloseContext: CloseContext): Future[Unit] = {
     logger.debug(s"Recording counter checkpoints for all members at timestamp $timestamp")
     val now = CantonTimestamp.now()
     for {
@@ -1569,7 +1726,7 @@ class DbSequencerStore(
         .parTraverseFilter { case (member, checkpoint) =>
           lookupMember(member).map(_.map(_.memberId -> checkpoint))
         }
-      _ <- saveCounterCheckpoints(checkpointsByMemberId)
+      _ <- saveCounterCheckpoints(checkpointsByMemberId)(traceContext, externalCloseContext)
     } yield {
       logger.debug(
         s"Recorded counter checkpoints for all members at timestamp $timestamp in ${CantonTimestamp.now() - now}"

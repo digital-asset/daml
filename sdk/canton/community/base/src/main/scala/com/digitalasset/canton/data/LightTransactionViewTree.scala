@@ -12,7 +12,6 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.{v30, *}
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
-import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.version.*
 import monocle.PLens
 
@@ -66,16 +65,14 @@ sealed abstract case class LightTransactionViewTree private[data] (
     }
 
   override def validated: Either[String, this.type] = for {
-
     _ <- super[TransactionViewTree].validated
-
     // Check that the subview hashes are consistent with the tree
-    _ <- EitherUtil.condUnitE(
+    _ <- Either.cond(
       view.subviewHashesConsistentWith(subviewHashes),
+      (),
       s"The provided subview hashes are inconsistent with the provided view (view: ${view.viewHash} " +
         s"at position: $viewPosition, subview hashes: $subviewHashes)",
     )
-
   } yield this
 
   @transient override protected lazy val companionObj: LightTransactionViewTree.type =

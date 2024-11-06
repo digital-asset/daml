@@ -8,6 +8,7 @@ import cats.syntax.option.*
 import com.digitalasset.canton.checked
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.ChangeId
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.GlobalOffset
 import com.digitalasset.canton.participant.protocol.submission.ChangeIdHash
@@ -21,7 +22,6 @@ import com.digitalasset.canton.util.ErrorUtil
 
 import java.util.concurrent.atomic.AtomicReference
 import scala.collection.concurrent.TrieMap
-import scala.concurrent.Future
 import scala.util.Try
 
 class InMemoryCommandDeduplicationStore(override protected val loggerFactory: NamedLoggerFactory)
@@ -40,13 +40,13 @@ class InMemoryCommandDeduplicationStore(override protected val loggerFactory: Na
 
   override def lookup(changeIdHash: ChangeIdHash)(implicit
       traceContext: TraceContext
-  ): OptionT[Future, CommandDeduplicationData] =
-    OptionT(Future.successful(byChangeId.get(changeIdHash)))
+  ): OptionT[FutureUnlessShutdown, CommandDeduplicationData] =
+    OptionT(FutureUnlessShutdown.pure(byChangeId.get(changeIdHash)))
 
   override def storeDefiniteAnswers(
       answers: Seq[(ChangeId, DefiniteAnswerEvent, Boolean)]
-  )(implicit traceContext: TraceContext): Future[Unit] =
-    Future.fromTry(Try {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
+    FutureUnlessShutdown.fromTry(Try {
       answers.foreach { case (changeId, definiteAnswerEvent, accepted) =>
         storeDefiniteAnswerInternal(changeId, definiteAnswerEvent, accepted)
       }
@@ -96,7 +96,7 @@ class InMemoryCommandDeduplicationStore(override protected val loggerFactory: Na
 
   override def prune(upToInclusive: GlobalOffset, prunedPublicationTime: CantonTimestamp)(implicit
       traceContext: TraceContext
-  ): Future[Unit] = {
+  ): FutureUnlessShutdown[Unit] = {
     latestPrunedRef.getAndUpdate {
       case None => OffsetAndPublicationTime(upToInclusive, prunedPublicationTime).some
       case oldData @ Some(OffsetAndPublicationTime(oldOffset, oldPrunedPublicationTime)) =>
@@ -113,13 +113,13 @@ class InMemoryCommandDeduplicationStore(override protected val loggerFactory: Na
       // since the acceptance offset is bounded by the latestDefiniteAnswer offset, we do not need to check acceptance offset
       dedupData.latestDefiniteAnswer.offset > upToInclusive
     }
-    Future.unit
+    FutureUnlessShutdown.unit
   }
 
   override def latestPruning()(implicit
       traceContext: TraceContext
-  ): OptionT[Future, OffsetAndPublicationTime] =
-    OptionT(Future.successful(latestPrunedRef.get()))
+  ): OptionT[FutureUnlessShutdown, OffsetAndPublicationTime] =
+    OptionT(FutureUnlessShutdown.pure(latestPrunedRef.get()))
 
   override def close(): Unit = ()
 }

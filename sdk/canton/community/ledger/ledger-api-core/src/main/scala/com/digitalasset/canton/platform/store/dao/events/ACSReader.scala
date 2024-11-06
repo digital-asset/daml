@@ -94,9 +94,12 @@ class ACSReader(
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Source[GetActiveContractsResponse, NotUsed] = {
-    val (activeAtOffset, _) = activeAt
+    val (activeAtOffset, activeAtLong) = activeAt
     val span =
       Telemetry.Transactions.createSpan(tracer, activeAtOffset)(qualifiedNameOfCurrentFunc)
+    val event =
+      tracing.Event("contract", Map((SpanAttribute.Offset, activeAtLong.toString)))
+    Spans.addEventToSpan(event, span)
     logger.debug(
       s"getActiveContracts($activeAtOffset, $filteringConstraints, $eventProjectionProperties)"
     )
@@ -105,11 +108,6 @@ class ACSReader(
       activeAt,
       eventProjectionProperties,
     )
-      .wireTap { getActiveContractsResponse =>
-        val event =
-          tracing.Event("contract", Map((SpanAttribute.Offset, getActiveContractsResponse.offset)))
-        Spans.addEventToSpan(event, span)
-      }
       .watchTermination()(endSpanOnTermination(span))
   }
 
@@ -572,7 +570,6 @@ class ACSReader(
           )
           .map(createdEvent =>
             GetActiveContractsResponse(
-              offset = "", // empty for all data entries
               workflowId = rawActiveContract.workflowId.getOrElse(""),
               contractEntry = GetActiveContractsResponse.ContractEntry.ActiveContract(
                 ActiveContract(
@@ -598,7 +595,6 @@ class ACSReader(
           )
           .map(createdEvent =>
             rawAssignEntry.offset -> GetActiveContractsResponse(
-              offset = "", // empty for all data entries
               workflowId = rawAssignEntry.workflowId.getOrElse(""),
               contractEntry = GetActiveContractsResponse.ContractEntry.IncompleteAssigned(
                 IncompleteAssigned(
@@ -622,7 +618,6 @@ class ACSReader(
         .deserializeRaw(eventProjectionProperties)(rawCreate)
         .map(createdEvent =>
           rawUnassignEntry.offset -> GetActiveContractsResponse(
-            offset = "",
             workflowId = rawUnassignEntry.workflowId.getOrElse(""),
             contractEntry = GetActiveContractsResponse.ContractEntry.IncompleteUnassigned(
               IncompleteUnassigned(
@@ -641,9 +636,9 @@ class ACSReader(
 object ACSReader {
 
   def acsBeforePruningErrorReason(acsOffset: Offset, prunedUpToOffset: Offset): String =
-    s"Active contracts request at offset ${acsOffset.toHexString} precedes pruned offset ${prunedUpToOffset.toHexString}"
+    s"Active contracts request at offset ${acsOffset.toLong} precedes pruned offset ${prunedUpToOffset.toLong}"
 
   def acsAfterLedgerEndErrorReason(acsOffset: Offset, ledgerEndOffset: Offset): String =
-    s"Active contracts request at offset ${acsOffset.toHexString} preceded by ledger end offset ${ledgerEndOffset.toHexString}"
+    s"Active contracts request at offset ${acsOffset.toLong} preceded by ledger end offset ${ledgerEndOffset.toLong}"
 
 }

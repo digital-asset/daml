@@ -14,10 +14,13 @@ trait TopologyTransactionProcessingSubscriber {
     *
     * May only be called if:
     * 1. All committed topology transactions with effective time up to `effectiveTimestamp` have been persisted in the topology store.
-    * 2. If this method is called with `potentialTopologyChange == true`, then for every subsequent committed topology transaction
+    * 2. All committed topology transactions with sequenced time up to `sequencedTimestamp` have been persisted in the topology store.
+    * 3. If this method is called with `potentialTopologyChange == true`, then for every subsequent committed topology transaction
     *    either `updateHead(potentialTopologyChange == true, ...)` or `observed` must be called again;
     *    such calls must occur with ascending effective timestamps.
-    * 3. All sequenced events up to `sequencedTimestamp` have been processed.
+    * 4. `sequencedTimestamp <= effectiveTimestamp`
+    * 5. `approximateTimestamp <= effectiveTimestamp`
+    * 6. A sequenced event with timestamp at least `approximateTimestamp` has been received from the sequencer.
     */
   def updateHead(
       sequencedTimestamp: SequencedTime,

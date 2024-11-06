@@ -12,8 +12,8 @@ import com.digitalasset.canton.crypto.{DomainSnapshotSyncCryptoApi, Signature}
 import com.digitalasset.canton.data.ViewType.ReassignmentViewType
 import com.digitalasset.canton.data.{
   CantonTimestamp,
+  FullReassignmentViewTree,
   ReassignmentSubmitterMetadata,
-  ReassignmentViewTree,
   ViewType,
 }
 import com.digitalasset.canton.error.TransactionError
@@ -56,12 +56,9 @@ import com.digitalasset.canton.protocol.messages.Verdict.{
 }
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
-import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
-import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{ErrorUtil, ReassignmentTag}
-import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.canton.{LfPartyId, RequestCounter, SequencerCounter}
 import com.digitalasset.daml.lf.engine
 
@@ -106,7 +103,7 @@ trait ReassignmentProcessingSteps[
   override type RequestType <: ProcessingSteps.RequestType.Reassignment
   override val requestType: RequestType
 
-  override type FullView <: ReassignmentViewTree
+  override type FullView <: FullReassignmentViewTree
   override type ParsedRequestType = ParsedReassignmentRequest[FullView]
 
   override def embedNoMediatorError(error: NoMediatorError): ReassignmentProcessorError =
@@ -238,7 +235,10 @@ trait ReassignmentProcessingSteps[
         signature,
         submitterMetadataO,
         isFreshOwnTimelyRequest,
-        viewTree.isReassigningParticipant(participantId),
+        isConfirmingReassigningParticipant =
+          viewTree.isConfirmingReassigningParticipant(participantId),
+        isObservingReassigningParticipant =
+          viewTree.isObservingReassigningParticipant(participantId),
         malformedPayloads,
         mediator,
         snapshot,
@@ -258,12 +258,6 @@ trait ReassignmentProcessingSteps[
         s"Received a unassignment/assignment request with id $requestId with all payloads being malformed. Crashing..."
       )
     )
-
-  protected def hostedStakeholders(
-      stakeholders: List[LfPartyId],
-      snapshot: TopologySnapshot,
-  )(implicit traceContext: TraceContext): Future[List[LfPartyId]] =
-    snapshot.hostedOn(stakeholders.toSet, participantId).map(_.keySet.toList)
 
   override def eventAndSubmissionIdForRejectedCommand(
       ts: CantonTimestamp,
@@ -385,7 +379,6 @@ trait ReassignmentProcessingSteps[
       err: ProtocolProcessor.ResultProcessingError
   ): ReassignmentProcessorError =
     GenericStepsError(err)
-
 }
 
 object ReassignmentProcessingSteps {
@@ -395,7 +388,7 @@ object ReassignmentProcessingSteps {
         Promise[com.google.rpc.status.Status]()
   )
 
-  final case class ParsedReassignmentRequest[VT <: ReassignmentViewTree](
+  final case class ParsedReassignmentRequest[VT <: FullReassignmentViewTree](
       override val rc: RequestCounter,
       override val requestTimestamp: CantonTimestamp,
       override val sc: SequencerCounter,
@@ -404,7 +397,8 @@ object ReassignmentProcessingSteps {
       signatureO: Option[Signature],
       override val submitterMetadataO: Option[ReassignmentSubmitterMetadata],
       override val isFreshOwnTimelyRequest: Boolean,
-      isReassigningParticipant: Boolean,
+      isConfirmingReassigningParticipant: Boolean,
+      isObservingReassigningParticipant: Boolean,
       override val malformedPayloads: Seq[MalformedPayload],
       override val mediator: MediatorGroupRecipient,
       override val snapshot: DomainSnapshotSyncCryptoApi,
@@ -480,32 +474,34 @@ object ReassignmentProcessingSteps {
     override def message: String = s"Contract metadata not found: ${err.message}"
   }
 
-  final case class CreatingTransactionIdNotFound(contractId: LfContractId)
-      extends ReassignmentProcessorError {
-    override def message: String = s"Creating transaction id not found for contract `$contractId`"
-
-  }
-
   final case class NoTimeProofFromDomain(domainId: DomainId, reason: String)
       extends ReassignmentProcessorError {
     override def message: String = s"Cannot fetch time proof for domain `$domainId`: $reason"
   }
 
-  final case class NoReassignmentSubmissionPermission(
-      kind: String,
+  final case class NotHostedOnParticipant(
+      reference: ReassignmentRef,
       party: LfPartyId,
       participantId: ParticipantId,
   ) extends ReassignmentProcessorError {
 
     override def message: String =
-      s"For $kind: $party does not have submission permission on $participantId"
+      s"For $reference: $party is not hosted on $participantId"
+  }
+
+  final case class ContractMetadataMismatch(
+      reassignmentId: Option[ReassignmentId],
+      declaredContractMetadata: ContractMetadata,
+      expectedMetadata: ContractMetadata,
+  ) extends ReassignmentProcessorError {
+    override def message: String = s"For reassignment `$reassignmentId`: metadata mismatch"
   }
 
   final case class StakeholdersMismatch(
       reassignmentId: Option[ReassignmentId],
-      declaredViewStakeholders: Set[LfPartyId],
-      declaredContractStakeholders: Option[Set[LfPartyId]],
-      expectedStakeholders: Either[String, Set[LfPartyId]],
+      declaredViewStakeholders: Stakeholders,
+      declaredContractStakeholders: Option[Stakeholders],
+      expectedStakeholders: Either[String, Stakeholders],
   ) extends ReassignmentProcessorError {
     override def message: String = s"For reassignment `$reassignmentId`: stakeholders mismatch"
   }
@@ -526,21 +522,15 @@ object ReassignmentProcessingSteps {
     }
   }
 
-  final case class TemplateIdMismatch(
-      declaredTemplateId: LfTemplateId,
-      expectedTemplateId: LfTemplateId,
-  ) extends ReassignmentProcessorError {
-    override def message: String =
-      s"Template ID mismatch for reassignment. Declared=$declaredTemplateId, expected=$expectedTemplateId`"
-  }
+  final case class ContractError(message: String) extends ReassignmentProcessorError
 
-  final case class AssignmentSubmitterMustBeStakeholder(
-      reassignmentId: ReassignmentId,
+  final case class SubmitterMustBeStakeholder(
+      reference: ReassignmentRef,
       submittingParty: LfPartyId,
       stakeholders: Set[LfPartyId],
   ) extends ReassignmentProcessorError {
     override def message: String =
-      s"Cannot assign `$reassignmentId`: submitter `$submittingParty` is not a stakeholder"
+      s"For$reference: submitter `$submittingParty` is not a stakeholder"
   }
 
   final case class ReassignmentStoreFailed(
@@ -582,15 +572,6 @@ object ReassignmentProcessingSteps {
     override def message: String = s"Cannot reassign `$reassignmentId`: failed to create response"
   }
 
-  final case class IncompatibleProtocolVersions(
-      contractId: LfContractId,
-      source: Source[ProtocolVersion],
-      target: Target[ProtocolVersion],
-  ) extends ReassignmentProcessorError {
-    override def message: String =
-      s"Cannot reassign contract `$contractId`: invalid reassignment from domain with protocol version $source to domain with protocol version $target"
-  }
-
   final case class FieldConversionError(
       reassignmentId: ReassignmentId,
       field: String,
@@ -605,7 +586,7 @@ object ReassignmentProcessingSteps {
     )
   }
 
-  final case class ReinterpretationAborted(reassignmentId: ReassignmentId, reason: String)
+  final case class ReinterpretationAborted(reassignmentId: Option[ReassignmentId], reason: String)
       extends ReassignmentProcessorError {
     override def message: String =
       s"Cannot reassign `$reassignmentId`: reinterpretation aborted for reason `$reason`"

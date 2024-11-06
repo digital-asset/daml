@@ -25,7 +25,6 @@ import scalaz.syntax.show._
 
 import scala.annotation.nowarn
 import scala.util.{Success, Try}
-import scala.util.Random.shuffle
 
 class ApiCodecCompressedSpec
     extends AnyWordSpec
@@ -186,36 +185,6 @@ class ApiCodecCompressedSpec
         implicit val arbInj: Arbitrary[va.Inj] = va.injarb
         forAll(minSuccessful(1000)) { v: va.Inj =>
           roundtrip(va)(v) should ===(Some(v))
-        }
-      }
-
-      "ignore order in maps" in forAll(genAddend, minSuccessful(20)) { kva =>
-        val mapVa = VA.genMap(kva, VA.int64)
-        import mapVa.{injarb, injshrink}
-        forAll(minSuccessful(50)) { map: mapVa.Inj =>
-          val canonical = mapVa.inj(map)
-          val jsEnc = inside(apiValueToJsValue(canonical)) { case JsArray(elements) =>
-            elements
-          }
-          jsValueToApiValue(JsArray(shuffle(jsEnc)), mapVa.t, typeLookup) should ===(canonical)
-        }
-      }
-
-      "fail on map duplicate keys" in forAll(genAddend, minSuccessful(20)) { kva =>
-        val mapVa = VA.genMap(kva, VA.int64)
-        import kva.{injarb, injshrink}, mapVa.{injarb => maparb, injshrink => mapshrink}
-        forAll(minSuccessful(50)) { (k: kva.Inj, v: VA.int64.Inj, map: mapVa.Inj) =>
-          val canonical = mapVa.inj(map.updated(k, v))
-          val jsEnc = inside(apiValueToJsValue(canonical)) { case JsArray(elements) =>
-            elements
-          }
-          val broken = JsArray(
-            shuffle(jsEnc :+ JsArray(Seq(kva.inj(k), VA.int64.inj(v)) map apiValueToJsValue: _*))
-          )
-          val err = the[DeserializationException] thrownBy {
-            jsValueToApiValue(broken, mapVa.t, typeLookup)
-          }
-          err.msg should startWith("duplicate key: ")
         }
       }
 

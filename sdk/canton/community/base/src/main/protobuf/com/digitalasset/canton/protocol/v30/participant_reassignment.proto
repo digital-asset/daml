@@ -25,11 +25,14 @@ message UnassignmentCommonData {
 
   com.digitalasset.canton.crypto.v30.Salt salt = 1;
   string source_domain = 2;
+
   Stakeholders stakeholders = 3;
   repeated string confirming_reassigning_participant_uids = 4;
-  string uuid = 5;
-  int32 source_mediator_group = 6;
-  ReassignmentSubmitterMetadata submitter_metadata = 7;
+  repeated string observing_reassigning_participant_uids = 5;
+
+  string uuid = 6;
+  int32 source_mediator_group = 7;
+  ReassignmentSubmitterMetadata submitter_metadata = 8;
 }
 
 message ReassignmentViewTree {
@@ -65,6 +68,7 @@ message AssignmentCommonData {
   int32 target_mediator_group = 5;
   ReassignmentSubmitterMetadata submitter_metadata = 6;
   repeated string confirming_reassigning_participant_uids = 7;
+  repeated string observing_reassigning_participant_uids = 8;
 }
 
 message ReassignmentSubmitterMetadata {
@@ -85,19 +89,17 @@ message UnassignmentView {
   string target_domain = 3;
   com.digitalasset.canton.time.v30.TimeProof target_time_proof = 4;
   int32 target_protocol_version = 5;
-  int64 reassignment_counter = 11;
-  bytes creating_transaction_id = 12;
-  com.digitalasset.canton.protocol.v30.SerializableContract contract = 13;
+  int64 reassignment_counter = 6;
+  com.digitalasset.canton.protocol.v30.SerializableContract contract = 7;
 }
 
 message AssignmentView {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
   com.digitalasset.canton.crypto.v30.Salt salt = 1;
-  v30.SerializableContract contract = 3;
+  v30.SerializableContract contract = 2;
   // Serialized SignedContent[SequencedEvent]
-  bytes unassignment_result_event = 4;
-  bytes creating_transaction_id = 5;
-  int32 source_protocol_version = 6;
-  int64 reassignment_counter = 12;
+  bytes unassignment_result_event = 3;
+  int32 source_protocol_version = 4;
+  int64 reassignment_counter = 5;
 }

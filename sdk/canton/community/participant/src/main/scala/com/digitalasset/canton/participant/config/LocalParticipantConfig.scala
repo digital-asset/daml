@@ -185,7 +185,9 @@ final case class LedgerApiServerConfig(
     authServices: Seq[AuthServiceConfig] = Seq.empty,
     adminToken: Option[String] = None,
     jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
-    keepAliveServer: Option[KeepAliveServerConfig] = Some(KeepAliveServerConfig()),
+    keepAliveServer: Option[LedgerApiKeepAliveServerConfig] = Some(
+      LedgerApiKeepAliveServerConfig()
+    ),
     maxInboundMessageSize: NonNegativeInt = ServerConfig.defaultMaxInboundMessageSize,
     rateLimit: Option[RateLimitingConfig] = Some(DefaultRateLimit),
     postgresDataSource: PostgresDataSourceConfig = PostgresDataSourceConfig(),
@@ -271,11 +273,9 @@ object TestingTimeServiceConfig {
   * @param excludeInfrastructureTransactions If set, infrastructure transactions (i.e. ping, bong and dar distribution) will be excluded from participant metering.
   * @param journalGarbageCollectionDelay How much time to delay the canton journal garbage collection
   * @param disableUpgradeValidation Disable the package upgrade verification on DAR upload
-  * @param allowForUnauthenticatedContractIds Skip contract id authentication check, if the contract id scheme does not support authentication.
-  *                                           You should enable this only if all participants on a domain mutually trust each other.
-  *                                           Otherwise, an attacker may compromise integrity of the ledger.
   * @param packageMetadataView Initialization parameters for the package metadata in-memory store.
   * @param experimentalEnableTopologyEvents If true, topology events are propagated to the Ledger API clients
+  * @param enableExternalAuthorization If true, external authentication is supported
   */
 final case class ParticipantNodeParameterConfig(
     adminWorkflow: AdminWorkflowConfig = AdminWorkflowConfig(),
@@ -304,12 +304,12 @@ final case class ParticipantNodeParameterConfig(
     journalGarbageCollectionDelay: config.NonNegativeFiniteDuration =
       config.NonNegativeFiniteDuration.ofSeconds(0),
     disableUpgradeValidation: Boolean = false,
-    allowForUnauthenticatedContractIds: Boolean = false,
     watchdog: Option[WatchdogConfig] = None,
     packageMetadataView: PackageMetadataViewConfig = PackageMetadataViewConfig(),
     commandProgressTracker: CommandProgressTrackerConfig = CommandProgressTrackerConfig(),
     unsafeEnableOnlinePartyReplication: Boolean = false,
     experimentalEnableTopologyEvents: Boolean = false,
+    enableExternalAuthorization: Boolean = false,
 ) extends LocalNodeParametersConfig
 
 /** Parameters for the participant node's stores

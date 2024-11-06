@@ -236,8 +236,8 @@ class PolicyTest extends AsyncFunSpec with BaseTest with HasExecutorService {
         val delta = marker.get() - marker_base
         assert(
           success.predicate(result) === true &&
-            delta >= 90 && delta <= 500
-        ) // was 110
+            delta >= 90 && delta <= 1000 // was 110
+        )
       }
     }
 

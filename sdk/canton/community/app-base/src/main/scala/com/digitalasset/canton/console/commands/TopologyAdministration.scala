@@ -205,7 +205,7 @@ class TopologyAdministrationGroup(
           s"Expecting filterDomain and filterStore to relate to the same domain but found `$domain` and `$domainStore`",
         )
 
-      case _ => Right(())
+      case _ => Either.unit
     }
   }
 
@@ -2425,7 +2425,7 @@ class TopologyAdministrationGroup(
        synchronize: Synchronize timeout can be used to ensure that the state has been propagated into the node
        waitForParticipants: if synchronize is defined, the command will also wait until parameters have been propagated
                             to the listed participants
-       force: must be set to true when performing a dangerous operation, such as increasing the ledgerTimeRecordTimeTolerance"""
+       force: must be set to true when performing a dangerous operation, such as increasing the submissionTimeRecordTimeTolerance"""
     )
     def propose(
         domainId: DomainId,
@@ -2503,7 +2503,7 @@ class TopologyAdministrationGroup(
        synchronize: Synchronize timeout can be used to ensure that the state has been propagated into the node
        waitForParticipants: if synchronize is defined, the command will also wait until the update has been propagated
                             to the listed participants
-       force: must be set to true when performing a dangerous operation, such as increasing the ledgerTimeRecordTimeTolerance"""
+       force: must be set to true when performing a dangerous operation, such as increasing the submissionTimeRecordTimeTolerance"""
     )
     def propose_update(
         domainId: DomainId,
@@ -2545,60 +2545,111 @@ class TopologyAdministrationGroup(
 
     @Help.Summary("Update the ledger time record time tolerance in the dynamic domain parameters")
     @Help.Description(
-      """If it would be insecure to perform the change immediately,
-        |the command will block and wait until it is secure to perform the change.
-        |The command will block for at most twice of ``newLedgerTimeRecordTimeTolerance``.
-        |
-        |The method will fail if ``mediatorDeduplicationTimeout`` is less than twice of ``newLedgerTimeRecordTimeTolerance``.
-        |
-        |Do not modify domain parameters concurrently while running this command,
-        |because the command may override concurrent changes.
-        |
-        |force: update ``ledgerTimeRecordTimeTolerance`` immediately without blocking.
-        |This is safe to do during domain bootstrapping and in test environments, but should not be done in operational production systems."""
+      """
+        domainId: the target domain
+        newLedgerTimeRecordTimeTolerance: the new ledgerTimeRecordTimeTolerance value to apply to the domain
+
+        Note: The force parameter has no effect anymore since Canton 3.2.
+              Updating ledger time record time tolerance is no longer unsafe.
+        """
+    )
+    @deprecated(
+      message =
+        "Use set_ledger_time_record_time_tolerance without the force flag parameter instead",
+      since = "3.2",
     )
     def set_ledger_time_record_time_tolerance(
         domainId: DomainId,
         newLedgerTimeRecordTimeTolerance: config.NonNegativeFiniteDuration,
         force: Boolean = false,
+    ): Unit = setLedgerTimeRecordTimeTolerance(domainId, newLedgerTimeRecordTimeTolerance)
+
+    @Help.Summary("Update the ledger time record time tolerance in the dynamic domain parameters")
+    @Help.Description(
+      """
+        domainId: the target domain
+        newLedgerTimeRecordTimeTolerance: the new ledgerTimeRecordTimeTolerance value to apply to the domain"""
+    )
+    def set_ledger_time_record_time_tolerance(
+        domainId: DomainId,
+        newLedgerTimeRecordTimeTolerance: config.NonNegativeFiniteDuration,
+    ): Unit = setLedgerTimeRecordTimeTolerance(domainId, newLedgerTimeRecordTimeTolerance)
+
+    private def setLedgerTimeRecordTimeTolerance(
+        domainId: DomainId,
+        newLedgerTimeRecordTimeTolerance: config.NonNegativeFiniteDuration,
+    ): Unit =
+      TraceContext.withNewTraceContext { implicit tc =>
+        logger.info(
+          s"Immediately updating ledgerTimeRecordTimeTolerance to $newLedgerTimeRecordTimeTolerance..."
+        )
+        propose_update(
+          domainId,
+          _.update(ledgerTimeRecordTimeTolerance = newLedgerTimeRecordTimeTolerance),
+        )
+      }
+
+    @Help.Summary(
+      "Update the submission time record time tolerance in the dynamic domain parameters"
+    )
+    @Help.Description(
+      """If it would be insecure to perform the change immediately,
+        |the command will block and wait until it is secure to perform the change.
+        |The command will block for at most twice of ``newSubmissionTimeRecordTimeTolerance``.
+        |
+        |The method will fail if ``mediatorDeduplicationTimeout`` is less than twice of ``newSubmissionTimeRecordTimeTolerance``.
+        |
+        |Do not modify domain parameters concurrently while running this command,
+        |because the command may override concurrent changes.
+        |
+        |force: update ``newSubmissionTimeRecordTimeTolerance`` immediately without blocking.
+        |This is safe to do during domain bootstrapping and in test environments, but should not be done in operational production systems."""
+    )
+    def set_submission_time_record_time_tolerance(
+        domainId: DomainId,
+        newSubmissionTimeRecordTimeTolerance: config.NonNegativeFiniteDuration,
+        force: Boolean = false,
     ): Unit =
       TraceContext.withNewTraceContext { implicit tc =>
         if (!force) {
-          securely_set_ledger_time_record_time_tolerance(
+          securely_set_submission_time_record_time_tolerance(
             domainId,
-            newLedgerTimeRecordTimeTolerance,
+            newSubmissionTimeRecordTimeTolerance,
           )
         } else {
           logger.info(
-            s"Immediately updating ledgerTimeRecordTimeTolerance to $newLedgerTimeRecordTimeTolerance..."
+            s"Immediately updating submissionTimeRecordTimeTolerance to $newSubmissionTimeRecordTimeTolerance..."
           )
           propose_update(
             domainId,
-            _.update(ledgerTimeRecordTimeTolerance = newLedgerTimeRecordTimeTolerance),
-            force = ForceFlags(ForceFlag.LedgerTimeRecordTimeToleranceIncrease),
+            _.update(submissionTimeRecordTimeTolerance = newSubmissionTimeRecordTimeTolerance),
+            force = ForceFlags(ForceFlag.SubmissionTimeRecordTimeToleranceIncrease),
           )
         }
       }
 
-    private def securely_set_ledger_time_record_time_tolerance(
+    private def securely_set_submission_time_record_time_tolerance(
         domainId: DomainId,
-        newLedgerTimeRecordTimeTolerance: config.NonNegativeFiniteDuration,
+        newSubmissionTimeRecordTimeTolerance: config.NonNegativeFiniteDuration,
     )(implicit traceContext: TraceContext): Unit = {
 
       // See i9028 for a detailed design.
       // https://docs.google.com/document/d/1tpPbzv2s6bjbekVGBn6X5VZuw0oOTHek5c30CBo4UkI/edit#bookmark=id.1dzc6dxxlpca
       // We wait until the antecedent of Lemma 2 Item 2 is falsified for all changes that violate the conclusion.
+      // Note: This validation was originally designed for ledgerTimeRecordTimeTolerance. With the introduction of
+      // submissionTimeRecordTimeTolerance, the validation was moved to it instead of ledgerTimeRecordTimeTolerance
 
       // Compute new parameters
       val oldDomainParameters = get_dynamic_domain_parameters(domainId)
-      val oldLedgerTimeRecordTimeTolerance = oldDomainParameters.ledgerTimeRecordTimeTolerance
+      val oldSubmissionTimeRecordTimeTolerance =
+        oldDomainParameters.submissionTimeRecordTimeTolerance
 
-      val minMediatorDeduplicationTimeout = newLedgerTimeRecordTimeTolerance * 2
+      val minMediatorDeduplicationTimeout = newSubmissionTimeRecordTimeTolerance * 2
 
       if (oldDomainParameters.mediatorDeduplicationTimeout < minMediatorDeduplicationTimeout) {
-        val err = TopologyManagerError.IncreaseOfLedgerTimeRecordTimeTolerance
+        val err = TopologyManagerError.IncreaseOfSubmissionTimeRecordTimeTolerance
           .PermanentlyInsecure(
-            newLedgerTimeRecordTimeTolerance.toInternal,
+            newSubmissionTimeRecordTimeTolerance.toInternal,
             oldDomainParameters.mediatorDeduplicationTimeout.toInternal,
           )
         val msg = CantonError.stringFromContext(err)
@@ -2606,22 +2657,20 @@ class TopologyAdministrationGroup(
       }
 
       logger.info(
-        s"Securely updating ledgerTimeRecordTimeTolerance to $newLedgerTimeRecordTimeTolerance..."
+        s"Securely updating submissionTimeRecordTimeTolerance to $newSubmissionTimeRecordTimeTolerance..."
       )
 
-      // Poll until it is safe to increase ledgerTimeRecordTimeTolerance
+      // Poll until it is safe to increase submissionTimeRecordTimeTolerance
       def checkPreconditions(): Future[Unit] = {
         val startTs = consoleEnvironment.environment.clock.now
 
-        // Update mediatorDeduplicationTimeout for several reasons:
-        // 1. Make sure it is big enough.
-        // 2. The resulting topology transaction gives us a meaningful lower bound on the sequencer clock.
+        // Doing a no-op update so that the resulting topology transaction gives us a meaningful lower bound on the sequencer clock
         logger.info(
-          s"Do a no-op update of ledgerTimeRecordTimeTolerance to $oldLedgerTimeRecordTimeTolerance..."
+          s"Do a no-op update of submissionTimeRecordTimeTolerance to $oldSubmissionTimeRecordTimeTolerance..."
         )
         propose_update(
           domainId,
-          _.copy(ledgerTimeRecordTimeTolerance = oldLedgerTimeRecordTimeTolerance),
+          _.copy(submissionTimeRecordTimeTolerance = oldSubmissionTimeRecordTimeTolerance),
         )
 
         logger.debug("Check for incompatible past domain parameters...")
@@ -2646,9 +2695,10 @@ class TopologyAdministrationGroup(
         // invalid for at least minMediatorDeduplicationTimeout.
         val waitDuration = allTransactions
           .filterNot(tx =>
-            ConsoleDynamicDomainParameters(tx.item).compatibleWithNewLedgerTimeRecordTimeTolerance(
-              newLedgerTimeRecordTimeTolerance
-            )
+            ConsoleDynamicDomainParameters(tx.item)
+              .compatibleWithNewSubmissionTimeRecordTimeTolerance(
+                newSubmissionTimeRecordTimeTolerance
+              )
           )
           .map { tx =>
             val elapsedForAtLeast = tx.context.validUntil match {
@@ -2673,7 +2723,7 @@ class TopologyAdministrationGroup(
             ) // avoid scheduleAfter, because that causes a race condition in integration tests
             .onShutdown(
               throw new IllegalStateException(
-                "Update of ledgerTimeRecordTimeTolerance interrupted due to shutdown."
+                "Update of submissionTimeRecordTimeTolerance interrupted due to shutdown."
               )
             )
           // Do not submit checkPreconditions() to the clock because it is blocking and would therefore block the clock.
@@ -2684,20 +2734,20 @@ class TopologyAdministrationGroup(
       }
 
       consoleEnvironment.commandTimeouts.unbounded.await(
-        "Wait until ledgerTimeRecordTimeTolerance can be increased."
+        "Wait until submissionTimeRecordTimeTolerance can be increased."
       )(
         checkPreconditions()
       )
 
       // Now that past values of mediatorDeduplicationTimeout have been large enough,
-      // we can change ledgerTimeRecordTimeTolerance.
+      // we can change submissionTimeRecordTimeTolerance.
       logger.info(
-        s"Now changing ledgerTimeRecordTimeTolerance to $newLedgerTimeRecordTimeTolerance..."
+        s"Now changing submissionTimeRecordTimeTolerance to $newSubmissionTimeRecordTimeTolerance..."
       )
       propose_update(
         domainId,
-        _.copy(ledgerTimeRecordTimeTolerance = newLedgerTimeRecordTimeTolerance),
-        force = ForceFlags(ForceFlag.LedgerTimeRecordTimeToleranceIncrease),
+        _.copy(submissionTimeRecordTimeTolerance = newSubmissionTimeRecordTimeTolerance),
+        force = ForceFlags(ForceFlag.SubmissionTimeRecordTimeToleranceIncrease),
       )
     }
   }

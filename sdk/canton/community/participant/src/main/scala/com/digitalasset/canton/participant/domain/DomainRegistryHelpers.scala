@@ -198,6 +198,7 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
               cryptoApiProvider.crypto,
               sequencerClientConfig,
               participantNodeParameters.tracing.propagation,
+              sequencerAggregatedInfo.staticDomainParameters,
               participantNodeParameters.processingTimeouts,
               clock,
               domainLoggerFactory,
@@ -345,7 +346,7 @@ trait DomainRegistryHelpers extends FlagCloseable with NamedLogging { this: HasF
       loggingContext: ErrorLoggingContext
   ): Either[DomainIdMismatch.Error, Unit] =
     config.domainId match {
-      case None => Right(())
+      case None => Either.unit
       case Some(configuredDomainId) =>
         Either.cond(
           configuredDomainId == domainId,

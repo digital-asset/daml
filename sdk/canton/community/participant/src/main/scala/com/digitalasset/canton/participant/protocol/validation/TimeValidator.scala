@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.participant.protocol.validation
 
+import cats.syntax.either.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.participant.protocol.TransactionProcessingSteps.CommonData
@@ -15,6 +16,7 @@ object TimeValidator {
       commonData: CommonData,
       sequencerTimestamp: CantonTimestamp,
       ledgerTimeRecordTimeTolerance: NonNegativeFiniteDuration,
+      submissionTimeRecordTimeTolerance: NonNegativeFiniteDuration,
       amSubmitter: Boolean,
       logger: TracedLogger,
   )(implicit tc: TraceContext): Either[TimeCheckFailure, Unit] = {
@@ -46,22 +48,22 @@ object TimeValidator {
     }
     // check that the submission time is valid
     else if (
-      submissionTime < sequencerTimestamp - ledgerTimeRecordTimeTolerance ||
-      submissionTime > sequencerTimestamp + ledgerTimeRecordTimeTolerance
+      submissionTime < sequencerTimestamp - submissionTimeRecordTimeTolerance ||
+      submissionTime > sequencerTimestamp + submissionTimeRecordTimeTolerance
     ) {
       log(
         s"The delta of the submission time $submissionTime and the record time $sequencerTimestamp exceeds the max " +
-          s"of $ledgerTimeRecordTimeTolerance"
+          s"of $submissionTimeRecordTimeTolerance"
       )
       Left(
         SubmissionTimeRecordTimeDeltaTooLargeError(
           submissionTime,
           sequencerTimestamp,
-          ledgerTimeRecordTimeTolerance,
+          submissionTimeRecordTimeTolerance,
         )
       )
 
-    } else Right(())
+    } else Either.unit
 
   }
 

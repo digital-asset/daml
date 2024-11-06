@@ -5,6 +5,7 @@ package com.digitalasset.canton.participant.sync
 
 import cats.Eval
 import cats.data.EitherT
+import cats.syntax.either.*
 import com.digitalasset.canton.common.domain.grpc.SequencerInfoLoader
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.CantonRequireTypes.String255
@@ -105,9 +106,9 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
       commandDeduplicationStore.storeDefiniteAnswers(
         any[Seq[(ChangeId, DefiniteAnswerEvent, Boolean)]]
       )(anyTraceContext)
-    ).thenReturn(Future.unit)
+    ).thenReturn(FutureUnlessShutdown.unit)
     when(inFlightSubmissionStore.delete(any[Seq[InFlightReference]])(anyTraceContext))
-      .thenReturn(Future.unit)
+      .thenReturn(FutureUnlessShutdown.unit)
 
     val clock = new SimClock(loggerFactory = loggerFactory)
 
@@ -202,7 +203,7 @@ class CantonSyncServiceTest extends FixtureAnyWordSpec with BaseTest with HasExe
           any[String255],
           any[Option[String255]],
         )
-      ).thenReturn(Right(()))
+      ).thenReturn(Either.unit)
 
       val lfInputPartyId = LfPartyId.assertFromString("desiredPartyName")
       val partyId =

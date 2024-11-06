@@ -14,8 +14,8 @@ import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.sequencing.TrafficControlParameters
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.time.{NonNegativeFiniteDuration, PositiveSeconds}
-import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.transaction.ParticipantDomainLimits
+import com.digitalasset.canton.topology.{DomainId, PartyId}
 import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.transaction.Versioned
 import com.google.protobuf.ByteString
@@ -35,16 +35,17 @@ final class GeneratorsProtocol(
 
   implicit val staticDomainParametersArb: Arbitrary[StaticDomainParameters] =
     Arbitrary(for {
-      requiredSigningKeySchemes <- nonEmptySetGen[SigningKeyScheme]
+      requiredSigningAlgorithmSpecs <- nonEmptySetGen[SigningAlgorithmSpec]
+      requiredSigningKeySpecs <- nonEmptySetGen[SigningKeySpec]
       requiredEncryptionAlgorithmSpecs <- nonEmptySetGen[EncryptionAlgorithmSpec]
-      requiredKeySpecs <- nonEmptySetGen[EncryptionKeySpec]
+      requiredEncryptionKeySpecs <- nonEmptySetGen[EncryptionKeySpec]
       requiredSymmetricKeySchemes <- nonEmptySetGen[SymmetricKeyScheme]
       requiredHashAlgorithms <- nonEmptySetGen[HashAlgorithm]
       requiredCryptoKeyFormats <- nonEmptySetGen[CryptoKeyFormat]
 
       parameters = StaticDomainParameters(
-        requiredSigningKeySchemes,
-        RequiredEncryptionSpecs(requiredEncryptionAlgorithmSpecs, requiredKeySpecs),
+        RequiredSigningSpecs(requiredSigningAlgorithmSpecs, requiredSigningKeySpecs),
+        RequiredEncryptionSpecs(requiredEncryptionAlgorithmSpecs, requiredEncryptionKeySpecs),
         requiredSymmetricKeySchemes,
         requiredHashAlgorithms,
         requiredCryptoKeyFormats,
@@ -97,6 +98,11 @@ final class GeneratorsProtocol(
           else None
         }
 
+      // Because of the potential multiplication by 2 below, we want a reasonably small value
+      submissionTimeRecordTimeTolerance <- Gen
+        .choose(0L, 10000L)
+        .map(NonNegativeFiniteDuration.tryOfMicros)
+
       dynamicDomainParameters = DynamicDomainParameters.tryCreate(
         confirmationResponseTimeout,
         mediatorReactionTimeout,
@@ -111,6 +117,7 @@ final class GeneratorsProtocol(
         onboardingRestriction,
         acsCommitmentsCatchupConfig,
         participantDomainLimits,
+        submissionTimeRecordTimeTolerance,
       )(representativePV)
 
     } yield dynamicDomainParameters
@@ -232,9 +239,9 @@ final class GeneratorsProtocol(
     for {
       signatories <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
       observers <- Gen.containerOf[Set, LfPartyId](Arbitrary.arbitrary[LfPartyId])
-      stakeholders = signatories.union(observers)
-    } yield Stakeholders.tryCreate(
-      stakeholders = stakeholders
+    } yield Stakeholders.withSignatoriesAndObservers(
+      signatories = signatories,
+      observers = observers,
     )
   )
 
@@ -255,5 +262,11 @@ final class GeneratorsProtocol(
         rolledBack,
       )
       .value
+  )
+
+  implicit val externalAuthorizationArb: Arbitrary[ExternalAuthorization] = Arbitrary(
+    for {
+      signatures <- Arbitrary.arbitrary[Map[PartyId, Seq[Signature]]]
+    } yield ExternalAuthorization.create(signatures, protocolVersion)
   )
 }

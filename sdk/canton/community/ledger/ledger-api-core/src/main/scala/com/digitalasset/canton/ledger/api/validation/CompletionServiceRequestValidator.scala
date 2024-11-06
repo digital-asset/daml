@@ -26,7 +26,7 @@ class CompletionServiceRequestValidator(
     for {
       appId <- requireApplicationId(request.applicationId, "application_id")
       parties <- requireParties(request.parties.toSet)
-      convertedOffset <- ParticipantOffsetValidator.validateOptional(
+      convertedOffset <- ParticipantOffsetValidator.validateNonNegative(
         request.beginExclusive,
         "begin_exclusive",
       )

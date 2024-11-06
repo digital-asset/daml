@@ -57,20 +57,12 @@ object DomainParameters {
   }
 
   final case class MaxRequestSize(value: NonNegativeInt) extends AnyVal {
-    def unwrap = value.unwrap
+    def unwrap: Int = value.unwrap
   }
 }
 
-/** @param AcsCommitmentsCatchUp Optional parameters of type [[com.digitalasset.canton.protocol.AcsCommitmentsCatchUpConfig]].
-  *                              Defined starting with protobuf version v2 and protocol version v6.
-  *                              If None, the catch-up mode is disabled: the participant does not trigger the
-  *                              catch-up mode when lagging behind.
-  *                              If not None, it specifies the number of reconciliation intervals that the
-  *                              participant skips in catch-up mode, and the number of catch-up intervals
-  *                              intervals a participant should lag behind in order to enter catch-up mode.
-  */
 final case class StaticDomainParameters(
-    requiredSigningKeySchemes: NonEmpty[Set[SigningKeyScheme]],
+    requiredSigningSpecs: RequiredSigningSpecs,
     requiredEncryptionSpecs: RequiredEncryptionSpecs,
     requiredSymmetricKeySchemes: NonEmpty[Set[SymmetricKeyScheme]],
     requiredHashAlgorithms: NonEmpty[Set[HashAlgorithm]],
@@ -87,7 +79,7 @@ final case class StaticDomainParameters(
 
   def toProtoV30: v30.StaticDomainParameters =
     v30.StaticDomainParameters(
-      requiredSigningKeySchemes = requiredSigningKeySchemes.toSeq.map(_.toProtoEnum),
+      requiredSigningSpecs = Some(requiredSigningSpecs.toProtoV30),
       requiredEncryptionSpecs = Some(requiredEncryptionSpecs.toProtoV30),
       requiredSymmetricKeySchemes = requiredSymmetricKeySchemes.toSeq.map(_.toProtoEnum),
       requiredHashAlgorithms = requiredHashAlgorithms.toSeq.map(_.toProtoEnum),
@@ -124,7 +116,7 @@ object StaticDomainParameters
       domainParametersP: v30.StaticDomainParameters
   ): ParsingResult[StaticDomainParameters] = {
     val v30.StaticDomainParameters(
-      requiredSigningKeySchemesP,
+      requiredSigningSpecsOP,
       requiredEncryptionSpecsOP,
       requiredSymmetricKeySchemesP,
       requiredHashAlgorithmsP,
@@ -133,35 +125,36 @@ object StaticDomainParameters
     ) = domainParametersP
 
     for {
-      requiredSigningKeySchemes <- requiredKeySchemes(
-        "requiredSigningKeySchemes",
-        requiredSigningKeySchemesP,
-        SigningKeyScheme.fromProtoEnum,
+      requiredSigningSpecsP <- requiredSigningSpecsOP.toRight(
+        ProtoDeserializationError.FieldNotSet(
+          "required_signing_specs"
+        )
       )
+      requiredSigningSpecs <- RequiredSigningSpecs.fromProtoV30(requiredSigningSpecsP)
       requiredEncryptionSpecsP <- requiredEncryptionSpecsOP.toRight(
         ProtoDeserializationError.FieldNotSet(
-          "requiredEncryptionSpecs"
+          "required_encryption_specs"
         )
       )
       requiredEncryptionSpecs <- RequiredEncryptionSpecs.fromProtoV30(requiredEncryptionSpecsP)
       requiredSymmetricKeySchemes <- requiredKeySchemes(
-        "requiredSymmetricKeySchemes",
+        "required_symmetric_key_schemes",
         requiredSymmetricKeySchemesP,
         SymmetricKeyScheme.fromProtoEnum,
       )
       requiredHashAlgorithms <- requiredKeySchemes(
-        "requiredHashAlgorithms",
+        "required_hash_algorithms",
         requiredHashAlgorithmsP,
         HashAlgorithm.fromProtoEnum,
       )
       requiredCryptoKeyFormats <- requiredKeySchemes(
-        "requiredCryptoKeyFormats",
+        "required_crypto_key_formats",
         requiredCryptoKeyFormatsP,
         CryptoKeyFormat.fromProtoEnum,
       )
       protocolVersion <- ProtocolVersion.fromProtoPrimitive(protocolVersionP)
     } yield StaticDomainParameters(
-      requiredSigningKeySchemes,
+      requiredSigningSpecs,
       requiredEncryptionSpecs,
       requiredSymmetricKeySchemes,
       requiredHashAlgorithms,
@@ -278,9 +271,9 @@ object OnboardingRestriction {
   *                                      If the absolute difference would be larger for a command,
   *                                      then the command must be rejected.
   * @param mediatorDeduplicationTimeout the time for how long a request will be stored at the mediator for deduplication
-  *                                     purposes. This must be at least twice the `ledgerTimeRecordTimeTolerance`.
+  *                                     purposes. This must be at least twice the `submissionTimeRecordTimeTolerance`.
   *                                     It is fine to choose the minimal value, unless you plan to subsequently
-  *                                     increase `ledgerTimeRecordTimeTolerance.`
+  *                                     increase `submissionTimeRecordTimeTolerance.`
   * @param reconciliationInterval The size of the reconciliation interval (minimum duration between two ACS commitments).
   *                               Note: default to [[StaticDomainParameters.defaultReconciliationInterval]] for backward
   *                               compatibility.
@@ -300,9 +293,13 @@ object OnboardingRestriction {
   *                                      If not None, it specifies the number of reconciliation intervals that the
   *                                      participant skips in catch-up mode, and the number of catch-up intervals
   *                                      intervals a participant should lag behind in order to enter catch-up mode.
-  *
+  * @param submissionTimeRecordTimeTolerance the maximum absolute difference between the submission time and the
+  *                                 record time of a command.
+  *                                 If the absolute difference would be larger for a command,
+  *                                 then the command must be rejected.
+  *                                 Defaults to [[ledgerTimeRecordTimeTolerance]] if not set when deserializing from proto.
   * @throws DynamicDomainParameters$.InvalidDynamicDomainParameters
-  *   if `mediatorDeduplicationTimeout` is less than twice of `ledgerTimeRecordTimeTolerance`.
+  *   if `mediatorDeduplicationTimeout` is less than twice of `submissionTimeRecordTimeTolerance`.
   */
 final case class DynamicDomainParameters private (
     confirmationResponseTimeout: NonNegativeFiniteDuration,
@@ -318,6 +315,7 @@ final case class DynamicDomainParameters private (
     onboardingRestriction: OnboardingRestriction,
     acsCommitmentsCatchUpConfig: Option[AcsCommitmentsCatchUpConfig],
     participantDomainLimits: ParticipantDomainLimits,
+    submissionTimeRecordTimeTolerance: NonNegativeFiniteDuration,
 )(
     override val representativeProtocolVersion: RepresentativeProtocolVersion[
       DynamicDomainParameters.type
@@ -332,9 +330,11 @@ final case class DynamicDomainParameters private (
     participantDomainLimits.confirmationRequestsMaxRate
 
   // https://docs.google.com/document/d/1tpPbzv2s6bjbekVGBn6X5VZuw0oOTHek5c30CBo4UkI/edit#bookmark=id.jtqcu52qpf82
-  if (ledgerTimeRecordTimeTolerance * NonNegativeInt.tryCreate(2) > mediatorDeduplicationTimeout)
+  if (
+    submissionTimeRecordTimeTolerance * NonNegativeInt.tryCreate(2) > mediatorDeduplicationTimeout
+  )
     throw new InvalidDynamicDomainParameters(
-      s"The ledgerTimeRecordTimeTolerance ($ledgerTimeRecordTimeTolerance) must be at most half of the " +
+      s"The submissionTimeRecordTimeTolerance ($submissionTimeRecordTimeTolerance) must be at most half of the " +
         s"mediatorDeduplicationTimeout ($mediatorDeduplicationTimeout)."
     )
 
@@ -402,6 +402,8 @@ final case class DynamicDomainParameters private (
       onboardingRestriction: OnboardingRestriction = onboardingRestriction,
       acsCommitmentsCatchUpConfigParameter: Option[AcsCommitmentsCatchUpConfig] =
         acsCommitmentsCatchUpConfig,
+      submissionTimeRecordTimeTolerance: NonNegativeFiniteDuration =
+        submissionTimeRecordTimeTolerance,
   ): DynamicDomainParameters = DynamicDomainParameters.tryCreate(
     confirmationResponseTimeout = confirmationResponseTimeout,
     mediatorReactionTimeout = mediatorReactionTimeout,
@@ -416,6 +418,7 @@ final case class DynamicDomainParameters private (
     onboardingRestriction = onboardingRestriction,
     acsCommitmentsCatchUpConfigParameter = acsCommitmentsCatchUpConfigParameter,
     participantDomainLimits = ParticipantDomainLimits(confirmationRequestsMaxRate),
+    submissionTimeRecordTimeTolerance = submissionTimeRecordTimeTolerance,
   )(representativeProtocolVersion)
 
   def toProtoV30: v30.DynamicDomainParameters = v30.DynamicDomainParameters(
@@ -433,6 +436,7 @@ final case class DynamicDomainParameters private (
       Some(sequencerAggregateSubmissionTimeout.toProtoPrimitive),
     trafficControlParameters = trafficControlParameters.map(_.toProtoV30),
     acsCommitmentsCatchupConfig = acsCommitmentsCatchUpConfig.map(_.toProtoV30),
+    submissionTimeRecordTimeTolerance = Some(submissionTimeRecordTimeTolerance.toProtoPrimitive),
   )
 
   override protected def pretty: Pretty[DynamicDomainParameters] =
@@ -495,6 +499,9 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
   private val defaultLedgerTimeRecordTimeTolerance: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.tryOfSeconds(60)
 
+  private val defaultSubmissionTimeRecordTimeTolerance: NonNegativeFiniteDuration =
+    defaultLedgerTimeRecordTimeTolerance
+
   private val defaultMediatorDeduplicationTimeout: NonNegativeFiniteDuration =
     defaultLedgerTimeRecordTimeTolerance * NonNegativeInt.tryCreate(2)
 
@@ -511,7 +518,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
 
   /** Safely creates DynamicDomainParameters.
     *
-    * @return `Left(...)` if `mediatorDeduplicationTimeout` is less than twice of `ledgerTimeRecordTimeTolerance`.
+    * @return `Left(...)` if `mediatorDeduplicationTimeout` is less than twice of `submissionTimeRecordTimeTolerance`.
     */
   private def create(
       confirmationResponseTimeout: NonNegativeFiniteDuration,
@@ -527,6 +534,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
       onboardingRestriction: OnboardingRestriction,
       acsCommitmentsCatchUpConfig: Option[AcsCommitmentsCatchUpConfig],
       participantDomainLimits: ParticipantDomainLimits,
+      submissionTimeRecordTimeTolerance: NonNegativeFiniteDuration,
   )(
       representativeProtocolVersion: RepresentativeProtocolVersion[DynamicDomainParameters.type]
   ): Either[InvalidDynamicDomainParameters, DynamicDomainParameters] =
@@ -545,12 +553,13 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
         onboardingRestriction,
         acsCommitmentsCatchUpConfig,
         participantDomainLimits,
+        submissionTimeRecordTimeTolerance,
       )(representativeProtocolVersion)
     )
 
   /** Creates DynamicDomainParameters
     *
-    * @throws InvalidDynamicDomainParameters if `mediatorDeduplicationTimeout` is less than twice of `ledgerTimeRecordTimeTolerance`.
+    * @throws InvalidDynamicDomainParameters if `mediatorDeduplicationTimeout` is less than twice of `submissionTimeRecordTimeTolerance`.
     */
   def tryCreate(
       confirmationResponseTimeout: NonNegativeFiniteDuration,
@@ -566,6 +575,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
       onboardingRestriction: OnboardingRestriction,
       acsCommitmentsCatchUpConfigParameter: Option[AcsCommitmentsCatchUpConfig],
       participantDomainLimits: ParticipantDomainLimits,
+      submissionTimeRecordTimeTolerance: NonNegativeFiniteDuration,
   )(
       representativeProtocolVersion: RepresentativeProtocolVersion[DynamicDomainParameters.type]
   ): DynamicDomainParameters =
@@ -583,6 +593,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
       onboardingRestriction,
       acsCommitmentsCatchUpConfigParameter,
       participantDomainLimits,
+      submissionTimeRecordTimeTolerance,
     )(representativeProtocolVersion)
 
   /** Default dynamic domain parameters for non-static clocks */
@@ -608,6 +619,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
       onboardingRestriction = defaultOnboardingRestriction,
       acsCommitmentsCatchUpConfigParameter = defaultAcsCommitmentsCatchUp,
       participantDomainLimits = DynamicDomainParameters.defaultParticipantDomainLimits,
+      submissionTimeRecordTimeTolerance = defaultSubmissionTimeRecordTimeTolerance,
     )(
       protocolVersionRepresentativeFor(protocolVersion)
     )
@@ -624,6 +636,8 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
         DynamicDomainParameters.defaultReconciliationInterval,
       sequencerAggregateSubmissionTimeout: NonNegativeFiniteDuration =
         defaultSequencerAggregateSubmissionTimeout,
+      submissionTimeRecordTimeTolerance: NonNegativeFiniteDuration =
+        defaultSubmissionTimeRecordTimeTolerance,
   ) =
     DynamicDomainParameters.tryCreate(
       confirmationResponseTimeout = defaultConfirmationResponseTimeout,
@@ -639,6 +653,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
       onboardingRestriction = defaultOnboardingRestriction,
       acsCommitmentsCatchUpConfigParameter = defaultAcsCommitmentsCatchUp,
       participantDomainLimits = ParticipantDomainLimits(confirmationRequestsMaxRate),
+      submissionTimeRecordTimeTolerance = submissionTimeRecordTimeTolerance,
     )(
       protocolVersionRepresentativeFor(protocolVersion)
     )
@@ -671,6 +686,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
       sequencerAggregateSubmissionTimeoutP,
       trafficControlConfigP,
       acsCommitmentCatchupConfigP,
+      submissionTimeRecordTimeToleranceP,
     ) = domainParametersP
     for {
 
@@ -733,6 +749,15 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
         .required("participant_domain_limits", defaultLimitsP)
         .flatMap(ParticipantDomainLimits.fromProtoV30)
 
+      submissionTimeRecordTimeTolerance <- submissionTimeRecordTimeToleranceP
+        .traverse(
+          NonNegativeFiniteDuration.fromProtoPrimitive(
+            "submissionTimeRecordTimeTolerance"
+          )
+        )
+        // TODO(i16458) enforce this field is always set when 3.x is stable
+        .map(_.getOrElse(ledgerTimeRecordTimeTolerance))
+
       domainParameters <-
         create(
           confirmationResponseTimeout = confirmationResponseTimeout,
@@ -748,6 +773,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
           onboardingRestriction = onboardingRestriction,
           acsCommitmentsCatchUpConfig = acsCommitmentCatchupConfig,
           participantDomainLimits = participantDomainLimits,
+          submissionTimeRecordTimeTolerance = submissionTimeRecordTimeTolerance,
         )(rpv).leftMap(_.toProtoDeserializationError)
     } yield domainParameters
   }

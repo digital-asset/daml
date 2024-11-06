@@ -8,7 +8,7 @@ import com.daml.ledger.javaapi.data.GetPackageStatusResponse;
 import io.reactivex.Flowable;
 import io.reactivex.Single;
 
-/** An RxJava version of {@link com.daml.ledger.api.v1.PackageServiceGrpc} */
+/** An RxJava version of {@link com.daml.ledger.api.v2.PackageServiceGrpc} */
 public interface PackageClient {
   Flowable<String> listPackages();
 

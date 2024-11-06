@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.topology
 
 import cats.data.EitherT
+import cats.syntax.either.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.LfPackageId
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -72,9 +73,9 @@ trait ParticipantTopologyValidation extends NamedLogging {
                 logger.debug(
                   s"Allow to disable $PartyId with active contracts on $domainId because force flag ${ForceFlag.DisablePartyWithActiveContracts} is set."
                 )
-                Right(())
+                Either.unit
               case false =>
-                Right(())
+                Either.unit
             }
         ).mapK(
           FutureUnlessShutdown.outcomeK
@@ -132,14 +133,14 @@ trait ParticipantTopologyValidation extends NamedLogging {
                 logger.debug(
                   s"Allowing the unvetting of $packageId on $domainId because force flag ${ForceFlag.AllowUnvetPackageWithActiveContracts} is set."
                 )
-                Right(())
+                Either.unit
               case Some(contractId) =>
                 Left(
                   ParticipantTopologyManagerError.PackageIdInUse
                     .Reject(packageId, contractId, domainId): TopologyManagerError
                 )
               case None =>
-                Right(())
+                Either.unit
             }
         ).mapK(
           FutureUnlessShutdown.outcomeK

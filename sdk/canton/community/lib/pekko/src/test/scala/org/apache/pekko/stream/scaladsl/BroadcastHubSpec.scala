@@ -264,7 +264,7 @@ class BroadcastHubSpec extends StreamSpec {
       val in = TestPublisher.probe[Int]()
       val hubSource = Source
         .fromPublisher(in)
-        .runWith(Sink.fromGraph(new BroadcastHub[Int](2, registerConsumerCallback)))
+        .runWith(Sink.fromGraph(new BroadcastHub[Int](0, 2, registerConsumerCallback)))
 
       // Put one element into the buffer
       in.sendNext(15)

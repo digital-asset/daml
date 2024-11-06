@@ -38,6 +38,7 @@ import com.digitalasset.canton.admin.api.client.data.{
   DarMetadata,
   InFlightCount,
   ListConnectedDomainsResult,
+  NodeStatus,
   ParticipantPruningSchedule,
   ParticipantStatus,
 }
@@ -520,7 +521,7 @@ class ParticipantPruningAdministrationGroup(
       |performs additional safety checks returning a ``NOT_FOUND`` error if ``pruneUpTo`` is higher than the
       |offset returned by ``find_safe_offset`` on any domain with events preceding the pruning offset."""
   )
-  def prune(pruneUpTo: String): Unit =
+  def prune(pruneUpTo: Long): Unit =
     consoleEnvironment.run(
       ledgerApiCommand(LedgerApiCommands.ParticipantPruningService.Prune(pruneUpTo))
     )
@@ -529,11 +530,12 @@ class ParticipantPruningAdministrationGroup(
     "Return the highest participant ledger offset whose record time is before or at the given one (if any) at which pruning is safely possible",
     FeatureFlag.Preview,
   )
-  def find_safe_offset(beforeOrAt: Instant = Instant.now()): Option[String] =
+  def find_safe_offset(beforeOrAt: Instant = Instant.now()): Option[Long] =
     check(FeatureFlag.Preview) {
       val ledgerEnd = consoleEnvironment.run(
         ledgerApiCommand(LedgerApiCommands.StateService.LedgerEnd())
       )
+
       consoleEnvironment
         .run(
           adminCommand(
@@ -557,7 +559,7 @@ class ParticipantPruningAdministrationGroup(
       |performs additional safety checks returning a ``NOT_FOUND`` error if ``pruneUpTo`` is higher than the
       |offset returned by ``find_safe_offset`` on any domain with events preceding the pruning offset."""
   )
-  def prune_internally(pruneUpTo: String): Unit =
+  def prune_internally(pruneUpTo: Long): Unit =
     check(FeatureFlag.Preview) {
       consoleEnvironment.run(
         adminCommand(ParticipantAdminCommands.Pruning.PruneInternallyCommand(pruneUpTo))
@@ -613,17 +615,14 @@ class ParticipantPruningAdministrationGroup(
       |the event. Returns ``None`` if no such offset exists.
     """
   )
-  def get_offset_by_time(upToInclusive: Instant): Option[String] =
+  def get_offset_by_time(upToInclusive: Instant): Option[Long] =
     consoleEnvironment.run(
       adminCommand(
         ParticipantAdminCommands.Inspection.LookupOffsetByTime(
           ProtoConverter.InstantConverter.toProtoPrimitive(upToInclusive)
         )
       )
-    ) match {
-      case "" => None
-      case offset => Some(offset)
-    }
+    )
 }
 
 class LocalCommitmentsAdministrationGroup(
@@ -1845,9 +1844,11 @@ trait ParticipantAdministration extends FeatureFlagFilter {
             .find(_.domain == domain)
             .toRight(s"No such domain $domain configured")
           newConfig = modifier(cfg)
-          _ <-
-            if (newConfig.domain == cfg.domain) Right(())
-            else Left("We don't support modifying the domain alias of a DomainConnectionConfig.")
+          _ <- Either.cond(
+            newConfig.domain == cfg.domain,
+            (),
+            "We don't support modifying the domain alias of a DomainConnectionConfig.",
+          )
           _ <- adminCommand(
             ParticipantAdminCommands.DomainConnectivity.ModifyDomainConnection(
               modifier(cfg),
@@ -1993,8 +1994,7 @@ class ParticipantHealthAdministration(
     )
     with FeatureFlagFilter
     with ParticipantHealthAdministrationCommon {
-  override protected def nodeStatusCommand
-      : StatusAdminCommands.NodeStatusCommand[ParticipantStatus, _, _] =
+  override protected def nodeStatusCommand: GrpcAdminCommand[?, ?, NodeStatus[ParticipantStatus]] =
     ParticipantAdminCommands.Health.ParticipantStatusCommand()
 
   @Help.Summary("Counts pending command submissions and transactions on a domain.")

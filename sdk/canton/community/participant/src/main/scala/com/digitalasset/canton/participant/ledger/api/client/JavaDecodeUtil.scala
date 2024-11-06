@@ -12,6 +12,7 @@ import com.daml.ledger.javaapi.data.codegen.{
 import com.daml.ledger.javaapi.data.{
   ArchivedEvent,
   CreatedEvent as JavaCreatedEvent,
+  DisclosedContract,
   Event,
   Transaction as JavaTransaction,
   TransactionTree,
@@ -111,4 +112,34 @@ object JavaDecodeUtil {
       if archive.getConsuming && archive.getTemplateId == companion.getTemplateIdWithPackageId.toProto
     } yield companion.toContractId(new ContractId(archive.getContractId))
 
+  def decodeDisclosedContracts(
+      transaction: JavaTransaction
+  ): Seq[DisclosedContract] =
+    toDisclosedContracts(
+      domainId = transaction.getDomainId,
+      creates = transaction.getEvents.asScala.collect { case createdEvent: JavaCreatedEvent =>
+        createdEvent
+      }.toSeq,
+    )
+
+  private def toDisclosedContract(domainId: String, create: JavaCreatedEvent): DisclosedContract = {
+    val createdEventBlob = create.getCreatedEventBlob
+    if (createdEventBlob.isEmpty)
+      throw new IllegalArgumentException(
+        s"Cannot decode a disclosed contract from a create event with an empty created event blob for contract-id ${create.getContractId}"
+      )
+    else
+      new DisclosedContract(
+        create.getTemplateId,
+        create.getContractId,
+        createdEventBlob,
+        domainId,
+      )
+  }
+
+  private def toDisclosedContracts(
+      domainId: String,
+      creates: Seq[JavaCreatedEvent],
+  ): Seq[DisclosedContract] =
+    creates.map(toDisclosedContract(domainId, _))
 }

@@ -22,7 +22,6 @@ import com.digitalasset.canton.ledger.client.{LedgerClient, ResilientLedgerSubsc
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ParticipantNodeParameters
-import com.digitalasset.canton.participant.admin.AdminWorkflowServices.AbortedDueToShutdownException
 import com.digitalasset.canton.participant.config.LocalParticipantConfig
 import com.digitalasset.canton.participant.ledger.api.client.LedgerConnection
 import com.digitalasset.canton.participant.sync.CantonSyncService
@@ -164,7 +163,9 @@ class AdminWorkflowServices(
 
   private def handleDamlErrorDuringPackageLoading(
       res: EitherT[FutureUnlessShutdown, DamlError, Unit]
-  )(implicit traceContext: TraceContext): EitherT[Future, IllegalStateException, Unit] = EitherT {
+  )(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, IllegalStateException, Unit] =
     EitherTUtil
       .leftSubflatMap(res) {
         case CantonPackageServiceError.IdentityManagerParentError(
@@ -174,29 +175,26 @@ class AdminWorkflowServices(
             ) =>
           // Log error by creating error object, but continue processing.
           AdminWorkflowServices.CanNotAutomaticallyVetAdminWorkflowPackage.Error().discard
-          Right(())
+          Either.unit
         case err =>
           Left(new IllegalStateException(CantonError.stringFromContext(err)))
       }
-      .value
-      .failOnShutdownTo(new AbortedDueToShutdownException())
-  }
 
   /** Parses dar and checks if all contained packages are already loaded and recorded in the indexer. If not,
     * loads the dar.
     * @throws java.lang.IllegalStateException if the daml archive cannot be found on the classpath
-    * @throws AbortedDueToShutdownException if the node is shutting down
     */
   private def loadDamlArchiveUnlessRegistered()(implicit traceContext: TraceContext): Unit =
     withResource(createLedgerClient("admin-checkStatus")) { conn =>
-      parameters.processingTimeouts.unbounded.await_(s"Load Daml packages") {
-        checkPackagesStatus(AdminWorkflowServices.AdminWorkflowPackages, conn).flatMap {
-          isAlreadyLoaded =>
-            if (!isAlreadyLoaded) EitherTUtil.toFuture(loadDamlArchiveResource())
+      parameters.processingTimeouts.unbounded.awaitUS_(s"Load Daml packages") {
+        FutureUnlessShutdown
+          .outcomeF(checkPackagesStatus(AdminWorkflowServices.AdminWorkflowPackages, conn))
+          .flatMap { isAlreadyLoaded =>
+            if (!isAlreadyLoaded) EitherTUtil.toFutureUnlessShutdown(loadDamlArchiveResource())
             else {
               logger.debug("Admin workflow packages are already present. Skipping loading.")
               // vet any packages that have not yet been vetted
-              EitherTUtil.toFuture(
+              EitherTUtil.toFutureUnlessShutdown(
                 handleDamlErrorDuringPackageLoading(
                   packageService
                     .vetPackages(
@@ -206,7 +204,7 @@ class AdminWorkflowServices(
                 )
               )
             }
-        }
+          }
       }
     }
 
@@ -215,11 +213,10 @@ class AdminWorkflowServices(
     * or can be loaded as a resource.
     * @return Future that contains an IllegalStateException or a Unit
     * @throws RuntimeException if the daml archive cannot be found on the classpath
-    * @throws AbortedDueToShutdownException if the node is shutting down
     */
   private def loadDamlArchiveResource()(implicit
       traceContext: TraceContext
-  ): EitherT[Future, IllegalStateException, Unit] = {
+  ): EitherT[FutureUnlessShutdown, IllegalStateException, Unit] = {
     val bytes =
       withResource(AdminWorkflowServices.adminWorkflowDarInputStream())(ByteString.readFrom)
     handleDamlErrorDuringPackageLoading(
@@ -260,29 +257,36 @@ class AdminWorkflowServices(
     val service = createService(client)
 
     val startupF =
-      client.stateService.getActiveContracts(service.filters).map { case (acs, offset) =>
-        logger.debug(s"Loading $acs $service")
-        service.processAcs(acs)
-        new ResilientLedgerSubscription(
-          makeSource = subscribeOffset =>
-            client.updateService.getUpdatesSource(subscribeOffset, service.filters),
-          consumingFlow = Flow[GetUpdatesResponse]
-            .map(_.update)
-            .map {
-              case GetUpdatesResponse.Update.Transaction(tx) =>
-                service.processTransaction(tx)
-              case GetUpdatesResponse.Update.Reassignment(reassignment) =>
-                service.processReassignment(reassignment)
-              case GetUpdatesResponse.Update.OffsetCheckpoint(_) => ()
-              case GetUpdatesResponse.Update.Empty => ()
-            },
-          subscriptionName = service.getClass.getSimpleName,
-          startOffset = offset,
-          extractOffset = ResilientLedgerSubscription.extractOffsetFromGetUpdateResponse,
-          timeouts = timeouts,
-          loggerFactory = loggerFactory,
-          resubscribeIfPruned = resubscribeIfPruned,
-        )
+      client.stateService.getLedgerEndOffset().flatMap { offset =>
+        client.stateService
+          .getActiveContracts(filter = service.filters, validAtOffset = offset)
+          .map { acs =>
+            logger.debug(s"Loading $acs $service")
+            service.processAcs(acs)
+            new ResilientLedgerSubscription(
+              makeSource = subscribeOffset =>
+                client.updateService.getUpdatesSource(
+                  begin = subscribeOffset,
+                  filter = service.filters,
+                ),
+              consumingFlow = Flow[GetUpdatesResponse]
+                .map(_.update)
+                .map {
+                  case GetUpdatesResponse.Update.Transaction(tx) =>
+                    service.processTransaction(tx)
+                  case GetUpdatesResponse.Update.Reassignment(reassignment) =>
+                    service.processReassignment(reassignment)
+                  case GetUpdatesResponse.Update.OffsetCheckpoint(_) => ()
+                  case GetUpdatesResponse.Update.Empty => ()
+                },
+              subscriptionName = service.getClass.getSimpleName,
+              startOffset = offset,
+              extractOffset = ResilientLedgerSubscription.extractOffsetFromGetUpdateResponse,
+              timeouts = timeouts,
+              loggerFactory = loggerFactory,
+              resubscribeIfPruned = resubscribeIfPruned,
+            )
+          }
       }
     (startupF, service)
   }
@@ -290,8 +294,6 @@ class AdminWorkflowServices(
 }
 
 object AdminWorkflowServices extends AdminWorkflowServicesErrorGroup {
-  class AbortedDueToShutdownException
-      extends RuntimeException("The request was aborted due to the node shutting down.")
 
   private val AdminWorkflowDarResourceName: String = "AdminWorkflows.dar"
   private def adminWorkflowDarInputStream(): InputStream = getDarInputStream(

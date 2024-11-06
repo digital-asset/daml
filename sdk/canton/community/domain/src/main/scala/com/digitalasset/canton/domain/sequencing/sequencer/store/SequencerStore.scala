@@ -22,6 +22,7 @@ import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.resource.{DbStorage, MemoryStorage, Storage}
 import com.digitalasset.canton.sequencing.protocol.{MessageId, SequencedEvent}
+import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.Member
@@ -135,6 +136,12 @@ sealed trait StoreEvent[+PayloadReference] extends HasTraceContext {
     * and for checking signatures on envelopes, if absent, sequencing time will be used instead. Absent on errors.
     */
   def topologyTimestampO: Option[CantonTimestamp]
+
+  /** If traffic management is enabled, there should always be traffic information.
+    * The information might be discarded later though, in case the event is being processed as part
+    * of a subscription for any of the recipients that isn't the sender.
+    */
+  def trafficReceiptO: Option[TrafficReceipt]
 }
 
 final case class ReceiptStoreEvent(
@@ -142,6 +149,7 @@ final case class ReceiptStoreEvent(
     messageId: MessageId,
     override val topologyTimestampO: Option[CantonTimestamp],
     override val traceContext: TraceContext,
+    override val trafficReceiptO: Option[TrafficReceipt],
 ) extends StoreEvent[Nothing] {
   override val notifies: WriteNotification = WriteNotification.Members(SortedSet(sender))
 
@@ -166,6 +174,7 @@ final case class DeliverStoreEvent[P](
     payload: P,
     override val topologyTimestampO: Option[CantonTimestamp],
     override val traceContext: TraceContext,
+    override val trafficReceiptO: Option[TrafficReceipt],
 ) extends StoreEvent[P] {
   override lazy val notifies: WriteNotification = WriteNotification.Members(members)
 
@@ -190,6 +199,7 @@ object DeliverStoreEvent {
       members: Set[SequencerMemberId],
       payload: Payload,
       topologyTimestampO: Option[CantonTimestamp],
+      trafficReceiptO: Option[TrafficReceipt],
   )(implicit traceContext: TraceContext): DeliverStoreEvent[Payload] = {
     // ensure that sender is a recipient
     val recipientsWithSender = NonEmpty(SortedSet, sender, members.toSeq*)
@@ -200,6 +210,7 @@ object DeliverStoreEvent {
       payload,
       topologyTimestampO,
       traceContext,
+      trafficReceiptO,
     )
   }
 }
@@ -209,6 +220,7 @@ final case class DeliverErrorStoreEvent(
     messageId: MessageId,
     error: Option[ByteString],
     override val traceContext: TraceContext,
+    override val trafficReceiptO: Option[TrafficReceipt],
 ) extends StoreEvent[Nothing] {
   override val notifies: WriteNotification = WriteNotification.Members(SortedSet(sender))
   override val description: String = show"deliver-error[message-id:$messageId]"
@@ -234,6 +246,7 @@ object DeliverErrorStoreEvent {
       status: Status,
       protocolVersion: ProtocolVersion,
       traceContext: TraceContext,
+      trafficReceiptO: Option[TrafficReceipt],
   ): DeliverErrorStoreEvent = {
     val serializedError =
       DeliverErrorStoreEvent.serializeError(status, protocolVersion)
@@ -243,6 +256,7 @@ object DeliverErrorStoreEvent {
       messageId,
       Some(serializedError),
       traceContext,
+      trafficReceiptO,
     )
   }
 
@@ -406,7 +420,7 @@ final case class RegisteredMember(
 
 /** Used for verifying what pruning is doing in tests */
 @VisibleForTesting
-private[sequencer] final case class SequencerStoreRecordCounts(
+private[canton] final case class SequencerStoreRecordCounts(
     events: Long,
     payloads: Long,
     counterCheckpoints: Long,
@@ -723,6 +737,10 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
       traceContext: TraceContext
   ): Future[Option[CounterCheckpoint]]
 
+  def fetchLatestCheckpoint()(implicit
+      traceContext: TraceContext
+  ): Future[Option[CantonTimestamp]]
+
   def fetchEarliestCheckpointForMember(memberId: SequencerMemberId)(implicit
       traceContext: TraceContext
   ): Future[Option[CounterCheckpoint]]
@@ -749,7 +767,7 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
 
   /** Count records currently stored by the sequencer. Used for pruning tests. */
   @VisibleForTesting
-  protected[store] def countRecords(implicit
+  protected[canton] def countRecords(implicit
       traceContext: TraceContext
   ): Future[SequencerStoreRecordCounts]
 
@@ -915,7 +933,8 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
   /** Compute a counter checkpoint for every member at the requested `timestamp` and save it to the store.
     */
   def recordCounterCheckpointsAtTimestamp(timestamp: CantonTimestamp)(implicit
-      traceContext: TraceContext
+      traceContext: TraceContext,
+      externalCloseContext: CloseContext,
   ): Future[Unit]
 
   def initializeFromSnapshot(initialState: SequencerInitialState)(implicit

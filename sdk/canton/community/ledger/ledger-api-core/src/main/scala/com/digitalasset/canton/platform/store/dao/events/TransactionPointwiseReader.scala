@@ -20,6 +20,7 @@ import com.digitalasset.canton.platform.store.backend.EventStorageBackend.{
 }
 import com.digitalasset.canton.platform.store.dao.events.EventsTable.TransactionConversions
 import com.digitalasset.canton.platform.store.dao.{DbDispatcher, EventProjectionProperties}
+import com.digitalasset.canton.util.MonadUtil
 
 import java.sql.Connection
 import scala.concurrent.{ExecutionContext, Future}
@@ -56,7 +57,7 @@ sealed trait TransactionPointwiseReader {
   ): Future[Entry[EventT]]
 
   protected def toTransactionResponse(
-      events: Vector[Entry[EventT]]
+      events: Seq[Entry[EventT]]
   ): Option[RespT]
 
   final def lookupTransactionById(
@@ -91,7 +92,7 @@ sealed trait TransactionPointwiseReader {
             // Deserialization of lf values
             deserialized <- Timed.value(
               timer = dbMetric.translationTimer,
-              value = Future.traverse(filteredRawEvents)(
+              value = MonadUtil.sequentialTraverse(filteredRawEvents)(
                 deserializeEntry(eventProjectionProperties, lfValueTranslation)
               ),
             )
@@ -131,7 +132,7 @@ final class TransactionTreePointwiseReader(
       requestingParties = requestingParties,
     )(connection)
 
-  override protected def toTransactionResponse(events: Vector[Entry[EventT]]): Option[RespT] =
+  override protected def toTransactionResponse(events: Seq[Entry[EventT]]): Option[RespT] =
     TransactionConversions.toGetTransactionResponse(events)
 
   override protected def deserializeEntry(
@@ -170,7 +171,7 @@ final class TransactionFlatPointwiseReader(
       requestingParties = requestingParties,
     )(connection)
 
-  override protected def toTransactionResponse(events: Vector[Entry[EventT]]): Option[RespT] =
+  override protected def toTransactionResponse(events: Seq[Entry[EventT]]): Option[RespT] =
     TransactionConversions.toGetFlatTransactionResponse(events)
 
   override protected def deserializeEntry(

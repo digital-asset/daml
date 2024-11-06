@@ -4,6 +4,7 @@
 package com.digitalasset.canton.http.json.v2
 
 import com.daml.ledger.api.v2.admin.party_management_service
+import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
 import com.digitalasset.canton.ledger.client.services.admin.PartyManagementClient
 import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
@@ -14,7 +15,10 @@ import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.InvalidArgument
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import sttp.tapir.{path, query}
+import com.digitalasset.canton.tracing.TraceContext
+import sttp.tapir.json.circe.jsonBody
+import sttp.tapir.{Endpoint, path, query}
+
 
 class JsPartyManagementService(
     partyManagementClient: PartyManagementClient,
@@ -23,41 +27,25 @@ class JsPartyManagementService(
     val executionContext: ExecutionContext
 ) extends Endpoints
     with NamedLogging {
-  import JsPartyManagementCodecs.*
-
-  private val parties = v2Endpoint.in(sttp.tapir.stringToPath("parties"))
-  private val partyPath = "party"
+  import JsPartyManagementService.*
 
   def endpoints() =
     List(
-      json(
-        parties.get
-          .description("List all known parties."),
+      withServerLogic(
+        JsPartyManagementService.listKnownPartiesEndpoint,
         listKnownParties,
       ),
-      jsonWithBody(
-        parties.post
-          .description("Allocate a new party to the participant node"),
+      withServerLogic(
+        allocatePartyEndpoint,
         allocateParty,
       ),
-      json(
-        parties.get
-          .in(sttp.tapir.stringToPath("participant-id"))
-          .description("Get participant id"),
+      withServerLogic(
+        JsPartyManagementService.getParticipantIdEndpoint,
         getParticipantId,
       ),
-      json(
-        parties.get
-          .in(path[String](partyPath))
-          .in(query[Option[String]]("identity-provider-id"))
-          .in(query[List[String]]("parties"))
-          .description("Get party details"),
-        getParty,
-      ),
-      jsonWithBody(
-        parties.patch
-          .in(path[String](partyPath))
-          .description("Allocate a new party to the participant node"),
+      withServerLogic(JsPartyManagementService.getPartyEndpoint, getParty),
+      withServerLogic(
+        JsPartyManagementService.updatePartyEndpoint,
         updateParty,
       ),
     )
@@ -96,39 +84,83 @@ class JsPartyManagementService(
       .resultToRight
   }
 
-  private val allocateParty: CallerContext => (
-      TracedInput[Unit],
-      party_management_service.AllocatePartyRequest,
-  ) => Future[Either[JsCantonError, party_management_service.AllocatePartyResponse]] =
+  private val allocateParty
+      : CallerContext => TracedInput[party_management_service.AllocatePartyRequest] => Future[
+        Either[JsCantonError, party_management_service.AllocatePartyResponse]
+      ] =
     caller =>
-      (req, body) =>
+      req =>
         partyManagementClient
           .serviceStub(caller.token())(req.traceContext)
-          .allocateParty(body)
+          .allocateParty(req.in)
           .resultToRight
 
-  private val updateParty: CallerContext => (
-      TracedInput[String],
-      party_management_service.UpdatePartyDetailsRequest,
-  ) => Future[Either[JsCantonError, party_management_service.UpdatePartyDetailsResponse]] =
+  private val updateParty: CallerContext => TracedInput[
+    (String, party_management_service.UpdatePartyDetailsRequest)
+  ] => Future[Either[JsCantonError, party_management_service.UpdatePartyDetailsResponse]] =
     caller =>
-      (req, body) =>
-        if (body.partyDetails.map(_.party) == Some(req.in)) {
+      req =>
+        if (req.in._2.partyDetails.map(_.party).contains(req.in._1)) {
           partyManagementClient
             .serviceStub(caller.token())(req.traceContext)
-            .updatePartyDetails(body)
+            .updatePartyDetails(req.in._2)
             .resultToRight
         } else {
-          implicit val traceContext = req.traceContext
+          implicit val traceContext: TraceContext = req.traceContext
           error(
             JsCantonError.fromErrorCode(
               InvalidArgument.Reject(
-                s"${req.in} does not match party in body ${body.partyDetails}"
+                s"${req.in._1} does not match party in body ${req.in._2.partyDetails}"
               )
             )
           )
         }
 }
+
+object JsPartyManagementService {
+  import Endpoints.*
+  import JsPartyManagementCodecs.*
+
+  private val parties = v2Endpoint.in(sttp.tapir.stringToPath("parties"))
+  private val partyPath = "party"
+
+  val allocatePartyEndpoint: Endpoint[
+    CallerContext,
+    party_management_service.AllocatePartyRequest,
+    JsCantonError,
+    party_management_service.AllocatePartyResponse,
+    Any,
+  ] = parties.post
+    .in(jsonBody[party_management_service.AllocatePartyRequest])
+    .out(jsonBody[party_management_service.AllocatePartyResponse])
+    .description("Allocate a new party to the participant node")
+
+  val listKnownPartiesEndpoint =
+    parties.get
+      .out(jsonBody[party_management_service.ListKnownPartiesResponse])
+      .description("List all known parties.")
+
+  val getParticipantIdEndpoint =
+    parties.get
+      .in(sttp.tapir.stringToPath("participant-id"))
+      .out(jsonBody[party_management_service.GetParticipantIdResponse])
+      .description("Get participant id")
+
+  val getPartyEndpoint =
+    parties.get
+      .in(path[String](partyPath))
+      .in(query[Option[String]]("identity-provider-id"))
+      .in(query[List[String]]("parties"))
+      .out(jsonBody[party_management_service.GetPartiesResponse])
+      .description("Get party details")
+
+  val updatePartyEndpoint = parties.patch
+    .in(path[String](partyPath))
+    .in(jsonBody[party_management_service.UpdatePartyDetailsRequest])
+    .out(jsonBody[party_management_service.UpdatePartyDetailsResponse])
+    .description("Allocate a new party to the participant node")
+}
+
 object JsPartyManagementCodecs {
 
   implicit val partyDetails: Codec[party_management_service.PartyDetails] = deriveCodec

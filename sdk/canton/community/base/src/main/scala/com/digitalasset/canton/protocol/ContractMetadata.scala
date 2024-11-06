@@ -86,12 +86,15 @@ object ContractMetadata
 
   final case class InvalidContractMetadata(message: String) extends RuntimeException(message)
 
+  def apply(stakeholders: Stakeholders): ContractMetadata =
+    ContractMetadata(stakeholders.signatories, stakeholders.all, None)
+
   def tryCreate(
       signatories: Set[LfPartyId],
       stakeholders: Set[LfPartyId],
       maybeKeyWithMaintainersVersioned: Option[LfVersioned[LfGlobalKeyWithMaintainers]],
   ): ContractMetadata =
-    new ContractMetadata(signatories, stakeholders, maybeKeyWithMaintainersVersioned)
+    ContractMetadata(signatories, stakeholders, maybeKeyWithMaintainersVersioned)
 
   def create(
       signatories: Set[LfPartyId],

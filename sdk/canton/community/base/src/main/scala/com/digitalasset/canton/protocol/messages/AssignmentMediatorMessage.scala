@@ -4,21 +4,14 @@
 package com.digitalasset.canton.protocol.messages
 
 import com.digitalasset.canton.ProtoDeserializationError.OtherError
-import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.{HashOps, Signature}
-import com.digitalasset.canton.data.{
-  AssignmentViewTree,
-  ViewConfirmationParameters,
-  ViewPosition,
-  ViewType,
-}
+import com.digitalasset.canton.data.{AssignmentCommonData, AssignmentViewTree, ViewType}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
-import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.version.{
   HasProtocolVersionedWithContextCompanion,
@@ -37,14 +30,14 @@ import java.util.UUID
 final case class AssignmentMediatorMessage(
     tree: AssignmentViewTree,
     override val submittingParticipantSignature: Signature,
-) extends MediatorConfirmationRequest {
+) extends ReassignmentMediatorMessage {
 
   require(tree.commonData.isFullyUnblinded, "The assignment common data must be unblinded")
   require(tree.view.isBlinded, "The assignment view must be blinded")
 
   override def submittingParticipant: ParticipantId = tree.submittingParticipant
 
-  private[this] val commonData = tree.commonData.tryUnwrap
+  protected[this] val commonData: AssignmentCommonData = tree.commonData.tryUnwrap
 
   // Align the protocol version with the common data's protocol version
   lazy val protocolVersion: Target[ProtocolVersion] = commonData.targetProtocolVersion
@@ -58,19 +51,6 @@ final case class AssignmentMediatorMessage(
   override def mediator: MediatorGroupRecipient = commonData.targetMediatorGroup
 
   override def requestUuid: UUID = commonData.uuid
-
-  override def informeesAndConfirmationParamsByViewPosition
-      : Map[ViewPosition, ViewConfirmationParameters] = {
-    val confirmingParties = commonData.confirmingParties
-    val viewThreshold = NonNegativeInt.tryCreate(confirmingParties.size)
-
-    Map(
-      tree.viewPosition -> ViewConfirmationParameters.createOnlyWithConfirmers(
-        confirmingParties,
-        viewThreshold,
-      )
-    )
-  }
 
   override def toProtoSomeEnvelopeContentV30: v30.EnvelopeContent.SomeEnvelopeContent =
     v30.EnvelopeContent.SomeEnvelopeContent.AssignmentMediatorMessage(toProtoV30)
@@ -115,12 +95,14 @@ object AssignmentMediatorMessage
       tree <- ProtoConverter
         .required("AssignmentMediatorMessage.tree", treePO)
         .flatMap(AssignmentViewTree.fromProtoV30(context))
-      _ <- EitherUtil.condUnitE(
+      _ <- Either.cond(
         tree.commonData.isFullyUnblinded,
+        (),
         OtherError(s"Assignment common data is blinded in request ${tree.rootHash}"),
       )
-      _ <- EitherUtil.condUnitE(
+      _ <- Either.cond(
         tree.view.isBlinded,
+        (),
         OtherError(s"Assignment view data is not blinded in request ${tree.rootHash}"),
       )
       submittingParticipantSignature <- ProtoConverter

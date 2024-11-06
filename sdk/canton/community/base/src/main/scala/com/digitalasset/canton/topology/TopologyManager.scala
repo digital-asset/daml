@@ -20,7 +20,7 @@ import com.digitalasset.canton.protocol.{DynamicDomainParameters, StaticDomainPa
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.TopologyManagerError.{
   DangerousCommandRequiresForce,
-  IncreaseOfLedgerTimeRecordTimeTolerance,
+  IncreaseOfSubmissionTimeRecordTimeTolerance,
   ParticipantTopologyManagerError,
 }
 import com.digitalasset.canton.topology.processing.{
@@ -614,7 +614,11 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, TopologyManagerError, Unit] = transaction.mapping match {
     case DomainParametersState(domainId, newDomainParameters) =>
-      checkLedgerTimeRecordTimeToleranceNotIncreasing(domainId, newDomainParameters, forceChanges)
+      checkSubmissionTimeRecordTimeToleranceNotIncreasing(
+        domainId,
+        newDomainParameters,
+        forceChanges,
+      )
     case OwnerToKeyMapping(member, _) =>
       checkTransactionIsForCurrentNode(member, forceChanges, transaction.mapping.code)
     case VettedPackages(participantId, newPackages) =>
@@ -646,7 +650,7 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
       DangerousCommandRequiresForce.AlienMember(member, topologyMappingCode),
     )
 
-  private def checkLedgerTimeRecordTimeToleranceNotIncreasing(
+  private def checkSubmissionTimeRecordTimeToleranceNotIncreasing(
       domainId: DomainId,
       newDomainParameters: DynamicDomainParameters,
       forceChanges: ForceFlags,
@@ -674,22 +678,22 @@ abstract class TopologyManager[+StoreID <: TopologyStoreId, +PureCrypto <: Crypt
         .collectFirst { case DomainParametersState(_, previousParameters) =>
           previousParameters
         } match {
-        case None => Right(())
+        case None => Either.unit
         case Some(domainParameters) =>
           val changeIsDangerous =
-            newDomainParameters.ledgerTimeRecordTimeTolerance > domainParameters.ledgerTimeRecordTimeTolerance
-          val force = forceChanges.permits(ForceFlag.LedgerTimeRecordTimeToleranceIncrease)
+            newDomainParameters.submissionTimeRecordTimeTolerance > domainParameters.submissionTimeRecordTimeTolerance
+          val force = forceChanges.permits(ForceFlag.SubmissionTimeRecordTimeToleranceIncrease)
           if (changeIsDangerous && force) {
             logger.info(
-              s"Forcing dangerous increase of ledger time record time tolerance from ${domainParameters.ledgerTimeRecordTimeTolerance} to ${newDomainParameters.ledgerTimeRecordTimeTolerance}"
+              s"Forcing dangerous increase of submission time record time tolerance from ${domainParameters.submissionTimeRecordTimeTolerance} to ${newDomainParameters.submissionTimeRecordTimeTolerance}"
             )
           }
           Either.cond(
             !changeIsDangerous || force,
             (),
-            IncreaseOfLedgerTimeRecordTimeTolerance.TemporarilyInsecure(
-              domainParameters.ledgerTimeRecordTimeTolerance,
-              newDomainParameters.ledgerTimeRecordTimeTolerance,
+            IncreaseOfSubmissionTimeRecordTimeTolerance.TemporarilyInsecure(
+              domainParameters.submissionTimeRecordTimeTolerance,
+              newDomainParameters.submissionTimeRecordTimeTolerance,
             ),
           )
       }

@@ -36,6 +36,7 @@ import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.digitalasset.daml.lf.transaction.{CommittedTransaction, VersionedTransaction}
+import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.time.SpanSugar.convertIntToGrainOfTime
@@ -44,9 +45,13 @@ import org.slf4j.event.Level
 import java.sql.Connection
 import java.time.Instant
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, Future, Promise}
 
-class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with NamedLogging {
+class ParallelIndexerSubscriptionSpec
+    extends AnyFlatSpec
+    with ScalaFutures
+    with Matchers
+    with NamedLogging {
 
   implicit val traceContext: TraceContext = TraceContext.empty
   private val serializableTraceContext =
@@ -89,7 +94,6 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
     application_id = None,
     submitters = None,
     node_index = 3,
-    event_id = "",
     contract_id = "1",
     template_id = "",
     package_name = "",
@@ -121,7 +125,6 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
     application_id = None,
     submitters = None,
     node_index = 3,
-    event_id = "",
     contract_id = "1",
     template_id = "",
     package_name = "",
@@ -271,7 +274,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
     val applicationId = Ref.ApplicationId.assertFromString("a0")
 
     val timestamp: Long = 12345
-    val offset = Ref.HexString.assertFromString("02")
+    val offset = Ref.HexString.assertFromString("00" * 8 + "02")
     val someHash = Hash.hashPrivateKey("p0")
 
     val someRecordTime =
@@ -705,14 +708,14 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
 
   it should "apply ingestTailFunction on the last batch and forward the batch of batches" in {
     val ledgerEnd = ParameterStorageBackend.LedgerEnd(
-      lastOffset = offset(5),
+      lastOffset = offset(5).toAbsoluteOffsetO,
       lastEventSeqId = 2000,
       lastStringInterningId = 300,
       lastPublicationTime = CantonTimestamp.MinValue,
     )
 
     val secondBatchLedgerEnd = ParameterStorageBackend.LedgerEnd(
-      lastOffset = offset(6),
+      lastOffset = offset(6).toAbsoluteOffsetO,
       lastEventSeqId = 3000,
       lastStringInterningId = 400,
       lastPublicationTime = CantonTimestamp.MinValue.plusSeconds(10),
@@ -724,7 +727,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
     }
 
     val batch = Batch(
-      lastOffset = ledgerEnd.lastOffset,
+      lastOffset = Offset.fromAbsoluteOffsetO(ledgerEnd.lastOffset),
       lastSeqEventId = ledgerEnd.lastEventSeqId,
       lastStringInterningId = ledgerEnd.lastStringInterningId,
       lastRecordTime = someTime.toEpochMilli,
@@ -739,7 +742,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
       batch,
       batch.copy(
         lastSeqEventId = secondBatchLedgerEnd.lastEventSeqId,
-        lastOffset = secondBatchLedgerEnd.lastOffset,
+        lastOffset = Offset.fromAbsoluteOffsetO(secondBatchLedgerEnd.lastOffset),
         lastStringInterningId = secondBatchLedgerEnd.lastStringInterningId,
         publicationTime = secondBatchLedgerEnd.lastPublicationTime,
       ),
@@ -773,7 +776,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
         offsetsUpdates = Vector.empty,
       )
     ) shouldBe ParameterStorageBackend.LedgerEnd(
-      lastOffset = offset(5),
+      lastOffset = offset(5).toAbsoluteOffsetO,
       lastEventSeqId = 2000,
       lastStringInterningId = 300,
       lastPublicationTime = CantonTimestamp.MinValue.plusSeconds(20),
@@ -871,7 +874,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
 
   private val someAggregatedLedgerEndForRepair: (LedgerEnd, Map[DomainId, DomainIndex]) =
     ParameterStorageBackend.LedgerEnd(
-      lastOffset = offset(5),
+      lastOffset = offset(5).toAbsoluteOffsetO,
       lastEventSeqId = 2000,
       lastStringInterningId = 300,
       lastPublicationTime = CantonTimestamp.ofEpochMicro(5),
@@ -970,7 +973,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
       .apply(someBatchOfBatches)
     aggregateLedgerEndForRepairRef.get() shouldBe
       ParameterStorageBackend.LedgerEnd(
-        lastOffset = offset(20),
+        lastOffset = offset(20).toAbsoluteOffsetO,
         lastEventSeqId = 2020,
         lastStringInterningId = 320,
         lastPublicationTime = CantonTimestamp.ofEpochMicro(25),
@@ -996,7 +999,7 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
       .apply(someBatchOfBatches)
     aggregateLedgerEndForRepairRef.get() shouldBe
       ParameterStorageBackend.LedgerEnd(
-        lastOffset = offset(20),
+        lastOffset = offset(20).toAbsoluteOffsetO,
         lastEventSeqId = 2020,
         lastStringInterningId = 320,
         lastPublicationTime = CantonTimestamp.ofEpochMicro(25),
@@ -1010,6 +1013,71 @@ class ParallelIndexerSubscriptionSpec extends AnyFlatSpec with Matchers with Nam
           Some(someSequencerIndex2),
         ),
       )
+  }
+
+  behavior of "commitRepair"
+
+  it should "trigger storing ledger-end on CommitRepair" in {
+    val ledgerEndStoredPromise = Promise[Unit]()
+    val processingEndStoredPromise = Promise[Unit]()
+    val updateInMemoryStatePromise = Promise[Unit]()
+    val aggregatedLedgerEnd = new AtomicReference[(LedgerEnd, Map[DomainId, DomainIndex])](
+      LedgerEnd.beforeBegin -> Map.empty
+    )
+    val input = Vector(
+      offset(13) -> Traced(Update.Init(Timestamp.now())),
+      offset(14) -> Traced(Update.Init(Timestamp.now())),
+      offset(15) -> Traced(Update.CommitRepair()),
+    )
+    ParallelIndexerSubscription
+      .commitRepair(
+        storeLedgerEnd = (_, _) => {
+          ledgerEndStoredPromise.success(())
+          Future.unit
+        },
+        storePostProcessingEnd = _ => {
+          processingEndStoredPromise.success(())
+          Future.unit
+        },
+        updateInMemoryState = _ => updateInMemoryStatePromise.success(()),
+        aggregatedLedgerEnd = aggregatedLedgerEnd,
+        logger = loggerFactory.getTracedLogger(this.getClass),
+      )(implicitly)(input)
+      .futureValue shouldBe input
+    ledgerEndStoredPromise.future.isCompleted shouldBe true
+    processingEndStoredPromise.future.isCompleted shouldBe true
+    updateInMemoryStatePromise.future.isCompleted shouldBe true
+  }
+
+  it should "not trigger storing ledger-end on non CommitRepair Updates" in {
+    val ledgerEndStoredPromise = Promise[Unit]()
+    val processingEndStoredPromise = Promise[Unit]()
+    val updateInMemoryStatePromise = Promise[Unit]()
+    val aggregatedLedgerEnd = new AtomicReference[(LedgerEnd, Map[DomainId, DomainIndex])](
+      LedgerEnd.beforeBegin -> Map.empty
+    )
+    val input = Vector(
+      offset(13) -> Traced(Update.Init(Timestamp.now())),
+      offset(14) -> Traced(Update.Init(Timestamp.now())),
+    )
+    ParallelIndexerSubscription
+      .commitRepair(
+        storeLedgerEnd = (_, _) => {
+          ledgerEndStoredPromise.success(())
+          Future.unit
+        },
+        storePostProcessingEnd = _ => {
+          processingEndStoredPromise.success(())
+          Future.unit
+        },
+        updateInMemoryState = _ => updateInMemoryStatePromise.success(()),
+        aggregatedLedgerEnd = aggregatedLedgerEnd,
+        logger = loggerFactory.getTracedLogger(this.getClass),
+      )(implicitly)(input)
+      .futureValue shouldBe input
+    ledgerEndStoredPromise.future.isCompleted shouldBe false
+    processingEndStoredPromise.future.isCompleted shouldBe false
+    updateInMemoryStatePromise.future.isCompleted shouldBe false
   }
 
 }

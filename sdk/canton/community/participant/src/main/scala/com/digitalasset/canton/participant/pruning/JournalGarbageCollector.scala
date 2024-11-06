@@ -12,7 +12,6 @@ import com.digitalasset.canton.ledger.participant.state.DomainIndex
 import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, HasCloseContext}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.store.*
-import com.digitalasset.canton.resource.DbStorage.PassiveInstanceException
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
@@ -77,31 +76,15 @@ private[participant] class JournalGarbageCollector(
     logger.debug(s"Starting periodic background pruning of journals up to $pruneTs")
     val acsDescription = s"Periodic ACS prune at $pruneTs"
     // Clean unused entries from the ACS
-    val acsF = performUnlessClosingF(acsDescription)(
-      recoverPassiveInstance(acs.prune(pruneTs.forgetRefinement), acsDescription)
-    )
+    val acsF = performUnlessClosingUSF(acsDescription)(acs.prune(pruneTs.forgetRefinement))
     val submissionTrackerStoreDescription =
       s"Periodic submission tracker store prune at $pruneTs"
     // Clean unused entries from the submission tracker store
-    val submissionTrackerStoreF = performUnlessClosingF(submissionTrackerStoreDescription)(
-      recoverPassiveInstance(
-        submissionTrackerStore.prune(pruneTs.forgetRefinement),
-        submissionTrackerStoreDescription,
-      )
+    val submissionTrackerStoreF = performUnlessClosingUSF(submissionTrackerStoreDescription)(
+      submissionTrackerStore.prune(pruneTs.forgetRefinement)
     )
     Seq(acsF, submissionTrackerStoreF).sequence_.onShutdown(())
   }
-
-  private def recoverPassiveInstance(action: Future[Unit], desc: => String)(implicit
-      traceContext: TraceContext
-  ): Future[Unit] =
-    action.recover {
-      case e: PassiveInstanceException =>
-        logger.info(s"$desc: ${e.getMessage}")
-      case err =>
-        logger.error(desc, err)
-        throw err
-    }
 }
 
 private[pruning] object JournalGarbageCollector {
@@ -173,7 +156,11 @@ private[pruning] object JournalGarbageCollector {
               doFlush()(traceContext)
             }
           }
-          FutureUtil.doNotAwait(runningF, "Periodic background journal pruning failed")
+          FutureUtil.doNotAwait(
+            runningF,
+            "Periodic background journal pruning failed",
+            logPassiveInstanceAtInfo = true,
+          )
         }
       }
 

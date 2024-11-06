@@ -5,11 +5,9 @@ package com.digitalasset.canton.console.commands
 
 import better.files.File
 import ch.qos.logback.classic.Level
-import com.digitalasset.canton.admin.api.client.commands.StatusAdminCommands.{
-  NodeStatusCommand,
-  NodeStatusElement,
-}
+import com.digitalasset.canton.admin.api.client.commands.StatusAdminCommands.NodeStatusElement
 import com.digitalasset.canton.admin.api.client.commands.{
+  GrpcAdminCommand,
   StatusAdminCommands,
   TopologyAdminCommands,
 }
@@ -46,7 +44,7 @@ abstract class HealthAdministration[S <: NodeStatus.Status](
 
   import runner.*
 
-  protected def nodeStatusCommand: NodeStatusCommand[S, _, _]
+  protected def nodeStatusCommand: GrpcAdminCommand[?, ?, NodeStatus[S]]
 
   @Help.Summary("Get human (and machine) readable status information")
   def status: NodeStatus[S] =
@@ -63,10 +61,6 @@ abstract class HealthAdministration[S <: NodeStatus.Status](
   ).toEither.isRight
 
   @Help.Summary("Wait for the node to have an identity")
-  @Help.Description(
-    """This is specifically useful for the Domain Manager which needs its identity to be ready for bootstrapping,
-      | but for which we can't rely on wait_for_initialized() because it will be initialized only after being bootstrapped."""
-  )
   def wait_for_identity(): Unit = waitFor(has_identity())
 
   @Help.Summary(

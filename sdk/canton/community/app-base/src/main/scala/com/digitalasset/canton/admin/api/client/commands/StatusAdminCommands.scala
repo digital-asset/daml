@@ -20,40 +20,26 @@ import scala.concurrent.Future
 
 object StatusAdminCommands {
 
-  abstract class NodeStatusCommand[
-      S <: NodeStatus.Status,
-      GrpcReq,
-      GrpcResponse,
-  ] extends GrpcAdminCommand[GrpcReq, GrpcResponse, NodeStatus[S]] {
-    def createRequest(): Either[String, GrpcReq]
-
-    def getStatus(service: Svc, request: GrpcReq): Future[GrpcResponse]
-
-    def submitReq(
-        service: Svc,
-        request: GrpcReq,
-    ): Future[GrpcResponse] = getStatus(service, request)
-  }
-
   /** Query the shared part of the status endpoint and project to an attribute
     * @param cmd Comment to query the node status endpoint
     * @param projector Projector from the node status to the attribute
     */
-  final case class NodeStatusElement[S <: NodeStatus.Status, GrpcReq, GrpcResponse, T](
-      cmd: NodeStatusCommand[S, GrpcReq, GrpcResponse],
+  final case class NodeStatusElement[S <: NodeStatus.Status, GrpcRequest, GrpcResponse, T](
+      cmd: GrpcAdminCommand[GrpcRequest, GrpcResponse, NodeStatus[S]],
       projector: NodeStatus[NodeStatus.Status] => T,
-  ) extends GrpcAdminCommand[GrpcReq, GrpcResponse, T] {
+  ) extends GrpcAdminCommand[GrpcRequest, GrpcResponse, T] {
     override type Svc = cmd.Svc
 
-    override def createService(channel: ManagedChannel): Svc = cmd.createService(channel)
+    override def createService(channel: ManagedChannel): Svc = cmd.createServiceInternal(channel)
 
-    override def submitRequest(service: Svc, request: GrpcReq): Future[GrpcResponse] =
-      cmd.submitRequest(service, request)
+    override protected def submitRequest(service: Svc, request: GrpcRequest): Future[GrpcResponse] =
+      cmd.submitRequestInternal(service, request)
 
-    override def createRequest(): Either[String, GrpcReq] = cmd.createRequest()
+    override protected def createRequest(): Either[String, GrpcRequest] =
+      cmd.createRequestInternal()
 
-    override def handleResponse(response: GrpcResponse): Either[String, T] =
-      cmd.handleResponse(response).map(projector)
+    override protected def handleResponse(response: GrpcResponse): Either[String, T] =
+      cmd.handleResponseInternal(response).map(projector)
   }
 
   object NodeStatusElement {
@@ -74,7 +60,7 @@ object StatusAdminCommands {
     override type Svc = v30.StatusServiceGrpc.StatusServiceStub
     override def createService(channel: ManagedChannel): v30.StatusServiceGrpc.StatusServiceStub =
       v30.StatusServiceGrpc.stub(channel)
-    override def submitRequest(
+    override protected def submitRequest(
         service: v30.StatusServiceGrpc.StatusServiceStub,
         request: HealthDumpRequest,
     ): Future[CancellableContext] = {
@@ -82,10 +68,12 @@ object StatusAdminCommands {
       context.run(() => service.healthDump(request, observer))
       Future.successful(context)
     }
-    override def createRequest(): Either[String, HealthDumpRequest] = Right(
+    override protected def createRequest(): Either[String, HealthDumpRequest] = Right(
       HealthDumpRequest(chunkSize)
     )
-    override def handleResponse(response: CancellableContext): Either[String, CancellableContext] =
+    override protected def handleResponse(
+        response: CancellableContext
+    ): Either[String, CancellableContext] =
       Right(response)
 
     override def timeoutType: GrpcAdminCommand.TimeoutType =
@@ -103,16 +91,17 @@ object StatusAdminCommands {
   class SetLogLevel(level: Level)
       extends StatusServiceCommand[v30.SetLogLevelRequest, v30.SetLogLevelResponse, Unit] {
 
-    override def submitRequest(
+    override protected def submitRequest(
         service: StatusServiceGrpc.StatusServiceStub,
         request: v30.SetLogLevelRequest,
     ): Future[v30.SetLogLevelResponse] = service.setLogLevel(request)
 
-    override def createRequest(): Either[String, v30.SetLogLevelRequest] = Right(
+    override protected def createRequest(): Either[String, v30.SetLogLevelRequest] = Right(
       v30.SetLogLevelRequest(level.toString)
     )
 
-    override def handleResponse(response: v30.SetLogLevelResponse): Either[String, Unit] = Right(())
+    override protected def handleResponse(response: v30.SetLogLevelResponse): Either[String, Unit] =
+      Either.unit
   }
 
   class GetLastErrors()
@@ -122,15 +111,15 @@ object StatusAdminCommands {
         Map[String, String],
       ] {
 
-    override def submitRequest(
+    override protected def submitRequest(
         service: StatusServiceGrpc.StatusServiceStub,
         request: v30.GetLastErrorsRequest,
     ): Future[v30.GetLastErrorsResponse] =
       service.getLastErrors(request)
-    override def createRequest(): Either[String, v30.GetLastErrorsRequest] = Right(
+    override protected def createRequest(): Either[String, v30.GetLastErrorsRequest] = Right(
       v30.GetLastErrorsRequest()
     )
-    override def handleResponse(
+    override protected def handleResponse(
         response: v30.GetLastErrorsResponse
     ): Either[String, Map[String, String]] =
       response.errors.map(r => (r.traceId -> r.message)).toMap.asRight
@@ -141,17 +130,17 @@ object StatusAdminCommands {
         String
       ]] {
 
-    override def submitRequest(
+    override protected def submitRequest(
         service: StatusServiceGrpc.StatusServiceStub,
         request: v30.GetLastErrorTraceRequest,
     ): Future[v30.GetLastErrorTraceResponse] =
       service.getLastErrorTrace(request)
 
-    override def createRequest(): Either[String, v30.GetLastErrorTraceRequest] = Right(
+    override protected def createRequest(): Either[String, v30.GetLastErrorTraceRequest] = Right(
       v30.GetLastErrorTraceRequest(traceId)
     )
 
-    override def handleResponse(
+    override protected def handleResponse(
         response: v30.GetLastErrorTraceResponse
     ): Either[String, Seq[String]] = Right(response.messages)
   }

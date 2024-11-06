@@ -325,7 +325,9 @@ private[platform] object InMemoryStateUpdater {
   )(implicit
       traceContext: TraceContext
   ): Unit = {
-    inMemoryState.ledgerEndCache.set((lastOffset, lastEventSequentialId, lastPublicationTime))
+    inMemoryState.ledgerEndCache.set(
+      (lastOffset.toAbsoluteOffsetO, lastEventSequentialId, lastPublicationTime)
+    )
     // the order here is very important: first we need to make data available for point-wise lookups
     // and SQL queries, and only then we can make it available on the streams.
     // (consider example: completion arrived on a stream, but the transaction cannot be looked up)

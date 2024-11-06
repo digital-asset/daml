@@ -34,9 +34,12 @@ public class StateClientImpl implements StateClient {
   }
 
   private Flowable<GetActiveContractsResponse> getActiveContracts(
-      @NonNull TransactionFilter filter, boolean verbose, @NonNull Optional<String> accessToken) {
+      @NonNull TransactionFilter filter,
+      boolean verbose,
+      Long activeAtOffset,
+      @NonNull Optional<String> accessToken) {
     StateServiceOuterClass.GetActiveContractsRequest request =
-        new GetActiveContractsRequest(filter, verbose, "").toProto();
+        new GetActiveContractsRequest(filter, verbose, activeAtOffset).toProto();
     return ClientPublisherFlowable.create(
             request,
             StubHelper.authenticating(this.serviceStub, accessToken)::getActiveContracts,
@@ -46,49 +49,60 @@ public class StateClientImpl implements StateClient {
 
   @Override
   public Flowable<GetActiveContractsResponse> getActiveContracts(
-      @NonNull TransactionFilter filter, boolean verbose) {
-    return getActiveContracts(filter, verbose, Optional.empty());
+      @NonNull TransactionFilter filter, boolean verbose, Long activeAtOffset) {
+    return getActiveContracts(filter, verbose, activeAtOffset, Optional.empty());
   }
 
   @Override
   public Flowable<GetActiveContractsResponse> getActiveContracts(
-      @NonNull TransactionFilter filter, boolean verbose, @NonNull String accessToken) {
-    return getActiveContracts(filter, verbose, Optional.of(accessToken));
+      @NonNull TransactionFilter filter,
+      boolean verbose,
+      Long activeAtOffset,
+      @NonNull String accessToken) {
+    return getActiveContracts(filter, verbose, activeAtOffset, Optional.of(accessToken));
   }
 
   private <Ct> Flowable<ActiveContracts<Ct>> getActiveContracts(
       ContractFilter<Ct> contractFilter,
       Set<String> parties,
       boolean verbose,
+      Long activeAtOffset,
       Optional<String> accessToken) {
     TransactionFilter filter = contractFilter.transactionFilter(Optional.of(parties));
 
     Flowable<GetActiveContractsResponse> responses =
-        getActiveContracts(filter, verbose, accessToken);
+        getActiveContracts(filter, verbose, activeAtOffset, accessToken);
     return responses.map(
         response -> {
           List<Ct> activeContracts =
               response.getContractEntry().stream()
                   .map(ce -> contractFilter.toContract(ce.getCreatedEvent()))
                   .collect(Collectors.toList());
-          return new ActiveContracts<>(
-              response.getOffset(), activeContracts, response.getWorkflowId());
+          return new ActiveContracts<>(activeContracts, response.getWorkflowId());
         });
   }
 
   @Override
   public <Ct> Flowable<ActiveContracts<Ct>> getActiveContracts(
-      ContractFilter<Ct> contractFilter, Set<String> parties, boolean verbose) {
-    return getActiveContracts(contractFilter, parties, verbose, Optional.empty());
+      ContractFilter<Ct> contractFilter,
+      Set<String> parties,
+      boolean verbose,
+      Long activeAtOffset) {
+    return getActiveContracts(contractFilter, parties, verbose, activeAtOffset, Optional.empty());
   }
 
   @Override
   public <Ct> Flowable<ActiveContracts<Ct>> getActiveContracts(
-      ContractFilter<Ct> contractFilter, Set<String> parties, boolean verbose, String accessToken) {
-    return getActiveContracts(contractFilter, parties, verbose, Optional.of(accessToken));
+      ContractFilter<Ct> contractFilter,
+      Set<String> parties,
+      boolean verbose,
+      Long activeAtOffset,
+      String accessToken) {
+    return getActiveContracts(
+        contractFilter, parties, verbose, activeAtOffset, Optional.of(accessToken));
   }
 
-  private Single<Optional<Long>> getLedgerEnd(Optional<String> accessToken) {
+  private Single<Long> getLedgerEnd(Optional<String> accessToken) {
     StateServiceOuterClass.GetLedgerEndRequest request =
         StateServiceOuterClass.GetLedgerEndRequest.newBuilder().build();
     return Single.fromFuture(
@@ -98,12 +112,12 @@ public class StateClientImpl implements StateClient {
   }
 
   @Override
-  public Single<Optional<Long>> getLedgerEnd() {
+  public Single<Long> getLedgerEnd() {
     return getLedgerEnd(Optional.empty());
   }
 
   @Override
-  public Single<Optional<Long>> getLedgerEnd(String accessToken) {
+  public Single<Long> getLedgerEnd(String accessToken) {
     return getLedgerEnd(Optional.of(accessToken));
   }
 }

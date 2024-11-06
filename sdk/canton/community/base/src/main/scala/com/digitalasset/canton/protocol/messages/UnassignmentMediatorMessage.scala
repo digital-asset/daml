@@ -3,10 +3,12 @@
 
 package com.digitalasset.canton.protocol.messages
 
+import cats.syntax.functor.*
 import com.digitalasset.canton.ProtoDeserializationError.OtherError
 import com.digitalasset.canton.config.RequireTypes.NonNegativeInt
 import com.digitalasset.canton.crypto.{HashOps, Signature}
 import com.digitalasset.canton.data.{
+  UnassignmentCommonData,
   UnassignmentViewTree,
   ViewConfirmationParameters,
   ViewPosition,
@@ -18,7 +20,6 @@ import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
-import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.util.ReassignmentTag.Source
 import com.digitalasset.canton.version.{
   HasProtocolVersionedWithContextCompanion,
@@ -37,12 +38,11 @@ import java.util.UUID
 final case class UnassignmentMediatorMessage(
     tree: UnassignmentViewTree,
     override val submittingParticipantSignature: Signature,
-) extends MediatorConfirmationRequest
-    with UnsignedProtocolMessage {
+) extends ReassignmentMediatorMessage {
   require(tree.commonData.isFullyUnblinded, "The unassignment common data must be unblinded")
   require(tree.view.isBlinded, "The unassignment view must be blinded")
 
-  private[this] val commonData = tree.commonData.tryUnwrap
+  protected[this] val commonData: UnassignmentCommonData = tree.commonData.tryUnwrap
 
   override def submittingParticipant: ParticipantId = tree.submittingParticipant
 
@@ -60,14 +60,13 @@ final case class UnassignmentMediatorMessage(
 
   override def informeesAndConfirmationParamsByViewPosition
       : Map[ViewPosition, ViewConfirmationParameters] = {
-    val confirmingParties = commonData.confirmingParties
+    val confirmingParties = commonData.confirmingParties.fmap(_.toNonNegative)
+    val nonConfirmingParties = commonData.stakeholders.nonConfirming.map(_ -> NonNegativeInt.zero)
+
+    val informees = confirmingParties ++ nonConfirmingParties
     val threshold = NonNegativeInt.tryCreate(confirmingParties.size)
-    Map(
-      tree.viewPosition -> ViewConfirmationParameters.createOnlyWithConfirmers(
-        confirmingParties,
-        threshold,
-      )
-    )
+
+    Map(tree.viewPosition -> ViewConfirmationParameters.create(informees, threshold))
   }
 
   def toProtoV30: v30.UnassignmentMediatorMessage =
@@ -115,12 +114,14 @@ object UnassignmentMediatorMessage
       tree <- ProtoConverter
         .required("UnassignmentMediatorMessage.tree", treePO)
         .flatMap(UnassignmentViewTree.fromProtoV30(context))
-      _ <- EitherUtil.condUnitE(
+      _ <- Either.cond(
         tree.commonData.isFullyUnblinded,
+        (),
         OtherError(s"Unassignment common data is blinded in request ${tree.rootHash}"),
       )
-      _ <- EitherUtil.condUnitE(
+      _ <- Either.cond(
         tree.view.isBlinded,
+        (),
         OtherError(s"Unassignment view data is not blinded in request ${tree.rootHash}"),
       )
       submittingParticipantSignature <- ProtoConverter

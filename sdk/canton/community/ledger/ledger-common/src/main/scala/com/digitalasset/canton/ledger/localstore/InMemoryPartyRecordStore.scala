@@ -234,11 +234,11 @@ class InMemoryPartyRecordStore(
       annotations: Map[String, String],
       party: Ref.Party,
   ): Result[Unit] =
-    if (!ResourceAnnotationValidator.isWithinMaxAnnotationsByteSize(annotations)) {
-      Left(MaxAnnotationsSizeExceeded(party))
-    } else {
-      Right(())
-    }
+    Either.cond(
+      ResourceAnnotationValidator.isWithinMaxAnnotationsByteSize(annotations),
+      (),
+      MaxAnnotationsSizeExceeded(party),
+    )
 
   override def filterExistingParties(parties: Set[Party], identityProviderId: IdentityProviderId)(
       implicit loggingContext: LoggingContextWithTrace

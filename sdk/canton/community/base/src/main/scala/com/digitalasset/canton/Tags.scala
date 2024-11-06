@@ -82,7 +82,7 @@ final case class CommandId(private val id: LfLedgerString) extends PrettyPrintin
 }
 
 object CommandId {
-  def assertFromString(str: String) = CommandId(LfLedgerString.assertFromString(str))
+  def assertFromString(str: String): CommandId = CommandId(LfLedgerString.assertFromString(str))
   def fromProtoPrimitive(str: String): Either[String, CommandId] =
     LfLedgerString.fromString(str).map(CommandId(_))
 

@@ -222,7 +222,7 @@ private[platform] final case class ParallelIndexerSubscription[DB_BATCH](
               ledgerEnd =>
                 InMemoryStateUpdater.updateLedgerEnd(
                   inMemoryState = inMemoryState,
-                  lastOffset = ledgerEnd.lastOffset,
+                  lastOffset = Offset.fromAbsoluteOffsetO(ledgerEnd.lastOffset),
                   lastEventSequentialId = ledgerEnd.lastEventSeqId,
                   lastPublicationTime = ledgerEnd.lastPublicationTime,
                   logger,
@@ -502,7 +502,7 @@ object ParallelIndexerSubscription {
 
   def ledgerEndFrom(batch: Batch[_]): LedgerEnd =
     LedgerEnd(
-      lastOffset = batch.lastOffset,
+      lastOffset = batch.lastOffset.toAbsoluteOffsetO,
       lastEventSeqId = batch.lastSeqEventId,
       lastStringInterningId = batch.lastStringInterningId,
       lastPublicationTime = batch.publicationTime,
@@ -548,24 +548,25 @@ object ParallelIndexerSubscription {
       traceContext: TraceContext
   ): (LedgerEnd, Map[DomainId, DomainIndex]) => Future[Unit] =
     (ledgerEnd, ledgerEndDomainIndexes) =>
-      LoggingContextWithTrace.withNewLoggingContext("updateOffset" -> ledgerEnd.lastOffset) {
-        implicit loggingContext =>
-          def domainIndexesLog: String = ledgerEndDomainIndexes.toVector
-            .sortBy(_._1.toProtoPrimitive)
-            .map { case (domainId, domainIndex) =>
-              s"${domainId.toProtoPrimitive.take(20).mkString} -> $domainIndex"
-            }
-            .mkString("domain-indexes: [", ", ", "]")
-
-          dbDispatcher.executeSql(metrics.indexer.tailIngestion) { connection =>
-            storeTailFunction(ledgerEnd, ledgerEndDomainIndexes)(connection)
-            metrics.indexer.ledgerEndSequentialId
-              .updateValue(ledgerEnd.lastEventSeqId)
-            logger.debug(
-              s"Ledger end updated in IndexDB $domainIndexesLog ${loggingContext
-                  .serializeFiltered("updateOffset")}."
-            )(loggingContext.traceContext)
+      LoggingContextWithTrace.withNewLoggingContext(
+        "updateOffset" -> Offset.fromAbsoluteOffsetO(ledgerEnd.lastOffset)
+      ) { implicit loggingContext =>
+        def domainIndexesLog: String = ledgerEndDomainIndexes.toVector
+          .sortBy(_._1.toProtoPrimitive)
+          .map { case (domainId, domainIndex) =>
+            s"${domainId.toProtoPrimitive.take(20).mkString} -> $domainIndex"
           }
+          .mkString("domain-indexes: [", ", ", "]")
+
+        dbDispatcher.executeSql(metrics.indexer.tailIngestion) { connection =>
+          storeTailFunction(ledgerEnd, ledgerEndDomainIndexes)(connection)
+          metrics.indexer.ledgerEndSequentialId
+            .updateValue(ledgerEnd.lastEventSeqId)
+          logger.debug(
+            s"Ledger end updated in IndexDB $domainIndexesLog ${loggingContext
+                .serializeFiltered("updateOffset")}."
+          )(loggingContext.traceContext)
+        }
       }
 
   def aggregateLedgerEndForRepair[DB_BATCH](
@@ -653,7 +654,7 @@ object ParallelIndexerSubscription {
           for {
             // this order is important to respect crash recovery rules
             _ <- storeLedgerEnd(ledgerEnd, domainIndexes)
-            _ <- storePostProcessingEnd(ledgerEnd.lastOffset)
+            _ <- storePostProcessingEnd(Offset.fromAbsoluteOffsetO(ledgerEnd.lastOffset))
             _ = updateInMemoryState(ledgerEnd)
           } yield {
             logger.info("Repair committed, Ledger End stored and updated successfully.")

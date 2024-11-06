@@ -4,7 +4,7 @@
 package com.digitalasset.canton.sequencing.client.transports.replay
 
 import cats.data.EitherT
-import cats.syntax.traverse.*
+import cats.syntax.either.*
 import com.daml.metrics.api.MetricsContext.withEmptyMetricsContext
 import com.daml.nameof.NameOf.functionFullName
 import com.digitalasset.canton.SequencerCounter
@@ -369,7 +369,7 @@ abstract class ReplayingSendsSequencerClientTransportCommon(
       updateMetrics(content)
       updateLastDeliver(content.counter)
 
-      Future.successful(Right(()))
+      Future.successful(Either.unit)
     }
 
     val idleF: Future[EventsReceivedReport] = idleP.future

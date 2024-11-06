@@ -154,29 +154,35 @@ final case class CommunityAdminServerConfig(
     internalPort: Option[Port] = None,
     tls: Option[TlsServerConfig] = None,
     jwtTimestampLeeway: Option[JwtTimestampLeeway] = None,
-    keepAliveServer: Option[KeepAliveServerConfig] = Some(KeepAliveServerConfig()),
+    keepAliveServer: Option[BasicKeepAliveServerConfig] = Some(BasicKeepAliveServerConfig()),
     maxInboundMessageSize: NonNegativeInt = ServerConfig.defaultMaxInboundMessageSize,
     authServices: Seq[AuthServiceConfig] = Seq.empty,
     adminToken: Option[String] = None,
 ) extends AdminServerConfig
     with CommunityServerConfig
 
-/** GRPC keep alive server configuration
-  *
-  * @param time Sets the time without read activity before sending a keepalive ping. Do not set to small numbers (default is 40s)
-  * Corresponds to [[https://grpc.github.io/grpc-java/javadoc/io/grpc/netty/NettyServerBuilder.html#keepAliveTime-long-java.util.concurrent.TimeUnit-]]
-  *
-  * @param timeout Sets the time waiting for read activity after sending a keepalive ping (default is 20s)
-  * Corresponds to [[https://grpc.github.io/grpc-java/javadoc/io/grpc/netty/NettyServerBuilder.html#keepAliveTimeout-long-java.util.concurrent.TimeUnit-]]
-  *
-  * @param permitKeepAliveTime Sets the most aggressive keep-alive time that clients are permitted to configure (default is 20s)
-  * Corresponds to [[https://grpc.github.io/grpc-java/javadoc/io/grpc/netty/NettyServerBuilder.html#permitKeepAliveTime-long-java.util.concurrent.TimeUnit-]]
-  */
-final case class KeepAliveServerConfig(
-    time: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(40),
-    timeout: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(20),
-    permitKeepAliveTime: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(20),
-) {
+/** GRPC keep alive server configuration. */
+trait KeepAliveServerConfig {
+
+  /** time sets the time without read activity before sending a keepalive ping. Do not set to small numbers (default is 40s)
+    * Corresponds to [[https://grpc.github.io/grpc-java/javadoc/io/grpc/netty/NettyServerBuilder.html#keepAliveTime-long-java.util.concurrent.TimeUnit-]]
+    */
+  def time: NonNegativeFiniteDuration
+
+  /** timeout sets the time waiting for read activity after sending a keepalive ping (default is 20s)
+    * Corresponds to [[https://grpc.github.io/grpc-java/javadoc/io/grpc/netty/NettyServerBuilder.html#keepAliveTimeout-long-java.util.concurrent.TimeUnit-]]
+    */
+  def timeout: NonNegativeFiniteDuration
+
+  /** permitKeepAliveTime sets the most aggressive keep-alive time that clients are permitted to configure (default is 20s)
+    * Corresponds to [[https://grpc.github.io/grpc-java/javadoc/io/grpc/netty/NettyServerBuilder.html#permitKeepAliveTime-long-java.util.concurrent.TimeUnit-]]
+    */
+  def permitKeepAliveTime: NonNegativeFiniteDuration
+
+  /** permitKeepAliveWithoutCalls allows the clients to send keep alive signals outside any ongoing grpc subscription (default false)
+    * Corresponds to [[https://grpc.github.io/grpc-java/javadoc/io/grpc/netty/NettyServerBuilder.html#permitKeepAliveTime-long-java.util.concurrent.TimeUnit-]]
+    */
+  def permitKeepAliveWithoutCalls: Boolean
 
   /** A sensible default choice of client config for the given server config */
   def clientConfigFor: KeepAliveClientConfig = {
@@ -184,6 +190,20 @@ final case class KeepAliveServerConfig(
     KeepAliveClientConfig(clientKeepAliveTime, timeout)
   }
 }
+
+final case class BasicKeepAliveServerConfig(
+    time: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(40),
+    timeout: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(20),
+    permitKeepAliveTime: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(20),
+    permitKeepAliveWithoutCalls: Boolean = false,
+) extends KeepAliveServerConfig
+
+final case class LedgerApiKeepAliveServerConfig(
+    time: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofMinutes(10),
+    timeout: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(20),
+    permitKeepAliveTime: NonNegativeFiniteDuration = NonNegativeFiniteDuration.ofSeconds(10),
+    permitKeepAliveWithoutCalls: Boolean = false,
+) extends KeepAliveServerConfig
 
 /** GRPC keep alive client configuration
   *

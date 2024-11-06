@@ -103,13 +103,14 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
       val choiceName = "MyHello"
       val theCommand = {
         val templateId = Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")
+        val r = Identifier(miniTestsPkgId, s"ReinterpretTests:$choiceName")
         val cid = toContractId("ReinterpretTests:MySimple:1")
         ReplayCommand.Exercise(
           templateId,
           None,
           cid,
           choiceName,
-          ValueRecord(None, ImmArray.Empty),
+          ValueRecord(Some(r), ImmArray.Empty),
         )
       }
       val Right(tx) = reinterpretCommand(theCommand)
@@ -120,13 +121,14 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
       val choiceName = "MyThrow"
       val theCommand = {
         val templateId = Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")
+        val r = Identifier(miniTestsPkgId, s"ReinterpretTests:$choiceName")
         val cid = toContractId("ReinterpretTests:MySimple:1")
         ReplayCommand.Exercise(
           templateId,
           None,
           cid,
           choiceName,
-          ValueRecord(None, ImmArray.Empty),
+          ValueRecord(Some(r), ImmArray.Empty),
         )
       }
       val Right(tx) = reinterpretCommand(theCommand)
@@ -137,13 +139,14 @@ class ReinterpretTest(majorLanguageVersion: LanguageMajorVersion)
       val choiceName = "ProvokeBadOrd"
       val theCommand = {
         val templateId = Identifier(miniTestsPkgId, "ReinterpretTests:MySimple")
+        val r = Identifier(miniTestsPkgId, s"ReinterpretTests:$choiceName")
         val cid = toContractId("ReinterpretTests:MySimple:1")
         ReplayCommand.Exercise(
           templateId,
           None,
           cid,
           choiceName,
-          ValueRecord(None, ImmArray.Empty),
+          ValueRecord(Some(r), ImmArray.Empty),
         )
       }
       val Left(err) = reinterpretCommand(theCommand)

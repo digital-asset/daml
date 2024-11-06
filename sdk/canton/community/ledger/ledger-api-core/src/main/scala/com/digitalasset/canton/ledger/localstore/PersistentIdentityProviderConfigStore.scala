@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.ledger.localstore
 
+import cats.syntax.either.*
 import com.daml.metrics.DatabaseMetrics
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{IdentityProviderConfig, IdentityProviderId}
@@ -71,11 +72,11 @@ class PersistentIdentityProviderConfigStore(
       loggingContext: LoggingContextWithTrace
   ): Future[Result[Unit]] =
     inTransaction(_.deleteIdpConfig) { implicit connection =>
-      if (!backend.deleteIdentityProviderConfig(id)(connection)) {
-        Left(IdentityProviderConfigNotFound(id))
-      } else {
-        Right(())
-      }
+      Either.cond(
+        backend.deleteIdentityProviderConfig(id)(connection),
+        (),
+        IdentityProviderConfigNotFound(id),
+      )
     }.map(tapSuccess { _ =>
       logger.info(
         s"Deleted identity provider configuration with id $id"
@@ -197,7 +198,7 @@ class PersistentIdentityProviderConfigStore(
         (),
         IdentityProviderConfigWithIssuerExists(value),
       )
-    case None => Right(())
+    case None => Either.unit
   }
 
   private def inTransaction[T](

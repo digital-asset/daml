@@ -8,6 +8,8 @@ breaking:
   ignore:
     - com/digitalasset/canton/sequencer/admin/
     - com/digitalasset/canton/mediator/admin/
+    # TODO(i16801) remove if we finalize the protobufs (or keep if we decide to keep them unstable)
+    - com/digitalasset/canton/domain/sequencing/sequencer/bftordering
 lint:
   ignore_only:
     # TODO(i16943) Remove coupling between pruning endpoints

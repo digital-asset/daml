@@ -19,7 +19,6 @@ import com.digitalasset.canton.participant.util.DAMLe.{
 import com.digitalasset.canton.platform.apiserver.configuration.EngineLoggingConfig
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
-import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{LfCommand, LfCreateCommand, LfKeyResolver, LfPartyId, LfVersioned}
 import com.digitalasset.daml.lf.VersionRange
@@ -138,7 +137,6 @@ object DAMLe {
   */
 class DAMLe(
     resolvePackage: PackageResolver,
-    domainId: Option[DomainId],
     engine: Engine,
     engineLoggingConfig: EngineLoggingConfig,
     protected val loggerFactory: NamedLoggerFactory,

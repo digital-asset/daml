@@ -4,7 +4,6 @@
 package com.digitalasset.canton.admin.api.client.commands
 
 import cats.implicits.toBifunctorOps
-import com.digitalasset.canton.admin.api.client.commands.StatusAdminCommands.NodeStatusCommand
 import com.digitalasset.canton.admin.api.client.data.{MediatorStatus, NodeStatus}
 import com.digitalasset.canton.admin.domain.v30.MediatorStatusServiceGrpc.MediatorStatusServiceStub
 import com.digitalasset.canton.admin.domain.v30.{
@@ -20,10 +19,10 @@ object MediatorAdminCommands {
 
   object Health {
     final case class MediatorStatusCommand()
-        extends NodeStatusCommand[
-          MediatorStatus,
+        extends GrpcAdminCommand[
           MediatorStatusRequest,
           MediatorStatusResponse,
+          NodeStatus[MediatorStatus],
         ] {
 
       override type Svc = MediatorStatusServiceStub
@@ -31,22 +30,17 @@ object MediatorAdminCommands {
       override def createService(channel: ManagedChannel): MediatorStatusServiceStub =
         MediatorStatusServiceGrpc.stub(channel)
 
-      override def getStatus(
-          service: MediatorStatusServiceStub,
-          request: MediatorStatusRequest,
-      ): Future[MediatorStatusResponse] = service.mediatorStatus(request)
-
-      override def submitRequest(
+      override protected def submitRequest(
           service: MediatorStatusServiceStub,
           request: MediatorStatusRequest,
       ): Future[MediatorStatusResponse] =
-        submitReq(service, request)
+        service.mediatorStatus(request)
 
-      override def createRequest(): Either[String, MediatorStatusRequest] = Right(
+      override protected def createRequest(): Either[String, MediatorStatusRequest] = Right(
         MediatorStatusRequest()
       )
 
-      override def handleResponse(
+      override protected def handleResponse(
           response: MediatorStatusResponse
       ): Either[String, NodeStatus[MediatorStatus]] =
         MediatorStatus.fromProtoV30(response).leftMap(_.message)

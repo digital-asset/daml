@@ -51,7 +51,6 @@ import com.digitalasset.canton.platform.store.entries.PartyLedgerEntry
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata.PackageResolution
 import com.digitalasset.canton.platform.{ApiOffset, Party, PruneBuffers, TemplatePartiesFilter}
-import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.{ApplicationId, Identifier, PackageRef, TypeConRef}
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -114,10 +113,10 @@ private[index] class IndexServiceImpl(
     withValidatedFilter(transactionFilter, getPackageMetadataSnapshot(contextualizedErrorLogger)) {
       between(startExclusive, endInclusive) { (from, to) =>
         from.foreach(offset =>
-          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom, offset.toHexString)
+          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom, offset.toLong.toString)
         )
         to.foreach(offset =>
-          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetTo, offset.toHexString)
+          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetTo, offset.toLong.toString)
         )
         dispatcher()
           .startingAt(
@@ -210,10 +209,10 @@ private[index] class IndexServiceImpl(
         else None // party-wildcard
       between(startExclusive, endInclusive) { (from, to) =>
         from.foreach(offset =>
-          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom, offset.toHexString)
+          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom, offset.toLong.toString)
         )
         to.foreach(offset =>
-          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetTo, offset.toHexString)
+          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetTo, offset.toLong.toString)
         )
         dispatcher()
           .startingAt(
@@ -301,7 +300,7 @@ private[index] class IndexServiceImpl(
   override def getActiveContracts(
       transactionFilter: TransactionFilter,
       verbose: Boolean,
-      activeAtO: Option[Offset],
+      activeAt: Offset,
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Source[GetActiveContractsResponse, NotUsed] = {
@@ -312,7 +311,6 @@ private[index] class IndexServiceImpl(
         _ <- checkUnknownIdentifiers(transactionFilter, currentPackageMetadata).left
           .map(_.asGrpcError)
         endOffset = ledgerEnd()
-        activeAt = activeAtO.getOrElse(endOffset)
         _ <- validatedAcsActiveAtOffset(activeAt = activeAt, ledgerEnd = endOffset)
       } yield {
         val activeContractsSource =
@@ -332,11 +330,6 @@ private[index] class IndexServiceImpl(
               )
           }
         activeContractsSource
-          .concat(
-            Source.single(
-              GetActiveContractsResponse(offset = ApiOffset.toApiString(activeAt))
-            )
-          )
           .buffered(metrics.index.activeContractsBufferSize, LedgerApiStreamsBufferSize)
       }
     }
@@ -475,7 +468,7 @@ private[index] class IndexServiceImpl(
             Source.failed(
               RequestValidationErrors.OffsetOutOfRange
                 .Reject(
-                  s"End offset ${end.toApiString} is before Begin offset ${begin.toApiString}."
+                  s"End offset ${end.toApiType} is before begin offset ${begin.toApiType}."
                 )(ErrorLoggingContext(logger, loggingContext))
                 .asGrpcError
             )
@@ -513,11 +506,11 @@ private[index] class IndexServiceImpl(
 
   override def latestPrunedOffsets()(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[(Option[Long], Option[Long])] =
+  ): Future[(Long, Long)] =
     ledgerDao.pruningOffsets
       .map { case (prunedUpToInclusiveO, divulgencePrunedUpToO) =>
-        prunedUpToInclusiveO.map(_.toLong) ->
-          divulgencePrunedUpToO.map(_.toLong)
+        prunedUpToInclusiveO.map(_.toLong).getOrElse(0L) ->
+          divulgencePrunedUpToO.map(_.toLong).getOrElse(0L)
       }(directEc)
 }
 
@@ -596,24 +589,28 @@ object IndexServiceImpl {
       packageNamesWithNoInterfacesForQualifiedNameBuilder.result()
 
     for {
-      _ <- EitherUtil.condUnitE(
+      _ <- Either.cond(
         packageNames.isEmpty,
+        (),
         RequestValidationErrors.NotFound.PackageNamesNotFound.Reject(packageNames),
       )
-      _ <- EitherUtil.condUnitE(
+      _ <- Either.cond(
         packageNamesWithNoTemplatesForQualifiedName.isEmpty,
+        (),
         RequestValidationErrors.NotFound.NoTemplatesForPackageNameAndQualifiedName.Reject(
           packageNamesWithNoTemplatesForQualifiedName
         ),
       )
-      _ <- EitherUtil.condUnitE(
+      _ <- Either.cond(
         packageNamesWithNoInterfacesForQualifiedName.isEmpty,
+        (),
         RequestValidationErrors.NotFound.NoInterfaceForPackageNameAndQualifiedName.Reject(
           packageNamesWithNoInterfacesForQualifiedName
         ),
       )
-      _ <- EitherUtil.condUnitE(
+      _ <- Either.cond(
         templateIds.isEmpty && interfaceIds.isEmpty,
+        (),
         RequestValidationErrors.NotFound.TemplateOrInterfaceIdsNotFound
           .Reject(unknownTemplatesOrInterfaces =
             (templateIds.view.map(Left(_)) ++ interfaceIds.view.map(Right(_))).toSeq
@@ -643,19 +640,17 @@ object IndexServiceImpl {
       activeAt: Offset,
       ledgerEnd: Offset,
   )(implicit errorLogger: ContextualizedErrorLogger): Either[StatusRuntimeException, Unit] =
-    if (activeAt > ledgerEnd) {
-      Left(
-        RequestValidationErrors.OffsetAfterLedgerEnd
-          .Reject(
-            offsetType = "active_at_offset",
-            requestedOffset = activeAt.toApiString,
-            ledgerEnd = ledgerEnd.toApiString,
-          )
-          .asGrpcError
-      )
-    } else {
-      Right(())
-    }
+    Either.cond(
+      activeAt <= ledgerEnd,
+      (),
+      RequestValidationErrors.OffsetAfterLedgerEnd
+        .Reject(
+          offsetType = "active_at_offset",
+          requestedOffset = activeAt.toLong,
+          ledgerEnd = ledgerEnd.toLong,
+        )
+        .asGrpcError,
+    )
 
   @SuppressWarnings(Array("org.wartremover.warts.Null", "org.wartremover.warts.Var"))
   private[index] def memoizedTransactionFilterProjection(

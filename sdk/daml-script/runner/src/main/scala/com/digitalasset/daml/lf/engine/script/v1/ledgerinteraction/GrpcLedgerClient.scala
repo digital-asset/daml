@@ -106,9 +106,10 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
   ): Future[Vector[(ScriptLedgerClient.ActiveContract, Option[Value])]] = {
     val filter = templateFilter(parties, templateId)
     val acsResponse =
-      grpcClient.stateService
-        .getActiveContracts(filter, verbose = false)
-        .map(_._1)
+      grpcClient.stateService.getLedgerEndOffset().flatMap { offset =>
+        grpcClient.stateService
+          .getActiveContracts(filter, verbose = false, validAtOffset = offset)
+      }
     acsResponse.map(activeContracts =>
       activeContracts.toVector.map(activeContract => {
         val createdEvent = activeContract.getCreatedEvent
@@ -162,9 +163,10 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
   ): Future[Seq[(ContractId, Option[Value])]] = {
     val filter = interfaceFilter(parties, interfaceId)
     val acsResponse =
-      grpcClient.stateService
-        .getActiveContracts(filter, verbose = false)
-        .map(_._1)
+      grpcClient.stateService.getLedgerEndOffset().flatMap { offset =>
+        grpcClient.stateService
+          .getActiveContracts(filter, verbose = false, validAtOffset = offset)
+      }
     acsResponse.map(activeContracts =>
       activeContracts.toVector.flatMap(activeContract => {
         val createdEvent = activeContract.getCreatedEvent

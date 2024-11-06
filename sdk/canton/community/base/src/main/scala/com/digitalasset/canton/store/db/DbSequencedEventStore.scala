@@ -11,7 +11,7 @@ import com.digitalasset.canton.SequencerCounter
 import com.digitalasset.canton.config.CantonRequireTypes.String3
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.CloseContext
+import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.*
 import com.digitalasset.canton.resource.{DbStorage, DbStore}
 import com.digitalasset.canton.sequencing.protocol.{SequencedEvent, SignedContent}
@@ -165,12 +165,14 @@ class DbSequencedEventStore(
 
   override def findRange(criterion: SequencedEventStore.RangeCriterion, limit: Option[Int])(implicit
       traceContext: TraceContext
-  ): EitherT[Future, SequencedEventRangeOverlapsWithPruning, Seq[PossiblyIgnoredSerializedEvent]] =
+  ): EitherT[FutureUnlessShutdown, SequencedEventRangeOverlapsWithPruning, Seq[
+    PossiblyIgnoredSerializedEvent
+  ]] =
     EitherT {
       criterion match {
         case ByTimestampRange(lowerInclusive, upperInclusive) =>
           for {
-            events <- storage.query(
+            events <- storage.queryUnlessShutdown(
               sql"""select type, sequencer_counter, ts, sequenced_event, trace_context, ignore from common_sequenced_events
                     where domain_idx = $partitionKey and $lowerInclusive <= ts  and ts <= $upperInclusive
                     order by ts #${limit.fold("")(storage.limit(_))}"""

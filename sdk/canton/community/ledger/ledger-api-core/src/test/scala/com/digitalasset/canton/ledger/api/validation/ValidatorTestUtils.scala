@@ -31,14 +31,14 @@ trait ValidatorTestUtils extends Matchers with Inside with OptionValues {
     Ref.QualifiedName.assertFromString(s"$includedModule:$includedTemplate")
   protected val packageId = Ref.PackageId.assertFromString("packageId")
   protected val packageId2 = Ref.PackageId.assertFromString("packageId2")
-  protected val offsetLong = Some(42L)
-  protected val offset = ParticipantOffset.fromString("%018x".format(offsetLong.getOrElse(0)))
+  protected val offsetLong = 42L
+  protected val offset = ParticipantOffset.fromString("%018x".format(offsetLong))
   protected val party = Ref.Party.assertFromString("party")
   protected val party2 = Ref.Party.assertFromString("party2")
   protected val verbose = false
   protected val eventId = "eventId"
   protected val updateId = "42"
-  protected val ledgerEnd = ParticipantOffset.fromString("1000")
+  protected val ledgerEnd = ParticipantOffset.fromString("00" * 7 + "1000")
   protected val contractId = ContractId.V1.assertFromString("00" * 32 + "0001")
   protected val moduleName = Ref.ModuleName.assertFromString(includedModule)
   protected val dottedName = Ref.DottedName.assertFromString(includedTemplate)

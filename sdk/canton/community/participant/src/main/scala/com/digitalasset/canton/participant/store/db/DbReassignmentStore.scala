@@ -504,7 +504,7 @@ class DbReassignmentStore(
               logger.error(
                 s"Reassignment completion query changed $changed lines. It should only change 1."
               )
-            Right(())
+            Either.unit
           } else {
             if (changed != 0)
               logger.error(

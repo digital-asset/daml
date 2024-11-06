@@ -92,11 +92,11 @@ final class TimedIndexService(delegate: IndexService, metrics: LedgerApiServerMe
   override def getActiveContracts(
       filter: domain.TransactionFilter,
       verbose: Boolean,
-      activeAtO: Option[Offset],
+      activeAt: Offset,
   )(implicit loggingContext: LoggingContextWithTrace): Source[GetActiveContractsResponse, NotUsed] =
     Timed.source(
       metrics.services.index.getActiveContracts,
-      delegate.getActiveContracts(filter, verbose, activeAtO),
+      delegate.getActiveContracts(filter, verbose, activeAt),
     )
 
   override def lookupActiveContract(
@@ -184,7 +184,7 @@ final class TimedIndexService(delegate: IndexService, metrics: LedgerApiServerMe
 
   override def latestPrunedOffsets()(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[(Option[Long], Option[Long])] =
+  ): Future[(Long, Long)] =
     Timed.future(metrics.services.index.latestPrunedOffsets, delegate.latestPrunedOffsets())
 
   override def getEventsByContractId(

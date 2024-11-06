@@ -325,21 +325,38 @@
         </rewrite>
         <!-- Suppress ACS commitment processor catch-up degradation warnings in ledger API tests that might throw -->
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LedgerApiConformanceV1_15Postgres</logger>
+            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LedgerApiShard0InMemoryFanOutConformanceTestPostgres</logger>
+            <contains>ACS_COMMITMENT_DEGRADATION</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LedgerApiShard1InMemoryFanOutConformanceTestPostgres</logger>
+            <contains>ACS_COMMITMENT_DEGRADATION</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LedgerApiShard2InMemoryFanOutConformanceTestPostgres</logger>
             <contains>ACS_COMMITMENT_DEGRADATION</contains>
             <maxLevel>INFO</maxLevel>
             <testing>true</testing>
         </rewrite>
         <!-- Suppress ACS commitment processor catch-up degradation warnings in ledger API tests that might throw -->
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LedgerApiInMemoryFanOutConformanceTest</logger>
+            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LedgerApiShard0TinyBuffersConformanceTestPostgres</logger>
             <contains>ACS_COMMITMENT_DEGRADATION</contains>
             <maxLevel>INFO</maxLevel>
             <testing>true</testing>
         </rewrite>
-        <!-- Suppress ACS commitment processor catch-up degradation warnings in ledger API tests that might throw -->
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LedgerApiTinyBuffersConformanceTestPostgres</logger>
+            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LedgerApiShard1TinyBuffersConformanceTestPostgres</logger>
+            <contains>ACS_COMMITMENT_DEGRADATION</contains>
+            <maxLevel>INFO</maxLevel>
+            <testing>true</testing>
+        </rewrite>
+        <rewrite class="com.digitalasset.canton.logging.Rewrite">
+            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LedgerApiShard2TinyBuffersConformanceTestPostgres</logger>
             <contains>ACS_COMMITMENT_DEGRADATION</contains>
             <maxLevel>INFO</maxLevel>
             <testing>true</testing>
@@ -367,28 +384,7 @@
         </rewrite>
         <!-- Suppress ACS commitment processor catch-up degradation warnings in ledger API tests that might throw -->
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LedgerApiConformanceEventByKeyCachedTestPostgres</logger>
-            <contains>ACS_COMMITMENT_DEGRADATION</contains>
-            <maxLevel>INFO</maxLevel>
-            <testing>true</testing>
-        </rewrite>
-        <!-- Suppress ACS commitment processor catch-up degradation warnings in ledger API tests that might throw -->
-        <rewrite class="com.digitalasset.canton.logging.Rewrite">
             <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LedgerApiConformanceSuppressedLogsPostgres</logger>
-            <contains>ACS_COMMITMENT_DEGRADATION</contains>
-            <maxLevel>INFO</maxLevel>
-            <testing>true</testing>
-        </rewrite>
-        <!-- Suppress ACS commitment processor catch-up degradation warnings in ledger API tests that might throw -->
-        <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LedgerApiContractKeyConformanceTestPostgres</logger>
-            <contains>ACS_COMMITMENT_DEGRADATION</contains>
-            <maxLevel>INFO</maxLevel>
-            <testing>true</testing>
-        </rewrite>
-        <!-- Suppress ACS commitment processor catch-up degradation warnings in ledger API tests that might throw -->
-        <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LedgerApiContractKeyConformanceTestPostgres</logger>
             <contains>ACS_COMMITMENT_DEGRADATION</contains>
             <maxLevel>INFO</maxLevel>
             <testing>true</testing>
@@ -410,41 +406,6 @@
         <!-- Suppress ACS commitment processor catch-up degradation warnings in tests that might throw -->
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
             <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LatestProtocolContinuityShard0ConformanceTestDomain</logger>
-            <contains>ACS_COMMITMENT_DEGRADATION</contains>
-            <maxLevel>INFO</maxLevel>
-            <testing>true</testing>
-        </rewrite>
-        <!-- Suppress ACS commitment processor catch-up degradation warnings in tests that might throw -->
-        <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LatestProtocolContinuityShard1ConformanceTestDomain</logger>
-            <contains>ACS_COMMITMENT_DEGRADATION</contains>
-            <maxLevel>INFO</maxLevel>
-            <testing>true</testing>
-        </rewrite>
-        <!-- Suppress ACS commitment processor catch-up degradation warnings in tests that might throw -->
-        <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LatestProtocolContinuityShard2ConformanceTestDomain</logger>
-            <contains>ACS_COMMITMENT_DEGRADATION</contains>
-            <maxLevel>INFO</maxLevel>
-            <testing>true</testing>
-        </rewrite>
-        <!-- Suppress ACS commitment processor catch-up degradation warnings in tests that might throw -->
-        <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LatestProtocolContinuityShard3ConformanceTestDomain</logger>
-            <contains>ACS_COMMITMENT_DEGRADATION</contains>
-            <maxLevel>INFO</maxLevel>
-            <testing>true</testing>
-        </rewrite>
-        <!-- Suppress ACS commitment processor catch-up degradation warnings in tests that might throw -->
-        <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LatestProtocolContinuityShard4ConformanceTestDomain</logger>
-            <contains>ACS_COMMITMENT_DEGRADATION</contains>
-            <maxLevel>INFO</maxLevel>
-            <testing>true</testing>
-        </rewrite>
-        <!-- Suppress ACS commitment processor catch-up degradation warnings in tests that might throw -->
-        <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:LatestProtocolContinuityShard5ConformanceTestDomain</logger>
             <contains>ACS_COMMITMENT_DEGRADATION</contains>
             <maxLevel>INFO</maxLevel>
             <testing>true</testing>
@@ -495,20 +456,6 @@
         <rewrite class="com.digitalasset.canton.logging.Rewrite">
             <logger>com.digitalasset.canton.participant.pruning.AcsCommitmentProcessor:MajorUpgradeIntegrationTest</logger>
             <contains>ACS_COMMITMENT_DEGRADATION</contains>
-            <maxLevel>INFO</maxLevel>
-            <testing>true</testing>
-        </rewrite>
-        <!-- Suppress errors due to passivation changes in the ReplicatedParticipantTestPostgres -->
-        <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.participant.protocol.EnterpriseMessageDispatcher:ReplicatedParticipantTestPostgres</logger>
-            <contains>Synchronous event processing failed</contains>
-            <exceptionMessage>DbStorage instance is not active</exceptionMessage>
-            <maxLevel>INFO</maxLevel>
-            <testing>true</testing>
-        </rewrite>
-        <rewrite class="com.digitalasset.canton.logging.Rewrite">
-            <logger>com.digitalasset.canton.sequencing.client.RichSequencerClientImpl:ReplicatedParticipantTestPostgres</logger>
-            <contains>Synchronous event processing stopped because instance became passive</contains>
             <maxLevel>INFO</maxLevel>
             <testing>true</testing>
         </rewrite>

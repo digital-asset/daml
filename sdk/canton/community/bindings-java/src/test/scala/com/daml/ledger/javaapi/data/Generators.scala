@@ -407,7 +407,7 @@ object Generators {
     for {
       transactionFilter <- transactionFilterGen
       verbose <- Arbitrary.arbBool.arbitrary
-      activeAtOffset <- Arbitrary.arbString.arbitrary
+      activeAtOffset <- Arbitrary.arbLong.arbitrary
     } yield v2.StateServiceOuterClass.GetActiveContractsRequest
       .newBuilder()
       .setFilter(transactionFilter)
@@ -507,12 +507,10 @@ object Generators {
 
   def getActiveContractResponseGen: Gen[v2.StateServiceOuterClass.GetActiveContractsResponse] =
     for {
-      offset <- Arbitrary.arbString.arbitrary
       workflowId <- Arbitrary.arbString.arbitrary
       entryGen <- contractEntryBuilderGen
     } yield v2.StateServiceOuterClass.GetActiveContractsResponse
       .newBuilder()
-      .setOffset(offset)
       .setWorkflowId(workflowId)
       .pipe(entryGen)
       .build()
@@ -820,8 +818,8 @@ object Generators {
   def getUpdatesRequestGen: Gen[v2.UpdateServiceOuterClass.GetUpdatesRequest] = {
     import v2.UpdateServiceOuterClass.GetUpdatesRequest as Request
     for {
-      beginExclusive <- Arbitrary.arbString.arbitrary
-      endInclusiveO <- Gen.option(Arbitrary.arbString.arbitrary)
+      beginExclusive <- Arbitrary.arbLong.arbitrary
+      endInclusiveO <- Gen.option(Arbitrary.arbLong.arbitrary)
       filter <- transactionFilterGen
       verbose <- Arbitrary.arbBool.arbitrary
     } yield {
@@ -831,15 +829,10 @@ object Generators {
         .setFilter(filter)
         .setVerbose(verbose)
 
-      endInclusiveO match {
-        case Some(endInclusive) =>
-          partialBuilder
-            .setEndInclusive(endInclusive)
-            .build()
-        case None =>
-          partialBuilder
-            .build()
-      }
+      val builder =
+        endInclusiveO.fold(partialBuilder)(partialBuilder.setEndInclusive)
+
+      builder.build()
     }
   }
 

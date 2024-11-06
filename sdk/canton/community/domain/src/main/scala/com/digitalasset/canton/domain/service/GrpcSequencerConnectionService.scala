@@ -123,7 +123,7 @@ class GrpcSequencerConnectionService(
     (existing.default, requestedReplacement.default) match {
       // TODO(i12076): How should we be checking connections here? what should be validated?
       case (_: GrpcSequencerConnection, _: GrpcSequencerConnection) =>
-        Right(())
+        Either.unit
       case _ =>
         Left(
           Status.INVALID_ARGUMENT

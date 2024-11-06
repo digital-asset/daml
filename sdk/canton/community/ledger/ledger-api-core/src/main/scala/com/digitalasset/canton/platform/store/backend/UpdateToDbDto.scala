@@ -336,7 +336,6 @@ object UpdateToDbDto {
       nodeId: NodeId,
       create: Create,
   ): Iterator[DbDto] = {
-    val eventId = EventId(transactionAccepted.updateId, nodeId)
     val templateId = create.templateId.toString
     val stakeholders = create.stakeholders.map(_.toString)
     val (createArgument, createKeyValue) = translation.serialize(create)
@@ -353,7 +352,6 @@ object UpdateToDbDto {
         application_id = transactionAccepted.completionInfoO.map(_.applicationId),
         submitters = transactionAccepted.completionInfoO.map(_.actAs.toSet),
         node_index = nodeId.index,
-        event_id = eventId.toLedgerString,
         contract_id = create.coid.coid,
         template_id = templateId,
         package_name = create.packageName,
@@ -424,7 +422,6 @@ object UpdateToDbDto {
         application_id = transactionAccepted.completionInfoO.map(_.applicationId),
         submitters = transactionAccepted.completionInfoO.map(_.actAs.toSet),
         node_index = nodeId.index,
-        event_id = EventId(transactionAccepted.updateId, nodeId).toLedgerString,
         contract_id = exercise.targetCoid.coid,
         template_id = templateId,
         package_name = exercise.packageName,

@@ -39,27 +39,32 @@ class JsonCodec(
     override def toDynamicValue(v: Value): DynamicValue = {
       val valueMap = v.obj.value
       val unexpectedFields = valueMap.keySet.toSet -- fields.map(_._1)
+
+      val result = DynamicValue.Record(fields map { case (name, c) =>
+        if (c.isOptional()) {
+          (Some(name), c.toDynamicValue(valueMap.getOrElse(name, ujson.Null)))
+        } else {
+          valueMap.get(name) match {
+            case Some(value) => (Some(name), c.toDynamicValue(value))
+            case None =>
+              throw new MissingFieldException(name)
+          }
+        }
+      })
+      // We handle unexpectedValues after creation of value, as the more important exception is a MissingFieldException and should be
+      // thrown if needed
       val unexpectedValues =
         valueMap
           .filter { case (k, v) => unexpectedFields.contains(k) && v != ujson.Null }
       if (!unexpectedValues.isEmpty) {
         throw new UnexpectedFieldsException(unexpectedFields)
       }
-      DynamicValue.Record(fields map { case (name, c) =>
-        if (c.isOptional()) {
-          c.toDynamicValue(valueMap.getOrElse(name, ujson.Null))
-        } else {
-          valueMap.get(name) match {
-            case Some(value) => c.toDynamicValue(value)
-            case None => throw new MissingFieldException(name)
-          }
-        }
-      })
+      result
     }
 
     override def fromDynamicValue(dv: DynamicValue): Value =
       Obj.from(dv.record.iterator zip fields map { case (f, (name, c)) =>
-        name -> c.fromDynamicValue(f)
+        f._1.getOrElse(name) -> c.fromDynamicValue(f._2)
       })
   }
 

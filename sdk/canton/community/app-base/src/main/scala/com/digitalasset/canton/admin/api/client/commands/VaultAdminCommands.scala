@@ -15,7 +15,7 @@ import com.digitalasset.canton.crypto.admin.v30
 import com.digitalasset.canton.crypto.admin.v30.ListPublicKeysRequest
 import com.digitalasset.canton.crypto.admin.v30.VaultServiceGrpc.VaultServiceStub
 import com.digitalasset.canton.crypto.{PublicKeyWithName, v30 as cryptoproto, *}
-import com.digitalasset.canton.util.{EitherUtil, OptionUtil}
+import com.digitalasset.canton.util.OptionUtil
 import com.digitalasset.canton.version.ProtocolVersion
 import com.google.protobuf.ByteString
 import io.grpc.ManagedChannel
@@ -42,7 +42,7 @@ object VaultAdminCommands {
         Seq[PrivateKeyMetadata],
       ] {
 
-    override def createRequest(): Either[String, v30.ListMyKeysRequest] =
+    override protected def createRequest(): Either[String, v30.ListMyKeysRequest] =
       Right(
         v30.ListMyKeysRequest(
           Some(
@@ -55,13 +55,13 @@ object VaultAdminCommands {
         )
       )
 
-    override def submitRequest(
+    override protected def submitRequest(
         service: VaultServiceStub,
         request: v30.ListMyKeysRequest,
     ): Future[v30.ListMyKeysResponse] =
       service.listMyKeys(request)
 
-    override def handleResponse(
+    override protected def handleResponse(
         response: v30.ListMyKeysResponse
     ): Either[String, Seq[PrivateKeyMetadata]] =
       response.privateKeysMetadata.traverse(PrivateKeyMetadata.fromProtoV30).leftMap(_.toString)
@@ -78,7 +78,7 @@ object VaultAdminCommands {
         Seq[PublicKeyWithName],
       ] {
 
-    override def createRequest(): Either[String, ListPublicKeysRequest] =
+    override protected def createRequest(): Either[String, ListPublicKeysRequest] =
       Right(
         v30.ListPublicKeysRequest(
           Some(
@@ -91,13 +91,13 @@ object VaultAdminCommands {
         )
       )
 
-    override def submitRequest(
+    override protected def submitRequest(
         service: VaultServiceStub,
         request: v30.ListPublicKeysRequest,
     ): Future[v30.ListPublicKeysResponse] =
       service.listPublicKeys(request)
 
-    override def handleResponse(
+    override protected def handleResponse(
         response: v30.ListPublicKeysResponse
     ): Either[String, Seq[PublicKeyWithName]] =
       response.publicKeys.traverse(PublicKeyWithName.fromProto30).leftMap(_.toString)
@@ -110,13 +110,13 @@ object VaultAdminCommands {
         Fingerprint,
       ] {
 
-    override def submitRequest(
+    override protected def submitRequest(
         service: VaultServiceStub,
         request: v30.ImportPublicKeyRequest,
     ): Future[v30.ImportPublicKeyResponse] =
       service.importPublicKey(request)
 
-    override def handleResponse(
+    override protected def handleResponse(
         response: v30.ImportPublicKeyResponse
     ): Either[String, Fingerprint] =
       Fingerprint.fromProtoPrimitive(response.fingerprint).leftMap(_.toString)
@@ -126,36 +126,38 @@ object VaultAdminCommands {
   final case class ImportPublicKey(publicKey: ByteString, name: Option[String])
       extends BaseImportPublicKey {
 
-    override def createRequest(): Either[String, v30.ImportPublicKeyRequest] =
+    override protected def createRequest(): Either[String, v30.ImportPublicKeyRequest] =
       Right(v30.ImportPublicKeyRequest(publicKey = publicKey, name = name.getOrElse("")))
   }
 
   final case class GenerateSigningKey(
       name: String,
       usage: NonEmpty[Set[SigningKeyUsage]],
-      schemeO: Option[SigningKeyScheme],
+      keySpec: Option[SigningKeySpec],
   ) extends BaseVaultAdminCommand[
         v30.GenerateSigningKeyRequest,
         v30.GenerateSigningKeyResponse,
         SigningPublicKey,
       ] {
 
-    override def createRequest(): Either[String, v30.GenerateSigningKeyRequest] =
+    override protected def createRequest(): Either[String, v30.GenerateSigningKeyRequest] =
       Right(
         v30.GenerateSigningKeyRequest(
           name = name,
           usage = usage.map(_.toProtoEnum).toSeq,
-          keyScheme = SigningKeyScheme.toProtoEnumOpt(schemeO),
+          keySpec = keySpec.fold[cryptoproto.SigningKeySpec](
+            cryptoproto.SigningKeySpec.SIGNING_KEY_SPEC_UNSPECIFIED
+          )(_.toProtoEnum),
         )
       )
 
-    override def submitRequest(
+    override protected def submitRequest(
         service: VaultServiceStub,
         request: v30.GenerateSigningKeyRequest,
     ): Future[v30.GenerateSigningKeyResponse] =
       service.generateSigningKey(request)
 
-    override def handleResponse(
+    override protected def handleResponse(
         response: v30.GenerateSigningKeyResponse
     ): Either[String, SigningPublicKey] =
       response.publicKey
@@ -174,7 +176,7 @@ object VaultAdminCommands {
         EncryptionPublicKey,
       ] {
 
-    override def createRequest(): Either[String, v30.GenerateEncryptionKeyRequest] =
+    override protected def createRequest(): Either[String, v30.GenerateEncryptionKeyRequest] =
       Right(
         v30.GenerateEncryptionKeyRequest(
           name = name,
@@ -184,13 +186,13 @@ object VaultAdminCommands {
         )
       )
 
-    override def submitRequest(
+    override protected def submitRequest(
         service: VaultServiceStub,
         request: v30.GenerateEncryptionKeyRequest,
     ): Future[v30.GenerateEncryptionKeyResponse] =
       service.generateEncryptionKey(request)
 
-    override def handleResponse(
+    override protected def handleResponse(
         response: v30.GenerateEncryptionKeyResponse
     ): Either[String, EncryptionPublicKey] =
       response.publicKey
@@ -212,7 +214,7 @@ object VaultAdminCommands {
         SigningPublicKey,
       ] {
 
-    override def createRequest(): Either[String, v30.RegisterKmsSigningKeyRequest] =
+    override protected def createRequest(): Either[String, v30.RegisterKmsSigningKeyRequest] =
       Right(
         v30.RegisterKmsSigningKeyRequest(
           kmsKeyId = kmsKeyId,
@@ -221,13 +223,13 @@ object VaultAdminCommands {
         )
       )
 
-    override def submitRequest(
+    override protected def submitRequest(
         service: VaultServiceStub,
         request: v30.RegisterKmsSigningKeyRequest,
     ): Future[v30.RegisterKmsSigningKeyResponse] =
       service.registerKmsSigningKey(request)
 
-    override def handleResponse(
+    override protected def handleResponse(
         response: v30.RegisterKmsSigningKeyResponse
     ): Either[String, SigningPublicKey] =
       response.publicKey
@@ -243,7 +245,7 @@ object VaultAdminCommands {
         EncryptionPublicKey,
       ] {
 
-    override def createRequest(): Either[String, v30.RegisterKmsEncryptionKeyRequest] =
+    override protected def createRequest(): Either[String, v30.RegisterKmsEncryptionKeyRequest] =
       Right(
         v30.RegisterKmsEncryptionKeyRequest(
           kmsKeyId = kmsKeyId,
@@ -251,13 +253,13 @@ object VaultAdminCommands {
         )
       )
 
-    override def submitRequest(
+    override protected def submitRequest(
         service: VaultServiceStub,
         request: v30.RegisterKmsEncryptionKeyRequest,
     ): Future[v30.RegisterKmsEncryptionKeyResponse] =
       service.registerKmsEncryptionKey(request)
 
-    override def handleResponse(
+    override protected def handleResponse(
         response: v30.RegisterKmsEncryptionKeyResponse
     ): Either[String, EncryptionPublicKey] =
       response.publicKey
@@ -273,21 +275,23 @@ object VaultAdminCommands {
         Unit,
       ] {
 
-    override def createRequest(): Either[String, v30.RotateWrapperKeyRequest] =
+    override protected def createRequest(): Either[String, v30.RotateWrapperKeyRequest] =
       Right(
         v30.RotateWrapperKeyRequest(
           newWrapperKeyId = newWrapperKeyId
         )
       )
 
-    override def submitRequest(
+    override protected def submitRequest(
         service: VaultServiceStub,
         request: v30.RotateWrapperKeyRequest,
     ): Future[v30.RotateWrapperKeyResponse] =
       service.rotateWrapperKey(request)
 
-    override def handleResponse(response: v30.RotateWrapperKeyResponse): Either[String, Unit] =
-      Right(())
+    override protected def handleResponse(
+        response: v30.RotateWrapperKeyResponse
+    ): Either[String, Unit] =
+      Either.unit
 
   }
 
@@ -298,18 +302,18 @@ object VaultAdminCommands {
         String,
       ] {
 
-    override def createRequest(): Either[String, v30.GetWrapperKeyIdRequest] =
+    override protected def createRequest(): Either[String, v30.GetWrapperKeyIdRequest] =
       Right(
         v30.GetWrapperKeyIdRequest()
       )
 
-    override def submitRequest(
+    override protected def submitRequest(
         service: VaultServiceStub,
         request: v30.GetWrapperKeyIdRequest,
     ): Future[v30.GetWrapperKeyIdResponse] =
       service.getWrapperKeyId(request)
 
-    override def handleResponse(
+    override protected def handleResponse(
         response: v30.GetWrapperKeyIdResponse
     ): Either[String, String] =
       Right(response.wrapperKeyId)
@@ -326,7 +330,7 @@ object VaultAdminCommands {
         Unit,
       ] {
 
-    override def createRequest(): Either[String, v30.ImportKeyPairRequest] =
+    override protected def createRequest(): Either[String, v30.ImportKeyPairRequest] =
       Right(
         v30.ImportKeyPairRequest(
           keyPair = keyPair,
@@ -335,14 +339,15 @@ object VaultAdminCommands {
         )
       )
 
-    override def submitRequest(
+    override protected def submitRequest(
         service: VaultServiceStub,
         request: v30.ImportKeyPairRequest,
     ): Future[v30.ImportKeyPairResponse] =
       service.importKeyPair(request)
 
-    override def handleResponse(response: v30.ImportKeyPairResponse): Either[String, Unit] =
-      EitherUtil.unit
+    override protected def handleResponse(
+        response: v30.ImportKeyPairResponse
+    ): Either[String, Unit] = Either.unit
   }
 
   final case class ExportKeyPair(
@@ -355,7 +360,7 @@ object VaultAdminCommands {
         ByteString,
       ] {
 
-    override def createRequest(): Either[String, v30.ExportKeyPairRequest] =
+    override protected def createRequest(): Either[String, v30.ExportKeyPairRequest] =
       Right(
         v30.ExportKeyPairRequest(
           fingerprint = fingerprint.toProtoPrimitive,
@@ -364,13 +369,15 @@ object VaultAdminCommands {
         )
       )
 
-    override def submitRequest(
+    override protected def submitRequest(
         service: VaultServiceStub,
         request: v30.ExportKeyPairRequest,
     ): Future[v30.ExportKeyPairResponse] =
       service.exportKeyPair(request)
 
-    override def handleResponse(response: v30.ExportKeyPairResponse): Either[String, ByteString] =
+    override protected def handleResponse(
+        response: v30.ExportKeyPairResponse
+    ): Either[String, ByteString] =
       Right(response.keyPair)
   }
 
@@ -381,16 +388,17 @@ object VaultAdminCommands {
         Unit,
       ] {
 
-    override def createRequest(): Either[String, v30.DeleteKeyPairRequest] =
+    override protected def createRequest(): Either[String, v30.DeleteKeyPairRequest] =
       Right(v30.DeleteKeyPairRequest(fingerprint = fingerprint.toProtoPrimitive))
 
-    override def submitRequest(
+    override protected def submitRequest(
         service: VaultServiceStub,
         request: v30.DeleteKeyPairRequest,
     ): Future[v30.DeleteKeyPairResponse] =
       service.deleteKeyPair(request)
 
-    override def handleResponse(response: v30.DeleteKeyPairResponse): Either[String, Unit] =
-      EitherUtil.unit
+    override protected def handleResponse(
+        response: v30.DeleteKeyPairResponse
+    ): Either[String, Unit] = Either.unit
   }
 }

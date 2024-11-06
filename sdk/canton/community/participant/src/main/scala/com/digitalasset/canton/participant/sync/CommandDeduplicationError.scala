@@ -38,8 +38,8 @@ object CommandDeduplicationError extends InjectionErrorGroup {
   final case class DuplicateCommandReject(
       changeId: ChangeId,
       // use the same field name as defined in com.daml.error.GrpcStatuses.CompletionOffsetKey
-      // use a Hexstring instead of LedgerSyncOffset so that we don't get the pretty printer in the way
-      completion_offset: String,
+      // use a Long instead of LedgerSyncOffset so that we don't get the pretty printer in the way
+      completion_offset: Long,
       accepted: Boolean,
       existingSubmissionId: Option[LedgerSubmissionId],
   ) extends TransactionErrorImpl(
@@ -56,7 +56,7 @@ object CommandDeduplicationError extends InjectionErrorGroup {
       requestedPeriod: DeduplicationPeriod,
       // machine readable field for the earliest supported offset;
       // must be the same as com.digitalasset.canton.ledger.error.LedgerApiErrors.EarliestOffsetMetadataKey
-      earliest_offset: String,
+      earliest_offset: Long,
   ) extends TransactionErrorImpl(
         "Deduplication period starts too early. The error metadata field earliest_offset contains the earliest deduplication offset currently allowed.",
         // This error is generated only after in-flight submission checking and therefore reported asynchronously,

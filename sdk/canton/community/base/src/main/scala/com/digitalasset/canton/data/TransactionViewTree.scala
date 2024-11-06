@@ -8,7 +8,6 @@ import com.digitalasset.canton.data.ViewPosition.MerklePathElement
 import com.digitalasset.canton.protocol.{RootHash, TransactionId, ViewHash}
 import com.digitalasset.canton.sequencing.protocol.MediatorGroupRecipient
 import com.digitalasset.canton.topology.DomainId
-import com.digitalasset.canton.util.EitherUtil
 import com.digitalasset.canton.{LfPartyId, WorkflowId}
 
 import java.util.UUID
@@ -95,8 +94,9 @@ object TransactionViewTree {
       "The participant metadata of a transaction view tree must be unblinded."
     )
 
-    _ <- EitherUtil.condUnitE(
+    _ <- Either.cond(
       isTopLevel == tree.submitterMetadata.isFullyUnblinded,
+      (),
       "The submitter metadata must be unblinded if and only if the represented view is top-level. " +
         s"Submitter metadata: ${tree.submitterMetadata.unwrap.fold(_ => "blinded", _ => "unblinded")}, " +
         s"isTopLevel: $isTopLevel",

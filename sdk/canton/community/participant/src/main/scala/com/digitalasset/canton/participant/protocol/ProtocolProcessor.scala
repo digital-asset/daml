@@ -303,7 +303,7 @@ abstract class ProtocolProcessor[
       // Cap it by the max sequencing time so that the timeout field can move only backwards.
       val timestamp = ephemeral.observedTimestampLookup.highWatermark min maxSequencingTime
       val newUnsequencedSubmission = UnsequencedSubmission(timestamp, newTrackingData)
-      val fut = for {
+      for {
         _unit <- inFlightSubmissionTracker.observeSubmissionError(
           tracked.changeIdHash,
           domainId,
@@ -330,7 +330,6 @@ abstract class ProtocolProcessor[
           ephemeral.timelyRejectNotifier.notifyIfInPastAsync(timestamp)
         }
       } yield tracked.onDefinitiveFailure
-      FutureUnlessShutdown.outcomeF(fut)
     }
 
     // After in-flight registration, Make sure that all errors get a chance to update the tracking data and
@@ -425,7 +424,6 @@ abstract class ProtocolProcessor[
               .right[SubmissionTrackingData](
                 inFlightSubmissionTracker.updateRegistration(inFlightSubmission, batch.rootHash)
               )
-              .mapK(FutureUnlessShutdown.outcomeK)
           } yield batch
           unlessError(batchF, mayHaveBeenSent = false)(sendBatch)
         }
@@ -692,7 +690,7 @@ abstract class ProtocolProcessor[
       (malformedPayloads, viewsWithCorrectRootHash)
     }
 
-    def observeSequencedRootHash(amSubmitter: Boolean): Future[Unit] =
+    def observeSequencedRootHash(amSubmitter: Boolean): FutureUnlessShutdown[Unit] =
       if (amSubmitter && !isReceipt) {
         // We are the submitting participant and yet the request does not have a message ID.
         // This looks like a preplay attack, and we mark the request as sequenced in the in-flight
@@ -703,7 +701,7 @@ abstract class ProtocolProcessor[
           rootHash,
           sequenced,
         )
-      } else Future.unit
+      } else FutureUnlessShutdown.unit
 
     performUnlessClosingEitherUSF(
       s"$functionFullName(rc=$rc, sc=$sc, traceId=${traceContext.traceId})"
@@ -810,7 +808,6 @@ abstract class ProtocolProcessor[
                         submissionDataForTracker.submittingParticipant == participantId
                       )
                     )
-                    .mapK(FutureUnlessShutdown.outcomeK)
                   _ <- stopRequestProcessing(
                     ts,
                     rc,
@@ -844,7 +841,7 @@ abstract class ProtocolProcessor[
             // All views with the same correct root hash declare the same mediator, so it's enough to look at the head
             val (firstView, _) = goodViewsWithSignatures.head1
 
-            val observeF = submissionDataForTrackerO match {
+            val observeFUS = submissionDataForTrackerO match {
               case Some(submissionDataForTracker) =>
                 ephemeral.submissionTracker.provideSubmissionData(
                   rootHash,
@@ -862,7 +859,7 @@ abstract class ProtocolProcessor[
                   requestId,
                 )
 
-                Future.unit
+                FutureUnlessShutdown.unit
             }
 
             val declaredMediator = firstView.unwrap.mediator
@@ -910,7 +907,7 @@ abstract class ProtocolProcessor[
             }
 
             for {
-              _ <- EitherT.right(observeF).mapK(FutureUnlessShutdown.outcomeK)
+              _ <- EitherT.right(observeFUS)
               _ <- processF
             } yield ()
         }

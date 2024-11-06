@@ -7,7 +7,7 @@ module DA.Daml.LF.TypeChecker.Error(
     Error(..),
     overUnwarnable,
     UnwarnableError(..),
-    WarnableError(..),
+    ErrorOrWarning(..),
     TemplatePart(..),
     InterfacePart(..),
     UnserializabilityReason(..),
@@ -16,8 +16,18 @@ module DA.Daml.LF.TypeChecker.Error(
     errorLocation,
     toDiagnostic,
     Warning(..),
+    UnerrorableWarning(..),
     PackageUpgradeOrigin(..),
     UpgradeMismatchReason(..),
+    DamlWarningFlag(..),
+    DamlWarningFlags(..),
+    DamlWarningFlagStatus(..),
+    parseRawDamlWarningFlag,
+    getWarningStatus,
+    upgradeInterfacesFlag,
+    damlWarningFlagParserTypeChecker,
+    mkDamlWarningFlags,
+    combineParsers
     ) where
 
 import Control.Applicative
@@ -32,6 +42,7 @@ import DA.Daml.LF.Ast
 import DA.Daml.LF.Ast.Pretty
 import DA.Daml.LF.Ast.Alpha (Mismatch(..), SomeName(..))
 import DA.Daml.UtilLF (sourceLocToRange)
+import DA.Daml.LF.TypeChecker.Error.WarningFlags
 
 -- TODO(MH): Rework the context machinery to avoid code duplication.
 -- | Type checking context for error reporting purposes.
@@ -111,8 +122,7 @@ data UnserializabilityReason
 
 data Error
   = EUnwarnableError !UnwarnableError
-  | EWarnableError !WarnableError
-  | EWarningToError !Warning
+  | EErrorOrWarning !ErrorOrWarning
   | EContext !Context !Error
   deriving (Show)
 
@@ -224,7 +234,7 @@ data UnwarnableError
   | EUpgradeDatatypeBecameUnserializable !UpgradedRecordOrigin
   deriving (Show)
 
-data WarnableError
+data ErrorOrWarning
   = WEUpgradeShouldDefineIfacesAndTemplatesSeparately
   | WEUpgradeShouldDefineIfaceWithoutImplementation !ModuleName !TypeConName !TypeConName
   | WEUpgradeShouldDefineTplInSeparatePackage !TypeConName !TypeConName
@@ -232,32 +242,75 @@ data WarnableError
   | WEDependencyHasNoMetadataDespiteUpgradeability !PackageId !PackageUpgradeOrigin
   deriving (Eq, Show)
 
-instance Pretty WarnableError where
+instance Pretty ErrorOrWarning where
   pPrint = \case
     WEUpgradeShouldDefineIfacesAndTemplatesSeparately ->
       vsep
         [ "This package defines both interfaces and templates. This may make this package and its dependents not upgradeable."
         , "It is recommended that interfaces are defined in their own package separate from their implementations."
-        , "Ignore this error message with the --warn-bad-interface-instances=yes flag."
         ]
     WEUpgradeShouldDefineIfaceWithoutImplementation implModule implIface implTpl ->
       vsep
         [ "The interface " <> pPrint implIface <> " was defined in this package and implemented in " <> pPrint implModule <> " by " <> pPrint implTpl
         , "This may make this package and its dependents not upgradeable."
         , "It is recommended that interfaces are defined in their own package separate from their implementations."
-        , "Ignore this error message with the --warn-bad-interface-instances=yes flag."
         ]
     WEUpgradeShouldDefineTplInSeparatePackage tpl iface ->
       vsep
         [ "The template " <> pPrint tpl <> " has implemented interface " <> pPrint iface <> ", which is defined in a previous version of this package."
         , "This may make this package and its dependents not upgradeable."
         , "It is recommended that interfaces are defined in their own package separate from their implementations."
-        , "Ignore this error message with the --warn-bad-interface-instances=yes flag."
         ]
     WEDependencyHasUnparseableVersion pkgName version packageOrigin ->
       "Dependency " <> pPrint pkgName <> " of " <> pPrint packageOrigin <> " has a version which cannot be parsed: '" <> pPrint version <> "'"
     WEDependencyHasNoMetadataDespiteUpgradeability pkgId packageOrigin ->
       "Dependency with package ID " <> pPrint pkgId <> " of " <> pPrint packageOrigin <> " has no metadata, despite being compiled with an SDK version that supports metadata."
+
+damlWarningFlagParserTypeChecker :: DamlWarningFlagParser ErrorOrWarning
+damlWarningFlagParserTypeChecker = DamlWarningFlagParser
+  { dwfpFlagParsers =
+      [ (upgradeInterfacesName, upgradeInterfacesFlag)
+      , (upgradeDependencyMetadataName, upgradeDependencyMetadataFlag)
+      ]
+  , dwfpDefault = \case
+      WEUpgradeShouldDefineIfacesAndTemplatesSeparately {} -> AsError
+      WEUpgradeShouldDefineIfaceWithoutImplementation {} -> AsError
+      WEUpgradeShouldDefineTplInSeparatePackage {} -> AsError
+      WEDependencyHasUnparseableVersion {} -> AsWarning
+      WEDependencyHasNoMetadataDespiteUpgradeability {} -> AsWarning
+  }
+
+filterNameForErrorOrWarning :: ErrorOrWarning -> Maybe String
+filterNameForErrorOrWarning err | upgradeInterfacesFilter err = Just upgradeInterfacesName
+filterNameForErrorOrWarning err | upgradeDependencyMetadataFilter err = Just upgradeDependencyMetadataName
+filterNameForErrorOrWarning _ = Nothing
+
+upgradeInterfacesFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
+upgradeInterfacesFlag status = RawDamlWarningFlag upgradeInterfacesName status upgradeInterfacesFilter
+
+upgradeInterfacesName :: String
+upgradeInterfacesName = "upgrade-interfaces"
+
+upgradeInterfacesFilter :: ErrorOrWarning -> Bool
+upgradeInterfacesFilter =
+    \case
+        WEUpgradeShouldDefineIfacesAndTemplatesSeparately {} -> True
+        WEUpgradeShouldDefineIfaceWithoutImplementation {} -> True
+        WEUpgradeShouldDefineTplInSeparatePackage {} -> True
+        _ -> False
+
+upgradeDependencyMetadataFlag :: DamlWarningFlagStatus -> DamlWarningFlag ErrorOrWarning
+upgradeDependencyMetadataFlag status = RawDamlWarningFlag upgradeDependencyMetadataName status upgradeDependencyMetadataFilter
+
+upgradeDependencyMetadataName :: String
+upgradeDependencyMetadataName = "upgrade-dependency-metadata"
+
+upgradeDependencyMetadataFilter :: ErrorOrWarning -> Bool
+upgradeDependencyMetadataFilter =
+    \case
+        WEDependencyHasUnparseableVersion {} -> True
+        WEDependencyHasNoMetadataDespiteUpgradeability {} -> True
+        _ -> False
 
 data PackageUpgradeOrigin = UpgradingPackage | UpgradedPackage
   deriving (Eq, Ord, Show)
@@ -401,8 +454,15 @@ instance Pretty UnserializabilityReason where
 instance Pretty Error where
   pPrint = \case
     EUnwarnableError err -> pPrint err
-    EWarnableError err -> pPrint err
-    EWarningToError warning -> pPrint warning
+    EErrorOrWarning err ->
+      case filterNameForErrorOrWarning err of
+        Just name ->
+          vcat
+            [ pPrint err
+            , "Downgrade this error to a warning with -W" <> string name
+            , "Disable this error entirely with -Wno-" <> string name
+            ]
+        Nothing -> pPrint err
     EContext ctx err -> prettyWithContext ctx (Right err)
 
 instance Pretty UnwarnableError where
@@ -782,7 +842,12 @@ instance ToDiagnostic UnwarnableError where
 
 data Warning
   = WContext !Context !Warning
-  | WTemplateChangedPrecondition !TypeConName ![Mismatch UpgradeMismatchReason]
+  | WUnerrorableWarning !UnerrorableWarning
+  | WErrorToWarning !ErrorOrWarning
+  deriving (Eq, Show)
+
+data UnerrorableWarning
+  = WTemplateChangedPrecondition !TypeConName ![Mismatch UpgradeMismatchReason]
   | WTemplateChangedSignatories !TypeConName ![Mismatch UpgradeMismatchReason]
   | WTemplateChangedObservers !TypeConName ![Mismatch UpgradeMismatchReason]
   | WTemplateChangedAgreement !TypeConName ![Mismatch UpgradeMismatchReason]
@@ -795,7 +860,6 @@ data Warning
     -- ^ When upgrading, we extract relevant expressions for things like
     -- signatories. If the expression changes shape so that we can't get the
     -- underlying expression that has changed, this warning is emitted.
-  | WErrorToWarning !WarnableError
   deriving (Eq, Show)
 
 warningLocation :: Warning -> Maybe SourceLoc
@@ -803,9 +867,8 @@ warningLocation = \case
   WContext ctx _ -> contextLocation ctx
   _ -> Nothing
 
-instance Pretty Warning where
+instance Pretty UnerrorableWarning where
   pPrint = \case
-    WContext ctx warning -> prettyWithContext ctx (Left warning)
     WTemplateChangedPrecondition template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the definition of its precondition."
     WTemplateChangedSignatories template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the definition of its signatories."
     WTemplateChangedObservers template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the definition of its observers."
@@ -816,7 +879,6 @@ instance Pretty Warning where
     WTemplateChangedKeyExpression template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the expression for computing its key."
     WTemplateChangedKeyMaintainers template mismatches -> withMismatchInfo mismatches $ "The upgraded template " <> pPrint template <> " has changed the maintainers for its key."
     WCouldNotExtractForUpgradeChecking attribute mbExtra -> "Could not check if the upgrade of " <> text attribute <> " is valid because its expression is the not the right shape." <> foldMap (const " Extra context: " <> text) mbExtra
-    WErrorToWarning err -> pPrint err
     where
     withMismatchInfo :: [Mismatch UpgradeMismatchReason] -> Doc ann -> Doc ann
     withMismatchInfo [] doc = doc
@@ -832,6 +894,20 @@ instance Pretty Warning where
         , "There are " <> string (show (length mismatches)) <> " differences in the expression, including:"
         , nest 2 $ vcat $ map pPrint (take 3 mismatches)
         ]
+
+instance Pretty Warning where
+  pPrint = \case
+    WContext ctx warning -> prettyWithContext ctx (Left warning)
+    WUnerrorableWarning standaloneWarning -> pPrint standaloneWarning
+    WErrorToWarning err ->
+      case filterNameForErrorOrWarning err of
+        Just name ->
+          vcat
+            [ pPrint err
+            , "Upgrade this warning to an error -Werror=" <> string name
+            , "Disable this warning entirely with -Wno-" <> string name
+            ]
+        Nothing -> pPrint err
 
 instance ToDiagnostic Warning where
   toDiagnostic warning = Diagnostic

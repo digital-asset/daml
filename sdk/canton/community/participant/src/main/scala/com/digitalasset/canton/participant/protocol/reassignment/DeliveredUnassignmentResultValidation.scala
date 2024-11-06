@@ -17,8 +17,8 @@ import com.digitalasset.canton.protocol.{RequestId, RootHash}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
-import com.digitalasset.canton.util.{EitherTUtil, EitherUtil}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -35,7 +35,7 @@ private[reassignment] final case class DeliveredUnassignmentResultValidation(
 
   private val stakeholders = unassignmentRequest.stakeholders
   private val sourceDomainId = unassignmentRequest.sourceDomain
-  private val reassigningParticipants = unassignmentRequest.confirmingReassigningParticipants
+  private val reassigningParticipants = unassignmentRequest.reassigningParticipants
 
   def validate: EitherT[Future, Error, Unit] =
     for {
@@ -93,16 +93,18 @@ private[reassignment] final case class DeliveredUnassignmentResultValidation(
 
   private def validateInformees = {
     val partyToParticipantsSourceF =
-      sourceTopology.unwrap.ipsSnapshot.activeParticipantsOfPartiesWithInfo(stakeholders.toSeq)
+      sourceTopology.unwrap.ipsSnapshot.activeParticipantsOfPartiesWithInfo(
+        stakeholders.all.toSeq
+      )
     val partyToParticipantsTargetF =
-      targetTopology.unwrap.activeParticipantsOfPartiesWithInfo(stakeholders.toSeq)
+      targetTopology.unwrap.activeParticipantsOfPartiesWithInfo(stakeholders.all.toSeq)
 
-    // Check that each stakeholder is hosted on at least one reassigning participant
-    // TODO(#21072) Revisit when confirmation is required only from signatories
+    // Check that each stakeholder is hosted on at least one observing reassigning participant
     val stakeholdersHostedReassigningParticipants: Future[Either[Error, Unit]] = for {
       partyToParticipantsSource <- partyToParticipantsSourceF
       partyToParticipantsTarget <- partyToParticipantsTargetF
-      res = stakeholders.toSeq.traverse_ { stakeholder =>
+
+      res = stakeholders.all.toSeq.traverse_ { stakeholder =>
         val hostingParticipantsSource =
           partyToParticipantsSource.get(stakeholder).map(_.participants.keySet).getOrElse(Set.empty)
         val hostingParticipantsTarget =
@@ -110,11 +112,12 @@ private[reassignment] final case class DeliveredUnassignmentResultValidation(
 
         val hostingReassigningParticipants = hostingParticipantsSource
           .intersect(hostingParticipantsTarget)
-          .intersect(reassigningParticipants)
+          .intersect(reassigningParticipants.observing)
 
-        EitherUtil.condUnitE(
+        Either.cond(
           hostingReassigningParticipants.nonEmpty,
-          StakeholderNotHostedReassigningParticipant(stakeholder),
+          (),
+          StakeholderNotHostedObservingReassigningParticipant(stakeholder),
         )
       }
     } yield res
@@ -122,8 +125,8 @@ private[reassignment] final case class DeliveredUnassignmentResultValidation(
     for {
       _ <- EitherT(stakeholdersHostedReassigningParticipants)
       _ <- EitherTUtil.condUnitET[Future][Error](
-        result.informees == stakeholders,
-        IncorrectInformees(stakeholders, result.informees),
+        result.informees == stakeholders.all,
+        IncorrectInformees(stakeholders.all, result.informees),
       )
     } yield ()
   }
@@ -201,10 +204,10 @@ object DeliveredUnassignmentResultValidation {
     override def error: String = s"Result time $timestamp exceeds decision time $decisionTime"
   }
 
-  final case class StakeholderNotHostedReassigningParticipant(
+  final case class StakeholderNotHostedObservingReassigningParticipant(
       stakeholder: LfPartyId
   ) extends Error {
     override def error: String =
-      s"Stakeholder $stakeholder is not hosted on any reassigning participant"
+      s"Stakeholder $stakeholder is not hosted on any observing reassigning participant"
   }
 }

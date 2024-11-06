@@ -5,6 +5,7 @@ package com.digitalasset.canton.console
 
 import ammonite.runtime.Storage.InMemory
 import ammonite.util.Colors
+import cats.syntax.either.*
 import com.digitalasset.canton.admin.api.client.commands.{
   GrpcAdminCommand,
   ParticipantAdminCommands,
@@ -107,10 +108,10 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
       )
     )
     type NodeGroup = Seq[(String, Nodes[CantonNode, CantonNodeBootstrap[CantonNode]])]
-    when(environment.startNodes(any[NodeGroup])(anyTraceContext)).thenReturn(Right(()))
+    when(environment.startNodes(any[NodeGroup])(anyTraceContext)).thenReturn(Either.unit)
 
-    when(participants.startAndWait(anyString())(anyTraceContext)).thenReturn(Right(()))
-    when(participants.stopAndWait(anyString())(anyTraceContext)).thenReturn(Right(()))
+    when(participants.startAndWait(anyString())(anyTraceContext)).thenReturn(Either.unit)
+    when(participants.stopAndWait(anyString())(anyTraceContext)).thenReturn(Either.unit)
     when(participants.isRunning(anyString())).thenReturn(true)
     when(participants.getRunning(anyString())).thenReturn(Some(participantBootstrap))
     when(participantBootstrap.getNode).thenReturn(Some(participant))
@@ -150,7 +151,7 @@ class ConsoleTest extends AnyWordSpec with BaseTest {
       assertExpectedStdErrorOutput(stderr)
 
       // fail if the run was unsuccessful
-      result shouldBe Right(())
+      result shouldBe Either.unit
     }
 
     def run(commands: String*): (Either[HeadlessConsoleError, Unit], String) = {

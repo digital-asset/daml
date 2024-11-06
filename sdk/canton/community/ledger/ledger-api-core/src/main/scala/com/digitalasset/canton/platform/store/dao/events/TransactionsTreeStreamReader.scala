@@ -35,6 +35,7 @@ import com.digitalasset.canton.platform.store.utils.{
   Telemetry,
 }
 import com.digitalasset.canton.platform.{Party, TemplatePartiesFilter}
+import com.digitalasset.canton.util.MonadUtil
 import com.digitalasset.canton.util.PekkoUtil.syntax.*
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.NotUsed
@@ -194,9 +195,9 @@ class TransactionsTreeStreamReader(
                   minOffsetExclusive = queryRange.startExclusiveOffset,
                   maxOffsetInclusive = queryRange.endInclusiveOffset,
                   errorPruning = (prunedOffset: Offset) =>
-                    s"Transactions request from ${queryRange.startExclusiveOffset.toHexString} to ${queryRange.endInclusiveOffset.toHexString} precedes pruned offset ${prunedOffset.toHexString}",
+                    s"Transactions request from ${queryRange.startExclusiveOffset.toLong} to ${queryRange.endInclusiveOffset.toLong} precedes pruned offset ${prunedOffset.toLong}",
                   errorLedgerEnd = (ledgerEndOffset: Offset) =>
-                    s"Transactions request from ${queryRange.startExclusiveOffset.toHexString} to ${queryRange.endInclusiveOffset.toHexString} is beyond ledger end offset ${ledgerEndOffset.toHexString}",
+                    s"Transactions request from ${queryRange.startExclusiveOffset.toLong} to ${queryRange.endInclusiveOffset.toLong} is beyond ledger end offset ${ledgerEndOffset.toLong}",
                 ) {
                   eventStorageBackend.transactionStreamingQueries.fetchEventPayloadsTree(
                     target = target
@@ -348,9 +349,9 @@ class TransactionsTreeStreamReader(
   private def deserializeLfValues(
       rawEvents: Vector[Entry[RawTreeEvent]],
       eventProjectionProperties: EventProjectionProperties,
-  )(implicit lc: LoggingContextWithTrace): Future[Vector[Entry[TreeEvent]]] =
+  )(implicit lc: LoggingContextWithTrace): Future[Seq[Entry[TreeEvent]]] =
     Timed.future(
-      future = Future.traverse(rawEvents)(
+      future = MonadUtil.sequentialTraverse(rawEvents)(
         TransactionsReader.deserializeTreeEvent(eventProjectionProperties, lfValueTranslation)
       ),
       timer = dbMetrics.treeTxStream.translationTimer,

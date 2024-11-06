@@ -82,6 +82,12 @@ private[update] final class BlockChunkProcessor(
       ec: ExecutionContext,
       traceContext: TraceContext,
   ): FutureUnlessShutdown[(BlockUpdateGeneratorImpl.State, ChunkUpdate)] = {
+    logger.debug(
+      s"Processing data chunk for block $height, chunk $index, with ${chunkEvents.size} events; " +
+        s"last chunk timestamp: ${state.lastChunkTs}, " +
+        s"last sequencer event timestamp: ${state.latestSequencerEventTimestamp}"
+    )
+
     val (lastTsBeforeValidation, fixedTsChanges) = fixTimestamps(height, index, state, chunkEvents)
 
     // TODO(i18438): verify the signature of the sequencer on the SendEvent
@@ -100,7 +106,9 @@ private[update] final class BlockChunkProcessor(
       sequencedSubmissionsWithSnapshots <-
         addSnapshots(
           state.latestSequencerEventTimestamp,
-          None,
+          sequencersSequencerCounter = None,
+          height,
+          index,
           orderingRequests,
         )
 
@@ -186,8 +194,10 @@ private[update] final class BlockChunkProcessor(
     //  and we don't need to add a `Deliver` for the tick.
 
     logger.debug(
-      s"Block $height: emitting a topology tick at least at $tickAtLeastAt (actually at $tickSequencingTimestamp) " +
-        s"as requested by the block orderer"
+      s"Emitting topology tick: after processing block $height, the last sequenced timestamp is ${state.lastChunkTs} and " +
+        s"the block orderer requested to tick at least at $tickAtLeastAt, so " +
+        s"ticking topology at $tickSequencingTimestamp; " +
+        s"last sequencer event timestamp: ${state.latestSequencerEventTimestamp}"
     )
     // We bypass validation here to make sure that the topology tick is always received by the sequencer runtime.
     for {
@@ -199,6 +209,9 @@ private[update] final class BlockChunkProcessor(
           protocolVersion,
           warnIfApproximate = false,
         )
+      _ = logger.debug(
+        s"Obtained topology snapshot for topology tick at $tickSequencingTimestamp after processing block $height"
+      )
       sequencerRecipients <-
         FutureUnlessShutdown.outcomeF(
           GroupAddressResolver.resolveGroupsToMembers(
@@ -309,58 +322,82 @@ private[update] final class BlockChunkProcessor(
   private def addSnapshots(
       latestSequencerEventTimestamp: Option[CantonTimestamp],
       sequencersSequencerCounter: Option[SequencerCounter],
+      height: Long,
+      index: Int,
       submissionRequests: Seq[(CantonTimestamp, Traced[SignedOrderingRequest])],
   )(implicit executionContext: ExecutionContext): FutureUnlessShutdown[Seq[SequencedSubmission]] =
-    submissionRequests.parTraverse { case (sequencingTimestamp, tracedSubmissionRequest) =>
-      tracedSubmissionRequest.withTraceContext { implicit traceContext => orderingRequest =>
-        // Warn if we use an approximate snapshot but only after we've read at least one
-        val warnIfApproximate = sequencersSequencerCounter.exists(_ > SequencerCounter.Genesis)
-        for {
-          topologySnapshotOrErrO <- orderingRequest.submissionRequest.topologyTimestamp.traverse(
-            topologyTimestamp =>
-              SequencedEventValidator
-                .validateTopologyTimestampUS(
-                  domainSyncCryptoApi,
-                  topologyTimestamp,
-                  sequencingTimestamp,
-                  latestSequencerEventTimestamp,
-                  protocolVersion,
-                  warnIfApproximate,
-                  _.sequencerTopologyTimestampTolerance,
-                )
-                .leftMap {
-                  case SequencedEventValidator.TopologyTimestampAfterSequencingTime =>
-                    SequencerErrors.TopologyTimestampAfterSequencingTimestamp(
-                      topologyTimestamp,
-                      sequencingTimestamp,
-                    )
-                  case SequencedEventValidator.TopologyTimestampTooOld(_) |
-                      SequencedEventValidator.NoDynamicDomainParameters(_) =>
-                    SequencerErrors.TopoologyTimestampTooEarly(
-                      topologyTimestamp,
-                      sequencingTimestamp,
-                    )
-                }
-                .value
+    submissionRequests.zipWithIndex.parTraverse {
+      case ((sequencingTimestamp, tracedSubmissionRequest), requestIndex) =>
+        tracedSubmissionRequest.withTraceContext { implicit traceContext => orderingRequest =>
+          // Warn if we use an approximate snapshot but only after we've read at least one
+          val warnIfApproximate = sequencersSequencerCounter.exists(_ > SequencerCounter.Genesis)
+          logger.debug(
+            s"Block $height, chunk $index, request $requestIndex sequenced at $sequencingTimestamp: " +
+              s"finding topology snapshot; latestSequencerEventTimestamp: $latestSequencerEventTimestamp"
           )
-          topologyOrSequencingSnapshot <- topologySnapshotOrErrO match {
-            case Some(Right(topologySnapshot)) => FutureUnlessShutdown.pure(topologySnapshot)
-            case _ =>
-              SyncCryptoClient.getSnapshotForTimestampUS(
-                domainSyncCryptoApi,
-                sequencingTimestamp,
-                latestSequencerEventTimestamp,
-                protocolVersion,
-                warnIfApproximate,
-              )
-          }
-        } yield SequencedSubmission(
-          sequencingTimestamp,
-          orderingRequest,
-          topologyOrSequencingSnapshot,
-          topologySnapshotOrErrO.mapFilter(_.swap.toOption),
-        )(traceContext)
-      }
+          for {
+            topologySnapshotOrErrO <- orderingRequest.submissionRequest.topologyTimestamp.traverse(
+              topologyTimestamp =>
+                SequencedEventValidator
+                  .validateTopologyTimestampUS(
+                    domainSyncCryptoApi,
+                    topologyTimestamp,
+                    sequencingTimestamp,
+                    latestSequencerEventTimestamp,
+                    protocolVersion,
+                    warnIfApproximate,
+                    _.sequencerTopologyTimestampTolerance,
+                  )
+                  .leftMap {
+                    case SequencedEventValidator.TopologyTimestampAfterSequencingTime =>
+                      SequencerErrors.TopologyTimestampAfterSequencingTimestamp(
+                        topologyTimestamp,
+                        sequencingTimestamp,
+                      )
+                    case SequencedEventValidator.TopologyTimestampTooOld(_) |
+                        SequencedEventValidator.NoDynamicDomainParameters(_) =>
+                      SequencerErrors.TopoologyTimestampTooEarly(
+                        topologyTimestamp,
+                        sequencingTimestamp,
+                      )
+                  }
+                  .value
+            )
+            topologyOrSequencingSnapshot <- topologySnapshotOrErrO match {
+              case Some(Right(topologySnapshot)) =>
+                logger.debug(
+                  s"Block $height, chunk $index, request $requestIndex sequenced at $sequencingTimestamp: " +
+                    "obtained and using topology snapshot at successfully validated request-specified " +
+                    s"topology timestamp ${orderingRequest.submissionRequest.topologyTimestamp}; " +
+                    s"latestSequencerEventTimestamp: $latestSequencerEventTimestamp"
+                )
+                FutureUnlessShutdown.pure(topologySnapshot)
+              case _ =>
+                SyncCryptoClient
+                  .getSnapshotForTimestampUS(
+                    domainSyncCryptoApi,
+                    sequencingTimestamp,
+                    latestSequencerEventTimestamp,
+                    protocolVersion,
+                    warnIfApproximate,
+                  )
+                  .map { snapshot =>
+                    logger.debug(
+                      s"Block $height, chunk $index, request $requestIndex sequenced at $sequencingTimestamp: " +
+                        "no request-specified topology timestamp or its validation failed), " +
+                        "so obtained and using topology snapshot at request sequencing time; " +
+                        s"latestSequencerEventTimestamp: $latestSequencerEventTimestamp"
+                    )
+                    snapshot
+                  }
+            }
+          } yield SequencedSubmission(
+            sequencingTimestamp,
+            orderingRequest,
+            topologyOrSequencingSnapshot,
+            topologySnapshotOrErrO.mapFilter(_.swap.toOption),
+          )(traceContext)
+        }
     }
 
   private def processAcknowledgements(

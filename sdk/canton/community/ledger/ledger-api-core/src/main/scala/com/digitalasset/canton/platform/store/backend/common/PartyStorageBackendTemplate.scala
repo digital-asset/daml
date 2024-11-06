@@ -109,25 +109,29 @@ class PartyStorageBackendTemplate(ledgerEndCache: LedgerEndCache) extends PartyS
       limitClause: ComposableQuery.CompositeSql,
       connection: Connection,
   ): Vector[IndexerPartyDetails] = {
-    import com.digitalasset.canton.platform.store.backend.Conversions.OffsetToStatement
-    val ledgerEndOffset = ledgerEndCache()._1
-    SQL"""
+    val ledgerEndOffsetO = ledgerEndCache()._1
+    ledgerEndOffsetO match {
+      case None => Vector.empty
+      case Some(ledgerEnd) =>
+        import com.digitalasset.canton.platform.store.backend.Conversions.AbsoluteOffsetToStatement
+        SQL"""
         SELECT
           party,
           #${QueryStrategy.lastByProxyAggregateFuction(
-        "display_name",
-        "ledger_offset",
-      )} display_name,
+            "display_name",
+            "ledger_offset",
+          )} display_name,
           #${QueryStrategy.booleanOrAggregationFunction}(is_local) is_local
         FROM lapi_party_entries
         WHERE
-          ledger_offset <= $ledgerEndOffset AND
+          ledger_offset <= $ledgerEnd AND
           $partyFilter
           typ = 'accept'
         GROUP BY party
         ORDER BY party
         $limitClause
        """.asVectorOf(partyDetailsParser)(connection)
+    }
   }
 
   override def parties(parties: Seq[Party])(connection: Connection): List[IndexerPartyDetails] = {

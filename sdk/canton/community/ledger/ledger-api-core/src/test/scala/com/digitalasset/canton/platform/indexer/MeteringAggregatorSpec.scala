@@ -55,7 +55,8 @@ final class MeteringAggregatorSpec
         OffsetDateTime.of(LocalDate.now(), LocalTime.of(15, 0), ZoneOffset.UTC)
       val nextAggEndTime: OffsetDateTime = lastAggEndTime.plusHours(1)
       val timeNow: OffsetDateTime = lastAggEndTime.plusHours(1).plusMinutes(+5)
-      val lastAggOffset: Offset = Offset.fromHexString(Ref.HexString.assertFromString("01"))
+      val lastAggOffset: Offset =
+        Offset.fromHexString(Ref.HexString.assertFromString("00" * 8 + "01"))
 
       val conn: Connection = mock[Connection]
       val dispatcher: DbDispatcher = new DbDispatcher {
@@ -94,7 +95,7 @@ final class MeteringAggregatorSpec
           .thenReturn(transactionMetering.lastOption.map(_.ledgerOffset))
 
         when(parameterStore.ledgerEnd(conn))
-          .thenReturn(LedgerEnd(ledgerEndOffset, 0L, 0, CantonTimestamp.MinValue))
+          .thenReturn(LedgerEnd(ledgerEndOffset.toAbsoluteOffsetO, 0L, 0, CantonTimestamp.MinValue))
 
         transactionMetering.lastOption.map { last =>
           when(meteringStore.selectTransactionMetering(lastAggOffset, last.ledgerOffset)(conn))
@@ -122,7 +123,7 @@ final class MeteringAggregatorSpec
           applicationId = applicationA,
           actionCount = i,
           meteringTimestamp = toTS(lastAggEndTime.plusMinutes(i.toLong)),
-          ledgerOffset = Offset.fromHexString(Ref.HexString.assertFromString(i.toString)),
+          ledgerOffset = Offset.fromHexString(Ref.HexString.assertFromString("00" * 8 + i.toString)),
         )
       }
 
@@ -164,7 +165,7 @@ final class MeteringAggregatorSpec
           applicationId = a,
           actionCount = 1,
           meteringTimestamp = toTS(lastAggEndTime.plusMinutes(1)),
-          ledgerOffset = Offset.fromHexString(Ref.HexString.assertFromString("10")),
+          ledgerOffset = Offset.fromHexString(Ref.HexString.assertFromString("00" * 8 + "10")),
         )
       }
 
@@ -193,13 +194,13 @@ final class MeteringAggregatorSpec
           applicationId = applicationA,
           actionCount = 1,
           meteringTimestamp = toTS(lastAggEndTime.plusMinutes(1)),
-          ledgerOffset = Offset.fromHexString(Ref.HexString.assertFromString("03")),
+          ledgerOffset = Offset.fromHexString(Ref.HexString.assertFromString("00" * 8 + "03")),
         )
       )
 
       runUnderTest(
         transactionMetering,
-        maybeLedgerEnd = Some(Offset.fromHexString(Ref.HexString.assertFromString("02"))),
+        maybeLedgerEnd = Some(Offset.fromHexString(Ref.HexString.assertFromString("00" * 8 + "02"))),
       ).discard
 
       verify(meteringParameterStore, never).updateLedgerMeteringEnd(any[LedgerMeteringEnd])(

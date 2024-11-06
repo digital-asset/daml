@@ -18,7 +18,6 @@ import io.reactivex.disposables.Disposable;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import spark.Spark;
@@ -50,14 +49,14 @@ public class IouMain {
     AtomicLong idCounter = new AtomicLong(0);
     ConcurrentHashMap<Long, Iou> contracts = new ConcurrentHashMap<>();
     BiMap<Long, Iou.ContractId> idMap = Maps.synchronizedBiMap(HashBiMap.create());
-    AtomicReference<String> acsOffset = new AtomicReference<>("");
+
+    Long ledgerEnd = client.getStateClient().getLedgerEnd().blockingGet();
 
     client
         .getStateClient()
-        .getActiveContracts(Iou.contractFilter(), Collections.singleton(party), true)
+        .getActiveContracts(Iou.contractFilter(), Collections.singleton(party), true, ledgerEnd)
         .blockingForEach(
             response -> {
-              response.offset.ifPresent(offset -> acsOffset.set(offset));
               response.activeContracts.forEach(
                   contract -> {
                     long id = idCounter.getAndIncrement();
@@ -66,21 +65,13 @@ public class IouMain {
                   });
             });
 
-    String ledgerEnd =
-        client
-            .getStateClient()
-            .getLedgerEnd()
-            .blockingGet()
-            .map(num -> String.format("%018x", num))
-            .orElse("");
-
     Disposable ignore =
         client
             .getTransactionsClient()
             .getTransactions(
                 Iou.contractFilter(),
-                acsOffset.get(),
                 ledgerEnd,
+                Optional.of(ledgerEnd),
                 Collections.singleton(party),
                 true)
             .forEach(

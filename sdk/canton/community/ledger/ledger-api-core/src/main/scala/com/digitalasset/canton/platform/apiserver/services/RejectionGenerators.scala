@@ -10,7 +10,9 @@ import com.digitalasset.canton.ledger.error.groups.{
   ConsistencyErrors,
   RequestValidationErrors,
 }
+import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.time.NonNegativeFiniteDuration
+import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.daml.lf.data.{Ref, Time}
 import com.digitalasset.daml.lf.engine.Error as LfError
 import com.digitalasset.daml.lf.engine.Error.{Interpretation, Package, Preprocessing, Validation}
@@ -21,6 +23,15 @@ sealed abstract class ErrorCause extends Product with Serializable
 object ErrorCause {
   final case class DamlLf(error: LfError) extends ErrorCause
   final case class LedgerTime(retries: Int) extends ErrorCause
+  sealed abstract class DisclosedContractsDomainIdMismatch extends ErrorCause
+  final case class DisclosedContractsDomainIdsMismatch(
+      mismatchingDisclosedContractDomainIds: Map[LfContractId, DomainId]
+  ) extends DisclosedContractsDomainIdMismatch
+  final case class PrescribedDomainIdMismatch(
+      disclosedContractIds: Set[LfContractId],
+      domainIdOfDisclosedContracts: DomainId,
+      commandsDomainId: DomainId,
+  ) extends DisclosedContractsDomainIdMismatch
 
   final case class InterpretationTimeExceeded(
       ledgerEffectiveTime: Time.Timestamp, // the Ledger Effective Time of the submitted command
@@ -172,6 +183,20 @@ object RejectionGenerators {
       case ErrorCause.InterpretationTimeExceeded(let, tolerance) =>
         CommandExecutionErrors.TimeExceeded.Reject(
           s"Interpretation time exceeds limit of Ledger Effective Time ($let) + tolerance ($tolerance)"
+        )
+      case ErrorCause.DisclosedContractsDomainIdsMismatch(mismatchingDisclosedContractDomainIds) =>
+        CommandExecutionErrors.DisclosedContractsDomainIdMismatch.Reject(
+          mismatchingDisclosedContractDomainIds.view.mapValues(_.toProtoPrimitive).toMap
+        )
+      case ErrorCause.PrescribedDomainIdMismatch(
+            disclosedContractsWithDomainId,
+            domainIdOfDisclosedContracts,
+            commandsDomainId,
+          ) =>
+        CommandExecutionErrors.PrescribedDomainIdMismatch.Reject(
+          disclosedContractsWithDomainId,
+          domainIdOfDisclosedContracts.toProtoPrimitive,
+          commandsDomainId.toProtoPrimitive,
         )
     }
   }

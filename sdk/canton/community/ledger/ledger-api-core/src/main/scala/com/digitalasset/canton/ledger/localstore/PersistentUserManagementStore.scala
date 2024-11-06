@@ -4,12 +4,12 @@
 package com.digitalasset.canton.ledger.localstore
 
 import com.daml.metrics.DatabaseMetrics
+import com.daml.nameof.NameOf.*
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.api.domain.{IdentityProviderId, User}
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.api.validation.ResourceAnnotationValidator
-import com.digitalasset.canton.ledger.localstore.CachedUserManagementStore
 import com.digitalasset.canton.ledger.localstore.PersistentUserManagementStore.{
   ConcurrentUserUpdateDetectedRuntimeException,
   MaxAnnotationsSizeExceededException,
@@ -18,16 +18,25 @@ import com.digitalasset.canton.ledger.localstore.PersistentUserManagementStore.{
 import com.digitalasset.canton.ledger.localstore.api.UserManagementStore.*
 import com.digitalasset.canton.ledger.localstore.api.{UserManagementStore, UserUpdate}
 import com.digitalasset.canton.ledger.localstore.utils.LocalAnnotationsUtils
+import com.digitalasset.canton.lifecycle.FlagCloseable
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
-import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.logging.{
+  LoggingContextWithTrace,
+  NamedLoggerFactory,
+  NamedLogging,
+  TracedLogger,
+}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.DbSupport
 import com.digitalasset.canton.platform.store.backend.localstore.UserManagementStorageBackend
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.retry.ErrorKind.{FatalErrorKind, TransientErrorKind}
+import com.digitalasset.canton.util.retry.{Backoff, ErrorKind, ExceptionRetryPolicy, Success}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.UserId
 
 import java.sql.Connection
+import scala.concurrent.duration.*
 import scala.concurrent.{ExecutionContext, Future}
 
 class PersistentUserManagementStore(
@@ -36,6 +45,7 @@ class PersistentUserManagementStore(
     timeProvider: TimeProvider,
     maxRightsPerUser: Int,
     val loggerFactory: NamedLoggerFactory,
+    flagCloseable: FlagCloseable,
 ) extends UserManagementStore
     with NamedLogging {
 
@@ -47,7 +57,7 @@ class PersistentUserManagementStore(
   override def getUserInfo(id: UserId, identityProviderId: IdentityProviderId)(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Result[UserInfo]] =
-    inTransaction(_.getUserInfo) { implicit connection =>
+    inTransaction(_.getUserInfo, functionFullName) { implicit connection =>
       withUser(id, identityProviderId) { dbUser =>
         val rights = backend.getUserRights(internalId = dbUser.internalId)(connection)
         val annotations = backend.getUserAnnotations(internalId = dbUser.internalId)(connection)
@@ -60,7 +70,7 @@ class PersistentUserManagementStore(
       user: domain.User,
       rights: Set[domain.UserRight],
   )(implicit loggingContext: LoggingContextWithTrace): Future[Result[User]] =
-    inTransaction(_.createUser) { implicit connection: Connection =>
+    inTransaction(_.createUser, functionFullName) { implicit connection: Connection =>
       withoutUser(user.id, user.identityProviderId) {
         val now = epochMicroseconds()
         if (
@@ -112,7 +122,7 @@ class PersistentUserManagementStore(
   override def updateUser(
       userUpdate: UserUpdate
   )(implicit loggingContext: LoggingContextWithTrace): Future[Result[User]] =
-    inTransaction(_.updateUser) { implicit connection =>
+    inTransaction(_.updateUser, functionFullName) { implicit connection =>
       for {
         _ <- withUser(id = userUpdate.id, userUpdate.identityProviderId) { dbUser =>
           val now = epochMicroseconds()
@@ -192,7 +202,7 @@ class PersistentUserManagementStore(
       sourceIdp: IdentityProviderId,
       targetIdp: IdentityProviderId,
   )(implicit loggingContext: LoggingContextWithTrace): Future[Result[User]] =
-    inTransaction(_.updateUserIdp) { implicit connection =>
+    inTransaction(_.updateUserIdp, functionFullName) { implicit connection =>
       for {
         _ <- withUser(id = id, sourceIdp) { dbUser =>
           val _ = backend.updateUserIdp(
@@ -217,12 +227,11 @@ class PersistentUserManagementStore(
       id: UserId,
       identityProviderId: IdentityProviderId,
   )(implicit loggingContext: LoggingContextWithTrace): Future[Result[Unit]] =
-    inTransaction(_.deleteUser) { implicit connection =>
+    inTransaction(_.deleteUser, functionFullName) { implicit connection =>
       withUser(id, identityProviderId) { _ =>
         backend.deleteUser(id = id)(connection)
       }.flatMap {
-        case true => Right(())
-        case false => Left(UserNotFound(userId = id))
+        Either.cond(_, (), UserNotFound(userId = id))
       }
     }.map(tapSuccess { _ =>
       logger.info(
@@ -235,16 +244,18 @@ class PersistentUserManagementStore(
       rights: Set[domain.UserRight],
       identityProviderId: IdentityProviderId,
   )(implicit loggingContext: LoggingContextWithTrace): Future[Result[Set[domain.UserRight]]] =
-    inTransaction(_.grantRights) { implicit connection =>
+    inTransaction(_.grantRights, functionFullName) { implicit connection =>
       withUser(id = id, identityProviderId) { user =>
         val now = epochMicroseconds()
         val addedRights = rights.filter { right =>
           if (!backend.userRightExists(internalId = user.internalId, right = right)(connection)) {
-            backend.addUserRight(
-              internalId = user.internalId,
-              right = right,
-              grantedAt = now,
-            )(connection)
+            retryOnceMore(
+              backend.addUserRight(
+                internalId = user.internalId,
+                right = right,
+                grantedAt = now,
+              )(connection)
+            )
             true
           } else {
             false
@@ -268,7 +279,7 @@ class PersistentUserManagementStore(
       rights: Set[domain.UserRight],
       identityProviderId: IdentityProviderId,
   )(implicit loggingContext: LoggingContextWithTrace): Future[Result[Set[domain.UserRight]]] =
-    inTransaction(_.revokeRights) { implicit connection =>
+    inTransaction(_.revokeRights, functionFullName) { implicit connection =>
       withUser(id = id, identityProviderId) { user =>
         val revokedRights = rights.filter { right =>
           backend.deleteUserRight(internalId = user.internalId, right = right)(connection)
@@ -289,7 +300,7 @@ class PersistentUserManagementStore(
   )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[Result[UsersPage]] =
-    inTransaction(_.listUsers) { connection =>
+    inTransaction(_.listUsers, functionFullName) { connection =>
       val dbUsers = fromExcl match {
         case None =>
           backend.getUsersOrderedById(None, maxResults, identityProviderId)(connection)
@@ -306,18 +317,27 @@ class PersistentUserManagementStore(
     }
 
   private def inTransaction[T](
-      dbMetric: metrics.userManagement.type => DatabaseMetrics
+      dbMetric: metrics.userManagement.type => DatabaseMetrics,
+      operationName: String,
   )(
       thunk: Connection => Result[T]
   )(implicit loggingContext: LoggingContextWithTrace): Future[Result[T]] = {
     def execute(): Future[Result[T]] =
       dbDispatcher.executeSql(dbMetric(metrics.userManagement))(thunk)
     implicit val ec: ExecutionContext = directEc
-    execute()
-      .recoverWith { case RetryOnceMoreException(cause) =>
-        logger.debug("Retrying transaction to handle potential race", cause)
-        execute()
-      }
+    implicit val success = Success.always
+    val retry = Backoff(
+      logger = logger,
+      flagCloseable = flagCloseable,
+      maxRetries = 10,
+      initialDelay = 50.milliseconds,
+      maxDelay = 1.second,
+      operationName = operationName,
+    )
+    retry(
+      execute(),
+      RetryOnceMoreExceptionRetryPolicy,
+    )
       .recover[Result[T]] {
         case TooManyUserRightsRuntimeException(userId) => Left(TooManyUserRights(userId))
         case ConcurrentUserUpdateDetectedRuntimeException(userId) =>
@@ -421,6 +441,7 @@ object PersistentUserManagementStore {
       maxCacheSize: Int,
       maxRightsPerUser: Int,
       loggerFactory: NamedLoggerFactory,
+      flagCloseable: FlagCloseable,
   )(implicit
       executionContext: ExecutionContext,
       traceContext: TraceContext,
@@ -432,6 +453,7 @@ object PersistentUserManagementStore {
         maxRightsPerUser = maxRightsPerUser,
         timeProvider = timeProvider,
         loggerFactory = loggerFactory,
+        flagCloseable = flagCloseable,
       ),
       expiryAfterWriteInSeconds = cacheExpiryAfterWriteInSeconds,
       maximumCacheSize = maxCacheSize,
@@ -441,3 +463,13 @@ object PersistentUserManagementStore {
 }
 
 final case class RetryOnceMoreException(underlying: Throwable) extends RuntimeException
+
+object RetryOnceMoreExceptionRetryPolicy extends ExceptionRetryPolicy {
+  override protected def determineExceptionErrorKind(
+      exception: Throwable,
+      logger: TracedLogger,
+  )(implicit tc: TraceContext): ErrorKind = exception match {
+    case RetryOnceMoreException(t) => TransientErrorKind()
+    case _ => FatalErrorKind
+  }
+}

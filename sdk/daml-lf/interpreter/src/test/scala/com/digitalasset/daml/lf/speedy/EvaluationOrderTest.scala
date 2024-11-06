@@ -1370,6 +1370,8 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
               "precondition",
               "contract signatories",
               "contract observers",
+              "key",
+              "maintainers",
               "template choice controllers",
               "template choice observers",
               "template choice authorizers",
@@ -1433,6 +1435,8 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
                 "precondition",
                 "contract signatories",
                 "contract observers",
+                "key",
+                "maintainers",
                 "template choice controllers",
                 "template choice observers",
                 "template choice authorizers",
@@ -1677,6 +1681,8 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
               "precondition",
               "contract signatories",
               "contract observers",
+              "key",
+              "maintainers",
               "template choice controllers",
               "template choice observers",
               "template choice authorizers",
@@ -1706,6 +1712,8 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
               "precondition",
               "contract signatories",
               "contract observers",
+              "key",
+              "maintainers",
               "template choice controllers",
               "template choice observers",
               "template choice authorizers",
@@ -2478,6 +2486,8 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
               "precondition",
               "contract signatories",
               "contract observers",
+              "key",
+              "maintainers",
               "ends test",
             )
           }
@@ -2536,6 +2546,8 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
                 "precondition",
                 "contract signatories",
                 "contract observers",
+                "key",
+                "maintainers",
               )
           }
         }
@@ -3067,6 +3079,8 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
               "precondition",
               "contract signatories",
               "contract observers",
+              "key",
+              "maintainers",
               "ends test",
             )
           }
@@ -3103,6 +3117,8 @@ abstract class EvaluationOrderTest(languageVersion: LanguageVersion)
                 "precondition",
                 "contract signatories",
                 "contract observers",
+                "key",
+                "maintainers",
               )
           }
         }

@@ -5,7 +5,7 @@ package com.digitalasset.canton.networking.grpc
 
 import cats.data.EitherT
 import cats.implicits.*
-import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
+import com.daml.error.{ErrorCategory, ErrorCategoryRetry, ErrorCode, Explanation, Resolution}
 import com.daml.grpc.AuthCallCredentials
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.connection.v30.{ApiInfoServiceGrpc, GetApiInfoRequest}
@@ -18,7 +18,7 @@ import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.tracing.{TraceContext, TraceContextGrpc}
 import com.digitalasset.canton.util.Thereafter.syntax.*
 import com.digitalasset.canton.util.{DelayUtil, EitherTUtil}
-import com.digitalasset.canton.{ProtoDeserializationError, config}
+import com.digitalasset.canton.{GrpcServiceInvocationMethod, ProtoDeserializationError, config}
 import io.grpc.*
 import io.grpc.stub.AbstractStub
 
@@ -110,6 +110,7 @@ object CantonGrpcUtil {
     * @param logPolicy          use this to configure log levels for errors
     * @param retryPolicy        invoked after an error to determine whether to retry
     */
+  @GrpcServiceInvocationMethod
   def sendGrpcRequest[Svc <: AbstractStub[Svc], Res](client: Svc, serverName: String)(
       send: Svc => Future[Res],
       requestDescription: String,
@@ -146,7 +147,7 @@ object CantonGrpcUtil {
       if (onShutdownRunner.isClosing) FutureUnlessShutdown.abortedDueToShutdown
       else {
         logger.debug(s"Sending request $requestDescription to $serverName.")
-        val sendF = TraceContextGrpc.withGrpcContext(traceContext)(send(clientWithDeadline))
+        val sendF = sendGrpcRequestUnsafe(clientWithDeadline)(send)
         val withRetries = sendF.transformWith {
           case Success(value) =>
             logger.debug(s"Request $requestDescription has succeeded for $serverName.")
@@ -196,6 +197,7 @@ object CantonGrpcUtil {
     *
     * Based on [[sendGrpcRequest]]
     */
+  @GrpcServiceInvocationMethod
   def sendSingleGrpcRequest[Svc <: AbstractStub[Svc], Res](
       serverName: String,
       requestDescription: String,
@@ -233,6 +235,17 @@ object CantonGrpcUtil {
     }
   }
 
+  /** Performs `send` once on `service` after having set the trace context in gRPC context.
+    * Does not perform any error handling.
+    *
+    * Prefer [[sendGrpcRequest]] whenever possible
+    */
+  @GrpcServiceInvocationMethod
+  def sendGrpcRequestUnsafe[Svc <: AbstractStub[Svc], Resp](service: Svc)(
+      send: Svc => Future[Resp]
+  )(implicit traceContext: TraceContext): Future[Resp] =
+    TraceContextGrpc.withGrpcContext(traceContext)(send(service))
+
   def silentLogPolicy(error: GrpcError)(logger: TracedLogger)(traceContext: TraceContext): Unit =
     // Log an info, if a cause is defined to not discard the cause information
     Option(error.status.getCause).foreach { cause =>
@@ -263,10 +276,16 @@ object CantonGrpcUtil {
     object AbortedDueToShutdown
         extends ErrorCode(
           id = "ABORTED_DUE_TO_SHUTDOWN",
-          ErrorCategory.CancelledOperation,
+          ErrorCategory.TransientServerFailure,
         ) {
       final case class Error()(implicit val loggingContext: ErrorLoggingContext)
-          extends CantonError.Impl("request aborted due to shutdown")
+          extends CantonError.Impl("request aborted due to shutdown") {
+        import scala.concurrent.duration.*
+        // Processing may have been cancelled due to a transient error, e.g., server restarting
+        // The transient errors might be solved by the application retrying with a higher timeout than
+        // The non-transient errors will require operator intervention
+        override def retryable = Some(ErrorCategoryRetry(1.minute))
+      }
     }
   }
 

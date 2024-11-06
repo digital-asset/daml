@@ -102,7 +102,6 @@ private[backend] object AppendOnlySchema {
           _.submitters.map(_.map(stringInterning.party.unsafe.internalize))
         ),
         "node_index" -> fieldStrategy.int(_ => _.node_index),
-        "event_id" -> fieldStrategy.string(_ => _.event_id),
         "contract_id" -> fieldStrategy.string(_ => _.contract_id),
         "template_id" -> fieldStrategy.int(stringInterning =>
           dbDto => stringInterning.templateId.unsafe.internalize(dbDto.template_id)
@@ -148,7 +147,6 @@ private[backend] object AppendOnlySchema {
 
     val exerciseFields: Vector[(String, Field[DbDto.EventExercise, _, _])] =
       Vector[(String, Field[DbDto.EventExercise, _, _])](
-        "event_id" -> fieldStrategy.string(_ => _.event_id),
         "event_offset" -> fieldStrategy.string(_ => _.event_offset),
         "contract_id" -> fieldStrategy.string(_ => _.contract_id),
         "update_id" -> fieldStrategy.string(_ => _.update_id),

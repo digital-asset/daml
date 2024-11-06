@@ -40,12 +40,12 @@ final class GeneratorsData(
     generatorsProtocol: GeneratorsProtocol,
 ) {
   import com.digitalasset.canton.Generators.*
-  import com.digitalasset.canton.sequencing.protocol.GeneratorsProtocol.*
   import com.digitalasset.canton.GeneratorsLf.*
   import com.digitalasset.canton.config.GeneratorsConfig.*
   import com.digitalasset.canton.crypto.GeneratorsCrypto.*
   import com.digitalasset.canton.data.GeneratorsDataTime.*
   import com.digitalasset.canton.ledger.api.GeneratorsApi.*
+  import com.digitalasset.canton.sequencing.protocol.GeneratorsProtocol.*
   import com.digitalasset.canton.topology.GeneratorsTopology.*
   import generatorsProtocol.*
   import org.scalatest.OptionValues.*
@@ -112,7 +112,7 @@ final class GeneratorsData(
       submissionId <- Gen.option(ledgerSubmissionIdArb.arbitrary)
       dedupPeriod <- Arbitrary.arbitrary[DeduplicationPeriod]
       maxSequencingTime <- Arbitrary.arbitrary[CantonTimestamp]
-      hashOps = TestHash // Not used for serialization
+      externalAuthorization <- Gen.option(Arbitrary.arbitrary[ExternalAuthorization])
     } yield SubmitterMetadata(
       actAs,
       applicationId,
@@ -122,7 +122,8 @@ final class GeneratorsData(
       submissionId,
       dedupPeriod,
       maxSequencingTime,
-      hashOps,
+      externalAuthorization,
+      hashOps = TestHash, // Not used for serialization
       protocolVersion,
     )
   )
@@ -512,6 +513,16 @@ final class GeneratorsData(
       )
     )
 
+  implicit val reassigningParticipantsArb: Arbitrary[ReassigningParticipants] = Arbitrary(for {
+    confirming <- Gen.containerOf[Set, ParticipantId](
+      Arbitrary.arbitrary[ParticipantId]
+    )
+    pureObserving <- Gen.containerOf[Set, ParticipantId](
+      Arbitrary.arbitrary[ParticipantId]
+    )
+    observing = confirming.union(pureObserving)
+  } yield ReassigningParticipants.tryCreate(confirming, observing))
+
   implicit val assignmentCommonDataArb: Arbitrary[AssignmentCommonData] = Arbitrary(
     for {
       salt <- Arbitrary.arbitrary[Salt]
@@ -524,9 +535,7 @@ final class GeneratorsData(
       uuid <- Gen.uuid
 
       submitterMetadata <- Arbitrary.arbitrary[ReassignmentSubmitterMetadata]
-      reassigningParticipants <- Gen.containerOf[Set, ParticipantId](
-        Arbitrary.arbitrary[ParticipantId]
-      )
+      reassigningParticipants <- Arbitrary.arbitrary[ReassigningParticipants]
 
       hashOps = TestHash // Not used for serialization
 
@@ -552,9 +561,8 @@ final class GeneratorsData(
 
       stakeholders <- Arbitrary.arbitrary[Stakeholders]
 
-      confirmingReassigningParticipants <- Gen.containerOf[Set, ParticipantId](
-        Arbitrary.arbitrary[ParticipantId]
-      )
+      reassigningParticipants <- Arbitrary.arbitrary[ReassigningParticipants]
+
       uuid <- Gen.uuid
 
       submitterMetadata <- Arbitrary.arbitrary[ReassignmentSubmitterMetadata]
@@ -567,7 +575,7 @@ final class GeneratorsData(
         sourceDomain,
         sourceMediator,
         stakeholders,
-        confirmingReassigningParticipants,
+        reassigningParticipants,
         uuid,
         submitterMetadata,
         sourceProtocolVersion,
@@ -626,7 +634,6 @@ final class GeneratorsData(
     for {
       salt <- Arbitrary.arbitrary[Salt]
       contract <- serializableContractArb(canHaveEmptyKey = true).arbitrary
-      creatingTransactionId <- Arbitrary.arbitrary[TransactionId]
       unassignmentResultEvent <- deliveryUnassignmentResultGen(contract, sourceProtocolVersion)
       reassignmentCounter <- reassignmentCounterGen
 
@@ -636,7 +643,6 @@ final class GeneratorsData(
       .create(hashOps)(
         salt,
         contract,
-        creatingTransactionId,
         unassignmentResultEvent,
         sourceProtocolVersion,
         targetProtocolVersion,
@@ -649,7 +655,6 @@ final class GeneratorsData(
     for {
       salt <- Arbitrary.arbitrary[Salt]
 
-      creatingTransactionId <- Arbitrary.arbitrary[TransactionId]
       contract <- serializableContractArb(canHaveEmptyKey = true).arbitrary
 
       targetDomain <- Arbitrary.arbitrary[Target[DomainId]]
@@ -662,7 +667,6 @@ final class GeneratorsData(
       .create(hashOps)(
         salt,
         contract,
-        creatingTransactionId,
         targetDomain,
         timeProof,
         sourceProtocolVersion,

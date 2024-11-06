@@ -245,7 +245,6 @@ class CommandSubmissionServiceImplSpec
       keyOpt = None,
       // TODO(#19494): Change to minVersion once 2.2 is released and 2.1 is removed
       version = LanguageVersion.v2_dev,
-      domainIdO = Some(domainId),
     )
     val commands = Commands(
       workflowId = None,
@@ -272,7 +271,7 @@ class CommandSubmissionServiceImplSpec
       commandId = Ref.CommandId.assertFromString("foobar"),
       deduplicationPeriod = DeduplicationDuration(Duration.ofMinutes(1)),
       submissionId = None,
-      externallySignedTransaction = None,
+      externallySignedSubmission = None,
     )
     val transactionMeta = TransactionMeta(
       ledgerEffectiveTime = Timestamp.Epoch,

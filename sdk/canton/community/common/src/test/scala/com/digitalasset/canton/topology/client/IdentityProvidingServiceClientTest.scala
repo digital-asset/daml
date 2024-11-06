@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.topology.client
 
+import cats.syntax.either.*
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.topology.*
@@ -85,8 +86,8 @@ class PartyTopologySnapshotClientTest extends AsyncWordSpec with BaseTest {
         left2 <- client.allHaveActiveParticipants(Set(party1.toLf, party3.toLf)).value
         left3 <- client.allHaveActiveParticipants(Set(party3.toLf)).value
       } yield {
-        right1 shouldBe Right(())
-        right2 shouldBe Right(())
+        right1 shouldBe Either.unit
+        right2 shouldBe Either.unit
         left1.left.value shouldBe a[Set[_]]
         left2.left.value shouldBe a[Set[_]]
         left3.left.value shouldBe a[Set[_]]

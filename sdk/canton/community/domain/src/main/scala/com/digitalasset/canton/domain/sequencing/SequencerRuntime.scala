@@ -4,6 +4,7 @@
 package com.digitalasset.canton.domain.sequencing
 
 import cats.data.EitherT
+import cats.syntax.either.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
@@ -30,7 +31,6 @@ import com.digitalasset.canton.domain.sequencing.authentication.{
 import com.digitalasset.canton.domain.sequencing.config.SequencerNodeParameters
 import com.digitalasset.canton.domain.sequencing.sequencer.*
 import com.digitalasset.canton.domain.sequencing.service.*
-import com.digitalasset.canton.domain.sequencing.service.channel.GrpcSequencerChannelService
 import com.digitalasset.canton.health.HealthListener
 import com.digitalasset.canton.health.admin.data.TopologyQueueStatus
 import com.digitalasset.canton.lifecycle.{
@@ -209,8 +209,10 @@ class SequencerRuntime(
   private val sequencerChannelServiceO = Option.when(
     localNodeParameters.unsafeEnableOnlinePartyReplication
   )(
-    new GrpcSequencerChannelService(
+    channel.GrpcSequencerChannelService(
       authenticationConfig.check,
+      clock,
+      staticDomainParameters.protocolVersion,
       localNodeParameters.processingTimeouts,
       loggerFactory,
     )
@@ -457,7 +459,7 @@ class SequencerRuntime(
         )
       )
       _ <- domainOutboxO
-        .map(_.startup().onShutdown(Right(())))
+        .map(_.startup().onShutdown(Either.unit))
         .getOrElse(EitherT.rightT[Future, String](()))
     } yield {
       logger.info("Sequencer runtime initialized")

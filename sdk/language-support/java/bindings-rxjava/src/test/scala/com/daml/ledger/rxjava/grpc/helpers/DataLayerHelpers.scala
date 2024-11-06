@@ -18,7 +18,6 @@ trait DataLayerHelpers {
 
   def genGetActiveContractsResponse: GetActiveContractsResponse = {
     new GetActiveContractsResponse(
-      "",
       "workflowId",
       ContractEntry.ActiveContract(
         new ActiveContract(

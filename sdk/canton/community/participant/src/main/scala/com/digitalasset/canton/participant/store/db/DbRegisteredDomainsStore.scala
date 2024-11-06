@@ -59,7 +59,7 @@ class DbRegisteredDomainsStore(
         // We swap sides at the end
         val swapped = for {
           rowCount <- EitherT.right[Either[Error, Unit]](storage.update(insert, functionFullName))
-          _ <- EitherT.cond[Future](rowCount != 1, (), Right(()))
+          _ <- EitherT.cond[Future](rowCount != 1, (), Either.unit)
           // We may have inserted the row even if the row count is lower. So check whether the row is actually there.
           doubleAlias <- EitherT.right[Either[Error, Unit]](
             storage.query(

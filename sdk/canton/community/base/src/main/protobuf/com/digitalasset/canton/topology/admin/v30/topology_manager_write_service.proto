@@ -178,7 +178,7 @@ enum ForceFlag {
   FORCE_FLAG_UNSPECIFIED = 0;
   /** Required when authorizing adding a topology transaction on behalf of another node. */
   FORCE_FLAG_ALIEN_MEMBER = 1;
-  /** Required when increasing the ledger time record time tolerance */
+  /* Deprecated, increasing ledger time record time tolerance does not require a force flag for PV >= 32 */
   FORCE_FLAG_LEDGER_TIME_RECORD_TIME_TOLERANCE_INCREASE = 2;
   /** Required when revoking the vetting of a package */
   FORCE_FLAG_ALLOW_UNVET_PACKAGE = 3;
@@ -195,4 +195,6 @@ enum ForceFlag {
   FORCE_FLAG_ALLOW_UNVALIDATED_SIGNING_KEYS = 7;
   /** Required when unvetting a package with active contracts */
   FORCE_FLAG_ALLOW_UNVET_PACKAGE_WITH_ACTIVE_CONTRACTS = 8;
+  /** Required when increasing the submission time record time tolerance */
+  FORCE_FLAG_SUBMISSION_TIME_RECORD_TIME_TOLERANCE_INCREASE = 9;
 }

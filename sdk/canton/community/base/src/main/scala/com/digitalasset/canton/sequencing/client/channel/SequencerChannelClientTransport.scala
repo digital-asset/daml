@@ -19,8 +19,9 @@ import io.grpc.{CallOptions, ManagedChannel}
 
 import scala.concurrent.ExecutionContext
 
-/** GRPC operations for a client to interact with sequencer channels. */
-final class SequencerChannelClientTransport(
+/** GRPC operations for a client to create and close sequencer channels.
+  */
+private[channel] final class SequencerChannelClientTransport(
     channel: ManagedChannel,
     clientAuth: GrpcSequencerClientAuth,
     protected val timeouts: ProcessingTimeout,
@@ -37,6 +38,27 @@ final class SequencerChannelClientTransport(
     )
   )
 
+  /** Issue the GRPC request to connect to a sequencer channel.
+    *
+    * The call is made directly against the GRPC stub as trace context propagation and error handling
+    * in the bidirectionally streaming request is performed by implementations of the
+    * [[SequencerChannelProtocolProcessor]].
+    */
+  @SuppressWarnings(Array("com.digitalasset.canton.DirectGrpcServiceInvocation"))
+  def connectToSequencerChannel(
+      channelEndpoint: SequencerChannelClientEndpoint
+  )(implicit traceContext: TraceContext): Unit = {
+    val requestObserver =
+      grpcStub.connectToSequencerChannel(channelEndpoint.observer)
+
+    // Only now that the GRPC request has provided the "request" GRPC StreamObserver,
+    // pass on the request observer to the channel endpoint. This enables the sequencer
+    // channel endpoint to send messages via the sequencer channel.
+    channelEndpoint.setRequestObserver(requestObserver)
+  }
+
+  /** Ping the sequencer channel service to check if the sequencer supports channels.
+    */
   def ping()(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] = {
@@ -57,6 +79,6 @@ final class SequencerChannelClientTransport(
   override protected def onClosed(): Unit =
     Lifecycle.close(
       clientAuth,
-      new CloseableChannel(channel, logger, "grpc-sequencer-transport"),
+      new CloseableChannel(channel, logger, "grpc-sequencer-channel-transport"),
     )(logger)
 }

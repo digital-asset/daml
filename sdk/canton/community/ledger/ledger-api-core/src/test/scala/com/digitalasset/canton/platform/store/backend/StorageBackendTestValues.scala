@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.backend
 
 import com.digitalasset.canton.data
-import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.TransactionMetering
@@ -16,8 +16,6 @@ import com.digitalasset.daml.lf.archive.DamlLf
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
-import com.digitalasset.daml.lf.ledger.EventId
-import com.digitalasset.daml.lf.transaction.NodeId
 import com.digitalasset.daml.lf.value.Value.ContractId
 import com.google.protobuf.ByteString
 
@@ -33,8 +31,9 @@ private[store] object StorageBackendTestValues {
 
   /** Produces offsets that are ordered the same as the input value */
   def offset(x: Long): Offset = Offset.fromLong(x)
+  def absoluteOffset(x: Long): AbsoluteOffset = AbsoluteOffset.tryFromLong(x)
   def ledgerEnd(o: Long, e: Long): ParameterStorageBackend.LedgerEnd =
-    ParameterStorageBackend.LedgerEnd(offset(o), e, 0, CantonTimestamp.now())
+    ParameterStorageBackend.LedgerEnd(Some(absoluteOffset(o)), e, 0, CantonTimestamp.now())
   def updateIdFromOffset(x: Offset): Ref.LedgerString =
     Ref.LedgerString.assertFromString(x.toHexString)
 
@@ -125,7 +124,6 @@ private[store] object StorageBackendTestValues {
       application_id = Some(someApplicationId),
       submitters = None,
       node_index = 0,
-      event_id = EventId(updateId, NodeId(0)).toLedgerString,
       contract_id = contractId.coid,
       template_id = someTemplateId.toString,
       package_name = somePackageName.toString,
@@ -177,7 +175,6 @@ private[store] object StorageBackendTestValues {
       application_id = Some(someApplicationId),
       submitters = Some(Set(actor)),
       node_index = 0,
-      event_id = EventId(updateId, NodeId(0)).toLedgerString,
       contract_id = contractId.coid,
       template_id = someTemplateId.toString,
       package_name = somePackageName,

@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.pruning
 
 import cats.data.EitherT
+import cats.syntax.either.*
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
 import cats.syntax.traverseFilter.*
@@ -13,7 +14,7 @@ import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.concurrent.FutureSupervisor
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.config.RequireTypes.{PositiveInt, PositiveLong}
-import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond}
+import com.digitalasset.canton.data.{CantonTimestamp, CantonTimestampSecond, Offset}
 import com.digitalasset.canton.ledger.participant.state.DomainIndex
 import com.digitalasset.canton.lifecycle.{
   FlagCloseable,
@@ -129,14 +130,11 @@ class PruningProcessor(
       val pruneUpToNext = increaseByBatchSize(lastUpTo)
       val offset = pruneUpToNext.min(pruneUpToInclusive)
       val done = offset == pruneUpToInclusive
-      pruneLedgerEventBatch(lastUpTo, offset)
-        .transform {
-          case Left(e) => Right(Left(e))
-          case Right(_) if done => Right(Right(()))
-          case Right(_) => Left(Some(offset))
-        }
-        .mapK(FutureUnlessShutdown.outcomeK)
-        .value
+      pruneLedgerEventBatch(lastUpTo, offset).transform {
+        case Left(e) => Right(Left(e))
+        case Right(_) if done => Right(Either.unit)
+        case Right(_) => Left(Some(offset))
+      }.value
     }
 
     def doPrune(): EitherT[FutureUnlessShutdown, LedgerPruningError, Unit] =
@@ -386,9 +384,12 @@ class PruningProcessor(
     }
     for {
       _ <- EitherT.cond[FutureUnlessShutdown](
-        participantNodePersistentState.value.ledgerApiStore
-          .ledgerEndCache()
-          ._1
+        Offset
+          .fromAbsoluteOffsetO(
+            participantNodePersistentState.value.ledgerApiStore
+              .ledgerEndCache()
+              ._1
+          )
           .toLong >= pruneUptoInclusive.toLong,
         (),
         Pruning.LedgerPruningOffsetAfterLedgerEnd: LedgerPruningError,
@@ -424,17 +425,20 @@ class PruningProcessor(
   private def pruneLedgerEventBatch(
       lastUpTo: Option[GlobalOffset],
       pruneUpToInclusiveBatchEnd: GlobalOffset,
-  )(implicit traceContext: TraceContext): EitherT[Future, LedgerPruningError, Unit] =
-    performUnlessClosingEitherT[LedgerPruningError, Unit](
-      functionFullName,
-      LedgerPruningCancelledDueToShutdown,
-    ) {
+  )(implicit traceContext: TraceContext): EitherT[FutureUnlessShutdown, LedgerPruningError, Unit] =
+    performUnlessClosingEitherUSF[LedgerPruningError, Unit](functionFullName) {
       logger.info(s"Start pruning up to $pruneUpToInclusiveBatchEnd...")
       val pruningStore = participantNodePersistentState.value.pruningStore
       for {
-        _ <- EitherT.right(pruningStore.markPruningStarted(pruneUpToInclusiveBatchEnd))
+        _ <- EitherT.right(
+          FutureUnlessShutdown.outcomeF(pruningStore.markPruningStarted(pruneUpToInclusiveBatchEnd))
+        )
         _ <- EitherT.right(performPruning(lastUpTo, pruneUpToInclusiveBatchEnd))
-        _ <- EitherT.right(pruningStore.markPruningDone(pruneUpToInclusiveBatchEnd))
+        _ <- EitherT.right(
+          FutureUnlessShutdown.outcomeF(
+            pruningStore.markPruningDone(pruneUpToInclusiveBatchEnd)
+          )
+        )
       } yield {
         logger.info(s"Pruned up to $pruneUpToInclusiveBatchEnd")
       }
@@ -527,13 +531,18 @@ class PruningProcessor(
   private[pruning] def performPruning(
       fromExclusive: Option[GlobalOffset],
       upToInclusive: GlobalOffset,
-  )(implicit traceContext: TraceContext): Future[Unit] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] =
     for {
-      cutoffs <- lookUpDomainAndParticipantPruningCutoffs(fromExclusive, upToInclusive)
-      archivedContracts <- lookUpContractsArchivedBeforeOrAt(fromExclusive, upToInclusive)
+      cutoffs <- FutureUnlessShutdown.outcomeF(
+        lookUpDomainAndParticipantPruningCutoffs(fromExclusive, upToInclusive)
+      )
+      archivedContracts <- FutureUnlessShutdown.outcomeF(
+        lookUpContractsArchivedBeforeOrAt(fromExclusive, upToInclusive)
+      )
       _ <- cutoffs.domainOffsets.parTraverse(pruneDomain(archivedContracts))
-      _ <- cutoffs.globalOffsetO.fold(Future.unit) { case (globalOffset, publicationTime) =>
-        pruneDeduplicationStore(globalOffset, publicationTime)
+      _ <- cutoffs.globalOffsetO.fold(FutureUnlessShutdown.unit) {
+        case (globalOffset, publicationTime) =>
+          pruneDeduplicationStore(globalOffset, publicationTime)
       }
     } yield ()
 
@@ -545,7 +554,7 @@ class PruningProcessor(
       archived: Iterable[LfContractId]
   )(domainOffset: PruningCutoffs.DomainOffset)(implicit
       traceContext: TraceContext
-  ): Future[Unit] = {
+  ): FutureUnlessShutdown[Unit] = {
     val PruningCutoffs.DomainOffset(state, lastTimestamp, lastRequestCounter) = domainOffset
 
     logger.info(
@@ -556,16 +565,18 @@ class PruningProcessor(
     for {
       // We must prune the contract store even if the event log is empty, because there is not necessarily an archival event
       // for divulged contracts or reassigned-away contracts.
-      _ <- state.contractStore.deleteIgnoringUnknown(archived)
+      _ <- FutureUnlessShutdown.outcomeF(state.contractStore.deleteIgnoringUnknown(archived))
 
-      _ <- lastRequestCounter.fold(Future.unit)(state.contractStore.deleteDivulged)
+      _ <- FutureUnlessShutdown.outcomeF(
+        lastRequestCounter.fold(Future.unit)(state.contractStore.deleteDivulged)
+      )
 
       // we don't prune stores that are pruned by the JournalGarbageCollector regularly anyway
       _ = logger.debug("Pruning sequenced event store...")
       _ <- state.sequencedEventStore.prune(lastTimestamp)
 
       _ = logger.debug("Pruning request journal store...")
-      _ <- state.requestJournalStore.prune(lastTimestamp)
+      _ <- FutureUnlessShutdown.outcomeF(state.requestJournalStore.prune(lastTimestamp))
 
       _ = logger.debug("Pruning acs commitment store...")
       _ <- state.acsCommitmentStore.prune(lastTimestamp)
@@ -607,7 +618,7 @@ class PruningProcessor(
   private def pruneDeduplicationStore(
       globalOffset: GlobalOffset,
       publicationTime: CantonTimestamp,
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     logger.debug(
       s"Pruning command deduplication table at $globalOffset with publication time $publicationTime..."
     )
@@ -641,7 +652,7 @@ private[pruning] object PruningProcessor extends HasLoggerName {
   private[pruning] def safeToPrune_(
       cleanReplayF: Future[CantonTimestamp],
       commitmentsPruningBound: CommitmentsPruningBound,
-      earliestInFlightSubmissionF: Future[Option[CantonTimestamp]],
+      earliestInFlightSubmissionFUS: FutureUnlessShutdown[Option[CantonTimestamp]],
       sortedReconciliationIntervalsProvider: SortedReconciliationIntervalsProvider,
       domainId: DomainId,
   )(implicit
@@ -660,7 +671,7 @@ private[pruning] object PruningProcessor extends HasLoggerName {
       // (from timeout to sequencing timestamp), but this can only happen if the corresponding request is not yet clean,
       // i.e., the sequencing timestamp is after `cleanReplayTs`. So this concurrent modification does not affect
       // the calculation below.
-      inFlightSubmissionTs <- FutureUnlessShutdown.outcomeF(earliestInFlightSubmissionF)
+      inFlightSubmissionTs <- earliestInFlightSubmissionFUS
 
       getTickBeforeOrAt = (ts: CantonTimestamp) =>
         sortedReconciliationIntervalsProvider

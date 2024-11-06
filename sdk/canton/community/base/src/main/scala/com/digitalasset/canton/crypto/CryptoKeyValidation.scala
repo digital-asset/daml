@@ -53,7 +53,7 @@ object CryptoKeyValidation {
          */
         parseAndValidateDerOrRawKey(publicKey).map(_ => ())
       case CryptoKeyFormat.Symbolic =>
-        Right(())
+        Either.unit
     }
 
     // If the result is already in the cache it means the key has already been validated.
@@ -75,24 +75,38 @@ object CryptoKeyValidation {
         .find(_.supportedEncryptionKeySpecs.contains(keySpec))
         .toRight(errFn(defaultAlgorithmSpec))
 
+  private[crypto] def selectSigningAlgorithmSpec[E](
+      keySpec: SigningKeySpec,
+      defaultAlgorithmSpec: SigningAlgorithmSpec,
+      supportedAlgorithmSpecs: Set[SigningAlgorithmSpec],
+      errFn: SigningAlgorithmSpec => E,
+  ): Either[E, SigningAlgorithmSpec] =
+    if (defaultAlgorithmSpec.supportedSigningKeySpecs.contains(keySpec))
+      Right(defaultAlgorithmSpec)
+    else
+      supportedAlgorithmSpecs
+        .find(_.supportedSigningKeySpecs.contains(keySpec))
+        .toRight(errFn(defaultAlgorithmSpec))
+
   /** Ensures that a given key specification is supported by the selected crypto algorithm. It
     * also checks if this crypto algorithm is part of the set of supported algorithms.
     */
-  private[crypto] def ensureEncryptionSpec[E](
-      keySpec: EncryptionKeySpec,
-      defaultAlgorithmSpec: EncryptionAlgorithmSpec,
-      supportedAlgorithmSpecs: Set[EncryptionAlgorithmSpec],
-      errFnAlgorithm: EncryptionAlgorithmSpec => E,
-      errFnKey: EncryptionKeySpec => E,
+  private[crypto] def ensureCryptoSpec[KeySpec, AlgorithmSpec, E](
+      keySpec: KeySpec,
+      algorithmSpec: AlgorithmSpec,
+      supportedKeySpecs: Set[KeySpec],
+      supportedAlgorithmSpecs: Set[AlgorithmSpec],
+      errFnAlgorithm: AlgorithmSpec => E,
+      errFnKey: KeySpec => E,
   ): Either[E, Unit] =
     for {
       _ <- Either.cond(
-        supportedAlgorithmSpecs.contains(defaultAlgorithmSpec),
+        supportedAlgorithmSpecs.contains(algorithmSpec),
         (),
-        errFnAlgorithm(defaultAlgorithmSpec),
+        errFnAlgorithm(algorithmSpec),
       )
       _ <- Either.cond(
-        defaultAlgorithmSpec.supportedEncryptionKeySpecs.contains(keySpec),
+        supportedKeySpecs.contains(keySpec),
         (),
         errFnKey(keySpec),
       )

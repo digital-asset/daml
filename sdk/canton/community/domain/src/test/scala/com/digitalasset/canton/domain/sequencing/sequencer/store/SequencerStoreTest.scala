@@ -4,6 +4,7 @@
 package com.digitalasset.canton.domain.sequencing.sequencer.store
 
 import cats.data.EitherT
+import cats.syntax.either.*
 import cats.syntax.functor.*
 import cats.syntax.option.*
 import cats.syntax.parallel.*
@@ -108,6 +109,7 @@ trait SequencerStoreTest
             payload,
             None,
             traceContext,
+            trafficReceiptO,
           ),
         )
 
@@ -127,6 +129,7 @@ trait SequencerStoreTest
             messageId,
             topologyTimestampO = Some(topologyTimestamp),
             traceContext,
+            trafficReceiptO,
           ),
         )
 
@@ -188,6 +191,7 @@ trait SequencerStoreTest
                   payload,
                   topologyTimestampO,
                   traceContext,
+                  _trafficReceiptO,
                 ) =>
               sender shouldBe senderId
               messageId shouldBe expectedMessageId
@@ -216,6 +220,7 @@ trait SequencerStoreTest
                   messageId,
                   topologyTimestampO,
                   _traceContext,
+                  _trafficReceiptO,
                 ) =>
               sender shouldBe senderId
               messageId shouldBe expectedMessageId
@@ -398,6 +403,7 @@ trait SequencerStoreTest
             messageId1,
             None,
             traceContext,
+            None,
           )
           timestampedError: Sequenced[Nothing] = Sequenced(ts1, error)
           _ <- env.saveEventsAndBuffer(instanceIndex, NonEmpty(Seq, timestampedError))
@@ -627,8 +633,8 @@ trait SequencerStoreTest
           )
           withTopologyTimestamp <- env.store.saveCounterCheckpoint(aliceId, checkpoint2).value
         } yield {
-          withoutTopologyTimestamp shouldBe Right(())
-          withTopologyTimestamp shouldBe Right(())
+          withoutTopologyTimestamp shouldBe Either.unit
+          withTopologyTimestamp shouldBe Either.unit
         }
       }
 
@@ -654,10 +660,10 @@ trait SequencerStoreTest
             .saveCounterCheckpoint(aliceId, checkpoint(SequencerCounter(10), ts2, Some(ts3)))
             .value // note different topology client timestamp value
         } yield {
-          updatedTimestamp shouldBe Right(())
-          updatedTimestampAndTopologyTimestamp shouldBe Right(())
-          allowedDuplicateInsert shouldBe Right(())
-          updatedTimestamp2 shouldBe Right(())
+          updatedTimestamp shouldBe Either.unit
+          updatedTimestampAndTopologyTimestamp shouldBe Either.unit
+          allowedDuplicateInsert shouldBe Either.unit
+          updatedTimestamp2 shouldBe Either.unit
         }
       }
     }
@@ -774,6 +780,7 @@ trait SequencerStoreTest
                   payload1,
                   None,
                   traceContext,
+                  None,
                 ),
               ),
               deliverEventWithDefaults(ts(5))(recipients = NonEmpty(SortedSet, aliceId, bobId)),
@@ -863,6 +870,7 @@ trait SequencerStoreTest
                   payload1,
                   None,
                   traceContext,
+                  None,
                 ),
               ),
               deliverEventWithDefaults(ts(5))(recipients = NonEmpty(SortedSet, aliceId, bobId)),
@@ -907,7 +915,7 @@ trait SequencerStoreTest
           oldestTimestamp shouldBe Some(ts(5))
           statusBefore.safePruningTimestamp shouldBe ts(7)
           val removedCounts = recordCountsBefore - recordCountsAfter
-          removedCounts.counterCheckpoints shouldBe 3
+          removedCounts.counterCheckpoints shouldBe 1 // -3 checkpoints +2 checkpoints from pruning itself (at ts5)
           removedCounts.events shouldBe 2 // the two deliver event earlier than ts5 from ts2 and ts4
           removedCounts.payloads shouldBe 2 // for payload1 from ts1 + payload from deliverEventWithDefaults(ts2)
         }
@@ -1154,6 +1162,7 @@ trait SequencerStoreTest
                     payload1,
                     None,
                     traceContext,
+                    None,
                   ),
                 ),
               ),

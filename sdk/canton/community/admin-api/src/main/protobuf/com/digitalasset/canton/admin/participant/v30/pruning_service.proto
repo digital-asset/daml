@@ -71,7 +71,7 @@ service PruningService {
 
 message PruneRequest {
   // Inclusive offset up to which the ledger is to be pruned.
-  string prune_up_to = 1;
+  int64 prune_up_to = 1;
 }
 
 message PruneResponse {
@@ -80,14 +80,14 @@ message PruneResponse {
 
 message GetSafePruningOffsetRequest {
   google.protobuf.Timestamp before_or_at = 1;
-  string ledger_end = 2;
+  int64 ledger_end = 2;
 }
 
 message GetSafePruningOffsetResponse {
   message NoSafePruningOffset {}
 
   oneof response {
-    string safe_pruning_offset = 1;
+    int64 safe_pruning_offset = 1;
     NoSafePruningOffset no_safe_pruning_offset = 2;
   }
 }

@@ -11,15 +11,20 @@ import com.digitalasset.canton.crypto.{
   HashAlgorithm,
   PbkdfScheme,
   RequiredEncryptionSpecs,
-  SigningKeyScheme,
+  RequiredSigningSpecs,
+  SigningAlgorithmSpec,
+  SigningKeySpec,
   SymmetricKeyScheme,
 }
 
 object SymbolicCryptoProvider {
   // The schemes are ignored by symbolic crypto
 
-  val supportedSigningKeySchemes: NonEmpty[Set[SigningKeyScheme]] =
-    NonEmpty.mk(Set, SigningKeyScheme.Ed25519)
+  val supportedSigningSpecs: RequiredSigningSpecs =
+    RequiredSigningSpecs(
+      NonEmpty.mk(Set, SigningAlgorithmSpec.Ed25519),
+      NonEmpty.mk(Set, SigningKeySpec.EcCurve25519),
+    )
   val supportedSymmetricKeySchemes: NonEmpty[Set[SymmetricKeyScheme]] =
     NonEmpty.mk(Set, SymmetricKeyScheme.Aes128Gcm)
   val supportedEncryptionSpecs: RequiredEncryptionSpecs =

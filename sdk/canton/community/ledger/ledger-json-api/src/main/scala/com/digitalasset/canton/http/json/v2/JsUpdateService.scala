@@ -4,10 +4,9 @@
 package com.digitalasset.canton.http.json.v2
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.grpc.adapter.client.pekko.ClientAdapter
-import com.daml.ledger.api.v2.update_service
-import com.daml.ledger.api.v2.offset_checkpoint
-import com.daml.ledger.api.v2.reassignment
+import com.daml.ledger.api.v2.{offset_checkpoint, reassignment, update_service}
+import com.digitalasset.canton.http.WebsocketConfig
+import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
 import com.digitalasset.canton.http.json.v2.JsSchema.JsEvent.CreatedEvent
 import com.digitalasset.canton.http.json.v2.JsSchema.{JsTransaction, JsTransactionTree}
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
@@ -21,7 +20,8 @@ import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Flow
-import sttp.tapir.{path, query}
+import sttp.capabilities.pekko.PekkoStreams
+import sttp.tapir.{CodecFormat, Endpoint, path, query, webSocketBody}
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -32,12 +32,10 @@ class JsUpdateService(
 )(implicit
     val executionContext: ExecutionContext,
     esf: ExecutionSequencerFactory,
+  wsConfig: WebsocketConfig,
 ) extends Endpoints
     with NamedLogging {
-
   import JsUpdateServiceCodecs.*
-
-  private lazy val updates = v2Endpoint.in(sttp.tapir.stringToPath("updates"))
 
   private def updateServiceClient(token: Option[String] = None)(implicit
       traceContext: TraceContext
@@ -46,47 +44,27 @@ class JsUpdateService(
 
   def endpoints() = List(
     websocket(
-      updates.get
-        .in(sttp.tapir.stringToPath("flats"))
-        .description("Get flat transactions update stream"),
+      JsUpdateService.getUpdatesFlatEndpoint,
       getFlats,
     ),
     websocket(
-      updates.get
-        .in(sttp.tapir.stringToPath("trees"))
-        .description("Get update transactions tree stream"),
+      JsUpdateService.getUpdatesTreeEndpoint,
       getTrees,
     ),
-    json(
-      updates.get
-        .in(sttp.tapir.stringToPath("transaction-tree-by-event-id"))
-        .in(path[String]("event-id"))
-        .in(query[List[String]]("parties"))
-        .description("Get transaction tree by event id"),
+    withServerLogic(
+      JsUpdateService.getTransactionTreeByEventIdEndpoint,
       getTreeByEventId,
     ),
-    json(
-      updates.get
-        .in(sttp.tapir.stringToPath("transaction-by-event-id"))
-        .in(path[String]("event-id"))
-        .in(query[List[String]]("parties"))
-        .description("Get transaction by event id"),
+    withServerLogic(
+      JsUpdateService.getTransactionByEventIdEndpoint,
       getTransactionByEventId,
     ),
-    json(
-      updates.get
-        .in(sttp.tapir.stringToPath("transaction-by-id"))
-        .in(path[String]("update-id"))
-        .in(query[List[String]]("parties"))
-        .description("Get transaction by id"),
+    withServerLogic(
+      JsUpdateService.getTransactionByIdEndpoint,
       getTransactionById,
     ),
-    json(
-      updates.get
-        .in(sttp.tapir.stringToPath("transaction-tree-by-id"))
-        .in(path[String]("update-id"))
-        .in(query[List[String]]("parties"))
-        .description("Get transaction tree by  id"),
+    withServerLogic(
+      JsUpdateService.getTransactionTreeByIdEndpoint,
       getTransactionTreeById,
     ),
   )
@@ -96,7 +74,8 @@ class JsUpdateService(
   ): TracedInput[(String, List[String])] => Future[
     Either[JsCantonError, JsGetTransactionTreeResponse]
   ] = { req =>
-    implicit val token = caller.token()
+    implicit val token: Option[String] = caller.token()
+    implicit val tc: TraceContext = req.traceContext
     updateServiceClient(caller.token())(req.traceContext)
       .getTransactionTreeByEventId(
         update_service.GetTransactionByEventIdRequest(
@@ -113,7 +92,9 @@ class JsUpdateService(
   ): TracedInput[(String, List[String])] => Future[
     Either[JsCantonError, JsGetTransactionResponse]
   ] =
-    req =>
+    req => {
+      implicit val token = caller.token()
+      implicit val tc = req.traceContext
       updateServiceClient(caller.token())(req.traceContext)
         .getTransactionByEventId(
           update_service.GetTransactionByEventIdRequest(
@@ -121,14 +102,17 @@ class JsUpdateService(
             requestingParties = req.in._2,
           )
         )
-        .flatMap(protocolConverters.GetTransactionResponse.toJson(_)(caller.token()))
+        .flatMap(protocolConverters.GetTransactionResponse.toJson(_))
         .resultToRight
+    }
 
   private def getTransactionById(
       caller: CallerContext
   ): TracedInput[(String, List[String])] => Future[
     Either[JsCantonError, JsGetTransactionResponse]
   ] = { req =>
+    implicit val token = caller.token()
+    implicit val tc = req.traceContext
     updateServiceClient(caller.token())(req.traceContext)
       .getTransactionById(
         update_service.GetTransactionByIdRequest(
@@ -136,7 +120,7 @@ class JsUpdateService(
           requestingParties = req.in._2,
         )
       )
-      .flatMap(protocolConverters.GetTransactionResponse.toJson(_)(caller.token()))
+      .flatMap(protocolConverters.GetTransactionResponse.toJson(_))
       .resultToRight
   }
 
@@ -144,33 +128,34 @@ class JsUpdateService(
       caller: CallerContext
   ): TracedInput[(String, List[String])] => Future[
     Either[JsCantonError, JsGetTransactionTreeResponse]
-  ] = { req =>
-    implicit val token = caller.token()
-    implicit val tc = req.traceContext
-    updateServiceClient(caller.token())
-      .getTransactionTreeById(
-        update_service.GetTransactionByIdRequest(
-          updateId = req.in._1,
-          requestingParties = req.in._2,
+  ] =
+    req => {
+      implicit val token = caller.token()
+      implicit val tc = req.traceContext
+      updateServiceClient(caller.token())(req.traceContext)
+        .getTransactionTreeById(
+          update_service.GetTransactionByIdRequest(
+            updateId = req.in._1,
+            requestingParties = req.in._2,
+          )
         )
-      )
-      .flatMap(protocolConverters.GetTransactionTreeResponse.toJson(_))
-      .resultToRight
-  }
+        .flatMap { tr =>
+          protocolConverters.GetTransactionTreeResponse.toJson(tr)
+        }
+        .resultToRight
+    }
 
   private def getFlats(
       caller: CallerContext
   ): TracedInput[Unit] => Flow[update_service.GetUpdatesRequest, JsGetUpdatesResponse, NotUsed] =
-    _ => {
-      Flow[update_service.GetUpdatesRequest]
-        .flatMapConcat { req =>
-          ClientAdapter
-            .serverStreaming(
-              req,
-              updateServiceClient(caller.token())(TraceContext.empty).getUpdates,
-            )
-            .mapAsync(1)(r => protocolConverters.GetUpdatesResponse.toJson(r)(caller.token()))
-        }
+    req => {
+      implicit val token = caller.token()
+      implicit val tc = req.traceContext
+      prepareSingleWsStream(
+        updateServiceClient(caller.token())(TraceContext.empty).getUpdates,
+        (r: update_service.GetUpdatesResponse) => protocolConverters.GetUpdatesResponse.toJson(r),
+        withCloseDelay = true,
+      )
     }
 
   private def getTrees(
@@ -181,18 +166,82 @@ class JsUpdateService(
     NotUsed,
   ] =
     wsReq => {
-      Flow[update_service.GetUpdatesRequest]
-        .flatMapConcat { req =>
-          implicit val token = caller.token()
-          implicit val tc = wsReq.traceContext
-          ClientAdapter
-            .serverStreaming(
-              req,
-              updateServiceClient(caller.token()).getUpdateTrees,
-            )
-            .mapAsync(1)(r => protocolConverters.GetUpdateTreesResponse.toJson(r))
-        }
+      implicit val token: Option[String] = caller.token()
+      implicit val tc: TraceContext = wsReq.traceContext
+      prepareSingleWsStream(
+        updateServiceClient(caller.token()).getUpdateTrees,
+        (r: update_service.GetUpdateTreesResponse) =>
+          protocolConverters.GetUpdateTreesResponse.toJson(r),
+        withCloseDelay = true,
+      )
     }
+
+}
+
+object JsUpdateService {
+  import Endpoints.*
+  import JsUpdateServiceCodecs.*
+
+  private lazy val updates = v2Endpoint.in(sttp.tapir.stringToPath("updates"))
+  val getUpdatesFlatEndpoint = updates.get
+    .in(sttp.tapir.stringToPath("flats"))
+    .out(
+      webSocketBody[
+        update_service.GetUpdatesRequest,
+        CodecFormat.Json,
+        Either[JsCantonError, JsGetUpdatesResponse],
+        CodecFormat.Json,
+      ](PekkoStreams)
+    )
+    .description("Get flat transactions update stream")
+
+  val getUpdatesTreeEndpoint = updates.get
+    .in(sttp.tapir.stringToPath("trees"))
+    .out(
+      webSocketBody[
+        update_service.GetUpdatesRequest,
+        CodecFormat.Json,
+        Either[JsCantonError, JsGetUpdateTreesResponse],
+        CodecFormat.Json,
+      ](PekkoStreams)
+    )
+    .description("Get update transactions tree stream")
+
+  val getTransactionTreeByEventIdEndpoint = updates.get
+    .in(sttp.tapir.stringToPath("transaction-tree-by-event-id"))
+    .in(path[String]("event-id"))
+    .in(query[List[String]]("parties"))
+    .out(jsonBody[JsGetTransactionTreeResponse])
+    .description("Get transaction tree by event id")
+
+  val getTransactionTreeByIdEndpoint: Endpoint[
+    CallerContext,
+    (String, List[String]),
+    JsCantonError,
+    JsGetTransactionTreeResponse,
+    Any,
+  ] = updates.get
+    .in(sttp.tapir.stringToPath("transaction-tree-by-id"))
+    .in(path[String]("update-id"))
+    .in(query[List[String]]("parties"))
+    .out(jsonBody[JsGetTransactionTreeResponse])
+    .description("Get transaction tree by  id")
+
+  val getTransactionByIdEndpoint =
+    updates.get
+      .in(sttp.tapir.stringToPath("transaction-by-id"))
+      .in(path[String]("update-id"))
+      .in(query[List[String]]("parties"))
+      .out(jsonBody[JsGetTransactionResponse])
+      .description("Get transaction by id")
+
+  val getTransactionByEventIdEndpoint =
+    updates.get
+      .in(sttp.tapir.stringToPath("transaction-by-event-id"))
+      .in(path[String]("event-id"))
+      .in(query[List[String]]("parties"))
+      .out(jsonBody[JsGetTransactionResponse])
+      .description("Get transaction by event id")
 
 }
 
@@ -216,7 +265,7 @@ case class JsReassignment(
     update_id: String,
     command_id: String,
     workflow_id: String,
-    offset: String,
+    offset: Long,
     event: JsReassignmentEvent.JsReassignmentEvent,
     trace_context: Option[com.daml.ledger.api.v2.trace_context.TraceContext],
     record_time: com.google.protobuf.timestamp.Timestamp,
@@ -256,8 +305,6 @@ object JsUpdateServiceCodecs {
 
   implicit val jsGetUpdatesResponse: Codec[JsGetUpdatesResponse] = deriveCodec
 
-  implicit val offsetCheckpoint: Codec[offset_checkpoint.OffsetCheckpoint] = deriveCodec
-  implicit val offsetCheckpointDomainTime: Codec[offset_checkpoint.DomainTime] = deriveCodec
   implicit val jsUpdate: Codec[JsUpdate.Update] = deriveCodec
   implicit val jsUpdateOffsetCheckpoint: Codec[JsUpdate.OffsetCheckpoint] = deriveCodec
   implicit val jsUpdateReassignment: Codec[JsUpdate.Reassignment] = deriveCodec
@@ -266,9 +313,6 @@ object JsUpdateServiceCodecs {
   implicit val jsReassignmentEvent: Codec[JsReassignmentEvent.JsReassignmentEvent] = deriveCodec
 
   implicit val jsReassignmentEventJsUnassignedEvent: Codec[JsReassignmentEvent.JsUnassignedEvent] =
-    deriveCodec
-
-  implicit val unassignedEvent: Codec[reassignment.UnassignedEvent] =
     deriveCodec
 
   implicit val jsGetUpdateTreesResponse: Codec[JsGetUpdateTreesResponse] = deriveCodec

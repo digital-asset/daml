@@ -4,7 +4,6 @@
 package com.digitalasset.canton.participant.protocol
 
 import com.digitalasset.canton.crypto.{HashOps, HmacOps, Salt}
-import com.digitalasset.canton.participant.ParticipantNodeParameters
 import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.{
   AuthenticatedContractIdVersionV10,
@@ -41,22 +40,17 @@ trait SerializableContractAuthenticator {
 
 object SerializableContractAuthenticator {
 
-  def apply(
-      cryptoOps: HashOps & HmacOps,
-      parameters: ParticipantNodeParameters,
-  ): SerializableContractAuthenticator = new SerializableContractAuthenticatorImpl(
-    // This unicum generator is used for all domains uniformly. This means that domains cannot specify
-    // different unicum generator strategies (e.g., different hash functions).
-    new UnicumGenerator(cryptoOps),
-    parameters.allowForUnauthenticatedContractIds,
-  )
+  def apply(cryptoOps: HashOps & HmacOps): SerializableContractAuthenticator =
+    new SerializableContractAuthenticatorImpl(
+      // This unicum generator is used for all domains uniformly. This means that domains cannot specify
+      // different unicum generator strategies (e.g., different hash functions).
+      new UnicumGenerator(cryptoOps)
+    )
 
 }
 
-class SerializableContractAuthenticatorImpl(
-    unicumGenerator: UnicumGenerator,
-    allowForUnauthenticatedContractIds: Boolean,
-) extends SerializableContractAuthenticator {
+class SerializableContractAuthenticatorImpl(unicumGenerator: UnicumGenerator)
+    extends SerializableContractAuthenticator {
 
   def authenticate(contract: SerializableContract): Either[String, Unit] =
     authenticate(
@@ -107,12 +101,10 @@ class SerializableContractAuthenticatorImpl(
           _ <- Either.cond(
             recomputedSuffix == cantonContractSuffix,
             (),
-            s"Mismatching contract id suffixes. expected: $recomputedSuffix vs actual: $cantonContractSuffix",
+            s"Mismatching contract id suffixes. Expected: $recomputedSuffix vs actual: $cantonContractSuffix",
           )
         } yield ()
-      case Left(scheme) =>
-        if (allowForUnauthenticatedContractIds) Right(())
-        else Left(s"Unsupported contract authentication id scheme: $scheme")
+      case Left(scheme) => Left(s"Unsupported contract authentication id scheme: $scheme")
     }
   }
 }

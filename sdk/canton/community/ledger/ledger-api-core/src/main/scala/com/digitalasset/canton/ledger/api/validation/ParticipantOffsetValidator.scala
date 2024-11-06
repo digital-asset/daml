@@ -3,34 +3,36 @@
 
 package com.digitalasset.canton.ledger.api.validation
 
+import cats.syntax.either.*
 import com.daml.error.ContextualizedErrorLogger
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain.types.ParticipantOffset
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
-import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.canton.platform.ApiOffset
 import io.grpc.StatusRuntimeException
 
 object ParticipantOffsetValidator {
 
-  import ValidationErrors.invalidArgument
-
-  def validateOptional(
-      offsetO: Option[Long],
-      fieldName: String,
-  )(implicit
+  def validateOptionalPositive(ledgerOffsetO: Option[Long], fieldName: String)(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, ParticipantOffset] =
-    offsetO match {
-      case None => Right(Ref.HexString.assertFromString(""))
-      case Some(offset) => validatePositive(offset, fieldName)
+  ): Either[StatusRuntimeException, Option[ParticipantOffset]] =
+    ledgerOffsetO match {
+      case Some(off) =>
+        validatePositive(
+          off,
+          fieldName,
+          "the offset has to be either a positive integer (>0) or not defined at all",
+        ).map(
+          Some(_)
+        )
+      case None => Right(None)
     }
 
-  def validate(ledgerOffset: String)(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, ParticipantOffset] =
-    Ref.HexString.fromString(ledgerOffset).left.map(invalidArgument)
-
-  def validatePositive(ledgerOffset: Long, fieldName: String)(implicit
+  def validatePositive(
+      ledgerOffset: Long,
+      fieldName: String,
+      errorMsg: String = "the offset has to be a positive integer (>0)",
+  )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, ParticipantOffset] =
     if (ledgerOffset <= 0)
@@ -39,7 +41,23 @@ object ParticipantOffsetValidator {
           .Error(
             fieldName,
             ledgerOffset,
-            s"the offset in $fieldName field has to be a positive integer (>0)",
+            errorMsg,
+          )
+          .asGrpcError
+      )
+    else
+      Right(Offset.fromLong(ledgerOffset).toHexString)
+
+  def validateNonNegative(ledgerOffset: Long, fieldName: String)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[StatusRuntimeException, ParticipantOffset] =
+    if (ledgerOffset < 0)
+      Left(
+        RequestValidationErrors.NegativeOffset
+          .Error(
+            fieldName,
+            ledgerOffset,
+            s"the offset in $fieldName field has to be a non-negative integer (>=0)",
           )
           .asGrpcError
       )
@@ -53,13 +71,17 @@ object ParticipantOffsetValidator {
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Unit] =
-    if (ledgerOffset > ledgerEnd)
-      Left(
-        RequestValidationErrors.OffsetAfterLedgerEnd
-          .Reject(offsetType, ledgerOffset, ledgerEnd)
-          .asGrpcError
-      )
-    else Right(())
+    Either.cond(
+      ledgerOffset <= ledgerEnd,
+      (),
+      RequestValidationErrors.OffsetAfterLedgerEnd
+        .Reject(
+          offsetType,
+          ApiOffset.assertFromStringToLong(ledgerOffset),
+          ApiOffset.assertFromStringToLong(ledgerEnd),
+        )
+        .asGrpcError,
+    )
 
   // Same as above, but with an optional offset.
   def offsetIsBeforeEnd(
@@ -69,7 +91,7 @@ object ParticipantOffsetValidator {
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, Unit] =
-    ledgerOffset.fold[Either[StatusRuntimeException, Unit]](Right(()))(
+    ledgerOffset.fold(Either.unit[StatusRuntimeException])(
       offsetIsBeforeEnd(offsetType, _, ledgerEnd)
     )
 }
