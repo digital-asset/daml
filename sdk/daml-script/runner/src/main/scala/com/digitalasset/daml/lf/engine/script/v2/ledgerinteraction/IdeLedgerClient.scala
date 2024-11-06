@@ -354,6 +354,11 @@ class IdeLedgerClient(
       case ContractIdInContractKey(_) => SubmitError.ContractIdInContractKey()
       case ContractIdComparability(cid) => SubmitError.ContractIdComparability(cid.toString)
       case ValueNesting(limit) => SubmitError.ValueNesting(limit)
+      case e: Upgrade =>
+        // TODO https://github.com/digital-asset/daml/issues/18616: ensure relevant structured data is capturec
+        SubmitError.UpgradeError(
+          Pretty.prettyDamlException(e).renderWideStream.mkString
+        )
       case e @ Dev(_, innerError) =>
         SubmitError.DevError(
           innerError.getClass.getSimpleName,

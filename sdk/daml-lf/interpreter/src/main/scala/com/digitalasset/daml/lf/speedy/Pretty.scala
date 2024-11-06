@@ -120,6 +120,35 @@ private[lf] object Pretty {
           prettyContractId(key.cids.head)
       case ValueNesting(limit) =>
         text(s"Value exceeds maximum nesting value of $limit")
+      case Upgrade(
+            Upgrade.ValidationFailed(
+              coid,
+              srcTemplateId,
+              dstTemplateId,
+              signatories,
+              observers,
+              keyOpt,
+              _,
+            )
+          ) =>
+        text("Validation fails when trying to upgrade the contract") & prettyContractId(
+          coid
+        ) & text("from") & prettyTypeConName(srcTemplateId) & text(
+          "to"
+        ) & prettyTypeConName(
+          dstTemplateId
+        ) /
+          text(
+            "Verify that neither the signatories, nor the observers, nor the contract key, nor the key's maintainers have changed"
+          ) /
+          text("recomputed signatories are") & prettyParties(signatories) /
+          text("recomputed observers are") & prettyParties(observers) /
+          (keyOpt match {
+            case None => Doc.empty
+            case Some(key) =>
+              text("recomputed maintainers are") & prettyParties(key.maintainers) /
+                text("recomputed key is") & prettyValue(verbose = false)(key.value)
+          })
       case Dev(_, error) =>
         error match {
           case Dev.Conformance(provided, recomputed, details) =>
@@ -215,35 +244,8 @@ private[lf] object Pretty {
                   text(cause)
             }
           case Dev.Upgrade(error) =>
+            // TODO https://github.com/digital-asset/daml/issues/18616: migrate remaining cases out of Dev
             error match {
-              case Dev.Upgrade.ValidationFailed(
-                    coid,
-                    srcTemplateId,
-                    dstTemplateId,
-                    signatories,
-                    observers,
-                    keyOpt,
-                    _,
-                  ) =>
-                text("Validation fails when trying to upgrade the contract") & prettyContractId(
-                  coid
-                ) & text("from") & prettyTypeConName(srcTemplateId) & text(
-                  "to"
-                ) & prettyTypeConName(
-                  dstTemplateId
-                ) /
-                  text(
-                    "Verify that neither the signatories, nor the observers, nor the contract key, nor the key's maintainers have changed"
-                  ) /
-                  text("recomputed signatories are") & prettyParties(signatories) /
-                  text("recomputed observers are") & prettyParties(observers) /
-                  (keyOpt match {
-                    case None => Doc.empty
-                    case Some(key) =>
-                      text("recomputed maintainers are") & prettyParties(key.maintainers) /
-                        text("recomputed key is") & prettyValue(false)(key.value)
-                  })
-
               case Dev.Upgrade.DowngradeDropDefinedField(_, _) =>
                 text(
                   "An optional contract field with a value of Some may not be dropped during downgrading"

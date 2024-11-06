@@ -141,6 +141,22 @@ object Error {
     */
   final case class ValueNesting(limit: Int) extends Error
 
+  sealed case class Upgrade(error: Upgrade.Error) extends Error
+
+  object Upgrade {
+    sealed abstract class Error extends Serializable with Product
+
+    final case class ValidationFailed(
+        coid: ContractId,
+        srcTemplateId: TypeConName,
+        dstTemplateId: TypeConName,
+        signatories: Set[Party],
+        observers: Set[Party],
+        keyOpt: Option[GlobalKeyWithMaintainers],
+        msg: String,
+    ) extends Error
+  }
+
   // Error that can be thrown by dev or PoC feature only
   final case class Dev(location: String, error: Dev.Error) extends Error
 
@@ -170,19 +186,10 @@ object Error {
         details: String,
     ) extends Error
 
+    // TODO https://github.com/digital-asset/daml/issues/18616: migrate Upgrade error cases out of Dev
     object Upgrade {
 
       sealed abstract class Error extends Serializable with Product
-
-      final case class ValidationFailed(
-          coid: ContractId,
-          srcTemplateId: TypeConName,
-          dstTemplateId: TypeConName,
-          signatories: Set[Party],
-          observers: Set[Party],
-          keyOpt: Option[GlobalKeyWithMaintainers],
-          msg: String,
-      ) extends Error
 
       // TODO https://github.com/digital-asset/daml/issues/17647:
       //  - add coid, srcTmplId (alternatively pkgId of srcTmplId), and dstTempId
