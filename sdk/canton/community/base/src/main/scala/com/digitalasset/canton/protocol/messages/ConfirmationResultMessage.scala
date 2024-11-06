@@ -101,7 +101,7 @@ object ConfirmationResultMessage
   override val name: String = "ConfirmationResultMessage"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(
       v30.ConfirmationResultMessage
     )(
       supportedProtoVersionMemoized(_)(fromProtoV30),

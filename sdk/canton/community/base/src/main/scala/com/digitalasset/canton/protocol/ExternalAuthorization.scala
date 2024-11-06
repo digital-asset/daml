@@ -52,7 +52,7 @@ object ExternalAuthorization
   override def name: String = "ExternalAuthorization"
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(protoCompanion =
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(protoCompanion =
       v30.ExternalAuthorization
     )(supportedProtoVersion(_)(fromProtoV30), _.toProtoV30.toByteString)
   )

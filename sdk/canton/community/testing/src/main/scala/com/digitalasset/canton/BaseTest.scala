@@ -235,9 +235,9 @@ trait BaseTest
     e.fold(x => fail(s"$clue: ${x.toString}"), Predef.identity)
 
   /** Converts a CheckedT into a Future, failing in case of aborts or non-aborts. */
-  def valueOrFail[A, N, R](
-      c: CheckedT[Future, A, N, R]
-  )(clue: String)(implicit ec: ExecutionContext, position: Position): Future[R] =
+  def valueOrFail[F[_], A, N, R](
+      c: CheckedT[F, A, N, R]
+  )(clue: String)(implicit position: Position, F: Functor[F]): F[R] =
     c.fold(
       (a, ns) => fail(s"$clue: ${a.toString}, ${ns.toString}"),
       (ns, x) => if (ns.isEmpty) x else fail(s"$clue: ${ns.toString}, ${x.toString}"),
@@ -328,6 +328,13 @@ trait BaseTest
 
     def futureValueUS(implicit pos: Position): Either[E, A] =
       eitherT.value.futureValueUS
+  }
+
+  implicit class CheckedTFutureUnlessShutdownSyntax[A, N, R](
+      checkedT: CheckedT[FutureUnlessShutdown, A, N, R]
+  ) {
+    def failOnShutdown(implicit ec: ExecutionContext, pos: Position): CheckedT[Future, A, N, R] =
+      CheckedT(checkedT.value.onShutdown(fail("Unexpected shutdown")))
   }
 
   implicit class EitherTUnlessShutdownSyntax[E, A](
@@ -474,14 +481,14 @@ object BaseTest {
   )
 
   lazy val CantonExamplesPath: String = getResourcePath("CantonExamples.dar")
-  lazy val CantonTestsPath: String = getResourcePath("CantonTests-3.2.0.dar")
-  lazy val CantonTestsDevPath: String = getResourcePath("CantonTestsDev-3.2.0.dar")
-  lazy val CantonLfDev: String = getResourcePath("CantonLfDev-3.2.0.dar")
-  lazy val CantonLfV21: String = getResourcePath("CantonLfV21-3.2.0.dar")
+  lazy val CantonTestsPath: String = getResourcePath("CantonTests-3.3.0.dar")
+  lazy val CantonTestsDevPath: String = getResourcePath("CantonTestsDev-3.3.0.dar")
+  lazy val CantonLfDev: String = getResourcePath("CantonLfDev-3.3.0.dar")
+  lazy val CantonLfV21: String = getResourcePath("CantonLfV21-3.3.0.dar")
   lazy val PerformanceTestPath: String = getResourcePath("PerformanceTest.dar")
-  lazy val DamlScript3TestFilesPath: String = getResourcePath("DamlScript3TestFiles-3.2.0.dar")
-  lazy val DamlTestFilesPath: String = getResourcePath("DamlTestFiles-3.2.0.dar")
-  lazy val DamlTestLfDevFilesPath: String = getResourcePath("DamlTestLfDevFiles-3.2.0.dar")
+  lazy val DamlScript3TestFilesPath: String = getResourcePath("DamlScript3TestFiles-3.3.0.dar")
+  lazy val DamlTestFilesPath: String = getResourcePath("DamlTestFiles-3.3.0.dar")
+  lazy val DamlTestLfDevFilesPath: String = getResourcePath("DamlTestLfDevFiles-3.3.0.dar")
 
   def getResourcePath(name: String): String =
     Option(getClass.getClassLoader.getResource(name))

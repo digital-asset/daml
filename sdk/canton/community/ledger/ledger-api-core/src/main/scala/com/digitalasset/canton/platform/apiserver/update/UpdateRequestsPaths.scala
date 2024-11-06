@@ -33,14 +33,12 @@ protected[update] object UpdateRequestsPaths {
       List(FieldNames.PartyDetails.localMetadata, FieldNames.Metadata.annotations)
     val resourceVersion: List[String] =
       List(FieldNames.PartyDetails.localMetadata, FieldNames.Metadata.resourceVersion)
-    val displayName: List[String] = List(FieldNames.PartyDetails.displayName)
     val isLocal: List[String] = List(FieldNames.PartyDetails.isLocal)
     val identityProviderId: List[String] = List(FieldNames.PartyDetails.identityProviderId)
     val fullUpdateTrie: UpdatePathsTrie = UpdatePathsTrie
       .fromPaths(
         Seq(
           party,
-          displayName,
           isLocal,
           annotations,
           resourceVersion,

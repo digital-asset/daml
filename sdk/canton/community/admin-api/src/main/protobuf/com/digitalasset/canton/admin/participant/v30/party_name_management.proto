@@ -20,7 +20,7 @@ service PartyNameManagementService {
 
 message SetPartyDisplayNameRequest {
   string party_id = 1;
-  string display_name = 2;
+  reserved 2; // Formerly "display_name"
 }
 
 message SetPartyDisplayNameResponse {}

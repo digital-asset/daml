@@ -66,7 +66,7 @@ private[apiserver] object InteractiveSubmissionServiceImpl {
   )
 
   def createApiService(
-      writeService: state.WriteService,
+      submissionSyncService: state.SubmissionSyncService,
       timeProvider: TimeProvider,
       timeProviderType: TimeProviderType,
       seedService: SeedService,
@@ -80,7 +80,7 @@ private[apiserver] object InteractiveSubmissionServiceImpl {
       executionContext: ExecutionContext,
       tracer: Tracer,
   ): InteractiveSubmissionService & AutoCloseable = new InteractiveSubmissionServiceImpl(
-    writeService,
+    submissionSyncService,
     timeProvider,
     timeProviderType,
     seedService,
@@ -95,7 +95,7 @@ private[apiserver] object InteractiveSubmissionServiceImpl {
 }
 
 private[apiserver] final class InteractiveSubmissionServiceImpl private[services] (
-    writeService: state.WriteService,
+    syncService: state.SubmissionSyncService,
     timeProvider: TimeProvider,
     timeProviderType: TimeProviderType,
     seedService: SeedService,
@@ -240,7 +240,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
       case TimeProviderType.WallClock =>
         // Submit transactions such that they arrive at the ledger sequencer exactly when record time equals ledger time.
         // If the ledger time of the transaction is far in the future (farther than the expected latency),
-        // the submission to the WriteService is delayed.
+        // the submission to the SyncService is delayed.
         val submitAt = transactionInfo.transactionMeta.ledgerEffectiveTime.toInstant
           .minus(LedgerTimeModel.maximumToleranceTimeModel.avgTransactionLatency)
         val submissionDelay = Duration.between(timeProvider.getCurrentTime, submitAt)
@@ -264,7 +264,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
   ): Future[state.SubmissionResult] = {
     metrics.commands.validSubmissions.mark()
     logger.trace("Submitting transaction to ledger.")
-    writeService
+    syncService
       .submitTransaction(
         result.submitterInfo,
         result.optDomainId,

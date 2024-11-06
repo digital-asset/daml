@@ -33,7 +33,7 @@ class ContractStateCachesSpec
     val cacheInitializationOffset = offset(1337)
     @SuppressWarnings(Array("com.digitalasset.canton.GlobalExecutionContext"))
     val contractStateCaches = ContractStateCaches.build(
-      cacheInitializationOffset,
+      cacheInitializationOffset.toAbsoluteOffsetO,
       maxContractsCacheSize = 1L,
       maxKeyCacheSize = 1L,
       metrics = LedgerApiServerMetrics.ForTesting,

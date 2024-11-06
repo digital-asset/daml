@@ -24,7 +24,8 @@ class JsApiDocsService(
     executionContext: ExecutionContext
 ) extends Endpoints {
 
-  private lazy val docs: Endpoint[CallerContext, Unit, Unit, Unit, Any] = baseEndpoint.in(sttp.tapir.stringToPath("docs"))
+  private lazy val docs: Endpoint[CallerContext, Unit, Unit, Unit, Any] =
+    baseEndpoint.in(sttp.tapir.stringToPath("docs"))
 
   // The cache is shared for all tokens - assumption is that api documentation is public
   private val apiDocsCache = new AtomicReference[Option[ApiDocs]](None)

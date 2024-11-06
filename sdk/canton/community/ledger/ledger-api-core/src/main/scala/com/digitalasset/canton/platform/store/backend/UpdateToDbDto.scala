@@ -7,8 +7,8 @@ import com.daml.metrics.api.MetricsContext
 import com.daml.metrics.api.MetricsContext.{withExtraMetricLabels, withOptionalMetricLabels}
 import com.daml.platform.v1.index.StatusDetails
 import com.digitalasset.canton.data
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.data.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
-import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.AuthorizationLevel.*
 import com.digitalasset.canton.ledger.participant.state.Update.TopologyTransactionEffective.{
   AuthorizationLevel,
@@ -38,7 +38,7 @@ object UpdateToDbDto {
       translation: LfValueSerialization,
       compressionStrategy: CompressionStrategy,
       metrics: LedgerApiServerMetrics,
-  )(implicit mc: MetricsContext): Offset => Traced[Update] => Iterator[DbDto] = {
+  )(implicit mc: MetricsContext): AbsoluteOffset => Traced[Update] => Iterator[DbDto] = {
     offset => tracedUpdate =>
       val serializedTraceContext =
         SerializableTraceContext(tracedUpdate.traceContext).toDamlProto.toByteArray
@@ -107,7 +107,7 @@ object UpdateToDbDto {
 
   private def commandRejectedToDbDto(
       metrics: LedgerApiServerMetrics,
-      offset: Offset,
+      offset: AbsoluteOffset,
       serializedTraceContext: Array[Byte],
       commandRejected: CommandRejected,
   )(implicit mc: MetricsContext): Iterator[DbDto] = {
@@ -147,7 +147,7 @@ object UpdateToDbDto {
   private def partyAddedToParticipantToDbDto(
       metrics: LedgerApiServerMetrics,
       participantId: Ref.ParticipantId,
-      offset: Offset,
+      offset: AbsoluteOffset,
       partyAddedToParticipant: PartyAddedToParticipant,
   )(implicit mc: MetricsContext): Iterator[DbDto] = {
     incrementCounterForEvent(
@@ -161,7 +161,6 @@ object UpdateToDbDto {
         recorded_at = partyAddedToParticipant.recordTime.micros,
         submission_id = partyAddedToParticipant.submissionId,
         party = Some(partyAddedToParticipant.party),
-        display_name = Option(partyAddedToParticipant.displayName),
         typ = JdbcLedgerDao.acceptType,
         rejection_reason = None,
         is_local = Some(partyAddedToParticipant.participantId == participantId),
@@ -171,7 +170,7 @@ object UpdateToDbDto {
 
   private def partyAllocationRejectedToDbDto(
       metrics: LedgerApiServerMetrics,
-      offset: Offset,
+      offset: AbsoluteOffset,
       partyAllocationRejected: PartyAllocationRejected,
   )(implicit mc: MetricsContext): Iterator[DbDto] = {
     incrementCounterForEvent(
@@ -185,7 +184,6 @@ object UpdateToDbDto {
         recorded_at = partyAllocationRejected.recordTime.micros,
         submission_id = Some(partyAllocationRejected.submissionId),
         party = None,
-        display_name = None,
         typ = JdbcLedgerDao.rejectType,
         rejection_reason = Some(partyAllocationRejected.rejectionReason),
         is_local = None,
@@ -202,7 +200,7 @@ object UpdateToDbDto {
 
   private def topologyTransactionToDbDto(
       metrics: LedgerApiServerMetrics,
-      offset: Offset,
+      offset: AbsoluteOffset,
       serializedTraceContext: Array[Byte],
       topologyTransaction: TopologyTransactionEffective,
   )(implicit mc: MetricsContext): Iterator[DbDto] = {
@@ -248,7 +246,7 @@ object UpdateToDbDto {
       translation: LfValueSerialization,
       compressionStrategy: CompressionStrategy,
       metrics: LedgerApiServerMetrics,
-      offset: Offset,
+      offset: AbsoluteOffset,
       serializedTraceContext: Array[Byte],
       transactionAccepted: TransactionAccepted,
   )(implicit mc: MetricsContext): Iterator[DbDto] = {
@@ -330,7 +328,7 @@ object UpdateToDbDto {
   private def createNodeToDbDto(
       compressionStrategy: CompressionStrategy,
       translation: LfValueSerialization,
-      offset: Offset,
+      offset: AbsoluteOffset,
       serializedTraceContext: Array[Byte],
       transactionAccepted: TransactionAccepted,
       nodeId: NodeId,
@@ -396,7 +394,7 @@ object UpdateToDbDto {
   private def exerciseNodeToDbDto(
       compressionStrategy: CompressionStrategy,
       translation: LfValueSerialization,
-      offset: Offset,
+      offset: AbsoluteOffset,
       serializedTraceContext: Array[Byte],
       transactionAccepted: TransactionAccepted,
       nodeId: NodeId,
@@ -475,7 +473,7 @@ object UpdateToDbDto {
       translation: LfValueSerialization,
       compressionStrategy: CompressionStrategy,
       metrics: LedgerApiServerMetrics,
-      offset: Offset,
+      offset: AbsoluteOffset,
       serializedTraceContext: Array[Byte],
       reassignmentAccepted: ReassignmentAccepted,
   )(implicit mc: MetricsContext): Iterator[DbDto] = {
@@ -548,7 +546,7 @@ object UpdateToDbDto {
   }
 
   private def unassignToDbDto(
-      offset: Offset,
+      offset: AbsoluteOffset,
       serializedTraceContext: Array[Byte],
       reassignmentAccepted: ReassignmentAccepted,
       unassign: Reassignment.Unassign,
@@ -589,7 +587,7 @@ object UpdateToDbDto {
   private def assignToDbDto(
       translation: LfValueSerialization,
       compressionStrategy: CompressionStrategy,
-      offset: Offset,
+      offset: AbsoluteOffset,
       serializedTraceContext: Array[Byte],
       reassignmentAccepted: ReassignmentAccepted,
       assign: Reassignment.Assign,
@@ -658,7 +656,7 @@ object UpdateToDbDto {
     }
 
   private def commandCompletion(
-      offset: Offset,
+      offset: AbsoluteOffset,
       recordTime: Time.Timestamp,
       updateId: Option[data.UpdateId],
       completionInfo: CompletionInfo,

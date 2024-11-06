@@ -3,55 +3,16 @@
 
 package com.digitalasset.canton.ledger.participant.state
 
-import com.daml.error.ContextualizedErrorLogger
-import com.digitalasset.canton.data.{Offset, ProcessedDisclosedContract}
-import com.digitalasset.canton.ledger.api.health.ReportsHealth
-import com.digitalasset.canton.ledger.participant.state.WriteService.{
-  ConnectedDomainRequest,
-  ConnectedDomainResponse,
-}
-import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
-import com.digitalasset.canton.protocol.PackageDescription
-import com.digitalasset.canton.topology.transaction.ParticipantPermission
-import com.digitalasset.canton.topology.{DomainId, ParticipantId}
+import com.digitalasset.canton.data.ProcessedDisclosedContract
+import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.{DomainAlias, LfPartyId}
-import com.digitalasset.daml.lf.archive.DamlLf.Archive
-import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
 import com.digitalasset.daml.lf.transaction.{GlobalKey, SubmittedTransaction}
 import com.digitalasset.daml.lf.value.Value
-import com.google.protobuf.ByteString
 
 import java.util.concurrent.CompletionStage
-import scala.concurrent.Future
 
-/** An interface to change a ledger via a participant.
-  * '''Please note that this interface is unstable and may significantly change.'''
-  *
-  * The methods in this interface are all methods that are supported
-  * *uniformly* across all ledger participant implementations. Methods for
-  * uploading packages, on-boarding parties, and changing ledger-wide
-  * configuration are specific to a ledger and therefore to a participant
-  * implementation. Moreover, these methods usually require admin-level
-  * privileges, whose granting is also specific to a ledger.
-  *
-  * If a ledger is run for testing only, there is the option for quite freely
-  * allowing the on-boarding of parties and uploading of packages. There are
-  * plans to make this functionality uniformly available: see the roadmap for
-  * progress information https://github.com/digital-asset/daml/issues/121.
-  *
-  * The following methods are currently available for changing the state of a Daml ledger:
-  * - submitting a transaction using [[WriteService!.submitTransaction]]
-  * - allocating a new party using [[WritePartyService!.allocateParty]]
-  * - pruning a participant ledger using [[WriteParticipantPruningService!.prune]]
-  */
-trait WriteService
-    extends WritePackagesService
-    with WritePartyService
-    with WriteParticipantPruningService
-    with ReportsHealth
-    with InternalStateServiceProvider {
+trait SubmissionSyncService {
 
   /** Submit a transaction for acceptance to the ledger.
     *
@@ -59,13 +20,13 @@ trait WriteService
     *
     * The result of the transaction submission is communicated asynchronously
     * via a sequence of [[com.digitalasset.canton.ledger.participant.state.Update]] implementation backed by the same participant
-    * state as this [[com.digitalasset.canton.ledger.participant.state.WriteService]]. Successful transaction acceptance is
+    * state as this [[com.digitalasset.canton.ledger.participant.state.SyncService]]. Successful transaction acceptance is
     * communicated using a [[com.digitalasset.canton.ledger.participant.state.Update.TransactionAccepted]] message. Failed
     * transaction acceptance is communicated when possible via a
     * [[com.digitalasset.canton.ledger.participant.state.Update.CommandRejected]] message referencing the same `submitterInfo` as
     * provided in the submission. There can be failure modes where a
     * transaction submission is lost in transit, and no [[com.digitalasset.canton.ledger.participant.state.Update.CommandRejected]] is
-    * generated. See the comments on [[com.digitalasset.canton.ledger.participant.state.ReadService.stateUpdates]] for further details.
+    * generated. See the comments on [[com.digitalasset.canton.ledger.participant.state.Update]] for further details.
     *
     * A note on ledger time and record time: transactions are
     * submitted together with a `ledgerTime` provided as part of the
@@ -95,7 +56,7 @@ trait WriteService
     * time for submitting and validating large transactions before they are
     * timestamped with their record time.
     *
-    * The [[com.digitalasset.canton.ledger.participant.state.WriteService]] is responsible for deduplicating commands
+    * The [[com.digitalasset.canton.ledger.participant.state.SyncService]] is responsible for deduplicating commands
     * with the same [[com.digitalasset.canton.ledger.participant.state.SubmitterInfo.changeId]] within the [[com.digitalasset.canton.ledger.participant.state.SubmitterInfo.deduplicationPeriod]].
     *
     * @param submitterInfo               the information provided by the submitter for
@@ -161,64 +122,4 @@ trait WriteService
       traceContext: TraceContext
   ): CompletionStage[SubmissionResult]
 
-  def getConnectedDomains(request: ConnectedDomainRequest)(implicit
-      traceContext: TraceContext
-  ): Future[ConnectedDomainResponse] =
-    throw new UnsupportedOperationException()
-
-  /** Get the offsets of the incomplete assigned/unassigned events for a set of stakeholders.
-    *
-    * @param validAt      The offset of validity in participant offset terms.
-    * @param stakeholders Only offsets are returned which have at least one stakeholder from this set.
-    * @return All the offset of assigned/unassigned events which do not have their conterparts visible at
-    *         the validAt offset, and only for the reassignments for which this participant is reassigning.
-    */
-  def incompleteReassignmentOffsets(
-      validAt: Offset,
-      stakeholders: Set[LfPartyId],
-  )(implicit traceContext: TraceContext): Future[Vector[Offset]] = {
-    val _ = validAt
-    val _ = stakeholders
-    val _ = traceContext
-    Future.successful(Vector.empty)
-  }
-
-  def getPackageMetadataSnapshot(implicit
-      contextualizedErrorLogger: ContextualizedErrorLogger
-  ): PackageMetadata =
-    throw new UnsupportedOperationException()
-
-  def listLfPackages()(implicit
-      traceContext: TraceContext
-  ): Future[Seq[PackageDescription]] =
-    throw new UnsupportedOperationException()
-
-  def getLfArchive(packageId: PackageId)(implicit
-      traceContext: TraceContext
-  ): Future[Option[Archive]] =
-    throw new UnsupportedOperationException()
-
-  def validateDar(
-      dar: ByteString,
-      darName: String,
-  )(implicit
-      traceContext: TraceContext
-  ): Future[SubmissionResult] =
-    throw new UnsupportedOperationException()
-}
-
-object WriteService {
-  final case class ConnectedDomainRequest(party: LfPartyId, participantId: Option[ParticipantId])
-
-  final case class ConnectedDomainResponse(
-      connectedDomains: Seq[ConnectedDomainResponse.ConnectedDomain]
-  )
-
-  object ConnectedDomainResponse {
-    final case class ConnectedDomain(
-        domainAlias: DomainAlias,
-        domainId: DomainId,
-        permission: ParticipantPermission,
-    )
-  }
 }

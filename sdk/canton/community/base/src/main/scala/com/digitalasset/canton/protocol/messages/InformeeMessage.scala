@@ -91,7 +91,7 @@ object InformeeMessage
     extends HasProtocolVersionedWithContextCompanion[InformeeMessage, (HashOps, ProtocolVersion)] {
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.InformeeMessage)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.InformeeMessage)(
       supportedProtoVersion(_)((hashOps, proto) => fromProtoV30(hashOps)(proto)),
       _.toProtoV30.toByteString,
     )

@@ -43,6 +43,9 @@ final case class Offset(bytes: Bytes) extends Ordered[Offset] {
   def toAbsoluteOffsetO: Option[AbsoluteOffset] =
     if (this == beforeBegin) None
     else Some(AbsoluteOffset.tryFromLong(this.toLong))
+
+  // TODO(#21220) remove after the unification of Offsets
+  def toAbsoluteOffset: AbsoluteOffset = AbsoluteOffset.tryFromLong(this.toLong)
 }
 
 /** Offsets into streams with hierarchical addressing.
@@ -66,7 +69,8 @@ class AbsoluteOffset private (val positive: Long) extends AnyVal with Ordered[Ab
 }
 
 object AbsoluteOffset {
-  val firstOffset = AbsoluteOffset.tryFromLong(1L)
+  lazy val firstOffset: AbsoluteOffset = AbsoluteOffset.tryFromLong(1L)
+  lazy val MaxValue: AbsoluteOffset = AbsoluteOffset.tryFromLong(Long.MaxValue)
   val beforeBegin: Option[AbsoluteOffset] = None
 
   def tryFromLong(num: Long): AbsoluteOffset =
@@ -78,6 +82,17 @@ object AbsoluteOffset {
       new AbsoluteOffset(num),
       s"Expecting positive value for offset, found $num.",
     )
+
+  implicit val `AbsoluteOffset to LoggingValue`: ToLoggingValue[AbsoluteOffset] = value =>
+    LoggingValue.OfLong(value.unwrap)
+
+  implicit class AbsoluteOffsetOptionToHexString(val offsetO: Option[AbsoluteOffset])
+      extends AnyVal {
+    def toHexString: String = offsetO match {
+      case Some(offset) => offset.toHexString
+      case None => ""
+    }
+  }
 }
 
 object Offset {
@@ -115,6 +130,9 @@ object Offset {
       case None => beforeBegin
       case Some(value) => fromLong(value.unwrap)
     }
+
+  // TODO(#21220) remove after the unification of Offsets
+  def fromAbsoluteOffset(value: AbsoluteOffset): Offset = fromLong(value.unwrap)
 
   implicit val `Offset to LoggingValue`: ToLoggingValue[Offset] = value =>
     LoggingValue.OfLong(value.toLong)

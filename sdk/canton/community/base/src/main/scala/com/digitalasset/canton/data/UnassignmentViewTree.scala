@@ -8,6 +8,7 @@ import cats.syntax.traverse.*
 import com.digitalasset.canton.ProtoDeserializationError.OtherError
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.MerkleTree.RevealSubtree
+import com.digitalasset.canton.data.ReassignmentRef.ContractIdRef
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.UnassignmentMediatorMessage
 import com.digitalasset.canton.protocol.{v30, *}
@@ -82,7 +83,7 @@ object UnassignmentViewTree
   override val name: String = "UnassignmentViewTree"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.ReassignmentViewTree)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.ReassignmentViewTree)(
       supportedProtoVersion(_)((context, proto) => fromProtoV30(context)(proto)),
       _.toProtoV30.toByteString,
     )
@@ -193,7 +194,7 @@ object UnassignmentCommonData
   override val name: String = "UnassignmentCommonData"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.UnassignmentCommonData)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.UnassignmentCommonData)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
@@ -346,7 +347,7 @@ object UnassignmentView
   override val name: String = "UnassignmentView"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.UnassignmentView)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.UnassignmentView)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
@@ -422,7 +423,7 @@ final case class FullUnassignmentTree(tree: UnassignmentViewTree)
   protected[this] val commonData: UnassignmentCommonData = tree.commonData.tryUnwrap
   protected[this] val view: UnassignmentView = tree.view.tryUnwrap
 
-  override def reassignmentId: Option[ReassignmentId] = None
+  override def reassignmentRef: ContractIdRef = ContractIdRef(contractId)
 
   // Domains
   override def domainId: DomainId = sourceDomain.unwrap

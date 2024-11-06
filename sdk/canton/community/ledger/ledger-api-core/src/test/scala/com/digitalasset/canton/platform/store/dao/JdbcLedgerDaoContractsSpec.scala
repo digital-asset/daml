@@ -113,11 +113,11 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       ledgerEndAfterArchive <- ledgerDao.lookupLedgerEnd()
       queryAfterCreate <- contractsReader.lookupContractState(
         contractId,
-        Offset.fromAbsoluteOffsetO(ledgerEndAtCreate.lastOffset),
+        Offset.fromAbsoluteOffset(ledgerEndAtCreate.value.lastOffset),
       )
       queryAfterArchive <- contractsReader.lookupContractState(
         contractId,
-        Offset.fromAbsoluteOffsetO(ledgerEndAfterArchive.lastOffset),
+        Offset.fromAbsoluteOffset(ledgerEndAfterArchive.value.lastOffset),
       )
     } yield {
       queryAfterCreate.value match {
@@ -160,11 +160,11 @@ private[dao] trait JdbcLedgerDaoContractsSpec extends LoneElement with Inside wi
       ledgerEndAfterArchive <- ledgerDao.lookupLedgerEnd()
       queryAfterCreate <- contractsReader.lookupKeyState(
         key.globalKey,
-        Offset.fromAbsoluteOffsetO(ledgerEndAtCreate.lastOffset),
+        Offset.fromAbsoluteOffset(ledgerEndAtCreate.value.lastOffset),
       )
       queryAfterArchive <- contractsReader.lookupKeyState(
         key.globalKey,
-        Offset.fromAbsoluteOffsetO(ledgerEndAfterArchive.lastOffset),
+        Offset.fromAbsoluteOffset(ledgerEndAfterArchive.value.lastOffset),
       )
     } yield {
       queryAfterCreate match {

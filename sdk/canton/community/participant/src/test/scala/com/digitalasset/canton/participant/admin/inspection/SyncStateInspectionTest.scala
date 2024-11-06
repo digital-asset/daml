@@ -286,7 +286,7 @@ sealed trait SyncStateInspectionTest
       createDummyReceivedCommitment(domainId, remoteId, testPeriod)
     for {
       _ <- store.markOutstanding(testPeriod, Set(remoteId))
-      _ <- store.storeReceived(dummyCommitment)
+      _ <- store.storeReceived(dummyCommitment).failOnShutdown
 
       crossDomainReceived = syncStateInspection.crossDomainReceivedCommitmentMessages(
         Seq(domainSearchPeriod),
@@ -358,7 +358,7 @@ sealed trait SyncStateInspectionTest
         .from(Seq(dummySentCommitment))
         .getOrElse(throw new IllegalStateException("How is this empty?"))
       _ <- store.storeComputed(nonEmpty)
-      _ <- store.storeReceived(dummyRecCommitment)
+      _ <- store.storeReceived(dummyRecCommitment).failOnShutdown
       _ <- store.markSafe(remoteId, testPeriod, srip)
 
       crossDomainSent = syncStateInspection.crossDomainSentCommitmentMessages(
@@ -455,7 +455,7 @@ sealed trait SyncStateInspectionTest
         .from(Seq(dummySentCommitment))
         .getOrElse(throw new IllegalStateException("How is this empty?"))
       _ <- store.storeComputed(nonEmpty)
-      _ <- store.storeReceived(dummyRecCommitment)
+      _ <- store.storeReceived(dummyRecCommitment).failOnShutdown
       _ <- store.markSafe(remoteId, testPeriod, srip)
 
       // same thing, but for the second store
@@ -464,7 +464,7 @@ sealed trait SyncStateInspectionTest
         .from(Seq(dummySentCommitment2))
         .getOrElse(throw new IllegalStateException("How is this empty?"))
       _ <- store2.storeComputed(nonEmpty2)
-      _ <- store2.storeReceived(dummyRecCommitment2)
+      _ <- store2.storeReceived(dummyRecCommitment2).failOnShutdown
       _ <- store2.markSafe(remoteId, testPeriod, srip)
 
       crossDomainSent = syncStateInspection.crossDomainSentCommitmentMessages(
@@ -551,7 +551,7 @@ sealed trait SyncStateInspectionTest
         .from(Seq(dummySentCommitment))
         .getOrElse(throw new IllegalStateException("How is this empty?"))
       _ <- store.storeComputed(nonEmpty)
-      _ <- store.storeReceived(dummyRecCommitment)
+      _ <- store.storeReceived(dummyRecCommitment).failOnShutdown
       _ <- store.markSafe(remoteId, testPeriod, srip)
 
       // same thing, but for the second store
@@ -560,7 +560,7 @@ sealed trait SyncStateInspectionTest
         .from(Seq(dummySentCommitment2))
         .getOrElse(throw new IllegalStateException("How is this empty?"))
       _ <- store2.storeComputed(nonEmpty2)
-      _ <- store2.storeReceived(dummyRecCommitment2)
+      _ <- store2.storeReceived(dummyRecCommitment2).failOnShutdown
       _ <- store2.markSafe(remoteId, testPeriod, srip)
 
       // introduce commitments for remoteId2, since we filter by remoteId then these should not appear
@@ -569,7 +569,7 @@ sealed trait SyncStateInspectionTest
         .from(Seq(dummySentCommitmentTrap))
         .getOrElse(throw new IllegalStateException("How is this empty?"))
       _ <- store2.storeComputed(nonEmptyTrap)
-      _ <- store2.storeReceived(dummyRecCommitmentTrap)
+      _ <- store2.storeReceived(dummyRecCommitmentTrap).failOnShutdown
       _ <- store2.markSafe(remoteId2, testPeriod, srip)
 
       crossDomainSent = syncStateInspection.crossDomainSentCommitmentMessages(
@@ -643,8 +643,8 @@ sealed trait SyncStateInspectionTest
         .from(Seq(dummySentCommitment, dummySentCommitment2, dummySentCommitment3))
         .getOrElse(throw new IllegalStateException("How is this empty?"))
       _ <- store.storeComputed(nonEmpty)
-      _ <- store.storeReceived(dummyRecCommitment)
-      _ <- store.storeReceived(dummyRecCommitment2)
+      _ <- store.storeReceived(dummyRecCommitment).failOnShutdown
+      _ <- store.storeReceived(dummyRecCommitment2).failOnShutdown
 
       // test period 1 is matched
       _ <- store.markSafe(remoteId, testPeriod, srip)
@@ -775,7 +775,7 @@ sealed trait SyncStateInspectionTest
       createDummyReceivedCommitment(domainId, remoteId, testPeriod)
     for {
       _ <- store.markOutstanding(testPeriod, Set(remoteId))
-      _ <- store.storeReceived(dummyCommitment)
+      _ <- store.storeReceived(dummyCommitment).failOnShutdown
 
       crossDomainReceived = syncStateInspection.crossDomainReceivedCommitmentMessages(
         Seq(domainSearchPeriod, domainSearchPeriod),

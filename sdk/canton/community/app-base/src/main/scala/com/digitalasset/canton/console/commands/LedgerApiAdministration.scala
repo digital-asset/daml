@@ -1233,13 +1233,11 @@ trait BaseLedgerApiAdministration extends NoTracing {
       @Help.Description(
         """Allocates a new party on the ledger.
           party: a hint for generating the party identifier
-          displayName: a human-readable name of this party
           annotations: key-value pairs associated with this party and stored locally on this Ledger API server
           identityProviderId: identity provider id"""
       )
       def allocate(
           party: String,
-          displayName: String,
           annotations: Map[String, String] = Map.empty,
           identityProviderId: String = "",
       ): PartyDetails = {
@@ -1247,7 +1245,6 @@ trait BaseLedgerApiAdministration extends NoTracing {
           ledgerApiCommand(
             LedgerApiCommands.PartyManagementService.AllocateParty(
               partyIdHint = party,
-              displayName = displayName,
               annotations = annotations,
               identityProviderId = identityProviderId,
             )

@@ -4,6 +4,7 @@
 package com.digitalasset.canton.participant.protocol.reassignment
 
 import cats.data.*
+import cats.syntax.bifunctor.*
 import cats.syntax.either.*
 import cats.syntax.functor.*
 import cats.syntax.traverse.*
@@ -170,7 +171,7 @@ class UnassignmentProcessingSteps(
               }
             case None => Left(UnassignmentProcessorError.UnknownContract(contractId))
           })
-      ).mapK(FutureUnlessShutdown.outcomeK)
+      )
 
       newReassignmentCounter <- EitherT.fromEither[FutureUnlessShutdown](
         reassignmentCounter.increment
@@ -270,7 +271,7 @@ class UnassignmentProcessingSteps(
   ): EitherT[Future, ReassignmentProcessorError, SubmissionResultArgs] =
     performPendingSubmissionMapUpdate(
       pendingSubmissionMap,
-      None,
+      ReassignmentRef(submissionParam.contractId),
       submissionParam.submittingParty,
       pendingSubmissionId,
     )
@@ -493,15 +494,19 @@ class UnassignmentProcessingSteps(
           )
         )
       )
-      responseOpt = createUnassignmentResponse(
-        requestId,
-        isConfirmingReassigningParticipant = isConfirmingReassigningParticipant,
-        activenessResult,
-        contract.contractId,
-        fullTree.reassignmentCounter,
-        confirmingParties = confirmingSignatories,
-        fullTree.tree.rootHash,
-      )
+      responseOpt <- EitherT
+        .fromEither[FutureUnlessShutdown](
+          createUnassignmentResponse(
+            requestId,
+            isConfirmingReassigningParticipant = isConfirmingReassigningParticipant,
+            activenessResult,
+            contract.contractId,
+            fullTree.reassignmentCounter,
+            confirmingParties = confirmingSignatories,
+            fullTree.tree.rootHash,
+          )
+        )
+        .leftWiden[ReassignmentProcessorError]
     } yield {
       // We consider that we rejected if at least one of the responses is not "approve'
       val locallyRejectedF = FutureUnlessShutdown.pure(responseOpt.exists { response =>
@@ -599,10 +604,14 @@ class UnassignmentProcessingSteps(
 
     def rejected(
         reason: TransactionRejection
-    ): EitherT[Future, ReassignmentProcessorError, CommitAndStoreContractsAndPublishEvent] = for {
+    ): EitherT[
+      FutureUnlessShutdown,
+      ReassignmentProcessorError,
+      CommitAndStoreContractsAndPublishEvent,
+    ] = for {
       _ <- ifThenET(isObservingReassigningParticipant)(deleteReassignment(targetDomain, requestId))
 
-      eventO <- EitherT.fromEither[Future](
+      eventO <- EitherT.fromEither[FutureUnlessShutdown](
         createRejectionEvent(RejectionArgs(pendingRequestData, reason))
       )
     } yield CommitAndStoreContractsAndPublishEvent(None, Seq.empty, eventO)
@@ -658,9 +667,9 @@ class UnassignmentProcessingSteps(
         )
 
       case reasons: Verdict.ParticipantReject =>
-        rejected(reasons.keyEvent).mapK(FutureUnlessShutdown.outcomeK)
+        rejected(reasons.keyEvent)
 
-      case rejection: MediatorReject => rejected(rejection).mapK(FutureUnlessShutdown.outcomeK)
+      case rejection: MediatorReject => rejected(rejection)
     }
   }
 
@@ -668,7 +677,6 @@ class UnassignmentProcessingSteps(
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] =
     deleteReassignment(parsedRequest.fullViewTree.targetDomain, parsedRequest.requestId)
-      .mapK(FutureUnlessShutdown.outcomeK)
 
   private def createReassignmentAccepted(
       contractId: LfContractId,
@@ -769,7 +777,7 @@ class UnassignmentProcessingSteps(
       unassignmentRequestId: RequestId,
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, ReassignmentProcessorError, Unit] = {
+  ): EitherT[FutureUnlessShutdown, ReassignmentProcessorError, Unit] = {
     val reassignmentId = ReassignmentId(domainId, unassignmentRequestId.unwrap)
     reassignmentCoordination.deleteReassignment(targetDomain, reassignmentId)
   }
@@ -782,7 +790,7 @@ class UnassignmentProcessingSteps(
       declaredReassignmentCounter: ReassignmentCounter,
       confirmingParties: Set[LfPartyId],
       rootHash: RootHash,
-  ): Option[ConfirmationResponse] = {
+  ): Either[ContractError, Option[ConfirmationResponse]] = {
     val expectedPriorReassignmentCounter = Map[LfContractId, Option[ActiveContractStore.Status]](
       contractId -> Some(ActiveContractStore.Active(declaredReassignmentCounter - 1))
     )
@@ -800,9 +808,8 @@ class UnassignmentProcessingSteps(
             .Reject(s"$activenessResult")
             .toLocalReject(sourceDomainProtocolVersion.unwrap)
 
-      // TODO(#22048) Switch to safe method or pass non-empty confirmingSignatories?
-      val response = checked(
-        ConfirmationResponse.tryCreate(
+      ConfirmationResponse
+        .create(
           requestId,
           participantId,
           Some(ViewPosition.root),
@@ -812,9 +819,9 @@ class UnassignmentProcessingSteps(
           domainId.unwrap,
           sourceDomainProtocolVersion.unwrap,
         )
-      )
-      Some(response)
-    } else None
+        .map(Some(_))
+        .leftMap(err => ContractError(err.msg))
+    } else Right(None)
   }
 }
 

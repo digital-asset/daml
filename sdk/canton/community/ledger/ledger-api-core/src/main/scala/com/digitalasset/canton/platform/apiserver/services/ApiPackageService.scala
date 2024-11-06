@@ -23,7 +23,7 @@ import com.digitalasset.canton.ledger.api.grpc.GrpcApiService
 import com.digitalasset.canton.ledger.api.grpc.Logging.traceId
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
-import com.digitalasset.canton.ledger.participant.state.WriteService
+import com.digitalasset.canton.ledger.participant.state.PackageSyncService
 import com.digitalasset.canton.logging.LoggingContextUtil.createLoggingContext
 import com.digitalasset.canton.logging.LoggingContextWithTrace.{
   implicitExtractTraceContext,
@@ -43,7 +43,7 @@ import io.grpc.ServerServiceDefinition
 import scala.concurrent.{ExecutionContext, Future}
 
 private[apiserver] final class ApiPackageService(
-    writeService: WriteService,
+    packageSyncService: PackageSyncService,
     telemetry: Telemetry,
     val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
@@ -62,7 +62,7 @@ private[apiserver] final class ApiPackageService(
     implicit val loggingContextWithTrace: LoggingContextWithTrace =
       LoggingContextWithTrace(loggerFactory, telemetry)
     logger.info(s"Received request to list packages: $request")
-    writeService
+    packageSyncService
       .listLfPackages()
       .map(p => ListPackagesResponse(p.map(_.packageId.toString)))
       .andThen(logger.logErrorsOnCall[ListPackagesResponse])
@@ -75,7 +75,7 @@ private[apiserver] final class ApiPackageService(
     ) { implicit loggingContext =>
       logger.info(s"Received request for a package: $request")
       withValidatedPackageId(request.packageId, request) { packageId =>
-        writeService
+        packageSyncService
           .getLfArchive(packageId)
           .flatMap {
             case None =>
@@ -103,7 +103,9 @@ private[apiserver] final class ApiPackageService(
         Future {
           val result =
             if (
-              writeService.getPackageMetadataSnapshot.packageIdVersionMap.keySet.contains(packageId)
+              packageSyncService.getPackageMetadataSnapshot.packageIdVersionMap.keySet.contains(
+                packageId
+              )
             ) {
               PackageStatus.PACKAGE_STATUS_REGISTERED
             } else {

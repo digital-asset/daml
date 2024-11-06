@@ -48,7 +48,7 @@ private[dao] sealed class EventsReader(
         eventStorageBackend.eventReaderQueries.fetchContractIdEvents(
           contractId,
           requestingParties = requestingParties,
-          endEventSequentialId = ledgerEndCache()._2,
+          endEventSequentialId = ledgerEndCache().map(_.lastEventSeqId).getOrElse(0L),
         )
       )
 

@@ -4,12 +4,16 @@
 package com.digitalasset.canton.http.metrics
 
 import com.daml.metrics.HealthMetrics
+import com.daml.metrics.api.HistogramInventory.Item
 import com.daml.metrics.api.MetricHandle.{Counter, LabeledMetricsFactory, Timer}
 import com.daml.metrics.api.noop.NoOpMetricsFactory
-import com.daml.metrics.api.{MetricInfo, MetricName, MetricQualification}
-import com.daml.metrics.http.{DamlHttpHistograms, DamlHttpMetrics, DamlWebSocketMetrics, DamlWebSocketsHistograms}
-import com.daml.metrics.api.HistogramInventory
-import com.daml.metrics.api.HistogramInventory.Item
+import com.daml.metrics.api.{HistogramInventory, MetricInfo, MetricName, MetricQualification}
+import com.daml.metrics.http.{
+  DamlHttpHistograms,
+  DamlHttpMetrics,
+  DamlWebSocketMetrics,
+  DamlWebSocketsHistograms,
+}
 
 object HttpApiMetrics {
   lazy val ForTesting =

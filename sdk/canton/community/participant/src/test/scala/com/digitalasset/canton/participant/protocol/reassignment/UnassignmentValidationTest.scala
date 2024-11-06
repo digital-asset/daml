@@ -9,6 +9,7 @@ import com.digitalasset.canton.crypto.provider.symbolic.SymbolicPureCrypto
 import com.digitalasset.canton.data.{
   FullUnassignmentTree,
   ReassigningParticipants,
+  ReassignmentRef,
   UnassignmentViewTree,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -135,13 +136,13 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
       test(contract.metadata).value shouldBe ()
 
       test(incorrectStakeholders).left.value shouldBe ContractMetadataMismatch(
-        reassignmentId = None,
+        reassignmentRef = ReassignmentRef(contract.contractId),
         declaredContractMetadata = incorrectStakeholders,
         expectedMetadata = contract.metadata,
       )
 
       test(incorrectSignatories).left.value shouldBe ContractMetadataMismatch(
-        reassignmentId = None,
+        reassignmentRef = ReassignmentRef(contract.contractId),
         declaredContractMetadata = incorrectSignatories,
         expectedMetadata = contract.metadata,
       )
@@ -167,7 +168,7 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
       test(contract.metadata).value shouldBe ()
 
       test(incorrectMetadata).left.value shouldBe ContractMetadataMismatch(
-        reassignmentId = None,
+        reassignmentRef = ReassignmentRef(contract.contractId),
         declaredContractMetadata = incorrectMetadata,
         expectedMetadata = contract.metadata,
       )
@@ -222,7 +223,7 @@ class UnassignmentValidationTest extends AnyWordSpec with BaseTest with HasExecu
 
       test(correctMetadata, correctMetadata).value shouldBe ()
       test(correctMetadata, incorrectMetadata).left.value shouldBe StakeholdersMismatch(
-        reassignmentId = None,
+        reassignmentRef = ReassignmentRef(contract.contractId),
         declaredViewStakeholders = Stakeholders(incorrectMetadata),
         declaredContractStakeholders = Some(Stakeholders(correctMetadata)),
         expectedStakeholders = Right(Stakeholders(correctMetadata)),

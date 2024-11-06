@@ -286,7 +286,7 @@ final case class ParticipantNodeParameterConfig(
     stores: ParticipantStoreConfig = ParticipantStoreConfig(),
     reassignmentTimeProofFreshnessProportion: NonNegativeInt = NonNegativeInt.tryCreate(3),
     minimumProtocolVersion: Option[ParticipantProtocolVersion] = Some(
-      ParticipantProtocolVersion(ProtocolVersion.v32)
+      ParticipantProtocolVersion(ProtocolVersion.v33)
     ),
     initialProtocolVersion: ParticipantProtocolVersion = ParticipantProtocolVersion(
       ProtocolVersion.latest

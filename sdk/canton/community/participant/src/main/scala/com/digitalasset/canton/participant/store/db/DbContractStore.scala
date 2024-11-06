@@ -12,7 +12,7 @@ import com.digitalasset.canton.config.CantonRequireTypes.String2066
 import com.digitalasset.canton.config.{BatchAggregatorConfig, CacheConfig, ProcessingTimeout}
 import com.digitalasset.canton.crypto.Salt
 import com.digitalasset.canton.data.CantonTimestamp
-import com.digitalasset.canton.lifecycle.CloseContext
+import com.digitalasset.canton.lifecycle.{CloseContext, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.pretty.Pretty
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, TracedLogger}
 import com.digitalasset.canton.participant.store.*
@@ -169,7 +169,7 @@ class DbContractStore(
       filterPackage: Option[String],
       filterTemplate: Option[String],
       limit: Int,
-  )(implicit traceContext: TraceContext): Future[List[SerializableContract]] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[List[SerializableContract]] = {
 
     import DbStorage.Implicits.BuilderChain.*
 
@@ -197,7 +197,7 @@ class DbContractStore(
       domainConstraint ++ pkgFilter ++ templateFilter ++ coidFilter ++ limitFilter
 
     storage
-      .query(contractsQuery.as[StoredContract], functionFullName)
+      .queryUnlessShutdown(contractsQuery.as[StoredContract], functionFullName)
       .map(_.map(_.contract).toList)
   }
 

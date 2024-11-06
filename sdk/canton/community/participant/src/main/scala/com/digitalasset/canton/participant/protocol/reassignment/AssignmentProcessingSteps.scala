@@ -156,7 +156,6 @@ private[reassignment] class AssignmentProcessingSteps(
       reassignmentData <- ephemeralState.reassignmentLookup
         .lookup(reassignmentId)
         .leftMap(err => NoReassignmentData(reassignmentId, err))
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       unassignmentResult <- EitherT.fromEither[FutureUnlessShutdown](
         reassignmentData.unassignmentResult.toRight(
@@ -276,7 +275,7 @@ private[reassignment] class AssignmentProcessingSteps(
   ): EitherT[Future, ReassignmentProcessorError, SubmissionResultArgs] =
     performPendingSubmissionMapUpdate(
       pendingSubmissionMap,
-      Some(submissionParam.reassignmentId),
+      ReassignmentRef(submissionParam.reassignmentId),
       submissionParam.submitterLf,
       submissionId,
     )
@@ -399,7 +398,6 @@ private[reassignment] class AssignmentProcessingSteps(
         .right[ReassignmentProcessorError](
           reassignmentLookup.lookup(reassignmentId).toOption.value
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
       validationResultO <- assignmentValidation
         .validateAssignmentRequest(
           ts,

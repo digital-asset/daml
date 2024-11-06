@@ -8,6 +8,7 @@ import cats.syntax.either.*
 import cats.syntax.traverse.*
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.ledger.participant.state.SubmitterInfo
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.participant.sync.TransactionRoutingError
 import com.digitalasset.canton.participant.sync.TransactionRoutingError.MalformedInputErrors
 import com.digitalasset.canton.protocol.{
@@ -23,7 +24,7 @@ import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.IdString
 import com.digitalasset.daml.lf.engine.Blinding
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 /** Bundle together some data needed to route the transaction.
   *
@@ -63,7 +64,7 @@ private[routing] object TransactionData {
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, TransactionRoutingError, TransactionData] =
+  ): EitherT[FutureUnlessShutdown, TransactionRoutingError, TransactionData] =
     for {
       contractsDomainData <-
         ContractsDomainData
@@ -98,14 +99,18 @@ private[routing] object TransactionData {
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, TransactionRoutingError, TransactionData] = {
+  ): EitherT[FutureUnlessShutdown, TransactionRoutingError, TransactionData] = {
     def parseReader(party: Ref.Party): Either[TransactionRoutingError, IdString.Party] = LfPartyId
       .fromString(party)
       .leftMap[TransactionRoutingError](MalformedInputErrors.InvalidReader.Error.apply)
 
     for {
-      actAs <- EitherT.fromEither[Future](submitterInfo.actAs.traverse(parseReader).map(_.toSet))
-      readers <- EitherT.fromEither[Future](submitterInfo.readAs.traverse(parseReader).map(_.toSet))
+      actAs <- EitherT.fromEither[FutureUnlessShutdown](
+        submitterInfo.actAs.traverse(parseReader).map(_.toSet)
+      )
+      readers <- EitherT.fromEither[FutureUnlessShutdown](
+        submitterInfo.readAs.traverse(parseReader).map(_.toSet)
+      )
       signedExternally = submitterInfo.externallySignedSubmission.fold(Set.empty[LfPartyId])(
         _.signatures.keys.map(_.toLf).toSet
       )

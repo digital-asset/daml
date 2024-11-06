@@ -325,19 +325,23 @@ trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
         _ <- store.storeCreatedContract(rc, contract)
         _ <- store.storeCreatedContract(rc2, contract2)
         _ <- store.storeCreatedContract(rc2, contract3)
-        contractsBeforePurge <- store.find(
-          filterId = None,
-          filterPackage = None,
-          filterTemplate = None,
-          limit = 5,
-        )
+        contractsBeforePurge <- store
+          .find(
+            filterId = None,
+            filterPackage = None,
+            filterTemplate = None,
+            limit = 5,
+          )
+          .failOnShutdown
         _ <- store.purge()
-        contractsAfterPurge <- store.find(
-          filterId = None,
-          filterPackage = None,
-          filterTemplate = None,
-          limit = 5,
-        )
+        contractsAfterPurge <- store
+          .find(
+            filterId = None,
+            filterPackage = None,
+            filterTemplate = None,
+            limit = 5,
+          )
+          .failOnShutdown
       } yield {
         contractsBeforePurge.toSet shouldEqual Set(contract, contract2, contract3)
         contractsAfterPurge shouldBe empty
@@ -360,19 +364,23 @@ trait ContractStoreTest { this: AsyncWordSpec & BaseTest =>
           ),
         )
 
-        resId <- store.find(filterId = Some(contractId.coid), None, None, 100)
+        resId <- store.find(filterId = Some(contractId.coid), None, None, 100).failOnShutdown
         resPkg <- store
           .find(filterId = None, filterPackage = Some(pkgId2), None, 100)
+          .failOnShutdown
         resPkgLimit <- store
           .find(filterId = None, filterPackage = Some(pkgId2), None, 2)
-        resTemplatePkg <- store.find(
-          filterId = None,
-          filterPackage = Some(contract4.contractInstance.unversioned.template.packageId),
-          filterTemplate =
-            Some(contract4.contractInstance.unversioned.template.qualifiedName.toString()),
-          100,
-        )
-        resTemplate <- store.find(None, None, Some(templateName3.toString), 100)
+          .failOnShutdown
+        resTemplatePkg <- store
+          .find(
+            filterId = None,
+            filterPackage = Some(contract4.contractInstance.unversioned.template.packageId),
+            filterTemplate =
+              Some(contract4.contractInstance.unversioned.template.qualifiedName.toString()),
+            100,
+          )
+          .failOnShutdown
+        resTemplate <- store.find(None, None, Some(templateName3.toString), 100).failOnShutdown
       } yield {
         resId shouldEqual List(contract)
         resTemplatePkg shouldEqual List(contract4)

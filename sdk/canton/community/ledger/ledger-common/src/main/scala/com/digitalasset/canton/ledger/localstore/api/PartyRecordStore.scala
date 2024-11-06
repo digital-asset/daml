@@ -13,7 +13,6 @@ import scala.concurrent.Future
 final case class PartyDetailsUpdate(
     party: Ref.Party,
     identityProviderId: IdentityProviderId,
-    displayNameUpdate: Option[Option[String]],
     isLocalUpdate: Option[Boolean],
     metadataUpdate: ObjectMetaUpdate,
 )

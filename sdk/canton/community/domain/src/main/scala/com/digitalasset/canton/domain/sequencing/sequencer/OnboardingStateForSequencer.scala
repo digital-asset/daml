@@ -46,7 +46,7 @@ object OnboardingStateForSequencer
     )
 
   override val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(
       v30.OnboardingStateForSequencer
     )(
       supportedProtoVersion(_)(fromProtoV30),

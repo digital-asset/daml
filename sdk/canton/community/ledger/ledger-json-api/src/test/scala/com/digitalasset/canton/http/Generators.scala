@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.http
 
-import com.digitalasset.canton.http.domain.ContractTypeId
-import com.digitalasset.daml.lf.data.Ref
 import com.daml.ledger.api.v2 as lav2
+import com.digitalasset.canton.http.domain.ContractTypeId
 import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.daml.lf.data.Ref
 import org.scalacheck.Gen
 import scalaz.{-\/, \/, \/-}
 import spray.json.{JsNumber, JsObject, JsString, JsValue}

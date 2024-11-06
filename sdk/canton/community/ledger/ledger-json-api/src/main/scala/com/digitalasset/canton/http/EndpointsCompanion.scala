@@ -3,11 +3,8 @@
 
 package com.digitalasset.canton.http
 
-import org.apache.pekko.http.scaladsl.model.*
-import org.apache.pekko.http.scaladsl.server.RouteResult.Complete
-import org.apache.pekko.http.scaladsl.server.{RequestContext, Route}
-import org.apache.pekko.util.ByteString
-import util.GrpcHttpErrorCodes.*
+import com.daml.error.utils.ErrorDetails
+import com.daml.error.utils.ErrorDetails.ErrorDetail
 import com.daml.jwt.{
   AuthServiceJWTCodec,
   AuthServiceJWTPayload,
@@ -15,32 +12,35 @@ import com.daml.jwt.{
   Jwt,
   StandardJWTPayload,
 }
-import com.digitalasset.canton.ledger.api.domain.UserRight
-import UserRight.{CanActAs, CanReadAs}
-import com.daml.error.utils.ErrorDetails
-import com.daml.error.utils.ErrorDetails.ErrorDetail
-import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
+import com.daml.logging.LoggingContextOf
+import com.digitalasset.canton.http.domain.{JwtPayload, JwtWritePayload, LedgerApiError}
 import com.digitalasset.canton.http.json.SprayJson
 import com.digitalasset.canton.http.util.Logging.{
   InstanceUUID,
   RequestID,
   extendWithRequestIdLogCtx,
 }
+import com.digitalasset.canton.ledger.api.domain.UserRight
+import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
 import com.digitalasset.canton.ledger.client.services.admin.UserManagementClient
 import com.digitalasset.canton.ledger.service.Grpc.StatusEnvelope
-import com.digitalasset.daml.lf.data.Ref.UserId
-import com.daml.logging.LoggingContextOf
-import com.digitalasset.canton.http.domain.{JwtPayload, JwtWritePayload, LedgerApiError}
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.tracing.NoTracing
-import com.google.rpc.Code as GrpcCode
-import com.google.rpc.Status
+import com.digitalasset.daml.lf.data.Ref.UserId
+import com.google.rpc.{Code as GrpcCode, Status}
+import org.apache.pekko.http.scaladsl.model.*
+import org.apache.pekko.http.scaladsl.server.RouteResult.Complete
+import org.apache.pekko.http.scaladsl.server.{RequestContext, Route}
+import org.apache.pekko.util.ByteString
+import scalaz.syntax.std.either.*
 import scalaz.{-\/, EitherT, Monad, NonEmptyList, Show, \/, \/-}
 import spray.json.JsValue
-import scalaz.syntax.std.either.*
 
 import scala.concurrent.Future
 import scala.util.control.NonFatal
+
+import util.GrpcHttpErrorCodes.*
+import UserRight.{CanActAs, CanReadAs}
 
 object EndpointsCompanion extends NoTracing {
 

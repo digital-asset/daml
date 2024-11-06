@@ -45,7 +45,7 @@ trait StorageBackendProvider {
   )(connection: Connection): Unit = {
     backend.parameter.updateLedgerEnd(
       LedgerEnd(
-        ledgerEndOffset.toAbsoluteOffsetO,
+        ledgerEndOffset.toAbsoluteOffset,
         ledgerEndSequentialId,
         0,
         ledgerEndPublicationTime,
@@ -61,16 +61,8 @@ trait StorageBackendProvider {
     updateLedgerEndCache(connection)
   }
 
-  protected final def updateLedgerEndCache(connection: Connection): Unit = {
-    val ledgerEnd = backend.parameter.ledgerEnd(connection)
-    backend.ledgerEndCache.set(
-      (
-        ledgerEnd.lastOffset,
-        ledgerEnd.lastEventSeqId,
-        ledgerEnd.lastPublicationTime,
-      )
-    )
-  }
+  protected final def updateLedgerEndCache(connection: Connection): Unit =
+    backend.ledgerEndCache.set(backend.parameter.ledgerEnd(connection))
 }
 
 trait StorageBackendProviderPostgres

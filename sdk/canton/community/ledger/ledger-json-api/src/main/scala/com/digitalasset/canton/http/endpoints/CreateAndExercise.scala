@@ -3,10 +3,13 @@
 
 package com.digitalasset.canton.http.endpoints
 
-import org.apache.pekko.http.scaladsl.model.*
-import com.digitalasset.daml.lf.value.Value as LfValue
-import com.digitalasset.canton.http.EndpointsCompanion.*
+import com.daml.jwt.Jwt
+import com.daml.ledger.api.v2 as lav2
+import com.daml.logging.LoggingContextOf
+import com.daml.metrics.Timed
 import com.digitalasset.canton.http.Endpoints.ET
+import com.digitalasset.canton.http.EndpointsCompanion.*
+import com.digitalasset.canton.http.domain.ContractTypeId.Template
 import com.digitalasset.canton.http.domain.{
   CreateCommand,
   JwtPayloadTag,
@@ -14,22 +17,20 @@ import com.digitalasset.canton.http.domain.{
   SyncResponse,
 }
 import com.digitalasset.canton.http.json.*
+import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.http.util.FutureUtil.{either, eitherT}
-import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
 import com.digitalasset.canton.http.util.JwtParties.*
-import com.daml.jwt.Jwt
-import com.daml.ledger.api.v2 as lav2
-import lav2.value.{Record as ApiRecord, Value as ApiValue}
+import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
+import com.digitalasset.canton.http.{CommandService, ContractsService, domain}
+import com.digitalasset.daml.lf.value.Value as LfValue
+import org.apache.pekko.http.scaladsl.model.*
 import scalaz.std.scalaFuture.*
 import scalaz.{-\/, EitherT, \/, \/-}
 import spray.json.*
 
 import scala.concurrent.ExecutionContext
-import com.daml.logging.LoggingContextOf
-import com.daml.metrics.Timed
-import com.digitalasset.canton.http.domain.ContractTypeId.Template
-import com.digitalasset.canton.http.{CommandService, ContractsService, domain}
-import com.digitalasset.canton.http.metrics.HttpApiMetrics
+
+import lav2.value.{Record as ApiRecord, Value as ApiValue}
 
 private[http] final class CreateAndExercise(
     routeSetup: RouteSetup,

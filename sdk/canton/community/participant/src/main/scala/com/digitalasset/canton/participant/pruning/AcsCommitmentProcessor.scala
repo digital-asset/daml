@@ -641,7 +641,6 @@ class AcsCommitmentProcessor private (
               // which are available if there was a mismatch at the catch-up boundary
               // Ignore the buffered commitment at the boundary
               _ <- processBuffered(completedPeriod.toInclusive, endExclusive = true)
-
               // *After the above check* (the order matters), mark all reconciliation intervals as locally processed.
               _ <- FutureUnlessShutdown.outcomeF(indicateLocallyProcessed(completedPeriod))
               // clear the commitment snapshot in memory once we caught up
@@ -945,7 +944,7 @@ class AcsCommitmentProcessor private (
       // If signature passes, store such that we can prove Byzantine behavior if necessary
       _ <-
         if (validSig) for {
-          _ <- FutureUnlessShutdown.outcomeF(store.storeReceived(message))
+          _ <- store.storeReceived(message)
           _ <- checkCommitment(commitment)
         } yield ()
         else FutureUnlessShutdown.unit

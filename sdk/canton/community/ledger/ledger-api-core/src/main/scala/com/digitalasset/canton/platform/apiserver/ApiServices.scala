@@ -77,7 +77,7 @@ object ApiServices {
 
   final class Owner(
       participantId: Ref.ParticipantId,
-      writeService: state.WriteService,
+      syncService: state.SyncService,
       indexService: IndexService,
       userManagementStore: UserManagementStore,
       identityProviderConfigStore: IdentityProviderConfigStore,
@@ -203,7 +203,7 @@ object ApiServices {
         )
         val apiEventQueryService =
           new ApiEventQueryService(eventQueryService, telemetry, loggerFactory)
-        val apiPackageService = new ApiPackageService(writeService, telemetry, loggerFactory)
+        val apiPackageService = new ApiPackageService(syncService, telemetry, loggerFactory)
         val apiUpdateService =
           new ApiUpdateService(
             transactionsService,
@@ -215,7 +215,7 @@ object ApiServices {
         val apiStateService =
           new ApiStateService(
             acsService = activeContractsService,
-            writeService = writeService,
+            syncService = syncService,
             txService = transactionsService,
             metrics = metrics,
             telemetry = telemetry,
@@ -243,8 +243,8 @@ object ApiServices {
         v2Services -> Some(apiUpdateService)
       }
 
-      val writeServiceBackedApiServices =
-        intitializeWriteServiceBackedApiServices(
+      val syncServiceBackedApiServices =
+        intitializeSyncServiceBackedApiServices(
           ledgerApiUpdateService,
           checkOverloaded,
         )
@@ -295,7 +295,7 @@ object ApiServices {
 
       ledgerApiV2Services :::
         apiInspectionServiceOpt.toList :::
-        writeServiceBackedApiServices :::
+        syncServiceBackedApiServices :::
         List(
           apiReflectionService,
           apiHealthService,
@@ -303,7 +303,7 @@ object ApiServices {
         ) ::: userManagementServices
     }
 
-    private def intitializeWriteServiceBackedApiServices(
+    private def intitializeSyncServiceBackedApiServices(
         ledgerApiV2Enabled: Option[ApiUpdateService],
         checkOverloaded: TraceContext => Option[state.SubmissionResult],
     )(implicit
@@ -314,7 +314,7 @@ object ApiServices {
           new StoreBackedCommandExecutor(
             engine,
             participantId,
-            writeService,
+            syncService,
             contractStore,
             authenticateContract,
             metrics,
@@ -333,14 +333,14 @@ object ApiServices {
 
       val validateUpgradingPackageResolutions =
         new ValidateUpgradingPackageResolutionsImpl(
-          getPackageMetadataSnapshot = writeService.getPackageMetadataSnapshot(_)
+          getPackageMetadataSnapshot = syncService.getPackageMetadataSnapshot(_)
         )
       val commandsValidator = new CommandsValidator(
         validateUpgradingPackageResolutions = validateUpgradingPackageResolutions
       )
       val commandSubmissionService =
         CommandSubmissionServiceImpl.createApiService(
-          writeService,
+          syncService,
           timeProvider,
           timeProviderType,
           seedService,
@@ -356,7 +356,7 @@ object ApiServices {
         partyManagementServiceConfig.maxPartiesPageSize,
         partyRecordStore,
         transactionsService,
-        writeService,
+        syncService,
         managementServiceTimeout,
         telemetry = telemetry,
         loggerFactory = loggerFactory,
@@ -364,14 +364,14 @@ object ApiServices {
 
       val apiPackageManagementService =
         ApiPackageManagementService.createApiService(
-          writeService = writeService,
+          packageSyncService = syncService,
           telemetry = telemetry,
           loggerFactory = loggerFactory,
         )
 
       val participantPruningService = ApiParticipantPruningService.createApiService(
         indexService,
-        writeService,
+        syncService,
         metrics,
         telemetry,
         loggerFactory,
@@ -381,7 +381,7 @@ object ApiServices {
         val apiSubmissionService = new ApiCommandSubmissionService(
           commandsValidator = commandsValidator,
           commandSubmissionService = commandSubmissionService,
-          writeService = writeService,
+          submissionSyncService = syncService,
           currentLedgerTime = () => timeProvider.getCurrentTime,
           currentUtcTime = () => Instant.now,
           maxDeduplicationDuration = maxDeduplicationDuration.asJava,
@@ -411,7 +411,7 @@ object ApiServices {
           Option.when(interactiveSubmissionServiceConfig.enabled) {
             val interactiveSubmissionService =
               InteractiveSubmissionServiceImpl.createApiService(
-                writeService,
+                syncService,
                 timeProvider,
                 timeProviderType,
                 seedService,

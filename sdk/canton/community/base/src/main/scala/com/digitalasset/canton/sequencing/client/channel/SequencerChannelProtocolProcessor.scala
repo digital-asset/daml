@@ -9,7 +9,7 @@ import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.sequencing.client.SubscriptionCloseReason
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.LoggerUtil
+import com.digitalasset.canton.util.{LoggerUtil, SingleUseCell}
 import com.google.protobuf.ByteString
 import org.slf4j.event.Level
 
@@ -24,18 +24,28 @@ import scala.util.{Failure, Success, Try}
 trait SequencerChannelProtocolProcessor extends FlagCloseable with NamedLogging {
   implicit def executionContext: ExecutionContext
 
-  /** The send adapter is set by the SequencerChannelClientEndpoint only once the channel is ready and safe to use.
-    * Delayed initialization of the send adapter allows channel client callers to create the processor and
-    * initialize the processor with caller-specific state before calling [[SequencerChannelClient.connectToSequencerChannel]].
+  /** The channel endpoint is set once the sequencer channel client connects to the channel.
     */
-  private[channel] val sendAdapter =
-    new SequencerChannelProtocolProcessorSendAdapter(timeouts, loggerFactory)
+  private val channelEndpoint = new SingleUseCell[SequencerChannelClientEndpoint]
+
+  private[channel] def setChannelEndpoint(
+      endpoint: SequencerChannelClientEndpoint
+  ): Either[String, Unit] =
+    channelEndpoint
+      .putIfAbsent(endpoint)
+      .fold(Either.unit[String])(endpointAlreadySet =>
+        Either.cond(
+          endpointAlreadySet != endpoint,
+          (),
+          "Channel endpoint already set to a different channel endpoint - coding bug",
+        )
+      )
 
   // Whether the processor has at some point been connected to the channel, i.e. remains true after hasCompleted is set.
   private[channel] val hasConnected = new AtomicBoolean(false)
   private val hasCompleted = new AtomicBoolean(false)
 
-  // These flags enable tests to observe and interact with all protocol processor implementations.
+  // These accessors enable tests to observe and interact with all protocol processor implementations.
   def hasChannelConnected: Boolean = this.hasConnected.get()
   def hasChannelCompleted: Boolean = this.hasCompleted.get()
 
@@ -58,19 +68,45 @@ trait SequencerChannelProtocolProcessor extends FlagCloseable with NamedLogging 
   /** Sends payload to channel */
   final protected def sendPayload(operation: String, payload: ByteString)(implicit
       traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, String, Unit] = sendAdapter.sendPayload(operation, payload)
+  ): EitherT[FutureUnlessShutdown, String, Unit] =
+    performUnlessClosingEitherUSF(operation) {
+      channelEndpoint.get match {
+        case None =>
+          val err = s"Attempt to send $operation before channel endpoint set"
+          logger.warn(err)
+          EitherT.leftT[FutureUnlessShutdown, Unit](err)
+        case Some(_) if !hasConnected.get() =>
+          val err = s"Attempt to send $operation before processor is connected"
+          logger.warn(err)
+          EitherT.leftT[FutureUnlessShutdown, Unit](err)
+        case Some(endpoint) =>
+          endpoint.sendPayload(operation, payload)
+      }
+    }
 
   /** Sends channel completion thereby ending the ability to send subsequent messages. */
   final protected def sendCompleted(status: String)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] =
-    sendAdapter.sendCompleted(status).map(_ => hasCompleted.set(true))
+    performUnlessClosingEitherUSF(s"complete with $status") {
+      channelEndpoint.get.fold {
+        val err = s"Attempt to send complete with $status before channel endpoint set"
+        logger.warn(err)
+        EitherT.leftT[FutureUnlessShutdown, Unit](err)
+      }(_.sendCompleted(status).map(_ => hasCompleted.set(true)))
+    }
 
   /** Sends channel error thereby ending the ability to send subsequent messages. */
   final protected def sendError(error: String)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, String, Unit] =
-    sendAdapter.sendError(error).map(_ => hasCompleted.set(true))
+    performUnlessClosingEitherUSF(s"send error $error") {
+      channelEndpoint.get.fold {
+        val errSend = s"Attempt to send error $error before channel endpoint set"
+        logger.warn(errSend)
+        EitherT.leftT[FutureUnlessShutdown, Unit](errSend)
+      }(_.sendError(error).map(_ => hasCompleted.set(true)))
+    }
 
   /** Handles end of channel endpoint (successful or error) */
   final private[channel] def handleClose(

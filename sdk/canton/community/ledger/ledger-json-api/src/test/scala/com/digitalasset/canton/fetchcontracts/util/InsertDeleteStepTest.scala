@@ -4,9 +4,9 @@
 package com.digitalasset.canton.fetchcontracts.util
 
 import com.daml.scalatest.FlatSpecCheckLaws
-import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import scalaz.scalacheck.ScalazProperties
 import scalaz.syntax.semigroup.*
 import scalaz.{@@, Equal, Tag}
@@ -16,7 +16,7 @@ class InsertDeleteStepTest
     with Matchers
     with FlatSpecCheckLaws
     with ScalaCheckDrivenPropertyChecks {
-  import InsertDeleteStepTest._
+  import InsertDeleteStepTest.*
 
   override implicit val generatorDrivenConfig: PropertyCheckConfiguration =
     PropertyCheckConfiguration(minSuccessful = 100)

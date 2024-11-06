@@ -8,12 +8,12 @@ import cats.data.{Chain, EitherT}
 import cats.syntax.bifunctor.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.LfPartyId
+import com.digitalasset.canton.data.ReassignmentRef
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.ReassignmentProcessorError
 import com.digitalasset.canton.participant.protocol.reassignment.{
   ReassigningParticipantsComputation,
-  ReassignmentRef,
   ReassignmentValidation,
   UnassignmentProcessorError,
 }

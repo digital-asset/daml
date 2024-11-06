@@ -3,14 +3,14 @@
 
 package com.digitalasset.canton.http
 
-import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse, StatusCodes}
 import io.grpc.health.v1.health.HealthCheckResponse
+import org.apache.pekko.http.scaladsl.model.{ContentTypes, HttpEntity, HttpResponse, StatusCodes}
 
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
 
 final class HealthService(
-    getLedgerHealth: HealthService.GetHealthCheckResponse,
+    getLedgerHealth: HealthService.GetHealthCheckResponse
 ) {
 
   import HealthService.*

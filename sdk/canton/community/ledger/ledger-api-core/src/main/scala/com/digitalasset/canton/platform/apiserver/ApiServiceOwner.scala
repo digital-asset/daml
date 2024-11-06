@@ -86,7 +86,7 @@ object ApiServiceOwner {
       identityProviderConfigStore: IdentityProviderConfigStore,
       partyRecordStore: PartyRecordStore,
       command: CommandServiceConfig = ApiServiceOwner.DefaultCommandServiceConfig,
-      writeService: state.WriteService,
+      syncService: state.SyncService,
       healthChecks: HealthChecks,
       metrics: LedgerApiServerMetrics,
       timeServiceBackend: Option[TimeServiceBackend] = None,
@@ -149,7 +149,7 @@ object ApiServiceOwner {
       executionSequencerFactory <- new ExecutionSequencerFactoryOwner()
       apiServicesOwner = new ApiServices.Owner(
         participantId = participantId,
-        writeService = writeService,
+        syncService = syncService,
         indexService = indexService,
         authorizer = authorizer,
         engine = engine,

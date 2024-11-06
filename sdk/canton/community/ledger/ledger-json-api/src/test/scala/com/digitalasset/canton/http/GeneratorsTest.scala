@@ -3,10 +3,11 @@
 
 package com.digitalasset.canton.http
 
-import Generators.genDuplicateModuleEntityApiIdentifiers
-import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+
+import Generators.genDuplicateModuleEntityApiIdentifiers
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 class GeneratorsTest extends AnyFlatSpec with Matchers with ScalaCheckDrivenPropertyChecks {

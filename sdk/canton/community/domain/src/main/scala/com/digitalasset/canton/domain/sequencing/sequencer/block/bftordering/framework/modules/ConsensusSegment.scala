@@ -263,7 +263,7 @@ object ConsensusSegment {
         SupportedProtoVersions(
           ProtoVersion(30) ->
             VersionedProtoConverter(
-              ProtocolVersion.v32
+              ProtocolVersion.v33
             )(v1.ConsensusMessage)(
               supportedProtoVersionMemoized(_)(
                 PrePrepare.fromProtoConsensusMessage
@@ -360,7 +360,7 @@ object ConsensusSegment {
         SupportedProtoVersions(
           ProtoVersion(30) ->
             VersionedProtoConverter(
-              ProtocolVersion.v32
+              ProtocolVersion.v33
             )(v1.ConsensusMessage)(
               supportedProtoVersionMemoized(_)(
                 Prepare.fromProtoConsensusMessage
@@ -454,7 +454,7 @@ object ConsensusSegment {
         SupportedProtoVersions(
           ProtoVersion(30) ->
             VersionedProtoConverter(
-              ProtocolVersion.v32
+              ProtocolVersion.v33
             )(v1.ConsensusMessage)(
               supportedProtoVersionMemoized(_)(
                 Commit.fromProtoConsensusMessage
@@ -559,7 +559,7 @@ object ConsensusSegment {
         SupportedProtoVersions(
           ProtoVersion(30) ->
             VersionedProtoConverter(
-              ProtocolVersion.v32
+              ProtocolVersion.v33
             )(v1.ConsensusMessage)(
               supportedProtoVersionMemoized(_)(
                 ViewChange.fromProtoConsensusMessage
@@ -683,7 +683,7 @@ object ConsensusSegment {
         SupportedProtoVersions(
           ProtoVersion(30) ->
             VersionedProtoConverter(
-              ProtocolVersion.v32
+              ProtocolVersion.v33
             )(v1.ConsensusMessage)(
               supportedProtoVersionMemoized(_)(
                 NewView.fromProtoConsensusMessage

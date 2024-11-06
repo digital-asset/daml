@@ -3,13 +3,14 @@
 
 package com.digitalasset.canton.http
 
-import domain.*
 import com.daml.nonempty.NonEmpty
 import com.daml.scalatest.FreeSpecCheckLaws
 import com.digitalasset.canton.http.domain.{DisclosedContract, JwtPayload, JwtWritePayload}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
 import scalaz.NonEmptyList
+
+import domain.*
 
 final class DomainSpec extends AnyFreeSpec with Matchers with FreeSpecCheckLaws {
   import DomainSpec.*
@@ -37,7 +38,7 @@ final class DomainSpec extends AnyFreeSpec with Matchers with FreeSpecCheckLaws 
 
   "DisclosedContract" - {
     import json.JsonProtocolTest.*
-    import scalaz.scalacheck.{ScalazProperties as SZP}
+    import scalaz.scalacheck.ScalazProperties as SZP
 
     "bitraverse" - {
       checkLaws(SZP.traverse.laws[DisclosedContract])

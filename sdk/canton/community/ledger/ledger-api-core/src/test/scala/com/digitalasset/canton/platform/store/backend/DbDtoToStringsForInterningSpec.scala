@@ -91,7 +91,6 @@ class DbDtoToStringsForInterningSpec extends AnyFlatSpec with Matchers {
       recorded_at = 0,
       submission_id = Some("1"),
       party = Some("2"),
-      display_name = Some("3"),
       typ = "3",
       rejection_reason = Some("4"),
       is_local = None,

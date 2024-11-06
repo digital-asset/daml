@@ -6,6 +6,7 @@ package com.digitalasset.canton.participant.protocol.submission.routing
 import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.{NamedLoggerFactory, SuppressingLogger}
 import com.digitalasset.canton.participant.protocol.submission.DomainSelectionFixture.*
 import com.digitalasset.canton.participant.protocol.submission.DomainSelectionFixture.Transactions.{
@@ -135,7 +136,7 @@ class DomainSelectorTest extends AnyWordSpec with BaseTest with HasExecutionCont
 
     // TODO(#15561) Re-enable this test when we have a stable protocol version
     "take minimum protocol version into account" ignore {
-      val oldPV = ProtocolVersion.v32
+      val oldPV = ProtocolVersion.v33
 
       val transactionVersion = LfLanguageVersion.v2_dev
       val newPV = DamlLfVersionToProtocolVersions.damlLfVersionToMinimumProtocolVersions
@@ -538,8 +539,8 @@ private[routing] object DomainSelectorTest {
         override def getDomainsOfContracts(coids: Seq[LfContractId])(implicit
             ec: ExecutionContext,
             traceContext: TraceContext,
-        ): Future[Map[LfContractId, DomainId]] =
-          Future.successful(domainOfContracts(coids))
+        ): FutureUnlessShutdown[Map[LfContractId, DomainId]] =
+          FutureUnlessShutdown.pure(domainOfContracts(coids))
       }
 
       private val domainRankComputation = new DomainRankComputation(
@@ -563,16 +564,18 @@ private[routing] object DomainSelectorTest {
         )
 
       private val domainSelector: EitherT[Future, TransactionRoutingError, DomainSelector] =
-        transactionDataET.map { transactionData =>
-          new DomainSelector(
-            transactionData = transactionData,
-            admissibleDomains = admissibleDomains,
-            priorityOfDomain = priorityOfDomain,
-            domainRankComputation = domainRankComputation,
-            domainStateProvider = TestDomainStateProvider,
-            loggerFactory = loggerFactory,
-          )
-        }
+        transactionDataET
+          .map { transactionData =>
+            new DomainSelector(
+              transactionData = transactionData,
+              admissibleDomains = admissibleDomains,
+              priorityOfDomain = priorityOfDomain,
+              domainRankComputation = domainRankComputation,
+              domainStateProvider = TestDomainStateProvider,
+              loggerFactory = loggerFactory,
+            )
+          }
+          .mapK(FutureUnlessShutdown.failOnShutdownToAbortExceptionK("test"))
 
       def forSingleDomain: EitherT[Future, TransactionRoutingError, DomainRank] =
         domainSelector.flatMap(_.forSingleDomain)

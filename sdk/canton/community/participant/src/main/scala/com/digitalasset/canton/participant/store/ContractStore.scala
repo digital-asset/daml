@@ -7,6 +7,7 @@ import cats.data.EitherT
 import cats.instances.list.*
 import cats.syntax.foldable.*
 import com.digitalasset.canton.RequestCounter
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.{LfContractId, SerializableContract}
 import com.digitalasset.canton.store.Purgeable
@@ -62,7 +63,7 @@ trait ContractStore extends ContractLookup with Purgeable {
       filterPackage: Option[String],
       filterTemplate: Option[String],
       limit: Int,
-  )(implicit traceContext: TraceContext): Future[List[SerializableContract]]
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[List[SerializableContract]]
 
   /** Deletes multiple contracts from the contract store.
     *

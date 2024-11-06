@@ -3,12 +3,12 @@
 
 package com.digitalasset.canton.http.util
 
-import com.digitalasset.canton.http.domain.{JwtPayload, JwtWritePayload}
 import com.daml.nonempty.NonEmptyReturningOps.*
 import com.digitalasset.canton.http.domain
-import scalaz.{-\/, NonEmptyList, \/, \/-}
+import com.digitalasset.canton.http.domain.{JwtPayload, JwtWritePayload}
 import scalaz.syntax.foldable.*
 import scalaz.syntax.std.option.*
+import scalaz.{-\/, NonEmptyList, \/, \/-}
 
 private[http] object JwtParties {
   import com.digitalasset.canton.http.EndpointsCompanion.{Error, Unauthorized}

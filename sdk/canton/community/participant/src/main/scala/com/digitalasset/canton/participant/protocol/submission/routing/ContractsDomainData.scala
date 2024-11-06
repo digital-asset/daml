@@ -5,11 +5,12 @@ package com.digitalasset.canton.participant.protocol.submission.routing
 
 import cats.data.EitherT
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.protocol.{LfContractId, Stakeholders}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 private[routing] final case class ContractsDomainData private (
     withDomainData: Seq[ContractData]
@@ -30,7 +31,7 @@ private[routing] object ContractsDomainData {
   )(implicit
       ec: ExecutionContext,
       traceContext: TraceContext,
-  ): EitherT[Future, NonEmpty[Seq[LfContractId]], ContractsDomainData] = {
+  ): EitherT[FutureUnlessShutdown, NonEmpty[Seq[LfContractId]], ContractsDomainData] = {
     val result = domainStateProvider
       .getDomainsOfContracts(contractsStakeholders.keySet.toSeq)
       .map { domainMap =>

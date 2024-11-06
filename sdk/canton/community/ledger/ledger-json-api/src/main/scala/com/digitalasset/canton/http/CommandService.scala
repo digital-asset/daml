@@ -3,6 +3,12 @@
 
 package com.digitalasset.canton.http
 
+import com.daml.jwt.Jwt
+import com.daml.ledger.api.v2 as lav2
+import com.daml.ledger.api.v2.commands.Commands.DeduplicationPeriod
+import com.daml.logging.LoggingContextOf
+import com.daml.logging.LoggingContextOf.{label, withEnrichedLoggingContext}
+import com.digitalasset.canton.http.LedgerClientJwt.Grpc
 import com.digitalasset.canton.http.domain.{
   ActiveContract,
   Choice,
@@ -14,23 +20,17 @@ import com.digitalasset.canton.http.domain.{
   ExerciseResponse,
   JwtWritePayload,
 }
-import com.daml.jwt.Jwt
-import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
-import com.daml.ledger.api.v2 as lav2
-import com.daml.ledger.api.v2.commands.Commands.DeduplicationPeriod
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.daml.logging.LoggingContextOf
-import com.daml.logging.LoggingContextOf.{label, withEnrichedLoggingContext}
-import com.digitalasset.canton.http.LedgerClientJwt.Grpc
 import com.digitalasset.canton.http.util.ClientUtil.uniqueCommandId
 import com.digitalasset.canton.http.util.FutureUtil.*
 import com.digitalasset.canton.http.util.IdentifierConverters.refApiIdentifier
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
 import com.digitalasset.canton.http.util.{Commands, Transactions}
+import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
 import com.digitalasset.canton.ledger.service.Grpc.StatusEnvelope
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext}
+import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
 import scalaz.std.scalaFuture.*
 import scalaz.syntax.show.*
 import scalaz.syntax.std.option.*

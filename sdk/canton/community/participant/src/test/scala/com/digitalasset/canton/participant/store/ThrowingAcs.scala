@@ -57,26 +57,26 @@ class ThrowingAcs[T <: Throwable](mk: String => T)(override implicit val ec: Exe
       assignments: Seq[(LfContractId, Source[DomainId], ReassignmentCounter, TimeOfChange)]
   )(implicit
       traceContext: TraceContext
-  ): CheckedT[Future, AcsError, AcsWarning, Unit] =
-    CheckedT(Future.failed[M](mk(s"assignContracts for $assignments")))
+  ): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Unit] =
+    CheckedT(FutureUnlessShutdown.failed[M](mk(s"assignContracts for $assignments")))
 
   override def unassignContracts(
       unassignments: Seq[(LfContractId, Target[DomainId], ReassignmentCounter, TimeOfChange)]
   )(implicit
       traceContext: TraceContext
-  ): CheckedT[Future, AcsError, AcsWarning, Unit] =
-    CheckedT(Future.failed[M](mk(s"unassignContracts for $unassignments")))
+  ): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Unit] =
+    CheckedT(FutureUnlessShutdown.failed[M](mk(s"unassignContracts for $unassignments")))
 
   override def fetchStates(contractIds: Iterable[LfContractId])(implicit
       traceContext: TraceContext
-  ): Future[Map[LfContractId, ContractState]] =
-    Future.failed(mk(s"fetchContractStates for $contractIds"))
+  ): FutureUnlessShutdown[Map[LfContractId, ContractState]] =
+    FutureUnlessShutdown.failed(mk(s"fetchContractStates for $contractIds"))
 
   /** Always returns [[scala.Map$.empty]] so that the failure does not happen while checking the invariant. */
   override def fetchStatesForInvariantChecking(ids: Iterable[LfContractId])(implicit
       traceContext: TraceContext
-  ): Future[Map[LfContractId, StateChange[ActiveContractStore.Status]]] =
-    Future.successful(Map.empty)
+  ): FutureUnlessShutdown[Map[LfContractId, StateChange[ActiveContractStore.Status]]] =
+    FutureUnlessShutdown.pure(Map.empty)
 
   override def snapshot(timestamp: CantonTimestamp)(implicit
       traceContext: TraceContext
@@ -147,6 +147,6 @@ class ThrowingAcs[T <: Throwable](mk: String => T)(override implicit val ec: Exe
 
   override def packageUsage(pkg: PackageId, contractStore: ContractStore)(implicit
       traceContext: TraceContext
-  ): Future[Option[(LfContractId)]] =
-    Future.failed(mk(s"packageUnused for $pkg"))
+  ): FutureUnlessShutdown[Option[LfContractId]] =
+    FutureUnlessShutdown.failed(mk(s"packageUnused for $pkg"))
 }

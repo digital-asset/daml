@@ -23,6 +23,7 @@ import com.digitalasset.canton.sequencing.protocol.{
 }
 import com.digitalasset.canton.topology.{Member, SequencerId}
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext, Traced}
+import com.digitalasset.canton.util.{EitherTUtil, SingleUseCell}
 import com.google.protobuf.ByteString
 import io.grpc.Context.CancellableContext
 import io.grpc.stub.StreamObserver
@@ -58,7 +59,21 @@ private[channel] final class SequencerChannelClientEndpoint(
       v30.ConnectToSequencerChannelResponse,
     ](context, timeouts) {
   private val areAllEndpointsConnected = new AtomicBoolean(false)
-  private val sendAdapter = processor.sendAdapter
+  private val requestObserver =
+    new SingleUseCell[StreamObserver[v30.ConnectToSequencerChannelRequest]]
+
+  private def trySetRequestObserver(
+      observer: StreamObserver[v30.ConnectToSequencerChannelRequest]
+  ): Unit =
+    requestObserver
+      .putIfAbsent(observer)
+      .foreach(observerAlreadySet =>
+        if (observerAlreadySet != observer) {
+          throw new IllegalStateException(
+            "Request observer already set to a different observer - coding bug"
+          )
+        }
+      )
 
   /** Set the request observer for the channel that only becomes available after the channel client transport
     * issues the GRPC request that connects to the sequencer channel.
@@ -81,7 +96,7 @@ private[channel] final class SequencerChannelClientEndpoint(
         complete(SubscriptionCloseReason.Closed)
       }
     }
-    sendAdapter.trySetRequestObserver(observerRecordingCompletion)
+    trySetRequestObserver(observerRecordingCompletion)
     // As the first message after the request observer is set, let the sequencer know the channel metadata,
     // so that it can connect the two channel endpoints.
     val metadataPayload = SequencerChannelMetadata(channelId, member, connectTo)(
@@ -94,7 +109,7 @@ private[channel] final class SequencerChannelClientEndpoint(
     observerRecordingCompletion.onNext(metadataRequest)
   }
 
-  /** Forwards requests to the processor, once the channel is connected to all endpoints.
+  /** Forwards responses received via the channel to the processor, once the channel is connected to all endpoints.
     */
   override protected def callHandler: Traced[v30.ConnectToSequencerChannelResponse] => Future[
     Either[String, Unit]
@@ -112,12 +127,66 @@ private[channel] final class SequencerChannelClientEndpoint(
     } yield ()).value.onShutdown(Right(()))
   }
 
+  /** Sends payloads to channel */
+  private[channel] def sendPayload(operation: String, payload: ByteString)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, Unit] =
+    requestObserver.get match {
+      case None =>
+        val err = s"Attempt to send $operation before request observer set"
+        logger.warn(err)
+        EitherT.leftT[FutureUnlessShutdown, Unit](err)
+      case Some(_) if !areAllEndpointsConnected.get() =>
+        val err = s"Attempt to send $operation before channel is ready to send payloads"
+        logger.warn(err)
+        EitherT.leftT[FutureUnlessShutdown, Unit](err)
+      case Some(payloadObserver) =>
+        logger.debug(s"Sending $operation")
+        val request = v30.ConnectToSequencerChannelRequest(
+          payload,
+          Some(SerializableTraceContext(traceContext).toProtoV30),
+        )
+        payloadObserver.onNext(request)
+        logger.debug(s"Sent $operation")
+        EitherTUtil.unitUS[String]
+    }
+
+  /** Sends channel completion */
+  private[channel] def sendCompleted(status: String)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, Unit] =
+    requestObserver.get.fold {
+      val err = s"Attempt to send complete with $status before request observer set"
+      logger.warn(err)
+      EitherT.leftT[FutureUnlessShutdown, Unit](err)
+    } { completionObserver =>
+      logger.info(s"Sending channel completion with $status")
+      completionObserver.onCompleted()
+      logger.info(s"Sent channel completion with $status")
+      EitherTUtil.unitUS
+    }
+
+  /** Sends channel error */
+  private[channel] def sendError(error: String)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, String, Unit] =
+    requestObserver.get.fold {
+      val errSend = s"Attempt to send error $error before request observer set"
+      logger.warn(errSend)
+      EitherT.leftT[FutureUnlessShutdown, Unit](errSend)
+    } { errorObserver =>
+      logger.warn(s"Sending channel error $error")
+      errorObserver.onError(new IllegalStateException(error))
+      logger.info(s"Sent channel error $error")
+      EitherTUtil.unitUS
+    }
+
   /** Initializes the processor once the channel is ready for use.
     *
     * Initialization consists of:
     * - verifying that the sequencer channel service has connected the channel to all endpoints,
-    * - setting the "send adapter" flag to forward payload messages to the sequencer, and
-    * - notifying the processor/"client" code that the processor may begin sending channel payload messages.
+    * - notifying the processor/"client" code that the processor may begin sending channel payload messages, and
+    * - setting the "hasConnected" flag to forward payload messages to the sequencer.
     *
     * @param channelConnectedToAllEndpointsPayload The payload that signals the channel is connected to both members.
     */
@@ -133,9 +202,8 @@ private[channel] final class SequencerChannelClientEndpoint(
             .leftMap(_.toString)
         )
       // Allow the processor to send payloads to the channel.
-      _ = sendAdapter.notifyAbleToSendPayload()
-      _ <- processor.onConnected()
       _ = processor.hasConnected.set(true)
+      _ <- processor.onConnected()
     } yield ()
 
   // Channel subscriptions legitimately close when the server closes the channel.

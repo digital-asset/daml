@@ -10,6 +10,7 @@ import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.Update
 import com.digitalasset.canton.ledger.participant.state.index.IndexService
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.IndexComponentTest.TestServices
@@ -157,7 +158,7 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
           inMemoryState = inMemoryState,
           tracer = NoReportingTracerProvider.tracer,
           loggerFactory = loggerFactory,
-          incompleteOffsets = (_, _, _) => Future.successful(Vector.empty),
+          incompleteOffsets = (_, _, _) => FutureUnlessShutdown.pure(Vector.empty),
           contractLoader = contractLoader,
           getPackageMetadataSnapshot = _ => PackageMetadata(),
           lfValueTranslation = new LfValueTranslation(

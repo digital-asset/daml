@@ -87,7 +87,7 @@ object Batch extends HasProtocolVersionedCompanion2[Batch[Envelope[?]], Batch[Cl
 
   override val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> VersionedProtoConverter(
-      ProtocolVersion.v32
+      ProtocolVersion.v33
     )(v30.CompressedBatch)(
       supportedProtoVersion(_)(
         // TODO(i10428) Prevent zip bombing when decompressing the request

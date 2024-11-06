@@ -3,33 +3,41 @@
 
 package com.digitalasset.canton.http
 
+import com.daml.jwt.{
+  AuthServiceJWTCodec,
+  AuthServiceJWTPayload,
+  DecodedJwt,
+  Jwt,
+  JwtSigner,
+  StandardJWTPayload,
+  StandardJWTTokenFormat,
+}
 import com.daml.ledger.api.v2 as lav2
+import com.daml.logging.LoggingContextOf
+import com.digitalasset.canton.BaseTest
+import com.digitalasset.canton.http.util.Logging as HLogging
+import com.digitalasset.canton.tracing.NoTracing
+import org.scalatest.Inside
+import org.scalatest.matchers.should.Matchers
+import org.scalatest.wordspec.AsyncWordSpec
+import scalaz.syntax.foldable.*
+import scalaz.syntax.show.*
+import scalaz.syntax.tag.*
+import scalaz.{NonEmptyList, \/-}
+import spray.json.*
+
+import java.util.concurrent.CopyOnWriteArrayList
+import scala.collection as sc
+import scala.concurrent.{ExecutionContext as EC, Future}
+import scala.jdk.CollectionConverters.*
+
 import lav2.command_service.{
   SubmitAndWaitForTransactionResponse,
   SubmitAndWaitForTransactionTreeResponse,
   SubmitAndWaitRequest,
 }
 import lav2.transaction.{Transaction, TransactionTree}
-import com.digitalasset.canton.http.util.Logging as HLogging
-import com.daml.logging.LoggingContextOf
 import LoggingContextOf.{label, newLoggingContext}
-import com.daml.jwt.{AuthServiceJWTCodec, AuthServiceJWTPayload, JwtSigner, StandardJWTPayload, StandardJWTTokenFormat}
-import com.daml.jwt.{DecodedJwt, Jwt}
-import com.digitalasset.canton.BaseTest
-import com.digitalasset.canton.tracing.NoTracing
-import org.scalatest.Inside
-import org.scalatest.matchers.should.Matchers
-import org.scalatest.wordspec.AsyncWordSpec
-import scalaz.{NonEmptyList, \/-}
-import scalaz.syntax.foldable.*
-import scalaz.syntax.tag.*
-import spray.json.*
-import scalaz.syntax.show.*
-
-import java.util.concurrent.CopyOnWriteArrayList
-import scala.collection as sc
-import scala.concurrent.{Future, ExecutionContext as EC}
-import scala.jdk.CollectionConverters.*
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 class CommandServiceTest extends AsyncWordSpec with Matchers with Inside with NoTracing {

@@ -320,7 +320,7 @@ private object MutableCacheBackedContractStoreRaceTests {
       contractsReader = indexViewContractsReader,
       metrics = metrics,
       contractStateCaches = ContractStateCaches.build(
-        initialCacheIndex = Offset.beforeBegin,
+        initialCacheIndex = None,
         maxContractsCacheSize = 1L,
         maxKeyCacheSize = 1L,
         metrics = metrics,

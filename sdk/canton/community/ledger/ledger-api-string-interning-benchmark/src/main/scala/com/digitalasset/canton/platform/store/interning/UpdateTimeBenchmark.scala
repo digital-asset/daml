@@ -22,7 +22,7 @@ class UpdateTimeBenchmark extends BenchmarkState {
 
     interningEnd = stringCount
     Await.result(
-      interning.update(interningEnd)(BenchmarkState.loadStringInterningEntries(entries)),
+      interning.update(Some(interningEnd))(BenchmarkState.loadStringInterningEntries(entries)),
       perfTestTimeout,
     )
   }
@@ -37,7 +37,7 @@ class UpdateTimeBenchmark extends BenchmarkState {
     if (interningEnd > entries.length) throw new RuntimeException("Can't ingest any more strings")
 
     Await.result(
-      interning.update(interningEnd)(BenchmarkState.loadStringInterningEntries(entries)),
+      interning.update(Some(interningEnd))(BenchmarkState.loadStringInterningEntries(entries)),
       perfTestTimeout,
     )
   }

@@ -5,8 +5,8 @@ package com.digitalasset.canton.fetchcontracts.util
 
 import com.daml.ledger.api.v2.event as evv1
 import com.digitalasset.canton.fetchcontracts.domain
-import scalaz.{Monoid, \/, \/-}
 import scalaz.syntax.tag.*
+import scalaz.{Monoid, \/, \/-}
 
 import scala.runtime.AbstractFunction1
 

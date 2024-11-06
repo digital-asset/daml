@@ -5,12 +5,12 @@ package com.digitalasset.canton.http.json.v2
 
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
 import com.digitalasset.canton.http.json.v2.damldefinitionsservice.DamlDefinitionsView
+import com.digitalasset.canton.http.json.v2.damldefinitionsservice.Schema.Codecs.*
 import com.digitalasset.canton.http.json.v2.damldefinitionsservice.Schema.{
   AllTemplatesResponse,
   TemplateDefinition,
   TypeSig,
 }
-import com.digitalasset.canton.http.json.v2.damldefinitionsservice.Schema.Codecs.*
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import sttp.tapir.path
 

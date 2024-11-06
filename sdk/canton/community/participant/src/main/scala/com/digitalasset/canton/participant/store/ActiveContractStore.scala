@@ -7,6 +7,7 @@ import cats.syntax.foldable.*
 import cats.syntax.parallel.*
 import com.digitalasset.canton.config.CantonRequireTypes.{LengthLimitedString, String36}
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.ErrorLoggingContext
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveContractIdsChange
@@ -16,7 +17,6 @@ import com.digitalasset.canton.store.db.DbDeserializationException
 import com.digitalasset.canton.store.{IndexedDomain, IndexedStringStore}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{Checked, CheckedT}
 import com.digitalasset.canton.{ReassignmentCounter, RequestCounter}
@@ -206,9 +206,9 @@ trait ActiveContractStore
     *         Nonexistent contracts are excluded from the map.
     * @see ActiveContractSnapshot!.snapshot
     */
-  def fetchStates(contractIds: Iterable[LfContractId])(implicit
-      traceContext: TraceContext
-  ): Future[Map[LfContractId, ContractState]]
+  def fetchStates(
+      contractIds: Iterable[LfContractId]
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Map[LfContractId, ContractState]]
 
   /** Marks the given contracts as assigned from `toc`'s timestamp (inclusive) onwards.
     *
@@ -225,7 +225,7 @@ trait ActiveContractStore
     */
   def assignContracts(
       assignments: Seq[(LfContractId, Source[DomainId], ReassignmentCounter, TimeOfChange)]
-  )(implicit traceContext: TraceContext): CheckedT[Future, AcsError, AcsWarning, Unit]
+  )(implicit traceContext: TraceContext): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Unit]
 
   def assignContract(
       contractId: LfContractId,
@@ -234,7 +234,7 @@ trait ActiveContractStore
       reassignmentCounter: ReassignmentCounter,
   )(implicit
       traceContext: TraceContext
-  ): CheckedT[Future, AcsError, AcsWarning, Unit] =
+  ): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Unit] =
     assignContracts(Seq((contractId, sourceDomain, reassignmentCounter, toc)))
 
   /** Marks the given contracts as [[ActiveContractStore.ReassignedAway]] from `toc`'s timestamp (inclusive) onwards.
@@ -252,7 +252,7 @@ trait ActiveContractStore
     */
   def unassignContracts(
       unassignments: Seq[(LfContractId, Target[DomainId], ReassignmentCounter, TimeOfChange)]
-  )(implicit traceContext: TraceContext): CheckedT[Future, AcsError, AcsWarning, Unit]
+  )(implicit traceContext: TraceContext): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Unit]
 
   def unassignContracts(
       contractId: LfContractId,
@@ -261,7 +261,7 @@ trait ActiveContractStore
       reassignmentCounter: ReassignmentCounter,
   )(implicit
       traceContext: TraceContext
-  ): CheckedT[Future, AcsError, AcsWarning, Unit] =
+  ): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Unit] =
     unassignContracts(Seq((contractId, targetDomain, reassignmentCounter, toc)))
 
   /** Deletes all entries about archived contracts whose status hasn't changed after the timestamp.
@@ -299,24 +299,27 @@ trait ActiveContractStore
       traceContext: TraceContext
   ): Future[Int]
 
-  protected def domainIdFromIdx(
+  protected def domainIdFromIdxFUS(
       idx: Int
-  )(implicit ec: ExecutionContext, loggingContext: ErrorLoggingContext): Future[DomainId] =
+  )(implicit
+      ec: ExecutionContext,
+      loggingContext: ErrorLoggingContext,
+  ): FutureUnlessShutdown[DomainId] =
     IndexedDomain
       .fromDbIndexOT("par_active_contracts remote domain index", indexedStringStore)(idx)
       .map(_.domainId)
       .value
       .flatMap {
-        case Some(domainId) => Future.successful(domainId)
+        case Some(domainId) => FutureUnlessShutdown.pure(domainId)
         case None =>
-          Future.failed(
+          FutureUnlessShutdown.failed(
             new RuntimeException(s"Unable to find domain ID for domain with index $idx")
           )
       }
 
   protected def getDomainIndices(
       domains: Seq[DomainId]
-  ): CheckedT[Future, AcsError, AcsWarning, Map[DomainId, IndexedDomain]] =
+  ): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Map[DomainId, IndexedDomain]] =
     CheckedT.result(
       domains
         .parTraverse { domainId =>
@@ -783,7 +786,7 @@ trait ActiveContractSnapshot {
     */
   def packageUsage(pkg: PackageId, contractStore: ContractStore)(implicit
       traceContext: TraceContext
-  ): Future[Option[(LfContractId)]]
+  ): FutureUnlessShutdown[Option[(LfContractId)]]
 
   /** Returns a map to the timestamp when the contract became active for the last time before or at the given timestamp.
     * Omits contracts that not active right after the given timestamp.

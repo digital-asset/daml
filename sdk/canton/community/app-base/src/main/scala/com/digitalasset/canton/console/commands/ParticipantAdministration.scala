@@ -89,7 +89,7 @@ import com.digitalasset.canton.protocol.messages.{
   CommitmentPeriodState,
   SignedProtocolMessage,
 }
-import com.digitalasset.canton.protocol.{LfContractId, SerializableContract}
+import com.digitalasset.canton.protocol.{LfContractId, LfVersionedTransaction, SerializableContract}
 import com.digitalasset.canton.sequencing.{
   PossiblyIgnoredProtocolEvent,
   SequencerConnection,
@@ -485,6 +485,21 @@ class LocalParticipantTestingGroup(
 
   private def stateInspection: SyncStateInspection = access(node => node.sync.stateInspection)
 
+  @Help.Summary("Lookup of accepted transactions by update ID", FeatureFlag.Testing)
+  def lookup_transaction(updateId: String): Option[LfVersionedTransaction] =
+    check(FeatureFlag.Testing)(
+      access(
+        _.sync.ledgerApiIndexer.asEval.value.onlyForTestingTransactionInMemoryStore match {
+          case Some(onlyForTestingTransactionInMemoryStore) =>
+            onlyForTestingTransactionInMemoryStore.get(updateId)
+
+          case None =>
+            throw new IllegalStateException(
+              "lookup_transaction not supported: to use this feature please enable indexer configuration only-for-testing-enable-in-memory-transaction-store"
+            )
+        }
+      )
+    )
 }
 
 class ParticipantPruningAdministrationGroup(
