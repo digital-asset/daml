@@ -45,11 +45,11 @@ object TransactionVersion {
   val minVersion: TransactionVersion = All.min
   def maxVersion: TransactionVersion = VDev
 
-  private[lf] val minInterfaces = V15
-  private[lf] val minExplicitDisclosure = V17
-  private[lf] val minChoiceAuthorizers = VDev
-  private[lf] val minUpgrade = V17
-  private[lf] val minSharedKeys = V17
+  private[lf] val minInterfaces: TransactionVersion = V15
+  private[lf] val minExplicitDisclosure: TransactionVersion = V17
+  private[lf] val minChoiceAuthorizers: TransactionVersion = VDev
+  private[lf] val minUpgrade: TransactionVersion = V17
+  private[lf] val minSharedKeys: TransactionVersion = V17
 
   private[lf] val assignNodeVersion: LanguageVersion => TransactionVersion = {
     import LanguageVersion._

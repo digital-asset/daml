@@ -30,7 +30,7 @@ final class GlobalKey private (
 
   override def hashCode(): Int = hash.hashCode()
 
-  override def toString: String = s"GlobalKey($templateId, $key)"
+  override def toString: String = s"GlobalKey($packageName, $templateId, $key)"
 }
 
 object GlobalKey {
@@ -58,10 +58,9 @@ object GlobalKey {
       templateId: Ref.TypeConName,
       key: Value,
       packageName: KeyPackageName,
-  ): Either[crypto.Hash.HashingError, GlobalKey] =
-    crypto.Hash
-      .hashContractKey(templateId, key, packageName)
-      .map(new GlobalKey(templateId, key, packageName.toOption, _))
+  ): Either[crypto.Hash.HashingError, GlobalKey] = crypto.Hash
+    .hashContractKey(templateId, key, packageName)
+    .map(new GlobalKey(templateId, key, packageName.toOption, _))
 
   def assertBuild(
       templateId: Ref.TypeConName,
