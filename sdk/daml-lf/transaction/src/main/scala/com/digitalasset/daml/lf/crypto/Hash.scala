@@ -230,7 +230,6 @@ object Hash {
     final case class Metadata(
         actAs: SortedSet[Ref.Party],
         commandId: Ref.CommandId,
-        submissionId: Ref.SubmissionId,
         transactionUUID: UUID,
         mediatorGroup: Int,
         domainId: String,
@@ -255,7 +254,6 @@ object Hash {
         _.iterateOver(metadata.actAs.iterator, metadata.actAs.size)(_ addString _)
       )
       .withContext("Command Id")(_.addString(metadata.commandId))
-      .withContext("Submission Id")(_.addString(metadata.submissionId))
       .withContext("Transaction UUID")(_.addString(metadata.transactionUUID.toString))
       .withContext("Mediator Group")(_.addInt(metadata.mediatorGroup))
       .withContext("Domain Id")(_.addString(metadata.domainId))
