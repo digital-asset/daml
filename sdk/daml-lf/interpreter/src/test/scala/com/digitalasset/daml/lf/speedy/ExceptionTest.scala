@@ -6,15 +6,15 @@ package speedy
 
 import com.daml.lf.crypto.Hash
 import com.daml.lf.crypto.Hash.KeyPackageName
-import com.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.daml.lf.data.Ref.{PackageId, Party}
+import com.daml.lf.data.{FrontStack, ImmArray, Ref}
 import com.daml.lf.interpretation.{Error => IE}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{Ast, LanguageMajorVersion, LanguageVersion, StablePackages}
 import com.daml.lf.language.LanguageDevConfig.{LeftToRight, RightToLeft}
-import com.daml.lf.speedy.SResult.{SResultError, SResultFinal}
+import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion, StablePackages}
 import com.daml.lf.speedy.SError.{SError, SErrorDamlException}
 import com.daml.lf.speedy.SExpr._
+import com.daml.lf.speedy.SResult.{SResultError, SResultFinal}
 import com.daml.lf.speedy.SValue.{SContractId, SParty, SUnit}
 import com.daml.lf.speedy.SpeedyTestLib.typeAndCompile
 import com.daml.lf.testing.parser
@@ -25,8 +25,8 @@ import com.daml.lf.value.Value
 import com.daml.lf.value.Value.{ValueRecord, ValueText}
 import org.scalatest.Inside
 import org.scalatest.freespec.AnyFreeSpec
-import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.prop.TableDrivenPropertyChecks
 
 class ExceptionTestV1 extends ExceptionTest(LanguageMajorVersion.V1)
 //class ExceptionTestV2 extends ExceptionTest(LanguageMajorVersion.V2)
@@ -62,6 +62,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       compiledPackages.compiler.unsafeCompile(expr),
       PartialFunction.empty,
       getKey,
+      Map.empty,
     )
   }
 
@@ -72,6 +73,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       args: Array[SValue],
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance],
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId],
+      disclosures: Iterable[(Value.ContractId, Speedy.ContractInfo)],
   ): Either[SError, SValue] = {
     runUpdateExpr(
       compiledPackages,
@@ -79,6 +81,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       SEApp(compiledPackages.compiler.unsafeCompile(expr), args),
       getContract,
       getKey,
+      disclosures,
     )
   }
 
@@ -88,6 +91,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       sexpr: SExpr,
       getContract: PartialFunction[Value.ContractId, Value.VersionedContractInstance],
       getKey: PartialFunction[GlobalKeyWithMaintainers, Value.ContractId],
+      disclosures: Iterable[(Value.ContractId, Speedy.ContractInfo)],
   ): Either[SError, SValue] = {
     val machine = Speedy.Machine
       .fromUpdateSExpr(
@@ -97,6 +101,9 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
         updateSE = sexpr,
         committers = Set(alice),
       )
+    disclosures.foreach { case (coid, info) =>
+      machine.addDisclosedContracts(coid, info)
+    }
     SpeedyTestLib
       .run(machine, getContract = getContract, getKey = getKey)
   }
@@ -940,7 +947,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       val tplQualifiedName = s"'$pkgId':Mod:$templateName"
       s"""
          |  // Checks that the error thrown when creating a $templateName instance can be caught.
-         |  val create${templateName}AndCatchError: Update Unit =
+         |  val createAndCatchError${templateName}: Update Unit =
          |    try @Unit
          |      ubind _:(ContractId $tplQualifiedName) <-
          |          create @$tplQualifiedName ($tplQualifiedName { p = '$commonDefsPkgId':Mod:alice })
@@ -950,7 +957,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
          |
          |  // Tries to catch the error thrown by the contract info of $templateName when exercising a choice on
          |  // it, should fail to do so.
-         |  val exercise${templateName}AndCatchErrorGlobal: (ContractId $tplQualifiedName) -> Update Text =
+         |  val exerciseAndCatchErrorGlobal${templateName}: (ContractId $tplQualifiedName) -> Update Text =
          |    \\(cid: ContractId $tplQualifiedName) ->
          |      try @Text
          |        exercise @$tplQualifiedName SomeChoice cid ()
@@ -959,7 +966,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
          |
          |  // Tries to catch the error thrown by the contract info of a $templateName contract when fetching it,
          |  // should fail to do so.
-         |  val fetch${templateName}AndCatchErrorGlobal: (ContractId $tplQualifiedName) -> Update Text =
+         |  val fetchAndCatchErrorGlobal${templateName}: (ContractId $tplQualifiedName) -> Update Text =
          |    \\(cid: ContractId $tplQualifiedName) ->
          |      try @Text
          |        ubind _:$tplQualifiedName <- fetch_template @$tplQualifiedName cid
@@ -969,7 +976,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
          |
          |  // Tries to catch the error thrown by the contract info of a $templateName contract when fetching it
          |  // by interface, should fail to do so.
-         |  val fetch${templateName}ByInterfaceAndCatchErrorGlobal: (ContractId $tplQualifiedName) -> Update Text =
+         |  val fetchByInterfaceAndCatchErrorGlobal${templateName}: (ContractId $tplQualifiedName) -> Update Text =
          |    \\(cid: ContractId $tplQualifiedName) ->
          |      try @Text
          |        ubind _:'$commonDefsPkgId':Mod:Iface <-
@@ -981,7 +988,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
          |
          |  // Tries to catch the error thrown by the contract info of a $templateName contract when fetching it
          |  // by key, should fail to do so.
-         |  val fetch${templateName}ByKeyAndCatchErrorGlobal: '$commonDefsPkgId':Mod:Key -> Update Text =
+         |  val fetchByKeyAndCatchErrorGlobal${templateName}: '$commonDefsPkgId':Mod:Key -> Update Text =
          |    \\(key: '$commonDefsPkgId':Mod:Key) ->
          |      try @Text
          |        ubind _:<contract: $tplQualifiedName, contractId: ContractId $tplQualifiedName> <-
@@ -992,7 +999,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
          |
          |  // Tries to catch the error thrown by the contract info of a $templateName contract when looking it up
          |  // by key, should fail to do so.
-         |  val lookUp${templateName}ByKeyAndCatchErrorGlobal: '$commonDefsPkgId':Mod:Key -> Update Text =
+         |  val lookUpByKeyAndCatchErrorGlobal${templateName}: '$commonDefsPkgId':Mod:Key -> Update Text =
          |    \\(key: '$commonDefsPkgId':Mod:Key) ->
          |      try @Text
          |        ubind _:Option (ContractId $tplQualifiedName) <-
@@ -1016,7 +1023,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       s"""
          |  // Tries to catch the error thrown by the contract info of $templateName when exercising a choice on
          |  // it, should fail to do so.
-         |  val exercise${templateName}AndCatchErrorLocal: Unit -> Update Text =
+         |  val exerciseAndCatchErrorLocal${templateName}: Unit -> Update Text =
          |    \\(_:Unit) ->
          |      ubind cid: ContractId $v1TplQualifiedName <-
          |         create @$v1TplQualifiedName ($v1TplQualifiedName { p = '$commonDefsPkgId':Mod:alice })
@@ -1031,7 +1038,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
          |
          |  // Tries to catch the error thrown by the contract info of a $templateName contract when fetching it,
          |  // should fail to do so.
-         |  val fetch${templateName}AndCatchErrorLocal: Unit -> Update Text =
+         |  val fetchAndCatchErrorLocal${templateName}: Unit -> Update Text =
          |    \\(_:Unit) ->
          |      ubind cid: ContractId $v1TplQualifiedName <-
          |          create @$v1TplQualifiedName ($v1TplQualifiedName { p = '$commonDefsPkgId':Mod:alice })
@@ -1045,7 +1052,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
          |
          |  // Tries to catch the error thrown by the contract info of a $templateName contract when fetching it
          |  // by interface, should fail to do so.
-         |  val fetch${templateName}ByInterfaceAndCatchErrorLocal: Unit -> Update Text =
+         |  val fetchByInterfaceAndCatchErrorLocal${templateName}: Unit -> Update Text =
          |    \\(_:Unit) ->
          |      ubind cid: ContractId $v1TplQualifiedName <-
          |          create @$v1TplQualifiedName ($v1TplQualifiedName { p = '$commonDefsPkgId':Mod:alice })
@@ -1059,7 +1066,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
          |
          |  // Tries to catch the error thrown by the contract info of a $templateName contract when fetching it
          |  // by key, should fail to do so.
-         |  val fetch${templateName}ByKeyAndCatchErrorLocal: Unit -> Update Text =
+         |  val fetchByKeyAndCatchErrorLocal${templateName}: Unit -> Update Text =
          |    \\(_:Unit) ->
          |      ubind cid: ContractId $v1TplQualifiedName <-
          |          create @$v1TplQualifiedName ($v1TplQualifiedName { p = '$commonDefsPkgId':Mod:alice })
@@ -1076,7 +1083,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
          |
          |  // Tries to catch the error thrown by the contract info of a $templateName contract when looking it up
          |  // by key, should fail to do so.
-         |  val lookUp${templateName}ByKeyAndCatchErrorLocal: Unit -> Update Text =
+         |  val lookUpByKeyAndCatchErrorLocal${templateName}: Unit -> Update Text =
          |    \\(_:Unit) ->
          |      ubind cid: ContractId $v1TplQualifiedName <-
          |          create @$v1TplQualifiedName ($v1TplQualifiedName { p = '$commonDefsPkgId':Mod:alice })
@@ -1097,7 +1104,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       s"""
          |  // Tries to catch the error thrown by the dynamic exercise of a $templateName choice when fetching it
          |  // by interface, should fail to do so.
-         |  val exercise${templateName}ByInterfaceAndCatchErrorGlobal:
+         |  val exerciseByInterfaceAndCatchErrorGlobal${templateName}:
          |      (ContractId '$commonDefsPkgId':Mod:Iface) -> Update Text =
          |    \\(cid: ContractId '$commonDefsPkgId':Mod:Iface) ->
          |      try @Text
@@ -1112,7 +1119,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       s"""
              |  // Tries to catch the error thrown by the dynamic exercise of a $templateName choice when fetching it
              |  // by interface, should fail to do so.
-             |  val exercise${templateName}ByInterfaceAndCatchErrorLocal: Unit -> Update Text =
+             |  val exerciseByInterfaceAndCatchErrorLocal${templateName}: Unit -> Update Text =
              |    \\(_:Unit) ->
              |      ubind cid: ContractId $v1TplQualifiedName <-
              |          create @$v1TplQualifiedName ($v1TplQualifiedName { p = '$commonDefsPkgId':Mod:alice })
@@ -1165,199 +1172,171 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
         Compiler.Config.Dev(LanguageMajorVersion.V1),
       )
 
-    for {
-      test <- List(
-        FailingPrecondition,
-        FailingSignatories,
-        FailingObservers,
-        FailingAgreement,
-        FailingKey,
-        FailingMaintainers,
-      )
-    } {
+    sealed trait ContractOrigin {
+      def description: String
+      def testMethodSuffix: String
+    }
+    case object Global extends ContractOrigin {
+      override def description: String = "global contract"
+      override def testMethodSuffix: String = "Global"
+    }
+    case object Disclosure extends ContractOrigin {
+      override def description: String = "disclosed contract"
+      override def testMethodSuffix: String = "Global"
+    }
+    case object Local extends ContractOrigin {
+      override def description: String = "local contract"
+      override def testMethodSuffix: String = "Local"
+    }
 
-      s"exceptions thrown by ${test.templateName} can be caught on when creating a contract" in {
-        runUpdateExpr(
-          compiledPackages,
-          e"Mod:create${test.templateName}AndCatchError" (metadataTestsParserParams),
-        ) shouldBe Right(SUnit)
-      }
+    val contractOrigins: List[ContractOrigin] = List(Global, Disclosure, Local)
 
-      s"exceptions thrown by ${test.templateName} cannot be caught when fetched or exercised" in {
-        val alice = Ref.Party.assertFromString("Alice")
-        val templateId =
-          Ref.Identifier.assertFromString(s"-template-defs-v1-id-:Mod:${test.templateName}")
-        val cid = Value.ContractId.V1(Hash.hashPrivateKey("abc"))
-        val key = SValue.SRecord(
-          templateId,
-          ImmArray(
-            Ref.Name.assertFromString("label"),
-            Ref.Name.assertFromString("maintainers"),
-          ),
-          ArrayList(
-            SValue.SText("test-key"),
-            SValue.SList(FrontStack(SValue.SParty(alice))),
-          ),
-        )
-        val globalKey = GlobalKeyWithMaintainers.assertBuild(
-          templateId,
-          key.toUnnormalizedValue,
-          Set(alice),
-          KeyPackageName(Some(templateDefsPkgName), metadataTestsPkg.languageVersion),
-        )
+    val failingTemplateMetadataTemplates: List[String] = List(
+      FailingPrecondition.templateName,
+      FailingSignatories.templateName,
+      FailingObservers.templateName,
+      FailingAgreement.templateName,
+      FailingKey.templateName,
+      FailingMaintainers.templateName,
+    )
 
-        val testCases = {
-          Table[Expr, SValue](
-            ("expression", "arg"),
-            (
-              e"Mod:exercise${test.templateName}AndCatchErrorGlobal" (metadataTestsParserParams),
-              SContractId(cid),
-            ),
-            (
-              e"Mod:exercise${test.templateName}AndCatchErrorLocal" (metadataTestsParserParams),
-              SUnit,
-            ),
-            (
-              e"Mod:fetch${test.templateName}AndCatchErrorGlobal" (metadataTestsParserParams),
-              SContractId(cid),
-            ),
-            (
-              e"Mod:fetch${test.templateName}AndCatchErrorLocal" (metadataTestsParserParams),
-              SUnit,
-            ),
-            (
-              e"Mod:fetch${test.templateName}ByInterfaceAndCatchErrorGlobal" (
-                metadataTestsParserParams
-              ),
-              SContractId(cid),
-            ),
-            (
-              e"Mod:fetch${test.templateName}ByInterfaceAndCatchErrorLocal" (
-                metadataTestsParserParams
-              ),
-              SUnit,
-            ),
-            (
-              e"Mod:fetch${test.templateName}ByKeyAndCatchErrorGlobal" (metadataTestsParserParams),
-              key,
-            ),
-            (
-              e"Mod:fetch${test.templateName}ByKeyAndCatchErrorLocal" (metadataTestsParserParams),
-              SUnit,
-            ),
-            (
-              e"Mod:lookUp${test.templateName}ByKeyAndCatchErrorGlobal" (metadataTestsParserParams),
-              key,
-            ),
-            (
-              e"Mod:lookUp${test.templateName}ByKeyAndCatchErrorLocal" (metadataTestsParserParams),
-              SUnit,
-            ),
-          )
-        }
+    val failingChoiceMetadataTemplates: List[String] = List(
+      FailingChoiceControllers.templateName,
+      FailingChoiceObservers.templateName,
+    )
 
-        forEvery(testCases) { (expr, arg) =>
-          inside {
-            runUpdateApp(
-              compiledPackages,
-              packageResolution = Map(
-                templateDefsPkgName -> templateDefsV2PkgId
-              ),
-              expr,
-              Array(arg),
-              getContract = Map(
-                cid -> Versioned(
-                  version = TransactionVersion.StableVersions.max,
-                  Value.ContractInstance(
-                    packageName = metadataTestsPkg.metadata.map(_.name),
-                    template = t"Mod:${test.templateName}" (templateDefsV1ParserParams)
-                      .asInstanceOf[Ast.TTyCon]
-                      .tycon,
-                    arg = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice))),
-                  ),
-                )
-              ),
-              getKey = Map(
-                globalKey -> cid
-              ),
-            )
-          } {
-            case Left(
-                  SError.SErrorDamlException(
-                    IE.UnhandledException(
-                      _,
-                      Value.ValueRecord(_, ImmArray((_, Value.ValueText(msg)))),
-                    )
-                  )
-                ) =>
-              msg shouldBe test.templateName
-          }
+    s"metadata exceptions can be caught when creating a contract" - {
+      for (templateName <- failingTemplateMetadataTemplates) {
+        templateName in {
+          runUpdateExpr(
+            compiledPackages,
+            e"Mod:createAndCatchError${templateName}" (metadataTestsParserParams),
+          ) shouldBe Right(SUnit)
         }
       }
     }
 
-    for {
-      test <- List(
-        FailingChoiceControllers,
-        FailingChoiceObservers,
+    s"metadata exceptions cannot be caught" - {
+      // A test case is a LF test method prefix, a function that provides the argument to the test method,
+      // and a list of relevant template names to test.
+      val testCases = List[(String, (Value.ContractId, SValue) => SValue, List[String])](
+        (
+          "exerciseAndCatchError",
+          (cid, _) => SContractId(cid),
+          failingTemplateMetadataTemplates,
+        ),
+        (
+          "fetchAndCatchError",
+          (cid, _) => SContractId(cid),
+          failingTemplateMetadataTemplates,
+        ),
+        (
+          "fetchByInterfaceAndCatchError",
+          (cid, _) => SContractId(cid),
+          failingTemplateMetadataTemplates,
+        ),
+        (
+          "fetchByKeyAndCatchError",
+          (_, key) => key,
+          failingTemplateMetadataTemplates,
+        ),
+        (
+          "lookUpByKeyAndCatchError",
+          (_, key) => key,
+          failingTemplateMetadataTemplates,
+        ),
+        (
+          "exerciseByInterfaceAndCatchError",
+          (cid, _) => SContractId(cid),
+          failingChoiceMetadataTemplates,
+        ),
       )
-    } {
 
-      s"exceptions thrown by ${test.templateName} cannot be caught when exercising a choice by interface" in {
-        val alice = Ref.Party.assertFromString("Alice")
-        val cid = Value.ContractId.V1(Hash.hashPrivateKey("abc"))
+      for (testCase <- testCases) {
+        val (prefix, argProvider, relevantTemplates) = testCase
+        prefix - {
+          for (templateName <- relevantTemplates) {
+            templateName - {
+              val alice = Ref.Party.assertFromString("Alice")
+              val templateId =
+                Ref.Identifier.assertFromString(s"-template-defs-v1-id-:Mod:$templateName")
+              val cid = Value.ContractId.V1(Hash.hashPrivateKey("abc"))
+              val key = SValue.SRecord(
+                Ref.Identifier.assertFromString(s"$commonDefsPkgId:Mod:Key"),
+                ImmArray(
+                  Ref.Name.assertFromString("label"),
+                  Ref.Name.assertFromString("maintainers"),
+                ),
+                ArrayList(
+                  SValue.SText("test-key"),
+                  SValue.SList(FrontStack(SValue.SParty(alice))),
+                ),
+              )
+              val globalKey = GlobalKeyWithMaintainers.assertBuild(
+                templateId,
+                key.toUnnormalizedValue,
+                Set(alice),
+                KeyPackageName(Some(templateDefsPkgName), metadataTestsPkg.languageVersion),
+              )
+              val globalContract = Versioned(
+                version = TransactionVersion.minUpgrade,
+                Value.ContractInstance(
+                  packageName = templateDefsV1Pkg.metadata.map(_.name),
+                  template = templateId,
+                  arg = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice))),
+                ),
+              )
+              val disclosedContract = Speedy.ContractInfo(
+                version = TransactionVersion.minUpgrade,
+                Some(templateDefsPkgName),
+                templateId,
+                SValue.SRecord(
+                  templateId,
+                  ImmArray(Ref.Name.assertFromString("p")),
+                  ArrayList(SValue.SParty(alice)),
+                ),
+                "agreement",
+                Set(alice),
+                Set.empty,
+                None,
+              )
 
-        val testCases = {
-          Table[Expr, SValue](
-            ("expression", "arg"),
-            (
-              e"Mod:exercise${test.templateName}ByInterfaceAndCatchErrorGlobal" (
-                metadataTestsParserParams
-              ),
-              SContractId(cid),
-            ),
-            (
-              e"Mod:exercise${test.templateName}ByInterfaceAndCatchErrorLocal" (
-                metadataTestsParserParams
-              ),
-              SUnit,
-            ),
-          )
-        }
-
-        forEvery(testCases) { (expr, arg) =>
-          inside {
-            runUpdateApp(
-              compiledPackages,
-              packageResolution = Map(
-                templateDefsPkgName -> templateDefsV2PkgId
-              ),
-              expr,
-              Array(arg),
-              getContract = Map(
-                cid -> Versioned(
-                  version = TransactionVersion.StableVersions.max,
-                  Value.ContractInstance(
-                    packageName = metadataTestsPkg.metadata.map(_.name),
-                    template = t"Mod:${test.templateName}" (templateDefsV1ParserParams)
-                      .asInstanceOf[Ast.TTyCon]
-                      .tycon,
-                    arg = Value.ValueRecord(None, ImmArray(None -> Value.ValueParty(alice))),
-                  ),
-                )
-              ),
-              getKey = PartialFunction.empty,
-            )
-          } {
-            case Left(
-                  SError.SErrorDamlException(
-                    IE.UnhandledException(
-                      _,
-                      Value.ValueRecord(_, ImmArray((_, Value.ValueText(msg)))),
+              for (origin <- contractOrigins) {
+                origin.description in {
+                  inside {
+                    runUpdateApp(
+                      compiledPackages,
+                      packageResolution = Map(templateDefsPkgName -> templateDefsV2PkgId),
+                      e"Mod:${prefix}${origin.testMethodSuffix}$templateName" (
+                        metadataTestsParserParams
+                      ),
+                      Array(argProvider(cid, key)),
+                      getContract = origin match {
+                        case Global => Map(cid -> globalContract)
+                        case Disclosure => Map.empty
+                        case Local => Map.empty
+                      },
+                      getKey = Map(globalKey -> cid),
+                      disclosures = origin match {
+                        case Global => Map.empty
+                        case Disclosure => Map(cid -> disclosedContract)
+                        case Local => Map.empty
+                      },
                     )
-                  )
-                ) =>
-              msg shouldBe test.templateName
+                  } {
+                    case Left(
+                          SError.SErrorDamlException(
+                            IE.UnhandledException(
+                              _,
+                              Value.ValueRecord(_, ImmArray((_, Value.ValueText(msg)))),
+                            )
+                          )
+                        ) =>
+                      msg shouldBe templateName
+                  }
+                }
+              }
+            }
           }
         }
       }
