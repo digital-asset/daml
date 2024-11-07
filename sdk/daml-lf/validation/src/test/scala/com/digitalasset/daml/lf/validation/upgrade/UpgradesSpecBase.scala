@@ -14,13 +14,10 @@ import org.scalatest.Inspectors.forEvery
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
 
-import java.nio.file.{Path, Paths}
 import java.io.File
 import java.io.FileInputStream
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
-import scala.sys.process._
-import com.daml.scalautil.Statement.discard
 
 abstract class UpgradesSpecAdminAPI(override val suffix: String) extends UpgradesSpec(suffix) {
   override def uploadPackageRaw(
@@ -318,57 +315,6 @@ abstract class UpgradesSpec(val suffix: String)
     val v1Upload = loadPackageIdAndBS(upgraded)
     val v2Upload = loadPackageIdAndBS(upgrading)
     testPackagePair(v1Upload, v2Upload, uploadAssertion)
-  }
-
-  def testPackagePairUpgradeCheck(
-      upgraded: String,
-      upgrading: String,
-      uploadAssertion: (
-          PackageId,
-          PackageId,
-      ) => String => Assertion,
-  ): Future[Assertion] = {
-    val (v1PackageId, _) = loadPackageIdAndBS(upgraded)
-    val (v2PackageId, _) = loadPackageIdAndBS(upgrading)
-    val v1Path = BazelRunfiles.rlocation(upgraded).toString
-    val v2Path = BazelRunfiles.rlocation(upgrading).toString
-
-    val exe = if (sys.props("os.name").toLowerCase.contains("windows")) ".exe" else ""
-    val damlSdk = BazelRunfiles.rlocation(Paths.get(s"daml-assistant/daml-sdk/sdk$exe"))
-
-    // Runs process with args, returns status and stdout <> stderr
-    def runProc(exe: Path, args: Seq[String]): Future[Either[String, String]] =
-      Future {
-        val out = new StringBuilder()
-        val cmd = exe.toString +: args
-        cmd !< ProcessLogger(line => discard(out append line append '\n')) match {
-          case 0 => Right(out.toString)
-          case _ => Left(out.toString)
-        }
-      }
-
-    for {
-      result <- runProc(damlSdk, Seq("upgrade-check", v1Path, v2Path))
-      assertion <- result match {
-        case Left(out) =>
-          uploadAssertion(v1PackageId, v2PackageId)(out)
-        case Right(out) =>
-          uploadAssertion(v1PackageId, v2PackageId)(out)
-      }
-    } yield assertion
-  }
-
-  def assertPackageUpgradeCheckTool(failureMessage: Option[String])(
-      testPackageFirstId: PackageId,
-      testPackageSecondId: PackageId,
-  )(upgradeCheckToolLogs: String): Assertion = {
-    failureMessage match {
-      case None =>
-        upgradeCheckToolLogs should not include regex(
-          s"Error while checking two DARs:\nThe uploaded DAR contains a package $testPackageSecondId \\(.*\\), but upgrade checks indicate that (existing package $testPackageFirstId|new package $testPackageSecondId) \\(.*\\) cannot be an upgrade of (existing package $testPackageFirstId|new package $testPackageSecondId)"
-        )
-      case Some(msg) => upgradeCheckToolLogs should include regex (msg)
-    }
   }
 
   def testPackageTriple(
