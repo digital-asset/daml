@@ -95,7 +95,9 @@ final class MeteringAggregatorSpec
           .thenReturn(transactionMetering.lastOption.map(_.ledgerOffset))
 
         when(parameterStore.ledgerEnd(conn))
-          .thenReturn(LedgerEnd(ledgerEndOffset.toAbsoluteOffsetO, 0L, 0, CantonTimestamp.MinValue))
+          .thenReturn(
+            Some(LedgerEnd(ledgerEndOffset.toAbsoluteOffset, 0L, 0, CantonTimestamp.MinValue))
+          )
 
         transactionMetering.lastOption.map { last =>
           when(meteringStore.selectTransactionMetering(lastAggOffset, last.ledgerOffset)(conn))

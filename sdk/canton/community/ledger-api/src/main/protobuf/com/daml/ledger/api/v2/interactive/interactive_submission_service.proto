@@ -3,16 +3,18 @@
 
 syntax = "proto3";
 
-package com.daml.ledger.api.v2;
+package com.daml.ledger.api.v2.interactive;
 
 import "com/daml/ledger/api/v2/commands.proto";
-import "com/daml/ledger/api/v2/interactive_submission_data.proto";
+import "com/daml/ledger/api/v2/interactive/interactive_submission_common_data.proto";
+import "com/daml/ledger/api/v2/interactive/transaction/v1/interactive_submission_data.proto";
+import "com/daml/ledger/api/v2/value.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 
-option csharp_namespace = "Com.Daml.Ledger.Api.V2";
+option csharp_namespace = "Com.Daml.Ledger.Api.V2.Interactive";
 option java_outer_classname = "InteractiveSubmissionServiceOuterClass";
-option java_package = "com.daml.ledger.api.v2";
+option java_package = "com.daml.ledger.api.v2.interactive";
 
 // The InteractiveSubmissionService allows to submit commands in 2-steps:
 // 1) prepare transaction from commands, 2) submit the prepared transaction
@@ -42,22 +44,8 @@ message PrepareSubmissionRequest {
   // Required
   repeated Command commands = 3;
 
-  // Lower bound for the ledger time assigned to the resulting transaction.
-  // The ledger time of a transaction is assigned as part of command interpretation.
-  // Important note: for interactive submissions, if the transaction depends on time, it **must** be signed
-  // and submitted within a time window around the ledger time assigned to the transaction during the prepare method.
-  // The time delta around that ledger time is a configuration of the ledger, usually short, around 1 minute.
-  // If however the transaction does not depend on time, the available time window to sign and submit the transaction is bound
-  // by the submission timestamp, which is also assigned in the "prepare" step (this request),
-  // but can be configured with a much larger skew, allowing for more time to sign the request (in the order of hours).
-  // Must not be set at the same time as min_ledger_time_rel.
   // Optional
-  google.protobuf.Timestamp min_ledger_time_abs = 4;
-
-  // Same as min_ledger_time_abs, but specified as a duration, starting from the time this request is received by the server.
-  // Must not be set at the same time as min_ledger_time_abs.
-  // Optional
-  google.protobuf.Duration min_ledger_time_rel = 5;
+  MinLedgerTime min_ledger_time = 4;
 
   // Set of parties on whose behalf the command should be executed, if submitted.
   // If ledger API authorization is enabled, then the authorization metadata must authorize the sender of the request
@@ -66,7 +54,7 @@ message PrepareSubmissionRequest {
   // Note: This may change, and more specific authorization scope may be introduced in the future.
   // Each element must be a valid PartyIdString (as described in ``value.proto``).
   // Required, must be non-empty.
-  repeated string act_as = 6;
+  repeated string act_as = 5;
 
   // Set of parties on whose behalf (in addition to all parties listed in ``act_as``) contracts can be retrieved.
   // This affects Daml operations such as ``fetch``, ``fetchByKey``, ``lookupByKey``, ``exercise``, and ``exerciseByKey``.
@@ -76,36 +64,38 @@ message PrepareSubmissionRequest {
   // If ledger API authorization is enabled, then the authorization metadata must authorize the sender of the request
   // to read contract data on behalf of each of the given parties.
   // Optional
-  repeated string read_as = 7;
+  repeated string read_as = 6;
 
   // Additional contracts used to resolve contract & contract key lookups.
   // Optional
-  repeated DisclosedContract disclosed_contracts = 8;
+  repeated DisclosedContract disclosed_contracts = 7;
 
   // Must be a valid domain ID
   // Required
-  string domain_id = 9;
+  string domain_id = 8;
 
   // The package-id selection preference of the client for resolving
   // package names and interface instances in command submission and interpretation
-  repeated string package_id_selection_preference = 10;
+  repeated string package_id_selection_preference = 9;
 }
 
-// The transaction serialization version used when building the hash
-enum TransactionSerializationVersion {
-  TRANSACTION_SERIALIZATION_VERSION_UNSPECIFIED = 0;
-  TRANSACTION_SERIALIZATION_VERSION_V1 = 1;
+// The hashing scheme version used when building the hash of the PreparedTransaction
+enum HashingSchemeVersion {
+  HASHING_SCHEME_VERSION_UNSPECIFIED = 0;
+  HASHING_SCHEME_VERSION_V1 = 1;
 }
 
 message PrepareSubmissionResponse {
   // the interpreted transaction, it represents the ledger changes necessary to execute the commands specified in the request
   PreparedTransaction prepared_transaction = 1;
   // hash of the transaction, this is what needs to be signed by the party to authorize the transaction
+  // Only provided for convenience, clients should recompute the hash from the raw transaction
+  // May be removed in future versions
   // TODO(i20660): Document hashing algorithm
   bytes prepared_transaction_hash = 2;
 
-  // The transaction serialization version used when building the hash
-  TransactionSerializationVersion serialization_version = 3;
+  // The hashing scheme version used when building the hash
+  HashingSchemeVersion hashing_scheme_version = 3;
 }
 
 message Signature {
@@ -166,11 +156,6 @@ message ExecuteSubmissionRequest {
   // Note that currently, only single party submissions are supported.
   PartySignatures party_signatures = 2;
 
-  // Identifier of the on-ledger workflow that this command is a part of.
-  // Must be a valid LedgerString (as described in ``value.proto``).
-  // Optional
-  string workflow_id = 3;
-
   // Specifies the deduplication period for the change ID (See PrepareSubmissionRequest).
   // If omitted, the participant will assume the configured maximum deduplication time (see
   // ``ledger_configuration_service.proto``).
@@ -179,11 +164,11 @@ message ExecuteSubmissionRequest {
     // It is interpreted relative to the local clock at some point during the submission's processing.
     // Must be non-negative. Must not exceed the maximum deduplication time (see
     // ``ledger_configuration_service.proto``).
-    google.protobuf.Duration deduplication_duration = 4;
+    google.protobuf.Duration deduplication_duration = 3;
 
     // Specifies the start of the deduplication period by a completion stream offset (exclusive).
     // Must be a valid absolute offset (positive integer).
-    int64 deduplication_offset = 5;
+    int64 deduplication_offset = 4;
   }
 
   // A unique identifier to distinguish completions for different submissions with the same change ID.
@@ -191,15 +176,140 @@ message ExecuteSubmissionRequest {
   // with the same change ID.
   // Must be a valid LedgerString (as described in ``value.proto``).
   //
-  // If omitted, the participant or the committer may set a value of their choice.
-  // Optional
-  string submission_id = 6;
+  // Required
+  string submission_id = 5;
 
   // See [PrepareSubmissionRequest.application_id]
-  string application_id = 7;
+  string application_id = 6;
 
-  // The transaction serialization version used when building the hash
-  TransactionSerializationVersion serialization_version = 8;
+  // The hashing scheme version used when building the hash
+  HashingSchemeVersion hashing_scheme_version = 7;
 }
 
 message ExecuteSubmissionResponse {}
+
+message MinLedgerTime {
+  oneof time {
+    // Lower bound for the ledger time assigned to the resulting transaction.
+    // The ledger time of a transaction is assigned as part of command interpretation.
+    // Important note: for interactive submissions, if the transaction depends on time, it **must** be signed
+    // and submitted within a time window around the ledger time assigned to the transaction during the prepare method.
+    // The time delta around that ledger time is a configuration of the ledger, usually short, around 1 minute.
+    // If however the transaction does not depend on time, the available time window to sign and submit the transaction is bound
+    // by the submission timestamp, which is also assigned in the "prepare" step (this request),
+    // but can be configured with a much larger skew, allowing for more time to sign the request (in the order of hours).
+    // Must not be set at the same time as min_ledger_time_rel.
+    // Optional
+    google.protobuf.Timestamp min_ledger_time_abs = 1;
+
+    // Same as min_ledger_time_abs, but specified as a duration, starting from the time this request is received by the server.
+    // Must not be set at the same time as min_ledger_time_abs.
+    // Optional
+    google.protobuf.Duration min_ledger_time_rel = 2;
+  }
+}
+
+/**
+ * Prepared Transaction Message
+ */
+message PreparedTransaction {
+  // Daml Transaction representing the ledger effect if executed. See below
+  DamlTransaction transaction = 1;
+  // Metadata context necessary to execute the transaction
+  Metadata metadata = 2;
+}
+
+// Transaction Metadata
+// Refer to the hashing documentation for information on how it should be hashed.
+message Metadata {
+  message SubmitterInfo {
+    repeated string act_as = 1;
+    repeated string read_as = 2;
+    string command_id = 3;
+  }
+
+  message GlobalKeyMappingEntry {
+    interactive.GlobalKey key = 1;
+    optional Value value = 2;
+  }
+
+  message ProcessedDisclosedContract {
+    oneof contract {
+      // When new versions will be added, they will show here
+      interactive.transaction.v1.Create v1 = 1;
+    }
+    uint64 created_at = 1000;
+    bytes driver_metadata = 1001;
+    string version = 1002;
+  }
+
+  /* ******************************************************** */
+  /* ** Metadata information that needs to be signed in V1 ** */
+  /* ******************************************************** */
+  /*
+   * Ledger effective time picked during preparation of the command.
+   * This is optional, because if the transaction does NOT depend on time, this value will not be set.
+   * Instead, it will be chosen when the command is submitted through the [execute] RPC.
+   * This allows increasing the time window necessary to acquire the signature and submit the transaction
+   * (effectively the time between when [prepare] and [execute] are called).
+   * Note however that if the transaction does use time, then this value will bet set and will constrain the available
+   * time to perform the signature and submit the transaction. The time window allowed is a configuration of the ledger
+   * and usually is counted in minutes.
+   */
+  optional uint64 ledger_effective_time = 8;
+  SubmitterInfo submitter_info = 1;
+  string domain_id = 10;
+  uint32 mediator_group = 11;
+  string transaction_uuid = 12;
+  uint64 submission_time = 3;
+  repeated ProcessedDisclosedContract disclosed_events = 7;
+
+  /* **************************************************************** */
+  /* ** Metadata information that does NOT need to be signed in V1 ** */
+  /* **************************************************************** */
+  // Contextual information needed to process the transaction but not signed, either because it's already indirectly
+  // signed by signing the transaction, or because it doesn't impact the ledger state
+  repeated string used_packages = 4;
+  repeated string by_key_nodes = 5;
+  repeated GlobalKeyMappingEntry global_key_mapping = 6;
+  bytes submission_seed = 2;
+  uint64 interpretation_time_nanos = 9;
+}
+
+/*
+ * Daml Transaction.
+ * This represents the effect on the ledger if this transaction is successfully committed.
+ */
+message DamlTransaction {
+  message NodeSeed {
+    int32 node_id = 1;
+    bytes seed = 2;
+  }
+
+  // A transaction may contain nodes with different versions.
+  // Each node must be hashed using the hashing algorithm corresponding to its specific version.
+  message Node {
+    string node_id = 1;
+    // Specific LF version of the node.
+    // Multiple LF versions can be encoded with the same proto version to decouple changes to the LF format
+    // However in order to deserialize the node back to LF, we need to know the exact original LF version
+    // Optional because Rollback nodes are not versioned
+    optional string lf_version = 2;
+
+    // Versioned node
+    oneof versioned_node {
+      // Start at 1000 so we can add more fields before if necessary
+      // When new versions will be added, they will show here
+      interactive.transaction.v1.Node v1 = 1000;
+    }
+  }
+
+  // Transaction version, will be >= max(nodes version)
+  string version = 1;
+  // Root nodes of the transaction
+  repeated string roots = 2;
+  // List of nodes in the transaction
+  repeated Node nodes = 3;
+  // Node seeds are values associated with certain nodes used for generating cryptographic salts
+  repeated NodeSeed node_seeds = 4;
+}

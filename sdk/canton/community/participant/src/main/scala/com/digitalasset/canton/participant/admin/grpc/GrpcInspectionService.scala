@@ -217,7 +217,9 @@ class GrpcInspectionService(
           .toRight(s"No computations done for $domainId")
       } yield {
         for {
-          indexedDomain <- IndexedDomain.indexed(indexedStringStore)(domainId)
+          indexedDomain <- IndexedDomain
+            .indexed(indexedStringStore)(domainId)
+            .failOnShutdownToAbortException("fetchDefaultDomainTimeRanges")
         } yield DomainSearchCommitmentPeriod(
           indexedDomain,
           lastComputed.forgetRefinement,
@@ -269,7 +271,9 @@ class GrpcInspectionService(
 
     } yield {
       for {
-        indexedDomain <- IndexedDomain.indexed(indexedStringStore)(domainId)
+        indexedDomain <- IndexedDomain
+          .indexed(indexedStringStore)(domainId)
+          .failOnShutdownToAbortException("validateDomainTimeRange")
       } yield DomainSearchCommitmentPeriod(indexedDomain, start, end)
     }
 

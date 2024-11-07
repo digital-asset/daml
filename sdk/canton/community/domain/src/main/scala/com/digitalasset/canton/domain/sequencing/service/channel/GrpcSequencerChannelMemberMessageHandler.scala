@@ -8,7 +8,7 @@ import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.lifecycle.FlagCloseable
 import com.digitalasset.canton.logging.NamedLogging.loggerWithoutTracing
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.sequencing.protocol.SequencerChannelConnectedToAllEndpoints
+import com.digitalasset.canton.sequencing.channel.ConnectToSequencerChannelResponse
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -50,14 +50,49 @@ private[channel] final class GrpcSequencerChannelMemberMessageHandler(
     with NamedLogging {
   private[channel] val requestObserver =
     new StreamObserver[v30.ConnectToSequencerChannelRequest] {
-      override def onNext(value: v30.ConnectToSequencerChannelRequest): Unit = {
+      override def onNext(requestP: v30.ConnectToSequencerChannelRequest): Unit = {
+        val responseE = requestP.request match {
+          case v30.ConnectToSequencerChannelRequest.Request.Payload(payload) =>
+            Right(
+              v30.ConnectToSequencerChannelResponse.Response.Payload(
+                payload
+              ): v30.ConnectToSequencerChannelResponse.Response
+            )
+          case v30.ConnectToSequencerChannelRequest.Request.Metadata(metadataP) =>
+            Left(s"Unexpectedly asked to forward sequencer channel metadata $metadataP")
+          case v30.ConnectToSequencerChannelRequest.Request.Empty =>
+            Left("Unexpectedly asked to forward empty request")
+        }
         implicit val traceContext: TraceContext = SerializableTraceContext
           .fromProtoSafeV30Opt(
             loggerWithoutTracing(logger)
-          )(value.traceContext)
+          )(requestP.traceContext)
           .unwrap
-        logger.info(s"Forwarding payload")
-        forwardToRecipient(_.receiveOnNext(value), s"payload $traceContext")
+        responseE.fold(
+          error => {
+            val errorMsg = s"Error converting request: $error"
+            logger.warn(errorMsg)(traceContext)
+            val throwable = new StatusRuntimeException(
+              io.grpc.Status.INVALID_ARGUMENT.withDescription(errorMsg)
+            )
+            // Propagate unexpected sequencer channel message as error to both response observers.
+            forwardToRecipient(_.receiveOnError(throwable), errorMsg)
+            complete(_.onError(throwable))
+          },
+          responseP => {
+            if (logger.underlying.isDebugEnabled()) {
+              logger.debug(
+                s"Forwarding payload from $member to ${recipientMemberMessageHandler.map(_.member)}"
+              )(traceContext)
+            }
+            forwardToRecipient(
+              _.receiveOnNext(
+                v30.ConnectToSequencerChannelResponse(responseP, requestP.traceContext)
+              ),
+              s"payload ${traceContext.traceId}",
+            )
+          },
+        )
       }
 
       override def onError(t: Throwable): Unit = {
@@ -89,13 +124,8 @@ private[channel] final class GrpcSequencerChannelMemberMessageHandler(
   /** Generate response notification that both members are connected.
     */
   private[channel] def notifyMembersConnected()(implicit traceContext: TraceContext): Unit = {
-    val connectedToMembersPayload = SequencerChannelConnectedToAllEndpoints()(
-      SequencerChannelConnectedToAllEndpoints.protocolVersionRepresentativeFor(protocolVersion)
-    ).toByteString
-    val connectedToMembersResponse = v30.ConnectToSequencerChannelResponse(
-      connectedToMembersPayload,
-      Some(SerializableTraceContext(traceContext).toProtoV30),
-    )
+    val connectedToMembersResponse =
+      ConnectToSequencerChannelResponse.connectedToAllEndpoints(protocolVersion).toProtoV30
     responseObserver.onNext(connectedToMembersResponse)
   }
 
@@ -121,10 +151,8 @@ private[channel] final class GrpcSequencerChannelMemberMessageHandler(
 
   // Methods to receive onNext/onCompleted/onError calls from the other member message handler to
   // this member message handler's response observer.
-  private[channel] def receiveOnNext(request: v30.ConnectToSequencerChannelRequest): Unit =
-    responseObserver.onNext(
-      v30.ConnectToSequencerChannelResponse(request.payload, request.traceContext)
-    )
+  private[channel] def receiveOnNext(response: v30.ConnectToSequencerChannelResponse): Unit =
+    responseObserver.onNext(response)
 
   private[channel] def receiveOnCompleted(): Unit = {
     logger.info("Completing response stream.")(TraceContext.empty)

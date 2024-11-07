@@ -26,8 +26,10 @@ private[dao] trait JdbcLedgerDaoTransactionsWriterSpec extends LoneElement with 
       (_, lookup) <- store(txLookupByKey(alice, keyValue, Some(createdContractId)))
       to <- ledgerDao.lookupLedgerEnd()
       completions <- getCompletions(
-        Offset.fromAbsoluteOffsetO(from.lastOffset),
-        Offset.fromAbsoluteOffsetO(to.lastOffset),
+        Offset.fromAbsoluteOffsetO(from.map(_.lastOffset)),
+        Offset.fromAbsoluteOffset(
+          to.map(_.lastOffset).getOrElse(fail("ledger end should not have been empty"))
+        ),
         defaultAppId,
         Set(alice),
       )
@@ -49,8 +51,10 @@ private[dao] trait JdbcLedgerDaoTransactionsWriterSpec extends LoneElement with 
       (_, fetch) <- store(txFetch(alice, createdContractId))
       to <- ledgerDao.lookupLedgerEnd()
       completions <- getCompletions(
-        Offset.fromAbsoluteOffsetO(from.lastOffset),
-        Offset.fromAbsoluteOffsetO(to.lastOffset),
+        Offset.fromAbsoluteOffsetO(from.map(_.lastOffset)),
+        Offset.fromAbsoluteOffset(
+          to.map(_.lastOffset).getOrElse(fail("ledger end should not have been empty"))
+        ),
         defaultAppId,
         Set(alice),
       )

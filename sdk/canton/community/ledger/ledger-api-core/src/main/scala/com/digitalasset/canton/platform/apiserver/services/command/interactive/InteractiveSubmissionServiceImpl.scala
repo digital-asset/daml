@@ -3,14 +3,15 @@
 
 package com.digitalasset.canton.platform.apiserver.services.command.interactive
 
+import cats.data.EitherT
 import cats.implicits.toBifunctorOps
-import com.daml.error.ContextualizedErrorLogger
-import com.daml.ledger.api.v2.interactive_submission_data.PreparedTransaction
-import com.daml.ledger.api.v2.interactive_submission_service.*
+import cats.syntax.either.*
+import com.daml.error.{ContextualizedErrorLogger, DamlError}
+import com.daml.ledger.api.v2.interactive.interactive_submission_service.*
 import com.daml.scalautil.future.FutureConversion.*
 import com.daml.timer.Delayed
 import com.digitalasset.canton.CommandId
-import com.digitalasset.canton.crypto.{Hash as CantonHash, InteractiveSubmission}
+import com.digitalasset.canton.crypto.InteractiveSubmission
 import com.digitalasset.canton.ledger.api.domain.{Commands as ApiCommands, SubmissionId}
 import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService
 import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.{
@@ -19,10 +20,9 @@ import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.
 }
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.configuration.LedgerTimeModel
-import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
+import com.digitalasset.canton.ledger.error.groups.{CommandExecutionErrors, RequestValidationErrors}
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.SubmissionResult
-import com.digitalasset.canton.ledger.participant.state.SubmitterInfo.ExternallySignedSubmission
 import com.digitalasset.canton.logging.LoggingContextWithTrace.*
 import com.digitalasset.canton.logging.{
   ErrorLoggingContext,
@@ -36,58 +36,55 @@ import com.digitalasset.canton.platform.apiserver.execution.{
   CommandExecutionResult,
   CommandExecutor,
 }
-import com.digitalasset.canton.platform.apiserver.services.command.interactive.InteractiveSubmissionServiceImpl.PendingRequest
+import com.digitalasset.canton.platform.apiserver.services.command.interactive.InteractiveSubmissionServiceImpl.ExecutionTimes
 import com.digitalasset.canton.platform.apiserver.services.{
   ErrorCause,
   RejectionGenerators,
   TimeProviderType,
   logging,
 }
-import com.digitalasset.canton.platform.config.InteractiveSubmissionServiceConfig
 import com.digitalasset.canton.platform.store.dao.events.LfValueTranslation
-import com.digitalasset.canton.tracing.{Spanning, TraceContext}
+import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.tracing.{Spanning, TraceContext, Traced}
 import com.digitalasset.canton.util.ShowUtil.*
+import com.digitalasset.canton.version.{HashingSchemeVersion, ProtocolVersion}
 import com.digitalasset.daml.lf.command.ApiCommand
 import com.digitalasset.daml.lf.crypto
-import com.github.benmanes.caffeine.cache
-import com.github.benmanes.caffeine.cache.Caffeine
-import com.google.protobuf.ByteString
-import io.grpc.StatusRuntimeException
+import com.digitalasset.daml.lf.data.Time
 import io.opentelemetry.api.trace.Tracer
-import monocle.macros.syntax.lens.*
 
-import java.time.Duration
+import java.time.{Duration, Instant}
+import java.util.UUID
 import scala.concurrent.{ExecutionContext, Future}
 
 private[apiserver] object InteractiveSubmissionServiceImpl {
-  private final case class PendingRequest(
-      executionResult: CommandExecutionResult,
-      commands: ApiCommands,
+
+  private final case class ExecutionTimes(
+      ledgerEffective: Time.Timestamp,
+      submitAt: Option[Instant],
   )
 
   def createApiService(
-      writeService: state.WriteService,
+      submissionSyncService: state.SyncService,
       timeProvider: TimeProvider,
       timeProviderType: TimeProviderType,
       seedService: SeedService,
       commandExecutor: CommandExecutor,
       metrics: LedgerApiServerMetrics,
       checkOverloaded: TraceContext => Option[state.SubmissionResult],
-      interactiveSubmissionServiceConfig: InteractiveSubmissionServiceConfig,
       lfValueTranslation: LfValueTranslation,
       loggerFactory: NamedLoggerFactory,
   )(implicit
       executionContext: ExecutionContext,
       tracer: Tracer,
   ): InteractiveSubmissionService & AutoCloseable = new InteractiveSubmissionServiceImpl(
-    writeService,
+    submissionSyncService,
     timeProvider,
     timeProviderType,
     seedService,
     commandExecutor,
     metrics,
     checkOverloaded,
-    interactiveSubmissionServiceConfig,
     lfValueTranslation,
     loggerFactory,
   )
@@ -95,14 +92,13 @@ private[apiserver] object InteractiveSubmissionServiceImpl {
 }
 
 private[apiserver] final class InteractiveSubmissionServiceImpl private[services] (
-    writeService: state.WriteService,
+    syncService: state.SyncService,
     timeProvider: TimeProvider,
     timeProviderType: TimeProviderType,
     seedService: SeedService,
     commandExecutor: CommandExecutor,
     metrics: LedgerApiServerMetrics,
     checkOverloaded: TraceContext => Option[state.SubmissionResult],
-    interactiveSubmissionServiceConfig: InteractiveSubmissionServiceConfig,
     lfValueTranslation: LfValueTranslation,
     val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext, tracer: Tracer)
@@ -111,17 +107,8 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
     with Spanning
     with NamedLogging {
 
-  // TODO(i20660): This is temporary while we settle on a proper serialization format for the prepared transaction
-  // For now for simplicity we keep the required data in-memory to be able to submit the transaction when
-  // it is submitted with external signatures. Obviously this restricts usage of the prepare / submit
-  // flow to using the same node, and does not survive restarts of the node.
-  private val pendingPrepareRequests: cache.Cache[ByteString, PendingRequest] = Caffeine
-    .newBuilder()
-    // Max duration to keep the prepared transaction in memory after it's been prepared
-    .expireAfterWrite(Duration.ofHours(1))
-    .build[ByteString, PendingRequest]()
-
   private val transactionEncoder = new PreparedTransactionEncoder(loggerFactory, lfValueTranslation)
+  private val transactionDecoder = new PreparedTransactionDecoder(loggerFactory)
 
   override def prepare(
       request: PrepareRequestInternal
@@ -172,45 +159,65 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
       Future.successful,
     )
 
-  // TODO(i20660): We hash the command ID only for now while the proper hashing algorithm is being designed
-  private def computeTransactionHash(preparedTransaction: PreparedTransaction)(implicit
-      errorLoggingContext: ContextualizedErrorLogger
-  ): Either[StatusRuntimeException, CantonHash] =
-    for {
-      metadata <- preparedTransaction.metadata.toRight(
-        RequestValidationErrors.MissingField.Reject("metadata").asGrpcError
-      )
-      submitterInfo <- metadata.submitterInfo.toRight(
-        RequestValidationErrors.MissingField.Reject("submitter_info").asGrpcError
-      )
-      cmdId <- CommandId
-        .fromProtoPrimitive(submitterInfo.commandId)
-        .leftMap(err => RequestValidationErrors.InvalidField.Reject("command_id", err).asGrpcError)
-    } yield InteractiveSubmission.computeHash(cmdId)
-
   private def evaluateAndHash(
       submissionSeed: crypto.Hash,
       commands: ApiCommands,
   )(implicit
       loggingContext: LoggingContextWithTrace,
       errorLoggingContext: ContextualizedErrorLogger,
-  ): Future[PrepareSubmissionResponse] =
-    for {
-      result <- withSpan("InteractiveSubmissionService.evaluate") { _ => _ =>
-        commandExecutor.execute(commands, submissionSeed)
+  ): Future[PrepareSubmissionResponse] = {
+    val result: EitherT[Future, DamlError, PrepareSubmissionResponse] = for {
+      commandExecutionResultE <- withSpan("InteractiveSubmissionService.evaluate") { _ => _ =>
+        EitherT.liftF(commandExecutor.execute(commands, submissionSeed))
       }
-      transactionInfo <- handleCommandExecutionResult(result)
-      preparedTransaction <- transactionEncoder.serializeCommandExecutionResult(transactionInfo)
-      transactionHash <- Future.fromTry(computeTransactionHash(preparedTransaction).toTry)
-      // Caffeine doesn't have putIfAbsent. Use `get` with a function to insert the value in the cache to obtain the same result
-      _ = pendingPrepareRequests.get(
-        transactionHash.getCryptographicEvidence,
-        _ => PendingRequest(transactionInfo, commands),
+      commandExecutionResult <- EitherT.liftF(handleCommandExecutionResult(commandExecutionResultE))
+      // Domain is required to be explicitly provided for now
+      domainId <- EitherT.fromEither[Future](
+        commandExecutionResult.optDomainId.toRight(
+          RequestValidationErrors.MissingField.Reject("domain_id")
+        )
       )
+      // Require this participant to be connected to the domain on which the transaction will be run
+      protocolVersionForChosenDomain <- EitherT.fromEither[Future](
+        protocolVersionForDomainId(domainId)
+      )
+      // Use the highest hashing versions supported on that protocol version
+      hashVersion = HashingSchemeVersion
+        .getVersionedHashConstructorFor(protocolVersionForChosenDomain)
+        .max1
+      transactionUUID = UUID.randomUUID()
+      mediatorGroup = 0
+      preparedTransaction <- EitherT.liftF(
+        transactionEncoder.serializeCommandExecutionResult(
+          commandExecutionResult,
+          // TODO(i20688) Domain ID should be picked by the domain router
+          domainId,
+          // TODO(i20688) Transaction UUID should be picked in the TransactionConfirmationRequestFactory
+          transactionUUID,
+          // TODO(i20688) Mediator group should be picked in the ProtocolProcessor
+          mediatorGroup,
+        )
+      )
+      transactionHash <- EitherT
+        .fromEither[Future](
+          InteractiveSubmission.computeVersionedHash(
+            hashVersion,
+            CommandId(commandExecutionResult.submitterInfo.commandId),
+          )
+        )
+        .leftMap(err =>
+          CommandExecutionErrors.InteractiveSubmissionPreparationError
+            .Reject(s"Failed to compute hash: $err")
+        )
+        .leftWiden[DamlError]
     } yield PrepareSubmissionResponse(
       preparedTransaction = Some(preparedTransaction),
       preparedTransactionHash = transactionHash.getCryptographicEvidence,
+      hashingSchemeVersion = hashVersion.toLAPIProto,
     )
+
+    result.value.map(_.leftMap(_.asGrpcError).toTry).flatMap(Future.fromTry)
+  }
 
   private def failedOnCommandExecution(
       error: ErrorCause
@@ -223,38 +230,15 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
 
   override def close(): Unit = ()
 
-  private def submitIfNotOverloaded(transactionInfo: CommandExecutionResult)(implicit
+  private def submitIfNotOverloaded(
+      transactionInfo: CommandExecutionResult,
+      submitAt: Option[Instant],
+  )(implicit
       loggingContext: LoggingContextWithTrace
   ): Future[SubmissionResult] =
     checkOverloaded(loggingContext.traceContext) match {
       case Some(submissionResult) => Future.successful(submissionResult)
-      case None => submitTransactionWithDelay(transactionInfo)
-    }
-
-  private def submitTransactionWithDelay(
-      transactionInfo: CommandExecutionResult
-  )(implicit
-      loggingContext: LoggingContextWithTrace
-  ): Future[state.SubmissionResult] =
-    timeProviderType match {
-      case TimeProviderType.WallClock =>
-        // Submit transactions such that they arrive at the ledger sequencer exactly when record time equals ledger time.
-        // If the ledger time of the transaction is far in the future (farther than the expected latency),
-        // the submission to the WriteService is delayed.
-        val submitAt = transactionInfo.transactionMeta.ledgerEffectiveTime.toInstant
-          .minus(LedgerTimeModel.maximumToleranceTimeModel.avgTransactionLatency)
-        val submissionDelay = Duration.between(timeProvider.getCurrentTime, submitAt)
-        if (submissionDelay.isNegative)
-          submitTransaction(transactionInfo)
-        else {
-          logger.info(s"Delaying submission by $submissionDelay")
-          metrics.commands.delayedSubmissions.mark()
-          val scalaDelay = scala.concurrent.duration.Duration.fromNanos(submissionDelay.toNanos)
-          Delayed.Future.by(scalaDelay)(submitTransaction(transactionInfo))
-        }
-      case TimeProviderType.Static =>
-        // In static time mode, record time is always equal to ledger time
-        submitTransaction(transactionInfo)
+      case None => submitTransactionAt(transactionInfo, submitAt)
     }
 
   private def submitTransaction(
@@ -264,7 +248,7 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
   ): Future[state.SubmissionResult] = {
     metrics.commands.validSubmissions.mark()
     logger.trace("Submitting transaction to ledger.")
-    writeService
+    syncService
       .submitTransaction(
         result.submitterInfo,
         result.optDomainId,
@@ -277,48 +261,76 @@ private[apiserver] final class InteractiveSubmissionServiceImpl private[services
       .toScalaUnwrapped
   }
 
+  private def protocolVersionForDomainId(
+      domainId: DomainId
+  )(implicit loggingContext: LoggingContextWithTrace): Either[DamlError, ProtocolVersion] =
+    syncService
+      .getProtocolVersionForDomain(Traced(domainId))
+      .toRight(
+        CommandExecutionErrors.InteractiveSubmissionPreparationError
+          .Reject(s"Unknown domain ID $domainId")
+      )
+
+  private def submitTransactionAt(
+      transactionInfo: CommandExecutionResult,
+      submitAt: Option[Instant],
+  )(implicit loggingContext: LoggingContextWithTrace): Future[state.SubmissionResult] = {
+    val delayO = submitAt.map(Duration.between(timeProvider.getCurrentTime, _))
+    delayO match {
+      case Some(delay) if delay.isNegative =>
+        submitTransaction(transactionInfo)
+      case Some(delay) =>
+        logger.info(s"Delaying submission by $delay")
+        metrics.commands.delayedSubmissions.mark()
+        val scalaDelay = scala.concurrent.duration.Duration.fromNanos(delay.toNanos)
+        Delayed.Future.by(scalaDelay)(submitTransaction(transactionInfo))
+      case None =>
+        submitTransaction(transactionInfo)
+    }
+  }
+
+  /** @param ledgerEffectiveTimeO - set if the ledger effective time was used when preparing the transaction */
+  private def deriveExecutionTimes(ledgerEffectiveTimeO: Option[Time.Timestamp]): ExecutionTimes =
+    (ledgerEffectiveTimeO, timeProviderType) match {
+      case (Some(let), TimeProviderType.WallClock) =>
+        // Submit transactions such that they arrive at the ledger sequencer exactly when record time equals
+        // ledger time. If the ledger time of the transaction is far in the future (farther than the expected
+        // latency), the submission to the SyncService is delayed.
+        val submitAt =
+          let.toInstant.minus(LedgerTimeModel.maximumToleranceTimeModel.avgTransactionLatency)
+        ExecutionTimes(let, Some(submitAt))
+      case (Some(let), _) =>
+        ExecutionTimes(let, None)
+      case (None, _) =>
+        ExecutionTimes(Time.Timestamp.assertFromInstant(timeProvider.getCurrentTime), None)
+    }
+
   override def execute(
-      request: ExecuteRequest
+      executionRequest: ExecuteRequest
   )(implicit loggingContext: LoggingContextWithTrace): Future[ExecuteSubmissionResponse] = {
-    // TODO(i20660) add command id to logging
-    val additionalLoggingEntries = Seq(
-      request.workflowId.map(logging.workflowId)
-    ).flatten
+    val commandIdLogging =
+      executionRequest.preparedTransaction.metadata
+        .flatMap(_.submitterInfo.map(_.commandId))
+        .map(logging.commandId)
+        .toList
+
     withEnrichedLoggingContext(
-      logging.submissionId(request.submissionId),
-      additionalLoggingEntries*
+      logging.submissionId(executionRequest.submissionId),
+      commandIdLogging*
     ) { implicit loggingContext =>
       logger.info(
-        s"Requesting execution of daml transaction with submission ID ${request.submissionId}"
+        s"Requesting execution of daml transaction with submission ID ${executionRequest.submissionId}"
       )
       for {
-        hash <- Future.fromTry(computeTransactionHash(request.preparedTransaction).toTry)
-        pending <- Option(
-          pendingPrepareRequests.getIfPresent(hash.getCryptographicEvidence)
+        ledgerEffectiveTimeO <- transactionDecoder.extractLedgerEffectiveTime(executionRequest)
+        times = deriveExecutionTimes(ledgerEffectiveTimeO)
+        deserializationResult <- transactionDecoder.makeCommandExecutionResult(
+          executionRequest,
+          times.ledgerEffective,
         )
-          .map(Future.successful)
-          .getOrElse(
-            // This doesn't use a pre-defined error code because it's a temporary workaround
-            // while we need to keep the transaction in memory
-            Future.failed(
-              io.grpc.Status.NOT_FOUND
-                .withDescription("Unknown command")
-                .asRuntimeException()
-            )
-          )
-        // Update the pending transaction with input data from the execute request
-        updatedPending =
-          pending
-            .focus(_.executionResult.submitterInfo.submissionId)
-            .replace(Some(request.submissionId))
-            .focus(_.executionResult.transactionMeta.workflowId)
-            .replace(request.workflowId)
-            .focus(_.executionResult.submitterInfo.deduplicationPeriod)
-            .replace(request.deduplicationPeriod)
-            .focus(_.executionResult.submitterInfo.externallySignedSubmission)
-            .replace(Some(ExternallySignedSubmission(hash, request.signatures)))
-        _ <- submitIfNotOverloaded(updatedPending.executionResult)
+        _ <- submitIfNotOverloaded(deserializationResult.commandExecutionResult, times.submitAt)
       } yield ExecuteSubmissionResponse()
+
     }
   }
 }

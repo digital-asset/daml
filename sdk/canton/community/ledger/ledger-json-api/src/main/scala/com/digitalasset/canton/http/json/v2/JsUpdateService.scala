@@ -7,20 +7,23 @@ import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.v2.{offset_checkpoint, reassignment, update_service}
 import com.digitalasset.canton.http.WebsocketConfig
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
-import com.digitalasset.canton.http.json.v2.JsSchema.JsEvent.CreatedEvent
-import com.digitalasset.canton.http.json.v2.JsSchema.{JsTransaction, JsTransactionTree}
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
-import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import sttp.tapir.generic.auto.*
-import sttp.tapir.json.circe.*
+import com.digitalasset.canton.http.json.v2.JsSchema.JsEvent.CreatedEvent
+import com.digitalasset.canton.http.json.v2.JsSchema.{
+  JsCantonError,
+  JsTransaction,
+  JsTransactionTree,
+}
 import com.digitalasset.canton.ledger.client.LedgerClient
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
 import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Flow
 import sttp.capabilities.pekko.PekkoStreams
+import sttp.tapir.generic.auto.*
+import sttp.tapir.json.circe.*
 import sttp.tapir.{CodecFormat, Endpoint, path, query, webSocketBody}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -32,7 +35,7 @@ class JsUpdateService(
 )(implicit
     val executionContext: ExecutionContext,
     esf: ExecutionSequencerFactory,
-  wsConfig: WebsocketConfig,
+    wsConfig: WebsocketConfig,
 ) extends Endpoints
     with NamedLogging {
   import JsUpdateServiceCodecs.*

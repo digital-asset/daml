@@ -13,7 +13,7 @@ import com.daml.ledger.api.v2.commands.Command.Command.{
   ExerciseByKey as ProtoExerciseByKey,
 }
 import com.daml.ledger.api.v2.commands.{Command, Commands}
-import com.daml.ledger.api.v2.interactive_submission_service.{
+import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   ExecuteSubmissionRequest,
   PrepareSubmissionRequest,
 }
@@ -62,15 +62,13 @@ final class CommandsValidator(
         domain.CommandId(_)
       )
       submitters <- validateSubmitters(effectiveSubmitters(prepareRequest))
-      domainId <- validateOptional(OptionUtil.emptyStringAsNone(prepareRequest.domainId))(
-        requireDomainId(_, "domain_id")
-      )
+      domainId <- requireDomainId(prepareRequest.domainId, "domain_id")
       commandz <- requireNonEmpty(prepareRequest.commands, "commands")
       validatedCommands <- validateInnerCommands(commandz)
       ledgerEffectiveTime <- validateLedgerTime(
         currentLedgerTime,
-        prepareRequest.minLedgerTimeAbs,
-        prepareRequest.minLedgerTimeRel,
+        prepareRequest.minLedgerTime.flatMap(_.time.minLedgerTimeAbs),
+        prepareRequest.minLedgerTime.flatMap(_.time.minLedgerTimeRel),
       )
       ledgerEffectiveTimestamp <- Time.Timestamp
         .fromInstant(ledgerEffectiveTime)
@@ -104,7 +102,7 @@ final class CommandsValidator(
         commandsReference = "",
       ),
       disclosedContracts = validatedDisclosedContracts,
-      domainId = domainId,
+      domainId = Some(domainId),
       packageMap = packageResolutions.packageMap,
       packagePreferenceSet = packageResolutions.packagePreferenceSet,
     )
@@ -169,7 +167,7 @@ final class CommandsValidator(
       packagePreferenceSet = packageResolutions.packagePreferenceSet,
     )
 
-  private def validateLedgerTime(
+  def validateLedgerTime(
       currentTime: Instant,
       minLedgerTimeAbs: Option[Timestamp],
       minLedgerTimeRel: Option[DurationP],

@@ -4,6 +4,7 @@
 package com.digitalasset.canton.console.commands
 
 import cats.syntax.either.*
+import cats.syntax.functorFilter.*
 import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.admin.api.client.commands.TopologyAdminCommands.Write.GenerateTransactions
@@ -1303,8 +1304,8 @@ class TopologyAdministrationGroup(
       """)
     def propose_delta(
         party: PartyId,
-        adds: List[(ParticipantId, ParticipantPermission)] = Nil,
-        removes: List[ParticipantId] = Nil,
+        adds: Seq[(ParticipantId, ParticipantPermission)] = Nil,
+        removes: Seq[ParticipantId] = Nil,
         signedBy: Option[Fingerprint] = None,
         synchronize: Option[config.NonNegativeDuration] = Some(
           consoleEnvironment.commandTimeouts.bounded
@@ -1479,6 +1480,88 @@ class TopologyAdministrationGroup(
           filterParticipant,
         )
       )
+    }
+
+    /** Check whether the node knows about `party` being hosted on `hostingParticipants` and domain `domainId`,
+      * optionally the specified expected permission and threshold.
+      * @param domainId             Domain on which the party should be hosted
+      * @param party                The party which needs to be hosted
+      * @param hostingParticipants  Expected hosting participants
+      * @param permission           If specified, the expected permission
+      * @param threshold            If specified, the expected threshold
+      */
+    def is_known(
+        domainId: DomainId,
+        party: PartyId,
+        hostingParticipants: Seq[ParticipantId],
+        permission: Option[ParticipantPermission] = None,
+        threshold: Option[PositiveInt] = None,
+    ): Boolean = {
+
+      val permissions: Map[ParticipantId, (PositiveInt, ParticipantPermission)] = list(
+        domainId,
+        filterParty = party.toProtoPrimitive,
+      )
+        .map(_.item)
+        .flatMap(mapping =>
+          mapping.participants.map(p => p.participantId -> (mapping.threshold, p.permission))
+        )
+        .toMap
+
+      val participantsError = hostingParticipants.mapFilter { hostingParticipant =>
+        (permissions.get(hostingParticipant), threshold, permission) match {
+          case (None, _, _) => Some(s"for $hostingParticipant: not hosted")
+          case (Some((foundThreshold, _)), Some(threshold), _) if threshold != foundThreshold =>
+            Some(
+              s"for $hostingParticipant: expected threshold $threshold but found $foundThreshold"
+            )
+          case (Some((_, foundPermission)), _, Some(permission)) if permission != foundPermission =>
+            Some(
+              s"for $hostingParticipant: expected permission $permission but found $foundPermission"
+            )
+          case _ => None // All good
+        }
+      }
+
+      val result = if (participantsError.isEmpty) "yes" else participantsError.mkString(", ")
+
+      logger.debug(
+        s"Checking whether node knows $party being hosted on $hostingParticipants with threshold=$threshold and permission=$permission: $result"
+      )(TraceContext.empty)
+
+      participantsError.isEmpty
+    }
+
+    /** Check whether the node knows about `parties` being hosted on `hostingParticipants` and domain `domainId`.
+      * @param domainId             Domain on which the party should be hosted
+      * @param parties              The parties which needs to be hosted
+      * @param hostingParticipants  Expected hosting participants
+      */
+    def are_known(
+        domainId: DomainId,
+        parties: Seq[PartyId],
+        hostingParticipants: Seq[ParticipantId],
+    ): Boolean = {
+      val partyToParticipants: Map[PartyId, Seq[ParticipantId]] = list(domainId)
+        .map(_.item)
+        .map(mapping => mapping.partyId -> mapping.participants.map(p => p.participantId))
+        .toMap
+
+      parties.forall { party =>
+        val missingParticipants =
+          hostingParticipants.diff(partyToParticipants.getOrElse(party, Seq.empty))
+
+        if (missingParticipants.isEmpty)
+          logger.debug(
+            s"Node knows about $party being hosted on $hostingParticipants"
+          )(TraceContext.empty)
+        else
+          logger.debug(
+            s"Node knows that $party is hosted on ${hostingParticipants.diff(missingParticipants)} but not on $missingParticipants"
+          )(TraceContext.empty)
+
+        missingParticipants.isEmpty
+      }
     }
 
     @Help.Summary("List party to participant mapping transactions from the authorized store")

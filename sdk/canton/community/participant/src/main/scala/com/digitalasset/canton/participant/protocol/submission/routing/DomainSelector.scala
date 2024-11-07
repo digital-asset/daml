@@ -8,6 +8,7 @@ import cats.syntax.alternative.*
 import cats.syntax.parallel.*
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.NonEmptyColl.*
+import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.protocol.submission.{DomainsFilter, UsableDomain}
 import com.digitalasset.canton.participant.sync.TransactionRoutingError
@@ -36,7 +37,9 @@ private[routing] class DomainSelectorFactory(
   ): EitherT[Future, TransactionRoutingError, DomainSelector] =
     for {
       admissibleDomains <- admissibleDomains.forParties(
-        submitters = transactionData.actAs -- transactionData.signedExternally,
+        submitters = transactionData.actAs -- transactionData.externallySignedSubmissionO.fold(
+          Set.empty[LfPartyId]
+        )(_.signatures.keys.map(_.toLf).toSet),
         informees = transactionData.informees,
       )
     } yield new DomainSelector(
@@ -247,6 +250,7 @@ private[routing] class DomainSelector(
           requiredPackagesByParty = transactionData.requiredPackagesPerParty,
           transactionVersion = transactionVersion,
           ledgerTime = transactionData.ledgerTime,
+          interactiveSubmissionVersionO = transactionData.externallySignedSubmissionO.map(_.version),
         )
         .leftMap[TransactionRoutingError] { err =>
           TransactionRoutingError.ConfigurationErrors.InvalidPrescribedDomainId

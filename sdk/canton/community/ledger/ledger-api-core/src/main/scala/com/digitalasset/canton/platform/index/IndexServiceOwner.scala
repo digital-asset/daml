@@ -12,6 +12,7 @@ import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.api.domain
 import com.digitalasset.canton.ledger.error.IndexErrors.IndexDbException
 import com.digitalasset.canton.ledger.participant.state.index.IndexService
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
@@ -52,7 +53,11 @@ final class IndexServiceOwner(
     inMemoryState: InMemoryState,
     tracer: Tracer,
     val loggerFactory: NamedLoggerFactory,
-    incompleteOffsets: (Offset, Option[Set[Ref.Party]], TraceContext) => Future[Vector[Offset]],
+    incompleteOffsets: (
+        Offset,
+        Option[Set[Ref.Party]],
+        TraceContext,
+    ) => FutureUnlessShutdown[Vector[Offset]],
     contractLoader: ContractLoader,
     getPackageMetadataSnapshot: ContextualizedErrorLogger => PackageMetadata,
     lfValueTranslation: LfValueTranslation,

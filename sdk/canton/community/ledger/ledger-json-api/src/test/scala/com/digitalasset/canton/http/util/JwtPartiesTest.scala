@@ -3,24 +3,25 @@
 
 package com.digitalasset.canton.http.util
 
-import com.digitalasset.canton.http.domain.{JwtPayload, JwtWritePayload}
-import com.digitalasset.canton.http.EndpointsCompanion.Unauthorized
-import com.digitalasset.daml.lf.value.test.ValueGenerators.party as partyGen
-import com.daml.scalautil.Statement.discard
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.NonEmptyReturningOps.*
-import org.scalacheck.{Arbitrary, Gen}
-import Arbitrary.arbitrary
+import com.daml.scalautil.Statement.discard
+import com.digitalasset.canton.http.EndpointsCompanion.Unauthorized
 import com.digitalasset.canton.http.domain
+import com.digitalasset.canton.http.domain.{JwtPayload, JwtWritePayload}
+import com.digitalasset.daml.lf.value.test.ValueGenerators.party as partyGen
+import org.scalacheck.{Arbitrary, Gen}
 import org.scalatest.OptionValues
-import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import org.scalatest.concurrent.ScalaFutures
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpec
-import scalaz.{-\/, NonEmptyList, \/-}
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import scalaz.scalacheck.ScalazArbitrary.*
 import scalaz.std.set.*
 import scalaz.syntax.foldable1.*
-import scalaz.scalacheck.ScalazArbitrary.*
+import scalaz.{-\/, NonEmptyList, \/-}
+
+import Arbitrary.arbitrary
 
 class JwtPartiesTest
     extends AnyWordSpec

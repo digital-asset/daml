@@ -4,7 +4,7 @@
 package com.digitalasset.canton.http.util
 
 import com.daml.scalautil.ExceptionOps
-import scalaz.syntax.show._
+import scalaz.syntax.show.*
 import scalaz.{EitherT, Functor, Show, \/}
 
 object ErrorOps {

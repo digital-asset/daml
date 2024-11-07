@@ -7,8 +7,8 @@ import com.daml.scalautil.ExceptionOps.*
 import scalaz.syntax.traverse.*
 import scalaz.{-\/, Show, Traverse, \/, \/-}
 import spray.json.{
-  JsValue,
   JsObject,
+  JsValue,
   JsonParser,
   JsonReader,
   JsonWriter,

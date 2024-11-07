@@ -68,7 +68,6 @@ object ApiServiceOwner {
       port: Port = DefaultPort,
       tls: Option[TlsServerConfig] = DefaultTls,
       seeding: Seeding = DefaultSeeding,
-      initSyncTimeout: NonNegativeFiniteDuration = ApiServiceOwner.DefaultInitSyncTimeout,
       managementServiceTimeout: NonNegativeFiniteDuration =
         ApiServiceOwner.DefaultManagementServiceTimeout,
       ledgerFeatures: LedgerFeatures,
@@ -86,7 +85,7 @@ object ApiServiceOwner {
       identityProviderConfigStore: IdentityProviderConfigStore,
       partyRecordStore: PartyRecordStore,
       command: CommandServiceConfig = ApiServiceOwner.DefaultCommandServiceConfig,
-      writeService: state.WriteService,
+      syncService: state.SyncService,
       healthChecks: HealthChecks,
       metrics: LedgerApiServerMetrics,
       timeServiceBackend: Option[TimeServiceBackend] = None,
@@ -147,9 +146,9 @@ object ApiServiceOwner {
 
     for {
       executionSequencerFactory <- new ExecutionSequencerFactoryOwner()
-      apiServicesOwner = new ApiServices.Owner(
+      apiServicesOwner = ApiServices(
         participantId = participantId,
-        writeService = writeService,
+        syncService = syncService,
         indexService = indexService,
         authorizer = authorizer,
         engine = engine,
@@ -159,7 +158,6 @@ object ApiServiceOwner {
             TimeProviderType.Static
           ),
         submissionTracker = submissionTracker,
-        initSyncTimeout = initSyncTimeout.underlying,
         commandProgressTracker = commandProgressTracker,
         commandConfig = command,
         optTimeServiceBackend = timeServiceBackend,
@@ -184,9 +182,9 @@ object ApiServiceOwner {
         dynParamGetter = dynParamGetter,
         interactiveSubmissionServiceConfig = interactiveSubmissionServiceConfig,
         lfValueTranslation = lfValueTranslation,
-      )(materializer, executionSequencerFactory, tracer)
-        .map(_.withServices(otherServices))
-      apiService <- new LedgerApiService(
+        logger = loggerFactory.getTracedLogger(this.getClass),
+      )(materializer, executionSequencerFactory, tracer).withServices(otherServices)
+      apiService <- LedgerApiService(
         apiServicesOwner,
         port,
         maxInboundMessageSize,
@@ -224,8 +222,6 @@ object ApiServiceOwner {
   val DefaultAddress: Option[String] = None
   val DefaultTls: Option[TlsServerConfig] = None
   val DefaultMaxInboundMessageSize: Int = 64 * 1024 * 1024
-  val DefaultInitSyncTimeout: NonNegativeFiniteDuration =
-    NonNegativeFiniteDuration.ofSeconds(10)
   val DefaultSeeding: Seeding = Seeding.Strong
   val DefaultManagementServiceTimeout: NonNegativeFiniteDuration =
     NonNegativeFiniteDuration.ofMinutes(2)

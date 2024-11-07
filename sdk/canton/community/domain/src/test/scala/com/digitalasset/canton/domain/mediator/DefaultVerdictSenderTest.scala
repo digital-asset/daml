@@ -201,7 +201,7 @@ class DefaultVerdictSenderTest
     val initialDomainParameters = TestDomainParameters.defaultDynamic
 
     val domainSyncCryptoApi: DomainSyncCryptoClient =
-      if (testedProtocolVersion >= ProtocolVersion.v32) {
+      if (testedProtocolVersion >= ProtocolVersion.v33) {
         val topology = TestingTopology.from(
           Set(domainId),
           Map(

@@ -505,6 +505,7 @@ final class RepairService(
                   s"Failed to assign contracts $missingAssignments in ActiveContractStore: $e"
                 )
               )
+              .mapK(FutureUnlessShutdown.failOnShutdownToAbortExceptionK("purgeContracts"))
 
             _ <- cleanRepairRequests(repair)
 
@@ -662,6 +663,7 @@ final class RepairService(
           targetRepairRequest.unwrap.domain.persistentState.reassignmentStore
             .lookup(reassignmentId)
             .leftMap(_.message)
+            .mapK(FutureUnlessShutdown.failOnShutdownToAbortExceptionK("rollbackUnassignment"))
 
         changeAssignation = new ChangeAssignation(
           sourceRepairRequest,
@@ -929,7 +931,7 @@ final class RepairService(
             s"Failed to assign ${missingAssignments.map { case (cid, _, _, _) => cid }} in ActiveContractStore: $e"
           )
         )
-
+        .mapK(FutureUnlessShutdown.failOnShutdownToAbortExceptionK("persistAddContracts"))
     } yield ()
 
   /** For the given contract, returns the operations (purge, assignment) to perform
@@ -1316,6 +1318,7 @@ final class RepairService(
   ): Future[Seq[Option[ActiveContractStore.Status]]] =
     persistentState.activeContractStore
       .fetchStates(cids)
+      .failOnShutdownToAbortException("readContractAcsStates")
       .map { states =>
         cids.map(cid => states.get(cid).map(_.status))
       }

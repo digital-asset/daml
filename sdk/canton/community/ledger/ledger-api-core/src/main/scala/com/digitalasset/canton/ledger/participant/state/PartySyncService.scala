@@ -9,7 +9,7 @@ import com.digitalasset.daml.lf.data.Ref
 import java.util.concurrent.CompletionStage
 
 /** An interface for on-boarding parties via a participant. */
-trait WritePartyService {
+trait PartySyncService {
 
   /** Adds a new party to the set managed by the ledger.
     *
@@ -26,14 +26,12 @@ trait WritePartyService {
     * further details.
     *
     * @param hint             A party identifier suggestion
-    * @param displayName      A human readable name of the new party
     * @param submissionId     Client picked submission identifier for matching the responses with the request.
     *
     * @return an async result of a SubmissionResult
     */
   def allocateParty(
       hint: Option[Ref.Party],
-      displayName: Option[String],
       submissionId: Ref.SubmissionId,
   )(implicit
       traceContext: TraceContext

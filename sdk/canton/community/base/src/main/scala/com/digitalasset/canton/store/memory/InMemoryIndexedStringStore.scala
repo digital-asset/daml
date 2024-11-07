@@ -5,11 +5,12 @@ package com.digitalasset.canton.store.memory
 
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.store.{IndexedStringStore, IndexedStringType}
 
 import scala.collection.concurrent.TrieMap
 import scala.collection.mutable.ArrayBuffer
-import scala.concurrent.{Future, blocking}
+import scala.concurrent.blocking
 
 /** In memory version of an indexed string store.
   *
@@ -21,8 +22,11 @@ class InMemoryIndexedStringStore(val minIndex: Int, val maxIndex: Int) extends I
   private val cache = TrieMap[(String300, Int), Int]()
   private val list = ArrayBuffer[(String300, Int)]()
 
-  override def getOrCreateIndex(dbTyp: IndexedStringType, str: String300): Future[Int] =
-    Future.successful(getOrCreateIndexForTesting(dbTyp, str))
+  override def getOrCreateIndex(
+      dbTyp: IndexedStringType,
+      str: String300,
+  ): FutureUnlessShutdown[Int] =
+    FutureUnlessShutdown.pure(getOrCreateIndexForTesting(dbTyp, str))
 
   /** @throws java.lang.IllegalArgumentException if a new index is created and the new index would exceed `maxIndex`
     */
@@ -41,8 +45,11 @@ class InMemoryIndexedStringStore(val minIndex: Int, val maxIndex: Int) extends I
     }
   }
 
-  override def getForIndex(dbTyp: IndexedStringType, idx: Int): Future[Option[String300]] =
-    Future.successful {
+  override def getForIndex(
+      dbTyp: IndexedStringType,
+      idx: Int,
+  ): FutureUnlessShutdown[Option[String300]] =
+    FutureUnlessShutdown.pure {
       blocking {
         synchronized {
           val positionInList = idx - minIndex

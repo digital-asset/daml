@@ -4,13 +4,13 @@
 package com.digitalasset.canton.http
 
 import com.daml.jwt.Jwt
-import com.digitalasset.daml.lf.data.Ref
 import com.daml.logging.LoggingContextOf
 import com.daml.nonempty.*
 import com.digitalasset.canton.http.EndpointsCompanion.{Error, InvalidUserInput, Unauthorized}
 import com.digitalasset.canton.http.LedgerClientJwt.Grpc
 import com.digitalasset.canton.http.util.FutureUtil.*
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
+import com.digitalasset.daml.lf.data.Ref
 import org.apache.pekko.stream.Materializer
 import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
 import scalaz.std.option.*
@@ -41,7 +41,7 @@ class PartiesService(
       ): ET[Option[Ref.Party]]
 
       apiParty <- rightT(
-        allocateParty(jwt, idHint, request.displayName)(lc)
+        allocateParty(jwt, idHint)(lc)
       ): ET[com.digitalasset.canton.ledger.api.domain.PartyDetails]
 
       domainParty = domain.PartyDetails.fromLedgerApi(apiParty)

@@ -54,6 +54,7 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.DefaultDeserializationError
 import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
 import com.digitalasset.canton.topology.*
+import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.ShowUtil.*
@@ -95,6 +96,8 @@ private[reassignment] class AssignmentProcessingSteps(
 
   override def submissionDescription(param: SubmissionParam): String =
     s"Submitter ${param.submitterMetadata.submitter}, reassignmentId ${param.reassignmentId}"
+
+  override def explicitMediatorGroup(param: SubmissionParam): Option[MediatorGroupIndex] = None
 
   override type SubmissionResultArgs = PendingReassignmentSubmission
 
@@ -156,7 +159,6 @@ private[reassignment] class AssignmentProcessingSteps(
       reassignmentData <- ephemeralState.reassignmentLookup
         .lookup(reassignmentId)
         .leftMap(err => NoReassignmentData(reassignmentId, err))
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       unassignmentResult <- EitherT.fromEither[FutureUnlessShutdown](
         reassignmentData.unassignmentResult.toRight(
@@ -276,7 +278,7 @@ private[reassignment] class AssignmentProcessingSteps(
   ): EitherT[Future, ReassignmentProcessorError, SubmissionResultArgs] =
     performPendingSubmissionMapUpdate(
       pendingSubmissionMap,
-      Some(submissionParam.reassignmentId),
+      ReassignmentRef(submissionParam.reassignmentId),
       submissionParam.submitterLf,
       submissionId,
     )
@@ -399,7 +401,6 @@ private[reassignment] class AssignmentProcessingSteps(
         .right[ReassignmentProcessorError](
           reassignmentLookup.lookup(reassignmentId).toOption.value
         )
-        .mapK(FutureUnlessShutdown.outcomeK)
       validationResultO <- assignmentValidation
         .validateAssignmentRequest(
           ts,

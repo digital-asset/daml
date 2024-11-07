@@ -4,7 +4,6 @@
 package com.digitalasset.canton.topology.store.db
 
 import com.daml.nameof.NameOf.functionFullName
-import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.DisplayName
 import com.digitalasset.canton.config.CantonRequireTypes.{String255, String300}
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
@@ -44,28 +43,25 @@ class DbPartyMetadataStore(
   ): DbAction.ReadOnly[Seq[PartyMetadata]] = {
 
     val query =
-      sql"select party_id, display_name, participant_id, submission_id, effective_at, notified from common_party_metadata where " ++ where
+      sql"select party_id, participant_id, submission_id, effective_at, notified from common_party_metadata where " ++ where
 
     for {
       data <- query
-        .as[(PartyId, Option[String], Option[String], String255, CantonTimestamp, Boolean)]
+        .as[(PartyId, Option[String], String255, CantonTimestamp, Boolean)]
     } yield {
-      data.map {
-        case (partyId, displayNameS, participantIdS, submissionId, effectiveAt, notified) =>
-          val participantId =
-            participantIdS
-              .flatMap(x => UniqueIdentifier.fromProtoPrimitive_(x).toOption)
-              .map(ParticipantId(_))
-          val displayName = displayNameS.flatMap(String255.create(_).toOption)
-          PartyMetadata(
-            partyId,
-            displayName,
-            participantId = participantId,
-          )(
-            effectiveTimestamp = effectiveAt,
-            submissionId = submissionId,
-            notified = notified,
-          )
+      data.map { case (partyId, participantIdS, submissionId, effectiveAt, notified) =>
+        val participantId =
+          participantIdS
+            .flatMap(x => UniqueIdentifier.fromProtoPrimitive_(x).toOption)
+            .map(ParticipantId(_))
+        PartyMetadata(
+          partyId,
+          participantId = participantId,
+        )(
+          effectiveTimestamp = effectiveAt,
+          submissionId = submissionId,
+          notified = notified,
+        )
       }
     }
   }
@@ -73,18 +69,16 @@ class DbPartyMetadataStore(
   override def insertOrUpdatePartyMetadata(
       partyId: PartyId,
       participantId: Option[ParticipantId],
-      displayName: Option[DisplayName],
       effectiveTimestamp: CantonTimestamp,
       submissionId: String255,
   )(implicit traceContext: TraceContext): Future[Unit] = {
     val participantS = dbValue(participantId)
     val query = storage.profile match {
       case _: DbStorage.Profile.Postgres =>
-        sqlu"""insert into common_party_metadata (party_id, display_name, participant_id, submission_id, effective_at)
-                    VALUES ($partyId, $displayName, $participantS, $submissionId, $effectiveTimestamp)
+        sqlu"""insert into common_party_metadata (party_id, participant_id, submission_id, effective_at)
+                    VALUES ($partyId, $participantS, $submissionId, $effectiveTimestamp)
                  on conflict (party_id) do update
                   set
-                    display_name = $displayName,
                     participant_id = $participantS,
                     submission_id = $submissionId,
                     effective_at = $effectiveTimestamp,
@@ -96,14 +90,13 @@ class DbPartyMetadataStore(
                   on (party_id = $partyId)
                   when matched then
                     update set
-                      display_name = $displayName,
                       participant_id = $participantS,
                       submission_id = $submissionId,
                       effective_at = $effectiveTimestamp,
                       notified = ${false}
                   when not matched then
-                    insert (party_id, display_name, participant_id, submission_id, effective_at)
-                    values ($partyId, $displayName, $participantS, $submissionId, $effectiveTimestamp)
+                    insert (party_id, participant_id, submission_id, effective_at)
+                    values ($partyId, $participantS, $submissionId, $effectiveTimestamp)
                  """
     }
     storage.update_(query, functionFullName)

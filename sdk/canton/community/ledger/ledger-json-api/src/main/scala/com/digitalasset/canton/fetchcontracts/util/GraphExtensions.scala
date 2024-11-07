@@ -3,12 +3,12 @@
 
 package com.digitalasset.canton.fetchcontracts.util
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.{Flow, GraphDSL, Keep, Sink}
-import org.apache.pekko.stream.{FanOutShape2, FlowShape, Graph}
 import com.daml.logging.LoggingContextOf
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.tracing.NoTracing
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.{Flow, GraphDSL, Keep, Sink}
+import org.apache.pekko.stream.{FanOutShape2, FlowShape, Graph}
 import scalaz.Liskov.<~<
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -41,14 +41,11 @@ object GraphExtensions extends NoTracing {
       Flow[A].watchTermination() { (mat, fd) =>
         fd.onComplete(
           _.fold(
-            { t =>
+            t =>
               logger.trace(
                 s"stream-abort [$extraMessage] trying to abort ${t.getMessage}, ${lc.makeString}"
-              )
-            },
-            { _ =>
-              logger.trace(s"stream-stop [$extraMessage] trying to shutdown, ${lc.makeString}")
-            },
+              ),
+            _ => logger.trace(s"stream-stop [$extraMessage] trying to shutdown, ${lc.makeString}"),
           )
         )
         mat

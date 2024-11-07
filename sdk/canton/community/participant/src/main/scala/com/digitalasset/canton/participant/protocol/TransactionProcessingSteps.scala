@@ -85,6 +85,7 @@ import com.digitalasset.canton.sequencing.client.SendAsyncClientError
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.serialization.DefaultDeserializationError
 import com.digitalasset.canton.store.{ConfirmationRequestSessionKeyStore, SessionKeyStore}
+import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -166,6 +167,9 @@ class TransactionProcessingSteps(
 
   override def submissionDescription(param: SubmissionParam): String =
     show"submitters ${param.submitterInfo.actAs}, command-id ${param.submitterInfo.commandId}"
+
+  override def explicitMediatorGroup(param: SubmissionParam): Option[MediatorGroupIndex] =
+    param.submitterInfo.mediatorGroup
 
   override def submissionIdOfPendingRequest(pendingData: PendingTransaction): Unit = ()
 

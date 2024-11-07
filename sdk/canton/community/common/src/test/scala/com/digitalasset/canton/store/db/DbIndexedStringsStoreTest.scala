@@ -37,12 +37,15 @@ trait DbIndexedStringsStoreTest
     val domain2 = DomainId.tryFromString("other::domain")
 
     def d2idx(store: IndexedStringStore, domainId: DomainId): Future[Int] =
-      store.getOrCreateIndex(IndexedStringType.domainId, domainId.toLengthLimitedString.asString300)
+      store
+        .getOrCreateIndex(IndexedStringType.domainId, domainId.toLengthLimitedString.asString300)
+        .failOnShutdown
 
     def idx2d(store: IndexedStringStore, index: Int): Future[Option[DomainId]] =
       store
         .getForIndex(IndexedStringType.domainId, index)
         .map(_.map(str => DomainId.tryFromString(str.unwrap)))
+        .failOnShutdown
 
     "return the same index for a previously stored uid" in {
       val store = mk()

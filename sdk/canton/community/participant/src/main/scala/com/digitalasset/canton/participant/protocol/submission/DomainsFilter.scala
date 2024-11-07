@@ -13,7 +13,7 @@ import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
-import com.digitalasset.canton.version.ProtocolVersion
+import com.digitalasset.canton.version.{HashingSchemeVersion, ProtocolVersion}
 import com.digitalasset.daml.lf.data.Ref.{PackageId, Party}
 import com.digitalasset.daml.lf.engine.Blinding
 
@@ -37,6 +37,8 @@ private[submission] class DomainsFilter(
           requiredPackagesPerParty,
           transactionVersion,
           ledgerTime,
+          // TODO(i20688): use ISV to select domain
+          Option.empty[HashingSchemeVersion],
         )
         .map(_ => domainId)
         .value

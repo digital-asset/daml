@@ -21,7 +21,7 @@ import com.digitalasset.canton.ledger.api.services.CommandSubmissionService
 import com.digitalasset.canton.ledger.api.validation.{CommandsValidator, SubmitRequestValidator}
 import com.digitalasset.canton.ledger.api.{SubmissionIdGenerator, ValidationLogger}
 import com.digitalasset.canton.ledger.participant.state
-import com.digitalasset.canton.ledger.participant.state.{ReassignmentCommand, WriteService}
+import com.digitalasset.canton.ledger.participant.state.{ReassignmentCommand, SubmissionSyncService}
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.TracedLoggerOps.TracedLoggerOps
 import com.digitalasset.canton.logging.{
@@ -44,7 +44,7 @@ import scala.util.{Failure, Success, Try}
 final class ApiCommandSubmissionService(
     commandSubmissionService: CommandSubmissionService & AutoCloseable,
     commandsValidator: CommandsValidator,
-    writeService: WriteService,
+    submissionSyncService: SubmissionSyncService,
     currentLedgerTime: () => Instant,
     currentUtcTime: () => Instant,
     maxDeduplicationDuration: Duration,
@@ -157,7 +157,7 @@ final class ApiCommandSubmissionService(
         t =>
           Future.failed(ValidationLogger.logFailureWithTrace(logger, requestWithSubmissionId, t)),
         request =>
-          writeService
+          submissionSyncService
             .submitReassignment(
               submitter = request.submitter,
               applicationId = request.applicationId,

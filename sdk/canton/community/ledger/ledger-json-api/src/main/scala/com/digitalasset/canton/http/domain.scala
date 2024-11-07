@@ -3,15 +3,15 @@
 
 package com.digitalasset.canton.http
 
-import org.apache.pekko.http.scaladsl.model.{StatusCode, StatusCodes}
-import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
 import com.daml.ledger.api.v2 as lav2
-import com.digitalasset.daml.lf.typesig
 import com.daml.nonempty.NonEmpty
 import com.daml.nonempty.NonEmptyReturningOps.*
 import com.digitalasset.canton.fetchcontracts.util.IdentifierConverters.apiIdentifier
 import com.digitalasset.canton.ledger.api.domain.User
+import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
+import com.digitalasset.daml.lf.typesig
 import com.google.protobuf.ByteString
+import org.apache.pekko.http.scaladsl.model.{StatusCode, StatusCodes}
 import scalaz.Isomorphism.{<~>, IsoFunctorTemplate}
 import scalaz.std.list.*
 import scalaz.std.option.*
@@ -186,7 +186,7 @@ package domain {
       offset: Option[domain.Offset],
   )
 
-  final case class PartyDetails(identifier: Party, displayName: Option[String], isLocal: Boolean)
+  final case class PartyDetails(identifier: Party, isLocal: Boolean)
 
   // Important note: when changing this ADT, adapt the custom associated JsonFormat codec in JsonProtocol
   sealed abstract class UserRight extends Product with Serializable
@@ -255,7 +255,7 @@ package domain {
 
   final case class DeleteUserRequest(userId: String)
 
-  final case class AllocatePartyRequest(identifierHint: Option[Party], displayName: Option[String])
+  final case class AllocatePartyRequest(identifierHint: Option[Party])
 
   // Important note: when changing this ADT, adapt the custom associated JsonFormat codec in JsonProtocol
   sealed abstract class DeduplicationPeriod extends Product with Serializable {
@@ -380,7 +380,7 @@ package domain {
 
   object PartyDetails {
     def fromLedgerApi(p: com.digitalasset.canton.ledger.api.domain.PartyDetails): PartyDetails =
-      PartyDetails(Party(p.party), p.displayName, p.isLocal)
+      PartyDetails(Party(p.party), p.isLocal)
   }
 
   final case class StartingOffset(offset: Offset)

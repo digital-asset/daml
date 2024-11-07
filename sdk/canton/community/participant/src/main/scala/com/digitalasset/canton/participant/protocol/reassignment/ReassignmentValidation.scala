@@ -32,7 +32,7 @@ private[reassignment] class ReassignmentValidation(
       reassignmentRequest: FullReassignmentViewTree,
       getEngineAbortStatus: GetEngineAbortStatus,
   )(implicit traceContext: TraceContext): EitherT[Future, ReassignmentProcessorError, Unit] = {
-    val reassignmentId = reassignmentRequest.reassignmentId
+    val reassignmentRef = reassignmentRequest.reassignmentRef
 
     val declaredContractMetadata = reassignmentRequest.contract.metadata
     val declaredViewStakeholders = reassignmentRequest.stakeholders
@@ -54,19 +54,19 @@ private[reassignment] class ReassignmentValidation(
                 )
               ) =>
             StakeholdersMismatch(
-              reassignmentId,
+              reassignmentRef,
               declaredViewStakeholders = declaredViewStakeholders,
               declaredContractStakeholders = Some(Stakeholders(declaredContractMetadata)),
               expectedStakeholders = Left(e.message),
             )
           case DAMLe.EngineError(error) => MetadataNotFound(error)
-          case DAMLe.EngineAborted(reason) => ReinterpretationAborted(reassignmentId, reason)
+          case DAMLe.EngineAborted(reason) => ReinterpretationAborted(reassignmentRef, reason)
         }
 
       _ <- EitherTUtil.condUnitET[Future](
         recomputedMetadata == declaredContractMetadata,
         ContractMetadataMismatch(
-          reassignmentId = reassignmentId,
+          reassignmentRef = reassignmentRef,
           declaredContractMetadata = declaredContractMetadata,
           expectedMetadata = recomputedMetadata,
         ),
@@ -78,7 +78,7 @@ private[reassignment] class ReassignmentValidation(
         .condUnitET[Future](
           declaredViewStakeholders == declaredContractStakeholders,
           StakeholdersMismatch(
-            reassignmentId,
+            reassignmentRef,
             declaredViewStakeholders = declaredViewStakeholders,
             declaredContractStakeholders = Some(declaredContractStakeholders),
             expectedStakeholders = Right(Stakeholders(recomputedMetadata)),

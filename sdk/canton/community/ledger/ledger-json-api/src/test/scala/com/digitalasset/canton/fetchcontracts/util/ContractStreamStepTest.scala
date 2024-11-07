@@ -5,10 +5,10 @@ package com.digitalasset.canton.fetchcontracts.util
 
 import com.daml.scalatest.FlatSpecCheckLaws
 import com.digitalasset.canton.fetchcontracts.domain
-import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
-import org.scalatest.prop.TableDrivenPropertyChecks
 import org.scalatest.flatspec.AnyFlatSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.prop.TableDrivenPropertyChecks
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 import scalaz.scalacheck.ScalaCheckBinding.*
 import scalaz.scalacheck.ScalazProperties
 import scalaz.syntax.apply.*
@@ -36,7 +36,7 @@ class ContractStreamStepTest
   it should "be associative for valid streams" in forAll(validStreamGen) { csses =>
     whenever(csses.size >= 3) {
       forEvery(
-        Table(("a", "b", "c"), csses.sliding(3).map { case Seq(a, b, c) => (a, b, c) }.toSeq: _*)
+        Table(("a", "b", "c"), csses.sliding(3).map { case Seq(a, b, c) => (a, b, c) }.toSeq*)
       ) { case (a, b, c) =>
         (a |+| (b |+| c)) should ===((a |+| b) |+| c)
       }

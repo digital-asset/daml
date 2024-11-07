@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.http
 
+import com.daml.ledger.api.v2 as lav2
 import com.digitalasset.canton.http.Generators.{
   genDomainTemplateIdPkgId,
   genDuplicateModuleEntityTemplateIds,
@@ -10,12 +11,11 @@ import com.digitalasset.canton.http.Generators.{
 }
 import com.digitalasset.canton.http.PackageService.TemplateIdMap
 import com.digitalasset.daml.lf.data.Ref
-import com.daml.ledger.api.v2 as lav2
 import org.scalacheck.Shrink
-import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
-import org.scalatest.{Inside, OptionValues}
 import org.scalatest.freespec.AnyFreeSpec
 import org.scalatest.matchers.should.Matchers
+import org.scalatest.{Inside, OptionValues}
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
 
 @SuppressWarnings(Array("org.wartremover.warts.NonUnitStatements"))
 class PackageServiceTest

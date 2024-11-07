@@ -100,7 +100,7 @@ private[platform] trait LedgerReadDao extends ReportsHealth {
   ): Future[Option[ParticipantId]]
 
   /** Looks up the current ledger end */
-  def lookupLedgerEnd()(implicit loggingContext: LoggingContextWithTrace): Future[LedgerEnd]
+  def lookupLedgerEnd()(implicit loggingContext: LoggingContextWithTrace): Future[Option[LedgerEnd]]
 
   def transactionsReader: LedgerDaoTransactionsReader
 

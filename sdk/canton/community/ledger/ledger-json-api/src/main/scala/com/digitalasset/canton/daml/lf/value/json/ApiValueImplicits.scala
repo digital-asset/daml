@@ -3,22 +3,22 @@
 
 package com.digitalasset.canton.daml.lf.value.json
 
-import java.time.{Instant, LocalDate}
-import java.time.format.DateTimeFormatter
-
 import com.digitalasset.daml.lf.data.Time
-import com.digitalasset.daml.lf.value.{Value => V}
+import com.digitalasset.daml.lf.value.Value as V
+
+import java.time.format.DateTimeFormatter
+import java.time.{Instant, LocalDate}
 
 object ApiValueImplicits {
 
   implicit final class `ApiTimestamp additions`(private val it: V.ValueTimestamp) extends AnyVal {
-    import it._
+    import it.*
     def toInstant: Instant = value.toInstant
     def toIso8601: String = DateTimeFormatter.ISO_INSTANT.format(toInstant)
   }
 
   implicit final class `ApiDate additions`(private val it: V.ValueDate) extends AnyVal {
-    import it._
+    import it.*
     def toLocalDate: LocalDate = LocalDate.ofEpochDay((value.days: Int).toLong)
     def toInstant: Instant = Instant.from(toLocalDate)
     def toIso8601: String = DateTimeFormatter.ISO_LOCAL_DATE.format(toLocalDate)

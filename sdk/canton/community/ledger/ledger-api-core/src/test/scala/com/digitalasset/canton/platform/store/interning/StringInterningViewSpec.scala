@@ -164,7 +164,7 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers with BaseTest 
     templateAbsent(testee, "22:t:b")
     templateAbsent(testee, "22:same:name")
     testee
-      .update(6) { (from, to) =>
+      .update(Some(6)) { (from, to) =>
         from shouldBe 0
         to shouldBe 6
         Future.successful(
@@ -228,7 +228,7 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers with BaseTest 
     packageVersionPresent(testee, "1.0.0", 5)
     packageVersionAbsent(testee, "2.0.0")
     testee
-      .update(11) { (from, to) =>
+      .update(Some(11)) { (from, to) =>
         from shouldBe 5
         to shouldBe 11
         Future.successful(
@@ -296,7 +296,7 @@ class StringInterningViewSpec extends AsyncFlatSpec with Matchers with BaseTest 
     packageNameAbsent(testee, "pkg-unknown")
 
     testee
-      .update(4)((_, _) =>
+      .update(Some(4))((_, _) =>
         fail("should not be called if lastStringInterningId is greater than lastId")
       )
       .map { _ =>

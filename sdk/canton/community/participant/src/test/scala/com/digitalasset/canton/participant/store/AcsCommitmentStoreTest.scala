@@ -539,12 +539,14 @@ trait AcsCommitmentStoreTest
         SignedProtocolMessage.from(dummyMsg3, testedProtocolVersion, dummySignature)
 
       for {
-        _ <- store.storeReceived(dummySigned)
-        _ <- store.storeReceived(dummySigned2)
-        _ <- store.storeReceived(dummySigned3)
+        _ <- store.storeReceived(dummySigned).failOnShutdown
+        _ <- store.storeReceived(dummySigned2).failOnShutdown
+        _ <- store.storeReceived(dummySigned3).failOnShutdown
         found1 <- store.searchReceivedBetween(ts(0), ts(1))
-        found2 <- store.searchReceivedBetween(ts(0), ts(1), Seq(remoteId))
-        found3 <- store.searchReceivedBetween(ts(0), ts(3), Seq(remoteId, remoteId2))
+        found2 <-
+          store.searchReceivedBetween(ts(0), ts(1), Seq(remoteId))
+        found3 <-
+          store.searchReceivedBetween(ts(0), ts(3), Seq(remoteId, remoteId2))
       } yield {
         found1.toSet shouldBe Set(dummySigned, dummySigned3)
         found2.toSet shouldBe Set(dummySigned)
@@ -609,8 +611,8 @@ trait AcsCommitmentStoreTest
         SignedProtocolMessage.from(dummyMsg2, testedProtocolVersion, dummySignature)
 
       for {
-        _ <- store.storeReceived(dummySigned)
-        _ <- store.storeReceived(dummySigned2)
+        _ <- store.storeReceived(dummySigned).failOnShutdown
+        _ <- store.storeReceived(dummySigned2).failOnShutdown
         found1 <- store.searchReceivedBetween(ts(0), ts(1))
       } yield {
         found1.toSet shouldBe Set(dummySigned, dummySigned2)
@@ -621,8 +623,8 @@ trait AcsCommitmentStoreTest
       val store = mk()
 
       for {
-        _ <- store.storeReceived(dummySigned)
-        _ <- store.storeReceived(dummySigned)
+        _ <- store.storeReceived(dummySigned).failOnShutdown
+        _ <- store.storeReceived(dummySigned).failOnShutdown
         found1 <- store.searchReceivedBetween(ts(0), ts(1))
       } yield {
         found1.toList shouldBe List(dummySigned)

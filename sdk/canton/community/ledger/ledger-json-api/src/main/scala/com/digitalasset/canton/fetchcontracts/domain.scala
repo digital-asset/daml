@@ -3,16 +3,17 @@
 
 package com.digitalasset.canton.fetchcontracts
 
-import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
 import com.daml.ledger.api.v2 as lav2
-import com.digitalasset.daml.lf
-import util.ClientUtil.boxedRecord
 import com.daml.nonempty.NonEmpty
+import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
+import com.digitalasset.daml.lf
 import scalaz.std.option.*
 import scalaz.std.string.*
 import scalaz.syntax.std.option.*
 import scalaz.syntax.traverse.*
 import scalaz.{@@, Applicative, Order, Semigroup, Show, Tag, Tags, Traverse, \/}
+
+import util.ClientUtil.boxedRecord
 
 package object domain {
   type LfValue = lf.value.Value

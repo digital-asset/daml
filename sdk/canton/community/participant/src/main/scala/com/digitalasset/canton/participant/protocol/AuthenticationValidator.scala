@@ -66,7 +66,7 @@ class AuthenticationValidator(implicit
                 // Verify the signature of any externally signed parties
                 _ <- submitterMetadata.externalAuthorization
                   .fold(EitherT.pure[Future, String](())) { e =>
-                    val hash = InteractiveSubmission.computeHash(submitterMetadata.commandId)
+                    val hash = InteractiveSubmission.computeHashV1(submitterMetadata.commandId)
                     InteractiveSubmission
                       .verifySignatures(hash, e.signatures, snapshot)
                       .map(_ => ())

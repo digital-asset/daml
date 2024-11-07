@@ -112,7 +112,7 @@ class DomainsFilterTest extends AnyWordSpec with BaseTest with HasExecutionConte
       import SimpleTopology.*
 
       // LanguageVersion.VDev needs pv=dev so we use pv=6
-      val currentDomainPV = ProtocolVersion.v32
+      val currentDomainPV = ProtocolVersion.v33
       val filter =
         DomainsFilterForTx(
           Transactions.Create.tx(LfLanguageVersion.v2_dev),

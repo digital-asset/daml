@@ -55,6 +55,7 @@ import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.client.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.sequencing.{AsyncResult, HandlerResult}
+import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, SubmissionTopologyHelper}
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -151,8 +152,9 @@ abstract class ProtocolProcessor[
     logger.debug(withKind(s"Preparing request ${steps.submissionDescription(submissionParam)}"))
 
     val recentSnapshot = crypto.currentSnapshotApproximation
+    val explicitMediatorGroupIndex = steps.explicitMediatorGroup(submissionParam)
     for {
-      mediator <- chooseMediator(recentSnapshot.ipsSnapshot)
+      mediator <- chooseMediator(recentSnapshot.ipsSnapshot, explicitMediatorGroupIndex)
         .leftMap(steps.embedNoMediatorError)
         .mapK(FutureUnlessShutdown.outcomeK)
       submission <- steps.createSubmission(submissionParam, mediator, ephemeral, recentSnapshot)
@@ -172,7 +174,8 @@ abstract class ProtocolProcessor[
   }
 
   private def chooseMediator(
-      recentSnapshot: TopologySnapshot
+      recentSnapshot: TopologySnapshot,
+      explicitMediatorGroupIndex: Option[MediatorGroupIndex],
   )(implicit
       traceContext: TraceContext
   ): EitherT[Future, NoMediatorError, MediatorGroupRecipient] = {
@@ -184,23 +187,33 @@ abstract class ProtocolProcessor[
       if (mediatorCount == 0) {
         Left(NoMediatorError(recentSnapshot.timestamp))
       } else {
-        // Pick the next by incrementing the counter and selecting the mediator modulo the number of all mediators.
-        // When the number of mediators changes, this strategy may result in the same mediator being picked twice in a row.
-        // This is acceptable as mediator changes are rare.
-        //
-        // This selection strategy assumes that the `mediators` method in the `MediatorDomainStateClient`
-        // returns the mediators in a consistent order. This assumption holds mostly because the cache
-        // usually returns the fixed `Seq` in the cache.
-        val newSubmissionCounter = submissionCounter.incrementAndGet()
-        val chosenIndex = {
-          val mod = newSubmissionCounter % mediatorCount
-          // The submissionCounter overflows after Int.MAX_VALUE submissions
-          // and then the modulo is negative. We must ensure that it's positive!
-          if (mod < 0) mod + mediatorCount else mod
-        }
-        val chosen = checked(allActiveMediatorGroups(chosenIndex)).index
-        logger.debug(s"Chose the mediator group $chosen")
-        Right(MediatorGroupRecipient(chosen))
+        explicitMediatorGroupIndex
+          .map { index =>
+            allActiveMediatorGroups
+              .lift(index.value)
+              .map(_.index)
+              .map(MediatorGroupRecipient(_))
+              .toRight(NoMediatorError(recentSnapshot.timestamp))
+          }
+          .getOrElse {
+            // Pick the next by incrementing the counter and selecting the mediator modulo the number of all mediators.
+            // When the number of mediators changes, this strategy may result in the same mediator being picked twice in a row.
+            // This is acceptable as mediator changes are rare.
+            //
+            // This selection strategy assumes that the `mediators` method in the `MediatorDomainStateClient`
+            // returns the mediators in a consistent order. This assumption holds mostly because the cache
+            // usually returns the fixed `Seq` in the cache.
+            val newSubmissionCounter = submissionCounter.incrementAndGet()
+            val chosenIndex = {
+              val mod = newSubmissionCounter % mediatorCount
+              // The submissionCounter overflows after Int.MAX_VALUE submissions
+              // and then the modulo is negative. We must ensure that it's positive!
+              if (mod < 0) mod + mediatorCount else mod
+            }
+            val chosen = checked(allActiveMediatorGroups(chosenIndex)).index
+            logger.debug(s"Chose the mediator group $chosen")
+            Right(MediatorGroupRecipient(chosen))
+          }
       }
     }
     EitherT(fut)

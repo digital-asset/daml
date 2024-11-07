@@ -82,7 +82,7 @@ class LedgerApiStore(
       parameterStorageBackend.domainLedgerEnd(domainId)
     )
 
-  def ledgerEnd(implicit traceContext: TraceContext): Future[LedgerEnd] =
+  def ledgerEnd(implicit traceContext: TraceContext): Future[Option[LedgerEnd]] =
     executeSql(metrics.index.db.getLedgerEnd)(
       parameterStorageBackend.ledgerEnd
     )
@@ -151,23 +151,18 @@ class LedgerApiStore(
   ): Future[Unit] =
     for {
       currentLedgerEnd <- ledgerEnd
-      _ <- stringInterningView.update(currentLedgerEnd.lastStringInterningId)(
-        (fromExclusive, toInclusive) =>
-          executeSql(metrics.index.db.loadStringInterningEntries)(
-            stringInterningStorageBackend.loadStringInterningEntries(
-              fromExclusive,
-              toInclusive,
-            )
+      _ <- stringInterningView.update(
+        currentLedgerEnd.map(_.lastStringInterningId)
+      )((fromExclusive, toInclusive) =>
+        executeSql(metrics.index.db.loadStringInterningEntries)(
+          stringInterningStorageBackend.loadStringInterningEntries(
+            fromExclusive,
+            toInclusive,
           )
-      )
-    } yield {
-      ledgerEndCache.set(
-        (
-          currentLedgerEnd.lastOffset,
-          currentLedgerEnd.lastEventSeqId,
-          currentLedgerEnd.lastPublicationTime,
         )
       )
+    } yield {
+      ledgerEndCache.set(currentLedgerEnd)
     }
 }
 

@@ -97,7 +97,7 @@ class JceCryptoTest
                   .valueOrFail("encrypt")
                 _ = assert(message.bytes != encrypted2.ciphertext)
               } yield encrypted1.ciphertext shouldEqual encrypted2.ciphertext
-            }.failOnShutdown
+            }
           }
       }
     }

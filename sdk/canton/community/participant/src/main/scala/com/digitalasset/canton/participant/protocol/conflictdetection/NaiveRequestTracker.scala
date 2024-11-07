@@ -297,7 +297,7 @@ private[participant] class NaiveRequestTracker(
 
   override def getApproximateStates(coids: Seq[LfContractId])(implicit
       traceContext: TraceContext
-  ): Future[Map[LfContractId, ContractState]] =
+  ): FutureUnlessShutdown[Map[LfContractId, ContractState]] =
     conflictDetector.getApproximateStates(coids)
 
   /** Returns whether the request is in-flight, i.e., in the requests map. */

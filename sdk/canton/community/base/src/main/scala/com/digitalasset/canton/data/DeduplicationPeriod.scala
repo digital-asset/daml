@@ -34,7 +34,7 @@ object DeduplicationPeriod {
       )
   }
 
-  /** The length of the deduplication window, which ends when the [[com.digitalasset.canton.ledger.participant.state.WriteService]] or underlying Daml ledger processes
+  /** The length of the deduplication window, which ends when the [[com.digitalasset.canton.ledger.participant.state.SyncService]] or underlying Daml ledger processes
     * the command submission.
     *
     * When used in [[com.digitalasset.canton.ledger.participant.state.SubmitterInfo]], the window is measured on some unspecified clock on the participant or the Daml ledger.

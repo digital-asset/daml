@@ -18,8 +18,8 @@ class PartyToParticipantComputations(override protected val loggerFactory: Named
     */
   def computeNewPermissions(
       existingPermissions: Map[ParticipantId, ParticipantPermission],
-      adds: List[(ParticipantId, ParticipantPermission)] = Nil,
-      removes: List[ParticipantId] = Nil,
+      adds: Seq[(ParticipantId, ParticipantPermission)] = Nil,
+      removes: Seq[ParticipantId] = Nil,
   ): Either[String, Map[ParticipantId, ParticipantPermission]] = {
 
     val conflictsO =

@@ -24,7 +24,14 @@ import com.digitalasset.canton.topology.DefaultTestIdentities
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.version.HasTestCloseContext
-import com.digitalasset.canton.{ApplicationId, BaseTest, CommandId, HasExecutionContext, LfPartyId}
+import com.digitalasset.canton.{
+  ApplicationId,
+  BaseTest,
+  CommandId,
+  FailOnShutdown,
+  HasExecutionContext,
+  LfPartyId,
+}
 import org.scalatest.wordspec.AsyncWordSpec
 
 import java.time.Duration
@@ -36,7 +43,8 @@ class MediatorStateTest
     extends AsyncWordSpec
     with BaseTest
     with HasTestCloseContext
-    with HasExecutionContext { self =>
+    with HasExecutionContext
+    with FailOnShutdown { self =>
 
   "MediatorState" when {
     val requestId = RequestId(CantonTimestamp.Epoch)
@@ -142,7 +150,7 @@ class MediatorStateTest
         } yield {
           sut.pendingRequestIdsBefore(CantonTimestamp.MaxValue) shouldBe empty
         }
-      }.failOnShutdown("Unexpected shutdown.")
+      }
     }
 
     "fetching items" should {
@@ -155,7 +163,7 @@ class MediatorStateTest
           progress shouldBe Some(currentVersion)
           noItem shouldBe None
         }
-      }.failOnShutdown("Unexpected shutdown.")
+      }
     }
 
     "updating items" should {
@@ -174,13 +182,13 @@ class MediatorStateTest
             ),
           )
         } yield result shouldBe None
-      }.failOnShutdown("Unexpected shutdown.")
+      }
 
       "allow updating to a newer version" in {
         for {
           result <- sut.replace(currentVersion, newVersion).value
         } yield result shouldBe Some(())
-      }.failOnShutdown("Unexpected shutdown.")
+      }
     }
   }
 }

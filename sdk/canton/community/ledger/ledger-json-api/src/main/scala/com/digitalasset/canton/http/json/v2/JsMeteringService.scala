@@ -4,15 +4,15 @@
 package com.digitalasset.canton.http.json.v2
 
 import com.daml.ledger.api.v2.admin.metering_report_service
-import com.digitalasset.canton.ledger.client.services.admin.MeteringReportClient
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
+import com.digitalasset.canton.ledger.client.services.admin.MeteringReportClient
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.google.protobuf
 import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
 import sttp.tapir.*
 import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.jsonBody
-import com.google.protobuf
 
 import scala.concurrent.ExecutionContext
 

@@ -47,7 +47,7 @@ private[reassignment] class AssignmentValidation(
     extends NamedLogging {
 
   // TODO(#12926) Check what validations should be done for observing reassigning participants
-  // TODO(#22048) Split this method in smaller chunks
+  // TODO(#22119) Split this method in smaller chunks
   /** Validate the unassignment request
     * @return The option should be defined iff a confirmation will be sent, which means:
     *         - The participant is a confirming reassigning participant
@@ -110,7 +110,7 @@ private[reassignment] class AssignmentValidation(
           _ <- EitherT.fromEither[Future](
             serializableContractAuthenticator
               .authenticate(assignmentRequest.contract)
-              .leftMap[ReassignmentProcessorError](ContractError(_))
+              .leftMap[ReassignmentProcessorError](ContractError.apply)
           )
 
           unassignmentSubmitter = reassignmentData.unassignmentRequest.submitter
@@ -202,7 +202,7 @@ private[reassignment] class AssignmentValidation(
           _ <- EitherT.fromEither[Future](
             serializableContractAuthenticator
               .authenticate(assignmentRequest.contract)
-              .leftMap[ReassignmentProcessorError](ContractError(_))
+              .leftMap[ReassignmentProcessorError](ContractError.apply)
           )
 
           confirmingParties <- EitherT

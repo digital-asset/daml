@@ -3,16 +3,16 @@
 
 package com.digitalasset.canton.ledger.service
 
-import java.io.File
-
+import com.daml.scalautil.ExceptionOps.*
 import com.digitalasset.daml.lf.archive.{ArchivePayload, Dar, DarReader}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.typesig
-import com.daml.scalautil.ExceptionOps._
-import scalaz.std.list._
-import scalaz.syntax.traverse._
+import scalaz.std.list.*
+import scalaz.syntax.traverse.*
 import scalaz.{Show, \/}
+
+import java.io.File
 
 object MetadataReader {
 
@@ -38,15 +38,13 @@ object MetadataReader {
 
   private def decodePackageStoreFromDar(
       dar: Dar[ArchivePayload]
-  ): Error \/ LfMetadata = {
-
+  ): Error \/ LfMetadata =
     dar.all
       .traverse { a =>
         decodeInterfaceFromArchive(a)
           .map(x => a.pkgId -> x): Error \/ (Ref.PackageId, typesig.PackageSignature)
       }
       .map(_.toMap)
-  }
 
   private def decodeInterfaceFromArchive(
       a: ArchivePayload

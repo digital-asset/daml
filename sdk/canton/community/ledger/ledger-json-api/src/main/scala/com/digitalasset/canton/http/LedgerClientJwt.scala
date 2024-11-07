@@ -3,10 +3,7 @@
 
 package com.digitalasset.canton.http
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.Source
 import com.daml.jwt.Jwt
-import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
 import com.daml.ledger.api.v2.admin.metering_report_service.{
   GetMeteringReportRequest,
   GetMeteringReportResponse,
@@ -16,37 +13,40 @@ import com.daml.ledger.api.v2.command_service.{
   SubmitAndWaitForTransactionTreeResponse,
   SubmitAndWaitRequest,
 }
-import com.daml.ledger.api.v2.package_service
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
+import com.daml.ledger.api.v2.package_service
+import com.daml.ledger.api.v2.state_service.GetActiveContractsResponse
 import com.daml.ledger.api.v2.transaction.Transaction
 import com.daml.ledger.api.v2.transaction_filter.TransactionFilter
 import com.daml.ledger.api.v2.update_service.GetUpdatesResponse.Update
-import com.digitalasset.daml.lf.data.Ref
 import com.daml.logging.LoggingContextOf
 import com.digitalasset.canton.http.LedgerClientJwt.Grpc
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
 import com.digitalasset.canton.ledger.api.domain.PartyDetails as domainPartyDetails
+import com.digitalasset.canton.ledger.client.LedgerClient as DamlLedgerClient
 import com.digitalasset.canton.ledger.client.services.EventQueryServiceClient
-import com.digitalasset.canton.ledger.client.services.pkg.PackageClient
 import com.digitalasset.canton.ledger.client.services.admin.{
   MeteringReportClient,
   PackageManagementClient,
   PartyManagementClient,
 }
-import com.digitalasset.canton.ledger.client.LedgerClient as DamlLedgerClient
 import com.digitalasset.canton.ledger.client.services.commands.CommandServiceClient
+import com.digitalasset.canton.ledger.client.services.pkg.PackageClient
 import com.digitalasset.canton.ledger.client.services.state.StateServiceClient
 import com.digitalasset.canton.ledger.client.services.updates.UpdateServiceClient
 import com.digitalasset.canton.ledger.service.Grpc.StatusEnvelope
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.platform.ApiOffset
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.daml.lf.data.Ref
 import com.google.protobuf
 import com.google.rpc.Code
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.Source
 import scalaz.syntax.tag.*
 import scalaz.{-\/, OneAnd, \/}
 
-import scala.concurrent.{Future, ExecutionContext as EC}
+import scala.concurrent.{ExecutionContext as EC, Future}
 
 final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends NamedLogging {
   import Grpc.Category.*
@@ -209,12 +209,12 @@ final case class LedgerClientJwt(loggerFactory: NamedLoggerFactory) extends Name
       ec: EC,
       traceContext: TraceContext,
   ): AllocateParty =
-    (jwt, identifierHint, displayName) =>
+    (jwt, identifierHint) =>
       implicit lc => {
         logFuture(AllocatePartyLog) {
           client.partyManagementClient.allocateParty(
             hint = identifierHint,
-            displayName = displayName,
+            deprecatedDisplayName = None,
             token = bearer(jwt),
           )
         }
@@ -398,7 +398,6 @@ object LedgerClientJwt {
     (
         Jwt,
         Option[Ref.Party],
-        Option[String],
     ) => LoggingContextOf[InstanceUUID with RequestID] => Future[domainPartyDetails]
 
   type ListPackages =

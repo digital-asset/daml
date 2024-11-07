@@ -132,7 +132,7 @@ class ApiCommandSubmissionServiceSpec
       commandsValidator = new CommandsValidator(
         validateUpgradingPackageResolutions = ValidateUpgradingPackageResolutions.Empty
       ),
-      writeService = null,
+      submissionSyncService = null,
       currentLedgerTime = () => Instant.EPOCH,
       currentUtcTime = () => Instant.EPOCH,
       maxDeduplicationDuration = Duration.ZERO,

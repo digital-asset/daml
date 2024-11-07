@@ -8,6 +8,7 @@ import cats.syntax.traverse.*
 import com.digitalasset.canton.ProtoDeserializationError.OtherError
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.data.MerkleTree.RevealSubtree
+import com.digitalasset.canton.data.ReassignmentRef.ReassignmentIdRef
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.protocol.messages.{
   AssignmentMediatorMessage,
@@ -90,7 +91,7 @@ object AssignmentViewTree
   override val name: String = "AssignmentViewTree"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.ReassignmentViewTree)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.ReassignmentViewTree)(
       supportedProtoVersion(_)((context, proto) => fromProtoV30(context)(proto)),
       _.toProtoV30.toByteString,
     )
@@ -199,7 +200,7 @@ object AssignmentCommonData
   override val name: String = "AssignmentCommonData"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.AssignmentCommonData)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.AssignmentCommonData)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
@@ -344,7 +345,7 @@ object AssignmentView
   override val name: String = "AssignmentView"
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.AssignmentView)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.AssignmentView)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
@@ -449,8 +450,8 @@ final case class FullAssignmentTree(tree: AssignmentViewTree)
   protected[this] val commonData: AssignmentCommonData = tree.commonData.tryUnwrap
   protected[this] val view: AssignmentView = tree.view.tryUnwrap
 
-  override def reassignmentId: Option[ReassignmentId] = Some(
-    view.unassignmentResultEvent.reassignmentId
+  override def reassignmentRef: ReassignmentIdRef = ReassignmentIdRef(
+    unassignmentResultEvent.reassignmentId
   )
 
   def unassignmentResultEvent: DeliveredUnassignmentResult = view.unassignmentResultEvent

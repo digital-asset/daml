@@ -101,7 +101,7 @@ class InMemoryAcsCommitmentStore(protected val loggerFactory: NamedLoggerFactory
 
   override def storeReceived(
       commitment: SignedProtocolMessage[AcsCommitment]
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     blocking {
       received.synchronized {
         val sender = commitment.message.sender
@@ -110,7 +110,7 @@ class InMemoryAcsCommitmentStore(protected val loggerFactory: NamedLoggerFactory
       }
     }
 
-    Future.unit
+    FutureUnlessShutdown.unit
   }
 
   override def markOutstanding(period: CommitmentPeriod, counterParticipants: Set[ParticipantId])(

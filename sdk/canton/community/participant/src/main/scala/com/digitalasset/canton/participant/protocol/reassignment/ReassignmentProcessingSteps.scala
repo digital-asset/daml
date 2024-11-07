@@ -13,6 +13,7 @@ import com.digitalasset.canton.data.ViewType.ReassignmentViewType
 import com.digitalasset.canton.data.{
   CantonTimestamp,
   FullReassignmentViewTree,
+  ReassignmentRef,
   ReassignmentSubmitterMetadata,
   ViewType,
 }
@@ -146,7 +147,7 @@ trait ReassignmentProcessingSteps[
 
   protected def performPendingSubmissionMapUpdate(
       pendingSubmissionMap: concurrent.Map[RootHash, PendingReassignmentSubmission],
-      reassignmentId: Option[ReassignmentId],
+      reassignmentRef: ReassignmentRef,
       submitterLf: LfPartyId,
       rootHash: RootHash,
   ): EitherT[Future, ReassignmentProcessorError, PendingReassignmentSubmission] = {
@@ -156,7 +157,7 @@ trait ReassignmentProcessingSteps[
       existing.isEmpty,
       pendingSubmission,
       DuplicateReassignmentTreeHash(
-        reassignmentId,
+        reassignmentRef,
         submitterLf,
         rootHash,
       ): ReassignmentProcessorError,
@@ -490,20 +491,20 @@ object ReassignmentProcessingSteps {
   }
 
   final case class ContractMetadataMismatch(
-      reassignmentId: Option[ReassignmentId],
+      reassignmentRef: ReassignmentRef,
       declaredContractMetadata: ContractMetadata,
       expectedMetadata: ContractMetadata,
   ) extends ReassignmentProcessorError {
-    override def message: String = s"For reassignment `$reassignmentId`: metadata mismatch"
+    override def message: String = s"For reassignment `$reassignmentRef`: metadata mismatch"
   }
 
   final case class StakeholdersMismatch(
-      reassignmentId: Option[ReassignmentId],
+      reassignmentRef: ReassignmentRef,
       declaredViewStakeholders: Stakeholders,
       declaredContractStakeholders: Option[Stakeholders],
       expectedStakeholders: Either[String, Stakeholders],
   ) extends ReassignmentProcessorError {
-    override def message: String = s"For reassignment `$reassignmentId`: stakeholders mismatch"
+    override def message: String = s"For reassignment `$reassignmentRef`: stakeholders mismatch"
   }
 
   final case class NoStakeholders private (contractId: LfContractId)
@@ -530,7 +531,7 @@ object ReassignmentProcessingSteps {
       stakeholders: Set[LfPartyId],
   ) extends ReassignmentProcessorError {
     override def message: String =
-      s"For$reference: submitter `$submittingParty` is not a stakeholder"
+      s"For $reference: submitter `$submittingParty` is not a stakeholder"
   }
 
   final case class ReassignmentStoreFailed(
@@ -556,13 +557,11 @@ object ReassignmentProcessingSteps {
   }
 
   final case class DuplicateReassignmentTreeHash(
-      reassignmentId: Option[ReassignmentId],
+      reassignmentRef: ReassignmentRef,
       submitterLf: LfPartyId,
       hash: RootHash,
   ) extends ReassignmentProcessorError {
-    private def kind = reassignmentId.map(_id => "assign").getOrElse("unassign")
-
-    override def message: String = s"Cannot $kind $reassignmentId: duplicatehash"
+    override def message: String = s"For reassignment $reassignmentRef: duplicatehash"
   }
 
   final case class FailedToCreateResponse(
@@ -586,9 +585,9 @@ object ReassignmentProcessingSteps {
     )
   }
 
-  final case class ReinterpretationAborted(reassignmentId: Option[ReassignmentId], reason: String)
+  final case class ReinterpretationAborted(reassignmentRef: ReassignmentRef, reason: String)
       extends ReassignmentProcessorError {
     override def message: String =
-      s"Cannot reassign `$reassignmentId`: reinterpretation aborted for reason `$reason`"
+      s"For reassignment `$reassignmentRef`: reinterpretation aborted for reason `$reason`"
   }
 }

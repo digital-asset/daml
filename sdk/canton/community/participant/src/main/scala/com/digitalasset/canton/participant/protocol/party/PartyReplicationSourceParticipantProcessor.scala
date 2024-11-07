@@ -48,7 +48,7 @@ class PartyReplicationSourceParticipantProcessor private (
     partyId: PartyId,
     activeAt: CantonTimestamp,
     acsInspection: AcsInspection, // TODO(#18525): Stream the ACS via the Ledger Api instead.
-    protocolVersion: ProtocolVersion,
+    protected val protocolVersion: ProtocolVersion,
     protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit override val executionContext: ExecutionContext)

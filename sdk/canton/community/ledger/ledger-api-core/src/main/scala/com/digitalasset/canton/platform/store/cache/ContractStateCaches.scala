@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.cache
 
 import cats.data.NonEmptyVector
-import com.digitalasset.canton.data.{AbsoluteOffset, Offset}
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.cache.ContractKeyStateValue.{Assigned, Unassigned}
@@ -87,7 +87,7 @@ class ContractStateCaches(
 
 object ContractStateCaches {
   def build(
-      initialCacheIndex: Offset,
+      initialCacheIndex: Option[AbsoluteOffset],
       maxContractsCacheSize: Long,
       maxKeyCacheSize: Long,
       metrics: LedgerApiServerMetrics,

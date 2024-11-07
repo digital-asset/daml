@@ -5,7 +5,6 @@ package com.digitalasset.canton.http.json.v2
 
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2 as lapi
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.canton.http.json.v2.JsContractEntry.JsContractEntry
 import com.digitalasset.canton.http.json.v2.JsReassignmentEvent.JsReassignmentEvent
 import com.digitalasset.canton.http.json.v2.JsSchema.{
@@ -16,6 +15,7 @@ import com.digitalasset.canton.http.json.v2.JsSchema.{
   JsTransactionTree,
   JsTreeEvent,
 }
+import com.digitalasset.daml.lf.data.Ref
 import com.google.rpc.status.Status
 import ujson.StringRenderer
 import ujson.circe.CirceJson

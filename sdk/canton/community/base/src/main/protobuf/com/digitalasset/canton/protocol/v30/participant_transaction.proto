@@ -252,12 +252,12 @@ message ExternalPartyAuthorization {
 message ExternalAuthorization {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
-  // The transaction serialization version used when building the hash
-  enum TransactionSerializationVersion {
-    TRANSACTION_SERIALIZATION_VERSION_UNSPECIFIED = 0;
-    TRANSACTION_SERIALIZATION_VERSION_V1 = 1;
+  // The hashing scheme version used when building the hash
+  enum HashingSchemeVersion {
+    HASHING_SCHEME_VERSION_UNSPECIFIED = 0;
+    HASHING_SCHEME_VERSION_V1 = 1;
   }
 
   repeated ExternalPartyAuthorization authentications = 1;
-  TransactionSerializationVersion serialization_version = 2;
+  HashingSchemeVersion hashing_scheme_version = 2;
 }

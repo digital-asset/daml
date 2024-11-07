@@ -144,11 +144,7 @@ message AllocatePartyRequest {
   // Optional
   string party_id_hint = 1;
 
-  // Human-readable name of the party to be added to the participant. It doesn't
-  // have to be unique.
-  // Use of this field is discouraged. Use ``local_metadata`` instead.
-  // Optional
-  string display_name = 2;
+  reserved 2; // Formerly "display_name"
 
   // Participant-local metadata to be stored in the ``PartyDetails`` of this newly allocated party.
   // Optional
@@ -185,7 +181,7 @@ message UpdatePartyDetailsRequest {
   // 1. to identify the party details resource subject to the update,
   // 2. for concurrent change control.
   //
-  // An update path can also point to non-``Modifiable`` fields such as 'is_local' and 'display_name'
+  // An update path can also point to non-``Modifiable`` fields such as 'is_local'
   // as long as the values provided in the update request match the server values.
   // Examples of update paths: 'local_metadata.annotations', 'local_metadata'.
   // For additional information see the documentation for standard protobuf3's ``google.protobuf.FieldMask``.
@@ -204,12 +200,6 @@ message PartyDetails {
   // Must be a valid PartyIdString (as described in ``value.proto``).
   // Required
   string party = 1;
-
-  // Human readable name associated with the party at allocation time.
-  // Caution, it might not be unique.
-  // Use of this field is discouraged. Use the `local_metadata` field instead.
-  // Optional
-  string display_name = 2;
 
   // true if party is hosted by the participant and the party shares the same identity provider as the user issuing the request.
   // Optional

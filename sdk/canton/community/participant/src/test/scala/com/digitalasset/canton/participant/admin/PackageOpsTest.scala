@@ -85,7 +85,7 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
         import env.*
 
         packageOps.checkPackageUnused(pkgId1).map(_ shouldBe ())
-      }
+      }.failOnShutdown
     }
 
     "return a Left with the used package" when {
@@ -93,7 +93,7 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
         import env.*
         val contractId = TransactionBuilder.newCid
         when(activeContractStore.packageUsage(eqTo(pkgId1), eqTo(contractStore))(anyTraceContext))
-          .thenReturn(Future.successful(Some(contractId)))
+          .thenReturn(FutureUnlessShutdown.pure(Some(contractId)))
         val indexedDomain = IndexedDomain.tryCreate(domainId1, 1)
         when(syncDomainPersistentState.indexedDomain).thenReturn(indexedDomain)
 
@@ -103,7 +103,7 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
             err.contract shouldBe contractId
             err.domain shouldBe domainId1
         }
-      }
+      }.failOnShutdown
     }
   }
 
@@ -141,7 +141,7 @@ trait PackageOpsTestBase extends AsyncWordSpec with BaseTest with ArgumentMatche
     when(syncDomainPersistentState.activeContractStore).thenReturn(activeContractStore)
     when(syncDomainPersistentState.contractStore).thenReturn(contractStore)
     when(activeContractStore.packageUsage(eqTo(pkgId1), eqTo(contractStore))(anyTraceContext))
-      .thenReturn(Future.successful(None))
+      .thenReturn(FutureUnlessShutdown.pure(None))
 
     val hash = Hash
       .build(HashPurpose.TopologyTransactionSignature, HashAlgorithm.Sha256)

@@ -535,7 +535,6 @@ class MediatorNodeBootstrap(
     for {
       indexedDomainId <- EitherT
         .right(IndexedDomain.indexed(indexedStringStore)(domainId))
-        .mapK(FutureUnlessShutdown.outcomeK)
       sequencedEventStore = SequencedEventStore(
         storage,
         indexedDomainId,

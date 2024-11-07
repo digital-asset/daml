@@ -11,7 +11,7 @@ import java.util.concurrent.CompletionStage
 /** An interface to prune participant ledger updates to manage participant ledger space and enable GDPR-style
   * right-to-be-forgotten support.
   */
-trait WriteParticipantPruningService {
+trait ParticipantPruningSyncService {
 
   /** Prune the participant ledger specifying the offset up to which participant ledger events can be removed.
     *

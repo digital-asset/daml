@@ -45,7 +45,6 @@ CREATE TABLE lapi_party_entries (
     recorded_at BIGINT NOT NULL,
     submission_id VARCHAR(1000),
     party VARCHAR(512),
-    display_name VARCHAR(1000),
     typ VARCHAR(1000) NOT NULL,
     rejection_reason VARCHAR(1000),
     is_local BOOLEAN,

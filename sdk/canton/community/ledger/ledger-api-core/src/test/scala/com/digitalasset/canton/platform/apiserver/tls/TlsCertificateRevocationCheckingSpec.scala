@@ -37,7 +37,7 @@ final class TlsCertificateRevocationCheckingSpec
   override protected def ocspCertPath: String = ocspCrt.getAbsolutePath
   override protected def ocspTestCertificate: String = clientCrt.getAbsolutePath
 
-  classOf[LedgerApiService].getSimpleName when {
+  classOf[LedgerApiService.type].getSimpleName when {
     "certificate revocation checking is enabled" should {
       "allow TLS connections with valid certificates" in {
         TlsFixture(

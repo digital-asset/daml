@@ -128,7 +128,7 @@ object ClosedEnvelope extends HasProtocolVersionedCompanion[ClosedEnvelope] {
 
   override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> VersionedProtoConverter(
-      ProtocolVersion.v32
+      ProtocolVersion.v33
     )(v30.Envelope)(
       protoCompanion =>
         ProtoConverter.protoParser(protoCompanion.parseFrom)(_).flatMap(fromProtoV30),

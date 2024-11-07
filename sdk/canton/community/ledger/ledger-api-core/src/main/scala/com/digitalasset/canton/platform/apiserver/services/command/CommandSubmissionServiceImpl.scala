@@ -49,7 +49,7 @@ import scala.util.{Failure, Success, Try}
 private[apiserver] object CommandSubmissionServiceImpl {
 
   def createApiService(
-      writeService: state.WriteService,
+      submissionSyncService: state.SubmissionSyncService,
       timeProvider: TimeProvider,
       timeProviderType: TimeProviderType,
       seedService: SeedService,
@@ -61,7 +61,7 @@ private[apiserver] object CommandSubmissionServiceImpl {
       executionContext: ExecutionContext,
       tracer: Tracer,
   ): CommandSubmissionService & AutoCloseable = new CommandSubmissionServiceImpl(
-    writeService,
+    submissionSyncService,
     timeProvider,
     timeProviderType,
     seedService,
@@ -74,7 +74,7 @@ private[apiserver] object CommandSubmissionServiceImpl {
 }
 
 private[apiserver] final class CommandSubmissionServiceImpl private[services] (
-    writeService: state.WriteService,
+    submissionSyncService: state.SubmissionSyncService,
     timeProvider: TimeProvider,
     timeProviderType: TimeProviderType,
     seedService: SeedService,
@@ -188,7 +188,7 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
       case TimeProviderType.WallClock =>
         // Submit transactions such that they arrive at the ledger sequencer exactly when record time equals ledger time.
         // If the ledger time of the transaction is far in the future (farther than the expected latency),
-        // the submission to the WriteService is delayed.
+        // the submission to the SyncService is delayed.
         val submitAt = transactionInfo.transactionMeta.ledgerEffectiveTime.toInstant
           .minus(LedgerTimeModel.maximumToleranceTimeModel.avgTransactionLatency)
         val submissionDelay = Duration.between(timeProvider.getCurrentTime, submitAt)
@@ -212,7 +212,7 @@ private[apiserver] final class CommandSubmissionServiceImpl private[services] (
   ): Future[state.SubmissionResult] = {
     metrics.commands.validSubmissions.mark()
     logger.trace("Submitting transaction to ledger.")
-    writeService
+    submissionSyncService
       .submitTransaction(
         result.submitterInfo,
         result.optDomainId,

@@ -11,6 +11,7 @@ import com.digitalasset.canton.domain.api.v30
 import com.digitalasset.canton.domain.sequencing.service.CloseNotification
 import com.digitalasset.canton.lifecycle.FlagCloseable
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.sequencing.channel.ConnectToSequencerChannelRequest
 import com.digitalasset.canton.sequencing.protocol.{SequencerChannelId, SequencerChannelMetadata}
 import com.digitalasset.canton.topology.Member
 import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
@@ -167,16 +168,22 @@ private[channel] abstract class UninitializedGrpcSequencerChannel(
 
       override def onNext(value: v30.ConnectToSequencerChannelRequest): Unit =
         initializedRequestStreamObserver.get.fold(value match {
-          case v30.ConnectToSequencerChannelRequest(payload, traceContextO) =>
+          case requestP @ v30.ConnectToSequencerChannelRequest(_, traceContextO) =>
             (for {
               traceContext <-
                 SerializableTraceContext
                   .fromProtoV30Opt(traceContextO)
                   .bimap(err => (err.message, Status.INVALID_ARGUMENT), _.unwrap)
-              metadata <-
-                SequencerChannelMetadata
-                  .fromByteString(protocolVersion)(payload)
+              request <-
+                ConnectToSequencerChannelRequest
+                  .fromProtoV30(requestP)
                   .leftMap(err => (err.toString, Status.INVALID_ARGUMENT))
+              metadata <- request.request match {
+                case ConnectToSequencerChannelRequest.Metadata(metadata) =>
+                  Right(metadata)
+                case ConnectToSequencerChannelRequest.Payload(_) =>
+                  Left(("received payload instead of metadata", Status.INVALID_ARGUMENT))
+              }
               _ <- authenticationCheck(metadata.initiatingMember).leftMap(
                 (_, Status.PERMISSION_DENIED)
               )
