@@ -40,7 +40,6 @@ class MetadataHashV1Spec extends AnyWordSpec with Matchers with HashUtils {
   private val metadata = Hash.TransactionMetadataBuilderV1.Metadata(
     actAs = SortedSet(alice, bob),
     commandId = Ref.CommandId.assertFromString("command-id"),
-    submissionId = Ref.SubmissionId.assertFromString("submission-id"),
     transactionUUID = transactionUUID,
     mediatorGroup = 0,
     domainId = "domainId",
@@ -54,7 +53,7 @@ class MetadataHashV1Spec extends AnyWordSpec with Matchers with HashUtils {
 
   "Metadata Encoding" should {
     val defaultHash = Hash
-      .fromString("a48b608851a40010ff8b7ad359e79999c2787fd31ddbd57d30a82b722181db20")
+      .fromString("2fa418bc790a3a65f0f912e51eff39eaeb1d4bbc2e0615042589e06e36bbbcc7")
       .getOrElse(fail("Invalid hash"))
     "be stable" in {
       Hash.hashTransactionMetadataV1(metadata) shouldBe defaultHash
@@ -73,9 +72,6 @@ class MetadataHashV1Spec extends AnyWordSpec with Matchers with HashUtils {
                                    |# Command Id
                                    |'0000000a' # 10 (int)
                                    |'636f6d6d616e642d6964' # command-id (string)
-                                   |# Submission Id
-                                   |'0000000d' # 13 (int)
-                                   |'7375626d697373696f6e2d6964' # submission-id (string)
                                    |# Transaction UUID
                                    |'00000024' # 36 (int)
                                    |'34633634373164332d346530392d343964642d616464662d366364393065313963353833' # 4c6471d3-4e09-49dd-addf-6cd90e19c583 (string)
