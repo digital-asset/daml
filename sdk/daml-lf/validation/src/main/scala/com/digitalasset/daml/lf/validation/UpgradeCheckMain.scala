@@ -71,7 +71,7 @@ case class UpgradeCheckMain(loggerFactory: NamedLoggerFactory) {
 }
 
 object UpgradeCheckMain {
-  def default: UpgradeCheckMain = {
+  lazy val default: UpgradeCheckMain = {
     UpgradeCheckMain(NamedLoggerFactory.root)
   }
 }
