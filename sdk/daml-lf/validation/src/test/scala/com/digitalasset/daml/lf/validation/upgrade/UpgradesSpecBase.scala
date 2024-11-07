@@ -62,10 +62,6 @@ abstract class UpgradesSpecLedgerAPI(override val suffix: String = "Ledger API")
   }
 }
 
-trait ShortTests { this: UpgradesSpec =>
-  s"Short upload-time Upgradeability Checks ($suffix)" should {}
-}
-
 trait LongTests { this: UpgradesSpec =>
   s"Long upload-time Upgradeability Checks ($suffix)" should {
     s"uploading the same package multiple times succeeds ($suffix)" in {
