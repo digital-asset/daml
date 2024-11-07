@@ -578,7 +578,7 @@ mergo v0.3.4: https://github.com/imdario/mergo : BSD 3-clause "New" or "Revised"
 methods 1.1.2: https://github.com/visionmedia/node-methods : MIT License
 micromatch 4.0.5: https://github.com/jonschlinkert/micromatch : MIT License
 micromatch/braces 3.0.2: https://github.com/micromatch/braces : MIT License
-Microsoft/tslib 1.14.1: http://github.com/Microsoft/tslib/ : BSD Zero Clause License
+Microsofttslib 1.14.1: http://github.com/Microsoft/tslib/ : BSD Zero Clause License
 miller-rabin 4.0.1: https://github.com/indutny/miller-rabin : MIT License
 mime 1.6.0: https://github.com/broofa/node-mime : MIT License
 mime-db 1.52.0: https://github.com/jshttp/mime-db : MIT License
@@ -644,6 +644,7 @@ node-semver 7.5.4: https://github.com/isaacs/node-semver : ISC License
 node-semver 7.6.3: https://github.com/isaacs/node-semver : ISC License
 node-shell-quote 1.8.1: https://github.com/substack/node-shell-quote : MIT License
 node-syntax-error 1.4.0: https://github.com/substack/node-syntax-error : MIT License
+node-tmp 0.0.29: http://github.com/raszi/node-tmp : MIT License
 node-url 0.11.3: https://github.com/defunctzombie/node-url : MIT License
 node-xml2js 0.5.0: https://github.com/Leonidas-from-XIV/node-xml2js : MIT License
 nopt 3.0.6: https://github.com/npm/nopt : ISC License
@@ -966,7 +967,6 @@ timers-browserify 1.4.2: https://github.com/jryans/timers-browserify : MIT Licen
 timers-browserify 2.0.2: https://github.com/jryans/timers-browserify : MIT License
 Tink Cryptography Library for Java 1.12.0 : Apache License 2.0
 tiny-lr 1.1.1: https://github.com/mklabs/tiny-lr : MIT License
-tmp 0.0.29: http://github.com/raszi/node-tmp : MIT License
 to-absolute-glob 2.0.2: https://github.com/jonschlinkert/to-absolute-glob : MIT License
 toidentifier 1.0.1: https://github.com/koajs/toidentifier : MIT License
 to-regex-range 5.0.1: https://github.com/jonschlinkert/to-regex-range : MIT License
@@ -2945,7 +2945,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 ---
 
 BSD Zero Clause License
-(Microsoft/tslib 1.14.1)
+(Microsofttslib 1.14.1)
 
 BSD Zero Clause License
 =======================
@@ -8520,7 +8520,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE
 ---
 
 MIT License
-(tmp 0.0.29)
+(node-tmp 0.0.29)
 
 The MIT License (MIT)
 
