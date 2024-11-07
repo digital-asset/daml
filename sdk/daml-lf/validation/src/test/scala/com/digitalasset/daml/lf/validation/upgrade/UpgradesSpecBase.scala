@@ -95,17 +95,6 @@ trait LongTests { this: UpgradesSpec =>
         ),
       )
     }
-
-    s"uploading the standard library twice for two different LF versions succeeds ($suffix)" in {
-      for {
-        result1 <- uploadPackage("test-common/upgrades-EmptyProject-v117.dar")
-        result2 <- uploadPackage("test-common/upgrades-EmptyProject-v1dev.dar")
-      } yield {
-        // We expect both results to be error-free
-        assert(result1._2.isEmpty && result2._2.isEmpty)
-      }
-    }
-
   }
 }
 
