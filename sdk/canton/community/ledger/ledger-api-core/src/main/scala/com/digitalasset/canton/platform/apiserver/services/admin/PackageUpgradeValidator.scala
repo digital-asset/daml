@@ -58,8 +58,7 @@ class PackageUpgradeValidator(
       case Nil => EitherT.pure[Future, DamlError](packageMap)
       case pkgId :: rest =>
         val pkg = upgradingPackagesMap(pkgId)
-        val supportsUpgrades =
-          LanguageVersion.supportsPackageUpgrades(pkg.languageVersion) && !pkg.isUtilityPackage
+        val supportsUpgrades = pkg.supportsUpgrades(pkgId)
         for {
           _ <- EitherTUtil.ifThenET(supportsUpgrades)(
             // This check will look for the closest neighbors of pkgId for the package versioning ordering and

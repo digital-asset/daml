@@ -1237,14 +1237,13 @@ object Ast {
       // in the context of upgrades. They will not be considered for upgrade checks.
       isUtilityPackage: Boolean,
   ) {
+    def supportsUpgrades(pkgId: Ref.PackageId) =
+      LanguageVersion.supportsPackageUpgrades(languageVersion) && (!UtilityDamlPrimPackages.check(
+        pkgId
+      ) || !isUtilityPackage)
     // package Name if the package support upgrade
     // TODO: https://github.com/digital-asset/daml/issues/17965
     //  drop that in daml-3
-    private[lf] val name: Option[Ref.PackageName] =
-      if (LanguageVersion.supportsPackageUpgrades(languageVersion) && !isUtilityPackage)
-        Some(metadata.name)
-      else
-        None
     private[lf] def pkgName: Ref.PackageName = metadata.name
     private[lf] def pkgVersion: Option[Ref.PackageVersion] = {
       if (LanguageVersion.supportsPersistedPackageVersion(languageVersion))
