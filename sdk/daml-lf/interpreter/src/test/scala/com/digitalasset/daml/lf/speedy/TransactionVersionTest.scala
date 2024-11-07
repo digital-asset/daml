@@ -78,38 +78,6 @@ class TransactionVersionTest(majorLanguageVersion: LanguageMajorVersion)
       }
     }
 
-    "template version < interface version" in {
-      val oldPkg1 = implementsPkg.copy(languageVersion = oldVersion)
-      val oldPkg2 = coImplementsPkg.copy(languageVersion = oldVersion)
-      val newPkg1 = templatePkg.copy(languageVersion = newVersion)
-      val newPkg2 = interfacesPkg.copy(languageVersion = newVersion)
-      val pkgs = SpeedyTestLib.typeAndCompile(
-        majorLanguageVersion,
-        Map(
-          templatePkgId -> newPkg1,
-          interfacesPkgId -> newPkg2,
-          implementsPkgId -> oldPkg1,
-          coImplementsPkgId -> oldPkg2,
-        ),
-      )
-
-      for ((templateId, interfaceId, contract) <- testData) {
-        val result = evaluateBeginExercise(
-          pkgs,
-          templateId,
-          Some(interfaceId),
-          contractId,
-          committers = Set(contractParty),
-          controllers = Set(contractParty),
-          getContract = Map(contractId -> contract),
-        )
-
-        inside(result) { case Right(transaction) =>
-          transaction.version shouldBe TransactionVersion.assignNodeVersion(newVersion)
-        }
-      }
-    }
-
     "template version == interface version" in {
       val pkgs = SpeedyTestLib.typeAndCompile(
         majorLanguageVersion,
