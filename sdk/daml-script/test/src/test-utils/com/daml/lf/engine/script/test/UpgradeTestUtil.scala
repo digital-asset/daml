@@ -212,7 +212,7 @@ object UpgradeTestUtil {
         dataDeps =
           dataDeps.map(dar => DataDep(dar.path, Some((dar.versionedName, s"V${dar.version}")))),
         tmpDir = Some(tmpDir),
-        opts = Seq("--enable-interfaces=yes"),
+        opts = Seq.empty,
       )
     }
   }
