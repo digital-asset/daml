@@ -42,8 +42,9 @@ com/daml/ledger/api/v2/command_submission_service.proto
 com/daml/ledger/api/v2/command_service.proto
 com/daml/ledger/api/v2/state_service.proto
 com/daml/ledger/api/v2/experimental_features.proto
-com/daml/ledger/api/v2/interactive_submission_data.proto
-com/daml/ledger/api/v2/interactive_submission_service.proto
+com/daml/ledger/api/v2/interactive/interactive_submission_common_data.proto
+com/daml/ledger/api/v2/interactive/interactive_submission_service.proto
+com/daml/ledger/api/v2/interactive/transaction/v1/interactive_submission_data.proto
 com/daml/ledger/api/v2/completion.proto
 com/daml/ledger/api/v2/package_service.proto
 com/daml/ledger/api/v2/commands.proto
