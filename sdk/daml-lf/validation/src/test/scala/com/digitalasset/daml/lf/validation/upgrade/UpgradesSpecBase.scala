@@ -22,7 +22,6 @@ import com.digitalasset.daml.lf.language.LanguageVersion
 import com.daml.SdkVersion
 import com.daml.crypto.MessageDigestPrototype
 
-
 abstract class UpgradesSpecAdminAPI(override val suffix: String) extends UpgradesSpec(suffix) {
   override def uploadPackageRaw(
       entry: (PackageId, ByteString),
@@ -102,14 +101,16 @@ trait LongTests { this: UpgradesSpec =>
       for {
         result <- uploadPackageRaw(
           mkTrivialPkg("daml-prim", "0.0.0", LanguageVersion.Features.default, "T1"),
-          false
+          false,
         )
       } yield {
         val (pkgId, mbErr) = result
         mbErr match {
           case None => fail("daml-prim should not succeed")
           case Some(err) => {
-            err.toString should include(s"Tried to upload a package $pkgId (daml-prim v0.0.0), but this package is not a utility package. All packages named `daml-prim` must be a utility package.")
+            err.toString should include(
+              s"Tried to upload a package $pkgId (daml-prim v0.0.0), but this package is not a utility package. All packages named `daml-prim` must be a utility package."
+            )
           }
         }
       }
@@ -385,8 +386,12 @@ abstract class UpgradesSpec(val suffix: String)
     )
   }
 
-
-  def mkTrivialPkg(pkgName: String, pkgVersion: String, lfVersion: LanguageVersion, templateName: String): (PackageId, ByteString) = {
+  def mkTrivialPkg(
+      pkgName: String,
+      pkgVersion: String,
+      lfVersion: LanguageVersion,
+      templateName: String,
+  ): (PackageId, ByteString) = {
     import com.digitalasset.daml.lf.testing.parser._
     import com.digitalasset.daml.lf.testing.parser.Implicits._
     import com.digitalasset.daml.lf.archive.testing.Encode
