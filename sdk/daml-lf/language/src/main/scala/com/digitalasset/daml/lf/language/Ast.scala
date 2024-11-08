@@ -1241,6 +1241,16 @@ object Ast {
       LanguageVersion.supportsPackageUpgrades(languageVersion) && (!UtilityDamlPrimPackages.check(
         pkgId
       ) && !isUtilityPackage)
+    def isInvalidDamlPrim(pkgId: Ref.PackageId) =
+      if (metadata.name == "daml-prim") {
+        if (!LanguageVersion.supportsPackageUpgrades(languageVersion)) {
+          false
+        } else {
+          !isUtilityPackage && !UtilityDamlPrimPackages.check(pkgId)
+        }
+      } else {
+        false
+      }
     // package Name if the package support upgrade
     // TODO: https://github.com/digital-asset/daml/issues/17965
     //  drop that in daml-3
