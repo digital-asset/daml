@@ -160,7 +160,7 @@ class PackageUploader(
         )
         _ = allPackages.foreach { case (_, (pkgId, pkg)) =>
           if (
-            pkg.languageVersion >= LanguageVersion.Features.packageUpgrades && !pkg.isUtilityPackage
+            pkg.supportsUpgrades(pkgId)
           ) {
             packageMetadataView.update(PackageMetadata.from(pkgId, pkg))
           }
