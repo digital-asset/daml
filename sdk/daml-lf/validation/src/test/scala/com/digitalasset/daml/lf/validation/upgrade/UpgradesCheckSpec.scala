@@ -53,7 +53,7 @@ final class UpgradesCheckSpec extends AsyncWordSpec with Matchers with Inside {
     val testPackageFirstId: PackageId = loadPackageId(Paths.get(firstIdx))
     val testPackageSecondId: PackageId = loadPackageId(Paths.get(secondIdx))
     val header =
-      s"Error while checking two DARs:\nThe uploaded DAR contains a package ($testPackageSecondId|$testPackageFirstId) \\(.*\\), but upgrade checks indicate that (existing|new) package ($testPackageFirstId|$testPackageSecondId) \\(.*\\) cannot be an upgrade of (existing|new) package ($testPackageFirstId|$testPackageSecondId) \\(.*\\)"
+      s"Error while checking two DARs:\nUpgrade checks indicate that (existing|new) package ($testPackageFirstId|$testPackageSecondId) \\(.*\\) cannot be an upgrade of (existing|new) package ($testPackageFirstId|$testPackageSecondId) \\(.*\\)"
     failureMessage match {
       case None => upgradeCheckToolLogs should not include regex(header)
       case Some(msg) => upgradeCheckToolLogs should include regex (s"$header. Reason: $msg")
