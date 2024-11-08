@@ -887,6 +887,10 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       override def maintainers =
         s"""throw @('$commonDefsPkgId':Mod:Key -> List Party) @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "Maintainers"})"""
     }
+    case object FailingMaintainersBody extends TemplateGenerator("MaintainersBody") {
+      override def maintainers =
+        s"""\\(key: '$commonDefsPkgId':Mod:Key) -> throw @(List Party) @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "MaintainersBody"})"""
+    }
     case object FailingChoiceControllers extends TemplateGenerator("ChoiceControllers") {
       override def choiceControllers =
         s"""throw @(List Party) @'$commonDefsPkgId':Mod:Ex ('$commonDefsPkgId':Mod:Ex {message = "ChoiceControllers"})"""
@@ -912,6 +916,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
             ${ValidMetadata("Agreement").templateDefinition}
             ${ValidMetadata("Key").templateDefinition}
             ${ValidMetadata("Maintainers").templateDefinition}
+            ${ValidMetadata("MaintainersBody").templateDefinition}
             ${ValidMetadata("ChoiceControllers").templateDefinition}
             ${ValidMetadata("ChoiceObservers").templateDefinition}
           }
@@ -933,6 +938,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
             ${FailingAgreement.templateDefinition}
             ${FailingKey.templateDefinition}
             ${FailingMaintainers.templateDefinition}
+            ${FailingMaintainersBody.templateDefinition}
             ${FailingChoiceControllers.templateDefinition}
             ${FailingChoiceObservers.templateDefinition}
           }
@@ -1170,6 +1176,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
             ${globalContractTests(templateDefsV2PkgId, "Agreement")}
             ${globalContractTests(templateDefsV2PkgId, "Key")}
             ${globalContractTests(templateDefsV2PkgId, "Maintainers")}
+            ${globalContractTests(templateDefsV2PkgId, "MaintainersBody")}
 
             ${localContractTests(templateDefsV1PkgId, templateDefsV2PkgId, "Precondition")}
             ${localContractTests(templateDefsV1PkgId, templateDefsV2PkgId, "Signatories")}
@@ -1177,6 +1184,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
             ${localContractTests(templateDefsV1PkgId, templateDefsV2PkgId, "Agreement")}
             ${localContractTests(templateDefsV1PkgId, templateDefsV2PkgId, "Key")}
             ${localContractTests(templateDefsV1PkgId, templateDefsV2PkgId, "Maintainers")}
+            ${localContractTests(templateDefsV1PkgId, templateDefsV2PkgId, "MaintainersBody")}
 
             ${dynamicChoiceTestsGlobal("Precondition")}
             ${dynamicChoiceTestsGlobal("Signatories")}
@@ -1184,6 +1192,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
             ${dynamicChoiceTestsGlobal("Agreement")}
             ${dynamicChoiceTestsGlobal("Key")}
             ${dynamicChoiceTestsGlobal("Maintainers")}
+            ${dynamicChoiceTestsGlobal("MaintainersBody")}
             ${dynamicChoiceTestsGlobal("ChoiceControllers")}
             ${dynamicChoiceTestsGlobal("ChoiceObservers")}
 
@@ -1193,6 +1202,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
             ${dynamicChoiceTestsLocal(templateDefsV1PkgId, "Agreement")}
             ${dynamicChoiceTestsLocal(templateDefsV1PkgId, "Key")}
             ${dynamicChoiceTestsLocal(templateDefsV1PkgId, "Maintainers")}
+            ${dynamicChoiceTestsLocal(templateDefsV1PkgId, "MaintainersBody")}
             ${dynamicChoiceTestsLocal(templateDefsV1PkgId, "ChoiceControllers")}
             ${dynamicChoiceTestsLocal(templateDefsV1PkgId, "ChoiceObservers")}
           }
@@ -1236,6 +1246,7 @@ class ExceptionTest(majorLanguageVersion: LanguageMajorVersion)
       FailingAgreement.templateName,
       FailingKey.templateName,
       FailingMaintainers.templateName,
+      FailingMaintainersBody.templateName,
     )
 
     val failingChoiceMetadataTemplates: List[String] = List(
