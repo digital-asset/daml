@@ -1235,7 +1235,7 @@ object Ast {
       metadata: PackageMetadata,
       // Packages that do not define any serializable types are referred to as utility packages
       // in the context of upgrades. They will not be considered for upgrade checks.
-      isUtilityPackage: Boolean,
+      private val isUtilityPackage: Boolean,
   ) {
     def supportsUpgrades(pkgId: Ref.PackageId) =
       LanguageVersion.supportsPackageUpgrades(languageVersion) && (!UtilityDamlPrimPackages.check(
