@@ -1240,7 +1240,7 @@ object Ast {
     def supportsUpgrades(pkgId: Ref.PackageId) =
       LanguageVersion.supportsPackageUpgrades(languageVersion) && (!UtilityDamlPrimPackages.check(
         pkgId
-      ) || !isUtilityPackage)
+      ) && !isUtilityPackage)
     // package Name if the package support upgrade
     // TODO: https://github.com/digital-asset/daml/issues/17965
     //  drop that in daml-3
