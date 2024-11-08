@@ -9,6 +9,10 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.protocol.messages.EncryptedViewMessage.computeRandomnessLength
 import com.digitalasset.canton.sequencing.SequencerConnections
+import com.digitalasset.canton.sequencing.channel.{
+  ConnectToSequencerChannelRequest,
+  ConnectToSequencerChannelResponse,
+}
 import com.digitalasset.canton.sequencing.protocol.{
   AcknowledgeRequest,
   AggregationRule,
@@ -158,6 +162,8 @@ class SerializationDeserializationTest
         if (version.isDev) {
           testProtocolVersioned(SequencerChannelMetadata, version)
           testProtocolVersioned(SequencerChannelConnectedToAllEndpoints, version)
+          testProtocolVersioned(ConnectToSequencerChannelRequest, version)
+          testProtocolVersioned(ConnectToSequencerChannelResponse, version)
         }
         testMemoizedProtocolVersioned2(
           SequencedEvent,

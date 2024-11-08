@@ -3,14 +3,15 @@
 
 package com.digitalasset.canton.http.json
 
-import JsonProtocol.LfValueCodec
-import com.daml.ledger.api.{v2 => lav2}
+import com.daml.ledger.api.v2 as lav2
 import com.digitalasset.canton.http.util.ApiValueToLfValueConverter
-import scalaz.std.list._
-import scalaz.syntax.show._
-import scalaz.syntax.traverse._
+import scalaz.std.list.*
+import scalaz.syntax.show.*
+import scalaz.syntax.traverse.*
 import scalaz.{\/, \/-}
 import spray.json.{JsObject, JsValue}
+
+import JsonProtocol.LfValueCodec
 
 class ApiValueToJsValueConverter(apiToLf: ApiValueToLfValueConverter.ApiValueToLfValue) {
 

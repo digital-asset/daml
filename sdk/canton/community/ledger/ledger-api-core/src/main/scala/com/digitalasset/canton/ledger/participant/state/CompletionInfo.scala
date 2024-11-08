@@ -17,9 +17,9 @@ import java.util.UUID
   * @param commandId              a submitter-provided identifier to identify an intended ledger
   *                               change within all the submissions by the same parties and
   *                               application.
-  * @param optDeduplicationPeriod The deduplication period that the [[WriteService]] actually uses
+  * @param optDeduplicationPeriod The deduplication period that the [[SyncService]] actually uses
   *                               for the command submission. It may differ from the suggested
-  *                               deduplication period given to [[WriteService.submitTransaction]].
+  *                               deduplication period given to [[SyncService.submitTransaction]].
   *
   *                               For example, the suggested deduplication period may have been
   *                               converted into a different kind or extended. The particular choice

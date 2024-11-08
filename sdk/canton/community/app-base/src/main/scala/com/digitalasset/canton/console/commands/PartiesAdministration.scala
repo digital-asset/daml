@@ -16,7 +16,6 @@ import com.digitalasset.canton.admin.api.client.data.{
   ListPartiesResult,
   PartyDetails,
 }
-import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.NonNegativeDuration
 import com.digitalasset.canton.config.RequireTypes.PositiveInt
 import com.digitalasset.canton.console.{
@@ -155,7 +154,6 @@ class ParticipantPartiesAdministrationGroup(
       namespace: Namespace = participantId.namespace,
       participants: Seq[ParticipantId] = Seq(participantId),
       threshold: PositiveInt = PositiveInt.one,
-      displayName: Option[String] = None,
       // TODO(i10809) replace wait for domain for a clean topology synchronisation using the dispatcher info
       waitForDomain: DomainChoice = DomainChoice.Only(Seq()),
       synchronizeParticipants: Seq[ParticipantReference] = Seq(),
@@ -224,7 +222,6 @@ class ParticipantPartiesAdministrationGroup(
           _ <- Either
             .catchOnly[IllegalArgumentException](LedgerParticipantId.assertFromString(name))
             .leftMap(_.getMessage)
-          validDisplayName <- displayName.map(String255.create(_, Some("display name"))).sequence
           // find the domain ids
           domainIds <- findDomainIds(this.participantId.identifier.unwrap, primaryConnected)
           // find the domain ids the additional participants are connected to
@@ -245,16 +242,6 @@ class ParticipantPartiesAdministrationGroup(
             threshold,
             mustFullyAuthorize,
           ).toEither
-          _ <- validDisplayName match {
-            case None => Either.unit
-            case Some(name) =>
-              reference
-                .adminCommand(
-                  ParticipantAdminCommands.PartyNameManagement
-                    .SetPartyDisplayName(partyId, name.unwrap)
-                )
-                .toEither
-          }
           _ <- waitForParty(partyId, domainIds, primaryRegistered(partyId))
           _ <-
             // sync with ledger-api server if this node is connected to at least one domain
@@ -344,17 +331,6 @@ class ParticipantPartiesAdministrationGroup(
       party = party,
       modifier = modifier,
     )
-
-  @Help.Summary("Set party display name")
-  @Help.Description(
-    "Locally set the party display name (shown on the ledger-api) to the given value"
-  )
-  def set_display_name(party: PartyId, displayName: String): Unit = consoleEnvironment.run {
-    // takes displayName as String argument which is validated at GrpcPartyNameManagementService
-    reference.adminCommand(
-      ParticipantAdminCommands.PartyNameManagement.SetPartyDisplayName(party, displayName)
-    )
-  }
 
   @Help.Summary("Start party replication from a source participant", FeatureFlag.Preview)
   @Help.Description(

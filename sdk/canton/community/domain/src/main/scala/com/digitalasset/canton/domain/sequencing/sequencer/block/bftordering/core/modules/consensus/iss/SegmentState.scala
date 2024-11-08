@@ -108,6 +108,8 @@ class SegmentState(
               signedMessage.asInstanceOf[SignedMessage[PbftViewChangeMessage]]
             )
         }
+      case messagesStored: PbftMessagesStored =>
+        processMessagesStored(messagesStored)
       case timeout: PbftTimeout =>
         processTimeout(timeout)
     }
@@ -120,6 +122,27 @@ class SegmentState(
           ) =>
         false
       case _ => true
+    }
+  }
+
+  private def processMessagesStored(pbftMessagesStored: PbftMessagesStored)(implicit
+      traceContext: TraceContext
+  ): Seq[ProcessResult] = {
+    val blockIndex = segment.relativeBlockIndex(pbftMessagesStored.blockMetadata.blockNumber)
+    val blocks = pbftBlocks(pbftMessagesStored.viewNumber)
+    val block = blocks(blockIndex)
+    pbftMessagesStored match {
+      case _: PrePrepareStored =>
+        block.confirmPrePrepareStored()
+        block.advance()
+      case _: PreparesStored =>
+        block.confirmPreparesStored()
+        block.advance()
+      case _: NewViewStored =>
+        blocks.forgetNE.flatMap { block =>
+          block.confirmPrePrepareStored()
+          block.advance()
+        }
     }
   }
 

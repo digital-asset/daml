@@ -154,10 +154,10 @@ class WebsocketEndpoints(
     dispatch
       .&&& { case r => r }
       .andThen { case (lcFhr, req) =>
-        extendWithRequestIdLogCtx(implicit lc => {
+        extendWithRequestIdLogCtx { implicit lc =>
           logger.trace(s"Incoming request on ${req.uri}, ${lc.makeString}")
           lcFhr(lc) map Complete.apply
-        })
+        }
       }
       .applyOrElse[HttpRequest, Future[RouteResult]](
         ctx.request,

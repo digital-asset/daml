@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.http
 
-import org.apache.pekko.stream.ThrottleMode
 import com.digitalasset.canton.http.WebsocketConfig as WSC
+import org.apache.pekko.stream.ThrottleMode
 import scalaz.Show
 
 import scala.concurrent.duration.*

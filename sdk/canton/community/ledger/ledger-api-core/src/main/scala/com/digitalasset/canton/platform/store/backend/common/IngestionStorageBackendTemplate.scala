@@ -19,11 +19,11 @@ private[backend] class IngestionStorageBackendTemplate(
 ) extends IngestionStorageBackend[AppendOnlySchema.Batch] {
 
   override def deletePartiallyIngestedData(
-      ledgerEnd: ParameterStorageBackend.LedgerEnd
+      ledgerEnd: Option[ParameterStorageBackend.LedgerEnd]
   )(connection: Connection): Unit = {
-    val ledgerOffset = ledgerEnd.lastOffset
-    val lastStringInterningId = ledgerEnd.lastStringInterningId
-    val lastEventSequentialId = ledgerEnd.lastEventSeqId
+    val ledgerOffset = ledgerEnd.map(_.lastOffset)
+    val lastStringInterningIdO = ledgerEnd.map(_.lastStringInterningId)
+    val lastEventSequentialId = ledgerEnd.map(_.lastEventSeqId)
 
     List(
       SQL"DELETE FROM lapi_command_completions WHERE ${QueryStrategy
@@ -38,14 +38,25 @@ private[backend] class IngestionStorageBackendTemplate(
       SQL"DELETE FROM lapi_party_entries WHERE ${QueryStrategy.offsetIsGreater("ledger_offset", ledgerOffset)}",
       SQL"DELETE FROM lapi_events_party_to_participant WHERE ${QueryStrategy
           .offsetIsGreater("event_offset", ledgerOffset)}",
-      SQL"DELETE FROM lapi_string_interning WHERE internal_id > $lastStringInterningId",
-      SQL"DELETE FROM lapi_pe_create_id_filter_stakeholder WHERE event_sequential_id > $lastEventSequentialId",
-      SQL"DELETE FROM lapi_pe_create_id_filter_non_stakeholder_informee WHERE event_sequential_id > $lastEventSequentialId",
-      SQL"DELETE FROM lapi_pe_consuming_id_filter_stakeholder WHERE event_sequential_id > $lastEventSequentialId",
-      SQL"DELETE FROM lapi_pe_consuming_id_filter_non_stakeholder_informee WHERE event_sequential_id > $lastEventSequentialId",
-      SQL"DELETE FROM lapi_pe_non_consuming_id_filter_informee WHERE event_sequential_id > $lastEventSequentialId",
-      SQL"DELETE FROM lapi_pe_unassign_id_filter_stakeholder WHERE event_sequential_id > $lastEventSequentialId",
-      SQL"DELETE FROM lapi_pe_assign_id_filter_stakeholder WHERE event_sequential_id > $lastEventSequentialId",
+      lastStringInterningIdO match {
+        case None => SQL"DELETE FROM lapi_string_interning"
+        case Some(lastStringInterningId) =>
+          SQL"DELETE FROM lapi_string_interning WHERE internal_id > $lastStringInterningId"
+      },
+      SQL"DELETE FROM lapi_pe_create_id_filter_stakeholder WHERE ${QueryStrategy
+          .eventSeqIdIsGreater("event_sequential_id", lastEventSequentialId)}",
+      SQL"DELETE FROM lapi_pe_create_id_filter_non_stakeholder_informee WHERE ${QueryStrategy
+          .eventSeqIdIsGreater("event_sequential_id", lastEventSequentialId)}",
+      SQL"DELETE FROM lapi_pe_consuming_id_filter_stakeholder WHERE ${QueryStrategy
+          .eventSeqIdIsGreater("event_sequential_id", lastEventSequentialId)}",
+      SQL"DELETE FROM lapi_pe_consuming_id_filter_non_stakeholder_informee WHERE ${QueryStrategy
+          .eventSeqIdIsGreater("event_sequential_id", lastEventSequentialId)}",
+      SQL"DELETE FROM lapi_pe_non_consuming_id_filter_informee WHERE ${QueryStrategy
+          .eventSeqIdIsGreater("event_sequential_id", lastEventSequentialId)}",
+      SQL"DELETE FROM lapi_pe_unassign_id_filter_stakeholder WHERE ${QueryStrategy
+          .eventSeqIdIsGreater("event_sequential_id", lastEventSequentialId)}",
+      SQL"DELETE FROM lapi_pe_assign_id_filter_stakeholder WHERE ${QueryStrategy
+          .eventSeqIdIsGreater("event_sequential_id", lastEventSequentialId)}",
       SQL"DELETE FROM lapi_transaction_meta WHERE ${QueryStrategy
           .offsetIsGreater("event_offset", ledgerOffset)}",
       SQL"DELETE FROM lapi_transaction_metering WHERE ${QueryStrategy

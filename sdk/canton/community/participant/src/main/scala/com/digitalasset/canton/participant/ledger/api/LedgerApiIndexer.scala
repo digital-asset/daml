@@ -27,6 +27,7 @@ import com.digitalasset.canton.platform.indexer.{
   JdbcIndexer,
 }
 import com.digitalasset.canton.platform.store.DbSupport
+import com.digitalasset.canton.platform.store.cache.OnlyForTestingTransactionInMemoryStore
 import com.digitalasset.canton.platform.{
   InMemoryState,
   LedgerApiServer,
@@ -60,6 +61,7 @@ class LedgerApiIndexer(
     val loggerFactory: NamedLoggerFactory,
     val timeouts: ProcessingTimeout,
     indexerState: IndexerState,
+    val onlyForTestingTransactionInMemoryStore: Option[OnlyForTestingTransactionInMemoryStore],
 ) extends ResourceCloseable {
   def withRepairIndexer(
       repairOperation: FutureQueue[Traced[Update]] => EitherT[Future, String, Unit]
@@ -78,6 +80,7 @@ final case class LedgerApiIndexerConfig(
     indexerHaConfig: HaConfig,
     ledgerParticipantId: LedgerParticipantId,
     excludedPackageIds: Set[Ref.PackageId],
+    onlyForTestingEnableInMemoryTransactionStore: Boolean,
 )
 
 object LedgerApiIndexer {
@@ -201,6 +204,11 @@ object LedgerApiIndexer {
         loggerFactory = loggerFactory,
         timeouts = ledgerApiIndexerConfig.processingTimeout,
         indexerState = indexerState,
+        onlyForTestingTransactionInMemoryStore = Option.when(
+          ledgerApiIndexerConfig.onlyForTestingEnableInMemoryTransactionStore
+        )(
+          new OnlyForTestingTransactionInMemoryStore(loggerFactory)
+        ),
       )
     })
 

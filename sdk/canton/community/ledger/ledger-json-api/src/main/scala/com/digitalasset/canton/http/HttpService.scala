@@ -10,6 +10,8 @@ import com.daml.logging.LoggingContextOf
 import com.daml.metrics.pekkohttp.HttpMetricsInterceptor
 import com.daml.ports.{Port, PortFiles}
 import com.digitalasset.canton.concurrent.DirectExecutionContext
+import com.digitalasset.canton.config.{TlsClientConfig, TlsServerConfig}
+import com.digitalasset.canton.http.json.v2.V2Routes
 import com.digitalasset.canton.http.json.{
   ApiValueToJsValueConverter,
   DomainJsonDecoder,
@@ -27,6 +29,7 @@ import com.digitalasset.canton.ledger.client.configuration.{
   LedgerClientConfiguration,
 }
 import com.digitalasset.canton.ledger.client.services.pkg.PackageClient
+import com.digitalasset.canton.ledger.participant.state.PackageSyncService
 import com.digitalasset.canton.ledger.service.LedgerReader
 import com.digitalasset.canton.ledger.service.LedgerReader.PackageStore
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -45,10 +48,6 @@ import scalaz.Scalaz.*
 import java.nio.file.{Files, Path}
 import java.security.{Key, KeyStore}
 import javax.net.ssl.SSLContext
-import com.digitalasset.canton.config.{TlsClientConfig, TlsServerConfig}
-import com.digitalasset.canton.http.json.v2.V2Routes
-import com.digitalasset.canton.ledger.participant.state.WriteService
-
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Using
 
@@ -56,7 +55,7 @@ class HttpService(
     startSettings: StartSettings,
     httpsConfiguration: Option[TlsServerConfig],
     channel: Channel,
-    writeService: WriteService,
+    packageSyncService: PackageSyncService,
     val loggerFactory: NamedLoggerFactory,
 )(implicit
     asys: ActorSystem,
@@ -168,7 +167,7 @@ class HttpService(
             ledgerClient,
             packageService,
             metadataServiceEnabled = startSettings.damlDefinitionsServiceEnabled,
-            writeService,
+            packageSyncService,
             mat.executionContext,
             mat,
             loggerFactory,

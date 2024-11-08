@@ -45,6 +45,7 @@ final case class TestingConfigInternal(
     maxCommitmentSendDelayMillis: Option[NonNegativeInt] = None,
     sequencerTransportSeed: Option[Long] = None,
     participantsWithoutLapiVerification: Set[String] = Set.empty,
+    enableInMemoryTransactionStoreForParticipants: Boolean = false,
 )
 
 /** @param environmentId ID used to disambiguate tests running in parallel

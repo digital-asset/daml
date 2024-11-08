@@ -68,7 +68,7 @@ trait AcsCommitmentStore extends AcsCommitmentLookup with PrunableByTime with Au
     */
   def storeReceived(commitment: SignedProtocolMessage[AcsCommitment])(implicit
       traceContext: TraceContext
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 
   /** Mark a period as safe for a counterparticipant. To be called by the ACS commitment processor only.
     *

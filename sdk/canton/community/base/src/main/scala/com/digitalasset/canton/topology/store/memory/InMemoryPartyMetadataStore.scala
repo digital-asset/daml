@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.topology.store.memory
 
-import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.DisplayName
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.discard.Implicits.DiscardOps
@@ -21,14 +20,13 @@ class InMemoryPartyMetadataStore extends PartyMetadataStore {
   override def insertOrUpdatePartyMetadata(
       partyId: PartyId,
       participantId: Option[ParticipantId],
-      displayName: Option[DisplayName],
       effectiveTimestamp: CantonTimestamp,
       submissionId: String255,
   )(implicit traceContext: TraceContext): Future[Unit] = {
     store
       .put(
         partyId,
-        PartyMetadata(partyId, displayName, participantId)(
+        PartyMetadata(partyId, participantId)(
           effectiveTimestamp = effectiveTimestamp,
           submissionId = submissionId,
         ),

@@ -9,15 +9,17 @@ import com.digitalasset.canton.LfPartyId
 import com.digitalasset.canton.data.{Offset, ProcessedDisclosedContract}
 import com.digitalasset.canton.ledger.api.health.HealthStatus
 import com.digitalasset.canton.ledger.participant.state.*
-import com.digitalasset.canton.ledger.participant.state.WriteService.{
+import com.digitalasset.canton.ledger.participant.state.SyncService.{
   ConnectedDomainRequest,
   ConnectedDomainResponse,
 }
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.protocol.PackageDescription
 import com.digitalasset.canton.topology.DomainId
-import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.version.ProtocolVersion
 import com.digitalasset.daml.lf.archive.DamlLf.Archive
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.data.{ImmArray, Ref}
@@ -28,8 +30,8 @@ import com.google.protobuf.ByteString
 import java.util.concurrent.CompletionStage
 import scala.concurrent.Future
 
-final class TimedWriteService(delegate: WriteService, metrics: LedgerApiServerMetrics)
-    extends WriteService {
+final class TimedSyncService(delegate: SyncService, metrics: LedgerApiServerMetrics)
+    extends SyncService {
 
   override def submitTransaction(
       submitterInfo: SubmitterInfo,
@@ -92,14 +94,13 @@ final class TimedWriteService(delegate: WriteService, metrics: LedgerApiServerMe
 
   override def allocateParty(
       hint: Option[Ref.Party],
-      displayName: Option[String],
       submissionId: Ref.SubmissionId,
   )(implicit
       traceContext: TraceContext
   ): CompletionStage[SubmissionResult] =
     Timed.completionStage(
       metrics.services.write.allocateParty,
-      delegate.allocateParty(hint, displayName, submissionId),
+      delegate.allocateParty(hint, submissionId),
     )
 
   override def prune(
@@ -123,9 +124,12 @@ final class TimedWriteService(delegate: WriteService, metrics: LedgerApiServerMe
       delegate.getConnectedDomains(request),
     )
 
+  override def getProtocolVersionForDomain(domainId: Traced[DomainId]): Option[ProtocolVersion] =
+    delegate.getProtocolVersionForDomain(domainId)
+
   override def incompleteReassignmentOffsets(validAt: Offset, stakeholders: Set[LfPartyId])(implicit
       traceContext: TraceContext
-  ): Future[Vector[Offset]] =
+  ): FutureUnlessShutdown[Vector[Offset]] =
     Timed.future(
       metrics.services.read.getConnectedDomains,
       delegate.incompleteReassignmentOffsets(validAt, stakeholders),

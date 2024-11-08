@@ -148,7 +148,6 @@ package domain {
 
   final case class PartyDetails(
       party: Ref.Party,
-      displayName: Option[String],
       isLocal: Boolean,
       metadata: ObjectMeta,
       identityProviderId: IdentityProviderId,

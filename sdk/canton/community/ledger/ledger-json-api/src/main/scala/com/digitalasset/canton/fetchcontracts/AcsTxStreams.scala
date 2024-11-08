@@ -3,19 +3,20 @@
 
 package com.digitalasset.canton.fetchcontracts
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.stream.scaladsl.{Broadcast, Concat, Flow, GraphDSL, Source}
-import org.apache.pekko.stream.{FanOutShape2, Graph}
-import com.digitalasset.canton.fetchcontracts.util.GraphExtensions.*
-import com.digitalasset.canton.fetchcontracts.util.IdentifierConverters.apiIdentifier
-import com.daml.ledger.api.v2.transaction_filter.{CumulativeFilter, TemplateFilter}
 import com.daml.ledger.api.v2 as lav2
 import com.daml.ledger.api.v2.transaction.Transaction
 import com.daml.ledger.api.v2.transaction_filter.CumulativeFilter.IdentifierFilter
+import com.daml.ledger.api.v2.transaction_filter.{CumulativeFilter, TemplateFilter}
 import com.daml.scalautil.Statement.discard
+import com.digitalasset.canton.fetchcontracts.util.GraphExtensions.*
+import com.digitalasset.canton.fetchcontracts.util.IdentifierConverters.apiIdentifier
 import com.digitalasset.canton.http.domain.{ContractTypeId, ResolvedQuery}
 import com.digitalasset.canton.logging.TracedLogger
 import com.digitalasset.canton.tracing.NoTracing
+import org.apache.pekko.NotUsed
+import org.apache.pekko.stream.scaladsl.{Broadcast, Concat, Flow, GraphDSL, Source}
+import org.apache.pekko.stream.{FanOutShape2, Graph}
+
 import util.{
   AbsoluteBookmark,
   BeginBookmark,

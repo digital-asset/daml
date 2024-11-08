@@ -56,7 +56,7 @@ object CommitmentContractMetadata
     ] {
 
   override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.CommitmentContractMeta)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.CommitmentContractMeta)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )
@@ -112,7 +112,7 @@ final case class CommitmentInspectContract(
 object CommitmentInspectContract extends HasProtocolVersionedCompanion[CommitmentInspectContract] {
 
   override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.CommitmentContract)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.CommitmentContract)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )

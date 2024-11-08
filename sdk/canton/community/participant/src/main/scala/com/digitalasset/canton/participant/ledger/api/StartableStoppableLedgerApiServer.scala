@@ -36,8 +36,8 @@ import com.digitalasset.canton.ledger.api.health.HealthChecks
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.localstore.*
 import com.digitalasset.canton.ledger.localstore.api.UserManagementStore
-import com.digitalasset.canton.ledger.participant.state.metrics.TimedWriteService
-import com.digitalasset.canton.ledger.participant.state.{InternalStateService, WriteService}
+import com.digitalasset.canton.ledger.participant.state.metrics.TimedSyncService
+import com.digitalasset.canton.ledger.participant.state.{InternalStateService, PackageSyncService}
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{LoggingContextWithTrace, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.{
@@ -201,7 +201,7 @@ class StartableStoppableLedgerApiServer(
     }
     val dbSupport = ledgerApiStore.value.ledgerApiDbSupport
     val inMemoryState = ledgerApiIndexer.value.inMemoryState
-    val timedWriteService = new TimedWriteService(config.syncService, config.metrics)
+    val timedSyncService = new TimedSyncService(config.syncService, config.metrics)
 
     for {
       contractLoader <- {
@@ -230,18 +230,18 @@ class StartableStoppableLedgerApiServer(
         tracer = config.tracerProvider.tracer,
         loggerFactory = loggerFactory,
         incompleteOffsets = (off, ps, tc) =>
-          timedWriteService.incompleteReassignmentOffsets(off, ps.getOrElse(Set.empty))(tc),
+          timedSyncService.incompleteReassignmentOffsets(off, ps.getOrElse(Set.empty))(tc),
         contractLoader = contractLoader,
-        getPackageMetadataSnapshot = timedWriteService.getPackageMetadataSnapshot(_),
+        getPackageMetadataSnapshot = timedSyncService.getPackageMetadataSnapshot(_),
         lfValueTranslation = new LfValueTranslation(
           metrics = config.metrics,
           engineO = Some(config.engine),
           loadPackage = (packageId, loggingContext) =>
-            timedWriteService.getLfArchive(packageId)(loggingContext.traceContext),
+            timedSyncService.getLfArchive(packageId)(loggingContext.traceContext),
           loggerFactory = loggerFactory,
         ),
       )
-      _ = timedWriteService.registerInternalStateService(new InternalStateService {
+      _ = timedSyncService.registerInternalStateService(new InternalStateService {
         override def activeContracts(
             partyIds: Set[LfPartyId],
             validAt: Offset,
@@ -280,7 +280,7 @@ class StartableStoppableLedgerApiServer(
         engineO =
           Some(new Engine(config.engine.config.copy(requireSuffixedGlobalContractId = false))),
         loadPackage = (packageId, loggingContext) =>
-          timedWriteService.getLfArchive(packageId)(loggingContext.traceContext),
+          timedSyncService.getLfArchive(packageId)(loggingContext.traceContext),
         loggerFactory = loggerFactory,
       )
 
@@ -297,7 +297,6 @@ class StartableStoppableLedgerApiServer(
         partyRecordStore = partyRecordStore,
         participantId = config.participantId,
         command = config.serverConfig.commandService,
-        initSyncTimeout = config.serverConfig.initSyncTimeout,
         managementServiceTimeout = config.serverConfig.managementServiceTimeout,
         userManagement = config.serverConfig.userManagementService,
         partyManagementServiceConfig = config.serverConfig.partyManagementService,
@@ -306,7 +305,7 @@ class StartableStoppableLedgerApiServer(
         maxInboundMessageSize = config.serverConfig.maxInboundMessageSize.unwrap,
         port = config.serverConfig.port,
         seeding = config.cantonParameterConfig.ledgerApiServerParameters.contractIdSeeding,
-        writeService = timedWriteService,
+        syncService = timedSyncService,
         healthChecks = new HealthChecks(
           // TODO(i21015): Possible issues with health check reporting: disconnected sequencer can be reported as healthy; possibly reporting protocol processing/CantonSyncService general health needed
           "write" -> (() => config.syncService.currentWriteHealth()),
@@ -336,7 +335,7 @@ class StartableStoppableLedgerApiServer(
         lfValueTranslation = lfValueTranslationForInteractiveSubmission,
         keepAlive = config.serverConfig.keepAliveServer,
       )
-      _ <- startHttpApiIfEnabled(timedWriteService)
+      _ <- startHttpApiIfEnabled(timedSyncService)
       _ <- config.serverConfig.userManagementService.additionalAdminUserId
         .fold(ResourceOwner.unit) { rawUserId =>
           ResourceOwner.forFuture { () =>
@@ -447,7 +446,7 @@ class StartableStoppableLedgerApiServer(
     interactiveSubmissionService = config.serverConfig.interactiveSubmissionService.enabled,
   )
 
-  private def startHttpApiIfEnabled(writeService: WriteService): ResourceOwner[Unit] =
+  private def startHttpApiIfEnabled(packageSyncService: PackageSyncService): ResourceOwner[Unit] =
     config.jsonApiConfig
       .fold(ResourceOwner.unit) { jsonApiConfig =>
         for {
@@ -459,7 +458,7 @@ class StartableStoppableLedgerApiServer(
             jsonApiConfig,
             config.serverConfig.tls,
             channel,
-            writeService,
+            packageSyncService,
             loggerFactory,
           )(
             config.jsonApiMetrics

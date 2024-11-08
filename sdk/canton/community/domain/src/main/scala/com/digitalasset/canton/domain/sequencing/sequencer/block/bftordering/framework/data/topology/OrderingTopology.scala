@@ -211,11 +211,27 @@ object OrderingTopology {
       areTherePendingCantonTopologyChanges,
     )
 
-  // Strong Quorum: >2/3
+  /** A strong quorum is strictly greater than `(numberOfNodes + numberOfFaults) / 2`.
+    *
+    * The idea is that faulty nodes could vote twice (once for A and once for !A),
+    * by sending different votes to different peers.
+    * Under that assumption, the total number of votes is `numberOfNodes + numberOfFaults`.
+    * A peer locally decides on an outcome only after receiving more than half of the total number of votes and
+    * only if all these votes have the same outcome.
+    * That way, two honest peers will never decide for different outcomes.
+    *
+    * If `numberOfNodes = 3*numberOfFaults + 1`, then the size of a strong quorum is `2*numberOfFaults + 1`.
+    */
   def strongQuorumSize(numberOfNodes: Int): Int =
-    if (numberOfNodes <= 3) numberOfNodes else Math.ceil((numberOfNodes.toDouble * 2) / 3).toInt
+    if (numberOfNodes <= 3) numberOfNodes
+    else {
+      // We know that numberOfFaults <= (numberOfNodes - 1) / 3.
+      // Hence, strongQuorumSize is the smallest integer strictly greater than 2/3*numberOfNodes - 1/6.
+      // By doing a case distinction on `numberOfNodes % 3`, this can be simplified to:
+      Math.ceil((numberOfNodes.toDouble * 2) / 3).toInt
+    }
 
-  // Weak Quorum: F+1
+  /** A weak quorum contains at least one honest vote, provided faulty nodes vote only once. */
   def weakQuorumSize(numberOfNodes: Int): Int =
     numToleratedFaults(numberOfNodes) + 1
 

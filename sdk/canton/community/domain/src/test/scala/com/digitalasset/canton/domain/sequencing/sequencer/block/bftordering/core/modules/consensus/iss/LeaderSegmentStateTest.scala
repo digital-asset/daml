@@ -34,7 +34,9 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
   Commit,
   PbftSignedNetworkMessage,
   PrePrepare,
+  PrePrepareStored,
   Prepare,
+  PreparesStored,
 }
 import com.digitalasset.canton.time.SimClock
 import com.digitalasset.canton.topology.SequencerId
@@ -234,6 +236,8 @@ class LeaderSegmentStateTest extends AsyncWordSpec with BftSequencerBaseTest {
           .fakeSign
       val _ = assertNoLogs(segmentState.processEvent(PbftSignedNetworkMessage(commit)))
     }
+    segmentState.processEvent(PrePrepareStored(metadata, ViewNumber.First))
+    segmentState.processEvent(PreparesStored(metadata, ViewNumber.First))
     segmentState.isBlockComplete(blockNumber) shouldBe false
     segmentState.confirmCompleteBlockStored(blockNumber, ViewNumber.First)
     segmentState.isBlockComplete(blockNumber) shouldBe true

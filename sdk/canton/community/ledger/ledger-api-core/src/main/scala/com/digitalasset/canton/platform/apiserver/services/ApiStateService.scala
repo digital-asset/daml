@@ -9,7 +9,7 @@ import com.daml.tracing.Telemetry
 import com.digitalasset.canton.ledger.api.ValidationLogger
 import com.digitalasset.canton.ledger.api.grpc.{GrpcApiService, StreamingServiceLifecycleManagement}
 import com.digitalasset.canton.ledger.api.validation.{FieldValidator, TransactionFilterValidator}
-import com.digitalasset.canton.ledger.participant.state.WriteService
+import com.digitalasset.canton.ledger.participant.state.SyncService
 import com.digitalasset.canton.ledger.participant.state.index.{
   IndexActiveContractsService as ACSBackend,
   IndexTransactionsService,
@@ -33,7 +33,7 @@ import scala.concurrent.{ExecutionContext, Future}
 
 final class ApiStateService(
     acsService: ACSBackend,
-    writeService: WriteService,
+    syncService: SyncService,
     txService: IndexTransactionsService,
     metrics: LedgerApiServerMetrics,
     telemetry: Telemetry,
@@ -102,11 +102,11 @@ final class ApiStateService(
         .requirePartyField(request.party, "party")
       participantId <- FieldValidator
         .optionalParticipantId(request.participantId, "participant_id")
-    } yield WriteService.ConnectedDomainRequest(party, participantId))
+    } yield SyncService.ConnectedDomainRequest(party, participantId))
       .fold(
         t => Future.failed(ValidationLogger.logFailureWithTrace(logger, request, t)),
         request =>
-          writeService
+          syncService
             .getConnectedDomains(request)
             .map(response =>
               GetConnectedDomainsResponse(

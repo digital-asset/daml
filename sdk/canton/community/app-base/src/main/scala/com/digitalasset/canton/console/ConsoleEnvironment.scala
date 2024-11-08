@@ -5,7 +5,6 @@ package com.digitalasset.canton.console
 
 import ammonite.util.Bind
 import cats.syntax.either.*
-import com.digitalasset.canton.admin.api.client.data.CantonStatus
 import com.digitalasset.canton.config.CantonRequireTypes.InstanceName
 import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, PositiveDouble, PositiveInt}
 import com.digitalasset.canton.config.{
@@ -66,11 +65,13 @@ object NodeReferences {
 @SuppressWarnings(Array("org.wartremover.warts.Any")) // required for `Binding[_]` usage
 trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing {
   type Env <: Environment
-  type Status <: CantonStatus
 
   def consoleLogger: Logger = super.noTracingLogger
 
-  def health: CantonHealthAdministration[Status]
+  @Help.Summary("Environment health inspection")
+  @Help.Group("Health")
+  private lazy val health_ = new CantonHealthAdministration(this)
+  def health: CantonHealthAdministration = health_
 
   /** the underlying Canton runtime environment */
   val environment: Env
@@ -96,7 +97,16 @@ trait ConsoleEnvironment extends NamedLogging with FlagCloseable with NoTracing 
     * Implementations should just return a int for the instance (typically just a static value based on type),
     * and then the console will start these instances for lower to higher values.
     */
-  protected def startupOrderPrecedence(instance: LocalInstanceReference): Int
+  private def startupOrderPrecedence(instance: LocalInstanceReference): Int =
+    instance match {
+      case _: LocalSequencerReference =>
+        1 // everything depends on a sequencer so start that first
+      case _: LocalMediatorReference =>
+        2 // mediators can be dynamically onboarded so don't have to be available when the domain starts
+      case _: LocalParticipantReference =>
+        3 // finally start participants now all the domain related nodes should be available
+      case _ => 4
+    }
 
   /** The order that local nodes would ideally be started in. */
   final val startupOrdering: Ordering[LocalInstanceReference] =
@@ -562,6 +572,8 @@ object ConsoleEnvironment {
     /** Implicitly map ParticipantReferences to the ParticipantId
       */
     implicit def toParticipantId(reference: ParticipantReference): ParticipantId = reference.id
+    implicit def toParticipantIds(references: Seq[ParticipantReference]): Seq[ParticipantId] =
+      references.map(_.id)
 
     /** Implicitly map an `Int` to a `NonNegativeInt`.
       * @throws java.lang.IllegalArgumentException if `n` is negative

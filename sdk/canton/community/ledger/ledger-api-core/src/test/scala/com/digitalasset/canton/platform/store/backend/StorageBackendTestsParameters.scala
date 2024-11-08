@@ -23,7 +23,7 @@ private[backend] trait StorageBackendTestsParameters
   import StorageBackendTestValues.*
 
   it should "store and retrieve ledger end and domain indexes correctly" in {
-    val someOffset = Some(absoluteOffset(1))
+    val someOffset = absoluteOffset(1)
     val someSequencerTime = CantonTimestamp.now().plusSeconds(10)
     val someDomainIndex = DomainIndex.of(
       RequestIndex(
@@ -34,12 +34,7 @@ private[backend] trait StorageBackendTestsParameters
     )
 
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
-    executeSql(backend.parameter.ledgerEnd) shouldBe LedgerEnd(
-      lastOffset = None,
-      lastEventSeqId = 0,
-      lastStringInterningId = 0,
-      lastPublicationTime = CantonTimestamp.MinValue,
-    )
+    executeSql(backend.parameter.ledgerEnd) shouldBe LedgerEnd.beforeBegin
     executeSql(
       backend.parameter.domainLedgerEnd(StorageBackendTestValues.someDomainId)
     ) shouldBe DomainIndex.empty
@@ -87,11 +82,13 @@ private[backend] trait StorageBackendTestsParameters
         ),
       )
     )
-    executeSql(backend.parameter.ledgerEnd) shouldBe LedgerEnd(
-      lastOffset = someOffset,
-      lastEventSeqId = 1,
-      lastStringInterningId = 1,
-      lastPublicationTime = CantonTimestamp.MinValue.plusSeconds(10),
+    executeSql(backend.parameter.ledgerEnd) shouldBe Some(
+      LedgerEnd(
+        lastOffset = someOffset,
+        lastEventSeqId = 1,
+        lastStringInterningId = 1,
+        lastPublicationTime = CantonTimestamp.MinValue.plusSeconds(10),
+      )
     )
     val resultDomainIndex = executeSql(
       backend.parameter.domainLedgerEnd(StorageBackendTestValues.someDomainId)
@@ -116,7 +113,7 @@ private[backend] trait StorageBackendTestsParameters
     executeSql(
       backend.parameter.updateLedgerEnd(
         ledgerEnd = LedgerEnd(
-          lastOffset = Some(absoluteOffset(100)),
+          lastOffset = absoluteOffset(100),
           lastEventSeqId = 100,
           lastStringInterningId = 100,
           lastPublicationTime = CantonTimestamp.MinValue.plusSeconds(100),
@@ -127,11 +124,13 @@ private[backend] trait StorageBackendTestsParameters
         ),
       )
     )
-    executeSql(backend.parameter.ledgerEnd) shouldBe LedgerEnd(
-      lastOffset = Some(absoluteOffset(100)),
-      lastEventSeqId = 100,
-      lastStringInterningId = 100,
-      lastPublicationTime = CantonTimestamp.MinValue.plusSeconds(100),
+    executeSql(backend.parameter.ledgerEnd) shouldBe Some(
+      LedgerEnd(
+        lastOffset = absoluteOffset(100),
+        lastEventSeqId = 100,
+        lastStringInterningId = 100,
+        lastPublicationTime = CantonTimestamp.MinValue.plusSeconds(100),
+      )
     )
     val resultDomainIndexSecond = executeSql(
       backend.parameter.domainLedgerEnd(StorageBackendTestValues.someDomainId)
@@ -148,9 +147,9 @@ private[backend] trait StorageBackendTestsParameters
   it should "store and retrieve post processing end correctly" in {
     executeSql(backend.parameter.initializeParameters(someIdentityParams, loggerFactory))
     executeSql(backend.parameter.postProcessingEnd) shouldBe None
-    executeSql(backend.parameter.updatePostProcessingEnd(offset(10)))
+    executeSql(backend.parameter.updatePostProcessingEnd(Some(absoluteOffset(10))))
     executeSql(backend.parameter.postProcessingEnd) shouldBe Some(offset(10))
-    executeSql(backend.parameter.updatePostProcessingEnd(offset(20)))
+    executeSql(backend.parameter.updatePostProcessingEnd(Some(absoluteOffset(20))))
     executeSql(backend.parameter.postProcessingEnd) shouldBe Some(offset(20))
   }
 }

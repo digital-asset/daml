@@ -105,7 +105,10 @@ private[protocol] object ConflictDetectionHelpers extends ScalaFuturesWithPatien
         case (coid, toc, Archived) => acs.archiveContract(coid, toc).value
         case (coid, toc, Purged) => acs.purgeContracts(Seq((coid, toc))).value
         case (coid, toc, ReassignedAway(targetDomain, reassignmentCounter)) =>
-          acs.unassignContracts(coid, toc, targetDomain, reassignmentCounter).value
+          acs
+            .unassignContracts(coid, toc, targetDomain, reassignmentCounter)
+            .value
+            .failOnShutdownToAbortException("insertEntriesAcs")
       }
       .void
 

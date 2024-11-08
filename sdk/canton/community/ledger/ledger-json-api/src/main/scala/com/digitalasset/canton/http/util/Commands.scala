@@ -3,15 +3,16 @@
 
 package com.digitalasset.canton.http.util
 
-import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
 import com.daml.ledger.api.v2 as lav2
 import com.digitalasset.canton.http.domain
+import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.daml.lf.data.Ref
-import lav2.commands.Commands.DeduplicationPeriod
 import scalaz.NonEmptyList
 import scalaz.syntax.foldable.*
 import scalaz.syntax.tag.*
+
+import lav2.commands.Commands.DeduplicationPeriod
 
 object Commands {
   def create(

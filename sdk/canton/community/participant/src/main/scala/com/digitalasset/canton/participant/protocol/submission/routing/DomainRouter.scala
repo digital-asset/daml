@@ -89,10 +89,12 @@ class DomainRouter(
       explicitlyDisclosedContracts: ImmArray[ProcessedDisclosedContract],
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, TransactionRoutingError, FutureUnlessShutdown[TransactionSubmissionResult]] =
+  ): EitherT[FutureUnlessShutdown, TransactionRoutingError, FutureUnlessShutdown[
+    TransactionSubmissionResult
+  ]] =
     for {
       // do some sanity checks for invalid inputs (to not conflate these with broken nodes)
-      _ <- EitherT.fromEither[Future](
+      _ <- EitherT.fromEither[FutureUnlessShutdown](
         WellFormedTransaction.sanityCheckInputs(transaction).leftMap {
           case WellFormedTransaction.InvalidInput.InvalidParty(err) =>
             MalformedInputErrors.InvalidPartyIdentifier.Error(err)
@@ -100,7 +102,7 @@ class DomainRouter(
       )
 
       inputDisclosedContracts <- EitherT
-        .fromEither[Future](
+        .fromEither[FutureUnlessShutdown](
           for {
             inputDisclosedContracts <-
               explicitlyDisclosedContracts.toList
@@ -113,7 +115,7 @@ class DomainRouter(
         )
 
       metadata <- EitherT
-        .fromEither[Future](
+        .fromEither[FutureUnlessShutdown](
           TransactionMetadata.fromTransactionMeta(
             metaLedgerEffectiveTime = transactionMeta.ledgerEffectiveTime,
             metaSubmissionTime = transactionMeta.submissionTime,
@@ -122,7 +124,7 @@ class DomainRouter(
         )
         .leftMap(RoutingInternalError.IllformedTransaction.apply)
 
-      wfTransaction <- EitherT.fromEither[Future](
+      wfTransaction <- EitherT.fromEither[FutureUnlessShutdown](
         WellFormedTransaction
           .normalizeAndCheck(transaction, metadata, WithoutSuffixes)
           .leftMap(RoutingInternalError.IllformedTransaction.apply)
@@ -140,12 +142,16 @@ class DomainRouter(
         optDomainId,
       )
 
-      domainSelector <- domainSelectorFactory.create(transactionData)
+      domainSelector <- domainSelectorFactory
+        .create(transactionData)
+        .mapK(FutureUnlessShutdown.outcomeK)
       inputDomains = transactionData.inputContractsDomainData.domains
 
-      isMultiDomainTx <- isMultiDomainTx(inputDomains, transactionData.informees, optDomainId)
+      isMultiDomainTx <- isMultiDomainTx(inputDomains, transactionData.informees, optDomainId).mapK(
+        FutureUnlessShutdown.outcomeK
+      )
 
-      domainRankTarget <-
+      domainRankTarget <- {
         if (!isMultiDomainTx) {
           logger.debug(
             s"Choosing the domain as single-domain workflow for ${submitterInfo.commandId}"
@@ -163,10 +169,13 @@ class DomainRouter(
             ): TransactionRoutingError
           )
         }
-      _ <- contractsReassigner.reassign(
-        domainRankTarget,
-        submitterInfo,
-      )
+      }.mapK(FutureUnlessShutdown.outcomeK)
+      _ <- contractsReassigner
+        .reassign(
+          domainRankTarget,
+          submitterInfo,
+        )
+        .mapK(FutureUnlessShutdown.outcomeK)
       _ = logger.debug(s"Routing the transaction to the ${domainRankTarget.domainId}")
       transactionSubmittedF <- submit(domainRankTarget.domainId)(
         submitterInfo,
@@ -175,7 +184,7 @@ class DomainRouter(
         wfTransaction,
         traceContext,
         inputDisclosedContracts.view.map(sc => sc.contractId -> sc).toMap,
-      )
+      ).mapK(FutureUnlessShutdown.outcomeK)
     } yield transactionSubmittedF
 
   private def allInformeesOnDomain(

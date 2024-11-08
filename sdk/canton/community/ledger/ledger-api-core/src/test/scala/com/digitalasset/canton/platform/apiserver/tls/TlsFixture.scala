@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.platform.apiserver.tls
 
-import com.daml.ledger.resources.{Resource, ResourceContext, ResourceOwner}
+import com.daml.ledger.resources.{ResourceContext, ResourceOwner}
 import com.digitalasset.canton.config.RequireTypes.{ExistingFile, Port}
 import com.digitalasset.canton.config.{
   ServerAuthRequirementConfig,
@@ -49,16 +49,13 @@ final case class TlsFixture(
 
   private val DefaultMaxInboundMessageSize: Int = 4 * 1024 * 1024 // taken from the Sandbox config
 
-  private final class MockApiServices(apiServices: ApiServices) extends ResourceOwner[ApiServices] {
-    override def acquire()(implicit context: ResourceContext): Resource[ApiServices] =
-      Resource(Future.successful(apiServices))(_ => Future.successful(()))(context)
-  }
-
   private final class EmptyApiServices extends ApiServices {
     override val services: Iterable[BindableService] = List(
       new HelloServiceReferenceImplementation
     )
     override def withServices(otherServices: immutable.Seq[BindableService]): ApiServices = this
+
+    override def close(): Unit = ()
   }
 
   private val serverTlsConfiguration = Option.when(tlsEnabled)(
@@ -83,13 +80,12 @@ final case class TlsFixture(
 
   private def apiServerOwner(): ResourceOwner[ApiService] = {
     val apiServices = new EmptyApiServices
-    val owner = new MockApiServices(apiServices)
 
     ResourceOwner
       .forExecutorService(() => Executors.newCachedThreadPool())
       .flatMap(servicesExecutor =>
-        new LedgerApiService(
-          apiServicesOwner = owner,
+        LedgerApiService(
+          apiServices = apiServices,
           desiredPort = Port.Dynamic,
           maxInboundMessageSize = DefaultMaxInboundMessageSize,
           address = None,

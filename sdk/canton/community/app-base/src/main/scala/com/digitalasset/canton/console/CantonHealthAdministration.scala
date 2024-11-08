@@ -7,11 +7,7 @@ import better.files.File
 import cats.data.NonEmptyList
 import cats.syntax.parallel.*
 import cats.syntax.traverse.*
-import com.digitalasset.canton.admin.api.client.data.{
-  CantonStatus,
-  CommunityCantonStatus,
-  NodeStatus,
-}
+import com.digitalasset.canton.admin.api.client.data.{CantonStatus, NodeStatus}
 import com.digitalasset.canton.config.RequireTypes.Port
 import com.digitalasset.canton.config.{NonNegativeDuration, Password}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
@@ -72,22 +68,29 @@ object CantonHealthAdministration {
     val name = s"canton-dump-${Instant.now().toString.replace(':', '-')}.zip"
     File(name)
   }
-}
 
-trait CantonHealthAdministration[Status <: CantonStatus]
-    extends Helpful
-    with NamedLogging
-    with NoTracing {
-  protected val consoleEnv: ConsoleEnvironment
-  implicit private val ec: ExecutionContext = consoleEnv.environment.executionContext
-  override val loggerFactory: NamedLoggerFactory = consoleEnv.environment.loggerFactory
-
-  protected def statusMap[A <: InstanceReference](
+  private def statusMap[A <: InstanceReference](
       nodes: NodeReferences[A, _, _]
   ): Map[String, () => NodeStatus[A#Status]] =
     nodes.all.map(node => node.name -> (() => node.health.status)).toMap
+}
 
-  def status(): Status
+class CantonHealthAdministration(protected val consoleEnv: ConsoleEnvironment)
+    extends Helpful
+    with NamedLogging
+    with NoTracing {
+  import CantonHealthAdministration.*
+
+  implicit private val ec: ExecutionContext = consoleEnv.environment.executionContext
+  override val loggerFactory: NamedLoggerFactory = consoleEnv.environment.loggerFactory
+
+  @Help.Summary("Aggregate status info of all participants, sequencers, and mediators")
+  def status(): CantonStatus =
+    CantonStatus.getStatus(
+      statusMap(consoleEnv.sequencers),
+      statusMap(consoleEnv.mediators),
+      statusMap(consoleEnv.participants),
+    )
 
   @Help.Summary("Generate and write a health dump of Canton's state for a bug report")
   @Help.Description(
@@ -150,16 +153,4 @@ trait CantonHealthAdministration[Status <: CantonStatus]
       }
     }
   }
-}
-
-class CommunityCantonHealthAdministration(override val consoleEnv: ConsoleEnvironment)
-    extends CantonHealthAdministration[CommunityCantonStatus] {
-
-  @Help.Summary("Aggregate status info of all participants and domains")
-  def status(): CommunityCantonStatus =
-    CommunityCantonStatus.getStatus(
-      statusMap[SequencerReference](consoleEnv.sequencers),
-      statusMap[MediatorReference](consoleEnv.mediators),
-      statusMap[ParticipantReference](consoleEnv.participants),
-    )
 }

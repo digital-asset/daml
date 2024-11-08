@@ -4,10 +4,10 @@
 package com.digitalasset.canton.http.json
 
 import com.digitalasset.canton.topology.DomainId
-
-import java.time.Instant
 import scalaz.{@@, Tag}
 import spray.json.{JsNumber, JsString, JsValue, JsonFormat, deserializationError}
+
+import java.time.Instant
 
 trait ExtraFormats {
 

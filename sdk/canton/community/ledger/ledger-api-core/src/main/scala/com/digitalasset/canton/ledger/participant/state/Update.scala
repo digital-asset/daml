@@ -72,47 +72,19 @@ object Update {
   def noOpSeed: LfHash =
     LfHash.assertFromString("00" * LfHash.underlyingHashLength)
 
-  /** Signal used only to increase the offset of the participant in the initialization stage. */
-  final case class Init(
-      recordTime: Timestamp,
-      persisted: Promise[Unit] = Promise(),
-  ) extends Update
-      with WithoutDomainIndex {
-
-    override protected def pretty: Pretty[Init] =
-      prettyOfClass(
-        param("recordTime", _.recordTime),
-        indicateOmittedFields,
-      )
-
-    override def withRecordTime(recordTime: Timestamp): Update = this.copy(recordTime = recordTime)
-
-  }
-
-  object Init {
-    implicit val `Init to LoggingValue`: ToLoggingValue[Init] = { case Init(recordTime, _) =>
-      LoggingValue.Nested.fromEntries(
-        Logging.recordTime(recordTime)
-      )
-    }
-  }
-
   /** Signal that a party is hosted at a participant.
     *
     * Repeated `PartyAddedToParticipant` updates are interpreted in the order of their offsets as follows:
-    * - last-write-wins semantics for `displayName`
     * - set-union semantics for `participantId`; i.e., parties can only be added to, but not removed from a participant
     * The `recordTime` and `submissionId` are always metadata for their specific `PartyAddedToParticipant` update.
     *
     * @param party         The party identifier.
-    * @param displayName   The user readable description of the party. May not be unique.
     * @param participantId The participant that this party was added to.
     * @param recordTime    The ledger-provided timestamp at which the party was allocated.
     * @param submissionId  The submissionId of the command which requested party to be added.
     */
   final case class PartyAddedToParticipant(
       party: Ref.Party,
-      displayName: String,
       participantId: Ref.ParticipantId,
       recordTime: Timestamp,
       submissionId: Option[Ref.SubmissionId],
@@ -123,7 +95,6 @@ object Update {
       prettyOfClass(
         param("recordTime", _.recordTime),
         param("party", _.party),
-        param("displayName", _.displayName.singleQuoted),
         param("participantId", _.participantId),
         indicateOmittedFields,
       )
@@ -136,7 +107,6 @@ object Update {
         : ToLoggingValue[PartyAddedToParticipant] = {
       case PartyAddedToParticipant(
             party,
-            displayName,
             participantId,
             recordTime,
             submissionId,
@@ -147,7 +117,6 @@ object Update {
           Logging.submissionIdOpt(submissionId),
           Logging.participantId(participantId),
           Logging.party(party),
-          Logging.displayName(displayName),
         )
     }
   }
@@ -246,7 +215,7 @@ object Update {
     *                          created this transaction. It must be provided if this participant
     *                          hosts one of the [[SubmitterInfo.actAs]] parties and shall output a
     *                          completion event for this transaction. This in particular applies if
-    *                          this participant has submitted the command to the [[WriteService]].
+    *                          this participant has submitted the command to the [[SyncService]].
     *
     *                          The Offset-order of Updates must ensure that command
     *                          deduplication guarantees are met.
@@ -268,7 +237,7 @@ object Update {
     * @param contractMetadata  For each contract created in this transaction, this map may contain
     *                          contract metadata assigned by the ledger implementation.
     *                          This data is opaque and can only be used in [[com.digitalasset.daml.lf.transaction.FatContractInstance]]s
-    *                          when submitting transactions trough the [[WriteService]].
+    *                          when submitting transactions trough the [[SyncService]].
     *                          If a contract created by this transaction is not element of this map,
     *                          its metadata is equal to the empty byte array.
     */
@@ -341,7 +310,7 @@ object Update {
     *                          created this reassignment. It must be provided if this participant
     *                          hosts the submitter and shall output a completion event for this
     *                          reassignment. This in particular applies if this participant has
-    *                          submitted the command to the [[WriteService]].
+    *                          submitted the command to the [[SyncService]].
     * @param workflowId        a submitter-provided identifier used for monitoring
     *                          and to traffic-shape the work handled by Daml applications
     *                          communicating over the ledger.
@@ -411,7 +380,7 @@ object Update {
     }
   }
 
-  /** Signal that a command submitted via [[WriteService]] was rejected.
+  /** Signal that a command submitted via [[SyncService]] was rejected.
     *
     * @param recordTime     The record time of the completion
     * @param completionInfo The completion information for the submission
@@ -575,8 +544,6 @@ object Update {
   }
 
   implicit val `Update to LoggingValue`: ToLoggingValue[Update] = {
-    case update: Init =>
-      Init.`Init to LoggingValue`.toLoggingValue(update)
     case update: PartyAddedToParticipant =>
       PartyAddedToParticipant.`PartyAddedToParticipant to LoggingValue`.toLoggingValue(update)
     case update: PartyAllocationRejected =>
@@ -641,9 +608,6 @@ object Update {
         rejectionReasonTemplate: CommandRejected.RejectionReasonTemplate
     ): LoggingEntry =
       "rejectionReason" -> rejectionReasonTemplate
-
-    def displayName(name: String): LoggingEntry =
-      "displayName" -> name
 
     def submitter(parties: List[Ref.Party]): LoggingEntry =
       "submitter" -> parties

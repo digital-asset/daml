@@ -3,30 +3,30 @@
 
 package com.digitalasset.canton.daml.lf.value.json
 
+import com.digitalasset.canton.daml.lf.value.json.NavigatorModelAliases as Model
+import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
+import com.digitalasset.daml.lf.data.ScalazEqual.*
 import com.digitalasset.daml.lf.data.{
   FrontStack,
   ImmArray,
+  Numeric as LfNumeric,
   Ref,
   SortedLookupList,
   Time,
-  Numeric as LfNumeric,
 }
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.ScalazEqual.*
 import com.digitalasset.daml.lf.typesig
 import com.digitalasset.daml.lf.value.Value as V
 import com.digitalasset.daml.lf.value.Value.ContractId
-import NavigatorModelAliases.DamlLfIdentifier
-import ApiValueImplicits.*
-import com.digitalasset.canton.daml.lf.value.json.NavigatorModelAliases as Model
-import spray.json.*
-
-import scala.util.Try
-import scalaz.{@@, Tag}
 import scalaz.syntax.std.string.*
+import scalaz.{@@, Tag}
+import spray.json.*
 
 import java.time.Instant
 import scala.annotation.nowarn
+import scala.util.Try
+
+import NavigatorModelAliases.DamlLfIdentifier
+import ApiValueImplicits.*
 
 /** A compressed encoding of API values.
   *

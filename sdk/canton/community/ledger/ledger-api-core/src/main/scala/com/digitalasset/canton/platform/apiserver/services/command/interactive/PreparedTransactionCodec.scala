@@ -8,6 +8,7 @@ import cats.syntax.either.*
 import com.daml.error.ContextualizedErrorLogger
 import com.digitalasset.canton.ledger.error.groups.CommandExecutionErrors
 import com.digitalasset.canton.logging.TracedLogger
+import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.tracing.TraceContext
 import io.scalaland.chimney.partial.Result
 
@@ -33,11 +34,10 @@ object PreparedTransactionCodec {
     ): Future[A] = Future.fromTry {
       result.asEither
         .leftMap { err =>
-          val errorString = s"Failed to serialize $description"
-          logger.info(s"$errorString: ${err.errors.mkString("\n")}")
-          errorString
+          logger.info(s"$description: ${err.errors.mkString("\n")}")
+          s"$description: ${err.errors.mkString("\n")}"
         }
-        .leftMap(CommandExecutionErrors.SubmissionPreparationSerializationError.Reject(_))
+        .leftMap(CommandExecutionErrors.InteractiveSubmissionPreparationError.Reject(_))
         .leftMap(_.asGrpcError)
         .toTry
     }
@@ -49,5 +49,13 @@ object PreparedTransactionCodec {
     /** Converts an Either[String, A] to a Result[A]
       */
     def toResult: Result[A] = Result.fromEither(either.leftMap(Result.Errors.fromString))
+  }
+
+  implicit private[interactive] class EnhancedParsingResult[A](val parsingResult: ParsingResult[A])
+      extends AnyVal {
+
+    /** Converts a ParsingResult[A] to a Result[A]
+      */
+    def toResult: Result[A] = parsingResult.leftMap(_.message).toResult
   }
 }

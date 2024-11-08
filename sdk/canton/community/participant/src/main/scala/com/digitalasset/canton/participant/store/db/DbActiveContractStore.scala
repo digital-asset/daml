@@ -15,6 +15,7 @@ import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.participant.store.*
 import com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveContractIdsChange
@@ -100,18 +101,18 @@ class DbActiveContractStore(
       activenessChange: ActivenessChangeDetail,
       toc: TimeOfChange,
   ) {
-    def toContractState(implicit
+    def toContractStateFUS(implicit
         ec: ExecutionContext,
         traceContext: TraceContext,
-    ): Future[ContractState] = {
+    ): FutureUnlessShutdown[ContractState] = {
       val statusF = activenessChange match {
-        case Create(reassignmentCounter) => Future.successful(Active(reassignmentCounter))
-        case Archive => Future.successful(Archived)
-        case Add(reassignmentCounter) => Future.successful(Active(reassignmentCounter))
-        case Purge => Future.successful(Purged)
-        case in: Assignment => Future.successful(Active(in.reassignmentCounter))
+        case Create(reassignmentCounter) => FutureUnlessShutdown.pure(Active(reassignmentCounter))
+        case Archive => FutureUnlessShutdown.pure(Archived)
+        case Add(reassignmentCounter) => FutureUnlessShutdown.pure(Active(reassignmentCounter))
+        case Purge => FutureUnlessShutdown.pure(Purged)
+        case in: Assignment => FutureUnlessShutdown.pure(Active(in.reassignmentCounter))
         case out: Unassignment =>
-          domainIdFromIdx(out.remoteDomainIdx).map(id =>
+          domainIdFromIdxFUS(out.remoteDomainIdx).map(id =>
             ReassignedAway(Target(id), out.reassignmentCounter)
           )
       }
@@ -215,7 +216,7 @@ class DbActiveContractStore(
       operationName: LengthLimitedString,
   )(implicit
       traceContext: TraceContext
-  ): CheckedT[Future, AcsError, AcsWarning, Unit] = {
+  ): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Unit] = {
     val domains = reassignments.map { case (_, domain, _, _) => domain.unwrap }.distinct
 
     type PreparedReassignment = ((LfContractId, TimeOfChange), ReassignmentChangeDetail)
@@ -235,7 +236,7 @@ class DbActiveContractStore(
       preparedReassignments <- CheckedT.fromChecked(
         Checked.fromEither(preparedReassignmentsE)
       ): CheckedT[
-        Future,
+        FutureUnlessShutdown,
         AcsError,
         AcsWarning,
         Seq[PreparedReassignment],
@@ -245,9 +246,9 @@ class DbActiveContractStore(
         preparedReassignments.toMap,
         change,
         operationName = operationName,
-      )
+      ).mapK(FutureUnlessShutdown.outcomeK)
 
-      _ <- checkReassignmentsConsistency(preparedReassignments)
+      _ <- checkReassignmentsConsistency(preparedReassignments).mapK(FutureUnlessShutdown.outcomeK)
     } yield ()
   }
 
@@ -255,7 +256,7 @@ class DbActiveContractStore(
       assignments: Seq[(LfContractId, Source[DomainId], ReassignmentCounter, TimeOfChange)]
   )(implicit
       traceContext: TraceContext
-  ): CheckedT[Future, AcsError, AcsWarning, Unit] =
+  ): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Unit] =
     reassignContracts(
       assignments,
       Assignment.apply,
@@ -267,7 +268,7 @@ class DbActiveContractStore(
       unassignments: Seq[(LfContractId, Target[DomainId], ReassignmentCounter, TimeOfChange)]
   )(implicit
       traceContext: TraceContext
-  ): CheckedT[Future, AcsError, AcsWarning, Unit] = reassignContracts(
+  ): CheckedT[FutureUnlessShutdown, AcsError, AcsWarning, Unit] = reassignContracts(
     unassignments,
     Unassignment.apply,
     ChangeType.Deactivation,
@@ -276,7 +277,7 @@ class DbActiveContractStore(
 
   override def fetchStates(
       contractIds: Iterable[LfContractId]
-  )(implicit traceContext: TraceContext): Future[Map[LfContractId, ContractState]] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Map[LfContractId, ContractState]] =
     storage.profile match {
       case _: DbStorage.Profile.H2 =>
         // With H2, it is faster to do lookup contracts individually than to use a range query
@@ -284,14 +285,14 @@ class DbActiveContractStore(
           .to(LazyList)
           .parTraverseFilter { contractId =>
             storage
-              .querySingle(fetchContractStateQuery(contractId), functionFullName)
-              .semiflatMap(_.toContractState.map(res => (contractId -> res)))
+              .querySingleUnlessShutdown(fetchContractStateQuery(contractId), functionFullName)
+              .semiflatMap(_.toContractStateFUS.map(res => (contractId -> res)))
               .value
           }
           .map(_.toMap)
       case _: DbStorage.Profile.Postgres =>
         NonEmpty.from(contractIds.toSeq) match {
-          case None => Future.successful(Map.empty)
+          case None => FutureUnlessShutdown.pure(Map.empty)
           case Some(contractIdsNel) =>
             import DbStorage.Implicits.BuilderChain.*
 
@@ -311,9 +312,9 @@ class DbActiveContractStore(
                 """).as[(LfContractId, StoredActiveContract)]
 
             storage
-              .query(query, functionFullName)
+              .queryUnlessShutdown(query, functionFullName)
               .flatMap(_.toList.parTraverse { case (id, contract) =>
-                contract.toContractState.map(cs => (id, cs))
+                contract.toContractStateFUS.map(cs => (id, cs))
               })
               .map(foundContracts => foundContracts.toMap)
         }
@@ -323,7 +324,7 @@ class DbActiveContractStore(
   override def packageUsage(
       pkg: PackageId,
       contractStore: ContractStore,
-  )(implicit traceContext: TraceContext): Future[Option[(LfContractId)]] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Option[(LfContractId)]] = {
     // The contractStore is unused
     // As we can directly query daml_contracts from the database
 
@@ -355,7 +356,7 @@ class DbActiveContractStore(
                 limit 1
                 """).as[(LfContractId)]
 
-    val queryResult = storage.query(query, functionFullName)
+    val queryResult = storage.queryUnlessShutdown(query, functionFullName)
     queryResult.map(_.headOption)
 
   }

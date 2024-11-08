@@ -6,9 +6,9 @@ package com.digitalasset.canton.http
 import java.nio.file.Path
 
 final case class HttpServerConfig(
-  address: String = HttpServerConfig.defaultAddress,
-  port: Option[Int] = None,
-  portFile: Option[Path] = None,
+    address: String = HttpServerConfig.defaultAddress,
+    port: Option[Int] = None,
+    portFile: Option[Path] = None,
 )
 
 object HttpServerConfig {

@@ -4,7 +4,12 @@
 package com.digitalasset.canton.console
 
 import better.files.File
-import com.digitalasset.canton.admin.api.client.commands.GrpcAdminCommand
+import com.digitalasset.canton.admin.api.client.commands.{
+  GrpcAdminCommand,
+  MediatorAdminCommands,
+  ParticipantAdminCommands,
+  SequencerAdminCommands,
+}
 import com.digitalasset.canton.admin.api.client.data.{CantonStatus, NodeStatus}
 import com.digitalasset.canton.config.LocalNodeConfig
 import com.digitalasset.canton.console.CommandErrors.CommandError
@@ -12,17 +17,37 @@ import com.digitalasset.canton.environment.Environment
 import com.digitalasset.canton.metrics.MetricsSnapshot
 import com.digitalasset.canton.version.ReleaseVersion
 import io.circe.Encoder
+import io.circe.generic.semiauto.deriveEncoder
 import io.circe.syntax.*
 
 /** Generates a health dump zip file containing information about the current Canton process
   * This is the core of the implementation of the HealthDump gRPC endpoint.
   */
-trait HealthDumpGenerator[Status <: CantonStatus] {
-  def status(): Status
-  def environment: Environment
-  def grpcAdminCommandRunner: GrpcAdminCommandRunner
+class HealthDumpGenerator(
+    val environment: Environment,
+    val grpcAdminCommandRunner: GrpcAdminCommandRunner,
+) {
+  private implicit val statusEncoder: Encoder[CantonStatus] = {
+    import io.circe.generic.auto.*
+    import CantonHealthAdministrationEncoders.*
+    deriveEncoder[CantonStatus]
+  }
 
-  protected implicit val statusEncoder: Encoder[Status]
+  def status(): CantonStatus =
+    CantonStatus.getStatus(
+      statusMap(
+        environment.config.sequencersByString,
+        SequencerAdminCommands.Health.SequencerStatusCommand(),
+      ),
+      statusMap(
+        environment.config.mediatorsByString,
+        MediatorAdminCommands.Health.MediatorStatusCommand(),
+      ),
+      statusMap(
+        environment.config.participantsByString,
+        ParticipantAdminCommands.Health.ParticipantStatusCommand(),
+      ),
+    )
 
   private def getStatusForNode[S <: NodeStatus.Status](
       nodeName: String,
@@ -40,7 +65,7 @@ trait HealthDumpGenerator[Status <: CantonStatus] {
       case err: CommandError => NodeStatus.Failure(err.cause)
     }
 
-  protected def statusMap[S <: NodeStatus.Status](
+  private def statusMap[S <: NodeStatus.Status](
       nodes: Map[String, LocalNodeConfig],
       nodeStatusCommand: GrpcAdminCommand[?, ?, NodeStatus[S]],
   ): Map[String, () => NodeStatus[S]] =
@@ -61,7 +86,7 @@ trait HealthDumpGenerator[Status <: CantonStatus] {
         releaseVersion: String,
         environment: EnvironmentInfo,
         config: String,
-        status: Status,
+        status: CantonStatus,
         metrics: MetricsSnapshot,
         traces: Map[Thread, Array[StackTraceElement]],
     )

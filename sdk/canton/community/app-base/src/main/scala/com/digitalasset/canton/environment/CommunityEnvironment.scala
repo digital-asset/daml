@@ -4,22 +4,11 @@
 package com.digitalasset.canton.environment
 
 import cats.syntax.either.*
-import com.digitalasset.canton.admin.api.client.data.CommunityCantonStatus
 import com.digitalasset.canton.config.{CantonCommunityConfig, TestingConfigInternal}
 import com.digitalasset.canton.console.{
-  CantonHealthAdministration,
-  CommunityCantonHealthAdministration,
-  CommunityHealthDumpGenerator,
   ConsoleEnvironment,
   ConsoleEnvironmentBinding,
   ConsoleOutput,
-  GrpcAdminCommandRunner,
-  HealthDumpGenerator,
-  Help,
-  LocalInstanceReference,
-  LocalMediatorReference,
-  LocalParticipantReference,
-  LocalSequencerReference,
   StandardConsoleOutput,
 }
 import com.digitalasset.canton.crypto.CommunityCryptoFactory
@@ -61,11 +50,6 @@ class CommunityEnvironment(
     new CommunityDbMigrationsFactory(loggerFactory)
 
   override def isEnterprise: Boolean = false
-
-  def createHealthDumpGenerator(
-      commandRunner: GrpcAdminCommandRunner
-  ): HealthDumpGenerator[CommunityCantonStatus] =
-    new CommunityHealthDumpGenerator(this, commandRunner)
 
   override protected def createSequencer(
       name: String,
@@ -143,21 +127,6 @@ class CommunityConsoleEnvironment(
     val consoleOutput: ConsoleOutput = StandardConsoleOutput,
 ) extends ConsoleEnvironment {
   override type Env = CommunityEnvironment
-  override type Status = CommunityCantonStatus
 
-  private lazy val health_ = new CommunityCantonHealthAdministration(this)
   override protected val consoleEnvironmentBindings = new ConsoleEnvironmentBinding()
-
-  @Help.Summary("Environment health inspection")
-  @Help.Group("Health")
-  override def health: CantonHealthAdministration[Status] =
-    health_
-
-  override def startupOrderPrecedence(instance: LocalInstanceReference): Int =
-    instance match {
-      case _: LocalSequencerReference => 1
-      case _: LocalMediatorReference => 2
-      case _: LocalParticipantReference => 3
-      case _ => 4
-    }
 }

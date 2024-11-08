@@ -8,7 +8,6 @@ import cats.implicits.showInterpolator
 import cats.syntax.bifunctor.*
 import cats.syntax.either.*
 import cats.syntax.parallel.*
-import cats.syntax.traverse.*
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.ledger.participant.state.*
@@ -48,22 +47,20 @@ private[sync] class PartyAllocation(
     with NamedLogging {
   def allocate(
       hint: Option[LfPartyId],
-      displayName: Option[String],
       rawSubmissionId: LedgerSubmissionId,
   )(implicit traceContext: TraceContext): CompletionStage[SubmissionResult] =
     withSpan("CantonSyncService.allocateParty") { implicit traceContext => span =>
       span.setAttribute("submission_id", rawSubmissionId)
 
-      allocateInternal(hint, displayName, rawSubmissionId)
+      allocateInternal(hint, rawSubmissionId)
     }.asJava
 
   private def allocateInternal(
       hint: Option[LfPartyId],
-      displayName: Option[String],
       rawSubmissionId: LedgerSubmissionId,
   )(implicit traceContext: TraceContext): Future[SubmissionResult] = {
     def reject(reason: String, result: SubmissionResult): SubmissionResult = {
-      publishReject(reason, rawSubmissionId, displayName)
+      publishReject(reason, rawSubmissionId)
       result
     }
 
@@ -80,10 +77,6 @@ private[sync] class PartyAllocation(
           .leftMap(SyncServiceError.Synchronous.internalError)
           .toEitherT[Future]
         partyId = PartyId(id)
-        validatedDisplayName <- displayName
-          .traverse(n => String255.create(n, Some("DisplayName")))
-          .leftMap(SyncServiceError.Synchronous.internalError)
-          .toEitherT[Future]
         validatedSubmissionId <- EitherT.fromEither[Future](
           String255
             .fromProtoPrimitive(rawSubmissionId, "LedgerSubmissionId")
@@ -104,7 +97,6 @@ private[sync] class PartyAllocation(
             partyId,
             participantId,
             validatedSubmissionId,
-            validatedDisplayName,
           )
           .leftMap[SubmissionResult] { err =>
             reject(err, SubmissionResult.Acknowledged)
@@ -168,7 +160,6 @@ private[sync] class PartyAllocation(
   private def publishReject(
       reason: String,
       rawSubmissionId: LedgerSubmissionId,
-      displayName: Option[String],
   )(implicit
       traceContext: TraceContext
   ): Unit =
@@ -186,7 +177,7 @@ private[sync] class PartyAllocation(
         .onShutdown(
           logger.debug(s"Aborted publishing of party allocation rejection due to shutdown")
         ),
-      s"Failed to publish allocation rejection for party $displayName",
+      s"Failed to publish allocation rejection for party",
     )
 
 }

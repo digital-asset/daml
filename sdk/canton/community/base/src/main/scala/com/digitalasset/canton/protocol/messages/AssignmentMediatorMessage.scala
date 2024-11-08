@@ -80,7 +80,7 @@ object AssignmentMediatorMessage
     ] {
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.AssignmentMediatorMessage)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.AssignmentMediatorMessage)(
       supportedProtoVersion(_)((context, proto) => fromProtoV30(context)(proto)),
       _.toProtoV30.toByteString,
     )

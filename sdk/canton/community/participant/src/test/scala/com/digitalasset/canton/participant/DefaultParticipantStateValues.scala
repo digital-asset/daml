@@ -8,8 +8,11 @@ import com.digitalasset.canton.DefaultDamlValues.*
 import com.digitalasset.canton.data.{CantonTimestamp, DeduplicationPeriod}
 import com.digitalasset.canton.ledger.participant.state.*
 import com.digitalasset.canton.protocol.*
+import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.{ApplicationId, CommandId, DefaultDamlValues, LfPartyId, WorkflowId}
 import com.digitalasset.daml.lf.data.Ref
+
+import java.util.UUID
 
 /** Default values for participant state objects for unit testing */
 object DefaultParticipantStateValues {
@@ -35,6 +38,8 @@ object DefaultParticipantStateValues {
       commandId.unwrap,
       deduplicationPeriod,
       submissionId,
+      Option.empty[UUID],
+      Option.empty[MediatorGroupIndex],
       externallySignedSubmission = None,
     )
 

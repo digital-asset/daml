@@ -75,6 +75,11 @@ class TracedAsyncLoadingCache[F[_], K, V] private[tracing] (
       )
     )
 
+  /** @see com.github.blemale.scaffeine.AsyncLoadingCache.put
+    */
+  def put(key: K, value: V)(implicit traceContext: TraceContext): Unit =
+    underlying.put(Traced(key)(traceContext), Future.successful(value))
+
   /** Remove those mappings for which the predicate `filter` returns true */
   def clear(filter: (K, V) => Boolean): Unit =
     underlying.synchronous().asMap().filterInPlace((t, v) => !filter(t.unwrap, v)).discard

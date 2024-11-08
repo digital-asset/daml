@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.ledger.api.services
 
-import com.daml.ledger.api.v2.interactive_submission_data.PreparedTransaction
-import com.daml.ledger.api.v2.interactive_submission_service.{
+import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   ExecuteSubmissionResponse,
   PrepareSubmissionResponse,
+  PreparedTransaction,
 }
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.DeduplicationPeriod
@@ -16,19 +16,23 @@ import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.
   PrepareRequest,
 }
 import com.digitalasset.canton.logging.LoggingContextWithTrace
-import com.digitalasset.canton.topology.PartyId
-import com.digitalasset.daml.lf.data.Ref.{SubmissionId, WorkflowId}
+import com.digitalasset.canton.topology.{DomainId, PartyId}
+import com.digitalasset.canton.version.HashingSchemeVersion
+import com.digitalasset.daml.lf.data.Ref.{ApplicationId, SubmissionId}
 
 import scala.concurrent.Future
 
 object InteractiveSubmissionService {
   final case class PrepareRequest(commands: domain.Commands)
+
   final case class ExecuteRequest(
+      applicationId: ApplicationId,
       submissionId: SubmissionId,
-      workflowId: Option[WorkflowId],
       deduplicationPeriod: DeduplicationPeriod,
       signatures: Map[PartyId, Seq[Signature]],
       preparedTransaction: PreparedTransaction,
+      serializationVersion: HashingSchemeVersion,
+      domainId: DomainId,
   )
 }
 

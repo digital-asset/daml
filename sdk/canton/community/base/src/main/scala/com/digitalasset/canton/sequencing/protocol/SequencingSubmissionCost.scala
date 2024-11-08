@@ -51,7 +51,7 @@ object SequencingSubmissionCost
   override def name: String = "SequencingSubmissionCost"
 
   override def supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.SequencingSubmissionCost)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.SequencingSubmissionCost)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )

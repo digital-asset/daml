@@ -43,7 +43,7 @@ trait PersistsContracts {
   */
 class PartyReplicationTargetParticipantProcessor(
     persistContracts: PersistsContracts,
-    protocolVersion: ProtocolVersion,
+    protected val protocolVersion: ProtocolVersion,
     protected val timeouts: ProcessingTimeout,
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit override val executionContext: ExecutionContext)

@@ -38,6 +38,7 @@ import com.digitalasset.canton.tracing.TraceContext.withNewTraceContext
 import com.digitalasset.canton.tracing.{NoTracing, TraceContext, TracerProvider}
 import com.digitalasset.canton.util.FutureInstances.parallelFuture
 import com.digitalasset.canton.util.{MonadUtil, PekkoUtil, SingleUseCell}
+import com.google.common.annotations.VisibleForTesting
 import io.circe.Encoder
 import io.opentelemetry.api.trace.Tracer
 import org.apache.pekko.actor.ActorSystem
@@ -119,9 +120,11 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
       consoleOutput: ConsoleOutput = StandardConsoleOutput
   ): Console
 
+  @VisibleForTesting
   protected def createHealthDumpGenerator(
       commandRunner: GrpcAdminCommandRunner
-  ): HealthDumpGenerator[_]
+  ): HealthDumpGenerator =
+    new HealthDumpGenerator(this, commandRunner)
 
   /* We can't reliably use the health administration instance of the console because:
    * 1) it's tied to the console environment, which we don't have access to yet when the environment is instantiated
@@ -129,7 +132,7 @@ trait Environment extends NamedLogging with AutoCloseable with NoTracing {
    * Therefore we create an immutable lazy value for the health administration that can be set either with the console
    * health admin when/if it gets created, or with a headless health admin, whichever comes first.
    */
-  private val healthDumpGenerator = new SingleUseCell[HealthDumpGenerator[_]]
+  private val healthDumpGenerator = new SingleUseCell[HealthDumpGenerator]
 
   // Function passed down to the node boostrap used to generate a health dump file
   val writeHealthDumpToFile: HealthDumpFunction = (file: File) =>

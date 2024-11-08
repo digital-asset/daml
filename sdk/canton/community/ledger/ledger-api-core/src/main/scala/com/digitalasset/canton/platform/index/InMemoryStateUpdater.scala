@@ -4,12 +4,11 @@
 package com.digitalasset.canton.platform.index
 
 import cats.data.NonEmptyVector
-import cats.implicits.toBifunctorOps
 import com.daml.executors.InstrumentedExecutors
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.timer.FutureCheck.*
 import com.digitalasset.canton.data.DeduplicationPeriod.{DeduplicationDuration, DeduplicationOffset}
-import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{AbsoluteOffset, Offset}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.ledger.participant.state.{CompletionInfo, Reassignment, Update}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, TracedLogger}
@@ -19,6 +18,7 @@ import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTr
 import com.digitalasset.canton.platform.index.InMemoryStateUpdater.{PrepareResult, UpdaterFlow}
 import com.digitalasset.canton.platform.indexer.TransactionTraversalUtils
 import com.digitalasset.canton.platform.store.CompletionFromTransaction
+import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.digitalasset.canton.platform.store.cache.OffsetCheckpoint
 import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
@@ -52,28 +52,27 @@ private[platform] object InMemoryStateUpdaterFlow {
       logger: TracedLogger,
   )(
       inMemoryState: InMemoryState,
-      prepare: (Vector[(Offset, Traced[Update])], Long, CantonTimestamp) => PrepareResult,
+      prepare: (Vector[(AbsoluteOffset, Traced[Update])], LedgerEnd) => PrepareResult,
       update: (PrepareResult, Boolean) => Unit,
   )(implicit traceContext: TraceContext): UpdaterFlow = { repairMode =>
-    Flow[(Vector[(Offset, Traced[Update])], Long, CantonTimestamp)]
+    Flow[(Vector[(AbsoluteOffset, Traced[Update])], LedgerEnd)]
       .filter(_._1.nonEmpty)
       .via(updateOffsetCheckpointCacheFlow(inMemoryState, offsetCheckpointCacheUpdateInterval))
-      .mapAsync(prepareUpdatesParallelism) {
-        case (batch, lastEventSequentialId, lastPublicationTime) =>
-          Future {
-            batch -> prepare(batch, lastEventSequentialId, lastPublicationTime)
-          }(prepareUpdatesExecutionContext)
-            .checkIfComplete(preparePackageMetadataTimeOutWarning)(
-              logger.warn(
-                s"Package Metadata View live update did not finish in ${preparePackageMetadataTimeOutWarning.toMillis}ms"
-              )
+      .mapAsync(prepareUpdatesParallelism) { case (batch, ledgerEnd) =>
+        Future {
+          batch -> prepare(batch, ledgerEnd)
+        }(prepareUpdatesExecutionContext)
+          .checkIfComplete(preparePackageMetadataTimeOutWarning)(
+            logger.warn(
+              s"Package Metadata View live update did not finish in ${preparePackageMetadataTimeOutWarning.toMillis}ms"
             )
+          )
       }
       .async
       .mapAsync(1) { case (batch, result) =>
         Future {
           update(result, repairMode)
-          metrics.index.ledgerEndSequentialId.updateValue(result.lastEventSequentialId)
+          metrics.index.ledgerEndSequentialId.updateValue(result.ledgerEnd.lastEventSeqId)
           batch
         }(updateCachesExecutionContext)
       }
@@ -83,8 +82,8 @@ private[platform] object InMemoryStateUpdaterFlow {
       inMemoryState: InMemoryState,
       interval: FiniteDuration,
   ): Flow[
-    (Vector[(Offset, Traced[Update])], Long, CantonTimestamp),
-    (Vector[(Offset, Traced[Update])], Long, CantonTimestamp),
+    (Vector[(AbsoluteOffset, Traced[Update])], LedgerEnd),
+    (Vector[(AbsoluteOffset, Traced[Update])], LedgerEnd),
     NotUsed,
   ] = {
     // tick source so that we update offset checkpoint caches
@@ -100,8 +99,8 @@ private[platform] object InMemoryStateUpdaterFlow {
       updateOffsetCheckpointCache: OffsetCheckpoint => Unit,
       tick: Source[Option[Nothing], NotUsed],
   ): Flow[
-    (Vector[(Offset, Traced[Update])], Long, CantonTimestamp),
-    (Vector[(Offset, Traced[Update])], Long, CantonTimestamp),
+    (Vector[(AbsoluteOffset, Traced[Update])], LedgerEnd),
+    (Vector[(AbsoluteOffset, Traced[Update])], LedgerEnd),
     NotUsed,
   ] =
     Flow.fromGraph(GraphDSL.create() { implicit builder =>
@@ -112,28 +111,28 @@ private[platform] object InMemoryStateUpdaterFlow {
       // them with a tick source that ticks every interval seconds to signify the update of the cache
 
       val broadcast =
-        builder.add(Broadcast[(Vector[(Offset, Traced[Update])], Long, CantonTimestamp)](2))
+        builder.add(Broadcast[(Vector[(AbsoluteOffset, Traced[Update])], LedgerEnd)](2))
 
-      val merge = builder.add(Merge[Option[(Offset, Update)]](inputPorts = 2, eagerComplete = true))
+      val merge =
+        builder.add(Merge[Option[(AbsoluteOffset, Update)]](inputPorts = 2, eagerComplete = true))
 
-      val preprocess: Flow[(Vector[(Offset, Traced[Update])], Long, CantonTimestamp), Option[
-        (Offset, Update)
+      val preprocess: Flow[(Vector[(AbsoluteOffset, Traced[Update])], LedgerEnd), Option[
+        (AbsoluteOffset, Update)
       ], NotUsed] =
-        Flow[(Vector[(Offset, Traced[Update])], Long, CantonTimestamp)]
+        Flow[(Vector[(AbsoluteOffset, Traced[Update])], LedgerEnd)]
           .map(_._1)
           .mapConcat(identity)
           .map { case (off, tracedUpdate) => (off, tracedUpdate.value) }
           .map(Some(_))
 
-      val updateCheckpointState: Flow[Option[(Offset, Update)], OffsetCheckpoint, NotUsed] =
-        Flow[Option[(Offset, Update)]]
+      val updateCheckpointState: Flow[Option[(AbsoluteOffset, Update)], OffsetCheckpoint, NotUsed] =
+        Flow[Option[(AbsoluteOffset, Update)]]
           .statefulMap[Option[OffsetCheckpoint], Option[OffsetCheckpoint]](create = () => None)(
             f = {
               // an Offset and Update pair was received
               // update the latest checkpoint
               case (lastOffsetCheckpointO, Some((off, update))) =>
                 val domainTimeO = update match {
-                  case _: Update.Init => None
                   case _: Update.PartyAddedToParticipant => None
                   case _: Update.PartyAllocationRejected => None
                   case tx: Update.TransactionAccepted => Some((tx.domainId, update.recordTime))
@@ -158,7 +157,8 @@ private[platform] object InMemoryStateUpdaterFlow {
                       lastDomainTimes.updated(domainId, recordTime)
                     case None => lastDomainTimes
                   }
-                val newOffsetCheckpoint = OffsetCheckpoint(off, newDomainTimes)
+                val newOffsetCheckpoint =
+                  OffsetCheckpoint(Offset.fromAbsoluteOffset(off), newDomainTimes)
                 (Some(newOffsetCheckpoint), None)
               // a tick was received, propagate the OffsetCheckpoint
               case (lastOffsetCheckpointO, None) =>
@@ -182,14 +182,12 @@ private[platform] object InMemoryStateUpdaterFlow {
 private[platform] object InMemoryStateUpdater {
   final case class PrepareResult(
       updates: Vector[Traced[TransactionLogUpdate]],
-      lastOffset: Offset,
-      lastEventSequentialId: Long,
-      lastPublicationTime: CantonTimestamp,
+      ledgerEnd: LedgerEnd,
       lastTraceContext: TraceContext,
   )
   type UpdaterFlow =
-    Boolean => Flow[(Vector[(Offset, Traced[Update])], Long, CantonTimestamp), Vector[
-      (Offset, Traced[Update])
+    Boolean => Flow[(Vector[(AbsoluteOffset, Traced[Update])], LedgerEnd), Vector[
+      (AbsoluteOffset, Traced[Update])
     ], NotUsed]
   def owner(
       inMemoryState: InMemoryState,
@@ -227,13 +225,12 @@ private[platform] object InMemoryStateUpdater {
   )
 
   private[index] def prepare(
-      batch: Vector[(Offset, Traced[Update])],
-      lastEventSequentialId: Long,
-      lastPublicationTime: CantonTimestamp,
+      batch: Vector[(AbsoluteOffset, Traced[Update])],
+      ledgerEnd: LedgerEnd,
   ): PrepareResult = {
-    val (offset, traceContext) = batch.lastOption.fold(
+    val traceContext = batch.lastOption.fold(
       throw new NoSuchElementException("empty batch")
-    )(_.bimap(identity, _.traceContext))
+    )(_._2.traceContext)
     PrepareResult(
       updates = batch.collect {
         case (offset, t @ Traced(u: Update.TransactionAccepted)) =>
@@ -243,9 +240,7 @@ private[platform] object InMemoryStateUpdater {
         case (offset, r @ Traced(u: Update.ReassignmentAccepted)) =>
           r.map(_ => convertReassignmentAccepted(offset, u, r.traceContext))
       },
-      lastOffset = offset,
-      lastEventSequentialId = lastEventSequentialId,
-      lastPublicationTime = lastPublicationTime,
+      ledgerEnd = ledgerEnd,
       lastTraceContext = traceContext,
     )
   }
@@ -254,16 +249,14 @@ private[platform] object InMemoryStateUpdater {
       inMemoryState: InMemoryState,
       logger: TracedLogger,
   )(result: PrepareResult, repairMode: Boolean): Unit = {
-    updateCaches(inMemoryState, result.updates, result.lastOffset)
+    updateCaches(inMemoryState, result.updates, result.ledgerEnd.lastOffset)
     // must be the last update: see the comment inside the method for more details
     // must be after cache updates: see the comment inside the method for more details
     // in case of Repair Mode we will update directly, at the end from the indexer queue
     if (!repairMode) {
       updateLedgerEnd(
         inMemoryState,
-        result.lastOffset,
-        result.lastEventSequentialId,
-        result.lastPublicationTime,
+        result.ledgerEnd,
         logger,
       )(
         result.lastTraceContext
@@ -300,7 +293,7 @@ private[platform] object InMemoryStateUpdater {
   private def updateCaches(
       inMemoryState: InMemoryState,
       updates: Vector[Traced[TransactionLogUpdate]],
-      lastOffset: Offset,
+      lastOffset: AbsoluteOffset,
   ): Unit = {
     updates.foreach { tracedTransaction =>
       tracedTransaction.withTraceContext(implicit traceContext =>
@@ -313,26 +306,24 @@ private[platform] object InMemoryStateUpdater {
         }
       )
     }
-    inMemoryState.cachesUpdatedUpto.set(lastOffset)
+    inMemoryState.cachesUpdatedUpto.set(Some(lastOffset))
   }
 
   def updateLedgerEnd(
       inMemoryState: InMemoryState,
-      lastOffset: Offset,
-      lastEventSequentialId: Long,
-      lastPublicationTime: CantonTimestamp,
+      ledgerEnd: LedgerEnd,
       logger: TracedLogger,
   )(implicit
       traceContext: TraceContext
   ): Unit = {
-    inMemoryState.ledgerEndCache.set(
-      (lastOffset.toAbsoluteOffsetO, lastEventSequentialId, lastPublicationTime)
-    )
+    inMemoryState.ledgerEndCache.set(Some(ledgerEnd))
     // the order here is very important: first we need to make data available for point-wise lookups
     // and SQL queries, and only then we can make it available on the streams.
     // (consider example: completion arrived on a stream, but the transaction cannot be looked up)
-    inMemoryState.dispatcherState.getDispatcher.signalNewHead(lastOffset)
-    logger.debug(s"Updated ledger end at offset $lastOffset - $lastEventSequentialId")
+    inMemoryState.dispatcherState.getDispatcher.signalNewHead(
+      Offset.fromAbsoluteOffset(ledgerEnd.lastOffset)
+    )
+    logger.debug(s"Updated ledger end $ledgerEnd")
   }
 
   private[index] def convertLogToStateEvent
@@ -381,7 +372,7 @@ private[platform] object InMemoryStateUpdater {
     }
 
   private def convertTransactionAccepted(
-      offset: Offset,
+      offset: AbsoluteOffset,
       txAccepted: Update.TransactionAccepted,
       traceContext: TraceContext,
   ): TransactionLogUpdate.TransactionAccepted = {
@@ -393,7 +384,7 @@ private[platform] object InMemoryStateUpdater {
     val events = rawEvents.collect {
       case (nodeId, create: Create) =>
         TransactionLogUpdate.CreatedEvent(
-          eventOffset = offset,
+          eventOffset = Offset.fromAbsoluteOffset(offset),
           updateId = txAccepted.updateId,
           nodeIndex = nodeId.index,
           eventSequentialId = 0L,
@@ -430,7 +421,7 @@ private[platform] object InMemoryStateUpdater {
         )
       case (nodeId, exercise: Exercise) =>
         TransactionLogUpdate.ExercisedEvent(
-          eventOffset = offset,
+          eventOffset = Offset.fromAbsoluteOffset(offset),
           updateId = txAccepted.updateId,
           nodeIndex = nodeId.index,
           eventSequentialId = 0L,
@@ -469,7 +460,7 @@ private[platform] object InMemoryStateUpdater {
         CompletionFromTransaction.acceptedCompletion(
           submitters = completionInfo.actAs.map(_.toString).toSet,
           recordTime = txAccepted.recordTime,
-          offset = offset,
+          offset = Offset.fromAbsoluteOffset(offset),
           commandId = completionInfo.commandId,
           updateId = txAccepted.updateId,
           applicationId = completionInfo.applicationId,
@@ -487,7 +478,7 @@ private[platform] object InMemoryStateUpdater {
       commandId = txAccepted.completionInfoO.map(_.commandId).getOrElse(""),
       workflowId = txAccepted.transactionMeta.workflowId.getOrElse(""),
       effectiveAt = txAccepted.transactionMeta.ledgerEffectiveTime,
-      offset = offset,
+      offset = Offset.fromAbsoluteOffset(offset),
       events = events.toVector,
       completionStreamResponse = completionStreamResponse,
       domainId = txAccepted.domainId.toProtoPrimitive,
@@ -496,7 +487,7 @@ private[platform] object InMemoryStateUpdater {
   }
 
   private def convertTransactionRejected(
-      offset: Offset,
+      offset: AbsoluteOffset,
       u: Update.CommandRejected,
       traceContext: TraceContext,
   ): TransactionLogUpdate.TransactionRejected = {
@@ -504,11 +495,11 @@ private[platform] object InMemoryStateUpdater {
       deduplicationInfo(u.completionInfo)
 
     TransactionLogUpdate.TransactionRejected(
-      offset = offset,
+      offset = Offset.fromAbsoluteOffset(offset),
       completionStreamResponse = CompletionFromTransaction.rejectedCompletion(
         submitters = u.completionInfo.actAs.map(_.toString).toSet,
         recordTime = u.recordTime,
-        offset = offset,
+        offset = Offset.fromAbsoluteOffset(offset),
         commandId = u.completionInfo.commandId,
         status = u.reasonTemplate.status,
         applicationId = u.completionInfo.applicationId,
@@ -523,7 +514,7 @@ private[platform] object InMemoryStateUpdater {
   }
 
   private def convertReassignmentAccepted(
-      offset: Offset,
+      offset: AbsoluteOffset,
       u: Update.ReassignmentAccepted,
       traceContext: TraceContext,
   ): TransactionLogUpdate.ReassignmentAccepted = {
@@ -535,7 +526,7 @@ private[platform] object InMemoryStateUpdater {
         CompletionFromTransaction.acceptedCompletion(
           submitters = completionInfo.actAs.map(_.toString).toSet,
           recordTime = u.recordTime,
-          offset = offset,
+          offset = Offset.fromAbsoluteOffset(offset),
           commandId = completionInfo.commandId,
           updateId = u.updateId,
           applicationId = completionInfo.applicationId,
@@ -556,7 +547,7 @@ private[platform] object InMemoryStateUpdater {
       updateId = u.updateId,
       commandId = u.optCompletionInfo.map(_.commandId).getOrElse(""),
       workflowId = u.workflowId.getOrElse(""),
-      offset = offset,
+      offset = Offset.fromAbsoluteOffset(offset),
       recordTime = u.recordTime,
       completionStreamResponse = completionStreamResponse,
       reassignmentInfo = u.reassignmentInfo,
@@ -565,7 +556,7 @@ private[platform] object InMemoryStateUpdater {
           val create = assign.createNode
           TransactionLogUpdate.ReassignmentAccepted.Assigned(
             TransactionLogUpdate.CreatedEvent(
-              eventOffset = offset,
+              eventOffset = Offset.fromAbsoluteOffset(offset),
               updateId = u.updateId,
               nodeIndex = 0, // set 0 for assign-created
               eventSequentialId = 0L,

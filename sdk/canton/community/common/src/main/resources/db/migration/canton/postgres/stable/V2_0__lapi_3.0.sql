@@ -542,9 +542,6 @@ CREATE TABLE lapi_party_entries (
     -- party
     party varchar(512) collate "C",
 
-    -- displayName
-    display_name varchar(1000) collate "C",
-
     -- The type of entry, 'accept' or 'reject'
     typ varchar(1000) collate "C" not null,
 

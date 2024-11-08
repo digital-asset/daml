@@ -4,11 +4,15 @@
 package com.digitalasset.canton.ledger.participant.state
 
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
-import com.digitalasset.canton.crypto.{Hash, Signature}
+import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.DeduplicationPeriod
 import com.digitalasset.canton.ledger.participant.state.SubmitterInfo.ExternallySignedSubmission
+import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.PartyId
+import com.digitalasset.canton.version.HashingSchemeVersion
 import com.digitalasset.daml.lf.data.Ref
+
+import java.util.UUID
 
 /** Collects context information for a submission.
   *
@@ -28,6 +32,12 @@ import com.digitalasset.daml.lf.data.Ref
   *                             [[Update]].
   * @param submissionId         An identifier for the submission that allows an application to
   *                             correlate completions to its submissions.
+  * @param transactionUUID      Optionally explicitly chosen TransactionUUID. This is set in externally signed transactions
+  *                             where the external party has included the transactionUUID in the signature.
+  *                             It acts as a replay protection mechanism by allowing the mediator to deduplicate requests.
+  * @param mediatorGroup        Optionally explicitly chosen mediator group. This is set in externally signed transactions
+  *                             where the external party has included the mediator group in the signature.
+  *
   * @param externallySignedSubmission If this is provided then the authorization for all acting parties
   *                                   will be provided by the enclosed signatures.
   */
@@ -38,6 +48,8 @@ final case class SubmitterInfo(
     commandId: Ref.CommandId,
     deduplicationPeriod: DeduplicationPeriod,
     submissionId: Option[Ref.SubmissionId],
+    transactionUUID: Option[UUID],
+    mediatorGroup: Option[MediatorGroupIndex],
     externallySignedSubmission: Option[ExternallySignedSubmission],
 ) {
 
@@ -59,9 +71,10 @@ final case class SubmitterInfo(
 object SubmitterInfo {
   implicit val `ExternallySignedSubmission to LoggingValue`
       : ToLoggingValue[ExternallySignedSubmission] = {
-    case ExternallySignedSubmission(_, signatures) =>
+    case ExternallySignedSubmission(version, signatures) =>
       LoggingValue.Nested.fromEntries(
-        "signatures" -> signatures.keys.map(_.toProtoPrimitive)
+        "version" -> version.index,
+        "signatures" -> signatures.keys.map(_.toProtoPrimitive),
       )
   }
   implicit val `SubmitterInfo to LoggingValue`: ToLoggingValue[SubmitterInfo] = {
@@ -72,6 +85,8 @@ object SubmitterInfo {
           commandId,
           deduplicationPeriod,
           submissionId,
+          transactionUUID,
+          mediatorGroup,
           externallySignedSubmission,
         ) =>
       LoggingValue.Nested.fromEntries(
@@ -81,12 +96,14 @@ object SubmitterInfo {
         "commandId " -> commandId,
         "deduplicationPeriod " -> deduplicationPeriod,
         "submissionId" -> submissionId,
+        "transactionUUID" -> transactionUUID.map(_.toString),
+        "mediatorGroup" -> mediatorGroup.map(_.value),
         "externallySignedSubmission" -> externallySignedSubmission,
       )
   }
 
   final case class ExternallySignedSubmission(
-      hash: Hash,
+      version: HashingSchemeVersion,
       signatures: Map[PartyId, Seq[Signature]],
   )
 

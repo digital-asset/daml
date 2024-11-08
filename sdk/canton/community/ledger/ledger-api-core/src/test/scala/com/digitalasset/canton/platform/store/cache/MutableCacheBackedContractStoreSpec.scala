@@ -301,7 +301,7 @@ object MutableCacheBackedContractStoreSpec {
       readerFixture: LedgerDaoContractsReader = ContractsReaderFixture(),
   )(implicit ec: ExecutionContext) = {
     val metrics = LedgerApiServerMetrics.ForTesting
-    val startIndexExclusive: Offset = offset0
+    val startIndexExclusive = offset0.toAbsoluteOffsetO
     val contractStore = new MutableCacheBackedContractStore(
       metrics,
       readerFixture,

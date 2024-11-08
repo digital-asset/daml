@@ -387,7 +387,7 @@ object ParticipantAdminCommands {
 
   object PartyNameManagement {
 
-    final case class SetPartyDisplayName(partyId: PartyId, displayName: String)
+    final case class SetPartyDisplayName(partyId: PartyId)
         extends GrpcAdminCommand[SetPartyDisplayNameRequest, SetPartyDisplayNameResponse, Unit] {
       override type Svc = PartyNameManagementServiceStub
 
@@ -397,8 +397,7 @@ object ParticipantAdminCommands {
       override protected def createRequest(): Either[String, SetPartyDisplayNameRequest] =
         Right(
           SetPartyDisplayNameRequest(
-            partyId = partyId.uid.toProtoPrimitive,
-            displayName = displayName,
+            partyId = partyId.uid.toProtoPrimitive
           )
         )
 

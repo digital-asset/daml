@@ -5,7 +5,7 @@ package com.digitalasset.canton.platform.store.backend
 
 import com.daml.metrics.api.MetricsContext
 import com.daml.metrics.api.MetricsContext.withExtraMetricLabels
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.ledger.participant.state.Update
 import com.digitalasset.canton.ledger.participant.state.Update.TransactionAccepted
 import com.digitalasset.canton.metrics.IndexerMetrics
@@ -22,7 +22,7 @@ object UpdateToMeteringDbDto {
       metrics: IndexerMetrics,
   )(implicit
       mc: MetricsContext
-  ): Iterable[(Offset, Traced[Update])] => Vector[DbDto.TransactionMetering] = input => {
+  ): Iterable[(AbsoluteOffset, Traced[Update])] => Vector[DbDto.TransactionMetering] = input => {
 
     val time = clock()
 

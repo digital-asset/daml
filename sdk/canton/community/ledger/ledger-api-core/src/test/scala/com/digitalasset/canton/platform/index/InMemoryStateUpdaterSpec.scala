@@ -4,11 +4,10 @@
 package com.digitalasset.canton.platform.index
 
 import cats.data.NonEmptyVector
-import cats.syntax.bifunctor.toBifunctorOps
 import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.daml.ledger.api.v2.command_completion_service.CompletionStreamResponse
 import com.daml.ledger.api.v2.completion.Completion
-import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state.Update.CommandRejected.FinalReason
 import com.digitalasset.canton.ledger.participant.state.{
   CompletionInfo,
@@ -26,6 +25,7 @@ import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTrack
 import com.digitalasset.canton.platform.apiserver.services.tracking.SubmissionTracker
 import com.digitalasset.canton.platform.index.InMemoryStateUpdater.PrepareResult
 import com.digitalasset.canton.platform.index.InMemoryStateUpdaterSpec.*
+import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.digitalasset.canton.platform.store.cache.{
   ContractStateCaches,
   InMemoryFanoutBuffer,
@@ -83,34 +83,45 @@ class InMemoryStateUpdaterSpec
     with BaseTest {
 
   "flow" should "correctly process updates in order" in new Scope {
+    val secondLedgerEnd = someLedgerEnd.copy(
+      lastOffset = AbsoluteOffset.tryFromLong(12),
+      lastEventSeqId = 12L,
+    )
     runFlow(
       Seq(
-        (Vector(update1, metadataChangedUpdate), 1L, CantonTimestamp.MinValue),
-        (Vector(update3, update4), 3L, CantonTimestamp.MinValue.plusSeconds(50)),
+        (Vector(update1, metadataChangedUpdate), someLedgerEnd),
+        (Vector(update3, update4), secondLedgerEnd),
       )
     )
     cacheUpdates should contain theSameElementsInOrderAs Seq(
-      result(1L, CantonTimestamp.MinValue),
-      result(3L, CantonTimestamp.MinValue.plusSeconds(50)),
+      result(someLedgerEnd),
+      result(secondLedgerEnd),
     )
   }
 
   "flow" should "not process empty input batches" in new Scope {
+    val secondLedgerEnd = someLedgerEnd.copy(
+      lastOffset = AbsoluteOffset.tryFromLong(12),
+      lastEventSeqId = 12L,
+    )
+    val thirdLedgerEnd = someLedgerEnd.copy(
+      lastOffset = AbsoluteOffset.tryFromLong(14),
+      lastEventSeqId = 14L,
+      lastPublicationTime = CantonTimestamp.assertFromLong(15L),
+    )
     runFlow(
       Seq(
         // Empty input batch should have not effect
-        (Vector.empty, 1L, CantonTimestamp.MinValue),
-        (Vector(update3), 3L, CantonTimestamp.MinValue.plusSeconds(80)),
-        (Vector(anotherMetadataChangedUpdate), 3L, CantonTimestamp.MinValue.plusSeconds(180)),
+        (Vector.empty, someLedgerEnd),
+        (Vector(update3), secondLedgerEnd),
+        (Vector(anotherMetadataChangedUpdate), thirdLedgerEnd),
       )
     )
 
     cacheUpdates should contain theSameElementsInOrderAs Seq(
-      result(3L, CantonTimestamp.MinValue.plusSeconds(80)),
-      result(
-        3L,
-        CantonTimestamp.MinValue.plusSeconds(180),
-      ), // Results in empty batch after processing
+      result(secondLedgerEnd),
+      result(thirdLedgerEnd),
+      // Results in empty batch after processing
     )
   }
 
@@ -118,8 +129,7 @@ class InMemoryStateUpdaterSpec
     an[NoSuchElementException] should be thrownBy {
       InMemoryStateUpdater.prepare(
         Vector.empty,
-        0L,
-        CantonTimestamp.MinValue,
+        someLedgerEnd,
       )
     }
   }
@@ -127,13 +137,10 @@ class InMemoryStateUpdaterSpec
   "prepare" should "prepare a batch of a single update" in new Scope {
     InMemoryStateUpdater.prepare(
       Vector(update1),
-      0L,
-      CantonTimestamp.MinValue,
+      someLedgerEnd,
     ) shouldBe PrepareResult(
       Vector(txLogUpdate1),
-      offset(1L),
-      0L,
-      CantonTimestamp.MinValue,
+      someLedgerEnd,
       update1._2.traceContext,
     )
   }
@@ -141,13 +148,10 @@ class InMemoryStateUpdaterSpec
   "prepare" should "prepare a batch with reassignments" in new Scope {
     InMemoryStateUpdater.prepare(
       Vector(update1, update7, update8),
-      0L,
-      CantonTimestamp.MinValue.plusSeconds(10),
+      someLedgerEnd,
     ) shouldBe PrepareResult(
       Vector(txLogUpdate1, assignLogUpdate, unassignLogUpdate),
-      offset(8L),
-      0L,
-      CantonTimestamp.MinValue.plusSeconds(10),
+      someLedgerEnd,
       update1._2.traceContext,
     )
   }
@@ -155,13 +159,10 @@ class InMemoryStateUpdaterSpec
   "prepare" should "set last offset and eventSequentialId to last element" in new Scope {
     InMemoryStateUpdater.prepare(
       Vector(update1, metadataChangedUpdate),
-      6L,
-      CantonTimestamp.MinValue,
+      someLedgerEnd,
     ) shouldBe PrepareResult(
       Vector(txLogUpdate1),
-      offset(2L),
-      6L,
-      CantonTimestamp.MinValue,
+      someLedgerEnd,
       metadataChangedUpdate._2.traceContext,
     )
   }
@@ -188,7 +189,7 @@ class InMemoryStateUpdaterSpec
 
     inOrder
       .verify(ledgerEndCache)
-      .set((lastOffset.toAbsoluteOffsetO, lastEventSeqId, lastPublicationTime))
+      .set(Some(lastLedgerEnd))
     inOrder.verify(dispatcher).signalNewHead(lastOffset)
     inOrder
       .verify(submissionTracker)
@@ -301,7 +302,7 @@ class InMemoryStateUpdaterSpec
       sequencerIndexMoved(5, domainId1),
     )
 
-    private val offsets = (1L to updatesSeq.length.toLong).map(Offset.fromLong)
+    private val offsets = (1L to updatesSeq.length.toLong).map(AbsoluteOffset.tryFromLong)
     private val updatesWithOffsets = offsets.zip(updatesSeq.map(Traced.empty))
 
     // tick after each update to have one checkpoint after every update
@@ -375,8 +376,7 @@ object InMemoryStateUpdaterSpec {
       logger = logger,
     )(
       inMemoryState = inMemoryState,
-      prepare = (_, lastEventSequentialId, lastPublicationTime) =>
-        result(lastEventSequentialId, lastPublicationTime),
+      prepare = (_, ledgerEnd) => result(ledgerEnd),
       update = cachesUpdateCaptor,
     )(emptyTraceContext)
 
@@ -386,7 +386,7 @@ object InMemoryStateUpdaterSpec {
         commandId = "",
         workflowId = workflowId,
         effectiveAt = Timestamp.Epoch,
-        offset = offset(1L),
+        offset = offset(11L),
         events = Vector(),
         completionStreamResponse = None,
         domainId = domainId1.toProtoPrimitive,
@@ -399,7 +399,7 @@ object InMemoryStateUpdaterSpec {
         updateId = "tx3",
         commandId = "",
         workflowId = workflowId,
-        offset = offset(7L),
+        offset = offset(17L),
         recordTime = Timestamp.Epoch,
         completionStreamResponse = None,
         reassignmentInfo = ReassignmentInfo(
@@ -413,7 +413,7 @@ object InMemoryStateUpdaterSpec {
         ),
         reassignment = TransactionLogUpdate.ReassignmentAccepted.Assigned(
           CreatedEvent(
-            eventOffset = offset(7L),
+            eventOffset = offset(17L),
             updateId = "tx3",
             nodeIndex = 0,
             eventSequentialId = 0,
@@ -447,7 +447,7 @@ object InMemoryStateUpdaterSpec {
         updateId = "tx4",
         commandId = "",
         workflowId = workflowId,
-        offset = offset(8L),
+        offset = offset(18L),
         recordTime = Timestamp.Epoch,
         completionStreamResponse = None,
         reassignmentInfo = ReassignmentInfo(
@@ -591,6 +591,13 @@ object InMemoryStateUpdaterSpec {
     val lastOffset: Offset = tx_rejected_offset
     val lastEventSeqId = 123L
     val lastPublicationTime = CantonTimestamp.MinValue.plusSeconds(1000)
+    val lastStringInterningId = 234
+    val lastLedgerEnd = LedgerEnd(
+      lastOffset = lastOffset.toAbsoluteOffset,
+      lastEventSeqId = lastEventSeqId,
+      lastStringInterningId = lastStringInterningId,
+      lastPublicationTime = lastPublicationTime,
+    )
     val updates: Vector[Traced[TransactionLogUpdate]] =
       Vector(
         tx_accepted_withCompletionStreamResponse,
@@ -599,23 +606,19 @@ object InMemoryStateUpdaterSpec {
       )
     val prepareResult: PrepareResult = PrepareResult(
       updates = updates,
-      lastOffset = lastOffset,
-      lastEventSequentialId = lastEventSeqId,
-      lastPublicationTime = lastPublicationTime,
+      ledgerEnd = lastLedgerEnd,
       emptyTraceContext,
     )
 
-    def result(lastEventSequentialId: Long, publicationTime: CantonTimestamp): PrepareResult =
+    def result(ledgerEnd: LedgerEnd): PrepareResult =
       PrepareResult(
         Vector.empty,
-        offset(1L),
-        lastEventSequentialId,
-        publicationTime,
+        ledgerEnd,
         emptyTraceContext,
       )
 
     def runFlow(
-        input: Seq[(Vector[(Offset, Traced[Update])], Long, CantonTimestamp)]
+        input: Seq[(Vector[(AbsoluteOffset, Traced[Update])], LedgerEnd)]
     )(implicit mat: Materializer): Done =
       Source(input)
         .via(inMemoryStateUpdater(false))
@@ -718,14 +721,19 @@ object InMemoryStateUpdaterSpec {
     optByKeyNodes = None,
   )
 
-  private val update1 = offset(1L) -> Traced(
+  private val update1 = absoluteOffset(11L) -> Traced(
     transactionAccepted(t = 0L, domainId = domainId1)
   )
-  private val rawMetadataChangedUpdate = offset(2L) -> Update.Init(
-    Timestamp.Epoch
-  )
-  private val metadataChangedUpdate = rawMetadataChangedUpdate.bimap(identity, Traced[Update])
-  private val update3 = offset(3L) -> Traced[Update](
+  private def rawMetadataChangedUpdate(offset: AbsoluteOffset, recordTime: Timestamp) =
+    offset -> Traced(
+      Update.SequencerIndexMoved(
+        domainId = DomainId.tryFromString("x::domain"),
+        sequencerIndex = SequencerIndex(SequencerCounter(15L), CantonTimestamp(recordTime)),
+        requestCounterO = None,
+      )
+    )
+  private val metadataChangedUpdate = rawMetadataChangedUpdate(absoluteOffset(12L), Timestamp.Epoch)
+  private val update3 = absoluteOffset(13L) -> Traced[Update](
     Update.TransactionAccepted(
       completionInfoO = None,
       transactionMeta = someTransactionMeta,
@@ -743,33 +751,31 @@ object InMemoryStateUpdaterSpec {
     )
   )
 
-  private val update4 = offset(4L) -> Traced[Update](
+  private val update4 = absoluteOffset(14L) -> Traced[Update](
     commandRejected(t = 1337L, domainId = DomainId.tryFromString("da::default"))
   )
 
-  private val update7 = offset(7L) -> Traced[Update](
+  private val update7 = absoluteOffset(17L) -> Traced[Update](
     assignmentAccepted(t = 0, source = domainId1, target = domainId2)
   )
 
-  private val update8 = offset(8L) -> Traced[Update](
+  private val update8 = absoluteOffset(18L) -> Traced[Update](
     unassignmentAccepted(t = 0, source = domainId2, target = domainId1)
   )
   private val anotherMetadataChangedUpdate =
-    rawMetadataChangedUpdate
-      .bimap(
-        Function.const(offset(5L)),
-        _.copy(recordTime = Time.Timestamp.assertFromLong(1337L)),
-      )
-      .bimap(identity, Traced[Update](_))
+    rawMetadataChangedUpdate(absoluteOffset(15L), Timestamp.assertFromLong(1337L))
 
   private def offset(idx: Long): Offset = {
     val base = 1000000000L
     Offset.fromLong(base + idx)
   }
 
+  private def absoluteOffset(idx: Long): AbsoluteOffset =
+    AbsoluteOffset.tryFromLong(1000000000L + idx)
+
   // traverse the list from left to right and if a None is found add the exact previous checkpoint in the result
   private def findCheckpointOffsets(
-      input: Seq[Option[(Offset, Traced[Update.TransactionAccepted])]]
+      input: Seq[Option[(AbsoluteOffset, Traced[Update.TransactionAccepted])]]
   ): Seq[OffsetCheckpoint] =
     input
       .foldLeft[(Seq[OffsetCheckpoint], Option[OffsetCheckpoint])]((Seq.empty, None)) {
@@ -779,7 +785,7 @@ object InMemoryStateUpdaterSpec {
             acc,
             Some(
               OffsetCheckpoint(
-                offset = currOffset,
+                offset = Offset.fromAbsoluteOffset(currOffset),
                 domainTimes = lastCheckpointO
                   .map(_.domainTimes)
                   .getOrElse(Map.empty[DomainId, Timestamp])
@@ -797,8 +803,8 @@ object InMemoryStateUpdaterSpec {
       offsetsAndTicks: Seq[Option[Long]],
       domainIdsAndTicks: Seq[Option[Long]],
       recordTimesAndTicks: Seq[Option[Long]],
-  ): Seq[Option[(Offset, Traced[Update.TransactionAccepted])]] = {
-    val offsets = offsetsAndTicks.map(_.map(Offset.fromLong))
+  ): Seq[Option[(AbsoluteOffset, Traced[Update.TransactionAccepted])]] = {
+    val offsets = offsetsAndTicks.map(_.map(AbsoluteOffset.tryFromLong))
     val domainIds =
       domainIdsAndTicks.map(_.map(x => DomainId.tryFromString(x.toString + "::default")))
 
@@ -826,24 +832,24 @@ object InMemoryStateUpdaterSpec {
   //  - 2. the actual output
   //  - 3. the checkpoints updates in the offset checkpoint cache
   def runUpdateOffsetCheckpointCacheFlow(
-      inputSeq: Seq[Option[(Offset, Traced[Update])]]
+      inputSeq: Seq[Option[(AbsoluteOffset, Traced[Update])]]
   )(implicit materializer: Materializer, ec: ExecutionContext): Future[
     (
-        Seq[Vector[(Offset, Traced[Update])]],
-        Seq[Vector[(Offset, Traced[Update])]],
+        Seq[Vector[(AbsoluteOffset, Traced[Update])]],
+        Seq[Vector[(AbsoluteOffset, Traced[Update])]],
         Seq[OffsetCheckpoint],
     )
   ] = {
     val elementsQueue =
-      new ConcurrentLinkedQueue[Option[(Offset, Traced[Update])]]
+      new ConcurrentLinkedQueue[Option[(AbsoluteOffset, Traced[Update])]]
     inputSeq.foreach(elementsQueue.add)
 
-    val flattenedSeq: Seq[Vector[(Offset, Traced[Update])]] =
+    val flattenedSeq: Seq[Vector[(AbsoluteOffset, Traced[Update])]] =
       inputSeq.flatten.map(Vector(_))
 
     val bufferSize = 100
     val (sourceQueueSomes, sourceSomes) = Source
-      .queue[Vector[(Offset, Traced[Update])]](bufferSize)
+      .queue[Vector[(AbsoluteOffset, Traced[Update])]](bufferSize)
       .preMaterialize()
     val (sourceQueueNones, sourceNones) = Source
       .queue[Option[Nothing]](bufferSize)
@@ -866,7 +872,7 @@ object InMemoryStateUpdaterSpec {
     var checkpoints: Seq[OffsetCheckpoint] = Seq.empty
 
     val output = sourceSomes
-      .map((_, 1L, CantonTimestamp.MinValue))
+      .map((_, someLedgerEnd))
       .via(
         InMemoryStateUpdaterFlow
           .updateOffsetCheckpointCacheFlowWithTickingSource(
@@ -999,4 +1005,12 @@ object InMemoryStateUpdaterSpec {
       ),
       requestCounterO = None,
     )
+
+  private val someLedgerEnd = LedgerEnd(
+    lastOffset = AbsoluteOffset.tryFromLong(10L),
+    lastEventSeqId = 10L,
+    lastStringInterningId = 10,
+    lastPublicationTime = CantonTimestamp.assertFromLong(10L),
+  )
+
 }

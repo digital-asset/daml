@@ -15,6 +15,7 @@ import com.digitalasset.canton.data.{
   CantonTimestamp,
   FullUnassignmentTree,
   ReassigningParticipants,
+  ReassignmentRef,
   ReassignmentSubmitterMetadata,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown

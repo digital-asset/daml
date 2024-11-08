@@ -3,14 +3,15 @@
 
 package com.digitalasset.canton.fetchcontracts.util
 
-import InsertDeleteStep.{Cid, Inserts}
 import com.digitalasset.canton.fetchcontracts.domain
-import scalaz.{Semigroup, \/}
 import scalaz.std.tuple.*
 import scalaz.syntax.functor.*
+import scalaz.{Semigroup, \/}
 
- sealed abstract class ContractStreamStep[+D, +C] extends Product with Serializable {
-  import ContractStreamStep._
+import InsertDeleteStep.{Cid, Inserts}
+
+sealed abstract class ContractStreamStep[+D, +C] extends Product with Serializable {
+  import ContractStreamStep.*
 
   def toInsertDelete: InsertDeleteStep[D, C] = this match {
     case Acs(inserts) => InsertDeleteStep(inserts, Map.empty)
@@ -30,7 +31,7 @@ import scalaz.syntax.functor.*
       // provide definitions that make `append` totally associative, anyway
       case (Acs(_) | LiveBegin(_), LiveBegin(ParticipantBegin)) => this
       case (LiveBegin(ParticipantBegin), Acs(_) | LiveBegin(_)) |
-           (LiveBegin(AbsoluteBookmark(_)), LiveBegin(AbsoluteBookmark(_))) =>
+          (LiveBegin(AbsoluteBookmark(_)), LiveBegin(AbsoluteBookmark(_))) =>
         o
       case (LiveBegin(AbsoluteBookmark(off)), Acs(_)) => Txn(o.toInsertDelete, off)
       case (Txn(step, off), Acs(_) | LiveBegin(ParticipantBegin)) =>
@@ -78,7 +79,7 @@ import scalaz.syntax.functor.*
   }
 }
 
- object ContractStreamStep extends WithLAV1[ContractStreamStep] {
+object ContractStreamStep extends WithLAV1[ContractStreamStep] {
   final case class Acs[+C](inserts: Inserts[C]) extends ContractStreamStep[Nothing, C]
   final case class LiveBegin(offset: BeginBookmark[domain.Offset])
       extends ContractStreamStep[Nothing, Nothing]

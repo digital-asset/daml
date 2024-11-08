@@ -82,6 +82,17 @@ object ConsensusSegment {
         viewNumber: ViewNumber,
     ) extends PbftTimeout
 
+    sealed trait PbftMessagesStored extends PbftEvent {
+      def blockMetadata: BlockMetadata
+      def viewNumber: ViewNumber
+    }
+    final case class PrePrepareStored(blockMetadata: BlockMetadata, viewNumber: ViewNumber)
+        extends PbftMessagesStored
+    final case class PreparesStored(blockMetadata: BlockMetadata, viewNumber: ViewNumber)
+        extends PbftMessagesStored
+    final case class NewViewStored(blockMetadata: BlockMetadata, viewNumber: ViewNumber)
+        extends PbftMessagesStored
+
     /** Pbft consensus messages coming from the network
       * The order of messages below correspond to the protocol steps
       */
@@ -263,7 +274,7 @@ object ConsensusSegment {
         SupportedProtoVersions(
           ProtoVersion(30) ->
             VersionedProtoConverter(
-              ProtocolVersion.v32
+              ProtocolVersion.v33
             )(v1.ConsensusMessage)(
               supportedProtoVersionMemoized(_)(
                 PrePrepare.fromProtoConsensusMessage
@@ -360,7 +371,7 @@ object ConsensusSegment {
         SupportedProtoVersions(
           ProtoVersion(30) ->
             VersionedProtoConverter(
-              ProtocolVersion.v32
+              ProtocolVersion.v33
             )(v1.ConsensusMessage)(
               supportedProtoVersionMemoized(_)(
                 Prepare.fromProtoConsensusMessage
@@ -454,7 +465,7 @@ object ConsensusSegment {
         SupportedProtoVersions(
           ProtoVersion(30) ->
             VersionedProtoConverter(
-              ProtocolVersion.v32
+              ProtocolVersion.v33
             )(v1.ConsensusMessage)(
               supportedProtoVersionMemoized(_)(
                 Commit.fromProtoConsensusMessage
@@ -559,7 +570,7 @@ object ConsensusSegment {
         SupportedProtoVersions(
           ProtoVersion(30) ->
             VersionedProtoConverter(
-              ProtocolVersion.v32
+              ProtocolVersion.v33
             )(v1.ConsensusMessage)(
               supportedProtoVersionMemoized(_)(
                 ViewChange.fromProtoConsensusMessage
@@ -683,7 +694,7 @@ object ConsensusSegment {
         SupportedProtoVersions(
           ProtoVersion(30) ->
             VersionedProtoConverter(
-              ProtocolVersion.v32
+              ProtocolVersion.v33
             )(v1.ConsensusMessage)(
               supportedProtoVersionMemoized(_)(
                 NewView.fromProtoConsensusMessage

@@ -8,13 +8,13 @@ import cats.syntax.parallel.*
 import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config.ProcessingTimeout
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.store.{ConflictDetectionStore, HasPrunable}
 import com.digitalasset.canton.participant.util.{StateChange, TimeOfChange}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ErrorUtil
-import com.digitalasset.canton.util.FutureInstances.*
 import com.google.common.annotations.VisibleForTesting
 
 import scala.collection.compat.immutable.ArraySeq
@@ -326,7 +326,7 @@ private[conflictdetection] class LockableStates[
     */
   def prefetchStates(
       toBeFetched: Iterable[Key]
-  )(implicit traceContext: TraceContext): Future[Map[Key, StateChange[Status]]] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Map[Key, StateChange[Status]]] = {
     implicit val ec = executionContext
     store
       .fetchStates(toBeFetched)
@@ -354,7 +354,7 @@ private[conflictdetection] class LockableStates[
     */
   def getApproximateStates(
       ids: Seq[Key]
-  )(implicit traceContext: TraceContext): Future[Map[Key, StateChange[Status]]] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Map[Key, StateChange[Status]]] = {
     implicit val ec = executionContext
     // first, check what we have in cache
     val cached = ids.map(id => (id, states.get(id).map(_.approximateState)))
@@ -367,7 +367,10 @@ private[conflictdetection] class LockableStates[
     cached
       .parTraverse {
         case (id, None) => fetchedF.map(fetched => (id, fetched.get(id)))
-        case (id, Some(storedF)) => storedF.map((id, _))
+        case (id, Some(storedF)) =>
+          FutureUnlessShutdown
+            .outcomeF(storedF)
+            .map((id, _))
       }
       .map(_.collect { case (key, Some(value)) =>
         (key, value)
@@ -563,30 +566,33 @@ private[conflictdetection] class LockableStates[
       val withoutPendingWrites = states.filterNot { case (_id, state) => state.hasPendingWrites }
       // Await on the store Futures to make sure that there's no context switch in the conflict detection thread
       // This ensures that invariant checking runs atomically.
-      val storeSnapshot =
-        timeouts.io.await(
+
+      timeouts.io
+        .awaitUS(
           s"running fetchStatesForInvariantChecking with ${withoutPendingWrites.keys}"
         )(store.fetchStatesForInvariantChecking(withoutPendingWrites.keys))
-      timeouts.io
-        .awaitUS("getting the pruning status")(store.pruningStatus)
-        .map { case pruningStatusO =>
-          withoutPendingWrites.foreach { case (id, state) =>
-            val storedState = storeSnapshot.get(id)
-            state.versionedState.foreach { versionedState =>
-              if (versionedState != storedState) {
-                val mayHaveBeenPruned = pruningStatusO.exists(pruningTime =>
-                  versionedState
-                    .exists(vs => vs.timestamp <= pruningTime.timestamp && vs.status.prunable)
-                )
-                if (!mayHaveBeenPruned || storedState.nonEmpty)
-                  throw IllegalConflictDetectionStateException(
-                    show"${lockableStatus.kind.unquoted} $id without pending writes has inconsistent states. Memory: ${state.versionedState}, store: $storedState, pruning status: $pruningStatusO"
-                  )
+        .foreach(storeSnapshot =>
+          timeouts.io
+            .awaitUS("getting the pruning status")(store.pruningStatus)
+            .map { case pruningStatusO =>
+              withoutPendingWrites.foreach { case (id, state) =>
+                val storedState = storeSnapshot.get(id)
+                state.versionedState.foreach { versionedState =>
+                  if (versionedState != storedState) {
+                    val mayHaveBeenPruned = pruningStatusO.exists(pruningTime =>
+                      versionedState
+                        .exists(vs => vs.timestamp <= pruningTime.timestamp && vs.status.prunable)
+                    )
+                    if (!mayHaveBeenPruned || storedState.nonEmpty)
+                      throw IllegalConflictDetectionStateException(
+                        show"${lockableStatus.kind.unquoted} $id without pending writes has inconsistent states. Memory: ${state.versionedState}, store: $storedState, pruning status: $pruningStatusO"
+                      )
+                  }
+                }
               }
             }
-          }
-        }
-        .onShutdown(())
+            .onShutdown(())
+        )
     }
 
     assertPendingActivenessChecksMarked()

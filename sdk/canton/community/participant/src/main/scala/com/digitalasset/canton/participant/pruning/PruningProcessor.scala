@@ -292,7 +292,6 @@ class PruningProcessor(
           .right(
             persistent.reassignmentStore.findEarliestIncomplete()
           )
-          .mapK(FutureUnlessShutdown.outcomeK)
 
         unsafeOffset <- earliestIncompleteReassignmentO.fold(
           EitherT.rightT[FutureUnlessShutdown, LedgerPruningError](None: Option[UnsafeOffset])
@@ -342,7 +341,10 @@ class PruningProcessor(
             // because the `CommandDeduplicator` will not use a lower timestamp, even if the participant clock
             // jumps backwards during fail-over.
             val publicationTimeLowerBound =
-              participantNodePersistentState.value.ledgerApiStore.ledgerEndCache.publicationTime
+              participantNodePersistentState.value.ledgerApiStore
+                .ledgerEndCache()
+                .map(_.lastPublicationTime)
+                .getOrElse(CantonTimestamp.MinValue)
             logger.debug(
               s"Publication time lower bound is $publicationTimeLowerBound with max deduplication duration of $maxDedupDuration"
             )
@@ -388,7 +390,7 @@ class PruningProcessor(
           .fromAbsoluteOffsetO(
             participantNodePersistentState.value.ledgerApiStore
               .ledgerEndCache()
-              ._1
+              .map(_.lastOffset)
           )
           .toLong >= pruneUptoInclusive.toLong,
         (),

@@ -5,17 +5,17 @@ package com.digitalasset.canton.http.json.v2
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.jwt.Jwt
-import com.digitalasset.canton.http.{PackageService, WebsocketConfig}
-import com.digitalasset.canton.http.util.Logging.instanceUUIDLogCtx
 import com.digitalasset.canton.http.json.v2.damldefinitionsservice.DamlDefinitionsView
+import com.digitalasset.canton.http.util.Logging.instanceUUIDLogCtx
+import com.digitalasset.canton.http.{PackageService, WebsocketConfig}
 import com.digitalasset.canton.ledger.client.LedgerClient
 import com.digitalasset.canton.ledger.client.services.version.VersionClient
-import com.digitalasset.canton.ledger.participant.state.WriteService
+import com.digitalasset.canton.ledger.participant.state.PackageSyncService
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.daml.lf.data.Ref.IdString
 import org.apache.pekko.http.scaladsl.server.Route
 import org.apache.pekko.stream.Materializer
 import sttp.tapir.server.pekkohttp.PekkoHttpServerInterpreter
-import com.digitalasset.daml.lf.data.Ref.IdString
 
 import scala.concurrent.ExecutionContext
 
@@ -57,7 +57,7 @@ object V2Routes {
       ledgerClient: LedgerClient,
       packageService: PackageService,
       metadataServiceEnabled: Boolean,
-      writeService: WriteService,
+      packageSyncService: PackageSyncService,
       executionContext: ExecutionContext,
       materializer: Materializer,
       loggerFactory: NamedLoggerFactory,
@@ -116,7 +116,7 @@ object V2Routes {
 
     val damlDefinitionsServiceIfEnabled = Option.when(metadataServiceEnabled) {
       val damlDefinitionsService =
-        new DamlDefinitionsView(writeService.getPackageMetadataSnapshot(_))
+        new DamlDefinitionsView(packageSyncService.getPackageMetadataSnapshot(_))
       new JsDamlDefinitionsService(damlDefinitionsService, loggerFactory)
     }
 

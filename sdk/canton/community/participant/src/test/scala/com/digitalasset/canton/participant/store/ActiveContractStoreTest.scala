@@ -8,6 +8,7 @@ import cats.syntax.parallel.*
 import com.digitalasset.canton.config.CantonRequireTypes.String300
 import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.lifecycle.CloseContext
+import com.digitalasset.canton.logging.pretty.PrettyPrinting
 import com.digitalasset.canton.participant.store.ActiveContractSnapshot.ActiveContractIdsChange
 import com.digitalasset.canton.participant.store.ActiveContractStore.*
 import com.digitalasset.canton.participant.store.ActiveContractStore.ActivenessChangeDetail.{
@@ -16,13 +17,14 @@ import com.digitalasset.canton.participant.store.ActiveContractStore.ActivenessC
   Create,
   Unassignment,
 }
-import com.digitalasset.canton.participant.util.TimeOfChange
+import com.digitalasset.canton.participant.util.{StateChange, TimeOfChange}
 import com.digitalasset.canton.protocol.ContractIdSyntax.*
 import com.digitalasset.canton.protocol.ExampleTransactionFactory.{asSerializable, contractInstance}
 import com.digitalasset.canton.protocol.{ExampleTransactionFactory, LfContractId}
 import com.digitalasset.canton.pruning.{PruningPhase, PruningStatus}
 import com.digitalasset.canton.store.PrunableByTimeTest
 import com.digitalasset.canton.topology.{DomainId, UniqueIdentifier}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.{Checked, CheckedT, MonadUtil}
@@ -138,7 +140,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
       for {
         fetch <- acs.fetchStates(thousandOneContracts)
       } yield assert(fetch.isEmpty)
-    }
+    }.failOnShutdown
 
     "creating a contract in an empty ACS" in {
       val acs = mk()
@@ -147,7 +149,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         created <- acs
           .markContractCreated(coid00 -> initialReassignmentCounter, TimeOfChange(rc, ts))
           .value
-        fetch <- acs.fetchStates(Seq(coid00, coid01))
+        fetch <- acs.fetchStates(Seq(coid00, coid01)).failOnShutdown
 
         // At creation, snapshot should contain exactly the contract
         assertion <- assertSnapshots(acs, ts, rc)(Some((coid00, initialReassignmentCounter)))
@@ -423,7 +425,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         created1 <- acs.markContractCreated(coid00 -> initialReassignmentCounter, toc).value
         created3 <- acs.markContractCreated(coid10 -> initialReassignmentCounter, toc2).value
         archived3 <- acs.archiveContract(coid10, toc3).value
-        fetch <- acs.fetchStates(Seq(coid00, coid01, coid10))
+        fetch <- acs.fetchStates(Seq(coid00, coid01, coid10)).failOnShutdown
         snapshot1 <- acs.snapshot(ts)
         snapshot2 <- acs.snapshot(ts2)
         snapshot3 <- acs.snapshot(ts3)
@@ -550,7 +552,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
           )
           .value
         snapshot <- acs.snapshot(ts)
-        fetch <- acs.fetchStates(Seq(coid00, coid01, coid10))
+        fetch <- acs.fetchStates(Seq(coid00, coid01, coid10)).failOnShutdown
       } yield {
         created shouldBe Symbol("successful")
         snapshot shouldBe Map(
@@ -599,7 +601,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
             toc2,
           )
           .value
-        fetch <- acs.fetchStates(Seq(coid00, coid01, coid10))
+        fetch <- acs.fetchStates(Seq(coid00, coid01, coid10)).failOnShutdown
       } yield {
         created1 shouldBe Symbol("successful")
         created2 shouldBe Symbol("isResult")
@@ -641,7 +643,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
           .archiveContracts(Seq(coid00, coid01, coid10), toc2)
           .value
         snapshot <- acs.snapshot(ts2)
-        fetch <- acs.fetchStates(Seq(coid00, coid01, coid10))
+        fetch <- acs.fetchStates(Seq(coid00, coid01, coid10)).failOnShutdown
       } yield {
         created shouldBe Symbol("successful")
         archived shouldBe Symbol("successful")
@@ -665,7 +667,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         archived2 <- acs
           .archiveContracts(Seq(coid00, coid01, coid10), toc2)
           .value
-        fetch <- acs.fetchStates(Seq(coid00, coid01, coid10))
+        fetch <- acs.fetchStates(Seq(coid00, coid01, coid10)).failOnShutdown
       } yield {
         archived1 shouldBe Symbol("successful")
         archived2 shouldBe Symbol("isResult")
@@ -736,6 +738,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
               initialReassignmentCounter + 1,
             )
             .value
+            .failOnShutdown
 
           addAdd <- acs.markContractAdded((coid00, initialReassignmentCounter, toc0)).value
           createAdd <- acs.markContractAdded((coid01, initialReassignmentCounter, toc1)).value
@@ -879,6 +882,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         unassignment <- acs
           .unassignContracts(coid00, toc2, targetDomain1, reassignmentCounter1)
           .value
+          .failOnShutdown
         fetch00 <- acs.fetchState(coid00)
         snapshot1 <- acs.snapshot(ts.plusMillis(1))
         snapshot2 <- acs.snapshot(toc2.timestamp)
@@ -916,6 +920,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         assignment <- acs
           .assignContract(coid00, toc, sourceDomain1, initialReassignmentCounter)
           .value
+          .failOnShutdown
         fetch <- acs.fetchState(coid00)
         snapshot1 <- acs.snapshot(ts.minusSeconds(1))
         snapshot2 <- acs.snapshot(ts)
@@ -950,14 +955,22 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         unassignment1 <- acs
           .unassignContracts(coid00, toc2, targetDomain2, reassignmentCounter1)
           .value
+          .failOnShutdown
         fetch1 <- acs.fetchState(coid00)
-        assignment1 <- acs.assignContract(coid00, toc3, sourceDomain1, reassignmentCounter2).value
+        assignment1 <- acs
+          .assignContract(coid00, toc3, sourceDomain1, reassignmentCounter2)
+          .value
+          .failOnShutdown
         fetch2 <- acs.fetchState(coid00)
         unassignment2 <- acs
           .unassignContracts(coid00, toc4, targetDomain1, reassignmentCounter3)
           .value
+          .failOnShutdown
         fetch3 <- acs.fetchState(coid00)
-        assignment2 <- acs.assignContract(coid00, toc5, sourceDomain2, reassignmentCounter4).value
+        assignment2 <- acs
+          .assignContract(coid00, toc5, sourceDomain2, reassignmentCounter4)
+          .value
+          .failOnShutdown
         fetch4 <- acs.fetchState(coid00)
         archived <- acs.archiveContract(coid00, toc6).value
         snapshot1 <- acs.snapshot(toc1.timestamp)
@@ -1038,12 +1051,20 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         unassignment1 <- acs
           .unassignContracts(coid00, toc2, targetDomain1, reassignmentCounter1)
           .value
+          .failOnShutdown
         archived <- acs.archiveContract(coid00, toc6).value
         unassignment2 <- acs
           .unassignContracts(coid00, toc4, targetDomain2, reassignmentCounter4)
           .value
-        assignment2 <- acs.assignContract(coid00, toc5, sourceDomain2, reassignmentCounter5).value
-        assignment1 <- acs.assignContract(coid00, toc3, sourceDomain1, reassignmentCounter3).value
+          .failOnShutdown
+        assignment2 <- acs
+          .assignContract(coid00, toc5, sourceDomain2, reassignmentCounter5)
+          .value
+          .failOnShutdown
+        assignment1 <- acs
+          .assignContract(coid00, toc3, sourceDomain1, reassignmentCounter3)
+          .value
+          .failOnShutdown
         create <- acs.markContractCreated(coid00 -> initialReassignmentCounter, toc1).value
         snapshot1 <- acs.snapshot(toc1.timestamp)
         snapshot2 <- acs.snapshot(toc2.timestamp)
@@ -1086,9 +1107,11 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         unassignment1 <- acs
           .unassignContracts(coid00, toc, targetDomain1, initialReassignmentCounter)
           .value
+          .failOnShutdown
         unassignment2 <- acs
           .unassignContracts(coid00, toc, targetDomain1, initialReassignmentCounter)
           .value
+          .failOnShutdown
         fetch <- acs.fetchState(coid00)
       } yield {
         unassignment1 shouldBe Symbol("successful")
@@ -1110,9 +1133,11 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         assignment1 <- acs
           .assignContract(coid00, toc, sourceDomain1, initialReassignmentCounter)
           .value
+          .failOnShutdown
         assignment2 <- acs
           .assignContract(coid00, toc, sourceDomain1, initialReassignmentCounter)
           .value
+          .failOnShutdown
         fetch <- acs.fetchState(coid00)
       } yield {
         assignment1 shouldBe Symbol("successful")
@@ -1129,9 +1154,11 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         unassignment <- acs
           .unassignContracts(coid00, toc, targetDomain2, initialReassignmentCounter)
           .value
+          .failOnShutdown
         assignment <- acs
           .assignContract(coid00, toc, sourceDomain1, initialReassignmentCounter)
           .value
+          .failOnShutdown
         fetch <- acs.fetchState(coid00)
         snapshot <- acs.snapshot(ts)
       } yield {
@@ -1154,12 +1181,15 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         assignment1 <- acs
           .assignContract(coid00, toc1, sourceDomain1, initialReassignmentCounter)
           .value
+          .failOnShutdown
         assignment2 <- acs
           .assignContract(coid00, toc1, sourceDomain2, initialReassignmentCounter)
           .value
+          .failOnShutdown
         assignment3 <- acs
           .assignContract(coid00, toc1, sourceDomain1, initialReassignmentCounter)
           .value
+          .failOnShutdown
         fetch <- acs.fetchState(coid00)
         snapshot <- acs.snapshot(ts)
       } yield {
@@ -1193,12 +1223,15 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         unassignment1 <- acs
           .unassignContracts(coid00, toc1, targetDomain1, initialReassignmentCounter)
           .value
+          .failOnShutdown
         unassignment2 <- acs
           .unassignContracts(coid00, toc1, targetDomain2, initialReassignmentCounter)
           .value
+          .failOnShutdown
         unassignment3 <- acs
           .unassignContracts(coid00, toc1, targetDomain1, initialReassignmentCounter)
           .value
+          .failOnShutdown
         fetch <- acs.fetchState(coid00)
       } yield {
         assert(unassignment1.successful, "first unassignment succeeds")
@@ -1231,6 +1264,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         unassignment <- acs
           .unassignContracts(coid00, toc, targetDomain1, initialReassignmentCounter)
           .value
+          .failOnShutdown
         arch <- acs.archiveContract(coid00, toc).value
         fetch <- acs.fetchState(coid00)
       } yield {
@@ -1263,6 +1297,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         assignment <- acs
           .assignContract(coid00, toc, sourceDomain1, initialReassignmentCounter)
           .value
+          .failOnShutdown
         fetch <- acs.fetchState(coid00)
       } yield {
         assert(create.successful, "create succeeds")
@@ -1292,15 +1327,23 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         unassignment4 <- acs
           .unassignContracts(coid00, toc4, targetDomain1, reassignmentCounter4)
           .value
+          .failOnShutdown
         fetch4 <- acs.fetchState(coid00)
         unassignment1 <- acs
           .unassignContracts(coid00, toc1, targetDomain2, reassignmentCounter1)
           .value
-        assignment3 <- acs.assignContract(coid00, toc3, sourceDomain1, reassignmentCounter3).value
+          .failOnShutdown
+        assignment3 <- acs
+          .assignContract(coid00, toc3, sourceDomain1, reassignmentCounter3)
+          .value
+          .failOnShutdown
         snapshot1 <- acs.snapshot(toc1.timestamp)
         snapshot3 <- acs.snapshot(toc3.timestamp)
         snapshot4 <- acs.snapshot(toc4.timestamp)
-        assignment4 <- acs.assignContract(coid01, toc4, sourceDomain2, reassignmentCounter1).value
+        assignment4 <- acs
+          .assignContract(coid01, toc4, sourceDomain2, reassignmentCounter1)
+          .value
+          .failOnShutdown
         archive2 <- acs.archiveContract(coid01, toc2).value
       } yield {
         assert(archive.successful, "archival succeeds")
@@ -1350,11 +1393,16 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         assignment1 <- acs
           .assignContract(coid00, toc1, sourceDomain1, initialReassignmentCounter)
           .value
+          .failOnShutdown
         fetch3 <- acs.fetchState(coid00)
-        assignment4 <- acs.assignContract(coid00, toc4, sourceDomain2, reassignmentCounter3).value
+        assignment4 <- acs
+          .assignContract(coid00, toc4, sourceDomain2, reassignmentCounter3)
+          .value
+          .failOnShutdown
         unassignment2 <- acs
           .unassignContracts(coid00, toc2, targetDomain1, reassignmentCounter1)
           .value
+          .failOnShutdown
         snapshot1 <- acs.snapshot(toc1.timestamp)
         snapshot2 <- acs.snapshot(toc2.timestamp)
         snapshot3 <- acs.snapshot(toc3.timestamp)
@@ -1409,7 +1457,10 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
           )
           .value
         _ <- acs.archiveContracts(Seq(coid00), toc2).value
-        _ <- acs.unassignContracts(coid11, toc2, targetDomain1, initialReassignmentCounter).value
+        _ <- acs
+          .unassignContracts(coid11, toc2, targetDomain1, initialReassignmentCounter)
+          .value
+          .failOnShutdown
         _ <- acs.archiveContracts(Seq(coid01), toc3).value
         _ <- acs
           .markContractsCreated(
@@ -1422,10 +1473,12 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
           .value // Transient contract coid21
         _ <- acs.prune(ts2).failOnShutdown
         status <- acs.pruningStatus.failOnShutdown
-        fetch <- acs.fetchStates(Seq(coid00, coid01, coid10, coid11, coid20, coid21))
+        fetch <- acs
+          .fetchStates(Seq(coid00, coid01, coid10, coid11, coid20, coid21))
+          .failOnShutdown
         count <- acs.contractCount(ts3)
         _ <- acs.prune(ts3).failOnShutdown
-        fetcha <- acs.fetchStates(Seq(coid20, coid21))
+        fetcha <- acs.fetchStates(Seq(coid20, coid21)).failOnShutdown
       } yield {
         status shouldBe Some(PruningStatus(PruningPhase.Completed, ts2, Some(ts2)))
         fetch shouldBe Map(
@@ -1466,7 +1519,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
       for {
         assignments <- activationsWithTC.parTraverse { case (toc, tc) =>
           acs.assignContract(coid00, toc, sourceDomain1, tc).value
-        }
+        }.failOnShutdown
         _ <- acs.prune(toc4.timestamp).failOnShutdown
         snapshotsTakenAfterIgnoredPrune <- activations.parTraverse(toc =>
           acs.snapshot(toc.timestamp)
@@ -1587,13 +1640,16 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         _ <- valueOrFail(acs.markContractCreated(coid00 -> initialReassignmentCounter, toc1))(
           s"create $coid00"
         )
-        _ <- acs.assignContract(coid00, toc0, sourceDomain1, initialReassignmentCounter).value
+        _ <- acs
+          .assignContract(coid00, toc0, sourceDomain1, initialReassignmentCounter)
+          .value
+          .failOnShutdown
         _ <- valueOrFail(acs.unassignContracts(coid00, toc32, targetDomain2, reassignmentCounter1))(
           s"unassign $coid00"
-        )
+        ).failOnShutdown
         _ <- valueOrFail(acs.assignContract(coid00, toc4, sourceDomain1, reassignmentCounter2))(
           s"assignment $coid00"
-        )
+        ).failOnShutdown
         _ <- acs.archiveContract(coid00, toc2).value
         fetch004 <- acs.fetchState(coid00)
         _ <- acs.deleteSince(rc + 3)
@@ -1670,12 +1726,12 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
           )
         )(
           s"assign contracts at $toc1"
-        )
+        ).failOnShutdown
         _ <- valueOrFail(
           acs.unassignContracts(Seq((coid01, targetDomain1, reassignmentCounter1, toc1)))
         )(
           s"unassign contracts at $toc1"
-        )
+        ).failOnShutdown
         snapshot1 <- acs.snapshot(ts)
         csnapshot1 <- acs.contractSnapshot(Set(coid00, coid01), ts)
 
@@ -1683,12 +1739,12 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
           acs.assignContract(coid01, toc2, sourceDomain1, reassignmentCounter2)
         )(
           s"assign contract at $toc2"
-        )
+        ).failOnShutdown
         _ <- valueOrFail(
           acs.unassignContracts(coid00, toc2, targetDomain1, reassignmentCounter1)
         )(
           s"unassign contract at $toc2"
-        )
+        ).failOnShutdown
         snapshot2 <- acs.snapshot(ts)
         csnapshot2 <- acs.contractSnapshot(Set(coid00, coid01), ts)
 
@@ -1696,7 +1752,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
           acs.assignContract(coid00, toc3, sourceDomain2, reassignmentCounter3)
         )(
           s"assign contract at $toc3"
-        )
+        ).failOnShutdown
         snapshot3 <- acs.snapshot(ts)
         csnapshot3 <- acs.contractSnapshot(Set(coid00, coid01), ts)
       } yield {
@@ -1730,31 +1786,31 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
           )
         )(
           s"assign contracts at $toc1"
-        )
+        ).failOnShutdown
         _ <- valueOrFail(
           acs.unassignContracts(Seq((coid01, targetDomain1, initialReassignmentCounter, toc1)))
         )(
           s"unassign contracts at $toc1"
-        )
+        ).failOnShutdown
         snapshot1 <- acs.snapshot(rc)
 
         _ <- valueOrFail(
           acs.assignContract(coid01, toc2, sourceDomain1, reassignmentCounter1)
         )(
           s"assign contract at $toc2"
-        )
+        ).failOnShutdown
         _ <- valueOrFail(
           acs.unassignContracts(coid00, toc2, targetDomain1, reassignmentCounter2)
         )(
           s"unassign contract at $toc2"
-        )
+        ).failOnShutdown
         snapshot2 <- acs.snapshot(rc)
 
         _ <- valueOrFail(
           acs.assignContract(coid00, toc3, sourceDomain2, reassignmentCounter3)
         )(
           s"assign contract at $toc3"
-        )
+        ).failOnShutdown
         snapshot3 <- acs.snapshot(rc)
       } yield {
         snapshot1 shouldBe Map(coid00 -> (toc1.rc, initialReassignmentCounter))
@@ -1793,19 +1849,19 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         )
         _ <- valueOrFail(acs.assignContract(coid11, toc2, sourceDomain2, reassignmentCounter1))(
           s"assign $coid11"
-        )
+        ).failOnShutdown
         _ <- valueOrFail(
           acs.unassignContracts(coid11, toc3, targetDomain2, reassignmentCounter2)
         )(
           s"unassign $coid11"
-        )
+        ).failOnShutdown
         _ <- valueOrFail(acs.archiveContract(coid10, toc3))(
           s"archive contract $coid10"
         )
 
         _ <- valueOrFail(acs.assignContract(coid11, toc4, sourceDomain2, reassignmentCounter3))(
           s"assign $coid11 again"
-        )
+        ).failOnShutdown
 
         _ <- valueOrFail(acs.archiveContract(coid11, toc5))(s"archive contract $coid11")
 
@@ -1879,15 +1935,19 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         unassignment2 <- acs
           .unassignContracts(coid01, TimeOfChange(rc2, ts2), targetDomain1, reassignmentCounter2)
           .value
+          .failOnShutdown
         assignment2 <- acs
           .assignContract(coid01, TimeOfChange(rc3, ts3), sourceDomain2, reassignmentCounter3)
           .value
+          .failOnShutdown
         unassignment3 <- acs
           .unassignContracts(coid01, TimeOfChange(rc3, ts4), targetDomain1, reassignmentCounter4)
           .value
+          .failOnShutdown
         assignment3 <- acs
           .assignContract(coid01, TimeOfChange(rc4, ts5), sourceDomain2, reassignmentCounter5)
           .value
+          .failOnShutdown
         archived3 <- acs.archiveContract(coid01, TimeOfChange(rc5, ts6)).value
         reassignmentCounterSnapshot2 <- acs.bulkContractsReassignmentCounterSnapshot(
           Set(coid01),
@@ -1910,9 +1970,11 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         assignment1 <- acs
           .assignContract(coid01, TimeOfChange(rc2, ts2), sourceDomain2, reassignmentCounter2)
           .value
+          .failOnShutdown
         assignment2 <- acs
           .assignContract(coid10, TimeOfChange(rc3, ts3), sourceDomain2, reassignmentCounter4)
           .value
+          .failOnShutdown
         archive <- acs.archiveContracts(Seq(coid00, coid01, coid10), TimeOfChange(rc4, ts4)).value
         reassignmentCounterSnapshot <- acs.bulkContractsReassignmentCounterSnapshot(
           Set(coid00, coid01, coid10),
@@ -1979,7 +2041,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
             deactivate.fold(CheckedT.pure[Future, AcsError, AcsWarning](()))(f => f(acs))
           )(s"deactivate contracts")
 
-          result <- acs.packageUsage(packageId, contractStore)
+          result <- acs.packageUsage(packageId, contractStore).failOnShutdown
         } yield {
           result
         }
@@ -1993,7 +2055,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
         } yield {
           none shouldBe None
         }
-      }
+      }.failOnShutdown
 
       "there is one active contract for the package" in {
         for {
@@ -2005,12 +2067,14 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
       "a contract is assigned for the package" in {
         for {
           resO <- activateMaybeDeactivate(activate = { acs =>
-            acs.assignContract(
-              coid00,
-              toc1,
-              Source(acsDomainId),
-              initialReassignmentCounter,
-            )
+            acs
+              .assignContract(
+                coid00,
+                toc1,
+                Source(acsDomainId),
+                initialReassignmentCounter,
+              )
+              .failOnShutdown
           })
         } yield { resO shouldBe Some(coid00) }
       }
@@ -2026,7 +2090,11 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
       "a contract from the package has been created and unassigned" in {
         for {
           resO <- activateMaybeDeactivate(deactivate =
-            Some(acs => acs.unassignContracts(coid00, toc2, targetDomain2, reassignmentCounter1))
+            Some(acs =>
+              acs
+                .unassignContracts(coid00, toc2, targetDomain2, reassignmentCounter1)
+                .failOnShutdown
+            )
           )
         } yield { resO shouldBe None }
       }
@@ -2046,10 +2114,10 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
             s"activate contracts $contracts"
           )
 
-          some <- acs.packageUsage(packageId, contractStore)
-          some1 <- acs.packageUsage(packageId1, contractStore)
-          some2 <- acs.packageUsage(packageId2, contractStore)
-          none <- acs.packageUsage(packageId3, contractStore)
+          some <- acs.packageUsage(packageId, contractStore).failOnShutdown
+          some1 <- acs.packageUsage(packageId1, contractStore).failOnShutdown
+          some2 <- acs.packageUsage(packageId2, contractStore).failOnShutdown
+          none <- acs.packageUsage(packageId3, contractStore).failOnShutdown
         } yield {
           forEvery(List(some, some1, some2).zip(contracts)) { case (result, contract) =>
             result shouldBe Some(contract._1)
@@ -2072,7 +2140,7 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
             acs.unassignContracts(coid00, toc2, targetDomain1, reassignmentCounter1)
           )(
             s"unassign contract at $toc2"
-          )
+          ).failOnShutdown
           _ <- valueOrFail(
             acs.assignContract(
               coid00,
@@ -2082,8 +2150,8 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
             )
           )(
             s"assign contract at $toc3"
-          )
-          some <- acs.packageUsage(packageId, contractStore)
+          ).failOnShutdown
+          some <- acs.packageUsage(packageId, contractStore).failOnShutdown
         } yield {
           some shouldBe Some(coid00)
         }
@@ -2108,9 +2176,9 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
             s"archive $coid00 at $toc2"
           )
 
-          some <- acs.packageUsage(packageId, contractStore)
-          some2 <- acs.packageUsage(packageId2, contractStore)
-          none <- acs.packageUsage(packageId3, contractStore)
+          some <- acs.packageUsage(packageId, contractStore).failOnShutdown
+          some2 <- acs.packageUsage(packageId2, contractStore).failOnShutdown
+          none <- acs.packageUsage(packageId3, contractStore).failOnShutdown
         } yield {
           some should (
             (be(Some(coid10)))
@@ -2123,5 +2191,15 @@ trait ActiveContractStoreTest extends PrunableByTimeTest {
 
       }
     }
+  }
+
+  private implicit class ConflictDetectionStoreOps[K, A <: PrettyPrinting](
+      store: ConflictDetectionStore[K, A]
+  ) {
+    def fetchState(id: K)(implicit traceContext: TraceContext): Future[Option[StateChange[A]]] =
+      store
+        .fetchStates(Seq(id))
+        .map(_.get(id))
+        .failOnShutdown
   }
 }

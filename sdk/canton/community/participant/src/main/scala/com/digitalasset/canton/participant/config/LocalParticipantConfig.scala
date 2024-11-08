@@ -193,8 +193,6 @@ final case class LedgerApiServerConfig(
     postgresDataSource: PostgresDataSourceConfig = PostgresDataSourceConfig(),
     databaseConnectionTimeout: config.NonNegativeFiniteDuration =
       LedgerApiServerConfig.DefaultDatabaseConnectionTimeout,
-    initSyncTimeout: config.NonNegativeFiniteDuration =
-      LedgerApiServerConfig.DefaultInitSyncTimeout,
     indexService: LedgerIndexServiceConfig = LedgerIndexServiceConfig(),
     commandService: CommandServiceConfig = CommandServiceConfig(),
     userManagementService: UserManagementServiceConfig = UserManagementServiceConfig(),
@@ -222,8 +220,6 @@ final case class LedgerApiServerConfig(
 
 object LedgerApiServerConfig {
 
-  private val DefaultInitSyncTimeout: config.NonNegativeFiniteDuration =
-    config.NonNegativeFiniteDuration.ofSeconds(10L)
   private val DefaultManagementServiceTimeout: config.NonNegativeFiniteDuration =
     config.NonNegativeFiniteDuration.ofMinutes(2L)
   private val DefaultDatabaseConnectionTimeout: config.NonNegativeFiniteDuration =
@@ -286,7 +282,7 @@ final case class ParticipantNodeParameterConfig(
     stores: ParticipantStoreConfig = ParticipantStoreConfig(),
     reassignmentTimeProofFreshnessProportion: NonNegativeInt = NonNegativeInt.tryCreate(3),
     minimumProtocolVersion: Option[ParticipantProtocolVersion] = Some(
-      ParticipantProtocolVersion(ProtocolVersion.v32)
+      ParticipantProtocolVersion(ProtocolVersion.v33)
     ),
     initialProtocolVersion: ParticipantProtocolVersion = ParticipantProtocolVersion(
       ProtocolVersion.latest

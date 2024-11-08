@@ -11,6 +11,7 @@ import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.ReportData
 import com.digitalasset.canton.ledger.participant.state.{DomainIndex, RequestIndex, Update}
+import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.{
   implicitExtractTraceContext,
   withEnrichedLoggingContext,
@@ -63,7 +64,11 @@ private class JdbcLedgerDao(
     globalMaxEventPayloadQueries: Int,
     tracer: Tracer,
     val loggerFactory: NamedLoggerFactory,
-    incompleteOffsets: (Offset, Option[Set[Ref.Party]], TraceContext) => Future[Vector[Offset]],
+    incompleteOffsets: (
+        Offset,
+        Option[Set[Ref.Party]],
+        TraceContext,
+    ) => FutureUnlessShutdown[Vector[Offset]],
     contractLoader: ContractLoader,
     translation: LfValueTranslation,
 ) extends LedgerDao
@@ -85,7 +90,7 @@ private class JdbcLedgerDao(
     */
   override def lookupLedgerEnd()(implicit
       loggingContext: LoggingContextWithTrace
-  ): Future[LedgerEnd] =
+  ): Future[Option[LedgerEnd]] =
     dbDispatcher
       .executeSql(metrics.index.db.getLedgerEnd)(
         parameterStorageBackend.ledgerEnd
@@ -125,7 +130,6 @@ private class JdbcLedgerDao(
               Traced[Update](
                 state.Update.PartyAddedToParticipant(
                   party = partyDetails.party,
-                  displayName = partyDetails.displayName.orNull,
                   // HACK: the `PartyAddedToParticipant` transmits `participantId`s, while here we only have the information
                   // whether the party is locally hosted or not. We use the `nonLocalParticipantId` to get the desired effect of
                   // the `isLocal = False` information to be transmitted via a `PartyAddedToParticpant` `Update`.
@@ -255,8 +259,8 @@ private class JdbcLedgerDao(
     *            the last ingested event offset before the migration, otherwise an INVALID_ARGUMENT response is returned.
     *            - On the first call with `pruneUpToInclusive` higher than the migration offset, all divulgence events are pruned.
     *
-    *        2.  Backwards compatibility restriction with regard to transaction-local divulgence in the WriteService:
-    *            - Ledgers populated with WriteService versions that do not forward transaction-local divulgence
+    *        2.  Backwards compatibility restriction with regard to transaction-local divulgence in the SyncService:
+    *            - Ledgers populated with SyncService versions that do not forward transaction-local divulgence
     *            will hydrate the index with the divulgence events only once for a specific contract-party divulgence relationship
     *            regardless of the number of re-divulgences of the contract to the same party have occurred after the initial one.
     *            - In this case, pruning of all divulged contracts might lead to interpretation failures for command submissions despite
@@ -266,7 +270,7 @@ private class JdbcLedgerDao(
     *            transaction-local divulgence.
     *
     *        3.  Backwards compatibility restriction with regard to backfilling lookups:
-    *            - Ledgers populated with an old KV WriteService that does not forward divulged contract instances
+    *            - Ledgers populated with an old KV SyncService that does not forward divulged contract instances
     *            to the ReadService (see [[com.digitalasset.canton.ledger.participant.state.kvutils.committer.transaction.TransactionCommitter.blind]])
     *            will hydrate the divulgence entries in the index without the create argument and template id.
     *            - During command interpretation, on looking up a divulged contract, the create argument and template id
@@ -564,7 +568,11 @@ private[platform] object JdbcLedgerDao {
       globalMaxEventPayloadQueries: Int,
       tracer: Tracer,
       loggerFactory: NamedLoggerFactory,
-      incompleteOffsets: (Offset, Option[Set[Ref.Party]], TraceContext) => Future[Vector[Offset]],
+      incompleteOffsets: (
+          Offset,
+          Option[Set[Ref.Party]],
+          TraceContext,
+      ) => FutureUnlessShutdown[Vector[Offset]],
       contractLoader: ContractLoader = ContractLoader.dummyLoader,
       lfValueTranslation: LfValueTranslation,
   ): LedgerReadDao =
@@ -633,7 +641,7 @@ private[platform] object JdbcLedgerDao {
       globalMaxEventPayloadQueries = globalMaxEventPayloadQueries,
       tracer = tracer,
       loggerFactory = loggerFactory,
-      incompleteOffsets = (_, _, _) => Future.successful(Vector.empty),
+      incompleteOffsets = (_, _, _) => FutureUnlessShutdown.pure(Vector.empty),
       contractLoader = contractLoader,
       translation = lfValueTranslation,
     )

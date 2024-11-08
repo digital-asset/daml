@@ -3,10 +3,10 @@
 
 package com.digitalasset.canton.fetchcontracts.util
 
-import com.digitalasset.daml.lf
 import com.daml.ledger.api.v2 as lav2
-import com.digitalasset.daml.lf.data.Ref.{DottedName, ModuleName, PackageId, QualifiedName}
 import com.digitalasset.canton.http.domain.ContractTypeId
+import com.digitalasset.daml.lf
+import com.digitalasset.daml.lf.data.Ref.{DottedName, ModuleName, PackageId, QualifiedName}
 
 object IdentifierConverters {
   def apiIdentifier(a: lf.data.Ref.Identifier): lav2.value.Identifier =

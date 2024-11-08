@@ -59,6 +59,16 @@ class DirectGrpcServiceInvocationTest
       result.errors shouldBe empty
     }
 
+    "allow equality comparisons" in {
+      val result = WartTestTraverser(DirectGrpcServiceInvocation) {
+        val service = ??? : MyServiceStub
+        service.equals(service)
+        service == service
+        service eq service
+      }
+      result.errors shouldBe empty
+    }
+
     "honor annotated constructors" in {
       val result = WartTestTraverser(DirectGrpcServiceInvocation) {
         val service = ??? : MyServiceStub
@@ -125,7 +135,6 @@ class DirectGrpcServiceInvocationTest
 
       result.errors shouldBe empty
     }
-
   }
 }
 

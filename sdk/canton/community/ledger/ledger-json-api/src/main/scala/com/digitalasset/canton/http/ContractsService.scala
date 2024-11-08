@@ -3,27 +3,6 @@
 
 package com.digitalasset.canton.http
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.http.scaladsl.model.StatusCodes
-import org.apache.pekko.stream.scaladsl.*
-import com.digitalasset.daml.lf
-import com.digitalasset.canton.http.LedgerClientJwt.Terminates
-import com.digitalasset.canton.http.json.JsonProtocol.LfValueCodec
-import com.digitalasset.canton.http.domain.{
-  ActiveContract,
-  ContractTypeId,
-  GetActiveContractsRequest,
-  JwtPayload,
-}
-import util.ApiValueToLfValueConverter
-import com.digitalasset.canton.fetchcontracts.AcsTxStreams.transactionFilter
-import com.digitalasset.canton.fetchcontracts.util.ContractStreamStep.{Acs, LiveBegin}
-import com.digitalasset.canton.fetchcontracts.util.GraphExtensions.*
-import com.digitalasset.canton.http.Endpoints.ET
-import com.digitalasset.canton.http.PackageService.ResolveContractTypeId.Overload
-import com.digitalasset.canton.http.metrics.HttpApiMetrics
-import com.digitalasset.canton.http.util.FutureUtil.{either, eitherT}
-import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
 import com.daml.jwt.Jwt
 import com.daml.ledger.api.v2 as lav2
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
@@ -33,14 +12,38 @@ import com.daml.logging.LoggingContextOf
 import com.daml.metrics.Timed
 import com.daml.metrics.api.MetricHandle
 import com.daml.nonempty.NonEmpty
-import com.daml.scalautil.ExceptionOps.*
 import com.daml.nonempty.NonEmptyReturningOps.*
+import com.daml.scalautil.ExceptionOps.*
+import com.digitalasset.canton.fetchcontracts.AcsTxStreams.transactionFilter
+import com.digitalasset.canton.fetchcontracts.util.ContractStreamStep.{Acs, LiveBegin}
+import com.digitalasset.canton.fetchcontracts.util.GraphExtensions.*
 import com.digitalasset.canton.fetchcontracts.util.{
   AbsoluteBookmark,
   ContractStreamStep,
   InsertDeleteStep,
 }
+import com.digitalasset.canton.http.Endpoints.ET
 import com.digitalasset.canton.http.EndpointsCompanion.NotFound
+import com.digitalasset.canton.http.LedgerClientJwt.Terminates
+import com.digitalasset.canton.http.PackageService.ResolveContractTypeId.Overload
+import com.digitalasset.canton.http.domain.{
+  ActiveContract,
+  ContractTypeId,
+  GetActiveContractsRequest,
+  JwtPayload,
+}
+import com.digitalasset.canton.http.json.JsonProtocol.LfValueCodec
+import com.digitalasset.canton.http.metrics.HttpApiMetrics
+import com.digitalasset.canton.http.util.FutureUtil.{either, eitherT}
+import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.platform.ApiOffset
+import com.digitalasset.canton.tracing.NoTracing
+import com.digitalasset.daml.lf
+import org.apache.pekko.NotUsed
+import org.apache.pekko.http.scaladsl.model.StatusCodes
+import org.apache.pekko.stream.scaladsl.*
+import scalaz.std.scalaFuture.*
 import scalaz.syntax.show.*
 import scalaz.syntax.std.option.*
 import scalaz.syntax.traverse.*
@@ -48,10 +51,8 @@ import scalaz.{-\/, EitherT, Show, \/, \/-}
 import spray.json.JsValue
 
 import scala.concurrent.{ExecutionContext, Future}
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.platform.ApiOffset
-import com.digitalasset.canton.tracing.NoTracing
-import scalaz.std.scalaFuture.*
+
+import util.ApiValueToLfValueConverter
 
 class ContractsService(
     resolveContractTypeId: PackageService.ResolveContractTypeId,

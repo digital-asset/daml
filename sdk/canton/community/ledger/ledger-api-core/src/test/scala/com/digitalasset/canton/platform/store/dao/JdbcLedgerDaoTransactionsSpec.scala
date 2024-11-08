@@ -212,8 +212,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       resultForAlice <- transactionsOf(
         ledgerDao.transactionsReader
           .getFlatTransactions(
-            startExclusive = Offset.fromAbsoluteOffsetO(from.lastOffset),
-            endInclusive = Offset.fromAbsoluteOffsetO(to.lastOffset),
+            startExclusive = Offset.fromAbsoluteOffsetO(from.map(_.lastOffset)),
+            endInclusive = Offset.fromAbsoluteOffset(to.value.lastOffset),
             filter = TemplatePartiesFilter(Map.empty, Some(Set(alice))),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
@@ -224,8 +224,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       resultForBob <- transactionsOf(
         ledgerDao.transactionsReader
           .getFlatTransactions(
-            startExclusive = Offset.fromAbsoluteOffsetO(from.lastOffset),
-            endInclusive = Offset.fromAbsoluteOffsetO(to.lastOffset),
+            startExclusive = Offset.fromAbsoluteOffsetO(from.map(_.lastOffset)),
+            endInclusive = Offset.fromAbsoluteOffset(to.value.lastOffset),
             filter = TemplatePartiesFilter(Map.empty, Some(Set(bob))),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
@@ -236,8 +236,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       resultForCharlie <- transactionsOf(
         ledgerDao.transactionsReader
           .getFlatTransactions(
-            startExclusive = Offset.fromAbsoluteOffsetO(from.lastOffset),
-            endInclusive = Offset.fromAbsoluteOffsetO(to.lastOffset),
+            startExclusive = Offset.fromAbsoluteOffsetO(from.map(_.lastOffset)),
+            endInclusive = Offset.fromAbsoluteOffset(to.value.lastOffset),
             filter = TemplatePartiesFilter(Map.empty, Some(Set(charlie))),
             eventProjectionProperties = EventProjectionProperties(
               verbose = true,
@@ -269,8 +269,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       result <- transactionsOf(
         ledgerDao.transactionsReader
           .getFlatTransactions(
-            startExclusive = Offset.fromAbsoluteOffsetO(from.lastOffset),
-            endInclusive = Offset.fromAbsoluteOffsetO(to.lastOffset),
+            startExclusive = Offset.fromAbsoluteOffsetO(from.map(_.lastOffset)),
+            endInclusive = Offset.fromAbsoluteOffset(to.value.lastOffset),
             filter =
               TemplatePartiesFilter(Map(otherTemplateId -> Some(Set(alice))), Some(Set.empty)),
             eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
@@ -301,8 +301,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       result <- transactionsOf(
         ledgerDao.transactionsReader
           .getFlatTransactions(
-            startExclusive = Offset.fromAbsoluteOffsetO(from.lastOffset),
-            endInclusive = Offset.fromAbsoluteOffsetO(to.lastOffset),
+            startExclusive = Offset.fromAbsoluteOffsetO(from.map(_.lastOffset)),
+            endInclusive = Offset.fromAbsoluteOffset(to.value.lastOffset),
             filter = TemplatePartiesFilter(
               relation = Map(
                 otherTemplateId -> Some(Set(alice, bob))
@@ -315,8 +315,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       resultPartyWildcard <- transactionsOf(
         ledgerDao.transactionsReader
           .getFlatTransactions(
-            startExclusive = Offset.fromAbsoluteOffsetO(from.lastOffset),
-            endInclusive = Offset.fromAbsoluteOffsetO(to.lastOffset),
+            startExclusive = Offset.fromAbsoluteOffsetO(from.map(_.lastOffset)),
+            endInclusive = Offset.fromAbsoluteOffset(to.value.lastOffset),
             filter = TemplatePartiesFilter(
               relation = Map(otherTemplateId -> None),
               templateWildcardParties = Some(Set.empty),
@@ -358,8 +358,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       result <- transactionsOf(
         ledgerDao.transactionsReader
           .getFlatTransactions(
-            startExclusive = Offset.fromAbsoluteOffsetO(from.lastOffset),
-            endInclusive = Offset.fromAbsoluteOffsetO(to.lastOffset),
+            startExclusive = Offset.fromAbsoluteOffsetO(from.map(_.lastOffset)),
+            endInclusive = Offset.fromAbsoluteOffset(to.value.lastOffset),
             filter = TemplatePartiesFilter(
               relation = Map(
                 otherTemplateId -> Some(Set(bob)),
@@ -373,8 +373,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       resultPartyWildcard <- transactionsOf(
         ledgerDao.transactionsReader
           .getFlatTransactions(
-            startExclusive = Offset.fromAbsoluteOffsetO(from.lastOffset),
-            endInclusive = Offset.fromAbsoluteOffsetO(to.lastOffset),
+            startExclusive = Offset.fromAbsoluteOffsetO(from.map(_.lastOffset)),
+            endInclusive = Offset.fromAbsoluteOffset(to.value.lastOffset),
             filter = TemplatePartiesFilter(
               relation = Map(
                 otherTemplateId -> None,
@@ -418,8 +418,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       result <- transactionsOf(
         ledgerDao.transactionsReader
           .getFlatTransactions(
-            startExclusive = Offset.fromAbsoluteOffsetO(from.lastOffset),
-            endInclusive = Offset.fromAbsoluteOffsetO(to.lastOffset),
+            startExclusive = Offset.fromAbsoluteOffsetO(from.map(_.lastOffset)),
+            endInclusive = Offset.fromAbsoluteOffset(to.value.lastOffset),
             filter = TemplatePartiesFilter(
               Map(
                 otherTemplateId -> Some(Set(alice))
@@ -432,8 +432,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       resultPartyWildcard <- transactionsOf(
         ledgerDao.transactionsReader
           .getFlatTransactions(
-            startExclusive = Offset.fromAbsoluteOffsetO(from.lastOffset),
-            endInclusive = Offset.fromAbsoluteOffsetO(to.lastOffset),
+            startExclusive = Offset.fromAbsoluteOffsetO(from.map(_.lastOffset)),
+            endInclusive = Offset.fromAbsoluteOffset(to.value.lastOffset),
             filter = TemplatePartiesFilter(
               Map(
                 otherTemplateId -> None
@@ -467,7 +467,7 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       (offset, exercise) <- store(exerciseWithChild(firstContractId))
       result <- ledgerDao.transactionsReader
         .getFlatTransactions(
-          Offset.fromAbsoluteOffsetO(from.lastOffset),
+          Offset.fromAbsoluteOffsetO(from.map(_.lastOffset)),
           offset,
           TemplatePartiesFilter(Map.empty, Some(exercise.actAs.toSet)),
           eventProjectionProperties = EventProjectionProperties(verbose = true, Some(Set.empty)),
@@ -632,8 +632,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
           to <- ledgerDao.lookupLedgerEnd()
           response <- ledgerDao.transactionsReader
             .getFlatTransactions(
-              Offset.fromAbsoluteOffsetO(from.lastOffset),
-              Offset.fromAbsoluteOffsetO(to.lastOffset),
+              Offset.fromAbsoluteOffsetO(from.map(_.lastOffset)),
+              Offset.fromAbsoluteOffset(to.value.lastOffset),
               cp.filter,
               EventProjectionProperties(verbose = true, Some(Set.empty)),
             )
@@ -682,8 +682,8 @@ private[dao] trait JdbcLedgerDaoTransactionsSpec extends OptionValues with Insid
       (_, t4) <- store(fullyTransient())
       to <- ledgerDao.lookupLedgerEnd()
     } yield (
-      Offset.fromAbsoluteOffsetO(from.lastOffset),
-      Offset.fromAbsoluteOffsetO(to.lastOffset),
+      Offset.fromAbsoluteOffsetO(from.map(_.lastOffset)),
+      Offset.fromAbsoluteOffset(to.value.lastOffset),
       Seq(t1, t2, t3, t4),
     )
 

@@ -139,7 +139,7 @@ object Availability {
         SupportedProtoVersions(
           ProtoVersion(30) ->
             VersionedProtoConverter(
-              ProtocolVersion.v32
+              ProtocolVersion.v33
             )(v1.AvailabilityMessage)(
               supportedProtoVersionMemoized(_)(
                 RemoteBatch.fromProtoAvailabilityMessage
@@ -216,7 +216,7 @@ object Availability {
         SupportedProtoVersions(
           ProtoVersion(30) ->
             VersionedProtoConverter(
-              ProtocolVersion.v32
+              ProtocolVersion.v33
             )(v1.AvailabilityMessage)(
               supportedProtoVersionMemoized(_)(
                 RemoteBatchAcknowledged.fromAvailabilityMessage
@@ -335,7 +335,7 @@ object Availability {
         SupportedProtoVersions(
           ProtoVersion(30) ->
             VersionedProtoConverter(
-              ProtocolVersion.v32
+              ProtocolVersion.v33
             )(v1.AvailabilityMessage)(
               supportedProtoVersionMemoized(_)(
                 FetchRemoteBatchData.fromAvailabilityMessage
@@ -410,7 +410,7 @@ object Availability {
         SupportedProtoVersions(
           ProtoVersion(30) ->
             VersionedProtoConverter(
-              ProtocolVersion.v32
+              ProtocolVersion.v33
             )(v1.AvailabilityMessage)(
               supportedProtoVersionMemoized(_)(
                 RemoteBatchDataFetched.fromAvailabilityMessage

@@ -4,24 +4,27 @@
 package com.digitalasset.canton.http.json.v2
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
-import com.daml.ledger.api.v2.state_service
-import com.daml.ledger.api.v2.transaction_filter
-import com.daml.ledger.api.v2.reassignment
+import com.daml.ledger.api.v2.{reassignment, state_service, transaction_filter}
 import com.digitalasset.canton.http.WebsocketConfig
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
+import com.digitalasset.canton.http.json.v2.JsContractEntry.{
+  JsActiveContract,
+  JsContractEntry,
+  JsIncompleteAssigned,
+  JsIncompleteUnassigned,
+}
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.http.json.v2.JsSchema.{JsCantonError, JsEvent}
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import sttp.tapir.generic.auto.*
-import sttp.tapir.json.circe.*
-import com.digitalasset.canton.http.json.v2.JsContractEntry.{JsActiveContract, JsContractEntry, JsIncompleteAssigned, JsIncompleteUnassigned}
 import com.digitalasset.canton.ledger.client.LedgerClient
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
 import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Flow
 import sttp.capabilities.pekko.PekkoStreams
+import sttp.tapir.generic.auto.*
+import sttp.tapir.json.circe.*
 import sttp.tapir.{CodecFormat, query, webSocketBody}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -33,7 +36,7 @@ class JsStateService(
 )(implicit
     val executionContext: ExecutionContext,
     val esf: ExecutionSequencerFactory,
-  wsConfig: WebsocketConfig,
+    wsConfig: WebsocketConfig,
 ) extends Endpoints
     with NamedLogging {
 
@@ -63,11 +66,14 @@ class JsStateService(
 
   private def getConnectedDomains(
       callerContext: CallerContext
-  ): TracedInput[String] => Future[
+  ): TracedInput[(String, Option[String])] => Future[
     Either[JsCantonError, state_service.GetConnectedDomainsResponse]
   ] = req =>
     stateServiceClient(callerContext.token())(req.traceContext)
-      .getConnectedDomains(state_service.GetConnectedDomainsRequest(party = req.in))
+      .getConnectedDomains(
+        state_service
+          .GetConnectedDomainsRequest(party = req.in._1, participantId = req.in._2.getOrElse(""))
+      )
       .resultToRight
 
   private def getLedgerEnd(
@@ -128,6 +134,7 @@ object JsStateService {
   val getConnectedDomainsEndpoint = state.get
     .in(sttp.tapir.stringToPath("connected-domains"))
     .in(query[String]("party"))
+    .in(query[Option[String]]("participantId"))
     .out(jsonBody[state_service.GetConnectedDomainsResponse])
     .description("Get connected domains")
 

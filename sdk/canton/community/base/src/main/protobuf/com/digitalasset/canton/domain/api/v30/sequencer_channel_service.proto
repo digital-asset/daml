@@ -31,28 +31,33 @@ service SequencerChannelService {
 message ConnectToSequencerChannelRequest {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
 
-  // Exactly the first message of the channel request stream must contain SequencerChannelMetadata
+  // Exactly the first message of the channel request stream must be SequencerChannelMetadata
   // for use by the sequencer channel service to match channel endpoint members.
   // Payload from the second message onward is opaque to the sequencer channel service and client.
-  // Required
-  bytes payload = 1;
+  oneof request {
+    SequencerChannelMetadata metadata = 1;
+    bytes payload = 2;
+  }
 
   // Canton trace context
   // Required
-  com.digitalasset.canton.v30.TraceContext trace_context = 2;
+  com.digitalasset.canton.v30.TraceContext trace_context = 3;
 }
 
 message ConnectToSequencerChannelResponse {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
-  // Exactly the first message of the channel response stream must contain SequencerChannelConnectedToMembers
+  // Exactly the first message of the channel response stream must be SequencerChannelConnectedToMembers
   // for use by the sequencer channel client to notify the request initiator that the channel is ready for use.
   // Payload from the second message onward is opaque to the sequencer channel service and client.
   // Required
-  bytes payload = 1;
+  oneof response {
+    SequencerChannelConnectedToAllEndpoints connected = 1;
+    bytes payload = 2;
+  }
 
   // Canton trace context
   // Required
-  com.digitalasset.canton.v30.TraceContext trace_context = 2;
+  com.digitalasset.canton.v30.TraceContext trace_context = 3;
 }
 
 message PingRequest {
@@ -64,8 +69,6 @@ message PingResponse {
 }
 
 // Metadata for a sequencer channel to be established between two members.
-// Sent by the sequencer channel client to the sequencer channel service as binary payload in
-// the ConnectToSequencerChannelRequest.payload field.
 message SequencerChannelMetadata {
   option (scalapb.message).companion_extends = "com.digitalasset.canton.version.AlphaProtoVersion";
   // Channel identifier

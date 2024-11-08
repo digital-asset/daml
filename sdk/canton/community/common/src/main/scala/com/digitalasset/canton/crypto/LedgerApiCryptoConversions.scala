@@ -3,7 +3,7 @@
 
 package com.digitalasset.canton.crypto
 
-import com.daml.ledger.api.v2.interactive_submission_service as iss
+import com.daml.ledger.api.v2.interactive.interactive_submission_service as iss
 import io.scalaland.chimney.Transformer
 
 /** Utility methods to convert between Canton crypto classes and their equivalent on the ledger API.

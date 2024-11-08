@@ -5,9 +5,9 @@ package com.digitalasset.canton.http.json.v2
 
 import com.daml.ledger.api.v2.admin.identity_provider_config_service
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
-import com.digitalasset.canton.ledger.client.services.admin.IdentityProviderConfigClient
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError
+import com.digitalasset.canton.ledger.client.services.admin.IdentityProviderConfigClient
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.InvalidArgument
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext

@@ -157,7 +157,7 @@ object Consensus {
         SupportedProtoVersions(
           ProtoVersion(30) ->
             VersionedProtoConverter(
-              ProtocolVersion.v32
+              ProtocolVersion.v33
             )(v1.StateTransferMessage)(
               supportedProtoVersionMemoized(_)(
                 fromProtoStateTransferMessage
@@ -300,7 +300,7 @@ object Consensus {
         SupportedProtoVersions(
           ProtoVersion(30) ->
             VersionedProtoConverter(
-              ProtocolVersion.v32
+              ProtocolVersion.v33
             )(v1.StateTransferMessage)(
               supportedProtoVersionMemoized(_)(
                 fromProtoStateTransferMessage

@@ -79,6 +79,19 @@ object QueryStrategy {
     }
   }
 
+  /** Expression for `(eventSeqId > limit)`
+    *
+    * The column must only contain valid integers (no NULLs)
+    */
+  def eventSeqIdIsGreater(
+      nonNullableColumn: String,
+      limitO: Option[Long],
+  ): CompositeSql =
+    limitO match {
+      case None => cSQL"#${constBooleanWhere(true)}"
+      case Some(limit) => cSQL"#$nonNullableColumn > $limit"
+    }
+
   /** Expression for `(startExclusive < offset <= endExclusive)`
     *
     * The offset column must only contain valid offsets (no NULL, no Offset.beforeBegin)

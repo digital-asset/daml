@@ -10,7 +10,7 @@ sealed trait PruningResult extends Product with Serializable
 object PruningResult {
 
   /** Pruning has been performed. Commits the ledger api server to prune at the same offset as passed to the
-    * WriteService.
+    * SyncService.
     */
   case object ParticipantPruned extends PruningResult
 

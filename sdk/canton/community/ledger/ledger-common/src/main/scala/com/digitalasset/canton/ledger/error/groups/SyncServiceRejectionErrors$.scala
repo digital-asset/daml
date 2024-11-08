@@ -13,13 +13,13 @@ import com.daml.error.{
   Explanation,
   Resolution,
 }
-import com.digitalasset.canton.ledger.error.ParticipantErrorGroup.LedgerApiErrorGroup.WriteServiceRejectionErrorGroup
+import com.digitalasset.canton.ledger.error.ParticipantErrorGroup.LedgerApiErrorGroup.SyncServiceRejectionErrorGroup
 import com.digitalasset.daml.lf.transaction.GlobalKey
 
 @Explanation(
   "Generic submission rejection errors returned by the backing ledger's write service."
 )
-object WriteServiceRejectionErrors extends WriteServiceRejectionErrorGroup {
+object SyncServiceRejectionErrors$ extends SyncServiceRejectionErrorGroup {
   @Explanation("The submitting party has not been allocated.")
   @Resolution(
     "Check that the party identifier is correct, allocate the submitting party, " +

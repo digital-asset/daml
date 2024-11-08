@@ -1094,7 +1094,7 @@ private[conflictdetection] trait RequestTrackerTest {
           _.errorMessage should include("A task failed with an exception."),
           _.errorMessage should include("A task failed with an exception."),
         )
-        contracts <- acs.fetchStates(Seq(coid00, coid10))
+        contracts <- acs.fetchStates(Seq(coid00, coid10)).failOnShutdown
       } yield {
         commit0 shouldBe failure
         commitF1.value.failOnShutdown.isCompleted shouldBe false
@@ -1240,7 +1240,11 @@ private[conflictdetection] trait RequestTrackerTest {
       coid: LfContractId,
       state: Option[ContractState],
   )(clue: String): Future[Assertion] =
-    acs.fetchState(coid).map(result => assert(result == state, clue))
+    acs
+      .fetchStates(Seq(coid))
+      .map(_.get(coid))
+      .failOnShutdown
+      .map(result => assert(result == state, clue))
 
   protected def checkSnapshot(
       acs: ActiveContractStore,
