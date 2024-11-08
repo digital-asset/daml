@@ -6,7 +6,6 @@ package upgrade
 
 import com.daml.bazeltools.BazelRunfiles
 import com.daml.integrationtest.CantonFixture
-import com.digitalasset.daml.lf.archive.{DarReader}
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.google.protobuf.ByteString
 import org.scalatest.{Assertion, Inside}
@@ -18,6 +17,11 @@ import java.io.File
 import java.io.FileInputStream
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
+import com.digitalasset.daml.lf.archive.{Dar, DarReader, DarWriter}
+import com.digitalasset.daml.lf.language.LanguageVersion
+import com.daml.SdkVersion
+import com.daml.crypto.MessageDigestPrototype
+
 
 abstract class UpgradesSpecAdminAPI(override val suffix: String) extends UpgradesSpec(suffix) {
   override def uploadPackageRaw(
@@ -92,6 +96,23 @@ trait LongTests { this: UpgradesSpec =>
           "1.0.0"
         ),
       )
+    }
+
+    s"daml-prim with serializable datatypes can't upload" in {
+      for {
+        result <- uploadPackageRaw(
+          mkTrivialPkg("daml-prim", "0.0.0", LanguageVersion.Features.default, "T1"),
+          false
+        )
+      } yield {
+        val (pkgId, mbErr) = result
+        mbErr match {
+          case None => fail("daml-prim should not succeed")
+          case Some(err) => {
+            err.toString should include(s"Tried to upload a package $pkgId (daml-prim v0.0.0), but this package is not a utility package. All packages named `daml-prim` must be a utility package.")
+          }
+        }
+      }
     }
   }
 }
@@ -362,6 +383,48 @@ abstract class UpgradesSpec(val suffix: String)
     assertPackageUpgradeCheckGeneral(failureMessage)((v1depId, v1._2), (v2depId, v2._2), true)(
       cantonLogSrc
     )
+  }
+
+
+  def mkTrivialPkg(pkgName: String, pkgVersion: String, lfVersion: LanguageVersion, templateName: String): (PackageId, ByteString) = {
+    import com.digitalasset.daml.lf.testing.parser._
+    import com.digitalasset.daml.lf.testing.parser.Implicits._
+    import com.digitalasset.daml.lf.archive.testing.Encode
+
+    val selfPkgId = PackageId.assertFromString("-self-")
+
+    implicit val parserParameters: ParserParameters[this.type] =
+      ParserParameters(
+        defaultPackageId = selfPkgId,
+        languageVersion = lfVersion,
+      )
+
+    val pkg =
+      p""" metadata ( '$pkgName' : '$pkgVersion' )
+      module Mod {
+        record @serializable $templateName = { sig: Party };
+        template (this: $templateName) = {
+           precondition True;
+           signatories Cons @Party [Mod:$templateName {sig} this] (Nil @Party);
+           observers Nil @Party;
+        };
+      }"""
+
+    val archive = Encode.encodeArchive(selfPkgId -> pkg, lfVersion)
+    val pkgId = PackageId.assertFromString(
+      MessageDigestPrototype.Sha256.newDigest
+        .digest(archive.getPayload.toByteArray)
+        .map("%02x" format _)
+        .mkString
+    )
+    val os = ByteString.newOutput()
+    DarWriter.encode(
+      SdkVersion.sdkVersion,
+      Dar(("archive.dalf", archive.toByteArray), List()),
+      os,
+    )
+
+    pkgId -> os.toByteString
   }
 
   def filterLog(log: String, str: String): String =
