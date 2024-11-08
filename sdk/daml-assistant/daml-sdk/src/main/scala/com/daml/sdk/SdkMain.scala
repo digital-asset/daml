@@ -14,7 +14,7 @@ object SdkMain {
     command match {
       case "script" => Script.main(rest)
       case "codegen" => Codegen.main(rest)
-      case "upgrade-check" => UpgradeCheckMain.main(rest)
+      case "upgrade-check" => UpgradeCheckMain.default.main(rest)
       case _ => sys.exit(1)
     }
   }

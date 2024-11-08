@@ -12,6 +12,7 @@ load(
     "version_in",
 )
 load("//test-common:test-common.bzl", "da_scala_dar_resources_library")
+load("//test-common:test-common.bzl", "opts_get_lf_version")
 load("//rules_daml:daml.bzl", "daml_compile", "default_damlc_opts")
 load("//daml-lf/language:daml-lf.bzl", "mangle_for_java")
 
@@ -173,7 +174,6 @@ da_scala_dar_resources_library(
     for identifier in [
         "FailsWhenDepsDowngradeVersionsWhileUsingDatatypes",
         "SucceedsWhenDepsDowngradeVersionsWithoutUsingDatatypes",
-        "WarnsWhenExpressionChangesUtilityToSchemaPackage",
         "WarnsWhenExpressionChangesFromNonUpgradeablePackages",
         "WarnsWhenExpressionDowngradesVersion",
         "WarnsWhenExpressionChangesBindingOrder",
@@ -194,7 +194,7 @@ da_scala_dar_resources_library(
                 "data_dependencies",
                 default = [],
             ),
-            dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
+            dependencies = ["//daml-script/daml:daml-script-{}.dar".format(opts_get_lf_version(v1opts))],
             enable_interfaces = True,
             ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
             module_prefixes = v1opts.get(
@@ -202,7 +202,7 @@ da_scala_dar_resources_library(
                 default = {},
             ),
             project_name = "upgrades-example-{}".format(identifier),
-            target = "2.dev",
+            target = opts_get_lf_version(v1opts),
             version = "1.0.0",
             visibility = ["//visibility:public"],
         ),
@@ -213,7 +213,7 @@ da_scala_dar_resources_library(
                 "data_dependencies",
                 default = [],
             ),
-            dependencies = ["//daml-script/daml:daml-script-2.dev.dar"],
+            dependencies = ["//daml-script/daml:daml-script-{}.dar".format(opts_get_lf_version(v2opts))],
             enable_interfaces = True,
             ghc_options = default_damlc_opts + ["--ghc-option=-Wno-unused-imports"],
             module_prefixes = v2opts.get(
@@ -221,7 +221,7 @@ da_scala_dar_resources_library(
                 default = {},
             ),
             project_name = "upgrades-example-{}".format(identifier),
-            target = "2.dev",
+            target = opts_get_lf_version(v2opts),
             # We want to check the validity of this upgrade on the ledger
             # client, not during compilation
             typecheck_upgrades = False,
@@ -373,6 +373,16 @@ da_scala_dar_resources_library(
         ("FailWhenParamCountChanges", {}, {}),
         ("SucceedWhenParamNameChanges", {}, {}),
         ("SucceedWhenPhantomParamBecomesUsed", {}, {}),
+        (
+            "FailsWhenNewerPackagesUsesAnOlderLFVersion",
+            {"lf_version": "2.dev"},
+            {"lf_version": "2.1"},
+        ),
+        (
+            "SucceedsWhenNewerPackagesUsesANewerLFVersion",
+            {"lf_version": "2.1"},
+            {"lf_version": "2.dev"},
+        ),
     ]
 ]
 
@@ -482,6 +492,7 @@ da_scala_dar_resources_library(
         "FailsWithSynonymReturnTypeChangeInSeparatePackage",
         "SucceedsWhenUpgradingADependency",
         "FailsWhenDependencyIsNotAValidUpgrade",
+        "WarnsWhenExpressionChangesUtilityToSchemaPackage",
     ]
 ]
 
