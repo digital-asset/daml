@@ -299,7 +299,6 @@ private[backend] object AppendOnlySchema {
         "recorded_at" -> fieldStrategy.bigint(_ => _.recorded_at),
         "submission_id" -> fieldStrategy.stringOptional(_ => _.submission_id),
         "party" -> fieldStrategy.stringOptional(_ => _.party),
-        "display_name" -> fieldStrategy.stringOptional(_ => _.display_name),
         "typ" -> fieldStrategy.string(_ => _.typ),
         "rejection_reason" -> fieldStrategy.stringOptional(_ => _.rejection_reason),
         "is_local" -> fieldStrategy.booleanOptional(_ => _.is_local),

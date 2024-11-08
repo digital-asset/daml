@@ -15,7 +15,11 @@ import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
-import com.digitalasset.canton.version.{DamlLfVersionToProtocolVersions, ProtocolVersion}
+import com.digitalasset.canton.version.{
+  DamlLfVersionToProtocolVersions,
+  HashingSchemeVersion,
+  ProtocolVersion,
+}
 import com.digitalasset.canton.{LfPackageId, LfPartyId}
 import com.digitalasset.daml.lf.transaction.TransactionVersion
 
@@ -30,6 +34,7 @@ object UsableDomain {
       requiredPackagesByParty: Map[LfPartyId, Set[LfPackageId]],
       transactionVersion: LfLanguageVersion,
       ledgerTime: CantonTimestamp,
+      interactiveSubmissionVersionO: Option[HashingSchemeVersion],
   )(implicit
       ec: ExecutionContext,
       tc: TraceContext,
@@ -47,14 +52,40 @@ object UsableDomain {
       checkConnectedParties(domainId, snapshot, requiredPackagesByParty.keySet)
     val compatibleProtocolVersion: EitherT[Future, UnsupportedMinimumProtocolVersion, Unit] =
       checkProtocolVersion(domainId, protocolVersion, transactionVersion)
+    val compatibleInteractiveSubmissionVersion: EitherT[Future, DomainNotUsedReason, Unit] =
+      checkInteractiveSubmissionVersion(domainId, interactiveSubmissionVersionO, protocolVersion)
+        .leftWiden[DomainNotUsedReason]
 
     for {
       _ <- packageVetted.leftWiden[DomainNotUsedReason]
       _ <- partiesConnected.leftWiden[DomainNotUsedReason]
       _ <- compatibleProtocolVersion.leftWiden[DomainNotUsedReason]
+      _ <- compatibleInteractiveSubmissionVersion
     } yield ()
 
   }
+
+  private def checkInteractiveSubmissionVersion(
+      domainId: DomainId,
+      versionO: Option[HashingSchemeVersion],
+      protocolVersion: ProtocolVersion,
+  )(implicit
+      ec: ExecutionContext
+  ): EitherT[Future, UnsupportedMinimumProtocolVersionForInteractiveSubmission, Unit] = versionO
+    .map { version =>
+      val minProtocolVersion = HashingSchemeVersion.minProtocolVersionForISV(version)
+      EitherT.cond[Future](
+        minProtocolVersion.exists(protocolVersion >= _),
+        (),
+        UnsupportedMinimumProtocolVersionForInteractiveSubmission(
+          domainId = domainId,
+          currentPV = protocolVersion,
+          requiredPV = minProtocolVersion,
+          isVersion = version,
+        ),
+      )
+    }
+    .getOrElse(EitherT.pure(()))
 
   /** Check that every party in `parties` is hosted by an active participant on domain `domainId`
     */
@@ -203,6 +234,18 @@ object UsableDomain {
 
     override def toString: String =
       s"The transaction uses a specific LF version $lfVersion that is supported starting protocol version: $requiredPV. Currently the Domain $domainId is using $currentPV."
+
+  }
+
+  final case class UnsupportedMinimumProtocolVersionForInteractiveSubmission(
+      domainId: DomainId,
+      currentPV: ProtocolVersion,
+      requiredPV: Option[ProtocolVersion],
+      isVersion: HashingSchemeVersion,
+  ) extends DomainNotUsedReason {
+
+    override def toString: String =
+      s"The transaction was hashed using a version $isVersion that is supported starting protocol version: $requiredPV. Currently the Domain $domainId is using $currentPV."
 
   }
 }

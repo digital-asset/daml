@@ -7,13 +7,13 @@ import com.daml.ledger.api.v2.event_query_service
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.http.json.v2.JsSchema.{JsCantonError, JsEvent}
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import sttp.tapir.generic.auto.*
-import sttp.tapir.json.circe.*
 import com.digitalasset.canton.ledger.client.LedgerClient
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
 import io.circe.Codec
 import io.circe.generic.semiauto.deriveCodec
+import sttp.tapir.generic.auto.*
+import sttp.tapir.json.circe.*
 import sttp.tapir.{path, query}
 
 import scala.concurrent.{ExecutionContext, Future}

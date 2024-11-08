@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform.store.cache
 
 import com.digitalasset.canton.caching.SizedCache
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -14,7 +14,7 @@ import scala.concurrent.ExecutionContext
 
 object ContractsStateCache {
   def apply(
-      initialCacheIndex: Offset,
+      initialCacheIndex: Option[AbsoluteOffset],
       cacheSize: Long,
       metrics: LedgerApiServerMetrics,
       loggerFactory: NamedLoggerFactory,
@@ -22,7 +22,7 @@ object ContractsStateCache {
       ec: ExecutionContext
   ): StateCache[ContractId, ContractStateValue] =
     StateCache(
-      initialCacheIndex = initialCacheIndex.toAbsoluteOffsetO,
+      initialCacheIndex = initialCacheIndex,
       cache = SizedCache.from[ContractId, ContractStateValue](
         SizedCache.Configuration(cacheSize),
         metrics.execution.cache.contractState.stateCache,

@@ -10,7 +10,7 @@ import com.digitalasset.canton.data.{CantonTimestamp, ProcessedDisclosedContract
 import com.digitalasset.canton.ledger.api.domain.Commands as ApiCommands
 import com.digitalasset.canton.ledger.api.util.TimeProvider
 import com.digitalasset.canton.ledger.participant.state
-import com.digitalasset.canton.ledger.participant.state.WriteService
+import com.digitalasset.canton.ledger.participant.state.PackageSyncService
 import com.digitalasset.canton.ledger.participant.state.index.{ContractState, ContractStore}
 import com.digitalasset.canton.logging.LoggingContextWithTrace.implicitExtractTraceContext
 import com.digitalasset.canton.logging.{
@@ -53,7 +53,7 @@ import scala.concurrent.{ExecutionContext, Future}
 private[apiserver] final class StoreBackedCommandExecutor(
     engine: Engine,
     participant: Ref.ParticipantId,
-    writeService: WriteService,
+    packageSyncService: PackageSyncService,
     contractStore: ContractStore,
     authenticateContract: AuthenticateContract,
     metrics: LedgerApiServerMetrics,
@@ -159,6 +159,8 @@ private[apiserver] final class StoreBackedCommandExecutor(
             commands.commandId.unwrap,
             commands.deduplicationPeriod,
             commands.submissionId.map(_.unwrap),
+            transactionUUID = None,
+            mediatorGroup = None,
             externallySignedSubmission = None,
           ),
           optDomainId = prescribedDomainIdO,
@@ -280,7 +282,7 @@ private[apiserver] final class StoreBackedCommandExecutor(
           packageLoader
             .loadPackage(
               packageId = packageId,
-              delegate = writeService.getLfArchive(_)(loggingContext.traceContext),
+              delegate = packageSyncService.getLfArchive(_)(loggingContext.traceContext),
               metric = metrics.execution.getLfPackage,
             )
             .flatMap { maybePackage =>

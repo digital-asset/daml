@@ -3,7 +3,6 @@
 
 package com.digitalasset.canton.topology.store
 
-import com.digitalasset.canton.config.CantonRequireTypes.LengthLimitedString.DisplayName
 import com.digitalasset.canton.config.CantonRequireTypes.String255
 import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.data.CantonTimestamp
@@ -24,7 +23,6 @@ import scala.concurrent.{ExecutionContext, Future}
   */
 final case class PartyMetadata(
     partyId: PartyId,
-    displayName: Option[DisplayName],
     participantId: Option[ParticipantId],
 )(
     val effectiveTimestamp: CantonTimestamp,
@@ -44,7 +42,6 @@ trait PartyMetadataStore extends AutoCloseable {
     insertOrUpdatePartyMetadata(
       partyId = metadata.partyId,
       participantId = metadata.participantId,
-      displayName = metadata.displayName,
       effectiveTimestamp = metadata.effectiveTimestamp,
       submissionId = metadata.submissionId,
     )
@@ -52,7 +49,6 @@ trait PartyMetadataStore extends AutoCloseable {
   def insertOrUpdatePartyMetadata(
       partyId: PartyId,
       participantId: Option[ParticipantId],
-      displayName: Option[DisplayName],
       effectiveTimestamp: CantonTimestamp,
       submissionId: String255,
   )(implicit traceContext: TraceContext): Future[Unit]

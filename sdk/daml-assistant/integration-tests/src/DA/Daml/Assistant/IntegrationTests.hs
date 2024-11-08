@@ -340,10 +340,11 @@ damlStartTestsWithoutValidation getDamlStart =
             unlines
                 [ "module Main where"
                 , "import Daml.Script"
+                , "import DA.Text (isInfixOf)"
                 , "template S with newFieldName : Party where signatory newFieldName"
                 , "init : Script Party"
                 , "init = do"
-                , "  let isAlice x = displayName x == Some \"Alice\""
+                , "  let isAlice x = \"Alice\" `isInfixOf` partyToText x.party"
                 , "  Some aliceDetails <- find isAlice <$> listKnownParties"
                 , "  let alice = party aliceDetails"
                 , "  alice `submit` createCmd (S alice)"
@@ -533,7 +534,7 @@ cantonTests = testGroup "daml sandbox"
                              -- script on Linux doesn't transmit the EOF/^D to the REPL, unlike on Mac.
                     ]
                 env' | isWindows || isJust (lookup "TERM" env) = Nothing
-                     | otherwise = Just (("TERM", "xterm-16color") : env)
+                     | otherwise = Just (("TERM", "xterm-256color") : env)
                 proc' = (shell wrappedCmd) { cwd = Just dir, env = env' }
             output <- readCreateProcess proc' (unlines input)
             let outputLines = lines output

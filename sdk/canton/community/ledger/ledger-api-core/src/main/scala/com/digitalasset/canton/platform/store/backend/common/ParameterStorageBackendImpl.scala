@@ -6,10 +6,11 @@ package com.digitalasset.canton.platform.store.backend.common
 import anorm.SqlParser.{int, long}
 import anorm.{BatchSql, NamedParameter, RowParser, ~}
 import com.daml.scalautil.Statement.discard
-import com.digitalasset.canton.data.{CantonTimestamp, Offset}
+import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.api.domain.ParticipantId
 import com.digitalasset.canton.ledger.participant.state.{DomainIndex, RequestIndex, SequencerIndex}
 import com.digitalasset.canton.logging.NamedLoggerFactory
+import com.digitalasset.canton.platform.indexer.parallel.ParallelIndexerSubscription
 import com.digitalasset.canton.platform.store.backend.Conversions.offset
 import com.digitalasset.canton.platform.store.backend.common.ComposableQuery.SqlStringInterpolation
 import com.digitalasset.canton.platform.store.backend.{Conversions, ParameterStorageBackend}
@@ -39,7 +40,7 @@ private[backend] class ParameterStorageBackendImpl(
         UPDATE
           lapi_parameters
         SET
-          ledger_end = ${Offset.fromAbsoluteOffsetO(ledgerEnd.lastOffset)},
+          ledger_end = ${Offset.fromAbsoluteOffset(ledgerEnd.lastOffset)},
           ledger_end_sequential_id = ${ledgerEnd.lastEventSeqId},
           ledger_end_string_interning_id = ${ledgerEnd.lastStringInterningId},
           ledger_end_publication_time = ${ledgerEnd.lastPublicationTime.toMicros}
@@ -91,10 +92,10 @@ private[backend] class ParameterStorageBackendImpl(
         lapi_parameters
       """
 
-  override def ledgerEnd(connection: Connection): ParameterStorageBackend.LedgerEnd =
+  override def ledgerEnd(connection: Connection): Option[ParameterStorageBackend.LedgerEnd] =
     SqlGetLedgerEnd
       .as(LedgerEndParser.singleOpt)(connection)
-      .getOrElse(ParameterStorageBackend.LedgerEnd.beforeBegin)
+      .flatten
 
   private val TableName: String = "lapi_parameters"
   private val ParticipantIdColumnName: String = "participant_id"
@@ -125,14 +126,16 @@ private[backend] class ParameterStorageBackendImpl(
   private val LedgerEndPublicationTimeParser: RowParser[CantonTimestamp] =
     long(LedgerEndPublicationTimeColumnName).map(CantonTimestamp.ofEpochMicro)
 
-  private val LedgerEndParser: RowParser[ParameterStorageBackend.LedgerEnd] =
+  private val LedgerEndParser: RowParser[Option[ParameterStorageBackend.LedgerEnd]] =
     LedgerEndOffsetParser ~ LedgerEndSequentialIdParser ~ LedgerEndStringInterningIdParser ~ LedgerEndPublicationTimeParser map {
       case lastOffset ~ lastEventSequentialId ~ lastStringInterningId ~ lastPublicationTime =>
-        ParameterStorageBackend.LedgerEnd(
-          lastOffset.toAbsoluteOffsetO,
-          lastEventSequentialId,
-          lastStringInterningId,
-          lastPublicationTime,
+        lastOffset.toAbsoluteOffsetO.map(offset =>
+          ParameterStorageBackend.LedgerEnd(
+            offset,
+            lastEventSequentialId,
+            lastStringInterningId,
+            lastPublicationTime,
+          )
         )
     }
 
@@ -151,7 +154,12 @@ private[backend] class ParameterStorageBackendImpl(
           s"Initializing new database for participantId '${params.participantId}'"
         )
         import Conversions.OffsetToStatement
-        val ledgerEnd = ParameterStorageBackend.LedgerEnd.beforeBegin
+        val lastOffset = AbsoluteOffset.beforeBegin
+        // TODO(#21220) temporary measures, will be none in next iteration
+        val lastEventSeqId = ParallelIndexerSubscription.ZeroLedgerEnd.lastEventSeqId
+        val lastStringInterningId = ParallelIndexerSubscription.ZeroLedgerEnd.lastStringInterningId
+        val lastPublicationTime = ParallelIndexerSubscription.ZeroLedgerEnd.lastPublicationTime
+
         discard(
           SQL"""insert into #$TableName(
               #$ParticipantIdColumnName,
@@ -161,10 +169,10 @@ private[backend] class ParameterStorageBackendImpl(
               #$LedgerEndPublicationTimeColumnName
             ) values(
               ${participantId.unwrap: String},
-              ${Offset.fromAbsoluteOffsetO(ledgerEnd.lastOffset)},
-              ${ledgerEnd.lastEventSeqId},
-              ${ledgerEnd.lastStringInterningId},
-              ${ledgerEnd.lastPublicationTime.toMicros}
+              ${Offset.fromAbsoluteOffsetO(lastOffset)},
+              $lastEventSeqId,
+              $lastStringInterningId,
+              ${lastPublicationTime.toMicros}
             )"""
             .execute()(connection)
         )
@@ -335,13 +343,15 @@ private[backend] class ParameterStorageBackendImpl(
       )
       .getOrElse(DomainIndex.empty)
 
-  override def updatePostProcessingEnd(postProcessingEnd: Offset)(connection: Connection): Unit =
+  override def updatePostProcessingEnd(postProcessingEnd: Option[AbsoluteOffset])(
+      connection: Connection
+  ): Unit =
     batchUpsert(
       "INSERT INTO lapi_post_processing_end VALUES ({postProcessingEnd})",
       "UPDATE lapi_post_processing_end SET post_processing_end = {postProcessingEnd}",
       List(
         Seq[NamedParameter](
-          "postProcessingEnd" -> postProcessingEnd.toHexString.toString
+          "postProcessingEnd" -> postProcessingEnd.toHexString
         )
       ),
     )(connection)

@@ -118,7 +118,7 @@ class MeteringAggregator(
       if (nowUtcTime.isAfter(endUtcTime)) {
 
         val toEndTime = toTimestamp(endUtcTime)
-        val ingestedLedgerEnd = parameterStore.ledgerEnd(conn).lastOffset
+        val ingestedLedgerEnd = parameterStore.ledgerEnd(conn).map(_.lastOffset)
         val maybeMaxOffset =
           meteringStore.transactionMeteringMaxOffset(lastLedgerMeteringEnd.offset, toEndTime)(conn)
 

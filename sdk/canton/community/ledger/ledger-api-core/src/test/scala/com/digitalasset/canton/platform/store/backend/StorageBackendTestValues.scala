@@ -33,7 +33,7 @@ private[store] object StorageBackendTestValues {
   def offset(x: Long): Offset = Offset.fromLong(x)
   def absoluteOffset(x: Long): AbsoluteOffset = AbsoluteOffset.tryFromLong(x)
   def ledgerEnd(o: Long, e: Long): ParameterStorageBackend.LedgerEnd =
-    ParameterStorageBackend.LedgerEnd(Some(absoluteOffset(o)), e, 0, CantonTimestamp.now())
+    ParameterStorageBackend.LedgerEnd(absoluteOffset(o), e, 0, CantonTimestamp.now())
   def updateIdFromOffset(x: Offset): Ref.LedgerString =
     Ref.LedgerString.assertFromString(x.toHexString)
 
@@ -76,21 +76,17 @@ private[store] object StorageBackendTestValues {
       offset: Offset,
       party: String = someParty,
       isLocal: Boolean = true,
-      displayNameOverride: Option[Option[String]] = None,
       reject: Boolean = false,
-  ): DbDto.PartyEntry = {
-    val displayName = displayNameOverride.getOrElse(Some(party))
+  ): DbDto.PartyEntry =
     DbDto.PartyEntry(
       ledger_offset = offset.toHexString,
       recorded_at = someTime.micros,
       submission_id = Some("submission_id"),
       party = Some(party),
-      display_name = displayName,
       typ = if (reject) JdbcLedgerDao.rejectType else JdbcLedgerDao.acceptType,
       rejection_reason = Option.when(reject)("some rejection reason"),
       is_local = Some(isLocal),
     )
-  }
 
   /** A simple create event.
     * Corresponds to a transaction with a single create node.

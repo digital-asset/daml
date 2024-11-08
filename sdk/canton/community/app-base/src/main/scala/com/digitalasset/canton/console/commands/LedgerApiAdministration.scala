@@ -14,10 +14,11 @@ import com.daml.ledger.api.v2.commands.{Command, DisclosedContract}
 import com.daml.ledger.api.v2.completion.Completion
 import com.daml.ledger.api.v2.event.CreatedEvent
 import com.daml.ledger.api.v2.event_query_service.GetEventsByContractIdResponse
-import com.daml.ledger.api.v2.interactive_submission_data.PreparedTransaction
-import com.daml.ledger.api.v2.interactive_submission_service.{
+import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   ExecuteSubmissionResponse as ExecuteResponseProto,
+  HashingSchemeVersion,
   PrepareSubmissionResponse as PrepareResponseProto,
+  PreparedTransaction,
 }
 import com.daml.ledger.api.v2.reassignment.Reassignment as ReassignmentProto
 import com.daml.ledger.api.v2.state_service.{
@@ -478,9 +479,10 @@ trait BaseLedgerApiAdministration extends NoTracing {
           preparedTransaction: PreparedTransaction,
           transactionSignatures: Map[PartyId, Seq[Signature]],
           submissionId: String,
+          hashingSchemeVersion: HashingSchemeVersion,
           applicationId: String = applicationId,
-          workflowId: String = "",
           deduplicationPeriod: Option[DeduplicationPeriod] = None,
+          minLedgerTimeAbs: Option[Instant] = None,
       ): ExecuteResponseProto =
         consoleEnvironment.run {
           ledgerApiCommand(
@@ -489,8 +491,9 @@ trait BaseLedgerApiAdministration extends NoTracing {
               transactionSignatures,
               submissionId = submissionId,
               applicationId = applicationId,
-              workflowId = workflowId,
               deduplicationPeriod = deduplicationPeriod,
+              minLedgerTimeAbs = minLedgerTimeAbs,
+              hashingSchemeVersion = hashingSchemeVersion,
             )
           )
         }
@@ -1233,13 +1236,11 @@ trait BaseLedgerApiAdministration extends NoTracing {
       @Help.Description(
         """Allocates a new party on the ledger.
           party: a hint for generating the party identifier
-          displayName: a human-readable name of this party
           annotations: key-value pairs associated with this party and stored locally on this Ledger API server
           identityProviderId: identity provider id"""
       )
       def allocate(
           party: String,
-          displayName: String,
           annotations: Map[String, String] = Map.empty,
           identityProviderId: String = "",
       ): PartyDetails = {
@@ -1247,7 +1248,6 @@ trait BaseLedgerApiAdministration extends NoTracing {
           ledgerApiCommand(
             LedgerApiCommands.PartyManagementService.AllocateParty(
               partyIdHint = party,
-              displayName = displayName,
               annotations = annotations,
               identityProviderId = identityProviderId,
             )

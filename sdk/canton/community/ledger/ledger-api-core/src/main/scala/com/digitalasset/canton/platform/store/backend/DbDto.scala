@@ -141,7 +141,6 @@ object DbDto {
       recorded_at: Long,
       submission_id: Option[String],
       party: Option[String],
-      display_name: Option[String],
       typ: String,
       rejection_reason: Option[String],
       is_local: Option[Boolean],

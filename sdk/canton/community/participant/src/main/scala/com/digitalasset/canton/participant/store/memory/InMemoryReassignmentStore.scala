@@ -114,8 +114,8 @@ class InMemoryReassignmentStore(
 
   override def completeReassignment(reassignmentId: ReassignmentId, timeOfCompletion: TimeOfChange)(
       implicit traceContext: TraceContext
-  ): CheckedT[Future, Nothing, ReassignmentStoreError, Unit] =
-    CheckedT(Future.successful {
+  ): CheckedT[FutureUnlessShutdown, Nothing, ReassignmentStoreError, Unit] =
+    CheckedT(FutureUnlessShutdown.pure {
       val result = MapsUtil
         .updateWithConcurrentlyChecked_[
           ReassignmentStoreError,
@@ -170,8 +170,8 @@ class InMemoryReassignmentStore(
       reassignmentId: ReassignmentId
   )(implicit
       traceContext: TraceContext
-  ): EitherT[Future, ReassignmentLookupError, ReassignmentData] =
-    EitherT(Future.successful {
+  ): EitherT[FutureUnlessShutdown, ReassignmentLookupError, ReassignmentData] =
+    EitherT(FutureUnlessShutdown.pure {
       for {
         entry <- reassignmentDataMap
           .get(reassignmentId)
@@ -185,8 +185,8 @@ class InMemoryReassignmentStore(
       filterTimestamp: Option[CantonTimestamp],
       filterSubmitter: Option[LfPartyId],
       limit: Int,
-  )(implicit traceContext: TraceContext): Future[Seq[ReassignmentData]] =
-    Future.successful {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[ReassignmentData]] =
+    FutureUnlessShutdown.pure {
       def filter(entry: ReassignmentEntry): Boolean =
         entry.timeOfCompletion.isEmpty && // Always filter out completed assignment
           filterSource.forall(source => entry.reassignmentData.sourceDomain == source) &&
@@ -202,14 +202,14 @@ class InMemoryReassignmentStore(
 
   override def deleteReassignment(
       reassignmentId: ReassignmentId
-  )(implicit traceContext: TraceContext): Future[Unit] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     reassignmentDataMap.remove(reassignmentId).discard
-    Future.unit
+    FutureUnlessShutdown.unit
   }
 
   override def findAfter(requestAfter: Option[(CantonTimestamp, Source[DomainId])], limit: Int)(
       implicit traceContext: TraceContext
-  ): Future[Seq[ReassignmentData]] = Future.successful {
+  ): FutureUnlessShutdown[Seq[ReassignmentData]] = FutureUnlessShutdown.pure {
     def filter(entry: ReassignmentEntry): Boolean =
       entry.timeOfCompletion.isEmpty && // Always filter out completed assignment
         requestAfter.forall(ts =>
@@ -239,7 +239,7 @@ class InMemoryReassignmentStore(
       validAt: GlobalOffset,
       stakeholders: Option[NonEmpty[Set[LfPartyId]]],
       limit: NonNegativeInt,
-  )(implicit traceContext: TraceContext): Future[Seq[IncompleteReassignmentData]] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[IncompleteReassignmentData]] = {
     def onlyUnassignmentCompleted(entry: ReassignmentEntry): Boolean =
       entry.reassignmentData.unassignmentGlobalOffset.exists(_ <= validAt) &&
         entry.reassignmentData.assignmentGlobalOffset.forall(_ > validAt)
@@ -265,14 +265,14 @@ class InMemoryReassignmentStore(
       .sortBy(_.queryOffset)
       .take(limit.unwrap)
 
-    Future.successful(values)
+    FutureUnlessShutdown.pure(values)
   }
 
   override def findEarliestIncomplete()(implicit
       traceContext: TraceContext
-  ): Future[Option[(GlobalOffset, ReassignmentId, Target[DomainId])]] =
+  ): FutureUnlessShutdown[Option[(GlobalOffset, ReassignmentId, Target[DomainId])]] =
     // empty table: there are no reassignments
-    if (reassignmentDataMap.isEmpty) Future.successful(None)
+    if (reassignmentDataMap.isEmpty) FutureUnlessShutdown.pure(None)
     else {
       def incompleteTransfer(entry: ReassignmentEntry): Boolean =
         (entry.reassignmentData.assignmentGlobalOffset.isEmpty ||
@@ -282,7 +282,7 @@ class InMemoryReassignmentStore(
         .to(LazyList)
         .filter(entry => incompleteTransfer(entry))
       // all reassignments are complete
-      if (incompleteReassignments.isEmpty) Future.successful(None)
+      if (incompleteReassignments.isEmpty) FutureUnlessShutdown.pure(None)
       else {
         val incompleteReassignmentOffsets = incompleteReassignments
           .mapFilter(entry =>
@@ -296,7 +296,7 @@ class InMemoryReassignmentStore(
             }
           )
         // only in-flight reassignments
-        if (incompleteReassignmentOffsets.isEmpty) Future.successful(None)
+        if (incompleteReassignmentOffsets.isEmpty) FutureUnlessShutdown.pure(None)
         else {
           val default = (
             GlobalOffset.MaxValue,
@@ -304,7 +304,7 @@ class InMemoryReassignmentStore(
           )
           val minIncompleteTransferOffset =
             incompleteReassignmentOffsets.minByOption(_._1).getOrElse(default)
-          Future.successful(
+          FutureUnlessShutdown.pure(
             Some((minIncompleteTransferOffset._1, minIncompleteTransferOffset._2, domain))
           )
         }

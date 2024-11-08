@@ -4,7 +4,11 @@
 package com.digitalasset.canton.http.json.v2.damldefinitionsservice
 
 import com.daml.error.{ContextualizedErrorLogger, NoLogging}
-import com.digitalasset.canton.http.json.v2.damldefinitionsservice.Schema.{AllTemplatesResponse, TemplateDefinition, TypeSig}
+import com.digitalasset.canton.http.json.v2.damldefinitionsservice.Schema.{
+  AllTemplatesResponse,
+  TemplateDefinition,
+  TypeSig,
+}
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.daml.lf.data.Ref
 

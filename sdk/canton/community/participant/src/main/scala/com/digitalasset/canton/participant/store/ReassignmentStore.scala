@@ -97,14 +97,14 @@ trait ReassignmentStore extends ReassignmentLookup {
     */
   def completeReassignment(reassignmentId: ReassignmentId, timeOfCompletion: TimeOfChange)(implicit
       traceContext: TraceContext
-  ): CheckedT[Future, Nothing, ReassignmentStoreError, Unit]
+  ): CheckedT[FutureUnlessShutdown, Nothing, ReassignmentStoreError, Unit]
 
   /** Removes the reassignment from the store,
     * when the unassignment request is rejected or the reassignment is pruned.
     */
   def deleteReassignment(reassignmentId: ReassignmentId)(implicit
       traceContext: TraceContext
-  ): Future[Unit]
+  ): FutureUnlessShutdown[Unit]
 
   /** Removes all completions of reassignments that have been triggered by requests with at least the given counter.
     * This method must not be called concurrently with [[completeReassignment]], but may be called concurrently with
@@ -361,7 +361,7 @@ trait ReassignmentLookup {
     */
   def lookup(reassignmentId: ReassignmentId)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, ReassignmentLookupError, ReassignmentData]
+  ): EitherT[FutureUnlessShutdown, ReassignmentLookupError, ReassignmentData]
 
   /** Find utility to look for in-flight reassignments.
     * Results need not be consistent with [[lookup]].
@@ -371,7 +371,7 @@ trait ReassignmentLookup {
       filterRequestTimestamp: Option[CantonTimestamp],
       filterSubmitter: Option[LfPartyId],
       limit: Int,
-  )(implicit traceContext: TraceContext): Future[Seq[ReassignmentData]]
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[ReassignmentData]]
 
   /** Find utility to look for in-flight reassignments.
     * Reassignments are ordered by the tuple (request timestamp, source domain ID), ie reassignments are ordered by request timestamps
@@ -386,7 +386,7 @@ trait ReassignmentLookup {
     */
   def findAfter(requestAfter: Option[(CantonTimestamp, Source[DomainId])], limit: Int)(implicit
       traceContext: TraceContext
-  ): Future[Seq[ReassignmentData]]
+  ): FutureUnlessShutdown[Seq[ReassignmentData]]
 
   /** Find utility to look for incomplete reassignments.
     * Reassignments are ordered by global offset.
@@ -414,7 +414,7 @@ trait ReassignmentLookup {
       validAt: GlobalOffset,
       stakeholders: Option[NonEmpty[Set[LfPartyId]]],
       limit: NonNegativeInt,
-  )(implicit traceContext: TraceContext): Future[Seq[IncompleteReassignmentData]]
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[IncompleteReassignmentData]]
 
   /** Find utility to look for the earliest incomplete reassignment w.r.t. the ledger end.
     * If an incomplete reassignment exists, the method returns the global offset of the incomplete reassignment for either the
@@ -424,5 +424,5 @@ trait ReassignmentLookup {
     */
   def findEarliestIncomplete()(implicit
       traceContext: TraceContext
-  ): Future[Option[(GlobalOffset, ReassignmentId, Target[DomainId])]]
+  ): FutureUnlessShutdown[Option[(GlobalOffset, ReassignmentId, Target[DomainId])]]
 }

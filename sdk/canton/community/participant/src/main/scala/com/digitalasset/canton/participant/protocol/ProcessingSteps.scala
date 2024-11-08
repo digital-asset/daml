@@ -42,6 +42,7 @@ import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.protocol.messages.*
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.{ConfirmationRequestSessionKeyStore, SessionKeyStore}
+import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
 import com.digitalasset.canton.util.ReassignmentTag.Target
@@ -128,6 +129,9 @@ trait ProcessingSteps[
 
   /** Extract a description for a submission, used for logging and error reporting */
   def submissionDescription(param: SubmissionParam): String
+
+  /** Extract an optionally explicitly chosen mediator group index */
+  def explicitMediatorGroup(param: SubmissionParam): Option[MediatorGroupIndex]
 
   /** Extract the submission ID that corresponds to a pending request, if any */
   def submissionIdOfPendingRequest(pendingData: requestType.PendingRequestData): PendingSubmissionId

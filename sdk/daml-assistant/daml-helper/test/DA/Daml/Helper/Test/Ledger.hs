@@ -35,14 +35,13 @@ readDarMainPackageId dar = do
 -- Note the special behaviour needed to handle the `::identifier` on party names
 outputContainsParty :: String -> PartyDetails -> Assertion
 outputContainsParty out self = any (=~ pat) (lines out) @?
-    (TL.unpack (displayName self) <> " is not contained in list-parties output.")
+    (TL.unpack partyName <> " is not contained in list-parties output.")
   where
+    partyName = unParty $ party self
     pat = mconcat
       [ "^PartyDetails {party = '"
-      , unParty (party self)
-      , "::[a-f0-9]+', displayName = \""
-      , displayName self
-      , "\", isLocal = "
+      , partyName
+      , "::[a-f0-9]+', isLocal = "
       , if isLocal self then "True" else "False"
       , "}$"
       ]
@@ -80,7 +79,7 @@ main = do
                     , show sandboxPort
                     ]
               out <- readProcess damlHelper ("ledger" : "list-parties" : ledgerOpts) ""
-              out `outputContainsParty` PartyDetails (Party "Bob") "Bob" True
+              out `outputContainsParty` PartyDetails (Party "Bob") True
           ]
       , testGroup "allocate-parties then list-parties"
           [ testCase "succeeds against gRPC" $ do
@@ -100,8 +99,8 @@ main = do
               -- check for parties via gRPC
               let ledgerOpts = ["--host=localhost", "--port", show sandboxPort]
               out <- readProcess damlHelper ("ledger" : "list-parties" : ledgerOpts) ""
-              out `outputContainsParty` PartyDetails (Party "Bob") "Bob" True
-              out `outputContainsParty` PartyDetails (Party "Charlie") "Charlie" True
+              out `outputContainsParty` PartyDetails (Party "Bob") True
+              out `outputContainsParty` PartyDetails (Party "Charlie") True
           ]
       , testGroup "upload-dar"
           [ testCase "succeeds against gRPC" $ do

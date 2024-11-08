@@ -5,23 +5,32 @@ package com.digitalasset.canton.http.json.v2
 
 import com.daml.grpc.adapter.ExecutionSequencerFactory
 import com.daml.ledger.api.v2.command_service.{CommandServiceGrpc, SubmitAndWaitRequest}
-import com.google.protobuf
-import com.daml.ledger.api.v2.{command_completion_service, command_submission_service, completion, reassignment_command}
 import com.daml.ledger.api.v2.commands.Commands.DeduplicationPeriod
+import com.daml.ledger.api.v2.{
+  command_completion_service,
+  command_submission_service,
+  completion,
+  reassignment_command,
+}
 import com.digitalasset.canton.http.WebsocketConfig
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput, v2Endpoint}
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
-import com.digitalasset.canton.http.json.v2.JsSchema.{JsCantonError, JsTransaction, JsTransactionTree}
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import sttp.tapir.generic.auto.*
-import sttp.tapir.json.circe.*
+import com.digitalasset.canton.http.json.v2.JsSchema.{
+  JsCantonError,
+  JsTransaction,
+  JsTransactionTree,
+}
 import com.digitalasset.canton.ledger.client.LedgerClient
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
+import com.google.protobuf
 import io.circe.*
 import io.circe.generic.semiauto.deriveCodec
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Flow
 import sttp.capabilities.pekko.PekkoStreams
+import sttp.tapir.generic.auto.*
+import sttp.tapir.json.circe.*
 import sttp.tapir.{CodecFormat, webSocketBody}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -33,7 +42,7 @@ class JsCommandService(
 )(implicit
     val executionContext: ExecutionContext,
     esf: ExecutionSequencerFactory,
-  wsConfig: WebsocketConfig,
+    wsConfig: WebsocketConfig,
 ) extends Endpoints
     with NamedLogging {
 
@@ -235,6 +244,7 @@ final case class JsDisclosedContract(
     template_id: String,
     contract_id: String,
     created_event_blob: com.google.protobuf.ByteString,
+    domain_id: Option[String],
 )
 
 object JsCommandService {

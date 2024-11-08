@@ -5,18 +5,18 @@ package com.digitalasset.canton.http.json.v2
 
 import com.daml.ledger.api.v2.admin.user_management_service
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
-import com.digitalasset.daml.lf.data.Ref.UserId
-import com.digitalasset.canton.ledger.client.services.admin.UserManagementClient
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError
+import com.digitalasset.canton.ledger.client.services.admin.UserManagementClient
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors.InvalidArgument
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.TraceContext
-import io.circe.generic.semiauto.deriveCodec
+import com.digitalasset.daml.lf.data.Ref.UserId
 import io.circe.Codec
+import io.circe.generic.semiauto.deriveCodec
 import sttp.model.QueryParams
-import sttp.tapir.generic.auto.*
 import sttp.tapir.*
+import sttp.tapir.generic.auto.*
 import sttp.tapir.json.circe.jsonBody
 
 import scala.concurrent.Future

@@ -39,7 +39,6 @@ import com.digitalasset.canton.protocol.{PackageDescription, PackageInfoService}
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil
-import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.daml.lf.archive
 import com.digitalasset.daml.lf.archive.{DamlLf, DarParser, Error as LfArchiveError}
 import com.digitalasset.daml.lf.data.Ref.PackageId
@@ -125,7 +124,7 @@ class PackageService(
       EitherT.right(packagesDarsStore.removePackage(packageId))
     } else {
       val checkUnused =
-        packageOps.checkPackageUnused(packageId).mapK(FutureUnlessShutdown.outcomeK)
+        packageOps.checkPackageUnused(packageId)
 
       val checkNotVetted =
         packageOps
@@ -230,11 +229,9 @@ class PackageService(
       _mainUnused <- packageOps
         .checkPackageUnused(mainPkg)
         .leftMap(err => new MainPackageInUse(err.pkg, darDescriptor, err.contract, err.domain))
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       packageUsed <- EitherT
         .liftF(packages.parTraverse(p => packageOps.checkPackageUnused(p).value))
-        .mapK(FutureUnlessShutdown.outcomeK)
 
       usedPackages = packageUsed.mapFilter {
         case Left(packageInUse: PackageRemovalErrorCode.PackageInUse) => Some(packageInUse.pkg)

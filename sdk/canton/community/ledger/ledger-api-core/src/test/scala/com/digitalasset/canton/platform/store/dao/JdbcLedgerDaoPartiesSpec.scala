@@ -26,12 +26,10 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
   it should "store and retrieve all parties" in {
     val alice = IndexerPartyDetails(
       party = Ref.Party.assertFromString(s"Alice-${UUID.randomUUID()}"),
-      displayName = Some("Alice Arkwright"),
       isLocal = true,
     )
     val bob = IndexerPartyDetails(
       party = Ref.Party.assertFromString(s"Bob-${UUID.randomUUID()}"),
-      displayName = Some("Bob Bobertson"),
       isLocal = true,
     )
     for {
@@ -50,7 +48,6 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
     def genParty(name: String) =
       IndexerPartyDetails(
         party = Ref.Party.assertFromString(s"$name-$randomSuffix"),
-        displayName = Some(s"$name ${name}son"),
         isLocal = true,
       )
     val newParties = List("Wes", "Zeb", "Les", "Mel").map(genParty)
@@ -76,7 +73,6 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
     val rejectionReason = s"$nonExistentParty is rejected"
     val accepted = IndexerPartyDetails(
       party = acceptedParty,
-      displayName = Some("Accepted Ackbar"),
       isLocal = true,
     )
     val acceptedSubmissionId = UUID.randomUUID().toString
@@ -129,7 +125,6 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
     val nonExistentParty = UUID.randomUUID().toString
     val carol = IndexerPartyDetails(
       party = party,
-      displayName = Some("Carol Carlisle"),
       isLocal = true,
     )
     for {
@@ -149,12 +144,10 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
     val nonExistentParty = UUID.randomUUID().toString
     val dan = IndexerPartyDetails(
       party = danParty,
-      displayName = Some("Dangerous Dan"),
       isLocal = true,
     )
     val eve = IndexerPartyDetails(
       party = eveParty,
-      displayName = Some("Dangerous Dan"),
       isLocal = true,
     )
     for {
@@ -172,15 +165,11 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
     val danParty = Ref.Party.assertFromString(s"Dan-${UUID.randomUUID()}")
     val dan = IndexerPartyDetails(
       party = danParty,
-      displayName = Some("Dangerous Dan"),
       isLocal = true,
     )
-    val dan2 = dan.copy(displayName = Some("Even more dangerous Dan"))
-    val dan3 = dan.copy(displayName = Some("Even more so dangerous Dan"))
-    val dan4 = dan.copy(
-      displayName = Some("Ultimately dangerous Dan"),
-      isLocal = false,
-    )
+    val dan2 = dan
+    val dan3 = dan
+    val dan4 = dan.copy(isLocal = false)
     val beforeStartOffset = nextOffset()
     val firstOffset = nextOffset()
     for {
@@ -220,12 +209,11 @@ private[dao] trait JdbcLedgerDaoPartiesSpec {
     val danParty = Ref.Party.assertFromString(s"Dan-${UUID.randomUUID()}")
     val dan = IndexerPartyDetails(
       party = danParty,
-      displayName = Some("Dangerous Dan"),
       isLocal = false,
     )
-    val dan2 = dan.copy(displayName = Some("Even more dangerous Dan"))
-    val dan3 = dan.copy(displayName = Some("Even more so dangerous Dan"))
-    val dan4 = dan.copy(displayName = Some("Ultimately dangerous Dan"))
+    val dan2 = dan
+    val dan3 = dan
+    val dan4 = dan
     val beforeStartOffset = nextOffset()
     val firstOffset = nextOffset()
     for {

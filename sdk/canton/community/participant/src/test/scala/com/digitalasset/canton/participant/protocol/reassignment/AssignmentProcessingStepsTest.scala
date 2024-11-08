@@ -17,6 +17,7 @@ import com.digitalasset.canton.data.{
   CantonTimestamp,
   FullAssignmentTree,
   ReassigningParticipants,
+  ReassignmentRef,
   ReassignmentSubmitterMetadata,
 }
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -546,7 +547,7 @@ class AssignmentProcessingStepsTest
           deps <- statefulDependencies
           (_persistentState, ephemeralState) = deps
 
-          fullAssignmentTree2 = makeFullAssignmentTree(
+          fullAssignmentTree = makeFullAssignmentTree(
             party1,
             contractWrongStakeholders,
             targetDomain,
@@ -557,7 +558,7 @@ class AssignmentProcessingStepsTest
           result <-
             assignmentProcessingSteps
               .constructPendingDataAndResponse(
-                mkParsedRequest(fullAssignmentTree2),
+                mkParsedRequest(fullAssignmentTree),
                 ephemeralState.reassignmentCache,
                 FutureUnlessShutdown.pure(mkActivenessResult()),
                 engineController =
@@ -569,7 +570,7 @@ class AssignmentProcessingStepsTest
               .failOnShutdown("Unexpected shutdown")
         } yield {
           result.left.value shouldBe ContractMetadataMismatch(
-            fullAssignmentTree2.reassignmentId,
+            fullAssignmentTree.reassignmentRef,
             contractWrongStakeholders.metadata,
             contract.metadata,
           )
@@ -645,7 +646,7 @@ class AssignmentProcessingStepsTest
       test(contract.metadata).value shouldBe ()
 
       test(incorrectMetadata).left.value shouldBe ContractMetadataMismatch(
-        Some(reassignmentId),
+        ReassignmentRef(reassignmentId),
         incorrectMetadata,
         contract.metadata,
       )
@@ -665,7 +666,7 @@ class AssignmentProcessingStepsTest
       val expectedStakeholders = Stakeholders(expectedMetadata)
 
       val expectedError = StakeholdersMismatch(
-        reassignmentId = Some(reassignmentId),
+        reassignmentRef = ReassignmentRef(reassignmentId),
         declaredViewStakeholders = incorrectStakeholders,
         declaredContractStakeholders = Some(expectedStakeholders),
         expectedStakeholders = Right(expectedStakeholders),

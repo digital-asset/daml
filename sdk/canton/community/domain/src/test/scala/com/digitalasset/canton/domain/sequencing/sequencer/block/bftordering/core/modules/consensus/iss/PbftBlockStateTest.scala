@@ -132,12 +132,20 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       processResults should contain theSameElementsInOrderAs List(
         SendPbftMessage(prePrepare, store = Some(StorePrePrepare(prePrepare))),
         SendPbftMessage(prepare, store = None),
-        SendPbftMessage(createCommit(myId), store = Some(StorePrepares(Seq(prepare)))),
+      )
+
+      blockState.confirmPrePrepareStored()
+      blockState.advance() should contain theSameElementsInOrderAs List(
+        SendPbftMessage(createCommit(myId), store = Some(StorePrepares(Seq(prepare))))
+      )
+
+      blockState.confirmPreparesStored()
+      blockState.advance() should contain theSameElementsInOrderAs List(
         CompletedBlock(
           prePrepare,
           Seq(createCommit(myId)),
           ViewNumber.First,
-        ),
+        )
       )
     }
 
@@ -175,7 +183,10 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         peerPrepares.headOption.foreach { prepare =>
           assertNoLogs(blockState.processMessage(prepare)) shouldBe true
         }
+        blockState.advance() shouldBe empty
+
         // Advance should reach threshold; local commit is returned
+        blockState.confirmPrePrepareStored()
         val prepareResult = blockState.advance()
         inside(prepareResult) {
           case List(SendPbftMessage(commit, Some(StorePrepares(preparesToBeStored)))) =>
@@ -196,6 +207,10 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         peerCommits.headOption.foreach { commit =>
           assertNoLogs(blockState.processMessage(commit)) shouldBe true
         }
+
+        blockState.advance() shouldBe empty
+        blockState.confirmPreparesStored()
+
         // Advance should reach threshold; block is complete
         val commitResult = blockState.advance().asInstanceOf[Seq[CompletedBlock]]
         commitResult.map(_.prePrepare) should contain theSameElementsInOrderAs List(prePrepare)
@@ -241,6 +256,10 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         peerPrepares.headOption.foreach { prepare =>
           assertNoLogs(blockState.processMessage(prepare)) shouldBe true
         }
+
+        blockState.advance() shouldBe empty
+        blockState.confirmPrePrepareStored()
+
         inside(blockState.advance()) {
           case List(SendPbftMessage(commit, Some(StorePrepares(preparesToBeStored)))) =>
             commit shouldBe myCommit
@@ -260,6 +279,10 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         peerCommits.headOption.foreach { commit =>
           assertNoLogs(blockState.processMessage(commit)) shouldBe true
         }
+
+        blockState.advance() shouldBe empty
+        blockState.confirmPreparesStored()
+
         val completedBlocks = blockState.advance().asInstanceOf[Seq[CompletedBlock]]
         completedBlocks.map(_.prePrepare) should contain theSameElementsInOrderAs List(pp)
         completedBlocks.flatMap(_.commitMessageQuorum) should contain theSameElementsAs
@@ -278,6 +301,7 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         SendPbftMessage(prePrepare, store = Some(StorePrePrepare(prePrepare))),
         SendPbftMessage(createPrepare(myId), store = None),
       )
+      blockState.confirmPrePrepareStored()
 
       // Prepare with BAD hash (won't count)
       assertNoLogs(blockState.processMessage(createPrepare(otherPeer1, wrongHash))) shouldBe true
@@ -302,6 +326,7 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
             createPrepare(myId),
           )
       }
+      blockState.confirmPreparesStored()
 
       // Commit with BAD hash (won't count)
       assertNoLogs(blockState.processMessage(createCommit(otherPeer1, wrongHash))) shouldBe true
@@ -339,6 +364,7 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
         SendPbftMessage(prePrepare, store = Some(StorePrePrepare(prePrepare))),
         SendPbftMessage(myPrepare, store = None),
       )
+      block.confirmPrePrepareStored()
 
       // Receive quorum of commits first, which should NOT complete the block (nor advance progress)
       otherPeers.foreach { peer =>
@@ -353,17 +379,18 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       // Receive the final prepare that should complete the block
       assertNoLogs(block.processMessage(createPrepare(otherPeer2))) shouldBe true
       inside(block.advance()) {
-        case List(SendPbftMessage(commit, Some(StorePrepares(preparesToStore))), completedBlock) =>
+        case List(SendPbftMessage(commit, Some(StorePrepares(preparesToStore)))) =>
           commit shouldBe myCommit
           val expectedPreparesToStore = otherPeers.take(2).map(createPrepare(_)) :+ myPrepare
           preparesToStore should contain theSameElementsAs expectedPreparesToStore
-          val expectedCompletedBlock = CompletedBlock(
-            prePrepare,
-            Seq(createCommit(otherPeer1), createCommit(otherPeer2), createCommit(otherPeer3)),
-            ViewNumber.First,
-          )
-          completedBlock shouldBe expectedCompletedBlock
       }
+
+      block.confirmPreparesStored()
+      block.advance() should contain only CompletedBlock(
+        prePrepare,
+        Seq(createCommit(otherPeer1), createCommit(otherPeer2), createCommit(otherPeer3)),
+        ViewNumber.First,
+      )
     }
 
     "complete block as follower with out-of-order Pbft messages" in {
@@ -380,6 +407,7 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       blockState.advance() should contain theSameElementsInOrderAs List(
         SendPbftMessage(myPrepare, store = Some(StorePrePrepare(pp)))
       )
+      blockState.confirmPrePrepareStored()
 
       // Receive quorum of commits first, which should NOT complete the block (nor advance progress)
       otherPeers.foreach { peer =>
@@ -391,22 +419,25 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       assertNoLogs(blockState.processMessage(createPrepare(otherPeers.head, hash))) shouldBe true
       blockState.advance() shouldBe empty
       assertNoLogs(blockState.processMessage(createPrepare(otherPeer2, hash))) shouldBe true
+
       inside(blockState.advance()) {
-        case List(SendPbftMessage(commit, Some(StorePrepares(preparesToStore))), completedBlock) =>
+        case List(SendPbftMessage(commit, Some(StorePrepares(preparesToStore)))) =>
           commit shouldBe myCommit
           val expectedPreparesToStore =
             Seq(myPrepare, createPrepare(otherPeer2, hash), createPrepare(otherPeers.head, hash))
           preparesToStore should contain theSameElementsAs expectedPreparesToStore
-          completedBlock shouldBe CompletedBlock(
-            pp,
-            Seq(
-              createCommit(otherPeer1, hash),
-              createCommit(otherPeer2, hash),
-              createCommit(otherPeer3, hash),
-            ),
-            ViewNumber.First,
-          )
       }
+
+      blockState.confirmPreparesStored()
+      blockState.advance() should contain only CompletedBlock(
+        pp,
+        Seq(
+          createCommit(otherPeer1, hash),
+          createCommit(otherPeer2, hash),
+          createCommit(otherPeer3, hash),
+        ),
+        ViewNumber.First,
+      )
     }
 
     "produce correct consensus certificate" in {
@@ -417,6 +448,7 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       assertNoLogs(blockState.processMessage(prePrepare)) shouldBe true
       blockState.advance()
       blockState.consensusCertificate shouldBe None
+      blockState.confirmPrePrepareStored()
 
       val prepare1 = createPrepare(otherPeer1)
       blockState.processMessage(prepare1)
@@ -426,6 +458,9 @@ class PbftBlockStateTest extends AsyncWordSpec with BftSequencerBaseTest {
       val prepare2 = createPrepare(otherPeer2)
       blockState.processMessage(prepare2)
       blockState.advance()
+
+      blockState.consensusCertificate shouldBe None
+      blockState.confirmPreparesStored()
 
       val prepareCert = blockState.consensusCertificate
       prepareCert shouldBe Some(PrepareCertificate(prePrepare, Seq(prepare1, prepare2, myPrepare)))

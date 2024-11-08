@@ -95,7 +95,7 @@ object StaticDomainParameters
 
   val supportedProtoVersions: protocol.StaticDomainParameters.SupportedProtoVersions =
     SupportedProtoVersions(
-      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(
+      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(
         v30.StaticDomainParameters
       )(
         supportedProtoVersion(_)(fromProtoV30),
@@ -461,7 +461,7 @@ object DynamicDomainParameters extends HasProtocolVersionedCompanion[DynamicDoma
 
   val supportedProtoVersions: canton.protocol.DynamicDomainParameters.SupportedProtoVersions =
     SupportedProtoVersions(
-      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(
+      ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(
         v30.DynamicDomainParameters
       )(
         supportedProtoVersion(_)(fromProtoV30),

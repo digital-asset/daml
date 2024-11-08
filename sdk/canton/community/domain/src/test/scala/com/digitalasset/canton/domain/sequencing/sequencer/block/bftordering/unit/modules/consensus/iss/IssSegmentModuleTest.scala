@@ -169,6 +169,12 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
           ConsensusSegment.ConsensusMessage
             .BlockProposal(oneRequestOrderingBlock, EpochNumber.First)
         )
+        consensus.receive(
+          ConsensusSegment.ConsensusMessage.PrePrepareStored(blockMetadata1Node, ViewNumber.First)
+        )
+        consensus.receive(
+          ConsensusSegment.ConsensusMessage.PreparesStored(blockMetadata1Node, ViewNumber.First)
+        )
         p2pBuffer should contain theSameElementsInOrderAs Seq[P2PNetworkOut.Message](
           P2PNetworkOut.Multicast(
             P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
@@ -250,8 +256,9 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
           ConsensusSegment.ConsensusMessage
             .BlockProposal(oneRequestOrderingBlock, EpochNumber.First)
         )
+        val blockMetadata = blockMetadata4Nodes(blockOrder4Nodes.indexOf(selfId))
         val expectedPrePrepare = PrePrepare.create(
-          blockMetadata4Nodes(blockOrder4Nodes.indexOf(selfId)),
+          blockMetadata,
           ViewNumber.First,
           clock.now,
           OrderingBlock(oneRequestOrderingBlock.proofs),
@@ -275,6 +282,9 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         p2pBuffer.clear()
 
         // Prepares from follower peers should trigger sending Commit for the first block
+        consensus.receive(
+          ConsensusSegment.ConsensusMessage.PrePrepareStored(blockMetadata, ViewNumber.First)
+        )
         consensus.receive(PbftSignedNetworkMessage(basePrepare(from = otherPeers(0))))
         consensus.receive(PbftSignedNetworkMessage(basePrepare(from = otherPeers(1))))
         p2pBuffer should contain theSameElementsInOrderAs Seq[P2PNetworkOut.Message](
@@ -289,6 +299,9 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
 
         // Commits from follower peers and confirmation of block stored should complete the block,
         //   forward the block to Output, and request a new proposal from Availability
+        consensus.receive(
+          ConsensusSegment.ConsensusMessage.PreparesStored(blockMetadata, ViewNumber.First)
+        )
         consensus.receive(PbftSignedNetworkMessage(baseCommit(from = otherPeers(0))))
         consensus.receive(PbftSignedNetworkMessage(baseCommit(from = otherPeers(1))))
         val expectedOrderedBlock = orderedBlockFromPrePrepare(expectedPrePrepare)
@@ -339,9 +352,10 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         cancelCell.get() should matchPattern { case Some((1, _: PbftNormalTimeout)) => }
 
         // Mock a PrePrepare coming from another node; upon receipt, should trigger Prepare multicast
+        val blockMetadata = blockMetadata4Nodes(blockOrder4Nodes.indexOf(remotePeer))
         val remotePrePrepare = PrePrepare
           .create(
-            blockMetadata4Nodes(blockOrder4Nodes.indexOf(remotePeer)),
+            blockMetadata,
             ViewNumber.First,
             clock.now,
             OrderingBlock(oneRequestOrderingBlock.proofs),
@@ -365,6 +379,9 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         p2pBuffer.clear()
 
         // Upon receiving enough other Prepares, module should multicast a Commit
+        consensus.receive(
+          ConsensusSegment.ConsensusMessage.PrePrepareStored(blockMetadata, ViewNumber.First)
+        )
         consensus.receive(PbftSignedNetworkMessage(basePrepare(from = remotePeer)))
         consensus.receive(PbftSignedNetworkMessage(basePrepare(from = otherPeers(1))))
         p2pBuffer should contain theSameElementsInOrderAs Seq[P2PNetworkOut.Message](
@@ -379,6 +396,9 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
 
         // Upon receiving enough other Commits, and upon confirming block storage, block should be
         // complete and forward to Output
+        consensus.receive(
+          ConsensusSegment.ConsensusMessage.PreparesStored(blockMetadata, ViewNumber.First)
+        )
         consensus.receive(PbftSignedNetworkMessage(baseCommit(from = otherPeers(0))))
         consensus.receive(PbftSignedNetworkMessage(baseCommit(from = otherPeers(1))))
         val expectedOrderedBlock = orderedBlockFromPrePrepare(remotePrePrepare.message)
@@ -436,6 +456,12 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         consensus.receive(
           ConsensusSegment.ConsensusMessage
             .BlockProposal(oneRequestOrderingBlock, EpochNumber.First)
+        )
+        consensus.receive(
+          ConsensusSegment.ConsensusMessage.PrePrepareStored(blockMetadata1Node, ViewNumber.First)
+        )
+        consensus.receive(
+          ConsensusSegment.ConsensusMessage.PreparesStored(blockMetadata1Node, ViewNumber.First)
         )
         consensus.receive(
           ConsensusSegment.Internal.OrderedBlockStored(
@@ -512,13 +538,26 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
           ),
           P2PNetworkOut.Multicast(
             P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
-              commitFromPrePrepare(bottomBlock1.message)(from = selfId)
+              prepareFromPrePrepare(bottomBlock2.message)(from = selfId)
             ),
             Set.empty,
           ),
+        )
+        p2pBuffer.clear()
+        // delayCount should be 4:
+        //   - delayCount=3 for nested view change timer
+        //   - delayCount=4 when view change completed; expecting consensus to resume on incomplete blocks
+        delayCount(cancelCell) shouldBe 4
+
+        consensus.receive(
+          ConsensusSegment.ConsensusMessage
+            .NewViewStored(BlockMetadata.mk(EpochNumber.First, BlockNumber.First), nextView)
+        )
+
+        p2pBuffer should contain theSameElementsInOrderAs Seq[P2PNetworkOut.Message](
           P2PNetworkOut.Multicast(
             P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(
-              prepareFromPrePrepare(bottomBlock2.message)(from = selfId)
+              commitFromPrePrepare(bottomBlock1.message)(from = selfId)
             ),
             Set.empty,
           ),
@@ -530,13 +569,17 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
           ),
         )
         p2pBuffer.clear()
-        // delayCount should be 4:
-        //   - delayCount=3 for nested view change timer
-        //   - delayCount=4 when view change completed; expecting consensus to resume on incomplete blocks
-        delayCount(cancelCell) shouldBe 4
 
         // Following the view change, need to confirm storage of last 2 blocks, which will then forward to Output
         // To keep things interesting, we confirm them out of order, as this can happen with DB in practice
+        consensus.receive(
+          ConsensusSegment.ConsensusMessage
+            .PrePrepareStored(bottomBlock2.message.blockMetadata, nextView)
+        )
+        consensus.receive(
+          ConsensusSegment.ConsensusMessage
+            .PreparesStored(bottomBlock2.message.blockMetadata, nextView)
+        )
         consensus.receive(
           ConsensusSegment.Internal.OrderedBlockStored(
             orderedBlockFromPrePrepare(bottomBlock2.message),
@@ -547,6 +590,10 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         // after each non-final segment block confirmation, expect delayCount to advance; here, it should be 5
         delayCount(cancelCell) shouldBe 5
 
+        consensus.receive(
+          ConsensusSegment.ConsensusMessage
+            .PreparesStored(bottomBlock1.message.blockMetadata, nextView)
+        )
         consensus.receive(
           ConsensusSegment.Internal.OrderedBlockStored(
             orderedBlockFromPrePrepare(bottomBlock1.message),
@@ -694,15 +741,26 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
             P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(prepareBottomBlock0),
             Set.empty,
           ),
-          P2PNetworkOut.Multicast(
-            P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(commitBottomBlock0),
-            Set.empty,
-          ),
+        )
+        p2pBuffer.clear()
+
+        consensus.receive(
+          ConsensusSegment.ConsensusMessage
+            .NewViewStored(BlockMetadata.mk(EpochNumber.First, BlockNumber.First), NextViewNumber)
+        )
+
+        p2pBuffer should contain only P2PNetworkOut.Multicast(
+          P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(commitBottomBlock0),
+          Set.empty,
         )
         p2pBuffer.clear()
 
         // Bottom block0 is stored and forwarded to the Output module
         val orderedBlock0 = orderedBlockFromPrePrepare(bottomBlock0.message)
+        consensus.receive(
+          ConsensusSegment.ConsensusMessage
+            .PreparesStored(commitBottomBlock0.message.blockMetadata, NextViewNumber)
+        )
         consensus.receive(
           ConsensusSegment.Internal
             .OrderedBlockStored(orderedBlock0, Seq(commitBottomBlock0), NextViewNumber)
@@ -766,6 +824,12 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
           ConsensusSegment.ConsensusMessage
             .BlockProposal(oneRequestOrderingBlock, EpochNumber.First)
         )
+        consensus.receive(
+          ConsensusSegment.ConsensusMessage.PrePrepareStored(blockMetadata1Node, ViewNumber.First)
+        )
+        consensus.receive(
+          ConsensusSegment.ConsensusMessage.PreparesStored(blockMetadata1Node, ViewNumber.First)
+        )
         p2pBuffer should contain theSameElementsInOrderAs Seq[P2PNetworkOut.Message](
           P2PNetworkOut.Multicast(
             P2PNetworkOut.BftOrderingNetworkMessage.ConsensusMessage(epoch1PrePrepare),
@@ -794,8 +858,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
         availabilityBuffer should contain only Availability.Consensus.Ack(Seq(aBatchId))
       }
 
-      // TODO(#20914): Fix.
-      "persist outgoing PbftNetworkMessages before attempting to send them" ignore {
+      "persist outgoing PbftNetworkMessages before attempting to send them" in {
         val availabilityBuffer =
           new ArrayBuffer[Availability.Message[ProgrammableUnitTestEnv]](defaultBufferSize)
         val parentBuffer =
@@ -850,8 +913,10 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
           Seq.empty,
         )
 
-        // Run the pipeToSelf, should then store and send the Prepare
-        context.runPipedMessages()
+        // Run the pipeToSelf, should then store the PrePrepare and send the Prepare
+        val prePrareStored =
+          PrePrepareStored(remotePrePrepare.message.blockMetadata, ViewNumber.First)
+        context.runPipedMessages() should contain only prePrareStored
         context.blockingAwait(store.loadEpochProgress(epochInfo)) shouldBe EpochInProgress(
           Seq.empty,
           pbftMessagesForIncompleteBlocks = Seq[SignedMessage[PbftNetworkMessage]](
@@ -867,14 +932,18 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
           )
         )
         p2pBuffer.clear()
+        consensus.receive(prePrareStored)
 
         // Upon receiving enough other Prepares, should call pipeToSelf to store Seq(Prepare)
         consensus.receive(PbftSignedNetworkMessage(basePrepare(from = remotePeer)))
         consensus.receive(PbftSignedNetworkMessage(basePrepare(from = otherPeers(1))))
 
         // Run the pipeToSelf, should then store and send the Prepare
-        context.runPipedMessages()
-        context.blockingAwait(store.loadEpochProgress(epochInfo)) shouldBe EpochInProgress(
+        val preparesStored =
+          PreparesStored(remotePrePrepare.message.blockMetadata, ViewNumber.First)
+        context.runPipedMessages() should contain only preparesStored
+        val progress = context.blockingAwait(store.loadEpochProgress(epochInfo))
+        progress shouldBe EpochInProgress(
           Seq.empty,
           pbftMessagesForIncompleteBlocks = Seq[SignedMessage[PbftNetworkMessage]](
             remotePrePrepare,
@@ -892,6 +961,7 @@ class IssSegmentModuleTest extends AsyncWordSpec with BaseTest with HasExecution
           )
         )
         p2pBuffer.clear()
+        consensus.receive(preparesStored)
 
         // Upon receiving enough other Commits, should call pipeToSelf to addOrderedBlock
         consensus.receive(PbftSignedNetworkMessage(baseCommit(from = remotePeer)))

@@ -4,20 +4,19 @@
 package com.digitalasset.canton.http
 
 import com.daml.jwt.Jwt
-import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.typesig
-import com.digitalasset.canton.http.domain.{ContractTypeId, ContractTypeRef}
 import com.daml.logging.LoggingContextOf
 import com.daml.nonempty.{NonEmpty, Singleton}
 import com.digitalasset.canton.http.domain.ContractTypeId.ResolvedOf
-import com.digitalasset.canton.http.domain.Choice
+import com.digitalasset.canton.http.domain.{Choice, ContractTypeId, ContractTypeRef}
 import com.digitalasset.canton.http.util.IdentifierConverters
 import com.digitalasset.canton.http.util.Logging.InstanceUUID
 import com.digitalasset.canton.ledger.service.LedgerReader.{PackageStore, Signatures}
 import com.digitalasset.canton.ledger.service.{LedgerReader, TemplateIds}
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.tracing.NoTracing
+import com.digitalasset.daml.lf.data.ImmArray.ImmArraySeq
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.typesig
 import scalaz.std.option.none
 import scalaz.std.scalaFuture.*
 import scalaz.syntax.apply.*
@@ -25,8 +24,8 @@ import scalaz.syntax.std.option.*
 import scalaz.{EitherT, Show, \/, \/-}
 
 import java.time.*
-import scala.concurrent.{ExecutionContext, Future}
 import scala.collection.MapView
+import scala.concurrent.{ExecutionContext, Future}
 
 class PackageService(
     reloadPackageStoreIfChanged: Jwt => PackageService.ReloadPackageStore,

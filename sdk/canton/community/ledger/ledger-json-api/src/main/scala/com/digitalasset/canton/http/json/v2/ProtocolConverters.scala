@@ -5,7 +5,6 @@ package com.digitalasset.canton.http.json.v2
 
 import com.daml.error.ContextualizedErrorLogger
 import com.daml.ledger.api.v2 as lapi
-import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.canton.http.json.v2.JsContractEntry.JsContractEntry
 import com.digitalasset.canton.http.json.v2.JsReassignmentEvent.JsReassignmentEvent
 import com.digitalasset.canton.http.json.v2.JsSchema.{
@@ -16,6 +15,7 @@ import com.digitalasset.canton.http.json.v2.JsSchema.{
   JsTransactionTree,
   JsTreeEvent,
 }
+import com.digitalasset.daml.lf.data.Ref
 import com.google.rpc.status.Status
 import ujson.StringRenderer
 import ujson.circe.CirceJson
@@ -143,6 +143,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
                 templateId = Some(IdentifierConverter.fromJson(js.template_id)),
                 contractId = js.contract_id,
                 createdEventBlob = js.created_event_blob,
+                domainId = js.domain_id.getOrElse(""),
               )
             ),
             domainId = domain_id,
@@ -235,6 +236,7 @@ class ProtocolConverters(schemaProcessors: SchemaProcessors)(implicit
                 template_id = IdentifierConverter.toJson(disclosedContract.getTemplateId),
                 contract_id = disclosedContract.contractId,
                 created_event_blob = disclosedContract.createdEventBlob,
+                domain_id = Option(disclosedContract.domainId).filter(_.nonEmpty),
               )
             },
             act_as = lapiCommands.actAs,

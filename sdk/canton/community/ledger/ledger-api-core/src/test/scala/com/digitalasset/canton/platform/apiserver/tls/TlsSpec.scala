@@ -28,7 +28,7 @@ class TlsSpec
   val invalidClientCrt = resource("ca_alternative.crt")
   val invalidClientKey = resource("ca_alternative.pem")
 
-  classOf[LedgerApiService].getSimpleName when {
+  classOf[LedgerApiService.type].getSimpleName when {
     "client authorization is set to none" should {
       "allow TLS connections with valid certificates" in {
         assertResponseSuccess(Some(clientCrt), Some(clientKey), ClientAuth.NONE)

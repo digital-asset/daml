@@ -28,7 +28,7 @@ object EnvelopeContent
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
     ProtoVersion(30) -> VersionedProtoConverter(
-      ProtocolVersion.v32
+      ProtocolVersion.v33
     )(v30.EnvelopeContent)(
       supportedProtoVersion(_)(fromProtoV30),
       _.toByteStringUnversioned,

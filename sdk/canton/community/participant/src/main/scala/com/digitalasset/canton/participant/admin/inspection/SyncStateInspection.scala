@@ -119,7 +119,7 @@ final class SyncStateInspection(
         syncDomainPersistentStateManager
           .getByAlias(domain)
           .traverse(_.acsInspection.findContracts(filterId, filterPackage, filterTemplate, limit))
-
+          .failOnShutdownToAbortException("findContracts")
       },
       domain,
     )
@@ -694,7 +694,7 @@ final class SyncStateInspection(
       participantNodePersistentState.value.ledgerApiStore.lastDomainOffsetBeforeOrAt(
         domainId,
         Offset.fromAbsoluteOffsetO(
-          participantNodePersistentState.value.ledgerApiStore.ledgerEndCache()._1
+          participantNodePersistentState.value.ledgerApiStore.ledgerEndCache().map(_.lastOffset)
         ),
       )
     )

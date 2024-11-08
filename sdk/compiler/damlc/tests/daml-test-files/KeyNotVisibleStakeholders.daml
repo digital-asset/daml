@@ -61,8 +61,8 @@ template Delegation
         lookupByKey sig
 
 divulgeeFetch = script do
-  sig <- allocateParty "s" -- Signatory
-  divulgee <- allocateParty "d" -- Divulgee
+  sig <- allocatePartyWithHint "s" (PartyIdHint "s") -- Signatory
+  divulgee <- allocatePartyWithHint "d" (PartyIdHint "d") -- Divulgee
   keyedCid <- submit sig do createCmd Keyed with ..
   divulgercid <- submit divulgee do createCmd Divulger with ..
   submit sig do exerciseCmd divulgercid DivulgeKeyed with ..
@@ -71,8 +71,8 @@ divulgeeFetch = script do
     pure ()
 
 divulgeeLookup = script do
-  sig <- allocateParty "s" -- Signatory
-  divulgee <- allocateParty "d" -- Divulgee
+  sig <- allocatePartyWithHint "s" (PartyIdHint "s") -- Signatory
+  divulgee <- allocatePartyWithHint "d" (PartyIdHint "d") -- Divulgee
   keyedCid <- submit sig do createCmd Keyed with ..
   divulgercid <- submit divulgee do createCmd Divulger with ..
   submit sig do exerciseCmd divulgercid DivulgeKeyed with ..
@@ -81,9 +81,9 @@ divulgeeLookup = script do
     pure ()
 
 blindFetch = script do
-  sig <- allocateParty "s" -- Signatory
-  divulgee <- allocateParty "d" -- Divulgee
-  blind <- allocateParty "b" -- Blind
+  sig <- allocatePartyWithHint "s" (PartyIdHint "s") -- Signatory
+  divulgee <- allocatePartyWithHint "d" (PartyIdHint "d") -- Divulgee
+  blind <- allocatePartyWithHint "b" (PartyIdHint "b") -- Blind
   keyedCid <- submit sig do createCmd Keyed with ..
   divulgercid <- submit divulgee do createCmd Divulger with ..
   submit sig do exerciseCmd divulgercid DivulgeKeyed with ..
@@ -92,9 +92,9 @@ blindFetch = script do
     pure ()
 
 blindLookup = script do
-  sig <- allocateParty "s" -- Signatory
-  divulgee <- allocateParty "d" -- Divulgee
-  blind <- allocateParty "b" -- Blind
+  sig <- allocatePartyWithHint "s" (PartyIdHint "s") -- Signatory
+  divulgee <- allocatePartyWithHint "d" (PartyIdHint "d") -- Divulgee
+  blind <- allocatePartyWithHint "b" (PartyIdHint "b") -- Blind
   keyedCid <- submit sig do createCmd Keyed with ..
   divulgercid <- submit divulgee do createCmd Divulger with ..
   submit sig do exerciseCmd divulgercid DivulgeKeyed with ..

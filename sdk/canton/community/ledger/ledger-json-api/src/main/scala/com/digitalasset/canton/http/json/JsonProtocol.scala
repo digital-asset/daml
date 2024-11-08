@@ -3,14 +3,14 @@
 
 package com.digitalasset.canton.http.json
 
-import com.digitalasset.daml.lf.data.Ref
-import com.digitalasset.daml.lf.value.Value.ContractId
 import com.daml.nonempty.NonEmpty
 import com.daml.struct.spray.StructJsonFormat
 import com.digitalasset.canton.daml.lf.value.json.ApiCodecCompressed
 import com.digitalasset.canton.http.domain
 import com.digitalasset.canton.http.domain.*
 import com.digitalasset.canton.ledger.api.refinements.ApiTypes as lar
+import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.value.Value.ContractId
 import com.google.protobuf.ByteString
 import com.google.protobuf.struct.Struct
 import org.apache.pekko.http.scaladsl.model.StatusCode
@@ -178,7 +178,7 @@ object JsonProtocol extends JsonProtocolLow {
     }
 
   implicit val PartyDetails: JsonFormat[domain.PartyDetails] =
-    jsonFormat3(domain.PartyDetails.apply)
+    jsonFormat2(domain.PartyDetails.apply)
 
   implicit val CreateUserRequest: JsonFormat[domain.CreateUserRequest] =
     jsonFormat3(domain.CreateUserRequest.apply)
@@ -199,7 +199,7 @@ object JsonProtocol extends JsonProtocolLow {
     jsonFormat1(domain.DeleteUserRequest.apply)
 
   implicit val AllocatePartyRequest: JsonFormat[domain.AllocatePartyRequest] =
-    jsonFormat2(domain.AllocatePartyRequest.apply)
+    jsonFormat1(domain.AllocatePartyRequest.apply)
 
   object LfValueCodec
       extends ApiCodecCompressed(

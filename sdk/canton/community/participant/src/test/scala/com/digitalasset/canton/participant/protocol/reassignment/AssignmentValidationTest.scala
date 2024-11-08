@@ -10,6 +10,7 @@ import com.digitalasset.canton.data.{
   CantonTimestamp,
   FullAssignmentTree,
   ReassigningParticipants,
+  ReassignmentRef,
   ReassignmentSubmitterMetadata,
 }
 import com.digitalasset.canton.participant.protocol.SerializableContractAuthenticator

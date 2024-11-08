@@ -143,7 +143,6 @@ beforeAll(async () => {
 
   async function allocateParty(partyName: string): Promise<string> {
     const party = await ledger.allocateParty({
-      displayName: partyName,
       identifierHint: partyName,
     });
     return party.identifier;
@@ -1186,7 +1185,6 @@ test("stream close behaviour", async () => {
 test("party API", async () => {
   const p = (name: string, id: string): PartyInfo => ({
     identifier: id,
-    displayName: name,
     isLocal: true,
   });
   const ledger = new Ledger({ token: ALICE_TOKEN, httpBaseUrl: httpBaseUrl() });
@@ -1204,10 +1202,9 @@ test("party API", async () => {
   ]);
 
   const newParty1 = await ledger.allocateParty({});
-  const newParty2 = await ledger.allocateParty({ displayName: "Carol" });
-  const daveParty = (
-    await ledger.allocateParty({ displayName: "Dave", identifierHint: "Dave" })
-  ).identifier;
+  const newParty2 = await ledger.allocateParty({ identifierHint: "Carol" });
+  const daveParty = (await ledger.allocateParty({ identifierHint: "Dave" }))
+    .identifier;
 
   const allPartiesAfter = (await ledger.listKnownParties()).map(
     pi => pi.identifier,

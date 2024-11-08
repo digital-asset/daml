@@ -70,7 +70,7 @@ object TopologyTransactionsBroadcast
     }
 
   val supportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(
       v30.TopologyTransactionsBroadcast
     )(
       supportedProtoVersion(_)(fromProtoV30),

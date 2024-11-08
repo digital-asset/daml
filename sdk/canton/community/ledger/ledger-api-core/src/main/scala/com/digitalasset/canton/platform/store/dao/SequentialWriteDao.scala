@@ -8,6 +8,7 @@ import com.digitalasset.canton.data.{CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state.Update
 import com.digitalasset.canton.logging.NamedLoggerFactory
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
+import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.digitalasset.canton.platform.store.backend.{
   DbDto,
   DbDtoToStringsForInterning,
@@ -48,17 +49,18 @@ object SequentialWriteDao {
       SequentialWriteDaoImpl(
         ingestionStorageBackend = ingestionStorageBackend,
         parameterStorageBackend = parameterStorageBackend,
-        updateToDbDtos = UpdateToDbDto(
-          participantId = participantId,
-          translation = new LfValueTranslation(
-            metrics = metrics,
-            engineO = None,
-            loadPackage = (_, _) => Future.successful(None),
-            loggerFactory = loggerFactory,
-          ),
-          compressionStrategy = compressionStrategy,
-          metrics,
-        ),
+        updateToDbDtos = offset =>
+          UpdateToDbDto(
+            participantId = participantId,
+            translation = new LfValueTranslation(
+              metrics = metrics,
+              engineO = None,
+              loadPackage = (_, _) => Future.successful(None),
+              loggerFactory = loggerFactory,
+            ),
+            compressionStrategy = compressionStrategy,
+            metrics,
+          )(mc)(offset.toAbsoluteOffset),
         ledgerEndCache = ledgerEndCache,
         stringInterningView = stringInterningView,
         dbDtosToStringsForInterning = DbDtoToStringsForInterning(_),
@@ -94,9 +96,9 @@ private[dao] final case class SequentialWriteDaoImpl[DB_BATCH](
   private def lazyInit(connection: Connection): Unit =
     if (!lastEventSeqIdInitialized) {
       val ledgerEnd = parameterStorageBackend.ledgerEnd(connection)
-      lastEventSeqId = ledgerEnd.lastEventSeqId
-      previousTransactionMetaToEventSeqId = ledgerEnd.lastEventSeqId
-      lastStringInterningId = ledgerEnd.lastStringInterningId
+      lastEventSeqId = ledgerEnd.map(_.lastEventSeqId).getOrElse(0)
+      previousTransactionMetaToEventSeqId = ledgerEnd.map(_.lastEventSeqId).getOrElse(0)
+      lastStringInterningId = ledgerEnd.map(_.lastStringInterningId).getOrElse(0)
       lastEventSeqIdInitialized = true
     }
 
@@ -157,13 +159,24 @@ private[dao] final case class SequentialWriteDaoImpl[DB_BATCH](
 
       parameterStorageBackend.updateLedgerEnd(
         ParameterStorageBackend.LedgerEnd(
-          lastOffset = offset.toAbsoluteOffsetO,
+          lastOffset = offset.toAbsoluteOffset,
           lastEventSeqId = lastEventSeqId,
           lastStringInterningId = lastStringInterningId,
           lastPublicationTime = CantonTimestamp.MinValue,
         )
       )(connection)
 
-      ledgerEndCache.set((offset.toAbsoluteOffsetO, lastEventSeqId, CantonTimestamp.MinValue))
+      offset.toAbsoluteOffsetO.foreach(offset =>
+        ledgerEndCache.set(
+          Some(
+            LedgerEnd(
+              lastOffset = offset,
+              lastEventSeqId = lastEventSeqId,
+              lastStringInterningId = lastStringInterningId,
+              lastPublicationTime = CantonTimestamp.MinValue,
+            )
+          )
+        )
+      )
     })
 }

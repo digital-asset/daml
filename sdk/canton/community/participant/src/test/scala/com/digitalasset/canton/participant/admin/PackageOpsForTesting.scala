@@ -14,7 +14,7 @@ import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref.PackageId
 
-import scala.concurrent.{ExecutionContext, Future}
+import scala.concurrent.ExecutionContext
 
 class PackageOpsForTesting(
     val participantId: ParticipantId,
@@ -30,7 +30,7 @@ class PackageOpsForTesting(
 
   override def checkPackageUnused(packageId: PackageId)(implicit
       tc: TraceContext
-  ): EitherT[Future, PackageInUse, Unit] =
+  ): EitherT[FutureUnlessShutdown, PackageInUse, Unit] =
     EitherT.rightT(())
 
   override def revokeVettingForPackages(

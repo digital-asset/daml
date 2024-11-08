@@ -122,8 +122,6 @@ create table common_node_id(
 create table common_party_metadata (
   -- party id as string
   party_id varchar(300) not null,
-  -- the display name which should be exposed via the ledger-api server
-  display_name varchar(300) null,
   -- the main participant id of this party which is our participant if the party is on our node (preferred) or the remote participant
   participant_id varchar(300) null,
   -- the submission id used to synchronise the ledger api server

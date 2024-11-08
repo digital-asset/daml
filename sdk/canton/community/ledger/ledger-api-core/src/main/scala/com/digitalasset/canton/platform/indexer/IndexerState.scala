@@ -217,7 +217,6 @@ class IndexerState(
             case u: Update.SequencerIndexMoved => u.domainId == domainId
             case u: Update.TopologyTransactionEffective => u.domainId == domainId
             case _: Update.CommitRepair => false
-            case _: Update.Init => false
             case _: Update.PartyAddedToParticipant => false
             case _: Update.PartyAllocationRejected => false
           }

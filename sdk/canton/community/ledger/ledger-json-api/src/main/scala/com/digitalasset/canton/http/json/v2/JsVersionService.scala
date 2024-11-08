@@ -3,8 +3,7 @@
 
 package com.digitalasset.canton.http.json.v2
 
-import com.daml.ledger.api.v2.experimental_features
-import com.daml.ledger.api.v2.version_service
+import com.daml.ledger.api.v2.{experimental_features, version_service}
 import com.digitalasset.canton.http.json.v2.Endpoints.{CallerContext, TracedInput}
 import com.digitalasset.canton.http.json.v2.JsSchema.DirectScalaPbRwImplicits.*
 import com.digitalasset.canton.http.json.v2.JsSchema.JsCantonError

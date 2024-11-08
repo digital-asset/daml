@@ -31,7 +31,7 @@ import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.*
-import com.digitalasset.canton.ledger.participant.state.WriteService.ConnectedDomainResponse
+import com.digitalasset.canton.ledger.participant.state.SyncService.ConnectedDomainResponse
 import com.digitalasset.canton.lifecycle.*
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.networking.grpc.CantonGrpcUtil.GrpcErrors
@@ -54,11 +54,8 @@ import com.digitalasset.canton.participant.protocol.TransactionProcessor.{
   TransactionSubmissionUnknown,
   TransactionSubmitted,
 }
+import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentCoordination
 import com.digitalasset.canton.participant.protocol.reassignment.ReassignmentProcessingSteps.ReassignmentProcessorError
-import com.digitalasset.canton.participant.protocol.reassignment.{
-  IncompleteReassignmentData,
-  ReassignmentCoordination,
-}
 import com.digitalasset.canton.participant.protocol.submission.routing.DomainRouter
 import com.digitalasset.canton.participant.pruning.{AcsCommitmentProcessor, PruningProcessor}
 import com.digitalasset.canton.participant.store.*
@@ -152,10 +149,10 @@ class CantonSyncService(
     futureSupervisor: FutureSupervisor,
     protected val loggerFactory: NamedLoggerFactory,
     testingConfig: TestingConfigInternal,
-    ledgerApiIndexer: LifeCycleContainer[LedgerApiIndexer],
+    val ledgerApiIndexer: LifeCycleContainer[LedgerApiIndexer],
 )(implicit ec: ExecutionContextExecutor, mat: Materializer, val tracer: Tracer)
-    extends state.WriteService
-    with WriteParticipantPruningService
+    extends state.SyncService
+    with ParticipantPruningSyncService
     with FlagCloseable
     with Spanning
     with NamedLogging
@@ -295,6 +292,9 @@ class CantonSyncService(
   val protocolVersionGetter: Traced[DomainId] => Option[ProtocolVersion] =
     (tracedDomainId: Traced[DomainId]) =>
       syncDomainPersistentStateManager.protocolVersionFor(tracedDomainId.value)
+
+  override def getProtocolVersionForDomain(domainId: Traced[DomainId]): Option[ProtocolVersion] =
+    protocolVersionGetter(domainId)
 
   participantNodeEphemeralState.inFlightSubmissionTracker.registerDomainStateLookup(domainId =>
     connectedDomainsMap.get(domainId).map(_.ephemeral.inFlightSubmissionTrackerDomainState)
@@ -556,9 +556,9 @@ class CantonSyncService(
         explicitlyDisclosedContracts,
       )
       // TODO(i2794) retry command if token expired
-      submittedFF.value.transform { result =>
+      submittedFF.value.unwrap.transform { result =>
         val loggedResult = result match {
-          case Success(Right(sequencedF)) =>
+          case Success(UnlessShutdown.Outcome(Right(sequencedF))) =>
             // Reply with ACK as soon as the submission has been registered as in-flight,
             // and asynchronously send it to the sequencer.
             logger.debug(s"Command ${submitterInfo.commandId} is now in-flight.")
@@ -589,9 +589,10 @@ class CantonSyncService(
               UnlessShutdown.unit
             }
             Right(loggedF)
-          case Success(Left(submissionError)) =>
+          case Success(UnlessShutdown.Outcome(Left(submissionError))) =>
             processSubmissionError(submissionError)
-          case Failure(PassiveInstanceException(_reason)) =>
+          case Failure(PassiveInstanceException(_)) |
+              Success(UnlessShutdown.AbortedDueToShutdown) =>
             val err = SyncServiceInjectionError.PassiveReplica.Error(
               submitterInfo.applicationId,
               submitterInfo.commandId,
@@ -609,12 +610,11 @@ class CantonSyncService(
 
   override def allocateParty(
       hint: Option[LfPartyId],
-      displayName: Option[String],
       rawSubmissionId: LedgerSubmissionId,
   )(implicit
       traceContext: TraceContext
   ): CompletionStage[SubmissionResult] =
-    partyAllocation.allocate(hint, displayName, rawSubmissionId)
+    partyAllocation.allocate(hint, rawSubmissionId)
 
   override def uploadDar(dar: ByteString, submissionId: Ref.SubmissionId)(implicit
       traceContext: TraceContext
@@ -687,16 +687,6 @@ class CantonSyncService(
 
     // Important to invoke recovery before we do anything else with persisted stores.
     recoverParticipantNodeState()
-
-    // Publish the init event that will increase the offset of the participant. Thus, the ledger api server will
-    // not return responses that contain an offset being before the ledger begin. Only do so on brand new ledgers
-    // without preexisting events.
-    logger.debug("Publishing init event if ledger is brand new")
-    parameters.processingTimeouts.default
-      .await("Publish init event if ledger is brand new")(
-        participantNodeEphemeralState.participantEventPublisher.publishInitNeededUpstreamOnlyIfFirst
-          .onShutdown(logger.debug("Aborted publishing of init due to shutdown"))
-      )
   }
 
   /** Returns the ready domains this sync service is connected to. */
@@ -1686,8 +1676,8 @@ class CantonSyncService(
   }
 
   override def getConnectedDomains(
-      request: WriteService.ConnectedDomainRequest
-  )(implicit traceContext: TraceContext): Future[WriteService.ConnectedDomainResponse] = {
+      request: SyncService.ConnectedDomainRequest
+  )(implicit traceContext: TraceContext): Future[SyncService.ConnectedDomainResponse] = {
     def getSnapshot(domainAlias: DomainAlias, domainId: DomainId): Future[TopologySnapshot] =
       syncCrypto.ips
         .forDomain(domainId)
@@ -1722,38 +1712,35 @@ class CantonSyncService(
     Future.sequence(result).map(_.flatten).map(ConnectedDomainResponse.apply)
   }
 
-  def incompleteReassignmentData(
-      validAt: GlobalOffset,
-      stakeholders: Set[LfPartyId],
-  )(implicit traceContext: TraceContext): Future[List[IncompleteReassignmentData]] =
-    syncDomainPersistentStateManager.getAll.values.toList
-      .parTraverse {
-        _.reassignmentStore.findIncomplete(
-          sourceDomain = None,
-          validAt = validAt,
-          stakeholders = NonEmpty.from(stakeholders),
-          limit = NonNegativeInt.maxValue,
-        )
-      }
-      .map(_.flatten)
-
   override def incompleteReassignmentOffsets(
       validAt: Offset,
       stakeholders: Set[LfPartyId],
-  )(implicit traceContext: TraceContext): Future[Vector[Offset]] =
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Vector[Offset]] =
     if (validAt == Offset.beforeBegin) {
-      Future.successful(Vector.empty)
+      FutureUnlessShutdown.pure(Vector.empty)
     } else {
       UpstreamOffsetConvert
         .toGlobalOffset(validAt)
         .fold(
-          error => Future.failed(new IllegalArgumentException(error)),
-          incompleteReassignmentData(_, stakeholders).map(
-            _.map(
-              _.reassignmentEventGlobalOffset.globalOffset
-                .pipe(UpstreamOffsetConvert.fromGlobalOffset)
-            ).toVector
-          ),
+          error => FutureUnlessShutdown.failed(new IllegalArgumentException(error)),
+          globalOffset =>
+            syncDomainPersistentStateManager.getAll.values.toList
+              .parTraverse {
+                _.reassignmentStore.findIncomplete(
+                  sourceDomain = None,
+                  validAt = globalOffset,
+                  stakeholders = NonEmpty.from(stakeholders),
+                  limit = NonNegativeInt.maxValue,
+                )
+              }
+              .map(
+                _.flatten
+                  .map(
+                    _.reassignmentEventGlobalOffset.globalOffset
+                      .pipe(UpstreamOffsetConvert.fromGlobalOffset)
+                  )
+                  .toVector
+              ),
         )
     }
 }

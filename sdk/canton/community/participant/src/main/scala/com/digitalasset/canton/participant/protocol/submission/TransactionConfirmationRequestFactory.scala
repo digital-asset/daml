@@ -93,7 +93,10 @@ class TransactionConfirmationRequestFactory(
     TransactionConfirmationRequestCreationError,
     TransactionConfirmationRequest,
   ] = {
-    val transactionUuid = seedGenerator.generateUuid()
+    // For externally signed transaction, the transactionUUID is generated during "prepare" and is part of the hash,
+    // so we use that one.
+    val transactionUuid = submitterInfo.transactionUUID
+      .getOrElse(seedGenerator.generateUuid())
     val ledgerTime = wfTransaction.metadata.ledgerTime
 
     for {
@@ -195,14 +198,7 @@ class TransactionConfirmationRequestFactory(
           canton.CommandId.fromProtoPrimitive(submitterInfo.commandId)
         )
         .leftMap(ParticipantAuthorizationError.apply)
-      hash = InteractiveSubmission.computeHash(commandId)
-      _ <- EitherT.cond[FutureUnlessShutdown](
-        hash == signedTx.hash,
-        (),
-        ParticipantAuthorizationError(
-          s"Signed hash (${signedTx.hash}) does not match recomputed hash: $hash"
-        ),
-      )
+      hash = InteractiveSubmission.computeHashV1(commandId)
       _ <- InteractiveSubmission
         .verifySignatures(hash, signedTx.signatures, cryptoSnapshot)
         .leftMap(ParticipantAuthorizationError.apply)

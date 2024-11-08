@@ -9,6 +9,10 @@ import com.digitalasset.canton.config.RequireTypes.{NonNegativeInt, NonNegativeL
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.data.{CantonTimestamp, GeneratorsData}
 import com.digitalasset.canton.protocol.messages.{GeneratorsMessages, ProtocolMessage}
+import com.digitalasset.canton.sequencing.channel.{
+  ConnectToSequencerChannelRequest,
+  ConnectToSequencerChannelResponse,
+}
 import com.digitalasset.canton.sequencing.traffic.TrafficReceipt
 import com.digitalasset.canton.serialization.{
   BytestringWithCryptographicEvidence,
@@ -16,6 +20,7 @@ import com.digitalasset.canton.serialization.{
 }
 import com.digitalasset.canton.time.TimeProofTestUtil
 import com.digitalasset.canton.topology.{DomainId, Member}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.Target
 import com.digitalasset.canton.version.{GeneratorsVersion, ProtocolVersion}
 import com.digitalasset.canton.{Generators, SequencerCounter}
@@ -139,11 +144,45 @@ final class GeneratorsProtocol(
       )
     )
 
-  implicit val sequencerChannelConnectedToMembersArb
+  implicit val sequencerChannelConnectedToAllEndpointsArb
       : Arbitrary[SequencerChannelConnectedToAllEndpoints] =
     Arbitrary(
       SequencerChannelConnectedToAllEndpoints.apply(
         protocolVersion
+      )
+    )
+
+  implicit val connectToSequencerChannelRequestArb: Arbitrary[ConnectToSequencerChannelRequest] =
+    Arbitrary(
+      for {
+        request <- Gen.oneOf(
+          byteStringArb.arbitrary.map(
+            ConnectToSequencerChannelRequest.Payload(_): ConnectToSequencerChannelRequest.Request
+          ),
+          sequencerChannelMetadataArb.arbitrary.map(ConnectToSequencerChannelRequest.Metadata(_)),
+        )
+      } yield ConnectToSequencerChannelRequest.apply(
+        request,
+        TraceContext.empty,
+        protocolVersion,
+      )
+    )
+
+  implicit val connectToSequencerChannelResponseArb: Arbitrary[ConnectToSequencerChannelResponse] =
+    Arbitrary(
+      for {
+        response <- Gen.oneOf(
+          byteStringArb.arbitrary.map(
+            ConnectToSequencerChannelResponse.Payload(_): ConnectToSequencerChannelResponse.Response
+          ),
+          sequencerChannelConnectedToAllEndpointsArb.arbitrary.map(_ =>
+            ConnectToSequencerChannelResponse.Connected
+          ),
+        )
+      } yield ConnectToSequencerChannelResponse.apply(
+        response,
+        TraceContext.empty,
+        protocolVersion,
       )
     )
 

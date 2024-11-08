@@ -292,6 +292,7 @@ class ProtocolProcessorTest
         override def done: Future[Done] = Future.successful(Done)
       }
     )
+    when(ledgerApiIndexer.onlyForTestingTransactionInMemoryStore).thenAnswer(None)
 
     val eventPublisher = new ParticipantEventPublisher(
       participant,

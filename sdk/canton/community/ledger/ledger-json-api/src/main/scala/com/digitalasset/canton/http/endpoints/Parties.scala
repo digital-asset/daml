@@ -3,18 +3,18 @@
 
 package com.digitalasset.canton.http.endpoints
 
-import com.digitalasset.canton.http.Endpoints.ET
 import com.daml.jwt.Jwt
+import com.daml.logging.LoggingContextOf
+import com.digitalasset.canton.http.Endpoints.ET
 import com.digitalasset.canton.http.util.Collections.toNonEmptySet
 import com.digitalasset.canton.http.util.FutureUtil.eitherT
 import com.digitalasset.canton.http.util.Logging.{InstanceUUID, RequestID}
-import scalaz.std.scalaFuture.*
-import scalaz.NonEmptyList
-
-import scala.concurrent.ExecutionContext
-import com.daml.logging.LoggingContextOf
 import com.digitalasset.canton.http.{PartiesService, domain}
 import org.apache.pekko.stream.Materializer
+import scalaz.NonEmptyList
+import scalaz.std.scalaFuture.*
+
+import scala.concurrent.ExecutionContext
 
 private[http] final class Parties(partiesService: PartiesService)(implicit ec: ExecutionContext) {
   import Parties.*

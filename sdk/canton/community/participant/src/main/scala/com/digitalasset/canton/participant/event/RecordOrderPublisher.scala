@@ -137,6 +137,19 @@ class RecordOrderPublisher(
     currentLastPublishedPersisted.updatePersisted
   }
 
+  private def onlyForTestingRecordAcceptedTransactions(eventO: Option[Traced[Update]]): Unit =
+    for {
+      store <- ledgerApiIndexer.onlyForTestingTransactionInMemoryStore
+      transactionAccepted <- eventO.collect { case Traced(txAccepted: Update.TransactionAccepted) =>
+        txAccepted
+      }
+    } {
+      store.put(
+        updateId = transactionAccepted.updateId,
+        lfVersionedTransaction = transactionAccepted.transaction,
+      )
+    }
+
   /** Schedules the given `eventO` to be published on the `eventLog`, and schedules the causal "tick" defined by `clock`.
     * Tick must be called exactly once for all sequencer counters higher than initTimestamp.
     *
@@ -160,6 +173,7 @@ class RecordOrderPublisher(
         .foreach(requestCounter =>
           logger.debug(s"Schedule publication for request counter $requestCounter")
         )
+      onlyForTestingRecordAcceptedTransactions(eventO)
       taskScheduler.scheduleTask(
         EventPublicationTask(
           sequencerCounter,

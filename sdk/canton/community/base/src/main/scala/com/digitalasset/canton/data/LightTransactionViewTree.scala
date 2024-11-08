@@ -97,7 +97,7 @@ object LightTransactionViewTree
   override val name: String = "LightTransactionViewTree"
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.LightTransactionViewTree)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.LightTransactionViewTree)(
       supportedProtoVersion(_)((context, proto) => fromProtoV30(context)(proto)),
       _.toProtoV30.toByteString,
     )

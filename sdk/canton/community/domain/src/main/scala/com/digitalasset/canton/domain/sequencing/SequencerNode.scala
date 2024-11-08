@@ -473,7 +473,7 @@ class SequencerNodeBootstrap(
 
       addCloseable(domainOutboxFactory)
 
-      performUnlessClosingEitherU("starting up runtime") {
+      performUnlessClosingEitherUSF("starting up runtime") {
         val indexedStringStore = IndexedStringStore.create(
           storage,
           parameterConfig.cachingConfigs.indexedStrings,
@@ -482,23 +482,25 @@ class SequencerNodeBootstrap(
         )
         addCloseable(indexedStringStore)
         for {
-          processorAndClient <- EitherT.right(
-            TopologyTransactionProcessor.createProcessorAndClientForDomain(
-              domainTopologyStore,
-              domainId,
-              staticDomainParameters.protocolVersion,
-              new DomainCryptoPureApi(staticDomainParameters, crypto.pureCrypto),
-              parameters,
-              clock,
-              futureSupervisor,
-              domainLoggerFactory,
+          processorAndClient <- EitherT
+            .right(
+              TopologyTransactionProcessor.createProcessorAndClientForDomain(
+                domainTopologyStore,
+                domainId,
+                staticDomainParameters.protocolVersion,
+                new DomainCryptoPureApi(staticDomainParameters, crypto.pureCrypto),
+                parameters,
+                clock,
+                futureSupervisor,
+                domainLoggerFactory,
+              )
             )
-          )
+            .mapK(FutureUnlessShutdown.outcomeK)
           (topologyProcessor, topologyClient) = processorAndClient
           _ = addCloseable(topologyProcessor)
           _ = addCloseable(topologyClient)
           _ = ips.add(topologyClient)
-          _ <- EitherTUtil.condUnitET[Future](
+          _ <- EitherTUtil.condUnitET[FutureUnlessShutdown](
             SequencerNodeBootstrap.this.topologyClient.putIfAbsent(topologyClient).isEmpty,
             "Unexpected state during initialization: topology client shouldn't have been set before",
           )
@@ -511,18 +513,21 @@ class SequencerNodeBootstrap(
               // Therefore, we fetch all members who have a registered role on the domain and pass them
               // to the underlying sequencer driver to register them as known members.
               EitherT.right[String](
-                domainTopologyStore
-                  .findPositiveTransactions(
-                    tsInit,
-                    asOfInclusive = false,
-                    isProposal = false,
-                    types = Seq(
-                      DomainTrustCertificate.code,
-                      SequencerDomainState.code,
-                      MediatorDomainState.code,
-                    ),
-                    filterUid = None,
-                    filterNamespace = None,
+                FutureUnlessShutdown
+                  .outcomeF(
+                    domainTopologyStore
+                      .findPositiveTransactions(
+                        tsInit,
+                        asOfInclusive = false,
+                        isProposal = false,
+                        types = Seq(
+                          DomainTrustCertificate.code,
+                          SequencerDomainState.code,
+                          MediatorDomainState.code,
+                        ),
+                        filterUid = None,
+                        filterNamespace = None,
+                      )
                   )
                   .map { transactions =>
                     val participants = transactions
@@ -546,7 +551,7 @@ class SequencerNodeBootstrap(
                     participants ++ sequencers ++ mediators
                   }
               )
-            } else EitherT.rightT[Future, String](Set.empty[Member])
+            } else EitherT.rightT[FutureUnlessShutdown, String](Set.empty[Member])
           }
 
           memberAuthServiceFactory = MemberAuthenticationServiceFactory(
@@ -576,19 +581,21 @@ class SequencerNodeBootstrap(
             "sequencer-runtime-ready",
             futureSupervisor,
           )
-          sequencer <- EitherT.right[String](
-            sequencerFactory.create(
-              domainId,
-              sequencerId,
-              clock,
-              clock,
-              syncCrypto,
-              futureSupervisor,
-              config.trafficConfig,
-              runtimeReadyPromise.futureUS,
-              sequencerSnapshot,
+          sequencer <- EitherT
+            .right[String](
+              sequencerFactory.create(
+                domainId,
+                sequencerId,
+                clock,
+                clock,
+                syncCrypto,
+                futureSupervisor,
+                config.trafficConfig,
+                runtimeReadyPromise.futureUS,
+                sequencerSnapshot,
+              )
             )
-          )
+            .mapK(FutureUnlessShutdown.outcomeK)
           domainParamsLookup = DomainParametersLookup.forSequencerDomainParameters(
             staticDomainParameters,
             config.publicApi.overrideMaxRequestSize,
@@ -607,7 +614,9 @@ class SequencerNodeBootstrap(
             loggerFactory,
           )
           firstSequencerCounterServeableForSequencer <-
-            EitherT.right[String](sequencer.firstSequencerCounterServeableForSequencer)
+            EitherT
+              .right[String](sequencer.firstSequencerCounterServeableForSequencer)
+              .mapK(FutureUnlessShutdown.outcomeK)
 
           _ = addCloseable(sequencedEventStore)
           sequencerClient = new SequencerClientImplPekko[
@@ -696,7 +705,7 @@ class SequencerNodeBootstrap(
             domainLoggerFactory,
             runtimeReadyPromise,
           )
-          _ <- sequencerRuntime.initializeAll()
+          _ <- sequencerRuntime.initializeAll().mapK(FutureUnlessShutdown.outcomeK)
           _ = addCloseable(sequencer)
           server <- createSequencerServer(
             sequencerRuntime,
@@ -704,7 +713,7 @@ class SequencerNodeBootstrap(
             preinitializedServer,
             healthReporter,
             adminServerRegistry,
-          )
+          ).mapK(FutureUnlessShutdown.outcomeK)
         } yield {
           // if close handle hasn't been registered yet, register it now
           if (preinitializedServer.isEmpty) {

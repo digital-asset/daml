@@ -4,10 +4,10 @@
 package com.digitalasset.canton.ledger.api.validation
 
 import cats.implicits.{toBifunctorOps, toTraverseOps}
-import com.daml.error.ContextualizedErrorLogger
+import com.daml.error.{ContextualizedErrorLogger, DamlError}
 import com.daml.ledger.api.v2.command_submission_service.{SubmitReassignmentRequest, SubmitRequest}
-import com.daml.ledger.api.v2.interactive_submission_service as iss
-import com.daml.ledger.api.v2.interactive_submission_service.{
+import com.daml.ledger.api.v2.interactive.interactive_submission_service as iss
+import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   PartySignatures,
   PrepareSubmissionRequest,
   Signature as InteractiveSignature,
@@ -27,8 +27,10 @@ import com.digitalasset.canton.ledger.api.services.InteractiveSubmissionService.
 import com.digitalasset.canton.ledger.api.validation.ValidationErrors.invalidField
 import com.digitalasset.canton.ledger.api.validation.ValueValidator.*
 import com.digitalasset.canton.ledger.error.groups.RequestValidationErrors
-import com.digitalasset.canton.topology.PartyId as TopologyPartyId
+import com.digitalasset.canton.topology.{DomainId, PartyId as TopologyPartyId}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
+import com.digitalasset.canton.version.HashingSchemeVersion
+import com.digitalasset.canton.version.HashingSchemeVersion.V1
 import com.digitalasset.daml.lf.data.Time
 import io.grpc.StatusRuntimeException
 import scalaz.syntax.tag.*
@@ -152,17 +154,25 @@ class SubmitRequestValidator(
   )(implicit
       contextualizedErrorLogger: ContextualizedErrorLogger
   ): Either[StatusRuntimeException, ExecuteRequest] = {
-    // TODO (#21367) - Validate applicationId and transaction serialization version
     val iss.ExecuteSubmissionRequest(
       preparedTransactionP,
       partySignaturesOP,
-      workflowIdP,
       deduplicationPeriodP,
       submissionIdP,
-      _,
-      _,
+      applicationIdP,
+      hashingSchemeVersionP,
     ) = req
     for {
+      submissionId <- validateSubmissionId(submissionIdP)
+        .map(_.map(_.unwrap))
+        .map(
+          _.getOrElse(submissionIdGenerator.generate())
+        )
+      applicationId <- requireApplicationId(applicationIdP, "application_id")
+      deduplicationPeriod <- commandsValidator.validateExecuteDeduplicationPeriod(
+        deduplicationPeriodP,
+        maxDeduplicationDuration,
+      )
       preparedTransaction <- preparedTransactionP.toRight(
         RequestValidationErrors.MissingField
           .Reject("prepared_transaction")
@@ -170,22 +180,49 @@ class SubmitRequestValidator(
       )
       partySignaturesP <- requirePresence(partySignaturesOP, "parties_signatures")
       partySignatures <- validatePartySignatures(partySignaturesP)
-      workflowId <- validateWorkflowId(workflowIdP).map(_.map(_.unwrap))
-      deduplicationPeriod <- commandsValidator.validateExecuteDeduplicationPeriod(
-        deduplicationPeriodP,
-        maxDeduplicationDuration,
+      version <- validateHashingSchemeVersion(hashingSchemeVersionP).leftMap(_.asGrpcError)
+      domainIdString <- requirePresence(
+        preparedTransactionP.flatMap(_.metadata.map(_.domainId)),
+        "domain_id",
       )
-      submissionId <- validateSubmissionId(submissionIdP)
-        .map(_.map(_.unwrap).getOrElse(submissionIdGenerator.generate()))
+      domainId <- validateDomainId(domainIdString).leftMap(_.asGrpcError)
     } yield {
       ExecuteRequest(
+        applicationId,
         submissionId,
-        workflowId,
         deduplicationPeriod,
         partySignatures,
         preparedTransaction,
+        version,
+        domainId,
       )
     }
+  }
+
+  private def validateDomainId(string: String)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[DamlError, DomainId] =
+    DomainId
+      .fromString(string)
+      .leftMap(err =>
+        RequestValidationErrors.InvalidField
+          .Reject("domain_id", err)
+      )
+
+  private def validateHashingSchemeVersion(protoVersion: iss.HashingSchemeVersion)(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): Either[DamlError, HashingSchemeVersion] = protoVersion match {
+    case iss.HashingSchemeVersion.HASHING_SCHEME_VERSION_V1 => Right(V1)
+    case iss.HashingSchemeVersion.HASHING_SCHEME_VERSION_UNSPECIFIED =>
+      Left(
+        RequestValidationErrors.InvalidField
+          .Reject("hashing_scheme_version", "Unspecified version")
+      )
+    case iss.HashingSchemeVersion.Unrecognized(unrecognizedValue) =>
+      Left(
+        RequestValidationErrors.InvalidField
+          .Reject("hashing_scheme_version", s"Unrecognized version $unrecognizedValue")
+      )
   }
 
   def validateReassignment(

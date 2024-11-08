@@ -8,21 +8,31 @@ import cats.implicits.{catsSyntaxParallelTraverse1, toBifunctorOps, toTraverseOp
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.topology.PartyId
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.version.HashingSchemeVersion
 import com.digitalasset.canton.{CommandId, LfPartyId}
 import com.google.protobuf.ByteString
 
 import scala.concurrent.ExecutionContext
 
 object InteractiveSubmission {
+  sealed trait HashError
 
   // TODO(i20660): We hash the command ID only for now while the proper hashing algorithm is being designed
-  def computeHash(commandId: CommandId): Hash =
+  def computeHashV1(commandId: CommandId): Hash =
     Hash
       .digest(
         HashPurpose.PreparedSubmission,
         ByteString.copyFromUtf8(commandId.unwrap),
         HashAlgorithm.Sha256,
       )
+
+  def computeVersionedHash(
+      hashVersion: HashingSchemeVersion,
+      commandId: CommandId,
+  ): Either[HashError, Hash] =
+    hashVersion match {
+      case HashingSchemeVersion.V1 => Right(computeHashV1(commandId))
+    }
 
   def verifySignatures(
       hash: Hash,

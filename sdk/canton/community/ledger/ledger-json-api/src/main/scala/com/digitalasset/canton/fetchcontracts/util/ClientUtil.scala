@@ -3,9 +3,9 @@
 
 package com.digitalasset.canton.fetchcontracts.util
 
-import com.daml.ledger.api.{v2 => lav2}
+import com.daml.ledger.api.v2 as lav2
 
- object ClientUtil {
+object ClientUtil {
   def boxedRecord(a: lav2.value.Record): lav2.value.Value =
     lav2.value.Value(lav2.value.Value.Sum.Record(a))
 }

@@ -11,7 +11,7 @@ import com.digitalasset.canton.crypto.{CryptoPureApi, Salt, SaltSeed}
 import com.digitalasset.canton.data.{DeduplicationPeriod, ProcessedDisclosedContract}
 import com.digitalasset.canton.ledger.api.domain.{CommandId, Commands, DisclosedContract}
 import com.digitalasset.canton.ledger.api.util.TimeProvider
-import com.digitalasset.canton.ledger.participant.state.WriteService
+import com.digitalasset.canton.ledger.participant.state.SyncService
 import com.digitalasset.canton.ledger.participant.state.index.{ContractState, ContractStore}
 import com.digitalasset.canton.logging.LoggingContextWithTrace
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
@@ -169,7 +169,7 @@ class StoreBackedCommandExecutorSpec
     new StoreBackedCommandExecutor(
       engine,
       Ref.ParticipantId.assertFromString("anId"),
-      mock[WriteService],
+      mock[SyncService],
       mock[ContractStore],
       authenticateContract = _ => Either.unit,
       metrics = LedgerApiServerMetrics.ForTesting,
@@ -361,7 +361,7 @@ class StoreBackedCommandExecutorSpec
       val sut = new StoreBackedCommandExecutor(
         mockEngine,
         Ref.ParticipantId.assertFromString("anId"),
-        mock[WriteService],
+        mock[SyncService],
         store,
         authenticateContract = _ => authenticationResult,
         metrics = LedgerApiServerMetrics.ForTesting,

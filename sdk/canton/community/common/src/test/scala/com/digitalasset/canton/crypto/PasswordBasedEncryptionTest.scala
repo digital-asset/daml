@@ -5,11 +5,11 @@ package com.digitalasset.canton.crypto
 
 import com.digitalasset.canton.crypto.CryptoTestHelper.TestMessage
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
-import com.digitalasset.canton.{BaseTest, HasExecutionContext}
+import com.digitalasset.canton.{BaseTest, FailOnShutdown, HasExecutionContext}
 import com.google.protobuf.ByteString
 import org.scalatest.wordspec.AsyncWordSpec
 
-trait PasswordBasedEncryptionTest {
+trait PasswordBasedEncryptionTest extends FailOnShutdown {
   this: AsyncWordSpec & BaseTest & HasExecutionContext =>
 
   def pbeProvider(
@@ -30,7 +30,7 @@ trait PasswordBasedEncryptionTest {
               pbkey.salt.unwrap.size() shouldEqual pbkdfScheme.defaultSaltLengthInBytes
               pbkey.key.key.size() shouldEqual symmetricKeyScheme.keySizeInBytes
             }
-          }.failOnShutdown
+          }
 
           s"generate the same symmetric key in $symmetricKeyScheme for the same password when given the same salt using $pbkdfScheme" in {
             newCrypto.map { crypto =>
@@ -50,7 +50,7 @@ trait PasswordBasedEncryptionTest {
               pbkey1.salt.unwrap shouldEqual pbkey2.salt.unwrap
               pbkey1.key shouldEqual pbkey2.key
             }
-          }.failOnShutdown
+          }
 
           s"encrypt and decrypt using a password with $symmetricKeyScheme and $pbkdfScheme" in {
             newCrypto.map { crypto =>
@@ -72,7 +72,7 @@ trait PasswordBasedEncryptionTest {
 
               decrypted shouldEqual message
             }
-          }.failOnShutdown
+          }
 
           s"encrypt with one password and fail to decrypt with another password using $symmetricKeyScheme and $pbkdfScheme" in {
             newCrypto.map { crypto =>
@@ -92,7 +92,7 @@ trait PasswordBasedEncryptionTest {
 
               decryptedE.left.value shouldBe a[PasswordBasedEncryptionError.DecryptError]
             }
-          }.failOnShutdown
+          }
         }
       }
     }

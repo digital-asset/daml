@@ -3,14 +3,19 @@
 
 package com.digitalasset.canton.ledger.participant.state
 
+import com.daml.error.ContextualizedErrorLogger
+import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
+import com.digitalasset.canton.protocol.PackageDescription
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.daml.lf.archive.DamlLf.Archive
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.google.protobuf.ByteString
 
 import scala.concurrent.Future
 
 /** An interface for uploading and validating packages via a participant. */
-trait WritePackagesService {
+trait PackageSyncService {
 
   /** Upload a DAR to the ledger.
     *
@@ -28,4 +33,28 @@ trait WritePackagesService {
   )(implicit
       traceContext: TraceContext
   ): Future[SubmissionResult]
+
+  def getPackageMetadataSnapshot(implicit
+      contextualizedErrorLogger: ContextualizedErrorLogger
+  ): PackageMetadata =
+    throw new UnsupportedOperationException()
+
+  def listLfPackages()(implicit
+      traceContext: TraceContext
+  ): Future[Seq[PackageDescription]] =
+    throw new UnsupportedOperationException()
+
+  def getLfArchive(packageId: PackageId)(implicit
+      traceContext: TraceContext
+  ): Future[Option[Archive]] =
+    throw new UnsupportedOperationException()
+
+  def validateDar(
+      dar: ByteString,
+      darName: String,
+  )(implicit
+      traceContext: TraceContext
+  ): Future[SubmissionResult] =
+    throw new UnsupportedOperationException()
+
 }

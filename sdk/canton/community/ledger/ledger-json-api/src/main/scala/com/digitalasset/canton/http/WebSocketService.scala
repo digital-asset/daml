@@ -3,18 +3,21 @@
 
 package com.digitalasset.canton.http
 
-import org.apache.pekko.NotUsed
-import org.apache.pekko.http.scaladsl.model.ws.{BinaryMessage, Message, TextMessage}
-import org.apache.pekko.stream.scaladsl.{Flow, Sink, Source}
-import org.apache.pekko.stream.Materializer
+import com.daml.jwt.Jwt
+import com.daml.logging.LoggingContextOf
+import com.daml.nonempty.NonEmpty
+import com.daml.nonempty.NonEmptyColl.foldable1
+import com.digitalasset.canton.fetchcontracts.util.GraphExtensions.*
 import com.digitalasset.canton.fetchcontracts.util.{
   AbsoluteBookmark,
   BeginBookmark,
   ContractStreamStep,
   InsertDeleteStep,
 }
-import com.digitalasset.canton.fetchcontracts.util.GraphExtensions.*
 import com.digitalasset.canton.http.EndpointsCompanion.*
+import com.digitalasset.canton.http.LedgerClientJwt.Terminates
+import com.digitalasset.canton.http.domain.ContractTypeId.RequiredPkg
+import com.digitalasset.canton.http.domain.ResolvedQuery.Unsupported
 import com.digitalasset.canton.http.domain.{
   ContractKeyStreamRequest,
   JwtPayload,
@@ -23,25 +26,6 @@ import com.digitalasset.canton.http.domain.{
   StartingOffset,
 }
 import com.digitalasset.canton.http.json.{DomainJsonDecoder, JsonProtocol, SprayJson}
-import com.digitalasset.canton.http.LedgerClientJwt.Terminates
-import util.ApiValueToLfValueConverter.apiValueToLfValue
-import ContractStreamStep.{Acs, LiveBegin, Txn}
-import json.JsonProtocol.LfValueCodec.apiValueToJsValue as lfValueToJsValue
-import query.ValuePredicate.LfV
-import com.daml.jwt.Jwt
-import scalaz.syntax.bifunctor.*
-import scalaz.syntax.std.boolean.*
-import scalaz.syntax.std.option.*
-import scalaz.std.scalaFuture.*
-import scalaz.std.map.*
-import scalaz.std.option.*
-import scalaz.std.tuple.*
-import scalaz.syntax.traverse.*
-import scalaz.std.list.*
-import scalaz.{-\/, Foldable, Liskov, NonEmptyList, Tag, \/, \/-}
-import Liskov.<~<
-import com.digitalasset.canton.http.domain.ContractTypeId.RequiredPkg
-import com.digitalasset.canton.http.domain.ResolvedQuery.Unsupported
 import com.digitalasset.canton.http.metrics.HttpApiMetrics
 import com.digitalasset.canton.http.util.FlowUtil.allowOnlyFirstInput
 import com.digitalasset.canton.http.util.Logging.{
@@ -49,15 +33,32 @@ import com.digitalasset.canton.http.util.Logging.{
   RequestID,
   extendWithRequestIdLogCtx,
 }
-import com.daml.logging.LoggingContextOf
+import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
+import com.digitalasset.canton.tracing.NoTracing
+import org.apache.pekko.NotUsed
+import org.apache.pekko.http.scaladsl.model.ws.{BinaryMessage, Message, TextMessage}
+import org.apache.pekko.stream.Materializer
+import org.apache.pekko.stream.scaladsl.{Flow, Sink, Source}
+import scalaz.EitherT.{either, eitherT, rightT}
+import scalaz.std.list.*
+import scalaz.std.map.*
+import scalaz.std.option.*
+import scalaz.std.scalaFuture.*
+import scalaz.std.tuple.*
+import scalaz.syntax.bifunctor.*
+import scalaz.syntax.std.boolean.*
+import scalaz.syntax.std.option.*
+import scalaz.syntax.traverse.*
+import scalaz.{-\/, Foldable, Liskov, NonEmptyList, Tag, \/, \/-}
 import spray.json.{JsArray, JsObject, JsValue, JsonReader, JsonWriter, enrichAny as `sj enrichAny`}
 
 import scala.concurrent.{ExecutionContext, Future}
-import scalaz.EitherT.{either, eitherT, rightT}
-import com.daml.nonempty.NonEmpty
-import com.daml.nonempty.NonEmptyColl.foldable1
-import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
-import com.digitalasset.canton.tracing.NoTracing
+
+import util.ApiValueToLfValueConverter.apiValueToLfValue
+import ContractStreamStep.{Acs, LiveBegin, Txn}
+import json.JsonProtocol.LfValueCodec.apiValueToJsValue as lfValueToJsValue
+import query.ValuePredicate.LfV
+import Liskov.<~<
 
 object WebSocketService extends NoTracing {
   import com.digitalasset.canton.http.util.ErrorOps.*
@@ -764,7 +765,7 @@ class WebSocketService(
       }
     case bm: BinaryMessage =>
       // ignore binary messages but drain content to avoid the stream being clogged
-      discard { bm.dataStream.runWith(Sink.ignore) }
+      discard(bm.dataStream.runWith(Sink.ignore))
       Future successful -\/(
         InvalidUserInput(
           "Invalid request. Expected a single TextMessage with JSON payload, got BinaryMessage"
@@ -916,7 +917,7 @@ class WebSocketService(
           processResolved(pred.resolvedQuery, pred.unresolved, pred.fn)
         }
       }
-      .mapMaterializedValue { _ => NotUsed }
+      .mapMaterializedValue(_ => NotUsed)
   }
 
   private def emitOffsetTicksAndFilterOutEmptySteps[Pos](

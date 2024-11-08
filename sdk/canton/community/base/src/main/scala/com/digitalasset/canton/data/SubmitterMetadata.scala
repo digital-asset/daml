@@ -80,7 +80,7 @@ object SubmitterMetadata
   override val name: String = "SubmitterMetadata"
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(v30.SubmitterMetadata)(
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(v30.SubmitterMetadata)(
       supportedProtoVersionMemoized(_)(fromProtoV30),
       _.toProtoV30.toByteString,
     )

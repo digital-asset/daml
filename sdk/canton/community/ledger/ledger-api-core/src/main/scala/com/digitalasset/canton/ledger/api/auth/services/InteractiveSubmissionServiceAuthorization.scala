@@ -3,8 +3,8 @@
 
 package com.digitalasset.canton.ledger.api.auth.services
 
-import com.daml.ledger.api.v2.interactive_submission_service.InteractiveSubmissionServiceGrpc.InteractiveSubmissionService
-import com.daml.ledger.api.v2.interactive_submission_service.{
+import com.daml.ledger.api.v2.interactive.interactive_submission_service.InteractiveSubmissionServiceGrpc.InteractiveSubmissionService
+import com.daml.ledger.api.v2.interactive.interactive_submission_service.{
   ExecuteSubmissionRequest,
   ExecuteSubmissionResponse,
   InteractiveSubmissionServiceGrpc,
@@ -43,13 +43,17 @@ final class InteractiveSubmissionServiceAuthorization(
   override def executeSubmission(
       request: ExecuteSubmissionRequest
   ): Future[ExecuteSubmissionResponse] = {
-    // TODO(i21367): we want to use the actAs and readAs parties from the transaction instead of the parties that have signed
-    val signingParties = request.partySignatures.toList
-      .flatMap(_.signatures.toSet.map[String](_.party))
-      .toSet[String]
+    val readAndActAsO = for {
+      preparedTx <- request.preparedTransaction
+      metadata <- preparedTx.metadata
+      submitterInfo <- metadata.submitterInfo
+    } yield (submitterInfo.readAs, submitterInfo.actAs)
+
+    val (readAs, actAs) = readAndActAsO.getOrElse((Seq.empty, Seq.empty))
+
     authorizer.requireActAndReadClaimsForParties(
-      actAs = signingParties,
-      readAs = signingParties,
+      actAs = actAs.toSet[String],
+      readAs = readAs.toSet[String],
       applicationIdL = Lens.unit[ExecuteSubmissionRequest].applicationId,
       call = service.executeSubmission,
     )(request)

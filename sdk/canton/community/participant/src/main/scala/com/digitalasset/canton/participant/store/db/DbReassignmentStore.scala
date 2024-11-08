@@ -86,38 +86,27 @@ class DbReassignmentStore(
 
   private def indexedDomainF[T[_]: SingletonTraverse](
       domainId: T[DomainId]
-  ): Future[T[IndexedDomain]] =
+  ): FutureUnlessShutdown[T[IndexedDomain]] =
     domainId.traverseSingleton((_, domainId) => IndexedDomain.indexed(indexedStringStore)(domainId))
 
   private def indexedDomainET[E, T[_]: SingletonTraverse](
       domainId: T[DomainId]
-  ): EitherT[Future, E, T[IndexedDomain]] =
+  ): EitherT[FutureUnlessShutdown, E, T[IndexedDomain]] =
     EitherT.right[E](indexedDomainF(domainId))
-
-  private def indexedDomainETUS[T[_]: SingletonTraverse](
-      domainId: T[DomainId]
-  )(implicit
-      traceContext: TraceContext
-  ): EitherT[FutureUnlessShutdown, ReassignmentStoreError, T[IndexedDomain]] =
-    EitherT.right[ReassignmentStoreError](
-      performUnlessClosingF("index-for-source-domain")(
-        indexedDomainF(domainId)
-      )
-    )
 
   private def indexedDomainF(
       idx: Int,
       attributeName: String,
   )(implicit
       traceContext: TraceContext
-  ): Future[IndexedDomain] =
+  ): FutureUnlessShutdown[IndexedDomain] =
     IndexedDomain
       .fromDbIndexOT(s"par_reassignments attribute $attributeName", indexedStringStore)(idx)
       .value
       .flatMap {
-        case Some(sourceDomainId) => Future.successful(sourceDomainId)
+        case Some(sourceDomainId) => FutureUnlessShutdown.pure(sourceDomainId)
         case None =>
-          Future.failed(
+          FutureUnlessShutdown.failed(
             new RuntimeException(
               s"Unable to find domain ID for domain with index $idx"
             )
@@ -278,7 +267,7 @@ class DbReassignmentStore(
     val reassignmentId = reassignmentData.reassignmentId
 
     for {
-      indexedSourceDomain <- indexedDomainETUS(reassignmentId.sourceDomain)
+      indexedSourceDomain <- indexedDomainET(reassignmentId.sourceDomain)
       dbReassignmentId = DbReassignmentId(indexedSourceDomain, reassignmentId.unassignmentTs)
       _ <- insertDependentDeprecated(
         dbReassignmentId,
@@ -294,18 +283,19 @@ class DbReassignmentStore(
 
   override def lookup(reassignmentId: ReassignmentId)(implicit
       traceContext: TraceContext
-  ): EitherT[Future, ReassignmentStore.ReassignmentLookupError, ReassignmentData] = for {
-    indexedSourceDomain <- indexedDomainET(reassignmentId.sourceDomain)
-    dbReassignmentId = DbReassignmentId(indexedSourceDomain, reassignmentId.unassignmentTs)
-    res <- EitherT(
-      storage.query(entryExists(dbReassignmentId), functionFullName).map {
-        case None => Left(UnknownReassignmentId(reassignmentId))
-        case Some(ReassignmentEntry(_, Some(timeOfCompletion))) =>
-          Left(ReassignmentCompleted(reassignmentId, timeOfCompletion))
-        case Some(reassignmentEntry) => Right(reassignmentEntry.reassignmentData)
-      }
-    )
-  } yield res
+  ): EitherT[FutureUnlessShutdown, ReassignmentStore.ReassignmentLookupError, ReassignmentData] =
+    for {
+      indexedSourceDomain <- indexedDomainET(reassignmentId.sourceDomain)
+      dbReassignmentId = DbReassignmentId(indexedSourceDomain, reassignmentId.unassignmentTs)
+      res <- EitherT(
+        storage.queryUnlessShutdown(entryExists(dbReassignmentId), functionFullName).map {
+          case None => Left(UnknownReassignmentId(reassignmentId))
+          case Some(ReassignmentEntry(_, Some(timeOfCompletion))) =>
+            Left(ReassignmentCompleted(reassignmentId, timeOfCompletion))
+          case Some(reassignmentEntry) => Right(reassignmentEntry.reassignmentData)
+        }
+      )
+    } yield res
 
   private def entryExists(id: DbReassignmentId): DbAction.ReadOnly[Option[ReassignmentEntry]] =
     sql"""
@@ -352,7 +342,7 @@ class DbReassignmentStore(
         )
 
     for {
-      indexedSourceDomain <- indexedDomainETUS(
+      indexedSourceDomain <- indexedDomainET(
         unassignmentResult.reassignmentId.sourceDomain
       )
       dbReassignmentId = DbReassignmentId(
@@ -432,7 +422,7 @@ class DbReassignmentStore(
       selectData = offsets.map { case (reassignmentId, _) =>
         (sourceDomainToIndexBiMap.get(reassignmentId.sourceDomain), reassignmentId.unassignmentTs)
       }
-      selected <- EitherT.right(select(selectData))
+      selected <- EitherT.right(select(selectData)).mapK(FutureUnlessShutdown.outcomeK)
       retrievedItems = selected.map {
         case (sourceDomainIndex, unassignmentTs, unassignmentOffset, assignmentOffset) =>
           val sourceDomainId = sourceDomainToIndexBiMap.inverse().get(sourceDomainIndex)
@@ -443,7 +433,7 @@ class DbReassignmentStore(
           ) -> (unassignmentOffset, assignmentOffset, sourceDomainIndex)
       }.toMap
 
-      mergedGlobalOffsets <- EitherT.fromEither[Future](offsets.forgetNE.traverse {
+      mergedGlobalOffsets <- EitherT.fromEither[FutureUnlessShutdown](offsets.forgetNE.traverse {
         case (reassignmentId, newOffsets) =>
           retrievedItems
             .get(reassignmentId)
@@ -475,16 +465,16 @@ class DbReassignmentStore(
       }
 
       _ <- EitherT.right[ReassignmentStoreError](
-        storage.queryAndUpdate(batchUpdate, functionFullName)
+        storage.queryAndUpdateUnlessShutdown(batchUpdate, functionFullName)
       )
     } yield ()
 
-    sequentialQueue.executeE(task, "addReassignmentsOffsets")
+    sequentialQueue.executeEUS(task, "addReassignmentsOffsets")
   }
 
   override def completeReassignment(reassignmentId: ReassignmentId, timeOfCompletion: TimeOfChange)(
       implicit traceContext: TraceContext
-  ): CheckedT[Future, Nothing, ReassignmentStoreError, Unit] = {
+  ): CheckedT[FutureUnlessShutdown, Nothing, ReassignmentStoreError, Unit] = {
     def updateSameOrUnset(indexedSourceDomain: Source[IndexedDomain]) =
       sqlu"""
         update par_reassignments
@@ -495,25 +485,29 @@ class DbReassignmentStore(
             or (time_of_completion_request_counter = ${timeOfCompletion.rc} and time_of_completion_timestamp = ${timeOfCompletion.timestamp}))
       """
 
-    val doneE: EitherT[Future, ReassignmentStoreError, Unit] = for {
+    val doneE: EitherT[FutureUnlessShutdown, ReassignmentStoreError, Unit] = for {
       indexedSourceDomain <- indexedDomainET(reassignmentId.sourceDomain)
       _ <- EitherT(
-        storage.update(updateSameOrUnset(indexedSourceDomain), functionFullName).map { changed =>
-          if (changed > 0) {
-            if (changed != 1)
-              logger.error(
-                s"Reassignment completion query changed $changed lines. It should only change 1."
+        storage.updateUnlessShutdown(updateSameOrUnset(indexedSourceDomain), functionFullName).map {
+          changed =>
+            if (changed > 0) {
+              if (changed != 1)
+                logger.error(
+                  s"Reassignment completion query changed $changed lines. It should only change 1."
+                )
+              Either.unit
+            } else {
+              if (changed != 0)
+                logger.error(
+                  s"Reassignment completion query changed $changed lines -- this should not be negative."
+                )
+              Left(
+                ReassignmentAlreadyCompleted(
+                  reassignmentId,
+                  timeOfCompletion,
+                ): ReassignmentStoreError
               )
-            Either.unit
-          } else {
-            if (changed != 0)
-              logger.error(
-                s"Reassignment completion query changed $changed lines -- this should not be negative."
-              )
-            Left(
-              ReassignmentAlreadyCompleted(reassignmentId, timeOfCompletion): ReassignmentStoreError
-            )
-          }
+            }
         }
       )
     } yield ()
@@ -523,9 +517,9 @@ class DbReassignmentStore(
 
   override def deleteReassignment(
       reassignmentId: ReassignmentId
-  )(implicit traceContext: TraceContext): Future[Unit] = for {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = for {
     indexedSourceDomain <- indexedDomainF(reassignmentId.sourceDomain)
-    _ <- storage.update_(
+    _ <- storage.updateUnlessShutdown_(
       sqlu"""delete from par_reassignments
                 where target_domain_idx=$indexedTargetDomain and source_domain_idx=$indexedSourceDomain and unassignment_timestamp=${reassignmentId.unassignmentTs}""",
       functionFullName,
@@ -569,7 +563,7 @@ class DbReassignmentStore(
       filterTimestamp: Option[CantonTimestamp],
       filterSubmitter: Option[LfPartyId],
       limit: Int,
-  )(implicit traceContext: TraceContext): Future[Seq[ReassignmentData]] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[ReassignmentData]] = {
     import DbStorage.Implicits.BuilderChain.*
 
     val timestampFilter =
@@ -579,13 +573,13 @@ class DbReassignmentStore(
     val limitSql = storage.limitSql(limit)
     for {
       indexedSourceDomainO <- filterSource.fold(
-        Future.successful(Option.empty[Source[IndexedDomain]])
+        FutureUnlessShutdown.pure(Option.empty[Source[IndexedDomain]])
       )(sd => indexedDomainF(sd).map(Some(_)))
       sourceFilter =
         indexedSourceDomainO.fold(sql"")(indexedSourceDomain =>
           sql" and source_domain_idx=$indexedSourceDomain"
         )
-      res <- storage.query(
+      res <- storage.queryUnlessShutdown(
         (findPendingBase(onlyNotFinished =
           true
         ) ++ sourceFilter ++ timestampFilter ++ submitterFilter ++ limitSql)
@@ -598,13 +592,13 @@ class DbReassignmentStore(
   override def findAfter(
       requestAfter: Option[(CantonTimestamp, Source[DomainId])],
       limit: Int,
-  )(implicit traceContext: TraceContext): Future[Seq[ReassignmentData]] = for {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[ReassignmentData]] = for {
     queryData <- requestAfter.fold(
-      Future.successful(Option.empty[(CantonTimestamp, Source[IndexedDomain])])
+      FutureUnlessShutdown.pure(Option.empty[(CantonTimestamp, Source[IndexedDomain])])
     ) { case (ts, sd) =>
       indexedDomainF(sd).map(indexedDomain => Some((ts, indexedDomain)))
     }
-    res <- storage.query(
+    res <- storage.queryUnlessShutdown(
       {
         import DbStorage.Implicits.BuilderChain.*
 
@@ -626,12 +620,12 @@ class DbReassignmentStore(
       sourceDomain: Option[Source[DomainId]],
       validAt: GlobalOffset,
       start: Long,
-  )(implicit traceContext: TraceContext): Future[Seq[ReassignmentData]] = for {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[ReassignmentData]] = for {
     indexedSourceDomainO <- sourceDomain.fold(
-      Future.successful(Option.empty[Source[IndexedDomain]])
+      FutureUnlessShutdown.pure(Option.empty[Source[IndexedDomain]])
     )(sd => indexedDomainF(sd).map(Some(_)))
     res <- storage
-      .query(
+      .queryUnlessShutdown(
         {
           import DbStorage.Implicits.BuilderChain.*
 
@@ -666,28 +660,29 @@ class DbReassignmentStore(
       stakeholders: Option[NonEmpty[Set[LfPartyId]]],
       limit: NonNegativeInt,
       dbQueryLimit: Int,
-      queryFrom: (Long, TraceContext) => Future[Seq[ReassignmentData]],
+      queryFrom: (Long, TraceContext) => FutureUnlessShutdown[Seq[ReassignmentData]],
   )(implicit traceContext: TraceContext) = {
 
     def stakeholderFilter(data: ReassignmentData): Boolean = stakeholders
       .forall(_.exists(data.contract.metadata.stakeholders))
 
-    Monad[Future].tailRecM((Vector.empty[ReassignmentData], 0, 0L)) { case (acc, accSize, start) =>
-      val missing = limit.unwrap - accSize
+    Monad[FutureUnlessShutdown].tailRecM((Vector.empty[ReassignmentData], 0, 0L)) {
+      case (acc, accSize, start) =>
+        val missing = limit.unwrap - accSize
 
-      if (missing <= 0)
-        Future.successful(Right(acc))
-      else {
-        queryFrom(start, traceContext).map { result =>
-          val filteredResult = result.filter(stakeholderFilter).take(missing)
-          val filteredResultSize = filteredResult.size
+        if (missing <= 0)
+          FutureUnlessShutdown.pure(Right(acc))
+        else {
+          queryFrom(start, traceContext).map { result =>
+            val filteredResult = result.filter(stakeholderFilter).take(missing)
+            val filteredResultSize = filteredResult.size
 
-          if (result.isEmpty)
-            Right(acc)
-          else
-            Left((acc ++ filteredResult, accSize + filteredResultSize, start + dbQueryLimit))
+            if (result.isEmpty)
+              Right(acc)
+            else
+              Left((acc ++ filteredResult, accSize + filteredResultSize, start + dbQueryLimit))
+          }
         }
-      }
     }
   }
 
@@ -696,7 +691,7 @@ class DbReassignmentStore(
       validAt: GlobalOffset,
       stakeholders: Option[NonEmpty[Set[LfPartyId]]],
       limit: NonNegativeInt,
-  )(implicit traceContext: TraceContext): Future[Seq[IncompleteReassignmentData]] = {
+  )(implicit traceContext: TraceContext): FutureUnlessShutdown[Seq[IncompleteReassignmentData]] = {
     val queryFrom = (start: Long, traceContext: TraceContext) =>
       findIncomplete(
         sourceDomain = sourceDomain,
@@ -717,10 +712,10 @@ class DbReassignmentStore(
 
   override def findEarliestIncomplete()(implicit
       traceContext: TraceContext
-  ): Future[Option[(GlobalOffset, ReassignmentId, Target[DomainId])]] =
+  ): FutureUnlessShutdown[Option[(GlobalOffset, ReassignmentId, Target[DomainId])]] =
     for {
       queryResult <- storage
-        .query(
+        .queryUnlessShutdown(
           {
             val maxCompletedOffset: SQLActionBuilder =
               sql"""select min(coalesce(assignment_global_offset,${GlobalOffset.MaxValue})),

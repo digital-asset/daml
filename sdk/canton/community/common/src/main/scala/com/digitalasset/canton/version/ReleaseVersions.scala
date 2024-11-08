@@ -17,4 +17,5 @@ object ReleaseVersions {
   lazy val v3_0_0: ReleaseVersion = ReleaseVersion(3, 0, 0)
   lazy val v3_1_0: ReleaseVersion = ReleaseVersion(3, 1, 0)
   lazy val v3_2_0: ReleaseVersion = ReleaseVersion(3, 2, 0)
+  lazy val v3_3_0: ReleaseVersion = ReleaseVersion(3, 3, 0)
 }

@@ -273,14 +273,11 @@ class IssSegmentModule[E <: Env[E]](
       context: E#ActorContextT[ConsensusSegment.Message],
       traceContext: TraceContext,
   ): Unit = {
-
     val blockComplete = segmentState.isBlockComplete(pbftEvent.blockMetadata.blockNumber)
     val processResults = segmentState.processEvent(pbftEvent)
 
     def handleStore(store: StoreResult, sendMsg: () => Unit): Unit = store match {
       case StorePrePrepare(prePrepare) =>
-        // TODO(#20914): Store before sending.
-        sendMsg()
         context.pipeToSelf(epochStore.addPrePrepare(prePrepare)) {
           case Failure(exception) =>
             logAsyncException(exception)
@@ -291,38 +288,49 @@ class IssSegmentModule[E <: Env[E]](
               s"DB stored pre-prepare w/ ${prePrepare.message.blockMetadata} and batches ${prePrepare.message.block.proofs
                   .map(_.batchId)}"
             )
-            None
+            sendMsg()
+            Some(
+              ConsensusSegment.ConsensusMessage
+                .PrePrepareStored(prePrepare.message.blockMetadata, prePrepare.message.viewNumber)
+            )
         }
       case StorePrepares(prepares) =>
-        // TODO(#20914): Store before sending.
-        sendMsg()
         context.pipeToSelf(epochStore.addPrepares(prepares)) {
           case Failure(exception) =>
-            logAsyncException(exception)
-            None
+            Some(ConsensusSegment.Internal.AsyncException(exception))
           case Success(_) =>
-            prepares.headOption.foreach { head =>
-              // We assume all prepares are for the same block, so we just need to look at one metadata.
-              val metadata = head.message.blockMetadata
-              logger.debug(s"DB stored ${prepares.size} prepares w/ $metadata")
+            sendMsg()
+            prepares.headOption match {
+              case Some(head) =>
+                // We assume all prepares are for the same block, so we just need to look at one metadata.
+                val metadata = head.message.blockMetadata
+                logger.debug(s"DB stored ${prepares.size} prepares w/ $metadata")
+                Some(
+                  ConsensusSegment.ConsensusMessage
+                    .PreparesStored(metadata, head.message.viewNumber)
+                )
+              case None => None
             }
-            None
         }
       case StoreViewChangeMessage(vcMessage) =>
-        // TODO(#20914): Store before sending.
-        sendMsg()
         context.pipeToSelf(epochStore.addViewChangeMessage(vcMessage)) {
           case Failure(exception) =>
-            logAsyncException(exception)
-            None
+            Some(ConsensusSegment.Internal.AsyncException(exception))
           case Success(_) =>
+            sendMsg()
             logger.debug(
               s"DB stored ${vcMessage.message match {
                   case _: ViewChange => "view change"
                   case _: NewView => "new view"
                 }} for view ${vcMessage.message.viewNumber} and segment ${vcMessage.message.blockMetadata.blockNumber}"
             )
-            None
+            vcMessage.message match {
+              case vc: NewView =>
+                Some(
+                  ConsensusSegment.ConsensusMessage.NewViewStored(vc.blockMetadata, vc.viewNumber)
+                )
+              case _ => None
+            }
         }
     }
 

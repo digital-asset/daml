@@ -18,7 +18,7 @@ template T
 test : Script (Int, Bool)
 test = do
   debugRaw "hello world"
-  alice <- allocateParty "alice"
+  alice <- allocatePartyWithHint "alice" (PartyIdHint "alice")
   cid <-
     alice `submit`
       createCmd T with

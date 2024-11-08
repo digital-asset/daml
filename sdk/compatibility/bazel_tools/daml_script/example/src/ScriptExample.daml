@@ -70,8 +70,8 @@ test = do
 
 initializeFixed : Script ()
 initializeFixed = do
-  bank <- allocatePartyWithHint "Bank" (PartyIdHint "Bank")
-  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
-  bob <- allocatePartyWithHint "Bob" (PartyIdHint "Bob")
+  bank <- allocateParty "Bank"
+  alice <- allocateParty "Alice"
+  bob <- allocateParty "Bob"
   let parties = LedgerParties{..}
   initialize parties

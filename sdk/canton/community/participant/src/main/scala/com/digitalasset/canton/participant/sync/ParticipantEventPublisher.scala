@@ -12,7 +12,6 @@ import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown, L
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.platform.indexer.IndexerState.RepairInProgress
-import com.digitalasset.canton.platform.store.backend.ParameterStorageBackend.LedgerEnd
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.tracing.{TraceContext, Traced}
@@ -124,32 +123,7 @@ class ParticipantEventPublisher(
       )
     }
 
-  /** The Init will be only published if the ledger is empty. This call can be repeated anytime, if the ledger is
-    * not empty, it will have no effect.
-    *
-    * @return A Future which will be only successful if the Init event is successfully persisted by the indexer
-    */
-  def publishInitNeededUpstreamOnlyIfFirst(implicit
-      traceContext: TraceContext
-  ): FutureUnlessShutdown[Unit] =
-    executionQueue.execute(
-      for {
-        ledgerEnd <- ledgerApiIndexer.value.ledgerApiStore.value.ledgerEnd
-        _ <-
-          if (ledgerEnd.lastOffset == LedgerEnd.beforeBegin.lastOffset) {
-            logger.debug("Attempt to publish init update")
-            val event = Update.Init(
-              recordTime = participantClock.uniqueTime().toLf
-            )
-            // Do not call `publish` because this is already running inside the execution queue
-            publishInternal(event)
-          } else Future.unit
-      } yield (),
-      "publish Init message",
-    )
-
   override protected def onClosed(): Unit = Lifecycle.close(executionQueue)(logger)
-
 }
 
 object ParticipantEventPublisher {

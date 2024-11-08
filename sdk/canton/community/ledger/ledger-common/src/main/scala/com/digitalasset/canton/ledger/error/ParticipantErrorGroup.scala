@@ -29,6 +29,6 @@ object ParticipantErrorGroup extends ErrorGroup()(ErrorClass.root()) {
 
     abstract class RequestValidationErrorGroup extends ErrorGroup()
 
-    abstract class WriteServiceRejectionErrorGroup extends ErrorGroup()
+    abstract class SyncServiceRejectionErrorGroup extends ErrorGroup()
   }
 }

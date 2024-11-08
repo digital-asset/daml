@@ -159,6 +159,7 @@ sealed trait AcsCommitmentProcessorBaseTest
                   lifespan.reassignmentCounterAtActivation,
                 )
                 .value
+                .failOnShutdown
           }
           _ <- lifespan match {
             case Lifespan.ArchiveOnDeactivate(_, deactivatedTs, _) =>
@@ -182,6 +183,7 @@ sealed trait AcsCommitmentProcessorBaseTest
                   reassignmentCounterAtUnassignment,
                 )
                 .value
+                .failOnShutdown
           }
         } yield ()
       }

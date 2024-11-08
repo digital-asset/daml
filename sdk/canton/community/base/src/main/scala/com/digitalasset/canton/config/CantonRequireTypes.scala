@@ -112,8 +112,6 @@ object CantonRequireTypes {
     * This validation generally occurs on the server side and not on the client side. Concretely, this means that the
     * Admin API and Ledger API gRPC services is the point where we validate that the received Protobuf Strings are not too long
     * (and convert them into [[LengthLimitedString]]s). On the client side, e.g. at the console, we generally take normal String types.
-    * The console command `set_display_name` and service [[com.digitalasset.canton.participant.admin.grpc.GrpcPartyNameManagementService]]
-    * validating `request.displayName` illustrate this.
     *
     * For longer strings, directly inherit from [[AbstractLengthLimitedString]].
     */

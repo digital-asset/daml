@@ -158,7 +158,7 @@ private[dao] trait JdbcLedgerDaoBackend extends PekkoBeforeAndAfterAll with Base
         lfValueTranslation = new LfValueTranslation(
           metrics = metrics,
           engineO = engine,
-          loadPackage = (packageId, _loggingContext) => loadPackage(packageId),
+          loadPackage = (packageId, _) => loadPackage(packageId),
           loggerFactory = loggerFactory,
         ),
       )
@@ -189,13 +189,7 @@ private[dao] trait JdbcLedgerDaoBackend extends PekkoBeforeAndAfterAll with Base
         ).acquire()
         _ <- Resource.fromFuture(dao.initialize(TestParticipantId))
         initialLedgerEnd <- Resource.fromFuture(dao.lookupLedgerEnd())
-        _ = ledgerEndCache.set(
-          (
-            initialLedgerEnd.lastOffset,
-            initialLedgerEnd.lastEventSeqId,
-            initialLedgerEnd.lastPublicationTime,
-          )
-        )
+        _ = ledgerEndCache.set(initialLedgerEnd)
       } yield dao
     }(TraceContext.empty)
     ledgerDao = Await.result(resource.asFuture, 180.seconds)

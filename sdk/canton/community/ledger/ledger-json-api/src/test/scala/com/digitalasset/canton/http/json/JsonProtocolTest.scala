@@ -3,12 +3,22 @@
 
 package com.digitalasset.canton.http.json
 
-import com.digitalasset.daml.lf.data.Ref
 import com.daml.scalautil.Statement.discard
-import com.digitalasset.canton.http.Generators.{contractGen, contractIdGen, contractLocatorGen, exerciseCmdGen, genDomainTemplateId, genServiceWarning, genUnknownParties, genUnknownTemplateIds, genWarningsWrapper}
+import com.digitalasset.canton.http.Generators.{
+  contractGen,
+  contractIdGen,
+  contractLocatorGen,
+  exerciseCmdGen,
+  genDomainTemplateId,
+  genServiceWarning,
+  genUnknownParties,
+  genUnknownTemplateIds,
+  genWarningsWrapper,
+}
 import com.digitalasset.canton.http.domain
 import com.digitalasset.canton.http.json.SprayJson.JsonReaderError
 import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.daml.lf.data.Ref
 import org.apache.pekko.http.scaladsl.model.StatusCodes
 import org.scalacheck.Arbitrary
 import org.scalacheck.Arbitrary.arbitrary
@@ -301,7 +311,8 @@ class JsonProtocolTest
       val utf8 = java.nio.charset.Charset forName "UTF-8"
       val expected = DisclosedContract(
         contractId = domain.ContractId("abcd"),
-        templateId = domain.ContractTypeId.Template(Ref.PackageRef.assertFromString("Pkg"), "Mod", "Tmpl"),
+        templateId =
+          domain.ContractTypeId.Template(Ref.PackageRef.assertFromString("Pkg"), "Mod", "Tmpl"),
         createdEventBlob = domain.Base64(ByteString.copyFrom("some create event payload", utf8)),
       )
       val encoded =
@@ -351,7 +362,6 @@ object JsonProtocolTest {
     Arbitrary(contractIdGen)
 
   private[http] implicit def arbDisclosedCt[TpId: Arbitrary]
-      : Arbitrary[domain.DisclosedContract[TpId]] = {
+      : Arbitrary[domain.DisclosedContract[TpId]] =
     arbArg((domain.DisclosedContract.apply[TpId] _).tupled, !_.createdEventBlob.unwrap.isEmpty)
-  }
 }

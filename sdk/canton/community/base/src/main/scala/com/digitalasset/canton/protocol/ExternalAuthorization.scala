@@ -28,8 +28,8 @@ final case class ExternalAuthorization(
       authentications = signatures.map { case (party, partySignatures) =>
         v30.ExternalPartyAuthorization(party.toProtoPrimitive, partySignatures.map(_.toProtoV30))
       }.toSeq,
-      // TODO (#22250) - Support TransactionSerializationVersion
-      v30.ExternalAuthorization.TransactionSerializationVersion.TRANSACTION_SERIALIZATION_VERSION_UNSPECIFIED,
+      // TODO (#22250) - Support HashingSchemeVersion
+      v30.ExternalAuthorization.HashingSchemeVersion.HASHING_SCHEME_VERSION_UNSPECIFIED,
     )
 
   @transient override protected lazy val companionObj: ExternalAuthorization.type =
@@ -52,7 +52,7 @@ object ExternalAuthorization
   override def name: String = "ExternalAuthorization"
 
   val supportedProtoVersions: SupportedProtoVersions = SupportedProtoVersions(
-    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v32)(protoCompanion =
+    ProtoVersion(30) -> VersionedProtoConverter(ProtocolVersion.v33)(protoCompanion =
       v30.ExternalAuthorization
     )(supportedProtoVersion(_)(fromProtoV30), _.toProtoV30.toByteString)
   )

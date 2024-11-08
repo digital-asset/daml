@@ -5,7 +5,8 @@
 
 module MultiTest where
 
-import DA.List
+import DA.List (sortOn, (\\), head)
+import DA.Text (splitOn)
 import DA.Optional(fromSome)
 import DA.Time
 import Daml.Script
@@ -44,12 +45,12 @@ partyIdHintTest = do
   bob <- allocatePartyWithHintOn "bob" (PartyIdHint "bob") (ParticipantName "participant1")
   pure (alice, bob)
 
-listKnownPartiesTest : Script ([(Optional Text, Bool)], [(Optional Text, Bool)])
+listKnownPartiesTest : Script ([(Text, Bool)], [(Text, Bool)])
 listKnownPartiesTest = do
   parties1 <- listKnownPartiesOn (ParticipantName "participant0")
   parties2 <- listKnownPartiesOn (ParticipantName "participant1")
-  p2 <- allocatePartyOn "p2" (ParticipantName "participant1")
-  p1 <- allocatePartyOn "p1" (ParticipantName "participant0")
+  p2 <- allocatePartyWithHintOn "p2" (PartyIdHint "p2") (ParticipantName "participant1")
+  p1 <- allocatePartyWithHintOn "p1" (PartyIdHint "p1") (ParticipantName "participant0")
   -- Synchronize by submitting transactions in both directions. This matches
   -- what the ledger API test tool uses for synchronization.
   -- note that since p2 is allocated before p1 through the ledger API,
@@ -61,11 +62,11 @@ listKnownPartiesTest = do
   parties1' <- listKnownPartiesOn (ParticipantName "participant0")
   parties2' <- listKnownPartiesOn (ParticipantName "participant1")
   pure
-    ( map toTuple $ sortOn displayName (parties1' \\ parties1)
-    , map toTuple $ sortOn displayName (parties2' \\ parties2)
+    ( map toTuple $ sortOn party (parties1' \\ parties1)
+    , map toTuple $ sortOn party (parties2' \\ parties2)
     )
  where
-  toTuple PartyDetails{..} = (displayName, isLocal)
+  toTuple PartyDetails{party, isLocal} = (head $ splitOn "::" (partyToText party), isLocal)
 
 tries : Int
 tries = 60
