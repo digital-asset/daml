@@ -8,31 +8,57 @@ import qualified V1.UnvettedPackagesTestPackage as V1
 import qualified V2.UnvettedPackagesTestPackage as V2
 import UnvettedPackagesHelper
 import UnvettedPackagesInterface
+import DA.Action (foldlA, unless)
 import DA.Optional
-import DA.Text
+import DA.Text (isInfixOf)
+import DA.Time (seconds)
 
 -- These tests rely on unvetting, none of them will work on IDE
 main : TestTree
 main = tests $ brokenOnIDELedger <$>
-  [ ("Exercise a choice against a V1 contract with V1 unvetted on submitter via Command", v1UnvettedOnSubmitterCommand)
-  , ("Exercise a choice against a V1 contract with V1 unvetted on submitter via Command Interface", v1UnvettedOnSubmitterCommandInterface)
-  , ("Exercise a choice against a V1 contract with V1 unvetted on submitter via Choice Body", v1UnvettedOnSubmitterChoiceBody)
-  , ("Exercise a choice against a V1 contract with V1 unvetted on submitter via Choice Body Interface", v1UnvettedOnSubmitterChoiceBodyInterface)
+  [ subtree "exercise"
+    [ ("Exercise a choice against a V1 contract with V1 unvetted on submitter via Command", v1UnvettedOnSubmitterCommand)
+    , ("Exercise a choice against a V1 contract with V1 unvetted on submitter via Command Interface", v1UnvettedOnSubmitterCommandInterface)
+    , ("Exercise a choice against a V1 contract with V1 unvetted on submitter via Choice Body", v1UnvettedOnSubmitterChoiceBody)
+    , ("Exercise a choice against a V1 contract with V1 unvetted on submitter via Choice Body Interface", v1UnvettedOnSubmitterChoiceBodyInterface)
 
-  , ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Command", v1UnvettedOnSubmitterDisclosedCommand)
-  , ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Command Interface", v1UnvettedOnSubmitterDisclosedCommandInterface)
-  , ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Choice Body", v1UnvettedOnSubmitterDisclosedChoiceBody)
-  , ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Choice Body Interface", v1UnvettedOnSubmitterDisclosedChoiceBodyInterface)
+    , ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Command", v1UnvettedOnSubmitterDisclosedCommand)
+    , ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Command Interface", v1UnvettedOnSubmitterDisclosedCommandInterface)
+    , ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Choice Body", v1UnvettedOnSubmitterDisclosedChoiceBody)
+    , ("Exercise a choice against a V1 disclosed contract with V1 unvetted on submitter via Choice Body Interface", v1UnvettedOnSubmitterDisclosedChoiceBodyInterface)
 
-  , ("Exercise a choice against a V1 contract with V1 unvetted on a non-confirming informee via Command", v1UnvettedOnNonConfirmingInformeeCommand)
-  , ("Exercise a choice against a V1 contract with V1 unvetted on a non-confirming informee via Command Interface", v1UnvettedOnNonConfirmingInformeeCommandInterface)
-  , ("Exercise a choice against a V1 contract with V1 unvetted on a non-confirming informee via Choice Body", v1UnvettedOnNonConfirmingInformeeChoiceBody)
-  , ("Exercise a choice against a V1 contract with V1 unvetted on a non-confirming informee via Choice Body Interface", v1UnvettedOnNonConfirmingInformeeChoiceBodyInterface)
+    , ("Exercise a choice against a V1 contract with V1 unvetted on a non-confirming informee via Command", v1UnvettedOnNonConfirmingInformeeCommand)
+    , ("Exercise a choice against a V1 contract with V1 unvetted on a non-confirming informee via Command Interface", v1UnvettedOnNonConfirmingInformeeCommandInterface)
+    , ("Exercise a choice against a V1 contract with V1 unvetted on a non-confirming informee via Choice Body", v1UnvettedOnNonConfirmingInformeeChoiceBody)
+    , ("Exercise a choice against a V1 contract with V1 unvetted on a non-confirming informee via Choice Body Interface", v1UnvettedOnNonConfirmingInformeeChoiceBodyInterface)
 
-  , ("Exercise a choice against a V1 contract with V1 unvetted on a confirming informee via Command", v1UnvettedOnConfirmingInformeeCommand)
-  , ("Exercise a choice against a V1 contract with V1 unvetted on a confirming informee via Command Interface", v1UnvettedOnConfirmingInformeeCommandInterface)
-  , ("Exercise a choice against a V1 contract with V1 unvetted on a confirming informee via Choice Body", v1UnvettedOnConfirmingInformeeChoiceBody)
-  , ("Exercise a choice against a V1 contract with V1 unvetted on a confirming informee via Choice Body Interface", v1UnvettedOnConfirmingInformeeChoiceBodyInterface)
+    , ("Exercise a choice against a V1 contract with V1 unvetted on a confirming informee via Command", v1UnvettedOnConfirmingInformeeCommand)
+    , ("Exercise a choice against a V1 contract with V1 unvetted on a confirming informee via Command Interface", v1UnvettedOnConfirmingInformeeCommandInterface)
+    , ("Exercise a choice against a V1 contract with V1 unvetted on a confirming informee via Choice Body", v1UnvettedOnConfirmingInformeeChoiceBody)
+    , ("Exercise a choice against a V1 contract with V1 unvetted on a confirming informee via Choice Body Interface", v1UnvettedOnConfirmingInformeeChoiceBodyInterface)
+    ]
+  , subtree "fetch"
+    [ ("Fetch undistributed contract with source unvetted on submitter", fetchUndistributedUnvettedOnSubmitter)
+    , ("Fetch undistributed contract with source unvetted on submitter via interface", fetchUndistributedUnvettedOnSubmitterInterface)
+    , ("Fetch distributed contract with source unvetted on submitter", fetchDistributedUnvettedOnSubmitter)
+    , ("Fetch distributed contract with source unvetted on submitter via interface", fetchDistributedUnvettedOnSubmitterInterface)
+    , ("Fetch disclosed contract with source unvetted on submitter", fetchDisclosedUnvettedOnSubmitter)
+    , ("Fetch disclosed contract with source unvetted on submitter via interface", fetchDisclosedUnvettedOnSubmitterInterface)
+    , ("Fetch distributed contract with source unvetted on non-confirming informee (Should succeed)", fetchDistributedUnvettedOnNonConfirmingInformee)
+    , ("Fetch distributed contract with source unvetted on confirming informee", fetchDistributedUnvettedOnConfirmingInformee)
+    , ("Fetch distributed contract with source unvetted on confirming informee via interface", fetchDistributedUnvettedOnConfirmingInformeeInterface)
+    -- TODO: This test would either need a third participant, or to use multiple parties on the same participant (which is not clear if acceptable)
+    -- , ("Fetch disclosed contract with source unvetted on non-confirming informee (Should succeed)", fetchDisclosedUnvettedOnNonConfirmingInformee)
+    , ("Fetch disclosed contract with source unvetted on confirming informee", fetchDisclosedUnvettedOnConfirmingInformee)
+    , ("Fetch disclosed contract with source unvetted on confirming informee via interface", fetchDisclosedUnvettedOnConfirmingInformeeInterface)
+    ]
+  , -- TODO: Broken as we expect failure but query succeeds
+    subtree "query"
+    [ brokenOnCanton ("Query undistributed contract with source unvetted", queryUndistributedUnvetted)
+    , brokenOnCanton ("Query undistributed contract with source unvetted via interface", queryUndistributedUnvettedInterface)
+    , brokenOnCanton ("Query distributed contract with source unvetted", queryDistributedUnvetted)
+    , brokenOnCanton ("Query distributed contract with source unvetted via interface", queryDistributedUnvettedInterface)
+    ]
   ]
 
 -- Interface required for some tests
@@ -47,7 +73,10 @@ package: unvetted-packages-interface
 contents: |
   module UnvettedPackagesInterface where
 
-  data TestTemplateInterfaceView = TestTemplateInterfaceView with owner: Party
+  data TestTemplateInterfaceView =
+    TestTemplateInterfaceView with
+        owner: Party
+      deriving (Eq, Show)
 
   interface TestTemplateInterface where
     viewtype TestTemplateInterfaceView
@@ -77,6 +106,7 @@ contents: |
   module UnvettedPackagesTestPackage where
 
   import UnvettedPackagesInterface
+  import DA.List
 
   template TestTemplate with
       p : Party
@@ -99,12 +129,11 @@ contents: |
         pure "V1" -- @V 1
         pure "V2" -- @V  2
 
-    choice SetInformees : ContractId TestTemplate with
-        newSigs : [Party]
-        newObs : [Party]
-      controller newSigs, newObs
+    choice PromoteObserver : ContractId TestTemplate with
+        newSig : Party
+      controller newSig
       do
-        create this with sigs = newSigs, obs = newObs
+        create this with sigs = newSig :: sigs, obs = delete newSig obs
 
     interface instance TestTemplateInterface for TestTemplate where
       view = TestTemplateInterfaceView p
@@ -129,11 +158,15 @@ contents: |
 
   import UnvettedPackagesTestPackage
   import UnvettedPackagesInterface
+  import DA.List
   
   template TestTemplateHelper with
       p : Party
+      sigs : [Party]
+      obs : [Party]
     where
-    signatory p
+    signatory p :: sigs
+    observer obs
 
     choice HelperChoice : Text with
         cid : ContractId TestTemplate
@@ -158,195 +191,304 @@ contents: |
       controller p
       do
         exercise iid GetVersionDisclosed with c = p
+
+    choice HelperFetch : TestTemplate with
+        cid : ContractId TestTemplate
+      controller p
+      do
+        fetch cid
+
+    choice HelperFetchInterface : () with
+        iid : ContractId TestTemplateInterface
+      controller p
+      do
+        _ <- fetch iid
+        -- Interfaces are not serializable
+        pure ()
+
+    choice HelperPromoteObserver : ContractId TestTemplateHelper with
+        newSig : Party
+      controller newSig
+      do
+        create this with sigs = newSig :: sigs, obs = delete newSig obs
 -}
 
-expectPackageMissingFailure : Show a => Either SubmitError a -> Script ()
-expectPackageMissingFailure (Right res) = fail $ "Expected failure, got success: " <> show res
+testTemplateHelper : Party -> TestTemplateHelper
+testTemplateHelper p = TestTemplateHelper with p = p, sigs = [], obs = []
+
+expectPackageMissingFailure : Either SubmitError a -> Script ()
+expectPackageMissingFailure (Right _) = fail "Expected failure, got success."
 expectPackageMissingFailure (Left (UnknownError (isInfixOf "Some packages are not known to all informees" -> True))) = pure ()
 expectPackageMissingFailure (Left e) = fail $ "Expected package missing error, got " <> show e
 
-expectNoDomainFailure : Show a => Either SubmitError a -> Script ()
-expectNoDomainFailure (Right res) = fail $ "Expected failure, got success: " <> show res
+expectNoDomainFailure : Either SubmitError a -> Script ()
+expectNoDomainFailure (Right _) = fail "Expected failure, got success."
 expectNoDomainFailure (Left (UnknownError (isInfixOf "No valid domain for submission found" -> True))) = pure ()
 expectNoDomainFailure (Left e) = fail $ "Expected No Domain error, got " <> show e
 
-v1UnvettedOnSubmitterCommand : Test
-v1UnvettedOnSubmitterCommand = test $ do
+expectSuccess : Either SubmitError a -> Script ()
+expectSuccess (Right _) = pure ()
+expectSuccess (Left e) = fail $ "Expected success but got failure: " <> show e
+
+expectQueryFailure : Optional a -> Script ()
+expectQueryFailure None = pure ()
+expectQueryFailure (Some _) = fail "Expected query to fail, but it succeeded"
+
+unvettedTest
+  :  (Party -> ContractId V2.TestTemplate -> ContractId TestTemplateInterface -> Script res)
+  -> (res -> Script ())
+  -> ParticipantName
+  -> [Party]
+  -> [Party]
+  -> Script ()
+unvettedTest makeSubmission assertResult participant sigs obs = do
   alice <- allocateParty "alice"
-  cidV1 <- alice `submit` createExactCmd V1.TestTemplate with p = alice, sigs = [], obs = []
+  cidV1Prelim <- alice `submit` createExactCmd V1.TestTemplate with p = alice, sigs = [], obs = obs ++ sigs
+  -- Leave time for all sigs (which are currently observers) to see the template, so they can exercise the `SetInformees` choice
+  unless (null sigs) $ sleep (seconds 1)
+  cidV1 <-
+    foldlA
+      (\cid p -> p `submit` exerciseExactCmd cid V1.PromoteObserver with newSig = p)
+      cidV1Prelim
+      sigs
   let cidV2 = coerceContractId @V1.TestTemplate @V2.TestTemplate cidV1
-  withUnvettedDarOnParticipant "unvetted-packages-test-template-1.0.0" participant0 $ do
-    res <- alice `trySubmit` exerciseCmd cidV2 V2.TestTemplateChoice
-    expectPackageMissingFailure res
+      iid = toInterfaceContractId @TestTemplateInterface cidV1
+
+  withUnvettedDarOnParticipant "unvetted-packages-test-template-1.0.0" participant $ do
+    res <- makeSubmission alice cidV2 iid
+    assertResult res
+
+directExercise : Party -> ContractId V2.TestTemplate -> ContractId TestTemplateInterface -> Commands Text
+directExercise _ cidV2 _ = exerciseCmd cidV2 V2.TestTemplateChoice
+
+directExerciseInterface : Party -> ContractId V2.TestTemplate -> ContractId TestTemplateInterface -> Commands Text
+directExerciseInterface _ _ iid = exerciseCmd iid GetVersion
+
+helperExercise : Party -> ContractId V2.TestTemplate -> ContractId TestTemplateInterface -> Commands Text
+helperExercise p cidV2 _ = createAndExerciseCmd (testTemplateHelper p) (HelperChoice with cid = cidV2)
+
+helperExerciseInterface : Party -> ContractId V2.TestTemplate -> ContractId TestTemplateInterface -> Commands Text
+helperExerciseInterface p _ iid = createAndExerciseCmd (testTemplateHelper p) (HelperInterfaceChoice with iid = iid)
+
+v1UnvettedOnSubmitter
+  :  (Party -> ContractId V2.TestTemplate -> ContractId TestTemplateInterface -> Commands a)
+  -> Test
+v1UnvettedOnSubmitter makeCommands = test $
+  unvettedTest
+    (\alice cidV2 iid -> alice `trySubmit` makeCommands alice cidV2 iid)
+    expectPackageMissingFailure
+    participant0
+    []
+    []
+
+v1UnvettedOnSubmitterCommand : Test
+v1UnvettedOnSubmitterCommand = v1UnvettedOnSubmitter directExercise
 
 v1UnvettedOnSubmitterCommandInterface : Test
-v1UnvettedOnSubmitterCommandInterface = test $ do
-  alice <- allocateParty "alice"
-  cidV1 <- alice `submit` createExactCmd V1.TestTemplate with p = alice, sigs = [], obs = []
-  let iid = toInterfaceContractId @TestTemplateInterface cidV1
-  withUnvettedDarOnParticipant "unvetted-packages-test-template-1.0.0" participant0 $ do
-    res <- alice `trySubmit` exerciseCmd iid GetVersion
-    expectPackageMissingFailure res
+v1UnvettedOnSubmitterCommandInterface = v1UnvettedOnSubmitter directExerciseInterface
 
 v1UnvettedOnSubmitterChoiceBody : Test
-v1UnvettedOnSubmitterChoiceBody = test $ do
-  alice <- allocateParty "alice"
-  cidV1 <- alice `submit` createExactCmd V1.TestTemplate with p = alice, sigs = [], obs = []
-  let cidV2 = coerceContractId @V1.TestTemplate @V2.TestTemplate cidV1
-  withUnvettedDarOnParticipant "unvetted-packages-test-template-1.0.0" participant0 $ do
-    res <- alice `trySubmit` createAndExerciseCmd (TestTemplateHelper with p = alice) (HelperChoice with cid = cidV2)
-    expectPackageMissingFailure res
+v1UnvettedOnSubmitterChoiceBody = v1UnvettedOnSubmitter helperExercise
 
 v1UnvettedOnSubmitterChoiceBodyInterface : Test
-v1UnvettedOnSubmitterChoiceBodyInterface = test $ do
-  alice <- allocateParty "alice"
-  cidV1 <- alice `submit` createExactCmd V1.TestTemplate with p = alice, sigs = [], obs = []
-  let iid = toInterfaceContractId @TestTemplateInterface cidV1
-  withUnvettedDarOnParticipant "unvetted-packages-test-template-1.0.0" participant0 $ do
-    res <- alice `trySubmit` createAndExerciseCmd (TestTemplateHelper with p = alice) (HelperInterfaceChoice with iid = iid)
-    expectPackageMissingFailure res
+v1UnvettedOnSubmitterChoiceBodyInterface = v1UnvettedOnSubmitter helperExerciseInterface
 
 -- Following 4 tests use `expectNoDomainFailure`, over expectPackageMissingFailure
 -- This is incorrect, and implies an issue with the domain selector, but under the hood is giving the correct error
 -- So we will likely not fix this for 2.x
-v1UnvettedOnSubmitterDisclosedCommand : Test
-v1UnvettedOnSubmitterDisclosedCommand = test $ do
-  alice <- allocatePartyOn "alice" participant0
-  bob <- allocatePartyOn "bob" participant1
-  cidV1 <- alice `submit` createExactCmd V1.TestTemplate with p = alice, sigs = [], obs = []
-  let cidV2 = coerceContractId @V1.TestTemplate @V2.TestTemplate cidV1
-  disclosure <- fromSome <$> queryDisclosure alice cidV2
 
-  withUnvettedDarOnParticipant "unvetted-packages-test-template-1.0.0" participant1 $ do
-    res <- (actAs bob <> disclose disclosure) `trySubmit` exerciseCmd cidV2 V2.TestTemplateChoiceDisclosed with c = bob
-    expectNoDomainFailure res
+v1UnvettedOnSubmitterDisclosed
+  :  (Party -> ContractId V2.TestTemplate -> ContractId TestTemplateInterface -> Commands a)
+  -> Test
+v1UnvettedOnSubmitterDisclosed makeSubmission = test $ do
+  bob <- allocatePartyOn "bob" participant1
+  unvettedTest
+    (\alice cidV2 iid -> do
+      disclosure <- fromSome <$> queryDisclosure alice cidV2
+      (actAs bob <> disclose disclosure) `trySubmit` makeSubmission bob cidV2 iid
+    )
+    expectNoDomainFailure
+    participant1
+    []
+    []
+
+v1UnvettedOnSubmitterDisclosedCommand : Test
+v1UnvettedOnSubmitterDisclosedCommand = v1UnvettedOnSubmitterDisclosed $ \bob cidV2 _ -> exerciseCmd cidV2 V2.TestTemplateChoiceDisclosed with c = bob
 
 v1UnvettedOnSubmitterDisclosedCommandInterface : Test
-v1UnvettedOnSubmitterDisclosedCommandInterface = test $ do
-  alice <- allocatePartyOn "alice" participant0
-  bob <- allocatePartyOn "bob" participant1
-  cidV1 <- alice `submit` createExactCmd V1.TestTemplate with p = alice, sigs = [], obs = []
-  let cidV2 = coerceContractId @V1.TestTemplate @V2.TestTemplate cidV1
-  disclosure <- fromSome <$> queryDisclosure alice cidV2
-  let iid = toInterfaceContractId @TestTemplateInterface cidV1
-
-  withUnvettedDarOnParticipant "unvetted-packages-test-template-1.0.0" participant1 $ do
-    res <- (actAs bob <> disclose disclosure) `trySubmit` exerciseCmd iid GetVersionDisclosed with c = bob
-    expectNoDomainFailure res
+v1UnvettedOnSubmitterDisclosedCommandInterface = v1UnvettedOnSubmitterDisclosed $ \bob _ iid -> exerciseCmd iid GetVersionDisclosed with c = bob
 
 v1UnvettedOnSubmitterDisclosedChoiceBody : Test
-v1UnvettedOnSubmitterDisclosedChoiceBody = test $ do
-  alice <- allocatePartyOn "alice" participant0
-  bob <- allocatePartyOn "bob" participant1
-  cidV1 <- alice `submit` createExactCmd V1.TestTemplate with p = alice, sigs = [], obs = []
-  let cidV2 = coerceContractId @V1.TestTemplate @V2.TestTemplate cidV1
-  disclosure <- fromSome <$> queryDisclosure alice cidV2
-
-  withUnvettedDarOnParticipant "unvetted-packages-test-template-1.0.0" participant1 $ do
-    res <- (actAs bob <> disclose disclosure) `trySubmit` createAndExerciseCmd (TestTemplateHelper with p = bob) (HelperChoiceDisclosed with cid = cidV2)
-    expectNoDomainFailure res
+v1UnvettedOnSubmitterDisclosedChoiceBody =
+  v1UnvettedOnSubmitterDisclosed $ \bob cidV2 _ -> createAndExerciseCmd (testTemplateHelper bob) (HelperChoiceDisclosed with cid = cidV2)
 
 v1UnvettedOnSubmitterDisclosedChoiceBodyInterface : Test
-v1UnvettedOnSubmitterDisclosedChoiceBodyInterface = test $ do
-  alice <- allocatePartyOn "alice" participant0
-  bob <- allocatePartyOn "bob" participant1
-  cidV1 <- alice `submit` createExactCmd V1.TestTemplate with p = alice, sigs = [], obs = []
-  let cidV2 = coerceContractId @V1.TestTemplate @V2.TestTemplate cidV1
-  disclosure <- fromSome <$> queryDisclosure alice cidV2
-  let iid = toInterfaceContractId @TestTemplateInterface cidV1
+v1UnvettedOnSubmitterDisclosedChoiceBodyInterface =
+  v1UnvettedOnSubmitterDisclosed $ \bob _ iid -> createAndExerciseCmd (testTemplateHelper bob) (HelperInterfaceChoiceDisclosed with iid = iid)
 
-  withUnvettedDarOnParticipant "unvetted-packages-test-template-1.0.0" participant1 $ do
-    res <- (actAs bob <> disclose disclosure) `trySubmit` createAndExerciseCmd (TestTemplateHelper with p = bob) (HelperInterfaceChoiceDisclosed with iid = iid)
-    expectNoDomainFailure res
+v1UnvettedOnInformee
+  :  Bool
+  -> (Party -> ContractId V2.TestTemplate -> ContractId TestTemplateInterface -> Commands a)
+  -> Test
+v1UnvettedOnInformee isConfirming makeCommands = test $ do
+  bob <- allocatePartyOn "bob" participant1
+  unvettedTest
+    (\alice cidV2 iid -> alice `trySubmit` makeCommands alice cidV2 iid)
+    expectPackageMissingFailure
+    participant1
+    (if isConfirming then [bob] else [])
+    (if isConfirming then [] else [bob])
 
 v1UnvettedOnNonConfirmingInformeeCommand : Test
-v1UnvettedOnNonConfirmingInformeeCommand = test $ do
-  alice <- allocatePartyOn "alice" participant0
-  bob <- allocatePartyOn "bob" participant1
-  cidV1 <- alice `submit` createExactCmd V1.TestTemplate with p = alice, sigs = [], obs = [bob]
-  let cidV2 = coerceContractId @V1.TestTemplate @V2.TestTemplate cidV1
-
-  withUnvettedDarOnParticipant "unvetted-packages-test-template-1.0.0" participant1 $ do
-    res <- alice `trySubmit` exerciseCmd cidV2 V2.TestTemplateChoice
-    expectPackageMissingFailure res
+v1UnvettedOnNonConfirmingInformeeCommand = v1UnvettedOnInformee False directExercise
 
 v1UnvettedOnNonConfirmingInformeeCommandInterface : Test
-v1UnvettedOnNonConfirmingInformeeCommandInterface = test $ do
-  alice <- allocatePartyOn "alice" participant0
-  bob <- allocatePartyOn "bob" participant1
-  cidV1 <- alice `submit` createExactCmd V1.TestTemplate with p = alice, sigs = [], obs = [bob]
-  let iid = toInterfaceContractId @TestTemplateInterface cidV1
-
-  withUnvettedDarOnParticipant "unvetted-packages-test-template-1.0.0" participant1 $ do
-    res <- alice `trySubmit` exerciseCmd iid GetVersion
-    expectPackageMissingFailure res
+v1UnvettedOnNonConfirmingInformeeCommandInterface = v1UnvettedOnInformee False directExerciseInterface
 
 v1UnvettedOnNonConfirmingInformeeChoiceBody : Test
-v1UnvettedOnNonConfirmingInformeeChoiceBody = test $ do
-  alice <- allocatePartyOn "alice" participant0
-  bob <- allocatePartyOn "bob" participant1
-  cidV1 <- alice `submit` createExactCmd V1.TestTemplate with p = alice, sigs = [], obs = [bob]
-  let cidV2 = coerceContractId @V1.TestTemplate @V2.TestTemplate cidV1
-
-  withUnvettedDarOnParticipant "unvetted-packages-test-template-1.0.0" participant1 $ do
-    res <- alice `trySubmit` createAndExerciseCmd (TestTemplateHelper with p = alice) (HelperChoice with cid = cidV2)
-    expectPackageMissingFailure res
+v1UnvettedOnNonConfirmingInformeeChoiceBody = v1UnvettedOnInformee False helperExercise
 
 v1UnvettedOnNonConfirmingInformeeChoiceBodyInterface : Test
-v1UnvettedOnNonConfirmingInformeeChoiceBodyInterface = test $ do
-  alice <- allocatePartyOn "alice" participant0
-  bob <- allocatePartyOn "bob" participant1
-  cidV1 <- alice `submit` createExactCmd V1.TestTemplate with p = alice, sigs = [], obs = [bob]
-  let iid = toInterfaceContractId @TestTemplateInterface cidV1
-
-  withUnvettedDarOnParticipant "unvetted-packages-test-template-1.0.0" participant1 $ do
-    res <- alice `trySubmit` createAndExerciseCmd (TestTemplateHelper with p = alice) (HelperInterfaceChoice with iid = iid)
-    expectPackageMissingFailure res
+v1UnvettedOnNonConfirmingInformeeChoiceBodyInterface = v1UnvettedOnInformee False helperExerciseInterface
 
 v1UnvettedOnConfirmingInformeeCommand : Test
-v1UnvettedOnConfirmingInformeeCommand = test $ do
-  alice <- allocatePartyOn "alice" participant0
-  bob <- allocatePartyOn "bob" participant1
-  cidWithoutSigs <- alice `submit` createExactCmd V1.TestTemplate with p = alice, sigs = [], obs = [bob]
-  cidV1 <- bob `submit` exerciseExactCmd cidWithoutSigs V1.SetInformees with newSigs = [bob], newObs = []
-  let cidV2 = coerceContractId @V1.TestTemplate @V2.TestTemplate cidV1
-
-  withUnvettedDarOnParticipant "unvetted-packages-test-template-1.0.0" participant1 $ do
-    res <- alice `trySubmit` exerciseCmd cidV2 V2.TestTemplateChoice
-    expectPackageMissingFailure res
+v1UnvettedOnConfirmingInformeeCommand = v1UnvettedOnInformee True directExercise
 
 v1UnvettedOnConfirmingInformeeCommandInterface : Test
-v1UnvettedOnConfirmingInformeeCommandInterface = test $ do
-  alice <- allocatePartyOn "alice" participant0
-  bob <- allocatePartyOn "bob" participant1
-  cidWithoutSigs <- alice `submit` createExactCmd V1.TestTemplate with p = alice, sigs = [], obs = [bob]
-  cidV1 <- bob `submit` exerciseExactCmd cidWithoutSigs V1.SetInformees with newSigs = [bob], newObs = []
-  let iid = toInterfaceContractId @TestTemplateInterface cidV1
-
-  withUnvettedDarOnParticipant "unvetted-packages-test-template-1.0.0" participant1 $ do
-    res <- alice `trySubmit` exerciseCmd iid GetVersion
-    expectPackageMissingFailure res
+v1UnvettedOnConfirmingInformeeCommandInterface = v1UnvettedOnInformee True directExerciseInterface
 
 v1UnvettedOnConfirmingInformeeChoiceBody : Test
-v1UnvettedOnConfirmingInformeeChoiceBody = test $ do
-  alice <- allocatePartyOn "alice" participant0
-  bob <- allocatePartyOn "bob" participant1
-  cidWithoutSigs <- alice `submit` createExactCmd V1.TestTemplate with p = alice, sigs = [], obs = [bob]
-  cidV1 <- bob `submit` exerciseExactCmd cidWithoutSigs V1.SetInformees with newSigs = [bob], newObs = []
-  let cidV2 = coerceContractId @V1.TestTemplate @V2.TestTemplate cidV1
-
-  withUnvettedDarOnParticipant "unvetted-packages-test-template-1.0.0" participant1 $ do
-    res <- alice `trySubmit` createAndExerciseCmd (TestTemplateHelper with p = alice) (HelperChoice with cid = cidV2)
-    expectPackageMissingFailure res
+v1UnvettedOnConfirmingInformeeChoiceBody = v1UnvettedOnInformee True helperExercise
 
 v1UnvettedOnConfirmingInformeeChoiceBodyInterface : Test
-v1UnvettedOnConfirmingInformeeChoiceBodyInterface = test $ do
-  alice <- allocatePartyOn "alice" participant0
-  bob <- allocatePartyOn "bob" participant1
-  cidWithoutSigs <- alice `submit` createExactCmd V1.TestTemplate with p = alice, sigs = [], obs = [bob]
-  cidV1 <- bob `submit` exerciseExactCmd cidWithoutSigs V1.SetInformees with newSigs = [bob], newObs = []
-  let iid = toInterfaceContractId @TestTemplateInterface cidV1
+v1UnvettedOnConfirmingInformeeChoiceBodyInterface = v1UnvettedOnInformee True helperExerciseInterface
 
-  withUnvettedDarOnParticipant "unvetted-packages-test-template-1.0.0" participant1 $ do
-    res <- alice `trySubmit` createAndExerciseCmd (TestTemplateHelper with p = alice) (HelperInterfaceChoice with iid = iid)
-    expectPackageMissingFailure res
+helperFetch : Party -> ContractId V2.TestTemplate -> ContractId TestTemplateInterface -> Commands V2.TestTemplate
+helperFetch p cidV2 _ = createAndExerciseCmd (testTemplateHelper p) (HelperFetch with cid = cidV2)
+
+helperFetchInterface : Party -> ContractId V2.TestTemplate -> ContractId TestTemplateInterface -> Commands ()
+helperFetchInterface p _ iid = createAndExerciseCmd (testTemplateHelper p) (HelperFetchInterface with iid = iid)
+
+fetchUndistributedUnvettedOnSubmitter : Test
+fetchUndistributedUnvettedOnSubmitter = test $
+  unvettedTest
+    (\alice cidV2 iid -> alice `trySubmit` helperFetch alice cidV2 iid)
+    expectPackageMissingFailure
+    participant0
+    []
+    []
+
+fetchUndistributedUnvettedOnSubmitterInterface : Test
+fetchUndistributedUnvettedOnSubmitterInterface = test $
+  unvettedTest
+    (\alice cidV2 iid -> alice `trySubmit` helperFetchInterface alice cidV2 iid)
+    expectPackageMissingFailure
+    participant0
+    []
+    []
+
+fetchDistributedUnvettedOnSubmitter : Test
+fetchDistributedUnvettedOnSubmitter = test $ do
+  bob <- allocatePartyOn "bob" participant1
+  unvettedTest
+    (\alice cidV2 iid -> alice `trySubmit` helperFetch alice cidV2 iid)
+    expectPackageMissingFailure
+    participant0
+    [bob]
+    []
+
+fetchDistributedUnvettedOnSubmitterInterface : Test
+fetchDistributedUnvettedOnSubmitterInterface = test $ do
+  bob <- allocatePartyOn "bob" participant1
+  unvettedTest
+    (\alice cidV2 iid -> alice `trySubmit` helperFetchInterface alice cidV2 iid)
+    expectPackageMissingFailure
+    participant0
+    [bob]
+    []
+
+fetchDisclosedSubmitter
+  :  Choice TestTemplateHelper c a
+  => ParticipantName
+  -> (ContractId V2.TestTemplate -> ContractId TestTemplateInterface -> c)
+  -> Test
+fetchDisclosedSubmitter participant makeChoice = test $ do
+  bob <- allocatePartyOn "bob" participant1
+  unvettedTest
+    (\alice cidV2 iid -> do
+      disclosure <- fromSome <$> queryDisclosure alice cidV2
+      -- Setup helper with alice as a signatory, so the disclosure can be fetched
+      cidWithoutAlice <- bob `submit` createCmd ((testTemplateHelper bob) with obs = [alice])
+      cidWithAlice <- alice `submit` exerciseExactCmd cidWithoutAlice HelperPromoteObserver with newSig = alice
+      (actAs bob <> disclose disclosure) `trySubmit` exerciseCmd cidWithAlice (makeChoice cidV2 iid)
+    )
+    expectPackageMissingFailure
+    participant
+    []
+    []
+
+fetchDisclosedUnvettedOnSubmitter : Test
+fetchDisclosedUnvettedOnSubmitter = fetchDisclosedSubmitter participant1 $ \cidV2 _ -> HelperFetch with cid = cidV2
+
+fetchDisclosedUnvettedOnSubmitterInterface : Test
+fetchDisclosedUnvettedOnSubmitterInterface = fetchDisclosedSubmitter participant1 $ \_ iid -> HelperFetchInterface with iid = iid
+
+fetchDistributedUnvettedOnNonConfirmingInformee : Test
+fetchDistributedUnvettedOnNonConfirmingInformee = test $ do
+  bob <- allocatePartyOn "bob" participant1
+  unvettedTest
+    (\alice cidV2 iid -> alice `trySubmit` helperFetch alice cidV2 iid)
+    expectSuccess
+    participant1
+    []
+    [bob]
+
+fetchDistributedUnvettedOnConfirmingInformee : Test
+fetchDistributedUnvettedOnConfirmingInformee = v1UnvettedOnInformee True helperFetch
+
+fetchDistributedUnvettedOnConfirmingInformeeInterface : Test
+fetchDistributedUnvettedOnConfirmingInformeeInterface = v1UnvettedOnInformee True helperFetchInterface
+
+fetchDisclosedUnvettedOnConfirmingInformee : Test
+fetchDisclosedUnvettedOnConfirmingInformee = fetchDisclosedSubmitter participant0 $ \cidV2 _ -> HelperFetch with cid = cidV2
+
+fetchDisclosedUnvettedOnConfirmingInformeeInterface : Test
+fetchDisclosedUnvettedOnConfirmingInformeeInterface = fetchDisclosedSubmitter participant0 $ \_ iid -> HelperFetchInterface with iid = iid
+
+queryUndistributedUnvetted : Test
+queryUndistributedUnvetted = test $
+  unvettedTest
+    (\alice cidV2 _ -> alice `queryContractId` cidV2)
+    expectQueryFailure
+    participant0
+    []
+    []
+
+queryUndistributedUnvettedInterface : Test
+queryUndistributedUnvettedInterface = test $
+  unvettedTest
+    (\alice _ iid -> alice `queryInterfaceContractId` iid)
+    expectQueryFailure
+    participant0
+    []
+    []
+
+queryDistributedUnvetted : Test
+queryDistributedUnvetted = test $ do
+  bob <- allocatePartyOn "bob" participant1
+  unvettedTest
+    (\alice cidV2 _ -> alice `queryContractId` cidV2)
+    expectQueryFailure
+    participant0
+    [bob]
+    []
+
+queryDistributedUnvettedInterface : Test
+queryDistributedUnvettedInterface = test $ do
+  bob <- allocatePartyOn "bob" participant1
+  unvettedTest
+    (\alice _ iid -> alice `queryInterfaceContractId` iid)
+    expectQueryFailure
+    participant0
+    [bob]
+    []
