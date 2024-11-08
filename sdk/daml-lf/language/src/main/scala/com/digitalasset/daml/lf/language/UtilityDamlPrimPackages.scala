@@ -5,6 +5,16 @@ package com.digitalasset.daml.lf.language
 
 import com.digitalasset.daml.lf.data.Ref._
 
+// In 3.2.0-snapshot.20240823.13245.0.v94a3b038, we introduced changes from
+// commit 785b0d0b3f, which marks all types in daml-prim:GHC.Stack.Types as
+// unserializable, even though they normally would be. This lets daml-prim be a
+// utility package, because otherwise serializable types in daml-prim would have
+// it be marked as upgradeable.
+// daml-prim needs to be a utility package so that multiple LF versions can
+// upload the same version of it without upgradeability clashes.
+// Before we introduced this change, we released 160 3.x snapshots that have
+// some serializable types in daml-prim. We retroactively mark these daml-prim
+// packages as utility packages by hardcoding their package IDs here.
 object UtilityDamlPrimPackages {
   def check(pkgId: PackageId) = prims.contains(pkgId);
 
