@@ -282,6 +282,29 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
     }
 
     @Explanation(
+      """This error indicates that a package with name daml-prim that isn't a utility package was uploaded. All daml-prim packages should be utility packages.""""
+    )
+    @Resolution("Contact the supplier of the Dar.")
+    @SuppressWarnings(Array("org.wartremover.warts.Serializable"))
+    object UpgradeDamlPrimIsNotAUtilityPackage
+        extends ErrorCode(
+          id = "DAML_PRIM_NOT_UTILITY_PACKAGE",
+          ErrorCategory.InvalidIndependentOfSystemState,
+        ) {
+      final case class Error(
+          uploadedPackage: Util.PkgIdWithNameAndVersion,
+      )(implicit
+          val loggingContext: ContextualizedErrorLogger
+      ) extends DamlError(
+            cause =
+              s"Tried to upload a package $uploadedPackage, but this package is not a utility package. All packages named `daml-prim` must be a utility package.",
+            extraContext = Map(
+              "uploadedPackage" -> uploadedPackage,
+            ),
+          )
+    }
+
+    @Explanation(
       """This error indicates that the Dar upload failed upgrade checks because a package with the same version and package name has been previously uploaded."""
     )
     @Resolution("Inspect the error message and contact support.")

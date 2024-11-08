@@ -1235,16 +1235,25 @@ object Ast {
       metadata: PackageMetadata,
       // Packages that do not define any serializable types are referred to as utility packages
       // in the context of upgrades. They will not be considered for upgrade checks.
-      isUtilityPackage: Boolean,
+      private val isUtilityPackage: Boolean,
   ) {
+    def supportsUpgrades(pkgId: Ref.PackageId) =
+      LanguageVersion.supportsPackageUpgrades(languageVersion) && (!UtilityDamlPrimPackages.check(
+        pkgId
+      ) && !isUtilityPackage)
+    def isInvalidDamlPrim(pkgId: Ref.PackageId) =
+      if (metadata.name == "daml-prim") {
+        if (!LanguageVersion.supportsPackageUpgrades(languageVersion)) {
+          false
+        } else {
+          !isUtilityPackage && !UtilityDamlPrimPackages.check(pkgId)
+        }
+      } else {
+        false
+      }
     // package Name if the package support upgrade
     // TODO: https://github.com/digital-asset/daml/issues/17965
     //  drop that in daml-3
-    private[lf] val name: Option[Ref.PackageName] =
-      if (LanguageVersion.supportsPackageUpgrades(languageVersion) && !isUtilityPackage)
-        Some(metadata.name)
-      else
-        None
     private[lf] def pkgName: Ref.PackageName = metadata.name
     private[lf] def pkgVersion: Option[Ref.PackageVersion] = {
       if (LanguageVersion.supportsPersistedPackageVersion(languageVersion))
