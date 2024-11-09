@@ -136,9 +136,6 @@ object RejectionGenerators {
         case e: LfInterpretationError.ValueNesting =>
           CommandExecutionErrors.Interpreter.ValueNesting
             .Reject(renderedMessage, e)
-        case LfInterpretationError.Upgrade(error) =>
-          CommandExecutionErrors.Interpreter.UpgradeError
-            .Reject(renderedMessage, error)
         case LfInterpretationError.Dev(_, err) =>
           CommandExecutionErrors.Interpreter.InterpretationDevError
             .Reject(renderedMessage, err)
