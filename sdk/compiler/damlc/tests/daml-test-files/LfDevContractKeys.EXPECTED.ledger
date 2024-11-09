@@ -7,19 +7,19 @@ Transactions:
   └─> 'Alice' creates LfDevContractKeys:TextKey
                        with
                          p = 'Alice';
-			 k = "some-key";
-			 disclosedTo = ['Bob']
+                         k = "some-key";
+                         disclosedTo = ['Bob']
   
   TX 1 1970-01-01T00:00:00Z
-     mustFailAt actAs: {'Alice'} readAs: 
+     mustFailAt actAs: {'Alice'} readAs:
                                             {} (LfDevContractKeys:106:3)
   
   TX 2 1970-01-01T00:00:00Z
-     mustFailAt actAs: {'Bob'} readAs: 
+     mustFailAt actAs: {'Bob'} readAs:
                                             {} (LfDevContractKeys:113:3)
   
   TX 3 1970-01-01T00:00:00Z
-     mustFailAt actAs: {'Bob'} readAs: 
+     mustFailAt actAs: {'Bob'} readAs:
                                             {} (LfDevContractKeys:115:3)
   
   TX 4 1970-01-01T00:00:00Z (LfDevContractKeys:118:11)
@@ -250,8 +250,8 @@ Transactions:
                   by key _1 = 'Alice'; _2 = "same-choice-key"
   
   TX 15 1970-01-01T00:00:00Z
-     mustFailAt actAs: {'Alice'} readAs: 
-                                     {} (LfDevContractKeys:171:3)
+     mustFailAt actAs: {'Alice'} readAs:
+                                            {} (LfDevContractKeys:171:3)
   
   TX 16 1970-01-01T00:00:00Z (LfDevContractKeys:175:10)
   #16:0
@@ -292,7 +292,7 @@ Transactions:
   
   TX 19 1970-01-01T00:00:00Z
      mustFailAt actAs: {'Alice'} readAs:
-                                             {} (LfDevContractKeys:187:3)
+                                            {} (LfDevContractKeys:187:3)
 
 Active contracts:  #12:0, #13:0, #14:1, #16:0
 

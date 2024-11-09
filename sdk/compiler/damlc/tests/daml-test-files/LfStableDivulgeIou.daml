@@ -7,9 +7,9 @@ import Daml.Script
 
 -- @LEDGER run LfStableDivulgeIou.EXPECTED.ledger
 run = script do
-  payer <- allocatePartyWithHint "AlicesBank" (PartyIdHint "AlicesBank")
-  owner <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
-  divulgee <- allocatePartyWithHint "Bob" (PartyIdHint "Bob")
+  payer <- allocateParty "AlicesBank"
+  owner <- allocateParty "Alice"
+  divulgee <- allocateParty "Bob"
   iouCid <-
     submit payer do createCmd Iou with
                          owner = owner

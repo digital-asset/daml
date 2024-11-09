@@ -19,7 +19,7 @@ x = 0.5
 
 -- @LEDGER run LfDevBigNumeric.EXPECTED.ledger
 run = script do
-  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
+  alice <- allocateParty "Alice"
   submit alice do
      createCmd BigNumericResults with
         party = alice

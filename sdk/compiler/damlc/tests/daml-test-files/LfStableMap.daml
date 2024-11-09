@@ -15,7 +15,7 @@ template MapTemplate
 
 -- @LEDGER run LfStableMap.EXPECTED.ledger
 run = script do
-  alice <- allocatePartyWithHint "Alice" (PartyIdHint "Alice")
+  alice <- allocateParty "Alice"
   submit alice do
      createCmd MapTemplate with
         party = alice

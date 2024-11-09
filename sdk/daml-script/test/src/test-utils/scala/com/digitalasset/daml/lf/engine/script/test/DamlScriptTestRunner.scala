@@ -62,7 +62,7 @@ trait DamlScriptTestRunner extends AnyWordSpec with CantonFixture with Matchers 
       .replaceAll("id [a-f0-9]{138}", "id XXXXXXXX")
       // rename parties
       .replaceAll("""party-[a-f0-9\-:]+""", "party")
-      .replaceAll("""(Alice|Bob|Charlie|Ivy|Mach)-[a-z0-9]+::[a-z0-9]+""", "party")
+      .replaceAll("""(Alice|Bob|Charlie|Ivy|Mach)(-[a-z0-9]+)?::[a-z0-9]+""", "party")
 
     cantonFixtureDebugMode match {
       case CantonFixtureDebugKeepTmpFiles | CantonFixtureDebugRemoveTmpFiles => {

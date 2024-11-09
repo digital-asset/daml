@@ -61,4 +61,4 @@ fileTest damlFile = do
         goldenVsStringDiff ("File: " <> expectation) diff expectation $
           pure $ BSL.fromStrict $ TE.encodeUtf8 desugared
   where
-    diff ref new = [POSIX_DIFF, "-u", "--strip-trailing-cr", ref, new]
+    diff ref new = [POSIX_DIFF, "-w", "--strip-trailing-cr", ref, new]

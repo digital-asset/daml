@@ -369,10 +369,15 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
     case _ => Left(s"Expected optional participant name but got $v")
   }
 
-  private def randomHex(rand: Random, length: Int) = s"%0${length}x".format(rand.nextLong()).takeRight(length)
+  private def randomHex(rand: Random, length: Int) =
+    s"%0${length}x".format(rand.nextLong()).takeRight(length)
 
   // If the givenIdHint is provided, we just use that as is.
-  def toPartyIdHint(givenIdHint: String, requestedDisplayName: String, random: Random): Either[String, String] = {
+  def toPartyIdHint(
+      givenIdHint: String,
+      requestedDisplayName: String,
+      random: Random,
+  ): Either[String, String] = {
     lazy val uniqueSuffix = randomHex(random, 8)
     (givenIdHint.nonEmpty, requestedDisplayName.nonEmpty) match {
       case (false, false) =>
@@ -385,7 +390,10 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
         // The caller is responsible for ensuring hints are unique
         Right(givenIdHint)
       case (true, true) =>
-        if (givenIdHint != requestedDisplayName) Left(s"Requested name '$requestedDisplayName' given id hint '$givenIdHint' cannot be different")
+        if (givenIdHint != requestedDisplayName)
+          Left(
+            s"Requested name '$requestedDisplayName' given id hint '$givenIdHint' cannot be different"
+          )
         else Right(givenIdHint)
     }
   }

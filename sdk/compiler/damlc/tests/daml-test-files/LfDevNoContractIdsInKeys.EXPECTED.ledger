@@ -1,5 +1,5 @@
 Script execution failed on commit at LfDevNoContractIdsInKeys:29:3:
-  Contract IDs are not supported in contract key: _1 = 
+  Contract IDs are not supported in contract key: _1 =
                                                     'alice';
                                                   _2 =
                                                     (LfDevNoContractIdsInKeys.Simple:SimpleContractId with

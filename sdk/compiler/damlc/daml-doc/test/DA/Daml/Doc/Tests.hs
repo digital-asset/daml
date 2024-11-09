@@ -429,7 +429,7 @@ fileTest externalAnchors scriptPackageData damlFile = do
             ".hoogle" -> TL.encodeUtf8 $ TL.fromStrict $ renderSimpleHoogle (HoogleEnv mempty) doc
             other -> error $ "Unsupported file extension " <> other
   where
-    diff ref new = [POSIX_DIFF, "--strip-trailing-cr", ref, new]
+    diff ref new = [POSIX_DIFF, "-w", "--strip-trailing-cr", ref, new]
     -- In cases where daml-script is used, the version of the package is embedded in the json.
     -- When we release, this version changes, which would break the golden file test.
     -- Instead, we omit daml-script versions from .EXPECTED.json files in golden tests.

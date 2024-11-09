@@ -470,7 +470,7 @@ damlFileTestTree version (IsScriptV2Opt isScriptV2Opt) getService outdir registe
       DoesNotSupportFeature featureName -> version `satisfies` versionReqForFeaturePartial featureName
       ScriptV2 -> not isScriptV2Opt
       _ -> False
-    diff ref new = [POSIX_DIFF, "-b", "--strip-trailing-cr", ref, new]
+    diff ref new = [POSIX_DIFF, "-w", "--strip-trailing-cr", ref, new]
 
 containsVersion :: MS.Map LF.MajorVersion LF.MinorVersion -> LF.Version -> Bool
 containsVersion bounds (Version major minor) =

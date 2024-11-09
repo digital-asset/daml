@@ -694,7 +694,11 @@ object ScriptF {
       continue: SValue,
   )
 
-  final case class Ctx(knownPackages: Map[String, PackageId], compiledPackages: CompiledPackages, random: Random = globalRandom)
+  final case class Ctx(
+      knownPackages: Map[String, PackageId],
+      compiledPackages: CompiledPackages,
+      random: Random = globalRandom,
+  )
 
   private def toStackTrace(ctx: Ctx, stackTrace: Option[SValue]): Either[String, StackTrace] =
     stackTrace match {

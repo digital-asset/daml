@@ -45,7 +45,7 @@ tryCommandsAuthorizationFailure = do
 tryCommandsContractNotActive : Script ()
 tryCommandsContractNotActive = do
   res <- tryCommands $ do
-    a <- allocatePartyWithHint "alice" (PartyIdHint "alice")
+    a <- allocateParty "alice"
     cid <- a `submit` createCmd Name with party = a
     a `submit` archiveCmd cid
     a `submit` archiveCmd cid
