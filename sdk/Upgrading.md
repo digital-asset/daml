@@ -11,13 +11,10 @@ A few Stackage packages require custom patches or custom build rules. These are
 defined in the `WORKSPACE` file and referenced in the `vendored_packages`
 attribute to `stack_snapshot` in the same file.
 
-After changing any of this entries you need to execute the following command to
-update the lock-file:
+After changing any of this entries you will need to execute the following
+command to update the lock-file - [see here](update-stackage-snapshot)
 
-```
-bazel run @stackage-unpinned//:pin
-```
-
+[update-stackage-snapshot]: ./BAZEL-haskell.md#updating-the-stackage-snapshot
 
 ## Nixpkgs
 

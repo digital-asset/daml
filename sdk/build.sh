@@ -27,6 +27,17 @@ has_run_all_tests_trailer() {
   [[ $run_all_tests == "true" ]]
 }
 
+has_regenerate_stackage_trailer() {
+  if (( 2 == $(git show -s --format=%p HEAD | wc -w) )); then
+    ref="HEAD^2"
+  else
+    ref="HEAD"
+  fi
+  commit=$(git rev-parse $ref)
+  regenerate_stackage=$(git log -n1 --format="%(trailers:key=regenerate-stackage,valueonly)" $commit)
+  [[ $regenerate_stackage == "true" ]]
+}
+
 tag_filter=""
 case $test_mode in
   main)
@@ -76,6 +87,14 @@ else
     bazel=bazel
 fi
 
+if has_regenerate_stackage_trailer; then
+  echo "Running @stackage-unpinned//:pin due to 'regenerate-stackage' trailer"
+  $bazel run @stackage-unpinned//:pin
+  cat stackage_snapshot.json
+  exit 1
+fi
+
+echo "Running 'bazel build //...'"
 # Bazel test only builds targets that are dependencies of a test suite so do a full build first.
 $bazel build //... \
   --build_tag_filters "${tag_filter}" \

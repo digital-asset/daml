@@ -59,6 +59,31 @@ bazel shutdown
 # It isn’t clear where exactly those errors are coming from.
 bazel fetch @nodejs_dev_env//...
 
+function Has-Regenerate-Stackage-Trailer {
+  if (2 -eq ((git show -s --format=%p HEAD | Measure-Object -Word).Words)) {
+    $ref = "HEAD^2"
+  } else {
+    $ref = "HEAD"
+  }
+  $commit = git rev-parse $ref
+  $regenerate_stackage = git log -n1 --format="%(trailers:key=regenerate-stackage,valueonly)" $commit
+  $regenerate_stackage -eq "true"
+}
+
+if (Has-Regenerate-Stackage-Trailer) {
+  # https://stackoverflow.com/questions/32654493/stack-haskell-throws-tlsexception-in-windows
+  try { Invoke-WebRequest -Uri "https://github.com"           -UseBasicParsing | out-null } catch {}
+  try { Invoke-WebRequest -Uri "https://www.hackage.org"      -UseBasicParsing | out-null } catch {}
+  try { Invoke-WebRequest -Uri "https://stackage.haskell.org" -UseBasicParsing | out-null } catch {}
+  try { Invoke-WebRequest -Uri "https://s3.amazonaws.com"     -UseBasicParsing | out-null } catch {}
+
+  Write-Output "Running @stackage-unpinned//:pin due to 'regenerate-stackage' trailer"
+  bazel run @stackage-unpinned//:pin
+  Get-Content .\stackage_snapshot_windows.json
+  throw ("Stopping after stackage has been regenerated.")
+}
+
+Write-Output "Running 'bazel build //...'"
 bazel build //... `
   `-`-profile build-profile.json `
   `-`-experimental_profile_include_target_label `
