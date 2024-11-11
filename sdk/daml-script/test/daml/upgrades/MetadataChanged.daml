@@ -1,0 +1,550 @@
+-- Copyright (c) 2024 Digital Asset (Switzerland) GmbH and/or its affiliates. All rights reserved.
+-- SPDX-License-Identifier: Apache-2.0
+
+module MetadataChanged (main) where
+
+import DA.Text (isInfixOf)
+
+import UpgradeTestLib
+
+import qualified V1.MetadataChangedMod as V1
+import qualified V2.MetadataChangedMod as V2
+import qualified MetadataChangedClientMod as Client
+import V1.Common
+import DA.Exception
+
+main : TestTree
+main = tests
+  [ subtree "local"
+      [
+        subtree "exercise"
+          [ ("changed signatories", exerciseSignatoriesChangedLocal)
+          , ("changed observers", exerciseObserversChangedLocal)
+          , ("changed key", exerciseKeyChangedLocal)
+          , ("changed maintainer", exerciseMaintainerChangedLocal)
+          ]
+     ,  subtree "exercise by interface"
+          [ ("changed signatories", exerciseByInterfaceSignatoriesChangedLocal)
+          , ("changed observers", exerciseByInterfaceObserversChangedLocal)
+          , ("changed key", exerciseByInterfaceKeyChangedLocal)
+          , ("changed maintainer", exerciseByInterfaceMaintainerChangedLocal)
+          ]
+     ,  subtree "exercise by key"
+          [ ("changed signatories", exerciseByKeySignatoriesChangedLocal)
+          , ("changed observers", exerciseByKeyObserversChangedLocal)
+          , ("changed key", exerciseByKeyKeyChangedLocal)
+          , ("changed maintainer", exerciseByKeyMaintainerChangedLocal)
+          ]
+      ]
+  , subtree "global"
+      [
+        subtree "exercise"
+          [ ("changed signatories", exerciseSignatoriesChangedGlobal)
+          , ("changed observers", exerciseObserversChangedGlobal)
+          , ("changed key", exerciseKeyChangedGlobal)
+          , ("changed maintainer", exerciseMaintainerChangedGlobal)
+          ]
+      , subtree "exercise by interface"
+          [ ("changed signatories", exerciseByInterfaceSignatoriesChangedGlobal)
+          , ("changed observers", exerciseByInterfaceObserversChangedGlobal)
+          , ("changed key", exerciseByInterfaceKeyChangedGlobal)
+          , ("changed maintainer", exerciseByInterfaceMaintainerChangedGlobal)
+          ]
+     ,  subtree "exercise by key"
+          [ ("changed signatories", exerciseByKeySignatoriesChangedGlobal)
+          , ("changed observers", exerciseByKeyObserversChangedGlobal)
+          , ("changed key", exerciseByKeyKeyChangedGlobal)
+          , ("changed maintainer", exerciseByKeyMaintainerChangedGlobal)
+          ]
+      ]
+  ]
+
+{- PACKAGE
+name: metadata-changed-common
+versions: 1
+-}
+
+{- MODULE
+package: metadata-changed-common
+contents: |
+  module Common where
+
+  data IV = IV with
+    ctl : Party
+
+  interface I where
+    viewtype IV
+
+    getVersion : Text
+    nonconsuming choice DynamicCall: Text
+      controller (view this).ctl
+      do
+        pure $ getVersion this
+
+  data MyKey = MyKey with
+      p1 : Party
+      p2 : Party
+      n : Int
+    deriving (Eq, Show)
+-}
+
+{- PACKAGE
+name: metadata-changed
+versions: 2
+depends: metadata-changed-common-1.0.0
+-}
+
+{- MODULE
+package: metadata-changed
+contents: |
+  module MetadataChangedMod where
+
+  import V1.Common
+
+  template ChangedSignatories
+    with
+      party1 : Party
+      party2 : Party
+    where
+      signatory party1  -- @V 1
+      signatory party2  -- @V 2
+      key (MyKey party1 party2 0) : MyKey
+      maintainer key.p1
+
+      nonconsuming choice ChangedSignatoriesCall : Text
+        controller party1
+        do pure "V1"  -- @V 1
+        do pure "V2"  -- @V 2
+
+      interface instance I for ChangedSignatories where
+        view = IV party1
+        getVersion = "V1"  -- @V 1
+        getVersion = "V2"  -- @V 2
+
+  template ChangedObservers
+    with
+      party1 : Party
+      party2 : Party
+    where
+      signatory party1
+      observer party1  -- @V 1
+      observer party2  -- @V 2
+      key (MyKey party1 party2 0) : MyKey
+      maintainer key.p1
+
+      nonconsuming choice ChangedObserversCall : Text
+        controller party1
+        do pure "V1"  -- @V 1
+        do pure "V2"  -- @V  2
+
+      interface instance I for ChangedObservers where
+        view = IV party1
+        getVersion = "V1"  -- @V 1
+        getVersion = "V2"  -- @V 2
+
+  template ChangedKey
+    with
+      party1 : Party
+      party2 : Party
+    where
+      signatory party1
+      observer party1
+      key (MyKey party1 party2 0) : MyKey -- @V 1
+      key (MyKey party1 party2 1) : MyKey -- @V 2
+      maintainer key.p1
+
+      nonconsuming choice ChangedKeyCall : Text
+        controller party1
+        do pure "V1"  -- @V 1
+        do pure "V2"  -- @V  2
+
+      interface instance I for ChangedKey where
+        view = IV party1
+        getVersion = "V1"  -- @V 1
+        getVersion = "V2"  -- @V 2
+
+  template ChangedMaintainer
+    with
+      party1 : Party
+      party2 : Party
+    where
+      signatory party1
+      observer party1
+      key (MyKey party1 party2 0) : MyKey
+      maintainer key.p1  -- @V 1
+      maintainer key.p2  -- @V 2
+
+      nonconsuming choice ChangedMaintainerCall : Text
+        controller party1
+        do pure "V1"  -- @V 1
+        do pure "V2"  -- @V 2
+
+      interface instance I for ChangedMaintainer where
+        view = IV party1
+        getVersion = "V1"  -- @V 1
+        getVersion = "V2"  -- @V 2
+-}
+
+{- PACKAGE
+name: metadata-changed-client
+versions: 1
+depends: |
+  metadata-changed-1.0.0
+  metadata-changed-2.0.0
+  metadata-changed-common-1.0.0
+-}
+
+{- MODULE
+package: metadata-changed-client
+contents: |
+  module MetadataChangedClientMod where
+
+  import DA.Exception
+  import qualified V1.MetadataChangedMod as V1
+  import qualified V2.MetadataChangedMod as V2
+  import V1.Common
+
+  template MetadataChangedClient
+    with
+      party : Party
+    where
+      signatory party
+
+      -- CHANGED SIGNATORIES
+
+      nonconsuming choice ExerciseSignatoriesChanged : ()
+        with
+          p1 : Party
+          p2 : Party
+        controller [p1, p2]
+        do
+          cid <- create (V1.ChangedSignatories p1 p2)
+          exercise @V2.ChangedSignatories (coerceContractId cid) V2.ChangedSignatoriesCall
+          pure ()
+
+      nonconsuming choice ExerciseByInterfaceSignatoriesChanged : ()
+        with
+          p1 : Party
+          p2 : Party
+        controller [p1, p2]
+        do
+          cid <- create (V1.ChangedSignatories p1 p2)
+          exercise @I (coerceContractId cid) DynamicCall
+          pure ()
+
+      nonconsuming choice ExerciseByKeySignatoriesChanged : ()
+        with
+          p1 : Party
+          p2 : Party
+        controller [p1, p2]
+        do
+          cid <- create (V1.ChangedSignatories p1 p2)
+          exerciseByKey @V2.ChangedSignatories (MyKey p1 p2 0) V2.ChangedSignatoriesCall
+          pure ()
+
+      -- CHANGED OBSERVERS
+
+      nonconsuming choice ExerciseObserversChanged : ()
+        with
+          p1 : Party
+          p2 : Party
+        controller [p1, p2]
+        do
+          cid <- create (V1.ChangedObservers p1 p2)
+          exercise @V2.ChangedObservers (coerceContractId cid) V2.ChangedObserversCall
+          pure ()
+
+      nonconsuming choice ExerciseByInterfaceObserversChanged : ()
+        with
+          p1 : Party
+          p2 : Party
+        controller [p1, p2]
+        do
+          cid <- create (V1.ChangedObservers p1 p2)
+          exercise @I (coerceContractId cid) DynamicCall
+          pure ()
+
+      nonconsuming choice ExerciseByKeyObserversChanged : ()
+        with
+          p1 : Party
+          p2 : Party
+        controller [p1, p2]
+        do
+          cid <- create (V1.ChangedObservers p1 p2)
+          exerciseByKey @V2.ChangedObservers (MyKey p1 p2 0) V2.ChangedObserversCall
+          pure ()
+
+      -- CHANGED KEY
+
+      nonconsuming choice ExerciseKeyChanged : ()
+        with
+          p1 : Party
+          p2 : Party
+        controller [p1, p2]
+        do
+          cid <- create (V1.ChangedKey p1 p2)
+          exercise @V2.ChangedKey (coerceContractId cid) V2.ChangedKeyCall
+          pure ()
+
+      nonconsuming choice ExerciseByInterfaceKeyChanged : ()
+        with
+          p1 : Party
+          p2 : Party
+        controller [p1, p2]
+        do
+          cid <- create (V1.ChangedKey p1 p2)
+          exercise @I (coerceContractId cid) DynamicCall
+          pure ()
+
+      nonconsuming choice ExerciseByKeyKeyChanged : ()
+        with
+          p1 : Party
+          p2 : Party
+        controller [p1, p2]
+        do
+          cid <- create (V1.ChangedKey p1 p2)
+          exerciseByKey @V2.ChangedKey (MyKey p1 p2 0) V2.ChangedKeyCall
+          pure ()
+
+      -- CHANGED MAINTAINER
+
+      nonconsuming choice ExerciseMaintainerChanged : ()
+        with
+          p1 : Party
+          p2 : Party
+        controller [p1, p2]
+        do
+          cid <- create (V1.ChangedMaintainer p1 p2)
+          exercise @V2.ChangedMaintainer (coerceContractId cid) V2.ChangedMaintainerCall
+          pure ()
+
+      nonconsuming choice ExerciseByInterfaceMaintainerChanged : ()
+        with
+          p1 : Party
+          p2 : Party
+        controller [p1, p2]
+        do
+          cid <- create (V1.ChangedMaintainer p1 p2)
+          exercise @I (coerceContractId cid) DynamicCall
+          pure ()
+
+      nonconsuming choice ExerciseByKeyMaintainerChanged : ()
+        with
+          p1 : Party
+          p2 : Party
+        controller [p1, p2]
+        do
+          cid <- create (V1.ChangedMaintainer p1 p2)
+          exerciseByKey @V2.ChangedMaintainer (MyKey p1 p2 0) V2.ChangedMaintainerCall
+          pure ()
+-}
+
+{- CHANGED SIGNATORIES -}
+
+exerciseSignatoriesChangedLocal : Test
+exerciseSignatoriesChangedLocal = test $ do
+  a <- allocateParty "alice"
+  b <- allocateParty "bob"
+  cid <- a `submit` createExactCmd (Client.MetadataChangedClient a)
+  expectMetadataChangedError =<<
+    trySubmitMulti [a,b] [] (exerciseCmd cid (Client.ExerciseSignatoriesChanged a b))
+
+exerciseByInterfaceSignatoriesChangedLocal : Test
+exerciseByInterfaceSignatoriesChangedLocal = test $ do
+  a <- allocateParty "alice"
+  b <- allocateParty "bob"
+  cid <- a `submit` createExactCmd (Client.MetadataChangedClient a)
+  expectMetadataChangedError =<<
+    trySubmitMulti [a,b] [] (exerciseCmd cid (Client.ExerciseByInterfaceSignatoriesChanged a b))
+
+exerciseByKeySignatoriesChangedLocal : Test
+exerciseByKeySignatoriesChangedLocal = test $ do
+  a <- allocateParty "alice"
+  b <- allocateParty "bob"
+  cid <- a `submit` createExactCmd (Client.MetadataChangedClient a)
+  expectMetadataChangedError =<<
+    trySubmitMulti [a,b] [] (exerciseCmd cid (Client.ExerciseByKeySignatoriesChanged a b))
+
+exerciseSignatoriesChangedGlobal : Test
+exerciseSignatoriesChangedGlobal = test $ do
+  a <- allocateParty "alice"
+  b <- allocateParty "bob"
+  cid <- a `submit` createExactCmd (V1.ChangedSignatories a b)
+  expectMetadataChangedError =<<
+    trySubmitMulti [a,b] [] (exerciseExactCmd @V2.ChangedSignatories (coerceContractId cid) V2.ChangedSignatoriesCall)
+
+exerciseByInterfaceSignatoriesChangedGlobal : Test
+exerciseByInterfaceSignatoriesChangedGlobal = test $ do
+  a <- allocateParty "alice"
+  b <- allocateParty "bob"
+  cid <- a `submit` createExactCmd (V1.ChangedSignatories a b)
+  expectMetadataChangedError =<<
+    trySubmitMulti [a,b] [] (exerciseExactCmd @I (coerceContractId cid) DynamicCall)
+
+exerciseByKeySignatoriesChangedGlobal : Test
+exerciseByKeySignatoriesChangedGlobal = test $ do
+  a <- allocateParty "alice"
+  b <- allocateParty "bob"
+  cid <- a `submit` createExactCmd (V1.ChangedSignatories a b)
+  expectMetadataChangedError =<<
+    trySubmitMulti [a,b] [] (exerciseByKeyExactCmd @V2.ChangedSignatories (MyKey a b 0) V2.ChangedSignatoriesCall)
+
+{- CHANGED OBSERVERS -}
+
+exerciseObserversChangedLocal : Test
+exerciseObserversChangedLocal = test $ do
+  a <- allocateParty "alice"
+  b <- allocateParty "bob"
+  cid <- a `submit` createExactCmd (Client.MetadataChangedClient a)
+  expectMetadataChangedError =<<
+    trySubmitMulti [a,b] [] (exerciseCmd cid (Client.ExerciseObserversChanged a b))
+
+exerciseByInterfaceObserversChangedLocal : Test
+exerciseByInterfaceObserversChangedLocal = test $ do
+  a <- allocateParty "alice"
+  b <- allocateParty "bob"
+  cid <- a `submit` createExactCmd (Client.MetadataChangedClient a)
+  expectMetadataChangedError =<<
+    trySubmitMulti [a,b] [] (exerciseCmd cid (Client.ExerciseByInterfaceObserversChanged a b))
+
+exerciseByKeyObserversChangedLocal : Test
+exerciseByKeyObserversChangedLocal = test $ do
+  a <- allocateParty "alice"
+  b <- allocateParty "bob"
+  cid <- a `submit` createExactCmd (Client.MetadataChangedClient a)
+  expectMetadataChangedError =<<
+    trySubmitMulti [a,b] [] (exerciseCmd cid (Client.ExerciseByKeyObserversChanged a b))
+
+exerciseObserversChangedGlobal : Test
+exerciseObserversChangedGlobal = test $ do
+  a <- allocateParty "alice"
+  b <- allocateParty "bob"
+  cid <- a `submit` createExactCmd (V1.ChangedObservers a b)
+  expectMetadataChangedError =<<
+    trySubmitMulti [a,b] [] (exerciseExactCmd @V2.ChangedObservers (coerceContractId cid) V2.ChangedObserversCall)
+
+exerciseByInterfaceObserversChangedGlobal : Test
+exerciseByInterfaceObserversChangedGlobal = test $ do
+  a <- allocateParty "alice"
+  b <- allocateParty "bob"
+  cid <- a `submit` createExactCmd (V1.ChangedObservers a b)
+  expectMetadataChangedError =<<
+    trySubmitMulti [a,b] [] (exerciseExactCmd @I (coerceContractId cid) DynamicCall)
+
+exerciseByKeyObserversChangedGlobal : Test
+exerciseByKeyObserversChangedGlobal = test $ do
+  a <- allocateParty "alice"
+  b <- allocateParty "bob"
+  cid <- a `submit` createExactCmd (V1.ChangedObservers a b)
+  expectMetadataChangedError =<<
+    trySubmitMulti [a,b] [] (exerciseByKeyExactCmd @V2.ChangedObservers (MyKey a b 0) V2.ChangedObserversCall)
+
+{- CHANGED KEY -}
+
+exerciseKeyChangedLocal : Test
+exerciseKeyChangedLocal = test $ do
+  a <- allocateParty "alice"
+  b <- allocateParty "bob"
+  cid <- a `submit` createExactCmd (Client.MetadataChangedClient a)
+  expectMetadataChangedError =<<
+    trySubmitMulti [a,b] [] (exerciseCmd cid (Client.ExerciseKeyChanged a b))
+
+exerciseByInterfaceKeyChangedLocal : Test
+exerciseByInterfaceKeyChangedLocal = test $ do
+  a <- allocateParty "alice"
+  b <- allocateParty "bob"
+  cid <- a `submit` createExactCmd (Client.MetadataChangedClient a)
+  expectMetadataChangedError =<<
+    trySubmitMulti [a,b] [] (exerciseCmd cid (Client.ExerciseByInterfaceKeyChanged a b))
+
+exerciseByKeyKeyChangedLocal : Test
+exerciseByKeyKeyChangedLocal = test $ do
+  a <- allocateParty "alice"
+  b <- allocateParty "bob"
+  cid <- a `submit` createExactCmd (Client.MetadataChangedClient a)
+  expectMetadataChangedError =<<
+    trySubmitMulti [a,b] [] (exerciseCmd cid (Client.ExerciseByKeyKeyChanged a b))
+
+exerciseKeyChangedGlobal : Test
+exerciseKeyChangedGlobal = test $ do
+  a <- allocateParty "alice"
+  b <- allocateParty "bob"
+  cid <- a `submit` createExactCmd (V1.ChangedKey a b)
+  expectMetadataChangedError =<<
+    trySubmitMulti [a,b] [] (exerciseExactCmd @V2.ChangedKey (coerceContractId cid) V2.ChangedKeyCall)
+
+exerciseByInterfaceKeyChangedGlobal : Test
+exerciseByInterfaceKeyChangedGlobal = test $ do
+  a <- allocateParty "alice"
+  b <- allocateParty "bob"
+  cid <- a `submit` createExactCmd (V1.ChangedKey a b)
+  expectMetadataChangedError =<<
+    trySubmitMulti [a,b] [] (exerciseExactCmd @I (coerceContractId cid) DynamicCall)
+
+exerciseByKeyKeyChangedGlobal : Test
+exerciseByKeyKeyChangedGlobal = test $ do
+  a <- allocateParty "alice"
+  b <- allocateParty "bob"
+  cid <- a `submit` createExactCmd (V1.ChangedKey a b)
+  expectMetadataChangedError =<<
+    trySubmitMulti [a,b] [] (exerciseByKeyExactCmd @V2.ChangedKey (MyKey a b 0) V2.ChangedKeyCall)
+
+{- CHANGED MAINTAINER -}
+
+exerciseMaintainerChangedLocal : Test
+exerciseMaintainerChangedLocal = test $ do
+  a <- allocateParty "alice"
+  b <- allocateParty "bob"
+  cid <- a `submit` createExactCmd (Client.MetadataChangedClient a)
+  expectMetadataChangedError =<<
+    trySubmitMulti [a,b] [] (exerciseCmd cid (Client.ExerciseMaintainerChanged a b))
+
+exerciseByInterfaceMaintainerChangedLocal : Test
+exerciseByInterfaceMaintainerChangedLocal = test $ do
+  a <- allocateParty "alice"
+  b <- allocateParty "bob"
+  cid <- a `submit` createExactCmd (Client.MetadataChangedClient a)
+  expectMetadataChangedError =<<
+    trySubmitMulti [a,b] [] (exerciseCmd cid (Client.ExerciseByInterfaceMaintainerChanged a b))
+
+exerciseByKeyMaintainerChangedLocal : Test
+exerciseByKeyMaintainerChangedLocal = test $ do
+  a <- allocateParty "alice"
+  b <- allocateParty "bob"
+  cid <- a `submit` createExactCmd (Client.MetadataChangedClient a)
+  expectMetadataChangedError =<<
+    trySubmitMulti [a,b] [] (exerciseCmd cid (Client.ExerciseByKeyMaintainerChanged a b))
+
+exerciseMaintainerChangedGlobal : Test
+exerciseMaintainerChangedGlobal = test $ do
+  a <- allocateParty "alice"
+  b <- allocateParty "bob"
+  cid <- a `submit` createExactCmd (V1.ChangedMaintainer a b)
+  expectMetadataChangedError =<<
+    trySubmitMulti [a,b] [] (exerciseExactCmd @V2.ChangedMaintainer (coerceContractId cid) V2.ChangedMaintainerCall)
+
+exerciseByInterfaceMaintainerChangedGlobal : Test
+exerciseByInterfaceMaintainerChangedGlobal = test $ do
+  a <- allocateParty "alice"
+  b <- allocateParty "bob"
+  cid <- a `submit` createExactCmd (V1.ChangedMaintainer a b)
+  expectMetadataChangedError =<<
+    trySubmitMulti [a,b] [] (exerciseExactCmd @I (coerceContractId cid) DynamicCall)
+
+exerciseByKeyMaintainerChangedGlobal : Test
+exerciseByKeyMaintainerChangedGlobal = test $ do
+  a <- allocateParty "alice"
+  b <- allocateParty "bob"
+  cid <- a `submit` createExactCmd (V1.ChangedMaintainer a b)
+  expectMetadataChangedError =<<
+    trySubmitMulti [a,b] [] (exerciseByKeyExactCmd @V2.ChangedMaintainer (MyKey a b 0) V2.ChangedMaintainerCall)
+
+------------------------------------------------------------------------------------------------------------------------
+
+expectMetadataChangedError : Either SubmitError a -> Script ()
+expectMetadataChangedError r = case r of
+    Right _ -> assertFail "Expected failure but got success"
+    Left (UpgradeError msg)
+      | "Verify that neither the signatories, nor the observers, nor the contract key, nor the key's maintainers have changed" `isInfixOf` msg
+      -> pure ()
+    Left e -> assertFail $ "Expected Upgrade error but got " <> show e

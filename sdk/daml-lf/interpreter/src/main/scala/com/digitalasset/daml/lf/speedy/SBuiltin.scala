@@ -2394,7 +2394,104 @@ private[lf] object SBuiltin {
       coid: V.ContractId,
   )(f: (Option[Ref.PackageName], SValue) => Control[Question.Update]): Control[Question.Update] = {
 
-    def importContract(coinst: V.ContractInstance) = {
+    def checkContractUpgradable(
+        original: ContractInfo,
+        recomputed: ContractInfo,
+    )(
+        k: () => Control[Question.Update]
+    ): Control[Question.Update] = {
+      def check[T](recomputed: T, original: T)(desc: String): Either[String, Unit] =
+        Either.cond(recomputed == original, (), s"$desc mismatch: $original vs $recomputed")
+
+      {
+        for {
+          _ <- check(recomputed.signatories, original.signatories)("signatories")
+          _ <- check(recomputed.observers, original.observers)("observers")
+          _ <- check(recomputed.keyOpt.map(_.maintainers), original.keyOpt.map(_.maintainers))(
+            "key maintainers"
+          )
+          _ <- check(recomputed.keyOpt.map(_.globalKey.key), original.keyOpt.map(_.globalKey.key))(
+            "key value"
+          )
+        } yield ()
+      }.fold(
+        errorMsg =>
+          Control.Error(
+            IE.Upgrade(
+              IE.Upgrade.ValidationFailed(
+                coid = coid,
+                srcTemplateId = original.templateId,
+                dstTemplateId = recomputed.templateId,
+                signatories = recomputed.signatories,
+                observers = recomputed.observers,
+                keyOpt = recomputed.keyOpt.map(_.globalKeyWithMaintainers),
+                msg = errorMsg,
+              )
+            )
+          ),
+        _ => k(),
+      )
+    }
+
+    def importLocalContract(contract: ContractInfo) = {
+      val coinstArg = contract.arg
+      val srcTmplId = contract.templateId
+      val (upgradingIsEnabled, dstTmplId) = optTargetTemplateId match {
+        case Some(tycon)
+            if V
+              .ContractInstance(contract.packageName, contract.templateId, contract.arg)
+              .upgradable =>
+          (true, tycon)
+        case _ =>
+          (false, srcTmplId) // upgrading not enabled; import at source type
+      }
+      if (srcTmplId.qualifiedName != dstTmplId.qualifiedName) {
+        Control.Error(
+          IE.WronglyTypedContract(coid, dstTmplId, srcTmplId)
+        )
+      } else
+        machine.ensurePackageIsLoaded(
+          dstTmplId.packageId,
+          language.Reference.Template(dstTmplId),
+        ) { () =>
+          importValue(machine, dstTmplId, coinstArg) { templateArg =>
+            getContractInfo(
+              machine,
+              coid,
+              dstTmplId,
+              templateArg,
+              allowCatchingContractInfoErrors = false,
+            ) { upgradedContract =>
+              ensureContractActive(machine, coid, upgradedContract.templateId) {
+
+                machine.checkContractVisibility(coid, upgradedContract)
+                machine.enforceLimitAddInputContract()
+                machine.enforceLimitSignatoriesAndObservers(coid, upgradedContract)
+
+                // In Validation mode, we always call validateContractInfo
+                // In Submission mode, we only call validateContractInfo when src != dest
+                val needValidationCall: Boolean =
+                  if (machine.validating) {
+                    upgradingIsEnabled
+                  } else {
+                    // we already check qualified names match
+                    upgradingIsEnabled && (srcTmplId.packageId != dstTmplId.packageId)
+                  }
+                if (needValidationCall) {
+
+                  checkContractUpgradable(contract, upgradedContract) { () =>
+                    f(upgradedContract.packageName, upgradedContract.any)
+                  }
+                } else {
+                  f(upgradedContract.packageName, upgradedContract.any)
+                }
+              }
+            }
+          }
+        }
+    }
+
+    def importGlobalContract(coinst: V.ContractInstance) = {
       val V.ContractInstance(_, srcTmplId, coinstArg) = coinst
       val (upgradingIsEnabled, dstTmplId) = optTargetTemplateId match {
         case Some(tycon) if coinst.upgradable =>
@@ -2463,12 +2560,12 @@ private[lf] object SBuiltin {
               // import its value and validate its contract info again.
               f(contract.packageName, SValue.SAnyContract(templateId, templateArg))
             } else {
-              importContract(V.ContractInstance(contract.packageName, templateId, contract.arg))
+              importLocalContract(contract)
             }
           }
         }
       case None =>
-        machine.lookupGlobalContract(coid)(importContract)
+        machine.lookupGlobalContract(coid)(importGlobalContract)
     }
   }
 
