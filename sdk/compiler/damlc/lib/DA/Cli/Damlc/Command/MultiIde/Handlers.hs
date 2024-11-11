@@ -29,7 +29,7 @@ import DA.Cli.Damlc.Command.MultiIde.Util
 import DA.Cli.Damlc.Command.MultiIde.DarDependencies (resolveSourceLocation, unpackDar, unpackedDarsLocation)
 import DA.Daml.LanguageServer.SplitGotoDefinition
 import Data.Foldable (traverse_)
-import Data.List (find, isInfixOf)
+import Data.List (find, isInfixOf, isSuffixOf)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe, mapMaybe)
 import qualified Language.LSP.Types as LSP
@@ -152,15 +152,19 @@ handleOpenFilesNotification
   -> LSP.NotificationMessage m
   -> FilePath
   -> IO ()
-handleOpenFilesNotification miState mess path = atomically $ case (mess ^. LSP.method, takeExtension path) of
-  (LSP.STextDocumentDidOpen, ".daml") -> do
+handleOpenFilesNotification miState mess path = atomically $ case (mess ^. LSP.method, takeFileName path) of
+  (LSP.STextDocumentDidOpen, name) | ".daml" `isSuffixOf` name -> do
     home <- getSourceFileHome miState path
     addOpenFile miState home $ DamlFile path
-  (LSP.STextDocumentDidClose, ".daml") -> do
+  (LSP.STextDocumentDidClose, name) | ".daml" `isSuffixOf` name -> do
     home <- getSourceFileHome miState path
     removeOpenFile miState home $ DamlFile path
     -- Also remove from the source mapping, in case project structure changes while we're not tracking the file
     sourceFileHomeHandleDamlFileDeleted miState path
+  (LSP.STextDocumentDidOpen, "daml.yaml") ->
+    setDamlYamlOpen miState (PackageHome $ takeDirectory path) True
+  (LSP.STextDocumentDidClose, "daml.yaml") ->
+    setDamlYamlOpen miState (PackageHome $ takeDirectory path) False
   _ -> pure ()
 
 clientMessageHandler :: MultiIdeState -> IO () -> B.ByteString -> IO ()

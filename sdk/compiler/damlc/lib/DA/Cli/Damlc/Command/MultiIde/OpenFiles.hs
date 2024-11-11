@@ -7,6 +7,8 @@ module DA.Cli.Damlc.Command.MultiIde.OpenFiles (
   handleRemovedPackageOpenFiles,
   handleCreatedPackageOpenFiles,
   sendPackageDiagnostic,
+  setDamlYamlOpen,
+  isIdeDataOpen,
 ) where
 
 import Control.Monad
@@ -49,6 +51,13 @@ removeOpenFile :: MultiIdeState -> PackageHome -> DamlFile -> STM ()
 removeOpenFile miState home file = do
   unsafeIOToSTM $ logInfo miState $ "Removed open file " <> unDamlFile file <> " from " <> unPackageHome home
   onOpenFiles miState home $ Set.delete file
+
+setDamlYamlOpen :: MultiIdeState -> PackageHome -> Bool -> STM ()
+setDamlYamlOpen miState home isOpen =
+  modifyTMVar (misSubIdesVar miState) $ Map.adjust (\ideData -> ideData {ideDataOpenDamlYaml = isOpen}) home
+
+isIdeDataOpen :: SubIdeData -> Bool
+isIdeDataOpen SubIdeData {..} = not (Set.null ideDataOpenFiles) || ideDataOpenDamlYaml
 
 -- Logic for moving open files between subIdes when packages are created/destroyed
 
