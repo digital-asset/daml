@@ -72,12 +72,10 @@ function Has-Regenerate-Stackage-Trailer {
 
 if (Has-Regenerate-Stackage-Trailer) {
   # https://stackoverflow.com/questions/32654493/stack-haskell-throws-tlsexception-in-windows
-  [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12
-  $tls_urls = @("https://github.com", "https://www.hackage.org", "https://stackage.haskell.org", "https://s3.amazonaws.com")
-  $tls_urls |`
-    ForEach-Object {
-        Invoke-WebRequest -Uri $_ -UseBasicParsing | out-null
-    }
+  Invoke-WebRequest -Uri "https://github.com" -UseBasicParsing | out-null
+  Invoke-WebRequest -Uri "https://www.hackage.org" -UseBasicParsing | out-null
+  Invoke-WebRequest -Uri "https://stackage.haskell.org" -UseBasicParsing | out-null
+  Invoke-WebRequest -Uri "https://s3.amazonaws.com" -UseBasicParsing | out-null
 
   Write-Output "Running @stackage-unpinned//:pin due to 'regenerate-stackage' trailer"
   bazel run @stackage-unpinned//:pin
