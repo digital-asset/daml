@@ -12,19 +12,14 @@ import com.digitalasset.daml.lf.archive.{Dar, DarReader, DarWriter}
 import com.digitalasset.daml.lf.data.Ref.PackageId
 import com.digitalasset.daml.lf.language.LanguageVersion
 import com.google.protobuf.ByteString
-import org.scalatest.{Assertion, Inside}
 import org.scalatest.Inspectors.forEvery
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AsyncWordSpec
+import org.scalatest.{Assertion, Inside}
 
-import java.io.File
-import java.io.FileInputStream
+import java.io.{File, FileInputStream}
 import scala.concurrent.Future
 import scala.util.{Failure, Success}
-import com.digitalasset.daml.lf.archive.{Dar, DarReader, DarWriter}
-import com.digitalasset.daml.lf.language.LanguageVersion
-import com.daml.SdkVersion
-import com.daml.crypto.MessageDigestPrototype
 
 abstract class UpgradesSpecAdminAPI(override val suffix: String) extends UpgradesSpec(suffix) {
   override def uploadPackageRaw(
@@ -1084,9 +1079,9 @@ abstract class UpgradesSpec(val suffix: String)
       lfVersion: LanguageVersion,
       templateName: String = "T",
   ): (PackageId, ByteString) = {
-    import com.digitalasset.daml.lf.testing.parser._
-    import com.digitalasset.daml.lf.testing.parser.Implicits._
     import com.digitalasset.daml.lf.archive.testing.Encode
+    import com.digitalasset.daml.lf.testing.parser.Implicits._
+    import com.digitalasset.daml.lf.testing.parser._
 
     val selfPkgId = PackageId.assertFromString("-self-")
 
