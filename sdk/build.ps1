@@ -72,18 +72,10 @@ function Has-Regenerate-Stackage-Trailer {
 
 if (Has-Regenerate-Stackage-Trailer) {
   # https://stackoverflow.com/questions/32654493/stack-haskell-throws-tlsexception-in-windows
-  try {
-    Invoke-WebRequest -Uri "https://github.com" -UseBasicParsing | out-null
-  } catch {}
-  try {
-    Invoke-WebRequest -Uri "https://www.hackage.org" -UseBasicParsing | out-null
-  } catch {}
-  try {
-    Invoke-WebRequest -Uri "https://stackage.haskell.org" -UseBasicParsing | out-null
-  } catch {}
-  try {
-    Invoke-WebRequest -Uri "https://s3.amazonaws.com" -UseBasicParsing | out-null
-  } catch {}
+  try { Invoke-WebRequest -Uri "https://github.com"           -UseBasicParsing | out-null } catch {}
+  try { Invoke-WebRequest -Uri "https://www.hackage.org"      -UseBasicParsing | out-null } catch {}
+  try { Invoke-WebRequest -Uri "https://stackage.haskell.org" -UseBasicParsing | out-null } catch {}
+  try { Invoke-WebRequest -Uri "https://s3.amazonaws.com"     -UseBasicParsing | out-null } catch {}
 
   Write-Output "Running @stackage-unpinned//:pin due to 'regenerate-stackage' trailer"
   bazel run @stackage-unpinned//:pin
