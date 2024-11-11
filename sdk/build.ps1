@@ -59,6 +59,25 @@ bazel shutdown
 # It isn’t clear where exactly those errors are coming from.
 bazel fetch @nodejs_dev_env//...
 
+function Has-Regenerate-Stackage-Trailer {
+  if (2 -eq ((git show -s --format=%p HEAD | Measure-Object -Word).Words)) {
+    $ref = "HEAD^2"
+  } else {
+    $ref = "HEAD"
+  }
+  $commit = git rev-parse $ref
+  $regenerate_stackage = git log -n1 --format="%(trailers:key=regenerate-stackage,valueonly)" $commit
+  $regenerate_stackage -eq "true"
+}
+
+if (Has-Regenerate-Stackage-Trailer) {
+  Write-Output "Running @stackage-unpinned//:pin due to 'regenerate-stackage' trailer"
+  bazel run @stackage-unpinned//:pin
+  Get-Content .\stackage_snapshot_windows.json
+  throw ("Stopping after stackage has been regenerated.")
+}
+
+Write-Output "Running 'bazel build //...'"
 bazel build //... `
   `-`-profile build-profile.json `
   `-`-experimental_profile_include_target_label `
