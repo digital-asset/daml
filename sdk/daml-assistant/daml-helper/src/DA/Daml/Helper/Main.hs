@@ -186,6 +186,7 @@ commandParser = subparser $ fold
         scriptOptions <- many (strOption (long "script-option" <> metavar "SCRIPT_OPTION" <> help "Pass option to Daml script interpreter"))
         shutdownStdinClose <- stdinCloseOpt
         sandboxPortSpec <- sandboxCantonPortSpecOpt
+        sandboxDevMode <- flagYesNoAuto "dev-mode" True "Run in PV7" internal
         pure $ Start StartOptions{..} shutdownStdinClose
 
     sandboxPortOpt name desc =
@@ -469,6 +470,7 @@ commandParser = subparser $ fold
                  flag' False (long "wall-clock-time") <|>
                  pure False)
             cantonHelp <- cantonHelpSwitch
+            cantonDevMode <- flagYesNoAuto "dev-mode" True "Run in PV7" internal
             cantonConfigFiles <- cantonConfigOpts
             pure CantonOptions{..}
         portFileM <- optional $ option str (long "port-file" <> metavar "PATH"
