@@ -75,7 +75,7 @@ if (Has-Regenerate-Stackage-Trailer) {
   $tls_urls = @("https://github.com", "https://www.hackage.org", "https://stackage.haskell.org", "https://s3.amazonaws.com")
   $tls_urls |`
     ForEach-Object {
-        Invoke-WebRequest -Uri $_ -UseBasicParsing | out-null
+        Invoke-WebRequest -Uri $_ -UseBasicParsing -SslProtocol Tls12 | out-null
     }
 
   Write-Output "Running @stackage-unpinned//:pin due to 'regenerate-stackage' trailer"
