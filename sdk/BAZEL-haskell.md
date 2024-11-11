@@ -149,11 +149,20 @@ custom snapshot and will be built using the `Cabal` library. Additionally, we
 can provide custom Bazel build definitions for packages using the
 `vendored_packages` attribute.
 
+### Updating the Stackage Snapshot
+
 The packages are pinned by the Stackage snapshot, in this case a
 `local_snapshot` and in the lock-file defined by `stack_snapshot_json`. If you
 wish to update packages, then you need to change the `packages` and
-`local_snapshot` attributes accordingly and afterwards execute the following
-command on Unix and Windows to update the lock-files:
+`local_snapshot` attributes accordingly.
+
+Commit your changes - add the trailer `regenerate-stackage: true` to your commit
+message, and CI will regenerate the lockfiles, print them out, and fail without
+running any tests. Copy the printed out files for Unix and Windows from CI logs
+into `stackage_snapshot.json` and `stackage_snapshot_windows.json` respectively.
+
+Alternatively, if you do not have access to CI, you may also execute the
+following command locally on Unix and Windows to update the lock-files manually:
 ```
 bazel run @stackage-unpinned//:pin
 ```
