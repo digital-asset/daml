@@ -18,7 +18,6 @@ import DA.Exception
 data DevErrorType
   = ChoiceGuardFailed
   | WronglyTypedContractSoft
-  | Upgrade
   | UnknownNewFeature -- ^ This should never happen - Update Scripts when you see this!
   deriving Show
 
@@ -127,6 +126,9 @@ data SubmitError
     LocalVerdictLockedKeys with
       localVerdictLockedKeys : [AnyContractKey]
           -- ^ Locked contract keys
+  | -- | Upgrade exception
+    UpgradeError with -- We just give the error's prettied message. Scripts doesn't need anything more right now.
+      errorMessage : Text
   | -- | Development feature exceptions
     DevError with -- We just give the error's simple class name and the prettied message it generates. Scripts doesn't need anything more right now.
       devErrorType : DevErrorType
@@ -177,6 +179,7 @@ instance Show SubmitError where
     ValueNesting limit -> "Exceeded maximum nesting depth for values - limit: " <> show limit
     LocalVerdictLockedContracts cids -> "Attempted to use locked contracts: " <> show cids
     LocalVerdictLockedKeys _ -> "Attempted to use locked contract keys"
+    UpgradeError msg -> "UpgradeError: \"" <> msg <> "\""
     DevError ty msg -> "DevError of type " <> show ty <> " and message \"" <> msg <> "\""
     UnknownError msg -> "Unknown error: " <> msg
     TruncatedError ty msg -> "TruncatedError of type " <> ty <> " and message \"" <> msg <> "\""
