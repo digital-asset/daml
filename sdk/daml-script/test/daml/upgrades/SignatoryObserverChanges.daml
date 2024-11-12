@@ -116,7 +116,7 @@ signatoryObserverUpgrade shouldSucceed sigF obsF exerciseChoice = test $ do
   res <- trySubmitMulti [alice, bob, charlie] [] $ exerciseChoice cid
   case (res, shouldSucceed) of
     (Right _, True) -> pure ()
-    (Left (DevError Upgrade msg), False)
+    (Left (UpgradeError msg), False)
       | "Verify that neither the signatories, nor the observers, nor the contract key, nor the key's maintainers have changed" `isInfixOf` msg
       -> pure ()
     _ -> assertFail $ "Expected " <> (if shouldSucceed then "success" else "Upgrade error") <> " but got " <> show res
