@@ -22,7 +22,7 @@ import com.digitalasset.canton.protocol.messages.{
 }
 import com.digitalasset.canton.sequencing.client.{SendCallback, SequencerClientSend}
 import com.digitalasset.canton.sequencing.protocol.{Batch, MessageId, Recipients}
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{ErrorUtil, FutureUtil}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -46,7 +46,7 @@ abstract class AbstractMessageProcessor(
       requestSequencerCounter: SequencerCounter,
       requestTimestamp: CantonTimestamp,
       commitTime: CantonTimestamp,
-      eventO: Option[Traced[Update]],
+      eventO: Option[Update],
   )(implicit traceContext: TraceContext): Future[Unit] =
     for {
       _ <- ephemeral.requestJournal.terminate(
@@ -209,7 +209,7 @@ abstract class AbstractMessageProcessor(
       requestCounter: RequestCounter,
       sequencerCounter: SequencerCounter,
       timestamp: CantonTimestamp,
-      eventO: Option[Traced[Update]],
+      eventO: Option[Update],
   )(implicit traceContext: TraceContext): FutureUnlessShutdown[Unit] = {
     // Let the request immediately timeout (upon the next message) rather than explicitly adding an empty commit set
     // because we don't have a sequencer counter to associate the commit set with.

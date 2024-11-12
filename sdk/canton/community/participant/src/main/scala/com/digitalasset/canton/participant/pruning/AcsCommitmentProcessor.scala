@@ -1161,7 +1161,7 @@ class AcsCommitmentProcessor private (
 
             lastPruningTime <- store.pruningStatus
 
-            _ = if (counterCommitmentList.size > intervals.size) {
+            _ = if (counterCommitmentList.sizeIs > intervals.size) {
               AcsCommitmentAlarm
                 .Warn(
                   s"""There should be at most ${intervals.size} commitments from counter-participant
@@ -1825,7 +1825,7 @@ object AcsCommitmentProcessor extends HasLoggerName {
                 .get(stkhd)
                 .fold(false)(_ != newCmt && prevParticipantToStkhd(participant).contains(stkhd))
             }
-            if (changedKeys.size > prevParticipantToStkhd(participant).size / 2) None
+            if (changedKeys.sizeIs > prevParticipantToStkhd(participant).size / 2) None
             else {
               val c = LtHash16.tryCreate(prevParticipantCmts(participant))
               changedKeys.foreach { case (stkhd, cmt) =>

@@ -11,25 +11,28 @@ sealed abstract class SubSource[Index: Ordering, T]
     extends ((Index, Index) => Source[(Index, T), NotUsed]) {
 
   /** Returns a Source emitting items for the given range */
-  def subSource(startExclusive: Index, endInclusive: Index): Source[(Index, T), NotUsed]
+  def subSource(startInclusive: Index, endInclusive: Index): Source[(Index, T), NotUsed]
 
-  override def apply(startExclusive: Index, endInclusive: Index): Source[(Index, T), NotUsed] =
-    subSource(startExclusive, endInclusive)
+  override def apply(
+      startInclusive: Index,
+      endInclusive: Index,
+  ): Source[(Index, T), NotUsed] =
+    subSource(startInclusive, endInclusive)
 }
 
 object SubSource {
 
   /** Applicable when the persistence layer supports efficient range queries.
     *
-    * @param getRange (startExclusive, endInclusive) => Source[(Index, T), NotUsed]
+    * @param getRange (startInclusive, endInclusive) => Source[(Index, T), NotUsed]
     */
   final case class RangeSource[Index: Ordering, T](
       getRange: (Index, Index) => Source[(Index, T), NotUsed]
   ) extends SubSource[Index, T] {
     override def subSource(
-        startExclusive: Index,
+        startInclusive: Index,
         endInclusive: Index,
-    ): Source[(Index, T), NotUsed] = getRange(startExclusive, endInclusive)
+    ): Source[(Index, T), NotUsed] = getRange(startInclusive, endInclusive)
   }
 
 }

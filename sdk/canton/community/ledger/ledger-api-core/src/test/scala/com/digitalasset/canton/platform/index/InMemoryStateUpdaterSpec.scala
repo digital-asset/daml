@@ -39,7 +39,7 @@ import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate.Cr
 import com.digitalasset.canton.platform.store.interning.StringInterningView
 import com.digitalasset.canton.platform.{DispatcherState, InMemoryState}
 import com.digitalasset.canton.topology.DomainId
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag
 import com.digitalasset.canton.{
   BaseTest,
@@ -173,8 +173,7 @@ class InMemoryStateUpdaterSpec
     inOrder
       .verify(inMemoryFanoutBuffer)
       .push(
-        tx_accepted_withCompletionStreamResponse_offset,
-        tx_accepted_withCompletionStreamResponse,
+        tx_accepted_withCompletionStreamResponse
       )
     inOrder
       .verify(contractStateCaches)
@@ -182,10 +181,9 @@ class InMemoryStateUpdaterSpec
     inOrder
       .verify(inMemoryFanoutBuffer)
       .push(
-        tx_accepted_withoutCompletionStreamResponse_offset,
-        tx_accepted_withoutCompletionStreamResponse,
+        tx_accepted_withoutCompletionStreamResponse
       )
-    inOrder.verify(inMemoryFanoutBuffer).push(tx_rejected_offset, tx_rejected)
+    inOrder.verify(inMemoryFanoutBuffer).push(tx_rejected)
 
     inOrder
       .verify(ledgerEndCache)
@@ -208,8 +206,7 @@ class InMemoryStateUpdaterSpec
     inOrder
       .verify(inMemoryFanoutBuffer)
       .push(
-        tx_accepted_withCompletionStreamResponse_offset,
-        tx_accepted_withCompletionStreamResponse,
+        tx_accepted_withCompletionStreamResponse
       )
     inOrder
       .verify(contractStateCaches)
@@ -217,10 +214,9 @@ class InMemoryStateUpdaterSpec
     inOrder
       .verify(inMemoryFanoutBuffer)
       .push(
-        tx_accepted_withoutCompletionStreamResponse_offset,
-        tx_accepted_withoutCompletionStreamResponse,
+        tx_accepted_withoutCompletionStreamResponse
       )
-    inOrder.verify(inMemoryFanoutBuffer).push(tx_rejected_offset, tx_rejected)
+    inOrder.verify(inMemoryFanoutBuffer).push(tx_rejected)
 
     inOrder
       .verify(submissionTracker)
@@ -267,7 +263,7 @@ class InMemoryStateUpdaterSpec
         ),
       ).map { case (offset, domainTimesRaw) =>
         OffsetCheckpoint(
-          offset = Offset.fromLong(offset.toLong),
+          offset = AbsoluteOffset.tryFromLong(offset.toLong),
           domainTimes = domainTimesRaw.map { case (d, t) =>
             DomainId.tryFromString(d.toString + "::default") -> Timestamp(t.toLong)
           },
@@ -303,7 +299,7 @@ class InMemoryStateUpdaterSpec
     )
 
     private val offsets = (1L to updatesSeq.length.toLong).map(AbsoluteOffset.tryFromLong)
-    private val updatesWithOffsets = offsets.zip(updatesSeq.map(Traced.empty))
+    private val updatesWithOffsets = offsets.zip(updatesSeq)
 
     // tick after each update to have one checkpoint after every update
     // the None values denote the ticks arrived that are used to update the offset checkpoint cache
@@ -335,7 +331,7 @@ class InMemoryStateUpdaterSpec
         ),
       ).map { case (offset, domainTimesRaw) =>
         OffsetCheckpoint(
-          offset = Offset.fromLong(offset.toLong),
+          offset = AbsoluteOffset.tryFromLong(offset.toLong),
           domainTimes = domainTimesRaw.map { case (d, t) =>
             d -> Timestamp(t.toLong)
           },
@@ -380,7 +376,7 @@ object InMemoryStateUpdaterSpec {
       update = cachesUpdateCaptor,
     )(emptyTraceContext)
 
-    val txLogUpdate1 = Traced(
+    val txLogUpdate1 =
       TransactionLogUpdate.TransactionAccepted(
         updateId = "tx1",
         commandId = "",
@@ -391,10 +387,9 @@ object InMemoryStateUpdaterSpec {
         completionStreamResponse = None,
         domainId = domainId1.toProtoPrimitive,
         recordTime = Timestamp.Epoch,
-      )
-    )(emptyTraceContext)
+      )(emptyTraceContext)
 
-    val assignLogUpdate = Traced(
+    val assignLogUpdate =
       TransactionLogUpdate.ReassignmentAccepted(
         updateId = "tx3",
         commandId = "",
@@ -439,10 +434,9 @@ object InMemoryStateUpdaterSpec {
             driverMetadata = someContractMetadataBytes,
           )
         ),
-      )
-    )(emptyTraceContext)
+      )(emptyTraceContext)
 
-    val unassignLogUpdate = Traced(
+    val unassignLogUpdate =
       TransactionLogUpdate.ReassignmentAccepted(
         updateId = "tx4",
         commandId = "",
@@ -468,8 +462,7 @@ object InMemoryStateUpdaterSpec {
             assignmentExclusivity = Some(Timestamp.assertFromLong(123456L)),
           )
         ),
-      )
-    )(emptyTraceContext)
+      )(emptyTraceContext)
 
     val ledgerEndCache: MutableLedgerEndCache = mock[MutableLedgerEndCache]
     val contractStateCaches: ContractStateCaches = mock[ContractStateCaches]
@@ -478,7 +471,7 @@ object InMemoryStateUpdaterSpec {
     val stringInterningView: StringInterningView = mock[StringInterningView]
     val dispatcherState: DispatcherState = mock[DispatcherState]
     val submissionTracker: SubmissionTracker = mock[SubmissionTracker]
-    val dispatcher: Dispatcher[Offset] = mock[Dispatcher[Offset]]
+    val dispatcher: Dispatcher[AbsoluteOffset] = mock[Dispatcher[AbsoluteOffset]]
     val commandProgressTracker = CommandProgressTracker.NoOp
 
     val inOrder: InOrder = inOrder(
@@ -544,61 +537,56 @@ object InMemoryStateUpdaterSpec {
     val tx_accepted_withoutCompletionStreamResponse_offset: Offset =
       Offset.fromHexString(Ref.HexString.assertFromString("bbbb"))
 
-    val tx_rejected_offset: Offset =
+    val tx_rejected_offset_old: Offset =
       Offset.fromLong(3333L)
 
-    val tx_accepted_withCompletionStreamResponse: Traced[TransactionLogUpdate.TransactionAccepted] =
-      Traced(
-        TransactionLogUpdate.TransactionAccepted(
-          updateId = tx_accepted_updateId,
-          commandId = tx_accepted_commandId,
-          workflowId = "wAccepted",
-          effectiveAt = Timestamp.assertFromLong(1L),
-          offset = tx_accepted_withCompletionStreamResponse_offset,
-          events = (1 to 3)
-            .map(i =>
-              toCreatedEvent(
-                genCreateNode,
-                tx_accepted_withCompletionStreamResponse_offset,
-                Ref.TransactionId.assertFromString(tx_accepted_updateId),
-                NodeId(i),
-              )
+    val tx_rejected_offset: AbsoluteOffset = AbsoluteOffset.tryFromLong(3333L)
+
+    val tx_accepted_withCompletionStreamResponse: TransactionLogUpdate.TransactionAccepted =
+      TransactionLogUpdate.TransactionAccepted(
+        updateId = tx_accepted_updateId,
+        commandId = tx_accepted_commandId,
+        workflowId = "wAccepted",
+        effectiveAt = Timestamp.assertFromLong(1L),
+        offset = tx_accepted_withCompletionStreamResponse_offset,
+        events = (1 to 3)
+          .map(i =>
+            toCreatedEvent(
+              genCreateNode,
+              tx_accepted_withCompletionStreamResponse_offset,
+              Ref.TransactionId.assertFromString(tx_accepted_updateId),
+              NodeId(i),
             )
-            .toVector,
-          completionStreamResponse = Some(tx_accepted_completionStreamResponse),
-          domainId = domainId1.toProtoPrimitive,
-          recordTime = Timestamp(1),
-        )
+          )
+          .toVector,
+        completionStreamResponse = Some(tx_accepted_completionStreamResponse),
+        domainId = domainId1.toProtoPrimitive,
+        recordTime = Timestamp(1),
       )(emptyTraceContext)
 
-    val tx_accepted_withoutCompletionStreamResponse
-        : Traced[TransactionLogUpdate.TransactionAccepted] =
-      Traced(
-        tx_accepted_withCompletionStreamResponse.value.copy(
-          completionStreamResponse = None,
-          offset = tx_accepted_withoutCompletionStreamResponse_offset,
-        )
+    val tx_accepted_withoutCompletionStreamResponse: TransactionLogUpdate.TransactionAccepted =
+      tx_accepted_withCompletionStreamResponse.copy(
+        completionStreamResponse = None,
+        offset = tx_accepted_withoutCompletionStreamResponse_offset,
       )(emptyTraceContext)
 
-    val tx_rejected: Traced[TransactionLogUpdate.TransactionRejected] =
-      Traced(
-        TransactionLogUpdate.TransactionRejected(
-          offset = tx_rejected_offset,
-          completionStreamResponse = tx_rejected_completionStreamResponse,
-        )
+    val tx_rejected: TransactionLogUpdate.TransactionRejected =
+      TransactionLogUpdate.TransactionRejected(
+        offset = tx_rejected_offset_old,
+        completionStreamResponse = tx_rejected_completionStreamResponse,
       )(emptyTraceContext)
 
-    val lastOffset: Offset = tx_rejected_offset
+    val lastOffset: AbsoluteOffset = tx_rejected_offset
     val lastEventSeqId = 123L
     val lastPublicationTime = CantonTimestamp.MinValue.plusSeconds(1000)
     val lastStringInterningId = 234
     val lastLedgerEnd = LedgerEnd(
-      lastOffset = lastOffset.toAbsoluteOffset,
+      lastOffset = lastOffset,
       lastEventSeqId = lastEventSeqId,
       lastStringInterningId = lastStringInterningId,
       lastPublicationTime = lastPublicationTime,
     )
-    val updates: Vector[Traced[TransactionLogUpdate]] =
+    val updates: Vector[TransactionLogUpdate] =
       Vector(
         tx_accepted_withCompletionStreamResponse,
         tx_accepted_withoutCompletionStreamResponse,
@@ -618,7 +606,7 @@ object InMemoryStateUpdaterSpec {
       )
 
     def runFlow(
-        input: Seq[(Vector[(AbsoluteOffset, Traced[Update])], LedgerEnd)]
+        input: Seq[(Vector[(AbsoluteOffset, Update)], LedgerEnd)]
     )(implicit mat: Materializer): Done =
       Source(input)
         .via(inMemoryStateUpdater(false))
@@ -721,19 +709,17 @@ object InMemoryStateUpdaterSpec {
     optByKeyNodes = None,
   )
 
-  private val update1 = absoluteOffset(11L) -> Traced(
-    transactionAccepted(t = 0L, domainId = domainId1)
-  )
+  private val update1 = absoluteOffset(11L) -> transactionAccepted(t = 0L, domainId = domainId1)
   private def rawMetadataChangedUpdate(offset: AbsoluteOffset, recordTime: Timestamp) =
-    offset -> Traced(
+    offset ->
       Update.SequencerIndexMoved(
         domainId = DomainId.tryFromString("x::domain"),
         sequencerIndex = SequencerIndex(SequencerCounter(15L), CantonTimestamp(recordTime)),
         requestCounterO = None,
       )
-    )
+
   private val metadataChangedUpdate = rawMetadataChangedUpdate(absoluteOffset(12L), Timestamp.Epoch)
-  private val update3 = absoluteOffset(13L) -> Traced[Update](
+  private val update3 = absoluteOffset(13L) ->
     Update.TransactionAccepted(
       completionInfoO = None,
       transactionMeta = someTransactionMeta,
@@ -749,19 +735,16 @@ object InMemoryStateUpdaterSpec {
         )
       ),
     )
-  )
 
-  private val update4 = absoluteOffset(14L) -> Traced[Update](
+  private val update4 = absoluteOffset(14L) ->
     commandRejected(t = 1337L, domainId = DomainId.tryFromString("da::default"))
-  )
 
-  private val update7 = absoluteOffset(17L) -> Traced[Update](
+  private val update7 = absoluteOffset(17L) ->
     assignmentAccepted(t = 0, source = domainId1, target = domainId2)
-  )
 
-  private val update8 = absoluteOffset(18L) -> Traced[Update](
+  private val update8 = absoluteOffset(18L) ->
     unassignmentAccepted(t = 0, source = domainId2, target = domainId1)
-  )
+
   private val anotherMetadataChangedUpdate =
     rawMetadataChangedUpdate(absoluteOffset(15L), Timestamp.assertFromLong(1337L))
 
@@ -775,17 +758,17 @@ object InMemoryStateUpdaterSpec {
 
   // traverse the list from left to right and if a None is found add the exact previous checkpoint in the result
   private def findCheckpointOffsets(
-      input: Seq[Option[(AbsoluteOffset, Traced[Update.TransactionAccepted])]]
+      input: Seq[Option[(AbsoluteOffset, Update.TransactionAccepted)]]
   ): Seq[OffsetCheckpoint] =
     input
       .foldLeft[(Seq[OffsetCheckpoint], Option[OffsetCheckpoint])]((Seq.empty, None)) {
         // new update and offset pair received update offsetCheckpoint
-        case ((acc, lastCheckpointO), Some((currOffset, Traced(update)))) =>
+        case ((acc, lastCheckpointO), Some((currOffset, update))) =>
           (
             acc,
             Some(
               OffsetCheckpoint(
-                offset = Offset.fromAbsoluteOffset(currOffset),
+                offset = currOffset,
                 domainTimes = lastCheckpointO
                   .map(_.domainTimes)
                   .getOrElse(Map.empty[DomainId, Timestamp])
@@ -803,16 +786,16 @@ object InMemoryStateUpdaterSpec {
       offsetsAndTicks: Seq[Option[Long]],
       domainIdsAndTicks: Seq[Option[Long]],
       recordTimesAndTicks: Seq[Option[Long]],
-  ): Seq[Option[(AbsoluteOffset, Traced[Update.TransactionAccepted])]] = {
+  ): Seq[Option[(AbsoluteOffset, Update.TransactionAccepted)]] = {
     val offsets = offsetsAndTicks.map(_.map(AbsoluteOffset.tryFromLong))
     val domainIds =
       domainIdsAndTicks.map(_.map(x => DomainId.tryFromString(x.toString + "::default")))
 
-    val updatesSeq: Seq[Option[Traced[Update.TransactionAccepted]]] =
+    val updatesSeq: Seq[Option[Update.TransactionAccepted]] =
       recordTimesAndTicks.zip(domainIds).map {
         case (Some(t), Some(domain)) =>
           Some(
-            Traced.empty(transactionAccepted(t, domain))
+            transactionAccepted(t, domain)
           )
         case _ => None
       }
@@ -832,24 +815,24 @@ object InMemoryStateUpdaterSpec {
   //  - 2. the actual output
   //  - 3. the checkpoints updates in the offset checkpoint cache
   def runUpdateOffsetCheckpointCacheFlow(
-      inputSeq: Seq[Option[(AbsoluteOffset, Traced[Update])]]
+      inputSeq: Seq[Option[(AbsoluteOffset, Update)]]
   )(implicit materializer: Materializer, ec: ExecutionContext): Future[
     (
-        Seq[Vector[(AbsoluteOffset, Traced[Update])]],
-        Seq[Vector[(AbsoluteOffset, Traced[Update])]],
+        Seq[Vector[(AbsoluteOffset, Update)]],
+        Seq[Vector[(AbsoluteOffset, Update)]],
         Seq[OffsetCheckpoint],
     )
   ] = {
     val elementsQueue =
-      new ConcurrentLinkedQueue[Option[(AbsoluteOffset, Traced[Update])]]
+      new ConcurrentLinkedQueue[Option[(AbsoluteOffset, Update)]]
     inputSeq.foreach(elementsQueue.add)
 
-    val flattenedSeq: Seq[Vector[(AbsoluteOffset, Traced[Update])]] =
+    val flattenedSeq: Seq[Vector[(AbsoluteOffset, Update)]] =
       inputSeq.flatten.map(Vector(_))
 
     val bufferSize = 100
     val (sourceQueueSomes, sourceSomes) = Source
-      .queue[Vector[(AbsoluteOffset, Traced[Update])]](bufferSize)
+      .queue[Vector[(AbsoluteOffset, Update)]](bufferSize)
       .preMaterialize()
     val (sourceQueueNones, sourceNones) = Source
       .queue[Option[Nothing]](bufferSize)

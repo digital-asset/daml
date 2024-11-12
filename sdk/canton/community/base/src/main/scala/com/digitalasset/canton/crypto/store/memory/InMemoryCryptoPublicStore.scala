@@ -97,6 +97,44 @@ class InMemoryCryptoPublicStore(override protected val loggerFactory: NamedLogge
     FutureUnlessShutdown.unit
   }
 
+  override private[crypto] def replaceSigningPublicKeys(
+      newKeys: Seq[SigningPublicKey]
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit] = {
+    newKeys.foreach(key =>
+      storedSigningKeyMap
+        .updateWith(key.id) {
+          case Some(SigningPublicKeyWithName(_, name)) =>
+            Some(SigningPublicKeyWithName(key, name))
+          case None =>
+            throw new IllegalStateException(s"Replacing a nonexistent key: ${key.id}")
+        }
+        .discard
+    )
+
+    FutureUnlessShutdown.unit
+  }
+
+  override private[crypto] def replaceEncryptionPublicKeys(
+      newKeys: Seq[EncryptionPublicKey]
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit] = {
+    newKeys.foreach(key =>
+      storedEncryptionKeyMap
+        .updateWith(key.id) {
+          case Some(EncryptionPublicKeyWithName(_, name)) =>
+            Some(EncryptionPublicKeyWithName(key, name))
+          case None =>
+            throw new IllegalStateException(s"Replacing a nonexistent key: ${key.id}")
+        }
+        .discard
+    )
+
+    FutureUnlessShutdown.unit
+  }
+
   override def close(): Unit = ()
 
 }

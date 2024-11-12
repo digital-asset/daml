@@ -96,8 +96,8 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
             t.issuer = $issuer AND
             identity_provider_id != ${ignoreId.value: String}
          """.asVectorOf(IntParser)(connection)
-    assert(res.length <= 1)
-    res.length == 1
+    assert(res.sizeIs <= 1)
+    res.sizeIs == 1
   }
 
   override def idpConfigByIdExists(id: IdentityProviderId.Id)(connection: Connection): Boolean = {
@@ -108,8 +108,8 @@ object IdentityProviderStorageBackendImpl extends IdentityProviderStorageBackend
            FROM lapi_identity_provider_config t
            WHERE t.identity_provider_id = ${id.value: String}
            """.asVectorOf(IntParser)(connection)
-    assert(res.length <= 1)
-    res.length == 1
+    assert(res.sizeIs <= 1)
+    res.sizeIs == 1
   }
 
   override def updateIssuer(id: IdentityProviderId.Id, newIssuer: String)(

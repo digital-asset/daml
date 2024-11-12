@@ -61,7 +61,7 @@ class ViewChangeMessageValidator(
         val blocksWithRepeatedCerts = certs
           .groupBy(_.prePrepare.message.blockMetadata)
           .collect {
-            case (blockMetadata, certsForSameBlock) if certsForSameBlock.size > 1 =>
+            case (blockMetadata, certsForSameBlock) if certsForSameBlock.sizeIs > 1 =>
               blockMetadata.blockNumber
           }
           .toSet
@@ -118,7 +118,7 @@ class ViewChangeMessageValidator(
       case Some(nonEmptyMessages) =>
         val messagesViewNumberValidation = {
           val byViewNumber = nonEmptyMessages.groupBy(_.message.viewNumber)
-          if (byViewNumber.size > 1)
+          if (byViewNumber.sizeIs > 1)
             invalid(
               s"all ${messageName}s should be of the same view number, but they are distributed across multiple view numbers (${byViewNumber.keys
                   .mkString(", ")})"
@@ -136,7 +136,7 @@ class ViewChangeMessageValidator(
         val bySender = nonEmptyMessages.groupBy(_.from)
 
         val repeatedMessageValidation = bySender
-          .find(_._2.size > 1)
+          .find(_._2.sizeIs > 1)
           .fold(valid) { case (from, prepares) =>
             invalid(
               s"there are more than one ${messageName}s (${prepares.size}) from the same sender $from"

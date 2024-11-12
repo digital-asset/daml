@@ -6,7 +6,7 @@ package com.digitalasset.canton.platform
 import com.daml.ledger.resources.ResourceOwner
 import com.daml.timer.Timeout.*
 import com.digitalasset.canton.concurrent.DirectExecutionContext
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.ledger.error.CommonErrors
 import com.digitalasset.canton.logging.{ErrorLoggingContext, NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.pekkostreams.dispatcher.Dispatcher
@@ -43,14 +43,14 @@ class DispatcherState(
     }
   })
 
-  def getDispatcher: Dispatcher[Offset] = blocking(synchronized {
+  def getDispatcher: Dispatcher[AbsoluteOffset] = blocking(synchronized {
     dispatcherStateRef match {
       case DispatcherStateShutdown | DispatcherNotRunning => throw dispatcherNotRunning
       case DispatcherRunning(dispatcher) => dispatcher
     }
   })
 
-  def startDispatcher(initializationOffset: Offset): Unit = blocking(synchronized {
+  def startDispatcher(initializationOffset: Option[AbsoluteOffset]): Unit = blocking(synchronized {
     dispatcherStateRef match {
       case DispatcherNotRunning =>
         val activeDispatcher = buildDispatcher(initializationOffset)
@@ -128,10 +128,12 @@ class DispatcherState(
     }
   }
 
-  private def buildDispatcher(initializationOffset: Offset): Dispatcher[Offset] =
+  private def buildDispatcher(
+      initializationOffset: Option[AbsoluteOffset]
+  ): Dispatcher[AbsoluteOffset] =
     Dispatcher(
       name = ServiceName,
-      zeroIndex = Offset.beforeBegin,
+      firstIndex = AbsoluteOffset.firstOffset,
       headAtInitialization = initializationOffset,
     )
 
@@ -150,7 +152,7 @@ object DispatcherState {
 
   private final case object DispatcherNotRunning extends State
   private final case object DispatcherStateShutdown extends State
-  private final case class DispatcherRunning(dispatcher: Dispatcher[Offset]) extends State
+  private final case class DispatcherRunning(dispatcher: Dispatcher[AbsoluteOffset]) extends State
 
   def owner(apiStreamShutdownTimeout: Duration, loggerFactory: NamedLoggerFactory)(implicit
       traceContext: TraceContext

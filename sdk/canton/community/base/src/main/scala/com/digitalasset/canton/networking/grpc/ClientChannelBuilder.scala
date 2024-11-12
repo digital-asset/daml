@@ -92,7 +92,7 @@ class CommunityClientChannelBuilder(protected val loggerFactory: NamedLoggerFact
     val singleHost = endpoints.head1
 
     // warn that community does not support more than one domain connection if we've been passed multiple
-    if (endpoints.size > 1) {
+    if (endpoints.sizeIs > 1) {
       noTracingLogger.warn(
         s"Canton Community does not support using many connections for a domain. Defaulting to first: $singleHost"
       )

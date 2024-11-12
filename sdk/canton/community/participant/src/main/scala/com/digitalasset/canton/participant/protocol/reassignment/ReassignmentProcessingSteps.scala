@@ -58,7 +58,7 @@ import com.digitalasset.canton.protocol.messages.Verdict.{
 import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ErrorUtil, ReassignmentTag}
 import com.digitalasset.canton.{LfPartyId, RequestCounter, SequencerCounter}
 import com.digitalasset.daml.lf.engine
@@ -270,7 +270,7 @@ trait ReassignmentProcessingSteps[
       error: TransactionError,
   )(implicit
       traceContext: TraceContext
-  ): (Option[Traced[Update]], Option[PendingSubmissionId]) = {
+  ): (Option[Update], Option[PendingSubmissionId]) = {
     val rejection = Update.CommandRejected.FinalReason(error.rpcStatus())
     val isSubmittingParticipant = submitterMetadata.submittingParticipant == participantId
 
@@ -283,22 +283,20 @@ trait ReassignmentProcessingSteps[
       messageUuid = None,
     )
     val updateO = Option.when(isSubmittingParticipant)(
-      Traced(
-        Update.CommandRejected(
-          ts.toLf,
-          completionInfo,
-          rejection,
-          domainId.unwrap,
-          Some(
-            DomainIndex.of(
-              RequestIndex(
-                counter = rc,
-                sequencerCounter = Some(sc),
-                timestamp = ts,
-              )
+      Update.CommandRejected(
+        ts.toLf,
+        completionInfo,
+        rejection,
+        domainId.unwrap,
+        Some(
+          DomainIndex.of(
+            RequestIndex(
+              counter = rc,
+              sequencerCounter = Some(sc),
+              timestamp = ts,
             )
-          ),
-        )
+          )
+        ),
       )
     )
     (updateO, rootHash.some)
@@ -306,7 +304,7 @@ trait ReassignmentProcessingSteps[
 
   override def createRejectionEvent(rejectionArgs: RejectionArgs)(implicit
       traceContext: TraceContext
-  ): Either[ReassignmentProcessorError, Option[Traced[Update]]] = {
+  ): Either[ReassignmentProcessorError, Option[Update]] = {
 
     val RejectionArgs(pendingReassignment, rejectionReason) = rejectionArgs
     val isSubmittingParticipant =
@@ -326,22 +324,20 @@ trait ReassignmentProcessingSteps[
     rejectionReason.logWithContext(Map("requestId" -> pendingReassignment.requestId.toString))
     val rejection = Update.CommandRejected.FinalReason(rejectionReason.reason())
     val updateO = completionInfoO.map(info =>
-      Traced(
-        Update.CommandRejected(
-          pendingReassignment.requestId.unwrap.toLf,
-          info,
-          rejection,
-          domainId.unwrap,
-          Some(
-            DomainIndex.of(
-              RequestIndex(
-                counter = pendingReassignment.requestCounter,
-                sequencerCounter = Some(pendingReassignment.requestSequencerCounter),
-                timestamp = pendingReassignment.requestId.unwrap,
-              )
+      Update.CommandRejected(
+        pendingReassignment.requestId.unwrap.toLf,
+        info,
+        rejection,
+        domainId.unwrap,
+        Some(
+          DomainIndex.of(
+            RequestIndex(
+              counter = pendingReassignment.requestCounter,
+              sequencerCounter = Some(pendingReassignment.requestSequencerCounter),
+              timestamp = pendingReassignment.requestId.unwrap,
             )
-          ),
-        )
+          )
+        ),
       )
     )
     Right(updateO)

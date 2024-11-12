@@ -8,6 +8,7 @@ import com.digitalasset.canton.data.Offset
 import com.digitalasset.canton.ledger.participant.state.ReassignmentInfo
 import com.digitalasset.canton.platform.store.cache.MutableCacheBackedContractStore.EventSequentialId
 import com.digitalasset.canton.platform.{ContractId, Identifier}
+import com.digitalasset.canton.tracing.{HasTraceContext, TraceContext}
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.Ref.{PackageName, Party}
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -20,7 +21,7 @@ import com.digitalasset.daml.lf.value.Value as LfValue
   *
   * Used as data source template for in-memory fan-out buffers for Ledger API streams serving.
   */
-sealed trait TransactionLogUpdate extends Product with Serializable {
+sealed trait TransactionLogUpdate extends Product with Serializable with HasTraceContext {
   def offset: Offset
 }
 
@@ -46,7 +47,8 @@ object TransactionLogUpdate {
       completionStreamResponse: Option[CompletionStreamResponse],
       domainId: String,
       recordTime: Timestamp,
-  ) extends TransactionLogUpdate
+  )(implicit override val traceContext: TraceContext)
+      extends TransactionLogUpdate
 
   /** A rejected submission.
     *
@@ -56,7 +58,8 @@ object TransactionLogUpdate {
   final case class TransactionRejected(
       offset: Offset,
       completionStreamResponse: CompletionStreamResponse,
-  ) extends TransactionLogUpdate
+  )(implicit override val traceContext: TraceContext)
+      extends TransactionLogUpdate
 
   final case class ReassignmentAccepted(
       updateId: String,
@@ -67,7 +70,8 @@ object TransactionLogUpdate {
       completionStreamResponse: Option[CompletionStreamResponse],
       reassignmentInfo: ReassignmentInfo,
       reassignment: ReassignmentAccepted.Reassignment,
-  ) extends TransactionLogUpdate
+  )(implicit override val traceContext: TraceContext)
+      extends TransactionLogUpdate
 
   object ReassignmentAccepted {
     sealed trait Reassignment

@@ -160,7 +160,7 @@ class LastErrorsAppender()
 class BoundedQueue[A](maxQueueSize: Int) extends mutable.Queue[A] {
 
   private def trim(): Unit =
-    while (size > maxQueueSize) dequeue().discard
+    while (sizeIs > maxQueueSize) dequeue().discard
 
   override def addOne(elem: A): BoundedQueue.this.type = {
     val ret = super.addOne(elem)

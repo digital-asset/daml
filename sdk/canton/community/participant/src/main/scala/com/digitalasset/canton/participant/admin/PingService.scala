@@ -694,7 +694,7 @@ object PingService {
 
       def submit(): Unit = {
         val (name, command) =
-          if (validators.isEmpty && targetParties.size == 1 && maxLevel.value == 0) {
+          if (validators.isEmpty && targetParties.sizeIs == 1 && maxLevel.value == 0) {
             logger.info(show"Starting ping ${this}")
             (
               "ping",

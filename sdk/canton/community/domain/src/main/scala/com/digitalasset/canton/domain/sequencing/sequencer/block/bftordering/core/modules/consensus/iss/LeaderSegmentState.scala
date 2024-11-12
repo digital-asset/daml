@@ -65,7 +65,7 @@ class LeaderSegmentState(
   // from being provided simultaneously, which would potentially overwhelm the Consensus module, resulting
   // in a potential `IndexOutOfBounds` exception.
   def moreSlotsToAssign: Boolean =
-    nextRelativeBlockToOrder < segment.slotNumbers.size && // we haven't filled all slots
+    segment.slotNumbers.sizeIs > nextRelativeBlockToOrder && // we haven't filled all slots
       !viewChangeOccurred && // we haven't entered a view change ever in this epoch for our segment (view = 0)
       (nextRelativeBlockToOrder == 0 || state.isBlockComplete(
         segment.slotNumbers(nextRelativeBlockToOrder - 1)

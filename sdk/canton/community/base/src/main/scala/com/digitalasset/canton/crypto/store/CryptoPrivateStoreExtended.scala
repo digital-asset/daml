@@ -5,9 +5,12 @@ package com.digitalasset.canton.crypto.store
 
 import cats.data.EitherT
 import cats.syntax.functor.*
+import cats.syntax.functorFilter.*
 import cats.syntax.parallel.*
+import com.daml.nameof.NameOf.functionFullName
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.config.CantonRequireTypes.String300
+import com.digitalasset.canton.config.ProcessingTimeout
 import com.digitalasset.canton.crypto.KeyPurpose.{Encryption, Signing}
 import com.digitalasset.canton.crypto.SigningKeyUsage.nonEmptyIntersection
 import com.digitalasset.canton.crypto.store.db.StoredPrivateKey
@@ -21,15 +24,17 @@ import com.digitalasset.canton.crypto.{
   SigningPrivateKey,
 }
 import com.digitalasset.canton.discard.Implicits.DiscardOps
-import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
+import com.digitalasset.canton.lifecycle.{FlagCloseable, FutureUnlessShutdown}
 import com.digitalasset.canton.logging.NamedLogging
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.tracing.TraceContext
+import com.digitalasset.canton.util.retry
 import com.digitalasset.canton.version.ReleaseProtocolVersion
 import com.google.common.annotations.VisibleForTesting
 
 import scala.collection.concurrent.TrieMap
 import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.DurationInt
 
 /** Extends a CryptoPrivateStore with the necessary store write/read operations and is intended to be used by canton
   * internal private crypto stores (e.g. [[com.digitalasset.canton.crypto.store.memory.InMemoryCryptoPrivateStore]],
@@ -70,6 +75,11 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
 
   @VisibleForTesting
   private[canton] def listPrivateKeys(purpose: KeyPurpose, encrypted: Boolean)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Set[StoredPrivateKey]]
+
+  @VisibleForTesting
+  private[canton] def listPrivateKeys(purpose: KeyPurpose)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Set[StoredPrivateKey]]
 
@@ -270,4 +280,113 @@ trait CryptoPrivateStoreExtended extends CryptoPrivateStore { this: NamedLogging
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Option[String300]] =
     EitherT.rightT[FutureUnlessShutdown, CryptoPrivateStoreError](None)
 
+  def migratePrivateKeys(isActive: Boolean, timeouts: ProcessingTimeout)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Unit] =
+    if (isActive) performPrivateKeysMigration()
+    else waitForPrivateKeysMigrationToComplete(timeouts)
+
+  private def performPrivateKeysMigration()(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Unit] = {
+    logger.info("Migrating keys in private key store")
+
+    // During deserialization, keys are checked whether they use a legacy format, in which case they
+    // are migrated and the `migrated` flag is set. If they already use the current format, the `migrated`
+    // flag is not set.
+    // In the active replica, we read all the keys and check whether they have been migrated,
+    // in which case we write them back to the store in the new format.
+
+    for {
+      storedSigningKeys <- listPrivateKeys(KeyPurpose.Signing)
+      signingKeys <- storedSigningKeys.toSeq.parTraverseFilter(spk =>
+        signingKey(spk.id).map(_.map(spk -> _))
+      )
+      migratedKeys = signingKeys.collect {
+        case (stored, privateKey @ SigningPrivateKey(_id, _format, _key, _scheme, _usage))
+            if privateKey.migrated =>
+          new StoredPrivateKey(
+            id = privateKey.id,
+            data = privateKey.toByteString(releaseProtocolVersion.v),
+            purpose = privateKey.purpose,
+            name = stored.name,
+            wrapperKeyId = stored.wrapperKeyId,
+          )
+      }
+      _ <- replaceStoredPrivateKeys(migratedKeys)
+      _ = logger.info(s"Migrated ${migratedKeys.size} of ${storedSigningKeys.size} private keys")
+      // Remove migrated keys from the cache
+      _ = signingKeyMap.filterInPlace((fp, _) => !migratedKeys.map(_.id).contains(fp))
+    } yield ()
+  }
+
+  private def waitForPrivateKeysMigrationToComplete(timeouts: ProcessingTimeout)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Unit] = {
+    logger.info("Passive replica waiting for private key migration to complete")
+
+    // On the passive side, we just need to wait until reading all the keys shows them having the flag unset.
+    EitherT(
+      retry
+        .Pause(
+          logger,
+          FlagCloseable(logger, timeouts),
+          maxRetries = timeouts.activeInit.retries(50.millis),
+          delay = 50.millis,
+          functionFullName,
+        )
+        .unlessShutdown(allPrivateKeysConverted().value, retry.NoExceptionRetryPolicy)
+    ).map(_ => logger.info("Passive replica ready after private key migration"))
+  }
+
+  private def allPrivateKeysConverted()(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Boolean] = {
+    // Ensure we don't read from the cache
+    signingKeyMap.clear()
+
+    for {
+      storedSigningKeys <- listPrivateKeys(KeyPurpose.Signing)
+      signingKeys <- storedSigningKeys.toSeq.parTraverseFilter(spk =>
+        signingKey(spk.id).map(_.map(spk -> _))
+      )
+    } yield signingKeys.forall {
+      case (_stored, key @ SigningPrivateKey(_id, _format, _key, _scheme, _usage)) => !key.migrated
+    }
+  }
+
+  @VisibleForTesting
+  // Inverse operation from performPrivateKeysMigration(): used in tests to produce legacy keys.
+  private[canton] def reverseMigration()(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Seq[Fingerprint]] = {
+    logger.info("Reverse-migrating keys in private key store")
+
+    for {
+      storedSigningKeys <- listPrivateKeys(KeyPurpose.Signing)
+      signingKeys <- storedSigningKeys.toSeq.parTraverseFilter(spk =>
+        signingKey(spk.id).map(_.map(spk -> _))
+      )
+      migratedKeys = signingKeys.mapFilter { case (stored, privateKey) =>
+        for {
+          legacyPrivateKey <- privateKey.reverseMigrate()
+        } yield new StoredPrivateKey(
+          id = legacyPrivateKey.id,
+          data = legacyPrivateKey.toByteString(releaseProtocolVersion.v),
+          purpose = legacyPrivateKey.purpose,
+          name = stored.name,
+          wrapperKeyId = stored.wrapperKeyId,
+        )
+      }
+      _ <- replaceStoredPrivateKeys(migratedKeys)
+      _ = logger.info(
+        s"Reverse-migrated ${migratedKeys.size} of ${storedSigningKeys.size} private keys"
+      )
+    } yield {
+      val migratedKeyIds = migratedKeys.map(_.id)
+      // Remove migrated keys from the cache
+      signingKeyMap.filterInPlace((fp, _) => !migratedKeys.map(_.id).contains(fp))
+      migratedKeyIds
+    }
+  }
 }

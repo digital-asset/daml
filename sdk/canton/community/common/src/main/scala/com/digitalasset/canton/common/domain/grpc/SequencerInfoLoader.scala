@@ -627,7 +627,7 @@ object SequencerInfoLoader {
   ): SequencerInfoLoaderError = {
     require(errors.nonEmpty, "Non-empty list of errors is expected")
     val nonEmptyResult = NonEmptyUtil.fromUnsafe(errors)
-    if (nonEmptyResult.size == 1) nonEmptyResult.head1.error
+    if (nonEmptyResult.sizeIs == 1) nonEmptyResult.head1.error
     else {
       val message = nonEmptyResult.map(_.error.cause).mkString(",")
       SequencerInfoLoaderError.FailedToConnectToSequencers(message)

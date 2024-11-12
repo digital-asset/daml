@@ -17,7 +17,7 @@ import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.serialization.ProtoConverter
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.tracing.TraceContext
 import io.grpc.StatusRuntimeException
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -190,7 +190,7 @@ trait CommandProgressTracker {
       submissionId: Option[String],
   ): CommandResultHandle
 
-  def processLedgerUpdate(update: Traced[TransactionLogUpdate]): Unit
+  def processLedgerUpdate(update: TransactionLogUpdate): Unit
 
 }
 
@@ -218,6 +218,6 @@ object CommandProgressTracker {
     ): CommandResultHandle =
       CommandResultHandle.NoOp
 
-    override def processLedgerUpdate(update: Traced[TransactionLogUpdate]): Unit = ()
+    override def processLedgerUpdate(update: TransactionLogUpdate): Unit = ()
   }
 }

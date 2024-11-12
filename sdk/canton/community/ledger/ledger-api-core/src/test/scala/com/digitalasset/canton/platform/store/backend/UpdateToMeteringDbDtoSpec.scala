@@ -8,10 +8,10 @@ import com.daml.metrics.api.{HistogramInventory, MetricName, MetricsContext}
 import com.digitalasset.canton.RequestCounter
 import com.digitalasset.canton.data.{AbsoluteOffset, CantonTimestamp, Offset}
 import com.digitalasset.canton.ledger.participant.state
-import com.digitalasset.canton.ledger.participant.state.{DomainIndex, RequestIndex, Update}
+import com.digitalasset.canton.ledger.participant.state.{DomainIndex, RequestIndex}
 import com.digitalasset.canton.metrics.{IndexerHistograms, IndexerMetrics}
 import com.digitalasset.canton.topology.DomainId
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.crypto.Hash
 import com.digitalasset.daml.lf.data.{ImmArray, Ref, Time}
 import com.digitalasset.daml.lf.language.LanguageVersion
@@ -119,7 +119,7 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
         UpdateToMeteringDbDto(clock = () => timestamp, Set.empty, IndexedUpdatesMetrics)(
           MetricsContext.Empty
         )(
-          List((offset, Traced[Update](someTransactionAccepted)))
+          List((offset, someTransactionAccepted))
         )
 
       val expected: Vector[DbDto.TransactionMetering] = Vector(
@@ -153,13 +153,13 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
           List(
             (
               AbsoluteOffset.tryFromLong(1L),
-              Traced[Update](someTransactionAccepted),
+              someTransactionAccepted,
             ),
             (
               Offset
                 .fromHexString(Ref.HexString.assertFromString(metering.ledger_offset))
                 .toAbsoluteOffset,
-              Traced[Update](someTransactionAccepted),
+              someTransactionAccepted,
             ),
           )
         )
@@ -189,7 +189,7 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
         UpdateToMeteringDbDto(clock = () => timestamp, Set.empty, IndexedUpdatesMetrics)(
           MetricsContext.Empty
         )(
-          List((offset, Traced[Update](txWithNoActionCount)))
+          List((offset, txWithNoActionCount))
         )
 
       actual.isEmpty shouldBe true
@@ -200,7 +200,7 @@ class UpdateToMeteringDbDtoSpec extends AnyWordSpec with MetricValues {
       UpdateToMeteringDbDto(clock = () => timestamp, Set.empty, indexerMetrics)(
         MetricsContext.Empty
       )(
-        List((offset, Traced[Update](someTransactionAccepted)))
+        List((offset, someTransactionAccepted))
       )
       indexerMetrics.meteredEventsMeter.value shouldBe (statistics.committed.actions + statistics.rolledBack.actions)
     }

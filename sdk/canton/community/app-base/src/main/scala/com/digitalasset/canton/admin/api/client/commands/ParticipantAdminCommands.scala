@@ -1156,10 +1156,8 @@ object ParticipantAdminCommands {
         String,
         Map[DomainId, Seq[ReceivedAcsCmt]],
       ] =
-        if (response.received.size != response.received.map(_.domainId).toSet.size)
-          Left(
-            s"Some domains are not unique in the response: ${response.received}"
-          )
+        if (response.received.sizeIs != response.received.map(_.domainId).toSet.size)
+          Left(s"Some domains are not unique in the response: ${response.received}")
         else
           response.received
             .traverse(receivedCmtPerDomain =>
@@ -1280,7 +1278,7 @@ object ParticipantAdminCommands {
         String,
         Map[DomainId, Seq[SentAcsCmt]],
       ] =
-        if (response.sent.size != response.sent.map(_.domainId).toSet.size)
+        if (response.sent.sizeIs != response.sent.map(_.domainId).toSet.size)
           Left(
             s"Some domains are not unique in the response: ${response.sent}"
           )

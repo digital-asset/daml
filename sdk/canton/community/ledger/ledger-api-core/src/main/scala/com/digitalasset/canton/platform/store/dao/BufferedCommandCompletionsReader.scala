@@ -12,7 +12,6 @@ import com.digitalasset.canton.platform.store.dao.BufferedCommandCompletionsRead
 import com.digitalasset.canton.platform.store.dao.BufferedStreamsReader.FetchFromPersistence
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.platform.{ApplicationId, Party}
-import com.digitalasset.canton.tracing.Traced
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 
@@ -39,10 +38,10 @@ class BufferedCommandCompletionsReader(
     )
 
   private def filterCompletions(
-      transactionLogUpdate: Traced[TransactionLogUpdate],
+      transactionLogUpdate: TransactionLogUpdate,
       parties: Set[Party],
       applicationId: String,
-  ): Option[CompletionStreamResponse] = (transactionLogUpdate.value match {
+  ): Option[CompletionStreamResponse] = (transactionLogUpdate match {
     case accepted: TransactionLogUpdate.TransactionAccepted => accepted.completionStreamResponse
     case rejected: TransactionLogUpdate.TransactionRejected =>
       Some(rejected.completionStreamResponse)

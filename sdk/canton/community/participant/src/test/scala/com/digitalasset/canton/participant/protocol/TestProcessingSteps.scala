@@ -52,7 +52,7 @@ import com.digitalasset.canton.sequencing.protocol.*
 import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.{DefaultTestIdentities, DomainId, Member, ParticipantId}
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.HasToByteString
 import com.digitalasset.canton.{BaseTest, LfPartyId, RequestCounter, SequencerCounter}
 import com.google.protobuf.ByteString
@@ -275,12 +275,12 @@ class TestProcessingSteps(
       rootHash: RootHash,
       freshOwnTimelyTx: Boolean,
       error: TransactionError,
-  )(implicit traceContext: TraceContext): (Option[Traced[Update]], Option[PendingSubmissionId]) =
+  )(implicit traceContext: TraceContext): (Option[Update], Option[PendingSubmissionId]) =
     (None, None)
 
   override def createRejectionEvent(rejectionArgs: Unit)(implicit
       traceContext: TraceContext
-  ): Either[TestProcessingError, Option[Traced[Update]]] =
+  ): Either[TestProcessingError, Option[Update]] =
     Right(None)
 
   override def getCommitSetAndContractsToBeStoredAndEvent(

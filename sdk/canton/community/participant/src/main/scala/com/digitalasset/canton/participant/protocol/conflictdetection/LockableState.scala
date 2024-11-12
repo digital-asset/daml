@@ -55,7 +55,7 @@ private[conflictdetection] object LockableState {
     @VisibleForTesting private[conflictdetection] def assertFromInt(x: Int): T
   }
 
-  private class ConflictDetectionCounterModuleImpl(kind: String)
+  private final class ConflictDetectionCounterModuleImpl(kind: String)
       extends ConflictDetectionCounterModule[Int] {
     override def empty: Int = 0
     override def isEmpty(counter: Int): Boolean = counter == 0
@@ -91,7 +91,7 @@ private[conflictdetection] object LockableState {
     val PendingWriteCounter: ConflictDetectionCounterModule[PendingWriteCounter]
   }
 
-  private class ConflictDetectionCountersImpl extends ConflictDetectionCounters {
+  private final class ConflictDetectionCountersImpl extends ConflictDetectionCounters {
     override type PendingActivenessCheckCounter = Int
     override val PendingActivenessCheckCounter: ConflictDetectionCounterModule[Int] =
       new ConflictDetectionCounterModuleImpl("pending activeness check")

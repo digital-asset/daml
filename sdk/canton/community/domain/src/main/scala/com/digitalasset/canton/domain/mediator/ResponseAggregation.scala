@@ -321,9 +321,9 @@ object ResponseAggregation {
     def rejectBy(participant: ParticipantId): ConsortiumVotingState =
       this.copy(rejections = this.rejections + participant)
 
-    def isApproved: Boolean = approvals.size >= threshold.value
+    def isApproved: Boolean = approvals.sizeIs >= threshold.value
 
-    def isRejected: Boolean = rejections.size >= threshold.value
+    def isRejected: Boolean = rejections.sizeIs >= threshold.value
 
     override protected def pretty: Pretty[ConsortiumVotingState] =
       prettyOfClass(

@@ -116,7 +116,7 @@ object MonadUtil {
       xs: Seq[X]
   )(processChunk: Seq[X] => M[Unit])(implicit M: Parallel[M]): M[Unit] =
     sequentialTraverse_(xs.grouped(chunkSize.value).grouped(parallelism.value))(chunk =>
-      chunk.toSeq.parTraverse_(processChunk)
+      chunk.parTraverse_(processChunk)
     )(M.monad)
 
   /** Conceptually equivalent to `sequentialTraverse(xs)(step).map(monoid.combineAll)`.

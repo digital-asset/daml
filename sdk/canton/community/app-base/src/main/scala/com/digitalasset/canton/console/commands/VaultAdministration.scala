@@ -182,7 +182,7 @@ class SecretKeyAdministration(
 
     val currentKey = findPublicKey(fingerprint, instance.topology, owner)
     val newKey = currentKey match {
-      case SigningPublicKey(_, _, _, usage) =>
+      case SigningPublicKey(_, _, _, usage, _) =>
         instance.keys.secret.register_kms_signing_key(newKmsKeyId, usage, name)
       case _: EncryptionPublicKey =>
         instance.keys.secret.register_kms_encryption_key(newKmsKeyId, name)

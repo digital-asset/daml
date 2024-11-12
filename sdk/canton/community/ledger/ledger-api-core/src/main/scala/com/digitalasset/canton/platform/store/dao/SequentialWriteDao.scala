@@ -23,7 +23,6 @@ import com.digitalasset.canton.platform.store.interning.{
   InternizingStringInterningView,
   StringInterning,
 }
-import com.digitalasset.canton.tracing.Traced
 import com.digitalasset.daml.lf.data.Ref
 
 import java.sql.Connection
@@ -31,7 +30,7 @@ import scala.concurrent.{Future, blocking}
 import scala.util.chaining.scalaUtilChainingOps
 
 trait SequentialWriteDao {
-  def store(connection: Connection, offset: Offset, update: Option[Traced[Update]]): Unit
+  def store(connection: Connection, offset: Offset, update: Option[Update]): Unit
 }
 
 object SequentialWriteDao {
@@ -71,14 +70,14 @@ object SequentialWriteDao {
 }
 
 private[dao] object NoopSequentialWriteDao extends SequentialWriteDao {
-  override def store(connection: Connection, offset: Offset, update: Option[Traced[Update]]): Unit =
+  override def store(connection: Connection, offset: Offset, update: Option[Update]): Unit =
     throw new UnsupportedOperationException
 }
 
 private[dao] final case class SequentialWriteDaoImpl[DB_BATCH](
     ingestionStorageBackend: IngestionStorageBackend[DB_BATCH],
     parameterStorageBackend: ParameterStorageBackend,
-    updateToDbDtos: Offset => Traced[Update] => Iterator[DbDto],
+    updateToDbDtos: Offset => Update => Iterator[DbDto],
     ledgerEndCache: MutableLedgerEndCache,
     stringInterningView: StringInterning with InternizingStringInterningView,
     dbDtosToStringsForInterning: Iterable[DbDto] => DomainStringIterators,
@@ -131,7 +130,7 @@ private[dao] final case class SequentialWriteDaoImpl[DB_BATCH](
       case notEvent => notEvent
     }.toVector
 
-  override def store(connection: Connection, offset: Offset, update: Option[Traced[Update]]): Unit =
+  override def store(connection: Connection, offset: Offset, update: Option[Update]): Unit =
     blocking(synchronized {
       lazyInit(connection)
 

@@ -7,6 +7,7 @@ import com.daml.ledger.api.testing.utils.PekkoBeforeAndAfterAll
 import com.digitalasset.canton.BaseTest
 import com.digitalasset.canton.concurrent.{DirectExecutionContext, Threading}
 import com.digitalasset.canton.discard.Implicits.DiscardOps
+import com.digitalasset.canton.pekkostreams.dispatcher.DispatcherImpl.Incrementable
 import com.digitalasset.canton.pekkostreams.dispatcher.SubSource.RangeSource
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.{Keep, Sink, Source}
@@ -26,6 +27,11 @@ class DispatcherRaceSpec
     with ScalaFutures
     with BaseTest {
 
+  case class Index(value: Int) extends Incrementable[Index] with Ordered[Index] {
+    def increment: Index = Index(value + 1)
+    def compare(that: Index): Int = value.compare(that.value)
+  }
+
   override implicit def patienceConfig: PatienceConfig =
     PatienceConfig(scaled(Span(10, Seconds)), scaled(Span(250, Milliseconds)))
 
@@ -37,28 +43,29 @@ class DispatcherRaceSpec
       implicit val ec: ExecutionContextExecutor = materializer.executionContext
 
       val elements = new AtomicReference(Map.empty[Int, Int])
-      def readElement(i: Int): Future[Int] = Future {
+      def readElement(i: Index): Future[Index] = Future {
         blocking(
           Threading.sleep(10)
         ) // In a previous version of Dispatcher, this sleep caused a race condition.
-        elements.get()(i)
+        Index(elements.get()(i.value))
       }
-      def readSuccessor(i: Int): Int = i + 1
+      def readSuccessor(i: Index): Index = i.increment
 
       // compromise between catching flakes and not taking too long
       0 until 25 foreach { _ =>
-        val d = Dispatcher("test", 0, 0)
+        val d: Dispatcher[Index] =
+          Dispatcher(name = "test", firstIndex = Index(1), headAtInitialization = None)
 
         // Verify that the results are what we expected
         val subscriptions = 1 until 10 map { i =>
           elements.updateAndGet(m => m + (i -> i))
-          d.signalNewHead(i)
+          d.signalNewHead(Index(i))
           d.startingAt(
-            i - 1,
-            RangeSource((startExclusive, endInclusive) =>
+            startExclusive = Option.unless(i == 1)(Index(i - 1)),
+            subSource = RangeSource((startInclusive, endInclusive) =>
               Source
-                .unfoldAsync(readSuccessor(startExclusive)) { index =>
-                  if (Ordering[Int].gt(index, endInclusive)) Future.successful(None)
+                .unfoldAsync(startInclusive) { index =>
+                  if (index > endInclusive) Future.successful(None)
                   else {
                     readElement(index).map { t =>
                       val nextIndex = readSuccessor(index)
@@ -67,7 +74,7 @@ class DispatcherRaceSpec
                   }
                 }
             ),
-          ).toMat(Sink.seq)(Keep.right[NotUsed, Future[Seq[(Int, Int)]]])
+          ).toMat(Sink.seq)(Keep.right[NotUsed, Future[Seq[(Index, Index)]]])
             .run()
         }
 
@@ -75,8 +82,8 @@ class DispatcherRaceSpec
 
         subscriptions.zip(1 until 10) foreach { case (f, i) =>
           whenReady(f) { vals =>
-            vals.map(_._1) should contain theSameElementsAs (i to 9)
-            vals.map(_._2) should contain theSameElementsAs (i until 10)
+            vals.map(_._1.value) should contain theSameElementsAs (i to 9)
+            vals.map(_._2.value) should contain theSameElementsAs (i until 10)
           }
         }
       }

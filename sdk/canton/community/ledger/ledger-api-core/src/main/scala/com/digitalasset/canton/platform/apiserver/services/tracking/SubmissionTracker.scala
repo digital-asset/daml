@@ -170,7 +170,7 @@ object SubmissionTracker {
     private def ensuringMaximumInFlight[T](
         f: => Future[T]
     )(implicit errorLogger: ContextualizedErrorLogger): Future[T] =
-      if (pending.size < maxCommandsInFlight) {
+      if (pending.sizeIs < maxCommandsInFlight) {
         metrics.commands.maxInFlightLength.inc()
         val ret = f
         ret.onComplete { _ =>

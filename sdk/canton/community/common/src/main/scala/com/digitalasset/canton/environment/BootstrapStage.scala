@@ -45,7 +45,7 @@ sealed trait BootstrapStageOrLeaf[T <: CantonNode]
 
 }
 
-class RunningNode[T <: CantonNode](
+final class RunningNode[T <: CantonNode](
     val bootstrap: BootstrapStage.Callback,
     val node: T,
 )(implicit ec: ExecutionContext)

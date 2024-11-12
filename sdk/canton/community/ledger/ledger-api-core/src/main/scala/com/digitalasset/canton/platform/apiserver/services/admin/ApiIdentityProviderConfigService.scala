@@ -138,17 +138,19 @@ class ApiIdentityProviderConfigService(
   override def listIdentityProviderConfigs(
       request: proto.ListIdentityProviderConfigsRequest
   ): Future[proto.ListIdentityProviderConfigsResponse] = {
-    implicit val loggingContextWithTrace = LoggingContextWithTrace(loggerFactory, telemetry)
+    implicit val loggingContextWithTrace: LoggingContextWithTrace =
+      LoggingContextWithTrace(loggerFactory, telemetry)
 
     identityProviderConfigStore
       .listIdentityProviderConfigs()
       .flatMap(handleResult("listing identity provider configs"))
-      .map(result => proto.ListIdentityProviderConfigsResponse(result.map(toProto).toSeq))
+      .map(result => proto.ListIdentityProviderConfigsResponse(result.map(toProto)))
   }
   override def deleteIdentityProviderConfig(
       request: proto.DeleteIdentityProviderConfigRequest
   ): Future[proto.DeleteIdentityProviderConfigResponse] = {
-    implicit val loggingContextWithTrace = LoggingContextWithTrace(loggerFactory, telemetry)
+    implicit val loggingContextWithTrace: LoggingContextWithTrace =
+      LoggingContextWithTrace(loggerFactory, telemetry)
 
     withValidation(
       requireIdentityProviderId(request.identityProviderId, "identity_provider_id")

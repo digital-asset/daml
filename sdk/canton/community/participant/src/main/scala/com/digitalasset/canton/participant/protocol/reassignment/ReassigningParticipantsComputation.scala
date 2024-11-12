@@ -101,7 +101,7 @@ private[protocol] class ReassigningParticipantsComputation(
           requiredReassigningParticipants = sourceInfo.threshold.max(targetInfo.threshold)
 
           _ <- Either.cond(
-            reassigningParticipants.size >= requiredReassigningParticipants.unwrap,
+            reassigningParticipants.sizeIs >= requiredReassigningParticipants.unwrap,
             (),
             StakeholderHostingErrors(
               s"Signatory $signatory requires at least $requiredReassigningParticipants reassigning participants, but only ${reassigningParticipants.size} are available"

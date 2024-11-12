@@ -4,7 +4,7 @@
 package com.digitalasset.canton.platform
 
 import com.daml.ledger.resources.ResourceOwner
-import com.digitalasset.canton.data.{AbsoluteOffset, Offset}
+import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.logging.{NamedLoggerFactory, NamedLogging}
 import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.platform.apiserver.execution.CommandProgressTracker
@@ -65,14 +65,12 @@ class InMemoryState(
           submissionTracker.close()
         }
         // Start a new Ledger API offset dispatcher
-        _ = dispatcherState.startDispatcher(
-          Offset.fromAbsoluteOffsetO(ledgerEndO.map(_.lastOffset))
-        )
+        _ = dispatcherState.startDispatcher(ledgerEndO.map(_.lastOffset))
       } yield ()
 
     def inMemoryStateIsUptodate: Boolean =
       ledgerEndCache() == ledgerEndO &&
-        dispatcherState.getDispatcher.getHead().toAbsoluteOffsetO == ledgerEndO.map(_.lastOffset) &&
+        dispatcherState.getDispatcher.getHead() == ledgerEndO.map(_.lastOffset) &&
         cachesUpdatedUpto.get() == ledgerEndO.map(_.lastOffset)
 
     def ledgerEndComparisonLog: String =

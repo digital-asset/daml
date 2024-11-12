@@ -217,8 +217,8 @@ object UserManagementStorageBackendImpl extends UserManagementStorageBackend {
                ur.user_right = $userRight
                AND
                ur.for_party ${isForPartyPredicate(forParty)}""".asVectorOf(IntParser0)(connection)
-    assert(res.length <= 1)
-    res.length == 1
+    assert(res.sizeIs <= 1)
+    res.sizeIs == 1
   }
 
   override def addUserRight(internalId: Int, right: UserRight, grantedAt: Long)(

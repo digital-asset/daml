@@ -22,7 +22,7 @@ import com.digitalasset.canton.platform.store.interning.{
   StringInterningDomain,
 }
 import com.digitalasset.canton.topology.DomainId
-import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext, Traced}
+import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Ref.Party
 import com.digitalasset.daml.lf.data.Time.Timestamp
@@ -36,8 +36,6 @@ import scala.concurrent.blocking
 
 class SequentialWriteDaoSpec extends AnyFlatSpec with Matchers {
 
-  import TraceContext.Implicits.Empty.*
-  implicit val TracedConverter: Option[Update] => Option[Traced[Update]] = _.map(Traced[Update])
   behavior of "SequentialWriteDaoImpl"
 
   it should "store correctly in a happy path case" in {
@@ -250,7 +248,7 @@ object SequentialWriteDaoSpec {
       participantId = Ref.ParticipantId.assertFromString("participant"),
       recordTime = Timestamp.now(),
       rejectionReason = key,
-    )
+    )(TraceContext.empty)
   )
 
   private val someParty = DbDto.PartyEntry(
@@ -342,9 +340,9 @@ object SequentialWriteDaoSpec {
     ),
   )
 
-  private val updateToDbDtoFixture: Offset => Traced[Update] => Iterator[DbDto] =
+  private val updateToDbDtoFixture: Offset => Update => Iterator[DbDto] =
     _ => {
-      case Traced(r: Update.PartyAllocationRejected) =>
+      case r: Update.PartyAllocationRejected =>
         someUpdateToDbDtoFixture(r.rejectionReason).iterator
       case _ => throw new Exception
     }

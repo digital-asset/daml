@@ -29,7 +29,7 @@ import com.digitalasset.canton.platform.store.dao.events.{
 import com.digitalasset.canton.platform.{ContractId, Create, Exercise}
 import com.digitalasset.canton.topology.DomainId
 import com.digitalasset.canton.tracing.TraceContext.Implicits.Empty.emptyTraceContext
-import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext, Traced}
+import com.digitalasset.canton.tracing.{SerializableTraceContext, TraceContext}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 import com.digitalasset.daml.lf.crypto
@@ -1720,7 +1720,7 @@ class UpdateToDbDtoSpec extends AnyWordSpec with Matchers {
       MetricsContext.Empty
     )(
       someOffset
-    )(Traced[Update](update)).toList
+    )(update).toList
 }
 
 object UpdateToDbDtoSpec {

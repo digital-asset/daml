@@ -31,7 +31,7 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.concurrent.{ExecutionContext, Future, blocking}
 
 /** DB Storage implementation that assumes a single process accessing the underlying database. */
-class DbStorageSingle private (
+final class DbStorageSingle private (
     override val profile: DbStorage.Profile,
     override val dbConfig: DbConfig,
     db: Database,

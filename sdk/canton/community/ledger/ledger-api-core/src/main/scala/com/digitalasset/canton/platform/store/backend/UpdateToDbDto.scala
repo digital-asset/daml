@@ -25,7 +25,7 @@ import com.digitalasset.canton.platform.*
 import com.digitalasset.canton.platform.indexer.TransactionTraversalUtils
 import com.digitalasset.canton.platform.store.dao.JdbcLedgerDao
 import com.digitalasset.canton.platform.store.dao.events.*
-import com.digitalasset.canton.tracing.{SerializableTraceContext, Traced}
+import com.digitalasset.canton.tracing.SerializableTraceContext
 import com.digitalasset.daml.lf.data.{Ref, Time}
 import com.digitalasset.daml.lf.ledger.EventId
 import io.grpc.Status
@@ -38,11 +38,11 @@ object UpdateToDbDto {
       translation: LfValueSerialization,
       compressionStrategy: CompressionStrategy,
       metrics: LedgerApiServerMetrics,
-  )(implicit mc: MetricsContext): AbsoluteOffset => Traced[Update] => Iterator[DbDto] = {
+  )(implicit mc: MetricsContext): AbsoluteOffset => Update => Iterator[DbDto] = {
     offset => tracedUpdate =>
       val serializedTraceContext =
         SerializableTraceContext(tracedUpdate.traceContext).toDamlProto.toByteArray
-      tracedUpdate.value match {
+      tracedUpdate match {
         case u: CommandRejected =>
           commandRejectedToDbDto(
             metrics = metrics,
@@ -432,7 +432,7 @@ object UpdateToDbDto {
           .map(compressionStrategy.exerciseResultCompression.compress),
         exercise_actors = exercise.actingParties.map(_.toString),
         exercise_child_event_ids = exercise.children.iterator
-          .map(EventId(transactionAccepted.updateId, _).toLedgerString.toString)
+          .map(EventId(transactionAccepted.updateId, _).toLedgerString)
           .toVector,
         create_key_value_compression = compressionStrategy.createKeyValueCompression.id,
         exercise_argument_compression = compressionStrategy.exerciseArgumentCompression.id,

@@ -18,7 +18,7 @@ import com.daml.tracing.{Event, SpanAttribute, Spans}
 import com.digitalasset.canton.concurrent.DirectExecutionContext
 import com.digitalasset.canton.config
 import com.digitalasset.canton.config.NonNegativeFiniteDuration
-import com.digitalasset.canton.data.Offset
+import com.digitalasset.canton.data.{AbsoluteOffset, Offset}
 import com.digitalasset.canton.ledger.api.domain.types.ParticipantOffset
 import com.digitalasset.canton.ledger.api.domain.{CumulativeFilter, TransactionFilter, UpdateId}
 import com.digitalasset.canton.ledger.api.health.HealthStatus
@@ -38,7 +38,6 @@ import com.digitalasset.canton.metrics.LedgerApiServerMetrics
 import com.digitalasset.canton.pekkostreams.dispatcher.Dispatcher
 import com.digitalasset.canton.pekkostreams.dispatcher.DispatcherImpl.DispatcherIsClosedException
 import com.digitalasset.canton.pekkostreams.dispatcher.SubSource.RangeSource
-import com.digitalasset.canton.platform.ApiOffset.ApiOffsetConverter
 import com.digitalasset.canton.platform.index.IndexServiceImpl.*
 import com.digitalasset.canton.platform.store.cache.OffsetCheckpoint
 import com.digitalasset.canton.platform.store.dao.{
@@ -70,7 +69,7 @@ private[index] class IndexServiceImpl(
     commandCompletionsReader: LedgerDaoCommandCompletionsReader,
     contractStore: ContractStore,
     pruneBuffers: PruneBuffers,
-    dispatcher: () => Dispatcher[Offset],
+    dispatcher: () => Dispatcher[AbsoluteOffset],
     fetchOffsetCheckpoint: () => Option[OffsetCheckpoint],
     getPackageMetadataSnapshot: ContextualizedErrorLogger => PackageMetadata,
     metrics: LedgerApiServerMetrics,
@@ -113,15 +112,15 @@ private[index] class IndexServiceImpl(
     withValidatedFilter(transactionFilter, getPackageMetadataSnapshot(contextualizedErrorLogger)) {
       between(startExclusive, endInclusive) { (from, to) =>
         from.foreach(offset =>
-          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom, offset.toLong.toString)
+          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom, offset.toDecimalString)
         )
         to.foreach(offset =>
-          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetTo, offset.toLong.toString)
+          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetTo, offset.toDecimalString)
         )
         dispatcher()
           .startingAt(
-            from.getOrElse(Offset.beforeBegin),
-            RangeSource {
+            startExclusive = from,
+            subSource = RangeSource {
               val memoFilter =
                 memoizedTransactionFilterProjection(
                   getPackageMetadataSnapshot,
@@ -129,20 +128,26 @@ private[index] class IndexServiceImpl(
                   verbose,
                   alwaysPopulateArguments = false,
                 )
-              (startExclusive, endInclusive) =>
+              (startInclusive, endInclusive) =>
                 Source(memoFilter().toList)
                   .flatMapConcat { case (templateFilter, eventProjectionProperties) =>
                     transactionsReader
                       .getFlatTransactions(
-                        startExclusive,
-                        endInclusive,
+                        Offset.fromAbsoluteOffsetO(startInclusive.decrement),
+                        Offset.fromAbsoluteOffset(endInclusive),
                         templateFilter,
                         eventProjectionProperties,
                       )
+                      .map { case (offset, response) => (offset.toAbsoluteOffset, response) }
                   }
-                  .via(rangeDecorator(startExclusive, endInclusive))
+                  .via(
+                    rangeDecorator(
+                      startInclusive,
+                      endInclusive,
+                    )
+                  )
             },
-            to,
+            endInclusive = to,
           )
           // when a tailing stream is requested add checkpoint messages
           .via(
@@ -153,7 +158,6 @@ private[index] class IndexServiceImpl(
             )
           )
           .mapError(shutdownError)
-          .map(_._2)
           .buffered(metrics.index.flatTransactionsBufferSize, LedgerApiStreamsBufferSize)
       }.wireTap(
         _.update match {
@@ -177,18 +181,19 @@ private[index] class IndexServiceImpl(
       responseFromCheckpoint: OffsetCheckpoint => T,
       idleStreamOffsetCheckpointTimeout: NonNegativeFiniteDuration =
         idleStreamOffsetCheckpointTimeout,
-  ): Flow[(Offset, Carrier[T]), (Offset, T), NotUsed] =
+  ): Flow[(AbsoluteOffset, Carrier[T]), T, NotUsed] =
     if (cond) {
       // keepAlive flow so that we create a checkpoint for idle streams
-      Flow[(Offset, Carrier[T])]
+      Flow[(AbsoluteOffset, Carrier[T])]
         .keepAlive(
           idleStreamOffsetCheckpointTimeout.underlying,
-          () => (Offset.beforeBegin, Timeout), // the offset for timeout is ignored
+          () => (AbsoluteOffset.MaxValue, Timeout), // the offset for timeout is ignored
         )
         .via(injectCheckpoints(fetchOffsetCheckpoint, responseFromCheckpoint))
+        .map(_._2)
     } else
-      Flow[(Offset, Carrier[T])].collect { case (off, Element(elem)) =>
-        (off, elem)
+      Flow[(AbsoluteOffset, Carrier[T])].collect { case (_offset, Element(elem)) =>
+        elem
       }
 
   override def transactionTrees(
@@ -209,15 +214,15 @@ private[index] class IndexServiceImpl(
         else None // party-wildcard
       between(startExclusive, endInclusive) { (from, to) =>
         from.foreach(offset =>
-          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom, offset.toLong.toString)
+          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetFrom, offset.toDecimalString)
         )
         to.foreach(offset =>
-          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetTo, offset.toLong.toString)
+          Spans.setCurrentSpanAttribute(SpanAttribute.OffsetTo, offset.toDecimalString)
         )
         dispatcher()
           .startingAt(
-            from.getOrElse(Offset.beforeBegin),
-            RangeSource {
+            startExclusive = from,
+            subSource = RangeSource {
               val memoFilter =
                 memoizedTransactionFilterProjection(
                   getPackageMetadataSnapshot,
@@ -225,22 +230,23 @@ private[index] class IndexServiceImpl(
                   verbose,
                   alwaysPopulateArguments = true,
                 )
-              (startExclusive, endInclusive) =>
+              (startInclusive, endInclusive) =>
                 Source(memoFilter().toList)
                   .flatMapConcat { case (_, eventProjectionProperties) =>
                     transactionsReader
                       .getTransactionTrees(
-                        startExclusive,
-                        endInclusive,
+                        startExclusive = Offset.fromAbsoluteOffsetO(startInclusive.decrement),
+                        endInclusive = Offset.fromAbsoluteOffset(endInclusive),
                         // on the query filter side we treat every party as template-wildcard party,
                         // if the party-wildcard is given then the transactions for all the templates and all the parties are fetched
-                        parties,
-                        eventProjectionProperties,
+                        requestingParties = parties,
+                        eventProjectionProperties = eventProjectionProperties,
                       )
-                      .via(rangeDecorator(startExclusive, endInclusive))
+                      .map { case (offset, response) => (offset.toAbsoluteOffset, response) }
+                      .via(rangeDecorator(startInclusive, endInclusive))
                   }
             },
-            to,
+            endInclusive = to,
           )
           // when a tailing stream is requested add checkpoint messages
           .via(
@@ -251,7 +257,6 @@ private[index] class IndexServiceImpl(
             )
           )
           .mapError(shutdownError)
-          .map(_._2)
           .buffered(metrics.index.transactionTreesBufferSize, LedgerApiStreamsBufferSize)
       }.wireTap(
         _.update match {
@@ -277,13 +282,24 @@ private[index] class IndexServiceImpl(
       .flatMapConcat { beginOpt =>
         dispatcher()
           .startingAt(
-            beginOpt,
-            RangeSource((startExclusive, endInclusive) =>
+            startExclusive = beginOpt,
+            subSource = RangeSource((startInclusive, endInclusive) =>
               commandCompletionsReader
-                .getCommandCompletions(startExclusive, endInclusive, applicationId, parties)
-                .via(rangeDecorator(startExclusive, endInclusive))
+                .getCommandCompletions(
+                  Offset.fromAbsoluteOffsetO(startInclusive.decrement),
+                  Offset.fromAbsoluteOffset(endInclusive),
+                  applicationId,
+                  parties,
+                )
+                .map { case (offset, response) => (offset.toAbsoluteOffset, response) }
+                .via(
+                  rangeDecorator(
+                    startInclusive,
+                    endInclusive,
+                  )
+                )
             ),
-            None,
+            endInclusive = None,
           )
           .via(
             checkpointFlow(
@@ -293,7 +309,6 @@ private[index] class IndexServiceImpl(
             )
           )
           .mapError(shutdownError)
-          .map(_._2)
       }
       .buffered(metrics.index.completionsBufferSize, LedgerApiStreamsBufferSize)
 
@@ -311,7 +326,10 @@ private[index] class IndexServiceImpl(
         _ <- checkUnknownIdentifiers(transactionFilter, currentPackageMetadata).left
           .map(_.asGrpcError)
         endOffset = ledgerEnd()
-        _ <- validatedAcsActiveAtOffset(activeAt = activeAt, ledgerEnd = endOffset)
+        _ <- validatedAcsActiveAtOffset(
+          activeAt = activeAt,
+          ledgerEnd = Offset.fromAbsoluteOffsetO(endOffset),
+        )
       } yield {
         val activeContractsSource =
           Source(
@@ -399,7 +417,19 @@ private[index] class IndexServiceImpl(
   )(implicit loggingContext: LoggingContextWithTrace): Source[PartyEntry, NotUsed] =
     Source
       .future(concreteOffset(startExclusive))
-      .flatMapConcat(dispatcher().startingAt(_, RangeSource(ledgerDao.getPartyEntries)))
+      .flatMapConcat(offset =>
+        dispatcher().startingAt(
+          startExclusive = offset.toAbsoluteOffsetO,
+          subSource = RangeSource { case (startInclusive, endInclusive) =>
+            ledgerDao
+              .getPartyEntries(
+                Offset.fromAbsoluteOffsetO(startInclusive.decrement),
+                Offset.fromAbsoluteOffset(endInclusive),
+              )
+              .map { case (offset, entry) => (offset.toAbsoluteOffset, entry) }
+          },
+        )
+      )
       .mapError(shutdownError)
       .map {
         case (_, PartyLedgerEntry.AllocationRejected(subId, _, reason)) =>
@@ -435,45 +465,56 @@ private[index] class IndexServiceImpl(
     Future.successful(absoluteApiOffset)
   }
 
-  private def toApiOffset(ledgerDomainOffset: Offset): ParticipantOffset = {
-    val offset =
-      if (ledgerDomainOffset == Offset.beforeBegin) ApiOffset.begin
-      else ledgerDomainOffset
-    offset.toApiString
-  }
+  private def toApiOffset(ledgerDomainOffsetO: Option[AbsoluteOffset]): ParticipantOffset =
+    ledgerDomainOffsetO match {
+      case Some(ledgerDomainOffset) => ledgerDomainOffset.toHexString
+      case None => ApiOffset.begin.toHexString
+    }
 
-  private def ledgerEnd(): Offset = dispatcher().getHead()
+  private def ledgerEnd(): Option[AbsoluteOffset] = dispatcher().getHead()
 
   // Returns a function that memoizes the current end
   // Can be used directly or shared throughout a request processing
-  private def convertOffset: ParticipantOffset => Source[Offset, NotUsed] = { ledgerOffset =>
-    ApiOffset.tryFromString(ledgerOffset).fold(Source.failed, off => Source.single(off))
+  private def convertOffset: ParticipantOffset => Source[Option[AbsoluteOffset], NotUsed] = {
+    ledgerOffset =>
+      ApiOffset
+        .tryFromString(ledgerOffset)
+        .fold(Source.failed, off => Source.single(off.toAbsoluteOffsetO))
+  }
+
+  // TODO(#22293) when participant offset is replaced by an optional type, deduplicate with the above convertOffset
+  private def convertOffsetInclusive: ParticipantOffset => Source[AbsoluteOffset, NotUsed] = {
+    ledgerOffset =>
+      ApiOffset
+        .tryFromString(ledgerOffset)
+        .map(_.toAbsoluteOffset)
+        .fold(Source.failed, off => Source.single(off))
   }
 
   private def between[A](
       startExclusive: ParticipantOffset,
       endInclusive: Option[ParticipantOffset],
-  )(f: (Option[Offset], Option[Offset]) => Source[A, NotUsed])(implicit
+  )(f: (Option[AbsoluteOffset], Option[AbsoluteOffset]) => Source[A, NotUsed])(implicit
       loggingContext: LoggingContextWithTrace
   ): Source[A, NotUsed] = {
     val convert = convertOffset
     convert(startExclusive).flatMapConcat { begin =>
       endInclusive
-        .map(convert(_).map(Some(_)))
+        .map(convertOffsetInclusive(_).map(Some(_)))
         .getOrElse(Source.single(None))
         .flatMapConcat {
-          case Some(`begin`) =>
+          case Some(end) if begin.contains(end) =>
             Source.empty
-          case Some(end) if begin > end =>
+          case Some(end) if begin > Some(end) =>
             Source.failed(
               RequestValidationErrors.OffsetOutOfRange
                 .Reject(
-                  s"End offset ${end.toApiType} is before begin offset ${begin.toApiType}."
+                  s"End offset ${end.unwrap} is before begin offset ${begin.fold(0L)(_.unwrap)}."
                 )(ErrorLoggingContext(logger, loggingContext))
                 .asGrpcError
             )
-          case endOpt: Option[Offset] =>
-            f(Some(begin), endOpt)
+          case endOpt: Option[AbsoluteOffset] =>
+            f(begin, endOpt)
         }
     }
   }
@@ -785,33 +826,35 @@ object IndexServiceImpl {
   }
 
   // adds a RangeBegin message exactly before the original elements
-  // and adds a End message exactly after the original elements
+  // and a RangeEnd message exactly after the original elements
+  // the decorators are added along with the offset they are referring to
+  // the decorators' offsets are both inclusive
   private[index] def rangeDecorator[T](
-      startExclusive: Offset,
-      endInclusive: Offset,
-  ): Flow[(Offset, T), (Offset, Carrier[T]), NotUsed] =
-    Flow[(Offset, T)]
-      .map[(Offset, Carrier[T])] { case (off, elem) =>
+      startInclusive: AbsoluteOffset,
+      endInclusive: AbsoluteOffset,
+  ): Flow[(AbsoluteOffset, T), (AbsoluteOffset, Carrier[T]), NotUsed] =
+    Flow[(AbsoluteOffset, T)]
+      .map[(AbsoluteOffset, Carrier[T])] { case (off, elem) =>
         (off, Element(elem))
       }
-      .prepend(Source.single((startExclusive, RangeBegin)))
+      .prepend(
+        Source.single((startInclusive, RangeBegin))
+      )
       .concat(Source.single((endInclusive, RangeEnd)))
 
   def injectCheckpoints[T](
       fetchOffsetCheckpoint: () => Option[OffsetCheckpoint],
       responseFromCheckpoint: OffsetCheckpoint => T,
-  ): Flow[(Offset, Carrier[T]), (Offset, T), NotUsed] =
-    Flow[(Offset, Carrier[T])]
+  ): Flow[(AbsoluteOffset, Carrier[T]), (AbsoluteOffset, T), NotUsed] =
+    Flow[(AbsoluteOffset, Carrier[T])]
       .statefulMap[
-        (Option[OffsetCheckpoint], Option[OffsetCheckpoint], Option[(Offset, Carrier[T])]),
-        Seq[
-          (Offset, T)
-        ],
+        (Option[OffsetCheckpoint], Option[OffsetCheckpoint], Option[(AbsoluteOffset, Carrier[T])]),
+        Seq[(AbsoluteOffset, T)],
       ](create = () => (None, None, None))(
         f = { case ((lastFetchedCheckpointO, lastStreamedCheckpointO, processedElemO), elem) =>
           elem match {
             // range begin received
-            case (startExclusive, RangeBegin) =>
+            case (startInclusive, RangeBegin) =>
               val fetchedCheckpointO = fetchOffsetCheckpoint()
               // we allow checkpoints that predate the current range only for RangeBegin to allow checkpoints
               // that arrived delayed
@@ -819,15 +862,15 @@ object IndexServiceImpl {
                 if (fetchedCheckpointO != lastStreamedCheckpointO)
                   fetchedCheckpointO.collect {
                     case c: OffsetCheckpoint
-                        if c.offset == startExclusive
-                          && c.offset >= processedElemO.map(_._1).getOrElse(Offset.beforeBegin) =>
+                        if Some(c.offset) == startInclusive.decrement
+                          && Option(c.offset) >= processedElemO.map(_._1) =>
                       (c.offset, responseFromCheckpoint(c))
                   }.toList
                 else Seq.empty
               val streamedCheckpointO =
                 if (response.nonEmpty) fetchedCheckpointO else lastStreamedCheckpointO
               val relevantCheckpointO = fetchedCheckpointO.collect {
-                case c: OffsetCheckpoint if c.offset > startExclusive => c
+                case c: OffsetCheckpoint if c.offset >= startInclusive => c
               }
               ((relevantCheckpointO, streamedCheckpointO, Some(elem)), response)
             // regular element received
@@ -860,11 +903,14 @@ object IndexServiceImpl {
                 case c: OffsetCheckpoint
                     if lastStreamedCheckpointO.fold(true)(_.offset < c.offset) &&
                       // check that we are not in the middle of a range
-                      processedElemO.fold(false)(e => e._2.isRangeEnd && e._1 == c.offset) =>
+                      processedElemO
+                        .fold(false)(e => e._2.isRangeEnd && e._1 == c.offset) =>
                   c
               }
               val response =
-                relevantCheckpointO.map(c => (c.offset, responseFromCheckpoint(c))).toList
+                relevantCheckpointO
+                  .map(c => (c.offset, responseFromCheckpoint(c)))
+                  .toList
               (
                 (
                   relevantCheckpointO.orElse(lastFetchedCheckpointO),

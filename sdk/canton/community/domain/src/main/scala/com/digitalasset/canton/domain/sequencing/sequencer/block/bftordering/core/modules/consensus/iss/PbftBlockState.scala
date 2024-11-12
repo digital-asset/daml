@@ -77,7 +77,7 @@ sealed trait PbftBlockState extends NamedLogging {
 object PbftBlockState {
 
   @SuppressWarnings(Array("org.wartremover.warts.Var"))
-  class InProgress(
+  final class InProgress(
       membership: Membership,
       clock: Clock,
       override val leader: SequencerId,
@@ -319,7 +319,7 @@ object PbftBlockState {
             logger.warn(
               s"Found non-matching hashes for prepare messages from peers (${nonMatchingHash.map(_.from)})"
             )
-          matchingHash.size >= membership.orderingTopology.strongQuorum
+          matchingHash.sizeIs >= membership.orderingTopology.strongQuorum
         }
         // we send our local commit if we have reached a quorum of prepares for the first time.
         // Also, because we store the quorum of prepares together with sending this commit,
@@ -332,7 +332,7 @@ object PbftBlockState {
         val hash = pp.message.hash
         val (matchingHash, nonMatchingHash) = commitMap.values.partition(_.message.hash == hash)
         val result =
-          matchingHash.size >= membership.orderingTopology.strongQuorum && myCommit.isDefined && !committed && preparesStored
+          matchingHash.sizeIs >= membership.orderingTopology.strongQuorum && myCommit.isDefined && !committed && preparesStored
         if (nonMatchingHash.nonEmpty)
           logger.warn(
             s"Found non-matching hashes for commit messages from peers (${nonMatchingHash.map(_.from)})"
@@ -399,7 +399,7 @@ object PbftBlockState {
         None
   }
 
-  class AlreadyOrdered(
+  final class AlreadyOrdered(
       override val leader: SequencerId,
       commitCertificate: CommitCertificate,
       override val loggerFactory: NamedLoggerFactory,

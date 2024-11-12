@@ -1403,7 +1403,7 @@ object PekkoUtil extends HasLoggerName {
     }
 
     def enqueue(elem: T): Future[Done] = blockingSynchronized {
-      if (blocked.size >= maxBlocked) {
+      if (blocked.sizeIs >= maxBlocked) {
         // consumer backpressures, consumer buffer is full, maximum number of blocked offer Futures exhausted, replying error
         // synchronous result
         Future.failed(
@@ -1411,7 +1411,7 @@ object PekkoUtil extends HasLoggerName {
             s"Too many parallel offer calls. Maximum allowed parallel offer calls: $maxBlocked"
           )
         )
-      } else if (buffered.size >= bufferSize) {
+      } else if (buffered.sizeIs >= bufferSize) {
         // consumer backpressures, consumer buffer is full, result is blocking until buffer is drained by consumer
         // asynchronous result
         val blockingPromise = Promise[Done]()

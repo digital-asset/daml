@@ -103,9 +103,7 @@ object EventProjectionProperties {
         // filters for any party (party-wildcard) is not defined, getting the template wildcard witnesses from the filters by party
         case None =>
           Some(
-            domainTransactionFilter.filtersByParty.keysIterator
-              .map(_.toString)
-              .toSet
+            domainTransactionFilter.filtersByParty.keysIterator.toSet
           )
       }
     } else
@@ -114,13 +112,10 @@ object EventProjectionProperties {
         // filters for any party (party-wildcard) not defined at all or defined but for specific templates, getting the template wildcard witnesses from the filters by party
         case _ =>
           Some(
-            domainTransactionFilter.filtersByParty.iterator
-              .collect {
-                case (party, cumulative) if cumulative.templateWildcardFilter.isDefined =>
-                  party
-              }
-              .map(_.toString)
-              .toSet
+            domainTransactionFilter.filtersByParty.iterator.collect {
+              case (party, cumulative) if cumulative.templateWildcardFilter.isDefined =>
+                party
+            }.toSet
           )
       }
 

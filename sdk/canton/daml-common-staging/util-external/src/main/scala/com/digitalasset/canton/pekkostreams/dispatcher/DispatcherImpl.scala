@@ -3,20 +3,22 @@
 
 package com.digitalasset.canton.pekkostreams.dispatcher
 
+import com.digitalasset.canton.pekkostreams.dispatcher.DispatcherImpl.Incrementable
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 import org.slf4j.LoggerFactory
 
 import java.util.concurrent.atomic.AtomicReference
-import scala.collection.immutable
 import scala.concurrent.Future
+import scala.math.Ordered.orderingToOrdered
 
-final class DispatcherImpl[Index: Ordering](
+final class DispatcherImpl[Index <: Ordered[Index] & Incrementable[Index]](
     name: String,
-    zeroIndex: Index,
-    headAtInitialization: Index,
+    firstIndex: Index,
+    headAtInitialization: Option[Index],
 ) extends Dispatcher[Index] {
   import DispatcherImpl.DispatcherIsClosedException
+
   private type State = DispatcherImpl.State[Index]
   private type Closed = DispatcherImpl.Closed[Index]
   private val Running = DispatcherImpl.Running
@@ -25,8 +27,8 @@ final class DispatcherImpl[Index: Ordering](
   private val logger = LoggerFactory.getLogger(getClass)
 
   require(
-    !indexIsBeforeZero(headAtInitialization),
-    s"head supplied at Dispatcher initialization $headAtInitialization is before zero index $zeroIndex. " +
+    !indexIsBeforeFirst(headAtInitialization),
+    s"head supplied at Dispatcher initialization $headAtInitialization is before first index $firstIndex. " +
       s"This would imply that the ledger end is before the ledger begin, which makes this invalid configuration.",
   )
 
@@ -39,7 +41,7 @@ final class DispatcherImpl[Index: Ordering](
   private val state = new AtomicReference[State](Running(headAtInitialization, SignalDispatcher()))
 
   /** returns the head index where this Dispatcher is at */
-  override def getHead(): Index = state.get.getLastIndex
+  override def getHead(): Option[Index] = state.get.getLastIndex
 
   /** Signal to this Dispatcher that there's a new head `Index`.
     * The Dispatcher will emit values on all streams until the new head is reached.
@@ -48,41 +50,46 @@ final class DispatcherImpl[Index: Ordering](
     state
       .getAndUpdate {
         case original @ Running(prev, disp) =>
-          if (Ordering[Index].gt(head, prev)) Running(head, disp) else original
+          if (prev < Some(head)) Running(Some(head), disp) else original
         case c: Closed => c
       } match {
       case Running(prev, disp) =>
-        if (Ordering[Index].gt(head, prev)) disp.signal()
+        if (prev < Some(head)) disp.signal()
       case _: Closed =>
         logger.debug(s"$name: Failed to update Dispatcher HEAD: instance already closed.")
     }
 
   // noinspection MatchToPartialFunction, ScalaUnusedSymbol
   override def startingAt[T](
-      startExclusive: Index,
+      startExclusive: Option[Index],
       subsource: SubSource[Index, T],
       endInclusive: Option[Index] = None,
-  ): Source[(Index, T), NotUsed] =
-    if (indexIsBeforeZero(startExclusive))
+  ): Source[(Index, T), NotUsed] = {
+    val startInclusive = startExclusive.fold(firstIndex)(_.increment)
+    if (indexIsBeforeFirst(Some(startInclusive)))
       Source.failed(
         new IllegalArgumentException(
-          s"$name: Invalid start index: '$startExclusive' before zero index '$zeroIndex'"
+          s"$name: Invalid start index: '$startInclusive' before first index '$firstIndex'"
         )
       )
-    else if (endInclusive.exists(Ordering[Index].gt(startExclusive, _)))
+    else if (endInclusive.exists(end => startInclusive > end))
       Source.failed(
         new IllegalArgumentException(
-          s"$name: Invalid index section: start '$startExclusive' is after end '$endInclusive'"
+          s"$name: Invalid index section: start '$startInclusive' is after end '$endInclusive'"
         )
       )
     else {
-      val subscription = state.get.getSignalDispatcher.fold(Source.failed[Index](closedError))(
-        _.subscribe(signalOnSubscribe = true)
-          // This needs to call getHead directly, otherwise this subscription might miss a Signal being emitted
-          .map(_ => getHead())
-      )
+      val subscription: Source[Index, NotUsed] =
+        state.get.getSignalDispatcher
+          .fold(Source.failed[Option[Index]](closedError))(
+            _.subscribe(signalOnSubscribe = true)
+              // This needs to call getHead directly, otherwise this subscription might miss a Signal being emitted
+              .map(_ => getHead())
+          )
+          // discard uninitialized offset
+          .collect { case Some(off) => off }
 
-      val withOptionalEnd =
+      val withOptionalEnd: Source[Index, NotUsed] =
         endInclusive.fold(subscription)(maxLedgerEnd =>
           // If we detect that the __signal__ (i.e. new ledger end updates) goes beyond the provided max ledger end,
           // we can complete the stream from the upstream direction and are not dependent on doing the filtering
@@ -90,38 +97,38 @@ final class DispatcherImpl[Index: Ordering](
           // the ledger end having moved after a package upload or party allocation)
           subscription
             // accept ledger end signals until the signal exceeds the requested max ledger end.
-            // the last offset that we should emit here is maxLedgerEnd-1, but we cannot do this
-            // because here we only know that the Index type is order-able.
-            .takeWhile(Ordering[Index].lt(_, maxLedgerEnd), inclusive = true)
+            // the last offset that we should emit here is maxLedgerEnd
+            .takeWhile(_ < maxLedgerEnd, inclusive = true)
             .map(Ordering[Index].min(_, maxLedgerEnd))
         )
 
       withOptionalEnd
-        .statefulMapConcat(() => new ContinuousRangeEmitter(startExclusive))
+        .statefulMap(create = () => startInclusive)(
+          f = continuousRangeEmitter,
+          onComplete = _ => None,
+        )
+        .mapConcat(identity)
         .flatMapConcat { case (previousHead, head) =>
           subsource(previousHead, head)
         }
     }
-
-  @SuppressWarnings(Array("org.wartremover.warts.Var"))
-  private class ContinuousRangeEmitter(
-      private var max: Index
-  ) // var doesn't need to be synchronized, it is accessed in a GraphStage.
-      extends (Index => immutable.Iterable[(Index, Index)]) {
-
-    /** @return if param  > [[max]] : a list with a single pair representing a ([max, param[) range, and also stores param in [[max]].
-      *         Nil otherwise.
-      */
-    override def apply(newHead: Index): immutable.Iterable[(Index, Index)] =
-      if (Ordering[Index].gt(newHead, max)) {
-        val intervalBegin = max
-        max = newHead
-        List(intervalBegin -> newHead)
-      } else Nil
   }
 
-  private def indexIsBeforeZero(checkedIndex: Index): Boolean =
-    Ordering[Index].gt(zeroIndex, checkedIndex)
+//   if newHead >= inclusiveBegin returns a list with a single pair representing a ([inclusiveBegin, param]) range, and
+//   newHead + 1 as the the next inclusiveBegin state,
+//   Nil and the same state, otherwise.
+  private def continuousRangeEmitter: (Index, Index) => (Index, List[(Index, Index)]) =
+    (inclusiveBegin, newHead) =>
+      if (newHead >= inclusiveBegin) {
+        val nextInclusiveBegin = newHead.increment
+        (nextInclusiveBegin, List(inclusiveBegin -> newHead))
+      } else (inclusiveBegin, Nil)
+
+  private def indexIsBeforeFirst(checkedIndexO: Option[Index]): Boolean =
+    checkedIndexO match {
+      case Some(idx) => idx < firstIndex
+      case None => false
+    }
 
   override def shutdown(): Future[Unit] =
     shutdownInternal { dispatcher =>
@@ -152,19 +159,26 @@ object DispatcherImpl {
   private sealed abstract class State[Index] extends Product with Serializable {
     def getSignalDispatcher: Option[SignalDispatcher]
 
-    def getLastIndex: Index
+    def getLastIndex: Option[Index]
   }
 
-  private final case class Running[Index](lastIndex: Index, signalDispatcher: SignalDispatcher)
-      extends State[Index] {
-    override def getLastIndex: Index = lastIndex
+  private final case class Running[Index](
+      lastIndex: Option[Index],
+      signalDispatcher: SignalDispatcher,
+  ) extends State[Index] {
+    override def getLastIndex: Option[Index] = lastIndex
 
     override def getSignalDispatcher: Option[SignalDispatcher] = Some(signalDispatcher)
   }
 
-  private final case class Closed[Index](lastIndex: Index) extends State[Index] {
-    override def getLastIndex: Index = lastIndex
+  private final case class Closed[Index](lastIndex: Option[Index]) extends State[Index] {
+    override def getLastIndex: Option[Index] = lastIndex
 
     override def getSignalDispatcher: Option[SignalDispatcher] = None
   }
+
+  trait Incrementable[T] extends Any {
+    def increment: T
+  }
+
 }

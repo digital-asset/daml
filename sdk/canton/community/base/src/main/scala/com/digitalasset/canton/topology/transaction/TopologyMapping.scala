@@ -429,7 +429,7 @@ object NamespaceDelegation {
     sit.mapping
       .select[transaction.NamespaceDelegation]
       .exists(ns =>
-        sit.signatures.size == 1 &&
+        sit.signatures.sizeIs == 1 &&
           sit.signatures.head1.signedBy == ns.namespace.fingerprint &&
           ns.isRootDelegation &&
           ns.target.fingerprint == ns.namespace.fingerprint
@@ -522,7 +522,7 @@ object DecentralizedNamespaceDefinition {
   ): Either[String, DecentralizedNamespaceDefinition] =
     for {
       _ <- Either.cond(
-        owners.size >= threshold.value,
+        owners.sizeIs >= threshold.value,
         (),
         s"Invalid threshold ($threshold) for $decentralizedNamespace with ${owners.size} owners",
       )
@@ -747,7 +747,7 @@ object PartyToKeyMapping {
       signingKeys: NonEmpty[Seq[SigningPublicKey]],
   ): Either[String, PartyToKeyMapping] = {
     val noDuplicateKeys = {
-      val duplicateKeys = signingKeys.groupBy(_.fingerprint).values.filter(_.size > 1).toList
+      val duplicateKeys = signingKeys.groupBy(_.fingerprint).values.filter(_.sizeIs > 1).toList
       Either.cond(
         duplicateKeys.isEmpty,
         (),
@@ -1352,7 +1352,7 @@ object PartyToParticipant {
   ): Either[String, PartyToParticipant] = {
     val noDuplicatePParticipants = {
       val duplicatePermissions =
-        participants.groupBy(_.participantId).values.filter(_.size > 1).toList
+        participants.groupBy(_.participantId).values.filter(_.sizeIs > 1).toList
       Either.cond(
         duplicatePermissions.isEmpty,
         (),

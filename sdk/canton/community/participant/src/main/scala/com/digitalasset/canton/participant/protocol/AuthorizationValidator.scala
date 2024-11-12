@@ -141,7 +141,7 @@ class AuthorizationValidator(participantId: ParticipantId, enableExternalAuthori
                       if (invalidFingerprints.nonEmpty) {
                         Some(p)
                       } else {
-                        Option.when(signedFingerprints.size < info.threshold.unwrap)(p)
+                        Option.when(signedFingerprints.sizeIs < info.threshold.unwrap)(p)
                       }
                     case None =>
                       Some(p)

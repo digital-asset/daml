@@ -54,7 +54,7 @@ import com.digitalasset.canton.protocol.SerializableContract.LedgerCreateTime
 import com.digitalasset.canton.protocol.{LfChoiceName, *}
 import com.digitalasset.canton.store.SequencedEventStore
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.PekkoUtil.FutureQueue
@@ -1018,7 +1018,7 @@ final class RepairService(
       contracts: Seq[SerializableContract],
       hostedWitnesses: Seq[LfPartyId],
       repair: RepairRequest,
-      repairIndexer: FutureQueue[Traced[Update]],
+      repairIndexer: FutureQueue[Update],
   )(implicit traceContext: TraceContext): Future[Unit] = {
     val nodeIds = LazyList.from(0).map(LfNodeId)
     val txNodes = nodeIds.zip(contracts.map(toArchive)).toMap
@@ -1055,7 +1055,7 @@ final class RepairService(
       ),
     )
     // not waiting for Update.persisted, since CommitRepair anyway will be waited for at the end
-    repairIndexer.offer(Traced(update)).map(_ => ())
+    repairIndexer.offer(update).map(_ => ())
   }
 
   private def prepareAddedEvents(
@@ -1065,45 +1065,43 @@ final class RepairService(
       ledgerCreateTime: LedgerCreateTime,
       contractsAdded: Seq[ContractToAdd],
       workflowIdProvider: () => Option[LfWorkflowId],
-  )(implicit traceContext: TraceContext): Traced[Update] = {
+  )(implicit traceContext: TraceContext): Update = {
     val contractMetadata = contractsAdded.view
       .map(c => c.contract.contractId -> c.driverMetadata(repair.domain.parameters.protocolVersion))
       .toMap
     val nodeIds = LazyList.from(0).map(LfNodeId)
     val txNodes = nodeIds.zip(contractsAdded.map(_.contract.toLf)).toMap
-    Traced(
-      Update.TransactionAccepted(
-        completionInfoO = None,
-        transactionMeta = TransactionMeta(
-          ledgerEffectiveTime = ledgerCreateTime.toLf,
-          workflowId = workflowIdProvider(),
-          submissionTime = repair.timestamp.toLf,
-          submissionSeed = Update.noOpSeed,
-          optUsedPackages = None,
-          optNodeSeeds = None,
-          optByKeyNodes = None,
-        ),
-        transaction = LfCommittedTransaction(
-          CantonOnly.lfVersionedTransaction(
-            nodes = txNodes,
-            roots = ImmArray.from(nodeIds.take(txNodes.size)),
+    Update.TransactionAccepted(
+      completionInfoO = None,
+      transactionMeta = TransactionMeta(
+        ledgerEffectiveTime = ledgerCreateTime.toLf,
+        workflowId = workflowIdProvider(),
+        submissionTime = repair.timestamp.toLf,
+        submissionSeed = Update.noOpSeed,
+        optUsedPackages = None,
+        optNodeSeeds = None,
+        optByKeyNodes = None,
+      ),
+      transaction = LfCommittedTransaction(
+        CantonOnly.lfVersionedTransaction(
+          nodes = txNodes,
+          roots = ImmArray.from(nodeIds.take(txNodes.size)),
+        )
+      ),
+      updateId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId,
+      recordTime = repair.timestamp.toLf,
+      hostedWitnesses = contractsAdded.flatMap(_.witnesses.intersect(hostedParties)).toList,
+      contractMetadata = contractMetadata,
+      domainId = repair.domain.id,
+      domainIndex = Some(
+        DomainIndex.of(
+          RequestIndex(
+            counter = requestCounter,
+            sequencerCounter = None,
+            timestamp = repair.timestamp,
           )
-        ),
-        updateId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId,
-        recordTime = repair.timestamp.toLf,
-        hostedWitnesses = contractsAdded.flatMap(_.witnesses.intersect(hostedParties)).toList,
-        contractMetadata = contractMetadata,
-        domainId = repair.domain.id,
-        domainIndex = Some(
-          DomainIndex.of(
-            RequestIndex(
-              counter = requestCounter,
-              sequencerCounter = None,
-              timestamp = repair.timestamp,
-            )
-          )
-        ),
-      )
+        )
+      ),
     )
   }
 
@@ -1112,7 +1110,7 @@ final class RepairService(
       hostedParties: Set[LfPartyId],
       contractsAdded: Seq[(TimeOfChange, (LedgerCreateTime, Seq[ContractToAdd]))],
       workflowIds: Iterator[Option[LfWorkflowId]],
-      repairIndexer: FutureQueue[Traced[Update]],
+      repairIndexer: FutureQueue[Update],
   )(implicit traceContext: TraceContext): Future[Unit] =
     MonadUtil.sequentialTraverse_(contractsAdded) {
       case (timeOfChange, (timestamp, contractsToAdd)) =>
@@ -1411,8 +1409,8 @@ final class RepairService(
 
   override protected def onClosed(): Unit = Lifecycle.close(executionQueue)(logger)
 
-  private def withRepairIndexer(code: FutureQueue[Traced[Update]] => EitherT[Future, String, Unit])(
-      implicit traceContext: TraceContext
+  private def withRepairIndexer(code: FutureQueue[Update] => EitherT[Future, String, Unit])(implicit
+      traceContext: TraceContext
   ): EitherT[Future, String, Unit] =
     if (domainLookup.isConnectedToAnyDomain) {
       EitherT.leftT[Future, Unit](

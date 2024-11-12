@@ -10,6 +10,8 @@ import cats.syntax.traverse.*
 import com.daml.error.{ErrorCategory, ErrorCode, Explanation, Resolution}
 import com.daml.nonempty.NonEmpty
 import com.digitalasset.canton.ProtoDeserializationError
+import com.digitalasset.canton.crypto.CryptoPureApiError.KeyParseAndValidateError
+import com.digitalasset.canton.crypto.SigningPublicKey.getDataForFingerprint
 import com.digitalasset.canton.crypto.store.{CryptoPrivateStoreError, CryptoPrivateStoreExtended}
 import com.digitalasset.canton.error.{BaseCantonError, CantonErrorGroups}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
@@ -27,7 +29,12 @@ import com.digitalasset.canton.version.{
   ProtoVersion,
   ProtocolVersion,
 }
+import com.google.common.annotations.VisibleForTesting
 import com.google.protobuf.ByteString
+import org.bouncycastle.asn1.edec.EdECObjectIdentifiers
+import org.bouncycastle.asn1.pkcs.PrivateKeyInfo
+import org.bouncycastle.asn1.x509.{AlgorithmIdentifier, SubjectPublicKeyInfo}
+import org.bouncycastle.asn1.{ASN1OctetString, DEROctetString}
 import slick.jdbc.GetResult
 
 import scala.annotation.nowarn
@@ -607,15 +614,18 @@ object SigningKeyPair {
     throw new UnsupportedOperationException("Use generate or deserialization methods")
 
   private[crypto] def create(
-      format: CryptoKeyFormat,
+      publicFormat: CryptoKeyFormat,
       publicKeyBytes: ByteString,
+      privateFormat: CryptoKeyFormat,
       privateKeyBytes: ByteString,
       keySpec: SigningKeySpec,
       usage: NonEmpty[Set[SigningKeyUsage]],
   ): SigningKeyPair = {
-    val publicKey = new SigningPublicKey(format, publicKeyBytes, keySpec, usage)
+    val publicKey = SigningPublicKey
+      .create(publicFormat, publicKeyBytes, keySpec, usage)
+      .valueOr(err => throw new IllegalStateException(s"Failed to create public signing key: $err"))
     val privateKey =
-      new SigningPrivateKey(publicKey.id, format, privateKeyBytes, keySpec, usage)
+      SigningPrivateKey.create(publicKey.id, privateFormat, privateKeyBytes, keySpec, usage)
     new SigningKeyPair(publicKey, privateKey)
   }
 
@@ -641,6 +651,9 @@ final case class SigningPublicKey private[crypto] (
     protected[crypto] val key: ByteString,
     keySpec: SigningKeySpec,
     usage: NonEmpty[Set[SigningKeyUsage]] = SigningKeyUsage.All,
+    override protected val dataForFingerprintO: Option[ByteString],
+)(
+    override val migrated: Boolean = false
 ) extends PublicKey
     with PrettyPrinting
     with HasVersionedWrapper[SigningPublicKey] {
@@ -675,6 +688,50 @@ final case class SigningPublicKey private[crypto] (
   override protected def pretty: Pretty[SigningPublicKey] =
     prettyOfClass(param("id", _.id), param("format", _.format), param("keySpec", _.keySpec))
 
+  private def migrate(): Either[KeyParseAndValidateError, Option[SigningPublicKey]] =
+    (keySpec, format) match {
+      case (SigningKeySpec.EcCurve25519, CryptoKeyFormat.Raw) =>
+        val algoId = new AlgorithmIdentifier(EdECObjectIdentifiers.id_Ed25519)
+        val subjectPublicKeyInfo =
+          new SubjectPublicKeyInfo(algoId, key.toByteArray).getEncoded
+
+        val newFormat = CryptoKeyFormat.DerX509Spki
+        val newKey = ByteString.copyFrom(subjectPublicKeyInfo)
+
+        for {
+          dataForFingerprintO <- getDataForFingerprint(keySpec, newFormat, newKey)
+        } yield Some(
+          SigningPublicKey(newFormat, newKey, keySpec, usage, dataForFingerprintO)(migrated = true)
+        )
+
+      case _ => Right(None)
+    }
+
+  @VisibleForTesting
+  // Inverse operation from migrate(): used in tests to produce legacy keys.
+  private[canton] def reverseMigrate(): Option[SigningPublicKey] = this match {
+    case SigningPublicKey(
+          CryptoKeyFormat.DerX509Spki,
+          key,
+          SigningKeySpec.EcCurve25519,
+          usage,
+          _dataForFingerprintO,
+        ) =>
+      val subjectPublicKeyInfo = SubjectPublicKeyInfo.getInstance(key.toByteArray)
+      val publicKeyData = subjectPublicKeyInfo.getPublicKeyData.getBytes
+
+      Some(
+        SigningPublicKey(
+          CryptoKeyFormat.Raw,
+          ByteString.copyFrom(publicKeyData),
+          SigningKeySpec.EcCurve25519,
+          usage,
+          dataForFingerprintO = None,
+        )()
+      )
+
+    case _ => None
+  }
 }
 
 object SigningPublicKey
@@ -690,13 +747,52 @@ object SigningPublicKey
     )
   )
 
+  private def getDataForFingerprint(
+      keySpec: SigningKeySpec,
+      format: CryptoKeyFormat,
+      key: ByteString,
+  ): Either[KeyParseAndValidateError, Option[ByteString]] =
+    (format, keySpec) match {
+      case (CryptoKeyFormat.DerX509Spki, SigningKeySpec.EcCurve25519) =>
+        // To be backward-compatible, the hash for the fingerprint must apply only to the "raw" public key
+        for {
+          publicKeyData <- Either
+            .catchOnly[IllegalArgumentException] {
+              val subjectPublicKeyInfo = SubjectPublicKeyInfo.getInstance(key.toByteArray)
+              subjectPublicKeyInfo.getPublicKeyData.getBytes
+            }
+            .leftMap(err => KeyParseAndValidateError(s"Failed to parse public key: $err"))
+        } yield Some(ByteString.copyFrom(publicKeyData))
+
+      case _ => Right(None)
+    }
+
   private[crypto] def create(
       format: CryptoKeyFormat,
       key: ByteString,
       keySpec: SigningKeySpec,
-      usage: NonEmpty[Set[SigningKeyUsage]],
+      usage: NonEmpty[Set[SigningKeyUsage]] = SigningKeyUsage.All,
   ): Either[ProtoDeserializationError.CryptoDeserializationError, SigningPublicKey] =
-    new SigningPublicKey(format, key, keySpec, usage).validated
+    for {
+      dataForFingerprintO <- getDataForFingerprint(keySpec, format, key).leftMap(err =>
+        ProtoDeserializationError.CryptoDeserializationError(DefaultDeserializationError(s"$err"))
+      )
+      keyBeforeMigration = SigningPublicKey(format, key, keySpec, usage, dataForFingerprintO)()
+      keyAfterMigrationO <- keyBeforeMigration
+        .migrate()
+        .leftMap(err =>
+          ProtoDeserializationError.CryptoDeserializationError(DefaultDeserializationError(s"$err"))
+        )
+      keyAfterMigration = keyAfterMigrationO match {
+        case None => keyBeforeMigration
+        case Some(migratedKey) if migratedKey.id == keyBeforeMigration.id => migratedKey
+        case Some(migratedKey) =>
+          throw new IllegalStateException(
+            s"Key ID changed: ${keyBeforeMigration.id} -> ${migratedKey.id}"
+          )
+      }
+      validatedKey <- keyAfterMigration.validated
+    } yield validatedKey
 
   @nowarn("cat=deprecation")
   // If we end up deserializing from a proto version that does not have any usage, set it to `All`.
@@ -722,7 +818,6 @@ object SigningPublicKey
     initialKeys.map { case (k, v) =>
       (k, v.collect { case x: SigningPublicKey => x })
     }
-
 }
 
 final case class SigningPublicKeyWithName(
@@ -747,15 +842,16 @@ object SigningPublicKeyWithName {
   }
 }
 
-final case class SigningPrivateKey private[crypto] (
+final case class SigningPrivateKey private (
     id: Fingerprint,
     format: CryptoKeyFormat,
     protected[crypto] val key: ByteString,
     keySpec: SigningKeySpec,
     usage: NonEmpty[Set[SigningKeyUsage]],
+)(
+    override val migrated: Boolean = false
 ) extends PrivateKey
-    with HasVersionedWrapper[SigningPrivateKey]
-    with NoCopy {
+    with HasVersionedWrapper[SigningPrivateKey] {
 
   override protected def companionObj: SigningPrivateKey.type = SigningPrivateKey
 
@@ -774,6 +870,49 @@ final case class SigningPrivateKey private[crypto] (
 
   override protected def toProtoPrivateKeyKeyV30: v30.PrivateKey.Key =
     v30.PrivateKey.Key.SigningPrivateKey(toProtoV30)
+
+  private def migrate(): Option[SigningPrivateKey] = (keySpec, format) match {
+    case (SigningKeySpec.EcCurve25519, CryptoKeyFormat.Raw) =>
+      val algoId = new AlgorithmIdentifier(EdECObjectIdentifiers.id_Ed25519)
+      val privateKeyInfo = new PrivateKeyInfo(
+        algoId,
+        new DEROctetString(key.toByteArray),
+      ).getEncoded
+
+      val newFormat = CryptoKeyFormat.DerPkcs8Pki
+      val newKey = ByteString.copyFrom(privateKeyInfo)
+
+      Some(SigningPrivateKey(id, newFormat, newKey, keySpec, usage)(migrated = true))
+
+    case _ => None
+  }
+
+  @VisibleForTesting
+  // Inverse operation from migrate(): used in tests to produce legacy keys.
+  private[canton] def reverseMigrate(): Option[SigningPrivateKey] = this match {
+    case SigningPrivateKey(
+          id,
+          CryptoKeyFormat.DerPkcs8Pki,
+          key,
+          SigningKeySpec.EcCurve25519,
+          usage,
+        ) =>
+      val privateKeyInfo = PrivateKeyInfo.getInstance(key.toByteArray)
+      val privateKeyData =
+        ASN1OctetString.getInstance(privateKeyInfo.getPrivateKey.getOctets).getOctets
+
+      Some(
+        new SigningPrivateKey(
+          id,
+          CryptoKeyFormat.Raw,
+          ByteString.copyFrom(privateKeyData),
+          SigningKeySpec.EcCurve25519,
+          usage,
+        )()
+      )
+
+    case _ => None
+  }
 }
 
 object SigningPrivateKey extends HasVersionedMessageCompanion[SigningPrivateKey] {
@@ -787,6 +926,19 @@ object SigningPrivateKey extends HasVersionedMessageCompanion[SigningPrivateKey]
 
   override def name: String = "signing private key"
 
+  private[crypto] def create(
+      id: Fingerprint,
+      format: CryptoKeyFormat,
+      key: ByteString,
+      keySpec: SigningKeySpec,
+      usage: NonEmpty[Set[SigningKeyUsage]],
+  ): SigningPrivateKey = {
+    val keyBeforeMigration = SigningPrivateKey(id, format, key, keySpec, usage)()
+    val keyAfterMigration = keyBeforeMigration.migrate().getOrElse(keyBeforeMigration)
+
+    keyAfterMigration
+  }
+
   @nowarn("cat=deprecation")
   def fromProtoV30(
       privateKeyP: v30.SigningPrivateKey
@@ -799,7 +951,7 @@ object SigningPrivateKey extends HasVersionedMessageCompanion[SigningPrivateKey]
         privateKeyP.scheme,
       )
       usage <- SigningKeyUsage.fromProtoListWithDefault(privateKeyP.usage)
-    } yield new SigningPrivateKey(id, format, privateKeyP.privateKey, keySpec, usage)
+    } yield SigningPrivateKey.create(id, format, privateKeyP.privateKey, keySpec, usage)
 
 }
 

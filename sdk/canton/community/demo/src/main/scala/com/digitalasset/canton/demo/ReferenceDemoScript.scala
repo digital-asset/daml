@@ -268,7 +268,7 @@ class ReferenceDemoScript(
                 .hosted(filterParty = name)
                 .flatMap(_.participants)
                 .flatMap(_.domains)
-                .length == domains.length
+                .sizeIs == domains.size
             }
             // Force the time proofs to be updated after topology transactions
             // TODO(i13200) The following line can be removed once the ticket is closed

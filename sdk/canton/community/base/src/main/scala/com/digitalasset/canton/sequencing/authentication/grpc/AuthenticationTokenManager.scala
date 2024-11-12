@@ -48,13 +48,7 @@ class AuthenticationTokenManager(
     protected val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging {
-
-  sealed trait State
-  case object NoToken extends State
-  case class Refreshing(
-      pending: EitherT[FutureUnlessShutdown, Status, AuthenticationTokenWithExpiry]
-  ) extends State
-  case class HaveToken(token: AuthenticationToken) extends State
+  import AuthenticationTokenManager.*
 
   private val state = new AtomicReference[State](NoToken)
 
@@ -179,4 +173,13 @@ class AuthenticationTokenManager(
       }
     }
 
+}
+
+object AuthenticationTokenManager {
+  sealed trait State
+  case object NoToken extends State
+  final case class Refreshing(
+      pending: EitherT[FutureUnlessShutdown, Status, AuthenticationTokenWithExpiry]
+  ) extends State
+  final case class HaveToken(token: AuthenticationToken) extends State
 }

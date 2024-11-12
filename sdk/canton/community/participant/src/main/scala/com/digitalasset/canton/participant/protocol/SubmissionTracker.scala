@@ -237,7 +237,7 @@ class SubmissionTrackerImpl private[protocol] (protocolVersion: ProtocolVersion)
   ): Unit =
     pendingRequests
       .updateWith(rootHash) {
-        case Some(RequestList(_, reqMap)) if reqMap.size == 1 =>
+        case Some(RequestList(_, reqMap)) if reqMap.sizeIs == 1 =>
           // We are the last request for this root hash
           // Consistency check
           if (!reqMap.contains(requestId)) {

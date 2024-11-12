@@ -154,7 +154,7 @@ class PureConfigReaderWriter(secure: Boolean = true) {
     .fromString[Ref.ParticipantId](createParticipantId)
 
   implicit val participantIdWriter: ConfigWriter[Ref.ParticipantId] =
-    ConfigWriter.toString[Ref.ParticipantId](_.toString)
+    ConfigWriter.toString[Ref.ParticipantId](identity)
 
   implicit val indexerConfigHint: ProductHint[IndexerConfig] =
     ProductHint[IndexerConfig](allowUnknownKeys = false)
@@ -195,7 +195,7 @@ class PureConfigReaderWriter(secure: Boolean = true) {
     )
   implicit val participantDataSourceConfigMapWriter
       : ConfigWriter[Map[Ref.ParticipantId, ParticipantDataSourceConfig]] =
-    genericMapWriter[Ref.ParticipantId, ParticipantDataSourceConfig](_.toString)
+    genericMapWriter[Ref.ParticipantId, ParticipantDataSourceConfig](identity)
 
 }
 

@@ -27,7 +27,6 @@ import com.digitalasset.canton.platform.store.dao.{
 }
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.platform.{Party, TemplatePartiesFilter}
-import com.digitalasset.canton.tracing.Traced
 import com.digitalasset.canton.{data, platform}
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
@@ -219,7 +218,7 @@ private[platform] object BufferedTransactionsReader {
             requestingParties,
           )(loggingContext),
         toApiResponse = (
-            transactionAccepted: Traced[TransactionLogUpdate.TransactionAccepted],
+            transactionAccepted: TransactionLogUpdate.TransactionAccepted,
             requestingParties: Set[Party],
             loggingContext: LoggingContextWithTrace,
         ) =>
@@ -243,7 +242,7 @@ private[platform] object BufferedTransactionsReader {
             requestingParties,
           )(loggingContext),
         toApiResponse = (
-            transactionAccepted: Traced[TransactionLogUpdate.TransactionAccepted],
+            transactionAccepted: TransactionLogUpdate.TransactionAccepted,
             requestingParties: Set[Party],
             loggingContext: LoggingContextWithTrace,
         ) =>

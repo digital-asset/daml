@@ -514,8 +514,8 @@ object EncryptionKeyPair {
       privateKeyBytes: ByteString,
       keySpec: EncryptionKeySpec,
   ): EncryptionKeyPair = {
-    val publicKey = new EncryptionPublicKey(format, publicKeyBytes, keySpec)
-    val privateKey = new EncryptionPrivateKey(publicKey.id, format, privateKeyBytes, keySpec)
+    val publicKey = new EncryptionPublicKey(format, publicKeyBytes, keySpec)()
+    val privateKey = new EncryptionPrivateKey(publicKey.id, format, privateKeyBytes, keySpec)()
     new EncryptionKeyPair(publicKey, privateKey)
   }
 
@@ -540,11 +540,15 @@ final case class EncryptionPublicKey private[crypto] (
     format: CryptoKeyFormat,
     protected[crypto] val key: ByteString,
     keySpec: EncryptionKeySpec,
+)(
+    override val migrated: Boolean = false
 ) extends PublicKey
     with PrettyPrinting
     with HasVersionedWrapper[EncryptionPublicKey] {
 
   override protected def companionObj: EncryptionPublicKey.type = EncryptionPublicKey
+
+  protected override val dataForFingerprintO: Option[ByteString] = None
 
   // TODO(#15649): Make EncryptionPublicKey object invariant
   protected def validated: Either[ProtoDeserializationError.CryptoDeserializationError, this.type] =
@@ -591,7 +595,7 @@ object EncryptionPublicKey
       key: ByteString,
       keySpec: EncryptionKeySpec,
   ): Either[ProtoDeserializationError.CryptoDeserializationError, EncryptionPublicKey] =
-    new EncryptionPublicKey(format, key, keySpec).validated
+    new EncryptionPublicKey(format, key, keySpec)().validated
 
   @nowarn("cat=deprecation")
   def fromProtoV30(
@@ -639,6 +643,8 @@ final case class EncryptionPrivateKey private[crypto] (
     format: CryptoKeyFormat,
     protected[crypto] val key: ByteString,
     keySpec: EncryptionKeySpec,
+)(
+    override val migrated: Boolean = false
 ) extends PrivateKey
     with HasVersionedWrapper[EncryptionPrivateKey]
     with NoCopy {
@@ -683,7 +689,7 @@ object EncryptionPrivateKey extends HasVersionedMessageCompanion[EncryptionPriva
         privateKeyP.keySpec,
         privateKeyP.scheme,
       )
-    } yield new EncryptionPrivateKey(id, format, privateKeyP.privateKey, keySpec)
+    } yield new EncryptionPrivateKey(id, format, privateKeyP.privateKey, keySpec)()
 }
 
 sealed trait EncryptionError extends Product with Serializable with PrettyPrinting

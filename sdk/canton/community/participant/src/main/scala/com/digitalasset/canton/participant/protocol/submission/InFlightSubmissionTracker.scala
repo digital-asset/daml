@@ -27,7 +27,7 @@ import com.digitalasset.canton.sequencing.protocol.SequencerErrors.AggregateSubm
 import com.digitalasset.canton.sequencing.protocol.{DeliverError, MessageId}
 import com.digitalasset.canton.time.DomainTimeTracker
 import com.digitalasset.canton.topology.DomainId
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ErrorUtil, SingleUseCell}
 
 import scala.concurrent.{ExecutionContext, Future}
@@ -284,13 +284,12 @@ class InFlightSubmissionTracker(
 
   private[this] def timelyRejectionEventFor(
       inFlight: InFlightSubmission[UnsequencedSubmission]
-  ): Traced[Update] = {
+  ): Update = {
     implicit val traceContext: TraceContext = inFlight.submissionTraceContext
     // Use the trace context from the submission for the rejection
     // because we don't have any other later trace context available
-    val rejectionEvent = inFlight.sequencingInfo.trackingData
+    inFlight.sequencingInfo.trackingData
       .rejectionEvent(inFlight.associatedTimestamp, inFlight.messageUuid)
-    Traced(rejectionEvent)
   }
 
   def processPublications(

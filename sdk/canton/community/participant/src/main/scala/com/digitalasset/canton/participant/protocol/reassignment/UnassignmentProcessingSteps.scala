@@ -66,7 +66,7 @@ import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.EitherTUtil.{condUnitET, ifThenET}
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.version.ProtocolVersion
@@ -666,7 +666,7 @@ class UnassignmentProcessingSteps(
         } yield CommitAndStoreContractsAndPublishEvent(
           commitSetFO,
           Seq.empty,
-          Some(Traced(reassignmentAccepted)),
+          Some(reassignmentAccepted),
         )
 
       case reasons: Verdict.ParticipantReject =>
@@ -696,6 +696,8 @@ class UnassignmentProcessingSteps(
       hostedStakeholders: List[LfPartyId],
       requestCounter: RequestCounter,
       requestSequencerCounter: SequencerCounter,
+  )(implicit
+      traceContext: TraceContext
   ): EitherT[Future, ReassignmentProcessorError, Update.ReassignmentAccepted] =
     for {
       updateId <- EitherT

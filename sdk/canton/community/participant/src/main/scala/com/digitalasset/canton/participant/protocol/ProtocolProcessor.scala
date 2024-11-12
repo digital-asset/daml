@@ -58,7 +58,7 @@ import com.digitalasset.canton.sequencing.{AsyncResult, HandlerResult}
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, ParticipantId, SubmissionTopologyHelper}
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.EitherTUtil.{condUnitET, ifThenET}
 import com.digitalasset.canton.util.EitherUtil.RichEither
@@ -1093,7 +1093,7 @@ abstract class ProtocolProcessor[
           val responses = EitherT.pure[FutureUnlessShutdown, steps.RequestError](
             Seq.empty[(ConfirmationResponse, Recipients)]
           )
-          val timeoutEvent = Either.right(Option.empty[Traced[Update]])
+          val timeoutEvent = Either.right(Option.empty[Update])
           EitherT.pure[FutureUnlessShutdown, steps.RequestError](
             (pendingData, responses, () => timeoutEvent)
           )
@@ -1584,8 +1584,7 @@ abstract class ProtocolProcessor[
 
       _ <- ifThenET(!cleanReplay) {
         logger.info(
-          show"Finalizing ${steps.requestKind.unquoted} request=${requestId.unwrap} with event ${eventO
-              .map(_.value)}."
+          show"Finalizing ${steps.requestKind.unquoted} request=${requestId.unwrap} with event $eventO."
         )
         for {
           commitSet <- EitherT.right[steps.ResultError](commitSetF)
@@ -1747,7 +1746,7 @@ abstract class ProtocolProcessor[
       parsedRequest: steps.ParsedRequestType,
       sequencerCounter: SequencerCounter,
       decisionTime: CantonTimestamp,
-      timeoutEvent: => Either[steps.ResultError, Option[Traced[Update]]],
+      timeoutEvent: => Either[steps.ResultError, Option[Update]],
   )(
       result: TimeoutResult
   )(implicit

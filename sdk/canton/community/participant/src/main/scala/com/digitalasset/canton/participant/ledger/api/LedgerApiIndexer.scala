@@ -36,7 +36,7 @@ import com.digitalasset.canton.platform.{
 }
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.DomainId
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.PekkoUtil
 import com.digitalasset.canton.util.PekkoUtil.{
   Commit,
@@ -55,7 +55,7 @@ import scala.util.Success
 
 class LedgerApiIndexer(
     val indexerHealth: ReportsHealth,
-    val queue: FutureQueue[Traced[Update]],
+    val queue: FutureQueue[Update],
     val inMemoryState: InMemoryState,
     val ledgerApiStore: Eval[LedgerApiStore],
     val loggerFactory: NamedLoggerFactory,
@@ -64,7 +64,7 @@ class LedgerApiIndexer(
     val onlyForTestingTransactionInMemoryStore: Option[OnlyForTestingTransactionInMemoryStore],
 ) extends ResourceCloseable {
   def withRepairIndexer(
-      repairOperation: FutureQueue[Traced[Update]] => EitherT[Future, String, Unit]
+      repairOperation: FutureQueue[Update] => EitherT[Future, String, Unit]
   )(implicit traceContext: TraceContext): EitherT[Future, String, Unit] =
     indexerState.withRepairIndexer(repairOperation)
 
@@ -164,7 +164,7 @@ object LedgerApiIndexer {
         // for repair indexer no commit functionality, and forcing repair instantiation
         () => indexerCreateFunction(true)(_ => ())
       recoveringQueueFactory = () => {
-        new RecoveringFutureQueueImpl[Traced[Update]](
+        new RecoveringFutureQueueImpl[Update](
           maxBlockedOffer = ledgerApiIndexerConfig.indexerConfig.queueMaxBlockedOffer,
           bufferSize = ledgerApiIndexerConfig.indexerConfig.queueBufferSize,
           loggerFactory = loggerFactory,

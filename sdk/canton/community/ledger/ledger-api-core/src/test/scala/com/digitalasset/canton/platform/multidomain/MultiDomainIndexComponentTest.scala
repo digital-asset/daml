@@ -14,7 +14,6 @@ import com.digitalasset.canton.ledger.participant.state.{
 }
 import com.digitalasset.canton.platform.IndexComponentTest
 import com.digitalasset.canton.topology.DomainId
-import com.digitalasset.canton.tracing.Traced
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.daml.lf.data.{Bytes, Ref, Time}
 import com.digitalasset.daml.lf.value.Value
@@ -40,36 +39,34 @@ class MultiDomainIndexComponentTest extends AsyncFlatSpec with IndexComponentTes
     val updateId = Ref.TransactionId.assertFromString("UpdateId")
     val recordTime = Time.Timestamp.now()
     ingestUpdates(
-      Traced(
-        Update.ReassignmentAccepted(
-          optCompletionInfo = None,
-          workflowId = None,
-          updateId = updateId,
-          recordTime = recordTime,
-          reassignmentInfo = ReassignmentInfo(
-            sourceDomain = Source(domain1),
-            targetDomain = Target(domain2),
-            submitter = Option(party),
-            reassignmentCounter = 15L,
-            hostedStakeholders = List(party),
-            unassignId = CantonTimestamp.now(),
-            isObservingReassigningParticipant = true,
-          ),
-          reassignment = Reassignment.Assign(
-            ledgerEffectiveTime = Time.Timestamp.now(),
-            createNode = createNode,
-            contractMetadata = Bytes.Empty,
-          ),
-          domainIndex = Some(
-            DomainIndex.of(
-              RequestIndex(
-                counter = RequestCounter(0),
-                sequencerCounter = None,
-                timestamp = CantonTimestamp(recordTime),
-              )
+      Update.ReassignmentAccepted(
+        optCompletionInfo = None,
+        workflowId = None,
+        updateId = updateId,
+        recordTime = recordTime,
+        reassignmentInfo = ReassignmentInfo(
+          sourceDomain = Source(domain1),
+          targetDomain = Target(domain2),
+          submitter = Option(party),
+          reassignmentCounter = 15L,
+          hostedStakeholders = List(party),
+          unassignId = CantonTimestamp.now(),
+          isObservingReassigningParticipant = true,
+        ),
+        reassignment = Reassignment.Assign(
+          ledgerEffectiveTime = Time.Timestamp.now(),
+          createNode = createNode,
+          contractMetadata = Bytes.Empty,
+        ),
+        domainIndex = Some(
+          DomainIndex.of(
+            RequestIndex(
+              counter = RequestCounter(0),
+              sequencerCounter = None,
+              timestamp = CantonTimestamp(recordTime),
             )
-          ),
-        )
+          )
+        ),
       )
     )
 

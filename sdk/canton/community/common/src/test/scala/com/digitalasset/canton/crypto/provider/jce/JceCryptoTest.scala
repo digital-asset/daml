@@ -38,6 +38,8 @@ class JceCryptoTest
         )
         .valueOrFail("failed to create crypto")
 
+    behave like migrationTest(jceCrypto())
+
     behave like signingProvider(Jce.signingAlgorithms.supported, jceCrypto())
     behave like encryptionProvider(
       Jce.encryptionAlgorithms.supported,

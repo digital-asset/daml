@@ -289,14 +289,14 @@ final case class MediatorGroup(
     passive: Seq[MediatorId],
     threshold: PositiveInt,
 ) {
-  def isActive: Boolean = active.size >= threshold.value
+  def isActive: Boolean = active.sizeIs >= threshold.value
 
   def all: Seq[MediatorId] = active ++ passive
 }
 
 object MediatorGroup {
   type MediatorGroupIndex = NonNegativeInt
-  val MediatorGroupIndex = NonNegativeInt
+  val MediatorGroupIndex: NonNegativeInt.type = NonNegativeInt
 }
 
 final case class MediatorId(uid: UniqueIdentifier) extends Member with NodeIdentity {

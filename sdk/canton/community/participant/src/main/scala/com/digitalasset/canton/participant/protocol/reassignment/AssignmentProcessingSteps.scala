@@ -55,7 +55,7 @@ import com.digitalasset.canton.serialization.DefaultDeserializationError
 import com.digitalasset.canton.store.ConfirmationRequestSessionKeyStore
 import com.digitalasset.canton.topology.*
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ReassignmentTag.{Source, Target}
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.version.ProtocolVersion
@@ -619,7 +619,7 @@ private[reassignment] class AssignmentProcessingSteps(
         } yield CommitAndStoreContractsAndPublishEvent(
           commitSetO,
           contractsToBeStored,
-          Some(Traced(update)),
+          Some(update),
         )
 
       case reasons: Verdict.ParticipantReject => rejected(reasons.keyEvent)
@@ -639,7 +639,7 @@ private[reassignment] class AssignmentProcessingSteps(
       hostedStakeholders: List[LfPartyId],
       requestCounter: RequestCounter,
       requestSequencerCounter: SequencerCounter,
-  ): EitherT[Future, ReassignmentProcessorError, Update] = {
+  )(implicit traceContext: TraceContext): EitherT[Future, ReassignmentProcessorError, Update] = {
     val targetDomain = domainId
     val contractInst = contract.contractInstance.unversioned
     val createNode: LfNodeCreate =

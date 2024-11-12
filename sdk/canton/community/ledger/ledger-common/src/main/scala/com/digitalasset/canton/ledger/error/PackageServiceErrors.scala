@@ -292,14 +292,14 @@ object PackageServiceErrors extends PackageServiceErrorGroup {
           ErrorCategory.InvalidIndependentOfSystemState,
         ) {
       final case class Error(
-          uploadedPackage: Util.PkgIdWithNameAndVersion,
+          uploadedPackage: Util.PkgIdWithNameAndVersion
       )(implicit
           val loggingContext: ContextualizedErrorLogger
       ) extends DamlError(
             cause =
               s"Tried to upload a package $uploadedPackage, but this package is not a utility package. All packages named `daml-prim` must be a utility package.",
             extraContext = Map(
-              "uploadedPackage" -> uploadedPackage,
+              "uploadedPackage" -> uploadedPackage
             ),
           )
     }

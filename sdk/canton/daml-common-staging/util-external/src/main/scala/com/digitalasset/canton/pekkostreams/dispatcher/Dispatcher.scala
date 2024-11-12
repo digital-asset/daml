@@ -3,6 +3,7 @@
 
 package com.digitalasset.canton.pekkostreams.dispatcher
 
+import com.digitalasset.canton.pekkostreams.dispatcher.DispatcherImpl.Incrementable
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 
@@ -19,7 +20,7 @@ import scala.concurrent.Future
 trait Dispatcher[Index] {
 
   /** Returns the head index where this Dispatcher is at */
-  def getHead(): Index
+  def getHead(): Option[Index]
 
   /** Signals and stores a new head in memory. */
   def signalNewHead(head: Index): Unit
@@ -28,7 +29,7 @@ trait Dispatcher[Index] {
     * Throws `DispatcherIsClosedException` if dispatcher is in the shutting down state
     */
   def startingAt[T](
-      startExclusive: Index,
+      startExclusive: Option[Index],
       subSource: SubSource[Index, T],
       endInclusive: Option[Index] = None,
   ): Source[(Index, T), NotUsed]
@@ -54,16 +55,16 @@ object Dispatcher {
 
   /** Construct a new Dispatcher. This will consume Pekko resources until closed.
     *
-    * @param zeroIndex            the initial starting Index instance
+    * @param firstIndex            the initial starting Index instance
     * @param headAtInitialization the head index at the time of creation
     * @tparam Index The index type
     * @return A new Dispatcher.
     */
-  def apply[Index: Ordering](
+  def apply[Index <: Ordered[Index] & Incrementable[Index]](
       name: String,
-      zeroIndex: Index,
-      headAtInitialization: Index,
+      firstIndex: Index,
+      headAtInitialization: Option[Index],
   ): Dispatcher[Index] =
-    new DispatcherImpl[Index](name: String, zeroIndex, headAtInitialization)
+    new DispatcherImpl[Index](name, firstIndex, headAtInitialization)
 
 }

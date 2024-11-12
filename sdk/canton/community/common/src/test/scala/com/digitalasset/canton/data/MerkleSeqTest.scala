@@ -167,7 +167,7 @@ class MerkleSeqTest extends AnyWordSpec with BaseTest {
         val merkleSeq = MerkleSeq.fromSeq(hashOps, testedProtocolVersion)(elements)
         val indices: Seq[MerklePathElement] = MerkleSeq.indicesFromSeq(elements.size)
 
-        assert(indices.size == elements.size)
+        assert(indices.sizeIs == elements.size)
         assert(indices.distinct == indices, "indices are distinct")
         val encodedIndices = indices.map(_.encodeDeterministically)
         assert(encodedIndices.distinct == encodedIndices, "encoded indices are distinct")

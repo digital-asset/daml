@@ -64,7 +64,7 @@ private[apiserver] final class ApiPackageService(
     logger.info(s"Received request to list packages: $request")
     packageSyncService
       .listLfPackages()
-      .map(p => ListPackagesResponse(p.map(_.packageId.toString)))
+      .map(p => ListPackagesResponse(p.map(_.packageId)))
       .andThen(logger.logErrorsOnCall[ListPackagesResponse])
   }
 

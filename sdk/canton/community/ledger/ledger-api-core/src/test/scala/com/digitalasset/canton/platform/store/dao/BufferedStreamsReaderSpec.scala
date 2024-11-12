@@ -12,7 +12,7 @@ import com.digitalasset.canton.platform.store.dao.BufferedStreamsReader.FetchFro
 import com.digitalasset.canton.platform.store.dao.BufferedStreamsReaderSpec.*
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.topology.DomainId
-import com.digitalasset.canton.tracing.Traced
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, HasExecutorServiceGeneric}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import org.apache.pekko.stream.scaladsl.{Sink, Source}
@@ -257,13 +257,13 @@ object BufferedStreamsReaderSpec {
     val metrics = LedgerApiServerMetrics.ForTesting
     val Seq(offset0, offset1, offset2, offset3) =
       (0 to 3) map { idx => offset(idx.toLong) }: @nowarn("msg=match may not be exhaustive")
-    val offsetUpdates: Seq[(Offset, Traced[TransactionLogUpdate.TransactionAccepted])] =
-      Seq(offset1, offset2, offset3).zip((1 to 3).map(idx => Traced(transaction(s"tx-$idx"))))
+    val offsetUpdates: Seq[TransactionLogUpdate.TransactionAccepted] =
+      (1L to 3L).map(transaction)
 
     val noFilterBufferSlice
-        : Traced[TransactionLogUpdate] => Option[TransactionLogUpdate.TransactionAccepted] =
+        : TransactionLogUpdate => Option[TransactionLogUpdate.TransactionAccepted] =
       tracedUpdate =>
-        tracedUpdate.value match {
+        tracedUpdate match {
           case update: TransactionLogUpdate.TransactionAccepted => Some(update)
           case _ => None
         }
@@ -273,21 +273,21 @@ object BufferedStreamsReaderSpec {
       metrics = metrics,
       maxBufferedChunkSize = 3,
       loggerFactory = loggerFactory,
-    ).tap(inMemoryFanoutBuffer => offsetUpdates.foreach(Function.tupled(inMemoryFanoutBuffer.push)))
+    ).tap(inMemoryFanoutBuffer => offsetUpdates.foreach(inMemoryFanoutBuffer.push))
 
     val inMemoryFanoutBufferWithSmallChunkSize: InMemoryFanoutBuffer = new InMemoryFanoutBuffer(
       maxBufferSize = 3,
       metrics = metrics,
       maxBufferedChunkSize = 1,
       loggerFactory = loggerFactory,
-    ).tap(inMemoryFanoutBuffer => offsetUpdates.foreach(Function.tupled(inMemoryFanoutBuffer.push)))
+    ).tap(inMemoryFanoutBuffer => offsetUpdates.foreach(inMemoryFanoutBuffer.push))
 
     val smallInMemoryFanoutBuffer: InMemoryFanoutBuffer = new InMemoryFanoutBuffer(
       maxBufferSize = 1,
       metrics = metrics,
       maxBufferedChunkSize = 1,
       loggerFactory = loggerFactory,
-    ).tap(inMemoryFanoutBuffer => offsetUpdates.foreach(Function.tupled(inMemoryFanoutBuffer.push)))
+    ).tap(inMemoryFanoutBuffer => offsetUpdates.foreach(inMemoryFanoutBuffer.push))
 
     trait StaticTestScope {
 
@@ -309,7 +309,7 @@ object BufferedStreamsReaderSpec {
           transactionsBuffer: InMemoryFanoutBuffer = inMemoryFanoutBufferWithSmallChunkSize,
           fetchFromPersistence: FetchFromPersistence[Object, String] = failingPersistenceFetch,
           persistenceFetchArgs: Object = new Object,
-          bufferSliceFilter: Traced[TransactionLogUpdate] => Option[
+          bufferSliceFilter: TransactionLogUpdate => Option[
             TransactionLogUpdate.TransactionAccepted
           ] = noFilterBufferSlice,
       ): Done =
@@ -457,9 +457,9 @@ object BufferedStreamsReaderSpec {
 
       private def updateFixtures(idx: Long): Unit = {
         val offsetAt = offset(idx)
-        val tx = transaction(s"tx-$idx")
+        val tx = transaction(idx)
         persistenceStore = persistenceStore.appended(offsetAt -> tx)
-        inMemoryFanoutBuffer.push(offsetAt, Traced(tx))
+        inMemoryFanoutBuffer.push(tx)
         ledgerEndIndex = idx
       }
     }
@@ -467,18 +467,18 @@ object BufferedStreamsReaderSpec {
 
   private val someDomainId = DomainId.tryFromString("some::domain-id")
 
-  private def transaction(discriminator: String) =
+  private def transaction(i: Long) =
     TransactionLogUpdate.TransactionAccepted(
-      updateId = discriminator,
+      updateId = s"tx-$i",
       commandId = "",
       workflowId = "",
       effectiveAt = Timestamp.Epoch,
-      offset = Offset.beforeBegin,
+      offset = offset(i),
       events = Vector(null),
       completionStreamResponse = None,
       domainId = someDomainId.toProtoPrimitive,
       recordTime = Timestamp.Epoch,
-    )
+    )(TraceContext.empty)
 
   private def offset(idx: Long): Offset = {
     val base = BigInt(1L) << 32

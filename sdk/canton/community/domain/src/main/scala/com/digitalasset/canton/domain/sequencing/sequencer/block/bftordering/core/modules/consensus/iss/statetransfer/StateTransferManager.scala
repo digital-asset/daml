@@ -6,7 +6,10 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.co
 import com.digitalasset.canton.crypto.Signature
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultLeaderSelectionPolicy
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.GenesisEpochNumber
+import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.{
+  GenesisEpoch,
+  GenesisEpochNumber,
+}
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.statetransfer.StateTransferState.PrePreparesFromState
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.{
   EpochState,
@@ -177,7 +180,7 @@ class StateTransferManager[E <: Env[E]](
           )
         }
 
-      case StateTransferMessage.BlockTransferResponse(_, _, Seq(), Seq(), from) =>
+      case StateTransferMessage.BlockTransferResponse(_, Seq(), Seq(), from) =>
         if (isInStateTransfer) {
           cancelTimeoutForPeer(from)(abort)
           handleEmptyBlockResponse(completeInit, abort)
@@ -229,8 +232,6 @@ class StateTransferManager[E <: Env[E]](
       latestCompletedEpoch: EpochStore.Epoch,
   )(implicit context: E#ActorContextT[Consensus.Message[E]], traceContext: TraceContext): Unit = {
     val lastEpochToTransfer = latestCompletedEpoch.info.number
-    val lastEpochToTransferTopologySnapshotEffectiveTime =
-      latestCompletedEpoch.info.topologySnapshotEffectiveTime
     if (lastEpochToTransfer < startEpoch) {
       logger.info(
         s"State transfer: nothing to transfer to $to, start epoch was $startEpoch, " +
@@ -239,7 +240,6 @@ class StateTransferManager[E <: Env[E]](
       val response = StateTransferMessage.BlockTransferResponse
         .create(
           lastEpochToTransfer,
-          lastEpochToTransferTopologySnapshotEffectiveTime,
           blockTransferData = Seq.empty,
           lastBlockCommits = Seq.empty,
           from = thisPeer,
@@ -294,7 +294,6 @@ class StateTransferManager[E <: Env[E]](
           val response = StateTransferMessage.BlockTransferResponse
             .create(
               lastEpochToTransfer,
-              lastEpochToTransferTopologySnapshotEffectiveTime,
               blockTransferData,
               latestCompletedEpoch.lastBlockCommitMessages,
               from = thisPeer,
@@ -431,7 +430,9 @@ class StateTransferManager[E <: Env[E]](
         lastEpochToTransfer,
         firstBlockInLastEpoch,
         epochLength,
-        fullResponse.latestCompletedEpochTopologySnapshotEffectiveTime,
+        // TODO(#19661) Not used during state transfer but will likely need to be correctly saved to the DB
+        //  to support restarts (or the approach must be changed).
+        GenesisEpoch.info.topologySnapshotEffectiveTime,
       )
       val lastEpoch = EpochStore.Epoch(lastEpochInfo, fullResponse.lastBlockCommits)
       val epochState =

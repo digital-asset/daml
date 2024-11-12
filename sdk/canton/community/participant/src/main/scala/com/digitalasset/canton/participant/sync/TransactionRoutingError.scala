@@ -13,7 +13,7 @@ import com.digitalasset.canton.protocol.LfContractId
 import com.digitalasset.canton.topology.DomainId
 
 sealed trait TransactionRoutingError extends TransactionError with Product with Serializable
-trait TransactionRoutingErrorWithDomain extends TransactionRoutingError {
+sealed trait TransactionRoutingErrorWithDomain extends TransactionRoutingError {
   def domainId: DomainId
 }
 

@@ -13,7 +13,6 @@ import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer
 import com.digitalasset.canton.platform.store.cache.InMemoryFanoutBuffer.BufferSlice
 import com.digitalasset.canton.platform.store.dao.BufferedStreamsReader.FetchFromPersistence
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
-import com.digitalasset.canton.tracing.Traced
 import org.apache.pekko.NotUsed
 import org.apache.pekko.stream.scaladsl.Source
 
@@ -61,7 +60,7 @@ class BufferedStreamsReader[PERSISTENCE_FETCH_ARGS, API_RESPONSE](
       startExclusive: Offset,
       endInclusive: Offset,
       persistenceFetchArgs: PERSISTENCE_FETCH_ARGS,
-      bufferFilter: Traced[TransactionLogUpdate] => Option[BUFFER_OUT],
+      bufferFilter: TransactionLogUpdate => Option[BUFFER_OUT],
       toApiResponse: BUFFER_OUT => Future[API_RESPONSE],
   )(implicit
       loggingContext: LoggingContextWithTrace

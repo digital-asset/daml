@@ -108,7 +108,7 @@ sealed abstract class SequencerWriterException(message: String) extends RuntimeE
 /** Throw as an error in the pekko stream when we discover that our currently running sequencer writer has been
   * marked as offline.
   */
-class SequencerOfflineException(instanceIndex: Int)
+final class SequencerOfflineException(instanceIndex: Int)
     extends SequencerWriterException(
       s"This sequencer (instance:$instanceIndex) has been marked as offline"
     )
@@ -126,13 +126,15 @@ class SequencerOfflineException(instanceIndex: Int)
   * However this will be safe. We could optimise this by checking the active lock status and only halting
   * if this is found to be false.
   */
-class ConflictingPayloadIdException(payloadId: PayloadId, conflictingInstanceDiscriminator: UUID)
-    extends SequencerWriterException(
+final class ConflictingPayloadIdException(
+    payloadId: PayloadId,
+    conflictingInstanceDiscriminator: UUID,
+) extends SequencerWriterException(
       s"We attempted to write a payload with an id that already exists [$payloadId] written by instance $conflictingInstanceDiscriminator"
     )
 
 /** A payload that we should have just stored now seems to be missing. */
-class PayloadMissingException(payloadId: PayloadId)
+final class PayloadMissingException(payloadId: PayloadId)
     extends SequencerWriterException(s"Payload missing after storing [$payloadId]")
 
 class SequencerWriterQueues private[sequencer] (

@@ -249,7 +249,7 @@ object LightTransactionViewTree
       tvt.tree.mapUnblindedRootViews(_.replace(tvt.viewHash, withBlindedSubviews))
     // you must have one key for each subview (to be able to decrypt them)
     Either.cond(
-      subviewKeys.size == tvt.subviewHashes.size,
+      subviewKeys.sizeIs == tvt.subviewHashes.size,
       // By definition, the view in a TransactionViewTree has all subviews unblinded
       LightTransactionViewTree.tryCreate(
         genTransactionTree,
