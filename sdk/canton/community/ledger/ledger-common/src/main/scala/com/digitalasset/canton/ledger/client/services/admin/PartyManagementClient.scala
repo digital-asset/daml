@@ -80,16 +80,10 @@ final class PartyManagementClient(service: PartyManagementServiceStub)(implicit
       .getParties(PartyManagementClient.getPartiesRequest(parties))
       .map(_.partyDetails.view.map(PartyManagementClient.details).toList)
 
-  // TODO(i21344): Remove arg "deprecatedDisplayName"
-  // In the meantime this helps us discover and fix call sites that were passing "displayName" as
-  // either a named or positional parameter.
   def allocateParty(
       hint: Option[String],
-      deprecatedDisplayName: Option[String],
       token: Option[String] = None,
   )(implicit traceContext: TraceContext): Future[PartyDetails] =
-    // TODO(i21344): Once daml-script no longer uses the two-arg form,
-    // make it throw an exception of deprecatedDisplayName is populated
     LedgerClient
       .stubWithTracing(service, token)
       .allocateParty(new AllocatePartyRequest(hint.getOrElse("")))
