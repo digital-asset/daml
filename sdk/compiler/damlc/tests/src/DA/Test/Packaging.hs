@@ -1073,6 +1073,21 @@ tests Tools{damlc} = testGroup "Packaging" $
             , "main = dep1 + dep2"
             ]
           callProcessSilent damlc ["build", "--project-root", dir </> "main", "-o", "main.dar"]
+          step "Changing module prefixes"
+          writeFileUTF8 (dir </> "main" </> "daml.yaml") $ unlines
+            [ "sdk-version: " <> sdkVersion
+            , "name: main"
+            , "version: 0.0.1"
+            , "source: ."
+            , "dependencies: [daml-prim, daml-stdlib]"
+            , "data-dependencies:"
+            , "  - " <> show (dir </> "dep1" </> "dep1.dar")
+            , "  - " <> show (dir </> "dep2" </> "dep2.dar")
+            , "module-prefixes:"
+            , "  dep-1.0.0: Dep3"
+            , "  dep-2.0.0: Dep4"
+            ]
+          buildProjectError (dir </> "main") "" "Could not find module \8216Dep1.A"
     , testCaseSteps "relative output filepath" $ \step -> withTempDir $ \dir -> do
           step "Create project"
           writeFileUTF8 (dir </> "daml.yaml") $ unlines
