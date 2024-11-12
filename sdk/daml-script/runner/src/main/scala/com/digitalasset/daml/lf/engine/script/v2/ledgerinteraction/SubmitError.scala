@@ -415,7 +415,8 @@ class SubmitErrors(majorLanguageVersion: LanguageMajorVersion) {
           SEnum(upgradeErrorTypeIdentifier, Name.assertFromString("ValidationFailed"), 0)
         case "DowngradeDropDefinedField" =>
           SEnum(upgradeErrorTypeIdentifier, Name.assertFromString("DowngradeDropDefinedField"), 1)
-        case "ViewMismatch" => SEnum(upgradeErrorTypeIdentifier, Name.assertFromString("ViewMismatch"), 2)
+        case "ViewMismatch" =>
+          SEnum(upgradeErrorTypeIdentifier, Name.assertFromString("ViewMismatch"), 2)
       }
       SubmitErrorConverters(env).damlScriptError(
         "UpgradeError",

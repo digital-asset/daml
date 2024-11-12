@@ -329,7 +329,7 @@ def daml_compile(
         **kwargs):
     "Build a Daml project, with a generated daml.yaml."
     if len(srcs) == 0:
-        fail("daml_compile: Expected `srcs' to be non-empty.")
+        fail("daml_compile: Project {} expected `srcs' to be non-empty.".format(name))
     daml_yaml = name + ".yaml"
     _daml_configure(
         dependencies = [path_to_dar(dep) for dep in dependencies],

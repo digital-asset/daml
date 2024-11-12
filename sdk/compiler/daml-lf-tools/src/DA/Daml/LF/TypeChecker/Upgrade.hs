@@ -77,11 +77,11 @@ runGammaUnderUpgrades Upgrading{ _past = pastAction, _present = presentAction } 
     presentResult <- withReaderT (_present . _upgradingGamma) presentAction
     pure Upgrading { _past = pastResult, _present = presentResult }
 
-shouldTypecheck :: PreUpgradingEnv -> Bool
-shouldTypecheck PreUpgradingEnv { pueVersion, pueUpgradeInfo } = pueVersion `LF.supports` LF.featurePackageUpgrades && uiTypecheckUpgrades pueUpgradeInfo
+shouldTypecheck :: Version -> UpgradeInfo -> Bool
+shouldTypecheck version upgradeInfo = version `LF.supports` LF.featurePackageUpgrades && uiTypecheckUpgrades upgradeInfo
 
 shouldTypecheckM :: TcPreUpgradeM Bool
-shouldTypecheckM = asks shouldTypecheck
+shouldTypecheckM = asks (\PreUpgradingEnv { pueVersion, pueUpgradeInfo } -> shouldTypecheck pueVersion pueUpgradeInfo)
 
 mkGamma :: PreUpgradingEnv -> World -> Gamma
 mkGamma PreUpgradingEnv { pueVersion, pueWarningFlags } world =

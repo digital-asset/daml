@@ -72,8 +72,8 @@ getPortForSandbox defaultPortSpec portSpecM =
         SpecifiedPort port -> pure (unSandboxPort port)
         FreePort -> fromIntegral <$> getFreePort
 
-determineCantonOptions :: Maybe SandboxPortSpec -> SandboxCantonPortSpec -> FilePath -> IO CantonOptions
-determineCantonOptions ledgerApiSpec SandboxCantonPortSpec{..} portFile = do
+determineCantonOptions :: Maybe SandboxPortSpec -> SandboxCantonPortSpec -> FilePath -> Bool -> IO CantonOptions
+determineCantonOptions ledgerApiSpec SandboxCantonPortSpec{..} portFile sandboxDevMode = do
     cantonLedgerApi <- getPortForSandbox (SpecifiedPort (SandboxPort (ledger defaultSandboxPorts))) ledgerApiSpec
     cantonAdminApi <- getPortForSandbox (SpecifiedPort (SandboxPort (admin defaultSandboxPorts))) adminApiSpec
     cantonDomainPublicApi <- getPortForSandbox (SpecifiedPort (SandboxPort (domainPublic defaultSandboxPorts))) domainPublicApiSpec
@@ -82,6 +82,7 @@ determineCantonOptions ledgerApiSpec SandboxCantonPortSpec{..} portFile = do
     let cantonStaticTime = StaticTime False
     let cantonHelp = False
     let cantonConfigFiles = []
+    let cantonDevMode = sandboxDevMode
     pure CantonOptions {..}
 
 withSandbox :: StartOptions -> FilePath -> [String] -> (Process () () () -> SandboxPort -> IO a) -> IO a
@@ -90,7 +91,7 @@ withSandbox StartOptions{..} darPath sandboxArgs kont =
   where
     cantonSandbox = withTempDir $ \tempDir -> do
       let portFile = tempDir </> "sandbox-portfile"
-      cantonOptions <- determineCantonOptions sandboxPortM sandboxPortSpec portFile
+      cantonOptions <- determineCantonOptions sandboxPortM sandboxPortSpec portFile sandboxDevMode
       withCantonSandbox cantonOptions sandboxArgs $ \ph -> do
         putStrLn "Waiting for canton sandbox to start."
         sandboxPort <- readPortFileWith decodeCantonSandboxPort (unsafeProcessHandle ph) maxRetries portFile
@@ -150,6 +151,7 @@ data StartOptions = StartOptions
     , jsonApiOptions :: [String]
     , scriptOptions :: [String]
     , sandboxPortSpec :: !SandboxCantonPortSpec
+    , sandboxDevMode :: Bool
     }
 
 data SandboxCantonPortSpec = SandboxCantonPortSpec

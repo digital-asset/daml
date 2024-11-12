@@ -3,6 +3,7 @@
 
 load(
     "//bazel_tools:scala.bzl",
+    "da_scala_binary",
     "da_scala_library",
     "da_scala_test",
     "da_scala_test_suite",
@@ -175,6 +176,11 @@ da_scala_library(
         "@maven//:org_scalatest_scalatest_shouldmatchers",
         "@maven//:org_scalatest_scalatest_wordspec",
         "@maven//:org_scalaz_scalaz_core",
+        "@maven//:org_typelevel_cats_core",
+        "@maven//:org_typelevel_cats_kernel",
+        "@maven//:io_circe_circe_core",
+        "@maven//:io_circe_circe_yaml_common",
+        "@maven//:io_circe_circe_yaml",
     ],
     scalacopts = lf_scalacopts_stricter,
     tags = [
@@ -213,6 +219,17 @@ da_scala_library(
         "@maven//:io_grpc_grpc_stub",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
+)
+
+daml_compile(
+    name = "try-submit-test-1.15",
+    srcs = [":daml/Daml3ScriptTrySubmit15.daml"],
+    dependencies = [
+        "//daml-script/daml3:daml3-script-1.15.dar",
+    ],
+    project_name = "try-submit-test",
+    target = "1.15",
+    version = "1.0.0",
 )
 
 daml_compile(
@@ -260,6 +277,7 @@ da_scala_test_suite(
     data = [
         ":script-test.dar",
         ":script-test-no-ledger.dar",
+        ":try-submit-test-1.15.dar",
         "//daml-script/runner:daml-script-binary",
         "//daml-script/test:retrointerface.dar",
         "//daml-script/test:template.dar",
@@ -327,13 +345,8 @@ da_scala_test(
     ],
     resources = glob(["src/main/resources/**/*"]),
     scala_deps = [
-        "@maven//:io_circe_circe_core",
-        "@maven//:io_circe_circe_yaml_common",
-        "@maven//:io_circe_circe_yaml",
         "@maven//:org_apache_pekko_pekko_actor",
         "@maven//:org_apache_pekko_pekko_stream",
-        "@maven//:org_typelevel_cats_core",
-        "@maven//:org_typelevel_cats_kernel",
     ],
     tags = [
         "cpu:4",
@@ -352,13 +365,32 @@ da_scala_test(
         "//libs-scala/ports",
         "//libs-scala/resources",
         "//libs-scala/rs-grpc-bridge",
-        "//libs-scala/scala-utils",
         "//libs-scala/testing-utils",
         "//libs-scala/timer-utils",
         "//test-common/canton/it-lib",
     ],
 ) if not is_windows else None
 # skipping windows for now, it doesn't seem to like the filegroup `:upgrade-test-files`
+
+da_scala_binary(
+    name = "compile-upgrade-test-cases",
+    srcs = ["src/com/digitalasset/daml/lf/engine/script/CompileUpgradeTestCases.scala"],
+    data = [
+        ":upgrade-test-files",
+        ":upgrade-test-lib.dar",
+        "//compiler/damlc",
+        "//daml-script/daml3:daml3-script-1.dev.dar",
+    ],
+    main_class = "com.digitalasset.daml.lf.engine.script.CompileUpgradeTestCases",
+    resources = glob(["src/main/resources/**/*"]),
+    tags = [
+        "cpu:4",
+    ],
+    deps = [
+        ":test-utils",
+        "//bazel_tools/runfiles:scala_runfiles",
+    ],
+)
 
 da_scala_test_suite(
     name = "test-dev",

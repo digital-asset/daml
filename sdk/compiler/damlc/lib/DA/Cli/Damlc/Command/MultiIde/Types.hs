@@ -133,12 +133,13 @@ data SubIdeData = SubIdeData
   , ideDataMain :: Maybe SubIdeInstance
   , ideDataClosing :: Set.Set SubIdeInstance
   , ideDataOpenFiles :: Set.Set DamlFile
+  , ideDataOpenDamlYaml :: Bool
   , ideDataFailures :: [(UTCTime, T.Text)]
   , ideDataDisabled :: IdeDataDisabled
   }
 
 defaultSubIdeData :: PackageHome -> SubIdeData
-defaultSubIdeData home = SubIdeData home Nothing Set.empty Set.empty [] IdeDataNotDisabled
+defaultSubIdeData home = SubIdeData home Nothing Set.empty Set.empty False [] IdeDataNotDisabled
 
 lookupSubIde :: PackageHome -> SubIdes -> SubIdeData
 lookupSubIde home ides = fromMaybe (defaultSubIdeData home) $ Map.lookup home ides
@@ -231,7 +232,7 @@ data SdkInstallStatus
   | SISAsking
   | SISInstalling (Async ())
   | SISDenied
-  | SISFailed T.Text SomeException
+  | SISFailed T.Text (Maybe SomeException)
 
 instance Eq SdkInstallStatus where
   SISCanAsk == SISCanAsk = True

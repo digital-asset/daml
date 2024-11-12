@@ -88,6 +88,7 @@ da_scala_library(
             [
                 "src/test/scala/**/upgrade/UpgradesSpecBase.scala",
                 "src/test/scala/**/upgrade/UpgradesSpecUtil.scala",
+                "src/test/scala/**/upgrade/UpgradesCheckSpecUtil.scala",
             ],
         ) +
         #  we depend on sources to avoid pushing a canton artifact to maven
@@ -105,12 +106,18 @@ da_scala_library(
         "@maven//:org_apache_pekko_pekko_stream",
     ],
     scaladoc = False,
+    unused_dependency_checker_mode = "off",
     visibility = ["//visibility:public"],
     deps = [
         "//:sdk-version-scala-lib",
         "//bazel_tools/runfiles:scala_runfiles",
         "//canton:community_participant",
+        "//canton:community_ledger_ledger-common",
+        "//canton:community_util-logging",
+        #"//canton:daml-common-staging_grpc-utils",
         "//canton:ledger_api_proto_scala",
+        "//daml-assistant/daml-sdk:sdk",
+        #"//daml-lf/archive:daml_lf_archive_proto_java",
         "//daml-lf/archive:daml_lf_archive_reader",
         "//daml-lf/archive:daml_lf_dev_archive_proto_java",
         "//daml-lf/archive/encoder",
@@ -127,9 +134,11 @@ da_scala_library(
         "//libs-scala/ports",
         "//libs-scala/resources",
         "//libs-scala/rs-grpc-bridge",
+        "//libs-scala/scala-utils",
         "//libs-scala/testing-utils",
         "//test-common/canton/it-lib",
         "@maven//:io_grpc_grpc_api",
+        "@maven//:com_typesafe_scala_logging_scala_logging_2_13",
         "@maven//:io_grpc_grpc_netty",
         "@maven//:org_scalatest_scalatest_compatible",
     ],
@@ -168,6 +177,7 @@ da_scala_test_suite(
             exclude = [
                 "src/test/scala/**/upgrade/UpgradesSpecBase.scala",
                 "src/test/scala/**/upgrade/UpgradesSpecUtil.scala",
+                "src/test/scala/**/upgrade/UpgradesCheckSpecUtil.scala",
             ],
         ),
         data = [
@@ -195,6 +205,8 @@ da_scala_test_suite(
             "//test-common:upgrades-ValidKeyTypeEquality-v2.dar",
             "//test-common:upgrades-UploadSucceedsWhenDepsAreValidUpgrades-v1.dar",
             "//test-common:upgrades-UploadSucceedsWhenDepsAreValidUpgrades-v2.dar",
+            "//test-common:upgrades-UploadSucceedsWhenDepsAreValidUpgradesDep-v1.dar",
+            "//test-common:upgrades-UploadSucceedsWhenDepsAreValidUpgradesDep-v2.dar",
             "//test-common:upgrades-UploadFailsWhenDepsAreInvalidUpgrades-v1.dar",
             "//test-common:upgrades-UploadFailsWhenDepsAreInvalidUpgrades-v2.dar",
             "//test-common:upgrades-SucceedsWhenNonSerializableTypesAreIncompatible-v1.dar",
@@ -205,7 +217,9 @@ da_scala_test_suite(
             "//test-common:upgrades-FailsWhenUpgradedFieldPackagesAreNotUpgradable-v2.dar",
             "//test-common:upgrades-EmptyProject-v117.dar",
             "//test-common:upgrades-EmptyProject-v1dev.dar",
+            "//test-common:upgrades-FailsWhenDepIsInvalidPreviousVersionOfSelf-v1.dar",
             "//test-common:upgrades-FailsWhenDepIsInvalidPreviousVersionOfSelf-v2.dar",
+            "//test-common:upgrades-SucceedsWhenDepIsValidPreviousVersionOfSelf-v1.dar",
             "//test-common:upgrades-SucceedsWhenDepIsValidPreviousVersionOfSelf-v2.dar",
 
             # Ported from DamlcUpgrades.hs
@@ -317,6 +331,10 @@ da_scala_test_suite(
             "//test-common:upgrades-SucceedWhenParamNameChanges-v2.dar",
             "//test-common:upgrades-SucceedWhenPhantomParamBecomesUsed-v1.dar",
             "//test-common:upgrades-SucceedWhenPhantomParamBecomesUsed-v2.dar",
+            "//test-common:upgrades-FailsWhenNewerPackagesUsesAnOlderLFVersion-v1.dar",
+            "//test-common:upgrades-FailsWhenNewerPackagesUsesAnOlderLFVersion-v2.dar",
+            "//test-common:upgrades-SucceedsWhenNewerPackagesUsesANewerLFVersion-v1.dar",
+            "//test-common:upgrades-SucceedsWhenNewerPackagesUsesANewerLFVersion-v2.dar",
 
             # Test for dependency upgrades
             "//test-common:upgrades-FailsWhenDepsDowngradeVersionsWhileUsingDatatypes-dep-v1.dar",

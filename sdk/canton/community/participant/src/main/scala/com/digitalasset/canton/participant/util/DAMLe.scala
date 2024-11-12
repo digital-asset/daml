@@ -47,10 +47,7 @@ object DAMLe {
   ): Engine =
     new Engine(
       EngineConfig(
-        allowedLanguageVersions = VersionRange(
-          min = LanguageVersion.v1_14,
-          max = maxVersion(enableLfBeta = enableLfBeta, enableLfDev = enableLfDev),
-        ),
+        allowedLanguageVersions = versionRange(enableLfDev, enableLfBeta),
         // The package store contains only validated packages, so we can skip validation upon loading
         packageValidation = false,
         stackTraceMode = enableStackTraces,
@@ -63,12 +60,17 @@ object DAMLe {
       )
     )
 
-  private def maxVersion(
-      enableLfBeta: Boolean,
+  def versionRange(
       enableLfDev: Boolean,
-  ) = if (enableLfDev) LanguageVersion.v1_dev
-  else if (enableLfBeta) LanguageVersion.EarlyAccessVersions.max
-  else LanguageVersion.StableVersions.max
+      enableLfBeta: Boolean,
+  ): VersionRange[LanguageVersion] =
+    VersionRange(
+      min = LanguageVersion.v1_14,
+      max =
+        if (enableLfDev) LanguageVersion.v1_dev
+        else if (enableLfBeta) LanguageVersion.EarlyAccessVersions.max
+        else LanguageVersion.StableVersions.max,
+    )
 
   /** Resolves packages by [[com.daml.lf.data.Ref.PackageId]].
     * The returned packages must have been validated
