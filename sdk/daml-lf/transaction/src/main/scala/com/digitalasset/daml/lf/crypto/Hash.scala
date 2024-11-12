@@ -288,7 +288,13 @@ object Hash {
   private sealed abstract class NodeBuilder(
       purpose: Purpose,
       hashTracer: HashTracer,
-  ) extends LegacyBuilder(purpose, aCid2Bytes, stringNumericToBytes, hashTracer) {
+  ) extends LegacyBuilder(
+        purpose,
+        aCid2Bytes,
+        stringNumericToBytes,
+        hashRecordLabels = true,
+        hashTracer = hashTracer,
+      ) {
 
     def addHashVersion(version: NodeHashVersion): this.type = {
       addByte(version.id, s"${formatByteToHexString(version.id)} (Node Encoding Version)")
@@ -646,6 +652,7 @@ object Hash {
       purpose: Purpose,
       cid2Bytes: Value.ContractId => Bytes,
       numericToBytes: data.Numeric => Bytes,
+      hashRecordLabels: Boolean,
       hashTracer: HashTracer,
   ) extends ValueHashBuilder(
         version = Version.Legacy,
@@ -707,6 +714,10 @@ object Hash {
           iterateOver(xs.toImmArray)(_ addTypedValue _)
         case Value.ValueTextMap(xs) =>
           iterateOver(xs.toImmArray)((acc, x) => acc.addString(x._1).addTypedValue(x._2))
+        case Value.ValueRecord(_, fs) if hashRecordLabels =>
+          iterateOver(fs)((builder, recordEntry) =>
+            builder.addOptional(recordEntry._1, _.addString).addTypedValue(recordEntry._2)
+          )
         case Value.ValueRecord(_, fs) =>
           iterateOver(fs)(_ addTypedValue _._2)
         case Value.ValueVariant(_, variant, v) =>
@@ -948,7 +959,13 @@ object Hash {
     if (upgradeFriendly)
       new UpgradeFriendlyBuilder(purpose, cid2Bytes, numeric2Bytes, hashTracer).addVersion
     else
-      new LegacyBuilder(purpose, cid2Bytes, numeric2Bytes, hashTracer).addVersion
+      new LegacyBuilder(
+        purpose,
+        cid2Bytes,
+        numeric2Bytes,
+        hashRecordLabels = false,
+        hashTracer,
+      ).addVersion
   }
 
   private[crypto] def hMacBuilder(key: Hash): Builder = new HashMacBuilder(key)
