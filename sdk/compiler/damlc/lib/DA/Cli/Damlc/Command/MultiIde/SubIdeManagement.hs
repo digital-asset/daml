@@ -238,7 +238,9 @@ runSubProc miState home = do
 rebootIdeByHome :: MultiIdeState -> PackageHome -> IO ()
 rebootIdeByHome miState home = withIDEs_ miState $ \ides -> do
   ides' <- unsafeShutdownIdeByHome miState ides home
-  unsafeAddNewSubIdeAndSend miState ides' home Nothing
+  if isIdeDataOpen $ lookupSubIde home ides'
+    then unsafeAddNewSubIdeAndSend miState ides' home Nothing
+    else pure ides'
 
 -- Version of rebootIdeByHome that only spins up IDEs that were either active, or disabled.
 -- Does not spin up IDEs that were naturally shutdown/never started
