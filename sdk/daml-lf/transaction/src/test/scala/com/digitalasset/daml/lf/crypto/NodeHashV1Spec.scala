@@ -993,18 +993,24 @@ class NodeHashV1Spec extends AnyWordSpec with Matchers with HashUtils {
           Some(defRef("module", "name")), // identifier is NOT part of the hash
           ImmArray(
             (
-              Some(Ref.Name.assertFromString("field1")), // fields are NOT part of the hash
+              Some(Ref.Name.assertFromString("field1")),
               Value.ValueTrue,
             ),
             (
-              Some(Ref.Name.assertFromString("field2")), // fields are NOT part of the hash
+              Some(Ref.Name.assertFromString("field2")),
               Value.ValueText("hello"),
             ),
           ),
         ),
-        "fa5f5d67d77d85f097e84ab6afc800794e8faa2a1f633e3c7ee9e6dc95e7466c",
+        "8501e9fda13fab67faeb117b11c9c5d5b4429ebbf42037dd8a4b1d1367f288b7",
         """'00000002' # 2 (int)
+          |'01' # Some
+          |'00000006' # 6 (int)
+          |'6669656c6431' # field1 (string)
           |'01' # true (bool)
+          |'01' # Some
+          |'00000006' # 6 (int)
+          |'6669656c6432' # field2 (string)
           |'00000005' # 5 (int)
           |'68656c6c6f' # hello (string)
           |""".stripMargin,
