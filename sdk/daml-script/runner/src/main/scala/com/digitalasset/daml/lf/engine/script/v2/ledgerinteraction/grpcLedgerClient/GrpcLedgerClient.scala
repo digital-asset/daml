@@ -354,7 +354,7 @@ class GrpcLedgerClient(
       mat: Materializer,
   ) = {
     grpcClient.partyManagementClient
-      .allocateParty(Some(partyIdHint), None, None)
+      .allocateParty(Some(partyIdHint))
       .map(_.party)
   }
 

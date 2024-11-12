@@ -352,7 +352,7 @@ class GrpcLedgerClient(val grpcClient: LedgerClient, val applicationId: Option[R
       mat: Materializer,
   ) = {
     grpcClient.partyManagementClient
-      .allocateParty(Some(partyIdHint), None, None)
+      .allocateParty(Some(partyIdHint))
       .map(_.party)
   }
 
