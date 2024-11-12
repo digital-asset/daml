@@ -246,6 +246,8 @@ unvettedTest makeSubmission assertResult participant sigs obs = do
   cidV1Prelim <- alice `submit` createExactCmd V1.TestTemplate with p = alice, sigs = [], obs = obs ++ sigs
   -- Leave time for all sigs (which are currently observers) to see the template, so they can exercise the `SetInformees` choice
   unless (null sigs) $ sleep (seconds 1)
+  -- Fold over observers to be promoted to sigs. These are separate transactions as our intended sigs are on different participants
+  -- and as such, cannot have their signatures included simply using `submitMulti`
   cidV1 <-
     foldlA
       (\cid p -> p `submit` exerciseExactCmd cid V1.PromoteObserver with newSig = p)
