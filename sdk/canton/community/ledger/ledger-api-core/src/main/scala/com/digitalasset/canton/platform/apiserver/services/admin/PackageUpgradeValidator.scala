@@ -15,11 +15,11 @@ import com.digitalasset.canton.util.EitherTUtil
 import com.digitalasset.daml.lf.archive.DamlLf.Archive
 import com.digitalasset.daml.lf.archive.Decode
 import com.digitalasset.daml.lf.data.Ref
+import com.digitalasset.daml.lf.language.Ast
 import com.digitalasset.daml.lf.language.Util.{
   PkgIdWithNameAndVersion,
   dependenciesInTopologicalOrder,
 }
-import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
 import com.digitalasset.daml.lf.validation.{TypecheckUpgrades, UpgradeError}
 import scalaz.std.either.*
 import scalaz.std.option.*
@@ -58,8 +58,7 @@ class PackageUpgradeValidator(
       case Nil => EitherT.pure[Future, DamlError](packageMap)
       case pkgId :: rest =>
         val pkg = upgradingPackagesMap(pkgId)
-        val supportsUpgrades =
-          LanguageVersion.supportsPackageUpgrades(pkg.languageVersion) && !pkg.isUtilityPackage
+        val supportsUpgrades = pkg.supportsUpgrades(pkgId)
         for {
           _ <- EitherTUtil.ifThenET(supportsUpgrades)(
             // This check will look for the closest neighbors of pkgId for the package versioning ordering and
@@ -89,50 +88,59 @@ class PackageUpgradeValidator(
     logger.info(
       s"Uploading DAR file for $uploadedPackageIdWithMeta in submission ID ${loggingContext.serializeFiltered("submissionId")}."
     )
-    existingVersionedPackageId(uploadedPackageAst, packageMap) match {
-      case Some(existingPackageId) =>
-        if (existingPackageId == uploadedPackageId) {
-          logger.info(
-            s"Ignoring upload of package $uploadedPackageIdWithMeta as it has been previously uploaded"
-          )
-          EitherT.rightT[Future, DamlError](())
-        } else {
-          EitherT.leftT[Future, Unit](
-            Validation.UpgradeVersion
-              .Error(
-                uploadedPackage = uploadedPackageIdWithMeta,
-                existingPackage = existingPackageId,
-                packageVersion = uploadedPackageAst.metadata.version,
-              ): DamlError
-          )
-        }
-
-      case None =>
-        for {
-          optMaximalDar <- EitherT.right[DamlError](
-            maximalVersionedDar(
-              uploadedPackageAst,
-              packageMap,
-              upgradingPackagesMap,
+    if (uploadedPackageAst.isInvalidDamlPrim(uploadedPackageId)) {
+      EitherT.leftT[Future, Unit](
+        Validation.UpgradeDamlPrimIsNotAUtilityPackage
+          .Error(
+            uploadedPackage = uploadedPackageIdWithMeta
+          ): DamlError
+      )
+    } else {
+      existingVersionedPackageId(uploadedPackageAst, packageMap) match {
+        case Some(existingPackageId) =>
+          if (existingPackageId == uploadedPackageId) {
+            logger.info(
+              s"Ignoring upload of package $uploadedPackageIdWithMeta as it has been previously uploaded"
             )
-          )
-          _ <- typecheckUpgrades(
-            TypecheckUpgrades.MaximalDarCheck,
-            packageMap,
-            optUpgradingDar,
-            optMaximalDar,
-          )
-          optMinimalDar <- EitherT.right[DamlError](
-            minimalVersionedDar(uploadedPackageAst, packageMap, upgradingPackagesMap)
-          )
-          _ <- typecheckUpgrades(
-            TypecheckUpgrades.MinimalDarCheck,
-            packageMap,
-            optMinimalDar,
-            optUpgradingDar,
-          )
-          _ = logger.info(s"Typechecking upgrades for $uploadedPackageIdWithMeta succeeded.")
-        } yield ()
+            EitherT.rightT[Future, DamlError](())
+          } else {
+            EitherT.leftT[Future, Unit](
+              Validation.UpgradeVersion
+                .Error(
+                  uploadedPackage = uploadedPackageIdWithMeta,
+                  existingPackage = existingPackageId,
+                  packageVersion = uploadedPackageAst.metadata.version,
+                ): DamlError
+            )
+          }
+
+        case None =>
+          for {
+            optMaximalDar <- EitherT.right[DamlError](
+              maximalVersionedDar(
+                uploadedPackageAst,
+                packageMap,
+                upgradingPackagesMap,
+              )
+            )
+            _ <- typecheckUpgrades(
+              TypecheckUpgrades.MaximalDarCheck,
+              packageMap,
+              optUpgradingDar,
+              optMaximalDar,
+            )
+            optMinimalDar <- EitherT.right[DamlError](
+              minimalVersionedDar(uploadedPackageAst, packageMap, upgradingPackagesMap)
+            )
+            _ <- typecheckUpgrades(
+              TypecheckUpgrades.MinimalDarCheck,
+              packageMap,
+              optMinimalDar,
+              optUpgradingDar,
+            )
+            _ = logger.info(s"Typechecking upgrades for $uploadedPackageIdWithMeta succeeded.")
+          } yield ()
+      }
     }
   }
 

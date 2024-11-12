@@ -35,13 +35,12 @@ import com.digitalasset.canton.util.{PathUtils, SimpleExecutionQueue}
 import com.digitalasset.canton.{LedgerSubmissionId, LfPackageId}
 import com.digitalasset.daml.lf.archive.{DamlLf, Dar as LfDar, DarParser, Decode}
 import com.digitalasset.daml.lf.engine.Engine
-import com.digitalasset.daml.lf.language.{Ast, LanguageVersion}
+import com.digitalasset.daml.lf.language.Ast
 import com.google.protobuf.ByteString
 
 import java.nio.file.Paths
 import java.util.zip.ZipInputStream
 import scala.concurrent.ExecutionContext
-import scala.math.Ordering.Implicits.infixOrderingOps
 import scala.util.{Failure, Success, Try}
 
 class PackageUploader(
@@ -159,9 +158,7 @@ class PackageUploader(
           s"Managed to upload one or more archives for submissionId $submissionId"
         )
         _ = allPackages.foreach { case (_, (pkgId, pkg)) =>
-          if (
-            pkg.languageVersion >= LanguageVersion.Features.packageUpgrades && !pkg.isUtilityPackage
-          ) {
+          if (pkg.supportsUpgrades(pkgId)) {
             packageMetadataView.update(PackageMetadata.from(pkgId, pkg))
           }
         }
