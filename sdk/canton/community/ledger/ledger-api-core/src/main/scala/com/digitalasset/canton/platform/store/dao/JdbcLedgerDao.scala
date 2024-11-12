@@ -10,7 +10,7 @@ import com.digitalasset.canton.ledger.api.health.{HealthStatus, ReportsHealth}
 import com.digitalasset.canton.ledger.participant.state
 import com.digitalasset.canton.ledger.participant.state.index.IndexerPartyDetails
 import com.digitalasset.canton.ledger.participant.state.index.MeteringStore.ReportData
-import com.digitalasset.canton.ledger.participant.state.{DomainIndex, RequestIndex, Update}
+import com.digitalasset.canton.ledger.participant.state.{DomainIndex, RequestIndex}
 import com.digitalasset.canton.lifecycle.FutureUnlessShutdown
 import com.digitalasset.canton.logging.LoggingContextWithTrace.{
   implicitExtractTraceContext,
@@ -33,7 +33,7 @@ import com.digitalasset.canton.platform.store.entries.PartyLedgerEntry
 import com.digitalasset.canton.platform.store.interning.StringInterning
 import com.digitalasset.canton.platform.store.utils.QueueBasedConcurrencyLimiter
 import com.digitalasset.canton.topology.DomainId
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
@@ -127,19 +127,16 @@ private class JdbcLedgerDao(
             conn,
             offset,
             Some(
-              Traced[Update](
-                state.Update.PartyAddedToParticipant(
-                  party = partyDetails.party,
-                  // HACK: the `PartyAddedToParticipant` transmits `participantId`s, while here we only have the information
-                  // whether the party is locally hosted or not. We use the `nonLocalParticipantId` to get the desired effect of
-                  // the `isLocal = False` information to be transmitted via a `PartyAddedToParticpant` `Update`.
-                  //
-                  // This will be properly resolved once we move away from the `sandbox-classic` codebase.
-                  participantId =
-                    if (partyDetails.isLocal) participantId else NonLocalParticipantId,
-                  recordTime = recordTime,
-                  submissionId = submissionIdOpt,
-                )
+              state.Update.PartyAddedToParticipant(
+                party = partyDetails.party,
+                // HACK: the `PartyAddedToParticipant` transmits `participantId`s, while here we only have the information
+                // whether the party is locally hosted or not. We use the `nonLocalParticipantId` to get the desired effect of
+                // the `isLocal = False` information to be transmitted via a `PartyAddedToParticpant` `Update`.
+                //
+                // This will be properly resolved once we move away from the `sandbox-classic` codebase.
+                participantId = if (partyDetails.isLocal) participantId else NonLocalParticipantId,
+                recordTime = recordTime,
+                submissionId = submissionIdOpt,
               )
             ),
           )
@@ -150,13 +147,11 @@ private class JdbcLedgerDao(
             conn,
             offset,
             Some(
-              Traced[Update](
-                state.Update.PartyAllocationRejected(
-                  submissionId = submissionId,
-                  participantId = participantId,
-                  recordTime = recordTime,
-                  rejectionReason = reason,
-                )
+              state.Update.PartyAllocationRejected(
+                submissionId = submissionId,
+                participantId = participantId,
+                recordTime = recordTime,
+                rejectionReason = reason,
               )
             ),
           )
@@ -199,22 +194,20 @@ private class JdbcLedgerDao(
           conn,
           offset,
           completionInfo.map(info =>
-            Traced[Update](
-              state.Update.CommandRejected(
-                recordTime = recordTime,
-                completionInfo = info,
-                reasonTemplate = reason,
-                domainId = DomainId.tryFromString("invalid::deadbeef"),
-                domainIndex = Some(
-                  DomainIndex.of(
-                    RequestIndex(
-                      RequestCounter(1),
-                      Some(SequencerCounter(1)),
-                      CantonTimestamp.ofEpochMicro(recordTime.micros),
-                    )
+            state.Update.CommandRejected(
+              recordTime = recordTime,
+              completionInfo = info,
+              reasonTemplate = reason,
+              domainId = DomainId.tryFromString("invalid::deadbeef"),
+              domainIndex = Some(
+                DomainIndex.of(
+                  RequestIndex(
+                    RequestCounter(1),
+                    Some(SequencerCounter(1)),
+                    CantonTimestamp.ofEpochMicro(recordTime.micros),
                   )
-                ),
-              )
+                )
+              ),
             )
           ),
         )
@@ -485,45 +478,43 @@ private class JdbcLedgerDao(
           conn,
           offset,
           Some(
-            Traced[Update](
-              state.Update.TransactionAccepted(
-                completionInfoO = completionInfo,
-                transactionMeta = state.TransactionMeta(
-                  ledgerEffectiveTime = ledgerEffectiveTime,
-                  workflowId = workflowId,
-                  submissionTime = null, // not used for DbDto generation
-                  submissionSeed = null, // not used for DbDto generation
-                  optUsedPackages = None, // not used for DbDto generation
-                  optNodeSeeds = None, // not used for DbDto generation
-                  optByKeyNodes = None, // not used for DbDto generation
-                ),
-                transaction = transaction,
-                updateId = updateId,
-                recordTime = recordTime,
-                hostedWitnesses = hostedWitnesses,
-                contractMetadata = new Map[ContractId, Bytes] {
-                  override def removed(key: ContractId): Map[ContractId, Bytes] = this
+            state.Update.TransactionAccepted(
+              completionInfoO = completionInfo,
+              transactionMeta = state.TransactionMeta(
+                ledgerEffectiveTime = ledgerEffectiveTime,
+                workflowId = workflowId,
+                submissionTime = null, // not used for DbDto generation
+                submissionSeed = null, // not used for DbDto generation
+                optUsedPackages = None, // not used for DbDto generation
+                optNodeSeeds = None, // not used for DbDto generation
+                optByKeyNodes = None, // not used for DbDto generation
+              ),
+              transaction = transaction,
+              updateId = updateId,
+              recordTime = recordTime,
+              hostedWitnesses = hostedWitnesses,
+              contractMetadata = new Map[ContractId, Bytes] {
+                override def removed(key: ContractId): Map[ContractId, Bytes] = this
 
-                  override def updated[V1 >: Bytes](
-                      key: ContractId,
-                      value: V1,
-                  ): Map[ContractId, V1] = this
+                override def updated[V1 >: Bytes](
+                    key: ContractId,
+                    value: V1,
+                ): Map[ContractId, V1] = this
 
-                  override def get(key: ContractId): Option[Bytes] = Some(Bytes.Empty)
+                override def get(key: ContractId): Option[Bytes] = Some(Bytes.Empty)
 
-                  override def iterator: Iterator[(ContractId, Bytes)] = Iterator.empty
-                }, // only for tests
-                domainId = DomainId.tryFromString("invalid::deadbeef"),
-                domainIndex = Some(
-                  DomainIndex.of(
-                    RequestIndex(
-                      RequestCounter(1),
-                      Some(SequencerCounter(1)),
-                      CantonTimestamp.ofEpochMicro(recordTime.micros),
-                    )
+                override def iterator: Iterator[(ContractId, Bytes)] = Iterator.empty
+              }, // only for tests
+              domainId = DomainId.tryFromString("invalid::deadbeef"),
+              domainIndex = Some(
+                DomainIndex.of(
+                  RequestIndex(
+                    RequestCounter(1),
+                    Some(SequencerCounter(1)),
+                    CantonTimestamp.ofEpochMicro(recordTime.micros),
                   )
-                ),
-              )
+                )
+              ),
             )
           ),
         )

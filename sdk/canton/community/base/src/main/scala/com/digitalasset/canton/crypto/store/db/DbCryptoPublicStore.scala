@@ -14,6 +14,7 @@ import com.digitalasset.canton.resource.DbStorage.DbAction
 import com.digitalasset.canton.resource.{DbStorage, DbStore, IdempotentInsert}
 import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.ReleaseProtocolVersion
+import slick.dbio.DBIOAction
 import slick.jdbc.{GetResult, SetParameter}
 
 import scala.concurrent.ExecutionContext
@@ -128,4 +129,33 @@ class DbCryptoPublicStore(
         sqlu"delete from common_crypto_public_keys where key_id = $keyId",
         functionFullName,
       )
+
+  override private[crypto] def replaceSigningPublicKeys(
+      newKeys: Seq[SigningPublicKey]
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit] = replacePublicKeys(newKeys)
+
+  override private[crypto] def replaceEncryptionPublicKeys(
+      newKeys: Seq[EncryptionPublicKey]
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit] = replacePublicKeys(newKeys)
+
+  private def replacePublicKeys[K <: PublicKey: SetParameter](
+      newKeys: Seq[K]
+  )(implicit
+      traceContext: TraceContext
+  ): FutureUnlessShutdown[Unit] =
+    storage.updateUnlessShutdown_(
+      DBIOAction.sequence(newKeys.map(updateKey(_))).transactionally,
+      functionFullName,
+    )
+
+  // Update the contents of a key identified by its id; `purpose` and `name` remain unchanged.
+  // Used for key format migrations.
+  private def updateKey[K <: PublicKey: SetParameter](
+      key: K
+  ): DbAction.WriteOnly[Int] =
+    sqlu"""update common_crypto_public_keys set data = $key where key_id = ${key.id}"""
 }

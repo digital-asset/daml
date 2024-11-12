@@ -234,7 +234,7 @@ class TrafficControlProcessor(
 
     logger.debug(
       s"Validating message ${signedMessage.message} with ${signatures.size}" +
-        s" signature${if (signatures.size > 1) "s" else ""}"
+        s" signature${if (signatures.sizeIs > 1) "s" else ""}"
     )
 
     val expectedRecipients = Set(SequencersOfDomain: Recipient)

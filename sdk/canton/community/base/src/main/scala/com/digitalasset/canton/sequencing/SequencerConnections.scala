@@ -190,7 +190,7 @@ object SequencerConnections
         sequencerConnectionsP,
       )
       _ <- Either.cond(
-        sequencerConnectionsNes.map(_.sequencerAlias).toSet.size == sequencerConnectionsNes.size,
+        sequencerConnectionsNes.map(_.sequencerAlias).toSet.sizeIs == sequencerConnectionsNes.size,
         (),
         ProtoDeserializationError.ValueConversionError(
           "sequencer_connections",

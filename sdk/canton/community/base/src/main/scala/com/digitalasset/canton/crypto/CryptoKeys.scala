@@ -98,6 +98,17 @@ trait CryptoKeyPairKey extends CryptoKey {
   def id: Fingerprint
 
   def isPublicKey: Boolean
+
+  /** Indicates whether the key was migrated from an old format during creation.
+    *
+    * The crypto stores read and check the keys during initialization and use this flag to determine
+    * whether they have been migrated. If that is the case they are written back in the new format.
+    * Keys read afterward from the store have therefore this flag unset.
+    *
+    * Keys that are obtained by other means, such as via a topology transaction, can however have
+    * this flag set if they were originally stored in a legacy format.
+    */
+  def migrated: Boolean
 }
 
 trait CryptoKeyPair[+PK <: PublicKey, +SK <: PrivateKey]
@@ -163,9 +174,18 @@ trait PublicKey extends CryptoKeyPairKey {
 
   def fingerprint: Fingerprint = id
 
+  /** The data used to compute the key fingerprint.
+    *
+    * This should normally be the same as the key contents (in which case it is `None`), but can be different
+    * when we need to support backward compatibility. For example, Ed25519 keys were originally stored raw;
+    * when changing the format to X.509, the key content became the DER-encoded SubjectPublicKeyInfo. To keep the
+    * same fingerprint, this field retains the raw key.
+    */
+  protected def dataForFingerprintO: Option[ByteString]
+
   override lazy val id: Fingerprint =
     // TODO(i15649): Consider the key format and fingerprint scheme before computing
-    Fingerprint.create(key)
+    Fingerprint.create(dataForFingerprintO.getOrElse(key))
 
   def purpose: KeyPurpose
 
@@ -296,12 +316,45 @@ object CryptoKeyFormat {
   implicit val cryptoKeyFormatOrder: Order[CryptoKeyFormat] =
     Order.by[CryptoKeyFormat, String](_.name)
 
+  /** ASN.1 + DER-encoding of X.509 SubjectPublicKeyInfo structure: [[https://datatracker.ietf.org/doc/html/rfc5280#section-4.1 RFC 5280]]
+    */
+  case object DerX509Spki extends CryptoKeyFormat {
+    // Used for:
+    // - SigningPublicKey of spec EcCurve25519
+    override val name: String = "DER-encoded X.509 SubjectPublicKeyInfo"
+    override def toProtoEnum: v30.CryptoKeyFormat =
+      v30.CryptoKeyFormat.CRYPTO_KEY_FORMAT_DER_X509_SUBJECT_PUBLIC_KEY_INFO
+  }
+
+  /** ASN.1 + DER-encoding of PKCS #8 PrivateKeyInfo structure: [[https://datatracker.ietf.org/doc/html/rfc5208#section-5 RFC 5208]]
+    */
+  case object DerPkcs8Pki extends CryptoKeyFormat {
+    // Used for:
+    // - SigningPrivateKey of spec EcCurve25519
+    override val name: String = "DER-encoded PKCS #8 PrivateKeyInfo"
+    override def toProtoEnum: v30.CryptoKeyFormat =
+      v30.CryptoKeyFormat.CRYPTO_KEY_FORMAT_DER_PKCS8_PRIVATE_KEY_INFO
+  }
+
   case object Der extends CryptoKeyFormat {
+    // For public keys:
+    // - DER-encoded SubjectPublicKeyInfo of X.509
+    // For private keys:
+    // - DER-encoded PKCS #8
+    // Used for:
+    // - SigningPublicKey of spec EcP256 and EcP384
+    // - SigningPrivateKey of spec EcP256 and EcP384
+    // - SigningPublicKey coming from AWS KMS, GCP KMS and Driver KMS
+    // - EncryptionPublicKey of spec EcP256 and Rsa2048
+    // - EncryptionPrivateKey of spec EcP256 and Rsa2048
+    // - EncryptionPublicKey coming from AWS KMS, GCP KMS and Driver KMS
     override val name: String = "DER"
     override def toProtoEnum: v30.CryptoKeyFormat = v30.CryptoKeyFormat.CRYPTO_KEY_FORMAT_DER
   }
 
   case object Raw extends CryptoKeyFormat {
+    // Used for:
+    // - SymmetricKey
     override val name: String = "Raw"
     override def toProtoEnum: v30.CryptoKeyFormat = v30.CryptoKeyFormat.CRYPTO_KEY_FORMAT_RAW
   }
@@ -320,6 +373,10 @@ object CryptoKeyFormat {
         Left(ProtoDeserializationError.FieldNotSet(field))
       case v30.CryptoKeyFormat.Unrecognized(value) =>
         Left(ProtoDeserializationError.UnrecognizedEnum(field, value))
+      case v30.CryptoKeyFormat.CRYPTO_KEY_FORMAT_DER_X509_SUBJECT_PUBLIC_KEY_INFO =>
+        Right(CryptoKeyFormat.DerX509Spki)
+      case v30.CryptoKeyFormat.CRYPTO_KEY_FORMAT_DER_PKCS8_PRIVATE_KEY_INFO =>
+        Right(CryptoKeyFormat.DerPkcs8Pki)
       case v30.CryptoKeyFormat.CRYPTO_KEY_FORMAT_DER => Right(CryptoKeyFormat.Der)
       case v30.CryptoKeyFormat.CRYPTO_KEY_FORMAT_RAW => Right(CryptoKeyFormat.Raw)
       case v30.CryptoKeyFormat.CRYPTO_KEY_FORMAT_SYMBOLIC => Right(CryptoKeyFormat.Symbolic)

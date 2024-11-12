@@ -111,6 +111,7 @@ object MemoryCheck {
     override def getObjectName: ObjectName = delegate.getObjectName
   }
 
+  @SuppressWarnings(Array("org.wartremover.warts.SortedMaxMinOption"))
   private[ratelimiting] def findTenuredMemoryPool(
       config: RateLimitingConfig,
       memoryPoolMxBeans: List[MemoryPoolMXBean],

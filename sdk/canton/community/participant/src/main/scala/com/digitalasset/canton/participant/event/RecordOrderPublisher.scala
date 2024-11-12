@@ -137,10 +137,10 @@ class RecordOrderPublisher(
     currentLastPublishedPersisted.updatePersisted
   }
 
-  private def onlyForTestingRecordAcceptedTransactions(eventO: Option[Traced[Update]]): Unit =
+  private def onlyForTestingRecordAcceptedTransactions(eventO: Option[Update]): Unit =
     for {
       store <- ledgerApiIndexer.onlyForTestingTransactionInMemoryStore
-      transactionAccepted <- eventO.collect { case Traced(txAccepted: Update.TransactionAccepted) =>
+      transactionAccepted <- eventO.collect { case txAccepted: Update.TransactionAccepted =>
         txAccepted
       }
     } {
@@ -162,12 +162,12 @@ class RecordOrderPublisher(
   def tick(
       sequencerCounter: SequencerCounter,
       timestamp: CantonTimestamp,
-      eventO: Option[Traced[Update]],
+      eventO: Option[Update],
       requestCounterO: Option[RequestCounter],
   )(implicit traceContext: TraceContext): Future[Unit] =
     if (timestamp > initTimestamp) {
       eventO
-        .flatMap(_.value.domainIndexOpt)
+        .flatMap(_.domainIndexOpt)
         .flatMap(_._2.requestIndex)
         .map(_.counter)
         .foreach(requestCounter =>
@@ -295,27 +295,25 @@ class RecordOrderPublisher(
       override val sequencerCounter: SequencerCounter,
       override val timestamp: CantonTimestamp,
   )(
-      val eventO: Option[Traced[Update]],
+      val eventO: Option[Update],
       val requestCounterO: Option[RequestCounter],
   )(implicit val traceContext: TraceContext)
       extends PublicationTask {
 
-    private val event: Traced[Update] = eventO.getOrElse(
-      Traced(
-        SequencerIndexMoved(
-          domainId = domainId,
-          sequencerIndex = SequencerIndex(
-            counter = sequencerCounter,
-            timestamp = timestamp,
-          ),
-          requestCounterO = requestCounterO,
-        )
+    private val event: Update = eventO.getOrElse(
+      SequencerIndexMoved(
+        domainId = domainId,
+        sequencerIndex = SequencerIndex(
+          counter = sequencerCounter,
+          timestamp = timestamp,
+        ),
+        requestCounterO = requestCounterO,
       )
     )
 
     // TODO(i18695): attempt to simplify data structures and data passing, so these assertions can be removed
-    assert(event.value.domainIndexOpt.isDefined)
-    event.value.domainIndexOpt.foreach { case (_, domainIndex) =>
+    assert(event.domainIndexOpt.isDefined)
+    event.domainIndexOpt.foreach { case (_, domainIndex) =>
       assert(domainIndex.sequencerIndex.isDefined)
       domainIndex.sequencerIndex.foreach { sequencerIndex =>
         assert(sequencerIndex.timestamp == timestamp)
@@ -336,7 +334,7 @@ class RecordOrderPublisher(
     }
 
     override def perform(): FutureUnlessShutdown[Unit] = performUnlessClosingUSF("publish-event") {
-      logger.debug(s"Publish event with domain index ${event.value.domainIndexOpt}")
+      logger.debug(s"Publish event with domain index ${event.domainIndexOpt}")
       FutureUnlessShutdown.outcomeF(
         ledgerApiIndexer.queue
           .offer(event)
@@ -346,7 +344,7 @@ class RecordOrderPublisher(
                 sequencerCounter = sequencerCounter,
                 timestamp = timestamp,
                 requestCounterO = requestCounterO,
-                updatePersisted = event.value.persisted.future,
+                updatePersisted = event.persisted.future,
               )
             )
             onSequencerIndexMovingAhead(
@@ -360,7 +358,7 @@ class RecordOrderPublisher(
       prettyOfClass(
         param("timestamp", _.timestamp),
         param("sequencerCounter", _.sequencerCounter),
-        param("event", _.event.value),
+        param("event", _.event),
       )
 
     override def close(): Unit = ()

@@ -159,10 +159,15 @@ class DbCryptoPrivateStore(
   private[canton] def listPrivateKeys(purpose: KeyPurpose, encrypted: Boolean)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Set[StoredPrivateKey]] =
+    listPrivateKeys(purpose).map(keys => keys.filter(_.isEncrypted == encrypted))
+
+  @VisibleForTesting
+  private[canton] def listPrivateKeys(purpose: KeyPurpose)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Set[StoredPrivateKey]] =
     EitherT.right(
       storage
         .queryUnlessShutdown(queryKeys(purpose), functionFullName)
-        .map(keys => keys.filter(_.isEncrypted == encrypted))
     )
 
   private def deleteKey(keyId: Fingerprint): SqlAction[Int, NoStream, Effect.Write] =
@@ -219,13 +224,12 @@ class DbCryptoPrivateStore(
         storage
           .queryUnlessShutdown(
             sql"select distinct wrapper_key_id from common_crypto_private_keys"
-              .as[Option[String300]]
-              .map(_.toSeq),
+              .as[Option[String300]],
             functionFullName,
           )
       )
       .subflatMap { wrapperKeys =>
-        if (wrapperKeys.size > 1)
+        if (wrapperKeys.sizeIs > 1)
           Left(
             CryptoPrivateStoreError
               .FailedToGetWrapperKeyId("Found more than one distinct wrapper_key_id")

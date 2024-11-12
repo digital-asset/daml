@@ -5,7 +5,9 @@ package com.digitalasset.canton.data
 
 import cats.syntax.either.*
 import com.daml.logging.entries.{LoggingValue, ToLoggingValue}
+import com.digitalasset.canton.data.AbsoluteOffset.{firstOffset, tryFromLong}
 import com.digitalasset.canton.data.Offset.beforeBegin
+import com.digitalasset.canton.pekkostreams.dispatcher.DispatcherImpl.Incrementable
 import com.digitalasset.daml.lf.data.{Bytes, Ref}
 import com.google.protobuf.ByteString
 
@@ -54,15 +56,26 @@ final case class Offset(bytes: Bytes) extends Ordered[Offset] {
   * Offsets are opaque values that must be strictly increasing.
   */
 // TODO(#21220) rename to Offset
-class AbsoluteOffset private (val positive: Long) extends AnyVal with Ordered[AbsoluteOffset] {
+class AbsoluteOffset private (val positive: Long)
+    extends AnyVal
+    with Ordered[AbsoluteOffset]
+    with Incrementable[AbsoluteOffset] {
   def unwrap: Long = positive
 
   def compare(that: AbsoluteOffset): Int = this.positive.compare(that.positive)
 
+  def increment: AbsoluteOffset = tryFromLong(positive + 1L)
+
+  // TODO(#21220) remove after db operations use inclusive start
+  def decrement: Option[AbsoluteOffset] =
+    Option.unless(this == firstOffset)(tryFromLong(positive - 1L))
+
   override def toString: String = s"AbsoluteOffset($positive)"
 
+  def toDecimalString: String = positive.toString
+
   // TODO(#22143) remove after Offsets are stored as integers in db
-  def toHexString: String = Offset.fromLong(positive).toHexString
+  def toHexString: Ref.HexString = Offset.fromLong(positive).toHexString
 
   // TODO(#21220) remove after the unification of Offsets
   def toOffset: Offset = Offset.fromLong(this.unwrap)
@@ -71,7 +84,6 @@ class AbsoluteOffset private (val positive: Long) extends AnyVal with Ordered[Ab
 object AbsoluteOffset {
   lazy val firstOffset: AbsoluteOffset = AbsoluteOffset.tryFromLong(1L)
   lazy val MaxValue: AbsoluteOffset = AbsoluteOffset.tryFromLong(Long.MaxValue)
-  val beforeBegin: Option[AbsoluteOffset] = None
 
   def tryFromLong(num: Long): AbsoluteOffset =
     fromLong(num).valueOr(err => throw new IllegalArgumentException(err))

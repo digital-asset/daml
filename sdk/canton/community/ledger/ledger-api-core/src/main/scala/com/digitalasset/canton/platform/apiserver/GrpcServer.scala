@@ -51,6 +51,7 @@ object GrpcServer {
         .sslContext(sslContext.orNull)
         .executor(servicesExecutor)
         .maxInboundMessageSize(maxInboundMessageSize)
+        .addTransportFilter(GrpcConnectionLogger(loggerFactory))
 
     val builderWithKeepAlive = configureKeepAlive(keepAlive, builder)
     // NOTE: Interceptors run in the reverse order in which they were added.

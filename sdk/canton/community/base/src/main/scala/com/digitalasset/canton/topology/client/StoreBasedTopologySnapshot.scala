@@ -707,8 +707,8 @@ class StoreBasedTopologySnapshot(
   )(implicit
       traceContext: TraceContext
   ): Option[StoredTopologyTransaction[TopologyChangeOp.Replace, T]] = {
-    val result = transactions.sortBy(_.validFrom).lastOption
-    if (transactions.sizeCompare(1) > 0) {
+    val result = transactions.maxByOption(_.validFrom)
+    if (transactions.sizeIs > 1) {
       logger.error(
         show"Expected unique \"${typ.code}\" at $referenceTime, but found multiple instances. Using last one with serial ${result
             .map(_.serial)}"

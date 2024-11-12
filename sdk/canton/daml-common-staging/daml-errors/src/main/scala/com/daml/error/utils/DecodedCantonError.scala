@@ -192,7 +192,7 @@ object DecodedCantonError {
       expectedTypeCompanion: GeneratedMessageCompanion[T]
   ) {
     def atMostOne: Either[String, Option[T]] =
-      Either.cond(seq.size <= 1, seq.headOption, invalid("at most one"))
+      Either.cond(seq.sizeIs <= 1, seq.headOption, invalid("at most one"))
 
     def exactlyOne: Either[String, T] = seq match {
       case Seq(errInfo) => Right(errInfo)

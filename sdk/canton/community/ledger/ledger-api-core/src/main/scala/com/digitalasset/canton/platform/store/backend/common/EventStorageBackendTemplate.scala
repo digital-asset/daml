@@ -1476,8 +1476,7 @@ abstract class EventStorageBackendTemplate(
           ${QueryStrategy.limitClause(Some(1))}
           """.asSingleOpt(metaDomainOffsetParser(stringInterning))(connection),
     ).flatten
-      .sortBy(_.recordTime)
-      .headOption
+      .minByOption(_.recordTime)
       .filter(
         _.offset <= Offset.fromAbsoluteOffsetO(ledgerEndCache().map(_.lastOffset))
       ) // if the first is after LedgerEnd, then we have none
@@ -1568,8 +1567,7 @@ abstract class EventStorageBackendTemplate(
           ${QueryStrategy.limitClause(Some(1))}
           """.asSingleOpt(metaDomainOffsetParser(stringInterning))(connection),
     ).flatten
-      .sortBy(_.offset)
-      .headOption
+      .minByOption(_.offset)
       .filter(
         _.offset <= Offset.fromAbsoluteOffsetO(ledgerEndCache().map(_.lastOffset))
       ) // if first offset is beyond the ledger-end then we have no such

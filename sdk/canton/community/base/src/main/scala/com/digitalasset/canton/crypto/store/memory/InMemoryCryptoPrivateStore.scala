@@ -153,6 +153,12 @@ class InMemoryCryptoPrivateStore(
   private[canton] def listPrivateKeys(purpose: KeyPurpose, encrypted: Boolean)(implicit
       traceContext: TraceContext
   ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Set[StoredPrivateKey]] =
+    listPrivateKeys(purpose)
+
+  @VisibleForTesting
+  private[canton] def listPrivateKeys(purpose: KeyPurpose)(implicit
+      traceContext: TraceContext
+  ): EitherT[FutureUnlessShutdown, CryptoPrivateStoreError, Set[StoredPrivateKey]] =
     (purpose match {
       case Signing =>
         storedSigningKeyMap.values.toSeq

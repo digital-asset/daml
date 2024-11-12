@@ -765,7 +765,7 @@ class SequencerClientTest
 
         def handler: PossiblyIgnoredApplicationHandler[ClosedEnvelope] =
           ApplicationHandler.create("") { events =>
-            assert(events.value.size == 1)
+            assert(events.value.sizeIs == 1)
             promises.get(events.value(0).counter) match {
               case None => HandlerResult.done
               case Some(promise) => HandlerResult.asynchronous(FutureUnlessShutdown(promise.future))

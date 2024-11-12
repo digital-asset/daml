@@ -9,7 +9,6 @@ import com.digitalasset.canton.data.AbsoluteOffset
 import com.digitalasset.canton.ledger.participant.state.Update
 import com.digitalasset.canton.ledger.participant.state.Update.TransactionAccepted
 import com.digitalasset.canton.metrics.IndexerMetrics
-import com.digitalasset.canton.tracing.Traced
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.data.Time.Timestamp
 import com.digitalasset.daml.lf.transaction.TransactionNodeStatistics
@@ -22,7 +21,7 @@ object UpdateToMeteringDbDto {
       metrics: IndexerMetrics,
   )(implicit
       mc: MetricsContext
-  ): Iterable[(AbsoluteOffset, Traced[Update])] => Vector[DbDto.TransactionMetering] = input => {
+  ): Iterable[(AbsoluteOffset, Update)] => Vector[DbDto.TransactionMetering] = input => {
 
     val time = clock()
 
@@ -33,7 +32,7 @@ object UpdateToMeteringDbDto {
 
       (for {
         (completionInfo, transactionAccepted) <- input.iterator
-          .collect { case (_, Traced(ta: TransactionAccepted)) => ta }
+          .collect { case (_, ta: TransactionAccepted) => ta }
           .flatMap(ta => ta.completionInfoO.iterator.map(_ -> ta))
         applicationId = completionInfo.applicationId
         statistics = TransactionNodeStatistics(transactionAccepted.transaction, excludedPackageIds)

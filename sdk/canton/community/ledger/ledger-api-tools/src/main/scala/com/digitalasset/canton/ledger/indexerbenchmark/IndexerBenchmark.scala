@@ -47,7 +47,7 @@
 //  private val directEc = DirectExecutionContext(noTracingLogger)
 //
 //  def run(
-//      createUpdates: () => Future[Source[(Offset, Traced[Update]), NotUsed]],
+//      createUpdates: () => Future[Source[(Offset, Update), NotUsed]],
 //      config: Config,
 //      dataSourceProperties: DataSourceProperties,
 //      highAvailability: HaConfig,
@@ -156,12 +156,12 @@
 //      .acquire()
 //
 //  private[this] def createReadService(
-//      updates: Source[(Offset, Traced[Update]), NotUsed]
+//      updates: Source[(Offset, Update), NotUsed]
 //  ): ReadService = {
 //    new ReadService with InternalStateServiceProviderImpl {
 //      override def stateUpdates(
 //          beginAfter: Option[Offset]
-//      )(implicit traceContext: TraceContext): Source[(Offset, Traced[Update]), NotUsed] = {
+//      )(implicit traceContext: TraceContext): Source[(Offset, Update), NotUsed] = {
 //        assert(beginAfter.isEmpty, s"beginAfter is $beginAfter")
 //        updates
 //      }
@@ -174,7 +174,7 @@
 //      config: Config,
 //      dataSourceProperties: DataSourceProperties,
 //      highAvailability: HaConfig,
-//      updates: () => Future[Source[(Offset, Traced[Update]), NotUsed]],
+//      updates: () => Future[Source[(Offset, Update), NotUsed]],
 //  ): Unit = {
 //    val result: Future[Unit] = new IndexerBenchmark()
 //      .run(updates, config, dataSourceProperties, highAvailability)

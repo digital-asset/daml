@@ -57,24 +57,17 @@ private[service] class GrpcManagedSubscription[T](
 )(implicit ec: ExecutionContext)
     extends ManagedSubscription
     with NamedLogging {
+  import GrpcManagedSubscription.*
 
   protected val loggerFactory: NamedLoggerFactory =
     baseLoggerFactory.append("member", show"$member")
   private val subscriptionRef =
     new AtomicReference[Option[SequencerSubscription[SequencedEventError]]](None)
 
-  /** How should the response observer be closed
-    */
-  private sealed trait ObserverCloseSignal
-  private object NoSignal extends ObserverCloseSignal
-  private object CompleteSignal extends ObserverCloseSignal
-  private case class ErrorSignal(cause: Throwable) extends ObserverCloseSignal
-
   private val closeSignalRef = new AtomicReference[Option[ObserverCloseSignal]](None)
 
-  private def setCloseSignal(signal: ObserverCloseSignal): Unit = {
-    val _ = closeSignalRef.compareAndSet(None, Some(signal))
-  }
+  private def setCloseSignal(signal: ObserverCloseSignal): Unit =
+    closeSignalRef.compareAndSet(None, Some(signal)).discard
 
   // sets the observer signal value and closes this managed subscription.
   // take care not to call this from a performUnlessClosing block as that will likely cause a deadlock.
@@ -170,4 +163,14 @@ private[service] class GrpcManagedSubscription[T](
     } finally notifyClosed()
   }
 
+}
+
+private object GrpcManagedSubscription {
+
+  /** How should the response observer be closed
+    */
+  private sealed trait ObserverCloseSignal
+  private object NoSignal extends ObserverCloseSignal
+  private object CompleteSignal extends ObserverCloseSignal
+  private final case class ErrorSignal(cause: Throwable) extends ObserverCloseSignal
 }

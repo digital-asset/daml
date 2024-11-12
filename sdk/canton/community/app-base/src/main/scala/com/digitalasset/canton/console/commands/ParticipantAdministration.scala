@@ -1412,7 +1412,7 @@ trait ParticipantAdministration extends FeatureFlagFilter {
             .map(_.packageId)
             .toSet
           // don't synchronise anymore in a big production system (as we only need this truly for testing)
-          (lApi.size >= maxPackages.value) || (canton -- lApi).isEmpty
+          (lApi.sizeIs >= maxPackages.value) || (canton -- lApi).isEmpty
         },
         show"Participant $id ledger Api server has still a different set of packages than the sync server",
       )

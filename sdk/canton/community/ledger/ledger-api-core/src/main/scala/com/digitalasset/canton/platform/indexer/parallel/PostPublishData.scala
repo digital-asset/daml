@@ -11,7 +11,7 @@ import com.digitalasset.canton.ledger.participant.state.Update.{
 }
 import com.digitalasset.canton.ledger.participant.state.{CompletionInfo, DomainIndex, Update}
 import com.digitalasset.canton.topology.DomainId
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.data.Ref
 
 import java.util.UUID
@@ -31,7 +31,7 @@ final case class PostPublishData(
 
 object PostPublishData {
   def from(
-      update: Traced[Update],
+      update: Update,
       offset: Offset,
       publicationTime: CantonTimestamp,
   ): Option[PostPublishData] = {
@@ -74,7 +74,7 @@ object PostPublishData {
         traceContext = update.traceContext,
       )
 
-    update.value match {
+    update match {
       // please note: we pass into deduplication and inflight tracking only the transactions and not the reassignments at acceptance
       case u: TransactionAccepted =>
         u.completionInfoO.map(from(u.domainId, u.domainIndex, accepted = true))

@@ -552,7 +552,7 @@ trait SequencerStore extends SequencerMemberValidator with NamedLogging with Aut
         case _ => events.takeRight(maxBufferedEvents)
       }
       val updatedBuffer = eventsBuffer.appendedAll(eventsToAppend)
-      val updatedTruncatedBuffer = if (eventsBuffer.size > maxBufferedEvents) {
+      val updatedTruncatedBuffer = if (eventsBuffer.sizeIs > maxBufferedEvents) {
         // We keep the last half of the buffer to avoid cleaning up the buffer too often
         updatedBuffer.splitAt(eventsBuffer.size - maxBufferedEvents / 2)._2
       } else {

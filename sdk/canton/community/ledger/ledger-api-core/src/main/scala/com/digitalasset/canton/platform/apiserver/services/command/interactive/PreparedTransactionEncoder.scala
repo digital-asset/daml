@@ -112,7 +112,7 @@ final class PreparedTransactionEncoder(
       : Transformer[lf.language.LanguageVersion, String] =
     TransactionVersion.toProtoValue(_)
 
-  private implicit val packageIdTransformer: Transformer[lf.data.Ref.PackageId, String] = _.toString
+  private implicit val packageIdTransformer: Transformer[lf.data.Ref.PackageId, String] = identity
 
   private implicit val nodeIdTransformer: Transformer[lf.transaction.NodeId, String] =
     _.index.toString

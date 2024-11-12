@@ -163,7 +163,7 @@ class CommunityStorageFactory(val config: CommunityStorageConfig) extends Storag
     }
 }
 
-class MemoryStorage(
+final class MemoryStorage(
     override val loggerFactory: NamedLoggerFactory,
     override val timeouts: ProcessingTimeout,
 ) extends Storage

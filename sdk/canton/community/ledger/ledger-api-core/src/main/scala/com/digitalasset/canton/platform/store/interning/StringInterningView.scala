@@ -100,7 +100,7 @@ class StringInterningView(override protected val loggerFactory: NamedLoggerFacto
       prefix = PartyPrefix,
       prefixedAccessor = rawAccessor,
       to = Party.assertFromString,
-      from = _.toString,
+      from = identity,
     )
 
   override val domainId: StringInterningDomain[DomainId] =
@@ -116,7 +116,7 @@ class StringInterningView(override protected val loggerFactory: NamedLoggerFacto
       prefix = PackageNamePrefix,
       prefixedAccessor = rawAccessor,
       to = PackageName.assertFromString,
-      from = _.toString,
+      from = identity,
     )
 
   override val packageVersion: StringInterningDomain[PackageVersion] =

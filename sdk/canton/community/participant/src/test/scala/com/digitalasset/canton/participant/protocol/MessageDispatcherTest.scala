@@ -203,7 +203,7 @@ trait MessageDispatcherTest {
         recordOrderPublisher.tick(
           any[SequencerCounter],
           any[CantonTimestamp],
-          any[Option[Traced[Update]]],
+          any[Option[Update]],
           any[Option[RequestCounter]],
         )(any[TraceContext])
       )

@@ -146,7 +146,7 @@ final case class SequencerPruningStatus(
     with PrettyPrinting {
 
   override def disabledClients: SequencerClients = SequencerClients(
-    members = members.filterNot(_.enabled).map(_.member).toSet
+    members = members.filterNot(_.enabled).map(_.member)
   )
 
   override def earliestMemberSafePruningTimestamp: Option[CantonTimestamp] =

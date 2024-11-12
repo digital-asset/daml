@@ -86,7 +86,7 @@ class GrpcTopologyAggregationService(
       else
         client.inspectKnownParties(filterParty, filterParticipant).map { found =>
           val tmp = found ++ res
-          if (tmp.size >= limit) (tmp.take(limit), true) else (tmp, false)
+          if (tmp.sizeIs >= limit) (tmp.take(limit), true) else (tmp, false)
         }
     }
     .map(_._1)

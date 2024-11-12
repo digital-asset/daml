@@ -391,8 +391,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       _.collectOfType[TopologyChangeOp.Replace]
         .collectOfMapping[SequencerDomainState]
         .result
-        .sortBy(_.serial)
-        .headOption
+        .minByOption(_.serial)
     )
 
   override def findFirstMediatorStateForMediator(
@@ -412,8 +411,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       _.collectOfType[TopologyChangeOp.Replace]
         .collectOfMapping[MediatorDomainState]
         .result
-        .sortBy(_.serial)
-        .headOption
+        .minByOption(_.serial)
     )
 
   def findFirstTrustCertificateForParticipant(
@@ -435,8 +433,7 @@ class InMemoryTopologyStore[+StoreId <: TopologyStoreId](
       _.collectOfType[TopologyChangeOp.Replace]
         .collectOfMapping[DomainTrustCertificate]
         .result
-        .sortBy(_.serial)
-        .headOption
+        .minByOption(_.serial)
     )
 
   override def findEssentialStateAtSequencedTime(

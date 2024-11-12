@@ -80,14 +80,14 @@ object GeneratorsCrypto {
     usage <- Gen
       .nonEmptyListOf[SigningKeyUsage](Arbitrary.arbitrary[SigningKeyUsage])
       .map(usageAux => NonEmptyUtil.fromUnsafe(usageAux.toSet))
-  } yield new SigningPublicKey(format, key, keySpec, usage))
+  } yield SigningPublicKey.create(format, key, keySpec, usage).value)
 
   // TODO(#15813): Change arbitrary encryption keys to match real keys
   implicit val encryptionPublicKeyArb: Arbitrary[EncryptionPublicKey] = Arbitrary(for {
     key <- Arbitrary.arbitrary[ByteString]
     keySpec <- Arbitrary.arbitrary[EncryptionKeySpec]
     format = CryptoKeyFormat.Symbolic
-  } yield new EncryptionPublicKey(format, key, keySpec))
+  } yield new EncryptionPublicKey(format, key, keySpec)())
 
   // TODO(#14515) Check that the generator is exhaustive
   implicit val publicKeyArb: Arbitrary[PublicKey] = Arbitrary(

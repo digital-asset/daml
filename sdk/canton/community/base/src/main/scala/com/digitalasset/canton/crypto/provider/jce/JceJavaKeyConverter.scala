@@ -7,10 +7,6 @@ import cats.syntax.either.*
 import com.digitalasset.canton.crypto.*
 import com.digitalasset.canton.discard.Implicits.DiscardOps
 import com.digitalasset.canton.logging.pretty.{Pretty, PrettyPrinting}
-import org.bouncycastle.asn1.DEROctetString
-import org.bouncycastle.asn1.edec.EdECObjectIdentifiers
-import org.bouncycastle.asn1.pkcs.PrivateKeyInfo
-import org.bouncycastle.asn1.x509.{AlgorithmIdentifier, SubjectPublicKeyInfo}
 import sun.security.ec.ECPrivateKeyImpl
 
 import java.security.spec.{InvalidKeySpecException, PKCS8EncodedKeySpec, X509EncodedKeySpec}
@@ -30,7 +26,7 @@ object JceJavaKeyConverter {
       publicKey: PublicKey
   ): Either[JceJavaKeyConversionError, JPublicKey] = {
 
-    def convert(
+    def convertFromX509Spki(
         format: CryptoKeyFormat,
         x509PublicKey: Array[Byte],
         keyInstance: String,
@@ -56,18 +52,16 @@ object JceJavaKeyConverter {
       case sigKey: SigningPublicKey =>
         sigKey.keySpec match {
           case SigningKeySpec.EcCurve25519 =>
-            val algoId = new AlgorithmIdentifier(EdECObjectIdentifiers.id_Ed25519)
-            val x509PublicKey = new SubjectPublicKeyInfo(algoId, publicKey.key.toByteArray)
-            convert(CryptoKeyFormat.Raw, x509PublicKey.getEncoded, "Ed25519")
+            convertFromX509Spki(CryptoKeyFormat.DerX509Spki, publicKey.key.toByteArray, "Ed25519")
           case SigningKeySpec.EcP256 | SigningKeySpec.EcP384 =>
-            convert(CryptoKeyFormat.Der, publicKey.key.toByteArray, "EC")
+            convertFromX509Spki(CryptoKeyFormat.Der, publicKey.key.toByteArray, "EC")
         }
       case encKey: EncryptionPublicKey =>
         encKey.keySpec match {
           case EncryptionKeySpec.EcP256 =>
-            convert(CryptoKeyFormat.Der, publicKey.key.toByteArray, "EC")
+            convertFromX509Spki(CryptoKeyFormat.Der, publicKey.key.toByteArray, "EC")
           case EncryptionKeySpec.Rsa2048 =>
-            convert(CryptoKeyFormat.Der, publicKey.key.toByteArray, "RSA")
+            convertFromX509Spki(CryptoKeyFormat.Der, publicKey.key.toByteArray, "RSA")
         }
     }
   }
@@ -106,19 +100,15 @@ object JceJavaKeyConverter {
     (privateKey: @unchecked) match {
       case sigKey: SigningPrivateKey =>
         sigKey.keySpec match {
-          case SigningKeySpec.EcCurve25519 if sigKey.format == CryptoKeyFormat.Raw =>
-            val privateKeyInfo = new PrivateKeyInfo(
-              new AlgorithmIdentifier(EdECObjectIdentifiers.id_Ed25519),
-              new DEROctetString(privateKey.key.toByteArray),
-            )
-            convertFromPkcs8(privateKeyInfo.getEncoded, "Ed25519")
+          case SigningKeySpec.EcCurve25519 if sigKey.format == CryptoKeyFormat.DerPkcs8Pki =>
+            convertFromPkcs8(privateKey.key.toByteArray, "Ed25519")
           case SigningKeySpec.EcP256 if sigKey.format == CryptoKeyFormat.Der =>
             convertFromPkcs8(privateKey.key.toByteArray, "EC")
           case SigningKeySpec.EcP384 if sigKey.format == CryptoKeyFormat.Der =>
             convertFromPkcs8(privateKey.key.toByteArray, "EC")
           case _ =>
             val expectedFormat = sigKey.keySpec match {
-              case SigningKeySpec.EcCurve25519 => CryptoKeyFormat.Raw
+              case SigningKeySpec.EcCurve25519 => CryptoKeyFormat.DerPkcs8Pki
               case SigningKeySpec.EcP256 => CryptoKeyFormat.Der
               case SigningKeySpec.EcP384 => CryptoKeyFormat.Der
             }

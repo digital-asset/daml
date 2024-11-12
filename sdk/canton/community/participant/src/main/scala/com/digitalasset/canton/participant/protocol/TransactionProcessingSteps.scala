@@ -88,7 +88,7 @@ import com.digitalasset.canton.store.{ConfirmationRequestSessionKeyStore, Sessio
 import com.digitalasset.canton.topology.MediatorGroup.MediatorGroupIndex
 import com.digitalasset.canton.topology.client.TopologySnapshot
 import com.digitalasset.canton.topology.{DomainId, ParticipantId}
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.ShowUtil.*
 import com.digitalasset.canton.util.{EitherTUtil, ErrorUtil, LfTransactionUtil}
 import com.digitalasset.canton.{
@@ -656,7 +656,7 @@ class TransactionProcessingSteps(
 
       def checkRandomnessMap(): Unit =
         allRandomnessMap.asScala.find { case (_, listRandomness) =>
-          listRandomness.distinct.size >= 2
+          listRandomness.distinct.sizeIs >= 2
         } match {
           case Some((viewHash, _)) =>
             ErrorUtil.internalError(
@@ -1097,26 +1097,24 @@ class TransactionProcessingSteps(
       error: TransactionError,
   )(implicit
       traceContext: TraceContext
-  ): (Option[Traced[Update]], Option[PendingSubmissionId]) = {
+  ): (Option[Update], Option[PendingSubmissionId]) = {
     val rejection = Update.CommandRejected.FinalReason(error.rpcStatus())
     completionInfoFromSubmitterMetadataO(submitterMetadata, freshOwnTimelyTx).map {
       completionInfo =>
-        Traced(
-          Update.CommandRejected(
-            ts.toLf,
-            completionInfo,
-            rejection,
-            domainId,
-            Some(
-              DomainIndex.of(
-                RequestIndex(
-                  counter = rc,
-                  sequencerCounter = Some(sc),
-                  timestamp = ts,
-                )
+        Update.CommandRejected(
+          ts.toLf,
+          completionInfo,
+          rejection,
+          domainId,
+          Some(
+            DomainIndex.of(
+              RequestIndex(
+                counter = rc,
+                sequencerCounter = Some(sc),
+                timestamp = ts,
               )
-            ),
-          )
+            )
+          ),
         )
     } -> None // Transaction processing doesn't use pending submissions
   }
@@ -1130,7 +1128,7 @@ class TransactionProcessingSteps(
 
   override def createRejectionEvent(rejectionArgs: TransactionProcessingSteps.RejectionArgs)(
       implicit traceContext: TraceContext
-  ): Either[TransactionProcessorError, Option[Traced[Update]]] = {
+  ): Either[TransactionProcessorError, Option[Update]] = {
 
     val RejectionArgs(pendingTransaction, rejectionReason) = rejectionArgs
     val PendingTransaction(
@@ -1153,22 +1151,20 @@ class TransactionProcessingSteps(
     val rejection = Update.CommandRejected.FinalReason(rejectionReason.reason())
 
     val updateO = completionInfoO.map(info =>
-      Traced(
-        Update.CommandRejected(
-          requestTime.toLf,
-          info,
-          rejection,
-          domainId,
-          Some(
-            DomainIndex.of(
-              RequestIndex(
-                counter = requestCounter,
-                sequencerCounter = Some(requestSequencerCounter),
-                timestamp = requestTime,
-              )
+      Update.CommandRejected(
+        requestTime.toLf,
+        info,
+        rejection,
+        domainId,
+        Some(
+          DomainIndex.of(
+            RequestIndex(
+              counter = requestCounter,
+              sequencerCounter = Some(requestSequencerCounter),
+              timestamp = requestTime,
             )
-          ),
-        )
+          )
+        ),
       )
     )
     Right(updateO)
@@ -1307,7 +1303,7 @@ class TransactionProcessingSteps(
             contractId -> DriverContractMetadata(salt).toLfBytes(protocolVersion)
         }.toMap
 
-      acceptedEvent = Traced(
+      acceptedEvent =
         Update.TransactionAccepted(
           completionInfoO = completionInfoO,
           transactionMeta = TransactionMeta(
@@ -1337,7 +1333,6 @@ class TransactionProcessingSteps(
             )
           ),
         )
-      )
     } yield CommitAndStoreContractsAndPublishEvent(
       Some(commitSetF),
       contractsToBeStored,

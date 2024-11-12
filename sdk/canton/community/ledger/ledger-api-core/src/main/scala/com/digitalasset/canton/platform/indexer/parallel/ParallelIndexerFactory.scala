@@ -26,7 +26,7 @@ import com.digitalasset.canton.platform.store.backend.{
 }
 import com.digitalasset.canton.platform.store.dao.DbDispatcher
 import com.digitalasset.canton.time.Clock
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.PekkoUtil.{Commit, FutureQueueConsumer}
 import com.google.common.util.concurrent.ThreadFactoryBuilder
 import org.apache.pekko.Done
@@ -130,7 +130,7 @@ object ParallelIndexerFactory {
       implicit val ec: ExecutionContext = executionContext
       implicit val rc: ResourceContext = ResourceContext(ec)
       val futureQueueConsumerFactoryPromise =
-        Promise[Future[Done] => FutureQueueConsumer[Traced[Update]]]()
+        Promise[Future[Done] => FutureQueueConsumer[Update]]()
       val haProtectedExecutionHandle = haCoordinator
         .protectedExecution { connectionInitializer =>
           val indexingHandleF = initializeHandle(

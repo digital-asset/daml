@@ -293,8 +293,14 @@ enum CryptoKeyFormat {
   // ASN.1 + DER encoding
   CRYPTO_KEY_FORMAT_DER = 2;
 
-  // Raw encoding of a key, typically used for symmetric keys or Ed25519 keypairs.
+  // Raw encoding of a key, typically used for symmetric keys
   CRYPTO_KEY_FORMAT_RAW = 3;
+
+  // ASN.1 + DER-encoding of X.509 SubjectPublicKeyInfo structure: https://datatracker.ietf.org/doc/html/rfc5280#section-4.1
+  CRYPTO_KEY_FORMAT_DER_X509_SUBJECT_PUBLIC_KEY_INFO = 4;
+
+  // ASN.1 + DER-encoding of PKCS #8 PrivateKeyInfo structure: https://datatracker.ietf.org/doc/html/rfc5208#section-5
+  CRYPTO_KEY_FORMAT_DER_PKCS8_PRIVATE_KEY_INFO = 5;
 
   // Symbolic crypto, must only be used for testing
   CRYPTO_KEY_FORMAT_SYMBOLIC = 10000;

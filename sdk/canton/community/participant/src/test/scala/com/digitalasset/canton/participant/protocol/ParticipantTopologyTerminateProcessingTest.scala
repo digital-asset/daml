@@ -25,7 +25,7 @@ import com.digitalasset.canton.topology.store.{
 }
 import com.digitalasset.canton.topology.transaction.*
 import com.digitalasset.canton.topology.transaction.ParticipantPermission.*
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{BaseTest, HasExecutionContext, RequestCounter, SequencerCounter}
 import org.mockito.ArgumentCaptor
 import org.scalatest.wordspec.AsyncWordSpec
@@ -50,12 +50,12 @@ class ParticipantTopologyTerminateProcessingTest
   ): (
       ParticipantTopologyTerminateProcessing,
       TopologyStore[TopologyStoreId.DomainStore],
-      ArgumentCaptor[Option[Traced[Update]]],
+      ArgumentCaptor[Option[Update]],
       RecordOrderPublisher,
   ) = {
 
-    val eventCaptor: ArgumentCaptor[Option[Traced[Update]]] =
-      ArgumentCaptor.forClass(classOf[Option[Traced[Update]]])
+    val eventCaptor: ArgumentCaptor[Option[Update]] =
+      ArgumentCaptor.forClass(classOf[Option[Update]])
 
     val recordOrderPublisher = mock[RecordOrderPublisher]
     when(
@@ -151,13 +151,13 @@ class ParticipantTopologyTerminateProcessingTest
           verify(rop, times(1)).tick(
             any[SequencerCounter],
             any[CantonTimestamp],
-            any[Option[Traced[Update]]],
+            any[Option[Update]],
             any[Option[RequestCounter]],
           )(any[TraceContext])
           val events = eventCaptor.getAllValues.asScala
           events.size shouldBe 1
           forAll(events) {
-            case Some(Traced(TopologyTransactionEffective(_, events, _, _, _, _))) =>
+            case Some(TopologyTransactionEffective(_, events, _, _, _, _)) =>
               forAll(events) {
                 case PartyToParticipantAuthorization(
                       party,
@@ -189,13 +189,13 @@ class ParticipantTopologyTerminateProcessingTest
           verify(rop, times(1)).tick(
             any[SequencerCounter],
             any[CantonTimestamp],
-            any[Option[Traced[Update]]],
+            any[Option[Update]],
             any[Option[RequestCounter]],
           )(any[TraceContext])
           val events = eventCaptor.getAllValues.asScala
           events.size shouldBe 1
           forAll(events) {
-            case Some(Traced(TopologyTransactionEffective(_, events, _, _, _, _))) =>
+            case Some(TopologyTransactionEffective(_, events, _, _, _, _)) =>
               forAll(events) {
                 case PartyToParticipantAuthorization(
                       party,
@@ -227,13 +227,13 @@ class ParticipantTopologyTerminateProcessingTest
           verify(rop, times(1)).tick(
             any[SequencerCounter],
             any[CantonTimestamp],
-            any[Option[Traced[Update]]],
+            any[Option[Update]],
             any[Option[RequestCounter]],
           )(any[TraceContext])
           val events = eventCaptor.getAllValues.asScala
           events.size shouldBe 1
           forAll(events) {
-            case Some(Traced(TopologyTransactionEffective(_, events, _, _, _, _))) =>
+            case Some(TopologyTransactionEffective(_, events, _, _, _, _)) =>
               forAll(events) {
                 case PartyToParticipantAuthorization(
                       party,
@@ -264,7 +264,7 @@ class ParticipantTopologyTerminateProcessingTest
           verify(rop, times(1)).tick(
             any[SequencerCounter],
             any[CantonTimestamp],
-            any[Option[Traced[Update]]],
+            any[Option[Update]],
             any[Option[RequestCounter]],
           )(any[TraceContext])
           val events = eventCaptor.getAllValues.asScala
@@ -288,7 +288,7 @@ class ParticipantTopologyTerminateProcessingTest
           verify(rop, times(1)).tick(
             any[SequencerCounter],
             any[CantonTimestamp],
-            any[Option[Traced[Update]]],
+            any[Option[Update]],
             any[Option[RequestCounter]],
           )(any[TraceContext])
           val events = eventCaptor.getAllValues.asScala

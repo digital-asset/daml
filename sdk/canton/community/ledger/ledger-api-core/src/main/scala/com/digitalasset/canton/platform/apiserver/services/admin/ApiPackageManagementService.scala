@@ -55,7 +55,7 @@ private[apiserver] final class ApiPackageManagementService private (
       .map { pkgs =>
         ListKnownPackagesResponse(pkgs.map { pkgDescription =>
           PackageDetails(
-            pkgDescription.packageId.toString,
+            pkgDescription.packageId,
             pkgDescription.packageSize.toLong,
             Some(TimestampConversion.fromLf(pkgDescription.uploadedAt.underlying)),
             pkgDescription.sourceDescription.toString,

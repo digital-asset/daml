@@ -17,9 +17,9 @@ trait PublicKeyValidationTest extends BaseTest with CryptoTestHelper { this: Asy
   ): PublicKey =
     publicKey match {
       case EncryptionPublicKey(_format, key, scheme) =>
-        new EncryptionPublicKey(newFormat, key, scheme)
-      case SigningPublicKey(_format, key, scheme, usage) =>
-        new SigningPublicKey(newFormat, key, scheme, usage)
+        new EncryptionPublicKey(newFormat, key, scheme)()
+      case SigningPublicKey(_format, key, scheme, usage, dataForFingerprint) =>
+        new SigningPublicKey(newFormat, key, scheme, usage, dataForFingerprint)()
       case _ => fail(s"unsupported key type")
     }
 
@@ -31,7 +31,7 @@ trait PublicKeyValidationTest extends BaseTest with CryptoTestHelper { this: Asy
   ): Unit =
     // change format
     forAll(supportedCryptoKeyFormats) { format =>
-      s"Validate $name public key with $format" in {
+      s"Validate $name public key with format \"$format\"" in {
         for {
           crypto <- newCrypto
           publicKey <- newPublicKey(crypto)

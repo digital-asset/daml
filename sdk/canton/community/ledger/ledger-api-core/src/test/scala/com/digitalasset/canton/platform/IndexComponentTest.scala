@@ -27,7 +27,7 @@ import com.digitalasset.canton.platform.store.interning.StringInterningView
 import com.digitalasset.canton.platform.store.packagemeta.PackageMetadata
 import com.digitalasset.canton.platform.store.{DbSupport, FlywayMigrations}
 import com.digitalasset.canton.time.WallClock
-import com.digitalasset.canton.tracing.{NoReportingTracerProvider, Traced}
+import com.digitalasset.canton.tracing.NoReportingTracerProvider
 import com.digitalasset.canton.util.PekkoUtil.{FutureQueue, IndexingFutureQueue}
 import com.digitalasset.daml.lf.data.Ref
 import com.digitalasset.daml.lf.engine.{Engine, EngineConfig}
@@ -59,9 +59,9 @@ trait IndexComponentTest extends PekkoBeforeAndAfterAll with BaseTest {
     Option(testServicesRef.get())
       .getOrElse(throw new Exception("TestServices not initialized. Not accessing from a test?"))
 
-  protected def ingestUpdates(updates: Traced[Update]*): Offset = {
+  protected def ingestUpdates(updates: Update*): Offset = {
     updates.foreach(update => testServices.indexer.offer(update).futureValue)
-    updates.last.value.persisted.future.futureValue
+    updates.last.persisted.future.futureValue
     Offset.fromHexString(
       testServices.index.currentLedgerEnd().futureValue
     )
@@ -203,6 +203,6 @@ object IndexComponentTest {
   final case class TestServices(
       indexResource: Resource[Any],
       index: IndexService,
-      indexer: FutureQueue[Traced[Update]],
+      indexer: FutureQueue[Update],
   )
 }

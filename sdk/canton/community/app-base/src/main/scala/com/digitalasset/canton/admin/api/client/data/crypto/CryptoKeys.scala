@@ -9,6 +9,14 @@ sealed trait CryptoKeyFormat extends Product with Serializable {
 }
 
 object CryptoKeyFormat {
+  case object DerX509Spki extends CryptoKeyFormat {
+    override val name: String = "DER-encoded X.509 SubjectPublicKeyInfo"
+  }
+
+  case object DerPkcs8Pki extends CryptoKeyFormat {
+    override val name: String = "DER-encoded PKCS #8 PrivateKeyInfo"
+  }
+
   case object Der extends CryptoKeyFormat {
     override val name: String = "DER"
   }

@@ -23,7 +23,7 @@ import com.digitalasset.canton.platform.store.cache.OffsetCheckpoint
 import com.digitalasset.canton.platform.store.dao.events.ContractStateEvent
 import com.digitalasset.canton.platform.store.interfaces.TransactionLogUpdate
 import com.digitalasset.canton.platform.{Contract, InMemoryState, Key, Party}
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.daml.lf.ledger.EventId
 import com.digitalasset.daml.lf.transaction.Node.{Create, Exercise}
 import com.digitalasset.daml.lf.transaction.NodeId
@@ -52,10 +52,10 @@ private[platform] object InMemoryStateUpdaterFlow {
       logger: TracedLogger,
   )(
       inMemoryState: InMemoryState,
-      prepare: (Vector[(AbsoluteOffset, Traced[Update])], LedgerEnd) => PrepareResult,
+      prepare: (Vector[(AbsoluteOffset, Update)], LedgerEnd) => PrepareResult,
       update: (PrepareResult, Boolean) => Unit,
   )(implicit traceContext: TraceContext): UpdaterFlow = { repairMode =>
-    Flow[(Vector[(AbsoluteOffset, Traced[Update])], LedgerEnd)]
+    Flow[(Vector[(AbsoluteOffset, Update)], LedgerEnd)]
       .filter(_._1.nonEmpty)
       .via(updateOffsetCheckpointCacheFlow(inMemoryState, offsetCheckpointCacheUpdateInterval))
       .mapAsync(prepareUpdatesParallelism) { case (batch, ledgerEnd) =>
@@ -82,8 +82,8 @@ private[platform] object InMemoryStateUpdaterFlow {
       inMemoryState: InMemoryState,
       interval: FiniteDuration,
   ): Flow[
-    (Vector[(AbsoluteOffset, Traced[Update])], LedgerEnd),
-    (Vector[(AbsoluteOffset, Traced[Update])], LedgerEnd),
+    (Vector[(AbsoluteOffset, Update)], LedgerEnd),
+    (Vector[(AbsoluteOffset, Update)], LedgerEnd),
     NotUsed,
   ] = {
     // tick source so that we update offset checkpoint caches
@@ -99,8 +99,8 @@ private[platform] object InMemoryStateUpdaterFlow {
       updateOffsetCheckpointCache: OffsetCheckpoint => Unit,
       tick: Source[Option[Nothing], NotUsed],
   ): Flow[
-    (Vector[(AbsoluteOffset, Traced[Update])], LedgerEnd),
-    (Vector[(AbsoluteOffset, Traced[Update])], LedgerEnd),
+    (Vector[(AbsoluteOffset, Update)], LedgerEnd),
+    (Vector[(AbsoluteOffset, Update)], LedgerEnd),
     NotUsed,
   ] =
     Flow.fromGraph(GraphDSL.create() { implicit builder =>
@@ -111,18 +111,18 @@ private[platform] object InMemoryStateUpdaterFlow {
       // them with a tick source that ticks every interval seconds to signify the update of the cache
 
       val broadcast =
-        builder.add(Broadcast[(Vector[(AbsoluteOffset, Traced[Update])], LedgerEnd)](2))
+        builder.add(Broadcast[(Vector[(AbsoluteOffset, Update)], LedgerEnd)](2))
 
       val merge =
         builder.add(Merge[Option[(AbsoluteOffset, Update)]](inputPorts = 2, eagerComplete = true))
 
-      val preprocess: Flow[(Vector[(AbsoluteOffset, Traced[Update])], LedgerEnd), Option[
+      val preprocess: Flow[(Vector[(AbsoluteOffset, Update)], LedgerEnd), Option[
         (AbsoluteOffset, Update)
       ], NotUsed] =
-        Flow[(Vector[(AbsoluteOffset, Traced[Update])], LedgerEnd)]
+        Flow[(Vector[(AbsoluteOffset, Update)], LedgerEnd)]
           .map(_._1)
           .mapConcat(identity)
-          .map { case (off, tracedUpdate) => (off, tracedUpdate.value) }
+          .map { case (off, tracedUpdate) => (off, tracedUpdate) }
           .map(Some(_))
 
       val updateCheckpointState: Flow[Option[(AbsoluteOffset, Update)], OffsetCheckpoint, NotUsed] =
@@ -157,8 +157,7 @@ private[platform] object InMemoryStateUpdaterFlow {
                       lastDomainTimes.updated(domainId, recordTime)
                     case None => lastDomainTimes
                   }
-                val newOffsetCheckpoint =
-                  OffsetCheckpoint(Offset.fromAbsoluteOffset(off), newDomainTimes)
+                val newOffsetCheckpoint = OffsetCheckpoint(off, newDomainTimes)
                 (Some(newOffsetCheckpoint), None)
               // a tick was received, propagate the OffsetCheckpoint
               case (lastOffsetCheckpointO, None) =>
@@ -181,13 +180,13 @@ private[platform] object InMemoryStateUpdaterFlow {
 
 private[platform] object InMemoryStateUpdater {
   final case class PrepareResult(
-      updates: Vector[Traced[TransactionLogUpdate]],
+      updates: Vector[TransactionLogUpdate],
       ledgerEnd: LedgerEnd,
       lastTraceContext: TraceContext,
   )
   type UpdaterFlow =
-    Boolean => Flow[(Vector[(AbsoluteOffset, Traced[Update])], LedgerEnd), Vector[
-      (AbsoluteOffset, Traced[Update])
+    Boolean => Flow[(Vector[(AbsoluteOffset, Update)], LedgerEnd), Vector[
+      (AbsoluteOffset, Update)
     ], NotUsed]
   def owner(
       inMemoryState: InMemoryState,
@@ -225,7 +224,7 @@ private[platform] object InMemoryStateUpdater {
   )
 
   private[index] def prepare(
-      batch: Vector[(AbsoluteOffset, Traced[Update])],
+      batch: Vector[(AbsoluteOffset, Update)],
       ledgerEnd: LedgerEnd,
   ): PrepareResult = {
     val traceContext = batch.lastOption.fold(
@@ -233,12 +232,12 @@ private[platform] object InMemoryStateUpdater {
     )(_._2.traceContext)
     PrepareResult(
       updates = batch.collect {
-        case (offset, t @ Traced(u: Update.TransactionAccepted)) =>
-          t.map(_ => convertTransactionAccepted(offset, u, t.traceContext))
-        case (offset, r @ Traced(u: Update.CommandRejected)) =>
-          r.map(_ => convertTransactionRejected(offset, u, r.traceContext))
-        case (offset, r @ Traced(u: Update.ReassignmentAccepted)) =>
-          r.map(_ => convertReassignmentAccepted(offset, u, r.traceContext))
+        case (offset, u: Update.TransactionAccepted) =>
+          convertTransactionAccepted(offset, u)
+        case (offset, u: Update.CommandRejected) =>
+          convertTransactionRejected(offset, u)
+        case (offset, u: Update.ReassignmentAccepted) =>
+          convertReassignmentAccepted(offset, u)
       },
       ledgerEnd = ledgerEnd,
       lastTraceContext = traceContext,
@@ -271,14 +270,14 @@ private[platform] object InMemoryStateUpdater {
 
   private def trackSubmissions(
       submissionTracker: SubmissionTracker,
-      updates: Vector[Traced[TransactionLogUpdate]],
+      updates: Vector[TransactionLogUpdate],
   ): Unit =
     updates.view
       .collect {
-        case Traced(txAccepted: TransactionLogUpdate.TransactionAccepted) =>
+        case txAccepted: TransactionLogUpdate.TransactionAccepted =>
           txAccepted.completionStreamResponse
 
-        case Traced(txRejected: TransactionLogUpdate.TransactionRejected) =>
+        case txRejected: TransactionLogUpdate.TransactionRejected =>
           Some(txRejected.completionStreamResponse)
       }
       .flatten
@@ -286,25 +285,21 @@ private[platform] object InMemoryStateUpdater {
 
   private def trackCommandProgress(
       commandProgressTracker: CommandProgressTracker,
-      updates: Vector[Traced[TransactionLogUpdate]],
+      updates: Vector[TransactionLogUpdate],
   ): Unit =
     updates.view.foreach(commandProgressTracker.processLedgerUpdate)
 
   private def updateCaches(
       inMemoryState: InMemoryState,
-      updates: Vector[Traced[TransactionLogUpdate]],
+      updates: Vector[TransactionLogUpdate],
       lastOffset: AbsoluteOffset,
   ): Unit = {
-    updates.foreach { tracedTransaction =>
-      tracedTransaction.withTraceContext(implicit traceContext =>
-        transaction => {
-          inMemoryState.inMemoryFanoutBuffer.push(transaction.offset, tracedTransaction)
-          val contractStateEventsBatch = convertToContractStateEvents(transaction)
-          NonEmptyVector
-            .fromVector(contractStateEventsBatch)
-            .foreach(inMemoryState.contractStateCaches.push)
-        }
-      )
+    updates.foreach { transaction =>
+      inMemoryState.inMemoryFanoutBuffer.push(transaction)
+      val contractStateEventsBatch = convertToContractStateEvents(transaction)
+      NonEmptyVector
+        .fromVector(contractStateEventsBatch)
+        .foreach(inMemoryState.contractStateCaches.push(_)(transaction.traceContext))
     }
     inMemoryState.cachesUpdatedUpto.set(Some(lastOffset))
   }
@@ -320,9 +315,7 @@ private[platform] object InMemoryStateUpdater {
     // the order here is very important: first we need to make data available for point-wise lookups
     // and SQL queries, and only then we can make it available on the streams.
     // (consider example: completion arrived on a stream, but the transaction cannot be looked up)
-    inMemoryState.dispatcherState.getDispatcher.signalNewHead(
-      Offset.fromAbsoluteOffset(ledgerEnd.lastOffset)
-    )
+    inMemoryState.dispatcherState.getDispatcher.signalNewHead(ledgerEnd.lastOffset)
     logger.debug(s"Updated ledger end $ledgerEnd")
   }
 
@@ -374,7 +367,6 @@ private[platform] object InMemoryStateUpdater {
   private def convertTransactionAccepted(
       offset: AbsoluteOffset,
       txAccepted: Update.TransactionAccepted,
-      traceContext: TraceContext,
   ): TransactionLogUpdate.TransactionAccepted = {
     val rawEvents =
       TransactionTraversalUtils.preorderTraversalForIngestion(txAccepted.transaction.transaction)
@@ -458,7 +450,7 @@ private[platform] object InMemoryStateUpdater {
           deduplicationInfo(completionInfo)
 
         CompletionFromTransaction.acceptedCompletion(
-          submitters = completionInfo.actAs.map(_.toString).toSet,
+          submitters = completionInfo.actAs.toSet,
           recordTime = txAccepted.recordTime,
           offset = Offset.fromAbsoluteOffset(offset),
           commandId = completionInfo.commandId,
@@ -469,7 +461,7 @@ private[platform] object InMemoryStateUpdater {
           optDeduplicationDurationSeconds = deduplicationDurationSeconds,
           optDeduplicationDurationNanos = deduplicationDurationNanos,
           domainId = txAccepted.domainId.toProtoPrimitive,
-          traceContext = traceContext,
+          traceContext = txAccepted.traceContext,
         )
       }
 
@@ -483,13 +475,12 @@ private[platform] object InMemoryStateUpdater {
       completionStreamResponse = completionStreamResponse,
       domainId = txAccepted.domainId.toProtoPrimitive,
       recordTime = txAccepted.recordTime,
-    )
+    )(txAccepted.traceContext)
   }
 
   private def convertTransactionRejected(
       offset: AbsoluteOffset,
       u: Update.CommandRejected,
-      traceContext: TraceContext,
   ): TransactionLogUpdate.TransactionRejected = {
     val (deduplicationOffset, deduplicationDurationSeconds, deduplicationDurationNanos) =
       deduplicationInfo(u.completionInfo)
@@ -497,7 +488,7 @@ private[platform] object InMemoryStateUpdater {
     TransactionLogUpdate.TransactionRejected(
       offset = Offset.fromAbsoluteOffset(offset),
       completionStreamResponse = CompletionFromTransaction.rejectedCompletion(
-        submitters = u.completionInfo.actAs.map(_.toString).toSet,
+        submitters = u.completionInfo.actAs.toSet,
         recordTime = u.recordTime,
         offset = Offset.fromAbsoluteOffset(offset),
         commandId = u.completionInfo.commandId,
@@ -508,15 +499,14 @@ private[platform] object InMemoryStateUpdater {
         optDeduplicationDurationSeconds = deduplicationDurationSeconds,
         optDeduplicationDurationNanos = deduplicationDurationNanos,
         domainId = u.domainId.toProtoPrimitive,
-        traceContext = traceContext,
+        traceContext = u.traceContext,
       ),
-    )
+    )(u.traceContext)
   }
 
   private def convertReassignmentAccepted(
       offset: AbsoluteOffset,
       u: Update.ReassignmentAccepted,
-      traceContext: TraceContext,
   ): TransactionLogUpdate.ReassignmentAccepted = {
     val completionStreamResponse = u.optCompletionInfo
       .map { completionInfo =>
@@ -524,7 +514,7 @@ private[platform] object InMemoryStateUpdater {
           deduplicationInfo(completionInfo)
 
         CompletionFromTransaction.acceptedCompletion(
-          submitters = completionInfo.actAs.map(_.toString).toSet,
+          submitters = completionInfo.actAs.toSet,
           recordTime = u.recordTime,
           offset = Offset.fromAbsoluteOffset(offset),
           commandId = completionInfo.commandId,
@@ -539,7 +529,7 @@ private[platform] object InMemoryStateUpdater {
             case _: Reassignment.Unassign =>
               u.reassignmentInfo.sourceDomain.unwrap.toProtoPrimitive
           },
-          traceContext = traceContext,
+          traceContext = u.traceContext,
         )
       }
 
@@ -589,7 +579,7 @@ private[platform] object InMemoryStateUpdater {
         case unassign: Reassignment.Unassign =>
           TransactionLogUpdate.ReassignmentAccepted.Unassigned(unassign)
       },
-    )
+    )(u.traceContext)
   }
 
   private def deduplicationInfo(

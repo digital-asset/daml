@@ -264,7 +264,7 @@ private[backend] object IntegrityStorageBackendImpl extends IntegrityStorageBack
           }
       )(connection)
       .groupMapReduce(_._1)(entry => List(entry._2))(_ ::: _)
-      .find(_._2.size > 1)
+      .find(_._2.sizeIs > 1)
       .map(_._2)
       .foreach(offsets =>
         throw new RuntimeException(

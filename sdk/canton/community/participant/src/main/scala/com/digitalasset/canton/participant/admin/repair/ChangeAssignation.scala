@@ -21,7 +21,7 @@ import com.digitalasset.canton.participant.util.TimeOfChange
 import com.digitalasset.canton.protocol.*
 import com.digitalasset.canton.topology.ParticipantId
 import com.digitalasset.canton.topology.client.TopologySnapshot
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.*
 import com.digitalasset.canton.util.FutureInstances.*
 import com.digitalasset.canton.util.PekkoUtil.FutureQueue
@@ -36,7 +36,7 @@ private final class ChangeAssignation(
     val repairTarget: Target[RepairRequest],
     participantId: ParticipantId,
     syncCrypto: SyncCryptoApiProvider,
-    repairIndexer: FutureQueue[Traced[Update]],
+    repairIndexer: FutureQueue[Update],
     val loggerFactory: NamedLoggerFactory,
 )(implicit executionContext: ExecutionContext)
     extends NamedLogging {
@@ -413,40 +413,38 @@ private final class ChangeAssignation(
       hostedParties: Source[Set[LfPartyId]],
   )(implicit
       traceContext: TraceContext
-  ): ChangeAssignation.Data[Changed] => Traced[Update] = contract =>
-    Traced(
-      Update.ReassignmentAccepted(
-        optCompletionInfo = None,
-        workflowId = None,
-        updateId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId,
-        recordTime = reassignmentId.unassignmentTs.underlying,
-        reassignmentInfo = ReassignmentInfo(
-          sourceDomain = sourceDomainId,
-          targetDomain = targetDomainId,
-          submitter = None,
-          reassignmentCounter = contract.payload.reassignmentCounter.v,
-          hostedStakeholders =
-            hostedParties.unwrap.intersect(contract.payload.contract.metadata.stakeholders).toList,
-          unassignId = reassignmentId.unassignmentTs,
-          isObservingReassigningParticipant = false,
-        ),
-        reassignment = Reassignment.Unassign(
-          contractId = contract.payload.contract.contractId,
-          templateId = contract.payload.contract.contractInstance.unversioned.template,
-          packageName = contract.payload.contract.contractInstance.unversioned.packageName,
-          stakeholders = contract.payload.contract.metadata.stakeholders.toList,
-          assignmentExclusivity = None,
-        ),
-        domainIndex = Some(
-          DomainIndex.of(
-            RequestIndex(
-              counter = contract.sourceTimeOfChange.unwrap.rc,
-              sequencerCounter = None,
-              timestamp = contract.sourceTimeOfChange.unwrap.timestamp,
-            )
+  ): ChangeAssignation.Data[Changed] => Update = contract =>
+    Update.ReassignmentAccepted(
+      optCompletionInfo = None,
+      workflowId = None,
+      updateId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId,
+      recordTime = reassignmentId.unassignmentTs.underlying,
+      reassignmentInfo = ReassignmentInfo(
+        sourceDomain = sourceDomainId,
+        targetDomain = targetDomainId,
+        submitter = None,
+        reassignmentCounter = contract.payload.reassignmentCounter.v,
+        hostedStakeholders =
+          hostedParties.unwrap.intersect(contract.payload.contract.metadata.stakeholders).toList,
+        unassignId = reassignmentId.unassignmentTs,
+        isObservingReassigningParticipant = false,
+      ),
+      reassignment = Reassignment.Unassign(
+        contractId = contract.payload.contract.contractId,
+        templateId = contract.payload.contract.contractInstance.unversioned.template,
+        packageName = contract.payload.contract.contractInstance.unversioned.packageName,
+        stakeholders = contract.payload.contract.metadata.stakeholders.toList,
+        assignmentExclusivity = None,
+      ),
+      domainIndex = Some(
+        DomainIndex.of(
+          RequestIndex(
+            counter = contract.sourceTimeOfChange.unwrap.rc,
+            sequencerCounter = None,
+            timestamp = contract.sourceTimeOfChange.unwrap.timestamp,
           )
-        ),
-      )
+        )
+      ),
     )
 
   private def assignment(
@@ -454,41 +452,39 @@ private final class ChangeAssignation(
       hostedParties: Target[Set[LfPartyId]],
   )(implicit
       traceContext: TraceContext
-  ): ChangeAssignation.Data[Changed] => Traced[Update] = contract =>
-    Traced(
-      Update.ReassignmentAccepted(
-        optCompletionInfo = None,
-        workflowId = None,
-        updateId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId,
-        recordTime = repairTarget.unwrap.timestamp.toLf,
-        reassignmentInfo = ReassignmentInfo(
-          sourceDomain = sourceDomainId,
-          targetDomain = targetDomainId,
-          submitter = None,
-          reassignmentCounter = contract.payload.reassignmentCounter.v,
-          hostedStakeholders =
-            hostedParties.unwrap.intersect(contract.payload.contract.metadata.stakeholders).toList,
-          unassignId = reassignmentId.unassignmentTs,
-          isObservingReassigningParticipant = false,
+  ): ChangeAssignation.Data[Changed] => Update = contract =>
+    Update.ReassignmentAccepted(
+      optCompletionInfo = None,
+      workflowId = None,
+      updateId = randomTransactionId(syncCrypto).tryAsLedgerTransactionId,
+      recordTime = repairTarget.unwrap.timestamp.toLf,
+      reassignmentInfo = ReassignmentInfo(
+        sourceDomain = sourceDomainId,
+        targetDomain = targetDomainId,
+        submitter = None,
+        reassignmentCounter = contract.payload.reassignmentCounter.v,
+        hostedStakeholders =
+          hostedParties.unwrap.intersect(contract.payload.contract.metadata.stakeholders).toList,
+        unassignId = reassignmentId.unassignmentTs,
+        isObservingReassigningParticipant = false,
+      ),
+      reassignment = Reassignment.Assign(
+        ledgerEffectiveTime = contract.payload.contract.ledgerCreateTime.toLf,
+        createNode = contract.payload.contract.toLf,
+        contractMetadata = Bytes.fromByteString(
+          contract.payload.contract.metadata
+            .toByteString(repairTarget.unwrap.domain.parameters.protocolVersion)
         ),
-        reassignment = Reassignment.Assign(
-          ledgerEffectiveTime = contract.payload.contract.ledgerCreateTime.toLf,
-          createNode = contract.payload.contract.toLf,
-          contractMetadata = Bytes.fromByteString(
-            contract.payload.contract.metadata
-              .toByteString(repairTarget.unwrap.domain.parameters.protocolVersion)
-          ),
-        ),
-        domainIndex = Some(
-          DomainIndex.of(
-            RequestIndex(
-              counter = contract.targetTimeOfChange.unwrap.rc,
-              sequencerCounter = None,
-              timestamp = contract.targetTimeOfChange.unwrap.timestamp,
-            )
+      ),
+      domainIndex = Some(
+        DomainIndex.of(
+          RequestIndex(
+            counter = contract.targetTimeOfChange.unwrap.rc,
+            sequencerCounter = None,
+            timestamp = contract.targetTimeOfChange.unwrap.timestamp,
           )
-        ),
-      )
+        )
+      ),
     )
 }
 
@@ -523,8 +519,8 @@ private[repair] object ChangeAssignation {
         changeAssignation: ChangeAssignation,
     ): Either[String, Seq[Data[Payload]]] =
       if (
-        payloads.size == changeAssignation.repairSource.unwrap.timesOfChange.size &&
-        payloads.size == changeAssignation.repairTarget.unwrap.timesOfChange.size
+        payloads.sizeIs == changeAssignation.repairSource.unwrap.timesOfChange.size &&
+        payloads.sizeIs == changeAssignation.repairTarget.unwrap.timesOfChange.size
       ) {
         Right(
           payloads

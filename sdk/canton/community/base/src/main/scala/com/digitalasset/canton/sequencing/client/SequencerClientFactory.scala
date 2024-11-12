@@ -327,7 +327,7 @@ object SequencerClientFactory {
         * this is safe for non-idempotent RPCs.
         */
       private def callOptionsForEndpoints(endpoints: NonEmpty[Seq[Endpoint]]): CallOptions =
-        if (endpoints.length > 1) CallOptions.DEFAULT.withWaitForReady()
+        if (endpoints.sizeIs > 1) CallOptions.DEFAULT.withWaitForReady()
         else CallOptions.DEFAULT
 
       private def grpcSequencerClientAuth(

@@ -40,7 +40,7 @@ final class UserManagementClient(service: UserManagementServiceStub)(implicit
   ): Future[User] =
     LedgerClient
       .stubWithTracing(service, token)
-      .getUser(proto.GetUserRequest(userId.toString))
+      .getUser(proto.GetUserRequest(userId))
       .flatMap(res => fromOptionalProtoUser(res.user))
 
   /** Retrieve the User information for the user authenticated by the token(s) on the call . */
@@ -57,7 +57,7 @@ final class UserManagementClient(service: UserManagementServiceStub)(implicit
   ): Future[Unit] =
     LedgerClient
       .stubWithTracing(service, token)
-      .deleteUser(proto.DeleteUserRequest(userId.toString))
+      .deleteUser(proto.DeleteUserRequest(userId))
       .map(_ => ())
 
   def listUsers(
@@ -77,7 +77,7 @@ final class UserManagementClient(service: UserManagementServiceStub)(implicit
   )(implicit traceContext: TraceContext): Future[Seq[UserRight]] =
     LedgerClient
       .stubWithTracing(service, token)
-      .grantUserRights(proto.GrantUserRightsRequest(userId.toString, rights.map(toProtoRight)))
+      .grantUserRights(proto.GrantUserRightsRequest(userId, rights.map(toProtoRight)))
       .map(_.newlyGrantedRights.view.collect(fromProtoRight.unlift).toSeq)
 
   def revokeUserRights(
@@ -87,7 +87,7 @@ final class UserManagementClient(service: UserManagementServiceStub)(implicit
   )(implicit traceContext: TraceContext): Future[Seq[UserRight]] =
     LedgerClient
       .stubWithTracing(service, token)
-      .revokeUserRights(proto.RevokeUserRightsRequest(userId.toString, rights.map(toProtoRight)))
+      .revokeUserRights(proto.RevokeUserRightsRequest(userId, rights.map(toProtoRight)))
       .map(_.newlyRevokedRights.view.collect(fromProtoRight.unlift).toSeq)
 
   /** List the rights of the given user.
@@ -98,7 +98,7 @@ final class UserManagementClient(service: UserManagementServiceStub)(implicit
   ): Future[Seq[UserRight]] =
     LedgerClient
       .stubWithTracing(service, token)
-      .listUserRights(proto.ListUserRightsRequest(userId.toString))
+      .listUserRights(proto.ListUserRightsRequest(userId))
       .map(_.rights.view.collect(fromProtoRight.unlift).toSeq)
 
   /** Retrieve the rights of the user authenticated by the token(s) on the call .
@@ -146,8 +146,8 @@ object UserManagementClient {
 
   private def toProtoUser(user: User): proto.User =
     proto.User(
-      id = user.id.toString,
-      primaryParty = user.primaryParty.fold("")(_.toString),
+      id = user.id,
+      primaryParty = user.primaryParty.getOrElse(""),
       isDeactivated = user.isDeactivated,
       metadata = Some(toProtoObjectMeta(user.metadata)),
     )

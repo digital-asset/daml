@@ -130,7 +130,7 @@ object TopologyTransactionRejection {
   }
 
   final case class UnknownMembers(members: Seq[Member]) extends TopologyTransactionRejection {
-    override def asString: String = s"Members ${members.toSeq.sorted.mkString(", ")} are unknown."
+    override def asString: String = s"Members ${members.sorted.mkString(", ")} are unknown."
 
     override protected def pretty: Pretty[UnknownMembers] = prettyOfClass(
       param("members", _.members)

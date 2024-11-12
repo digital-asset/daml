@@ -55,7 +55,7 @@ object RootHashMessageRecipients extends HasLoggerName {
       case RecipientsTree(group, Seq()) if group.sizeCompare(2) == 0 => group
     }
 
-    if (validGroups.size == recipients.trees.size) {
+    if (validGroups.sizeIs == recipients.trees.size) {
       // Due to how rootHashRecipientsForInformees() computes recipients, there should be only one group
       if (validGroups.sizeCompare(1) == 0) Checked.unit
       else

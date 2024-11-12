@@ -24,6 +24,8 @@ import com.google.crypto.tink.subtle.EllipticCurves.EcdsaEncoding
 import com.google.crypto.tink.subtle.Enums.HashType
 import com.google.crypto.tink.{Aead, PublicKeySign, PublicKeyVerify}
 import com.google.protobuf.ByteString
+import org.bouncycastle.asn1.ASN1OctetString
+import org.bouncycastle.asn1.pkcs.PrivateKeyInfo
 import org.bouncycastle.crypto.DataLengthException
 import org.bouncycastle.crypto.generators.Argon2BytesGenerator
 import org.bouncycastle.crypto.params.Argon2Parameters
@@ -253,7 +255,7 @@ class JcePureCrypto(
           new EcdsaVerifyJce(ecPublicKey, hashType, EcdsaEncoding.DER)
         )
         .leftMap(err =>
-          SignatureCheckError.InvalidKeyError(s"Failed to get signer for Ed25519: $err")
+          SignatureCheckError.InvalidKeyError(s"Failed to get verifier for EC-DSA: $err")
         )
     } yield verifier
 
@@ -320,11 +322,19 @@ class JcePureCrypto(
             for {
               _ <- CryptoKeyValidation.ensureFormat(
                 signingKey.format,
-                Set(CryptoKeyFormat.Raw),
+                Set(CryptoKeyFormat.DerPkcs8Pki),
                 err => SigningError.InvalidSigningKey(err),
               )
+              privateKey <- Either
+                .catchOnly[IllegalArgumentException] {
+                  val privateKeyInfo = PrivateKeyInfo.getInstance(signingKey.key.toByteArray)
+                  ASN1OctetString.getInstance(privateKeyInfo.getPrivateKey.getOctets)
+                }
+                .leftMap(err =>
+                  SigningError.InvalidSigningKey(show"Failed to parse PKCS #8 format: $err")
+                )
               signer <- Either
-                .catchOnly[GeneralSecurityException](new Ed25519Sign(signingKey.key.toByteArray))
+                .catchOnly[GeneralSecurityException](new Ed25519Sign(privateKey.getOctets))
                 .leftMap(err =>
                   SigningError.InvalidSigningKey(show"Failed to get signer for Ed25519: $err")
                 )
@@ -413,7 +423,7 @@ class JcePureCrypto(
             verifier <- Either
               .catchOnly[GeneralSecurityException](new Ed25519Verify(ed25519PublicKey))
               .leftMap(err =>
-                SignatureCheckError.InvalidKeyError(show"Failed to get signer for Ed25519: $err")
+                SignatureCheckError.InvalidKeyError(show"Failed to get verifier for Ed25519: $err")
               )
             _ <- verify(verifier)
           } yield ()

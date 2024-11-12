@@ -18,6 +18,7 @@ import com.digitalasset.canton.participant.store.{
 import com.digitalasset.canton.serialization.ProtoConverter
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.topology.DomainId
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.version.{
   HasProtocolVersionedCompanion,
   HasProtocolVersionedWrapper,
@@ -51,7 +52,8 @@ trait SubmissionTrackingData
 
   /** Produce a rejection event for the unsequenced submission using the given record time. */
   def rejectionEvent(recordTime: CantonTimestamp, messageUuid: UUID)(implicit
-      loggingContext: NamedLoggingContext
+      loggingContext: NamedLoggingContext,
+      traceContext: TraceContext,
   ): Update
 
   /** Update the tracking data so that the deliver error [[com.google.rpc.status.Status]]
@@ -107,7 +109,7 @@ final case class TransactionSubmissionTrackingData(
   override def rejectionEvent(
       recordTime: CantonTimestamp,
       messageUuid: UUID,
-  )(implicit loggingContext: NamedLoggingContext): Update = {
+  )(implicit loggingContext: NamedLoggingContext, traceContext: TraceContext): Update = {
     val reasonTemplate = rejectionCause.asFinalReason(recordTime)
     Update.CommandRejected(
       recordTime.toLf,

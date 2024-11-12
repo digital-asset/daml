@@ -80,9 +80,7 @@ abstract class GenericInMemoryOutputBlockMetadataStore[E <: Env[E]]
           .collect {
             case (_, block) if block.blockBftTime <= timestamp => block
           }
-          .toSeq
-          .sortBy(_.blockNumber)
-          .lastOption
+          .maxByOption(_.blockNumber)
       )
     }
 

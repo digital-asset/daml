@@ -60,7 +60,7 @@ class MempoolModule[E <: Env[E]](
       case r @ Mempool.OrderRequest(tracedTx, from, sender) =>
         val orderingRequest = tracedTx.value
         val outcome: IngressLabelOutcome = // Help type inference
-          if (mempoolState.receivedOrderRequests.size == config.maxQueueSize) {
+          if (mempoolState.receivedOrderRequests.sizeIs == config.maxQueueSize) {
             val rejectionMessage =
               s"mempool received client request but the queue is full (${config.maxQueueSize}), dropping it"
             logger.info(rejectionMessage)
@@ -78,7 +78,7 @@ class MempoolModule[E <: Env[E]](
             } else {
               mempoolState.receivedOrderRequests.enqueue(r)
               from.foreach(_.asyncSend(SequencerNode.RequestAccepted))
-              if (mempoolState.receivedOrderRequests.size >= config.minRequestsInBatch) {
+              if (mempoolState.receivedOrderRequests.sizeIs >= config.minRequestsInBatch.toInt) {
                 // every time we receive a new transaction we only try to create new batches if we've reached
                 // the configured minimum batch size. alternatively batches are also attempted creation on the configured
                 // interval or when explicitly requested by availability

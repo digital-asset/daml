@@ -37,7 +37,7 @@ final case class ViewPosition(position: List[MerklePathElement]) extends PrettyP
 
 /** Same as [[ViewPosition]], with the position directed from the root to the leaf */
 final case class ViewPositionFromRoot(position: List[MerklePathElement]) extends AnyVal {
-  def isTopLevel: Boolean = position.size == 1
+  def isTopLevel: Boolean = position.sizeIs == 1
   def isEmpty: Boolean = position.isEmpty
 }
 
@@ -147,7 +147,7 @@ object ViewPosition {
   }
 
   def isDescendant(descendant: ViewPosition, ancestor: ViewPosition): Boolean =
-    descendant.position.size >= ancestor.position.size &&
+    descendant.position.sizeIs >= ancestor.position.size &&
       descendant.position.drop(
         descendant.position.size - ancestor.position.size
       ) == ancestor.position

@@ -163,7 +163,7 @@ object CantonError {
   def stringFromContext(error: BaseError)(implicit loggingContext: ErrorLoggingContext): String =
     error match {
       case error: CombinedError[_] =>
-        (if (error.errors.length > 1) error.cause + ": " else "") + error.orderedErrors
+        (if (error.errors.sizeIs > 1) error.cause + ": " else "") + error.orderedErrors
           .map(stringFromContext(_)(loggingContext))
           .toList
           .mkString(", ")

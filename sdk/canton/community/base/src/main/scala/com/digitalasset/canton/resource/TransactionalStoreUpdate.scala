@@ -75,7 +75,7 @@ object TransactionalStoreUpdate {
     *
     * @param perform The update to perform. Must always succeed and never throw an exception.
     */
-  private[canton] class InMemoryTransactionalStoreUpdate(val perform: () => Unit)
+  private[canton] final class InMemoryTransactionalStoreUpdate(val perform: () => Unit)
       extends TransactionalStoreUpdate {
     override def runStandalone()(implicit
         traceContext: TraceContext,
@@ -94,7 +94,7 @@ object TransactionalStoreUpdate {
     * @param sql The DB action to perform.
     * @param storage The [[DbStorage]] to be used to execute the `sql` action.
     */
-  private[canton] class DbTransactionalStoreUpdate(
+  private[canton] final class DbTransactionalStoreUpdate(
       val sql: DBIOAction[_, NoStream, Effect.Write with Effect.Transactional],
       val storage: DbStorage,
       override protected val loggerFactory: NamedLoggerFactory,

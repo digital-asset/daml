@@ -68,7 +68,7 @@ object TransactionFilterValidator {
       f
     }
 
-    if (empties.size == extractedFilters.size)
+    if (empties.sizeIs == extractedFilters.size)
       Right(domain.CumulativeFilter.templateWildcardFilter())
     else {
       for {

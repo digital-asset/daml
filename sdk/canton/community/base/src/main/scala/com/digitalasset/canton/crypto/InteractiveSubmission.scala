@@ -67,13 +67,13 @@ object InteractiveSubmission {
           })
           validSignaturesSet = validSignatures.toSet
           _ <- EitherT.cond[FutureUnlessShutdown](
-            validSignaturesSet.size == validSignatures.size,
+            validSignaturesSet.sizeIs == validSignatures.size,
             (),
             s"The following signatures were provided one or more times for $party, all signatures must be unique: ${validSignatures
                 .diff(validSignaturesSet.toList)}",
           )
           _ <- EitherT.cond[FutureUnlessShutdown](
-            validSignaturesSet.size >= authInfo.threshold.unwrap,
+            validSignaturesSet.sizeIs >= authInfo.threshold.unwrap,
             (),
             s"Received ${validSignatures.size} signatures, but expected ${authInfo.threshold} for $party",
           )

@@ -325,7 +325,7 @@ class SequencersTransportState(
     }
 
   private def isEnoughSequencersToOperateWithoutSequencer: Boolean =
-    states.size > sequencerTrustThreshold.get().unwrap
+    states.sizeIs > sequencerTrustThreshold.get().unwrap
 
   private def closeWithSubscriptionReason(sequencerId: SequencerId)(
       subscriptionCloseReason: Try[SubscriptionCloseReason[SequencerClientSubscriptionError]]

@@ -14,7 +14,7 @@ import com.digitalasset.canton.topology.processing.{EffectiveTime, SequencedTime
 import com.digitalasset.canton.topology.store.StoredTopologyTransactions.PositiveStoredTopologyTransactions
 import com.digitalasset.canton.topology.store.{TopologyStore, TopologyStoreId}
 import com.digitalasset.canton.topology.transaction.TopologyMapping
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{LedgerTransactionId, SequencerCounter, topology}
 import com.google.protobuf.ByteString
 
@@ -53,7 +53,7 @@ class ParticipantTopologyTerminateProcessing(
         recordOrderPublisher.tick(
           sc,
           sequencedTime.value,
-          events.events.headOption.map(_ => Traced(events)),
+          events.events.headOption.map(_ => events),
           requestCounterO = None,
         )
     } yield ()

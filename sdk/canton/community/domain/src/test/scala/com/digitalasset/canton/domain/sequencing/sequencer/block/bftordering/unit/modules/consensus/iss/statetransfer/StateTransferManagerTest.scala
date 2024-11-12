@@ -8,7 +8,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.cor
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.BftSequencerBaseTest.FakeSigner
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.EpochState
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.IssConsensusModule.DefaultLeaderSelectionPolicy
-import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.Genesis.GenesisTopologySnapshotEffectiveTime
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.{
   EpochStore,
   Genesis,
@@ -220,7 +219,6 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
               StateTransferMessage.BlockTransferResponse
                 .create(
                   latestCompletedEpoch = EpochNumber.First,
-                  GenesisTopologySnapshotEffectiveTime,
                   Seq(blockTransferData),
                   lastBlockCommits = Seq.empty,
                   from = mySequencerId,
@@ -267,7 +265,6 @@ class StateTransferManagerTest extends AnyWordSpec with BftSequencerBaseTest {
     // Handle a block transfer response with a single epoch containing a single block.
     val blockTransferResponse = StateTransferMessage.BlockTransferResponse.create(
       latestCompletedEpochRemotely.info.number,
-      latestCompletedEpochRemotely.info.topologySnapshotEffectiveTime,
       Seq(blockTransferData),
       lastBlockCommits = Seq.empty,
       from = otherSequencerId,

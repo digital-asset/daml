@@ -215,13 +215,13 @@ class QueueBasedDomainOutbox(
           pending <- findPendingTransactions()
           // filter out applicable
           applicable <- onlyApplicable(pending)
-          _ = if (applicable.size != pending.size)
+          _ = if (applicable.sizeIs != pending.size)
             logger.debug(
               s"applicable transactions: $applicable"
             )
           // not already present
           notPresent <- notAlreadyPresent(applicable)
-          _ = if (notPresent.size != applicable.size)
+          _ = if (notPresent.sizeIs != applicable.size)
             logger.debug(s"not already present transactions: $notPresent")
         } yield notPresent)
 

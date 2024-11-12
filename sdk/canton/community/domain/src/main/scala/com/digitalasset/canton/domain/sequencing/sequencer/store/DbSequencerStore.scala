@@ -1086,7 +1086,7 @@ class DbSequencerStore(
         checkpoint.timestamp
       }.toSet - CantonTimestamp.MinValue // in case the member is new, with no prior checkpoints and events
 
-      if (timestamps.size > 1) {
+      if (timestamps.sizeIs > 1) {
         // We added an assumption that for any ts1 we can find a checkpoint at ts0 <= ts1,
         // such that we have all enabled members included in that checkpoint.
         // Then instead of filtering for each member individually, we can just filter for the ts0 >

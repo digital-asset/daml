@@ -30,9 +30,7 @@ object Notify {
       .map(x => hasher.digest(x)) // hash them so people are anonymized
       .map(x => java.util.Base64.getUrlEncoder.encode(x)) // encode as base64
       .map(x => new String(x)) // map to string
-      .toSeq
-      .sorted // sort so that we get the same user
-      .headOption
+      .minOption // sort so that we get the same user
       .getOrElse("unknown")
 
     val url = new URL(

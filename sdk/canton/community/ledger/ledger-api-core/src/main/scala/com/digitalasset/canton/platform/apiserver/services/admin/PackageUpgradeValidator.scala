@@ -58,7 +58,8 @@ class PackageUpgradeValidator(
       case Nil => EitherT.pure[Future, DamlError](packageMap)
       case pkgId :: rest =>
         val pkg = upgradingPackagesMap(pkgId)
-        val supportsUpgrades = pkg.supportsUpgrades(pkgId)
+        val supportsUpgrades =
+          LanguageVersion.supportsPackageUpgrades(pkg.languageVersion) && !pkg.isUtilityPackage
         for {
           _ <- EitherTUtil.ifThenET(supportsUpgrades)(
             // This check will look for the closest neighbors of pkgId for the package versioning ordering and
@@ -88,59 +89,50 @@ class PackageUpgradeValidator(
     logger.info(
       s"Uploading DAR file for $uploadedPackageIdWithMeta in submission ID ${loggingContext.serializeFiltered("submissionId")}."
     )
-    if (uploadedPackageAst.isInvalidDamlPrim(uploadedPackageId)) {
-      EitherT.leftT[Future, Unit](
-        Validation.UpgradeDamlPrimIsNotAUtilityPackage
-          .Error(
-            uploadedPackage = uploadedPackageIdWithMeta
-          ): DamlError
-      )
-    } else {
-      existingVersionedPackageId(uploadedPackageAst, packageMap) match {
-        case Some(existingPackageId) =>
-          if (existingPackageId == uploadedPackageId) {
-            logger.info(
-              s"Ignoring upload of package $uploadedPackageIdWithMeta as it has been previously uploaded"
-            )
-            EitherT.rightT[Future, DamlError](())
-          } else {
-            EitherT.leftT[Future, Unit](
-              Validation.UpgradeVersion
-                .Error(
-                  uploadedPackage = uploadedPackageIdWithMeta,
-                  existingPackage = existingPackageId,
-                  packageVersion = uploadedPackageAst.metadata.version,
-                ): DamlError
-            )
-          }
+    existingVersionedPackageId(uploadedPackageAst, packageMap) match {
+      case Some(existingPackageId) =>
+        if (existingPackageId == uploadedPackageId) {
+          logger.info(
+            s"Ignoring upload of package $uploadedPackageIdWithMeta as it has been previously uploaded"
+          )
+          EitherT.rightT[Future, DamlError](())
+        } else {
+          EitherT.leftT[Future, Unit](
+            Validation.UpgradeVersion
+              .Error(
+                uploadedPackage = uploadedPackageIdWithMeta,
+                existingPackage = existingPackageId,
+                packageVersion = uploadedPackageAst.metadata.version,
+              ): DamlError
+          )
+        }
 
-        case None =>
-          for {
-            optMaximalDar <- EitherT.right[DamlError](
-              maximalVersionedDar(
-                uploadedPackageAst,
-                packageMap,
-                upgradingPackagesMap,
-              )
-            )
-            _ <- typecheckUpgrades(
-              TypecheckUpgrades.MaximalDarCheck,
+      case None =>
+        for {
+          optMaximalDar <- EitherT.right[DamlError](
+            maximalVersionedDar(
+              uploadedPackageAst,
               packageMap,
-              optUpgradingDar,
-              optMaximalDar,
+              upgradingPackagesMap,
             )
-            optMinimalDar <- EitherT.right[DamlError](
-              minimalVersionedDar(uploadedPackageAst, packageMap, upgradingPackagesMap)
-            )
-            _ <- typecheckUpgrades(
-              TypecheckUpgrades.MinimalDarCheck,
-              packageMap,
-              optMinimalDar,
-              optUpgradingDar,
-            )
-            _ = logger.info(s"Typechecking upgrades for $uploadedPackageIdWithMeta succeeded.")
-          } yield ()
-      }
+          )
+          _ <- typecheckUpgrades(
+            TypecheckUpgrades.MaximalDarCheck,
+            packageMap,
+            optUpgradingDar,
+            optMaximalDar,
+          )
+          optMinimalDar <- EitherT.right[DamlError](
+            minimalVersionedDar(uploadedPackageAst, packageMap, upgradingPackagesMap)
+          )
+          _ <- typecheckUpgrades(
+            TypecheckUpgrades.MinimalDarCheck,
+            packageMap,
+            optMinimalDar,
+            optUpgradingDar,
+          )
+          _ = logger.info(s"Typechecking upgrades for $uploadedPackageIdWithMeta succeeded.")
+        } yield ()
     }
   }
 

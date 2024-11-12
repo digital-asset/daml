@@ -117,7 +117,7 @@ private[apiserver] final class ApiPartyManagementService private (
     logger.info("Getting Participant ID.")
     partyManagementService
       .getParticipantId()
-      .map(pid => GetParticipantIdResponse(pid.toString))
+      .map(GetParticipantIdResponse.apply)
   }
 
   override def getParties(request: GetPartiesRequest): Future[GetPartiesResponse] =
@@ -192,7 +192,7 @@ private[apiserver] final class ApiPartyManagementService private (
           .zip(partyRecords)
           .map(blindAndConvertToProto(identityProviderId))
         val lastParty =
-          if (partyDetailsSeq.size < pageSize) None else partyDetailsSeq.lastOption.map(_.party)
+          if (partyDetailsSeq.sizeIs < pageSize) None else partyDetailsSeq.lastOption.map(_.party)
         ListKnownPartiesResponse(protoDetails, encodeNextPageToken(lastParty))
       }
     }

@@ -112,7 +112,7 @@ class PersistentUserManagementStore(
     }.map(tapSuccess { _ =>
       logger.info(
         s"Created new user: $user with " +
-          (if (rights.size > 0)
+          (if (rights.nonEmpty)
              s"${rights.size} rights: ${rightsDigestText(rights)}"
            else "no rights") +
           s", ${loggingContext.serializeFiltered("submissionId")}."
@@ -404,7 +404,7 @@ class PersistentUserManagementStore(
   }
 
   private def rightsDigestText(rights: Iterable[domain.UserRight]): String = {
-    val closingBracket = if (rights.size > 5) ", ..." else ""
+    val closingBracket = if (rights.sizeIs > 5) ", ..." else ""
     rights.take(5).mkString("", ", ", closingBracket)
   }
 

@@ -5,7 +5,6 @@ package com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fr
 
 import cats.syntax.traverse.*
 import com.digitalasset.canton.ProtoDeserializationError
-import com.digitalasset.canton.data.CantonTimestamp
 import com.digitalasset.canton.domain.sequencing.sequencer.bftordering.v1
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.modules.consensus.iss.data.EpochStore.Epoch
 import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.core.topology.CryptoProvider
@@ -30,7 +29,6 @@ import com.digitalasset.canton.domain.sequencing.sequencer.block.bftordering.fra
 import com.digitalasset.canton.serialization.ProtoConverter.ParsingResult
 import com.digitalasset.canton.serialization.{ProtoConverter, ProtocolVersionedMemoizedEvidence}
 import com.digitalasset.canton.topology.SequencerId
-import com.digitalasset.canton.topology.processing.EffectiveTime
 import com.digitalasset.canton.version.{
   HasMemoizedProtocolVersionedWithContextCompanion,
   HasProtocolVersionedWrapper,
@@ -199,7 +197,6 @@ object Consensus {
 
     final case class BlockTransferResponse private (
         latestCompletedEpoch: EpochNumber,
-        latestCompletedEpochTopologySnapshotEffectiveTime: EffectiveTime,
         blockTransferData: Seq[BlockTransferData],
         lastBlockCommits: Seq[SignedMessage[Commit]],
         from: SequencerId,
@@ -216,7 +213,6 @@ object Consensus {
           v1.StateTransferMessage.Message.BlockResponse(
             v1.BlockTransferResponse.of(
               latestCompletedEpoch,
-              Some(latestCompletedEpochTopologySnapshotEffectiveTime.value.toProtoTimestamp),
               blockTransferData.view.map(_.toProto).toSeq,
               protoLastBlockCommits,
             )
@@ -237,13 +233,11 @@ object Consensus {
       override def name: String = "BlockTransferResponse"
       def create(
           latestCompletedEpoch: EpochNumber,
-          lastEpochToTransferTopologySnapshotEffectiveTime: EffectiveTime,
           blockTransferData: Seq[BlockTransferData],
           lastBlockCommits: Seq[SignedMessage[Commit]],
           from: SequencerId,
       ): BlockTransferResponse = BlockTransferResponse(
         latestCompletedEpoch,
-        lastEpochToTransferTopologySnapshotEffectiveTime,
         blockTransferData,
         lastBlockCommits,
         from,
@@ -278,18 +272,9 @@ object Consensus {
         for {
           blockTransferData <- blockTransferDataE
           lastBlockCommits <- lastBlockCommitsE
-          latestCompletedEpochTopologySnapshotSequencingInstantP <- ProtoConverter
-            .required(
-              "latestCompletedEpochTopologyEffectiveTime",
-              protoResponse.latestCompletedEpochTopologyEffectiveTime,
-            )
-          latestCompletedEpochTopologyEffectiveTime <- CantonTimestamp
-            .fromProtoTimestamp(latestCompletedEpochTopologySnapshotSequencingInstantP)
-            .map(EffectiveTime(_))
           rpv <- protocolVersionRepresentativeFor(ProtoVersion(30))
         } yield BlockTransferResponse(
           EpochNumber(protoResponse.latestCompletedEpoch),
-          latestCompletedEpochTopologyEffectiveTime,
           blockTransferData,
           lastBlockCommits,
           from,

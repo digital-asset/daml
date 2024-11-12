@@ -17,7 +17,7 @@ import com.digitalasset.canton.ledger.participant.state.{
 }
 import com.digitalasset.canton.logging.{NamedLogging, SuppressingLogger}
 import com.digitalasset.canton.topology.DomainId
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.{RequestCounter, SequencerCounter}
 import com.digitalasset.daml.lf.crypto
 import com.digitalasset.daml.lf.data.{Ref, Time}
@@ -60,35 +60,33 @@ class PostPublishDataSpec extends AnyFlatSpec with Matchers with NamedLogging {
 
   it should "populate post PostPublishData correctly for TransactionAccepted" in {
     PostPublishData.from(
-      update = Traced(
-        TransactionAccepted(
-          completionInfoO = Some(
-            CompletionInfo(
-              actAs = List(party),
-              applicationId = applicationId,
-              commandId = commandId,
-              optDeduplicationPeriod = None,
-              submissionId = submissionId,
-              messageUuid = None,
+      update = TransactionAccepted(
+        completionInfoO = Some(
+          CompletionInfo(
+            actAs = List(party),
+            applicationId = applicationId,
+            commandId = commandId,
+            optDeduplicationPeriod = None,
+            submissionId = submissionId,
+            messageUuid = None,
+          )
+        ),
+        transactionMeta = transactionMeta,
+        transaction = CommittedTransaction(TransactionBuilder.Empty),
+        updateId = updateId,
+        recordTime = cantonTime2.underlying,
+        hostedWitnesses = Nil,
+        contractMetadata = Map.empty,
+        domainId = domainId,
+        domainIndex = Some(
+          DomainIndex.of(
+            RequestIndex(
+              counter = RequestCounter(65),
+              sequencerCounter = Some(SequencerCounter(11)),
+              timestamp = cantonTime2,
             )
-          ),
-          transactionMeta = transactionMeta,
-          transaction = CommittedTransaction(TransactionBuilder.Empty),
-          updateId = updateId,
-          recordTime = cantonTime2.underlying,
-          hostedWitnesses = Nil,
-          contractMetadata = Map.empty,
-          domainId = domainId,
-          domainIndex = Some(
-            DomainIndex.of(
-              RequestIndex(
-                counter = RequestCounter(65),
-                sequencerCounter = Some(SequencerCounter(11)),
-                timestamp = cantonTime2,
-              )
-            )
-          ),
-        )
+          )
+        ),
       )(TraceContext.empty),
       offset = offset,
       publicationTime = cantonTime1,
@@ -113,9 +111,44 @@ class PostPublishDataSpec extends AnyFlatSpec with Matchers with NamedLogging {
 
   it should "not populate post PostPublishData correctly for TransactionAccepted without completion info" in {
     PostPublishData.from(
-      update = Traced(
-        TransactionAccepted(
-          completionInfoO = None,
+      update = TransactionAccepted(
+        completionInfoO = None,
+        transactionMeta = transactionMeta,
+        transaction = CommittedTransaction(TransactionBuilder.Empty),
+        updateId = updateId,
+        recordTime = cantonTime2.underlying,
+        hostedWitnesses = Nil,
+        contractMetadata = Map.empty,
+        domainId = domainId,
+        domainIndex = Some(
+          DomainIndex.of(
+            RequestIndex(
+              counter = RequestCounter(65),
+              sequencerCounter = Some(SequencerCounter(11)),
+              timestamp = cantonTime2,
+            )
+          )
+        ),
+      )(TraceContext.empty),
+      offset = offset,
+      publicationTime = cantonTime1,
+    ) shouldBe None
+  }
+
+  it should "fail to populate post PostPublishData for TransactionAccepted without request sequencer counter" in {
+    intercept[IllegalStateException](
+      PostPublishData.from(
+        update = TransactionAccepted(
+          completionInfoO = Some(
+            CompletionInfo(
+              actAs = List(party),
+              applicationId = applicationId,
+              commandId = commandId,
+              optDeduplicationPeriod = None,
+              submissionId = submissionId,
+              messageUuid = None,
+            )
+          ),
           transactionMeta = transactionMeta,
           transaction = CommittedTransaction(TransactionBuilder.Empty),
           updateId = updateId,
@@ -127,50 +160,11 @@ class PostPublishDataSpec extends AnyFlatSpec with Matchers with NamedLogging {
             DomainIndex.of(
               RequestIndex(
                 counter = RequestCounter(65),
-                sequencerCounter = Some(SequencerCounter(11)),
+                sequencerCounter = None,
                 timestamp = cantonTime2,
               )
             )
           ),
-        )
-      )(TraceContext.empty),
-      offset = offset,
-      publicationTime = cantonTime1,
-    ) shouldBe None
-  }
-
-  it should "fail to populate post PostPublishData for TransactionAccepted without request sequencer counter" in {
-    intercept[IllegalStateException](
-      PostPublishData.from(
-        update = Traced(
-          TransactionAccepted(
-            completionInfoO = Some(
-              CompletionInfo(
-                actAs = List(party),
-                applicationId = applicationId,
-                commandId = commandId,
-                optDeduplicationPeriod = None,
-                submissionId = submissionId,
-                messageUuid = None,
-              )
-            ),
-            transactionMeta = transactionMeta,
-            transaction = CommittedTransaction(TransactionBuilder.Empty),
-            updateId = updateId,
-            recordTime = cantonTime2.underlying,
-            hostedWitnesses = Nil,
-            contractMetadata = Map.empty,
-            domainId = domainId,
-            domainIndex = Some(
-              DomainIndex.of(
-                RequestIndex(
-                  counter = RequestCounter(65),
-                  sequencerCounter = None,
-                  timestamp = cantonTime2,
-                )
-              )
-            ),
-          )
         )(TraceContext.empty),
         offset = offset,
         publicationTime = cantonTime1,
@@ -180,29 +174,27 @@ class PostPublishDataSpec extends AnyFlatSpec with Matchers with NamedLogging {
 
   it should "populate post PostPublishData correctly for CommandRejected for sequenced" in {
     PostPublishData.from(
-      update = Traced(
-        CommandRejected(
-          recordTime = cantonTime2.underlying,
-          completionInfo = CompletionInfo(
-            actAs = List(party),
-            applicationId = applicationId,
-            commandId = commandId,
-            optDeduplicationPeriod = None,
-            submissionId = submissionId,
-            messageUuid = None,
-          ),
-          reasonTemplate = FinalReason(status),
-          domainId = domainId,
-          domainIndex = Some(
-            DomainIndex.of(
-              RequestIndex(
-                counter = RequestCounter(65),
-                sequencerCounter = Some(SequencerCounter(11)),
-                timestamp = cantonTime2,
-              )
+      update = CommandRejected(
+        recordTime = cantonTime2.underlying,
+        completionInfo = CompletionInfo(
+          actAs = List(party),
+          applicationId = applicationId,
+          commandId = commandId,
+          optDeduplicationPeriod = None,
+          submissionId = submissionId,
+          messageUuid = None,
+        ),
+        reasonTemplate = FinalReason(status),
+        domainId = domainId,
+        domainIndex = Some(
+          DomainIndex.of(
+            RequestIndex(
+              counter = RequestCounter(65),
+              sequencerCounter = Some(SequencerCounter(11)),
+              timestamp = cantonTime2,
             )
-          ),
-        )
+          )
+        ),
       )(TraceContext.empty),
       offset = offset,
       publicationTime = cantonTime1,
@@ -227,21 +219,19 @@ class PostPublishDataSpec extends AnyFlatSpec with Matchers with NamedLogging {
 
   it should "populate post PostPublishData correctly for CommandRejected for non-sequenced" in {
     PostPublishData.from(
-      update = Traced(
-        CommandRejected(
-          recordTime = cantonTime2.underlying,
-          completionInfo = CompletionInfo(
-            actAs = List(party),
-            applicationId = applicationId,
-            commandId = commandId,
-            optDeduplicationPeriod = None,
-            submissionId = submissionId,
-            messageUuid = Some(messageUuid),
-          ),
-          reasonTemplate = FinalReason(status),
-          domainId = domainId,
-          domainIndex = None,
-        )
+      update = CommandRejected(
+        recordTime = cantonTime2.underlying,
+        completionInfo = CompletionInfo(
+          actAs = List(party),
+          applicationId = applicationId,
+          commandId = commandId,
+          optDeduplicationPeriod = None,
+          submissionId = submissionId,
+          messageUuid = Some(messageUuid),
+        ),
+        reasonTemplate = FinalReason(status),
+        domainId = domainId,
+        domainIndex = None,
       )(TraceContext.empty),
       offset = offset,
       publicationTime = cantonTime1,

@@ -14,7 +14,7 @@ import com.digitalasset.canton.participant.ledger.api.LedgerApiIndexer
 import com.digitalasset.canton.platform.indexer.IndexerState.RepairInProgress
 import com.digitalasset.canton.time.Clock
 import com.digitalasset.canton.topology.ParticipantId
-import com.digitalasset.canton.tracing.{TraceContext, Traced}
+import com.digitalasset.canton.tracing.TraceContext
 import com.digitalasset.canton.util.{ErrorUtil, LoggerUtil, MonadUtil, SimpleExecutionQueue}
 import org.slf4j.event.Level
 
@@ -54,7 +54,7 @@ class ParticipantEventPublisher(
   private def publishInternal(event: Update)(implicit traceContext: TraceContext): Future[Unit] = {
     logger.debug(s"Publishing event at record time ${event.recordTime}: ${event.show}")
     ledgerApiIndexer.value.queue
-      .offer(Traced(event))
+      .offer(event)
       // waiting for the participant event to persisted by Indexer
       .flatMap(_ => event.persisted.future)
   }
@@ -114,12 +114,12 @@ class ParticipantEventPublisher(
     * @param events will be published after each other, maintaining the same order on the ledger as well
     * @return A Future which will be only successful if all the event are successfully persisted by the indexer
     */
-  def publishDomainRelatedEvents(events: Seq[Traced[Update]]): FutureUnlessShutdown[Unit] =
+  def publishDomainRelatedEvents(events: Seq[Update]): FutureUnlessShutdown[Unit] =
     MonadUtil.sequentialTraverse_(events) { tracedEvent =>
       implicit val tc: TraceContext = tracedEvent.traceContext
       executionQueue.execute(
-        publishInternal(tracedEvent.value)(tracedEvent.traceContext),
-        s"publish event ${tracedEvent.value.show} with record time ${tracedEvent.value.recordTime}",
+        publishInternal(tracedEvent)(tracedEvent.traceContext),
+        s"publish event ${tracedEvent.show} with record time ${tracedEvent.recordTime}",
       )
     }
 

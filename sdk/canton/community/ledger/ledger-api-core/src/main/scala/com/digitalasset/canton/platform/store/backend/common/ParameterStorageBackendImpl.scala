@@ -154,7 +154,7 @@ private[backend] class ParameterStorageBackendImpl(
           s"Initializing new database for participantId '${params.participantId}'"
         )
         import Conversions.OffsetToStatement
-        val lastOffset = AbsoluteOffset.beforeBegin
+        val lastOffset = None
         // TODO(#21220) temporary measures, will be none in next iteration
         val lastEventSeqId = ParallelIndexerSubscription.ZeroLedgerEnd.lastEventSeqId
         val lastStringInterningId = ParallelIndexerSubscription.ZeroLedgerEnd.lastStringInterningId

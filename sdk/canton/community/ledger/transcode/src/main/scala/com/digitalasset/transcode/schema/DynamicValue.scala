@@ -28,9 +28,9 @@ object DynamicValue {
   ///////////
   // Kinds //
   ///////////
-  trait Adt extends DynamicValue
-  trait Traversable extends DynamicValue
-  trait Primitive extends DynamicValue
+  sealed trait Adt extends DynamicValue
+  sealed trait Traversable extends DynamicValue
+  sealed trait Primitive extends DynamicValue
 
   //////////////////////////
   // Algebraic data types //
