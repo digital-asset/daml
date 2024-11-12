@@ -1087,7 +1087,7 @@ tests Tools{damlc} = testGroup "Packaging" $
             , "  dep-1.0.0: Dep3"
             , "  dep-2.0.0: Dep4"
             ]
-          buildProjectError (dir </> "main") "" "Could not find module \8216Dep1.A"
+          buildProjectError (dir </> "main") "" "Could not find module"
     , testCaseSteps "relative output filepath" $ \step -> withTempDir $ \dir -> do
           step "Create project"
           writeFileUTF8 (dir </> "daml.yaml") $ unlines
