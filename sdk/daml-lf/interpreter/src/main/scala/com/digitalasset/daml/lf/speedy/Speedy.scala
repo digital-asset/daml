@@ -1443,11 +1443,8 @@ private[lf] object Speedy {
                           case V.ValueOptional(None) => List() // ok, drop
                           case V.ValueOptional(Some(_)) =>
                             throw SErrorDamlException(
-                              IError.Dev(
-                                NameOf.qualifiedNameOfCurrentFunc,
-                                IError.Dev.Upgrade(
-                                  IError.Dev.Upgrade.DowngradeDropDefinedField(ty, value)
-                                ),
+                              IError.Upgrade(
+                                IError.Upgrade.DowngradeDropDefinedField(ty, value)
                               )
                             )
                           case _ =>

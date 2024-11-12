@@ -435,8 +435,6 @@ class SubmitErrors(majorLanguageVersion: LanguageMajorVersion) {
           SEnum(devErrorTypeIdentifier, Name.assertFromString("ChoiceGuardFailed"), 0)
         case "WronglyTypedContractSoft" =>
           SEnum(devErrorTypeIdentifier, Name.assertFromString("WronglyTypedContractSoft"), 1)
-        case "Upgrade" =>
-          SEnum(devErrorTypeIdentifier, Name.assertFromString("Upgrade"), 2)
         case _ => SEnum(devErrorTypeIdentifier, Name.assertFromString("UnknownNewFeature"), 3)
       }
       SubmitErrorConverters(env).damlScriptError(
