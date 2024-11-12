@@ -1275,11 +1275,8 @@ private[lf] object Speedy {
                             List.empty // ok, drop
                           case V.ValueOptional(Some(_)) =>
                             throw SErrorDamlException(
-                              IError.Dev(
-                                NameOf.qualifiedNameOfCurrentFunc,
-                                IError.Dev.Upgrade(
-                                  IError.Dev.Upgrade.DowngradeDropDefinedField(ty, value)
-                                ),
+                              IError.Upgrade(
+                                IError.Upgrade.DowngradeDropDefinedField(ty, value)
                               )
                             )
                           case _ =>

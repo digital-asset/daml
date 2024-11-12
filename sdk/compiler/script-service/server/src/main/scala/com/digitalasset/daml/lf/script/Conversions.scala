@@ -257,11 +257,6 @@ final class Conversions(
                     proto.ScriptError.CCTPError.newBuilder.setMessage(
                       speedy.Pretty.prettyDamlException(interpretationError).render(80)
                     )
-                  case _: Dev.Upgrade =>
-                    // TODO https://github.com/digital-asset/daml/issues/18616: remove this case when issue completes
-                    proto.ScriptError.UpgradeError.newBuilder.setMessage(
-                      speedy.Pretty.prettyDamlException(interpretationError).render(80)
-                    )
                 }
               case _: Upgrade =>
                 proto.ScriptError.UpgradeError.newBuilder.setMessage(
