@@ -1290,18 +1290,15 @@ private[lf] object SBuiltinFun {
                               executeExpression(machine, SEPreventCatch(dstView)) { dstViewValue =>
                                 if (srcViewValue != dstViewValue) {
                                   Control.Error(
-                                    IE.Dev(
-                                      NameOf.qualifiedNameOfCurrentFunc,
-                                      IE.Dev.Upgrade(
-                                        IE.Dev.Upgrade.ViewMismatch(
-                                          coid,
-                                          interfaceId,
-                                          srcTplId,
-                                          dstTplId,
-                                          srcView = srcViewValue.toUnnormalizedValue,
-                                          dstView = dstViewValue.toUnnormalizedValue,
-                                        )
-                                      ),
+                                    IE.Upgrade(
+                                      IE.Upgrade.ViewMismatch(
+                                        coid,
+                                        interfaceId,
+                                        srcTplId,
+                                        dstTplId,
+                                        srcView = srcViewValue.toUnnormalizedValue,
+                                        dstView = dstViewValue.toUnnormalizedValue,
+                                      )
                                     )
                                   )
                                 } else

@@ -137,8 +137,8 @@ class SBuiltinInterfaceUpgradeTest extends AnyFreeSpec with Matchers with Inside
           compiledPackages = compiledPackages,
           committers = Set(alice),
         )
-      ) { case Success(Left(SErrorDamlException(IE.Dev(_, IE.Dev.Upgrade(upgradeError))))) =>
-        upgradeError shouldBe a[IE.Dev.Upgrade.ViewMismatch]
+      ) { case Success(Left(SErrorDamlException(IE.Upgrade(upgradeError)))) =>
+        upgradeError shouldBe a[IE.Upgrade.ViewMismatch]
       }
     }
   }
@@ -157,8 +157,8 @@ class SBuiltinInterfaceUpgradeTest extends AnyFreeSpec with Matchers with Inside
           compiledPackages = compiledPackages,
           committers = Set(alice),
         )
-      ) { case Success(Left(SErrorDamlException(IE.Dev(_, IE.Dev.Upgrade(upgradeError))))) =>
-        upgradeError shouldBe a[IE.Dev.Upgrade.ViewMismatch]
+      ) { case Success(Left(SErrorDamlException(IE.Upgrade(upgradeError)))) =>
+        upgradeError shouldBe a[IE.Upgrade.ViewMismatch]
       }
     }
   }
