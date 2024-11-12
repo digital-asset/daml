@@ -518,7 +518,7 @@ templateOptionalFieldsSetWhenDowngradingTest trailer f = ("Fails if an optional 
     b <- allocatePartyOn "bob" participant0
     res <- f a b
     case res of
-      Left (DevError Upgrade msg) | "An optional contract field with a value of Some may not be dropped during downgrading" `isInfixOf` msg -> pure ()
+      Left (UpgradeError msg) | "An optional contract field with a value of Some may not be dropped during downgrading" `isInfixOf` msg -> pure ()
       _ -> assertFail $ "Expected specific failure but got " <> show res
 
 tofswdViaCIDExerciseInCommandGlobal : (Text, Test)

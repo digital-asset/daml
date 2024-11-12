@@ -399,20 +399,11 @@ object SubmitError {
   }
 
   final case class UpgradeError(message: String) extends SubmitError {
-    // TODO https://github.com/digital-asset/daml/issues/18616: use a non-Dev based error code
     override def toDamlSubmitError(env: Env): SValue = {
-      val upgradeErrorTypeIdentifier =
-        env.scriptIds.damlScriptModule(
-          "Daml.Script.Internal.Questions.Submit.Error",
-          "DevErrorType",
-        )
-      val upgradeErrorType = SEnum(upgradeErrorTypeIdentifier, Name.assertFromString("Upgrade"), 2)
-
       SubmitErrorConverters(env).damlScriptError(
-        "DevError",
+        "UpgradeError",
         20,
-        ("devErrorType", upgradeErrorType),
-        ("devErrorMessage", SText(message)),
+        ("errorMessage", SText(message)),
       )
     }
   }
@@ -434,7 +425,7 @@ object SubmitError {
       }
       SubmitErrorConverters(env).damlScriptError(
         "DevError",
-        20,
+        21,
         ("devErrorType", devErrorType),
         ("devErrorMessage", SText(message)),
       )
@@ -445,7 +436,7 @@ object SubmitError {
     override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
         "UnknownError",
-        21,
+        22,
         ("unknownErrorMessage", SText(message)),
       )
   }
@@ -454,7 +445,7 @@ object SubmitError {
     override def toDamlSubmitError(env: Env): SValue =
       SubmitErrorConverters(env).damlScriptError(
         "TruncatedError",
-        22,
+        23,
         ("truncatedErrorType", SText(errType)),
         ("truncatedErrorMessage", SText(message)),
       )
