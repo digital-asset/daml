@@ -14,6 +14,12 @@ import DA.Text
 import DA.Foldable (foldMap)
 import DA.Exception
 
+data UpgradeErrorType
+  = ValidationFailed
+  | DowngradeDropDefinedField
+  | ViewMismatch
+  deriving Show
+
 -- | Errors that will be promoted to SubmitError once stable - code needs to be kept in sync with SubmitError.scala
 data DevErrorType
   = ChoiceGuardFailed
@@ -127,7 +133,8 @@ data SubmitError
       localVerdictLockedKeys : [AnyContractKey]
           -- ^ Locked contract keys
   | -- | Upgrade exception
-    UpgradeError with -- We just give the error's prettied message. Scripts doesn't need anything more right now.
+    UpgradeError with -- We just give the error's simple class name and the prettied message it generates. Scripts doesn't need anything more right now.
+      errorType : UpgradeErrorType
       errorMessage : Text
   | -- | Development feature exceptions
     DevError with -- We just give the error's simple class name and the prettied message it generates. Scripts doesn't need anything more right now.
@@ -179,7 +186,7 @@ instance Show SubmitError where
     ValueNesting limit -> "Exceeded maximum nesting depth for values - limit: " <> show limit
     LocalVerdictLockedContracts cids -> "Attempted to use locked contracts: " <> show cids
     LocalVerdictLockedKeys _ -> "Attempted to use locked contract keys"
-    UpgradeError msg -> "UpgradeError: \"" <> msg <> "\""
+    UpgradeError ty msg -> "UpgradeError of type " <> show ty <> " and message \"" <> msg <> "\""
     DevError ty msg -> "DevError of type " <> show ty <> " and message \"" <> msg <> "\""
     UnknownError msg -> "Unknown error: " <> msg
     TruncatedError ty msg -> "TruncatedError of type " <> ty <> " and message \"" <> msg <> "\""
