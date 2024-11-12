@@ -392,7 +392,7 @@ abstract class ConverterMethods(stablePackages: language.StablePackages) {
       case (true, true) =>
         if (givenIdHint != requestedDisplayName)
           Left(
-            s"Requested name '$requestedDisplayName' given id hint '$givenIdHint' cannot be different"
+            s"Requested name '$requestedDisplayName' cannot be different from id hint '$givenIdHint'"
           )
         else Right(givenIdHint)
     }
