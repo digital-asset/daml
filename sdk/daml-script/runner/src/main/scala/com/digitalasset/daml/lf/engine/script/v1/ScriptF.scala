@@ -885,8 +885,8 @@ object ScriptF {
 
   private def parseAllocParty(ctx: Ctx, v: SValue): Either[String, AllocParty] = {
     def convert(
-        requestedName: String,
         givenHint: String,
+        requestedName: String,
         participantName: SValue,
         stackTrace: Option[SValue],
         continue: SValue,
@@ -907,7 +907,7 @@ object ScriptF {
               continue,
             ),
           ) =>
-        convert(requestedName, idHint, participantName, None, continue)
+        convert(idHint, requestedName, participantName, None, continue)
       case SRecord(
             _,
             _,
@@ -919,7 +919,7 @@ object ScriptF {
               stackTrace,
             ),
           ) =>
-        convert(requestedName, idHint, participantName, Some(stackTrace), continue)
+        convert(idHint, requestedName, participantName, Some(stackTrace), continue)
       case _ => Left(s"Expected AllocParty payload but got $v")
     }
   }
